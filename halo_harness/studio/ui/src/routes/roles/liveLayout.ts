@@ -50,8 +50,9 @@ function groupsOf(boxes: LiveBox[], keyOf: (b: LiveBox) => string, labelOf: (b: 
   return [...groups.values()];
 }
 
-export function liveLayout(nodes: LiveNode[], density: Density = "spread", closed: Set<string> = OPEN): LiveGeometry {
-  const dims = DENSITY[density] || DENSITY.spread;
+export function liveLayout(nodes: LiveNode[], density: Density = "spread", closed: Set<string> = OPEN, rowH = 0): LiveGeometry {
+  const base = DENSITY[density] || DENSITY.spread;
+  const dims = rowH ? { ...base, h: base.h + rowH } : base; // 3.3.18.0: Agents' Live nodes carry the "waits on" row
   const fleet = nodes.some((n) => n.harness);
   const gap = fleet ? 2 * MACHINE_PAD : 0; // room between two machine boxes (each root is a machine, or a session in Session's map)
   const top = MARGIN + HEAD + (fleet ? MACHINE_PAD : 0);

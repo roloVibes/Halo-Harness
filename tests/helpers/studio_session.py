@@ -152,10 +152,8 @@ def dash(c, rig) -> dict:
     out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
     out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
-    alt(c, 2)  # 3.3.16.0 R2: the Fleet section folded into Agents: Alt+2, then L (Live, on the fleet: two harnesses here)
+    alt(c, 2)  # 3.3.16.0 R2: the Fleet section folded into Agents; 3.3.18.0: Alt+2 opens on Live (on the fleet: two harnesses here)
     out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
-    c.js("document.activeElement?.blur(); 1")
-    c.key("l")
     c.wait(f"{inside('agents', 'fleet-box')}.length === 2", 30)
     out["fleet_boxes"] = c.js(f"[...{inside('agents', 'live-machine')}].map((b) => b.querySelector('.rlm-name').textContent)")
     c.click_on("document.querySelector('[data-testid=\"agents-attention\"]')")  # the fleet's queue, every harness

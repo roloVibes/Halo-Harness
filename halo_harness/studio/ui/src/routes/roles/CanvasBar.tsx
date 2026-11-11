@@ -11,6 +11,7 @@ import { redo, save, undo } from "./actions";
 import { openDialog, packOf, readOnlySource, roles, scopeLabel, setCanvasView, useRoles } from "./store";
 import { addTier } from "./tierActions";
 import { useStepsAny } from "../agents/blocks/history"; // 3.3.16.3: a block's steps share Undo / Redo
+import { CastLine } from "../agents/live/CastLine"; // 3.3.18.0: Cast is the plan and says so
 
 type Props = { zoom: number; setZoom: (z: number) => void; fit: () => void; layout: () => void };
 
@@ -74,6 +75,7 @@ export function CanvasBar({ zoom, setZoom, fit, layout }: Props) {
         </span>
       )}
       <span className="mono muted rc-bar-count">{cards} cards · {tiers} tier{tiers === 1 ? "" : "s"}</span>
+      <CastLine />
       {dirty && <span className="rc-dirty mono" data-testid="roles-dirty">unsaved</span>}
       {adding ? (
         <AddTierField />

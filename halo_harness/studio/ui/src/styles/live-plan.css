@@ -1,0 +1,31 @@
+/* Live with the plan under it (3.3.18.0 "The living canvas" part 2, routes/agents/live/PlanWorld.tsx): the lineup's blocks
+   as quiet boxes -- a block in use in its strongest state's colour with its counts on the title bar, one nobody uses dim
+   with its name and purpose readable -- main's still lines into them with their when labels, the dash only on the line
+   into a block at work. One fact per row on a bar, each cut by CSS ellipsis only. Tokens only. */
+.pb-box, .pb-bar { --g: var(--line); }
+.pb-box[data-used], .pb-bar[data-used] { --g: var(--line-strong); }
+.pb-box[data-glow="working"], .pb-bar[data-glow="working"] { --g: color-mix(in srgb, var(--accent) 55%, transparent); }
+.pb-box[data-glow="done"], .pb-bar[data-glow="done"] { --g: color-mix(in srgb, var(--ok) 45%, transparent); }
+.pb-box[data-glow="failed"], .pb-bar[data-glow="failed"] { --g: color-mix(in srgb, var(--bad) 60%, transparent); }
+.pb-box[data-asks], .pb-bar[data-asks], .pb-box[data-glow="waiting"], .pb-bar[data-glow="waiting"] { --g: var(--warn); }
+
+.pb-box { position: absolute; box-sizing: border-box; border: 1px solid var(--g); border-radius: var(--r-card); pointer-events: none;
+  background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+.pb-box:not([data-used]) { border-style: dashed; background: transparent; }
+.pb-box[data-kind="square"] { border-left: 3px solid color-mix(in srgb, var(--accent) 60%, transparent); }
+.pb-box[data-kind="none"] { border-style: dashed; border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+
+.pb-bar { position: absolute; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 3px; min-width: 0;
+  padding: 6px 12px; border: 1px solid var(--g); border-radius: var(--r-card) var(--r-card) 0 0; overflow: hidden; background: var(--surface-2); }
+.pb-bar:not([data-used]) { border-radius: var(--r-card); border-style: dashed; background: transparent; }
+.pb-bar[data-kind="square"] { border-left: 3px solid color-mix(in srgb, var(--accent) 60%, transparent); }
+.pb-title { min-width: 0; font: 600 13px var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-bar:not([data-used]) .pb-title { color: var(--muted); font-weight: 500; }
+.pb-counts, .pb-purpose { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-counts { color: var(--text); }
+.pb-purpose { color: var(--muted); }
+
+.pb-when { position: absolute; height: 16px; font-size: 10.5px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; pointer-events: auto; }
+.pb-line[data-live] { stroke: color-mix(in srgb, var(--accent) 35%, var(--line-strong)); }
+.pb-toggle.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: var(--soft-accent); }

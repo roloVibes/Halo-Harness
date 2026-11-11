@@ -43,8 +43,11 @@ SECTIONS = (("session", "session", ""), ("agents-cast", "agents", "&view=cast"),
             ("setup-machines", "setup", "&block=machines"), ("settings", "settings", ""), ("local", "local", ""))
 
 # what each section draws once it is there (the measure waits for it, then for two equal reads)
-READY = {"session": ".ws-cell", "agents-fleet": "[data-testid=roles-live-map]", "setup-machines": "[data-testid=setup-machines]", "agents-cast": "[data-testid=agents-bar]", "agents-runs": "[data-testid=agents-bar]",
-         "agents-live": "[data-testid=agents-bar]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
+# 3.3.18.0: a view of Agents is ready when its workspace has laid out a cell AND drawn what the view shows (Live over this
+# seeded home: its one empty sentence), never on its bar alone (a Windows runner measured Live's 0 of 0 panels once)
+READY = {"session": ".ws-cell", "agents-fleet": "[data-testid=roles-live-map]", "setup-machines": "[data-testid=setup-machines]",
+         "agents-cast": "[data-part=roles] [data-testid=roles-canvas], [data-part=roles] [data-testid=roles-start]", "agents-runs": "[data-testid=agents-bar]",
+         "agents-live": ".ws-cell [data-testid=roles-live-empty]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
          "settings": "[data-testid=settings-rail-group]", "local": "[data-testid=local-rail-page]"}
 
 MEASURE = r"""(() => {
@@ -146,6 +149,28 @@ def attention(c, url: str) -> dict:
     return {"agents-attention": got}
 
 
+def living(c, url: str) -> dict:
+    """3.3.18.0 "The living canvas": Live's History drawer open over the seeded home (its head a bar, its rows targets;
+    the one sentence and a block's bar are measured where agents run: tests/helpers/studio_live_plan.py)."""
+    q = lambda t: f"document.querySelector('[data-testid=\"{t}\"]')"  # noqa: E731
+    c.js("try { localStorage.removeItem('halo.studio.layout.roles'); } catch (e) {} 1")  # the sections above moved its panels
+    c.go("about:blank")
+    c.go(url)
+    c.wait(f"!!{q('live-history')} && !!{q('roles-live-empty')}", 40)
+    drawn = f"!!{q('live-history-head')} && (!!{q('live-history-row')} || !!{q('live-history-none')})"
+    for _ in range(2):  # a click that landed while the page still laid out is pressed once more
+        c.js(f"{q('live-history-drawer')} || {q('live-history')}.click(); 1")
+        try:
+            c.wait(drawn, 20)
+            break
+        except TimeoutError:
+            pass
+    c.wait(drawn, 20)
+    out = {"agents-live-history": settled(c)}
+    shot(c, "agents-live-history")
+    return out
+
+
 def page_url(srv, mode: str, extra: str = "") -> str:
     from halo_harness.studio.server import url_for
     return url_for(srv, mode).replace(f"?mode={mode}", f"?mode={mode}{extra}&tour=off")
@@ -186,7 +211,8 @@ class DensityDriver(Driver):
             with PromptRig() as rig:  # Session and Live on the fleet over a live session (the Prompt rig); the rest over the seeded home
                 live = (("session", rig.url(f"&session={rig.sid}")), ("agents-fleet", page_url(rig.server, "fleet")))
                 seeded = tuple((n, page_url(srv, m, x)) for n, m, x in SECTIONS if n not in ("session", "agents-fleet"))
-                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((inspector, (c, srv)), (attention, (c, page_url(rig.server, "fleet"))))
+                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((inspector, (c, srv)), (attention, (c, page_url(rig.server, "fleet"))),
+                    (living, (c, page_url(srv, "agents", "&view=live"))))
         finally:
             srv.shutdown()
             srv.server_close()

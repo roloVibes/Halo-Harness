@@ -18,7 +18,7 @@ import { Icon } from "../lib/ui";
 import { goSection, studio, useStore, type SectionId } from "../lib/store";
 import { useRecent } from "../lib/motion";
 import { useSections, type SectionDef } from "../routes";
-import { useCounts } from "../routes/fleet/store";
+import { useLiveCount } from "../routes/agents/live/now"; // 3.3.18.0: live now only (an away member's last rows are not)
 import { startFleet } from "../routes/fleet/sync";
 import { startDigest, useAway } from "../routes/fleet/Digest";
 import { openFleetLive } from "../routes/agents/fleetDoor";
@@ -37,7 +37,7 @@ function useBusy(): Partial<Record<SectionId, boolean>> {
 
 function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean; pack: boolean }) {
   const live = useStore(studio, (st) => st.feed.sessions.length);
-  const count = useCounts().live;
+  const count = useLiveCount();
   const away = useAway() && s.id === "agents";
   return (
     <button

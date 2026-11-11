@@ -93,7 +93,9 @@ def ollama(c, url, ctx) -> dict:
     rows = qa("[data-testid=setup-row][data-card=ollama]")
     out["ollama_save_by"] = press(c, "ollama", f"{rows}.length === 1")
     out["ollama_rows"] = c.js(f"{rows}.map((r) => [...r.querySelectorAll('td')].slice(0, 4).map((t) => t.textContent))")
-    out["ollama_state"] = c.js(_text("[data-testid=setup-provider-state][data-name=ollama]"))
+    # the state line is redrawn a read after the row: wait for it (red on the Windows runner at 8f877941)
+    state = _text("[data-testid=setup-provider-state][data-name=ollama]")
+    out["ollama_state"] = c.wait(f"{state}.startsWith('set') && {state}", 20)
     finders = f"[{q('[data-testid=setup-ollama-find]')}.disabled, {q('[data-testid=setup-ollama-scan]')}.disabled]"
     # both enable when the card re-renders after the add: a plain read landed mid-render once ([True, False], the
     # 3.3.8.1 release commit's Linux shard 3, run 41399731896) -- wait for the state the check asserts

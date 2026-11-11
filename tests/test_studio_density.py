@@ -47,7 +47,7 @@ def _src(rel: str) -> str:
 def offenders(got: dict) -> list:
     """Every 'section: testid NN px (rule)' in the order the sections were opened."""
     out = []
-    for name in (*SECTIONS, "inspector-summary", "inspector-page", "agents-attention"):
+    for name in (*SECTIONS, "inspector-summary", "inspector-page", "agents-attention", "agents-live-history"):
         m = got.get(name) or {}
         out += [f"{name}: bar {t} {h} px (< {BAR})" for t, h in m.get("bars") or [] if h < BAR]
         out += [f"{name}: row {t} {h} px (< {ROW})" for t, h in m.get("rows") or [] if h < ROW]
@@ -153,6 +153,21 @@ def test_the_fleet_fold_pieces_pass_the_rules(ctx: Ctx):
     ctx.check(f"the glance's machine rows are targets >= 40 px, got {rows}", rows and all(h >= ROW for _, h in rows))
     m = got.get("setup-machines") or {}
     ctx.check(f"Setup -> Machines drawn and measured, got {len(m.get('bars') or [])} bars", len(m.get("bars") or []) >= 1)
+
+
+@test
+def test_the_living_canvas_pieces_pass_the_rules(ctx: Ctx):
+    """3.3.18.0: Live's empty state is measured (its panels too), the History drawer's head is a bar and its rows targets,
+    (the one sentence under Live's bar and a block's title bar are bars too: tests/test_studio_live_plan.py measures them
+    where agents run)."""
+    got = _got(ctx)
+    live = got.get("agents-live") or {}
+    ctx.check(f"Live over a home with nothing running: its panels measured, got {len(live.get('panels') or [])} of {live.get('cells')}",
+              live.get("cells", 0) >= 4 and len(live.get("panels") or []) == live.get("cells"))
+    h = got.get("agents-live-history") or {}
+    ctx.check(f"History's head is a bar >= 36 px, got {h.get('bars')}", any(t == "live-history-head" and v >= BAR for t, v in h.get("bars") or []))
+    rows = [r for r in h.get("rows") or [] if r[0] == "live-history-row"]
+    ctx.check(f"History's rows are targets >= 40 px (or none yet), got {rows}", all(v >= ROW for _, v in rows))
 
 
 if __name__ == "__main__":

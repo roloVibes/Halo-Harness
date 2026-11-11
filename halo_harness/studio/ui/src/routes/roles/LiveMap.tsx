@@ -11,7 +11,7 @@
 // same component is Session's Map (`thumb`): this harness's sessions and their agents, fitted to the panel, a click
 // picks the Steer box's target, "Open in Agents Live" opens the full tree. 3.3.16.1: each box of the full tree has its
 // hover card (routes/agents/hover); the thumbnail keeps its plain tooltips.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Empty } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import { startFleet } from "../fleet/sync";
@@ -31,7 +31,18 @@ import { useLiveNodes } from "../agents/live/useLiveNodes";
 import { RunNodeCard } from "../agents/live/runLanes";
 import { GroupBar, GroupBox, GroupEdges } from "../agents/live/GroupBox"; // 3.3.16.3: Live in groups
 import { useClosed } from "../agents/live/groupStore";
-import { liveLayout, type LiveBox } from "./liveLayout";
+import type { LiveBox } from "./liveLayout";
+import { useLiveGeo } from "../agents/live/liveGeo"; // 3.3.18.0: laid out on the tree's shape, painted on its state
+import { LiveEmpty, ReplayBanner } from "../agents/live/LiveEmpty"; // 3.3.18.0: nothing runs; a replay from History
+import { HistoryDrawer } from "../agents/live/History";
+import { useLivePlan } from "../agents/live/useLivePlan"; // 3.3.18.0 part 2: the plan under it
+import { PlanWorld } from "../agents/live/PlanWorld";
+import { LiveNow } from "../agents/live/LiveNow"; // 3.3.18.0 part 3: the one sentence, the waits, the waiting path
+import { WAITS_H } from "../agents/live/WaitsRow";
+import { usePathIds } from "../agents/live/useWaits";
+import { fitZoom, levelOf, NEAR_H, setLevel, usePinnedLevel } from "../agents/live/levels"; // 3.3.18.0 part 4: zoom that changes meaning
+import { LevelSwitch } from "../agents/live/LevelSwitch";
+import { useZoomAnchor } from "../agents/live/zoomAnchor";
 import { selectLive } from "./liveModel";
 import { LiveGroupBox, LiveNodeCard } from "./LiveNode";
 import { useRoles } from "./store";
@@ -40,11 +51,13 @@ const LIVE = ["queued", "running", "waiting", "paused"];
 const MOTION: Record<string, string> = { working: "working", waiting: "waiting", done: "done", failed: "error" }; // lib/motion's words
 
 function Edges({ boxes, w, h, sel }: { boxes: LiveBox[]; w: number; h: number; sel: string }) {
+  const path = usePathIds(); // 3.3.18.0 part 3: the waiting path's hairline
   return (
     <svg className="rlm-edges" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
       {boxes.filter((b) => b.d).map((b) => [
         <path key={b.node.id} className="rlm-edge" d={b.d} data-testid="roles-live-edge" data-from={b.from || undefined} data-to={b.node.id}
-              data-glow={b.node.glow || undefined} data-motion={MOTION[b.node.glow] || undefined} data-on={(b.node.key && b.node.key === sel) || undefined} />,
+              data-glow={b.node.glow || undefined} data-motion={MOTION[b.node.glow] || undefined} data-on={(b.node.key && b.node.key === sel) || undefined}
+              data-path={(path.includes(b.node.id) && !!b.from && path.includes(b.from)) || undefined} />,
         // 3.3.15.0 L1 (styles/nodes.css): a working child's edge carries a dash moving toward it
         b.node.glow === "working" && <path key={b.node.id + "~flow"} className="rlm-edge-flow" d={b.d} />,
       ])}
@@ -57,27 +70,37 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   useEffect(() => (thumb ? undefined : (startOrchestra(), startMissions())), [thumb]); // the newest run of this repo, the missions
   const scope = useLiveScope();
   const mode = thumb ? "thumb" : scope;
-  const { nodes, sid, refs, now } = useLiveNodes(mode);
+  const { nodes, sid, refs, now, replay, rec } = useLiveNodes(mode);
   const density = useRoles((s) => s.liveDensity);
   const selected = useFleet((s) => s.selected);
   const loaded = useFleet((s) => s.loaded);
   const pick = useLivePick();
   const closed = useClosed();
-  const geo = useMemo(() => liveLayout(nodes, thumb ? "compact" : density, new Set(closed)), [nodes, density, thumb, closed]);
   const [zoom, setZoom] = useState(1);
+  const pinned = usePinnedLevel();
+  const level = thumb ? "mid" : pinned || levelOf(zoom); // 3.3.18.0 part 4: far | mid | near by the zoom (levels.ts; `?level=` pins it)
+  useEffect(() => void (!thumb && setLevel(level)), [thumb, level]);
+  const tree = useLiveGeo(nodes, thumb ? "compact" : density, closed, thumb ? 0 : WAITS_H + (level === "near" ? NEAR_H : 0));
+  const plan = useLivePlan(thumb ? "thumb" : mode, nodes, rec, density, replay, level);
+  const geo = plan.geo || tree;
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
+  const zoomAt = useZoomAnchor(scroll, zoom, `${level}|${geo.width}x${geo.height}`, setZoom);
   const fit = () => {
     const el = scroll.current;
-    if (el) setZoom(Math.max(thumb ? 0.2 : 0.25, Math.min(thumb ? 1 : 1.25, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height)));
+    if (!el) return;
+    if (thumb) return setZoom(Math.max(0.2, Math.min(1, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height)));
+    const mid = level === "far" ? (plan.on ? plan.midOf() : null) || tree : geo, far = plan.farOf() || mid; // part 4: Fit picks the level
+    if (pinned) return setZoom(Math.max(0.25, Math.min(1.25, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height))); // a pinned level: a plain fit
+    setZoom(fitZoom(el.clientWidth, el.clientHeight, mid.width, mid.height, far.width, far.height));
   };
   useAutoFit(scroll, thumb, `${mode}|${sid}|${density}`, nodes.length, geo, fit, setZoom);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey || thumb) return;
     if (e.key === "f" && !e.shiftKey) fit();
     else if (e.key === "F") toggleScope(); // 3.3.16.0 R2: this halo | fleet
-    else if (e.key === "+" || e.key === "=") setZoom((z) => Math.min(2, z * 1.2));
-    else if (e.key === "-") setZoom((z) => Math.max(0.25, z / 1.2));
+    else if (e.key === "+" || e.key === "=") zoomAt(Math.min(2, zoom * 1.2));
+    else if (e.key === "-") zoomAt(Math.max(0.12, zoom / 1.2));
     else return;
     e.preventDefault();
   };
@@ -86,41 +109,49 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const agents = nodes.filter((n) => !n.virtual && !n.run && !n.kind);
   const machines = nodes.filter((n) => n.kind === "machine").length;
   const live = agents.filter((n) => LIVE.includes(n.state)).length;
-  const empty = !nodes.length || (mode === "here" && !agents.length && !nodes.some((n) => n.run));
+  const empty = !nodes.length || (thumb ? mode === "here" && !agents.length && !nodes.some((n) => n.run) : !agents.length && !nodes.some((n) => n.run || n.kind === "part"));
   return (
     <div className="rc rlm" data-testid="roles-live-map" data-session={mode === "here" ? sid || undefined : undefined} data-scope={mode} data-nodes={agents.length}
-         data-machines={machines} data-density={density}>
-      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} machines={machines} zoom={zoom} setZoom={setZoom} fit={fit} />}
+         data-machines={machines} data-density={density} data-replay={replay || undefined}>
+      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} machines={machines} zoom={zoom} setZoom={zoomAt} fit={fit} empty={empty && loaded} plan={plan}
+                                                    levels={<LevelSwitch level={level} zoomAt={zoomAt} />} />}
+      {!thumb && <ReplayBanner />}
+      <LiveNow nodes={nodes} now={now} on={!thumb && !replay} plan={plan.geo} />
       <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Agents Live: the agent tree"
            onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
         {!loaded ? (
           <div className="og-wait mono muted">reading the sessions...</div>
-        ) : empty ? (
+        ) : empty && !thumb && !machines ? (
+          <LiveEmpty />
+        ) : empty && thumb ? (
           <Empty title="No session to draw" testid="roles-live-empty"
                  body="Live draws a running session's agents as they spawn. Start one in a terminal (halo), or from Session: New session (no terminal needed); it appears here the moment it registers." />
         ) : (
-          <div className="rc-world" style={{ width: geo.width * zoom, height: geo.height * zoom }} onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
-            <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)}>
-              {geo.machines.map((g) => <MachineBox key={g.card} g={g} label={thumb} />)}
-              {geo.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
-              {geo.tasks.map((b) => <GroupBox key={b.g.id} b={b} now={now} />)}
-              <GroupEdges boxes={geo.tasks} w={geo.width} h={geo.height} />
-              <Edges boxes={geo.boxes} w={geo.width} h={geo.height} sel={selected} />
-              {mode !== "here" && <FleetEdges boxes={geo.boxes} w={geo.width} h={geo.height} />}
-              {mode === "fleet" && <PartEdges boxes={geo.boxes} w={geo.width} h={geo.height} />}
-              {geo.boxes.map((b) => {
+          <>{empty && <LiveEmpty compact />}<div className="rc-world" style={{ width: geo.width * zoom, height: geo.height * zoom }} onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
+            <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)} data-plan={plan.on ? "on" : undefined} data-level={level}>
+              {plan.geo ? <PlanWorld geo={plan.geo} now={now} selected={selected} onMenu={setMenu} onPick={onAgent} /> : (<>
+              {tree.machines.map((g) => <MachineBox key={g.card} g={g} label={thumb} />)}
+              {tree.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
+              {tree.tasks.map((b) => <GroupBox key={b.g.id} b={b} now={now} />)}
+              <GroupEdges boxes={tree.tasks} w={tree.width} h={tree.height} />
+              <Edges boxes={tree.boxes} w={tree.width} h={tree.height} sel={selected} />
+              {mode !== "here" && <FleetEdges boxes={tree.boxes} w={tree.width} h={tree.height} />}
+              {mode === "fleet" && <PartEdges boxes={tree.boxes} w={tree.width} h={tree.height} />}
+              {tree.boxes.map((b) => {
                 const n = b.node;
                 if (n.run) return <RunNodeCard key={n.id} b={b} />;
                 if (n.kind === "machine") return <MachineNode key={n.id} b={b} now={now} selected={pick.kind === "machine" && pick.id === n.harness} onPick={(h) => pickLive("machine", h)} />;
                 if (n.kind === "session") return <SessionNode key={n.id} b={b} selected={!!n.key && n.key === selected} onPick={onSession} onMenu={setMenu} hover={!thumb} />;
-                if (n.kind === "part") return <PartNode key={n.id} b={b} machines={geo.machines} zoom={zoom} />;
-                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb} />;
+                if (n.kind === "part") return <PartNode key={n.id} b={b} machines={tree.machines} zoom={zoom} />;
+                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb && !replay} />;
               })}
-              {geo.tasks.map((b) => <GroupBar key={b.g.id} b={b} now={now} hover={!thumb} />)}
+              {tree.tasks.map((b) => <GroupBar key={b.g.id} b={b} now={now} hover={!thumb} />)}
+              </>)}
             </div>
-          </div>
+          </div></>
         )}
       </div>
+      {!thumb && <HistoryDrawer />}
       {menu && <NodeMenu at={menu} onClose={() => setMenu(null)} />}
     </div>
   );

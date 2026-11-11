@@ -203,7 +203,7 @@ def mission(c, rig) -> dict:
     fakes.hold_tasks()
     out: dict = {}
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length === 5", 30)
+    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length === 4", 30)
     mid = plan_and_drag(c, rig, out)
     out["mission"] = mid
     run_and_ask(c, rig, fakes, mid, out)

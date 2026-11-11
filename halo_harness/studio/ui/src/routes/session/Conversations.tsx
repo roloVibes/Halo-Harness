@@ -14,6 +14,7 @@ import { startLiveTree } from "../shared/liveTree";
 import { goRow } from "./LiveThink";
 import { WHY_WORD } from "./LiveTalk";
 import { sess } from "./store";
+import { useConvPick } from "./convPick"; // 3.3.18.0: a click on a line of Agents -> Live opens its pair
 
 type Pair = { id: string; a: string; b: string; aName: string; bName: string; msgs: TalkMsg[]; last: TalkMsg };
 
@@ -71,6 +72,8 @@ export function ConversationsDetail() {
   const msgs = useTalks((s) => s.msgs);
   const pairs = useMemo(() => pairsOf(msgs), [msgs]);
   const [chosen, setChosen] = useState("");
+  const asked = useConvPick();
+  useEffect(() => void (asked.pair && setChosen(asked.pair)), [asked.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const cur = pairs.find((p) => p.id === chosen) || pairs[0];
   if (!pairs.length) return <div className="conv-wrap" data-testid="conv-panel"><Empty title="No conversation yet" body={EMPTY} testid="conv-empty" /></div>;
   return (

@@ -151,7 +151,7 @@ def conflict(c, rig, out: dict) -> None:
     from tests.helpers.studio_fleet_member import REVIEWER
     from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID
     c.go(rig.url("fleet"))
-    c.wait(f"document.querySelectorAll('{NODE}').length === 5", 30)
+    c.wait(f"document.querySelectorAll('{NODE}').length === 4", 30)
     a = rig.agent("Implement")
     rig.server.events.publish({"session_id": rig.act.session_id, "harness": harness()["id"], "event": "agent_state", "agent_id": a["agent_id"],
                                "ts": time.time(), "data": {**a, "current": f"Edit: {rig.proj / 'basket.py'}"}})
@@ -209,7 +209,7 @@ def extras(c, rig, out: dict) -> None:
 def panels(c, rig) -> dict:
     out: dict = {}
     c.go(rig.url("fleet"))
-    c.wait(f"document.querySelectorAll('{NODE}').length === 5 && !!document.querySelector('[data-testid=\"agents-attention\"]')", 30)
+    c.wait(f"document.querySelectorAll('{NODE}').length === 4 && !!document.querySelector('[data-testid=\"agents-attention\"]')", 30)
     for step in (lambda: attention(c, rig, out), lambda: timeline(c, rig, out), lambda: digest(c, out),
                  lambda: replay(c, rig, out), lambda: conflict(c, rig, out), lambda: extras(c, rig, out)):
         try:

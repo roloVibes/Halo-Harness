@@ -1,0 +1,39 @@
+/* What each agent waits on, the waiting path and Live's one sentence (3.3.18.0 "The living canvas" part 3,
+   routes/agents/live/WaitsRow.tsx, LiveNow.tsx, PlanWorld.tsx): a fixed row of its own on each live node (WAITS, then
+   the fact, cut by CSS ellipsis only), the path from main to what the session waits on as a brighter hairline in the
+   colours it already has, the sentence under Live's bar, and a line's latest hand-off over its when label. Tokens only. */
+.rlm-waits { flex: none; display: flex; align-items: center; gap: 6px; min-width: 0; height: 18px; font-size: 10.5px; }
+.rlm-waits-k { flex: none; color: var(--muted); letter-spacing: .08em; font-size: 9.5px; }
+.rlm-waits-v { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.rlm-waits[data-wait="you"] .rlm-waits-v { color: var(--warn); }
+.rlm-waits[data-wait="tool"] .rlm-waits-v { color: var(--tool, var(--accent)); }
+
+.rlm-node[data-path] { border-color: color-mix(in srgb, var(--text) 55%, var(--g)); }
+.rlm-edge[data-path] { stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1.5px; }
+
+.lv-narr { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 36px; padding: 4px 10px; margin: 0 0 6px; cursor: pointer;
+  border-left: 2px solid var(--line-strong); font-size: 12px; outline: none; }
+.lv-narr[data-wait="you"] { border-left-color: var(--warn); }
+.lv-narr:hover, .lv-narr:focus-visible { background: var(--surface-2); }
+.lv-narr-text { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.lv-narr-clock { flex: none; font-size: 11px; white-space: nowrap; }
+
+.pb-when[data-handoff] { color: var(--text); }
+.pb-when { transition: color var(--dur-base, 240ms) var(--ease-out, ease-out); }
+.pb-line[data-path] { stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1.5px; }
+@media (prefers-reduced-motion: reduce) { .pb-when { transition: none; } }
+
+/* Part 4, the zoom levels (routes/agents/live/levels.ts): far draws the blocks alone at twice the size and their words a
+   little larger still (26 px and up: 11 px on screen at the far level's lowest Fit, 45%); near grows each agent's box for its thought (three lines) and its tool's last output (one line). */
+.rlm-inner[data-level="far"] .pb-bar { padding: 12px 24px; gap: 6px; border-width: 2px; }
+.rlm-inner[data-level="far"] .pb-box { border-width: 2px; }
+.rlm-inner[data-level="far"] .pb-title { font-size: 32px; line-height: 38px; }
+.rlm-inner[data-level="far"] .pb-counts, .rlm-inner[data-level="far"] .pb-purpose { font-size: 26px; line-height: 31px; }
+.rlm-inner[data-level="far"] .pb-when { height: 32px; font-size: 24px; line-height: 32px; }
+.rlm-inner[data-level="far"] .rlm-edge { stroke-width: 3px; }
+.rlm-near { flex: none; display: flex; flex-direction: column; gap: 4px; height: 74px; min-width: 0; margin: 2px 0; }
+.rlm-near-think { font: 11px/15px var(--sans); color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  overflow-wrap: anywhere; height: 45px; }
+.rlm-near-tool { flex: none; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--tool, var(--accent)); }
+.rlm-near-k { color: var(--muted); font: 9.5px var(--mono); letter-spacing: .08em; }
+.lv-levels button { padding: 3px 10px; font-size: 12px; }

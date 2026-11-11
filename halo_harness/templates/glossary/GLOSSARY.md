@@ -441,3 +441,11 @@ Agent talk (3.3.16.2) is one agent's words to another, a TALK row in Studio's Li
 ## consult role
 
 A consult role (3.3.17.0) is a role whose model takes no tools: it answers from what it holds and hands the answer back, and the agent loop offers it no tool. A role on `cp:work`, your work's Microsoft 365 Copilot, is one: Copilot holds your mail, meetings, chats and files, so a lineup card or a bio that asks for the need `work-data` (`models.needs: [work-data]`) runs on it once you are signed in, while Auto never puts it in a role that needs tool calls. Any agent can also ask Copilot through the `copilot_ask` tool (docs/PROVIDERS-copilot.md).
+
+## replay
+
+A replay (3.3.18.0) is something that already happened -- a session, an Orchestra run or a mission -- drawn on Studio's Agents -> Live as it ended: opened from Live's History drawer (newest first: what it was, when, how long, its cost, how it ended) or the empty state's Replay the last session, under a "replay -- ended <when>" banner, in muted colours, never the live ones. Back to now on the banner returns to what runs. Nothing past reaches Live any other way. Cast's own replay bar (a session played back on the lineup's cards, from a card's history) is the older kind.
+
+## waiting path
+
+The waiting path (3.3.18.0) is the chain on Studio's Agents -> Live from main down to whatever the whole session waits on now: an agent that waits on you first, else main's own wait followed through the agents it waits on, down to a tool, a model reply or an ask. It is drawn as a brighter hairline on those boxes and lines, and Live's sentence under the bar says it ("waiting on: reviewer -> Bash pytest", with its seconds beside it); a click on the sentence centres that agent. Each live agent's box also says what it waits on: you, a tool, a model reply, another agent, or nothing (working).

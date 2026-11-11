@@ -50,7 +50,7 @@ def open_live(c, rig, extra: str = "") -> None:
     c.js("try { localStorage.removeItem('halo.studio.layout.roles'); } catch (e) {} 1")
     c.go("about:blank")
     c.go(rig.url("fleet", extra))
-    c.wait(f"{MAP}?.dataset.scope === 'fleet' && +{MAP}.dataset.nodes === 5 && +{MAP}.dataset.machines === 2", 60)
+    c.wait(f"{MAP}?.dataset.scope === 'fleet' && +{MAP}.dataset.nodes >= 4 && +{MAP}.dataset.machines === 2", 60)  # 3.3.18.0: the past reviewer is not drawn (until the conflict scene)
     open_strip(c, "roles-inspector")
     c.wait("!!document.querySelector('[data-testid=\"live-inspector\"]')", 15)
 

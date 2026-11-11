@@ -2,6 +2,7 @@
 // scope switch **this halo | fleet** (`F` on the canvas), then on this halo the session picker (this harness's sessions,
 // the newest first) and on the fleet the machines' line; the counts, the density, Fit and the zoom. Nothing on it opens
 // anything on its own.
+import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import type { RecordRef } from "../../../lib/work/record";
 import { short } from "../../orchestra/format";
@@ -9,6 +10,8 @@ import { PlanLive } from "../../roles/CanvasBar";
 import type { Density } from "../../roles/liveLayout";
 import { roles, useRoles } from "../../roles/store";
 import { setScope, useLiveScope } from "./scope";
+import { HistoryButton } from "./History"; // 3.3.18.0: the past, newest first, each a replay
+import { PlanToggle } from "./PlanToggle"; // 3.3.18.0 part 2: the lineup's blocks under the agents
 
 export function ScopeSwitch() {
   const scope = useLiveScope();
@@ -24,9 +27,10 @@ export function ScopeSwitch() {
   );
 }
 
-type BarProps = { refs: RecordRef[]; sid: string; agents: number; live: number; machines: number; zoom: number; setZoom: (z: number) => void; fit: () => void };
+type BarProps = { refs: RecordRef[]; sid: string; agents: number; live: number; machines: number; zoom: number; setZoom: (z: number) => void; fit: () => void;
+  empty?: boolean; plan?: { available: boolean; on: boolean; lineup: string }; levels?: ReactNode }; // 3.3.18.0: empty; part 2; part 4
 
-export function LiveBar({ refs, sid, agents, live, machines, zoom, setZoom, fit }: BarProps) {
+export function LiveBar({ refs, sid, agents, live, machines, zoom, setZoom, fit, empty = false, plan, levels }: BarProps) {
   const density = useRoles((s) => s.liveDensity);
   const setDensity = (d: Density) => roles.update(() => ({ liveDensity: d }));
   const scope = useLiveScope();
@@ -45,18 +49,21 @@ export function LiveBar({ refs, sid, agents, live, machines, zoom, setZoom, fit 
           ))}
         </select>
       ) : (
-        <b className="rc-bar-name" data-testid="roles-live-title">{here ? short(here.title, 48) : "no session"}</b>
+        <b className="rc-bar-name" data-testid="roles-live-title">{empty ? "nothing running" : here ? short(here.title, 48) : "no session"}</b>
       )}
-      <span className="mono muted rc-bar-count" data-testid="roles-live-count">{agents} agent{agents === 1 ? "" : "s"} · {live} live</span>
+      {!empty && <span className="mono muted rc-bar-count" data-testid="roles-live-count">{agents} agent{agents === 1 ? "" : "s"} · {live} live</span>}
+      {plan?.available && scope === "here" && <PlanToggle on={plan.on} lineup={plan.lineup} />}
+      <HistoryButton />
       <span className="spacer" />
       <span className="segmented" role="group" aria-label="Density">
         {(["spread", "compact"] as Density[]).map((d) => (
           <button key={d} className={density === d ? "on" : ""} aria-pressed={density === d} onClick={() => setDensity(d)} data-testid={`roles-live-${d}`}>{d}</button>
         ))}
       </span>
-      <Button size="sm" variant="ghost" onClick={fit} title="Fit the tree to the page (f)" data-testid="roles-live-fit">Fit</Button>
+      {!empty && levels}
+      <Button size="sm" variant="ghost" onClick={fit} title="Fit the tree to the page (f): the level that shows all of it readably" data-testid="roles-live-fit">Fit</Button>
       <span className="segmented rc-zoom" role="group" aria-label="Zoom">
-        <button onClick={() => setZoom(Math.max(0.25, zoom / 1.2))} aria-label="Zoom out" data-testid="roles-live-zoom-out">-</button>
+        <button onClick={() => setZoom(Math.max(0.12, zoom / 1.2))} aria-label="Zoom out" data-testid="roles-live-zoom-out">-</button>
         <button onClick={() => setZoom(1)} title="Back to 100%" data-testid="roles-live-zoom">{Math.round(zoom * 100)}%</button>
         <button onClick={() => setZoom(Math.min(2, zoom * 1.2))} aria-label="Zoom in" data-testid="roles-live-zoom-in">+</button>
       </span>

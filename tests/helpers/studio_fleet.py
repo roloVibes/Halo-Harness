@@ -51,7 +51,7 @@ def wait_node(c, name: str, cond: str = "true", timeout: float = 60):
                            f" it showed {c.js(NODES_SEEN)}") from None
 
 
-def expected_tree(view: dict) -> list:
+def expected_tree(view: dict, live_only: bool = True) -> list:
     """The tree's order (the Tree panel, 3.3.2.0 R2): harness, then each session and its agents depth first (as GET fleet has them)."""
     out = []
     for h in view.get("harnesses", []):
@@ -61,9 +61,12 @@ def expected_tree(view: dict) -> list:
             rows = s.get("agents") or []
             ids = {a["agent_id"] for a in rows}
 
-            def walk(parent, depth):
+            up = lambda a: a.get("parent") if a.get("parent") in ids else None  # noqa: E731
+            live = lambda a: not live_only or a.get("state") in ("queued", "running", "waiting", "paused") or any(up(k) == a["agent_id"] and live(k) for k in rows)  # noqa: E731
+
+            def walk(parent, depth):  # 3.3.18.0: Live draws an agent while it (or one under it) works; a finished one is past
                 for a in rows:
-                    if (a.get("parent") if a.get("parent") in ids else None) == parent:
+                    if up(a) == parent and live(a):
                         out.append(f"agent:{a['agent_id']}")
                         if depth < 8:
                             walk(a["agent_id"], depth + 1)
@@ -88,7 +91,7 @@ def fleet_map(c, rig) -> dict:
     from tests.helpers.studio_fleet_rig import STEER_SEEN, wait_for
     out = {}
     c.go(rig.url("fleet"))
-    c.wait(f"document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2 && document.querySelectorAll('{NODE}').length === 5", 30)
+    c.wait(f"document.querySelectorAll('[data-testid=\"fleet-box\"]').length === 2 && document.querySelectorAll('{NODE}').length === 4", 30)
     out["boxes"] = c.js("document.querySelectorAll('[data-testid=\"fleet-box\"]').length")
     out["nodes"] = c.js(f"document.querySelectorAll('{NODE}').length")
     out["labels"] = c.js("[...document.querySelectorAll('[data-testid=\"live-machine\"] .rlm-name')].map((t) => t.textContent)")
@@ -145,7 +148,9 @@ def fleet_map(c, rig) -> dict:
     out["rail"] = c.js(f"[...document.querySelectorAll('[data-testid=\"live-machine\"], [data-testid=\"fleet-session\"], {NODE}')]"
                        ".map((n) => n.dataset.testid === 'live-machine' ? 'harness:' + n.dataset.harness : n.dataset.testid === 'fleet-session'"
                        " ? 'session:' + n.dataset.sid : 'agent:' + n.dataset.agent)")
-    out["api_tree"] = expected_tree(rig.api("GET", "fleet")[1])
+    view = rig.api("GET", "fleet")[1]  # 3.3.18.0: Live keeps a finished agent ten seconds: its order is the API's, its set the live ones and more
+    out["api_tree"] = [x for x in expected_tree(view, live_only=False) if not x.startswith("agent:") or x in out["rail"]]
+    out["api_live"] = expected_tree(view)
     member_main = f"document.querySelector('{NODE}[data-key^=\"{rig.member_id}|\"][data-agent=\"main\"]')"
     c.js(f"{member_main}.scrollIntoView({{block: 'center', inline: 'center'}}); 1")  # as a person would, before the click
     c.click_on(member_main)
@@ -158,7 +163,7 @@ def fleet_map(c, rig) -> dict:
     out["member_steer"] = (got or [{}])[-1].get("fields", {}).get("text")
     out["member_tail"] = c.wait("[...document.querySelectorAll('[data-testid=\"fleet-text\"]')].map((e) => e.textContent).find((t) => t.includes('Two questions'))", 10)
     rig.member_spawn()  # D13: a new child on the member's tree, live from the feed: its node, and the edge lit for a few seconds
-    out["spawned"] = c.wait(f"document.querySelectorAll('{NODE}').length === 6 && document.querySelectorAll('[data-testid=\"fleet-lit-edge\"]').length", 10)
+    out["spawned"] = c.wait(f"document.querySelectorAll('{NODE}').length === 5 && document.querySelectorAll('[data-testid=\"fleet-lit-edge\"]').length", 10)
     out["spawn_tool"] = c.js(f"{node('verifier')}?.querySelector('[data-testid=\"roles-live-tool\"]')?.dataset.tool")
     return out
 

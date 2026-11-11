@@ -21,6 +21,11 @@ import { SquareRow } from "../agents/live/SquareRow"; // 3.3.16.0 R3: a square's
 import { useHover } from "../../lib/hover/useHover";
 import { AgentHover } from "../agents/hover/agent"; // 3.3.16.1: its hover card (Agents -> Live, not Session's Map)
 import type { LiveBox, LiveGroup } from "./liveLayout";
+import { DismissFailed } from "../agents/live/Dismiss"; // 3.3.18.0: a failed agent stays until it is dismissed
+import { WaitsRow } from "../agents/live/WaitsRow"; // 3.3.18.0 part 3: what it waits on; the waiting path's hairline
+import { useOnPath } from "../agents/live/useWaits";
+import { NearRows } from "../agents/live/NearRows"; // 3.3.18.0 part 4: the near level's thought and tool rows
+import { useLevel } from "../agents/live/levels";
 
 function took(n: LiveBox["node"], now: number): string {
   if (!n.started) return "";
@@ -50,6 +55,8 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
   const target = useTargetKey() === n.key && !!n.key;
   const hv = useHover("agent", n.key, () => <AgentHover k={n.key} n={n} />, hover && !n.virtual);
   const t = hv.titles; // the plain tooltips, only without a hover card
+  const onPath = useOnPath(hover ? n.id : null);
+  const near = useLevel() === "near" && hover;
   if (n.virtual)
     return (
       <div className="rlm-node rlm-virtual" style={style} data-testid="roles-live-unknown" title={n.task}>
@@ -69,7 +76,7 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
          data-motion={row ? agentMotion(row, doneAt) : undefined} data-parent={n.parent || undefined} data-harness={n.harness || undefined}
          data-card={n.card || undefined} data-selected={selected || undefined} data-target={target || undefined} aria-label={`${n.name}: ${n.state}`}
          data-born={born || undefined} onAnimationEnd={(e) => e.target === e.currentTarget && grown()}
-         data-ack={(failed && failedAcked(n.key)) || undefined} data-hover={hovered || undefined} {...hv.props}>
+         data-ack={(failed && failedAcked(n.key)) || undefined} data-hover={hovered || undefined} data-path={onPath || undefined} {...hv.props}>
       {target && <span className="rlm-target" data-testid="roles-live-target" aria-hidden="true" />}
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
@@ -78,6 +85,7 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
         <span className="spacer" />
         {pinned && <span className="rlm-pin" data-testid="roles-live-pin" data-hover-skip title="Pinned: its mini stream stays on screen"><Icon name="pin" size={12} /></span>}
         <span className="og-badge mono" data-live={n.activity || undefined}>{n.state || "?"}</span>
+        {n.state === "failed" && !!n.key && <DismissFailed k={n.key} name={n.name} />}
         <button className="rlm-more" onClick={menu} onDoubleClick={(e) => e.stopPropagation()} aria-label={`${n.name}: more`} title="Steer, pause, pin, stop..." data-testid="roles-live-more">...</button>
       </div>
       {lead && <div className="rlm-name rlm-sub" title={t ? `the agent: ${n.name}` : undefined}>{n.name}</div>}
@@ -94,6 +102,8 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
       ) : (
         <div className="muted rlm-now" title={t ? nowLine(n) : undefined} data-testid="roles-live-now">{short(nowLine(n), 140)}</div>
       )}
+      {near && !!n.key && <NearRows k={n.key} />}
+      {hover && <WaitsRow id={n.id} />}
       <button className="rlm-steer mono" onClick={(e) => (e.stopPropagation(), steerAgent(n.key))} onDoubleClick={(e) => e.stopPropagation()}
               title={`Steer ${n.name}: the Steer box, addressed to it`} data-testid="roles-live-steer">steer ▸</button>
     </div>

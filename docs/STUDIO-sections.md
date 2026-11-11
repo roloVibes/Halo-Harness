@@ -177,8 +177,8 @@ Orchestra folded into one section with three views on one switch, first on its b
 its bios, Roles as it was), **Runs** (`R`: Orchestra as it was -- a goal, the lead's plan, the lanes in their
 worktrees, the merge, the tests, the report and the coach -- with each lane's owns line and **Test this lineup**) and
 **Live** (`L`: the session's agents as a tree, a running Orchestra run's lanes under its lead; 3.3.16.0 R2: a
-**this halo | fleet** switch, the fleet being every machine you run or joined, and the Attention chip). It opens on Cast with
-nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
+**this halo | fleet** switch, the fleet being every machine you run or joined, and the Attention chip). It opens on Live (3.3.18.0: only what
+runs now, the past in History, [STUDIO-live.md](STUDIO-live.md)) with nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
 and `?mode=team` on Runs; `?mode=agents&view=cast|runs|live` is the door itself. The whole story:
 [STUDIO-agents.md](STUDIO-agents.md).
 

@@ -54,7 +54,7 @@ function finished(prev: Harness[], next: Harness[]): Record<string, number> {
       for (const a of s.agents || []) {
         const k = keyOf(h.id, s.session_id, a.agent_id);
         const before = was.get(k);
-        if (before && before !== a.state && (a.state === "done" || a.state === "failed")) out[k] = now;
+        if (before && before !== a.state && (a.state === "done" || a.state === "failed" || a.state === "stopped")) out[k] = now; // 3.3.18.0: + stopped
       }
   return out;
 }
@@ -118,7 +118,7 @@ function onAgentState(f: FeedFrame): void {
     return;
   }
   const now = Date.now();
-  const ended = before && before !== row.state && (row.state === "done" || row.state === "failed");
+  const ended = before && before !== row.state && (row.state === "done" || row.state === "failed" || row.state === "stopped"); // 3.3.18.0
   // answered (the session's waiting clears), or an agent's end (3.2.3.0: its parent's and the hub's rows move too; 3.3.0.0
   // R7: from any state), or a frame that moves an ended agent again (a late frame: the view says which is true)
   if (before && before !== row.state && (before === "waiting" || ENDS.has(String(row.state)) || ENDS.has(before))) later("load", 300, () => void load());
