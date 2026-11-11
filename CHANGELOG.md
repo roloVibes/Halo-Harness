@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.16.3] - unreleased
+## [3.3.16.3] - 2026-11-10
 
 The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
 tab ... I wish I could see better groupings of these sub-agents ... here's this one task and here's the sub-agents in there".
