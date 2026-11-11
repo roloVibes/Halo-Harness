@@ -329,7 +329,7 @@ halo workflow check doc-review/review --input docs=docs   # the jobs it compiles
 halo workflow run doc-review/review --input docs=docs     # run it now (an Orchestra run)
 ```
 
-Orchestra's own new-run form has a picker too (3.2.1.0 R2): with no workflow
+The goal form (Live's Run a goal panel, 3.4.0.0 D; Orchestra's new-run form before) has a picker too (3.2.1.0 R2): with no workflow
 filled in, "or run a pack's workflow" under the goal form lists the workflows
 of the packs that run here, and a pick fills in the same form the Pack
 Manager's Run <workflow> does ([STUDIO-orchestra.md](STUDIO-orchestra.md)).

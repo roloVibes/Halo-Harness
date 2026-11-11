@@ -81,8 +81,8 @@ def test_a_running_studio_is_focused_on_the_target(ctx: Ctx):
               "9 sections:" in str(got.get("summary_policy")) and "at Halo's default" in str(got.get("summary_policy")))
     ctx.check(f"lineup:<name>:tiers opens that page with the real default, got {got.get('tiers_default')!r}",
               got.get("tiers_default") == "not set = Halo does: " + field_help.LINEUP_DEFAULTS["tiers"])
-    ctx.check(f"team opens Agents on Runs (3.3.16.0 R1: the Team section went), got {got.get('team_how')} {got.get('team_section')}",
-              got.get("team_how") == "focused" and str(got.get("team_section") or "") == "Agents:runs")
+    ctx.check(f"team opens Agents on Live (3.3.16.0 R1: the Team section went; 3.4.0.0 D: Runs too), got {got.get('team_how')} {got.get('team_section')}",
+              got.get("team_how") == "focused" and str(got.get("team_section") or "") == "Agents:live")
     ctx.check(f"bio:<name> opens the bio form back on Agents (Cast), got {got.get('bio_form')} {got.get('bio_section')}",
               got.get("bio_how") == "focused" and got.get("bio_form") == "reviewer" and str(got.get("bio_section") or "").startswith("Agents"))
     ctx.check(f"no browser tab was opened, got {got.get('tabs_opened')}", got.get("tabs_opened") == 0)

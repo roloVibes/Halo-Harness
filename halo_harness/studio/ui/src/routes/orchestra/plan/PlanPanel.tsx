@@ -18,6 +18,8 @@ import { PlanInspector } from "./Inspector";
 import { layerMap, loadPlan } from "./actions";
 import { plan, usePlan } from "./store";
 
+const stagedFor = (runId: string) => plan.get().staged !== "" && plan.get().runId === runId; // 3.0.9.0 R3's staged edit
+
 function usePlanLoad(): void {
   const runId = useOrch((s) => s.runId);
   useEffect(() => {
@@ -35,6 +37,9 @@ export function PlanDetail() {
   usePlanLoad();
   const loaded = usePlan((s) => s.loaded);
   const n = usePlan((s) => s.jobs.length);
+  const waits = useOrch((s) => s.data?.run.state === "planned" || !!stagedFor(s.runId)); // 3.4.0.0 D: a Live panel any time
+  if (!waits)
+    return <p className="muted" data-testid="plan-none">No goal run waits for its plan here. Start one with Review the plan first (Run a goal on Live's bar); its lead on Live then offers Review the plan.</p>;
   if (!loaded) return <div className="og-wait mono muted">reading the plan...</div>;
   return (
     <div className="pc" data-testid="plan-editor">

@@ -7,8 +7,8 @@ import "./styles/motion.css";
 import "./styles/shell.css";
 import "./styles/workspace.css";
 import "./styles/orchestra.css";
-import "./styles/orchestra-file.css";
 import "./styles/orchestra-plan.css";
+import "./styles/run.css"; // 3.4.0.0 D: a goal run on Live, the Run a goal panel, History's report page
 import "./styles/start-view.css";
 import "./styles/media.css";
 import "./styles/help.css";

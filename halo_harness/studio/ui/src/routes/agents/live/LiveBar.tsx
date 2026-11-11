@@ -1,7 +1,7 @@
 // Agents -> Live's bar (3.3.11.0 R2 as Roles Live's; 3.3.16.0 R2 "the Fleet fold": its own file): Plan | Live, the
 // scope switch **this halo | fleet** (`F` on the canvas), then on this halo the session picker (this harness's sessions,
-// the newest first) and on the fleet the machines' line; the counts, the density, Fit and the zoom. Nothing on it opens
-// anything on its own.
+// the newest first) and on the fleet the machines' line; the counts, 3.4.0.0 D Run a goal (this halo), History, the
+// density, Fit and the zoom. Nothing on it opens anything on its own.
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import type { RecordRef } from "../../../lib/work/record";
@@ -13,6 +13,7 @@ import { useFleetPack } from "../../fleet/store";
 import { setScope, useLiveScope } from "./scope";
 import { HistoryButton } from "./History"; // 3.3.18.0: the past, newest first, each a replay
 import { PlanToggle } from "./PlanToggle"; // 3.3.18.0 part 2: the lineup's blocks under the agents
+import { RunGoalButton } from "../run/GoalDrawer"; // 3.4.0.0 D: the goal form as a panel (Runs' Start screen went)
 
 export function ScopeSwitch() {
   const scope = useLiveScope();
@@ -56,6 +57,7 @@ export function LiveBar({ refs, sid, agents, live, machines, zoom, setZoom, fit,
       )}
       {!empty && <span className="mono muted rc-bar-count" data-testid="roles-live-count">{agents} agent{agents === 1 ? "" : "s"} · {live} live</span>}
       {plan?.available && scope === "here" && <PlanToggle on={plan.on} lineup={plan.lineup} />}
+      {scope === "here" && <RunGoalButton />}
       <HistoryButton />
       <span className="spacer" />
       <span className="segmented" role="group" aria-label="Density">

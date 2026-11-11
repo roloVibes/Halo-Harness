@@ -292,7 +292,7 @@ machine's models are **Local**. The full guide is
 - **The rail** in every section: the Agents icon counts the agents at work
   across the fleet; the **Attention** chip in Agents' bar (`A`) is the queue.
 - **Hop around.** `J` / `K` the next / previous live agent (also on the Cast
-  canvas and Runs' lanes), `f` follow, `Space` pin a mini
+  canvas), `f` follow, `Space` pin a mini
   stream that stays on screen in every section, `Esc` unpin, `P` pause or
   resume, `K` inside Session's Agent strip stop (asks first).
 - **Live Roles.** On the Cast canvas the cards whose agents work
@@ -619,7 +619,7 @@ whose edits outside its claims are refused, the mission folder is shared
 over the signed protocol (`mission_files`) or a real mount
 (`fleet.shared_dir`), and the repo parts merge one at a time with a judge.
 `halo fleet mission new "<goal>"`, `GET /api/fleet/missions`, `/mission`;
-in Studio, the Mission panel (Agents -> Runs since 3.3.16.0 R2, its plan drawn on Live) plans, approves, runs and reports it (3.0.6.0 R8).
+in Studio, the Mission panel (Agents -> Live since 3.4.0.0 D, Runs' from 3.3.16.0 R2; its plan drawn on Live) plans, approves, runs and reports it (3.0.6.0 R8).
 The whole story, the folder, the plan contract and a worked example:
 [MISSIONS.md](MISSIONS.md).
 

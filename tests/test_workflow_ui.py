@@ -61,8 +61,9 @@ def test_an_events_data_and_its_problems_show_under_its_line(ctx: Ctx):
 
 @test
 def test_the_run_views_report_has_an_artifacts_tab(ctx: Ctx):
+    """3.4.0.0 D: the run's report is a page of History (its door `?mode=agents&run=<id>`), its artifacts one block."""
     got = _got(ctx)
-    ctx.check(f"the tab counts the artifacts, got {got.get('tab')!r}", got.get("tab") == "Artifacts (1)")
+    ctx.check(f"the block counts the artifacts, got {got.get('tab')!r}", got.get("tab") == "ARTIFACTS (1)")
     ctx.check(f"the report artifact: saved and ok, got {got.get('artifact')}", got.get("artifact") == ["report", "saved", "true"])
     ctx.check(f"its head names the schema and view, got {got.get('artifact_head')!r}",
               "review-report · table · saved · lane 4" in str(got.get("artifact_head")))

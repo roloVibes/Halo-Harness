@@ -20,33 +20,14 @@ from __future__ import annotations
 from pathlib import Path
 from halo_harness.ext import core as _core
 
-INSPECTOR_BYTES = 8192
+INSPECTOR_BYTES = _core.get("packs.fleet_registry", "INSPECTOR_BYTES")
 REFUSAL_HEADS = ("this harness does not run pack ", "this harness has no pack with ")
 
 
-def inspector_text(root, source) -> dict:
-    from .capabilities import scrub
-    INSPECTOR_SUFFIXES = _core.get("packs.fleet_rules", "INSPECTOR_SUFFIXES")
-    src = str(source or "")
-    rel = Path(src)
-    if not src or rel.is_absolute() or ".." in rel.parts or ":" in src or rel.suffix.lower() not in INSPECTOR_SUFFIXES:
-        return {}
-    try:
-        base = Path(root).resolve()
-        target = (base / rel).resolve()
-        if base not in target.parents or not target.is_file():
-            return {}
-        with open(target, "rb") as fh:
-            raw = fh.read(INSPECTOR_BYTES + 1)
-    except (OSError, ValueError, TypeError):
-        return {}
-    text = scrub(raw[:INSPECTOR_BYTES].decode("utf-8", errors="ignore"))
-    return {"text": text, "cut": True} if len(raw) > INSPECTOR_BYTES else {"text": text}
+inspector_text = _core.get("packs.fleet_registry", "inspector_text")  # 3.4.0.0 D: core
 
 
-def hidden(pack_id, name, hide) -> bool:
-    n = str(name or "").lower()
-    return bool(hide) and (n in hide or f"{str(pack_id or '').lower()}/{n}" in hide)
+hidden = _core.get("packs.fleet_rules", "hidden")  # 3.4.0.0 D: core
 
 
 def hide_packs(cat: dict, hide) -> dict:

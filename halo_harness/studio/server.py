@@ -361,13 +361,13 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
-    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section> (default: the mode you used last; roles, orchestra and team open Agents on Cast, Runs and Runs, fleet opens Agents on Live with the fleet scope)")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section> (default: the mode you used last; roles opens Agents on Cast, orchestra and team on Live, fleet on Live with the fleet scope)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
     parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process: other harnesses join it with `halo fleet join` (docs/FLEET.md)")
-    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (Agents -> Cast, its form), lineup:<name>[:<block>] (its inspector, or one block's page), team (Agents -> Runs), setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
+    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (Agents -> Cast, its form), lineup:<name>[:<block>] (its inspector, or one block's page), team (Agents -> Live), setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     parser.add_argument("--prompt", action="store_true", help="with --session (or alone: the newest live session): open its Prompt panel with the keyboard in the box, to type into the session as in the terminal")
     args = parser.parse_args(argv)

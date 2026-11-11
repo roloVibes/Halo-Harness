@@ -19,6 +19,7 @@ import { startFleet } from "./sync";
 import { caps } from "./caps";
 import { missionCommands } from "./mcommands";
 import { focusSteer } from "./Steer";
+import { openWorkerRun } from "../agents/run/door";
 
 export type FleetCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
 
@@ -66,7 +67,7 @@ export function fleetCommands(): FleetCommand[] {
       { id: "fleet-record", group: g, label: `Agents: record ${name}`, hint: "one HTML file that replays anywhere", run: () => void record(sel.key, true) },
     );
     if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Agents: replay this session on the Cast canvas", hint: "the cards light up in the order they worked", run: () => void openReplay(sel.s.session_id, "local") });
-    if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Agents: open this session in Runs", run: () => goSection("agents", "runs") });
+    if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Agents: open this session's run", hint: "its lane on Live, or its report in History", run: () => openWorkerRun(String(sel.s.cwd || "")) });
   }
   for (const r of allAgents(s).filter((x) => isLive(x.a)).slice(0, 24))
     out.push({

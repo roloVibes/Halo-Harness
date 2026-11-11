@@ -62,7 +62,7 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
     for ref in sorted(set(pngs)):
         path = Path(ref)
         ctx.check(f"{ref} lives in docs/media/", path.parent.as_posix() == "docs/media")
-        if path.stem in ("studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-roles", "studio-design", "studio-modes",
+        if path.stem in ("studio-run-live", "studio-run-report", "studio-roles", "studio-design", "studio-modes",  # 3.4.0.0 D: studio-run-*, --mode orchestra
                          "hero",  # 3.1.6.0 R4: tools/hero_png.py, the wordmark over the Session dashboard
                          "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
                          "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-agents", "studio-session",
@@ -91,7 +91,7 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
     for png in MEDIA.glob("*.png"):
         if png.stem in ("hero", "social-preview", "studio-design", "studio-modes",  # 3.1.6.0 R4: both from tools/hero_png.py
                         "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
-                        "studio-orchestra", "studio-orchestra-start", "studio-orchestra-plan", "studio-roles",
+                        "studio-run-live", "studio-run-report", "studio-roles",
                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-agents", "studio-session",
                         "studio-packs", "studio-setup", "studio-settings", "studio-local", "studio-workflows", "studio-steer", "studio-thinking", "studio-talk", "studio-auto", "studio-model-picker"):  # 3.3.5.0 R1: --mode local (tools/capture_local.py); 3.3.0.0 R4: --mode setup (tools/capture_setup.py); 3.3.3.0 R2: --mode settings (tools/capture_settings.py); hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py; 3.2.0.0 R7 --mode packs) and studio_modes_banner.py, not TUI captures
             continue

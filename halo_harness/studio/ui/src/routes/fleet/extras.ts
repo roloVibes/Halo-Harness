@@ -12,7 +12,8 @@ import { fleet, findAgent, findSession, parseKey, sessionTitle } from "./store";
 import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
 import { loadMissions, openMission, refresh as refreshMission } from "./mload";
-import { openRun } from "../orchestra/sync";
+import { openRun } from "../agents/run/door";
+import { reviewPlan } from "../agents/run/planPanel";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
 
 export { showFleetPanel }; // 3.3.16.0 R2: an old Fleet panel's door opens its new home (routes/agents/fleetDoor.ts)
@@ -24,8 +25,9 @@ const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid
  *  the steward's note Local -> Hosts on its host, a spend cap the machine on Live, an agent or a conflict Live on it. */
 export function openTarget(t: OpenTarget): void {
   if (t.section !== "fleet") {
-    goSection(t.section as SectionId, t.view); // 3.3.16.0 R1: a row of `orchestra` or `roles` opens Agents on its view
-    if (t.view === "runs" && t.run && !t.stage) void openRun(t.run); // an Orchestra run's row: that run, open (a team stage's is not one)
+    if (t.run && !t.stage && (t.view === "runs" || t.view === "live")) return void openRun(t.run); // 3.4.0.0 D: on Live while it runs, else History
+    goSection(t.section as SectionId, t.view === "runs" ? "live" : t.view); // 3.3.16.0 R1: a row of `orchestra` or `roles` opens Agents on its view
+    if (t.panel === "orchestra-plan") reviewPlan(); // the supervisor's "open the plan"
     return;
   }
   if (t.panel === "fleet-mission" && t.mission) return openMission(t.mission, String(t.part || "")); // 3.0.6.0 R8

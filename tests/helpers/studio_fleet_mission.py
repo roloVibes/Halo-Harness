@@ -1,6 +1,6 @@
 """tests.helpers.studio_fleet_mission -- the Mission panel of Halo 3.0.6.0 round R8 in headless Chrome over the DevTools
 protocol, over tests/helpers/studio_fleet_rig.py with the mission fakes of tests/helpers/studio_fleet_mseed.py (no model
-call). 3.3.16.0 R2 "the Fleet fold": the Mission panel is Agents -> Runs' (M opens it), the plan draws on Agents -> Live
+call). 3.3.16.0 R2 "the Fleet fold": the Mission panel is Agents -> Live's (3.4.0.0 D; Runs' before; M opens it), the plan draws on Agents -> Live
 (the fleet scope: a part node under the machine it runs on), the queue is Agents' Attention chip. Run through
 tests/helpers/studio_fleet.py:
 
@@ -13,8 +13,7 @@ tests/helpers/studio_fleet.py:
   gridcraft) there answers 422: the toast says why and the node snaps back;
 * Approve, then Run: part 1 waits on the member's owner (asked), part 2 runs here; another hub's run_task on this
   harness opens a mission_ask row whose O opens the Mission panel on that mission; R denies it; the member's owner
-  allows: part 1 runs, its agent's line shows, Live's session nodes carry the mission chip, Runs' list counts one
-  mission running; "Open the part's agent" puts it in Live's inspector;
+  allows: part 1 runs, its agent's line shows, Live's session nodes carry the mission chip, its panel says running; "Open the part's agent" puts it in Live's inspector;
 * Stop asks for a reason, the mission ends stopped and the report face lists the cost per harness.
 """
 from __future__ import annotations
@@ -44,7 +43,10 @@ def press(c, expr: str) -> None:
 
 
 def view(c, v: str) -> None:
-    """Agents' view switch: cast, runs or live."""
+    """Agents' view switch: cast or live (3.4.0.0 D: Runs went; the Mission panel is Live's, so `runs` is Live)."""
+    v = "live" if v == "runs" else v
+    if c.js(f"document.querySelector('[data-testid=\"agents\"]')?.dataset.view === '{v}'"):
+        return
     c.click_on(f"document.querySelector('[data-testid=\"agents-view-{v}\"]')")
     c.wait(f"document.querySelector('[data-testid=\"agents\"]')?.dataset.view === '{v}'", 10)
 
@@ -57,17 +59,14 @@ def queue(c, on: bool) -> None:
 
 
 def running_missions(c) -> str:
-    """Runs' list (the "+" menu): the missions whose row says running; the menu closes again."""
-    from tests.helpers.studio_header_menus import close_menus, open_plus
-    open_plus(c)
-    n = c.wait("document.querySelectorAll('[data-testid=\"orchestra-menu-mission\"]').length && [...document.querySelectorAll("
-               "'[data-testid=\"orchestra-menu-mission\"]')].filter((r) => [...r.querySelectorAll('.badge')].some((b) => b.textContent === 'running')).length + ''", 15)
-    close_menus(c)
-    return "none" if n == "0" else f"{n} mission running"
+    """3.4.0.0 D (Runs' list went): the open mission's state on its Mission panel, on Live -- "1 mission running" while
+    it runs, else "none"."""
+    st = c.wait("document.querySelector('[data-testid=\"fleet-mission-state\"]')?.textContent || ''", 15)
+    return "1 mission running" if st == "running" else "none"
 
 
 def open_mission_panel(c) -> None:
-    """M on Agents: Runs' Mission panel (3.3.16.0 R2; a strip on the Fleet section's right edge before)."""
+    """M on Agents: Live's Mission panel (3.4.0.0 D; Runs' 3.3.16.0 R2; a strip on the Fleet section's right edge before)."""
     c.js("document.activeElement?.blur(); 1")
     key(c, "m")
     c.wait(f"!!{PANEL}?.querySelector('.panel-body:not([hidden])')", 30)
@@ -85,7 +84,7 @@ def plan_and_drag(c, rig, out: dict) -> str:
     from tests.helpers.studio_fleet_mseed import GOAL
     from tests.helpers.studio_fleet_panels import seen
     c.js("document.activeElement?.blur(); 1")
-    key(c, "m")  # Agents: M brings Runs' Mission panel up
+    key(c, "m")  # Agents: M brings the Mission panel up on Live
     out["about"] = c.wait(f"{PANEL}?.querySelector('.panel-title')?.title", 30)  # 3.3.2.0 R3: the title's tooltip
     out["how"] = c.wait("document.querySelectorAll('[data-testid=\"fleet-mission-how\"] li').length", 20)
     seen(c, "document.querySelector('[data-testid=\"fleet-mission-goal\"]')")

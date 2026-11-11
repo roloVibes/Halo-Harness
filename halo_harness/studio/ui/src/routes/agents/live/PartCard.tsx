@@ -10,7 +10,7 @@ import { partAgent } from "../../fleet/MissionRun";
 import { partState, useMissions, usd } from "../../fleet/mstore";
 import { PartPackInspector } from "../../fleet/PackCaps";
 import { useFleet } from "../../fleet/store";
-import { OwnsLine } from "../runs/Owns";
+import { OwnsLine } from "../run/Owns";
 import { selectLive } from "../../roles/liveModel";
 
 export function PartCard({ id }: { id: string }) {

@@ -8,6 +8,8 @@ import type { LiveNode } from "../../roles/liveModel";
 import { live, useLive } from "../../shared/liveFeed";
 import { startLiveTree } from "../../shared/liveTree"; // the feed's THINK and TALK frames too (the near rows, the hand-offs)
 import { recentOf, waitingPath, waitOf, type Wait, type WaitPath } from "./waits";
+import { orch } from "../../orchestra/store";
+import { runWaitOf } from "../run/runWaits";
 
 type State = { waits: Record<string, Wait>; path: string[]; leaf: string; json: string };
 export const waitStore = createStore<State>({ waits: {}, path: [], leaf: "", json: "" });
@@ -27,8 +29,9 @@ export function useWaits(nodes: LiveNode[], now: number, on: boolean): { waits: 
     const recent = recentOf(live.get().lines, keys);
     const kids = new Map<string, LiveNode[]>();
     for (const x of nodes) if (x.parent) kids.set(x.parent, [...(kids.get(x.parent) || []), x]);
+    const run = orch.get().data; // 3.4.0.0 D: a goal run's boxes (run/runWaits.ts): the gate and the merge on the path
     for (const x of nodes) {
-      const w = waitOf(x, x.key ? open[x.key] || null : null, recent.get(x.key), kids.get(x.id) || [], now);
+      const w = x.run ? runWaitOf(x, run) : waitOf(x, x.key ? open[x.key] || null : null, recent.get(x.key), kids.get(x.id) || [], now);
       if (w) waits.set(x.id, w);
     }
     return { waits, path: waitingPath(nodes, waits) };

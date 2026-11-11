@@ -172,19 +172,20 @@ session read like the terminal, a box to type into it (the slash list, Queue it 
 
 ### Agents
 
-**What it is** (3.3.16.0 R1). Your agents in one place (`Alt+2`, "The cast, its runs, and what runs now"): Team, Roles and
-Orchestra folded into one section with three views on one switch, first on its bar -- **Cast** (`C`: the lineup and
-its bios, Roles as it was), **Runs** (`R`: Orchestra as it was -- a goal, the lead's plan, the lanes in their
-worktrees, the merge, the tests, the report and the coach -- with each lane's owns line and **Test this lineup**) and
-**Live** (`L`: the session's agents as a tree, a running Orchestra run's lanes under its lead; 3.3.16.0 R2: a
+**What it is** (3.3.16.0 R1). Your agents in one place (`Alt+2`, "The cast, what runs now on every machine (a goal run
+too), and what ran"): Team, Roles and Orchestra folded into one section with its views on one switch, first on its bar
+-- **Cast** (`C`: the lineup and its bios, Roles as it was), **Live** (`L`: the session's agents as a tree, a goal run
+as a job with its lanes under its lead, Run a goal on its bar and History beside it -- 3.4.0.0 D: Runs, the Orchestra
+console, went, [STUDIO-orchestra.md](STUDIO-orchestra.md); 3.3.16.0 R2: a
 **this halo | fleet** switch, the fleet being every machine you run or joined, and the Attention chip). It opens on Live (3.3.18.0: only what
 runs now, the past in History, [STUDIO-live.md](STUDIO-live.md)) with nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
-and `?mode=team` on Runs; `?mode=agents&view=cast|runs|live` is the door itself. The whole story:
+and `?mode=team` on Live (3.4.0.0 D: Runs went); `?mode=agents&view=cast|live|workflows` is the door itself. The whole story:
 [STUDIO-agents.md](STUDIO-agents.md).
 
-**Panels.** Cast and Live draw Roles' six (Lineups, Canvas, Inspector, Problems, Bios, Models); Runs draws
-Orchestra's eight (Goal, Workflow, Run grid, Live file, Lanes, Report, Claims, Log). The header's `+` and `...` menus,
-the palette's panel rows and the status bar follow the view.
+**Panels.** Cast and Live draw Roles' six (Lineups, Canvas, Inspector, Problems, Bios, Models); Live adds three
+optional ones, closed until a door opens them: Activity, Mission and a goal run's plan review (3.4.0.0 D; Runs' eight
+went). The header's `+` and `...` menus, the palette's panel rows and the status bar follow the view; **Workflows**
+(`W`) is the board of squares.
 
 #### Roles
 
@@ -258,9 +259,9 @@ its Live tab open; `Space` pins that agent's mini stream, with the Live tab open
 
 #### Orchestra
 
-Moved: Orchestra is Agents' **Runs** since 3.3.16.0 R1 (`Alt+2` then `R`, or the old door
-`?mode=orchestra`); everything below is as it was, plus the owns line and Test this lineup
-([STUDIO-orchestra.md](STUDIO-orchestra.md#orchestra-the-run-console), [STUDIO-agents.md](STUDIO-agents.md#who-owns-what-the-owns-line)).
+Moved: Orchestra was Agents' **Runs** from 3.3.16.0 R1; since 3.4.0.0 D a goal run is a job on Agents -> **Live** (Run a
+goal on its bar) and its report a page of History (`?mode=orchestra` lands on Live); what follows is the engine
+([STUDIO-orchestra.md](STUDIO-orchestra.md), [STUDIO-agents.md](STUDIO-agents.md#who-owns-what-the-owns-line)).
 
 
 **What it is.** Several agents write to the same files at once and nothing is
@@ -311,8 +312,8 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 #### Team
 
-Moved: Team's board went in 3.3.16.0 R1. Who owns what is a run plan's detail in Agents' **Runs** (each
-lane's owns line, a lane's claims); `?mode=team` lands there with one line the first time. The team file and
+Moved: Team's board went in 3.3.16.0 R1. Who owns what is a goal run's detail on Agents -> **Live** (each
+lane's OWNS row, its Claims page; 3.4.0.0 D); `?mode=team` lands there with one line the first time. The team file and
 `halo team` left in 3.4.0.0.
 
 #### Fleet
@@ -321,7 +322,7 @@ Moved: the Fleet section went in 3.3.16.0 R2; its pieces live where they belong.
 **Live** with the scope on **fleet** (`F` on the canvas, `?mode=fleet`): every machine as a box, its sessions as cards,
 each session's agents as a tree; the inspector follows the pick (the glance, a machine's summary with its specs and
 spend caps, one agent, a mission part). Attention is the chip in Agents' bar (`A`); Activity is an optional panel of
-Live; missions are runs (Agents -> Runs, `M`); pairing, sharing and the people are Setup -> **Machines**; the Ollama
+Live; a mission's panel is Live's (`M`); pairing, sharing and the people are Setup -> **Machines**; the Ollama
 panel's card, traffic, fit plan and steward are Local -> **Hosts** and **Steward**. The whole story:
 [STUDIO-fleet.md](STUDIO-fleet.md).
 

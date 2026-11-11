@@ -82,7 +82,7 @@ export function waitingPath(nodes: LiveNode[], waits: Map<string, Wait>): WaitPa
   let cur = root;
   for (let i = 0; i < 24; i++) {
     const w = waits.get(cur.id);
-    const next = w?.kind === "agent" ? byKey.get(w.who) : undefined;
+    const next = w?.kind === "agent" ? byKey.get(w.who) || byId.get(w.who) : undefined; // 3.4.0.0 D: a run's lane by its id
     if (!next || !waits.has(next.id)) break;
     cur = next;
   }

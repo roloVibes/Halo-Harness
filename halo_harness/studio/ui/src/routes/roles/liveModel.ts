@@ -28,6 +28,8 @@ export type LiveNode = {
   /** 3.3.16.0 R1: a live Orchestra run's node on the same tree (routes/agents/live/runLanes.tsx): its run, a lane's number
    *  and worktree (its branch). */
   run?: string; lane?: number; worktree?: string;
+  /** 3.4.0.0 D: a lane's owns line on its box -- the claim ledger's keys it holds, else the units the plan gave it. */
+  owns?: string[];
   /** 3.3.16.0 R2 (the fleet scope, routes/agents/live/fleetModel.ts): a machine, a session or a mission part on the same
    *  tree, and the harness and session every node of that scope belongs to. */
   kind?: "machine" | "session" | "part"; harness?: string; sid?: string;

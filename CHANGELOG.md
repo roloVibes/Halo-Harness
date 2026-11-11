@@ -310,6 +310,73 @@ tests/helpers/fleet_pack.py sets it and serves the moved modules under their old
   the coach pack off, one line naming the coach pack. `ext.core.REACHABLE` lists no `fleet.*` module (they are
   `peers.*`, `live.*` or the fleet pack's now).
 
+### D: a goal run is a job on Live and in History (Orchestra's Runs view and Start screen go)
+
+The owner (2026-11-10): "I always see unused older versions of orchestrations ... I'd love to see what is actually
+happening." Orchestra's engine is core and unchanged (worktrees, merge, the test gate, the supervisor, outcomes,
+replanning; the `code` block, `halo orchestra` and `halo supervise` run on it). What went is the separate place to look
+at it: one place shows what runs now (Agents -> Live), one shows what ran (History, on Live's bar).
+
+- **Agents has Cast, Live and Workflows** (`C`, `L`, `W`). `R` and every door that named Runs land on Live (once in a
+  browser: "Runs is gone: a goal runs on Live (Run a goal on its bar); a finished run is in History"); a door that names
+  a run (`?mode=agents&run=<id>`, an attention row's `o`, the palette) opens it on Live while it runs, else its report.
+- **A running goal run is a job on Live**: its lead, its lanes in the run's block under it (a group box of kind `run`;
+  with the plan under it on, the block "goal run: <goal>"), each lane a box with a row per fact -- state, model, cost,
+  what it owns (its claims), its worktree -- and what it waits on: the merge and the gate are steps on the waiting path,
+  the sentence under the bar covers the run. A click is Live's inspector, summary first (goal, owns, state, last output,
+  cost), then one page each: Plan, Claims (Release, Steal), Diff, Test result, Log; Stop the run (one confirm), Review the
+  plan, Steer its worker (the lane's worker in the inspector: Steer, Pause, Stop), Watch in Session. Hover = its card.
+- **Run a goal** on Live's bar and in the palette opens the goal form as a panel beside the canvas (what you want, done
+  when, the shared files, the gate's test, Review the plan first) that says what it will do, what it may cost and where
+  it writes before Run; Run it across the fleet and a pack's workflow are in it. No screen of its own.
+- **Review the plan first**: the lead waits on you on Live; Review the plan opens the plan review (the 3.0.9.0 canvas) as
+  a Live panel, the canvas folded while it is open; Approve and run closes it.
+- **History**: a goal run's row says how it ended, its wall time, its cost and its models (`GET orchestra/runs` rows
+  carry `models`, `elapsed_s`, `ended`, `stop_reason`) and opens its report as a page of History -- the plan and its
+  lanes, the outcomes, the gate, the merge, the artifacts, a dry run's jobs -- with Copy, Replay and Run it again.
+
+#### Removed (each door and where its job went)
+
+| Door | Its job now |
+|---|---|
+| Agents -> Runs (the view, `R`, `?view=runs`, `?mode=orchestra`, the palette's **Agents: Runs**) | Agents -> Live (`R` lands there) |
+| Runs' Start screen (the goal form, the five steps, past runs, open the workspace anyway) | Live's **Run a goal** panel; past runs: History |
+| the Goal panel (the open run's line: state, cost, stop, new run) | the run's lead on Live and its inspector (Stop the run) |
+| the Workflow panel (the step graph, the gate diamond) | the run's block on Live, the lead's waits (the merge, the gate) |
+| the Run grid panel (the counters, one tile per lane) | the lanes' boxes on Live; the lead's summary (lanes by state) |
+| the Lanes panel (the timeline, the hand-off arcs, the owns line, a lane's claims) | each lane's box (OWNS row) and its inspector pages (Plan: after and takes; Claims) |
+| the Live file panel (the goal file with each lane's bands) | a lane's **Diff** page (its units: base, then the lane's text) |
+| the Report panel and its Artifacts tab | History's report page (the checks, the lanes, the gate, the merge, the artifacts; Copy) |
+| the Log panel | a lane's or the lead's **Log** page |
+| the Claims panel (Release, Steal) | the **Claims** page (Release, Steal while live) |
+| the plan canvas taking the console's place | the **Plan** review panel on Live (from Review the plan) |
+| the "+" menu's RUNS group (New run, the runs, the missions) | Run a goal; History; the Mission panel (`M`) |
+| Runs' mission rows | a running mission on Live's fleet scope, a finished one in History; its panel on Live |
+| the Mission panel on Runs | the Mission panel on Live (`M`, `?mode=fleet&mission=<id>`) |
+| J / K over the lanes, F follow the Log | J / K hop Live's agents; a lane's Log page |
+| the palette's Orchestra: new run / stop run / open run / focus lane | Agents: Run a goal / stop the run / lane N; History: run <id>; Agents: review the plan |
+| compare two runs, retry | none was a Runs control: two reports side by side are two History pages; Run it again on a report is the retry (the goal filled in) |
+
+- Files: `routes/orchestra/` Orchestra.tsx, Start.tsx, OrchRail.tsx, GoalPanel.tsx, WorkflowGraph.tsx, RunGrid.tsx,
+  Lanes.tsx, LaneEdges.tsx, LiveFile.tsx, Log.tsx, Claims.tsx, Report.tsx, ReportTabs.tsx, commands.ts and the old
+  FeedPanels.tsx (its FeedDot kept as FeedDot.tsx): 1,621 lines; `styles/orchestra-file.css` (143) and every dead rule
+  of orchestra.css, orchestra-plan.css, start-view.css, agents.css; the eight panels' help text (help-orchestra.ts keeps
+  the plan review's); SECTION_HELP's `orchestra` copy; the pictures `studio-orchestra.png`, `-start.png`, `-plan.png`
+  (new: `studio-run-live.png`, `studio-run-report.png`); Runs' tests and drivers rewritten for Live and History.
+- Docs: STUDIO-orchestra.md rewritten ("Studio: a goal run on Live and in History"), STUDIO-agents, ORCHESTRA "In
+  Studio", the glossary (lane, plan), the README section and every doc that named Agents -> Runs.
+
+#### Also in D
+
+- **The capability checker is core again** (`halo_harness/packs/fleet_registry.py`, `peers/needs.py`,
+  `peers/projects.py`, `packs/fleet_rules.hidden`): with the fleet pack off, a pack workflow's capability `requires`
+  are checked and a pack declaring capabilities shows its rows (`halo pack inspect`, `halo pack doctor`); the fleet pack
+  re-exports them through `ext.core` (REACHABLE + `packs.fleet_registry`, `peers.needs`, `peers.projects`).
+- **`scripts/prepush.py`** removes every folder under `halo_harness/` and `tests/` that holds nothing but `__pycache__`
+  before the tiers (one line each), and on Windows passes over WSL's `bash` for Git's (one line; no Git bash: the fix,
+  exit 2) -- `scripts/prepush_tree.py`.
+- `tests/helpers/run_all_support.py`'s cache list names the real modules (`peers.catalog`, the fleet pack's `health`).
+
 ## [3.3.18.0] - unreleased
 
 ### The living canvas

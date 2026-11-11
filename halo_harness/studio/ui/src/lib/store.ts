@@ -55,9 +55,9 @@ export type CoreSectionId = "session" | "agents" | "local" | "packs" | "setup" |
 export type PackSectionId = `${string}--${string}`;
 /** A section the rail shows (the current one, the visited ones). */
 export type ShellSectionId = CoreSectionId | PackSectionId;
-/** 3.3.16.0 R1: Agents' two workspaces keep their ids for their layouts, status lines, panels and help: roles (Cast and
- *  Live) and orchestra (Runs). */
-export type AgentsPart = "roles" | "orchestra";
+/** 3.3.16.0 R1: Agents' workspace keeps its id for its layout, status line, panels and help: roles (Cast and Live;
+ *  3.4.0.0 D: Runs' `orchestra` workspace went with the runs fold). */
+export type AgentsPart = "roles";
 export type SectionId = ShellSectionId | AgentsPart;
 /** 3.3.12.0 R1: a theme name of the palette registry (`holo`, `ember-daltonized`, ...) or "auto" (follow the system). */
 export type ThemeChoice = string;
@@ -154,7 +154,7 @@ const INSPECTOR_KEY = "halo.studio.inspector";
 function initialInspector(): PanelRef | null {
   try {
     const got = JSON.parse(readLocal(INSPECTOR_KEY) || "null") as PanelRef | null;
-    const here = got?.section === first || (first === "agents" && (got?.section === "roles" || got?.section === "orchestra")); // 3.3.16.0 R1: its parts
+    const here = got?.section === first || (first === "agents" && got?.section === "roles"); // 3.3.16.0 R1: its workspace
     return got && here && typeof got.panel === "string" ? got : null;
   } catch {
     return null;

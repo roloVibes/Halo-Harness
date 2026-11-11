@@ -1,16 +1,16 @@
 """tests.test_studio_agents -- Halo 3.3.16.0 R1 "Agents: one section" (the owner, 2026-11-09: "roles and orchestration
 are almost the same ... all rolled into the new agents"): Team, Roles and Orchestra are one Studio section, Agents
-(Alt+2), with three views -- Cast, Runs, Live -- in headless Chrome through tests/helpers/studio_agents.py (skipped
+(Alt+2), with its views -- Cast, Live, Workflows (3.4.0.0 D: Runs went) -- in headless Chrome through tests/helpers/studio_agents.py (skipped
 without one), over a scratch home and a temp repo holding a live Orchestra run whose workers wait on a gate; no
 model call:
 
 1. Alt+2 opens Agents on Live (3.3.18.0: what runs now) with nothing else open (no inspector, no dialog, no help); six section tabs,
    Session Alt+1, Agents Alt+2, Local Alt+3 ... Settings Alt+6 (3.3.16.0 R2: Fleet folded in);
-2. the doors land on their views: ?mode=roles -> Cast, roles&view=live -> Live, orchestra -> Runs,
-   agents&view=runs|live, agents -> Live (3.3.18.0); ?mode=team lands on Runs with Team's one line, and not again;
-3. C, R, L switch the views (3.3.16.0 R3: W the fourth, Workflows; `?mode=agents&view=workflows` its door);
-4. Runs: every lane says what it owns (the claim ledger's keys), a focused lane lists its claims (holder, state);
-5. Live: the run's lead and its five lanes under it, each with its number in its lane colour and its worktree;
+2. the doors land on their views: ?mode=roles -> Cast, roles&view=live -> Live, orchestra -> Live (3.4.0.0 D),
+   agents&view=runs|live -> Live, agents -> Live (3.3.18.0); ?mode=team lands on Live with Team's one line, and not again;
+3. C, L, W switch the views, R lands on Live (3.4.0.0 D; `?mode=agents&view=workflows` the board's door);
+4. Live: every lane box says what it owns (the claim ledger's keys), a lane's Claims page lists its claims;
+5. Live: the run's lead and its five lanes in the run's block, each with its number in its lane colour and its worktree;
 6. Test this lineup: disabled on Auto with the Auto line; with a lineup of your own enabled, its card first;
 3.3.16.0 R2 "the Fleet fold" (tests/helpers/studio_agents_fleet.py, this harness alone and one drafted mission):
 7. ?mode=fleet lands on Live with the fleet scope on (this machine's node in its box) and Fleet's line once; the scope
@@ -68,22 +68,22 @@ def test_alt2_opens_agents_on_live_with_nothing_else_open(ctx: Ctx):
 @test
 def test_the_doors_land_on_their_views(ctx: Ctx):
     got = _got(ctx)
-    want = {"mode=roles": "cast", "mode=roles&view=live": "live", "mode=orchestra": "runs",
-            "mode=agents&view=runs": "runs", "mode=agents&view=live": "live", "mode=agents": "live",
+    want = {"mode=roles": "cast", "mode=roles&view=live": "live", "mode=orchestra": "live",  # 3.4.0.0 D: Runs went
+            "mode=agents&view=runs": "live", "mode=agents&view=live": "live", "mode=agents": "live",
             "mode=agents&view=workflows": "workflows"}  # 3.3.16.0 R3: the fourth view
     seen = {k: got.get(k) for k in want}
     ctx.check(f"each door's view, got {seen}", seen == want)
     first = got.get("first") or ["", ""]
-    ctx.check(f"?mode=team: Runs with Team's line, got {first}",
-              first[0] == "runs" and first[1].startswith("Team's board is gone; a run's plan shows who owns what"))
-    ctx.check(f"the second time: Runs, no line, got {got.get('again')}", got.get("again") == ["runs", False])
+    ctx.check(f"?mode=team: Live with Team's line, got {first}",
+              first[0] == "live" and first[1].startswith("Team's board is gone; a run on Live shows who owns what"))
+    ctx.check(f"the second time: Live, no line, got {got.get('again')}", got.get("again") == ["live", False])
 
 
 @test
 def test_c_r_l_switch_the_views(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"R Runs, L Live, W Workflows, C Cast, got {[got.get(k) for k in 'rlwc']}",
-              [got.get(k) for k in "rlwc"] == ["runs", "live", "workflows", "cast"])  # 3.3.16.0 R3: W the board
+    ctx.check(f"R Live (3.4.0.0 D), W Workflows, L Live, C Cast, got {[got.get(k) for k in 'rwlc']}",
+              [got.get(k) for k in "rwlc"] == ["live", "workflows", "live", "cast"])  # 3.3.16.0 R3: W the board
 
 
 @test
@@ -91,9 +91,9 @@ def test_a_lane_says_what_it_owns_and_its_claims(ctx: Ctx):
     got = _got(ctx)
     owns = got.get("owns") or []
     ctx.check(f"five owns lines, each the lane's claim key, got {owns}",
-              len(owns) == 5 and all(o.startswith("OWNS") and "basket.py#" in o for o in owns))
+              len(owns) == 5 and all(o.startswith("OWNS") and "basket.py#" in o for o in owns))  # 3.4.0.0 D: a row of each lane box
     claims = got.get("claims") or []
-    ctx.check(f"lane 1 focused: its claim, held by lane:1, claimed, got {claims}",
+    ctx.check(f"lane 1's Claims page: its claim, held by lane:1, claimed, got {claims}",
               len(claims) == 1 and claims[0][0] == "lane:1" and claims[0][1] == "claimed" and "basket.py#add_item" in claims[0][2])
 
 
@@ -105,7 +105,8 @@ def test_live_draws_the_run_s_lanes_under_its_lead(ctx: Ctx):
               [l[0] for l in lanes] == [1, 2, 3, 4, 5] and [l[1] for l in lanes] == ["0", "1", "2", "3", "4"]
               and all(str(l[2]).endswith(f"worker-{l[0]}") for l in lanes))
     ctx.check(f"the lead is the run, got {got.get('lead')!r} for {got.get('run')!r}", bool(got.get("run")) and got.get("lead") == got.get("run"))
-    ctx.check(f"each lane hangs under the lead, got {got.get('edges')} {got.get('under_lead')}", got.get("edges") == 5 and got.get("under_lead") is True)
+    block = got.get("block") or ["", 0]
+    ctx.check(f"the lanes are in the run's block under the lead (3.4.0.0 D), got {block}", str(block[0]) == f"run:{got.get('run')}:block" and block[1] == 5)
 
 
 @test
@@ -117,9 +118,10 @@ def test_the_old_words_are_doors_and_team_left_nothing_behind(ctx: Ctx):
     from halo_harness.studio.modes import check, door_line
     ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src"
     door = (ui / "lib" / "agentsDoor.ts").read_text(encoding="utf-8")
-    ctx.check("roles lands on Cast, orchestra and team on Runs, fleet on Live; Team's and Fleet's lines",
-              'AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "runs", team: "runs", fleet: "live" }' in door
-              and "Team's board is gone; a run's plan shows who owns what" in door
+    ctx.check("roles lands on Cast, orchestra, team and fleet on Live (3.4.0.0 D); Team's, Runs' and Fleet's lines",
+              'AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "live", team: "live", fleet: "live" }' in door
+              and "Team's board is gone; a run on Live shows who owns what" in door
+              and "Runs is gone: a goal runs on Live (Run a goal on its bar); a finished run is in History" in door
               and "Fleet is Agents -> Live now: machines in Setup -> Machines, models in Local" in door)
     ctx.check("STUDIO_MODES: the six, then the four old words as doors",
               S.STUDIO_SECTIONS == ("session", "agents", "local", "packs", "setup", "settings")
@@ -128,7 +130,8 @@ def test_the_old_words_are_doors_and_team_left_nothing_behind(ctx: Ctx):
     lines = {w: door_line(w) for w in ("roles", "orchestra", "team", "agents", "fleet", "local")}
     ctx.check(f"each old word's line names the new door; agents and local print none, got {lines}",
               lines["roles"].startswith("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)")
-              and lines["orchestra"].startswith("Orchestra is Agents -> Runs now") and lines["team"].startswith("Team is Agents -> Runs now")
+              and lines["orchestra"].startswith("Orchestra is Agents -> Live now") and "Runs is gone" in lines["orchestra"]
+              and lines["team"].startswith("Team is Agents -> Live now")
               and "Team's board is gone" in lines["team"] and lines["fleet"].startswith("Fleet is Agents -> Live now, the fleet scope on")
               and "Setup -> Machines" in lines["fleet"] and lines["agents"] == lines["local"] == "")
     repo = ui.parents[3]
@@ -158,8 +161,8 @@ def test_fleet_lands_on_live_with_the_fleet_scope_and_its_switch(ctx: Ctx):
 @test
 def test_the_attention_chip_is_on_every_view_and_opens_the_queue(ctx: Ctx):
     got = _fleet(ctx)
-    views = [got.get(v) for v in ("cast", "runs", "live")]
-    ctx.check(f"the chip on Cast, Runs and Live, nothing waiting (not amber), its panel closed on load, got {views}",
+    views = [got.get(v) for v in ("cast", "live", "workflows")]
+    ctx.check(f"the chip on Cast, Live and Workflows, nothing waiting (not amber), its panel closed on load, got {views}",
               views == [["0", "", False]] * 3)
     ctx.check(f"the chip opens the queue (the panel id it always had), its count the queue's, got {got.get('chip_opened')!r}",
               got.get("chip_opened") == "fleet-attention" and got.get("rows_match") is True)
@@ -178,14 +181,11 @@ def test_live_inspector_is_summary_first_by_what_is_picked(ctx: Ctx):
 
 
 @test
-def test_a_mission_is_a_row_of_runs_and_opens_there(ctx: Ctx):
+def test_a_mission_s_door_opens_its_panel_on_live(ctx: Ctx):
+    """3.4.0.0 D: Runs' mission rows went with Runs; `?mode=fleet&mission=<id>` opens the Mission panel on Live, and M."""
     got = _fleet(ctx)
-    mid = got.get("mission") or "?"
-    row = str(got.get("row") or "")
-    ctx.check(f"the mission's row in Runs' list says it is a mission and where it runs, got {row!r}",
-              row.startswith(mid) and "Chart the basket prices across the fleet" in row and "mission · no machine yet" in row)
-    ctx.check(f"a click opens Runs' Mission panel on it, got {got.get('opened')!r}", got.get("opened") == "Chart the basket prices across the fleet")
-    ctx.check(f"?mode=fleet&mission=<id> lands on it too, got {got.get('mission_door')!r}", got.get("mission_door") == "Chart the basket prices across the fleet")
+    ctx.check(f"?mode=fleet&mission=<id>: Live, the Mission panel on it, got {got.get('mission_door')!r}", got.get("mission_door") == "Chart the basket prices across the fleet")
+    ctx.check(f"M opens the Mission panel on Live, got {got.get('m_key')!r}", got.get("m_key") == "mission")
 
 
 if __name__ == "__main__":

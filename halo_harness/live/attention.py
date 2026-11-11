@@ -43,7 +43,7 @@ KEYS = {
     "fleet_ask": {"a": "allow", "r": "deny", **OPEN},
     "waiting": {"s": "stop", **OPEN},
     "paused": {"a": "resume", "s": "stop", **OPEN},
-    "orchestra_gate": {"a": "set aside", "o": "open Agents: Runs"},  # 3.3.16.0 R1: Orchestra is Agents -> Runs
+    "orchestra_gate": {"a": "set aside", "o": "open its report"},  # 3.4.0.0 D: a stopped run's report is in History
     "control_ask": {"a": "set aside", **OPEN},
     "cap": {"a": "lift for today", "o": "open the spend"},  # 3.3.16.0 R2: Agents -> Live, the machine's spend
     "conflict": {"a": "set aside", "o": "open Live"},  # 3.3.16.0 R2: the Fleet Map is Agents -> Live

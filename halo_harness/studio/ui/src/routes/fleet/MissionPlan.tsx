@@ -9,7 +9,7 @@
 // and Run (Run approves first) list what still stops them.
 import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
-import { OwnsLine } from "../agents/runs/Owns"; // 3.3.16.0 R2: a part's claims as the owns line R1 drew on a lane
+import { OwnsLine } from "../agents/run/Owns"; // 3.3.16.0 R2: a part's claims as the owns line R1 drew on a lane
 import { EDITABLE, missions, partState, useMissions, usd, type PlanPart, type View } from "./mstore";
 import { approve, dropPart, planAgain, runIt } from "./mload";
 import { PackNeeds, PartPackInspector } from "./PackCaps";

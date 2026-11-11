@@ -73,10 +73,3 @@
 .og-badge[data-state="failed"] { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
 .og-badge[data-state="pending"] { color: var(--muted); }
 .og-badge[data-state="done"] { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
-.og-node[data-picked] .og-shape { stroke-width: 2.2; filter: drop-shadow(0 0 5px var(--accent-soft)); }
-.og-node[data-state="waiting"] .og-shape { stroke: var(--warn); stroke-width: 2; animation: og-glow-warn 1.2s ease-in-out infinite; }
-.og-steps li { cursor: pointer; border-radius: 4px; padding: 1px 4px; }
-.og-steps li[aria-current="true"] { background: var(--accent-soft); }
-.og-steps li[data-state="waiting"] .og-step-state { color: var(--warn); }
-.og-step-dot[data-motion="waiting"] { background: var(--warn); }
-.og-run-dot[data-state="waiting"] { background: var(--warn); box-shadow: 0 0 8px var(--warn); }

@@ -8,14 +8,11 @@ errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles
 React Roles section: a seeded lineup with two tiers and a live card
 (docs/media/studio-roles.png), with --dom its Start view and the seeded
 lineup with a bio open, counted by data-testid; 3.0.7.0 R3's `--mode design` is the design pack's
-(halo_harness/templates/packs/design/tests/capture_design.py, 3.3.13.0 R2); `--mode shell` renders the React shell at / (Orchestra and
-Roles) and, with --dom, counts its data-testid values. R4: `--mode
-orchestra` seeds a finished Orchestra run (the R2 fixture: basket.py, five
-lanes, one judged conflict, the report) in a temp git repo, opens the shell's
-Orchestra section over it (docs/media/studio-orchestra.png) and, with --dom,
-counts the run console's data-testid values.
-R6b: `--mode orchestra` lives in tools/capture_orchestra.py and also
-renders the Start view over a repo with no run (studio-orchestra-start.png). 3.0.5.0 R3:
+(halo_harness/templates/packs/design/tests/capture_design.py, 3.3.13.0 R2); `--mode shell` renders the React shell at / (the
+old Orchestra door, which lands on Agents -> Live, and Roles) and, with --dom, counts its data-testid values. `--mode
+orchestra` (tools/capture_orchestra.py; 3.4.0.0 D "the runs fold": Runs' console and Start view went) seeds a finished
+goal run (the R2 fixture: basket.py, five lanes, one judged conflict, the report) and renders its report as a page of
+History (studio-run-report.png), and a run waiting for its plan on Live (studio-run-live.png). 3.0.5.0 R3:
 `--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
 (tests/helpers/studio_fleet_rig.py); 3.3.16.0 R2 (the Fleet fold) renders Agents -> Live on the fleet with a
 conflict edge and the glance (studio-fleet.png), Setup -> Machines (studio-fleet-panels.png), a machine's Specs page
@@ -23,7 +20,7 @@ with Who can... gridcraft (studio-fleet-capabilities.png) and a planned mission 
 --dom counts their test ids (3.1.5.0 R3: studio-roles-live.png and the Session dashboard are
 tools/capture_session_anim.py's, with their GIFs). 3.3.16.0 R1: `--mode team` (the Team section) went with
 Team's board; `--mode roles` renders Agents on Cast and `--mode agents` the same page as studio-agents.png, the modes
-banner's Agents tile; `--mode orchestra` renders Agents on Runs. 3.2.0.0 R7: `--mode packs`
+banner's Agents tile. 3.2.0.0 R7: `--mode packs`
 (tools/capture_packs.py) installs and enables the shipped doc-review pack and renders the Pack Manager
 (studio-packs.png, the modes banner's seventh tile); --dom counts it. 3.3.0.0 R4: `--mode setup`
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
@@ -87,7 +84,8 @@ def serve(state: Path, shell: bool = True, proj: "Path | None" = None, slow_ms: 
 
 
 def shell_counts(dom: str) -> dict:
-    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "roles-canvas", "roles-start", "legacy-frame")}
+    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "roles-canvas", "roles-start", "legacy-frame",
+                                                         "roles-live-map", "live-run-goal")}  # 3.4.0.0 D: the old Orchestra door lands on Live
 
 
 def chrome(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
@@ -181,7 +179,7 @@ def _render(args) -> int:
             return capture_roles(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "orchestra":  # the run console and its Start view (tools/capture_orchestra.py)
+    if args.mode == "orchestra":  # a goal run: its report in History, a planned run on Live (tools/capture_orchestra.py)
         from capture_orchestra import capture as capture_orchestra
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-orchestra.png"
@@ -193,7 +191,7 @@ def _render(args) -> int:
         args.out = args.out[:-4] + "-shell.png"
     srv, url = serve(state)
     try:
-        if args.dom:  # the shell twice: Orchestra (its Start view: no run here) and Roles (the canvas of the active lineup)
+        if args.dom:  # the shell twice: the old Orchestra door (Live, nothing running here) and Roles (the canvas of the active lineup)
             from capture_identity import checked_dump
             budget = "--virtual-time-budget=20000"  # the Roles canvas needs the lineup fetched: 6 s is short on the Windows runner
             roles_url = url.replace("mode=orchestra", "mode=roles")

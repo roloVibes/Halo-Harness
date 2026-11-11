@@ -292,7 +292,7 @@ else this harness alone.
 
 ## In Studio
 
-The **Mission** panel (3.3.16.0 R2: in Agents -> Runs; `M` in Agents, or the palette's **Agents: new
+The **Mission** panel (3.4.0.0 D: on Agents -> Live, Runs' from 3.3.16.0 R2; `M` in Agents, or the palette's **Agents: new
 mission**) is the same flow on one screen: type the goal, pick the harnesses
 to prefer, a budget and the lineup (3.2.1.0 R1: the **Lineup** select, the
 active one first; the mission's head then says `lineup <name>`), **Plan it**. The plan is drawn on Agents -> Live with the fleet scope,

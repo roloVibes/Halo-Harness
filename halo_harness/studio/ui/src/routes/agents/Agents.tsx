@@ -1,19 +1,17 @@
-// Agents (Alt+2, 3.3.16.0 R1 "Agents: one section"): Team, Roles and Orchestra folded into one section with three
-// views, the switch first on its bar (ViewSwitch.tsx):
-//   Cast  the lineup and its bios -- Roles as it was: its Start view until you have a lineup of your own, then the
-//         canvas with its tiers, Lineups, Bios, the Inspector (Assignment / Lineup), Problems, Models.
-//   Runs  Orchestra as it was: the goal form (its Start view), the plan canvas, the lanes, the report, the saved
-//         workflows; each lane says what it owns (runs/Owns.tsx, the claim ledger's keys), and Test this lineup is on
-//         the bar (runs/TestLineup.tsx). Team's board went: a run's plan shows who owns what.
-//   Live  Roles Live: the session's agents as a tree, an Orchestra run's lanes under its lead; 3.3.16.0 R2 the fleet
-//         scope: every machine, its sessions, their agents (the Fleet section folded in: routes/agents/live/).
+// Agents (Alt+2, 3.3.16.0 R1 "Agents: one section"): Team, Roles and Orchestra folded into one section, the view switch
+// first on its bar (ViewSwitch.tsx):
+//   Cast       the lineup and its bios -- Roles as it was: its Start view until you have a lineup of your own, then
+//              the canvas with its tiers, Lineups, Bios, the Inspector (Assignment / Lineup), Problems, Models.
+//   Live       what runs now (3.3.18.0 "The living canvas"): the session's agents as a tree, a goal run as a job on it
+//              (3.4.0.0 D: its lead and lanes under the run's block, routes/agents/run/), every machine on the fleet
+//              scope; History (the bar) holds what ran, a finished run's report included.
+//   Workflows  the board of squares main may hand work to, with its library (routes/agents/workflows/Board.tsx).
 // 3.3.16.0 R2: the fleet's Attention queue floats over every view (AttentionChip.tsx, closed on load, A toggles it).
-// It opens on Live (3.3.18.0 "The living canvas": what runs now, or Live's one empty sentence) with nothing else open. A view's workspace mounts the first time it shows and stays mounted (its
-// state kept), as the shell keeps a visited section. 3.3.16.0 R3: Workflows, the fourth view (W) -- the board of
-// squares main may hand work to, with its library (routes/agents/workflows/Board.tsx).
+// It opens on Live with nothing else open. A view's workspace mounts the first time it shows and stays mounted (its
+// state kept), as the shell keeps a visited section. 3.4.0.0 D "the runs fold": the Runs view, its Start screen and its
+// workspace are gone; "Run a goal" on Live's bar opens the goal form as a panel (run/GoalDrawer.tsx).
 import { useEffect, useState } from "react";
 import type { PanelSpec } from "../../lib/workspace/types";
-import { OrchestraView } from "../orchestra/Start";
 import { usePacks } from "../packs/store";
 import { RolesView } from "../roles/Start";
 import { useAgentsKeys } from "./keys";
@@ -28,10 +26,9 @@ import { DragGhost } from "./blocks/BlockOverlay"; // 3.3.16.3: the label under 
 export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const view = useAgentsView();
   const reg = usePacks((s) => s.reg);
-  const runs = view === "runs";
   const board = view === "workflows";
-  const part = board ? "board" : runs ? "orchestra" : "roles";
-  const [seen, setSeen] = useState({ roles: part === "roles", orchestra: runs, board });
+  const part = board ? "board" : "roles";
+  const [seen, setSeen] = useState({ roles: part === "roles", board });
   useEffect(() => setSeen((s) => (s[part] ? s : { ...s, [part]: true })), [part]);
   useAgentsKeys();
   useAttentionKey();
@@ -40,13 +37,8 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
       <AgentsBar view={view} />
       <div className="ag-body">
         {seen.roles && (
-          <div className="ag-part" hidden={runs || board} data-part="roles">
+          <div className="ag-part" hidden={board} data-part="roles">
             <RolesView section="roles" specs={partPanels(reg, "roles")} />
-          </div>
-        )}
-        {seen.orchestra && (
-          <div className="ag-part" hidden={!runs} data-part="orchestra">
-            <OrchestraView section="orchestra" specs={partPanels(reg, "orchestra")} />
           </div>
         )}
         {seen.board && (

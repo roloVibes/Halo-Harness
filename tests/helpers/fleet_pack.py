@@ -12,10 +12,10 @@ C: the fleet left the core for halo_harness/templates/packs/fleet/).
 finder in front of `sys.meta_path` that answers the moved names -- every
 `halo_harness.fleet.<x>` the pack holds (`halo_harness.fleet` itself is a package of them), the Studio route modules
 that went with it (`halo_harness.studio.fleet_pair_api`, `fleet_capabilities_api`, `fleet_mission_api`,
-`fleet_hub_api`, `fleet_health_api`), `halo_harness.knowledge.share` and `halo_harness.packs.fleet_registry` /
-`fleet_share` -- with the pack's own module object (`halo_packs.fleet.<path>`, imported through the pack's folder as
+`fleet_hub_api`, `fleet_health_api`), `halo_harness.knowledge.share` and `halo_harness.packs.fleet_share` -- with the pack's own module object (`halo_packs.fleet.<path>`, imported through the pack's folder as
 `halo fleet` and Studio import it), so a test's fake set on a module is the one the pack's code calls. Nothing in Halo
 imports those names; the core's moved modules (halo_harness/peers/, halo_harness/live/) are imported by their names.
+3.4.0.0 D: `halo_harness.packs.fleet_registry` is core again (the pack's fleet/fleet_registry.py re-exports it).
 """
 from __future__ import annotations
 
@@ -31,7 +31,6 @@ PACK = REPO / "halo_harness" / "templates" / "packs" / "fleet"
 OLD = "halo_harness.fleet"
 NAMES = {
     "halo_harness.knowledge.share": "fleet/knowledge_share.py",
-    "halo_harness.packs.fleet_registry": "fleet/fleet_registry.py",
     "halo_harness.packs.fleet_share": "fleet/fleet_share.py",
     **{f"halo_harness.studio.{n}": f"server/{n}.py" for n in ("fleet_pair_api", "fleet_capabilities_api",
                                                              "fleet_mission_api", "fleet_hub_api", "fleet_health_api")},

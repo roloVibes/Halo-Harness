@@ -5,12 +5,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../../../lib/ui";
-import { goSection, studio } from "../../../lib/store";
+import { studio } from "../../../lib/store";
 import { hideHover } from "../../../lib/hover/store";
 import { openSession } from "../../session/store";
 import { askShutdown, askStop, openAgentPanel, pin, select, togglePause } from "../../fleet/actions";
 import { askHandoff, record } from "../../fleet/extras";
 import { focusSteer } from "../../fleet/Steer";
+import { openWorkerRun } from "../run/door";
 import { useFleet } from "../../fleet/store";
 
 export type MenuAt = { x: number; y: number; key: string; session?: boolean };
@@ -62,7 +63,7 @@ export function NodeMenu({ at, onClose }: { at: MenuAt; onClose: () => void }) {
   if (at.session) items.push(["shutdown", "Shut the session down...", "close", () => askShutdown(h, sid)]);
   if (harnesses.find((x) => x.id === h)?.local && studio.get().section !== "session")
     items.push(["session", "Open in Session", "grid", () => openSession(at.session ? { session: sid } : { key: at.key })]);
-  if (s.kind === "orchestra-worker") items.push(["orchestra", "Open in Agents: Runs", "grid", () => goSection("agents", "runs")]);
+  if (s.kind === "orchestra-worker") items.push(["orchestra", "Open its run (its lane on Live)", "grid", () => openWorkerRun(String(s.cwd || ""))]); // 3.4.0.0 D
   return createPortal(
     <div ref={box} className="menu glass panel-menu fm-menu" role="menu" style={{ left: pos.left, top: pos.top, width: 228 }} data-testid="fleet-node-menu">
       {items.map(([id, label, icon, run]) => (

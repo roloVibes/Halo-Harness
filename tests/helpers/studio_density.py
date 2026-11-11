@@ -12,7 +12,7 @@ Studio -- and measured with getBoundingClientRect where the primitives mark them
     [data-density=body]  a panel's body: its inset (its own padding, plus its one child's when it draws edge to edge)
                          >= 12 px on every side
 and, per section, the panels open on load (the quiet shell: one thing per section) and the gaps between the open
-workspace cells (>= 12 px). Agents is opened on Cast, Runs and Live; Cast once more with `?edit=lineup:halo-dev-cycle`
+workspace cells (>= 12 px). Agents is opened on Cast and Live (3.4.0.0 D: Runs went); Cast once more with `?edit=lineup:halo-dev-cycle`
 (the inspector's summary, then one block's page). 3.3.16.0 R2: Setup -> Machines, and Live on the fleet once more with
 the Attention queue open (the chip) and the inspector's glance.
 
@@ -37,8 +37,8 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 SHOTS: list = []
 
-# (name, mode, extra query) -- the six sections, Agents on its three views and on the fleet (3.3.16.0 R2), Setup -> Machines
-SECTIONS = (("session", "session", ""), ("agents-cast", "agents", "&view=cast"), ("agents-runs", "agents", "&view=runs"),
+# (name, mode, extra query) -- the six sections, Agents on Cast and Live and on the fleet (3.3.16.0 R2; 3.4.0.0 D: Runs went), Setup -> Machines
+SECTIONS = (("session", "session", ""), ("agents-cast", "agents", "&view=cast"),
             ("agents-live", "agents", "&view=live"), ("agents-fleet", "fleet", ""), ("packs", "packs", ""), ("setup", "setup", ""),
             ("setup-machines", "setup", "&block=machines"), ("settings", "settings", ""), ("local", "local", ""))
 
@@ -46,7 +46,7 @@ SECTIONS = (("session", "session", ""), ("agents-cast", "agents", "&view=cast"),
 # 3.3.18.0: a view of Agents is ready when its workspace has laid out a cell AND drawn what the view shows (Live over this
 # seeded home: its one empty sentence), never on its bar alone (a Windows runner measured Live's 0 of 0 panels once)
 READY = {"session": ".ws-cell", "agents-fleet": "[data-testid=roles-live-map]", "setup-machines": "[data-testid=setup-machines]",
-         "agents-cast": "[data-part=roles] [data-testid=roles-canvas], [data-part=roles] [data-testid=roles-start]", "agents-runs": "[data-testid=agents-bar]",
+         "agents-cast": "[data-part=roles] [data-testid=roles-canvas], [data-part=roles] [data-testid=roles-start]",
          "agents-live": ".ws-cell [data-testid=roles-live-empty]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
          "settings": "[data-testid=settings-rail-group]", "local": "[data-testid=local-rail-page]"}
 

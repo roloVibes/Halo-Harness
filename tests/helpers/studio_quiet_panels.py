@@ -32,9 +32,8 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_header_menus import more  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 
-PRIMARY = [("session", "Session", "session-live"), ("roles", "Agents", "roles-graph"),  # 3.3.16.0 R1: Cast and Runs, by their doors
-           ("orchestra", "Agents", "graph"),  # 3.3.16.0 R2: Fleet folded into Agents -> Live (the roles workspace)
-           ("packs", "Packs", "pm-installed")]
+PRIMARY = [("session", "Session", "session-live"), ("roles", "Agents", "roles-graph"),  # 3.3.16.0 R1: Cast by its door; R2: Fleet in Live
+           ("packs", "Packs", "pm-installed")]  # 3.4.0.0 D: Runs (Orchestra's workspace) went
 RECT = "((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })"
 COVER = ("((p) => { const a = RECT(document.querySelector('[data-panel=\"' + p + '\"] .panel')), s = RECT(document.querySelector('.stage'));"
          " return Math.round(1000 * a[2] * a[3] / (s[2] * s[3])) / 1000; })").replace("RECT", RECT)

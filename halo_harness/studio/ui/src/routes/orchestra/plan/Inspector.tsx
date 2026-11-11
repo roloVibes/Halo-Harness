@@ -3,7 +3,7 @@
 // it takes (needs: from a lane, all / summary / one of its gives) and what it
 // hands on (gives), its bio (the Roles bios) and its model (the Roles model
 // picker with "Test this model"), Drop lane, and the problems on this card. 3.3.16.0 R1: under CLAIMS, the claim
-// ledger's rows for those units (holder, state; none until a worker joins: routes/agents/runs/Owns.tsx).
+// ledger's rows for those units (holder, state; none until a worker joins: routes/agents/run/Owns.tsx).
 // Every change is one edit: the draft is PUT and the problems come back.
 import { useEffect, useState } from "react";
 import { Button, Field } from "../../../lib/ui";
@@ -13,7 +13,7 @@ import type { Give, Need } from "../types";
 import { dropLane, patchJob } from "./actions";
 import { NO_JOBS, problemsOf, usePlan } from "./store";
 import type { PlanJob } from "./types";
-import { LaneClaims } from "../../agents/runs/Owns";
+import { LaneClaims } from "../../agents/run/Owns";
 
 const KINDS: Give["kind"][] = ["files", "summary", "artifact"];
 

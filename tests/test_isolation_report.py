@@ -127,7 +127,7 @@ def test_studio_and_the_agent_row_get_the_same_lines(ctx: Ctx):
         ctx.check("opt_ins is an agent row field", "opt_ins" in FIELDS)
         ctx.check("the main row carries the session's lines", AgentTree(_Root()).row("main").get("opt_ins") == _Root.opt_ins)
         ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes"
-        ctx.check("the lanes view and the Agent panel render them", "lane-optins" in (ui / "orchestra" / "Lanes.tsx").read_text(
+        ctx.check("a lane's summary on Live (3.4.0.0 D: Runs' Lanes went) and the Agent panel render them", "lane-optins" in (ui / "agents" / "run" / "RunInspector.tsx").read_text(
             encoding="utf-8") and "fleet-agent-optins" in (ui / "fleet" / "Agent.tsx").read_text(encoding="utf-8"))
         ctx.check("the Lineup tab has the three fields", all(t in (ui / "roles" / "OptInFields.tsx").read_text(encoding="utf-8")
                                                           for t in ("roles-isolation", "roles-secrets", "roles-capabilities")))

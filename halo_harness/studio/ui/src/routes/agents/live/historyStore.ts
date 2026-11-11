@@ -2,25 +2,31 @@
 // missions -- newest first, one row each: what it was, when it started, how long, its cost, how it ended. Read from the
 // routes that already hold them (GET fleet/history?role=main, GET orchestra/runs, GET fleet/missions); what is live now
 // is not a row (it is on the canvas). Loaded when Live shows and each time the drawer opens; a click on a row opens it
-// as a replay (replay.ts). The drawer is closed on load and opens only on a click.
-import { api } from "../../../lib/api";
+// as a replay (replay.ts). The drawer is closed on load and opens only on a click. 3.4.0.0 D "the runs fold": a finished
+// goal run's row says how it ended, its wall time, its cost and its models, and opens its REPORT as a page of the
+// drawer (`page`, run/RunReport.tsx: the plan, the lanes, the outcomes, the gate, the merge) with Replay on it.
+import { api, ApiError } from "../../../lib/api";
 import { createStore, useStore } from "../../../lib/store";
 import { fleet } from "../../fleet/store";
 import { FINAL, type Summary } from "../../fleet/mstore";
 import { orch } from "../../orchestra/store";
-import type { RunRow } from "../../orchestra/types";
+import type { RunPayload, RunRow } from "../../orchestra/types";
 import type { HistoryRun } from "../../roles/types";
 import { harnessNow, LIVE_STATES } from "./now";
 import type { HistoryKind } from "./replay";
+import { closeGoal } from "../run/goalStore";
 
-export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string };
-type State = { open: boolean; rows: HistoryRow[]; loaded: boolean; error: string };
+export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[] };
+/** 3.4.0.0 D: the page the drawer shows instead of its list (a run's report), what it read, and why it could not. */
+export type HistoryPage = { kind: "run"; id: string } | null;
+type State = { open: boolean; rows: HistoryRow[]; loaded: boolean; error: string; page: HistoryPage; report: RunPayload | null; reportError: string };
 
-export const history = createStore<State>({ open: false, rows: [], loaded: false, error: "" });
+export const history = createStore<State>({ open: false, rows: [], loaded: false, error: "", page: null, report: null, reportError: "" });
 export const useHistory = <S,>(pick: (s: State) => S): S => useStore(history, pick);
 export const toggleHistory = (on?: boolean) => {
   const open = on ?? !history.get().open;
-  history.update(() => ({ open }));
+  history.update(() => (open ? { open } : { open, page: null, report: null, reportError: "" }));
+  if (open) closeGoal(); // one drawer at a time (the goal panel, 3.4.0.0 D)
   if (open) void loadHistory();
 };
 
@@ -50,9 +56,9 @@ export function historyRows(sessions: HistoryRun[], runs: RunRow[], missions: Su
                cost: num(s.cost_usd), how: open.has(id) ? "open, nothing running" : "closed" });
   }
   for (const r of runs) {
-    if (r.run_id === liveRun || r.state === "running") continue;
-    out.push({ kind: "run", id: r.run_id, what: r.goal_what || "Orchestra run " + r.run_id, when: num(r.created) || 0, secs: null, cost: num(r.cost_usd),
-               how: String(r.state || "?") });
+    if (r.run_id === liveRun || r.state === "running" || r.state === "planned") continue; // still going: on Live
+    out.push({ kind: "run", id: r.run_id, what: r.goal_what || "Orchestra run " + r.run_id, when: num(r.created) || 0, secs: num(r.elapsed_s), cost: num(r.cost_usd),
+               how: r.stop_reason ? `${r.state}: ${r.stop_reason}` : String(r.state || "?"), models: r.models || [] });
   }
   for (const m of missions) {
     if (!FINAL.includes(m.state)) continue;
@@ -76,3 +82,19 @@ export async function loadHistory(): Promise<void> {
   const { open, busy } = openSessions();
   history.update(() => ({ rows: historyRows(s, Array.isArray(r) ? r : [], m, o?.live ? o.run.run_id : "", open, busy), loaded: true, error: "" }));
 }
+
+/** 3.4.0.0 D: History open on a finished run's report (its row's click, an attention row's `o`, `&run=<id>`). */
+export async function openReport(id: string): Promise<void> {
+  history.update(() => ({ open: true, page: { kind: "run", id }, report: null, reportError: "" }));
+  closeGoal();
+  void loadHistory();
+  try {
+    const report = await api.get<RunPayload>(`orchestra/${encodeURIComponent(id)}`);
+    if (history.get().page?.id === id) history.update(() => ({ report }));
+  } catch (e) {
+    if (history.get().page?.id === id) history.update(() => ({ reportError: e instanceof ApiError ? e.message : String(e) }));
+  }
+}
+
+/** Back from a page to the list. */
+export const closeReport = () => history.update((s) => (s.page ? { page: null, report: null, reportError: "" } : {}));

@@ -5,12 +5,12 @@
 // the `after` edges with R1's label chip (summary / all / an artifact's
 // name, else "after"). Cards and boxes are memoised. 3.1.2.0 R2: a card shows
 // its lane's cost forecast as a chip in its header (data-testid plan-cost). 3.3.16.0 R1: the claims row is the lane's
-// owns line (plan-owns, routes/agents/runs/Owns.tsx): the units it will claim, the whole list in its tooltip.
+// owns line (plan-owns, routes/agents/run/Owns.tsx): the units it will claim, the whole list in its tooltip.
 import { memo, type PointerEvent } from "react";
 import { CARD_H, CARD_W, edgePath, type Box, type Pos } from "./layout";
 import { costText, costTitle } from "./forecast";
 import type { ForecastLine, PlanJob, PlanProblem } from "./types";
-import { OwnsLine } from "../../agents/runs/Owns";
+import { OwnsLine } from "../../agents/run/Owns";
 
 type BoxProps = { k: number; b: Box; label: string; count: number; empty: boolean; hot: boolean };
 

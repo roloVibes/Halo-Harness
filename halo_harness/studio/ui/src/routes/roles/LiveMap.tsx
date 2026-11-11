@@ -18,7 +18,7 @@ import { startFleet } from "../fleet/sync";
 import { startMissions } from "../fleet/mload";
 import { select } from "../fleet/actions";
 import { pickNode } from "../session/steer";
-import { startOrchestra } from "../orchestra/sync";
+import { startOrchestra } from "../orchestra/sync"; // the goal run Live draws: the live one, else the newest
 import { FleetEdges } from "../agents/live/FleetEdges";
 import { LiveBar } from "../agents/live/LiveBar";
 import { MachineBox, MachineNode } from "../agents/live/MachineNode";
@@ -35,6 +35,7 @@ import type { LiveBox } from "./liveLayout";
 import { useLiveGeo } from "../agents/live/liveGeo"; // 3.3.18.0: laid out on the tree's shape, painted on its state
 import { LiveEmpty, ReplayBanner } from "../agents/live/LiveEmpty"; // 3.3.18.0: nothing runs; a replay from History
 import { HistoryDrawer } from "../agents/live/History";
+import { GoalDrawer } from "../agents/run/GoalDrawer"; // 3.4.0.0 D: Run a goal, a panel beside the canvas
 import { useLivePlan } from "../agents/live/useLivePlan"; // 3.3.18.0 part 2: the plan under it
 import { PlanWorld } from "../agents/live/PlanWorld";
 import { LiveNow } from "../agents/live/LiveNow"; // 3.3.18.0 part 3: the one sentence, the waits, the waiting path
@@ -152,6 +153,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
         )}
       </div>
       {!thumb && <HistoryDrawer />}
+      {!thumb && <GoalDrawer />}
       {menu && <NodeMenu at={menu} onClose={() => setMenu(null)} />}
     </div>
   );

@@ -54,10 +54,12 @@ def glossary(c, url: str) -> dict:
     c.click_on("document.querySelector('[data-testid=\"start-next-go\"]')")
     sel = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.textContent || ''"
     try:
-        c.wait(f"({sel}).startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'runs'", 10)
+        c.wait(f"({sel}).startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'live'"
+               " && !!document.querySelector('[data-testid=run-goal-drawer]')", 10)  # 3.4.0.0 D: Live's Run a goal panel
     except TimeoutError:
         pass
     out["went_to"] = c.js(sel)
+    out["goal_open"] = c.js("!!document.querySelector('[data-testid=run-goal-drawer]')")
     return out
 
 

@@ -57,8 +57,8 @@ def test_glossary_word_links_and_the_next_footer(ctx: Ctx):
               got.get("terms") == ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "fleet", "hub", "harness", "mission", "part", "hand-off", "capability", "replay", "waiting path"])  # 3.3.18.0
     ctx.check(f"a word link opens the Glossary on it and closes the help, got {got.get('opened_on')}",
               got.get("opened_on") == "tier" and got.get("help_closed") is True)
-    ctx.check(f"Cast's Next footer goes to Runs (3.3.16.0 R1: Agents), got {got.get('next')} {got.get('went_to')}",
-              got.get("next") == "runs" and str(got.get("went_to") or "").startswith("Agents"))
+    ctx.check(f"Cast's Next footer opens Run a goal on Live (3.4.0.0 D; Runs before), got {got.get('next')} {got.get('went_to')} {got.get('goal_open')}",
+              got.get("next") == "goal" and str(got.get("went_to") or "").startswith("Agents") and got.get("goal_open") is True)
 
 
 if __name__ == "__main__":

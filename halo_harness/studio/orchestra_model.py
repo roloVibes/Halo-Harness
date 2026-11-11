@@ -85,11 +85,16 @@ def run_state(run_dir, live: bool, report: Optional[dict] = None) -> str:
 
 
 def run_row(run_dir, live_id: Optional[str]) -> dict:
+    """One run as History lists it (3.4.0.0 D): how it ended, its wall time, its cost and the models its lanes ran on."""
     report = load_report(run_dir)
     goal = goal_of(run_dir)
+    lanes = lane_rows(run_dir)
+    models = sorted({str(r.get("model") or "") for r in lanes} - {""})
     return {"run_id": Path(run_dir).name, "created": run_meta(run_dir).get("created"),
             "state": run_state(run_dir, Path(run_dir).name == live_id, report), "workers": goal.get("workers"),
-            "goal_what": goal.get("what") or "", "cost_usd": run_cost(run_dir, report)}
+            "goal_what": goal.get("what") or "", "cost_usd": run_cost(run_dir, report, lanes), "models": models,
+            "elapsed_s": (report or {}).get("elapsed_s"), "ended": (report or {}).get("ts"),
+            "stop_reason": str((report or {}).get("stop_reason") or "")}
 
 
 def run_rows(repo, live_id: Optional[str]) -> list:

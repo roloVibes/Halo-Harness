@@ -14,7 +14,7 @@ ARGS = ("-m", "tests.helpers.studio_fleet", "mission")
 def register(test, json_of, chrome) -> None:
     @test
     def test_fleet_mission_plan_draws_on_the_map_in_headless_chrome(ctx: Ctx):
-        """3.0.6.0 R8 (3.3.16.0 R2: the panel is Agents -> Runs', M opens it; the plan draws on Live's fleet scope):
+        """3.0.6.0 R8 (3.3.16.0 R2; 3.4.0.0 D: the panel is Agents -> Live's, M opens it; the plan draws on Live's fleet scope):
         with no mission yet the Mission panel shows its five lines on
         how it works; a goal typed and Plan it (the fake lead) draws three part
         nodes on Live, each inside its machine box (gridcraft's part on
@@ -65,7 +65,7 @@ def register(test, json_of, chrome) -> None:
         Attention lists the member's control ask; another hub's run_task on this
         harness opens a mission_ask row with the card's text, O opens the Mission
         panel on that mission, R denies it; when the member's owner allows, part 1
-        runs with its agent's line, Live's session nodes show the mission chips, Runs' list
+        runs with its agent's line, Live's session nodes show the mission chips, its panel
         counts one mission running (3.3.16.0 R2: the status bar's FLEET cell went), and "Open the part's agent" puts it
         in Live's inspector."""
         if not chrome():
@@ -82,7 +82,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the mission_ask row, O and R, got {got.get('ask_row')!r} / {got.get('ask_open')} / {got.get('ask_denied')}",
                   "asks to run mission m-20261015-0b5e part 2 here" in str(got.get("ask_row")) and got.get("ask_open") == "not here"
                   and got.get("ask_denied") == "refused" and got.get("ask_gone") == "gone" and got.get("reopened") == "run")
-        ctx.check(f"allowed: its agent's line, the session nodes' chips, Runs' list, got {got.get('member_line')!r} / {got.get('rail_chips')} / {got.get('status_missions')!r}",
+        ctx.check(f"allowed: its agent's line, the session nodes' chips, its panel says running, got {got.get('member_line')!r} / {got.get('rail_chips')} / {got.get('status_missions')!r}",
                   got.get("allowed") is True and got.get("member_line") == "gridcraft: write_range B2:D9" and got.get("rail_chips") == 2
                   and "1 mission" in str(got.get("status_missions")))
         ctx.check(f"Open the part's agent selects it, got {got.get('agent_opened')!r}",
@@ -92,7 +92,7 @@ def register(test, json_of, chrome) -> None:
     def test_fleet_mission_stop_and_the_report_in_headless_chrome(ctx: Ctx):
         """3.0.6.0 R8: Stop asks first, with a reason; the mission ends stopped (the
         member's part is stopped like any agent), the panel turns to the report,
-        which lists the cost per harness, and Runs' list no longer counts it running."""
+        which lists the cost per harness, and its panel no longer says running."""
         if not chrome():
             raise SkipTest("no Chrome found (the Mission test needs headless Chrome)")
         r, got = json_of(*ARGS)
@@ -103,4 +103,4 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the report lists the cost per harness, got {rows} / {got.get('report_total')!r}",
                   got.get("report_face") == "report" and len(rows) == 2 and any(x.startswith("you@studio|") and x.endswith("$0.042") for x in rows)
                   and any(x.startswith("kali@lab|") for x in rows) and got.get("report_total") == "$0.043")
-        ctx.check(f"Runs' list stops counting it running, got {got.get('after_stop_status')}", got.get("after_stop_status") == "none")
+        ctx.check(f"its panel stops saying running, got {got.get('after_stop_status')}", got.get("after_stop_status") == "none")

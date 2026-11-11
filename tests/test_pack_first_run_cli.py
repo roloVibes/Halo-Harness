@@ -169,7 +169,7 @@ def test_yes_runs_every_step_through_the_fake(ctx: Ctx):
     ctx.check("the run finished: five lanes merged", text.count("merged") >= 5 and "finished: branch orchestra/" in text)
     ctx.check("the report's checks, and (3.4.0.0 B2: the coach pack off) the coach's one line", "PASS  tests_pass_finished_branch"
               in text and "The coach (what to change next time) is a pack: halo pack install coach" in text)
-    ctx.check("where to go next: Agents: Cast, Agents: Runs, Fleet with their commands (3.3.16.0 R1)", "halo studio --mode agents" in text
+    ctx.check("where to go next: Agents: Cast, Agents: Run a goal, Fleet with their commands (3.4.0.0 D)", "halo studio --mode agents" in text
               and "halo orchestra new" in text and "halo fleet pair" in text)
     from halo_harness.orchestra.goal import list_runs, load_goal
     runs = list_runs(repos[-1])

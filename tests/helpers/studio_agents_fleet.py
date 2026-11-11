@@ -8,8 +8,8 @@ seeded in its mission store (fleet/mission_store.py: no hub, no lead, no model c
                                                         its panel closed on load, opened by the chip and closed by A;
                                                         Live's inspector at a glance with nothing picked, a machine's
                                                         summary when its node is clicked (Specs one page), Back; the
-                                                        mission is a row of Runs' list ("+" menu) and opens Runs'
-                                                        Mission panel on it
+                                                        mission's door opens its Mission panel on Live, and M does
+                                                        (3.4.0.0 D: Runs' list went)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -75,7 +75,7 @@ def scope_switch(c, page) -> dict:
 
 def chip(c, page) -> dict:
     out = {}
-    for view in ("cast", "runs", "live"):
+    for view in ("cast", "live", "workflows"):  # 3.4.0.0 D: Runs went
         open_page(c, page, f"mode=agents&view={view}")
         out[view] = c.wait(f"{VIEW} === '{view}' && !!{CHIP} && [{CHIP}.dataset.count, {CHIP}.dataset.tone || '', !!{PANEL}]", 30)
     c.click_on(CHIP)
@@ -109,18 +109,16 @@ def glance(c, page) -> dict:
 
 
 def mission_row(c, page, mid: str) -> dict:
-    from tests.helpers.studio_header_menus import open_plus
-    open_page(c, page, "mode=agents&view=runs")
-    c.wait(f"{VIEW} === 'runs'", 30)
-    row = f"document.querySelector('[data-testid=\"orchestra-menu-mission\"][data-mission=\"{mid}\"]')"
-    open_plus(c)
-    out = {"row": c.wait(f"!!{row} && {row}.title", 20)}
-    c.click_on(row)
+    """3.4.0.0 D: Runs' list went; a mission's door opens its Mission panel on Live, and M does too."""
     det = "document.querySelector('[data-testid=\"fleet-mission-detail\"]')"
-    out["opened"] = c.wait(f"{VIEW} === 'runs' && !!{det} && !!document.querySelector('[data-panel=\"fleet-mission\"]') && "
-                           f"document.querySelector('.fmi-goal')?.textContent", 30)
     open_page(c, page, f"mode=fleet&mission={mid}")
-    out["mission_door"] = c.wait(f"{VIEW} === 'runs' && document.querySelector('.fmi-goal')?.textContent", 30)
+    out = {"mission_door": c.wait(f"{VIEW} === 'live' && !!document.querySelector('[data-panel=\"fleet-mission\"]') && "
+                                  f"!!{det} && document.querySelector('.fmi-goal')?.textContent", 30)}
+    open_page(c, page, "mode=agents&view=live")
+    c.wait(f"{VIEW} === 'live' && !document.querySelector('[data-panel=\"fleet-mission\"]')", 30)
+    c.js("document.activeElement?.blur(); document.body.focus(); 1")
+    key(c, "m")
+    out["m_key"] = c.wait(f"{VIEW} === 'live' && !!document.querySelector('[data-panel=\"fleet-mission\"]') && 'mission'", 15)
     return out
 
 

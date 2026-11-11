@@ -12,7 +12,35 @@ The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harnes
 the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
 push"; plans/WORKER-RULES.md "The pre-push gate").
 
-## WHERE THINGS STAND -- 2026-11-10 afternoon (authoritative; the morning block below is history)
+## WHERE THINGS STAND -- 2026-11-11 (authoritative; every block below is history)
+
+**3.4.0.0 "The core" is the version in flight; 3.3.17.0 is the last release.** The owner (2026-11-10 night) defined
+Halo by its core: SEE what agents do, SHAPE the orchestration, MIX any models, LOCAL models first-class, START
+easily; honest about what it knows; Claude Code compatible. Whatever serves none of these is a pack. This supersedes
+the 2026-11-08 "fold Fleet, not a pack" call in ROADMAP's Focus plan. Copilot at work, Experiential Labs, Voice and
+the Orchestra ENGINE stay core (the owner's words). There is no separate 3.3.18.0: the living canvas ships in 3.4.0.0.
+
+On master, unreleased, under CHANGELOG `## [3.4.0.0]`: the living canvas (Agents opens on Live: what runs now, the
+plan that lights up, the waiting path, the narration sentence); A Typesafe out; B `halo team` out, the guided first
+run is the shipped `first-run` pack; B2 the coach is the shipped `coach` pack, the terminal wizard is a console
+fallback (`halo init --terminal`), packs add CLI verbs, slash commands, doctor rows and Settings rows (API 1.3);
+C Fleet with missions is the shipped `fleet` pack (core homes `halo_harness/peers/` = reaching another machine's
+models, `halo_harness/live/` = this machine's sessions live; the core's one door is `packs/fleet_door.py`; packs
+meet each other only through doors); D Orchestra's Runs view and Start screen folded into Live and History, the
+capability checker back in core, the gate clears `__pycache__`-only folders and prefers Git's bash.
+
+Next, in order: (1) the README and docs intro rewritten around the approved wording (tagline "Multi-agent.
+Multi-workflow. Fully visible."; every picture a Studio view; "everything else is a pack"); (2) release 3.4.0.0
+(`python scripts/release.py 3.4.0.0 --skip-windows` only when `conclusion == success` on BOTH runs for the exact
+HEAD), reinstall on the PC, `halo --version`; (3) the living canvas part 2 (the time scrubber and replay file,
+compare two runs, the run report card, the phone glance and alert: ask the owner which alert channel; Session shows
+its permission mode); (4) a pack seam for a React Studio section so the fleet UI (still in the core bundle, gated on
+`fleet_pack`) can move; (5) Pack trust (signed manifests, the trust prompt); (6) the rest of the Focus list (docs
+consolidation, module packages), themes and the parity audit. Federation R2-R7 stopped as core items; R1's branch
+`v3318/R1-contracts` is unmerged. Run the gate from Git Bash. Briefs and hand-backs live outside the repo, in the
+round folders beside the worktrees (`hh-340/briefs`, `hh-3318/briefs`).
+
+## WHERE THINGS STOOD -- 2026-11-10 afternoon (history)
 
 The owner (2026-11-10): "complete all of the remaining development ... do not wait for me. I will test when I have
 time"; standing permission to improve the build and test process.

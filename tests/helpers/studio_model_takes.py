@@ -85,7 +85,9 @@ def run(c, url: str) -> dict:
     pick(c, f"{NS}.querySelector('[data-testid=\"session-new-model\"]')", PLAIN)
     out["session_picked"] = c.wait(f"(() => {{ const v = {chips(NS)}; return v && v[0] === 'text' && v; }})()", 15)
     c.go("about:blank")
-    c.go(url)
+    c.go(url.replace("mode=orchestra", "mode=agents&view=live"))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
+    c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
+    c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
     out["orch_lead"] = c.wait(f"(() => {{ const v = {chips(OM)}; return v && v[0] === 'text' && v; }})()", 40)
     c.wait(f"!!{OM}.querySelector('option[value=\"{EYES}\"]')", 15)
     pick(c, f"{OM}.querySelector('select')", EYES)

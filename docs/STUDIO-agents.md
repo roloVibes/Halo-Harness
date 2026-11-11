@@ -1,29 +1,33 @@
 # Studio: Agents
 
-Read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), a goal they run (Runs), what runs now (Live), and the doors the old Team, Roles and Orchestra sections left.
+Read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), what runs now and what ran (Live, a goal run on it, History), the board of squares (Workflows), and the doors the old Team, Roles, Orchestra, Runs and Fleet left.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
-## One section, three views (3.3.16.0 R1)
+## One section, its views (3.3.16.0 R1; 3.4.0.0 D: Runs went)
 
 The owner, 2026-11-09: "what does teams even give us? ... roles and orchestration are almost the same ... all rolled
-into the new agents". Team, Roles and Orchestra are one Studio section, **Agents** (`Alt+2`, "The cast, its runs, and
-what runs now"), with three views on one switch, first on its bar:
+into the new agents". Team, Roles and Orchestra are one Studio section, **Agents** (`Alt+2`, "The cast, what runs now on
+every machine (a goal run too), and what ran"), with its views on one switch, first on its bar:
 
 | View | Key | What it is | It was |
 |---|---|---|---|
-| **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, the coach note, replay, drop and sync | Roles |
-| **Runs** | `R` | a goal for the lineup ([STUDIO-orchestra.md](STUDIO-orchestra.md)): the goal form (its Start view), the plan canvas, the lanes, the report and the coach, the saved workflows; each lane's owns line; **Test this lineup** | Orchestra (and what Team's board gave) |
-| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels): the session's agents, a running Orchestra run's lanes under its lead; on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Fleet |
+| **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, replay, drop and sync | Roles |
+| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels): the session's agents, a goal run as a job (3.4.0.0 D, [STUDIO-orchestra.md](STUDIO-orchestra.md): Run a goal on its bar, its lead and lanes, the plan review, its report in History); on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Runs, Fleet |
 | **Workflows** | `W` | the board of squares main may hand work to, their library and contracts (3.3.16.0 R3, below) | new |
 
-Agents opens on **Live** with nothing else open (3.3.18.0: what runs now, or one sentence: [STUDIO-live.md](STUDIO-live.md)). `C`, `R` and `L` switch the views
-outside a text field (`L` on Live goes back to Cast, as Roles' `L` toggled Plan | Live); the palette has **Agents:
-Cast**, **Agents: Runs** and **Agents: Live**, and every Roles and Orchestra line is in its Agents group. Cast and Live
-draw Roles' workspace (its layout, its panels, its status line), Runs draws Orchestra's: the header's `+` and `...`
-menus, the palette's panel rows and the status bar follow the view, and each keeps its own arrangement. A view's
-panels mount the first time it shows and stay mounted, as a visited section does. 3.3.16.0 R3: **Workflows** is the
-fourth view on the same switch (`W`, the palette's **Agents: Workflows**, `?mode=agents&view=workflows`).
+Agents opens on **Live** with nothing else open (3.3.18.0: what runs now, or one sentence: [STUDIO-live.md](STUDIO-live.md)). `C`, `L`
+and `W` switch the views outside a text field (`L` on Live goes back to Cast, as Roles' `L` toggled Plan | Live; `R`,
+Runs' key, lands on Live); the palette has **Agents: Cast**, **Agents: Live** and **Agents: Workflows**, every Roles line
+and the goal run's lines (**Agents: Run a goal**, **stop the run**, **review the plan**, **lane N**, **History: run <id>**)
+in its Agents group. Cast and Live draw Roles' workspace (its layout, its panels, its status line); a view's panels mount
+the first time it shows and stay mounted, as a visited section does.
+
+**Runs went (3.4.0.0 D, "the runs fold").** Agents' third view, Runs, was the Orchestra console: a Start screen with the
+goal form, the plan canvas, eight panels and the runs list. The owner: "I always see unused older versions of
+orchestrations ... I'd love to see what is actually happening." One place shows what runs now (Live), one place what ran
+(History). The engine is unchanged. Where each of Runs' parts went is [STUDIO-orchestra.md](STUDIO-orchestra.md)'s and
+the CHANGELOG's `### D` "Removed" list.
 
 ### The doors
 
@@ -32,47 +36,48 @@ Every old door still opens, on the right view; each terminal answer names the ne
 | Door | Lands on |
 |---|---|
 | `Alt+2`, `?mode=agents`, `halo studio --mode agents`, `/studio agents` | Live (3.3.18.0; Cast before) |
-| `?mode=agents&view=cast`, `runs` or `live`; a `focus` frame `{mode: "agents", view}` | that view |
+| `?mode=agents&run=<id>` (3.4.0.0 D) | that run: its lead on Live while it runs or waits on you, its report in History once it ended |
+| `?mode=agents&view=cast`, `live` or `workflows`; a `focus` frame `{mode: "agents", view}` | that view (`runs`: Live, 3.4.0.0 D) |
 | `?mode=roles`, `halo studio --mode roles`, `/studio roles`, `/roles` (bare, in the TUI) | Cast |
 | `?mode=roles&view=live[&session=<id>]`, the Session Map's **Open in Agents Live** | Live |
-| `?mode=orchestra`, `halo studio --mode orchestra`, `/studio orchestra` | Runs |
-| `?mode=team`, `halo studio --mode team`, `/studio team`, `halo studio --edit team` | Runs, with "Team's board is gone; a run's plan shows who owns what" the first time in this browser |
+| `?mode=orchestra`, `halo studio --mode orchestra`, `/studio orchestra`, `R` | Live, with "Runs is gone: ..." the first time in this browser (3.4.0.0 D; Runs before) |
+| `?mode=team`, `halo studio --mode team`, `/studio team`, `halo studio --edit team` | Live, with "Team's board is gone; a run on Live shows who owns what" the first time in this browser |
 | `halo studio --edit bio:<name>` / `lineup:<name>` (`?mode=agents&view=cast&edit=...`) | Cast, the bio's form / the lineup's inspector |
 | `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`, the rail's away dot (3.3.16.0 R2) | Live on the fleet, with "Fleet is in Agents -> Live now" the first time |
-| `?mode=fleet&mission=<id>`, a mission part row's `o` | Runs, the Mission panel on that mission |
-| an Attention row's `o` (an Orchestra gate, a team stage's gate or budget, a supervisor decision) | Runs |
+| `?mode=fleet&mission=<id>`, a mission part row's `o`, `M` | Live, the Mission panel on that mission (3.4.0.0 D; Runs before) |
+| an Attention row's `o` (an Orchestra gate, a supervisor decision) | the run: on Live while it runs ("open the plan": the plan review), its report in History once it ended |
 
 A saved section of an older Studio (`roles`, `orchestra`, `team`) opens Agents, and a pack's panel or route declared
-for those words lands on Cast (`agents`, `roles`) or Runs (`orchestra`, `team`).
+for those words lands on Agents' workspace (Cast and Live; 3.4.0.0 D: `orchestra` and `team` too).
 
 ### What Team's board became
 
 The board (members as columns, stages as boxes, blocks underneath) is gone, and so is the TEAM cell of the status bar.
-What it showed that a run needs is a run-plan detail in **Runs**: who owns what. 3.4.0.0: the team file and `halo team` left the core too, with
+What it showed that a run needs is a lane detail of a goal run on **Live**: who owns what. 3.4.0.0: the team file and `halo team` left the core too, with
 its Attention rows and every `/api/team/...` route (they answer 404 now).
 
 ### Who owns what: the owns line
 
-Each lane says what it owns -- the claim ledger's keys for that lane, `OWNS basket.py#add_item` -- on its card on the
-plan canvas (`plan-owns`: the units the plan gives it) and on its row in Lanes (`lane-owns`: the keys its holder
-claimed, else the units the plan gave it; the whole list in the line's tooltip). Click a lane in Lanes and its claims
-list under it (`lane-claims`): key, holder (`lane:<n>` until its worker joins, then the worker) and state (claimed,
-writing, written); the plan inspector shows the same rows under CLAIMS as **CLAIM LEDGER**. They are the run's
-ClaimLog as `GET orchestra/<run>` carries it (`claims`); nothing new is stored.
+Each lane says what it owns -- the claim ledger's keys for that lane, `basket.py#add_item` -- on its box on Live (the
+**OWNS** row, `lane-owns`: the keys its holder claimed, else the units the plan gave it; the whole list in its tooltip)
+and on its card in the plan review (`plan-owns`). Click a lane and its **Claims** page lists the ledger's rows
+(`lane-claims`): key, holder (`lane:<n>` until its worker joins, then the worker) and state (claimed, writing, written),
+with Release and Steal while the run is live; the plan inspector shows the same rows as **CLAIM LEDGER**. They are the
+run's ClaimLog as `GET orchestra/<run>` carries it (`claims`); nothing new is stored.
 
 ### Test this lineup (the first-run pack)
 
-"Test this lineup" on Runs' bar left with the guided first run in 3.4.0.0: it is the first-run pack's **First run**
+"Test this lineup" on Runs' bar left with the guided first run in 3.4.0.0 (and Runs itself in 3.4.0.0 D): it is the first-run pack's **First run**
 panel in this section now (the card, Run on your active lineup, the seven steps, Stop), shown while that pack is
 enabled ([its README](../halo_harness/templates/packs/first-run/README.md)).
 
-### Live draws a run too
+### Live draws a run (3.4.0.0 D: a goal run is a job on Live)
 
-While an Orchestra run of Studio's repo is live (the one Runs has open, the newest at load), Live draws it on the same
-tree beside the session's agents: the run's **lead** as a node (`agents-live-lead`) and each lane under it
-(`agents-live-lane`), its number in the lane's colour, its title, its state and its worktree badge (the lane's
-branch, `orchestra/<run>-worker-<n>`). A click opens Runs focused on that lane. The counts on Live's bar stay the
-session's agents.
+While a goal run of Studio's repo runs or waits for its plan, Live draws it beside the session's agents: the run's
+**lead** (`agents-live-lead`) and its **lanes** (`agents-live-lane`) in the run's block, each lane its number in the lane's
+colour, a row per fact (state, model, cost, owns), its worktree badge (`orchestra/<run>-worker-<n>`) and what it waits
+on. A click is its summary in Live's inspector, then its pages; **Run a goal** on the bar starts one; History holds a
+finished one. All of it: [STUDIO-orchestra.md](STUDIO-orchestra.md).
 
 ### Live: this halo or the fleet (3.3.16.0 R2)
 
@@ -92,9 +97,9 @@ owns, waits for, state, Open the part's agent).
 **Attention** is a chip in Agents' bar on every view: the count of decisions that wait on you across the fleet, amber
 when there are any; a click or `A` opens the queue over the page (one key per row: `A` / `R` / `S` / `O`), `A` or Esc
 closes it; the palette has **Agents: Attention**. **Activity** (the timeline and the merged live log) is an optional
-panel of Live, closed on load (the header's **+**, the palette). **Missions are runs**: Runs' **+** menu and Start view
-list them as rows (goal, state, parts, where they run) with **Run it across the fleet** when more than one harness is
-here; `M` opens the Mission panel there.
+panel of Live, closed on load (the header's **+**, the palette). **Missions**: `M` opens the Mission panel on Live
+(3.4.0.0 D; Runs' before), the goal panel offers **Run it across the fleet** when more than one harness is here, a
+running mission's parts draw on the fleet scope and a finished one is a row of History.
 
 ### Workflows: the board of squares (3.3.16.0 R3)
 
@@ -144,7 +149,7 @@ block while the box is doing something, and one faint line saying what a click d
 | Live agent | agent and bio, state and for how long, model and what it takes, cost (tokens, turns), started by, has started, picked because, owns | the running tool and its time, else its last line | the agent in the inspector |
 | Session | where (project, branch, clean / dirty, ahead / behind, worktree), kind (when not the terminal's), model, cost, agents live of all, waits on you, started | | its main agent in the inspector |
 | Machine | host, this halo or its presence, Halo version (a mismatch in words), sessions and live agents, spent today and its cap, every capability, GPU and memory (once its spec card is loaded) | | its summary in the inspector |
-| Run lead / lane | the lead: run, state, lanes, lead and worker models, cost, done when; a lane: owns, state, machine, worker, worktree, waits for, cost | | Runs, focused on that lane (a lane has no inspector page of its own) |
+| Run lead / lane | the lead: run, state, lanes, lead and worker models, cost, done when; a lane: owns, state, machine, worker, worktree, waits for, cost | | its summary in Live's inspector, then its pages (3.4.0.0 D; Runs before) |
 | Mission part | owns, state, machine, worker, waits for, kind, cost, why here | | its card in the inspector |
 | Workflow square | takes, gives, covers, runs on (the lead, its model, the engine in words), costs, limits, from (and its file), last run (when, cost, how it ended, how many) | who called it, the need, for how long | the board's card: its contract in the inspector; a library row: nothing (it is dragged onto the board) |
 

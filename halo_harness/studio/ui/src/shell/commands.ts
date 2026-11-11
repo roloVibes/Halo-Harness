@@ -15,7 +15,7 @@ import { sectionDef, sections, type SectionDef } from "../routes";
 import { packCommands } from "../routes/packs/registry";
 import { packs } from "../routes/packs/store";
 import { mediaCommands } from "../routes/media/commands";
-import { orchestraCommands } from "../routes/orchestra/commands";
+import { runCommands } from "../routes/agents/run/commands"; // 3.4.0.0 D: a goal run's lines (Runs' went)
 import { fleetCommands } from "../routes/fleet/commands";
 import { packPageCommands } from "../packlib/kbd"; // 3.3.13.0 R2: a pack page's own lines (api.lib.commands)
 import { rolesCommands } from "../routes/roles/commands";
@@ -66,7 +66,7 @@ export function commands(): Command[] {
     kbd: s.kbd || undefined,
     run: () => goSection(s.id),
   }));
-  const here = studio.get().section; // 3.3.16.0 R1: Agents' def is the part it draws now (its id roles or orchestra)
+  const here = studio.get().section; // 3.3.16.0 R1: Agents' def is the workspace it draws (its id roles)
   for (const s of [all.find((x) => x.id === here) ?? cur, ...all.filter((x) => x.id !== here)]) {
     out.push({
       id: "help-" + s.id,
@@ -105,7 +105,7 @@ export function commands(): Command[] {
     });
   }
   out.push(promptCommand()); // 3.3.11.0 R1: Session's Prompt panel, Alt+Enter
-  out.push(...agentsCommands(), ...rolesCommands(), ...orchestraCommands(), ...fleetCommands(), ...mediaCommands());
+  out.push(...agentsCommands(), ...rolesCommands(), ...runCommands(), ...fleetCommands(), ...mediaCommands());
   out.push(...settingsCommands()); // 3.3.3.0 R2: "Settings: <title>", one per config key
   out.push(...localCommands()); // 3.3.5.0 R1: "Local: <page>", one per page
   out.push(...packCommands(packs.get().reg), ...packPageCommands());

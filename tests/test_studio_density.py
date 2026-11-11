@@ -7,7 +7,7 @@ tests/helpers/studio_density.py (skipped without one); no provider request, no m
    page's head and a form's button row are `data-density="bar"`; a collapsed panel, an inspector Edit row and a page
    rail's item are `"row"`; a panel's body is `"body"`; the sizes are tokens (--ctl-h 36, --row-h 40) and no section
    sheet sets a panel body's padding to 0 (the 12 px is the primitive's, never exempted);
-2. Chrome, every core section on load (Session, Agents on Cast / Runs / Live and on the fleet, Packs, Setup and its
+2. Chrome, every core section on load (Session, Agents on Cast / Live and on the fleet, Packs, Setup and its
    Machines page, Settings, Local), the inspector's summary and one page, and (3.3.16.0 R2) Live on the fleet with the
    Attention queue open and the glance: every bar >= 36 px, every row >= 40 px, every body inset >= 12 px, each
    workspace panel opened in turn (its bar and its body the same), 12 px between the panels, one panel open on load;
@@ -31,7 +31,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-SECTIONS = ("session", "agents-cast", "agents-runs", "agents-live", "agents-fleet", "packs", "setup", "setup-machines", "settings", "local")
+SECTIONS = ("session", "agents-cast", "agents-live", "agents-fleet", "packs", "setup", "setup-machines", "settings", "local")
 BAR, ROW, PAD, GAP = 36, 40, 12, 12
 
 

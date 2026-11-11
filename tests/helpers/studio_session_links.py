@@ -88,7 +88,10 @@ def links(c, rig) -> dict:
     out["roles_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["roles_agent"] = c.wait(f"{AGENT}?.dataset.key === '{hid}|{sid}|{impl}' && 'implementer'", 15)
     live_run(rig)
-    c.go(url(rig, "mode=orchestra"))
+    c.go(url(rig, "mode=agents&view=live&plan=off&scope=here"))  # 3.4.0.0 D: the run's lead on Live; its summary carries Watch in Session
+    lead = "document.querySelector('[data-testid=\"agents-live-lead\"]')"
+    c.wait(f"!!{lead}", 30)
+    c.click_on(lead)
     out["watch_orchestra"] = c.wait("document.querySelector('[data-testid=\"orchestra-watch-session\"]')?.textContent", 30)
     c.click_on("document.querySelector('[data-testid=\"orchestra-watch-session\"]')")
     out["orchestra_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)

@@ -71,9 +71,8 @@ def run_view(c, url, ctx) -> dict:
     out: dict = {}
     c.go("about:blank")
     c.go(url)
-    tab = q("[data-testid=report-tab-artifacts]")
-    out["tab"] = c.wait(f"{tab}?.textContent", 40)
-    press(c, "document.querySelector('[data-testid=report-tab-artifacts]')")
+    block = q("[data-testid=history-report-artifacts]")  # 3.4.0.0 D: a block of the run's report page in History
+    out["tab"] = c.wait(f"{block} && {block}.querySelector('.rail-label').textContent + ' (' + {block}.querySelectorAll('[data-testid=run-artifact]').length + ')'", 40)
     one = q("[data-testid=run-artifact]")
     out["artifact"] = c.wait(f"{one} && [{one}.dataset.name, {one}.dataset.state, {one}.dataset.ok]", 20)
     out["artifact_head"] = c.js(f"{one}.querySelector('.og-artifact-head').textContent")
@@ -145,7 +144,7 @@ class WorkflowUiDriver(Driver):
         self.out["run_id"] = run_id
         srv, _url = serve(state, True, proj=proj)
         roles = url_for(srv, "roles").replace("#t=", "&tour=off&view=workspace&open=all#t=")  # 3.3.2.0 R3: every panel open
-        orch = url_for(srv, "orchestra").replace("#t=", "&tour=off&view=workspace&open=all#t=")
+        orch = url_for(srv, "agents").replace("#t=", f"&tour=off&run={run_id}#t=")  # 3.4.0.0 D: the run's report page in History
         try:
             yield ((pack_section, (c, roles, {})), (event_data, (c, roles, {"srv": srv})), (run_view, (c, orch, {})))
         finally:

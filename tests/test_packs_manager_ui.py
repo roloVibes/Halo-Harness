@@ -71,7 +71,7 @@ def test_the_details_block_and_a_grant_picked_for_enable(ctx: Ctx):
     ctx.check(f"no dependency, got {got.get('requires')!r}", got.get("requires") == "no other pack")
     text = str(got.get("contributes"))
     ctx.check(f"inspect's contributes block, got {text!r}", "Studio section docs (Docs review)" in text
-              and "fleet capability" not in text  # 3.4.0.0 C: the fleet capability rows are the fleet pack's (off here)
+              and "fleet capability docs.review" in text  # 3.4.0.0 D: the capability checker is core again (the fleet pack off here)
               and "workflow review: stages read, judge, write" in text)
     ctx.check(f"the permissions it requests, got {got.get('perms')}", got.get("perms") == ["mcp:lint", "hooks", "bash"])
     ctx.check(f"a toggle on a disabled pack picks it for Enable, got {got.get('enable_label')!r} {got.get('enable_title')!r}",
@@ -116,7 +116,7 @@ def test_run_a_workflow_fills_the_orchestra_form(ctx: Ctx):
     ctx.check(f"its lineup under Templates, got {got.get('lineups')}", got.get("lineups") == ["doc-review--review"])
     ctx.check(f"3.3.10.0 R3: its workflow resolved, got {got.get('template_workflow')}", got.get("template_workflow") ==
               ["workflow doc-review/review -- review: Review the Markdown files under a folder and write one review report."])
-    ctx.check(f"Run review goes to Agents -> Runs, got {got.get('section_after_run')!r}", str(got.get("section_after_run")).startswith("Agents"))
+    ctx.check(f"Run review goes to Agents -> Live's goal panel (3.4.0.0 D), got {got.get('section_after_run')!r}", str(got.get("section_after_run")).startswith("Agents"))
     ctx.check(f"the form names the workflow, got {got.get('wf_ref')!r} {got.get('wf_title')!r}", got.get("wf_ref") == "doc-review/review"
               and got.get("wf_title") == "Run the workflow review")
     ctx.check(f"its inputs, style at its default, got {got.get('wf_inputs')}", got.get("wf_inputs") == [["docs", ""], ["style", "short"]])

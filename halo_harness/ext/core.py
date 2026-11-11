@@ -49,6 +49,9 @@ REACHABLE = (
     "studio.fleet_panels_api", "studio.fleet_recording_api", "studio.fleet_send", "studio.fleet_watch",
     "studio.fleet_watch_sources", "studio.recall_api", "studio.sessions_api", "tools.screenshot",
     "work.adapters.part", "work.report", "work.states",
+    # 3.4.0.0 D: the capability checker is core again (a pack workflow's `requires` and a pack's capability rows are
+    # checked with the fleet pack off); the fleet pack re-exports it
+    "packs.fleet_registry", "peers.needs", "peers.projects",
 )
 
 

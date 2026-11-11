@@ -8,16 +8,16 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 `halo studio` opens a React shell with six sections in the icon rail on the left (3.3.2.0; the top bar's tab strip
 before): **Session | Agents | Local | Packs | Setup | Settings** (`Alt+1`..`Alt+6`, or `?mode=` in the URL). 3.3.16.0
-folded Team, Roles and Orchestra into Agents (R1, [STUDIO-agents.md](STUDIO-agents.md): Cast, Runs and Live; the doors
+folded Team, Roles and Orchestra into Agents (R1, [STUDIO-agents.md](STUDIO-agents.md): Cast, Live and Workflows, 3.4.0.0 D: Runs went; the doors
 `?mode=roles|orchestra|team` keep) and the Fleet section into Agents -> Live, Setup -> Machines and Local (R2,
 [Fleet in Agents, Setup and Local](STUDIO-fleet.md#fleet-in-agents-setup-and-local); `?mode=fleet` lands on Live on the
 fleet); Org and Flow went in 3.1.4.0, Design is the design pack's since 3.3.13.0. The order is one list, `SECTIONS` in
 `ui/src/routes/index.tsx`: the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each section's
 **How this works** and the status bar's key hint all read it. Session is this session, live (the fleet's pieces scoped
 to this harness, [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Agents is the cast, its runs and what runs now on every machine (Cast: [the
-canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios), Runs: [the run
-console](STUDIO-orchestra.md#orchestra-the-run-console)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
+session of this harness is live. Agents is the cast, what runs now on every machine (a goal run too) and what ran (Cast: [the
+canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios), a goal run: [on Live and in
+History](STUDIO-orchestra.md)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
 pack's own sections come after the core ones (the first on `Alt+7`); one may be drawn whole by the pack's own module
 (3.3.13.0 R2: a view, as the design pack's Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
 The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section is part of the shell.
@@ -60,8 +60,8 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   rearrange something.
 - **One thing per section** (3.3.2.0). Each section opens on its main
   panel filling the stage, every other panel a strip at the foot (one or
-  two rows of them, side by side): Session on **Live**, Agents on Cast's **Canvas** (Runs on the **Workflow**, the
-  run's plan; a planned run is the plan canvas; Live on the tree), Local on Resources (the design pack's Design on its
+  two rows of them, side by side): Session on **Live**, Agents on Cast's **Canvas** (Live on the tree;
+  a goal run's plan review folds it while open, 3.4.0.0 D), Local on Resources (the design pack's Design on its
   **Artboards**), Packs on **Installed**; Setup is pages and keeps
   them. A click on a strip (or its row in the **+**) opens it in the column on
   the main panel's right (as wide as the widest panel there, at most half
@@ -121,7 +121,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   `halo.studio.rail`; `?rail=open` expands it for one page): each section's
   title beside its icon, and nothing else (3.3.2.0 R2: the rail holds the
   sections only, collapsed or expanded). The panels are the header's **+**,
-  Arrange and Reset its **...**, Runs' runs and missions a group in its **+**. While "While you were away" waits, the
+  Arrange and Reset its **...**, (3.4.0.0 D: Runs' runs group went with Runs). While "While you were away" waits, the
   Agents icon carries an amber dot; a click on it opens Live on the fleet with the card (3.3.16.0 R2).
 - **The inspector asks first** (3.3.2.0). The 344 px column on the right (340 before 3.3.15.0) is
   closed until something opens it: a panel's **Settings**, an artboard's knobs
@@ -132,7 +132,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   header or the palette's **Focus** hide the rail, the inspector and the
   status bar; the stage takes the whole window. `F` again brings them back as
   they were. Where a section's own `f` follows an agent or the Log (Session,
-  Runs, an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on Live's canvas it switches the scope). Remembered per browser (`halo.studio.focus`).
+  an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on Live's canvas it switches the scope). Remembered per browser (`halo.studio.focus`).
 - **Density** (3.3.2.0): the header's rows button (or the palette's **Density: compact** / **comfortable**) switches
   two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 2 px
   between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48) with a type scale one step smaller;
@@ -308,12 +308,12 @@ them and opens Studio on the one to change. An **edit target** is
 
 ```
 http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>
-http://127.0.0.1:<port>/?mode=agents&view=runs&edit=team#t=<token>
+http://127.0.0.1:<port>/?mode=agents&view=live&edit=team#t=<token>
 ```
 
 A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens Agents on Cast with the Bios panel on
 that bio's form, `lineup:` that lineup with the Inspector on its Lineup tab's summary (`lineup:<name>:<block>`, 3.3.16.0
-R1b: that block's page), `team` Agents on Runs (the page says so once). Start here stays shut on such a page.
+R1b: that block's page), `team` Agents on Live (3.4.0.0 D; the page says so once). Start here stays shut on such a page.
 
 `halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
 the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's
@@ -328,7 +328,7 @@ the URL (over SSH: forward the port and open it on your machine).
 
 ## The guided first run (the first-run pack, 3.4.0.0)
 
-"Start here" and Agents -> Runs' "Test this lineup" were the guided first run's doors in Studio until 3.4.0.0. The
+"Start here" and Agents -> Runs' "Test this lineup" (Runs went in 3.4.0.0 D) were the guided first run's doors in Studio until 3.4.0.0. The
 guided first run is the first-run pack since 3.4.0.0 (`halo pack install first-run`, then `halo pack enable first-run --grant-all`): enabled, its **First run** panel in the Agents section shows the card, Run, the seven
 steps live and Stop, through the pack's own routes (`/api/packs/first-run/start/...`). A fresh home opens with nothing
 over it. [The pack's README](../halo_harness/templates/packs/first-run/README.md).

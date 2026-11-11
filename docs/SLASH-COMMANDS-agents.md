@@ -89,7 +89,7 @@ lineup or bio narrows it with `tools.capabilities`; see
 
 ### `/edit <bio:name|lineup:name|team>`
 Halo 3.1.1.0: opens Studio on the thing to edit -- `bio:<name>` (the bio
-form), `lineup:<name>` (the lineup's inspector), `team` (Agents on Runs, 3.3.16.0 R1),
+form), `lineup:<name>` (the lineup's inspector), `team` (Agents on Live, 3.4.0.0 D),
 or a bare name (the bio of that name, else the lineup of that name) -- the
 same as `halo studio --edit`. A Studio already running for this home switches
 its open page to it; otherwise one starts in the background and opens your

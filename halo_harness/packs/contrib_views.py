@@ -38,14 +38,12 @@ def _studio(pack) -> "dict | None":
 
 
 def _fleet(pack, granted, *, running: bool, cwd=None, state_dir=None) -> "dict | None":
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: the catalog and its checks are the fleet pack's
-    from halo_harness.packs.fleet_rules import fleet_of
-    reg = fleet_door.module("fleet/fleet_registry.py", cwd=cwd, state_dir=state_dir) if fleet_of(pack.manifest) else None
-    if reg is None:
+    from halo_harness.packs.fleet_rules import fleet_of, hidden
+    if not fleet_of(pack.manifest):
         return None
-    pack_entry, hidden = reg.pack_entry, fleet_door.module("fleet/fleet_share.py", cwd=cwd, state_dir=state_dir).hidden
+    from halo_harness.packs.fleet_registry import host_catalog, pack_entry  # 3.4.0.0 D: core, fleet pack on or off
     try:
-        cat = reg.host_catalog(state_dir, cwd)
+        cat = host_catalog(state_dir, cwd)
     except Exception:  # an unreadable cache: every check reads as not met, never a crash
         cat = {}
     got = pack_entry(pack, granted, cat, running=running, cwd=cwd, state_dir=state_dir)

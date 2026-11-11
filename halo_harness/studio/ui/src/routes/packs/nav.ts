@@ -13,7 +13,7 @@ import type { PaletteEntry, Route } from "./types";
 const SAFE = /^(https?:|mailto:)/i;
 
 /** 3.3.16.0 R1: the workspace a route's panel lives in: Agents' Cast (`agents`, `roles`) or Runs (`orchestra`, `team`). */
-const WS: Record<string, string> = { agents: "roles", team: "orchestra" };
+const WS: Record<string, string> = { agents: "roles", team: "roles", orchestra: "roles" }; // 3.4.0.0 D: Runs went
 
 export function openRoute(r: Route): void {
   goSection(r.section as SectionId);

@@ -57,11 +57,13 @@ def test_the_rail_source_holds_sections_only(ctx: Ctx):
 @test
 def test_the_plus_menu_lists_and_brings_back(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Roles: six rows, each open panel 'focus', no badge, then Activity to add (3.3.16.0 R2), one PANELS group, got {got.get('rows')} {got.get('groups')}",
-              got.get("rows") == [[p, "focus", [], t] for p, t in ROLES] + [["fleet-activity", "add", [], "Activity"]] and got.get("groups") == ["PANELS"])
+    ctx.check(f"Roles: six rows, each open panel 'focus', no badge, then Activity, Mission and the plan review to add (3.3.16.0 R2; "
+              f"3.4.0.0 D: Runs' Mission and plan panels are Live's), one PANELS group, got {got.get('rows')} {got.get('groups')}",
+              got.get("rows") == [[p, "focus", [], t] for p, t in ROLES] + [["fleet-activity", "add", [], "Activity"], ["fleet-mission", "add", [], "Mission"],
+                                                                              ["orchestra-plan", "add", [], "Plan"]] and got.get("groups") == ["PANELS"])
     ctx.check(f"ArrowDown opens it on the first row, ArrowDown / End move, Escape gives the button back, got "
               f"{got.get('kbd_open')} {got.get('kbd_down')} {got.get('kbd_end')} {got.get('kbd_esc')}",
-              [got.get(k) for k in ("kbd_open", "kbd_down", "kbd_end", "kbd_esc")] == ["roles-lineups", "roles-bios", "fleet-activity", "panels-add"])
+              [got.get(k) for k in ("kbd_open", "kbd_down", "kbd_end", "kbd_esc")] == ["roles-lineups", "roles-bios", "orchestra-plan", "panels-add"])
     strip = {r[0]: r for r in got.get("rows_strip") or []}
     ctx.check(f"a collapsed panel reads 'bring back' with the strip badge, got {strip.get('roles-problems')}",
               strip.get("roles-problems") == ["roles-problems", "bring back", ["strip"], "Problems"])
@@ -104,11 +106,11 @@ def test_fleet_tree_orchestra_runs_setup_and_the_rail(ctx: Ctx):
     after = {r[0]: r[1:3] for r in got.get("fleet_rows_after") or []}
     ctx.check(f"Live: Activity is 'add', the panels as Cast left them (open: 'focus'), got {before}",
               before.get("fleet-activity") == ["add", []] and all(before.get(s) == ["focus", []] for s in OPEN)
-              and "fleet-tree" not in before and "fleet-ollama" not in before and len(before) == 7)
+              and "fleet-tree" not in before and "fleet-ollama" not in before and len(before) == 9)  # 3.4.0.0 D: + Mission, Plan
     ctx.check(f"the + added Activity with its log, its row now 'focus', got {got.get('tree')} {after.get('fleet-activity')}",
               got.get("tree") is True and after.get("fleet-activity") == ["focus", []])
-    ctx.check(f"Orchestra's + carries RUNS with New run, got {got.get('orch_groups')} {got.get('orch_new_run')}",
-              (got.get("orch_groups") or [""])[0] == "PANELS" and str((got.get("orch_groups") or ["", ""])[-1]).startswith("RUNS") and got.get("orch_new_run") is True)
+    ctx.check(f"Agents' + carries its PANELS and no RUNS group (3.4.0.0 D: Runs went), got {got.get('orch_groups')} {got.get('orch_new_run')}",
+              got.get("orch_groups") == ["PANELS"] and got.get("orch_new_run") is False)
     only = ["rail-sections,rail-toggle", 0, 0]
     ctx.check(f"the rail: sections only, in both widths, <= 200 px expanded, got {got.get('rail_icons')} {got.get('rail_open')} {got.get('rail_open_w')}",
               got.get("rail_icons") == only and got.get("rail_open") == only and 64 < (got.get("rail_open_w") or 0) <= 200)

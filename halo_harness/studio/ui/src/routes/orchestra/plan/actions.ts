@@ -8,6 +8,7 @@ import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
 import { orch } from "../store";
 import { refresh } from "../sync";
+import { closePlanReview } from "../../agents/run/planPanel";
 import { layersOf } from "./layout";
 import { plan, upstreams } from "./store";
 import type { Forecast, PlanJob, PlanPayload, PlanProblem } from "./types";
@@ -131,6 +132,7 @@ async function decided(): Promise<void> {
     await new Promise((r) => window.setTimeout(r, 250));
     await refresh();
   }
+  if (orch.get().data?.run.state !== "planned") closePlanReview(); // 3.4.0.0 D: the panel leaves Live once the run moved on
 }
 
 export async function approve(): Promise<void> {

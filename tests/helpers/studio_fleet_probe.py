@@ -1,7 +1,7 @@
 """tests.helpers.studio_fleet_probe -- the steps of tests/helpers/studio_fleet_layout.py (Halo 3.1.4.0 R1; 3.3.16.0 R2 "the
 Fleet fold": the Fleet section's nine-panel workspace went, so these measure where its pieces went -- Agents -> Live's
 workspace (`roles`): the tree on the canvas, the inspector strip, Activity as an optional floating panel, the Attention
-queue over the view; Runs' Mission panel). Each step returns a dict the checks in tests/helpers/studio_ui_fleet_layout.py
+queue over the view; Live's Mission panel). Each step returns a dict the checks in tests/helpers/studio_ui_fleet_layout.py
 read: `layout` (what opens on load, the "+" row that adds Activity, Reset layout, an agent picked), `widths` (the log
 line, narrow wrapped text, the timeline's scale, the glance's captions at 12 px) and `mission` (the how-it-works lines
 folding)."""
@@ -155,7 +155,7 @@ GOAL = "document.querySelector('[data-testid=\"fleet-mission-goal\"]')"
 
 
 def _mission_panel(c) -> None:
-    """M on Agents: Runs' Mission panel."""
+    """M on Agents: the Mission panel on Live (3.4.0.0 D; Runs' before)."""
     from tests.helpers.studio_agents import key
     c.js("document.activeElement?.blur(); 1")
     key(c, "m")

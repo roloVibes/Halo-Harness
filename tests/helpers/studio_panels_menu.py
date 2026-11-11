@@ -175,9 +175,8 @@ def fleet(c, url, ctx) -> dict:
     out["rail_open"] = c.js(RAIL_EXTRA)
     out["rail_open_w"] = c.js(f"Math.round({q('.rail')}.getBoundingClientRect().width)")
     c.click_on(q("[data-testid=rail-toggle]"))
-    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))  # 3.3.16.0 R1: Orchestra is Agents -> Runs
-    c.wait(f"{CUR}.startsWith('Agents')", 15)
-    c.click_on("document.querySelector('[data-testid=\"agents-view-runs\"]')")  # 3.3.16.0 R1: Agents on Runs
+    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))  # 3.4.0.0 D: Agents (Runs went: its "+" carries no RUNS)
+    c.wait(f"{CUR}.startsWith('Agents') && !!{q('[data-testid=roles-live-map]')}", 15)
     open_plus(c)
     out["orch_groups"] = c.js(f"{qa('[data-testid=panels-menu] .hdr-menu-name')}.map((e) => e.textContent)")
     out["orch_new_run"] = c.js(f"!!{q('[data-testid=panels-menu] [data-testid=orchestra-new-run]')}")

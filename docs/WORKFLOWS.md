@@ -8,7 +8,7 @@ stages (in order or at once), their conditions, roles, budgets, gates and
 checks; Halo COMPILES it to an Orchestra goal, its hand-offs and a pinned
 plan ([ORCHESTRA.md](ORCHESTRA.md)), and the Orchestra runs it. There is no
 second engine: a workflow run is an Orchestra run (`halo orchestra status |
-report | stop <run>`, Studio's Agents -> Runs). Nothing changes for a
+report | stop <run>`, Studio's Agents -> Live: Run a goal, the report in History). Nothing changes for a
 repo with no pack and no workflow file.
 
 The contract (every key, the tables) is [EXTENSION_API.md](EXTENSION_API.md#workflow-contracts);

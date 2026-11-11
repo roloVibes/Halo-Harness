@@ -11,7 +11,7 @@
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
-import { FeedDot } from "../routes/orchestra/FeedPanels";
+import { FeedDot } from "../routes/orchestra/FeedDot";
 import { SECTIONS, useSectionDef } from "../routes";
 
 const FEED_TEXT = { off: "feed off", connecting: "connecting", open: "live", retrying: "reconnecting", down: "feed down" } as const;

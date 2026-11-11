@@ -10,6 +10,7 @@ import { joined } from "./words";
 const IS: Record<string, string> = {
   task: "Agents started together, by one step of the agent above, for one task.",
   square: "A square's agents: the use case main handed this work to.",
+  run: "A goal run's lanes: each a worker in its own worktree, owning the units it claimed, merged one at a time and checked by the gate.",
 };
 
 export function GroupHover({ b, now }: { b: GroupBox; now: number }) {

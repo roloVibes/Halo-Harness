@@ -113,7 +113,7 @@ hide, `F` again brings them back; where a section's own `F` follows or fits
 zoom, the arrows nudge the selected card, `Del` removes it (asks first);
 `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S`
 saves. The hop keys (3.0.5.0, [Fleet](STUDIO-fleet.md#keys-hop-around)): `J` / `K` the
-next / previous live agent (Live, Cast cards, Runs' lanes), `f`
+next / previous live agent (Live, Cast cards), `f`
 follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or resume, `K`
 in Session's Agent strip stop (asks first). Session's Live column (3.3.0.0 R6,
 [steering and exporting](STUDIO-session.md#keys)): `Tab` / `Shift+Tab` in the

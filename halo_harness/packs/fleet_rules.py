@@ -219,3 +219,9 @@ def fleet_lines(manifest, root=None) -> "list[str]":
     _inspector(L, fleet, root)
     _metadata(L, fleet)
     return L.out
+
+
+def hidden(pack_id, name, hide) -> bool:
+    """config `fleet.capabilities.hide` names the capability (`<name>` or `<pack>/<name>`; 3.4.0.0 D: core)."""
+    n = str(name or "").lower()
+    return bool(hide) and (n in hide or f"{str(pack_id or '').lower()}/{n}" in hide)

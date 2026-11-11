@@ -35,8 +35,8 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-PRIMARY = {"session": "session-live", "roles": "roles-graph",  # 3.3.16.0 R1: roles, orchestra: Agents' doors; R2: no Fleet
-           "orchestra": "graph", "packs": "pm-installed"}
+PRIMARY = {"session": "session-live", "roles": "roles-graph",  # 3.3.16.0 R1: roles, Agents' door; R2: no Fleet; 3.4.0.0 D: no Runs
+           "packs": "pm-installed"}
 
 
 def _got(ctx: Ctx) -> dict:

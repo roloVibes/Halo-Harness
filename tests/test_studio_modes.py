@@ -110,8 +110,8 @@ def test_the_shell_has_six_sections_and_opens_each_by_mode(ctx: Ctx):
               and "?mode=fleet#t=" in out and out.count("Fleet is Agents -> Live now, the fleet scope on") == 1 and "Setup -> Machines" in out)
     with _NoBrowser():
         out = _cmd_studio("team url", facade)
-    ctx.check(f"/studio team url: Agents -> Runs, its URL and the new door, got {out!r}", "Agents -> Runs:" in out and "?mode=team#t=" in out
-              and "Team is Agents -> Runs now (Alt+2 in Studio; halo studio --mode agents)" in out and "Team's board is gone" in out)
+    ctx.check(f"/studio team url: Agents -> Live (3.4.0.0 D), its URL and the new door, got {out!r}", "Agents -> Live:" in out and "?mode=team#t=" in out
+              and "Team is Agents -> Live now (Alt+2 in Studio; halo studio --mode agents)" in out and "Team's board is gone" in out)
     with _NoBrowser():
         out = _cmd_studio("agents url", facade)
     ctx.check(f"/studio agents url names Agents, no door line, got {out!r}", "Agents:" in out and "?mode=agents#t=" in out and " now (Alt+2" not in out)
@@ -164,8 +164,8 @@ def test_slash_studio_and_roles_open_that_mode(ctx: Ctx):
         out = _cmd_roles("gui url", facade)
         ctx.check(f"/roles gui url opens Agents on Cast, got {out!r}", "Agents -> Cast:" in out and "?mode=roles#t=" in out)
         out = _cmd_studio("orchestra url", facade)
-        ctx.check(f"/studio orchestra url: Agents -> Runs and the new door, got {out!r}", "Agents -> Runs:" in out
-                  and "Orchestra is Agents -> Runs now" in out)
+        ctx.check(f"/studio orchestra url: Agents -> Live and the new door (3.4.0.0 D: Runs went), got {out!r}", "Agents -> Live: Run a goal" in out
+                  and "Orchestra is Agents -> Live now" in out and "Runs is gone: a goal runs on Live" in out)
         out = _cmd_studio("url", facade)
         ctx.check("bare /studio keeps the saved mode (no query)", "?mode=" not in out)
         out = _cmd_studio("design", facade)
@@ -271,19 +271,17 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
 
 @test
 def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
-    """3.0.9.0 R2: `--mode orchestra` over a seeded review run waiting for its plan: the plan panel instead
-    of the console, five lanes in two layer boxes plus the empty "a new layer" box, one edge, the inspector,
-    Approve and run; the Start view's form has the "Review the plan before it runs" switch."""
+    """3.0.9.0 R2; 3.4.0.0 D "the runs fold": a seeded review run waiting for its plan is its lead on Agents -> Live,
+    waiting on you with Review the plan; nothing opens by itself (no plan panel, no goal panel), and the old
+    `--mode orchestra` door lands on Live with Run a goal on its bar (tests/helpers/studio_plan.py drives the rest)."""
     _need_chrome()
     got = _dom("orchestra")
-    plan, start = got.get("plan") or {}, got.get("start") or {}
-    ctx.check(f"the plan panel, not the console, got {plan or got}", plan.get("orchestra-plan") == 1 and plan.get("orchestra-root") == 0
-              and plan.get("panel-title") == 1 and plan.get("section-tab") == 6)
-    ctx.check(f"five lanes, three boxes, one edge, the inspector and Approve, no problem, got {plan}",
-              plan.get("plan-canvas") == 1 and plan.get("plan-lane") == 5 and plan.get("plan-layer") == 3 and plan.get("plan-edge") == 1
-              and plan.get("plan-inspector") == 1 and plan.get("plan-approve") == 1 and plan.get("plan-problem") == 0)
-    ctx.check(f"the review switch on the Start view, got {start.get('orchestra-review')}", start.get("orchestra-review") == 1)
-
+    plan, old = got.get("plan") or {}, got.get("old_door") or {}
+    ctx.check(f"the lead on Live with Review the plan, nothing open, got {plan or got}", plan.get("agents-live-lead") == 1
+              and plan.get("agents-live-review") == 1 and plan.get("orchestra-plan") == 0 and plan.get("run-goal-drawer") == 0
+              and plan.get("section-tab") == 6 and plan.get("orchestra-root") == 0)
+    ctx.check(f"the old door: Live, Run a goal on its bar, no Start view, got {old}", old.get("roles-live-map") == 1
+              and old.get("live-run-goal") == 1 and old.get("start-view") == 0)
 
 
 if __name__ == "__main__":

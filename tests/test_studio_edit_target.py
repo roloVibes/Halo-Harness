@@ -94,7 +94,7 @@ def test_the_edit_target_and_its_url(ctx: Ctx):
     t, _ = parse("lineup:halo-dev-cycle")
     ctx.check("lineup:<name> opens Agents on Cast", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=cast&edit=lineup:halo-dev-cycle")
     t, _ = parse("team")
-    ctx.check("team opens Agents on Runs (3.3.16.0 R1: the Team section went)", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=runs&edit=team")
+    ctx.check("team opens Agents on Live (3.3.16.0 R1: the Team section went; 3.4.0.0 D: Runs too)", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=live&edit=team")
     for bad in ("", "coder", "bio:", "bio:../etc", "org:x", "lineup:a/b"):
         got, why = parse(bad)
         ctx.check(f"{bad!r} is not a target, with a reason", got is None and why)
@@ -103,7 +103,7 @@ def test_the_edit_target_and_its_url(ctx: Ctx):
               url_for(fake, None, "bio:coder") == "http://127.0.0.1:4321/?mode=agents&view=cast&edit=bio:coder#t=tok")
     ctx.check("url_for without an edit is unchanged", url_for(fake, "fleet") == "http://127.0.0.1:4321/?mode=fleet#t=tok")
     ctx.check("the running Studio's URL carries it too",
-              launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=agents&view=runs&edit=team#t=x")
+              launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=agents&view=live&edit=team#t=x")
     with _home() as h:
         from halo_harness.teams_yaml import ensure_builtin_team_templates
         ensure_builtin_team_templates(state_dir=h.state)

@@ -91,53 +91,35 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
     except (ValueError, IndexError):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
-    # R6b: a folder with no Orchestra run opens on the Start view, not on empty panels
-    ctx.check(f"Orchestra (Agents -> Runs): six section tabs and the Start view, got {orch}", orch.get("section-tab") == 6 and orch.get("start-view") == 1 and orch.get("orchestra-root") == 0)
+    # 3.4.0.0 D: the old Orchestra door lands on Agents -> Live (nothing runs here): Run a goal on its bar, no Start view
+    ctx.check(f"the old Orchestra door: Agents -> Live, Run a goal on the bar, no Start view, got {orch}", orch.get("section-tab") == 6
+              and orch.get("start-view") == 0 and orch.get("orchestra-root") == 0 and orch.get("roles-live-map") == 1 and orch.get("live-run-goal") == 1)
     ctx.check(f"Roles (Agents -> Cast): six section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0})
+              roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0,
+                        "roles-live-map": 0, "live-run-goal": 0})
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
 @test
-def test_orchestra_run_console_draws_a_finished_run_in_headless_chrome(ctx: Ctx):
-    """3.0.3.0 R4: over a seeded finished run (the R2 fixture: five lanes, one
-    judged conflict, eight checks) the Orchestra section draws the graph with
-    its gate, five lanes, five claimed bands, every check and five tiles; 3.0.9.0:
-    lane 2 takes lane 1's summary, so one lane-edge, and a base line on every lane."""
+def test_a_finished_run_is_a_report_page_in_history_in_headless_chrome(ctx: Ctx):
+    """3.4.0.0 D "the runs fold": over a seeded finished run (the R2 fixture: five lanes, one judged conflict, eight
+    checks) its door `?mode=agents&run=<id>` opens History on the run's report -- every check, every lane, Replay and
+    Run it again -- and nothing finished is drawn on Live; a run waiting for its plan is a lead on Live that waits on you
+    with Review the plan, the plan panel NOT open (nothing opens by itself); the old Orchestra door is Live."""
     if not _chrome():
-        raise SkipTest("no Chrome found (the Orchestra smoke needs headless Chrome)")
+        raise SkipTest("no Chrome found (the run smoke needs headless Chrome)")
     r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
     ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    ctx.check(f"the graph and its gate, got {info}", info.get("orchestra-graph") == 1 and info.get("gate", 0) >= 1)
-    ctx.check(f"five lanes and five tiles, got {info}", info.get("lane") == 5 and info.get("grid-tile") == 5)
-    ctx.check(f"a band per claimed unit, got {info}", info.get("claim-region", 0) >= 5)
-    ctx.check(f"every report check, got {info}", info.get("report-check") == 8)
-    ctx.check(f"3.0.9.0: lane 2's hand-off edge and every lane's base, got {info}", info.get("lane-edge") == 1 and info.get("lane-base") == 5)
-    ctx.check(f"the shell around it, got {info}", info.get("section-tab") == 6 and info.get("orchestra-root") == 1)
-
-
-@test
-def test_orchestra_start_view_then_grid(ctx: Ctx):
-    """R6b: with no run the Orchestra section is one Start view (the goal form,
-    the explainer, open the workspace anyway), no empty panels; once a run is
-    open the grid shows, every panel with its about line, the Goal panel with
-    every field and Run at its default size (no inner scroll), the run in the
-    expanded rail (3.3.2.0 R1: the icon rail draws no run list; tests/helpers/studio_clarity.py expands it).
-    3.3.2.0 R1: the first visit (no tour=off) opens no welcome card either."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Orchestra smoke needs headless Chrome)")
-    r, grid = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
-    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    start = grid.get("start", {})
-    ctx.check(f"no run: the Start view with the goal form and the way to the panels, got {start}",
-              start.get("start-view") == 1 and start.get("orchestra-goal-form") == 1 and start.get("orchestra-open-workspace") == 1)
-    ctx.check(f"no run: none of the run panels, got {start}",
-              not any(start.get(k) for k in ("orchestra-root", "orchestra-graph", "lane", "grid-tile", "report-check", "panel-title")))
-    ctx.check(f"a run open: the grid, not the Start view, got {grid}", grid.get("start-view") == 0 and grid.get("orchestra-root") == 1)
-    ctx.check(f"a run open: eight panels (their titles; 3.3.2.0 R3: no about line), no run list drawn (it is in the closed + menu), got {grid}", grid.get("panel-title") == 8 and grid.get("orchestra-menu-run") == 0)
-    ctx.check("the Goal panel fits every field and Run at its default size", grid.get("goal-overflow") is False)
-    ctx.check(f"3.3.2.0 R1: no help card with or without tour=off, got {grid.get('section-help')} / {grid.get('welcome')}",
-              grid.get("section-help") == 0 and grid.get("welcome", {}).get("section-help") == 0)
+    ctx.check(f"History open on the run's report, got {info}", info.get("history-report") == 1 and info.get("history-page") == 1
+              and info.get("report-check") == 8 and info.get("report-lane") == 5)
+    ctx.check(f"Replay and Run it again on it, got {info}", info.get("history-report-replay") == 1 and info.get("history-report-again") == 1)
+    ctx.check(f"nothing finished on Live, no console, got {info}", info.get("agents-live-lead") == 0 and info.get("agents-live-lane") == 0
+              and info.get("orchestra-root") == 0 and info.get("start-view") == 0 and info.get("section-tab") == 6)
+    plan, old = info.get("plan") or {}, info.get("old_door") or {}
+    ctx.check(f"a planned run: its lead on Live with Review the plan, the plan panel closed, got {plan}", plan.get("agents-live-lead") == 1
+              and plan.get("agents-live-review") == 1 and plan.get("orchestra-plan") == 0 and plan.get("run-goal-drawer") == 0)
+    ctx.check(f"the old Orchestra door: Live with Run a goal, got {old}", old.get("roles-live-map") == 1 and old.get("live-run-goal") == 1
+              and old.get("history-report") == 0)
 
 
 @test
@@ -146,29 +128,32 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     focus); `?` opens its help from the PanelSpec and Esc closes it; the ...
     menu has Float, Collapse, Reset, Settings and Help; Settings opens the
     Inspector, which follows the next panel clicked; the Compact toggle; the
-    section's "How this works" from the ? in the header (3.3.2.0 R1: nothing to remember as seen); the
-    Orchestra run in the expanded rail."""
+    section's "How this works" from the ? in the header (3.3.2.0 R1: nothing to remember as seen); Agents' "+"
+    menu. 3.4.0.0 D: on Cast's panels (Runs' Orchestra panels, where this ran, went with the runs fold)."""
     if not _chrome():
         raise SkipTest("no Chrome found (the click test needs headless Chrome)")
     r, got = _json_of("-m", "tests.helpers.studio_clarity", "panel")
     ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
-    ctx.check(f"eight about lines, each its title's tooltip (3.3.2.0 R3), got {got.get('about')}", got.get("about") == 8)
+    ctx.check(f"six about lines (Cast's panels), each its title's tooltip (3.3.2.0 R3), got {got.get('about')}", got.get("about") == 6)
     ctx.check(f"the clicked panel is the one active and focused, got {got}", got.get("active") is True and got.get("focused") is True and got.get("others_active") == 1)
     ctx.check(f"a click on a title bar focuses that panel and leaves the layout default, got {got.get('title_click')} / {got.get('layout_after_click')}",
-              got.get("title_click") == "graph" and got.get("layout_after_click") == "default")
-    ctx.check(f"? opens the Report's help, got {got.get('help_title')} / {got.get('help_lines')}", got.get("help_title") == "Report" and got.get("help_lines", 0) >= 3)
+              got.get("title_click") == "roles-lineups" and got.get("layout_after_click") == "default")
+    ctx.check(f"? opens Models' help, got {got.get('help_title')} / {got.get('help_lines')}", got.get("help_title") == "Models" and got.get("help_lines", 0) >= 2)
     ctx.check("Esc closes it", got.get("help_closed") is True)
     ctx.check(f"the ... menu (3.3.2.0 R3: Compact / Expand is its face row), got {got.get('menu')}",
               got.get("menu") == ["float", "face", "collapse", "reset", "settings", "help"])
-    ctx.check(f"Settings opens the Inspector on Lanes, then it follows the click to Report, got {got.get('inspector')} / {got.get('inspector_follows')}",
-              got.get("inspector") == "Lanes" and got.get("inspector_follows") == "Report")
+    ctx.check(f"Settings opens the Inspector on Bios, then it follows the click to Models, got {got.get('inspector')} / {got.get('inspector_follows')}",
+              got.get("inspector") == "Bios" and got.get("inspector_follows") == "Models")
     ctx.check("the Compact toggle", got.get("compact") == "glance")
     ctx.check(f"the ? beside the tabs is a menu: How this works and the Glossary (3.1.1.0 R1), got {got.get('help_menu')}",
               got.get("help_menu") == ["section-help-item", "glossary-item"])
-    ctx.check(f"How Agents works (on Runs: Orchestra's eight panels and the Mission panel; 3.3.16.0 R1, R2: the fleet's steps; 3.3.16.1: Hover, then click), got {got}",
-              got.get("section_title") == "How Agents works" and got.get("section_steps") == 15 and got.get("section_panels") == 9)  # 3.3.18.0: + Live's four
+    text = str(got.get("section_text") or "")
+    ctx.check(f"How Agents works: fourteen steps, Run a goal and History in them, no Runs view (3.4.0.0 D), got {got.get('section_steps')}",
+              got.get("section_title") == "How Agents works" and got.get("section_steps") == 14 and "Live: run a goal" in text
+              and "Runs:" not in text and (got.get("section_panels") or 0) >= 6)
     ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
-    ctx.check(f"the run and New run in Orchestra's + menu (3.3.2.0 R2), got {got.get('rail_run')} {got.get('menu_new_run')}", got.get("rail_run") == 1 and got.get("menu_new_run") is True)
+    ctx.check(f"Agents' + menu: its panels, no runs group (3.4.0.0 D), got {got.get('menu_runs')} / {got.get('menu_text')!r}",
+              got.get("menu_runs") == 0 and "RUNS" not in str(got.get("menu_text") or ""))
 
 
 @test
@@ -178,7 +163,7 @@ def test_roles_header_is_not_nested(ctx: Ctx):
     if not _chrome():
         raise SkipTest("no Chrome found (the Roles test needs headless Chrome)")
     r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
-    roles = dom.get("roles", {})
+    roles = dom.get("roles", {})  # tools/capture_orchestra.py dumps the Roles section beside the run
     ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
               roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 6)
 

@@ -87,7 +87,8 @@ this list against the tree.
 - Ollama on the network: `peers/ollama_share.py`, `peers/ollama_share_cards.py`, `peers/ollama_share_take.py`,
   `peers/control_models.py`, `peers/control_pulls.py`, `peers/control_probes.py`
 - this harness: `peers/local_view.py`, `peers/agent_tokens.py` (each agent row's own tokens, from its transcript),
-  `peers/capabilities_host.py` (the hardware), `peers/catalog.py` (the capability catalog's cache)
+  `peers/capabilities_host.py` (the hardware), `peers/catalog.py` (the capability catalog's cache), `peers/needs.py`
+  (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in)
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live, out of the old fleet/):
 

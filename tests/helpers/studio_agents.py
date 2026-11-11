@@ -3,13 +3,13 @@ scratch home and a temp git repo (tests/helpers/orchestra_fixtures.py) holding a
 on a gate (tests/helpers/orchestra_studio_rig.py `fake_runner`): the lead split it into five lanes and each lane's
 `lane:<n>` placeholder holds its claims. tests/test_studio_agents.py runs it:
 
-    python -m tests.helpers.studio_agents agents   Alt+2 opens Agents on Cast with nothing else open; seven section
+    python -m tests.helpers.studio_agents agents   Alt+2 opens Agents on Live with nothing else open; six section
                                                    tabs; the doors (?mode=roles, roles&view=live, orchestra,
-                                                   agents&view=runs|live) land on their views; ?mode=team lands on
-                                                   Runs with Team's line once; C / R / L switch; each lane in Runs
-                                                   says what it owns and a focused lane lists its claims (holder,
-                                                   state); Live draws the run's lead and a lane node under it with
-                                                   its number and worktree (3.4.0.0 B: Test this lineup is the first-run pack's panel)
+                                                   agents&view=runs|live) land on their views (3.4.0.0 D: Runs' on
+                                                   Live); ?mode=team lands on Live with Team's line once; C / R / L / W
+                                                   switch (R lands on Live); Live draws the run's lead and its lanes
+                                                   in the run's block, each with its number, worktree and owns row; a
+                                                   lane's click is its summary, its Claims page lists the claims
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called (HALO_START_FAKE=1)."""
 from __future__ import annotations
@@ -77,10 +77,9 @@ def doors(c, page) -> dict:
 def team_note(c, page) -> dict:
     out = {}
     open_page(c, page, "mode=team")
-    out["first"] = c.wait(f"{VIEW} === 'runs' && [{VIEW}, {NOTE}?.textContent || '']", 30)
+    out["first"] = c.wait(f"{VIEW} === 'live' && [{VIEW}, {NOTE}?.textContent || '']", 30)
     open_page(c, page, "mode=team")
-    c.wait(f"{VIEW} === 'runs'", 30)
-    time.sleep(0.5)
+    c.wait(f"{VIEW} === 'live' && !!document.querySelector('[data-testid=\"roles-live-map\"]')", 30)
     out["again"] = [c.js(VIEW), c.js(f"!!{NOTE}")]
     return out
 
@@ -90,34 +89,35 @@ def view_keys(c, page) -> dict:
     c.wait(f"{VIEW} === 'live'", 30)  # 3.3.18.0: a bare door opens on Live
     c.js("document.activeElement?.blur()")
     out = {}
-    for ch, want in (("r", "runs"), ("l", "live"), ("w", "workflows"), ("c", "cast")):  # 3.3.16.0 R3: W the board
+    for ch, want in (("r", "live"), ("w", "workflows"), ("l", "live"), ("c", "cast")):  # 3.3.16.0 R3: W; 3.4.0.0 D: R lands on Live
         key(c, ch)
         out[ch] = c.wait(f"{VIEW} === '{want}' && {VIEW}", 10)
     return out
 
 
 def owns(c, page) -> dict:
-    """Runs on the live run (its Lanes panel open: `open=lanes`): every lane's owns line, then a focused lane's claims."""
-    open_page(c, page, "mode=agents&view=runs&open=lanes")
-    lane = "document.querySelector('[data-testid=\"lane\"][data-lane=\"1\"]')"
+    """3.4.0.0 D: Live on the live run: every lane box's OWNS row, then lane 1's summary and its Claims page."""
+    open_page(c, page, "mode=agents&view=live&plan=off")
+    lane = "document.querySelector('[data-testid=\"agents-live-lane\"][data-lane=\"1\"]')"
     out = {"owns": c.wait("(() => { const o = [...document.querySelectorAll('[data-testid=\"lane-owns\"]')];"
-                          " return o.length >= 5 && o.every((x) => +x.dataset.count > 0) && o.map((x) => x.textContent); })()", 40)}
-    c.click_on(f"{lane}.querySelector('.og-lane-head')")
-    out["claims"] = c.wait(f"(() => {{ const r = [...{lane}.querySelectorAll('[data-testid=\"lane-claim\"]')];"
+                          " return o.length >= 5 && o.every((x) => x.textContent.includes('basket.py#')) && o.map((x) => x.textContent); })()", 40)}
+    c.click_on(lane)
+    c.wait("document.querySelector('[data-testid=\"run-inspector\"]')?.dataset.lane === '1'", 15)
+    c.click_on("document.querySelector('[data-testid=\"run-open-claims\"]')")
+    out["claims"] = c.wait("(() => { const r = [...document.querySelectorAll('[data-testid=\"run-page\"] [data-testid=\"lane-claim\"]')];"
                            " return r.length && r.map((x) => [x.dataset.holder, x.dataset.state, x.textContent]); })()", 15)
     return out
 
 
 def live_lanes(c, page) -> dict:
-    open_page(c, page, "mode=agents&view=live")
+    open_page(c, page, "mode=agents&view=live&plan=off")  # the tree (3.3.18.0's plan under it off): the run's block under its lead
     lead = "document.querySelector('[data-testid=\"agents-live-lead\"]')"
     out = {"lanes": c.wait("(() => { const l = [...document.querySelectorAll('[data-testid=\"agents-live-lane\"]')];"
                            " return l.length >= 5 && l.map((x) => [+x.dataset.lane, x.dataset.lc, x.dataset.worktree || '']); })()", 40)}
     out["lead"] = c.js(f"{lead}?.dataset.run || ''")
-    out["edges"] = c.js("[...document.querySelectorAll('[data-testid=\"roles-live-edge\"]')].map((e) => [e.dataset.from, e.dataset.to])"
-                        ".filter(([, t]) => t.includes(':lane:')).length")
-    out["under_lead"] = c.js("[...document.querySelectorAll('[data-testid=\"roles-live-edge\"]')].filter((e) => e.dataset.to.includes(':lane:'))"
-                             ".every((e) => e.dataset.from.startsWith('run:'))")
+    box = "document.querySelector('[data-testid=\"live-group\"][data-kind=\"run\"]')"
+    out["block"] = c.js(f"{box} ? [{box}.dataset.group, {box}.querySelectorAll('[data-testid=\"agents-live-lane\"]').length"
+                        f" || document.querySelectorAll('[data-testid=\"agents-live-lane\"]').length] : null")
     return out
 
 

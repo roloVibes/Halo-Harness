@@ -11,7 +11,7 @@ from __future__ import annotations
 
 LEFT = {
     "team": ("the team file left in 3.4.0.0; a lineup's tiers and blocks (Agents -> Cast, halo teams) and a run's "
-             "lanes with their owns lines (Agents -> Runs, halo orchestra) do its job now"),
+             "lanes with their owns lines (a goal run on Agents -> Live, halo orchestra) do its job now"),
 }
 PACKED = {
     "start": ("first-run", "the guided first run"),

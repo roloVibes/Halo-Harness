@@ -6,7 +6,7 @@ open there:
     bio:<name>      Agents on Cast, the Bios panel open on that bio's form
     lineup:<name>   Agents on Cast, that lineup open with the Inspector on its Lineup tab's summary
     lineup:<name>:<block>   the same, on that block's page (3.3.16.0 R1b: description, workers, schedule or a section)
-    team            Agents on Runs (3.3.16.0 R1: Team's board went; the page says so once)
+    team            Agents on Live (3.3.16.0 R1: Team's board went; 3.4.0.0 D: Runs too; the page says so once)
 
 It rides in the page URL as `?mode=agents&view=<cast|runs>&edit=<target>` (the token
 stays in the fragment; 3.3.16.0 R1: `?mode=roles|team&edit=` before, still landed by the page):
@@ -49,8 +49,8 @@ class EditTarget:
 
     @property
     def view(self) -> str:
-        """Agents' view: Runs for the team, Cast for a bio or a lineup."""
-        return "runs" if self.kind == "team" else "cast"
+        """Agents' view: Live for the team (3.4.0.0 D: a goal run on Live shows who owns what), Cast for a bio or a lineup."""
+        return "live" if self.kind == "team" else "cast"
 
     @property
     def text(self) -> str:

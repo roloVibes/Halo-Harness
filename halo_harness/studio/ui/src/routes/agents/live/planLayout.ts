@@ -42,7 +42,7 @@ export function planLayout(nodes: LiveNode[], defs: PlanBlockDef[], place: Place
   const all = [...defs];
   for (const id of members.keys()) if (!all.some((d) => d.id === id))
     all.push(id === "none" ? { id, kind: "none", title: "not in the plan", purpose: "agents no card of the lineup matches", when: "" }
-      : { id, kind: "run", title: "Orchestra run", purpose: id.slice(4), when: "" });
+      : { id, kind: "run", title: `goal run: ${(members.get(id) || []).find((n) => n.run && !n.lane)?.task || id.slice(4)}`.slice(0, 80), purpose: `run ${id.slice(4)}`, when: "" }); // 3.4.0.0 D: titled by its goal
   const boxes: LiveBox[] = [], blocks: PlanBox[] = [], lines: PlanLine[] = [];
   const size = (def: PlanBlockDef) => {
     const ms = members.get(def.id) || [];

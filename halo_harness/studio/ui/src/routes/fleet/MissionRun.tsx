@@ -13,7 +13,7 @@ import { Button, Icon } from "../../lib/ui";
 import { cost, short } from "../orchestra/format";
 import { openAgentPanel, select } from "./actions";
 import { useTicker } from "../agents/live/nodeBits";
-import { OwnsLine } from "../agents/runs/Owns";
+import { OwnsLine } from "../agents/run/Owns";
 import { missions, partMotion, partState, useMissions, usd, type PlanPart, type View } from "./mstore";
 import { keyOf, useFleet } from "./store";
 import type { AgentRow, Harness } from "./types";

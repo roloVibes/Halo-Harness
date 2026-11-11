@@ -482,7 +482,7 @@ runner (Studio's own or `halo orchestra run --review` in a terminal) will
 take the decision.
 
 Studio draws the plan as a canvas you edit (see [In Studio](#in-studio) and
-[STUDIO-orchestra.md](STUDIO-orchestra.md#the-plan-canvas-3090)); its draft lives in
+[STUDIO-orchestra.md](STUDIO-orchestra.md#review-the-plan)); its draft lives in
 `<run>/plan.draft.json` until you approve it.
 
 ## The forecast
@@ -655,7 +655,7 @@ not held yet (`workflows/outputs.py`).
   whole run; a hold before one stage is not a thing yet.
 - **The stage set stays the file's:** the plan review keeps it, and the
   supervisor's replanner never pauses a workflow run ([SUPERVISE.md](SUPERVISE.md#replanning)).
-- **Studio's Start view picks a workflow**: "or run a pack's workflow" under
+- **Studio's goal panel picks a workflow** (3.4.0.0 D: Live's Run a goal; the Start view before): "or run a pack's workflow" under
   the goal form ([STUDIO-orchestra.md](STUDIO-orchestra.md)).
 
 ## The coach
@@ -1065,14 +1065,15 @@ never written over an entry already here
 
 ## In Studio
 
-`halo studio`, started in the repo, opens Agents -> Runs (the Orchestra section before 3.3.16.0): the run
-console described in [STUDIO-orchestra.md](STUDIO-orchestra.md#orchestra-the-run-console). Its
+`halo studio`, started in the repo, runs goals from Agents -> Live (3.4.0.0 D: Run a goal on its bar; the Runs view and
+the Orchestra section before it went): a goal run is a job on Live and its report a page of History, as
+[STUDIO-orchestra.md](STUDIO-orchestra.md) describes. Its
 backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
 behind the same loopback, origin and token guard as every Studio route.
 
 | Route | Answer |
 |---|---|
-| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd}]`, newest first; `state` is `running`, `planned` (3.0.9.0: waiting for the reviewed plan), `finished`, `stopped`, `dry run`, `new` or `interrupted` |
+| `GET orchestra/runs` | `[{run_id, created, state, workers, goal_what, cost_usd, models, elapsed_s, ended, stop_reason}]` (3.4.0.0 D: History's row says how it ended, its wall time and its lanes' models), newest first; `state` is `running`, `planned` (3.0.9.0: waiting for the reviewed plan), `finished`, `stopped`, `dry run`, `new` or `interrupted` |
 | `POST orchestra/run` | body `{what, done_when, stop_when, workers, return_cap, test, files, lineup, lead, worker, model?, dry_run?, review?}` (`review: true` = the goal's `plan: review`) -> `201 {run_id}`; an invalid goal is a 422 with `validate_goal`'s lines, a file that is not in the repo is a 422, and a second run while one is live is a 409 naming it |
 | `GET orchestra/<run>` | `{run, goal, workflow, split, lanes, claims (live), merge, report, dry_run, events_count, live}` |
 | `GET orchestra/<run>/events?since=N` | `{events, next}`: the run log from line N |

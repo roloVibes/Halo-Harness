@@ -77,10 +77,7 @@ def parse(wf, raw: dict, *, repo) -> "tuple[dict, list]":
 
 
 def _caps(wf, *, cwd=None, state_dir=None) -> dict:
-    from halo_harness.packs import fleet_door, state as S
-    reg = fleet_door.module("fleet/fleet_registry.py", cwd=cwd, state_dir=state_dir)
-    if reg is None:  # 3.4.0.0 C: a capability's `requires` are checked by the fleet pack's catalog; off, none is checked
-        return {}
+    from halo_harness.packs import fleet_registry as reg, state as S  # 3.4.0.0 D: core, checked with the fleet pack off
     try:
         granted = S.granted(wf.pack.id, S.load(state_dir))
         entry = reg.pack_entry(wf.pack, granted, reg.host_catalog(state_dir, cwd), cwd=cwd, state_dir=state_dir)

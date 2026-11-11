@@ -48,8 +48,8 @@ def test_the_registry_runs_session_first_and_settings_last(ctx: Ctx):
     ctx.check(f"the order is Session, Agents, Local, Packs, Setup, Settings, got {[r[1] for r in rows]}",
               [r[0] for r in rows] == ["session", "agents", "local", "packs", "setup", "settings"])
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
-    ctx.check("Agents is Alt+2, the cast, its runs and what runs now on every machine",
-              rows[1][1:] == ("Agents", "Alt+2", "The cast, its runs, and what runs now on every machine"))
+    ctx.check("Agents is Alt+2, the cast, what runs now on every machine and what ran (3.4.0.0 D)",
+              rows[1][1:] == ("Agents", "Alt+2", "The cast, what runs now on every machine (a goal run too), and what ran"))
     ctx.check("Local is Alt+3", rows[2][1:] == ("Local", "Alt+3", "The machines that serve models, and the models they serve"))
     ctx.check("Packs is Alt+4, the Pack Manager", rows[3][1:] == ("Packs", "Alt+4", "Install, grant and enable packs"))
     ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme, lineup and machines"))

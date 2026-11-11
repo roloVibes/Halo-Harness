@@ -16,7 +16,7 @@ decisions.py), so they survive Studio starting later and the supervisor
 restarting. `rows(home, ...)` turns the open ones into attention rows;
 `answer(req, row, key, text)` writes the owner's answer into the decision
 file; the supervisor polls it and acts (loop.py). `open_target(row)` opens
-the goal's run in Agents -> Runs (the Orchestra section before 3.3.16.0 R1).
+the goal's run on Agents -> Live while it runs, its report in History once it ended (3.4.0.0 D; Runs before).
 """
 
 from __future__ import annotations
@@ -56,7 +56,8 @@ def open_target(row: dict) -> dict:
     t = row.get("target") or {}
     run_dir = t.get("run_dir")
     run = Path(run_dir).name if run_dir else None
-    return {"section": "agents", "view": "runs", "panel": "orchestra-run", "run": run, "goal": t.get("goal")}  # 3.3.16.0 R1: Agents -> Runs
+    panel = "orchestra-plan" if row.get("kind") in ("goal_plan", "goal_replan") else "orchestra-run"
+    return {"section": "agents", "view": "live", "panel": panel, "run": run, "goal": t.get("goal")}  # 3.4.0.0 D: Live (or History)
 
 
 def _by(home) -> str:

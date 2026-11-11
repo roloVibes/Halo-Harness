@@ -115,7 +115,9 @@ def shot(c, name: str) -> None:
 def orchestra(c, rig) -> dict:
     from halo_harness.studio.server import url_for
     c.go("about:blank")
-    c.go(url_for(rig.server, "orchestra").replace("#t=", "&tour=off&view=start#t="))
+    c.go(url_for(rig.server, "agents").replace("#t=", "&tour=off&view=live#t="))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
+    c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
+    c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
     c.wait("document.querySelectorAll('[data-testid=\"orchestra-goal-form\"] textarea').length >= 3", 30)
     shot(c, "orchestra-goal")
     return {"orchestra": boxes(c, "[data-testid=\"orchestra-goal-form\"] textarea")}

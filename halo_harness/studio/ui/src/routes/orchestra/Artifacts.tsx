@@ -1,4 +1,4 @@
-// The Report panel's Artifacts tab (3.2.0.0 R5): a workflow run's typed
+// A finished run's artifacts (3.2.0.0 R5; 3.4.0.0 D: a block of its report page in History): a workflow run's typed
 // outputs (report.json `artifacts`, halo_harness/workflows/outputs.py), each
 // read through GET orchestra/<run>/artifact/<name> and drawn by its schema's
 // view hint (packs/ArtifactView.tsx). A skipped or missing output says why.
@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { Empty } from "../../lib/ui";
 import { ArtifactProblems, ArtifactView, type ArtifactPayload } from "../packs/ArtifactView";
-import { useOrch } from "./store";
 import type { ArtifactRow } from "./types";
 
 function One({ run, row }: { run: string; row: ArtifactRow }) {
@@ -40,10 +39,7 @@ function One({ run, row }: { run: string; row: ArtifactRow }) {
   );
 }
 
-export function ArtifactsTab() {
-  const runId = useOrch((s) => s.runId);
-  const rows = useOrch((s) => s.data?.report?.artifacts) || [];
-  const ref = useOrch((s) => s.data?.report?.workflow?.ref);
+export function ArtifactsTab({ runId, rows, ref }: { runId: string; rows: ArtifactRow[]; ref?: string }) {
   if (!rows.length) return <Empty title="No artifacts" body="This run's workflow names no typed output." />;
   return (
     <div className="og-artifacts" data-testid="run-artifacts">

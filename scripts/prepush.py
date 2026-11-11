@@ -8,21 +8,20 @@
 
 What it runs, in this order (a red static check stops the run; the suites all run so one pass lists every red):
 
+  0. 3.4.0.0 D (scripts/prepush_tree.py): every folder under halo_harness/ and tests/ that holds nothing but
+     __pycache__ is removed, one line each; on Windows a `bash` that is WSL's is passed over for Git's (one line).
   1. pyflakes: no undefined name in halo_harness/ or bridge.py (CI's gate).
   2. Studio's UI, when a file under halo_harness/studio/ui differs from origin/master or --ui is given:
      `npm run build`; the static/dist in the tree must already be what the build writes.
   3. `halo audit privacy` with a scratch home.
-  4. The fast tier of tests/run_all.py as N shards side by side (`--fast --shard i/N`, the flag CI's matrix uses),
-     with test_bridge.py beside them. Every shard is run_all itself, so each module still gets its own fresh
-     BRIDGE_TEST_HOME and the run still fails when a test touches the real ~/.halo.
-  5. The full tier (`--tier full`: headless Chrome and the TUI pilots) as --chrome-jobs shards (default 4), each
-     with its own temp directory and so its own Chrome lock (one Chrome per shard), with test_tui.py beside them;
-     docs/harness/tui-snapshots is put back afterwards unless --keep-snapshots.
+  4. The fast tier of tests/run_all.py as N shards side by side (`--fast --shard i/N`, CI's flag), test_bridge.py
+     beside them; each shard is run_all, so each module gets its own BRIDGE_TEST_HOME and the ~/.halo guard.
+  5. The full tier (`--tier full`: Chrome, the TUI pilots) as --chrome-jobs shards (default 4), each with its own temp
+     and Chrome lock, test_tui.py beside them; docs/harness/tui-snapshots is put back unless --keep-snapshots.
   6. A shard that went red beside the others is run once more alone. Green alone = "contended" (said in the
      summary, the gate still passes: look at it, a test that needs a quiet box is a test to fix); red alone = red.
 
-Logs go to .prepush/<sha>/<step>.log and the verdict to .prepush/last.json (sha, dirty tree or not, each step).
-The gate is green only for the exact tree it ran on: commit first, run, then push that sha.
+Logs: .prepush/<sha>/<step>.log; the verdict: .prepush/last.json. Green is for the exact tree it ran on: commit, run, push.
 """
 from __future__ import annotations
 
@@ -52,9 +51,14 @@ def tree_state() -> dict:
     return {"sha": git("rev-parse", "HEAD"), "dirty": bool(dirty), "dirty_files": [ln[3:] for ln in dirty][:20]}
 
 
+BASH_PATH = ""  # 3.4.0.0 D: Git's bin folders ahead of WSL's bash (prepush_tree.bash_fix), set by main
+
+
 def suite_env() -> dict:
     env = {k: v for k, v in os.environ.items() if k not in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     env.update(PYTHONPATH=str(REPO), BRIDGE_TEST_NO_BACKGROUND_NET="1", PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1")
+    if BASH_PATH:
+        env["PATH"] = BASH_PATH + os.pathsep + env.get("PATH", "")
     return env
 
 
@@ -118,15 +122,6 @@ def ui_differs() -> bool:
     return bool(git("diff", "--name-only", "origin/master", "--", "halo_harness/studio/ui"))
 
 
-def dist_digest() -> str:
-    import hashlib
-    h = hashlib.sha256()
-    for f in sorted((REPO / "halo_harness" / "studio" / "static" / "dist").rglob("*")):
-        if f.is_file():
-            h.update(f.name.encode() + b"/" + f.read_bytes())
-    return h.hexdigest()
-
-
 def static_checks(args, logdir: Path) -> list:
     steps = []
     py = sys.executable
@@ -140,9 +135,10 @@ def static_checks(args, logdir: Path) -> list:
         else:
             if not (UI / "node_modules").is_dir():
                 steps.append(run_step("studio-ui-ci", ["npm", "ci"], logdir, cwd=UI, env=dict(os.environ)))
-            before = dist_digest()  # the dist in the tree (committed or not) must be what the sources build
+            from prepush_tree import dist_digest
+            before = dist_digest(REPO)  # the dist in the tree (committed or not) must be what the sources build
             build = run_step("studio-ui", ["npm", "run", "build"], logdir, cwd=UI, env=dict(os.environ))
-            if build["ok"] and dist_digest() != before:
+            if build["ok"] and dist_digest(REPO) != before:
                 build["ok"], build["note"] = False, "static/dist was not what the build writes: it is rebuilt now, add it"
             steps.append(build)
     home = tempfile.mkdtemp(prefix="prepush-audit-")
@@ -204,6 +200,15 @@ def main(argv: "list | None" = None) -> int:
     args = p.parse_args(argv)
     if args.status:
         return status()
+    global BASH_PATH
+    from prepush_tree import bash_fix, prune  # 3.4.0.0 D: stale package folders out, WSL's bash not used
+    for rel in prune(REPO):
+        print(f"prepush: removed {rel} (nothing in it but __pycache__)", flush=True)
+    BASH_PATH, line = bash_fix()
+    if line:
+        print(line, flush=True)
+    if BASH_PATH is None:
+        return 2
     state = tree_state()
     logdir = OUT / state["sha"][:12]
     shutil.rmtree(logdir, ignore_errors=True)

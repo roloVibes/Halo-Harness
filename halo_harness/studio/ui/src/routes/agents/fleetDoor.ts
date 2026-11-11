@@ -1,7 +1,7 @@
 // Where the Fleet section's panels landed (3.3.16.0 R2 "the Fleet fold": a machine's agents in Agents, its models in
 // Local, machines in Setup). Every old door that named a Fleet panel -- an attention row's `o`, the palette, a pack's
 // route, Settings' and Setup's links -- comes through `showFleetPanel` and opens the new home:
-//   fleet-mission                       Agents -> Runs, the Mission panel (fleetPanels.ts)
+//   fleet-mission                       Agents -> Live, the Mission panel (fleetPanels.ts; 3.4.0.0 D: Runs went)
 //   fleet-attention                     Agents, the Attention panel (attention.ts)
 //   fleet-activity                      Agents -> Live, the Activity panel
 //   fleet-agent                         Agents -> Live, the agent in the inspector
@@ -13,7 +13,7 @@ import { panels } from "../fleet/pstore";
 import { openAgentPanel } from "../fleet/actions";
 import { fleet, localId } from "../fleet/store";
 import { goto as gotoLocal } from "../local/pages";
-import { setView as setRunsView } from "../orchestra/store";
+import { openMission } from "../fleet/mload";
 import { setAttention } from "./attention";
 import { activityPanel, missionPanel } from "./fleetPanels";
 import { clearPick, pickLive, setScope } from "./live/scope";
@@ -21,11 +21,11 @@ import { clearPick, pickLive, setScope } from "./live/scope";
 /** Run `go` once the workspace `section` has laid out (it mounts its layout first; however long a slow box takes). */
 const whenLaid = whenLaidOut;
 
-/** Agents -> Runs with the Mission panel up (the mission itself: fleet/mload.ts openMission). */
-export function openMissionPanel(): void {
-  goSection("agents", "runs");
-  setRunsView("workspace"); // the panels, even before the runs are read (a door at load) or with none open
-  whenLaid("orchestra", () => showPanel("orchestra", missionPanel));
+/** Agents -> Live with the Mission panel up; with `id`, on that mission (fleet/mload.ts openMission). */
+export function openMissionPanel(id = ""): void {
+  if (id) return openMission(id); // it comes back here for the panel
+  goSection("agents", "live");
+  whenLaid("roles", () => showPanel("roles", missionPanel));
 }
 
 /** Agents -> Live with the Activity panel beside the tree. */

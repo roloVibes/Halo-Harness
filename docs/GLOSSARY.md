@@ -29,7 +29,7 @@ A block (3.3.16.3) is one titled box on Studio's Agents canvas with a purpose, t
 
 ## lane
 
-A lane is one worker's share of an Orchestra run: one job of the plan, with its claims, its own git worktree and branch, its state (joined, writing, written, in review, merged, or waiting when its piece came back), how often its piece came back and what it cost. `halo orchestra lanes` lists them; Studio's Lanes panel draws them with their hand-off edges.
+A lane is one worker's share of an Orchestra run: one job of the plan, with its claims, its own git worktree and branch, its state (joined, writing, written, in review, merged, or waiting when its piece came back), how often its piece came back and what it cost. `halo orchestra lanes` lists them; while the run runs, Studio's Agents -> Live draws them as boxes under the run's lead (state, model, cost, what each owns), and a finished run's report in History lists them.
 
 ## part
 
@@ -73,7 +73,7 @@ A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square
 
 ## plan
 
-The plan is the lead's split of a goal into jobs, one per lane, each with a title, its claims, an optional bio and model, `after` and its hand-offs. With `plan: review` (`halo orchestra run --review`) the run waits until you approve it (`halo orchestra approve`, or Approve and run on Studio's plan canvas) or reject it with a reason; every edit is checked before it is saved.
+The plan is the lead's split of a goal into jobs, one per lane, each with a title, its claims, an optional bio and model, `after` and its hand-offs. With `plan: review` (`halo orchestra run --review`) the run waits until you approve it (`halo orchestra approve`, or Approve and run in the plan review Studio opens from the run's lead on Live) or reject it with a reason; every edit is checked before it is saved.
 
 ## coach
 

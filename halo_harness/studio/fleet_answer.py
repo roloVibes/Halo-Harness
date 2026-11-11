@@ -75,7 +75,7 @@ def open_target(row: dict) -> dict:
         from halo_harness.live.pack_attention import open_target as pack_target
         return pack_target(row)
     if kind == "orchestra_gate":
-        return {"section": "agents", "view": "runs", "run": t.get("run")}  # 3.3.16.0 R1: Orchestra is Agents -> Runs
+        return {"section": "agents", "view": "live", "run": t.get("run")}  # 3.4.0.0 D: the run on Live, else its report in History
     if kind in SUPERVISE:  # 3.1.8.0 R1
         from halo_harness.live.supervise_attention import open_target as supervise_target
         return supervise_target(row)

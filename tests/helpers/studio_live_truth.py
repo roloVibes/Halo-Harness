@@ -71,6 +71,10 @@ def replay(c, page, kind: str) -> dict:
         c.click_on(f"{Q}('[data-testid=\"live-history\"]')")
         c.wait(f"{ROWS}.length >= 2", 20)
     c.click_on(f"{ROWS}.find((r) => r.dataset.kind === '{kind}')")
+    if kind == "run":  # 3.4.0.0 D: a goal run's row opens its report page in History; Replay is on it
+        rep = f"{Q}('[data-testid=\"history-report-replay\"]')"
+        c.wait(f"!!{rep}", 20)
+        c.click_on(rep)
     sel = "[data-testid=\"roles-live-node\"]" if kind == "session" else "[data-testid=\"agents-live-lead\"], [data-testid=\"agents-live-lane\"]"
     out = {"banner": c.wait(f"{BANNER}?.dataset.kind === '{kind}' && {MAP}?.dataset.replay === 'true' && {QA}('{sel}').length > 0 && {BANNER}.textContent", 20)}
     out["drawn"] = c.js(f"[...{QA}('{sel}')].map((n) => [n.dataset.agent || n.dataset.lane || n.dataset.run, n.dataset.state || '', n.dataset.glow || '', getComputedStyle(n).filter])")

@@ -32,8 +32,6 @@ import { AgentsView } from "./agents/Agents";
 import { partPanels } from "./agents/parts";
 import { agentsPart, useAgentsPart } from "./agents/store";
 import { mediaPanels } from "./media/MediaPanels";
-import { useOrchestraMenu } from "./orchestra/OrchRail";
-import { enterWorkspace as enterOrchestra } from "./orchestra/store";
 import { setView as enterRoles } from "./roles/store";
 import { sessionPanels } from "./session/Session";
 import { SessionView } from "./session/Start";
@@ -51,7 +49,7 @@ export type SectionDef = {
   kbd: string;
   blurb: string;
   panels: PanelSpec[];
-  /** 3.3.2.0 R2: a hook giving the section's own rows in the header's "+" menu, under its panels (Agents' Runs: the runs). */
+  /** 3.3.2.0 R2: a hook giving the section's own rows in the header's "+" menu, under its panels (3.4.0.0 D: none since Runs' went). */
   menu?: () => MenuGroup;
   /** Draws the section instead of the bare Workspace (Agents: its bar and its views). */
   view?: ComponentType<{ section: string; specs: PanelSpec[] }>;
@@ -64,17 +62,16 @@ export type SectionDef = {
 
 export const SECTIONS: SectionDef[] = [
   { id: "session", title: "Session", kbd: "Alt+1", blurb: "This session, live", panels: sessionPanels, view: SessionView, enter: enterSession },
-  { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "The cast, its runs, and what runs now on every machine", panels: [], view: AgentsView },
+  { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "The cast, what runs now on every machine (a goal run too), and what ran", panels: [], view: AgentsView },
   { id: "local", title: "Local", kbd: "Alt+3", blurb: "The machines that serve models, and the models they serve", panels: mediaPanels(0), paged: true, view: LocalView, enter: enterLocal },
   { id: "packs", title: "Packs", kbd: "Alt+4", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
   { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme, lineup and machines", panels: [], paged: true, view: SetupView, enter: enterSetup },
   { id: "settings", title: "Settings", kbd: "Alt+6", blurb: "Every config key, one page per group", panels: [], paged: true, view: SettingsView, enter: enterSettings },
 ];
 
-/** 3.3.16.0 R1: one of Agents' workspaces as a section def (its layout key is its id; the title and key are Agents'). */
+/** 3.3.16.0 R1: Agents' workspace as a section def (its layout key is its id; the title and key are Agents'). */
 const PARTS: Record<AgentsPart, Pick<SectionDef, "menu" | "enter">> = {
   roles: { enter: () => enterRoles("workspace") },
-  orchestra: { menu: useOrchestraMenu, enter: enterOrchestra },
 };
 
 const AGENTS = SECTIONS[1];
@@ -108,7 +105,7 @@ export function useSections(): SectionDef[] {
 }
 
 export function sectionDef(id: SectionId): SectionDef {
-  if (id === "roles" || id === "orchestra") return partDef(id);
+  if (id === "roles") return partDef(id);
   if (id === "agents") return partDef(agentsPart()); // 3.3.16.0 R1: the workspace Agents draws now
   const def = sections().find((s) => s.id === id) ?? SECTIONS[0];
   // 3.3.13.0 R2: a pack's page with a Workspace of its own (api.lib.workspace): its panels, for the Inspector

@@ -52,6 +52,9 @@ export type Lane = {
   rebased?: { onto: { lane: number; job: string; head: string }[]; head?: string; tests_ok?: boolean; conflict?: string[]; ts: number } | null;
   // 3.1.8.0 R5 (isolation/lines.py): "isolation: container (<image>)", "secrets: 1password (3 refs)", "tools: ... (by bio X)"
   opt_ins?: string[];
+  // 3.0.9.0 R3 (orchestra/lanes.py): the bio and model the lane ran with (the job's, else the worker's result's)
+  bio?: string;
+  model?: string;
 };
 
 export type Give = { name: string; kind: "files" | "summary" | "artifact"; paths?: string[] };
@@ -111,7 +114,9 @@ export type DryRun = { jobs: { id: string; worker: number; title: string; claims
 
 // 3.0.9.0 R2: planned = the split waits for the reviewed plan (the plan canvas takes the console's place)
 export type RunState = "running" | "planned" | "finished" | "stopped" | "dry run" | "new" | "interrupted";
-export type RunRow = { run_id: string; created: number; state: RunState; workers: number; goal_what: string; cost_usd: number };
+// 3.4.0.0 D: History's row says how it ended, how long it took and on which models (studio/orchestra_model.run_row)
+export type RunRow = { run_id: string; created: number; state: RunState; workers: number; goal_what: string; cost_usd: number;
+  elapsed_s?: number | null; ended?: number | null; models?: string[]; stop_reason?: string };
 
 export type RunPayload = {
   run: { run_id: string; created: number; repo_root: string; lead_holder: string | null; state: RunState; cost_usd: number };

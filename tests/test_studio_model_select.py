@@ -8,7 +8,7 @@ studio_model_select.py, two runs one after the other; skipped without one):
 2. Design's Projects panel shows the open project's model (first option "the
    default (<model>)"); a pick saves the project (`GET design/projects`); New
    project's dialog creates the project on the picked model;
-(3.3.16.0 R1: Team's stage face went with its board; a run's plan in Agents -> Runs shows each lane's model.)
+(3.3.16.0 R1: Team's stage face went with its board; a goal run's lanes on Agents -> Live show each lane's model, 3.4.0.0 D.)
 Run: python -m tests.test_studio_model_select
 """
 from __future__ import annotations

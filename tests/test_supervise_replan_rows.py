@@ -78,7 +78,7 @@ def test_the_goal_replan_kind_and_its_attention_row(ctx: Ctx):
         ctx.check("it is a KEYS / TEXT_FOR / push / answer kind", "goal_replan" in attention.KEYS
                   and attention.TEXT_FOR.get("goal_replan") == "r" and "goal_replan" in PUSH_KINDS and "goal_replan" in SUPERVISE)
         t = open_target(got[0])
-        ctx.check(f"Open points at the run, got {t}", t["section"] == "agents" and t["view"] == "runs" and t["run"] == "r-1" and t["goal"] == "g-9")
+        ctx.check(f"Open points at the run, got {t}", t["section"] == "agents" and t["view"] == "live" and t["run"] == "r-1" and t["goal"] == "g-9")
         saved, why = decisions.answer(e.state_dir, row["id"], "s", by="me")
         ctx.check(f"s is taken (no text needed), got {why!r}", saved is not None and saved["answer"]["key"] == "s")
         plan = decisions.park(e.state_dir, "goal_plan", "g-9", "replan-2", "Goal g-9: a new plan waits", "lane 5: retry",

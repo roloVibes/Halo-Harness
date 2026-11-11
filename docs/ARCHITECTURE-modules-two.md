@@ -174,7 +174,7 @@ routes behind a bundle panel's `api`: publish, attention, mode) and
 `files_changed` frame for the lineup, bio, config and layout files). 3.2.0.0 R4, Fleet
 capabilities: `packs/fleet_rules.py` (what `contributes.fleet` may say, with
 the manifest: names, requires, no path in a description, no secret or
-environment reference anywhere), the fleet pack's `fleet/fleet_registry.py` (each running
+environment reference anywhere), `packs/fleet_registry.py` (3.4.0.0 D: core again, the fleet pack re-exports it; each running
 pack's capabilities, available here or not and why: the catalog's `packs`
 section; the worker's refusal line; a pack lineup's mission metadata) and
 `packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's

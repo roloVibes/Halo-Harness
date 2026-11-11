@@ -1,5 +1,5 @@
 // The new-run form for a pack's workflow (3.2.0.0 R6, workflowRun.ts): what
-// the Start view shows instead of the goal form while a workflow is filled
+// Live's Run a goal panel shows instead of the goal form (3.4.0.0 D; Runs' Start view before) while a workflow is filled
 // in -- its ref and description, its stages in order, one field per input
 // (its type, required or its default, its help), the MODEL select, Run, and
 // "a blank goal instead". The workflow writes its own goal (WHAT YOU WANT,
@@ -11,7 +11,7 @@ import { ModelSelect } from "../shared/ModelSelect";
 import { clearWorkflow, setInput, startWorkflow, useWfRun } from "./workflowRun";
 import { useOrch } from "./store";
 
-export function WorkflowForm() {
+export function WorkflowForm({ onStarted }: { onStarted: () => void }) {
   const wf = useWfRun((s) => s.wf);
   const values = useWfRun((s) => s.values);
   const live = useOrch((s) => (s.data?.live ? s.runId : ""));
@@ -22,8 +22,10 @@ export function WorkflowForm() {
   if (!wf) return null;
   const go = async () => {
     setBusy(true);
-    setProblems(await startWorkflow(model));
+    const got = await startWorkflow(model);
+    setProblems(got);
     setBusy(false);
+    if (!got.length) onStarted();
   };
   const why = live ? `Run ${live} is live: stop it or wait for its report` : "";
   return (
@@ -42,6 +44,14 @@ export function WorkflowForm() {
         </Field>
       ))}
       <ModelSelect label="MODEL" hint={help.orchestra} value={model} onPick={setModel} testid="orchestra-workflow-model" inherit={{ label: "each stage's bio", model: "" }} />
+      <dl className="rg-says" data-testid="run-goal-says">
+        <dt>WHAT IT DOES</dt>
+        <dd>Compiles to a goal run as <code>halo workflow run</code> does: its stages as lanes on each stage's bio, the gate, the merge; it shows on Live and its report lands in History.</dd>
+        <dt>WHAT IT MAY COST</dt>
+        <dd>One worker session per stage lane on its bio's model (or the MODEL above), again for each part the gate sends back; no dollar cap.</dd>
+        <dt>WHERE IT WRITES</dt>
+        <dd>The run's record in <code>.halo/orchestra/&lt;run&gt;/</code>, one worktree per lane and the finished branch; your checkout is not touched.</dd>
+      </dl>
       {problems.length > 0 && (
         <ul className="og-problems" role="alert" data-testid="orchestra-workflow-problems">
           {problems.map((p) => (

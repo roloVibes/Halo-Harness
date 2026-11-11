@@ -59,7 +59,7 @@ def test_the_past_is_in_history_newest_first(ctx: Ctx):
     facts = {r[0]: r[2] for r in rows}
     ctx.check(f"each row: kind, when, how long, cost, how it ended, got {facts}",
               str(facts.get("session", "")).startswith("session · 1 h ago · ") and str(facts.get("session", "")).endswith("· $0.0200 · closed")
-              and str(facts.get("run", "")).startswith("Orchestra run · just now") and str(facts.get("run", "")).endswith("· finished"))
+              and str(facts.get("run", "")).startswith("goal run · just now") and str(facts.get("run", "")).endswith("· finished"))
 
 
 @test

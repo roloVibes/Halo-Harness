@@ -31,9 +31,8 @@ const ICONS: Record<string, string> = {
 /** The sections that ran something in the last few seconds (the old tab strip's "working" breath). */
 function useBusy(): Partial<Record<SectionId, boolean>> {
   const activity = useStore(studio, (s) => s.activity);
-  const runs = useRecent(activity.orchestra, 3000); // 3.3.16.0 R1: a run's frames breathe on Agents
-  const fleet = useRecent(activity.agents, 3000); // 3.3.16.0 R2: the agents' frames too (shell/feed.ts)
-  return { agents: runs || fleet, session: fleet };
+  const fleet = useRecent(activity.agents, 3000); // 3.3.16.0 R2: the agents' frames (3.4.0.0 D: a run's too, shell/feed.ts)
+  return { agents: fleet, session: fleet };
 }
 
 function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean; pack: boolean }) {

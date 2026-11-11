@@ -38,13 +38,13 @@ function NumberField({ label, value, onChange, min, max }: { label: string; valu
 /** The column is open only while there is a panel to show (a remembered one waits for its section's layout). */
 export function useInspecting(): boolean {
   const ref = useStore(studio, (s) => s.inspector);
-  const has = useStore(layoutStore(ref?.section ?? "orchestra"), (s) => !!ref && !!s.layout?.[ref.panel]);
-  return has && !!sectionDef(ref?.section ?? "orchestra").panels.some((p) => p.id === ref?.panel);
+  const has = useStore(layoutStore(ref?.section ?? "roles"), (s) => !!ref && !!s.layout?.[ref.panel]);
+  return has && !!sectionDef(ref?.section ?? "roles").panels.some((p) => p.id === ref?.panel);
 }
 
 export function Inspector() {
   const ref = useStore(studio, (s) => s.inspector);
-  const section = ref?.section ?? "orchestra";
+  const section = ref?.section ?? "roles";
   const ls = useStore(layoutStore(section), (s) => s);
   if (!ref) return null;
   const def = sectionDef(ref.section);

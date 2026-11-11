@@ -205,11 +205,11 @@ def templates(c, url, ctx) -> dict:
     out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)"),
            "template_workflow": c.js(f"{qa('[data-testid=pm-template-workflow]')}.map((r) => r.textContent)")}  # 3.3.10.0 R3
     press(c, run)
-    out["section_after_run"] = w(c, f"{CUR}.startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'runs' && {CUR}", 15)
+    out["section_after_run"] = w(c, f"{CUR}.startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'live' && {CUR}", 15)  # 3.4.0.0 D: Live's goal panel
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 20)
     out["wf_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
     out["wf_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
-    out["wf_title"] = c.js(_text(".fl-start-title"))
+    out["wf_title"] = c.js(_text("[data-testid=run-goal-drawer] .lh-title"))
     alt(c, 4)  # 3.3.16.0 R1: Packs
     w(c, f"{CUR}.startsWith('Packs')", 10)
     return out
@@ -219,10 +219,13 @@ PICK = q("[data-testid=orchestra-workflow-pick]")
 
 
 def picker(c, url, ctx) -> dict:
-    """3.2.1.0 R2: Orchestra's Start view with no workflow filled in: the picker under the goal form; a pick fills in
-    the form Run <workflow> fills."""
-    alt(c, 2), c.click_on("document.querySelector('[data-testid=\"agents-view-runs\"]')")  # 3.3.16.0 R1: Agents on Runs
-    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=orchestra-workflow-form]')}", 15)
+    """3.2.1.0 R2: the goal form with no workflow filled in (3.4.0.0 D: Live's Run a goal panel, Runs' Start view before):
+    the picker under the goal form; a pick fills in the form Run <workflow> fills."""
+    alt(c, 2)
+    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=live-run-goal]')}", 15)
+    if not c.js(f"!!{q('[data-testid=run-goal-drawer]')}"):
+        press(c, q("[data-testid=live-run-goal]"))
+    w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 15)
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 20)
     out = {"pick_options": c.js(f"[...{PICK}.options].map((o) => o.value)"),
@@ -233,7 +236,7 @@ def picker(c, url, ctx) -> dict:
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 15)
     out["picked_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
     out["picked_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
-    out["picked_title"] = c.js(_text(".fl-start-title"))
+    out["picked_title"] = c.js(_text("[data-testid=run-goal-drawer] .lh-title"))
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 10)
     alt(c, 4)  # 3.3.16.0 R1: Packs
@@ -249,8 +252,13 @@ def disable(c, url, ctx) -> dict:
            "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
            "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
-    alt(c, 2), c.click_on("document.querySelector('[data-testid=\"agents-view-runs\"]')")  # no workflow, no picker; Agents on Runs
-    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=orchestra-goal-form]')}", 15)
+    alt(c, 2)  # no workflow, no picker: Live's Run a goal panel (3.4.0.0 D; Agents on Runs before)
+    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=live-run-goal]')}", 15)
+    if not c.js(f"!!{q('[data-testid=run-goal-drawer]')}"):
+        press(c, q("[data-testid=live-run-goal]"))
+    if c.js(f"!!{q('[data-testid=orchestra-workflow-clear]')}"):  # a workflow left filled in: back to a blank goal
+        press(c, q("[data-testid=orchestra-workflow-clear]"))
+    w(c, f"!!{q('[data-testid=orchestra-goal-form]')}", 15)
     out["picker_off"] = bool(w(c, f"!{PICK}", 15))
     alt(c, 4)  # 3.3.16.0 R1: Packs
     w(c, f"{CUR}.startsWith('Packs')", 10)

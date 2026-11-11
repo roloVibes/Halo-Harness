@@ -8,7 +8,7 @@ runs it as a subprocess with a scrubbed environment:
                                                 edits saved through the form land in ~/.halo/agents/coder.yaml
     python -m tests.helpers.studio_edit focus   a page is open; `open_edit` (what `halo studio --edit` runs) on the
                                                 running Studio focuses it: lineup:halo-dev-cycle opens its inspector's
-                                                Lineup tab (a section edited and saved through it), team Agents on Runs
+                                                Lineup tab (a section edited and saved through it), team Agents on Live
                                                 section, bio:reviewer the bio form; no browser tab is opened
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome).
@@ -144,8 +144,8 @@ def focus(c, url: str, state: Path, srv) -> dict:
     r = open_edit(parse("team")[0], cwd=cwd, state_dir=state)
     out["team_how"] = r["how"]
     end = time.time() + 10
-    view = "document.querySelector('[data-testid=agents]')?.dataset.view || ''"  # 3.3.16.0 R1: team is Agents -> Runs
-    while time.time() < end and not (section_tab(c).startswith("Agents") and c.js(view) == "runs"):
+    view = "document.querySelector('[data-testid=agents]')?.dataset.view || ''"  # 3.4.0.0 D: team is Agents -> Live
+    while time.time() < end and not (section_tab(c).startswith("Agents") and c.js(view) == "live"):
         time.sleep(0.1)
     out["team_section"] = section_tab(c) + ":" + str(c.js(view))
     r = open_edit(parse("bio:reviewer")[0], cwd=cwd, state_dir=state)

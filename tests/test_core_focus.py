@@ -41,7 +41,7 @@ def test_halo_team_says_it_left_and_what_does_its_job(ctx: Ctx):
     ctx.check(f"exit 2, one line on stderr, got {rc} {err!r}", rc == 2 and not out and len(err.strip().splitlines()) == 1)
     ctx.check("the line says when it left and names lineups and runs",
               err.startswith("halo team: the team file left in 3.4.0.0") and "Agents -> Cast" in err
-              and "halo teams" in err and "Agents -> Runs" in err and "owns lines" in err)
+              and "halo teams" in err and "Agents -> Live" in err and "owns lines" in err)
 
 
 @test

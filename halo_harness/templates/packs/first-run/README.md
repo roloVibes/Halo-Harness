@@ -17,7 +17,7 @@ With the pack on:
 - `halo start` and `/start` (its CLI verb and slash command; `/start` shows the card and how to run it);
 - a row on Setup's Check page, "The guided first run" (the pack's Setup block `run`), ticked like any check;
 - a **First run** panel in Studio's Agents section: the card, Run, the seven steps live, Stop. It is where "Start
-  here" and Agents -> Runs' "Test this lineup" went;
+  here" and Agents -> Runs' "Test this lineup" went (and Runs itself in 3.4.0.0 D: a goal run is on Live);
 - one row in `halo doctor` (3.4.0.0 B2): ready to rehearse your lineup, or what is missing first (a provider, then a
   lineup of your own).
 

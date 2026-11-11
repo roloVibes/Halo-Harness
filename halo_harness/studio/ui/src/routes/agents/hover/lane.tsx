@@ -2,7 +2,7 @@
 // its worker and model, what it waits for, its cost. A lane's click opens Runs focused on that lane (it has no inspector
 // page of its own); the lead's opens Runs on the run; a part's click puts its card in the inspector.
 import { LANE_LABEL, useOrch } from "../../orchestra/store";
-import { ownsOf } from "../runs/Owns";
+import { ownsOf } from "../run/Owns";
 import { partAgent } from "../../fleet/MissionRun";
 import { partState, useMissions } from "../../fleet/mstore";
 import { useFleet } from "../../fleet/store";

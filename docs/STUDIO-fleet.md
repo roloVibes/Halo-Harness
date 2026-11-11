@@ -21,7 +21,7 @@ Live on the fleet and says so once ("Fleet is in Agents -> Live now"). The CLI d
 | Costs' caps editor | a machine's summary -> **Spend caps**, and Settings -> Fleet (`fleet.caps.*`) |
 | Attention | the **Attention** chip in Agents' bar (`A`), a queue over the page |
 | Activity | an optional panel of Live (the header's **+**, the palette) |
-| Mission | Agents -> Runs (mission rows, **Run it across the fleet**) and its plan drawn on Live |
+| Mission | Agents -> Live (3.4.0.0 D: its panel, `M`; **Run it across the fleet** in the goal panel) and its plan drawn on Live |
 | the Start view, the pair dialog, the share / control rows, kick | Setup -> **Machines** (the pair card, the rows, the People table with **Forget**) |
 | the Ollama panel (cards, traffic, fit plan, steward) | Local -> Hosts and Local -> Steward ([STUDIO-local.md](STUDIO-local.md)) |
 
@@ -66,7 +66,7 @@ breathes slowly. When an agent spawns another (or sends it a message), the edge 
 **Click, double-click, `...`.** A click picks (the inspector strip opens and follows; the keyboard stays where it
 was); a double-click on an agent opens its inspector focused; `...` on an agent is **Steer**, **Pause** / **Resume**,
 **Pin**, **Stop...**, **Take over...**, **Hand to...**, **Record this agent**, and on a session card **Record the
-session**, **Shut the session down...** and **Open in Runs** for an Orchestra worker. Hovering a node shows a
+session**, **Shut the session down...** and **Open its run** for an Orchestra worker (its lane on Live, 3.4.0.0 D). Hovering a node shows a
 **steer** chip (3.1.7.0): it opens the inspector's Steer box with the keyboard in it.
 
 **Steer.** Type in the Steer box and press Enter (or Send): **nudge** is a note the agent reads before its next model
@@ -94,7 +94,7 @@ it blinks once when a new row arrives); a click or `A` opens the queue over the 
 answers with one key, through the route that already handles that kind (`GET /api/fleet/attention`, `POST
 /api/fleet/attention/answer`): **A** accepts, allows or resumes, **R** denies, redoes or answers with the text you type
 (a deny reason is optional), **S** stops the agent, **O** opens where the row belongs (the agent on Live, the machine's
-spend, Runs, Local on that host) and sends nothing. Click a row (or move with `J` / `K` or the arrows), then press the
+spend, the run on Live or its report, Local on that host) and sends nothing. Click a row (or move with `J` / `K` or the arrows), then press the
 key; every decision is journaled with who made it. The count is live on the Agents icon in the rail in every section
 (a `fleet` frame with action `attention` each time it changes). With the phone bridge enabled and paired, new rows go to
 the phone too ([FLEET.md](FLEET.md)).
@@ -167,10 +167,10 @@ harness, with a line for every harness that did not answer. The index never leav
 
 ### How this works: Missions
 
-One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)). Missions are runs: they live in
-Agents -> **Runs**, one row each (goal, state, parts by state, machines, cost) in the header's **+** menu and on the
-Start view, and **Run it across the fleet** there when more than one harness is here. `M` (or `?mode=fleet&mission=<id>`)
-opens the Mission panel in Runs:
+One goal, every harness, nobody stepping on anyone ([MISSIONS.md](MISSIONS.md)). 3.4.0.0 D: a running mission's
+parts draw on Agents -> Live's fleet scope and a finished one is a row of History (Runs' mission rows went with
+Runs); **Run it across the fleet** is in Live's Run a goal panel when more than one harness is here. `M` (or `?mode=fleet&mission=<id>`)
+opens the Mission panel on Live (3.4.0.0 D):
 
 1. **Goal**: type it in the Mission panel (or the palette's **Agents: new mission**), with constraints, **prefer** (a
    chip per machine, in your order: the planner breaks ties with it), a budget and the **Lineup**, and press **Plan
@@ -229,8 +229,8 @@ fleet is in five lines. Setup's Summary has a Machines line ([STUDIO-setup.md](S
 | `Alt+2` | everywhere | Agents (then `L` for Live; 3.3.16.0 R2: six sections, the fleet is Live's scope) |
 | `F` (Shift+F) | Agents -> Live, the canvas focused | the scope: this halo / fleet |
 | `A` | Agents | open or close the Attention queue |
-| `J` / `K` | Live, the Session map, the Cast canvas, Runs' lanes | the next / previous live agent (across the fleet on fleet scope) |
-| `f` | Live's canvas; an agent watched on Agents; Runs; Session | Live's canvas: fit the tree; else follow: the stream scrolls with the agent (Runs: the Log follows) |
+| `J` / `K` | Live, the Session map, the Cast canvas | the next / previous live agent (across the fleet on fleet scope) |
+| `f` | Live's canvas; an agent watched on Agents; Session | Live's canvas: fit the tree; else follow: the stream scrolls with the agent |
 | `Space` | an agent watched on Agents; Session | pin the stream: a **mini stream** floats over whatever you look at, in every section |
 | `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the inspector is closed) |
 | `P` | an agent watched on Agents; Session | pause or resume the agent |
@@ -238,7 +238,7 @@ fleet is in five lines. Setup's Summary has a Machines line ([STUDIO-setup.md](S
 | `A` / `R` / `S` / `O` | inside the Attention queue; an ask card in Session's Live column | answer the selected row (or that card): accept, deny or redo (with a text), stop, open |
 | click a tag / `Esc` | Session's Live column | show only that agent's lines, with the Steer box for it / everyone again |
 | `J` / `K`, arrows | inside the Attention queue | the next / previous row |
-| `M` | Agents | the Mission panel in Runs: one goal for the whole fleet |
+| `M` | Agents | the Mission panel on Live: one goal for the whole fleet |
 | `Esc` | Cast during a replay | close the replay, back to what runs now |
 
 **The mini stream** (picture in picture) shows the pinned agent's state, cost, what it does now and the newest lines of
@@ -248,7 +248,7 @@ already shows that agent.
 **The palette's Agents group**: the fleet on Live, Attention, answer next, Activity, follow / steer / pause / stop the
 picked agent, take it over, hand it to..., record it, replay its session, while you were away, who can... and the specs
 of each machine, new / approve / stop mission and mission report, follow any live agent by name, pause all, resume all,
-open the session in Runs; **Setup: pair a machine** and **Setup: forget** each member; **Local: the Ollama steward**.
+open the session's run; **Setup: pair a machine** and **Setup: forget** each member; **Local: the Ollama steward**.
 
 ### Live Roles: the lineup lights up
 

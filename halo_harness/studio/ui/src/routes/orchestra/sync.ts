@@ -1,13 +1,12 @@
-// Feeds the Orchestra store: `GET orchestra/runs` and `GET orchestra/<run>`
-// on load, then the live feed's `orchestra_*` frames (lib/events onEvent):
-// a frame of the open run refreshes the payload and the log (debounced), a
-// claim or merge frame refetches the open file view, a frame of another run
-// refreshes the run list. Polling (5 s) only while the feed is not open and
-// the run is live. The actions post to the routes and refresh.
+// Feeds the goal run store: `GET orchestra/runs` and `GET orchestra/<run>` on load, then the live feed's `orchestra_*`
+// frames (lib/events onEvent): a frame of the open run refreshes the payload and the log (debounced), a claim or merge
+// frame refetches the open file view, a frame of another run refreshes the run list and, when that run is the live
+// one, opens it (3.4.0.0 D: the open run is the one Live draws -- the live run, else the newest). Polling (5 s) only
+// while the feed is not open and the run is live. The actions post to the routes and refresh.
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { createStore, studio, toast } from "../../lib/store";
-import { orch } from "./store";
+import { isLiveRun, orch } from "./store";
 import type { FileView, RunEvent, RunPayload, RunRow } from "./types";
 
 export const FEED_KINDS = ["orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report"];
@@ -82,9 +81,9 @@ export async function loadFile(path?: string): Promise<void> {
   }
 }
 
-/** Open a run: its panels come up (`quiet` keeps the view as it is: the newest run opened at load). */
-export async function openRun(id: string, quiet = false): Promise<void> {
-  orch.update(() => ({ runId: id, data: null, events: [], next: 0, files: {}, file: "", focusLane: null, loading: true, doneAt: 0, ...(quiet ? {} : { view: "auto" as const }) }));
+/** Open a run: the one Live draws and its inspector reads. */
+export async function openRun(id: string): Promise<void> {
+  orch.update(() => ({ runId: id, data: null, events: [], next: 0, files: {}, file: "", focusLane: null, loading: true, doneAt: 0 }));
   await refresh();
   await Promise.all([loadEvents(), loadFile()]);
 }
@@ -97,7 +96,7 @@ export function selectFile(path: string): void {
 function onFrame(kind: string, runId: string): void {
   orch.update(() => ({ lastFrame: Date.now() }));
   if (runId !== orch.get().runId) {
-    later("runs", 300, () => void loadRuns());
+    later("runs", 300, () => void loadRuns().then((runs) => followLive(runs)));
     return;
   }
   later("run", 250, () => void refresh().then(loadEvents));
@@ -105,7 +104,13 @@ function onFrame(kind: string, runId: string): void {
   if (kind === "orchestra_report") later("runs", 600, () => void loadRuns());
 }
 
-/** Start once, from the first Orchestra panel that mounts. */
+/** The live run of `runs` (running, or waiting on you for its plan), when the open one is not live. */
+function followLive(runs: RunRow[]): void {
+  const live = runs.find((r) => isLiveRun(r.state));
+  if (live && live.run_id !== orch.get().runId && !orch.get().data?.live) void openRun(live.run_id);
+}
+
+/** Start once, from Live (the canvas, History, the goal panel). */
 export function startOrchestra(): void {
   if (orch.get().started) return;
   orch.update(() => ({ started: true, loading: true }));
@@ -121,7 +126,7 @@ export function startOrchestra(): void {
     if (s.data?.live && studio.get().feed.status !== "open") void refresh().then(() => Promise.all([loadEvents(), loadFile()]));
   }, POLL_MS);
   void loadRuns().then((runs) => {
-    if (runs.length && !orch.get().runId) return openRun(runs[0].run_id, true);
+    if (runs.length && !orch.get().runId) return openRun((runs.find((r) => isLiveRun(r.state)) || runs[0]).run_id);
     orch.update(() => ({ loading: false }));
   });
 }
@@ -147,13 +152,17 @@ export type RunForm = {
 /** 3.2.1.0 R1: the test a run took from its lineup's acceptance (POST orchestra/run's `taken`), for GoalForm's line. */
 export const lineupTook = createStore<{ run: string; test: string }>({ run: "", test: "" });
 
+/** Start a run; `[]` and its id in `lastStarted` when it started, else the lines to show under the form. */
+export const lastStarted = { id: "" };
+
 export async function startRun(form: RunForm, dryRun: boolean): Promise<string[]> {
   try {
     const { model, review, ...goal } = form;
     const r = await api.post<{ run_id: string; taken?: string[]; test?: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), ...(review ? { review: true } : {}), dry_run: dryRun });
     const tookTest = (r.taken || []).some((l) => l.startsWith("test: "));
     lineupTook.update(() => (tookTest ? { run: r.run_id, test: r.test || "" } : { run: "", test: "" }));
-    toast(`${dryRun ? "Dry run" : "Run"} ${r.run_id} started`, "info");
+    toast(dryRun ? `Dry run ${r.run_id}: the lead's jobs, in History` : `Run ${r.run_id} started: it is on Live${review ? "; its plan waits on you there" : ""}`, "info");
+    lastStarted.id = r.run_id;
     await loadRuns();
     await openRun(r.run_id);
     return [];

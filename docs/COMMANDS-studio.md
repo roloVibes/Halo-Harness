@@ -50,7 +50,7 @@ its **Prompt** panel up and the keyboard in its box, to type into the session as
 opens it on one: `bio:<name>` (Agents on Cast, the Bios panel on that bio's form),
 `lineup:<name>` (Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary; 3.3.16.0 R1b:
 `lineup:<name>:<block>` opens that block's page, a block being `description`, `workers`, `schedule` or one of the
-nine sections) or `team` (Agents on Runs; 3.3.16.0 R1: the Team section went); 3.3.0.0 R4: `setup`, `setup:first` (what
+nine sections) or `team` (Agents on Live; 3.3.16.0 R1: the Team section went, 3.4.0.0 D: Runs too); 3.3.0.0 R4: `setup`, `setup:first` (what
 `halo init` opens: `?mode=setup&first=1`) and `setup:<block>` (`halo setup
 team`: `?mode=setup&block=team`), [STUDIO-setup.md](STUDIO-setup.md). The target rides in the URL as
 `?mode=roles&edit=bio:<name>` (the token stays in the `#t=` fragment). When
@@ -71,10 +71,10 @@ lineup views run the same thing (see
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one: Cast, the lineups and agent bios as an
-editable graph; Runs, the run console; Live), and `--mode roles`, `orchestra` and `team` still open Agents on Cast, Runs
-and Runs, printing the new door once ("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)");
+editable graph; Live, what runs now, a goal run included; 3.4.0.0 D: Runs, the run console, went), and `--mode roles`,
+`orchestra` and `team` still open Agents on Cast, Live and Live, printing the new door once ("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)");
 3.3.16.0 R2: `--mode fleet` opens Agents on Live with the fleet scope, printing "Fleet is Agents -> Live now, the fleet
-scope on" once with where the rest went (machines: Setup -> Machines; their models: Local; a mission: Agents -> Runs);
+scope on" once with where the rest went (machines: Setup -> Machines; their models: Local; a mission's panel: Agents -> Live);
 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
 section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.
@@ -270,7 +270,7 @@ same command.
 
 The team file (`.halo/team.yaml`) and `halo team` left the core in 3.4.0.0; `halo team` answers one line
 saying so. A lineup's tiers and blocks (Agents -> Cast, `halo teams`) and a run's lanes with their owns lines
-(Agents -> Runs, `halo orchestra`) do its job.
+(a goal run on Agents -> Live, `halo orchestra`) do its job.
 
 ## `/tasks` (Ctrl+T)
 

@@ -2,7 +2,7 @@
 tests/test_studio_model_select.py (Halo 3.1.4.0 R4), real clicks in headless
 Chrome through the driver base:
 
-    python -m tests.helpers.studio_model_select forms   Orchestra's goal form (Agents -> Runs) and Design
+    python -m tests.helpers.studio_model_select forms   the goal form (Agents -> Live's Run a goal panel) and Design
 
 `forms`: a fresh home with the shipped lineups, a catalog of two fake models
 (OpenRouter's cache shape), the role table's `main` on one of them and the
@@ -48,7 +48,9 @@ def projects(c) -> str:
 
 def forms(c, url: str, state: Path) -> dict:
     out: dict = {}
-    c.go(url.replace("mode=roles", "mode=orchestra"))
+    c.go(url.replace("mode=roles", "mode=agents&view=live"))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
+    c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
+    c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
     out["orch_first"] = c.wait(f"{OM}?.querySelector('option')?.textContent.includes('beta-2') && {OM}.querySelector('option').textContent", 20)
     out["orch_outside_disclosure"] = c.js(f"!{OM}.closest('details') && !document.querySelector('details.og-more').open")
     out["orch_options"] = c.wait(f"(() => {{ const v = [...{OM}.querySelectorAll('optgroup option')].map((o) => o.value).filter((v) => v.startsWith('or:fakeco')); return v.length === 2 && v; }})()", 15)

@@ -639,7 +639,7 @@ opens Studio on the one you want to change; it never edits a field itself.
 |---|---|
 | `halo studio --edit bio:<name>` | Agents on Cast, the Bios panel on that bio's form |
 | `halo studio --edit lineup:<name>[:<block>]` | Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary (with a block: that block's page) |
-| `halo studio --edit team` | Agents on Runs (3.3.16.0 R1: Team's board went; the page says so once) |
+| `halo studio --edit team` | Agents on Live (3.3.16.0 R1: Team's board went; 3.4.0.0 D: Runs too; the page says so once) |
 | `halo agents edit <bio>`, `halo teams edit <lineup>` | the same, for that bio or lineup (a name that does not exist yet gets a starter file first) |
 | `halo agents new <bio> --studio`, `halo teams new <lineup> --studio` | the starter file, then Studio on it |
 | `/edit bio:<name>`, `/edit lineup:<name>`, `/edit team`, `/edit <name>` | the same from the TUI (a bare name: the bio of that name, else the lineup) |
@@ -810,4 +810,4 @@ enforce it later" boundary every other lineup section in this file
 already draws; this round's own job was building and proving the
 assembly itself.
 
-**Teams (Halo 3.0.8.0 - 3.3.x):** `halo team` (no s) and its team file left in 3.4.0.0; a lineup's tiers and blocks (Agents -> Cast) and a run's lanes (Agents -> Runs) do its job.
+**Teams (Halo 3.0.8.0 - 3.3.x):** `halo team` (no s) and its team file left in 3.4.0.0; a lineup's tiers and blocks (Agents -> Cast) and a goal run's lanes (on Agents -> Live) do its job.

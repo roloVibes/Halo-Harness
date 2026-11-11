@@ -9,6 +9,7 @@
 //   tier    an agent of an explicit lineup tier in no box above: the tier's faint group, titled by its purpose (else its
 //           name) -- today's faint lineup-card group, which stays for a lineup with no tiers
 //   alone   a single agent started alone is not boxed
+//   run     3.4.0.0 D: a goal run's lanes, in a box under its lead, titled by the goal (routes/agents/live/runLanes.tsx)
 //
 // Groups nest one level (a square inside a task); deeper, the agents are drawn as a tree inside the outer box. When the
 // agents of a group were picked by Auto, the second line says the pick in plain words (whyOf).
@@ -18,7 +19,7 @@ import type { LiveNode } from "../../roles/liveModel";
 import type { Tier } from "../../roles/types";
 
 export const MIN_TASK = 2;
-export type GroupKind = "task" | "square" | "tier";
+export type GroupKind = "task" | "square" | "tier" | "run"; // 3.4.0.0 D: a goal run's lanes under its lead (runLanes.tsx)
 /** On each node: the box it is drawn in -- `parent` the node the box hangs under, `outer` the box around this one. */
 export type GroupTag = { id: string; title: string; why: string; kind: GroupKind; engine?: string; parent: string | null; outer?: string };
 

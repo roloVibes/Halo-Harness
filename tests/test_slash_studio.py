@@ -133,10 +133,10 @@ def test_studio_section_opens_that_section(ctx: Ctx):
 
 @test
 def test_the_old_section_words_are_doors_to_agents(ctx: Ctx):
-    """3.3.16.0 R1: `/studio roles|orchestra|team` open Agents on Cast, Runs, Runs (the page lands the word) and say
+    """3.3.16.0 R1: `/studio roles|orchestra|team` open Agents on Cast, Live, Live (3.4.0.0 D: Runs went; the page lands the word) and say
     the new door once; bare `/roles` is still `/roles gui` (the builtin: Agents on Cast, its door line);
     `/orchestra` keeps its terminal panel."""
-    for word, view in (("roles", "Cast"), ("orchestra", "Runs"), ("team", "Runs")):
+    for word, view in (("roles", "Cast"), ("orchestra", "Live"), ("team", "Live")):
         app = _App()
         with _opener("focused") as targets:
             _slash(app, "studio", word)

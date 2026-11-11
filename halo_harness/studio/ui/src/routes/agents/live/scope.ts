@@ -4,13 +4,13 @@
 // Unset, it is fleet while more than one harness is paired and this halo otherwise; `?scope=fleet|here`, `?mode=fleet`,
 // the bar's switch and `F` (Shift+F) while the canvas has the keyboard set it (`f` there still fits the tree). The pick is what the inspector says something about: nothing
 // (the fleet at a glance), a machine, an agent (the fleet store's `selected` too: Steer, the Pip, J / K follow it), a
-// session or a mission part.
+// session or a mission part; 3.4.0.0 D a goal run's lead or one of its lanes (routes/agents/run/RunInspector.tsx).
 import { urlScope, type LiveScope } from "../../../lib/agentsDoor";
 import { createStore, useStore } from "../../../lib/store";
 import { layoutStore, patchPanel } from "../../../lib/workspace/persist";
 import { fleet, useFleet } from "../../fleet/store";
 
-export type PickKind = "" | "machine" | "session" | "agent" | "part";
+export type PickKind = "" | "machine" | "session" | "agent" | "part" | "run" | "lane"; // 3.4.0.0 D: a goal run's lead (`<run>`), a lane (`<run>:<n>`)
 export type LivePick = { kind: PickKind; id: string };
 /** `page`: the one block a machine's summary edits ("" = the summary; R1b's one block per page). */
 type LiveState = { scope: LiveScope | ""; pick: LivePick; page: string };
