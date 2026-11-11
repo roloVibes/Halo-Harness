@@ -108,7 +108,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
 - **Nothing opens on its own** (3.3.2.0). A section shows its own content
   when you open it, the first time or any time: no welcome card, no help, no
   dialog (the first-visit welcome and its `halo.studio.seen.<section>` keys
-  are gone). The one exception is **Start here** on a fresh home, over the
+  are gone). (3.4.0.0: Start here, the one exception, left with the guided first run for the first-run pack.) The old exception was **Start here** on a fresh home, over the
   section the page opened on, once per browser (below).
 - **The rail** (left, 3.3.2.0) is an icon rail, 52 px (3.3.15.0; 56 px
   before): one 40 x 40 icon per
@@ -149,8 +149,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
 - **The status bar** (26 px, 11 px mono) shows the live feed (a square that is green when
   connected, amber while connecting or reconnecting, red when unreachable;
   3.3.15.0: it no longer ticks per event, the EVENTS count says it), the session count, the fleet (agents at work
-  and how many wait on you), the team (3.0.8.0: its stages running now, when
-  the repo has a team file), the event count, the section's own status
+  and how many wait on you), the event count, the section's own status
   line (Roles: the open lineup, its cards and problems, saved or not;
   a pack's page its own) and the section's layout
   state. `Esc` closes the palette, a menu or a help card, then the Inspector.
@@ -327,74 +326,10 @@ the URL is printed. With no Studio running, one starts in the background
 with `--edit` and opens the browser on the target. `--no-open` only prints
 the URL (over SSH: forward the port and open it on your machine).
 
-## The guided first run (3.1.1.0)
+## The guided first run (the first-run pack, 3.4.0.0)
 
-**Start here.** On a fresh home -- no lineup of your own (only the shipped
-lineups or their untouched copies, none active) and no run (no Orchestra run
-in Studio's repo, no `halo start` sample under `~/.halo/start/`) -- Studio
-opens on a **Start here** card over the section the page opened on (3.3.2.0:
-only there, and once per browser). Above its
-button the card shows the same lines `halo start` opens on (3.2.2.0;
-`GET /api/start` carries them as `card`): what it does in seven steps, the
-lineup it rehearses (your active one, its lead and lane cards), the models
-it will call with their prices, the estimated cost, the time, what it writes,
-and that your lineup is not touched. **Run the guided first run** runs
-`halo start --yes` as a background job in Studio's
-process (`POST /api/start`; 3.3.15.0 R7: 422 `no_lineup` / `no_coder` when
-the active lineup is gone or has no card that writes code): the same seven
-steps as in a terminal (your active lineup, read as it is, the sample repo, one
-Orchestra goal with `plan: review`, the plan approved, the lanes, the report
-and the coach, where to go next), each listed with its state while the
-running one shows its command and its last lines; the outcome names the
-lineup, the run and its repo, with buttons into Agents (Cast, Runs) and Setup -> Machines.
-Closing the card keeps the start running (the palette's **Start: the
-guided first run** brings it back; **Stop the start** ends it). **Just look
-around** dismisses the card for this home (`~/.halo/start/dismissed.json`,
-every browser). Any answer (**Set up this box**, a run, **Just look around**,
-closing it, leaving for another section) is remembered in this browser
-(`halo.studio.start`) and the card does not come back on its own; the
-palette's **Start: the guided first run** opens it on any section. It runs on the
-model you configured; with none, the card says so and points at `halo init`.
-`?tour=off` keeps it shut.
-
-**Set up this box** (3.3.0.0 R3) is the card's first button: it opens the
-Setup section and closes the card (3.3.2.0: for this browser; the home
-still counts as fresh). While no provider is set up (no key, login or
-default model: what `halo start` checks), it is the primary button, and a
-fresh home opens on Setup whatever section this browser saved (`?mode=`
-still wins; the served page says `data-no-provider`), where the card is not
-drawn (3.3.2.0: Setup's Summary offers the guided first run instead). **Run the guided first
-run** with no provider set up is answered `422 no_provider`: the card closes,
-Setup opens and a toast says "no provider is set up yet: Setup".
-
-The steps arrive as `start` frames on the live feed (`/api/events`; Studio
-also polls `GET /api/start` while the card is open):
-
-```json
-{"session_id": "start:<job id>", "event": "start",
- "data": {"job": "<job id>", "step": 4, "total": 7, "key": "plan", "title": "The plan",
-          "why": "...", "command": "halo orchestra plan --repo ...", "state": "running", "lines": ["..."]}}
-```
-
-`state` is `running`, `done`, `failed` or `stopped`; one last frame has
-`key: "summary"`, `state: "finished"` and `summary: {ok, stopped_at, reason,
-lineup, repo, run, report, coach}`. Routes: `GET /api/start` (`{fresh,
-dismissed, show, own_lineups, active_team, runs, starts, job, plan}`), `POST
-/api/start` (202, 409 while one runs, 422 with `reason: "no_provider"`),
-`POST /api/start/dismiss`, `POST /api/start/stop`.
-
-**One story.** Every section's Start view ends on a **Next** footer that
-names the next section and why, in this order: Agents' Cast -> Agents' Runs -> Setup's Machines (which points back
-to Cast; 3.3.16.0 R1: Team's Start view went with its board; R2: Fleet's is Machines' lead); the button opens it.
-
-**The Glossary.** The **?** in the header is a menu: **How
-<section> works** (also `?`) and **Glossary**, a dialog listing every word
-Halo uses (lineup, bio, role, tier, team, member, block, stage, lane, part,
-step, mission, gate, claim, hand-off, plan, coach, orchestra run,
-fleet, hub, harness, capability), each expandable to its one paragraph. Each
-section's How this works card has a **WORDS** row: the glossary words that
-section uses, each opening the Glossary on that word. The text is served by
-`GET /api/glossary` (`{words: [{word, text}], source}`) from
-[GLOSSARY.md](GLOSSARY.md), the same paragraphs `halo explain` prints; the
-bundle carries no copy. The palette has **Help: glossary** too.
+"Start here" and Agents -> Runs' "Test this lineup" were the guided first run's doors in Studio until 3.4.0.0. The
+guided first run is the first-run pack since 3.4.0.0 (`halo pack install first-run`, then `halo pack enable first-run --grant-all`): enabled, its **First run** panel in the Agents section shows the card, Run, the seven
+steps live and Stop, through the pack's own routes (`/api/packs/first-run/start/...`). A fresh home opens with nothing
+over it. [The pack's README](../halo_harness/templates/packs/first-run/README.md).
 

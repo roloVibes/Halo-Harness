@@ -59,14 +59,11 @@ def remote_path(url: str) -> str:
 
 
 def repo_of(run_dir, kind: str, cwd=None) -> Optional[Path]:
-    """The repo a run belongs to: an Orchestra run's repo_root, a team run's root, else `cwd` (a mission)."""
+    """The repo a run belongs to: an Orchestra run's repo_root, else `cwd` (a mission)."""
     run_dir = Path(run_dir)
     if kind == "orchestra":
         from halo_harness.orchestra.goal import repo_root_of
         return Path(repo_root_of(run_dir))
-    if kind == "team":
-        root = (jsonl.read_json(run_dir / "run.json", {}) or {}).get("root")
-        return Path(root) if root else run_dir.resolve().parents[2]
     return Path(cwd) if cwd else None
 
 
@@ -102,11 +99,8 @@ def context_of(run_dir, kind: str) -> dict:
         g = jsonl.read_json(run_dir / "goal.json", {}) or {}
         return {"lineup": str(g.get("lineup") or ""), "goal": {"what": flat(g.get("what"), GOAL_CHARS),
                                                                "done_when": flat(g.get("done_when"), GOAL_CHARS)}}
-    if kind == "mission":
-        m = jsonl.read_json(run_dir / "mission.json", {}) or {}
-        return {"lineup": "", "goal": {"what": flat(m.get("goal"), GOAL_CHARS), "done_when": flat(m.get("test"), GOAL_CHARS)}}
-    b = jsonl.read_json(run_dir / "board.json", {}) or {}
-    return {"lineup": str(b.get("team") or ""), "goal": {"what": f"team {b.get('team') or ''}".strip(), "done_when": ""}}
+    m = jsonl.read_json(run_dir / "mission.json", {}) or {}
+    return {"lineup": "", "goal": {"what": flat(m.get("goal"), GOAL_CHARS), "done_when": flat(m.get("test"), GOAL_CHARS)}}
 
 
 def _single(change: dict) -> dict:

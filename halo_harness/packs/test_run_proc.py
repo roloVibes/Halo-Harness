@@ -198,8 +198,8 @@ def policy(r) -> None:
 
 def setup(r) -> None:
     from halo_harness.packs.manifest_setup import setup_of
-    from halo_harness.start.checks_pack import run_block
-    from halo_harness.start.checks_run import CheckFailed
+    from halo_harness.checks.pack import run_block
+    from halo_harness.checks.run import CheckFailed
     ctx = type("Ctx", (), {"cwd": r.project, "state_dir": None})()
     for e in setup_of(r.manifest) if r.wants("setup") else []:
         if e.get("kind") != "check":

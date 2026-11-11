@@ -93,40 +93,27 @@ def test_no_block_says_it_comes_later(ctx: Ctx):
 @test
 def test_no_provider_lands_on_setup(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Start here's first button, got {got.get('jump_first_button')!r} {got.get('land_first_button')!r}",
-              got.get("jump_first_button") == "Set up this box" and got.get("land_first_button") == "Set up this box")
-    from halo_harness.start.auto_gate import AUTO_LINE
-    ctx.check(f"3.3.15.0 R5: on the Auto lineup the line stands in place of Run, got {got.get('jump_auto')!r} {got.get('jump_auto_run')}",
-              str(got.get("jump_auto", "")).startswith(AUTO_LINE) and got.get("jump_auto_run") == 0)
-    ctx.check(f"a custom lineup, the palette's overlay: its Run's 422 no_provider opens Setup with a toast, got {got.get('jump_section')!r} {got.get('jump_toast')!r}",
-              str(got.get("jump_section")).startswith("Setup") and got.get("jump_toast") == "no provider is set up yet: Setup")
+    ctx.check(f"?mode=roles still wins, nothing over it (3.4.0.0 B: no Start here), got {got.get('jump_first')!r} "
+              f"{got.get('jump_overlay')}", str(got.get("jump_first")).startswith("Agents") and got.get("jump_overlay") is False)
     ctx.check(f"the strip says no provider set, got {got.get('jump_strip')!r}", got.get("jump_strip") == "no provider set")
     ctx.check(f"no ?mode=, Roles saved: the page opens on Setup, got {got.get('land_section')!r} {got.get('land_boot')!r}",
               str(got.get("land_section")).startswith("Setup") and got.get("land_boot") == "1")
-    ctx.check("3.3.1.0 R1: no Start here over Setup", got.get("land_overlay_on_setup") is False)
-    ctx.check("3.3.2.0 R1: nor on the next section (the first section only)", got.get("land_overlay_next") is False)
-    ctx.check(f"Set up this box closes the overlay on Setup, got {got.get('land_after')!r}", str(got.get("land_after")).startswith("Setup"))
+    ctx.check("nothing over Setup", got.get("land_overlay_on_setup") is False)
 
 
 @test
 def test_the_check_block(ctx: Ctx):
     got = _got(ctx)
-    from halo_harness.start.auto_gate import AUTO_LINE
-    ctx.check(f"3.3.15.0 R5: on Auto five rows and the line, the Summary's line and no Run, got {got.get('auto_rows')} "
-              f"{got.get('auto_line')!r} {got.get('auto_summary_run')}", got.get("auto_rows") == ["doctor", "catalog", "hello", "steward", "gym"]
-              and got.get("auto_line") == AUTO_LINE and got.get("auto_summary") == AUTO_LINE and got.get("auto_summary_run") == 0)
-    ctx.check(f"a custom lineup: no line, got {got.get('custom_line')}", got.get("custom_line") == 0)
-    ctx.check(f"six rows, doctor / catalog / hello ticked, and the steward row (an installed local model fits here), got "
-              f"{got.get('check_rows')} {got.get('check_ticks')}", got.get("check_rows") == ["doctor", "catalog", "hello",
-              "steward", "gym", "start"] and got.get("check_ticks") == [True, True, True, True, False, False])
+    ctx.check(f"five rows (3.4.0.0 B: no guided first run row; the first-run pack's Setup block is its row), doctor / "
+              f"catalog / hello ticked, and the steward row (an installed local model fits here), got "
+              f"{got.get('check_rows')} {got.get('check_ticks')} {got.get('start_parts')}",
+              got.get("check_rows") == ["doctor", "catalog", "hello", "steward", "gym"]
+              and got.get("check_ticks") == [True, True, True, True, False] and got.get("start_parts") == 0)
     ctx.check(f"each row says what / cost / time / writes, got {got.get('check_detail')!r}",
               all(w in str(got.get("check_detail")) for w in ("Cost: ", "Time: ", "Writes: ")))
     ctx.check(f"ticking the gym lists its models, got {got.get('gym_models')}", "or:mock/beta" in (got.get("gym_models") or []))
-    ctx.check(f"the guided first run's box is off until the card shows, got {got.get('check_start_locked')} {got.get('start_unlocked')}",
-              got.get("check_start_locked") is True and got.get("start_unlocked") is True)
-    ctx.check(f"the card under its row, got {got.get('card_first')!r}", got.get("card_first") == "The guided first run (halo start)")
     ctx.check(f"Run: the summary, got {got.get('summary')!r}", got.get("summary") == "1 failed: hello")
-    ctx.check(f"each row's glyph, got {got.get('glyphs')}", got.get("glyphs") == ["ok", "ok", "!!", "ok", "ok", ""])
+    ctx.check(f"each row's glyph, got {got.get('glyphs')}", got.get("glyphs") == ["ok", "ok", "!!", "ok", "ok"])
     logs = dict(got.get("logs") or [])
     ctx.check(f"each row's log, got {logs}", logs.get("doctor") == "doctor stub: config ok" and logs.get("hello") == "no pong (stub)")
     ctx.check(f"the strip and the rail say the last check, got {got.get('strip_check')!r} {got.get('rail_check')!r}",

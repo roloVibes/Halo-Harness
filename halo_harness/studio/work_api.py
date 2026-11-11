@@ -3,10 +3,9 @@ R1, docs/WORK.md). studio/api.py dispatches `work/` here.
 
     GET work/<kind>/<run>    the units of one run as the shared rows (work/report.py)
 
-`<kind>` is `orchestra`, `mission` or `team` (or a unit kind: lane,
-part, stage). `<run>` is a run id or a unique prefix, found the way
-each section's own routes find it (orchestra_model, the team
-root, the missions folder). The answer is `{run, kind, units}`; 404 for an
+`<kind>` is `orchestra` or `mission` (or a unit kind: lane, part;
+3.4.0.0 B: `team` / `stage` left with the team file). `<run>` is a run id or a unique prefix, found the way
+each section's own routes find it (orchestra_model, the missions folder). The answer is `{run, kind, units}`; 404 for an
 unknown run, 405 for another method. The Studio panels keep their own
 routes this round -- this one serves every kind through one shape.
 """
@@ -16,8 +15,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-PATTERN = re.compile(r"^work/(?P<kind>orchestra|mission|team|lane|part|stage)/(?P<run>[A-Za-z0-9_-]+)$")
-_UNIT_RUN = {"lane": "orchestra", "part": "mission", "stage": "team"}
+PATTERN = re.compile(r"^work/(?P<kind>orchestra|mission|lane|part)/(?P<run>[A-Za-z0-9_-]+)$")
+_UNIT_RUN = {"lane": "orchestra", "part": "mission"}
 
 
 def _orchestra(req, ref):
@@ -31,14 +30,8 @@ def _mission(req, ref):
     return folder if (folder / "mission.json").is_file() else None
 
 
-def _team(req, ref):
-    from halo_harness.team import board as BD
-    from halo_harness.team.spec import team_root
-    return BD.find_run(team_root(req.cwd), ref or None)
-
-
-FINDERS = {"orchestra": _orchestra, "mission": _mission, "team": _team}
-WHAT = {"orchestra": "Orchestra run", "mission": "mission", "team": "team run"}
+FINDERS = {"orchestra": _orchestra, "mission": _mission}
+WHAT = {"orchestra": "Orchestra run", "mission": "mission"}
 
 
 def dispatch_work(req):

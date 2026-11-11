@@ -576,10 +576,6 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "teams":
         from halo_harness.teams_cli import cmd_teams
         return cmd_teams(argv[1:])
-    if argv and argv[0] == "team":
-        # 3.0.8.0: a Team -- members, blocks, stages, the board (docs/TEAM.md).
-        from halo_harness.team.cli import cmd_team
-        return cmd_team(argv[1:])
     if argv and argv[0] == "pack":  # 3.2.0.0 R1: capability packs (docs/PACKS.md)
         from halo_harness.packs.cli import cmd_pack
         return cmd_pack(argv[1:])
@@ -625,12 +621,8 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.3.3.0 R2: Studio's Settings section, every config.json key (halo_harness/settings_catalog.py).
         from halo_harness.settings_cli import cmd_settings
         return cmd_settings(argv[1:])
-    if argv and argv[0] == "start":
-        # 3.1.1.0 R1: the guided first run (halo_harness/start/).
-        from halo_harness.start_cli import cmd_start
-        return cmd_start(argv[1:])
     if argv and argv[0] == "check":
-        # 3.2.2.0 R2: the checks Halo offers after setup (halo_harness/start/checks.py).
+        # 3.2.2.0 R2: the checks Halo offers after setup (halo_harness/checks/catalog.py).
         from halo_harness.check_cli import cmd_check
         return cmd_check(argv[1:])
     if argv and argv[0] == "explain":
@@ -650,6 +642,11 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "completion":
         from halo_harness.completion_cli import cmd_completion
         return cmd_completion(argv[1:])
+    if argv and not argv[0].startswith("-"):  # 3.4.0.0 B: a pack's own verb; a verb that left says where it went
+        from halo_harness.packs.contrib_cli import dispatch
+        rc = dispatch(argv)
+        if rc is not None:
+            return rc
 
     parser = _build_parser()
     try:

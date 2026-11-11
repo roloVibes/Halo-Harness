@@ -2,7 +2,7 @@
 
 * `orchestra`: an Orchestra run in the goal's repo (`<repo>/.halo/orchestra/<run-id>/`,
   recorded as the goal's `run_dir`), run to its report through
-  team/adapters.orchestra_run with the real adapters, each lane's worker
+  orchestra/to_report.orchestra_run with the real adapters, each lane's worker
   behind the budget guard (budget.py), the runner beating runner.json. A run
   that already has a folder runs again from its checkpoint (orchestra/run.py
   picks up at the first unfinished step; a written or merged lane is never
@@ -91,7 +91,7 @@ def run_orchestra(state_dir, goal: dict, cfg: dict, on_event=None) -> dict:
     stopped on its replan pause is replanned here, in this thread (replan_ask.settle), and runs again."""
     from halo_harness.supervise import replan, replan_ask
     from halo_harness.supervise.budget import Guard, run_spent
-    from halo_harness.team.adapters import orchestra_run
+    from halo_harness.orchestra.to_report import orchestra_run
     run_dir = Path(goal["run_dir"])
     while True:
         guard = Guard(state_dir, goal, run_dir, cfg.get("budget_usd"),
@@ -127,10 +127,18 @@ def report_outcome(run_dir, report: dict) -> dict:
 
 
 def main_bio(lineup: str, repo) -> Optional[str]:
+    """The bio the lineup's main card names, or None."""
     if not lineup:
         return None
-    from halo_harness.team.adapters import member_bio
-    return member_bio({"lineup": lineup, "role": "main"}, cwd=repo)
+    from halo_harness.teams_yaml import resolve_team_template
+    try:
+        resolved = resolve_team_template(lineup, cwd=repo) or {}
+    except Exception:
+        return None
+    for entry in resolved.get("agents") or []:
+        if isinstance(entry, dict) and (entry.get("as") or entry.get("role")) == "main":
+            return entry.get("agent")
+    return None
 
 
 def job_argv(goal: dict, cap: Optional[float]) -> list:

@@ -111,7 +111,7 @@ number), `local_sched/reserve.py` (the claims on each card and what is left for 
 host's `claim` / `release`, its invariants count them); `ollama_steward/chat.py`, `ollama_steward/chat_tools.py`,
 `ollama_steward/chat_acts.py` and `ollama_steward/chat_log.py` (the chat, its tools, its acting tools, its log),
 `ollama_steward/candidates.py` (the models that could run the steward), `ollama_steward/cli_steward_chat.py`
-(`halo ollama steward chat | candidates`); `start/checks_steward.py` (the checklist's row);
+(`halo ollama steward chat | candidates`); `checks/steward.py` (the checklist's row);
 `studio/packs_bundles_api.py`, `studio/local_steward_chat_api.py`; `ui/src/routes/packs/manager/Bundles.tsx`,
 `bundlestore.ts`, `ui/src/routes/local/StewardPage.tsx`, `StewardChat.tsx`, `StewardModel.tsx`, `chatstore.ts`.
 
@@ -178,7 +178,7 @@ environment reference anywhere), `packs/fleet_registry.py` (each running
 pack's capabilities, available here or not and why: the catalog's `packs`
 section; the worker's refusal line; a pack lineup's mission metadata) and
 `packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's
-fleet-capability rows) and (3.2.1.0 R3) `packs/fleet_share.py` (an inspector
+fleet-capability rows), 3.4.0.0 B (draft, API 1.3): `packs/contrib_cli.py` (a pack's own `halo <verb>`), `packs/contrib_slash.py` (its `/<name>`), `packs/contrib_doctor.py` (its doctor rows), `packs/contrib_settings.py` (its Settings rows), `packs/contrib_lines.py` (their rules for the manifest) and `ext/core.py` (the core modules the shipped packs that left the core drive) and (3.2.1.0 R3) `packs/fleet_share.py` (an inspector
 line's text for the catalog, `fleet.capabilities.hide` for a pack capability,
 the pack refusal lines the hub re-plans on). 3.2.0.0 R5, workflows and artifacts (docs/WORKFLOWS.md):
 `packs/workflow_rules.py` and `packs/workflow_stages.py` (what a workflow file
@@ -241,12 +241,12 @@ lineups and bios declare), `isolation/doctor_rows.py` (the two doctor rows),
 `isolation/brokers/` holds one file per broker (`onepassword.py`, `env.py`)
 and `isolation/Dockerfile` the worker image.
 
-- The guided first run (3.1.1.0; 3.2.2.0 R2: `start/card.py` the card it opens on, `start/checks.py` +
-  `start/checks_run.py` the five checks behind the wizard's Summary, `check_cli.py` (`halo check`),
-  `tui/dialogs/summary_checks.py` + `check_rows.py` the Summary's rows): `studio/start_api.py` (Start here: `/api/start`),
-  `studio/start_job.py` (the one `halo start` Studio runs, its `start` frames),
-  `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md); the guided run
-  itself is `halo_harness/start/` (engine, steps, the sample repo, the fake model calls)
+- The checks after setup (3.2.2.0 R2; `halo_harness/checks/` since 3.4.0.0 B): `checks/catalog.py` the five checks,
+  `checks/run.py` what each runs, `checks/steward.py`, `checks/pack.py` (a pack's Setup check), `checks/provider.py`;
+  `check_cli.py` (`halo check`), `tui/dialogs/summary_checks.py` + `check_rows.py` the Summary's rows;
+  `studio/glossary_api.py` (`GET /api/glossary`, docs/GLOSSARY.md). The guided first run left for the first-run pack
+  (`halo_harness/templates/packs/first-run/`: `first_run/` the engine, `cli/` `halo start` and `/start`, `server/` its
+  routes and job, `studio/first-run.js` its panel); `left.py` holds the one line a verb that left the core says
 - Setup's Ollama finders (3.3.0.0 R5): `studio/setup_discover_api.py` (`setup/ollama/find`, `scan`, `add`,
   `measure`: `providers/ollama_discover.py` and the calibration from the page) and
   `studio/setup_discover_jobs.py` (the scan and measure background jobs, their `setup` frames, the rows found)
@@ -258,13 +258,13 @@ and `isolation/Dockerfile` the worker image.
   wizard's writer) and `studio/setup_providers_state.py` (the provider cards' masked state, the
   Ollama hosts, the Hugging Face entries, the model folders, the runtime, the detection lines); 3.3.17.0 R2: `studio/setup_copilot_api.py` (the Copilot card's routes).
   R3: `studio/setup_check_api.py` (the Check and Linux fixes routes), `studio/setup_check_job.py`
-  (the Check job: `start/checks.py` run in order on a thread, `setup` frames, the guided first run
-  through `start_job`), `studio/setup_check_state.py` (the checks, the card, the last check, the
+  (the Check job: `checks/catalog.py` run in order on a thread, `setup` frames), `studio/setup_check_state.py`
+  (the checks, the last check, the
   Linux fixes, the fresh-home flag) and `providers/local_models_cached.py` (the local model rows
   from what is cached, never a probe: `build_local_view(cached=True)` for a page read).
   R4: `studio/setup_door.py` (the doors: `SetupTarget` = `setup`, `setup:first`, `setup:<block>` as an
   edit target, `?mode=setup&first=1` / `&block=team`; the no-browser rule; `open_setup` starting or
-  reusing Studio; `cli_door`, the one line `halo init`, `halo setup` and `halo start` print before the
+  reusing Studio; `cli_door`, the one line `halo init` and `halo setup` print before the
   terminal wizard runs as the fallback) and `ui/src/routes/setup/door.ts` (the page's side).
   3.3.3.0 R1: `studio/setup_done.py` (Done: `POST setup/done`, `setup-done.json`, `setup_done_at`), `init_wait.py`
   (`halo init` waits, then bare halo via `cli.launch_bare`), `ui/src/routes/setup/done.ts`; 3.3.15.0 R6:

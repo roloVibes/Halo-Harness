@@ -54,7 +54,7 @@ def test_the_shipped_files_pass_their_schemas(ctx: Ctx):
     import yaml
     from halo_harness.schemas import check_file_shape
     root = Path(__file__).resolve().parent.parent / "halo_harness" / "templates"
-    for kind, pattern in (("lineup", "teams/*.yaml"), ("bio", "agents/*.yaml"), ("team", "team/*.yaml")):
+    for kind, pattern in (("lineup", "teams/*.yaml"), ("bio", "agents/*.yaml")):  # 3.4.0.0 B: no team file
         files = sorted(root.glob(pattern))
         ctx.check(f"some shipped {kind} files", files)
         for path in files:
@@ -123,15 +123,12 @@ def test_lineup_and_bio_files(ctx: Ctx):
 
 
 @test
-def test_a_team_naming_a_lineup_that_is_not_there(ctx: Ctx):
+def test_a_leftover_team_file_is_not_checked(ctx: Ctx):  # 3.4.0.0 B: the team file left the core
     with ConfigHome() as h:
-        h.write("BRIEF.md", "# b\n", base=h.repo)
-        h.write(".halo/team.yaml", "name: t\nbrief: BRIEF.md\nmembers: [{name: a, lineup: nope, role: main}]\n"
-                "workflow: {stages: [{id: s, kind: agent, members: [a]}]}\nextra: 1\n", base=h.repo)
+        h.write(".halo/team.yaml", "name: t\nmembers: [{name: a, lineup: nope, role: main}]\nextra: 1\n", base=h.repo)
         found = _findings(h)
-        team = _one(found, "missing-lineup", "./.halo/team.yaml")
-        ctx.check(f"a team member's lineup that is not there, got {team}", team and team["lineups"] == ["nope"])
-        ctx.check("the team file's unknown key", _one(found, "unknown-key", "./.halo/team.yaml", "extra"))
+        ctx.check(f"no finding names the leftover team file, got {[f for f in found if 'team.yaml' in f['file']]}",
+                  not [f for f in found if f["file"] == "./.halo/team.yaml"])
 
 
 @test

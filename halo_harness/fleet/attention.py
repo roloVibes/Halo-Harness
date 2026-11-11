@@ -13,8 +13,6 @@ serves them (`GET /api/fleet/attention`) and routes the answers.
     conflict       two agents of different sessions edit the same file
     mission_plan | mission_claim | mission_ask   a fleet mission waits for approval, a part was refused an edit
                    outside its claims, a hub asks to run a part here (3.0.6.0 R7, fleet/mission_attention.py)
-    team_gate      a stage of this repo's team run waits at its gate (3.0.8.0 R2, fleet/team_attention.py)
-    team_budget    a stage was held at its budget line (3.1.2.0 R2): raise / skip / stop
     goal_plan | goal_gate | goal_budget | goal_ask   a supervisor decision (3.1.8.0 R1,
                    fleet/supervise_attention.py): a goal's plan review, a gate past the cap, a budget cap, a job's ask
     goal_replan    a replan's new plan failed its check twice (3.1.8.0 R2): apply / keep the old plan / stop
@@ -52,8 +50,6 @@ KEYS = {
     "mission_plan": {"a": "approve and run", "r": "edit", "s": "drop", "o": "open the mission"},  # 3.0.6.0 R7
     "mission_claim": {"a": "set aside", "o": "open the mission"},
     "mission_ask": {"a": "allow", "r": "deny", **OPEN},
-    "team_gate": {"a": "accept", "r": "redo", "s": "stop", "o": "open Agents: Runs"},  # 3.0.8.0 R2; 3.3.16.0 R1
-    "team_budget": {"a": "raise (edit the file)", "r": "skip", "s": "stop", "o": "open Agents: Runs"},  # 3.1.2.0 R2
     # 3.1.8.0 R1 (the supervisor): the keys ride on the row itself (supervise_attention.rows), one per decision kind
     "goal_plan": {"a": "approve", "r": "reject", "o": "open the plan"},
     "goal_gate": {"a": "raise the cap by 1 and resume", "r": "raise the cap by N", "s": "stop", "o": "open the run"},
@@ -65,7 +61,7 @@ KEYS = {
 # 3.3.5.0 R4: a preflight card (agent/preflight.py) answers accept = compact, edit = the bigger-window model, stop
 PREFLIGHT_KEYS = {"a": "compact", "r": "bigger-window model", "s": "stop", **OPEN}
 TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r", "mission_plan": "r",
-            "team_gate": "r", "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r",
+            "goal_plan": "r", "goal_gate": "r", "goal_budget": "r", "goal_ask": "r",
             "goal_replan": "r"}
 CARD_KINDS = ("permission", "question", "plan", "approval")
 
@@ -194,7 +190,7 @@ def conflict_rows(conflicts: list, view: dict, seen: dict, now: float) -> list:
 
 
 def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(), reached=(), conflicts=(),
-          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, teams=(), packs=(),
+          seen: Optional[dict] = None, acks=(), now: Optional[float] = None, home=None, packs=(),
           pages: Optional[int] = None) -> list:
     """Every row, newest decision last within each harness, set-aside rows left out."""
     now = now or time.time()
@@ -206,9 +202,6 @@ def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), commands=(),
     if home is not None:  # 3.0.6.0 R7: the missions' rows
         from halo_harness.fleet.mission_attention import rows as mission_rows
         rows += mission_rows(home, local, seen, now)
-    if teams:  # 3.0.8.0 R2: the team gates of Studio's repo (fleet/team_attention.py gated)
-        from halo_harness.fleet.team_attention import rows as team_rows
-        rows += team_rows(list(teams), local, seen, now)
     if home is not None:  # 3.1.8.0 R1: the supervisor's parked decisions (fleet/supervise_attention.py)
         from halo_harness.fleet.supervise_attention import rows as supervise_rows
         rows += supervise_rows(home, local, seen, now)

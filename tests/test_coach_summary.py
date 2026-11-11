@@ -59,10 +59,9 @@ def test_the_fleet_digest_has_a_coach_row_per_run(ctx: Ctx):
     with Home() as h:
         run = S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=DENIED)])
         summary(run)
-        summary(S.team_run(h.root))
         d = digest.compute(h.state, 0.0, local_id="me", local_name="here")
         mine = next(b for b in d["harnesses"] if b["local"])
-        ctx.check(f"two coach rows, got {mine['coach']}", [r["kind"] for r in mine["coach"]] == ["orchestra", "team"]
+        ctx.check(f"one coach row, got {mine['coach']}", [r["kind"] for r in mine["coach"]] == ["orchestra"]
                   and mine["coach"][0]["n"] == 1 and mine["coach"][0]["applied"] == 0 and not mine["quiet"])
         text = digest.text(d)
         ctx.check(f"the digest's line, got {text!r}", f"  coach    orchestra {S.RUN}: 1 suggestion, 0 applied, top: bio "
@@ -104,9 +103,7 @@ def test_studio_s_coach_routes_ask_apply_and_undo(ctx: Ctx):
         ctx.check("GET on a verb is 405", dispatch_coach(_req(h, "GET", base + "/apply"))[0] == 405)
         ctx.check("POST on the card is 405", dispatch_coach(_req(h, "POST", base))[0] == 405)
         ctx.check("an unknown run is 404", dispatch_coach(_req(h, "POST", "orchestra/nope/coach/ask", {"id": "x"}))[0] == 404)
-        team = S.team_run(h.root)
-        status, got = dispatch_coach(_req(h, "POST", "team/coach/ask", {"id": "coordination-copy-loops"}, {"run": team.name}))
-        ctx.check(f"a team run's ask, got {status} {got}", status == 200 and got["paragraph"])
+        ctx.check("team/coach is no route any more (3.4.0.0 B)", dispatch_coach(_req(h, "POST", "team/coach/ask", {"id": "x"})) is None)
 
 
 @test

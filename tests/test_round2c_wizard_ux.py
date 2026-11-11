@@ -722,7 +722,7 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
     R5, on when an installed candidate fits), the gym and the guided first run off), each its title and a muted what / cost / time line; Space toggles the highlighted row;
     Finish runs the ticked ones in order (stubbed) and prints each one's lines, then Finish closes setup; only the
     start ticked: Finish closes at once with `run_start`; a /setup Summary has five rows."""
-    from halo_harness.start import checks as C
+    from halo_harness.checks import catalog as C
     from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
 
     from tests.helpers.custom_lineup import custom_lineup
@@ -765,7 +765,7 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
         for c in C.CHECKS:
             c["run"] = (lambda k: (lambda _ctx: ran.append(k) or [f"{k}: stub line"]))(c["key"])
         got = asyncio.run(drive(True, None))
-        ctx.check(f"six rows in order, got {got['keys']}", got["keys"] == list(C.KEYS))
+        ctx.check(f"five rows in order (3.4.0.0 B: no start row), got {got['keys']}", got["keys"] == list(C.KEYS))
         ctx.check(f"the defaults: doctor, catalog, hello, got {got['ticked']}", got["ticked"] == ["doctor", "catalog", "hello"])
         ctx.check(f"a row: its title then its what / cost / time line, got {got['prompt'][:90]!r}",
                   got["prompt"].startswith("[x] Doctor\n") and "Cost: free. Time: seconds." in got["prompt"])
@@ -777,18 +777,10 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
                   and "Done. Finish closes setup." in got["text"])
         ctx.check(f"Finish again closes setup, got {got.get('after_second')}", got.get("after_second") != "SummaryStep")
         ran.clear()
-        got = asyncio.run(drive(True, ["start"]))
-        ctx.check(f"only the start: Finish closes at once, run_start, nothing ran, got {got['screen']} {ran} {got['run_start']}",
-                  got["screen"] != "SummaryStep" and ran == [] and got["run_start"] is True)
         got = asyncio.run(drive(False, []))
         ctx.check(f"a /setup Summary: five rows, nothing ticked runs none, got {got['keys']} {ran}",
                   got["keys"] == ["doctor", "catalog", "hello", "steward", "gym"] and ran == [] and got["run_start"] is False
                   and got["auto_note"] == "")
-        from halo_harness.start.auto_gate import AUTO_LINE
-        got = asyncio.run(drive(True, [], lineup=None))  # 3.3.15.0 R5: init's Summary on the Auto lineup
-        ctx.check(f"on Auto: five rows, the line in the start's place, got {got['keys']} {got['auto_note'][:60]!r}",
-                  got["keys"] == ["doctor", "catalog", "hello", "steward", "gym"] and " ".join(got["auto_note"].split()) == AUTO_LINE
-                  and got["run_start"] is False)
     finally:
         for c in C.CHECKS:
             c["run"] = saved[c["key"]]
@@ -799,29 +791,28 @@ def test_summary_check_rows_space_toggles_finish_runs_the_ticked(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 def _finish_flow(argv=(), *, tty=True, cmd_start_rc=None, **state):
-    """`init_cli._run_init_wizard_flow` with the wizard, `cmd_start` and the launcher stubbed: `(rc, calls)`."""
+    """`init_cli._run_init_wizard_flow` with the wizard and the launcher stubbed: `(rc, calls)` (3.4.0.0 B: no start)."""
     import io
     from types import SimpleNamespace
     from rich.console import Console
-    from halo_harness import init_cli, init_wait, start_cli
+    from halo_harness import init_cli, init_wait
     from halo_harness.tui.dialogs import init_wizard
     from tests.helpers.setup_door_stubs import _Tty
     calls: list = []
     fields = dict(team_warnings=[], pong_ok=True, run_start=False, checks_cancel=False, finished=True)
     fields.update(state)
     app = SimpleNamespace(state=SimpleNamespace(**fields))
-    saved = (init_wizard.run_init_wizard, init_wait.launch_halo, start_cli.cmd_start, sys.stdin, sys.stdout)
+    saved = (init_wizard.run_init_wizard, init_wait.launch_halo, sys.stdin, sys.stdout)
     before = os.environ.pop("HALO_INIT_NO_LAUNCH", None)
     init_wizard.run_init_wizard = lambda **_k: app
     init_wait.launch_halo = lambda cwd, studio=None: calls.append(("launch", Path(cwd))) or 5  # 3.3.15.0 R6: + the Studio
-    start_cli.cmd_start = lambda argv: calls.append(("start", list(argv))) or cmd_start_rc
     if tty:
         sys.stdin, sys.stdout = _Tty(io.StringIO("")), _Tty(io.StringIO())
     try:
         args = init_cli._build_parser().parse_args(list(argv))
         rc = init_cli._run_init_wizard_flow(args, Console(file=io.StringIO()), REPO_DIR)
     finally:
-        init_wizard.run_init_wizard, init_wait.launch_halo, start_cli.cmd_start, sys.stdin, sys.stdout = saved
+        init_wizard.run_init_wizard, init_wait.launch_halo, sys.stdin, sys.stdout = saved
         if before is not None:
             os.environ["HALO_INIT_NO_LAUNCH"] = before
     return rc, calls
@@ -832,10 +823,6 @@ def test_the_wizard_finish_starts_halo_here(ctx: Ctx):
     rc, calls = _finish_flow()
     ctx.check(f"Finish: halo launched once in the wizard's directory, its exit code returned, got {rc} {calls}",
               rc == 5 and calls == [("launch", REPO_DIR)])
-    rc, calls = _finish_flow(run_start=True, cmd_start_rc=0)
-    ctx.check(f"the guided first run ticked: halo start, then halo, got {rc} {calls}", rc == 5 and calls == [("start", []), ("launch", REPO_DIR)])
-    rc, calls = _finish_flow(run_start=True, cmd_start_rc=1)
-    ctx.check(f"a failed start: its 1, no launch, got {rc} {calls}", rc == 1 and calls == [("start", [])])
     for name, kw in (("--no-launch", {"argv": ["--no-launch"]}), ("a failed pong", {"pong_ok": False}),
                      ("a quit (no Finish)", {"finished": False}), ("checks cancelled", {"checks_cancel": True, "run_start": True}),
                      ("no terminal", {"tty": False})):

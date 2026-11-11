@@ -84,8 +84,8 @@ async def handle_slash(app, name: str, args: str) -> None:
         "tasks": _handle_tasks,
         # Halo 3.0.3.0: the latest Orchestra run's lanes, refreshed from its run log.
         "orchestra": _handle_orchestra,
-        # Halo 3.1.1.0 R1: /start runs the guided first run in a panel; /explain shows a glossary card.
-        "start": _handle_start, "explain": _handle_explain,
+        # Halo 3.1.1.0 R1: /explain shows a glossary card (3.4.0.0 B: /start is the first-run pack's).
+        "explain": _handle_explain,
         # Halo 2.0.2 round 6: /update -- the check (git/network) runs on a
         # worker, never the UI thread; the dialog's own Enter is what
         # actually requests the quit-update-relaunch handoff (see
@@ -1027,17 +1027,6 @@ async def _handle_orchestra(app, args: str) -> None:
     """`/orchestra [run]`: the panel over the run (the latest of this folder's repo)."""
     from halo_harness.tui.dialogs.orchestra import OrchestraPanel, run_finder
     app.push_screen(OrchestraPanel(run_finder(app.cwd, (args or "").strip() or None)))
-
-
-async def _handle_start(app, _args: str) -> None:
-    """`/start`: the guided first run in a panel (tui/dialogs/start_panel.py). 3.3.15.0 R5: on the Auto lineup (or
-    none) one note says why it would say little there and offers the gym instead (start/auto_gate.py)."""
-    from halo_harness.start.auto_gate import lines as auto_lines, offers_start
-    if not offers_start():
-        app.notify("\n".join(auto_lines()), title="/start", timeout=12)
-        return
-    from halo_harness.tui.dialogs.start_panel import StartPanel
-    app.push_screen(StartPanel())
 
 
 async def _handle_explain(app, args: str) -> None:

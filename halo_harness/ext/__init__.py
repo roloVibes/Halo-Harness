@@ -39,6 +39,8 @@ packs for exactly that).
     host                            3.3.13.0 R2 (API 1.2): what Halo does for the pack's code -- its state folder,
                                     models for a task, registered MCP servers and a probe, the tool env, a URL fetch,
                                     Halo as a child process, ComfyUI (ext/host.py)
+    core                            3.4.0.0 B (API 1.3, draft): the core modules a shipped pack that left the core still
+                                    drives -- core.module(name), core.get(name, attr), over core.REACHABLE (ext/core.py)
     Unit                            the unit of work (halo_harness.work.unit.Unit)
     is_valid_pack_id, is_valid_name, qualified_name, split_name
                                     the name rules (`<id>--<name>` for a pack's bios and lineups)
@@ -67,6 +69,7 @@ from halo_harness.ext import testing  # noqa: E402  (3.3.12.0 R4, API 1.1: a pac
 from halo_harness.ext import host  # noqa: E402  (3.3.13.0 R2, API 1.2: the host services)
 from halo_harness.ext.mode import current_mode, set_mode  # noqa: E402  (3.3.10.0 R1, API 1.1)
 from halo_harness.ext import remote  # noqa: E402  (3.3.13.0 R3, API 1.2: the transport seam)
+from halo_harness.ext import core  # noqa: E402  (3.4.0.0 B, API 1.3 draft: the core modules a shipped pack drives)
 from halo_harness.ext.names import is_valid_name, is_valid_pack_id, qualified_name, split_name  # noqa: E402
 from halo_harness.ext.schema import check_schema  # noqa: E402
 from halo_harness.ext.yamlio import read_yaml, write_yaml  # noqa: E402
@@ -78,4 +81,5 @@ __all__ = ["API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
            "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
            "set_mode", "current_mode",  # 3.3.10.0 R1: API 1.1
            "testing",  # 3.3.12.0 R4: API 1.1, stable (testing.run, Report, manifest, ask_policy)
-           "remote", "host"]  # 3.3.13.0: API 1.2, stable (the transport seam ext/remote.py; the host services ext/host.py)
+           "remote", "host",  # 3.3.13.0: API 1.2, stable (the transport seam ext/remote.py; the host services ext/host.py)
+           "core"]  # 3.4.0.0 B: API 1.3, draft (ext/core.py: the first-run and coach packs' door to the engine)

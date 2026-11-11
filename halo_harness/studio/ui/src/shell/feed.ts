@@ -18,7 +18,7 @@ export function startFeed(): void {
     studio.update((s) => ({ feed: { ...s.feed, sessions: rows } }));
   });
   onEvent("*", (f) => {
-    if (f.event === "sessions" || f.event === "start" || f.event === "focus") return; // start: its own dialog; focus: lib/edit.ts
+    if (f.event === "sessions" || f.event === "focus") return; // focus: lib/edit.ts
     if (f.event === "pack_changed" || f.event === "pack_event") return; // 3.2.0.0 R3: routes/packs/store.ts reads them
     if (f.event === "pack_live") return; // 3.3.13.0 R2: a pack's routes' live frames: its own page reads them
     if (f.event === "files_changed") return; // 3.2.2.0 R6: the pages re-read (lib/filesLive.ts); no section's activity

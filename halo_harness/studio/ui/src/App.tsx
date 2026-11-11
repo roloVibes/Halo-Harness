@@ -26,7 +26,6 @@ import { StatusBar } from "./shell/StatusBar";
 import { Palette } from "./shell/Palette";
 import { SectionHelp } from "./shell/SectionHelp";
 import { Glossary } from "./shell/Glossary";
-import { StartHere } from "./shell/StartHere";
 import { startFeed } from "./shell/feed";
 import { paint, startThemes } from "./lib/theme";
 import { installEdit } from "./shell/edit";
@@ -80,7 +79,6 @@ export function App() {
       <Palette />
       <SectionHelp />
       <Glossary />
-      <StartHere />
       <FleetDialogs />
       <PanelDialogs />
       <MissionDialogs />

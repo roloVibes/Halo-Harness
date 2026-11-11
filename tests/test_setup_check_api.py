@@ -48,18 +48,16 @@ def _wait_job(limit: float = 90.0) -> None:
 
 
 def _forget_jobs() -> None:
-    """The one-process runner shares module state: no Check or Start here job is left behind for the next module."""
-    from halo_harness.studio import setup_check_job, start_job
+    """The one-process runner shares module state: no Check job is left behind for the next module."""
+    from halo_harness.studio import setup_check_job
     _wait_job()
     with setup_check_job._lock:
         setup_check_job._state["job"] = None
-    with start_job._lock:
-        start_job._state["job"] = None
 
 
 def _stub_checks(results: dict, gate=None):
     """Swap each check's `run` for a stub returning (or failing with) `results[key]`; returns the restore."""
-    from halo_harness.start import checks as C
+    from halo_harness.checks import catalog as C
     saved = {c["key"]: c["run"] for c in C.CHECKS}
 
     def make(key):
@@ -79,24 +77,20 @@ def _stub_checks(results: dict, gate=None):
 
 @test
 def test_the_state_carries_the_checks_the_card_and_no_provider(ctx: Ctx):
-    from halo_harness.start.auto_gate import AUTO_LINE
     from tests.helpers.custom_lineup import custom_lineup
     with _Env() as e:
-        status, s = e.call("GET", "setup/state")  # 3.3.15.0 R5: a fresh home runs the Auto lineup
-        ctx.check(f"on Auto: five rows, no guided first run, its line, got {[r['key'] for r in s['checks']]} {s.get('start_auto')!r}",
-                  [r["key"] for r in s["checks"]] == ["doctor", "catalog", "hello", "steward", "gym"] and s["start_auto"] == AUTO_LINE)
         with custom_lineup():
             status, s = e.call("GET", "setup/state")
         rows = s["checks"]
-        ctx.check(f"a custom lineup: the six checks in order, no line, got {[r['key'] for r in rows]}", status == 200
-                  and [r["key"] for r in rows] == ["doctor", "catalog", "hello", "steward", "gym", "start"] and s["start_auto"] == "")
+        ctx.check(f"the five core checks in order (3.4.0.0 B: the guided first run is the first-run pack's), got "
+                  f"{[r['key'] for r in rows]}", status == 200
+                  and [r["key"] for r in rows] == ["doctor", "catalog", "hello", "steward", "gym"]
+                  and "start_auto" not in s and "card" not in s)
         ctx.check("doctor, catalog and hello are on by default (no local model here: the steward row is off)",
-                  [r["default_on"] for r in rows] == [True, True, True, False, False, False])
+                  [r["default_on"] for r in rows] == [True, True, True, False, False])
         ctx.check(f"each row: what, cost, time, writes, got {rows[0]}", all({"title", "what", "cost", "time", "writes"} <= set(r) for r in rows)
                   and rows[0]["cost"] == "free" and rows[0]["writes"] == "nothing")
         ctx.check(f"hello's cost with no default model, got {rows[2]['cost']!r}", rows[2]["cost"] == "nothing: no default model is set yet")
-        ctx.check(f"the card is the guided first run's, got {s['card'][:1]}", s["card"][0] == "The guided first run (halo start)"
-                  and any(line.startswith("Estimated cost:") for line in s["card"]))
         ctx.check("no check ran yet; no provider is set", s["last_check"] is None and s["no_provider"] is True)
         from halo_harness.theme import set_config_value
         set_config_value("model", "ol:tiny:1b")
@@ -152,19 +146,13 @@ def test_a_job_publishes_each_check_then_the_summary(ctx: Ctx):
 def test_refusals_and_stop(ctx: Ctx):
     with _Env() as e:
         os.environ.pop("HALO_START_FAKE", None)
-        for body, want in (({"checks": ["doctor", "nope"]}, "nope: not a check (one of doctor, catalog, hello, steward, gym, start)"),
+        for body, want in (({"checks": ["doctor", "nope"]}, "nope: not a check (one of doctor, catalog, hello, steward, gym)"),
                            ({"checks": []}, "tick at least one check"), ({}, "tick at least one check")):
             status, got = _call(e, "POST", "setup/check", body)
             ctx.check(f"{body}: a 422, got {status} {got.get('error')!r}", status == 422 and got["error"] == want)
-        from halo_harness.start.auto_gate import AUTO_LINE
-        from tests.helpers.custom_lineup import custom_lineup
         status, got = _call(e, "POST", "setup/check", {"checks": ["doctor", "start"]})
-        ctx.check(f"3.3.15.0 R5: the guided first run on Auto: a 422 with the line, got {status} {got.get('reason')}",
-                  status == 422 and got["reason"] == "auto_lineup" and got["error"] == AUTO_LINE)
-        with custom_lineup():
-            status, got = _call(e, "POST", "setup/check", {"checks": ["doctor", "start"]})
-        ctx.check(f"the guided first run with no provider: the start's own no_provider 422, got {status} {got.get('reason')}",
-                  status == 422 and got["reason"] == "no_provider" and got["error"].startswith("No model provider is set up yet"))
+        ctx.check(f"3.4.0.0 B: start is no core check (the first-run pack's row is pack:first-run:run), got {status}",
+                  status == 422 and got["error"].startswith("start: not a check"))
         ctx.check("GET on stop is a 405", _call(e, "GET", "setup/check/stop")[0] == 405)
         gate = threading.Event()
         restore = _stub_checks({"doctor": (True, ["ok"]), "catalog": (True, ["ok"]), "hello": (True, ["pong"])}, gate)
@@ -181,28 +169,6 @@ def test_refusals_and_stop(ctx: Ctx):
         summary = view["job"]["summary"]
         ctx.check(f"stop: the running check ends, the rest do not start, got {status} {summary}", status == 200 and got == {"stopping": True}
                   and summary["stopped"] is True and summary["ok"] is False and [r["key"] for r in summary["results"]] == ["doctor"])
-
-
-@test
-def test_the_guided_first_run_runs_through_the_start_job(ctx: Ctx):
-    from tests.helpers.custom_lineup import custom_lineup
-    with _Env() as e, custom_lineup():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
-        server = _Server()
-        os.environ["HALO_START_FAKE"] = "1"
-        try:
-            status, body = _call(e, "POST", "setup/check", {"checks": ["start"]}, server)
-            _wait_job(120)
-        finally:
-            os.environ.pop("HALO_START_FAKE", None)
-            _forget_jobs()
-        setup = [f["data"] for f in server.frames if f["event"] == "setup"]
-        starts = [f["data"] for f in server.frames if f["event"] == "start"]
-        ctx.check(f"202, got {status} {body.get('error')}", status == 202)
-        ctx.check(f"the start's own frames came, its seven steps done, got {len(starts)}",
-                  [d["key"] for d in starts if d.get("state") == "done"] == ["lineup", "repo", "goal", "plan", "run", "report", "next"])
-        ctx.check(f"the Check row: running, then done with the start's outcome, got {[(d['key'], d['state'], (d.get('lines') or [])[:1]) for d in setup]}",
-                  [(d["key"], d["state"]) for d in setup] == [("start", "running"), ("start", "done"), ("summary", "finished")]
-                  and setup[1]["lines"][0].startswith("done: lineup halo-dev-cycle,") and setup[-1]["ok"] is True)  # R7: the active one
 
 
 @test

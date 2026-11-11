@@ -8,7 +8,6 @@
 // "Last check").
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
-import { noProviderJump } from "../../lib/start";
 import { createStore, useStore } from "../../lib/store";
 import { loadSetup, setup, type CheckResult, type LastCheck, type SetupData } from "./store";
 
@@ -36,9 +35,8 @@ export function useCheck<S>(select: (s: CheckState) => S): S {
   return useStore(check, select);
 }
 
-/** Is check `key` ticked: the user's tick, else its default (the guided first run only once its card was shown). */
+/** Is check `key` ticked: the user's tick, else its default. */
 export function ticked(s: CheckState, d: SetupData | null, key: string): boolean {
-  if (key === "start" && !s.cardShown) return false;
   if (key in s.ticks) return s.ticks[key];
   return !!d?.checks.find((c) => c.key === key)?.default_on;
 }
@@ -126,13 +124,8 @@ export async function runChecks(): Promise<void> {
     check.update(() => ({ running: true }));
     poll();
   } catch (e) {
-    if (e instanceof ApiError && e.status === 422 && e.data.reason === "no_provider") {
-      noProviderJump();
-      check.update(() => ({ error: e.message }));
-    } else {
-      const text = e instanceof ApiError && e.problems.length ? e.problems.join("; ") : e instanceof Error ? e.message : String(e);
-      check.update(() => ({ error: text })); // 3.3.5.0 R0 (h): the block's error line, no toast
-    }
+    const text = e instanceof ApiError && e.problems.length ? e.problems.join("; ") : e instanceof Error ? e.message : String(e);
+    check.update(() => ({ error: text })); // 3.3.5.0 R0 (h): the block's error line, no toast
   } finally {
     check.update(() => ({ busy: false }));
   }

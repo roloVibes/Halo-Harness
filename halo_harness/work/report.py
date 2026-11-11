@@ -29,7 +29,7 @@ def row_of(unit) -> dict:
 
 
 def rows(run_dir, kind: Optional[str] = None) -> list:
-    """Every unit of the run as a report row (`kind`: lane|part|stage, else read from the folder)."""
+    """Every unit of the run as a report row (`kind`: lane|part|goal, else read from the folder)."""
     from halo_harness.work.store import UnitStore
     try:
         return UnitStore(run_dir, kind).rows()

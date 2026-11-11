@@ -69,16 +69,10 @@ def test_nothing_opens_on_any_tab(ctx: Ctx):
 
 
 @test
-def test_start_here_once_on_the_first_section(ctx: Ctx):
+def test_a_fresh_home_opens_with_nothing_over_it(ctx: Ctx):
     got = _got(ctx, "fresh")
-    ctx.check(f"the fresh home's first section shows Start here (and only it), got {got.get('offer_open')}",
-              got.get("offer_first") is True and got.get("offer_open") == [0, 1, 1])
-    ctx.check(f"Set up this box: Setup, the overlay gone, the browser's key written, got {got.get('setup_went')!r} {got.get('start_key')!r}",
-              got.get("setup_went") == "setup" and got.get("start_key") == "answered")
-    for k in ("after_setup", "next_section", "after_reload"):
-        ctx.check(f"not back ({k}), got {got.get(k)}", got.get(k) == NOTHING)
-    ctx.check(f"a browser without the key: once more, and Just look around closes it, got {got.get('offer_again')} {got.get('dismissed')}",
-              got.get("offer_again") is True and got.get("dismissed") == "gone")
+    ctx.check(f"3.4.0.0 B: no Start here on a fresh home (the first-run pack's panel), got {got.get('offer_open')}",
+              got.get("offer_open") == NOTHING)
 
 
 @test

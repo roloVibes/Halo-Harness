@@ -1,5 +1,5 @@
 """halo_harness.work.forecast -- what a unit of work will cost before it runs
-(Halo 3.1.2.0 R2, docs/ORCHESTRA.md "The forecast", docs/TEAM.md "Budgets").
+(Halo 3.1.2.0 R2, docs/ORCHESTRA.md "The forecast").
 
 One forecast line per unit, then a total against a budget:
 

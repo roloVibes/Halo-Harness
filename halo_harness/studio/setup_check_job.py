@@ -3,11 +3,9 @@
 (studio/setup_check_api.py). The start_job pattern: one job in this process,
 on a daemon thread, every frame kept and published on Studio's live feed.
 
-The ticked checks run in start/checks.py's order through `checks.run_many`
-(doctor, catalog, hello, the gym); the guided first run, when ticked, runs
-last through the Start here job (studio/start_job.py: its own `start`
-frames, which the Check block shows under its row) and this job waits for
-it. Each check publishes
+The ticked checks run in checks/catalog.py's order through `checks.run_many`
+(doctor, catalog, hello, the steward, the gym, then the enabled packs' Setup checks: 3.4.0.0 B, the guided first
+run is the first-run pack's). Each check publishes
 
     {session_id: "setup:<job id>", event: "setup", ts,
      data: {job, key, title, state: running | done | failed, lines}}
@@ -19,7 +17,7 @@ when it starts and when it ends, and the job ends on one more:
 which is also written to `<state>/studio/last-check.json` (the status strip's
 "Last check"). `current()` is the job as `GET setup/check` shows it (the
 latest frame per check, the summary once there); `stop()` ends the list
-before the next check (and asks a running guided first run to stop).
+before the next check.
 """
 
 from __future__ import annotations
@@ -36,7 +34,7 @@ POLL_S = 0.5
 def _public(job: Optional[dict]) -> Optional[dict]:
     if not job:
         return None
-    from halo_harness.start.checks import KEYS
+    from halo_harness.checks.catalog import KEYS
     order = {k: i for i, k in enumerate(KEYS)}
     frames = sorted(job["frames"].values(), key=lambda f: order.get(f["key"], 99))
     thread = job.get("thread")
@@ -61,40 +59,12 @@ def stop() -> bool:
         alive = job.get("thread") is not None and job["thread"].is_alive()
         if alive:
             job["stop"] = True
-    if alive and job.get("start_job"):
-        from halo_harness.studio import start_job
-        start_job.stop()
     return bool(alive)
-
-
-def _start_lines(summary: dict) -> "tuple[bool, list[str]]":
-    if summary.get("ok"):
-        return True, [f"done: lineup {summary.get('lineup')}, run {summary.get('run')} in {summary.get('repo')}"]
-    lines = [f"stopped at {summary.get('stopped_at') or 'the start'}: {summary.get('reason') or 'no reason given'}"]
-    if summary.get("error_log"):
-        lines.append(f"the full error is in {summary['error_log']}")
-    return False, lines
-
-
-def _run_start(job: dict, state_dir, publish) -> "tuple[bool, list[str]]":
-    """The guided first run through the Start here job; this thread waits for it to end."""
-    from halo_harness.studio import start_job
-    if start_job.running():
-        return False, ["the guided first run is already running: its steps show under this row and in Start here"]
-    view = start_job.start(state_dir, publish)
-    with _lock:
-        job["start_job"] = view.get("job")
-    while start_job.running():
-        if job.get("stop"):
-            start_job.stop()
-        time.sleep(POLL_S)
-    summary = (start_job.current() or {}).get("summary") or {}
-    return _start_lines(summary)
 
 
 def start(keys, ctx, state_dir, publish: Optional[Callable[[dict], None]] = None) -> dict:
     """Start the job on `keys` (known keys; the caller checked that none runs); its public view."""
-    from halo_harness.start import checks as C
+    from halo_harness.checks import catalog as C
     from halo_harness.studio.setup_check_state import write_last_check
     keys = C.ordered(keys)
     job_id = time.strftime("%Y%m%d-%H%M%S")
@@ -123,16 +93,7 @@ def start(keys, ctx, state_dir, publish: Optional[Callable[[dict], None]] = None
     def body() -> None:
         results = []
         try:
-            results = [list(r) for r in C.run_many([k for k in keys if k != "start"], ctx, on_each=each,
-                                                    stop=lambda: bool(job.get("stop")))]
-            if "start" in keys and not job.get("stop"):
-                frame("start", "running", ["runs as the Start here job: its steps show under this row"])
-                try:
-                    ok, lines = _run_start(job, state_dir, publish)
-                except Exception as e:
-                    ok, lines = False, [f"{type(e).__name__}: {e}"]
-                frame("start", "done" if ok else "failed", lines)
-                results.append(["start", ok, lines])
+            results = [list(r) for r in C.run_many(keys, ctx, on_each=each, stop=lambda: bool(job.get("stop")))]
         except Exception as e:  # anything run_many did not turn into a failed check
             results.append(["error", False, [f"{type(e).__name__}: {e}"]])
         stopped = len(results) < len(keys)

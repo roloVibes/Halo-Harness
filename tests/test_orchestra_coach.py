@@ -11,7 +11,7 @@ lanes/<n>.json written by hand), one per rule:
 5. structure: a lane that waited on another's claims, a judged merge
    conflict, a lane that wrote nothing;
 6. coordination: a gate that looped three times;
-7. a flow, a mission and a team run through their seeds;
+7. a mission run through its seed (3.4.0.0 B: the team run left);
 then the cache, the CLI verbs and the engine's new evidence: tests/test_orchestra_coach2.py.
 Run: python -m tests.test_orchestra_coach
 """
@@ -171,7 +171,7 @@ def test_coordination_rule(ctx: Ctx):
 
 
 @test
-def test_a_mission_and_a_team_run(ctx: Ctx):
+def test_a_mission_run(ctx: Ctx):  # 3.4.0.0 B: the team run left with the team file
     from tests.helpers import coach_seed as S
     with Home() as h:
         m = h.coach(S.mission_folder(h.state))
@@ -183,13 +183,6 @@ def test_a_mission_and_a_team_run(ctx: Ctx):
                   "`depends_on: 1`" in mb["structure-3-after-1"]["text"] and all(s["apply"] is None for s in mb.values()))
         ctx.check("asked 200s against a 55s median", "200s" in mb["coordination-2-asked"]["text"]
                   and "median part took 55s" in mb["coordination-2-asked"]["why"][1])
-        t = h.coach(S.team_run(h.root))
-        tb = _by(t)
-        ctx.check(f"team: gated twice, a refused write, got {sorted(tb)}", t["kind"] == "team" and set(tb) == {
-            "coordination-copy-loops", "tools-ship-claim-site/index.html"})
-        ctx.check("the redo answer is in the why", "redo: shorter" in tb["coordination-copy-loops"]["why"])
-        ctx.check("the member who could not write is named", "member editor (stage ship)"
-                  in tb["tools-ship-claim-site/index.html"]["text"])
 
 
 @test
@@ -199,13 +192,12 @@ def test_the_rules_live_once_over_the_unit_model(ctx: Ctx):
     coach_rules's functions and defines no rule of its own, and each kind's
     seeded run still goes through them."""
     import inspect
-    from halo_harness.orchestra import coach_mission_rules, coach_orchestra_rules, coach_team_rules
+    from halo_harness.orchestra import coach_mission_rules, coach_orchestra_rules
     from halo_harness.orchestra import coach_rules as R
     from tests.helpers import coach_seed as S
     uses = {coach_orchestra_rules: ("prompt_rules", "model_rules", "tools_rules", "structure_rules", "coordination_rules",
                                     "wait_pairs", "conflict_pairs"),
-            coach_mission_rules: ("coordination_rules", "tools_rules", "structure_rules", "outputs_rules", "conflict_pairs"),
-            coach_team_rules: ("coordination_rules", "tools_rules")}
+            coach_mission_rules: ("coordination_rules", "tools_rules", "structure_rules", "outputs_rules", "conflict_pairs")}
     for loader, names in uses.items():
         short = loader.__name__.rsplit(".", 1)[1]
         for name in names:
@@ -217,7 +209,7 @@ def test_the_rules_live_once_over_the_unit_model(ctx: Ctx):
             S.lane(1, bio="coach-strong", pieces_returned=2, history=S.returned(2), state="merged",
                    model="or:vendor/strong")]))
         ctx.check("the orchestra kind fires the shared prompt rule", any(s["kind"] == "prompt" for s in orch["suggestions"]))
-        for maker, kind in ((S.mission_folder(h.state), "mission"), (S.team_run(h.root), "team")):
+        for maker, kind in ((S.mission_folder(h.state), "mission"),):
             res = h.coach(maker)
             ctx.check(f"{kind}: a seeded run yields suggestions of the shared shape",
                       res["kind"] == kind and res["suggestions"]

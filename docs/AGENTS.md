@@ -810,4 +810,4 @@ enforce it later" boundary every other lineup section in this file
 already draws; this round's own job was building and proving the
 assembly itself.
 
-**Teams (Halo 3.0.8.0):** `halo team` (no s) reads a different file, a project's members, blocks and stages, each member an instance of one of these lineups' aliases; see [TEAM.md](TEAM.md).
+**Teams (Halo 3.0.8.0 - 3.3.x):** `halo team` (no s) and its team file left in 3.4.0.0; a lineup's tiers and blocks (Agents -> Cast) and a run's lanes (Agents -> Runs) do its job.

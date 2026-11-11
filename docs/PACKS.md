@@ -633,8 +633,9 @@ without policies and modes is untouched.
 
 ## The reference pack
 
-Halo ships four packs: **Documentation Review**, below, **Concord** ([The concord pack](#the-concord-pack)), **Signal**
-([The signal pack](#the-signal-pack)) and **Design** ([The design pack](#the-design-pack)).
+Halo ships five packs: **Documentation Review**, below, **Concord** ([The concord pack](#the-concord-pack)), **Signal**
+([The signal pack](#the-signal-pack)), **Design** ([The design pack](#the-design-pack)) and (3.4.0.0) **First run**
+([The first-run pack](#the-first-run-pack)).
 **Documentation Review** (`doc-review`,
 `halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
 review lineup, the review workflow (read each Markdown file, judge the
@@ -650,6 +651,17 @@ version, installing from a folder or a git url, checking it with `halo pack
 doctor`. `tests/test_reference_pack.py` installs it in a fresh home, runs its
 workflow, finds it in Studio, Roles and the fleet catalog, removes it and
 finds nothing of it left.
+
+## The first-run pack
+
+**First run** (`first-run`, `halo_harness/templates/packs/first-run/`, 3.4.0.0) is the guided first run, out of Halo's
+core: `halo start` (one real Orchestra run that rehearses your lineup on a sample repo, its card first) and `/start`,
+a row on Setup's Check page and a **First run** panel in Studio's Agents section (where "Start here" and "Test this
+lineup" went). `halo pack install first-run`, `halo pack enable first-run --grant-all` (`cli:start` for the verb and
+the slash command, `studio-script` and `studio-routes` for the panel). With it off, `halo start` and `/start` say in
+one line that it is a pack now. It is the example of the 3.4.0.0 draft parts ([CLI verbs, slash commands, doctor rows
+and settings rows](EXTENSION_API.md#cli-verbs-slash-commands-doctor-rows-and-settings-rows), [core
+access](EXTENSION_API.md#core-access)); [its README](../halo_harness/templates/packs/first-run/README.md) has the rest.
 
 ## The design pack
 

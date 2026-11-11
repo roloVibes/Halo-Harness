@@ -255,57 +255,17 @@ lists each suggestion with its id, its why lines, what Apply writes, its
   entry already here. Exit codes: 0 done, 1 no such entry, nothing deleted
   or a refused fetch, 2 usage, 3 no hub runs here.
 
-The three kind verbs (`halo orchestra coach`, `halo fleet
-mission coach`, `halo team coach`) take the same `--model`, `--refresh`,
+The two kind verbs (`halo orchestra coach`, `halo fleet
+mission coach`) take the same `--model`, `--refresh`,
 `--apply`, `--yes` and `--json`. Exit codes: 0 done, 1 no such run, a change
 that cannot be made or a refused undo, 2 usage. `/coach` in the TUI runs the
 same command.
 
-## `halo team`
+## `halo team` (left in 3.4.0.0)
 
-```sh
-halo team init [--force] [--json]                     write .halo/team.yaml from the template (and a starter docs/BRIEF.md)
-halo team validate [--json]                           every problem in the team file, one line each
-halo team run [stage] [--force] [--new] [--run ID] [--watch] [--json]   start a stage and drive the run
-halo team status [--run ID] [--json]                  the run's state, what waits on an answer; 3.1.2.0: spent, the
-                                                      forecast of the stages still to run, the budget, the held stages
-halo team board [--run ID] [--json]                   every stage: kind, state, members, trigger, gate, cost, summary
-halo team answer <stage> accept|redo|stop [--text T] [--run ID] [--json]
-halo team stop [--reason R] [--run ID] [--json]       end the run; every stage not done is skipped
-halo team log [--since N] [--run ID] [--json]         the run's events
-halo team blocks [block] [--json]                     each block's live claims and its last changes
-halo team coach [run] [--model] [--apply ID [--yes]] [--json]   3.0.9.0: the coach's card for a done or stopped run (halo coach)
-```
-
-Halo 3.0.8.0: a team is `<repo>/.halo/team.yaml` (else
-`~/.halo/teams/<project>.team.yaml`): the brief, the members (instances of
-lineup aliases, here or on a fleet member), the blocks (a file, a folder or
-a git tree with a claim ledger) and the workflow's stages (an agent turn or an
-Orchestra run, each with what it reads and writes, what starts it
-and its gate). See [TEAM.md](TEAM.md).
-
-`init` writes the shipped template (`--force` overwrites an existing file).
-`validate` prints `<path>: valid` or every problem (exit 2), and the
-preflight's non-blocking findings as `warning:` lines. `run` checks the file
-(exit 2 on a problem, nothing runs), runs the lineup preflight for every
-member that works here (exit 2 with each finding and its fix; `--force` runs
-anyway), then starts the named stage (default: the first pending manual
-stage) in the open run (`--new`: a new run beside it; `--run ID`: that run)
-and drives the run here until it is idle or waits at a gate, one line per
-event; `--watch` keeps it running so `block_change` stages fire as their
-blocks change. Exit 1 when the stage failed. `answer` answers a stage's gate
-(`redo` runs it again with `--text` as the instruction) and, when no runner
-is live on the run, drives the run on; `stop` stops it (`--reason` is kept on
-the board). `log --since N` skips the first N events. `--json` prints the
-board, the status, the events or the block rows. Exit codes: 0 done, 1 could
-not, 2 usage, a problem or the preflight.
-
-```sh
-halo team init && halo team validate
-halo team run draft
-halo team answer draft redo --text "shorter, and name the price"
-halo team answer draft accept
-```
+The team file (`.halo/team.yaml`) and `halo team` left the core in 3.4.0.0; `halo team` answers one line
+saying so. A lineup's tiers and blocks (Agents -> Cast, `halo teams`) and a run's lanes with their owns lines
+(Agents -> Runs, `halo orchestra`) do its job.
 
 ## `/tasks` (Ctrl+T)
 

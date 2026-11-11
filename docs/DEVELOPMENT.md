@@ -29,7 +29,6 @@ halo_harness/            the package
                            `*_api.py` per area), the React shell in ui/
   fleet/                   the hub, the relay, the panels, missions
   orchestra/               the Orchestra run pipeline and the post-run coach
-  team/                    the team file, its validation, the runner
   *_cli.py                 each `halo <subcommand>`'s own module
                            (orchestra_cli.py + orchestra_cli_views.py /
                            _run.py / _plan.py for `halo orchestra`)

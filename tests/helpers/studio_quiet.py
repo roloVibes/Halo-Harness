@@ -3,7 +3,7 @@ opens on any tab, the icon rail, the inspector asks first, Focus. Real keys and
 clicks in headless Chrome on the driver base; no provider request, no model call.
 
     python -m tests.helpers.studio_quiet seeded   capture_studio's seeded home (a lineup active)
-    python -m tests.helpers.studio_quiet fresh    capture_start's fresh home (Start here is due)
+    python -m tests.helpers.studio_quiet fresh    capture_fresh's fresh home (nothing over it)
 
 seeded: each of the nine core sections loaded on its own (`?mode=<id>`, no
 `tour=off`) and reached by Alt+1..9, with no section help, no dialog and no
@@ -183,28 +183,10 @@ def focus(c, url, ctx) -> dict:
 
 
 def fresh(c, url, ctx) -> dict:
+    """3.4.0.0 B: a fresh home has no Start here (the first-run pack's panel); nothing opens on any section."""
     out: dict = {}
     load(c, ctx, "roles", "Agents")
-    out["offer_first"] = c.wait(f"!!{q('[data-testid=start-here-setup]')}", 30)
     out["offer_open"] = c.js(OPEN)
-    c.click_on(q("[data-testid=start-here-setup]"))
-    out["setup_went"] = c.wait(f"{CUR}.startsWith('Setup') && !{q('[data-testid=start-here]')} && 'setup'", 15)
-    out["start_key"] = c.js("localStorage.getItem('halo.studio.start')")
-    time.sleep(2.0)
-    out["after_setup"] = c.js(OPEN)
-    blur(c)
-    alt(c, 2)  # 3.3.16.0 R1: Agents
-    c.wait(f"{CUR}.startsWith('Agents')", 15)
-    time.sleep(2.0)
-    out["next_section"] = c.js(OPEN)
-    load(c, ctx, "roles", "Agents")
-    time.sleep(2.5)
-    out["after_reload"] = c.js(OPEN)
-    c.js("localStorage.removeItem('halo.studio.start'); 1")  # a new browser: the home still has no answer, the offer is back once
-    load(c, ctx, "roles", "Agents")
-    out["offer_again"] = c.wait(f"!!{q('[data-testid=start-here-dismiss]')}", 30)
-    c.click_on(q("[data-testid=start-here-dismiss]"))
-    out["dismissed"] = c.wait(f"!{q('[data-testid=start-here]')} && 'gone'", 10)
     each_section(c, ctx, "fresh", out)
     return out
 
@@ -217,7 +199,7 @@ class QuietDriver(Driver):
         from capture_studio import seeded_home, serve
         which = (self.argv[:1] or ["seeded"])[0]
         if which == "fresh":
-            from capture_start import fresh_home
+            from capture_fresh import fresh_home
             state = fresh_home()
         else:
             state = seeded_home()

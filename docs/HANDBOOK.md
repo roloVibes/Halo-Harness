@@ -9,60 +9,11 @@ detail for configuration, config reuse, providers, permissions, steering,
 hooks, skills, commands, MCP, browser, sessions, print mode, telemetry,
 troubleshooting, security posture, tests and proxy mode.
 
-## The guided first run: `halo start`
+## The guided first run: `halo start` (the first-run pack)
 
-```sh
-halo init           # opens Studio on Setup: a provider, a default model, the checks (--terminal: the terminal wizard)
-halo start --explain    # the card: what it does, the models it will call, the cost, the time, what it writes
-halo start          # the card, then seven screens, Enter to go on, q to stop (--yes runs straight through)
-halo check          # the checks after setup: doctor, the model catalog, one hello call (--all, --gym, --explain)
-```
-
-`halo start` is one real Orchestra run on your models, not a test of them
-(`halo gym` measures models). Halo 3.3.15.0: it belongs to a custom lineup or
-workflow, and it rehearses the lineup you picked (3.3.15.0 R7): the active
-one (Setup's Team step or `halo teams use`), or the one `--lineup <name>`
-names, read as it is -- nothing is copied. On the Auto lineup there is no
-lineup to rehearse, so `halo start` says "Your lineup is Auto: pick or build
-a lineup in Roles first, then `halo start` rehearses it", offers `halo gym
---quick` and exits 0, and init, Setup and Start here leave it out. The test
-lives here, in `halo start`, for now; Agents -> Runs adds "Test this lineup /
-workflow" in 3.3.16.0, on the same engine. It opens on a card: the seven steps in one
-sentence each, the lineup it rehearses (its lead card, the cards that take
-the lanes and all its cards), the models it will call (each card's own
-model, else your role table's or your default model) with their prices, an
-estimated cost (one lead plan, one worker lane per lane card, one judge
-pass, each with a stated token budget, at the catalog's prices; "free" when
-every model is local, "unknown for <model>" when the catalog has no price),
-the time (5-20 minutes on cloud models, longer on local ones), what it
-writes (a sample repo under `~/.halo/start/<date>/`) and that your lineup
-is not touched. Then it walks one real piece of work through the pieces
-Halo is made of, one screen per step, each with one sentence of why and the
-command it runs:
-
-1. **The lineup** -- your lineup by name: the lead, the cards that take the
-   sample's lanes (a card that writes code takes as many as its instances;
-   fewer than five and the functions are shared, one line says so; none and
-   the start says so and stops before writing anything), its cards as a
-   table with their tiers.
-2. **The sample repo** -- `~/.halo/start/<date>/basket/`: `basket.py` with five
-   functions to write and `test_basket.py`, a git repo with one commit.
-3. **The goal** -- an Orchestra run, "Write the five functions of basket.py",
-   with `plan: review`, so it pauses after the lead's split.
-4. **The plan** -- the lead's lanes as a table, each job with its lane card's bio; Enter approves it, `s` opens
-   it on Studio's plan canvas and waits for your decision there.
-5. **The run** -- the lanes table as each worker claims, writes and merges its
-   function, until the gate runs the tests.
-6. **The report and the coach** -- every check with a tick or a cross, the lineup that played it, then
-   the coach's cards (Apply opens the bio in Studio).
-7. **Where to go next** -- Roles, Team and Fleet, each with its command.
-
-It runs on the model you configured (with none, it says so and asks "Open Setup in Studio? [Y/n]":
-Enter opens Setup, `n` runs the terminal wizard). The same start runs in the TUI (`/start`, a panel) and in
-Studio (the **Start here** card a fresh home opens on). Any word on the way
--- lineup, lane, claim, gate, hand-off -- is one `halo explain <word>` away
-([GLOSSARY.md](GLOSSARY.md)); the full reference is
-[COMMANDS.md](COMMANDS.md) (`halo start`).
+`halo start` is one real Orchestra run that rehearses your lineup on a sample repo, its card first (what it does, the
+models, the cost, the time, what it writes). Since 3.4.0.0 it is the first-run pack since 3.4.0.0 (`halo pack install first-run`, then `halo pack enable first-run --grant-all`); [its README](../halo_harness/templates/packs/first-run/README.md) says what each step
+does. `halo explain <word>` says what any word means ([GLOSSARY.md](GLOSSARY.md)).
 
 ## A 10-minute walkthrough
 

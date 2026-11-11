@@ -8,7 +8,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 3.3.16.0 R1: the Orchestra section is Agents' **Runs** view ([STUDIO-agents.md](STUDIO-agents.md)): each lane's owns
 line and its claims ([who owns what](STUDIO-agents.md#who-owns-what-the-owns-line)) and **Test this lineup**
-([the button](STUDIO-agents.md#test-this-lineup)) are new there; the rest is as it was.
+([the first-run pack's panel since 3.4.0.0](STUDIO-agents.md#test-this-lineup-the-first-run-pack)) are new there; the rest is as it was.
 
 Runs (`Alt+2` then `R`, `?mode=agents&view=runs`, or the old door `?mode=orchestra`) is the console for [Orchestra](ORCHESTRA.md)
 runs in the git repo that holds Studio's folder (`halo studio` started

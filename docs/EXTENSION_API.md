@@ -44,6 +44,8 @@ guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
 | [Services](#services) | stable | `contributes.services` (3.3.13.0 R3, API 1.2): a pack's program the supervisor keeps running while the pack is enabled and granted `services` -- autostart, a restart rule, a health file, a log; `halo supervise services`, the Pack Manager's Start / Stop |
 | [Transports](#transports) | stable | `ext.remote` (3.3.13.0 R3, API 1.2): what a pack that carries Halo to a phone or a chat uses -- the live sessions and their control sockets, a session started for it, the cards' text, the core's notes, a voice note's transcript; the shipped signal pack is one |
+| [CLI verbs, slash commands, doctor rows and settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows) | draft | `contributes.cli`, `.slash`, `.doctor`, `.settings` (3.4.0.0 B, API 1.3): a pack's own `halo <verb>`, `/<name>`, doctor rows and Settings rows; the grants `cli:<verb>` and `doctor` |
+| [Core access](#core-access) | draft | `ext.core` (3.4.0.0 B, API 1.3): the core modules the first-run and coach packs drive, by name, over `core.REACHABLE` |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
 `stable`: a 1.x Halo keeps it. `removed <version>`: gone in that version,
@@ -51,7 +53,8 @@ announced a minor version before it ([Changes in 1.x](#changes-in-1x)).
 Since 3.2.0.0 every part is `stable` and none is removed; a later part may
 start as `draft` (usable, may change in a minor API version with a migration
 note) or `planned` (the shape proposed, nothing reads it yet). Policy hooks
-was the first `draft` part (3.3.10.0 R1) and is `stable` from 3.3.10.0 R2; no part is `draft` now.
+was the first `draft` part (3.3.10.0 R1) and is `stable` from 3.3.10.0 R2; 3.4.0.0 B's two are `draft` now
+([CLI verbs, slash commands, doctor rows and settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows), [core access](#core-access)).
 
 ## The stable surface (`halo_harness.ext`)
 
@@ -98,6 +101,8 @@ names in `__all__` are the contract.
   `transcribe(path)`, `qr_text(data)`, `words()`, `service(pack, name)`, `service_ask(pack, name, verb)`,
   `logon_lines()`, `fleet_lines()`, `capture_studio()`, `enabled()`, `offline()`, `default_model()`.
 - `host`: API 1.2 (3.3.13.0 R2, stable): [the host services](#the-host-services), what Halo does for a pack's code.
+- `core`: API 1.3 (3.4.0.0 B, draft): [core access](#core-access) -- `core.module(name)`, `core.get(name, attr)` over
+  `core.REACHABLE`, the Orchestra engine and the lineups for the shipped packs that left the core.
 - `Unit`: the unit of work (`halo_harness.work.unit.Unit`, docs/WORK.md).
 - `is_valid_pack_id`, `is_valid_name`, `qualified_name(pack_id, name)`, `split_name(name)`: the name rules.
 
@@ -136,10 +141,11 @@ contributes:
   setup: [{id: prefs, title: Review preferences, kind: form, fields: [style], after: model}]   # 3.3.11.0, Setup blocks below
   themes: [{id: nightshade, label: Violet night, posture: dark, palette: {bg: "#0d0b14", ...}}]   # 3.3.12.0, Themes below
   services: [{name: bridge, run: [...], autostart: true, restart: on-failure, health: {file: health.json}, log: service.log}]   # 3.3.13.0, Services below
+  cli: [{verb: review, module: cli/review.py, help: ...}]   # 3.4.0.0 B (draft): also slash, doctor, settings -- below
 config:
   schema: {properties: {style: {type: string, enum: [short, long]}}, additionalProperties: false}
   defaults: {style: short}
-permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write, studio-script, studio-routes, services
+permissions: ["mcp:lint", hooks]    # mcp:<server>, hooks, bash, network, home-write, studio-script, studio-routes, services; 3.4.0.0 B: cli:<verb>, doctor
 migrations:
   - {from: 0.9.0, to: 1.0.0, note: the reviewer bio is now doc-review--reviewer}
   # 3.2.0.0 R7: settings renames packs.settings.<id> keys as the update runs
@@ -1230,6 +1236,44 @@ a pack; the core never knows which one. `halo_harness.ext.remote` is what it use
 The shipped **signal pack** (`halo_harness/templates/packs/signal/`) is the example: its service runs the bridge,
 its `/signal` command runs its program, its Setup blocks walk signal-cli, the account, pairing and the service, and
 its tests drive a whole conversation through fakes.
+
+## CLI verbs, slash commands, doctor rows and settings rows
+
+Status: **draft** (Halo 3.4.0.0 B, to land as part of API 1.3; usable, may change in a minor API version with a
+migration note). What a pack that left Halo's core (the first-run and coach packs) needs to keep its verbs: a top-level
+`halo <verb>`, a `/<name>` slash command, rows in `halo doctor` and rows in Studio's Settings. Each has one loader
+module under `halo_harness/packs/` (`contrib_cli.py`, `contrib_slash.py`, `contrib_doctor.py`, `contrib_settings.py`;
+`contrib_lines.py` hands their rules to the manifest check).
+
+```yaml
+contributes:
+  cli: [{verb: start, module: cli/start.py, help: "the guided first run"}]          # main(argv) -> int
+  slash: [{name: start, module: cli/slash.py, help: "the guided first run's card"}] # run(args_text, facade) -> str
+  doctor: [{id: library, module: doctor.py, help: "the coach library"}]              # rows(ctx) -> list
+  settings: [{key: model, title: The coach's model, help: "...", type: string, default: ""}]
+permissions: ["cli:start", doctor]
+```
+
+| Key | What Halo does with it | Grant |
+|---|---|---|
+| `cli` | `halo <verb> ...` imports the module through the pack's folder (the package `halo_packs.<id>`, as Studio imports a pack's routes) and calls `main(argv)` with the words after the verb; its return is the exit code. A core verb always wins; a verb that left the core (`halo_harness/left.py`: `team`, `start`) says its one line when no enabled pack answers it | `cli:<verb>` ("its verb runs") |
+| `slash` | `/<name> ...` runs `run(args_text, facade)` and shows what it returns, where no core command took the name; a word that left the core is a one-line command with its pack off | `cli:<name>` (the same grant as the verb of that name) |
+| `doctor` | `halo doctor` adds `rows(ctx)`'s rows under the pack's id: a string is an OK line, `{ok, text, fix}` a row; `ctx` carries `pack_id`, `cwd`, `state_dir`, `data_dir`. A module that raises is one red row naming it | `doctor` |
+| `settings` | rows of Studio's Settings and `halo settings`, each `packs.settings.<id>.<key>` in config.json (where `ext.get_config` reads); with the pack off the rows are gone and a value left in config.json is ignored | none (no code runs) |
+
+A pack's Python runs with your rights, so every key that runs it takes a grant you give (`halo pack enable <id>
+--grant cli:<verb>`, or `--grant-all`), as `studio-routes` and `services` do. One line per problem names the entry
+(`contributes.cli[0].module: 'cli/x.py' is not in the pack`); a verb or a name used twice, an unknown key, a module
+outside the pack or not a `.py` file, a settings `type` that is not `string`, `integer`, `number` or `boolean` are
+problems.
+
+## Core access
+
+Status: **draft** (Halo 3.4.0.0 B, API 1.3). `halo_harness.ext.core` is the one door the shipped packs that left the
+core in 3.4.0.0 (first-run, coach) use to reach the Orchestra engine, the lineups and the checks they always drove:
+`core.module(name)` is `halo_harness.<name>` and `core.get(name, attr)` one name of it, for a `name` in
+`core.REACHABLE` (any other raises ValueError naming the rule). These are Halo's own modules as they are in the Halo
+the pack ships with: they follow Halo's version, not the extension API's, so a third-party pack does not build on them.
 
 ## Compatibility and migration
 

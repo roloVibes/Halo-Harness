@@ -5,16 +5,14 @@ connection: the costs and the card read the cached catalog
 (`catalog_by_ref`, no host probed).
 
     checks: [{key, title, what, cost, time, writes, default_on}]
-                     start/checks.py CHECKS (doctor, catalog, hello, gym, start), each cost with its models' prices;
-                     3.3.15.0 R5: no `start` row while the active lineup is Auto or none (start/checks.offered)
-    start_auto: str                  then the line in its place ("" with a custom lineup; start/auto_gate.AUTO_LINE)
-    gym_models: [{ref, cost}]        the models the gym row offers (start/checks_run.gym_candidates)
-    card: [lines]                    the guided first run's card (start/card.card_lines), shown before its row is ticked
+                     checks/catalog.py CHECKS (doctor, catalog, hello, steward, gym), each cost with its models' prices
+                     (3.4.0.0 B: the guided first run is the first-run pack's Setup check row when that pack is on)
+    gym_models: [{ref, cost}]        the models the gym row offers (checks/run.gym_candidates)
     last_check: {when, ok, stopped, results: [{key, title, ok, lines}]} | null
                      <state>/studio/last-check.json, written when a Check job ends (studio/setup_check_job.py)
     linux_fixes: {needed, items: [{id, line}], platform}
                      the two fixes the wizard's Linux step applies, listed only when this box lacks them
-    no_provider: bool                start/provider.ready() is false: nothing for a session to run on yet
+    no_provider: bool                checks/provider.ready() is false: nothing for a session to run on yet
     model_notes: [lines]             a configured Ollama host nothing has read yet: "not read yet: Refresh"
 
 `boot_attrs(page)` marks the served index.html `data-no-provider="1"` in that
@@ -47,7 +45,7 @@ def rg_on_path() -> bool:
 
 
 def no_provider() -> bool:
-    from halo_harness.start.provider import ready
+    from halo_harness.checks.provider import ready
     try:
         return not ready()[0]
     except Exception:
@@ -112,18 +110,17 @@ def linux_block() -> dict:
     return {"needed": bool(items), "items": items, "platform": platform_name()}
 
 
-# -- the five checks ------------------------------------------------------------------
+# -- the core checks ------------------------------------------------------------------
 def _costs(ctx, rows: dict) -> dict:
-    """Each check's cost line as start/checks_run states it, the catalog read once for all of them."""
-    from halo_harness.start import checks_run as R
-    from halo_harness.start.card import estimate
+    """Each check's cost line as checks/run.py states it, the catalog read once for all of them."""
+    from halo_harness.checks import run as R
     out = {}
     try:
         out["hello"] = ("one tiny call, " + R.call_price(ctx.model, *R.HELLO_TOKENS, rows=rows)) if ctx.model else R.hello_cost(ctx)
     except Exception as e:
         out["hello"] = f"one tiny call (the price could not be read: {type(e).__name__})"
     try:  # 3.3.7.0 R5: the steward candidates row: free, or the download it names
-        from halo_harness.start.checks_steward import cost as steward_cost
+        from halo_harness.checks.steward import cost as steward_cost
         out["steward"] = steward_cost(ctx)
     except Exception as e:
         out["steward"] = f"free, or the download it names (the candidates could not be read: {type(e).__name__})"
@@ -131,44 +128,25 @@ def _costs(ctx, rows: dict) -> dict:
         out["gym"] = R.gym_cost(ctx)
     except Exception as e:
         out["gym"] = f"free for local models (the models could not be read: {type(e).__name__})"
-    try:
-        out["start"] = estimate(fake=ctx.fake, default=ctx.model, rule=False, models_by_ref=rows) + " (halo start --explain shows the rule)"
-    except Exception as e:
-        out["start"] = f"the card's estimate (it could not be read: {type(e).__name__})"
     return out
 
 
 def check_rows(ctx, rows: dict) -> list:
-    from halo_harness.start.checks import default_on, offered  # 3.3.15.0 R5: no guided first run on the Auto lineup
+    from halo_harness.checks.catalog import default_on, offered
     costs = _costs(ctx, rows)
     return [{"key": c["key"], "title": c["title"], "what": c["what"], "cost": costs.get(c["key"], c["cost"]), "time": c["time"],
              "writes": c["writes"], "default_on": default_on(c, ctx)} for c in offered()]  # 3.3.7.0 R5: the steward row's
 
 
-def start_auto() -> str:
-    """3.3.15.0 R5: the line in the guided first run's place on the Auto lineup (or none); "" with a custom lineup."""
-    from halo_harness.start.auto_gate import AUTO_LINE, offers_start
-    return "" if offers_start() else AUTO_LINE
-
-
 def gym_rows(ctx) -> list:
     """The gym row's models, each with its cost; `ctx.gym_models` becomes them, so the gym's cost line reads the same
     list (the candidates are read once)."""
-    from halo_harness.start import checks_run as R
+    from halo_harness.checks import run as R
     try:
         ctx.gym_models = R.gym_candidates(ctx)
     except Exception:
         ctx.gym_models = []
     return [{"ref": ref, "cost": R.gym_model_cost(ref)} for ref in ctx.gym_models]
-
-
-def card(cwd, state_dir, rows: dict) -> list:
-    from halo_harness.start import fake
-    from halo_harness.start.card import card_lines
-    try:
-        return card_lines(state_dir=state_dir, cwd=cwd, fake=fake.enabled(), models_by_ref=rows)
-    except Exception as e:
-        return [f"the card could not be read: {type(e).__name__}: {e}"]
 
 
 def model_notes() -> list:
@@ -180,14 +158,14 @@ def model_notes() -> list:
 
 
 def check_blocks(cwd=None, state_dir=None) -> dict:
-    from halo_harness.start.checks import default_ctx
+    from halo_harness.checks.catalog import default_ctx
     from halo_harness.tui.dialogs.team_preview import catalog_by_ref
     ctx = default_ctx(cwd, state_dir=state_dir)
     rows = catalog_by_ref()
     gym = gym_rows(ctx)
-    return {"checks": check_rows(ctx, rows), "gym_models": gym, "card": card(cwd, state_dir, rows),
+    return {"checks": check_rows(ctx, rows), "gym_models": gym,
             "last_check": read_last_check(state_dir), "linux_fixes": linux_block(), "no_provider": no_provider(),
-            "model_notes": model_notes(), "start_auto": start_auto()}
+            "model_notes": model_notes()}
 
 
 def boot_attrs(page: bytes, state_dir=None) -> bytes:

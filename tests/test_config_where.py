@@ -63,8 +63,7 @@ def test_every_row_over_a_seeded_home_and_repo(ctx: Ctx):
         bios = by(rows, "bios", "~/.halo/agents")
         ctx.check(f"the home bio folder counts its bios, got {bios['sets']} / {bios['note']}",
                   bios["sets"] == ["coder"] and bios["note"].startswith("1 file"))
-        ctx.check("the team file of the repo", by(rows, "team", "./.halo/team.yaml")["sets"] == ["repo-team"])
-        ctx.check("the team file kept outside the repo is listed", by(rows, "team", "~/.halo/teams/repo.team.yaml")["exists"])
+        ctx.check("no team file rows (3.4.0.0 B: the team file left the core)", not [r for r in rows if r["kind"] == "team"])
         ctx.check("the Databricks preset rows are listed (missing here)",
                   not by(rows, "team-preset", "./.halo/team.json")["exists"])
         ctx.check("no flows group (3.1.4.0), though the home still has a flow file", not [r for r in rows if r["kind"] == "flows"])
@@ -87,8 +86,6 @@ def test_the_precedence_column_follows_the_resolvers(ctx: Ctx):
                   and "model" in by(rows, "settings", "./.claude/settings.local.json")["wins"])
         ctx.check("the repo .mcp.json's fs wins over the user one (the MCP resolver's order)",
                   loses(by(rows, "mcp", "~/.claude.json"))["fs"] == "./.mcp.json")
-        ctx.check("the repo team file wins over the one kept outside",
-                  loses(by(rows, "team", "~/.halo/teams/repo.team.yaml"))["team file"] == "./.halo/team.yaml")
         cfg = loses(by(rows, "config", "~/.halo/config.json"))
         ctx.check(f"config.json's model loses to routes.json's default, got {cfg}", cfg.get("model") == "routes.json default")
         ctx.check("config.json's theme loses to settings.json's theme", cfg.get("theme") == "settings.json theme")
@@ -118,8 +115,8 @@ def test_json_is_the_same_rows(ctx: Ctx):
         code, text = _capture(cmd_config, ["where", "--cwd", str(h.repo)])
         ctx.check("the text table has every group heading",
                   code == 0 and all(t in text for t in ("Halo's config", "Env files", "settings.json", "MCP servers",
-                                                        "Active lineup", "Lineup folders", "Bio folders", "Team file"))
-                  and "Flows" not in text)
+                                                        "Active lineup", "Lineup folders", "Bio folders"))
+                  and "Flows" not in text and "Team file" not in text)  # 3.4.0.0 B: the team file left
         ctx.check("the text table prints the precedence lines", "model: loses to ./.claude/settings.local.json" in text)
         _code, usage = _capture(cmd_config, ["--help"])
         ctx.check("halo config --help names where", "where [--json]" in usage)

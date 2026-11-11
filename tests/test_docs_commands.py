@@ -130,12 +130,6 @@ def _gather_real_flags() -> "dict[str, set]":
         out[f"halo fleet {sub}"] = _flags_in(_capture(cmd_fleet, [sub, "--help"]))
     for sub in ("new", "plan", "edit", "approve", "run", "status", "stop", "report", "open"):  # 3.0.6.0 R7
         out[f"halo fleet mission {sub}"] = _flags_in(_capture(cmd_fleet, ["mission", sub, "--help"]))
-    # 3.0.8.0 round R1: `halo team` (members, blocks, stages, the board)
-    from halo_harness.team.cli import VERBS as TEAM_VERBS, cmd_team
-    for sub in TEAM_VERBS:
-        out[f"halo team {sub}"] = _flags_in(_capture(cmd_team, [sub, "--help"]))
-    from halo_harness.start_cli import cmd_start  # 3.1.1.0 R1: the guided first run and the glossary
-    out["halo start"] = _flags_in(_capture(cmd_start, ["--help"]))
     from halo_harness.explain_cli import cmd_explain
     out["halo explain"] = _flags_in(_capture(cmd_explain, ["--help"]))
     from halo_harness.check_cli import cmd_check  # 3.2.2.0 R2: the checks after setup

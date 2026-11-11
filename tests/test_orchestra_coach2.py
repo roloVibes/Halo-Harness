@@ -141,10 +141,9 @@ def test_the_cache_and_its_refresh(ctx: Ctx):
 
 
 @test
-def test_the_three_cli_verbs_print_the_card(ctx: Ctx):
+def test_the_two_cli_verbs_print_the_card(ctx: Ctx):  # 3.4.0.0 B: halo team coach left with the team file
     from halo_harness.fleet.cli import cmd_fleet
     from halo_harness.orchestra_cli import cmd_orchestra
-    from halo_harness.team.cli import cmd_team
     from tests.helpers import coach_seed as S
     with Home() as h:
         S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=[{"tool_name": "WebFetch", "reason": "denied by rule"}])])
@@ -159,15 +158,6 @@ def test_the_three_cli_verbs_print_the_card(ctx: Ctx):
         rc, out, _ = _cli(cmd_fleet, ["mission", "coach", mission.name])
         ctx.check(f"mission: the card, got {rc} {out[:200]!r}", rc == 0 and "coach: mission run m-20261017-c0a1: 5 suggestions" in out)
         ctx.check("an unknown mission exits 1", _cli(cmd_fleet, ["mission", "coach", "m-20261017-ffff"])[0] == 1)
-        S.team_run(h.root)
-        here = os.getcwd()
-        os.chdir(h.root)
-        try:
-            rc, out, err = _cli(cmd_team, ["coach"])
-            ctx.check(f"team: the card, got {rc} {out[:200]!r} {err!r}", rc == 0 and "coach: team run" in out and "looped 2 times" in out)
-            ctx.check("team coach --help", _cli(cmd_team, ["coach", "--help"])[0] == 0)
-        finally:
-            os.chdir(here)
 
 
 if __name__ == "__main__":

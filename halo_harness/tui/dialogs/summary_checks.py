@@ -1,5 +1,5 @@
 """halo_harness.tui.dialogs.summary_checks -- the wizard Summary's checks
-(Halo 3.2.2.0 R2): the five rows of start/checks.py, each its title and
+(Halo 3.2.2.0 R2): the five rows of checks/catalog.py, each its title and
 then its what / cost / time line in muted text; Space toggles a row
 (docs/WIZARD.md rule 2), the defaults are the list's (doctor, catalog and
 hello on; the gym and the guided first run off). Under them, the models the
@@ -23,7 +23,7 @@ failed), which `init_cli` reads back.
 
 from __future__ import annotations
 
-from halo_harness.start import checks as C
+from halo_harness.checks import catalog as C
 
 LIST_ID = "wiz-summary-checks"
 GYM_ID = "wiz-summary-gym-models"
@@ -32,28 +32,25 @@ HINT = "Checks (Space ticks a row; Finish runs the ticked ones in order, then Fi
 
 
 def ctx_for(state) -> "C.CheckCtx":
-    from halo_harness.start import fake
+    import os
     picked = getattr(state, "gym_models", None)  # None until Finish: the candidates price the gym row
     return C.CheckCtx(cwd=state.cwd, model=state.final_model or _config_model(), no_live=state.no_live,
-                      fake=fake.enabled(), gym_models=list(picked) if picked is not None else None)
+                      fake=os.environ.get("HALO_START_FAKE", "") == "1", gym_models=list(picked) if picked is not None else None)
 
 
 def _config_model() -> str:
-    from halo_harness.start.provider import default_model
+    from halo_harness.checks.provider import default_model
     return default_model()
 
 
 def rows_for(state) -> "list[dict]":
-    """3.3.15.0 R5: C.offered() -- no guided first run on the Auto lineup (or none), whatever `offer_start`."""
-    return [c for c in C.offered() if c["key"] != "start" or state.offer_start]
+    """The core checks (3.4.0.0 B: the guided first run is the first-run pack's; it has no row here)."""
+    return list(C.offered())
 
 
 def auto_note(state) -> str:
-    """The line in the guided first run's place when an init Summary leaves it out for Auto ("" otherwise)."""
-    if not getattr(state, "offer_start", False) or any(c["key"] == "start" for c in C.offered()):
-        return ""
-    from halo_harness.start.auto_gate import AUTO_LINE
-    return AUTO_LINE
+    """3.4.0.0 B: nothing (the guided first run left the core; it was the Auto line's place)."""
+    return ""
 
 
 
@@ -73,7 +70,7 @@ class SummaryChecks:
         note = auto_note(self.state)  # 3.3.15.0 R5: on Auto, the line where the guided first run's row was
         if note:
             widgets.append(Static(note, classes="wiz-summary-muted", id="wiz-summary-auto"))
-        from halo_harness.start.checks_run import gym_candidates, gym_model_cost, is_local
+        from halo_harness.checks.run import gym_candidates, gym_model_cost, is_local
         models = gym_candidates(ctx)
         if models:
             picks = [Selection(f"{m}  ({gym_model_cost(m)})", m, is_local(m)) for m in models]

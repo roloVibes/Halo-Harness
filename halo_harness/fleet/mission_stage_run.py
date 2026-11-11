@@ -11,7 +11,7 @@ No model session is opened for the part itself: the run's own lead and
 workers are the sessions. When it ends the part's hand-back is the run's
 one line, `parts/<n>/report.json` is its report.json, and result.json
 carries `run_id` and `run_kind` beside the usual fields. `ORCHESTRA(goal,
-root)` is the seam (None: team/adapters.py's `orchestra_run`); it answers
+root)` is the seam (None: orchestra/to_report.py's `orchestra_run`); it answers
 `{ok, text, cost_usd, error, run_id, report}`.
 """
 
@@ -47,7 +47,7 @@ def what(fields: dict) -> str:
 
 def run(worker) -> dict:
     """The part's run, in the checkout; its report kept for the hub."""
-    from halo_harness.team.adapters import orchestra_run
+    from halo_harness.orchestra.to_report import orchestra_run
     f = worker.f
     spec = f.get("run") or {}
     out = (ORCHESTRA or (lambda goal, root: orchestra_run(goal, root)))(spec["goal"], worker.cwd)

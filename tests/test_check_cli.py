@@ -1,5 +1,5 @@
 """tests.test_check_cli -- Halo 3.2.2.0 R2: `halo check` and the TUI's `/check`
-(halo_harness/check_cli.py over start/checks.py), every check stubbed.
+(halo_harness/check_cli.py over checks/catalog.py), every check stubbed.
 
 1. no flag runs the default-on checks (doctor, catalog, hello), each with its
    title, its what / cost / time line and its result lines; exit 0
@@ -36,7 +36,7 @@ test, TESTS = new_registry()
 def _stubbed(fail=(), lineup="halo-dev-cycle"):
     """Every check's run replaced by a recorder; the keys in `fail` raise CheckFailed. 3.3.15.0 R5: `lineup` the active
     lineup for the block (a custom one by default; None: the Auto lineup, the guided first run not offered)."""
-    from halo_harness.start import checks as C
+    from halo_harness.checks import catalog as C
     from tests.helpers.custom_lineup import custom_lineup
     held = custom_lineup(lineup)
     held.__enter__()
@@ -62,7 +62,7 @@ def _stubbed(fail=(), lineup="halo-dev-cycle"):
 
 def _check(*argv):
     from halo_harness.check_cli import run
-    from halo_harness.start.checks import CheckCtx
+    from halo_harness.checks.catalog import CheckCtx
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
         rc = run(list(argv), stream=out, ctx=CheckCtx(cwd=Path.cwd(), model="or:v/m"))
@@ -85,8 +85,8 @@ def test_no_flag_runs_the_default_set(ctx: Ctx):
 def test_all_named_flags_and_models(ctx: Ctx):
     with _stubbed() as ran:
         rc, _text, _ = _check("--all")
-    ctx.check(f"--all: the six in order, got {ran}", rc == 0 and [k for k, _ in ran] == ["doctor", "catalog", "hello", "steward",
-                                                                                            "gym", "start"])
+    ctx.check(f"--all: the five in order, got {ran}", rc == 0 and [k for k, _ in ran] == ["doctor", "catalog", "hello", "steward",
+                                                                                             "gym"])
     with _stubbed() as ran:
         rc, _text, _ = _check("--gym", "--doctor", "--models", "ol:a, ol:b")
     ctx.check(f"named: those, in the list's order; --models feeds the gym, got {ran}", rc == 0
@@ -94,21 +94,12 @@ def test_all_named_flags_and_models(ctx: Ctx):
 
 
 @test
-def test_on_auto_the_guided_first_run_is_left_out(ctx: Ctx):
-    """3.3.15.0 R5: the Auto lineup: --all runs five and says why; --start alone runs nothing; --explain five rows + the line."""
-    from halo_harness.start.auto_gate import AUTO_LINE
-    with _stubbed(lineup=None) as ran:
-        rc, text, _ = _check("--all")
-    ctx.check(f"--all: five, the line, got {rc} {ran}", rc == 0 and [k for k, _ in ran] == ["doctor", "catalog", "hello", "steward", "gym"]
-              and AUTO_LINE in text and "halo gym --quick" in text and text.rstrip().endswith("halo check: 5 of 5 passed"))
-    with _stubbed(lineup=None) as ran:
+def test_start_is_the_first_run_packs_now(ctx: Ctx):
+    """3.4.0.0 B: --start alone runs nothing and says the guided first run is the first-run pack's; --all runs five."""
+    with _stubbed() as ran:
         rc, text, _ = _check("--start")
-    ctx.check(f"--start: the line, nothing ran, got {rc} {ran} {text!r}", rc == 0 and ran == [] and AUTO_LINE in text)
-    with _stubbed(lineup=None) as ran:
-        rc, text, _ = _check("--explain")
-    lines = text.splitlines()
-    ctx.check(f"--explain: five rows, then the line, got {lines[::2]}", len(lines) == 11 and lines[-1].strip() == AUTO_LINE
-              and "(start)" not in text)
+    ctx.check(f"--start: one line, nothing ran, exit 2, got {rc} {ran} {text!r}", rc == 2 and ran == []
+              and "halo pack install first-run" in text)
 
 
 @test
@@ -117,13 +108,12 @@ def test_explain_runs_nothing(ctx: Ctx):
         rc, text, _ = _check("--explain")
     lines = text.splitlines()
     ctx.check(f"exit 0, nothing ran, got {rc} {ran}", rc == 0 and ran == [])
-    ctx.check(f"the six rows, the defaults ticked, got {lines[::2]}", len(lines) == 12 and lines[0] == "[x] Doctor (doctor)"
-              and lines[6] == "[ ] Steward candidates (steward)" and lines[8] == "[ ] Model gym, quick (gym)"
-              and lines[10] == "[ ] The guided first run (start)")
+    ctx.check(f"the five rows, the defaults ticked, got {lines[::2]}", len(lines) == 10 and lines[0] == "[x] Doctor (doctor)"
+              and lines[6] == "[ ] Steward candidates (steward)" and lines[8] == "[ ] Model gym, quick (gym)")
     ctx.check("hello's cost names the default model", "or:v/m" in lines[5])
     with _stubbed():
         _rc, text, _ = _check("--explain", "--all")
-    ctx.check("--explain --all ticks every row", text.count("[x]") == 6)
+    ctx.check("--explain --all ticks every row", text.count("[x]") == 5)
 
 
 @test
@@ -151,21 +141,19 @@ def test_the_cli_verb_and_the_builtin(ctx: Ctx):
     run = _BUILTIN_SPECS["check"][3]
     with _stubbed() as ran:
         text = run("--doctor --start", None)
-    ctx.check(f"/check --doctor --start: doctor runs, the start points at /start, got {ran} {text[-160:]!r}",
-              [k for k, _ in ran] == ["doctor"] and "doctor result line" in text and "/start" in text)
+    ctx.check(f"/check --doctor --start: doctor runs, --start says it is the first-run pack's, got {ran} {text[-200:]!r}",
+              [k for k, _ in ran] == ["doctor"] and "doctor result line" in text and "halo pack install first-run" in text)
     with _stubbed() as ran:
         text = run("--all", None)
-    ctx.check(f"/check --all: the five that run in a transcript, got {ran}", [k for k, _ in ran] == ["doctor", "catalog", "hello",
-                                                                                                    "steward", "gym"]
-              and "/start" in text)
+    ctx.check(f"/check --all: the five, got {ran}", [k for k, _ in ran] == ["doctor", "catalog", "hello", "steward", "gym"])
     from halo_harness.completion_cli import SUBCOMMANDS
     ctx.check("completion offers check", "check" in SUBCOMMANDS)
 
 
 @test
 def test_the_steward_candidates_row(ctx: Ctx):
-    from halo_harness.start import checks as C
-    from halo_harness.start.checks import CheckCtx
+    from halo_harness.checks import catalog as C
+    from halo_harness.checks.catalog import CheckCtx
     from halo_harness.studio import ollama_hosts_view as V
     from halo_harness.theme import get_config_value
     from tests.helpers.sched_rig import TINY, SchedHome

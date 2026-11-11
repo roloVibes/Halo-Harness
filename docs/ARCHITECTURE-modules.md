@@ -65,9 +65,7 @@ this list against the tree.
   (`GET /api/supervise/summary`, the Session landing's "N done, M waiting, $X")
 - Agents (3.3.16.0 R1: Team, Roles and Orchestra in one section): `studio/agents_door.py` (the old section words as
   doors to Agents' Cast, Runs and Live, and the line each prints once)
-- Team: `studio/team_api.py` (3.3.16.0 R1: the board's routes answer 410; the gate answer the Fleet attention row
-  uses stays), `studio/team_live.py`,
-  `studio/team_budget_api.py` (3.1.2.0 R2: the answer to a stage held at its budget line)
+- Team: its routes left with the team file in 3.4.0.0
 - Fleet: `studio/fleet_api.py` (agent commands on a live session),
   `studio/fleet_hub_api.py` (the fleet routes and their dispatch),
   `studio/fleet_pair_api.py` (pair, settings, kick, history),
@@ -103,7 +101,7 @@ this list against the tree.
   `fleet/cli_panels.py` (record, digest), `fleet/cli_caps.py` (capabilities,
   who), `fleet/cli_mission.py` (missions), `fleet/table.py`,
   `fleet/table_live.py`
-- the panels: `fleet/attention.py`, `fleet/team_attention.py`,
+- the panels: `fleet/attention.py`,
   `fleet/supervise_attention.py` (3.1.8.0 R1: the supervisor's parked decisions),
   `fleet/pack_attention.py` (a pack's own rows, 3.2.0.0 R3),
   `fleet/caps.py`, `fleet/conflicts.py`, `fleet/digest.py`,
@@ -147,8 +145,7 @@ this list against the tree.
 - the coach: `orchestra/coach.py` (the card, the cache, the overlay), the
   rules once for every run kind (`orchestra/coach_rules.py`), one thin
   evidence loader per run kind (`orchestra/coach_orchestra_rules.py`,
-  `orchestra/coach_mission_rules.py`,
-  `orchestra/coach_team_rules.py`), `orchestra/coach_lane_facts.py` (an
+  `orchestra/coach_mission_rules.py`), `orchestra/coach_lane_facts.py` (an
   Orchestra run's lanes as facts), `orchestra/coach_prices.py` (the model
   catalog and its prices); 3.1.3.0 the loop: `orchestra/coach_ask.py` (the
   lead's paragraph per card), `orchestra/coach_apply.py` (Apply through the
@@ -190,16 +187,9 @@ the only place that knows each engine's files;
 total against a budget).
 `halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
 
-**Team** (`halo_harness/team/`): `team/spec.py` (the team file),
-`team/validate.py` and `team/validate_stages.py` (`validate_team`),
-`team/resolve.py` (tiers, block files and a stage's goal, shared by the
-runner and the validator), `team/blocks.py`, `team/board.py`,
-`team/stages.py`, `team/gate_actions.py` (accept / redo / stop and their
-short forms), `team/triggers.py`, `team/run.py`, `team/run_stage.py`,
-`team/parallel.py` (3.1.2.0 R2: a stage's members at once), `team/remote_stage.py`
-(3.1.2.0 R2: an orchestra stage on a fleet member), `team/budget.py`
-(3.1.2.0 R2: the budget line), `team/guard.py`, `team/delegate.py`,
-`team/adapters.py`, `team/cli.py`, `team/cli_run.py`.
+**Team** (`halo_harness/team/`): left in 3.4.0.0 with the team file. `orchestra/to_report.py` keeps its
+`orchestra_run` (the supervisor's and a fleet mission part's), `fleet/delegate.py` its `FleetDelegate` (the
+two-machine check's mission step).
 
 **Supervise** (`halo_harness/supervise/`, Halo 3.1.8.0 R1, docs/SUPERVISE.md):
 the daemon that owns a goal queue and runs it without a TUI --
@@ -344,7 +334,7 @@ doctor's mode.json rows) and `packs/cli_policy.py` (`halo pack mode`, `halo pack
 (`contributes.setup`: the entries, the form's fields, the `pack:<id>:<block>` keys, the meaning lines),
 `packs/setup_state.py` (the pack's `setup.json`: done / skipped per block, the `setup:` lines `halo pack enable` ends
 with, the doctor's info row, `halo setup <pack>`'s door), `studio/setup_packs_api.py` (`GET setup/packs`, `GET|POST
-setup/packs/<id>/<block>`, the state's `packs`) and `start/checks_pack.py` (a pack's check as a row of the checks job).
+setup/packs/<id>/<block>`, the state's `packs`) and `checks/pack.py` (a pack's check as a row of the checks job).
 
 **A pack's palettes** (Halo 3.3.12.0 R2; docs/EXTENSION_API.md "Themes"): `packs/manifest_themes.py`
 (`contributes.themes`: the entries, the `<pack-id>/<id>` names, the meaning lines and the contrast lines),

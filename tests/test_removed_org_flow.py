@@ -38,7 +38,6 @@ GONE = ("halo_harness.flows", "halo_harness.orgs", "halo_harness.org_cli", "halo
         "halo_harness.orchestra.coach_flow_rules", "halo_harness.work.adapters.step", "halo_harness.design.store_posts")
 CONFIG_LINES = ["orgs: removed in 3.1.4.0, the section is ignored", "paperclip: removed in 3.1.4.0, the section is ignored"]
 LINEUP_LINE = "org: removed in 3.1.4.0, ignored"
-STAGE_LINE = "stage `post`: kind `flow` was removed in 3.1.4.0; make it an agent or orchestra stage, or delete it"
 
 
 def _imports(path: Path) -> "list[str]":
@@ -98,13 +97,11 @@ def test_no_flow_feed_kind_stage_kind_unit_kind_or_attention_kind(ctx: Ctx):
     from halo_harness.fleet import attention, mission_stage_run, push
     from halo_harness.orchestra import coach
     from halo_harness.studio.feed_kinds import DEFAULT_KINDS
-    from halo_harness.team import spec as S
     from halo_harness.work import states, store
     kinds = [k for k in DEFAULT_KINDS if k.startswith("flow_")]
     ctx.check(f"no flow_* feed kind, got {kinds}", not kinds and not [k for k in events.EVENT_KINDS if k.startswith("flow_")])
     ts = (PKG / "studio" / "ui" / "src" / "lib" / "events.ts").read_text(encoding="utf-8")
     ctx.check("the UI asks for no flow_* frame", '"flow_' not in ts)
-    ctx.check("no team stage kind flow", "flow" not in S.STAGE_KINDS and S.REMOVED_STAGE_KINDS == {"flow": "3.1.4.0"})
     ctx.check("no mission part kind flow", mission_stage_run.KINDS == ("orchestra",))
     ctx.check("no work unit kind step", "step" not in states.KINDS and "flow" not in store.RUN_KINDS)
     ctx.check("no coach run kind flow", "flow" not in coach.RUN_KINDS)
@@ -159,25 +156,8 @@ def test_a_leftover_lineup_org_section_warns_once_and_never_blocks(ctx: Ctx):
 
 
 @test
-def test_a_team_stage_of_kind_flow_fails_validation_with_one_line(ctx: Ctx):
-    from halo_harness.team import spec as S
-    from tests.helpers import team_rig as R
-    text = R.TEAM + '    - {id: post, kind: flow, flow: social-post, reads: [copy], trigger: "stage_done:review"}\n'
-    root, state = R.repo(text)
-    lines = S.validate_team(S.load_team(root, state), cwd=root, state_dir=state, preflight=False)
-    ctx.check(f"exactly the one line, got {lines}", lines == [STAGE_LINE])
-
-
-@test
-def test_the_shipped_template_validates_and_roles_hang_off_main(ctx: Ctx):
+def test_roles_hang_off_main(ctx: Ctx):  # 3.4.0.0 B: the shipped team template left with the team file
     from halo_harness.studio.model import graph_for
-    from halo_harness.team import spec as S
-    from tests.helpers import team_rig as R
-    root, state = R.repo(S.template_text())
-    team = S.load_team(root, state)
-    ctx.check(f"the shipped team template validates clean, got {S.validate_team(team, cwd=root, state_dir=state)}",
-              S.validate_team(team, cwd=root, state_dir=state) == [] and [s["kind"] for s in team["workflow"]["stages"]]
-              == ["agent", "orchestra"])
     raw = {"name": "plain", "agents": [{"agent": "orchestrator", "role": "main", "as": "boss"},
                                        {"agent": "implementer", "role": "subagent", "as": "worker"},
                                        {"agent": "verifier", "role": "reviewer", "as": "tester"}]}

@@ -46,31 +46,6 @@ def _driver(*argv: str) -> "tuple[subprocess.CompletedProcess, dict]":
 
 
 @test
-def test_the_guided_first_run_runs_from_start_here(ctx: Ctx):
-    r, got = _driver("run")
-    ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
-    from halo_harness.start.auto_gate import AUTO_LINE
-    ctx.check(f"3.3.15.0 R5: a fresh home (Auto): the line in place of Run, got {got.get('auto')!r} {got.get('auto_run')}",
-              str(got.get("auto", "")).startswith(AUTO_LINE) and got.get("auto_run") == 0)
-    ctx.check(f"a custom lineup, the palette: the overlay offers the start, no welcome card over it, got {got}",
-              got.get("offer") == 1 and got.get("welcome_with_offer") == 0)
-    card = str(got.get("card") or "")
-    ctx.check(f"the button and the card above it, got {got.get('button')!r} {card[:120]!r}", got.get("button") == "Run the guided first run"
-              and card.startswith("The guided first run") and "Estimated cost: free" in card and "Writes:" in card)
-    keys = ["lineup", "repo", "goal", "plan", "run", "report", "next"]
-    ctx.check(f"the seven steps done, in order, got {got.get('steps')}", got.get("steps") == [f"{k}:done" for k in keys])
-    ctx.check(f"the outcome names the active lineup itself (3.3.15.0 R7: no copy), got {got.get('done_text')!r}",
-              got.get("done_ok") == "true" and "lineup halo-dev-cycle," in (got.get("done_text") or "")
-              and "my-" not in (got.get("done_text") or ""))
-    ctx.check("the card names the lineup it rehearses", "The lineup it rehearses: halo-dev-cycle (your active lineup)" in card)
-    ctx.check(f"`start` frames for every step and the summary, one session, got {got.get('frame_keys')} {got.get('frame_session')}",
-              got.get("frame_keys") == sorted(keys + ["summary"]) and got.get("frame_session") == ["start:"] and got.get("frames", 0) >= 15)
-    ctx.check(f"3.3.2.0 R1: the run answers the offer for this browser, got {got.get('start_key')!r}", got.get("start_key") == "answered")
-    ctx.check(f"a reload: no overlay, the Roles Start view gone (a lineup active), got {got}",
-              got.get("overlay_after_reload") == 0 and got.get("roles_start_after") == 0)
-
-
-@test
 def test_glossary_word_links_and_the_next_footer(ctx: Ctx):
     r, got = _driver("glossary")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)

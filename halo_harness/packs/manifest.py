@@ -20,12 +20,12 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.packs import names as N
-from halo_harness.packs import semver as V
+from halo_harness.packs import contrib_lines as CL, semver as V  # CL: 3.4.0.0 B, contributes.cli/.slash/.doctor/.settings
 
 MANIFEST = "pack.yaml"
 #: The names `permissions:` takes besides `mcp:<server>` (one per MCP server a pack declares).
 PERMISSIONS = ("hooks", "bash", "network", "home-write", "studio-script",  # 3.2.0.0 R3: studio-script (a Studio bundle)
-               "studio-routes", "services")  # 3.3.13.0 R2 (API 1.2): the pack's own Python inside Studio's server; R3: a program the supervisor runs
+               "studio-routes", "services", "doctor")  # 3.3.13.0 R2/R3; 3.4.0.0 B: doctor (a pack's doctor rows); cli:<verb> below
 MCP_PREFIX = "mcp:"
 CAPABILITY_RE = re.compile(r"^[a-z][a-z0-9._-]*$")
 EVENT_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
@@ -83,7 +83,7 @@ def needed(data, root) -> "list[tuple[str, str]]":
     from halo_harness.packs.manifest_policy import needs as policy_needs  # 3.3.10.0 R1: a policy rides on hooks
     from halo_harness.packs.manifest_services import needs as service_needs  # 3.3.13.0 R3: a service needs `services`
     from halo_harness.commands.pack_run import needs as run_needs  # 3.3.14.0 R1 (#9): a `run:` command needs `bash`
-    return out + policy_needs(data) + service_needs(data) + (run_needs(root) if root is not None else [])
+    return out + policy_needs(data) + service_needs(data) + CL.needs(data) + (run_needs(root) if root is not None else [])
 
 
 def _permission_lines(data, root) -> "list[str]":
@@ -96,8 +96,8 @@ def _permission_lines(data, root) -> "list[str]":
                 out.append(f"permissions: {p!r} names no MCP server (mcp:<server>)")
             elif servers is not None and server not in servers:
                 out.append(f"permissions: {p!r} names an MCP server the pack does not declare in .mcp.json")
-        elif p not in PERMISSIONS:
-            out.append(f"permissions: {p!r} is not one of mcp:<server>, {', '.join(PERMISSIONS)}")
+        elif p not in PERMISSIONS and not (p.startswith("cli:") and p[4:]):  # 3.4.0.0 B: cli:<verb>
+            out.append(f"permissions: {p!r} is not one of mcp:<server>, cli:<verb>, {', '.join(PERMISSIONS)}")
     if root is not None:
         asked = set(requested(data))
         for perm, why in needed(data, root):
@@ -238,9 +238,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     from halo_harness.packs.manifest_themes import theme_lines  # 3.3.12.0 R2: contributes.themes, a pack's palettes
     out += theme_lines(data)
     from halo_harness.packs.manifest_requires import requires_lines  # 3.3.12.0 R4: the tools a pack needs
-    out += requires_lines(data)
     from halo_harness.packs.manifest_services import service_lines  # 3.3.13.0 R3: contributes.services
-    out += service_lines(data, root)
+    out += requires_lines(data) + service_lines(data, root) + CL.contrib_lines(data, root)
     if root is not None:
         root = Path(root)
         out += _file_lines(data, root)

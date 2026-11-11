@@ -58,12 +58,11 @@ def test_every_step_passes_over_the_two_home_rig(ctx: Ctx):
         ctx.check("a member is online on the hub", member is not None and member["name"] == "bob@member")
         restore = install(member_home=Path(rig.root_b) / ".halo")
         try:
-            repo = Path(tempfile.mkdtemp(prefix="lc-team-")).resolve()
-            report = LC.run_all(rig.hub, rig.home_a, member=member, fake=True, timeout=40.0, repo=repo)
+            report = LC.run_all(rig.hub, rig.home_a, member=member, fake=True, timeout=40.0)
         finally:
             restore()
         names = [s["name"] for s in report["steps"]]
-        ctx.check(f"the four steps ran in order, got {names}", names == ["who", "mission", "team", "recall"])
+        ctx.check(f"the three steps ran in order (3.4.0.0 B: no team step), got {names}", names == ["who", "mission", "recall"])
         for s in report["steps"]:
             ctx.check(f"step {s['name']} PASS: {s['evidence']}", s["ok"])
         ctx.check(f"the run is OK and names both harnesses, got {report['hub']} / {report['member']}",
@@ -73,15 +72,12 @@ def test_every_step_passes_over_the_two_home_rig(ctx: Ctx):
                   "bob@member" in who["evidence"] and "alice@hub" in who["evidence"])
         mission = next(s for s in report["steps"] if s["name"] == "mission")
         ctx.check(f"the mission hand-back carries the nmap line: {mission['evidence']}", "Nmap version" in mission["evidence"])
-        team = next(s for s in report["steps"] if s["name"] == "team")
-        ctx.check(f"the team step ran the delegated stage on the member: {team['evidence']}",
-                  "agent stage ran on bob@member and its gate was accepted here" in team["evidence"])
         recall = next(s for s in report["steps"] if s["name"] == "recall")
         ctx.check(f"recall came only from the member, this host answered 0: {recall['evidence']}",
                   "bob@member" in recall["evidence"] and "own index answered 0" in recall["evidence"])
         text = LC.render(report)
         ctx.check(f"render prints PASS lines and an OK summary:\n{text}",
-                  text.count("[PASS]") == 4 and "OK:" in text and "4/4" in text)
+                  text.count("[PASS]") == 3 and "OK:" in text and "3/3" in text)
 
 
 @test
@@ -100,8 +96,7 @@ def test_a_refusing_member_fails_the_mission_step_and_the_exit_code(ctx: Ctx):
             from halo_harness.fleet import relay_runtime
             for relay in relay_runtime.relays():
                 relay.entry["allow_control"] = "none"
-            report = LC.run_all(rig.hub, rig.home_a, member=member, fake=True, timeout=20.0,
-                                repo=Path(tempfile.mkdtemp(prefix="lc-team2-")).resolve())
+            report = LC.run_all(rig.hub, rig.home_a, member=member, fake=True, timeout=20.0)
         finally:
             restore()
         mission = next(s for s in report["steps"] if s["name"] == "mission")
@@ -121,7 +116,6 @@ def test_the_json_report_shape(ctx: Ctx):
               "started": 1.0, "ended": 2.0,
               "steps": [{"name": "who", "ok": True, "evidence": "who nmap -> bob@member", "seconds": 0.1},
                         {"name": "mission", "ok": True, "evidence": "part 1 ran", "seconds": 0.2},
-                        {"name": "team", "ok": True, "evidence": "stages ran", "seconds": 0.3},
                         {"name": "recall", "ok": True, "evidence": "1 hit from bob@member", "seconds": 0.1}]}
     import json
     out = Path(tempfile.mkdtemp(prefix="lc-json-")) / "r.json"
@@ -131,7 +125,7 @@ def test_the_json_report_shape(ctx: Ctx):
               set(back) == {"ok", "fake", "hub", "member", "member_id", "started", "ended", "steps"})
     ctx.check("each step has name, ok, evidence, seconds",
               all(set(s) >= {"name", "ok", "evidence", "seconds"} for s in back["steps"])
-              and [s["name"] for s in back["steps"]] == ["who", "mission", "team", "recall"])
+              and [s["name"] for s in back["steps"]] == ["who", "mission", "recall"])
 
 
 if __name__ == "__main__":

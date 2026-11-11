@@ -9,8 +9,6 @@ What each kind's gate is:
 * lane: the merge and the quality gate, run by code (`required`); the gate
   sends a piece back (`send_back`: one more attempt, the lane `waiting`).
 * part: none (a mission's gate is its plan's approval, not a part's).
-* stage: `stages/<id>/gate.json` + `answer.json` (team/stages.py), mode
-  the stage's `gate:`.
 
 `read(kind, run_dir, uid)` is the unit's gate with the open gate's id and
 round; `answer(...)` writes the answer the engine's runner takes;

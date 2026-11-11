@@ -21,7 +21,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-TERMS = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step",
+TERMS = ("lineup", "bio", "role", "tier", "block", "lane", "part", "step",  # 3.4.0.0 B: team, member, stage left
          "mission", "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "fleet", "hub", "harness",
          "capability", "unit", "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",

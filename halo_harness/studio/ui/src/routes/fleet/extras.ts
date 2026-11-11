@@ -24,7 +24,7 @@ const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid
  *  the steward's note Local -> Hosts on its host, a spend cap the machine on Live, an agent or a conflict Live on it. */
 export function openTarget(t: OpenTarget): void {
   if (t.section !== "fleet") {
-    goSection(t.section as SectionId, t.view); // 3.3.16.0 R1: a team_gate row (and `orchestra`, `roles`) opens Agents on its view
+    goSection(t.section as SectionId, t.view); // 3.3.16.0 R1: a row of `orchestra` or `roles` opens Agents on its view
     if (t.view === "runs" && t.run && !t.stage) void openRun(t.run); // an Orchestra run's row: that run, open (a team stage's is not one)
     return;
   }
@@ -40,7 +40,7 @@ export function openTarget(t: OpenTarget): void {
 export async function answerRow(row: AttnRow, key: string, text = ""): Promise<boolean> {
   try {
     const r = await api.post<{ ok?: boolean; answer?: string; open?: OpenTarget; set_aside?: boolean; lifted?: boolean }>("fleet/attention/answer", { id: row.id, key, ...(text ? { text } : {}) });
-    if (r.open) openTarget(r.open); // `o`, or 3.1.2.0 R2's team_budget Raise (it opens the team file)
+    if (r.open) openTarget(r.open); // `o`
     else toast(`${row.what}: ${r.answer || row.keys[key] || key}`, "done");
     panels.update((s) => ({ replyFor: "", attention: r.open ? s.attention : s.attention.filter((x) => x.id !== row.id) }));
     window.setTimeout(() => (void loadAttention(), void load()), 400);

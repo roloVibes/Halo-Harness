@@ -152,7 +152,11 @@
         "modes": {"type": "array", "items": {"$ref": "#/$defs/mode"}, "description": "3.3.10.0: the pack's runtime modes; mode.json names the one that is on, and turning it on arms the policies whose when.modes name it"},
         "setup": {"type": "array", "items": {"$ref": "#/$defs/setup"}, "description": "3.3.11.0: the pack's own Setup blocks -- a form over config.schema keys, a check through Setup's checks job, a note -- shown in Setup while the pack is enabled (docs/EXTENSION_API.md \"Setup blocks\")"},
         "themes": {"type": "array", "items": {"$ref": "#/$defs/theme"}, "description": "3.3.12.0: the pack's own palettes -- each registers as <pack-id>/<id> while the pack is enabled and draws the terminal and Studio like one of the ten (docs/EXTENSION_API.md \"Themes\")"},
-        "services": {"type": "array", "items": {"$ref": "#/$defs/service"}, "description": "3.3.13.0: programs of the pack the supervisor keeps running in the background while the pack is enabled and granted services (docs/EXTENSION_API.md \"Services\")"}
+        "services": {"type": "array", "items": {"$ref": "#/$defs/service"}, "description": "3.3.13.0: programs of the pack the supervisor keeps running in the background while the pack is enabled and granted services (docs/EXTENSION_API.md \"Services\")"},
+        "cli": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["verb", "module"], "properties": {"verb": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}, "module": {"type": "string"}, "help": {"type": "string"}}}, "description": "3.4.0.0 (API 1.3, draft): a top-level halo <verb>, the module's main(argv) -> int; needs the cli:<verb> grant (docs/EXTENSION_API.md \"CLI verbs, slash commands, doctor rows and settings rows\")"},
+        "slash": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["name", "module"], "properties": {"name": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}, "module": {"type": "string"}, "help": {"type": "string"}}}, "description": "3.4.0.0 (API 1.3, draft): a /<name> slash command, the module's run(args_text, facade) -> str; needs the cli:<name> grant"},
+        "doctor": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["id", "module"], "properties": {"id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}, "module": {"type": "string"}, "help": {"type": "string"}}}, "description": "3.4.0.0 (API 1.3, draft): rows of halo doctor, the module's rows(ctx) -> list; needs the doctor grant"},
+        "settings": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["key", "title", "type"], "properties": {"key": {"type": "string"}, "title": {"type": "string"}, "help": {"type": "string"}, "type": {"enum": ["string", "integer", "number", "boolean"]}, "default": {}}}, "description": "3.4.0.0 (API 1.3, draft): rows of Studio's Settings and halo settings, each a packs.settings.<id>.<key> value"}
       }
     },
     "config": {
@@ -160,7 +164,7 @@
       "properties": {"schema": {"type": "object", "description": "A halo_harness.schemas.check schema for packs.settings.<id>."},
                      "defaults": {"type": "object"}}
     },
-    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|hooks|bash|network|home-write|studio-script|studio-routes|services)$"}},
+    "permissions": {"type": "array", "items": {"type": "string", "pattern": "^(mcp:.+|cli:[a-z][a-z0-9-]*|hooks|bash|network|home-write|studio-script|studio-routes|services|doctor)$"}},
     "migrations": {"type": "array", "items": {
       "type": "object", "additionalProperties": false, "required": ["from", "to", "note"],
       "properties": {"from": {"$ref": "#/$defs/version"}, "to": {"$ref": "#/$defs/version"}, "note": {"type": "string"},

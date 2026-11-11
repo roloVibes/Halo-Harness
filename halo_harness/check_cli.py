@@ -1,12 +1,13 @@
 """halo_harness.check_cli -- `halo check`, the checks Halo offers after setup
-(Halo 3.2.2.0 R2; the list is halo_harness/start/checks.py).
+(Halo 3.2.2.0 R2; the list is halo_harness/checks/catalog.py).
 
     halo check                       the default-on checks: doctor, catalog, hello (3.3.7.0 R5: and the
                                      steward candidates when an installed one fits)
-    halo check --all                 all six, in order
-    halo check --doctor --catalog --hello --steward --gym --start   the ones named
+    halo check --all                 all five, in order
+    halo check --doctor --catalog --hello --steward --gym   the ones named
     halo check --gym --models REF,REF                     the gym on these models
-    halo check --explain             the six rows (what, cost, time, writes) and exit
+    halo check --explain             the five rows (what, cost, time, writes) and exit
+    halo check --start               3.4.0.0 B: one line -- the guided first run is the first-run pack's (`halo start`)
 
 Each check prints its title, its what / cost / time line, then its result
 lines. Exit 0 when every check that ran passed, 1 when one failed, 2 on a
@@ -20,7 +21,7 @@ import contextlib
 import io
 import sys
 
-from halo_harness.start import checks as C
+from halo_harness.checks import catalog as C
 
 MARK = {True: "[ok]", False: "[failed]"}
 
@@ -29,13 +30,14 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="halo check", description="Run the checks Halo offers after setup. Each says "
                                 "what it does, what it costs, how long it takes and what it writes; with no flag the "
                                 "default-on ones run (doctor, catalog, hello).")
-    p.add_argument("--all", action="store_true", help="run all six checks, in order")
+    p.add_argument("--all", action="store_true", help="run all five checks, in order")
+    p.add_argument("--start", action="store_true", help=argparse.SUPPRESS)  # 3.4.0.0 B: the first-run pack's now
     for c in C.CHECKS:
         p.add_argument(f"--{c['key']}", dest=c["key"], action="store_true",
                        help=f"{c['title']}: {c['what']} ({c['cost']}; {c['time']})")
     p.add_argument("--models", default=None, metavar="REF,REF",
-                   help="the models --gym runs on (default: your default model and the start lineup's models)")
-    p.add_argument("--explain", action="store_true", help="print the six checks (what, cost, time, writes) and exit")
+                   help="the models --gym runs on (default: your default model and the active lineup's models)")
+    p.add_argument("--explain", action="store_true", help="print the five checks (what, cost, time, writes) and exit")
     return p
 
 
@@ -65,6 +67,11 @@ def run(argv, stream=None, ctx=None) -> int:
     ctx = ctx or C.default_ctx(gym_models=gym)
     if gym is not None:
         ctx.gym_models = gym
+    if args.start:  # 3.4.0.0 B: the guided first run left the core for the first-run pack
+        from halo_harness.left import line as left_line
+        _out(f"halo check --start: {left_line('start')} (enabled, `halo start` runs it)", stream)
+        if not any(getattr(args, k, False) for k in C.KEYS) and not args.all:
+            return 2
     keys = selected(args, ctx)
     if args.explain:
         for line in C.explain(keys, ctx):
@@ -84,12 +91,7 @@ def run(argv, stream=None, ctx=None) -> int:
         _out(f"  {MARK[ok]}", stream)
         if not ok:
             failed.append(key)
-    ran = C.ordered(keys)  # 3.3.15.0 R5: on Auto the guided first run is left out, its line said instead
-    if "start" in keys and "start" not in ran:
-        from halo_harness.start.auto_gate import lines as auto_lines
-        _out("", stream)
-        for line in auto_lines():
-            _out(line, stream)
+    ran = C.ordered(keys)
     C.run_many(ran, ctx, on_each=each)
     _out("", stream)
     _out(f"halo check: {len(ran) - len(failed)} of {len(ran)} passed" + (f"; failed: {', '.join(failed)}" if failed
@@ -102,16 +104,9 @@ def cmd_check(argv) -> int:
 
 
 def cmd_check_text(args_text: str, cwd=None) -> str:
-    """The TUI's `/check [flags]`: the same run, its lines as one text. `--start` says where the start runs."""
+    """The TUI's `/check [flags]`: the same run, its lines as one text."""
     argv = (args_text or "").split()
     note = ""
-    if "--start" in argv or "--all" in argv:
-        argv = [a for a in argv if a != "--start"]
-        if "--all" in argv:
-            argv = [a for a in argv if a != "--all"] + [f"--{k}" for k in C.KEYS if k != "start"]
-        note = "\nThe guided first run runs in a panel here: /start (halo start in a terminal)."
-        if not argv:
-            return note.strip()
     out = io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
         run(argv, stream=out, ctx=C.default_ctx(cwd))

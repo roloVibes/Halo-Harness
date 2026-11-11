@@ -685,15 +685,8 @@ a guess when there is truly no existing value yet.
 
 ## `halo start` failed: read the log
 
-`halo start` (and `halo init`'s "The guided first run" row, `/start`,
-Studio's Start here) ends a step that hit an unexpected error with one
-line, `<Type>: <message>`, and `the full error is in <path>`. The path is
-`~/.halo/start/<yyyy-mm-dd>/<run>-error.log` (`start-error.log` when the
-failure came before the Orchestra run existed; the temp folder's
-`halo-start-error.log` when `~/.halo/start` cannot be written). It holds
-the full traceback under a timestamp line, one entry per failure. Attach
-it to a bug report, or read its last frame: it names the file and line.
-`halo start --json` puts the same two values in `reason` and `error_log`.
+`halo start` (the first-run pack, 3.4.0.0) ends a step that hit an unexpected error with one line and the path of a log
+holding the traceback, `~/.halo/start/<yyyy-mm-dd>/<run>-error.log`; [the pack's README](../halo_harness/templates/packs/first-run/README.md).
 
 ## Resetting caches
 
@@ -722,5 +715,5 @@ on next use instead of using a cached tool list).
   (`Ctrl+O`), not a logging level.
 - **A stuck/hung TUI**: `~/.halo/hang-<UTC-timestamp>.log` -- see
   "The TUI seems hung" above.
-- **A failed `halo start`**: `~/.halo/start/<yyyy-mm-dd>/<run or start>-error.log`
+- **A failed `halo start`** (the first-run pack): `~/.halo/start/<yyyy-mm-dd>/<run or start>-error.log`
   -- see "`halo start` failed: read the log" above.

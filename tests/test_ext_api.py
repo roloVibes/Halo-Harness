@@ -27,7 +27,8 @@ SURFACE = ("API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
            "api_version", "compatible", "deprecations",  # 3.2.0.0 R7: the version policy
            "set_mode", "current_mode",  # 3.3.10.0 R1: API 1.1 (the pack's runtime mode)
            "testing",  # 3.3.12.0 R4: API 1.1 (a pack's tests: halo pack test)
-           "remote", "host")  # 3.3.13.0: API 1.2 (the transport seam; what Halo does for a pack's code)
+           "remote", "host",  # 3.3.13.0: API 1.2 (the transport seam; what Halo does for a pack's code)
+           "core")  # 3.4.0.0 B: API 1.3 draft (the core modules a shipped pack that left the core drives)
 
 
 @test

@@ -171,8 +171,8 @@ def test_list_prune_forget_and_the_cap(ctx: Ctx):
 def test_the_sample_run_tags_what_it_writes_and_the_card_says_so(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
     from halo_harness.knowledge import writers as W
-    from halo_harness.start.sample_repo import start_root
-    run_dir = start_root(bridge_home()) / "2026-11-10" / "basket" / ".halo" / "orchestra" / "run1"
+    from halo_harness.knowledge.rank import sample_root  # 3.4.0.0 B: the core keeps where the sample lands
+    run_dir = sample_root(bridge_home()) / "2026-11-10" / "basket" / ".halo" / "orchestra" / "run1"
     run_dir.mkdir(parents=True)
     ctx.check(f"a run in the sample repo is the sample, got {W._sample(run_dir)}",
               W._sample(run_dir) == {"tags": ["sample"], "meta": {"sample": True}})
@@ -181,7 +181,8 @@ def test_the_sample_run_tags_what_it_writes_and_the_card_says_so(ctx: Ctx):
     ctx.check("a run in a repo of yours is not", W._sample(mine) == {})
     from halo_harness.knowledge.rank import is_sample
     ctx.check("a record tagged sample is the sample", is_sample({"tags": ["sample"], "by": "user"}))
-    from halo_harness.start.card import writes
+    from tests.helpers import first_run_pack as FR  # 3.4.0.0 B: the card is the first-run pack's
+    writes = FR.module("first_run/card.py").writes
     text = "\n".join(writes(state_dir=_state(), today="2026-11-10"))
     ctx.check(f"the card says what it writes to your knowledge, got {text!r}",
               "your knowledge: nothing beyond the sample's own gate records, tagged sample" in text)

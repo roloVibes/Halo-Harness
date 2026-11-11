@@ -100,7 +100,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "start", "packs", "setup", "settings", "local", "workflows", "picker"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "packs", "setup", "settings", "local", "workflows", "picker"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -114,11 +114,6 @@ def main(argv: list) -> int:
 
 
 def _render(args) -> int:
-    if args.mode == "start":  # 3.1.1.0 R1: a fresh home's "Start here" overlay (tools/capture_start.py)
-        from capture_start import capture as capture_start
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-start.png"
-        return capture_start(args.out, args.dom, chrome, serve)
     from capture_identity import placeholder
     state = seeded_home()
     placeholder(state)  # 3.1.7.0 R2: every capture draws you@studio (exit 2 when the name would be this machine's)

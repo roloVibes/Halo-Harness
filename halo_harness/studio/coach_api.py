@@ -4,14 +4,13 @@ these paths here before the section dispatchers:
 
     GET orchestra/<run>/coach        an Orchestra run of Studio's repo
     GET fleet/missions/<id>/coach    a mission in this harness's missions folder
-    GET team/coach?run=              a team run of Studio's repo (the latest when run is empty)
 
 Each answers the coach's result `{run, kind, suggestions, evidence, model,
 computed, source_mtime, cached}` (each suggestion with its `paragraph`,
 `paragraph_error` and `applied` state), computed once and kept in
 `<run>/coach.json` until a run file it reads is newer (coach.cached).
 
-3.1.3.0 R1, the same paths plus a verb, POST only (team: `?run=` too):
+3.1.3.0 R1, the same paths plus a verb, POST only:
 
     POST <coach path>/ask    {id, refresh?}   the lead's paragraph -> {id, paragraph, error, model, role, cached}
     POST <coach path>/apply  {id, confirm?}   confirm false: the confirm card {preview} (nothing written);
@@ -25,7 +24,7 @@ computed, source_mtime, cached}` (each suggestion with its `paragraph`,
     POST orchestra/<run>/coach/probe {k?, confirm?}   confirm false: {estimate: {runs, cap_usd, total_usd, line, ...},
                                                       running} (nothing runs); confirm true: 202 {started, estimate}, the
                                                       probe on a thread (studio/coach_probe_job.py); 409 while one runs;
-                                                      422 for a mission, a team run or a run with no report
+                                                      422 for a mission or a run with no report
 
 The orchestra coach's GET answer carries `probe` (its status, with `live`: a
 probe of the run runs in this Studio) and, once one ended, the probe's card first.
@@ -45,7 +44,7 @@ from pathlib import Path
 _RUN = r"[A-Za-z0-9_-]+"
 _VERB = r"(?:/(?P<verb>ask|apply|undo|probe))?$"
 PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"),
-            ("mission", rf"^fleet/missions/(?P<run>m-\d{{8}}-[0-9a-f]{{4}})/coach{_VERB}"), ("team", rf"^team/coach{_VERB}"))
+            ("mission", rf"^fleet/missions/(?P<run>m-\d{{8}}-[0-9a-f]{{4}})/coach{_VERB}"))
 LIBRARY = r"^coach/library/(?P<entry>e-\d{8}-[0-9a-f]{4})/forget$"
 
 
@@ -60,14 +59,8 @@ def _mission_dir(req, ref):
     return folder if (folder / "mission.json").is_file() else None
 
 
-def _team_dir(req, ref):
-    from halo_harness.team import board as BD
-    from halo_harness.team.spec import team_root
-    return BD.find_run(team_root(req.cwd), ref or None)
-
-
-FINDERS = {"orchestra": _orchestra_dir, "mission": _mission_dir, "team": _team_dir}
-WHAT = {"orchestra": "Orchestra run", "mission": "mission", "team": "team run"}
+FINDERS = {"orchestra": _orchestra_dir, "mission": _mission_dir}
+WHAT = {"orchestra": "Orchestra run", "mission": "mission"}
 
 
 def match(path: str):
@@ -153,8 +146,6 @@ def dispatch_coach(req):
     kind, ref, verb = hit
     if req.method != ("POST" if verb else "GET"):
         return 405, {"error": "method not allowed"}
-    if kind == "team":
-        ref = str(req.query.get("run") or "")
     run_dir = FINDERS[kind](req, ref)
     if run_dir is None or not Path(run_dir).is_dir():
         return 404, {"error": f"no {WHAT[kind]} {ref!r}" if ref else f"no {WHAT[kind]} yet"}

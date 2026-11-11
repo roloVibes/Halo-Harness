@@ -33,7 +33,8 @@ CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "s
                      "policy", "modes",  # 3.3.10.0 R1: policy hooks and the pack's runtime modes (packs/manifest_policy.py)
                      "setup",  # 3.3.11.0 R3: the pack's own Setup blocks (packs/manifest_setup.py)
                      "themes",  # 3.3.12.0 R2: the pack's own palettes (packs/manifest_themes.py)
-                     "services")  # 3.3.13.0 R3: programs the supervisor keeps running (packs/manifest_services.py)
+                     "services",  # 3.3.13.0 R3: programs the supervisor keeps running (packs/manifest_services.py)
+                     "cli", "slash", "doctor", "settings")  # 3.4.0.0 B (API 1.3 draft): packs/contrib_*.py
 SERVICE_KEYS = ("name", "description", "run", "autostart", "restart", "health", "log")  # 3.3.13.0 R3
 POLICY_KEYS = ("id", "run", "when", "impact", "on_error", "redact", "after")
 SETUP_KEYS = ("id", "title", "kind", "after", "help", "fields", "run", "what", "cost", "time", "writes", "text")
@@ -149,7 +150,10 @@ def pack() -> dict:
                        "artifacts": _NAMES, "events": {"type": "array", "items": event}, "workflows": _NAMES,
                        "policy": {"type": "array", "items": policy}, "modes": {"type": "array", "items": mode},
                        "setup": {"type": "array", "items": setup}, "themes": {"type": "array", "items": theme},
-                       "services": {"type": "array", "items": service}})
+                       "services": {"type": "array", "items": service},
+                       # 3.4.0.0 B (API 1.3 draft): each entry's meaning is packs/contrib_<key>.py's, one line per problem
+                       "cli": {"type": "array", "items": MAPPING}, "slash": {"type": "array", "items": MAPPING},
+                       "doctor": {"type": "array", "items": MAPPING}, "settings": {"type": "array", "items": MAPPING}})
     migration = obj({"from": _VERSION, "to": _VERSION, "note": STRING, "settings": MAPPING})  # settings: 3.2.0.0 R7 renames
     props = {"id": STRING, "name": STRING, "version": STRING, "description": STRING, "author": author,
              "license": STRING, "halo_api": _RANGE, "halo": _RANGE, "capabilities": _NAMES, "requires": requires,

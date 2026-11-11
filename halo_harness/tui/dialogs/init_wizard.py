@@ -1163,7 +1163,7 @@ STEP_FACTORIES["linux_fixes"] = LinuxFixesStep
 
 
 # ---------------------------------------------------------------------------
-# Step: Summary -- 3.2.2.0 R2: the five check rows of start/checks.py
+# Step: Summary -- 3.2.2.0 R2: the five check rows of checks/catalog.py
 # (tui/dialogs/summary_checks.py): Finish runs the ticked ones and prints
 # each result here, then Finish closes setup. `init_cli._step_summary`'s
 # lines (captured into a StringIO-backed Console) follow them, so this
