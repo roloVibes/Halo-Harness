@@ -141,9 +141,7 @@ def labels(c, rig) -> dict:
     c.wait(f"document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6 && !!{node.format(SPAWNED[0][0])}", 40)
     out = {"map_labels": [c.js(f"{node.format(a)}?.querySelector('[data-testid=roles-live-model]')?.textContent || ''") for a, *_ in SPAWNED],
            "map_titles": [c.js(f"{node.format(a)}?.querySelector('[data-testid=roles-live-model]')?.parentElement?.title || ''") for a, *_ in SPAWNED]}  # 3.3.16.0 R2: Live's node line
-    alt(c, 2)  # 3.3.16.0 R1: Agents, on Cast
-    c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0", 40)
-    l_key(c)
+    alt(c, 2)  # 3.3.18.0: Agents opens on Live
     live = "document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{}\"] [data-testid=\"roles-live-model\"]')"
     c.wait(f"!!{live.format(SPAWNED[1][0])}", 30)
     out["live_labels"] = [c.js(f"{live.format(a)}?.textContent || ''") for a, *_ in SPAWNED]

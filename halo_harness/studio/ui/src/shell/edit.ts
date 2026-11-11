@@ -106,7 +106,7 @@ export function installEdit(): void {
     else if (mode === "settings") applySettingsDoor({ group: String(d.group || "") });
     else if (mode === "local") applyLocalDoor({ page: String(d.page || "") });
     else if (mode === "session") (openSession({ session: String(d.session || "") }), d.prompt && openPrompt());
-    else if ((SECTION_IDS as string[]).includes(mode) || AGENTS_DOORS[mode]) goSection(mode, mode === "agents" ? d.view || "cast" : undefined);
+    else if ((SECTION_IDS as string[]).includes(mode) || AGENTS_DOORS[mode]) goSection(mode, mode === "agents" ? d.view || "live" : undefined); // 3.3.18.0: bare Agents opens on Live
     else return;
     try {
       window.focus();

@@ -154,7 +154,7 @@ export const roles = createStore<RolesState>({
   tierMenu: null,
   diskLineup: null,
   diskBio: null,
-  canvasView: urlDoor().view === "live" ? "live" : "plan", // 3.3.16.0 R1: Agents' Live; R2: `?mode=fleet` too
+  canvasView: urlDoor().view === "cast" ? "plan" : "live", // 3.3.16.0 R1: Agents' Live; 3.3.18.0: Live unless a door names Cast
   liveSid: (/[?&]mode=(roles|agents|fleet)(&|$)/.test(location.search) && new URLSearchParams(location.search).get("session")) || "",
   liveDensity: "spread",
 });

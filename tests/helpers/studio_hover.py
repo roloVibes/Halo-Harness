@@ -100,7 +100,9 @@ def fleet(c, rig) -> dict:
 
 
 EDGE = """(() => {{ const v = [...document.querySelectorAll('[data-testid="roles-live-node"], [data-testid="fleet-session"], [data-testid="live-machine"]')]
-  .filter((e) => {{ const r = e.getBoundingClientRect(); return r.width > 0 && r.right <= innerWidth && r.bottom <= innerHeight && r.left >= 0 && r.top >= 0; }});
+  .filter((e) => {{ const r = e.getBoundingClientRect(), s = document.querySelector('[data-testid="agents"] .rlm-scroll'), p = s.getBoundingClientRect();
+    const pr = p.left + s.clientWidth, pb = p.top + s.clientHeight; // 3.3.18.0: inside the canvas's own view (its scrollbars clip)
+    return r.width > 0 && r.right <= Math.min(innerWidth, pr) && r.bottom <= Math.min(innerHeight, pb) && r.left >= Math.max(0, p.left) && r.top >= Math.max(0, p.top); }});
   v.sort((a, b) => b.getBoundingClientRect().{k} - a.getBoundingClientRect().{k}); v[0]?.setAttribute('data-hv-edge', '{k}'); return v.length; }})()"""
 
 
@@ -108,10 +110,20 @@ def edges(c, rig) -> dict:
     """A narrow window: the right-most and the bottom-most node keep their card inside it, off their box."""
     c.call("Emulation.setDeviceMetricsOverride", width=980, height=620, deviceScaleFactor=1, mobile=False)
     out = {}
+    from tests.helpers.studio_fleet_member import REVIEWER  # 3.3.18.0: Live draws only what is present -- the member's
+    from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID  # reviewer works again, so the tree is as wide as before
+    full, rig.full = rig.full, False  # the quiet arrangement: the canvas reaches the window's right edge
     try:
-        go(c, rig, "&view=live&scope=fleet", f"!!{Q}('[data-testid=\"live-machine\"]')")
+        go(c, rig, "&view=live&scope=fleet", f"!!{Q}('[data-testid=\"live-machine\"]') && {Q}('.feed-cell')?.dataset.status === 'open'")
+        rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state", "agent_id": REVIEWER["agent_id"],
+                                                                     "ts": time.time(), "data": {**REVIEWER, "state": "running"}}]})
+        c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 5", 20)
+        for _ in range(4):  # the tree runs past the window: its last boxes sit at the window's edges
+            c.click_on(f"{Q}('[data-testid=\"roles-live-zoom-in\"]')")
         time.sleep(0.6)
         for k in ("right", "bottom"):
+            c.js("(() => { const s = document.querySelector('[data-testid=\"agents\"] .rlm-scroll'); s.scrollLeft = s.scrollWidth; s.scrollTop = s.scrollHeight; return 1; })()")
+            time.sleep(0.4)
             c.js(EDGE.format(k=k))
             box = f"{Q}('[data-hv-edge=\"{k}\"]')"
             kind = c.js(f"({{'roles-live-node': 'agent', 'fleet-session': 'session', 'live-machine': 'machine'}})[{box}.dataset.testid]")
@@ -119,6 +131,7 @@ def edges(c, rig) -> dict:
             away(c, 2, 2)
             gone(c)
     finally:
+        rig.full = full
         c.call("Emulation.clearDeviceMetricsOverride")
     return out
 

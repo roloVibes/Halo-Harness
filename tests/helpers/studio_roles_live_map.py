@@ -62,7 +62,9 @@ def open_live(c, rig) -> dict:
     spawned(lv)
     c.go(rig.url("session"))
     c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6 && 'session'", 40)
-    alt(c, 2)  # 3.3.16.0 R1: Agents, on Cast
+    alt(c, 2)  # 3.3.18.0: Agents opens on Live; Cast is one click
+    c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'live'", 40)
+    c.click_on("document.querySelector('[data-testid=\"agents-view-cast\"]')")
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0 && 'plan'", 40)
     out = {"plan_glows": c.wait("[...document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')].map((n) => n.dataset.agent).sort().join(',') || null", 15)}
     l_key(c)

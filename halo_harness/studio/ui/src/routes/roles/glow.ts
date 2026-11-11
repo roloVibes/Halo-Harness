@@ -54,14 +54,15 @@ function toLive(r: AgentRef, s: FleetState, endedAt: number): LiveAgent {
   };
 }
 
-/** The agents that ended but still glow: done for DONE_MS after it ended here, failed until acknowledged. */
+/** The agents that ended but still glow: done for DONE_MS after it ended here, failed (while this page watched) until
+ *  acknowledged. */
 export function endedAgents(s: FleetState = fleet.get(), now = Date.now()): LiveAgent[] {
   const out: LiveAgent[] = [];
   for (const r of allAgents(s)) {
     const st = String(r.a.state || "");
     const at = s.doneAt[r.key] || 0;
     if ((st === "done" || st === "stopped") && at && now - at < DONE_MS) out.push(toLive(r, s, at));
-    else if (st === "failed" && !acked.has(r.key)) out.push(toLive(r, s, at || now));
+    else if (st === "failed" && at && !acked.has(r.key)) out.push(toLive(r, s, at)); // 3.3.18.0: a failure this page saw, not an old one
   }
   return out;
 }

@@ -78,8 +78,8 @@ def test_glossary_word_links_and_the_next_footer(ctx: Ctx):
     from halo_harness.glossary import TERMS
     ctx.check(f"the ? menu's Glossary: {len(TERMS)} words, lineup first, got {got.get('words')} {got.get('first')}",
               got.get("words") == len(TERMS) and got.get("first") == "lineup")
-    ctx.check(f"How Agents works names its words (3.3.16.0 R1; R2: and the fleet's), got {got.get('terms')}",
-              got.get("terms") == ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "fleet", "hub", "harness", "mission", "part", "hand-off", "capability"])
+    ctx.check(f"How Agents works names its words (3.3.16.0 R1; R2: and the fleet's; 3.3.18.0: Live's two), got {got.get('terms')}",
+              got.get("terms") == ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "fleet", "hub", "harness", "mission", "part", "hand-off", "capability", "replay", "waiting path"])  # 3.3.18.0
     ctx.check(f"a word link opens the Glossary on it and closes the help, got {got.get('opened_on')}",
               got.get("opened_on") == "tier" and got.get("help_closed") is True)
     ctx.check(f"Cast's Next footer goes to Runs (3.3.16.0 R1: Agents), got {got.get('next')} {got.get('went_to')}",

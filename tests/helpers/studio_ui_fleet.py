@@ -21,8 +21,8 @@ def register(test, json_of, chrome) -> None:
     def test_fleet_map_select_steer_stop_in_headless_chrome(ctx: Ctx):
         """3.0.5.0 R3: over this harness's real session (a lead, an implementer
         and a researcher mid-work) and a member harness (a waiting lead, a done
-        reviewer) Agents -> Live on the fleet (3.3.16.0 R2: the Fleet map went) draws two machine boxes and five
-        agents in three states; a click selects the researcher and the inspector shows its tail
+        reviewer) Agents -> Live on the fleet (3.3.16.0 R2: the Fleet map went) draws two machine boxes and the four
+        agents at work in two states (3.3.18.0: the reviewer finished before the page loaded: History's, not drawn); a click selects the researcher and the inspector shows its tail
         (its text and its tool row); a steer typed in the Steer box is echoed as
         "you" and reaches the researcher's next model call, not the implementer's;
         Stop asks first (the agent still runs) and then stops it; a steer to the
@@ -33,9 +33,9 @@ def register(test, json_of, chrome) -> None:
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
         r, got = json_of("-m", "tests.helpers.studio_fleet", "map")
         ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0)
-        ctx.check(f"two harness boxes, five agents, got {got.get('boxes')} / {got.get('nodes')} {got.get('labels')}",
-                  got.get("boxes") == 2 and got.get("nodes") == 5 and got.get("labels") == ["you@studio", "kali@lab"])
-        ctx.check(f"three states (running, waiting, done), got {got.get('states')}", set(got.get("states") or []) == {"running", "waiting", "done"})
+        ctx.check(f"two harness boxes, four agents, got {got.get('boxes')} / {got.get('nodes')} {got.get('labels')}",
+                  got.get("boxes") == 2 and got.get("nodes") == 4 and got.get("labels") == ["you@studio", "kali@lab"])
+        ctx.check(f"two states (running, waiting), got {got.get('states')}", set(got.get("states") or []) == {"running", "waiting"})
         ctx.check(f"Live's tree, the agent inspector and the inspector panel, got {got.get('panels')}", got.get("panels") == [1, 1, 1])
         ctx.check(f"click selects; the inspector shows the tail and the tool row, got {got.get('tail_text')!r} / {got.get('tool_label')!r}",
                   got.get("selected") == "researcher" and "pricing notes" in str(got.get("tail_text")) and got.get("tool_rows") == 1
@@ -67,7 +67,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"J moves to another agent, K comes back, got {got.get('after_j')} / {got.get('after_k')}",
                   bool(got.get("after_j")) and got.get("after_k") == "researcher")
         ctx.check(f"Live's tree is GET /api/fleet's, got {got.get('rail')} vs {got.get('api_tree')}",
-                  got.get("rail") and got.get("rail") == got.get("api_tree") and len(got.get("rail")) == 9)
+                  got.get("rail") and got.get("rail") == got.get("api_tree") and set(got.get("api_live") or []) <= set(got["rail"]) and len(got["rail"]) >= 5)
 
 
     @test
@@ -97,7 +97,7 @@ def register(test, json_of, chrome) -> None:
     @test
     def test_fleet_capture_dom_counts(ctx: Ctx):
         """3.0.5.0 R3: tools/capture_studio.py --mode fleet --dom (3.3.16.0 R2: the pieces' new homes): Agents -> Live on
-        the fleet (six section icons, the canvas with two machines, five agents, the inspector's glance with a row per
+        the fleet (six section icons, the canvas with two machines, four agents at work, the inspector's glance with a row per
         machine, the Attention chip, Activity; no FLEET cell), Setup -> Machines (the pair card, the settings, the People
         table with both machines, no canvas; no lead: it is drawn only while this harness is alone) and Live Roles on Cast (three glowing cards, the Live tab)."""
         if not chrome():
@@ -106,7 +106,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
         f, s, ro = got.get("live", {}), got.get("machines", {}), got.get("roles", {})
         ctx.check(f"Live on the fleet, got {f}", f.get("section-tab") == 6 and f.get("roles-live-map") == 1 and f.get("live-machine") == 2
-                  and f.get("fleet-box") == 2 and f.get("roles-live-node") == 5 and f.get("live-inspector") == 1 and f.get("live-glance") == 1
+                  and f.get("fleet-box") == 2 and f.get("roles-live-node") == 4 and f.get("live-inspector") == 1 and f.get("live-glance") == 1
                   and f.get("live-glance-machine") == 2 and f.get("agents-attention") == 1 and f.get("fleet-activity") == 1 and f.get("status-fleet") == 0)
         ctx.check(f"Setup -> Machines, got {s}", s.get("setup-machines") == 1 and s.get("fleet-pair") == 1 and s.get("fleet-settings") == 1
                   and s.get("fleet-people-list") == 1 and s.get("fleet-person") == 2 and s.get("roles-live-map") == 0)

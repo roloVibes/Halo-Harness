@@ -14,10 +14,10 @@ what runs now"), with three views on one switch, first on its bar:
 |---|---|---|---|
 | **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, the coach note, replay, drop and sync | Roles |
 | **Runs** | `R` | a goal for the lineup ([STUDIO-orchestra.md](STUDIO-orchestra.md)): the goal form (its Start view), the plan canvas, the lanes, the report and the coach, the saved workflows; each lane's owns line; **Test this lineup** | Orchestra (and what Team's board gave) |
-| **Live** | `L` | what runs now: the session's agents as a tree, 1:1 with the terminal's `/agents live`; a running Orchestra run's lanes under its lead; on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Fleet |
+| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels): the session's agents, a running Orchestra run's lanes under its lead; on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Fleet |
 | **Workflows** | `W` | the board of squares main may hand work to, their library and contracts (3.3.16.0 R3, below) | new |
 
-Agents opens on **Cast** with nothing else open (no inspector, no dialog, no help). `C`, `R` and `L` switch the views
+Agents opens on **Live** with nothing else open (3.3.18.0: what runs now, or one sentence: [STUDIO-live.md](STUDIO-live.md)). `C`, `R` and `L` switch the views
 outside a text field (`L` on Live goes back to Cast, as Roles' `L` toggled Plan | Live); the palette has **Agents:
 Cast**, **Agents: Runs** and **Agents: Live**, and every Roles and Orchestra line is in its Agents group. Cast and Live
 draw Roles' workspace (its layout, its panels, its status line), Runs draws Orchestra's: the header's `+` and `...`
@@ -31,7 +31,7 @@ Every old door still opens, on the right view; each terminal answer names the ne
 
 | Door | Lands on |
 |---|---|
-| `Alt+2`, `?mode=agents`, `halo studio --mode agents`, `/studio agents` | Cast |
+| `Alt+2`, `?mode=agents`, `halo studio --mode agents`, `/studio agents` | Live (3.3.18.0; Cast before) |
 | `?mode=agents&view=cast`, `runs` or `live`; a `focus` frame `{mode: "agents", view}` | that view |
 | `?mode=roles`, `halo studio --mode roles`, `/studio roles`, `/roles` (bare, in the TUI) | Cast |
 | `?mode=roles&view=live[&session=<id>]`, the Session Map's **Open in Agents Live** | Live |

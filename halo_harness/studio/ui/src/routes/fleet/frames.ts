@@ -37,7 +37,7 @@ export function activityOf(r: AgentRef, s: FleetState, now: number): string {
 export function liveRows(s: FleetState): LiveRow[] {
   const now = Date.now();
   return allAgents(s)
-    .filter((r) => isLive(r.a) || now - (s.doneAt[r.key] || 0) < RECENT_MS)
+    .filter((r) => (!!r.h.local || r.h.online !== false) && (isLive(r.a) || now - (s.doneAt[r.key] || 0) < RECENT_MS)) // 3.3.18.0: not an away member's last rows
     .map((r) => rowOf(r, s, now));
 }
 

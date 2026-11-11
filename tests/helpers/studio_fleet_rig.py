@@ -106,7 +106,7 @@ class StudioFleetRig:
     def url(self, mode: str = "fleet", extra: str = "") -> str:
         from halo_harness.studio.server import url_for
         from tests.helpers.studio_full import full
-        url = url_for(self.server, mode).replace("#t=", f"&tour=off{self.rail}{extra}#t=")
+        url = url_for(self.server, mode).replace("#t=", f"&tour=off{self.rail}{getattr(self, 'plan', '&plan=off&level=mid')}{extra}#t=")  # 3.3.18.0: the tree
         return full(url) if self.full else url
 
     def api(self, method: str, path: str, body=None):

@@ -10,6 +10,52 @@ version.
 
 ## [3.3.18.0] - unreleased
 
+### The living canvas
+
+The owner, 2026-11-10: "i feel like agent canvas should be better. i always see like unused older version of
+orchestrations that aren't even happening when I look at it. id love to see what is actually happening when i look at
+that view." Agents -> Live now shows only what is happening, with the plan under it, what each agent waits on, one
+sentence of what goes on, and zoom levels that change what is drawn (docs/STUDIO-live.md).
+
+#### Changed
+
+- **Agents opens on Live**: Alt+2, the rail, `?mode=agents`, `halo studio --mode agents` and a `focus` frame without a
+  view land on Live -- what runs now, or one sentence ("Nothing is running. Start a session, or open the last one as a
+  replay.") with **Open the plan (Cast)** and **Replay the last session**. Doors that name a view still win (`?view=cast`,
+  C / R / L / W, `?mode=roles`, `--edit`). A fresh Studio with nothing saved opens there too (it opened on Cast's Start view).
+- **Nothing past is drawn as present**: a finished agent stays ten seconds, a failed one until its **dismiss**, then leaves
+  (its group and its session with it); a finish or a failure from before the page loaded is not drawn; Live picks the
+  newest session with an agent at work; on the fleet the machines stay and an away member's rows do not count; a mission's
+  parts show only while it runs or is planned. A stop counts as an end for the fade (`fleet/sync.ts`).
+- **Cast is the plan**: its bar says "the lineup new sessions use: <name>" and, while agents run, "N live -- see Live";
+  its cards no longer glow for a failure the page did not see, nor for an away member's last rows.
+- **The rail's Agents badge** counts live agents on this harness and online members only.
+- Live lays out once per change of the tree's shape and repaints between (a long session's frames never move a box).
+- `GET fleet/history?role=main` dates a session by its transcript's first line (st_ctime was the last metadata change on Linux).
+
+#### Added
+
+- **History** on Live's bar (closed on load): past sessions, Orchestra runs and missions, newest first, each with what it
+  was, when, how long, its cost and how it ended; a row opens a **replay** (muted, under a "replay -- ended <when>" banner,
+  **Back to now**).
+- **Plan under it** (Live's bar, `?plan=on|off`; on by default when the session's lineup has tiers or squares): the
+  lineup's blocks as the map, each live agent inside its block, "not in the plan" with why; main's lines carry the plan's
+  when, the dash only into a block at work.
+- **What waits**: each live box says what it waits on (you, an agent, a tool, a model reply, nothing); the **waiting path**
+  is a brighter hairline; **the one sentence** under the bar (`live-narration`) says what goes on now -- what waits on you
+  first, the agents by block and what they do, what the session waits on, the models, the spend -- and a click centres the
+  agent it waits on; a line's label shows the latest hand-off for eight seconds, its hover the last three, its click
+  Conversations on that pair.
+- **far | mid | near**: the zoom changes what is drawn (blocks only under 60%, boxes, boxes with their thought and tool
+  output from 130%); Ctrl+wheel zooms around the pointer and keeps what is under it; Fit picks the level.
+- Tests: `tests/test_studio_live_truth.py`, `tests/test_studio_live_plan.py` (Chrome); the density driver waits for what
+  Live draws before it measures and measures the History drawer.
+
+#### Docs
+
+- `docs/STUDIO-live.md` (new part of STUDIO.md); STUDIO-agents.md and STUDIO-sections.md say Agents opens on Live; the
+  Agents `?` help has the new steps; glossary: **replay**, **waiting path**.
+
 ### Docs: the README shows Studio
 
 - "What it feels like" leads with Studio: `docs/media/studio-model-picker.png` (new, `capture_studio.py --mode picker`) and

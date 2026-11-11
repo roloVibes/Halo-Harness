@@ -61,7 +61,7 @@ def slow_stop(c, rig) -> dict:
     from tests.helpers.studio_fleet_rig import wait_for
     out: dict = {"slow_ms": int(_slow_s() * 1000), "lost": {}}
     c.go(rig.url("fleet"))
-    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length === 5", 60)
+    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length === 4", 60)  # 3.3.18.0: the member's done reviewer is past
     key = rig.key("Implement")
     aid = key.rsplit("|", 1)[1]
     wait_node(c, "implementer")

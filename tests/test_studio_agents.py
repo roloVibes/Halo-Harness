@@ -4,10 +4,10 @@ are almost the same ... all rolled into the new agents"): Team, Roles and Orches
 without one), over a scratch home and a temp repo holding a live Orchestra run whose workers wait on a gate; no
 model call:
 
-1. Alt+2 opens Agents on Cast with nothing else open (no inspector, no dialog, no help); six section tabs,
+1. Alt+2 opens Agents on Live (3.3.18.0: what runs now) with nothing else open (no inspector, no dialog, no help); six section tabs,
    Session Alt+1, Agents Alt+2, Local Alt+3 ... Settings Alt+6 (3.3.16.0 R2: Fleet folded in);
 2. the doors land on their views: ?mode=roles -> Cast, roles&view=live -> Live, orchestra -> Runs,
-   agents&view=runs|live, agents -> Cast; ?mode=team lands on Runs with Team's one line, and not again;
+   agents&view=runs|live, agents -> Live (3.3.18.0); ?mode=team lands on Runs with Team's one line, and not again;
 3. C, R, L switch the views (3.3.16.0 R3: W the fourth, Workflows; `?mode=agents&view=workflows` its door);
 4. Runs: every lane says what it owns (the claim ledger's keys), a focused lane lists its claims (holder, state);
 5. Live: the run's lead and its five lanes under it, each with its number in its lane colour and its worktree;
@@ -53,21 +53,21 @@ def _fleet(ctx: Ctx) -> dict:
 
 
 @test
-def test_alt2_opens_agents_on_cast_with_nothing_else_open(ctx: Ctx):
+def test_alt2_opens_agents_on_live_with_nothing_else_open(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+2 lands on Agents, on Cast, got {got.get('alt2')!r}", got.get("alt2") == "cast")
+    ctx.check(f"Alt+2 lands on Agents, on Live (3.3.18.0), got {got.get('alt2')!r}", got.get("alt2") == "live")
     ctx.check(f"six section tabs with their keys, got {got.get('tab_ids')}", got.get("tab_ids") == SIX)
     q = got.get("quiet") or {}
-    ctx.check(f"no inspector, no dialog, no help; Cast pressed, got {q}",
-              q == {"inspector": "closed", "dialogs": 0, "help": False, "cast_on": "true"})
-    ctx.check(f"Cast is Roles' room (its Start view or its canvas), got {got.get('cast_body')!r}", got.get("cast_body") == "roles")
+    ctx.check(f"no inspector, no dialog, no help; Live pressed, got {q}",
+              q == {"inspector": "closed", "dialogs": 0, "help": False, "live_on": "true"})
+    ctx.check(f"Live is drawn in Roles' room, got {got.get('cast_body')!r}", got.get("cast_body") == "roles")
 
 
 @test
 def test_the_doors_land_on_their_views(ctx: Ctx):
     got = _got(ctx)
     want = {"mode=roles": "cast", "mode=roles&view=live": "live", "mode=orchestra": "runs",
-            "mode=agents&view=runs": "runs", "mode=agents&view=live": "live", "mode=agents": "cast",
+            "mode=agents&view=runs": "runs", "mode=agents&view=live": "live", "mode=agents": "live",
             "mode=agents&view=workflows": "workflows"}  # 3.3.16.0 R3: the fourth view
     seen = {k: got.get(k) for k in want}
     ctx.check(f"each door's view, got {seen}", seen == want)

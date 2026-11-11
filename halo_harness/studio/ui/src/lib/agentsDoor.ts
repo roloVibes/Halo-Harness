@@ -7,7 +7,8 @@
 // takes the view (onAgentsView); this file has no React and no store of its own, so lib/store.ts may import it.
 // 3.3.16.0 R2 "the Fleet fold": `fleet` is a door too -- Agents on Live with the fleet scope on (`?scope=fleet`: every
 // machine, its sessions, their agents), on Runs when it names a mission (`?mode=fleet&mission=<id>`); its line once.
-// 3.3.16.0 R3: `workflows` -- the board of squares (`?mode=agents&view=workflows`, W).
+// 3.3.16.0 R3: `workflows` -- the board of squares (`?mode=agents&view=workflows`, W). 3.3.18.0 "The living canvas":
+// a bare `?mode=agents` (and Agents' first show with no door) lands on Live -- what runs now, or its one empty sentence.
 export type AgentsView = "cast" | "runs" | "live" | "workflows";
 export type LiveScope = "here" | "fleet";
 export const AGENTS_VIEWS: AgentsView[] = ["cast", "runs", "live", "workflows"];
@@ -32,7 +33,7 @@ export function urlDoor(search?: string): { view: AgentsView | ""; word: string 
   if (!q) return { view: "", word: "" };
   const word = q.get("mode") || "";
   const view = q.get("view") || "";
-  if (word === "agents") return { view: isView(view) ? view : "cast", word };
+  if (word === "agents") return { view: isView(view) ? view : "live", word }; // 3.3.18.0: Agents opens on what is live
   if (word === "roles") return { view: view === "live" ? "live" : "cast", word };
   if (word === "fleet") return { view: q.get("mission") ? "runs" : "live", word };
   return { view: AGENTS_DOORS[word] || "", word: AGENTS_DOORS[word] ? word : "" };

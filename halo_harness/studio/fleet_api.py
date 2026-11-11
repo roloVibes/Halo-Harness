@@ -117,6 +117,21 @@ def _first_user(path, cap: int = 160) -> str:
     return ""
 
 
+def _first_ts(path):
+    """The first `ts` a transcript names (its meta line): when the session started, on every OS (3.3.18.0: st_ctime
+    is the last metadata change on Linux)."""
+    import json
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            for _i, line in zip(range(5), f):
+                ts = (json.loads(line) if line.strip() else {}).get("ts")
+                if isinstance(ts, (int, float)):
+                    return float(ts)
+    except (OSError, ValueError, AttributeError):
+        pass
+    return None
+
+
 def _cost(path):
     import json
     try:
@@ -147,7 +162,7 @@ def history(state_dir, *, role: str = "", bio: str = "", n: int = 20) -> list:
         for p in logs:
             st = p.stat()
             runs.append({"agent_id": "main", "session_id": p.stem, "role": "main", "bio": None, "model": None,
-                         "started": st.st_ctime, "finished": st.st_mtime, "status": "session", "is_error": False,
+                         "started": _first_ts(p) or st.st_ctime, "finished": st.st_mtime, "status": "session", "is_error": False,
                          "task": _first_user(p), "cost_usd": _cost(p)})
         return runs
     metas = sorted(root.glob("*/*/subagents/agent-*.meta.json"), key=lambda p: p.stat().st_mtime, reverse=True)

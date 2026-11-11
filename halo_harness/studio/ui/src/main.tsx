@@ -62,6 +62,9 @@ import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import "./styles/nodes.css"; // 3.3.15.0 L1: the Instrument look's map nodes and edges (after fleet.css and roles-live.css)
 import "./styles/live-groups.css"; // 3.3.16.3: Live in groups, the group boxes (after nodes.css)
+import "./styles/live-truth.css"; // 3.3.18.0: Live's empty sentence, History, the replay banner, Cast's plan line
+import "./styles/live-plan.css"; // 3.3.18.0 part 2: the plan under Live, its blocks and when lines
+import "./styles/live-waits.css"; // 3.3.18.0 part 3: waits on, the waiting path, the one sentence
 import "./styles/blocks.css"; // 3.3.16.3: blocks on the Cast canvas, a tier's purpose line
 import "./styles/blocks-compose.css"; // 3.3.16.3 part 2: lines with their when, the library on Cast, the drags
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)

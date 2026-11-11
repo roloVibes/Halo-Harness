@@ -52,7 +52,8 @@ def open_page(c, page, query: str) -> None:
 
 
 def cast_first(c, page) -> dict:
-    """From Session, Alt+2: Agents on Cast, the inspector closed, no dialog, no help."""
+    """From Session, Alt+2: Agents on Live (3.3.18.0: what runs now; here, the live run's lanes), the inspector closed,
+    no dialog, no help."""
     open_page(c, page, "mode=session")
     c.js("document.activeElement?.blur()")
     key(c, "2", alt=True)
@@ -60,10 +61,9 @@ def cast_first(c, page) -> dict:
     out["tabs"] = c.js(TABS)
     out["tab_ids"] = c.js("[...document.querySelectorAll('[data-testid=\"section-tab\"]')].map((t) => t.dataset.tabId + ':' + (t.dataset.kbd || ''))")
     out["quiet"] = c.js("({inspector: document.querySelector('.app').dataset.inspector, dialogs: document.querySelectorAll('[role=dialog]').length,"
-                        " help: !!document.querySelector('[data-testid=\"section-help\"]'), cast_on: document.querySelector("
-                        "'[data-testid=\"agents-view-cast\"]')?.getAttribute('aria-pressed')})")
-    out["cast_body"] = c.wait("document.querySelector('[data-part=\"roles\"]:not([hidden]) [data-testid=\"roles-start\"],"
-                              " [data-part=\"roles\"]:not([hidden]) [data-testid=\"roles-canvas\"]') ? 'roles' : ''", 30)
+                        " help: !!document.querySelector('[data-testid=\"section-help\"]'), live_on: document.querySelector("
+                        "'[data-testid=\"agents-view-live\"]')?.getAttribute('aria-pressed')})")
+    out["cast_body"] = c.wait("document.querySelector('[data-part=\"roles\"]:not([hidden]) [data-testid=\"roles-live-map\"]') ? 'roles' : ''", 30)
     return out
 
 
@@ -89,7 +89,7 @@ def team_note(c, page) -> dict:
 
 def view_keys(c, page) -> dict:
     open_page(c, page, "mode=agents")
-    c.wait(f"{VIEW} === 'cast'", 30)
+    c.wait(f"{VIEW} === 'live'", 30)  # 3.3.18.0: a bare door opens on Live
     c.js("document.activeElement?.blur()")
     out = {}
     for ch, want in (("r", "runs"), ("l", "live"), ("w", "workflows"), ("c", "cast")):  # 3.3.16.0 R3: W the board
