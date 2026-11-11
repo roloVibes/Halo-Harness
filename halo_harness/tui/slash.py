@@ -13,7 +13,7 @@ from typing import Optional
 
 
 def _pending_card_note(app, cmd: str) -> "Optional[str]":
-    """1.0.1 part 2 (reviewer minor): `/effort`, `/rewind` and `/improve`
+    """1.0.1 part 2 (reviewer minor): `/effort` and `/rewind`
     must not open their own card while ANY card (a live permission ask,
     most importantly) is already pending -- that would silently replace
     it with no way back to the original (the same one-pending-card-slot
@@ -66,8 +66,6 @@ async def handle_slash(app, name: str, args: str) -> None:
         "rewind": _handle_rewind, "undo": _handle_undo, "redo": _handle_redo,
         # U5 scope A: keymap.
         "keybindings": _handle_keybindings,
-        # H10 Part B: human-gated /improve.
-        "improve": _handle_improve,
         # 1.0.1 hotfix 20: bare /effort opens the inline selector card;
         # /effort <level> still goes through the plain text path below.
         "effort": _handle_effort,
@@ -1659,186 +1657,6 @@ async def _handle_keybindings(app, _args: str) -> None:
 
 
 # ============================================================================
-# H10 Part B: human-gated /improve -- runs the evidence scan + ONE drafting
-# model call off the UI thread, then reviews candidates one ImproveCard at a
-# time (RewindCard's own confirm/cancel pattern, extended to 5 actions).
-# Typed while a turn runs -> queued until the turn ends (handle_slash is
-# only ever invoked between turns, same as every other slash command).
-# ============================================================================
-
-async def _handle_improve(app, _args: str) -> None:
-    # 1.0.1 part 2 (reviewer minor): checked before the scan/draft worker
-    # even starts (a real model call) -- no point drafting candidates only
-    # to discover the review card can't be shown.
-    note = _pending_card_note(app, "improve")
-    if note:
-        app.notify(note, title="/improve")
-        return
-    session = getattr(app.controller, "session", None)
-    if session is None:
-        app.notify("/improve needs a real session.", severity="warning", title="/improve")
-        return
-    from halo_harness.improve.config import load_improve_config
-    cfg = load_improve_config()
-    if not cfg.enabled:
-        app.notify("/improve is disabled (improve.enabled=false).", title="/improve")
-        return
-    app.notify("Scanning recent sessions and drafting candidates…", title="/improve")
-    app.run_worker(lambda: _improve_draft_worker(app, session, cfg), thread=True, name="improve-draft",
-                    group="improve-draft")
-
-
-def _improve_draft_worker(app, session, cfg) -> None:
-    from halo_harness.config.paths import project_slug
-    from halo_harness.improve import draft as draft_mod
-    from halo_harness.improve import evidence as evidence_mod
-    from halo_harness.improve.config import since_str
-
-    clusters, candidates, error = [], [], None
-    try:
-        slug = project_slug(session.cwd)
-        clusters = evidence_mod.build_clusters(since=since_str(cfg), slug=slug)
-        if clusters:
-            candidates, error = draft_mod.draft_candidates(
-                session, clusters, max_candidates=cfg.max_candidates, configured_model=cfg.model)
-        else:
-            error = "no evidence clusters in this window"
-    except Exception as e:
-        error = f"{type(e).__name__}: {e}"
-    app.call_from_thread(_start_improve_review, app, session, clusters, candidates, error)
-
-
-def _start_improve_review(app, session, clusters: list, candidates: list, error) -> None:
-    from halo_harness.improve.dismissed import is_dismissed, load_dismissed
-
-    if not candidates:
-        app.notify(f"/improve: {error or 'no candidates'}", title="/improve")
-        return
-    dismissed = load_dismissed()
-    remaining = [c for c in candidates if not is_dismissed(c, dismissed)]
-    if not remaining:
-        app.notify("/improve: every candidate was already dismissed.", title="/improve")
-        return
-    app._improve_state = {"session": session, "clusters": clusters, "queue": remaining, "index": 0}
-    app.call_next(_show_next_improve_card, app)
-
-
-def _excerpt_text_for(clusters: list, ref: str) -> str:
-    for c in clusters:
-        d = c.to_dict() if hasattr(c, "to_dict") else c
-        for ex in d.get("excerpts", []):
-            if ex.get("ref") == ref:
-                return ex.get("text", "")
-    return ""
-
-
-async def _show_next_improve_card(app) -> None:
-    from halo_harness.tui.widgets.cards import ImproveCard
-
-    state = getattr(app, "_improve_state", None)
-    if not state:
-        return
-    queue, idx, session = state["queue"], state["index"], state["session"]
-    if idx >= len(queue):
-        app.clear_pending_card()
-        app.notify("/improve: review complete.", title="/improve")
-        app._improve_state = None
-        return
-
-    from halo_harness.improve import apply as apply_mod
-
-    candidate = queue[idx]
-    settings = getattr(session.session_context, "settings", None)
-    target = apply_mod.resolve_target_path(candidate, cwd=session.cwd, settings=settings)
-    comment = apply_mod.provenance_comment(
-        sessions=[e.split("#")[0] for e in candidate.evidence], evidence_count=len(candidate.evidence),
-        model=session.model_ref.raw, from_tool_output=candidate.from_tool_output)
-    diff_lines = apply_mod.diff_preview(target, candidate, comment) if target.is_update else []
-    excerpt_text = _excerpt_text_for(state["clusters"], candidate.evidence[0]) if candidate.evidence else ""
-
-    def on_action(action: str, _data) -> None:
-        app.clear_pending_card()
-        state["index"] += 1
-        if action == "apply":
-            app.run_worker(lambda: _apply_worker(app, session, candidate), thread=True, name="improve-apply",
-                            group="improve-apply")
-        elif action == "edit":
-            _edit_candidate_then_apply(app, session, candidate)
-        elif action == "dismiss":
-            from halo_harness.improve.apply import candidate_hash
-            from halo_harness.improve.dismissed import add_dismissed
-            add_dismissed(candidate_hash(candidate))
-        elif action == "quit":
-            state["index"] = len(queue)
-        app.call_next(_show_next_improve_card, app)
-
-    card = ImproveCard(candidate=candidate, provenance_line=comment, index=idx + 1, total=len(queue),
-                        diff_lines=diff_lines, excerpt_text=excerpt_text, on_action=on_action)
-    await app.transcript.mount_widget(card)
-    app.set_pending_card(card)
-
-
-def _apply_worker(app, session, candidate) -> None:
-    from halo_harness.improve import apply as apply_mod
-
-    settings = getattr(session.session_context, "settings", None)
-    try:
-        result = apply_mod.apply_candidate(candidate, cwd=session.cwd, settings=settings,
-                                            model_label=session.model_ref.raw, session=session)
-        app.call_from_thread(app.transcript.add_note,
-                              f"✦ /improve applied [{result.kind}] -> {result.path}", kind="command")
-        app.call_from_thread(app.notify, f"Applied: {result.path}", title="/improve")
-    except Exception as e:
-        app.call_from_thread(app.notify, f"/improve apply failed: {type(e).__name__}: {e}",
-                              severity="error", title="/improve")
-
-
-def _edit_candidate_then_apply(app, session, candidate) -> None:
-    """`e`: edit the candidate's own body in `$VISUAL`/`$EDITOR` via
-    `app.suspend()` (the SAME mechanism `app.py`'s own Ctrl+E prompt-editor
-    uses), then apply -- runs on the UI thread (`app.suspend()` is an App
-    method) but the actual file write still happens on a worker."""
-    import os
-    import subprocess as sp
-    import tempfile
-    from pathlib import Path
-
-    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
-    if not editor:
-        app.notify("No $VISUAL/$EDITOR set -- applying as drafted.", severity="warning", title="/improve")
-        app.run_worker(lambda: _apply_worker(app, session, candidate), thread=True, name="improve-apply",
-                        group="improve-apply")
-        return
-    fd, tmp_path_str = tempfile.mkstemp(suffix=".md", prefix="halo-improve-")
-    tmp_path = Path(tmp_path_str)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(candidate.body)
-        # 1.0.1 part 2 fixpass finding 14: same watchdog-pause pair
-        # tui/app.py's own Ctrl+E handler uses -- `app.suspend()` blocks the
-        # main thread for as long as the external editor runs, which is not
-        # a hang.
-        app._enter_suspend_for_editor()
-        try:
-            with app.suspend():
-                sp.run(f'{editor} "{tmp_path}"', shell=True)
-        finally:
-            app._exit_suspend_for_editor()
-        new_body = tmp_path.read_text(encoding="utf-8", errors="replace").rstrip("\n")
-        if new_body:
-            candidate.body = new_body
-    except Exception as e:
-        app.notify(f"$EDITOR failed: {type(e).__name__}: {e}", severity="error", title="/improve")
-    finally:
-        try:
-            tmp_path.unlink()
-        except OSError:
-            pass
-    app.run_worker(lambda: _apply_worker(app, session, candidate), thread=True, name="improve-apply",
-                    group="improve-apply")
-
-
-# ============================================================================
 # W4c item 2: /copy (last assistant reply), /copy code [N] (its last fenced
 # block, or the Nth), /copy tool (last tool output). All three are synchronous
 # (plain list/string work over widgets already in memory, no worker needed)
@@ -2252,41 +2070,25 @@ def _open_teams_list(app, models: list) -> None:
 
 
 # ============================================================================
-# Halo 2.0.2 round 7: /setup [roles] -- pushes the init wizard's own
-# Roles step straight onto THIS live app's screen stack
-# (the "modal screen stack over the session" the brief names), reusing
-# the EXACT SAME step classes `halo init`/`halo setup`'s own standalone
-# `InitWizardApp` uses. Bare /setup chains roles -> a short
-# summary (the "set up roles later" path); /setup roles opens just that
-# one step. Finishing (or quitting) pops
-# every screen THIS call pushed, landing back on the live session with
-# nothing else to do -- config.json changes are already live the next
-# time anything reads them, and the roles step pushes a freshly-applied
-# template into the LIVE session's own role table too (see its own
-# `commit()`).
+# /setup [<page>] [--terminal] (3.3.0.0 R4; 3.4.0.0 B2: the wizard's screens left): Studio's Setup on that page
+# (providers, local, model, permissions, theme, team -- roles is its older name --, linux, check, machines; bare:
+# the whole section); --terminal prints the console way to do the same (setup_cli.console_lines).
 # ============================================================================
 
 async def _handle_setup(app, args: str) -> None:
-    from halo_harness.tui.dialogs.init_wizard import build_truncated_state, first_step_screen
+    from halo_harness.setup_cli import CONSOLE, console_lines
+    from halo_harness.studio.setup_door import ALIASES
     words = (args or "").strip().lower().split()
     terminal = "--terminal" in words
     words = [w for w in words if w != "--terminal"]
     sub = words[0] if len(words) == 1 else " ".join(words)
-    # 3.3.0.0 R4: /setup opens Studio's Setup (the Team block for team or roles); --terminal keeps the screens below.
-    if not terminal and sub in ("", "roles", "team"):
-        from halo_harness.tui import studio_open
-        studio_open.open_setup(app, sub, cwd=app.cwd, on_line=_studio_line(app))
+    page = ALIASES.get(sub, sub)
+    if page not in CONSOLE:
+        await app.transcript.add_note(f"Usage: /setup [{'|'.join(p for p in CONSOLE if p)}] [--terminal] (got {sub!r})",
+                                      kind="command")
         return
-    # Halo 2.0.5 round 2c (rule 11): "team" reaches the same merged step
-    # "roles" already aliases to (`init_wizard.STEP_FACTORIES`) -- both
-    # spellings work, so a `/setup team` habit and a `/setup roles` habit
-    # land in the same place.
-    if sub in ("roles", "team"):
-        step_keys = ("roles",)
-    elif sub:
-        await app.transcript.add_note(f"Usage: /setup [team|roles] [--terminal] (got {sub!r})", kind="command")
+    if terminal:
+        await app.transcript.add_note("\n".join(console_lines(page)), kind="command")
         return
-    else:
-        step_keys = ("roles", "summary")
-    state = build_truncated_state(app.cwd, step_keys=step_keys, on_finish=lambda _app: None)
-    app.push_screen(first_step_screen(state))
+    from halo_harness.tui import studio_open
+    studio_open.open_setup(app, sub, cwd=app.cwd, on_line=_studio_line(app))

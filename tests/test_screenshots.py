@@ -28,7 +28,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
 
-SCENES = ("launch", "turn", "picker", "team-step", "mcp", "permission", "balances")  # 3.3.13.0 R3: remote-dialog went with the signal pack
+SCENES = ("launch", "turn", "picker", "mcp", "permission", "balances")  # 3.3.13.0 R3: remote-dialog went with the signal pack; 3.4.0.0 B2: team-step with the wizard
 
 # One visible, stable string per scene -- decoded the way the SVG encodes
 # text (entity nbsp -> space), so a marker never depends on raw XML.
@@ -36,7 +36,6 @@ MARKERS = {
     "launch.svg": (f"halo {__version__}",),      # the version line under the intro (2.0.11: the art is drawn with block glyphs)
     "turn.svg": ("Grep", "18"),                  # the running tool card + staged phase elapsed
     "picker.svg": ("atlas-pro", "ctx"),          # fixture rows + the context column
-    "team-step.svg": ("One model for everything",),  # 2.1.0 B1: the first row of the lineup list
     "mcp.svg": ("broken-fixture", "deep dive"),  # the failing server + the legend
     "permission.svg": ("fixture-build",),        # the fixture ask's command
     "balances.svg": ("$12.40", "OpenRouter"),    # the chip + the table row

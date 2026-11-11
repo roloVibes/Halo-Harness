@@ -73,3 +73,18 @@ def rows(cwd=None, state_dir=None) -> "list[dict]":
                 out.append({"key": f"packs.settings.{p.id}.{e['key']}", "pack": p.id, "title": str(e.get("title") or ""),
                             "help": str(e.get("help") or ""), "type": e["type"], "default": e.get("default")})
     return out
+
+
+def row_for(key: str, cwd=None, state_dir=None):
+    """The enabled pack's row whose key is `key` (`packs.settings.<id>.<key>`), or None (`halo config get/set`)."""
+    if not str(key or "").startswith("packs.settings."):
+        return None
+    return next((r for r in rows(cwd, state_dir) if r["key"] == key), None)
+
+
+def value_problem(row: dict, value) -> str:
+    """'' when `value` fits the row's type, else the one line `halo config set` prints."""
+    kind = row["type"]
+    ok = isinstance(value, TYPES[kind]) and not (kind != "boolean" and isinstance(value, bool))
+    word = {"integer": "an integer", "number": "a number", "boolean": "true or false"}.get(kind, "a string")
+    return "" if ok else f"{row['key']} is {word} (the {row['pack']} pack's row {row['title']!r}); {value!r} is not"

@@ -66,9 +66,10 @@ def test_the_catalog_and_fresh_values(ctx: Ctx):
     with _Env() as e:
         status, cat = e.call("GET", "settings/catalog")
         ctx.check(f"200, got {status}", status == 200)
-        # 3.3.16.1: Studio; 3.4.0.0 C: the Fleet group (and its rows) only while the fleet pack runs
+        # 3.3.16.1: Studio; 3.4.0.0 B2: Coach and improve left (From packs only with rows); C: the Fleet group (and its
+        # rows) only while the fleet pack runs
         ctx.check(f"the groups and every row, got {len(cat.get('rows', []))}", len(cat["rows"]) == len(shown()) < len(rows())
-                  and len(cat["groups"]) == 17 and not any(r["group"] == "fleet" for r in cat["rows"]))
+                  and len(cat["groups"]) == 16 and not any(r["group"] == "fleet" for r in cat["rows"]))
         fe = next(r for r in cat["rows"] if r["key"] == "fleet.enabled")
         ctx.check(f"a row's shape, got {fe}", fe["kind"] == "bool" and fe["default"] is True and fe["page"] == "Settings -> Remote"
                   and fe["effect"] == "next session" and fe["effect_words"] == "takes effect in the next session" and fe["help"])
@@ -105,7 +106,7 @@ def test_masked_values_never_leave(ctx: Ctx):
 def test_set_by_kind(ctx: Ctx):
     with _Env() as e:
         for key, value, want in (("fleet.enabled", False, False), ("fleet.hub.port", "7431", 7431), ("fleet.share", "full", "full"),
-                                 ("fleet.tags", ["gpu", "studio"], ["gpu", "studio"]), ("coach.probe.budget_factor", 2.5, 2.5),
+                                 ("fleet.tags", ["gpu", "studio"], ["gpu", "studio"]), ("supervise.replan_forecast", 2.5, 2.5),
                                  ("openai.dialect_overrides", '{"gpt-5": "responses"}', {"gpt-5": "responses"}),
                                  ("fleet.name", "  me@box  ", "me@box"), ("intro", "off", False)):
             status, got = e.call("POST", "settings/set", {"key": key, "value": value})

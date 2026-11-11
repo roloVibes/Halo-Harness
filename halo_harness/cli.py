@@ -283,9 +283,10 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
-        epilog="Commands: init, start, explain, studio, media, orchestra, work, team, teams, agents, roles, models, mcp, proxy, "
-               "config, doctor, update, stats, review, preflight, audit, improve, export, session, pack, "
-               "completion (run `halo <command> --help`; `halo init` opens Studio's Setup to set up a fresh box; `halo init --terminal` is the terminal wizard). "
+        epilog="Commands: init, explain, studio, media, orchestra, work, teams, agents, roles, models, mcp, proxy, "
+               "config, doctor, update, stats, review, preflight, audit, export, session, pack, "
+               "completion, and an enabled pack's own (coach, improve, start) (run `halo <command> --help`; `halo init` "
+               "opens Studio's Setup to set up a fresh box; `halo init --terminal` is the plain console setup). "
                "The GUI: `halo studio --mode agents` -- lineups and agent bios as a graph, their runs, what runs now; "
                "in the TUI, /studio and /roles. Design is a pack: halo pack install design.",
     )
@@ -493,10 +494,6 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "work-matrix":
         from halo_harness.work_matrix import cmd_work_matrix
         return cmd_work_matrix(argv[1:])
-    if argv and argv[0] == "coach":
-        # 3.1.3.0 R1: the post-run coach for a run of any kind: --model, --apply (one confirm), --undo.
-        from halo_harness.coach_cli import cmd_coach
-        return cmd_coach(argv[1:])
     if argv and argv[0] == "work":  # 3.1.2.0 R1: the units of any run as one table (docs/WORK.md)
         from halo_harness.work_cli import cmd_work
         return cmd_work(argv[1:])
@@ -549,9 +546,6 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "stats":
         from halo_harness.stats_cli import cmd_stats
         return cmd_stats(argv[1:])
-    if argv and argv[0] == "improve":
-        from halo_harness.improve_cli import cmd_improve
-        return cmd_improve(argv[1:])
     if argv and argv[0] == "export":
         from halo_harness.export_cli import cmd_export
         return cmd_export(argv[1:])

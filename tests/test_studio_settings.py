@@ -51,7 +51,7 @@ def test_alt8_opens_settings_with_nothing_over_it(ctx: Ctx):
 def test_every_group_page_lists_the_catalog_rows(ctx: Ctx):
     from halo_harness.settings_catalog import GROUPS, rows
     got = _got(ctx)
-    ctx.check(f"the rail is the catalog's groups in order, got {got.get('rail_groups')}", got.get("rail_groups") == [g for g, _ in GROUPS])
+    ctx.check(f"the rail is the catalog's groups in order, got {got.get('rail_groups')}", got.get("rail_groups") == [g for g, _ in GROUPS if g != "from_packs"])  # 3.4.0.0 B2: From packs only with rows
     pages = got.get("pages") or {}
     for gid, _title in GROUPS:
         want = [r.key for r in rows() if r.group == gid]

@@ -13,9 +13,9 @@ first and last line of each session, its usage lines, its Edit / Write
 calls, its error lines and failed sub-agents, its take-over records); the
 decisions answered from Studio, the hand-offs and every member harness come
 from the hub's journal (fleet/journal.py), which Studio's fleet watcher
-writes while it runs. 3.1.3.0 R1: this harness's `coach` rows, one per run
-the post-run coach read since then (orchestra/coach_record.py's runs.json:
-the run, its kind, its suggestions, how many are applied, the top card).
+writes while it runs. 3.1.3.0 R1 added this harness's `coach` rows; 3.4.0.0
+B2 moved the coach to the coach pack, so `coach` stays an empty list (the
+shape the readers know).
 """
 
 from __future__ import annotations
@@ -140,8 +140,6 @@ def compute(home, since: float, *, now: Optional[float] = None, local_id: Option
         b = buckets[local_id] = _bucket(local_id, local_name, True)
         for k, v in local(home, since, live_ids, now).items():
             b[k] = v
-        runs_since = _core.get("orchestra.coach_record", "runs_since")
-        b["coach"] = runs_since(since, home)
     for r in recent:
         hid = r.get("harness")
         if not hid:
@@ -202,11 +200,6 @@ def text(d: dict) -> str:
             lines.append(f"  hand-off {x.get('action')} {x.get('to') or ''} (by {x.get('by')})".rstrip())
         for x in [m for m in b["missions"] if m.get("kind") in ("mission_run", "mission_end")][-5:]:
             lines.append(f"  mission  {x.get('mission')} {x.get('state') or 'running'}" + (f": {x['reason']}" if x.get("reason") else ""))
-        for x in b.get("coach", [])[-5:]:
-            summary_line = _core.get("orchestra.coach_record", "summary_line")
-            lines.append(f"  coach    {x.get('kind')} {x.get('run')}: "
-                         + summary_line(int(x.get("n") or 0), int(x.get("applied") or 0), str(x.get("top") or ""),
-                                        str(x.get("probe") or ""))[7:])
         for x in b["errors"][-5:]:
             lines.append(f"  error    {x.get('text')}")
         if b["files"]:

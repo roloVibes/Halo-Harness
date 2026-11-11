@@ -98,7 +98,7 @@ def heuristic(goal, claims: list, root, cache: Optional[dict] = None) -> "tuple[
 
 
 def lane_model(job: dict, goal, cwd=None, state_dir=None) -> str:
-    from halo_harness.orchestra.coach_lane_facts import _bio_model, _role_model
+    from halo_harness.orchestra.lane_facts import _bio_model, _role_model
     g = goal if isinstance(goal, dict) else goal.to_dict()
     return str(job.get("model") or _bio_model(str(job.get("bio") or ""), cwd, state_dir)
                or _role_model(str(g.get("worker") or "subagent")) or "")
@@ -107,7 +107,7 @@ def lane_model(job: dict, goal, cwd=None, state_dir=None) -> str:
 def for_jobs(jobs: list, goal, root, *, rows: Optional[list] = None, state_dir=None) -> dict:
     """`{lanes, total, heuristic}` for `jobs` (split.json's shape) of `goal` in repo `root`."""
     if rows is None:
-        from halo_harness.orchestra.coach_prices import catalog
+        from halo_harness.orchestra.prices import catalog
         rows = catalog(state_dir)
     cache: dict = {}
     lanes = []

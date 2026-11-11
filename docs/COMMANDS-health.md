@@ -184,8 +184,9 @@ file, OpenRouter/Databricks/Experiential configuration, `claude`/
 `node`/`npx`/`rg`/Git Bash on PATH, the Chrome native-messaging host,
 plugin-provided MCP servers, the OS/WSL/Kali platform hint, `~/.local/bin` on
 PATH (Linux), tmux mouse mode (inside tmux), the three cached-catalog ages,
-session count + `/improve` config, clipboard backend, configured MCP servers
-(eager vs. lazy), the resolved default model, how many of the six
+session count, clipboard backend, configured MCP servers
+(eager vs. lazy), the resolved default model, and last (3.4.0.0) each enabled pack's own rows
+(`From packs, <id>: ...`, its `contributes.doctor`: the first-run and coach packs have one each), how many of the six
 providers are enabled (`databricks`/`openrouter`/`anthropic`/
 `huggingface`/`openai`/`experiential` -- see "`halo
 providers`" below), one `[WARN]` line per provider that left the core whose key or
@@ -229,7 +230,6 @@ halo doctor
   [WARN] OpenRouter: not configured (no OPENROUTER_API_KEY found) -> fix: halo init --preset home
   [WARN] Databricks: not configured (no host/token found) -> fix: halo init --preset work
   [OK] Sessions: 0 logged under ~/.halo/sessions; stats cache last written never
-  [OK] /improve: enabled=True hint=True model=(small/session model) since_days=7 max_candidates=8
   [OK] MCP servers: none configured
   [OK] Default model: not set in config.json -- built-in default 'or:deepseek/deepseek-v4.1-flash' applies (HALO_MODEL/routes.json still win when set)
   [OK] Providers: 0/6 enabled (none)

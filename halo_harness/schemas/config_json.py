@@ -37,14 +37,29 @@ def removed_key_line(key: str) -> str:
 #: 3.3.13.0 R3: keys whose feature left the core for a shipped pack -> (pack id, the pack's own key).
 MOVED_KEYS = {"remote.signal.enabled": ("signal", "on"), "remote.rate_per_minute": ("signal", "rate_per_minute"),
               "remote.verbosity": ("signal", "verbosity"), "remote.stale_window_s": ("signal", "stale_window_s"),
-              "remote.pair_code_ttl_s": ("signal", "pair_ttl_s")}
+              "remote.pair_code_ttl_s": ("signal", "pair_ttl_s"),
+              # 3.4.0.0 B2: the coach and /improve are the coach pack's (its rows under Settings -> From packs)
+              "coach.probe.k": ("coach", "probe.k"), "coach.probe.budget_factor": ("coach", "probe.budget_factor"),
+              "coach.library.cite": ("coach", "library.cite"), "improve.enabled": ("coach", "improve.enabled"),
+              "improve.model": ("coach", "improve.model"), "improve.since_days": ("coach", "improve.since_days"),
+              "improve.max_candidates": ("coach", "improve.max_candidates")}
+MOVED_IN = {"signal": "3.3.13.0", "coach": "3.4.0.0"}
+#: 3.4.0.0 B2: a top-level section whose feature is a shipped pack's now: ignored, one doctor line (`packed_line`).
+PACKED_SECTIONS = {"coach": "coach", "improve": "coach"}
 
 
 def moved_key_line(key: str) -> str:
     """The one line `halo config` and the doctor say for a key that moved to a pack."""
     pack, new = MOVED_KEYS[key]
-    return (f"{key} moved to the {pack} pack in 3.3.13.0: halo config set packs.settings.{pack}.{new} <value> "
-            f"(or Setup -> the {pack} pack's page)")
+    where = "Settings -> From packs" if pack == "coach" else f"Setup -> the {pack} pack's page"
+    return (f"{key} moved to the {pack} pack in {MOVED_IN[pack]}: halo config set packs.settings.{pack}.{new} <value> "
+            f"(or {where})")
+
+
+def packed_line(section: str) -> str:
+    pack = PACKED_SECTIONS[section]
+    return (f"{section}: the {pack} pack's since {MOVED_IN[pack]}, this section is ignored (its settings are "
+            f"packs.settings.{pack}.<key>, Settings -> From packs, while the pack is enabled)")
 
 
 _SCALARS = {
@@ -61,8 +76,7 @@ _SCALARS = {
     "effort": STRING,
 }
 
-# `coach`: probe.k, probe.budget_factor (3.1.6.0 R2), library.cite (3.1.6.0 R3: false turns the library's
-# citations off, orchestra/coach_citations.py); `models`: roster (3.1.9.0 R1: false keeps the model roster out
+# `coach` and `improve`: the coach pack's since 3.4.0.0 B2 (PACKED_SECTIONS); `models`: roster (3.1.9.0 R1: false keeps the model roster out
 # of the main agent's context, providers/roster.py)
 # `supervise` (3.1.8.0, supervise/settings.py): R2 adds replan none|auto|review, replan_forecast, replan_returns, replan_block_s, replan_stall_s, replan_cooldown_s, replan_max
 # `knowledge` (3.1.8.0 R4, knowledge/): write, brief, gate_keep (3.3.16.2); `recall`: sources (3.1.8.0 R4, knowledge/sources.py)
@@ -84,8 +98,8 @@ _SCALARS = {
 # agent/local_hop.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
 # agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
-_SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "copilot", "databricks", "embeddings", "experiential", "fleet",
-             "governor", "host", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
+_SECTIONS = ("agents", "clipboard", "comfy", "connectors", "copilot", "databricks", "embeddings", "experiential", "fleet",
+             "governor", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",
              "update", "voice", "workflows", "worktree")  # 3.3.9.0 R1: voice (stt_model, tts_model, device, tts_voice); R2: the loop's
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",

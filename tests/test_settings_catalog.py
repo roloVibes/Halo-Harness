@@ -78,9 +78,10 @@ def test_the_config_doc_table_and_the_catalog_hold_the_same_keys(ctx: Ctx):
 def test_every_row_is_complete(ctx: Ctx):
     from halo_harness.settings_catalog import EFFECTS, GROUP_TITLES, KINDS, groups, keyed_parts, rows
     rs = rows()
-    ctx.check(f"seventeen groups in the brief's order (3.3.16.1: Studio; 3.4.0.0 C: Fleet only with the fleet pack), got "
+    ctx.check(f"sixteen groups in the brief's order (3.3.16.1: Studio; 3.4.0.0 B2: Coach and improve left with the coach "
+              f"pack, From packs shows only while an enabled pack has rows; C: Fleet only with the fleet pack), got "
               f"{[g['id'] for g in groups()]}", [g["id"] for g in groups()] == [
-        "general", "studio", "agents", "coach", "knowledge", "supervise", "steer", "models", "providers", "ollama", "network",
+        "general", "studio", "agents", "knowledge", "supervise", "steer", "models", "providers", "ollama", "network",
         "remote", "packs", "connectors", "worktree", "update", "local"])
     ctx.check("every group holds a row", all(g["count"] > 0 for g in groups()))
     ctx.check("the keys are unique", len({r.key for r in rs}) == len(rs))

@@ -26,11 +26,23 @@ port silent 10 s, no marker): "Studio closed; run `halo` when you are ready.", e
 `HALO_INIT_NO_LAUNCH=1`) returns at once; it, `--yes` and the console flow end on "Start halo with `halo`; `halo studio`
 opens Studio beside it ...". `halo start`'s no-provider door and `halo setup <block>` open Setup and never wait.
 
-Setup is the wizard's steps as one page of forms ([STUDIO-setup.md](STUDIO-setup.md)). Everything below is the
-terminal wizard: `halo init --terminal`, or one of its own flags (`--step`, `--team`, `--no-live`), or no browser
-here (`HALO_NO_BROWSER`, `SSH_CONNECTION` / `SSH_TTY`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser
-that does not take the URL: Studio starts anyway, its URL is printed with `halo studio`'s port-forward line, then
-the wizard runs). `--provider`/`--yes` and a run with no terminal keep the console flow, unchanged.
+Setup is the wizard's steps as one page of forms ([STUDIO-setup.md](STUDIO-setup.md)).
+
+**The console setup (3.4.0.0).** The terminal wizard's screens left; Setup is Studio. `halo init --terminal`, and
+the fallback when no browser opens here (`HALO_NO_BROWSER`, `SSH_CONNECTION` / `SSH_TTY`, Linux with no `DISPLAY`
+/ `WAYLAND_DISPLAY`, or a browser that does not take the URL: Studio starts anyway and its URL is printed with
+`halo studio`'s port-forward line first), ask the essentials line by line on stdin and stdout, no Textual screen:
+a provider from a numbered list and its key (stored by the variable's NAME in Halo's env file, the writer Setup
+uses; a key never goes to config.json), the default model from a short numbered list of the catalog or typed as a
+ref, another provider or not, the permission mode, and whether to run `halo doctor` now. It ends on where the
+rest is (Studio's Setup: local models, theme, lineup, Linux fixes, checks, machines; its address and the
+port-forward line when a Studio runs) and the start line. `--team <path|url>` (a team.json preset: the
+Databricks host, the gateway preference, the roles, the default model) is applied there, as `--provider` /
+`--yes` and a run with no terminal always did. `halo init --step <page>` is `halo setup <page>`: Studio's Setup on
+that page (providers, local, model, permissions, theme, team, linux, check, machines), or the console way to do
+the same with `--terminal` or no browser. A role table from before lineups becomes the lineup `migrated` once,
+at the next interactive session or `halo init`. The sections below describe the terminal wizard as it was until
+3.4.0.0.
 
 One command that sets up a fresh box: **select a provider to set up**
 (Databricks, OpenRouter or the Anthropic API -- 1.0.1 hotfix 13 replaced the old home/work/claude "preset" naming a bundle
@@ -121,11 +133,12 @@ usage: halo init [-h] [--provider {databricks,openrouter,anthropic}]
 Set up halo. On a terminal it opens Halo Studio on its Setup section
 (providers, the default model, permissions, the terminal theme, the lineup,
 the checks) and waits: press Done on Setup's Summary and halo starts in this
-terminal (Ctrl+C stops waiting; --no-launch returns at once). --terminal runs
-the terminal wizard instead, and so does a box where no browser can open (SSH,
-no DISPLAY, HALO_NO_BROWSER); its Finish starts halo the same way.
---provider/--yes set a provider up without asking: its credentials, a default
-model, doctor, a live pong and the Linux setup fixes.
+terminal (Ctrl+C stops waiting; --no-launch returns at once). --terminal asks
+the essentials line by line here instead (a provider and its key, the default
+model, the permission mode, doctor), and so does a box where no browser can
+open (SSH, no DISPLAY, HALO_NO_BROWSER); it ends on the Studio address for the
+rest. --provider/--yes set a provider up without asking: its credentials, a
+default model, doctor, a live pong and the Linux setup fixes.
 
 options:
   -h, --help            show this help message and exit
@@ -142,29 +155,28 @@ options:
   --team PATH|URL       a team.json preset (host/default model/gateway
                         preference/DBU price -- never a token); overrides
                         .halo/team.json / ~/.halo/team.json
-  --step STEP           jump directly to one wizard step by key or 1-based
-                        number (e.g. --step agents), interactive only (the
-                        terminal wizard)
-  --terminal            run the terminal wizard instead of opening Setup in
-                        Studio (also what runs when no browser can open: SSH,
-                        no DISPLAY, HALO_NO_BROWSER)
-  --no-launch           open Setup and return at once (no wait for its Done,
-                        no halo started after the terminal wizard either;
+  --step STEP           open Studio's Setup on one page (providers, local, model,
+                        permissions, theme, team, linux, check, machines): the
+                        same as `halo setup <step>`
+  --terminal            ask the essentials line by line here instead of opening
+                        Setup in Studio (also what runs when no browser can
+                        open: SSH, no DISPLAY, HALO_NO_BROWSER)
+  --no-launch           open Setup and return at once (no wait for its Done;
                         HALO_INIT_NO_LAUNCH=1 does the same)
 ```
 
 | Flag | Reads/writes | Default |
 |---|---|---|
-| `--provider {databricks,openrouter,anthropic}` | repeatable; each runs its own credentials -> catalog/discovery -> default-model-pick -> live-pong path, in the order given, with no "set up another?" prompt between them | omitted -> the interactive provider picker (arrow keys on a real terminal, a numbered list otherwise), looping until you pick "Done" |
+| `--provider {databricks,openrouter,anthropic}` | repeatable; each runs its own credentials -> catalog/discovery -> default-model-pick -> live-pong path, in the order given, with no "set up another?" prompt between them | omitted -> the provider list (a numbered list; 3.4.0.0: no arrow-key picker), looping until you pick "Done" |
 | `--preset {home,work}` | **deprecated**: a one-line-noticed alias for `--provider openrouter\|databricks` respectively -- kept so existing scripts/docs using it verbatim keep working | -- |
 | `--model REF` | writes `~/.halo/config.json`'s `model` key, skipping that provider's own model picker entirely | the provider's own default (`or:deepseek/deepseek-v4.1-flash` / `dbx:databricks-deepseek-v4-1-flash` / `ant:sonnet`) |
 | `--yes` | -- | off (interactive prompts; also skips every provider's own model picker) |
 | `--no-live` | skips `models --refresh` and the live pong | off |
 | `--no-fixes` | skips the `rg`/PATH steps (Linux) | off |
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |
-| `--step STEP` | jumps the interactive wizard straight to one step, by its key (`team` -- `agents`/`roles` kept as aliases -- or any other step's own key) or 1-based number, skipping the Quick/Full setup choice -- interactive only (needs a real tty, `--yes` skips the wizard entirely); see [WIZARD.md](WIZARD.md) | omitted -> offers Quick/Full setup, then starts at step 1 |
-| `--terminal` | runs the terminal wizard (the Textual app this page describes) instead of opening Setup in Studio (3.3.0.0 R4) | off: a bare `halo init` on a terminal opens Studio on Setup |
-| `--no-launch` | opens Setup and returns at once: no wait for its Done, and no halo started after the terminal wizard's Finish either (3.3.3.0 R1); `HALO_INIT_NO_LAUNCH=1` does the same | off: `halo init` waits for Done (or the wizard's Finish) and starts halo |
+| `--step STEP` | opens Studio's Setup on that page, the same as `halo setup <step>` (3.4.0.0: the wizard's steps left; until then it jumped the terminal wizard to a step) | omitted -> the whole Setup |
+| `--terminal` | the console setup: the essentials line by line (3.4.0.0; the terminal wizard until then) instead of opening Setup in Studio (3.3.0.0 R4) | off: a bare `halo init` on a terminal opens Studio on Setup |
+| `--no-launch` | opens Setup and returns at once: no wait for its Done (3.3.3.0 R1); `HALO_INIT_NO_LAUNCH=1` does the same | off: `halo init` waits for Done and starts halo |
 
 `--provider ... --yes` (or the deprecated `--preset ... --yes`) is fully
 non-interactive whenever the needed value is already discoverable; when it

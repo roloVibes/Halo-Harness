@@ -197,6 +197,11 @@ repo. `--json` prints the rows. Read only; no model is called.
 
 ## `halo coach`
 
+**The coach pack's verb since 3.4.0.0** (`halo pack install coach`, then `halo pack enable coach --grant-all`;
+with the pack off it is one line that says so). Its settings are `packs.settings.coach.<key>` (Settings -> From
+packs), no longer the core keys `coach.*` / `improve.*`; [the pack's README](../halo_harness/templates/packs/coach/README.md).
+
+
 ```
 halo coach [RUN] [--json] [--repo DIR]           the post-run coach's card for a run of any kind
 halo coach [RUN] --model [--refresh]             the run's lead explains each card in one paragraph

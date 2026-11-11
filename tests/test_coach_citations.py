@@ -7,7 +7,7 @@ a scratch home (tests/helpers/coach_seed.py):
    text card's line and `[lib e-...]`), never for its own run, never once undone;
 2. another project's entry only when its EXPERIENCE.md ranks for the goal words
    (score >= 0.35, the `SEARCH` seam); at most three, newest first;
-3. `coach.library.cite: false` turns the citations off;
+3. `packs.settings.coach.library.cite: false` (coach.library.cite until 3.4.0.0) turns the citations off;
 4. the probe draft's prompt carries "What earlier runs like this learned";
 5. Studio: the coach GET carries `library`; `POST coach/library/<entry>/forget`.
 No model is ever called. Run: python -m tests.test_coach_citations
@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import tests.helpers.coach_names  # noqa: E402,F401  (3.4.0.0 B2: the coach pack's modules, old names)
 from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
 _fleet_pack.on()
 
@@ -121,7 +122,7 @@ def test_cite_false_turns_the_citations_off(ctx: Ctx):
     with Home() as h:
         _a, run_b, eid = _two_runs(h)
         ctx.check("cited by default", [e["id"] for e in L.matches(run_b, h.state)] == [eid])
-        set_config_value("coach.library.cite", False)
+        set_config_value("packs.settings.coach.library.cite", False)  # 3.4.0.0 B2: the coach pack's key
         res = _card(h, run_b)
         ctx.check(f"off: no library, no line, no hits, got {res.get('library')}", res["library"] == []
                   and res["library_line"] == "" and all(not s["library_hits"] for s in res["suggestions"]))

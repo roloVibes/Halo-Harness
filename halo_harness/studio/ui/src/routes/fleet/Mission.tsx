@@ -3,8 +3,8 @@
 // as a table, the same plan drawn on Agents -> Live where a part is dragged to
 // another machine: MissionPlan.tsx, agents/live/MissionParts.tsx), Running (parts by state
 // live, cost per harness, the merge queue, Stop: MissionRun.tsx) and Report
-// (MissionReport.tsx), and once it ended Coach (3.0.9.0 R3: the post-run
-// coach's cards, lib/coach). A mission opens on the face its state calls for; the
+// (MissionReport.tsx); 3.4.0.0 B2: the Coach face left with the coach pack (its Coach
+// panel in Agents). A mission opens on the face its state calls for; the
 // tabs switch. Compact face: the running mission's goal and its parts by
 // state, else "no mission". Store mstore.ts, loader mload.ts.
 import { useEffect } from "react";
@@ -14,18 +14,16 @@ import { Metric } from "../orchestra/bits";
 import { short } from "../orchestra/format";
 import { FINAL, LIVE, useMissions, usd, type Summary } from "./mstore";
 import { closeMission, openMission, setFace, shownFace, startMissions } from "./mload";
-import { MissionCoach } from "./MissionCoach";
 import { MissionPlan } from "./MissionPlan";
 import { MissionReport } from "./MissionReport";
 import { MissionRun } from "./MissionRun";
 import { MissionStart, PartStates } from "./MissionStart";
 import { MissionMeta } from "./PackCaps";
 
-const TABS: { id: "plan" | "run" | "report" | "coach"; label: string }[] = [
+const TABS: { id: "plan" | "run" | "report"; label: string }[] = [
   { id: "plan", label: "Plan" },
   { id: "run", label: "Running" },
   { id: "report", label: "Report" },
-  { id: "coach", label: "Coach" },
 ];
 
 function Head() {
@@ -42,7 +40,7 @@ function Head() {
         </button>
         <span className="spacer" />
         <div className="segmented fmi-tabs" role="tablist" aria-label="Mission view">
-          {TABS.filter((t) => (t.id === "coach" ? FINAL.includes(m.state) : t.id === "plan" || started || (t.id === "report" && m.state !== "drafted"))).map((t) => (
+          {TABS.filter((t) => t.id === "plan" || started || (t.id === "report" && m.state !== "drafted")).map((t) => (
             <button key={t.id} role="tab" aria-selected={face === t.id} className={face === t.id ? "on" : ""} onClick={() => setFace(t.id)} data-testid={`fleet-mission-tab-${t.id}`}>
               {t.label}
             </button>
@@ -82,7 +80,7 @@ export function MissionDetail() {
           <Head />
           <div className="fmi-body">
             {!loaded ? <div className="og-wait mono muted">{error || "reading the mission..."}</div>
-              : face === "run" ? <MissionRun /> : face === "report" ? <MissionReport /> : face === "coach" ? <MissionCoach /> : <MissionPlan />}
+              : face === "run" ? <MissionRun /> : face === "report" ? <MissionReport /> : <MissionPlan />}
           </div>
         </>
       )}

@@ -192,14 +192,6 @@ shows up here too, even though its own action also still fires -- both
 are useful signal. In `-p`, there are no keystrokes to show; prints a
 note saying so.
 
-### `/improve` `[TUI-only card review]`
-In `-p`, prints a note pointing at the real headless surface,
-`halo improve` (a *separate top-level subcommand* -- see
-`docs/COMMANDS.md` -- never this slash command, since `-p` sessions must
-never draft or write on their own). In the TUI, scans recent sessions,
-drafts candidates with one model call, and reviews them one `ImproveCard`
-at a time (see [Cards](SLASH-COMMANDS-keys.md#cards-and-their-keys)).
-
 ### `/intro` `[TUI-only]`
 Replays the 2.0.0 launch intro (the typewriter line a fresh interactive
 session shows above its first turn) -- a fresh `IntroLine` mounted at the
@@ -244,22 +236,12 @@ match is loose (`/explain lineups`, `/explain handoff`, `/explain orch`); an
 unknown word lists the closest ones, and bare `/explain` lists every word.
 Outside the TUI it prints the paragraph.
 
-### `/coach [run] [--model] [--apply ID [--yes]] [--probe [--k N] [--yes]] [--undo [ID]]`
-Halo 3.1.3.0: the post-run coach's card for a run of any kind (this
-folder's latest run when no run is named), the same text `halo coach`
-prints: each suggestion with its id, its why lines, what Apply writes, its
-applied / undone state and the lead's paragraph once asked. `--model` asks
-the run's lead for one paragraph per card (kept with the run; `--refresh`
-asks again). `/coach --apply ID` shows the confirm card (the file and the
-before -> after diff) and writes nothing; `/coach --apply ID --yes` writes
-it. `/coach --undo [ID]` puts the file of the last apply (or that apply)
-back when nothing changed it since. 3.1.6.0: `/coach --probe [--k N]` shows
-the probe's cost line ("probe: 2 runs, up to $X") and runs nothing; `/coach
---probe --yes` starts the probe on a thread and answers at once, and `/coach`
-shows its card first once it ends. 3.1.6.0: `/coach library [show|forget|fetch]
-...` is `halo coach library`; `/coach library forget <entry>` says what it
-would delete, and `--yes` deletes it. See `docs/ORCHESTRA.md` ("The coach",
-"Probes", "The library").
+`/coach` and `/improve` are the coach pack's slash commands (3.4.0.0; `halo pack install coach`, then `halo pack
+enable coach --grant-all`): `/coach [run] [--model] [--apply ID [--yes]] [--probe [--k N] [--yes]] [--undo [ID]]`
+prints the same card `halo coach` prints (`--apply` and `--probe` show the confirm card or the cost line first;
+the same command with `--yes` does it), `/coach library ...` is `halo coach library`, and `/improve` prints what
+`halo improve` prints (the TUI's card review left with the core). With the pack off each says in one line that
+the coach is a pack now. See the pack's README (`halo_harness/templates/packs/coach/README.md`).
 
 ## Custom commands and skills
 

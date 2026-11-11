@@ -35,7 +35,7 @@ BRIDGE_TEST_HOME=/tmp/demo-home halo config get model
 "or:deepseek/deepseek-v4.1-flash"
 ```
 
-A key may be dotted (`improve.model`) to read/write a nested value without disturbing its siblings; `halo config key=value`
+A key may be dotted (`fleet.hub.port`) to read/write a nested value without disturbing its siblings; `halo config key=value`
 (one argv token) is accepted as shorthand for `config set key value`. The value is parsed as JSON when possible (`true`,
 `123`, a quoted string), so non-string values round-trip too.
 
@@ -161,8 +161,7 @@ halo stats (/path/to/project, 0 session(s)):
 
 ## `halo improve`
 
-The headless surface for the same human-gated loop the TUI's `/improve`
-drives interactively -- clusters recent failures, drafts up to 8 candidate
+**The coach pack's verb since 3.4.0.0** ([its README](../halo_harness/templates/packs/coach/README.md); off: one line). The human-gated loop (`/improve` prints the same in a session; the TUI's card review left with the core) -- clusters recent failures, drafts up to 8 candidate
 memory/rule/skill files with one model call, and **never writes anything
 without `--apply`**.
 

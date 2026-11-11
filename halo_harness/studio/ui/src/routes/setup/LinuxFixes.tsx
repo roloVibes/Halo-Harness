@@ -21,7 +21,7 @@ export function LinuxFixesDetail() {
         <p className="su-lead muted" data-testid="setup-linux-none">nothing to fix on this box</p>
       ) : (
         <>
-          <p className="su-lead muted">This box is missing what halo's tools expect on Linux. Apply does what the terminal wizard's Linux step does:</p>
+          <p className="su-lead muted">This box is missing what halo's tools expect on Linux. Apply does both:</p>
           <ul className="su-fixes" data-testid="setup-linux-items">
             {items.map((i) => (
               <li key={i.id} className="mono" data-testid="setup-linux-item" data-id={i.id}>

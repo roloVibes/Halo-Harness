@@ -130,6 +130,106 @@ with what replaces it. A leftover of a removed feature is ignored, never an erro
   TROUBLESHOOTING, PACKS ("The first-run pack"), EXTENSION_API, ARCHITECTURE-modules(-two), GLOSSARY, WORK, MISSIONS,
   ORCHESTRA, ROLES, AGENTS and README say what left and where it went.
 
+### B2: the coach is a pack; the wizard is a console fallback
+
+The coach (its cards, probes, the improvement library and `/improve`) is the shipped `coach` pack, off unless you
+enable it; the supervisor, replanning and verified outcomes stay core. The terminal wizard's screens are gone: Setup is
+Studio's, and `halo init --terminal` (or no browser) is a plain console setup of the essentials. The pack contributions
+`contributes.doctor` and `contributes.settings` are wired in, and the extension API is 1.3.
+
+#### Removed
+
+- The coach's modules, moved into `halo_harness/templates/packs/coach/` (the pack replaces them): `orchestra/coach.py`,
+  `coach_apply.py`, `coach_ask.py`, `coach_citations.py`, `coach_compare.py`, `coach_compose.py`, `coach_experience.py`,
+  `coach_library.py`, `coach_library_share.py`, `coach_mission_rules.py`, `coach_orchestra_rules.py`, `coach_probe.py`,
+  `coach_probe_card.py`, `coach_probe_prompt.py`, `coach_probe_schema.py`, `coach_record.py`, `coach_rules.py`,
+  `probe_overlay.py`, `probe_runs.py` (-> engine/); `coach_cli.py`, `coach_library_cli.py`, `improve_cli.py` (-> cli/);
+  `improve/` (`__init__`, `apply`, `config`, `dismissed`, `draft`, `evidence` -> improve/); `studio/coach_api.py`,
+  `studio/coach_probe_job.py` (-> server/); `knowledge/writers.applied` (-> engine/knowledge_applied.py).
+- `improve/hint.py` and the once-a-session `/improve` hint (agent/loop.py `_maybe_yield_improve_hint`): no pack seam
+  for a session notification; the coach pack's doctor row says what `/improve` uses.
+- The TUI's `/improve` card review (tui/slash.py `_handle_improve` and its workers, tui/widgets/cards.py
+  `ImproveCard`): the pack's `/improve` prints what `halo improve` prints.
+- CLI verbs and slash commands from the core: `halo coach`, `halo improve`, `/coach`, `/improve` (the pack's now; one
+  line each with it off, halo_harness/left.py); `halo orchestra coach` and `halo fleet mission coach` hand over to the
+  pack's verb.
+- Config keys `coach.probe.k`, `coach.probe.budget_factor`, `coach.library.cite`, `improve.enabled`, `improve.hint`,
+  `improve.model`, `improve.since_days`, `improve.max_candidates`, `improve.hint_threshold.repairs`,
+  `.edit_failures`, `.loop_breaker`, and the config sections `coach` / `improve`: ignored with one line (`halo doctor
+  --config`; `halo config set` names the pack's key). The pack's seven rows are `packs.settings.coach.<key>`.
+- Settings rows: those eleven, and the group "Coach and improve" (-> Settings -> From packs while the pack is on).
+- Doctor row `improve` (the `/improve` config line) (-> the coach pack's doctor row).
+- The coach's lines in the core: the Orchestra report's `coach:` line (`orchestra/report.coach_line`), the mission
+  report's, and `halo fleet digest`'s coach rows (its `coach` list stays, empty).
+- Studio: the run report's Coach tab (`routes/orchestra/Coach.tsx`, `coachApply.ts`), the mission's Coach face
+  (`routes/fleet/MissionCoach.tsx`), the bio form's coach note (`routes/roles/CoachNote.tsx`, `coachHint`), the plan
+  canvas's coach staging (`plan/stage.ts stagePlan`), `lib/coach/` (CoachCards, ConfirmCard, LibraryFold, ProbeBar,
+  actions, probe, store, types) and `styles/coach.css`; the routes `/api/orchestra/<run>/coach`,
+  `/api/fleet/missions/<id>/coach`, `/api/coach/library/...` (-> the pack's Coach panel in Agents and
+  `/api/packs/coach/coach/...`).
+- The terminal wizard (Setup is Studio's; the console setup below replaces the terminal path):
+  `tui/dialogs/init_wizard.py`, `init_tabs.py`, `team_step.py`, `team_step_actions.py`, `summary_checks.py`,
+  `check_rows.py`, `step_rail.py`, `setup_mode.py`, `init_picker.py` (the arrow-key pickers), `ollama_found.py`,
+  `ollama_calibrate_offer.py`; `wizard_ux.py` keeps only the footer caption `/agents` uses; init_cli's
+  `_run_init_wizard_flow`, `_run_init_tabs`, `_launch_after_wizard`. `/agents` and `/teams` (their list and view
+  screens) stay.
+- `halo setup --terminal` and `/setup --terminal`'s screens (-> the console way, one line per page).
+- Captures: `docs/media/studio-orchestra-coach.png` (tools/capture_orchestra.py `coach_capture`) and the TUI gallery's
+  `team-step` scene (`docs/screenshots/team-step.svg`, scripts/screenshots.py, its tests/test_screenshots pin).
+- Tests: tests/test_improve_hint.py; the Chrome coach checks (tests/helpers/studio_coach.py, studio_ui_coach.py,
+  studio_coach_rig.py); test_h15_init_tabs, test_init_wizard_round7, test_ollama_discover_wizard,
+  test_ollama_tune_wizard, test_round2b_wizard_roles_fixes, test_round2c_wizard_ux, test_round_wizard_deep_review,
+  test_wizard_team_switch_sync; the wizard tests in test_review3_f2 (1), test_review3_t2 (3),
+  test_agents_teams_forms (2), test_explain_tui (1), test_hotfix_101_fix_init_preserve (3), test_auto_lineup (1),
+  test_setup_api (1), test_wizard_agents_bios (2), test_wizard_lineup (1), test_wizard_studio_doors (1); test_tui.py's
+  20 wizard and init-picker pilots and 3 ImproveCard / `/improve` pilots.
+
+#### Added
+
+- The shipped `coach` pack (`halo pack install coach`, `halo pack enable coach --grant-all`): `halo coach`, `halo
+  improve`, `/coach`, `/improve`, a Coach panel in Studio's Agents section (a finished run's cards, Ask, Apply after
+  its confirm card, Undo, Probe), seven Settings rows under From packs, one doctor row; `halo pack test coach` passes.
+- `contributes.settings` wired: an enabled pack's rows in Studio's Settings (group "From packs", shown only while a
+  pack has rows) and in `halo config get` (the default while unset) / `set` (its type checked, one line, exit 2).
+- `contributes.doctor` wired: an enabled, granted pack's rows last in `halo doctor` (`From packs, <id>: ...`).
+- Doctor rows for both shipped packs: first-run (ready to rehearse your lineup, or the provider / lineup missing) and
+  coach (what it keeps and uses, or the Studio grants its panel waits for).
+- The console setup: `halo init --terminal` and the no-browser fallback ask a provider (numbered) and its key (by NAME
+  in the env file), the default model (a short numbered list, or a typed ref), the permission mode and whether to run
+  doctor, then name where the rest is (Studio's Setup, its address and port-forward line when one runs).
+- `halo setup <page>` and `/setup <page>` for every Setup page (providers, local, model, permissions, theme, team,
+  linux, check, machines); `--terminal` or no browser prints the console way (setup_cli.CONSOLE); `halo init --step
+  <page>` is the same.
+- halo_harness/legacy_roles.py: a role table from before lineups becomes the lineup `migrated` once, at an interactive
+  session start and in `halo init`'s console setup (the wizard's lineup step did it until now).
+- Extension API 1.3 (`ext.compat.CHANGES["1.3"]`): `contributes.cli`, `.slash`, `.doctor`, `.settings` and `ext.core`,
+  all draft; the first-run and coach packs say `halo_api: {min: "1.3"}`.
+- Tests: test_pack_coach, test_packs_contrib_wired (fixture pack tests/fixtures/packs/contrib-rows), test_init_console,
+  tests/helpers/coach_pack.py (the moved coach tests run against the pack's modules); test_invariants'
+  `invariant_k` (no core module imports a shipped pack).
+
+#### Changed
+
+- `orchestra/coach_prices.py` -> `orchestra/prices.py` (+ `money`, `row_line`) and `orchestra/coach_lane_facts.py` ->
+  `orchestra/lane_facts.py`: the forecast, the outcomes records and the supervisor's replan prompt read them; they stay
+  core. `outcomes/records.path` keeps `<state>/coach/outcomes.jsonl`.
+- `ext.core.REACHABLE` adds the coach pack's door (the run folders, the writers, the probe's Orchestra runs, the fleet's
+  mission folders, /improve's session; outcomes through `outcomes.records` only) and drops `orchestra.coach`.
+- The guided first run's step 6 runs the coach pack's `halo coach <run> --json` while that pack is enabled, else one
+  line that the coach is a pack.
+- The fleet's `coach_library` command answers through the coach pack (`packs/contrib_cli.pack_call`), else one line.
+- Studio's Coach panel writes a card's change after its own confirm card; it no longer opens the bio form or the plan
+  canvas with the change staged.
+- `halo init`'s console prompts read stdin with `--terminal` even without a terminal (scripts can drive it).
+
+#### Docs
+
+- EXTENSION_API (1.3, the four contributions draft with their exact shapes and grants, "Changes in 1.x"), PACKS ("The
+  coach pack"), CONFIG (the From packs note; the coach rows out), COMMANDS-init (the console setup), COMMANDS-studio,
+  COMMANDS-sessions, COMMANDS-health, COMMANDS-fleet, SLASH-COMMANDS(-tui, -keys), ORCHESTRA and STUDIO-orchestra (the
+  coach is a pack), STUDIO-setup, WIZARD (a note: the screens left, the rules stay Studio's), GLOSSARY,
+  ARCHITECTURE-modules, README (Features and Documentation name the coach pack; no wizard).
+
 ### C: Fleet leaves the core
 
 The owner (2026-11-10): "Fleet doesn't really fit anymore ... it can be a pack." Halo's core is see, shape, mix, local,
@@ -199,6 +299,16 @@ tests/helpers/fleet_pack.py sets it and serves the moved modules under their old
 - Studio's fleet UI (routes/fleet/*, the Live fleet scope) is still compiled into the core bundle, gated on
   `fleet_pack`: a React section has no pack seam yet (a pack's Studio panel is plain DOM).
 - Federation R1's contracts (branch v3318/R1-contracts, its work record included) are left unmerged.
+
+#### With B2 (the coach pack)
+
+- A pack never imports another pack. The coach pack reaches missions and the hub through the core door
+  `packs.fleet_door` (in `ext.core.REACHABLE`): with the fleet pack off, `halo fleet mission coach` / `halo coach
+  mission` say the fleet pack's one line, Studio's `fleet/missions/<id>/coach` finds no mission, and `halo coach
+  library fetch` says the fleet's hub is the fleet pack's. The fleet pack reaches the coach through
+  `packs.contrib_cli` (`dispatch` for `halo fleet mission coach`, `pack_call` for the `coach_library` command): with
+  the coach pack off, one line naming the coach pack. `ext.core.REACHABLE` lists no `fleet.*` module (they are
+  `peers.*`, `live.*` or the fleet pack's now).
 
 ## [3.3.18.0] - unreleased
 

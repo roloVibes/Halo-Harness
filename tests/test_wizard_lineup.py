@@ -412,60 +412,6 @@ def test_lineup_view_t_key_probes_the_highlighted_assignment(ctx: Ctx):
     asyncio.run(body())
 
 
-@test
-def test_team_step_lineup_pane_applies_on_next_and_migrates_a_legacy_table(ctx: Ctx):
-    """Halo 2.0.5 round 2c (rule 11): the "Agents" step and "Roles and
-    lineup" step merged into one "Team" step -- its Lineups pane (left)
-    is what deliverable 3's "replaces the legacy-template editing in
-    RolesStep" became; a plain Next (footer, no separate "Use this
-    lineup" button any more) applies the highlighted lineup, same as
-    round 2b's own "a plain Next applies the visible pane" rule. The
-    migration this test also pins (2.0.4 round 4: "a legacy role table
-    still loads and saves as a lineup") now fires the instant the step's
-    Lineups pane is BUILT (every time Custom roles is on), not only on an
-    explicit apply -- there is no "Legacy roles" pane left to apply
-    FROM."""
-    from halo_harness.roles import configured_role_table
-    from halo_harness.theme import set_config_value
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from textual.widgets import OptionList
-
-    async def body():
-        with _Env():
-            set_config_value("model", "or:vendor/strong-model")
-            state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
-            app = InitWizardApp(state)
-            async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.15)
-                ctx.check(f"the step title says Team, got {state.title()}", "Team" in state.title())
-                lineup_list = app.screen.query_one("#wiz-team-lineups-list", OptionList)
-                ctx.check("the Lineups pane lists the shipped lineups by default", lineup_list.option_count > 0)
-                # 3.1.9.0 R2: row 0 (One model for everything) applies no lineup any more; a lineup row does
-                names = [str(lineup_list.get_option_at_index(i).id) for i in range(lineup_list.option_count)]
-                lineup_list.highlighted = names.index("balanced")
-                app.screen.action_do_next()  # the footer's plain Next -- no separate "Use" button any more
-                await pilot.pause(0.2)
-                ctx.check(f"a lineup apply note landed in state.written, got {state.written}",
-                          any("applied" in w for w in state.written))
-
-            # A fresh run with a hand-edited LEGACY role table and no
-            # "migrated" lineup yet -- same pinned behaviour test_tui.py's
-            # own round-4 tests already cover, re-verified here through
-            # the Team step's own Lineups pane.
-            set_config_value("roles.judge", "or:vendor/strong-model")
-            state2 = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
-            app2 = InitWizardApp(state2)
-            async with app2.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.15)
-                table = configured_role_table()
-                ctx.check(f"the legacy table is still a real role table, got {table}",
-                          table.get("judge") == "or:vendor/strong-model")
-                from halo_harness.teams_yaml import list_team_templates
-                ctx.check("opening the Team step alone already migrated it to a 'migrated' lineup",
-                          "migrated" in list_team_templates(include_templates=False))
-    asyncio.run(body())
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

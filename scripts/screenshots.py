@@ -4,8 +4,8 @@ Drives the REAL TUI with Textual pilots over fixture data only -- a
 scripted FakeController turn, fixture picker rows, fixture bios and the
 shipped team templates, a fake MCP server list, a fixture permission ask,
 fixture balances -- and saves one SVG per scene (120x36) under
-docs/screenshots/: launch, turn, picker, team-step, mcp, permission,
-balances. Deterministic by construction: fixed seed, a frozen clock in
+docs/screenshots/: launch, turn, picker, mcp, permission, balances (3.4.0.0 B2: team-step
+went with the terminal wizard). Deterministic by construction: fixed seed, a frozen clock in
 the widget modules (elapsed text is set through the same started_at /
 _refresh seams the tests use, never a real timer read), no network, no
 real keys, no real paths (the session cwd is the literal "~/project"),
@@ -151,14 +151,6 @@ async def _export(app, pilot, stage=None) -> str:
 from svgsize import sized_svg  # noqa: E402  (pure; scripts/ is on sys.path when this runs)
 
 
-async def _seed_bios() -> None:
-    """Ship the bundled team templates into the scratch home so the Team
-    step's Lineups pane renders real rows (the bios themselves are always
-    reachable -- the shipped templates dir is already on the search path)."""
-    from halo_harness.teams_yaml import ensure_builtin_team_templates
-    ensure_builtin_team_templates()
-
-
 async def scene_launch(out: Path) -> None:
     app = BridgeApp(FakeController(), cwd=CWD, show_intro=True)
     async with app.run_test(size=SIZE) as pilot:
@@ -225,23 +217,6 @@ async def scene_picker(out: Path) -> None:
     _write_svg(out / "picker.svg", await picker_svg())
 
 
-async def scene_team_step(out: Path) -> None:
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState, _resolve_start_index, full_step_keys
-    await _seed_bios()
-    # 3.2.1.0 R5: the same capture on every box -- a Linux box without rg on PATH adds the Linux-fixes step,
-    # which made the step rail read "of 8" and the committed SVG differ (tests/test_screenshots on WSL)
-    keys = tuple(k for k in full_step_keys() if k != "linux_fixes")
-    state = WizardState(cwd=os.environ["BRIDGE_TEST_HOME"], step_keys=keys,
-                        index=_resolve_start_index("team", keys), no_live=True)
-    app = InitWizardApp(state)
-    async with app.run_test(size=SIZE) as pilot:
-        await pilot.pause(0.3)
-        lineups = app.screen.query_one("#wiz-team-lineups-list")
-        lineups.highlighted = min(1, lineups.option_count - 1)  # a real lineup, so the preview shows its tree
-        await pilot.pause(0.2)
-        _write_svg(out / "team-step.svg", await _export(app, pilot))
-
-
 def mcp_fixture_servers() -> list:
     return [
         {"name": "fixture-stdio", "type": "stdio", "command": "fixture-server", "args": [],
@@ -296,7 +271,7 @@ async def scene_balances(out: Path) -> None:
         _write_svg(out / "balances.svg", await _export(app, pilot))
 
 
-SCENES = (scene_launch, scene_turn, scene_picker, scene_team_step, scene_mcp, scene_permission,
+SCENES = (scene_launch, scene_turn, scene_picker, scene_mcp, scene_permission,
           scene_balances)  # 3.3.13.0 R3: the /remote dialog went with the signal pack; its scene with it
 
 

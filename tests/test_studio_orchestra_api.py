@@ -245,41 +245,6 @@ def test_post_run_takes_the_lineups_acceptance(ctx: Ctx):
         R.cleanup(repo)
 
 
-@test
-def test_the_coach_route_reads_the_run_and_keeps_its_card(ctx: Ctx):
-    """3.0.9.0 R3: GET orchestra/<run>/coach -> the coach's result (orchestra/coach.py), computed once and kept in
-    <run>/coach.json; the R2 run's judged conflict (lane 5 with lane 4) is a structure card. 3.1.6.0 R2: POST .../probe
-    shows the cost line, then runs on a thread beside the console (feed frames, 409 while it runs), its card leads."""
-    repo, run_dir = R.finished_run()
-    try:
-        with R.Studio(repo) as s:
-            st, data = s.get(f"orchestra/{run_dir.name}/coach")
-            ctx.check(f"200 and the shape, got {st} {sorted(data)}", st == 200 and data["kind"] == "orchestra"
-                      and data["run"] == run_dir.name and data["cached"] is False and data["model"] is False)
-            ids = [x["id"] for x in data["suggestions"]]
-            ctx.check(f"the judged conflict, got {ids}", "structure-5-after-4" in ids)
-            ctx.check("kept in coach.json", (run_dir / "coach.json").is_file())
-            st, again = s.get(f"orchestra/{run_dir.name}/coach")
-            ctx.check("the second read is the kept card", st == 200 and again["cached"] is True
-                      and again["suggestions"] == data["suggestions"])
-            ctx.check("an unknown run is a 404", s.get("orchestra/nope/coach")[0] == 404)
-            ctx.check("POST is a 405", s.post(f"orchestra/{run_dir.name}/coach", {})[0] == 405)
-            from tests.helpers.coach_probe_rig import studio_probe  # 3.1.6.0 R2: POST <coach>/probe
-            got = studio_probe(s, run_dir)
-            ctx.check(f"probe: the cost line first, nothing run, got {got['cost']}", got["cost"][0] == 200 and got["nothing_ran"]
-                      and got["cost"][1]["estimate"]["line"].startswith("probe: 2 runs, up to $0.0345"))
-            ctx.check(f"confirm: 202 on a thread, a 409 while it runs, got {got['start']} {got['again'][0]} {got['live']}",
-                      got["start"][0] == 202 and got["again"][0] == 409 and got["live"] is True)
-            f = got["frame"] or {}
-            ctx.check(f"its step lines as orchestra_state frames naming no console run, got {f}", f.get("session_id") ==
-                      f"coach-probe:{run_dir.name}" and "run" not in (f.get("data") or {}) and got["done"] is not None)
-            card = got["coach"]["suggestions"][0]
-            ctx.check(f"the probe's card leads, one run listed, got {card['kind']} {got['coach']['probe']} {len(got['runs'])}",
-                      card["kind"] == "probe" and got["coach"]["probe"]["state"] == "done" and len(got["runs"]) == 1)
-    finally:
-        R.cleanup(repo)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -1,7 +1,7 @@
 """halo_harness.init_cli -- `halo init` (H12 brief Part A /
-RECOMMENDATIONS.md P0 #1): the whole first run in one command. Interactive
-by default (plain prompts via `rich`, or a small Textual list picker on a
-real terminal -- see `halo_harness.init_providers`/`tui/dialogs/init_picker.py`);
+RECOMMENDATIONS.md P0 #1): the whole first run in one command. On a terminal
+it opens Studio's Setup; `--terminal` (or no browser) is the console setup:
+plain line-by-line prompts (3.4.0.0 B2: the Textual wizard and pickers left);
 `--yes` accepts every default without prompting; `--provider ... --yes` is
 fully non-interactive whenever the needed value (a key/token) is already
 discoverable, and never BLOCKS even when it isn't (a piped/non-tty stdin is
@@ -53,7 +53,7 @@ def _non_interactive(args) -> bool:
     (`--preset ... --yes`) plus the standard "no tty means don't block"
     convention every other CLI here already follows (cli.py's own -p stdin
     handling)."""
-    return bool(args.yes) or not sys.stdin.isatty()
+    return bool(args.yes) or not (sys.stdin.isatty() or getattr(args, "terminal", False))  # 3.4.0.0 B2: --terminal asks
 
 
 def _prompt_secret(label: str) -> str:
@@ -176,12 +176,6 @@ def _step_select_provider(args, console: Console, *, header: str) -> Optional[st
     default_provider = detect_default_provider()
     rows = [(p, _provider_row_label(p, mark_default=(p == default_provider))) for p in PROVIDERS]
     rows.append(("done", "Done -- finish init"))
-    if sys.stdin.isatty() and sys.stdout.isatty() and not args.yes:
-        from halo_harness.tui.dialogs.init_picker import run_simple_picker
-        try:
-            return run_simple_picker(header, rows, initial_ref=default_provider)
-        except Exception as e:
-            console.print(f"   [WARN] interactive picker failed ({type(e).__name__}: {e}) -- falling back to a numbered list.")
     if _non_interactive(args):
         console.print(f"{header} {default_provider} (detected; pass --provider to choose explicitly)")
         return default_provider
@@ -504,10 +498,16 @@ def _print_work_catalog_summary(console: Console, model_raw: str) -> None:
 
 def _step_checks(args, console: Console, cwd: Path, *, provider: str = "", model_raw: str = "") -> "tuple[list, bool]":
     console.print("Checks:")
-    from halo_harness.doctor import run_checks
-    lines, ok = run_checks(cwd=cwd)
+    if getattr(args, "terminal", False) and not _non_interactive(args) and not _confirm(
+            args, console, "   Run halo doctor now (reads this box: env file, providers, PATH; no model call)?",
+            default=True):  # 3.4.0.0 B2: the console setup asks
+        console.print("   doctor: skipped (halo doctor runs it any time)")
+        lines, ok = [], True
+    else:
+        from halo_harness.doctor import run_checks
+        lines, ok = run_checks(cwd=cwd)
     from rich.markup import escape
-    for line in lines:
+    for line in lines:  # (none when the console setup skipped doctor)
         # Doctor lines carry paths and brackets; print them literally so a
         # `[/home/...]` in a path can never read as a rich closing tag.
         console.print(f"   {escape(line)}")
@@ -533,21 +533,9 @@ def _step_checks(args, console: Console, cwd: Path, *, provider: str = "", model
 # ---------------------------------------------------------------------------
 
 def _run_entry_picker(args, console: Console, entries: "list[dict]") -> "Optional[str]":
-    """The shared TTY-check/full-screen-picker/numbered-fallback dance for
-    ANY `model_display`-shaped entries list -- used by both the per-provider
-    default-model pick and the final cross-provider one (1.0.1 hotfix 13)."""
-    if sys.stdin.isatty() and sys.stdout.isatty():
-        try:
-            from halo_harness.tui.dialogs.init_picker import run_init_picker
-            return run_init_picker(entries)
-        except Exception as e:
-            console.print(f"   [WARN] interactive picker failed ({type(e).__name__}: {e}) -- falling back to a numbered list.")
-    # `--yes` is always checked by the CALLER before this is ever reached --
-    # a non-tty run still gets the numbered fallback (a piped stdin, e.g. a
-    # script/CI driving init non-interactively on purpose, can still answer
-    # it); `_prompt_plain` itself degrades an EOF/empty line to "keep the
-    # default" rather than blocking, so this never hangs a truly unattended
-    # run.
+    """The model pick for ANY `model_display`-shaped entries list (the per-provider default and the final
+    cross-provider one): a short numbered list read off one line (3.4.0.0 B2: the full-screen picker left with the
+    terminal wizard). `--yes` is checked by the caller; an EOF or an empty line keeps the default, never blocks."""
     return _numbered_model_pick(entries, console)
 
 
@@ -595,24 +583,32 @@ def _chat_capable_dbx_entries(state_dir) -> "list[dict]":
     return out
 
 
+PICK_ROWS = 15
+
+
 def _numbered_model_pick(entries: "list[dict]", console: Console) -> "Optional[str]":
     """The no-TTY fallback: a plain numbered list, one stdin line read for
     the choice -- `None` (keep whatever default is already chosen) on
     empty/invalid input or EOF, never blocks, never raises."""
     from halo_harness.model_display import ROW_HEADER, format_model_row
-    console.print("   Pick a default model (or press Enter to keep the current default):")
+    shown = entries[:PICK_ROWS]  # 3.4.0.0 B2: a short list; any other model is typed as its ref
+    console.print("   Pick a default model: a number, or type a model ref (Enter keeps the current default):")
     console.print(f"   {ROW_HEADER}")
-    for i, e in enumerate(entries, 1):
+    for i, e in enumerate(shown, 1):
         console.print(f"     {i}. {format_model_row(e)}")
+    if len(entries) > len(shown):
+        console.print(f"     ... and {len(entries) - len(shown)} more: type one's ref (halo models lists them)")
     raw = _prompt_plain("   choice")
     raw = (raw or "").strip()
     if not raw:
         return None
+    if ":" in raw:
+        return raw
     try:
         idx = int(raw)
     except ValueError:
         return None
-    return entries[idx - 1]["ref"] if 1 <= idx <= len(entries) else None
+    return shown[idx - 1]["ref"] if 1 <= idx <= len(shown) else None
 
 
 def _step_pick_model(args, console: Console, provider: str, model_ref_raw: str, *, write: bool = True) -> str:
@@ -711,9 +707,8 @@ _PERMISSION_MODE_ROWS = [
 
 
 def _step_pick_permission_mode(args, console: Console) -> str:
-    """1.0.1 hotfix 18.1: "Default permission mode" -- an arrow-key list
-    (same `run_simple_picker` widget the provider/model steps already use;
-    numbered fallback with no TTY), `auto` first and recommended since
+    """1.0.1 hotfix 18.1: "Default permission mode" -- a numbered list (3.4.0.0 B2: the arrow-key picker left
+    with the terminal wizard), `auto` first and recommended since
     that's what `halo` itself runs in day to day and `default`
     (Claude Code's own factory setting) is the one new users most often
     find confusing on their FIRST run. Writes the flat `permission_mode`
@@ -729,31 +724,7 @@ def _step_pick_permission_mode(args, console: Console) -> str:
         return v if isinstance(v, str) and v else None
 
     console.print("Default permission mode:")
-    if sys.stdin.isatty() and sys.stdout.isatty() and not args.yes:
-        from halo_harness.tui.dialogs.init_picker import run_simple_picker
-        try:
-            chosen = run_simple_picker("Default permission mode", _PERMISSION_MODE_ROWS, initial_ref="auto")
-        except Exception as e:
-            console.print(f"   [WARN] interactive picker failed ({type(e).__name__}: {e}) -- falling back to a numbered list.")
-            chosen = None
-        if chosen is None:
-            # 1.0.1 fixpass finding 9: Esc'd out of the picker (or it
-            # failed) -- nothing was actually CHOSEN this run. Keep
-            # whatever's already in config.json, and write NOTHING at all
-            # when there's nothing there yet, rather than forcing the
-            # literal string "default" -- config.json's permission_mode
-            # outranks settings.json's own defaultMode, so writing one here
-            # unasked silently shadowed it forever.
-            existing = _existing()
-            if existing:
-                console.print(f"   Default permission mode: {existing} (kept -- nothing chosen this run)")
-            else:
-                console.print("   not set (nothing chosen -- settings.json's own permissions.defaultMode, "
-                               "or the app's built-in default, applies)")
-            return existing or ""
-    elif _non_interactive(args):
-        # 1.0.1 fixpass finding 9: --yes / no tty is NOT "the user chose a
-        # value" either -- same rule as the Esc case just above.
+    if _non_interactive(args):  # 1.0.1 fixpass finding 9: --yes / no tty is NOT "the user chose a value": kept
         existing = _existing()
         if existing:
             console.print(f"   {existing} (non-interactive; kept the existing config.json value)")
@@ -969,10 +940,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Set up halo. On a terminal it opens Halo Studio on its Setup section (providers, the "
                      "default model, permissions, the terminal theme, the lineup, the checks) and waits: press Done on "
                      "Setup's Summary and halo starts in this terminal (Ctrl+C stops waiting; --no-launch returns at "
-                     "once). --terminal runs the terminal wizard instead, and so does a box where no browser can open "
-                     "(SSH, no DISPLAY, HALO_NO_BROWSER); its Finish starts halo the same way. --provider/--yes "
-                     "set a provider up without asking: its credentials, a default model, doctor, a live pong and "
-                     "the Linux setup fixes.",
+                     "once). --terminal asks the essentials line by line here instead (a provider and its key, the "
+                     "default model, the permission mode, doctor), and so does a box where no browser can open (SSH, "
+                     "no DISPLAY, HALO_NO_BROWSER); it ends on the Studio address for the rest. --provider/--yes set a "
+                     "provider up without asking: its credentials, a default model, doctor, a live pong and the Linux "
+                     "setup fixes.",
     )
     parser.add_argument("--provider", action="append", choices=list(PROVIDERS), default=None,
                          metavar="{databricks,openrouter,anthropic}",
@@ -987,21 +959,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--team", default=None, metavar="PATH|URL",
                          help="a team.json preset (host/default model/gateway preference/DBU price -- "
                               "never a token); overrides .halo/team.json / ~/.halo/team.json")
-    # Halo 2.0.5 round 2 (deliverable 1): "halo init --step agents reaches
-    # it directly like the other keys" -- a 1-based ordinal or the step's
-    # own key (`init_wizard._resolve_start_index` accepts either); only
-    # meaningful on a real terminal (the interactive wizard flow below).
+    # 3.4.0.0 B2: `--step` is `halo setup <step>`: Studio's Setup on that page (the console line where no browser opens)
     parser.add_argument("--step", default=None, metavar="STEP",
-                         help="jump directly to one wizard step by key or 1-based number (e.g. --step agents), "
-                              "interactive only (the terminal wizard)")
-    # 3.3.0.0 R4: `halo init` opens Studio's Setup; this keeps the terminal wizard.
+                         help="open Studio's Setup on one page (providers, local, model, permissions, theme, team, "
+                              "linux, check, machines): the same as `halo setup <step>`")
     parser.add_argument("--terminal", action="store_true",
-                         help="run the terminal wizard instead of opening Setup in Studio "
+                         help="ask the essentials line by line here instead of opening Setup in Studio "
                               "(also what runs when no browser can open: SSH, no DISPLAY, HALO_NO_BROWSER)")
-    # 3.3.3.0 R1: `halo init` waits for Setup's Done (or the terminal wizard's Finish) and starts halo; this returns.
+    # 3.3.3.0 R1: `halo init` waits for Setup's Done and starts halo; this returns.
     parser.add_argument("--no-launch", action="store_true",
-                         help="open Setup and return at once (no wait for its Done, no halo started after the "
-                              "terminal wizard either; HALO_INIT_NO_LAUNCH=1 does the same)")
+                         help="open Setup and return at once (no wait for its Done; HALO_INIT_NO_LAUNCH=1 does "
+                              "the same)")
     return parser
 
 
@@ -1048,137 +1016,35 @@ def _run_provider_setup(provider: str, args, console: Console, cwd: Path,
     return model_ref_raw, written, doctor_lines, pong_ok
 
 
-def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
-    """Halo 2.0.2 round 7: `cmd_init`'s own interactive entry point --
-    runs the ONE-APP wizard (`tui/dialogs/init_wizard.py`) covering every
-    step from Providers through Summary. Returns the process exit code
-    on success -- the wizard's OWN Summary step already printed doctor
-    lines/the written-files list/the "Run it from any directory" PATH
-    check ON SCREEN, so nothing is re-printed to the plain console here,
-    unlike the old tabs-then-console-steps flow this replaces. Returns
-    `None` only when the wizard app itself could not run at all (a
-    Textual import/runtime failure -- never a provider failure, which
-    the wizard's own Summary step reports instead), the same "interactive
-    picker failed -> fallback" shape every other picker in this file
-    already uses."""
-    try:
-        from halo_harness.tui.dialogs.init_wizard import run_init_wizard
-        step_arg = getattr(args, "step", None)
-        # `_resolve_start_index` wants a real `int` for the ordinal form
-        # (a bare numeric STRING, e.g. argparse's own "--step 7", fails
-        # both its `isinstance(start_step, int)` and `... in step_keys`
-        # checks and silently falls back to step 1) -- converted here,
-        # once, so the CLI flag accepts either spelling the brief shows
-        # ("--step agents" or a number) exactly like the function's own
-        # docstring already promises.
-        if isinstance(step_arg, str) and step_arg.strip().isdigit():
-            step_arg = int(step_arg.strip())
-        app = run_init_wizard(cwd=cwd, team=getattr(args, "team", None), no_live=args.no_live,
-                               start_step=step_arg)
-    except Exception as e:
-        console.print(f"[WARN] the setup wizard failed ({type(e).__name__}: {e}) -- "
-                       f"falling back to the one-provider-at-a-time picker.")
-        return None
-    for w in app.state.team_warnings:
-        console.print(f"   [WARN] {w}")
-    rc = 0 if (args.no_live or app.state.pong_ok) else 1
-    finished = bool(getattr(app.state, "finished", False)) and not getattr(app.state, "checks_cancel", False)
-    # 3.3.3.0 R1: the wizard's Finish starts halo here, as Setup's Done does (not after a quit, a cancel, a failed
-    # pong or a failed start; not with --no-launch / HALO_INIT_NO_LAUNCH=1; only on a terminal)
-    from halo_harness import init_wait
-    if rc == 0 and finished and _launch_after_wizard(args):
-        return init_wait.launch_halo(cwd, init_wait.studio_info(_state_dir_now()))
-    if rc == 0 and finished:  # 3.3.15.0 R6: nothing started here: the one line that says how both come up
-        _say(console, init_wait.FINAL_LINE)
-    return rc
-
-
-def _state_dir_now() -> Path:
-    from halo_harness.studio.setup_door import _state_dir
-    return _state_dir()
-
-
-def _launch_after_wizard(args) -> bool:
-    from halo_harness import init_wait
-    if not init_wait.wanted(args) or getattr(args, "yes", False):
-        return False
-    try:
-        return bool(sys.stdin.isatty() and sys.stdout.isatty())
-    except (AttributeError, OSError, ValueError):
-        return False
-
-
-def _run_init_tabs(args, console: Console, cwd: Path) -> "Optional[tuple]":
-    """No longer called from `cmd_init` (Halo 2.0.2 round 7: `_run_init_
-    wizard_flow` above replaces it on the interactive path) -- kept for
-    its own dedicated test coverage (`tests/test_h15_init_tabs.py`'s pure-
-    logic tests, `test_tui.py`'s own `InitTabsApp` pilot block) and as a
-    building block nothing else in this file still calls directly.
-
-    H15 Part A: runs the tabbed provider view; returns `(configured_
-    this_run, written, doctor_lines, picked_per_provider)` on success --
-    including an ordinary "nothing configured" close (Esc with nothing set
-    up still returns a real, empty result, never None) -- or None only
-    when the tabs app itself could not run at all (no real terminal after
-    all, a Textual import/runtime failure), the same "interactive picker
-    failed -> fallback" shape `_step_select_provider`/`_run_entry_picker`
-    already use elsewhere in this file.
-
-    1.0.1 part 2 fixpass finding 6: `--team`/`--no-live` are threaded into
-    the tabs app (`team`/`no_live`) -- before this fix, both flags were
-    silently ignored on the tabs path (the team host never prefilled, its
-    gateway/role preferences never applied, and `--no-live` never stopped
-    the tabs' own reachability probes/catalog fetches)."""
-    try:
-        from halo_harness.tui.dialogs.init_tabs import run_init_tabs
-        app = run_init_tabs(team=getattr(args, "team", None), no_live=args.no_live)
-    except Exception as e:
-        console.print(f"[WARN] tabbed provider setup failed ({type(e).__name__}: {e}) -- "
-                       f"falling back to the one-provider-at-a-time picker.")
-        return None
-    configured_this_run = list(app.configured_this_run)
-    written: list = list(getattr(app, "written", []) or [])
-    for w in getattr(app, "team_warnings", None) or []:
-        console.print(f"   [WARN] {w}")
-    picked_per_provider: "dict[str, str]" = {}
-    for provider in configured_this_run:
-        if provider not in PROVIDERS:
-            # 1.0.1 part 2 fixpass finding 5: a tab provider (TAB_PROVIDERS has it,
-            # PROVIDERS does not -- no default-model concept on this path,
-            # see init_providers.py's own TAB_PROVIDERS docstring) --
-            # `PROVIDER_LABEL`/`PROVIDER_DEFAULT_MODEL` have no entry for it
-            # at all, so indexing either raised a KeyError here, skipping
-            # every step after it (default-model/permission-mode/summary).
-            continue
-        console.print(f"[bold]{PROVIDER_LABEL[provider].split(' -- ', 1)[0]}[/bold] -- configured via its tab")
-        note = app.catalog_notes.get(provider)
-        if note:
-            console.print(f"   catalog: {note}")
-        # write=True (matching `_run_provider_setup`'s own `write_model=
-        # True` in the sequential flow): with exactly one provider
-        # configured this IS the real default, and `_step_finalize_
-        # default_model`'s own "only one provider" branch does NOT write
-        # again (it assumes a per-provider step already did, same as the
-        # sequential flow guarantees) -- a second configured provider's
-        # pick below simply overwrites config.json again, then `_step_
-        # finalize_default_model`'s own cross-provider pick corrects it.
-        picked_per_provider[provider], model_path = _step_default_model(provider, args, console, write=True)
-        if model_path:
-            written.append(str(model_path))
-    doctor_lines, _ok = _step_checks(args, console, cwd)
-    return configured_this_run, written, doctor_lines, picked_per_provider
+def _studio_line(console: Console, *, printed: bool) -> None:
+    """3.4.0.0 B2: the console setup ends on where the rest is: Studio's Setup (local models, the theme, the lineup,
+    the Linux fixes, the checks, the machines). A Studio already running for this home gives its address and the
+    port-forward line; none: how to start one (it prints both). `printed`: the door already printed the address."""
+    from halo_harness.studio import launch
+    from halo_harness.studio.setup_door import _state_dir, forward_hint
+    url = "" if printed else (launch.existing_url(_state_dir(), "setup", "setup") or "")
+    if url:
+        _say(console, f"The rest (local models, theme, lineup, Linux fixes, checks, machines) is in Studio's Setup: {url}")
+        if forward_hint(url):
+            _say(console, forward_hint(url))
+    elif not printed:
+        _say(console, "The rest (local models, theme, lineup, Linux fixes, checks, machines) is in Studio's Setup: "
+                      "halo studio --mode setup starts it and prints its address (over SSH, with the port-forward line).")
+    else:
+        _say(console, "The rest (local models, theme, lineup, Linux fixes, checks, machines) is in Studio's Setup "
+                      "at the address above.")
 
 
 def _open_setup_in_studio(args, console: Console, cwd: Path) -> bool:
     """3.3.0.0 R4: bare `halo init` on a terminal starts or reuses Studio and opens it on Setup
-    (`?mode=setup&first=1`), prints one line and is done: True. False runs the terminal wizard: `--terminal`,
-    or a flag only the wizard honours (`--step`, `--team`, `--no-live`), or no browser could open here (the URL
+    (`?mode=setup&first=1`), prints one line and is done: True. False runs the console setup (3.4.0.0 B2):
+    `--terminal`, or a flag only the console honours (`--team`, `--no-live`), or no browser could open here (the URL
     and the port-forward hint are printed first: studio/setup_door.py)."""
-    if args.terminal or args.step or args.team or args.no_live:
+    if args.terminal or args.team or args.no_live:
         return False
     from halo_harness import init_wait
     from halo_harness.studio.setup_door import SetupTarget, cli_door
-    return cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="wizard", cwd=cwd,
+    return cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="setup", cwd=cwd,
                     say=lambda line: _say(console, line), wait=init_wait.wanted(args))
 
 
@@ -1200,6 +1066,9 @@ def _wait_for_setup_done(args, console: Console, cwd: Path) -> int:
 def cmd_init(argv: list) -> int:
     args = _build_parser().parse_args(argv)
     console = Console()
+    if args.step:  # 3.4.0.0 B2: `halo init --step X` is `halo setup X`
+        from halo_harness.setup_cli import cmd_setup
+        return cmd_setup([args.step] + (["--terminal"] if args.terminal else []))
 
     from halo_harness.providers.config import load_env_file
     load_env_file(_env_file_path())
@@ -1227,26 +1096,18 @@ def cmd_init(argv: list) -> int:
         console.print("[red]--provider needs at least one value.[/red]")
         return 2
 
-    # Halo 2.0.2 round 7: the ONE-APP init wizard (providers through
-    # summary, Back/Skip/Next/Finish buttons -- owner 2026-10-03: "I have
-    # to press esc then it exits then brings up the next section ...
-    # there should be a button you select to move it forward") replaces
-    # the old tabs-app-then-plain-console-steps flow on a REAL terminal --
-    # same TTY gate every other interactive picker in this file already
-    # used for that flow (item 2/5/13's own convention), so a piped/
-    # non-tty run (every existing test, any script) is byte-for-byte
-    # unaffected and keeps using the sequential loop + numbered fallback
-    # exactly as before this round.
+    # 3.3.0.0 R4: on a terminal `halo init` opens Studio's Setup; 3.4.0.0 B2: where it cannot (or with --terminal) the
+    # console setup below asks the essentials line by line -- the same loop a piped run (every test, any script) takes.
+    door_printed = False
     if interactive_loop and sys.stdin.isatty() and sys.stdout.isatty() and not args.yes:
         if _open_setup_in_studio(args, console, cwd):  # 3.3.0.0 R4: Setup in Studio is the door
             return _wait_for_setup_done(args, console, cwd)  # 3.3.3.0 R1: its Done starts halo here
-        wizard_rc = _run_init_wizard_flow(args, console, cwd)
-        if wizard_rc is not None:
-            return wizard_rc
-        # The wizard app failed to run at all (not a provider failure --
-        # see _run_init_wizard_flow's own docstring) -- fall through to
-        # the sequential loop below, same "picker failed -> fallback"
-        # shape every OTHER interactive picker in this file already uses.
+        door_printed = not args.terminal and not args.team and not args.no_live
+        args.terminal = True  # 3.4.0.0 B2: the fallback is the console setup, the same as --terminal
+    from halo_harness.legacy_roles import migrate_on_start  # 3.4.0.0 B2: the wizard's lineup step did this
+    migrated = migrate_on_start(cwd)
+    if migrated:
+        _say(console, migrated)
 
     if interactive_loop:
         while True:
@@ -1268,8 +1129,8 @@ def cmd_init(argv: list) -> int:
             pong_ok = prov_pong_ok
             configured_this_run.append(choice)
             picked_per_provider[choice] = model_ref_raw
-            if args.yes or not sys.stdin.isatty():
-                break  # never loop in a non-interactive run
+            if _non_interactive(args):
+                break  # never loop in a non-interactive run (3.4.0.0 B2: --terminal asks)
             if not _confirm(args, console, "Set up another provider?", default=False):
                 break
     else:
@@ -1296,6 +1157,8 @@ def cmd_init(argv: list) -> int:
     if not args.no_live and not pong_ok:
         return 1
     # 3.4.0.0 B: no guided-first-run offer here (it is the first-run pack's `halo start`)
+    if interactive_loop:
+        _studio_line(console, printed=door_printed)  # 3.4.0.0 B2: the console setup ends on where the rest is
     from halo_harness.init_wait import FINAL_LINE  # 3.3.15.0 R6: the console flow starts nothing
     _say(console, FINAL_LINE)
     return 0

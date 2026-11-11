@@ -23,6 +23,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+import tests.helpers.coach_names  # noqa: E402,F401  (3.4.0.0 B2: the coach pack's modules, old names)
 GROUPS = [["add_item", "remove_item"], ["subtotal", "apply_discount", "total"]]
 COST = {"invariant": 0.001, "domain": 0.003}
 
@@ -53,7 +54,7 @@ def fake_adapters(log: list, cost: "dict | None" = None, hold=None):
     return make
 
 
-def studio_probe(s, run_dir) -> dict:
+def studio_probe(s, run_dir, prefix: str = "packs/coach/coach/") -> dict:
     """POST orchestra/<run>/coach/probe on a Studio (tests/helpers/orchestra_studio_rig.Studio) with the fakes: the cost
     line, the start, a frame, a 409 while the workers are held, the end; what each answered."""
     import threading
@@ -65,18 +66,18 @@ def studio_probe(s, run_dir) -> dict:
     probe_runs.ADAPTERS, os.environ["HALO_COACH_FAKE"] = fake_adapters(log, hold=hold), "1"
     rd = Reader(f"{s.base}/api/events?t={s.srv.token}&sessions=all")
     try:
-        out["cost"] = s.post(f"orchestra/{rid}/coach/probe", {})
+        out["cost"] = s.post(f"{prefix}orchestra/{rid}/coach/probe", {})
         out["nothing_ran"] = not (run_dir / "probe.json").exists()
-        out["start"] = s.post(f"orchestra/{rid}/coach/probe", {"confirm": True})
+        out["start"] = s.post(f"{prefix}orchestra/{rid}/coach/probe", {"confirm": True})
         out["frame"] = rd.wait(lambda k, f: k == "orchestra_state" and (f.get("data") or {}).get("probe_of") == rid, 10)
-        out["again"] = s.post(f"orchestra/{rid}/coach/probe", {"confirm": True})
-        out["live"] = (s.get(f"orchestra/{rid}/coach")[1].get("probe") or {}).get("live")
+        out["again"] = s.post(f"{prefix}orchestra/{rid}/coach/probe", {"confirm": True})
+        out["live"] = (s.get(f"{prefix}orchestra/{rid}/coach")[1].get("probe") or {}).get("live")
         hold.set()
         end = time.monotonic() + 90
         while coach_probe.live(run_dir) and time.monotonic() < end:
             time.sleep(0.1)
         out["done"] = rd.wait(lambda k, f: (f.get("data") or {}).get("probe_of") == rid and f["data"].get("step") == "done", 10)
-        out["coach"], out["runs"] = s.get(f"orchestra/{rid}/coach")[1], s.get("orchestra/runs")[1]
+        out["coach"], out["runs"] = s.get(f"{prefix}orchestra/{rid}/coach")[1], s.get("orchestra/runs")[1]
     finally:
         hold.set()
         rd.close()

@@ -192,10 +192,11 @@ def run(handle, msg: dict, pol: dict, interim: Optional[Callable] = None) -> dic
             return {"state": "done", "result": _read(handle, cmd, pol["share"], fields)}
         if cmd in protocol.RECALL_CMDS:  # 3.1.2.0 R3: this box's own index answers; only the hits leave it
             recall_fleet = _core.module("recall_fleet")
-            coach_library_share = _core.module("orchestra.coach_library_share")  # 3.1.6.0 R3: one entry of the coach library
+            pack_call = _core.get("packs.contrib_cli", "pack_call")  # 3.1.6.0 R3 coach_library: the coach pack's (B2)
             try:
                 from . import knowledge_share  # 3.1.8.0 R4: findings and decisions
-                answer = {"recall": recall_fleet.answer, "knowledge": knowledge_share.answer}.get(cmd, coach_library_share.answer)
+                answer = {"recall": recall_fleet.answer, "knowledge": knowledge_share.answer}.get(cmd) or \
+                    pack_call("coach", "engine/coach_library_share.py", "answer", error=recall_fleet.Shut)
                 return {"state": "done", "result": answer(fields, by=by, hub=hub)}
             except recall_fleet.Shut as e:
                 raise Refused(str(e)) from None

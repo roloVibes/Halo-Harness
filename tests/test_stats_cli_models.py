@@ -106,20 +106,19 @@ def test_stats_bare_default_unchanged_by_new_flags(ctx: Ctx):
 def test_improve_config_dotted_keys_roundtrip(ctx: Ctx):
     home = Path(tempfile.mkdtemp(prefix="improve-cfg-home-"))
     cwd = Path(tempfile.mkdtemp(prefix="improve-cfg-cwd-"))
-    r1 = _run(["config", "set", "improve.model", "or:deepseek/deepseek-v4-flash"], home, cwd)
+    r1 = _run(["config", "set", key := "packs.settings.coach.improve.model", "or:deepseek/deepseek-v4-flash"], home, cwd)  # 3.4.0.0 B2
     ctx.check(f"config set exit 0, got {r1.returncode}, stderr={r1.stderr!r}", r1.returncode == 0)
-    r2 = _run(["config", "get", "improve.model"], home, cwd)
+    r2 = _run(["config", "get", key], home, cwd)
     ctx.check(f"config get exit 0, got {r2.returncode}", r2.returncode == 0)
     ctx.check(f"round-trips, got {r2.stdout!r}", json.loads(r2.stdout) == "or:deepseek/deepseek-v4-flash")
     # A sibling key set afterward must not disturb the first.
-    r3 = _run(["config", "set", "improve.hint", "false"], home, cwd)
+    r3 = _run(["config", "set", "packs.settings.coach.improve.enabled", "false"], home, cwd)
     ctx.check(f"exit 0, got {r3.returncode}", r3.returncode == 0)
-    r4 = _run(["config", "get", "improve.model"], home, cwd)
-    ctx.check("sibling set left improve.model untouched", json.loads(r4.stdout) == "or:deepseek/deepseek-v4-flash")
+    r4 = _run(["config", "get", key], home, cwd)
+    ctx.check("sibling set left the model untouched", json.loads(r4.stdout) == "or:deepseek/deepseek-v4-flash")
     data = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))
-    ctx.check("stored as a real nested dict, not a flat 'improve.model' key",
-              isinstance(data.get("improve"), dict) and data["improve"].get("model") == "or:deepseek/deepseek-v4-flash"
-              and data["improve"].get("hint") is False)
+    imp = (((data.get("packs") or {}).get("settings") or {}).get("coach") or {}).get("improve") or {}
+    ctx.check("stored as a real nested dict", imp.get("model") == "or:deepseek/deepseek-v4-flash" and imp.get("enabled") is False)
 
 
 @test
@@ -127,12 +126,13 @@ def test_doctor_shows_sessions_cache_age_and_improve_config(ctx: Ctx):
     home = _home_with_fixtures()
     cwd = Path(tempfile.mkdtemp(prefix="doctor-improve-cwd-"))
     result = _run(["doctor"], home, cwd)
-    ctx.check(f"exit code is 0 or 1 (WARN lines are fine, no crash), got {result.returncode}",
-              result.returncode in (0, 1))
+    ctx.check(f"exit code is 0 or 1 (WARN lines are fine, no crash), got {result.returncode}", result.returncode in (0, 1))
     ctx.check("no traceback", "Traceback" not in result.stderr)
-    ctx.check("mentions Sessions", "Sessions:" in result.stdout)
-    ctx.check("mentions /improve config", "/improve:" in result.stdout)
-    ctx.check("mentions enabled=", "enabled=" in result.stdout)
+    ctx.check("Sessions; no /improve line with the coach pack off", "Sessions:" in result.stdout and "/improve" not in result.stdout)
+    _ = [_run(a, home, cwd, timeout=60) for a in (["pack", "install", str(REPO_DIR / "halo_harness/templates/packs/coach"),
+                                                     "--link"], ["pack", "enable", "coach", "--grant-all"])]  # B2: the pack's row
+    row = next((ln for ln in _run(["doctor"], home, cwd).stdout.splitlines() if "From packs, coach:" in ln), "")
+    ctx.check(f"the coach pack's row names /improve's model, got {row!r}", row.strip().startswith("[OK]") and "/improve drafts with" in row)
 
 
 def _fake_model_row(model="or:test/model", **overrides) -> dict:

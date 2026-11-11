@@ -222,6 +222,10 @@ STATE_RESETS = (
     ("halo_harness.providers.ollama", "reset_catalog_cache", "the per-url Ollama catalog (TTL + last good entry)"),
     ("halo_harness.providers.huggingface_local_resolve", "reset_local_probe_cache", "the per-url context-length readback (30 s)"),
     ("halo_harness.providers.huggingface_local_probe", "reset_auto_detect_cache", "the auto-detected local servers by probed port (60 s)"),
+    # 3.4.0.0 (the B2 + C merge moved shard neighbours): a fake runner's GPU kept for the TTL answered the next module's
+    # "no GPU" runner (test_providers_ollama_panel after test_local_fit's cards)
+    ("halo_harness.providers.ollama_hw", "reset_local_gpu_cache", "this machine's GPU reading(s), one TTL slot"),
+    ("halo_harness.providers.ollama_hw", "reset_ssh_gpu_cache", "a host's GPU over ssh, per user@host, one TTL slot"),
 )
 
 

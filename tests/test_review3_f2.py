@@ -150,26 +150,6 @@ def test_item84_library_callers_still_get_the_exception(ctx: Ctx):
             ctx.check("set_config_value still raises", False)
 
 
-@test
-def test_item84_the_wizard_step_shows_a_notice_instead_of_crashing(ctx: Ctx):
-    from halo_harness.theme import CorruptConfigError
-    from halo_harness.tui.dialogs.init_wizard import StepScreen
-
-    class _App:
-        notes: list = []
-
-        def notify(self, msg, **kw):
-            self.notes.append(msg)
-
-    class _Step:
-        app = _App()
-
-        def commit(self):
-            raise CorruptConfigError("config.json is not valid JSON")
-    ok = StepScreen._commit_or_notify(_Step())
-    ctx.check("commit failure is reported, not raised", ok is False and _Step.app.notes == ["config.json is not valid JSON"])
-
-
 # ---- item 85 ------------------------------------------------------------------
 
 @test

@@ -812,15 +812,6 @@ def _cmd_voice(args: str, facade: HeadlessFacade) -> str:
             "a running one; halo voice --input-file <wav> drives one turn from a file.")
 
 
-def _cmd_improve(args: str, facade: HeadlessFacade) -> str:
-    """H10 Part B5: `-p "/improve"` NEVER drafts or writes -- it needs the
-    interactive TUI's card review (`a`/`e`/`s`/`d`/`q`); a real `-p`
-    invocation points at the real headless surface instead
-    (`halo improve [--json] [--apply ...]`, a separate top-level
-    subcommand, never this slash command)."""
-    return "Improve review needs the interactive TUI. Use `halo improve` for the headless surface."
-
-
 def _cmd_resume(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.agent import sessions as agent_sessions
 
@@ -1222,18 +1213,15 @@ def _cmd_role(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_setup(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.2 round 7: `/setup [roles]` -- the guided setup
-    SCREEN only exists in the TUI (`tui/slash.py::_handle_setup`
-    intercepts this first, same split as `/roles edit`); this
-    headless fallback (a bare `-p "/setup"`, or a custom command/skill
-    that happens to invoke it) just names the real surfaces instead of
-    half-implementing a form with no screen to draw it on."""
-    sub = (args or "").strip().lower()
-    if sub in ("roles", "team"):
-        return (f"/setup {sub} opens Studio's Setup on its Team block from the TUI -- use `halo setup {sub}` from the CLI "
-                f"(`halo setup {sub} --terminal` for the terminal screen).")
-    return ("/setup opens Studio's Setup from the TUI -- use `halo setup` from the CLI "
-            "(`halo setup --terminal` for the terminal screen), or `/roles` here.")
+    """`/setup [<page>] [--terminal]`: the TUI opens Studio's Setup on that page (tui/slash.py `_handle_setup`); here
+    (print mode, or a command that invokes it) the console way to do the same (3.4.0.0 B2: setup_cli.console_lines)."""
+    from halo_harness.setup_cli import CONSOLE, console_lines
+    from halo_harness.studio.setup_door import ALIASES
+    words = [w for w in (args or "").strip().lower().split() if w != "--terminal"]
+    page = ALIASES.get(words[0], words[0]) if words else ""
+    if page not in CONSOLE:
+        return f"/setup: unknown page {page!r} (known: {', '.join(p for p in CONSOLE if p)}; roles = team)"
+    return "\n".join(console_lines(page) + [f"In Studio: halo setup {page}".rstrip()])
 
 
 def _cmd_providers(args: str, facade: HeadlessFacade) -> str:
@@ -1627,39 +1615,6 @@ def _cmd_orchestra(args: str, facade: HeadlessFacade) -> str:
     return panel_text(run_finder(cwd, (args or "").strip() or None)())
 
 
-def _cmd_coach(args: str, facade: HeadlessFacade) -> str:
-    """Halo 3.1.3.0 R1: the post-run coach's card for a run of any kind (`halo
-    coach` with the same flags: --model, --refresh, --apply ID --yes, --undo).
-    3.1.6.0 R2: `--probe [--k N]` shows the cost line; `--probe --yes` starts the
-    probe on a thread and answers at once (`/coach` shows its card when it ends)."""
-    import contextlib
-    import io
-    import shlex
-    from halo_harness.coach_cli import cmd_coach
-    try:
-        argv = shlex.split(args or "")
-    except ValueError as e:
-        return f"/coach: {e}"
-    library = argv[:1] == ["library"]  # 3.1.6.0 R3: `halo coach library` (no run, no --repo)
-    if library and argv[1:2] == ["forget"] and "--yes" not in argv:
-        return f"/coach {' '.join(argv)}: nothing deleted yet; add --yes to delete the entry's folder"
-    if ("--apply" in argv or "--probe" in argv) and "--yes" not in argv:
-        argv.append("--preview")  # no y/N prompt here: the confirm card (or the cost line), then `... --yes` does it
-    elif "--probe" in argv:
-        argv.append("--background")
-    out, err = io.StringIO(), io.StringIO()
-    session = getattr(facade, "session", None)
-    cwd = getattr(session, "cwd", None) or getattr(facade, "cwd", None)
-    if cwd and "--repo" not in argv and "--undo" not in argv and not library:
-        argv += ["--repo", str(cwd)]
-    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        try:
-            cmd_coach(argv)
-        except SystemExit:
-            pass
-    return (out.getvalue() + err.getvalue()).strip() or "/coach: nothing to show"
-
-
 def _cmd_check(args: str, facade: HeadlessFacade) -> str:
     """Halo 3.2.2.0 R2: `/check [--all | --doctor --catalog --hello --gym] [--models REF,REF] [--explain]`, the
     same checks as `halo check`, their lines in the transcript."""
@@ -1834,7 +1789,7 @@ _BUILTIN_SPECS = {
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
-    "setup": ("core", "Open Setup in Studio (the Team block for team or roles); --terminal: the terminal screen", "[team|roles] [--terminal]", _cmd_setup),
+    "setup": ("core", "Open Setup in Studio on a page (providers, model, permissions, theme, team, ...); --terminal: the console way", "[<page>] [--terminal]", _cmd_setup),
     "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/...)", "[list|enable|disable <name>]", _cmd_providers),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
                  "[refresh]", _cmd_balances),
@@ -1881,9 +1836,6 @@ _BUILTIN_SPECS = {
                   "[list | show <ref> | test <ref>]", _cmd_workflows),  # 3.3.16.0 R3
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
-    "coach": ("core", "The post-run coach's card for a run: --model asks the lead, --apply ID writes, --undo puts back, "
-              "--probe tries two candidate overlays first", "[run] [--model] [--apply ID] [--probe [--k N]] [--undo [ID]]",
-              _cmd_coach),
     "check": ("core", "Run the checks Halo offers after setup (doctor, catalog, hello by default; --all, --gym, "
               "--explain), each with what it does, costs and takes", "[--all|--doctor|--catalog|--hello|--gym] "
               "[--models REF,REF] [--explain]", _cmd_check),
@@ -1897,7 +1849,6 @@ _BUILTIN_SPECS = {
     "intro": ("ui", "Replay the launch intro", None, _cmd_intro),
     "keybindings": ("core", "Show the active keybindings", None, _cmd_keybindings),
     "tips": ("core", "List tips for using halo's features", None, _cmd_tips),
-    "improve": ("ui", "Review self-improvement candidates from recent sessions", None, _cmd_improve),
     "update": ("ui", "Check for a halo update (the TUI can also quit and update after it exits)",
                None, _cmd_update),
     "editor": ("ui", "Edit the current prompt draft in $VISUAL/$EDITOR (same as Ctrl+E)", None, _cmd_editor),

@@ -26,7 +26,7 @@ import argparse
 # again unnoticed.
 SUBCOMMANDS = (
     "proxy", "models", "mcp", "config", "doctor", "update", "work-matrix", "init",
-    "providers", "stats", "improve", "export", "bugreport", "timeline",
+    "providers", "stats", "export", "bugreport", "timeline",
     "worktree", "bg", "roles", "setup", "completion", "studio",  # 3.3.13.0 R2: `design` is the design pack's
     # Halo 2.0.3 round 5d: this round's own new top-level command.
     # "ollama"/"local" (rounds 2/5) were already missing here before this

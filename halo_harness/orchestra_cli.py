@@ -9,7 +9,7 @@
     halo orchestra run [RUN] [--model REF] [--dry-run]   the pipeline (orchestra_cli_run.py, with stop)
     halo orchestra lanes|report|stop [RUN]
     halo orchestra run --review | plan | approve | reject [RUN]   the reviewed plan (orchestra_cli_plan.py, 3.0.9.0)
-    halo orchestra coach [RUN] [--json]  the post-run coach's card (coach_cli.py, 3.0.9.0)
+    halo orchestra coach [RUN] ...       the coach pack's card (3.4.0.0 B2: `halo coach orchestra`, one line when it is off)
 
 RUN is a run id (or a unique prefix of one) or a run folder; the latest run
 when omitted. `new` prompts for WHAT YOU WANT / DONE WHEN / STOP WHEN when
@@ -71,25 +71,25 @@ def _parser() -> argparse.ArgumentParser:
             s.add_argument("--reason", default="stopped by the user", help="the reason the report shows")
     from halo_harness.orchestra_cli_plan import add_parsers as add_plan_parsers
     add_plan_parsers(sub)
-    from halo_harness.coach_cli import add_orchestra_parser
-    add_orchestra_parser(sub)
     for s in sub.choices.values():
         s.add_argument("--repo", default=None, help="the repo root (default: the current folder)")
     return p
 
 
 def cmd_orchestra(argv) -> int:
+    if list(argv)[:1] == ["coach"]:  # 3.4.0.0 B2: the coach is a pack; its verb answers, or the one line
+        from halo_harness.packs.contrib_cli import dispatch
+        return dispatch(["coach", "orchestra"] + list(argv)[1:]) or 0
     parser = _parser()
     args = parser.parse_args(list(argv))
     if args.cmd is None:
         parser.print_help()
         return 0
     repo = Path(args.repo or ".").resolve()
-    from halo_harness.coach_cli import cmd_orchestra_coach
     from halo_harness.orchestra_cli_plan import HANDLERS as plan
     from halo_harness.orchestra_cli_run import HANDLERS as running
     from halo_harness.orchestra_cli_views import HANDLERS as views
-    handler = dict({"new": _new, "coach": cmd_orchestra_coach}, **views, **running, **plan)[args.cmd]
+    handler = dict({"new": _new}, **views, **running, **plan)[args.cmd]
     return handler(args, repo)
 
 

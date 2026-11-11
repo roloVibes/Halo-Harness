@@ -71,9 +71,9 @@ powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/rol
 <a href="docs/media/studio-setup.png"><img alt="Studio's Setup section as halo init opens it: the step rail across the top (Providers current, the steps already set ticked), its line saying set up this box, OpenRouter set from the env file with its last four characters, the default model, the lineup, the permission mode and the last check; the first page, Providers, one card per provider" src="docs/media/studio-setup.png" width="100%"></a>
 
 The first thing after install: `halo init` opens Studio on **Setup**, the page above. It goes one page at a
-time in the wizard's order (Back / Next, a Summary last), each block with its own Save; the rail on top says what is set. Over SSH or on a box with no
-browser it prints the URL (with the port-forward line) and runs the terminal wizard; `halo init --terminal`
-asks for that wizard anywhere.
+time in order (Back / Next, a Summary last), each block with its own Save; the rail on top says what is set. Over SSH or on a box with no
+browser it prints the URL (with the port-forward line) and asks the essentials line by line (a provider and its key,
+the default model, the permission mode, doctor); `halo init --terminal` asks them anywhere.
 
 The installer is fetched from a release tag, never a moving branch, and installs the
 newest tag; `--ref <tag>` (`-Ref` on Windows) pins another. The installer may run
@@ -85,7 +85,7 @@ Windows): it asks first, shows what uv changed, and `--no-modify-path` (`-NoModi
 `pipx install git+https://github.com/roloVibes/Halo-Harness`. Offline work boxes, PEP 668
 and reproducible installs are covered in [docs/INSTALL.md](docs/INSTALL.md).
 
-**Your first run.** In Setup (or the terminal wizard) you paste a provider key, pick a default model
+**Your first run.** In Setup (or `halo init --terminal`) you paste a provider key, pick a default model
 and a permission mode; its Check block lists the checks it can run (doctor, the model catalog and one
 hello call ticked; the quick gym off), each with what it does,
 costs and takes, and you tick the ones to run (`halo check` runs the same list later).
@@ -204,7 +204,7 @@ In Studio you compose it on Agents -> Cast (`Alt+2`): open the library, drag a w
 
 The fourth, **Packs** (`Alt+4`), is the Pack Manager: it lists the packs in the places you trust (the folders and git urls of `packs.sources`, and the packs Halo ships: Documentation Review, Concord and Design), shows what each brings and asks for, and installs, grants, enables, sets up, updates and removes them through the same code as `halo pack`. An enabled pack's own section comes after the core sections (the first pack section takes `Alt+7`). See [docs/STUDIO-packs.md](docs/STUDIO-packs.md) and [docs/PACKS.md](docs/PACKS.md).
 
-The fifth, **Setup** (`Alt+5`, 3.3.0.0), is this box's setup on one page: the terminal wizard's blocks (the providers, local models, the default model, the permission mode, the terminal theme, the lineup, the Linux fixes when a box needs them, the five checks, and the machines you pair) as forms you fill in any order, each saving the key `halo init --terminal` and `halo config set` write; `halo init` opens it, and so does a home with no provider set up. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
+The fifth, **Setup** (`Alt+5`, 3.3.0.0), is this box's setup on one page: the blocks (the providers, local models, the default model, the permission mode, the terminal theme, the lineup, the Linux fixes when a box needs them, the five checks, and the machines you pair) as forms you fill in any order, each saving the key `halo init --terminal` and `halo config set` write; `halo init` opens it, and so does a home with no provider set up. See [docs/STUDIO-setup.md](docs/STUDIO-setup.md).
 
 The sixth, **Settings** (`Alt+6`, 3.3.3.0), is every key of `~/.halo/config.json` on one page per group: each key a row with its help line, its value against its default, Reset to default and the exact `halo config set` line; a change saves at once and says when it takes effect, and a search finds a key across every group. `halo settings fleet` opens its Fleet page. See [docs/CONFIG.md](docs/CONFIG.md).
 
@@ -222,7 +222,7 @@ The fleet is the shipped `fleet` pack since 3.4.0.0: `halo pack install fleet`, 
 
 ### Runs: agents writing the same files
 
-Press `Alt+2`, then `R` (Agents -> Runs, Orchestra before 3.3.16.0). Several agents write to the same files at once and nothing is lost: a lead splits your goal into lanes, one worker per lane writes its part in its own git worktree, and code owns the claims, the merge order, the tests and the gate; a model judges only when two pieces conflict. With **Review the plan before it runs**, the lead's lanes open on the plan canvas first: drag a lane into another layer to change what it runs after, edit its claims, bio and model, then **Approve and run**. The console draws the lanes, the claimed regions, the merge gate and the report, and the report's **Coach** tab reads the run and suggests what to change (a bio's prompt or model, a lane's order), each card with its evidence. Each lane says what it owns (its claims), and **Test this lineup** on the bar is the guided first run on your lineup, its card first. See [docs/ORCHESTRA.md](docs/ORCHESTRA.md) and [docs/STUDIO-agents.md](docs/STUDIO-agents.md).
+Press `Alt+2`, then `R` (Agents -> Runs, Orchestra before 3.3.16.0). Several agents write to the same files at once and nothing is lost: a lead splits your goal into lanes, one worker per lane writes its part in its own git worktree, and code owns the claims, the merge order, the tests and the gate; a model judges only when two pieces conflict. With **Review the plan before it runs**, the lead's lanes open on the plan canvas first: drag a lane into another layer to change what it runs after, edit its claims, bio and model, then **Approve and run**. The console draws the lanes, the claimed regions, the merge gate and the report, and with the coach pack on, its **Coach** panel reads a finished run and suggests what to change (a bio's prompt or model, a lane's order), each card with its evidence. Each lane says what it owns (its claims). See [docs/ORCHESTRA.md](docs/ORCHESTRA.md) and [docs/STUDIO-agents.md](docs/STUDIO-agents.md).
 
 <a href="docs/media/studio-orchestra.png"><img alt="Studio's Agents section on Runs: a finished run with five lanes, one judged conflict and the report" src="docs/media/studio-orchestra.png" width="100%"></a>
 
@@ -322,13 +322,13 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
-| **The core, and the packs Halo ships** | The core is the agent loop and its tools, permissions and policy, the providers, all the local-model work, lineups and blocks, Studio's Session, Agents, Local, Packs, Setup and Settings, and the pack system. Everything else is a pack Halo ships, off until you turn it on (`halo pack install <id>`): design, first-run, signal, concord, doc-review. |
+| **The core, and the packs Halo ships** | The core is the agent loop and its tools, permissions and policy, the providers, all the local-model work, lineups and blocks, Studio's Session, Agents, Local, Packs, Setup and Settings, and the pack system. Everything else is a pack Halo ships, off until you turn it on (`halo pack install <id>`): design, first-run, coach, signal, concord, doc-review. |
 | **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, six sections under one header. Loopback only, a per-launch token, no CDN. |
 | **The Session dashboard** | One live column of every agent's thinking, tool calls (what each runs on, its time, its result), hand-backs and asks; the map of who spawned whom with each agent's model, cost and running tool; the context bar, the spend and each agent's share. |
 | **The Agents glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
 | **Fleet and missions** (the `fleet` pack) | Agents -> Live on the fleet: every harness on one map, one attention queue across all of them, and one goal split into parts by what each harness can do. |
 | **Workflow squares** | Saved workflows with a contract. Main hands a task a text-only model cannot read (a PDF, an image) to the `media` square when no role of the lineup reads it, with a one-line reason and a receipt; five ship, `halo workflows` manages them, Agents -> Workflows is the board. |
-| **Runs (Orchestra)** | Several agents write the same files at once: lanes in their own git worktrees, a plan you can review on a canvas, a gate that runs your test, and a coach that reads the run. |
+| **Runs (Orchestra)** | Several agents write the same files at once: lanes in their own git worktrees, a plan you can review on a canvas, a gate that runs your test, a supervisor that replans and verified outcomes. |
 | **Packs** | An extension contract and `halo pack`: a pack adds bios, lineups, skills, commands, hooks and MCP servers through a manifest, with grants you set, and Studio's Pack Manager (`Alt+4`) installs, enables and removes them. |
 | **The Ollama steward** | A cheap model you pick watches the traffic of every local server across your halos, explains a failed call, plans what fits the card and makes Halo-side fixes only; a server change comes as the exact line to set. |
 | **Local, measured** | A probe battery per model per host, the speed card, tuning with a revert for every change, and a three-way search of the library (what a model declares, what is expected, what was verified here). |
@@ -338,14 +338,15 @@ tool, so check each tool's own docs.
 | **Routes** | `or:` `dbx:` `ant:` `oai:` `ol:` `hf:` `local:` -- one session, any of them, and `/model` swaps the lane without losing context. |
 | **Your Claude Code setup, in place** | `~/.claude` settings, CLAUDE.md, skills, commands, agents, MCP servers and memory are read where they are. Nothing is configured twice. |
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
-| **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in Studio (Agents -> Cast), with `halo teams apply <lineup>`, or in the terminal wizard. |
+| **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in Studio (Agents -> Cast), with `halo teams apply <lineup>`. |
 | **The design pack** | Studio's Design section as a pack Halo ships (3.3.13.0): a design project on disk, a turn with the craft apps as tools, knobs without a model call. |
 | **The first-run pack** | The guided first run as a pack Halo ships (3.4.0.0): `halo start`, one real Orchestra run that rehearses your lineup on a sample repo, its card first. |
+| **The coach pack** | The post-run coach as a pack Halo ships (3.4.0.0): `halo coach` reads a finished run and suggests what to change, Apply after one confirm, probes, the improvement library, `halo improve`. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
 | **Permissions without a nanny** | Auto mode allows everything except *your own* deny/ask rules. Rules use Claude Code's own grammar, in the same files. |
-| **Setup** | `halo init` opens Studio's Setup (the terminal wizard with `--terminal`): provider, model, permission mode, theme, lineup. Every step explains itself and `halo doctor` ends each warning with its fix. |
+| **Setup** | `halo init` opens Studio's Setup (`--terminal`: the essentials line by line in the terminal): provider, model, permission mode, theme, lineup. Every step explains itself and `halo doctor` ends each warning with its fix. |
 | **MCP deep dive** | stdio/HTTP/SSE servers from every Claude Code scope, `D` diagnoses a failing server end to end, claude.ai connectors bridge through as tools. |
 | **Balances and picker columns** | Per-provider balances in the status bar (remaining first); free variants sit beside their paid rows in the picker. |
 | **Privacy audit** | `halo audit privacy` scans the tree (or, with `--history`, every commit) for real paths, hosts and key-shaped strings, one line per finding. |
@@ -364,7 +365,7 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/STUDIO-agents.md](docs/STUDIO-agents.md) | The Agents section: Cast, Runs, Live and Workflows, and where Team, Roles, Orchestra and Fleet went |
 | [docs/FLEET.md](docs/FLEET.md) | Fleet: what each session and agent exposes to Studio, and the controls |
 | [docs/MISSIONS.md](docs/MISSIONS.md) | One goal for the whole fleet, and following its parts |
-| [docs/ORCHESTRA.md](docs/ORCHESTRA.md) | Several agents writing the same files: the plan, the lanes, the gate and the coach |
+| [docs/ORCHESTRA.md](docs/ORCHESTRA.md) | Several agents writing the same files: the plan, the lanes, the gate (the coach is a pack) |
 | [docs/WORKFLOWS-squares.md](docs/WORKFLOWS-squares.md) | Workflow squares: the contract, the router, the five that ship, receipts and the Workflows board; [docs/WORKFLOWS.md](docs/WORKFLOWS.md) is the workflow file itself |
 | [docs/HANDBOOK.md](docs/HANDBOOK.md) | The long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions, themes, telemetry |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | Every word Halo uses, one paragraph each (`halo explain <word>`) |
@@ -382,6 +383,7 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
 | [the design pack](halo_harness/templates/packs/design/README.md) | Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff (its docs/DESIGN.md) |
 | [the first-run pack](halo_harness/templates/packs/first-run/README.md) | The guided first run: `halo start`, `/start`, its Setup check row and its First run panel in Studio |
+| [the coach pack](halo_harness/templates/packs/coach/README.md) | The coach: `halo coach`, `halo improve`, `/coach`, `/improve`, its Coach panel in Studio, its Settings and doctor rows |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/PACKS.md](docs/PACKS.md) | Packs: add bios, lineups, skills, commands, hooks and MCP servers to Halo, or take them out again |
 | [docs/EXTENSION_API.md](docs/EXTENSION_API.md) | The extension API: the pack manifest, the lifecycle and what a pack may import |

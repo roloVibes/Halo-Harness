@@ -102,62 +102,6 @@ def test_yes_keeps_an_existing_permission_mode(ctx: Ctx):
                   get_config_value("permission_mode", default=None) == "plan")
 
 
-@test
-def test_esc_at_the_interactive_picker_writes_nothing_on_a_fresh_box(ctx: Ctx):
-    import halo_harness.tui.dialogs.init_picker as picker_mod
-    from halo_harness.init_cli import _step_pick_permission_mode
-    from halo_harness.theme import get_config_value
-    real_picker = picker_mod.run_simple_picker
-    picker_mod.run_simple_picker = lambda *a, **kw: None  # Esc
-    try:
-        with _Env():
-            with _fake_tty(stdin_tty=True, stdout_tty=True):
-                result = _step_pick_permission_mode(_args(yes=False), _console())
-            ctx.check(f"nothing chosen -- empty string returned, got {result!r}", result == "")
-            ctx.check("config.json has NO permission_mode key at all",
-                      get_config_value("permission_mode", default=None) is None)
-    finally:
-        picker_mod.run_simple_picker = real_picker
-
-
-@test
-def test_esc_at_the_interactive_picker_keeps_an_existing_value(ctx: Ctx):
-    import halo_harness.tui.dialogs.init_picker as picker_mod
-    from halo_harness.init_cli import _step_pick_permission_mode
-    from halo_harness.theme import get_config_value, set_config_value
-    real_picker = picker_mod.run_simple_picker
-    picker_mod.run_simple_picker = lambda *a, **kw: None  # Esc
-    try:
-        with _Env():
-            set_config_value("permission_mode", "acceptEdits")
-            with _fake_tty(stdin_tty=True, stdout_tty=True):
-                result = _step_pick_permission_mode(_args(yes=False), _console())
-            ctx.check(f"the existing value is returned unchanged, got {result!r}", result == "acceptEdits")
-            ctx.check("config.json still says 'acceptEdits'",
-                      get_config_value("permission_mode", default=None) == "acceptEdits")
-    finally:
-        picker_mod.run_simple_picker = real_picker
-
-
-@test
-def test_a_real_pick_still_writes_it(ctx: Ctx):
-    """The fix must not disable writing altogether -- an ACTUAL choice
-    still persists exactly as before this fixpass."""
-    import halo_harness.tui.dialogs.init_picker as picker_mod
-    from halo_harness.init_cli import _step_pick_permission_mode
-    from halo_harness.theme import get_config_value
-    real_picker = picker_mod.run_simple_picker
-    picker_mod.run_simple_picker = lambda *a, **kw: "plan"
-    try:
-        with _Env():
-            with _fake_tty(stdin_tty=True, stdout_tty=True):
-                result = _step_pick_permission_mode(_args(yes=False), _console())
-            ctx.check(f"the real pick is returned, got {result!r}", result == "plan")
-            ctx.check("config.json now says 'plan'", get_config_value("permission_mode", default=None) == "plan")
-    finally:
-        picker_mod.run_simple_picker = real_picker
-
-
 # ---------------------------------------------------------------------------
 # finding 17: wording.
 # ---------------------------------------------------------------------------

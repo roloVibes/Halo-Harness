@@ -660,6 +660,13 @@ not held yet (`workflows/outputs.py`).
 
 ## The coach
 
+**The coach is a pack since 3.4.0.0** (`halo pack install coach`, then `halo pack enable coach --grant-all`;
+[its README](../halo_harness/templates/packs/coach/README.md)): everything below works the same with the pack on --
+`halo coach`, `halo orchestra coach`, the probes and the library, Studio's Coach panel in Agents (it replaces the
+report's Coach tab) -- and with it off each verb is one line that says so. Its modules are the pack's
+(engine/, cli/, server/); the core keeps what the forecast, the outcomes and the supervisor read of a run
+(`orchestra/lane_facts.py`, `orchestra/prices.py`). Its keys are `packs.settings.coach.<key>`.
+
 After a run ends, the coach reads the run folder and suggests what to change
 next time: a bio's prompt, a lane's model, a bio's tools, the plan's
 structure, or how the run was coordinated. The cards come from the run's

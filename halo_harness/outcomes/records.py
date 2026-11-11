@@ -39,8 +39,10 @@ PICKS = ("auto", "measured", "none")  # 3.1.9.0 R3: a row's `picked`
 
 
 def path(state_dir=None) -> Path:
-    from halo_harness.orchestra.coach_record import folder
-    return folder(state_dir) / OUTCOMES
+    if state_dir is None:  # 3.4.0.0 B2: the file stays in <state>/coach/ (where it always was), with or without the coach pack
+        from halo_harness.config.paths import bridge_home
+        state_dir = bridge_home()
+    return Path(state_dir) / "coach" / OUTCOMES
 
 
 def append(rows: list, state_dir=None) -> int:
@@ -90,7 +92,7 @@ def lane_outcome(lane: dict, report: dict) -> str:
 def orchestra_rows(run_dir, report: dict) -> list:
     """One row per lane of the report."""
     from halo_harness.orchestra import events as run_events, jsonl
-    from halo_harness.orchestra.coach_lane_facts import lane_facts
+    from halo_harness.orchestra.lane_facts import lane_facts
     from halo_harness.orchestra.lanes import lane_rows
     from halo_harness.outcomes.lane import evidence_path, load_lane
     run_dir = Path(run_dir)

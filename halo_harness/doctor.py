@@ -554,25 +554,14 @@ def _check_catalog_ages() -> list:
     return lines
 
 
-def _check_telemetry_and_improve() -> "list[str]":
-    """H10 Part A/B: `stats`'s own sessions count + stats-cache age, and
-    `/improve`'s active config (a plain INFO line, never OK/WARN/MISSING --
-    there is nothing here that can be "missing"; every key has a built-in
-    default). Read-only, same contract as every other check in this
-    module."""
+def _check_telemetry() -> str:
+    """H10 Part A: `stats`'s own sessions count + stats-cache age (a plain OK line; read-only). 3.4.0.0 B2: the
+    `/improve` config line left with the coach pack (its own doctor row)."""
     from halo_harness import telemetry
-    from halo_harness.improve.config import load_improve_config
-
     n = telemetry.total_sessions_count()
     age = telemetry.cache_age_seconds()
     age_str = "never" if age is None else (f"{age:.0f}s ago" if age < 3600 else f"{age / 3600:.1f}h ago")
-    lines = [f"{OK} Sessions: {n} logged under ~/.halo/sessions; stats cache last written {age_str}"]
-    cfg = load_improve_config()
-    lines.append(
-        f"{OK} /improve: enabled={cfg.enabled} hint={cfg.hint} model={cfg.model or '(small/session model)'} "
-        f"since_days={cfg.since_days} max_candidates={cfg.max_candidates}"
-    )
-    return lines
+    return f"{OK} Sessions: {n} logged under ~/.halo/sessions; stats cache last written {age_str}"
 
 
 def _check_local_bin_on_path() -> Optional[str]:
@@ -1733,8 +1722,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.extend(zip(catalog_ids, _check_catalog_ages(), strict=False))
     from halo_harness.providers.left_core import leftover_lines  # 3.4.0.0: a provider that left, its key still here
     entries.extend(("left_core", f"{WARN} {line}") for line in leftover_lines(cwd=cwd))
-    telemetry_ids = ("sessions", "improve")
-    entries.extend(zip(telemetry_ids, _check_telemetry_and_improve(), strict=False))
+    entries.append(("sessions", _check_telemetry()))  # 3.4.0.0 B2: /improve's row is the coach pack's own now
     # U5 leftover / H8: tui/clipboard.py's clipboard_doctor_line(), wired here; H12 Part B: its WARN (no
     # xclip/wl-copy/xsel on PATH, e.g. a fresh WSL) gets the fix suffix HERE (`_fix` is this module's vocabulary).
     from halo_harness.providers.copilot_doctor import entries as _copilot_rows  # 3.3.17.0 R2: the Copilot row
@@ -1763,6 +1751,8 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.extend(_check_remote())
     from halo_harness.packs.setup_state import doctor_lines as _pack_setup  # 3.3.11.0 R3: a pack's Setup block waiting
     entries.extend(_pack_setup(cwd))
+    from halo_harness.packs.contrib_doctor import entries_of as _pack_rows  # 3.4.0.0 B2: an enabled pack's own rows
+    entries.extend(_pack_rows(cwd))
     return [(cid, line) for cid, line in entries if line is not None]
 
 

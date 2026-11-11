@@ -213,21 +213,16 @@ def run(run) -> "list[str]":
 
 
 def report_command(run) -> str:
-    return f"halo orchestra report{_repo_flag(run)}; halo orchestra coach{_repo_flag(run)}"
+    from .coach_step import coach_on
+    return f"halo orchestra report{_repo_flag(run)}" + (f"; halo coach {run.run_dir}" if coach_on() else "")
 
 
 def report(run) -> "list[str]":
-    from halo_harness.ext import core as _core
-    coach = _core.get("orchestra.coach", "coach")
-    format_card = _core.get("orchestra.coach", "format_card")
     from halo_harness.ext import core as _core
     format_report = _core.get("orchestra.report", "format_report")
     load_report = _core.get("orchestra.report", "load_report")
     data = load_report(run.run_dir) or run.result
     lines = format_report(data).split("\n") + _who(run)
-    try:
-        run.coach = coach(run.run_dir)
-        lines += [""] + format_card(run.coach).split("\n")
-    except ValueError as e:
-        lines += ["", f"coach: {e}"]
-    return lines + ["", S.COACH_APPLY]
+    from .coach_step import card
+    return lines + card(run)
+

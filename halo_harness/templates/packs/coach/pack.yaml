@@ -1,0 +1,54 @@
+# The coach pack (Halo 3.4.0.0 B2, F4 of the Focus plan): the post-run coach, its probes and the improvement library,
+# and /improve, out of Halo's core. `halo coach` / `halo improve` and `/coach` / `/improve` are its CLI verbs and slash
+# commands (contributes.cli / .slash, API 1.3); `halo orchestra coach` and `halo fleet mission coach` hand over to its
+# verb. Studio's Agents section has its Coach panel (studio/coach.js, answered by server/routes.py); `halo doctor` its
+# row; Settings its rows under "From packs". Its Python reaches the run folders and the writers through
+# `halo_harness.ext.core` (API 1.3, draft). The supervisor, replanning and verified outcomes stay in the core.
+id: coach
+name: Coach
+version: 1.0.0
+description: >-
+  The post-run coach: it reads a finished run's files (an Orchestra run or a mission) and suggests what to change next
+  time -- a bio's prompt, model or tools, a lane's after, a gate that looped -- with Ask, Apply after one confirm, and
+  Undo; probes that try two candidate overlays first; the improvement library its Applies leave; and /improve, memory
+  and rule candidates drafted from recent sessions. Part of Halo's core until 3.4.0.0.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.3", max: "1.9"}
+capabilities: [orchestra.coach]
+contributes:
+  cli:
+    - {verb: coach, module: cli/coach.py, help: "the post-run coach's card for a run (--model, --apply ID, --undo, --probe, library)"}
+    - {verb: improve, module: cli/improve.py, help: "memory and rule candidates from recent sessions (--apply FILE#ID writes one)"}
+  slash:
+    - {name: coach, module: cli/slash.py, help: "the post-run coach's card for a run: --model, --apply ID, --undo, --probe"}
+    - {name: improve, module: cli/slash_improve.py, help: "memory and rule candidates from recent sessions, as halo improve prints them"}
+  doctor:
+    - {id: coach, module: doctor.py, help: "what the coach keeps and uses, or the grant its panel waits for"}
+  settings:
+    - {key: probe.k, title: Probe pairs, type: integer, default: 1, help: "How many pairs of candidate overlays a probe drafts and runs when no --k is given (at most 4)."}
+    - {key: probe.budget_factor, title: Probe budget factor, type: number, default: 1.5, help: "Each probe run may spend the reference run's cost times this."}
+    - {key: library.cite, title: Cite the library, type: boolean, default: true, help: "The coach cites the improvement library entries earlier Applies left for runs like this one."}
+    - {key: improve.enabled, title: Improve on, type: boolean, default: true, help: "/improve reads your sessions and offers memory and rule candidates."}
+    - {key: improve.model, title: Improve model, type: string, default: "", help: "The model /improve drafts with; empty, the small model, then the session model."}
+    - {key: improve.since_days, title: Improve window, type: integer, default: 7, help: "How many days of sessions /improve reads."}
+    - {key: improve.max_candidates, title: Improve candidates, type: integer, default: 8, help: "How many candidates /improve offers at most (hard-capped at 8)."}
+  studio:
+    panels:
+      - id: coach
+        section: agents
+        title: Coach
+        kind: bundle
+        source: studio/coach.js
+        w: 12
+        h: 40
+        help: |-
+          The post-run coach: pick a finished Orchestra run of this repo and read its cards.
+          Ask: the run's lead explains a card in one paragraph (a model call).
+          Apply: the confirm card first (the file and its diff); Confirm writes it; Undo puts the file back.
+          Probe: the cost line first; Run probe tries two candidate overlays and its card leads the run's.
+          In a terminal: halo coach (any run), halo orchestra coach, halo fleet mission coach <id>.
+    routes: {module: server/routes.py, prefix: coach}
+    palette:
+      - {id: open, label: "Coach: a finished run's cards", action: "route:agents"}
+permissions: ["cli:coach", "cli:improve", doctor, studio-script, studio-routes]

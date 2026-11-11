@@ -6,7 +6,7 @@ far: the merged lanes pinned, every lane LEFT with its state, model, returns
 and blocks, why the run drifted (drift.py's lines), the claimable units, the
 four moves and the strict answer shape replan_plan.py checks. For a lane that
 came back, what came back: the probe's contrast list when a probe of this run
-ran (`<run>/probe.json`, coach_compare.contrast's rows in coach_compose's
+ran (`<run>/probe.json`, the coach pack's contrast rows in orchestra/prices.py's
 words), else the gate's last verdict as its worker read it (`returned_text`
 in the lane file, the text the gate or a failed merge sent back), else the
 lane's last error.
@@ -47,7 +47,7 @@ def context(run_dir, n: int, lane: dict) -> str:
     probe = jsonl.read_json(Path(run_dir) / "probe.json", {}) or {}
     rows = probe.get("contrast") if isinstance(probe, dict) else None
     if isinstance(rows, list) and rows:
-        from halo_harness.orchestra.coach_compose import row_line
+        from halo_harness.orchestra.prices import row_line
         ref, k = probe.get("reference") or {}, len([r for r in rows if isinstance(r, dict) and r.get("rank")]) + 1
         lines = []
         for r in rows:
@@ -76,7 +76,7 @@ def _model(job: dict, lane: dict, rows: list) -> str:
     ref = str(job.get("model") or lane.get("model") or "")
     if not ref:
         return "the worker role's model"
-    from halo_harness.orchestra.coach_prices import price_words
+    from halo_harness.orchestra.prices import price_words
     return f"{ref} ({price_words(rows, ref)})"
 
 

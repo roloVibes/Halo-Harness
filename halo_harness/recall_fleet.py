@@ -115,9 +115,10 @@ def excerpt_of(hid: str, kind: str) -> "tuple[str, Optional[str]]":
         text = path.read_text(encoding="utf-8", errors="replace")[:_READ_CAP]
     except OSError:
         return "", None
-    if kind == "coach_library":  # 3.1.6.0 R3: an entry's EXPERIENCE.md answers with its Lessons
-        from halo_harness.orchestra.coach_experience import section
-        return _flat(section(text, "Lessons")), None
+    if kind == "coach_library":  # 3.1.6.0 R3: an entry's EXPERIENCE.md answers with its Lessons (the coach pack's files)
+        part = (text.split("\n## Lessons", 1)[1:] or [""])[0].split("\n## ", 1)[0].splitlines()[1:]
+        return _flat(" ".join(ln.strip()[2:] if ln.strip().startswith("- ") else ln.strip()
+                              for ln in part if ln.strip())), None
     from halo_harness.config.frontmatter import parse
     front, body = parse(text)
     meta = front.get("metadata") if isinstance(front.get("metadata"), dict) else {}

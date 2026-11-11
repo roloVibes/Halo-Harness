@@ -22,6 +22,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
 from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
 _fleet_pack.on()
 
@@ -113,6 +114,7 @@ def test_the_hub_forwards_and_fetch_writes_under_the_same_id(ctx: Ctx):
     from tests.helpers.mission_seed import fleet
     with HubRig() as rig:
         seed(bridge_home())  # B's own library (this process's home is B)
+        _coach_pack.enable(bridge_home())  # 3.4.0.0 B2: B answers coach_library through its coach pack
         fleet(rig, **{"fleet.allow_control": "all"})
         wait_for(lambda: rig.member_session_online("fakesession0000000000000000000001"), 20.0)
         got = running_call(rig.home_a, "POST", "local/coach-library", {"harness": "bob@member", "entry": EID}, timeout=30.0)

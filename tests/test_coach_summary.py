@@ -16,6 +16,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
 from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
 _fleet_pack.on()
 
@@ -35,7 +36,9 @@ def _req(h, method, path, body=None, query=None):
 
 
 @test
-def test_the_reports_carry_the_coach_line(ctx: Ctx):
+def test_the_coach_summary_line_and_the_core_report_without_it(ctx: Ctx):
+    """3.4.0.0 B2: the coach is a pack, so the core's report no longer ends with the coach's line; the pack's
+    summary line (what `halo coach` heads its card with) is as it was."""
     from halo_harness.orchestra import coach_apply as CA
     from halo_harness.orchestra.coach import cached
     from halo_harness.orchestra.coach_record import summary, summary_line
@@ -44,9 +47,9 @@ def test_the_reports_carry_the_coach_line(ctx: Ctx):
     with Home() as h:
         run = S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=DENIED)])
         text = format_report(load_report(run), run)
-        ctx.check(f"the orchestra report's last line, got {text.splitlines()[-1]!r}",
-                  text.splitlines()[-1] == "  coach: 1 suggestion, 0 applied, top: bio `coach-deny` could not call `WebFetch`")
-        ctx.check("no run folder: no coach line", "coach:" not in format_report(load_report(run)))
+        ctx.check(f"the core report carries no coach line, got {text.splitlines()[-1]!r}", "coach:" not in text)
+        ctx.check(f"the pack's line, got {summary(run)!r}",
+                  summary(run) == "coach: 1 suggestion, 0 applied, top: bio `coach-deny` could not call `WebFetch`")
         CA.apply(cached(run, state_dir=h.state), "tools-1-WebFetch", run, state_dir=h.state)
         ctx.check(f"one applied, got {summary(run)!r}", summary(run).startswith("coach: 1 suggestion, 1 applied, top: "))
         ctx.check("a mission's line", summary(S.mission_folder(h.state)).startswith("coach: 5 suggestions, 0 applied"))
@@ -54,22 +57,21 @@ def test_the_reports_carry_the_coach_line(ctx: Ctx):
 
 
 @test
-def test_the_fleet_digest_has_a_coach_row_per_run(ctx: Ctx):
+def test_the_fleet_digest_no_longer_reads_the_coach(ctx: Ctx):
+    """3.4.0.0 B2: the digest's `coach` list stays (its shape) and is empty: the core does not read the pack's files;
+    the pack still records each run it read (runs_since)."""
     from halo_harness.fleet import digest
     from halo_harness.orchestra.coach_record import summary
     from tests.helpers import coach_seed as S
     with Home() as h:
         run = S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=DENIED)])
         summary(run)
+        from halo_harness.orchestra.coach_record import runs_since
         d = digest.compute(h.state, 0.0, local_id="me", local_name="here")
         mine = next(b for b in d["harnesses"] if b["local"])
-        ctx.check(f"one coach row, got {mine['coach']}", [r["kind"] for r in mine["coach"]] == ["orchestra"]
-                  and mine["coach"][0]["n"] == 1 and mine["coach"][0]["applied"] == 0 and not mine["quiet"])
-        text = digest.text(d)
-        ctx.check(f"the digest's line, got {text!r}", f"  coach    orchestra {S.RUN}: 1 suggestion, 0 applied, top: bio "
-                  "`coach-deny` could not call `WebFetch`" in text)
-        later = digest.compute(h.state, 4e9, local_id="me", local_name="here")
-        ctx.check("a run read before `since` is not listed", next(b for b in later["harnesses"] if b["local"])["coach"] == [])
+        ctx.check(f"no coach row in the core's digest, got {mine['coach']}", mine["coach"] == [])
+        ctx.check("no coach line in its text", "  coach    " not in digest.text(d))
+        ctx.check("the pack still records the run it read", [r["kind"] for r in runs_since(0.0, h.state)] == ["orchestra"])
 
 
 @test
@@ -111,7 +113,7 @@ def test_studio_s_coach_routes_ask_apply_and_undo(ctx: Ctx):
 @test
 def test_the_coach_slash_command(ctx: Ctx):
     from halo_harness.agents_yaml import load_agent_bio_raw
-    from halo_harness.commands.builtins import _cmd_coach
+    _cmd_coach = _coach_pack.module("cli/slash.py").run  # 3.4.0.0 B2: /coach is the coach pack's slash command
     from tests.helpers import coach_seed as S
     with Home() as h:
         S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=DENIED)])

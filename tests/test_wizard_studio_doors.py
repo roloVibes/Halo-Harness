@@ -39,38 +39,6 @@ def _run(coro):
 
 
 @test
-def test_team_step_has_the_switch_and_the_studio_button(ctx: Ctx):
-    from textual.widgets import Button, OptionList, Switch
-    from halo_harness.roles import roles_mode_enabled, set_roles_enabled
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-
-    async def body():
-        set_roles_enabled(False)
-        state = WizardState(cwd=REPO_DIR, step_keys=("team",), no_live=True)
-        app = InitWizardApp(state)
-        async with app.run_test(size=(110, 40)) as pilot:
-            await pilot.pause(0.2)
-            step = app.screen
-            sw = step.query_one("#wiz-roles-switch", Switch)
-            ctx.check("the Custom roles switch starts off on a fresh install", sw.value is False)
-            step.query_one("#wiz-team-studio", Button)
-            ctx.check("the terminal editors are no longer buttons", not step.query("#wiz-team-customize") and not step.query("#wiz-team-agents"))
-            lst = step.query_one("#wiz-team-lineups-list", OptionList)
-            sw.value = True
-            await pilot.pause(0.2)
-            ctx.check(f"switching on highlights the first lineup, got {lst.highlighted}", lst.highlighted == 1)
-            name = str(lst.get_option_at_index(lst.highlighted).id)
-            step.commit()
-            ctx.check(f"Next with the switch on applies {name!r} and turns roles on", roles_mode_enabled() is True)
-            lst.highlighted = 0
-            await pilot.pause(0.2)
-            ctx.check("highlighting the first row turns the switch off", sw.value is False)
-            step.commit()
-            ctx.check("and Next then turns roles off", roles_mode_enabled() is False)
-    _run(body())
-
-
-@test
 def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     from halo_harness.providers.config import default_state_dir
     from halo_harness.studio.launch import existing_url, read_info
@@ -104,47 +72,39 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
 
 def _setup_cli(argv, **stubs):
     """3.3.0.0 R4: `cmd_setup(argv)` on a fake terminal, Studio and the browser stubbed
-    (tests/helpers/setup_door_stubs.py), the terminal screen stubbed: `(rc, stdout, record, screens run)`."""
+    (tests/helpers/setup_door_stubs.py): `(rc, stdout, record)`. 3.4.0.0 B2: no terminal screen runs any more."""
     from halo_harness.setup_cli import cmd_setup
-    from halo_harness.tui.dialogs import init_wizard
     from tests.helpers.setup_door_stubs import door_stubs, fake_tty
-    screens: list = []
-
-    class _Wizard:
-        def __init__(self, state):
-            self.state = state
-
-        def run(self):
-            screens.append(tuple(self.state.step_keys))
-    saved = init_wizard.InitWizardApp
-    init_wizard.InitWizardApp = _Wizard
-    try:
-        with door_stubs(**stubs) as rec, fake_tty() as out:
-            rc = cmd_setup(list(argv))
-    finally:
-        init_wizard.InitWizardApp = saved
-    return rc, out.getvalue(), rec, screens
+    with door_stubs(**stubs) as rec, fake_tty() as out:
+        rc = cmd_setup(list(argv))
+    return rc, out.getvalue(), rec
 
 
 @test
 def test_halo_setup_team_opens_setup_on_the_team_block(ctx: Ctx):
-    rc, text, rec, screens = _setup_cli(["team"])
+    """3.4.0.0 B2: `halo setup <page>` opens Setup on that page; `--terminal` and a box with no browser print the
+    console way (`setup_cli.CONSOLE`) instead of a terminal screen."""
+    rc, text, rec = _setup_cli(["team"])
     url = rec["opened"][0] if rec["opened"] else ""
-    ctx.check(f"halo setup team: Studio on ?mode=setup&block=team, no screen, got {rc} {rec['launched']} {screens}", rc == 0
-              and rec["launched"] and rec["launched"][0]["edit"] == "setup:team" and "?mode=setup&block=team#t=" in url and not screens)
+    ctx.check(f"halo setup team: Studio on ?mode=setup&block=team, got {rc} {rec['launched']}", rc == 0
+              and rec["launched"] and rec["launched"][0]["edit"] == "setup:team" and "?mode=setup&block=team#t=" in url)
     ctx.check(f"its line, got {text!r}", f"Setup (Team) is open in your browser: {url}. `halo setup team --terminal` runs the "
-              "terminal screen instead." in text)
-    rc, text, rec, screens = _setup_cli(["roles"])
+              "terminal listing instead." in text)
+    rc, text, rec = _setup_cli(["roles"])
     ctx.check(f"halo setup roles: the same block, got {rec['launched']}", rc == 0 and rec["launched"][0]["edit"] == "setup:team")
-    rc, text, rec, screens = _setup_cli([])
-    ctx.check(f"bare halo setup: the page, got {rec['launched']}", rc == 0 and rec["launched"][0]["edit"] == "setup" and not screens)
-    rc, text, rec, screens = _setup_cli(["team", "--terminal"])
-    ctx.check(f"--terminal: the terminal screen, no Studio, got {screens} {rec}", rc == 0 and screens == [("team",)] and not rec["launched"])
-    rc, text, rec, screens = _setup_cli(["team"], env={"HALO_NO_BROWSER": "1"})
-    ctx.check(f"no browser: the URL, then the screen, got {text!r} {screens}", rc == 0 and screens == [("team",)] and not rec["opened"]
-              and "Setup (Team) is at http://127.0.0.1:" in text and "The terminal screen runs here instead." in text)
-    rc, text, rec, screens = _setup_cli(["kitchen"])
-    ctx.check(f"an unknown word: a usage error, nothing opened, got {rc}", rc == 2 and not rec["launched"] and not screens)
+    for page in ("providers", "model", "permissions", "theme", "linux", "check", "machines", "local"):
+        rc, text, rec = _setup_cli([page])
+        ctx.check(f"halo setup {page}: that page, got {rc} {rec['launched']}", rc == 0 and rec["launched"][-1]["edit"] == f"setup:{page}")
+    rc, text, rec = _setup_cli([])
+    ctx.check(f"bare halo setup: the page, got {rec['launched']}", rc == 0 and rec["launched"][0]["edit"] == "setup")
+    rc, text, rec = _setup_cli(["permissions", "--terminal"])
+    ctx.check(f"--terminal: the console way, no Studio, got {text!r} {rec}", rc == 0 and not rec["launched"]
+              and "Setup -> permissions in a terminal: halo config set permission_mode" in text)
+    rc, text, rec = _setup_cli(["model"], env={"HALO_NO_BROWSER": "1"})
+    ctx.check(f"no browser: the URL, then the console way, got {text!r}", rc == 0 and not rec["opened"]
+              and "Setup (Default model) is at http://127.0.0.1:" in text and "Setup -> model in a terminal: halo config set model" in text)
+    rc, text, rec = _setup_cli(["kitchen"])
+    ctx.check(f"an unknown word: a usage error, nothing opened, got {rc}", rc == 2 and not rec["launched"])
 
 
 @test

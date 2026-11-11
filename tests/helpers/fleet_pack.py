@@ -107,20 +107,28 @@ def enable(state: Path, cwd=None):
     return pack
 
 
+def shipped(pack: str, run: bool) -> None:
+    """Add `pack` to (or drop it from) PACKS_TEST_SHIPPED, keeping any other pack there (a coach test that needs the
+    fleet runs both: coach_pack.on() + on())."""
+    import os
+    ids = [x.strip() for x in os.environ.get("PACKS_TEST_SHIPPED", "").split(",") if x.strip() and x.strip() != pack]
+    ids += [pack] if run else []
+    if ids:
+        os.environ["PACKS_TEST_SHIPPED"] = ",".join(ids)
+    else:
+        os.environ.pop("PACKS_TEST_SHIPPED", None)
+    from halo_harness.packs import registry
+    registry.invalidate()
+
+
 def on() -> None:
     """The fleet pack runs in every scratch home of this process and its children (packs/registry.py's
     PACKS_TEST_SHIPPED, honoured only under BRIDGE_TEST_HOME): the fleet tests' rigs need no link of their own."""
-    import os
-    os.environ["PACKS_TEST_SHIPPED"] = "fleet"
-    from halo_harness.packs import registry
-    registry.invalidate()
+    shipped("fleet", True)
 
 
 def off() -> None:
-    import os
-    os.environ.pop("PACKS_TEST_SHIPPED", None)
-    from halo_harness.packs import registry
-    registry.invalidate()
+    shipped("fleet", False)
 
 
 install_names()

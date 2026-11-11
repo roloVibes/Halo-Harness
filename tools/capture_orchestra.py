@@ -8,9 +8,8 @@ data-testid values counted, plus the Roles section (3.0.7.0 R2: React, its
 canvas; tools/capture_roles.py takes its picture) and the shell without
 `tour=off` (the first-visit welcome). 3.0.9.0 R2: a review run waiting for
 its plan (tests/helpers/studio_plan_rig.py: lane 2 takes lane 1's summary)
-draws the plan canvas (docs/media/studio-orchestra-plan.png; --dom: "plan"). 3.0.9.0 R3: the
-finished run with three coach findings (tests/helpers/studio_coach_rig.py), its Report panel
-floated wide on the Coach tab (docs/media/studio-orchestra-coach.png, through the DevTools protocol).
+draws the plan canvas (docs/media/studio-orchestra-plan.png; --dom: "plan"). (3.0.9.0 R3's Coach tab
+picture left with the coach in 3.4.0.0 B2: the coach is a pack.)
 3.1.7.0 R2: every run's goal has a repo-relative test command (`rel_test`), every Studio draws
 you@studio (tools/capture_identity.py) and every page is guarded before it is counted or shot.
 """
@@ -22,7 +21,7 @@ import os
 import sys
 from pathlib import Path
 
-from capture_identity import checked_dump, guard_page, placeholder
+from capture_identity import checked_dump, placeholder
 
 ORCH_IDS = ("orchestra-root", "orchestra-graph", "gate", "lane", "claim-region", "report-check", "grid-tile", "section-tab",
             "start-view", "panel-title", "panel-help", "section-help", "orchestra-goal-form", "orchestra-menu-run",
@@ -71,39 +70,6 @@ def plan_capture(out: "Path | None", chrome) -> "dict | int":
         return 0 if good else 1
 
 
-COACH_LAYOUT = {"v": 2, "panels": {"report": {"x": 14, "y": 64, "w": 5, "h": 30, "collapsed": False, "floating": True,
-                                             "fx": 330, "fy": 36, "fw": 760, "fh": 780, "face": "detail", "z": 60}}}
-
-
-def coach_capture(out: Path) -> int:
-    """The Coach tab of a finished run's report, its panel floated wide, as a picture at `out`."""
-    from tests.helpers.chrome_driver import open_chrome
-    from tests.helpers.studio_coach_rig import CoachRig
-    c = open_chrome()  # the driver base: HALO_CHROME first, one headless Chrome at a time
-    if c is None:
-        return 2
-    try:
-        placeholder()
-        with CoachRig(test=rel_test()) as rig:
-            placeholder(rig.studio.state)
-            page = rig.url().replace("&open=all", "")  # 3.3.2.0 R3: the quiet console under the floated Report
-            c.go(page)
-            c.js(f"localStorage.setItem('halo.studio.layout.orchestra', {json.dumps(json.dumps(COACH_LAYOUT))}); 1")
-            c.go("about:blank")
-            c.go(page)
-            c.wait("!!document.querySelector('[data-testid=\"report-tab-coach\"]')", 30)
-            c.click_on("document.querySelector('[data-testid=\"report-tab-coach\"]')")
-            c.wait("document.querySelectorAll('[data-testid=\"coach-card\"]').length === 3", 20)
-            guard_page(c, "orchestra coach")
-            size = c.shot(out)
-            c.go("about:blank")
-    finally:
-        c.close()
-    good = out.is_file() and size > 10_000
-    print(f"{'wrote' if good else 'FAILED'} {out} ({size} bytes)")
-    return 0 if good else 1
-
-
 def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     """Seed, serve, render; the exit code capture_studio.py returns."""
     from tests.helpers import orchestra_fixtures as F
@@ -141,7 +107,6 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
             ok = ok and good
             print(f"{'wrote' if good else 'FAILED'} {target} ({target.stat().st_size if target.is_file() else 0} bytes)")
         ok = plan_capture(grid_png.with_name(grid_png.stem + "-plan.png"), chrome) == 0 and ok
-        ok = coach_capture(grid_png.with_name(grid_png.stem + "-coach.png")) == 0 and ok  # 3.0.9.0 R3
         return 0 if ok else 1
     finally:
         for s in (srv, srv2):

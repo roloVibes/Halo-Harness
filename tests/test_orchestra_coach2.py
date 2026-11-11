@@ -24,6 +24,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
 from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
 _fleet_pack.on()
 
@@ -149,6 +150,7 @@ def test_the_two_cli_verbs_print_the_card(ctx: Ctx):  # 3.4.0.0 B: halo team coa
     from tests.helpers import coach_seed as S
     with Home() as h:
         S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=[{"tool_name": "WebFetch", "reason": "denied by rule"}])])
+        _coach_pack.enable(h.state, cwd=h.root)  # 3.4.0.0 B2: the verbs hand over to the coach pack's `halo coach`
         rc, out, err = _cli(cmd_orchestra, ["coach", "--repo", str(h.root)])
         ctx.check(f"orchestra: the card, got {rc} {out!r} {err!r}", rc == 0 and f"coach: orchestra run {S.RUN}: 1 suggestion" in out
                   and "[high] tools · 1 (bio coach-deny)" in out and "apply: bio coach-deny: tools.deny = Agent" in out

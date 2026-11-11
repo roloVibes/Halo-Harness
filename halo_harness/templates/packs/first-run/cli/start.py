@@ -13,7 +13,7 @@ s opens Studio's plan canvas (and waits for the decision made there), q
 stops. `--yes` runs straight through (the plan approved); `--json` prints
 only the machine summary at the end (and asks nothing). The real model you
 configured does the work; with no provider configured the start says so
-and offers Setup in Studio (Enter; `n` runs the terminal wizard, 3.3.0.0 R4). `HALO_START_FAKE=1` runs the whole path on fake
+and offers Setup in Studio (Enter; `n` runs the console setup, `halo init --terminal`). `HALO_START_FAKE=1` runs the whole path on fake
 model calls (tests, a dry look).
 
 3.3.15.0 R5: on the Auto lineup (or none) with no `--lineup`, it prints why
@@ -90,13 +90,13 @@ def _offer_init(as_json: bool) -> int:
             return 2
         from halo_harness.ext import core as _core
         cmd_init = _core.get("init_cli", "cmd_init")
-        if answer in ("n", "no"):  # 3.3.0.0 R4: the terminal wizard
+        if answer in ("n", "no"):  # 3.3.0.0 R4: the terminal setup (3.4.0.0 B2: the console setup)
             return cmd_init(["--terminal"])
         if answer in ("", "y", "yes"):  # Enter: Setup in Studio, the same door as halo init
             from halo_harness.ext import core as _core
             SetupTarget = _core.get("studio.setup_door", "SetupTarget")
             cli_door = _core.get("studio.setup_door", "cli_door")
-            if not cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="wizard"):
+            if not cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="setup"):
                 return cmd_init(["--terminal"])
             print("Set a provider up there, then run halo start again.")
     return 2

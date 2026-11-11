@@ -36,7 +36,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Hand-offs", "A lane can wait for another (after) and take its summary, its units or a file it saved (needs); it then starts from that lane's finished head, and a lane that takes nothing sees only the goal. Lanes draws each edge with what it carries and every lane's base."],
       ["The gate checks DONE WHEN", "The parts merge one at a time, your test runs, and a part that fails goes back to its worker (up to the return cap)."],
       ["Read the report", "Every check with a tick or a cross, the finished branch and its sha, the tests, the cost and the time."],
-      ["How this works: Coach", "The report's Coach tab reads the run's files and suggests what to change: a bio's prompt, model or tools, a lane's after, a gate that looped. Each card shows its evidence; Apply opens the bio, the lineup or the plan with the change filled in, and you save it there. Dismiss hides a card for that run."],
+      ["How this works: Coach", "The coach is a pack (halo pack install coach): enabled, its Coach panel here reads a finished run's files and suggests what to change -- a bio's prompt, model or tools, a lane's after, a gate that looped -- each card with its evidence; Apply shows the file and its diff first and writes after you confirm, Undo puts it back."],
     ],
     keys: [["J / K", "focus the next / previous lane at work"], ["F", "the Log follows the newest line"], ...PANEL_KEYS],
   },
@@ -57,7 +57,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   },
   agents: { // 3.3.16.0 R1: Team, Roles and Orchestra folded into one section, three views; R2: and Fleet (Live's fleet scope)
     terms: ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "fleet", "hub", "harness", "mission", "part", "hand-off", "capability", "replay", "waiting path"],
-    what: "Your agents in one place, three views on one switch: Cast is the lineup and its bios (which agent, on which model, plays each part, in which tier), Runs gives the lineup one goal and shows the run (the lead's plan, the lanes in their worktrees, the merge, the tests, the report and the coach; a fleet mission is a run too), and Live is what runs now, this halo's session or every machine of the fleet as a tree. Team's board is gone: a run's plan shows who owns what. The Fleet section is gone too: a machine's agents are Live's, its models Local's, pairing Setup -> Machines'.",
+    what: "Your agents in one place, three views on one switch: Cast is the lineup and its bios (which agent, on which model, plays each part, in which tier), Runs gives the lineup one goal and shows the run (the lead's plan, the lanes in their worktrees, the merge, the tests and the report, and with the coach pack its Coach panel; a fleet mission is a run too), and Live is what runs now, this halo's session or every machine of the fleet as a tree. Team's board is gone: a run's plan shows who owns what. The Fleet section is gone too: a machine's agents are Live's, its models Local's, pairing Setup -> Machines'.",
     steps: [
       ["Pick the view", "Cast, Runs or Live, first on the bar (C, R, L). Agents opens on Live: what runs now, or one sentence when nothing does; a door that names a view lands there. Nothing else opens on its own."],
       ["Cast: the lineup", "Cast is the plan: its bar names the lineup new sessions use, and while agents run a chip counts them and goes to Live. The canvas holds the lineup's cards in their tier boxes; Lineups, Bios, the Inspector, Problems and Models are its panels. Save writes the YAML, Apply makes it the lineup new sessions use."],
@@ -73,7 +73,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Hover, then click", "Rest the pointer on a box (a card, an agent, a session, a machine, a lane, a square) or Tab to it: a card says what it is and does after a moment. A click opens everything in the inspector. Settings -> Studio turns the cards off."],
       ["Live: the inspector", "Nothing picked: the fleet at a glance (machines, agents at work, what waits on you, today's spend, while you were away). A machine: its summary (who, health, spend) with Specs and Spend caps one block per page. An agent: its streams, Steer, Pause, Stop, Take over, Hand to, Record. A part: its card and Open in Runs."],
       ["Attention", "The chip at the right of the bar counts every decision that waits on you across the fleet, amber while any does; it (or A) opens the queue: A accepts, R denies or redoes with your text, S stops, O opens where it belongs."],
-      ["Runs: missions", "Runs' list holds this machine's runs and the fleet's missions; a mission opens its Mission panel (plan, running, report, coach). With more than one machine paired, the goal form offers Run it across the fleet."],
+      ["Runs: missions", "Runs' list holds this machine's runs and the fleet's missions; a mission opens its Mission panel (plan, running, report). With more than one machine paired, the goal form offers Run it across the fleet."],
     ],
     keys: [["C / R / L", "Cast, Runs, Live (outside a text field)"], ["A", "the Attention queue"], ["M", "the Mission panel (Runs)"], ["F", "on the Live canvas: this halo or the fleet"],
       ["J / K", "the next / previous agent at work (Runs: the next lane)"], ...PANEL_KEYS],
@@ -107,7 +107,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   },
   setup: {
     terms: ["setup", "provider", "env file", "lineup"], // 3.3.0.0 R1: "setup", "provider" and "env file" are in the glossary
-    what: "This box's setup one page at a time, the page halo init opens: the terminal wizard's steps in its order, one block per page with its own Save, then a Summary. Every block writes the key the wizard writes in ~/.halo/config.json, the same as halo config set; keys go to the env file and are never shown back. Nothing opens on its own here. halo init --terminal is the terminal wizard.",
+    what: "This box's setup one page at a time, the page halo init opens: the steps in order, one block per page with its own Save, then a Summary. Every block writes its key in ~/.halo/config.json, the same as halo config set; keys go to the env file and are never shown back. Nothing opens on its own here. halo init --terminal is the terminal wizard.",
     steps: [
       ["Follow the rail", "The rail on top lists the steps in the wizard's order: the current one lit, a done one ticked. Click any step to open its page; the line under it says what is set now."],
       ["Set a provider up", "Providers: one card per provider. Paste a key (or a host), Save & test writes it to the env file, turns the provider on and reads its model list. Ollama's finders (Find, Scan, Add, Measure) open under its card."],

@@ -149,13 +149,13 @@ def test_measured_reads_the_gym_rules_speed_and_census(ctx: Ctx):
 def test_local_is_is_local_model_ref_everywhere(ctx: Ctx):
     from halo_harness.capabilities import _tier
     from halo_harness.model import is_local_ref_string
-    from halo_harness.orchestra.coach_prices import price_of
+    from halo_harness.orchestra.prices import price_of
     ctx.check("ol: / hf:local / hf:mlx are local; a Hugging Face router ref is not",
               is_local_ref_string("ol:qwen3:30b") and is_local_ref_string("hf:local/x") and is_local_ref_string("hf:mlx/a/b")
               and not is_local_ref_string("hf:Org/Model-7B") and not is_local_ref_string("or:v/eyes"))
     router = {"ref": "hf:Org/Model-7B", "provider": "huggingface", "price_in_per_m": 0.2}
     ctx.check("capabilities._tier prices a router row like any remote row", "local" not in _tier(router)[1])
-    ctx.check("coach_prices.price_of keeps a router row's own price", price_of([router], router["ref"]) == 0.2)
+    ctx.check("prices.price_of keeps a router row's own price", price_of([router], router["ref"]) == 0.2)
     ctx.check("and a local row is still free", price_of([{"ref": "hf:local/x", "provider": "huggingface"}], "hf:local/x") == 0.0)
 
 

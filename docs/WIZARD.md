@@ -2,6 +2,12 @@
 
 Read this when you change or add a wizard screen: the ten rules every screen follows.
 
+**3.4.0.0: the terminal wizard's step screens left** (Setup is Studio's, [STUDIO-setup.md](STUDIO-setup.md); `halo init
+--terminal` is a plain console setup, [COMMANDS-init.md](COMMANDS-init.md)). The rules below stay the interaction
+model Studio's Setup pages and the terminal's list screens (`/agents`, `/teams`, the editors and views) follow; the
+modules they name under `tui/dialogs/` for the wizard (`init_wizard.py`, `step_rail.py`, `setup_mode.py`,
+`team_step.py`) are gone.
+
 Halo 2.0.5 round 2c (`plans/ROADMAP.md` "ADDED 2026-10-06 ~10:05": "the
 wizard stops being clunky"). Ten rules, followed by every wizard screen --
 `halo init`, `halo setup`, `/setup`, `/agents`, `/teams`, every editor

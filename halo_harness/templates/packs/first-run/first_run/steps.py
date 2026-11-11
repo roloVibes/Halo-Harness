@@ -34,7 +34,8 @@ PLAN_EXPLAIN = (
     "A hand-off (`needs`) passes what an earlier lane left, its summary, its units or a file, to the lane that takes it.",
 )
 
-COACH_APPLY = "Apply opens the bio in Studio: halo studio --mode agents, Runs, the report's Coach tab."
+COACH_APPLY = "Apply writes a card's change after you confirm: halo coach <run> --apply <id>, or the Coach panel in Studio (Agents)."
+COACH_OFF = "The coach (what to change next time) is a pack: halo pack install coach, then halo pack enable coach --grant-all."
 
 NEXT = (
     ("Agents: Cast", "edit your lineup's cards, their models and tiers", "halo studio --mode agents"),

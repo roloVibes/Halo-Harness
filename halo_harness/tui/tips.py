@@ -73,7 +73,7 @@ TIPS: "tuple[Tip, ...]" = (
     Tip('/compact [instructions] summarizes the conversation to free up context'),
     Tip('/stats --models shows per-model edit failures, tool errors and cost'),
     Tip('/stats --tools shows error rates per tool this session'),
-    Tip('/improve drafts memory and rule candidates from recent sessions; you approve each one'),
+    Tip('The coach is a pack: halo pack install coach, then halo coach reads a finished run'),
     Tip('/providers shows which providers are enabled and why'),
     Tip('/mcp lists configured MCP servers and reconnects one', needs=("mcp",)),
     Tip('/memory shows the auto-memory directory and index'),

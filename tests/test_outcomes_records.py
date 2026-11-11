@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import tests.helpers.coach_names  # noqa: E402,F401  (3.4.0.0 B2: the coach pack's modules, old names)
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
