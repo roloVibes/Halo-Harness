@@ -1582,7 +1582,12 @@ def test_roles_edit_opens_the_form_with_one_row_per_role(ctx: Ctx):
                     if isinstance(app.screen, RolesEditor):
                         break
                 ctx.check(f"RolesEditor opened, got {type(app.screen).__name__}", isinstance(app.screen, RolesEditor))
-                option_ids = [str(o.id) for o in app.screen.query_one("#roles-list").options]
+                option_ids: list = []
+                for _ in range(40):  # the rows are filled after the screen mounts: wait for what is asserted
+                    option_ids = [str(o.id) for o in app.screen.query_one("#roles-list").options]
+                    if set(ROLE_NAMES) <= set(option_ids):
+                        break
+                    await pilot.pause(0.05)
                 ctx.check(f"one row per built-in role, got {option_ids}", set(ROLE_NAMES) <= set(option_ids))
         finally:
             _restore_state_dir_env(old)
