@@ -128,7 +128,12 @@ def lan(c, url, ctx) -> dict:
         press(c, f"{row}.querySelector('[data-testid=bench-run]')", f"!!{conf}?.querySelector('[data-testid=bench-offer]')")
         out = {"lan_confirm": c.wait(f"!!{conf}?.querySelector('[data-testid=bench-via]') && ['bench-cost', 'bench-via', "
                                      f"'bench-offer'].map((t) => {conf}.querySelector(`[data-testid=${{t}}]`).textContent)", 20)}
-        press(c, f"{conf}.querySelector('[data-testid=bench-go]')", f"!!{row}?.querySelector('[data-testid=bench-over-lan]')")
+        # the card may be re-drawn (or closed by a retried open) between the read above and this press on a slow box:
+        # wait for its Go button, opening the card again if it went (red on the Windows runner at e78f235e)
+        go = f"{conf}?.querySelector('[data-testid=bench-go]')"
+        if not c.js(f"!!{go}"):
+            press(c, f"{row}.querySelector('[data-testid=bench-run]')", f"!!{go}")
+        press(c, go, f"!!{row}?.querySelector('[data-testid=bench-over-lan]')")
         chip = f"{row}.querySelector('[data-testid=bench-over-lan]')"
         out["lan_row"] = c.wait(f"!!{row}?.dataset.benched && !!{chip} && [{chip}.textContent, {chip}.title]", 20)
         return out
