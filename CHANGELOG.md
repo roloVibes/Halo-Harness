@@ -76,7 +76,7 @@ cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilo
 - **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
   made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
 
-## [3.3.16.3] - unreleased
+## [3.3.16.3] - 2026-11-10
 
 The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
 tab ... I wish I could see better groupings of these sub-agents ... here's this one task and here's the sub-agents in there".

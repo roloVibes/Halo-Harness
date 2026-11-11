@@ -1,5 +1,82 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.3.16.3] - 2026-11-10
+
+The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
+tab ... I wish I could see better groupings of these sub-agents ... here's this one task and here's the sub-agents in there".
+
+### Added
+
+- **Live in groups** (Agents -> Live and Session's Map): the sub-agents one step of a parent started together (one
+  reply's Agent calls) are one box titled by their task -- the description they share, else the parent's own line
+  before the calls, else the words the descriptions start with, never a model call -- and the parent's line goes into
+  the box; a square's agents are one box titled `square <name>` with its DOES line; a tier's agents fall back to the
+  tier's purpose; an agent started alone is not boxed. The bar counts working / waiting / done, the cost and the time,
+  says Auto's pick in plain words ("3 readers on kimi-k3 for a pdf in the task"), folds to itself on the chevron (amber
+  while one inside waits on you), and has a hover card. Ten agents are a grid of four to a row; boxes nest one level.
+  `routes/agents/live/groups.ts`, `groupLayout.ts`, `GroupBox.tsx`; Session's timeline gains **by group**.
+- Agent rows carry `spawn: {step, description, lead}` (`agent/agent_hooks.spawn_of`: the parent's id and reply count,
+  the call's description, the parent's last line in that reply) and a square's row its `does`.
+- **Blocks on Cast**: the lineup's enabled squares are blocks beside its tiers on one canvas, main's line into each;
+  a square block opens to show the bios of its lineup on their models (folded: its TAKES / GIVES / COSTS lines; the
+  chevron kept per lineup), its footer its limits and cost band. A click opens its summary in the inspector, with new
+  **Purpose** and **Agents** pages (`PUT workflows/contract` takes `does`; a shipped square says how to copy it).
+- `tiers[].purpose` in a lineup: the tier block's title line on Cast (its `...` menu edits it), Live's tier group,
+  `halo teams show`'s tier line; the shipped auto lineup names both of its tiers.
+- **The when** (part 2; the owner: "add this workflow in there when this situation happens"): a lineup's `workflows:`
+  item may be `{ref, when: {needs, words, mode}}` beside plain refs (which keep their meaning): `needs` narrow what the
+  square covers, `words` fire on what the task says, `mode` is `auto`, `named` (only by name), `always` (first, before
+  main answers) or `off` (not connected). `workflows/router.py` reads it (always, then words, then the needs pick;
+  `when_route.py`), the receipt's reason names the rule that fired (`handing the PDF to media: when main needs pdf`,
+  its `rule` field), the Workflow tool's description says each rule; the auto lineup keeps its rules in config
+  `workflows.when.<ref>` (a new keyed Settings row). `workflows/when.py`, `when_store.py`, `when_tool.py`.
+- **The line carries it** on Cast: main's line into a square block has a short label (`needs pdf`, `says review,
+  audit`, `always first`) with a hover card; a click on it, or the block's new **When** row in the inspector, opens the
+  When page (four choices in plain words, what it writes, Save, Disconnect). A block with no line is dashed, its footer
+  says "not connected: main never uses it", Problems lists it (NOT CONNECTED). Main's edge handle dragged onto a block,
+  or the block's `⋯` menu (Connect to main, When, Disconnect, Take it off), draws the line.
+- **The library on Cast, three kinds**: Workflows (yours / packs / shipped), Blocks you can start from, Agents (the
+  bios), one search over all three; `+ Library` on Agents' bar on Cast too, beside the canvas, closed on load.
+- **Block templates** under `halo_harness/templates/blocks/`: `thinking` (three reasoning agents), `media` (adds as
+  `media-team`), `review-panel` (three reviewers), `local-workers` (a tier); every agent on `auto`, nothing names a
+  provider. `workflows/blocks.py`, `blocks_tier.py`; `GET workflows/templates`, `POST workflows/templates/add | merge |
+  remove`.
+- **The four drags** with the real pointer, each asking first (WHAT / COSTS / WRITES) and saying what changed in one
+  line: a workflow or a template from the library onto the canvas (wired to main by its covers); an agent (a bio, a
+  tier card, another square's agent) into a block (a shipped square is copied to yours as `my-<name>` first and the
+  board swaps to it, its rule kept: `workflows/members.py`, `PUT workflows/members`, `POST workflows/swap`); a square's
+  agent out onto the canvas (the last cannot leave); a block by its title bar (its spot in the lineup's layout,
+  `block:<ref>`). Undo / Redo walk each back in order with the lineup's own edits (`blocks/history.ts`). Keys: Tab
+  reaches blocks and their agents, `M` then the arrows and Enter moves one, Delete asks in the inspector.
+- CLI and TUI: `halo workflows enable <ref> --when needs=pdf,audio | words=review,audit | named | always | off | auto`,
+  `halo workflows when <ref>`, a `when:` column in `halo workflows list` and `/workflows`; `halo blocks list | add
+  <template> [--as <name>] | show <name>` (`blocks_cli.py`); `halo teams show` prints `block <ref> (square): when ...`.
+
+### Changed
+
+- Live's layout draws a group as one child of its parent (`liveLayout.ts` hands a tree with groups to
+  `groupLayout.ts`; a tree without them is laid out as before). The glossary's **block** says the canvas meaning too;
+  **group** is new.
+- A lineup's `workflows:` list keeps its `{ref, when}` items through `halo workflows enable / disable` (edited in place,
+  not rewritten as refs); `halo teams validate` checks each rule. The square inspector's summary has a **When** row; a
+  square's hover card says its when in place of its covers on the board. W keeps its own board with the same library.
+- **One order with 3.3.16.2's lineup roles**, explicit before implicit (`workflows/router.py` `route`, docs/WORKFLOWS-squares.md
+  "The order"): a square named; then a square whose when fires (`always`, then `words`, then `needs`), ahead of a role;
+  then a role of the lineup that covers the need ("to your media role"); then a plain ref's covers; then the line
+  saying what would. An inherited `workflows.enabled` square is a plain ref, so on the auto lineup a PDF still goes to
+  its media member unless the media square has a when. The Workflow tool is not offered when every square on is `off`;
+  `halo doctor`'s squares line names a square's when; `halo workflows list` shows "on for <lineup>" / "off" and the when
+  column. An edit to a lineup with no `workflows:` key (enable, disable, a when) starts from the set it inherits.
+
+### Docs
+
+- docs/STUDIO-blocks.md (a new part of STUDIO.md: "Blocks" and "Live in groups"; STUDIO-agents.md points to it), docs/ROLES.md and docs/AGENTS.md (`tiers[].purpose`),
+  docs/WORKFLOWS-squares.md "A square as a block", the glossary, README's Agents part.
+- Part 2: docs/STUDIO-blocks.md "Composing: the line, the library, the drags"; docs/WORKFLOWS-squares.md "When",
+  "Block templates", "Who is inside a square"; docs/COMMANDS-workflows.md (`--when`, `when`, `halo blocks`); docs/AGENTS.md
+  (`workflows[].when`); docs/CONFIG.md (`workflows.when.<square>`); the glossary's **when**; README's Workflows part;
+  docs/media/studio-workflows.png re-rendered as the composed board.
+
 ## [3.3.16.2] - 2026-11-10
 
 **Live: thinking you can see, agents talking.** The owner: "make watching a model think much better. In sessions
@@ -1399,26 +1476,3 @@ out (the Metal capacity line, a driver refusal) are guesses the reader does not 
 
 #### Changed
 - The loopback auto-detect names a server whose `/v1/models` says `owned_by: tensorfold` by its runtime, its window from `context_length`.
-
-## [3.3.9.2] - 2026-11-02
-
-**Strata.** The owner's order after FreeToken: Strata (github.com/Niko1221/Strata), the engine of the same family -- a
-big Mixture-of-Experts model paged from RAM and disk on one consumer box -- that runs natively on Windows, Linux and the
-Mac, so the PC's own card serves Qwen3.8-Flash-Next without WSL2. One more local runtime, never a provider: a managed
-`strata launch` that Halo starts only when Strata's own plan shows nothing left to download (the GB and the command are
-the owner's otherwise), the steward reading its log, FreeToken's RAM + link fit rule with Strata's sets and its VRAM slot
-guide, host-served to every halo on the LAN. Every Strata log pattern and API shape is from its source, unverified until
-the owner's run on the PC.
-
-### R1: Strata -- a big Mixture-of-Experts engine that runs natively on Windows, Linux and the Mac, as one more local runtime
-
-#### Added
-- `halo local serve --runtime strata --model <family>/<set>` (or `--model-path DIR`) runs Strata's `strata launch` (from `huggingface.strata_bin` or PATH) on a free loopback port behind a key Halo keeps in the env file, as the registry row and `huggingface.local_servers` entry `strata` (`hf:local/<model>@strata`); `strata launch --plan` goes first and when the first launch would download (the set's tens to hundreds of GB, the engine for the card) Halo starts nothing and says the GB and the command you run; `--plan` prints Strata's own plan and the fit here; `--lan` is `--access lan`; `halo local servers | log | stop` treat it like the others (`stop` is `strata launch --stop`; the server outlives Halo under Strata's own supervisor).
-- A missing `strata` is one line with the install route for this OS (`install.ps1` on Windows, `install.sh` on Linux and the Mac) and the set's download GB; `halo doctor --local` checks `strata --version` and `strata launch --status` when the runtime is configured.
-- The steward reads Strata's server log (the experts' loading words, the `ready:` line's window, each request's `done:` line with its tok/s and expert-cache hit rate, the parallel-slot lines, the RAM warnings) and the launch's download lines: `strata-disk-bound`, `strata-slots`, `strata-download`, keyed `<server>|<model>`, each with a stated fix never applied; `halo ollama explain` knows them.
-- The Strata fit, FreeToken's RAM + link rule with Strata's figures: the VRAM guide for parallel requests (12 GB runs 1, 20 GB 2, 24 GB 3, 32 GB and more 4), the set's experts against host RAM, what streams from the SSD, Strata's measured table as the extrapolated speed until `halo local bench --host strata` measures it; the Library lists Strata's sets as download targets with it as the badge.
-- Through the host: a Strata server on the host is a host-served local server with its model; with `--lan` the host's catalog offers it and a peer reaches it as `hf:local/<model>@<host>`; placement and the adviser see it beside the Ollama hosts, the pool and FreeToken, with the loading tax said (the restart, the experts into RAM, the first launch's download).
-- Setting `huggingface.strata_bin`; glossary `expert set`; docs/MODELS-strata.md.
-
-#### Changed
-- The loopback auto-detect names a server whose `/health` says `"service": "strata"` by its runtime, its window from `meta.n_ctx`.
