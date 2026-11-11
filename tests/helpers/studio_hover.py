@@ -150,8 +150,18 @@ def off(c, rig) -> dict:
     rest(c, tester, 0.3, 0.55)
     out["off_none"] = none_for(c, 1.5)
     go(c, rig, "&view=workflows", f"!!{Q}('[data-testid=\"wf-card\"][data-ref=\"media\"]')")
-    rest(c, f"{Q}('[data-testid=\"wf-card\"][data-ref=\"media\"]')", 0.3, 0.6)
-    out["off_square_inspector"] = c.wait(f"{Q}('[data-testid=\"wf-inspector\"]')?.dataset.hover && 'hover'", 10)
+    # the page reads the setting after it loads ("wait" until then: no card, no hover inspector); a pointer that came
+    # to rest before that sees nothing until it moves, so the driver comes back onto the square until the page answers
+    # (red on the Linux runner at 69988ed6, green here and in WSL)
+    card, seen = f"{Q}('[data-testid=\"wf-card\"][data-ref=\"media\"]')", None
+    for _ in range(8):
+        rest(c, card, 0.3, 0.6)
+        try:
+            seen = c.wait(f"{Q}('[data-testid=\"wf-inspector\"]')?.dataset.hover && 'hover'", 2)
+            break
+        except TimeoutError:
+            away(c)
+    out["off_square_inspector"] = seen
     out["off_square_none"] = none_for(c, 0.6)
     set_config_value("studio.hover_cards", True)
     return out

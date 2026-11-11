@@ -21,7 +21,7 @@ import threading
 import time
 from typing import Callable, Optional
 
-from halo_harness.fleet import capabilities, control, identity, ollama_share, protocol, store
+from halo_harness.fleet import capabilities, control, identity, offer_member, ollama_share, protocol, store
 from halo_harness.fleet.relay import HubError, HubLink
 
 ANNOUNCE_S = 10.0
@@ -155,7 +155,7 @@ class HubRelay(threading.Thread):
         rows = [self._row(a, pol["share"]) for a in self.actives()]
         reply = self.link.request("POST", protocol.PREFIX + "/announce", protocol.doc(
             link=self.link_id, harness=identity.harness(), share=pol["share"], allow_control=pol["allow_control"],
-            allow_answers=pol["allow_answers"], sessions=rows, **capabilities.announce_fields(on_change=self.poke)))
+            allow_answers=pol["allow_answers"], sessions=rows, **capabilities.announce_fields(on_change=self.poke), **offer_member.announce()))
         self.member_name = reply.get("member_name") or self.member_name
         self._policy = pol
 
@@ -235,7 +235,7 @@ class HubRelay(threading.Thread):
         threading.Thread(target=self._run_command, args=(act, doc), daemon=True, name="halo-fleet-cmd").start()
 
     def _run_command(self, act, doc: dict) -> None:
-        out = control.run(act.handle, doc, {**control.policy(self.entry), "hub_entry": self.entry},  # R7: run_task
+        out = offer_member.run(act.handle, doc, {**control.policy(self.entry), "hub_entry": self.entry},  # R7; 3.3.18.0 offers
                           interim=lambda: self._reply(doc, {"state": "asked"}))
         self._reply(doc, out)
 
