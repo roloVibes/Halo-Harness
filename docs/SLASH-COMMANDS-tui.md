@@ -136,6 +136,14 @@ depth`) with `*` on the ones this lineup enabled; `show` one square's contract,
 session's model takes from the same `takes` column `/model` shows. See
 `docs/WORKFLOWS-squares.md`.
 
+### `/whatsnew [<version>] [--since <version>] [--full]`
+Halo 3.3.16.2: what this version changed, the same text `halo whatsnew`
+prints -- the installed version's two-sentence summary and each `###`
+heading with its first line; a version, `--full` for the whole entry,
+`--since` for every entry after one. It reads the CHANGELOG entries the
+package ships, so it works on an install with no repo. See
+[Commands: health](COMMANDS-whatsnew.md#halo-whatsnew).
+
 ### `/orchestra [run]`
 Halo 3.0.3.0: the latest Orchestra run of this folder's repo (or the run
 named): its workflow steps, one row per worker lane (state, pieces sent

@@ -1,0 +1,32 @@
+/* The hover card (3.3.16.1, lib/ui/HoverCard.tsx): a solid surface with a 1 px hairline, the one floating shadow, the
+   12 px inset, a row per fact (label in the inspector's small mono caps, the value beside it, wrapping inside its row),
+   the IS line cut at two lines by CSS, a NOW block in the working colour, a faint last line. Fixed, so it is placed in
+   window coordinates; only a short fade in, and none with reduced motion. */
+.hover-card {
+  position: fixed; z-index: 70; width: 340px; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow: auto;
+  display: grid; gap: var(--s-2); padding: var(--s-3); box-sizing: border-box;
+  background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--r-card);
+  box-shadow: var(--shadow-1); font: var(--t-body); pointer-events: auto; user-select: text;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hover-card { animation: hc-in var(--dur-fast) var(--ease-out); }
+}
+@keyframes hc-in { from { opacity: 0; } to { opacity: 1; } }
+
+.hc-title { font: var(--t-node-name); color: var(--text); overflow-wrap: anywhere; }
+.hc-is {
+  margin: 0; color: var(--muted); line-height: 20px; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+}
+.hc-rows { display: grid; gap: var(--s-1); margin: 0; padding: var(--s-2) 0 0; border-top: 1px solid var(--line); }
+.hc-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: var(--s-3); align-items: baseline; min-height: 20px; }
+.hc-row dt { color: var(--faint); font: var(--t-caption); font-family: var(--font-data); letter-spacing: .08em; text-transform: uppercase; }
+.hc-row dd { margin: 0; color: var(--text); font: var(--t-data); line-height: 20px; overflow-wrap: anywhere; min-width: 0; }
+.hc-now {
+  /* 88 px: its 8 px inset plus the label column line its value up with the rows' values */
+  display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: var(--s-3); align-items: baseline; padding: var(--s-2);
+  background: var(--soft-accent); border: 1px solid var(--line); border-radius: var(--r-control);
+}
+.hc-now-k { color: var(--accent); font: var(--t-caption); font-family: var(--font-data); letter-spacing: .08em; text-transform: uppercase; }
+.hc-now-v { color: var(--text); font: var(--t-data); line-height: 20px; overflow-wrap: anywhere; min-width: 0; }
+.hc-foot { color: var(--faint); font: var(--t-caption); font-family: var(--font-data); padding-top: var(--s-1); border-top: 1px solid var(--line); }

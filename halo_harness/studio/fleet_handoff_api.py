@@ -91,8 +91,20 @@ def post_handoff(req):
     status, got = send.session_cmd(req.server, req.state_dir, str(h["id"]), sid, "agent_stop",
                                  {"agent_id": aid, "reason": f"handed to {target.get('name')}"})
     out["stopped"] = {"status": status, "result": got}
+    _hand_over(req, h, sid, aid, agent, str(target.get("name")), md)
     journal.append(req.state_dir, "handoff", action="hand_to", to=target.get("name"), path=out.get("path"), **note)
     return 200, out
+
+
+def _hand_over(req, h: dict, sid: str, aid: str, agent: dict, machine: str, md: str) -> None:
+    """3.3.16.2: the hand-over as a talk in Live (fleet/talk.py), the brief addressed to the machine."""
+    try:
+        from halo_harness.fleet.talk import hand_over_frame
+        from halo_harness.studio.events import bridge_for
+        bridge_for(req.server).publish(hand_over_frame(harness=str(h.get("id")), session_id=sid, aid=aid, machine=machine,
+                                                       name=str(agent.get("name") or aid), text=md))
+    except Exception:
+        pass
 
 
 _ID = r"[A-Za-z0-9_.:-]+"

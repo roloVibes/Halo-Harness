@@ -12,6 +12,8 @@ import { sessionMotion, useFleet } from "../../fleet/store";
 import type { LiveBox } from "../../roles/liveLayout";
 import type { MenuAt } from "./NodeMenu";
 import { projectLabel, useTicker } from "./nodeBits";
+import { useHover } from "../../../lib/hover/useHover";
+import { SessionHover } from "../hover/session"; // 3.3.16.1: its hover card (Agents -> Live, not Session's Map)
 
 function GitChips({ hid, sid, dirty }: { hid: string; sid: string; dirty: boolean | undefined }) {
   const room = usePanels((st) => st.conflicts?.rooms.flatMap((r) => r.cards).find((x) => x.harness === hid && x.session_id === sid));
@@ -27,9 +29,9 @@ function GitChips({ hid, sid, dirty }: { hid: string; sid: string; dirty: boolea
   );
 }
 
-type Props = { b: LiveBox; selected: boolean; onPick: (key: string) => void; onMenu: (m: MenuAt) => void };
+type Props = { b: LiveBox; selected: boolean; onPick: (key: string) => void; onMenu: (m: MenuAt) => void; hover?: boolean };
 
-export function SessionNode({ b, selected, onPick, onMenu }: Props) {
+export function SessionNode({ b, selected, onPick, onMenu, hover = false }: Props) {
   const n = b.node;
   const hid = n.harness || "";
   const sid = n.sid || "";
@@ -37,6 +39,8 @@ export function SessionNode({ b, selected, onPick, onMenu }: Props) {
   const chosen = useFleet((st) => !!st.scope.harness && st.scope.session === sid);
   const clash = usePanels((st) => st.conflicts?.conflicts.find((x) => [x.a, x.b].some((r) => r.harness === hid && r.session_id === sid)));
   const shown = useTicker(Number(n.cost) || 0);
+  const hv = useHover("session", `${hid}|${sid}`, () => <SessionHover hid={hid} sid={sid} title={n.name} />, hover);
+  const t = hv.titles;
   if (!s) return null;
   const pick = () => onPick(n.key);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick());
@@ -45,21 +49,21 @@ export function SessionNode({ b, selected, onPick, onMenu }: Props) {
     <div className="rlm-node rlm-session" style={{ left: b.x, top: b.y, width: b.w, height: b.h }} role="button" tabIndex={0} onClick={pick} onKeyDown={onKey}
          data-testid="fleet-session" data-sid={sid} data-harness={hid} data-status={s.status || "unknown"} data-motion={sessionMotion(s)}
          data-chosen={chosen || undefined} data-selected={selected || undefined} aria-label={`session ${n.name}`}
-         title={`${n.name}\n${s.cwd || ""}\n${s.kind || "session"} · ${s.status || ""}`}>
+         title={t ? `${n.name}\n${s.cwd || ""}\n${s.kind || "session"} · ${s.status || ""}` : undefined} {...hv.props}>
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
         <b className="rlm-name">{short(n.name, 80)}</b>
         <span className="spacer" />
-        {s.mission && <span className="og-chip mono" data-testid="fleet-tree-mission" title={`mission ${s.mission}, part ${s.part ?? "?"}`}>mission</span>}
+        {s.mission && <span className="og-chip mono" data-testid="fleet-tree-mission" data-hover-skip title={`mission ${s.mission}, part ${s.part ?? "?"}`}>mission</span>}
         {n.role && n.role !== "tui" && <span className="og-chip mono rlm-kind" data-testid="fleet-session-kind">{n.role}</span>}
         <button className="rlm-more" onClick={menu} aria-label="session: more" title="Record, shut down..." data-testid="fleet-session-more">...</button>
       </div>
       <div className="mono muted rlm-meta">
-        <span className="rlm-model" title={s.cwd || undefined}>{projectLabel(s)}</span>
+        <span className="rlm-model" title={(t && s.cwd) || undefined}>{projectLabel(s)}</span>
         <span className="rlm-cost" data-testid="fleet-session-cost">{cost(shown)}</span>
       </div>
       {clash && (
-        <div className="mono rlm-clash-line" data-testid="fleet-conflict-chip" title={`${clash.a.name} and ${clash.b.name} are both editing ${clash.file}`}>
+        <div className="mono rlm-clash-line" data-testid="fleet-conflict-chip" data-hover-skip title={`${clash.a.name} and ${clash.b.name} are both editing ${clash.file}`}>
           {"! also edited elsewhere: " + clash.file.split("/").pop()}
         </div>
       )}

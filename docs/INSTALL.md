@@ -23,7 +23,7 @@ alternative that needs no `uv` at all.
 ### Fresh install, nothing downloaded yet (Linux / macOS)
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.15.0/scripts/install-halo.sh | bash
+curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.16.2/scripts/install-halo.sh | bash
 ```
 
 `scripts/install-halo.sh` checks for Python 3.10+, installs `uv` if it is
@@ -99,7 +99,7 @@ release instead.
 ### Windows
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.15.0/scripts/install-halo.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.16.2/scripts/install-halo.ps1 | iex"
 ```
 
 Mirrors `install-halo.sh` exactly: installs `uv` if missing, offers to
@@ -190,7 +190,27 @@ checkout left on a detached tag by the installer uses `git fetch --tags --force
 origin && git checkout --detach <tag>` in place of `git pull`. Every reinstall
 keeps the dependency versions pinned to `requirements.lock` (`--constraints`).
 On the stable channel a plain `halo update` moves a `git+https` install pinned
-at a tag to the newest tag.
+at a tag to the newest tag. After it installs a newer version its last lines are that version's summary;
+`halo whatsnew` (or `/whatsnew`) shows what it changed, from the changelog the package ships (3.3.16.2).
+
+**If `halo update` stops at `invalid peer certificate: UnknownIssuer`** (an install older than 3.3.16.0):
+uv checks TLS against its own bundled roots, not the system store, so a network that re-signs
+traffic, or a CA that only the system store has, fails the check, and the old updater could not
+retry. 3.3.16.0 fixed the updater and both installers (they retry on the system store and say
+so), but an older install cannot update itself past it. This line repairs it once, on every uv
+version (`UV_SYSTEM_CERTS` is uv 0.11's name, `UV_NATIVE_TLS` the one before it):
+
+```sh
+UV_SYSTEM_CERTS=1 UV_NATIVE_TLS=1 uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
+```
+
+```powershell
+$env:UV_SYSTEM_CERTS='1'; $env:UV_NATIVE_TLS='1'; uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
+```
+
+Append `@v<version>` to pin a release. Running the installer one-liner again does the same.
+[Troubleshooting](TROUBLESHOOTING.md#halo-update-stops-at-invalid-peer-certificate-unknownissuer)
+has the entry by its error text.
 
 **Windows note:** the install can't be replaced while any halo process
 still has it open. `halo update` stops them before it installs (3.2.2.0):

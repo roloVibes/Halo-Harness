@@ -161,7 +161,7 @@ def _act(handle, cmd: str, fields: dict, by: str, via: str) -> dict:
         return handle.interrupt()
     if cmd == "steer":
         cmd, fields = "agent_steer", {"agent_id": "main", "text": fields.get("text"), "mode": "nudge"}
-    keep = {"agent_steer": ("agent_id", "text", "mode", "handoff"), "agent_stop": ("agent_id", "reason"),
+    keep = {"agent_steer": ("agent_id", "text", "mode", "handoff", "from_agent"), "agent_stop": ("agent_id", "reason"),
             "pause": ("agent_id", "reason"), "resume": ("agent_id",), "shutdown": ("reason",)}[cmd]
     return _agent_cmd(handle, cmd, by=by, via=via, **{k: fields[k] for k in keep if fields.get(k) is not None})
 

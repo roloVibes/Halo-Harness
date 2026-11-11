@@ -106,6 +106,12 @@ A `cp:work` turn and a `copilot_ask` call add no dollars and mark the session's 
 "Copilot: billed by your tenant (credits or licence)". The TUI's status bar shows the priced part with its `+` (or the
 token counts when nothing else is priced); `/cost` and Studio's Cost panel say the reason. Never `$0.00`.
 
+In Studio's Agents section a Cast card on `cp:work` says in its hover card what it takes (text, files, web; no tools)
+and "your tenant's credits or licence" as its price; a square whose agents run on it says "tenant credits" where a
+dollar band would be. The shared model ranking never puts `cp:work` first for code (a kind that needs tool calls),
+and with no dollar price it never wins "cheapest". On a lean (local) profile `copilot_ask` goes out with a short
+description, right after what the lineup needs ([MODELS-prompt-diet.md](MODELS-prompt-diet.md)).
+
 ## Troubleshooting
 
 `halo doctor` has one Copilot row: not set up, signed in as whom until when, token expired, consent missing or billing

@@ -83,8 +83,20 @@ class Contract:
     def lineup_name(self) -> str:
         return self.lineup.strip() if isinstance(self.lineup, str) else ""
 
+    def models(self) -> list:
+        """The models its lineup names: the lead's, then each member's ([] for a lineup name)."""
+        lineup = self.lineup if isinstance(self.lineup, dict) else {}
+        people = [lineup.get("lead")] + list(lineup.get("members") or [])
+        return [str(m.get("model") or "") for m in people if isinstance(m, dict)]
+
+    def tenant(self) -> str:
+        """3.3.17.0: "all" when every model it names is cp:work (billed by the tenant, never in dollars), "some" when
+        one is, else ""."""
+        return tenant_of(self.models())
+
     def costs(self) -> str:
-        return f"band {self.band}" + (f" · cap ${self.cap_usd:.2f}" if self.cap_usd is not None else " · no cap")
+        dollars = f"band {self.band}" + (f" · cap ${self.cap_usd:.2f}" if self.cap_usd is not None else " · no cap")
+        return costs_words(dollars, self.tenant())
 
     def limits_chip(self) -> str:
         bits = [f"depth {self.depth}"]
@@ -102,7 +114,23 @@ class Contract:
         return {"does": self.does, "takes": list(self.takes), "gives": list(self.gives), "covers": list(self.covers),
                 "lineup": self.lineup, "lead": {"bio": bio, "model": model} if bio else None, "engine": self.engine,
                 "band": self.band, "cap_usd": self.cap_usd, "depth": self.depth, "turns": self.turns,
-                "wall_s": self.wall_s, "square": self.square, "costs": self.costs(), "limits": self.limits_chip()}
+                "wall_s": self.wall_s, "square": self.square, "costs": self.costs(), "limits": self.limits_chip(),
+                "tenant": self.tenant()}
+
+
+def tenant_of(models) -> str:
+    """"all" / "some" / "" -- how many of `models` are cp:work (your work's Copilot, billed by your tenant)."""
+    from halo_harness.providers.copilot_config import REF
+    named = [str(m or "").strip() for m in models or []]
+    hits = sum(1 for m in named if m == REF)
+    return "" if not hits else "all" if hits == len(named) else "some"
+
+
+def costs_words(dollars: str, tenant: str) -> str:
+    """A square's Costs line: its band and cap (`dollars`); "tenant credits" in their place when all of it runs on
+    cp:work, and after them when part of it does (a dollar band says nothing about Copilot's cost)."""
+    from halo_harness.providers.copilot_catalog import COST_WORDS
+    return COST_WORDS if tenant == "all" else dollars + (f" · + {COST_WORDS}" if tenant == "some" else "")
 
 
 def read(data) -> Contract:

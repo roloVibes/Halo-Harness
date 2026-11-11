@@ -130,7 +130,11 @@ cheapest; `mid` (the default) the best within 3x the cheapest paid one
 (free and local ones always count); `high` the strongest. "Best" is the
 mean of the index's scores for the kinds behind the needs; with no needs it
 is cheap and fast. A tie goes to the session's own model, then (band low) to
-a local one. With no candidate, main's model runs it and the reason says
+a local one, then the cheaper, then (3.3.16.2) the newer version of a family,
+the larger context and the provider you have a key for, the name last
+([MODELS-references.md](MODELS-references.md#what-each-model-is-good-at-halo-3190)
+has the order); the reason names the deciding term ("same score as X: newer").
+With no candidate, main's model runs it and the reason says
 so. The pick happens after a call's own `model`, a `--role` override, an
 agent file's `model:` and a tier's model, and before the env / settings
 fallbacks. Two examples on one catalog:
@@ -820,6 +824,11 @@ tiers:
 delegation:
   max_depth: 2      # a three-tier stack is two spawn levels deep
 ```
+
+**A tier's purpose (3.3.16.3).** `purpose:` is a few words saying what the tier is for (`{name: pool, members: [...],
+purpose: the workers, picked per task}`): Studio's Cast titles the tier's block with it (its `...` menu edits it), Agents
+-> Live groups the tier's agents under it, `halo teams show` prints it on the tier's line. It changes no rule; a tier
+without one is drawn as before. The shipped auto lineup names both of its tiers.
 
 **The rule:** a member spawns only into the next tier down. `main` (tier 0)
 spawns `planner` or `reviewer`; a lead spawns `worker`; a worker spawns no

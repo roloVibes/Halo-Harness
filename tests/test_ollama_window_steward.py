@@ -30,7 +30,8 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 from tests.helpers.fake_home import build_fake_home  # noqa: E402
 from tests.helpers.mock_ollama import end_ndjson, start_ndjson, write_ndjson_line, _real_prompt_count  # noqa: E402
 from tests.helpers.ollama_turns import (  # noqa: E402
-    _base_floor, _chats, _done, _floor_of, _is_compaction, _mock_with, _no_room_trained, _num_ctx, _run, _Script,
+    _base_floor, _base_prompt, _chats, _done, _floor_of, _is_compaction, _mock_with, _no_room_trained, _num_ctx, _run,
+    _Script,
     _shape,
 )
 
@@ -47,7 +48,7 @@ def _profile(fh, model: str, **fields) -> None:
 
 @test
 def test_a_request_past_80_percent_compacts_before_it_is_sent(ctx: Ctx):
-    base = _base_floor() - 16384  # Halo's own prompt part (the floor less its num_predict)
+    base = _base_prompt()  # Halo's own prompt part (the floor less its num_predict)
     trained = 32768
     tool_tokens = int(0.8 * trained) - base + 2500  # past 80 % of the window, still under it
     fh = build_fake_home()

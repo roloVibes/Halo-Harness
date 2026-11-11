@@ -65,10 +65,11 @@ _SCALARS = {
 # citations off, orchestra/coach_citations.py); `models`: roster (3.1.9.0 R1: false keeps the model roster out
 # of the main agent's context, providers/roster.py)
 # `supervise` (3.1.8.0, supervise/settings.py): R2 adds replan none|auto|review, replan_forecast, replan_returns, replan_block_s, replan_stall_s, replan_cooldown_s, replan_max
-# `knowledge` (3.1.8.0 R4, knowledge/): write, brief; `recall`: sources (3.1.8.0 R4, knowledge/sources.py)
+# `knowledge` (3.1.8.0 R4, knowledge/): write, brief, gate_keep (3.3.16.2); `recall`: sources (3.1.8.0 R4, knowledge/sources.py)
 # `databricks`: gateway.<endpoint>, dbu_price_usd (USD per DBU, default 0.07), prices.<endpoint> {in, out[, cache_read,
 # cache_write]} USD per 1M tokens (3.3.3.1, providers/databricks_prices.py), catalog_max_age_hours
 # `steer`: restart_when_silent, silent_restart_s (3.2.2.0 R4); `turn`: nudge_promises (3.2.2.0 R4, agent/turn_marker.py)
+# `studio`: hover_cards (3.3.16.1: Agents' boxes show a hover card; false, their plain tooltips; Studio's lib/hover)
 # `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py); `fleet`: ollama.share auto|all|off (3.3.4.0 R2, fleet/ollama_share.py)
 # `ollama`: profiles (a map "<host>|<model>" (3.3.7.0 R3: or "<host>|<model>|<role>", a lane's own) -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
@@ -82,10 +83,10 @@ _SCALARS = {
 # the scheduler's minimum residency, local_sched/pivot.py); `routing`: local_hop (3.3.7.0 R3: the local -> local hop,
 # agent/local_hop.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
-# agent/preflight.py)
+# agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
 _SECTIONS = ("agents", "clipboard", "coach", "comfy", "connectors", "copilot", "databricks", "embeddings", "experiential", "fleet",
              "governor", "host", "huggingface", "improve", "knowledge", "local", "models", "network", "ollama", "openai",
-             "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "supervise", "turn",
+             "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",
              "update", "voice", "workflows", "worktree")  # 3.3.9.0 R1: voice (stt_model, tts_model, device, tts_voice); R2: the loop's
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",
                     "settings": "3.1.5.0", "subscription_routes": "3.1.5.0"}

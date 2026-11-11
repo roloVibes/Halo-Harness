@@ -115,7 +115,9 @@ def best_candidate_for_role(results: "list[dict]", role: str, *, main_ref=None,
             scored.append((score, r, terms))
     if not scored:
         return None, f"{role} -> no {pool_label} has a usable score for this role yet -- run `halo gym` first."
-    scored.sort(key=lambda t: (-t[0], t[1].get("model_ref", "")))
+    from halo_harness.model_rank import family_ranks  # 3.3.16.2: an equal score goes to the newer version first
+    rk = family_ranks([t[1].get("model_ref", "") for t in scored])
+    scored.sort(key=lambda t: (-t[0], rk.get(t[1].get("model_ref", ""), 0), t[1].get("model_ref", "")))
     score, result, terms = scored[0]
     value = result["model_ref"]
     vram_reason = None

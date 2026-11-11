@@ -65,12 +65,46 @@ under 64k) sends a small model less (`agent/prompt_lean.py`):
   (Read, Write, Edit, Bash, Glob, Grep, Agent, the task tools, ToolSearch), up
   to 32,768 the built-in set, under 65,536 sixty-four; the steward profile's
   `tools_max` wins when set; a model whose card says it takes no tools gets
-  none. One line says it: "14 tools not offered to ol:qwen3.5:9b@lan (window
-  12,288): the core tools first, the long tail left out".
+  none. Since 3.3.16.1 the tools also go out lean and within a token budget
+  (see "The diet" below). One line says it: "14 tools not offered to
+  ol:qwen3.5:9b@lan (window 12,288): the core tools first, the rest by
+  ToolSearch".
 
 The lean answer for a memory block is kept for the session, so touching a
 topic file mid-session never reorders the prompt's front. A cloud session with
 a large window is never changed.
+
+### The diet
+
+Halo 3.3.16.1 cut what Halo itself spends of a local model's window; the
+whole of it is [MODELS-prompt-diet.md](MODELS-prompt-diet.md). In short:
+
+| Case | 3.3.16.0 | 3.3.16.1 |
+|---|---|---|
+| an unknown remote model (32,768) | 16,639 + 16,384 -> 65,536 | 7,778 + 8,192 -> 32,768 |
+| a 16,384 window | 16,640 + 16,384 -> 65,536 | 6,232 + 4,096 -> 16,384 |
+| a 49,152 window | 16,637 + 16,384 -> 49,152 | 7,776 + 12,288 -> 49,152 |
+| a 65,536 window (lean) | 16,637 + 16,384 -> 65,536 | 7,776 + 16,384 -> 65,536 |
+| a 200k cloud model | 16,627 + 16,384 | unchanged, byte for byte |
+
+(Halo's own first turn + the reply's room -> the window it goes out at.)
+
+- **the reply's room** is a quarter of the window at most, the window
+  class's floor at least, never raised; a steward profile's `num_predict` and
+  your own `max_tokens` keep their rule;
+- **lean descriptions**: every built-in tool has a short one on the lean
+  profile (`tools/lean_descriptions.py`), held to a token budget (2,200 up to
+  16,384, 4,500 under 65,536) in the order core, the lineup's needs, the
+  built-ins, the rest; what is left out stays callable by name and through
+  ToolSearch;
+- **one shell** on a lean Windows session (`prompt.shell`), **an alias once**
+  (`Task` goes out as `Agent` and is still accepted);
+- **the lean system text** keeps the instructions and drops the per-tool list
+  and the reference prose;
+- **the budget test** (`tests/test_prompt_budget_pins.py`) pins all five cases
+  on Windows and Linux;
+- **`halo local prompt [<ref>]`** shows a model's first turn before you use
+  it; `/status`, `halo doctor` and Studio's model card say it in one line.
 
 ### The preflight
 

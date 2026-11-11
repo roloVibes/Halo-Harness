@@ -220,7 +220,7 @@ def _cmd_models_capabilities(args) -> int:
         print(f"Best for {kind} (from the catalog's own modality, tool, reasoning, context, price and speed facts "
               f"and what this host measured; score 0-1):")
         for i, r in enumerate(ranked, 1):
-            print(f"{i:>2}. {r['ref']:<40} {r['score']:.2f}  {r['chips']:<24} {r['reason']}")
+            print(f"{i:>2}. {r['ref']:<40} {r['score']:.2f}  {r['chips']:<24} {r['reason']}{'; ' + r['tie'] if r.get('tie') else ''}")
         return 0
     print("ref                                      in: what the model accepts  out: what it produces  -- what it is best at "
           "('?' = not stated by the catalog)")

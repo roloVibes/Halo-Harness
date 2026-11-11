@@ -63,6 +63,8 @@ export type Tier = {
   /** 3.1.6.0 R1: what its members run on unless a card or a pinned bio names a model; null: none. */
   model?: string | null;
   trigger?: TierTrigger | null;
+  /** 3.3.16.3: what the tier is for, in a few words ("thinking", "the workers"); the block's title bar says it. */
+  purpose?: string;
   index: number;
   implicit: boolean;
   node_ids: string[];
@@ -124,6 +126,8 @@ export type ModelRow = {
   best_at?: { line: string; kinds: string[] };
   /** 3.3.15.0 R2: what it takes (halo_harness/model_takes.py): text vision audio video pdf, image, tools, think; ["?"]. */
   takes?: string[] | null;
+  /** 3.3.17.0: the price in words for a model not billed per token (cp:work: "your tenant's credits or licence"). */
+  price_note?: string;
   /** 3.1.9.0 R3: what Auto learned per task kind (outcomes/learn.py), the window's checked tasks. */
   learned?: Record<string, Learned>;
 };

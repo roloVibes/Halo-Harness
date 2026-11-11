@@ -354,7 +354,10 @@ supervise --daemon`). `--keep-running` stops nothing: it names each process
 exits 1 without installing. `--force` installs without stopping anything
 (scripts that manage halo processes themselves). Then it runs the
 reinstall command live (output visible) and reports the before/after
-commit by re-running `halo --version` as a fresh process.
+commit by re-running `halo --version` as a fresh process. When the version
+moved, its last two lines (3.3.16.2) are the new version's summary (the new
+install's own `halo whatsnew --summary`) and `halo update: halo whatsnew for
+the rest` ([COMMANDS-whatsnew.md](COMMANDS-whatsnew.md)).
 
 `/update` in the TUI never installs inside the halo process (the running
 `halo.exe` holds the venv on Windows): Enter quits halo and a detached

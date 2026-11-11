@@ -141,11 +141,11 @@ def _rest_name(template) -> str:
 
 
 def effective_tiers(template) -> "list[dict]":
-    """`[{name, members, max_parallel, model, trigger, index, implicit}]` --
+    """`[{name, members, max_parallel, model, trigger, index, implicit, purpose}]` --
     the declared tiers in order, then the implicit last tier when an alias
     is left out; with no `tiers`, the one implicit tier `all` holding
     everyone. An implicit tier names no model and no trigger."""
-    from halo_harness.teams_tier_fields import model_of, trigger_of
+    from halo_harness.teams_tier_fields import model_of, purpose_of, trigger_of
     template = template if isinstance(template, dict) else {}
     keys = assignment_keys(template.get("agents"))
     if not declared(template):
@@ -162,7 +162,7 @@ def effective_tiers(template) -> "list[dict]":
         cap = tier.get("max_parallel")
         out.append({"name": str(tier.get("name") or f"tier-{len(out)}"), "members": members,
                     "max_parallel": cap if _positive_int(cap) else None, "model": model_of(tier),
-                    "trigger": trigger_of(tier), "index": len(out), "implicit": False})
+                    "trigger": trigger_of(tier), "index": len(out), "implicit": False, "purpose": purpose_of(tier)})
     left = [k for k in keys if k not in seen]
     if left:
         out.append({"name": _rest_name(template), "members": left, "max_parallel": None, "model": None,

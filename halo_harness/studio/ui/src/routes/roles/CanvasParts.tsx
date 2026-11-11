@@ -15,13 +15,17 @@
 // their edges, the selected card's dimmed others dropped first). 3.2.2.0 R5:
 // no scope chip on a card (the owner: "unnecessary and busy"; the scope is in
 // the Lineups and Bios lists and the Inspector's Assignment header), and the
-// selected or last-dropped card (`top`) is drawn over the others.
-import { memo, useMemo, useRef, type CSSProperties, type PointerEvent } from "react";
+// selected or last-dropped card (`top`) is drawn over the others. 3.3.16.1: a card's hover card (routes/agents/hover/
+// cast.tsx) in place of its title; the card takes the keyboard (Tab, then Enter selects it).
+import { memo, useMemo, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { useHover } from "../../lib/hover/useHover";
+import { CastHover } from "../agents/hover/cast";
 import { cost } from "../orchestra/format";
 import { CARD_H, CARD_W, edgePath } from "./layout";
 import { glowOf, hideLegend, showLegend, type GlowState } from "./glow";
 import { placeLabels, type LabelIn } from "./labels";
 import { focusModel } from "./modelActions";
+import { selectCard } from "./live";
 import { priceText } from "./store";
 import { sourceText } from "./tierText";
 import type { GraphEdge, GraphNode, GymScore, LiveAgent, ModelRow, Pos } from "./types";
@@ -56,7 +60,7 @@ function LiveBadge({ list, activity, card }: { list: LiveAgent[]; activity: stri
   const lead = list.find((a) => a.activity === activity) || list[0];
   const usd = list.reduce((s, a) => s + (Number(a.cost_usd) || 0), 0);
   return (
-    <div className="rc-live mono" data-testid="roles-live-badge" {...legendOn(glowOf(activity), card)}>
+    <div className="rc-live mono" data-testid="roles-live-badge" data-hover-skip {...legendOn(glowOf(activity), card)}>
       {activity === "tool" && lead.tool ? (
         <span className="rc-live-tool" title={lead.current || lead.tool}>{glyph(lead.tool)} {lead.tool}</span>
       ) : activity === "waiting" ? (
@@ -95,6 +99,8 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
   const fadeRef = useRef<{ ended: number; delay: string }>({ ended: 0, delay: "0s" });
   if (ended && fadeRef.current.ended !== ended) fadeRef.current = { ended, delay: `${-Math.min(10, (Date.now() - ended) / 1000).toFixed(2)}s` };
   const fade = ended ? ({ "--rc-fade": fadeRef.current.delay } as CSSProperties) : {};
+  const hv = useHover("cast", n.id, () => <CastHover id={n.id} />, !dragging); // 3.3.16.1: the card's hover card
+  const key = (e: KeyboardEvent<HTMLElement>) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), e.stopPropagation(), selectCard(n.id));
   return (
     <article
       className="rc-card"
@@ -112,33 +118,34 @@ export const Card = memo(function Card({ n, x, y, model, gym, issues, selected, 
       data-pulse={lead ? (lead.calls % 2 ? "b" : "a") : undefined}
       data-stack={stack > 1 ? stack : undefined}
       aria-label={`${n.agent}, ${n.role}${n.alias ? " as " + n.alias : ""}`}
-      title="Drag to move; drop into another tier box to move it there. Arrows nudge it, Delete removes it."
-      onPointerDown={(ev) => onDown(ev, n.id)}
+      title={hv.titles ? "Drag to move; drop into another tier box to move it there. Arrows nudge it, Delete removes it." : undefined}
+      {...hv.props} tabIndex={0} onKeyDown={key}
+      onPointerDown={(ev) => (hv.props.onPointerDown?.(ev), onDown(ev, n.id))}
     >
       <span className="rc-band" aria-hidden="true" />
       {selected && <span className="holo-tlbr" aria-hidden="true" />}
       {selected && <span className="holo-corners" aria-hidden="true" />}
       <header className="rc-head">
         {glow && (
-          <span className="rc-glyph" data-testid="roles-card-glyph" data-state={glow} aria-label={`glow: ${glow}`} {...legendOn(glow, n.id)}>{STATE_GLYPH[glow]}</span>
+          <span className="rc-glyph" data-testid="roles-card-glyph" data-hover-skip data-state={glow} aria-label={`glow: ${glow}`} {...legendOn(glow, n.id)}>{STATE_GLYPH[glow]}</span>
         )}
         <b className="rc-agent">{n.agent || "(no agent)"}</b>
       </header>
       <div className="rc-role">
         {n.role}
         {n.alias && n.alias !== n.role ? ` · as ${n.alias}` : ""}
-        {n.instances > 1 && <span className="rc-inst mono" title={`${n.instances} instances of this slot`}> ×{n.instances}</span>}
+        {n.instances > 1 && <span className="rc-inst mono" data-hover-skip title={`${n.instances} instances of this slot`}> ×{n.instances}</span>}
       </div>
       <button type="button" className="rc-model mono" data-testid="roles-model-pill" data-source={n.model_source || undefined} data-picked={pill.picked} onClick={() => focusModel(n.id)}
               title={pill.title}>
         {pill.text}
       </button>
       <div className="rc-meta mono">
-        <span title="price per 1M tokens in / out">{priceText(model)}</span>
+        <span title={hv.titles ? "price per 1M tokens in / out" : undefined}>{priceText(model)}</span>
         <span>ctx {model?.context || n.context || "?"}</span>
-        {gym && <span className="rc-gym" title={`gym score on this machine${gym.tokens_per_second ? `, ${Math.round(gym.tokens_per_second)} tok/s` : ""}`}>gym {gym.score.toFixed(2)}</span>}
+        {gym && <span className="rc-gym" data-hover-skip title={`gym score on this machine${gym.tokens_per_second ? `, ${Math.round(gym.tokens_per_second)} tok/s` : ""}`}>gym {gym.score.toFixed(2)}</span>}
       </div>
-      {issues > 0 && <span className="rc-warn mono" data-testid="roles-card-warn" title={[...n.problems, ...n.warnings].join("\n") || "see the Problems panel"}>{issues}</span>}
+      {issues > 0 && <span className="rc-warn mono" data-testid="roles-card-warn" data-hover-skip title={[...n.problems, ...n.warnings].join("\n") || "see the Problems panel"}>{issues}</span>}
       {activity && <LiveBadge list={live} activity={activity} card={n.id} />}
     </article>
   );

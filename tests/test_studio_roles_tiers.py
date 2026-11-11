@@ -94,7 +94,7 @@ def test_the_palette_opens_add_tier_and_the_menu_renames(ctx: Ctx):
 @test
 def test_the_menu_sets_the_tier_model(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the menu's items, got {got.get('menu_items')}", got.get("menu_items") == ["rename", "model", "trigger", "max", "delete"])
+    ctx.check(f"the menu's items, got {got.get('menu_items')}", got.get("menu_items") == ["rename", "purpose", "model", "trigger", "max", "delete"])  # 3.3.16.3: purpose
     ctx.check(f"its first option is the session's model, got {got.get('model_first_option')!r}",
               str(got.get("model_first_option")).startswith("the session's") and "deepseek-chat" in str(got.get("model_first_option")))
     ctx.check(f"saved, the pill shows it, the menu closes, got {got.get('model_on_disk')} {got.get('model_pill')!r} {got.get('menu_closed')}",

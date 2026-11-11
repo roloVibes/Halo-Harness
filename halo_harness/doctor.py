@@ -1174,10 +1174,10 @@ def _check_default_model(cwd: Optional[Path] = None, settings_flag: Optional[str
             # this SAME message, so doctor must not call it just "OK".
             return _fix(f"{WARN} Default model: {configured} -- {disabled_msg}",
                         cmd=f"halo providers enable {ref.provider}")
-        return f"{OK} Default model: {configured} ({provider_label} configured){from_note}"
-    # 1.0.1 hotfix 13 (drive-by): this suggestion still said `--preset
-    # work`/`--preset home` -- the deprecated alias still works, but every
-    # OTHER user-facing spot already moved to `--provider` at item 13.
+        from halo_harness.agent.prompt_measure import doctor_note  # 3.3.16.1: a local model's first turn
+        return f"{OK} Default model: {configured} ({provider_label} configured){from_note}{doctor_note(ref, cwd)}"
+    # 1.0.1 hotfix 13 (drive-by): this suggestion still said `--preset work`/`--preset home` -- the
+    # deprecated alias still works, but every OTHER user-facing spot already moved to `--provider`.
     from halo_harness.init_providers import init_command_for
     return _fix(f"{WARN} Default model: {configured} -- {provider_label} not configured",
                  cmd=init_command_for(ref.provider))
@@ -1754,9 +1754,9 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("permission_rules", _check_permission_rules(cwd)))
     entries.append(("state_modes", _check_state_modes()))
     entries.append(("permission_mode", _check_permission_mode(cwd, settings_flag)))
-    entries.append(("lineup", _check_lineup()))  # 3.1.9.0 R2: the lineup in use, and how to change it
+    from halo_harness.workflows.doctor_rows import rows as _lineup_rows  # 3.1.9.0 R2 the lineup; 3.3.16.2 its squares
     from halo_harness.isolation.doctor_rows import entries as _isolation_rows  # 3.1.8.0 R5: isolation, secrets
-    entries.extend(_isolation_rows(cwd))
+    entries.extend(_lineup_rows(cwd) + _isolation_rows(cwd))
     entries.append(("providers_enabled", _check_providers_enabled(cwd, settings_flag)))
     entries.append(("install", _check_install()))
     entries.append(("command_on_path", check_command_on_path()))

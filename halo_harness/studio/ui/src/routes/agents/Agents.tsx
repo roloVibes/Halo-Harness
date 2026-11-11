@@ -23,6 +23,7 @@ import { AgentsBar } from "./ViewSwitch";
 import { AttentionPanel } from "./AttentionChip";
 import { useAttentionKey } from "./attention";
 import { Board } from "./workflows/Board";
+import { DragGhost } from "./blocks/BlockOverlay"; // 3.3.16.3: the label under the pointer while a block drag moves
 
 export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const view = useAgentsView();
@@ -54,6 +55,7 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
           </div>
         )}
         <AttentionPanel />
+        <DragGhost />
       </div>
     </div>
   );

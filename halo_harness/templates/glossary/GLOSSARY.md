@@ -33,7 +33,7 @@ A member is one part of a lineup put to work on a team's project, on this machin
 
 ## block
 
-A block is a place a team's work lands: a file, a folder or a git tree, each with its claim ledger (who holds which part, one change line per write). Stages read and write blocks, and a block that changes and then settles can start the stage that waits on it (`block_change:<block>`).
+A block is a place a team's work lands: a file, a folder or a git tree, each with its claim ledger (who holds which part, one change line per write). Stages read and write blocks, and a block that changes and then settles can start the stage that waits on it (`block_change:<block>`). 3.3.16.3: on Studio's Agents canvas a block is also one titled box with a purpose, the agents inside it and how main reaches it: a lineup tier (its `purpose` names it, "thinking", "the workers") or a workflow square (its DOES line); main is the one card in no block, and a block opens to show its agents or folds to its lines.
 
 ## stage
 
@@ -74,6 +74,14 @@ A square is a saved workflow with a contract (Halo 3.3.16.0 R3): what it does in
 ## router
 
 The router is the `Workflow` tool (Halo 3.3.16.0 R3): it works out what the task needs that the session's model does not take (a PDF on a text-only model, say), picks the enabled square that covers it, says why in one line ("handing the PDF to media: your model takes text only") and runs it within the square's depth and budget. When no square covers the need, it says what could not be read and the model carries on.
+
+## group
+
+A group (Halo 3.3.16.3) is how Agents -> Live boxes the agents of one task: the sub-agents one step of a parent started together (the Agent calls of one reply), titled by that task in a few words; the agents of one square, titled by the square and its DOES line; or, when nothing more specific applies, a lineup tier's agents under its purpose. The parent's line goes to the group, not to each agent; its title bar counts who is working, waiting or done, its cost and its time, and says Auto's pick in plain words. An agent started alone is not boxed.
+
+## when
+
+A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square work, carried by the line from main to its block on Studio's Cast canvas: when main needs something (pdf, images, audio, video, code, a plan, research, a review, work data -- the square's covers, narrowed), when the task says one of its words, only when main names it, or always first. A block with no line is not connected: main never uses it. A lineup writes it as `{ref, when: {needs, words, mode}}` in its `workflows:` list (the auto lineup in config `workflows.when.<ref>`); `halo workflows enable <ref> --when ...` sets it and the router's receipt names the rule that fired.
 
 ## plan
 
@@ -433,6 +441,14 @@ A pack service (3.3.13.0) is a program of a pack the supervisor keeps running wh
 ## transport
 
 A transport (3.3.13.0) carries a session somewhere else -- a phone, a chat -- and is a pack, never the core: the signal pack is one. It uses the core's transport seam (`halo_harness.ext.remote`): the live sessions and their control sockets, a session started for it, the cards' text, and the notes the core gives every transport (`asks`, `supervisor`, `steward`, ...) while it listens. `remote.enabled` is every transport's switch; `halo remote transports` lists the ones listening (docs/REMOTE.md, "Transports").
+
+## thought
+
+A thought (3.3.16.2) is one stretch of a model's reasoning between two things it does, as the provider streams it: native thinking from Anthropic models as it comes, the reasoning DeepSeek, Kimi, GLM, OpenRouter and Ollama's thinking models return once at the end of a call; a model with none has no thoughts and Halo makes none up. Studio's Live shows each as one THINK row that grows, four lines and show all, then how long it thought and its tokens when the provider reports them; its chip says what it led to, why? on that next row opens it, and the Thinking view shows only the thoughts and what each led to.
+
+## agent talk
+
+Agent talk (3.3.16.2) is one agent's words to another, a TALK row in Studio's Live and a message in the Conversations panel: a parent's task to a child (TASK), the child's last words back (HAND-BACK, one row with its OUT block), a steer one agent sends another (STEER; your own steer is YOU), a Workflow square's hand-off and what came back (SQUARE) and an agent's work handed to another machine (HAND-OVER). Each carries who spoke, to whom, why and, for a reply, the message it answers; the edge between the two agents on the map lights once in the direction it went. Nothing is asked of a model to make one.
 
 ## consult role
 

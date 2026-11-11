@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.commands.registry import Registry, SlashCommand
+from halo_harness.whatsnew_cli import slash_text as _cmd_whatsnew  # 3.3.16.2: /whatsnew, the shipped changelog
 
 
 @dataclass
@@ -110,11 +111,10 @@ def _cost_figure(session) -> "tuple[str, Optional[str]]":
     return describe_cost(cost_fields_of(session.cost_meter), main)
 
 
-def _composition_text(session) -> str:
-    """3.3.5.0 R4: "prompt 30,756: system 3,587 · memory 9,900 · topics 6,400 · tools 2,100 · history 8,700 · you 69"."""
-    from halo_harness.agent.prompt_composition import composition_line
-    from halo_harness.agent.prompt_wire import composition_now
-    return composition_line(composition_now(session))
+def _composition_text(session, first: bool = False) -> str:
+    """3.3.5.0 R4: "prompt 30,756: system 3,587 · memory 9,900 · ..."; 3.3.16.1: `/status` adds Halo's own first turn."""
+    from halo_harness.agent.prompt_measure import composition_text
+    return composition_text(session, first=first)
 
 
 def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
@@ -881,8 +881,8 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
     lines = [f"halo {__version__}", f"Model: {model_id}", f"cwd: {facade.cwd}",
              f"Permission mode: {permission_mode}", f"MCP servers: {mcp_n}",
              f"Theme: {facade.theme or '?'}", cost_line]
-    if session is not None:  # Halo 3.3.5.0 R4: the last request's composition
-        lines.append(_composition_text(session))
+    if session is not None:  # Halo 3.3.5.0 R4: the last request's composition (3.3.16.1: and the first turn's)
+        lines.append(_composition_text(session, first=True))
     # 3.1.9.0 R2: the lineup this session runs under ("auto (default)" when no team: is set)
     from halo_harness.lineup_default import lineup_line
     _team = getattr(session, "team_control", None) if session is not None else None
@@ -1862,8 +1862,7 @@ _BUILTIN_SPECS = {
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),
     "setup": ("core", "Open Setup in Studio (the Team block for team or roles); --terminal: the terminal screen", "[team|roles] [--terminal]", _cmd_setup),
-    "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/...)", "[list|enable|disable <name>]",
-                  _cmd_providers),
+    "providers": ("core", "Show/enable/disable providers (dbx:/or:/ant:/...)", "[list|enable|disable <name>]", _cmd_providers),
     "balances": ("core", "Show the cached balance/credit figure for every provider that offers one",
                  "[refresh]", _cmd_balances),
     "gov": ("core", "Show the Governor's gateway rate buckets and recent calls", "[host]", _cmd_gov),
@@ -1899,16 +1898,16 @@ _BUILTIN_SPECS = {
     "rename": ("ui", "Rename this session", "<title>", _cmd_rename),
     "fork": ("ui", "Fork this session into a new one", None, _cmd_fork),
     "stats": ("core", "Show tokens/cost per model and tool-call counts (--models, --tools)", None, _cmd_stats),
-    # Halo 2.0.7 round 0e: the concierge secretary; 2.0.7 (old 2.0.6
-    # scope): semantic search over memory + sessions.
+    # Halo 2.0.7 round 0e: the concierge secretary; 2.0.7 (old 2.0.6 scope): semantic search over memory + sessions.
     "ask": ("core", "Ask the concierge (roles.concierge) a quick question without waking the main model",
             "<question>", _cmd_ask),
     "recall": ("core", "Semantic search over memory, past sessions, findings, decisions and your notes (local "
                        "embeddings; --fleet: every harness)",
                "[--fleet] <query>", _cmd_recall),
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
-    "tools": ("core", "List the tools this session's agent sees, by capability, and what narrowed them", None,
-              _cmd_tools),  # 3.1.8.0 R5 (docs/ISOLATION.md)
+    "tools": ("core", "List the tools this session's agent sees, by capability, and what narrowed them", None, _cmd_tools),
+    "whatsnew": ("core", "What this version changed: its summary and headings (halo whatsnew)",
+                 "[<version>] [--since <version>] [--full]", _cmd_whatsnew),  # 3.3.16.2
     "workflows": ("core", "The workflow squares: each one's contract line, * = enabled for this lineup (halo workflows)",
                   "[list | show <ref> | test <ref>]", _cmd_workflows),  # 3.3.16.0 R3
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",

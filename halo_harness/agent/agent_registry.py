@@ -44,7 +44,8 @@ FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind"
           "turns", "cost_usd", "current", "last_text", "transcript", "tokens_in", "tokens_out",
           "model_reason",  # 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py)
           "opt_ins",  # 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py)
-          "square")  # 3.3.16.0 R3: {name, engine} on a square's agent or node (workflows/receipts.py)
+          "square",  # 3.3.16.0 R3: {name, engine, does} on a square's agent or node (workflows/receipts.py)
+          "spawn")  # 3.3.16.3: {step, description, lead} -- the parent's step that started it (agent_hooks.spawn_of)
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()
@@ -85,10 +86,12 @@ class AgentTree(ObserveMixin):
         self._sessions: dict = {}
         self._listeners: list = []
         self._live: dict = {}
+        self._think: dict = {}  # 3.3.16.2: aid -> fleet/think.py ThinkFeed (every agent's thinking_chunk frames)
         self._inflight: dict = {}
         self._last_pub: dict = {}
         self._held: dict = {}  # aid -> the timer of its trailing flush (a quiet change waiting for its window to end)
         self._reason: dict = {}
+        self._said: dict = {}  # 3.3.16.3: aid -> what it wrote in its current reply (a spawn's `lead`)
         self.controls = Controls(self)
         self.root_id = agent_key(root)
         team = getattr(root, "team_control", None) or getattr(getattr(root, "agent_runtime", None), "team_control", None)

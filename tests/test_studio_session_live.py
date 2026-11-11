@@ -237,8 +237,8 @@ def test_the_capture_tool_dom_mode_counts_both_scenes(ctx: Ctx):
     ctx.check(f"Session: one Live column, its lines each tagged, an ask card, got {s}",
               s.get("session-live") == 1 and (s.get("session-live-line") or 0) >= 8 and s.get("session-live-tag") == s.get("session-live-line")
               and (s.get("session-live-ask") or 0) >= 1)
-    ctx.check(f"the tree: seven agents, an edge into each (3.3.16.0 R2: Live's nodes); the Cost graphics, got {s}",
-              s.get("roles-live-node") == 7 and s.get("roles-live-edge") == 7 and s.get("session-cost-context") == 1 and s.get("session-cost-spark") == 1)
+    ctx.check(f"the tree: seven agents, an edge into each or into its group (3.3.16.3: the rig's two are one reply's); the Cost graphics, got {s}",
+              s.get("roles-live-node") == 7 and s.get("roles-live-edge") == 6 and s.get("session-cost-context") == 1 and s.get("session-cost-spark") == 1)
     ctx.check(f"Roles: the lineup's seven cards, the working ones glowing with their glyphs, one tier, the legend's four rows, got {ro}",
               ro.get("roles-card") == 7 and (ro.get("live-card") or 0) >= 3 and (ro.get("roles-card-glyph") or 0) >= 3
               and ro.get("roles-tier") == 1 and ro.get("roles-glow-legend-row") == 4)

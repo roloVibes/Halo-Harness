@@ -107,10 +107,12 @@ def inspect(c, page) -> dict:
     out = {"summary": c.wait(f"{Q}('[data-testid=\"wf-inspector\"][data-ref=\"media\"] [data-testid=\"wf-summary\"]') && "
                              f"[...{Q}('[data-testid=\"wf-summary\"]').querySelectorAll('dt')].map((d) => d.textContent)", 10)}
     out["edit_rows"] = c.js("[...document.querySelectorAll('[data-testid^=\"wf-block-\"]')].map((b) => b.dataset.testid)")
+    c.js(f"{Q}('[data-testid=\"wf-edit-enable\"]').scrollIntoView({{block: 'center'}}); 1")  # 3.3.16.3: a When row above it
     c.click_on(f"{Q}('[data-testid=\"wf-edit-enable\"]')")
     out["enable_page"] = c.wait(f"{Q}('[data-testid=\"wf-page-enable\"]') && {text('wf-page-enable')}", 10)
     c.click_on(f"{Q}('[data-testid=\"wf-page-back\"]')")
     c.wait(f"!!{Q}('[data-testid=\"wf-summary\"]')", 10)
+    c.js(f"{Q}('[data-testid=\"wf-edit-budget\"]').scrollIntoView({{block: 'center'}}); 1")  # 3.3.16.3: a When row above it
     c.click_on(f"{Q}('[data-testid=\"wf-edit-budget\"]')")
     out["budget_page"] = c.wait(f"{Q}('[data-testid=\"wf-page-budget\"]') && {text('wf-read-only')}", 10)
     out["budget_disabled"] = c.js(f"{Q}('[data-testid=\"wf-field-band\"]')?.disabled")

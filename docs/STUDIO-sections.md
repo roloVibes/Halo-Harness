@@ -69,6 +69,44 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    column shows only that agent; the tag again (or `Esc`) shows everyone.
    Hover a line and that agent's node lights on the map. The newest 500
    lines stay in the column; the full log is in Activity.
+   **Thinking you can see** (3.3.16.2): a model's reasoning is its own kind,
+   `THINK`, one row per thought however many pieces it streams in: muted
+   italic on a thin violet rule, a caret while it grows, four lines with
+   **show all** for the rest (the row grows), and once the agent acts, a small
+   suffix with how long it thought and, when the provider reports them, its
+   tokens (`thought 4.2 s · 812 tokens`). A model with no thinking shows no
+   THINK row; nothing is made up. Thought, then act: the row's chip says what
+   it led to (`then ran Edit basket.py`, `then answered`) and jumps there, and
+   **why?** on that action row opens the thought that preceded it right under
+   the row (with **what the model saw** beside it, the turn's postmortem).
+   **Thinking** beside Follow shows only the thoughts and what each led to,
+   for everyone or the agent you pinned: one mind read as a column. The
+   timeline's lanes are drawn by phase: thinking (violet), running a tool
+   (cyan), writing (green), waiting on you (amber), idle (a thin line); hover
+   a segment for its length, click a thinking one and the column scrolls to
+   that thought. The kind pick has **think** and **talk** too.
+   **Agents talking** (3.3.16.2): one agent's words to another are a `TALK`
+   row: the speaker's tag, an arrow, the listener's tag and why it was said,
+   `TASK` (a parent hands a child its task; the SPAWN row keeps its one line),
+   `HAND-BACK` (a child's last words to its parent), `STEER` (one agent steering
+   another; your own steer stays `YOU`), `SQUARE` (a Workflow square's hand-off
+   and what came back, the square named) or `HAND-OVER` (Hand to... another
+   machine, the machine named); the words clamp at four lines like a thought.
+   A hand-back is one row: when the agent's OUT block ("done, its last words")
+   is already there with nothing of its own after it, that block becomes the
+   TALK row; an OUT that would land after a TALK hand-back is not added. The
+   edge between the two agents on the map lights once, from the speaker to
+   the listener. The optional **Conversations** panel (the header's **+**;
+   never open on load, its strip counts threads and messages) shows them as
+   threads: the pairs that have talked on the left, newest first, with the
+   count and the last line; the chosen pair's messages on the right, each on
+   its speaker's side with its reason and time, a reply under what it
+   answers. Click a message to see its row in Live; **show in Live** narrows
+   Live to that pair (its chip in Live's header shows everything again).
+
+   ![Live with the Thinking view on: the implementer's thoughts, each linked to the Edit or Read it led to, and its timeline lane in phases](media/studio-thinking.png)
+
+   ![Live with TALK rows (main hands the researcher a task, the researcher hands back, a square hand-off) and the Conversations panel open on the main and researcher thread](media/studio-talk.png)
 3. **Steer from the column**: the Steer box is always at its foot. It talks
    to the agent you pinned, or, with none pinned, to the chosen session's
    main agent; its header says who (**STEER main**) and its target line what that agent runs now (`Steering: coder · Bash (pytest -q), 12 s`), and Pause and Stop
@@ -125,7 +163,9 @@ memory, topics, tools, history, you -- each in its own token colour with its cou
 will not fit its window, the Live column's Steer box shows the preflight line with three buttons above it:
 Compact (`preflight-compact`), the bigger-window model on the host (`preflight-switch`, disabled when none fits)
 and Send anyway (`preflight-send`), answering the same card the terminal shows. Agent (`session-agent`):
-the selected agent, its streams and controls. Activity (`session-activity`):
+the selected agent, its streams and controls (3.3.16.2: its Thinking tab draws a thought the way Live's THINK row
+does, with what it led to). Conversations (`session-conversations`, 3.3.16.2, optional): agents talking, one thread
+per pair. Activity (`session-activity`):
 the chosen session's timeline lanes and full live log. Attention
 (`session-attention`): what waits on you in this harness's sessions. Prompt (`session-prompt`, 3.3.11.0 R1): the
 session read like the terminal, a box to type into it (the slash list, Queue it / Steer; 3.3.15.0 R3: three lines at the least, it grows with the draft and takes the panel's free height while the conversation is short) and each turn's receipt marks; with no session here it offers New session, and a session with no terminal (chip **no terminal**) has **Open in terminal** and **End session** in its header (3.3.11.0 R2).
@@ -315,8 +355,8 @@ on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard.
 
 ### Settings
 
-**What it is** (3.3.3.0). Settings (`Alt+6`) is every key of `~/.halo/config.json`: a group rail on the left (General, Agents
-and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
+**What it is** (3.3.3.0). Settings (`Alt+6`) is every key of `~/.halo/config.json`: a group rail on the left (General, Studio
+(3.3.16.1: the hover cards), Agents and roles ... the Local group), one group's page on the right, one row per key with its help line, its control, a **default** marker while it is unset,
 Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
 <title>`. All of it comes from one catalog, `halo_harness/settings_catalog.py` (docs/CONFIG.md's key table names each row's

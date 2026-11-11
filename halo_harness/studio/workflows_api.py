@@ -7,7 +7,7 @@
     POST workflows/enable  {ref, lineup?}   {ok, line}: on for the active lineup (the auto lineup: config workflows.enabled)
     POST workflows/disable {ref, lineup?}   {ok, line}
     GET  workflows/yaml?ref=<ref>      {ref, path, text, writable}
-    PUT  workflows/contract {ref, budget: {band, cap_usd}, limits: {depth, turns, wall_s}}
+    PUT  workflows/contract {ref, does?, budget: {band, cap_usd}, limits: {depth, turns, wall_s}}
                                        {ok, line}: written into a square of yours or the project's; a shipped or a
                                        pack's square answers 422 with how to copy it to yours
 """
@@ -17,9 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def _rows(req) -> list:
+def _rows(req, lineup=None) -> list:
     from halo_harness.workflows.squares_cli import rows
-    out = rows(Path(req.cwd))
+    out = rows(Path(req.cwd), lineup)
     for r in out:
         r["writable"] = r.get("origin") in ("yours", "project")
     return out
@@ -27,10 +27,11 @@ def _rows(req) -> list:
 
 def get_board(req):
     from halo_harness.workflows import registry
-    lineup = registry.active_lineup()
+    asked = str((req.query or {}).get("lineup") or "").strip()  # 3.3.16.3: Cast asks for the lineup it has open
+    lineup = asked or registry.active_lineup()
     where = "the auto lineup" if registry.uses_config(lineup) else f"lineup {lineup}"
     return 200, {"lineup": lineup, "where": where, "enabled": registry.enabled_refs(lineup, cwd=req.cwd),
-                 "squares": _rows(req)}
+                 "squares": _rows(req, lineup)}
 
 
 def _flip(req, on: bool):
@@ -85,6 +86,9 @@ def put_contract(req):
                 f"(halo workflows new my-{wf.name} --from {wf.ref}), then edit the copy")
         return 422, {"ok": False, "error": line, "line": line}
     data = _read_yaml_file(Path(wf.path)) or {}
+    if isinstance(body.get("does"), str) and body["does"].strip():  # 3.3.16.3: a block's Purpose page
+        data["does"] = body["does"].strip()
+        data.pop("description", None)
     _merge(data, "budget", body.get("budget"), ("band", "cap_usd"))
     _merge(data, "limits", body.get("limits"), ("depth", "turns", "wall_s"))
     bad = problems(data)
@@ -93,11 +97,16 @@ def put_contract(req):
     wrote = _write_yaml_file(Path(wf.path), data)
     if wrote:
         return 422, {"ok": False, "error": wrote[0]}
-    return 200, {"ok": True, "line": f"{wf.ref}: budget and limits saved to {wf.path}"}
+    what = "purpose" if "does" in body and not (body.get("budget") or body.get("limits")) else "budget and limits"
+    return 200, {"ok": True, "line": f"{wf.ref}: {what} saved to {wf.path}"}
 
 
 def dispatch_workflows(req):
     path, method = req.path, req.method
+    from halo_harness.studio.blocks_api import dispatch_blocks  # 3.3.16.3: when, members, templates
+    composed = dispatch_blocks(req)
+    if composed is not None:
+        return composed
     if path == "workflows" and method == "GET":
         return get_board(req)
     if path in ("workflows/enable", "workflows/disable") and method == "POST":

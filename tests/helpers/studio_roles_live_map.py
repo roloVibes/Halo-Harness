@@ -78,7 +78,8 @@ def the_tree(c, rig) -> dict:
     out["nodes"] = c.js("[...document.querySelectorAll('[data-testid=\"roles-live-node\"]')].map((n) => n.dataset.agent)")
     out["edges"] = {aid: c.js(f"[...document.querySelectorAll('[data-testid=\"roles-live-edge\"][data-to=\"{aid}\"]')].map((e) => e.dataset.from)")
                     for aid, *_ in SPAWNED}
-    out["picks"] = {aid: c.js(f"{node(aid)}?.querySelector('[data-testid=\"roles-live-pick\"]')?.title || ''") for aid, *_ in SPAWNED}
+    # 3.3.16.1: the line's whole text (its title went with the hover card; CSS cuts what does not fit)
+    out["picks"] = {aid: c.js(f"{node(aid)}?.querySelector('[data-testid=\"roles-live-pick\"]')?.textContent || ''") for aid, *_ in SPAWNED}
     out["spawned_cards"] = [c.js(f"{node(aid)}?.dataset.card || ''") for aid, *_ in SPAWNED]
     main_card = c.js(f"{node('main')}?.dataset.card || ''")
     out["main_card"] = main_card

@@ -259,6 +259,13 @@ too. The square's agent runs under the session's permission engine and rules,
 and its `limits.depth` and budget cap bound it. The router's rule and the
 shipped squares: [WORKFLOWS-squares.md](WORKFLOWS-squares.md).
 
+Halo 3.3.16.3: a `workflows:` item may carry its **when** -- `{ref: review, when: {words: [review, audit]}}`,
+`{ref: media, when: {needs: [pdf]}}`, `{ref: thinking, when: {mode: always}}` (`mode`: `auto`, `named`, `always`, `off`)
+-- beside plain refs, which keep their meaning (the square's `covers`). The router reads it, and its receipt names the
+rule that fired; on the auto lineup it lives in config `workflows.when.<ref>`
+([WORKFLOWS-squares.md](WORKFLOWS-squares.md#when)). A tier's `purpose` (a few words) names the tier as a block on
+Studio's Cast; a tier's reach stays its `routing` words and its cards' `use_for`.
+
 ## The `copilot_ask` tool and `cp:work`: your work's Copilot (Halo 3.3.17.0 R2)
 
 Once `copilot.tenant` and `copilot.client_id` are set, every session's tools include `copilot_ask {prompt, files?,
@@ -457,7 +464,8 @@ What each section DOES at runtime:
   paths|name|from, prompt, model?}`, the bio trigger shapes) starts the
   tier's lead (its first member) as a background job under the lineup with
   `HALO_TIER_FIRED=<tier>`, and that lead may spawn its own tier's other
-  members and the next tier down. The full rule is in
+  members and the next tier down. 3.3.16.3: `tiers[].purpose` (a few words: "thinking",
+  "the workers") titles the tier's block on Studio's Cast and its group on Agents -> Live. The full rule is in
   [ROLES.md](ROLES.md#tiers-halo-3070).
 - **isolation, secrets, tools** (Halo 3.1.8.0 R5, [ISOLATION.md](ISOLATION.md))
   -- three opt-ins, none set by default: `isolation: container | user` (or

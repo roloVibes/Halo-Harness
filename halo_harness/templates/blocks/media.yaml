@@ -1,0 +1,31 @@
+# Halo 3.3.16.3 -- a block template (docs/WORKFLOWS-squares.md "Block templates"): the media square with a team inside
+# -- the media reader leads, a researcher takes the long PDFs, a writer hands back what was found. It writes a square
+# of yours (default name media-team: the shipped `media` square stays as it is) and wires it to main for pdf, images,
+# audio and video. Every agent is on an `auto` model: its pick follows what the task carries.
+name: media
+title: "media: read PDFs, images, audio and video"
+kind: square
+as: media-team
+square:
+  name: media-team
+  does: Reads the PDFs, images, audio and video main cannot, with a researcher for the long ones and a writer for the answer.
+  takes: [text, files, pdf, images, audio, video]
+  gives: [text]
+  covers: [pdf, vision, audio, video, media]
+  lineup:
+    lead: {bio: auto-media, model: auto}
+    members:
+      - {bio: auto-researcher, model: auto}
+      - {bio: auto-writer, model: auto}
+  engine: session
+  budget: {band: low, cap_usd: 1}
+  limits: {depth: 1, turns: 30, wall_s: 900}
+  inputs:
+    task: {type: text, required: true, description: what to read or make}
+    files: {type: text, default: "", description: "the files it reads, comma-separated"}
+  stages:
+    - id: look
+      title: Read the media
+      role: auto-media
+      brief: "{task} Files: {files}. Hand back what you saw or heard, with page numbers or timestamps."
+  done_when: the media the task names is read and what it holds is handed back

@@ -19,7 +19,7 @@ export const HEAD = 40;
 const CHIPS = 22;
 
 /** A tier box's head: its label strip, plus a chip row when it names a model or a trigger. */
-export const headOf = (t: Tier) => HEAD + (t.model || t.trigger ? CHIPS : 0);
+export const headOf = (t: Tier) => HEAD + (t.model || t.trigger || t.purpose ? CHIPS : 0); // 3.3.16.3: the purpose line
 const GX = 70;
 const GY = 22;
 const TOP = 24;

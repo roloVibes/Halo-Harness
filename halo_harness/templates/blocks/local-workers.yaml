@@ -1,0 +1,21 @@
+# Halo 3.3.16.3 -- a block template (docs/WORKFLOWS-squares.md "Block templates"): a tier of workers for bulk work,
+# added to a lineup of yours below its last tier (a shipped lineup is copied to yours first, as Studio's Save does).
+# Its bios ask for nothing (`models.needs: []`), so Auto picks the cheapest model that fits -- a free or local one
+# first when one is set up; nothing here names a provider.
+name: local-workers
+title: "local workers"
+kind: tier
+tier:
+  name: local
+  purpose: "local workers: bulk work on the cheapest model that fits"
+agents:
+  - {agent: auto-coder, role: custom, as: local-coder, use_for: [bulk, rename, format]}
+  - {agent: auto-writer, role: custom, as: local-writer, use_for: [tidy, transcribe-notes]}
+  - {agent: auto-ops, role: custom, as: local-ops, use_for: [lint, sweep]}
+routing:
+  bulk: local-coder
+  rename: local-coder
+  format: local-coder
+  tidy: local-writer
+  lint: local-ops
+  sweep: local-ops

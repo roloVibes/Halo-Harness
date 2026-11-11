@@ -30,12 +30,14 @@ the Studio pictures keep the two rules under
 | `docs/media/studio-session.png`, `studio-session-live.png` | The stills beside it: the whole dashboard, and the Live column up close (scale 2) | `tools/capture_session_anim.py` |
 | `docs/media/studio-roles-live.gif`, `studio-roles-live.png` | The Roles canvas while a session runs: cards lighting cyan, one waiting amber, one fading green, one failed red, the glow legend opening at the end; the still has the implementer's Live tab open | `tools/capture_session_anim.py --mode roles` |
 | `docs/media/studio-<section>*.png` | Halo Studio in the browser: the Agents (Cast: `studio-roles.png`, `studio-agents.png`; Runs: `studio-orchestra*.png`; Live on the fleet, Setup -> Machines and a mission: `studio-fleet*.png`, 3.3.16.0 R2) and other captures through the shell, headless Chrome over fixture data (3.3.13.0 R2: `studio-design.png` is the design pack's section, its `tests/capture_design.py`) | `tools/capture_studio.py --mode orchestra\|roles\|fleet\|team` |
+| `docs/media/studio-workflows.png` | Agents -> Cast composed (3.3.16.3): the auto lineup's tiers beside three square blocks -- `media-team` (the media template, three agents inside) for pdf and audio, `thinking` (three reasoning agents) always first, `review` for the words review and audit -- main's lines labelled with their when, the library open on "media" with its three kinds; 1500x900 at scale 2 | `python tools/capture_studio.py --mode workflows` (tools/capture_workflows.py) |
+| `docs/media/studio-steer.png`, `studio-thinking.png`, `studio-talk.png` | Session's Live column for the README's "Steering a running turn" and "Watching a model think" (3.3.16.1; 3.3.16.2 the thinking and the talk): a row clicked so its agent is the steer's target with a steer typed in the box; Live on the implementer with the Thinking view on, its thoughts linked to the Read and the Edit they led to and its timeline lane in phases; TALK rows and the Conversations panel open on a thread; 1500x900 at scale 2 | `python tools/capture_steer.py` (`--only steer,thinking,talk`; the two 3.3.16.2 scenes are tools/capture_talk_scene.py) |
 | `docs/media/studio-modes.png` | The six Studio captures (Session, Agents, Local, Packs, Setup, Settings, the tab order; 3.3.16.0 R2) side by side with a section label and its `Alt+1`..`Alt+6` key each, the README's banner of the sections (3.3.0.0 R4: each tile 560 px wide, under 1 MB) | `tools/studio_modes_banner.py` (`--check` says when it is stale) |
 | `docs/media/studio-setup.png` | The Setup section (3.3.0.0 R4; 3.3.1.0 R1 the pages) as `halo init` opens it (`?mode=setup&first=1`): the step rail over the first page, Providers, its line leading with "set up this box", OpenRouter set from a placeholder env file, a two-model fixture catalog, the halo-dev-cycle lineup, a passed last check; the banner's eighth tile and the README's first screenshot after install | `python tools/capture_studio.py --mode setup` (tools/capture_setup.py) |
 | `docs/media/studio-packs.png` | The Packs section (3.2.0.0 R7): the Pack Manager with the shipped Documentation Review pack installed and enabled with bash, its Details, Sources, Settings and Templates | `python tools/capture_studio.py --mode packs` (tools/capture_packs.py) |
 | `docs/media/diagrams/*.svg` | The explanatory diagrams, each under 60 KB, on their own dark card so they read on a light or a dark page: session flow, routes and the connectors bridge on the README, remote control and the agents model in the docs | drawn by hand |
 | `docs/screenshots/*.svg` | The older TUI gallery (not on the README) | `scripts/screenshots.py` |
-| `tools/captures.json` | The capture list: name, scene, size (default 120x40), theme, scale (2), and for an animation its frame durations | edited by hand |
+| `tools/captures.json` | The capture list: name, scene, size (default 120x40), theme (`instrument`, the terminal default since 3.3.15.0; the README's terminal pictures show the current look), scale (2), and for an animation its frame durations | edited by hand |
 | `scripts/capture_scenes.py`, `scripts/capture_dialogs.py` | The pilot scenes behind each capture, built on the helpers in `scripts/screenshots.py` | edited by hand |
 
 ## Regenerate
@@ -54,8 +56,9 @@ The Studio pictures:
 ```sh
 python tools/capture_session_anim.py              # studio-session.gif, studio-session.png, studio-session-live.png
 python tools/capture_session_anim.py --mode roles # studio-roles-live.gif, studio-roles-live.png
-python tools/capture_studio.py --mode fleet       # one section's stills (orchestra, roles, design, fleet, team, packs, setup)
-python tools/studio_modes_banner.py               # the seven-section banner, after any of the seven stills changed
+python tools/capture_steer.py                    # studio-steer.png, studio-thinking.png, studio-talk.png
+python tools/capture_studio.py --mode fleet       # one section's stills (orchestra, roles, design, fleet, packs, setup, settings, local, workflows)
+python tools/studio_modes_banner.py               # the six-section banner, after any of the six stills changed
 python tools/hero_png.py                          # hero.png, after studio-session.png, the banner or the line changed
 python tools/hero_png.py --social                 # social-preview.png, the same picture at GitHub's size
 python tools/hero_png.py --check                  # both against a fresh render (exit 1 when stale)

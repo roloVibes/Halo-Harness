@@ -169,6 +169,8 @@ def session_caps(*, team: Optional[str], agent: Optional[str], cwd=None, env=Non
 
 def narrow_session(registry, catalog, *, team: Optional[str], agent: Optional[str], cwd=None) -> "list[str]":
     """build_session's one call: narrow the top session's tools; the opt-in lines its agent row shows."""
+    from halo_harness.workflows.offer import drop_unless_enabled  # 3.3.16.2: no square here, no Workflow tool
+    drop_unless_enabled(registry, catalog, team=team, cwd=cwd)
     caps, by = session_caps(team=team, agent=agent, cwd=cwd)
     lines = [ln for ln in os.environ.get(OPT_INS_ENV, "").split("\n") if ln.strip() and not ln.startswith("tools:")]
     if caps is None:

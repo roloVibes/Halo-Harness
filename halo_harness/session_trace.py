@@ -11,7 +11,8 @@ the clock, the agent (its tier and model), the kind -- a user prompt, the
 assistant's text, a tool call (its name and a one-line argument summary),
 the tool's result (fenced, at most 40 lines, then "... (N more lines)"), a
 steer and its target, a nudge, a permission answer, the turn-end marker, a
-compaction, an error, a rewind. Every text passes the redactor (redact.sanitize_text:
+compaction, an error, a rewind; 3.3.16.2: the model's thinking, and the talk between agents
+(a sub-agent's task and hand-back, a square's receipt: session_trace_talk.py). Every text passes the redactor (redact.sanitize_text:
 key shapes, `NAME=value` secrets, Bearer headers) and every path under a
 user's home becomes `~` (privacy_rules.HOME_PATH_RE), so the file carries
 no provider key and no home path. Pure: no network, no clock (the same log
@@ -25,6 +26,8 @@ import re
 import time
 from pathlib import Path
 from typing import Optional
+
+from halo_harness.session_trace_talk import fold_talk, receipt_row, thinking_rows
 
 TRIM_LINES = 40
 LINE_MAX = 400
@@ -106,6 +109,7 @@ def _rows(nodes: list, who: str) -> list:
             elif kind in ("steer", "nudge"):
                 rows.append((ts, kind, f"steer to {who}" if kind == "steer" else "nudge", text, False))
         elif t == "assistant":
+            rows.extend(thinking_rows(node, ts))  # 3.3.16.2: its thinking first (session_trace_talk.py)
             text = _texts(node.get("content"))
             if text.strip():
                 rows.append((ts, "assistant text", "assistant text", text, False))
@@ -120,6 +124,8 @@ def _rows(nodes: list, who: str) -> list:
             body = c if isinstance(c, str) else _texts(c) if isinstance(c, list) else json.dumps(c, default=str)
             title = f"tool result: {name}" + (" (error)" if node.get("is_error") else "")
             rows.append((ts, "tool result", title, trim(body), True))
+        elif t == "receipt":
+            rows.append(receipt_row(node, ts, who))
         elif t == "error":
             rows.append((ts, "error", f"error ({node.get('err_type') or 'error'})", str(node.get("message") or ""), False))
         elif t == "interrupted":
@@ -202,7 +208,8 @@ def trace_markdown(source, *, model: Optional[str] = None, lineup: Optional[str]
     for i, (info, ns) in enumerate([({"name": "main", "model": model}, nodes)] + subs):
         label = ", ".join(x for x in (f"tier {tiers[info['name']]}" if tiers.get(info["name"]) else "", str(info.get("model") or "")) if x)
         who = info["name"] + (f" ({label})" if label else "")
-        entries += [(ts, i, j, who, title, body, fenced, kind) for j, (ts, kind, title, body, fenced) in enumerate(_rows(ns, info["name"]))]
+        rows = _rows(ns, info["name"]) if not i else fold_talk(_rows(ns, info["name"]), info["name"], str(info.get("parent") or "main"))
+        entries += [(ts, i, j, who, title, body, fenced, kind) for j, (ts, kind, title, body, fenced) in enumerate(rows)]
     entries.sort(key=lambda e: (e[0], e[1], e[2]))
     tot = {**_totals(nodes, sum(1 for e in entries if e[7] == "tool call")), **(totals or {})}
     stamps = [float(n.get("ts")) for n in nodes if n.get("ts")]

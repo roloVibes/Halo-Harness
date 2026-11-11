@@ -6,7 +6,8 @@ best-at index Auto reads):
     takes      text, files (OneDrive/SharePoint URLs), web     (`takes`, read by model_takes.takes_words)
     tools      no  (`tools: False`: Auto's candidates never include it, the loop offers it none)
     context    unknown (None)
-    price      "Copilot Credits or your licence" -- never a dollar figure (no price_in/out)
+    price      "Copilot Credits or your licence" -- never a dollar figure (no price_in/out); `price_note` the
+               words Studio's price lines show for it ("your tenant's credits or licence")
     strength   work-data: "research over your work data" (models_auto_work.py picks it for that need)
 """
 
@@ -15,6 +16,8 @@ from __future__ import annotations
 from halo_harness.providers.copilot_config import REF
 
 PRICE_WORDS = "Copilot Credits or your licence"
+PRICE_NOTE = "your tenant's credits or licence"  # Studio: a hover card's price line (studio/model_card_api.row_view)
+COST_WORDS = "tenant credits"  # Studio: a square's Costs line and its block's footer (workflows/contract.py)
 TAKES = ("text", "files", "web")
 STRENGTH = "work-data"
 STRENGTH_WORDS = "research over your work data"
@@ -23,7 +26,7 @@ GROUP = "Copilot at work"
 
 def row() -> dict:
     return {"ref": REF, "provider": "copilot", "group": GROUP, "context_tokens": None, "max_output_tokens": None,
-            "price_in_per_m": None, "price_out_per_m": None, "price_words": PRICE_WORDS,
+            "price_in_per_m": None, "price_out_per_m": None, "price_words": PRICE_WORDS, "price_note": PRICE_NOTE,
             "detail": f"your work's Copilot · {PRICE_WORDS} · takes text, files (OneDrive/SharePoint URLs), web · "
                       f"tools: no · good at: {STRENGTH_WORDS}",
             "modalities_in": ["text"], "modalities_out": ["text"], "tools": False, "reasoning": None,

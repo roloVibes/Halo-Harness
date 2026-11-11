@@ -162,6 +162,7 @@ export function layoutBody(s = roles.get()): LayoutBody | null {
   if (!s.name || !s.graph) return null;
   const nodes: Record<string, Pos> = {};
   for (const n of s.graph.nodes) if (s.positions[n.id]) nodes[n.id] = { x: Math.round(s.positions[n.id].x), y: Math.round(s.positions[n.id].y) };
+  for (const [k, p] of Object.entries(s.positions)) if (k.startsWith("block:")) nodes[k] = { x: Math.round(p.x), y: Math.round(p.y) }; // 3.3.16.3: a moved block
   const tiers: Record<string, { collapsed: boolean }> = {};
   for (const t of s.graph.tiers) tiers[t.name] = { collapsed: !!s.collapsed[t.name] };
   return { nodes, tiers };

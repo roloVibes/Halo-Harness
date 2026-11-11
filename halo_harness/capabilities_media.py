@@ -76,5 +76,7 @@ def best_for_media(rows: Iterable[dict], kind: str, *, limit: int = 10) -> list:
         ranked.append({"ref": r["ref"], "score": round(score, 3), "reason": ", ".join(why), "chips": chips,
                        "provider": r.get("provider", "comfyui"), "kind": r["kind"], "family": r.get("family", ""),
                        "size_bytes": size, "quant": quant})
-    ranked.sort(key=lambda x: (-x["score"], x["ref"]))
+    from halo_harness.model_rank import family_ranks  # 3.3.16.2: an equal score goes to the newer version first
+    rk = family_ranks([x["ref"] for x in ranked])
+    ranked.sort(key=lambda x: (-x["score"], rk.get(x["ref"], 0), x["ref"]))
     return ranked[:limit]

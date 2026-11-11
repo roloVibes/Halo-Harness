@@ -28,7 +28,8 @@ BRIEF_HEADER = "Findings and decisions this harness knows that rank for your job
 
 def line(hit: dict) -> str:
     bits = [hit.get("kind"), hit.get("by"), str(hit.get("when") or "")[:10], hit.get("confidence")]
-    return f"- {hit['id']} ({', '.join(str(b) for b in bits if b)}): {hit['title']}"
+    why = f" -- {hit['why']}" if hit.get("why") else ""  # 3.3.16.2: why it is a hit, in a few words
+    return f"- {hit['id']} ({', '.join(str(b) for b in bits if b)}): {hit['title']}{why}"
 
 
 def snapshot(hits: list, header: str = HEADER) -> str:

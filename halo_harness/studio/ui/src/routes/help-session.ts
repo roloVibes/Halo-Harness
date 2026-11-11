@@ -13,9 +13,11 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-live": {
     about: "Every agent here at once, live: what it types, each tool call and its result, what it hands back, what it asks you.",
     help: lines(
-      "Lines land in the order they happen, in Fleet's columns: the time, the kind (TOOL, TEXT, STATE, ASK, YOU...) and the agent's tag (its colour, its name and its state: cyan works, amber waits, green done, red failed).",
+      "Lines land in the order they happen, in Fleet's columns: the time, the kind (TOOL, TEXT, THINK, TALK, STATE, ASK, YOU...) and the agent's tag (its colour, its name and its state: cyan works, amber waits, green done, red failed).",
+      "THINK is a model's reasoning as it comes, one row per thought: four lines, show all for the rest, then how long it thought (and its tokens when the provider says). Its chip says what it led to; why? on that row opens the thought under it. Thinking beside Follow shows only the thoughts and what each led to. A model with no thinking shows none.",
+      "TALK is one agent's words to another: the speaker's tag, an arrow, the listener's, and why (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER). A hand-back is one row (the same words as the agent's last ones). Conversations (the + menu) shows them as threads.",
       "A tool call is one row: runs Bash, what it runs on, the time ticking while it runs, then the first line of its result; click the row for the whole result.",
-      "On top, the timeline: a lane per live agent of this session over 5, 15 or 60 minutes; click a lane to show only that agent. The agent and kind picks beside Follow narrow the lines.",
+      "On top, the timeline: a lane per live agent of this session over 5, 15 or 60 minutes, drawn by what it does: thinking (violet), running a tool (cyan), writing (green), waiting on you (amber), idle (a thin line). Hover a segment for its length; click a thinking one to scroll to that thought; click a lane to show only that agent. The agent and kind picks beside Follow narrow the lines.",
       "Steer is always at the bottom; its line says who it reaches and what that agent does now (Steering: coder · Bash (pytest -q), 12 s). Click a row or a map node to make it the target (it stays outlined), Tab / Shift+Tab in the field cycle the live agents, s on a focused row steers it. Your steer lands under its target; the agent's next row says after your steer.",
       "Click a tag: only that agent; the tag again (or Esc) shows everyone. Follow keeps the newest line in view; while you type a steer or have scrolled up the view holds still and N new rows · follow (or Esc out of the field) brings you back. Export saves the session as one Markdown trace.",
       "An ask lands as an amber card with its A / R / S / O answers; the newest 500 lines stay here, the full log is in Activity.",
@@ -30,6 +32,15 @@ export const SESSION_HELP: Record<string, Help> = {
       "While a turn runs, a send asks first: Queue it starts it when that turn ends (one at a time), Steer puts it into the running turn. A pasted image or a dropped file rides along.",
       "Beside each of your turns, four marks: sent (Studio stored it), delivered (the session took it), read (it is in the model's input), replied (that turn ended); red when it failed, the reason in its title.",
       "The conversation reads like the terminal: replies, one line per tool call, the asks with their buttons. Live stays the stream for steering.",
+    ),
+  },
+  "session-conversations": { // 3.3.16.2
+    about: "Agents talking to each other: each pair's messages as one thread, the task, the hand-back, a steer, a square, a hand-over.",
+    help: lines(
+      "Left: every pair of agents that has talked, the newest first, with how many messages and the last line.",
+      "Right: the chosen pair's thread. Each message sits on its speaker's side, with why it was said (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER) and when; a reply sits under what it answers.",
+      "Click a message to see it in Live; show in Live narrows Live to this pair (the chip in Live's header shows everything again).",
+      "Its strip counts the threads and the messages. Live's TALK rows are the same messages, as they happen.",
     ),
   },
   "session-map": {

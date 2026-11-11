@@ -1,7 +1,9 @@
 """halo_harness.studio.model_card_api -- Halo 3.3.5.0 R0b: the model card in
 Studio (providers/model_card.py builds it, providers/fit_meter.py rates it).
 
-    view(card, meter)            what a picker row carries: {card: {chips, how,
+    view(card, meter)            what a picker row carries: {card: {chips, how (3.3.16.1:
+                                 a local model's "Halo's first turn: N tokens (P % of
+                                 the window)" row, agent/prompt_measure.card_line),
                                  fit_for, fit_why, purpose, thinks, tools,
                                  vision, kind, window {tokens, source}}, fit:
                                  {level, at_window, gpu_window, why}}
@@ -33,7 +35,10 @@ log = logging.getLogger("bridge")
 def view(card: dict, meter: Optional[dict]) -> dict:
     from halo_harness.providers.model_card_words import chips
     w = card.get("window") or {}
-    return {"card": {"chips": chips(card), "how": list(card.get("how") or []), "fit_for": dict(card.get("fit_for") or {}),
+    from halo_harness.agent.prompt_measure import card_line  # 3.3.16.1: Halo's own first turn, a row of its own
+    first = card_line(str(card.get("ref") or ""), w.get("tokens"))
+    how = list(card.get("how") or []) + ([first] if first else [])
+    return {"card": {"chips": chips(card), "how": how, "fit_for": dict(card.get("fit_for") or {}),
                      "fit_why": dict(card.get("fit_why") or {}), "purpose": card.get("purpose"),
                      "thinks": card.get("thinks"), "tools": card.get("tools"), "vision": card.get("vision"),
                      "vision_truth": card.get("vision_truth"),  # 3.3.6.0 R6: True | False | None, its truth
@@ -79,6 +84,7 @@ def row_view(ref_raw: str, row: Optional[dict], state_dir, *, read_hardware: boo
     """`view` for one catalog row; `host_cards` ({url: card}) is the caller's per-call memo."""
     from halo_harness.providers.fit_meter import fit_meter, host_card_of
     from halo_harness.providers.model_card import card_of
+    note = {"price_note": row["price_note"]} if isinstance(row, dict) and row.get("price_note") else {}  # 3.3.17.0 cp:work
     try:
         host = _host_for(ref_raw) if ref_raw.startswith("ol:") else None
         host_card = None
@@ -89,10 +95,10 @@ def row_view(ref_raw: str, row: Optional[dict], state_dir, *, read_hardware: boo
             host_card = memo[host.url]
         card = card_of(ref_raw, state_dir=state_dir, catalog=None if host is not None else row, host=host,
                        host_card=host_card)
-        return view(card, fit_meter(card, host_card))
+        return {**view(card, fit_meter(card, host_card)), **note}
     except Exception:
         log.debug("model_card_api: no card for %s", ref_raw, exc_info=True)
-        return {}
+        return note
 
 
 def panel_view(model: str, host, row: Optional[dict], host_card) -> dict:

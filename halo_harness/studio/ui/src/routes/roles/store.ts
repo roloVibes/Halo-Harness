@@ -93,7 +93,7 @@ export type RolesState = {
 /** 3.2.2.0 R6: "<name> changed on disk" (Reload / Keep mine) or "<name> was deleted on disk" over the form. */
 export type DiskNote = { name: string; gone: boolean };
 
-export type TierMenuAt = { tier: string; x: number; y: number; face: "menu" | "model" | "trigger" | "max" };
+export type TierMenuAt = { tier: string; x: number; y: number; face: "menu" | "model" | "trigger" | "max" | "purpose" };
 
 export const HISTORY_MAX = 50;
 export const NONE: never[] = [];

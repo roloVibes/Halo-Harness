@@ -12,7 +12,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 TOOLS = ("capture_studio", "capture_orchestra", "capture_roles", "capture_fleet",  # capture_design: the design pack's (3.3.13.0 R2); capture_team went with Team's board (3.3.16.0 R1)
          "capture_start", "capture_session_anim", "capture_packs", "capture_setup",
-         "capture_settings", "capture_local")  # capture_packs: 3.2.0.0 R7; capture_setup: 3.3.0.0 R4; capture_settings: 3.3.3.0 R2; capture_local: 3.3.5.0 R1 (capture_ollama went with Fleet's Ollama panel, 3.3.16.0 R2)
+         "capture_settings", "capture_local", "capture_workflows", "capture_steer")  # capture_packs: 3.2.0.0 R7; capture_setup: 3.3.0.0 R4; capture_settings: 3.3.3.0 R2; capture_local: 3.3.5.0 R1 (capture_ollama went with Fleet's Ollama panel, 3.3.16.0 R2)
 SERVES = {"serve", "start_server", "StudioFleetRig", "PlanRig", "CoachRig"}
 READS = {"shot", "crop_shot", "write_gif", "film", "counts", "shell_counts"}  # a picture, or the DOM's counts
 GUARDS = {"guard", "guard_page", "checked_dump"}

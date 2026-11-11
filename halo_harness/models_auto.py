@@ -22,7 +22,8 @@ task needs:
   better of code and research); with no needs it is cheap and fast (bulk and
   measured speed);
 * a tie goes to the session's own model, then (band low) to a local one,
-  then the cheaper, then the ref's name; no candidate -> main's model;
+  then the cheaper, then model_rank's newer version, larger context, a provider
+  with a key, then the ref's name (3.3.16.2); no candidate -> main's model;
 * 3.1.9.0 R3 (outcomes/learn.py): what was measured for the task's kind
   weighs each score (`relearn`), and the reason says when it moved the pick.
 
@@ -199,35 +200,30 @@ def _choose(cands: list, needs: list, band: str, main_ref: str, weights: Optiona
     if local_state:
         from halo_harness.models_auto_local import weigh
         cands = weigh(cands, local_state)[0]
-    inf, label = float("inf"), ("+".join(needs) + " model") if needs else ""
+    from halo_harness import model_rank as R  # 3.3.16.2: past the band's rule, newer, larger context, keyed, name
+    inf, label, rk = float("inf"), ("+".join(needs) + " model") if needs else "", R.family_ranks([c.ref for c in cands])
     w = lambda c: (weights or {}).get(c.ref, 1.0)  # noqa: E731
     cands = [c._replace(score=round(c.score * w(c), 4)) for c in cands] if weights else cands
-    priced = [c for c in cands if c.price is not None]
-    by_score = lambda c: (-c.score, c.ref != main_ref, c.price if c.price is not None else inf, c.ref)
+    priced, tail = [c for c in cands if c.price is not None], (lambda c: (rk.get(c.ref, 0), R.term("context", c, rk)))
+    key = lambda c: (-c.score, c.ref != main_ref, c.price if c.price is not None else inf, *tail(c))  # noqa: E731
+    names = ("score", "main", "cheaper", "newer", "context")  # the terms of `key`, for the tie's words
     if band == "low":
-        pool = priced or cands
-        ordered = sorted(pool, key=lambda c: (c.price if c.price is not None else inf, -w(c), c.ref != main_ref,
-                                              not c.local, -c.score, c.ref))
-        primary = lambda c: (c.price, w(c))
+        names = ("cheaper", "learned", "main", "local", "score", "newer", "context")
+        key = lambda c: (c.price if c.price is not None else inf, -w(c), c.ref != main_ref, not c.local,  # noqa: E731
+                         -c.score, *tail(c))
+        ordered, primary = R.ranked(priced or cands, key), (lambda c: (c.price, w(c)))
         rule = f"the cheapest {label or 'model'}"
     elif band == "mid":
-        paid = [c.price for c in priced if c.price > 0]
-        cap = min(paid) * MID_WINDOW if paid else 0.0
+        cap = min(paid) * MID_WINDOW if (paid := [c.price for c in priced if c.price > 0]) else 0.0
         pool = [c for c in priced if c.price <= cap + 1e-9] or cands
-        ordered, primary = sorted(pool, key=by_score), (lambda c: c.score)
+        ordered, primary = R.ranked(pool, key), (lambda c: c.score)
         rule = f"the best {label or 'cheap, fast model'} within {MID_WINDOW:g}x the cheapest"
     else:
-        ordered, primary = sorted(cands, key=by_score), (lambda c: c.score)
+        ordered, primary = R.ranked(cands, key), (lambda c: c.score)
         rule = f"the strongest {label}" if label else "the best cheap, fast model"
     if not priced and band != "high":
         rule += " (no candidate states a price: by score)"
-    best = ordered[0]
-    tied, tie = len([c for c in ordered if primary(c) == primary(best)]) > 1, ""
-    if tied and best.ref == main_ref:
-        tie = "; a tie, so main's own model"
-    elif tied and band == "low" and best.local:
-        tie = "; a tie, so the local one"
-    return best, ordered, rule, tie
+    return ordered[0], ordered, rule, R.auto_tie(ordered, primary, key, names, main_ref, band)
 
 
 def load_rows(state_dir) -> dict:

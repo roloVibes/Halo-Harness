@@ -177,6 +177,8 @@ def writes(*, state_dir=None, repo: Optional[str] = None, today: Optional[str] =
         day = start_root(state) / (today or _dt.date.today().isoformat())
         out.append(f"{_free_folder(day)} (the sample repo: a git repo with one commit)")
         out.append("inside it: the run's folder (.halo/orchestra/<run>) and one git worktree per lane")
+        out.append("your knowledge: nothing beyond the sample's own gate records, tagged sample; a search from "
+                   "another project never returns them")  # 3.3.16.2
     return out
 
 

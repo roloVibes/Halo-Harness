@@ -388,6 +388,27 @@ honoured; `NODE_EXTRA_CA_CERTS`/`REQUESTS_CA_BUNDLE` are tried first if
 set, then this one, first one present that loads wins) pointing at the
 corporate CA's PEM file.
 
+## `halo update` stops at `invalid peer certificate: UnknownIssuer`
+
+The update runs `uv tool install --reinstall`, and uv checks the server's certificate against its
+own bundled roots, not the system's. A network that re-signs traffic (a corporate proxy, a VPN) or
+a CA that only the system store has fails that check with `invalid peer certificate:
+UnknownIssuer`, and Halo's own Python TLS (above) is not involved. Halo 3.3.16.0 and later retry on
+the system store by themselves and say so; an install older than that cannot update itself past
+it. Repair it once with this line (`UV_SYSTEM_CERTS` is uv 0.11's name, `UV_NATIVE_TLS` the one
+before it, so it works on every uv version):
+
+```sh
+UV_SYSTEM_CERTS=1 UV_NATIVE_TLS=1 uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
+```
+
+```powershell
+$env:UV_SYSTEM_CERTS='1'; $env:UV_NATIVE_TLS='1'; uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
+```
+
+Append `@v<version>` to pin a release. Running the installer one-liner again does the same. If the CA
+is in no store at all, this is the "unable to get local issuer certificate" case above.
+
 ## `Function tools with reasoning_effort are not supported for gpt-6-sol` (1.0.1)
 
 The gpt-6 family's own chat-completions route 400s when `reasoning_effort`

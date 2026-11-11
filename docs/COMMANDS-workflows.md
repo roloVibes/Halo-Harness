@@ -81,7 +81,9 @@ command of the old verbs; `halo workflows check | run` reach them too.
 | `list [--json]` | every square with its contract line, `NAME · DOES · TAKES -> GIVES · band · depth`, its group and `*` on the ones the active lineup enabled; a workflow without `gives` is listed as not a square |
 | `show <ref> [--json]` | the contract: covers, lineup, engine, costs, limits, where the file is, any problem |
 | `enable <ref> [--lineup <name>]` | on for the active lineup (or `--lineup`): the auto lineup writes config `workflows.enabled`, a lineup of yours its `workflows:` list; one line says what changed |
-| `disable <ref> [--lineup <name>]` | off again, one line |
+| `enable <ref> --when <rule>` | 3.3.16.3: on, wired with its "when" -- `needs=pdf,audio` (the needs it takes a hand-off for: pdf, images, audio, video, code, plan, research, review, work-data), `words=review,audit` (the task says one of them), `named` (only when main names it), `always` (first, before main answers), `off` (on the board, not connected: main never uses it) or `auto` (its covers, the plain rule); the auto lineup writes config `workflows.when.<ref>`, a lineup of yours the item `{ref, when}` in its `workflows:` list |
+| `disable <ref> [--lineup <name>]` | off again, one line (the auto lineup forgets its rule) |
+| `when <ref> [--lineup <name>]` | 3.3.16.3: the square's rule on the lineup -- its label (the line's words in Studio), the sentence, and what is written |
 | `test <ref> [--task TEXT]` | the check pass (the contract words, the compile with a sample task) and a dry run of the router on a sample task for each need it covers, on a text-only model: which gaps it covers; exit 1 on a problem |
 | `new <name> --from <square>` | copy a square into yours (`~/.halo/workflows/<name>.yaml`), never over a file |
 
@@ -93,4 +95,32 @@ halo workflows list
 halo workflows enable media
 halo workflows test media
 halo workflows new my-media --from media
+halo workflows enable media --when needs=pdf,audio
+halo workflows when media
+```
+
+`/workflows` in the terminal prints the same list, with a `when:` column on every enabled square
+(`/workflows when <ref>` the rule).
+
+## `halo blocks`
+
+Halo 3.3.16.3 "Blocks" ([WORKFLOWS-squares.md](WORKFLOWS-squares.md#block-templates),
+[STUDIO-blocks.md](STUDIO-blocks.md)). The blocks you can start from -- small YAML templates shipped under
+`halo_harness/templates/blocks/`, each a square or a tier whose agents sit on `auto` models -- and the blocks a
+lineup has.
+
+| Verb | What it does |
+| --- | --- |
+| `list [--json]` | the templates (name, square or tier, title, who is inside), then the lineup's blocks: each square with its when line, each declared tier with its purpose and the words that reach it |
+| `add <template> [--as <name>]` | a square template: a square of yours (`~/.halo/workflows/<name>.yaml`; `--as` names it) enabled and wired to main by its covers; a tier template: its agents and a tier below the lineup's last one (a shipped lineup is copied to yours under its name first, as Studio's Save does; a pack's is never written) |
+| `show <name>` | a template (what it does, who is inside on which model, its costs, the name it adds as), or a block of the lineup (a square ref or a tier name) |
+
+Every verb takes `--lineup <name>` (default: the active one) and `--repo DIR`. Exit codes: 0 done, 1 not found or
+refused, 2 a bad request. `halo teams show <lineup>` prints a `block <ref> (square): when ...` line per square.
+
+```sh
+halo blocks list
+halo blocks add thinking
+halo blocks add review-panel --as panel
+halo blocks show local-workers
 ```

@@ -32,6 +32,7 @@ import "./styles/model-select.css";
 import "./styles/holo.css";
 import "./styles/session-live.css";
 import "./styles/session-target.css";
+import "./styles/session-think.css";
 import "./styles/prompt.css"; // 3.3.11.0 R1: Session's Prompt panel
 import "./styles/roles-live.css"; // 3.3.11.0 R2: Roles Live, New session, the no-terminal line
 import "./styles/agents.css"; // 3.3.16.0 R1: Agents' bar (Cast | Runs | Live), the owns line, a lane's claims
@@ -60,8 +61,12 @@ import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box 
 import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the scan, the recommendation, the Pool badge
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
 import "./styles/nodes.css"; // 3.3.15.0 L1: the Instrument look's map nodes and edges (after fleet.css and roles-live.css)
+import "./styles/live-groups.css"; // 3.3.16.3: Live in groups, the group boxes (after nodes.css)
+import "./styles/blocks.css"; // 3.3.16.3: blocks on the Cast canvas, a tier's purpose line
+import "./styles/blocks-compose.css"; // 3.3.16.3 part 2: lines with their when, the library on Cast, the drags
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
 import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)
+import "./styles/hover-card.css"; // 3.3.16.1: the one hover card (lib/ui/HoverCard.tsx)
 import "./styles/textbox.css"; // 3.3.15.0 R3: the one text box (lib/ui/TextBox.tsx), after every section's sheet
 import { App } from "./App";
 import { installLib } from "./packlib";

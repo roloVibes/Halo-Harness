@@ -494,12 +494,10 @@ def _main(argv: Optional[list] = None) -> int:
         # 3.1.3.0 R1: the post-run coach for a run of any kind: --model, --apply (one confirm), --undo.
         from halo_harness.coach_cli import cmd_coach
         return cmd_coach(argv[1:])
-    if argv and argv[0] == "work":
-        # 3.1.2.0 R1: the units of any run as one table (lanes, parts, stages, steps; docs/WORK.md).
+    if argv and argv[0] == "work":  # 3.1.2.0 R1: the units of any run as one table (docs/WORK.md)
         from halo_harness.work_cli import cmd_work
         return cmd_work(argv[1:])
-    if argv and argv[0] == "supervise":
-        # 3.1.8.0 R1: the supervisor -- a goal queue that runs without a TUI (docs/SUPERVISE.md).
+    if argv and argv[0] == "supervise":  # 3.1.8.0 R1: the supervisor, a goal queue without a TUI
         from halo_harness.supervise.cli import cmd_supervise
         return cmd_supervise(argv[1:])
     if argv and argv[0] == "host":  # 3.3.7.0 R1: halo host, the model-free monitor of this machine's servers
@@ -514,10 +512,12 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "copilot":  # 3.3.17.0 R1: your work's Copilot -- signin, signout, status, ask
         from halo_harness.copilot_cli import cmd_copilot
         return cmd_copilot(argv[1:])
-    if argv and argv[0] == "outcomes":
-        # 3.1.8.0 R3: every agent task's outcome, per bio and model (docs/OUTCOMES.md).
+    if argv and argv[0] == "outcomes":  # 3.1.8.0 R3: every agent task's outcome (docs/OUTCOMES.md)
         from halo_harness.outcomes.cli import cmd_outcomes
         return cmd_outcomes(argv[1:])
+    if argv and argv[0] == "whatsnew":  # 3.3.16.2: what a version changed, from the shipped changelog
+        from halo_harness.whatsnew_cli import cmd_whatsnew
+        return cmd_whatsnew(argv[1:])
     if argv and argv[0] == "knowledge":  # 3.1.8.0 R4: findings and decisions (docs/KNOWLEDGE.md)
         from halo_harness.knowledge.cli import cmd_knowledge
         return cmd_knowledge(argv[1:])
@@ -583,9 +583,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "pack":  # 3.2.0.0 R1: capability packs (docs/PACKS.md)
         from halo_harness.packs.cli import cmd_pack
         return cmd_pack(argv[1:])
-    if argv and argv[0] == "workflows":  # 3.3.16.0 R3: workflow squares (docs/WORKFLOWS-squares.md)
-        from halo_harness.workflows.squares_cli import cmd_workflows
-        return cmd_workflows(argv[1:])
+    if argv and argv[0] in ("workflows", "blocks"):  # 3.3.16.0 R3: workflow squares; 3.3.16.3: block templates
+        from halo_harness.workflows.squares_cli import cmd_workflows; from halo_harness.blocks_cli import cmd_blocks  # noqa: E702
+        return cmd_workflows(argv[1:]) if argv[0] == "workflows" else cmd_blocks(argv[1:])
     if argv and argv[0] == "workflow":  # 3.2.0.0 R5: a pack's workflows, compiled to Orchestra runs (docs/WORKFLOWS.md)
         from halo_harness.workflows.cli import cmd_workflow
         return cmd_workflow(argv[1:])

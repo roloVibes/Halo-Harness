@@ -1,0 +1,30 @@
+# Halo 3.3.16.3 -- a block template (docs/WORKFLOWS-squares.md "Block templates"): `halo blocks add thinking`, or
+# drag it from Studio's library onto Agents -> Cast. It writes a square of yours (~/.halo/workflows/<name>.yaml) and
+# wires it to main. Every agent is on an `auto` model whose bio needs reasoning, so nothing here names a provider:
+# pin each card's model afterwards (the owner's "DeepSeek, K3 and GLM") on the block's Agents page or in the file.
+name: thinking
+title: "thinking: three reasoning models"
+kind: square
+square:
+  name: thinking
+  does: Three reasoning models weigh a hard call -- one plans it, one reviews the plan, one argues the other way -- and hand back the call with its reasons.
+  takes: [text, files]
+  gives: [text]
+  covers: [plan, review]
+  lineup:
+    lead: {bio: auto-planner, model: auto}
+    members:
+      - {bio: auto-reviewer, model: auto}
+      - {bio: auto-planner, model: auto}
+  engine: session
+  budget: {band: high, cap_usd: 2}
+  limits: {depth: 1, turns: 30, wall_s: 900}
+  inputs:
+    task: {type: text, required: true, description: the call to weigh}
+    files: {type: text, default: "", description: "the files it reads, comma-separated"}
+  stages:
+    - id: weigh
+      title: Weigh the call
+      role: auto-planner
+      brief: "Weigh this call: {task} Files: {files}. Plan it, review the plan, argue the other way, then say the call and why."
+  done_when: the call is made and each reason for it is named

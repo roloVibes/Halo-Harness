@@ -194,7 +194,8 @@ def test_the_reply_room_follows_num_predict(ctx: Ctx):
         req = _chats(mock)[0]
         opts = req["body"]["options"]
         ctx.check(f"num_predict is sent, got {opts}", isinstance(opts.get("num_predict"), int) and opts["num_predict"] > 1024)
-        ctx.check(f"num_ctx {opts['num_ctx']} >= prompt + num_predict ({_floor_of(req)})", opts["num_ctx"] >= _floor_of(req))
+        floor = _floor_of(req)
+        ctx.check(f"num_ctx {opts['num_ctx']} >= prompt + num_predict ({floor})", opts["num_ctx"] >= floor)
     finally:
         mock.stop()
 

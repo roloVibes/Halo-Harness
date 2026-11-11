@@ -18,6 +18,8 @@ import type { MenuAt } from "../agents/live/NodeMenu";
 import { useTicker, useToolClock } from "../agents/live/nodeBits";
 import { steerAgent, useTargetKey } from "../session/steer";
 import { SquareRow } from "../agents/live/SquareRow"; // 3.3.16.0 R3: a square's agent
+import { useHover } from "../../lib/hover/useHover";
+import { AgentHover } from "../agents/hover/agent"; // 3.3.16.1: its hover card (Agents -> Live, not Session's Map)
 import type { LiveBox, LiveGroup } from "./liveLayout";
 
 function took(n: LiveBox["node"], now: number): string {
@@ -32,9 +34,9 @@ function nowLine(n: LiveBox["node"]): string {
   return n.current && n.current !== "thinking" ? n.current : n.task || n.current || "";
 }
 
-type Props = { b: LiveBox; selected: boolean; now: number; onMenu: (m: MenuAt) => void; onPick: (key: string) => void };
+type Props = { b: LiveBox; selected: boolean; now: number; onMenu: (m: MenuAt) => void; onPick: (key: string) => void; hover?: boolean };
 
-export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
+export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }: Props) {
   const n = b.node;
   const style = { left: b.x, top: b.y, width: b.w, height: b.h };
   const [born, grown] = useBorn(); // 3.3.15.0 L1: a node that appears after the page drew fades in once
@@ -46,6 +48,8 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
   const clock = useToolClock(n.key, row, act);
   const shown = useTicker(Number(n.cost) || 0);
   const target = useTargetKey() === n.key && !!n.key;
+  const hv = useHover("agent", n.key, () => <AgentHover k={n.key} n={n} />, hover && !n.virtual);
+  const t = hv.titles; // the plain tooltips, only without a hover card
   if (n.virtual)
     return (
       <div className="rlm-node rlm-virtual" style={style} data-testid="roles-live-unknown" title={n.task}>
@@ -65,29 +69,30 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
          data-motion={row ? agentMotion(row, doneAt) : undefined} data-parent={n.parent || undefined} data-harness={n.harness || undefined}
          data-card={n.card || undefined} data-selected={selected || undefined} data-target={target || undefined} aria-label={`${n.name}: ${n.state}`}
          data-born={born || undefined} onAnimationEnd={(e) => e.target === e.currentTarget && grown()}
-         data-ack={(failed && failedAcked(n.key)) || undefined} data-hover={hovered || undefined}>
+         data-ack={(failed && failedAcked(n.key)) || undefined} data-hover={hovered || undefined} {...hv.props}>
       {target && <span className="rlm-target" data-testid="roles-live-target" aria-hidden="true" />}
       <div className="rlm-head">
         <span className="rlm-dot" aria-hidden="true" />
-        {lead ? <b className="rlm-title" title={`its role: ${n.role}`} data-testid="roles-live-role">{n.role}</b> : <b className="rlm-name rlm-title" title={n.name}>{n.name}</b>}
+        {lead ? <b className="rlm-title" title={t ? `its role: ${n.role}` : undefined} data-testid="roles-live-role">{n.role}</b>
+          : <b className="rlm-name rlm-title" title={t ? n.name : undefined}>{n.name}</b>}
         <span className="spacer" />
-        {pinned && <span className="rlm-pin" data-testid="roles-live-pin" title="Pinned: its mini stream stays on screen"><Icon name="pin" size={12} /></span>}
+        {pinned && <span className="rlm-pin" data-testid="roles-live-pin" data-hover-skip title="Pinned: its mini stream stays on screen"><Icon name="pin" size={12} /></span>}
         <span className="og-badge mono" data-live={n.activity || undefined}>{n.state || "?"}</span>
         <button className="rlm-more" onClick={menu} onDoubleClick={(e) => e.stopPropagation()} aria-label={`${n.name}: more`} title="Steer, pause, pin, stop..." data-testid="roles-live-more">...</button>
       </div>
-      {lead && <div className="rlm-name rlm-sub" title={`the agent: ${n.name}`}>{n.name}</div>}
-      <div className="mono muted rlm-meta" title={n.model || undefined}>
+      {lead && <div className="rlm-name rlm-sub" title={t ? `the agent: ${n.name}` : undefined}>{n.name}</div>}
+      <div className="mono muted rlm-meta" title={(t && n.model) || undefined}>
         <span className="rlm-model" data-testid="roles-live-model">{shortModel(n.model) || "model ?"}</span>
         <span className="rlm-cost"><span data-testid="roles-live-cost">{cost(shown)}</span>{n.started ? ` · ${took(n, now)}` : ""}</span>
       </div>
       {n.square ? <SquareRow n={n} /> : clock.tool ? (
-        <div className="mono rlm-line rlm-tool" data-testid="roles-live-tool" data-tool={clock.tool} data-secs={clock.secs ?? undefined} title={row?.current || clock.tool}>
+        <div className="mono rlm-line rlm-tool" data-testid="roles-live-tool" data-tool={clock.tool} data-secs={clock.secs ?? undefined} title={t ? row?.current || clock.tool : undefined}>
           <Icon name={toolIcon(clock.tool)} size={11} /><span className="rlm-tool-text">{short(clock.text + rest, 90)}</span>
         </div>
       ) : n.pick ? (
-        <div className="mono rlm-pick" title={n.pick} data-testid="roles-live-pick">{n.pick}</div>
+        <div className="mono rlm-pick" title={t ? n.pick : undefined} data-testid="roles-live-pick">{n.pick}</div>
       ) : (
-        <div className="muted rlm-now" title={nowLine(n)} data-testid="roles-live-now">{short(nowLine(n), 140)}</div>
+        <div className="muted rlm-now" title={t ? nowLine(n) : undefined} data-testid="roles-live-now">{short(nowLine(n), 140)}</div>
       )}
       <button className="rlm-steer mono" onClick={(e) => (e.stopPropagation(), steerAgent(n.key))} onDoubleClick={(e) => e.stopPropagation()}
               title={`Steer ${n.name}: the Steer box, addressed to it`} data-testid="roles-live-steer">steer ▸</button>
@@ -98,7 +103,8 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick }: Props) {
 export function LiveGroupBox({ g }: { g: LiveGroup }) {
   return (
     <div className="rlm-group" style={{ left: g.x, top: g.y, width: g.w, height: g.h }} data-testid="roles-live-group" data-card={g.card}
-         title={`lineup card ${g.label}: ${g.count} agent${g.count === 1 ? "" : "s"} here run under it`}>
+         data-tier={g.card.startsWith("tier:") || undefined} // 3.3.16.3: an explicit tier's group, titled by its purpose
+         title={`${g.card.startsWith("tier:") ? "lineup tier" : "lineup card"} ${g.label}: ${g.count} agent${g.count === 1 ? "" : "s"} here run under it`}>
       <span className="rlm-group-label mono">{g.label}</span>
     </div>
   );

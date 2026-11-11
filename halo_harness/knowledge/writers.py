@@ -15,7 +15,9 @@ Each writer is one call from the place that already knows the thing:
     answered(state_dir, row)                       supervise/decisions.py: the owner's answer to a goal_plan,
         goal_gate, goal_budget or goal_replan row -> a decision with the answer and its why (by supervisor)
 
-`knowledge.write: false` turns every writer off. A writer never raises and
+`knowledge.write: false` turns every writer off. 3.3.16.2: a run in the guided
+first run's sample repo tags what it writes `sample`, and a gate's passed record
+caps the project's at `knowledge.gate_keep` (knowledge/curate.py). A writer never raises and
 never changes what its caller wrote; each returns the entries it wrote.
 The person who answered is never named: `by` is the role that knew.
 """
@@ -62,6 +64,23 @@ def _repo(run_dir) -> str:
         return ""
 
 
+def _sample(run_dir) -> dict:
+    """3.3.16.2: a run in the guided first run's sample repo (`<state>/start/<day>/basket`) writes its records
+    tagged `sample` (meta `sample: true`), so a search from another project never returns them."""
+    try:
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.orchestra.goal import repo_root_of
+        from halo_harness.start.sample_repo import start_root
+        Path(repo_root_of(run_dir)).resolve().relative_to(start_root(bridge_home()).resolve())
+    except Exception:
+        return {}
+    return {"tags": ["sample"], "meta": {"sample": True}}
+
+
+def _tags(base: list, sample: dict) -> list:
+    return base + sample.get("tags", [])
+
+
 def tests_line(tests) -> str:
     """`tests: `<command>` exit <n>, <k> passed` for a gate's TestResult."""
     if tests is None or not getattr(tests, "command", ""):
@@ -79,7 +98,7 @@ def _lane_lines(run_dir, n) -> list:
 def judge_resolved(run_dir, lane_n: int, rows: list, tests) -> list:
     from halo_harness.orchestra import gitops
     from halo_harness.outcomes.lane import judge_evidence
-    run_dir, out = Path(run_dir), []
+    run_dir, out, sample = Path(run_dir), [], _sample(run_dir)
     for row in rows:
         if not (row.get("applied") and row.get("tests_ok")):
             continue
@@ -97,7 +116,7 @@ def judge_resolved(run_dir, lane_n: int, rows: list, tests) -> list:
                 f"lanes ran and read, never their summaries: {'; '.join(lines[:4])}.")
         out.append(write("finding", f"{row['file']}: {which} resolved for lane {lane_n} because {because}", body=body,
                          evidence=lines + [tests_line(tests)], by="judge", run=run_dir.name, repo=_repo(run_dir),
-                         tags=["orchestra", "merge", "judge"]))
+                         tags=_tags(["orchestra", "merge", "judge"], sample), meta=sample.get("meta")))
     return out
 
 
@@ -105,7 +124,7 @@ def judge_resolved(run_dir, lane_n: int, rows: list, tests) -> list:
 def gate_verdict(run_dir, lanes: list, gate, report: dict) -> list:
     if report.get("status") != "finished" or gate is None or not gate.tests.ok or not gate.tests.command:
         return []
-    run_dir, out = Path(run_dir), []
+    run_dir, out, sample = Path(run_dir), [], _sample(run_dir)
     sha = str(report.get("finished") or "")[:12] or "the finished branch"
     for lane in lanes:
         units = [] if lane.data().get("assist") else list(lane.job.claims)
@@ -119,7 +138,10 @@ def gate_verdict(run_dir, lanes: list, gate, report: dict) -> list:
                 f"{gate.tests.returncode}" + (f", {gate.tests.passed} passed." if gate.tests.passed else "."))
         out.append(write("finding", f"{shown} passes `{one_line(gate.tests.command, 120)}` at {sha}", body=body,
                          evidence=[tests_line(gate.tests)] + mine, by="gate", run=run_dir.name, repo=_repo(run_dir),
-                         tags=["orchestra", "gate"]))
+                         tags=_tags(["orchestra", "gate"], sample), meta=sample.get("meta")))
+    if out:  # 3.3.16.2: a project keeps its newest `knowledge.gate_keep` passed-gate records
+        from halo_harness.knowledge.curate import cap_passed_gates
+        cap_passed_gates(_repo(run_dir))
     return out
 
 
@@ -132,9 +154,10 @@ def sent_back(run_dir, lane, why: str, gate) -> list:
             f"(returned {lane.pieces_returned} time{'s' if lane.pieces_returned != 1 else ''}).\n\nWhere: run "
             f"{run_dir.name}.\n\nWhy: {why[:WHY_CHARS]}")
     evidence = [tests_line(getattr(gate, "tests", None))] + _lane_lines(run_dir, lane.n)
+    sample = _sample(run_dir)
     return [write("decision", f"lane {lane.n} sent back: {first}", body=body, evidence=evidence, by="gate",
                   run=run_dir.name, repo=_repo(run_dir), alternatives=["merge the piece as it is", "stop the run"],
-                  tags=["orchestra", "gate", "sent-back"])]
+                  tags=_tags(["orchestra", "gate", "sent-back"], sample), meta=sample.get("meta"))]
 
 
 @_quiet

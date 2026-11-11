@@ -66,7 +66,7 @@ CAPTURE_CMDS = ("capture",)  # 3.3.7.0 R4: a capture on the member's display, ke
 FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMDS + RECALL_CMDS + MODEL_CMDS + CAPTURE_CMDS
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
-FULL_KINDS = TEXT_KINDS | {"agent_event"}  # a followed agent's entries carry its text
+FULL_KINDS = TEXT_KINDS | {"agent_event", "agent_talk"}  # a followed agent's entries, one agent's words to another
 STATUS_KINDS = frozenset({"agent_state", "fleet"})
 
 

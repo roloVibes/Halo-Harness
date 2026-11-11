@@ -75,5 +75,5 @@ budget:
   band: mid
 
 tiers:
-  - {name: main, members: [main]}
-  - {name: pool, members: [planner, researcher, coder, reviewer, media, writer, ops]}
+  - {name: main, members: [main], purpose: the one you talk to}
+  - {name: pool, members: [planner, researcher, coder, reviewer, media, writer, ops], purpose: "the workers, picked per task"}

@@ -60,7 +60,279 @@ cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilo
   billing not enabled / no licence), each with its next step (`providers/copilot_doctor.py`).
 - **Docs**: docs/PROVIDERS-copilot.md, docs/COMMANDS-copilot.md, the glossary's "consult role".
 
-## [3.3.16.0] - unreleased
+### On 3.3.16.1-3.3.16.3 (the round, merged onto master)
+
+- **The prompt diet**: `copilot_ask` has its lean description (`tools/lean_descriptions.py`) and goes out right after
+  what the lineup needs (`agent/prompt_diet.py` `AFTER_NEEDS`). Copilot not set up, the tool is not registered and the
+  pinned first turns do not move; set up, a lean first turn grows by at most the tool's lean size
+  (tests/test_prompt_budget_pins.py).
+- **The shared ranking**: a model that states no tool calls is never ranked for code (`model_rank.ranks_for`), and
+  `cp:work`'s missing dollar price never wins "cheapest"; Auto's `work-data` pick goes through `model_rank`'s one
+  comparator (`models_auto_work.py`).
+- **Studio**: a Cast hover on `cp:work` says it takes text, files, web; no tools, and "your tenant's credits or
+  licence" as its price (the model row's `price_note`); a hover leaves out a context window nobody states. A square or
+  a block template may name a bio on `cp:work`; its Costs line and block footer say "tenant credits" in place of the
+  dollar band (all of it on Copilot) or after it (part of it) (`workflows/contract.py`, `SquareBlock.tsx`).
+- **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
+  made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
+
+## [3.3.16.3] - unreleased
+
+The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
+tab ... I wish I could see better groupings of these sub-agents ... here's this one task and here's the sub-agents in there".
+
+### Added
+
+- **Live in groups** (Agents -> Live and Session's Map): the sub-agents one step of a parent started together (one
+  reply's Agent calls) are one box titled by their task -- the description they share, else the parent's own line
+  before the calls, else the words the descriptions start with, never a model call -- and the parent's line goes into
+  the box; a square's agents are one box titled `square <name>` with its DOES line; a tier's agents fall back to the
+  tier's purpose; an agent started alone is not boxed. The bar counts working / waiting / done, the cost and the time,
+  says Auto's pick in plain words ("3 readers on kimi-k3 for a pdf in the task"), folds to itself on the chevron (amber
+  while one inside waits on you), and has a hover card. Ten agents are a grid of four to a row; boxes nest one level.
+  `routes/agents/live/groups.ts`, `groupLayout.ts`, `GroupBox.tsx`; Session's timeline gains **by group**.
+- Agent rows carry `spawn: {step, description, lead}` (`agent/agent_hooks.spawn_of`: the parent's id and reply count,
+  the call's description, the parent's last line in that reply) and a square's row its `does`.
+- **Blocks on Cast**: the lineup's enabled squares are blocks beside its tiers on one canvas, main's line into each;
+  a square block opens to show the bios of its lineup on their models (folded: its TAKES / GIVES / COSTS lines; the
+  chevron kept per lineup), its footer its limits and cost band. A click opens its summary in the inspector, with new
+  **Purpose** and **Agents** pages (`PUT workflows/contract` takes `does`; a shipped square says how to copy it).
+- `tiers[].purpose` in a lineup: the tier block's title line on Cast (its `...` menu edits it), Live's tier group,
+  `halo teams show`'s tier line; the shipped auto lineup names both of its tiers.
+- **The when** (part 2; the owner: "add this workflow in there when this situation happens"): a lineup's `workflows:`
+  item may be `{ref, when: {needs, words, mode}}` beside plain refs (which keep their meaning): `needs` narrow what the
+  square covers, `words` fire on what the task says, `mode` is `auto`, `named` (only by name), `always` (first, before
+  main answers) or `off` (not connected). `workflows/router.py` reads it (always, then words, then the needs pick;
+  `when_route.py`), the receipt's reason names the rule that fired (`handing the PDF to media: when main needs pdf`,
+  its `rule` field), the Workflow tool's description says each rule; the auto lineup keeps its rules in config
+  `workflows.when.<ref>` (a new keyed Settings row). `workflows/when.py`, `when_store.py`, `when_tool.py`.
+- **The line carries it** on Cast: main's line into a square block has a short label (`needs pdf`, `says review,
+  audit`, `always first`) with a hover card; a click on it, or the block's new **When** row in the inspector, opens the
+  When page (four choices in plain words, what it writes, Save, Disconnect). A block with no line is dashed, its footer
+  says "not connected: main never uses it", Problems lists it (NOT CONNECTED). Main's edge handle dragged onto a block,
+  or the block's `⋯` menu (Connect to main, When, Disconnect, Take it off), draws the line.
+- **The library on Cast, three kinds**: Workflows (yours / packs / shipped), Blocks you can start from, Agents (the
+  bios), one search over all three; `+ Library` on Agents' bar on Cast too, beside the canvas, closed on load.
+- **Block templates** under `halo_harness/templates/blocks/`: `thinking` (three reasoning agents), `media` (adds as
+  `media-team`), `review-panel` (three reviewers), `local-workers` (a tier); every agent on `auto`, nothing names a
+  provider. `workflows/blocks.py`, `blocks_tier.py`; `GET workflows/templates`, `POST workflows/templates/add | merge |
+  remove`.
+- **The four drags** with the real pointer, each asking first (WHAT / COSTS / WRITES) and saying what changed in one
+  line: a workflow or a template from the library onto the canvas (wired to main by its covers); an agent (a bio, a
+  tier card, another square's agent) into a block (a shipped square is copied to yours as `my-<name>` first and the
+  board swaps to it, its rule kept: `workflows/members.py`, `PUT workflows/members`, `POST workflows/swap`); a square's
+  agent out onto the canvas (the last cannot leave); a block by its title bar (its spot in the lineup's layout,
+  `block:<ref>`). Undo / Redo walk each back in order with the lineup's own edits (`blocks/history.ts`). Keys: Tab
+  reaches blocks and their agents, `M` then the arrows and Enter moves one, Delete asks in the inspector.
+- CLI and TUI: `halo workflows enable <ref> --when needs=pdf,audio | words=review,audit | named | always | off | auto`,
+  `halo workflows when <ref>`, a `when:` column in `halo workflows list` and `/workflows`; `halo blocks list | add
+  <template> [--as <name>] | show <name>` (`blocks_cli.py`); `halo teams show` prints `block <ref> (square): when ...`.
+
+### Changed
+
+- Live's layout draws a group as one child of its parent (`liveLayout.ts` hands a tree with groups to
+  `groupLayout.ts`; a tree without them is laid out as before). The glossary's **block** says the canvas meaning too;
+  **group** is new.
+- A lineup's `workflows:` list keeps its `{ref, when}` items through `halo workflows enable / disable` (edited in place,
+  not rewritten as refs); `halo teams validate` checks each rule. The square inspector's summary has a **When** row; a
+  square's hover card says its when in place of its covers on the board. W keeps its own board with the same library.
+- **One order with 3.3.16.2's lineup roles**, explicit before implicit (`workflows/router.py` `route`, docs/WORKFLOWS-squares.md
+  "The order"): a square named; then a square whose when fires (`always`, then `words`, then `needs`), ahead of a role;
+  then a role of the lineup that covers the need ("to your media role"); then a plain ref's covers; then the line
+  saying what would. An inherited `workflows.enabled` square is a plain ref, so on the auto lineup a PDF still goes to
+  its media member unless the media square has a when. The Workflow tool is not offered when every square on is `off`;
+  `halo doctor`'s squares line names a square's when; `halo workflows list` shows "on for <lineup>" / "off" and the when
+  column. An edit to a lineup with no `workflows:` key (enable, disable, a when) starts from the set it inherits.
+
+### Docs
+
+- docs/STUDIO-blocks.md (a new part of STUDIO.md: "Blocks" and "Live in groups"; STUDIO-agents.md points to it), docs/ROLES.md and docs/AGENTS.md (`tiers[].purpose`),
+  docs/WORKFLOWS-squares.md "A square as a block", the glossary, README's Agents part.
+- Part 2: docs/STUDIO-blocks.md "Composing: the line, the library, the drags"; docs/WORKFLOWS-squares.md "When",
+  "Block templates", "Who is inside a square"; docs/COMMANDS-workflows.md (`--when`, `when`, `halo blocks`); docs/AGENTS.md
+  (`workflows[].when`); docs/CONFIG.md (`workflows.when.<square>`); the glossary's **when**; README's Workflows part;
+  docs/media/studio-workflows.png re-rendered as the composed board.
+
+## [3.3.16.2] - 2026-11-10
+
+**Live: thinking you can see, agents talking.** The owner: "make watching a model think much better. In sessions
+live tab, it's really amazing to get more visualization on what the models are really thinking. There should also be
+a section that does this for model to model or agent to agent conversations. Maybe we can give that a label in the
+live feed so we see models conversing with each other and that's its own label."
+
+### Added
+
+- **THINK rows** (`fleet/think.py`, `routes/shared/liveThink.ts`, `routes/session/LiveThink.tsx`): every agent's
+  reasoning now reaches Studio as `thinking_chunk` frames from the session's agent tree (followed or not; before, the
+  control socket dropped `thinking_delta` and only a followed agent's thinking showed, folded per chunk). One row per
+  thought however many pieces it streams in: muted italic on a hairline `--think` rule, a caret while it grows, four
+  lines with show all / show less, then `thought 4.2 s · 812 tokens` (the length when it streamed, the tokens when the
+  provider reported `reasoning_tokens`). Native Anthropic thinking streams as it comes; the OpenAI-dialect reasoning
+  (DeepSeek, Kimi, GLM, OpenRouter, Ollama's thinking models) lands in one piece at the end of the call. A model with
+  no thinking shows no THINK row.
+- **Thought, then act**: a THINK row's chip says what it led to (`then ran Edit basket.py`, `then answered`) and
+  jumps there; the action row's `why?` opens that thought under the row.
+- **The Thinking view**: a toggle beside Follow (off by default) narrows Live to the thoughts and what each led to,
+  for everyone or the pinned agent. The kind pick gains think and talk.
+- **TALK rows** (`fleet/talk.py`, `routes/shared/liveTalk.ts`, `routes/session/LiveTalk.tsx`): one agent's words to
+  another as `agent_talk` frames, one shape `{id, from, to, text, why, re?, cut?}`: a parent's task to a child
+  (`task`), the child's hand-back (`hand-back`, `re` the task), another agent's steer (`agent_steer` with
+  `from_agent`), a Workflow square's hand-off and answer (`square`) and Studio's Hand to... another machine
+  (`hand-over`). The row: the speaker's tag, an arrow, the listener's tag, the reason. A hand-back is one row: the
+  agent's OUT block becomes the TALK row (an OUT after a TALK hand-back is not added). The map's edge between the
+  two lights once from the speaker to the listener, with an arrow.
+- **Conversations** (`session-conversations`, optional, the header's "+"): the pairs that have talked, newest first,
+  and the chosen pair's thread, each message on its speaker's side with its reason and time, a reply under what it
+  answers; a message's click scrolls Live to its row, "show in Live" narrows Live to the pair.
+- The trace export (`halo session export`, Live's Export) writes a `thinking` row per thought and `talk:` rows for a
+  sub-agent's task and hand-back (the hand-back in place of its last text, never both) and a square's receipt.
+
+### Changed
+
+- **The timeline shows the mix**: Live's timeline draws each lane by phase -- thinking, running a tool, writing,
+  waiting on you, idle -- in the state tokens (the legend is in Live's `?` help); hovering a segment says the phase
+  and its length, a click on a thinking segment scrolls the column to that thought.
+- **`why?`**: on a row a thought led to, its first answer is that thought, inline under the row; "what the model saw"
+  there is the turn's postmortem as before. The agent inspector's Thinking tab draws thoughts the way Live does,
+  with what each led to.
+- The kind pick's text no longer includes thinking (it has its own, think).
+
+### Docs
+
+- docs/STUDIO-sections.md (Session: THINK, TALK, the Thinking view, thought then act, the timeline's phases,
+  Conversations), docs/FLEET.md (the two frames and their shapes, the KIND column), docs/STUDIO-session.md (the
+  trace's new rows), the glossary (thought, agent talk), Live's and Conversations' `?` help, README "Watching a model
+  think" and "Agents talking" with docs/media/studio-thinking.png re-rendered and docs/media/studio-talk.png new.
+
+### From a session's own review (Kali, 2026-11-10)
+
+The owner asked his session's own model (GLM 5.3 on Databricks, a custom lineup) what it thought of 3.3.16.0. It
+named four things; each was checked against the code, all four were real.
+
+- **A tie in the model pick went to the name.** `models_best_at.best_per_kind` ranked an equal score by the
+  model's ref, so `...-opus-4-1` led over `...-opus-4-6`, an older model over its successor, and price and what
+  was measured played no part (the roster, `halo models analyze`, `--best-for` and every pick behind them). Every
+  pick now breaks a tie by one order (`halo_harness/model_rank.py`): the kind's score, the measured first-time
+  success for the kind here (from 3 checked tasks), the newer version within a model family (`4.6` > `4.1`,
+  `v4.1` > `v4`, `5.3` > `5`, a newer date suffix; read across `-`, `.` and `v`), the larger context, the lower
+  price, the provider you have a key for, then the name; the cheapest per kind goes price first. The leader's
+  line names the deciding term ("same score as X: newer", "...: measured 4/5 here", "...: cheaper") in the
+  roster, `halo models analyze`, `halo models --best-for` and the Roles picker. The `auto` pick, `measured`, a
+  pack bio's capability pick, the role presets' cheapest model, `halo gym propose` and the media ranking use the
+  same order past their own rules. **The best-at index's schema is 2: every box rebuilds it once** on its first
+  read after the update. Two test pins held the alphabetical accident (`tests/test_roster_dropped.py`:
+  `ant:fable` led code over the same-scored, cheaper `ant:opus` by name alone) and were fixed.
+- **Knowledge search answered with the sample's gate records.** A search for "halo harness update new features
+  version" came back with 4 of 5 hits from the guided first run's sample repo: the gate's records carry its test
+  command, whose python sits in the tool venv (`.../uv/tools/halo-harness/bin/python`), so "halo" and "harness"
+  matched a path, there was no project scope, and equal scores went to the newest. Search now ranks by relevance
+  first (paths, commands and shas are not words a record says; no shared content word, no hit), this project's
+  records first at equal relevance and another project's marked, a routine passed gate under findings unless the
+  query names its unit, re-runs collapsed to the newest with "x N", and each hit says why it is there.
+  `halo start`'s sample records are tagged `sample` and never answer another project's search (an older one is
+  recognized by its project being a sample folder); its card says so. New: `halo knowledge list --kind
+  gate|finding|decision --project .|all|NAME`, `halo knowledge prune --kind ... --older-than 7d [--dry-run]
+  [--yes]` (prints what it would remove and the count; only `--yes` removes), and a cap of
+  `knowledge.gate_keep` (50, a Settings row) passed-gate records per project, applied when the gate writes one.
+- **The Workflow tool sat on lineups that had no square.** A custom lineup with no `workflows:` key enabled no
+  square, yet the tool was offered every turn and answered "no square is enabled for this lineup". A lineup
+  with no `workflows:` key now inherits config `workflows.enabled` (default `media`) like the auto lineup
+  (`workflows: []` is none, on purpose); the tool is offered only when a square is on for the lineup; a role of
+  the lineup that covers the read (a `media` role, or a card whose bio's `models.needs` / kind covers pdf,
+  vision, audio, video) takes the task the Agent tool's way, with the receipt "handing the PDF to your media
+  role: the lineup covers it"; when nothing covers it the line says what would ("no role or square reads PDFs
+  here: `halo workflows enable media`, or give a role a model that takes PDFs"). `halo doctor` says under the
+  lineup which squares are on and from where; `halo workflows list` marks each "on for <lineup>" or "off".
+- **No changelog on the box.** A `uv tool install` carries no CHANGELOG.md, so nobody there could see what a
+  version changed. The package now ships the newest twelve dated entries (`halo_harness/data/changelog.md`,
+  written by `scripts/release.py` when it dates a release); `halo whatsnew [<version>] [--since V] [--full]
+  [--summary]` and the TUI's `/whatsnew` show the installed version's summary and each heading with its first
+  line, and after `halo update` installs a newer version its last lines are that version's summary and "halo
+  whatsnew for the rest".
+
+## [3.3.16.1] - 2026-11-10
+
+**The local prompt diet.** A first turn to an unknown remote Ollama model was 16,970 tokens of Halo's own prompt
+plus a 16,384 reply's room, past its 32,768 window, so the window doubled to 65,536 and the model reloaded; it is
+now 7,778 + 8,192 = 15,970 and goes out at 32,768 (16,384: 6,232 + 4,096 at 16,384; 49,152: 7,776 + 12,288; a 200k
+cloud model unchanged, byte for byte). Measured with `halo local prompt`, pinned by `tests/test_prompt_budget_pins.py`
+on Windows and Linux ([MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md)).
+
+### Changed
+
+- **The reply's room follows the window** (`agent/reply_room.py`): a call to the session's own Ollama model asks for
+  at most a quarter of the window it gets, never under the window class's floor and never more than it asked; a
+  steward profile's `num_predict` and your own `max_tokens` keep their rule. A session's first call starts where
+  Halo's own prompt is half the window at most, and no later call drops under the window last asked of the model (no
+  reload). The turn says it once per session. `agent/loop.py`'s `_build_ollama_body_for_ref` calls it (no lines added).
+- **Tools, lean** (`agent/prompt_diet.py`, `tools/lean_descriptions.py`): on the lean profile an alias goes on the
+  wire once (`Task` as `Agent`; a call named `Task` still runs), a Windows session offers one shell (`prompt.shell`),
+  every built-in tool goes out with a short description, and the block is held to 2,200 tokens up to a 16,384 window
+  and 4,500 under 65,536, filled core first, then the lineup's needs (`Workflow` only when a square covers what the
+  model lacks), the built-ins, the rest. What is left out stays callable by name and through ToolSearch; the system
+  line naming it says so. The unknown-remote case: 29 tools, ~9,300 tokens -> 25 tools, 3,747.
+- **The system text, lean** (`agent/prompt_lean_system.py`): the wire copy keeps the instructions (native tool
+  calls, CLAUDE.md, read before edit, verify, plan mode, memory, hooks, delegation) and drops the per-tool list and
+  the reference prose: ~4,150 tokens of Halo's own text -> ~580; the lean system message, memory included, 3,792.
+- **The estimate is the wire's** (`providers/ollama_wire_estimate.py`): the window is picked from the estimate of
+  the Ollama-shaped body that is sent, not the Anthropic-shaped request (0.5 % apart); the strict `num_ctx >= floor`
+  check in `tests/test_ollama_trim_recovery.py` is back.
+- The steward's fit plan never shrinks a window under Halo's own measured first turn plus a reply (`fit.floor_window`,
+  8,192 when unmeasured); the steward's guide budget is 2,200 tokens (the new row).
+
+### Added
+
+- `halo local prompt [<ref>] [--window N] [--platform P] [--json]` (`agent/prompt_measure.py`): what a model's first
+  turn costs before you use it -- the composition, the reply's room, the window, a row per tool (offered or left out
+  and why). `/status` and `halo doctor`'s default-model row say "Halo's own first turn: N tokens of W (P %)" on a
+  local model; Studio's model card has the row "Halo's first turn: N tokens (P % of the window)".
+- The steward rule `prompt-heavy`: Halo's own part of the newest call over half its window, with one next step (the
+  lean profile on, a bigger window, or the core tools).
+- Config `prompt.shell` (`auto` | `bash` | `powershell`, Settings -> Models).
+- Tests: `test_prompt_diet`, `test_prompt_budget_pins`, `test_prompt_measure`.
+
+### Docs
+
+- New [MODELS-prompt-diet.md](docs/MODELS-prompt-diet.md) (the before and after, the reply's room, aliases once, one
+  shell, lean descriptions and system text, the budget test, `halo local prompt`); MODELS-prompt-budget.md gains "The
+  diet"; COMMANDS-local.md `halo local prompt`; CONFIG.md `prompt.shell`; the steward's symptoms table `prompt-heavy`.
+
+### Docs: the README and the pictures
+
+- **Update, and the certificate line.** README gets a `## Update` section (`halo update`, `/update`, and the one-line
+  repair for an install older than 3.3.16.0 that stops at `invalid peer certificate: UnknownIssuer`); docs/INSTALL.md's
+  Update section and a docs/TROUBLESHOOTING.md entry titled by the error say the same.
+- **The README as 3.3.16.0 is.** Agents' four views, `### Live on the fleet`, a `### Workflows: saved orchestrations as
+  squares` part (the square, the router, the five shipped, `halo workflows`, the board), the Features and Documentation
+  rows; its pins in tests/test_quickstart_docs.py follow.
+- **Every Studio picture re-rendered** from the 3.3.16.0 build (the stills, both GIFs, the modes banner, `hero.png`,
+  `social-preview.png`), and a new one: `docs/media/studio-workflows.png` from `tools/capture_workflows.py`
+  (`tools/capture_studio.py --mode workflows`).
+- **What it feels like, in the current look.** The README's terminal pictures were rendered in `claude-dark`; they are
+  `instrument` now (the default since 3.3.15.0: `tools/captures.json`, `scripts/capture_scenes.py`). "Steering a running
+  turn" and "Watching a model think" lead with Studio stills, `studio-steer.png` and `studio-thinking.png`
+  (`tools/capture_steer.py`), then the terminal picture.
+
+### Added: hover says what a box is
+
+The owner, 2026-11-10: "hovering over gives a solid summary, if we click one we get that other panel with all the
+detail about the selected box."
+
+- Every box in Agents has a hover card: a Cast card, a Live agent, a session, a machine, a run's lead and lanes, a
+  mission part, a workflow square on the board and in the library. Rest the pointer on it about 350 ms, or Tab to it
+  (the arrows on the board), and one card shows beside it, inside the window, never over the box.
+- A card is a title, one sentence of what the box is, at most eight rows of facts the page already has (a fact not
+  known is left out), a NOW block while the box works, and a line saying what a click does
+  ([STUDIO-agents.md](docs/STUDIO-agents.md#hover-and-click-33161) has each kind's rows).
+- A click still opens the inspector and hides the card; so do Esc, a scroll, a press and the box's "..." menu. One card
+  at a time, no buttons on it, no request on hover.
+- A box with a card drops its plain tooltip; a button or chip inside it keeps its own. A workflow square's contract
+  opens in the inspector on a click now, not on hover. Cast cards take the keyboard (Tab, then Enter selects).
+- `studio.hover_cards` (Settings -> Studio, a new page; on by default) turns the cards off and the tooltips back on.
+- Fixed on the way: the Workflows board drew 0 px wide while the library was closed (it fell into the library's
+  column), so its squares could not be hovered or clicked until the library opened.
+
+## [3.3.16.0] - 2026-11-10
 
 **Agents: one section for your agents.** The owner, 2026-11-09: "what does teams even give us? ... roles and
 orchestration are almost the same ... all rolled into the new agents". Team, Roles and Orchestra are one Studio

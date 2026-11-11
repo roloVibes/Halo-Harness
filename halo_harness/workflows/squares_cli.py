@@ -36,10 +36,14 @@ def _parser() -> argparse.ArgumentParser:
     sh = sub.add_parser("show", help="a square's contract and file")
     sh.add_argument("ref")
     sh.add_argument("--json", action="store_true")
-    for verb in ("enable", "disable"):
-        s = sub.add_parser(verb, help=f"{verb} a square for a lineup (default: the active one)")
+    for verb in ("enable", "disable", "when"):
+        s = sub.add_parser(verb, help=f"{verb} a square for a lineup (default: the active one)" if verb != "when"
+                           else "print a square's when rule on a lineup (3.3.16.3)")
         s.add_argument("ref")
         s.add_argument("--lineup", default=None)
+        if verb == "enable":  # 3.3.16.3: the connection's rule (workflows/when.py)
+            s.add_argument("--when", dest="rule", default=None,
+                           help="needs=pdf,audio | words=review,audit | named | always | off | auto")
     t = sub.add_parser("test", help="the check pass and a dry run of the router")
     t.add_argument("ref")
     t.add_argument("--task", default="")
@@ -78,18 +82,24 @@ def cmd_workflows(argv) -> int:
         return _show(wf, repo, args.json)
     if args.cmd == "test":
         return _test(wf, repo, args.task)
+    if args.cmd == "when" or getattr(args, "rule", None) is not None:
+        from halo_harness.workflows.squares_when_cli import enable_when, print_when
+        return print_when(wf, args.lineup, repo) if args.cmd == "when" else enable_when(wf, args.rule, args.lineup, repo)
     ok, line = (registry.enable if args.cmd == "enable" else registry.disable)(wf.ref, args.lineup, cwd=repo)
     print(line if ok else f"halo workflows {args.cmd}: {line}", file=sys.stdout if ok else sys.stderr)
     return 0 if ok else 1
 
 
-def rows(repo: Path) -> "list[dict]":
-    on = set(registry.enabled_refs(cwd=repo))
+def rows(repo: Path, lineup=None) -> "list[dict]":
+    from halo_harness.workflows.squares_when_cli import when_fields
+    on = set(registry.enabled_refs(lineup, cwd=repo))
+    rules = when_fields(lineup, repo)
     out = []
     for wf in registry.squares(cwd=repo):
         c = wf.contract
         out.append({"ref": wf.ref, "group": registry.group_of(wf), "origin": wf.origin, "square": c.square,
-                    "enabled": wf.ref in on, "line": c.line(wf.ref), "path": str(wf.path), **c.to_json()})
+                    "enabled": wf.ref in on, "line": c.line(wf.ref), "path": str(wf.path), **c.to_json(),
+                    **(rules(wf.ref, c.covers) if wf.ref in on else {})})
     return out
 
 
@@ -100,10 +110,14 @@ def _list(repo: Path, as_json: bool) -> int:
         return 0
     lineup = registry.active_lineup() or "none"
     print(f"squares (lineup {lineup}; * = enabled):")
+    from halo_harness.workflows.doctor_rows import squares_line  # 3.3.16.2: which are on, and from where
+    print(f"  {squares_line(cwd=repo)}")
     for r in got:
         mark = "*" if r["enabled"] else " "
-        tail = "" if r["square"] else "  (not a square: its file says no gives)"
-        print(f" {mark} [{r['group']:<7}] {r['line']}{tail}")
+        tail = (f"  -- on for {lineup}" if r["enabled"] else "  -- off") if r["square"] else \
+            "  (not a square: its file says no gives)"
+        when = f"  when: {r['when_label']}" if r.get("when_label") else ""  # 3.3.16.3: the when column
+        print(f" {mark} [{r['group']:<7}] {r['line']}{tail}{when}")
     return 0
 
 
@@ -134,7 +148,7 @@ def slash_text(args: str, cwd) -> str:
     import contextlib
     import io
     argv = str(args or "").split() or ["list"]
-    if argv[0] not in ("list", "show", "test"):
+    if argv[0] not in ("list", "show", "test", "when"):
         argv = ["list"]
     out = io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):

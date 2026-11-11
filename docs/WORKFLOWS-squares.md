@@ -75,10 +75,17 @@ copies a square into yours, where you can change it.
 | `research` | research | session | text |
 
 **Enabled per lineup.** A square works only when the session's lineup has it
-enabled. A lineup's `workflows:` list names the squares it may use (any ref).
-The auto lineup (and a session with no lineup) reads `workflows.enabled` in
-config ([CONFIG.md](CONFIG.md)); the default is the shipped `media` square on
-and the rest off. `halo workflows enable <ref>` writes the active lineup's
+enabled. A lineup's `workflows:` list names the squares it may use (any ref);
+`workflows: []` is none, on purpose. The auto lineup, a session with no
+lineup and (3.3.16.2) a lineup with no `workflows:` key read
+`workflows.enabled` in config ([CONFIG.md](CONFIG.md)); the default is the
+shipped `media` square on and the rest off. With no square on for the
+lineup, the `Workflow` tool is not offered at all (3.3.16.2: before, it was,
+and answered "no square is enabled for this lineup" -- a tool that could do
+nothing, in the prompt every turn). `halo doctor` says under the lineup which
+squares are on and from where (`Squares for lineup mine: media (config
+workflows.enabled: the lineup sets no `workflows:`)`), and `halo workflows
+list` ends each square's line with `-- on for <lineup>` or `-- off`. `halo workflows enable <ref>` writes the active lineup's
 list (the config key on auto); a shipped or a pack's lineup is read-only and
 the line says to copy it first.
 
@@ -95,9 +102,46 @@ bio its lineup lets delegate (a bio allowed `Agent` is allowed `Workflow`).
   known counts as text only). The enabled squares whose `covers` meet the gaps
   are the candidates; the one covering the most wins, then the one whose band
   is nearest the session's, then the first enabled.
+- **The lineup's own roles before a plain square** (3.3.16.2,
+  `workflows/lineup_roles.py`). When a role of the session's lineup covers
+  every read the task carries (a PDF, an image, audio, video) and the task
+  names no plan, review or research, the task goes to that role, the Agent
+  tool's way (`role: <alias>`, its model, rules and budget), and the receipt
+  says `role media · in pdf (report.pdf) · ... -- handing the PDF to your
+  media role: the lineup covers it`. A role covers a read when it is media
+  work (the alias or role `media`, or its bio's `kind: media`: every read) or
+  its bio's or card's `models.needs` / `models.capabilities` name it (`files`
+  reads as pdf). A square named with `name`, or one whose `when` you set
+  ([When](#when)), still goes to the square.
 - One line says why: `handing the PDF to media: your model takes text only`.
-- No square: one line says what could not be read, and the main model goes on
-  with what it can do. The router never opens a dialog.
+- Nothing covers it: one line says what would -- `no role or square reads PDFs
+  here (could not read report.pdf): `halo workflows enable media`, or give a
+  role a model that takes PDFs` -- and the main model goes on with what it can
+  do. The router never opens a dialog.
+
+### The order
+
+Explicit beats implicit (`workflows/router.py` `route`, 3.3.16.2 + 3.3.16.3):
+
+1. A square asked for by **name** runs. One whose when is `off` does not: the
+   line says it is not connected and how to connect it.
+2. A square whose **explicit when** fires takes the task: `always` first, then
+   `words` the task says, then `needs` that meet the gaps. You drew that
+   connection on purpose, so it wins over a role; the receipt carries the rule
+   as `rule` (`when main needs pdf`).
+3. Otherwise a **role of the lineup** that covers the need takes it: `handing
+   the PDF to your media role: the lineup covers it`.
+4. Otherwise a square with a **plain ref** (no when, or `auto` with no `needs`
+   and no `words`) whose `covers` meet the gaps takes it: today's pick and
+   today's reason.
+5. Otherwise the one line that says what would cover it.
+
+A square in mode `named` is used only by 1; one in mode `off` never. The squares
+a lineup inherits from `workflows.enabled` (a lineup with no `workflows:` key,
+or the auto lineup) are plain refs, so on the auto lineup a PDF still goes to
+its own media member (3) unless you give the media square an explicit when. The
+`Workflow` tool is offered when at least one square is on and not every one of
+them is `off`.
 
 The run follows the engine. `session` spawns one agent the way the Agent tool
 does, with the lead bio's prompt, the task and the files' names, on the lead's
@@ -142,8 +186,78 @@ Studio's Agents section has a fourth view, Workflows (`W`,
 every square beside it, the inspector on hover or select. The rules it is built
 by are in [STUDIO-agents.md](STUDIO-agents.md#workflows-the-board-of-squares-33160-r3).
 
+## A square as a block (3.3.16.3)
+
+On Studio's Cast a lineup's enabled squares are **blocks** beside its tiers ([STUDIO-blocks.md](STUDIO-blocks.md)): the title bar says the square's name and its DOES line, the block opens to show the bios of its lineup (the
+lead, then `lineup.members`) on their models, and its footer says its limits and cost band. The block's **Purpose** page
+writes `does` into a square of yours (`PUT workflows/contract {ref, does}`; a shipped or a pack's square answers how to
+copy it: `halo workflows new <name> --from <square>`). On Agents -> Live a square's agent and the agents under it are
+one group titled `square <name>` with the DOES line under it; the agent row's `square` carries `does` for that.
+
+## When
+
+Halo 3.3.16.3. A square on a lineup's board has a **when**: the rule for when main hands it work, carried by the line
+from main to its block in Studio. A lineup's `workflows:` item is a plain ref (today's meaning: the square's `covers`
+against the gaps) or a mapping with its rule:
+
+```yaml
+workflows:
+  - media                                         # plain: its covers (pdf, vision, audio, video)
+  - {ref: review, when: {words: [review, audit]}} # when the task says review or audit
+  - {ref: thinking, when: {mode: always}}         # always first, before main answers
+  - {ref: my-media, when: {needs: [pdf]}}         # when main needs a PDF read (its covers narrowed)
+```
+
+| `mode` | When the router hands it work |
+| --- | --- |
+| `auto` (the default) | a hand-off whose gaps meet `needs` (the square's covers narrowed; none given = its covers), or whose task says one of `words` (a whole word, any case) |
+| `named` | only when main asks for it by name (`Workflow(name: ...)`) |
+| `always` | first: a hand-off that names no need goes to it before any other square, and the Workflow tool's description tells main to hand it the task before it answers |
+| `off` | not connected: it stays on the board (dashed in Studio, listed in Problems) and main never uses it, not even by name |
+
+The order for a hand-off that names no need: an `always` square, then a square whose words the task says, then a
+square whose `needs` meet the gaps, then a role of the lineup that covers it, then a plain ref's covers
+([The order](#the-order)). A hand-off with `need` goes by the need. The receipt's reason names the rule that fired
+(`handing the PDF to media: when main needs pdf`) and the receipt carries it as `rule`; a plain ref keeps today's
+reason. On the auto lineup (no lineup file) the rules live in config, `workflows.when.<ref>` beside
+`workflows.enabled`. `halo workflows enable <ref> --when needs=pdf,audio | words=review,audit | named | always | off |
+auto` writes it, `halo workflows when <ref>` prints it, `halo workflows list` and `/workflows` show a `when:` column, and
+`halo teams show` prints a `block <ref> (square): when ...` line per square. A tier's reach stays its `routing` words and
+its cards' `use_for`.
+
+## Block templates
+
+Halo 3.3.16.3. Blocks you can start from, shipped as small YAML under `halo_harness/templates/blocks/`; each is a square
+or a tier, and every agent in it sits on an `auto` model (a square member's `model: auto`, a bio whose
+`models.preference` is `auto` with the `models.needs` that fit the purpose), so no template names a provider you did not
+set up -- pin the models afterwards (the block's Agents page, or the file). A bio on `cp:work` (your work's Copilot,
+3.3.17.0, [PROVIDERS-copilot.md](PROVIDERS-copilot.md)) is allowed too: it is billed by your tenant, so the square's
+Costs line and its block's footer say "tenant credits" in place of the dollar band when every agent runs on it, and
+"+ tenant credits" after the band when some do.
+
+| Template | Kind | Inside |
+| --- | --- | --- |
+| `thinking` ("thinking: three reasoning models") | square | auto-planner leads, auto-reviewer and a second auto-planner weigh the call (needs: reasoning) |
+| `media` ("media: read PDFs, images, audio and video") | square, adds as `media-team` | auto-media leads, auto-researcher for the long ones, auto-writer for the answer |
+| `review-panel` ("review panel of three") | square | auto-reviewer leads, auto-planner on the approach, auto-coder on the code |
+| `local-workers` ("local workers") | tier | local-coder, local-writer, local-ops on bios that ask for nothing, so Auto picks the cheapest model that fits (a free or local one first) |
+
+A square template writes a square of YOURS (`~/.halo/workflows/<name>.yaml`; the template file stays as shipped) and
+enables it, wired to main by its covers. A tier template adds its agents (an alias already taken gets a `-2`), a tier
+below the lineup's last one with its purpose, and the routing words the lineup does not have yet; a shipped lineup is
+copied to yours under its name first (as Studio's Save does), a pack's is never written, a lineup with no tiers says to
+add one first. `halo blocks list | add <template> [--as <name>] | show <name>`; in Studio the library's "Blocks you can
+start from" ([STUDIO-blocks.md](STUDIO-blocks.md)).
+
+## Who is inside a square
+
+An agent dragged into a square block in Studio joins its `lineup.members` on `auto` (`PUT workflows/members {ref,
+add}`); one dragged out leaves (`remove`; the last agent cannot -- the block's `x` takes the block off). A square of
+yours or the project's is written in place; a shipped or a pack's square is copied to yours first as `my-<name>`, the
+lineup's board swaps to the copy and keeps its rule, and the confirm card and the result line both say so.
+
 ## Commands
 
-`halo workflows list | show | enable | disable | test | new | check | run`
+`halo workflows list | show | enable [--when] | disable | when | test | new | check | run`, `halo blocks list | add | show`
 ([COMMANDS-workflows.md](COMMANDS-workflows.md)); the TUI's `/workflows`
 prints the same lines ([SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md)).

@@ -144,6 +144,7 @@ LINEUP_FIELDS = {
     "tiers.trigger": "starts this tier's lead (its first card) with the prompt, while a session on this lineup runs; "
                      "the lead may spawn its own tier and the next",
     "tiers.max_parallel": "how many of this tier's members may run at once (blank: no cap)",
+    "tiers.purpose": "what this tier is for, in a few words (\"thinking\", \"the workers\"): its block's title, Live's group title",
     "tiers.delete": "remove the tier; its cards fall to the last tier (tier 0 stays)",
 }
 

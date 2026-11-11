@@ -67,16 +67,17 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     # 2.0.11 round A4: the product-page shape; 3.1.5.0 R4: Studio leads, right
     # after Install and a short What Halo is, its Session and Roles parts first.
-    headings = ("## Install", "## What Halo is", "## Halo Studio", "## What it feels like",
+    headings = ("## Install", "## Update", "## What Halo is", "## Halo Studio", "## What it feels like",
                 "## How Halo compares", "## Features", "## Documentation", "## Tests",
                 "## Contributing and security", "## Licence")
     found = re.findall(r"^## .+$", text, flags=re.M)
     ctx.check(f"the ## sections are the brief's, in its order, got {found}", tuple(found) == headings)
     studio = text.split("\n## Halo Studio\n", 1)[-1].split("\n## ", 1)[0]
     parts = tuple(re.findall(r"^### .+$", studio, flags=re.M))
-    ctx.check(f"Studio's parts: Session and Agents first, the design pack last (3.3.16.0 R1; R2: six sections), got {parts}",
-              parts == ("### Session: the dashboard", "### Agents: your lineup, its runs, what runs now", "### Six sections, one window",
-                        "### Fleet: every harness, one goal", "### Runs: agents writing the same files",
+    ctx.check(f"Studio's parts: Session and Agents first, the design pack last (3.3.16.0 R1; R2: six sections; 3.3.16.1: Workflows, Live on the fleet), got {parts}",
+              parts == ("### Session: the dashboard", "### Agents: your lineup, its runs, what runs now",
+                        "### Workflows: saved orchestrations as squares", "### Six sections, one window",
+                        "### Live on the fleet: every harness, one goal", "### Runs: agents writing the same files",
                         "### Team files, from a terminal", "### Design: a pack Halo ships"))
     feels = text.split("\n## What it feels like\n", 1)[-1].split("\n## ", 1)[0]
     ctx.check("What it feels like keeps its six short parts, in order",
@@ -402,11 +403,14 @@ def test_round6_update_docs_are_in_place(ctx: Ctx):
     PowerShell/Uninstall/Update sections, HANDBOOK/COMMANDS naming `halo
     update`/`/update`, and the CHANGELOG [2.0.2] entry."""
     readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    # 2.0.5 round 2d: the README's update guidance lives INSIDE ## Install
-    # ("Updates: `halo update`, or `/update` inside the TUI") instead of
-    # its own ## Update section.
+    # 2.0.5 round 2d put the update guidance INSIDE ## Install; 3.3.16.1 gave it its own ## Update
+    # section again, with the one-line repair for `invalid peer certificate`.
     ctx.check("README names halo update and /update",
               "halo update" in readme and "/update" in readme)
+    upd = readme.split("## Update", 1)[-1].split("\n## ", 1)[0]
+    ctx.check("README's ## Update names the certificate error and both repair lines",
+              "invalid peer certificate" in upd and "UV_SYSTEM_CERTS=1 UV_NATIVE_TLS=1 uv tool install --reinstall" in upd
+              and "$env:UV_SYSTEM_CERTS='1'" in upd)
     ctx.check("README's Install section names all three one-liners",
               "install-halo.sh" in readme and "uv tool install git+" in readme and "pipx install git+" in readme)
 

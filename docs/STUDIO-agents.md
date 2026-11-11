@@ -109,11 +109,13 @@ here; `M` opens the Mission panel there.
 A square is a workflow with a contract that main may hand a task to ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)). The
 board shows the ones the active lineup has enabled and is built by these rules (the ROADMAP's "Clean and clear"):
 
+![Agents on Cast, composed: the tiers beside three square blocks with their agents inside, main's lines labelled with their when (needs pdf, audio; always first; says review, audit), the library open with its three kinds](media/studio-workflows.png)
+
 - **Nothing opens on load.** The empty board is one sentence, "No workflows enabled: drag one from the library, or
   `halo workflows enable media`", and a **Library** button.
 - **One square per enabled workflow**, one card size (240 x 140 px) on the 12 px grid, never overlapping: the name, then
   four mono lines, DOES / TAKES / GIVES / COSTS, and a limits chip; nothing else. Every card states its band and limits.
-- **Hover or select shows the contract in the inspector**, summary first (a `dl`: does, takes, gives, covers, lead,
+- **Select shows the contract in the inspector** (3.3.16.1: hover shows the square's hover card), summary first (a `dl`: does, takes, gives, covers, lead,
   engine, costs, limits, from), then one Edit row per block: **Enable for this lineup**, **Budget**, **Limits**, each
   its own page with Back, and **YAML** for the file. A shipped or a pack's square is read-only: its Budget and Limits
   pages say how to copy it to yours (`halo workflows new my-media --from media`).
@@ -128,9 +130,44 @@ board shows the ones the active lineup has enabled and is built by these rules (
 - **The router never opens a dialog**: a hand-off is a receipt; a square that cannot start says so in one line.
 
 Keys on the board: the arrows move the selection, **Enter** opens the inspector, **Delete** asks in the inspector (its
-remove page, never a pop-up), `/` focuses the library's search, **Esc** clears. In **Live**, a square's agent is a node
+remove page, never a pop-up), `/` focuses the library's search, **Esc** clears. 3.3.16.1: hovering a square shows its
+hover card (below), and the inspector opens on a click; with `studio.hover_cards` off, hover shows the inspector as before.
+
+### Hover and click (3.3.16.1)
+
+The owner, 2026-11-10: "hovering over gives a solid summary, if we click one we get that other panel with all the
+detail about the selected box". Every box in Agents has a **hover card**: rest the pointer on it for about 350 ms, or
+give it the keyboard (Tab to a Cast card or a Live node; the arrows on the Workflows board), and one card appears beside
+it -- right of it, else left, else below, else above, wholly inside the window, never over the box. It goes when the
+pointer leaves the box and the card, on Esc, a scroll, a press on the box (it never sits over a click or a drag) and when
+the box's "..." menu opens; one card at a time on the page. The pointer may move onto it to select text; it holds no
+buttons. On a small control inside a box (the "..." button, a chip) the control's own tooltip shows instead.
+
+A card is a title, one sentence of what the box is, at most eight rows (a fact that is not known is left out), a NOW
+block while the box is doing something, and one faint line saying what a click does. What each kind says:
+
+| Box | Rows | NOW | A click |
+|---|---|---|---|
+| Cast card | bio, used for, model (where it comes from, what it takes), price and context, tools, limits, instances, tier | its agent's state, what it runs, its cost | the card's summary in the inspector (its Live tab while an agent runs) |
+| Live agent | agent and bio, state and for how long, model and what it takes, cost (tokens, turns), started by, has started, picked because, owns | the running tool and its time, else its last line | the agent in the inspector |
+| Session | where (project, branch, clean / dirty, ahead / behind, worktree), kind (when not the terminal's), model, cost, agents live of all, waits on you, started | | its main agent in the inspector |
+| Machine | host, this halo or its presence, Halo version (a mismatch in words), sessions and live agents, spent today and its cap, every capability, GPU and memory (once its spec card is loaded) | | its summary in the inspector |
+| Run lead / lane | the lead: run, state, lanes, lead and worker models, cost, done when; a lane: owns, state, machine, worker, worktree, waits for, cost | | Runs, focused on that lane (a lane has no inspector page of its own) |
+| Mission part | owns, state, machine, worker, waits for, kind, cost, why here | | its card in the inspector |
+| Workflow square | takes, gives, covers, runs on (the lead, its model, the engine in words), costs, limits, from (and its file), last run (when, cost, how it ended, how many) | who called it, the need, for how long | the board's card: its contract in the inspector; a library row: nothing (it is dragged onto the board) |
+
+The card reads what the page already has (no request on hover). `studio.hover_cards` (Settings -> Studio, on by
+default) turns the cards off: the boxes keep their plain tooltips. Session's Map keeps its tooltips either way. In **Live**, a square's agent is a node
 with the square's name in mono and the lane colour of its engine, its cost beside the session's; the Session's Cost
 panel shows a `squares` line when any ran.
+
+### Blocks and Live's groups (3.3.16.3)
+
+The tiers and the enabled squares are blocks on Cast's one canvas, and Live boxes the agents of one task. Part 2:
+main's line into a block carries its **when** (a label; a click opens the When page), the library opens on Cast too with
+three kinds (Workflows, Blocks you can start from, Agents), and four drags compose the board -- a workflow or a template
+onto the canvas, an agent into a block, an agent out of one, a block by its title bar -- each asking first, saying what
+changed in one line, and walked back by Undo. See [Studio: blocks and groups](STUDIO-blocks.md).
 
 ## Cast: the lineup and its bios
 
@@ -197,7 +234,7 @@ instead)" (and "(code 5/5 here)" when the numbers confirmed it).
 | **Lineups** (`roles-lineups`) | every lineup (shipped, user, project; the active one marked, the open one highlighted); **New** and **Duplicate** ask for a name on a card, **Delete** asks first (a shipped lineup stays), **Apply** asks first, showing the role table it writes; **user / project** says where New, Save and Delete write |
 | **Canvas** (`roles-graph`, the drawn canvas `roles-canvas`) | the open lineup: one card per assignment, in one labelled column box per tier; the edges; the toolbar (scope, unsaved, Add tier, Undo, Redo, Save, Apply, Lay out, Fit, zoom); the replay bar along its bottom |
 | **Inspector** (`roles-inspector`) | **Assignment** (a card's summary: role, bio, model with what it takes, price and context, instances, the words that route to it; Edit rows for its Slot and Model override, Edit bio, Duplicate, Remove; with no card: the lineup's summary), **Lineup** (the lineup's summary, then one Edit row per block; Edit opens that block alone on its page, with its **YAML** toggle and enforcement badge), **Live** (the agents on the card now, or its last runs) |
-| **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
+| **Problems** (`roles-problems`) | everything wrong with the lineup as it stands in the editor, saved or not, in **Blocks** and **Warns**, each with its fix; a click selects its card; **Not connected** (3.3.16.3) lists each square block main never uses, a click opens its When page; **Config** lists what `halo doctor --config` finds in the files behind the lineup |
 | **Bios** (`roles-bios`) | every bio (drag one onto the canvas to add a card); a click opens the **bio form** (`bio-form`): models first (3.1.4.0: the preferred model in the **model select**, the **model picker table** folded under **more...**, fallback, effort up to xhigh and max, thinking, the context budget); description, kind, tags, extends; tools (allow and deny from the real registry, `GET /api/tools`, MCP servers, permission mode, the rules); context (files, skills, the memory namespace, prompt notes); limits; output; environment (own worktree, offline); acceptance; the schedule (cron or every, its prompt and model) and the triggers (file change, event, message); a **YAML** toggle for the whole bio (hooks and any key without a field); **Save bio** (with **Save to project scope**), New, Duplicate, Delete |
 | **Models** (`roles-models`) | the catalog: its row count, each provider (enabled, key, models cached), why it is empty when it is (every provider looked at and why it lists nothing), **Refresh** (`POST /api/models/refresh`: every provider at once, each time-boxed, one line each: `ok, N models` or the reason, and "refreshed <when>"), **Analyze** (3.1.9.0, `POST /api/models/analyze`, what `halo models analyze` does: rebuilds what each model is good at and shows how many models per kind and each kind's strongest, the cheapest beside it when it differs), and **Test a model** by any ref |
 

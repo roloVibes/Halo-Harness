@@ -198,7 +198,10 @@ halo knowledge add decision "money is Decimal, never float" --alternative "float
 halo knowledge list                   # the current entries, newest first
 halo knowledge list decision --all    # superseded ones too
 halo knowledge show f-20261024-3c9a1e # the entry, and every agent task that cited it
-halo knowledge search rounding total  # through recall, else a word match
+halo knowledge search rounding total  # relevance first, this project first; each hit says why
+halo knowledge list --kind gate --project basket   # a project's gate records (3.3.16.2)
+halo knowledge prune --kind gate --older-than 7d   # what it would remove, and the count
+halo knowledge prune --kind gate --older-than 7d --yes   # remove them
 halo knowledge supersede f-20261024-3c9a1e "basket.py#total rounds half up, checked on 3.1"
 halo knowledge forget d-20261024-8e41f0
 halo knowledge fetch kali@lab f-20261023-0b7d2a   # take a fleet member's entry, read-only
@@ -209,15 +212,29 @@ halo knowledge fetch kali@lab --all decision      # every current decision it ha
   `-` for stdin) is its what / where / why; `--evidence L`, `--alternative A`
   and `--tag T` repeat. A finding is `checked` when an evidence line names a
   test run or a reproduction, else `said`.
-- `list [finding|decision] [--all]`: one line each (id, kind, by, day,
-  confidence, title); `--all` adds the superseded ones, each marked with its
+- `list [finding|decision] [--kind gate|finding|decision] [--project .|all|NAME] [--all]`: one
+  line each (id, kind, by, day, confidence, project, title; a sample record of
+  `halo start` says `(sample)`); `--kind gate` is a gate's records, either
+  kind; `--project .` this folder's project (its git root's name), `all` (the
+  default) every one; `--all` adds the superseded ones, each marked with its
   successor. Exit 1 when there is none.
 - `show <id>`: the entry -- its front matter, evidence, alternatives, body,
   where a fetched one came from -- and "reused by", from `outcomes.jsonl`.
-- `search <words> [--k N]`: the entries that rank for the words.
+- `search <words> [--k N] [--project .|all|NAME]`: the entries that rank for
+  the words, by relevance first (a record sharing no content word with the
+  query is not a hit; paths and commands are not words a record says); at
+  equal relevance this folder's project first, another project's marked with
+  it; the guided first run's sample never answers another project's search; a
+  passed gate ranks under findings; re-runs collapse to the newest with "x N".
+  Each line ends with why it is there (3.3.16.2).
 - `supersede <id> "<title>"`: a new entry of the same kind naming the old one
   (which stays on disk and leaves recall); the same flags as `add`.
 - `forget <id>`: remove the file and its `_meta.json`.
+- `prune --kind gate|finding|decision --older-than AGE [--project .|all|NAME] [--dry-run] [--yes]`
+  (3.3.16.2): the current entries of that kind older than AGE (`30m`, `12h`,
+  `7d`, `2w`), one line each and the count; only `--yes` removes them
+  (`--dry-run` never does). A bad AGE exits 2. The gate keeps a project's
+  newest `knowledge.gate_keep` (50) passed-gate records on its own.
 - `fetch <harness> <id>` / `fetch <harness> --all KIND`: through the hub this
   machine runs; written here under the same id, read-only; never over an
   entry already here. Exit 3 when no hub runs here.

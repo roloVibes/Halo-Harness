@@ -11,13 +11,19 @@
 // Session's Live column with its own props: `scope` (that session's lanes),
 // `onPick` (a lane click pins the agent there), `marked` (the lane lit: the
 // pinned agent, else the selected one) and `testid`. 3.3.0.0 R6: `extra` sits in
-// its bar (Session's Export button); `marked` is the steer's target there.
+// its bar (Session's Export button); `marked` is the steer's target there. 3.3.16.2: `phases` draws each lane by
+// what the agent did (session/phases.ts: thinking, a tool, writing, waiting on you, idle) instead of its states; a
+// hover says the phase and its length, a click on a thinking segment calls `onPhase` (Live scrolls to that thought).
+// 3.3.16.3: "by group" lists the lanes in Live's groups (routes/agents/live/laneGroups.ts), a title row over each.
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { select } from "./actions";
 import { panels, usePanels, type Seg } from "./pstore";
 import { sessionsIn, useScope } from "./scope";
 import { allAgents, isLive, sessionTitle, useFleet, useNow, type Scope } from "./store";
 import type { AgentKey } from "./types";
+import { byGroup } from "../agents/live/laneGroups";
+import { toggleByGroup, useByGroup } from "../agents/live/groupStore";
+import { PHASE_WORD, spanWords, type PhaseSeg } from "../session/phases";
 
 const LANE = 18;
 const LABEL_W = 116;
@@ -58,9 +64,12 @@ function bars(segs: Seg[], from: number, to: number): { x0: number; x1: number; 
   return out;
 }
 
-type Props = { scope?: Scope; onPick?: (key: AgentKey) => void; marked?: AgentKey; verb?: string; testid?: string; extra?: ReactNode };
+type Props = {
+  scope?: Scope; onPick?: (key: AgentKey) => void; marked?: AgentKey; verb?: string; testid?: string; extra?: ReactNode;
+  phases?: Map<AgentKey, PhaseSeg[]>; onPhase?: (s: PhaseSeg) => void;
+};
 
-export function Timeline({ scope: only, onPick = select, marked, verb = "select it on the map", testid = "fleet-timeline", extra }: Props = {}) {
+export function Timeline({ scope: only, onPick = select, marked, verb = "select it on the map", testid = "fleet-timeline", extra, phases, onPhase }: Props = {}) {
   const harnesses = useFleet((s) => s.harnesses);
   const selected = useFleet((s) => s.selected);
   const lanes = usePanels((s) => s.lanes);
@@ -73,9 +82,11 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
   const scope = only || current;
   const lit = marked ?? selected;
   const live = useMemo(() => allAgents({ harnesses: sessionsIn(harnesses, scope) } as never).filter((r) => isLive(r.a)), [harnesses, scope]);
+  const grouped = useByGroup();
+  const rows = useMemo(() => byGroup(live, grouped), [live, grouped]);
   const from = now - span * 60_000;
   const x = (t: number) => LABEL_W + ((t - from) / (now - from)) * (W - LABEL_W - 4);
-  const height = Math.max(1, live.length) * LANE + 18;
+  const height = Math.max(1, rows.length) * LANE + 18;
   const hover = (e: MouseEvent, text: string) => {
     const box = (e.currentTarget as SVGElement).ownerSVGElement?.getBoundingClientRect();
     if (box) setTip({ x: e.clientX - box.left + 10, y: e.clientY - box.top + 12, text });
@@ -86,6 +97,8 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
         <span className="rail-label mono">TIMELINE · ONE LANE PER LIVE AGENT</span>
         <span className="spacer" />
         {extra}
+        <button className={grouped ? "on" : ""} aria-pressed={grouped} onClick={toggleByGroup} data-testid={`${testid}-by-group`}
+                title="List the lanes in Live's groups: a title row over the agents of one task or one square">by group</button>
         <div className="segmented" role="group" aria-label="How far back">
           {SPANS.map((m) => (
             <button key={m} className={span === m ? "on" : ""} aria-pressed={span === m} onClick={() => panels.update(() => ({ span: m }))} data-testid={`fleet-span-${m}`}>
@@ -106,8 +119,14 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
             );
           })}
           {!live.length && <text className="ftl-none" x={LABEL_W} y={13}>no agent is live: a lane appears when one starts</text>}
-          {live.map((r, i) => {
+          {rows.map((row, i) => {
             const y = i * LANE;
+            if (row.head) return (
+              <text key={"g:" + row.head.id} className="ftl-name ftl-group" x={4} y={y + 12.5} data-testid="fleet-lane-group" data-group={row.head.id}>
+                {`▾ ${row.head.title} · ${row.n}`}
+              </text>
+            );
+            const r = row.r;
             const name = r.a.name || r.a.role || r.a.agent_id;
             const label = r.h.local ? name : `${name}@${(r.h.name || r.h.id).split("@")[0]}`;
             const where = `${r.h.name || r.h.id.slice(0, 8)} · ${sessionTitle(r.s)}`;
@@ -115,11 +134,18 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
               <g key={r.key} className="ftl-lane" data-testid="fleet-lane" data-key={r.key} data-selected={r.key === lit || undefined} onClick={() => onPick(r.key)} role="button" aria-label={`${name}: ${verb}`}>
                 <rect className="ftl-hit" x={0} y={y} width={W} height={LANE} />
                 <text className="ftl-name" x={4} y={y + 12.5}>{label.length > 18 ? label.slice(0, 17) + "…" : label}</text>
-                {bars(lanes[r.key] || [], from, now).map((b) => (
+                {phases && (phases.get(r.key) || []).filter((p) => p.t1 > from && p.t0 < now).sort((a, b) => +(a.phase === "thinking") - +(b.phase === "thinking")).map((p) => (
+                  <rect key={"p" + p.t0 + p.phase} className="ftl-seg ftl-phase" data-phase={p.phase} data-testid="live-phase" data-n={p.n}
+                        x={x(Math.max(from, p.t0))} y={y + (p.phase === "idle" ? 8 : 4)} width={Math.max(p.phase === "thinking" ? 4 : 1.5, x(Math.min(now, p.t1)) - x(Math.max(from, p.t0)))}
+                        height={p.phase === "idle" ? 2 : LANE - 8} rx={p.phase === "idle" ? 1 : 2}
+                        onMouseMove={(e) => hover(e, `${name} · ${PHASE_WORD[p.phase]} ${spanWords(Math.min(now, p.t1) - p.t0)} from ${hhmm(p.t0)}`)}
+                        onClick={(e) => { if (p.n && onPhase) { e.stopPropagation(); onPhase(p); } }} />
+                ))}
+                {!phases && bars(lanes[r.key] || [], from, now).map((b) => (
                   <rect key={b.t} className="ftl-seg" data-state={b.state} x={x(b.x0)} y={y + 4} width={Math.max(1.5, x(b.x1) - x(b.x0))} height={LANE - 8} rx={2}
                         onMouseMove={(e) => hover(e, `${name} · ${b.state} since ${hhmm(b.t)}\n${where}`)} />
                 ))}
-                {(ticks[r.key] || []).filter((t) => t >= from).map((t, j) => (
+                {!phases && (ticks[r.key] || []).filter((t) => t >= from).map((t, j) => (
                   <line key={j} className="ftl-tick" x1={x(t)} x2={x(t)} y1={y + 1} y2={y + LANE - 1} onMouseMove={(e) => hover(e, `${name} · tool call at ${hhmm(t)}`)} />
                 ))}
               </g>

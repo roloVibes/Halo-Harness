@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("BRIDGE_TEST_HOME", tempfile.mkdtemp(prefix="pb_comp-"))
 os.environ.setdefault("BRIDGE_TEST_NO_BACKGROUND_NET", "1")
 
-from tests.helpers.prompt_budget_rig import Rig, answer  # noqa: E402
+from tests.helpers.prompt_budget_rig import Rig, answer, fill_to  # noqa: E402
 from tests.helpers.model_switch_rig import ledger_lines  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -59,6 +59,7 @@ def test_a_compacted_request_carries_the_memory_once(ctx: Ctx):
     with Rig() as rig:
         rig.script("tiny:3b", answer())
         s = rig.session("ol:tiny:3b@lan")
+        fill_to(s, 14000)  # 3.3.16.1: Halo's own lean prompt fits 12,288; the history is what does not
         evs = rig.run(s, [_say("hi there")])
         answering = [b for b in rig.chats("tiny:3b") if "Do not mention this summarization" not in json.dumps(b)]
         ctx.check(f"a compaction ran before the first answer, got {[e.data.get('phase') for e in evs if e.kind == 'compaction']}",

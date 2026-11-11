@@ -11,6 +11,10 @@ the model goes on -- the router never opens a dialog.
 
 On the main agent and on every bio its lineup lets delegate (a bio allowed Agent is allowed Workflow,
 config/agents_md.py `resolved_tools`). Tests swap `SPAWN` / `RUN_ORCHESTRA` / `TAKES` for fakes.
+
+3.3.16.2: offered only when a square is enabled for the session's lineup (workflows/offer.py drops it from
+the tool list otherwise), and a role of the lineup that covers the reads takes the task before any square
+(workflows/lineup_roles.py; the receipt says "handing the PDF to your media role: the lineup covers it").
 """
 
 from __future__ import annotations
@@ -55,6 +59,17 @@ def session_remaining(runtime) -> Optional[float]:
         return None
 
 
+def _talk(session, node: str, ref: str, text: str, back: bool = False, re: Optional[str] = None) -> Optional[str]:
+    """An orchestra square's hand-off or (`back`) its answer, as a talk between the caller and the square's node."""
+    try:
+        from halo_harness.agent.agent_registry import agent_key, tree_for
+        from halo_harness.fleet.talk import on_square
+        d = on_square(tree_for(session), agent_key(session), node, ref, text, back=back, re=re)
+        return d.get("id") if d else None
+    except Exception:
+        return None
+
+
 def session_band(runtime) -> str:
     tc = getattr(runtime, "team_control", None)
     band = (getattr(tc, "budget", None) or {}).get("band") if tc is not None else None
@@ -69,12 +84,12 @@ class WorkflowTool(Tool):
     def description(self) -> str:
         try:
             from halo_harness.workflows.registry import enabled_squares
-            on = enabled_squares(self.lineup)
+            from halo_harness.workflows.when_store import rules_for
+            on, rules = enabled_squares(self.lineup), rules_for(self.lineup)
         except Exception:
-            on = []
-        tail = (" Enabled squares: " + "; ".join(f"{w.ref} (covers {', '.join(w.contract.covers) or '-'})" for w in on) + "."
-                if on else " No square is enabled for this lineup yet (halo workflows enable media).")
-        return DESCRIPTION + tail
+            on, rules = [], {}
+        from halo_harness.workflows.when_tool import squares_tail  # 3.3.16.3: each square's "when" in a few words
+        return DESCRIPTION + squares_tail(on, rules)
 
     lineup = None  # the session's lineup (the router reads the runtime's; this is only the description's)
 
@@ -99,23 +114,38 @@ class WorkflowTool(Tool):
         session = runtime.parent
         model_ref = ctx.model_ref or str(getattr(getattr(session, "model_ref", None), "raw", "") or "")
         squares = registry.enabled_squares(_lineup(runtime), cwd=ctx.cwd)
+        from halo_harness.workflows.when_store import rules_for  # 3.3.16.3: each block's "when"
+        try:
+            rules = rules_for(_lineup(runtime), cwd=ctx.cwd)
+        except Exception:
+            rules = {}
         r = router.route(task, files, name=str(input.get("name") or ""), need=str(input.get("need") or ""),
                          model_ref=model_ref, squares=squares, band=session_band(runtime),
-                         hops=getattr(session, "_square_hops", None), remaining=session_remaining(runtime), takes=TAKES)
+                         hops=getattr(session, "_square_hops", None), remaining=session_remaining(runtime), takes=TAKES,
+                         rules=rules, team=getattr(runtime, "team_control", None))
         if r.refused:
             rec = receipts.make(r, None, need=str(input.get("need") or ""), files=files)
             receipts.write(session, rec)
             return ToolResult(receipts.line(rec))
+        if r.role:  # 3.3.16.2: the lineup's own role covers it (workflows/lineup_roles.py)
+            from halo_harness.workflows.lineup_roles import run_role
+            out = run_role(r.role, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", spawn=SPAWN)
+            rec = receipts.make(r, out, need=str(input.get("need") or ""), files=files, engine="role")
+            receipts.write(session, rec)
+            return ToolResult(receipts.line(rec) + "\n\n" + (out.text or "(the role handed back nothing)"),
+                              is_error=out.status == "failed")
         wf = r.square
         engine = wf.contract.run_engine(fleet=False)
         if engine == "session":
             model, _pick = square_run.lead_model(wf, task, files, r.gaps, main_ref=model_ref, state_dir=getattr(session, "state_dir", None))
             out = square_run.run_session(wf, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", model=model,
                                          cap=r.cap_usd, hops=r.hops, spawn=SPAWN,
-                                         on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine))
+                                         on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine, does=wf.contract.does))
         else:
-            key = receipts.node(session, wf.ref, engine, state="running")
+            key = receipts.node(session, wf.ref, engine, state="running", does=wf.contract.does)
+            said = _talk(session, key, wf.ref, task)  # 3.3.16.2: the hand-off and what came back are talk (fleet/talk.py)
             out = square_run.run_orchestra(wf, task, files, repo=ctx.cwd, wall_s=wf.contract.wall_s, runner=RUN_ORCHESTRA)
+            _talk(session, key, wf.ref, out.text, back=True, re=said)
             receipts.node(session, wf.ref, engine, state="done" if out.status == "done" else "failed", cost_usd=out.cost_usd, key=key)
             receipts.add_cost(session, wf.ref, out.cost_usd)
         rec = receipts.make(r, out, need=str(input.get("need") or ""), files=files, engine=engine)

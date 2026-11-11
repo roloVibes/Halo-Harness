@@ -35,6 +35,13 @@ def model_of(tier) -> "Optional[str]":
     return model.strip() if isinstance(model, str) and model.strip() else None
 
 
+def purpose_of(tier) -> "Optional[str]":
+    """3.3.16.3: the tier's `purpose` ("thinking", "the workers"), trimmed; None when it names none. Studio titles the
+    tier's block with it; Live groups the tier's agents under it."""
+    purpose = tier.get("purpose") if isinstance(tier, dict) else None
+    return purpose.strip() if isinstance(purpose, str) and purpose.strip() else None
+
+
 def trigger_of(tier) -> "Optional[dict]":
     """A copy of the tier's `trigger` when its kind is one of TRIGGER_KINDS, else None."""
     trigger = tier.get("trigger") if isinstance(tier, dict) else None
@@ -73,7 +80,9 @@ def _trigger_problems(where: str, trigger) -> "list[str]":
 
 def tier_field_problems(where: str, tier: dict) -> "list[str]":
     """One plain line per problem in this tier's `model` and `trigger`."""
-    return _model_problems(where, tier.get("model")) + _trigger_problems(where, tier.get("trigger"))
+    purpose = tier.get("purpose")
+    bad = [f'{where}: "purpose" must be a few words of text'] if purpose is not None and not isinstance(purpose, str) else []
+    return _model_problems(where, tier.get("model")) + _trigger_problems(where, tier.get("trigger")) + bad
 
 
 def trigger_text(trigger) -> str:
@@ -96,6 +105,8 @@ def trigger_text(trigger) -> str:
 def tier_line(tier: dict) -> str:
     """One `halo teams show` line: index, name, members, then each key it sets."""
     parts = [f"tier {tier['index']} {tier['name']}: {', '.join(tier['members']) or '(empty)'}"]
+    if tier.get("purpose"):
+        parts.append(f"purpose {tier['purpose']}")  # 3.3.16.3: the block's title
     if tier.get("implicit"):
         parts.append("implicit")
     if tier.get("max_parallel"):

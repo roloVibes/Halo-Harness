@@ -11,6 +11,7 @@ import { toast } from "../../lib/store";
 import { agentsOf, clone, closeDialog, HISTORY_MAX, keyOf, nodeById, packOf, readOnlySource, roles } from "./store";
 import { carryLayout, loadLists, movePositions, msg, openLineup, rekeyPositions, validateSoon, type LayoutBody } from "./sync";
 import type { Graph, LineupPayload, Pos, Raw } from "./types";
+import { blockRedoNext, blockUndoNext, isSaved, markRaw, rawRedone, rawUndone, redoStep, steps, undoStep } from "../agents/blocks/history"; // 3.3.16.3
 
 export async function run<T>(busy: string, fn: () => Promise<T>, done?: (r: T) => string): Promise<T | null> {
   roles.update(() => ({ busy }));
@@ -42,26 +43,34 @@ export function edit(fn: (raw: Raw) => void): void {
   fn(next);
   if (JSON.stringify(next) === JSON.stringify(s.raw)) return;
   roles.update(() => ({ raw: next, past: [...s.past, s.raw!].slice(-HISTORY_MAX), future: [], dirty: true }));
+  markRaw();
   validateSoon();
 }
 
+/** 3.3.16.3: Undo walks back whichever came last -- a lineup edit, or a block's step (blocks/history.ts). */
 export function undo(): boolean {
   const s = roles.get();
+  if (blockUndoNext() || ((!s.raw || !s.past.length) && steps.get().past.length)) return void undoStep(), true;
   if (!s.raw || !s.past.length) return false;
   const prev = s.past[s.past.length - 1];
   roles.update(() => ({ raw: prev, past: s.past.slice(0, -1), future: [s.raw!, ...s.future].slice(0, HISTORY_MAX), dirty: true }));
+  rawUndone();
   validateSoon(true);
   toast("Undone (Ctrl+Shift+Z redoes it)", "info", 1800);
+  if (isSaved(s.raw)) void save(); // a block op saved it at once: its Undo saves too
   return true;
 }
 
 export function redo(): boolean {
   const s = roles.get();
+  if (blockRedoNext() || ((!s.raw || !s.future.length) && steps.get().future.length)) return void redoStep(), true;
   if (!s.raw || !s.future.length) return false;
   const [next, ...rest] = s.future;
   roles.update(() => ({ raw: next, past: [...s.past, s.raw!].slice(-HISTORY_MAX), future: rest, dirty: true }));
+  rawRedone();
   validateSoon(true);
   toast("Redone", "info", 1800);
+  if (isSaved(next)) void save();
   return true;
 }
 

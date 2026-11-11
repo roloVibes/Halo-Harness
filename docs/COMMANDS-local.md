@@ -190,10 +190,9 @@ install hint for this OS. See [LOCAL-MODELS.md](LOCAL-MODELS.md)'s "Managed loca
 
 ### `halo local stop <id|port>` / `halo local servers` / `halo local log <id>`
 
-`stop` ends a server Halo started -- by its id (`llama-8123`), its port or its model -- terminate, then kill after 10
-seconds, from any `halo` process (it reads the registry, not a live handle). A server Halo did not start is stopped
-where it was started (the command says so). A round 5c server (`halo local serve` before 3.3.5.0 R5) still stops by its
-model name.
+`stop` ends a server Halo started -- by its id (`llama-8123`), its port or its model -- terminate, then kill after 10 seconds, from any
+`halo` process (it reads the registry, not a live handle). A server Halo did not start is stopped where it was started (the command says
+so). A round 5c server (`halo local serve` before 3.3.5.0 R5) still stops by its model name.
 
 `servers` lists the servers Halo started: id, kind, URL, ready / loading / gone, the `hf:local/<model>` ref, the flags
 (`-c -ngl -np`), keep, the model's path and the log's path. `--json`: the registry rows.
@@ -203,36 +202,37 @@ model name.
 
 ### `halo local warm [<lineup> | MODELS...] [--host NAME] [--keep-alive DURATION] [--dry] [--json]` (2.0.7; 3.3.7.0 R3)
 
-With a lineup (named, else the active one): pre-warms its **warm set**, per card the models of its local lanes that
-co-reside ([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)) -- the warm-set line, one row per model
-("loaded in 24 s at 32,768", "already warm", "pivots later (~25 s, the ledger; does not fit beside ...)"), the
-total. Each load is at its lane's window, through the paired halo host's `warm` (`beside` for the second model on
-the card) when a host serves it, else the Ollama API; the loads count on the loading tax; a lineup's `warm:` list
-goes first. `--host`: only that host; `--keep-alive`: default the profile's, else the host's; `--dry`: load nothing;
-`--json`: the rows; exit 1 when a load failed. Names that are not a lineup are models (2.0.7): one 1-token
-`/api/chat` each with `keep_alive` (default `30m`; `-1` forever, `0` drops them), resident ones skipped; no names and
-no lineup: every `ol:` ref in the roles table plus the default `model`. `halo teams use` prints the lineup's swap
-preview: the warm set per card, the swaps a pass, the hygiene lines (3.3.7.0 R3; 2.0.7's warning before it).
+With a lineup (named, else the active one): pre-warms its **warm set**, per card the models of its local lanes that co-reside
+([MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md)) -- the warm-set line, one row per model ("loaded in 24 s at 32,768",
+"already warm", "pivots later (~25 s, the ledger; does not fit beside ...)"), the total. Each load is at its lane's window, through the
+paired halo host's `warm` (`beside` for the second model on the card) when a host serves it, else the Ollama API; the loads count on the
+loading tax; a lineup's `warm:` list goes first. `--host`: only that host; `--keep-alive`: default the profile's, else the host's;
+`--dry`: load nothing; `--json`: the rows; exit 1 when a load failed. Names that are not a lineup are models (2.0.7): one 1-token
+`/api/chat` each with `keep_alive` (default `30m`; `-1` forever, `0` drops them), resident ones skipped; no names and no lineup: every
+`ol:` ref in the roles table plus the default `model`. `halo teams use` prints the lineup's swap preview: the warm set per card, the swaps
+a pass, the hygiene lines (3.3.7.0 R3; 2.0.7's warning before it).
 
 ### `halo local place [<lineup>] [--apply] [--json]` (3.3.7.0 R3)
 
-Where each local lane of a lineup (named, else the active one) should run: every configured Ollama host is asked, a
-halo host-served one through its `route` (the helper's footprint counted), any other -- this machine's own, with no
-`halo host` -- from the local reads. One row per lane: its host and why ("fits, warm", "fits now, 18 s load", "shares
-weights with a lane placed there", "not pulled there"); main stays on its host; 3.3.8.0 R4: each lane's `scores:` --
-every candidate (fleet-wide: a paired host's card, the pool) with its loading tax. `--apply` writes `host_for` on each
-moved lane's `<host>|<model>|<role>` profile (Halo-side; the changes journal); nothing loads until the lane asks.
+Where each local lane of a lineup (named, else the active one) should run: every configured Ollama host is asked, a halo host-served one
+through its `route` (the helper's footprint counted), any other -- this machine's own, with no `halo host` -- from the local reads. One row
+per lane: its host and why ("fits, warm", "fits now, 18 s load", "shares weights with a lane placed there", "not pulled there"); main stays
+on its host; 3.3.8.0 R4: each lane's `scores:` -- every candidate (fleet-wide: a paired host's card, the pool) with its loading tax.
+`--apply` writes `host_for` on each moved lane's `<host>|<model>|<role>` profile (Halo-side; the changes journal); nothing loads until it asks.
 
 ### `halo local import <model> [--name NAME] [--host NAME] [--yes]`
 
-Copies a `.gguf` file into an Ollama host's own model store (writes a Modelfile, calls `/api/create`) -- after naming
-the file's size and that it's about to be copied, nothing happens without a `y`/`--yes`. The result is an ordinary
-`ol:<name>` (default: the file's own name). Only `.gguf` files are offered this path this round -- see
-[MODELS.md](MODELS.md).
+Copies a `.gguf` file into an Ollama host's own model store (writes a Modelfile, calls `/api/create`) -- after naming the file's size and
+that it's about to be copied, nothing happens without a `y`/`--yes`. The result is an ordinary `ol:<name>` (default: the file's own name).
+Only `.gguf` files are offered this path this round -- see [MODELS.md](MODELS.md).
 
 ### `halo local runtime remove [VERSION]`
 
 Deletes a fetched `llama-server` runtime from `~/.halo/runtimes/` -- one version, or every version when none is named.
+
+### `halo local prompt [<ref>] [--window N] [--platform win32|linux|darwin] [--json]` (3.3.16.1)
+
+What a model's first turn costs before you use it, nothing sent: "Halo's own first turn: N tokens of W (P %)", the composition line, the reply's room and the window it goes out at, then a row per tool (offered as core, the lineup's square or built-in; or left out and why -- the same tool under another name, the other shell, the window's budget -- still callable by name and through ToolSearch). No ref: your default model; no `--window`: the model's own, resolved as a call would. [MODELS-prompt-diet.md](MODELS-prompt-diet.md#halo-local-prompt).
 
 ### `halo local bench | tune | changes | revert` (3.3.6.0 R5)
 

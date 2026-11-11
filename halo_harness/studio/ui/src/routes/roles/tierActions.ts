@@ -100,6 +100,15 @@ export function setTierMax(name: string, n: number | null): Promise<boolean> {
   }, n ? `Tier ${name} runs at most ${Math.floor(n)} at once` : `Tier ${name} has no cap now`);
 }
 
+/** 3.3.16.3: what the tier is for, in a few words ("" = none): its block's title, Live's group title. */
+export function setTierPurpose(name: string, purpose: string): Promise<boolean> {
+  const v = purpose.trim();
+  return patchTier(name, (t) => {
+    if (v) t.purpose = v;
+    else delete t.purpose;
+  }, v ? `Tier ${name}'s purpose: ${v}` : `Tier ${name} names no purpose now`);
+}
+
 /** Delete a tier: its cards fall to the implicit last tier. Tier 0 stays. */
 export async function deleteTier(name: string): Promise<boolean> {
   const i = listOf(roles.get().raw).findIndex((t) => t.name === name);
