@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.17.0] - unreleased
+## [3.3.17.0] - 2026-11-10
 
 **Copilot at work.** Halo signs in to your work's Microsoft 365 Copilot in the browser (or with a device code) and
 talks to it as a provider with one model, `cp:work`, over the Work IQ API or Graph's preview Copilot Chat API. A
