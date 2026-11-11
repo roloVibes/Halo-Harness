@@ -129,7 +129,7 @@ Setup is what a box needs before Halo can work on it: the providers it calls, th
 
 ## provider
 
-A provider is a service Halo calls a model on: OpenRouter, Databricks, the Anthropic API, OpenAI, TypeSafe, Experiential Labs, an Ollama server or Hugging Face. A provider is set up when its key (or its host) resolves; its models then fill the catalog (`halo models`), and a model ref names its provider by its prefix (`or:` OpenRouter, `dbx:` Databricks, `ol:` an Ollama host). `halo init` and Studio's Setup section set one up.
+A provider is a service Halo calls a model on: OpenRouter, Databricks, the Anthropic API, OpenAI, Experiential Labs, an Ollama server or Hugging Face. A provider is set up when its key (or its host) resolves; its models then fill the catalog (`halo models`), and a model ref names its provider by its prefix (`or:` OpenRouter, `dbx:` Databricks, `ol:` an Ollama host). `halo init` and Studio's Setup section set one up.
 
 ## env file
 

@@ -855,7 +855,7 @@ def _models_refresh_worker(app, do_refresh: bool, *, dbx_explicit: bool = False)
 # ============================================================================
 
 async def _handle_providers(app, args: str) -> None:
-    from halo_harness.providers.enablement import PROVIDER_NAMES, canonical, disable, enable, label_for
+    from halo_harness.providers.enablement import PROVIDER_NAMES, canonical, disable, enable, gone_line, label_for
     tokens = (args or "").split()
     action = tokens[0] if tokens else "list"
     if action in ("enable", "disable"):
@@ -865,7 +865,7 @@ async def _handle_providers(app, args: str) -> None:
             return
         name = canonical(tokens[1])
         if name not in PROVIDER_NAMES:
-            app.notify(f"/providers {action}: unknown provider {tokens[1]!r} "
+            app.notify(gone_line(name) or f"/providers {action}: unknown provider {tokens[1]!r} "
                        f"(expected one of {', '.join(PROVIDER_NAMES)})", severity="error", title="/providers")
             return
         if action == "enable":

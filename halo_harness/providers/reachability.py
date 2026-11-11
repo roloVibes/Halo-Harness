@@ -50,8 +50,7 @@ def probe_host_reachable(base_url: str, *, connect_timeout: Optional[int] = None
 
 def provider_base_url(name: str) -> Optional[str]:
     """The host this provider's reachability probe should test -- None for
-    a provider with no connect-probe concept of its own (not configured,
-    or TypeSafe -- see `reachability_tag`)."""
+    a provider with no connect-probe concept of its own (not configured)."""
     from halo_harness.providers.enablement import canonical
     name = canonical(name)
     if name == "databricks":
@@ -116,8 +115,7 @@ def provider_base_url(name: str) -> Optional[str]:
 def reachability_tag(name: str, *, detected: Optional[bool] = None, connect_timeout: Optional[int] = None) -> str:
     """item 21.5/A.3's three-state tag, as plain text: "reachable",
     "unreachable: <reason>", or "not set up" -- credentials are checked
-    FIRST (never probes a host with nothing configured for it). TypeSafe
-    stores a key only, for a later feature, so it is never probed at all.
+    FIRST (never probes a host with nothing configured for it).
 
     `detected` (1.0.1 part 2 fixpass finding 1): a caller that already
     computed `credentials_present(canon, ...)` itself (`/providers`'s own
@@ -129,8 +127,6 @@ def reachability_tag(name: str, *, detected: Optional[bool] = None, connect_time
     is_detected = credentials_present(canon) if detected is None else detected
     if not is_detected:
         return "not set up"
-    if canon == "typesafe":
-        return "not probed (stores a key only, for a later feature)"
     base_url = provider_base_url(canon)
     if not base_url:
         return "not set up"

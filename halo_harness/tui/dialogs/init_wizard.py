@@ -500,9 +500,6 @@ class ProvidersStep(StepScreen):
         if provider == "openai":
             yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models).",
                          classes="tab-help")
-        if provider == "typesafe":
-            yield Static("Stores TYPESAFE_API_KEY only -- for a later feature, no routed models yet.",
-                         classes="tab-help")
         if provider == "experiential":
             yield Static("Paste EXPLABS_API_KEY (the inference key, prefix xpl_) to use the Experiential "
                          "Labs gateway (xp: models) -- its catalog, credits balance and model prices come "

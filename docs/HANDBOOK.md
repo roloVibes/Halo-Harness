@@ -88,7 +88,7 @@ halo                         # full-screen TUI
    walks every step, Back/Skip/Next (Finish on the last step) in the
    footer, nothing exiting to the console in between: **Providers** (one
    tab each for Databricks/OpenRouter/the Anthropic API/Ollama/Hugging
-   Face/the OpenAI API/TypeSafe -- paste the credential a tab is
+   Face/the OpenAI API/Experiential Labs -- paste the credential a tab is
    missing, add a local/LAN host or server where that applies,
    Save, repeat for another, any tab Skippable); **Default model** (a
    picker across everything just configured); **Permission mode** (`auto`

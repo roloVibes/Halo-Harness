@@ -4,7 +4,7 @@ keys and clicks in headless Chrome over the driver's scratch home, whose env
 file is `HALO_ENV_FILE` in that home (never ~/.config/halo/env); no network
 (`BRIDGE_TEST_NO_BACKGROUND_NET=1`), no provider request:
 
-1. the eight provider cards; OpenRouter's Save & test with a test key: the env
+1. the seven provider cards (3.4.0.0: TypeSafe left); OpenRouter's Save & test with a test key: the env
    file has it, the card says "key set (****<tail>), typed here" (3.3.5.0 R0), the field
    is empty again, the key is nowhere in the page, the strip names openrouter;
 2. Ollama: a host added by name and URL appears in the hosts table (the
@@ -67,7 +67,7 @@ def _lines(card: str) -> str:
 
 def providers(c, url, ctx) -> dict:
     goto(c, "providers")  # 3.3.1.0 R1: one block a page
-    c.wait(f"{qa('[data-testid=setup-provider]')}.length === 8", 30)
+    c.wait(f"{qa('[data-testid=setup-provider]')}.length === 7", 30)  # 3.4.0.0: TypeSafe left the core
     out = {"cards": c.js(qa("[data-testid=setup-provider]") + ".map((p) => p.dataset.name)"),
            "or_before": c.js(_text("[data-testid=setup-provider-state][data-name=openrouter]")),
            "or_field_type": c.js(f"{q('[data-testid=setup-input][data-card=openrouter][data-field=key]')}.type"),

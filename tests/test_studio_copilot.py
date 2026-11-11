@@ -32,7 +32,7 @@ def _got(ctx: Ctx) -> dict:
 def test_the_card_on_load(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"nothing pops up on load, got {got.get('popups')}", got.get("popups") == [False, False, 0])
-    ctx.check(f"the eight provider cards are unchanged, got {got.get('provider_cards')}", got.get("provider_cards") == 8)
+    ctx.check(f"the seven provider cards (3.4.0.0: TypeSafe left) are unchanged, got {got.get('provider_cards')}", got.get("provider_cards") == 7)
     ctx.check(f"not set up, got {got.get('status0')!r}", str(got.get("status0")).startswith("Copilot: not set up") and got.get("mark0") == "-")
     ctx.check(f"the scopes an admin consents to, got {got.get('scopes')!r}", got.get("scopes") == "https://workiq.svc.cloud.microsoft/.default")
     ctx.check("Register the app is closed until opened", got.get("register_open") is False)

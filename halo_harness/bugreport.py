@@ -146,7 +146,6 @@ def _provider_reason(name: str, env: "Optional[dict]", env_file_names: "frozense
     shell_names = {
         "openrouter": ("OPENROUTER_API_KEY",), "anthropic": ("ANTHROPIC_API_KEY",),
         "databricks": ("DATABRICKS_TOKEN", "DATABRICKS_HOST", "BRIDGE_DBX_TOKEN", "BRIDGE_DBX_BASE_URL"),
-        "typesafe": ("TYPESAFE_API_KEY",),
         "experiential": ("EXPLABS_API_KEY",),
     }.get(name, ())
     if any(n in env_file_names for n in shell_names):
@@ -163,7 +162,7 @@ def _provider_reason(name: str, env: "Optional[dict]", env_file_names: "frozense
 def _providers_lines(settings, env_file_names: "frozenset[str]" = frozenset()) -> list:
     env = getattr(settings, "effective_env", None) if settings is not None else None
     lines = ["Providers (enabled state and REASON, never a key):"]
-    for name in ("openrouter", "anthropic", "databricks", "typesafe"):
+    for name in ("openrouter", "anthropic", "databricks"):  # 3.4.0.0: typesafe left the core
         lines.append(f"  {name}: {_provider_reason(name, env, env_file_names)}")
     return lines
 

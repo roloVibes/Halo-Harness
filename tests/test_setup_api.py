@@ -96,8 +96,8 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check(f"the ten palettes, got {names}", names == list(ids()) and names[:3] == ["claude-dark", "claude-light", "holo"])
         pal = s["themes"][0]["palette"]
         ctx.check(f"a palette from tui/theme.py, got {pal}", pal["bg"] == "#1e1e2e" and pal["accent"] == "#89b4fa" and len(pal) == 10)
-        ctx.check(f"the eight provider tabs by name, got {list(s['providers'])}",
-                  sorted(s["providers"]) == sorted(["databricks", "openrouter", "anthropic", "openai", "typesafe", "experiential",
+        ctx.check(f"the seven provider tabs by name, got {list(s['providers'])}",
+                  sorted(s["providers"]) == sorted(["databricks", "openrouter", "anthropic", "openai", "experiential",
                                                      "ollama", "huggingface"]))
         orp = s["providers"]["openrouter"]
         ctx.check(f"the key in the environment shows as set, from the environment, its tail, got {orp}",

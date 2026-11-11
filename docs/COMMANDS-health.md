@@ -185,10 +185,11 @@ file, OpenRouter/Databricks/Experiential configuration, `claude`/
 plugin-provided MCP servers, the OS/WSL/Kali platform hint, `~/.local/bin` on
 PATH (Linux), tmux mouse mode (inside tmux), the three cached-catalog ages,
 session count + `/improve` config, clipboard backend, configured MCP servers
-(eager vs. lazy), the resolved default model, how many of the seven
+(eager vs. lazy), the resolved default model, how many of the six
 providers are enabled (`databricks`/`openrouter`/`anthropic`/
-`typesafe`/`huggingface`/`openai`/`experiential` -- see "`halo
-providers`" below), and the `halo` command itself on PATH. Exit 0 unless
+`huggingface`/`openai`/`experiential` -- see "`halo
+providers`" below), one `[WARN]` line per provider that left the core whose key or
+`providers.<name>` row is still here (3.4.0.0: TypeSafe), and the `halo` command itself on PATH. Exit 0 unless
 something is `[MISSING]` (a `[WARN]` alone, e.g. "no Databricks
 configured", never fails the command).
 

@@ -1722,18 +1722,17 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("drain_tick_rate", _check_drain_tick_rate()))
     entries.append(("local_bin_on_path", _check_local_bin_on_path()))
     entries.append(("tmux_mouse", _check_tmux_mouse()))
-    # Halo 2.0.4 round 3 (deliverable 5): _check_catalog_ages() now reports
-    # seven catalogs, not three (see its own docstring) -- `zip(...,
-    # strict=False)` would otherwise silently TRUNCATE the extra four
-    # lines to nothing (zip stops at the shorter iterable), so this tuple
-    # must stay the same length `_check_catalog_ages` actually emits, in
-    # the same order: OpenRouter, Anthropic, Databricks, models.dev (right
-    # after Databricks -- see that function's own comment), Hugging Face,
-    # OpenAI, Experiential Labs.
+    # Halo 2.0.4 round 3 (deliverable 5): _check_catalog_ages() now reports seven catalogs, not three (see its own
+    # docstring) -- `zip(..., strict=False)` would otherwise silently TRUNCATE the extra four lines to nothing (zip
+    # stops at the shorter iterable), so this tuple must stay the same length `_check_catalog_ages` actually emits, in
+    # the same order: OpenRouter, Anthropic, Databricks, models.dev (right after Databricks -- see that function's own
+    # comment), Hugging Face, OpenAI, Experiential Labs.
     catalog_ids = ("catalog_models_json", "catalog_anthropic_models_json", "catalog_dbx_endpoints",
                    "catalog_models_dev", "catalog_huggingface_models_json", "catalog_openai_models_json",
                    "catalog_experiential_models_json")
     entries.extend(zip(catalog_ids, _check_catalog_ages(), strict=False))
+    from halo_harness.providers.left_core import leftover_lines  # 3.4.0.0: a provider that left, its key still here
+    entries.extend(("left_core", f"{WARN} {line}") for line in leftover_lines(cwd=cwd))
     telemetry_ids = ("sessions", "improve")
     entries.extend(zip(telemetry_ids, _check_telemetry_and_improve(), strict=False))
     # U5 leftover / H8: tui/clipboard.py's clipboard_doctor_line(), wired here; H12 Part B: its WARN (no

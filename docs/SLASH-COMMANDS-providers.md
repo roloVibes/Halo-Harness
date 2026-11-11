@@ -10,8 +10,8 @@ Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which li
 H15 item 21 (rule replaced by the H15 part 2 addendum): the provider-
 enablement table -- status, reachable, cached model count -- for
 `databricks`, `openrouter`, `anthropic`, `huggingface` (`hf:`),
-`openai` (`oai:`, round 5i part 1), `experiential` (`xp:`) and `typesafe` (stores
-`TYPESAFE_API_KEY` only, for a later feature; no routed models yet). Each
+`openai` (`oai:`, round 5i part 1) and `experiential` (`xp:`); `typesafe` left the core in 3.4.0.0 and
+`/providers enable typesafe` says so in one line. Each
 row's status is `auto (detected from <source>)` once a
 real credential is found (no `init` step required), `disabled by
 you`/`enabled by you` once an explicit override exists, or `not set up`.
@@ -44,7 +44,7 @@ already read), Experiential Labs (`GET /credits`), Databricks (always
 "not offered" -- DBU billing is on the workspace side, explicitly
 excluded), and Anthropic (no endpoint for a plain key; the organisation
 cost report when `ANTHROPIC_ADMIN_KEY` is configured). Every other
-provider (Hugging Face, OpenAI, TypeSafe) has no balance concept at all and reads "not offered." Bare
+provider (Hugging Face, OpenAI) has no balance concept at all and reads "not offered." Bare
 `/balances` never touches the network -- it prints whatever
 `~/.halo/balances.json` already has cached, or "not fetched yet";
 `/balances refresh` does the one bounded round of fetches and persists

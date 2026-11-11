@@ -43,14 +43,13 @@ _MAX_ALIAS_HOPS = 4
 # still carrying one (a `--model`, a remembered last model, a config file,
 # a bio) gets the one line below instead of being read as anything else
 # (`cc:foo/bar` would otherwise parse as an OpenRouter vendor/model).
-_REMOVED_ROUTE_PREFIXES = ("cc:", "cx:")
+_REMOVED_ROUTE_PREFIXES = ("cc:", "cx:", "ts:")  # ts:: 3.4.0.0, TypeSafe left the core (providers/left_core.py)
 
 
 def removed_route_message(raw: str) -> str:
-    """The one line a `cc:`/`cx:` ref gets everywhere (headless, `/model`,
-    a remembered last model, a config `model:`)."""
-    return (f"no route: {raw!r} (the cc: and cx: routes were removed in 3.1.5.0; "
-            f"use an API route, e.g. ant:sonnet with ANTHROPIC_API_KEY, or or:anthropic/<model>)")
+    """The one line a `cc:`/`cx:`/`ts:` ref gets everywhere (headless, `/model`, a remembered last model, a config `model:`)."""
+    from halo_harness.providers.left_core import removed_route_line
+    return removed_route_line(raw)
 
 
 def is_local_model_ref(ref: "ModelRef") -> bool:
