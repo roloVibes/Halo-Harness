@@ -7,7 +7,7 @@ nothing is lost. The idea comes from Kem Tossoun's reel "5 agents write to
 the same file at the same time and nothing is lost" (Glitch Cat Club); this
 page is Halo's version of it.
 
-**In a team (Halo 3.0.8.0):** a team stage of `kind: orchestra` starts an Orchestra run with the stage's goal (the files of its write blocks when the goal names none); see [TEAM.md](TEAM.md).
+**In a team (Halo 3.0.8.0 - 3.3.x):** the team file and its stages left in 3.4.0.0; a lineup's tiers and a run's lanes do its job.
 
 **One unit of work (Halo 3.1.2.0):** a lane is a *unit* of work -- the same thing a mission part and a team stage are, with one state machine, one ledger line, one report row and one coach. `halo work` prints the lanes of a run as that shared table; see [WORK.md](WORK.md).
 
@@ -788,15 +788,14 @@ the value filled in and saves nothing.
 **The coach line.** The run reports carry the coach's summary, "coach: N
 suggestions, M applied, top: <the first card>": last in `halo orchestra
 report` and the report printed after `halo orchestra run`, a mission's
-report (`report.coach`, the markdown's last line) and `halo team status` of a
-done or stopped run. The Fleet digest lists one coach row per run the coach
+report (`report.coach`, the markdown's last line). The Fleet digest lists one coach row per run the coach
 read since `--since` (`~/.halo/coach/runs.json`).
 
 Studio reads it through `GET orchestra/<run>/coach`, computed once and kept
 in `<run>/coach.json`; it is computed again when a run file it reads
 (report.json, events.jsonl, merge.json, split.json, plan.json or a lane
-file) is newer. The same coach reads a mission and a team run:
-[MISSIONS.md](MISSIONS.md#the-coach), [TEAM.md](TEAM.md#the-coach).
+file) is newer. The same coach reads a mission:
+[MISSIONS.md](MISSIONS.md#the-coach).
 
 ### Probes
 

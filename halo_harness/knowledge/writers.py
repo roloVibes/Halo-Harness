@@ -70,8 +70,8 @@ def _sample(run_dir) -> dict:
     try:
         from halo_harness.config.paths import bridge_home
         from halo_harness.orchestra.goal import repo_root_of
-        from halo_harness.start.sample_repo import start_root
-        Path(repo_root_of(run_dir)).resolve().relative_to(start_root(bridge_home()).resolve())
+        from halo_harness.knowledge.rank import sample_root
+        Path(repo_root_of(run_dir)).resolve().relative_to(sample_root(bridge_home()).resolve())
     except Exception:
         return {}
     return {"tags": ["sample"], "meta": {"sample": True}}

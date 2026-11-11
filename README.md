@@ -55,12 +55,11 @@ Assign specialized agents different models and responsibilities, coordinate para
 
 ## Install
 
-Install, then `halo start`:
+Install, then `halo init`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.3.17.0/scripts/install-halo.sh | bash
 halo init        # opens Halo Studio on Setup: provider, model, permission mode, theme, lineup, checks
-halo start       # the guided first run: its card (models, cost, time, what it writes), then one real Orchestra run
 ```
 
 Windows:
@@ -88,14 +87,10 @@ and reproducible installs are covered in [docs/INSTALL.md](docs/INSTALL.md).
 
 **Your first run.** In Setup (or the terminal wizard) you paste a provider key, pick a default model
 and a permission mode; its Check block lists the checks it can run (doctor, the model catalog and one
-hello call ticked; the quick gym and the guided first run off), each with what it does,
+hello call ticked; the quick gym off), each with what it does,
 costs and takes, and you tick the ones to run (`halo check` runs the same list later).
-`halo start`, the guided first run, opens on a card: the models it will call, an estimated
-cost, the time and what it writes (`halo start --explain` prints only the card). Then it walks
-one real piece of work on your models, one screen per step: it copies a shipped lineup into one of yours,
-writes a small sample repo, gives your agents one Orchestra goal, shows the lead's plan
-for you to approve (or change on Studio's plan canvas), runs the lanes, and ends on the
-report, the coach and where to go next. `halo explain <word>` says what any word means
+The guided first run (`halo start`: one real Orchestra run that rehearses your lineup on a sample repo) is
+the first-run pack since 3.4.0.0 (`halo pack install first-run`, then `halo pack enable first-run --grant-all`); see [its README](halo_harness/templates/packs/first-run/README.md). `halo explain <word>` says what any word means
 ([docs/GLOSSARY.md](docs/GLOSSARY.md)). Then `halo` opens the full-screen TUI from any
 directory: type a request, watch the phase line count up, and steer by typing while the
 model works; `/studio` opens Studio's dashboard on that session. `halo doctor` explains anything that is not right and ends each warning with
@@ -233,7 +228,7 @@ Press `Alt+2`, then `R` (Agents -> Runs, Orchestra before 3.3.16.0). Several age
 
 ### Team files, from a terminal
 
-Team's board left Studio in 3.3.16.0: who owns what is each lane's owns line in Agents -> Runs. `halo team` still runs a project's team file (members, blocks and stages) from a terminal, and a stage at its gate is a row of Attention. See [docs/TEAM.md](docs/TEAM.md).
+Team's board left Studio in 3.3.16.0: who owns what is each lane's owns line in Agents -> Runs. The team file and `halo team` left in 3.4.0.0: a lineup's tiers and blocks (Agents -> Cast) and a run's lanes with their owns lines (Agents -> Runs) do its job.
 
 ### Design: a pack Halo ships
 
@@ -327,6 +322,7 @@ tool, so check each tool's own docs.
 
 | | |
 |---|---|
+| **The core, and the packs Halo ships** | The core is the agent loop and its tools, permissions and policy, the providers, all the local-model work, lineups and blocks, Studio's Session, Agents, Local, Packs, Setup and Settings, and the pack system. Everything else is a pack Halo ships, off until you turn it on (`halo pack install <id>`): design, first-run, signal, concord, doc-review. |
 | **Halo Studio** | `halo studio`, or `/studio` in a session: the browser console, six sections under one header. Loopback only, a per-launch token, no CDN. |
 | **The Session dashboard** | One live column of every agent's thinking, tool calls (what each runs on, its time, its result), hand-backs and asks; the map of who spawned whom with each agent's model, cost and running tool; the context bar, the spend and each agent's share. |
 | **The Agents glow** | Your lineup as cards in tier boxes. While a session runs, a card glows in its agent's state: working cyan, waiting amber, done green that fades over ten seconds, failed red until you click it. Hover the card and it explains its glow. |
@@ -344,6 +340,7 @@ tool, so check each tool's own docs.
 | **Steering** | Type while a turn runs: the steer shows at once and reaches the work, a running command moves to the background instead of dying, sub-agents get your words forwarded into them. |
 | **A model per role** | YAML agent bios and lineups assign a model to each job: GLM can orchestrate while a local Qwen implements and a cheap flash model reviews. Pick one in Studio (Agents -> Cast), with `halo teams apply <lineup>`, or in the terminal wizard. |
 | **The design pack** | Studio's Design section as a pack Halo ships (3.3.13.0): a design project on disk, a turn with the craft apps as tools, knobs without a model call. |
+| **The first-run pack** | The guided first run as a pack Halo ships (3.4.0.0): `halo start`, one real Orchestra run that rehearses your lineup on a sample repo, its card first. |
 | **Per-model tool-call repairs** | Fourteen model families' quirks are repaired on the fly: Kimi's `functions.{name}:{idx}` ids, GLM's always-on thinking, Qwen's system-message rules, DeepSeek's reasoning echoes. Gateway quirks are learned once per model and remembered (`halo rules`). |
 | **Measured, not guessed** | `/stats` per model and per tool, price/context/speed columns in the picker, per-role cost attribution, and `halo preflight` canaries each lane before a long run. |
 | **Filter-aware routing** | A provider content filter is not an answer: a filtered reply never persists as one, and the request reroutes to a fallback lane you choose. |
@@ -369,7 +366,6 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/MISSIONS.md](docs/MISSIONS.md) | One goal for the whole fleet, and following its parts |
 | [docs/ORCHESTRA.md](docs/ORCHESTRA.md) | Several agents writing the same files: the plan, the lanes, the gate and the coach |
 | [docs/WORKFLOWS-squares.md](docs/WORKFLOWS-squares.md) | Workflow squares: the contract, the router, the five that ship, receipts and the Workflows board; [docs/WORKFLOWS.md](docs/WORKFLOWS.md) is the workflow file itself |
-| [docs/TEAM.md](docs/TEAM.md) | A team file: who works on a repo, where their work lands and in which order |
 | [docs/HANDBOOK.md](docs/HANDBOOK.md) | The long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions, themes, telemetry |
 | [docs/GLOSSARY.md](docs/GLOSSARY.md) | Every word Halo uses, one paragraph each (`halo explain <word>`) |
 | [docs/COMMANDS.md](docs/COMMANDS.md) | Every CLI command and flag |
@@ -385,6 +381,7 @@ line on when to read it. The longest docs are split by task; their entry pages b
 | [docs/DATABRICKS.md](docs/DATABRICKS.md) | Databricks endpoints, API types and the work matrix |
 | [docs/AGENTS.md](docs/AGENTS.md) | Agent bios and lineups: the 90-second version, then the field reference |
 | [the design pack](halo_harness/templates/packs/design/README.md) | Design: the project on disk, a design turn, the craft apps, knobs, systems, exports, the handoff (its docs/DESIGN.md) |
+| [the first-run pack](halo_harness/templates/packs/first-run/README.md) | The guided first run: `halo start`, `/start`, its Setup check row and its First run panel in Studio |
 | [docs/ROLES.md](docs/ROLES.md) | Roles and the role table |
 | [docs/PACKS.md](docs/PACKS.md) | Packs: add bios, lineups, skills, commands, hooks and MCP servers to Halo, or take them out again |
 | [docs/EXTENSION_API.md](docs/EXTENSION_API.md) | The extension API: the pack manifest, the lifecycle and what a pack may import |

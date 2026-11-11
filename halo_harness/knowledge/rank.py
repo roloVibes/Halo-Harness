@@ -61,10 +61,14 @@ def role_of(e: dict) -> str:
     return str(e.get("by") or "").split("@", 1)[0]
 
 
+def sample_root(state_dir) -> Path:
+    """Where the guided first run (the first-run pack, 3.4.0.0 B) writes its sample repos: `<state>/start/<day>/`."""
+    return Path(state_dir) / "start"
+
+
 def sample_folders(state_dir) -> set:
-    from halo_harness.start.sample_repo import start_root
     from halo_harness.knowledge.store import root
-    base = start_root(root(state_dir).parent)
+    base = sample_root(root(state_dir).parent)
     try:
         return {p.name for day in base.iterdir() if day.is_dir() for p in day.iterdir() if p.is_dir()}
     except OSError:

@@ -1083,10 +1083,6 @@ def _run_init_wizard_flow(args, console: Console, cwd: Path) -> "Optional[int]":
         console.print(f"   [WARN] {w}")
     rc = 0 if (args.no_live or app.state.pong_ok) else 1
     finished = bool(getattr(app.state, "finished", False)) and not getattr(app.state, "checks_cancel", False)
-    # 3.2.2.0 R2: the Summary's "The guided first run" row; setup closed while its checks ran hands nothing off
-    if rc == 0 and getattr(app.state, "run_start", False) and not getattr(app.state, "checks_cancel", False):
-        from halo_harness.start_cli import cmd_start
-        rc = cmd_start([])
     # 3.3.3.0 R1: the wizard's Finish starts halo here, as Setup's Done does (not after a quit, a cancel, a failed
     # pong or a failed start; not with --no-launch / HALO_INIT_NO_LAUNCH=1; only on a terminal)
     from halo_harness import init_wait
@@ -1147,9 +1143,9 @@ def _run_init_tabs(args, console: Console, cwd: Path) -> "Optional[tuple]":
     picked_per_provider: "dict[str, str]" = {}
     for provider in configured_this_run:
         if provider not in PROVIDERS:
-            # 1.0.1 part 2 fixpass finding 5: TypeSafe (TAB_PROVIDERS has it,
-            # PROVIDERS does not -- it has no default-model concept of its
-            # own, see init_providers.py's own TAB_PROVIDERS docstring) --
+            # 1.0.1 part 2 fixpass finding 5: a tab provider (TAB_PROVIDERS has it,
+            # PROVIDERS does not -- no default-model concept on this path,
+            # see init_providers.py's own TAB_PROVIDERS docstring) --
             # `PROVIDER_LABEL`/`PROVIDER_DEFAULT_MODEL` have no entry for it
             # at all, so indexing either raised a KeyError here, skipping
             # every step after it (default-model/permission-mode/summary).
@@ -1299,41 +1295,7 @@ def cmd_init(argv: list) -> int:
 
     if not args.no_live and not pong_ok:
         return 1
-    rc = _step_offer_start(args, console)
-    if rc == 0:  # 3.3.15.0 R6: the console flow starts nothing: the one line that says how both come up
-        from halo_harness.init_wait import FINAL_LINE
-        _say(console, FINAL_LINE)
-    return rc
-
-
-# ---------------------------------------------------------------------------
-# Last step (Halo 3.1.1.0 R1): offer the guided first run (3.2.2.0 R2: its
-# card first, on a terminal: what it does, the models, the cost, the time,
-# what it writes)
-# ---------------------------------------------------------------------------
-
-START_QUESTION = ("Run the guided first run now? (halo start: one real Orchestra run on your models; "
-                  "the card above says what it does, costs and writes)")
-
-
-def _step_offer_start(args, console: Console) -> int:
-    """The wizard's last step: `halo start` right away, default No (and No
-    in a non-interactive run). Returns init's exit code (0; the start's own
-    code when it ran). 3.3.15.0 R5: on the Auto lineup (or none) it is not
-    offered; its line says why and where a lineup is tested."""
-    from halo_harness.start.auto_gate import lines as auto_lines, offers_start
-    if not offers_start():
-        for line in auto_lines():
-            console.print(f"   {line}", markup=False, highlight=False)
-        return 0
-    if not _non_interactive(args):
-        from rich.markup import escape
-        from halo_harness.start.card import card_lines
-        for line in card_lines():
-            console.print(f"   {escape(line)}" if line else "")
-    if not _confirm(args, console, START_QUESTION, default=False):
-        console.print("   The guided first run is there any time: halo start (halo start --explain says what it "
-                      "does, costs and writes; /start in the TUI).")
-        return 0
-    from halo_harness.start_cli import cmd_start
-    return cmd_start([])
+    # 3.4.0.0 B: no guided-first-run offer here (it is the first-run pack's `halo start`)
+    from halo_harness.init_wait import FINAL_LINE  # 3.3.15.0 R6: the console flow starts nothing
+    _say(console, FINAL_LINE)
+    return 0

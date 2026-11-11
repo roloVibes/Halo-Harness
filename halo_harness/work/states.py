@@ -51,7 +51,7 @@ EDGES = {
 }
 # the edges R2 added to R1's machine, each because an engine needs it (the docstring says which)
 ADDED = (("failed", "ready"), ("failed", "running"), ("skipped", "ready"), ("merged", "waiting"), ("waiting", "done"))
-KINDS = ("lane", "part", "stage", "goal")  # 3.1.8.0 R1: a supervisor goal is a unit too
+KINDS = ("lane", "part", "goal")  # 3.1.8.0 R1: a supervisor goal is a unit too
 
 # engine word -> machine word, per kind (the words on disk stay the engine's)
 ALIASES = {
@@ -60,8 +60,6 @@ ALIASES = {
     # 3.2.1.0 R3: a part `waiting` is ready, held by the hub until its pack capability has a free slot on its harness
     "part": {"pending": "pending", "waiting": "ready", "asked": "waiting", "running": "running", "done": "done",
              "failed": "failed", "stopped": "stopped", "skipped": "skipped", "merged": "merged"},
-    "stage": {"pending": "pending", "ready": "ready", "running": "running", "gated": "gated", "done": "done",
-              "failed": "failed", "skipped": "skipped"},
     # 3.1.8.0 R1: a supervisor goal (supervise/queue.py). queued -> ready, parked -> waiting (it waits on the owner).
     "goal": {"queued": "ready", "running": "running", "parked": "waiting", "done": "done", "stopped": "stopped",
              "failed": "failed"},
@@ -72,8 +70,6 @@ NATIVE = {
              "done": "written", "failed": "failed", "skipped": "failed", "stopped": "failed", "merged": "merged"},
     "part": {"pending": "pending", "ready": "waiting", "running": "running", "waiting": "asked", "gated": "running",
              "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "stopped", "merged": "merged"},
-    "stage": {"pending": "pending", "ready": "ready", "running": "running", "waiting": "running", "gated": "gated",
-              "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "skipped", "merged": "done"},
     "goal": {"pending": "queued", "ready": "queued", "running": "running", "waiting": "parked", "gated": "parked",
              "done": "done", "failed": "failed", "skipped": "stopped", "stopped": "stopped", "merged": "done"},
 }

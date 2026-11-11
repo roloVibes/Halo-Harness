@@ -500,9 +500,6 @@ class ProvidersStep(StepScreen):
         if provider == "openai":
             yield Static("Paste OPENAI_API_KEY to use the real OpenAI API directly (oai: models).",
                          classes="tab-help")
-        if provider == "typesafe":
-            yield Static("Stores TYPESAFE_API_KEY only -- for a later feature, no routed models yet.",
-                         classes="tab-help")
         if provider == "experiential":
             yield Static("Paste EXPLABS_API_KEY (the inference key, prefix xpl_) to use the Experiential "
                          "Labs gateway (xp: models) -- its catalog, credits balance and model prices come "
@@ -1163,7 +1160,7 @@ STEP_FACTORIES["linux_fixes"] = LinuxFixesStep
 
 
 # ---------------------------------------------------------------------------
-# Step: Summary -- 3.2.2.0 R2: the five check rows of start/checks.py
+# Step: Summary -- 3.2.2.0 R2: the five check rows of checks/catalog.py
 # (tui/dialogs/summary_checks.py): Finish runs the ticked ones and prints
 # each result here, then Finish closes setup. `init_cli._step_summary`'s
 # lines (captured into a StringIO-backed Console) follow them, so this

@@ -221,20 +221,10 @@ naming Databricks/OpenRouter/`--chrome`/MCP is shown only once that
 provider or feature is actually enabled/present). Identical output in
 `-p` and the TUI.
 
-### `/start`
-Halo 3.1.1.0: the guided first run in a panel over the session (the TUI runs
-it; it does not open a terminal pane), one real Orchestra run on your models: a lineup copied into your scope, the
-sample repo, one Orchestra goal with a reviewed plan, the run, the report
-and the coach -- the seven steps one under another with their state, and the
-newest step's why, command and lines below them. The panel runs straight
-through like `halo start --yes` (the lead's plan is approved as it comes);
-for one screen per step, or to change the plan on Studio's plan canvas
-first, run `halo start` in a terminal. Esc stops a running start at its next
-check (a waiting plan is rejected, a running Orchestra run asked to stop);
-Esc again closes the panel. Outside the TUI `/start` says how to run it. See
-`docs/COMMANDS.md` (`halo start`; `halo start --explain` prints its card:
-what it does, the models it will call, the estimated cost, the time, what
-it writes).
+### The guided first run (the first-run pack)
+`/start` is the first-run pack's slash command (3.4.0.0; the first-run pack since 3.4.0.0 (`halo pack install first-run`, then `halo pack enable first-run --grant-all`)): it shows the guided first run's card and how to run it
+(`halo start` in a terminal, or Run on the First run panel in Studio). With the pack off, `/start` says in one line
+that it is a pack now. [The pack's README](../halo_harness/templates/packs/first-run/README.md).
 
 ### `/check [--all | --doctor --catalog --hello --gym] [--models REF,REF] [--explain]`
 Halo 3.2.2.0: the checks Halo offers after setup, the same list as `halo
@@ -244,8 +234,7 @@ long it takes, then its result lines. No flag runs doctor, the catalog
 refresh and the hello call (the default-on three); `--gym` runs `halo gym
 --quick` on `--models` (default: your default model and the start lineup's
 models; local models only); `--explain` prints the five rows and runs
-nothing. `--start` (and `--all`'s fifth row) points at `/start`, which runs
-the guided first run in a panel. See `docs/COMMANDS-init.md` (`halo check`).
+nothing. `--start` says the guided first run is the first-run pack's (3.4.0.0). See `docs/COMMANDS-init.md` (`halo check`).
 
 ### `/explain [thing]`
 Halo 3.1.1.0: what a Halo word means -- its one paragraph from

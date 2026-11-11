@@ -162,7 +162,7 @@ def _model(state_dir, bigger: bool, model: Optional[str]) -> "tuple[Optional[str
     if model:
         return model, "given"
     if bigger:
-        from halo_harness.start.provider import default_model
+        from halo_harness.checks.provider import default_model
         m = default_model()
         return (m or None), "the session's main model" if m else "no main model: set `model` in config.json"
     from halo_harness.ollama_steward.agent import choose_model
@@ -220,7 +220,7 @@ def ask(state_dir, question: str, *, bigger: bool = False, caller: Optional[Call
 
 def bigger_cost(state_dir, question: str = "", *, readers: Optional[dict] = None, env: Optional[dict] = None) -> dict:
     from halo_harness.ollama_steward import chat_log
-    from halo_harness.start.checks_run import call_price
+    from halo_harness.checks.run import call_price
     model, why = _model(state_dir, True, None)
     if not model:
         return {"model": None, "line": why, "tokens": 0}

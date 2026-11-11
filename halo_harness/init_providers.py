@@ -17,28 +17,26 @@ from typing import Optional
 PROVIDERS = ("databricks", "openrouter", "anthropic")
 
 # H15 Part A: the tabbed init view's own tabs -- PROVIDERS plus Ollama,
-# Hugging Face (round 5) and TypeSafe. Deliberately NOT added to PROVIDERS
+# Hugging Face (round 5), OpenAI and Experiential Labs. Deliberately NOT added to PROVIDERS
 # itself: that tuple also drives the OLD sequential `--provider`/`--preset`
 # CLI picker (`init_cli.py`'s own `_step_credentials`/`PROVIDER_LABEL`/
 # `PROVIDER_DEFAULT_MODEL` -- none of which have a branch/sensible
 # hardcoded default model for either, unlike every provider already in
 # PROVIDERS) and the cross-provider "Default model" step's own
 # `configured_providers()` (a few-second live probe for either would be
-# out of place blocking that step's synchronous `body()`) -- same reason
-# TypeSafe (no model catalog/default-model concept of its own) was
-# already kept out. `halo init`'s INTERACTIVE Providers tab (and its own
+# out of place blocking that step's synchronous `body()`). `halo init`'s INTERACTIVE Providers tab (and its own
 # no-TTY/Textual-failure fallback, which is the OLD sequential picker
 # above and so never offers these two either -- a documented, deliberate
 # gap, not an oversight) is the only surface TAB_PROVIDERS drives;
 # `halo setup`/`/setup` never reach a providers step at all (`setup_cli.
 # py`'s own step list is `roles`/`summary` only), so neither is
 # affected by this tuple either way.
-TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "typesafe", "experiential")
+TAB_PROVIDERS = PROVIDERS + ("ollama", "huggingface", "openai", "experiential")  # 3.4.0.0: TypeSafe left the core
 
 TAB_LABEL = {
     "databricks": "Databricks", "openrouter": "OpenRouter", "anthropic": "Anthropic API (key)",
     "ollama": "Ollama (local or LAN)", "huggingface": "Hugging Face",
-    "openai": "OpenAI API (key)", "typesafe": "TypeSafe",
+    "openai": "OpenAI API (key)",
     "experiential": "Experiential Labs",
 }
 
@@ -287,7 +285,7 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
     pre-existing call site) means "no team config available here" -- never
     an error, just one fewer host-discovery source.
 
-    Detection for `openrouter`/`anthropic`/`typesafe` now goes through
+    Detection for `openrouter`/`anthropic` now goes through
     `providers.config.listing_effective_env()` (finding 3) so a key living
     only in a settings.json `env` block shows as configured here too,
     matching what a real session would resolve.
@@ -422,18 +420,11 @@ def tab_credential_state(provider: str, *, team_cfg: Optional[dict] = None,
                     "known_host": None, "fields": []}
         return {"configured": False, "source": None, "masked": None, "known_host": None,
                 "fields": [{"name": "key", "label": "EXPLABS_API_KEY", "secret": True}]}
-    if provider == "typesafe":
-        key = env.get("TYPESAFE_API_KEY")
-        if key:
-            return {"configured": True, "source": "env file", "masked": redact(key),
-                    "known_host": None, "fields": []}
-        return {"configured": False, "source": None, "masked": None, "known_host": None,
-                "fields": [{"name": "key", "label": "TYPESAFE_API_KEY", "secret": True}]}
     return {"configured": False, "source": None, "masked": None, "known_host": None, "fields": []}
 
 
 _TAB_KEY_ENV = {"openrouter": "OPENROUTER_API_KEY", "anthropic": "ANTHROPIC_API_KEY",
-                "openai": "OPENAI_API_KEY", "typesafe": "TYPESAFE_API_KEY",
+                "openai": "OPENAI_API_KEY",
                 "experiential": "EXPLABS_API_KEY"}
 
 
@@ -631,7 +622,7 @@ def refresh_tab_catalog(provider: str) -> "tuple[bool, str]":
     """H15 item A.4: "finishing a tab that has credentials and is
     reachable fetches and caches that provider's catalog right then" --
     best-effort (ok, note); a no-op (`True`, `""`) for a provider with no
-    catalog concept of its own (typesafe) or that isn't actually
+    catalog concept of its own (anthropic, ollama) or that isn't actually
     configured yet (nothing to fetch)."""
     from halo_harness.config.paths import bridge_home
     state_dir = bridge_home()
@@ -692,4 +683,4 @@ def refresh_tab_catalog(provider: str) -> "tuple[bool, str]":
             return True, f"{len(fetched)} model(s) cached"
         except Exception as e:
             return False, f"{type(e).__name__}: {e}"
-    return True, ""  # anthropic / ollama / typesafe: no catalog of their own to cache here
+    return True, ""  # anthropic / ollama: no catalog of their own to cache here

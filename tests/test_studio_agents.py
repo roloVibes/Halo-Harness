@@ -107,19 +107,6 @@ def test_live_draws_the_run_s_lanes_under_its_lead(ctx: Ctx):
 
 
 @test
-def test_test_this_lineup_waits_on_auto_and_shows_its_card_first(ctx: Ctx):
-    got = _got(ctx)
-    auto = got.get("auto") or [None, ""]
-    ctx.check(f"on Auto: disabled, the Auto line beside it, got {auto}",
-              auto[0] is True and str(auto[1]).startswith("Your lineup is Auto: pick or build a lineup in Agents -> Cast first"))
-    ctx.check("with a lineup of your own: enabled", got.get("enabled") == "enabled")
-    card = str(got.get("card") or "")
-    ctx.check(f"its card: the run, the lineup, the cost, what it writes, got {card[:120]!r}",
-              card.startswith("The guided first run (halo start)") and "halo-dev-cycle" in card and "Estimated cost:" in card and "Writes:" in card)
-    ctx.check("the card comes first, Run after it", got.get("card_first") is True)
-
-
-@test
 def test_the_old_words_are_doors_and_team_left_nothing_behind(ctx: Ctx):
     """No Chrome: the page's doors (lib/agentsDoor.ts), STUDIO_MODES (the six, then the four words), the terminal's
     line for each word, and no Team route, panel or capture left (3.0.8.0 R2's Team section went with its board); 3.3.16.0

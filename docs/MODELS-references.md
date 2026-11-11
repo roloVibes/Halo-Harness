@@ -290,7 +290,7 @@ See [MODELS-ollama-steward.md](MODELS-ollama-steward.md).
 A provider's models reach `/model`/`halo models`/the `init` default
 pick/`doctor` once it is **enabled** -- and (H15 part 2 addendum) that
 happens AUTOMATICALLY, straight from real credentials, no `init`/`providers
-enable` step required: OpenRouter/Anthropic API (key)/TypeSafe auto-enable
+enable` step required: OpenRouter/Anthropic API (key) auto-enable
 once their key is found (env file, shell env, or the settings env chain);
 Databricks once a host AND token are found (same sources, plus
 `~/.databrickscfg`); Hugging Face (Halo 2.0.3
@@ -300,9 +300,9 @@ local_servers` entry is configured -- any ONE of the three sources alone
 is enough; an auto-DETECTED local server (no config entry at all) is
 never checked here (that needs a live network probe, out of scope for
 this config/env-only check) -- see `/local`/`halo local` for that;
-OpenAI API (key), Experiential Labs, and TypeSafe each follow the same
+OpenAI API (key) and Experiential Labs each follow the same
 single-key auto-enable rule as OpenRouter/Anthropic above (`OPENAI_API_
-KEY`/`EXPLABS_API_KEY`/`TYPESAFE_API_KEY` respectively).
+KEY`/`EXPLABS_API_KEY` respectively).
 `~/.halo/config.json`'s
 `"providers"` block stores OVERRIDES only: `halo providers enable/
 disable <name>` (or `/providers enable/disable <name>`, or completing a
@@ -321,7 +321,10 @@ own tabs, `halo providers`/`/providers`, and `doctor`):
 | `oai:` | OpenAI API (key) | `openai` |
 | `xp:` | Experiential Labs | `experiential` |
 | `cp:` | Copilot at work (3.3.17.0: one ref, `cp:work`) | `copilot` -- set up by `copilot.tenant` / `copilot.client_id` and `halo copilot signin`, not by `halo providers`; [PROVIDERS-copilot.md](PROVIDERS-copilot.md) |
-| *(none yet)* | TypeSafe | `typesafe` -- stores `TYPESAFE_API_KEY` only, for a later feature |
+
+TypeSafe (`typesafe`, a key-only placeholder that routed no model) left the core in 3.4.0.0: a `ts:` ref, its
+`TYPESAFE_API_KEY` or a `providers.typesafe` row gets one line saying so (`halo doctor`, `halo providers`), never
+an error.
 
 Ollama (`ol:`) is deliberately NOT in this table -- see "Ollama" below,
 which covers its own multi-host reachability model instead of a single

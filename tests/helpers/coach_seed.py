@@ -116,18 +116,3 @@ def mission_folder(home: Path, mid: str = "m-20261017-c0a1") -> Path:
     return folder
 
 
-def team_run(root: Path, run: str = "20261017-121000-7ea0") -> Path:
-    """A done team run: stage `copy` gated twice (one redo), a write of `site/index.html` refused."""
-    run_dir = Path(root) / ".halo" / "team" / run
-    write(run_dir / "board.json", {"run": run, "team": "launch", "state": "done", "stages": [
-        {"id": "copy", "kind": "agent", "state": "done", "round": 2, "cost_usd": 0.1},
-        {"id": "ship", "kind": "agent", "state": "done", "round": 1, "cost_usd": 0.0}]})
-    write(run_dir / "run.json", {"run_id": run, "created": 1000.0})
-    lines(run_dir / "events.jsonl", [
-        {"ts": 1.0, "kind": "gate", "stage": "copy", "text": "waiting at copy (round 1)", "data": {"gate": {"round": 1}}},
-        {"ts": 2.0, "kind": "gate", "stage": "copy", "text": "copy: redo -- shorter", "data": {"action": "redo",
-                                                                                              "answer": {"text": "shorter"}}},
-        {"ts": 3.0, "kind": "gate", "stage": "copy", "text": "waiting at copy (round 2)", "data": {"gate": {"round": 2}}},
-        {"ts": 4.0, "kind": "claim", "stage": "ship", "text": "block `site`: `site/index.html` is held by writer",
-         "data": {"refused": True, "member": "editor", "key": "site/index.html", "by": "writer"}}])
-    return run_dir

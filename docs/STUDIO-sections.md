@@ -312,8 +312,8 @@ when. Log: every claim, merge, gate decision and note, with its time.
 #### Team
 
 Moved: Team's board went in 3.3.16.0 R1. Who owns what is a run plan's detail in Agents' **Runs** (each
-lane's owns line, a lane's claims); `?mode=team` lands there with one line the first time. `halo team` still runs
-the team file from a terminal ([TEAM.md](TEAM.md)), and a team stage at its gate is still a row of Attention (the chip in Agents' bar).
+lane's owns line, a lane's claims); `?mode=team` lands there with one line the first time. The team file and
+`halo team` left in 3.4.0.0.
 
 #### Fleet
 

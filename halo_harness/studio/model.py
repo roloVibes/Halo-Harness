@@ -136,10 +136,10 @@ def _effective_model(raw: dict, entry: dict, bio: Optional[dict], *, cwd=None, s
 
 
 def _removed_route_warnings(*refs) -> list:
-    """3.1.5.0 R1: a card still naming a cc:/cx: model (routes removed in
-    3.1.5.0) falls through to the session model -- say so on the card."""
-    if any(str(r or "").startswith(("cc:", "cx:")) for r in refs):
-        return ["names a cc:/cx: model (removed in 3.1.5.0) -- it falls through to the session model; "
+    """3.1.5.0 R1: a card still naming a cc:/cx: model (routes removed in 3.1.5.0), or a ts: one (3.4.0.0: TypeSafe
+    left the core), falls through to the session model -- say so on the card."""
+    if any(str(r or "").startswith(("cc:", "cx:", "ts:")) for r in refs):
+        return ["names a cc:/cx: or ts: model (removed in 3.1.5.0 and 3.4.0.0) -- it falls through to the session model; "
                 "pick an API route, e.g. ant:sonnet"]
     return []
 

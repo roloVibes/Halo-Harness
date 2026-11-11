@@ -1,10 +1,9 @@
 """halo_harness.where.yaml_files -- the YAML files for `halo config where`:
 the active lineup and every lineup it extends, the three lineup and bio
-folders (repo `.halo/`, `~/.halo/`, shipped) and the team file.
+folders (repo `.halo/`, `~/.halo/`, shipped). (3.4.0.0 B: the team file left the core.)
 
 Precedence comes from the loaders: a name in two folders goes to the file
-`find_team_template_path` / `find_agent_bio_path` picks, the
-team file to `find_team_file`, and a section the active lineup and its
+`find_team_template_path` / `find_agent_bio_path` picks, and a section the active lineup and its
 parent both set to `resolve_team_template`'s merge (the child's own value
 when the merge kept it whole, "merged" otherwise).
 """
@@ -92,34 +91,6 @@ def active_lineup_rows(cwd: Path, state_dir: Path, active: str) -> list:
     return settle(rows, winner, cwd=cwd)
 
 
-def team_file_rows(cwd: Path, state_dir: Path) -> list:
-    from halo_harness.team import spec as S
-    from halo_harness.where.rows import display
-    root = S.team_root(cwd)
-    found = S.find_team_file(cwd, state_dir)
-    rows = []
-    for rank, (path, source) in enumerate(((S.repo_team_path(root), "repo"), (S.user_team_path(root, state_dir), "user")), 1):
-        names, note = [], "no file here"
-        if path.is_file():
-            note = "the team for this repo (halo team)"
-            try:
-                names = [str(S.load_file(path).get("name") or root.name)]
-            except ValueError as e:
-                note = str(e)
-        row = make("team", path, scope_of(source), cwd=cwd, sets=names, rank=rank, note=note)
-        if found is not None and path.is_file() and path.resolve() != Path(found[0]).resolve():
-            row["loses"] = [{"key": "team file", "to": display(found[0], cwd=cwd), "to_path": str(found[0])}]
-            row["note"] = "not used: the repo's own .halo/team.yaml wins"
-        rows.append(row)
-    teams_dir = Path(state_dir) / "teams"
-    for path in sorted(teams_dir.glob("*" + S.SUFFIX)) if teams_dir.is_dir() else []:
-        if path.resolve() == S.user_team_path(root, state_dir).resolve():
-            continue
-        rows.append(make("team", path, "home", cwd=cwd, sets=[path.name[:-len(S.SUFFIX)]], rank=3,
-                         note=f"for a repo folder named {path.name[:-len(S.SUFFIX)]}, not this one"))
-    return rows
-
-
 def yaml_rows(cwd: Path, state_dir: Path, active: str) -> list:
     return (active_lineup_rows(cwd, state_dir, active) + lineup_folder_rows(cwd, state_dir)
-            + bio_folder_rows(cwd, state_dir) + team_file_rows(cwd, state_dir))
+            + bio_folder_rows(cwd, state_dir))

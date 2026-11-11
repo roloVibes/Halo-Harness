@@ -73,7 +73,7 @@ def test_a_state_read_with_a_host_and_the_flag_opens_nothing(ctx: Ctx):
 
 @test
 def test_without_the_flag_a_state_read_still_never_calls_fetch_tags(ctx: Ctx):
-    """The flag off (as in a real Studio): the rows, the card and the costs still read the cache only. The Local
+    """The flag off (as in a real Studio): the rows and the costs still read the cache only (3.4.0.0 B: the card is the first-run pack's). The Local
     models block's detection lines (R2) are the one live read, kept a minute; stubbed here."""
     from halo_harness.studio import setup_providers_state as P
     with _NoNet() as e:
@@ -81,12 +81,10 @@ def test_without_the_flag_a_state_read_still_never_calls_fetch_tags(ctx: Ctx):
         os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
         try:
             status, s = e.call("GET", "setup/state")
-            _status, start = e.call("GET", "start")
         finally:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
             P.detection = saved
         ctx.check(f"200, nothing opened, no fetch_tags, got {status} {e.opened}", status == 200 and e.opened == [])
-        ctx.check("GET start's card read the cache too", start["card"][0] == "The guided first run (halo start)")
 
 
 @test

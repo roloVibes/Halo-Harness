@@ -115,10 +115,9 @@ def test_block_door_and_the_summary(ctx: Ctx):
               and vals.get("check", [None, "", ""])[2] == "not run")
     ctx.check(f"Run the ticked checks with the ticks named, got {got.get('summary_run')!r} {got.get('summary_ticked')!r}",
               got.get("summary_run") == "Run the ticked checks" and "doctor, catalog, hello" in str(got.get("summary_ticked")))
-    from halo_harness.start.auto_gate import AUTO_LINE  # 3.3.15.0 R5: this fresh home runs the Auto lineup
-    ctx.check(f"the last check, and on Auto the line in place of the guided first run's button, got {got.get('summary_start')} "
+    ctx.check(f"the last check, and no guided first run part (3.4.0.0 B: the first-run pack's), got {got.get('summary_start')} "
               f"{got.get('summary_start_auto')!r}", got.get("summary_last") == "not run" and got.get("summary_start") is False
-              and got.get("summary_start_auto") == AUTO_LINE)
+              and got.get("summary_start_auto") == "")
     ctx.check(f"Change jumps to the step's page, got {got.get('change_page')!r}", got.get("change_page") == "model")
     ctx.check(f"the Summary's button opens the Check page, got {got.get('to_check_page')!r}", got.get("to_check_page") == "check")
 
@@ -148,8 +147,8 @@ def test_done_starts_halo_and_leaves_for_session(ctx: Ctx):
     ctx.check(f"the primary Done: start halo with its title, got {got.get('done_label')!r} {got.get('done_title')!r} {got.get('done_primary')!r}",
               got.get("done_label") == "Done: start halo" and "primary" in str(got.get("done_primary"))
               and got.get("done_title") == "Marks this box set up; the terminal that ran `halo init` starts halo; Studio opens Session")
-    ctx.check(f"at the foot of the Summary, after the check and the guided first run, got {got.get('done_last')}",
-              got.get("done_last") == ["setup-summary-check", "setup-summary-start", "setup-summary-done"])
+    ctx.check(f"at the foot of the Summary, after the check (3.4.0.0 B: no guided first run part), got {got.get('done_last')}",
+              got.get("done_last") == ["setup-summary-check", "setup-summary-done"])
     ctx.check(f"a click: Session, nothing opened over it, got {got.get('done_section')!r} {got.get('done_open')}",
               str(got.get("done_section")).startswith("Session") and got.get("done_open") == [False, False, 0])
     ctx.check(f"Done and the rail's line gone, mode=setup left the address, got {got.get('done_gone')} {got.get('done_first_after')} "

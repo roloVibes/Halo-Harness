@@ -46,15 +46,6 @@ def packs(server) -> list:
         return []
 
 
-def teams(server) -> list:
-    """The open gates of the team run of Studio's repo (3.0.8.0 R2, fleet/team_attention.py)."""
-    try:
-        from halo_harness.fleet.team_attention import gated
-        return gated(getattr(server, "cwd", None), getattr(server, "state_dir", None))
-    except Exception:
-        return []
-
-
 def pages(server) -> int:
     """3.3.11.0 R2: how many Studio pages the feed serves now (studio/events.py listeners); 0 without a feed."""
     try:

@@ -27,7 +27,7 @@ test, TESTS = new_registry()
 @test
 def test_every_kind_s_log_reads_as_ledger_lines(ctx: Ctx):
     from halo_harness.work import ledger
-    from tests.helpers.coach_seed import mission_folder, orchestra_run, team_run
+    from tests.helpers.coach_seed import mission_folder, orchestra_run
     from tests.helpers import coach_seed as S
     root = Path(tempfile.mkdtemp(prefix="work-ledger-"))
     run_dir = orchestra_run(root, [S.lane(1), S.lane(2)],
@@ -40,14 +40,10 @@ def test_every_kind_s_log_reads_as_ledger_lines(ctx: Ctx):
     claim = next(x for x in lines if x.kind == "claim")
     ctx.check(f"a claim line carries the unit, holder and key, got {claim.to_dict()}",
               claim.unit == "1" and claim.by == "s1/main" and claim.key == "basket.py#f1" and claim.native == "claim")
-    for kind, folder in (("part", mission_folder(root)), ("stage", team_run(root))):
+    for kind, folder in (("part", mission_folder(root)),):
         got = ledger.read(folder, kind)
         ctx.check(f"{kind}: lines read, every kind allowed, got {sorted({x.kind for x in got})}",
                   all(x.kind in ledger.KINDS for x in got))
-    team_lines = ledger.read(team_run(root), "stage")
-    ctx.check("team: the refused write is a claim line, the gate a gate line",
-              any(x.kind == "claim" and x.unit == "ship" for x in team_lines)
-              and any(x.kind == "gate" and x.unit == "copy" for x in team_lines))
 
 
 @test

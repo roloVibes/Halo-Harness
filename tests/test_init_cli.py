@@ -683,7 +683,7 @@ def test_scripted_provider_loop_sets_up_two_then_done_then_cross_provider_pick(c
             return "done"
 
     def _fake_confirm(args, console, question, *, default):
-        if question == init_cli.START_QUESTION:  # 3.1.1.0: the last step's offer never eats a scripted "set up another?" answer
+        if question.startswith("Run the guided first run now?"):  # 3.4.0.0 B: init offers it no more (kept: harmless)
             return False
         try:
             return next(confirm_calls)

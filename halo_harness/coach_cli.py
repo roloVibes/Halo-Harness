@@ -7,7 +7,6 @@
     halo coach library [list|show|forget|fetch] ...   3.1.6.0 R3: the improvement library (coach_library_cli.py)
     halo orchestra coach [RUN] ...          an Orchestra run (default: the latest of this repo)
     halo fleet mission coach <id> ...       a mission of this harness (or the shared missions folder)
-    halo team coach [RUN] ...               a team run of this repo (default: the latest)
 
 `halo coach` takes a run of any kind (a folder, an id or a prefix; no RUN:
 the latest, as `halo work` finds it). Each prints the same card
@@ -151,7 +150,7 @@ def _parse(prog: str, argv: list, run_help: str, required: bool = False, top: bo
     if top:
         p.add_argument("--undo", nargs="?", const="", default=None, metavar="APPLY_ID",
                        help="put back the file of an apply (default: the last one not undone)")
-        p.add_argument("--repo", default=None, help="the repo whose Orchestra and team runs to look in (default: here)")
+        p.add_argument("--repo", default=None, help="the repo whose Orchestra runs to look in (default: here)")
     try:
         return p.parse_args(argv), 0
     except SystemExit as e:
@@ -217,16 +216,3 @@ def cmd_mission_coach(argv: list) -> int:
         return 1
     return run_card(S.folder(identity.home(), a.run), a)
 
-
-def cmd_team_coach(argv: list) -> int:
-    from halo_harness.team import board as BD
-    from halo_harness.team.spec import team_root
-    a, rc = _parse("halo team coach", argv, "run id (default: the latest)")
-    if a is None:
-        return rc
-    run_dir = BD.find_run(team_root(), a.run)
-    if run_dir is None:
-        print(f"halo team coach: no team run {a.run!r}" if a.run else "halo team coach: no team runs here",
-              file=sys.stderr)
-        return 1
-    return run_card(run_dir, a)

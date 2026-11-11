@@ -10,9 +10,7 @@ harnesses at the same time, merges what they made and writes a report. Parts
 never step on each other: each one may edit only what it claims, and two
 parts that would touch the same file run one after the other.
 
-**Teams (Halo 3.0.8.0):** a team member with `harness: <fleet member>` sends its stage's task the way a part goes out (`run_task`, as a one-part mission in the hub's store); see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
-
-**Team stages on a member (Halo 3.1.2.0):** a team's orchestra stage with `harness: <member>` goes as a one-part mission whose part is `kind: orchestra` (its `run` the goal); the member runs it locally and hands back `result.json`, the run's `report.json` and its line; see [TEAM.md](TEAM.md#delegating-a-member-to-the-fleet).
+**An Orchestra part on a member (Halo 3.1.2.0):** a part of `kind: orchestra` (its `run` the goal) runs locally on the member, which hands back `result.json`, the run's `report.json` and its line. (3.4.0.0: the team file that sent its stages this way left the core.)
 
 **One unit of work (Halo 3.1.2.0):** a mission part is a *unit* of work, the same thing an Orchestra lane and a team stage are; `halo work <mission id>` prints its parts as that shared table. See [WORK.md](WORK.md).
 

@@ -6,8 +6,8 @@ every Studio route.
     POST setup/check {checks: [keys], models?: [refs]}
                          202 {job}: the ticked checks as one background job (studio/setup_check_job.py), each
                          check's frames streamed as `setup` frames on /api/events; 409 while one runs;
-                         422 {error, problems} for an unknown key or no key; 422 {error, reason: "no_provider"}
-                         when the guided first run is ticked and no provider is set (the start's own line)
+                         422 {error, problems} for an unknown key or no key (3.4.0.0 B: the guided first run is
+                         the first-run pack's Setup check row, `pack:first-run:run`, when that pack is on)
     GET  setup/check     {job}: setup_check_job.current() -- the latest frame per check and the summary
     POST setup/check/stop  {stopping}
     POST setup/linux-fixes   the fixes this box is missing, applied as the wizard's Linux step applies them
@@ -41,32 +41,20 @@ def _strings(value) -> "list[str] | None":
 
 
 def post_check(req):
-    from halo_harness.start import checks as C
-    from halo_harness.studio import setup_check_job, start_job
+    from halo_harness.checks import catalog as C
+    from halo_harness.studio import setup_check_job
     if setup_check_job.running():
         return 409, {"error": "a check is already running", "job": setup_check_job.current()}
     body = _body(req)
     keys = _strings(body.get("checks"))
     if not keys:
         return 422, {"error": "tick at least one check", "problems": [f"checks: a list of keys, from {', '.join(C.KEYS)}"]}
-    from halo_harness.start.checks_pack import rows as pack_rows  # 3.3.11.0 R3: the enabled packs' Setup checks
+    from halo_harness.checks.pack import rows as pack_rows  # 3.3.11.0 R3: the enabled packs' Setup checks
     offered = list(C.KEYS) + [r["key"] for r in pack_rows(req.cwd, req.state_dir)]
     unknown = [k for k in keys if k not in offered]
     if unknown:
         lines = [f"{k}: not a check (one of {', '.join(offered)})" for k in unknown]
         return 422, {"error": lines[0], "problems": lines}
-    if "start" in keys:
-        from halo_harness.start.auto_gate import AUTO_LINE, REASON, offers_start
-        if not offers_start():  # 3.3.15.0 R5: the guided first run belongs to a custom lineup
-            return 422, {"error": AUTO_LINE, "reason": REASON, "problems": [AUTO_LINE]}
-        if start_job.running():
-            return 409, {"error": "the guided first run is already running", "job": setup_check_job.current()}
-        from halo_harness.start import fake
-        if not fake.enabled():
-            from halo_harness.start.provider import ready
-            ok, text = ready()
-            if not ok:
-                return 422, {"error": text, "reason": "no_provider", "problems": [text]}
     models = _strings(body.get("models"))
     ctx = C.default_ctx(req.cwd, state_dir=req.state_dir, gym_models=models if models else None)
     return 202, {"job": setup_check_job.start(keys, ctx, req.state_dir, _publisher(req))}

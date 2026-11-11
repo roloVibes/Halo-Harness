@@ -9,8 +9,7 @@ on a gate (tests/helpers/orchestra_studio_rig.py `fake_runner`): the lead split 
                                                    Runs with Team's line once; C / R / L switch; each lane in Runs
                                                    says what it owns and a focused lane lists its claims (holder,
                                                    state); Live draws the run's lead and a lane node under it with
-                                                   its number and worktree; Test this lineup is disabled on Auto with
-                                                   the Auto line, enabled with a lineup of your own, its card first
+                                                   its number and worktree (3.4.0.0 B: Test this lineup is the first-run pack's panel)
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called (HALO_START_FAKE=1)."""
 from __future__ import annotations
@@ -33,7 +32,6 @@ VIEW = "document.querySelector('[data-testid=\"agents\"]')?.dataset.view"
 TABS = "document.querySelectorAll('[data-testid=\"section-tab\"]').length"
 ON = "document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"true\"]')?.dataset.tabId"
 NOTE = "document.querySelector('[data-testid=\"agents-team-note\"]')"
-TEST_BTN = "document.querySelector('[data-testid=\"agents-test-lineup\"]')"
 
 
 def key(c, ch: str, alt: bool = False) -> None:
@@ -123,24 +121,6 @@ def live_lanes(c, page) -> dict:
     return out
 
 
-def test_lineup(c, page, seed_lineup) -> dict:
-    """Auto: disabled with the line. A lineup of your own: enabled; its dialog shows the card first."""
-    open_page(c, page, "mode=agents&view=runs")
-    out = {"auto": c.wait(f"{TEST_BTN} && document.querySelector('[data-testid=\"agents-test-auto\"]') && [{TEST_BTN}.disabled,"
-                          " document.querySelector('[data-testid=\"agents-test-auto\"]').textContent]", 30)}
-    seed_lineup()
-    open_page(c, page, "mode=agents&view=runs")
-    out["enabled"] = c.wait(f"{TEST_BTN} && !{TEST_BTN}.disabled && !document.querySelector('[data-testid=\"agents-test-auto\"]') && 'enabled'", 30)
-    c.click_on(TEST_BTN)
-    dlg = "document.querySelector('[data-testid=\"agents-test\"]')"
-    card = f"{dlg}?.querySelector('[data-testid=\"agents-test-card\"]')"
-    out["card"] = c.wait(f"{card} && !{card}.textContent.startsWith('reading') && {card}.textContent", 20)
-    out["card_first"] = c.js(f"(() => {{ const run = {dlg}.querySelector('[data-testid=\"agents-test-run\"]');"
-                             f" return !!run && !run.disabled && !!({card}.compareDocumentPosition(run) & Node.DOCUMENT_POSITION_FOLLOWING); }})()")
-    c.key("Escape")
-    return out
-
-
 class AgentsDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -164,16 +144,10 @@ class AgentsDriver(Driver):
         def page(query: str) -> str:
             return base.replace("/#t=", f"/?{query}&feed=off&tour=off#t=")
 
-        def seed_lineup() -> None:
-            from halo_harness.teams_yaml import ensure_builtin_team_templates
-            from halo_harness.theme import set_config_value
-            ensure_builtin_team_templates(state_dir=state)
-            set_config_value("team", "halo-dev-cycle")
-            set_config_value("roles.enabled", True)
         try:
             self.start_run(srv, repo)
             yield ((cast_first, (c, page)), (doors, (c, page)), (team_note, (c, page)), (view_keys, (c, page)),
-                   (owns, (c, page)), (live_lanes, (c, page)), (test_lineup, (c, page, seed_lineup)))
+                   (owns, (c, page)), (live_lanes, (c, page)))  # 3.4.0.0 B: Test this lineup is the first-run pack's
         finally:
             gate.set()
             orchestra_live.wait(30)  # the run ends before its repo goes

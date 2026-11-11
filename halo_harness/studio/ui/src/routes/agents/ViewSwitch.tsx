@@ -5,7 +5,6 @@
 import type { AgentsView } from "../../lib/agentsDoor";
 import { useStore } from "../../lib/store";
 import { agents, dismissNote, setAgentsView } from "./store";
-import { TestLineup } from "./runs/TestLineup";
 import { AttentionChip } from "./AttentionChip";
 import { LibraryButton } from "./workflows/Library";
 
@@ -44,7 +43,6 @@ export function AgentsBar({ view }: { view: AgentsView }) {
   return (
     <div className="ag-bar" data-testid="agents-bar" data-density="bar">
       <ViewSwitch view={view} />
-      {view === "runs" && <TestLineup />}
       {(view === "workflows" || view === "cast") && <LibraryButton plus />}
       <Note />
       <span className="spacer" />

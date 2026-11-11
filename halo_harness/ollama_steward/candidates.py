@@ -27,7 +27,7 @@ GIB = 2 ** 30
 
 def _main(host_name: str):
     from halo_harness.local_sched.facts import split_ref
-    from halo_harness.start.provider import default_model
+    from halo_harness.checks.provider import default_model
     ref = default_model()
     if not ref.startswith("ol:"):
         return None

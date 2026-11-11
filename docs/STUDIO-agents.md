@@ -48,11 +48,8 @@ for those words lands on Cast (`agents`, `roles`) or Runs (`orchestra`, `team`).
 ### What Team's board became
 
 The board (members as columns, stages as boxes, blocks underneath) is gone, and so is the TEAM cell of the status bar.
-What it showed that a run needs is a run-plan detail in **Runs**: who owns what. `halo team` (init, validate, status,
-run, answer, stop, the blocks; [TEAM.md](TEAM.md)) still runs a project's team file from a terminal, a team stage at
-its gate is still a row of Attention (accept, redo, stop; `o` opens Runs), and `GET /api/team/coach` still
-reads a team run's coach card. Every other `/api/team/...` route answers 410 with "Team's board moved into Agents ->
-Runs (a run's plan shows who owns what); halo team runs the team file".
+What it showed that a run needs is a run-plan detail in **Runs**: who owns what. 3.4.0.0: the team file and `halo team` left the core too, with
+its Attention rows and every `/api/team/...` route (they answer 404 now).
 
 ### Who owns what: the owns line
 
@@ -63,16 +60,11 @@ list under it (`lane-claims`): key, holder (`lane:<n>` until its worker joins, t
 writing, written); the plan inspector shows the same rows under CLAIMS as **CLAIM LEDGER**. They are the run's
 ClaimLog as `GET orchestra/<run>` carries it (`claims`); nothing new is stored.
 
-### Test this lineup
+### Test this lineup (the first-run pack)
 
-The button on Runs' bar is the guided first run on your active lineup (3.3.15.0 R5/R7: `POST start` rehearses it as
-it is, nothing copied). It reads `GET start` each time Runs shows. On the Auto lineup (or none) it is disabled and the
-Auto line stands beside it ("Your lineup is Auto: pick or build a lineup in Agents -> Cast first, then `halo start`
-rehearses it."). With a lineup of your own it opens its card first -- what the run does, the lineup and its cards, the
-models it will call with their prices, the estimated cost, the time and what it writes (`start/card.py`) -- and
-**Run it** starts it; the seven steps then show in the guided first run's panel, as from the palette's "Start: the
-guided first run". The run works in a sample repo of its own (`<state>/start/<date>/basket`), not in Studio's folder,
-so its lanes are read in that panel and with `halo orchestra status --cwd <the sample repo>`.
+"Test this lineup" on Runs' bar left with the guided first run in 3.4.0.0: it is the first-run pack's **First run**
+panel in this section now (the card, Run on your active lineup, the seven steps, Stop), shown while that pack is
+enabled ([its README](../halo_harness/templates/packs/first-run/README.md)).
 
 ### Live draws a run too
 

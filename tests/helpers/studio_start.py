@@ -1,10 +1,8 @@
-"""tests.helpers.studio_start -- the guided first run in Studio (Halo 3.1.1.0
-R1), driven through real clicks in headless Chrome on the driver base
-(tests/helpers/chrome_driver.Driver). tests/test_studio_start.py runs it as
-a subprocess with a scrubbed environment:
+"""tests.helpers.studio_start -- the Glossary and the Next footer in Studio (Halo 3.1.1.0 R1), driven through real
+clicks in headless Chrome on the driver base (tests/helpers/chrome_driver.Driver). tests/test_studio_start.py runs it as
+a subprocess with a scrubbed environment (3.4.0.0 B: the guided first run's scenario left with it for the first-run
+pack):
 
-    python -m tests.helpers.studio_start run [PNG]  a fresh home: Start here, its card, Run the guided first run (HALO_START_FAKE=1),
-                                                    the seven steps done, `start` frames on the feed, no overlay on reload
     python -m tests.helpers.studio_start glossary   the ? menu's Glossary, a section help's word link, the Next footer
 
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
@@ -23,58 +21,6 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 Q = "document.querySelectorAll"
 STEP = "[data-testid=\"start-step\"]"
-
-
-def _palette_start(c) -> None:
-    """The palette's "Start: the guided first run": the overlay whatever the home."""
-    from tests.helpers.studio_packs_steps import mod_key
-    mod_key(c, "KeyK", 75, 2, "k")
-    c.wait("!!document.querySelector('[data-testid=\"palette\"]')", 10)
-    c.wait("document.activeElement?.classList.contains('palette-input')", 10)
-    c.type_text("Start: the guided first run")
-    c.wait("document.querySelector('.palette-item.on .palette-label')?.textContent === 'Start: the guided first run'", 10)
-    c.key("Enter")
-
-
-def run_start(c, url: str, frames: list, shot: str = "") -> dict:
-    out = {}
-    c.go(url)
-    # 3.3.15.0 R5: a fresh home runs the Auto lineup: the offer has the line in place of Run
-    out["auto"] = c.wait("document.querySelector('[data-testid=\"start-here-auto\"]')?.textContent || ''", 30)
-    out["auto_run"] = c.js(f"{Q}('[data-testid=\"start-here-run\"]').length")
-    out["welcome_with_offer"] = c.js(f"{Q}('[data-testid=\"section-help\"]').length")
-    c.key("Escape")
-    c.wait("!document.querySelector('[data-testid=\"start-here\"]')", 10)
-    from halo_harness.theme import set_config_value
-    set_config_value("team", "halo-dev-cycle")  # a custom lineup: the palette's overlay offers Run
-    _palette_start(c)
-    out["offer"] = c.wait(f"{Q}('[data-testid=\"start-here-run\"]').length", 30)
-    out["button"] = c.js("document.querySelector('[data-testid=\"start-here-run\"]').textContent.trim()")  # 3.2.2.0 R2
-    out["card"] = c.wait("document.querySelector('[data-testid=\"start-here-card\"]')?.textContent || ''", 10)
-    c.click_on("document.querySelector('[data-testid=\"start-here-run\"]')")
-    c.wait(f"{Q}('{STEP}').length === 7", 20)
-    c.wait("!!document.querySelector('[data-testid=\"start-here-done\"]')", 120)
-    try:  # the page re-reads the job after the summary frame (a step's last frame can fall off the feed): let it land
-        c.wait(f"[...{Q}('{STEP}')].every((li) => li.dataset.state === 'done')", 10)
-    except TimeoutError:
-        pass  # the step list below says what it saw
-    out["steps"] = c.js(f"[...{Q}('{STEP}')].map((li) => li.dataset.key + ':' + li.dataset.state)")
-    out["start_key"] = c.js("localStorage.getItem('halo.studio.start')")  # 3.3.2.0 R1: answered once, never offered again here
-    out["done_ok"] = c.js("document.querySelector('[data-testid=\"start-here-done\"]').dataset.ok")
-    out["done_text"] = c.js("document.querySelector('[data-testid=\"start-here-done\"]').textContent")
-    if shot:
-        c.shot(shot)
-    out["frames"] = len(frames)
-    out["frame_keys"] = sorted({str((f.get("data") or {}).get("key")) for f in frames})
-    out["frame_session"] = sorted({str(f.get("session_id"))[:6] for f in frames})
-    c.go("about:blank")
-    c.go(url)
-    c.wait(f"{Q}('[data-testid=\"section-tab\"]').length === 6", 30)  # 3.2.0.0 R6: + Packs; 3.3.0.0 R1: + Setup; 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local
-    import time
-    time.sleep(2.5)  # GET /api/start has answered by now: a home with a lineup of its own and a start is not fresh
-    out["roles_start_after"] = c.js(f"{Q}('[data-testid=\"roles-start\"]').length")
-    out["overlay_after_reload"] = c.js(f"{Q}('[data-testid=\"start-here\"]').length")
-    return out
 
 
 def glossary(c, url: str) -> dict:
@@ -116,26 +62,20 @@ def glossary(c, url: str) -> dict:
 
 
 class StartDriver(Driver):
-    """`run`: the fake start from the overlay; `glossary`: the Glossary and the Next footer. A fresh scratch home."""
+    """`glossary`: the Glossary and the Next footer. A fresh scratch home."""
 
     no_chrome = {"skip": "no Chrome found"}
 
     @contextmanager
     def session(self, c):
-        from capture_start import fresh_home
+        from capture_fresh import fresh_home
         from capture_studio import serve
         os.environ["HALO_START_FAKE"] = "1"  # the driver env scrubs HALO_*: the start runs on the fake model calls
         state = fresh_home()
         srv, url = serve(state)
         url = url.replace("mode=orchestra", "mode=roles")
-        frames: list = []
-        from halo_harness.studio.events import bridge_for
-        bridge_for(srv).taps.append(lambda f: frames.append(f) if f.get("event") == "start" else None)
         try:
-            if self.argv[:1] == ["glossary"]:
-                yield ((glossary, (c, url)),)
-            else:
-                yield ((run_start, (c, url.replace("&feed=off", ""), frames, (self.argv[1:2] or [""])[0])),)
+            yield ((glossary, (c, url)),)
         finally:
             srv.shutdown()
             srv.server_close()

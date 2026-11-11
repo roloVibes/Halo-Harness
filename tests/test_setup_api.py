@@ -83,7 +83,7 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         status, s = e.call("GET", "setup/state")
         ctx.check(f"200, got {status}", status == 200)
         want = {"model", "permission_mode", "theme", "theme_default", "themes", "permission_modes", "team", "models", "providers",
-                "linux_fixes", "last_check", "checks", "gym_models", "card", "no_provider", "model_notes"}  # R3: the last five
+                "linux_fixes", "last_check", "checks", "gym_models", "no_provider", "model_notes"}  # R3; 3.4.0.0 B: no card
         ctx.check(f"the blocks' keys, got {sorted(s)}", want <= set(s))
         ctx.check("nothing saved yet: model, mode and theme are blank, the default theme named",
                   s["model"] == "" and s["permission_mode"] == "" and s["theme"] == "" and s["theme_default"] == "instrument")  # 3.3.15.0 R4
@@ -96,8 +96,8 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check(f"the ten palettes, got {names}", names == list(ids()) and names[:3] == ["claude-dark", "claude-light", "holo"])
         pal = s["themes"][0]["palette"]
         ctx.check(f"a palette from tui/theme.py, got {pal}", pal["bg"] == "#1e1e2e" and pal["accent"] == "#89b4fa" and len(pal) == 10)
-        ctx.check(f"the eight provider tabs by name, got {list(s['providers'])}",
-                  sorted(s["providers"]) == sorted(["databricks", "openrouter", "anthropic", "openai", "typesafe", "experiential",
+        ctx.check(f"the seven provider tabs by name, got {list(s['providers'])}",
+                  sorted(s["providers"]) == sorted(["databricks", "openrouter", "anthropic", "openai", "experiential",
                                                      "ollama", "huggingface"]))
         orp = s["providers"]["openrouter"]
         ctx.check(f"the key in the environment shows as set, from the environment, its tail, got {orp}",

@@ -168,7 +168,7 @@ def coder_of(host, state_dir=None) -> Optional[dict]:
     lane = next((ln for ln in here if any(w in ln["lane"] for w in ("coder", "worker", "implement", "builder"))), None) \
         or next((ln for ln in here if ln["lane"] == "main"), None)
     if lane is None:
-        from halo_harness.start.provider import default_model
+        from halo_harness.checks.provider import default_model
         model, h = F.split_ref(default_model()) if default_model().startswith("ol:") else (None, None)
         default = getattr(F.host_named(None), "name", None)
         if not model or str(h or default or "").lower() != name.lower():

@@ -10,12 +10,12 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Team: people, blocks and stages on one board
 
-Gone in 3.3.16.0 R1: [what Team's board became](STUDIO-agents.md#what-teams-board-became). `halo team` runs the team
-file from a terminal ([TEAM.md](TEAM.md)); `?mode=team` lands on Agents -> Runs.
+Gone in 3.3.16.0 R1: [what Team's board became](STUDIO-agents.md#what-teams-board-became). The team file and `halo team`
+left in 3.4.0.0; `?mode=team` lands on Agents -> Runs.
 
 ### How this works: Team
 
-The team file, its blocks and stages: [TEAM.md](TEAM.md); in Studio, [Agents -> Runs](STUDIO-orchestra.md#orchestra-the-run-console).
+Who owns what in a run: [Agents -> Runs](STUDIO-orchestra.md#orchestra-the-run-console).
 
 ## What you see (Roles)
 

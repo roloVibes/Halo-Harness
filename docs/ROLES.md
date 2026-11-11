@@ -19,7 +19,7 @@ via `halo init --provider databricks`. Round 7 (the init wizard) is
 verified against `halo_harness/tui/dialogs/init_wizard.py` and
 `setup_cli.py` too.
 
-**Teams (Halo 3.0.8.0):** a team file ([TEAM.md](TEAM.md)) names its members as instances of a lineup's aliases (`lineup` + `role`), can name a lineup tier as a stage's members, and runs the lineup preflight for every member before `halo team run`.
+**Teams (Halo 3.0.8.0 - 3.3.x):** the team file and `halo team` left in 3.4.0.0; a lineup's tiers and blocks are where its members live now.
 
 ## The 90-second version
 

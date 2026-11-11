@@ -1,0 +1,48 @@
+# The first-run pack (Halo 3.4.0.0 B, F4 of the Focus plan): the guided first run, out of Halo's core. `halo start`
+# and `/start` are its CLI verb and slash command (contributes.cli / .slash, draft in API 1.3), Setup's Check page has
+# its row through its Setup block, and Studio's Agents section its First run panel (studio/first-run.js, answered by
+# server/routes.py). Its Python reaches the Orchestra engine through `halo_harness.ext.core` (API 1.3, draft).
+id: first-run
+name: First run
+version: 1.0.0
+description: >-
+  The guided first run: one real Orchestra run that rehearses your lineup on your models -- a sample repo, the plan,
+  the run, the report and the coach -- with a card first that says what it does, what it costs and what it writes.
+  `halo start`, `/start`, a row on Setup's Check page and a First run panel in Studio's Agents section. Part of
+  Halo's core until 3.4.0.0.
+author: Halo Harness
+license: MIT
+halo_api: {min: "1.2", max: "1.9"}
+capabilities: [onboarding.first-run]
+contributes:
+  cli:
+    - {verb: start, module: cli/start.py, help: "the guided first run: one real Orchestra run that rehearses your lineup (--explain: the card)"}
+  slash:
+    - {name: start, module: cli/slash.py, help: "the guided first run's card, and how to run it"}
+  setup:
+    - id: run
+      title: The guided first run
+      kind: check
+      after: check
+      run: ["${halo_python}", "${CLAUDE_PLUGIN_ROOT}/setup/check.py"]
+      what: "halo start: one real Orchestra run that rehearses your lineup on your models -- a sample repo, the plan, the run, the report and the coach"
+      cost: "the card's estimate (halo start --explain says it)"
+      time: "5-20 minutes on cloud models; longer on local ones"
+      writes: "a sample repo under ~/.halo/start/<date>/ (your lineup is not touched)"
+  studio:
+    panels:
+      - id: run
+        section: agents
+        title: First run
+        kind: bundle
+        source: studio/first-run.js
+        w: 12
+        h: 40
+        help: |-
+          The guided first run: one real Orchestra run that rehearses your lineup on your models.
+          The card says what it does, the models, the cost, the time and what it writes; Run starts it.
+          Its seven steps show here as they run; Stop ends it. In a terminal: halo start.
+    routes: {module: server/routes.py, prefix: start}
+    palette:
+      - {id: open, label: "Start: the guided first run", action: "route:agents"}
+permissions: ["cli:start", studio-script, studio-routes]

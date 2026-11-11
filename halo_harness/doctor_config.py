@@ -4,9 +4,7 @@ for shape and against the existing validators for meaning.
 
 Reported: a file that does not parse; an unknown key (with the closest known
 key); a wrong type; a lineup naming a bio that does not exist and every other
-`validate_team_template` line; every `validate_agent_bio` line; a team file's
-`validate_team` lines (a member's lineup that is not there among them, run
-without the model-catalog preflight); `team:` in config.json naming a
+`validate_team_template` line; every `validate_agent_bio` line; `team:` in config.json naming a
 lineup that is not there; a leftover section of a removed feature (in
 config.json `orgs`, `paperclip`: one line each, "removed in 3.1.4.0, the
 section is ignored"; in a lineup `org`: "org: removed in 3.1.4.0, ignored",
@@ -142,25 +140,6 @@ def _lineup_or_bio(kind: str, row: dict, cwd: Path, state_dir: Path) -> list:
     return out
 
 
-def _team(row: dict, cwd: Path, state_dir: Path) -> list:
-    from halo_harness.team.spec import find_team_file, validate_team
-    path = Path(row["path"])
-    if not path.is_file():
-        return []
-    data, problem = _yaml(path)
-    if problem:
-        return [finding("unreadable", "blocks", row, f"{row['file']} {problem}", fix="fix the YAML")]
-    out = _shape("team", data, row)
-    found = find_team_file(cwd, state_dir)
-    if found is None or Path(found[0]).resolve() != path.resolve():
-        return out
-    for line in validate_team(data if data is not None else {}, cwd=cwd, state_dir=state_dir, preflight=False):
-        lineup = line.split("lineup `", 1)[1].split("`", 1)[0] if "does not exist" in line and "lineup `" in line else ""
-        out.append(finding("missing-lineup" if lineup else "invalid", "blocks", row, line,
-                           lineups=[lineup] if lineup else [], fix="halo teams lists the lineups" if lineup else ""))
-    return out
-
-
 def _active(state_dir: Path) -> list:
     from halo_harness.config_where import _active_lineup
     name = _active_lineup(state_dir)
@@ -185,8 +164,6 @@ def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) 
                                fix="name a lineup halo teams lists", lineups=list(row["sets"]) + _active(state)))
         elif kind in ("lineups", "bios") and editable:
             out += _lineup_or_bio("lineup" if kind == "lineups" else "bio", row, cwd, state)
-        elif kind == "team":
-            out += _team(row, cwd, state)
     from halo_harness.packs.doctor import config_findings as pack_findings  # 3.2.0.0 R1: the packs group
     return out + conflict_findings(rows, cwd=cwd) + pack_findings(cwd=cwd, state_dir=state)
 

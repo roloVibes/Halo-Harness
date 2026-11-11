@@ -32,7 +32,7 @@ export const KNOWN_KINDS = [
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
   "turn_marker", "thinking_chunk", "agent_talk", // 3.3.16.2: a thought as it grows, one agent's words to another
-  "agent_state", "agent_event", "fleet", "team", "start", "focus",
+  "agent_state", "agent_event", "fleet", "team", "focus",
   "pack_live", // 3.3.13.0 R2: a pack's routes' live frame (ctx.publish), its bundle's api.on hears it
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the fleet page re-reads its view
   "files_changed", // 3.2.2.0 R6: a lineup, bio, config or layout file moved on disk (lib/filesLive.ts onFilesChanged)

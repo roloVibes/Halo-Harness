@@ -206,8 +206,8 @@ def test_models_status_and_refresh(ctx: Ctx):
         ctx.check("models/refresh answers the row count and one line per attempt",
                   status == 200 and isinstance(r["rows"], int) and r["attempts"] == ["Stand-in: HTTP 401 (the key was refused)"])
         st = s.call("GET", "/api/models/status")[1]
-        ctx.check("3.1.4.0 R4: status names every provider it looked at, and when the last refresh ran",
-                  len(st["looked_at"]) >= 8 and st["refreshed_at"] and st["outcomes"][0]["line"] == "HTTP 401 (the key was refused)")
+        ctx.check("3.1.4.0 R4: status names every provider it looked at (seven: TypeSafe left in 3.4.0.0), and when the last refresh ran",
+                  len(st["looked_at"]) >= 7 and st["refreshed_at"] and st["outcomes"][0]["line"] == "HTTP 401 (the key was refused)")
         ctx.check("3.1.5.0 R1: no subscription provider is looked at",
                   not [p for p in st["looked_at"] if "subscription" in str(p.get("label", "")).lower()])
         status, gym, _ = s.call("GET", "/api/gym")

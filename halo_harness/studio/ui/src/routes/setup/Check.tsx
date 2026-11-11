@@ -1,19 +1,16 @@
-// setup-check (3.3.0.0 R3): the five checks Halo offers after setup
-// (start/checks.py: doctor, catalog, hello, the gym, the guided first run),
+// setup-check (3.3.0.0 R3): the checks Halo offers after setup
+// (checks/catalog.py: doctor, catalog, hello, the steward, the gym),
 // each row with what it does, what it costs, how long it takes and what it
 // writes; doctor, catalog and hello are ticked. "Run the ticked checks" runs
 // them in order as one background job (POST setup/check) and each row shows
 // its state and its lines as they arrive. The gym row lists the models it
-// would run on (only local models run); the guided first run's row shows
-// its card first, and only then can it be ticked; it runs through the Start
-// here job, whose steps show under the row. 3.3.11.0 R3: an enabled pack's Setup checks follow under "From packs",
+// would run on (only local models run). 3.4.0.0 B: the guided first run is the first-run pack's Setup check now,
+// a row under "From packs" while that pack is on. 3.3.11.0 R3: an enabled pack's Setup checks follow under "From packs",
 // each with its own what / cost / time / writes line and unticked until you tick it; they run in the same job.
 import { useEffect } from "react";
-import { runStart, start } from "../../lib/start";
-import { useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { useLoadState, Waiting } from "./BlockFoot";
-import { lastCheckWord, runChecks, showCard, startCheck, stopChecks, tick, tickModel, ticked, useCheck } from "./checkStore";
+import { lastCheckWord, runChecks, startCheck, stopChecks, tick, tickModel, ticked, useCheck } from "./checkStore";
 import { packBlocks, type Found } from "./packSetup";
 import { NONE, setup, useSetup, type CheckRow } from "./store";
 
@@ -37,51 +34,16 @@ function GymModels() {
   );
 }
 
-function StartPart() {
-  const shown = useCheck((s) => s.cardShown);
-  const card = useSetup((s) => s.data?.card || NONE);
-  const steps = useStore(start, (s) => s.steps);
-  const busy = useStore(start, (s) => s.busy || (s.running && !s.summary));
-  const list = Object.values(steps).sort((a, b) => a.step - b.step);
-  return (
-    <div className="su-check-start">
-      {!shown ? (
-        <Button size="sm" onClick={showCard} data-testid="setup-check-show-card">
-          Show the card
-        </Button>
-      ) : (
-        <>
-          <pre className="su-check-card mono" data-testid="setup-check-card">{card.join("\n")}</pre>
-          <Button size="sm" onClick={() => void runStart()} disabled={busy} data-testid="setup-check-run-start">
-            Run the guided first run
-          </Button>
-        </>
-      )}
-      {list.length > 0 && (
-        <ol className="su-check-steps" data-testid="setup-check-start-steps">
-          {list.map((f) => (
-            <li key={f.key} data-testid="setup-check-start-step" data-key={f.key} data-state={f.state}>
-              <span className="su-glyph mono">{GLYPH[f.state] || f.step}</span> {f.title}
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
 export function Row({ c, pack }: { c: CheckRow; pack?: string }) {
   const on = useCheck((s) => ticked(s, setup.get().data, c.key));
-  const shown = useCheck((s) => s.cardShown);
   const frame = useCheck((s) => s.frames[c.key]);
   const running = useCheck((s) => s.running || s.busy);
   const state = frame?.state || "";
-  const lockStart = c.key === "start" && !shown;
   return (
     <div className="su-check" data-testid="setup-check-row" data-key={c.key} data-state={state || undefined}>
       <label className="su-check-head">
-        <input type="checkbox" checked={on} disabled={lockStart || running} onChange={(e) => tick(c.key, e.target.checked)}
-               title={lockStart ? "show the card first" : undefined} data-testid="setup-check-tick" data-key={c.key} />
+        <input type="checkbox" checked={on} disabled={running} onChange={(e) => tick(c.key, e.target.checked)}
+               data-testid="setup-check-tick" data-key={c.key} />
         <span className="su-glyph mono" data-testid="setup-check-glyph" data-key={c.key}>{GLYPH[state] || ""}</span>
         <b>{c.title}</b>
         <span className="muted mono">({pack || c.key})</span>
@@ -90,7 +52,6 @@ export function Row({ c, pack }: { c: CheckRow; pack?: string }) {
         {c.what}. Cost: {c.cost}. Time: {c.time}. Writes: {c.writes}.
       </span>
       {c.key === "gym" && on && <GymModels />}
-      {c.key === "start" && <StartPart />}
       {frame && frame.lines.length > 0 && (
         <pre className="su-check-log mono" data-state={state} data-testid="setup-check-log" data-key={c.key}>
           {frame.lines.join("\n")}
@@ -136,7 +97,6 @@ function PackRows() {
 export function CheckDetail() {
   const { ready, error } = useLoadState();
   const rows = useSetup((s) => s.data?.checks || NONE);
-  const auto = useSetup((s) => s.data?.start_auto || ""); // 3.3.15.0 R5: no guided first run row on the Auto lineup
   const running = useCheck((s) => s.running);
   const busy = useCheck((s) => s.busy);
   const any = useCheck((s) => rows.some((c) => ticked(s, setup.get().data, c.key)) || Object.entries(s.ticks).some(([k, on]) => on && k.startsWith("pack:")));
@@ -150,11 +110,6 @@ export function CheckDetail() {
         {rows.map((c) => (
           <Row key={c.key} c={c} />
         ))}
-        {auto && (
-          <p className="su-note muted" data-testid="setup-check-start-auto">
-            {auto}
-          </p>
-        )}
       </div>
       <PackRows />
       <div className="su-foot-row">

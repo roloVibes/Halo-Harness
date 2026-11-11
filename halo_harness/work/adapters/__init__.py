@@ -1,8 +1,8 @@
 """halo_harness.work.adapters -- one adapter per unit kind (Halo 3.1.2.0 R1).
 
 `lane` (orchestra `lanes/<n>.json`), `part` (a mission's `mission.json`
-parts, `plan.json`, `parts/<n>/result.json`) and `stage` (a team run's
-`board.json` rows and `stages/<id>/`). Each adapter is the one place that knows its
+parts, `plan.json`, `parts/<n>/result.json`) and `goal` (the supervisor's
+queue; 3.4.0.0 B: a team run's `stage` left with the team file). Each adapter is the one place that knows its
 engine's file: the record's shape, reading it as a `Unit`, writing a unit
 back onto it, its ledger lines and its report row. Every adapter module
 has `KIND`, `units(run_dir)`, `unit(run_dir, uid)`, `write(run_dir, unit)`,

@@ -29,7 +29,7 @@ ensure_scoped_state_dir_once()
 test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
-BRIEF = ("lineup", "bio", "role", "tier", "team", "member", "block", "stage", "lane", "part", "step", "mission",
+BRIEF = ("lineup", "bio", "role", "tier", "block", "lane", "part", "step", "mission",
          "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
@@ -131,12 +131,12 @@ def test_fuzzy_match(ctx: Ctx):
     from halo_harness import glossary as G
     for query, want in (("lineups", "lineup"), ("Lineup", "lineup"), ("handoff", "hand-off"), ("hand-offs", "hand-off"),
                         ("hand off", "hand-off"), ("orchestra_run", "orchestra run"), ("orch", "orchestra run"),
-                        ("capabilities", "capability"), ("teem", "team"), ("missions", "mission"), ("tiers", "tier"),
+                        ("capabilities", "capability"), ("lanes", "lane"), ("missions", "mission"), ("tiers", "tier"),
                         ("packs", "pack"), ("Pack", "pack")):
         word, _ = G.find(query)
         ctx.check(f"{query!r} -> {want!r}, got {word!r}", word == want)
     word, close = G.find("st")
-    ctx.check(f"an ambiguous prefix names the candidates, got {word} {close}", word is None and {"stage", "step"} <= set(close))
+    ctx.check(f"an ambiguous prefix names the candidates, got {word} {close}", word is None and {"step", "steward"} <= set(close))
     ctx.check("nothing for an empty query", G.find("") == (None, []))
 
 
@@ -152,7 +152,7 @@ def test_api_route_and_the_tui(ctx: Ctx):
     status, _ = dispatch(Request(method="POST", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home())))
     ctx.check(f"POST is a 405, got {status}", status == 405)
     from halo_harness.commands.builtins import _BUILTIN_SPECS
-    ctx.check("/explain and /start are built-ins", "explain" in _BUILTIN_SPECS and "start" in _BUILTIN_SPECS)
+    ctx.check("/explain is a built-in (3.4.0.0 B: /start is the first-run pack's)", "explain" in _BUILTIN_SPECS and "start" not in _BUILTIN_SPECS)
     text = _BUILTIN_SPECS["explain"][3]("gate", None)
     ctx.check(f"headless /explain gate: the paragraph, got {text[:60]!r}", text.startswith("gate\n\n") and "return cap" in text)
     from halo_harness.tui.dialogs.explain_card import card_parts

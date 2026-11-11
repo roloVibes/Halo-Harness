@@ -87,8 +87,7 @@ value; Halo does not read `.env`), Claude Code's `settings.json` layers
 (managed, `--settings`, local, project, user), the MCP server files
 (`managed-mcp.json`, `~/.claude.json` and its entry for this folder,
 `.mcp.json`), the active lineup and each lineup it `extends`, the lineup and
-bio folders (repo `.halo/`, `~/.halo/`, shipped), the team file (`.halo/team.yaml`,
-`~/.halo/teams/<project>.team.yaml`) and the Databricks preset (`team.json`).
+bio folders (repo `.halo/`, `~/.halo/`, shipped) and the Databricks preset (`team.json`).
 Each row: the
 file, its scope (`home`, `repo`, `env`, `shipped`), whether it exists, what
 it sets (its top-level keys, or the names of the lineups, bios,

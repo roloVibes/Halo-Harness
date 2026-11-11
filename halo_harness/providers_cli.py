@@ -27,16 +27,21 @@ _NON_SEQUENTIAL_SETUP = {
 
 
 def _model_count(name: str) -> "int | None":
-    """Cached model count for the table -- None (never a bare 0) when this
-    provider has no catalog concept of its own (TypeSafe)."""
-    if name == "typesafe":
-        return None
+    """Cached model count for the table -- None (never a bare 0) when it cannot be read."""
     from halo_harness.config.paths import bridge_home
     from halo_harness.init_providers import model_entries_for_provider
     try:
         return len(model_entries_for_provider(name, bridge_home()))
     except Exception:
         return None
+
+
+def _gone(name: str) -> bool:
+    """3.4.0.0: a provider that left the core (providers/left_core.py) gets its one line instead of "unknown"."""
+    from halo_harness.providers.left_core import GONE, gone_line
+    if name in GONE:
+        print(gone_line(name), file=sys.stderr)
+    return name in GONE
 
 
 def provider_rows(*, cwd=None, settings_flag=None, env=None) -> "list[dict]":
@@ -115,7 +120,7 @@ def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None
         lines.append(balance_line)
     # Round 5i part 1 (brief item 1): "the OpenAI API has no public
     # balance endpoint for ordinary keys -- say so and show computed
-    # spend" (the same rule part B of 2.0.3-brief.md gives for TypeSafe/
+    # spend" (the same rule part B of 2.0.3-brief.md gives for
     # Databricks). Plain and static -- never a network call from this
     # function, which both the TUI's `/providers` and the standalone CLI
     # call with no session attached half the time.
@@ -131,7 +136,9 @@ def format_providers_table(rows: "list[dict]", *, openai_spend_line: "str | None
         lines.append("")
         lines.append(experiential_balance_line or
                       "Experiential Labs balance: not fetched (see /cost --experiential or halo doctor).")
-    return "\n".join(lines)
+    from halo_harness.providers.left_core import leftover_lines  # 3.4.0.0: a provider that left, still set up here
+    gone = leftover_lines()
+    return "\n".join(lines + ([""] + gone if gone else []))
 
 
 def cmd_providers(argv: list) -> int:
@@ -191,6 +198,8 @@ def cmd_providers(argv: list) -> int:
                   f"({', '.join(PROVIDER_NAMES)})", file=sys.stderr)
             return 2
         name = canonical(argv[1])
+        if name not in PROVIDER_NAMES and _gone(name):
+            return 0 if action == "disable" else 1
         if name not in PROVIDER_NAMES:
             print(f"halo providers {action}: unknown provider {argv[1]!r} "
                   f"(expected one of {', '.join(PROVIDER_NAMES)})", file=sys.stderr)
@@ -208,14 +217,11 @@ def cmd_providers(argv: list) -> int:
                   file=sys.stderr)
             return 2
         name = canonical(argv[1])
+        if name not in PROVIDER_NAMES and _gone(name):
+            return 1
         if name not in PROVIDER_NAMES:
             print(f"halo providers setup: unknown provider {argv[1]!r} "
                   f"(expected one of {', '.join(PROVIDER_NAMES)})", file=sys.stderr)
-            return 2
-        if name == "typesafe":
-            print("TypeSafe is a key-only placeholder for a later feature -- there is no setup flow yet "
-                  "(set TYPESAFE_API_KEY in the env file, then `halo providers enable typesafe`).",
-                  file=sys.stderr)
             return 2
         from halo_harness.init_providers import PROVIDERS as _SEQUENTIAL
         from halo_harness.init_cli import cmd_init

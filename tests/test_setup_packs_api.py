@@ -1,5 +1,5 @@
 """tests.test_setup_packs_api -- a pack's own Setup blocks through Studio's routes (Halo 3.3.11.0 R3,
-studio/setup_packs_api.py, start/checks_pack.py, packs/setup_state.py) over a scratch home (tests/helpers/
+studio/setup_packs_api.py, checks/pack.py, packs/setup_state.py) over a scratch home (tests/helpers/
 setup_home.py) with the fixture pack setup-blocks; no model call, no request anywhere:
 
 1. the blocks appear only while the pack is enabled (`GET setup/packs`, `GET setup/state`'s `packs`), in the
@@ -205,7 +205,7 @@ def test_no_block_sees_a_key_an_env_value_or_another_packs_settings(ctx: Ctx):
             answers.append(_call(e, "POST", "setup/packs/setup-blocks/reach", {}, server))
             data = _wait_summary(server)
             answers.append(_call(e, "GET", "setup/check"))
-            from halo_harness.start.checks_pack import _env
+            from halo_harness.checks.pack import _env
             from halo_harness.packs.discover import find
             env = _env(find("setup-blocks", cwd=e.cwd), "reach", e.cwd)
         finally:

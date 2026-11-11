@@ -16,8 +16,6 @@ calls `act`; the decision is journaled there with `by`.
     mission_plan    a approve and run | r edit (text: "part 2 to kali" / "drop 3") | s drop the mission  (R7)
     mission_ask     a allow | r deny                   the `fleet-ask:mission-` card of a hub's run_task here
     mission_claim   a set aside
-    team_gate       a accept | r redo (text: the instruction) | s stop the run   (team/answer, 3.0.8.0 R2)
-    team_budget     a raise: opens the team file | r skip the stage | s stop the run   (team/budget, 3.1.2.0 R2)
     goal_plan | goal_gate | goal_budget | goal_ask | goal_replan   a supervisor decision (3.1.8.0 R1/R2,
                     fleet/supervise_attention.py): the answer is written to its decision file; the supervisor applies it
     pack:<id>:<kind>  a | r | s the pack's labels: answers/<row>.json in its data folder; o its section (3.2.0.0 R3)
@@ -48,7 +46,7 @@ ANSWER = {
     ("mission_ask", "a"): {"answer": "allow"},
     ("mission_ask", "r"): {"answer": "deny"},
 }
-NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"), ("team_gate", "r"),
+NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
 SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim", "ollama_steward")  # 3.3.4.0 R4: the steward's note
 SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
@@ -78,9 +76,6 @@ def open_target(row: dict) -> dict:
         return pack_target(row)
     if kind == "orchestra_gate":
         return {"section": "agents", "view": "runs", "run": t.get("run")}  # 3.3.16.0 R1: Orchestra is Agents -> Runs
-    if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2, 3.1.2.0 R2
-        from halo_harness.fleet.team_attention import open_target as team_target
-        return team_target(row)
     if kind in SUPERVISE:  # 3.1.8.0 R1
         from halo_harness.fleet.supervise_attention import open_target as supervise_target
         return supervise_target(row)
@@ -125,9 +120,6 @@ def act(req, watcher, row: dict, key: str, text: str):
     if kind == "mission_plan":  # 3.0.6.0 R7
         from halo_harness.fleet.mission_attention import answer
         return answer(req, row, key, text)
-    if kind in ("team_gate", "team_budget"):  # 3.0.8.0 R2: the gate card's own route; 3.1.2.0 R2: a budget hold
-        from halo_harness.fleet.team_attention import answer as team_answer
-        return team_answer(req, row, key, text)
     if kind in SUPERVISE:  # 3.1.8.0 R1: the answer goes into the decision file; the supervisor applies it
         from halo_harness.fleet.supervise_attention import answer as supervise_answer
         return supervise_answer(req, row, key, text)

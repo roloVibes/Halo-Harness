@@ -32,24 +32,23 @@ door's `?block=` wins. There are no panels here: nothing to move, resize or Arra
 
 **The Summary**, the last page (rule 10): one row per step with what it holds and a **Change** jump to its
 page; then the last check's result with **Run the ticked checks** (the checks ticked on the Check page:
-doctor, catalog and hello until changed there) and **The Check page**; then the guided first run's card
-(what `halo start` does, the models it calls, the estimate, the time, what it writes) and its Run button.
+doctor, catalog and hello until changed there) and **The Check page** (3.4.0.0: the guided first run's card and Run
+left with it for the first-run pack).
 At its foot (3.3.3.0) the primary **Done: start halo**: it marks this box set up (`POST setup/done`), the
 terminal that ran `halo init` starts halo ([WIZARD.md](WIZARD.md)), and the page goes to Session with nothing
 opened over it; the rail's "set up this box" line is gone, and stays gone on a reload, which opens Session.
 3.3.15.0: its note and toast say who starts halo -- "halo is starting in your terminal" while an init waits
 (`~/.halo/setup-wait.json`), else a terminal Studio opens running halo, else "no terminal found to start halo
-in; run `halo` yourself". On the Auto lineup the guided first run's part is one line instead of its card and Run.
+in; run `halo` yourself".
 
-**Nothing opens on its own.** Loading Setup opens no help, no welcome and no Start here overlay, whether
+**Nothing opens on its own.** Loading Setup opens no help and no welcome, whether
 `halo init` opened it or not; the help stays one click away (the `?` in the header, or `?`). 3.3.2.0: no
-section opens a welcome any more, and Start here shows only over the section a page opened on, so a page
-that opens on Setup gets no offer on the next section either (Setup's Summary offers the guided first run).
+section opens a welcome any more (3.4.0.0: nor Start here, which left with the guided first run).
 
 ## Providers and Local models (3.3.0.0 R2)
 
 **Providers** is one card per provider, in the wizard's order (Databricks, OpenRouter, Anthropic,
-Ollama, Hugging Face, OpenAI, TypeSafe, Experiential Labs). Each card says whether it is set and where the
+Ollama, Hugging Face, OpenAI, Experiential Labs; TypeSafe left in 3.4.0.0). Each card says whether it is set and where the
 key comes from ("set, from the env file, ****1234", "set, from the environment", "not set"); 3.3.5.0 R0
 names the source of every prefilled field, one phrase per field: "host from Claude Code's settings.json ·
 token not set" (a host discovered in Claude Code's own `settings.json` env, with no token yet), "host from
@@ -171,30 +170,22 @@ one row each with what it does, what it costs, how long it takes and what it wri
 | Hello | one one-turn call to the default model, which answers pong | one tiny call, priced from the catalog | seconds | one session log |
 | Steward candidates | 3.3.7.0 R5: sets `ollama.steward.model` to the best local candidate (with none installed, pulls the one it names); ticked by default when an installed one fits | free, or the download it names | seconds | `ollama.steward.model` |
 | Model gym, quick | `halo gym --quick` on the models listed under the row (local models only) | free for local models | minutes per model | a card per model under `~/.halo/gym/` |
-| The guided first run | `halo start`: one real Orchestra run that rehearses your lineup on your models | the card's estimate | 5-20 minutes | a sample repo under `~/.halo/start/<date>/` (your lineup is not touched) |
 
-3.3.15.0: the guided first run's row is there only for a custom lineup; on the Auto lineup (or none) one line
-stands in its place: "Your lineup is Auto: pick or build a lineup in Roles first, then `halo start` rehearses it."
-(R7: the run rehearses the active lineup itself; nothing is copied.)
+3.4.0.0: the guided first run is the first-run pack's Setup check, a row under "From packs" while that pack is
+enabled ([its README](../halo_harness/templates/packs/first-run/README.md)).
 Doctor, Model catalog and Hello are ticked; ticking the gym lists the models it would run on (the default
-model and the start lineup's models; untick any). The guided first run's row shows **Show the card** first
-(the card `halo start` opens on: the models, the estimate, what it writes); its box can be ticked only
-then, and **Run the guided first run** under the card starts it at once. **Run the ticked checks** runs the
+model and the active lineup's models; untick any). **Run the ticked checks** runs the
 ticked rows in that order as one background job; each row shows its state (`>>` running, `ok`, `!!`) and
 its lines as they arrive, the foot says how many failed, and the result is kept as the rail's Last check
-(`~/.halo/studio/last-check.json`). The guided first run runs last, through the same job as Start here, and
-its seven steps show under its row. **Stop after this check** ends the list before the next one. A ticked
-guided first run with no provider set up is refused with the start's own line, and Setup says so.
+(`~/.halo/studio/last-check.json`). **Stop after this check** ends the list before the next one.
 
 **Linux fixes** is a step only when this box lacks one of the two fixes the terminal wizard's Linux step
 applies: a static `rg` (ripgrep's own release) in `~/.local/bin`, and `~/.local/bin` on PATH for a
 non-interactive shell (one line in `~/.zshenv` or `~/.profile`, added once). **Apply** runs them and the
 lines say what was written. Otherwise (always on Windows) the block is one line: nothing to fix on this box.
 
-**A fresh home lands here.** While no provider is set up (no key, login or default model: what `halo start`
-checks), Studio opens on Setup whatever section was saved (`?mode=` still wins), with no overlay over it;
-on another section the Start here overlay's first button is **Set up this box** (Setup opens), and a guided
-first run started with no provider opens Setup with a toast instead of an error.
+**A fresh home lands here.** While no provider is set up (no key, login or default model), Studio opens on Setup
+whatever section was saved (`?mode=` still wins), with no overlay over it.
 
 **Reading this page opens no connection.** The Default model rows, the check costs and the card come from
 the cached catalog: an Ollama host is listed with the models its last read found (Refresh, `halo models
@@ -255,7 +246,7 @@ job (on the Check page too, under **From packs**, unticked), a **note** has **Ma
 | Permissions | `permission_mode` (`auto`, `acceptEdits`, `default` or `plan`) | `halo config set permission_mode <mode>` |
 | Theme | `theme` (3.3.12.0: the palettes, eleven since 3.3.15.0, each swatch in its own colours; the one key the terminal and Studio draw from; the modifiers are on Settings -> Themes) | `/theme <name>` |
 | Team | One model for everything: `team` removed, `roles.enabled` false; `auto` with no `team` set: `roles.enabled` true only; a lineup: its `roles.*`, `team: <name>`, `roles.enabled` true | the wizard's Team step (`lineup_choice.py`, which both call) |
-| Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*` (3.3.17.0: the Copilot card's sign-in writes `HALO_SECRET_COPILOT_REFRESH`); config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled`, `copilot.*` | `halo init`'s Providers tabs; `halo copilot signin`, `halo config set copilot.<key>` |
+| Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*` (3.3.17.0: the Copilot card's sign-in writes `HALO_SECRET_COPILOT_REFRESH`); config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled`, `copilot.*` | `halo init`'s Providers tabs; `halo copilot signin`, `halo config set copilot.<key>` |
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
 | Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |
 | Check | `~/.halo/studio/last-check.json`; each check writes what its row says | `halo check` |
@@ -274,7 +265,7 @@ setup/ollama-host/remove {name}`, `POST setup/hf` (`{token}`, `{endpoint: {name,
 setup/model-dir {path, remove}` and `POST setup/runtime {runtime}` (`studio/setup_providers_api.py`,
 `studio/setup_providers_state.py`); a bad URL or host is a 422 with `problems` and nothing written.
 R3 adds `POST setup/check {checks: [keys], models?: [refs]}` (202 with the job; 409 while one runs; 422 for an
-unknown key, or `reason: "no_provider"` when the guided first run is ticked with no provider set up), `GET
+unknown key), `GET
 setup/check` (the job: the last frame per check and the summary, so a reloaded page catches up), `POST
 setup/check/stop` and `POST setup/linux-fixes` (`studio/setup_check_api.py`, `setup_check_job.py`,
 `setup_check_state.py`). Each check's frames are `setup` frames on `/api/events` (`session_id`

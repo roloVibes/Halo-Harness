@@ -100,11 +100,10 @@ allowed. The edges (`work/states.py` `EDGES`):
 The edges in bold are the ones R2 added, each because an engine needs it
 (`states.ADDED`):
 
-- `failed -> ready`: a failed team stage runs again when asked (`halo team
-  run <stage>`, a trigger);
+- `failed -> ready`: a failed mission part runs again when asked;
 - `failed -> running`: a lane whose worker fell over gets its one more run
   in the same worktree, and a resumed run's failed lane runs again;
-- `skipped -> ready`: a stage skipped at its budget line is asked to run again;
+- `skipped -> ready`: a skipped part is asked to run again;
 - `merged -> waiting`: the gate sends a merged piece back (the tests fail on
   the finished branch), and a downstream lane of it goes stale;
 - `waiting -> done`: a mission part's result lands while the hub still
@@ -117,14 +116,12 @@ gate, a local mission) through `Unit.move`.
 
 ## Scheduling on the unit model
 
-R2 schedules on this model: the members of a team stage run in parallel
-under their tiers' `max_parallel` ([TEAM.md](TEAM.md#stages-triggers-and-gates)),
-an orchestra stage may run on a fleet member
-([TEAM.md](TEAM.md#delegating-a-member-to-the-fleet)), a downstream lane
+R2 schedules on this model: an orchestra part may run on a fleet member
+([MISSIONS.md](MISSIONS.md)), a downstream lane
 whose upstream the gate sent back is re-based before the merge
 ([ORCHESTRA.md](ORCHESTRA.md#stale-lanes)), a plan carries a cost forecast
 ([ORCHESTRA.md](ORCHESTRA.md#the-forecast); the shapes are
-`work/forecast.py`'s) and a team file a budget line ([TEAM.md](TEAM.md#budgets)).
+`work/forecast.py`'s). (3.4.0.0: the team stage, its parallel members and its budget line left with the team file.)
 
 ## The ledger line and the report row
 

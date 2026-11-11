@@ -23,7 +23,6 @@ import { openPrompt, promptAsked } from "../routes/session/promptStore";
 import { applyDoor, doorFromUrl } from "../routes/setup/door";
 import { applyDoor as applySettingsDoor, doorFromUrl as settingsDoorFromUrl } from "../routes/settings/door";
 import { applyDoor as applyLocalDoor, doorFromUrl as localDoorFromUrl } from "../routes/local/door";
-import { start } from "../lib/start";
 import { focusPanel, layoutStore, patchPanel } from "../lib/workspace/persist";
 import { openBio } from "../routes/roles/bioActions";
 import { lineupBlock } from "../routes/roles/defaults";
@@ -59,7 +58,6 @@ function showPanel(id: string): void {
 
 /** Open the target: switch to its section and open the bio form, the lineup's inspector or the Team. */
 export async function applyEdit(target: EditTarget): Promise<void> {
-  if (start.get().open && !start.get().running) start.update(() => ({ open: false })); // the overlay waits; nothing is dismissed
   if (target.kind === "team") {
     goSection("team"); // Agents on Runs, Team's line the first time
     return;

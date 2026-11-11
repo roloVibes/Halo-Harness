@@ -23,21 +23,9 @@ A role is the part a card plays in a session: `main` (the agent you talk to, exa
 
 A tier is a box of cards in a lineup's `tiers:` list: a member spawns only into the next tier down, `main` sits alone in tier 0, and `max_parallel` caps how many members of one tier run at once. A lineup with no tiers has one, `all`, holding every card. Studio's Roles canvas draws each tier as a box you drag cards between.
 
-## team
-
-A team (a team file, `<repo>/.halo/team.yaml`) is a project's people and work on one board: the brief every agent reads first, its members, the blocks their work lands in and the stages that run in order. `halo team init` writes one from the template and `halo team` runs it from a terminal (Studio's Team board went in 3.3.16.0: who owns what is a run plan's detail in Agents -> Runs). A lineup says who plays which part in a session; a team says who works on which part of a project.
-
-## member
-
-A member is one part of a lineup put to work on a team's project, on this machine or on a fleet harness (`harness:`). Each stage names the members that work on it; while the stage runs they write only inside its write blocks, and a part another member holds comes back naming the holder. A harness paired with a `halo host` is a peer, not a member: the word member stays the lineup's.
-
 ## block
 
-A block is a place a team's work lands: a file, a folder or a git tree, each with its claim ledger (who holds which part, one change line per write). Stages read and write blocks, and a block that changes and then settles can start the stage that waits on it (`block_change:<block>`). 3.3.16.3: on Studio's Agents canvas a block is also one titled box with a purpose, the agents inside it and how main reaches it: a lineup tier (its `purpose` names it, "thinking", "the workers") or a workflow square (its DOES line); main is the one card in no block, and a block opens to show its agents or folds to its lines.
-
-## stage
-
-A stage is one step of a team's work: an agent turn or an Orchestra run, with the blocks it reads and writes, its members and its trigger (manual, `stage_done:<stage>` or `block_change:<block>`). A stage with a gate stops for your Accept, Redo or Stop before the stages after it start.
+A block (3.3.16.3) is one titled box on Studio's Agents canvas with a purpose, the agents inside it and how main reaches it: a lineup tier (its `purpose` names it, "thinking", "the workers") or a workflow square (its DOES line); main is the one card in no block, and a block opens to show its agents or folds to its lines.
 
 ## lane
 
@@ -57,7 +45,7 @@ A mission is one goal for the whole fleet: the hub's lead splits it into parts a
 
 ## gate
 
-A gate is a check a run stops at before it goes on. An Orchestra run's gate runs your test on the merged branch and sends a failing piece back to its worker, up to the return cap; a team stage's gate waits for you to Accept, Redo with an instruction, or Stop.
+A gate is a check a run stops at before it goes on. An Orchestra run's gate runs your test on the merged branch and sends a failing piece back to its worker, up to the return cap.
 
 ## claim
 
@@ -65,7 +53,7 @@ A claim says who is writing which unit right now (`basket.py#total`: a function,
 
 ## hand-off
 
-A hand-off passes work from one lane, part or stage to the next: a job with `after` waits for another one, and with `needs` it takes that job's summary, its units or a file it saved, then starts from that job's finished head. A job that takes nothing sees only the goal. Studio labels each hand-off edge with what it carries.
+A hand-off passes work from one lane or part to the next: a job with `after` waits for another one, and with `needs` it takes that job's summary, its units or a file it saved, then starts from that job's finished head. A job that takes nothing sees only the goal. Studio labels each hand-off edge with what it carries.
 
 ## square
 
@@ -89,7 +77,7 @@ The plan is the lead's split of a goal into jobs, one per lane, each with a titl
 
 ## coach
 
-The coach reads a finished run's files (an Orchestra run, a mission or a team run) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards.
+The coach reads a finished run's files (an Orchestra run or a mission) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards.
 
 ## orchestra run
 
@@ -113,7 +101,7 @@ A capability is something a harness can do, as its spec card lists it: its hardw
 
 ## unit
 
-A unit of work is what a lane, a mission part and a team stage all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The three engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.
+A unit of work is what a lane, a mission part and a supervisor goal all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The three engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.
 
 ## pack
 
@@ -121,7 +109,7 @@ A pack is a folder someone else maintains that adds bios, lineups, workflows, sk
 
 ## guided first run
 
-The guided first run is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a lineup in Agents -> Cast first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
+The guided first run (the first-run pack since 3.4.0.0) is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a lineup in Agents -> Cast first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
 
 ## setup
 
@@ -129,7 +117,7 @@ Setup is what a box needs before Halo can work on it: the providers it calls, th
 
 ## provider
 
-A provider is a service Halo calls a model on: OpenRouter, Databricks, the Anthropic API, OpenAI, TypeSafe, Experiential Labs, an Ollama server or Hugging Face. A provider is set up when its key (or its host) resolves; its models then fill the catalog (`halo models`), and a model ref names its provider by its prefix (`or:` OpenRouter, `dbx:` Databricks, `ol:` an Ollama host). `halo init` and Studio's Setup section set one up.
+A provider is a service Halo calls a model on: OpenRouter, Databricks, the Anthropic API, OpenAI, Experiential Labs, an Ollama server or Hugging Face. A provider is set up when its key (or its host) resolves; its models then fill the catalog (`halo models`), and a model ref names its provider by its prefix (`or:` OpenRouter, `dbx:` Databricks, `ol:` an Ollama host). `halo init` and Studio's Setup section set one up.
 
 ## env file
 

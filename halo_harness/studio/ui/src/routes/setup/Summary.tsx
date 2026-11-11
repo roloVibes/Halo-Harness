@@ -3,14 +3,11 @@
 // **Change** jump to that step's page; then the last check's result with the
 // Check block's **Run the ticked checks** (the ticks the Check page shows:
 // doctor, catalog and hello until changed there) and a button to the Check
-// page; then the guided first run's card (what `halo start` does, the models
-// it calls, the estimate, the time, what it writes) and its Run button.
+// page (3.4.0.0 B: the guided first run is the first-run pack's).
 // 3.3.3.0 R1: at the foot, the primary "Done: start halo" (done.ts): the
 // terminal that ran `halo init` starts halo, Studio opens Session. 3.3.15.0 R6:
 // its note says whether an init terminal waits; with none, Studio opens one.
 import { useEffect } from "react";
-import { runStart, start } from "../../lib/start";
-import { useStore } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { useLoadState, Waiting } from "./BlockFoot";
 import { pressDone, useDoneBusy, useDoneError } from "./done";
@@ -72,31 +69,6 @@ function CheckPart() {
   );
 }
 
-function StartPart() {
-  const card = useSetup((s) => s.data?.card || NONE);
-  const auto = useSetup((s) => s.data?.start_auto || "");
-  const busy = useStore(start, (s) => s.busy || (s.running && !s.summary));
-  if (auto)
-    return ( // 3.3.15.0 R5: the guided first run belongs to a custom lineup; on Auto, the line in its place
-      <section className="su-sum-part" data-testid="setup-summary-start" aria-label="The guided first run">
-        <div className="su-sum-title">The guided first run</div>
-        <p className="su-note muted" data-testid="setup-summary-start-auto">{auto}</p>
-      </section>
-    );
-  return (
-    <section className="su-sum-part" data-testid="setup-summary-start" aria-label="The guided first run">
-      <div className="su-sum-title">The guided first run</div>
-      {card.length > 0 && <pre className="su-check-card mono" data-testid="setup-summary-card">{card.join("\n")}</pre>}
-      <div className="su-foot-row">
-        <Button size="sm" onClick={() => void runStart()} disabled={busy} data-testid="setup-summary-run-start" title="halo start: the card above says what it calls and costs">
-          {busy ? "Running..." : "Run the guided first run"}
-        </Button>
-        <span className="su-note muted">its seven steps show on the Check page, under its row</span>
-      </div>
-    </section>
-  );
-}
-
 function DonePart() {
   const busy = useDoneBusy();
   const error = useDoneError();
@@ -126,7 +98,6 @@ export function SummaryDetail() {
     <div className="su-block" data-testid="setup-summary">
       <Rows />
       <CheckPart />
-      <StartPart />
       <DonePart />
     </div>
   );

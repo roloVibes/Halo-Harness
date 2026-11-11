@@ -50,7 +50,7 @@ def test_every_legal_edge_moves_and_the_added_ones_are_named(ctx: Ctx):
             u.move(b)
             moved += u.state == b
     ctx.check(f"every edge moves, got {moved}", moved == sum(len(v) for v in ST.EDGES.values()))
-    same = Unit(kind="stage", id="s", state="waiting").move("waiting")
+    same = Unit(kind="part", id="s", state="waiting").move("waiting")
     ctx.check("a move to the state it is in is the state said again", same.state == "waiting")
     ctx.check(f"R2's added edges are edges, got {ST.ADDED}", all(ST.can(a, b) for a, b in ST.ADDED) and len(ST.ADDED) == 5)
     ctx.check("stopped is the one state with no way out", ST.EDGES["stopped"] == () and ST.can("merged", "waiting")
@@ -62,7 +62,7 @@ def test_three_illegal_moves_raise_naming_the_unit_from_and_to(ctx: Ctx):
     from halo_harness.work.states import IllegalMove
     from halo_harness.work.unit import Unit, move_word
     cases = [(Unit(kind="lane", id="2", run_id="r1", state="merged"), "ready"),
-             (Unit(kind="stage", id="draft", state="stopped"), "running"),
+             (Unit(kind="goal", id="draft", state="stopped"), "running"),
              (Unit(kind="part", id="3", state="pending"), "merged")]
     texts = []
     for u, to in cases:
@@ -73,22 +73,10 @@ def test_three_illegal_moves_raise_naming_the_unit_from_and_to(ctx: Ctx):
             texts.append(str(e))
     ctx.check(f"each raises with the unit, from and to, got {texts}",
               texts[0] == "lane 2 of run r1 cannot move from merged to ready (from merged it moves to waiting)"
-              and texts[1] == "stage draft cannot move from stopped to running (from stopped it moves to nothing: it is over)"
+              and texts[1] == "goal draft cannot move from stopped to running (from stopped it moves to nothing: it is over)"
               and texts[2].startswith("part 3 cannot move from pending to merged"))
     ctx.check("IllegalMove is a ValueError, and the engine-word helper raises it too",
-              isinstance(IllegalMove("x", "a", "b"), ValueError) and _raises(lambda: move_word("stage", "s", "done", "pending")))
-    from tests.helpers import team_rig as R
-    from halo_harness.team import board as BD
-    from halo_harness.team import spec as S
-    from halo_harness.team.run import open_run
-    root, state = R.repo()
-    run_dir = open_run(S.load_team(root, state), cwd=root, state_dir=state)
-    BD.set_stage(run_dir, "draft", "running")
-    BD.set_stage(run_dir, "draft", "done")
-    before = (run_dir / "board.json").read_text(encoding="utf-8")
-    ctx.check("the board's setter refuses done -> pending and writes nothing",
-              _raises(lambda: BD.set_stage(run_dir, "draft", "pending"))
-              and (run_dir / "board.json").read_text(encoding="utf-8") == before)
+              isinstance(IllegalMove("x", "a", "b"), ValueError) and _raises(lambda: move_word("part", "s", "done", "pending")))
 
 
 def _raises(fn) -> bool:
@@ -113,33 +101,6 @@ def test_an_orchestra_runs_lanes_replay_through_move(ctx: Ctx):
         ok = ok and not isinstance(got, str) and got.native == rec["state"] == "merged"
     ctx.check(f"every lane's history replays to merged, got {seen}", ok and len(seen) == 5
               and seen[2][0] == "waiting" and "joined" in seen[2])
-
-
-@test
-def test_a_team_run_replays_through_move(ctx: Ctx):
-    from tests.helpers import team_rig as R
-    from halo_harness.team import spec as S
-    from halo_harness.team import stages as TS
-    from halo_harness.team.board import read_events
-    from halo_harness.team.run import TeamRunner, open_run
-    root, state = R.repo()
-    team = S.load_team(root, state)
-    fakes = R.Fakes()
-    runner = TeamRunner(team, open_run(team, cwd=root, state_dir=state), **fakes.seams())
-    runner.request("draft")
-    runner.tick()
-    TS.write_answer(runner.run_dir, "draft", "redo", "again")
-    runner.tick()
-    TS.write_answer(runner.run_dir, "draft", "accept")
-    runner.tick()
-    per: dict = {}
-    for e in read_events(runner.run_dir):
-        d = e.get("data") or {}
-        if e["kind"] == "state" and d.get("state") and not d.get("member"):
-            per.setdefault(e["stage"], []).append(d["state"])
-    bad = {sid: got for sid, words in per.items() if isinstance(got := _replay("stage", sid, words), str)}
-    ctx.check(f"every stage's state lines replay, got {per} {bad}", not bad and per["draft"][:4] == ["ready", "running", "gated", "ready"]
-              and per["draft"][-1] == "done" and per["review"][-1] == "done")
 
 
 @test

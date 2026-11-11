@@ -72,7 +72,7 @@ def test_is_enabled_false_with_no_block_and_no_credentials(ctx: Ctx):
     provider reads as disabled -- auto-detection found nothing to turn on."""
     from halo_harness.providers.enablement import is_enabled
     with _Env():
-        for name in ("databricks", "openrouter", "anthropic", "typesafe"):
+        for name in ("databricks", "openrouter", "anthropic"):
             ctx.check(f"{name} reads as disabled with nothing detected, got {is_enabled(name)!r}",
                       is_enabled(name) is False)
 
@@ -153,7 +153,7 @@ def test_label_strings_match_the_brief_exactly(ctx: Ctx):
               label_for("anthropic") == "Anthropic API (key)")
     ctx.check(f"databricks label, got {label_for('databricks')!r}", label_for("databricks") == "Databricks")
     ctx.check(f"openrouter label, got {label_for('openrouter')!r}", label_for("openrouter") == "OpenRouter")
-    ctx.check(f"typesafe label, got {label_for('typesafe')!r}", label_for("typesafe") == "TypeSafe")
+    ctx.check(f"3.4.0.0: typesafe left the core, no label, got {label_for('typesafe')!r}", label_for("typesafe") == "typesafe")
 
 
 @test
@@ -163,7 +163,7 @@ def test_prefix_table(ctx: Ctx):
     ctx.check(f"or:, got {PREFIXES}", PREFIXES["openrouter"] == "or:")
     ctx.check(f"ant:, got {PREFIXES}", PREFIXES["anthropic"] == "ant:")
     ctx.check(f"no cc:/cx: prefix left, got {PREFIXES}", not {"cc:", "cx:"} & set(PREFIXES.values()))
-    ctx.check(f"typesafe has no prefix yet, got {PREFIXES}", PREFIXES["typesafe"] is None)
+    ctx.check(f"3.4.0.0: typesafe left the core, not in the table, got {PREFIXES}", "typesafe" not in PREFIXES)
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +300,7 @@ def test_is_provider_disabled_message_never_spawns_or_reads_credentials(ctx: Ctx
     enablement_mod.credentials_present = _poison
     try:
         with _Env():
-            for name in ("databricks", "openrouter", "anthropic", "typesafe"):
+            for name in ("databricks", "openrouter", "anthropic"):
                 msg = enablement_mod.is_provider_disabled_message(name)
                 ctx.check(f"{name}: None with no override, got {msg!r}", msg is None)
     finally:
@@ -482,7 +482,7 @@ def test_cmd_providers_table_lists_all_five(ctx: Ctx):
             rc = cmd_providers([])
         ctx.check(f"exit 0, got {rc}", rc == 0)
         out = buf.getvalue()
-        for label in ("Databricks", "OpenRouter", "Anthropic API (key)", "TypeSafe"):
+        for label in ("Databricks", "OpenRouter", "Anthropic API (key)"):  # 3.4.0.0: no TypeSafe (test_providers_left_core)
             ctx.check(f"table mentions {label!r}, got {out!r}", label in out)
         ctx.check("no subscription row or consent line", "subscription" not in out.lower())
 
@@ -549,7 +549,7 @@ def test_slash_providers_builtin_registered_and_lists_table(ctx: Ctx):
         _kind, _desc, _hint, run = _BUILTIN_SPECS["providers"]
         from halo_harness.commands.builtins import HeadlessFacade
         result = run("", HeadlessFacade(cwd=Path.cwd()))
-        for label in ("Databricks", "OpenRouter", "TypeSafe"):
+        for label in ("Databricks", "OpenRouter"):  # 3.4.0.0: no TypeSafe row (test_providers_left_core)
             ctx.check(f"/providers table mentions {label!r}, got {result!r}", label in result)
 
 

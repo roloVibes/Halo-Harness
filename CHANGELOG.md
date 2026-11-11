@@ -8,6 +8,128 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.4.0.0] - unreleased
+
+**The core.** Halo Harness is defined by what it was built around: the agent loop and its tools, permissions and
+policy, the providers in use here (OpenRouter, Databricks, Anthropic, OpenAI-compatible, Ollama, Hugging Face and the
+local servers), all the local-model work, lineups and blocks, Studio's Session, Agents, Local, Packs, Setup and
+Settings, and the pack system. Experimental features that mask that core leave it, as packs where that is cheap and
+as plain removals where nothing is left to pack; the measure is lines and files after versus before.
+
+### A: Typesafe leaves the core
+
+TypeSafe was a key-only placeholder: it stored `TYPESAFE_API_KEY`, had no `ts:` route, no adapter and no models, and
+the usage audit found no call. With nothing to move, it is removed rather than packed.
+
+#### Removed
+
+- The `typesafe` provider: its entry in `PROVIDER_NAMES`, `LABELS` and `PREFIXES` and its `credentials_present` /
+  `credentials_source` branches (`providers/enablement.py`); the "not probed (stores a key only)" reachability branch
+  (`providers/reachability.py`); its `_model_count` and `halo providers setup typesafe` branches (`providers_cli.py`).
+  Replaced by nothing: `halo providers`, `/providers`, `halo balances` / `/balances` and `halo doctor`'s enabled count
+  list six providers.
+- The TypeSafe tab of `halo init` and the init wizard (`init_providers.py`: `TAB_PROVIDERS`, `TAB_LABEL`, the
+  `tab_credential_state` branch, `_TAB_KEY_ENV`; the tab help in `tui/dialogs/init_tabs.py` and `init_wizard.py`) and
+  Studio Setup's TypeSafe card (`studio/setup_providers_state.py`: `KEY_FIELDS` and the `_secret` branch).
+- `halo bugreport`'s TypeSafe line (`bugreport.py`).
+- `TYPESAFE_API_KEY` from `redact.py`'s named list (the generic `*_API_KEY` rule still redacts it).
+- Verbs: `halo providers enable | disable | setup typesafe` and `/providers enable | disable typesafe` (each now says
+  the one line below). Keys: `TYPESAFE_API_KEY` (env file, shell, settings env block) and `providers.typesafe` in
+  config.json, both ignored. Files: none was TypeSafe's own. halo_harness/ outside templates/: 2003 files and 328,429
+  lines before, 2004 files and 328,465 lines after (99 lines out of 17 core files; 65 lines in for
+  `providers/left_core.py`, the module that says what left).
+
+#### Added
+
+- `providers/left_core.py`: what left the core and the one line each leftover gets, never an error -- a `ts:` ref
+  (a `--model`, `/model`, a remembered model, a lineup card or a Studio card: "no route: 'ts:...' (ts: typesafe
+  (TypeSafe) left the core in 3.4.0.0: ...)"), a leftover `TYPESAFE_API_KEY` or `providers.typesafe` row (one
+  `[WARN]` row in `halo doctor`, one line under `halo providers`), `halo providers enable typesafe` (the line, exit 1;
+  `disable`, exit 0). The `cc:` / `cx:` line of 3.1.5.0 moved there with its words unchanged. A leftover key stays
+  stripped from tool children (`providers/config.py`): it is a secret wherever it came from.
+- `tests/test_providers_left_core.py` pins each leftover line and that nothing is said when nothing is left over.
+
+#### Docs
+
+- COMMANDS-providers.md, COMMANDS-health.md, SLASH-COMMANDS-providers.md, MODELS-references.md (the prefix table),
+  STUDIO-setup.md, HANDBOOK.md, MODELS-openai-codex.md and the glossary's "provider" no longer list TypeSafe and say
+  where a leftover is named; `docs/screenshots/balances.svg` is re-rendered by `scripts/screenshots.py` (six
+  providers). MODELS-experiential.md keeps `or:typesafe/jev-router` (an OpenRouter model) and the
+  research notes under docs/harness/ stay as history.
+
+### B: the experiments leave the core
+
+The owner (2026-11-10): "being able to define what halo harness is makes it stronger. All these experimental features
+can be packs." This block is F4 and F7 of the Focus plan (plans/ROADMAP.md); what it moved and removed is below, each
+with what replaces it. A leftover of a removed feature is ignored, never an error.
+
+#### Removed
+
+- **The team file and `halo team`** (3.0.8.0; removed, not packed: Team's board left Studio in 3.3.16.0 and nothing
+  used the file). `halo team ...` now answers one line: the team file left in 3.4.0.0, a lineup's tiers and blocks
+  (Agents -> Cast, `halo teams`) and a run's lanes with their owns lines (Agents -> Runs, `halo orchestra`) do its job.
+  LINEUPS are untouched: `halo teams`, `teams_yaml.py`, `~/.halo/teams/*.yaml`, a lineup's tiers, routing, budget and
+  pipeline, and `team_config.py` (the Databricks `team.json` preset, which is not the team file). Gone:
+  - modules `halo_harness/team/` (spec, validate, validate_stages, resolve, blocks, board, stages, gate_actions,
+    triggers, run, run_stage, parallel, remote_stage, budget, guard, delegate, adapters, cli, cli_run),
+    `studio/team_api.py`, `studio/team_live.py`, `studio/team_budget_api.py`, `fleet/team_attention.py`,
+    `work/adapters/stage.py`, `orchestra/coach_team_rules.py`, `templates/team/team.yaml` (the team template);
+    kept by moving: `team/adapters.orchestra_run` -> `orchestra/to_report.py` (the supervisor's and a fleet mission
+    part's), `team/delegate.FleetDelegate` -> `fleet/delegate.py` (the two-machine check's mission step; its
+    `send_run` went with the team stage), `member_bio` -> `supervise/runner.main_bio`;
+  - verbs `halo team init|validate|run|status|board|answer|stop|log|blocks|coach`; the routes `/api/team/*` (410
+    since 3.3.16.0), `/api/team/coach`, `/api/work/team/*` and `/api/work/stage/*`;
+  - the Attention kinds `team_gate` and `team_budget`; the work record's unit kind `stage` and run kind `team`
+    (`halo work` reads lanes, mission parts and supervisor goals); the session's team claim guard (`HALO_TEAM_SCOPE`);
+  - `halo config where`'s "Team file" group and `halo doctor --config`'s team-file rows; the schema kind `team`;
+  - the two-machine check's `team` step (`tools/live_fleet_check.py`: who, mission, recall);
+  - the glossary words team, member and stage (block now means the lineup's block on Agents -> Cast); completion's
+    `team`; docs/TEAM.md (removed from docs/README.md and the README's table; every page that linked it says where its
+    job went);
+  - tests `test_team_blocks`, `test_team_budget`, `test_team_cli`, `test_team_delegate_runs`, `test_team_parallel`,
+    `test_team_run`, `test_team_spec`, `test_studio_team`, `tests/helpers/team_rig.py`, `coach_seed.team_run`.
+- **The guided first run left the core for the shipped `first-run` pack** (3.1.1.0; off unless enabled):
+  - modules `halo_harness/start/` (engine, steps, steps_run, steps_setup, card, lineup, sample_repo, fake, fresh,
+    screen, errors, auto_gate), `start_cli.py`, `studio/start_api.py`, `studio/start_job.py` -> the pack's
+    `first_run/`, `cli/start.py`, `server/start_api.py`, `server/start_job.py` (+ `server/routes.py`);
+    `tui/dialogs/start_panel.py` (the TUI's `/start` panel) removed: the pack's `/start` shows the card and how to run
+    it; the core checks stay core as `halo_harness/checks/` (`start/checks.py` -> `checks/catalog.py`,
+    `checks_run.py` -> `checks/run.py`, `checks_pack.py` -> `checks/pack.py`, `checks_steward.py` ->
+    `checks/steward.py`, `provider.py` -> `checks/provider.py`), and the sample's knowledge tag stays core
+    (`knowledge/rank.sample_root`);
+  - `halo start` and `/start` are the pack's (`contributes.cli`, `.slash`); with the pack off each is one line: "the
+    guided first run is a pack now: halo pack install first-run, then halo pack enable first-run --grant-all";
+  - the core check `start` (Setup's Check row, `halo check --start`, the wizard Summary's row) -> the pack's Setup
+    block `run` (`pack:first-run:run`); `halo check --start` says the one line; `halo init` no longer offers the run;
+  - Studio's "Start here" overlay (`shell/StartHere.tsx`, `lib/start.ts`), Agents -> Runs' "Test this lineup"
+    (`routes/agents/runs/TestLineup.tsx`), the Setup Check row's card and Summary's Run, the palette's "Start: the
+    guided first run" and the route `/api/start` -> the pack's **First run** panel in the Agents section
+    (`studio/first-run.js`) over its routes `/api/packs/first-run/start/...`;
+  - `tools/capture_start.py` (`capture_studio.py --mode start`; what it kept is `tools/capture_fresh.py`); tests `test_start_cli`, `test_start_cli_errors`, `test_start_studio_api` (moved:
+    `test_pack_first_run_cli`, `test_pack_first_run_errors`, `test_pack_first_run_routes`, run against the pack),
+    `test_start_checks` (-> `test_checks_catalog`), `test_start_tui` (-> `test_explain_tui`, the panel's tests went),
+    `test_studio_start`'s Start-here run, `test_studio_modes`'s `--mode start`, `test_studio_quiet`'s Start-here
+    test, and `test_setup_state_no_probe`'s / `test_setup_api`'s card checks.
+
+#### Added
+
+- **The `first-run` pack** (`halo_harness/templates/packs/first-run/`): `halo start`, `/start`, the Setup check row and
+  the First run panel; `halo pack test first-run` passes it.
+- **Seams, draft for extension API 1.3** (docs/EXTENSION_API.md "CLI verbs, slash commands, doctor rows and settings
+  rows", "Core access"): `contributes.cli: [{verb, module, help}]` (`main(argv) -> int`, grant `cli:<verb>`,
+  `packs/contrib_cli.py`), `contributes.slash: [{name, module, help}]` (`run(args_text, facade) -> str`, grant
+  `cli:<name>`, `packs/contrib_slash.py`), `contributes.doctor: [{id, module, help}]` (`rows(ctx) -> list`, grant
+  `doctor`, `packs/contrib_doctor.py`), `contributes.settings: [{key, title, help, type, default}]`
+  (`packs.settings.<id>.<key>`, no grant, `packs/contrib_settings.py`), their manifest rules (`packs/contrib_lines.py`)
+  and `halo_harness.ext.core` (`core.module(name)`, `core.get(name, attr)` over `core.REACHABLE`); `halo_harness/left.py`
+  (the one line a verb that left the core says).
+
+#### Docs
+
+- docs/TEAM.md removed; COMMANDS-init, HANDBOOK, STUDIO-shell, STUDIO-setup, STUDIO-agents, SLASH-COMMANDS-tui,
+  TROUBLESHOOTING, PACKS ("The first-run pack"), EXTENSION_API, ARCHITECTURE-modules(-two), GLOSSARY, WORK, MISSIONS,
+  ORCHESTRA, ROLES, AGENTS and README say what left and where it went.
+
 ## [3.3.18.0] - unreleased
 
 ### The living canvas

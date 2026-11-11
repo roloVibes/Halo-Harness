@@ -4,7 +4,7 @@ process (Halo 3.1.8.0 R1).
     <run>/runner.json   {pid, pstart, beat, by}   rewritten every BEAT_S seconds while a runner drives the run
 
 Every runner writes it: `halo orchestra run` (orchestra_cli_run.py), Studio
-(studio/orchestra_live.py) and the supervisor (team/adapters.orchestra_run).
+(studio/orchestra_live.py) and the supervisor (orchestra/to_report.orchestra_run).
 `live(run_dir)` is the row while the beat is fresh (2 * BEAT_S, the team
 board's rule) AND its process is alive and is the one that wrote it
 (proc_ident's start token against a reused pid). Studio reads it: a run with
