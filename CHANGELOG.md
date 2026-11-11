@@ -8,7 +8,15 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.3.17.0] - unreleased
+## [3.3.18.0] - unreleased
+
+### Docs: the README shows Studio
+
+- "What it feels like" leads with Studio: `docs/media/studio-model-picker.png` (new, `capture_studio.py --mode picker`) and
+  `docs/media/studio-auto.png` (new, `capture_steer.py --only auto`) replace the terminal model picker and auto-mode pictures;
+  the steer animation and the phase-line picture left the README for one sentence each. The TUI captures stay in `docs/media`.
+
+## [3.3.17.0] - 2026-11-10
 
 **Copilot at work.** Halo signs in to your work's Microsoft 365 Copilot in the browser (or with a device code) and
 talks to it as a provider with one model, `cp:work`, over the Work IQ API or Graph's preview Copilot Chat API. A
@@ -75,12 +83,6 @@ cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilo
   dollar band (all of it on Copilot) or after it (part of it) (`workflows/contract.py`, `SquareBlock.tsx`).
 - **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
   made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
-
-### Docs: the README shows Studio
-
-- "What it feels like" leads with Studio: `docs/media/studio-model-picker.png` (new, `capture_studio.py --mode picker`) and
-  `docs/media/studio-auto.png` (new, `capture_steer.py --only auto`) replace the terminal model picker and auto-mode pictures;
-  the steer animation and the phase-line picture left the README for one sentence each. The TUI captures stay in `docs/media`.
 
 ## [3.3.16.3] - 2026-11-10
 

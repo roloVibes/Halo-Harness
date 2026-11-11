@@ -1,5 +1,73 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.3.17.0] - 2026-11-10
+
+**Copilot at work.** Halo signs in to your work's Microsoft 365 Copilot in the browser (or with a device code) and
+talks to it as a provider with one model, `cp:work`, over the Work IQ API or Graph's preview Copilot Chat API. A
+session or a lineup role can run on it as a consult role, any agent can ask it through the `copilot_ask` tool, and its
+cost is said as "billed by your tenant", never as dollars (docs/PROVIDERS-copilot.md).
+
+### R1: the door
+
+#### Added
+
+- **The settings** `copilot.tenant`, `copilot.client_id` (your own Entra app registration, a public client),
+  `copilot.api` (`workiq` default | `graph-beta`), `copilot.web`, `copilot.timezone` and `copilot.scopes`: Settings ->
+  Providers, docs/CONFIG.md (`providers/copilot_config.py`).
+- **Sign-in** (`providers/copilot_auth.py`, `copilot_tokens.py`): the authorization-code flow with PKCE (S256) against
+  the tenant's Entra endpoints, the redirect `http://localhost:<free port>` served once by a listener on 127.0.0.1
+  (the state checked, one request, then it closes; a 5-minute wait, said in the terminal), Halo opens the browser and
+  prints the URL; `--device` and any box with no browser (SSH, no DISPLAY, `HALO_NO_BROWSER`) use the device code.
+  The refresh token goes to the env file as `HALO_SECRET_COPILOT_REFRESH`; access tokens stay in memory, refreshed
+  60 s early; who signed in and until when is in `~/.halo/copilot/account.json` (no token).
+- **The adapter** (`providers/copilot.py`, on `providers/http.py` only): Work IQ's JSON-RPC `SendMessage` with
+  `A2A-Version: 1.0`, the `contextId` kept per conversation and the time zone in the metadata; Graph's
+  `/beta/copilot/conversations` and `.../chat` with the text, `locationHint.timeZone`, `additionalContext`, the file
+  URIs and web grounding. Both answer `{text, citations, sensitivity, conversation, api}`. Every failure is one line
+  with its next step: not set up, not signed in, the sign-in expired, consent missing (the scopes named), no licence,
+  billing not enabled, throttled after one `Retry-After` wait, offline mode.
+- **`halo copilot signin [--device]`, `signout`, `status [--json]`, `ask "<prompt>" [--file URL]... [--no-web] [--api
+  workiq|graph-beta] [--json]`** (docs/COMMANDS-copilot.md); `halo copilot` alone is `status`.
+- **The mock** (`tests/helpers/mock_copilot.py`): Entra (authorize, token with PKCE, refresh, a revoked refresh, the
+  device code), Work IQ's A2A endpoint and Graph's beta conversations, for every test here.
+
+### R2: in the harness
+
+#### Added
+
+- **`cp:work`** (`model.py`'s prefix table, `providers/copilot_route.py`): a session or a role runs on the session's
+  one Copilot conversation; the loop sends it no tools. Its catalog row (`providers/copilot_catalog.py`) says `takes:
+  text, files, web`, `tools: no`, no context window and "Copilot Credits or your licence"; `halo models` lists it once
+  you are signed in. Auto picks it for the need `work-data` ("research over your work data") when signed in, and
+  never for a role that needs tool calls (`models_auto_work.py`).
+- **The `copilot_ask` tool** (`tools/copilot_ask.py`, the `web` capability), registered once Copilot is set up: the
+  answer with its citations as numbered lines, in the transcript like any tool result.
+- **Cost**: a `cp:work` turn and a `copilot_ask` call add no dollars and mark the cost incomplete; `/cost`, `/status`
+  and Studio's Cost panel say "Copilot: billed by your tenant (credits or licence)" (`providers/copilot_cost.py`).
+- **Studio**: Setup -> Providers has a Copilot card (the status a row per fact, the tenant and app id, the door, Sign
+  in / Sign out, the scopes to consent to as a copyable list, Register the app's steps); Sign in starts the browser
+  flow on the machine Studio runs on ("finish in the browser tab that opened"), or shows the device code when there is no
+  browser (`studio/setup_copilot_api.py`, `routes/setup/CopilotCard.tsx`).
+- **`halo doctor`**: one Copilot row (not set up / signed in as ... until ... / token expired / consent missing /
+  billing not enabled / no licence), each with its next step (`providers/copilot_doctor.py`).
+- **Docs**: docs/PROVIDERS-copilot.md, docs/COMMANDS-copilot.md, the glossary's "consult role".
+
+### On 3.3.16.1-3.3.16.3 (the round, merged onto master)
+
+- **The prompt diet**: `copilot_ask` has its lean description (`tools/lean_descriptions.py`) and goes out right after
+  what the lineup needs (`agent/prompt_diet.py` `AFTER_NEEDS`). Copilot not set up, the tool is not registered and the
+  pinned first turns do not move; set up, a lean first turn grows by at most the tool's lean size
+  (tests/test_prompt_budget_pins.py).
+- **The shared ranking**: a model that states no tool calls is never ranked for code (`model_rank.ranks_for`), and
+  `cp:work`'s missing dollar price never wins "cheapest"; Auto's `work-data` pick goes through `model_rank`'s one
+  comparator (`models_auto_work.py`).
+- **Studio**: a Cast hover on `cp:work` says it takes text, files, web; no tools, and "your tenant's credits or
+  licence" as its price (the model row's `price_note`); a hover leaves out a context window nobody states. A square or
+  a block template may name a bio on `cp:work`; its Costs line and block footer say "tenant credits" in place of the
+  dollar band (all of it on Copilot) or after it (part of it) (`workflows/contract.py`, `SquareBlock.tsx`).
+- **Live**: a `cp:work` role's turn shows as text rows with no THINK row (Copilot streams no thoughts and none is
+  made up), its hand-back as a TALK row, a `copilot_ask` call as a tool row (tests/test_copilot_fit.py).
+
 ## [3.3.16.3] - 2026-11-10
 
 The owner, 2026-11-10: "I still really want to see different blocks that you can almost like drag and drop in the agents
@@ -1452,27 +1520,3 @@ terminal wizard's Roles step race, the fleet hand-off route's body check, and th
   same race is possible on a slow terminal). The step now remembers the switch values it set and consumes their Changed.
 - Fleet hand-off route: a malformed body (`take_over` without a brief, `hand_to` without `to`) is 422 before the agent is
   looked up, so the answer does not depend on whether the agent still runs (it was 404 once the agent had stopped).
-
-## [3.3.9.3] - 2026-11-03
-
-**TensorFold.** The last of the three runtimes the owner scheduled after FreeToken: TensorFold (github.com/ashhart/TensorFold,
-Apache-2.0, a Zig binary), an inference engine for Metal and CUDA with no Python, OpenAI-compatible on its own port, a
-health route that says how many streams run and wait, a metrics route and a dashboard. It is the Mac's second native
-engine beside mlx_lm.server and one more runtime word for Linux, where Halo fetches the release archive and checks both
-GitHub's digest and the archive's own sha256 the way it does for llama-server. The fit is the ordinary one -- the
-checkpoint in the card's memory, unified on the Mac -- with the sizes TensorFold publishes. Every TensorFold log pattern
-and API shape is from its source, unverified until the owner's run on the Mac; two log lines its source does not spell
-out (the Metal capacity line, a driver refusal) are guesses the reader does not depend on.
-
-### R1: TensorFold -- a Metal / CUDA inference engine with no Python, as one more local runtime and the Mac's second native engine
-
-#### Added
-- `halo local serve --runtime tensorfold --model <hf repo | checkpoint dir> [--window N] [--parallel N] [--lan]` runs TensorFold's `tensorfold serve` (from `huggingface.tensorfold_bin`, PATH, or the Linux archive Halo fetched) on a free loopback port behind Halo's key in an owner-only key file, as the registry row and `huggingface.local_servers` entry `tensorfold` (`hf:local/<model>@tensorfold`); a repo in the Hugging Face cache is served by its id, one Halo downloaded by its folder; a repo nowhere on disk starts nothing and says its size and `tensorfold pull <repo>` (your download); a long first load goes on in the background, said; `halo local servers | log | stop` treat it like the others; `--lan` binds every address behind the same key.
-- The binary per OS in one line: `brew install ashhart/tensorfold/tensorfold` on the Mac; on Linux x86_64 / aarch64 Halo fetches the `tensorfold-<version>-<platform>.tar.gz` release archive (its size, URL and destination said first, `--yes` answers yes), checks GitHub's digest and its `.sha256`, and unpacks it under `~/.halo/runtimes/tensorfold-<tag>/` (never on PATH; `halo local runtime remove` takes it out); on Windows the native build guide.
-- The steward reads TensorFold's log (the capacity line's backend and streams, the serving line's window and load time, each request's tok/s and queued seconds, its errors) and its queue from `/health` or, behind Halo's key, `/metrics`: `tf-waiting`, `tf-backend-fallback`, `tf-load`, keyed `<server>|<model>`, each with a stated fix never applied; `halo ollama explain` knows them.
-- The TensorFold fit: the checkpoint's size from TensorFold's table plus its reserve against the card's VRAM or the Mac's unified memory, the window and the streams in what is left; models TensorFold qualifies only on CUDA, only on Metal, only on two machines or not on M1-M4 say so; NVFP4 on an RTX 30 / 40 card says the slower fallback path; the Library lists TensorFold's models as download targets with it as the badge.
-- Through the host: a TensorFold server on the Mac is a host-served local server with its model; with `--lan` the host's catalog offers it and the PC or Kali reach it as `hf:local/<model>@<host>`; placement and the adviser see it beside mlx_lm.server and Ollama, with the loading tax said.
-- `halo doctor --local` checks `tensorfold --version` and `tensorfold capabilities --json` (its Metal or CUDA backend) when the runtime is configured; setting `huggingface.tensorfold_bin`; glossary `streams`; docs/MODELS-tensorfold.md; docs/MAC.md step 11.
-
-#### Changed
-- The loopback auto-detect names a server whose `/v1/models` says `owned_by: tensorfold` by its runtime, its window from `context_length`.
