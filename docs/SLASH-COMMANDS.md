@@ -5,7 +5,7 @@ Read this when you want what a `/command`, a key or a prompt prefix does in the 
 Everything the full-screen TUI's prompt input understands: `/name` slash
 commands (built-in, custom, skill-provided, MCP-provided), the `@path`/
 `!cmd` prefixes, key bindings and chords, and the cards a permission/
-question/plan/rewind/improve moment shows -- with the exact keys each one
+question/plan/rewind moment shows -- with the exact keys each one
 answers to. For the headless CLI surface (`halo <subcommand>`), see
 [COMMANDS.md](COMMANDS.md).
 

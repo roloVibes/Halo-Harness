@@ -1,14 +1,14 @@
 // Report: the run's checks with ticks and crosses, the finished branch and
 // its sha, the tests, the cost; one green sweep (done) when the report
-// lands; Copy puts the report text on the clipboard. 3.0.9.0 R3: a finished
-// (or stopped) run's report has a second tab, Coach (Coach.tsx).
+// lands; Copy puts the report text on the clipboard. 3.4.0.0 B2: the Coach tab left
+// with the coach pack (its Coach panel in Agents); a workflow run keeps its Artifacts tab.
 import { useState } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Button } from "../../lib/ui";
 import { toast } from "../../lib/store";
 import { Metric, NoRun } from "./bits";
 import { ArtifactsTab } from "./Artifacts";
-import { CoachTab, ReportTabs, type ReportTab } from "./Coach";
+import { ReportTabs, type ReportTab } from "./ReportTabs";
 import { CHECK_LABEL, cost, elapsed, reportText, sha } from "./format";
 import { runMotion, useOrch } from "./store";
 import type { Check, Report as ReportT } from "./types";
@@ -70,10 +70,12 @@ export function ReportDetail() {
   const r = useOrch((s) => s.data?.report);
   const [tab, setTab] = useState<ReportTab>("report");
   if (!r) return <Pending />;
+  const artifacts = (r.artifacts || []).length;
+  if (!artifacts) return <ReportBody r={r} />;
   return (
     <div className="og-report-tabs">
-      <ReportTabs value={tab} onChange={setTab} artifacts={(r.artifacts || []).length} />
-      {tab === "coach" ? <CoachTab /> : tab === "artifacts" ? <ArtifactsTab /> : <ReportBody r={r} />}
+      <ReportTabs value={tab} onChange={setTab} artifacts={artifacts} />
+      {tab === "artifacts" ? <ArtifactsTab /> : <ReportBody r={r} />}
     </div>
   );
 }

@@ -161,9 +161,8 @@ class _App:
 
 
 @test
-def test_slash_setup_opens_setup_and_terminal_keeps_the_screen(ctx: Ctx):
+def test_slash_setup_opens_setup_and_terminal_prints_the_console_way(ctx: Ctx):
     from halo_harness.tui import slash
-    from halo_harness.tui.dialogs import init_wizard
     app = _App()
     with door_stubs(running=True, pages=1) as rec:
         asyncio.run(slash.handle_slash(app, "setup", "team"))
@@ -171,26 +170,24 @@ def test_slash_setup_opens_setup_and_terminal_keeps_the_screen(ctx: Ctx):
               rec["focused"] and rec["focused"][0]["block"] == "team" and len(app.lines) == 1
               and app.lines[0].startswith("Opened Setup (Team) in the Studio page already open") and not app.pushed)
     app = _App()
+    with door_stubs(running=True, pages=1) as rec:
+        asyncio.run(slash.handle_slash(app, "setup", "model"))
+    ctx.check(f"/setup model: any Setup page (3.4.0.0 B2), got {rec['focused']}", rec["focused"] and rec["focused"][0]["block"] == "model")
+    app = _App()
     with door_stubs(running=True, pages=0, browser=False):
         asyncio.run(slash.handle_slash(app, "setup", ""))
     ctx.check(f"no browser took it: the URL and the --terminal hint, got {app.lines}", len(app.lines) == 1
               and app.lines[0].startswith("Studio is at http") and "?mode=setup#t=" in app.lines[0]
-              and "/setup --terminal opens the terminal screen" in app.lines[0])
-    built: list = []
-    saved = (init_wizard.build_truncated_state, init_wizard.first_step_screen)
-    init_wizard.build_truncated_state = lambda cwd, step_keys, on_finish: built.append(step_keys) or "state"
-    init_wizard.first_step_screen = lambda state: f"screen:{state}"
-    try:
-        app = _App()
-        with door_stubs() as rec:
-            asyncio.run(slash.handle_slash(app, "setup", "--terminal team"))
-            asyncio.run(slash.handle_slash(app, "setup", "--terminal"))
-            asyncio.run(slash.handle_slash(app, "setup", "kitchen"))
-    finally:
-        init_wizard.build_truncated_state, init_wizard.first_step_screen = saved
-    ctx.check(f"/setup --terminal [team]: the terminal screens, no Studio, got {built} {rec}", built == [("roles",), ("roles", "summary")]
-              and app.pushed == ["screen:state", "screen:state"] and not rec["launched"] and not rec["opened"])
-    ctx.check(f"an unknown word: the usage, got {app.notes}", app.notes and "/setup [team|roles] [--terminal]" in app.notes[-1])
+              and "/setup --terminal prints the console way" in app.lines[0])
+    app = _App()
+    with door_stubs() as rec:
+        asyncio.run(slash.handle_slash(app, "setup", "--terminal team"))
+        asyncio.run(slash.handle_slash(app, "setup", "--terminal"))
+        asyncio.run(slash.handle_slash(app, "setup", "kitchen"))
+    ctx.check(f"/setup --terminal [team]: the console way, no screen, no Studio, got {app.notes} {rec}",
+              not app.pushed and not rec["launched"] and not rec["opened"] and "halo teams use <name>" in app.notes[0]
+              and app.notes[1].startswith("Setup in a terminal: halo init --terminal"))
+    ctx.check(f"an unknown word: the usage, got {app.notes}", app.notes and app.notes[-1].startswith("Usage: /setup [providers|"))
 
 
 @test

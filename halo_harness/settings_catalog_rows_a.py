@@ -1,4 +1,4 @@
-"""halo_harness.settings_catalog_rows_a -- the Settings rows of General, Agents and roles, Coach and improve,
+"""halo_harness.settings_catalog_rows_a -- the Settings rows of General, Agents and roles,
 Knowledge and recall, Supervise, Steer and turn and Models (settings_catalog.py has the shape; one row per line:
 key, group, title, kind, default, choices, help, effect, secret)."""
 
@@ -33,17 +33,6 @@ ROWS = [
     Row("roles.enabled", "agents", "Roles on", "bool", True, (), "Sessions route work by role (planner, coder, reviewer ...); off, one model does everything.", "next session"),
     Row("roles.editor", "agents", "Roles editor", "enum", None, ("external",), "external opens /roles edit in your $EDITOR instead of the form.", "now"),
     Row("roles.<role>", "agents", "Role model", "keyed", None, (), "The model one role runs on (a model ref, or a mapping with model and effort); the lineup's own wins over it.", "next session"),
-    Row("improve.enabled", "coach", "Improve on", "bool", True, (), "The /improve suggestions read your sessions and offer changes.", "now"),
-    Row("improve.hint", "coach", "Improve hint", "bool", True, (), "Show a one-line hint when a session crosses one of the hint thresholds.", "next session"),
-    Row("improve.model", "coach", "Improve model", "model", None, (), "The model /improve drafts with; unset, the small model, then the session model.", "now"),
-    Row("improve.since_days", "coach", "Improve window", "int", 7, (), "How many days of sessions /improve reads.", "now"),
-    Row("improve.max_candidates", "coach", "Improve candidates", "int", 8, (), "How many candidates /improve offers at most (hard-capped at 8).", "now"),
-    Row("improve.hint_threshold.repairs", "coach", "Hint after repairs", "int", 3, (), "Repairs in a session before the improve hint shows.", "next session"),
-    Row("improve.hint_threshold.edit_failures", "coach", "Hint after failed edits", "int", 2, (), "Failed edits in a session before the improve hint shows.", "next session"),
-    Row("improve.hint_threshold.loop_breaker", "coach", "Hint after loop breaks", "int", 1, (), "Loop-breaker stops in a session before the improve hint shows.", "next session"),
-    Row("coach.probe.k", "coach", "Probe pairs", "int", 1, (), "How many pairs of candidate overlays a coach probe drafts and runs when no --k is given (at most 4).", "now"),
-    Row("coach.probe.budget_factor", "coach", "Probe budget factor", "float", 1.5, (), "Each probe run may spend the reference run's cost times this.", "now"),
-    Row("coach.library.cite", "coach", "Cite the library", "bool", True, (), "The coach cites the improvement library entries earlier Applies left for runs like this one.", "now"),
     Row("knowledge.write", "knowledge", "Write knowledge", "bool", True, (), "The judge, the gate, the coach's Apply and the supervisor write findings and decisions to the knowledge store.", "now"),
     Row("knowledge.gate_keep", "knowledge", "Passed-gate records kept", "int", 50, (), "How many passed-gate records each project keeps, the newest; an older one is forgotten when a new one is written (halo knowledge prune removes more).", "now"),
     Row("knowledge.brief", "knowledge", "Knowledge in briefs", "bool", True, (), "An Orchestra worker's brief carries up to three findings and decisions recall ranks for its job.", "now"),

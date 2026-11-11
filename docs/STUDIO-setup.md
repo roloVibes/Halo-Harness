@@ -213,8 +213,8 @@ leaves this hub and pairs again with a new code). The Summary's Machines row say
 ## The doors: `halo init` opens Setup (3.3.0.0 R4)
 
 Setup is where a box gets set up: `halo init` on a terminal starts Studio (or reuses the one running for this
-home) and opens this page; the terminal wizard is the fallback (`halo init --terminal`, SSH, no browser:
-[WIZARD.md](WIZARD.md)). Two words in the page's address say how it was opened (`studio/setup_door.py`, read by
+home) and opens this page; the console setup is the fallback (3.4.0.0: `halo init --terminal`, SSH, no browser: the
+essentials line by line, [COMMANDS-init.md](COMMANDS-init.md)); `halo setup <page>` and `/setup <page>` open any page. Two words in the page's address say how it was opened (`studio/setup_door.py`, read by
 `ui/src/routes/setup/door.ts`):
 
 - `?mode=setup&first=1` (`halo init`, and Enter on `halo start`'s "Open Setup in Studio? [Y/n]"): the

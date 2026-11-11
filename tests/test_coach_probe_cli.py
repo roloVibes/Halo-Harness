@@ -25,6 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -86,26 +87,27 @@ def test_yes_runs_it_and_prints_the_contrast_and_the_pick(ctx: Ctx):
 
 
 @test
-def test_the_report_and_the_digest_carry_the_probe_line(ctx: Ctx):
-    from halo_harness.fleet import digest
+def test_the_coach_summary_carries_the_probe_line(ctx: Ctx):
+    """3.4.0.0 B2: the core's report and digest no longer read the coach (a pack); the pack's summary line and its run
+    record keep the probe's line."""
     from halo_harness.orchestra import coach_probe as CP
+    from halo_harness.orchestra.coach_record import runs_since, summary
     from halo_harness.orchestra.report import format_report, load_report
     from tests.helpers.coach_probe_rig import Probe
     with Probe() as p:
-        ctx.check("no probe yet: no probe line", "probe:" not in format_report(load_report(p.run_dir), p.run_dir))
+        ctx.check("no probe yet: no probe line", "probe:" not in summary(p.run_dir, p.state))
         CP.probe(p.run_dir)
-        last = format_report(load_report(p.run_dir), p.run_dir).splitlines()[-1]
-        ctx.check(f"the report's coach line ends with the probe, got {last!r}", last.startswith("  coach: ")
-                  and last.endswith("; probe: 2 runs, $0.0080, picked: invariant"))
-        d = digest.compute(p.state, 0.0, local_id="me", local_name="here")
-        row = next(b for b in d["harnesses"] if b["local"])["coach"][-1]
-        ctx.check(f"the digest's coach row keeps it, got {row.get('probe')!r}", row.get("probe") == "probe: 2 runs, $0.0080, picked: invariant"
-                  and "picked: invariant" in digest.text(d))
+        line = summary(p.run_dir, p.state)
+        ctx.check(f"the coach's line ends with the probe, got {line!r}", line.startswith("coach: ")
+                  and line.endswith("; probe: 2 runs, $0.0080, picked: invariant"))
+        ctx.check("the core report carries no coach line", "coach:" not in format_report(load_report(p.run_dir), p.run_dir))
+        row = runs_since(0.0, p.state)[-1]
+        ctx.check(f"the run record keeps it, got {row.get('probe')!r}", row.get("probe") == "probe: 2 runs, $0.0080, picked: invariant")
 
 
 @test
 def test_slash_coach_probe_shows_the_cost_then_runs_on_a_thread(ctx: Ctx):
-    from halo_harness.commands.builtins import _cmd_coach
+    _cmd_coach = _coach_pack.module("cli/slash.py").run  # 3.4.0.0 B2: /coach is the coach pack's slash command
     from halo_harness.orchestra import coach_probe as CP
     from tests.helpers.coach_probe_rig import Probe
     with Probe() as p:

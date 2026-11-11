@@ -19,6 +19,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -116,7 +117,7 @@ def test_forget_asks_and_the_errors(ctx: Ctx):
         rc, out, _ = cli(["library", "--help"])
         ctx.check("--help names the four verbs", rc == 0 and all(v in out for v in ("list", "show", "forget", "fetch")))
         from types import SimpleNamespace
-        from halo_harness.commands.builtins import _cmd_coach
+        _cmd_coach = _coach_pack.module("cli/slash.py").run  # 3.4.0.0 B2: /coach is the coach pack's slash command
         from halo_harness.orchestra.coach_record import undo
         undo(None)
         _applied(h)

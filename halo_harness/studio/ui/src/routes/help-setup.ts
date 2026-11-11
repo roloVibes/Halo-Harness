@@ -53,13 +53,13 @@ export const SETUP_HELP: Record<string, Help> = {
     help: lines(
       "One model for everything: roles off, no lineup. auto (the default): each sub-task goes to a model picked for it.",
       "Any other lineup gives each job its own agent and model; the preview shows role -> agent -> model and the cost line.",
-      "Apply writes what the terminal wizard's Team step writes; Edit in Agents opens the lineup in Agents (Cast).",
+      "Apply writes the lineup (team in ~/.halo/config.json, as halo teams use does); Edit in Agents opens the lineup in Agents (Cast).",
     ),
   },
   "setup-linux": {
     about: "The fixes a Linux box may be missing: a static rg in ~/.local/bin, ~/.local/bin on PATH for any shell.",
     help: lines(
-      "Listed only when this box lacks one (never on Windows); Apply does what the terminal wizard's Linux step does.",
+      "Listed only when this box lacks one (never on Windows); Apply installs a static ripgrep and puts ~/.local/bin on PATH (halo doctor names both).",
       "rg comes from ripgrep's own release page into ~/.local/bin; the PATH line goes into ~/.zshenv or ~/.profile, once.",
       "halo doctor lists the same two.",
     ),

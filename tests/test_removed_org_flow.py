@@ -24,6 +24,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
+import tests.helpers.coach_names  # noqa: E402,F401  (3.4.0.0 B2: the coach pack's modules, old names)
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once  # noqa: E402
 

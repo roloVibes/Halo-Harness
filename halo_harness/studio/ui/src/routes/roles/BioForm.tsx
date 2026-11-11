@@ -20,7 +20,6 @@ import { editBio, saveBio, setKey } from "./bioActions";
 import { arr, BioFields, BioModels } from "./BioFields";
 import { BioSchedule } from "./BioSchedule";
 import { BioYaml } from "./BioYaml";
-import { CoachNote } from "./CoachNote";
 import { Check, ListIn, Pick, TextIn } from "./controls";
 import { cloneFromPack } from "./packActions";
 import { openDialog, packOf, readOnlySource, roles, scopeLabel, useRoles } from "./store";
@@ -43,11 +42,10 @@ export function BioForm() {
   const d = useRoles((s) => s.bioDraft);
   const problems = useRoles((s) => s.bioProblems);
   const busy = useRoles((s) => s.busy === "bio");
-  const hint = useRoles((s) => (s.coachHint && s.coachHint.bio === s.bio ? s.coachHint : null));
   const id = useHelpGroup("identity");
   const focusModels = useRoles((s) => s.modelFocus === "bio" && s.bioData?.name === s.bio);
   const [yaml, setYaml] = useState(false);
-  const mark = (field: string) => hint?.field === field;
+  const mark = (_field: string) => false; // 3.4.0.0 B2: no coach marks (the coach is a pack; its panel writes after a confirm)
   if (!name) return <p className="muted">Pick a bio above, or drag one onto the canvas to add it to the lineup.</p>;
   if (!d || !data) return problems.length ? <p className="og-problems">{problems[0]}</p> : <div className="og-wait mono muted">reading {name}...</div>;
   const top = (key: string) => (v: unknown) => editBio((r) => setKey(r, key, v));
@@ -68,7 +66,6 @@ export function BioForm() {
           {info.problem ? `models.capabilities ${info.capabilities.join(", ")}: ${info.problem}` : `runs on ${info.ref}: the best catalog model with ${info.capabilities.join(", ")}`}
         </p>
       )}
-      {hint && <CoachNote field={hint.field} value={hint.value} run={hint.run} />}
       <fieldset className="rb-fields" disabled={!!pack}>
       {yaml ? (
         <BioYaml />

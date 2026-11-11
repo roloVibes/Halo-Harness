@@ -432,9 +432,6 @@ _PATH_HOME_ALLOWED_CALLERS = {
         "3.3.0.0 R6: the trace MASKS the real machine home in the text it returns (a tool result names "
         "the real ~ whatever BRIDGE_TEST_HOME says, since that only relocates halo's own state); a string "
         "replace, never a read or a write of anything under it",
-    "halo_harness/tui/dialogs/init_wizard.py":
-        "the init wizard's Linux-fixes commit step -- same deliberate real ~/.local/bin target as "
-        "init_cli.py's own ripgrep-install step above",
 }
 
 
@@ -651,7 +648,7 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
 
 
 _MAP_PACKAGES = ("studio", "fleet", "orchestra", "supervise", "packs", "ext", "outcomes", "workflows", "isolation", "knowledge", "ollama_steward", "host", "local_sched", "local_pool", "voice", "engines")  # engines: 3.3.13.0 R1 (the 3.3.9.1-3.3.9.3 runtimes folded); voice: 3.3.9.0 R1; local_pool: 3.3.8.0 R1; local_sched: 3.3.7.0 R3; host: 3.3.7.0 R1; ollama_steward: 3.3.4.0 R1; supervise: 3.1.8.0 R1; packs, ext: 3.2.0.0 R1; outcomes: 3.1.8.0 R3; workflows: 3.2.0.0 R5; knowledge: 3.1.8.0 R4
-_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows|isolation|knowledge|ollama_steward|host|local_sched|local_pool|voice|engines)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py|coach_cli\.py)`"  # isolation: 3.1.8.0 R5
+_MAP_NAME = r"`((?:studio|fleet|orchestra|team|supervise|packs|ext|outcomes|workflows|isolation|knowledge|ollama_steward|host|local_sched|local_pool|voice|engines)/[a-z0-9_]+\.py|orchestra_cli[a-z_]*\.py)`"  # coach_cli.py: the coach pack's since 3.4.0.0 B2  # isolation: 3.1.8.0 R5
 
 
 @test
@@ -671,7 +668,7 @@ def test_invariant_j_no_module_is_named_by_its_line_count(ctx: Ctx):
     section = doc[doc.find("## Module map"):] if "## Module map" in doc else ""
     named = set(re.findall(_MAP_NAME, section))
     actual = {f"{d}/{p.name}" for d in _MAP_PACKAGES for p in (pkg / d).glob("*.py") if p.name != "__init__.py"}
-    actual |= {p.name for p in pkg.glob("orchestra_cli*.py")} | {"coach_cli.py"}
+    actual |= {p.name for p in pkg.glob("orchestra_cli*.py")}
     ctx.check(f"ARCHITECTURE.md's module map misses {sorted(actual - named)} and names {sorted(named - actual)} "
               "that are not in the tree", section and named == actual)
 

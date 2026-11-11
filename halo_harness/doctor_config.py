@@ -74,11 +74,13 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
         return [finding("unreadable", "blocks", row, f"{row['file']} is not valid JSON: {e}", fix="fix or delete the file")]
     if path.name == "routes.json":
         return [] if isinstance(data, dict) else [finding("wrong-type", "blocks", row, "routes.json is a JSON object")]
-    from halo_harness.schemas.config_json import REMOVED_SECTIONS, removed_line
-    out = [f for f in _shape("config", data, row) if f["key"] not in REMOVED_SECTIONS]
+    from halo_harness.schemas.config_json import PACKED_SECTIONS, REMOVED_SECTIONS, packed_line, removed_line
+    out = [f for f in _shape("config", data, row) if f["key"] not in REMOVED_SECTIONS and f["key"] not in PACKED_SECTIONS]
     for section in sorted(REMOVED_SECTIONS):
         if isinstance(data, dict) and section in data:
             out.append(finding("removed-section", "warns", row, removed_line(section), key=section))
+    out += [finding("packed-section", "warns", row, packed_line(sec), key=sec)  # 3.4.0.0 B2: the coach's keys
+            for sec in sorted(PACKED_SECTIONS) if isinstance(data, dict) and sec in data]
     out = _removed_theme_findings(out, data, row)
     from halo_harness.providers.ollama_key_migrate import key_findings  # 3.3.13.1: a host api_key held as a value
     out += key_findings(data, row, finding) if path.name == "config.json" else []

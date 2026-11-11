@@ -29,11 +29,13 @@ EFFECTS = ("now", "next session", "next launch")
 EFFECT_WORDS = {"now": "takes effect now", "next session": "takes effect in the next session",
                 "next launch": "takes effect on the next launch"}
 
-GROUPS = (("general", "General"), ("studio", "Studio"), ("agents", "Agents and roles"), ("coach", "Coach and improve"),
+GROUPS = (("general", "General"), ("studio", "Studio"), ("agents", "Agents and roles"),
           ("knowledge", "Knowledge and recall"), ("supervise", "Supervise"), ("steer", "Steer and turn"),
           ("models", "Models"), ("providers", "Providers"), ("ollama", "Ollama"), ("network", "Network and routing"),
           ("fleet", "Fleet"), ("remote", "Remote"), ("packs", "Packs"), ("connectors", "Connectors"),
-          ("worktree", "Worktree"), ("update", "Update"), ("local", "Local"))
+          ("worktree", "Worktree"), ("update", "Update"), ("local", "Local"), ("from_packs", "From packs"))
+#: 3.4.0.0 B2: an enabled pack's `contributes.settings` rows (packs/contrib_settings.py), `packs.settings.<id>.<key>`
+PACK_KINDS = {"string": "string", "integer": "int", "number": "float", "boolean": "bool"}
 GROUP_TITLES = dict(GROUPS)
 
 _PLACEHOLDER = re.compile(r"<[^>]+>|\[\]")
@@ -66,14 +68,26 @@ _ROWS: "list[Row] | None" = None
 
 
 def rows() -> "list[Row]":
-    """Every row, in the groups' order and, inside a group, the order the rows files give."""
+    """Every row, in the groups' order and, inside a group, the order the rows files give; last, the rows of the
+    packs enabled here (group "From packs", read each call: a pack turned off takes its rows with it)."""
     global _ROWS
     if _ROWS is None:
         from halo_harness import settings_catalog_rows_a as A, settings_catalog_rows_b as B, settings_catalog_rows_c as C
         found = [*A.ROWS, *B.ROWS, *C.ROWS]
         order = [g for g, _ in GROUPS]
         _ROWS = sorted(found, key=lambda r: order.index(r.group) if r.group in order else len(order))
-    return list(_ROWS)
+    return list(_ROWS) + pack_rows()
+
+
+def pack_rows() -> "list[Row]":
+    """3.4.0.0 B2: the `contributes.settings` rows of every enabled pack, `packs.settings.<id>.<key>`."""
+    try:
+        from halo_harness.packs.contrib_settings import rows as contributed
+        got = contributed()
+    except Exception:
+        return []
+    return [Row(r["key"], "from_packs", f"{r['title']} ({r['pack']})", PACK_KINDS[r["type"]], r.get("default"), (),
+                (r.get("help") or "") + f" From the {r['pack']} pack.", "now") for r in got if r.get("type") in PACK_KINDS]
 
 
 def row(key: str) -> Optional[Row]:
@@ -82,11 +96,11 @@ def row(key: str) -> Optional[Row]:
 
 
 def groups() -> "list[dict]":
-    """[{id, title, count}] in the rail's order."""
+    """[{id, title, count}] in the rail's order; "From packs" only while an enabled pack has rows (3.4.0.0 B2)."""
     counts: dict = {}
     for r in rows():
         counts[r.group] = counts.get(r.group, 0) + 1
-    return [{"id": g, "title": t, "count": counts.get(g, 0)} for g, t in GROUPS]
+    return [{"id": g, "title": t, "count": counts.get(g, 0)} for g, t in GROUPS if g != "from_packs" or counts.get(g)]
 
 
 def studio_page(r: Row) -> str:

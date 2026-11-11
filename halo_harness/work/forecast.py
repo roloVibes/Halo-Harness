@@ -7,7 +7,7 @@ One forecast line per unit, then a total against a budget:
      "usd": 0.0306, "usd_low": 0.0153, "usd_high": 0.0612, "source": "lead|heuristic|turn|fixed", "priced": true}
     {"usd", "usd_low", "usd_high", "budget_usd": 0.5 | null, "over": false, "unpriced": 0, "units": 3}
 
-The price is the model catalog's (orchestra/coach_prices.py: the price per
+The price is the model catalog's (orchestra/prices.py: the price per
 million input tokens and per million output tokens of the model's row). A
 row without an output price is priced at OUT_RATIO times its input price;
 a free or local model (Ollama, Hugging Face, a price of 0) costs 0; a model

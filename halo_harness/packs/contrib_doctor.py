@@ -11,7 +11,9 @@ The module exposes `rows(ctx) -> list`: each row a string (an OK line) or `{"ok"
     entries(manifest)       the `doctor` entries
     needs(data)             [("doctor", "doctor rows <id>")]
     lines(data, root)       one line per problem
-    rows(cwd, state_dir)    every enabled pack's rows as `[ok]` / `[!!]` lines, the pack's id first
+    rows(cwd, state_dir)    every enabled pack's rows as doctor lines, `[OK] From packs, <id>: <text>` or
+                            `[WARN] From packs, <id>: <text> -> fix: <fix>` (3.4.0.0 B2: `halo doctor` shows them last)
+    entries(cwd, state_dir) the same as (check id, line) pairs, `pack:<id>:<row id>`, for doctor.py's list
 """
 
 from __future__ import annotations
@@ -53,17 +55,23 @@ def lines(data, root=None) -> "list[str]":
     return out
 
 
-def _row(r) -> str:
+HEAD = "From packs"
+
+
+def _row(pack_id: str, r) -> str:
+    from halo_harness.doctor import OK, WARN
     if isinstance(r, str):
-        return f"[ok] {r}"
+        return f"{OK} {HEAD}, {pack_id}: {r}"
     if isinstance(r, dict):
         ok, text, fix = bool(r.get("ok")), str(r.get("text") or ""), str(r.get("fix") or "")
-        return f"[{'ok' if ok else '!!'}] {text}" + (f" -- fix: {fix}" if fix and not ok else "")
-    return f"[!!] {r!r}"
+        return f"{OK if ok else WARN} {HEAD}, {pack_id}: {text}" + (f" -> fix: {fix}" if fix and not ok else "")
+    return f"{WARN} {HEAD}, {pack_id}: a row that is not a string or {{ok, text, fix}}: {r!r}"[:300]
 
 
-def rows(cwd=None, state_dir=None) -> "list[str]":
+def entries_of(cwd=None, state_dir=None) -> "list[tuple[str, str]]":
+    """(check id, doctor line) for every enabled pack's doctor rows."""
     try:
+        from halo_harness.doctor import WARN
         from halo_harness.ext.files import data_dir
         from halo_harness.packs import registry, state as S
         snap = registry.snapshot(cwd=cwd, state_dir=state_dir)
@@ -74,13 +82,19 @@ def rows(cwd=None, state_dir=None) -> "list[str]":
     for p in snap.active:
         granted = GRANT in S.granted(p.id, data)
         for e in entries(p.manifest):
+            cid = f"pack:{p.id}:{e.get('id')}"
             if not granted:
-                out.append(f"[!!] {p.id}: doctor rows {e.get('id')} wait for the grant: halo pack enable {p.id} --grant doctor")
+                out.append((cid, f"{WARN} {HEAD}, {p.id}: its doctor rows wait for the grant -> fix: "
+                                 f"halo pack enable {p.id} --grant doctor"))
                 continue
             ctx = SimpleNamespace(pack_id=p.id, cwd=cwd, state_dir=state_dir, data_dir=data_dir(p.id))
             try:
                 got = load(p.id, p.root, str(e.get("module"))).rows(ctx) or []
-                out += [f"{p.id}: {_row(r)}" for r in got]
-            except Exception as ex:
-                out.append(f"[!!] {p.id}: {e.get('module')} raised {type(ex).__name__}: {ex}")
+                out += [(cid, _row(p.id, r)) for r in got]
+            except Exception as ex:  # the pack's own code: one row naming it, never the doctor's failure
+                out.append((cid, f"{WARN} {HEAD}, {p.id}: {e.get('module')} raised {type(ex).__name__}: {ex}"[:300]))
     return out
+
+
+def rows(cwd=None, state_dir=None) -> "list[str]":
+    return [line for _cid, line in entries_of(cwd, state_dir)]

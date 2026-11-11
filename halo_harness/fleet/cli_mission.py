@@ -213,9 +213,9 @@ def cmd_mission(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help"):
         print(USAGE)
         return 0 if argv else 2
-    if argv[0] == "coach":  # 3.0.9.0 R3 (coach_cli.py)
-        from halo_harness.coach_cli import cmd_mission_coach
-        return cmd_mission_coach(argv[1:])
+    if argv[0] == "coach":  # 3.0.9.0 R3; 3.4.0.0 B2: the coach pack's `halo coach mission`, or the one line
+        from halo_harness.packs.contrib_cli import dispatch
+        return dispatch(["coach", "mission"] + list(argv[1:])) or 0
     if argv[0] in VERBS:
         return globals()["cmd_" + argv[0]](argv[1:])
     print(USAGE, file=sys.stderr)

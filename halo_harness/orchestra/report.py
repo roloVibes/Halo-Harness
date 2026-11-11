@@ -198,14 +198,8 @@ def _workflow_part(run_dir, goal, lanes: list, gate, status: str) -> dict:
     return part(run_dir, goal, lanes, gate, status) if getattr(goal, "workflow", None) else {}
 
 
-def coach_line(run_dir) -> str:
-    """3.1.3.0 R1: "coach: N suggestions, M applied, top: <title>" (orchestra/coach_record.py), '' if unread."""
-    from halo_harness.orchestra.coach_record import summary
-    return summary(run_dir) if run_dir is not None else ""
-
-
 def format_report(report: dict, run_dir=None) -> str:
-    """The report as the CLI prints it; with `run_dir`, the coach's summary line last."""
+    """The report as the CLI prints it (3.4.0.0 B2: the coach's summary line left with the coach pack)."""
     mark = {True: "PASS", False: "FAIL", None: "    "}
     lines = [f"run {report.get('run_id')}: {report.get('status')}"
              + (f" -- {report['stop_reason']}" if report.get("stop_reason") else "")]
@@ -229,5 +223,4 @@ def format_report(report: dict, run_dir=None) -> str:
     if report.get("workflow"):  # 3.2.0.0 R5: the workflow's artifacts and the bounds it does not hold yet
         from halo_harness.workflows.outputs import lines as workflow_lines
         lines += [f"  workflow {report['workflow'].get('ref')}"] + workflow_lines(report)
-    coach = coach_line(run_dir)
-    return "\n".join(lines + [f"  {coach}"] * bool(coach))
+    return "\n".join(lines)

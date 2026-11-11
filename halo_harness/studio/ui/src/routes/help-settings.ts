@@ -22,7 +22,6 @@ export const SETTINGS_HELP: Record<string, Help> = {
     "Setup sets the model, the permission mode, the theme and the lineup with a preview; here each is one row."),
   "settings-agents": page("How many sub-agents run at once and how deep, whether roles route the work, and the model each role runs on.",
     "A role's model is a table of the roles saved: change one, or add one in roles as JSON."),
-  "settings-coach": page("The /improve suggestions and their hint, and the coach's probes and library citations."),
   "settings-knowledge": page("What the knowledge store records and briefs carry, and the folders of your own notes recall reads."),
   "settings-supervise": page("The supervisor's tick, how many goals it runs, when a run drifts and what it does then, and the queue's budget."),
   "settings-steer": page("What a steer does to a model call that has sent nothing yet, and the nudge after a reply that promises more work."),
@@ -39,6 +38,8 @@ export const SETTINGS_HELP: Record<string, Help> = {
   "settings-worktree": page("What a -w session does with its own git worktree when it ends."),
   "settings-update": page("halo update's check, its daily note and the channel it follows."),
   "settings-local": page("Named local servers, the embeddings recall ranks with, the ComfyUI server and the governor that paces every call."),
+  "settings-from_packs": page("The rows of the packs enabled here (each row names its pack): packs.settings.<pack>.<key> in config.json.",
+    "A pack's rows show only while it is enabled; turned off, its rows go and a value it left is ignored."),
   // 3.3.12.0 R1: the Themes page (Themes.tsx): not a catalog group, the `theme` key drawn as the ten palettes
   "settings-themes": {
     about: "One palette for the terminal and Studio: theme in ~/.halo/config.json. Pick one, or follow the system.",

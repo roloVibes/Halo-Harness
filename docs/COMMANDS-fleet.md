@@ -163,10 +163,8 @@ is recorded from Studio's Agents -> Live (`POST /api/fleet/<harness>/<sid>/recor
 Round R4. What happened since `--since` (`2h`, `45m`, `1d`, unix seconds or
 an ISO time; default `1d`), per harness, computed in code: sessions started
 and ended, the cost, the decisions answered from Studio and who answered
-them, the files touched, the errors and the hand-offs, and (3.1.3.0) one
-coach line per run the post-run coach read ("coach    orchestra <run>: 3
-suggestions, 1 applied, top: ..."; `coach` rows in `--json`, from
-`~/.halo/coach/runs.json`). This harness is read from its own transcripts; members and decisions come from the hub's journal
+them, the files touched, the errors and the hand-offs
+(3.4.0.0: no coach line; the coach is a pack and the digest's `coach` rows in `--json` stay empty). This harness is read from its own transcripts; members and decisions come from the hub's journal
 (`~/.halo/fleet/journal.jsonl`, written while Studio's fleet watcher runs).
 `--json` prints the same object as `GET /api/fleet/digest`.
 
@@ -207,6 +205,9 @@ halo fleet who "a 4090 for video"
 ```
 
 ### Recall and the coach's library across the fleet
+
+The library and `halo coach library fetch` are the coach pack's since 3.4.0.0: a member answers `coach_library` only
+while its coach pack is enabled (else the one line that the coach is a pack).
 
 3.1.2.0 R3 / 3.1.6.0. `halo recall --fleet "<query>"` asks every online
 member's own index (the `recall` fleet command); a hit's kind is `memory`,

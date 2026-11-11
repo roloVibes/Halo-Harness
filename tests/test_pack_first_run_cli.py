@@ -11,7 +11,7 @@ start/fake.py: real git, no model) in this module's own home:
    command; the run rehearses crew itself (named with its cards in the lineup
    step, the plan, the run and the report; no lineup copy written, the active
    lineup untouched), the sample repo a git repo, the run finished with its plan
-   approved, the report's checks and the coach's card, the three next lines.
+   approved, the report's checks and (the coach pack off) the coach's one line, the three next lines.
 1b. 3.3.15.0 R7: `--lineup` overrides the active one; a missing lineup is one
    line and exit 1; a lineup with fewer lane slots runs in fewer lanes and says
    so; one with no card that writes code says so and exits 1, writing nothing;
@@ -167,8 +167,8 @@ def test_yes_runs_every_step_through_the_fake(ctx: Ctx):
     ctx.check("the plan was printed with the two sentences and approved", "job-5" in text and "Lanes in one layer" in text
               and "approved: 5 job(s)" in text)
     ctx.check("the run finished: five lanes merged", text.count("merged") >= 5 and "finished: branch orchestra/" in text)
-    ctx.check("the report's checks and the coach", "PASS  tests_pass_finished_branch" in text and "coach: orchestra run" in text
-              and "Apply opens the bio in Studio" in text)
+    ctx.check("the report's checks, and (3.4.0.0 B2: the coach pack off) the coach's one line", "PASS  tests_pass_finished_branch"
+              in text and "The coach (what to change next time) is a pack: halo pack install coach" in text)
     ctx.check("where to go next: Agents: Cast, Agents: Runs, Fleet with their commands (3.3.16.0 R1)", "halo studio --mode agents" in text
               and "halo orchestra new" in text and "halo fleet pair" in text)
     from halo_harness.orchestra.goal import list_runs, load_goal

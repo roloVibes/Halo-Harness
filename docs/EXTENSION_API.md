@@ -6,11 +6,14 @@ Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 
 [Policy hooks](#policy-hooks) as the first `draft` part, and R2 made it `stable` (a session enforces each verdict).
 A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
-written against. The extension API version is `API_VERSION = "1.2"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0; a
-1.0 or 1.1 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup blocks](#setup-blocks) to
-1.1, 3.3.12.0 [Themes](#themes); 3.3.13.0 made it 1.2 with [Services](#services) and [Transports](#transports)
-(R3) and [a section's view](#a-sections-view), [`api.lib`](#apilib), [a pack's own routes](#a-packs-own-routes) and
-[the host services](#the-host-services) (R2), the seams the signal and design packs are built on)
+written against. The extension API version is `API_VERSION = "1.3"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
+until 3.4.0.0; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
+blocks](#setup-blocks) to 1.1, 3.3.12.0 [Themes](#themes); 3.3.13.0 made it 1.2 with [Services](#services) and
+[Transports](#transports) (R3) and [a section's view](#a-sections-view), [`api.lib`](#apilib), [a pack's own
+routes](#a-packs-own-routes) and [the host services](#the-host-services) (R2), the seams the signal and design packs are
+built on; 3.4.0.0 made it 1.3 with the four `draft` contributions a pack's [CLI verbs, slash commands, doctor rows and
+settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows) and [core access](#core-access), the seams the
+first-run and coach packs are built on)
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
 machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
@@ -44,8 +47,8 @@ guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK
 | [Policy hooks](#policy-hooks) | stable | `contributes.policy` and `contributes.modes` (3.3.10.0, API 1.1): a pack's runtime mode (mode.json), a policy hook whose verdict decides a tool call before it runs (deny > ask > allow) and, with `after: true`, its result after (pass, redact, drop); every verdict in the audit; the dry run |
 | [Services](#services) | stable | `contributes.services` (3.3.13.0 R3, API 1.2): a pack's program the supervisor keeps running while the pack is enabled and granted `services` -- autostart, a restart rule, a health file, a log; `halo supervise services`, the Pack Manager's Start / Stop |
 | [Transports](#transports) | stable | `ext.remote` (3.3.13.0 R3, API 1.2): what a pack that carries Halo to a phone or a chat uses -- the live sessions and their control sockets, a session started for it, the cards' text, the core's notes, a voice note's transcript; the shipped signal pack is one |
-| [CLI verbs, slash commands, doctor rows and settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows) | draft | `contributes.cli`, `.slash`, `.doctor`, `.settings` (3.4.0.0 B, API 1.3): a pack's own `halo <verb>`, `/<name>`, doctor rows and Settings rows; the grants `cli:<verb>` and `doctor` |
-| [Core access](#core-access) | draft | `ext.core` (3.4.0.0 B, API 1.3): the core modules the first-run and coach packs drive, by name, over `core.REACHABLE` |
+| [CLI verbs, slash commands, doctor rows and settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows) | draft | four parts, each `draft` (3.4.0.0, API 1.3): `contributes.cli` (a pack's own `halo <verb>`, grant `cli:<verb>`), `contributes.slash` (its `/<name>`, the same grant), `contributes.doctor` (its rows in `halo doctor` under "From packs", grant `doctor`), `contributes.settings` (its rows in Studio's Settings under "From packs" and in `halo config get/set`, no grant) |
+| [Core access](#core-access) | draft | `ext.core` (3.4.0.0, API 1.3): the core modules the first-run and coach packs drive, by name, over `core.REACHABLE` |
 | [The reference example](#the-reference-example) | stable | the Documentation Review pack Halo ships (3.2.0.0 R6): every part of the API in one pack a third party can copy |
 
 `stable`: a 1.x Halo keeps it. `removed <version>`: gone in that version,
@@ -53,7 +56,7 @@ announced a minor version before it ([Changes in 1.x](#changes-in-1x)).
 Since 3.2.0.0 every part is `stable` and none is removed; a later part may
 start as `draft` (usable, may change in a minor API version with a migration
 note) or `planned` (the shape proposed, nothing reads it yet). Policy hooks
-was the first `draft` part (3.3.10.0 R1) and is `stable` from 3.3.10.0 R2; 3.4.0.0 B's two are `draft` now
+was the first `draft` part (3.3.10.0 R1) and is `stable` from 3.3.10.0 R2; 3.4.0.0's (API 1.3: the four contributions and core access) are `draft` now
 ([CLI verbs, slash commands, doctor rows and settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows), [core access](#core-access)).
 
 ## The stable surface (`halo_harness.ext`)
@@ -1239,27 +1242,32 @@ its tests drive a whole conversation through fakes.
 
 ## CLI verbs, slash commands, doctor rows and settings rows
 
-Status: **draft** (Halo 3.4.0.0 B, to land as part of API 1.3; usable, may change in a minor API version with a
+Status: **draft**, each of the four parts (Halo 3.4.0.0, API 1.3; usable, may change in a minor API version with a
 migration note). What a pack that left Halo's core (the first-run and coach packs) needs to keep its verbs: a top-level
 `halo <verb>`, a `/<name>` slash command, rows in `halo doctor` and rows in Studio's Settings. Each has one loader
 module under `halo_harness/packs/` (`contrib_cli.py`, `contrib_slash.py`, `contrib_doctor.py`, `contrib_settings.py`;
-`contrib_lines.py` hands their rules to the manifest check).
+`contrib_lines.py` hands their rules to the manifest check). The manifest shapes, exactly (the coach pack's, trimmed):
 
 ```yaml
 contributes:
-  cli: [{verb: start, module: cli/start.py, help: "the guided first run"}]          # main(argv) -> int
-  slash: [{name: start, module: cli/slash.py, help: "the guided first run's card"}] # run(args_text, facade) -> str
-  doctor: [{id: library, module: doctor.py, help: "the coach library"}]              # rows(ctx) -> list
-  settings: [{key: model, title: The coach's model, help: "...", type: string, default: ""}]
-permissions: ["cli:start", doctor]
+  cli:      [{verb: coach, module: cli/coach.py, help: "the post-run coach's card"}]    # main(argv) -> int
+  slash:    [{name: coach, module: cli/slash.py, help: "the post-run coach's card"}]    # run(args_text, facade) -> str
+  doctor:   [{id: coach, module: doctor.py, help: "what the coach keeps and uses"}]     # rows(ctx) -> list
+  settings: [{key: probe.k, title: Probe pairs, type: integer, default: 1, help: "..."}]  # packs.settings.coach.probe.k
+permissions: ["cli:coach", doctor]
 ```
+
+Keys: `cli` takes `verb` (lower-case letters, digits and `-`), `module` (a `.py` file of the pack), `help` (one line);
+`slash` takes `name`, `module`, `help`; `doctor` takes `id`, `module`, `help`; `settings` takes `key` (lower-case words
+joined by `.`), `title` (required), `help`, `type` (`string`, `integer`, `number` or `boolean`) and `default` (of that
+type). Any other key is a problem.
 
 | Key | What Halo does with it | Grant |
 |---|---|---|
 | `cli` | `halo <verb> ...` imports the module through the pack's folder (the package `halo_packs.<id>`, as Studio imports a pack's routes) and calls `main(argv)` with the words after the verb; its return is the exit code. A core verb always wins; a verb that left the core (`halo_harness/left.py`: `team`, `start`) says its one line when no enabled pack answers it | `cli:<verb>` ("its verb runs") |
 | `slash` | `/<name> ...` runs `run(args_text, facade)` and shows what it returns, where no core command took the name; a word that left the core is a one-line command with its pack off | `cli:<name>` (the same grant as the verb of that name) |
-| `doctor` | `halo doctor` adds `rows(ctx)`'s rows under the pack's id: a string is an OK line, `{ok, text, fix}` a row; `ctx` carries `pack_id`, `cwd`, `state_dir`, `data_dir`. A module that raises is one red row naming it | `doctor` |
-| `settings` | rows of Studio's Settings and `halo settings`, each `packs.settings.<id>.<key>` in config.json (where `ext.get_config` reads); with the pack off the rows are gone and a value left in config.json is ignored | none (no code runs) |
+| `doctor` | `halo doctor` adds `rows(ctx)`'s rows last, each `From packs, <id>: <text>`: a string is an `[OK]` line, `{ok, text, fix}` an `[OK]` or a `[WARN]` with its `-> fix:`; `ctx` carries `pack_id`, `cwd`, `state_dir`, `data_dir`. Only while the pack is enabled; without the grant, one `[WARN]` row naming it. A module that raises is one `[WARN]` row naming it, never the doctor's failure | `doctor` |
+| `settings` | rows of Studio's Settings and `halo settings` in the group **From packs** (each row's title names its pack), each `packs.settings.<id>.<key>` in config.json (where `ext.get_config` reads); `halo config get` says the row's default while it is unset and `halo config set` checks its type (one line, exit 2). With the pack off the rows are gone and a value left in config.json is ignored | none (no code runs) |
 
 A pack's Python runs with your rights, so every key that runs it takes a grant you give (`halo pack enable <id>
 --grant cli:<verb>`, or `--grant-all`), as `studio-routes` and `services` do. One line per problem names the entry
@@ -1269,8 +1277,9 @@ problems.
 
 ## Core access
 
-Status: **draft** (Halo 3.4.0.0 B, API 1.3). `halo_harness.ext.core` is the one door the shipped packs that left the
-core in 3.4.0.0 (first-run, coach) use to reach the Orchestra engine, the lineups and the checks they always drove:
+Status: **draft** (Halo 3.4.0.0, API 1.3). `halo_harness.ext.core` is the one door the shipped packs that left the
+core in 3.4.0.0 (first-run, coach) use to reach the Orchestra engine, the lineups, the checks, the run folders and the
+writers they always drove (the coach reads verified outcomes through `outcomes.records` only):
 `core.module(name)` is `halo_harness.<name>` and `core.get(name, attr)` one name of it, for a `name` in
 `core.REACHABLE` (any other raises ValueError naming the rule). These are Halo's own modules as they are in the Halo
 the pack ships with: they follow Halo's version, not the extension API's, so a third-party pack does not build on them.
@@ -1296,7 +1305,7 @@ and `halo_harness/packs/resolve.py` apply it:
   `halo pack doctor` and in the Pack Manager's Details, in these words:
 
 ```
-pack doc-review needs extension API 1.3 to 1.9; this Halo has 1.2
+pack doc-review needs extension API 1.4 to 1.9; this Halo has 1.3
 pack x needs Halo >= 3.3; this is 3.2.0.0
 ```
 
@@ -1320,6 +1329,11 @@ Each minor version lists here the names it adds (the name, what it does, the
 version) and the names it deprecates (the name, the version it goes away in,
 what to use instead), one line each (`ext.compat.CHANGES` holds the same).
 
+- **1.3** (Halo 3.4.0.0): adds the manifest's `contributes.cli`, `contributes.slash`, `contributes.doctor` and
+  `contributes.settings` with the grants `cli:<verb>` and `doctor` ([CLI verbs, slash commands, doctor rows and settings
+  rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows)) and `core` ([core access](#core-access)); all draft;
+  deprecates nothing. A 1.0, 1.1 or 1.2 pack keeps everything (`{min: "1.0", max: "1.9"}` and `{min: "1.2"}` take 1.3);
+  the shipped first-run and coach packs say `{min: "1.3"}`.
 - **1.2** (Halo 3.3.13.0 R2): adds `host` ([the host services](#the-host-services)), the manifest's
   `contributes.studio.sections[].view` ([a section's view](#a-sections-view)) and `contributes.studio.routes` with the
   `studio-routes` grant ([a pack's own routes](#a-packs-own-routes)), the bundle `api`'s `lib`, `routes` and `section`

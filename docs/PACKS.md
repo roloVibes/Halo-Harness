@@ -633,9 +633,9 @@ without policies and modes is untouched.
 
 ## The reference pack
 
-Halo ships five packs: **Documentation Review**, below, **Concord** ([The concord pack](#the-concord-pack)), **Signal**
+Halo ships six packs: **Documentation Review**, below, **Concord** ([The concord pack](#the-concord-pack)), **Signal**
 ([The signal pack](#the-signal-pack)), **Design** ([The design pack](#the-design-pack)) and (3.4.0.0) **First run**
-([The first-run pack](#the-first-run-pack)).
+([The first-run pack](#the-first-run-pack)) and **Coach** ([The coach pack](#the-coach-pack)).
 **Documentation Review** (`doc-review`,
 `halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
 review lineup, the review workflow (read each Markdown file, judge the
@@ -657,11 +657,24 @@ finds nothing of it left.
 **First run** (`first-run`, `halo_harness/templates/packs/first-run/`, 3.4.0.0) is the guided first run, out of Halo's
 core: `halo start` (one real Orchestra run that rehearses your lineup on a sample repo, its card first) and `/start`,
 a row on Setup's Check page and a **First run** panel in Studio's Agents section (where "Start here" and "Test this
-lineup" went). `halo pack install first-run`, `halo pack enable first-run --grant-all` (`cli:start` for the verb and
-the slash command, `studio-script` and `studio-routes` for the panel). With it off, `halo start` and `/start` say in
-one line that it is a pack now. It is the example of the 3.4.0.0 draft parts ([CLI verbs, slash commands, doctor rows
-and settings rows](EXTENSION_API.md#cli-verbs-slash-commands-doctor-rows-and-settings-rows), [core
+lineup" went), and one `halo doctor` row (ready, or what is missing first). `halo pack install first-run`, `halo pack
+enable first-run --grant-all` (`cli:start` for the verb and the slash command, `doctor` for its row, `studio-script`
+and `studio-routes` for the panel). With it off, `halo start` and `/start` say in one line that it is a pack now. It is
+the example of the 3.4.0.0 draft parts ([CLI verbs, slash commands, doctor rows and settings
+rows](EXTENSION_API.md#cli-verbs-slash-commands-doctor-rows-and-settings-rows), [core
 access](EXTENSION_API.md#core-access)); [its README](../halo_harness/templates/packs/first-run/README.md) has the rest.
+
+## The coach pack
+
+**Coach** (`coach`, `halo_harness/templates/packs/coach/`, 3.4.0.0) is the post-run coach, out of Halo's core: `halo
+coach` (a finished run's cards, Ask, Apply after one confirm, Undo, probes, the improvement library) and `halo improve`
+(memory and rule candidates from recent sessions), `/coach` and `/improve`, a **Coach** panel in Studio's Agents section
+(where the run report's Coach tab and the mission's Coach face went), seven rows in Settings under **From packs**
+(`packs.settings.coach.<key>`) and one `halo doctor` row. `halo orchestra coach` and `halo fleet mission coach` hand over
+to its verb. `halo pack install coach`, `halo pack enable coach --grant-all` (`cli:coach`, `cli:improve`, `doctor`,
+`studio-script`, `studio-routes`). With it off each verb says in one line that the coach is a pack now, and the old keys
+`coach.*` and `improve.*` are ignored. The supervisor, replanning and verified outcomes stay in the core; [its
+README](../halo_harness/templates/packs/coach/README.md) has the rest.
 
 ## The design pack
 

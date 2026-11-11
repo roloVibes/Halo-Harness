@@ -61,7 +61,9 @@ def _gather_real_flags() -> "dict[str, set]":
     argparse options on the SAME parser, just ones whose FEATURE isn't
     built yet, so they show up in `--help` exactly like a real one)."""
     from halo_harness import cli as cli_mod
-    from halo_harness import mcp_cli, catalog_cli, doctor as doctor_mod, stats_cli, export_cli, improve_cli, init_cli
+    from halo_harness import mcp_cli, catalog_cli, doctor as doctor_mod, stats_cli, export_cli, init_cli
+    from tests.helpers.coach_pack import module as coach_module  # 3.4.0.0 B2: `halo improve` is the coach pack's verb
+    improve_cli = coach_module("cli/improve.py")
     from halo_harness import ollama_cli, update_cli
     from halo_harness import work_matrix as work_matrix_mod
     from halo_harness.config_cli import cmd_config

@@ -5,8 +5,8 @@ Start view then the grid, a click focuses a panel and `?` opens its help; no sec
 second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
 3.0.6.0 Missions (studio_ui_mission.py) (3.0.7.0 R3's Design checks, studio_ui_design.py, are tests/test_pack_design_ui.py's
 since 3.3.13.0 R2: the design pack),
-3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py), R3 the coach
-(studio_ui_coach.py); five section tabs since 3.1.4.0 R3 (Org and Flow are gone), six with Session (Alt+1 and the first tab since
+3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py) (R3's coach checks left with
+the coach pack in 3.4.0.0 B2); five section tabs since 3.1.4.0 R3 (Org and Flow are gone), six with Session (Alt+1 and the first tab since
 3.1.6.0 R6: tests/helpers/studio_ui_order.py reads the tab strip in order);
 3.1.4.0 R1 the Fleet default layout (studio_ui_fleet_layout.py).
 """
@@ -25,7 +25,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 from tests.helpers.studio_ui_fleet import register as register_fleet
 from tests.helpers.studio_ui_fleet_layout import register as register_fleet_layout
-from tests.helpers.studio_ui_coach import register as register_coach
 from tests.helpers.studio_ui_mission import register as register_mission
 from tests.helpers.studio_ui_order import register as register_order
 from tests.helpers.studio_ui_plan import register as register_plan
@@ -202,7 +201,6 @@ register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, test
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 # 3.3.16.0 R1: the Team tab's checks (tests/helpers/studio_ui_team.py) went with its board
 register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/helpers/studio_ui_plan.py
-register_coach(test, _json_of, _chrome)  # 3.0.9.0 R3: the post-run coach, tests/helpers/studio_ui_coach.py
 register_order(test, _json_of, _chrome)  # 3.1.6.0 R6: the tab order and the keys, tests/helpers/studio_ui_order.py
 
 

@@ -63,7 +63,7 @@ the repo under the panels, newest first (click one to open it; 3.3.2.0 R2, the e
 | **Run grid** | the counters (joined, writing, in review, waiting, merged) and one tile per lane, 5 to 50 | larger tiles with each lane's title | a tile that is writing flows, a waiting one pulses amber, a merged one turns green; click a tile to focus that lane in Lanes and Live file |
 | **Lanes** | joined, writing, merged, one strip per lane | the timeline: one trace per worker on the run's clock from "joined" to "merged", a node at each state change, a diamond where the gate sent the piece back; hover a node for its time and text; 3.0.9.0: an arc from a lane to each lane that starts after it, a chip on the later lane naming what it takes (`summary`, `all`, an artifact, or `after`) and a "base: <sha7>" line on every lane | the running lane's trace flows, a waiting lane pulses amber |
 | **Live file** | units being written, units merged, a minimap of the bands | the goal file in mono with each lane's claimed unit as a band in its lane colour, labelled claimed, writing, written or merged, holding the lane's current text (its worktree copy); a picker when the goal has several files | a band being written shimmers; a claimed band is hatched |
-| **Report** | checks passing, cost, one pip per check | the checks with ticks and crosses, the finished branch and sha, the tests, the cost and time; **Copy** puts the report text (as `halo orchestra report` prints it) on the clipboard; a dry run shows the lead's jobs here; 3.0.9.0: the **Coach** tab beside it (below) | one green sweep when the report lands |
+| **Report** | checks passing, cost, one pip per check | the checks with ticks and crosses, the finished branch and sha, the tests, the cost and time; **Copy** puts the report text (as `halo orchestra report` prints it) on the clipboard; a dry run shows the lead's jobs here; 3.0.9.0-3.3.x: a **Coach** tab beside it, the coach pack's panel since 3.4.0.0 (below) | one green sweep when the report lands |
 | **Log** | line count, the last lines | the run log with each line's elapsed time, a lane filter, kind filters and **follow** | new lines slide in |
 | **Claims** | live claims, writing, the lead | each live claim with its holder, state and expiry, with **Release** and **Steal** (the lead takes the unit) | a claim being written flows; one that expires within a minute pulses amber |
 
@@ -123,7 +123,13 @@ re-based, then the re-base line (`lane-rebase`).
 
 ![Orchestra: the plan canvas of a run waiting for review](media/studio-orchestra-plan.png)
 
-### The Coach tab (3.0.9.0; the loop since 3.1.3.0)
+### The Coach tab (3.0.9.0; the loop since 3.1.3.0; the coach pack's Coach panel since 3.4.0.0)
+
+3.4.0.0: the coach is a pack. The report has no Coach tab and a mission no Coach face; with the coach pack on,
+its **Coach** panel in Agents picks a finished run of this repo and shows its cards with Ask, Apply (the file and
+its diff first, Confirm writes it) and Undo, and Probe (the cost line first). It writes after its own confirm; it
+no longer opens the bio form or the plan canvas with the change filled in. What follows is the 3.3.x tab, kept
+for the record of what each card says.
 
 Once a run has its report, the Report panel has two tabs: **Report** and
 **Coach** (`report-tab-coach`). Coach reads the run's files through `GET
@@ -176,8 +182,6 @@ the run is done or stopped (the cards in a dialog); each has the same Ask
 the model, Apply, Undo and Edit (routes: the kind's coach path plus `/ask`,
 `/apply`, `/undo`). The rules, the record file and the Undo rule:
 [ORCHESTRA.md, "The coach"](ORCHESTRA.md#the-coach).
-
-![Orchestra: the Coach tab of a finished run, three cards with their evidence](media/studio-orchestra-coach.png)
 
 One run goes at a time. **Run** is disabled while a run is live, and
 **stop** (the Goal panel's run line, or its compact face) asks the runner to

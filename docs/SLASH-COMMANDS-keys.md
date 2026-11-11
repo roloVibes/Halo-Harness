@@ -139,8 +139,3 @@ confirmation, still does).
   adjustable effort shows a one-line card that closes on any key.
 - **RewindCard** (`/rewind`/`/undo`/`/redo`): `1`/`y`/`Enter` restore,
   `2`/`n`/`Esc` cancel.
-- **ImproveCard** (one per `/improve` candidate): `a` apply, `e` edit the
-  drafted body in `$VISUAL`/`$EDITOR` then apply, `s` skip, `d` dismiss
-  this exact candidate forever (content-hash-based, survives restarts),
-  `q`/`Esc` stop reviewing, `o` opens the first cited evidence excerpt in a
-  pager.

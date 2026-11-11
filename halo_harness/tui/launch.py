@@ -82,6 +82,9 @@ def run_tui(args) -> int:
                               f"{_bridge_home()} owner-only (0700 directories, 0600 files)")
     # 3.1.5.0: a saved game theme falls back with one line.
     _theme_notice = removed_theme_notice(theme_name, persisted=persisted_theme or "")
+    if not args.demo:  # 3.4.0.0 B2: the wizard's lineup step migrated a legacy role table; a session start does now
+        from halo_harness.legacy_roles import migrate_on_start
+        _theme_notice = "\n".join(x for x in (_theme_notice, migrate_on_start(cwd)) if x)
     if _theme_notice:
         _earlier = getattr(app, "startup_notice", None)
         app.startup_notice = f"{_earlier}\n{_theme_notice}" if _earlier else _theme_notice

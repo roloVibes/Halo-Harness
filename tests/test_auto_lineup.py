@@ -163,43 +163,6 @@ class _Step:
         return self._name
 
 
-@test
-def test_the_wizard_writes_nothing_for_the_default_and_no_team_standard(ctx: Ctx):
-    from halo_harness.roles import roles_mode_enabled
-    from halo_harness.theme import get_config_value, load_config, set_config_value
-    from halo_harness.tui.dialogs import team_preview as tp
-    with _Env() as e:
-        rows = {r["name"]: r for r in _Step(e.cwd, "auto")._rows()}
-        ctx.check("a fresh install: the auto row is the checked default, One model is not",
-                  rows["auto"]["active"] and rows["auto"]["default"] and not rows[tp.ONE_MODEL_ID]["active"])
-        step = _Step(e.cwd, "auto")
-        step.commit()
-        ctx.check(f"Next on the default row writes no team:, got {load_config()}", "team" not in load_config() and roles_mode_enabled())
-        ctx.check(f"and says so, got {step.state.written}", step.state.written == ["lineup 'auto' in use (the default: no team: written)"])
-        _Step(e.cwd, "balanced").commit()
-        ctx.check("another lineup applies", get_config_value("team", default=None) == "balanced")
-        _Step(e.cwd, "auto").commit()
-        ctx.check("auto over a set team applies auto", get_config_value("team", default=None) == "auto")
-        step = _Step(e.cwd, tp.ONE_MODEL_ID)
-        step.commit()
-        ctx.check(f"One model for everything: roles off and team: cleared, never standard, got {load_config()}",
-                  "team" not in load_config() and not roles_mode_enabled())
-        summary = tp.applied_summary_lines(cwd=e.cwd, default_model="or:mock/m")
-        ctx.check(f"the Summary names one model, got {summary}", summary == ["One model for everything: or:mock/m"])
-        set_config_value("roles.enabled", True)
-        summary = tp.applied_summary_lines(cwd=e.cwd)
-        ctx.check(f"with roles on and no team the Summary names the default and how to change it, got {summary[:2]}",
-                  summary[0] == "Lineup: auto (the default; change it with `halo config set team <name>` or Studio Roles -> Apply)"
-                  and "  planner: auto (picked at spawn)" in summary)
-    with _Env() as e:
-        set_config_value("team", "standard")
-        rows = {r["name"]: r for r in _Step(e.cwd, "standard")._rows()}
-        ctx.check("an existing user's team: standard keeps its check, auto is not the default",
-                  rows["standard"]["active"] and not rows["auto"]["default"] and not rows["auto"]["active"])
-        _Step(e.cwd, "standard").commit()
-        ctx.check("and Next keeps it", get_config_value("team", default=None) == "standard")
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

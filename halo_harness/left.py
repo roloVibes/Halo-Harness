@@ -15,6 +15,8 @@ LEFT = {
 }
 PACKED = {
     "start": ("first-run", "the guided first run"),
+    "coach": ("coach", "the coach"),
+    "improve": ("coach", "/improve, the coach's improvement candidates,"),
 }
 
 

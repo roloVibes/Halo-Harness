@@ -21,10 +21,16 @@ import importlib
 REACHABLE = (
     # the first-run pack (3.4.0.0 B)
     "checks.provider", "config.paths", "init_cli", "lineup_default", "lineup_preflight", "model",
-    "orchestra", "orchestra.adapters", "orchestra.claims", "orchestra.coach", "orchestra.goal", "orchestra.lanes",
+    "orchestra", "orchestra.adapters", "orchestra.claims", "orchestra.goal", "orchestra.lanes",
     "orchestra.plan", "orchestra.report", "orchestra.run", "orchestra.view", "orchestra.workers", "orchestra_cli_plan",
     "packs.names", "roles", "studio.events", "studio.launch", "studio.model", "studio.orchestra_model",
     "studio.setup_door", "teams_tiers", "teams_yaml", "theme", "tui.dialogs.team_preview", "worktree",
+    # the coach pack (3.4.0.0 B2): the run folders it reads, the writers its Apply uses, the probe's Orchestra runs,
+    # the fleet's mission folders, /improve's session; outcomes are read through `outcomes.records` only
+    "agents_doctor", "agents_yaml", "config.memory", "fleet.hub", "fleet.identity", "fleet.journal", "fleet.mission",
+    "fleet.mission_store", "headless", "knowledge.store", "knowledge.writers", "orchestra.forecast", "orchestra.gate",
+    "orchestra.gitops", "orchestra.jsonl", "orchestra.lane_facts", "orchestra.prices", "orchestra.split",
+    "outcomes.records", "providers.hooks", "recall", "recall_fleet", "telemetry", "work_cli",
 )
 
 

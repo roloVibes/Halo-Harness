@@ -123,7 +123,7 @@ def open_setup(host, word: str = "", *, cwd=None, state_dir=None, on_line: Optio
         return False
 
     def _said(line: str) -> None:
-        say(line + ("  /setup --terminal opens the terminal screen here." if line.startswith(("Studio is at", "Studio did not")) else ""))
+        say(line + ("  /setup --terminal prints the console way here." if line.startswith(("Studio is at", "Studio did not")) else ""))
     cli = "halo setup" + (f" {word.strip().lower()}" if word.strip() else "")
     _open_on_worker(host, SetupTarget(block=block), cwd=cwd, state_dir=state_dir, say=_said, cli=cli)
     return True

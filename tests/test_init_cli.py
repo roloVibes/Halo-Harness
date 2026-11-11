@@ -787,9 +787,8 @@ def test_chat_capable_dbx_entries_excludes_decision_only_endpoints(ctx: Ctx):
 
 # ---------------------------------------------------------------------------
 # 3.3.0.0 R4: `halo init` opens Studio on Setup (studio/setup_door.py); the
-# terminal wizard is `--terminal`, and runs when no browser can open. In
-# process, on a fake terminal, every Studio and browser seam stubbed
-# (tests/helpers/setup_door_stubs.py); the wizard itself is stubbed too.
+# console setup is `--terminal` (3.4.0.0 B2), and runs when no browser can open. In process, on a fake terminal,
+# every Studio and browser seam stubbed (tests/helpers/setup_door_stubs.py); the console's questions stubbed too.
 # ---------------------------------------------------------------------------
 
 def _door_init(argv, extra_env=None, **stubs):
@@ -802,14 +801,15 @@ def _door_init(argv, extra_env=None, **stubs):
     for k in ("BRIDGE_STATE_DIR", "HALO_INIT_NO_LAUNCH", "HALO_INIT_POLL_S"):
         os.environ.pop(k, None)
     os.environ.update({"BRIDGE_TEST_HOME": str(home), "HALO_ENV_FILE": str(home / "env"), **(extra_env or {})})
-    ran: list = []
-    saved = init_cli._run_init_wizard_flow
-    init_cli._run_init_wizard_flow = lambda args, console, cwd: ran.append(args) or 0
+    ran: list = []  # 3.4.0.0 B2: the console setup's first question stands in for the wizard: it says the setup ran
+    saved = (init_cli._step_select_provider, init_cli._step_pick_permission_mode, init_cli._step_linux_fixes)
+    init_cli._step_select_provider, init_cli._step_pick_permission_mode, init_cli._step_linux_fixes = (
+        lambda args, console, header: ran.append(args) or "done", lambda args, console: "", lambda args, console: [])
     try:
         with door_stubs(**stubs) as rec, fake_tty() as out:
             rc = init_cli.cmd_init(list(argv))
     finally:
-        init_cli._run_init_wizard_flow = saved
+        init_cli._step_select_provider, init_cli._step_pick_permission_mode, init_cli._step_linux_fixes = saved
         for k, v in before.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -827,7 +827,7 @@ def test_init_opens_setup_in_studio(ctx: Ctx):
               len(rec["launched"]) == 1 and rec["launched"][0]["edit"] == "setup:first" and rec["launched"][0]["open_browser"] is False
               and "?mode=setup&first=1#t=" in url)
     ctx.check(f"the line with the URL, got {text!r}", f"Setup is open in your browser: {url}. `halo init --terminal` runs "
-              "the terminal wizard instead." in text)
+              "the terminal setup instead." in text)
     from halo_harness.init_wait import FINAL_LINE
     ctx.check(f"3.3.15.0 R6: then the line that says how both come up, got {text!r}", FINAL_LINE in " ".join(text.split()))
     rc, text, rec, ran = _door_init(["--no-launch"], running=True, pages=0)
@@ -835,29 +835,29 @@ def test_init_opens_setup_in_studio(ctx: Ctx):
 
 
 @test
-def test_init_terminal_and_the_wizard_flags_run_the_wizard(ctx: Ctx):
+def test_init_terminal_and_the_console_flags_run_the_console_setup(ctx: Ctx):
     rc, text, rec, ran = _door_init(["--terminal"])
-    ctx.check(f"--terminal: the wizard, no Studio, got {rc} {rec}", rc == 0 and len(ran) == 1 and not rec["launched"] and not rec["opened"])
-    rc, text, rec, ran = _door_init(["--step", "agents"])
-    ctx.check(f"--step still jumps: the wizard gets the step, got {[a.step for a in ran]}", rc == 0 and len(ran) == 1
-              and ran[0].step == "agents" and not rec["launched"])
+    ctx.check(f"--terminal: the console setup, no Studio, got {rc} {rec}", rc == 0 and len(ran) == 1 and not rec["opened"])
+    rc, text, rec, ran = _door_init(["--step", "team"])
+    ctx.check(f"--step team: Setup's Team page, got {rc} {ran}", rc == 0 and not ran and rec["launched"][0]["edit"] == "setup:team")
     for flags in (["--no-live"], ["--team", str(REPO_DIR / "missing-team.json")]):
         rc, text, rec, ran = _door_init(flags)
-        ctx.check(f"{flags[0]}: a flag of the terminal wizard runs it, got {ran}", len(ran) == 1 and not rec["launched"])
+        ctx.check(f"{flags[0]}: a flag of the console setup runs it, got {ran}", len(ran) == 1 and not rec["launched"])
 
 
 @test
-def test_init_with_no_browser_prints_the_url_and_runs_the_wizard(ctx: Ctx):
+def test_init_with_no_browser_prints_the_url_and_runs_the_console_setup(ctx: Ctx):
     from tests.helpers.setup_door_stubs import PORT
     rc, text, rec, ran = _door_init([], env={"HALO_NO_BROWSER": "1"})
-    ctx.check(f"HALO_NO_BROWSER: Studio started, no browser asked, the wizard ran, got {rc} {rec} {ran}", rc == 0
+    ctx.check(f"HALO_NO_BROWSER: Studio started, no browser asked, the console setup ran, got {rc} {rec} {ran}", rc == 0
               and rec["launched"] and not rec["opened"] and len(ran) == 1)
     ctx.check(f"the URL with the port-forward hint, got {text!r}", f"Setup is at http://127.0.0.1:{PORT}/?mode=setup&first=1#t=" in text
-              and f"ssh -L {PORT}:127.0.0.1:{PORT} <host>" in text and "The terminal wizard runs here instead." in text)
+              and f"ssh -L {PORT}:127.0.0.1:{PORT} <host>" in text and "The terminal setup runs here instead." in text
+              and "at the address above" in text)
     rc, text, rec, ran = _door_init([], env={"SSH_CONNECTION": "192.0.2.10 50000 192.0.2.20 22"})
     ctx.check(f"SSH_CONNECTION: the same, got {ran}", len(ran) == 1 and not rec["opened"] and "this is an SSH session" in text)
     rc, text, rec, ran = _door_init([], browser=False)
-    ctx.check(f"webbrowser.open False: the URL and the wizard, got {text!r}", len(ran) == 1 and "no browser took the URL" in text)
+    ctx.check(f"webbrowser.open False: the URL and the console setup, got {text!r}", len(ran) == 1 and "no browser took the URL" in text)
 
 
 @test
@@ -940,7 +940,7 @@ def test_init_waits_for_done_then_starts_halo_here(ctx: Ctx):
     one = " ".join(text.split())  # the console wraps long lines
     ctx.check(f"ONE door line: this terminal starts halo on Done (3.3.15.0 R6), got {text!r}", text.count(url) == 1
               and f"Setup is open in your browser: {url}. This terminal starts halo when you press Done there (Ctrl+C: stop "
-              "here; `halo` later starts it)." in one and "runs the terminal wizard instead" not in text)
+              "here; `halo` later starts it)." in one and "runs the terminal setup instead" not in text)
     ctx.check(f"polled GET setup/state until Done, a poll_s apart, got {gets} {slept}", gets[:3] == ["setup/state"] * 3 and slept == [1.0, 1.0])
     records = seen.get("records") or []
     ctx.check(f"while it waits, setup-wait.json names this process (Studio's Done reads it), got {records[:1]}",
@@ -987,7 +987,7 @@ def test_init_no_launch_returns_at_once(ctx: Ctx):
     for argv, env in ((["--no-launch"], None), ([], {"HALO_INIT_NO_LAUNCH": "1"})):
         rc, text, rec, launched, gets, slept = _wait_init(argv, _done_after(1), env=env)
         ctx.check(f"{argv or env}: the old one line, no wait, no launch, got {rc} {gets} {launched} {text!r}", rc == 0 and not gets
-                  and not launched and "`halo init --terminal` runs the terminal wizard instead." in text and "Press Done" not in text)
+                  and not launched and "`halo init --terminal` runs the terminal setup instead." in text and "Press Done" not in text)
     from halo_harness.init_cli import _build_parser
     help_text = " ".join(_build_parser().format_help().split())
     ctx.check(f"--no-launch is in halo init --help, got {help_text[-400:]!r}", "--no-launch open Setup and return at once" in help_text)

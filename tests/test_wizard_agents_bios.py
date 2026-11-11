@@ -169,63 +169,6 @@ def _highlight(app, name: str) -> None:
 
 
 @test
-def test_agents_list_new_view_studio_duplicate_delete(ctx: Ctx):
-    """New writes a starter bio and opens Studio on it; View shows it read-only, `e` opens Studio;
-    a limit saved through Studio's route shows in the view; Duplicate and Delete stay in the list."""
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
-    from textual.widgets import Button, Input
-
-    async def body():
-        with _Env() as e, _Opened() as opened:
-            state = WizardState(cwd=REPO_DIR, step_keys=("agents",), no_live=True)
-            state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
-            app = InitWizardApp(state)
-            async with app.run_test(size=(130, 50)) as pilot:
-                await pilot.pause(0.1)
-                ctx.check(f"opened on the Team step, got {type(app.screen).__name__}", type(app.screen).__name__ == "TeamStep")
-                app.screen._open_agents()  # 3.0.2.0: the Agents list is Ctrl+A
-                await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen")
-                before = set(_names(app))
-                app.screen.query_one("#agents-new", Button).press()
-                await _wait_until(pilot, lambda: opened.targets)
-                new = sorted(set(_names(app)) - before)
-                ctx.check(f"New wrote one starter bio and listed it, got {new}", len(new) == 1 and new[0].startswith("agent-"))
-                ctx.check(f"and opened Studio on it, got {opened.targets}", opened.targets == [f"bio:{new[0]}"])
-                status, _b = _put_bio(e, new[0], {"description": "A pilot test bio.",
-                                                  "models": {"preference": "or:vendor/strong-model"}, "limits": {"max_iterations": 7}})
-                ctx.check(f"Studio's save route takes the edit, got {status}", status == 200)
-                _highlight(app, new[0])
-                app.screen.query_one("#agents-view", Button).press()
-                await _wait_until(pilot, lambda: isinstance(app.screen, AgentBioView) and app.screen.query("#bio-preview"))
-                view = app.screen
-                texts = [_static_text(s) for s in view.query("Static")]
-                ctx.check("the view shows the saved model and limit", "Preferred model: or:vendor/strong-model" in texts
-                          and "Max iterations: 7" in texts)
-                ctx.check("the view has no inputs", not view.query(Input))
-                await pilot.press("e")
-                await _wait_until(pilot, lambda: len(opened.targets) == 2)
-                ctx.check(f"e opens Studio on the bio, got {opened.targets}", opened.targets[-1] == f"bio:{new[0]}")
-                ctx.check(f"and says what happened, got {_static_text(view.query_one('#bio-hint'))!r}",
-                          "Opened bio:" in _static_text(view.query_one("#bio-hint")))
-                await pilot.press("escape")
-                await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen")
-                _highlight(app, "coder")
-                app.screen.query_one("#agents-edit", Button).press()
-                await _wait_until(pilot, lambda: len(opened.targets) == 3)
-                ctx.check(f"Edit in Studio opens the highlighted bio, got {opened.targets}", opened.targets[-1] == "bio:coder")
-                from halo_harness.agents_yaml import find_agent_bio_path
-                app.screen.query_one("#agents-duplicate", Button).press()
-                await _wait_until(pilot, lambda: (find_agent_bio_path("coder") or ("", ""))[1] == "user")
-                ctx.check("Duplicate copies a shipped bio into user scope", (find_agent_bio_path("coder") or ("", ""))[1] == "user")
-                _highlight(app, new[0])
-                app.screen.query_one("#agents-delete", Button).press()
-                await pilot.pause(0.2)
-                ctx.check("Delete removes it", find_agent_bio_path(new[0]) is None)
-    asyncio.run(body())
-
-
-@test
 def test_a_bad_bio_save_through_studio_answers_the_lines(ctx: Ctx):
     """A bad save (invalid name, unknown kind) through Studio's routes answers 422 with the
     validator's lines and writes nothing."""
@@ -238,42 +181,6 @@ def test_a_bad_bio_save_through_studio_answers_the_lines(ctx: Ctx):
                                         state_dir=e.state_dir))
         ctx.check(f"an invalid name: 422 naming it, got {status} {body}", status == 422 and "not a valid agent name" in body.get("error", ""))
         ctx.check("nothing was written", not (e.state_dir / "agents" / "pilot.yaml").exists())
-
-
-@test
-def test_new_from_writes_only_extends_and_the_view_marks_inherited(ctx: Ctx):
-    """New from... writes a child that only `extends` the highlighted bio, and opens Studio on it;
-    the view marks every value it inherits."""
-    from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
-    from textual.widgets import Button
-
-    async def body():
-        with _Env(), _Opened() as opened:
-            state = WizardState(cwd=REPO_DIR, step_keys=("agents",), no_live=True)
-            state.enumerated_models, state.enumeration_done = FIXTURE_MODELS, True
-            app = InitWizardApp(state)
-            async with app.run_test(size=(130, 50)) as pilot:
-                await _wait_until(pilot, lambda: app.screen.query("#wiz-team-studio"))
-                app.screen._open_agents()
-                await _wait_until(pilot, lambda: type(app.screen).__name__ == "AgentsListScreen"
-                                  and app.screen.query("#agents-new-from"))
-                _highlight(app, "coder")
-                app.screen.query_one("#agents-new-from", Button).press()
-                await _wait_until(pilot, lambda: opened.targets)
-                ctx.check(f"Studio opened on the child, got {opened.targets}", opened.targets == ["bio:coder-child"])
-                from halo_harness.agents_yaml import load_agent_bio_raw
-                raw = load_agent_bio_raw("coder-child") or {}
-                ctx.check(f"the child file carries only extends and identity, got {raw}",
-                          raw.get("extends") == "coder" and not any(s in raw for s in
-                          ("models", "tools", "context", "limits", "output", "environment", "acceptance")))
-                _highlight(app, "coder-child")
-                app.screen.query_one("#agents-view", Button).press()
-                await _wait_until(pilot, lambda: isinstance(app.screen, AgentBioView) and app.screen.query("#bio-preview"))
-                texts = [_static_text(s) for s in app.screen.query("Static")]
-                ctx.check("an inherited value is marked so", any(x.startswith("Max iterations: 80") and x.endswith("(inherited)") for x in texts))
-                ctx.check("the title names the parent", any("(extends coder)" in x for x in texts))
-    asyncio.run(body())
 
 
 @test

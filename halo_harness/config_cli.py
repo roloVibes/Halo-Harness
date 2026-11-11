@@ -67,6 +67,11 @@ def _cmd_get(rest: list) -> int:
     if value is theme_mod._MISSING and args.key == "theme":  # 3.3.15.0 R4: unset has a value everywhere
         print(f"(unset: {theme_mod.DEFAULT_THEME})")
         return 0
+    from halo_harness.packs.contrib_settings import row_for  # 3.4.0.0 B2: an enabled pack's own Settings row
+    pack_row = row_for(args.key) if value is theme_mod._MISSING else None
+    if pack_row is not None:
+        print(f"(unset: {json.dumps(pack_row['default'])}, the {pack_row['pack']} pack's default)")
+        return 0
     if value is theme_mod._MISSING:
         print(f"halo config: {args.key!r} is not set", file=sys.stderr)
         return 1
@@ -96,6 +101,11 @@ def _cmd_set(rest: list) -> int:
         return 2
     if args.key in MOVED_KEYS:  # 3.3.13.0 R3: the Signal bridge's keys are the signal pack's
         print(f"halo config: {moved_key_line(args.key)}", file=sys.stderr)
+        return 2
+    from halo_harness.packs.contrib_settings import row_for, value_problem  # 3.4.0.0 B2: a pack's row, its type
+    pack_row = row_for(args.key)
+    if pack_row is not None and value_problem(pack_row, value):
+        print(f"halo config: {value_problem(pack_row, value)}", file=sys.stderr)
         return 2
     try:
         if args.key == "theme":  # 3.3.12.0 R2: through persist_theme, which keeps a pack palette's restore record

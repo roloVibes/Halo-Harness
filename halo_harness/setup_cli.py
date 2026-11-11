@@ -1,47 +1,47 @@
-"""halo_harness.setup_cli -- `halo setup [team|roles|<pack>] [--terminal]` (Halo 2.0.2
-round 7, init wizard brief item 3; 3.3.0.0 R4: the door into Studio's Setup).
+"""halo_harness.setup_cli -- `halo setup [<page>|<pack>] [--terminal]` (Halo 2.0.2 round 7; 3.3.0.0 R4: the door into
+Studio's Setup; 3.4.0.0 B2: every page, and the console line where no browser opens).
 
-On a real terminal `halo setup` opens Halo Studio on its Setup section, the
-Team block in view for `halo setup team` (`roles` is the same block's older
-name): `?mode=setup&block=team` (studio/setup_door.py). `--terminal` keeps
-the terminal screens: the wizard starting at the matching step (bare `halo
-setup --terminal` chains roles -> a short summary); so does a box where no
-browser can open (SSH, no DISPLAY, `HALO_NO_BROWSER`), after the URL and the
-port-forward hint are printed. With no TTY (or if the Textual app itself
-fails to run -- the same "interactive picker failed -> fallback" shape every
-other picker in this package already uses), it prints the current roles table
-instead of blocking, and exits 0. `/setup` (the TUI slash command,
-`tui/slash.py::_handle_setup`) is the other way to reach this from a LIVE
-session. 3.3.11.0 R3: `halo setup <pack>` opens an enabled pack's own Setup blocks
-(`?mode=setup&block=pack:<id>:<block>`, the first one waiting), or lists them where no browser opens.
+On a real terminal `halo setup <page>` opens Halo Studio on that page of its Setup section (`?mode=setup&block=<page>`,
+studio/setup_door.py): providers, local, model, permissions, theme, team (`roles` is its older name), linux, check,
+machines; bare `halo setup` the whole section. `--terminal`, no terminal, or a box where no browser can open (SSH, no
+DISPLAY, `HALO_NO_BROWSER`, after the URL and the port-forward line) prints the console way to do the same instead:
+the command that sets it (`CONSOLE` below; team and roles also print the current roles table). The terminal wizard's
+screens left in 3.4.0.0. `/setup` (tui/slash.py `_handle_setup`) is the same from a live session. 3.3.11.0 R3: `halo
+setup <pack>` opens an enabled pack's own Setup blocks (`?block=pack:<id>:<block>`, the first one waiting), or lists
+them where no browser opens.
 """
 
 from __future__ import annotations
 
 import sys
 
+USAGE = "usage: halo setup [providers|local|model|permissions|theme|team|linux|check|machines|<pack>] [--terminal]"
+#: The console way to do what each Setup page does (3.4.0.0 B2: what `--terminal` and a box with no browser print).
+CONSOLE = {
+    "": "halo init --terminal: a provider and its key, the default model, the permission mode, doctor",
+    "providers": "halo init --terminal (a provider and its key, by its variable's name in the env file); halo providers "
+                 "(the table, enable / disable)",
+    "local": "halo ollama discover (the Ollama servers here and on the network); halo local servers; halo models browse",
+    "model": "halo config set model <ref> (halo models lists them); halo init --terminal picks one from a short list",
+    "permissions": "halo config set permission_mode <default|acceptEdits|plan|auto|bypassPermissions>",
+    "theme": "halo config set theme <name> (/theme in a session lists the palettes)",
+    "team": "halo teams list; halo teams use <name>; halo teams show <name>",
+    "linux": "halo doctor (its rg and ~/.local/bin lines end with the fix to run)",
+    "check": "halo check (doctor, the catalog, a hello call; --all adds the rest)",
+    "machines": "halo fleet pair (this machine's code); halo fleet join <code> (on the other one)",
+}
+
+
+def console_lines(page: str) -> "list[str]":
+    """The lines `halo setup <page> --terminal` prints (and `/setup <page> --terminal`)."""
+    from halo_harness.studio.setup_door import ALIASES
+    page = ALIASES.get(page, page)
+    return [f"Setup{(' -> ' + page) if page else ''} in a terminal: {CONSOLE[page]}"]
+
 
 def _print_roles_table() -> int:
     from halo_harness.roles_cli import _cmd_table
     return _cmd_table()
-
-
-# Halo 2.0.5 round 2c (rule 11): "team" reaches the SAME merged step
-# "roles" already aliases to (`init_wizard.STEP_FACTORIES`'s own alias
-# map) -- added here too so `halo setup team` and `halo setup roles` are
-# equally spelled, even though "roles" alone was already enough to keep
-# working unchanged.
-_STEP_KEYS = {"team": ("team",), "roles": ("roles",), "": ("roles", "summary")}
-_NO_TTY_FALLBACK = {"team": _print_roles_table, "roles": _print_roles_table, "": _print_roles_table}
-USAGE = "usage: halo setup [team|roles|<pack>] [--terminal]"
-
-
-def _open_in_studio(sub: str) -> bool:
-    """3.3.0.0 R4: Studio's Setup on the block (`team` for team and roles); True when the browser has it."""
-    from halo_harness.studio.setup_door import SetupTarget, block_word, cli_door
-    block, _why = block_word(sub)
-    cli = "halo setup" + (f" {sub}" if sub else "") + " --terminal"
-    return cli_door(SetupTarget(block=block or ""), terminal_cli=cli, fallback="screen")
 
 
 def _pack_setup(pack_id: str, terminal: bool) -> "int | None":
@@ -65,34 +65,28 @@ def _pack_setup(pack_id: str, terminal: bool) -> "int | None":
 
 
 def cmd_setup(argv: list) -> int:
+    from halo_harness.studio.setup_door import ALIASES, SetupTarget, cli_door
     words = [w for w in argv if w != "--terminal"]
     terminal = len(words) != len(argv)
-    sub = words[0] if words else ""
+    sub = (words[0] if words else "").lower()
     if sub in ("-h", "--help"):
         print(USAGE)
-        print("Opens Halo Studio on its Setup section (the Team block for team or roles; an enabled pack's first "
-              "Setup block for its id); --terminal runs the terminal screen instead, as does a box where no browser "
-              "can open.")
+        print("Opens Halo Studio on that page of its Setup section (an enabled pack's first Setup block for its id); "
+              "--terminal prints the console way to do the same instead, as does a box where no browser can open.")
         return 0
-    if sub not in _STEP_KEYS and len(words) == 1:
+    page = ALIASES.get(sub, sub)
+    if page not in CONSOLE and len(words) == 1:
         rc = _pack_setup(sub, terminal)  # 3.3.11.0 R3: a pack's own Setup blocks
         if rc is not None:
             return rc
-    if sub not in _STEP_KEYS or len(words) > 1:
-        print(f"halo setup: unknown subcommand {' '.join(words)!r} (known: team, roles, an enabled pack's id; "
-              "--terminal)", file=sys.stderr)
+    if page not in CONSOLE or len(words) > 1:
+        print(f"halo setup: unknown page {' '.join(words)!r} (known: {', '.join(p for p in CONSOLE if p)}, roles = team, "
+              "an enabled pack's id; --terminal)", file=sys.stderr)
         return 2
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        return _NO_TTY_FALLBACK[sub]()
-    if not terminal and _open_in_studio(sub):
+    tty = sys.stdin.isatty() and sys.stdout.isatty()
+    if tty and not terminal and cli_door(SetupTarget(block=page), terminal_cli=f"halo setup {sub} --terminal".replace("  ", " "),
+                                         fallback="listing"):
         return 0
-    try:
-        from pathlib import Path
-        from halo_harness.tui.dialogs.init_wizard import InitWizardApp, WizardState
-        state = WizardState(cwd=Path.cwd(), step_keys=_STEP_KEYS[sub])
-        InitWizardApp(state).run()
-        return 0
-    except Exception as e:
-        print(f"[WARN] the setup screen failed to run ({type(e).__name__}: {e}) -- "
-              f"falling back to a plain listing.", file=sys.stderr)
-        return _NO_TTY_FALLBACK[sub]()
+    for line in console_lines(page):
+        print(line)
+    return _print_roles_table() if page == "team" else 0

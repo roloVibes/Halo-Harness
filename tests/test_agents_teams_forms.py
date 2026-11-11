@@ -360,64 +360,6 @@ def test_slash_teams_bare_opens_the_list_screen(ctx: Ctx):
 # ---------------------------------------------------------------------------
 
 @test
-def test_halo_init_step_flag_resolves_to_the_team_step(ctx: Ctx):
-    """2.0.5 round 2c merged the Agents step and the Roles step into one
-    "team" step; `--step agents` and `--step roles` stay as aliases that
-    land on it."""
-    from halo_harness.tui.dialogs.init_wizard import _resolve_start_index, full_step_keys
-    step_keys = full_step_keys()
-    ctx.check('"team" is a real step key', "team" in step_keys)
-    for alias in ("team", "agents", "roles"):
-        idx = _resolve_start_index(alias, step_keys)
-        ctx.check(f'start_step={alias!r} resolves to the team step, got {step_keys[idx]!r}',
-                  step_keys[idx] == "team")
-
-
-@test
-def test_halo_init_step_flag_is_wired_through_to_run_init_wizard(ctx: Ctx):
-    """`cmd_init`'s OWN interactive dispatch only ever calls `_run_init_
-    wizard_flow` on a real tty with no `--yes` (`sys.stdin.isatty() and
-    sys.stdout.isatty() and not args.yes`) -- untestable hermetically
-    through `cmd_init` itself, so this calls `_run_init_wizard_flow`
-    directly (the same function that dispatch reaches) with a hand-built
-    `args`, same as testing any other internal step function in this
-    file. `run_init_wizard` itself is monkeypatched (it calls `.run()`, a
-    real blocking terminal app)."""
-    from types import SimpleNamespace
-    from rich.console import Console
-    import halo_harness.init_cli as init_cli_mod
-    import halo_harness.tui.dialogs.init_wizard as wizard_mod
-    captured = {}
-    old = wizard_mod.run_init_wizard
-
-    class _FakeState:
-        team_warnings = []
-        pong_ok = True
-
-    class _FakeApp:
-        state = _FakeState()
-
-    def fake_run_init_wizard(**kwargs):
-        captured.update(kwargs)
-        return _FakeApp()
-    wizard_mod.run_init_wizard = fake_run_init_wizard
-    try:
-        with _Env():
-            console = Console(file=io.StringIO())
-            args = SimpleNamespace(step="agents", team=None, no_live=False, yes=False)
-            init_cli_mod._run_init_wizard_flow(args, console, REPO_DIR)
-            ctx.check(f"the key form passes through as the string 'agents', got {captured.get('start_step')!r}",
-                      captured.get("start_step") == "agents")
-            captured.clear()
-            args2 = SimpleNamespace(step="7", team=None, no_live=False, yes=False)
-            init_cli_mod._run_init_wizard_flow(args2, console, REPO_DIR)
-            ctx.check(f"a numeric string is converted to a real int, got {captured.get('start_step')!r}",
-                      captured.get("start_step") == 7)
-    finally:
-        wizard_mod.run_init_wizard = old
-
-
-@test
 def test_halo_init_help_documents_step(ctx: Ctx):
     import halo_harness.init_cli as init_cli_mod
     rc, out = _capture(init_cli_mod.cmd_init, ["--help"])

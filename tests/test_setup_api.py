@@ -181,33 +181,6 @@ def test_team_writes_the_wizards_three_choices(ctx: Ctx):
 
 
 @test
-def test_the_wizard_commits_through_the_same_function(ctx: Ctx):
-    from halo_harness import lineup_choice
-    from halo_harness.tui.dialogs import team_preview as tp
-    from halo_harness.tui.dialogs.team_step_actions import TeamActionsMixin
-    calls = []
-    real = lineup_choice.apply_lineup_choice
-
-    def spy(name, **kw):
-        calls.append((name, kw))
-        return real(name, **kw)
-
-    with _Env() as e:
-        lineup_choice.apply_lineup_choice = spy
-        try:
-            for name in (tp.ONE_MODEL_ID, "balanced"):
-                step = SimpleNamespace(state=SimpleNamespace(cwd=e.cwd, written=[]), app=SimpleNamespace(controller=None),
-                                       _highlighted_lineup_name=lambda n=name: n)
-                TeamActionsMixin.commit(step)
-                ctx.check(f"{name}: the step called apply_lineup_choice and kept its line, got {step.state.written}",
-                          calls[-1] == (name, {"cwd": e.cwd}) and len(step.state.written) == 1)
-        finally:
-            lineup_choice.apply_lineup_choice = real
-        ctx.check("the wizard's choice landed as Studio's does", e.config().get("team") == "balanced" and e.config()["roles"]["enabled"] is True)
-        ctx.check("the wizard's One model id is Studio's one-model", lineup_choice.is_one_model(tp.ONE_MODEL_ID) and lineup_choice.is_one_model("one-model"))
-
-
-@test
 def test_methods_and_unknown_paths(ctx: Ctx):
     with _Env() as e:
         ctx.check("POST setup/state is a 405", e.call("POST", "setup/state")[0] == 405)

@@ -142,3 +142,20 @@ def dispatch(argv: list, *, cwd=None, state_dir=None) -> Optional[int]:
         return 1
     rc = mod.main(list(argv[1:]))
     return int(rc or 0)
+
+
+def pack_call(pack_id: str, rel: str, attr: str, error=LookupError, cwd=None, state_dir=None):
+    """`attr` of an enabled pack's module `rel` (3.4.0.0 B2: the fleet's coach_library command answers through the
+    coach pack); with the pack off, a callable that raises `error` with the one line of `left.py`."""
+    from halo_harness.left import line
+    from halo_harness.packs import registry
+    try:
+        pack = next((p for p in registry.active(cwd=cwd, state_dir=state_dir) if p.id == pack_id), None)
+        if pack is not None:
+            return getattr(load(pack.id, pack.root, rel), attr)
+    except Exception:
+        pass
+
+    def _off(*_a, **_k):
+        raise error(line(pack_id) or f"the {pack_id} pack is not enabled here")
+    return _off

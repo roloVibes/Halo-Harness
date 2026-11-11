@@ -10,8 +10,7 @@ Each writer is one call from the place that already knows the thing:
         finished branch -> a finding per lane, "<unit> passes `<test>` at <sha>" (by gate)
     sent_back(run_dir, lane, why, gate)            orchestra/run.py: the gate sent a lane's piece back -> a
         decision, "lane <n> sent back: <reason>" (by gate)
-    applied(result, s, run_dir, row, state_dir)    orchestra/coach_apply.py: the coach's Apply -> a decision,
-        what changed on which bio, lineup or plan, why, and the Undo id (by coach)
+    (the coach's Apply writes its decision through the coach pack's engine/knowledge_applied.py since 3.4.0.0 B2)
     answered(state_dir, row)                       supervise/decisions.py: the owner's answer to a goal_plan,
         goal_gate, goal_budget or goal_replan row -> a decision with the answer and its why (by supervisor)
 
@@ -158,29 +157,6 @@ def sent_back(run_dir, lane, why: str, gate) -> list:
     return [write("decision", f"lane {lane.n} sent back: {first}", body=body, evidence=evidence, by="gate",
                   run=run_dir.name, repo=_repo(run_dir), alternatives=["merge the piece as it is", "stop the run"],
                   tags=_tags(["orchestra", "gate", "sent-back"], sample), meta=sample.get("meta"))]
-
-
-@_quiet
-def applied(result: dict, s: dict, run_dir, row: dict, state_dir=None) -> list:
-    from halo_harness.orchestra.coach_citations import shown
-    a = s.get("apply") or {}
-    changes = [c for c in (a.get("changes") or []) if isinstance(c, dict)] if a.get("target") == "overlay" else [a]
-    what = "; ".join(shown(c) for c in changes[:3]) + (f" (+{len(changes) - 3} more)" if len(changes) > 3 else "")
-    files = ", ".join(Path(f.strip()).name for f in str(row.get("file") or "").split(", ") if f.strip())
-    undo = row.get("apply_id") or ""
-    why = [str(w) for w in s.get("why") or []]
-    body = (f"What: the coach's Apply changed {what}" + (f" (written to {files})" if files else "") + ".\n\n"
-            f"Why: {one_line(s.get('text'), 600)}" + (f" -- {'; '.join(why[:4])}" if why else "") + "\n\n"
-            f"Undo: `halo coach --undo {undo}` puts it back" + (f"; library entry {row['entry']}." if row.get("entry") else "."))
-    try:
-        from halo_harness.orchestra.coach import run_kind
-        from halo_harness.orchestra.coach_experience import project_of
-        repo = project_of(run_dir, run_kind(run_dir) or "").get("name") or ""
-    except Exception:
-        repo = ""
-    return [write("decision", f"coach: {what}", body=body, evidence=why, by="coach", run=str(result.get("run") or ""),
-                  repo=repo, alternatives=["leave it as it was"], tags=["coach", "apply", s.get("kind") or ""],
-                  state_dir=state_dir)]
 
 
 @_quiet

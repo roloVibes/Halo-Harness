@@ -12,7 +12,7 @@ from __future__ import annotations
 
 NO_PROVIDER = ("No model provider is set up yet, so there is nothing for the agents to run on. "
                "halo init opens Setup in Studio to set one up (a key, a login or a local model; "
-               "halo init --terminal is the terminal wizard), then run halo start again.")
+               "halo init --terminal asks the essentials in the terminal), then run halo start again.")
 
 
 def configured() -> "list[str]":

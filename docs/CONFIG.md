@@ -209,7 +209,14 @@ there, on the page the Studio column names, with its help line, its value
 against its default, Reset to default and the exact `halo config set` line.
 The rows come from one catalog (`halo_harness/settings_catalog.py`), and
 `tests/test_settings_catalog.py` holds the catalog, the config schema and
-this table to the same keys, so a new key lands in all three:
+this table to the same keys, so a new key lands in all three.
+
+3.4.0.0: an enabled pack's own rows (`contributes.settings`) join the catalog on a page of their own,
+**Settings -> From packs**, as `packs.settings.<pack>.<key>` (the coach pack's seven: `probe.k`,
+`probe.budget_factor`, `library.cite`, `improve.enabled`, `improve.model`, `improve.since_days`,
+`improve.max_candidates`; [the coach pack](../halo_harness/templates/packs/coach/README.md)). They show
+only while the pack is enabled, so this table does not list them; the core keys `coach.*` and `improve.*`
+they replace are ignored (`halo doctor --config` says so once, `halo config set` names the new key):
 
 | Key | Default | Set by | Studio |
 |---|---|---|---|
@@ -236,14 +243,6 @@ this table to the same keys, so a new key lands in all three:
 | `databricks.dbu_price_usd` | `0.07` (USD per DBU: Databricks' AWS US East example price, read 2026-10-27; every cost Halo shows is in dollars) | team.json, `halo config set databricks.dbu_price_usd 0.0x`, or hand-edited | Settings -> Providers |
 | `databricks.prices.<endpoint>` | unset (Databricks' published pay-per-token rate times `databricks.dbu_price_usd`, else unpriced and the total carries a `+`) | hand-edited: `{"in": 3.0, "out": 15.0}` USD per 1M tokens (`cache_read` / `cache_write` optional) | Settings -> Providers |
 | `databricks.catalog_max_age_hours` | `24` | hand-edited | Settings -> Providers |
-| `improve.enabled` | `true` | hand-edited | Settings -> Coach and improve |
-| `improve.hint` | `true` | hand-edited | Settings -> Coach and improve |
-| `improve.model` | unset (small model, then session model) | `halo config set improve.model or:...` | Settings -> Coach and improve |
-| `improve.since_days` | `7` | hand-edited | Settings -> Coach and improve |
-| `improve.max_candidates` | `8` (hard-capped at 8) | hand-edited | Settings -> Coach and improve |
-| `improve.hint_threshold.repairs` | `3` | hand-edited; repairs in a session before the improve hint shows | Settings -> Coach and improve |
-| `improve.hint_threshold.edit_failures` | `2` | hand-edited; failed edits in a session before the improve hint shows | Settings -> Coach and improve |
-| `improve.hint_threshold.loop_breaker` | `1` | hand-edited; loop-breaker stops in a session before the improve hint shows | Settings -> Coach and improve |
 | `connectors.bridge` | `true` | `halo config set connectors.bridge false` disables claude.ai connector discovery and every `connector__<slug>` tool outright | Settings -> Connectors |
 | `connectors.<slug>.enabled` | `true` | hand-edited; `false` removes just that one connector's tool | Settings -> Connectors |
 | `connectors.<slug>.alwaysLoad` | `false` | hand-edited; preloads that connector's tool instead of leaving it to ToolSearch | Settings -> Connectors |
@@ -252,10 +251,7 @@ this table to the same keys, so a new key lands in all three:
 | `providers.<name>.enabled` | unset (a provider whose credentials are found is on) | `halo providers enable/disable`, `halo init`, Studio's Setup; an explicit `true` or `false` always wins over detection | Settings -> Providers |
 | `quit_on_double_ctrl_c` | `true` | `halo config set quit_on_double_ctrl_c false` turns off the "Quit Halo?" card the second Ctrl+C (within 3 s) opens -- every Ctrl+C press then just copies (`/exit`/`Ctrl+D`/`Ctrl+Q` still leave) | Settings -> General |
 | `clipboard.crlf` | `false` | hand-edited; `true` makes a copy use `\r\n` line endings instead of `\n` | Settings -> General |
-| `coach.probe.k` | `1` | Halo 3.1.6.0: how many pairs of candidate overlays `halo coach <run> --probe` (and Studio's Probe) drafts and runs when `--k` is not given (2 runs a pair, at most 4 pairs); see [ORCHESTRA.md](ORCHESTRA.md#probes) | Settings -> Coach and improve |
-| `coach.probe.budget_factor` | `1.5` | Halo 3.1.6.0: each probe run may spend the reference run's `cost_usd` times this; a lane whose forecast would pass it does not start and the probe stops with `stop_reason: budget` | Settings -> Coach and improve |
-| `coach.library.cite` | `true` | Halo 3.1.6.0: the coach cites its improvement library -- the entries earlier Applies left for runs like this one (the line under the card's head, `[lib e-...]` on a matching card, the probe draft's "What earlier runs like this learned"); `false` turns every citation off and keeps the entries; see [ORCHESTRA.md](ORCHESTRA.md#the-library) | Settings -> Coach and improve |
-| `knowledge.write` | `true` | Halo 3.1.8.0 R4: the Orchestra judge and gate, the coach's Apply and the supervisor's answered decisions write findings and decisions to `~/.halo/knowledge/`; `false` turns every one of those writers off (the entries already there stay; `halo knowledge add` and the agents' `knowledge_add` still write); see [KNOWLEDGE.md](KNOWLEDGE.md) | Settings -> Knowledge and recall |
+| `knowledge.write` | `true` | Halo 3.1.8.0 R4: the Orchestra judge and gate, the coach pack's Apply and the supervisor's answered decisions write findings and decisions to `~/.halo/knowledge/`; `false` turns every one of those writers off (the entries already there stay; `halo knowledge add` and the agents' `knowledge_add` still write); see [KNOWLEDGE.md](KNOWLEDGE.md) | Settings -> Knowledge and recall |
 | `knowledge.gate_keep` | `50` | Halo 3.3.16.2: how many passed-gate records (a gate's "<unit> passes `<test>` at <sha>" finding) each project keeps, the newest; when the gate writes a new one the older ones past this number are forgotten. `0` keeps none; `halo knowledge prune --kind gate --older-than 7d` removes more by age; see [KNOWLEDGE.md](KNOWLEDGE.md) | Settings -> Knowledge and recall |
 | `knowledge.brief` | `true` | Halo 3.1.8.0 R4: an Orchestra worker's brief carries up to three findings and decisions recall ranks for its job (only with embeddings configured and the store holding one), ending with the line that asks it to cite the id of any it reuses; `false` leaves the block out | Settings -> Knowledge and recall |
 | `recall.sources` | `[]` | Halo 3.1.8.0 R4: folders of your own Markdown notes recall reads in place (an Obsidian vault is one): `halo config set recall.sources '["~/vault"]'` (one folder as a string works too; `~` is your home); every `.md` file under them is indexed as kind `note` and never written, `.obsidian/` and every other dot-folder skipped; `halo recall sources` lists them with their note counts; see [RECALL.md](RECALL.md#your-own-notes) | Settings -> Knowledge and recall |

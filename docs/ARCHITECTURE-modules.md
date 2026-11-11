@@ -22,9 +22,7 @@ this list against the tree.
 - the live feed: `studio/events.py` (the registry watcher), `studio/events_sse.py`
   (`GET /api/events`), `studio/feed_kinds.py` (the frame kinds it asks for)
 - Roles and models: `studio/roles_api.py`, `studio/roles_findings.py`,
-  `studio/models_api.py`; the coach:
-  `studio/coach_api.py`, `studio/coach_probe_job.py` (3.1.6.0: the probe on
-  a thread, its step lines on the feed); the live sessions: `studio/sessions_api.py` (3.3.11.0 R1: the Prompt panel's
+  `studio/models_api.py` (the coach's routes left with the coach pack in 3.4.0.0); the live sessions: `studio/sessions_api.py` (3.3.11.0 R1: the Prompt panel's
   sends with their receipts, its slash list and the receipts' rows: `studio/sessions_prompt_api.py`; the session's
   side: `remote/prompt_queue.py`, `remote/receipts.py`, `remote/receipt_seams.py`; 3.3.11.0 R2: a session with no terminal,
   started and listed by `studio/sessions_new_api.py`, run by `headless_session.py`); the
@@ -142,38 +140,15 @@ this list against the tree.
   before the merge), `orchestra/forecast.py` (3.1.2.0 R2: the plan's cost forecast)
 - the shared files: `orchestra/claims.py`, `orchestra/guard.py`,
   `orchestra/events.py`, `orchestra/jsonl.py`, `orchestra/view.py`
-- the coach: `orchestra/coach.py` (the card, the cache, the overlay), the
-  rules once for every run kind (`orchestra/coach_rules.py`), one thin
-  evidence loader per run kind (`orchestra/coach_orchestra_rules.py`,
-  `orchestra/coach_mission_rules.py`), `orchestra/coach_lane_facts.py` (an
-  Orchestra run's lanes as facts), `orchestra/coach_prices.py` (the model
-  catalog and its prices); 3.1.3.0 the loop: `orchestra/coach_ask.py` (the
-  lead's paragraph per card), `orchestra/coach_apply.py` (Apply through the
-  editors' writers, the confirm card), `orchestra/coach_record.py` (the
-  applied record, Undo, the summary line, the runs the coach read); 3.1.6.0
-  the probes: `orchestra/coach_probe.py` (the cost line, the lead's draft,
-  the whole probe, probe.json), `orchestra/coach_probe_schema.py` (the
-  candidate's strict shape and the run facts it is checked against),
-  `orchestra/probe_runs.py` (a probe run's folder under the reference, its
-  plan, the budget, the threads, the cleanup), `orchestra/probe_overlay.py`
-  (the overlay in a lane worktree's project scope and on the worker's argv),
-  `orchestra/coach_compare.py` (the deliverables, the anonymized judge, the
-  contrast), `orchestra/coach_compose.py` (adopt, merge or keep, and the
-  writes Apply makes), `orchestra/coach_probe_card.py` (the one card, its
-  grouped Apply, the CLI's table), `orchestra/coach_probe_prompt.py` (the
-  lead's draft prompt, with the library's lessons); 3.1.6.0 the improvement
-  library: `orchestra/coach_library.py` (the entries in
-  `~/.halo/coach/library/`: born on Apply, undone with Undo, forget),
-  `orchestra/coach_experience.py` (what an entry says: EXPERIENCE.md, the
-  project and its remote path, the overlay), `orchestra/coach_citations.py`
-  (the citation rule, the card's line and `library_hits`, the probe's
-  lessons), `orchestra/coach_library_share.py` (the fleet: a member's
-  `coach_library` answer, `fetch`)
+- what the forecast, the outcomes and the supervisor read of a run: `orchestra/lane_facts.py` (an Orchestra run's
+  lanes as facts) and `orchestra/prices.py` (the model catalog and its prices, a cost and a probe's contrast row in
+  words); both were the coach's (`coach_lane_facts.py`, `coach_prices.py`) until 3.4.0.0, when the coach, its probes
+  and the improvement library became the coach pack (`halo_harness/templates/packs/coach/`: engine/, cli/, improve/,
+  server/, studio/coach.js; its README lists the modules)
 - the CLI: `orchestra_cli.py` (the parser, the dispatch, `new`),
   `orchestra_cli_views.py` (status, claims, log, runs, lanes, report),
   `orchestra_cli_run.py` (run, stop), `orchestra_cli_plan.py` (plan, approve,
-  reject), `coach_cli.py` (`halo coach` and the coach verbs;
-  `halo_harness/coach_library_cli.py` is `halo coach library`)
+  reject); `halo orchestra coach` hands over to the coach pack's `halo coach` (3.4.0.0)
 
 **The unit of work** (`halo_harness/work/`, Halo 3.1.2.0 R1, docs/WORK.md):
 the shared model a lane, a mission part and a team stage all

@@ -14,6 +14,7 @@ import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 from tests.helpers.fake_home import build_fake_home
@@ -25,11 +26,12 @@ REPO_DIR = Path(__file__).resolve().parent.parent
 test, TESTS = new_registry()
 
 
-def _run(argv, home: Path, cwd: Path, timeout=30):
-    env = _hermetic_child_env()
-    env.update({"BRIDGE_TEST_HOME": str(home), "PYTHONPATH": str(REPO_DIR)})
-    return subprocess.run([sys.executable, "-m", "halo_harness"] + argv, env=env, cwd=str(cwd),
-                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+def _run(argv, home: Path, cwd: Path, timeout=30, pack: bool = True):  # 3.4.0.0 B2: the coach pack on first
+    env = dict(_hermetic_child_env(), BRIDGE_TEST_HOME=str(home), PYTHONPATH=str(REPO_DIR))
+    for a in ([["pack", "install", str(_coach_pack.PACK), "--link"], ["pack", "enable", "coach", "--grant-all"]] if pack else []) + [argv]:
+        r = subprocess.run([sys.executable, "-m", "halo_harness"] + a, env=env, cwd=str(cwd), capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=max(timeout, 60))
+    return r
 
 
 def _sha256_file(path: Path) -> str:
@@ -137,14 +139,12 @@ def test_bare_disables_everything(ctx: Ctx):
 
 @test
 def test_dash_p_never_drafts_or_writes(ctx: Ctx):
-    """`-p "/improve"` must return the "needs the interactive TUI" message
-    and never touch the filesystem or call a drafting model."""
+    """3.4.0.0 B2: the coach pack off: `-p "/improve"` is the one line that it is a pack now (no draft, no write)."""
     home = Path(tempfile.mkdtemp(prefix="improve-dashp-home-"))
     cwd = Path(tempfile.mkdtemp(prefix="improve-dashp-cwd-"))
-    result = _run(["-p", "/improve", "--model", "or:mock/nonexistent-must-not-be-called"], home, cwd)
+    result = _run(["-p", "/improve", "--model", "or:mock/nonexistent-must-not-be-called"], home, cwd, pack=False)
     ctx.check(f"exit 0, got {result.returncode}, stderr={result.stderr!r}", result.returncode == 0)
-    ctx.check("names the interactive TUI", "interactive TUI" in result.stdout)
-    ctx.check("points at the real headless surface", "halo improve" in result.stdout)
+    ctx.check(f"the pack line, got {result.stdout!r}", "is a pack now: halo pack install coach" in result.stdout)
     ctx.check("nothing written under .claude", not (cwd / ".claude").exists())
 
 

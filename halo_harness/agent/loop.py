@@ -1099,11 +1099,6 @@ class Session:
         # call`'s own use of this for the exact threshold/wording.
         self._identical_call_guard_key: Optional[tuple] = None
         self._identical_call_guard_count: int = 0
-        # H10 Part B4: `/improve`'s hint -- fires AT MOST once per session
-        # (status-bar text + one `notification` event, never a card, never
-        # a model call); `_maybe_yield_improve_hint` (called from
-        # `_account_usage`) flips this the first time it fires.
-        self._improve_hint_fired = False
         # must-do 5: an interrupt source (Bash kill/Esc -- none exists yet
         # in `-p`) sets this; `_step` passes it into `stream_completion`
         # (cuts phase 2 short) and observes it in every retry wait.
@@ -4925,34 +4920,6 @@ class Session:
         except Exception:
             log.debug("ollama: _maybe_record_offload_learned_cap failed for %s@%s", model, host_url, exc_info=True)
 
-    def _maybe_yield_improve_hint(self) -> Iterator[events.Event]:
-        """H10 Part B4: counters only, no model call, fires AT MOST once
-        per session -- a status-bar hint (`events.status`'s own
-        `improve_hint` field) plus one `notification(level="info")` event.
-        Never a card, never blocks; identical in auto mode (a hint,
-        nothing more) -- called from the SAME place `_account_usage`
-        already runs from, so this can never fire mid-tool-dispatch or
-        interrupt anything already in flight."""
-        if self._improve_hint_fired:
-            return
-        from halo_harness.improve.config import load_improve_config
-        from halo_harness.improve.hint import should_hint
-        try:
-            cfg = load_improve_config()
-            count = should_hint(self.log.nodes(), cfg)
-        except Exception:
-            return
-        if count is None:
-            return
-        self._improve_hint_fired = True
-        # Text only (never `events.status`, whose `phase` field the status
-        # bar switches on -- inventing a new phase value there risks
-        # breaking its rendering); the TUI's own notification handler
-        # (tui/dispatch.py) is what actually surfaces this in the status
-        # bar / as a toast, matching every other `notification` event.
-        yield events.notification(f"✦ /improve: {count} candidate cluster(s) ready to review "
-                                   f"(/improve to review)", level="info")
-
     # ---- compaction (H5 scope B) -----------------------------------------
 
     def _build_body_for_messages(self, system_text: str, messages: list, tools, *,
@@ -6072,7 +6039,6 @@ class Session:
                 yield events.turn_done(turn=turn_no, reason="error")
                 return
             self._account_usage(result)
-            yield from self._maybe_yield_improve_hint()
             yield from self._maybe_auto_compact(turn_no)
 
             # H2 scope B: the repair layer's text-embedded-call handling.
