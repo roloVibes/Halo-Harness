@@ -1,6 +1,6 @@
 # U5 brief — TUI polish + OpenCode UX adoptions (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux primary**
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux primary**
 — the TUI must be excellent in xterm/kitty/tmux over SSH). Baseline = the H6 commit on master, all
 suites green on Windows and WSL. Do not commit.
 
@@ -55,6 +55,6 @@ regenerated on WSL.
 
 ## Acceptance
 All suites green on Windows and WSL; a live TUI session in WSL under `script` (and, when reachable,
-the Kali VM over SSH inside tmux): chord + which-key, palette, `@README.md#L1-5`, `!ls`, an Edit then
+the Linux VM over SSH inside tmux): chord + which-key, palette, `@README.md#L1-5`, `!ls`, an Edit then
 `/rewind` restoring the file, `/rename`, `/fork`, `/export --sanitize`, `/stats`; SVGs attached.
 Report ≤ 50 lines. Rules as in the other briefs.

@@ -1,6 +1,6 @@
 # H6 brief — sub-agents, plan mode, resume/fork, agents CLI (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux primary**
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux primary**
 — OS-neutral). Baseline = the H5 commit on master, all suites (+ `test_tui.py`) green on Windows and
 WSL. Do not commit.
 

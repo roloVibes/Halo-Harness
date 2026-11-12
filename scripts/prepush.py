@@ -13,7 +13,7 @@ What it runs, in this order (a red static check stops the run; the suites all ru
   1. pyflakes: no undefined name in halo_harness/ or bridge.py (CI's gate).
   2. Studio's UI, when a file under halo_harness/studio/ui differs from origin/master or --ui is given:
      `npm run build`; the static/dist in the tree must already be what the build writes.
-  3. `halo audit privacy` with a scratch home.
+  3. `halo audit privacy` and `--commits` in a scratch home, given the real private term list (scripts/prepush_privacy).
   4. The fast tier of tests/run_all.py as N shards side by side (`--fast --shard i/N`, CI's flag), test_bridge.py
      beside them; each shard is run_all, so each module gets its own BRIDGE_TEST_HOME and the ~/.halo guard.
   5. The full tier (`--tier full`: Chrome, the TUI pilots) as --chrome-jobs shards (default 4), each with its own temp
@@ -141,12 +141,8 @@ def static_checks(args, logdir: Path) -> list:
             if build["ok"] and dist_digest(REPO) != before:
                 build["ok"], build["note"] = False, "static/dist was not what the build writes: it is rebuilt now, add it"
             steps.append(build)
-    home = tempfile.mkdtemp(prefix="prepush-audit-")
-    env = suite_env()
-    env.update(BRIDGE_TEST_HOME=home, HALO_HOME=home)
-    steps.append(run_step("audit-privacy", [py, "-m", "halo_harness", "audit", "privacy"], logdir, env=env))
-    shutil.rmtree(home, ignore_errors=True)
-    return steps
+    from prepush_privacy import audit_steps  # 3.4.1.2 F8: the real term list reaches the audit by file name
+    return steps + audit_steps(run_step, py, logdir, suite_env())
 
 
 def suites(args, logdir: Path) -> list:

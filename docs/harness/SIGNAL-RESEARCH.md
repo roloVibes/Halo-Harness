@@ -18,7 +18,7 @@ How the facts were gathered. (a) The v0.14.9 source tree was cloned into a scrat
 
 | Host | signal-cli build | Needs |
 |---|---|---|
-| Linux x86-64 (Kali VM) | `-Linux-native` tarball | nothing else (glibc recent enough) |
+| Linux x86-64 (Linux VM) | `-Linux-native` tarball | nothing else (glibc recent enough) |
 | Linux arm64 | community native build, or JVM build plus a self-supplied libsignal | JRE 25 for the JVM route |
 | Windows x86-64 | JVM tarball, `bin/signal-cli.bat` | JRE 25 |
 | macOS (either arch) | JVM tarball | JRE 25 |
@@ -86,7 +86,7 @@ No `dataMessage` key, so no text. `trust` on a recipient while receiving sets a 
 
 **Mapping.** Pin the sender by `sourceUuid` (the ACI) plus the `safetyNumber` read from `listIdentities` at pairing; a later key change shows up as the notification above or as `-4` on send, with no polling loop. Re-verification is `trust` with `verifiedSafetyNumber` set to digits the owner confirmed, never `trustAllKnownKeys`.
 
-## 5. Operational concerns (Kali VM, work VM behind a proxy)
+## 5. Operational concerns (Linux VM, work VM behind a proxy)
 
 **Network [changed: now exact].** signal-cli's live endpoints are `chat.signal.org`, `cdn.signal.org`, `cdn2.signal.org`, `cdn3.signal.org`, `storage.signal.org`, `cdsi.signal.org`, `svr2.signal.org` (all HTTPS, WebSocket on chat) ([LiveConfig.java](https://github.com/AsamK/signal-cli/blob/v0.14.9/lib/src/main/java/org/asamk/signal/manager/config/LiveConfig.java), read 2026-10-11); `signal.art` and `signal.group` appear for sticker packs and group links. Signal's own firewall guidance is to allow `*.signal.org` on TCP 443 (and UDP for calls), and that a transparent proxy "needs to support WebSockets" ([Signal support: Firewall and Internet settings](https://support.signal.org/hc/en-us/articles/360007320291-Firewall-and-Internet-settings) -- 403 to direct fetch on 2026-10-11, wording from the search result text read that day). No inbound port is needed; the daemon listeners are local.
 

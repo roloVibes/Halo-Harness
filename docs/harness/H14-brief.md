@@ -63,7 +63,7 @@ G. CHANGELOG, README "Databricks at work" section (what is read from Claude Code
    never leaves the box), `__version__` bump.
 
 Report ≤ 50 lines. Rules as in the other briefs; no hostnames, no tokens, ≤ 250 lines per write,
-suites green on Windows, WSL and the Kali VM, no commits.
+suites green on Windows, WSL and the Linux VM, no commits.
 
 ## Verified catalog api_types (from the workspace listing, 2026-09-29) — the source of truth for D
 Per endpoint the gateway model id is `foundation_model.name` (NOT derivable by prefixing the

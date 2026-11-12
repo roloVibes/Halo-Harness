@@ -19,9 +19,9 @@ sections, because the H9 brief asks for one explicitly).
 - **Base commit**: `d653a78` ("H5c: close the remaining 19 findings of the
   H5b review") -- working tree only, nothing committed by this pass
 - **Environment**: Windows 11 (build/test host) + WSL Ubuntu (`~/rolo-
-  claude-wt`, `~/halo-harness-wt-venv`); the Kali VM (`192.0.2.50`) was
+  claude-wt`, `~/halo-harness-wt-venv`); the Linux VM (`192.0.2.50`) was
   unreachable on the first retry at the start of this pass (connection
-  timed out) -- see "Kali VM" below for the end-of-pass retry; OpenRouter
+  timed out) -- see "Linux VM" below for the end-of-pass retry; OpenRouter
   key configured (real DeepSeek V4.1 Flash used for every "live" row
   below); Databricks NOT configured on this box (no VPN route from here).
 
@@ -36,7 +36,7 @@ sections, because the H9 brief asks for one explicitly).
 Final suite numbers after every fix in this report (both platforms) are
 recorded at the end of this file, in "Final suite verification".
 
-## Part A -- Linux-first acceptance (WSL Ubuntu, then the Kali VM once it answered)
+## Part A -- Linux-first acceptance (WSL Ubuntu, then the Linux VM once it answered)
 
 | Milestone | Command | Expected | Observed | Pass/Fail | Platform |
 |---|---|---|---|---|---|
@@ -83,12 +83,12 @@ table asks/denies every non-whitelisted Bash command in `default`; the TUI
 repro used `echo`, which Claude Code's own read-only whitelist allows).
 
 **Could not exercise on WSL**: a genuine fresh clone of the private GitHub
-repo (no stored credentials there -- same on the Kali VM; the tree was
+repo (no stored credentials there -- same on the Linux VM; the tree was
 transferred with tar-over-ssh and the install paths exercised from it); the
 native-Linux `--playwright` path (WSL has no native Node -- exercised on the
-Kali VM instead, see below); `ant:`/Databricks routes (no key/VPN).
+Linux VM instead, see below); `ant:`/Databricks routes (no key/VPN).
 
-### Kali VM (`192.0.2.50`, the primary platform -- reached on the second retry)
+### Linux VM (`192.0.2.50`, the primary platform -- reached on the second retry)
 
 | Milestone | Command | Expected | Observed | Pass/Fail | Platform |
 |---|---|---|---|---|---|
@@ -101,7 +101,7 @@ Kali VM instead, see below); `ant:`/Databricks routes (no key/VPN).
 | H9 models | `halo models` | lists or an honest empty table | empty OpenRouter table (no key in the login env), models.dev cached (223 providers) | PASS (see deferred: empty-table wording) | Kali |
 | H9 mcp list | `halo mcp list` against the VM's real 4 user servers + 1 plugin server | honest per-server health, no crash | exit 0: three of the owner's own locally-configured servers Connected (one a security-tool proxy via `npx tsx`, one a local helper server, one a real `claude plugin install`ed server); two honestly Failed (one for a missing binary, one a real `type: http` server with nothing listening on its port) | PASS | Kali |
 | H9 vault | grep the owner's local notes vault for claude-bridge/claude_bridge/halo | stale text replaced if found | no file describes claude-bridge at all -- nothing to replace, nothing written | N/A | Kali |
-| Suites + live lines | `~/vm_suites.sh`, `~/vm_live.sh` (venv; key handed over stdin, never on a command line) | green; pong / line count / Write-Edit-Bash / proxy pong / MCP call / --chrome / --playwright / stream-json / config untouched | see "Kali VM" at the end of this file | -- | Kali |
+| Suites + live lines | `~/vm_suites.sh`, `~/vm_live.sh` (venv; key handed over stdin, never on a command line) | green; pong / line count / Write-Edit-Bash / proxy pong / MCP call / --chrome / --playwright / stream-json / config untouched | see "Linux VM" at the end of this file | -- | Kali |
 
 ## Part B -- MCP compatibility matrix
 
@@ -118,7 +118,7 @@ WSL/Kali suite runs below).
 | 2 | Project `.mcp.json`, approval flow | pending-approval marker before, connects after | PASS |
 | 3 | `projects[cwd].mcpServers`, both key forms (`C:\...` / `C:/...`) | both resolve and merge, live connect via either | PASS |
 | 4 | `--mcp-config` file path + inline JSON | both live-connect | PASS |
-| 5 | Plugin-provided server, real V2 marketplace manifest | discovered, `mcp__plugin_<p>_<s>__<tool>` naming; a REAL `claude plugin install`ed server (claude-mem) is discovered on the Kali VM too | PASS |
+| 5 | Plugin-provided server, real V2 marketplace manifest | discovered, `mcp__plugin_<p>_<s>__<tool>` naming; a REAL `claude plugin install`ed server (claude-mem) is discovered on the Linux VM too | PASS |
 | 6 | Real `claude mcp add --scope user` | picked up by the next halo session | PASS |
 | 7 | `halo mcp add` visible to real `claude mcp list` | byte-shape now identical -- `"env": {}` is written exactly like the binary does (FIXED: `mcp_cli._build_entry` omitted it) | PASS |
 | 8 | `mcp remove` | both CLIs agree | PASS |
@@ -308,7 +308,7 @@ fixed in this pass is listed under "Deferred / not fixed" below.)_
   tree is `permissions.add_allow_rule` (an explicit "always allow" answer),
   which is Claude Code's own behaviour for that answer. The REAL
   `~/.claude/settings.json` and `~/.claude.json` were byte-identical before
-  and after every live run on Windows, WSL and the Kali VM.
+  and after every live run on Windows, WSL and the Linux VM.
 - `/opt/rv-extra` appears twice in `PATH` after a SessionStart `export
   PATH="$PATH:/opt/rv-extra"` (the env file is both merged into the tool
   env and sourced again by the Bash tool's shell, matching Claude Code's
@@ -324,7 +324,7 @@ fixed in this pass is listed under "Deferred / not fixed" below.)_
   reproduced deeply enough in this pass to root-cause. Does not affect
   answer correctness.
 
-## Kali VM
+## Linux VM
 
 First retry (start of this pass): `ssh -i ~/.ssh/linux_vm user@192.0.2.50` -- connection timed
 out. Fable's own retry shortly after **succeeded** (`Linux kali 7.1.5+kali-amd64`, kernel 7.1.5,
@@ -378,7 +378,7 @@ Baseline (before any change in this pass, on Windows) matched the brief's stated
 Closing numbers, on the final tree, independently confirmed at least twice per platform (once by
 this worker directly, once by a sub-agent's own run) after every fix in this report landed:
 
-| Suite | Windows | WSL Ubuntu | Kali VM |
+| Suite | Windows | WSL Ubuntu | Linux VM |
 |---|---|---|---|
 | `python tests/run_all.py` | 1403 tests, 1399 passed, 0 failed, 4 skipped, exit 0 | 1403 tests, 1399 passed, 0 failed, 4 skipped, exit 0 | 1404 tests, 1400 passed, 0 failed, 4 skipped, exit 0 (one extra POSIX-only test) |
 | `python test_bridge.py` | 97/97 (391 checks), exit 0 | 97/97 (391 checks), exit 0 | 97/97, exit 0 |
@@ -408,7 +408,7 @@ except by this pass's own edits (no commit was made by either worker; still no t
 live `/mnt/c/...` mount of the SAME working tree via `PYTHONPATH`, NOT the separate, stale
 `~/halo-harness-wt` checkout that predates this pass -- that checkout's own editable pip install
 was silently shadowing the live tree and had to be `pip uninstall`-ed first, see "gotchas" below);
-the Kali VM (`192.0.2.50`, reachable this time), synced via a `tar` pipe over `ssh` into a
+the Linux VM (`192.0.2.50`, reachable this time), synced via a `tar` pipe over `ssh` into a
 fresh `~/halo-h9b/halo` (the repo is private with no stored credentials on the VM,
 same limitation the original H9 pass hit), with the SAME stale-editable-install gotcha fixed the
 same way.
@@ -419,7 +419,7 @@ same way.
   `test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup`).
 - Finding 12 (Linux PATH), on BOTH WSL and Kali, using the review's own reproduction technique:
   `unshare -rm` (no sudo) bind-mounting the REAL Debian/Kali `/etc/profile` (fetched verbatim from
-  the Kali VM into `tests/helpers/debian_etc_profile.txt`) over the test host's own `/etc/profile`,
+  the Linux VM into `tests/helpers/debian_etc_profile.txt`) over the test host's own `/etc/profile`,
   then running the real CLI inside that namespace -- a PATH-entry tool (`rvtool`, the review's own
   example name) is found by BOTH the foreground and the background Bash path despite the profile's
   unconditional PATH reassignment (`test_h9b_f12_session_path_survives_a_debian_profile_login_shell_reset`).
@@ -442,7 +442,7 @@ same way.
 
 **Suites, closing numbers for this pass** (all three green, run at least twice per platform):
 
-| Suite | Windows | WSL Ubuntu | Kali VM |
+| Suite | Windows | WSL Ubuntu | Linux VM |
 |---|---|---|---|
 | `python tests/run_all.py` | 1458 tests, 1450 passed, 0 failed, 8 skipped, exit 0 | 1458 tests, 1452 passed, 0 failed, 6 skipped, exit 0 | 1458 tests, 1453 passed, 0 failed, 5 skipped, exit 0 |
 | `python test_bridge.py` | 97/97 (391 checks), exit 0 | 97/97 (391 checks), exit 0 | 97/97 (391 checks), exit 0 |

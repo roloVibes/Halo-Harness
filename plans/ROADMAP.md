@@ -326,7 +326,7 @@ Metroid theme and a Mario theme.
   a per-area accent, a status bar styled like the game's HUD (energy tanks
   and reserve as the context meter, missile and super-missile style
   counters for turn and tool counts, the area name in place of the cwd), a
-  map-grid look for panels and dialogs, and Samus-visor framing for the
+  map-grid look for panels and dialogs, and helmet-visor framing for the
   input line. "Really Metroid it out as much as possible", in text-mode
   Unicode only.
 - Mario: Super Mario Bros / Super Mario World palettes (sky blue, brick
@@ -562,7 +562,7 @@ every release; 2.0.4 had grown as large as 2.0.3 did.
   the user adjust before Save; the same Auto action in `/roles`. Tests: a
   Textual pilot walk through the roles step with a fixture catalog, the
   Auto fill from each preset and from a gym fixture, Save round trip.
-- ADDED 2026-10-05 ~11:40 (rolo, from the picker on the Kali VM): 2.0.4
+- ADDED 2026-10-05 ~11:40 (rolo, from the picker on the Linux VM): 2.0.4
   provider-pack round "Databricks enumeration": many `dbx:` rows show blank
   context, output and prices ("not published"). Measured: models.dev's
   `databricks` provider lists 30 ids and lacks every newer endpoint
@@ -665,7 +665,7 @@ balances/enumeration rounds, no new round):
    data-policy note (preview models: no_training true on Experiential; check
    the OpenRouter row's policy before sending private code).
 5. Live check in the round: a real tool loop on `xp:space-bunny-alpha` and on
-   `or:nvidia/nemotron-3.5-lightning:free` from the Kali VM with rolo's keys.
+   `or:nvidia/nemotron-3.5-lightning:free` from the Linux VM with rolo's keys.
 
 ## ADDED 2026-10-05 ~13:45 (rolo): 2.0.3.1 = clipboard image paste ("I need to be able to post clipboard pictures into halo")
 
@@ -686,7 +686,7 @@ placeholders). Nothing reads an IMAGE off the OS clipboard. The round:
    `pngpaste`); Linux `wl-paste --type image/png` then `xclip -selection
    clipboard -t image/png -o`; WSL `powershell.exe` interop; Pillow
    `ImageGrab.grabclipboard()` when Pillow happens to be installed. Over SSH
-   (the Kali VM from Windows Terminal) the terminal has no remote clipboard:
+   (the Linux VM from Windows Terminal) the terminal has no remote clipboard:
    the chip explains it once and `/paste <path>` or a dragged path works.
 2. Storage and limits. `~/.halo/attachments/<session>/clip-<n>.png`; images
    over 1568 px on the long side are downscaled (same rule Claude Code
@@ -709,14 +709,14 @@ placeholders). Nothing reads an IMAGE off the OS clipboard. The round:
    receiving the block, per-dialect conversion, the downscale and size cap,
    resume from the stored path, a TUI pilot test for Ctrl+V with an empty
    paste. Live: a screenshot pasted into Halo on the build host against a
-   vision model on `ant:` and `or:`, and `xclip` on the Kali VM.
+   vision model on `ant:` and `or:`, and `xclip` on the Linux VM.
 
 ## CUT 2026-10-05 ~15:10 (rolo: "can we get thru 2.0.3?"): the minors pass leaves the v2.0.3 tag
 
 The review's 53 minors plus the C-1/C-2 leftovers (plans/2.0.3-release-notes-
 for-fix-pass.md) become **2.0.3.2**, after the 2.0.3.1 clipboard patch. The
 tag waits only for fix passes A-2 and B-2 (run in parallel from 15:10), the
-three-platform suites and one live check on the 4090 host and the Kali VM.
+three-platform suites and one live check on the 4090 host and the Linux VM.
 
 ## CUT 2026-10-05 ~18:10 (rolo: "ARE WE STILL ON 2.0.3!?"): no 2.0.3.2 round
 
@@ -757,7 +757,7 @@ company org roles." So the round (next after round 3) is:
 
 rolo: "each role should have a yaml file that can be editable too. I think
 that's how templates should be used. templateX.yaml, 1st agent: name;
-models: preference: x, fallback: y; tools: -tool A (for example caido),
+models: preference: x, fallback: y; tools: -tool A (for example a proxy tool),
 -tool b (example browser); context: CLAUDE.md, halo(agentName).md, obsidian
 notes X; limits: max_iterations: x, timeout: 20m". Approved schema
 ("perf, keep going"), built in round 4 as the storage behind the roles and
@@ -1156,11 +1156,10 @@ What the round does (brief `plans/briefs/2.0.5/round-2d-name-purge-visuals.md`):
 3. Git history and the CHANGELOG keep the old name; no rewrite (the
    owner's call, 2026-10-06 ~12:50).
 
-## ADDED 2026-10-07 (rolo): cyber scope triaged — what lands in the harness vs halo-hacker
+## ADDED 2026-10-07 (rolo): cyber scope triaged — what lands in the harness vs a separate product
 
-Source plans (Kali VM, ~/Documents/vibes/appDev/): halo-harness-cyber/PLAN.md
-(the five pillars) + halo-hacker/PLAN.md (the distributable product, v0.1
-built). The owner triaged the pillars 2026-10-07:
+Source plans (kept outside this repository): a five-pillar plan and the
+plan of a separate, distributable product. The owner triaged the pillars 2026-10-07:
 
 **KEPT (harness chassis):**
 - Pillar 1.1-1.3 — filter-aware routing: finish_reason/content_filter/
@@ -1177,7 +1176,7 @@ built). The owner triaged the pillars 2026-10-07:
 - Pillar 5 minus fleet: the Governor + lanes — ALREADY SHIPPED as 2.0.5
   round 4 (60fba96).
 
-**OUT (halo-hacker / serverMode territory — never this repo):**
+**OUT (the separate product's territory — never this repo):**
 - Pillar 3 — the engagement object (scope wall, evidence store +
   hash-chained audit ledger, findings gates, report generation).
 - Pillar 4 — safety-as-architecture (human-gate flags, argv containment,
@@ -1187,8 +1186,8 @@ built). The owner triaged the pillars 2026-10-07:
   (ed25519 node identity, mTLS, signed envelopes, trust tiers: all out).
 
 **Not triaged by the owner (defaults, override anytime):** proxy-native
-HTTP (Caido/interactsh) -> default OUT to halo-hacker (tooling, not
-chassis); on-box local-models-only engagement mode -> default OUT
+HTTP (an intercepting proxy, callback catchers) -> default OUT to the
+separate product (tooling, not chassis); on-box local-models-only engagement mode -> default OUT
 (engagement-flavored; halo's existing offline mode covers the generic
 case).
 
@@ -1201,8 +1200,8 @@ So 2.0.7 opens with:
 1. **Filter-aware routing (Pillar 1.1-1.3)** — first release round.
 2. **Verify-everything preflight + canaries (Pillar 2)** — second.
 Both ahead of embeddings/wizard/copy. Everything OUT stays OUT
-(engagement objects, safety-as-architecture, fleet: halo-hacker /
-serverMode, never this repo).
+(engagement objects, safety-as-architecture, fleet: the separate
+product, never this repo).
 
 ## ADDED 2026-10-07 night (rolo, live reports from the 2.0.6 release
 session): 2.0.7 round 0 "session UX" — two fixes from the owner's own
@@ -1456,7 +1455,7 @@ conclusion, release gated on the exact sha, install refresh.
   and a budget line in a team file that stops a stage before it starts.
 - R3 Delegation verified and shared memory: the live two-machine check of
   a delegated team stage and a mission part is scripted
-  (`tools/live_fleet_check.py`, the owner runs it with his Kali VM) and its
+  (`tools/live_fleet_check.py`, the owner runs it with his Linux VM) and its
   findings fixed; the recall index is shared across the fleet through the
   hub (`halo recall --fleet`, a member answers a recall query from its own
   index, results merged by score), so a box does not re-learn what another
@@ -1944,7 +1943,7 @@ orchestration engine beside Orchestra.
 - a hook's shell `command` gets `${CLAUDE_PLUGIN_ROOT}` substituted as text, so on Windows Git Bash eats the path's backslashes; the exec form (`args`) and `${halo_python}` are safe, the shell form of every plugin is not (R7 found it). (closed 3.2.1.0 R4)
 - rollback keeps one version back (`<id>.previous`); no history beyond it, and the CLI does not pause between the migration notes and the swap (`--dry-run` is the look before) (R7). (closed 3.2.1.0 R4)
 - the shipped doc-review pack says `halo: {min: "3.1"}` until the version bump: the bump commit that makes `__version__` 3.2.0.0 sets `{min: "3.2"}` (test_reference_pack fails until it does) (R7). (closed 2026-10-24: scripts/release.py sets it at release)
-- the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round). (closed 3.2.1.0 R5 on WSL Ubuntu: the whole Chrome tier and the whole fast tier green there, the packs commands by hand; the Kali VM did not answer, see below)
+- the full Chrome tier as a whole and a Kali/Linux pass of the packs program have not run on a worker (every round). (closed 3.2.1.0 R5 on WSL Ubuntu: the whole Chrome tier and the whole fast tier green there, the packs commands by hand; the Linux VM did not answer, see below)
 
 ### After 3.2.1.0 (R2's open points: a workflow run keeps its shape)
 
@@ -1964,7 +1963,7 @@ orchestration engine beside Orchestra.
 
 ### After 3.2.1.0 (R5's open points: the Linux pass)
 
-- the Kali VM did not answer during the round (no route to it): the packs modules, the Chrome packs modules with Kali's own chromium and the packs commands by hand have run on WSL Ubuntu only; the owner's `halo update` there after the release is the first Kali run (R5).
+- the Linux VM did not answer during the round (no route to it): the packs modules, the Chrome packs modules with Kali's own chromium and the packs commands by hand have run on WSL Ubuntu only; the owner's `halo update` there after the release is the first Kali run (R5).
 - a skill's or a command's body gets no `${CLAUDE_PLUGIN_ROOT}`, and a custom command's body (`commands/**/*.md`) none of the `${CLAUDE_...}` variables; a skill's body gets four (R5 corrected SLASH-COMMANDS-tui.md, which listed the plugin root) (R5).
 - the wizard's Linux-fixes step installs ripgrep into the real `~/.local/bin` and edits the real rc file, by design; a test that walks the wizard on a box without `rg` on PATH must pin `init_wizard.linux_fixes_needed` (tests/test_round2c_wizard_ux's `_Env` does now). The suite's real-home guards watch `~/.halo` and `~/.rolo-claude` only, so a test writing elsewhere in the real home is not caught (R5 found one by the file's mtime) (R5).
 - WSL's Chromium is not the runner's (a 1500x757 viewport, wider fonts, other pointer paths) and WSL2's wall clock steps back about a second at times: a red there is a red to look at, a green there is not the release gate (docs/DEVELOPMENT.md "The Chrome tier on Linux") (R5).
@@ -2055,7 +2054,7 @@ name.
   version history on disk).
 - R5 The Linux pass: the whole Chrome tier and every packs, workflow and
   Studio-packs module run on Linux (the WSL repro box with its headless
-  Chromium, then the Kali VM when it answers); every red is a fix with a
+  Chromium, then the Linux VM when it answers); every red is a fix with a
   test (a driver that needs an element fallback, a path that is Windows-
   shaped, a hook that needs the shell); the hand-back lists what ran where;
   then the release.
@@ -2377,7 +2376,7 @@ teams apply` / `halo roles` / `halo config set` (config.json's `team`,
   lineup file while Roles is open and sees the canvas change without a
   reload, the draft-kept path; docs STUDIO.md ("what Studio shows is what
   is on disk, as it changes") and STUDIO-roles.
-## ADDED 2026-10-26 (rolo, from the MacBook using this PC's Ollama as the main model: "encountered errors. Fault was in Halo Harness. Is there a way to have halo harness communicate with ollama servers on the network so that this does not happen?"; and: "add calibration for connecting to ollama models on the network after discover and enum of the models"): 3.2.3.0 "Ollama on the network" -- before 3.3.0.0
+## ADDED 2026-10-26 (rolo, from the laptop using this PC's Ollama as the main model: "encountered errors. Fault was in Halo Harness. Is there a way to have halo harness communicate with ollama servers on the network so that this does not happen?"; and: "add calibration for connecting to ollama models on the network after discover and enum of the models"): 3.2.3.0 "Ollama on the network" -- before 3.3.0.0
 
 The incident (another session read this PC's Ollama log): Halo's prompt is
 about 11,000 tokens; the Mac's Halo asked the LAN host for an 8,192 window,
@@ -2876,7 +2875,7 @@ CLI adjusts has a Studio row or a named link.
   list, the banner. Docs: STUDIO-sections.md, CONFIG.md (the Studio column
   complete), COMMANDS.md (`halo config` points at Settings).
 
-## ADDED 2026-10-27 (rolo: "there's so much configuration going on with ollama that I almost think you need a dedicated agent to monitor the ollama traffic to constantly make adjustments to ensure that things work, things aren't getting dropped, analyze all the traffic to be proactive about fixing context windows, each ollama model is different. I'm sure it's the same for hugging face. We need some auto config plus constant monitoring via an agent that we can select, hopefully like something cheap and simple ... between any halo sessions, for example I use my MacBook ... to call this ollama server"; "an agent that also understands your local infrastructure too like GPU and memory limits and can explain why things aren't working or how to creatively make adjustments to ensure stability with models that might take over as much GPU as possible"; "this also requires deep research into the ollama server and how running local hugging face models work too ... needs to have a breadth of knowledge to work as well as intended"): 3.3.4.0 "The Ollama steward"
+## ADDED 2026-10-27 (rolo: "there's so much configuration going on with ollama that I almost think you need a dedicated agent to monitor the ollama traffic to constantly make adjustments to ensure that things work, things aren't getting dropped, analyze all the traffic to be proactive about fixing context windows, each ollama model is different. I'm sure it's the same for hugging face. We need some auto config plus constant monitoring via an agent that we can select, hopefully like something cheap and simple ... between any halo sessions, for example I use my laptop ... to call this ollama server"; "an agent that also understands your local infrastructure too like GPU and memory limits and can explain why things aren't working or how to creatively make adjustments to ensure stability with models that might take over as much GPU as possible"; "this also requires deep research into the ollama server and how running local hugging face models work too ... needs to have a breadth of knowledge to work as well as intended"): 3.3.4.0 "The Ollama steward"
 
 Order change: 3.3.3.0 ships its R1 (Setup hands off to halo) and R2 (the
 Settings section) and is released; its R3 (themes) and R4 (parity) move to
@@ -2889,12 +2888,12 @@ Today the window rule runs inside each session (agent/ollama_window.py:
 the estimate, the window, one trim recovery per turn), calibration lives in
 `~/.halo/ollama-fit.json`, the tuned twins, the ssh GPU read and discovery
 are 3.2.3.0's, and nothing looks across sessions or across machines: the
-Mac's sessions, the Kali VM's and this PC's each learn the same server
+Mac's sessions, the Linux VM's and this PC's each learn the same server
 alone, and a trim or a cut reply on one is news to none of the others.
 Nothing knows the server's own settings (how many models it keeps loaded,
 its parallelism, its KV cache type), what else holds the card (ComfyUI), or
 why a model that fit yesterday spills to the CPU today. Outside Halo,
-rolo's read-only watcher (`ollama-watch/watch.ps1`: a tail of Ollama's
+rolo's read-only watcher (`<watcher folder>/watch.ps1`: a tail of Ollama's
 server.log, `/api/ps`, twelve alert rules, a small model explaining each
 batch) proved the shape; this version brings it inside, across the fleet,
 gives it the knowledge and the hardware facts, and lets it adjust. Three
@@ -2976,7 +2975,7 @@ line to set and what it costs; every change is one reversible line.
   live session wants, from the ledger), it finds a set that fits: windows
   per model so both fit, or one model at a time (`keep_alive 0` on the
   second and an order), or the second model asked on another host the
-  fleet knows (SAMUS), or a tuned twin, a smaller quant, `kv_cache_type
+  fleet knows (sagan), or a tuned twin, a smaller quant, `kv_cache_type
   q8_0` on the server (a recommendation with the exact env line and what it
   costs in quality); every plan says what you lose. An adjustment lands in
   a profile, `ollama.profiles["<host>|<model>"] = {num_ctx, num_predict,
@@ -3239,7 +3238,7 @@ for each action shown beside it.
   capabilities, the quant and the parent), copy and rename, a tuned twin
   (the existing `ollama_tune` offer, from the row), load now / unload now
   (a warm call, `keep_alive` 0), what is loaded (`/api/ps`, live). Every
-  action picks the host (this machine, `lan`, `samus`, any entry) and shows
+  action picks the host (this machine, `lan`, `sagan`, any entry) and shows
   its CLI line (`halo models pull <ref> --host H`, `halo models rm`, `halo
   models show`, `halo models load | unload`; the new subcommands share the
   job code). Never a write to a blob store; never a delete without the uses
@@ -3478,7 +3477,7 @@ the old R1-R3 and R5 are renumbered R2-R4 and R7 and otherwise unchanged.
   session on the Mac benefits from what the PC measured. Each lands in the
   round that owns the surface; the Local tab's help names all five.
 
-## ADDED 2026-10-30 (rolo, from two days of measuring his box: "I have more detailed updates for you with local models. The plan is here: ~/ollama-watch/local-model-fit.md ... Parts A-L"): the local-model brief -- plans/local-model-fit-brief.md -- and how its parts land
+## ADDED 2026-10-30 (rolo, from two days of measuring his box: "I have more detailed updates for you with local models. The plan is here: <watcher folder>/local-model-fit.md ... Parts A-L"): the local-model brief -- plans/local-model-fit-brief.md -- and how its parts land
 
 The brief is the spec; this entry only maps it. Parts A-L are in
 `plans/local-model-fit-brief.md` (his measured readout before them stays on
@@ -3774,7 +3773,7 @@ worse); the reference HTTP server is not shipped (routes through `studio/local_a
   not read; mlx_lm.server prints no window; the pool's controller round reads the pool's llama-server log through this
   reader (`pool-degraded`, `pool-rtt`, `pool-spill` need its RPC lines, not classified yet).
 
-## ADDED 2026-11-02 morning (rolo: "When I try to benchmark from my macbook pro the models that exist on this PC via the ollama server I get an error 'served by another machine...'. I should be able to benchmark the models from any halo ... yes queue this"): 3.3.8.1 "Bench from any halo"
+## ADDED 2026-11-02 morning (rolo: "When I try to benchmark from my laptop the models that exist on this PC via the ollama server I get an error 'served by another machine...'. I should be able to benchmark the models from any halo ... yes queue this"): 3.3.8.1 "Bench from any halo"
 
 **3.3.8.1 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3381/R1-bench-anywhere, hand-back v3381-R1-handback.md), merged as the 3.3.8.1 candidate.** Built as written plus the CI addendum (the flake lint `tests/test_flake_rules.py`, `run_all.py --shard i/n` with a four-shard matrix per platform in suites.yml, a Chrome driver that retries once in the open through `tests/helpers/driver_retry.py` / `driver_got.py`), and `halo_harness/newest_first.py` for fourteen newest-first sorts that tied on a stamp. The worker's one deviation, kept: a PAIRED halo host on which this peer lacks `control` (or that is down, or whose cap is `none`) still answers with its grant line (tests.test_host_ladder pins 3.3.7.0 R2); only a host with no paired halo host is benched over the LAN -- rolo says whether a down host should go direct too. Open: the CI matrix's first green run on master is its only test; rolo's live checks (Mac, Kali) in the hand-back.
 
@@ -4104,8 +4103,8 @@ Next: a 47.7 GiB table pinned in RAM). No tok/s figures on the pages; the paper 
 **Why it fits Halo's local use cases.** It is the other answer to "a model bigger than my card": the pool (3.3.8.0)
 spreads one model across several machines' GPUs over RPC and buys capacity at a speed cost; FreeToken runs one big
 MoE on ONE box out of RAM and NVMe. For the owner's boxes: the PC (Windows) only through WSL2 with the pinned-memory
-caveat; **SAMUS once it is Ubuntu (RTX 3080 10 GB, 64 GB DDR4, NVMe) is the natural FreeToken host** -- gpt-oss-120b or
-Qwen3.6-35B-A3B on a 10 GB card is exactly its pitch; the Kali VM has no GPU. To Halo it is **an OpenAI-compatible
+caveat; **sagan once it runs Linux (a 10 GB card, 64 GB of RAM, NVMe) is the natural FreeToken host** -- gpt-oss-120b or
+Qwen3.6-35B-A3B on a 10 GB card is exactly its pitch; the Linux VM has no GPU. To Halo it is **an OpenAI-compatible
 local server**, so it lands where LM Studio and mlx_lm.server did (3.3.8.0 R2): one more runtime word, not a provider.
 
 **The round (one Opus worker, after 3.3.10.0 R1 merges and before R2 -- the owner's rule: a local-model ask never waits
@@ -4119,23 +4118,23 @@ behind a Studio feature):**
   (the first request after install compiles for minutes: said, never a timeout).
 - **The fit for a FreeToken server is RAM + link, not VRAM:** the fit planner gains a runtime-specific rule -- the
   checkpoint's expert bytes against host RAM (and the pinned cap under WSL), the dense bytes against VRAM, the link's
-  measured GB/s from `ft bench bw` (run through the bench seam, the cost line first) -> "fits: 35B-A3B on samus, 3 GB
+  measured GB/s from `ft bench bw` (run through the bench seam, the cost line first) -> "fits: 35B-A3B on sagan, 3 GB
   active on the 3080, 60 GB of experts in RAM over PCIe at 28 GB/s; expect N tok/s once measured" / "does not fit:
   needs 98 GiB of tables, 64 GB here". The speed card and the battery run against it like any local server; the
   Library's "fits your resources" badge knows the runtime.
 - The Models section's Hugging Face page lists the NVFP4 / FP8 checkpoints FreeToken serves as download targets with
   the fit badge; `halo local serve` says the CUDA-13 / nvcc / Linux requirements in one line when they are missing
   (`halo doctor --local` checks `ft --version`, the driver, `nvcc`).
-- Through the host (3.3.7.0 / 3.3.8.0 R4): a FreeToken server on SAMUS is a host-served local server the PC, the Mac
-  and Kali reach as `hf:local/<model>@samus`; placement (`place.solve`, the adviser) sees it beside the pool and the
+- Through the host (3.3.7.0 / 3.3.8.0 R4): a FreeToken server on sagan is a host-served local server the PC, the Mac
+  and Kali reach as `hf:local/<model>@sagan`; placement (`place.solve`, the adviser) sees it beside the pool and the
   Ollama hosts, with the loading tax (the JIT and the first expert load) said.
 - docs: a section of docs/LOCAL-MODELS.md or `MODELS-freetoken.md` (install on Ubuntu with CUDA 13 as stated lines,
   WSL2 caveat, which checkpoints, the fit rule), MODELS-steward-servers.md (the runtime), COMMANDS-local-servers.md.
 - Tests: a fake `ft` server (OpenAI shape + the daemon's log lines) on 127.0.0.1:0, never the real one; the fit rule's
   table; the steward's three findings from fixture logs.
-- Live check (rolo, on SAMUS after Ubuntu): `uv pip install "freetoken[accel]"` with CUDA 13 + nvcc, `ft serve --model
+- Live check (rolo, on sagan after Ubuntu): `uv pip install "freetoken[accel]"` with CUDA 13 + nvcc, `ft serve --model
   <Qwen3.6-35B-A3B-NVFP4 dir>`, `halo local add --runtime freetoken ...` (or `halo local serve --runtime freetoken`),
-  a session on `hf:local/qwen3.6-35b-a3b@samus`, `halo local bench --host samus`, the steward's findings after a few
+  a session on `hf:local/qwen3.6-35b-a3b@sagan`, `halo local bench --host sagan`, the steward's findings after a few
   turns; `ft bench bw` and the fit line's GB/s side by side.
 
 **3.3.9.1 BUILT 2026-11-02 (one Opus round, worktree ~/hh-3391/R1-freetoken, hand-back v3391-R1-handback.md): the
@@ -4159,10 +4158,10 @@ requests share one model at once), prefix caching (SGLang's RadixAttention keeps
 requests), speculative decoding with a draft model, tensor parallel across GPUs in one box, structured outputs (a JSON
 schema or grammar constrains the decode), an OpenAI-compatible server and a Prometheus `/metrics` endpoint. Both are
 Linux + CUDA, heavy (PyTorch), and prefer HF safetensors / AWQ / GPTQ / FP8 weights over GGUF; vLLM reserves most of
-the GPU by default (`gpu_memory_utilization`), which fights a shared card (Ollama and ComfyUI on the 4090). FreeToken
+the GPU by default (`gpu_memory_utilization`), which fights a shared card (Ollama and other GPU jobs on one card). FreeToken
 credits both (mini-sglang, SGLang, vLLM, FlashInfer).
 
-**Where they would enhance Halo (the owner's boxes: a 24 GB 4090 on Windows, a 10 GB 3080 on Ubuntu soon, a Mac):**
+**Where they would enhance Halo (boxes like these: a 24 GB card on Windows, a 10 GB card on Linux, a Mac):**
 - **Orchestra fan-out on one model.** llama-server and Ollama serve one stream well; when several lanes run the same
   model at once (a lineup's workers, the review pool), a batching runtime serves them together -- placement
   (`place.solve`) would gain a `lanes_per_model` fact and prefer a `vllm` / `sglang` server when two or more lanes share

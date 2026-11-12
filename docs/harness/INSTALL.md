@@ -368,7 +368,7 @@ get the most out of it, on any of them.
   `/keybindings` for the live list, and the `keybindings-help` skill for
   the file format).
 - **SSH**: everything above (mouse, OSC 52 clipboard, resize, chords) is
-  verified over SSH into the Kali VM inside tmux, not just on a local
+  verified over SSH into the Linux VM inside tmux, not just on a local
   console -- there's nothing SSH-specific to configure.
 
 ## Tests
@@ -403,7 +403,7 @@ wsl -e bash -lc 'rsync -a --delete --exclude .git --exclude __pycache__ --exclud
 `rsync` (not a symlink/bind-mount) because `/mnt/c/...` is a 9p/DrvFS mount
 -- editable installs and some file-watching code behave differently over
 it than on a native Linux filesystem, and the whole point of this check is
-to catch that class of bug before it reaches the Kali VM.
+to catch that class of bug before it reaches the Linux VM.
 
 ## Troubleshooting
 

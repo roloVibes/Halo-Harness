@@ -7,7 +7,14 @@ attacker a head start, open the issue with a one-line summary only ("security:
 <area>"), no exploit detail, and ask for a private channel there; or use the
 repository's private vulnerability reporting (Security tab) when it is
 enabled. Include `halo --version`, the platform and the smallest steps that
-show it. The latest 2.0.x release is the supported one.
+show it.
+
+## Supported versions
+
+The newest release is the supported one; fixes land there, not in older
+lines. Versions before 3.4.1.2 have known security problems that are fixed
+in 3.4.1.2 and later: update with `halo update` (`halo --version` says which
+you run).
 
 ## What Halo protects against
 

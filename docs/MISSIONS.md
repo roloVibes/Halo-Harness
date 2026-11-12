@@ -79,7 +79,7 @@ asks once more with the problems listed) and then applies the rules:
 - **Unassignable.** A part that needs something nobody has is flagged with the
   reason; the mission cannot be approved until it is reassigned or dropped.
   When only a member that is away has it (joined, no halo session open there),
-  the reason names it (3.4.0.1): "nobody online has gpu; rolo@roundBoy has it
+  the reason names it (3.4.0.1): "nobody online has gpu; you@tower has it
   but is offline (no halo session open there): open one, then plan again".
 - **Where asks are refused** (3.4.0.1). Each harness's capability card carries
   the permission mode a part runs in there (config.json's `permission_mode`,

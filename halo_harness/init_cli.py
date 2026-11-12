@@ -21,7 +21,7 @@ openrouter|databricks` (`docs/COMMANDS.md`'s own examples keep working
 verbatim).
 
 Idempotent throughout: re-running shows the current state and changes
-nothing already correctly configured (must-do for the Kali VM, which
+nothing already correctly configured (must-do for the Linux VM, which
 already has its key/rg/PATH set up). Never writes `~/.claude.json` or
 `~/.claude/settings.json` (this harness only ever READS those); never
 prints a key or token anywhere, success or failure.

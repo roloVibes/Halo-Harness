@@ -90,7 +90,7 @@ def test_the_traffic_view_follows_the_ledger(ctx: Ctx):
 def test_the_hosts_page_and_its_controls(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"every host as a card, the controls where they apply, got {got.get('cards')}", (got.get("cards") or [])[:4] ==
-              [["pc", "configured", "no"], ["samus", "configured", "no"], ["box", "configured", "yes"], ["llama-box", "local server", "no"]])
+              [["pc", "configured", "no"], ["sagan", "configured", "no"], ["box", "configured", "yes"], ["llama-box", "local server", "no"]])
     ctx.check(f"pc's numbers: 90% VRAM, who calls it, got {got.get('pc_vram')!r} {got.get('pc_users')!r}",
               got.get("pc_vram") == "90% VRAM" and got.get("pc_users") == "who calls it: this machine 12")
     ctx.check(f"pc: why there is no Load from here, got {got.get('pc_why')!r}", "served by another machine" in str(got.get("pc_why")))

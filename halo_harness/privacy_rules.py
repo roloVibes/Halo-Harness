@@ -49,12 +49,17 @@ DOT_LOCAL_RE = re.compile(
 # confirmed by a full scan of the tracked tree and the full history before
 # this list was written (see plans/2.0.4-history-rewrite-plan.md). A name
 # NOT on this list is treated as a real leak.
-HOME_PATH_RE = re.compile(r"(?:C:\\Users\\|C:/Users/|/home/|/Users/)([A-Za-z0-9_.-]+)")
+HOME_PATH_RE = re.compile(r"(?:C:\\{1,2}Users\\{1,2}|C:/Users/|/home/|/Users/)([A-Za-z0-9_.-]+)")  # 3.4.1.2: escaped too
 PLACEHOLDER_HOME_NAMES = frozenset({
     "user", "users", "example", "someone", "alice", "bob", "x", "...", "work",
     "k", "u", "kal", "kali", "test", "testuser", "youruser", "username", "name",
-    "placeholder", "redacted", "anon", "nobody", "yourname", "admin", "",
+    "placeholder", "redacted", "anon", "nobody", "yourname", "admin", "", "you",
 })
+# 3.4.1.2 (F8): placeholders that are ALSO real account names (a distro's default user: `kali` on Kali Linux). Under
+# `/home/<name>/<more>` they are a finding unless that whole path is on the allowlist: a real VM writes exactly those
+# paths. Examples use `/home/you/...` or `/home/user/...` (alice and bob stay the fictional pair).
+REAL_LOOKING_HOME_NAMES = frozenset({"kali", "kal", "work", "test", "admin"})
+POSIX_HOME_DEEP_RE = re.compile(r"/home/([A-Za-z0-9_.-]+)/[^\s\"'`<>|),\]]+")
 # The owner's real account name(s) -- stored as BARE words (never written
 # as part of a "C:\Users\<name>"-shaped literal anywhere in this file's own
 # source) so this module never self-matches its own detection logic, and so
@@ -73,30 +78,40 @@ KNOWN_LEAKED_PATH_FRAGMENTS = ("/home/kali/Documents",)
 # real home-path match (see above) whose same line also contains `.halo`.
 STATE_DIR_MARKER = ".halo"
 
-# ---- known real machine / hobby-gear / vendor / owner-name terms ----------
-# Moved verbatim from tests/test_privacy_scan.py (W5/W5b/H14b passes) --
-# the only way a bare "machine name" category can be checked generically.
+# ---- the owner's own machine / gear / vendor / name terms (never in this repo) ----
+TERMS_FILE_ENV = "HALO_PRIVACY_TERMS_FILE"
+TERMS_SOURCE = ""  # set below: "" (no list: the name checks are OFF), "env", "file" or "state dir"
+
+
 def _load_owner_terms() -> "tuple[tuple[str, ...], tuple[str, ...]]":
     """The owner's own machine / gear / vendor / name terms are NEVER stored
     in this public repo (a history rewrite's replace-text pass would corrupt
     this very file, and the list itself is identifying). They come from
     `HALO_PRIVACY_TERMS` (terms separated by `;`, with `ci:` switching the
-    rest to case-insensitive) or from `<state dir>/privacy-terms.txt` (one
-    term per line, a line `ci:` switching to case-insensitive). With neither
-    present the machine-name check is simply inactive and the generic rules
-    (paths, addresses, hostnames, tokens, e-mail, junk paths) still apply."""
+    rest to case-insensitive), from the file `HALO_PRIVACY_TERMS_FILE` names
+    (3.4.1.2: how scripts/prepush.py hands the real list to an audit that runs
+    in a scratch home, never on a command line), or from `<state dir>/
+    privacy-terms.txt` (one term per line, a line `ci:` switching to
+    case-insensitive). With none present the machine-name check is OFF
+    (`name_checks_line()` says so) and the generic rules still apply."""
+    global TERMS_SOURCE
     exact: "list[str]" = []
     ci: "list[str]" = []
     raw = os.environ.get("HALO_PRIVACY_TERMS", "")
     entries: "list[str]" = []
     if raw.strip():
-        entries = [e.strip() for e in raw.split(";")]
+        entries, TERMS_SOURCE = [e.strip() for e in raw.split(";")], "env"
     else:
         try:
-            from halo_harness.config.paths import bridge_home
-            f = bridge_home() / "privacy-terms.txt"
+            named = os.environ.get(TERMS_FILE_ENV, "").strip()
+            if named:
+                f, source = Path(named), "file"
+            else:
+                from halo_harness.config.paths import bridge_home
+                f, source = bridge_home() / "privacy-terms.txt", "state dir"
             if f.is_file():
                 entries = [ln.strip() for ln in f.read_text(encoding="utf-8").splitlines()]
+                TERMS_SOURCE = source
         except Exception:
             entries = []
     bucket = exact
@@ -111,7 +126,17 @@ def _load_owner_terms() -> "tuple[tuple[str, ...], tuple[str, ...]]":
 
 
 REMOVED_NAMES, EXTENDED_SCAN_TERMS = _load_owner_terms()
-EXTENDED_SCAN_ROOTS = ("halo_harness/", "tests/", "docs/", "README.md", "CHANGELOG.md")
+# 3.4.1.2 (F8): the case-insensitive terms cover the WHOLE tree (plans/, research_notes/, reports/, tools/, scripts/,
+# bin/, the shipped packs, docs/design ...), not five roots: a name in plans/ ships in every tarball too.
+
+
+def name_checks_line() -> str:
+    """The one line every run prints: whether the owner's term list was loaded (never a term, never its path)."""
+    n = len(REMOVED_NAMES) + len(EXTENDED_SCAN_TERMS)
+    if TERMS_SOURCE and n:
+        return f"name checks: ON ({n} private term(s) from the {TERMS_SOURCE})"
+    return ("name checks: OFF -- no private term list (HALO_PRIVACY_TERMS, $" + TERMS_FILE_ENV
+            + " or <state dir>/privacy-terms.txt); machine and owner names are NOT checked")
 
 # ---- Windows %SystemDrive%/%USERPROFILE%-style stray cache files ---------
 # A PATH matching this should never have been committed at all, regardless
@@ -160,6 +185,9 @@ ALLOWLIST_RELPATH = "tests/privacy_scan_allowlist.txt"
 # would otherwise flag (the detectors defined here, and the regression
 # guard that imports them) -- excluded from the scan entirely, the same
 # precedent tests/test_privacy_scan.py already set for itself.
+# 3.4.1.2 (F8): the copyright line names its holder on purpose (changing it is the owner's call); every other rule
+# still reads the file, and nowhere else is a name exempt by path.
+NAME_CHECK_EXEMPT_RELPATHS = frozenset({"LICENSE"})
 SELF_EXCLUDE_RELPATHS = frozenset({
     "halo_harness/privacy_rules.py",
     "tests/test_privacy_scan.py",
@@ -174,6 +202,17 @@ def home_path_name_is_real(name: str) -> bool:
     if lname in REAL_OWNER_USERNAMES:
         return True
     return lname not in PLACEHOLDER_HOME_NAMES
+
+
+def deep_home_path_is_real(match: "re.Match", allowlist: "set[str]") -> bool:
+    """A `/home/<name>/<more>` match (POSIX_HOME_DEEP_RE) whose name is real-looking, not allowlisted as a whole."""
+    return match.group(1).lower() in REAL_LOOKING_HOME_NAMES and match.group(0) not in allowlist
+
+
+def is_noreply_address(addr: str) -> bool:
+    """A commit identity GitHub hides: `<id>+<login>@users.noreply.github.com`, or GitHub's own `noreply@github.com`."""
+    a = addr.strip().lower()
+    return a.endswith("@users.noreply.github.com") or a == "noreply@github.com"
 
 
 def email_is_exempt(addr: str) -> bool:

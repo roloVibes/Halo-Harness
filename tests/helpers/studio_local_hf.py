@@ -1,5 +1,5 @@
 """tests.helpers.studio_local_hf -- Studio's Local -> Hugging Face (Halo 3.3.5.0 R5) in headless Chrome: real clicks and
-typing through tests/helpers/studio_local.LocalDriver's session (R1's seeded home: hosts pc and samus on 192.0.2.x
+typing through tests/helpers/studio_local.LocalDriver's session (R1's seeded home: hosts pc and sagan on 192.0.2.x
 placeholders, `box` a fake Ollama on 127.0.0.1:0 whose card is this machine's), plus the fake hub
 (tests/helpers/mock_hub.py on 127.0.0.1:0, named by HF_ENDPOINT) serving `unsloth/Qwen3.8-27B-GGUF` (the Library's
 fixture repo) and the fake llama-server (tests/helpers/fake_llama_server.py as huggingface.llama_server_bin). No real

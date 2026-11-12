@@ -201,7 +201,7 @@ def build_controller(args) -> "tuple[Controller, object, object]":
             controller.events.put(events.system_note(
                 f"{len(connectors)} claude.ai connector{plural} available."))
 
-        # Live on the Kali VM (2.0.1 part 11): a FRESH TUI process has no
+        # Live on the Linux VM (2.0.1 part 11): a FRESH TUI process has no
         # cached claude.ai auth status yet when this runs, so the kick
         # below is refused by `discovery_eligible()` (cache-only, by
         # design) and nothing ever discovered the connectors -- the

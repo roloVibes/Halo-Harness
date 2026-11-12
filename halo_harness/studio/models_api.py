@@ -1,6 +1,6 @@
 """Studio: why the model catalog is empty, and a Refresh that fills it.
 
-3.0.4.0 (owner, live on the Kali VM): the bio form's model dropdown showed
+3.0.4.0 (owner, live on the Linux VM): the bio form's model dropdown showed
 only "(none) / Type a ref..." because no provider had a cached catalog in
 that state dir, and the page said nothing about it. `GET models/status`
 explains the catalog per provider; `POST models/refresh` re-pulls every

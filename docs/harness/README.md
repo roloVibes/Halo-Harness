@@ -66,11 +66,11 @@ finding is `severity -- file:line -- defect -- failure scenario -- fix`.
 
 | File | What it is |
 |---|---|
-| [ACCEPTANCE-2026-09-24.md](ACCEPTANCE-2026-09-24.md), [ACCEPTANCE-2026-09-25.md](ACCEPTANCE-2026-09-25.md) | cross-platform (Windows/WSL Ubuntu/Kali VM) verification runs, with real command output, for a batch of milestones |
+| [ACCEPTANCE-2026-09-24.md](ACCEPTANCE-2026-09-24.md), [ACCEPTANCE-2026-09-25.md](ACCEPTANCE-2026-09-25.md) | cross-platform (Windows/WSL Ubuntu/Linux VM) verification runs, with real command output, for a batch of milestones |
 | [FAMILY-BASELINE-2026-09-29.md](FAMILY-BASELINE-2026-09-29.md) | live acceptance rows (pong, a 200-line Read, a Write/Edit/Bash chain, a steer) for GLM-5.3, Qwen3.8 Flash, MiniMax M3, Kimi K2.7-code and Kimi K3 on OpenRouter |
 | [claude-code-2.1.281-binary-facts.md](claude-code-2.1.281-binary-facts.md) | facts about the real `claude` binary, extracted directly from it, that this project matches on purpose (trust rules, settings-merge algorithm, permission-rule grammar, ...) |
 | [claude-in-chrome-integration.md](claude-in-chrome-integration.md) | design notes for the `--chrome` native-messaging bridge |
 | [INSTALL.md](INSTALL.md) | the full install walkthrough -- linked from the repo-root README; read that copy, this is the same file |
 | [LIVE-CHECKS.md](LIVE-CHECKS.md) | the opt-in runbook for everything that needs a REAL upstream/binary (`ant:`/Databricks Claude passthrough, real-`claude`-binary interop, ripgrep, Playwright) -- never run by the ordinary hermetic suites |
-| [LIVE-CHECKS-2.0.3.md](LIVE-CHECKS-2.0.3.md) | the 2.0.3 local/cloud-models release's own live-check result record (build host, Kali VM + LAN host, Hugging Face router, Experiential gateway, Mac pending, OpenAI/Codex fakes-only) |
+| [LIVE-CHECKS-2.0.3.md](LIVE-CHECKS-2.0.3.md) | the 2.0.3 local/cloud-models release's own live-check result record (build host, Linux VM + LAN host, Hugging Face router, Experiential gateway, Mac pending, OpenAI/Codex fakes-only) |
 | [RECOMMENDATIONS.md](RECOMMENDATIONS.md) | a point-in-time roadmap review (2026-09-25); largely superseded by later milestones landing what it recommended -- see the milestone table above for what actually shipped |

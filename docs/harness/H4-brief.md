@@ -1,6 +1,6 @@
 # H4 brief — hooks, Skill tool, custom command execution, AskUserQuestion seam, WebSearch (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux primary**
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux primary**
 — OS-neutral). Baseline = the H3 commit on master, both suites green on Windows and WSL. Do not
 commit.
 

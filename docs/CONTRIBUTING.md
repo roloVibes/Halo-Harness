@@ -99,7 +99,7 @@ and CLI flag documented, the privacy scan, no test module exporting
 A job summary names the platform, the tier and the sha and shows
 pass/fail for each suite at a glance without opening a log; the full logs
 upload as a build artifact only when something fails. This is now the normal way the suites get run -- the orchestrator's
-manual three-platform run (the Windows build host, the Kali VM, WSL)
+manual three-platform run (the Windows build host, the Linux VM, WSL)
 stays for what CI cannot do: real local models, real MCP servers, real
 hardware, real terminal rendering. A suite failing in CI is the exception
 that should now trigger that manual run, not the other way around.

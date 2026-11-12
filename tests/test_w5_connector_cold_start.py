@@ -1,5 +1,5 @@
 """tests.test_w5_connector_cold_start -- W5 (carried from W4b): "connector
-cold start". Live on the Kali VM, a fresh print-mode call with an empty
+cold start". Live on the Linux VM, a fresh print-mode call with an empty
 connectors cache had NO `connector__*` tools at all (discovery only ran in
 the background, racing the session catalog freeze). Pins
 `connectors_bridge.ensure_discovered_synchronously_if_cold`, its two call

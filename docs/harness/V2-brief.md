@@ -7,7 +7,7 @@ features and where models come from beyond Databricks. Repo is PUBLIC now: no ho
 `your-workspace.cloud.databricks.com`), LAN addresses, usernames, home paths or tokens anywhere.
 
 Baseline = the v0.6.0 line after the docs pass (tip `0bf95d9`, rewritten history): run_all 1744,
-test_bridge 97, test_tui 53, green on Windows, WSL and the Kali VM. Only one worker on the tree at
+test_bridge 97, test_tui 53, green on Windows, WSL and the Linux VM. Only one worker on the tree at
 a time; no sub-agents that edit files; no commits (Fable verifies, commits, tags).
 
 ## Phases (each verified on the three platforms, committed and tagged by Fable)

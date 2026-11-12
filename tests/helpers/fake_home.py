@@ -8,7 +8,7 @@ settings.local.json when present, so the suite's actual behavior -- model
 name, permission mode, the count and shape of settings.local.json's rules
 -- silently depended on whichever machine happened to run it, passing only
 on the owner's own box and reading a different rule count on any other, incl.
-the Kali VM this suite ultimately runs on).
+the Linux VM this suite ultimately runs on).
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ _FALLBACK_SETTINGS_JSON = {
 # a Windows path, an admin/elevation-style GetCurrent() one-liner) WITHOUT
 # reproducing his actual personal script names/paths -- synthetic, not a
 # live copy, so the round-trip test is reproducible on any machine, incl.
-# the Kali VM this suite ultimately runs on (finding 14).
+# the Linux VM this suite ultimately runs on (finding 14).
 _SETTINGS_LOCAL_JSON = {
     "permissions": {
         "allow": [
@@ -75,25 +75,24 @@ Project notes for claude-bridge.
 '''
 
 MEMORY_TOPIC_2 = '''---
-name: project_media_server
-description: Home media server "mediabox" runs on lan-host.lan; remote access enabled for friend sharing
+name: project_weather_station
+description: Weather station "skylark" logs from the garden shed; the rain gauge needs emptying by hand
 metadata:
   type: project
   originSessionId: fake-session-002
   modified: 2026-08-12
 ---
-Home media server "mediabox" runs on lan-host.lan; remote access enabled 2026-08-12
-for friend sharing, behind double NAT needing a port forwarded on both routers.
-Single library on a dedicated video drive (all transcoded video). A streaming pass
-is active so shared friends stream free. Owner: the account owner.
+Weather station "skylark" logs from the garden shed every ten minutes since 2026-08-12.
+The rain gauge reads high after a storm and is emptied by hand; the wind vane sticks
+below freezing. A fictional note, made up for these tests. Owner: the account owner.
 '''
 
 
 def _memory_md_250_lines() -> str:
     lines = ["# MEMORY.md (fake, for tests)", ""]
     lines.append("- [claude-bridge project](project_claude_bridge.md) -- proxy + harness work")
-    lines.append('- [Home media server "mediabox"](project_media_server.md) -- runs on lan-host.lan; '
-                 "remote access enabled 2026-08-12 for friend sharing")
+    lines.append('- [Weather station "skylark"](project_weather_station.md) -- logs to lan-host.lan from the garden shed; '
+                 "the rain gauge is emptied by hand")
     for i in range(3, 251):
         lines.append(f"- filler memory line {i} for truncation-cap testing")
     return "\n".join(lines) + "\n"
@@ -164,7 +163,7 @@ def build_fake_home(root: Optional[Path] = None) -> dict:
     memory_dir.mkdir(parents=True, exist_ok=True)
     (memory_dir / "MEMORY.md").write_text(_memory_md_250_lines(), encoding="utf-8")
     (memory_dir / "project_claude_bridge.md").write_text(MEMORY_TOPIC_1, encoding="utf-8")
-    (memory_dir / "project_media_server.md").write_text(MEMORY_TOPIC_2, encoding="utf-8")
+    (memory_dir / "project_weather_station.md").write_text(MEMORY_TOPIC_2, encoding="utf-8")
 
     # proj/ -- CLAUDE.md importing @AGENTS.md and @docs/extra.md, a fenced
     # @not-an-import, an HTML comment, sub/CLAUDE.md.

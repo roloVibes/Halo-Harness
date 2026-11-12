@@ -35,9 +35,23 @@ halo audit privacy
 A clean tree prints one line and exits 0; anything it finds prints one
 line per finding (`path:line: <kind>: <masked excerpt>`, the matched
 value always replaced with `<redacted>`) and exits 1. `--history` runs
-the same checks over every commit reachable from HEAD instead of just
-the working tree -- useful before a repo goes public, since a file
-deleted with a plain `git rm` is still sitting in every earlier commit.
+the same checks over every blob any ref of the clone reaches (branches,
+tags, remotes) instead of just the working tree -- useful before a repo
+goes public, since a file deleted with a plain `git rm` is still sitting
+in every earlier commit.
+
+Since 3.4.1.2 every run says first whether your private term list was
+loaded (`name checks: ON (n private term(s) ...)` or `name checks: OFF`
+and why), the name terms cover the whole tree (plans, notes, scripts,
+packs, SVG text), a finding names a term by its number (`term #3`), never
+the term, and files that are not text are counted as not checked.
+`--commits` reads every commit's author and committer address and its
+message: an address that is not a GitHub noreply one and a private term
+in a message are reported (masked, counted per address); they fail the
+audit only on a commit that is not yet on `origin/master`, since an older
+one can only be fixed by a history rewrite. `scripts/prepush.py` runs the
+working tree and `--commits` in a scratch home and hands your term list
+over by file name (`HALO_PRIVACY_TERMS_FILE`).
 `--json` gives the same fields as one machine-readable object; `--since
 REV` narrows a history scan to `REV..HEAD`. See `docs/COMMANDS.md`'s own
 `halo audit` entry for every flag, and `tests/privacy_scan_allowlist.txt`
@@ -69,10 +83,13 @@ is identifying. Give them to the audit through one of:
 
 - `HALO_PRIVACY_TERMS`: terms separated by `;`; a `ci:` entry switches the
   rest to case-insensitive matching.
+- `HALO_PRIVACY_TERMS_FILE`: the path of a file in the format below (3.4.1.2:
+  how the pre-push gate hands your real list to an audit in a scratch home).
 - `<state dir>/privacy-terms.txt` (normally `~/.halo/privacy-terms.txt`): one
   term per line, a line `ci:` switching to case-insensitive, `#` comments.
 
-With neither present the machine-name check is inactive; every generic rule
+With none present the machine-name check is OFF and every run says so in
+one line (CI has no list by design, so its log says OFF); every generic rule
 (user-profile paths, private and link-local addresses, LAN and `.local`
 hostnames, stray OS cache files, key- and token-shaped strings, e-mail
 addresses) still applies.

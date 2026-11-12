@@ -101,17 +101,17 @@ def test_the_ladder_three_rungs(ctx: Ctx):
     from halo_harness.ollama_steward.log_status import ladder, status
     with LogsHome(hosts=[PC, MAC, {"name": "far", "url": "http://192.0.2.40:11434"}]) as h:
         h.remote("pc")
-        take_events(h.state, "macbook", [{"kind": "prompt-trimmed", "severity": "warn", "say": "cut", "at": T(5),
+        take_events(h.state, "laptop", [{"kind": "prompt-trimmed", "severity": "warn", "say": "cut", "at": T(5),
                                           "model": "qwen3:8b", "host": "local", "addr": "192.0.2.20", "port": 11434}])
         rungs = {n: ladder(h.state, _host(n)) for n in ("pc", "mac", "far")}
         st_far, st_mac = status(h.state, _host("far")), status(h.state, _host("mac"))
     ctx.check(f"ssh, the member's push, /api/ps, got {[r['rung'] for r in rungs.values()]}",
               [r["rung"] for r in rungs.values()] == ["ssh", "member", "api-ps"])
-    ctx.check(f"the member rung names the member, got {rungs['mac']}", rungs["mac"].get("member") == "macbook")
+    ctx.check(f"the member rung names the member, got {rungs['mac']}", rungs["mac"].get("member") == "laptop")
     ctx.check(f"/api/ps only says the fit rule, got {st_far['line']!r}", st_far["state"] == "remote-no-ssh"
               and "size_vram < size = spill" in st_far["line"] and "no ssh entry" in st_far["line"])
     ctx.check(f"the member rung's last line is the pushed event's, got {st_mac}", st_mac["state"] == "remote-no-ssh"
-              and st_mac.get("last_line_at") and "macbook" in st_mac["line"])
+              and st_mac.get("last_line_at") and "laptop" in st_mac["line"])
 
 
 @test

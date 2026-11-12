@@ -1,6 +1,6 @@
 # U2 brief — the Textual TUI (halo launches like `claude`)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux primary**
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux primary**
 — the TUI must run in a Linux terminal first; Windows Terminal second). Baseline = the H3 commit on
 master, both suites green on Windows and WSL. Do not commit.
 

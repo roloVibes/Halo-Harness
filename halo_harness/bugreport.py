@@ -521,7 +521,7 @@ def cmd_bugreport(argv: list) -> int:
 
     # Same first step as `halo providers`/doctor: a key that lives only in
     # the env file must count, or every provider reads "disabled" here (seen
-    # live on the Kali VM). The names the load ADDED are remembered so the
+    # live on the Linux VM). The names the load ADDED are remembered so the
     # provider reason can say "env file" rather than "shell env".
     present_before = set(os.environ)
     env_file_names = frozenset(k for k in load_provider_env_files() if k not in present_before)

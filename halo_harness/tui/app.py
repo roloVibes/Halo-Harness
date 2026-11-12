@@ -673,7 +673,7 @@ class BridgeApp(App):
         empty. `refresh_cached_claude_auth_status()` skips the spawn
         entirely when `claude` is gateway-driven.
 
-        2.0.1 part 11 (live on the Kali VM): `tui/bootstrap.py`'s own
+        2.0.1 part 11 (live on the Linux VM): `tui/bootstrap.py`'s own
         background-discovery kick runs BEFORE this refresh, when the cache
         is still empty, so `discovery_eligible()` refuses it and a
         cold-cache TUI would never learn its claude.ai connectors. Once the

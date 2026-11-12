@@ -1,9 +1,9 @@
 # H12 brief — RECOMMENDATIONS P0: `halo init`, prescriptive doctor, Edit context line per family, README quick start
 
 rolo (2026-09-28): "go ahead with the P0 items, start with halo init". Source: `docs/harness/
-RECOMMENDATIONS.md` §2, §3, §4 and §7 (P0). Repo `~\Documents\vibes\appDev\halo\`
+RECOMMENDATIONS.md` §2, §3, §4 and §7 (P0). Repo `~\projects\halo\`
 (Windows build host; **Kali Linux is primary**). Baseline = tag `v0.4.0` (`57eb133`): run_all 1585,
-test_bridge 97, test_tui 47, green on Windows, WSL and the Kali VM. Only worker on the tree; no
+test_bridge 97, test_tui 47, green on Windows, WSL and the Linux VM. Only worker on the tree; no
 commits; no sub-agents that edit files.
 
 ## Read first
@@ -87,9 +87,9 @@ asked, skipped with `--no-fixes`, rc-file line written once with the marker (tem
 schema; Edit hint per family; README first section present.
 
 ## Acceptance (Fable re-runs)
-Suites green on Windows, WSL and the Kali VM. Live: on WSL under a TEMP HOME, `halo init
+Suites green on Windows, WSL and the Linux VM. Live: on WSL under a TEMP HOME, `halo init
 --preset home --yes` with the key provided via env → env file 0600, config model set, doctor OK,
-pong; on the Kali VM the real `halo init` (interactive-free with `--yes`) reports the
+pong; on the Linux VM the real `halo init` (interactive-free with `--yes`) reports the
 existing key and rg/PATH as already done and pongs; `doctor` on Windows shows fixes on every WARN;
 a DeepSeek session's Edit tool description carries the context line; README opens with the quick
 start. Report ≤ 50 lines. Rules as in the other briefs.

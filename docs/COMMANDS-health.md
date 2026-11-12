@@ -253,7 +253,7 @@ the same one `tests/test_privacy_scan.py`'s own regression guard
 imports, so the two can't drift apart. See `docs/PRIVACY.md` for what
 Halo never writes to the repo in the first place.
 
-### `audit privacy [--history | --replays] [--json] [--since REV] [--cwd DIR]`
+### `audit privacy [--history | --commits | --replays] [--json] [--since REV] [--cwd DIR]`
 
 Working-tree mode (the default; `--replays`, 3.4.1.1: this home's saved replays, plus this machine's home path, user
 and machine name) scans every tracked file plus every untracked, non-ignored file as it sits on disk right now. Each finding
@@ -267,17 +267,15 @@ halo audit privacy
 halo audit privacy: clean -- nothing found.
 ```
 
-`--history` scans every DISTINCT blob reachable from HEAD instead (each
-one exactly once, however many commits carry it unchanged), reported as
-`commit:path:line: <kind>: <masked excerpt>` at the earliest commit that
-introduced it, plus a summary split into paths to purge entirely (a
-file that should never have been committed at all, e.g. a stray cache
-file) versus paths that stay, with specific text needing replacement
-(e.g. a hostname inside a doc that otherwise stays). `--since REV`
-narrows the range to `REV..HEAD` instead of every commit reachable from
-HEAD. `--json` gives the same fields as one JSON object instead of text
-lines, for feeding a history-rewrite plan. An allowlist at `tests/
-privacy_scan_allowlist.txt` (one exact, already-vetted fake value per
+`--history` scans every DISTINCT blob any ref of the clone reaches instead (each one exactly once), reported as
+`commit:path:line: <kind>: <masked excerpt>` at the earliest commit that introduced it, plus a summary split into paths
+to purge entirely (e.g. a stray cache file) versus paths that stay with text needing replacement; `--since REV` leaves
+out everything REV reaches. `--commits` (3.4.1.2) reads every commit's author and committer address and its message:
+an address that is not a GitHub noreply one, masked and counted per address, and a private term in a message, by its
+number; it exits 1 only for a commit not yet on `origin/master`. Every mode first says whether your private term list
+was loaded (`name checks: ON` / `OFF`, docs/PRIVACY.md), the name terms cover the whole tree, and files that are not
+text are counted as not checked. `--json` gives the same fields as one JSON object instead of text lines, for feeding
+a history-rewrite plan. An allowlist at `tests/privacy_scan_allowlist.txt` (one exact, already-vetted fake value per
 line) exempts deliberate fixture values from either mode.
 
 ## `halo update`

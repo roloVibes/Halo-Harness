@@ -217,7 +217,7 @@ def ensure_discovered_in_background(*, timeout: float = 20.0, on_done: "Optional
 
 
 def ensure_discovered_synchronously_if_cold(*, timeout: float = 20.0) -> bool:
-    """W5 (carried from W4b): "connector cold start" -- live on the Kali VM,
+    """W5 (carried from W4b): "connector cold start" -- live on the Linux VM,
     a FRESH print-mode call with an empty connectors cache had no
     `connector__*` tools at all, because discovery only ever ran in the
     BACKGROUND (`ensure_discovered_in_background`) and the session catalog

@@ -1,7 +1,7 @@
 """tests.test_engines_fit -- Halo 3.3.13.0 R1 deliverable 3 (the fit): the two generic rules of
 halo_harness/engines/fit.py reproduce the verdicts the three folded fit modules gave on their own fixtures:
 
-1. paged-moe with FreeToken's figures (local_sched/fit_ft.py's table: samus a 10 GB 3080 + 64 GB on Linux, pc a 24 GB
+1. paged-moe with FreeToken's figures (local_sched/fit_ft.py's table: sagan a 10 GB 3080 + 64 GB on Linux, pc a 24 GB
    4090 + 64 GB under WSL2, small an 8 GB 3060 + 32 GB): fits, no (RAM), tight, tight (the WSL pin cap), no, no
    (Windows), unknown (no counts) x2;
 2. paged-moe with Strata's figures (fit_st.py's table, eleven sets and boxes: RAM + spare, the mapped "slower" case,
@@ -33,21 +33,21 @@ def _card(gpu, mib: int, ram: int, lib: str = "CUDA", unified: bool = False, ava
     return {"gpus": [g] if gpu else [], "unified": unified, "ram_bytes": ram * GIB, "other_users": [], "server": {}}
 
 
-PC, SAMUS, SMALL = (_card("NVIDIA GeForce RTX 4090", 24564, 64), _card("NVIDIA GeForce RTX 3080", 10240, 64),
+PC, sagan, SMALL = (_card("NVIDIA GeForce RTX 4090", 24564, 64), _card("NVIDIA GeForce RTX 3080", 10240, 64),
                     _card("NVIDIA GeForce RTX 3060", 8192, 32))
 MAC, AMD, CPU = (_card("Apple M3 Max", 65536, 64, "Metal", True, 49152), _card("AMD Radeon RX 7900 XTX", 24560, 64, "ROCm"),
                  _card(None, 0, 64))
-FREETOKEN = [("nvidia/Qwen3.6-35B-A3B-NVFP4", SAMUS, LINUX, "fits"), ("Qwen/Qwen3.6-35B-A3B", SAMUS, LINUX, "no"),
-             ("openai/gpt-oss-120b", SAMUS, LINUX, "tight"), ("openai/gpt-oss-120b", PC, WSL, "tight"),
+FREETOKEN = [("nvidia/Qwen3.6-35B-A3B-NVFP4", sagan, LINUX, "fits"), ("Qwen/Qwen3.6-35B-A3B", sagan, LINUX, "no"),
+             ("openai/gpt-oss-120b", sagan, LINUX, "tight"), ("openai/gpt-oss-120b", PC, WSL, "tight"),
              ("openai/gpt-oss-120b", SMALL, LINUX, "no"), ("nvidia/Qwen3.6-35B-A3B-NVFP4", PC, WIN, "no"),
-             ("deepseek-ai/DeepSeek-V4.1-Flash", SAMUS, LINUX, "unknown"), ("Qwen/Qwen3.8-Flash-Next-FP8", SAMUS, LINUX,
+             ("deepseek-ai/DeepSeek-V4.1-Flash", sagan, LINUX, "unknown"), ("Qwen/Qwen3.8-Flash-Next-FP8", sagan, LINUX,
                                                                              "unknown")]
 STRATA = [("qwen/IQ3_XXS", PC, "fits"), ("unsloth/UD-Q4_K_XL", PC, "tight"), ("deepseek41/ist-das-2.00bpw", PC, "fits"),
-          ("qwen/IQ3_XXS", SAMUS, "fits"), ("deepseek41/ist-das-2.00bpw", SAMUS, "no"), ("qwen/IQ3_XXS", SMALL, "tight"),
+          ("qwen/IQ3_XXS", sagan, "fits"), ("deepseek41/ist-das-2.00bpw", sagan, "no"), ("qwen/IQ3_XXS", SMALL, "tight"),
           ("qwen36/UD-Q4_K_XL", SMALL, "fits"), ("gyro/Gyro-M", SMALL, "no"), ("qwen36/UD-Q4_K_XL", MAC, "no"),
           ("nvfp4/NVFP4", AMD, "no"), ("qwen/Q2_0", CPU, "no")]
 TENSORFOLD = [("TensorFold/Qwen3.8-27B-MLX-4bit", PC, "fits"), ("nvidia/Qwen3.6-35B-A3B-NVFP4", PC, "tight"),
-              ("google/gemma-4-12B-it", PC, "no"), ("TensorFold/Qwen3.8-27B-MLX-4bit", SAMUS, "no"),
+              ("google/gemma-4-12B-it", PC, "no"), ("TensorFold/Qwen3.8-27B-MLX-4bit", sagan, "no"),
               ("nvidia/GLM-5.3-Flash-NVFP4", SMALL, "no"), ("TensorFold/Qwen3.8-27B-MLX-4bit", MAC, "fits"),
               ("TensorFold/Qwen3.6-35B-A3B-MLX-4bit-MTP", MAC, "no"), ("mlx-community/gemma-4-31B-it-4bit", MAC, "no"),
               ("BobClawblaw/MiniMax-M3.1-Flash-MLX-mix34", MAC, "no"),
@@ -70,7 +70,7 @@ def test_paged_moe_with_freetokens_figures(ctx: Ctx):
     got = _fit("freetoken", "openai/gpt-oss-120b", PC, WSL)
     ctx.check(f"the WSL pin cap is said, got {got['line']!r}", got["line"].startswith("fits, slower: gpt-oss-120b on box")
               and "under WSL about 26 GB pins" in got["line"] and "PCIe at 32-64 GB/s" in got["line"])
-    got = _fit("freetoken", "deepseek-ai/DeepSeek-V4.1-Flash", SAMUS, LINUX)
+    got = _fit("freetoken", "deepseek-ai/DeepSeek-V4.1-Flash", sagan, LINUX)
     ctx.check(f"no counts: the tables it states, got {got['line']!r}", "publishes no size" in got["line"]
               and "196 GB of tables stream from the SSD" in got["line"] and "6 GB stay in RAM" in got["line"])
 

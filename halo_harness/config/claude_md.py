@@ -308,8 +308,8 @@ def _ancestors_root_to_leaf(cwd: Path) -> list:
     project directory [finding 9]. Test seam: BRIDGE_TEST_ANCESTOR_ROOT
     stops the walk at (and includes) that directory instead of the real
     filesystem root -- otherwise a fixture built under the OS temp dir
-    (e.g. `C:\\Users\\rolo\\AppData\\Local\\Temp\\...`) would also probe
-    real ancestors like the actual `C:\\Users\\rolo` for a CLAUDE.md that
+    (e.g. `C:\\Users\\you\\AppData\\Local\\Temp\\...`) would also probe
+    real ancestors like the actual `C:\\Users\\you` for a CLAUDE.md that
     has nothing to do with the fixture (finding 14)."""
     cwd = cwd.resolve()
     boundary = os.environ.get("BRIDGE_TEST_ANCESTOR_ROOT")

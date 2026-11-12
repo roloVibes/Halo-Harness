@@ -2,8 +2,8 @@
 
 Read this when a machine serves models and you want every harness on the LAN to read its card, its models, its log and its profiles without a session or ssh there.
 
-`halo host` (3.3.7.0) is a small Halo process on the machine that serves models: the PC with the GPU, the old
-box with the 3080, the Mac running Ollama. It runs with no session open, watches that machine's model servers,
+`halo host` (3.3.7.0) is a small Halo process on the machine that serves models: the PC with the GPU, a second
+box with a smaller card, the Mac running Ollama. It runs with no session open, watches that machine's model servers,
 and answers paired harnesses on the LAN. A laptop with no GPU then reads the PC's hardware card, its catalog with
 a fit verdict, its verified capability profiles and its server log the way it reads its own -- no ssh, no
 logging proxy. The commands are in [COMMANDS-host.md](COMMANDS-host.md).

@@ -1,7 +1,7 @@
 # Local models: the fit, the prompt budget, the host log, the battery, the search, the host -- rolo's brief (2026-10-29)
 
-Parts A-L of rolo's `local-model-fit.md` (the measured readout that precedes them stays on his machine: the
-incident, the deleted tags, the captured payload). Measurements are from his RTX 4090 box on Ollama 0.40.13.
+Parts A-L of the owner's `local-model-fit.md` (the measured readout that precedes them stays outside the repo: the
+incident, the deleted tags, the captured payload). Measurements are from a 24 GB card on Ollama 0.40.13.
 The ROADMAP entry "ADDED 2026-10-30 ... the local-model brief" maps each part to a round. Workers: read the part
 your brief names in full; the knowledge-base ids it cites are rolo's, not in this repo.
 
@@ -133,9 +133,9 @@ Gotchas when reading it:
   needed (verified reachable from another LAN machine). Trap: on Windows a listener with SO_REUSEADDR can
   bind a port Ollama already holds, after which the tray app reports "existing instance found" and its
   server never starts — kill every ollama process, confirm `netstat` shows the port free, then start
-  `ollama serve` yourself. Reference implementation: `~/ollama-watch\fitprobe.py`.
+  `ollama serve` yourself. Reference implementation: `<watcher folder>/fitprobe.py`.
 - This PC already has a read-only watcher worth absorbing instead of reinventing:
-  `~/ollama-watch\watch.ps1` tails the log, writes `alerts.log` + `status.json`, and asks a
+  `<watcher folder>/watch.ps1` tails the log, writes `alerts.log` + `status.json`, and asks a
   local model to explain each alert.
 
 Deliverable: in the Local tab (or a Logs panel), per host and per model — last load result (layers on GPU,
@@ -178,7 +178,7 @@ and the captured payload. Harness knowledge entries: `f-20261029-ed2069`, `f-202
 - **roles/lineups:** `ol:<model>@<host>` and `hf:local/…` in role tables; `templates/teams/local-first.yaml`;
   `roles.py::vram_aware_override` (`fits_beside_main`, for small/researcher/judge/subagent_default).
 - **acceptance:** `doctor_local.py` (`halo doctor --local`).
-- **note:** a stale 2.0.x clone sits at `~/Documents\vibes\appDev\Halo-Harness` — read the live
+- **note:** a stale 2.0.x clone sits at `~/projects/Halo-Harness` — read the live
   repo (`~/Halo-Harness`) only.
 
 **D1 — the orchestration cluster (the big one): different local models per agent, switched in when needed.**
@@ -269,7 +269,7 @@ wrong tool after a bad answer. Three real cases from this box:
 Six one-shot probes, ~8 requests per model, a couple of minutes, no cost. Cache next to the existing
 capability cache (`providers/ollama_capability`) keyed by **model digest + Ollama version + probe-set version**
 so it re-runs when any of them changes. Reference implementation already written and running:
-`~/ollama-watch\capability_battery.py`.
+`<watcher folder>/capability_battery.py`.
 
 | probe | what it sends | what it proves |
 |---|---|---|
@@ -342,14 +342,14 @@ wrong keys, so the real battery must record *why* (invalid / keys / prose) to dr
 | `mythos-sec:24b-gpu` | **no** | **no** | **no** | yes | **yes** | no | **297.5** | CWE-20 (wrong) |
 | `qwen3.8:27b-gpu` | yes | yes | no | **no** | no | **yes** | 96.0 | **284 ✓** |
 | `qwen3.8-obliterated:27b-q4-gpu` | yes | yes | no | yes | no | **yes** | 47.0 | **284 ✓** |
-| `bugtrace:latest` | yes | **no** | no | yes | no | **yes** | 49.8 | 601 (wrong) |
+| `custom-agent:latest` | yes | **no** | no | yes | no | **yes** | 49.8 | 601 (wrong) |
 | `qwen3.6-abliterated:27b-q4-gpu` | yes | **no** | no | **no** | no | **yes** | 47.0 | none |
 
 Cross-model lessons (these are the rules the Local tab should teach):
 
 - **Only 1 of 6 models passed all four behavioural gates** (`qwen3-coder`). It is the only one that can safely
   hold a full tool-using agent role; every other model needs a gated role or a single-shot step.
-- **3 of 6 ignore the `system` role** (mythos, bugtrace, qwen3.6-abliterated) — so "put the instruction in the
+- **3 of 6 ignore the `system` role** (mythos, custom-agent, qwen3.6-abliterated) — so "put the instruction in the
   user turn" should be the default for local models, not a fallback.
 - **5 of 6 ignore meta-constraints** ("reply with exactly one word: BANANA") — never ask a local model for a
   strict format without a repair loop or a post-parse check.
@@ -370,7 +370,7 @@ Placement verdicts that fall straight out of the table:
   meta-constraints.
 - `qwen3.8-obliterated:27b-q4-gpu` — the most obedient 27B: tools + system role + JSON + good IDs → **reasoner
   where structured output matters.**
-- `bugtrace:latest` — **agentic security work through the user turn** (what Kali already does); do not trust
+- `custom-agent:latest` — **agentic security work through the user turn** (what the Linux VM already does); do not trust
   its IDs.
 - `qwen3.6-abliterated:27b-q4-gpu` — exploratory/uncensored **single-shot reasoning**; needs a JSON repair
   loop and the user turn.
@@ -512,8 +512,8 @@ downloads until they press the button.
 
 **Across machines and time**
 
-12. **A placement solver across the fleet.** With a 4090, SAMUS's 10 GB 3080, the Mac (MLX) and Kali, decide
-    *where* each role's model runs — coder on the PC, compactor on SAMUS, embeddings on the Mac — instead of
+12. **A placement solver across the fleet.** With a 24 GB card, sagan's 10 GB card, the Mac (MLX) and the Linux VM, decide
+    *where* each role's model runs — coder on the PC, compactor on sagan, embeddings on the Mac — instead of
     piling everything on one card. The multi-host form of the pivot scheduler; the roadmap already flags the
     research item.
 13. **Off-hours gym refresh.** The 4090 idles at 92 MB most of the day. Run the capability battery and
@@ -536,7 +536,7 @@ ssh plus a hand-rolled logging proxy — and the Mac's Halo had no idea its prom
 PC was thrashing.
 
 **The idea: `halo agent` — a headless model-host service.** A small always-on process on every machine that
-hosts models (the PC, SAMUS, the Mac, Kali), bound to the LAN only. It is not a full Halo session: no TUI, no
+hosts models (the PC, sagan, the Mac, the Linux VM), bound to the LAN only. It is not a full Halo session: no TUI, no
 orchestration. It answers peers, watches its own host, and holds the host-side state. The steward gets a body.
 
 **What it serves (one small JSON API, LAN-only):**
@@ -692,7 +692,7 @@ Harness. Precisely:
   text-in/text-out work. *Measured: 5 of 6 can; `mythos-sec` cannot.*
 - **`sysrole`** — does it respect the `system` message? Halo keeps its instructions, rules and persona there, so
   a model that ignores it quietly loses its instructions. *Measured: 3 of 6 honoured it; `mythos-sec`,
-  `bugtrace` and `qwen3.6-abliterated` did not.*
+  `custom-agent` and `qwen3.6-abliterated` did not.*
 - **`instr`** — does it obey a formatting demand ("answer in one word", "no prose", "just the code")? This is a
   *strictness* measure, not a quality score: the probe is a deliberately silly demand, so failing it means "weak
   at strict format obedience". *Measured: only `qwen3-coder` obeyed.*

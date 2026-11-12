@@ -54,7 +54,7 @@ from halo_harness.providers import governor_state as gs
 
 # lower number = higher priority; the main session and orchestrator are
 # served first under scarcity (REVIEW item 9: priorities come from the
-# roles; the kit's static brood roles are gone).
+# roles; the kit's static roles are gone).
 ROLE_PRIORITIES: Dict[str, int] = {
     "orchestrator": 0, "main": 0,
     "judge": 1, "reviewer": 1, "verifier": 1, "tester": 1, "planner": 1,

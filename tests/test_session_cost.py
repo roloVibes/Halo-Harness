@@ -69,13 +69,13 @@ def test_the_caps_and_the_fleet_see_finished_spend(ctx: Ctx):
     from halo_harness.live.caps import spend
     view = {"harnesses": [{"id": "hub", "name": "kali@kali", "local": True, "cost_today": 0.0138, "sessions_today": 3,
                            "sessions": []},
-                          {"id": "pc", "name": "rolo@roundBoy", "cost_today": 0.0434, "sessions_today": 1,
+                          {"id": "pc", "name": "you@tower", "cost_today": 0.0434, "sessions_today": 1,
                            "cost_today_unknown": ["ol:x"],
                            "sessions": [{"session_id": "live", "cost_usd": 0.000431, "started": time.time()}]}]}
     got = spend(view)
     hs = {h["name"]: (h["usd"], h["sessions"]) for h in got["harnesses"]}
     ctx.check(f"each harness counts its finished sessions (defect 17), got {hs}",
-              hs == {"kali@kali": (0.0138, 3), "rolo@roundBoy": (0.0434, 1)})
+              hs == {"kali@kali": (0.0138, 3), "you@tower": (0.0434, 1)})
     ctx.check(f"the fleet total is theirs, and it says a price is unknown, got {got['fleet']} {got['complete']}",
               abs(got["fleet"] - 0.0572) < 1e-9 and got["complete"] is False)
 
@@ -83,7 +83,7 @@ def test_the_caps_and_the_fleet_see_finished_spend(ctx: Ctx):
 @test
 def test_a_member_says_its_own_today_and_the_hub_keeps_it(ctx: Ctx):
     from halo_harness.fleet.hub_links import Member
-    m = Member({"id": "pc", "name": "rolo@roundBoy"}, None)
+    m = Member({"id": "pc", "name": "you@tower"}, None)
     m.note_costs([{"session_id": "live", "cost_usd": 0.000431, "started": time.time()}],
                  {"cost_today": 0.0434, "sessions_today": 2, "cost_today_unknown": []})
     v = m.view("3.4.0.1")

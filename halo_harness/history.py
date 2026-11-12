@@ -30,7 +30,7 @@ from halo_harness.textlines import split_lines
 
 HISTORY_SCHEMA_KEYS = ("display", "pastedContents", "project", "sessionId", "timestamp")
 
-# W2c: verified live on the Kali VM -- Claude Code's own `~/.claude/
+# W2c: verified live on the Linux VM -- Claude Code's own `~/.claude/
 # history.jsonl` stores `timestamp` in MILLISECONDS (e.g. 1790623928405,
 # Claude Code's own schema), while this harness's `append_history_entry`
 # used to write SECONDS (`time.time()`, e.g. 1790882425.67). Sorting both

@@ -68,7 +68,7 @@ class Panel(Home):
 
 @test
 def test_the_steward_route(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         status, body = p.api("GET", "ollama/steward")
         ctx.check(f"200 with the job's status, got {status} {body.get('status')}", status == 200
                   and body["status"]["running"] is False and body["status"]["model_why"])
@@ -89,10 +89,10 @@ def test_the_steward_route(ctx: Ctx):
 
 @test
 def test_the_hosts_route(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         status, body = p.api("GET", "ollama/hosts")
         ctx.check(f"200, both hosts, the local server, got {status} {[h['name'] for h in body.get('hosts', [])]}",
-                  status == 200 and [h["name"] for h in body["hosts"]] == ["pc", "samus"]
+                  status == 200 and [h["name"] for h in body["hosts"]] == ["pc", "sagan"]
                   and [s["name"] for s in body["local_servers"]] == ["llama-box"])
         pc = body["hosts"][0]
         lines = " | ".join(pc["card_lines"])
@@ -124,7 +124,7 @@ def test_the_hosts_route(ctx: Ctx):
 
 @test
 def test_the_timeline(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         status, body = p.api("GET", "ollama/timeline", query={"host": "pc", "since": "1h"})
         b = body.get("buckets") or []
         ctx.check(f"one bucket per minute for the hour, got {status} {len(b)}", status == 200 and 60 <= len(b) <= 62
@@ -144,7 +144,7 @@ def test_the_timeline(ctx: Ctx):
 
 @test
 def test_run_apply_undo_and_dismiss(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         plan = p.host("pc")["plan"]  # read before the window grows (the plan then differs)
         change = plan["options"][plan["chosen"]]["changes"][0]
         status, ran = p.api("POST", "ollama/steward/run")
@@ -186,7 +186,7 @@ def test_run_apply_undo_and_dismiss(ctx: Ctx):
 
 @test
 def test_two_passes_at_once_land_one_change(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         from halo_harness.ollama_steward import rules, steward
         found = [f for f in rules.findings(p.state) if f["rule"] == "window-small"]
         slow_check = steward.check

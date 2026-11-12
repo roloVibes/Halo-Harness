@@ -1,5 +1,5 @@
 """tests.helpers.studio_local_control -- Studio's Local tab, controlled (Halo 3.3.5.0 R3), in headless Chrome: real
-clicks and typing through tests/helpers/studio_local.LocalDriver's session (R1's seeded home: hosts pc and samus on
+clicks and typing through tests/helpers/studio_local.LocalDriver's session (R1's seeded home: hosts pc and sagan on
 192.0.2.x placeholders, `box` a fake Ollama on 127.0.0.1:0 that can pull, copy and delete; the live feed on). No
 provider request, no model call, nothing sent but to the fake:
 
@@ -114,8 +114,8 @@ def acts(c, url, ctx) -> dict:
     _act(c, "qwen3.5:9b", "load", f"!!{strip}")
     out["loaded"] = [c.js(f"{strip}.querySelector('[data-testid=local-loaded-vram]').textContent"),
                      c.js(f"{strip}.querySelector('[data-testid=local-loaded-unload]').title")]
-    samus = q('[data-testid=local-loaded-row][data-host=samus] [data-testid=local-loaded-unload]')
-    out["samus_unload"] = c.js(f"{samus} ? [{samus}.disabled, {samus}.title] : null")
+    sagan = q('[data-testid=local-loaded-row][data-host=sagan] [data-testid=local-loaded-unload]')
+    out["sagan_unload"] = c.js(f"{sagan} ? [{sagan}.disabled, {sagan}.title] : null")
     press(c, f"{strip}.querySelector('[data-testid=local-loaded-unload]')", f"!{strip}")
     out["unloaded"] = ctx["mock"].generated[-1].get("keep_alive")
     _act(c, "qwen3.5:9b", "twin", f"!!{q('[data-testid=local-twin-name]')}")

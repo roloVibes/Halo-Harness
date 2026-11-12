@@ -45,7 +45,7 @@ check keeps the tags and the rows in step.
 | S31 | The measured host's `nvidia-smi` | local:nvidia-smi --query-gpu / --query-compute-apps | driver 610.88, WDDM | 2026-10-27 |
 | S32 | Halo's fit, calibration and tuned twin doc | repo:docs/MODELS-ollama-tuning.md | Halo 3.3.3.0 candidate (e3a98d2) | 2026-10-27 |
 | S33 | Halo's fit arithmetic | repo:halo_harness/providers/ollama_fit.py | Halo 3.3.3.0 candidate (e3a98d2) | 2026-10-27 |
-| S34 | The read-only watcher's alert rules and guide | local:ollama-watch/watch.ps1 | as of 2026-10-26 | 2026-10-27 |
+| S34 | The read-only watcher's alert rules and guide | local:<watcher folder>/watch.ps1 | as of 2026-10-26 | 2026-10-27 |
 | S35 | Ollama releases | https://github.com/ollama/ollama/releases | v0.40.11 newest (2026-10-24) | 2026-10-27 |
 | S36 | Halo's per-host hardware reads | repo:halo_harness/providers/ollama_hw.py | Halo 3.3.3.0 candidate (e3a98d2) | 2026-10-27 |
 | S37 | Halo's roadmap, 3.3.4.0 "The Ollama steward" (the three parked bugs) | repo:plans/ROADMAP.md | Halo 3.3.3.0 candidate (e3a98d2) | 2026-10-27 |

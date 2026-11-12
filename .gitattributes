@@ -21,3 +21,8 @@ docs/media/diagrams/*.svg text eol=lf
 docs/media/*.png binary
 halo_harness/studio/static/dist/* text eol=lf
 halo_harness/studio/ui/** text eol=lf
+# 3.4.1.2 (disclosure audit F6): the release tarball (`git archive` of the tag, scripts/release.py) leaves out the
+# working notes; they stay in the repository and in every clone.
+/plans export-ignore
+/research_notes export-ignore
+/reports export-ignore

@@ -280,7 +280,7 @@ class TasksPanel(ModalScreen):
 
     def on_mount(self) -> None:
         self._refresh_rows_sync()
-        # Live on the Kali VM: without focus, Enter on the panel did nothing
+        # Live on the Linux VM: without focus, Enter on the panel did nothing
         # (OptionList's own Enter binding only fires while it is focused),
         # so the transcript viewer was unreachable from the keyboard.
         self.query_one("#tasks-list", OptionList).focus()

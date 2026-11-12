@@ -1,7 +1,7 @@
 """tests.test_w5b_connector_cold_start -- W5b (2026-10-03 ~03:20): "connector
 cold start, properly". W5a added `ensure_discovered_synchronously_if_cold`
 and wired it unconditionally into `headless.build_session` (both print mode
-and the TUI) -- live on the Kali VM that meant EVERY session build paid for
+and the TUI) -- live on the Linux VM that meant EVERY session build paid for
 (or at least attempted) a synchronous discovery on a cold cache whether or
 not anything actually wanted a connector, exactly the kind of default-path
 blocking "never block a -p run on a `claude` spawn by default" forbids.
@@ -366,7 +366,7 @@ def _startup_worker_stub(parked, notes):
 
 @test
 def test_tui_startup_worker_rekicks_discovery_once_the_auth_refresh_says_claude_ai(ctx: Ctx):
-    """2.0.1 part 11, found live on the Kali VM: `tui/bootstrap.py`'s own
+    """2.0.1 part 11, found live on the Linux VM: `tui/bootstrap.py`'s own
     background kick runs before any auth status is cached, so
     `discovery_eligible()` refuses it and a cold-cache TUI never learned
     its connectors (no transcript note, MCP 0/0 all session). The startup

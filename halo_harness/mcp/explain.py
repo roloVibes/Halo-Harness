@@ -47,7 +47,7 @@ def scope_rows(*, cwd: Path, claude_json: dict, settings=None) -> "list[dict]":
          "count": len(user_servers) if isinstance(user_servers, dict) else 0},
         # No square brackets around the path: these lines are printed through
         # rich in `halo init`, where `[/home/...]` reads as a closing markup
-        # tag (seen live on the Kali VM: MarkupError, init exited 1).
+        # tag (seen live on the Linux VM: MarkupError, init exited 1).
         {"scope": "project-local", "path": f"{claude_json_path()} projects entry for {normalize_cwd(cwd)}",
          "count": len(local_servers) if isinstance(local_servers, dict) else 0},
         {"scope": "this directory's .mcp.json", "path": str(mcp_json_path), "exists": mcp_json_path.exists(),

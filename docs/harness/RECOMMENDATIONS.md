@@ -3,7 +3,7 @@
 rolo asked for a written review, after the milestones, of what should be added or changed to make
 halo work as well and as easily as possible. Everything below is grounded in what was
 built and verified this week: eleven milestones, eight review passes, three platforms (Windows
-build host, WSL Ubuntu, the Kali VM), and live acceptance lines against DeepSeek V4.1 Flash on
+build host, WSL Ubuntu, the Linux VM), and live acceptance lines against DeepSeek V4.1 Flash on
 OpenRouter. Section 7 ranks the items.
 
 ## 1. Where it stands
@@ -17,7 +17,7 @@ OpenRouter. Section 7 ranks the items.
 - **v0.3.1** adds the two self-improvement items rolo chose: `stats --models` telemetry from the
   logs and the human-gated `/improve`.
 - **Verified**: 1507 harness tests, 97 proxy tests and 46 TUI tests green on Windows, WSL Ubuntu
-  and the Kali VM; the acceptance tables in `ACCEPTANCE-2026-09-24.md` and `ACCEPTANCE-2026-09-25.md`.
+  and the Linux VM; the acceptance tables in `ACCEPTANCE-2026-09-24.md` and `ACCEPTANCE-2026-09-25.md`.
 - **Not built by decision**: settings self-tuning, prompt optimisation, code self-edits. **Not
   built by scope**: `--ide`, `--worktree`, `--remote-control`, `--teleport`, claude.ai connectors
   (each prints a one-line notice).

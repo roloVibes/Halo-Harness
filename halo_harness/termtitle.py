@@ -80,7 +80,7 @@ def emit_osc2(title: str, *, stream=None) -> None:
 
 def _real_stdout():
     """The process's ORIGINAL stdout (`sys.__stdout__`). Found live on the
-    Kali VM: Textual replaces `sys.stdout` with its own print capture for
+    Linux VM: Textual replaces `sys.stdout` with its own print capture for
     the whole `App.run()`, so a title written there never reached the
     terminal (the tmux pane title stayed on the host name) and
     `sys.stdout.isatty()` read False, which skipped the write anyway.

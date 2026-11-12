@@ -44,9 +44,9 @@ def _wait(fn, timeout: float = 15.0):
 @test
 def test_conflicts_two_sessions_of_one_harness_but_never_one_session(ctx: Ctx):
     from halo_harness.live import conflicts
-    proj = {"root": "/home/kali/shop", "repo": "shop"}
+    proj = {"root": "/home/you/shop", "repo": "shop"}
     view = {"harnesses": [{"id": "M", "name": "kali@lab", "sessions": [
-        {"session_id": "s1", "project": proj, "agents": [{"agent_id": "main", "current": "Edit: /home/kali/shop/src/a.py"},
+        {"session_id": "s1", "project": proj, "agents": [{"agent_id": "main", "current": "Edit: /home/you/shop/src/a.py"},
                                                          {"agent_id": "x2", "current": "Write: src/a.py"}]},
         {"session_id": "s2", "project": proj, "agents": [{"agent_id": "main", "current": "Edit: ./src/a.py"}]}]}]}
     t = conflicts.Touches()
@@ -73,7 +73,7 @@ def test_a_conflict_across_two_harnesses_is_found_listed_and_raised(ctx: Ctx):
         rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state",
                                                                      "agent_id": REVIEWER["agent_id"], "ts": time.time(),
                                                                      "data": {**REVIEWER, "state": "running",
-                                                                              "current": "Edit: /home/kali/shop/basket.py"}}]})
+                                                                              "current": "Edit: /home/you/shop/basket.py"}}]})
         got = _wait(lambda: (lambda r: r if r[1].get("conflicts") else None)(rig.api("GET", "fleet/conflicts")))
         cs = (got or (0, {}))[1].get("conflicts") or []
         c = cs[0] if cs else {}

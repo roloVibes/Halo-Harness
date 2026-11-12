@@ -1,7 +1,7 @@
 """tests.helpers.local_seed -- Halo 3.3.5.0 R1: one fixture for the Local tab
 (tests/test_local_api.py in-process, tests/helpers/studio_local.py in headless
 Chrome, tools/capture_local.py's picture). On top of the Ollama panel's seed
-(tests/helpers/ollama_panel_seed.py: hosts `pc` and `samus` on 192.0.2.x
+(tests/helpers/ollama_panel_seed.py: hosts `pc` and `sagan` on 192.0.2.x
 placeholders, the local server `llama-box`, the ledger, an event, the cards
 and catalogs, a steward note) it adds `box`, a fake Ollama on 127.0.0.1:0
 (tests/helpers/mock_ollama.py with /api/generate: Load and Unload land there),
@@ -86,7 +86,7 @@ def seed(state: Path, mock) -> Path:
     P.seed(state)
     cfg_path = state / "config.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-    cfg["ollama"]["hosts"] = [P.PC, P.SAMUS, {"name": "box", "url": mock.base_url, "max_ctx": 65536}]
+    cfg["ollama"]["hosts"] = [P.PC, P.sagan, {"name": "box", "url": mock.base_url, "max_ctx": 65536}]
     cfg_path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
     box = {"name": "box", "url": mock.base_url}
     append_lines(state, [line(host=box, model="qwen3.5:9b", num_ctx_sent=32768, prompt_eval_count=2000, eval_count=120,

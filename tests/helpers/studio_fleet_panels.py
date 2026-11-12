@@ -162,7 +162,7 @@ def conflict(c, rig, out: dict) -> None:
     rig.server.events.publish({"session_id": rig.act.session_id, "harness": harness()["id"], "event": "agent_state", "agent_id": a["agent_id"],
                                "ts": time.time(), "data": {**a, "current": f"Edit: {rig.proj / 'basket.py'}"}})
     rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state", "agent_id": REVIEWER["agent_id"],
-                                                                 "ts": time.time(), "data": {**REVIEWER, "state": "running", "current": "Edit: /home/kali/shop/basket.py"}}]})
+                                                                 "ts": time.time(), "data": {**REVIEWER, "state": "running", "current": "Edit: /home/you/shop/basket.py"}}]})
     out["conflict_edge"] = c.wait("document.querySelector('[data-testid=\"fleet-conflict-edge\"]')?.dataset.file", 30)
     out["conflict_chips"] = c.js("document.querySelectorAll('[data-testid=\"fleet-conflict-chip\"]').length")
     c.click_on(CHIP)  # the queue (closed on load)

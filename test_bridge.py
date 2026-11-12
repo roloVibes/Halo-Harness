@@ -5,7 +5,7 @@
 """
 test_bridge.py -- hermetic, black-box test suite for bridge.py (claude-bridge).
 
-House style (see ../work-mcp/README.md "Tests" section): stdlib only, mock
+House style (the sibling projects' "Tests" sections): stdlib only, mock
 servers run in-process, a single runner, nonzero exit on any real failure,
 gate on the exit code -- never on printed text.
 

@@ -448,7 +448,7 @@ def _run_in_mounted_app(fn) -> None:
 
     W2c: widened from 120 to 240 columns -- `cwd` here is the repo's own
     absolute path on WHATEVER machine runs this suite, long enough on this
-    host (`C:\\Users\\rolo\\...\\Halo-Harness`) that at 120 columns the
+    host (`C:\\Users\\you\\...\\Halo-Harness`) that at 120 columns the
     status bar's own overflow cascade (statusbar.py's `_refresh_display`)
     now drops the OR-balance segment first to protect the cwd (point 4's
     own deliberate new priority: low-priority segments drop WHOLESALE

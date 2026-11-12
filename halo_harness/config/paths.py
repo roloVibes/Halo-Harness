@@ -376,7 +376,7 @@ def managed_dir() -> Path:
         return etc
     # macOS keeps managed settings under /Library; every other POSIX box
     # (Linux first) uses /etc/claude-code whether or not it exists yet --
-    # seen live on the Kali VM: `halo mcp list` named the macOS path.
+    # seen live on the Linux VM: `halo mcp list` named the macOS path.
     if os.uname().sysname == "Darwin":
         return Path("/Library/Application Support/ClaudeCode")
     return etc
@@ -449,7 +449,7 @@ _WIN_DRIVE_RE = re.compile(r"^([a-zA-Z]):[\\/](.*)$", re.DOTALL)
 def normalize_cwd(path: str | Path) -> str:
     """Return an absolute path with forward slashes and an uppercase drive
     letter. `~/.claude.json`'s `projects` keys can be Windows-shaped
-    (`C:\\Users\\rolo`) regardless of which OS is running THIS process --
+    (`C:\\Users\\you`) regardless of which OS is running THIS process --
     halo's primary target is Linux, but it must still recognize a
     project key copied from a Windows Claude Code install. A Windows-drive-
     shaped INPUT is therefore detected by pattern (never by host `os.name`)

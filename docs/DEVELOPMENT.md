@@ -52,16 +52,25 @@ python scripts/prepush.py --status   # the last verdict, and whether it covers t
 
 Commit first, run it, push the sha it called green. In order it runs: the pyflakes undefined-name gate; Studio's UI
 build with the dist check, when a file under `halo_harness/studio/ui` differs from `origin/master` (or `--ui`); `halo
-audit privacy` in a scratch home; the fast tier of `tests/run_all.py` as shards side by side (`--fast --shard i/N`, the
-flag CI's matrix uses, N = half the cores up to 12; `--jobs` changes it) with `test_bridge.py` beside them; then the
-full tier (Chrome and the TUI pilots) with `test_tui.py` beside it, and `docs/harness/tui-snapshots` is put back. A red
-static check stops the run; the suites all run, so one pass lists every red with its module and test. Logs are in
-`.prepush/<sha>/`, the verdict in `.prepush/last.json` (never committed).
+audit privacy` and `--commits` in a scratch home, given your private term list by file name (`HALO_PRIVACY_TERMS_FILE`;
+with none it says, in one line, that the name checks are OFF: docs/PRIVACY.md); the fast tier of `tests/run_all.py` as
+shards side by side (`--fast --shard i/N`, CI's flag, N = half the cores up to 12; `--jobs` changes it) with
+`test_bridge.py` beside them; then the full tier (Chrome and the TUI pilots) with `test_tui.py` beside it, and
+`docs/harness/tui-snapshots` is put back. A red static check stops the run; the suites all run, so one pass lists every
+red with its module and test. Logs are in `.prepush/<sha>/`, the verdict in `.prepush/last.json` (never committed).
 
 A shard that is red beside the others is run once more alone. Green alone is reported as **contended**: the gate
 passes, and the test is one to look at (it needs a quiet box, and the runners are not quiet). Red alone is red. The
 gate replaces running the three suites one after another (about 45 minutes here); CI on both platforms stays the
 release gate (`scripts/release.py` reads `conclusion == success` for the exact sha).
+
+### Names to use in examples and tests
+
+The repository is public: a doc, a test, a fixture, a mockup or a plan never carries a real machine, user, address or
+setup. Use these, the same everywhere: `tower` (a Windows PC with the big GPU; its user `you@tower`), `sagan` (a second
+PC with a smaller card), `laptop` (a Mac), `linux-vm` ("the Linux VM"), the user `you` (also the profile
+folder's name in a path), the address `192.0.2.x` (TEST-NET) and `*.example` / `example.com` for mail and hosts. Kali Linux is a
+platform Halo runs on and is named as one; a model, a GPU or an amount of memory is named when it is the point.
 
 ## The three suites
 
@@ -99,7 +108,7 @@ to run when, and how a headless Chrome driver is built on
 first).
 
 Every milestone in this project's history was required to stay green on
-**Windows, WSL Ubuntu, and the Kali VM** -- Kali is the primary target
+**Windows, WSL Ubuntu, and the Linux VM** -- Kali is the primary target
 platform, Windows is the build host. Cross-checking from a Windows
 checkout:
 
@@ -447,30 +456,20 @@ part. A test that reads a split doc reads `tests/helpers/doc_parts.py`'s
 
 ## Coding rules
 
-- **OS-neutral by default**: `halo_harness/config/paths.py` is the one place
-  that knows about Windows vs. POSIX home-directory shapes, Git Bash vs.
-  `/bin/bash`, drive letters, etc. -- a new module should go through it
-  (`home()`,
-  `git_bash()`, `to_posix()`/`from_posix()`) rather than hardcoding a
-  separator or a shell. A Windows-only or POSIX-only code path is guarded
-  by `sys.platform`/`os.name`, imported lazily so the other platform never
-  pays for (or crashes on) an import that assumes a binary/module that
-  doesn't exist there.
-- **No secrets in a child process's environment**: any subprocess this
-  harness spawns (Bash, PowerShell, an MCP stdio server, a hook, the
-  connectors bridge's `claude` subprocess) gets `providers/config.py::
-  tool_child_env()` (strips the env-file's own keys plus the fixed
-  provider-secret list) or, for a `claude` child,
-  `mcp/claude_process.py::claude_child_env()` (additionally strips every
-  `ANTHROPIC_*`/`CLAUDE_CODE_*`/`CLAUDE*` variable) -- never a raw
-  `os.environ` passthrough.
-- **Never write a Claude Code file** outside the one documented exception
-  (`halo mcp add`/`add-json`/`remove` writing `~/.claude.json`'s
-  `mcpServers` keys, byte-compatible with what `claude mcp add` itself
-  writes) -- see `docs/CONFIG.md`'s "What is never written" section. A new
-  feature that wants to persist something belongs in
-  `~/.halo/config.json` (via `halo_harness.theme.get_config_value`/
-  `set_config_value`, which already supports dotted paths).
+- **OS-neutral by default**: `halo_harness/config/paths.py` is the one place that knows about Windows vs. POSIX
+  home-directory shapes, Git Bash vs. `/bin/bash`, drive letters, etc. -- a new module goes through it (`home()`,
+  `git_bash()`, `to_posix()`/`from_posix()`) rather than hardcoding a separator or a shell. A Windows-only or
+  POSIX-only code path is guarded by `sys.platform`/`os.name`, imported lazily so the other platform never pays for
+  (or crashes on) an import that assumes a binary/module that doesn't exist there.
+- **No secrets in a child process's environment**: any subprocess this harness spawns (Bash, PowerShell, an MCP stdio
+  server, a hook, the connectors bridge's `claude` subprocess) gets `providers/config.py::tool_child_env()` (strips the
+  env-file's own keys plus the fixed provider-secret list) or, for a `claude` child,
+  `mcp/claude_process.py::claude_child_env()` (additionally strips every `ANTHROPIC_*`/`CLAUDE_CODE_*`/`CLAUDE*`
+  variable) -- never a raw `os.environ` passthrough.
+- **Never write a Claude Code file** outside the one documented exception (`halo mcp add`/`add-json`/`remove` writing
+  `~/.claude.json`'s `mcpServers` keys, byte-compatible with what `claude mcp add` itself writes) -- see
+  `docs/CONFIG.md`'s "What is never written" section. A new feature that wants to persist something belongs in
+  `~/.halo/config.json` (via `halo_harness.theme.get_config_value`/`set_config_value`, which supports dotted paths).
 - **No safety/refusal/classifier logic, anywhere** -- this is a deliberate,
   repeatedly-reaffirmed project decision (see `docs/ARCHITECTURE.md`'s
   Permissions section), not an oversight to "fix" later. A permission
