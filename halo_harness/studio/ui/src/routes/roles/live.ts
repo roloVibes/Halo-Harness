@@ -6,8 +6,8 @@
 // and the card glows by what the agent does now (typing, a tool, waiting on
 // you, done, failed), with a count when several share it and their cost.
 // J / K hop across the working cards (and across the agents of one card)
-// with the Inspector's Live tab open on the agent; a replay (Replay.tsx)
-// stands in for the live agents while it plays. 3.1.5.0 R3: an agent that
+// with the Inspector's Live tab open on the agent (3.4.1.0 R1: a replay plays on
+// Agents -> Live's scrubber, not on these cards). 3.1.5.0 R3: an agent that
 // ended keeps its card glowing (glow.ts): done for ten seconds, failed until
 // the card is clicked.
 import { useMemo } from "react";
@@ -15,7 +15,7 @@ import { layoutStore, patchPanel, focusPanel } from "../../lib/workspace/persist
 import { watch } from "../fleet/streams";
 import { ackFailed, isAcked } from "./glow";
 import { roles, useRoles, type RolesState } from "./store";
-import type { GraphNode, LiveAgent, Replay } from "./types";
+import type { GraphNode, LiveAgent } from "./types";
 
 const LIVE = ["queued", "running", "waiting", "paused"];
 const RANK: Record<string, number> = { failed: 7, waiting: 6, tool: 5, typing: 4, working: 4, done: 3, queued: 1 };
@@ -34,9 +34,8 @@ export function matchNode(a: LiveAgent, nodes: GraphNode[], lineup: string): Gra
   );
 }
 
-/** Every agent on the canvas right now: the replay's at its clock, else the live ones and the ended ones still glowing. */
+/** Every agent on the canvas right now: the live ones and the ended ones still glowing (3.4.1.0 R1: a replay is Live's). */
 export function agentsNow(s: RolesState): LiveAgent[] {
-  if (s.replay) return agentsAt(s.replay, s.replay.t);
   const live = s.live.filter((a) => !(a.state === "failed" && isAcked(a.key)));
   const keys = new Set(live.map((a) => a.key));
   return [...live, ...(s.ended || []).filter((a) => !keys.has(a.key))];
@@ -56,10 +55,9 @@ export function byNodeOf(s: RolesState): Record<string, LiveAgent[]> {
 export function useByNode(): Record<string, LiveAgent[]> {
   const live = useRoles((s) => s.live);
   const ended = useRoles((s) => s.ended);
-  const replay = useRoles((s) => s.replay);
   const graph = useRoles((s) => s.graph);
   const name = useRoles((s) => s.name);
-  return useMemo(() => byNodeOf({ ...roles.get(), live, ended, replay, graph, name }), [live, ended, replay, graph, name]);
+  return useMemo(() => byNodeOf({ ...roles.get(), live, ended, graph, name }), [live, ended, graph, name]);
 }
 
 export function cardActivity(list: LiveAgent[]): string {
@@ -85,7 +83,7 @@ export function selectCard(id: string): void {
   roles.update(() => ({ sel: id }));
   if (id && layoutStore("roles").get().layout?.["roles-inspector"]?.collapsed) patchPanel("roles", "roles-inspector", { collapsed: false }, false); // 3.3.2.0 R3: a strip by default
   ackFailed(list); // 3.1.5.0 R3: a failed glow stays until its card is clicked
-  if (list.length && !s.replay) {
+  if (list.length) {
     const pick = list.find((a) => a.key === s.watched) || list.find(isLiveAgent) || list[0];
     watchAgent(pick.key);
     openLiveTab();
@@ -109,29 +107,4 @@ export function hopCard(dir: 1 | -1): void {
   watchAgent(dir > 0 ? list[0].key : list[list.length - 1].key);
   openLiveTab();
   focusPanel("roles", "roles-graph");
-}
-
-// -- the replay's agents at time t -----------------------------------------------------------
-export function agentsAt(r: Replay, t: number): LiveAgent[] {
-  const out: LiveAgent[] = [];
-  for (const a of r.meta.agents || []) {
-    const aid = String(a.agent_id || "");
-    let last: Replay["events"][number] | null = null;
-    let calls = 0;
-    for (const e of r.events) {
-      if (e.t > t) break;
-      if (e.agent_id !== aid) continue;
-      last = e;
-      if (e.activity === "tool") calls += 1;
-    }
-    if (!last) continue;
-    const ended = last.state === "done" || last.state === "failed";
-    out.push({
-      key: `replay|${r.meta.session_id}|${aid}`, harness: r.meta.harness || "", session: r.meta.title || "", session_id: r.meta.session_id, agent_id: aid,
-      parent: (a.parent as string) || null, name: String(a.name || aid), role: String(a.role || ""), bio: String(a.bio || ""), lineup: String(a.lineup || ""),
-      model: String(a.model || ""), state: last.state, task: String(a.task || ""), current: last.tool || "", cost_usd: ended ? Number(a.cost_usd) || 0 : 0,
-      since: 0, activity: last.activity || (last.state === "running" ? "typing" : last.state), tool: last.tool || "", calls, control: "none",
-    });
-  }
-  return out;
 }

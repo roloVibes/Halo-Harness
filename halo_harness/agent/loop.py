@@ -7889,7 +7889,7 @@ class Session:
                 wait_start_ms = self._timeline.elapsed_ms()
                 decision = self._await_permission_decision(item.get("ask_request_id", tool_id))
                 decision_label = getattr(decision, "action", None) if decision is not None else "dismissed"
-                self._timeline.record_permission_wait(wait_start_ms, self._timeline.elapsed_ms(), decision_label)
+                self._timeline.record_permission_wait(wait_start_ms, self._timeline.elapsed_ms(), decision_label, f"{name}: {item.get('ask_reason') or ''}".strip(": "))
                 self._apply_permission_decision(item, decision)
 
             if item.get("pending_question"):

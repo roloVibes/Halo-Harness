@@ -9,7 +9,9 @@ transcripts on disk (Halo 3.0.5.0 "Fleet" round R4). A flight recording
                    agents:  [{agent_id, parent, name, role, bio, lineup, model, state, since, ended, cost_usd, task}],
                    entries: {agent_id: [entry, ...]}               agent/agent_transcript.py's entries
                    states:  [{t, agent_id, state, activity, tool?}]  when each agent typed, ran a tool, waited, ended
-                   costs:   [{t, usd}]}                            the running total, one point per usage line
+                   costs:   [{t, usd}]                             the running total, one point per usage line
+                   agent_costs: [{t, agent_id, usd}]              3.4.1.0 R1: each agent's own running total
+                   asks:    [{agent_id, t0, t1, decision, what}]} 3.4.1.0 R1: the permission cards it waited on
 
 A sub-agent is `<sid>/subagents/agent-<id>.jsonl` beside its `.meta.json`
 (its own children one folder deeper); the main agent is "main". A state
@@ -86,9 +88,37 @@ def _title(nodes: list) -> str:
     return ""
 
 
+ASK_TOOLS = ("AskUserQuestion", "ExitPlanMode")  # 3.4.1.0 R1: a question or a plan review waits on the owner
+
+
+def asks_of(aid: str, nodes: list) -> list:
+    """3.4.1.0 R1: each permission card the agent waited on, from its turns' timeline records (debug_timeline.py):
+    {agent_id, t0, t1, decision, what}; `what` (the card's words) is recorded from 3.4.1.0 on."""
+    out = []
+    for n in nodes:
+        rec, ts = n.get("timeline") if n.get("type") == "meta" else None, _ts(n)
+        end = rec.get("message_end_ms") if isinstance(rec, dict) else None
+        for w in (rec.get("permission_waits") or []) if isinstance(end, (int, float)) and ts is not None else []:
+            if isinstance(w, dict) and all(isinstance(w.get(k), (int, float)) for k in ("start_ms", "end_ms")):
+                out.append({"agent_id": aid, "t0": ts - (end - w["start_ms"]) / 1000, "t1": ts - (end - w["end_ms"]) / 1000,
+                            "decision": w.get("decision"), "what": str(w.get("what") or "")})
+    return out
+
+
+def _with_asks(states: list, asks: list) -> list:
+    """An agent's states with each card it waited on: waiting from the ask, then what it did before, at the answer."""
+    for a in asks:
+        before = [s for s in states if s["agent_id"] == a["agent_id"] and s["t"] <= a["t0"]]
+        back = dict(before[-1], t=a["t1"]) if before else {"t": a["t1"], "agent_id": a["agent_id"], "state": "running", "activity": "typing"}
+        states += [{"t": a["t0"], "agent_id": a["agent_id"], "state": "waiting", "activity": "waiting"}, back]
+    return states
+
+
 def _activity(entry: dict) -> "tuple[str, str, str]":
     """(state, activity, tool) after this entry."""
     kind = entry.get("kind")
+    if kind == "tool_call" and entry.get("name") in ASK_TOOLS:
+        return "waiting", "waiting", ""
     if kind in ("tool_call", "spawn"):
         return "running", "tool", str(entry.get("name") or "")
     if kind == "ask":
@@ -154,7 +184,8 @@ def read(path, *, live_states: Optional[dict] = None) -> dict:
                "cost_usd": main_cost, "task": _task(main_entries)}]
     entries = {MAIN: main_entries}
     states = states_of(MAIN, main_entries, ended, "" if main_state in ("running", "waiting", "paused") else "done")
-    usage = list(_usage(nodes))
+    usage = [(t, c, MAIN) for t, c in _usage(nodes)]
+    asks = asks_of(MAIN, nodes)
     kids: list = []
     _children(path.parent / path.stem, MAIN, kids)
     for aid, parent, meta, log in kids:
@@ -167,7 +198,8 @@ def read(path, *, live_states: Optional[dict] = None) -> dict:
         since = meta.get("started") if isinstance(meta.get("started"), (int, float)) else (min(ctimes) if ctimes else None)
         fin = meta.get("finished") if isinstance(meta.get("finished"), (int, float)) else None
         cost = round(sum(c for _t, c in _usage(cnodes)), 6)
-        usage += _usage(cnodes)
+        usage += [(t, c, aid) for t, c in _usage(cnodes)]
+        asks += asks_of(aid, cnodes)
         agents.append({"agent_id": aid, "parent": parent, "name": meta.get("type") or aid, "role": meta.get("role"),
                        "bio": meta.get("type"), "lineup": meta.get("lineup"), "model": meta.get("model"), "state": state,
                        "since": since, "ended": fin, "cost_usd": cost, "task": _task(ents) or str(meta.get("description") or "")})
@@ -176,15 +208,19 @@ def read(path, *, live_states: Optional[dict] = None) -> dict:
         if since is not None and (not st or st[0]["t"] > since):
             st.insert(0, {"t": float(since), "agent_id": aid, "state": "running", "activity": "typing"})
         states += st
-    total, costs = 0.0, []
-    for t, c in sorted(usage):
+    states = _with_asks(states, asks)
+    total, costs, mine, agent_costs = 0.0, [], {}, []
+    for t, c, aid in sorted(usage, key=lambda u: (u[0], u[2])):
         total += c
+        mine[aid] = mine.get(aid, 0.0) + c
         costs.append({"t": t, "usd": round(total, 6)})
+        agent_costs.append({"t": t, "agent_id": aid, "usd": round(mine[aid], 6)})  # 3.4.1.0 R1: each agent's own
     all_t = [s["t"] for s in states] + ([started] if started else []) + ([ended] if ended else [])
     return {"session_id": path.stem, "title": _title(nodes), "cwd": _meta(nodes, "cwd"), "model": _meta(nodes, "model"),
             "started": min(all_t) if all_t else None, "ended": max(all_t) if all_t else None,
             "cost_usd": round(total, 6), "agents": agents, "entries": entries,
-            "states": sorted(states, key=lambda s: (s["t"], s["agent_id"])), "costs": costs}
+            "states": sorted(states, key=lambda s: (s["t"], s["agent_id"])), "costs": costs,
+            "agent_costs": agent_costs, "asks": asks}
 
 
 def edited_files(entries: list) -> list:

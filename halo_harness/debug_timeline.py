@@ -242,7 +242,7 @@ class TurnTimeline:
         except Exception:
             pass
 
-    def record_permission_wait(self, start_ms: int, end_ms: int, decision: "Optional[str]") -> None:
+    def record_permission_wait(self, start_ms: int, end_ms: int, decision: "Optional[str]", what: str = "") -> None:
         """W3b item 11: one entry per blocking permission ask that actually
         parked the turn (`Session`'s own `pending_ask`/`_await_permission_
         decision` call site) -- `decision` is the resolved `Decision.
@@ -254,7 +254,7 @@ class TurnTimeline:
         if self._current is None:
             return
         try:
-            entry = {"start_ms": start_ms, "end_ms": end_ms, "decision": decision}
+            entry = {"start_ms": start_ms, "end_ms": end_ms, "decision": decision, **({"what": str(what)[:200]} if what else {})}  # 3.4.1.0: the card's words
             self._current["permission_waits"].append(entry)
             self._debug_print(f"turn {self._current['turn']} permission_wait {decision} "
                                f"+{start_ms}ms -> +{end_ms}ms")
@@ -318,8 +318,8 @@ def record_hook(event_name: str, duration_ms: float) -> None:
     _default_timeline.record_hook(event_name, duration_ms)
 
 
-def record_permission_wait(start_ms: int, end_ms: int, decision: "Optional[str]") -> None:
-    _default_timeline.record_permission_wait(start_ms, end_ms, decision)
+def record_permission_wait(start_ms: int, end_ms: int, decision: "Optional[str]", what: str = "") -> None:
+    _default_timeline.record_permission_wait(start_ms, end_ms, decision, what)
 
 
 def end_turn() -> "Optional[dict]":

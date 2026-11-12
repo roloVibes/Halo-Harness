@@ -5,6 +5,7 @@
 // as a replay (replay.ts). The drawer is closed on load and opens only on a click. 3.4.0.0 D "the runs fold": a finished
 // goal run's row says how it ended, its wall time, its cost and its models, and opens its REPORT as a page of the
 // drawer (`page`, run/RunReport.tsx: the plan, the lanes, the outcomes, the gate, the merge) with Replay on it.
+// 3.4.1.0 R1 "Time": the saved replay files (GET replays) are rows too, kind "file".
 import { api, ApiError } from "../../../lib/api";
 import { createStore, useStore } from "../../../lib/store";
 import { fleet } from "../../fleet/store";
@@ -46,8 +47,13 @@ function openSessions(): { open: Set<string>; busy: Set<string> } {
 }
 
 /** The rows, newest first (pure: the three answers and what is live now). */
-export function historyRows(sessions: HistoryRun[], runs: RunRow[], missions: Summary[], liveRun: string, open: Set<string>, busy: Set<string>): HistoryRow[] {
+export type FileRow = { id: string; title: string; saved: number | null; started: number | null; secs: number | null; cost_usd: number | null; agents: number };
+
+export function historyRows(sessions: HistoryRun[], runs: RunRow[], missions: Summary[], liveRun: string, open: Set<string>, busy: Set<string>,
+                            files: FileRow[] = []): HistoryRow[] {
   const out: HistoryRow[] = [];
+  for (const f of files) out.push({ kind: "file", id: f.id, what: f.title || f.id, when: num(f.started) || num(f.saved) || 0, secs: num(f.secs), cost: num(f.cost_usd),
+                                    how: `saved replay · ${f.agents} agent${f.agents === 1 ? "" : "s"}` });
   for (const s of sessions) {
     const id = String(s.session_id || "");
     if (!id || busy.has(id)) continue;
@@ -72,15 +78,16 @@ export function historyRows(sessions: HistoryRun[], runs: RunRow[], missions: Su
 let asking = 0;
 export async function loadHistory(): Promise<void> {
   const mine = ++asking;
-  const [s, r, m] = await Promise.all([
+  const [s, r, m, f] = await Promise.all([
     api.get<{ runs: HistoryRun[] }>("fleet/history", { role: "main", n: "20" }).then((x) => x.runs || []).catch(() => [] as HistoryRun[]),
     api.get<RunRow[]>("orchestra/runs").catch(() => [] as RunRow[]),
     api.get<{ missions: Summary[] }>("fleet/missions").then((x) => x.missions || []).catch(() => [] as Summary[]),
+    api.get<{ replays: FileRow[] }>("replays").then((x) => x.replays || []).catch(() => [] as FileRow[]),
   ]);
   if (mine !== asking) return;
   const o = orch.get().data;
   const { open, busy } = openSessions();
-  history.update(() => ({ rows: historyRows(s, Array.isArray(r) ? r : [], m, o?.live ? o.run.run_id : "", open, busy), loaded: true, error: "" }));
+  history.update(() => ({ rows: historyRows(s, Array.isArray(r) ? r : [], m, o?.live ? o.run.run_id : "", open, busy, f), loaded: true, error: "" }));
 }
 
 /** 3.4.0.0 D: History open on a finished run's report (its row's click, an attention row's `o`, `&run=<id>`). */

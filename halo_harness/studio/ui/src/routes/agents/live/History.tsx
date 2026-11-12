@@ -1,16 +1,40 @@
 // Live's History button and drawer (3.3.18.0 "The living canvas"; historyStore.ts holds the rows). The button sits on Live's
 // bar with the count; the drawer is closed on load, opens on its click, closes on its x, Esc or the button again. A row
 // opens that past thing as a replay on the canvas (replay.ts), the drawer closing behind it. 3.4.0.0 D: a goal run's row
-// opens its report as a page of the drawer instead (run/RunReport.tsx), Replay and Back on it.
+// opens its report as a page of the drawer instead (run/RunReport.tsx), Replay and Back on it. 3.4.1.0 R1 "Time": a
+// saved replay file is a row (it opens on the scrubber), and **Open a file** takes a `.halo-replay` from this machine's
+// disk -- one made anywhere -- keeps it under <state>/replays/ (POST replays/import) and opens it.
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
 import { cost, short } from "../../orchestra/format";
 import { history, loadHistory, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
 import { RunReport } from "../run/RunReport";
-import { openLiveReplay, useLiveReplay } from "./replay";
+import { openFileReplay, openLiveReplay, useLiveReplay } from "./replay";
+import { api, ApiError } from "../../../lib/api";
+import { toast } from "../../../lib/store";
 import { took } from "./GroupBox";
 
-const KIND: Record<string, string> = { session: "session", run: "goal run", mission: "mission" };
+const KIND: Record<string, string> = { session: "session", run: "goal run", mission: "mission", file: "file" };
+
+/** A `.halo-replay` chosen on this machine: checked and kept by the server, then opened on the scrubber. */
+async function openChosen(file: File | undefined): Promise<void> {
+  if (!file) return;
+  try {
+    const got = await api.post<{ id: string; path: string }>("replays/import", { text: await file.text() });
+    if (await openFileReplay(got.id)) (toast(`Opened ${file.name}; kept at ${got.path}`, "info", 5000), toggleHistory(false));
+  } catch (e) {
+    toast(`Not a replay this Halo can open: ${e instanceof ApiError ? e.message : String(e)}`, "error", 6000);
+  }
+}
+
+function OpenFile() {
+  return (
+    <label className="btn btn-ghost btn-sm lh-open" title="Open a .halo-replay file saved here or on another machine (halo replay save, or Save this run's replay); it is kept under the state dir's replays/" data-testid="live-history-open">
+      Open a file
+      <input type="file" accept=".halo-replay,application/json" className="sr-only" onChange={(e) => void openChosen(e.target.files?.[0]).then(() => (e.target.value = ""))} data-testid="live-history-file" />
+    </label>
+  );
+}
 
 /** "3 min ago", "2 h ago", "Nov 8" for an epoch in seconds. */
 export function ago(ts: number | null, now = Date.now()): string {
@@ -37,7 +61,8 @@ export function HistoryButton() {
 function Row({ r }: { r: HistoryRow }) {
   const models = r.models?.length ? `on ${r.models.map((m) => m.replace(/^[a-z]+:/, "").split("/").pop()).join(", ")}` : "";
   const facts = [KIND[r.kind], ago(r.when), r.secs ? took(r.secs) : "", r.cost != null ? cost(r.cost) : "", r.how, models].filter(Boolean).join(" · ");
-  const go = () => (r.kind === "run" ? void openReport(r.id) : void openLiveReplay(r.kind, r.id, r.what).then((ok) => ok && toggleHistory(false)));
+  const go = () => (r.kind === "run" ? void openReport(r.id) : r.kind === "file" ? void openFileReplay(r.id).then((ok) => ok && toggleHistory(false))
+    : void openLiveReplay(r.kind, r.id, r.what).then((ok) => ok && toggleHistory(false)));
   return (
     <button className="lh-row" data-density="row" onClick={go} data-testid="live-history-row" data-kind={r.kind} data-id={r.id} title={`${r.what}\n${facts}\n${r.kind === "run" ? "A click opens its report (Replay is on it)" : "A click opens it as a replay"}`}>
       <span className="lh-what">{short(r.what, 120)}</span>
@@ -67,6 +92,7 @@ export function HistoryDrawer() {
         <b className="lh-title">History</b>
         <span className="mono muted">newest first · a run opens on its report, the rest as a replay</span>
         <span className="spacer" />
+        <OpenFile />
         <button className="icon-btn" onClick={() => toggleHistory(false)} aria-label="Close History" title="Close History (Esc)" data-testid="live-history-close">×</button>
       </div>
       {page ? (

@@ -1,6 +1,7 @@
 // What Live says when nothing runs, and the banner over a replay (3.3.18.0 "The living canvas"). Empty: one sentence and
 // two plain actions -- Open the plan (Cast) and Replay the last session (History's newest session, as a replay). The
-// banner runs across the canvas while a replay is open: "replay -- ended <when>", what it was, and Back to now.
+// banner runs across the canvas while a replay is open: "replay -- <the moment drawn>" (3.4.1.0 R1: the scrubber's), when it
+// ended (or that it runs now), what it was, and Back to now.
 import { Button } from "../../../lib/ui";
 import { setAgentsView } from "../store";
 import { ago, closeHistory } from "./History";
@@ -29,14 +30,17 @@ export function LiveEmpty({ compact = false }: { compact?: boolean }) {
   );
 }
 
+const KIND: Record<string, string> = { session: "", run: "goal run", mission: "mission", file: "file" };
+
 export function ReplayBanner() {
   const r = useLiveReplay();
   if (!r) return null;
   const back = () => (backToNow(), closeHistory());
+  const at = new Date(r.t * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   return (
-    <div className="lv-replay mono" role="status" data-testid="live-replay-banner" data-kind={r.kind} data-id={r.id}>
-      <b className="lv-replay-word">replay</b>
-      <span className="lv-replay-when">ended {ago(r.ended)}</span>
+    <div className="lv-replay mono" role="status" data-testid="live-replay-banner" data-kind={r.kind} data-id={r.id} data-at={Math.round(r.t - r.tl.t0)}>
+      <b className="lv-replay-word">replay -- {at}</b>
+      <span className="lv-replay-when">{[KIND[r.kind], r.live ? "running now" : `ended ${ago(r.ended)}`].filter(Boolean).join(" · ")}</span>
       <span className="lv-replay-what" title={r.title}>{r.title}</span>
       <span className="spacer" />
       <Button size="sm" onClick={back} data-testid="live-replay-back" title="Leave the replay: the canvas shows what runs now">Back to now</Button>

@@ -50,5 +50,6 @@ export function useLiveNodes(mode: "here" | "fleet" | "thumb"): LiveNodes {
     const keep = new Set(harnesses.flatMap((h) => (h.sessions || []).filter((s) => s.mission && busy.has(String(s.mission))).map((s) => s.session_id)));
     return present(all, doneAt, now, gone, keep);
   }, [mode, rec, graph, lineup, activity, doneAt, harnesses, mission, list, now, lanes, local, gone, replay]);
-  return { nodes, sid, refs, now, replay: !!replay && mode !== "thumb", rec };
+  const at = replay && mode !== "thumb" ? replay.t * 1000 : now; // 3.4.1.0 R1: a replay's boxes tick at the scrubber's moment
+  return { nodes, sid, refs, now: at, replay: !!replay && mode !== "thumb", rec };
 }

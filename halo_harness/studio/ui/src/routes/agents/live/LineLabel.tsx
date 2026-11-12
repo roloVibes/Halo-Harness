@@ -10,6 +10,8 @@ import { useTalks, type TalkMsg } from "../../shared/liveTalk";
 import { openConversation } from "../../session/convPick";
 import type { PlanBox, PlanLine } from "./planLayout";
 import { LABEL_W } from "./planLayout";
+import { useLiveReplay } from "./replay";
+import { talksAt } from "./timeline";
 
 export const HANDOFF_MS = 8000; // how long a hand-off stays on its line
 const WORD: Record<string, string> = { task: "task", square: "task", "hand-back": "back", steer: "steer", "hand-over": "over" };
@@ -23,8 +25,11 @@ export function handoffWords(m: TalkMsg): string {
   return `${WORD[m.why] || m.why}: ${short(m.text.replace(/\s+/g, " "), 40)}`;
 }
 
-export function LineLabel({ l, b, root, now, scale = 1 }: { l: PlanLine; b: PlanBox | undefined; root: string; now: number; scale?: number }) {
-  const msgs = useTalks((s) => s.msgs);
+export function LineLabel({ l, b, root, now: wall, scale = 1 }: { l: PlanLine; b: PlanBox | undefined; root: string; now: number; scale?: number }) {
+  const r = useLiveReplay(); // 3.4.1.0 R1: a replay's hand-offs up to the scrubber's moment (timeline.ts talksAt)
+  const live = useTalks((s) => s.msgs);
+  const msgs = useMemo(() => (r ? talksAt(r.tl, r.t) : live), [r, live]);
+  const now = r ? r.t * 1000 : wall;
   const keys = useMemo(() => new Set((b?.members || []).map((m) => m.key).filter(Boolean)), [b]);
   const mine = useMemo(() => (root && keys.size ? lineTalks(msgs, root, keys) : []), [msgs, root, keys]);
   const last = mine[mine.length - 1];
@@ -37,7 +42,7 @@ export function LineLabel({ l, b, root, now, scale = 1 }: { l: PlanLine; b: Plan
   const other = last ? (last.fromKey === root ? last.toKey : last.fromKey) : "";
   return (
     <div className="pb-when mono" style={{ left: l.lx, top: l.ly, width: LABEL_W * scale }} data-testid="live-plan-when" data-to={l.to} data-handoff={fresh ? fresh.why : undefined}
-         role="button" tabIndex={0} onClick={() => other && openConversation(root, other)} title={hv.titles ? text : undefined} {...hv.props}>
+         role="button" tabIndex={0} onClick={() => other && !r && openConversation(root, other)} title={hv.titles ? text : undefined} {...hv.props}>
       {text}
     </div>
   );

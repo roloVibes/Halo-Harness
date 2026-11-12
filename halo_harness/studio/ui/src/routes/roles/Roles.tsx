@@ -3,8 +3,8 @@
 // is active) the section is the Start view (Start.tsx). Then six panels:
 // Lineups (roles-lineups: the list, New, Duplicate, Delete, Apply), the
 // canvas (roles-graph, its drawn canvas data-testid roles-canvas: cards
-// in tier boxes, the edges, drag to move or to change a tier, Live Roles and
-// the replay bar), the Inspector (roles-inspector: Assignment, Lineup's
+// in tier boxes, the edges, drag to move or to change a tier, Live Roles; 3.4.1.0 R1:
+// the replay bar went to Live's scrubber), the Inspector (roles-inspector: Assignment, Lineup's
 // section forms, Live), Problems (roles-problems: blocks and warns from every
 // edit), Bios (roles-bios: the list and the bio form with the model picker
 // and "Test this model") and Models (roles-models: the catalog and Refresh).
@@ -34,9 +34,8 @@ function started(hook: () => MotionState): () => MotionState {
 
 function useCanvasMotion(): MotionState {
   const live = Object.keys(useByNode()).length > 0;
-  const replay = useRoles((s) => !!s.replay);
   const any = useRoles((s) => !!s.graph?.nodes.length);
-  return live || replay ? "working" : any ? "idle" : "none";
+  return live ? "working" : any ? "idle" : "none";
 }
 
 function CanvasGlance() {

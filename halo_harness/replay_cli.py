@@ -7,6 +7,9 @@ Forks the session, truncates the fork to just before turn N's user node,
 re-sends that turn's own prompt against the swapped model through plain
 print mode (same cwd/tools/hooks as any `halo -p`), and prints the
 side-by-side outcome. The original session file is never appended to.
+
+3.4.1.0 R1 "Time": `halo replay list | save <session> | open <file> | clip <file>` -- a run's replay as one file and
+its clip (replay_verbs.py, docs/REPLAY.md); a first word that is one of those verbs goes there.
 """
 
 from __future__ import annotations
@@ -17,10 +20,15 @@ from typing import Optional
 
 
 def cmd_replay(argv: Optional[list] = None) -> int:
+    args0 = list(sys.argv[1:] if argv is None else argv)
+    from halo_harness.replay_verbs import VERBS, cmd_verbs  # 3.4.1.0 R1: list | save | open | clip (the replay file)
+    if args0 and args0[0] in VERBS:
+        return cmd_verbs(args0)
     parser = argparse.ArgumentParser(
         prog="halo replay",
         description="Replay one turn of a recorded session against a different model "
-                    "and compare the outcomes side by side.")
+                    "and compare the outcomes side by side.",
+        epilog="Also: halo replay list | save <session> | open <file> | clip <file> -- the replay file (docs/REPLAY.md).")
     parser.add_argument("session_id", help="the recorded session to replay (a session id; "
                                            "`halo sessions`/`/resume` lists them)")
     parser.add_argument("--model", required=True,

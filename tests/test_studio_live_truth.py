@@ -68,8 +68,8 @@ def test_a_row_opens_a_replay_and_back_to_now(ctx: Ctx):
     for kind, n in (("session", 2), ("run", 6)):
         r = got.get(f"replay_{kind}") or {}
         drawn = r.get("drawn") or []
-        ctx.check(f"{kind}: the banner says replay and when it ended, got {r.get('banner')!r}",
-                  str(r.get("banner", "")).startswith("replayended ") and str(r.get("banner", "")).endswith("Back to now"))
+        ctx.check(f"{kind}: the banner says replay, the moment drawn (3.4.1.0 R1: its end) and when it ended, got {r.get('banner')!r}",
+                  str(r.get("banner", "")).startswith("replay -- ") and "ended " in str(r.get("banner", "")) and str(r.get("banner", "")).endswith("Back to now"))
         ctx.check(f"{kind}: {n} muted nodes, no live colour, got {drawn}",
                   len(drawn) == n and all(d[2] == "" and "grayscale" in d[3] for d in drawn))
         ctx.check(f"{kind}: the drawer closed behind it; Back to now clears it, got {r.get('drawer_closed')} {r.get('back')!r}",

@@ -5,8 +5,8 @@
 // types it; Working: one row per tool call with its result; Output: its
 // hand-back), Pause / Resume, Stop (asks first), Follow, Pin and the Steer
 // box. With nobody on the card: its track record, the last runs under its
-// role (`GET fleet/history`), each with "replay" (the canvas plays that
-// session back, Replay.tsx). Keys: J / K hop, Space pins, P pauses, F follows.
+// role (`GET fleet/history`), each with "replay" (3.4.1.0 R1: Agents -> Live plays that
+// session back on its scrubber, routes/agents/live/replay.ts). Keys: J / K hop, Space pins, P pauses, F follows.
 // 3.1.4.0 R2: while the agent is live on this harness its header has Watch
 // in Session (the Session dashboard on its session, the agent selected).
 // 3.1.9.0 R2: an `auto` member shows why it runs on its model ("auto: <model> -- <reason>").
@@ -16,7 +16,7 @@
 import { useEffect } from "react";
 import { api } from "../../lib/api";
 import { cost, short } from "../orchestra/format";
-import { openReplay } from "../fleet/replay";
+import { replaySession } from "../agents/live/replay";
 import { AgentView, useAgentRef } from "../fleet/Agent";
 import { useByNode, watchAgent } from "./live";
 import { nodeById, roles, useRoles } from "./store";
@@ -47,8 +47,8 @@ function History({ card, role, bio }: { card: string; role: string; bio: string 
               <span className="mono muted">{ago(x.finished || x.started)} ago</span> <b>{x.bio || x.role}</b>{" "}
               <span className="og-chip mono" data-bad={x.is_error || undefined}>{x.is_error ? "failed" : x.status || ""}</span> <span className="mono">{cost(x.cost_usd)}</span>
               {x.session_id && (
-                <button className="og-link mono" onClick={() => void openReplay(x.session_id!, "local")} data-testid="roles-history-replay"
-                        title="Play this session back on the canvas: the cards light up in the order they worked">replay</button>
+                <button className="og-link mono" onClick={() => void replaySession(x.session_id!, x.task || "")} data-testid="roles-history-replay"
+                        title="Play this session back on Agents -> Live: drag the scrubber, or Play">replay</button>
               )}
               {x.task && <div className="muted rl-task">{short(x.task, 140)}</div>}
             </li>
@@ -67,7 +67,7 @@ export function Watched({ k }: { k: string }) {
   return (
     <div className="rl-agent" data-key={k} data-testid="roles-live-agent">
       {r ? <AgentView r={r} /> : k.startsWith("replay|") ? (
-        <p className="muted">A replay: the cards show the session as it ran. Close the bar under the canvas to come back to what runs now.</p>
+        <p className="muted">{"A replay plays on Agents -> Live: its scrubber's Now comes back to what runs."}</p>
       ) : (
         <p className="muted">That agent is no longer in the frames.</p>
       )}

@@ -8,6 +8,54 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.4.1.0] - unreleased
+
+**Scrub a run back in time on the canvas, save it as one file, open it anywhere.** The living canvas, part 2 (the
+owner, 2026-11-10: "the best real-time visualization and clarity of what is going on with multi-model multi-workflow
+jobs"), section A of its plan: time on Agents -> Live, then a run's replay as one file and its clip.
+
+### R1: the scrubber and the replay file
+
+#### Added
+
+- **The scrubber under Live's canvas** (`routes/agents/live/Scrubber.tsx`, `timeline.ts`; docs/REPLAY.md): the session's
+  time axis with its phase bands (waiting on you, a tool, thinking, writing, idle) and one mark per spawn, hand-off,
+  ask, failure and finish (hover: what it was). Dragging redraws the canvas as it was at that moment -- who existed, in
+  which block, each state and what it ran, the plan's line labels, the sentence under the bar (an ask first), the cost
+  so far -- under a "replay -- <time>" banner in muted colours; **Play** at 1x / 4x / 16x; **Now** (or Esc) returns.
+  Over the session running now it shows the axis up to now and a drag rewinds it. It is the ONE replay control: a
+  session, a goal run (coarse: each lane's start and end), a mission and a saved file play on it.
+- **The replay file** (`live/replay_file.py`): **Save this run's replay** says what the file holds, costs and writes,
+  then writes `<state>/replays/<session>-<stamp>.halo-replay` (JSON, `format: halo-replay`, `version: 1`: the agents,
+  their states over time, the costs, the marks and bands, the lineup's blocks as they were), with no prompt, tool
+  input or output, thought or path, every string through the export redactor. History lists saved files and **Open a
+  file** takes one made on another machine; an older `GET fleet/replay` answer opens as version 1.
+- **Export a clip** (`live/replay_clip.py`, `live/clip_chrome.py`): the range From .. To at the scrubber's speed,
+  filmed on Live in headless Chrome and assembled by Pillow into one WebP (else GIF), 1200 px wide, 5 frames a second,
+  at most 30 s (played faster to fit, said), under `<state>/replays/clips/`; it says the frames, length, width and
+  path before it writes.
+- `halo replay list | save <session> | open <file> | clip <file> [--from --to --speed]` (`replay_verbs.py`);
+  `halo replay <session> --model <ref>` is unchanged. Studio routes `replays`, `replays/plan`, `replays/save`,
+  `replays/import`, `replays/<id>`, `replays/<id>/clip`, `replays/clips/<name>` (`studio/replays_api.py`);
+  `?mode=agents&view=live&replay=<id>[&at=<s>]` opens a saved file.
+- `GET fleet/replay` answers `marks`, `bands` and `agent_costs` too (`live/timeline.py`); `live/history.py` rebuilds
+  each question or plan review (its AskUserQuestion / ExitPlanMode call) and each permission card (the turn record's
+  `permission_waits`) as a wait on you.
+- From 3.4.1.0 a turn's record keeps a permission card's words (`debug_timeline.record_permission_wait(..., what)`), so
+  its mark says what it asked; an older session's mark says "a permission card (answered allow after 6 s)".
+
+#### Removed
+
+- Cast's replay bar (`routes/roles/Replay.tsx`, `routes/fleet/replay.ts`, the Roles store's `replay`, `live.ts
+  agentsAt`): its doors -- the agent inspector's Replay and history "replay", the Roles Live tab's "replay", the
+  palette's "Agents: replay this session on Live" -- open the session on Live's scrubber. Its testids `replay-bar`,
+  `replay-play`, `replay-scrub` and `replay-close` are the scrubber's.
+
+#### Docs
+
+- New docs/REPLAY.md; STUDIO-live.md "Time: the scrubber", STUDIO-agents.md, STUDIO.md, COMMANDS-sessions.md, the
+  glossary's "replay", the docs map.
+
 ## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and

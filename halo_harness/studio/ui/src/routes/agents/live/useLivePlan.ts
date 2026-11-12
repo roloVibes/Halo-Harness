@@ -1,13 +1,15 @@
 // Live's "Plan under it" (3.3.18.0 "The living canvas" part 2): the lineup the drawn session runs under as blocks, the
 // live agents inside the block each belongs to (planModel.ts), laid out once per structure (planLayout.ts) and handed
 // fresh nodes between (liveGeo.ts's rule). On by default when that lineup has tiers or squares; the bar's toggle wins
-// once touched. Only on this halo's scope and never over a replay. Part 4 (levels.ts): at the far level the blocks are
+// once touched. Only on this halo's scope. 3.4.1.0 R1: over a session's replay too (the lineup in use), and over a saved
+// file with the blocks it holds (a goal run's or a mission's replay has none: its own block is its run). Part 4 (levels.ts): at the far level the blocks are
 // drawn alone -- the plan's, or with the plan off the tree's own groups -- and `farOf` lays that out for Fit.
 import { useMemo } from "react";
 import type { WorkRecord } from "../../../lib/work/record";
 import type { Density } from "../../roles/liveLayout";
 import type { LiveNode } from "../../roles/liveModel";
 import { useRoles } from "../../roles/store";
+import { useLiveReplay } from "./replay";
 import { NEAR_H, type Level } from "./levels";
 import { shapeOf } from "./liveGeo";
 import { groupBlocks, placeAgents, planBlocks, type Placement, type PlanBlockDef } from "./planModel";
@@ -25,9 +27,14 @@ export function lineupOf(rec: WorkRecord | null, inUse: string): string {
 
 export function useLivePlan(mode: string, nodes: LiveNode[], rec: WorkRecord | null, density: Density, replay: boolean, level: Level = "mid"): LivePlan {
   const inUse = useRoles((s) => s.info?.active_team || s.info?.lineup_in_use || "");
-  const here = mode === "here" && !replay;
-  const lineup = here ? lineupOf(rec, inUse) : "";
-  const plan = usePlan(lineup);
+  const rep = useLiveReplay();
+  const tl = rep && !rep.tl.coarse ? rep.tl : null;
+  const was = useMemo(() => (tl ? ({ agents: tl.base.map((n) => ({ id: n.id, parent: n.parent, ...tl.rows.find((x) => x.id === n.id) })) } as unknown as WorkRecord) : null), [tl]);
+  const here = mode === "here" && (!replay || !!was);
+  if (replay) rec = was;
+  const lineup = here ? rep?.plan?.lineup || lineupOf(rec, inUse) : "";
+  const fetched = usePlan(rep?.plan ? "" : lineup);
+  const plan = rep?.plan ? { ...rep.plan, loaded: true, error: "" } : fetched;
   const chosen = usePlanOn();
   const agents = nodes.some((n) => !n.virtual && !n.kind);
   const available = !!plan?.graph && agents;

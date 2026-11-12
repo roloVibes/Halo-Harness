@@ -15,9 +15,9 @@ past session PAST_SID). Run through tests/helpers/studio_fleet.py:
 * the digest card after a simulated absence (halo.fleet.lastSeen two hours
   back, then the tab regains focus): the Agents icon's dot, a click on it opens
   Live on the fleet with the card at the top of the inspector's glance, and Dismiss;
-* the replay: the reviewer card's history row "replay" opens the scrub bar on
-  the Roles canvas, the scrub lights the reviewer only while it worked, x
-  goes back to what runs now;
+* the replay: the reviewer card's history row "replay" opens the session on
+  Agents -> Live with the scrubber (3.4.1.0 R1), the scrub draws the reviewer
+  only while it existed, Now goes back to what runs now;
 * a conflict (two harnesses editing shop/basket.py): the amber edge on
   Live, the session nodes' chips, the attention row; each session node's git chips;
 * Record on the agent inspector and its download, Take over's dialog, the member machine's summary's Message
@@ -122,8 +122,10 @@ def digest(c, out: dict) -> None:
 
 
 def replay(c, rig, out: dict) -> None:
-    """3.0.7.0 R2: the replay bar under the React Roles canvas."""
+    """3.0.7.0 R2; 3.4.1.0 R1 "Time": the reviewer card's history row "replay" opens the session on Agents -> Live with
+    the scrubber under the canvas (the Cast bar went); the scrub draws who existed and each state at that moment."""
     bar = "document.querySelector('[data-testid=\"replay-bar\"]')"
+    live_map = "document.querySelector('[data-testid=\"roles-live-map\"]')"
     c.go(rig.url("roles"))
     c.wait(f"{LIVE_CARDS}.length >= 3", 30)
     card_click(c, card("reviewer"))
@@ -131,19 +133,23 @@ def replay(c, rig, out: dict) -> None:
     out["history_replay"] = c.wait("document.querySelectorAll('[data-testid=\"roles-history-replay\"]').length", 15)
     c.js("document.querySelector('[data-testid=\"roles-history-replay\"]').scrollIntoView({block: 'center'}); 1")  # 3.1.4.0 R4: below the MODEL strip
     c.click_on("document.querySelector('[data-testid=\"roles-history-replay\"]')")
+    c.wait(f"{bar}?.dataset.mode === 'replay' && {live_map}?.dataset.replay === 'true'", 20)
     out["bar"] = c.wait(f"{bar}?.querySelector('.replay-title')?.textContent", 15)
-    lit = "(() => { const g = " + card("reviewer") + "; return g ? (g.dataset.live || 'none') : 'no card'; })()"
+    from tests.helpers.studio_fleet_parts import PAST_REVIEWER
+    node = f"document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{PAST_REVIEWER}\"]')"
+    rev = f"(() => {{ const n = {node}; return n ? (n.dataset.state || 'drawn') : 'none'; }})()"
 
-    def scrub(v: int) -> dict:
+    def scrub(frac: float) -> dict:
+        v = c.js(f"Math.round({bar}.querySelector('[data-testid=\"replay-scrub\"]').max * {frac})")
         c.js(f"""(() => {{ const r = {bar}.querySelector('[data-testid="replay-scrub"]');
           Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(r, '{v}');
           r.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()""")
-        time.sleep(0.4)
-        return {"t": c.js(f"{bar}.dataset.t"), "lit": c.js(f"{bar}.dataset.lit"), "reviewer": c.js(lit), "playing": c.js(f"{bar}.dataset.playing === 'true'")}
-    out["early"], out["mid"], out["end"] = scrub(20), scrub(500), scrub(1000)
-    out["ignores_live"] = c.js(f"{CANVAS}.dataset.replaying === 'true' && !{card('implementer')}.dataset.live")
+        c.wait(f"{bar}.dataset.t10 === '{v}'", 10)
+        return {"t": c.js(f"{bar}.dataset.t"), "lit": c.js(f"{bar}.dataset.lit"), "reviewer": c.js(rev), "playing": c.js(f"{bar}.dataset.playing === 'true'")}
+    out["early"], out["mid"], out["end"] = scrub(0.02), scrub(0.5), scrub(1.0)
+    out["ignores_live"] = c.js(f"{live_map}.dataset.replay === 'true' && !document.querySelector('[data-testid=\"roles-live-node\"][data-state=\"waiting\"]')")
     c.click_on("document.querySelector('[data-testid=\"replay-close\"]')")
-    out["closed"] = c.wait(f"!{bar} && {LIVE_CARDS}.length >= 3 && 'live again'", 15)
+    out["closed"] = c.wait(f"!{live_map}?.dataset.replay && document.querySelectorAll('[data-testid=\"roles-live-node\"]').length > 0 && 'live again'", 15)
 
 
 def conflict(c, rig, out: dict) -> None:

@@ -8,7 +8,8 @@ studio/fleet_view_api.py's ROUTES; the same loopback + token guard.
     GET  fleet/recordings/<name>      the recording's HTML (text/html, attachment; its own CSP)
     GET  fleet/replay?session=<sid>[&harness=<h>]
         -> {session_id, harness, title, started, ended, cost_usd, agents: [...], states: [{t, agent_id, state,
-            activity, tool?}], costs: [{t, usd}]}   the `agent_state` history the Roles canvas replays
+            activity, tool?}], costs: [{t, usd}], agent_costs: [{t, agent_id, usd}], marks: [...], bands: [...]}
+        the session's time axis: the scrubber under Agents -> Live replays it (3.4.1.0 R1, live/timeline.py)
 
 A member's session comes through the hub (`agent_tail` per agent, which needs
 its share `full`); this harness's from its transcripts on disk.
@@ -67,8 +68,9 @@ def get_replay(req):
     hist, name = _history(req, hid, sid)
     if hist is None:
         return name
-    keep = ("session_id", "title", "started", "ended", "cost_usd", "agents", "states", "costs")
-    return 200, {"harness": name, **{k: hist.get(k) for k in keep}}
+    from halo_harness.live import timeline
+    keep = ("session_id", "title", "started", "ended", "cost_usd", "agents", "states", "costs", "agent_costs")
+    return 200, {"harness": name, **{k: hist.get(k) for k in keep}, **timeline.of(hist)}  # 3.4.1.0 R1: marks, bands
 
 
 _ID = r"[A-Za-z0-9_.:-]+"

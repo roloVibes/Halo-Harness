@@ -297,8 +297,7 @@ ROUTES: list = [
     ("GET", r"^bios$", get_bios), ("POST", r"^bio$", post_bio),
     ("GET", r"^bio/(?P<name>[^/]+)$", get_bio), ("PUT", r"^bio/(?P<name>[^/]+)$", put_bio), ("DELETE", r"^bio/(?P<name>[^/]+)$", delete_bio),
     ("GET", r"^models$", get_models), ("POST", r"^validate$", post_validate), ("POST", r"^yaml$", post_yaml),
-    ("GET", r"^session$", get_session), ("GET", r"^tools$", get_tools),
-]
+    ("GET", r"^session$", get_session), ("GET", r"^tools$", get_tools)]
 
 from .models_api import ROUTES as _MODELS_ROUTES  # noqa: E402  (3.0.4.0: models/status, models/refresh)
 ROUTES[len(ROUTES):] = _MODELS_ROUTES
@@ -323,6 +322,7 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("supervise", "halo_harness.studio.supervise_api", "dispatch_supervise"),  # 3.1.8.0 R1: the morning line
              ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"),  # 3.2.0.0 R3: Studio contributions
              ("packs", "halo_harness.studio.packs_routes", "dispatch"),  # 3.3.13.0 R2: a pack's own routes (API 1.2)
+             ("replays", "halo_harness.studio.replays_api", "dispatch_replays"),  # 3.4.1.0 R1: the replay file, the clip
              ("setup", "halo_harness.studio.setup_api", "dispatch_setup"),  # 3.3.0.0 R1: the Setup section
              ("settings", "halo_harness.studio.settings_api", "dispatch_settings"),  # 3.3.3.0 R2: the Settings section
              ("ollama", "halo_harness.studio.ollama_steward_api", "dispatch_ollama"),  # 3.3.4.0 R5: the steward's panel

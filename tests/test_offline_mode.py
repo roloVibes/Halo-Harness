@@ -532,12 +532,12 @@ def test_status_bar_offline_chip(ctx: Ctx):
 # Each pattern is a raw primitive capable of opening a socket OUTSIDE
 # providers.http's own open_upstream/urlopen_tls. (file, reason):
 _ALLOWED_RAW_NETWORK_CALLERS = {
+    "halo_harness/live/clip_chrome.py": "3.4.1.0 R1: the headless Chrome a replay clip is filmed in (its DevTools on 127.0.0.1); never a remote host",
     "halo_harness/studio/launch.py":
         "3.0.2.0: a loopback probe (socket.create_connection to 127.0.0.1:<port>) that asks whether the "
         "Studio this machine already runs still answers, so `halo studio` and the wizard reuse it instead "
         "of starting another, plus (3.0.5.0 R2) `api_call`, one request on that Studio's own loopback API "
-        "with its stored token (`halo fleet` reads GET /api/fleet through it); never a remote host, "
-        "nothing the offline gate covers",
+        "with its stored token (`halo fleet` reads GET /api/fleet through it); never a remote host, nothing the offline gate covers",
     "halo_harness/templates/packs/fleet/fleet/hub.py":  # 3.4.0.0 C: the fleet pack's
         "3.0.5.0 R2: the fleet hub LISTENER (a LAN port other harnesses join) is not a client call, but "
         "this file also holds `running_call`, the loopback request (127.0.0.1, the hub's own admin token) "

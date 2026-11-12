@@ -17,14 +17,16 @@ export const useWaitOf = (id: string): Wait | undefined => useStore(waitStore, (
 export const useOnPath = (id: string | null | undefined): boolean => useStore(waitStore, (s) => !!id && s.path.includes(id));
 export const usePathIds = (): string[] => useStore(waitStore, (s) => s.path);
 
-/** The waits of `nodes` and the waiting path; `on` false (Session's thumbnail, a replay) leaves the store alone. */
-export function useWaits(nodes: LiveNode[], now: number, on: boolean): { waits: Map<string, Wait>; path: WaitPath } {
+/** The waits of `nodes` and the waiting path; `on` false (Session's thumbnail) leaves the store alone. `fixed` (3.4.1.0 R1, a
+ *  replay at the scrubber's moment: timeline.ts waitsAt) stands in for the feed's. */
+export function useWaits(nodes: LiveNode[], now: number, on: boolean, fixed: Map<string, Wait> | null = null): { waits: Map<string, Wait>; path: WaitPath } {
   useEffect(() => startLiveTree(), []);
   const open = useLive((s) => s.open);
   const n = useLive((s) => s.lines.length);
   const out = useMemo(() => {
     const waits = new Map<string, Wait>();
     if (!on) return { waits, path: { ids: [], leaf: null, wait: null } as WaitPath };
+    if (fixed) return { waits: fixed, path: waitingPath(nodes, fixed) };
     const keys = new Set(nodes.filter((x) => x.key).map((x) => x.key));
     const recent = recentOf(live.get().lines, keys);
     const kids = new Map<string, LiveNode[]>();
@@ -36,7 +38,7 @@ export function useWaits(nodes: LiveNode[], now: number, on: boolean): { waits: 
     }
     return { waits, path: waitingPath(nodes, waits) };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `n` stands for the lines (a new line can change a wait)
-  }, [nodes, open, n, now, on]);
+  }, [nodes, open, n, now, on, fixed]);
   useEffect(() => {
     if (!on) return;
     const waits = Object.fromEntries(out.waits);

@@ -35,6 +35,8 @@ import type { LiveBox } from "./liveLayout";
 import { useLiveGeo } from "../agents/live/liveGeo"; // 3.3.18.0: laid out on the tree's shape, painted on its state
 import { LiveEmpty, ReplayBanner } from "../agents/live/LiveEmpty"; // 3.3.18.0: nothing runs; a replay from History
 import { HistoryDrawer } from "../agents/live/History";
+import { Scrubber } from "../agents/live/Scrubber"; // 3.4.1.0 R1 "Time": the one replay control, under the canvas
+import { replayDoor } from "../agents/live/replay";
 import { GoalDrawer } from "../agents/run/GoalDrawer"; // 3.4.0.0 D: Run a goal, a panel beside the canvas
 import { useLivePlan } from "../agents/live/useLivePlan"; // 3.3.18.0 part 2: the plan under it
 import { PlanWorld } from "../agents/live/PlanWorld";
@@ -68,7 +70,7 @@ function Edges({ boxes, w, h, sel }: { boxes: LiveBox[]; w: number; h: number; s
 
 export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   useEffect(() => startFleet(), []);
-  useEffect(() => (thumb ? undefined : (startOrchestra(), startMissions())), [thumb]); // the newest run of this repo, the missions
+  useEffect(() => (thumb ? undefined : (startOrchestra(), startMissions(), replayDoor())), [thumb]); // the newest run of this repo, the missions; `?replay=`
   const scope = useLiveScope();
   const mode = thumb ? "thumb" : scope;
   const { nodes, sid, refs, now, replay, rec } = useLiveNodes(mode);
@@ -105,7 +107,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
     else return;
     e.preventDefault();
   };
-  const onAgent = thumb ? pickNode : (key: string) => (selectLive(key), pickLive("agent", key));
+  const onAgent = thumb ? pickNode : (key: string) => (key.startsWith("replay|") ? undefined : (selectLive(key), pickLive("agent", key))); // a replay's box is not a live agent
   const onSession = thumb ? select : onAgent;
   const agents = nodes.filter((n) => !n.virtual && !n.run && !n.kind);
   const machines = nodes.filter((n) => n.kind === "machine").length;
@@ -117,7 +119,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
       {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} machines={machines} zoom={zoom} setZoom={zoomAt} fit={fit} empty={empty && loaded} plan={plan}
                                                     levels={<LevelSwitch level={level} zoomAt={zoomAt} />} />}
       {!thumb && <ReplayBanner />}
-      <LiveNow nodes={nodes} now={now} on={!thumb && !replay} plan={plan.geo} />
+      <LiveNow nodes={nodes} now={now} on={!thumb} plan={plan.geo} />
       <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Agents Live: the agent tree"
            onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
         {!loaded ? (
@@ -152,12 +154,19 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
           </div></>
         )}
       </div>
+      {!thumb && (replay || (mode === "here" && !!sid && !empty)) && <Scrubber sid={sid} title={refs.find((r) => r.id === sid)?.title || ""} lineup={plan.lineup}
+                                                                         started={firstStart(nodes)} />}
       {!thumb && <HistoryDrawer />}
       {!thumb && <GoalDrawer />}
       {menu && <NodeMenu at={menu} onClose={() => setMenu(null)} />}
     </div>
   );
 }
+
+const firstStart = (nodes: { started: number | null }[]): number | null => {
+  const t = Math.min(...nodes.map((n) => n.started || Infinity));
+  return isFinite(t) ? t : null;
+};
 
 /** The first draw of a tree (a scope, session or density change) fits one bigger than the page; the thumbnail always fits.
  *  A layout effect: the new tree is never painted at the old one's zoom (fleet -> this halo showed the fleet's zoom for

@@ -1,6 +1,6 @@
 # Studio: Agents -> Live, the living canvas
 
-Read this when you watch what runs now on Studio's Agents -> Live: why it shows only what is happening, where the past went (History and replays), the plan drawn under the agents, what each agent waits on, the one sentence under the bar, and the three zoom levels.
+Read this when you watch what runs now on Studio's Agents -> Live: why it shows only what is happening, where the past went (History and replays), the plan drawn under the agents, what each agent waits on, the one sentence under the bar, the three zoom levels, and the scrubber that takes the canvas back in time.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. [Studio: Agents](STUDIO-agents.md) has the section's views and doors; [Studio: blocks and groups](STUDIO-blocks.md) the blocks and groups Live draws.
 
@@ -24,7 +24,9 @@ every agent it ever had, and on the fleet the open mission's parts whatever thei
 - **History** (Live's bar, `History · N`, closed on load) lists the past, newest first: this harness's sessions (an open
   one with nothing running says so), Orchestra runs of Studio's repo, finished missions; each row what it was, when, how
   long, its cost and how it ended. A row opens it as a **replay**: drawn as it ended, muted, never in the live colours,
-  under a "replay -- ended <when>" banner whose **Back to now** returns. Esc or the `x` closes the drawer.
+  under a "replay -- <the moment drawn>" banner whose **Back to now** returns, with the scrubber under the canvas
+  (Time, below). 3.4.1.0: a saved replay file is a row too, and **Open a file** takes one from disk. Esc or the `x`
+  closes the drawer.
 - **Cast is the plan and says so**: its bar says "the lineup new sessions use: <name>", and while agents run a chip
   "N live -- see Live" goes to Live. The cards light only for agents running under them now.
 - **The rail's Agents badge** counts the agents at work on this harness and on members that are online, never an away
@@ -84,3 +86,14 @@ the pointer, `+` / `-` around the middle. A level changes only at those threshol
 pointer stays under it (`zoomAnchor.ts`). **Fit** picks the level that shows the whole session readably: mid when it fits at
 60% or more, else far (thirty agents open at far). `?level=far|mid|near` pins the level whatever the zoom until the
 switch is used (a capture's or a driver's door; Fit is then a plain fit).
+
+## Time: the scrubber (3.4.1.0)
+
+Under the canvas, one bar is the ONE replay control (Cast's replay bar went): **Play** at **1x / 4x / 16x**, the clock,
+the cost so far, **Save this run's replay**, **Export a clip** and **Now**, over the session's time axis -- its phase
+bands (waiting on you, a tool, thinking, writing, idle) and a tick per spawn, hand-off, ask, failure and finish (hover:
+what it was). Drag it and the canvas is redrawn as it was at that moment: who existed, in which block, each state, the
+plan's line labels, the sentence under the bar and the cost, under "replay -- <time>" in muted colours. Over the session
+running now it shows the axis up to now and a drag rewinds it; Now returns. A session, a goal run (coarse: each lane's
+start and end), a mission and a saved `.halo-replay` file all play on it. [REPLAY.md](REPLAY.md) has the file, the clip,
+what an older session cannot show and `halo replay list | save | open | clip`.

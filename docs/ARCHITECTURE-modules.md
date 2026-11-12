@@ -68,7 +68,7 @@ this list against the tree.
   commands on a live session), `studio/fleet_view_api.py` (the `fleet/*` routes the core answers, and the door to the
   pack's when it runs), `studio/fleet_panels_api.py` (attention, costs, caps, conflicts), `studio/fleet_answer.py`
   (one key on an attention row), `studio/fleet_handoff_api.py` (an agent's hand-off),
-  `studio/fleet_recording_api.py` (flight recordings, the replay), `studio/fleet_watch.py` (the watcher),
+  `studio/fleet_recording_api.py` (flight recordings, the replay's time axis), `studio/fleet_watch.py` (the watcher),
   `studio/fleet_watch_sources.py` (what it reads), `studio/fleet_feed.py` (its tap on the live feed),
   `studio/fleet_send.py` (a session command, this harness's or a member's)
 - the one unit view (3.1.2.0): `studio/work_api.py`
@@ -98,6 +98,9 @@ this list against the tree.
   decisions), `live/pack_attention.py` (a pack's own rows, 3.2.0.0 R3), `live/steward_attention.py`
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
+- time (3.4.1.0 R1, docs/REPLAY.md): `live/timeline.py` (a session's marks and phase bands), `live/replay_file.py` (the
+  `.halo-replay` file), `live/replay_clip.py` + `live/clip_chrome.py` (the clip, filmed in headless Chrome),
+  `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`)
 
 **The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
 harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who

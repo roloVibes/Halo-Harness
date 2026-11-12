@@ -9,7 +9,7 @@ import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { askHandoff, record } from "./extras";
 import { age, panels, usePanels, type Run } from "./pstore";
-import { openReplay } from "./replay";
+import { replaySession } from "../agents/live/replay"; // 3.4.1.0 R1: Live's scrubber
 import { keyOf, localId, useFleet } from "./store";
 import type { AgentRef } from "./types";
 
@@ -27,7 +27,7 @@ export function AgentExtras({ r, done, noControl }: { r: AgentRef; done: boolean
         Record
       </Button>
       {r.h.local && (
-        <Button size="sm" variant="ghost" icon={<Icon name="play" />} title="play its session back on the Roles canvas" onClick={() => void openReplay(r.s.session_id, "local")} data-testid="fleet-replay">
+        <Button size="sm" variant="ghost" icon={<Icon name="play" />} title="play its session back on Agents -> Live (the scrubber)" onClick={() => void replaySession(r.s.session_id)} data-testid="fleet-replay">
           Replay
         </Button>
       )}
@@ -58,7 +58,7 @@ export function RecentSessions() {
             <span className="mono muted">{age(r.finished || r.started || 0)} ago</span>
             <span className="fa-history-task">{short(r.task || r.session_id, 60)}</span>
             <span className="spacer" />
-            <button className="og-link mono" onClick={() => void openReplay(r.session_id, "local")} data-testid="fleet-history-replay">replay</button>
+            <button className="og-link mono" onClick={() => void replaySession(r.session_id)} data-testid="fleet-history-replay">replay</button>
             {here && <button className="og-link mono" onClick={() => void record(keyOf(here, r.session_id, "main"), false)}>record</button>}
           </li>
         ))}

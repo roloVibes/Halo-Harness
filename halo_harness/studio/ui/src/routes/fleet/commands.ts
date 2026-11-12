@@ -14,7 +14,7 @@ import { allAgents, fleet, findAgent, isLive, sessionTitle } from "./store";
 import { checkAway } from "./Digest";
 import { askHandoff, record } from "./extras";
 import { panels } from "./pstore";
-import { openReplay } from "./replay";
+import { replaySession } from "../agents/live/replay"; // 3.4.1.0 R1: Live's scrubber
 import { startFleet } from "./sync";
 import { caps } from "./caps";
 import { missionCommands } from "./mcommands";
@@ -66,7 +66,7 @@ export function fleetCommands(): FleetCommand[] {
       { id: "fleet-handto", group: g, label: `Agents: hand ${name} to...`, hint: "another machine picks it up; it stops", run: () => askHandoff("hand_to", sel.key) },
       { id: "fleet-record", group: g, label: `Agents: record ${name}`, hint: "one HTML file that replays anywhere", run: () => void record(sel.key, true) },
     );
-    if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Agents: replay this session on the Cast canvas", hint: "the cards light up in the order they worked", run: () => void openReplay(sel.s.session_id, "local") });
+    if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Agents: replay this session on Live", hint: "drag the scrubber back, or Play", run: () => void replaySession(sel.s.session_id) });
     if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Agents: open this session's run", hint: "its lane on Live, or its report in History", run: () => openWorkerRun(String(sel.s.cwd || "")) });
   }
   for (const r of allAgents(s).filter((x) => isLive(x.a)).slice(0, 24))

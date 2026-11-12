@@ -4,8 +4,7 @@
 // `liveRows` is every live agent (and one that just finished) with what it is
 // doing right now; `useRolesLive` writes it into the store 120 ms after a
 // fleet change and once a second (a done sweep or a typing glow ages out).
-// While a canvas replay plays (routes/roles/Replay.tsx) the replay's agents
-// stand in for these; the live rows keep arriving underneath.
+// (3.4.1.0 R1: a replay plays on Agents -> Live, routes/agents/live/replay.ts, not on these cards.)
 import { useEffect } from "react";
 import { short } from "../orchestra/format";
 import { roles } from "../roles/store";

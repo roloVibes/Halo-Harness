@@ -1,0 +1,36 @@
+/* Time on Agents -> Live (3.4.1.0 R1, routes/agents/live/Scrubber.tsx, ReplaySave.tsx): the scrubber under the canvas --
+   its controls row, the axis (the phase bands in the 3.3.16.2 colours, one tick per mark, the head where it stands) under
+   a range input that takes the drag -- and the two dialogs' lists and fields. Tokens only. */
+.rlm > .scr { flex: none; }
+.rlm[data-replay] .pb-box, .rlm[data-replay] .pb-line, .rlm[data-replay] .pb-when { filter: grayscale(1); opacity: .8; } /* the plan's blocks, muted too */
+.scr { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px 8px; border-top: 1px solid var(--line); background: var(--surface); font-size: 12px; min-width: 0; }
+.scr-row { display: flex; align-items: center; gap: 8px; min-height: 28px; min-width: 0; flex-wrap: wrap; }
+.scr-speed button { min-width: 34px; }
+.scr-clock { white-space: nowrap; color: var(--text); }
+.scr-cost { white-space: nowrap; color: var(--muted); }
+.scr-title { min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.scr[data-mode="live"] { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; padding: 3px 10px; /* over the canvas's foot: Fit keeps its room */
+  background: color-mix(in srgb, var(--surface) 92%, transparent); }
+.scr-track { position: relative; height: 28px; min-width: 0; }
+.scr-row > .scr-track { flex: 1 1 240px; height: 22px; } /* the session running now: the axis in the one row */
+.scr-axis { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scr-band { fill: var(--line-strong); }
+.scr-band[data-phase="thinking"] { fill: var(--think); }
+.scr-band[data-phase="tool"] { fill: var(--accent); }
+.scr-band[data-phase="writing"] { fill: var(--ok); opacity: .7; }
+.scr-band[data-phase="waiting"] { fill: var(--warn); }
+.scr-mark { fill: var(--muted); }
+.scr-mark[data-kind="spawn"] { fill: var(--accent); }
+.scr-mark[data-kind="handoff"] { fill: var(--ok); }
+.scr-mark[data-kind="ask"] { fill: var(--warn); }
+.scr-mark[data-kind="fail"] { fill: var(--bad); }
+.scr-head { fill: var(--text); }
+.scr[data-mode="live"] .scr-head { fill: var(--accent); }
+.scr-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; opacity: 0; cursor: ew-resize; }
+.scr-range:focus-visible { opacity: .35; outline: 1px solid var(--accent); }
+.scr-note { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scr-holds { margin: 0 0 8px; padding-left: 18px; font-size: 12.5px; line-height: 19px; }
+.scr-range-fields { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; font-size: 12.5px; }
+.scr-range-fields .input { width: 84px; margin-left: 6px; }
+.lh-open { position: relative; overflow: hidden; cursor: pointer; }
+.lh-open input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

@@ -181,11 +181,10 @@ def register(test, json_of, chrome) -> None:
 
     @test
     def test_fleet_replay_scrubs_on_the_roles_canvas(ctx: Ctx):
-        """3.0.5.0 R4 (D12): the reviewer card's history row has "replay"; it
-        opens the scrub bar on the Roles canvas for the finished past session;
-        scrubbing lights the main card first, then the reviewer while it worked,
-        and at the end the reviewer is done; live updates wait meanwhile, and
-        closing the bar brings the live glow back."""
+        """3.0.5.0 R4 (D12); 3.4.1.0 R1 "Time": the reviewer card's history row has "replay"; it opens the finished
+        past session on Agents -> Live with the scrubber under the canvas (the one replay control); scrubbing draws
+        the main agent alone first, then the reviewer while it worked, and at the end the reviewer is done; the live
+        session is not drawn meanwhile, and Now brings it back."""
         if not chrome():
             raise SkipTest("no Chrome found (the Fleet test needs headless Chrome)")
         r, got = json_of("-m", "tests.helpers.studio_fleet", "panels")
@@ -193,7 +192,7 @@ def register(test, json_of, chrome) -> None:
         ctx.check(f"the history row's replay opens the bar, got {got.get('history_replay')} / {got.get('bar')!r}",
                   (got.get("history_replay") or 0) >= 1 and got.get("bar") == "fix the basket rounding")
         ctx.check(f"early only the main agent works, got {early}", early.get("lit") == "main" and early.get("reviewer") == "none")
-        ctx.check(f"midway the reviewer works too, got {mid}", mid.get("lit") == "main,reviewer" and mid.get("reviewer") == "typing")
+        ctx.check(f"midway the reviewer works too, got {mid}", mid.get("lit") == "main,reviewer" and mid.get("reviewer") == "running")
         ctx.check(f"at the end the reviewer is done, got {end}", end.get("t") == "600" and end.get("reviewer") == "done")
         ctx.check(f"live waits during the replay, back after it, got {got.get('ignores_live')} / {got.get('closed')}",
                   got.get("ignores_live") is True and got.get("closed") == "live again")

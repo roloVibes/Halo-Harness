@@ -1,0 +1,162 @@
+"""halo_harness.studio.replays_api -- Studio's `replays/*` routes (Halo 3.4.1.0 R1 "Time"): save a session's replay
+as one file, list and open saved ones, take one in from another machine, and film a clip of a range. Core: they read
+this machine's sessions and `<state>/replays/` only, with the fleet pack on or off. docs/REPLAY.md.
+
+    GET  replays                          {dir, replays: [row]}  newest first (live/replay_file.row)
+    GET  replays/plan?session=<sid>[&lineup=]   what Save would write, nothing written: {id, path, bytes, includes}
+    POST replays/save  {session, lineup?}       {ok, id, path, bytes, includes, row}
+    POST replays/import {text}                  a file chosen in History: checked, kept under replays/ -> {ok, id, path, row}
+    GET  replays/<id>                     the file's payload (format halo-replay, version 1)
+    GET  replays/<id>/clip?from&to&speed  what Export a clip would film and write, nothing written
+    POST replays/<id>/clip {from, to, speed}    films it (headless Chrome on this Studio) -> {ok, path, name, bytes, ...}
+    GET  replays/clips/<name>             the clip's bytes (image/webp or image/gif, attachment)
+"""
+
+from __future__ import annotations
+
+import json
+import re
+
+
+def _live_states(req, sid: str) -> dict:
+    try:
+        from halo_harness.studio.fleet_handoff_api import _find
+        _v, _h, s, _local = _find(req, "local", sid)
+    except Exception:
+        return {}
+    return {str(a.get("agent_id")): a.get("state") for a in (s or {}).get("agents") or []
+            if a.get("state") in ("running", "waiting", "paused", "queued")}
+
+
+def _build(req, sid: str, lineup):
+    from halo_harness.live import replay_file
+    try:
+        return replay_file.build(req.state_dir, sid, lineup=lineup or None, cwd=req.cwd, live_states=_live_states(req, sid)), None
+    except replay_file.ReplayError as e:
+        return None, (404, {"error": str(e)})
+
+
+def get_list(req):
+    from halo_harness.live import replay_file
+    return 200, {"dir": str(replay_file.replays_dir(req.state_dir)), "replays": replay_file.saved(req.state_dir)}
+
+
+def get_plan(req):
+    from halo_harness.live import replay_file
+    sid = str(req.query.get("session") or "").strip()
+    if not sid:
+        return 422, {"error": "name the session: ?session=<id>", "problems": []}
+    p, err = _build(req, sid, req.query.get("lineup"))
+    if err:
+        return err
+    path = replay_file.replays_dir(req.state_dir) / f"{p['id']}{replay_file.SUFFIX}"
+    return 200, {"id": p["id"], "path": str(path), "bytes": len(json.dumps(p, separators=(",", ":")).encode("utf-8")),
+                 "includes": p["includes"]}
+
+
+def post_save(req):
+    from halo_harness.live import replay_file
+    body = req.body if isinstance(req.body, dict) else {}
+    sid = str(body.get("session") or "").strip()
+    if not sid:
+        return 422, {"error": "name the session: {session: <id>}", "problems": []}
+    p, err = _build(req, sid, body.get("lineup"))
+    if err:
+        return err
+    path = replay_file.save(req.state_dir, p)
+    return 200, {"ok": True, "id": p["id"], "path": str(path), "bytes": path.stat().st_size, "includes": p["includes"],
+                 "row": replay_file.row(p, path)}
+
+
+def post_import(req):
+    from halo_harness.live import replay_file
+    body = req.body if isinstance(req.body, dict) else {}
+    text = body.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return 422, {"error": "send the file's text: {text: ...}", "problems": []}
+    if len(text) > replay_file.MAX_BYTES:
+        return 413, {"error": f"a replay is at most {replay_file.MAX_BYTES} bytes"}
+    try:
+        p = replay_file.parse(text)
+        path = replay_file.save(req.state_dir, p)
+    except replay_file.ReplayError as e:
+        return 422, {"error": str(e), "problems": []}
+    return 200, {"ok": True, "id": p["id"], "path": str(path), "row": replay_file.row(p, path), "includes": p.get("includes") or []}
+
+
+def get_one(req):
+    from halo_harness.live import replay_file
+    path = replay_file.path_for(req.state_dir, req.params["rid"])
+    if path is None:
+        return 404, {"error": f"no saved replay {req.params['rid']!r}"}
+    try:
+        return 200, replay_file.load(path)
+    except replay_file.ReplayError as e:
+        return 422, {"error": str(e)}
+
+
+def _num(v):
+    try:
+        return float(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def get_clip_plan(req):
+    from halo_harness.live import replay_clip, replay_file
+    rid = req.params["rid"]
+    path = replay_file.path_for(req.state_dir, rid)
+    if path is None:
+        return 404, {"error": f"no saved replay {rid!r}"}
+    q = req.query or {}
+    try:
+        p = replay_clip.plan(replay_file.load(path), _num(q.get("from")), _num(q.get("to")), _num(q.get("speed")))
+        kind = replay_clip.fmt()
+    except (replay_clip.ClipError, replay_file.ReplayError) as e:
+        return 422, {"error": str(e)}
+    p.pop("times", None)
+    out = replay_file.replays_dir(req.state_dir) / "clips" / f"{rid}-{int(p['from'])}-{int(p['to'])}.{kind}"
+    from halo_harness.live.clip_chrome import find_chrome
+    return 200, {**p, "format": kind, "path": str(out), "chrome": bool(find_chrome())}
+
+
+def post_clip(req):
+    from halo_harness.live import replay_clip, replay_file
+    body = req.body if isinstance(req.body, dict) else {}
+    base = f"http://127.0.0.1:{req.server.server_address[1]}"
+    try:
+        got = replay_clip.clip(req.state_dir, req.params["rid"], _num(body.get("from")), _num(body.get("to")),
+                               _num(body.get("speed")), cwd=req.cwd, studio=(base, req.server.token))
+    except (replay_clip.ClipError, replay_file.ReplayError, TimeoutError, RuntimeError) as e:
+        return 422, {"error": str(e)}
+    return 200, {**got, "url": f"replays/clips/{got['name']}"}
+
+
+def get_clip_file(req):
+    from halo_harness.live import replay_file
+    from halo_harness.studio.raw_body import RawBody
+    name = req.params["name"]
+    path = replay_file.replays_dir(req.state_dir) / "clips" / name
+    if not path.is_file():
+        return 404, {"error": f"no clip {name!r}"}
+    kind = "image/webp" if name.endswith(".webp") else "image/gif"
+    return 200, RawBody(path.read_bytes(), kind, {"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+_RID = r"(?P<rid>[A-Za-z0-9_.-]{1,120})"
+ROUTES = [("GET", r"^replays$", get_list), ("GET", r"^replays/plan$", get_plan), ("POST", r"^replays/save$", post_save),
+          ("POST", r"^replays/import$", post_import),
+          ("GET", r"^replays/clips/(?P<name>[A-Za-z0-9_.-]+\.(?:webp|gif))$", get_clip_file),
+          ("GET", rf"^replays/{_RID}/clip$", get_clip_plan), ("POST", rf"^replays/{_RID}/clip$", post_clip),
+          ("GET", rf"^replays/{_RID}$", get_one)]
+
+
+def dispatch_replays(req):
+    for method, pattern, fn in ROUTES:
+        m = re.match(pattern, req.path)
+        if m and method == req.method:
+            req.params = dict(m.groupdict())
+            return fn(req)
+    if any(re.match(p, req.path) for _, p, _ in ROUTES):
+        return 405, {"error": "method not allowed"}
+    return 404, {"error": f"no route for {req.method} /api/{req.path}"}

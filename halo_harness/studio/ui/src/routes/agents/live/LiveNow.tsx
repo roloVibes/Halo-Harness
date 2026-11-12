@@ -3,6 +3,7 @@
 // with the wait's running seconds and the session's elapsed time beside it (they tick; the sentence does not). Hover: a
 // row per block or group (its agents, their state, models and cost). A click centres the agent the session waits on.
 // Nothing when nothing runs (the empty state says it).
+import { useMemo } from "react";
 import { useHover } from "../../../lib/hover/useHover";
 import { HoverBody } from "../../../lib/hover/HoverBody";
 import type { LiveNode } from "../../roles/liveModel";
@@ -10,6 +11,8 @@ import { narrate } from "./narrate";
 import type { PlanGeometry } from "./planLayout";
 import { useWaits } from "./useWaits";
 import { secsWords } from "./waits";
+import { useLiveReplay } from "./replay";
+import { waitsAt } from "./timeline";
 
 /** Scroll the canvas so the node of `id` sits in its middle. */
 export function centreNode(id: string): boolean {
@@ -22,20 +25,23 @@ export function centreNode(id: string): boolean {
 
 type Props = { nodes: LiveNode[]; now: number; on: boolean; plan: PlanGeometry | null };
 
-export function LiveNow({ nodes, now, on, plan }: Props) {
-  const { waits, path } = useWaits(nodes, now, on);
+export function LiveNow({ nodes, now: wall, on, plan }: Props) {
+  const r = useLiveReplay(); // 3.4.1.0 R1: a replay's sentence is rebuilt at the scrubber's moment from its axis
+  const now = r ? r.t * 1000 : wall;
+  const fixed = useMemo(() => (r && !r.tl.coarse ? waitsAt(r.tl, nodes, r.t) : null), [r, nodes]);
+  const { waits, path } = useWaits(nodes, now, on && (!r || !!fixed), fixed);
   const block = new Map<string, string>();
   for (const b of plan?.blocks || []) for (const m of b.members) block.set(m.id, b.def.title);
   const where = (n: LiveNode) => (plan ? block.get(n.id) || "" : n.group?.title || "");
   const s = narrate(nodes, waits, path, where);
   const hv = useHover("group", "live-narration", () => <HoverBody title="What is going on now" is="Each block or group: its agents at work, what waits on you, their models and what they cost." rows={s.rows} foot="A click centres the agent the session waits on" />, on && !!s.text);
-  if (!on || !s.text) return null;
+  if (!on || !s.text || (r && !fixed)) return null;
   const secs = s.waitText && path.wait ? secsWords(path.wait.since, now) : "";
   const started = Math.min(...nodes.map((n) => n.started || Infinity));
   const mins = isFinite(started) ? Math.floor(Math.max(0, now / 1000 - started) / 60) : null;
   const leaf = path.leaf;
   return (
-    <div className="lv-narr mono" role="button" tabIndex={0} data-density="bar" data-testid="live-narration" data-text={s.text} data-wait={path.wait?.kind || undefined}
+    <div className="lv-narr mono" role="button" tabIndex={0} data-density="bar" data-testid="live-narration" data-text={s.text} data-wait={path.wait?.kind || undefined} data-replay={r ? "at" : undefined}
          data-leaf={leaf ? leaf.key.split("|").slice(2).join("|") || leaf.id : undefined}
          onClick={() => leaf && centreNode(leaf.key.split("|").slice(2).join("|") || leaf.id)}
          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && leaf && (e.preventDefault(), centreNode(leaf.key.split("|").slice(2).join("|") || leaf.id))}

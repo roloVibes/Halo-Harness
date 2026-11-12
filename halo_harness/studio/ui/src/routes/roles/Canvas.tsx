@@ -38,7 +38,6 @@ import { BlockLayer, useSquareBlocks } from "../agents/blocks/BlockLayer"; // 3.
 import { clearBlock } from "../agents/blocks/blockState";
 import { BlockOverlay } from "../agents/blocks/BlockOverlay"; import { targetAt } from "../agents/blocks/drag"; import { useBlockKeys, useHotTarget } from "../agents/blocks/keyMove"; import { offerJoin } from "../agents/blocks/opsSquare"; // 3.3.16.3: the composing
 import { cardActivity, selectCard, useByNode } from "./live";
-import { ReplayBar } from "./Replay";
 import { openDialog, roles, useRoles } from "./store";
 import { movePositions, setCollapsed } from "./sync";
 import type { Pos } from "./types";
@@ -56,7 +55,6 @@ export function CanvasDetail() {
   const findings = useRoles((s) => s.findings);
   const name = useRoles((s) => s.name);
   const loaded = useRoles((s) => s.loaded);
-  const replaying = useRoles((s) => !!s.replay);
   const liveView = useRoles((s) => s.canvasView === "live"); // 3.3.11.0 R2: Plan | Live (LiveMap.tsx)
   const byNode = useByNode();
   useEffect(() => startGlow(), []);
@@ -209,7 +207,7 @@ export function CanvasDetail() {
   if (!loaded) return null; // 3.3.2.0 R3: the section's own wait says it while it reads (RolesView)
   if (!graph || !name) return <NoLineup />;
   return (
-    <div className="rc" data-testid="roles-canvas" data-lineup={name} data-replaying={replaying || undefined}>
+    <div className="rc" data-testid="roles-canvas" data-lineup={name}>
       <CanvasBar zoom={zoom} setZoom={setZoom} fit={fit} layout={layout} />
       <div className="rc-scroll" ref={scroll} tabIndex={0} onKeyDown={onKey} onDragOver={onDragOver} onDrop={onDrop} onScroll={hideLegend}
            onPointerDown={(e) => (e.target === e.currentTarget || (e.target as HTMLElement).matches?.(".rc-world, .rc-inner")) && (roles.update(() => ({ sel: "" })), clearBlock())} aria-label="Roles canvas: the lineup's cards in their tier boxes">
@@ -232,7 +230,6 @@ export function CanvasDetail() {
           {!graph.nodes.length && <CanvasInvite />}
         </div>
       </div>
-      <ReplayBar />
       <GlowLegend />
       <TierMenu />
       <BlockOverlay />

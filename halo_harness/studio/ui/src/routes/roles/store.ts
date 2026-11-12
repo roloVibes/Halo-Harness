@@ -9,7 +9,7 @@
 import { urlDoor } from "../../lib/agentsDoor";
 import { createStore, useStore } from "../../lib/store";
 import type {
-  Analysis, BioPayload, BioRow, Finding, Graph, GymScore, HistoryRun, LineupPayload, LineupRow, LiveAgent, ModelRow, ModelsStatus, Pos, Probe, Raw, Replay, RolesDialog, StateInfo,
+  Analysis, BioPayload, BioRow, Finding, Graph, GymScore, HistoryRun, LineupPayload, LineupRow, LiveAgent, ModelRow, ModelsStatus, Pos, Probe, Raw, RolesDialog, StateInfo,
 } from "./types";
 
 export type InspectorTab = "assignment" | "lineup" | "live";
@@ -66,7 +66,6 @@ export type RolesState = {
   ended: LiveAgent[];
   watched: string;
   liveSub: LiveSub;
-  replay: Replay | null;
   history: { card: string; runs: HistoryRun[] | null; error: string };
   /** 3.1.1.0 R3: an edit target being opened (shell/edit.ts); the active lineup does not open over it. */
   editing: string;
@@ -141,7 +140,6 @@ export const roles = createStore<RolesState>({
   ended: [],
   watched: "",
   liveSub: "thinking",
-  replay: null,
   history: { card: "", runs: null, error: "" },
   editing: "",
   modelFocus: "",
