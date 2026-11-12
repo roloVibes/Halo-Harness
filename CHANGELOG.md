@@ -81,8 +81,6 @@ a member. The 2026-11-12 security review's findings, each with its test.
 - **PACKS-7.** A hostile `.halo-replay` file cannot crash an import or the CLI (deep nesting is refused), carries no
   terminal escape sequences into `halo replay` or `halo report`, and never replaces a replay you saved.
 
-### Privacy` (the coordinator merges them into CHANGELOG.md)
-
 ### Privacy
 
 - **The pre-push gate checks names again.** `scripts/prepush.py` runs `halo audit privacy` in a scratch home, so it
