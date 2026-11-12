@@ -10,7 +10,8 @@ tile left with Design for the design pack; 3.3.16.0 R1: Team, Roles and Orchestr
 from `tools/capture_studio.py --mode agents`; 3.3.16.0 R2: the Fleet tile left with the section, Local moved up to Alt 3),
 with a section label over each and the key that switches to it (Alt+1 .. Alt+6). Pure Pillow, no fonts fetched: the label uses the default
 bitmap font scaled up, so the file is identical on every machine with the
-same inputs.
+same inputs and the same Pillow. 3.4.1.0 R6: `--check` asks for the same size and the same pixels within a stated
+tolerance (`matches`), since two Pillow versions draw the labels' text a few levels apart.
 
     python tools/studio_modes_banner.py            # writes docs/media/studio-modes.png
     python tools/studio_modes_banner.py --check    # exits 1 when the file is stale
@@ -21,7 +22,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 REPO = Path(__file__).resolve().parent.parent
 MEDIA = REPO / "docs" / "media"
@@ -45,6 +46,8 @@ ACCENT = (137, 180, 250)
 INK = (205, 214, 244)
 MUTED = (147, 153, 178)
 RADIUS = 14
+TOLERANCE = 16          # 3.4.1.0 R6 (`matches`): no channel off by more than this many levels ...
+MAX_SHARE = 0.001       # ... on at most this share of the pixels (0.1 %)
 
 
 def _font(size: int) -> ImageFont.ImageFont:
@@ -94,15 +97,27 @@ def build() -> Image.Image:
     return canvas
 
 
+def matches(fresh: Image.Image, current: Image.Image) -> "tuple[bool, str]":
+    """Whether `current` is the banner `fresh` renders: the same size and, pixel by pixel, the same within TOLERANCE
+    levels on at most MAX_SHARE of the pixels. Pillow 10.2 and 13.0 draw the labels' text apart by 4 levels at most, on
+    42 of the 1.79 M pixels; a banner from another capture, or the tiles in another order, is off on a whole tile."""
+    if current.size != fresh.size:
+        return False, f"its size is {current.size}, the captures make {fresh.size}"
+    r, g, b = ImageChops.difference(fresh.convert("RGB"), current.convert("RGB")).split()
+    hist = ImageChops.lighter(ImageChops.lighter(r, g), b).histogram()  # each pixel's largest channel difference
+    off, top = sum(hist[1:]), max((i for i, n in enumerate(hist) if n), default=0)
+    share = off / (fresh.width * fresh.height)
+    return top <= TOLERANCE and share <= MAX_SHARE, f"{off} pixels differ ({share:.4%}), by {top} levels at most"
+
+
 def main(argv: list[str]) -> int:
     im = build()
     if "--check" in argv:
         if not OUT.exists():
             print(f"missing: {OUT}")
             return 1
-        current = Image.open(OUT).convert("RGB")
-        same = current.size == im.size and current.tobytes() == im.tobytes()
-        print("up to date" if same else "stale: re-run tools/studio_modes_banner.py")
+        same, why = matches(im, Image.open(OUT))
+        print(f"up to date ({why})" if same else f"stale: re-run tools/studio_modes_banner.py ({why})")
         return 0 if same else 1
     OUT.parent.mkdir(parents=True, exist_ok=True)
     im.save(OUT, optimize=True)

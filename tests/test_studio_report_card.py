@@ -66,6 +66,8 @@ def test_sessions_bar_says_its_permission_mode(ctx: Ctx):
     ctx.check(f"one small word: {got.get('word')} {got.get('text')!r}", got.get("word") == "auto" and got.get("text") == "auto")
     ctx.check(f"its meaning on hover: {got.get('title')!r}", "every call runs except your own deny and ask rules" in str(got.get("title")))
     ctx.check(f"it follows a change: {got.get('after')!r}", got.get("after") == "plan")
+    ctx.check(f"3.4.1.0 R6: the mode moved before any frame of the session reached Studio: the page's first word is the "
+              f"registry's, got {got.get('first_after')!r}", got.get("first_after") == "plan")
 
 
 if __name__ == "__main__":

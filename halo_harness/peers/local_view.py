@@ -29,6 +29,10 @@ from its transcript's usage lines by fleet/agent_tokens.py.)
 `snapshot()` keeps its answer CACHE_S; `forget()` drops it (3.1.8.0 R6:
 studio/events.py calls it on a local session's turn_done, message_end and
 status frame, so a GET right after one never answers from before it).
+3.4.1.0 R6: a kept answer is also from before any write of the registry
+(sessions.json's mtime and size are part of the key): a mode or title that
+changed there is in the next GET even when no frame said so (the session's
+feed not attached yet, its status frame landing late).
 """
 
 from __future__ import annotations
@@ -143,15 +147,26 @@ def forget() -> None:
         _gen[0] += 1
 
 
+def _registry_sig():
+    """sessions.json as it is on disk now (mtime, size), or None when it cannot be read."""
+    try:
+        from halo_harness.remote.registry import registry_path
+        st = registry_path().stat()
+        return (st.st_mtime_ns, st.st_size)
+    except Exception:
+        return None
+
+
 def snapshot(list_live: Optional[Callable] = None) -> dict:
     now = time.monotonic()
+    sig = _registry_sig() if list_live is None else None  # read BEFORE the rows: a write while they are read re-reads
     with _lock:
         hit, gen = _cache.get("local"), _gen[0]
-    if list_live is None and hit is not None and now - hit[0] < CACHE_S:
+    if list_live is None and hit is not None and now - hit[0] < CACHE_S and hit[2] == sig:
         return hit[1]
     entry = harness_entry(sessions(list_live))
     if list_live is None:
         with _lock:
             if _gen[0] == gen:
-                _cache["local"] = (now, entry)
+                _cache["local"] = (now, entry, sig)
     return entry

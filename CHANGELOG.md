@@ -234,9 +234,19 @@ The candidate passed on the Windows PC and was red on both GitHub runners; each 
   (OpenProcess + GetExitCodeProcess), and this process's own rows at once.
 - CI installs Pillow (`requirements-ci.in`, hash-locked in `requirements-ci.lock`), so both runners encode a clip; the
   no-Pillow path is tested on every box by hiding Pillow (`tests/helpers/no_pillow.py`).
+- **Session's mode word follows the registry whatever order things land in.** GET fleet answered a snapshot from
+  before the registry moved (its 1 s cache was dropped only by a session frame, and the mode can move before the
+  session's feed reaches Studio): the registry file is part of the cache's key now (`peers/local_view.py`). On the page
+  (`routes/fleet/modeOrder.ts`), a status frame older than one already applied never puts its mode back, and an answer
+  asked before the newest status frame landed keeps that frame's mode; one asked after it wins.
+- `tools/studio_modes_banner.py --check` asks for the same size and the same pixels within 16 levels on at most 0.1 %
+  of them (`matches`): Pillow 13.0 draws the labels 42 pixels apart from 10.2 (4 levels at most), and the byte
+  comparison called the banner stale on CI once CI had Pillow; another capture or another tile order is still stale.
+- Tests: a node test that runs a `.ts` module skips on a node built without TypeScript (Debian's).
 - Tests: a "nothing opens on load" check names the card that opened, where the pointer rests and the box under it; the
   mode word's driver says the page's word and the registry's rows when it times out; `tests/test_studio_rebind.py`,
-  `tests/test_replay_clip_pillow.py`; the registry's slow-`tasklist` pin.
+  `tests/test_replay_clip_pillow.py`, `tests/test_studio_mode_order.py`, `tests/test_studio_modes_banner_check.py`; the
+  registry's slow-`tasklist` pin; the report card's mode step holds the session's feed until the page has read its word.
 
 #### Docs
 

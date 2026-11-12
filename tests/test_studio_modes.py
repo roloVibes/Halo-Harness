@@ -125,7 +125,7 @@ def test_setup_is_the_banners_fifth_frame_and_has_its_doors(ctx: Ctx):
     sys.path.insert(0, str(REPO_DIR / "tools"))
     try:
         import studio_modes_banner as B
-    except ModuleNotFoundError as e:  # the banner tool draws with Pillow, an optional extra CI does not install
+    except ModuleNotFoundError as e:  # the banner tool draws with Pillow, an optional extra (CI installs it since 3.4.1.0 R6)
         raise SkipTest(f"the banner tool needs {e.name} (pip install Pillow)")
     ctx.check(f"six frames, Agents on Alt 2, Local on Alt 3, Setup on Alt 5 and Settings last on Alt 6 (3.3.16.0 R2), got {[f[1] for f in B.FRAMES]}",
               len(B.FRAMES) == 6 and B.FRAMES[1][:3] == ("studio-agents.png", "Agents", "Alt 2") and B.FRAMES[2][:3] == ("studio-local.png", "Local", "Alt 3")

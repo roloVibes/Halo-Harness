@@ -166,6 +166,48 @@ def test_only_a_local_session_drops_the_snapshot_and_a_read_during_forget_is_not
 
 
 @test
+def test_a_registry_change_is_in_the_next_snapshot_with_no_frame(ctx: Ctx):
+    """3.4.1.0 R6 (the Windows runner): the mode moved in the registry before the session's feed was attached, so no
+    frame dropped the warm snapshot and GET fleet answered the old word; the page kept it. The registry file is part of
+    the snapshot's key now."""
+    import os
+    import socket
+    import tempfile
+    from halo_harness.peers import local_view
+    from halo_harness.remote import registry
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="halo-lv-sig-")
+    os.environ.pop("BRIDGE_STATE_DIR", None)
+    lst = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    lst.bind(("127.0.0.1", 0))
+    lst.listen(8)
+
+    def serve() -> None:  # a session's socket that answers nothing: each probe connects and is closed
+        try:
+            while True:
+                lst.accept()[0].close()
+        except OSError:
+            return
+    threading.Thread(target=serve, daemon=True).start()
+    keep = local_view.CACHE_S
+    local_view.CACHE_S = 30.0  # a warm snapshot would be served for 30 s unless the registry's change drops it
+    try:
+        local_view.forget()
+        registry.register(registry.make_entry(session_id="s-sig", cwd="/w", endpoint=f"tcp:127.0.0.1:{lst.getsockname()[1]}",
+                                              mode="auto", title="the mode word"))
+        modes = lambda: [s.get("mode") for s in local_view.snapshot().get("sessions") or [] if s["session_id"] == "s-sig"]  # noqa: E731
+        ctx.check(f"the first snapshot says auto, got {modes()}", modes() == ["auto"])
+        registry.update("s-sig", mode="plan")
+        ctx.check(f"the registry moved to plan with no frame: the next snapshot says plan, got {modes()}", modes() == ["plan"])
+    finally:
+        local_view.CACHE_S = keep
+        local_view.forget()
+        lst.close()
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
+@test
 def test_a_quiet_change_goes_out_when_the_window_ends(ctx: Ctx):
     from types import SimpleNamespace
     from halo_harness.agent.agent_registry import QUIET_S, AgentTree

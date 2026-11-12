@@ -149,8 +149,8 @@ def test_lives_sentence_counts_a_members_session_once(ctx: Ctx):
     js = f"const m = await import({(ui / 'spend.ts').resolve().as_uri()!r}); console.log(JSON.stringify(m.liveSpend({json.dumps(nodes)})))"
     r = subprocess.run([node, "--experimental-strip-types", "--no-warnings", "--input-type=module", "-e", js],
                        capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    if r.returncode != 0 and "strip-types" in (r.stderr or ""):
-        raise SkipTest("this node cannot run a .ts module")
+    if r.returncode != 0 and ("strip-types" in (r.stderr or "") or "ERR_NO_TYPESCRIPT" in (r.stderr or "")):
+        raise SkipTest("this node cannot run a .ts module")  # 3.4.1.0 R6: Debian's node is built without TypeScript
     got = json.loads((r.stdout or "null").strip().splitlines()[-1]) if r.returncode == 0 else r.stderr
     ctx.check(f"a machine, a session, its agent and a part: the agent's $0.0075 once, got {got}", _near(got, 0.0075))
 

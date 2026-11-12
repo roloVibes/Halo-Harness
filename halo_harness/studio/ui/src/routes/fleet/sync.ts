@@ -25,7 +25,7 @@ import { startCaps } from "./caps";
 import { startMissions } from "./mload";
 import { startPanels } from "./pload";
 import { agentWith, FIGURE_KINDS, figuresOf, ownFrame, withFigures } from "./figures";
-import { keepFresh, noteFigures, noteFrame } from "./fresh";
+import { keepFresh, noteFigures, noteFrame, noteMode } from "./fresh";
 import { append, rawEntry } from "./streams";
 import { fleet, keyOf, localId, type FleetState } from "./store";
 import type { AgentRow, FleetView, Harness, SessionRow } from "./types";
@@ -135,9 +135,10 @@ function onFigures(f: FeedFrame): void {
   const sid = String(f.session_id || "");
   if (!sid || !ownFrame(f)) return;
   const fig = figuresOf(f);
-  if (!Object.keys(fig).length) return;
   const s = fleet.get();
   const h = hid(f, s);
+  if (fig.mode && !noteMode(h, sid, fig.mode, Number(f.ts))) delete fig.mode; // 3.4.1.0 R6: an older frame's mode
+  if (!Object.keys(fig).length) return;
   const harnesses = mapSession(s, h, sid, (ss) => withFigures(ss, fig));
   if (!harnesses) {
     later("load", 300, () => void load());

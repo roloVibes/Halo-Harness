@@ -14,7 +14,10 @@
 //   frame's phase as busy unless the answer says an ask waits.
 // sync.ts notes each frame (`noteFrame`, `noteFigures`) and merges each
 // answer (`keepFresh`).
+// 3.4.1.0 R6: a session's permission mode follows modeOrder.ts (`noteMode`; an answer asked before the newest
+// status frame landed keeps that frame's mode, an older frame never puts its mode back).
 import { agentWith, keepFigures } from "./figures";
+import { answerMode, frameMode, type ModeSeen } from "./modeOrder";
 import { keyOf } from "./store";
 import type { AgentKey, AgentRow, Harness, SessionRow } from "./types";
 
@@ -34,6 +37,28 @@ export function noteFigures(h: string, sid: string, busy?: boolean, at = Date.no
   if (typeof busy === "boolean") phaseAt.set(`${h}|${sid}`, { at, busy });
 }
 
+const modeSeen = new Map<string, ModeSeen>();
+
+/** A status frame's mode (its session's own `ts`, s): true when it applies, false when an older frame than one applied. */
+export function noteMode(h: string, sid: string, mode: string, ts: number, at = Date.now()): boolean {
+  const k = `${h}|${sid}`;
+  const r = frameMode(modeSeen.get(k), mode, ts, at);
+  if (r.seen) modeSeen.set(k, r.seen);
+  return r.apply;
+}
+
+/** Each session's mode in an answer asked at `asked`: the newest frame's when it landed after the ask. */
+function withModes(next: Harness[], asked: number): Harness[] {
+  if (!modeSeen.size) return next;
+  return next.map((h) => ({
+    ...h,
+    sessions: (h.sessions || []).map((s) => {
+      const m = answerMode(s.mode, modeSeen.get(`${h.id}|${s.session_id}`), asked);
+      return m === s.mode ? s : { ...s, mode: m };
+    }),
+  }));
+}
+
 const further = (a: AgentRow, b: AgentRow) => (STAGE[String(a.state)] ?? 1) > (STAGE[String(b.state)] ?? 1);
 
 function freshSessions(prev: Harness[], asked: number): Map<string, { had: SessionRow; phase: boolean | null }> {
@@ -49,7 +74,8 @@ function freshSessions(prev: Harness[], asked: number): Map<string, { had: Sessi
 }
 
 /** `next` (a GET fleet answer asked for at `asked`) with the rows and figures frames changed since it may have been read. */
-export function keepFresh(prev: Harness[], next: Harness[], asked: number): Harness[] {
+export function keepFresh(prev: Harness[], answer: Harness[], asked: number): Harness[] {
+  const next = withModes(answer, asked);
   const fresh = new Map<AgentKey, AgentRow>();
   for (const h of prev)
     for (const s of h.sessions || [])

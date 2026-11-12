@@ -10,7 +10,8 @@ Chrome on the driver base, over a scratch home with two ended sessions and a fin
 fixer's file, what the record cannot show, Copy on; Back; the goal run's Report: its report page with the card as its
 FIRST block, before the plan and its lanes.
 `mode`: a real Controller behind its control socket, registered in auto mode: Session's bar says "auto" with its meaning
-on hover; set to plan (the session and its registry row), the page says "plan".
+on hover; set to plan (the session and its registry row) while its feed is held from Studio (3.4.1.0 R6), the
+page's first word after a reload is "plan".
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called.
 """
 from __future__ import annotations
@@ -112,6 +113,25 @@ class _Session:
 
 
 def mode(c, page) -> dict:
+    """3.4.1.0 R6: the session's feed is held (Studio's bridge attaches it only after the page has read its new word),
+    the order the Windows runner showed: the mode moves before any frame of the session reaches Studio, so the page
+    has GET fleet alone, and GET fleet must say the registry's word at once (it answered a snapshot from before)."""
+    import threading
+    from halo_harness.studio import events
+    gate, real = threading.Event(), events.EventBridge._pump
+
+    def held(bridge, entry, stop):
+        gate.wait(90)
+        return real(bridge, entry, stop)
+    events.EventBridge._pump = held
+    try:
+        return _mode(c, page, gate)
+    finally:
+        gate.set()
+        events.EventBridge._pump = real
+
+
+def _mode(c, page, gate) -> dict:
     from halo_harness.remote.registry import update
     with _Session("auto") as s:
         open_page(c, page, "mode=session")
@@ -119,6 +139,8 @@ def mode(c, page) -> dict:
         s.handle.set_mode("plan")  # the session's own mode (its status frames say it) and the registry's (runtime.py's tap)
         update(s.handle.session_id, mode="plan")
         open_page(c, page, "mode=session")
+        out["first_after"] = c.wait(f"{MODE}?.dataset.mode", 40)  # the first word the new page shows
+        gate.set()
         try:
             out["after"] = c.wait(f"{MODE}?.dataset.mode === 'plan' && {MODE}.textContent", 40)
         except TimeoutError as e:  # 3.4.1.0 R6: say what the page and the registry held, not only that it waited
