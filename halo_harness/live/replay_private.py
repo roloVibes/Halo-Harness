@@ -62,7 +62,7 @@ def _rule(path: str, short: str, long: str, mark: bool = False):
 
 
 def _short_paths(homes: list) -> list:
-    """Windows 8.3 spellings of each home (`C:\\Users\\JSMITH~1`), when the file system has them."""
+    """Windows 8.3 spellings of each home (the `NAME~1` form of the user folder), when the file system has them."""
     if os.name != "nt":
         return []
     out = []

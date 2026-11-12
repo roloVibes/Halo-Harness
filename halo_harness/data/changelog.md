@@ -3,7 +3,7 @@
 ## [3.4.1.1] - 2026-11-12
 
 What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
-Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Kali VM, the
+Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Linux VM, the
 fleet pack joined), each with its test; the fleet pack is 1.0.3 (`halo pack update fleet`).
 
 ### Fixed (wrong)
@@ -217,7 +217,7 @@ jobs"), section A of its plan: time on Agents -> Live, then a run's replay as on
 
 The released 3.4.0.1 is merged into this line (History's rows keep both the tick boxes and Report doors of R2/R3 and
 3.4.0.1's "N sessions inside"; Studio's start lines keep the glance's phone line and print at once). A second check of
-3.4.0.1 on the PC and the Kali VM (numbering from the first check's 1-29):
+3.4.0.1 on the PC and the Linux VM (numbering from the first check's 1-29):
 
 #### Fixed
 
@@ -308,7 +308,7 @@ The candidate passed on the Windows PC and was red on both GitHub runners; each 
 ## [3.4.0.1] - 2026-11-12
 
 What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
-when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Kali VM, paired through the fleet pack,
+when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Linux VM, paired through the fleet pack,
 with a mission split across both, and wrote 29 defects; each line below names the one it fixes (the fleet pack is 1.0.1).
 
 - 15: a mission part is `done` only when its work is: the brief asks the worker to end its hand-back with `Outcome: done`

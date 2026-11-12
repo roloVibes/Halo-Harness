@@ -31,6 +31,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 USER, MACHINE = "jsmithersen", "DESKTOP-JS42"
+SHORT_HOME = "C:" + chr(92) + "Users" + chr(92) + USER[:6].upper() + "~1"  # built, so the tree holds no home-path literal
 HOME = "C:\\Users\\" + USER
 NIX = "/home/" + USER
 ENV_SECRET = "Zq9-swordfish-Kx7-ENVVALUE-41"
@@ -75,7 +76,7 @@ def test_packs5_servers6_every_spelling_in_the_findings(ctx: Ctx):
         "dotdot": "..\\..\\Users\\" + USER + "\\.ssh\\id_rsa",
         "machine_in_url": "http://" + MACHINE + ":8765/api",
         "user_in_url_path": "https://example.com/u/" + USER + "/x",
-        "short_name": "C:\\Users\\JSMITH~1\\AppData\\Local\\Temp\\a.txt",
+        "short_name": SHORT_HOME + "\\AppData\\Local\\Temp\\a.txt",
         "user_at_host": "ssh " + USER + "@" + MACHINE + ":/srv/x then open http://" + MACHINE + ":8188/view",
         "launch": "http://127.0.0.1:8765/?mode=session#t=" + TOKENS["launch"],
         "pack_key": "http://127.0.0.1:8765/api/packs/design/raw/a.png?k=" + TOKENS["launch"],
@@ -144,7 +145,7 @@ SUFFIX = ["", ".", ",", ")", ":8080/x", "/sub/file.txt", "\\file.txt", "_notes",
 def test_packs5_generator_finds_no_leak(ctx: Ctx):
     rng = random.Random(3412)
     seeds = [USER, MACHINE, HOME, HOME + "\\.ssh\\id_rsa", NIX + "/x", ENV_SECRET, *TOKENS.values(),
-             "C:\\Users\\JSMITH~1\\x", USER + "@" + MACHINE, "\\\\?\\" + HOME + "\\x", "/mnt/c/Users/" + USER + "/x",
+             SHORT_HOME + "\\x", USER + "@" + MACHINE, "\\\\?\\" + HOME + "\\x", "/mnt/c/Users/" + USER + "/x",
              "/c/Users/" + USER + "/x", USER + "_" + MACHINE, "\\\\" + MACHINE + "\\share\\" + USER]
     leaked, n = [], 0
     for seed in seeds:

@@ -58,5 +58,3 @@ s3cretpw@db.internal
 token@github.com
 secret@github.com
 tok-123@github.com
-# 3.4.1.2: the fake 8.3 short name of a made-up home in the redaction tests (tests/test_privacy_redact.py, live/replay_private.py docstring)
-JSMITH

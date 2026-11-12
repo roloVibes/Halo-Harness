@@ -12,10 +12,10 @@ reachable from HEAD counts as new. Nothing here prints an address or a term in f
 """
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 from halo_harness import privacy_rules as rules
+from halo_harness import subprocess_safe as subprocess
 
 _SEP, _END = "\x1f", "\x1e"
 
