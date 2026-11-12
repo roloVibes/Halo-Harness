@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.4.0.0] - unreleased
+## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and
 policy, the providers in use here (OpenRouter, Databricks, Anthropic, OpenAI-compatible, Ollama, Hugging Face and the

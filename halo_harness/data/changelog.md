@@ -1,5 +1,435 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.4.0.0] - 2026-11-11
+
+**Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and
+policy, the providers in use here (OpenRouter, Databricks, Anthropic, OpenAI-compatible, Ollama, Hugging Face and the
+local servers), all the local-model work, lineups and blocks, Studio's Session, Agents, Local, Packs, Setup and
+Settings, and the pack system. Experimental features that mask that core leave it, as packs where that is cheap and
+as plain removals where nothing is left to pack; the measure is lines and files after versus before.
+
+### A: Typesafe leaves the core
+
+TypeSafe was a key-only placeholder: it stored `TYPESAFE_API_KEY`, had no `ts:` route, no adapter and no models, and
+the usage audit found no call. With nothing to move, it is removed rather than packed.
+
+#### Removed
+
+- The `typesafe` provider: its entry in `PROVIDER_NAMES`, `LABELS` and `PREFIXES` and its `credentials_present` /
+  `credentials_source` branches (`providers/enablement.py`); the "not probed (stores a key only)" reachability branch
+  (`providers/reachability.py`); its `_model_count` and `halo providers setup typesafe` branches (`providers_cli.py`).
+  Replaced by nothing: `halo providers`, `/providers`, `halo balances` / `/balances` and `halo doctor`'s enabled count
+  list six providers.
+- The TypeSafe tab of `halo init` and the init wizard (`init_providers.py`: `TAB_PROVIDERS`, `TAB_LABEL`, the
+  `tab_credential_state` branch, `_TAB_KEY_ENV`; the tab help in `tui/dialogs/init_tabs.py` and `init_wizard.py`) and
+  Studio Setup's TypeSafe card (`studio/setup_providers_state.py`: `KEY_FIELDS` and the `_secret` branch).
+- `halo bugreport`'s TypeSafe line (`bugreport.py`).
+- `TYPESAFE_API_KEY` from `redact.py`'s named list (the generic `*_API_KEY` rule still redacts it).
+- Verbs: `halo providers enable | disable | setup typesafe` and `/providers enable | disable typesafe` (each now says
+  the one line below). Keys: `TYPESAFE_API_KEY` (env file, shell, settings env block) and `providers.typesafe` in
+  config.json, both ignored. Files: none was TypeSafe's own. halo_harness/ outside templates/: 2003 files and 328,429
+  lines before, 2004 files and 328,465 lines after (99 lines out of 17 core files; 65 lines in for
+  `providers/left_core.py`, the module that says what left).
+
+#### Added
+
+- `providers/left_core.py`: what left the core and the one line each leftover gets, never an error -- a `ts:` ref
+  (a `--model`, `/model`, a remembered model, a lineup card or a Studio card: "no route: 'ts:...' (ts: typesafe
+  (TypeSafe) left the core in 3.4.0.0: ...)"), a leftover `TYPESAFE_API_KEY` or `providers.typesafe` row (one
+  `[WARN]` row in `halo doctor`, one line under `halo providers`), `halo providers enable typesafe` (the line, exit 1;
+  `disable`, exit 0). The `cc:` / `cx:` line of 3.1.5.0 moved there with its words unchanged. A leftover key stays
+  stripped from tool children (`providers/config.py`): it is a secret wherever it came from.
+- `tests/test_providers_left_core.py` pins each leftover line and that nothing is said when nothing is left over.
+
+#### Docs
+
+- COMMANDS-providers.md, COMMANDS-health.md, SLASH-COMMANDS-providers.md, MODELS-references.md (the prefix table),
+  STUDIO-setup.md, HANDBOOK.md, MODELS-openai-codex.md and the glossary's "provider" no longer list TypeSafe and say
+  where a leftover is named; `docs/screenshots/balances.svg` is re-rendered by `scripts/screenshots.py` (six
+  providers). MODELS-experiential.md keeps `or:typesafe/jev-router` (an OpenRouter model) and the
+  research notes under docs/harness/ stay as history.
+
+### B: the experiments leave the core
+
+The owner (2026-11-10): "being able to define what halo harness is makes it stronger. All these experimental features
+can be packs." This block is F4 and F7 of the Focus plan (plans/ROADMAP.md); what it moved and removed is below, each
+with what replaces it. A leftover of a removed feature is ignored, never an error.
+
+#### Removed
+
+- **The team file and `halo team`** (3.0.8.0; removed, not packed: Team's board left Studio in 3.3.16.0 and nothing
+  used the file). `halo team ...` now answers one line: the team file left in 3.4.0.0, a lineup's tiers and blocks
+  (Agents -> Cast, `halo teams`) and a run's lanes with their owns lines (Agents -> Runs, `halo orchestra`) do its job.
+  LINEUPS are untouched: `halo teams`, `teams_yaml.py`, `~/.halo/teams/*.yaml`, a lineup's tiers, routing, budget and
+  pipeline, and `team_config.py` (the Databricks `team.json` preset, which is not the team file). Gone:
+  - modules `halo_harness/team/` (spec, validate, validate_stages, resolve, blocks, board, stages, gate_actions,
+    triggers, run, run_stage, parallel, remote_stage, budget, guard, delegate, adapters, cli, cli_run),
+    `studio/team_api.py`, `studio/team_live.py`, `studio/team_budget_api.py`, `fleet/team_attention.py`,
+    `work/adapters/stage.py`, `orchestra/coach_team_rules.py`, `templates/team/team.yaml` (the team template);
+    kept by moving: `team/adapters.orchestra_run` -> `orchestra/to_report.py` (the supervisor's and a fleet mission
+    part's), `team/delegate.FleetDelegate` -> `fleet/delegate.py` (the two-machine check's mission step; its
+    `send_run` went with the team stage), `member_bio` -> `supervise/runner.main_bio`;
+  - verbs `halo team init|validate|run|status|board|answer|stop|log|blocks|coach`; the routes `/api/team/*` (410
+    since 3.3.16.0), `/api/team/coach`, `/api/work/team/*` and `/api/work/stage/*`;
+  - the Attention kinds `team_gate` and `team_budget`; the work record's unit kind `stage` and run kind `team`
+    (`halo work` reads lanes, mission parts and supervisor goals); the session's team claim guard (`HALO_TEAM_SCOPE`);
+  - `halo config where`'s "Team file" group and `halo doctor --config`'s team-file rows; the schema kind `team`;
+  - the two-machine check's `team` step (`tools/live_fleet_check.py`: who, mission, recall);
+  - the glossary words team, member and stage (block now means the lineup's block on Agents -> Cast); completion's
+    `team`; docs/TEAM.md (removed from docs/README.md and the README's table; every page that linked it says where its
+    job went);
+  - tests `test_team_blocks`, `test_team_budget`, `test_team_cli`, `test_team_delegate_runs`, `test_team_parallel`,
+    `test_team_run`, `test_team_spec`, `test_studio_team`, `tests/helpers/team_rig.py`, `coach_seed.team_run`.
+- **The guided first run left the core for the shipped `first-run` pack** (3.1.1.0; off unless enabled):
+  - modules `halo_harness/start/` (engine, steps, steps_run, steps_setup, card, lineup, sample_repo, fake, fresh,
+    screen, errors, auto_gate), `start_cli.py`, `studio/start_api.py`, `studio/start_job.py` -> the pack's
+    `first_run/`, `cli/start.py`, `server/start_api.py`, `server/start_job.py` (+ `server/routes.py`);
+    `tui/dialogs/start_panel.py` (the TUI's `/start` panel) removed: the pack's `/start` shows the card and how to run
+    it; the core checks stay core as `halo_harness/checks/` (`start/checks.py` -> `checks/catalog.py`,
+    `checks_run.py` -> `checks/run.py`, `checks_pack.py` -> `checks/pack.py`, `checks_steward.py` ->
+    `checks/steward.py`, `provider.py` -> `checks/provider.py`), and the sample's knowledge tag stays core
+    (`knowledge/rank.sample_root`);
+  - `halo start` and `/start` are the pack's (`contributes.cli`, `.slash`); with the pack off each is one line: "the
+    guided first run is a pack now: halo pack install first-run, then halo pack enable first-run --grant-all";
+  - the core check `start` (Setup's Check row, `halo check --start`, the wizard Summary's row) -> the pack's Setup
+    block `run` (`pack:first-run:run`); `halo check --start` says the one line; `halo init` no longer offers the run;
+  - Studio's "Start here" overlay (`shell/StartHere.tsx`, `lib/start.ts`), Agents -> Runs' "Test this lineup"
+    (`routes/agents/runs/TestLineup.tsx`), the Setup Check row's card and Summary's Run, the palette's "Start: the
+    guided first run" and the route `/api/start` -> the pack's **First run** panel in the Agents section
+    (`studio/first-run.js`) over its routes `/api/packs/first-run/start/...`;
+  - `tools/capture_start.py` (`capture_studio.py --mode start`; what it kept is `tools/capture_fresh.py`); tests `test_start_cli`, `test_start_cli_errors`, `test_start_studio_api` (moved:
+    `test_pack_first_run_cli`, `test_pack_first_run_errors`, `test_pack_first_run_routes`, run against the pack),
+    `test_start_checks` (-> `test_checks_catalog`), `test_start_tui` (-> `test_explain_tui`, the panel's tests went),
+    `test_studio_start`'s Start-here run, `test_studio_modes`'s `--mode start`, `test_studio_quiet`'s Start-here
+    test, and `test_setup_state_no_probe`'s / `test_setup_api`'s card checks.
+
+#### Added
+
+- **The `first-run` pack** (`halo_harness/templates/packs/first-run/`): `halo start`, `/start`, the Setup check row and
+  the First run panel; `halo pack test first-run` passes it.
+- **Seams, draft for extension API 1.3** (docs/EXTENSION_API.md "CLI verbs, slash commands, doctor rows and settings
+  rows", "Core access"): `contributes.cli: [{verb, module, help}]` (`main(argv) -> int`, grant `cli:<verb>`,
+  `packs/contrib_cli.py`), `contributes.slash: [{name, module, help}]` (`run(args_text, facade) -> str`, grant
+  `cli:<name>`, `packs/contrib_slash.py`), `contributes.doctor: [{id, module, help}]` (`rows(ctx) -> list`, grant
+  `doctor`, `packs/contrib_doctor.py`), `contributes.settings: [{key, title, help, type, default}]`
+  (`packs.settings.<id>.<key>`, no grant, `packs/contrib_settings.py`), their manifest rules (`packs/contrib_lines.py`)
+  and `halo_harness.ext.core` (`core.module(name)`, `core.get(name, attr)` over `core.REACHABLE`); `halo_harness/left.py`
+  (the one line a verb that left the core says).
+
+#### Docs
+
+- docs/TEAM.md removed; COMMANDS-init, HANDBOOK, STUDIO-shell, STUDIO-setup, STUDIO-agents, SLASH-COMMANDS-tui,
+  TROUBLESHOOTING, PACKS ("The first-run pack"), EXTENSION_API, ARCHITECTURE-modules(-two), GLOSSARY, WORK, MISSIONS,
+  ORCHESTRA, ROLES, AGENTS and README say what left and where it went.
+
+### B2: the coach is a pack; the wizard is a console fallback
+
+The coach (its cards, probes, the improvement library and `/improve`) is the shipped `coach` pack, off unless you
+enable it; the supervisor, replanning and verified outcomes stay core. The terminal wizard's screens are gone: Setup is
+Studio's, and `halo init --terminal` (or no browser) is a plain console setup of the essentials. The pack contributions
+`contributes.doctor` and `contributes.settings` are wired in, and the extension API is 1.3.
+
+#### Removed
+
+- The coach's modules, moved into `halo_harness/templates/packs/coach/` (the pack replaces them): `orchestra/coach.py`,
+  `coach_apply.py`, `coach_ask.py`, `coach_citations.py`, `coach_compare.py`, `coach_compose.py`, `coach_experience.py`,
+  `coach_library.py`, `coach_library_share.py`, `coach_mission_rules.py`, `coach_orchestra_rules.py`, `coach_probe.py`,
+  `coach_probe_card.py`, `coach_probe_prompt.py`, `coach_probe_schema.py`, `coach_record.py`, `coach_rules.py`,
+  `probe_overlay.py`, `probe_runs.py` (-> engine/); `coach_cli.py`, `coach_library_cli.py`, `improve_cli.py` (-> cli/);
+  `improve/` (`__init__`, `apply`, `config`, `dismissed`, `draft`, `evidence` -> improve/); `studio/coach_api.py`,
+  `studio/coach_probe_job.py` (-> server/); `knowledge/writers.applied` (-> engine/knowledge_applied.py).
+- `improve/hint.py` and the once-a-session `/improve` hint (agent/loop.py `_maybe_yield_improve_hint`): no pack seam
+  for a session notification; the coach pack's doctor row says what `/improve` uses.
+- The TUI's `/improve` card review (tui/slash.py `_handle_improve` and its workers, tui/widgets/cards.py
+  `ImproveCard`): the pack's `/improve` prints what `halo improve` prints.
+- CLI verbs and slash commands from the core: `halo coach`, `halo improve`, `/coach`, `/improve` (the pack's now; one
+  line each with it off, halo_harness/left.py); `halo orchestra coach` and `halo fleet mission coach` hand over to the
+  pack's verb.
+- Config keys `coach.probe.k`, `coach.probe.budget_factor`, `coach.library.cite`, `improve.enabled`, `improve.hint`,
+  `improve.model`, `improve.since_days`, `improve.max_candidates`, `improve.hint_threshold.repairs`,
+  `.edit_failures`, `.loop_breaker`, and the config sections `coach` / `improve`: ignored with one line (`halo doctor
+  --config`; `halo config set` names the pack's key). The pack's seven rows are `packs.settings.coach.<key>`.
+- Settings rows: those eleven, and the group "Coach and improve" (-> Settings -> From packs while the pack is on).
+- Doctor row `improve` (the `/improve` config line) (-> the coach pack's doctor row).
+- The coach's lines in the core: the Orchestra report's `coach:` line (`orchestra/report.coach_line`), the mission
+  report's, and `halo fleet digest`'s coach rows (its `coach` list stays, empty).
+- Studio: the run report's Coach tab (`routes/orchestra/Coach.tsx`, `coachApply.ts`), the mission's Coach face
+  (`routes/fleet/MissionCoach.tsx`), the bio form's coach note (`routes/roles/CoachNote.tsx`, `coachHint`), the plan
+  canvas's coach staging (`plan/stage.ts stagePlan`), `lib/coach/` (CoachCards, ConfirmCard, LibraryFold, ProbeBar,
+  actions, probe, store, types) and `styles/coach.css`; the routes `/api/orchestra/<run>/coach`,
+  `/api/fleet/missions/<id>/coach`, `/api/coach/library/...` (-> the pack's Coach panel in Agents and
+  `/api/packs/coach/coach/...`).
+- The terminal wizard (Setup is Studio's; the console setup below replaces the terminal path):
+  `tui/dialogs/init_wizard.py`, `init_tabs.py`, `team_step.py`, `team_step_actions.py`, `summary_checks.py`,
+  `check_rows.py`, `step_rail.py`, `setup_mode.py`, `init_picker.py` (the arrow-key pickers), `ollama_found.py`,
+  `ollama_calibrate_offer.py`; `wizard_ux.py` keeps only the footer caption `/agents` uses; init_cli's
+  `_run_init_wizard_flow`, `_run_init_tabs`, `_launch_after_wizard`. `/agents` and `/teams` (their list and view
+  screens) stay.
+- `halo setup --terminal` and `/setup --terminal`'s screens (-> the console way, one line per page).
+- Captures: `docs/media/studio-orchestra-coach.png` (tools/capture_orchestra.py `coach_capture`) and the TUI gallery's
+  `team-step` scene (`docs/screenshots/team-step.svg`, scripts/screenshots.py, its tests/test_screenshots pin).
+- Tests: tests/test_improve_hint.py; the Chrome coach checks (tests/helpers/studio_coach.py, studio_ui_coach.py,
+  studio_coach_rig.py); test_h15_init_tabs, test_init_wizard_round7, test_ollama_discover_wizard,
+  test_ollama_tune_wizard, test_round2b_wizard_roles_fixes, test_round2c_wizard_ux, test_round_wizard_deep_review,
+  test_wizard_team_switch_sync; the wizard tests in test_review3_f2 (1), test_review3_t2 (3),
+  test_agents_teams_forms (2), test_explain_tui (1), test_hotfix_101_fix_init_preserve (3), test_auto_lineup (1),
+  test_setup_api (1), test_wizard_agents_bios (2), test_wizard_lineup (1), test_wizard_studio_doors (1); test_tui.py's
+  20 wizard and init-picker pilots and 3 ImproveCard / `/improve` pilots.
+
+#### Added
+
+- The shipped `coach` pack (`halo pack install coach`, `halo pack enable coach --grant-all`): `halo coach`, `halo
+  improve`, `/coach`, `/improve`, a Coach panel in Studio's Agents section (a finished run's cards, Ask, Apply after
+  its confirm card, Undo, Probe), seven Settings rows under From packs, one doctor row; `halo pack test coach` passes.
+- `contributes.settings` wired: an enabled pack's rows in Studio's Settings (group "From packs", shown only while a
+  pack has rows) and in `halo config get` (the default while unset) / `set` (its type checked, one line, exit 2).
+- `contributes.doctor` wired: an enabled, granted pack's rows last in `halo doctor` (`From packs, <id>: ...`).
+- Doctor rows for both shipped packs: first-run (ready to rehearse your lineup, or the provider / lineup missing) and
+  coach (what it keeps and uses, or the Studio grants its panel waits for).
+- The console setup: `halo init --terminal` and the no-browser fallback ask a provider (numbered) and its key (by NAME
+  in the env file), the default model (a short numbered list, or a typed ref), the permission mode and whether to run
+  doctor, then name where the rest is (Studio's Setup, its address and port-forward line when one runs).
+- `halo setup <page>` and `/setup <page>` for every Setup page (providers, local, model, permissions, theme, team,
+  linux, check, machines); `--terminal` or no browser prints the console way (setup_cli.CONSOLE); `halo init --step
+  <page>` is the same.
+- halo_harness/legacy_roles.py: a role table from before lineups becomes the lineup `migrated` once, at an interactive
+  session start and in `halo init`'s console setup (the wizard's lineup step did it until now).
+- Extension API 1.3 (`ext.compat.CHANGES["1.3"]`): `contributes.cli`, `.slash`, `.doctor`, `.settings` and `ext.core`,
+  all draft; the first-run and coach packs say `halo_api: {min: "1.3"}`.
+- Tests: test_pack_coach, test_packs_contrib_wired (fixture pack tests/fixtures/packs/contrib-rows), test_init_console,
+  tests/helpers/coach_pack.py (the moved coach tests run against the pack's modules); test_invariants'
+  `invariant_k` (no core module imports a shipped pack).
+
+#### Changed
+
+- `orchestra/coach_prices.py` -> `orchestra/prices.py` (+ `money`, `row_line`) and `orchestra/coach_lane_facts.py` ->
+  `orchestra/lane_facts.py`: the forecast, the outcomes records and the supervisor's replan prompt read them; they stay
+  core. `outcomes/records.path` keeps `<state>/coach/outcomes.jsonl`.
+- `ext.core.REACHABLE` adds the coach pack's door (the run folders, the writers, the probe's Orchestra runs, the fleet's
+  mission folders, /improve's session; outcomes through `outcomes.records` only) and drops `orchestra.coach`.
+- The guided first run's step 6 runs the coach pack's `halo coach <run> --json` while that pack is enabled, else one
+  line that the coach is a pack.
+- The fleet's `coach_library` command answers through the coach pack (`packs/contrib_cli.pack_call`), else one line.
+- Studio's Coach panel writes a card's change after its own confirm card; it no longer opens the bio form or the plan
+  canvas with the change staged.
+- `halo init`'s console prompts read stdin with `--terminal` even without a terminal (scripts can drive it).
+
+#### Docs
+
+- EXTENSION_API (1.3, the four contributions draft with their exact shapes and grants, "Changes in 1.x"), PACKS ("The
+  coach pack"), CONFIG (the From packs note; the coach rows out), COMMANDS-init (the console setup), COMMANDS-studio,
+  COMMANDS-sessions, COMMANDS-health, COMMANDS-fleet, SLASH-COMMANDS(-tui, -keys), ORCHESTRA and STUDIO-orchestra (the
+  coach is a pack), STUDIO-setup, WIZARD (a note: the screens left, the rules stay Studio's), GLOSSARY,
+  ARCHITECTURE-modules, README (Features and Documentation name the coach pack; no wizard).
+
+### C: Fleet leaves the core
+
+The owner (2026-11-10): "Fleet doesn't really fit anymore ... it can be a pack." Halo's core is see, shape, mix, local,
+start; several halos joined to one hub serve none of them directly, so the fleet is ONE shipped pack now, `fleet`, off
+by default: `halo pack install fleet`, then `halo pack enable fleet --grant-all`, and it works as it did.
+
+#### Removed from core (now in the shipped `fleet` pack: `halo pack enable fleet`)
+
+- **Verbs**: `halo fleet` (the live table, `serve`, `pair`, `join`, `leave`, `status`, `members`, `kick`, `record`,
+  `digest`, `capabilities`, `who`, `mission ...`) and `halo mission ...` (new: the same as `halo fleet mission ...`);
+  `/fleet` (the table as text; the TUI's live table dialog is gone, `halo fleet` in a terminal is the live table) and
+  `/mission`; `halo studio --fleet`; `halo recall --fleet`, `/recall --fleet` and `halo knowledge fetch` (they ask the
+  fleet). With the pack off each says one line: what it is and `halo pack install fleet, then halo pack enable fleet
+  --grant-all`.
+- **Studio doors**: Agents -> Live's **this halo | fleet** switch and the fleet scope (the machines, their sessions and
+  agents, a mission's parts), the palette's fleet lines (who can..., the machines' specs, missions, pair, kick, while
+  you were away), Setup's **Machines** page (pairing, sharing, the people), the rail's "while you were away" dot, and
+  the routes behind them (`fleet/hub`, `fleet/pair`, `fleet/settings`, `fleet/kick`, `fleet/commands/<id>`, a member's
+  commands, `fleet/health`, `fleet/digest`, `fleet/capabilities`, `fleet/who`, `fleet/missions...`, `fleet/recall`).
+  `GET fleet` says `fleet_pack: true | false`; the UI shows a Fleet door only on true.
+- **Config keys** (Settings -> Fleet, shown only while the pack runs; `halo config set` still takes them):
+  `fleet.share`, `fleet.allow_answers`, `fleet.share_captures`, `fleet.hub.port`, `fleet.tags`,
+  `fleet.capabilities.hide`, `fleet.ollama.share`, `fleet.recall.share`, `fleet.recall.hide`, `fleet.shared_dir`,
+  `fleet.mission.prefer`, `fleet.mission.max_parallel`, `fleet.mission.max_file_mb`.
+- **Python**: the hub (hub*.py), the relay of a joined halo (relay_hub, relay_runtime), missions (mission*.py), the
+  capability catalog and who (capabilities*.py but the host's hardware), control from a hub, delegate, digest, health,
+  the table, the live check, the CLI (cli*.py), knowledge across the fleet (knowledge/share.py) and what packs bring to
+  the catalog (packs/fleet_registry.py, fleet_share.py) are the pack's fleet/; Studio's pair, capabilities, mission and
+  hub routes and its health + digest its server/.
+- With the pack off a pack workflow's capability `requires` are not checked (the catalog that checks them is the
+  pack's); a `contributes.fleet` pack shows no fleet rows in the Pack Manager.
+
+#### Stays in the core (moved out of halo_harness/fleet/, which is gone)
+
+- **halo_harness/peers/**: everything one machine needs to reach another's models, so `halo host serve`, the pool,
+  Local -> Hosts and Ollama on the network work with the pack off: identity, fleet.json and the pair keys (store), the
+  signed wire (protocol), TLS, pairing codes and the key exchange (pairing, pair_kex, hub_join), the relay client
+  (relay, relay_stream), hosts (hub_hosts, hub_host_cmd), Ollama on the network (ollama_share*, control_models,
+  control_pulls, control_probes), this harness's own sessions (local_view, agent_tokens), the host's hardware
+  (capabilities_host), the capability cache (catalog.py, new) and `lan_address` / `FleetOffline` / `parse_ttl` (net.py,
+  new).
+- **halo_harness/live/**: this machine's sessions live: thinking and talk on the feed (think, talk), the attention
+  queue and its sources, one session's timeline and flight recording (history, recording), the file-conflict edges, the
+  spend caps, the decision journal, push to the phone and hand-offs. Session, Agents -> Live, the attention chip and the
+  replay read `fleet/*` routes that the core still answers for this harness (studio/fleet_view_api.py, new: the core's
+  half; the pack answers every `fleet/*` route while it runs).
+- `halo_harness/recall_fleet.py` (Studio's recall box reads its local half), the work record's mission adapter
+  (work/adapters/part.py reads mission.json itself), `fleet.enabled`, `fleet.name`, `fleet.private`,
+  `fleet.allow_control` (the host's grants), `fleet.caps.*` and `fleet.attention.signal` (now under Settings -> Remote).
+
+#### Migration
+
+A halo that had a fleet (a joined hub in fleet.json, a hub's members, missions, or fleet keys only the pack reads in
+config.json) gets the shipped pack installed and enabled on its first run after the update, with one line that says so
+(packs/fleet_migrate.py; the marker `<state>/packs/.fleet-migrated` keeps it from asking again). Nothing is deleted.
+
+#### Seams
+
+No manifest key is new: the pack uses `contributes.cli` / `.slash` (3.4.0.0 B). The core reaches the pack only through
+`halo_harness/packs/fleet_door.py` (`module(rel)`, `call(rel, attr, ...)`: None while the pack does not run here);
+`halo_harness.ext.core` lists the core modules the pack drives and adds `core.version()`. Tests run the pack in every
+scratch home with `PACKS_TEST_SHIPPED=fleet` (packs/registry.py, honoured only under BRIDGE_TEST_HOME;
+tests/helpers/fleet_pack.py sets it and serves the moved modules under their old names).
+
+#### Not done here
+
+- Studio's fleet UI (routes/fleet/*, the Live fleet scope) is still compiled into the core bundle, gated on
+  `fleet_pack`: a React section has no pack seam yet (a pack's Studio panel is plain DOM).
+- Federation R1's contracts (branch v3318/R1-contracts, its work record included) are left unmerged.
+
+#### With B2 (the coach pack)
+
+- A pack never imports another pack. The coach pack reaches missions and the hub through the core door
+  `packs.fleet_door` (in `ext.core.REACHABLE`): with the fleet pack off, `halo fleet mission coach` / `halo coach
+  mission` say the fleet pack's one line, Studio's `fleet/missions/<id>/coach` finds no mission, and `halo coach
+  library fetch` says the fleet's hub is the fleet pack's. The fleet pack reaches the coach through
+  `packs.contrib_cli` (`dispatch` for `halo fleet mission coach`, `pack_call` for the `coach_library` command): with
+  the coach pack off, one line naming the coach pack. `ext.core.REACHABLE` lists no `fleet.*` module (they are
+  `peers.*`, `live.*` or the fleet pack's now).
+
+### D: a goal run is a job on Live and in History (Orchestra's Runs view and Start screen go)
+
+The owner (2026-11-10): "I always see unused older versions of orchestrations ... I'd love to see what is actually
+happening." Orchestra's engine is core and unchanged (worktrees, merge, the test gate, the supervisor, outcomes,
+replanning; the `code` block, `halo orchestra` and `halo supervise` run on it). What went is the separate place to look
+at it: one place shows what runs now (Agents -> Live), one shows what ran (History, on Live's bar).
+
+- **Agents has Cast, Live and Workflows** (`C`, `L`, `W`). `R` and every door that named Runs land on Live (once in a
+  browser: "Runs is gone: a goal runs on Live (Run a goal on its bar); a finished run is in History"); a door that names
+  a run (`?mode=agents&run=<id>`, an attention row's `o`, the palette) opens it on Live while it runs, else its report.
+- **A running goal run is a job on Live**: its lead, its lanes in the run's block under it (a group box of kind `run`;
+  with the plan under it on, the block "goal run: <goal>"), each lane a box with a row per fact -- state, model, cost,
+  what it owns (its claims), its worktree -- and what it waits on: the merge and the gate are steps on the waiting path,
+  the sentence under the bar covers the run. A click is Live's inspector, summary first (goal, owns, state, last output,
+  cost), then one page each: Plan, Claims (Release, Steal), Diff, Test result, Log; Stop the run (one confirm), Review the
+  plan, Steer its worker (the lane's worker in the inspector: Steer, Pause, Stop), Watch in Session. Hover = its card.
+- **Run a goal** on Live's bar and in the palette opens the goal form as a panel beside the canvas (what you want, done
+  when, the shared files, the gate's test, Review the plan first) that says what it will do, what it may cost and where
+  it writes before Run; Run it across the fleet and a pack's workflow are in it. No screen of its own.
+- **Review the plan first**: the lead waits on you on Live; Review the plan opens the plan review (the 3.0.9.0 canvas) as
+  a Live panel, the canvas folded while it is open; Approve and run closes it.
+- **History**: a goal run's row says how it ended, its wall time, its cost and its models (`GET orchestra/runs` rows
+  carry `models`, `elapsed_s`, `ended`, `stop_reason`) and opens its report as a page of History -- the plan and its
+  lanes, the outcomes, the gate, the merge, the artifacts, a dry run's jobs -- with Copy, Replay and Run it again.
+
+#### Removed (each door and where its job went)
+
+| Door | Its job now |
+|---|---|
+| Agents -> Runs (the view, `R`, `?view=runs`, `?mode=orchestra`, the palette's **Agents: Runs**) | Agents -> Live (`R` lands there) |
+| Runs' Start screen (the goal form, the five steps, past runs, open the workspace anyway) | Live's **Run a goal** panel; past runs: History |
+| the Goal panel (the open run's line: state, cost, stop, new run) | the run's lead on Live and its inspector (Stop the run) |
+| the Workflow panel (the step graph, the gate diamond) | the run's block on Live, the lead's waits (the merge, the gate) |
+| the Run grid panel (the counters, one tile per lane) | the lanes' boxes on Live; the lead's summary (lanes by state) |
+| the Lanes panel (the timeline, the hand-off arcs, the owns line, a lane's claims) | each lane's box (OWNS row) and its inspector pages (Plan: after and takes; Claims) |
+| the Live file panel (the goal file with each lane's bands) | a lane's **Diff** page (its units: base, then the lane's text) |
+| the Report panel and its Artifacts tab | History's report page (the checks, the lanes, the gate, the merge, the artifacts; Copy) |
+| the Log panel | a lane's or the lead's **Log** page |
+| the Claims panel (Release, Steal) | the **Claims** page (Release, Steal while live) |
+| the plan canvas taking the console's place | the **Plan** review panel on Live (from Review the plan) |
+| the "+" menu's RUNS group (New run, the runs, the missions) | Run a goal; History; the Mission panel (`M`) |
+| Runs' mission rows | a running mission on Live's fleet scope, a finished one in History; its panel on Live |
+| the Mission panel on Runs | the Mission panel on Live (`M`, `?mode=fleet&mission=<id>`) |
+| J / K over the lanes, F follow the Log | J / K hop Live's agents; a lane's Log page |
+| the palette's Orchestra: new run / stop run / open run / focus lane | Agents: Run a goal / stop the run / lane N; History: run <id>; Agents: review the plan |
+| compare two runs, retry | none was a Runs control: two reports side by side are two History pages; Run it again on a report is the retry (the goal filled in) |
+
+- Files: `routes/orchestra/` Orchestra.tsx, Start.tsx, OrchRail.tsx, GoalPanel.tsx, WorkflowGraph.tsx, RunGrid.tsx,
+  Lanes.tsx, LaneEdges.tsx, LiveFile.tsx, Log.tsx, Claims.tsx, Report.tsx, ReportTabs.tsx, commands.ts and the old
+  FeedPanels.tsx (its FeedDot kept as FeedDot.tsx): 1,621 lines; `styles/orchestra-file.css` (143) and every dead rule
+  of orchestra.css, orchestra-plan.css, start-view.css, agents.css; the eight panels' help text (help-orchestra.ts keeps
+  the plan review's); SECTION_HELP's `orchestra` copy; the pictures `studio-orchestra.png`, `-start.png`, `-plan.png`
+  (new: `studio-run-live.png`, `studio-run-report.png`); Runs' tests and drivers rewritten for Live and History.
+- Docs: STUDIO-orchestra.md rewritten ("Studio: a goal run on Live and in History"), STUDIO-agents, ORCHESTRA "In
+  Studio", the glossary (lane, plan), the README section and every doc that named Agents -> Runs.
+
+#### Also in D
+
+- **The capability checker is core again** (`halo_harness/packs/fleet_registry.py`, `peers/needs.py`,
+  `peers/projects.py`, `packs/fleet_rules.hidden`): with the fleet pack off, a pack workflow's capability `requires`
+  are checked and a pack declaring capabilities shows its rows (`halo pack inspect`, `halo pack doctor`); the fleet pack
+  re-exports them through `ext.core` (REACHABLE + `packs.fleet_registry`, `peers.needs`, `peers.projects`).
+- **`scripts/prepush.py`** removes every folder under `halo_harness/` and `tests/` that holds nothing but `__pycache__`
+  before the tiers (one line each), and on Windows passes over WSL's `bash` for Git's (one line; no Git bash: the fix,
+  exit 2) -- `scripts/prepush_tree.py`.
+- `tests/helpers/run_all_support.py`'s cache list names the real modules (`peers.catalog`, the fleet pack's `health`).
+
+### E: the README and the docs intro say what Halo is
+
+- The README is the owner's wording ("Multi-agent. Multi-workflow. Fully visible."), five pillars (See, Shape, Mix,
+  Local, Start) with one Studio picture each, Install, and "Everything else is a pack" with the shipped packs; the
+  docs map, the HANDBOOK, STUDIO.md and harness/INSTALL.md open the same way, and pyproject and `halo --help` carry the
+  short description.
+- Pictures: the hero carries the tagline; Cast, Workflows, the model picker, Setup (no Machines step), Local, Packs,
+  Settings (its General page: the Fleet page is the fleet pack's) and the six-section banner are re-rendered.
+
+### The living canvas (built as 3.3.18.0, shipped here)
+
+The owner, 2026-11-10: "i feel like agent canvas should be better. i always see like unused older version of
+orchestrations that aren't even happening when I look at it. id love to see what is actually happening when i look at
+that view." Agents -> Live now shows only what is happening, with the plan under it, what each agent waits on, one
+sentence of what goes on, and zoom levels that change what is drawn (docs/STUDIO-live.md).
+
+#### Changed
+
+- **Agents opens on Live**: Alt+2, the rail, `?mode=agents`, `halo studio --mode agents` and a `focus` frame without a
+  view land on Live -- what runs now, or one sentence ("Nothing is running. Start a session, or open the last one as a
+  replay.") with **Open the plan (Cast)** and **Replay the last session**. Doors that name a view still win (`?view=cast`,
+  C / R / L / W, `?mode=roles`, `--edit`). A fresh Studio with nothing saved opens there too (it opened on Cast's Start view).
+- **Nothing past is drawn as present**: a finished agent stays ten seconds, a failed one until its **dismiss**, then leaves
+  (its group and its session with it); a finish or a failure from before the page loaded is not drawn; Live picks the
+  newest session with an agent at work; on the fleet the machines stay and an away member's rows do not count; a mission's
+  parts show only while it runs or is planned. A stop counts as an end for the fade (`fleet/sync.ts`).
+- **Cast is the plan**: its bar says "the lineup new sessions use: <name>" and, while agents run, "N live -- see Live";
+  its cards no longer glow for a failure the page did not see, nor for an away member's last rows.
+- **The rail's Agents badge** counts live agents on this harness and online members only.
+- Live lays out once per change of the tree's shape and repaints between (a long session's frames never move a box).
+- `GET fleet/history?role=main` dates a session by its transcript's first line (st_ctime was the last metadata change on Linux).
+
+#### Added
+
+- **History** on Live's bar (closed on load): past sessions, Orchestra runs and missions, newest first, each with what it
+  was, when, how long, its cost and how it ended; a row opens a **replay** (muted, under a "replay -- ended <when>" banner,
+  **Back to now**).
+- **Plan under it** (Live's bar, `?plan=on|off`; on by default when the session's lineup has tiers or squares): the
+  lineup's blocks as the map, each live agent inside its block, "not in the plan" with why; main's lines carry the plan's
+  when, the dash only into a block at work.
+- **What waits**: each live box says what it waits on (you, an agent, a tool, a model reply, nothing); the **waiting path**
+  is a brighter hairline; **the one sentence** under the bar (`live-narration`) says what goes on now -- what waits on you
+  first, the agents by block and what they do, what the session waits on, the models, the spend -- and a click centres the
+  agent it waits on; a line's label shows the latest hand-off for eight seconds, its hover the last three, its click
+  Conversations on that pair.
+- **far | mid | near**: the zoom changes what is drawn (blocks only under 60%, boxes, boxes with their thought and tool
+  output from 130%); Ctrl+wheel zooms around the pointer and keeps what is under it; Fit picks the level.
+- Tests: `tests/test_studio_live_truth.py`, `tests/test_studio_live_plan.py` (Chrome); the density driver waits for what
+  Live draws before it measures and measures the History drawer.
+
+#### Docs
+
+- `docs/STUDIO-live.md` (new part of STUDIO.md); STUDIO-agents.md and STUDIO-sections.md say Agents opens on Live; the
+  Agents `?` help has the new steps; glossary: **replay**, **waiting path**.
+
+### Docs: the README shows Studio
+
+- "What it feels like" leads with Studio: `docs/media/studio-model-picker.png` (new, `capture_studio.py --mode picker`) and
+  `docs/media/studio-auto.png` (new, `capture_steer.py --only auto`) replace the terminal model picker and auto-mode pictures;
+  the steer animation and the phase-line picture left the README for one sentence each. The TUI captures stay in `docs/media`.
+
 ## [3.3.17.0] - 2026-11-10
 
 **Copilot at work.** Halo signs in to your work's Microsoft 365 Copilot in the browser (or with a device code) and
@@ -1432,91 +1862,3 @@ Roles; R3 lets a pack add its own pages to Setup, and says when one is waiting.
   mounts `.git` read-only, `halo update --to` is quoted. `halo update` with a release whose assets cannot be read (offline,
   rate-limited) now installs nothing and says so, naming `--no-verify` for installing without the check; before it installed
   with a printed warning.
-
-## [3.3.10.0] - 2026-11-03
-
-**Pack policy.** GitHub issue #4 built out, with the owner's additions: a pack can now hold a session to a rule the
-model cannot argue past. A pack declares policies and modes (R1), the harness asks every armed policy before a tool
-call and again after a hook rewrote its input, deny over ask over allow, and a policy that says so is asked once more
-with the tool's result (R2); every verdict is in the audit, on the call's row in the transcript, the TUI, the Session
-feed and the Pack Manager, and `halo pack policy log` prints them. With no pack armed nothing changes. R3 lets a
-pack's bundle panel act (publish, route, attention, data, mode, events), gives the doctor an `info` severity and
-resolved workflow refs, makes the gate remember its last armed list when the pack catalog cannot be read, and ships
-the `concord` pack -- the first real consumer of the policy hook -- off until turned on, with Concord's telemetry
-off. Also here: the README's local-first half, the Orchestra glyph, the Pack Manager's reload after an action, the
-terminal wizard's Roles step race, the fleet hand-off route's body check, and the runner waits of the week.
-
-### R1: the policy contract -- a pack's runtime mode, a policy hook that answers a tool call, the first draft row of the extension API
-
-#### Added
-- `contributes.policy` and `contributes.modes` in pack.yaml and `pack.schema.json` (`$defs.policy`, `$defs.mode`): a policy hook is a command in the pack (`${halo_python}` and `${CLAUDE_PLUGIN_ROOT}` put in, the `hooks` grant) with `when: {tools, modes}`, `impact`, `on_error: allow | deny`, `redact: [env names]` and `after` (read from R2); a mode is `{id, label, theme}` (theme read from 3.3.12.0). Every bad value is one line naming the entry.
-- The runtime mode file `~/.halo/packs/.data/<id>/mode.json` `{mode, since, by, armed, note}`, written only through `packs/mode_state.py`; turning a mode on arms the policies that name it, every change is the pack's `mode` event. `halo pack mode <pack> <mode> on | off`, `halo pack policy status | arm | disarm`, and `ext.set_mode` / `ext.current_mode` for a pack's own code.
-- The policy runner: one long-lived process per armed policy speaking JSON lines (`{id, tool, input, cwd, session, agent, mode, permission_mode, config}` in, `{id, verdict, reason, rule, scope?}` out) within `packs.policy.budget_ms` (2000); a late, malformed or missing answer is the policy's `on_error`, with a logged line; `when.tools` filters before the process; `redact` takes named secrets out of the input; every verdict is a `policy` row in the pack's events log; several packs: deny over ask over allow.
-- `halo pack policy test <pack> <policy> <tool> '<json>'`: a verdict without a session, with its time.
-- docs/EXTENSION_API.md "Policy hooks", the status table's first `draft` row; the fixture pack `tests/fixtures/packs/policy-fence`.
-
-#### Changed
-- The extension API is 1.1: `set_mode` and `current_mode` added, nothing deprecated; a 1.0 pack keeps everything, and a pack without `policy` and `modes` is untouched.
-- `halo pack inspect` lists a pack's policy hooks and modes with each policy's state; `halo pack doctor` names a mode or an armed policy mode.json holds that the manifest does not declare; a pack's `policy/` folder is part of the discovery signature.
-- Nothing enforces a verdict yet: no session reads one until R2.
-
-### R2: the enforcement -- a pack's verdict decides a tool call, before and after, and every verdict is in the audit
-
-#### Added
-- The gate (`agent/policy_gate.py`): before `permission_engine.decide`, and again after a PreToolUse or PermissionRequest hook rewrote the input, every armed policy is asked and the winner decides -- deny over ask over allow. `deny` refuses the call through the refused-tool path with the pack's own line (`policy: deny -- fence: outside the project (pack policy-fence, rule outside-project)`), the denial naming pack, policy and rule; `ask` goes to the approval card with that line (a permission mode cycle never answers it, a PreToolUse allow never lifts it, your own deny rule still wins); `allow` leaves the call to the engine as before. Sub-agent and Orchestra worker calls take the same path (`agent` is the sub-agent's id or `worker:<lane>`); the plan specials are gated by a pack's deny only.
-- The post-call verdict: a policy with `after: true` is asked once more with the tool's result (`{..., after: true, result, ms}` in, `{verdict: pass | redact | drop, reason, rule, result?}` out; `packs/policy_after.py`), on the same process, budget and `on_error`, before the PostToolUse hooks. `redact` puts the pack's result in front of the model and the transcript and keeps the original's sha256 in the audit; `drop` puts the pack's line there.
-- The audit: every verdict, before and after, is a `policy` row in the pack's events log (`at`, `winner`, `of`, `sha256` added) and on the call: the transcript's tool row and the `tool_use_ready` / `tool_result` events carry `policy: {line, verdicts}` (no new event kind), the TUI's tool line and the Session feed's tool row draw the line, the agent transcript entries carry it, and the Pack Manager's row shows the armed policies and the last verdict (`pm-policy`).
-- `halo pack policy log [<pack>] [--since 1h] [--json]`: every verdict sessions got; `halo pack policy status` shows each policy's process (a `policy_proc` row when it starts and stops) and its verdict counts.
-- A fleet mission records the armed policies of the harness that made it (`policies` in `mission.json`; each part's dispatch carries them) for Federation R6 to enforce on the far side.
-- The policy-fence fixture's test seams for ask, redact and drop; `docs/ARCHITECTURE-permissions.md` "Pack policy hooks: the gate before decide()"; glossary `post-call verdict` and `winner`.
-
-#### Changed
-- Policy hooks is `stable` in the extension API's status table (it was R1's `draft` row), with the post-call shape; `ext.compat.CHANGES["1.1"]` says so. No part is `draft` now.
-- An armed policy's process starts when a session starts (`headless.build_session`) and when it is armed in a process that runs sessions, so the first tool call pays no interpreter start.
-- With no pack armed nothing changes: `policy.armed()` is empty, no process starts, and the loop makes the same `permission_engine.decide` calls it made before (pinned by a call-count test on a scripted session).
-
-### R3: the bundle panel API, the small UX points and the concord pack
-
-#### Added
-- A bundle panel's `api` acts, not only draws: `publish(kind, data)` (the pack's own declared kinds, through
-  `publish_event`'s check; 20 writes per 10 s per pack, then 429), `on(kind, cb)`, `getData(path)` (the data folder,
-  read-only), `mode()`, `attention(row)` (a row of the Fleet attention queue, the pack named) and `route(section,
-  panel?)`; each rides the `studio-script` grant (`POST pack/<id>/publish`, `POST pack/<id>/attention`, `GET
-  pack/<id>/mode`: 403 naming the grant without it).
-- The doctor's `info` severity: a fleet capability hidden on purpose (`fleet.capabilities.hide`) is a note, printed
-  last and dimmed; `halo pack doctor` exits 0 when every row is one; the Pack Manager counts notes apart ("1 note").
-- `halo pack doctor`'s `not-on-path` row: an enabled pack's `.mcp.json` server whose command is not on PATH.
-- The concord pack, shipped beside doc-review and off until turned on: your own `concord-mcp` as the `concord` MCP
-  server with Concord's telemetry off and CONCORD_REPO_ROOT set to the project folder, Concord's message-delivery
-  hooks, and the `coordinating` mode's `claimed-files` policy (a Write or Edit to a file another Concord task claims
-  is denied with `concord: <path> is claimed by task <id>`; a box without Concord blocks nothing).
-- Glossary: "info row".
-
-#### Changed
-- A lineup's workflows read as what they are: `halo pack inspect` and the Pack Manager's Templates show
-  `<pack>/<name> -- <title>: <description>` per workflow, "(not found)" for a name no pack knows.
-- The policy gate remembers: when the pack catalog cannot be read, the last armed list read in the process answers
-  (an armed `on_error: deny` fence still denies), the failure logged once per call; with nothing ever armed in the
-  process nothing changes.
-- A pack's `.mcp.json` may use `${CLAUDE_PROJECT_DIR}`: Halo fills it with the session's folder.
-
-### Also in 3.3.10.0
-
-#### Changed
-
-- README: the local-first half (the Ollama steward, Local, `halo host`, the pool, Voice, a bench from any halo) is in "What
-  Halo is", "Ten sections, one window", the Features table (Packs, the steward, Local measured, the host, the pool, Voice,
-  the four CI shards), the comparison table and the Documentation table; the Orchestra glyph is three lanes converging
-  through a gate (was three staff lines with ticks); the front-page pictures are not re-rendered yet.
-- Two runner waits: a bundle claim through the host waits for the host's first route answer before judging (the test); the
-  Chrome driver gives the DevTools port 90 s to open (the Windows runner took over 30 s on two shards at once).
-- Pack Manager: the list read after an action (Enable, Update, Roll back, Remove, a grant) is always a fresh one. Before, a
-  read already in flight -- a `pack_changed` frame mid-action, the lineups watcher -- was handed back as the refetch, and
-  its answer came from before the action finished, so a removed pack's row stayed and a rolled-back version did not show
-  until the next frame (the Windows runner's three Pack Manager misses were this one cause, not three).
-- The terminal wizard's "Roles and lineup" step: a `Switch.Changed` the step's own sync caused is never taken for the user's
-  flip. Before, that message could arrive after the list had moved back to "One model for everything" and re-highlight the
-  active lineup, and the two messages it spawned left the list on the wrong row for good (seen on the Windows runner; the
-  same race is possible on a slow terminal). The step now remembers the switch values it set and consumes their Changed.
-- Fleet hand-off route: a malformed body (`take_over` without a brief, `hand_to` without `to`) is 422 before the agent is
-  looked up, so the answer does not depend on whether the agent still runs (it was 404 once the agent had stopped).
