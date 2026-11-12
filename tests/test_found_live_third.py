@@ -32,10 +32,10 @@ def test_49_an_away_member_the_hub_has_not_heard_today_is_unknown(ctx: Ctx):
     import time
     from halo_harness.fleet.hub_links import Member
     from halo_harness.live import caps
-    m = Member({"id": "h-pc", "name": "rolo@roundBoy"}, None)
+    m = Member({"id": "h-pc", "name": "you@tower"}, None)
     f = m.today_fields()
     ctx.check(f"a hub that restarted has heard nothing: unknown, not $0: {f}", f["cost_today"] is None and f["cost_today_complete"] is False)
-    spent = caps.spend({"harnesses": [{"id": "h-pc", "name": "rolo@roundBoy", "sessions": [], **f}]}, time.time())
+    spent = caps.spend({"harnesses": [{"id": "h-pc", "name": "you@tower", "sessions": [], **f}]}, time.time())
     ctx.check(f"the caps say the fleet's figure is not whole: {spent['complete']} {spent['harnesses'][0].get('unknown')}",
               spent["complete"] is False and "not heard since the hub started" in spent["harnesses"][0]["unknown"][0])
     m.note_costs([], {"cost_today": 0.360901, "sessions_today": 20})

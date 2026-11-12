@@ -105,20 +105,20 @@ def test_round_trip_rolo_style_frontmatter(ctx: Ctx):
     """The exact frontmatter shape the owner's real memory topic files use."""
     text = (
         "---\n"
-        "name: project_media_server\n"
-        'description: Home media server "mediabox" runs on lan-host.lan\n'
+        "name: project_weather_station\n"
+        'description: Weather station "skylark" logs from the garden shed\n'
         "metadata:\n"
         "  type: project\n"
         "  originSessionId: sess-1\n"
         "  modified: 2026-08-12\n"
         "---\n"
-        "Body content about mediabox.\n"
+        "Body content about skylark.\n"
     )
     fm, body = parse(text)
-    ctx.check("name", fm.get("name") == "project_media_server")
-    ctx.check("description", fm.get("description") == 'Home media server "mediabox" runs on lan-host.lan')
+    ctx.check("name", fm.get("name") == "project_weather_station")
+    ctx.check("description", fm.get("description") == 'Weather station "skylark" logs from the garden shed')
     ctx.check("metadata.type", fm.get("metadata", {}).get("type") == "project")
-    ctx.check("body", body == "Body content about mediabox.")
+    ctx.check("body", body == "Body content about skylark.")
 
 
 @test

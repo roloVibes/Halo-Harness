@@ -11,7 +11,7 @@ round because they all touch catalogs and the picker; `plans/CYCLE.md`
 
 Specifications (read each in full):
 - `plans/ROADMAP.md` section "ADDED 2026-10-05 ~11:40 (rolo, from the picker
-  on the Kali VM): 2.0.4 provider-pack round 'Databricks enumeration'".
+  on the Linux VM): 2.0.4 provider-pack round 'Databricks enumeration'".
 - `plans/ROADMAP.md` section "ADDED 2026-10-05 ~12:40 (rolo): 2.0.4 'new
   labs' coverage" (Space Bunny Alpha, Tencent, TypeSafe, NVIDIA; the five
   round-work items; note round 2 already built the `xp:` catalog mapping

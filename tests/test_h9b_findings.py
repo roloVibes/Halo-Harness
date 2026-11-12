@@ -408,7 +408,7 @@ def test_h9b_f12_session_path_survives_a_debian_profile_login_shell_reset(ctx: C
     Reproduces the review's OWN repro technique exactly: `unshare -rm` (no
     sudo, a real user-namespace + mount-namespace) bind-mounts the REAL
     Debian/Kali /etc/profile (tests/helpers/debian_etc_profile.txt, fetched
-    verbatim from the Kali VM this harness targets) over WSL Ubuntu's own,
+    verbatim from the Linux VM this harness targets) over WSL Ubuntu's own,
     so a plain `bash -lc` on WSL sees EXACTLY what `bash -lc` sees on real
     Kali/Debian. Covers BOTH the foreground and background Bash paths in
     one real `-p` CLI invocation, using the review's own example tool name

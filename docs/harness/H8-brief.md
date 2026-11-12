@@ -1,6 +1,6 @@
 # H8 brief — background jobs, images/vision, notebooks, catalog vendoring, README (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux primary**).
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux primary**).
 Baseline = the U5 commit on master, all suites green on Windows and WSL. Do not commit.
 
 ## Read first

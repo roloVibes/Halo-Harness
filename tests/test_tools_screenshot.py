@@ -72,12 +72,12 @@ def _dest() -> Path:
 def test_the_command_per_os(ctx: Ctx):
     from halo_harness.tools.screenshot_capture import plan
     d = _dest()
-    w = plan("window", title="Ableton Live", dest=d, platform="win32")
+    w = plan("window", title="Sticky Notes", dest=d, platform="win32")
     script = w["argv"][-1]
     ctx.check("Windows: PowerShell System.Drawing CopyFromScreen", w["argv"][0] == "powershell.exe" and "CopyFromScreen" in script
               and "System.Drawing" in script)
     ctx.check("Windows: the window by title through GetWindowRect", "GetWindowRect" in script and "*$title*" in script
-              and "'Ableton Live'" in script)
+              and "'Sticky Notes'" in script)
     ctx.check("Windows: a quote in a title is doubled", "'it''s'" in plan("window", title="it's", dest=d, platform="win32")["argv"][-1])
     ctx.check("Windows: a region", "'10,20,300,200'" in plan("region", rect=[10, 20, 300, 200], dest=d, platform="win32")["argv"][-1])
     ctx.check("Windows: a display", "AllScreens" in plan("screen", display="2", dest=d, platform="win32")["argv"][-1])
@@ -211,8 +211,8 @@ def test_registered_read_only_and_found(ctx: Ctx):
     from halo_harness.tools.base import ToolContext
     found = reg.dispatch("ToolSearch", {"query": "screenshot"}, ToolContext(cwd=Path("."), registry=reg))
     ctx.check(f"ToolSearch finds it, got {str(found.content)[:120]}", "Screenshot" in str(found.content))
-    ctx.check("/screenshot words", parse_args("") == {"target": "screen"} and parse_args("window Ableton Live") ==
-              {"target": "window", "title": "Ableton Live"} and parse_args("region 1,2,3,4") == {"target": "region", "rect": "1,2,3,4"}
+    ctx.check("/screenshot words", parse_args("") == {"target": "screen"} and parse_args("window Sticky Notes") ==
+              {"target": "window", "title": "Sticky Notes"} and parse_args("region 1,2,3,4") == {"target": "region", "rect": "1,2,3,4"}
               and parse_args("display 2") == {"target": "screen", "display": "2"})
 
 

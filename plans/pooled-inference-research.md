@@ -68,15 +68,15 @@ MoE-specific traps (measured):
   buffers → **16k ctx F16 / ~32k ctx Q8_0 KV** is the honest ceiling for 70B-class.
   Don't spec 64k.
 
-## 4. Measured hardware context (rolo's LAN, 2026-10-31)
+## 4. Measured hardware context (the test LAN, 2026-10-31)
 
-- the main PC (`pc.local`): ≥24 GB VRAM proven (qwen3-coder:30b-gpu fully resident,
+- the main PC (`tower`): ≥24 GB VRAM proven (qwen3-coder:30b-gpu fully resident,
   size_vram 20.25 GB), Ollama v0.40.13, 86–96 tok/s on 27B models.
-- the second PC (`pc2.local`): ASUS Windows box, Ollama v0.40.6, GPU present but
+- a second PC (`sagan`): a Windows box, Ollama v0.40.6, GPU present but
   model/VRAM unverified (no model loaded at probe time).
-- MacBook Pro M1 Pro: 16 GB unified, ~11 GB GPU-wireable, on Wi-Fi (wire it or
+- a laptop: 16 GB unified memory, ~11 GB GPU-wireable, on Wi-Fi (wire it or
   exclude — Wi-Fi RTT craters pipeline decode).
-- Router ASUS RT-BE86U (2.5 GbE LAN ports). Negotiated PC NIC speeds unverified.
+- The router has 2.5 GbE LAN ports. Negotiated PC NIC speeds unverified.
 - Pool estimate: ~50–60 GB.
 
 ## 5. Harness integration map (GitHub master, 3.3.7.0, 2026-10-31)

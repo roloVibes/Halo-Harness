@@ -12,7 +12,7 @@ Sources, merged by the hub (studio/fleet_watch.py keeps the `Touches`):
   the `claims` its Orchestra workers announce (`own_claims`).
 
 A path is made repo-relative (the project root, else the repo's folder name
-inside the path), so `/home/kali/shop/basket.py` and `C:\\src\\shop\\basket.py`
+inside the path), so `/home/you/shop/basket.py` and `C:\\src\\shop\\basket.py`
 are the same `basket.py` of repo `shop`. An edit counts for TOUCH_TTL_S.
 """
 

@@ -1,5 +1,5 @@
 """tests.test_local_control_api -- Halo 3.3.5.0 R3: studio/local_control_api.py's routes on R1's seeded state
-(tests/helpers/local_api_rig.Local: hosts pc and samus on 192.0.2.x placeholders, `box` the fake Ollama on
+(tests/helpers/local_api_rig.Local: hosts pc and sagan on 192.0.2.x placeholders, `box` the fake Ollama on
 127.0.0.1:0) through studio/api.dispatch:
 
 1. POST local/host/box/pull: a job; GET local/pulls follows it to the end; the Models page has the row and the

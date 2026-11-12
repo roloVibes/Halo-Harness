@@ -35,7 +35,7 @@ def remote_chip(count: int, ascii_mode: bool = False) -> str:
 
 def _cwd_last_component(cwd: str) -> str:
     """point 4 (Halo 2.0.1 W2c live-capture polish): the final path
-    component of `cwd` (e.g. "/home/kali/project" -> "project") -- used
+    component of `cwd` (e.g. "/home/you/project" -> "project") -- used
     only once the FULL cwd no longer fits, so a narrow terminal still shows
     a real (if short) path segment instead of `_refresh_display`'s old
     character-level slice, which cut "/home/kali" down to "/home/kal" then

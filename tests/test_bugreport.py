@@ -461,7 +461,7 @@ def test_session_turn_writes_one_meta_timeline_node_per_turn_never_model_visible
 def test_cli_bugreport_loads_the_env_file_and_reports_launch_defaults(ctx: Ctx):
     """`halo bugreport` from a shell (no live session) must see a key that
     lives only in the env file, the way `halo providers` and doctor do
-    (seen live on the Kali VM: every provider read "disabled"), name the
+    (seen live on the Linux VM: every provider read "disabled"), name the
     env file as the reason, report the permission mode and the model the
     next launch would use instead of "?", and still never print the key."""
     import contextlib

@@ -1,6 +1,6 @@
 # U0 brief — CLI flag parity, slash-command registry, history, theme, fake controller (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux primary** —
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux primary** —
 OS-neutral code, `/bin/bash` on Linux). Baseline = the H2b commit on master (both suites green on
 Windows and WSL). Do not commit.
 

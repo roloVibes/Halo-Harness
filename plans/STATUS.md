@@ -2,7 +2,7 @@
 
 Legend: [x] shipped and pushed, [~] in progress, [ ] not started. The
 owner authorised running the whole roadmap without approvals; every round
-is verified on Windows and the Kali VM and pushed as it lands.
+is verified on Windows and the Linux VM and pushed as it lands.
 
 ## 2.0.1
 

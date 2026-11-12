@@ -36,10 +36,10 @@ def _entry(name: str, hid: str, *, gpu: bool = False, nmap: bool = False, mode: 
 def test_a_need_only_an_away_member_has_names_it(ctx: Ctx):
     from halo_harness.fleet.mission_assign import assign
     kali = _entry("kali@kali", "k", nmap=True)
-    pc = _entry("rolo@roundBoy", "p", gpu=True, online=False)
+    pc = _entry("you@tower", "p", gpu=True, online=False)
     part = assign({"id": "2", "needs": ["gpu"]}, [kali], [], {}, [pc])
     ctx.check(f"not 'nobody in the fleet': who has it, offline, and what brings it back, got {part['unassignable']!r}",
-              part["unassignable"] == "nobody online has gpu; rolo@roundBoy has it but is offline (no halo session open "
+              part["unassignable"] == "nobody online has gpu; you@tower has it but is offline (no halo session open "
                                      "there): open one, then plan again" and part["harness"] is None)
     none = assign({"id": "3", "needs": ["metasploit"]}, [kali], [], {}, [pc])
     ctx.check(f"a need nobody has, online or not, keeps its words, got {none['unassignable']!r}",
@@ -54,14 +54,14 @@ def test_a_fresh_join_with_no_card_yet_is_named(ctx: Ctx):
     from halo_harness.fleet import mission_dispatch
     from halo_harness.fleet.mission_assign import assign
     kali = _entry("kali@kali", "k", nmap=True)
-    fresh = {"harness": "p", "name": "rolo@roundBoy", "online": False, "local": False, "catalog": None}
+    fresh = {"harness": "p", "name": "you@tower", "online": False, "local": False, "catalog": None}
     part = assign({"id": "1", "needs": ["gpu"]}, [kali], [], {}, [fresh])
     ctx.check(f"the plan names the member whose card has not come, and what sends it, got {part['unassignable']!r}",
-              part["unassignable"] == "nobody in the fleet has gpu; rolo@roundBoy joined but has not sent its card yet (it "
+              part["unassignable"] == "nobody in the fleet has gpu; you@tower joined but has not sent its card yet (it "
                                       "goes with the first halo session there): open one, then plan again")
-    said = who.lines([], "4090", ["rolo@roundBoy"])
+    said = who.lines([], "4090", ["you@tower"])
     ctx.check(f"who says it too, got {said}", said == ['No harness lists anything that matches "4090".',
-                                                       "(rolo@roundBoy joined but has not sent its card yet: it goes with "
+                                                       "(you@tower joined but has not sent its card yet: it goes with "
                                                        "the first halo session there.)"])
     rows = [{"harness": "k", "local": True, "online": True, "catalog": {}}, {"harness": "p", "online": True, "catalog": None},
             {"harness": "q", "online": False, "catalog": {"x": 1}}, {"harness": "r", "online": True, "catalog": {"x": 1}}]
@@ -82,11 +82,11 @@ def test_the_reports_words_part_numbers_and_a_whole_reason(ctx: Ctx):
     r = {"mission": "m-20261112-e69b", "state": "failed", "goal": "g", "ended": time.time(), "stop_reason": None,
          "cost": {"total_usd": 0.0565, "plan_usd": 0.0131, "parts_usd": 0.0434, "est_usd": 0.4, "budget_usd": 0.5},
          "parts": [], "harnesses": [{"name": "kali@kali", "parts": ["2"], "cost_usd": 0.007, "done": 0, "failed": 1},
-                                    {"name": "rolo@roundBoy", "parts": ["1", "3"], "cost_usd": 0.08, "done": 2, "failed": 0}],
+                                    {"name": "you@tower", "parts": ["1", "3"], "cost_usd": 0.08, "done": 2, "failed": 0}],
          "decisions": [], "failed": [], "refused": [], "merge": None, "artifacts": [], "missing_outputs": [], "files": []}
     md = markdown(r)
     ctx.check(f"a part's number reads as one, got {[x for x in md.splitlines() if x.startswith('- ')]}",
-              "- kali@kali: $0.0070 (1 part, #2; 0 done, 1 not)" in md and "- rolo@roundBoy: $0.0800 (2 parts, #1, #3; 2 done, 0 not)" in md)
+              "- kali@kali: $0.0070 (1 part, #2; 0 done, 1 not)" in md and "- you@tower: $0.0800 (2 parts, #1, #3; 2 done, 0 not)" in md)
     line = ("blocked -- Bash `nmap --version` was refused by kali@kali's permission mode `default` (no interactive prompt "
             "in print mode), so the first line of `nmap --version` could not be captured and artifacts/2/nmap.txt was not "
             "written. " * 2).strip()
@@ -127,7 +127,7 @@ def test_the_plan_says_a_part_runs_where_asks_are_refused(ctx: Ctx):
     from halo_harness.fleet.mission_assign import assign
     from halo_harness.fleet.mission_plan import finalize
     kali = _entry("kali@kali", "k", nmap=True, mode="default")
-    pc = _entry("rolo@roundBoy", "p", gpu=True, mode="auto")
+    pc = _entry("you@tower", "p", gpu=True, mode="auto")
     parts = [{"id": "1", "title": "nmap", "needs": ["nmap"], "depends_on": [], "claims": [], "kind": "files"},
              {"id": "2", "title": "gpu", "needs": ["gpu"], "depends_on": [], "claims": [], "kind": "files"}]
     parts, notes = finalize(parts, [], [kali, pc], [], {})

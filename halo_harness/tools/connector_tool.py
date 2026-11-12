@@ -74,7 +74,7 @@ class ConnectorTool(Tool):
         self.info = info
         self.slug = info.slug
         self.name = f"connector__{info.slug}"
-        # W5 (carried from W4b): seen live on the Kali VM -- the cached
+        # W5 (carried from W4b): seen live on the Linux VM -- the cached
         # `tools` list was empty because the one-shot `claude -p
         # --output-format stream-json` init-line discovery never captured
         # any `mcp__claude_ai_<name>__<tool>` names for this connector (a

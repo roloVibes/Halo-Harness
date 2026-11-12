@@ -6,7 +6,7 @@ fixtures, a steward note, review mode); no provider request, no model call:
 
 1. Local -> Hosts opens with nothing over it, one host's traffic and fit under the cards (no Fleet panel);
 2. the steward's attention row (Agents' Attention chip, O) opens Local -> Hosts on its host;
-3. the host picker: pc, samus and the local server; each model row's numbers are the fixture's hour; the eye on
+3. the host picker: pc, sagan and the local server; each model row's numbers are the fixture's hour; the eye on
    the vision model, the VRAM share of the loaded one, the card line;
 4. the timeline draws a bucket a minute with the hour's calls, the trim and the cut marked;
 5. Apply on a finding (Local -> Steward): config.json's ollama.profiles has it and the row says applied; Dismiss: gone, and gone
@@ -59,8 +59,8 @@ def test_the_plus_menu_and_the_attention_row_open_it(ctx: Ctx):
 @test
 def test_the_host_picker_and_the_model_rows(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"pc, samus and the local server, got {got.get('hosts')}", got.get("hosts") == ["pc", "samus", "llama-box"])
-    for host, key in (("pc", "pc_rows"), ("samus", "samus_rows"), ("llama-box", "local_rows")):
+    ctx.check(f"pc, sagan and the local server, got {got.get('hosts')}", got.get("hosts") == ["pc", "sagan", "llama-box"])
+    for host, key in (("pc", "pc_rows"), ("sagan", "sagan_rows"), ("llama-box", "local_rows")):
         ctx.check(f"{host}: each row's calls / trims / cuts / errors are the fixture's hour, got {got.get(key)}",
                   sorted(got.get(key) or []) == _hour(host))
     ctx.check("the local server says what comes next for Hugging Face", got.get("local_label") is True)

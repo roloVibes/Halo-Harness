@@ -336,7 +336,7 @@ def test_synced_skill_not_double_registered_when_cwd_nested_under_home(ctx: Ctx)
     """Regression: the project-skills ANCESTOR WALK (cwd up to the
     filesystem root) can itself reach the real home directory when cwd is
     nested under it (the owner's actual layout: a repo under
-    C:\\Users\\rolo\\Documents\\...) -- that ancestor's own
+    C:\\Users\\you\\Documents\\...) -- that ancestor's own
     `.claude/skills/synced/` must NOT be re-discovered under a bogus
     `synced:<bucket>:<name>` name; only the ONE proper
     `anthropic-skills:<name>` (+ bare alias) registration may exist."""

@@ -30,7 +30,8 @@ def _render_text(findings: "list[dict]", *, history: bool) -> str:
     lines = []
     for f in findings:
         prefix = f"{f.get('commit') or '?'}:{f['path']}" if history else f['path']
-        lines.append(f"{prefix}:{f['line']}: {f['kind']}: {f['excerpt']}")
+        term = f" (term #{f['term']})" if f.get("term") else ""
+        lines.append(f"{prefix}:{f['line']}: {f['kind']}{term}: {f['excerpt']}")
     if not lines:
         return "halo audit privacy: clean -- nothing found.\n"
     out = "\n".join(lines) + "\n"
@@ -49,7 +50,8 @@ def _render_text(findings: "list[dict]", *, history: bool) -> str:
 
 def cmd_audit(argv: "list[str]") -> int:
     if not argv or argv[0] != "privacy":
-        print("usage: halo audit privacy [--history | --replays] [--json] [--since REV] [--cwd DIR]", file=sys.stderr)
+        print("usage: halo audit privacy [--history | --commits | --replays] [--json] [--since REV] [--cwd DIR]",
+              file=sys.stderr)
         return 2
 
     parser = argparse.ArgumentParser(
@@ -57,10 +59,13 @@ def cmd_audit(argv: "list[str]") -> int:
         description="Scan for real paths, addresses, hostnames, machine names, key/token shapes, and "
                      "e-mail addresses before they reach a public repo.")
     parser.add_argument("--history", action="store_true",
-                         help="Scan every distinct blob reachable from HEAD instead of just the working tree")
+                         help="Scan every distinct blob reachable from any ref the clone has, not the working tree")
+    parser.add_argument("--commits", action="store_true",
+                         help="Read every commit's author and committer address and message (3.4.1.2); fails only "
+                              "on commits not yet on origin/master")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON instead of text lines")
     parser.add_argument("--since", default=None, metavar="REV",
-                         help="With --history, only commits in REV..HEAD instead of every commit reachable from HEAD")
+                         help="With --history, leave out everything REV reaches")
     parser.add_argument("--replays", action="store_true",
                          help="Scan this home's saved replays (~/.halo/replays/*.halo-replay) instead: the rules above, "
                               "plus this machine's home path, user name and machine name (3.4.1.1)")
@@ -71,12 +76,25 @@ def cmd_audit(argv: "list[str]") -> int:
     start_dir = Path(args.cwd).resolve() if args.cwd else Path.cwd()
     repo = repo_root(start_dir) or start_dir
 
+    from halo_harness.privacy_rules import name_checks_line
+    not_checked: "list[str]" = []
+    if args.commits:  # 3.4.1.2 (F8): the addresses and messages the file scans never read
+        from halo_harness import privacy_commits as pc
+        report = pc.scan_commits(repo)
+        failing = pc.failing(report)
+        if args.json:
+            print(json.dumps({"mode": "commits", "repo": repo.name, "clean": not failing, "name_checks":
+                              name_checks_line(), **report}, ensure_ascii=False, indent=2))
+        else:
+            print(name_checks_line())
+            print(pc.render(report), end="")
+        return 1 if failing else 0
     if args.replays:  # 3.4.1.1 (56): a replay is made to be handed on; its own folder, its own check
         from halo_harness.live.replay_private import audit
         from halo_harness.providers.config import default_state_dir
         findings = audit(default_state_dir())
     else:
-        findings = scan_history(repo, since=args.since) if args.history else scan_working_tree(repo)
+        findings = scan_history(repo, since=args.since) if args.history else scan_working_tree(repo, not_checked)
 
     if args.json:
         payload = {
@@ -88,12 +106,19 @@ def cmd_audit(argv: "list[str]") -> int:
             # produces must not reintroduce that leak.
             "repo": repo.name,
             "clean": not findings,
+            "name_checks": name_checks_line(),
+            "not_checked": len(not_checked),
             "findings": findings,
         }
         if args.history:
             payload["summary"] = summarize_history(findings)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
+        if not args.replays:
+            print(name_checks_line())
+        if not_checked:
+            print(f"not checked: {len(not_checked)} file(s) that are not text (images, fonts, archives; SVG is text "
+                  f"and is checked)")
         print(_render_text(findings, history=args.history), end="")
 
     return 1 if findings else 0

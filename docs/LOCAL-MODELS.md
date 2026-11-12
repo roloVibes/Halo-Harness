@@ -526,7 +526,7 @@ The profile then decides where the model goes, on its own:
   a pivot schedule (`halo teams show`, Roles -> Problems);
 - **not interactive** -> greyed in the `/model` picker with the reason.
 
-On the owner's RTX 4090 only one of six models passed every gate (`qwen3-coder`:
+On a 24 GB RTX 4090 only one of six models passed every gate (`qwen3-coder`:
 a full agent); three ignored the system role, four answered in `thinking`,
 one could not emit a tool call at all (the measured run behind this release).
 The card says it in four blocks -- use it for, don't use it for, where it

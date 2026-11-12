@@ -31,7 +31,7 @@ packaged library snapshot (sizes, families, dates) for what to add.
   co-resides" (add a small model); a lane whose model crashed here twice or more.
 - **placement** (3.3.8.0 R4) -- a lineup lane a cheaper candidate would serve: every configured host, each paired
   host's card and the pool are scored (`halo local place`'s rule) and the line says both scores and what each costs
-  to place -- "compactor (qwen3.5:9b) on pc scores 75 (evicts qwen3-coder:30b, pivots beside qwen3-coder:30b); samus
+  to place -- "compactor (qwen3.5:9b) on pc scores 75 (evicts qwen3-coder:30b, pivots beside qwen3-coder:30b); sagan
   scores 116 (18 s to load)"; Place is `halo local place --apply`. Under the suggestions, the **placement scores**:
   each lane on every candidate with its loading tax (the load seconds, the switch, the pool's decode penalty).
 - **freshness** -- a family the library has a newer line of ("gemma3:12b's family has a newer line in the library:

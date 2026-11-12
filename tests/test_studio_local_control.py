@@ -1,5 +1,5 @@
 """tests.test_studio_local_control -- Halo 3.3.5.0 R3 "Ollama, controlled": Studio's Local tab in headless Chrome
-through tests/helpers/studio_local_control.py (skipped without one), over R1's seeded home (hosts pc and samus on
+through tests/helpers/studio_local_control.py (skipped without one), over R1's seeded home (hosts pc and sagan on
 192.0.2.x placeholders, `box` a fake Ollama on 127.0.0.1:0 that pulls, copies and deletes); no provider request, no
 model call, nothing sent but to the fake:
 
@@ -70,8 +70,8 @@ def test_the_actions_menu_show_and_load(ctx: Ctx):
               and got.get("show_cli") == "halo models show qwen3.5:9b --host box")
     ctx.check(f"Load now shows in the strip with its VRAM share; Unload from it, got {got.get('loaded')} {got.get('unloaded')}",
               (got.get("loaded") or [""])[0] == "100% VRAM" and got.get("unloaded") == 0)
-    disabled, why = (got.get("samus_unload") or [False, ""])[:2]
-    ctx.check(f"another machine's host: Unload disabled with why, got {got.get('samus_unload')}", disabled is True and "another machine" in why)
+    disabled, why = (got.get("sagan_unload") or [False, ""])[:2]
+    ctx.check(f"another machine's host: Unload disabled with why, got {got.get('sagan_unload')}", disabled is True and "another machine" in why)
 
 
 @test

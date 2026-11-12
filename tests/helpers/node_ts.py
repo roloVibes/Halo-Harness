@@ -3,7 +3,7 @@ agreement, the mode order, the model-name strip, the replay's time axis). Halo 3
 
     run(js) -> the JSON of the last stdout line     js: an ES module that `await import(<file URL of a .ts>)`s and prints
 
-Node 22.6+ runs a `.ts` with `--experimental-strip-types`. Debian's nodejs (the Kali VM's v24.21) is built WITHOUT
+Node 22.6+ runs a `.ts` with `--experimental-strip-types`. Debian's nodejs (the Linux VM's v24.21) is built WITHOUT
 Node's TypeScript support (`process.features.typescript` is false: no amaro), so it throws ERR_NO_TYPESCRIPT. There
 each imported `.ts` is transpiled first by the TypeScript compiler of the UI's own `node_modules` (`npm ci` under
 halo_harness/studio/ui), to a scratch `.mjs`, and the same js runs on it. With neither, SkipTest says exactly what the

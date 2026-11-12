@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 
 PC = {"name": "pc", "url": "http://192.0.2.10:11434"}
-SAMUS = {"name": "samus", "url": "http://192.0.2.20:11434"}
+sagan = {"name": "sagan", "url": "http://192.0.2.20:11434"}
 GIB = 2 ** 30
 MIB = 2 ** 20
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "OLLAMA_HOST", "BRIDGE_TEST_NO_BACKGROUND_NET")

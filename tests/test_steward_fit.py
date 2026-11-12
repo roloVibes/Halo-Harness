@@ -47,7 +47,7 @@ def test_one_model_alone_fits_and_says_so(ctx: Ctx):
 def test_the_27b_and_the_30b_on_one_24_gb_card(ctx: Ctx):
     """Weights alone are 32 GB: no pair of windows fits; one at a time
     does (each fits alone at 65,536), or the 30B asked on another host."""
-    p = _plan(card(), other=lambda m: ["samus"])
+    p = _plan(card(), other=lambda m: ["sagan"])
     ctx.check(f"they do not fit together, got {p['says']}", p["fits_now"] is False)
     ctx.check(f"no 'windows' option (the weights alone overflow), got {_kinds(p)}", "windows" not in _kinds(p))
     chosen = p["options"][p["chosen"]]
@@ -56,7 +56,7 @@ def test_the_27b_and_the_30b_on_one_24_gb_card(ctx: Ctx):
                   {"key": "pc|qwen3-coder:30b", "field": "keep_alive", "to": "0"}])
     ctx.check(f"it says what you lose: a reload of about 11 s, got {chosen['lose']}", "about 11 s" in chosen["lose"])
     other = next(o for o in p["options"] if o["kind"] == "other-host")
-    ctx.check(f"or the 30B on samus, got {other['changes']}", other["changes"][0]["to"] == "samus" and other["fits"])
+    ctx.check(f"or the 30B on sagan, got {other['changes']}", other["changes"][0]["to"] == "sagan" and other["fits"])
     ctx.check("every option says what you lose", all(o.get("lose") for o in p["options"]))
 
 
@@ -66,7 +66,7 @@ def test_with_comfyui_holding_6_gb(ctx: Ctx):
     and recurrent state need 18.6 GB at the smallest window); the plan says
     so and keeps the server-side and quant lines as recommendations."""
     c = card(others=[{"name": "python (ComfyUI)", "bytes": 6 * GIB}])
-    p = _plan(c, other=lambda m: ["samus"])
+    p = _plan(c, other=lambda m: ["sagan"])
     ctx.check(f"18.0 GiB for models, got {p['budget']['budget'] / GIB:.1f}", round(p["budget"]["budget"] / GIB, 1) == 18.0)
     ctx.check(f"one at a time cannot help (the 27B alone overflows), got {_kinds(p)}", "one-at-a-time" not in _kinds(p))
     alone = next(o for o in p["options"] if o["kind"] == "window-alone")

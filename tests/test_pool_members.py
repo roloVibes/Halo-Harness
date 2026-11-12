@@ -105,7 +105,7 @@ def test_this_machine_is_read_locally(ctx: Ctx):
     from tests.helpers.ollama_panel_seed import cards
     with PoolHome() as h:
         M.add("me", "local", state_dir=h.state)
-        V.READERS["card"] = lambda host: cards()["samus"]
+        V.READERS["card"] = lambda host: cards()["sagan"]
         try:
             V.reset_cache()
             r = budgets(state_dir=h.state)[0]

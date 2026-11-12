@@ -12,9 +12,9 @@ binary is the provider.** halo drives it headlessly under the user's own login; 
 keeps its tools, permissions, hooks, cards, session log and telemetry. Pay-as-you-go access to the
 same models via `ANTHROPIC_API_KEY` is the existing `ant:` route, which gets first-class aliases.
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux is
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux is
 primary**). Baseline = tag `v0.3.1` (+ the RECOMMENDATIONS docs commit): run_all 1507, test_bridge
-97, test_tui 46, green on Windows, WSL and the Kali VM. Only worker on the tree; no commits.
+97, test_tui 46, green on Windows, WSL and the Linux VM. Only worker on the tree; no commits.
 
 Verified facts (Fable, this box, Claude Code 2.1.281, `claude auth status` → loggedIn=true,
 authMethod=claude.ai, no API key): `claude -p --model <id> --output-format json --max-turns 1
@@ -98,7 +98,7 @@ Sub-agents run in halo via the bridged Agent tool; children inherit `cc:` by def
 
 **doctor**: "Claude subscription: logged in (claude.ai) via claude <version> — cc: models
 available" from `claude auth status` (parse its JSON; never open the credentials file; on the
-Kali VM `claude` is at `~/.local/bin`). Not installed / not logged in → precise one-line errors
+Linux VM `claude` is at `~/.local/bin`). Not installed / not logged in → precise one-line errors
 when a `cc:` model is requested ("install Claude Code" / "run `claude` once and log in").
 Never run `claude login`/`logout`, never write `~/.claude.json` or `settings.json`.
 
@@ -115,7 +115,7 @@ pairing invariants after Esc mid-call; usage node with `estimate`; resume via th
 and `--continue`; steer = queued line; model switch cc→or and or→cc; Windows loopback token
 refusal; POSIX socket mode 0600; `claude` missing and not-logged-in errors; a sentinel
 `.credentials.json` under BRIDGE_TEST_HOME that is never opened; `--tools ""` vs disallowed
-fallback selection. Suites green on Windows, WSL and the Kali VM (`claude` 2.1.263 logged in
+fallback selection. Suites green on Windows, WSL and the Linux VM (`claude` 2.1.263 logged in
 there — do not touch its login).
 
 ## D. Live acceptance (Fable re-runs on this box, subscription login, no API key)

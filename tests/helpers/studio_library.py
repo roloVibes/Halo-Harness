@@ -1,5 +1,5 @@
 """tests.helpers.studio_library -- Studio's Local -> Library (Halo 3.3.5.0 R2) in headless Chrome: real clicks, keys
-and typing through tests/helpers/studio_local.LocalDriver's session (R1's seeded home: hosts pc and samus on 192.0.2.x
+and typing through tests/helpers/studio_local.LocalDriver's session (R1's seeded home: hosts pc and sagan on 192.0.2.x
 placeholders, `box` a fake Ollama on 127.0.0.1:0, their hardware cards through the panel's READERS seam) with the
 library's fixture sources (BRIDGE_TEST_NO_BACKGROUND_NET=1: the shipped snapshot and the hub's fixtures). No provider
 request, no model call, nothing pulled:

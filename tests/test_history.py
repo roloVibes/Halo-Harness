@@ -143,7 +143,7 @@ def test_schema_keys_present_on_appended_entry(ctx: Ctx):
 
 # ============================================================================
 # W2c item 1: Claude Code's own history.jsonl stores `timestamp` in
-# MILLISECONDS (verified live on the Kali VM: 1790623928405); halo's own
+# MILLISECONDS (verified live on the Linux VM: 1790623928405); halo's own
 # file stored SECONDS (`time.time()`, e.g. 1790882425.67, the OLD default).
 # Sorting by the raw value put every Claude Code entry after every halo
 # entry regardless of real time -- Up always recalled the last `claude`

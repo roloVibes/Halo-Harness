@@ -41,7 +41,7 @@ def test_the_hosts_page(ctx: Ctx):
         status, body = h.api("GET", "local/hosts")
         names = [(c["name"], c["source"]) for c in body["hosts"]]
         ctx.check(f"200, every host: the three configured, the local server, got {status} {names}", status == 200
-                  and names[:4] == [("pc", "configured"), ("samus", "configured"), ("box", "configured"), ("llama-box", "local server")])
+                  and names[:4] == [("pc", "configured"), ("sagan", "configured"), ("box", "configured"), ("llama-box", "local server")])
         pc, box = h.card("pc"), h.card("box")
         ctx.check(f"pc: Ollama, another machine's, the 27B loaded at 90% VRAM, got {pc['kind']} {pc['served_by']} {pc['loaded']}",
                   pc["kind"] == "Ollama" and pc["served_by"] == "another machine" and pc["loaded"][0]["vram_pct"] == 90)

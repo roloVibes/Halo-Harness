@@ -1,6 +1,6 @@
 """tests.helpers.ollama_panel_seed -- Halo 3.3.4.0 R5: one fixture for the steward's Studio routes
 (tests/test_ollama_steward_api.py) and the Ollama panel's Chrome driver (tests/helpers/studio_ollama.py): two
-configured hosts (`pc`, `samus`: 192.0.2.x placeholders), a Hugging Face local server on loopback, the ledger
+configured hosts (`pc`, `sagan`: 192.0.2.x placeholders), a Hugging Face local server on loopback, the ledger
 (the 27B's trims and cut replies, a coder, a small model, the local server's OpenAI-dialect lines), a server event,
 a hardware card per host with ComfyUI holding memory (so the fit plan has options and a server-side hint), the
 catalog rows, a steward note, and `review` mode. The card and the catalog reach Studio through
@@ -12,7 +12,7 @@ import json
 import time
 from pathlib import Path
 
-from tests.helpers.steward_seed import GIB, MIB, PC, SAMUS, at, event, line, rows
+from tests.helpers.steward_seed import GIB, MIB, PC, sagan, at, event, line, rows
 
 LOCAL = {"name": "llama-box", "url": "http://127.0.0.1:8080/v1"}
 NOTE = "The 27B spills to the CPU on pc: ComfyUI holds 2.0 GiB of the card."
@@ -20,9 +20,9 @@ COST = "(steward model ol:qwen3.5:9b: local, free)"
 BIG, CODER, SMALL, HF = "qwen3.8:27b", "qwen3-coder:30b", "qwen3.5:9b", "llama-3.1-8b"
 # what the fixture's last hour holds per host and model (the panel's rows are held to these)
 HOUR = {("pc", BIG): {"calls": 7, "trims": 1, "cuts": 1, "errors": 1}, ("pc", CODER): {"calls": 3, "trims": 0, "cuts": 0,
-        "errors": 0}, ("samus", SMALL): {"calls": 2, "trims": 0, "cuts": 0, "errors": 0},
+        "errors": 0}, ("sagan", SMALL): {"calls": 2, "trims": 0, "cuts": 0, "errors": 0},
         ("llama-box", HF): {"calls": 3, "trims": 0, "cuts": 1, "errors": 0}}
-CONFIG = {"ollama": {"hosts": [PC, SAMUS], "steward": {"apply": "review"}},
+CONFIG = {"ollama": {"hosts": [PC, sagan], "steward": {"apply": "review"}},
           "huggingface": {"local_servers": [LOCAL]}}
 
 
@@ -36,18 +36,18 @@ def cards() -> dict:
                      "flash_attention": True, "source": "fixture"},
           "loaded": [{"model": BIG, "size": 20 * GIB, "size_vram": 18 * GIB, "expires": expires, "context_length": 32768}],
           "sources": [], "read_at": "fixture"}
-    samus = {"gpus": [{"id": "0", "name": "a 10 GB card", "library": "CUDA", "total_bytes": 10240 * MIB,
+    sagan = {"gpus": [{"id": "0", "name": "a 10 GB card", "library": "CUDA", "total_bytes": 10240 * MIB,
                        "available_bytes": 3000 * MIB}],
              "unified": False, "ram_bytes": 64 * GIB, "other_users": [],
              "server": {"version": "0.40.6", "kv_cache_type": "q8_0", "parallel": 1, "max_loaded": 1},
              "loaded": [{"model": SMALL, "size": 7 * GIB, "size_vram": 7 * GIB, "expires": expires,
                          "context_length": 16384}], "sources": [], "read_at": "fixture"}
-    return {"pc": pc, "samus": samus}
+    return {"pc": pc, "sagan": sagan}
 
 
 def catalogs() -> dict:
     r = rows()
-    return {"pc": {"models": [r[BIG], r[CODER]]}, "samus": {"models": [r[SMALL]]}}
+    return {"pc": {"models": [r[BIG], r[CODER]]}, "sagan": {"models": [r[SMALL]]}}
 
 
 def readers() -> dict:
@@ -63,7 +63,7 @@ def ledger() -> list:
             line(status=500, prompt_eval_count=None, error="HTTP 500", ago=180)]
     out += [line(model=CODER, prompt_eval_count=8000, ago=1200 + i * 60) for i in range(3)]
     out += [line(model=CODER, prompt_eval_count=9000, ago=3 * 3600 + i * 60) for i in range(2)]
-    out += [line(host=SAMUS, model=SMALL, num_ctx_sent=16384, prompt_eval_count=4000, ago=900 + i * 60) for i in range(2)]
+    out += [line(host=sagan, model=SMALL, num_ctx_sent=16384, prompt_eval_count=4000, ago=900 + i * 60) for i in range(2)]
     hf = {"name": "127.0.0.1:8080", "url": LOCAL["url"]}
     out += [line(host=hf, model=HF, dialect="openai", num_ctx_sent=None, window_source="server default",
                  prompt_eval_count=3000, ago=700 + i * 60, **({"done_reason": "length"} if i == 0 else {}))
@@ -92,5 +92,5 @@ def seed(state: Path, *, config: bool = True) -> Path:
     return state
 
 
-__all__ = ["BIG", "CODER", "SMALL", "HF", "HOUR", "LOCAL", "NOTE", "COST", "PC", "SAMUS", "at", "cards", "catalogs",
+__all__ = ["BIG", "CODER", "SMALL", "HF", "HOUR", "LOCAL", "NOTE", "COST", "PC", "sagan", "at", "cards", "catalogs",
            "readers", "ledger", "seed"]

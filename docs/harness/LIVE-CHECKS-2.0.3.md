@@ -52,7 +52,7 @@ runbook; this file is 2.0.3's own result record, not a how-to.
   real installed Codex configuration (`config.toml`/`AGENTS.md` reading
   only -- no ChatGPT login present) -- passed.
 
-## The Kali VM, against the LAN host
+## The Linux VM, against the LAN host
 
 - `halo ollama` from the VM read the remote host's real state (version,
   loaded models) -- passed.

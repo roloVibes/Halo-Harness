@@ -11,20 +11,12 @@ the exact machine/project/hobby-gear/work-tool names this pass removed,
 and key-shaped fragments outside `tests/privacy_scan_allowlist.txt`'s
 known fakes.
 
-2.0.4 round 1: the rule set (LAN ranges, real-home-path detection, the
-removed-names/extended-terms lists, the allowlist loader) moved to
-halo_harness.privacy_rules, the production module behind `halo audit
-privacy`, and is only imported here -- so the two can never quietly drift
-apart. The home-path check is now the SAME general one the audit command
-runs (any real account name, via `home_path_name_is_real`'s placeholder
-exemption list) rather than a single hardcoded historical string; that
-exemption list is why this stays safe against the wider tree's own
-`C:\\Users\\example\\...`-style FAKE fixture paths and dozens of distinct
-FAKE Databricks hostnames (confirmed by hand before writing this file,
-and re-confirmed when the check was generalized) -- `tests/
-test_docs_hygiene.py`'s own home-path/Databricks-host checks stay
-deliberately narrower in SCOPE (docs/README/CHANGELOG only, never a
-`~`-equivalent ban applied tree-wide).
+2.0.4 round 1: the rule set moved to halo_harness.privacy_rules (behind
+`halo audit privacy`) and is only imported here, so the two never drift
+apart; the home-path check is the audit's own (any real account name, via
+`home_path_name_is_real`'s placeholder list). 3.4.1.2 (F8): the name terms
+cover the whole tree and a report names a term by its number, never the
+term (tests/test_privacy_gate.py prints whether the name checks are on).
 """
 from __future__ import annotations
 
@@ -45,8 +37,8 @@ from halo_harness.redact import _BEARER_RE, _TOKEN_PATTERNS
 # Aliased under the old local names so every call site below (and every
 # `plans/*privacy*` reference to this file) still reads the same way.
 from halo_harness.privacy_rules import (
-    EXTENDED_SCAN_ROOTS as _EXTENDED_SCAN_ROOTS,
     EXTENDED_SCAN_TERMS as _EXTENDED_SCAN_TERMS,
+    NAME_CHECK_EXEMPT_RELPATHS as _NAME_CHECK_EXEMPT,
     HOME_PATH_RE as _HOME_PATH_RE,
     KNOWN_LEAKED_PATH_FRAGMENTS as _KNOWN_LEAKED_PATH_FRAGMENTS,
     LAN_IP_RE as _LAN_IP_RE,
@@ -183,14 +175,16 @@ def test_no_removed_machine_or_project_names_regress(ctx: Ctx):
         text = _read_text(path)
         if not text:
             continue
-        for name in _REMOVED_NAMES:
+        if _rel_posix(path) in _NAME_CHECK_EXEMPT:
+            continue
+        for n, name in enumerate(_REMOVED_NAMES, 1):
             if name in allowed:
                 continue
             idx = text.find(name)
             if idx == -1:
                 continue
-            line_no = text.count("\n", 0, idx) + 1
-            problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: removed name {name!r} is back")
+            line_no = text.count("\n", 0, idx) + 1  # 3.4.1.2: the term's number, never the term (the list is private)
+            problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: private term #{n} is back")
     ctx.check("no removed machine/project names regressed:\n  " + "\n  ".join(problems), not problems)
 
 
@@ -200,7 +194,7 @@ def _extended_scan_files() -> "list[Path]":
         rel = _rel_posix(path)
         if _is_self_excluded(rel):
             continue
-        if any(rel == root or rel.startswith(root) for root in _EXTENDED_SCAN_ROOTS):
+        if rel not in _NAME_CHECK_EXEMPT:  # 3.4.1.2 (F8): the whole tree, not five roots
             out.append(path)
     return out
 
@@ -210,9 +204,8 @@ def test_no_hobby_gear_vendor_or_owner_name_terms_case_insensitive(ctx: Ctx):
     """Release review finding 38 / W6b section C: a broader net than
     `_REMOVED_NAMES` above -- case-insensitive, generic substrings for the
     owner's hobby gear/vendor names and the owner's own first/last name,
-    across halo_harness/, tests/, docs/, README.md and CHANGELOG.md (never
-    the whole tree -- see `_EXTENDED_SCAN_TERMS`'s own docstring for why
-    LICENSE is deliberately excluded)."""
+    across the whole tracked tree since 3.4.1.2 (LICENSE names its holder
+    on purpose: privacy_rules.NAME_CHECK_EXEMPT_RELPATHS)."""
     problems = []
     allow_lower = {a.lower() for a in _load_allowlist()}
     for path in _extended_scan_files():
@@ -220,15 +213,15 @@ def test_no_hobby_gear_vendor_or_owner_name_terms_case_insensitive(ctx: Ctx):
         if not text:
             continue
         lower = text.lower()
-        for term in _EXTENDED_SCAN_TERMS:
-            if term in allow_lower:
+        for n, term in enumerate(_EXTENDED_SCAN_TERMS, len(_REMOVED_NAMES) + 1):
+            needle = term.lower()
+            if needle in allow_lower:
                 continue
-            idx = lower.find(term)
+            idx = lower.find(needle)
             while idx != -1:
                 line_no = text.count("\n", 0, idx) + 1
-                problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: {term!r}-shaped term found: "
-                                 f"{text[idx:idx + len(term)]!r}")
-                idx = lower.find(term, idx + 1)
+                problems.append(f"{path.relative_to(REPO_DIR)}:{line_no}: private term #{n} found")
+                idx = lower.find(needle, idx + 1)
     ctx.check("no hobby-gear/vendor/owner-name terms found:\n  " + "\n  ".join(problems), not problems)
 
 

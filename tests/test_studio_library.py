@@ -1,6 +1,6 @@
 """tests.test_studio_library -- Halo 3.3.5.0 R2 "the library browser and the fit badge": Studio's Local -> Library in
 headless Chrome through tests/helpers/studio_library.py (skipped without one), over R1's seeded home (hosts pc and
-samus on 192.0.2.x placeholders, `box` a fake Ollama on 127.0.0.1:0) with the fixture sources (the shipped snapshot,
+sagan on 192.0.2.x placeholders, `box` a fake Ollama on 127.0.0.1:0) with the fixture sources (the shipped snapshot,
 the hub's fixtures); no provider request, no model call, nothing pulled:
 
 1. the page lists the library, its source line names the snapshot's date with Refresh, each size says its source;

@@ -171,7 +171,7 @@ def test_cli_exit_codes_and_json(ctx: Ctx):
     home = Path(tempfile.mkdtemp(prefix="rolescli-"))
     # clean lineup (all-local ol: models, no remote probe)
     _scoped(home, {"main": "ol:qwen3.8:27b@lan", "coder": "ol:qwen3-coder:30b@lan",
-                   "judge": "ol:bugtrace:latest"})
+                   "judge": "ol:custom-agent:latest"})
     r = subprocess.run([sys.executable, "-m", "halo_harness", "doctor", "--roles"],
                        env=_env_for(home), cwd=str(REPO_DIR), capture_output=True, text=True,
                        timeout=120)

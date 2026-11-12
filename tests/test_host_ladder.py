@@ -43,7 +43,7 @@ def test_the_status_says_via_host_and_a_host_wins_over_ssh(ctx: Ctx):
         ctx.check(f"paired: rung host, the host's own state, 'via host' in the line, got {st['rung']} {st['line']!r}",
                   st["rung"] == "host" and st["state"] == "live" and "via host 127.0.0.1" in st["line"]
                   and st["via"] == "host" and "server.log" in st["path"])
-        rig.set_peer(**{"ollama.hosts": [{**PC, "ssh": "rob@192.0.2.10"}]})
+        rig.set_peer(**{"ollama.hosts": [{**PC, "ssh": "you@192.0.2.10"}]})
         from halo_harness.providers.ollama import resolve_ollama_host
         lad = ladder(rig.peer, resolve_ollama_host("pc"))
         ctx.check(f"with an ssh entry too, the host wins for reading, got {lad}", lad["rung"] == "host")
@@ -134,7 +134,7 @@ def test_a_host_that_does_not_answer(ctx: Ctx):
                   time.monotonic() - t1 < 0.5)
         from halo_harness.ollama_steward.log_status import ladder
         from halo_harness.providers.ollama import resolve_ollama_host
-        rig.set_peer(**{"ollama.hosts": [{**PC, "ssh": "rob@192.0.2.10"}]})
+        rig.set_peer(**{"ollama.hosts": [{**PC, "ssh": "you@192.0.2.10"}]})
         ctx.check("with an ssh entry, a host that did not answer falls through to ssh (the ladder's next rung)",
                   ladder(rig.peer, resolve_ollama_host("pc"))["rung"] == "ssh")
 

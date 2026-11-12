@@ -18,7 +18,7 @@ test, TESTS = new_registry()
 KEYS = "[1] Approve, auto-accept edits · [2] Approve, manual · [3]/Esc Keep planning"
 
 
-def _card(plan: str, path: str = "/home/kali/.claude/plans/amber-brook-kite.md"):
+def _card(plan: str, path: str = "/home/you/.claude/plans/amber-brook-kite.md"):
     from halo_harness.tui.widgets.cards import PlanCard
     return PlanCard(request_id="r1", input_data={"plan": plan, "path": path}, on_reply=lambda d: None)
 
@@ -44,7 +44,7 @@ def test_a_long_plan_is_capped_with_the_plan_file_named(ctx: Ctx):
     ctx.check(f"capped to the dock's room (12 lines less the border), got {len(lines)}", len(lines) <= 11)
     shown = 40 - PlanCard.PLAN_MAX_LINES
     ctx.check(f"the overflow line names the rest and the file, got {lines[-1]!r}",
-              lines[-1] == f"... ({shown} more lines; the plan file: /home/kali/.claude/plans/amber-brook-kite.md)")
+              lines[-1] == f"... ({shown} more lines; the plan file: /home/you/.claude/plans/amber-brook-kite.md)")
     ctx.check("the full plan stays on the card for the `o` pager", _card(plan).plan_text.count("step") == 40)
 
 

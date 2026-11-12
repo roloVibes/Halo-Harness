@@ -52,7 +52,7 @@ def test_memory_md_content_reaches_the_upstream_request(ctx: Ctx):
     fh = build_fake_home()
     mock = MockUpstream().start()
     try:
-        result = _run_cli(fh, mock, "what does MEMORY.md say about the media server?")
+        result = _run_cli(fh, mock, "what does MEMORY.md say about the weather station?")
         ctx.check(f"exit 0, got {result.returncode} (stderr: {result.stderr[-500:]!r})", result.returncode == 0)
         ctx.check("at least one request recorded", len(mock.requests) >= 1)
         last_body = mock.requests[-1]["body"] or {}
@@ -61,8 +61,8 @@ def test_memory_md_content_reaches_the_upstream_request(ctx: Ctx):
         # serialized body for the memory text rather than assuming exactly
         # which message index/role carries it.
         whole_body_text = json.dumps(last_body)
-        ctx.check("MEMORY.md's media-server content reached the actual upstream request",
-                  "mediabox" in whole_body_text)
+        ctx.check("MEMORY.md's weather-station content reached the actual upstream request",
+                  "skylark" in whole_body_text)
         ctx.check("the LAN host reached the actual upstream request",
                   "lan-host.lan" in whole_body_text)
     finally:

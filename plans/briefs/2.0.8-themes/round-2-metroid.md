@@ -28,7 +28,7 @@ width sweep every skin must pass) before writing anything.
    `new`/`throughput` and `tools` slots), the AREA NAME slot in place of
    the cwd (the cwd's last component rendered as the area label, the
    branch as its sub-label), cost/balance and providers in their own
-   panels, the face slot carrying an original Samus-visor glyph set with
+   panels, the face slot carrying an original helmet-visor glyph set with
    the five phase states (idle, thinking, writing, error, needs-you).
    Everything today's status bar shows stays reachable (same cascade
    rule as DOOM; narrowest keeps phase, context, cost, cwd, mode).

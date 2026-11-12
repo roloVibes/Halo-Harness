@@ -1,12 +1,12 @@
 # The Governor — cross-process adaptive rate limiter (the Databricks 429 fix)
 
-**A self-contained report on brood's answer to gateway overload, extracted so it can be
+**A self-contained report on the source project's answer to gateway overload, extracted so it can be
 dropped into other projects.** Written 2026-10-03.
 
-- Canonical source: `<the owner vault>/appDev/brood/brood/governor.py` (409 lines, stdlib-only)
-- Failover layer: `<the owner vault>/appDev/brood/brood/routing.py` (47 lines)
-- Tests: `<the owner vault>/appDev/brood/tests/test_governor.py` (8 tests, green in the 357-test suite)
-- Second-generation port (already in production use): `<the owner vault>/appDev/work-mcp/work_mcp.py` (~line 143 onward) — adds timeout classification and a loud warning when the governor can't persist state
+- Canonical source: `<the source project>/governor.py` (409 lines, stdlib-only)
+- Failover layer: `<the source project>/routing.py` (47 lines)
+- Tests: `<the source project>/tests/test_governor.py` (8 tests, green in the 357-test suite)
+- Second-generation port (already in production use): `<a later port>/port.py` (~line 143 onward) — adds timeout classification and a loud warning when the governor can't persist state
 - Copies of all three files are vendored in THIS folder, unmodified, so this report is
   self-contained.
 
@@ -23,8 +23,8 @@ visible to every process, that learns the real rate the gateway will tolerate.
 
 ## The five properties (from the module docstring, all implemented)
 
-1. **Cross-process** — state lives on disk under `$BROOD_STATE_DIR` (default
-   `~/.local/state/brood/governor/`), guarded by `flock`, so three terminals share one limit.
+1. **Cross-process** — state lives on disk under `$SOURCE_STATE_DIR` (default
+   `~/.local/state/<project>/governor/`), guarded by `flock`, so three terminals share one limit.
 2. **Adaptive (AIMD)** — a 429/overload *multiplicatively* cuts the allowed rate
    (`rate *= backoff_mult`, default ×0.5) and sets a cooldown (honoring `Retry-After` if the
    gateway sent one, else exponential `cooldown_base * 2^(n-1)`, capped at 2^6). Sustained
@@ -85,11 +85,11 @@ the fleet.
 
 ## Configuration surface
 
-Per-provider limits (from brood's `config.py`; defaults in parentheses):
+Per-provider limits (from the source project's `config.py`; defaults in parentheses):
 
 | Key | Meaning | Default |
 |-----|---------|---------|
-| `rate_rps` | sustained requests/sec ceiling per gateway (8.0 in brood config; 2.0 as the in-code default) | 8.0 |
+| `rate_rps` | sustained requests/sec ceiling per gateway (8.0 in its config; 2.0 as the in-code default) | 8.0 |
 | `burst` | token-bucket burst size | 8 |
 | `max_inflight` | max concurrent in-flight across ALL sessions | 6 |
 | `rate_floor` | AIMD never cuts below this | 0.25 |
@@ -98,7 +98,7 @@ Per-provider limits (from brood's `config.py`; defaults in parentheses):
 | `backoff_mult` | multiplicative cut on overload | 0.5 |
 | `cooldown_base` | first cooldown, seconds (then exponential ×2) | 2.0 |
 
-In brood these are passed as `cfg.governor_params(entry)` → the `params` dict every governor
+There these are passed as `cfg.governor_params(entry)` → the `params` dict every governor
 function takes. Nothing is global; each gateway bucket has its own.
 
 ## API surface (`governor.py`)
@@ -150,19 +150,19 @@ and py3.9-safe. To lift it into another project:
            return False
    ```
 
-2. Rename the state-dir env var to match your project (`BROOD_STATE_DIR` appears once, in
+2. Rename the state-dir env var to match your project (`SOURCE_STATE_DIR` appears once, in
    `state_dir()`), so two projects don't share buckets unless you want them to.
 3. Integrate at the HTTP layer, not the business layer: every request to a remote model goes
-   through `governed()` with a `do_call` closure. In brood this is `providers/anthropic_api.py`,
+   through `governed()` with a `do_call` closure. There this is `providers/anthropic_api.py`,
    `providers/bedrock.py`, `providers/openai_compat.py` — three call sites total.
 4. If you have multiple gateways, copy `routing.py` too and wire `fallbacks` per role.
-5. Port the tests — `test_governor.py` needs only `BROOD_STATE_DIR` pointed at a tmp dir.
+5. Port the tests — `test_governor.py` needs only `SOURCE_STATE_DIR` pointed at a tmp dir.
    The 8 tests prove: shared bucket by host, 429 cuts rate + transparent retry, sustained
    success ramps back, queen-before-worker priority, hard concurrency cap, fail-open only for
    the front waiter, pivot on circuit-open, and least-cooled selection when everything is open.
 
-**Read the work-mcp port before finalizing** (`<the owner vault>/appDev/work-mcp/work_mcp.py`,
-search "Ported from brood/governor.py"): it survived contact with real usage and added two
+**Read the later port before finalizing** (`<a later port>/port.py`,
+search "Ported from governor.py"): it survived contact with real usage and added two
 things worth keeping — treating caller-side timeouts as rate-cutting events, and surfacing a
 loud warning whenever the governor silently falls back to non-persistent state (a limiter that
 isn't persisting isn't limiting across sessions, and nobody notices an absence).

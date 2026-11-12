@@ -52,11 +52,11 @@ file. Nothing here ever prints one (not even a fingerprint).
    env vars (`HALO_LIVE_ANT_MODEL`/`HALO_LIVE_DBX_CLAUDE_MODEL`) if the
    default model-id guesses don't match this workspace.
 
-## B. On the Kali VM (orchestrator-run, part of the three-platform round)
+## B. On the Linux VM (orchestrator-run, part of the three-platform round)
 
 These three already live in the ordinary suites and are SKIPPED cleanly
 (never FAILED) wherever their one real prerequisite is missing -- the
-Kali VM round is simply where the prerequisite happens to be present, so
+Linux VM round is simply where the prerequisite happens to be present, so
 they stop being skips and start actually exercising the real path:
 
 - **Real-binary Claude Code interop** (`tests/test_mcp_compat_matrix.py`,

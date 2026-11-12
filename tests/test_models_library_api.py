@@ -1,6 +1,6 @@
 """tests.test_models_library_api -- Halo 3.3.5.0 R2: Local -> Library's routes (studio/models_library_api.py through
 studio/local_api.dispatch_local) and `halo models browse` (models_browse_cli.py), on R1's seeded state
-(tests/helpers/local_api_rig.Local: hosts pc and samus on 192.0.2.x placeholders, `box` a fake Ollama on
+(tests/helpers/local_api_rig.Local: hosts pc and sagan on 192.0.2.x placeholders, `box` a fake Ollama on
 127.0.0.1:0, their hardware cards through the panel's READERS seam) with the fixture sources
 (BRIDGE_TEST_NO_BACKGROUND_NET=1: Ollama's shipped snapshot, the hub's fixtures). No real request, no model call:
 
@@ -55,7 +55,7 @@ def test_the_library_rows_and_their_sources(ctx: Ctx):
               and r["pull_line"] == "ollama pull qwen3.5:9b" and "shape" not in r)
     ctx.check(f"the host is the first configured, at its window, got {body['host']} {body['window']}",
               body["host"]["name"] == "pc" and body["host"]["card"] is True and body["window"] == 32768
-              and [x["name"] for x in body["hosts"]] == ["pc", "samus", "box"])
+              and [x["name"] for x in body["hosts"]] == ["pc", "sagan", "box"])
     ctx.check("the intents are R1's", [i["id"] for i in body["intents"]] == ["code", "chat", "long", "images", "embed"])
 
 

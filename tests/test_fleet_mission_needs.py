@@ -26,7 +26,7 @@ def _entry(name: str, hid: str, os_: str, clis: dict, gpu: str = "") -> dict:
 
 
 KALI = _entry("kali@kali", "h-kali", "linux", {"nmap": "installed", "bash": "installed"})
-PC = _entry("rolo@roundBoy", "h-pc", "windows", {"nmap": False}, gpu="NVIDIA GeForce RTX 4090")
+PC = _entry("you@tower", "h-pc", "windows", {"nmap": False}, gpu="NVIDIA GeForce RTX 4090")
 
 
 @test
@@ -77,14 +77,14 @@ def test_the_lead_is_asked_again_once(ctx: Ctx):
 def test_a_harness_the_goal_or_the_part_names_wins(ctx: Ctx):
     from halo_harness.fleet.mission_assign import assign
     both = [PC, KALI]
-    part = assign({"id": "1", "title": "scan", "brief": "nmap localhost", "needs": [], "harness": "rolo@roundBoy"},
-                  both, ["rolo@roundBoy"], {}, (), "Run nmap on kali@kali and keep the report")
+    part = assign({"id": "1", "title": "scan", "brief": "nmap localhost", "needs": [], "harness": "you@tower"},
+                  both, ["you@tower"], {}, (), "Run nmap on kali@kali and keep the report")
     ctx.check(f"the goal names kali@kali: over the lead's pick and prefer: {part['harness_name']} {part['reason']!r}",
               part["harness"] == "h-kali" and part["pinned"] and part["reason"].startswith("the goal names kali@kali"))
-    part = assign({"id": "2", "title": "On rolo@roundBoy: list the files", "brief": "ls", "needs": []}, both, [], {}, (),
-                  "Two parts: one on kali@kali, one on rolo@roundBoy")
+    part = assign({"id": "2", "title": "On you@tower: list the files", "brief": "ls", "needs": []}, both, [], {}, (),
+                  "Two parts: one on kali@kali, one on you@tower")
     ctx.check(f"a part's own words name its harness first: {part['harness_name']}", part["harness"] == "h-pc")
-    part = assign({"id": "3", "title": "anything", "brief": "x", "needs": []}, both, [], {}, (), "kali@kali or rolo@roundBoy")
+    part = assign({"id": "3", "title": "anything", "brief": "x", "needs": []}, both, [], {}, (), "kali@kali or you@tower")
     ctx.check(f"a goal naming two picks neither by name: {part['reason']!r}", not part["reason"].startswith("the goal names"))
 
 

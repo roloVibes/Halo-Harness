@@ -70,7 +70,7 @@ def test_scope_summary_line_never_empty_even_with_nothing_configured(ctx: Ctx):
 @test
 def test_other_project_mcp_jsons_names_history_with_its_own_mcp_json(ctx: Ctx):
     cwd = Path(tempfile.mkdtemp(prefix="explain-cwd-a-"))
-    other = Path(tempfile.mkdtemp(prefix="explain-other-serverMode-"))
+    other = Path(tempfile.mkdtemp(prefix="explain-other-project-"))
     (other / ".mcp.json").write_text("{}", encoding="utf-8")
     no_config = Path(tempfile.mkdtemp(prefix="explain-other-noconfig-"))
     claude_json = {"projects": {str(cwd): {}, str(other): {}, str(no_config): {}}}

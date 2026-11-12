@@ -2,7 +2,7 @@
 2.0.1, "W4 MCP: claude.ai connectors bridge" in HALO-2.0.1-gaplist-brief.md).
 
 On a box where `claude` is installed and logged into claude.ai, `claude mcp
-list` reports account-side connectors (verified live on the Kali VM:
+list` reports account-side connectors (verified live on the Linux VM:
 `claude.ai Claude Docs: https://api.anthropic.com/v1/pages/mcp - ✔ Connected`)
 that exist nowhere on disk -- they live in the claude.ai account and are
 reachable only through the `claude` binary's own login. Halo can never see

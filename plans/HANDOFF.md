@@ -6,7 +6,7 @@ first, then `WORKER-RULES.md`, then the round you are starting.
 
 ## THE REPO MOVED -- 2026-11-10 midday (read before any path below)
 
-The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harness`. The clone that was at
+The owner asked for the project to live at `~/projects/Halo-Harness`. The clone that was at
 `~/Halo-Harness` was moved there (`git worktree repair` run; the round worktrees stay under `~/hh-*`), and the stale
 2.0.7 clone that sat at that path was removed. Every older line in this file or in a brief that names the clone in
 the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
@@ -38,7 +38,7 @@ coordinator's gate (`python scripts/prepush.py --ui` from Git Bash), commit, pus
 3.4.1.0` (only when `conclusion == success` for the exact HEAD on both runners), then the PC reinstall and `halo
 --version`. Briefs and hand-backs: `~/hh-341/briefs/` (R1-R5) and `~/hh-3401/briefs/` (3.4.0.1). The two live-check
 findings files are `~/hh-live/briefs/live-3400-findings.md` (defects 1-29) and `live-3401-recheck-findings.md` (the
-re-check, 30-37). The Kali VM (ssh key `kali_vm`) is the Linux live-check box; Chrome there needs
+re-check, 30-37). The Linux VM is the Linux live-check box; Chrome there needs
 `--password-store=basic` over ssh (already in tests/helpers/chrome_driver.py). After 3.4.1.0: the PC as hub past its
 Windows Firewall Block rules (admin), a mission across both machines with Kali in `default` mode, then the list
 below from item (4).
@@ -148,8 +148,7 @@ runner (two were fixed on 0ec52632); a Chrome driver waits for the value it asse
 state is final are written inside the state's update; the 250-line cap (no file under it may cross it, and a file at
 it may not grow); `halo audit privacy` with a scratch home before every commit; plans edits ride with code commits on a
 release candidate. The round cycle, the CI lessons and the owner's "for rolo to test" list are also in the
-coordinator's memory files (project_halo_3380_pooled.md, project_halo_rolo_todo_list.md,
-project_halo_windows_ci_flakes.md under ~/.claude/projects/C--Users-rolo/memory/).
+coordinator's notes.
 
 ## WHERE THINGS STAND -- 2026-11-02 evening (authoritative, read this first)
 
@@ -255,8 +254,8 @@ changes its inputs (the pool watch driver degraded the pool, then read the Bundl
 Worktrees `~/hh-338/*`, briefs and hand-backs under `~/hh-338/briefs/` (each hand-back's WHAT STAYS OPEN is the
 list for later). Nothing pooled has run on hardware: every llama.cpp RPC log line, the device order and
 `--api-key-file` are written from the source wording; `pool-rtt`'s thresholds and `pool-spill`'s 85 % want a real
-pool. Open for the owner's live check: pair SAMUS as a worker, `halo pool preflight`, Warm, `halo local bench
---host pool --quick` (the card, the penalty line, the key file's path in the process list), pull SAMUS's cable
+pool. Open for the owner's live check: pair sagan as a worker, `halo pool preflight`, Warm, `halo local bench
+--host pool --quick` (the card, the penalty line, the key file's path in the process list), pull sagan's cable
 mid-reply (one `pool-degraded` line); from the Mac `halo local log pool`, `halo pack verdict big-reasoner`, `halo
 local advise` with the pool among the candidates; from Kali `halo pack on big-reasoner` against the PC's pool and a
 host-served llama-server change landing through the host. **Next:** 3.3.8.1 "Bench from any halo" (ROADMAP "ADDED 2026-11-02 morning": a peer benches a remote Ollama host over
@@ -327,7 +326,7 @@ list for later). Open for the owner's live check (nothing run on hardware yet): 
 `halo host join` from the Mac / Kali; `halo host grant <mac> control` then Load / Unload / Probe from the Mac's
 Studio; `fleet.allow_control: ask` and `halo host pending | allow`; `halo host steward on --model ...`; the
 offline chip on `/cost`; `halo local warm halo-dev-cycle` wired to local models; `halo local place --apply` with
-the PC + SAMUS; `halo host refresh now` on an idle card; a foreign load from the Kali agent on the Hosts card;
+the PC + sagan; `halo host refresh now` on an idle card; a foreign load from the Kali agent on the Hosts card;
 `tag-drift` after an `ollama pull` over a tag; `halo local advise` on the real roster; tick the glasses bundle
 and read its verdict; a steward chat question with its cost. **Next:** 3.3.8.0 "Voice" (Part K; the glasses
 bundle's models: STT and TTS on CPU, the 1.7 B chat model's dialect), then -- after every local-model build --
@@ -623,7 +622,7 @@ installs it; the first Kali run of `halo start`, a quit with a Studio open,
 `/update`); the gym runs local models only; the start's real calls come from
 the active role table, not the copied lineup; a `--bg` run started from a
 plain shell survives a quit (the line says so); dontAsk still refuses the
-web tools; the Kali VM did not answer ssh all day.
+web tools; the Linux VM did not answer ssh all day.
 
 **Next:** 3.3.0.0 "Setup is Studio" (plans/ROADMAP.md "ADDED 2026-10-25 ...
 3.3.0.0", four rounds; the design in the owner's plan file
@@ -666,7 +665,7 @@ CI logs under `~/hh-321/briefs/`):
   re-arms), run_all clearing `HALO_CHROME`, a skill body's `${CLAUDE_SKILL_
   DIR}` on Windows (the hooks' rule, `fill_claude_vars_in_commands`),
   `--no-sandbox` only as root, a wizard test that downloaded ripgrep into the
-  real `~/.local/bin`. The Kali VM did not answer; nothing ran there.
+  real `~/.local/bin`. The Linux VM did not answer; nothing ran there.
 
 Also in this version, from CI: a print-mode run registered its control
 socket before its stream-json turn queue existed (`status.accepts_turns`);
@@ -989,7 +988,7 @@ for the exact sha; the local install is `halo-harness v3.1.4.0`). 3.1.4.0
   Roles Inspector strip, the card pill, the bio form (MODELS first),
   Orchestra's goal form, Design's project dialog and panel, the Team stage
   face; `studio/catalog_env.py` resolves providers the way a session does
-  (the owner's Kali box, Databricks only through the keys step, read "No
+  (the owner's Linux box, Databricks only through the keys step, read "No
   provider is set up" because Studio passed a bare `dict(os.environ)` and
   the settings-chain fallback only runs on `os.environ` itself);
   `studio/models_refresh.py` asks every provider at once with one outcome
@@ -1153,7 +1152,7 @@ part starts from the mission base, not the earlier part's head; the member's
 catalog is learned only while one of its sessions is live.
 
 **THE OWNER'S LIVE CHECK (3.0.5.0 + 3.0.6.0, never done yet):** this host
-`halo studio --fleet` + `halo fleet pair`; Kali VM `halo update` then
+`halo studio --fleet` + `halo fleet pair`; Linux VM `halo update` then
 `halo fleet join <host>:7430 --code "..."`; both in one Fleet map; `halo
 fleet who nmap` names the VM and `who gridcraft` names this host; a mission
 "<something needing GridCraft here and nmap there>" plans with the parts
@@ -1202,7 +1201,7 @@ tests/run_all, test_tui), CI `conclusion == success` for the exact sha,
 `python scripts/release.py 3.0.5.0`, refresh the install (`uv pip install
 --python <tool venv python> --reinstall-package halo-harness <clone>`),
 `halo --version` = 3.0.5.0, memory. Then the owner's LIVE CHECK: this host
-`halo studio --fleet` + `halo fleet pair`, the Kali VM `halo update` then
+`halo studio --fleet` + `halo fleet pair`, the Linux VM `halo update` then
 `halo fleet join <host>:7430 --code "..."`, an Orchestra run on one and a
 flow on the other in one Fleet map, a steer from Studio reaching a worker
 on the VM.
@@ -1282,7 +1281,7 @@ commit; every branch is pushed to origin):
   3.0.5.0 --no-install`, `uv pip install --python <uv tool venv python>
   --reinstall-package halo-harness <clone>`, `halo --version`, this file,
   memory. Then the LIVE CHECK the owner must do: this host runs `halo studio
-  --fleet` (expect the Windows firewall prompt), the Kali VM runs `halo
+  --fleet` (expect the Windows firewall prompt), the Linux VM runs `halo
   update` then `halo fleet join <host>:7430 --code "<six words>"`, a session
   on each, both visible in one Fleet map, a steer from Studio reaching a
   worker on the VM.
@@ -1310,7 +1309,7 @@ about line and a `?` help; a Start view per section instead of a grid of empty
 panels; "How this works" per section with a first-visit welcome; labelled group
 boxes on the Roles/Org canvases). Two late fixes before the cut: the model
 dropdowns explain an empty catalog and offer Refresh (`GET /api/models/status`,
-`POST /api/models/refresh`; the owner's Kali VM showed "(none)" with no reason),
+`POST /api/models/refresh`; the owner's Linux VM showed "(none)" with no reason),
 and the ComfyUI client joined `_ALLOWED_RAW_NETWORK_CALLERS` (the user's own
 render server, like the MCP probes). CI: the Windows run_all step budget is now
 65 min (the 470-module suite timed out at 45 with four modules left; nothing
@@ -1596,7 +1595,7 @@ findings fixed + SECURITY.md, the front page redo). The roadmap through
 owner -- do not start it unless he re-opens it.
 
 **OWNER ACTIONS PENDING**
-1. The live Signal check (dedicated number + Kali VM): docs/REMOTE.md
+1. The live Signal check (dedicated number + Linux VM): docs/REMOTE.md
    "Live verification" + "Confirm on the first live run". Findings ->
    a 2.0.10.1 fix pass (update tests/helpers/fake_signal_cli.py to the
    real shapes). Also unverified live: signal-cli `setPin` over jsonRpc
@@ -1659,7 +1658,7 @@ control, rounds 1-4; code-complete, hermetically tested against a fake
 signal-cli).
 
 **OWNER ACTION PENDING: the live Signal check** -- a dedicated Signal
-number on the Kali VM, following docs/REMOTE.md "Live verification"
+number on the Linux VM, following docs/REMOTE.md "Live verification"
 (setup -> register -> run -> pair from the phone -> /sessions, attach,
 prompt, permission card by number, /stop, unpair, second phone ignored)
 and noting the items under "Confirm on the first live run". Findings
@@ -1692,7 +1691,7 @@ CHANGELOG already carries `## [2.0.9] - unreleased` with four sections.
 **REMAINING for the tag**: CI green on both platforms for round 4 ->
 `python scripts/release.py 2.0.9 --no-install` -> handoff + memory.
 **THE LIVE CHECK IS THE OWNER'S** (needs a dedicated Signal number and
-the Kali VM): docs/REMOTE.md "Live verification" is the step list, and
+the Linux VM): docs/REMOTE.md "Live verification" is the step list, and
 "Confirm on the first live run" lists what only a real signal-cli can
 settle (trust accepting plain digits, redelivery after trust, manual
 receive-mode queueing, param shapes, attachment paths, .bat spawn on
@@ -1939,7 +1938,7 @@ RIGHT NOW to pick it up). 2.0.7 is open, unreleased, tree clean at `master`.
 **Conventions that matter:** 250-line write cap, comment-dense house style,
 every round = tests + changelog entry + commit + push, run suites via
 `python -m tests.test_<name>` (NOT pytest), full gate scripts at
-appDev/halo-harness-runners, Windows gates run ONE AT A TIME (bash.exe WFSO
+~/projects/halo-harness-runners, Windows gates run ONE AT A TIME (bash.exe WFSO
 fork failures under parallel load), release via scripts/release.py
 (CHANGELOG section must say "unreleased" -- the script stamps the date; the
 local install step needs --no-install while a session holds halo.exe).
@@ -1985,7 +1984,7 @@ After 2.0.1: `ROADMAP.md` (see its RENUMBERED section) lists 2.0.2 through 2.0.9
 
 - Base yourself on the current `master`. Work on a branch named
   `wip/<round>` (for example `wip/w4a`), commit there, push the branch and
-  open a pull request; the owner verifies on Windows and the Kali VM and
+  open a pull request; the owner verifies on Windows and the Linux VM and
   merges. Do not push to `master` directly from a cloud session.
 - Commit as the repository owner's noreply identity and end every commit
   message with the line `Co-Authored-By: Claude <noreply@anthropic.com>`

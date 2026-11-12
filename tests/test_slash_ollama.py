@@ -34,7 +34,7 @@ def _slash(args: str = "") -> str:
 
 @test
 def test_bare_ollama_is_the_stewards_view(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         text = _slash("")
         ctx.check(f"the mode and the job's status line, got {text[:200]!r}", text.startswith("Ollama steward (mode review)")
                   and "steward job: not running" in text)
@@ -55,7 +55,7 @@ def test_bare_ollama_is_the_stewards_view(ctx: Ctx):
         p.api("POST", "ollama/steward/apply", {"id": fid})
         text = _slash("--host pc")
         ctx.check(f"after the apply: the profile and who set it, only pc, got {text[-600:]!r}",
-                  "profile qwen3.8:27b: num_ctx 65536 (by steward)" in text and "'samus'" not in text
+                  "profile qwen3.8:27b: num_ctx 65536 (by steward)" in text and "'sagan'" not in text
                   and f"[{fid}]" not in text)
         ctx.check("a host that is not configured says so", "no configured host named 'nowhere'" in _slash("--host nowhere"))
         ctx.check("never a model call", p.model_calls == [])
@@ -63,10 +63,10 @@ def test_bare_ollama_is_the_stewards_view(ctx: Ctx):
 
 @test
 def test_findings_plan_and_explain_pass_through(ctx: Ctx):
-    with Panel(hosts=[S.PC, S.SAMUS]) as p:
+    with Panel(hosts=[S.PC, S.sagan]) as p:
         found = _slash("findings")
         ctx.check(f"findings: the CLI's lines, got {found[:300]!r}", "[window-small-" in found and "change: num_ctx" in found)
-        ctx.check("findings --host samus: none there", "no findings" in _slash("findings --host samus"))
+        ctx.check("findings --host sagan: none there", "no findings" in _slash("findings --host sagan"))
         plan = _slash("plan --host pc")
         ctx.check(f"plan: the fit plan's lines, got {plan[:300]!r}", plan.startswith("'pc':") and "one-at-a-time" in plan
                   and "OLLAMA_KV_CACHE_TYPE=q8_0" in plan)
@@ -119,7 +119,7 @@ def test_the_tui_prints_and_hosts_opens_the_dialog(ctx: Ctx):
     real_fmt = ollama_panel.format_host_analysis
     ollama_panel.format_host_analysis = lambda a: "analysis"
     try:
-        with Panel(hosts=[S.PC, S.SAMUS]):
+        with Panel(hosts=[S.PC, S.sagan]):
             out = _slash("hosts pc --refresh")
     finally:
         ollama_panel.analyze_host, ollama_panel.format_host_analysis = real, real_fmt

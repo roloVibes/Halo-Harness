@@ -4,12 +4,12 @@
     pc     a real halo host (tests/helpers/host_rig.HostRig on its own scratch home) serving a fake Ollama with
            qwen3.8:27b, qwen3-coder:30b, qwen3.5:9b; its card the Ollama panel seed's 24 GB one (ComfyUI holds 2 GB);
            qwen3-coder:30b loaded at 32,768 (warm)
-    samus  a second real halo host (another scratch home, advertising 192.0.2.20) serving a fake with qwen3.5:9b on a
+    sagan  a second real halo host (another scratch home, advertising 192.0.2.20) serving a fake with qwen3.5:9b on a
            10 GB q8_0 card, nothing loaded; its battery profile of qwen3.5:9b says an 18 s cold load
     box    a fake Ollama this machine reads directly (no halo host): qwen2.5:1.5b, the local-reads candidate
 
-This process is the peer (`bob@peer`): its `ollama.hosts` names pc at 192.0.2.10:<pc's port>, samus at
-192.0.2.20:<samus's port> (placeholders that match what each host serves; no request goes there) and box at its
+This process is the peer (`bob@peer`): its `ollama.hosts` names pc at 192.0.2.10:<pc's port>, sagan at
+192.0.2.20:<sagan's port> (placeholders that match what each host serves; no request goes there) and box at its
 loopback address; both hosts are paired. studio/ollama_hosts_view.READERS gives the peer each host's card and
 catalog for the local reads (the fallback when a route answer is missing).
 """
@@ -42,17 +42,17 @@ class PlaceRig:
         r = rows()
         self.pc_mock = mock_for()
         self.pc_mock.ps_response = {"models": [ps_row(CODER, 18.5)]}
-        self.samus_mock = _mock([r[SMALL]])
+        self.sagan_mock = _mock([r[SMALL]])
         self.box_mock = _mock([dict(TINY_ROW)])
-        self.cards = {"pc": {**cards()["pc"], "loaded": [ps_row(CODER, 18.5)]}, "samus": card(total_mib=10240, kv="q8_0"),
+        self.cards = {"pc": {**cards()["pc"], "loaded": [ps_row(CODER, 18.5)]}, "sagan": card(total_mib=10240, kv="q8_0"),
                       "box": card(total_mib=8192, kv="q8_0")}
-        self.catalogs = {"pc": [r[BIG], r[CODER], r[SMALL]], "samus": [r[SMALL]], "box": [dict(TINY_ROW)]}
+        self.catalogs = {"pc": [r[BIG], r[CODER], r[SMALL]], "sagan": [r[SMALL]], "box": [dict(TINY_ROW)]}
         pc = OllamaHost(name="pc", url=self.pc_mock.base_url)
-        samus = OllamaHost(name="samus", url=self.samus_mock.base_url)
+        sagan = OllamaHost(name="sagan", url=self.sagan_mock.base_url)
         self.rig = HostRig(readers_=self._readers(pc), seed=False).__enter__()
         self.pc_url = f"http://192.0.2.10:{self.pc_mock.port}"
-        self.samus_url = f"http://192.0.2.20:{self.samus_mock.port}"
-        self.rig.set_peer(**{"ollama.hosts": [{"name": "pc", "url": self.pc_url}, {"name": "samus", "url": self.samus_url},
+        self.sagan_url = f"http://192.0.2.20:{self.sagan_mock.port}"
+        self.rig.set_peer(**{"ollama.hosts": [{"name": "pc", "url": self.pc_url}, {"name": "sagan", "url": self.sagan_url},
                                               {"name": "box", "url": self.box_mock.base_url}],
                              "ollama.steward.probe_new": False})
         self.rig.start()
@@ -60,14 +60,14 @@ class PlaceRig:
         self.root2 = tempfile.mkdtemp(prefix="hs_host2-")
         self.home2 = Path(self.root2) / ".halo"
         self.home2.mkdir(parents=True)
-        (self.home2 / "config.json").write_text(json.dumps({"fleet": {"name": "samus-host"}, "ollama": {
+        (self.home2 / "config.json").write_text(json.dumps({"fleet": {"name": "sagan-host"}, "ollama": {
             "steward": {"probe_new": False}}}), encoding="utf-8")
         from halo_harness.providers.ollama_capability import save_profile
-        save_profile(self.home2, {"model": SMALL, "host": "samus", "digest": "sha256:5a", "probed_at": time.time(),
+        save_profile(self.home2, {"model": SMALL, "host": "sagan", "digest": "sha256:5a", "probed_at": time.time(),
                                   "tools": "yes", "speed": {"tok_s": 60.0, "cold_load_s": 18.0}, "evidence": {}})
         from halo_harness.host.service import HostService
         self.svc2 = HostService(self.home2, port=0, bind="127.0.0.1", advertise="192.0.2.20",
-                                readers=self._readers(samus), job=lambda h: None, forward=False).start()
+                                readers=self._readers(sagan), job=lambda h: None, forward=False).start()
         self._pair2()
         self._peer_readers()
         return self
@@ -103,6 +103,6 @@ class PlaceRig:
             V.READERS.clear()
             V.READERS.update(self._saved_readers)
             V.reset_cache()
-            for m in (self.pc_mock, self.samus_mock, self.box_mock):
+            for m in (self.pc_mock, self.sagan_mock, self.box_mock):
                 m.stop()
             shutil.rmtree(self.root2, ignore_errors=True)

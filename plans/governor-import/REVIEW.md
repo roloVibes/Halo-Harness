@@ -62,7 +62,7 @@ what to change when it becomes `halo_harness/providers/governor.py`.
 
 9. Priorities come from roles, configurable: main session and orchestrator
    0; judge, reviewer, tester, planner 1; every other sub-agent 2
-   (`governor.priorities` in config). The kit's static brood roles (writer,
+   (`governor.priorities` in config). The kit's static roles (writer,
    logger) go away.
 10. State under Halo's state dir (`<state dir>/governor/`), so
     `BRIDGE_TEST_HOME` / `BRIDGE_STATE_DIR` scope it in tests and `halo

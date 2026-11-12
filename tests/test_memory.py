@@ -21,9 +21,9 @@ class FakeSettings:
 
 
 @test
-def test_memory_md_loaded_and_mentions_media_server(ctx: Ctx):
+def test_memory_md_loaded_and_mentions_weather_station(ctx: Ctx):
     """This is the exact content path the H0 acceptance check exercises
-    live (the owner's real MEMORY.md mentions a home media server by name
+    live (a MEMORY.md that names a machine by name
     and a LAN host) -- proven here hermetically against the fixture's
     equivalent, synthetic content."""
     fh = build_fake_home()
@@ -31,7 +31,7 @@ def test_memory_md_loaded_and_mentions_media_server(ctx: Ctx):
     store = MemoryStore(fh["proj"], FakeSettings())
     idx = store.load_index()
     ctx.check("MEMORY.md exists", idx.exists)
-    ctx.check("mentions the media server's name", "mediabox" in idx.text)
+    ctx.check("mentions the weather station's name", "skylark" in idx.text)
     ctx.check("mentions the LAN host", "lan-host.lan" in idx.text)
 
 
@@ -76,10 +76,10 @@ def test_topic_file_frontmatter_round_trip(ctx: Ctx):
     store = MemoryStore(fh["proj"], FakeSettings())
     topics = {t.name: t for t in store.entries()}
     ctx.check("project_claude_bridge topic present", "project_claude_bridge" in topics)
-    ctx.check("project_media_server topic present", "project_media_server" in topics)
-    media = topics["project_media_server"]
+    ctx.check("project_weather_station topic present", "project_weather_station" in topics)
+    media = topics["project_weather_station"]
     ctx.check(f"type == project, got {media.type!r}", media.type == "project")
-    ctx.check("description mentions the media server's name", "mediabox" in media.description)
+    ctx.check("description mentions the weather station's name", "skylark" in media.description)
 
 
 @test

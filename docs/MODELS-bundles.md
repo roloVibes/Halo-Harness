@@ -81,7 +81,7 @@ Task work goes elsewhere with one visible line instead of evicting the reserved 
 no longer fits beside the claim goes to `routing.escalation.to` (else main's model) -- "fit: coder on qwen3-coder:30b
 does not fit beside main ... : voice holds 4.0 GB; sending this task to or:vendor/cloud-model rather than evicting
 it"; the placement solver (`halo local place`) takes the claims as an input and moves a lane to another host -- "meta-
-glasses holds 15.0 GB on pc; worker goes to samus rather than evicting it"; the warm set counts the claim and names it.
+glasses holds 15.0 GB on pc; worker goes to sagan rather than evicting it"; the warm set counts the claim and names it.
 
 ## Several reservations, a schedule, a priority (3.3.8.0 R4)
 

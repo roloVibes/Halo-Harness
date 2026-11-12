@@ -192,7 +192,7 @@ def test_real_sessions_snapshot_diff_flags_a_new_empty_directory(ctx: Ctx):
     try:
         Path.home = staticmethod(lambda: fake_home)
         before = run_all_mod._real_sessions_snapshot()
-        (sessions_dir / "C--Users-rolo-AppData-Local-Temp-some-test-artifact").mkdir()
+        (sessions_dir / "C--Users-you-AppData-Local-Temp-some-test-artifact").mkdir()
         after = run_all_mod._real_sessions_snapshot()
     finally:
         Path.home = real_home_fn

@@ -530,7 +530,7 @@ def _resolve_local_file_spec(raw: str, *, cwd: Path) -> "Optional[Path]":
     """A `--file` SPEC that is (or resolves to) a real local file, or
     `None`. Tried BEFORE the `file_id:relative_path` cloud-resource form
     (see `attach_cli_files`) specifically so a Windows absolute path like
-    `C:\\Users\\rolo\\shot.png` -- which also contains a `:` -- is never
+    `C:\\Users\\you\\shot.png` -- which also contains a `:` -- is never
     misread as that form: an actual local file always wins."""
     path = Path(raw).expanduser()
     if not path.is_absolute():

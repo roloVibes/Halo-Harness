@@ -1,10 +1,10 @@
 # H2 brief — built-in tools, repair layer, permissions (halo 0.3.x)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux is the
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux is the
 primary platform** — everything must be OS-neutral, `/bin/bash` on Linux, Git Bash only on win32).
 Baseline: H1 commit on master — `python test_bridge.py` → 97 green, `python tests/run_all.py` →
 185 green, both also green in WSL Ubuntu (`wsl -e bash -lc 'rsync -a --delete --exclude .git
---exclude __pycache__ ~/Documents/vibes/appDev/halo/ ~/halo-harness-wt/ && cd
+--exclude __pycache__ ~/projects/halo/ ~/halo-harness-wt/ && cd
 ~/halo-harness-wt && python3 tests/run_all.py | tail -1 && python3 test_bridge.py | tail -1'`).
 Keep all of it green on both. Do not commit.
 
@@ -104,7 +104,7 @@ mock upstream with `ScriptedTurns`: Read→Edit→Bash loop, permission deny in 
 ## Acceptance (paste verbatim, trimmed)
 1. Both suites green on Windows and in WSL (RESULT lines + exit codes for all four runs).
 2. Live (default model `or:deepseek/deepseek-v4.1-flash`): `python -m halo_harness -p "create a file
-   ~\Documents\vibes\appDev\halo\wip\h2_scratch.txt containing the three words
+   ~\projects\halo\wip\h2_scratch.txt containing the three words
    alpha beta gamma on one line, then change beta to delta, then run a shell command that prints the
    file, and reply with only the final file content" --permission-mode auto` → `alpha delta gamma`
    (Write → Edit → Bash, three tool calls visible with `--verbose`); the same prompt with

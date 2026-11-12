@@ -6726,9 +6726,9 @@ def test_help_text_lists_copy_cut_select_all_and_paste_keys(ctx: Ctx):
 def test_cwd_last_component_handles_both_separator_forms(ctx: Ctx):
     from halo_harness.tui.widgets.statusbar import _cwd_last_component
 
-    ctx.check("POSIX form", _cwd_last_component("/home/kali/project") == "project")
-    ctx.check("Windows form", _cwd_last_component("C:\\Users\\rolo\\project") == "project")
-    ctx.check("a trailing slash is ignored", _cwd_last_component("/home/kali/project/") == "project")
+    ctx.check("POSIX form", _cwd_last_component("/home/you/project") == "project")
+    ctx.check("Windows form", _cwd_last_component("C:\\Users\\you\\project") == "project")
+    ctx.check("a trailing slash is ignored", _cwd_last_component("/home/you/project/") == "project")
     ctx.check("no separator at all -> unchanged", _cwd_last_component("project") == "project")
 
 
@@ -6834,7 +6834,7 @@ def test_status_bar_drops_mcp_then_balance_then_shortens_cwd_before_a_mid_word_s
     columns, per the brief."""
     from halo_harness.testing.fake_controller import DEFAULT_MODEL
 
-    cwd = "/home/kali/vibes/appDev/some-very-long-project-name"
+    cwd = "/home/you/projects/apps/some-very-long-project-name"
 
     async def rendered_at(width: int) -> str:
         fake = FakeController()

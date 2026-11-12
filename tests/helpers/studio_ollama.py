@@ -7,7 +7,7 @@ review mode; the cards and the catalog through studio/ollama_hosts_view.READERS)
 
 1. Local -> Hosts: nothing opens over it; under the cards one host's traffic and fit (no Fleet panel any more);
 2. the steward's attention row on Agents (the chip's queue), O opens Local -> Hosts on its host;
-3. the host picker (pc, samus, the local server); the model rows' numbers, the eye, the VRAM share; the card line on
+3. the host picker (pc, sagan, the local server); the model rows' numbers, the eye, the VRAM share; the card line on
    the host's card;
 4. the timeline draws (a bucket a minute, the hour's calls, a trim and a cut marked);
 5. a finding's Apply on Local -> Steward (config.json's ollama.profiles has it, the row says applied, the host's model
@@ -95,8 +95,8 @@ def attention(c, url, ctx) -> dict:
 def hosts(c, url, ctx) -> dict:
     pick = q("[data-testid=ollama-host]")
     out = {"hosts": c.wait(f"!!{pick} && [...{pick}.options].map((o) => o.value)", 20)}
-    set_field(c, pick, "samus", "change")
-    out["samus_rows"] = c.wait(f"{HOST} === 'samus' && {ROWS}.length && {ROWS}{NUMS}", 15)
+    set_field(c, pick, "sagan", "change")
+    out["sagan_rows"] = c.wait(f"{HOST} === 'sagan' && {ROWS}.length && {ROWS}{NUMS}", 15)
     set_field(c, pick, "llama-box", "change")
     out["local_rows"] = c.wait(f"{HOST} === 'llama-box' && {ROWS}.length && {ROWS}{NUMS}", 15)
     out["local_label"] = c.js(f"!!{q('[data-testid=local-host-steward] .oll-next')}")

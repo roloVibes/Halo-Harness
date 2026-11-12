@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Optional
 
 from halo_harness.privacy_rules import (
-    CIDR_SUFFIX_RE, DOT_LOCAL_RE, EMAIL_RE, EXTENDED_SCAN_ROOTS, EXTENDED_SCAN_TERMS,
-    HOME_PATH_RE, JUNK_PATH_RE, KNOWN_LEAKED_PATH_FRAGMENTS, LAN_IP_RE, LINK_LOCAL_IP_RE,
-    REMOVED_NAMES, STATE_DIR_MARKER, email_is_exempt, home_path_name_is_real, is_junk_path,
+    CIDR_SUFFIX_RE, DOT_LOCAL_RE, EMAIL_RE, EXTENDED_SCAN_TERMS, HOME_PATH_RE, JUNK_PATH_RE,
+    KNOWN_LEAKED_PATH_FRAGMENTS, LAN_IP_RE, LINK_LOCAL_IP_RE, NAME_CHECK_EXEMPT_RELPATHS, POSIX_HOME_DEEP_RE, REMOVED_NAMES,
+    STATE_DIR_MARKER, deep_home_path_is_real, email_is_exempt, home_path_name_is_real, is_junk_path,
     is_self_excluded, load_allowlist,
 )
 from halo_harness.redact import _BEARER_RE, _TOKEN_PATTERNS
@@ -31,13 +31,8 @@ def _line_no(text: str, index: int) -> int:
 
 
 def _masked_excerpt(text: str, start: int, end: int, *, context: int = 24) -> str:
-    """Context is clamped to the CURRENT LINE only -- never a blind
-    character-offset window. A window that crossed a newline used to
-    pull in whatever sits on the next/previous line, which can be a
-    SECOND, unrelated secret this isn't even the finding for (measured:
-    a `machine-name` match one line above a planted e-mail address came
-    back with that e-mail's local part sitting in its own "masked"
-    excerpt)."""
+    """Context is clamped to the CURRENT LINE only: a window that crossed a newline pulled in a SECOND,
+    unrelated secret from the next line (measured: an e-mail's local part in a machine-name excerpt)."""
     line_start = text.rfind("\n", 0, start) + 1
     line_end = text.find("\n", end)
     if line_end == -1:
@@ -59,11 +54,9 @@ def _extend_path_token(text: str, end: int) -> int:
 
 
 def scan_text_content(text: str, *, rel_path: str, allowlist: "set[str]") -> "list[dict]":
-    """Every content-based rule, applied once. Returns a list of
-    {kind, line, excerpt} dicts (no path/commit -- the caller attaches
-    those). `rel_path` is a posix-style path relative to the repo root,
-    used only to scope the extended (case-insensitive) machine-name pass
-    the same way the original regression guard scoped it."""
+    """Every content-based rule, applied once. Returns a list of {kind, line, excerpt} dicts (no path/commit --
+    the caller attaches those; a machine-name finding also carries `term`, the term's number in the owner's list,
+    never the term). 3.4.1.2 (F8): every rule covers every path; `rel_path` is kept for the callers."""
     findings: "list[dict]" = []
 
     for m in LAN_IP_RE.finditer(text):
@@ -91,6 +84,11 @@ def scan_text_content(text: str, *, rel_path: str, allowlist: "set[str]") -> "li
         findings.append({"kind": kind, "line": _line_no(text, m.start()),
                           "excerpt": _masked_excerpt(text, m.start(1), m.end(1))})
 
+    for m in POSIX_HOME_DEEP_RE.finditer(text):  # 3.4.1.2 (F8): a distro's default account is real
+        if deep_home_path_is_real(m, allowlist):
+            findings.append({"kind": "home-path", "line": _line_no(text, m.start()),
+                              "excerpt": _masked_excerpt(text, m.start(1), m.end(1))})
+
     for fragment in KNOWN_LEAKED_PATH_FRAGMENTS:
         idx = text.find(fragment)
         while idx != -1:
@@ -105,30 +103,27 @@ def scan_text_content(text: str, *, rel_path: str, allowlist: "set[str]") -> "li
         findings.append({"kind": "dot-local-hostname", "line": _line_no(text, m.start()),
                           "excerpt": _masked_excerpt(text, m.start(), m.end())})
 
-    for name in REMOVED_NAMES:
+    names = rel_path not in NAME_CHECK_EXEMPT_RELPATHS  # 3.4.1.2: LICENSE names its holder (the owner's call)
+    for n, name in enumerate(REMOVED_NAMES if names else (), 1):
         if name in allowlist:
             continue
         idx = text.find(name)
         while idx != -1:
-            findings.append({"kind": "machine-name", "line": _line_no(text, idx),
+            findings.append({"kind": "machine-name", "term": n, "line": _line_no(text, idx),
                               "excerpt": _masked_excerpt(text, idx, idx + len(name))})
             idx = text.find(name, idx + 1)
 
-    if any(rel_path == root or rel_path.startswith(root) for root in EXTENDED_SCAN_ROOTS):
-        lower = text.lower()
-        allow_lower = {a.lower() for a in allowlist}  # an owner term may be exempted in any case
-        for term in EXTENDED_SCAN_TERMS:
-            # P2 (vibes/review.md): the term itself is lowercased too -- a
-            # `ci:` term written with uppercase letters in privacy-terms.txt
-            # could never match the lowercased text.
-            needle = term.lower()
-            if needle in allow_lower:
-                continue
-            idx = lower.find(needle)
-            while idx != -1:
-                findings.append({"kind": "machine-name", "line": _line_no(text, idx),
-                                  "excerpt": _masked_excerpt(text, idx, idx + len(term))})
-                idx = lower.find(needle, idx + 1)
+    lower = text.lower()
+    allow_lower = {a.lower() for a in allowlist}  # an owner term may be exempted in any case
+    for n, term in enumerate(EXTENDED_SCAN_TERMS if names else (), len(REMOVED_NAMES) + 1):
+        needle = term.lower()  # P2 (vibes/review.md): a `ci:` term written with capitals matches too
+        if needle in allow_lower:
+            continue
+        idx = lower.find(needle)
+        while idx != -1:
+            findings.append({"kind": "machine-name", "term": n, "line": _line_no(text, idx),
+                              "excerpt": _masked_excerpt(text, idx, idx + len(term))})
+            idx = lower.find(needle, idx + 1)
 
     for m in EMAIL_RE.finditer(text):
         addr = m.group(0)
@@ -202,9 +197,10 @@ def tracked_and_untracked_files(repo_dir: Path) -> "list[str]":
     return out
 
 
-def scan_working_tree(repo_dir: Path) -> "list[dict]":
-    """Default (non-`--history`) mode: every tracked + untracked,
-    non-ignored file as it sits on disk right now."""
+def scan_working_tree(repo_dir: Path, not_checked: "Optional[list]" = None) -> "list[dict]":
+    """Default (non-`--history`) mode: every tracked + untracked, non-ignored file as it sits on disk right now.
+    3.4.1.2 (F8): a file that is not text (an image, a font, an archive) is added to `not_checked`, so the caller
+    can say how many were not checked (SVG is text and is checked)."""
     allowlist = load_allowlist(repo_dir)
     findings: "list[dict]" = []
     for rel in tracked_and_untracked_files(repo_dir):
@@ -215,11 +211,12 @@ def scan_working_tree(repo_dir: Path) -> "list[dict]":
                               "excerpt": _mask_path_for_display(rel), "commit": None})
             continue
         text = _read_text(repo_dir / rel)
+        if text is None and not_checked is not None and (repo_dir / rel).is_file():
+            not_checked.append(rel)
         if not text:
             continue
         for f in scan_text_content(text, rel_path=rel, allowlist=allowlist):
-            f["path"] = rel
-            f["commit"] = None
+            f["path"], f["commit"] = rel, None
             findings.append(f)
     return findings
 
@@ -234,13 +231,10 @@ def _git_batch(args: "list[str]", cwd: Path, input_text: str) -> bytes:
 
 
 def distinct_blobs_and_paths(repo_dir: Path, *, since: Optional[str] = None) -> "tuple[list, dict]":
-    """Every blob reachable from HEAD (or every blob new since `since`),
-    deduplicated by blob id -- "scan each distinct blob once" -- plus every
-    path each one was ever recorded at. `git rev-list --objects` lists
-    trees and commits too; `cat-file --batch-check` filters down to blobs
-    only (a tree's "path" is a directory name and must never be read as a
-    file's text)."""
-    range_args = [f"{since}..HEAD"] if since else ["--all"]
+    """Every blob reachable from any ref the clone has (`--all`: branches, tags, remotes; 3.4.1.2 also with
+    `since`, which then drops what `since` reaches), deduplicated by blob id, plus every path each one was ever
+    recorded at. `cat-file --batch-check` keeps blobs only (a tree's "path" is a directory, never text)."""
+    range_args = _range(since)
     objects = _git(["rev-list", "--objects", *range_args], repo_dir)
     if objects.returncode != 0:
         return [], {}
@@ -295,17 +289,10 @@ def _blob_contents(blob_ids: "list[str]", repo_dir: Path) -> "dict[str, str]":
 
 
 def _earliest_commit_for_blobs(blob_ids: "set[str]", repo_dir: Path, *, since: Optional[str] = None) -> "dict[str, tuple]":
-    """`(commit, path)` of the FIRST commit (oldest) that wrote each blob
-    id at some path -- one `git log --raw` walk for every blob of
-    interest, not one subprocess per blob. `git log` is newest-first, so
-    letting a later (older-commit) line unconditionally overwrite an
-    earlier (newer-commit) one leaves the OLDEST match standing once the
-    whole walk finishes. `--no-abbrev` is required: `--raw` shortens blob
-    ids to 7 characters by default, which then never equal the full ids
-    `rev-list --objects`/`cat-file --batch-check` use (measured: every
-    lookup silently missed and every finding read back `commit: null`
-    until this flag was added)."""
-    range_args = [f"{since}..HEAD"] if since else ["--all"]
+    """`(commit, path)` of the FIRST (oldest) commit that wrote each blob id -- one `git log --raw` walk; it is
+    newest-first, so a later line overwriting an earlier one leaves the OLDEST standing. `--no-abbrev` is required:
+    `--raw` shortens blob ids to 7 characters, which never equal rev-list's full ids (every finding read `null`)."""
+    range_args = _range(since)
     result = _git(["log", "--raw", "--no-abbrev", "--format=COMMIT:%H", *range_args], repo_dir)
     mapping: "dict[str, tuple]" = {}
     current_commit = None
@@ -325,17 +312,21 @@ def _earliest_commit_for_blobs(blob_ids: "set[str]", repo_dir: Path, *, since: O
     return mapping
 
 
+def _range(since: Optional[str]) -> "list[str]":
+    """Every ref the clone has; with `since`, minus what `since` reaches (3.4.1.2 F8: no longer only HEAD's)."""
+    return ["--all", f"^{since}"] if since else ["--all"]
+
+
 def _earliest_commit_for_path(path: str, repo_dir: Path, *, since: Optional[str] = None) -> Optional[str]:
-    range_args = [f"{since}..HEAD"] if since else ["--all"]
+    range_args = _range(since)
     result = _git(["log", "--diff-filter=A", "--format=%H", "--follow", *range_args, "--", path], repo_dir)
     lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
     return lines[-1] if lines else None
 
 
 def scan_history(repo_dir: Path, *, since: Optional[str] = None) -> "list[dict]":
-    """`--history` mode: every distinct blob reachable from HEAD (or new
-    since `since`), each scanned exactly once, reported at the EARLIEST
-    commit:path that introduced it."""
+    """`--history` mode: every distinct blob reachable from any ref (or new since `since`), each scanned exactly
+    once, reported at the EARLIEST commit:path that introduced it."""
     allowlist = load_allowlist(repo_dir)
     blob_ids, paths_by_blob = distinct_blobs_and_paths(repo_dir, since=since)
     findings: "list[dict]" = []

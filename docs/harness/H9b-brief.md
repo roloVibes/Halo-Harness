@@ -1,6 +1,6 @@
 # H9b brief — fix pass for the whole-tree review, then v0.3.0 (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux is the
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux is the
 primary platform**). Baseline = the H9 commit on master, all three suites green on Windows and WSL.
 You are the ONLY worker on the tree. Do not commit, push or tag (Fable verifies, commits and tags).
 
@@ -43,7 +43,7 @@ finding involves the loop)
 - **Linux PATH** (finding 12): settings `env.PATH` and env-file additions survive Debian/Kali
   `/etc/profile` under `bash -lc` (apply the session env AFTER the login profile, e.g. run the
   profile first then re-export the harness env inside the same shell); test with the bind-mounted
-  Debian profile via `unshare -rm` on WSL (no sudo), and on the Kali VM if reachable.
+  Debian profile via `unshare -rm` on WSL (no sudo), and on the Linux VM if reachable.
 - **TUI** (findings on child event mixing, status bar, `resources/list`): parallel children get
   separate nested streams; the parent's status bar never shows a child's cost/model; children never
   fire the parent's `on_turn_done`; `resources/list` for `@server:` completion runs off the UI
@@ -59,7 +59,7 @@ finding involves the loop)
   updated with the re-run lines your fixes touch.
 
 ## Tests
-Suites exit 0 on Windows AND WSL (`export PYTHONPATH="~/Documents/vibes/appDev/halo"`;
+Suites exit 0 on Windows AND WSL (`export PYTHONPATH="~/projects/halo"`;
 WSL recipe in `docs/harness/INSTALL.md`, venv `~/halo-harness-wt-venv`). Linux failures fixed for
 real, never skipped. `python -X dev -W error::ResourceWarning tests/run_all.py` stays clean.
 

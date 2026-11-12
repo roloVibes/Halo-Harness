@@ -6,7 +6,7 @@ each box:
     # on this host (the hub):
     python tools/live_fleet_check.py hub [--fake] [--json] [--keep] [--timeout 30]
 
-    # on the other box (the Kali VM), with the code the hub printed:
+    # on the other box (the Linux VM), with the code the hub printed:
     python tools/live_fleet_check.py member <host>:<port> --code "acorn ..." [--fake]
 
 `hub` starts Studio with the fleet hub, prints the pairing code and the exact

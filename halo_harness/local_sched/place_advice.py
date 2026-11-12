@@ -15,7 +15,7 @@ adviser and `halo local place` (Halo 3.3.8.0 R4; docs/COMMANDS-local.md "advise:
     recheck(state_dir, *, now=None, lanes=None, hosts=None, answers=None, residency=None) -> [{id, key, say}]
         a far card's residency changed (a model loaded or unloaded on a paired host since the last look, its `GET
         residency`): place.solve runs again for the lanes that host carries; each lane whose best host moved is one
-        stated line ("pc's card changed ...: worker would go to samus now (95 against 60) -- halo local place --apply
+        stated line ("pc's card changed ...: worker would go to sagan now (95 against 60) -- halo local place --apply
         moves it"). Nothing moves: --apply (the user's) writes host_for. At most every RECHECK_S.
 Reads only.
 """
@@ -111,7 +111,7 @@ def _words(r: dict) -> str:
 
 
 def score_line(r: dict) -> str:
-    """"worker (qwen3.5:9b): pc 60 (25 s to load, pivots beside qwen3.8:27b) | samus 95 (warm: no load) | pool --
+    """"worker (qwen3.5:9b): pc 60 (25 s to load, pivots beside qwen3.8:27b) | sagan 95 (warm: no load) | pool --
     (does not fit)" -- every candidate's score and its loading tax, the chosen one first."""
     opts = r.get("options") or []
     return f"{r['lane']} ({r['model']}): " + " | ".join(

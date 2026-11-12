@@ -1,6 +1,6 @@
 # H9 brief — bug hunt, Linux-first acceptance, MCP compatibility matrix, release v0.3.0 (halo)
 
-Repo: `~\Documents\vibes\appDev\halo\` (Windows build host; **Kali Linux is the
+Repo: `~\projects\halo\` (Windows build host; **Kali Linux is the
 primary platform**). Baseline = the H8 commit on master with all suites green on Windows and WSL and
 every earlier review's findings closed. Do not commit (Fable commits and tags).
 
@@ -14,7 +14,7 @@ every earlier review's findings closed. Do not commit (Fable commits and tags).
    Bash rule matching with the trailing-` *` wildcard, doctor checks for `rg`/`xclip`/`wl-copy`/
    `$EDITOR`, sampling-table audit, tmux/kitty acceptance).
 
-## Part A — Linux-first acceptance (WSL Ubuntu now; the Kali VM `192.0.2.50` user `kali` if
+## Part A — Linux-first acceptance (WSL Ubuntu now; the Linux VM `192.0.2.50` user `kali` if
 `ssh -i ~/.ssh/linux_vm user@192.0.2.50` answers — try it; zsh, single-line commands)
 - Fresh clone from GitHub (`git clone https://github.com/roloVibes/Halo-Harness`), install via
   `uv tool install --editable .` AND `pip install --user -e .` (PEP 668 note), `halo --version`,

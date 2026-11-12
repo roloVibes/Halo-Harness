@@ -155,7 +155,7 @@ def test_the_watch_lease_and_the_planner_share(ctx: Ctx):
     b = card_budget(card, "pc")
     ctx.check(f"a newer sample: its others (ComfyUI started since the card was read), got {b['others']} {b['others_from']}",
               b["others"] == 5 * GIB and b["others_from"] == "sample" and b["budget"] == 19 * GIB)
-    ctx.check("another host keeps the card's", card_budget(card, "samus")["others"] == 1 * GIB)
+    ctx.check("another host keeps the card's", card_budget(card, "sagan")["others"] == 1 * GIB)
     R.STORE.clear()
 
 

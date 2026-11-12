@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-PY = "/home/kali/.local/share/uv/tools/halo-harness/bin/python"
+PY = "/home/you/.local/share/uv/tools/halo-harness/bin/python"
 QUERY = "halo harness update new features version"
 
 

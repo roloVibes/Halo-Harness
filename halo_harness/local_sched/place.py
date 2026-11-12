@@ -10,7 +10,7 @@ brief.md G12, the multi-host form of the pivot scheduler): where each lane's mod
         3.3.7.0 R5 (L4): `claims` ({host: [claim]}, else local_sched/reserve.claims per host): a bundle's reservation is
         never evicted -- a lane that would not fit beside it is out on that host ("meta-glasses holds 1.2 GB there"),
         the reserved model itself counts as held there; a lane moved off its own host by a claim carries `routed`, one
-        line: "meta-glasses holds 1.2 GB on pc; worker goes to samus rather than evicting it"
+        line: "meta-glasses holds 1.2 GB on pc; worker goes to sagan rather than evicting it"
         Row = {lane, model, host, from_host, moved, fits, warm, now, load_s, installed, score, why, says}
     apply(plan) -> [line]   `host_for` on each moved lane's `<host>|<model>|<role>` profile (agent_proposals.land_user:
         Halo-side only, one row in changes.jsonl each; nothing pulls, nothing loads until a lane asks)

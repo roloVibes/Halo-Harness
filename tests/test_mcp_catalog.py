@@ -403,8 +403,8 @@ def test_registry_add_and_remove_tool(ctx: Ctx):
 
 
 # ---- finding 12: golden ToolSearch ranking on a real-shaped catalog -------
-# Names below are shaped like a real, large deferred-tool catalog from a
-# home music-production MCP setup (anonymized -- not one real session's
+# Names below are shaped like a large deferred-tool catalog of a
+# music-production MCP setup (invented -- not one real session's
 # verbatim tool list, and every server/tool name is a generic stand-in,
 # never a real product name), spanning 15 differently-themed MCP servers
 # (daw, codriver, devices, expanded-models, gui, hardware, hear, jam, kb,

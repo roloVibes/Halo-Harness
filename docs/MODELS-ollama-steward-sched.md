@@ -129,7 +129,7 @@ does not fit, is out; the rest are scored on warm, fitting beside what the plan 
 best), fitting now, the lane's own host, the load seconds, what it evicts, whether it is pulled there:
 
     halo local place spread: main on pc (fits, warm), coder on pc (fits, shares weights with a lane placed there,
-    warm), compactor on samus (fits, fits now, 18 s load), small on box (fits, fits now, 1 s load)
+    warm), compactor on sagan (fits, fits now, 18 s load), small on box (fits, fits now, 1 s load)
 
 `--apply` writes `host_for` on each moved lane's `<host>|<model>|<role>` profile, Halo-side only: nothing is pulled
 and nothing loads until the lane asks. Studio: Local -> Hosts' Place block (Place, Apply).

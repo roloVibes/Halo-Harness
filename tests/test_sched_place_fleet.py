@@ -33,8 +33,8 @@ def test_the_candidates_are_fleet_wide(ctx: Ctx):
     with PlaceRig() as rig:
         set_config_value("ollama.hosts", [{"name": "pc", "url": rig.pc_url}, {"name": "box", "url": rig.box_mock.base_url}])
         got = {h.name: h.url for h in candidates(rig.rig.peer)}
-        ctx.check(f"samus (no entry here) comes from its paired host's served card, got {got}",
-                  got.get("samus") == rig.samus_url and got.get("pc") == rig.pc_url and "box" in got)
+        ctx.check(f"sagan (no entry here) comes from its paired host's served card, got {got}",
+                  got.get("sagan") == rig.sagan_url and got.get("pc") == rig.pc_url and "box" in got)
 
 
 @test
@@ -47,12 +47,12 @@ def test_advise_says_the_placement_scores(ctx: Ctx):
         got = advise(rig.rig.peer, lineup="spread")
         place = [s for s in got["suggestions"] if s["kind"] == "placement"]
         comp = next((s for s in place if s.get("lane") == "compactor"), None)
-        ctx.check(f"the compactor: its cost on pc and the cheaper samus, both scores, got {[s['line'] for s in place]}",
+        ctx.check(f"the compactor: its cost on pc and the cheaper sagan, both scores, got {[s['line'] for s in place]}",
                   comp is not None and comp["says"] == f"compactor ({SMALL}) on pc scores 75 (evicts {CODER}, pivots "
-                  f"beside {CODER}); samus scores 116 (18 s to load)" and comp["action"]["cli"] == "halo local place --apply"
+                  f"beside {CODER}); sagan scores 116 (18 s to load)" and comp["action"]["cli"] == "halo local place --apply"
                   and got["kinds"]["placement"] == len(place))
         ctx.check(f"the scores block, got {got['placement']['lines']}", any(
-            x.startswith(f"compactor ({SMALL}): samus 116 (18 s to load) | pc 75") for x in got["placement"]["lines"]))
+            x.startswith(f"compactor ({SMALL}): sagan 116 (18 s to load) | pc 75") for x in got["placement"]["lines"]))
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             rc = cmd_advise(["--lineup", "spread"])
@@ -67,26 +67,26 @@ def test_a_far_cards_change_is_one_stated_line(ctx: Ctx):
     from halo_harness.ollama_steward.profiles import all_profiles
     from halo_harness.providers.ollama import OllamaHost
     from tests.helpers.pool_rig import PoolHome
-    pc, samus = OllamaHost(name="pc", url="http://192.0.2.10:11434"), OllamaHost(name="samus", url="http://192.0.2.20:11434")
-    gib, busy = 2 ** 30, {"samus": False}
+    pc, sagan = OllamaHost(name="pc", url="http://192.0.2.10:11434"), OllamaHost(name="sagan", url="http://192.0.2.20:11434")
+    gib, busy = 2 ** 30, {"sagan": False}
 
     def ask(h, ln):
-        fits = not (h.name == "samus" and busy["samus"])
+        fits = not (h.name == "sagan" and busy["sagan"])
         return {"host": h.name, "via": "host", "fits": fits, "now": fits, "warm": False, "evicts": [], "installed": True,
                 "capable": None, "load_s": 30.0 if h.name == "pc" else 4.0, "need_bytes": 8 * gib,
                 "usable_bytes": 22 * gib, "verdict": "fits" if fits else "does not fit (a model loaded there)"}
     lanes = [{"lane": "worker", "model": SMALL, "host": "pc"}]
     with PoolHome() as h:
-        first = recheck(h.state, now=1000.0, lanes=lanes, hosts=[pc, samus], answers=ask, residency={})
+        first = recheck(h.state, now=1000.0, lanes=lanes, hosts=[pc, sagan], answers=ask, residency={})
         ctx.check(f"the first look remembers where each lane goes, says nothing, got {first}", first == [])
-        busy["samus"] = True
-        moved = recheck(h.state, now=1100.0, lanes=lanes, hosts=[pc, samus], answers=ask,
-                        residency={"samus": {"qwen3.8:27b": 1090.0}})
-        ctx.check(f"samus's card changed: the worker's lane moves, one stated line, got {moved}", len(moved) == 1
-                  and moved[0]["say"] == "samus's card changed (qwen3.8:27b loaded or unloaded there): worker would go to "
+        busy["sagan"] = True
+        moved = recheck(h.state, now=1100.0, lanes=lanes, hosts=[pc, sagan], answers=ask,
+                        residency={"sagan": {"qwen3.8:27b": 1090.0}})
+        ctx.check(f"sagan's card changed: the worker's lane moves, one stated line, got {moved}", len(moved) == 1
+                  and moved[0]["say"] == "sagan's card changed (qwen3.8:27b loaded or unloaded there): worker would go to "
                                          "pc now (score 115) -- halo local place --apply moves it; nothing moved")
-        again = recheck(h.state, now=1200.0, lanes=lanes, hosts=[pc, samus], answers=ask,
-                        residency={"samus": {"qwen3.8:27b": 1090.0}})
+        again = recheck(h.state, now=1200.0, lanes=lanes, hosts=[pc, sagan], answers=ask,
+                        residency={"sagan": {"qwen3.8:27b": 1090.0}})
         ctx.check(f"nothing changed since: no line, got {again}", again == [])
         ctx.check("nothing moved: no host_for written", not any("host_for" in (p or {}) for p in all_profiles().values()))
 

@@ -278,7 +278,7 @@ def _cmd_table() -> int:
     """Bare `halo roles`: the configured role table (role, model, effort),
     the same rows `/roles` shows minus the live-session price column; a
     role with nothing configured says "(session model)" because that is
-    what it resolves to at run time. Found live on the Kali VM: the bare
+    what it resolves to at run time. Found live on the Linux VM: the bare
     command printed the template usage line and exited 0.
 
     2.0.5 round 2b (brief item 1): the FIRST line is always `roles.
