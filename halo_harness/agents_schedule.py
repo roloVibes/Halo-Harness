@@ -237,7 +237,7 @@ def _default_fire(session, entry: dict) -> str:
         # 2.0.5 release-review nit 10: the detached fallback passes the
         # argv LIST straight to Popen (no shell=True) -- shlex.join's
         # POSIX quoting through cmd.exe mangles on Windows.
-        import subprocess
+        from halo_harness import subprocess_safe as subprocess
         argv = build_fire_argv(entry)
         proc = subprocess.Popen(argv, cwd=str(getattr(session, "cwd", ".")),
                                 env=_fire_env(session, entry),
@@ -500,7 +500,7 @@ def run_once(name: str, *, state_dir=None, popen=None) -> str:
     entry = next((e for e in entries if name in (e.get("name"), e.get("id"), e.get("agent"))), None)
     if entry is None:
         return f"no armed schedule or trigger named {name!r}"
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     # 2.0.5 release-review finding 6: same shape as build_fire_argv -- the
     # agent and team ride along (start_background_run prepends the harness
     # itself), so the fired job runs AS the agent, not as a bare session.

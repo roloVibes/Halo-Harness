@@ -109,6 +109,15 @@ def _lineup(wf) -> str:
     return ""
 
 
+def project_file(wf) -> str:
+    """3.4.1.2 (ENGINE-1): "workflow <file>" for a project's workflow (`.halo/workflows/`, or a project-scope pack's):
+    its `verify.test` lines are repo text, decided as a Bash call before the gate runs them; '' for yours / shipped /
+    a user pack's."""
+    origin = getattr(wf, "origin", "pack")
+    project = origin == "project" or (origin == "pack" and getattr(wf.pack, "scope", "") == "project")
+    return f"workflow {wf.ref} ({wf.path})" if project else ""
+
+
 def _jobs(wf, live: list, values: dict, repo: Path, skipped: list) -> "tuple[list, dict]":
     from halo_harness.packs.workflow_stages import role_bio
     jobs, ids_of = [], {}
@@ -179,7 +188,8 @@ def compile_workflow(wf, raw_inputs: Optional[dict] = None, *, repo, cwd=None, s
                 test=" && ".join(t for t in tests if t), files=files, lineup=_lineup(wf),
                 handoffs={j["id"]: dict(j["handoff"], after=j["after"]) for j in out.jobs if j["handoff"] or j["after"]},
                 plan="review" if any(s.get("gate") == "human" for s in run_stages) else "auto",
-                budget_usd=float(budget) if budget is not None else None)
+                budget_usd=float(budget) if budget is not None else None,
+                test_from=project_file(wf) if any(tests) else "")
     goal.workflow = bounds.block(wf, values, run_stages, out.jobs, ids_of, out.skipped)
     problems = validate_goal(goal)
     if problems:

@@ -12,7 +12,7 @@ that holds every file the goal names.
 from __future__ import annotations
 
 import datetime as _dt
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import sys
 from pathlib import Path
 

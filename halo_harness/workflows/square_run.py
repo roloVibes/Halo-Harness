@@ -122,12 +122,30 @@ def run_session(wf, task: str, files: list, *, runtime, tool_id: str, model: str
     return out
 
 
-def run_orchestra(wf, task: str, files: list, *, repo, wall_s: Optional[int], runner: Optional[Callable] = None) -> Outcome:
+def parent_permissions(parent) -> "tuple[str, dict]":
+    """3.4.1.2 (ENGINE-1): the parent session's mode and its permanent rules (a Skill's temporary grant stays with it):
+    what a Workflow-started run's lanes carry, so they never run more permissive than the session that started them."""
+    engine = getattr(parent, "permission_engine", None)
+    if engine is None:
+        return "default", {}
+    temp = {id(r) for r in getattr(engine, "_temp_allow_rules", None) or []}
+    rules = {"deny": [r.raw for r in engine.deny_rules if r.raw], "ask": [r.raw for r in engine.ask_rules if r.raw],
+             "allow": [r.raw for r in engine.allow_rules if r.raw and id(r) not in temp]}
+    return str(getattr(engine, "mode", "default") or "default"), {k: v for k, v in rules.items() if v}
+
+
+def run_orchestra(wf, task: str, files: list, *, repo, wall_s: Optional[int], runner: Optional[Callable] = None,
+                  parent=None) -> Outcome:
     from halo_harness.workflows.compile import compile_workflow
     repo = Path(repo)
     compiled = compile_workflow(wf, {"task": task, "files": ", ".join(files)}, repo=repo, cwd=repo)
     if compiled.problems:
         return Outcome(status="failed", text=f"{wf.ref} does not compile: " + "; ".join(compiled.problems[:3]))
+    compiled.goal.permission_mode, compiled.goal.permission_rules = parent_permissions(parent)
+    from halo_harness.orchestra.test_decide import refused  # its test is decided before a lane is paid for
+    said = refused(compiled.goal, repo)
+    if said:
+        return Outcome(status="failed", text=f"{wf.ref} did not start: {said}")
     from halo_harness.orchestra.goal import new_run
     run_dir = new_run(repo, compiled.goal)
     if runner is None:
@@ -167,7 +185,7 @@ def named_files(text: str, cwd: Path) -> "list[str]":
 
 
 def _repo_changed(cwd: Path) -> bool:
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     try:
         got = subprocess.run(["git", "status", "--porcelain"], cwd=str(cwd), capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.SubprocessError):

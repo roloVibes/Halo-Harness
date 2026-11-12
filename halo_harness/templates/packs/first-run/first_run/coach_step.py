@@ -8,7 +8,7 @@ one line saying the coach is a pack and how to turn it on. The first-run pack ne
 from __future__ import annotations
 
 import json
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 
 from . import steps as S
 

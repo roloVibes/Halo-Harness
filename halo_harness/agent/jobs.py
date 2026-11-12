@@ -34,7 +34,7 @@ import dataclasses
 import os
 import queue
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import threading
 import time
 import uuid

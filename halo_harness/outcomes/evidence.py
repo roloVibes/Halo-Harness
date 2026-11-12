@@ -156,7 +156,7 @@ def diff_stat(cwd, files: list, base: Optional[str] = None) -> dict:
 
 
 def _git(cwd, *args) -> str:
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     try:
         proc = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True, encoding="utf-8",
                               errors="replace", timeout=30, stdin=subprocess.DEVNULL)

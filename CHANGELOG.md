@@ -47,10 +47,72 @@ a member. The 2026-11-12 security review's findings, each with its test.
 - The design for the real fence of a pack's page (a sandboxed frame and a message broker) is written in the roadmap's
   "Pack trust" item.
 
+### Engine, fleet files, replay privacy
+
+- **ENGINE-1.** A cloned repo's own workflows, lineups and bios (`.halo/workflows/`, `.halo/teams/`, `.halo/agents/`)
+  are read only in a folder you trusted, and a project workflow or lineup never takes a shipped or pack name (the
+  shipped `media` square stays the shipped one); `halo workflows list` and `halo config where` say which project
+  file is not used and why. A square the `Workflow` tool runs on the Orchestra engine starts its lanes in your
+  session's own permission mode and under its rules, and a test command a project file wrote (a stage's
+  `verify.test`, a lineup's `acceptance.test`) is decided as a Bash call -- your deny and ask rules, pack policies
+  and hooks -- before it runs. The same gate now keeps an untrusted repo from replacing the bio the default lineup's
+  main session runs, whose hooks ran at session start.
+- **ENGINE-2.** In a folder you have not trusted, CLAUDE.md imports come only from inside it; under the Claude config
+  folder only `*.md` files are ever imported (never credentials, settings, other projects' transcripts or history),
+  every import passes your Read deny rules, and each refusal is said once when the session starts.
+- **ENGINE-3.** Changing the permission mode (Shift+Tab, `/permissions`) no longer answers a card a pack, a hook or an
+  untrusted skill raised; an untrusted skill's commands run only on your own allow on its card.
+- **ENGINE-4.** Read and Edit deny rules now also cover `tee`, `cp`, `mv`, `install`, `ln`, `rm`, `unlink`, `shred`,
+  `truncate`, `dd`, `curl -o`, `wget -O` and `rsync` in Bash, and `Tee-Object`, `Rename-Item`, `Format-Hex`, `Import-Clixml`, `Export-Clixml`,
+  `Export-Csv`, piped readers, `${C:\path}` and the .NET stream readers and writers in PowerShell.
+- **ENGINE-5.** Switching the main session's permission mode reaches its running and background sub-agents at once;
+  a sub-agent is never left above its parent's mode.
+- **ENGINE-6.** A mission part's own-outputs-folder rule lifts only the mode's ask; an ask rule of yours stays an ask.
+- **PACKS-3.** A fleet member writes only the mission files its part may read and never a configuration-like path
+  (`.claude/`, `.mcp.json`, `.git`, a root CLAUDE.md or AGENTS.md), whatever a hub lists, and a mission folder (or a
+  repo part's worktree) is never a trusted folder. Fleet pack 1.0.4.
+- **PACKS-4.** On Windows, Halo never runs a program by its bare name from the current folder: every launch resolves
+  the program over the PATH folders first, and `NoDefaultCurrentDirectoryInExePath` is set before anything starts.
+- **PACKS-5, SERVERS-6.** Replays, `halo export --sanitize`, `/export --sanitize`, `halo session export`, the report
+  card and `halo bugreport` share one redaction: more key shapes (Groq, xAI, Perplexity, JWTs, tokens in URLs such as
+  Studio's launch link, random 30-character tokens, your secret environment values), and your home path, user name
+  and machine name in every spelling -- inside URLs and `user@host`, relative and `..` paths, 8.3 short names,
+  percent-encoded or full-width text, agent ids, the plan and keys.
+- **PACKS-7.** A hostile `.halo-replay` file cannot crash an import or the CLI (deep nesting is refused), carries no
+  terminal escape sequences into `halo replay` or `halo report`, and never replaces a replay you saved.
+
+### Privacy` (the coordinator merges them into CHANGELOG.md)
+
+### Privacy
+
+- **The pre-push gate checks names again.** `scripts/prepush.py` runs `halo audit privacy` in a scratch home, so it
+  never saw your private term list and every machine- and owner-name check was off in the gate. It now hands the list
+  over by file name (`HALO_PRIVACY_TERMS_FILE`, never on a command line), and when there is no list it says so in one
+  line ("name checks OFF"); CI, which has no list by design, says the same in its log.
+- **`halo audit privacy` reads more.** Every run starts with whether the name checks are on. The name terms now cover
+  the whole tree (plans, notes, reports, tools, scripts, the shipped packs, SVG text), not five folders; a finding
+  names a term by its number (`term #3`), never the term; files that are not text are counted as "not checked".
+  `--history` reads every ref the clone has (branches, tags, remotes), and `--since REV` leaves out what REV reaches.
+  An escaped Windows profile path (`C:\\Users\\<name>` in a string) and `/home/<a real default account>/...` are found
+  even when the name is a usual placeholder, unless the whole path is on the allowlist.
+- **`halo audit privacy --commits`** (new) reads every commit's author and committer address and its message: an
+  address that is not a GitHub noreply one is reported masked, with how many commits carry it, and a private term in a
+  message by its number. They fail the audit only on a commit that is not yet on `origin/master`; older ones are
+  counted (fixing them is a history rewrite). The pre-push gate runs it.
+- **Personal material out of the tree.** Machine and device names, the owner's home setup, other projects, local
+  folder paths and a user name in examples are replaced with neutral ones used the same way everywhere (`tower`,
+  `sagan`, `laptop`, `linux-vm`, the user `you`; docs/DEVELOPMENT.md "Names to use in examples and tests"); the test
+  fixture's memory text is now an invented one.
+- **Release tarballs leave out the working notes.** `plans/`, `research_notes/` and `reports/` are `export-ignore`, so
+  the release asset (`git archive` of the tag) no longer carries them; they stay in the repository.
+- **Supported versions.** SECURITY.md says the newest release is the supported one and that versions before 3.4.1.2
+  have known, fixed security problems (`halo update`). The review pages keep an open item's id, title and severity,
+  without the detail of how it works, until it is fixed.
+
 ## [3.4.1.1] - 2026-11-12
 
 What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
-Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Kali VM, the
+Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Linux VM, the
 fleet pack joined), each with its test; the fleet pack is 1.0.3 (`halo pack update fleet`).
 
 ### Fixed (wrong)
@@ -264,7 +326,7 @@ jobs"), section A of its plan: time on Agents -> Live, then a run's replay as on
 
 The released 3.4.0.1 is merged into this line (History's rows keep both the tick boxes and Report doors of R2/R3 and
 3.4.0.1's "N sessions inside"; Studio's start lines keep the glance's phone line and print at once). A second check of
-3.4.0.1 on the PC and the Kali VM (numbering from the first check's 1-29):
+3.4.0.1 on the PC and the Linux VM (numbering from the first check's 1-29):
 
 #### Fixed
 
@@ -355,7 +417,7 @@ The candidate passed on the Windows PC and was red on both GitHub runners; each 
 ## [3.4.0.1] - 2026-11-12
 
 What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
-when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Kali VM, paired through the fleet pack,
+when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Linux VM, paired through the fleet pack,
 with a mission split across both, and wrote 29 defects; each line below names the one it fixes (the fleet pack is 1.0.1).
 
 - 15: a mission part is `done` only when its work is: the brief asks the worker to end its hand-back with `Outcome: done`
@@ -2503,7 +2565,7 @@ run is the owner's. No echo canceller: a headset or press-to-talk on open speake
 
 ## [3.3.8.1] - 2026-11-02
 
-**Bench from any halo.** The owner, from his MacBook against this PC's Ollama: "I should be able to benchmark the
+**Bench from any halo.** The owner, from another machine against this PC's Ollama: "I should be able to benchmark the
 models from any halo that is using the local models on the network" -- a Bench on a host another machine serves,
 with no halo host there, ran into "served by another machine". Now it runs over the LAN from the halo that asked,
 and the card says so first, with the link's RTT; a paired halo host's path stays first and gives a card without the
@@ -10354,7 +10416,7 @@ Built up over milestones H0-H9 (plus U0/U2/U5 for the TUI) -- see
   rewrite.
 - **H9 -- bug hunt, Linux-first acceptance, MCP compatibility, release**:
   whole-tree review; Linux-first acceptance of every milestone's acceptance
-  lines (WSL Ubuntu; the Kali VM when reachable); an MCP compatibility
+  lines (WSL Ubuntu; the Linux VM when reachable); an MCP compatibility
   matrix (user/project/local/plugin scopes, `claude mcp add` <->
   `rolo-claude mcp add` interop, unusual tool schemas surviving OpenRouter
   and the Databricks 32-tool/no-`$ref` simplifier, `/mcp` reconnect,
@@ -10394,7 +10456,7 @@ Built up over milestones H0-H9 (plus U0/U2/U5 for the TUI) -- see
   or real-CLI pinning tests. Background jobs/sub-agents as one contract: a
   sub-agent's own `JobRegistry` is shared with (and killed by) its parent;
   `-p` now handles SIGHUP the same as SIGTERM (an `atexit kill_all` safety
-  net too), verified with `pgrep` on WSL AND the Kali VM that both a
+  net too), verified with `pgrep` on WSL AND the Linux VM that both a
   background Bash job and an MCP stdio server subprocess are gone after a
   normal exit and after SIGHUP; a resume/`TaskOutput` on a task_id whose
   background child is still writing its own log is refused instead of

@@ -250,7 +250,7 @@ def _edit_role_template_externally(app, name: str) -> None:
     contract), never inside a `thread=True` worker."""
     import json
     import os
-    import subprocess as sp
+    from halo_harness import subprocess_safe as sp
 
     from halo_harness.roles import load_role_template, role_templates_dir, save_role_template, validate_role_template
 

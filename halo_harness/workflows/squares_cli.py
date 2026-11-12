@@ -118,6 +118,9 @@ def _list(repo: Path, as_json: bool) -> int:
             "  (not a square: its file says no gives)"
         when = f"  when: {r['when_label']}" if r.get("when_label") else ""  # 3.3.16.3: the when column
         print(f" {mark} [{r['group']:<7}] {r['line']}{tail}{when}")
+    from halo_harness.project_gate import skipped  # 3.4.1.2 (ENGINE-1): a project file not used here, and why
+    for line in [x for x in skipped(repo) if x.startswith("project workflow")]:
+        print(f"  {line}")
     return 0
 
 

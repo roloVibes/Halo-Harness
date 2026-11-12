@@ -22,7 +22,7 @@ import json
 import logging
 import os
 import socket
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import tempfile
 import threading

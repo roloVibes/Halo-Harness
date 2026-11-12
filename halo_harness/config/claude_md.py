@@ -197,14 +197,6 @@ def _resolve_import_target(token: str, importer_dir: Path) -> Path:
     return (importer_dir / token).resolve()
 
 
-def _is_within(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False
-
-
 def _expand_one(
     file_path: Path,
     text: str,
@@ -225,7 +217,7 @@ def _expand_one(
     if hop >= _MAX_IMPORT_HOPS:
         return
 
-    home_claude = claude_config_dir().resolve()
+    from halo_harness.config.claude_md_imports import refused  # 3.4.1.2 (ENGINE-2): the import rule, one place
     for token in _find_imports(text):
         target = _resolve_import_target(token, file_path.parent)
         if target in visited:
@@ -241,11 +233,10 @@ def _expand_one(
         if size > _MAX_FILE_BYTES:
             warnings.append(f"skipped {target} (larger than 4 MiB)")
             continue
-        outside_cwd = not _is_within(target, cwd.resolve())
-        outside_home_claude = not _is_within(target, home_claude)
-        if outside_cwd and outside_home_claude and not trusted:
-            if not skip_unapproved_silently:
-                warnings.append(f"import not approved (untrusted, outside cwd/~/.claude): {target} (from {file_path})")
+        why = refused(target, file_path, cwd=cwd, trusted=trusted)
+        if why:  # a refusal is a warning the owner sees (InstructionBundle.warnings: /memory, halo doctor)
+            if not (skip_unapproved_silently and why.startswith("import not approved")):
+                warnings.append(why)
             continue
         try:
             imported_text = target.read_text(encoding="utf-8", errors="replace")
@@ -405,6 +396,8 @@ def discover_instructions(
     files: list = []
     scoped_rules: list = []
     seen: set = set()
+    from halo_harness.config.claude_md_imports import use
+    use(settings, cwd)  # 3.4.1.2 (ENGINE-2): every import passes this session's Read deny rules
     common = dict(cwd=cwd, trusted=trusted, skip_unapproved_silently=skip_unapproved_silently,
                   warnings=warnings, seen=seen)
 

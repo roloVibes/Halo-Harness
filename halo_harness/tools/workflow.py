@@ -144,7 +144,8 @@ class WorkflowTool(Tool):
         else:
             key = receipts.node(session, wf.ref, engine, state="running", does=wf.contract.does)
             said = _talk(session, key, wf.ref, task)  # 3.3.16.2: the hand-off and what came back are talk (fleet/talk.py)
-            out = square_run.run_orchestra(wf, task, files, repo=ctx.cwd, wall_s=wf.contract.wall_s, runner=RUN_ORCHESTRA)
+            out = square_run.run_orchestra(wf, task, files, repo=ctx.cwd, wall_s=wf.contract.wall_s, runner=RUN_ORCHESTRA,
+                                           parent=session)  # 3.4.1.2 (ENGINE-1): the lanes run in the parent's mode
             _talk(session, key, wf.ref, out.text, back=True, re=said)
             receipts.node(session, wf.ref, engine, state="done" if out.status == "done" else "failed", cost_usd=out.cost_usd, key=key)
             receipts.add_cost(session, wf.ref, out.cost_usd)

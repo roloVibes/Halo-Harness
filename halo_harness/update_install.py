@@ -85,7 +85,7 @@ def last_line(text: str) -> str:
 def run_install(cmd: str, *, cwd: Optional[str], run_fn, out=print) -> "tuple[int, str]":
     """Run `cmd`, print what it printed, and on a certificate failure run it once more on the system's store."""
     import os
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
 
     def once(c: str, env: "Optional[dict]" = None) -> "tuple[int, str]":
         extra = {"env": {**os.environ, **env}} if env else {}

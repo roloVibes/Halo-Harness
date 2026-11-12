@@ -80,6 +80,19 @@ The 2.0.10 review lists where each of these is still incomplete.
 4. `halo fleet kick` revokes a member's key; `halo fleet leave` forgets a
    hub. Details: [docs/FLEET.md](docs/FLEET.md).
 
+## 3.4.1.2: the engine, a hub's files and what you share
+
+- A folder you have not trusted cannot replace a shipped square, lineup or bio with its own `.halo/` files, and a
+  project file never takes a shipped or pack name; a test command a project file wrote is decided as a Bash call;
+  `Workflow` lanes run in your session's mode. Its CLAUDE.md imports only from inside the folder, and nothing under
+  `~/.claude` but `*.md` is ever imported.
+- A mode change never answers a pack's, a hook's or an untrusted skill's card, and reaches running sub-agents; the
+  Read / Edit deny rules cover more shell readers and writers.
+- A fleet member takes only what its part may read from a hub, never a configuration file, and a mission folder is
+  never trusted. On Windows Halo never runs a program from the current folder by its bare name.
+- Replays, exports, report cards and bug reports pass one redaction (keys, paths, user and machine names, any
+  spelling), and a hostile replay file cannot crash Halo or write to your terminal.
+
 ## Where keys live and who can read them
 
 | What | Where | Readable by |

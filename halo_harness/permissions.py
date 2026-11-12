@@ -37,6 +37,7 @@ from halo_harness import perm_ps as _pa
 from halo_harness import perm_scan as _scan
 from halo_harness import perm_shell as _ps
 from halo_harness import perm_words as _words
+from halo_harness import perm_clamp as _clamp, permissions_bash_io as _bash_io  # 3.4.1.2 (ENGINE-5, ENGINE-4)
 from halo_harness.permissions_paths import plain_drive, unc_ask  # 3.3.13.1 (PERMS-2)
 
 # =============================================================================
@@ -1463,12 +1464,22 @@ class PermissionEngine:
     DENY/ASK are never trust-gated). `mode` is one of default|acceptEdits|
     plan|auto|dontAsk|bypassPermissions."""
 
+    @property
+    def mode(self) -> str:
+        """The engine's own mode, clamped to its parent engine's current one when it has a parent (perm_clamp)."""
+        return _clamp.effective(self, self._mode) if self._parent_engine is not None else self._mode
+
+    @mode.setter
+    def mode(self, value: str) -> None:
+        self._mode = value
+
     def __init__(self, *, deny_rules=None, ask_rules=None, allow_rules=None,
                  mode: str = "default", cwd, extra_dirs=None, print_mode: bool = False,
-                 plan_file: Optional[Path] = None):
+                 plan_file: Optional[Path] = None, parent=None):
         self.deny_rules = list(deny_rules or [])
         self.ask_rules = list(ask_rules or [])
         self.allow_rules = list(allow_rules or [])
+        self._parent_engine = _clamp.ref(parent)  # 3.4.1.2 (ENGINE-5): a sub-agent's engine reads its parent's mode
         self.mode = mode
         self.cwd = Path(cwd)
         self.extra_dirs = [Path(d) for d in (extra_dirs or [])]
@@ -1480,20 +1491,9 @@ class PermissionEngine:
         # `_decide` can allow Write/Edit on exactly this file while every
         # other edit/write stays denied by the ordinary mode table below.
         self.plan_file: Optional[Path] = Path(plan_file) if plan_file else None
-        # H9 whole-tree review finding 21: THIS session's own
-        # `<session_dir>/tool-results/` spill directory (tools/truncate.py's
-        # `spill_and_truncate` -- where an over-cap tool result's full text
-        # actually lives) -- set by `agent.loop.Session.__init__` once its
-        # own log dir/session_id are known (this engine is usually built
-        # BEFORE that). Read is unconditionally allowed under it, in every
-        # mode, same as TodoWrite/ToolSearch's own "no side effects
-        # requiring permission" built-in below: the model is only ever
-        # re-reading output a tool it already ran produced, which lives
-        # outside the project's own working directories (verified: the
-        # truncation hint's own "Use Read with offset/limit on <spill>"
-        # pointer asked in TUI default mode and was denied outright in -p
-        # default/acceptEdits/dontAsk -- there is no rule a user could even
-        # write to fix this, since the path is randomly per-session).
+        # H9 finding 21: THIS session's `<session_dir>/tool-results/` spill directory, set by Session.__init__;
+        # Read is allowed under it in every mode (the model re-reads output a tool it ran produced; the path is
+        # random per session, so no rule could allow it).
         self.tool_results_dir: Optional[Path] = None
         # H4 scope C: a Skill tool's `allowed-tools` grant, live in
         # `allow_rules` (so every existing match path just works) but
@@ -1833,16 +1833,13 @@ class PermissionEngine:
         return None
 
     def _bash_write_deny_hit(self, command: str) -> Optional[Rule]:
-        """finding 54 (3.3.11.0 security review M2): a redirect-OUT target
-        (> file, 1> file, &> file, >> file) must be gated by Edit/Write
-        path deny rules the same way redirect-IN targets are gated by Read
-        path rules (above).  Without this, `echo x > /etc/cron.d/pwn` sails
-        past an `Edit(//etc/**)` deny in every mode, including plan mode,
-        whose write ban also depends on the same edit-path infrastructure."""
+        """finding 54 (3.3.11.0 M2): a redirect-OUT target (> file, &> file, >> file) is gated by Edit/Write path
+        deny rules like a redirect-IN target by Read rules; 3.4.1.2 (ENGINE-4) adds what cp, mv, install, ln, tee,
+        rm, unlink, shred, truncate and dd write or remove (permissions_bash_io.write_targets)."""
         if not any(r.kind == "path" and r.tool == "Edit" for r in self.deny_rules):
             return None
         for seg, cwd in self._bash_read_units(command, self.cwd):
-            for m in self._REDIRECT_OUT_RE.findall(seg):
+            for m in self._REDIRECT_OUT_RE.findall(seg) + _bash_io.write_targets(_deny_tokens(seg)):
                 raw = _ps.expand_pwd_token(_ps.expand_home_token(m.strip("'\"").strip()), cwd)
                 for tok in _words.brace_expand(_ps.expand_home_token(raw)):
                     if any(ch in tok for ch in "<>{}$`"):
@@ -1861,6 +1858,7 @@ class PermissionEngine:
         words = [m.strip("'\"") for m in self._REDIRECT_IN_RE.findall(seg)]
         walks = False
         head = tokens[0].replace("\\", "/").rsplit("/", 1)[-1] if tokens else ""
+        words += _bash_io.read_sources(tokens)  # 3.4.1.2 (ENGINE-4): mv's / ln's sources, dd if=, truncate -r
         if tokens:
             if head in self._BASH_FILE_READERS:
                 operands = self._bash_reader_paths(head, tokens[1:])

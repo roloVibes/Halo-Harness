@@ -37,9 +37,9 @@ _ARG_KEYS = ("command", "file_path", "path", "pattern", "url", "query", "descrip
 
 
 def _scrub(text: str, home: str = "") -> str:
+    from halo_harness.privacy_redact import redact  # 3.4.1.2 (PACKS-5): the one redaction
     from halo_harness.privacy_rules import HOME_PATH_RE
-    from halo_harness.redact import sanitize_text
-    text = sanitize_text(str(text or ""))
+    text = redact(str(text or ""))
     for h in {home, home.replace("\\", "/")} if home else ():
         text = text.replace(h, "~")
     return HOME_PATH_RE.sub("~", text)

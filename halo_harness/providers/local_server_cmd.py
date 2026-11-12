@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import time
 from pathlib import Path

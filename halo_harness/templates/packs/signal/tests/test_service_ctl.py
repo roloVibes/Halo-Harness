@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import sys
 import tempfile
 import threading

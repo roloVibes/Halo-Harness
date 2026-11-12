@@ -8,7 +8,7 @@ runs `halo pack test` itself). A module that takes longer than OWN_TIMEOUT_S is 
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 
 OWN_TIMEOUT_S = 300.0

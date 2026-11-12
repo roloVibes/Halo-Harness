@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 import socket
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import threading
 import time
 from typing import Callable

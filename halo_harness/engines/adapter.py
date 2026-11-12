@@ -21,7 +21,7 @@ import os
 import platform as _platform
 import re
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from pathlib import Path
 from typing import Optional

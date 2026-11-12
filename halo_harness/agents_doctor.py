@@ -39,7 +39,7 @@ def _default_call(model_ref: str, prompt: str, *, timeout: float = 60.0) -> str:
     just for this. Never raises; a launch/timeout failure degrades to
     empty output, which `check_expectation` already treats as a failure
     on its own (no separate error path needed here)."""
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     try:
         proc = subprocess.run(print_mode_argv(model_ref, prompt), capture_output=True, text=True, timeout=timeout)
         return (proc.stdout or "").strip()

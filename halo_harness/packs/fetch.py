@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import uuid
 from pathlib import Path
 from urllib.parse import urlparse

@@ -19,7 +19,7 @@ import json
 import os
 import shlex
 import signal
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import threading
 from collections import deque
 from pathlib import Path

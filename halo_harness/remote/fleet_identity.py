@@ -28,7 +28,7 @@ import platform
 import re
 import secrets
 import socket
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import threading
 import time
 from pathlib import Path

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import uuid
 from pathlib import Path
 from typing import Optional

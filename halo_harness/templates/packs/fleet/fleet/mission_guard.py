@@ -75,7 +75,10 @@ class MissionClaimGuard:
         rel = self.rel(raw, getattr(engine, "cwd", None))
         if rel is not None and (rel in self.allow or covers(self.claims, rel)):
             from .mission_wait import own_write
-            if self.own is not None and getattr(decision, "action", None) == "ask" and own_write(
+            # 3.4.1.2 (ENGINE-6): only the MODE's ask is lifted -- an ask a rule of yours raised (matched_rule set)
+            # stays an ask, as a pack's does (policy_gate re-applies those)
+            if self.own is not None and getattr(decision, "action", None) == "ask" and getattr(
+                    decision, "matched_rule", None) is None and own_write(
                     self.own, self.part, raw, getattr(engine, "cwd", None) or self.cwd):
                 Decision = _core.get("permissions", "Decision")
                 return Decision("allow", f"mission {self.mission} part {self.part}'s own outputs folder "

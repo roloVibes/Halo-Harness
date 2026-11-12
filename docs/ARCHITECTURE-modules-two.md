@@ -218,7 +218,7 @@ and MCP server; 3.2.1.0 R4: `${CLAUDE_PLUGIN_ROOT}` in any plugin hook's shell
 `command`, filled for the quotes it sits in, forward slashes on Windows).
 
 **The extension API** (`halo_harness/ext/`, API 1.2 since 3.3.13.0 R2, docs/EXTENSION_API.md):
-`ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`),
+`ext/names.py` (the name rules), `ext/yamlio.py` (`read_yaml`, `write_yaml`), `ext/subprocess_safe.py` (3.4.1.2),
 `ext/schema.py` (`check_schema`), `ext/config.py` (`get_config`,
 `set_config`), `ext/files.py` (`pack_dir`, `data_dir`, `write_private`),
 `ext/events.py` (`publish_event`), `ext/grants.py` (`is_granted`),

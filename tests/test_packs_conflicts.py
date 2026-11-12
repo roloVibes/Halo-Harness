@@ -61,12 +61,15 @@ def test_your_bio_lineup_and_skill_win_and_are_named(ctx: Ctx):
         found = _lines(h)
         ctx.check(f"your bio is named and used, got {found}",
                   any(ln.startswith("bio doc-review--writer: your ") and ln.endswith("yours is used") for ln in found))
-        ctx.check("your repo lineup is named and used", any(ln.startswith("lineup doc-review--review: your ") for ln in found))
+        # 3.4.1.2 (ENGINE-1): a repo file never takes a pack's <id>--<name>: the pack's lineup is used, no clash line
+        ctx.check("a repo lineup with a pack's name is not a clash", not any(ln.startswith("lineup doc-review--review")
+                                                                            for ln in found))
         ctx.check("your skill is named and used", any(ln.startswith("skill doc-review:check-links: one of your own") for ln in found))
         ctx.check("the bio resolves to yours", A.find_agent_bio_path("doc-review--writer", cwd=h.repo)[1] == "user")
-        ctx.check("the lineup resolves to yours", T.find_team_template_path("doc-review--review", cwd=h.repo)[1] == "project")
+        ctx.check("the lineup resolves to the pack's", T.find_team_template_path("doc-review--review", cwd=h.repo)[1]
+                  == "pack:doc-review")
         code, out, _err = h.cli("doctor")
-        ctx.check(f"doctor prints them and exits 1, got {code}", code == 1 and out.count("yours is used") == 3)
+        ctx.check(f"doctor prints them and exits 1, got {code}", code == 1 and out.count("yours is used") == 2)
 
 
 @test

@@ -17,7 +17,7 @@ its wrapper. When the Job could not be made, the tree is ended by `taskkill /T /
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from typing import Optional
 
 _KILL_ON_JOB_CLOSE, _EXTENDED_LIMITS = 0x2000, 9
@@ -35,7 +35,7 @@ def popen_kwargs() -> dict:
 
 
 def attach(proc) -> Optional[Group]:
-    if not isinstance(proc, subprocess.Popen):
+    if not isinstance(proc, subprocess.STDLIB_POPEN):  # 3.4.1.2: any Popen, the safe module's or the standard one
         return None
     if os.name != "nt":
         return Group(proc.pid)

@@ -25,7 +25,7 @@ attachment.
 
 from __future__ import annotations
 
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import tempfile
 import uuid

@@ -20,7 +20,7 @@ import itertools
 import json
 import os
 import queue
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import threading
 import time
 

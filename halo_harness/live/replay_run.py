@@ -133,7 +133,7 @@ def build_run(state_dir, run_dir) -> dict:
     from halo_harness import __version__
     from halo_harness.live import history, timeline
     from halo_harness.live.replay_file import AGENT_KEYS, FORMAT, VERSION, ReplayError, includes
-    from halo_harness.redact import sanitize_node
+    from halo_harness.privacy_redact import redact
     from halo_harness.studio import orchestra_model as OM
     run_dir = Path(run_dir)
     if not (run_dir / "goal.json").is_file():
@@ -176,10 +176,8 @@ def build_run(state_dir, run_dir) -> dict:
          "states": sorted(states, key=lambda s: (s["t"], s["agent_id"])), "costs": costs, "agent_costs": agent_costs,
          "marks": marks, "bands": timeline.bands({**h, "asks": []}), "plan": None,
          "facts": _facts(state_dir, run_dir, goal, lanes, report, state, cost)}
-    p = sanitize_node(p)
+    p = redact(p, root=run_dir.parents[2] if len(run_dir.parents) > 2 else None)  # 3.4.1.2: the one redaction
     if "_sanitize_error" in p:
         raise ReplayError("the redactor could not clean this run's record; nothing was written")
-    from halo_harness.live.replay_private import scrub  # 3.4.1.1 (56): the repo (<repo>/.halo/orchestra/<id>) relative
-    p = scrub(p, run_dir.parents[2] if len(run_dir.parents) > 2 else None)
     p["includes"] = includes(p)
     return p

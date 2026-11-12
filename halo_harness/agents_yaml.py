@@ -81,12 +81,12 @@ def project_agents_dir(cwd=None) -> Path:
 
 def agent_search_dirs(*, cwd=None, state_dir=None) -> "list[tuple[Path, str]]":
     """`[(dir, source_label), ...]`, NEAREST WINS first -- project, then
-    user, then each active pack's `agents/` (3.2.0.0 R1: label `pack:<id>`,
-    names `<id>--<name>`, read in place), then the shipped, read-only
-    templates (an `extends:`/`--from` target, never itself a place
-    `save_agent_bio` writes to)."""
+    user, each active pack's `agents/` (`pack:<id>`, `<id>--<name>`), then
+    the shipped templates. 3.4.1.2: the project's folder only when trusted
+    (project_gate.py: else its bio's hooks ran as the lineup's main)."""
     from halo_harness.packs.contribute import agent_dirs
-    return [(project_agents_dir(cwd), "project"), (user_agents_dir(state_dir), "user"),
+    from halo_harness.project_gate import project_dir
+    return [*project_dir(project_agents_dir(cwd), cwd), (user_agents_dir(state_dir), "user"),
             *agent_dirs(cwd=cwd, state_dir=state_dir), (bundled_agent_templates_dir(), "template")]
 
 
@@ -120,8 +120,7 @@ def list_agent_bios(*, cwd=None, state_dir=None, include_templates: bool = True)
     bio` actually reads for a given name), sorted. `include_templates`:
     whether a shipped template with no project/user override of its own
     name also counts as an installed bio (brief: these ARE usable bios
-    out of the box, not just `extends:` targets) -- off for a caller that
-    only wants what the user has actually created/customized."""
+    out of the box) -- off for a caller that only wants what the user made."""
     from halo_harness.packs.contribute import folder_names, read_only_source
     names: "set[str]" = set()
     dirs = agent_search_dirs(cwd=cwd, state_dir=state_dir)
@@ -134,9 +133,10 @@ def list_agent_bios(*, cwd=None, state_dir=None, include_templates: bool = True)
 
 def find_agent_bio_path(name: str, *, cwd=None, state_dir=None) -> "Optional[tuple[Path, str]]":
     from halo_harness.packs.contribute import folder_file
+    from halo_harness.project_gate import name_ok  # 3.4.1.2: a project bio never takes a pack's `<id>--<name>`
     for d, source in agent_search_dirs(cwd=cwd, state_dir=state_dir):
         path = folder_file(d, source, name)
-        if path is not None and path.is_file():
+        if path is not None and path.is_file() and name_ok(source, "agents", name):
             return path, source
     return None
 

@@ -24,7 +24,7 @@ from __future__ import annotations
 from halo_harness.studio.owner_proof import owner_only  # 3.4.1.2: the handlers that change what runs
 import json
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import threading
 import time

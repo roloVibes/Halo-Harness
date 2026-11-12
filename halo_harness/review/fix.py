@@ -10,7 +10,7 @@ the problem), `no_change_needed`, or `skipped` (with a note saying why).
 from __future__ import annotations
 
 import hashlib
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 from typing import Callable, Optional
 

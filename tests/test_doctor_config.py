@@ -151,8 +151,9 @@ def test_a_key_two_files_set_differently_names_the_winner(ctx: Ctx):
                   "process environment wins" in texts.get("~/.config/halo/env|OPENROUTER_API_KEY", ""))
         h.write(".halo/teams/standard.yaml", "description: mine\nroles: {main: coder}\n")
         texts = {f["file"] + "|" + f["key"]: f["text"] for f in _findings(h) if f["check"] == "conflict"}
-        ctx.check(f"the same lineup in the home and repo folders: the repo's wins, got {list(texts)}",
-                  "./.halo/teams/standard.yaml wins" in texts.get("~/.halo/teams|standard", ""))
+        # 3.4.1.2 (ENGINE-1): the untrusted repo's lineup is not read, so the home's wins over it
+        ctx.check(f"the same lineup in the home and repo folders: the home's wins (the repo's is not read), got {texts}",
+                  "~/.halo/teams/standard.yaml wins" in texts.get("./.halo/teams|standard", ""))
         ctx.check("every conflict is a warning", all(f["severity"] == "warns" for f in found))
 
 

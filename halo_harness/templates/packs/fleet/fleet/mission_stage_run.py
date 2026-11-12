@@ -37,7 +37,12 @@ def check_run(kind: str, raw) -> dict:
     problems = validate_goal(goal)
     if problems:
         raise TaskError(f"the stage's goal: {problems[0]}")
-    return {"goal": dict(goal)}
+    # 3.4.1.2: the Goal fields that say how a run decides (ENGINE-1) are this harness's, never a hub's; a test the hub
+    # wrote is decided as a Bash call against this harness's rules before the gate runs it
+    goal = {k: v for k, v in goal.items() if k not in ("permission_mode", "permission_rules", "test_from")}
+    if str(goal.get("test") or "").strip():
+        goal["test_from"] = "the hub's mission part"
+    return {"goal": goal}
 
 
 def what(fields: dict) -> str:

@@ -112,7 +112,10 @@ def test_bugreport_redacts_a_planted_fake_key_in_every_source(ctx: Ctx):
 
         ctx.check("the report is non-trivial (sanity: sources were actually read)", len(text) > 200)
         ctx.check(f"the fake key never appears anywhere in the report", _FAKE_KEY not in text)
-        ctx.check("the settings path IS shown (paths only, not values)", str(settings_path) in text)
+        # 3.4.1.2 (PACKS-5): the one redaction writes a path under the home as ~/... (the user name never leaves)
+        from halo_harness.privacy_redact import redact
+        shown = redact(str(settings_path))
+        ctx.check(f"the settings path IS shown (paths only, not values), as {shown}", shown in text)
         ctx.check("a <redacted> marker appears where the key would have been", "<redacted>" in text)
 
 

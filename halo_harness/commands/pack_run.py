@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import os
 import shlex
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 
 TIMEOUT_S = 120

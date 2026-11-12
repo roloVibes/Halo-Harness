@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import time
 import uuid
 from pathlib import Path

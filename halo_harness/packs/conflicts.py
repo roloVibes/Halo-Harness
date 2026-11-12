@@ -20,11 +20,11 @@ _KIND_WORD = {"bios": "bio", "lineups": "lineup", "skills": "skill", "commands":
 
 
 def _yours(kind: str, name: str, *, cwd, state_dir) -> str:
-    """The path of your own project or home bio/lineup of that name, or ''."""
+    """The path of your own home bio/lineup of that name, or ''. 3.4.1.2 (ENGINE-1): a project file never takes a
+    pack's `<id>--<name>` (halo_harness/project_gate.py), so only the home folder's can win over a pack's."""
     from halo_harness import agents_yaml as A
     from halo_harness import teams_yaml as T
-    dirs = ([(A.project_agents_dir(cwd), "project"), (A.user_agents_dir(state_dir), "user")] if kind == "bios"
-            else [(T.project_teams_dir(cwd), "project"), (T.user_teams_dir(state_dir), "user")])
+    dirs = [(A.user_agents_dir(state_dir), "user")] if kind == "bios" else [(T.user_teams_dir(state_dir), "user")]
     for d, _label in dirs:
         p = Path(d) / f"{name}.yaml"
         if p.is_file():

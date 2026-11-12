@@ -80,6 +80,17 @@ lineup's names, and a path inside the project. Nothing changes in the format: a 
 `halo audit privacy --replays` checks every file in `<state>/replays/` with the audit's rules plus this machine's home
 path, user name and machine name (`tests/test_replay_private.py` seeds them, Windows-style and POSIX, with a key).
 
+**One redaction for everything that leaves (3.4.1.2).** A saved replay, `halo export --sanitize`, `/export --sanitize`,
+`halo session export`, the report card's Markdown and `halo bugreport` all pass `halo_harness/privacy_redact.py`:
+the key shapes (now also Groq, xAI and Perplexity keys, JWTs, a token in a URL such as Studio's `#t=` or a pack's
+`?k=`, a bare random 30-character token, and the current values of your secret environment variables), then the paths
+and names -- also inside URLs, `user@host`, `..` paths, 8.3 short names (`JSMITH~1`), percent-encoded or full-width
+text, the agent ids, the plan's names and dict keys; only a path the project rule made relative keeps its words, and
+the title keeps your own. Control characters are dropped, a file nested too deep is refused, and an imported file
+whose id is already saved gets a new id instead of replacing it. `tests/test_privacy_redact.py` keeps the generator
+that attacks it (case, separators, encodings, look-alikes, every kind of field). Not caught: a name split across two
+fields, and look-alike letters NFKC does not fold (Cyrillic, Greek).
+
 **Open it anywhere**: History's **Open a file** (a file from this disk, made here or on another machine; it is kept under
 `<state>/replays/` so History lists it), or `halo replay open <file>`. A file of an older shape -- a `GET fleet/replay`
 answer saved as is (3.0.5.0 to 3.4.0.0) -- opens as version 1; a newer version than this Halo reads says to update.

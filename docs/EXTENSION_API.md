@@ -73,6 +73,8 @@ names in `__all__` are the contract.
 - `read_yaml(path)`: a dict, `{}` for an empty file, None when missing or not a mapping.
 - `write_yaml(pack_id, path, data)`: `[]` when written, else one line; lands where `write_private` would.
 - `check_schema(doc, schema)`: one finding per shape problem, `{check, key, text, closest}`.
+- `halo_harness.ext.subprocess_safe` (3.4.1.2): a pack's `subprocess` (`from halo_harness.ext import subprocess_safe as
+  subprocess`): a bare program name runs from a PATH folder, never the current folder.
 - `get_config(pack_id, key=None, default=None)` / `set_config(pack_id, key, value)`: the pack's own settings,
   `packs.settings.<id>` over the manifest's `config.defaults`, checked against `config.schema` before writing.
 - `write_private(pack_id, path, text)`: a 0600 file, written atomically. A relative path lands in the pack's

@@ -19,7 +19,7 @@ import os
 import shutil
 import socket
 import struct
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import tempfile
 import time
 import urllib.request

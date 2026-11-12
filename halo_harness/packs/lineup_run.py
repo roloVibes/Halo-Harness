@@ -154,7 +154,24 @@ def goal_defaults(goal, *, cwd=None, state_dir=None, explicit_test: bool = False
     if defaults.get("test") and not explicit_test and not str(goal.test or "").strip():
         goal.test = defaults["test"]
         lines.append(f"test: {goal.test} (from lineup {goal.lineup}'s acceptance.test)")
+        goal.test_from = project_test_file(goal.lineup, cwd=cwd, state_dir=state_dir)  # 3.4.1.2 (ENGINE-1)
     if defaults.get("review") and getattr(goal, "plan", "auto") == "auto":
         goal.plan = "review"
         lines.append(f"plan: review (lineup {goal.lineup}'s acceptance.review: the run pauses for the plan)")
     return lines
+
+
+def project_test_file(name: str, *, cwd=None, state_dir=None) -> str:
+    """3.4.1.2 (ENGINE-1): "lineup <file>" when the `acceptance.test` lineup `name` resolves to was written by a project
+    file (`.halo/teams/`, or a project-scope pack's lineup), so the gate decides it as a Bash call; else ''."""
+    from halo_harness.teams_yaml import load_team_template_raw
+    seen: list = []
+    while isinstance(name, str) and name.strip() and name not in seen:
+        seen.append(name)
+        raw = load_team_template_raw(name.strip(), cwd=cwd, state_dir=state_dir) or {}
+        acc = raw.get("acceptance") if isinstance(raw.get("acceptance"), dict) else {}
+        if isinstance(acc.get("test"), str) and acc["test"].strip():
+            project = raw.get("_source") == "project" or raw.get("_pack_scope") == "project"
+            return f"lineup {name} ({raw.get('_path') or name})" if project else ""
+        name = raw.get("extends")
+    return ""

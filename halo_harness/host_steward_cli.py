@@ -88,7 +88,7 @@ def cmd_on(argv: list) -> int:
     except OSError:
         pass
     argv_ = [sys.executable, "-u", "-m", "halo_harness", "host", "steward", "run"]
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     kw: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if sys.platform == "win32":
         kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0)

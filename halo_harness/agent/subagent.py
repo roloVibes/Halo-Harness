@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import threading
 import time
 import uuid
@@ -753,7 +753,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         allow_rules=[r for r in parent.permission_engine.allow_rules if id(r) not in _temp] + _team_allow,
         mode=child_mode,
         cwd=child_cwd, extra_dirs=child_extra_dirs,
-        print_mode=parent.permission_engine.print_mode,
+        print_mode=parent.permission_engine.print_mode, parent=parent.permission_engine,  # 3.4.1.2 (ENGINE-5)
     )
     # Halo 3.0.6.0 R7: a guard marked `inherited` (a fleet mission part's claim guard) holds for its sub-agents too.
     child_engine.guards.extend(g for g in getattr(parent.permission_engine, "guards", None) or []

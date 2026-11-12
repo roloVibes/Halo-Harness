@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import difflib
 import json
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path

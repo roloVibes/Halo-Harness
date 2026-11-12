@@ -92,7 +92,7 @@ precedence):
 
 | Tier | Agent bios | Team templates |
 |---|---|---|
-| Project (nearest) | `.halo/agents/<name>.yaml` | `.halo/teams/<name>.yaml` |
+| Project (nearest; 3.4.1.2: a trusted folder only, and a lineup never under a shipped name) | `.halo/agents/<name>.yaml` | `.halo/teams/<name>.yaml` |
 | User | `~/.halo/agents/<name>.yaml` | `~/.halo/teams/<name>.yaml` |
 | Pack (read-only, 3.2.0.0) | `<pack>/agents/<name>.yaml`, listed as `<id>--<name>` | `<pack>/teams/<name>.yaml`, listed as `<id>--<name>` |
 | Shipped (read-only) | `halo_harness/templates/agents/<name>.yaml` | `halo_harness/templates/teams/<name>.yaml` |

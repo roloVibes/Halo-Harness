@@ -1,17 +1,14 @@
 """halo_harness.orchestra.gate -- the tests, the record check and the gate.
 
-* `run_tests(run_dir, goal, cwd)` runs the goal's `test` command in `cwd` with the scrubbed
-  tool-child environment (providers/config.py `tool_child_env`), stops it after
-  `goal.test_timeout_s` seconds (default 600; the whole process tree), keeps its last lines.
-* `record_equals_disk(run_dir, lanes, ref)`: every claimed unit's text on the finished branch
-  equals the lane's last `written` snapshot. A unit in a file whose merge conflict the judge
-  resolved may differ; it is listed with `judge: true` and still counts as equal.
+* `run_tests(run_dir, goal, cwd)` runs the goal's `test` in `cwd` (tool_child_env; stopped with its tree after
+  `goal.test_timeout_s`, default 600; last lines kept). 3.4.1.2: a project file's test is decided as Bash first.
+* `record_equals_disk(run_dir, lanes, ref)`: every claimed unit's text on the finished branch equals the lane's
+  last `written` snapshot; a unit the judge resolved may differ (listed `judge: true`, counts as equal).
 * `quality_gate(run_dir, goal, lanes, cwd)`: the tests on the finished branch decide. Failing
   tests send back every lane whose unit names appear in the output (at most `return_cap` times
   each); a lane at its cap, or a failure that names no lane, stops the run with the reason.
   3.2.0.0 R5: a workflow goal's typed outputs and evidence too (workflows/gate.py `widen`).
-  3.1.8.0 R3: first, a lane missing its kind's evidence goes back once (outcomes/lane.py).
-* `send_back(lane, text_of)`: the loop, through work/gate.py (3.1.2.0 R1).
+  3.1.8.0 R3: first, a lane missing its kind's evidence goes back once (outcomes/lane.py). `send_back`: work/gate.py.
 """
 
 from __future__ import annotations
@@ -20,7 +17,7 @@ import contextlib
 import os
 import re
 import signal
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import tempfile
 import time
@@ -32,6 +29,7 @@ from halo_harness.orchestra import gitops, jsonl
 from halo_harness.orchestra.goal import repo_root_of
 from halo_harness.orchestra.index import overlaps
 from halo_harness.orchestra.lanes import unit_text
+from halo_harness.orchestra.test_decide import refused as _refused
 from halo_harness.work import gate as work_gate
 
 TAIL_LINES, _STRIP_PREFIXES = 40, ("HALO_ORCHESTRA_",)
@@ -131,6 +129,8 @@ def run_tests(run_dir, goal, cwd, *, timeout_s: Optional[int] = None) -> TestRes
     command = str(getattr(goal, "test", "") or "").strip()
     if not command:
         return TestResult(True, 0, "(no test command in the goal)", "", passed=None)
+    if said := _refused(goal, cwd):  # 3.4.1.2 (ENGINE-1): a project file's test runs only when Bash is allowed
+        return TestResult(False, None, said, command)
     timeout = int(timeout_s or getattr(goal, "test_timeout_s", 600) or 600)
     kwargs = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if sys.platform == "win32" else \
         {"start_new_session": True}

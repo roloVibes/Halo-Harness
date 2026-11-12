@@ -11,7 +11,7 @@ the process that warmed it stops it when it exits (an atexit hook, not for `--ke
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import time
 from pathlib import Path
 

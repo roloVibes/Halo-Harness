@@ -6,7 +6,7 @@
 # Its Python reaches the core (peers/, live/, the session's sockets) through `halo_harness.ext.core`.
 id: fleet
 name: Fleet
-version: 1.0.3
+version: 1.0.4
 description: >-
   Several halos joined to one hub: `halo studio --fleet` or `halo fleet serve` runs the hub, `halo fleet join` pairs
   another machine with a six-word code, and the hub sees every member's sessions and agents, steers them as each

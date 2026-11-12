@@ -16,7 +16,7 @@ the same name {name, url, log, runtime, model, device, pid, voice: true} the ste
 
 from __future__ import annotations
 
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import time
 from datetime import datetime, timezone

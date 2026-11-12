@@ -90,7 +90,9 @@ def test_the_skill_call_is_asked_with_its_commands(ctx: Ctx):
         d = decide(_session(proj, engine), {}, "Skill", {"skill": "x"}, SkillTool())
         ctx.check(f"ask, the command named, got {d.action}: {d.reason}",
                   d.action == "ask" and "`echo marker > marker.txt`" in d.reason and "not trusted" in d.reason)
-        r = _run(proj, engine)  # the person said yes on that card
+        from halo_harness.tools.skill_gate import confirm
+        confirm(engine, {"skill": "x"})  # the person said yes on that card (3.4.1.2: Session.resolve_permission)
+        r = _run(proj, engine)
         ctx.check(f"the yes runs it once, got {r.content!r}", not r.is_error and (proj / "marker.txt").exists())
         (proj / "marker.txt").unlink()
         r = _run(proj, engine)

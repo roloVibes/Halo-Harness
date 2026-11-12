@@ -25,12 +25,23 @@ from typing import Optional
 
 from halo_harness import perm_ps as _pa
 
-READERS = {"get-content", "select-string", "import-csv", "copy-item", "move-item"}
+READERS = {"get-content", "select-string", "import-csv", "copy-item", "move-item",
+           "format-hex", "fhx", "import-clixml", "import-powershelldatafile", "rename-item", "ren", "rni"}  # 3.4.1.2
 WRITERS = {"set-content", "add-content", "out-file", "clear-content", "new-item", "remove-item", "copy-item",
-           "move-item"}
+           "move-item", "tee-object", "tee", "rename-item", "ren", "rni", "export-clixml", "export-csv"}  # 3.4.1.2
+#: 3.4.1.2 (ENGINE-4): `Get-Item .env | Get-Content` -- an item cmdlet's path read by the reader it is piped into
+_ITEM = {"get-item", "gi", "get-childitem", "resolve-path", "rvpa", "get-itemproperty"}
+_PIPED_READER = re.compile(r"\|\s*(?:get-content|gc|cat|type|format-hex|fhx|select-string|sls|import-csv|ipcsv|"
+                           r"import-clixml)\b", re.IGNORECASE)
+_DRIVE_VAR = re.compile(r"\$\{([A-Za-z]:[^}]*)\}")  # `${C:\path}` reads (or, assigned, writes) the file
+_NEWIO = re.compile(r"""(?:\[(?:System\.)?IO\.(\w+)\]::new|New-Object\s+(?:-TypeName\s+)?(?:System\.)?IO\.(\w+)"""
+                    r"""(?:\s+-ArgumentList)?)\s*\(?\s*("[^"]*"|'[^']*')""", re.IGNORECASE)
+_IO_READ = {"streamreader", "filestream", "binaryreader", "fileinfo"}
+_IO_WRITE = {"streamwriter", "filestream", "binarywriter"}
 _CD = {"set-location", "push-location", "pushd"}
 _NOT_PATHS = {"-value", "-encoding", "-pattern", "-totalcount", "-tail", "-head", "-first", "-delimiter", "-filter",
-              "-include", "-exclude", "-stream", "-inputobject", "-itemtype", "-type", "-readcount", "-width"}
+              "-include", "-exclude", "-stream", "-inputobject", "-itemtype", "-type", "-readcount", "-width",
+              "-variable", "-count", "-offset", "-depth"}
 _SWITCHES = {"-raw", "-force", "-recurse", "-wait", "-nonewline", "-append", "-noclobber", "-passthru", "-asbytestream",
              "-whatif", "-confirm", "-simplematch", "-casesensitive", "-quiet", "-list", "-notmatch", "-allmatches",
              "-container"}
@@ -118,7 +129,7 @@ def _units(command: str, cwd, depth: int = 0) -> list:
     return out
 
 
-def _words(seg: str, cwd, read: bool) -> "tuple[list, bool]":
+def _words(seg: str, cwd, read: bool, command: str = "") -> "tuple[list, bool]":
     """(words naming a path this segment reads (`read`) or writes, whether a folder operand is walked)."""
     tokens = _pa._tokens(_pa.clean_head(seg))
     head, words, walk = _head(tokens), [], False
@@ -130,8 +141,16 @@ def _words(seg: str, cwd, read: bool) -> "tuple[list, bool]":
             # a copy reads its sources and writes its destination; a move also takes its sources away
             args = args if read else dest + (args if head == "move-item" else [])
         words, walk = args, read and head == "copy-item" and recurse
+        if head in ("rename-item", "ren", "rni") and len(args) > 1:  # the new name sits beside the item
+            words = args[:1] if read else args[:1] + [str(Path(_pa._unquote(args[0])).parent / _pa._unquote(args[1]))]
+    elif read and head in _ITEM and _PIPED_READER.search(command or ""):
+        words = _args(tokens[1:])[0]
     if not read:
         words += [m for m in _REDIRECT.findall(seg)]
+    words += _DRIVE_VAR.findall(seg) if (read or re.search(r"\$\{[A-Za-z]:[^}]*\}\s*=(?!=)", seg)) else []
+    for kind_a, kind_b, name in _NEWIO.findall(seg):
+        if (kind_a or kind_b).lower() in (_IO_READ if read else _IO_WRITE):
+            words.append(name)
     for method, inner in _IOFILE.findall(seg):
         m = method.lower()
         names = [a or b for a, b in _STR.findall(inner)]
@@ -144,7 +163,7 @@ def _words(seg: str, cwd, read: bool) -> "tuple[list, bool]":
 
 def _hit(engine, command: str, rules: list, tool: str, action: str, read: bool):
     for seg, cwd in _units(command, engine.cwd):
-        words, walk = _words(seg, cwd, read)
+        words, walk = _words(seg, cwd, read, command)
         for word in words:
             paths = _targets(word, cwd)
             if paths is None:  # `$var`: a reader's path cannot be checked, so it counts as a hit (as for Bash)

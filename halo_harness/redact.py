@@ -317,15 +317,6 @@ def redact_for_bugreport(text: str, *, known_secret_values: "tuple | None" = Non
         above (a short/unusually-shaped one, a plain pre-shared password
         used as a `--settings` env value, ...) is still caught this way,
         since the caller already knows exactly what it looks like."""
-    text = sanitize_text(text)
-    text = _HEX_RUN_RE.sub("<redacted>", text)
-    text = _BASE64_RUN_RE.sub("<redacted>", text)
-    for value in known_secret_values or ():
-        if value and len(value) >= 4:  # never blanket-replace a trivially short/empty value
-            text = text.replace(value, "<redacted>")
-            # finding 17: the same value as JSON text spells it (`\"`, `\\`,
-            # `\n`) when the line is a JSON dump.
-            for escaped in (json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1]):
-                if escaped != value and len(escaped) >= 4:
-                    text = text.replace(escaped, "<redacted>")
-    return text
+    # 3.4.1.2 (PACKS-5): the one redaction a replay, an export and a report card get too, in its strict form
+    from halo_harness.privacy_redact import redact
+    return redact(text, strict=True, known=known_secret_values)

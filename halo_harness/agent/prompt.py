@@ -23,7 +23,7 @@ blocks" decision. Covered by tests/test_prompt.py's regex assertion.
 
 from __future__ import annotations
 
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional

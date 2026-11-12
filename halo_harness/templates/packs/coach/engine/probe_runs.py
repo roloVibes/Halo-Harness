@@ -32,7 +32,7 @@ facts, seen)` replaces `real_adapters` (tests, Studio's Chrome rig).
 from __future__ import annotations
 
 import shutil
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import time
 from pathlib import Path
 from typing import Optional
