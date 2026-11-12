@@ -7,6 +7,8 @@ this machine's sessions and `<state>/replays/` only, with the fleet pack on or o
     POST replays/save  {session, lineup?} | {run}                 {ok, id, path, bytes, includes, row}
     GET  replays/compare?a=<ref>&b=<ref>[&split=<s>]   two runs side by side (live/compare.py), nothing written;
                                           ref: session:<id> | run:<id> | file:<id>; the same ref twice splits it at `split`
+    GET  replays/report?ref=<ref>         3.4.1.0 R3: the run report card (live/report_card.py) -> {card, markdown}; ref as
+                                          compare's; a mission's report is the fleet pack's (422); nothing written
     POST replays/import {text}                  a file chosen in History: checked, kept under replays/ -> {ok, id, path, row}
     GET  replays/<id>                     the file's payload (format halo-replay, version 1)
     GET  replays/<id>/clip?from&to&speed  what Export a clip would film and write, nothing written
@@ -118,6 +120,22 @@ def get_compare(req):
     return 200, compare.compare(pa, pb, split=_num(req.query.get("split")), same=a == b)
 
 
+def get_report(req):
+    from halo_harness.live import compare, report_card
+    from halo_harness.live.report_card_text import markdown
+    ref = str(req.query.get("ref") or "").strip()
+    if not ref:
+        return 422, {"error": "name the run: ?ref=session:<id> | run:<id> | file:<id>", "problems": []}
+    if ref.startswith("mission:"):
+        return 422, {"error": "a mission's report is the fleet pack's mission page, not a report card here", "problems": []}
+    try:
+        p, from_file = report_card.resolve(req.state_dir, ref, cwd=req.cwd)
+    except compare.CompareError as e:
+        return 404, {"error": str(e)}
+    c = report_card.card(p, ref, from_file)
+    return 200, {"card": c, "markdown": markdown(c)}
+
+
 def _num(v):
     try:
         return float(v) if v not in (None, "") else None
@@ -167,7 +185,8 @@ def get_clip_file(req):
 
 
 _RID = r"(?P<rid>[A-Za-z0-9_.-]{1,120})"
-ROUTES = [("GET", r"^replays$", get_list), ("GET", r"^replays/plan$", get_plan), ("GET", r"^replays/compare$", get_compare), ("POST", r"^replays/save$", post_save),
+ROUTES = [("GET", r"^replays$", get_list), ("GET", r"^replays/plan$", get_plan), ("GET", r"^replays/compare$", get_compare),
+          ("GET", r"^replays/report$", get_report), ("POST", r"^replays/save$", post_save),
           ("POST", r"^replays/import$", post_import),
           ("GET", r"^replays/clips/(?P<name>[A-Za-z0-9_.-]+\.(?:webp|gif))$", get_clip_file),
           ("GET", rf"^replays/{_RID}/clip$", get_clip_plan), ("POST", rf"^replays/{_RID}/clip$", post_clip),

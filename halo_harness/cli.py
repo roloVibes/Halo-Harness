@@ -607,9 +607,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "gym":
         from halo_harness.gym_cli import cmd_gym
         return cmd_gym(argv[1:])
-    if argv and argv[0] == "replay":
-        from halo_harness.replay_cli import cmd_replay
-        return cmd_replay(argv[1:])
+    if argv and argv[0] in ("replay", "report"):  # 3.4.1.0 R3: `halo report` (report_cli.py), the run report card
+        from halo_harness import replay_cli, report_cli
+        return (replay_cli.cmd_replay if argv[0] == "replay" else report_cli.cmd_report)(argv[1:])
     if argv and argv[0] == "local":
         from halo_harness.local_cli import cmd_local
         return cmd_local(argv[1:])

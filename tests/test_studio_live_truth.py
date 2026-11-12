@@ -45,6 +45,7 @@ def test_nothing_live_is_one_sentence_and_two_actions(ctx: Ctx):
     ctx.check(f"a bare door lands on Live, got {got.get('view')!r}", got.get("view") == "live")
     ctx.check(f"the one sentence, got {got.get('line')!r}", got.get("line") == LINE)
     ctx.check(f"its two actions, got {got.get('actions')}", got.get("actions") == ["Open the plan (Cast)", "Replay the last session"])
+    ctx.check(f"then a row for the session that ended (3.4.1.0 R3), got {got.get('ended_row')!r}", bool(got.get("ended_row")))
     ctx.check(f"no node, no run, History closed, the badge 0, got {got.get('nodes')} {got.get('leads')} {got.get('drawer_on_load')} {got.get('rail_count')}",
               got.get("nodes") == 0 and got.get("leads") == 0 and got.get("drawer_on_load") is False and got.get("rail_count") == "0")
 

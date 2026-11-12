@@ -50,7 +50,8 @@ def empty(c, page) -> dict:
     open_page(c, page, "mode=agents")
     out = {"view": c.wait(f"{VIEW} === 'live' && {VIEW}", 30)}
     out["line"] = c.wait(f"{EMPTY} && {Q}('[data-testid=\"live-empty-line\"]').textContent", 30)
-    out["actions"] = c.wait(f"!{Q}('[data-testid=\"live-empty-replay\"]').disabled && [...{EMPTY}.querySelectorAll('button')].map((b) => b.textContent)", 20)
+    out["actions"] = c.wait(f"!{Q}('[data-testid=\"live-empty-replay\"]').disabled && [...{EMPTY}.querySelectorAll('.lv-empty-acts button')].map((b) => b.textContent)", 20)
+    out["ended_row"] = c.js(f"{Q}('[data-testid=\"live-empty-card\"]')?.dataset.id || ''")  # 3.4.1.0 R3: a row, not a third action
     out["nodes"] = c.js(NODES)
     out["leads"] = c.js(f"{QA}('[data-testid=\"agents-live-lead\"], [data-testid=\"agents-live-lane\"]').length")
     out["drawer_on_load"] = c.js(f"!!{DRAWER}")

@@ -21,6 +21,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "Steer is always at the bottom; its line says who it reaches and what that agent does now (Steering: coder · Bash (pytest -q), 12 s). Click a row or a map node to make it the target (it stays outlined), Tab / Shift+Tab in the field cycle the live agents, s on a focused row steers it. Your steer lands under its target; the agent's next row says after your steer.",
       "Click a tag: only that agent; the tag again (or Esc) shows everyone. Follow keeps the newest line in view; while you type a steer or have scrolled up the view holds still and N new rows · follow (or Esc out of the field) brings you back. Export saves the session as one Markdown trace.",
       "An ask lands as an amber card with its A / R / S / O answers; the newest 500 lines stay here, the full log is in Activity.",
+      "The small word on the bar is the session's permission mode (auto, default, acceptEdits, plan...); hover it for what the mode lets run. Shift+Tab in the terminal or /plan changes it, and the word follows.",
     ),
   },
   "session-prompt": { // 3.3.11.0 R1

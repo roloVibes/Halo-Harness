@@ -6,10 +6,13 @@
 // disk -- one made anywhere -- keeps it under <state>/replays/ (POST replays/import) and opens it. 3.4.1.0 R2: each row
 // has a tick; two ticked (a session, a goal run, a file) -> Compare, a page of the drawer (Compare.tsx); one ticked ->
 // Compare before / after (it with itself); a ticked mission says it is compared from its report. Nothing opens by itself.
+// 3.4.1.0 R3: each row's own Report door (a mission's report is the fleet pack's): a session's or a file's report card
+// opens as a page (ReportCard.tsx), a goal run's report page with the card as its first block.
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
 import { cost, short } from "../../orchestra/format";
-import { history, loadHistory, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
+import { history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
+import { CardPage } from "./ReportCard";
 import { tickKey, tickedRefs, toggleTick, useCompare } from "./compareStore";
 import { ComparePage } from "./Compare";
 import { RunReport } from "../run/RunReport";
@@ -78,6 +81,12 @@ function Row({ r }: { r: HistoryRow }) {
         <span className="lh-what">{short(r.what, 120)}</span>
         <span className="lh-facts mono">{facts}</span>
       </button>
+      {r.kind !== "mission" && (
+        <button className="lh-door mono" onClick={() => (r.kind === "run" ? void openReport(r.id) : openCard(key, r.what))} data-testid="live-history-card"
+                data-kind={r.kind} data-id={r.id} title="Its report card: the story, where the time and money went, what failed, what waited on you, the files (from the record, no model call)">
+          Report
+        </button>
+      )}
     </div>
   );
 }
@@ -116,7 +125,7 @@ export function HistoryDrawer() {
   }, [open]);
   if (!open) return null;
   return (
-    <aside className="lh-drawer" data-testid="live-history-drawer" aria-label="History: past work, newest first" data-wide={page?.kind === "compare" || undefined}>
+    <aside className="lh-drawer" data-testid="live-history-drawer" aria-label="History: past work, newest first" data-wide={page?.kind === "compare" || page?.kind === "card" || undefined}>
       <div className="lh-head" data-density="bar" data-testid="live-history-head">
         <b className="lh-title">History</b>
         <span className="mono muted" title="Newest first. A goal run opens on its report, the rest as a replay; tick two rows to compare them">newest first · a run opens on its report, the rest as a replay · tick two to compare</span>
@@ -126,7 +135,7 @@ export function HistoryDrawer() {
       </div>
       {page ? (
         <div className="lh-rows lh-page" data-testid="history-page" data-kind={page.kind} data-id={page.id}>
-          {page.kind === "compare" ? <ComparePage /> : report ? <RunReport data={report} /> : reportError ? <p className="field-error" data-testid="history-report-error">Run {page.id}: {reportError}</p>
+          {page.kind === "compare" ? <ComparePage /> : page.kind === "card" ? <CardPage refId={page.id} what={page.what || ""} /> : report ? <RunReport data={report} /> : reportError ? <p className="field-error" data-testid="history-report-error">Run {page.id}: {reportError}</p>
             : <div className="mono muted lh-note">reading run {page.id}...</div>}
         </div>
       ) : (

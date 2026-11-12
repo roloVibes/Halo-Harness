@@ -1,0 +1,47 @@
+/* The run report card (3.4.1.0 R3, routes/agents/live/ReportCard.tsx): History's Report door beside each row, the card
+   as a page of History or as the first block of a goal run's report, Live's row for the session that ended, and
+   Session's permission-mode word. A row per fact; text wraps, never squished; colours are tokens. */
+.lh-door { flex: 0 0 auto; align-self: center; margin: 0 8px; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.lh-door:hover, .lh-door:focus-visible { color: var(--text); border-color: var(--accent); outline: none; }
+
+.rr-goal-inline { min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
+
+.rcd { display: grid; gap: var(--s-3); align-content: start; min-width: 0; padding: var(--s-2) var(--s-3) var(--s-3);
+  border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); font-size: var(--fs-sm); }
+.rcd-head { display: flex; align-items: center; gap: var(--s-2); min-width: 0; flex-wrap: wrap; }
+.rcd-from { font-size: 11px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcd-figures { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; margin: 0; }
+.rcd-fig { display: grid; gap: 2px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--surface-2); }
+.rcd-fig dt { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rcd-fig dd { margin: 0; font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+.rcd-fig[data-unknown] dd { color: var(--muted); }
+.rcd-fig[data-key="ended"] dd { color: var(--text); font-weight: 600; }
+.rcd-story { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; line-height: 19px; }
+.rcd-story li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; overflow-wrap: anywhere; }
+.rcd-story li[data-kind="ask"] { color: var(--warn); }
+.rcd-story li[data-kind="fail"] { color: var(--bad); }
+.rcd-at { color: var(--muted); font-size: 11px; }
+.rcd-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 11.5px; }
+.rcd-row { display: grid; grid-template-columns: minmax(90px, 160px) minmax(60px, 1fr) auto; gap: 8px; align-items: center; min-width: 0; }
+.rcd-row .rcd-k { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcd-row[data-unknown] { color: var(--muted); }
+.rcd-bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.rcd-bar > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); opacity: .7; }
+.rcd-row[data-phase="waiting"] .rcd-bar > span { background: var(--warn); }
+.rcd-row[data-phase="writing"] .rcd-bar > span { background: var(--ok); }
+.rcd-row[data-phase="idle"] .rcd-bar > span { background: var(--line-strong); }
+.rcd-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; line-height: 18px; }
+.rcd-list li { overflow-wrap: anywhere; }
+.rcd-sub { margin: 2px 0 0; padding-left: 16px; color: var(--muted); }
+.lh-page .rr > .rcd { margin: 0; }
+
+.lv-ended { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 14px; padding: 8px 12px; min-width: 0; border: 1px solid var(--line);
+  border-radius: var(--r-card); background: var(--surface-2); color: var(--text); font-size: 12px; text-align: left; cursor: pointer; }
+.lv-ended:hover, .lv-ended:focus-visible { border-color: var(--accent); outline: none; }
+.lv-ended-what { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.lv-ended-go { flex: 0 0 auto; color: var(--accent); }
+.lv-empty-strip .lv-ended { width: auto; margin-top: 0; }
+
+.slv-mode { text-transform: none; }
+.slv-mode[data-mode="plan"] { color: var(--accent); border-color: var(--accent); }

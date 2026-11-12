@@ -205,3 +205,12 @@ the capture on the chip for the next steer. When the session's model cannot see,
 line and its three buttons (Visual lane, Describe it, Text only; the one picked rides with the steer); a running
 turn's own eyes card shows the same three above the target line. Typing a whole new prompt from Studio is the
 Prompt panel's (3.3.11.0 R1, above), whose paste and drop take the same path.
+
+## The mode word (3.4.1.0 R3)
+
+The Live column's header says the session's **permission mode** as one small word (`session-mode`): auto, default,
+acceptEdits, plan, bypassPermissions or dontAsk, with the mode's one-line meaning on hover (the words the model itself
+is told each turn: auto, "every call runs except your own deny and ask rules"; plan, "read-only: the agent writes a plan
+and asks you to approve it"; ...). It is read from the session's row (the registry's `mode`) and moves with the session's
+own status frames, so Shift+Tab in the terminal or `/plan on` changes the word. Nothing shows before the session has
+said its mode.

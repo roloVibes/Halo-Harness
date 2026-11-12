@@ -13,7 +13,7 @@ every machine (a goal run too), and what ran"), with its views on one switch, fi
 | View | Key | What it is | It was |
 |---|---|---|---|
 | **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, drop and sync (3.4.1.0: replay moved to Live's scrubber) | Roles |
-| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels; 3.4.1.0 the scrubber under the canvas takes it back in time and History compares two runs, [REPLAY.md](REPLAY.md)): the session's agents, a goal run as a job (3.4.0.0 D, [STUDIO-orchestra.md](STUDIO-orchestra.md): Run a goal on its bar, its lead and lanes, the plan review, its report in History); on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Runs, Fleet |
+| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels; 3.4.1.0 the scrubber under the canvas takes it back in time, History compares two runs and each row's Report opens its report card, [REPLAY.md](REPLAY.md)): the session's agents, a goal run as a job (3.4.0.0 D, [STUDIO-orchestra.md](STUDIO-orchestra.md): Run a goal on its bar, its lead and lanes, the plan review, its report in History); on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Runs, Fleet |
 | **Workflows** | `W` | the board of squares main may hand work to, their library and contracts (3.3.16.0 R3, below) | new |
 
 Agents opens on **Live** with nothing else open (3.3.18.0: what runs now, or one sentence: [STUDIO-live.md](STUDIO-live.md)). `C`, `L`

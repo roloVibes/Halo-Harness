@@ -91,6 +91,37 @@ jobs"), section A of its plan: time on Agents -> Live, then a run's replay as on
 - docs/REPLAY.md (Compare two runs, a goal run's file, the verb), STUDIO-live.md, STUDIO-agents.md,
   COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "replay", the docs map.
 
+### R3: the run report card, and Session says its permission mode
+
+#### Added
+
+- **The run report card** (`live/report_card.py`, `report_card_sections.py`, `report_card_text.py`; docs/REPLAY.md "The
+  report card"): one card per finished session, goal run or saved `.halo-replay` file, rendered from its record --
+  never hand-written, no model call, nothing written. R2's nine figures for that one run (the same cells Compare
+  shows), then the story in about ten lines (who was asked what, what each handed back, each ask and failure, how it
+  ended), where the time went (by phase, by block), where the money went (by model, by block), what failed and what
+  happened next, what waited on you and for how long, which model did what, the files it wrote with their paths, and
+  what this record cannot show, in words. A cost Halo cannot price is "unknown" or the priced part with a "+", never $0.
+- Studio: each History row's own **Report** door (`ReportCard.tsx`): a session's or a file's card is a page of the
+  drawer (Back, Replay, Copy Markdown); with nothing running, Live's empty state ends with a row for the session that
+  ended last and its Report card (a row, never a pop-up). **One page per goal run**: the card is the first block of its
+  report page in History; the cost / time / models lines of the report's facts moved into the card's figures, every
+  door and testid kept. Missions are the fleet pack's: no card.
+- `halo report <session|run|file> [--json]` (`report_cli.py`) prints the card's Markdown (`--json`: its data); Studio's
+  `GET replays/report?ref=` answers the card and its Markdown. A file opened on another machine gives the same card.
+- A replay's `facts` carry `artefacts` (each file an Edit / Write call wrote, by its path inside the project; one
+  outside it by its name only; a goal run's: what merged and its workflow's saved outputs) and `answer` (the first line
+  of main's last text). The file format stays version 1; an older file's card says what it cannot show.
+- **Session's bar says the session's permission mode** (`session/ModeWord.tsx`): one small word (auto, default,
+  acceptEdits, plan, bypassPermissions, dontAsk) with the mode's one-line meaning on hover, from the session's row; a
+  status frame's `permission_mode` moves it, so Shift+Tab in the terminal changes the word.
+
+#### Docs
+
+- docs/REPLAY.md "The report card" (and what a replay file now names), STUDIO-live.md, STUDIO-agents.md,
+  STUDIO-session.md "The mode word", COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "report card" (+ twin),
+  the docs map.
+
 ## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and

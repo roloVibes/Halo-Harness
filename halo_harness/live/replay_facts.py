@@ -7,7 +7,10 @@ run's, a saved file's, or a window of one) into the figures Compare's rows read 
 counter; nothing here calls a model.
 
     session_facts(path) -> facts           from a session's transcripts on disk (main and every sub-agent); `unknown_at`
-                                           [[t, model]] is each unpriced call, so a window knows whether its cost is whole
+                                           [[t, model]] is each unpriced call, so a window knows whether its cost is whole;
+                                           3.4.1.0 R3: `artefacts` [{rel, by}] (each file an Edit / Write call wrote, inside
+                                           the project as a relative path, outside it by its name only) and `answer` (the
+                                           first line of main's last text), what the report card shows
     figures(payload, window=None) -> {how, ok, wall_s, cost_usd, cost_known, cost_unknown, tokens, models, agents,
                                       asks, failures, retries, window}
 """
@@ -32,14 +35,18 @@ def session_facts(path) -> dict:
     kids: list = []
     history._children(path.parent / path.stem, history.MAIN, kids)
     read_too = {str(k[0]) for k in kids}
-    logs = [(path, None)] + [(k[3], k[2].get("model")) for k in kids]
+    logs = [(path, None, history.MAIN)] + [(k[3], k[2].get("model"), str(k[2].get("type") or k[0])) for k in kids]
     cost, unknown, unknown_at, model_cost = 0.0, [], [], {}
     tin = tout = 0
-    seen_tokens, retries, failed, steers = False, 0, 0, []
-    for log, model in logs:
+    seen_tokens, retries, failed, steers, wrote, cwd, answer = False, 0, 0, [], [], None, ""
+    for log, model, name in logs:
         current = model
-        for n in history.read_nodes(log):
+        nodes = history.read_nodes(log)
+        wrote += [(f, name) for f in _written(nodes)]
+        answer = _answer(nodes) if log == path else answer
+        for n in nodes:
             kind = n.get("type")
+            cwd = n["cwd"] if kind == "meta" and isinstance(n.get("cwd"), str) and log == path and cwd is None else cwd
             if kind == "meta" and n.get("model") and log == path:
                 current = n["model"]
             if kind == "user" and n.get("kind") == "steer" and log == path and _num(n.get("ts")) is not None:
@@ -65,7 +72,50 @@ def session_facts(path) -> dict:
             cost += usd
             model_cost[ref] = round(model_cost.get(ref, 0.0) + usd, 6)
     return {"cost_usd": round(cost, 6), "cost_unknown": unknown, "unknown_at": unknown_at, "tokens": {"in": tin, "out": tout} if seen_tokens else None,
-            "model_cost": model_cost, "retries": retries, "failed_calls": failed, "steers": sorted(steers)}
+            "model_cost": model_cost, "retries": retries, "failed_calls": failed, "steers": sorted(steers),
+            "artefacts": artefacts(wrote, cwd), "answer": answer}
+
+
+def _written(nodes: list) -> list:
+    """The files this transcript's Edit / Write calls wrote, in order (a call whose result was an error left out)."""
+    from halo_harness.live.history import EDIT_TOOLS
+    calls, bad = [], set()
+    for n in nodes:
+        if n.get("type") == "tool_result" and n.get("is_error"):
+            bad.add(n.get("tool_use_id"))
+        for b in n.get("content") or [] if n.get("type") == "assistant" and isinstance(n.get("content"), list) else []:
+            inp = b.get("input") if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") in EDIT_TOOLS else None
+            f = (inp.get("file_path") or inp.get("notebook_path")) if isinstance(inp, dict) else None
+            if isinstance(f, str) and f:
+                calls.append((b.get("id"), f))
+    return [f for i, f in calls if i not in bad]
+
+
+def _answer(nodes: list) -> str:
+    from halo_harness.agent.agent_transcript import first_line
+    for n in reversed(nodes):
+        for b in reversed(n.get("content") or []) if n.get("type") == "assistant" and isinstance(n.get("content"), list) else []:
+            if isinstance(b, dict) and b.get("type") == "text" and str(b.get("text") or "").strip():
+                return first_line(b["text"], 160)
+    return ""
+
+
+def artefacts(wrote: list, cwd) -> list:
+    """[(file, by)] -> [{rel, by}] once per file: inside `cwd` a relative path, outside it its name (`outside`)."""
+    import re
+    base = str(cwd or "").replace("\\", "/").rstrip("/")
+    out: dict = {}
+    for f, by in wrote:
+        s = str(f).replace("\\", "/")
+        if base and s.lower().startswith(base.lower() + "/"):
+            rel, outside = s[len(base) + 1:], False
+        elif s.startswith(("/", "~")) or re.match(r"^[A-Za-z]:/", s):
+            rel, outside = s.rsplit("/", 1)[-1], True
+        else:
+            rel, outside = s, False
+        row = out.setdefault(rel, {"rel": rel, "by": [], **({"outside": True} if outside else {})})
+        row["by"] += [] if by in row["by"] else [by]
+    return list(out.values())[:200]
 
 
 def _at(points: list, t: float, key: str = "usd") -> float:

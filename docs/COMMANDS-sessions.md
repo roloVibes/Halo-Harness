@@ -78,6 +78,7 @@ halo replay <session-id> --model or:qwen/qwen3.8-flash [--turn 2] [--json]
 the report shows both outcomes (chars, tokens, cost, tools used) and
 `SAME` / `DIFFERENT (first divergence at line N)` for the final
 answer. `--json` prints the machine-readable report. 3.4.1.0: `halo replay list | save <session|run> | open <file> | clip <file> | compare <a> <b>` -- a session's or a goal run's replay as one `.halo-replay` file opened on Studio's Agents -> Live scrubber on any machine, its animated clip, and two runs side by side: [REPLAY.md](REPLAY.md).
+`halo report <session|run|file> [--json]` (3.4.1.0 R3) prints a finished run's report card as Markdown from its record, no model call (`--json`: its data): [REPLAY.md](REPLAY.md#the-report-card).
 
 ## `halo stats`
 

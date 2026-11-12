@@ -15,8 +15,9 @@ docs/REPLAY.md is the reference.
 3.4.1.0 R2: `kind` is "session" or "run" (a goal run, live/replay_run.py: `run_id`, the lead and its lanes as agents);
 `facts` and `run_id` are new keys a version-1 reader ignores, so the version stays 1 and an R1 file still opens.
 
-What it never holds: the prompts, the tool inputs and outputs, the thoughts, the working directory, any path. Every
-string passes `redact.sanitize_node`, the rule `halo export --sanitize` and `halo session export` apply.
+What it never holds: the prompts, the tool inputs and outputs, the thoughts, the working directory, any path outside the
+project (3.4.1.0 R3: `facts.artefacts` names the files it wrote by their path inside the project). Every string passes
+`redact.sanitize_node`, the rule `halo export --sanitize` and `halo session export` apply.
 
     build(state_dir, sid, lineup=None, cwd=None) -> payload       save(state_dir, payload) -> Path
     load(path) / parse(text) -> payload (an older file upgraded)   saved(state_dir) -> rows, newest first
@@ -89,10 +90,11 @@ def includes(p: dict) -> list:
     plan = p.get("plan") or {}
     return [f"{n_agents} agent{'s' if n_agents != 1 else ''}: names, roles, models, tasks (first line), states, costs",
             f"{len(p.get('states') or [])} state changes and the cost over time; marks: {marks}"
-            + ("; the record's figures (cost, tokens, models, retries)" if p.get("facts") else ""),
+            + ("; the record's figures (cost, tokens, models, retries)" if p.get("facts") else "")
+            + ("; the files it wrote (paths inside the project) and the last answer's first line" if "artefacts" in (p.get("facts") or {}) else ""),
             "a goal run's record: the lead and its lanes, each lane's state changes (not each step)" if p.get("kind") == "run"
             else f"the lineup's blocks: {plan.get('lineup')}" if plan else "no lineup blocks (the lineup did not load)",
-            "not included: prompts, tool inputs and outputs, thoughts, the working directory, any path",
+            "not included: prompts, tool inputs and outputs, thoughts, the working directory, any path outside the project",
             "every text passed the export redactor (`halo session export`'s rules)"]
 
 

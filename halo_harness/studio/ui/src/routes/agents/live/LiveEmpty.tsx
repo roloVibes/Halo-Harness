@@ -1,11 +1,12 @@
 // What Live says when nothing runs, and the banner over a replay (3.3.18.0 "The living canvas"). Empty: one sentence and
 // two plain actions -- Open the plan (Cast) and Replay the last session (History's newest session, as a replay). The
 // banner runs across the canvas while a replay is open: "replay -- <the moment drawn>" (3.4.1.0 R1: the scrubber's), when it
-// ended (or that it runs now), what it was, and Back to now.
+// ended (or that it runs now), what it was, and Back to now. 3.4.1.0 R3: under the actions, a ROW for the session that
+// ended last -- what it was, when it ended, and its Report card (a page of History; never a pop-up, nothing opens by itself).
 import { Button } from "../../../lib/ui";
 import { setAgentsView } from "../store";
 import { ago, closeHistory } from "./History";
-import { useHistory } from "./historyStore";
+import { openCard, useHistory } from "./historyStore";
 import { backToNow, openLiveReplay, useLiveReplay } from "./replay";
 
 export const EMPTY_LINE = "Nothing is running. Start a session, or open the last one as a replay.";
@@ -26,6 +27,14 @@ export function LiveEmpty({ compact = false }: { compact?: boolean }) {
           Replay the last session
         </Button>
       </div>
+      {last && (
+        <button className="lv-ended mono" onClick={() => openCard(`session:${last.id}`, last.what)} data-testid="live-empty-card" data-id={last.id}
+                title={`${last.what}
+Its report card: the story, where the time and money went, what failed, what waited on you, the files (from the record, no model call)`}>
+          <span className="lv-ended-what">ended {ago(last.when + (last.secs || 0))}: {last.what}</span>
+          <span className="lv-ended-go">Report card</span>
+        </button>
+      )}
     </div>
   );
 }

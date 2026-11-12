@@ -3,17 +3,20 @@
 // how it ended, how often the gate sent it back, its model and cost), the gate (DONE WHEN, the test and its tail), the
 // merge (the order, what merged, the conflicts), the outcome checks, a workflow run's artifacts; a dry run shows the
 // lead's jobs. Copy puts the text `halo orchestra report` prints on the clipboard; Replay draws it on Live as it ended;
-// Run it again opens the goal panel with this goal filled in.
+// Run it again opens the goal panel with this goal filled in. 3.4.1.0 R3: ONE page per goal run -- the run report card
+// (live/ReportCard.tsx: the story, where the time and the money went, what failed, what waited on you, which model did
+// what, the files) is this page's first block; its figures replace the cost / time / models lines the facts had.
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import { toast } from "../../../lib/store";
 import { StateBadge } from "../../orchestra/bits";
 import { ArtifactsTab } from "../../orchestra/Artifacts";
-import { CHECK_LABEL, cost, elapsed, reportText, sha, short } from "../../orchestra/format";
+import { CHECK_LABEL, cost, reportText, sha, short } from "../../orchestra/format";
 import type { Check, RunPayload } from "../../orchestra/types";
 import { openLiveReplay } from "../live/replay";
 import { closeReport, toggleHistory } from "../live/historyStore";
 import { openGoal } from "./goalStore";
+import { ReportCard } from "../live/ReportCard";
 
 const mark = (ok: boolean | null) => (ok === true ? "✓" : ok === false ? "✗" : "—");
 
@@ -72,7 +75,6 @@ function Lanes({ data }: { data: RunPayload }) {
 export function RunReport({ data }: { data: RunPayload }) {
   const r = data.report;
   const run = data.run.run_id;
-  const models = [...new Set(data.lanes.map((l) => l.model || "").filter(Boolean))];
   const judged = (r?.checks || []).filter((c) => c.ok !== null);
   const again = () => openGoal({ ...data.goal, files: [...(data.goal.files || [])], model: "", review: data.goal.plan === "review" });
   return (
@@ -89,13 +91,11 @@ export function RunReport({ data }: { data: RunPayload }) {
       </div>
       <h3 className="rr-goal">{data.goal.what}</h3>
       {r?.stop_reason && <p className="og-stop" data-testid="history-report-stop">{r.stop_reason}</p>}
+      <ReportCard refId={`run:${run}`} />
       <dl className="og-facts mono">
         <dt>run</dt><dd>{run}</dd>
         {r && <><dt>branch</dt><dd title={r.branch}>{r.branch} {sha(r.finished)}</dd></>}
         {r && <><dt>tests</dt><dd data-ok={String(r.tests_ok)}>{r.tests_ok ? "pass" : "do not pass"}</dd></>}
-        <dt>cost</dt><dd>{cost(r?.cost_usd ?? data.run.cost_usd)}</dd>
-        {r && <><dt>time</dt><dd>{elapsed(r.elapsed_s)}</dd></>}
-        <dt>models</dt><dd>{models.join(", ") || "the roles' (none recorded)"}</dd>
       </dl>
       {data.dry_run && (
         <Block title="DRY RUN · THE LEAD'S JOBS" testid="history-report-dry">

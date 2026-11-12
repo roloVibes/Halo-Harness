@@ -92,7 +92,12 @@ def _facts(state_dir, run_dir: Path, goal: dict, lanes: list, report: Optional[d
     reason = str((report or {}).get("stop_reason") or "")
     how = {"finished": "finished" + ("" if (report or {}).get("tests_ok", True) else ", the tests failed"),
            "stopped": f"stopped: {reason}" if reason else "stopped"}.get(state, state)
+    wrote = [(str(c).split("#", 1)[0], f"lane {r.get('lane')}") for r in lanes if r.get("state") == "merged" for c in r.get("claims") or []]
+    wrote += [(f".halo/orchestra/{run_dir.name}/{a['path']}", str(a.get("name") or "the workflow"))  # a workflow's saved outputs
+              for a in (report or {}).get("artifacts") or [] if isinstance(a, dict) and a.get("state") == "saved" and a.get("path")]
+    from halo_harness.live.replay_facts import artefacts
     return {"cost_usd": round(cost, 6), "cost_unknown": [], "tokens": _tokens(state_dir, sids), "model_cost": model_cost,
+            "artefacts": artefacts(wrote, None), "answer": "",  # 3.4.1.0 R3: what merged (repo-relative) and the saved outputs
             "retries": sum(int(r.get("pieces_returned") or 0) for r in lanes), "failed_calls": 0, "steers": [],
             "how": how, "ok": True if state == "finished" and (report or {}).get("tests_ok", True) else False if state in ("stopped", "failed") else None}
 

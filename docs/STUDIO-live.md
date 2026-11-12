@@ -27,7 +27,12 @@ every agent it ever had, and on the fleet the open mission's parts whatever thei
   under a "replay -- <the moment drawn>" banner whose **Back to now** returns, with the scrubber under the canvas
   (Time, below). 3.4.1.0: a saved replay file is a row too, and **Open a file** takes one from disk; each row has a
   tick, and two ticked -> **Compare** (one ticked: before / after a moment), a page of the drawer with Back
-  ([REPLAY.md](REPLAY.md#compare-two-runs)). Esc or the `x` closes the drawer.
+  ([REPLAY.md](REPLAY.md#compare-two-runs)). 3.4.1.0 R3: each row but a mission's has its own **Report** door: a
+  session's or a file's **report card** opens as a page of the drawer (the story in about ten lines, where the time and
+  the money went, what failed, what waited on you, which model did what, the files; Copy Markdown, Replay, Back), a goal
+  run's report page has the card as its first block ([REPLAY.md](REPLAY.md#the-report-card)). With nothing running,
+  Live's empty state ends with a row for the session that ended last and its **Report card** (a row, never a pop-up).
+  Esc or the `x` closes the drawer.
 - **Cast is the plan and says so**: its bar says "the lineup new sessions use: <name>", and while agents run a chip
   "N live -- see Live" goes to Live. The cards light only for agents running under them now.
 - **The rail's Agents badge** counts the agents at work on this harness and on members that are online, never an away

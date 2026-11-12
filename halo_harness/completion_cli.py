@@ -49,6 +49,7 @@ SUBCOMMANDS = (
     "pool",  # Halo 3.3.8.0 round R1: the pool (members, the fit, the recommendation, the RPC scan)
     "voice",  # Halo 3.3.9.0 round R1: the speech catalog, download, rm, serve
     "copilot",  # Halo 3.3.17.0 round R1: your work's Copilot (signin, signout, status, ask)
+    "replay", "report",  # Halo 3.4.1.0: the replay file (R1) and the run report card (R3)
 )
 
 # Halo 3.2.3.0 round R2: the words that follow `halo ollama` (and the discover flags);

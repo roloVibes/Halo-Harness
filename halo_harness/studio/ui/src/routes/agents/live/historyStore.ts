@@ -6,7 +6,8 @@
 // goal run's row says how it ended, its wall time, its cost and its models, and opens its REPORT as a page of the
 // drawer (`page`, run/RunReport.tsx: the plan, the lanes, the outcomes, the gate, the merge) with Replay on it.
 // 3.4.1.0 R1 "Time": the saved replay files (GET replays) are rows too, kind "file". 3.4.1.0 R2: two ticked rows open
-// the Compare page (compareStore.ts, Compare.tsx), another page of the drawer, with Back.
+// the Compare page (compareStore.ts, Compare.tsx), another page of the drawer, with Back. 3.4.1.0 R3: a session's or a
+// saved file's report card (ReportCard.tsx) is a third page (`openCard`); a goal run's is the first block of its report.
 import { api, ApiError } from "../../../lib/api";
 import { createStore, useStore } from "../../../lib/store";
 import { fleet } from "../../fleet/store";
@@ -21,7 +22,7 @@ import { clearCompare, loadCompare } from "./compareStore";
 
 export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[] };
 /** 3.4.0.0 D: the page the drawer shows instead of its list (a run's report), what it read, and why it could not. */
-export type HistoryPage = { kind: "run" | "compare"; id: string } | null;
+export type HistoryPage = { kind: "run" | "compare" | "card"; id: string; what?: string } | null;
 type State = { open: boolean; rows: HistoryRow[]; loaded: boolean; error: string; page: HistoryPage; report: RunPayload | null; reportError: string };
 
 export const history = createStore<State>({ open: false, rows: [], loaded: false, error: "", page: null, report: null, reportError: "" });
@@ -111,6 +112,13 @@ export function openCompare(a: string, b: string): void {
   history.update(() => ({ open: true, page: { kind: "compare", id: `${a}|${b}` }, report: null, reportError: "" }));
   closeGoal();
   void loadCompare(a, b);
+}
+
+/** 3.4.1.0 R3: History open on a session's or a saved file's report card (`ref`: session:<id> | file:<id>). */
+export function openCard(ref: string, what = ""): void {
+  history.update(() => ({ open: true, page: { kind: "card", id: ref, what }, report: null, reportError: "" }));
+  closeGoal();
+  void loadHistory();
 }
 
 /** Back from a page to the list (the ticks stay). */

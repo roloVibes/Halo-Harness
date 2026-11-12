@@ -1,9 +1,9 @@
-# Replays: scrub a run back in time, save it as one file, film a clip, compare two runs
+# Replays: scrub a run back in time, save it as one file, film a clip, compare two runs, read its report card
 
-Read this when you want to see what a session looked like at an earlier moment on Studio's Agents -> Live, save a run's replay as one file to open on another machine, turn a stretch of it into an animated clip, or compare two runs side by side (`halo replay list | save | open | clip | compare`).
+Read this when you want to see what a session looked like at an earlier moment on Studio's Agents -> Live, save a run's replay as one file to open on another machine, turn a stretch of it into an animated clip, compare two runs side by side (`halo replay list | save | open | clip | compare`), or read a finished run's report card (`halo report`).
 
 The scrubber, the file and the clip are 3.4.1.0 "Time" (round R1); a goal run saved as a file and Compare are round
-R2. They are core: they read this machine's sessions and
+R2; the report card is round R3. They are core: they read this machine's sessions and
 `<state>/replays/` (`~/.halo/replays/`), with the fleet pack on or off. [Studio: Agents -> Live](STUDIO-live.md) has
 the canvas they redraw; `halo replay <session> --model <ref>` (re-run one turn on another model) is a different verb,
 in [COMMANDS-sessions.md](COMMANDS-sessions.md#halo-replay).
@@ -63,10 +63,11 @@ then writes ONE file, `<state>/replays/<session or goal run>-<yyyymmdd-hhmmss>.h
 | `states`, `costs`, `agent_costs` | each state change in time order; the session's running cost; each agent's own |
 | `marks`, `bands` | the scrubber's ticks and phase bands |
 | `plan` | the lineup's blocks as they were when it was saved (its graph and enabled squares), so another machine draws them |
-| `facts` | (R2) the record's own figures: the cost each call priced once, the models nothing priced, the tokens, each model's cost, the retries, the failed calls, the steers -- what Compare reads |
+| `facts` | (R2) the record's own figures: the cost each call priced once, the models nothing priced, the tokens, each model's cost, the retries, the failed calls, the steers -- what Compare reads; (R3) `artefacts` (each file an Edit / Write call wrote, by its path inside the project; one outside it by its name only; a goal run's: what merged and its workflow's saved outputs) and `answer` (the first line of main's last text) -- what the report card reads |
 | `includes` | what the file holds, in words (what Save showed) |
 
-It never holds the prompts, tool inputs or outputs, thoughts, the working directory or any path, and every string passes
+It never holds the prompts, tool inputs or outputs, thoughts, the working directory or any path outside the project (R3:
+the files it wrote are named by their path inside it), and every string passes
 `redact.sanitize_node`, the redactor `halo export --sanitize` and `halo session export` use (`tests/test_replay_file.py`
 seeds a key in the title, a task, a question and a hand-back and checks none reaches the file).
 
@@ -116,6 +117,34 @@ A mission is the fleet pack's: ticking one says "a mission is compared from its 
 `halo replay compare <a> <b> [--split T] [--json]` prints the same rows and lines; `--json` is the data (`a`, `b` with
 their `figures` and `lanes`, `rows` [{key, label, a: {value, text}, b, better, word}], `differed`, `split`, `axis`).
 
+## The report card
+
+One card per finished run -- a session, a goal run, a saved `.halo-replay` file -- rendered **from its record**: never
+hand-written, no model call, nothing written (`live/report_card.py`). It reuses Compare's figures for one run (the
+nine cells: how it ended, wall time, cost, tokens, models, agents spawned, asks, failures, retries), then:
+
+- **the story** in about ten lines, in order: who was asked what, what each handed back, each ask and failure, how it
+  ended (main's last answer's first line); a longer run keeps every ask and failure and says how many steps it left out;
+- **where the time went**: by phase (waiting on you, running a tool, thinking, writing, idle: the scrubber's bands) and
+  by block (each block's agents and their agent time);
+- **where the money went**: by model (each one's cost and share) and by block;
+- **what failed and what happened next** (the next thing the record holds), the failed model calls, the retries (a
+  goal run's: the pieces the gate sent back);
+- **what waited on you** and for how long (a question until its answer, a permission card until you answered it);
+- **which model did what**: each model and the agents that ran on it with their tasks;
+- **the artefacts**: the files it wrote with their paths inside the project;
+- **what this record cannot show**, in words, never a blank: a goal run's coarse record, a file saved before R2 (no
+  tokens, retries or failed calls) or R3 (no files), an older permission card's words, an untimed wait, a cost Halo could
+  not price ("unknown" or the priced part with a "+", never $0), what only Live showed as it happened.
+
+**Where it opens**: each History row's **Report** door (a mission's report is the fleet pack's mission page, not a card);
+the row Live shows for the session that ended last when nothing runs (a row, never a pop-up); a goal run's card is the
+FIRST block of its report page in History (one page per goal run: the plan, the lanes, the gate, the merge, the outcomes
+and the artefacts follow it). **Copy Markdown** puts the same card on the clipboard. A `.halo-replay` file opened on
+another machine gives the same card (its `facts` carry what the card needs). `halo report <session|run|file>` prints the
+Markdown; `--json` prints the card's data (`format: halo-report-card`, `story`, `time`, `money`, `failures`, `waits`,
+`models`, `artefacts`, `cannot`, `cells`).
+
 ## The verbs
 
 ```sh
@@ -124,11 +153,12 @@ halo replay save <session> [--lineup NAME] [--dry-run] [--json]  # says what it 
 halo replay open <file> [--no-studio] [--json]                 # checks it, keeps it under replays/, opens Live on it
 halo replay clip <file|id> [--from T] [--to T] [--speed N] [--dry-run] [--json]   # T: seconds or m:ss
 halo replay compare <a> <b> [--split T] [--json]              # two runs side by side; a, b: session id, goal run id, file
+halo report <session|run|file> [--json]                        # the run report card (R3): Markdown, or its data
 ```
 
 `save` takes a goal run id of the repo you are in as well as a session id.
 
 `open` starts Studio (or reuses the running one) at `?mode=agents&view=live&replay=<id>`; `&at=<seconds>` opens it at
 that moment. Studio's routes: `GET replays`, `GET replays/plan?session=|run=`, `POST replays/save {session}|{run}`,
-`GET replays/compare?a=&b=[&split=]`, `POST replays/import`,
+`GET replays/compare?a=&b=[&split=]`, `GET replays/report?ref=` (the card and its Markdown), `POST replays/import`,
 `GET replays/<id>`, `GET|POST replays/<id>/clip`, `GET replays/clips/<name>` (studio/replays_api.py).

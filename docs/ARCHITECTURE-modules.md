@@ -102,7 +102,9 @@ this list against the tree.
   `.halo-replay` file), `live/replay_clip.py` + `live/clip_chrome.py` (the clip, filmed in headless Chrome),
   `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`);
   R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
-  `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`)
+  `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`);
+  R3: `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its
+  Markdown, from the record), `report_cli.py` (`halo report`)
 
 **The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
 harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who
