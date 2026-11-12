@@ -3,8 +3,10 @@ as one file, list and open saved ones, take one in from another machine, and fil
 this machine's sessions and `<state>/replays/` only, with the fleet pack on or off. docs/REPLAY.md.
 
     GET  replays                          {dir, replays: [row]}  newest first (live/replay_file.row)
-    GET  replays/plan?session=<sid>[&lineup=]   what Save would write, nothing written: {id, path, bytes, includes}
-    POST replays/save  {session, lineup?}       {ok, id, path, bytes, includes, row}
+    GET  replays/plan?session=<sid>[&lineup=] | ?run=<run-id>   what Save would write, nothing written: {id, path, bytes, includes}
+    POST replays/save  {session, lineup?} | {run}                 {ok, id, path, bytes, includes, row}
+    GET  replays/compare?a=<ref>&b=<ref>[&split=<s>]   two runs side by side (live/compare.py), nothing written;
+                                          ref: session:<id> | run:<id> | file:<id>; the same ref twice splits it at `split`
     POST replays/import {text}                  a file chosen in History: checked, kept under replays/ -> {ok, id, path, row}
     GET  replays/<id>                     the file's payload (format halo-replay, version 1)
     GET  replays/<id>/clip?from&to&speed  what Export a clip would film and write, nothing written
@@ -28,9 +30,15 @@ def _live_states(req, sid: str) -> dict:
             if a.get("state") in ("running", "waiting", "paused", "queued")}
 
 
-def _build(req, sid: str, lineup):
-    from halo_harness.live import replay_file
+def _build(req, sid: str, lineup, run: str = ""):
+    """A session's replay, or (3.4.1.0 R2) a goal run's of the repo Studio's folder is in."""
+    from halo_harness.live import replay_file, replay_run
     try:
+        if run:
+            run_dir = replay_run.find(req.cwd, run)
+            if run_dir is None:
+                return None, (404, {"error": f"no goal run {run!r} in this repo"})
+            return replay_run.build_run(req.state_dir, run_dir), None
         return replay_file.build(req.state_dir, sid, lineup=lineup or None, cwd=req.cwd, live_states=_live_states(req, sid)), None
     except replay_file.ReplayError as e:
         return None, (404, {"error": str(e)})
@@ -43,10 +51,10 @@ def get_list(req):
 
 def get_plan(req):
     from halo_harness.live import replay_file
-    sid = str(req.query.get("session") or "").strip()
-    if not sid:
-        return 422, {"error": "name the session: ?session=<id>", "problems": []}
-    p, err = _build(req, sid, req.query.get("lineup"))
+    sid, run = str(req.query.get("session") or "").strip(), str(req.query.get("run") or "").strip()
+    if not sid and not run:
+        return 422, {"error": "name the session or the goal run: ?session=<id> or ?run=<id>", "problems": []}
+    p, err = _build(req, sid, req.query.get("lineup"), run)
     if err:
         return err
     path = replay_file.replays_dir(req.state_dir) / f"{p['id']}{replay_file.SUFFIX}"
@@ -57,10 +65,10 @@ def get_plan(req):
 def post_save(req):
     from halo_harness.live import replay_file
     body = req.body if isinstance(req.body, dict) else {}
-    sid = str(body.get("session") or "").strip()
-    if not sid:
-        return 422, {"error": "name the session: {session: <id>}", "problems": []}
-    p, err = _build(req, sid, body.get("lineup"))
+    sid, run = str(body.get("session") or "").strip(), str(body.get("run") or "").strip()
+    if not sid and not run:
+        return 422, {"error": "name the session or the goal run: {session: <id>} or {run: <id>}", "problems": []}
+    p, err = _build(req, sid, body.get("lineup"), run)
     if err:
         return err
     path = replay_file.save(req.state_dir, p)
@@ -93,6 +101,21 @@ def get_one(req):
         return 200, replay_file.load(path)
     except replay_file.ReplayError as e:
         return 422, {"error": str(e)}
+
+
+def get_compare(req):
+    from halo_harness.live import compare
+    a, b = str(req.query.get("a") or "").strip(), str(req.query.get("b") or "").strip()
+    if not a or not b:
+        return 422, {"error": "name two runs: ?a=<ref>&b=<ref> (session:<id>, run:<id> or file:<id>)", "problems": []}
+    if any(r.startswith("mission:") for r in (a, b)):
+        return 422, {"error": "a mission is compared from its report (the fleet pack's mission page), not here", "problems": []}
+    try:
+        pa = compare.resolve(req.state_dir, a, cwd=req.cwd)
+        pb = pa if b == a else compare.resolve(req.state_dir, b, cwd=req.cwd)
+    except compare.CompareError as e:
+        return 404, {"error": str(e)}
+    return 200, compare.compare(pa, pb, split=_num(req.query.get("split")), same=a == b)
 
 
 def _num(v):
@@ -144,7 +167,7 @@ def get_clip_file(req):
 
 
 _RID = r"(?P<rid>[A-Za-z0-9_.-]{1,120})"
-ROUTES = [("GET", r"^replays$", get_list), ("GET", r"^replays/plan$", get_plan), ("POST", r"^replays/save$", post_save),
+ROUTES = [("GET", r"^replays$", get_list), ("GET", r"^replays/plan$", get_plan), ("GET", r"^replays/compare$", get_compare), ("POST", r"^replays/save$", post_save),
           ("POST", r"^replays/import$", post_import),
           ("GET", r"^replays/clips/(?P<name>[A-Za-z0-9_.-]+\.(?:webp|gif))$", get_clip_file),
           ("GET", rf"^replays/{_RID}/clip$", get_clip_plan), ("POST", rf"^replays/{_RID}/clip$", post_clip),

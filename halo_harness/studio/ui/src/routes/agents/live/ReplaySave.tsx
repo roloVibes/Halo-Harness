@@ -3,7 +3,8 @@
 // WRITES): Save asks the server what the replay would hold (GET replays/plan) and writes one `.halo-replay` file under
 // <state>/replays/ (POST replays/save); a clip is filmed from a saved replay -- a session not yet saved is saved first,
 // said -- over the range From .. To at the scrubber's speed (GET / POST replays/<id>/clip) and written under
-// <state>/replays/clips/. After each, the path it wrote and a Download.
+// <state>/replays/clips/. After each, the path it wrote and a Download. 3.4.1.0 R2: a goal run saves and films the same
+// way (`{run: <id>}`: its lead and lanes from the run's record, live/replay_run.py); a mission is the fleet pack's.
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
@@ -25,19 +26,22 @@ const secs = (v: string): number | null => {
   return p.some((x) => !isFinite(x)) || !v.trim() ? null : p.reduce((a, x) => a * 60 + x, 0);
 };
 
+/** What Save names: a session (and the lineup whose blocks go in), or (3.4.1.0 R2) a goal run by its id. */
+const what = (r: LiveReplay, lineup: string): Record<string, string> => (r.kind === "run" ? { run: r.id } : { session: r.sid, ...(lineup ? { lineup } : {}) });
+
 function usePlan(r: LiveReplay, lineup: string): [SavePlan | null, string] {
   const [plan, setPlan] = useState<SavePlan | null>(null);
   const [err, setErr] = useState("");
   useEffect(() => {
-    if (r.kind !== "session") return;
-    api.get<SavePlan>("replays/plan", { session: r.sid, ...(lineup ? { lineup } : {}) }).then(setPlan).catch((e) => setErr(why(e)));
-  }, [r.sid, r.kind, lineup]);
+    if (r.kind !== "session" && r.kind !== "run") return;
+    api.get<SavePlan>("replays/plan", what(r, lineup)).then(setPlan).catch((e) => setErr(why(e)));
+  }, [r.sid, r.id, r.kind, lineup]); // eslint-disable-line react-hooks/exhaustive-deps
   return [plan, err];
 }
 
 async function save(r: LiveReplay, lineup: string): Promise<Saved | null> {
   try {
-    const got = await api.post<Saved>("replays/save", { session: r.sid, ...(lineup ? { lineup } : {}) });
+    const got = await api.post<Saved>("replays/save", what(r, lineup));
     toast(`Saved the replay: ${got.path}`, "done", 6000);
     return got;
   } catch (e) {
@@ -51,7 +55,8 @@ export function SaveDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
   const [done, setDone] = useState<Saved | null>(null);
   const [busy, setBusy] = useState(false);
   const go = async () => (setBusy(true), setDone(await save(r, lineup)), setBusy(false));
-  const cost = plan && !done ? { does: `Saves "${r.title}" as one replay file: its agents, their states over time, the marks, the lineup's blocks`,
+  const cost = plan && !done ? { does: r.kind === "run" ? `Saves the goal run "${r.title}" as one replay file: the lead and its lanes, each lane's states over time, the marks, the run's figures`
+                                    : `Saves "${r.title}" as one replay file: its agents, their states over time, the marks, the lineup's blocks`,
                                   costs: "nothing: no model call", writes: `${plan.path} (about ${kb(plan.bytes)})` } : undefined;
   return (
     <Dialog open onClose={onClose} title="Save this run's replay" testid="replay-save-dialog" cost={cost}

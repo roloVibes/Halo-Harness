@@ -5,7 +5,8 @@
 // as a replay (replay.ts). The drawer is closed on load and opens only on a click. 3.4.0.0 D "the runs fold": a finished
 // goal run's row says how it ended, its wall time, its cost and its models, and opens its REPORT as a page of the
 // drawer (`page`, run/RunReport.tsx: the plan, the lanes, the outcomes, the gate, the merge) with Replay on it.
-// 3.4.1.0 R1 "Time": the saved replay files (GET replays) are rows too, kind "file".
+// 3.4.1.0 R1 "Time": the saved replay files (GET replays) are rows too, kind "file". 3.4.1.0 R2: two ticked rows open
+// the Compare page (compareStore.ts, Compare.tsx), another page of the drawer, with Back.
 import { api, ApiError } from "../../../lib/api";
 import { createStore, useStore } from "../../../lib/store";
 import { fleet } from "../../fleet/store";
@@ -16,10 +17,11 @@ import type { HistoryRun } from "../../roles/types";
 import { harnessNow, LIVE_STATES } from "./now";
 import type { HistoryKind } from "./replay";
 import { closeGoal } from "../run/goalStore";
+import { clearCompare, loadCompare } from "./compareStore";
 
 export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[] };
 /** 3.4.0.0 D: the page the drawer shows instead of its list (a run's report), what it read, and why it could not. */
-export type HistoryPage = { kind: "run"; id: string } | null;
+export type HistoryPage = { kind: "run" | "compare"; id: string } | null;
 type State = { open: boolean; rows: HistoryRow[]; loaded: boolean; error: string; page: HistoryPage; report: RunPayload | null; reportError: string };
 
 export const history = createStore<State>({ open: false, rows: [], loaded: false, error: "", page: null, report: null, reportError: "" });
@@ -27,6 +29,7 @@ export const useHistory = <S,>(pick: (s: State) => S): S => useStore(history, pi
 export const toggleHistory = (on?: boolean) => {
   const open = on ?? !history.get().open;
   history.update(() => (open ? { open } : { open, page: null, report: null, reportError: "" }));
+  if (!open) clearCompare();
   if (open) closeGoal(); // one drawer at a time (the goal panel, 3.4.0.0 D)
   if (open) void loadHistory();
 };
@@ -103,5 +106,12 @@ export async function openReport(id: string): Promise<void> {
   }
 }
 
-/** Back from a page to the list. */
-export const closeReport = () => history.update((s) => (s.page ? { page: null, report: null, reportError: "" } : {}));
+/** 3.4.1.0 R2: History open on the comparison of two runs (`a` twice: before / after a moment). */
+export function openCompare(a: string, b: string): void {
+  history.update(() => ({ open: true, page: { kind: "compare", id: `${a}|${b}` }, report: null, reportError: "" }));
+  closeGoal();
+  void loadCompare(a, b);
+}
+
+/** Back from a page to the list (the ticks stay). */
+export const closeReport = () => (clearCompare(), history.update((s) => (s.page ? { page: null, report: null, reportError: "" } : {})));

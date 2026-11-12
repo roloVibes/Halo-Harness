@@ -69,9 +69,11 @@ def _ts(node) -> Optional[float]:
     return float(t) if isinstance(t, (int, float)) and not isinstance(t, bool) else None
 
 
-def _usage(nodes: list) -> list:
+def _usage(nodes: list, read_too=frozenset()) -> list:
+    """(t, usd) per priced usage line; a sub-agent's rolled-up total (`agent_id` set, agent/subagent.py) is skipped when
+    that sub-agent's own transcript is read too (`read_too`): its calls count once (3.4.1.0 R2)."""
     return [(_ts(n) or 0.0, float(n["cost_usd"])) for n in nodes
-            if n.get("type") == "usage" and isinstance(n.get("cost_usd"), (int, float))]
+            if n.get("type") == "usage" and isinstance(n.get("cost_usd"), (int, float)) and str(n.get("agent_id") or "") not in read_too]
 
 
 def _meta(nodes: list, key: str):
@@ -177,17 +179,18 @@ def read(path, *, live_states: Optional[dict] = None) -> dict:
     times = [t for t in (_ts(n) for n in nodes) if t is not None]
     started, ended = (min(times), max(times)) if times else (None, None)
     main_entries = entries_from_nodes(nodes, final=MAIN not in live_states)
-    main_cost = round(sum(c for _t, c in _usage(nodes)), 6)
+    kids: list = []
+    _children(path.parent / path.stem, MAIN, kids)
+    read_too = frozenset(str(k[0]) for k in kids)
+    main_cost = round(sum(c for _t, c in _usage(nodes, read_too)), 6)
     main_state = live_states.get(MAIN) or "done"
     agents = [{"agent_id": MAIN, "parent": None, "name": "main", "role": "main", "bio": _meta(nodes, "agent") or None,
                "lineup": None, "model": _meta(nodes, "model"), "state": main_state, "since": started, "ended": ended,
                "cost_usd": main_cost, "task": _task(main_entries)}]
     entries = {MAIN: main_entries}
     states = states_of(MAIN, main_entries, ended, "" if main_state in ("running", "waiting", "paused") else "done")
-    usage = [(t, c, MAIN) for t, c in _usage(nodes)]
+    usage = [(t, c, MAIN) for t, c in _usage(nodes, read_too)]
     asks = asks_of(MAIN, nodes)
-    kids: list = []
-    _children(path.parent / path.stem, MAIN, kids)
     for aid, parent, meta, log in kids:
         cnodes = read_nodes(log)
         live = live_states.get(aid)
@@ -197,8 +200,8 @@ def read(path, *, live_states: Optional[dict] = None) -> dict:
         ctimes = [t for t in (_ts(n) for n in cnodes) if t is not None]
         since = meta.get("started") if isinstance(meta.get("started"), (int, float)) else (min(ctimes) if ctimes else None)
         fin = meta.get("finished") if isinstance(meta.get("finished"), (int, float)) else None
-        cost = round(sum(c for _t, c in _usage(cnodes)), 6)
-        usage += [(t, c, aid) for t, c in _usage(cnodes)]
+        cost = round(sum(c for _t, c in _usage(cnodes, read_too)), 6)
+        usage += [(t, c, aid) for t, c in _usage(cnodes, read_too)]
         asks += asks_of(aid, cnodes)
         agents.append({"agent_id": aid, "parent": parent, "name": meta.get("type") or aid, "role": meta.get("role"),
                        "bio": meta.get("type"), "lineup": meta.get("lineup"), "model": meta.get("model"), "state": state,

@@ -1,0 +1,49 @@
+/* Compare two runs (3.4.1.0 R2, routes/agents/live/History.tsx, Compare.tsx): History's tick beside each row, the
+   Compare bar once a row is ticked, the drawer wide on the Compare page, the two columns over one time axis (each
+   agent a lane of phase segments in the 3.3.16.2 colours), the rows with the better figure's word, what differed.
+   Tokens only. */
+.lh-item { display: flex; align-items: stretch; min-width: 0; border-bottom: 1px solid var(--line); }
+.lh-item > .lh-row { flex: 1 1 auto; border-bottom: 0; padding-left: 6px; }
+.lh-item[data-ticked] { background: var(--soft-accent); }
+.lh-tick { display: flex; align-items: center; padding: 0 0 0 12px; cursor: pointer; }
+.lh-tick input { margin: 0; cursor: pointer; }
+.lh-compare { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 36px; padding: 4px 12px; border-bottom: 1px solid var(--line);
+  background: var(--surface-2); font-size: 11.5px; }
+.lh-mission { flex: 1 1 100%; font-size: 11.5px; }
+.lh-drawer[data-wide] { width: min(1100px, calc(100% - 16px)); }
+
+.cmp { display: grid; gap: var(--s-3); align-content: start; font-size: var(--fs-sm); min-width: 0; }
+.cmp .rr-head .mono { font-size: 11px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-split { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
+.cmp-split .input { width: 72px; }
+.cmp-differed { margin: 0; padding-left: 18px; display: grid; gap: 4px; line-height: 19px; }
+.cmp-differed li { overflow-wrap: anywhere; }
+.cmp-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+.cmp-col { display: grid; gap: 4px; align-content: start; min-width: 0; padding: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-card); }
+.cmp-col-head { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.cmp-letter { font-size: 13px; color: var(--accent); }
+.cmp-col-title { flex: 1 1 160px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.cmp-col-kind { font-size: 11px; white-space: nowrap; }
+.cmp-axis { display: flex; justify-content: space-between; margin-left: 96px; font-size: 10.5px; border-bottom: 1px solid var(--line-soft); }
+.cmp-block { display: grid; gap: 2px; }
+.cmp-block-name { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-lane { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 6px; align-items: center; min-height: 18px; }
+.cmp-lane-name { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmp-track { position: relative; height: 12px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.cmp-life { position: absolute; top: 5px; height: 2px; background: var(--line-strong); }
+.cmp-life[data-state="failed"] { background: var(--bad); }
+.cmp-seg { position: absolute; top: 1px; height: 10px; min-width: 1px; background: var(--line-strong); }
+.cmp-seg[data-phase="writing"] { background: var(--ok); opacity: .7; }
+.cmp-seg[data-phase="tool"] { background: var(--accent); }
+.cmp-seg[data-phase="waiting"] { background: var(--warn); }
+.cmp-none { margin: 0; font-size: 11.5px; }
+.cmp-rows { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.cmp-rows th, .cmp-rows td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
+.cmp-rows thead th { font-size: 11px; color: var(--muted); }
+.cmp-rows th[scope="row"] { width: 130px; font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.cmp-cell { overflow-wrap: anywhere; }
+.cmp-cell[data-better] { background: var(--soft-ok); }
+.cmp-cell[data-unknown] .cmp-val { color: var(--muted); }
+.cmp-word { display: inline-block; margin-left: 8px; padding: 0 6px; border: 1px solid var(--ok); border-radius: var(--radius-sm); font-size: 10.5px;
+  line-height: 16px; color: var(--ok); text-transform: uppercase; letter-spacing: .05em; }
+.cmp-foot { margin: 0; font-size: 11px; }

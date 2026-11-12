@@ -9,6 +9,11 @@
     halo replay clip <file|id> [--from T] [--to T] [--speed N] [--dry-run] [--json]
                                                        films the range on Live and writes one WebP (else GIF), 1200 px
                                                        wide, at most 30 s; T is seconds or m:ss since the start
+    halo replay compare <a> <b> [--split T] [--json]   3.4.1.0 R2: two runs side by side (live/compare.py), nothing
+                                                       written; a, b: a session id, a goal run id or a .halo-replay
+                                                       (path or saved id); the same one twice splits it at T
+
+3.4.1.0 R2: `save` takes a goal run id of the repo you are in too (live/replay_run.py).
 
 `halo replay <session-id> --model <ref>` (2.0.6 R4, replay_cli.py) is unchanged.
 """
@@ -21,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-VERBS = ("list", "save", "open", "clip")
+VERBS = ("list", "save", "open", "clip", "compare")
 
 
 def _state():
@@ -60,15 +65,17 @@ def _list(args) -> int:
 
 
 def _save(args) -> int:
-    from halo_harness.live import replay_file
+    from halo_harness.live import history, replay_file, replay_run
     try:
-        p = replay_file.build(_state(), args.session, lineup=args.lineup, cwd=Path.cwd())
+        run_dir = None if history.find(_state(), args.session) else replay_run.find(Path.cwd(), args.session)
+        p = (replay_run.build_run(_state(), run_dir) if run_dir is not None
+             else replay_file.build(_state(), args.session, lineup=args.lineup, cwd=Path.cwd()))
     except replay_file.ReplayError as e:
         print(f"halo replay save: {e}", file=sys.stderr)
         return 2
     path = replay_file.replays_dir(_state()) / f"{p['id']}{replay_file.SUFFIX}"
     if not args.json:
-        print(f"The replay of {p['session_id']} holds:")
+        print(f"The replay of {p.get('run_id') or p['session_id']} holds:")
         for line in p["includes"]:
             print(f"  - {line}")
         print(("Would write " if args.dry_run else "Writing ") + str(path))
@@ -149,12 +156,37 @@ def _clip(args) -> int:
     return 0
 
 
+def _compare(args) -> int:
+    from halo_harness.live import compare
+    try:
+        pa = compare.resolve(_state(), args.a, cwd=Path.cwd())
+        pb = pa if args.b == args.a else compare.resolve(_state(), args.b, cwd=Path.cwd())
+    except compare.CompareError as e:
+        print(f"halo replay compare: {e}", file=sys.stderr)
+        return 2
+    got = compare.compare(pa, pb, split=_secs(args.split), same=args.a == args.b)
+    if args.json:
+        print(json.dumps(got, indent=2))
+        return 0
+    a, b = got["a"], got["b"]
+    for side in (a, b):
+        print(f"{side['label']}: {side['kind']} {side['id']} -- {side['title'] or '(untitled)'}")
+    width = max(len(r["label"]) for r in got["rows"])
+    for r in got["rows"]:
+        mark = {"a": f"A {r['word']}", "b": f"B {r['word']}", "same": "same"}.get(r["better"] or "", r["word"] or "")
+        print(f"  {r['label']:<{width}}  A {r['a']['text']}  |  B {r['b']['text']}" + (f"  [{mark}]" if mark else ""))
+    print("What differed:")
+    for line in got["differed"]:
+        print(f"  - {line}")
+    return 0
+
+
 def cmd_verbs(argv: list) -> int:
     ap = argparse.ArgumentParser(prog="halo replay", description="A run's replay as one file: list, save, open, clip.")
     sub = ap.add_subparsers(dest="verb", required=True)
     s = sub.add_parser("list", help="the saved replays, newest first")
     s.add_argument("--json", action="store_true")
-    s = sub.add_parser("save", help="save a session's replay as one file under <state>/replays/")
+    s = sub.add_parser("save", help="save a session's or a goal run's replay as one file under <state>/replays/")
     s.add_argument("session")
     s.add_argument("--lineup", default=None, help="the lineup whose blocks go in (default: the one in use)")
     s.add_argument("--dry-run", action="store_true", help="say what it would hold and where, write nothing")
@@ -170,5 +202,10 @@ def cmd_verbs(argv: list) -> int:
     s.add_argument("--speed", type=float, default=None)
     s.add_argument("--dry-run", action="store_true")
     s.add_argument("--json", action="store_true")
+    s = sub.add_parser("compare", help="two runs side by side: a session, a goal run or a .halo-replay each")
+    s.add_argument("a")
+    s.add_argument("b")
+    s.add_argument("--split", default=None, help="the same run twice: split it here (seconds or m:ss; default its first steer, else halfway)")
+    s.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
-    return {"list": _list, "save": _save, "open": _open, "clip": _clip}[args.verb](args)
+    return {"list": _list, "save": _save, "open": _open, "clip": _clip, "compare": _compare}[args.verb](args)

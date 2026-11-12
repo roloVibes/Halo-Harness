@@ -100,7 +100,9 @@ this list against the tree.
   `live/recording.py`, `live/recording_page.py`
 - time (3.4.1.0 R1, docs/REPLAY.md): `live/timeline.py` (a session's marks and phase bands), `live/replay_file.py` (the
   `.halo-replay` file), `live/replay_clip.py` + `live/clip_chrome.py` (the clip, filmed in headless Chrome),
-  `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`)
+  `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`);
+  R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
+  `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`)
 
 **The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
 harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who

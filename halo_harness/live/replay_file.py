@@ -8,7 +8,12 @@ docs/REPLAY.md is the reference.
      "states":  [{t, agent_id, state, activity, tool?}],  "costs": [{t, usd}],  "agent_costs": [{t, agent_id, usd}],
      "marks":   [{t, kind, agent_id, name, text, to?}],   "bands": [{t0, t1, phase}],
      "plan":    {"lineup", "graph", "squares"} | null,    the lineup's blocks as they were when it was saved
+     "facts":   {cost_usd, cost_unknown, tokens, model_cost, retries, failed_calls, steers}   3.4.1.0 R2: the record's
+                                                          own figures (live/replay_facts.py), what Compare reads
      "includes": [line, ...]}                             what the file holds, in words (said before it is written)
+
+3.4.1.0 R2: `kind` is "session" or "run" (a goal run, live/replay_run.py: `run_id`, the lead and its lanes as agents);
+`facts` and `run_id` are new keys a version-1 reader ignores, so the version stays 1 and an R1 file still opens.
 
 What it never holds: the prompts, the tool inputs and outputs, the thoughts, the working directory, any path. Every
 string passes `redact.sanitize_node`, the rule `halo export --sanitize` and `halo session export` apply.
@@ -83,8 +88,10 @@ def includes(p: dict) -> list:
     marks = ", ".join(f"{n} {k}" for k, n in kinds.items()) or "no marks"
     plan = p.get("plan") or {}
     return [f"{n_agents} agent{'s' if n_agents != 1 else ''}: names, roles, models, tasks (first line), states, costs",
-            f"{len(p.get('states') or [])} state changes and the cost over time; marks: {marks}",
-            f"the lineup's blocks: {plan.get('lineup')}" if plan else "no lineup blocks (the lineup did not load)",
+            f"{len(p.get('states') or [])} state changes and the cost over time; marks: {marks}"
+            + ("; the record's figures (cost, tokens, models, retries)" if p.get("facts") else ""),
+            "a goal run's record: the lead and its lanes, each lane's state changes (not each step)" if p.get("kind") == "run"
+            else f"the lineup's blocks: {plan.get('lineup')}" if plan else "no lineup blocks (the lineup did not load)",
             "not included: prompts, tool inputs and outputs, thoughts, the working directory, any path",
             "every text passed the export redactor (`halo session export`'s rules)"]
 
@@ -92,7 +99,7 @@ def includes(p: dict) -> list:
 def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_states: Optional[dict] = None) -> dict:
     """The replay of session `sid` on this machine. Raises ReplayError when there is no such session."""
     from halo_harness import __version__
-    from halo_harness.live import history, timeline
+    from halo_harness.live import history, replay_facts, timeline
     from halo_harness.redact import sanitize_node
     path = history.find(state_dir, sid)
     if path is None:
@@ -106,7 +113,7 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
          "started": hist.get("started"), "ended": hist.get("ended"), "cost_usd": hist.get("cost_usd"),
          "agents": [{k: a.get(k) for k in AGENT_KEYS} for a in hist.get("agents") or []],
          "states": hist.get("states") or [], "costs": hist.get("costs") or [], "agent_costs": hist.get("agent_costs") or [],
-         **timeline.of(hist), "plan": plan_of(lineup, cwd=cwd, state_dir=state_dir)}
+         **timeline.of(hist), "plan": plan_of(lineup, cwd=cwd, state_dir=state_dir), "facts": replay_facts.session_facts(path)}
     p["id"] = f"{p['session_id']}-{time.strftime('%Y%m%d-%H%M%S', time.localtime(p['saved']))}"
     p = sanitize_node(p)
     if "_sanitize_error" in p:
@@ -188,7 +195,8 @@ def path_for(state_dir, rid: str) -> Optional[Path]:
 def row(p: dict, path: Optional[Path] = None) -> dict:
     t0, t1 = p.get("started"), p.get("ended")
     span = t1 - t0 if isinstance(t0, (int, float)) and isinstance(t1, (int, float)) else None
-    return {"id": p.get("id"), "session_id": p.get("session_id"), "title": p.get("title") or "", "saved": p.get("saved"),
+    return {"id": p.get("id"), "kind": p.get("kind") or "session", "session_id": p.get("session_id"), "run_id": p.get("run_id"),
+            "title": p.get("title") or "", "saved": p.get("saved"),
             "started": t0, "ended": t1, "secs": span, "cost_usd": p.get("cost_usd"), "agents": len(p.get("agents") or []),
             "marks": len(p.get("marks") or []), "bytes": path.stat().st_size if path else None,
             "path": str(path) if path else None, "version": p.get("version")}

@@ -25,8 +25,9 @@ every agent it ever had, and on the fleet the open mission's parts whatever thei
   one with nothing running says so), Orchestra runs of Studio's repo, finished missions; each row what it was, when, how
   long, its cost and how it ended. A row opens it as a **replay**: drawn as it ended, muted, never in the live colours,
   under a "replay -- <the moment drawn>" banner whose **Back to now** returns, with the scrubber under the canvas
-  (Time, below). 3.4.1.0: a saved replay file is a row too, and **Open a file** takes one from disk. Esc or the `x`
-  closes the drawer.
+  (Time, below). 3.4.1.0: a saved replay file is a row too, and **Open a file** takes one from disk; each row has a
+  tick, and two ticked -> **Compare** (one ticked: before / after a moment), a page of the drawer with Back
+  ([REPLAY.md](REPLAY.md#compare-two-runs)). Esc or the `x` closes the drawer.
 - **Cast is the plan and says so**: its bar says "the lineup new sessions use: <name>", and while agents run a chip
   "N live -- see Live" goes to Live. The cards light only for agents running under them now.
 - **The rail's Agents badge** counts the agents at work on this harness and on members that are online, never an away
@@ -95,5 +96,6 @@ bands (waiting on you, a tool, thinking, writing, idle) and a tick per spawn, ha
 what it was). Drag it and the canvas is redrawn as it was at that moment: who existed, in which block, each state, the
 plan's line labels, the sentence under the bar and the cost, under "replay -- <time>" in muted colours. Over the session
 running now it shows the axis up to now and a drag rewinds it; Now returns. A session, a goal run (coarse: each lane's
-start and end), a mission and a saved `.halo-replay` file all play on it. [REPLAY.md](REPLAY.md) has the file, the clip,
-what an older session cannot show and `halo replay list | save | open | clip`.
+start and end), a mission and a saved `.halo-replay` file all play on it; a session and a goal run save as a file and
+film a clip (R2). [REPLAY.md](REPLAY.md) has the file, the clip, what an older session cannot show, Compare and
+`halo replay list | save | open | clip | compare`.

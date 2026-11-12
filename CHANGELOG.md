@@ -56,6 +56,41 @@ jobs"), section A of its plan: time on Agents -> Live, then a run's replay as on
 - New docs/REPLAY.md; STUDIO-live.md "Time: the scrubber", STUDIO-agents.md, STUDIO.md, COMMANDS-sessions.md, the
   glossary's "replay", the docs map.
 
+### R2: compare two runs, and a goal run saved as a replay file
+
+#### Added
+
+- **Compare two runs** (History on Agents -> Live; `routes/agents/live/Compare.tsx`, `compareStore.ts`; docs/REPLAY.md
+  "Compare two runs"): every History row has a tick; two ticked -- any two of a session, a goal run and a saved replay
+  file -- and **Compare** opens a page of the drawer, with Back (the ticks stay). "What differed" in three plain lines
+  derived from the rows; the two runs over one time axis, each one's agents as lanes in their blocks in the phase
+  colours; the rows -- how it ended, wall time, cost, tokens, the models (each one's share of cost and time), agents
+  spawned, asks to you, failures, retries -- with the better figure named by a word in its cell (cheaper, faster, fewer,
+  finished). One ticked: **Compare before / after**, split at its first steer (else halfway), **split at** moves it. No
+  model call; nothing written. A ticked mission says it is compared from its report (the fleet pack's).
+- Every figure is read from the run's own record (`live/replay_facts.py`): a session's transcripts, a goal run's report
+  and lanes, a file's new `facts`; never a live counter. A cost Halo cannot price is "unknown" (the priced part with a
+  "+", never $0) and the better cost is not marked on that row.
+- `halo replay compare <a> <b> [--split T] [--json]` (a, b: a session id, a goal run id, a `.halo-replay` path or saved
+  id); Studio's `GET replays/compare?a=&b=[&split=]` (`live/compare.py`, `live/compare_text.py`). The rows are plain
+  data (`{key, label, a: {value, text}, b, better, word}`) another page can read.
+- **A goal run saves and films like a session** (`live/replay_run.py`): Save this run's replay and Export a clip on the
+  scrubber, `halo replay save <run-id>`, `replays/plan?run=` and `replays/save {run}`. Its file holds the lead and its
+  lanes as agents, each lane's state changes from its record, the plan review as an ask, and its figures. The file
+  format keeps version 1 (`kind: run`, `run_id` and `facts` are keys a version-1 reader ignores; an R1 file still opens
+  and compares). The redaction test covers a goal run.
+
+#### Fixed
+
+- A session's replay counted a finished sub-agent's cost twice: its parent's transcript carries the sub-agent's
+  rolled-up total and its own transcript its calls. `live/history.py` now skips the rolled-up line when it reads the
+  sub-agent's own transcript (the scrubber's cost, the file's `cost_usd`).
+
+#### Docs
+
+- docs/REPLAY.md (Compare two runs, a goal run's file, the verb), STUDIO-live.md, STUDIO-agents.md,
+  COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "replay", the docs map.
+
 ## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and
