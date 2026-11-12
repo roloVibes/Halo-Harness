@@ -48,7 +48,18 @@ def by_id(fid: str, inner: str = "") -> str:
 
 
 def config(ctx) -> dict:
-    return json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))
+    """config.json as the server last wrote it. 3.4.1.0 R5: on Windows the server's atomic replace of the file denies a
+    read for a moment (PermissionError, run 43173639949); the read is tried again briefly, as the product's writers and
+    readers ride out the same rule (privateio._replace_with_retry; the core has no shared reader a test could import)."""
+    path = ctx["state"] / "config.json"
+    for attempt in range(40):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except PermissionError:
+            if attempt == 39:
+                raise
+            time.sleep(0.05)
+    return {}
 
 
 def load(c, ctx, query: str, done: str) -> None:

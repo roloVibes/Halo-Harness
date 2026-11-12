@@ -66,6 +66,8 @@ def test_pair_join_members_status_kick_leave_from_the_command_line(ctx: Ctx):
         hub = (st.get("hubs") or [{}])[0]
         ctx.check(f"`halo fleet status` in B: the hub answers and sees B online, got {hub}", rc == 0
                   and hub.get("reachable") is True and hub.get("online") is True and hub.get("share") == "status")
+        ctx.check(f"3.4.0.1 defect 11: the hub row names the hub, not this harness, got {hub.get('name')!r}",
+                  hub.get("name") == "hub-a")
         rc, out, err = cli(rig.root_a, "status", "--json")
         ctx.check("`halo fleet status` in A shows the hub it serves", rc == 0
                   and (_json(out).get("serving") or {}).get("members") == 1)
@@ -75,7 +77,10 @@ def test_pair_join_members_status_kick_leave_from_the_command_line(ctx: Ctx):
         ctx.check(f"`halo fleet kick bob@member` removes B, got {rc}", rc == 0 and _json(out)["kicked"]["id"] == rig.b_id)
         ctx.check("B's relay hears it", wait_for(lambda: getattr(rig.relay(), "state", None) == "kicked", 8))
         rc, out, err = cli(rig.root_b, "leave", "--json")
+        left = (_json(out).get("left") or [{}])[0]
         ctx.check(f"`halo fleet leave` in B forgets the hub, got {rc} {out}", rc == 0 and len(_json(out).get("left") or []) == 1)
+        ctx.check(f"3.4.0.1 defect 27: the hub refused (it had kicked B): already removed, not 'did not answer', got {left}",
+                  left.get("already_removed") is True and left.get("told") is False)
         from halo_harness.peers import store
         ctx.check("B's fleet.json lists no hub now and its key is gone", store.hubs() == []
                   and not any((Path(rig.root_b) / ".halo" / "fleet" / "keys").glob("*.key")))

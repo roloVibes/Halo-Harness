@@ -157,8 +157,8 @@ class Runner(threading.Thread):
         doc = S.need(self.home, self.mid)
         failed = [f"part {pid} {ps.get('state')}: {ps.get('error') or ''}".strip() for pid, ps in doc["parts"].items()
                   if ps.get("state") in ("failed", "stopped")]
-        if failed or any(ps.get("state") != "done" for ps in doc["parts"].values()):
-            return self._end("failed", "; ".join(failed) or "not every part finished")
+        if (short := sum(1 for ps in doc["parts"].values() if ps.get("state") != "done")):  # 3.4.0.1: how many
+            return self._end("failed", f"{short} of {len(doc['parts'])} part(s) did not finish: " + ("; ".join(failed) or "skipped"))
         self._merge(doc, plan)
 
     def _start(self, doc: dict, plan: dict, part: dict) -> tuple:

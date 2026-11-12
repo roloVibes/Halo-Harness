@@ -84,8 +84,9 @@ def brief_md(doc: dict, plan: dict, part: dict) -> str:
     if part.get("depends_on"):
         lines += ["## Before you", "", "Parts " + ", ".join(part["depends_on"]) + " finished before you started; "
                   "their outputs are under `artifacts/<part>/` and their notes in `parts/<part>/handback.md`.", ""]
+    from .mission_outcome import OUTCOME_LINE
     lines += ["End your reply with a short hand-back: what you did, the files you changed or made, and anything the "
-              "owner should know.", ""]
+              "owner should know. " + OUTCOME_LINE, ""]
     return "\n".join(lines)
 
 
@@ -132,9 +133,11 @@ def status_table(doc: dict) -> str:
         out.append(f"  {name}")
         for pid, p in rows:
             note = p.get("waiting") if p.get("state") == "waiting" else p.get("error")  # 3.2.1.0 R3: the waits line
+            from .mission_wait import line as asking
+            note = asking(p) or note  # 3.4.1.0 R5 (defect 32): "waiting on you (on <machine>): <what>"
             # 3.2.1.0 R3: a waits line names the harness, the counts and the capability; 70 cut its tail on a long
             # harness name (the CI runner's), so it gets the replanned line's width
-            err = f"  {_cell(note, 110 if p.get('state') == 'waiting' else 70)}" if note else ""
+            err = f"  {_cell(note, 110 if p.get('state') == 'waiting' or p.get('asking') else 70)}" if note else ""
             out.append(f"    part {pid:>2}  {p.get('state') or 'pending':<8}  ${float(p.get('cost_usd') or 0):.4f}{err}")
             out += [f"      {_cell(p['replanned'], 110)}"] if p.get("replanned") else []
     if doc.get("stop_reason"):

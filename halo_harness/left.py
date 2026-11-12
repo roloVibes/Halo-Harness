@@ -24,7 +24,24 @@ PACKED = {
 
 def packed_line(verb: str) -> str:
     pack, what = PACKED[verb]
+    here = _installed(pack)  # 3.4.0.1 (live check, defect 3): never "install" what is installed
+    if here == "enabled":
+        return f"the {pack} pack is enabled but does not run here: halo pack doctor says why"
+    if here == "installed":
+        return f"the {pack} pack is installed but off: halo pack enable {pack} --grant-all"
     return f"{what} is a pack now: halo pack install {pack}, then halo pack enable {pack} --grant-all"
+
+
+def _installed(pack: str) -> str:
+    """'enabled' (enabled, does not run), 'installed' (installed, off) or '' (not here, or it runs)."""
+    try:
+        from halo_harness.packs import registry
+        snap = registry.snapshot()
+    except Exception:
+        return ""
+    if snap.pack(pack) is None or pack in snap.order:
+        return ""
+    return "enabled" if pack in snap.enabled else "installed"
 
 
 def line(verb: str) -> str:

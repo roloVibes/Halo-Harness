@@ -78,9 +78,9 @@ def test_install_by_id_and_the_clis_line_on_a_second_one(ctx: Ctx):
         row = s.call("GET", "pack/manager")[1]["packs"][0]
         ctx.check(f"the row: disabled, nothing granted, got {row['state']} {row['granted']}", row["state"] == "disabled" and row["granted"] == [])
         status, body, _ = s.call("POST", "pack/install", {"id": "doc-review"})
-        code, _out, err = s.cli("install", "doc-review")
-        ctx.check(f"the second: 422 with the CLI's own line, got {status} {body.get('problems')} vs {err!r}",
-                  status == 422 and code == 1 and body["problems"] == _cli_lines(err))
+        code, out, _err = s.cli("install", "doc-review")  # 3.4.1.0 R5 (defect 30): the same version is done (exit 0)
+        ctx.check(f"the second: ok, nothing to do, the CLI's own line, got {status} {body.get('lines')} vs {out!r}", status == 201
+                  and body["ok"] and code == 0 and body["lines"] == out.strip().splitlines() and "nothing to do" in out)
 
 
 @test
@@ -139,7 +139,7 @@ def test_sources_add_and_remove(ctx: Ctx):
         code, out, _err = s.cli("sources")
         lines = out.splitlines()
         ctx.check(f"halo pack sources lists them in that order, got {lines}", code == 0 and lines[0].startswith("packs.sources, searched in this order")
-                  and lines[1].endswith("(folder): studio-bundle 0.1.0") and lines[2].endswith("(shipped): coach 1.0.0, concord 1.0.0, design 1.0.0, doc-review 1.0.0, first-run 1.0.0, fleet 1.0.0, signal 1.0.0"))  # 3.3.13.0: + signal (R3), design (R2); 3.4.0.0 B: first-run, B2: coach, C: fleet
+                  and lines[1].endswith("(folder): studio-bundle 0.1.0") and lines[2].endswith("(shipped): coach 1.0.0, concord 1.0.0, design 1.0.0, doc-review 1.0.0, first-run 1.0.0, fleet 1.0.2, signal 1.0.0"))  # 3.3.13.0: + signal (R3), design (R2); 3.4.0.0 B: first-run, B2: coach, C: fleet
         status, body, _ = s.call("POST", "pack/install", {"id": "studio-bundle"})
         ctx.check(f"installed by id from the source, got {status}", status == 201 and body["source"] == str(folder / "studio-bundle"))
         gone = str(s.home / "gone")

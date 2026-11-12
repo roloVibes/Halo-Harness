@@ -59,6 +59,7 @@ export type PartRun = {
   base?: string | null; // 3.0.9.0: the commit a repo part started from
   waiting?: string | null; // 3.2.1.0 R3: "part 3 waits: <harness> runs 2/2 of pack <id>: <name>"
   replanned?: string | null; // 3.2.1.0 R3: "part 1 replanned: <old> refused (<line>); <new> has pack <id>: <name>"
+  asking?: { what?: string | null; on?: string | null; since?: number | null } | null; // 3.4.1.0 R5: a card waits there
   holds?: string[]; // 3.2.1.0 R3: the pack capabilities (<pack>/<name>) it holds a slot of while it runs
 };
 

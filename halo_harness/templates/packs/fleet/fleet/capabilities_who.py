@@ -138,14 +138,17 @@ def rank(entries: Iterable[dict], q: str, *, top: int = TOP) -> list:
     return out
 
 
-def lines(ranked: list, q: str) -> list:
-    """`halo fleet who` / `/fleet who`'s text."""
+def lines(ranked: list, q: str, cardless=()) -> list:
+    """`halo fleet who` / `/fleet who`'s text (`cardless`: members whose card has not reached the hub, 3.4.1.0 R5)."""
     if not query_words(q):
         return [f"\"{q}\" has no words to look for (try a tool, an app, a skill, a model or a GPU)."]
+    new = sorted({str(n) for n in cardless if n})
+    tail = [f"({', '.join(new)} joined but {'has' if len(new) == 1 else 'have'} not sent {'its' if len(new) == 1 else 'their'} "
+            "card yet: it goes with the first halo session there.)"] if new else []
     if not ranked:
-        return [f"No harness lists anything that matches \"{q}\"."]
+        return [f"No harness lists anything that matches \"{q}\"."] + tail
     out = [f"Who can: {q}"]
     for i, r in enumerate(ranked, 1):
         out.append(f"{i:>2}. {r.get('name')}  score {r['score']:g}  ({r['matched']} match{'es' if r['matched'] != 1 else ''})")
         out += [f"      {m['kind']:<10} {m['name']:<36} {m['why']}" for m in r["matches"]]
-    return out
+    return out + tail

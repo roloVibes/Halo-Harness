@@ -137,6 +137,8 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
     for line in conflict_lines(snap.active, cwd=cwd, state_dir=state_dir):
         out.append(_p("", "warns", "conflict", line, "rename one of the two"))
     out += _sources_problems()
+    from halo_harness.packs.shipped_newer import stale  # 3.4.1.0 R5 (defect 30): an older copy than this Halo ships
+    out += [_p(r["id"], "warns", "older", r["line"], f"halo pack update {r['id']}") for r in stale(state_dir)]
     for pack_id, rec in sorted((S.load(state_dir).get("installed") or {}).items()):
         root = rec.get("root") if isinstance(rec, dict) else None
         if not isinstance(rec, dict) or rec.get("removed"):

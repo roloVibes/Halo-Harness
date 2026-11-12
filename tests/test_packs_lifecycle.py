@@ -58,8 +58,12 @@ def test_install_copies_through_the_journal_and_records_it_disabled(ctx: Ctx):
         ctx.check("the output says how to enable it", "halo pack enable doc-review --grant mcp:lint --grant hooks" in out)
         if os.name != "nt":
             ctx.check("state.json is private (0600)", (h.packs / "state.json").stat().st_mode & 0o777 == 0o600)
+        code, out, err = h.cli("install", str(src))  # 3.4.1.0 R5 (defect 30): the same version is done (exit 0)
+        ctx.check(f"a second install of the same version: nothing to do, got {code} {out!r}", code == 0 and "nothing to do" in out)
+        (src / "pack.yaml").write_text((src / "pack.yaml").read_text(encoding="utf-8").replace("version: 1.0.0", "version: 1.0.1", 1),
+                                       encoding="utf-8")
         code, _out, err = h.cli("install", str(src))
-        ctx.check(f"a second install says update, got {err!r}", code == 1 and "already installed" in err and "halo pack update" in err)
+        ctx.check(f"another version: says update, got {err!r}", code == 1 and "already installed" in err and "halo pack update" in err)
 
 
 @test

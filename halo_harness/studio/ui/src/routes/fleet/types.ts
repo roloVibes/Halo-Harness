@@ -97,6 +97,8 @@ export type Harness = {
   online?: boolean;
   last_seen?: number | null;
   cost_today?: number | null;
+  cost_today_complete?: boolean | null; // 3.4.0.1: false when some model had no price
+  cost_today_unknown?: string[];
   version_mismatch?: boolean;
   local?: boolean;
   sessions: SessionRow[];
@@ -112,10 +114,11 @@ export type HubInfo = {
   pair_code_active?: boolean;
   tls?: boolean;
   fingerprint?: string | null;
+  firewall?: string | null; // 3.4.0.1: Windows Firewall keeps other machines off the hub's port (the line to act on)
 };
 
 /** 3.4.0.0 C: `fleet_pack` -- the fleet pack runs here (its doors show only then). */
-export type FleetView = { harnesses: Harness[]; hub: HubInfo | null; fleet_pack?: boolean };
+export type FleetView = { harnesses: Harness[]; hub: HubInfo | null; fleet_pack?: boolean; fleet_line?: string };
 
 /** One transcript entry (R1's shape) or a frame turned into one; `you` marks a steer sent from here. */
 export type Entry = {

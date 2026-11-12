@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import json
 import os
 import sys
 import tempfile
@@ -109,16 +110,21 @@ def test_after_update_the_last_lines_are_the_new_summary(ctx: Ctx):
     from halo_harness.whatsnew_cli import after_update
     calls = []
 
+    packs = {"packs": [{"id": "fleet", "version": "1.0.0", "ships": "1.0.1"}, {"id": "coach", "version": "1.0.0", "ships": ""}]}
+
     def run_fn(cmd, **kw):
         calls.append(cmd)
+        if cmd[1:3] == ["pack", "list"]:  # 3.4.1.0 R5 (defect 30): the new install's word on the packs
+            return SimpleNamespace(returncode=0, stdout=json.dumps(packs))
         return SimpleNamespace(returncode=0, stdout="The small fix. One thing was wrong.\n")
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         rc = after_update(0, {"version": "9.0.0"}, "halo 9.0.1 (abc1234, master)", run_fn=run_fn)
     lines = out.getvalue().strip().splitlines()
-    ctx.check(f"the new install's summary, then where the rest is, got {lines}", rc == 0 and calls == [
-        ["halo", "whatsnew", "--summary"]] and lines == ["halo update: what is new -- The small fix. One thing was wrong.",
-                                                          "halo update: halo whatsnew for the rest"])
+    ctx.check(f"the new install's summary, where the rest is, then a pack older than it ships, got {lines}", rc == 0 and calls == [
+        ["halo", "whatsnew", "--summary"], ["halo", "pack", "list", "--json"]] and lines == [
+        "halo update: what is new -- The small fix. One thing was wrong.", "halo update: halo whatsnew for the rest",
+        "halo update: fleet 1.0.0 is older than the 1.0.1 this Halo ships: halo pack update fleet"])
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         rc = after_update(0, {"version": "9.0.1"}, "halo 9.0.1 (def5678, master)", run_fn=run_fn)

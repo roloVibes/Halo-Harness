@@ -8,7 +8,7 @@
 // machine's summary on Agents -> Live, its Specs page). The row is Setup -> Machines' People table and the head of a
 // machine's summary on Live.
 import { Button, Icon } from "../../lib/ui";
-import { cost, short } from "../orchestra/format";
+import { costToday, short } from "../orchestra/format";
 import { projectLabel } from "../agents/live/nodeBits";
 import { focusHarness, useCaps } from "./caps";
 import { openDialog } from "./pstore";
@@ -47,7 +47,7 @@ export function Person({ h, now, hubHere }: { h: Harness; now: number; hubHere: 
         <b className="fpe-name">{name}</b>
         <span className="mono muted fpe-host">{[h.user && h.host ? `${h.user}@${h.host}` : h.host, h.os].filter(Boolean).join(" · ")}</span>
         <span className="spacer" />
-        <span className="mono fpe-cost" title="spent today">{cost(h.cost_today)}</span>
+        <span className="mono fpe-cost" title="spent today">{costToday(h)}</span>
       </div>
       <div className="fpe-chips">
         <span className="og-chip mono" data-presence={p} title={seen ? `last heard ${seen}` : undefined}>{h.local ? "this harness" : p}</span>

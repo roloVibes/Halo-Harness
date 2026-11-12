@@ -67,7 +67,8 @@ export function HistoryButton() {
 
 function Row({ r }: { r: HistoryRow }) {
   const models = r.models?.length ? `on ${r.models.map((m) => m.replace(/^[a-z]+:/, "").split("/").pop()).join(", ")}` : "";
-  const facts = [KIND[r.kind], ago(r.when), r.secs ? took(r.secs) : "", r.cost != null ? cost(r.cost) : "", r.how, models].filter(Boolean).join(" · ");
+  const facts = [KIND[r.kind], ago(r.when), r.secs ? took(r.secs) : "", r.cost != null ? cost(r.cost) : "", r.how, models,
+                 r.inside ? `${r.inside} session${r.inside === 1 ? "" : "s"} inside` : ""].filter(Boolean).join(" · ");
   const go = () => (r.kind === "run" ? void openReport(r.id) : r.kind === "file" ? void openFileReplay(r.id).then((ok) => ok && toggleHistory(false))
     : void openLiveReplay(r.kind, r.id, r.what).then((ok) => ok && toggleHistory(false)));
   const key = tickKey(r);

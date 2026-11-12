@@ -33,6 +33,7 @@ function People() {
 export function MachinesDetail() {
   useEffect(() => startFleet(), []);
   const alone = useFleet((s) => s.loaded && s.harnesses.length <= 1);
+  const wall = useFleet((s) => (s.hub?.serving && s.hub.firewall) || ""); // 3.4.0.1 (defect 12): said, never changed
   return (
     <div className="su-machines" data-testid="setup-machines">
       {alone && (
@@ -40,6 +41,7 @@ export function MachinesDetail() {
           <Explain lines={MACHINES_WHAT} />
         </div>
       )}
+      {wall && <p className="og-problems" data-testid="setup-machines-firewall">{wall}</p>}
       <PairCard />
       <FleetSettings />
       <People />

@@ -87,8 +87,12 @@ def serve(c, url, ctx) -> dict:
     press(c, q(f"{HF_ROW} [data-testid=local-hf-serve]"), f"{qa('[data-testid=local-hf-flag]')}.length >= 3")
     out = {"flags": c.js(f"{qa('[data-testid=local-hf-flag]')}.map((f) => [f.dataset.flag, f.dataset.value, f.title])"),
            "argv": c.js(f"{q('[data-testid=local-hf-argv]')}.textContent"), "go_title": c.js(f"{q('[data-testid=local-hf-serve-go]')}.title")}
-    press(c, q("[data-testid=local-hf-serve-go]"), f"{q('[data-testid=local-hf-said]')}?.dataset.ok === 'true'")
+    # 3.4.0.1 (flaky on Windows, run 43140381539: two llama servers): Start is not idempotent, so the click waits for
+    # the answer itself, ok or not; press()'s fallback click came after 4 s and, once a first start had answered
+    # not-ok, started a second server. A start that fails now says why here instead.
+    press(c, q("[data-testid=local-hf-serve-go]"), f"!!{q('[data-testid=local-hf-said]')}")
     out["said"] = c.js(f"{q('[data-testid=local-hf-said]')}.textContent")
+    out["said_ok"] = c.js(f"{q('[data-testid=local-hf-said]')}.dataset.ok === 'true'")
     _esc(c)
     out["served"] = c.wait(f"{q(HF_ROW + ' [data-testid=local-hf-served]')}?.textContent", 20)
     out["default_title"] = c.js(f"{q(HF_ROW + ' [data-testid=local-hf-default]')}?.title || ''")
@@ -101,6 +105,8 @@ def serve(c, url, ctx) -> dict:
     out["not_ours"] = c.js(f"{other} ? [{other}.disabled, {other}.title] : null")
     page(c, "models")
     out["models_row"] = c.wait(f"{qa('[data-testid=local-model-row]')}.filter((r) => r.dataset.model === '{MODEL}').map((r) => r.dataset.host)", 20)
+    from halo_harness.providers.local_server import servers as _servers  # what Halo started, for a red's message
+    out["registry"] = [[e["id"], bool(e.get("alive"))] for e in _servers(ctx["state"])]
     page(c, "huggingface")
     press(c, q(f"{HF_ROW} [data-testid=local-hf-log]"), f"{q('[data-testid=local-hf-log-lines]')}?.textContent.includes('offloaded')")
     out["log"] = c.js(f"{q('[data-testid=local-hf-log-lines]')}.textContent.split('\\n').filter((l) => l.includes('offloaded') || l.includes('listening'))")

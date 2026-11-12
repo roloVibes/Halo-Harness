@@ -55,6 +55,8 @@ def cmd_join(argv: list) -> int:
     print(f"This harness shares `{share}` with it and control from it is `{control}`"
           f"{' (the owner answers a card for each command)' if control == 'ask' else ''}.")
     print("Sessions running now show on the hub within a few seconds; `halo fleet leave` undoes this.")
+    print("This machine is online on the hub while a halo session runs here (a terminal, `halo -p`, a headless session; "
+          "Studio alone does not count): with none open it is away and takes no mission part.")  # 3.4.0.1 (defect 14)
     if got.get("hub_version") and got["hub_version"] != __version__:
         print(f"The hub runs Halo {got['hub_version']}, this harness {__version__} (`halo update` on the older one).")
     return 0
@@ -80,18 +82,23 @@ def cmd_leave(argv: list) -> int:
     HubError = _core.get("peers.relay", "HubError")
     told = {}
     for e in entries:
+        if e.get("state") == "kicked":  # 3.4.0.1 (defect 27): the hub said so already
+            told[e["url"]] = "gone"
+            continue
         link = _link(e) if e.get("state", "joined") == "joined" and not identity.offline() else None
         try:
             told[e["url"]] = bool(link and link.request("POST", protocol.PREFIX + "/leave", protocol.doc()))
-        except HubError:
-            told[e["url"]] = False
+        except HubError as err:  # 3.4.0.1 (defect 27): a refusal is an answer: it had removed this harness already
+            told[e["url"]] = "gone" if err.kicked or err.status in (401, 403, 404) else False
     gone = store.remove(entries)
     if a.json:
-        C.emit_json({"ok": True, "left": [{"url": g["url"], "name": g.get("name"), "told": told.get(g["url"])}
+        C.emit_json({"ok": True, "left": [{"url": g["url"], "name": g.get("name"), "told": told.get(g["url"]) is True,
+                                           "already_removed": told.get(g["url"]) == "gone"}
                                           for g in gone]})
         return 0
     for g in gone:
-        note = "" if told.get(g["url"]) else " (the hub did not answer; it lists this harness until it comes back or kicks it)"
+        note = (" (it had already removed this harness)" if told.get(g["url"]) == "gone" else "" if told.get(g["url"])
+                else " (the hub did not answer; it lists this harness until it comes back or kicks it)")
         print(f"Left {g.get('name') or g['url']}{note}.")
     return 0
 
@@ -112,7 +119,8 @@ def _ping(entry: dict) -> dict:
         return {"reachable": False, "error": str(e), "kicked": e.kicked}
     finally:
         link.close()
-    return {"reachable": True, "hub_version": (got.get("hub") or {}).get("version"), **(got.get("you") or {})}
+    you = {k: v for k, v in (got.get("you") or {}).items() if k not in ("name", "id")}  # 3.4.0.1 (defect 11): this
+    return {"reachable": True, "hub_version": (got.get("hub") or {}).get("version"), **you}  # harness as the hub sees it
 
 
 def cmd_status(argv: list) -> int:
@@ -126,7 +134,7 @@ def cmd_status(argv: list) -> int:
     if info:
         view = H.running_view(timeout=10.0)  # a loaded machine answers its own hub late; 3 s dropped the members count
     serving = {"url": info.get("url"), "name": info.get("name"), "tls": info.get("tls"),
-               **((view or {}).get("hub") or {})} if info else None
+               **((view or {}).get("hub") or {}), "firewall": _wall(info)} if info else None
     out = {"harness": identity.harness(), "offline": identity.offline(), "allow_answers": identity.allow_answers(),
            "hubs": hubs, "serving": serving}
     if a.json:
@@ -143,4 +151,17 @@ def cmd_status(argv: list) -> int:
     if serving:
         print(f"Serving: hub {serving.get('name')} at {serving.get('url')}: {serving.get('members', '?')} member(s), "
               f"{serving.get('online', '?')} online{', a pairing code is open' if serving.get('pair_code_active') else ''}.")
+        if serving.get("firewall"):
+            print(serving["firewall"])
     return 0
+
+
+def _wall(info: dict) -> str:
+    """3.4.1.0 R5 (defect 12): the hub this machine serves says the firewall line here too (read-only, peers/firewall.py)."""
+    bind = str(info.get("bind") or "")
+    if not info.get("port") or bind.startswith("127.") or bind == "localhost":
+        return ""
+    try:
+        return _core.get("peers.firewall", "line")(int(info["port"]), "the fleet hub")
+    except Exception:
+        return ""

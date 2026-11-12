@@ -19,6 +19,8 @@ export type FleetState = {
   hub: HubInfo | null;
   /** 3.4.0.0 C: the fleet pack runs here (GET fleet's `fleet_pack`); off, Studio shows no Fleet door. */
   pack: boolean;
+  /** 3.4.0.1 (defect 29): with the pack off, the one line the CLI says (install it, or enable what is installed). */
+  packLine: string;
   loaded: boolean;
   error: string;
   started: boolean;
@@ -55,6 +57,7 @@ export const fleet = createStore<FleetState>({
   harnesses: [],
   hub: null,
   pack: false,
+  packLine: "",
   loaded: false,
   error: "",
   started: false,

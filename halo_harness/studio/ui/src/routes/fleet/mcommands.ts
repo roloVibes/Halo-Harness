@@ -1,4 +1,4 @@
-// The palette's mission commands (3.0.6.0 R8; 3.3.16.0 R2: missions are Agents -> Runs, the Mission panel there):
+// The palette's mission commands (3.0.6.0 R8; 3.3.16.0 R2: missions are the Mission panel on Agents -> Live):
 // "Agents: new mission" (the Mission panel's goal box, focused), "Agents: approve mission" (the open or newest
 // planned one), "Agents: stop mission" (the running one: the stop dialog asks for a reason), "Agents: mission
 // report" (the open one, else the newest).

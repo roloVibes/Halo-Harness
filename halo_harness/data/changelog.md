@@ -1,5 +1,61 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.4.0.1] - 2026-11-12
+
+What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
+when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Kali VM, paired through the fleet pack,
+with a mission split across both, and wrote 29 defects; each line below names the one it fixes (the fleet pack is 1.0.1).
+
+- 15: a mission part is `done` only when its work is: the brief asks the worker to end its hand-back with `Outcome: done`
+  or `Outcome: blocked -- <why>`, and a part whose hand-back says it is blocked, or whose named outputs are not in the
+  mission folder, ends `failed` with the reason (the worker decides before it writes `result.json`; the hub checks a
+  member's `done` again). The mission ends "N of M part(s) did not finish: ..." (fleet/mission_outcome.py).
+- 4: `halo recall --fleet` and `/recall --fleet` run with the fleet pack on (they asked the pack for a module that
+  stayed in core); a pack module that does not import says its real error instead of "install the pack".
+- 10, 17, 26: one source of truth for a session's cost, its record (live/session_cost.py): a harness's "today" counts
+  its finished sessions too, on the hub's own machine and on a member (its announce carries its `cost_today`), so the
+  fleet caps and Studio's machine boxes see mission and goal-run spend; a call Halo could not price stays unknown
+  (`$x+`), never $0. History's session costs read the same.
+- 21: a goal run whose split failed counts its lead's calls (split.json keeps them).
+- 18: a mission part's hand-back pushed to the hub has its full local paths cut (home -> `~`, a path -> its last part).
+- 1: `halo studio --no-open` with its output redirected writes its URL lines at once.
+- 12: Halo never opens Windows Firewall, and now says when it is in the way: a hub (and `halo host serve`) on Windows
+  reads the inbound rules (no elevation) and prints one line with the command an administrator runs (remove the
+  `python.exe` Block rules Windows made from a declined prompt, then allow the port); `halo doctor`, Setup -> Machines
+  and `halo fleet serve` say the same; a join that times out says "the hub did not answer on <host>:<port>: on Windows
+  the firewall is the usual cause; on the hub run `halo doctor`" (peers/firewall.py; FLEET.md "Windows Firewall").
+- 13: opening Studio loads and calls no model: the Ollama steward's job started with Studio or the hub reads the logs
+  and runs the rules; its note and a new model's probe run only under `halo ollama steward --watch` or the new
+  `ollama.steward.watch: true`.
+- 14: a plan that needs what only an away member has names it ("X has gpu but is offline (no halo session open
+  there): open one, then plan again"); `halo fleet join` says a member is online only while a halo session runs there.
+- 16: each capability card carries the permission mode a mission part runs in; a part placed where calls that ask are
+  refused gets a note in the plan with what lets them through.
+- 27: `halo fleet leave` after a kick says "it had already removed this harness".
+- 11: `halo fleet status` names a joined hub by the hub's name, not this harness's.
+- 19: a capability card from an older read, or made by another Halo version, shows "(refreshing ...)" and is
+  gathered again.
+- 7: the fleet pack has a `halo doctor` row: whether it runs, the hub here (and the firewall in its way), each joined
+  hub and whether it answers.
+- 2: `halo pack install` / `list` count a pack's CLI verbs, slash commands, doctor rows and Studio server modules (the
+  fleet pack "offered nothing"); an empty `halo pack list` points at `--available`.
+- 3: with the fleet pack installed but off, its verbs say "the fleet pack is installed but off: halo pack enable fleet
+  --grant-all" (not "install it").
+- 5, 6: `halo studio --help` names the fleet pack for `--fleet` and `--mode fleet`; `halo pack --help` lists `cli:<verb>`
+  among the grants.
+- 8, 9: Studio's words name the Mission panel on Agents -> Live and Live's inspector, not the Runs view that went.
+- 20: `halo orchestra new` with no `--file` says a run cannot split without the goal's files; such a run stops before
+  the lead is asked.
+- 22: History folds a goal run's and a mission's own sessions under their row ("3 sessions inside").
+- 23, 24, 25: the Mission report counts parts per harness ("1 (#2)"), keeps its total whole, and says "nothing to
+  merge (files parts only)".
+- 28, 29: with the fleet pack off, Setup's line names no machines, and `?mode=fleet` / `halo studio --mode fleet` say
+  the pack's line instead of pointing at Setup -> Machines.
+- Tests: `test_studio_local_hf` (two servers: the driver's fallback click started a second one after a first start had
+  answered; it now waits for Start's answer and checks one server started) and `test_bundle_reserve` (one route call
+  timing out under load marked the host down for 30 s, so every read after it had no card; the readiness wait clears
+  the mark its own probe set).
+
 ## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and
@@ -1779,86 +1835,3 @@ table panel's detail view and the parity audit (R4).
 - docs/EXTENSION_API.md opens with "Start here" (the kit); the status table gains Requirements; `ext.testing` joins the stable surface and `ext.compat.CHANGES["1.1"]` lists it and the tool entries. PACKS.md "Yours first" points at the kit; COMMANDS.md's parts table gains the kit's page.
 - Eight lineups ship (`pack-author` joins); `halo pack inspect` shows a tool requirement as `<name> <version> (<kind>)`.
 - `halo pack doctor` adds the `missing-requirement` row for a running pack; a pack without tool entries is untouched, and every existing pack and fixture reads and runs as before.
-
-## [3.3.11.0] - 2026-11-06
-
-**Type into Studio.** The owner's ask of 2026-10-27: "a box to just type into like it is the tui but it's in session view,
-and you can open it if you want like how the cost and map modules work". R1 is that box, with one thing the terminal never
-had: a receipt for what you sent. The Prompt panel is an optional strip in Session; it sends through the control socket's
-existing `submit`, which now says who sent the turn and what to do when the session is busy (steer, refuse, or hold one
-turn for when it is free); a `/` command runs as the terminal would run it; an ask shows with its buttons. Every prompt,
-steer and answer climbs a ladder -- sent, delivered, read (the transcript is the evidence), replied -- and a retry never
-sends twice. The Signal remote is unchanged. R2 runs a session with no terminal at all and puts the live agent tree on
-Roles; R3 lets a pack add its own pages to Setup, and says when one is waiting.
-
-### R1: the Prompt panel -- type into the session from Studio, with receipts
-
-#### Added
-- Session's **Prompt** panel (`session-prompt`; a strip at the foot by default, in the header's "+" menu like Cost and Map; `Alt+Enter`, the palette's "Prompt: type into this session" and `?prompt=1` open it with the keyboard in its box): a box that behaves like the terminal's prompt -- Enter sends, Shift+Enter a new line, Up / Down this session's history (kept in the browser, per session), `/` the slash list from the TUI's own table plus the session's custom commands and skills (name, arguments, one line of help; Tab completes, Esc closes), a pasted image or a dropped image file on the steer box's path, a dropped file path into the text. A `/` line runs through the control socket's `slash` and its output lands as the lines the terminal prints. While a turn runs a send is refused first and the busy line offers **Queue it** and **Steer**. The conversation reads like the TUI (your turns marked "from Studio", the replies, one line per tool call with its policy line, the turn's end, the asks with the TUI card's buttons answering through the socket's `answer`); Live stays the stream for steering.
-- Receipts: every prompt, steer and answer Studio sends gets an id and a ladder in `<session folder>/receipts.jsonl` (`remote/receipts.py`, append-only, the last row per id wins): `sent` when Studio stored it (before the socket call; a retry with the same `client_id` returns the stored row and sends nothing), `delivered` when the session's handle took it, `read` when the user node the request is derived from carries the receipt id (the loop's seam, `remote/receipt_seams.py`: the transcript is the evidence, never a timer), `replied` when that turn ends; `failed` with `busy`, `held` or `expired` (a lazy 24 h TTL applied when a send or a read touches the file); `delivered -> sent` when the session ends with the row unread. The panel draws four marks beside each of your turns. `GET /api/sessions/<sid>/receipts`, the socket's `receipts`.
-- The control socket's `submit` takes `origin` (`{via: "studio", by}`: the TUI's transcript says `(from Studio) prompt: ...`, the turn's `user_message` carries `via`, `by` and `receipt`) and `when_busy`: `steer` (the default, so the Signal remote is unchanged), `refuse` (`{busy: true, line}`, nothing taken) and `queue` (the session holds ONE user turn and starts it on the running turn's `turn_done`; a second answers held with the line, Studio's 409; the TUI's prompt hint says "1 queued from Studio"; a session that quits with one held drops it with one line): `remote/prompt_queue.py`.
-- Studio: `slash` and `tail` join `POST /api/sessions/<sid>/command`, `GET /api/sessions/<sid>/slash` lists the commands (`studio/sessions_prompt_api.py`); `halo studio --session <id> --prompt` (`--prompt` alone: the newest live session) opens Session on it with the Prompt focused, through the URL (`&prompt=1`) or a running Studio's `focus` frame (`prompt: true`).
-- Glossary: "receipt" and "queued turn". Tests: `tests/test_remote_submit.py`, `tests/test_receipts.py` (the ladder on a real session over the mock upstream), `tests/test_sessions_api_prompt.py`, `tests/test_studio_prompt.py` (headless Chrome over a scripted fake session on its control socket).
-
-#### Changed
-- `ControllerHandle.submit(text, images, origin, when_busy, receipt)`; `Controller.submit`'s steer path notes a steer's receipt; `SessionLog.append_user(..., receipt=)`; `PrintModeHandle.submit` answers `when_busy: refuse` and puts a `queue` on its input queue.
-- Session's default arrangement: Prompt is the fourth strip under Cost (Cost leaves 20 rows under it, not 15). `steerImage.ts` shares `readImage` / `imageFields` with the Prompt panel.
-- The fake remote session (`tests/helpers/fake_remote_session.py`) moves its receipts the way the real loop does; `tests/test_remote_control_socket.py`'s command set names `receipts`.
-- Docs: STUDIO-session.md (the Prompt panel), STUDIO-sections.md (Session's panels), REMOTE.md (`submit`'s fields, `receipts`, the ladder and the TTL), COMMANDS-studio.md (`--prompt`).
-
-### R2: a session without a terminal, and the live map
-
-#### Added
-- **A session with no terminal**: `halo --headless [--session-for WHO]` (`halo_harness/headless_session.py`) runs the loop the TUI runs -- `tui/bootstrap.build_controller`'s controller, started without the Textual app, this process draining its events in the TUI's place -- and writes the same session log, so `halo --resume <id>` opens it later in a terminal. The control socket is its only door: the registry row says `kind: headless`, `parent: studio:<pid>`, and Fleet, the Map, Session and `halo studio --session` list it as a session of this harness. An ask (permission, question, plan, approval) parks on the handle until an `answer` comes through the socket; `status` lists the parked asks (`parked: [{id, kind, since}]`). `/quit` / `/exit` through `slash`, the socket's `shutdown`, SIGTERM or the worker ending stop it; a quit stops only what it started itself, never the Studio above it. With `-p`, `--private` or `fleet.enabled: false` it exits 2 and says why (each would leave it with no door).
-- Studio starts and ends one (`studio/sessions_new_api.py`): `GET /api/sessions/new` (the default model, Studio's folder and the picker's rows, the Setup default-model block's catalog), `POST /api/sessions/new {model, cwd}` -> 202 with the session id Studio chose (`--session-id`), the child detached the way `studio/launch.py` detaches Studio (no console, its own process group / session; its output in `~/.halo/run/headless/<id>.log`), so closing the tab or stopping Studio never ends it; the children in `~/.halo/studio-sessions.json` and `GET /api/sessions/started` (still running, `live` when registered), so a restarted Studio finds them. "End session" is `POST /api/sessions/<sid>/command {cmd: shutdown}`.
-- Session: **New session** on the Start view and in the Prompt panel when no session is here (`NewSession.tsx`: the model picker grouped by provider, the default first; the folder field, Studio's by default); Session opens on the new session with the keyboard in the Prompt box. A session with no terminal has the **no terminal** chip in the Prompt header and on its Map card, **Open in terminal** (copies its `halo --cwd ... --resume <id>` line) and **End session** (asks first).
-- Fleet attention: a headless session's ask is `parked: true`, and with no Studio page open (`fleet_watch_sources.pages`: the feed's listeners) its line ends "-- waiting on you in Studio"; `fleet/local_view` carries the session's `parked`.
-- **Roles Live** (the owner: "the roles tab kept up with what's happening during sessions"): **Plan | Live** first on the Roles canvas bar (`L`, the palette's "Roles: Live" / "Roles: Plan", `?mode=roles&view=live[&session=<id>]`). Live (`routes/roles/LiveMap.tsx`, `LiveNode.tsx`, `liveModel.ts`, `liveLayout.ts`) is the session's actual agent tree on the whole canvas: one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped (an agent whose parent is not in the session hangs under one "unknown parent" node), each `auto` pick's reason on its node ("picked at spawn: coder on <model> -- <why>"), the lineup card a node matches (`matchNode`, now informational) as a faint dashed group behind it; layered auto-layout with spread / compact, zoom and Fit (the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it (a finished one too); `J` / `K` hop the working agents; `steer` and `...` on a node are the Map's; a session picker over every session the fleet carries.
-- **The work record adapter** `ui/src/lib/work/record.ts` (`recordOf`, `sessionRecord`, `recordRefs`, `useSessionRecord`): one session's agent tree as `{id, agents: [{id, parent, name, role, model, state, reason, started, ended, ...}], edges}`, read from the fleet frames; the Session Map and Roles Live read agents through it and nothing else, so the shared work record later is a change to that one file.
-- `/agents live` prints an `auto` pick's reason on the line under its agent and lists an agent whose parent is not in the tree under one "unknown parent" line, the same tree and words as Roles Live (`agent/agent_hooks.format_tree`, `pick_line`).
-- Glossary: "headless session" and "live map". Tests: `tests/test_headless_session.py` (a real child over the fake upstream: its row, a turn in the log, an ask parked and answered, shutdown, `--resume` opens the log), `tests/test_sessions_new_api.py`, `tests/test_fleet_attention_headless.py`, `tests/test_agents_live_tree.py`, the Chrome `tests/test_studio_headless.py` (New session -> Prompt -> a turn -> an ask answered -> End session) and `tests/test_studio_roles_live_map.py` (three auto-spawned agents that match no card, all on Live), over `tests/helpers/headless_rig.py`, `studio_headless.py` and `studio_roles_live_map.py`.
-
-#### Changed
-- Session's Map panel is the thumbnail of the session's tree (it fits the whole tree down to 40 %) with **Open in Roles Live** on its bar; `routes/fleet/layoutTree.ts`'s layered layout is generic (`forestOf` / `placeForest`, any node size) and shared with Roles Live, and the Map reads each session's agents through the record adapter (no change in what it draws).
-- `Controller.quit_stops_children` (True; a headless session sets it False so its quit never stops its Studio); `children_stop.other_live_sessions` counts headless sessions with the TUI ones, so a quitting terminal session leaves Studio running while a headless one still runs.
-- `fleet/attention.build(..., pages=)` and `session_rows(..., pages)`; `routes/fleet/frames.ts` exports `activityOf` and `rowOf`; the Roles store's `canvasView`, `liveSid`, `liveDensity`; Roles' Start view never covers Live.
-- Docs: STUDIO.md (Studio without a terminal, Roles Live), STUDIO-sections.md (Session: New session, the Map thumbnail, the no-terminal header; Roles: Plan | Live, `L`), STUDIO-session.md (A session without a terminal), STUDIO-team-roles.md (Roles Live), COMMANDS-main.md (`--headless`, `--session-for`, `--resume` of a headless session), REMOTE.md (`kind: headless`, `parked`, A session without a terminal, `studio-sessions.json`), SLASH-COMMANDS-agents.md (`/agents live`), ARCHITECTURE-modules.md.
-
-### R3: a pack's own Setup blocks
-
-#### Added
-- `contributes.setup` in pack.yaml (`packs/manifest_setup.py`, the YAML shape and `pack.schema.json`'s `$defs.setup`, field_help; extension API 1.1, a `stable` row): a list of blocks `{id, title, kind: form | check | note, after?, help?, fields? | run + what + cost + time + writes | text}`. A **form** shows the pack's `config.schema` keys named in `fields` (or every key); a **check** is a command in the pack's folder with the substitutions hooks use (`${halo_python}`, `${CLAUDE_PLUGIN_ROOT}`) and the four lines it shows before it runs; a **note** is a markdown file in the pack. Checked at install like every contribution, one line each (an unknown kind, a field the schema does not have, a `run` outside the pack or missing, a check without its four lines, a missing or outside `text` file, an `after` that is not a core step, a key of another kind, an id used twice), and the install is refused.
-- Where a pack's setup stands: `~/.halo/packs/.data/<id>/setup.json` (`packs/setup_state.py`), `{blocks: {<id>: {state: done | skipped, at, by}}}` -- a form is done once saved from Setup, a check once it ran green, a note once read; any block may be skipped; each change is the pack's `setup` event.
-- Studio's Setup draws them (`studio/setup_packs_api.py`: `GET setup/packs`, `GET|POST setup/packs/<id>/<block>`; `GET setup/state` gains `packs`): each block is a step of its own in the rail, only while its pack is enabled -- behind the core step its `after` names (the pack's name on the button), else after the core steps under the pack's name, before the Summary, which lists each with its state. The form is the pack's own settings form (`PackForm`, its keys only: Save is checked against the schema and writes `packs.settings.<id>`, a bad value is a 422 with the schema's line under its field); a check shows its what / cost / time / writes line and **Run this check**; a note is the pack's markdown with **Mark as read**; every block has **Skip** (`routes/setup/PackBlocks.tsx`, `packSetup.ts`). `?block=pack:<id>:<block>` opens one.
-- A pack's check rides the checks job as one more key, `pack:<id>:<block>` (`start/checks_pack.py`): its frames are the job's frames, its output the row's lines, exit 0 green (and the block done), any other exit red with the exit code. The Check page lists the pack checks under **From packs**, unticked until you tick one. The check runs in the pack's folder with the environment a pack hook gets: Halo's provider keys taken out, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`, `HALO_PACK_ID` and `HALO_SETUP_BLOCK` put in.
-- The doors: `halo pack enable <id>` (and `halo pack on <bundle>`) end with one line per block still waiting, `setup: <id> -- <title> (halo setup <id>)`; `halo setup <pack>` opens Studio's Setup on the pack's first block waiting (`?mode=setup&block=pack:<id>:<block>`), or, with no terminal, `--terminal` or no browser, prints each block with its state; `halo doctor`, `halo pack doctor` and `halo doctor --config` list a pack setup still waiting as an `info` row (`setup-waiting`, exit 0), and the Pack Manager's row says **setup waiting** beside its notes count (`setup_waiting`).
-- Nothing private: a block's answers carry the pack's own manifest lines, its own settings for the form's keys and its own note file, never an environment value, a provider key, the provider state or another pack's settings (pinned). With no pack contributing `setup`, Setup is as it was (pinned: the rail's steps).
-- The fixture pack `tests/fixtures/packs/setup-blocks/` (a form over two of three schema keys behind Default model, a check that prints two lines and exits 0 or 1 by `HALO_SETUP_TEST_FAIL`, a note). Glossary: "setup block". Tests: `tests/test_pack_setup_manifest.py`, `tests/test_pack_setup_state.py`, `tests/test_setup_packs_api.py`, the Chrome `tests/test_studio_setup_packs.py` (over `tests/helpers/studio_setup_packs.py`), and new tests in `tests/test_packs_cli.py`, `tests/test_setup_door.py` and `tests/test_pack_doctor_info.py`.
-
-#### Changed
-- `start/checks.py`: `check(key)` and `ordered(keys)` know an enabled pack's check keys (after the core checks, in the order given), `known_key(key)`; `POST setup/check` takes them (an unknown key's 422 names the keys offered); the job's summary row carries a pack check's title.
-- Setup's pages: `StepId` is a core step or `pack:<id>:<block>` (`titleOf`, `stepsOf` placing the pack steps); the rail and the Summary read their rows as JSON (a pack's title may hold any character); the Summary is done when every core step and every pack block is done or skipped; Check's `Row` is exported; `runChecks` sends the ticked pack keys; `PackForm` takes `onSaved` (Setup re-reads, no toast) and only needs the pack's id.
-- `studio/setup_door.py`: a Setup target may name a pack's block (`setup:pack:<id>:<block>`, shown as "Setup (<id>: <block>)"); `halo setup`'s usage names an enabled pack's id.
-- `tests/test_pack_policy_manifest.py` reads `policy` and `modes` as the keys before `setup` in `CONTRIBUTION_KEYS`.
-- Docs: EXTENSION_API.md (Setup blocks, its status row, the manifest example, Changes in 1.x; `ext.compat.CHANGES["1.1"]`), STUDIO-setup.md (A pack's blocks, the routes), PACKS.md (Setup blocks), COMMANDS-packs.md (`halo pack enable`'s lines, the doctor's second info kind, `halo setup <pack>`), COMMANDS-init.md (a pointer), ARCHITECTURE-modules.md, GLOSSARY.md.
-
-### Also in 3.3.11.0
-
-#### Changed
-
-- A pack's remove, update and rollback wait up to five seconds for a file another process still holds (Windows:
-  WinError 32, a reader of the pack folder such as the Studio watcher) before giving up. Before, one held file stopped the
-  whole remove and rolled it back, so the pack came back as if nothing had happened (seen on the Windows runner).
-- New session: the Prompt takes the keyboard only once Studio's event bridge is attached to the new child (its
-  `sessions` frame names it), and the server nudges the bridge the moment the child registers instead of leaving it to the
-  two-second scan. Before, a first turn typed inside that window could stream its reply before Studio listened, and the
-  panel never showed it (the Linux runner did exactly that).
-- A security review's fix pass (commit 821abd77, findings H1-H4 and M1-M12): the deny matcher treats interpreter `-c`/`-e`
-  flags, file-fed shells and `powershell -File` as opaque, an unresolved `$VAR` or backtick path triggers a rule instead of
-  skipping it, a Bash redirect's target is gated by the Edit/Write path rules, `git --ext-diff` leaves the read-only list;
-  Hugging Face downloads are contained to their folder before a write, zip extraction uses the `data` filter, Write and
-  Edit resolve a path before opening it and the stale-file check uses "changed" rather than "older", NotebookEdit gets the
-  same must-Read gate, BashOutput polls are capped per turn, the voice routes observe the `control` grant, a container
-  mounts `.git` read-only, `halo update --to` is quoted. `halo update` with a release whose assets cannot be read (offline,
-  rate-limited) now installs nothing and says so, naming `--no-verify` for installing without the check; before it installed
-  with a printed warning.

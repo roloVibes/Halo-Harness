@@ -1388,13 +1388,9 @@ async def _handle_recall(app, args: str) -> None:
             kind="command")
         return
     if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
-        from halo_harness.packs import fleet_door  # 3.4.0.0 C: the fleet pack's
+        from halo_harness.recall_fleet import fleet_text  # 3.4.0.1 (defect 4): core; it says the line with the pack off
         rest = query[len("--fleet"):]
-
-        def _fleet_text() -> str:
-            got = fleet_door.call("fleet/recall_fleet.py", "fleet_text", rest)
-            return got if got is not None else f"/recall --fleet: {fleet_door.line()}"
-        app.run_worker(lambda: app.call_from_thread(app.transcript.add_note, _fleet_text(), kind="command"),
+        app.run_worker(lambda: app.call_from_thread(app.transcript.add_note, fleet_text(rest), kind="command"),
                        thread=True, name="recall", group="recall")
         return
     session = getattr(app.controller, "session", None)

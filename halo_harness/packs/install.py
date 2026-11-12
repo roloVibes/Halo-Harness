@@ -66,8 +66,12 @@ def install(source: str, *, project: bool = False, cwd=None, state_dir=None, lin
         dest = base / pack.id
         if dest.exists():
             rec = S.entry(pack.id, state_dir)
-            if rec and not rec.get("removed"):
-                return False, [f"{pack.id} is already installed at {dest} (halo pack update {pack.id})"]
+            if rec and not rec.get("removed"):  # 3.4.1.0 R5 (defect 30): the same version is done, an older one says so
+                have = str(rec.get("version") or "")
+                if have == str(pack.version):
+                    return True, [f"{pack.id} {have} is already installed at {dest}: nothing to do"]
+                return False, [f"{pack.id} {have or '?'} is already installed at {dest}; {source} holds {pack.version}: "
+                               f"halo pack update {pack.id}"]
             return False, [f"{dest} is already there and Halo did not put it there; it is left as it is "
                            "(move it away, or enable it in place: halo pack enable " + pack.id + ")"]
         op = J.Op("install", pack.id, state_dir=state_dir)

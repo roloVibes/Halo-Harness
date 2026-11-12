@@ -38,23 +38,23 @@ export function MissionReport() {
       {rep.stop_reason && <p className="muted fmi-small">Stopped: {rep.stop_reason}</p>}
       <div className="rail-label mono">COST PER HARNESS</div>
       <table className="fmi-table fmi-htable" data-testid="fleet-mission-report-harnesses">
-        <thead><tr><th>harness</th><th>parts</th><th>done</th><th>failed</th><th>cost</th></tr></thead>
+        <thead><tr><th>harness</th><th title="how many parts it ran, and their numbers">parts</th><th>done</th><th>failed</th><th>cost</th></tr></thead>
         <tbody>
           {rep.harnesses.map((h) => (
             <tr key={h.harness} data-testid="fleet-mission-report-harness" data-name={h.name}>
-              <td>{h.name}</td><td className="mono">{h.parts.join(", ")}</td><td className="mono">{h.done}</td><td className="mono">{h.failed}</td><td className="mono">{usd(h.cost_usd)}</td>
+              <td>{h.name}</td><td className="mono">{h.parts.length} <span className="muted">(#{h.parts.join(", #")})</span></td><td className="mono">{h.done}</td><td className="mono">{h.failed}</td><td className="mono">{usd(h.cost_usd)}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <div className="rail-label mono">WHO DID WHAT</div>
-      <table className="fmi-table">
+      <div className="fmi-table-wrap"><table className="fmi-table">
         <thead><tr><th>#</th><th>part</th><th>harness</th><th>state</th><th>cost / est</th><th>time</th><th>files</th></tr></thead>
         <tbody>
           {rep.parts.map((p) => (
             <tr key={p.id} data-testid="fleet-mission-report-part" data-part={p.id}>
               <td className="mono">{p.id}</td>
-              <td title={p.error || ""}>{short(p.title, 48)}{p.error && <div className="muted fmi-small">{short(p.error, 80)}</div>}</td>
+              <td className="fmi-ptitle" title={p.error || ""}>{short(p.title, 48)}{p.error && <div className="muted fmi-small">{short(p.error, 80)}</div>}</td>
               <td>{p.harness_name}</td>
               <td><span className="fmi-pstate mono" data-state={p.merged ? "merged" : p.state}>{p.merged ? "merged" : p.state}</span></td>
               <td className="mono">{usd(p.cost_usd)} / {usd(p.est_cost_usd)}</td>
@@ -63,7 +63,7 @@ export function MissionReport() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
       {rep.decisions.length > 0 && (
         <>
           <div className="rail-label mono">DECISIONS</div>
@@ -84,7 +84,8 @@ export function MissionReport() {
       )}
       {rep.merge && (
         <p className="mono fmi-small">
-          merge {rep.merge.ok ? "ok" : "not finished"}: {rep.merge.merged.join(", ") || "nothing"} into {rep.merge.branch}
+          {rep.merge.branch ? <>merge {rep.merge.ok ? "ok" : "not finished"}: {rep.merge.merged.join(", ") || "nothing"} into {rep.merge.branch}</>
+            : rep.merge.ok ? "nothing to merge (files parts only)" : "merge not finished"}
           {rep.merge.conflicts.length ? ` · ${rep.merge.conflicts.length} conflict${rep.merge.conflicts.length === 1 ? "" : "s"} judged` : ""}
           {rep.merge.error ? ` · ${rep.merge.error}` : ""}
         </p>

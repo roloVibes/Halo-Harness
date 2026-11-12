@@ -210,6 +210,28 @@ def test_rule_6_the_pool_watch_driver_reads_bundles_before_it_degrades(ctx: Ctx)
               "is healthy, the degrading finding after", "for fn in (bench, bundles, findings, adviser)" in text)
 
 
+@test
+def test_rule_7_a_driver_reads_a_file_the_server_replaces_with_a_retry(ctx: Ctx):
+    """3.4.1.0 R5 (Windows run 43173639949): tests/helpers/studio_ollama.config read config.json while the server
+    replaced it and got PermissionError; the read now rides out Windows' sharing rule for a moment."""
+    from tests.helpers.studio_ollama import config
+
+    class Flaky:
+        tries = 0
+
+        def __truediv__(self, _name):
+            return self
+
+        def read_text(self, encoding=None):
+            Flaky.tries += 1
+            if Flaky.tries < 3:
+                raise PermissionError(13, "The process cannot access the file because it is being used by another process")
+            return '{"ollama": {"steward": {"watch": true}}}'
+    got = config({"state": Flaky()})
+    ctx.check(f"two denied reads, then the file, got {got} after {Flaky.tries} reads",
+              got == {"ollama": {"steward": {"watch": True}}} and Flaky.tries == 3)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

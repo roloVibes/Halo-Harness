@@ -51,6 +51,7 @@ class WorkerRun(threading.Thread):
         self.guard = None
         self.run_id: Optional[str] = None  # 3.1.2.0 R2: an orchestra part's run (mission_stage_run.py)
         self.report = False
+        self.unanswered: Optional[str] = None  # 3.4.1.0 R5: a card nobody answered in time (mission_wait.AskWatch)
 
     # ---- placing -------------------------------------------------------------------------------
     def place(self) -> None:
@@ -134,6 +135,8 @@ class WorkerRun(threading.Thread):
         where = (f"Your folder is a git worktree of {self.f['repo']} on branch {self.f['branch']}."
                  if self.f["kind"] == "repo" else f"Your folder is the mission folder; your outputs go in artifacts/{n}/.")
         budget = f"\nKeep this part under ${self.f['budget_usd']:.2f}." if self.f.get("budget_usd") else ""
+        from .mission_outcome import OUTCOME_LINE  # a brief written before 3.4.0.1 does not ask for it
+        budget += "" if "Outcome:" in brief else f"\nEnd your reply with a short hand-back. {OUTCOME_LINE}"
         return f"{brief}\n\n{where}{budget}{self.handoff_line()}\n\n---\n\nMISSION.md (the whole mission, for context):\n\n{mission}"
 
     def handoff_line(self) -> str:
@@ -153,21 +156,25 @@ class WorkerRun(threading.Thread):
             from .mission_stage_run import run
             return run(self)
         from .mission_guard import MissionClaimGuard, install
+        from .mission_wait import AskWatch, waits
         from .mission_worker_session import close_row, open_row
         session, run_fn, close = mission_worker.builder()(self.cwd, self.home)
-        self.session = session
+        self.session, watch = session, AskWatch(self)
         try:
             self.act = open_row(session, self.cwd, mission=self.f["mission"], part=self.f["part"], title=self.f["title"])
-            self.guard = install(session.permission_engine, MissionClaimGuard(
-                self.cwd, self.f["claims"], mission=self.f["mission"], part=self.f["part"], on_refused=self._refused))
+            self.guard = install(session.permission_engine, MissionClaimGuard(  # 3.4.1.0 R5: + a files part's own folder
+                self.cwd, self.f["claims"], mission=self.f["mission"], part=self.f["part"], on_refused=self._refused,
+                own=self.folder if self.f["kind"] == "files" else None))
+            waits(session), watch.start()  # 3.4.1.0 R5 (defect 32): an ask waits as a card on this machine
             if self.stopped:
                 return {"ok": False, "error": self.stopped, "cost_usd": 0.0}
             out = dict(run_fn(self._prompt(), self.act.handle if self.act is not None else None) or {})
             abort = getattr(session, "abort", None)
-            if not self.stopped and abort is not None and abort.is_set():  # a stop that came like any agent's
+            if not self.stopped and not self.unanswered and abort is not None and abort.is_set():  # a stop like any agent's
                 self.stopped = "stopped while it ran (the main agent was interrupted)"
             return out
         finally:
+            watch.stop()
             close_row(self.act)
             close()
 
@@ -195,6 +202,7 @@ class WorkerRun(threading.Thread):
         harness = _core.get("peers.identity", "harness")
         gitops = _core.module("orchestra.gitops")
         mid, n = self.f["mission"], self.f["part"]
+        out = {**out, "ok": False, "error": self.unanswered} if self.unanswered else out
         state = "stopped" if self.stopped else ("done" if out.get("ok") else "failed")
         files, head, bundle = [], None, False
         if self.f["kind"] == "repo" and self.cwd is not None and self.base:
@@ -210,6 +218,10 @@ class WorkerRun(threading.Thread):
         elif self.folder is not None:
             files = [f["path"] for f in S.files(self.folder, f"artifacts/{n}")]
         text = str(out.get("text") or "").strip() or (f"(no reply) {out.get('error') or self.stopped or ''}").strip()
+        if state == "done":  # 3.4.0.1: done means the hand-back says so and the named outputs are here
+            from .mission_outcome import verdict
+            why = verdict(text, self.folder, self.f.get("outputs") or [], self.f["kind"])
+            state, out = ("failed", {**out, "error": why}) if why else (state, out)
         self.result = {"ok": state == "done", "state": state, "cost_usd": round(float(out.get("cost_usd") or 0.0), 6),
                        "error": None if state == "done" else (self.stopped or out.get("error") or "the part failed"),
                        "session_id": out.get("session_id") or getattr(getattr(self.session, "log", None), "session_id", None),
@@ -218,6 +230,9 @@ class WorkerRun(threading.Thread):
                        "refused": list(getattr(self.guard, "refused", []))[:50]}
         if self.run_id:
             self.result.update(run_id=self.run_id, run_kind=self.f["kind"])
+        if self.mode != "local":  # 3.4.0.1 (defect 18): what leaves this machine names no full local path
+            text, self.result["error"] = (_core.get("peers.catalog", "scrub")(x, (str(_core.get("config.paths", "home")()), str(self.home)))
+                                          for x in (text, self.result["error"]))
         if self.folder is not None:
             S.write_text(self.folder, f"parts/{n}/handback.md", f"# Part {n} hand-back ({state})\n\n{text}\n")
             S.write_text(self.folder, f"parts/{n}/result.json", json.dumps(self.result, indent=2))

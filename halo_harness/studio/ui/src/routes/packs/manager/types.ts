@@ -57,6 +57,8 @@ export type PackRow = {
   has_settings: boolean;
   /** 3.2.0.0 R7: the version `halo pack rollback` goes back to (kept as <id>.previous), or "". */
   previous: string;
+  /** 3.4.1.0 R5 (defect 30): the newer version this Halo ships of a pack installed from its shipped folder, or "". */
+  ships?: string;
   /** 3.3.10.0 R2: a pack with policy hooks: the armed ones, its mode, the last verdict a session got and the counts. */
   policy?: PolicyBlock | null;
   /** 3.3.13.0 R3: its services as the supervisor runs them ("running since 09:12" / "stopped: <line>"). */

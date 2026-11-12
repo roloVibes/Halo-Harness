@@ -62,15 +62,28 @@ def _rank(entry: dict, prefer: list, load: dict) -> tuple:
     return pos, int(load.get(str(entry.get("harness")), 0)), str(entry.get("name") or "").lower()
 
 
-def assign(part: dict, entries: list, prefer: list, load: dict) -> dict:
-    """Set `harness`, `harness_name`, `pinned`, `reason`, `unassignable` on `part` by the rules."""
+def _nobody(nobody: list, away: list) -> str:
+    """3.4.0.1 (defect 14): a member that is away still has its card: say who has it, and what brings it back."""
+    names = sorted({str(e.get("name")) for e in away for n in nobody if has(e.get("catalog"), n)})
+    if not names:
+        new = sorted({str(e.get("name")) for e in away if not e.get("catalog")})  # 3.4.1.0 R5 (defect 36): a fresh join
+        return f"nobody in the fleet has {', '.join(nobody)}" + (
+            f"; {', '.join(new)} joined but {'has' if len(new) == 1 else 'have'} not sent {'its' if len(new) == 1 else 'their'} "
+            "card yet (it goes with the first halo session there): open one, then plan again" if new else "")
+    return (f"nobody online has {', '.join(nobody)}; {', '.join(names)} {'has' if len(names) == 1 else 'have'} it but "
+            f"{'is' if len(names) == 1 else 'are'} offline (no halo session open there): open one, then plan again")
+
+
+def assign(part: dict, entries: list, prefer: list, load: dict, away: list = ()) -> dict:
+    """Set `harness`, `harness_name`, `pinned`, `reason`, `unassignable` on `part` by the rules (`away`: the members
+    offline now, with their cards: named when only they have a need)."""
     needs = [norm_need(n) for n in part.get("needs") or [] if norm_need(n)]
     part["needs"] = needs
     nobody = [n for n in needs if not any(has(e.get("catalog"), n) for e in entries)]
     part["pinned"], part["unassignable"] = False, None
     if nobody:
-        part.update(harness=None, harness_name=None, unassignable=f"nobody in the fleet has {', '.join(nobody)}",
-                    reason=f"unassignable: nobody in the fleet has {', '.join(nobody)}")
+        why = _nobody(nobody, list(away or []))
+        part.update(harness=None, harness_name=None, unassignable=why, reason=f"unassignable: {why}"[:300])
         return part
     fit = able(entries, needs)
     if not fit:
@@ -95,8 +108,30 @@ def assign(part: dict, entries: list, prefer: list, load: dict) -> dict:
         how = "first in fleet.mission.prefer" if rank[0] < len(prefer) else f"least busy ({rank[1]} live agents)"
         reason = (f"{e.get('name')} has {', '.join(whys)}; " if needs else f"{e.get('name')}: ") + how
     part.update(harness=str(e.get("harness")), harness_name=e.get("name"), reason=reason[:300],
-                pack_needs=pack_needs(needs, whys))
+                pack_needs=pack_needs(needs, whys), mode_note=mode_note(e))
     return part
+
+
+ASKS = ("default", "plan", "acceptEdits")  # the modes in which some tool call asks first
+
+
+def mode_note(e: dict) -> str:
+    """3.4.0.1 (defect 16): the plan says per part when its harness's mode asks. 3.4.1.0 R5 (defect 32): a member
+    of 3.4.1.0 on parks the ask as a card on that machine for `mission_ask_wait_min` (its card says how long); an
+    older one refuses it (print mode, no one to answer)."""
+    h = (e.get("catalog") or {}).get("harness") or {}
+    mode, wait = str(h.get("permission_mode") or ""), h.get("mission_ask_wait_min")
+    if mode not in ASKS:
+        return ""
+    allow = ("on that machine allow what the part runs with a rule (permissions.allow, e.g. Bash(nmap:*)) or "
+             "`halo config set permission_mode auto`")
+    if isinstance(wait, (int, float)) and not isinstance(wait, bool):
+        return (f"{e.get('name')} runs mission parts in permission mode {mode}: writing its own outputs folder needs no "
+                f"ask; any other tool call that would ask there waits as a card in its owner's Attention on that machine "
+                f"for up to {wait:g} min (fleet.mission.ask_wait_min), then the part ends not done; to need no answer, "
+                + allow)
+    return (f"{e.get('name')} runs mission parts in permission mode {mode}: a tool call that would ask there is refused "
+            "(a part has no one to answer it); " + allow)
 
 
 def pack_needs(needs: list, whys: list) -> list:

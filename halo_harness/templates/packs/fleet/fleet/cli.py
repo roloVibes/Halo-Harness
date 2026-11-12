@@ -94,6 +94,8 @@ def cmd_serve(argv: list) -> int:
         else:
             print(f"The fleet hub {'already runs' if body.get('already') else 'runs'} inside Studio at {body.get('url')}.")
             print("`halo fleet pair` makes a code for another harness; it stops with Studio.")
+            if body.get("firewall"):  # 3.4.0.1 (defect 12): Windows Firewall in the way
+                print(body["firewall"])
         return 0
     tls = _core.module("peers.tls")
     from .hub import FleetOffline, HubServer
@@ -110,6 +112,8 @@ def cmd_serve(argv: list) -> int:
         how = f"TLS, fingerprint {tls.short(hub.fingerprint)}" if hub.fingerprint else "HMAC-signed HTTP, no TLS"
         print(f"Fleet hub {hub.name} at {hub.url()} ({how}).")
         print("`halo fleet pair` makes a code for another harness. Ctrl+C stops the hub.")
+        if hub.state.serving.get("firewall"):  # 3.4.0.1 (defect 12): Windows Firewall in the way
+            print(hub.state.serving["firewall"])
     sys.stdout.flush()
     try:
         while not hub.stopping.is_set():

@@ -143,6 +143,7 @@ def local_catalog(home, on_change=None) -> Optional[dict]:
             return None
     elif caps.stale(cat):
         caps.refresh_in_background(home, (lambda c, changed: on_change(c) if changed else None) if on_change else None)
+        return {**cat, "refreshing": True}  # 3.4.0.1 (defect 19): this read shows the old card and says so
     return cat
 
 
@@ -160,6 +161,6 @@ def entry(h: dict, cat: Optional[dict], announced: Optional[dict] = None, asked=
             row["note"] = "it did not answer `capabilities` (an older Halo, or no live session); asked again within a minute"
         elif not h.get("local"):
             row["note"] = "no catalog yet: it sends one with its next announce (a live session is needed)"
-    elif announced and announced.get("hash") and announced["hash"] != cat.get("hash"):
-        row["note"] = "a newer catalog is on its way"
+    elif cat.get("refreshing") or (announced and announced.get("hash") and announced["hash"] != cat.get("hash")):
+        row["note"] = "refreshing: a newer catalog is on its way (this one is from an older read)"
     return row

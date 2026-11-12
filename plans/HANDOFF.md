@@ -12,7 +12,23 @@ The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harnes
 the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
 push"; plans/WORKER-RULES.md "The pre-push gate").
 
-## WHERE THINGS STAND -- 2026-11-11 evening (authoritative; every block below is history)
+## WHERE THINGS STAND -- 2026-11-12 (authoritative; every block below is history)
+
+v3.4.0.0 "The core" (2026-11-11) and v3.4.0.1 "Found live" (2026-11-12, 7069a05e: 29 defects of the first
+two-machine check) are released. 3.4.1.0 "Time" -- R1 the scrubber and the replay file, R2 compare two runs, R3 the run
+report card, R4 the glance and the alert, R5 3.4.0.1 merged in plus the second check's findings (2/12/22 changed but
+wrong, new 30-37, a Windows test-helper race, per-project caps; the fleet pack is 1.0.2) -- is on branch
+`v341/R5-found-live-2` (worktree `~/hh-341/R5-found-live-2`), the master merge staged and uncommitted, awaiting the
+coordinator's gate (`python scripts/prepush.py --ui` from Git Bash), commit, push and `python scripts/release.py
+3.4.1.0` (only when `conclusion == success` for the exact HEAD on both runners), then the PC reinstall and `halo
+--version`. Briefs and hand-backs: `~/hh-341/briefs/` (R1-R5) and `~/hh-3401/briefs/` (3.4.0.1). The two live-check
+findings files are `~/hh-live/briefs/live-3400-findings.md` (defects 1-29) and `live-3401-recheck-findings.md` (the
+re-check, 30-37). The Kali VM (ssh key `kali_vm`) is the Linux live-check box; Chrome there needs
+`--password-store=basic` over ssh (already in tests/helpers/chrome_driver.py). After 3.4.1.0: the PC as hub past its
+Windows Firewall Block rules (admin), a mission across both machines with Kali in `default` mode, then the list
+below from item (4).
+
+## WHERE THINGS STOOD -- 2026-11-11 evening (history)
 
 v3.3.16.0 through v3.3.17.0 are released. On master and pushed, unreleased: 3.3.18.0 the living canvas, and 3.4.0.0
 "The core" rounds A (Typesafe out), B and B part 2 (the coach pack; the terminal wizard is a console fallback), C (the

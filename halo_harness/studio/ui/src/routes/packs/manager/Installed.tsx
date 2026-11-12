@@ -60,6 +60,11 @@ function Row({ p, on }: { p: PackRow; on: boolean }) {
         <span className="pm-row-id mono">{p.id}</span>
         <span className="pm-row-name">{p.name}</span>
         <span className="pm-row-ver mono muted">{p.version}</span>
+        {p.ships && (
+          <span className="og-chip mono pm-warn" title={`${p.id} ${p.version} is older than the ${p.ships} this Halo ships: ${cli.update(p.id)}`} data-testid="pm-ships">
+            {p.ships} available
+          </span>
+        )}
         <span className="og-chip mono pm-state" data-testid="pm-state">{stateWord(p)}</span>
         <span className="og-chip mono" title={p.requested.length ? `requests: ${p.requested.join(", ")}` : "it requests no permissions"} data-testid="pm-grants">
           {p.granted.length}/{p.requested.length} granted

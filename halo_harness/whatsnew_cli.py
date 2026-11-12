@@ -109,4 +109,19 @@ def after_update(returncode: int, before: dict, after_line: str, *, run_fn: Call
     if text:
         print(f"halo update: what is new -- {text}")
     print(f"halo update: {MORE}")
+    for line in stale_packs(run_fn):  # 3.4.1.0 R5 (defect 30): last, a pack older than the one the new Halo ships
+        print(f"halo update: {line}")
     return 0
+
+
+def stale_packs(run_fn: Callable) -> "list[str]":
+    """The new install's word on every installed pack older than the one it ships (`halo pack list --json`, its
+    `ships`); [] when it cannot say (an older Halo, a failed run)."""
+    import json
+    try:
+        got = run_fn(["halo", "pack", "list", "--json"], capture_output=True, text=True, timeout=30)
+        rows = json.loads(got.stdout or "{}").get("packs") or [] if getattr(got, "returncode", 1) == 0 else []
+    except Exception:
+        return []
+    from halo_harness.packs.shipped_newer import note
+    return [note(r["id"], r.get("version") or "?", r["ships"]) for r in rows if isinstance(r, dict) and r.get("ships") and r.get("id")]

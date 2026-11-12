@@ -6,7 +6,7 @@
 # Its Python reaches the core (peers/, live/, the session's sockets) through `halo_harness.ext.core`.
 id: fleet
 name: Fleet
-version: 1.0.0
+version: 1.0.2
 description: >-
   Several halos joined to one hub: `halo studio --fleet` or `halo fleet serve` runs the hub, `halo fleet join` pairs
   another machine with a six-word code, and the hub sees every member's sessions and agents, steers them as each
@@ -24,4 +24,6 @@ contributes:
   slash:
     - {name: fleet, module: cli/slash_fleet.py, help: "the fleet: every harness, session and agent this machine sees; who / capabilities"}
     - {name: mission, module: cli/slash_mission.py, help: "fleet missions: the list, or one mission's parts by harness"}
-permissions: ["cli:fleet", "cli:mission"]
+  doctor:  # 3.4.0.1: whether it runs, the hub here and the firewall in its way, the hubs this harness joined
+    - {id: fleet, module: doctor.py, help: "the hub here (and Windows Firewall), the hubs this harness joined"}
+permissions: ["cli:fleet", "cli:mission", doctor]

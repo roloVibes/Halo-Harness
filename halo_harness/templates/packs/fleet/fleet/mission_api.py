@@ -16,7 +16,7 @@ from typing import Callable, Optional
 
 from halo_harness.ext import core as _core
 journal = _core.module("live.journal")
-from . import mission as M, mission_plan as P, mission_run as R, mission_store as S
+from . import mission as M, mission_plan as P, mission_run as R, mission_store as S, mission_wait as W
 from .mission_dispatch import Dispatch
 from .fleet_registry import pack_mission
 
@@ -42,8 +42,8 @@ class Ctx:
 
 def _claim_sink(home, f: dict, publish) -> None:
     data = f.get("data") if isinstance(f, dict) and isinstance(f.get("data"), dict) else {}
-    if f.get("event") == "fleet" and data.get("action") == "mission_claim":
-        R.note_claim(home, f, publish)
+    if f.get("event") == "fleet" and data.get("action") in ("mission_claim", "mission_wait"):  # 3.4.1.0 R5: + a card
+        (R.note_claim if data["action"] == "mission_claim" else W.note)(home, f, publish)
 
 
 def _err(e: M.MissionError) -> "tuple[int, dict]":
@@ -72,7 +72,7 @@ def list_missions(ctx: Ctx) -> "tuple[int, dict]":
 
 def _plan(ctx: Ctx, mid: str) -> dict:
     view = ctx.dispatch.view()
-    plan = P.plan(ctx.home, mid, ctx.dispatch.entries(view), call_model=LEAD, load=Dispatch.load(view), by=ctx.by)
+    plan = P.plan(ctx.home, mid, *ctx.dispatch.split(view), call_model=LEAD, load=Dispatch.load(view), by=ctx.by)
     _journal(ctx, "mission_planned", mid, parts=len(plan["parts"]))
     _frame(ctx, mid, "planned")
     return plan

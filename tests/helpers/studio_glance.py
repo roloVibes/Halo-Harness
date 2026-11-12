@@ -111,7 +111,9 @@ def glance(c, rig) -> dict:
                           f"{Q}('.gz').scrollWidth, {Q}('.gz').clientWidth]"),
            "narration": c.wait(f"{Q}('[data-testid=\"glance-narration\"]')?.textContent", 20),
            "spend": c.js(f"{Q}('[data-testid=\"glance-spend\"] dd').textContent"),
-           "elapsed": c.js(f"{Q}('[data-testid=\"glance-elapsed\"] dd').textContent"),
+           # 3.4.1.0 R5: a loaded box drew "no session" before the session's row landed: wait for the value asserted
+           "elapsed": c.wait(f"(() => {{ const t = {Q}('[data-testid=\"glance-elapsed\"] dd')?.textContent; "
+                             "return t && t !== 'no session' ? t : ''; })()", 20),
            "keys": c.js(f"{keys}.map((b) => [b.dataset.key, b.querySelector('.gz-key-word').textContent, b.querySelector('.gz-key-does').textContent])"),
            "key_h": c.js(f"Math.min(...{keys}.map((b) => b.getBoundingClientRect().height))"),
            "ask_what": c.js(f"{ASK}.querySelector('.gz-ask-what').textContent"),

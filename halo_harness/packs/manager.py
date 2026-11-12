@@ -120,6 +120,7 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
                has_settings=ST.schema_of(pack.manifest) is not None)
     prev = (S.entry(pack.id, data=snap.state) or {}).get("previous") if pack.scope != "source" else None
     out["previous"] = str(prev.get("version") or "") if isinstance(prev, dict) else ""  # 3.2.0.0 R7: Rollback
+    out["ships"] = (listed or {}).get("ships") or ""  # 3.4.1.0 R5 (defect 30): the newer version this Halo ships
     from halo_harness.packs.policy_audit import manager_block
     out["policy"] = manager_block(pack, state_dir=state_dir)  # 3.3.10.0 R2: the armed policies, the last verdict
     from halo_harness.packs.setup_state import waiting_count  # 3.3.11.0 R3: "setup waiting" beside the notes count

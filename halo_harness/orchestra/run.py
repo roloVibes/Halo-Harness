@@ -125,13 +125,12 @@ class Flow:
 
 
 def goal_units(repo: Path, goal) -> list:
-    units = []
+    if not goal.files and not getattr(goal, "workflow", None):  # 3.4.0.1 (defect 20): no split passes without them
+        raise StopRun("the goal names no files, and a job may edit only the goal's files: halo orchestra new --file <path> ...")
     for rel in goal.files:
-        path = repo / rel
-        if not path.is_file():
+        if not (repo / rel).is_file():
             raise StopRun(f"the goal's file {rel} is not in the repo")
-        units += index_file(path, root=repo)
-    return units
+    return [u for rel in goal.files for u in index_file(repo / rel, root=repo)]
 
 
 def _check_stop(run_dir) -> None:

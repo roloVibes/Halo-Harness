@@ -6,8 +6,12 @@ hub's view (`GET /api/fleet`); studio/fleet_watch.py acts on `reached`.
     fleet.caps.per_project_usd_per_day   every session on one repo started today, any harness
     fleet.caps.fleet_usd_per_day         every session the hub sees started today
 
-A session counts toward today when it started today (local time), with the
-cost its control socket reports, the same rule as a harness's `cost_today`.
+A session counts toward today when it started today (local time). A harness's
+(and so the fleet's) total is its `cost_today`, read from its sessions'
+records, finished ones included (3.4.0.1, live/session_cost.py); a project's
+is each harness's `cost_today_projects` (3.4.1.0 R5: the same records, by
+project), or what its live sessions report when that is more (an older member
+says no projects).
 A cap reached pauses the live sessions in its scope (the `pause` command,
 reason "cap": every agent holds at its next tool boundary, so nothing new is
 spawned) and raises an attention row; lifting it (the row's `a`) resumes
@@ -52,7 +56,7 @@ def started_today(row: dict, now: Optional[float] = None) -> bool:
 
 
 def spend(view: dict, now: Optional[float] = None) -> dict:
-    sessions, per_h, per_p = [], {}, {}
+    sessions, per_h, per_p, live_hp = [], {}, {}, {}
     for h in view.get("harnesses") or []:
         hid, hname = str(h.get("id") or ""), str(h.get("name") or h.get("id") or "")[:64]
         per_h[hid] = {"id": hid, "name": hname, "local": bool(h.get("local")), "usd": 0.0, "sessions": 0}
@@ -67,15 +71,33 @@ def spend(view: dict, now: Optional[float] = None) -> dict:
                 continue
             per_h[hid]["usd"] += usd
             per_h[hid]["sessions"] += 1
-            p = per_p.setdefault(pk, {"key": pk, "label": pk, "usd": 0.0, "sessions": 0, "harnesses": []})
-            p["usd"] += usd
-            p["sessions"] += 1
-            if hname not in p["harnesses"]:
-                p["harnesses"].append(hname)
+            got = live_hp.setdefault((hid, hname, pk), [0.0, 0])
+            got[0], got[1] = got[0] + usd, got[1] + 1
+    for h in view.get("harnesses") or []:  # 3.4.1.0 R5: a harness's finished sessions count toward their project too
+        said = h.get("cost_today_projects") if isinstance(h.get("cost_today_projects"), dict) else {}
+        hid, hname = str(h.get("id") or ""), str(h.get("name") or h.get("id") or "")[:64]
+        for pk, row in said.items():
+            usd = row.get("usd") if isinstance(row, dict) else None
+            if isinstance(usd, (int, float)) and not isinstance(usd, bool):
+                got = live_hp.setdefault((hid, hname, str(pk)), [0.0, 0])
+                got[0], got[1] = max(got[0], float(usd)), max(got[1], int(row.get("sessions") or 0))
+    for (hid, hname, pk), (usd, n) in live_hp.items():
+        p = per_p.setdefault(pk, {"key": pk, "label": pk, "usd": 0.0, "sessions": 0, "harnesses": []})
+        p["usd"] += usd
+        p["sessions"] += n
+        if hname not in p["harnesses"]:
+            p["harnesses"].append(hname)
+    for h in view.get("harnesses") or []:  # 3.4.0.1: a harness's today counts its finished sessions (its records)
+        said, row = h.get("cost_today"), per_h.get(str(h.get("id") or ""))
+        if row is not None and isinstance(said, (int, float)) and not isinstance(said, bool) and said > row["usd"]:
+            row["usd"] = float(said)
+            row["sessions"] = max(row["sessions"], int(h.get("sessions_today") or 0))
+        if row is not None and h.get("cost_today_unknown"):
+            row["unknown"] = list(h["cost_today_unknown"])
     for d in list(per_h.values()) + list(per_p.values()):
         d["usd"] = round(d["usd"], 6)
     total = round(sum(h["usd"] for h in per_h.values()), 6)
-    return {"fleet": total, "harnesses": list(per_h.values()),
+    return {"fleet": total, "complete": not any(h.get("unknown") for h in per_h.values()), "harnesses": list(per_h.values()),
             "projects": sorted(per_p.values(), key=lambda p: -p["usd"]), "sessions": sessions}
 
 

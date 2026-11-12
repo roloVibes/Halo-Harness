@@ -109,6 +109,8 @@ def cmd_serve(argv: list) -> int:
         how = f"TLS, fingerprint {tls.short(svc.fingerprint)}" if svc.fingerprint else "HMAC-signed HTTP, no TLS"
         print(f"halo host {svc.name} at {svc.url()} ({how}); watching {', '.join(svc.watches()) or 'no local Ollama host'}.")
         print("`halo host pair` makes a code for a peer. Ctrl+C or `halo host stop` stops it.")
+        from halo_harness.peers.firewall import line as wall  # 3.4.0.1 (defect 12): the same block hits this port
+        sys.stdout.write("".join(w + "\n" for w in [wall(svc.port, "this halo host")] if w and not str(svc.bind).startswith("127.")))
     sys.stdout.flush()
     try:
         while not svc.stopping.is_set():

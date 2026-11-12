@@ -46,7 +46,7 @@ def fake_runner(gate: "threading.Event | None" = None):
 
         def spawn(lane):
             if gate is not None:
-                gate.wait(20)
+                gate.wait(180)  # the driver opens the gate when it is done; 20 s ended the run under a slow first page
             return worker(lane)
         return {"model_calls": F.FakeLead(F.split_answer([[f] for f in F.FUNCS])), "spawn": spawn,
                 "judge": F.FakeJudge()}

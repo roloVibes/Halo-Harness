@@ -194,8 +194,10 @@ def test_a_cap_pauses_raises_a_row_and_lifting_it_resumes(ctx: Ctx):
         cap = next((r for r in rows if r["kind"] == "cap"), None)
         ctx.check(f"and an attention row says so, got {cap and cap['what']}", cap is not None and "kali@lab" in cap["what"])
         costs = rig.api("GET", "fleet/costs")[1]
-        ctx.check(f"costs: the fleet, per harness, per project, the caps, got {costs['fleet']}",
-                  abs(costs["fleet"] - 0.0599) < 1e-9 and [p["key"] for p in costs["projects"]] == ["shop"] and costs["reached"])
+        from halo_harness.live.session_cost import today  # 3.4.0.1: this harness's finished PAST_SID counts when it started today
+        mine = today(rig.state)["usd"]
+        ctx.check(f"costs: the fleet (kali@lab's $0.0599 + this harness's ${mine}), per harness, per project, the caps, got {costs['fleet']}",
+                  abs(costs["fleet"] - 0.0599 - mine) < 1e-9 and mine in (0.0, 0.02) and [p["key"] for p in costs["projects"]] == ["shop"] and costs["reached"])
         status, res = rig.api("POST", "fleet/attention/answer", {"id": cap["id"], "key": "a"})
         ctx.check(f"lifting it resumes the session, got {status} {res.get('resumed')}", status == 200 and res["lifted"]
                   and _wait(lambda: [d for d in rig.member_cmds if d.get("cmd") == "resume"]))

@@ -28,6 +28,7 @@ ROWS = [
     Row("fleet.mission.prefer", "fleet", "Mission preference", "list", [], (), "Harness names, in order, that break a tie when several meet a mission part's needs.", "now"),
     Row("fleet.mission.max_parallel", "fleet", "Mission parts at once", "int", None, (), "How many parts of one mission run at once; unset, the number of harnesses.", "now"),
     Row("fleet.mission.max_file_mb", "fleet", "Mission file limit (MB)", "int", 25, (), "The largest file a mission folder takes or gives over the fleet protocol.", "now"),
+    Row("fleet.mission.ask_wait_min", "fleet", "Mission part's card waits (min)", "int", 30, (), "How long a mission part running here waits for an answer to a call its permission mode asks about (a card in Attention) before it ends not done.", "now"),
     Row("remote.enabled", "remote", "Transports switch", "bool", True, (), "Every transport's switch: a pack's bridge (the signal pack's) answers and the core's notes go out only while it is on.", "now"),
     Row("packs.sources", "packs", "Pack sources", "list", None, (), "Folders holding packs and git urls of packs; halo pack install <id> takes the first that holds it.", "now"),
     Row("packs.settings.<id>", "packs", "Pack settings", "keyed", {}, (), "One pack's settings, checked against its own config schema; unset, the pack's own defaults.", "now"),

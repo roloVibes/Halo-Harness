@@ -88,7 +88,8 @@ this list against the tree.
   `peers/control_models.py`, `peers/control_pulls.py`, `peers/control_probes.py`
 - this harness: `peers/local_view.py`, `peers/agent_tokens.py` (each agent row's own tokens, from its transcript),
   `peers/capabilities_host.py` (the hardware), `peers/catalog.py` (the capability catalog's cache), `peers/needs.py`
-  (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in)
+  (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in),
+  `peers/firewall.py` (3.4.0.1: whether Windows Firewall lets other machines reach a port Halo listens on, read-only)
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live, out of the old fleet/):
 
@@ -107,10 +108,15 @@ this list against the tree.
   Markdown, from the record), `report_cli.py` (`halo report`); R4: `studio/glance_door.py` (where the glance is: this
   machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone line), the
   page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`
+- `live/session_cost.py` (3.4.0.1: a session's spend from its record, and today's; 3.4.1.0 R5: today by project),
+  `live/history_owner.py` (3.4.0.1: which past sessions are a goal run's or a mission's own; R5: each session's own
+  repo too), `packs/shipped_newer.py` (3.4.1.0 R5: an installed pack older than the one this Halo ships), Live's
+  `routes/agents/live/spend.ts` (R5: the agents' spend, once)
 
 **The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
 harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who
-(capabilities*.py), missions (mission*.py), health, the digest, delegate, recall and knowledge across the fleet
+(capabilities*.py), missions (mission*.py; 3.4.1.0 R5: mission_wait.py, a part's own outputs folder and its asks as
+cards on its machine), health, the digest, delegate, recall and knowledge across the fleet
 (hub_recall, knowledge_share), what packs bring to the catalog (fleet_registry, fleet_share), the two-machine check
 (live_check*), its Studio routes (server/: fleet_hub_api, fleet_pair_api, fleet_health_api, fleet_capabilities_api,
 fleet_mission_api) and its verbs (cli/). The core reaches it only through `packs/fleet_door.py`; `packs/fleet_migrate.py`

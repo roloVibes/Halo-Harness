@@ -82,6 +82,19 @@ def _section(fn: Callable, default):
         return default
 
 
+def part_mode(cwd) -> str:
+    """3.4.0.1 (defect 16): the permission mode a mission part runs in here (3.4.1.0 R5: an ask waits as a card):
+    config.json's permission_mode, else settings.json's permissions.defaultMode, else `default`."""
+    try:
+        normalize = _core.get("permissions", "normalize_permission_mode")
+        mode = _core.get("theme", "get_config_value")("permission_mode", default=None)
+        if not (isinstance(mode, str) and mode):
+            mode = _core.get("config.settings", "resolve_settings")(Path(cwd), trusted=True).permissions_default_mode
+        return normalize(mode) if mode else "default"
+    except Exception:
+        return ""
+
+
 def gather(home=None, *, cwd=None, spawn: Optional[bool] = None, mcp_timeout: Optional[float] = None,
            mcp_probe: Optional[Callable] = None) -> dict:
     """The catalog, computed now (never raises; a section that fails is empty). `spawn` (default: not under
@@ -103,7 +116,10 @@ def gather(home=None, *, cwd=None, spawn: Optional[bool] = None, mcp_timeout: Op
                                              probe=mcp_probe), [])
     names = [s["name"] for s in mcp if s.get("transport") != "connector"]
     me = harness(h)
-    cat = {"harness": {k: me.get(k) for k in ("id", "name", "host", "os", "version")}, "at": time.time(),
+    from .mission_wait import wait_min  # 3.4.1.0 R5 (defect 32): a part's ask waits here this long for an answer
+    cat = {"harness": {**{k: me.get(k) for k in ("id", "name", "host", "os", "version")}, "permission_mode": part_mode(cwd),
+                       "mission_ask_wait_min": _section(lambda: wait_min(h), None)},
+           "at": time.time(),
            "tags": cfg["tags"], "mcp": mcp,
            "skills": _section(lambda: src.skills(cwd), []), "roles": _section(lambda: src.roles(h, cwd), []),
            "providers": _section(lambda: src.providers(h), []), "models": _section(lambda: src.models(h), []),
@@ -125,7 +141,8 @@ def stale(cat: Optional[dict], now: Optional[float] = None) -> bool:
     if not cat:
         return True
     at = cat.get("at")
-    return not isinstance(at, (int, float)) or (now or time.time()) - at > STALE_S
+    made_by = (cat.get("harness") or {}).get("version")  # 3.4.0.1 (defect 19): a card an older Halo made is stale
+    return not isinstance(at, (int, float)) or (now or time.time()) - at > STALE_S or (made_by or "") != _core.version()
 
 
 def refresh(home=None, **kw) -> "tuple[dict, bool]":

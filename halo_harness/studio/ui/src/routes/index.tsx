@@ -20,7 +20,7 @@
 // now (partDef), so the "+" menu, the ... menu, the palette's panel rows and the status bar follow the view. Local
 // carries the Media panels as optional floating ones (its "+" menu).
 // 3.3.16.0 R2 "the Fleet fold": the Fleet section went -- a machine's agents in Agents -> Live (the fleet scope), its
-// models in Local, pairing and the people in Setup -> Machines, missions in Agents -> Runs. Six core sections, the shell
+// models in Local, pairing and the people in Setup -> Machines, missions in the Mission panel on Agents -> Live. Six core sections, the shell
 // the Instrument look was drawn for: Session Alt+1, Agents Alt+2, Local Alt+3, Packs Alt+4, Setup Alt+5,
 // Settings Alt+6; then the pack sections (routes/packs/registry.ts FIRST_KEY: the first pack section is Alt+7).
 import type { ComponentType } from "react";
@@ -102,6 +102,11 @@ export function sections(): SectionDef[] {
 export function useSections(): SectionDef[] {
   usePacks((s) => s.reg);
   return sections();
+}
+
+/** 3.4.0.1 (live check, defect 28): Setup's line names machines only while the fleet pack runs (its Machines step). */
+export function blurbOf(def: SectionDef, fleetOff: boolean): string {
+  return def.id === "setup" && fleetOff ? def.blurb.replace(", lineup and machines", " and lineup") : def.blurb;
 }
 
 export function sectionDef(id: SectionId): SectionDef {

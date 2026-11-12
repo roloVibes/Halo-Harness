@@ -37,9 +37,15 @@ def module(rel: str, *, cwd=None, state_dir=None):
         return None
     from halo_harness.packs.contrib_cli import load
     try:
-        return load(PACK, pack.root, rel)
-    except Exception:
+        mod = load(PACK, pack.root, rel)
+    except Exception as e:  # 3.4.0.1 (defect 4): kept, so line() says the real error, not "install the pack"
+        _failed[rel] = f"{type(e).__name__}: {e}"[:300]
         return None
+    _failed.pop(rel, None)
+    return mod
+
+
+_failed: dict = {}  # rel -> why the pack's module did not import (the pack runs)
 
 
 def call(rel: str, attr: str, *args, default=None, cwd=None, state_dir=None, **kw):
@@ -51,4 +57,7 @@ def call(rel: str, attr: str, *args, default=None, cwd=None, state_dir=None, **k
 
 def line() -> str:
     from halo_harness.left import packed_line
+    if _failed and running() is not None:
+        rel, why = next(reversed(_failed.items()))
+        return f"the fleet pack runs, but its {rel} did not load: {why}"
     return packed_line(PACK)

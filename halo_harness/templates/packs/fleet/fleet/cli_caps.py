@@ -82,6 +82,7 @@ def spec_text(rows: list, *, tools: bool = False) -> str:
     for r in rows:
         if r.get("catalog"):
             out += spec_lines(r["catalog"], tools=tools, name=r.get("name"))
+            out += [f"  ({r['note']})"] if r.get("note") else []  # 3.4.0.1 (defect 19): refreshing
         else:
             out.append(f"{r.get('name')}  {r.get('summary') or ''}".rstrip())
             out.append(f"  {r.get('note') or 'no catalog yet'}")
@@ -95,7 +96,12 @@ def who_text(q: str) -> str:
     if err:
         return f"fleet who: {err}"
     ranked = who.rank([{"harness": r.get("harness"), "name": r.get("name"), "catalog": r.get("catalog")} for r in rows], q)
-    return "\n".join(who.lines(ranked, q))
+    return "\n".join(who.lines(ranked, q, _cardless(rows)))
+
+
+def _cardless(rows: list) -> list:
+    """3.4.1.0 R5 (defect 36): members the hub has no card for yet (a fresh join with no session there)."""
+    return [r.get("name") for r in rows if not r.get("catalog") and not r.get("local")]
 
 
 def cmd_capabilities(argv: list) -> int:
@@ -134,7 +140,7 @@ def cmd_who(argv: list) -> int:
     if a.json:
         C.emit_json({"ok": True, "source": source, "q": q, "words": who.query_words(q), "results": ranked})
         return 0
-    print("\n".join(who.lines(ranked, q)))
+    print("\n".join(who.lines(ranked, q, _cardless(rows))))
     return 0 if ranked else 1
 
 

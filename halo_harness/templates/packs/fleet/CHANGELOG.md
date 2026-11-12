@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.0.2 (Halo 3.4.1.0)
+
+The second two-machine check: a mission part on a harness in permission mode `default` writes its own outputs folder
+(`artifacts/<n>/`) with no ask (checked on every spelling and the resolved path; fleet/mission_wait.py), and any other
+call that mode asks about waits as a card in that machine's Attention -- the hub shows the part "waiting on you (on
+<machine>)", and nobody answering within `fleet.mission.ask_wait_min` (30 min) ends it "not done: nobody answered
+..."; the plan's note says so. A re-plan keeps every lead session (History folds them under the mission); a member
+whose card has not reached the hub yet is named by the plan and by `who`; `halo fleet status` on the hub says the
+firewall line; report.md reads "1 part, #2"; a long hand-back reason is cut at a word with "...". A member's announce
+carries its today by project, for the per-project cap. Existing installs: `halo pack update fleet` (Halo now says so).
+
+## 1.0.1 (Halo 3.4.0.1)
+
+What a real two-machine run found: a mission part is done only when its hand-back says so and its named outputs are
+there (fleet/mission_outcome.py); a part's hand-back pushed to the hub carries no full local path; a member's announce
+carries its own `cost_today` (finished sessions too); the hub says when Windows Firewall keeps other machines off its
+port; a `halo doctor` row (doctor.py); a plan names an away member that has a need, and notes a part placed where calls
+that ask are refused; `halo fleet status` names the hub by its own name; `halo fleet leave` after a kick says so; a
+stale capability card says it is refreshing.
+
 ## 1.0.0 (Halo 3.4.0.0)
 
 The fleet leaves Halo's core for this pack: the hub (`halo fleet serve`, `halo studio --fleet`), pairing and join,

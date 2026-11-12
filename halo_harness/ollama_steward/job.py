@@ -106,7 +106,7 @@ class StewardJob:
         now = self.clock() if now is None else now
         try:  # 3.3.6.0 R1: a new or changed model is probed while the card is idle (probe_new.py)
             from halo_harness.ollama_steward.probe_new import maybe
-            maybe(self, now)
+            maybe(self, now) if job_state.watching(self.where) else None  # 3.4.0.1: no load unless watching
         except Exception:
             pass
         try:  # 3.3.6.0 R3: every ssh: host's log every 30 s; 3.3.8.0 R2: every local server's (server_log_hf.py)
@@ -167,7 +167,7 @@ class StewardJob:
                       {"change": r["id"], "key": r["key"], "kind": "proposal"})
         model, model_why = self.model()
         note = None
-        if model:
+        if model and job_state.watching(self.where):  # 3.4.0.1 (defect 13): opening Studio calls no model
             go, why = agent.due(self.state_dir, done, notify=notify, now=now, ctx=ctx)  # 3.3.13.1: quiet if same
             if go:
                 extra: list = []

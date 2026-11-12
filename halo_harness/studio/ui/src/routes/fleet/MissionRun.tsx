@@ -44,6 +44,7 @@ function PartLine({ p, v }: { p: PlanPart; v: View }) {
   const who = run?.harness_name || p.harness_name || "its harness";
   const live = partAgent(harnesses, v.mission.id, p.id, run?.harness || p.harness);
   const now = st === "asked" ? `waiting on ${who}'s owner to allow it`
+    : st === "running" && run?.asking ? `waiting on you (on ${run.asking.on || who}): ${run.asking.what || "a card"}` // 3.4.1.0 R5
     : st === "running" ? (live ? lineOf(live.agent) : "starting its session...")
     : st === "waiting" ? run?.waiting || "waits for a free slot of its pack capability"
     : st === "pending" ? `waits for ${p.depends_on.length ? "part " + p.depends_on.join(", ") : "a free slot"}`

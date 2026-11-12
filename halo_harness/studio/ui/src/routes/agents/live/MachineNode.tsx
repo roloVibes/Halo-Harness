@@ -5,7 +5,7 @@
 // the agents live, what it spent today, its capability chips (at most three, the catalog's). A click puts the machine
 // in the inspector (its summary); the box lights while "Who can..." picked it.
 import type { KeyboardEvent } from "react";
-import { cost, short } from "../../orchestra/format";
+import { costToday, short } from "../../orchestra/format";
 import { useCaps } from "../../fleet/caps";
 import { presence } from "../../fleet/People";
 import { isLive, useFleet } from "../../fleet/store";
@@ -50,7 +50,7 @@ export function MachineNode({ b, now, selected, onPick }: { b: LiveBox; now: num
                 title={h.version_mismatch ? "another Halo version: run `halo update` on the older one" : "Halo version"}>{h.version}</span>
         )}
       </div>
-      <div className="mono muted rlm-line">{h.local ? "this halo" : p} · {short(h.host || "", 18)} · {cost(h.cost_today)} today</div>
+      <div className="mono muted rlm-line">{h.local ? "this halo" : p} · {short(h.host || "", 18)} · {costToday(h)} today</div>
       <div className="mono muted rlm-line" data-testid="live-machine-count">
         {sessions} session{sessions === 1 ? "" : "s"} · {live} live
         {chips.slice(0, 3).map((c) => (

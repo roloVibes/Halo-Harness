@@ -66,6 +66,13 @@ class Dispatch:
             rows = [entry(h, local_catalog(self.home)) for h in view.get("harnesses") or [] if h.get("local")]
         return [r for r in rows if r.get("catalog") and (r.get("local") or r.get("online"))]
 
+    def split(self, view: Optional[dict] = None) -> tuple:
+        """3.4.0.1 (defect 14): (who can take a part now, the members away now that the hub has a card for). 3.4.1.0
+        R5 (defect 36): and the members whose card has not reached the hub yet (a fresh join, no session there)."""
+        view = view or self.view()
+        rows = self.hub.state.caps.entries(view) if self.hub is not None else []
+        return self.entries(view), [r for r in rows if not r.get("local") and (not r.get("online") or not r.get("catalog"))]
+
     @staticmethod
     def load(view: dict) -> dict:
         return {str(h.get("id")): sum(int(s.get("agents_live") or 0) for s in h.get("sessions") or [])
@@ -139,6 +146,8 @@ class Dispatch:
         now, hid = time.time(), str(ps.get("harness") or "")
         res = self.result(doc["id"], pid)
         if res is not None:
+            from .mission_outcome import on_hub  # 3.4.0.1: a `done` is checked on the hub too
+            res = on_hub(self.home, doc["id"], pid, res)
             return {"state": res["state"] if res["state"] in ("done", "failed", "stopped") else "failed",
                     "cost_usd": float(res.get("cost_usd") or 0.0), "error": res.get("error"), "ended": res.get("ended") or now,
                     "session_id": res.get("session_id") or ps.get("session_id"), "files": list(res.get("files") or [])[:500],

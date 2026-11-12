@@ -110,6 +110,9 @@ stops with it); otherwise it runs here until Ctrl+C. `--port` (default
 `fleet.hub.port`, 7430; `0` picks a free one), `--bind` (default `0.0.0.0`),
 `--name` (default `fleet.name`), `--no-tls` (HMAC-signed plain HTTP even
 when the `cryptography` package would allow TLS). Offline mode refuses it.
+On Windows (3.4.0.1) it reads the firewall's inbound rules (no elevation, no
+change) and, when other machines cannot reach the port, prints one more line
+with the command an administrator runs ([FLEET.md](FLEET.md#windows-firewall)).
 
 ### `halo fleet pair`
 
@@ -124,12 +127,18 @@ Joins a hub (`host:port`, or `http(s)://host:port`) with `--code` and stores
 it in `~/.halo/fleet.json`. `--share` and `--allow-control` set this hub's
 own levels (default: the config keys); `--fingerprint` insists on the hub's
 certificate (otherwise the one the hub vouches for in its code-checked reply
-is pinned). A wrong, spent or expired code is refused.
+is pinned). A wrong, spent or expired code is refused. A hub that does not
+answer in time: "the hub did not answer on <host>:<port>: on Windows the
+firewall is the usual cause; on the hub run `halo doctor`". After a join it
+says that this machine is online on the hub while a halo session runs here
+(Studio alone does not count) and takes no mission part while away.
 
 ### `halo fleet leave`, `status`
 
-`leave [hub]` tells the hub and forgets it (every hub when none is named).
-`status` shows this harness, each joined hub (does it answer, does it see
+`leave [hub]` tells the hub and forgets it (every hub when none is named); a
+hub that had already removed this harness (a kick) says so: "Left kali@kali
+(it had already removed this harness)".
+`status` shows this harness, each joined hub by the hub's name (does it answer, does it see
 this harness online and with how many sessions, its share and control
 levels) and the hub this machine serves (members, online, an open code).
 
@@ -188,7 +197,9 @@ harness's catalog again (or, through Studio, asks the named member now);
 `--json` prints `{ok, source, harnesses: [...]}`, each row with its whole
 `catalog`. It reads Studio's `GET /api/fleet/capabilities` when Studio runs,
 else the hub this machine serves, else this harness alone (`source`: studio,
-hub, local). What a catalog holds and what never leaves the machine:
+hub, local). A card from an older read (or made by another Halo version) is
+shown with "(refreshing: a newer catalog is on its way ...)" while a fresh one
+is gathered (3.4.0.1). What a catalog holds and what never leaves the machine:
 [FLEET.md](FLEET.md#capabilities-3060-r6).
 
 ### `halo fleet who`

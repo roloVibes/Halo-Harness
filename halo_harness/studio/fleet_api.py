@@ -96,7 +96,6 @@ def post_agent_command(req):
 
 # -- the history of a role (3.0.5.0 R3: Live Roles' Live tab when nothing runs) ----------------------------
 HISTORY_SCAN = 600  # the newest meta files read per request
-COST_SCAN_BYTES = 2_000_000  # a transcript larger than this is not summed for its cost
 
 
 def _first_user(path, cap: int = 160) -> str:
@@ -120,33 +119,18 @@ def _first_user(path, cap: int = 160) -> str:
 def _first_ts(path):
     """The first `ts` a transcript names (its meta line): when the session started, on every OS (3.3.18.0: st_ctime
     is the last metadata change on Linux)."""
-    import json
-    try:
-        with open(path, encoding="utf-8", errors="replace") as f:
-            for _i, line in zip(range(5), f):
-                ts = (json.loads(line) if line.strip() else {}).get("ts")
-                if isinstance(ts, (int, float)):
-                    return float(ts)
-    except (OSError, ValueError, AttributeError):
-        pass
-    return None
+    from halo_harness.live.session_cost import started
+    return started(path)
 
 
 def _cost(path):
-    import json
-    try:
-        if path.stat().st_size > COST_SCAN_BYTES:
-            return None
-        total = 0.0
-        with open(path, encoding="utf-8", errors="replace") as f:
-            for line in f:
-                if '"usage"' in line:
-                    node = json.loads(line)
-                    if node.get("type") == "usage" and isinstance(node.get("cost_usd"), (int, float)):
-                        total += float(node["cost_usd"])
-        return round(total, 6)
-    except (OSError, ValueError):
+    """3.4.0.1: the one reader of a session's spend (live/session_cost.py); None when nothing in it was priced and
+    some model had no price (unknown, never $0)."""
+    from halo_harness.live.session_cost import of_record
+    got = of_record(path)
+    if got is None or (not got["usd"] and got["unknown"]):
         return None
+    return got["usd"]
 
 
 def history(state_dir, *, role: str = "", bio: str = "", n: int = 20) -> list:
@@ -191,7 +175,12 @@ def get_history(req):
         return 422, {"error": f"n is a whole number from 1 to 50, got {raw!r}", "problems": []}
     if not role and not bio:
         return 422, {"error": "name a role or a bio (?role=reviewer, ?bio=implementer)", "problems": []}
-    return 200, {"role": role, "bio": bio, "runs": history(req.state_dir, role=role, bio=bio, n=int(raw))}
+    runs = history(req.state_dir, role=role, bio=bio, n=int(raw))
+    if role == "main":  # 3.4.0.1 (defect 22): a goal run's or a mission's own sessions name their owner (History folds them)
+        from halo_harness.live.history_owner import owners
+        own = owners(req.cwd, req.state_dir, [r.get("session_id") for r in runs])  # 3.4.1.0 R5: + each session's repo
+        runs = [{**r, "part_of": own[r["session_id"]]} if r.get("session_id") in own else r for r in runs]
+    return 200, {"role": role, "bio": bio, "runs": runs}
 
 
 ROUTES = [("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/agents$", get_agents),

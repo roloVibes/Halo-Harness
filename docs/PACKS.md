@@ -403,7 +403,16 @@ schemas in its "contributes:" block.
    what it offers, what it requests, its problems.
 2. `halo pack install ./doc-review` (or a git url) checks everything first,
    then copies every file through the journal. Nothing is overwritten: a
-   folder already at `~/.halo/packs/doc-review/` is left as it is.
+   folder already at `~/.halo/packs/doc-review/` is left as it is. Installing
+   a pack that is installed already: the same version says "already
+   installed: nothing to do" and exits 0; another version says so with
+   `halo pack update <id>` and exits 1 (3.4.1.0).
+5a. A pack installed from the packs Halo ships (`halo pack install fleet`)
+   does not move by itself when `halo update` brings a newer Halo: when this
+   Halo ships a newer version, `halo pack list`, `halo pack inspect`, `halo
+   pack doctor`, `halo doctor`, Studio's Packs ("1.0.2 available") and the
+   end of `halo update` say it in one line with `halo pack update <id>`
+   (3.4.1.0).
 3. `halo pack enable doc-review --grant mcp:lint --grant hooks` turns it on.
 4. `halo pack disable doc-review` turns it off: nothing of it runs, its
    files stay, its grants clear.

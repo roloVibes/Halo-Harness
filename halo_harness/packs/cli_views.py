@@ -20,27 +20,31 @@ def _state_word(pack, snap) -> str:
 def list_rows(snap) -> "list[dict]":
     from halo_harness.packs import state as S
     from halo_harness.packs.offers import offers
+    from halo_harness.packs.shipped_newer import newer  # 3.4.1.0 R5 (defect 30): an older copy than Halo ships
     rows = []
     for pack in snap.packs:
         rec = S.entry(pack.id, data=snap.state) or {}
         rows.append({"id": pack.id, "name": pack.name, "version": pack.version, "state": _state_word(pack, snap),
                      "enabled": pack.id in snap.enabled, "running": pack.id in snap.order, "scope": pack.scope,
                      "root": str(pack.root), "source": str(rec.get("source") or ""), "offers": offers(pack),
+                     "ships": "" if rec.get("link") else newer(pack.id, pack.version, str(rec.get("source") or "")),  # R5
                      "problems": list(pack.problems) + list(snap.problems.get(pack.id, []))})
     return rows
 
 
-def list_lines(rows: "list[dict]") -> "list[str]":
+def list_lines(rows: "list[dict]", hint: bool = True) -> "list[str]":
     from halo_harness.packs.offers import summary
     if not rows:
-        return ["No packs here. A pack lives in ~/.halo/packs/<id>/ or .halo/packs/<id>/ (halo pack install <path|git url>)."]
+        return (["No packs here. A pack lives in ~/.halo/packs/<id>/ or .halo/packs/<id>/ (halo pack install <path|git url>)."]
+                + ["Halo ships packs too (fleet, coach, first-run, ...): halo pack list --available shows them."] * hint)  # 3.4.0.1
     width = max(len(r["id"]) for r in rows)
     out = []
     for r in rows:
         source = f" from {r['source']}" if r["source"] else ""
         out.append(f"{r['id']:<{width}}  {r['version'] or '?':<8}  {r['state']:<12}  {r['scope']:<7}{source}  "
                    f"offers {summary(r['offers'])}" + (f"  ({len(r['problems'])} problem(s): halo pack doctor)"
-                                                       if r["problems"] else ""))
+                                                       if r["problems"] else "")
+                   + (f"  ({r['ships']} ships with this Halo: halo pack update {r['id']})" if r.get("ships") else ""))
     return out
 
 
@@ -97,8 +101,16 @@ def inspect_payload(pack, snap, *, cwd=None) -> dict:
             "author": m.get("author"), "license": m.get("license"), "halo_api": m.get("halo_api"), "halo": m.get("halo"),
             "capabilities": m.get("capabilities") or [], "requires": m.get("requires") or [],
             "root": str(pack.root), "scope": pack.scope, "state": _state_word(pack, snap) if pack.scope != "source" else "a source folder",
-            "offers": offers(pack), "permissions": perms, "settings": ST.values(pack),
+            "offers": offers(pack), "permissions": perms, "settings": ST.values(pack), "ships_line": _ships_line(pack, snap),
             "settings_problems": ST.problems(pack), "migrations": m.get("migrations") or [], "problems": problems}
+
+
+def _ships_line(pack, snap) -> str:
+    from halo_harness.packs import state as S
+    from halo_harness.packs.shipped_newer import newer, note
+    rec = (S.entry(pack.id, data=snap.state) or {}) if pack.scope != "source" else {}
+    got = "" if rec.get("link") else newer(pack.id, pack.version, str(rec.get("source") or ""))
+    return note(pack.id, pack.version, got) if got else ""
 
 
 def role_lines(d: dict) -> "list[str]":
@@ -124,18 +136,21 @@ def role_lines(d: dict) -> "list[str]":
 
 def inspect_lines(d: dict) -> "list[str]":
     from halo_harness.packs import semver as V
-    from halo_harness.packs.offers import KINDS, LABELS
+    from halo_harness.packs.offers import CONTRIBS, KINDS, LABELS
     out = [f"{d['id']} {d['version']} -- {d['name']} ({d['state']})", f"  {d['description']}".rstrip(),
            f"  folder: {Path(d['root']).as_posix()} ({d['scope']})",
            f"  works with: extension API {V.describe(d['halo_api'])}, Halo {V.describe(d['halo'])}"]
+    out += [f"  {d['ships_line']}"] if d.get("ships_line") else []  # 3.4.1.0 R5 (defect 30)
     if d["requires"]:
         out.append("  requires: " + ", ".join(f"{r.get('pack') or r.get('name')} {r.get('version') or ''}".strip()
                                           + (f" ({r.get('kind')})" if r.get("kind") else "") for r in d["requires"]))
     out.append("offers:")
-    for kind in KINDS:
+    for kind in CONTRIBS + KINDS:  # 3.4.1.0 R5 (defect 2): its CLI verbs, slash commands, doctor rows, Studio modules too
         names = d["offers"].get(kind) or []
         if names:
             out.append(f"  {LABELS[kind][1]}: {', '.join(names)}")
+    if not any(d["offers"].get(k) for k in CONTRIBS + KINDS):
+        out.append("  nothing")
     out += role_lines(d)
     from halo_harness.packs.contrib_views import contributes_lines
     out += contributes_lines(d.get("contributes") or {})

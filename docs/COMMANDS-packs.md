@@ -21,8 +21,12 @@ and `install --link` are the pack kit's ([COMMANDS-packs-kit.md](COMMANDS-packs-
 
 One line per pack here: id, version, state (`enabled`, `enabled, not
 running`, `disabled`, `not installed (found in place)`), scope (`project` or
-`user`), source and what it offers (bios, lineups, agents, skills,
-commands, MCP servers, hook events). `--json` prints `{"packs": [...]}`.
+`user`), source and what it offers (3.4.0.1: CLI verbs, slash commands,
+doctor rows and Studio server modules first, then bios, lineups, agents,
+skills, commands, MCP servers, hook events: the fleet pack offers "2 CLI
+verbs, 2 slash commands, 1 doctor row, 5 Studio server modules"). `--json`
+prints `{"packs": [...]}`. With no pack here it says so and that the packs
+Halo ships are listed by `halo pack list --available`.
 
 ```sh
 halo pack list --json
@@ -98,7 +102,14 @@ Halo versions); a folder already there is left as it is. Files go through
 the journal (`~/.halo/packs/journal.jsonl`); a copy that fails part way is
 rolled back. A git url is cloned fresh (`git clone --depth 1`); in offline
 mode the one line is "offline mode: not connecting to <host>". The pack is
-installed disabled.
+installed disabled. A pack installed already (3.4.1.0): the same version
+says "`<id> <version> is already installed at <folder>: nothing to do`" and
+exits 0; another version says "`... is already installed at <folder>;
+<source> holds <version>: halo pack update <id>`" and exits 1. A pack
+installed from the packs Halo ships that is older than the one this Halo
+ships is said by `halo pack list` ("`(1.0.2 ships with this Halo: halo pack
+update fleet)`", `--json` `ships`), `halo pack inspect`, `halo pack doctor`,
+`halo doctor` and Studio's Packs.
 
 #### `--project`
 

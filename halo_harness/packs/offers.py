@@ -18,7 +18,12 @@ from pathlib import Path
 from halo_harness.packs import names as N
 
 KINDS = ("bios", "lineups", "agents", "skills", "commands", "mcp", "hooks", "policies", "modes")  # 3.3.10.0 R1: + policies, modes
-LABELS = {"bios": ("bio", "bios"), "lineups": ("lineup", "lineups"), "agents": ("agent", "agents"),
+# 3.4.0.1 (live check, defect 2): what a pack adds to Halo itself -- its CLI verbs, slash commands, doctor rows and
+# Studio route modules (`server/*.py`) -- counts too: the fleet pack "offered nothing" while it adds two verbs
+CONTRIBS = ("verbs", "slash", "doctor", "routes")
+LABELS = {"verbs": ("CLI verb", "CLI verbs"), "slash": ("slash command", "slash commands"),
+          "doctor": ("doctor row", "doctor rows"), "routes": ("Studio server module", "Studio server modules"),
+          "bios": ("bio", "bios"), "lineups": ("lineup", "lineups"), "agents": ("agent", "agents"),
           "skills": ("skill", "skills"), "commands": ("command", "commands"),
           "mcp": ("MCP server", "MCP servers"), "hooks": ("hook event", "hook events"),
           "policies": ("policy hook", "policy hooks"), "modes": ("mode", "modes")}
@@ -63,13 +68,18 @@ def offers(pack) -> "dict[str, list[str]]":
     out["policies"], out["modes"] = MP.ids(MP.policies_of(pack.manifest)), MP.ids(MP.modes_of(pack.manifest))
     for kind, fn in (("agents", agents), ("skills", skills), ("commands", commands), ("mcp", mcp), ("hooks", hooks)):
         out[kind] = _safe(fn, [])
+    from halo_harness.packs.contrib_cli import entries
+    out["verbs"] = sorted(str(e["verb"]) for e in entries(pack.manifest, "cli") if e.get("verb"))
+    out["slash"] = sorted("/" + str(e["name"]) for e in entries(pack.manifest, "slash") if e.get("name"))
+    out["doctor"] = sorted(str(e["id"]) for e in entries(pack.manifest, "doctor") if e.get("id"))
+    out["routes"] = _safe(lambda: sorted(p.stem for p in (root / "server").glob("*.py") if p.stem != "__init__"), [])
     return out
 
 
 def summary(found: dict) -> str:
     """`2 bios, 1 lineup, 1 skill, ...`, or `nothing`."""
     parts = []
-    for kind in KINDS:
+    for kind in CONTRIBS + KINDS:
         n = len(found.get(kind) or [])
         if n:
             one, many = LABELS[kind]

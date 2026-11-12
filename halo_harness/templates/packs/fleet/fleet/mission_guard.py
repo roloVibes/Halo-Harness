@@ -9,7 +9,10 @@ worktree for a repo part, the mission folder for a files part):
 
 * inside one of the part's claims (mission_claims.covers) -> the base
   decision stands untouched: the owner's own rules decide, a claim never
-  allows anything by itself;
+  allows anything by itself -- with one exception (3.4.1.0 R5, defect 32):
+  a files part's own outputs folder `artifacts/<n>/` (`own`), where an edit
+  the mode would ask about is the mission's own bookkeeping and is allowed
+  (fleet/mission_wait.own_write checks every spelling and the resolved path);
 * anywhere else -> deny, with a one-line reason, and `on_refused(rel, tool,
   reason)` raises it (the worker logs `claim_refused` in the mission folder
   and publishes a `fleet` frame `{action: "mission_claim", mission, part,
@@ -36,8 +39,9 @@ class MissionClaimGuard:
     inherited = True  # a sub-agent's engine gets the same guard (agent/subagent.py)
 
     def __init__(self, cwd, claims: list, *, mission: str, part: str, allow=(),
-                 on_refused: Optional[Callable] = None) -> None:
+                 on_refused: Optional[Callable] = None, own=None) -> None:
         self.cwd = Path(cwd)
+        self.own = Path(own) if own is not None else None  # a files part's mission folder (its artifacts/<n>/)
         self.claims = [str(c) for c in claims or []]
         self.mission, self.part = mission, str(part)
         self.allow = {str(a).replace("\\", "/") for a in allow}
@@ -70,6 +74,12 @@ class MissionClaimGuard:
             return None
         rel = self.rel(raw, getattr(engine, "cwd", None))
         if rel is not None and (rel in self.allow or covers(self.claims, rel)):
+            from .mission_wait import own_write
+            if self.own is not None and getattr(decision, "action", None) == "ask" and own_write(
+                    self.own, self.part, raw, getattr(engine, "cwd", None) or self.cwd):
+                Decision = _core.get("permissions", "Decision")
+                return Decision("allow", f"mission {self.mission} part {self.part}'s own outputs folder "
+                                f"(artifacts/{self.part}/): the mission's own bookkeeping", source="mission")
             return None
         why = self.reason(rel, raw)
         self._raise(rel or Path(raw).name, tool_name, why)

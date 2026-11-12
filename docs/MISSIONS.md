@@ -78,6 +78,17 @@ asks once more with the problems listed) and then applies the rules:
   breaks the tie, then the load, then the name.
 - **Unassignable.** A part that needs something nobody has is flagged with the
   reason; the mission cannot be approved until it is reassigned or dropped.
+  When only a member that is away has it (joined, no halo session open there),
+  the reason names it (3.4.0.1): "nobody online has gpu; rolo@roundBoy has it
+  but is offline (no halo session open there): open one, then plan again".
+- **Where asks are refused** (3.4.0.1). Each harness's capability card carries
+  the permission mode a part runs in there (config.json's `permission_mode`,
+  else settings.json's `permissions.defaultMode`, else `default`). A part
+  placed on a harness in `default`, `plan` or `acceptEdits` gets a note in the
+  plan ("kali@kali runs mission parts in permission mode default: a tool call
+  that would ask there is refused (a part has no one to answer it); on that
+  machine allow what the part runs with a rule (permissions.allow, e.g.
+  Bash(nmap:*)) or `halo config set permission_mode auto`").
 - **Pack capabilities** (3.2.0.0 R4). A need may be a pack's fleet capability
   (`docs.review`, or `pack:docs.review`): each harness's block lists its
   packs' capabilities (`pack caps: docs.review (pack doc-review, 2 at a time)`),
@@ -212,7 +223,20 @@ version is the one merged.
 Parts start by the dependency graph as their dependencies finish, at most
 `fleet.mission.max_parallel` at once (default: the number of harnesses). A
 part that fails skips every part that waits for it and the mission ends
-`failed` with the reasons. `stop` stops every running part.
+`failed` with the reasons: "2 of 2 part(s) did not finish: part 1 failed: ..."
+(3.4.0.1). `stop` stops every running part.
+
+**A part is done when its work is** (3.4.0.1). A session that ended without an
+error is not enough: the brief asks the worker to end its hand-back with
+`Outcome: done`, or `Outcome: blocked -- <why>` when it could not do the work.
+A part whose hand-back says it is blocked (or, with no Outcome line, "the part
+is blocked / not done"), or whose named outputs (`artifacts/<n>/...`) are not
+in the mission folder, ends `failed` with that reason ("not done: the outputs
+the plan named are missing: artifacts/1/nmap.txt (its hand-back says: blocked
+-- nmap refused)"). The worker decides it before it writes `result.json`; the
+hub checks a member's `done` again on its own copy of the folder, so a member
+on an older Halo cannot count a blocked part done. A repo part's outputs are
+judged by its merge; an Orchestra part by its run's own checks.
 
 Two lines the hub writes in the log (`log.jsonl`, each `{kind, part, text}`)
 for a part that needs a pack capability (3.2.1.0 R3, `fleet/mission_hold.py`):

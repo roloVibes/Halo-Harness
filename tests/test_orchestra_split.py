@@ -75,7 +75,11 @@ def _expect_retry_then_stop(ctx: Ctx, bad: str, needle: str):
     ctx.check("exactly one retry", len(lead.prompts) == 2)
     ctx.check(f"the retry lists the validator's lines ({needle})",
               "previous answer had these problems" in lead.prompts[1] and needle in lead.prompts[1])
-    ctx.check("nothing written", not (run_dir / "split.json").exists())
+    from halo_harness.orchestra.split import load_split
+    from halo_harness.studio.orchestra_model import run_cost
+    data = json.loads((run_dir / "split.json").read_text(encoding="utf-8"))  # 3.4.0.1 defect 21: the lead's spend counts
+    ctx.check(f"no jobs, the two lead calls' cost and sessions kept, got {data}", data["jobs"] == [] and load_split(run_dir) is None
+              and data["lead_cost_usd"] == 0.002 and data["lead_sessions"] == ["lead-1", "lead-2"] and run_cost(run_dir) == 0.002)
 
 
 @test

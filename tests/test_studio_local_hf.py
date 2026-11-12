@@ -75,6 +75,8 @@ def test_serve_hosts_models_log_stop(ctx: Ctx):
               and MODEL in model_line and stop_title.startswith(f"halo local stop {name}"))
     ctx.check(f"a server Halo did not start: Stop disabled with why, got {got.get('not_ours')}",
               got.get("not_ours") and got["not_ours"][0] is True and "did not start" in got["not_ours"][1])
+    ctx.check(f"one server started (the click waits for Start's answer), got {got.get('registry')} said {got.get('said')!r}",
+              len(got.get("registry") or []) == 1)
     ctx.check(f"hf:local/<model> in Models under the server, got {got.get('models_row')}", got.get("models_row") == [name])
     ctx.check(f"Log's tail, got {got.get('log')}", any("offloaded 37/37" in ln for ln in got.get("log") or []))
     ctx.check(f"Stop ended it, got {got.get('after_stop')}", got.get("after_stop") == [])

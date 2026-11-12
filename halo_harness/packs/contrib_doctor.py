@@ -93,7 +93,8 @@ def entries_of(cwd=None, state_dir=None) -> "list[tuple[str, str]]":
                 out += [(cid, _row(p.id, r)) for r in got]
             except Exception as ex:  # the pack's own code: one row naming it, never the doctor's failure
                 out.append((cid, f"{WARN} {HEAD}, {p.id}: {e.get('module')} raised {type(ex).__name__}: {ex}"[:300]))
-    return out
+    from halo_harness.packs.shipped_newer import stale  # 3.4.1.0 R5 (defect 30): enabled or not, once per pack
+    return out + [(f"pack:{r['id']}:ships", f"{WARN} {HEAD}, {r['id']}: {r['line']}") for r in stale(state_dir)]
 
 
 def rows(cwd=None, state_dir=None) -> "list[str]":

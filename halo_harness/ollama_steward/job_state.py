@@ -208,3 +208,14 @@ def default_watch(state_dir, host, stop, *, on_event=None) -> None:
         server_log.watch(state_dir, host, stop, on_event=on_event)
     except Exception:
         pass
+
+
+def watching(where: str) -> bool:
+    """3.4.0.1 (live check, defect 13): whether the job may call a model on its own -- its note, a new model's probe.
+    Only when the owner turned its watching on: `halo ollama steward --watch` (where "watch") or
+    `ollama.steward.watch: true`. Started with Studio or the hub it reads the logs and runs the rules and calls no
+    model: the steward explains when asked (its chat, `halo ollama explain`)."""
+    if where == "watch":
+        return True
+    from halo_harness.ollama_steward.agent import _cfg
+    return _cfg("ollama.steward.watch", False) is True

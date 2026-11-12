@@ -95,8 +95,9 @@ def markdown(r: dict) -> str:
         t = f"{p['duration_s']:.0f}s" if p.get("duration_s") is not None else "-"
         lines.append(f"| {p['id']}{' (merged)' if p['merged'] else ''} | {p.get('harness_name') or p.get('harness')} | "
                      f"{p['state']} | {p['cost_usd']:.4f} | {t} | {base_cell(p)} | {str(p.get('title') or '').replace('|', '/')} |")
-    lines += ["", "## Cost per harness", ""] + [f"- {h['name']}: ${h['cost_usd']:.4f} (parts {', '.join(h['parts'])}; "
-                                                 f"{h['done']} done, {h['failed']} not)" for h in r["harnesses"]]
+    lines += ["", "## Cost per harness", ""] + [  # 3.4.1.0 R5 (defect 34): "1 part, #2", not "parts 2"
+        f"- {h['name']}: ${h['cost_usd']:.4f} ({len(h['parts'])} part{'' if len(h['parts']) == 1 else 's'}, "
+        f"#{', #'.join(h['parts'])}; {h['done']} done, {h['failed']} not)" for h in r["harnesses"]]
     if r["decisions"]:
         lines += ["", "## Decisions", ""] + [f"- {d.get('what')} (by {d.get('by') or 'the hub'})" for d in r["decisions"]]
     if r["failed"]:
