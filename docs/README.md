@@ -2,6 +2,23 @@
 
 Read this when you do not know which doc to open: every doc, by what you want to do, with one line on when to read it.
 
+**Multi-agent. Multi-workflow. Fully visible.** The multi-agent, multi-workflow harness you can watch: every model's
+thinking, hand-offs and cost, live, and yours to steer. See, shape and steer multi-model agent work, on any model,
+including your own.
+
+- **See** what every agent thinks, says to another agent, runs and costs, live: Studio's Session and Agents -> Live
+  ([STUDIO-sections.md](STUDIO-sections.md#session), [STUDIO-live.md](STUDIO-live.md)).
+- **Shape** the work: lineups and blocks on a canvas, `when` connections, workflows, steering, goal runs
+  ([STUDIO-agents.md](STUDIO-agents.md), [STUDIO-blocks.md](STUDIO-blocks.md), [ORCHESTRA.md](ORCHESTRA.md)).
+- **Mix** models: a model per role across providers, the `auto` lineup, `/model` mid-session
+  ([MODELS.md](MODELS.md), [ROLES.md](ROLES.md)).
+- **Local** models first-class: the steward, fit badges, benchmarks, `halo host`, the pool
+  ([STUDIO-local.md](STUDIO-local.md), [MODELS-ollama-steward.md](MODELS-ollama-steward.md)).
+- **Start** in Studio's Setup; an existing Claude Code setup is read in place, and none is needed
+  ([INSTALL.md](INSTALL.md), [STUDIO-setup.md](STUDIO-setup.md)).
+
+Everything else is a pack ([PACKS.md](PACKS.md)).
+
 Each doc opens with the same "Read this when" line it has here. The longest docs are split by task: the
 original file is a short entry page and its parts are listed under it. New to Halo? Start with
 [INSTALL.md](INSTALL.md), then the [HANDBOOK.md](HANDBOOK.md).

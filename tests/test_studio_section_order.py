@@ -106,10 +106,8 @@ def test_the_modes_banner_draws_the_registry_order(ctx: Ctx):
               [f[2] for f in frames] == [r[2].replace("+", " ") for r in rows])
     ctx.check(f"each tile is its section's capture, got {[f[0] for f in frames]}", [f[0] for f in frames] == [f"studio-{r[0]}.png" for r in rows])
     readme = (REPO / "README.md").read_text(encoding="utf-8")
-    alt = re.search(r'<img alt="(Halo Studio\'s six sections[^"]*)" src="docs/media/studio-modes.png"', readme)
-    pairs = re.findall(r"(\w+) \((Alt\+\d)\)", alt.group(1)) if alt else []
-    ctx.check(f"the README banner's alt text names each section with its key in that order, got {pairs}",
-              pairs == [(r[1], r[2]) for r in rows])
+    ctx.check("3.4.0.0 E: the README shows one Studio picture per pillar, not the banner",
+              "docs/media/studio-modes.png" not in readme)
 
 
 @test

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "halo-harness"
 dynamic = ["version"]
-description = "Multi-model agent harness with orchestration, Claude Code compatibility, local LLM support, and live agent monitoring."
+description = "The multi-agent, multi-workflow harness you can watch: every model's thinking, hand-offs and cost, live, and yours to steer."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

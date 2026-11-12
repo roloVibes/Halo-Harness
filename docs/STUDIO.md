@@ -2,7 +2,7 @@
 
 Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, designs and the fleet.
 
-`halo studio` opens your lineups and agent bios as an editable graph in the browser. It is the visual front door to the same files the wizard and the CLI edit: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes them through the exact functions `halo teams` and `halo agents` use. Nothing is a second source of truth.
+`halo studio` opens Studio in your browser: where you see every agent of a session live (what it thinks, says, runs and costs), shape the work (lineups and blocks on a canvas, workflows, goal runs) and steer it. Its editors write the same files the CLI edits: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes them through the exact functions `halo teams` and `halo agents` use. Nothing is a second source of truth.
 
 **What Studio shows is what is on disk, as it changes (3.2.2.0):** a lineup
 your session edits, `halo teams apply`, a bio saved from the terminal appear

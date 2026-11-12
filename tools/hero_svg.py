@@ -28,7 +28,7 @@ from halo_harness.banner import BANNER_ART_ROWS, RING_ROWS  # noqa: E402
 BG, SURFACE, TEXT, MUTED = "#1e1e2e", "#313244", "#cdd6f4", "#9399b2"
 GOLD, ACCENT, USER = "#f9e2af", "#89b4fa", "#cba6f7"
 CHIPS = (("Studio · every agent, live", ACCENT), ("any model", "#94e2d5"), ("your Claude Code setup, in place", GOLD))
-TAGLINE = "The Claude Code-compatible harness for any model, with Studio: every agent, live."
+TAGLINE = "Multi-agent. Multi-workflow. Fully visible."
 SHADE = {"█": 1.0, "▓": 0.78, "▒": 0.5, "░": 0.25}
 SHADOW = 0.45  # the opacity of the box-drawing shadow bars
 FONT = "font-family=\"'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace\""
@@ -100,7 +100,7 @@ def _head(w: int, h: int, title: str) -> str:
     rows = "\n".join(BANNER_ART_ROWS)
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" width="{w}" height="{h}" role="img" '
             f'aria-labelledby="t d" {FONT}>\n<title id="t">{title}</title>\n'
-            f"<desc id=\"d\">Halo Harness: the Claude Code-compatible harness for any model. The wordmark rows:\n{rows}\n</desc>\n"
+            f"<desc id=\"d\">Halo Harness: the multi-agent, multi-workflow harness you can watch. The wordmark rows:\n{rows}\n</desc>\n"
             f'<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{ACCENT}"/>'
             f'<stop offset="1" stop-color="{USER}"/></linearGradient>'
             f'<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="{GOLD}" stop-opacity="0.28"/>'

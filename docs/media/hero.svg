@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 330" width="1280" height="330" role="img" aria-labelledby="t d" font-family="'Fira Code','DejaVu Sans Mono',Consolas,Menlo,monospace">
 <title id="t">Halo Harness</title>
-<desc id="d">Halo Harness: the Claude Code-compatible harness for any model. The wordmark rows:
+<desc id="d">Halo Harness: the multi-agent, multi-workflow harness you can watch. The wordmark rows:
     ░▒▓▓▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▓▓▒░
   ▒▓█▀                               ▀█▓▒
     ░▒▓▓▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▓▓▒░
@@ -249,7 +249,7 @@
 <rect x="442" y="184.8" width="13" height="4.4" fill="#cba6f7" opacity="0.45"/>
 <rect x="455" y="184.8" width="8.71" height="4.4" fill="#cba6f7" opacity="0.45"/><rect x="459.29" y="176" width="4.42" height="13.2" fill="#cba6f7" opacity="0.45"/>
 </g>
-<text x="64" y="292" font-size="16" fill="#cdd6f4" font-weight="400">The Claude Code-compatible harness for any model, with Studio: every agent, live.</text>
+<text x="64" y="292" font-size="16" fill="#cdd6f4" font-weight="400">Multi-agent. Multi-workflow. Fully visible.</text>
 <rect x="760" y="78" width="256" height="38" rx="19" fill="#313244" stroke="#89b4fa" stroke-width="1.4"/><text x="888" y="103" font-size="14" fill="#89b4fa" text-anchor="middle" font-weight="700">Studio · every agent, live</text>
 <rect x="1032" y="78" width="130" height="38" rx="19" fill="#313244" stroke="#94e2d5" stroke-width="1.4"/><text x="1097" y="103" font-size="14" fill="#94e2d5" text-anchor="middle" font-weight="700">any model</text>
 <rect x="760" y="132" width="307" height="38" rx="19" fill="#313244" stroke="#f9e2af" stroke-width="1.4"/><text x="913.5" y="157" font-size="14" fill="#f9e2af" text-anchor="middle" font-weight="700">your Claude Code setup, in place</text>

@@ -2,17 +2,17 @@
 
 Read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.
 
-The long-form guide. It opens with the guided first run; the front-page
-[README](../README.md) covers install, quick start and what makes Halo
-intuitive; this document keeps the full
-detail for configuration, config reuse, providers, permissions, steering,
-hooks, skills, commands, MCP, browser, sessions, print mode, telemetry,
-troubleshooting, security posture, tests and proxy mode.
+The long-form guide. Halo is the multi-agent, multi-workflow harness you can watch: every model's thinking,
+hand-offs and cost, live, and yours to steer, with Studio as the place you see and shape the work. The front-page
+[README](../README.md) says what Halo is and how to install it; this document keeps the full detail for
+configuration, config reuse, providers, permissions, steering, hooks, skills, commands, MCP, browser, sessions, print
+mode, telemetry, troubleshooting, security posture, tests and proxy mode. How a session runs, drawn:
+[session flow](media/diagrams/session-flow.svg).
 
 ## The guided first run: `halo start` (the first-run pack)
 
 `halo start` is one real Orchestra run that rehearses your lineup on a sample repo, its card first (what it does, the
-models, the cost, the time, what it writes). Since 3.4.0.0 it is the first-run pack since 3.4.0.0 (`halo pack install first-run`, then `halo pack enable first-run --grant-all`); [its README](../halo_harness/templates/packs/first-run/README.md) says what each step
+models, the cost, the time, what it writes). Since 3.4.0.0 it is the first-run pack (`halo pack install first-run`, then `halo pack enable first-run --grant-all`); [its README](../halo_harness/templates/packs/first-run/README.md) says what each step
 does. `halo explain <word>` says what any word means ([GLOSSARY.md](GLOSSARY.md)).
 
 ## A 10-minute walkthrough

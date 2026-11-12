@@ -282,7 +282,9 @@ def _flag_was_set(value) -> bool:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
-        description="halo - starts an interactive session by default, use -p/--print for non-interactive output",
+        description="halo - The multi-agent, multi-workflow harness you can watch: every model's thinking, hand-offs "
+                    "and cost, live, and yours to steer. It starts an interactive session by default; use -p/--print "
+                    "for non-interactive output",
         epilog="Commands: init, explain, studio, media, orchestra, work, teams, agents, roles, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, audit, export, session, pack, "
                "completion, and an enabled pack's own (coach, improve, start) (run `halo <command> --help`; `halo init` "

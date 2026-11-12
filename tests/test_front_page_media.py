@@ -46,7 +46,7 @@ def _readme_images() -> "list[str]":
 def test_every_readme_image_exists_and_is_under_1mb(ctx: Ctx):
     images = _readme_images()
     local = [i for i in images if not i.startswith(("http://", "https://"))]
-    ctx.check(f"the README references local images, got {len(local)}", len(local) >= 15)
+    ctx.check(f"the README references local images (3.4.0.0 E: the hero and one per pillar), got {len(local)}", len(local) >= 6)
     for ref in sorted(set(local)):
         path = REPO_DIR / ref
         ctx.check(f"{ref} exists", path.is_file())
@@ -112,9 +112,12 @@ def test_diagrams_and_hero_exist_and_are_small(ctx: Ctx):
     hero = MEDIA / "hero.svg"
     ctx.check("hero.svg exists and is at most 60 KB", hero.is_file() and hero.stat().st_size <= DIAGRAM_CAP)
     readme = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    # 3.1.5.0 R4: the Signal section left the front page; remote-control.svg stays (the HANDBOOK draws it)
+    # 3.1.5.0 R4: the Signal section left the front page; remote-control.svg stays (the HANDBOOK draws it).
+    # 3.4.0.0 E: a README picture is a Studio view, so the three diagrams moved to the HANDBOOK.
+    handbook = (REPO_DIR / "docs" / "HANDBOOK.md").read_text(encoding="utf-8")
     for d in diagrams[:3]:
-        ctx.check(f"the README shows diagrams/{d}.svg", f"docs/media/diagrams/{d}.svg" in readme)
+        ctx.check(f"the HANDBOOK links diagrams/{d}.svg", f"media/diagrams/{d}.svg" in handbook)
+        ctx.check(f"the README does not show diagrams/{d}.svg", f"diagrams/{d}.svg" not in readme)
     from halo_harness.banner import BANNER_ART
     hero_text = hero.read_text(encoding="utf-8") if hero.is_file() else ""
     # 2.0.11 round A2: tools/hero_svg.py draws the block art as vector cells
@@ -122,9 +125,8 @@ def test_diagrams_and_hero_exist_and_are_small(ctx: Ctx):
     # drift from banner.py.
     ctx.check("the hero's wordmark is the launch banner's rows", all(row.rstrip() in hero_text for row in BANNER_ART.split("\n")))
     ctx.check("the hero carries an explicit size", 'width="1280" height="330"' in hero_text[:600])
-    # 3.1.6.0 R4: the vector hero takes the Studio tagline and three short chips
-    ctx.check("hero.svg carries the Studio tagline",
-              "The Claude Code-compatible harness for any model, with Studio: every agent, live." in hero_text)
+    # 3.1.6.0 R4: the vector hero takes the tagline and three short chips; 3.4.0.0 E: the owner's tagline
+    ctx.check("hero.svg carries the tagline", "Multi-agent. Multi-workflow. Fully visible." in hero_text)
     for chip in ("Studio · every agent, live", "any model", "your Claude Code setup, in place"):
         ctx.check(f"hero.svg carries the chip {chip!r}", f">{chip}</text>" in hero_text)
     ctx.check("the five model chips left the hero", ">DeepSeek</text>" not in hero_text)

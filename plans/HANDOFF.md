@@ -12,7 +12,17 @@ The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harnes
 the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
 push"; plans/WORKER-RULES.md "The pre-push gate").
 
-## WHERE THINGS STAND -- 2026-11-11 (authoritative; every block below is history)
+## WHERE THINGS STAND -- 2026-11-11 evening (authoritative; every block below is history)
+
+v3.3.16.0 through v3.3.17.0 are released. On master and pushed, unreleased: 3.3.18.0 the living canvas, and 3.4.0.0
+"The core" rounds A (Typesafe out), B and B part 2 (the coach pack; the terminal wizard is a console fallback), C (the
+fleet pack) and D (Runs folded into Live and History; c172d401). Round E (the README and the docs intro around the
+approved wording) is the last round before the release: `python scripts/release.py 3.4.0.0 --skip-windows` only when
+`conclusion == success` for the exact HEAD on BOTH runners, then the PC reinstall and `halo --version`. Then the list
+under "Next, in order" below from item (3). Briefs and hand-backs: `~/hh-340/briefs/`. A Windows Update restart at
+05:30 on 2026-11-11 ended the previous session; nothing was lost.
+
+## WHERE THINGS STOOD -- 2026-11-11 morning (history)
 
 **3.4.0.0 "The core" is the version in flight; 3.3.17.0 is the last release.** The owner (2026-11-10 night) defined
 Halo by its core: SEE what agents do, SHAPE the orchestration, MIX any models, LOCAL models first-class, START

@@ -1,8 +1,9 @@
 # Installing halo
 
-`halo` is a standalone, Claude-Code-compatible harness (full-screen TUI +
-`-p` print mode + the older `claude-bridge` proxy as a subcommand) driving
-OpenRouter/Databricks models. **Kali Linux is the primary target platform** --
+Halo is the multi-agent, multi-workflow harness you can watch: every model's
+thinking, hand-offs and cost, live in Studio (`halo studio`), on any provider
+or your own local models; the terminal session (`halo`, `-p` print mode) runs
+the same loop. **Kali Linux is the primary target platform** --
 install there first and treat Windows as the secondary/build host.
 
 Prerequisites everywhere: Python 3.10+ (`python3 --version`). `uv` is optional

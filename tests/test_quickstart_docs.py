@@ -22,20 +22,25 @@ _SECTION_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
 @test
 def test_readme_first_section_is_quick_start(ctx: Ctx):
-    """2.0.10 round 6 (the front-page redo) supersedes the 2.0.5 round 2d
-    shape: the hero image and the wordmark block lead, then the install
-    block is the FIRST ## section (install in three lines), then the
-    stories. The old 'gallery first' pin is gone with the gallery's move
-    below the stories."""
+    """3.4.0.0 E supersedes the 2.0.10 'install first' shape: the hero, the
+    tagline, the short description and the opening sentence lead (the owner's
+    approved wording, word for word), then the five pillars, then Install."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
     sections = _SECTION_RE.findall(text)
     ctx.check(f"README has at least one ## section, got {sections[:3]}", sections)
-    ctx.check(f"the FIRST ## section is Install, got {sections[0]!r}",
-              sections[0].strip().lower().startswith("install"))
+    ctx.check(f"the FIRST ## section is See, got {sections[0]!r}", sections[0].strip() == "See")
+    head = text.split("\n## ", 1)[0]
+    for words in ("Multi-agent. Multi-workflow. Fully visible.",
+                  "The multi-agent, multi-workflow harness you can watch: every model's thinking, hand-offs and cost, "
+                  "live, and yours to steer.",
+                  "See, shape and steer multi-model agent work, on any model, including your own."):
+        ctx.check(f"the approved wording leads the page: {words!r}", words in head)
+    ctx.check("the tagline, then the description, then the opening sentence",
+              head.index("Fully visible.") < head.index("harness you can watch") < head.index("See, shape and steer"))
     ctx.check("the hero image is above every ## section",  # 3.1.6.0 R4: the wordmark over Studio's Session
-              text.index("docs/media/hero.png") < text.index("## Install"))
+              text.index("docs/media/hero.png") < text.index("\n## "))
     ctx.check("the banner block is above every ## section",  # 2.0.11: the block art
-              text.index("██╗  ██╗") < text.index("## Install"))
+              text.index("██╗  ██╗") < text.index("\n## "))
 
 
 @test
@@ -65,29 +70,29 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
     stories above it. This pins the current section set and its order so
     the restructure itself is protected."""
     text = (REPO_DIR / "README.md").read_text(encoding="utf-8")
-    # 2.0.11 round A4: the product-page shape; 3.1.5.0 R4: Studio leads, right
-    # after Install and a short What Halo is, its Session and Roles parts first.
-    headings = ("## Install", "## Update", "## What Halo is", "## Halo Studio", "## What it feels like",
-                "## How Halo compares", "## Features", "## Documentation", "## Tests",
-                "## Contributing and security", "## Licence")
+    # 3.4.0.0 E: the five pillars (one verb each), the two notes, Install, the packs, the links.
+    headings = ("## See", "## Shape", "## Mix", "## Local", "## Start", "## Honest about what it knows",
+                "## Claude Code compatible", "## Install", "## Everything else is a pack", "## Links")
     found = re.findall(r"^## .+$", text, flags=re.M)
     ctx.check(f"the ## sections are the brief's, in its order, got {found}", tuple(found) == headings)
-    studio = text.split("\n## Halo Studio\n", 1)[-1].split("\n## ", 1)[0]
-    parts = tuple(re.findall(r"^### .+$", studio, flags=re.M))
-    ctx.check(f"Studio's parts: Session and Agents first, the design pack last (3.3.16.0 R1; R2: six sections; 3.3.16.1: Workflows, Live on the fleet), got {parts}",
-              parts == ("### Session: the dashboard", "### Agents: your lineup, its runs, what runs now",
-                        "### Workflows: saved orchestrations as squares", "### Six sections, one window",
-                        "### Live on the fleet: every harness, one goal", "### A goal run: agents writing the same files",
-                        "### Team files, from a terminal", "### Design: a pack Halo ships"))
-    feels = text.split("\n## What it feels like\n", 1)[-1].split("\n## ", 1)[0]
-    ctx.check("What it feels like keeps its six short parts, in order",
-              tuple(re.findall(r"^### .+$", feels, flags=re.M)) == (
-                  "### Auto mode that never interrupts", "### One session across providers",
-                  "### Steering a running turn", "### Watching a model think", "### Roles and lineups",
-                  "### Connectors: Claude Docs from a non-Claude model"))
+    for pillar in headings[:5]:
+        body = text.split(f"\n{pillar}\n", 1)[-1].split("\n## ", 1)[0]
+        shots = re.findall(r'src="(docs/media/[^"]+)"', body)
+        ctx.check(f"{pillar}: one Studio picture and a How line, got {shots}",
+                  len(shots) == 1 and Path(shots[0]).name.startswith("studio-") and "**How:**" in body)
+    ctx.check("no ### parts: no feature list longer than the pillars", not re.findall(r"^### ", text, flags=re.M))
+    packs = text.split("\n## Everything else is a pack\n", 1)[-1].split("\n## ", 1)[0]
+    shipped = sorted(p.name for p in (REPO_DIR / "halo_harness" / "templates" / "packs").iterdir()
+                     if (p / "pack.yaml").is_file())
+    ctx.check(f"the packs table has one row per shipped pack {shipped}", all(f"| `{s}` |" in packs for s in shipped))
+    ctx.check("writing one: halo pack new, docs/PACKS.md and the template repo",
+              "halo pack new" in packs and "docs/PACKS.md" in packs and "halo-pack-template" in packs)
     images = re.findall(r'src="(docs/media/[^"]+)"', text)
-    ctx.check(f"3.3.0.0 R4: the first screenshot after install is Setup, then Session's GIF, got {images[1:3]}",
-              images[1:3] == ["docs/media/studio-setup.png", "docs/media/studio-session.gif"])
+    ctx.check(f"3.4.0.0 E: the hero, then See, Shape, Mix, Local and Start's pictures, got {images}",
+              images == ["docs/media/hero.png", "docs/media/studio-session.gif", "docs/media/studio-workflows.png",
+                         "docs/media/studio-model-picker.png", "docs/media/studio-local.png", "docs/media/studio-setup.png"])
+    for gone in ("studio-run-", "studio-fleet", "studio-roles", "halo team ", "Runs view", "studio-modes"):
+        ctx.check(f"3.4.0.0 E: nothing 3.4.0.0 took out of the core is pictured ({gone!r})", gone not in text)
     # the sections the owner took off the page (the features stay in the product)
     for gone in ("The dock that cannot hide", "Code review with a judge", "Remote control from Signal",
                  "One paste instead of screenshots", "Your subscription, your call", "The levels"):
@@ -407,8 +412,8 @@ def test_round6_update_docs_are_in_place(ctx: Ctx):
     # section again, with the one-line repair for `invalid peer certificate`.
     ctx.check("README names halo update and /update",
               "halo update" in readme and "/update" in readme)
-    upd = readme.split("## Update", 1)[-1].split("\n## ", 1)[0]
-    ctx.check("README's ## Update names the certificate error and both repair lines",
+    upd = readme.split("\n## Install\n", 1)[-1].split("\n## ", 1)[0]  # 3.4.0.0 E: Update is a paragraph of Install
+    ctx.check("README's Install names the certificate error and both repair lines",
               "invalid peer certificate" in upd and "UV_SYSTEM_CERTS=1 UV_NATIVE_TLS=1 uv tool install --reinstall" in upd
               and "$env:UV_SYSTEM_CERTS='1'" in upd)
     ctx.check("README's Install section names all three one-liners",

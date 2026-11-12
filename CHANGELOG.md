@@ -10,7 +10,7 @@ version.
 
 ## [3.4.0.0] - unreleased
 
-**The core.** Halo Harness is defined by what it was built around: the agent loop and its tools, permissions and
+**Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and
 policy, the providers in use here (OpenRouter, Databricks, Anthropic, OpenAI-compatible, Ollama, Hugging Face and the
 local servers), all the local-model work, lineups and blocks, Studio's Session, Agents, Local, Packs, Setup and
 Settings, and the pack system. Experimental features that mask that core leave it, as packs where that is cheap and
@@ -377,9 +377,16 @@ at it: one place shows what runs now (Agents -> Live), one shows what ran (Histo
   exit 2) -- `scripts/prepush_tree.py`.
 - `tests/helpers/run_all_support.py`'s cache list names the real modules (`peers.catalog`, the fleet pack's `health`).
 
-## [3.3.18.0] - unreleased
+### E: the README and the docs intro say what Halo is
 
-### The living canvas
+- The README is the owner's wording ("Multi-agent. Multi-workflow. Fully visible."), five pillars (See, Shape, Mix,
+  Local, Start) with one Studio picture each, Install, and "Everything else is a pack" with the shipped packs; the
+  docs map, the HANDBOOK, STUDIO.md and harness/INSTALL.md open the same way, and pyproject and `halo --help` carry the
+  short description.
+- Pictures: the hero carries the tagline; Cast, Workflows, the model picker, Setup (no Machines step), Local, Packs,
+  Settings (its General page: the Fleet page is the fleet pack's) and the six-section banner are re-rendered.
+
+### The living canvas (built as 3.3.18.0, shipped here)
 
 The owner, 2026-11-10: "i feel like agent canvas should be better. i always see like unused older version of
 orchestrations that aren't even happening when I look at it. id love to see what is actually happening when i look at
