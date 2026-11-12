@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.4.0.1] - unreleased
+## [3.4.0.1] - 2026-11-12
 
 What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
 when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Kali VM, paired through the fleet pack,
