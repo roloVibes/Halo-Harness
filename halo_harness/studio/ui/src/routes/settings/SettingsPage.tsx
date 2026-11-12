@@ -9,13 +9,14 @@ import { useEffect, useMemo, useRef, type ComponentType } from "react";
 import { Empty } from "../../lib/ui";
 import { HELP } from "../help";
 import { hits, setQuery, usePages } from "./pages";
+import { AlertsBlock } from "./AlertsBlock"; // 3.4.1.0 R4: Settings -> Studio -> Alerts
 import { LocalBlock } from "./LocalBlock";
 import { OllamaBlock } from "./OllamaBlock";
 import { SettingRow } from "./Row";
 import { useSettings, type Row } from "./store";
 import { ThemesPage } from "./Themes"; // 3.3.12.0 R1
 
-const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock, local: LocalBlock }; // 3.3.6.0 R5: the changes
+const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock, local: LocalBlock, studio: AlertsBlock }; // 3.3.6.0 R5: the changes
 
 export function Head({ title, about, help, count }: { title: string; about: string; help: string; count: string }) {
   const query = usePages((s) => s.query);

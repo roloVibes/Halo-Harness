@@ -3,7 +3,7 @@
 id>` (`design--design`, the design pack's). A word a core section had before it went to a pack (`design`) answers one
 line naming the pack and how to turn it on.
 
-    known(word)                          a core word or the shape of a pack section's (no lookup: building a URL)
+    known(word)                          a core word, a page (PAGES: glance) or the shape of a pack section's
     check(word, cwd=, state_dir=)        (word, '') when it opens something here, else (None, the line)
     moved_line(word)                     the line for a word that went to a pack
     door_line(word)                      3.3.16.0 R1: the line for roles, orchestra or team, now Agents' views
@@ -20,11 +20,13 @@ from halo_harness.studio.agents_door import door_line  # noqa: F401  (re-exporte
 PACK_MODE_RE = re.compile(r"^[a-z][a-z0-9-]*--[A-Za-z0-9][A-Za-z0-9_-]*$")
 #: A core section that became a pack's (3.3.13.0 R2): the word -> (the pack's id, the pack's section).
 MOVED = {"design": ("design", "design--design")}
+#: 3.4.1.0 R4: a page of Studio that is not a section (no rail, no panels): `?mode=glance`, the phone-width glance
+PAGES = ("glance",)
 
 
 def _core() -> tuple:
     from halo_harness.studio.server import STUDIO_MODES
-    return STUDIO_MODES
+    return STUDIO_MODES + PAGES
 
 
 def known(word: Optional[str]) -> bool:

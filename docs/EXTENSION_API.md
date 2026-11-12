@@ -498,7 +498,8 @@ own routes (`packs/<id>/...`); GET on its own `pack/<id>/file|data|config|mode|a
 page draws from (`pack/registry`, `state`, `session`, `tools`, `models...`, `layout/<name>`, `media/status|models|
 workflows...`, `glossary`, `field-help`). Anything else rejects with an `Error` naming that rule, and no request is
 made. Studio answers the routes that change what runs here (a pack's grant, enable, disable, install, sources, update,
-rollback, remove, service, settings and config; the bundles; Setup; Settings; a session started or typed into) only
+rollback, remove, service, settings and config; the bundles; Setup; Settings; a session started or typed into; 3.4.1.0
+R4: an attention row answered) only
 for a request carrying the owner's proof, `X-Halo-Owner`, which only the shell's own page holds; anything else gets 403
 "this needs the owner's own page" ([STUDIO-shell.md](STUDIO-shell.md#the-owners-page-and-a-packs-key)). This is what
 `api.lib` was always meant to be, so the extension API stays 1.2.

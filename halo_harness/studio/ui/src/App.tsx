@@ -37,6 +37,9 @@ import { useRolesLive } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
 import { RolesDialogs } from "./routes/roles/Dialogs";
+import { GlanceDoor } from "./routes/glance/Door";
+import { startAlerts } from "./lib/alerts";
+import { openAsk } from "./routes/glance/openAsk";
 
 export function App() {
   const section = useStore(studio, (s) => s.section);
@@ -57,6 +60,7 @@ export function App() {
   useEffect(() => startThemes(), []); // 3.3.12.0 R1: the palette registry and the `theme` key
   useEffect(() => installEdit(), []);
   useEffect(() => startPacks(), []);
+  useEffect(() => startAlerts(openAsk), []); // 3.4.1.0 R4: the alert (Settings -> Studio -> Alerts), none by default
   useEffect(() => {
     const def = sections().find((s) => s.id === section);
     document.title = def ? `${def.title} - Halo Studio` : "Halo Studio";
@@ -83,6 +87,7 @@ export function App() {
       <PanelDialogs />
       <MissionDialogs />
       <RolesDialogs />
+      <GlanceDoor />
       <Toasts />
       <HoverCardHost />
     </div>

@@ -322,7 +322,7 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("supervise", "halo_harness.studio.supervise_api", "dispatch_supervise"),  # 3.1.8.0 R1: the morning line
              ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"),  # 3.2.0.0 R3: Studio contributions
              ("packs", "halo_harness.studio.packs_routes", "dispatch"),  # 3.3.13.0 R2: a pack's own routes (API 1.2)
-             ("replays", "halo_harness.studio.replays_api", "dispatch_replays"),  # 3.4.1.0 R1: the replay file, the clip
+             ("replays", "halo_harness.studio.replays_api", "dispatch_replays"), ("glance", "halo_harness.studio.glance_door", "dispatch_glance"),  # 3.4.1.0 R1 / R4
              ("setup", "halo_harness.studio.setup_api", "dispatch_setup"),  # 3.3.0.0 R1: the Setup section
              ("settings", "halo_harness.studio.settings_api", "dispatch_settings"),  # 3.3.3.0 R2: the Settings section
              ("ollama", "halo_harness.studio.ollama_steward_api", "dispatch_ollama"),  # 3.3.4.0 R5: the steward's panel

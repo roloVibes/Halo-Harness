@@ -26,6 +26,7 @@ ROWS = [
     Row("mcpPreload", "general", "MCP preload", "list", None, (), "Wire tool names to preload whatever the catalog's own alwaysLoad rule says.", "next session"),
     Row("compactionModel", "general", "Compaction model", "model", None, (), "The model that writes a compaction's summary; unset, the session model (billed at its own rates).", "now"),
     Row("studio.hover_cards", "studio", "Hover cards", "bool", True, (), "Resting the pointer on a box in Agents (a Cast card, an agent, a session, a machine, a lane, a square) or focusing it with the keyboard shows a card of what it is and does; off, the boxes show their plain tooltips.", "now"),
+    Row("studio.alerts", "studio", "Alerts", "enum", "none", ("none", "browser"), "When something starts waiting on you (a permission, a question, a plan, a gate), one alert by this channel: none, or browser (the notification of a browser that allowed it: Settings -> Studio -> Alerts asks it on your click; a click on it opens the ask).", "now"),
     Row("agents.max_concurrent", "agents", "Agents at once", "int", 4, (), "How many sub-agents may run at the same time.", "next session"),
     Row("agents.max_depth", "agents", "Agent depth", "int", 1, (), "How deep sub-agents may spawn sub-agents of their own (1 to 3).", "next session"),
     Row("workflows.enabled", "agents", "Workflow squares", "list", ["media"], (), "The squares the auto lineup may hand work to (the Workflow tool); another lineup lists its own under workflows:.", "next session"),

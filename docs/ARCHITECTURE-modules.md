@@ -104,7 +104,9 @@ this list against the tree.
   R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
   `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`);
   R3: `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its
-  Markdown, from the record), `report_cli.py` (`halo report`)
+  Markdown, from the record), `report_cli.py` (`halo report`); R4: `studio/glance_door.py` (where the glance is: this
+  machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone line), the
+  page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`
 
 **The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
 harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who

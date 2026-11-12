@@ -201,8 +201,9 @@ function onRaw(f: FeedFrame): void {
   if (!s.streams[key]?.viaEvents) append(key, e);
 }
 
-/** Start once: the first GET, the feed handlers, the poll while the feed is down. */
-export function startFleet(): void {
+/** Start once: the first GET, the feed handlers, the poll while the feed is down. `lite` (3.4.1.0 R4, the glance): the
+ *  attention queue too, not the capability catalogs or the missions. */
+export function startFleet(lite = false): void {
   if (fleet.get().started) return;
   fleet.update(() => ({ started: true }));
   onEvent("agent_state", onAgentState);
@@ -228,6 +229,7 @@ export function startFleet(): void {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) later("load", 100, () => void load()); });
   void load();
   startPanels();
+  if (lite) return;
   startCaps();
   startMissions();
 }

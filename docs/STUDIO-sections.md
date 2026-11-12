@@ -150,6 +150,10 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    log), Attention (what waits on you, one key each) and Prompt (3.3.11.0 R1: type into the session) wait as strips at
    the foot; one click opens each beside Live (or the header's **+**), Reset layout (its **...**) puts the arrangement back, a
    layout you made is kept. `J` / `K` hop between this harness's live agents; `Alt+Enter` opens Prompt, the keyboard in its box ([the Prompt panel](STUDIO-session.md#the-prompt-panel-33110-r1)).
+7. **Glance from a phone** (3.4.1.0 R4): the **...** menu's **Open the glance** (or the palette, or `halo studio --mode
+   glance`) is one phone-width page -- what runs, what waits on you as big buttons, the spend against its cap -- here,
+   or on a phone through an SSH forward of Studio's port; Settings -> Studio -> Alerts can add one browser notification
+   when something starts waiting on you ([STUDIO-live.md](STUDIO-live.md#the-glance)).
 
 **Panels.** Live (`session-live`): every agent here at once, what it types,
 runs, hands back and asks, in the fleet log's columns under this session's

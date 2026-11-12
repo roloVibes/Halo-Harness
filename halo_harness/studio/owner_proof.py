@@ -6,7 +6,8 @@ launch token alone cannot tell the owner's clicks from a pack's script. The shel
 salt the served index.html carries as `data-owner-salt` on <html>, which the shell reads once and removes before any
 pack module loads (studio/ui/src/lib/owner.ts). Its own requests send `X-Halo-Owner: <hex HMAC-SHA256(token, salt)>`;
 the routes that change what runs here (`OWNER_ROUTES`: a pack's grant, enable, disable, install, sources, update,
-rollback, remove, service, settings and config; the bundles; Setup and Settings; a session started or typed into)
+rollback, remove, service, settings and config; the bundles; Setup and Settings; a session started or typed into;
+3.4.1.0 R4: an attention row answered, from Attention or the glance)
 answer 403 `NEEDS_OWNER` without it. The salt goes only into a page the browser navigates to (`Sec-Fetch-Dest:
 document`, or a client that sends none): a script's `fetch("/")` or a frame of `/` gets the page without it.
 
@@ -25,7 +26,7 @@ import secrets
 from urllib.parse import parse_qs, unquote, urlsplit
 
 HEADER = "X-Halo-Owner"
-NEEDS_OWNER = ("this needs the owner's own page: Studio's Pack Manager, Setup, Settings or Session sends it "
+NEEDS_OWNER = ("this needs the owner's own page: Studio's Pack Manager, Setup, Settings, Session, Attention or the glance sends it "
                "(a pack's page does not)")
 _ID = r"[a-z][a-z0-9-]*"
 OWNER_ROUTES = tuple(re.compile(p) for p in (
@@ -33,6 +34,7 @@ OWNER_ROUTES = tuple(re.compile(p) for p in (
     rf"^pack/{_ID}/(enable|grant|disable|update|rollback|remove|service|settings|config)$",
     r"^pack/bundle/",
     r"^(setup|settings|sessions)(/|$)",
+    r"^fleet/attention/answer$",  # 3.4.1.0 R4: an answer lets a tool run (Attention, the glance; studio/fleet_answer.py)
 ))
 _RAW = re.compile(rf"^/api/(?:packs/(?P<routes>{_ID})/|pack/(?P<files>{_ID})/file/)")
 _SECRET_QUERY = re.compile(r"([?&](?:t|k)=)[^&\s\"]*")

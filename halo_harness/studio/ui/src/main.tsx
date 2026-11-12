@@ -67,6 +67,7 @@ import "./styles/live-time.css"; // 3.4.1.0 R1: the scrubber under Live's canvas
 import "./styles/live-compare.css"; // 3.4.1.0 R2: History's ticks and the Compare page
 import "./styles/live-card.css"; // 3.4.1.0 R3: the run report card, History's Report door, Session's mode word
 import "./styles/live-waits.css"; // 3.3.18.0 part 3: waits on, the waiting path, the one sentence
+import "./styles/glance.css"; // 3.4.1.0 R4: the glance page, Open the glance, Settings -> Studio -> Alerts
 import "./styles/blocks.css"; // 3.3.16.3: blocks on the Cast canvas, a tier's purpose line
 import "./styles/blocks-compose.css"; // 3.3.16.3 part 2: lines with their when, the library on Cast, the drags
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
@@ -74,12 +75,14 @@ import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picke
 import "./styles/hover-card.css"; // 3.3.16.1: the one hover card (lib/ui/HoverCard.tsx)
 import "./styles/textbox.css"; // 3.3.15.0 R3: the one text box (lib/ui/TextBox.tsx), after every section's sheet
 import { App } from "./App";
+import { Glance } from "./routes/glance/Glance";
 import { installLib } from "./packlib";
 
 installLib(); // 3.3.13.0 R2: a pack's bundle takes the shell's React and parts from here (packlib/index.ts)
 document.documentElement.dataset.theme = document.documentElement.dataset.theme || "instrument"; // 3.3.15.0 R4: unset is instrument
+// 3.4.1.0 R4: `?mode=glance` is the glance, one phone-width page of this Studio (routes/glance), not the shell
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {/[?&]mode=glance(&|#|$)/.test(location.search) ? <Glance /> : <App />}
   </StrictMode>,
 );

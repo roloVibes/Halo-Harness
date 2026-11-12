@@ -10,6 +10,7 @@ import { openHelp, studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { useSectionDef, type SectionDef } from "../routes";
 import { arrangeSection, resetSection } from "./commands";
+import { GLANCE_HINT, openGlanceDoor } from "../routes/glance/Door";
 
 function More({ def }: { def: SectionDef }) {
   const ls = useStore(layoutStore(def.id), (s) => s);
@@ -28,7 +29,9 @@ function More({ def }: { def: SectionDef }) {
     },
     { id: "moving", label: "How panels move", icon: "help", testid: "layout-help", title: "Drag, resize and the keys: the Moving panels part of this section's help", run: () => openHelp(studio.get().section, "moving") }, // 3.3.16.0 R1: Agents' help, not its part's
   ];
-  return <Menu icon="more" label={`${def.title}: layout`} title="More: arrange the panels, reset the layout, how panels move" testid="section-more" menuTestid="section-more-menu" groups={[{ name: "LAYOUT", rows }]} width={260} />;
+  const elsewhere: MenuRow[] = [{ id: "glance", label: "Open the glance", icon: "popout", testid: "session-glance", title: GLANCE_HINT, run: openGlanceDoor }]; // 3.4.1.0 R4
+  const groups = def.id === "session" ? [{ name: "LAYOUT", rows }, { name: "ELSEWHERE", rows: elsewhere }] : [{ name: "LAYOUT", rows }];
+  return <Menu icon="more" label={`${def.title}: layout`} title="More: arrange the panels, reset the layout, how panels move" testid="section-more" menuTestid="section-more-menu" groups={groups} width={260} />;
 }
 
 function Badge({ def }: { def: SectionDef }) {

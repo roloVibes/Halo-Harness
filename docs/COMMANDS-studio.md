@@ -14,7 +14,7 @@ Studio as well, and `halo update` stops it before installing.
 
 
 ```sh
-halo studio [--mode session|agents|local|packs|setup|settings|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode session|agents|local|packs|setup|settings|glance|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
 halo studio --edit bio:<name> | lineup:<name>[:<block>] | team [--no-open]
 halo studio --session [<id>] [--prompt] [--no-open]
 ```
@@ -78,6 +78,10 @@ scope on" once with where the rest went (machines: Setup -> Machines; their mode
 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
 section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.
+3.4.1.0 R4: `--mode glance` opens the glance (`?mode=glance`), one phone-width page of this Studio -- what runs now,
+what waits on you as large buttons, the spend against its cap -- and says under the URL how a phone reaches it: through
+an SSH app's forward of Studio's port when an SSH server answers here, else that the page is this-machine-only
+([STUDIO-live.md](STUDIO-live.md#the-glance), [REMOTE.md](REMOTE.md#the-glance-from-a-phone)).
 The TUI's `/roles` (Agents on Cast) and, with the design pack on, `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
 that) and opens the browser unless `--no-open`; `--cwd` is the project

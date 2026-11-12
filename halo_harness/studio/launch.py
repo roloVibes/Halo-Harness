@@ -96,7 +96,7 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
         argv += ["--session"] + ([t.session] if t.session else []) + (["--prompt"] if t.prompt else [])
     elif edit:
         argv += ["--edit", edit]
-    elif mode in STUDIO_MODES or "--" in str(mode or ""):  # 3.3.13.0 R2: a pack's section too
+    elif mode in STUDIO_MODES or mode == "glance" or "--" in str(mode or ""):  # 3.3.13.0 R2: a pack's section; 3.4.1.0 R4: the glance
         argv += ["--mode", mode]
     if not open_browser:
         argv.append("--no-open")

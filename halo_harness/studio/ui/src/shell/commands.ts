@@ -23,6 +23,7 @@ import { agentsCommands } from "../routes/agents/commands";
 import { settingsCommands } from "../routes/settings/commands";
 import { localCommands } from "../routes/local/commands";
 import { promptCommand } from "../routes/session/promptStore";
+import { GLANCE_HINT, openGlanceDoor } from "../routes/glance/Door";
 
 /** `disabled`: drawn with its hint saying why (3.3.2.0 R2: nothing to arrange, nothing to reset); Enter does nothing. */
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; disabled?: boolean; run: () => void };
@@ -86,6 +87,7 @@ export function commands(): Command[] {
     { id: "density-compact", group: "View", label: "Density: compact", hint: "tighter spacing, a smaller type scale; the header's rows button", run: () => setDensity("compact") },
     { id: "density-comfortable", group: "View", label: "Density: comfortable", hint: "the default spacing and type scale", run: () => setDensity("comfortable") },
     { id: "rail", group: "View", label: "Expand or collapse the rail", hint: "the section icons, or the icons with their titles", run: toggleRail },
+    { id: "glance", group: "View", label: "Open the glance", hint: GLANCE_HINT, run: openGlanceDoor }, // 3.4.1.0 R4
     { id: "focus", group: "View", label: "Focus", hint: "hide the rail, the inspector and the status bar; again brings them back", kbd: "F", run: toggleFocus },
   );
   if (!cur.paged) { // 3.3.1.0 R1: a paged section (Setup) has no layout to reset or arrange

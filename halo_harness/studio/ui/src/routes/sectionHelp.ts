@@ -63,7 +63,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["J / K", "the next / previous agent at work"], ...PANEL_KEYS],
   },
   session: {
-    terms: ["harness", "fleet", "hand-off", "gate"],
+    terms: ["harness", "fleet", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance
     what: "Your own session, live: one live column of every agent at work, as it happens, fills the stage; the map of this harness's agents, what the chosen session costs and the rest wait as strips at its foot. Every machine's agents are Agents -> Live's (the fleet scope).",
     steps: [
       ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+1, the palette, Watch in Session on Agents' Live tab or a live run in Agents: Runs, and Open in Session on a node's menu on Agents -> Live land here too."],
@@ -71,6 +71,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Read the map", "Each agent sits under the one that spawned it, its children fanned out, with its model, its cost and the tool it runs now (Bash 12s). Cyan works, amber waits on you, green just finished and fades, red failed and stays. Click an agent: its session becomes the chosen one."],
       ["Read the cost", "The spend ticks up beside its sparkline the moment the terminal's does; the context bar turns amber past 80 % and red past 95 %; the tokens, your turns and the cost per turn, and each agent's own share in one stacked bar (a finished sub-agent counts once)."],
       ["Open what you need", "Map, Cost, Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) wait as strips at the foot; a click opens one beside Live, Reset layout puts the arrangement back."],
+      ["Glance from a phone", "The \"...\" menu's Open the glance (or the palette, or halo studio --mode glance): one phone-width page -- what runs, what waits on you as big buttons, the spend against its cap -- here, or on a phone through an SSH forward of Studio's port. Settings -> Studio -> Alerts can add one browser notification when something starts waiting on you."],
     ],
     keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
       ["Esc", "in Live: show every agent again after a tag click"], ["A / R / S / O", "in Attention, or on the newest ask card in Live: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],

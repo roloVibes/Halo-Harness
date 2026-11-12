@@ -9,7 +9,7 @@ the Signal bridge is the shipped signal pack), the TUI's `/remote` and status
 chip, the command line, `halo doctor` and the config keys.
 
 Contents: [the control socket](#what-the-control-socket-is) | [the event feed](#the-event-feed) |
-[the sessions registry](#the-sessions-registry) | [transports](#transports) |
+[the sessions registry](#the-sessions-registry) | [transports](#transports) | [the glance from a phone](#the-glance-from-a-phone) |
 [the TUI](#in-the-tui-remote-and-the-status-chip) | [command line](#command-line-reference) |
 [doctor](#doctor) | [config keys](#config-keys)
 
@@ -292,6 +292,23 @@ the Setup pages; `~/.halo/remote/{signal.json, signal-cli/, peers.json, pending.
 (`packs.settings.signal.on | rate_per_minute | verbosity | stale_window_s | pair_ttl_s`; `halo config get|set` of an
 old key says its new home). Halo no longer downloads signal-cli: the pack's `requires:` names it with its install
 line for each OS.
+
+## The glance from a phone
+
+Studio's glance (3.4.1.0 R4, [STUDIO-live.md](STUDIO-live.md#the-glance)) is one phone-width page of the loopback Studio.
+Nothing new listens for it: Studio answers 127.0.0.1 alone (its peer and its Host header), the fleet hub and `halo host`
+speak only their own signed protocols, and the control socket above is loopback. The one door from a phone is the one
+Studio already prints for another machine -- an SSH forward of its port:
+
+1. On the machine that runs Studio, an SSH server (OpenSSH; on Windows the optional OpenSSH Server) answers on port 22.
+2. In an SSH app on the phone, connect to `<you>@<this machine's LAN address>` and forward the phone's local port `<P>`
+   to `127.0.0.1:<P>` (the port `halo studio` printed).
+3. On the phone, open `http://127.0.0.1:<P>/?mode=glance#t=<token>` -- or scan the code Studio's **Open the glance**
+   draws when an SSH server answers here.
+
+The phone's browser then talks to its own 127.0.0.1, so Studio's Host check, the token and the owner proof hold exactly
+as on this machine, and the page is a secure context (the owner proof and the browser's notification need one). With no
+SSH server answering, **Open the glance** and `halo studio --mode glance` say plainly that the page is this-machine-only.
 
 ## In the TUI: `/remote` and the status chip
 

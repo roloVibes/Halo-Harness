@@ -20,6 +20,8 @@ function page(about: string, ...own: string[]): Help {
 export const SETTINGS_HELP: Record<string, Help> = {
   "settings-general": page("The model a session starts on, the lineup, the permission mode, effort, the theme and the terminal's own switches.",
     "Setup sets the model, the permission mode, the theme and the lineup with a preview; here each is one row."),
+  "settings-studio": page("How Studio itself behaves: the hover cards on Agents' boxes, and the alert when something starts waiting on you.",
+    "Alerts: None sends nothing (the default); This browser's notification asks this browser once, on that click, then shows one notification per new ask; a click on it opens the ask."),
   "settings-agents": page("How many sub-agents run at once and how deep, whether roles route the work, and the model each role runs on.",
     "A role's model is a table of the roles saved: change one, or add one in roles as JSON."),
   "settings-knowledge": page("What the knowledge store records and briefs carry, and the folders of your own notes recall reads."),

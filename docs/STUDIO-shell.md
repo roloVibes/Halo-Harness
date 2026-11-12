@@ -284,7 +284,8 @@ script. Two values Studio derives from the token keep the two apart
   client (`lib/api.ts` `call`) sends `X-Halo-Owner: <hex HMAC-SHA256 of the
   salt keyed by the token>`; a write to a pack's grant, enable, disable,
   install, sources, update, rollback, remove, service, settings or config,
-  the bundles, Setup, Settings or a session (new, a command, a prompt)
+  the bundles, Setup, Settings, a session (new, a command, a prompt) or
+  (3.4.1.0 R4) an attention row's answer from Attention or the glance
   without it answers 403 "this needs the owner's own page". A pack's page
   gets `api.lib`'s client instead, scoped to its own routes
   ([EXTENSION_API.md](EXTENSION_API.md#apilib)).

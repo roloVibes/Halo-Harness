@@ -361,7 +361,7 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
-    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section> (default: the mode you used last; roles opens Agents on Cast, orchestra and team on Live, fleet on Live with the fleet scope)")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section>; glance: the phone-width page (default: the mode you used last; roles opens Agents on Cast, orchestra and team on Live, fleet on Live with the fleet scope)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
@@ -411,8 +411,8 @@ def cmd_studio(argv: list) -> int:
         return 0
     running = existing_url(state_dir, args.mode)
     if running and not args.port:  # 3.0.2.0: one Studio per machine -- reuse it
-        print(f"Halo Studio is already running at {running}")
-        print("halo studio --stop stops it.")
+        from halo_harness.studio.glance_door import note  # 3.4.1.0 R4: `--mode glance` says how a phone reaches it
+        print(f"Halo Studio is already running at {running}\nhalo studio --stop stops it.{note(running, args.mode)}")
         if not args.no_open:
             try:
                 webbrowser.open(running)
@@ -439,8 +439,8 @@ def cmd_studio(argv: list) -> int:
                                          "pstart": start_time(os.getpid())}))
     except OSError:
         pass
-    print(f"Halo Studio is at {url}")
-    print("Over SSH: ssh -L {p}:127.0.0.1:{p} <host>, then open the same URL on your machine.".format(p=server.server_address[1]))
+    from halo_harness.studio.glance_door import over_ssh  # 3.4.1.0 R4: + the glance's phone line (studio/glance_door.py)
+    print(f"Halo Studio is at {url}\n{over_ssh(server.server_address[1], args.mode)}")
     print("Ctrl+C stops it (from another shell: halo studio --stop).")
     if not args.no_open:
         try:

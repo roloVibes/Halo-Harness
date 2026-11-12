@@ -1,6 +1,6 @@
 # Studio: Agents -> Live, the living canvas
 
-Read this when you watch what runs now on Studio's Agents -> Live: why it shows only what is happening, where the past went (History and replays), the plan drawn under the agents, what each agent waits on, the one sentence under the bar, the three zoom levels, and the scrubber that takes the canvas back in time.
+Read this when you watch what runs now on Studio's Agents -> Live: why it shows only what is happening, where the past went (History and replays), the plan drawn under the agents, what each agent waits on, the one sentence under the bar, the three zoom levels, the scrubber that takes the canvas back in time, the glance (one phone-width page) and the alert when something starts waiting on you.
 
 Part of [Halo Studio](STUDIO.md), which lists every part. [Studio: Agents](STUDIO-agents.md) has the section's views and doors; [Studio: blocks and groups](STUDIO-blocks.md) the blocks and groups Live draws.
 
@@ -104,3 +104,52 @@ running now it shows the axis up to now and a drag rewinds it; Now returns. A se
 start and end), a mission and a saved `.halo-replay` file all play on it; a session and a goal run save as a file and
 film a clip (R2). [REPLAY.md](REPLAY.md) has the file, the clip, what an older session cannot show, Compare and
 `halo replay list | save | open | clip | compare`.
+
+## The glance
+
+`/?mode=glance` (3.4.1.0 R4) is ONE phone-width page of this Studio -- no rail, no panels -- for a look from across the
+room or from a phone (`routes/glance/`):
+
+- **the sentence** of what is going on now, Live's own (`narrate.ts`) over the session Live would draw (this harness's
+  newest with an agent at work, else its newest); with no agent tree to read, what waits on you;
+- **what waits on you**, oldest first, each with its answers as **large buttons** (the row's own allow once / deny /
+  stop, approve / send back, answer ...), each saying in one line what it does; an answer that needs words opens a text
+  box first, a permission's deny takes an optional reason;
+- **the spend** against its cap: today's spend (the sessions started today, as the caps count them) and the first cap set
+  of this machine's, the session's project's, the fleet's; a session Halo cannot price makes it `$x+`, nothing priced is
+  `unknown`, never `$0`; none set reads **no cap set**; a cap reached says its sessions are paused;
+- **the elapsed time** of that session, and **the last three events** (a tool run, a line written, an ask), newest first;
+- a status word: **live**; **live figures; the feed is reconnecting** while the feed reconnects; **stale: last heard N s
+  ago, reconnecting** when Studio has not answered for 15 seconds. It reconnects by itself (the feed backs off and
+  retries; the queue is read every six seconds; a page that shows again reads everything once more).
+
+Open it from **Open the glance** (the palette's View group, and Session's "..." under ELSEWHERE), `halo studio --mode
+glance`, or the address itself. The dialog says what Open does, costs and writes (opens a tab; nothing; nothing), shows
+this machine's address and, for a phone, either the steps and a code to scan or, plainly, that the page is
+this-machine-only ([REMOTE.md](REMOTE.md#the-glance-from-a-phone)).
+
+**What it may do.** It is the same loopback Studio with the same token, served the same page; nothing new listens and
+no port is added. It reads what Studio's own page reads (`GET fleet`, `fleet/attention`, `fleet/caps`, an agent's tail,
+`settings/values`, `/api/events`) and its one write is an answer, `POST /api/fleet/attention/answer`, the request
+Attention's keys send, with the token AND the owner proof (`X-Halo-Owner`): since 3.4.1.0 R4 that route is an owner
+route, so neither Attention nor the glance answers a card without the shell's own page
+([STUDIO-security.md](STUDIO-security.md#security-model)). It calls no model.
+
+## The alert
+
+When something **starts** waiting on you -- a new row of the attention queue: a permission, a question, a plan, a gate,
+a cap -- ONE alert by the channel you picked in **Settings -> Studio -> Alerts** (`studio.alerts`, `lib/alerts.ts`),
+naming what waits and on which session ("Waiting on you: Permission: Bash", "shop on you@laptop · main"). Never one per
+feed event (a card is one row however many frames say it), never for what already waited when the page opened, and rows
+that land together are one alert ("and 2 more").
+
+| Choice | What it does |
+|---|---|
+| **None** (the default) | nothing is sent |
+| **This browser's notification** | the click asks THIS browser for permission, once (never on load, never on its own); then each Studio page or glance open in a browser that allowed it shows one notification per new ask; a click on it opens the ask (in Studio: Session's Attention on that row; on the glance: the row, lit) |
+
+The line under the choices says what this browser will do: it allows it; it has not been asked (press the choice and it
+asks); it blocked notifications for this page (allow them in its site settings); or it has none here (a page off
+127.0.0.1 or localhost has none). Two pages in one browser show one notification (each carries the row's tag).
+A second channel is one more entry of `CHANNELS` in `lib/alerts.ts`; the owner has not chosen one yet, so nothing else is
+built (the signal pack's phones already get the queue's new rows as `asks` notes, [REMOTE.md](REMOTE.md#transports)).

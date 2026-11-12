@@ -83,7 +83,7 @@ _SCALARS = {
 # `databricks`: gateway.<endpoint>, dbu_price_usd (USD per DBU, default 0.07), prices.<endpoint> {in, out[, cache_read,
 # cache_write]} USD per 1M tokens (3.3.3.1, providers/databricks_prices.py), catalog_max_age_hours
 # `steer`: restart_when_silent, silent_restart_s (3.2.2.0 R4); `turn`: nudge_promises (3.2.2.0 R4, agent/turn_marker.py)
-# `studio`: hover_cards (3.3.16.1: Agents' boxes show a hover card; false, their plain tooltips; Studio's lib/hover)
+# `studio`: hover_cards (3.3.16.1: Agents' boxes show a hover card; false, their plain tooltips; Studio's lib/hover); alerts none|browser (3.4.1.0 R4, lib/alerts.ts)
 # `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py); `fleet`: ollama.share auto|all|off (3.3.4.0 R2, fleet/ollama_share.py)
 # `ollama`: profiles (a map "<host>|<model>" (3.3.7.0 R3: or "<host>|<model>|<role>", a lane's own) -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)

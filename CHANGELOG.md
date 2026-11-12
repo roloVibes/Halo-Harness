@@ -122,6 +122,44 @@ jobs"), section A of its plan: time on Agents -> Live, then a run's replay as on
   STUDIO-session.md "The mode word", COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "report card" (+ twin),
   the docs map.
 
+### R4: the glance, and the alert
+
+#### Added
+
+- **The glance** (`/?mode=glance`, `routes/glance/`; docs/STUDIO-live.md "The glance"): one phone-width page of this
+  Studio, no rail and no panels -- the sentence of what is going on now (Live's own grammar over the session Live
+  draws; what waits on you when there is no agent tree to read), what waits on you with its answers as large buttons
+  that each say what they do (a text box first for an answer that needs words), the spend against its cap (today's, as
+  the caps count it; "$x+" or "unknown" for what Halo cannot price, never $0; "no cap set"), the session's elapsed time
+  and the last three events. It says **live**, that the feed is reconnecting, or **stale: last heard N s ago** after 15
+  seconds without an answer, and reconnects by itself. Nothing opens on load; it calls no model.
+- Where it opens: **Open the glance** in the palette (View) and in Session's "..." menu (ELSEWHERE), a dialog with this
+  machine's address, Open it here (DOES / COSTS / WRITES first) and, for a phone, the steps and a code to scan when an
+  SSH server answers here, else plainly that the page is this-machine-only (`GET glance/door`,
+  `studio/glance_door.py`); `halo studio --mode glance` (a page word, not a section) prints the phone's line under the
+  URL. No new listener, no new port: a phone reaches it only through an SSH forward of Studio's port, the door Studio
+  already printed (docs/REMOTE.md "The glance from a phone").
+- **The alert** (`studio.alerts`, Settings -> Studio -> Alerts, `lib/alerts.ts`; docs/STUDIO-live.md "The alert"):
+  none (the default) or this browser's notification. Choosing the browser asks this browser for permission on that
+  click, once, never on load; then one notification when something starts waiting on you (what waits, on which
+  session; never one per feed event, never for what waited before the page opened), and a click on it opens the ask
+  (Session's Attention on that row; on the glance, the row). The channels are one table: a second is one entry. Nothing
+  for the Signal pack: the owner has not chosen a channel yet.
+
+#### Changed
+
+- **An answer from the attention queue needs the owner proof** (`studio/owner_proof.py`): `POST
+  fleet/attention/answer` -- Attention's keys and the glance's buttons -- joined the owner routes, so the launch token
+  alone (what a pack's page script could read) is a 403 "this needs the owner's own page" and the card still waits.
+  Studio's own page always sent the proof; nothing changes for it.
+- Studio's fleet store starts `lite` for the glance (the queue, not the capability catalogs or the missions).
+
+#### Docs
+
+- docs/STUDIO-live.md "The glance" and "The alert", docs/REMOTE.md "The glance from a phone", STUDIO-security.md,
+  STUDIO-shell.md, EXTENSION_API.md (the owner routes), COMMANDS-studio.md (`--mode glance`), CONFIG.md
+  (`studio.alerts`), ARCHITECTURE-modules.md, the glossary's "glance" (+ twin), the docs map.
+
 ## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and
