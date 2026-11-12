@@ -54,12 +54,14 @@ def test_every_row_over_a_seeded_home_and_repo(ctx: Ctx):
         ctx.check("the repo .mcp.json lists its server", by(rows, "mcp", "./.mcp.json")["sets"] == ["fs"])
         ctx.check("~/.claude.json lists the user servers", by(rows, "mcp", "~/.claude.json")["sets"] == ["fs", "web"])
         active = [r for r in rows if r["kind"] == "lineup"]
+        # 3.4.1.2 (ENGINE-1): the untrusted repo's standard.yaml is not read (and never takes a shipped name)
         ctx.check(f"the active lineup, then the lineup it extends, got {[r['file'] for r in active]}",
-                  [r["file"] for r in active] == ["~/.halo/teams/mine.yaml", "./.halo/teams/standard.yaml"])
+                  [r["file"] for r in active] == ["~/.halo/teams/mine.yaml", "<halo>/templates/teams/standard.yaml"])
         ctx.check("the active lineup's row names its sections", set(active[0]["sets"]) == {"delegation", "roles"})
         folders = [r for r in rows if r["kind"] == "lineups"]
         ctx.check(f"three lineup folders, repo first, got {[(r['file'], r['scope']) for r in folders]}",
-                  [r["scope"] for r in folders] == ["repo", "home", "shipped"] and folders[2]["file"] == "<halo>/templates/teams")
+                  [r["scope"] for r in folders] == ["repo", "home", "shipped"] and folders[2]["file"] == "<halo>/templates/teams"
+                  and "not read: this folder is not trusted" in folders[0]["note"])
         bios = by(rows, "bios", "~/.halo/agents")
         ctx.check(f"the home bio folder counts its bios, got {bios['sets']} / {bios['note']}",
                   bios["sets"] == ["coder"] and bios["note"].startswith("1 file"))
@@ -76,9 +78,9 @@ def test_the_precedence_column_follows_the_resolvers(ctx: Ctx):
     with ConfigHome() as h:
         rows = _rows(seed(h))
         loses = lambda r: {e["key"]: e["to"] for e in r["loses"]}  # noqa: E731
-        ctx.check("the repo's standard lineup wins over the shipped one",
-                  "standard" in by(rows, "lineups", "./.halo/teams")["wins"]
-                  and loses(by(rows, "lineups", "<halo>/templates/teams"))["standard"] == "./.halo/teams/standard.yaml")
+        ctx.check("the repo's standard lineup does not win over the shipped one (3.4.1.2, ENGINE-1)",
+                  "standard" not in by(rows, "lineups", "./.halo/teams")["wins"]
+                  and "standard" not in loses(by(rows, "lineups", "<halo>/templates/teams")))
         ctx.check("my coder bio wins over the shipped coder",
                   loses(by(rows, "bios", "<halo>/templates/agents"))["coder"] == "~/.halo/agents/coder.yaml")
         ctx.check("settings.local.json's model wins over settings.json's",

@@ -9,7 +9,7 @@ it is returned to the caller only, never printed or written.
 from __future__ import annotations
 
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 
 from halo_harness.isolation.brokers import BrokerError
 

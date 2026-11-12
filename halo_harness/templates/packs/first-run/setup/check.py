@@ -5,7 +5,7 @@ environment a pack hook gets (no provider key from Halo's own environment); the 
 file, as every halo run does.
 """
 
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import sys
 
 

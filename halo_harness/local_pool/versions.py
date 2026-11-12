@@ -21,7 +21,7 @@ starts ("Starting RPC server v3.0.0"). Both lines are read as text; nothing here
 from __future__ import annotations
 
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 from typing import Optional
 

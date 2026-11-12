@@ -153,7 +153,7 @@ def _bounded_version_probe(resolved: str, timeout_s: float = 3.0) -> Optional[st
     if not any(base.startswith(p) for p in _VERSION_PROBE_PREFIXES):
         return None
     try:
-        import subprocess
+        from halo_harness import subprocess_safe as subprocess
         proc = subprocess.run([resolved, "--version"], capture_output=True, text=True, timeout=timeout_s)
         out = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
         return f"{base} --version: {out[0]}" if out else f"{base} --version: (no output)"

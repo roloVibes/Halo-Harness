@@ -26,11 +26,12 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 SEP = r"[\\/]+"
-_LEAD = r"(?<![\w.~-])"  # a path starts here: not inside a word or another path
+_LEAD = r"(?<![\w.~-])"  # a POSIX path starts here: not inside a word or another path
 _TAIL = r"(?:(?P<sep>[\\/]+)(?P<rest>[^\s\"'`<>|;,]+)|(?![\w-]|\.\w))"
-OWNER_KEYS = {"title", "plan"}  # the owner's own text (first words) and the names the owner gave the lineup's blocks
-ID_KEYS = {"id", "session_id", "run_id", "format", "halo", "kind", "agent_id", "parent", "to", "state", "phase",
-           "version", "upgraded_from"}
+OWNER_KEYS = {"title"}  # the owner's own text (its first words); 3.4.1.2 (SERVERS-6): the plan's names are scrubbed
+#: machine-made values a reader matches on (3.4.1.2: `to`, `agent_id`, `parent` are scrubbed like any text)
+ID_KEYS = {"id", "session_id", "run_id", "format", "halo", "kind", "state", "phase", "version", "upgraded_from"}
+_MARK = "\ue000"  # wraps a path the root rule made project-relative while the name rules run (never in the output)
 
 
 def _prefix(path: str) -> Optional[str]:
@@ -48,12 +49,32 @@ def _prefix(path: str) -> Optional[str]:
     return None
 
 
-def _rule(path: str, short: str, long: str):
+def _rule(path: str, short: str, long: str, mark: bool = False):
+    """3.4.1.2 (PACKS-5): a drive-letter path needs no word boundary before it (`x_C:\\Users\\...`); `mark` wraps what
+    the root rule writes, so the name rules know a project-relative path the rule made."""
     src = _prefix(path)
     if not src:
         return None
-    pat = re.compile(_LEAD + src + _TAIL)
-    return lambda s: pat.sub(lambda m: long + re.sub(r"[\\/]+", "/", m.group("rest")) if m.group("sep") else short, s)
+    pat = re.compile(("" if re.match(r"^(?:\\\\\?\\)?[A-Za-z]:", str(path).strip()) else _LEAD) + src + _TAIL)
+    m0 = _MARK if mark else ""
+    return lambda s: pat.sub(lambda m: m0 + (long + re.sub(r"[\\/]+", "/", m.group("rest")) if m.group("sep")
+                                             else short) + m0, s)
+
+
+def _short_paths(homes: list) -> list:
+    """Windows 8.3 spellings of each home (`C:\\Users\\JSMITH~1`), when the file system has them."""
+    if os.name != "nt":
+        return []
+    out = []
+    try:
+        import ctypes
+        for h in homes:
+            buf = ctypes.create_unicode_buffer(1024)
+            if ctypes.windll.kernel32.GetShortPathNameW(str(h), buf, 1024) and buf.value and buf.value != str(h):
+                out.append(buf.value)
+    except Exception:
+        pass
+    return out
 
 
 def project_root(cwd) -> Optional[Path]:
@@ -99,47 +120,90 @@ def _machines() -> list:
 
 
 def _name_rule(names: list, word: str):
+    """3.4.1.2 (PACKS-5): a name of 6+ characters is replaced wherever it stands, even glued to a word (`1jsmith`,
+    `jsmith_notes`); a shorter one only between non-letters; a name of 7+ letters also as its 8.3 short form
+    (`JSMITH~1`)."""
     if not names:
         return None
-    pat = re.compile(r"(?i)(?<![\w.-])(?:" + "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True)) + r")(?![\w-])")
+    ordered = sorted(names, key=len, reverse=True)
+    glued = [re.escape(n) for n in ordered if len(n) >= 6]
+    alts = [re.escape(n) for n in ordered if len(n) < 6]
+    alts += [re.escape(re.sub(r"[\s.]", "", n)[:6]) + r"~\d+" for n in names if len(re.sub(r"[\s.]", "", n)) > 6]
+    parts = (["(?:" + "|".join(glued) + ")"] if glued else []) + \
+        ([r"(?<![^\W_])(?:" + "|".join(alts) + r")(?![^\W_])"] if alts else [])  # a letter or digit is no boundary
+    pat = re.compile(r"(?i)" + "|".join(parts))
     return lambda s: pat.sub(word, s)
 
 
-_TOKEN = re.compile(r"(\s+|[\"'`(),;])")
+def _json_unescape(s: str) -> str:
+    """A JSON text's escapes (`\\t`, `\\n`, `\\"`, `\\\\`, `\\u00e9`) as the characters they stand for."""
+    simple = {"n": "\n", "r": "\r", "t": "\t", "b": "\b", "f": "\f", '"': '"', "\\": "\\", "/": "/"}
+    return re.sub(r"\\(?:u([0-9a-fA-F]{4})|([nrtbf\"\\/]))",
+                  lambda m: chr(int(m.group(1), 16)) if m.group(1) else simple[m.group(2)], s)
 
 
-def _relative_path(tok: str) -> bool:
-    return ("/" in tok or "\\" in tok) and not re.match(r"^(?:~|[\\/]|[A-Za-z]:|<)", tok)
+_TOKEN = re.compile(r"(\s+|[\"'`(),;=])")
+_CONTROLS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")  # 3.4.1.2 (PACKS-7): no terminal escapes survive
+
+
+def _variants(s: str) -> list:
+    """`s` as a reader would see it: percent-decoded (twice encoded too) and NFKC-folded (full-width look-alikes)."""
+    import unicodedata
+    from urllib.parse import unquote
+    out, cur = [], s
+    for _ in range(3):
+        nxt = unquote(cur)
+        if nxt == cur:
+            break
+        out.append(nxt)
+        cur = nxt
+    folded = unicodedata.normalize("NFKC", cur)
+    out += [folded] if folded != cur else []
+    unescaped = _json_unescape(folded)  # a JSON text inside a string: `\tname` is a tab and the name
+    return out + ([unescaped, unicodedata.normalize("NFKC", unescaped)] if unescaped != folded else [])
 
 
 def scrub(payload, root=None, *, homes=None, users=None, machines=None):
-    """The payload with its paths and names rewritten (see the module's doc); `root` is the project folder."""
+    """The payload with its paths and names rewritten (see the module's doc); `root` is the project folder. 3.4.1.2:
+    the names everywhere but in a path the root rule made project-relative (URLs, `user@host`, `..` and other
+    relative paths, `to` / `agent_id` /
+    `parent`, the plan, dict keys); 8.3 short homes and names; a text that holds one only once decoded (`%5C`, a
+    full-width look-alike) is stored decoded and rewritten; control characters dropped everywhere."""
     homes = list(homes) if homes is not None else _homes()
-    path_rules = [r for r in [_rule(str(root), ".", "") if root else None]
+    homes = homes + [h for h in _short_paths(homes) if h not in homes]
+    path_rules = [r for r in [_rule(str(root), ".", "", mark=True) if root else None]
                   + [_rule(h, "~", "~/") for h in sorted(homes, key=len, reverse=True)] if r]
     names = [r for r in (_name_rule(list(users) if users is not None else _users(homes), "<user>"),
                          _name_rule(list(machines) if machines is not None else _machines(), "<machine>")) if r]
 
-    def text(s: str, owner: bool) -> str:
+    def rules(s: str, owner: bool) -> str:
         for rule in path_rules:
             s = rule(s)
-        if owner or not names:
-            return s
-        out = []
-        for tok in _TOKEN.split(s):
-            if tok and not _relative_path(tok):
-                for rule in names:
-                    tok = rule(tok)
-            out.append(tok)
-        return "".join(out)
+        if not owner and names:
+            out = []
+            for tok in _TOKEN.split(s):
+                if tok and _MARK not in tok:  # 3.4.1.2 (SERVERS-6): only a path the root rule made keeps its words
+                    for rule in names:
+                        tok = rule(tok)
+                out.append(tok)
+            s = "".join(out)
+        return s.replace(_MARK, "")
+
+    def text(s: str, owner: bool) -> str:
+        got = rules(_CONTROLS.sub("", s), owner)
+        for v in _variants(got):
+            if rules(v, owner) != v:  # it still holds a path or a name once decoded: keep the decoded, rewritten text
+                return rules(_CONTROLS.sub("", v), owner)
+        return got
 
     def walk(obj, owner: bool, key: str = ""):
         if isinstance(obj, str):
-            return obj if key in ID_KEYS else text(obj, owner)
+            return _CONTROLS.sub("", obj) if key in ID_KEYS else text(obj, owner)
         if isinstance(obj, list):
             return [walk(v, owner, key) for v in obj]
         if isinstance(obj, dict):
-            return {k: walk(v, owner or k in OWNER_KEYS, k) for k, v in obj.items()}
+            return {(text(k, False) if isinstance(k, str) else k): walk(v, owner or k in OWNER_KEYS, k)
+                    for k, v in obj.items()}
         return obj
 
     return walk(payload, False)

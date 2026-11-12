@@ -27,7 +27,7 @@ from __future__ import annotations
 import io
 import json
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Optional
@@ -98,15 +98,20 @@ def fresh_judge(model: Optional[str], role: str = "main", cwd=None, effort: Opti
     return judge
 
 
-def worker_argv(prompt: str, model: Optional[str], agent: Optional[str] = None) -> list:
+def worker_argv(prompt: str, model: Optional[str], agent: Optional[str] = None, *, mode: str = "",
+                rules: Optional[dict] = None) -> list:
+    """3.4.1.2 (ENGINE-1): `mode` and `rules` are the run's (`goal.permission_mode` / `permission_rules`: a run the
+    Workflow tool started carries its parent's); '' is auto, as a run you start yourself always was."""
     argv = [sys.executable, "-m", "halo_harness", "-p", prompt, "--output-format", "json",
-            "--permission-mode", "auto"]
+            "--permission-mode", mode or "auto"]
+    rules = {k: [str(r) for r in v] for k, v in (rules or {}).items() if k in ("deny", "ask", "allow") and v}
+    argv += ["--settings", json.dumps({"permissions": rules})] if rules else []
     return argv + (["--agent", agent] if agent else []) + (["--model", model] if model else [])
 
 
 def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runner: Callable = subprocess.run,
                  timeout_s: int = WORKER_TIMEOUT_S, team: Optional[str] = None,
-                 cwd_overlay: Optional[Callable] = None) -> Callable:
+                 cwd_overlay: Optional[Callable] = None, mode: str = "", rules: Optional[dict] = None) -> Callable:
     """`spawn(lane)`: a fresh `halo -p` in the lane's worktree. 3.1.6.0 R2 (the coach's probe runs,
     orchestra/probe_overlay.py): `team` adds `--team <lineup>`; `cwd_overlay(lane)` writes an overlay into
     the worktree before the worker starts and answers extra worker flags. Both None: the argv as before."""
@@ -124,7 +129,8 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
         values: tuple = ()
         try:
             job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
-            argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None)
+            argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None,
+                               mode=mode, rules=rules)
             argv += (["--team", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
             argv, env, values = prepare(lane, argv, env, run_dir=run_dir, team=team)  # 3.1.8.0 R5 (docs/ISOLATION.md)
             proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
@@ -181,5 +187,6 @@ def real_adapters(run_dir, goal, model: Optional[str] = None) -> dict:
     """The keyword arguments `run()` takes, wired to real sessions."""
     run_dir = Path(run_dir)
     return {"model_calls": model_call(model, goal.lead, cwd=run_dir),
-            "spawn": spawn_worker(model, goal.worker, run_dir=run_dir),
+            "spawn": spawn_worker(model, goal.worker, run_dir=run_dir, mode=getattr(goal, "permission_mode", ""),
+                                  rules=getattr(goal, "permission_rules", None)),
             "judge": fresh_judge(model, goal.lead, cwd=run_dir)}

@@ -13,7 +13,7 @@ a section's view, the pack's own Studio routes, and the pack's own test modules.
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import tempfile
 import types

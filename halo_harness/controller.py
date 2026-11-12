@@ -1476,8 +1476,8 @@ def sanitize_transcript(text: str) -> str:
     `/export --sanitize` (this function) and `halo export
     --sanitize` (export_cli.cmd_export) use, so a fix to one is a fix to
     both."""
-    from halo_harness.export_cli import sanitize_text
-    return sanitize_text(text)
+    from halo_harness.privacy_redact import redact  # 3.4.1.2 (PACKS-5): the one redaction (privacy_redact.py)
+    return redact(text)
 
 
 # H9 whole-tree review finding 29: a "user" log node carrying one of these

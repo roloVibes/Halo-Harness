@@ -23,7 +23,7 @@ resolved `changes` beside it).
 from __future__ import annotations
 
 import re
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import time
 from pathlib import Path
 from typing import Optional

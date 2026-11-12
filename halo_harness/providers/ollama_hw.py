@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import threading
 import time

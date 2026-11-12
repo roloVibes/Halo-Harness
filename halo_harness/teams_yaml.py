@@ -117,10 +117,10 @@ def project_teams_dir(cwd=None) -> Path:
 
 
 def team_search_dirs(*, cwd=None, state_dir=None) -> "list[tuple[Path, str]]":
-    """Nearest first: project, user, each active pack's `teams/` (3.2.0.0 R1: `pack:<id>`, names
-    `<id>--<name>`, read in place), the shipped templates."""
+    """Nearest first: project (3.4.1.2, ENGINE-1: a trusted folder only), user, each active pack's `teams/`, shipped."""
     from halo_harness.packs.contribute import team_dirs
-    return [(project_teams_dir(cwd), "project"), (user_teams_dir(state_dir), "user"),
+    from halo_harness.project_gate import project_dir
+    return [*project_dir(project_teams_dir(cwd), cwd), (user_teams_dir(state_dir), "user"),
             *team_dirs(cwd=cwd, state_dir=state_dir), (bundled_team_templates_dir(), "template")]
 
 
@@ -130,17 +130,17 @@ def list_team_templates(*, cwd=None, state_dir=None, include_templates: bool = T
     dirs = team_search_dirs(cwd=cwd, state_dir=state_dir)
     if not include_templates:
         dirs = [d for d in dirs if not read_only_source(d[1])]  # 3.2.0.0 R1: a pack's lineups are not yours either
-    for d, source in dirs:
-        # 3.0.8.0: `<project>.team.yaml` beside the lineups is a team file (halo_harness/team/), not a lineup.
+    for d, source in dirs:  # 3.0.8.0: `<project>.team.yaml` beside the lineups is a team file, not a lineup
         names.update(folder_names(d, source, skip=".team.yaml"))
     return sorted(names)
 
 
 def find_team_template_path(name: str, *, cwd=None, state_dir=None) -> "Optional[tuple[Path, str]]":
     from halo_harness.packs.contribute import folder_file
+    from halo_harness.project_gate import name_ok  # 3.4.1.2: a project lineup never takes a shipped or pack name
     for d, source in team_search_dirs(cwd=cwd, state_dir=state_dir):
         path = folder_file(d, source, name)
-        if path is not None and path.is_file():
+        if path is not None and path.is_file() and name_ok(source, "teams", name):
             return path, source
     return None
 

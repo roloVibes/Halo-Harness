@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import sys
 from typing import Optional
 

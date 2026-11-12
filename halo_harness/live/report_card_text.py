@@ -72,6 +72,12 @@ def waited(c: dict) -> str:
 
 
 def markdown(c: dict) -> str:
+    """3.4.1.2 (PACKS-5): the Markdown passes the one redaction (privacy_redact.py) on its way out."""
+    from halo_harness.privacy_redact import redact
+    return redact(_markdown(c))
+
+
+def _markdown(c: dict) -> str:
     out = head(c)
     out += ["## The figures", "", "| | |", "|---|---|"]
     out += [f"| {label} | {_cell(c['cells'][key]['text'])} |" for key, label in CELL_ROWS if key in c.get("cells", {})]

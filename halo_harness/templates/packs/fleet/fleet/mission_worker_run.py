@@ -107,8 +107,8 @@ class WorkerRun(threading.Thread):
         (self.folder / "artifacts" / n).mkdir(parents=True, exist_ok=True)
         if self.mode == "hub":
             from .mission_files import HubFiles
-            self.files = HubFiles(self.entry)
-            self.files.pull(mid, self.folder)
+            self.files = HubFiles(self.entry)  # 3.4.1.2 (PACKS-3): this member's own rule on what it takes
+            self.files.pull(mid, self.folder, part=n, deps=tuple(self.f.get("handoffs") or ()))
         if self.f["kind"] == "orchestra":  # the run makes its own worktrees
             self.cwd = self.checkout or self.folder
             return

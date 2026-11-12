@@ -98,7 +98,19 @@ readers (`cat`, `grep -r`, `cp`, `< file`) and redirect-out targets, and
 `Set-Content`, `Add-Content`, `Out-File`, `Clear-Content`, `New-Item`,
 `Remove-Item`, `Copy-Item` / `Move-Item`, `>` / `>>` and `[IO.File]::*`, with
 `cd` tracked per segment and the `\\?\` / `\\host\C$\` spellings normalised; a
-`Read(path)` ask rule asks for the same readers.
+`Read(path)` ask rule asks for the same readers. 3.4.1.2 (`permissions_bash_io.py`): Bash's `tee`, `cp`, `mv`,
+`install`, `ln`, `rm`, `unlink`, `shred`, `truncate`, `dd of=`, `curl -o`, `wget -O` and `rsync` targets are checked
+against Edit deny, and the
+sources of `mv`, `ln`, `dd if=` and `truncate -r` against Read deny; PowerShell adds `Tee-Object`, `Rename-Item`,
+`Export-Clixml` / `Export-Csv`, `Format-Hex`, `Import-Clixml`, an item piped into a reader (`Get-Item .env |
+Get-Content`), the `${C:\path}` variable form and `[IO.StreamReader]::new` / `New-Object IO.StreamWriter`.
+Interpreters (`python -c`, `node -e`) stay out of scope: the engine does not read code.
+
+**Modes and the people they wait for (3.4.1.2).** A sub-agent's engine reads its mode clamped to its parent's current
+one (`perm_clamp.py`): switching the main session to plan, or from auto to default, reaches every live and background
+child at its next call, never raising one above its own. A mode change answers a parked card only when the card is
+the mode table's own ask: a pack's, a hook's or an untrusted skill's ask stays up for you, and an untrusted skill's
+commands run on your own allow on its card, nothing else.
 
 Seven mode **names** exist (`default`/`manual` is a display alias for the
 same mode, `acceptEdits`, `plan`, `dontAsk`, `auto`, `bypassPermissions`);

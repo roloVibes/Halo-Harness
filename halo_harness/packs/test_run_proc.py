@@ -12,7 +12,7 @@ import os
 import re
 import shlex
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 
 SHELL_WORDS = ("echo", "printf", "true", "false", "test", "cd", "exit", "export", "sh", "bash", ":", "cat", "env")

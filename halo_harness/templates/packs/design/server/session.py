@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 import queue
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import tempfile
 import threading
 import time

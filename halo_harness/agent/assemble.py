@@ -51,6 +51,8 @@ class SessionContext:
         )
 
         self.instructions = discover_instructions(self.cwd, self.settings, self.trusted, bare=bare)
+        from halo_harness.config.claude_md_imports import notice
+        notice(self.instructions)  # 3.4.1.2 (ENGINE-2): a refused @import is said, once
         self.memory_store = MemoryStore(self.cwd, self.settings, bare=bare)
         self.memory_index = self.memory_store.load_index()
         self.tool_registry = tool_registry or ToolRegistry()

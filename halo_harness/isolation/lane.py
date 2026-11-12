@@ -16,7 +16,7 @@ that cannot run as declared raises `Stop` with the one line.
 from __future__ import annotations
 
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from typing import Optional
 

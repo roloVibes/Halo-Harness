@@ -835,7 +835,7 @@ def _wsl_windows_appdata() -> Optional[Path]:
         return None
     username = ""
     try:
-        import subprocess
+        from halo_harness import subprocess_safe as subprocess
         proc = subprocess.run(["cmd.exe", "/c", "echo %USERNAME%"], capture_output=True, text=True, timeout=5)
         username = proc.stdout.strip()
     except Exception:

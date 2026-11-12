@@ -13,7 +13,7 @@ the command line or in config.json; the log is `<state>/local/servers/<id>.log`,
 from __future__ import annotations
 
 import json
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path

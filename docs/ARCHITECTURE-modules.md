@@ -100,7 +100,7 @@ this list against the tree.
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
 - time (3.4.1.0 R1, docs/REPLAY.md): `live/timeline.py` (a session's marks and phase bands), `live/replay_file.py` (the
-  `.halo-replay` file), `live/replay_clip.py` + `live/clip_chrome.py` (the clip, filmed in headless Chrome),
+  `.halo-replay` file; 3.4.1.2: `live/replay_guard.py`, a hostile file's depth cap and control characters), `live/replay_clip.py` + `live/clip_chrome.py` (the clip, filmed in headless Chrome),
   `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`);
   R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
   `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`);
@@ -131,7 +131,8 @@ turns it on once for a halo that had a fleet. (`tools/live_fleet_check.py` is th
   `orchestra/split.py`, `orchestra/plan.py`, `orchestra/plan_check.py`,
   `orchestra/workers.py`, `orchestra/worker_stop.py`, `orchestra/worker_result.py`, `orchestra/lanes.py`,
   `orchestra/handoff_spec.py`, `orchestra/handoff.py`, `orchestra/handoff_run.py`,
-  `orchestra/merge.py`, `orchestra/hunks.py`, `orchestra/gate.py`,
+  `orchestra/merge.py`, `orchestra/hunks.py`, `orchestra/gate.py`, `orchestra/test_decide.py` (3.4.1.2: a project
+  file's test decided as a Bash call),
   `orchestra/report.py`, `orchestra/run.py`, `orchestra/adapters.py`,
   `orchestra/gitops.py`, `orchestra/stale.py` (3.1.2.0 R2: a downstream lane re-based
   before the merge), `orchestra/forecast.py` (3.1.2.0 R2: the plan's cost forecast)

@@ -66,6 +66,14 @@ A bare `<name>` resolves yours, then the project's, then the shipped one;
 `<pack>/<name>` names a pack's. `halo workflows new <name> --from <square>`
 copies a square into yours, where you can change it.
 
+**A project's squares need a trusted folder (3.4.1.2).** A cloned repo's `.halo/workflows/` is read only when you
+trusted the folder, and a project file never takes a shipped name (`media`, `plan`, ...) or a pack's: the shipped
+square is used and `halo workflows list` says, one line per file, which project file is not used and why. The same
+holds for a project's lineups (`.halo/teams/`) and, for trust, its bios (`.halo/agents/`). A square on the `orchestra`
+engine that the `Workflow` tool starts runs its lanes in the session's own permission mode and under its rules (never
+a fixed `auto`), and a `verify.test` (or a lineup's `acceptance.test`) that a project file wrote is decided as a Bash
+call first -- your deny and ask rules, the pack policies, your hooks -- and runs only when that call would be allowed.
+
 | Shipped | Covers | Engine | Gives |
 | --- | --- | --- | --- |
 | `media` | pdf, vision, audio, video, media | session (lead `auto-media` on `auto`: the square's own Auto pick for the modality) | text |

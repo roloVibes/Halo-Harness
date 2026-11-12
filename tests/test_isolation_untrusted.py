@@ -42,7 +42,6 @@ def _trust(e, repo: Path) -> None:
 @test
 def test_an_untrusted_projects_bio_loses_the_keys_and_says_so(ctx: Ctx):
     from halo_harness.isolation import spec as S
-    from halo_harness.isolation.lines import lane_record
     with IsoEnv() as e:
         e.lineup("crew", {"agents": [{"agent": "coder", "role": "subagent"}]})
         repo, run_dir, lane = run_with_lane(lineup="crew", bio="coder")
@@ -50,9 +49,12 @@ def test_an_untrusted_projects_bio_loses_the_keys_and_says_so(ctx: Ctx):
         opt = S.for_lane(run_dir, lane.job)
         ctx.check(f"no secrets, got {opt.secrets}", opt.secrets is None)
         iso = opt.isolation or {}
-        ctx.check(f"no mounts and the default image, got {iso}", iso.get("mounts") == []
+        ctx.check(f"no mounts and the default image, got {iso}", not iso.get("mounts")
                   and iso.get("image") != "example.invalid/img:1")
-        lines = lane_record(opt)["opt_ins"]
+        # 3.4.1.2 (ENGINE-1): in an untrusted folder the project's bio is not read at all (project_gate.py); the split
+        # it used to go through still holds for a project-sourced layer that reaches it
+        bio = dict(BIO, _source="project")
+        lines = [S.untrusted_split(bio, "bio coder")[1]]
         said = [ln for ln in lines if "not trusted yet" in ln]
         ctx.check(f"one line says what was not applied, got {lines}", len(said) == 1 and said[0].startswith("bio coder: ")
                   and all(k in said[0] for k in ("secrets", "environment.secrets", "environment.pass_to_tools",
@@ -80,9 +82,14 @@ def test_a_project_lineup_too_and_a_user_bio_keeps_its_keys(ctx: Ctx):
         ctx.check(f"the user's bio keeps its broker, got {opt.secrets}", opt.secrets and opt.secrets["broker"] == "env"
                   and opt.secrets["by"] == "bio coder")
         ctx.check(f"the project lineup's mounts are not applied, got {opt.isolation}",
-                  (opt.isolation or {}).get("mounts") == [])
-        ctx.check(f"its line names the lineup, got {opt.dropped}", len(opt.dropped) == 1
-                  and opt.dropped[0].startswith("lineup crew: secrets, isolation.mounts not applied"))
+                  not (opt.isolation or {}).get("mounts"))
+        from halo_harness.project_gate import note  # 3.4.1.2 (ENGINE-1): the untrusted lineup is not read at all
+        ctx.check(f"the lineup is not used, and one line says why, got {opt.dropped} {note('teams', 'crew', repo)!r}",
+                  not opt.dropped and "not trusted" in note("teams", "crew", repo))
+        layer = {"name": "crew", "_source": "project", "isolation": {"mode": "container", "mounts": ["/:/host"]},
+                 "secrets": {"broker": "1password", "account": "theirs"}}
+        ctx.check("a project-sourced lineup layer still loses them", S.untrusted_split(layer, "lineup crew")[1]
+                  .startswith("lineup crew: secrets, isolation.mounts not applied"))
 
 
 if __name__ == "__main__":

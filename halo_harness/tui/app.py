@@ -18,7 +18,7 @@ import logging
 import os
 import queue
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 import threading
 import time
@@ -1550,7 +1550,7 @@ class BridgeApp(App):
 
     def action_open_editor(self) -> None:
         import os
-        import subprocess as sp
+        from halo_harness import subprocess_safe as sp
         import tempfile
 
         editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")

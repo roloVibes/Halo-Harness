@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from pathlib import Path
 from typing import Optional

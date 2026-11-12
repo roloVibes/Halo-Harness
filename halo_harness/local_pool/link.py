@@ -20,7 +20,7 @@ import json
 import os
 import platform
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from typing import Optional
 
 RUNNER: dict = {}

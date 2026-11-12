@@ -87,6 +87,8 @@ def _run_one(mock, parent_scn, child_scn, *, cwd):
     SCENARIOS["acc-child"] = child_scn
     session = _new_session(mock=mock, model="or:mock/acc-parent", cwd=cwd,
                            agents={"general-purpose": _general_purpose_spec()})
+    from tests.helpers.trust_dir import trust
+    trust(cwd)  # 3.4.1.2 (ENGINE-1): a project's bios load only in a trusted folder (the home _new_session scoped)
     return _drain(session, "delegate it")
 
 

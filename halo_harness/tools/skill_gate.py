@@ -10,7 +10,8 @@ allow rule for the rest of the turn and its pre-run `` !`cmd` `` spans ran on th
   it (commands/registry.run_preexec_commands `decide=`).
 - `gate(session, tool_input, decision)`: agent/policy_gate.decide's step for a `Skill` call. For an untrusted skill
   with spans, the call's decision is its spans' decisions joined: a deny denies the call naming the command, an ask
-  is the ordinary ask card naming the commands; the person's yes lets those spans run once (`take_yes`).
+  is the ordinary ask card naming the commands; the person's yes lets those spans run once (`take_yes`). 3.4.1.2
+  (ENGINE-3): the card is held for the person: a mode cycle leaves it up, and only their answer is a yes (`confirm`).
 - `for_slash(...)`: the same for `/<skill>` typed in the prompt: no grant, the spans decided; an ask there has no
   card before the prompt is sent, so the command is not run and the line says how to allow it.
 """
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 YES = "_skill_span_yes"  # on the engine: the (skill, args) keys whose spans the person said yes to
+ASKED = "_skill_span_asked"  # 3.4.1.2 (ENGINE-3): keys whose card is up; only the person's answer moves one to YES
 
 
 def _user_roots() -> list:
@@ -89,6 +91,22 @@ def _key(tool_input) -> tuple:
     return str(t.get("skill") or ""), str(t.get("args") or "")
 
 
+def _held(engine, attr: str) -> set:
+    got = getattr(engine, attr, None)
+    if got is None:
+        got = set()
+        setattr(engine, attr, got)
+    return got
+
+
+def confirm(engine, tool_input) -> None:
+    """3.4.1.2 (ENGINE-3): the person answered allow on this Skill call's card (Session.resolve_permission): its
+    commands may run once. A mode cycle, a hook or anything else that lifts the ask never calls this."""
+    if engine is not None and _key(tool_input) in _held(engine, ASKED):
+        _held(engine, ASKED).discard(_key(tool_input))
+        _held(engine, YES).add(_key(tool_input))
+
+
 def take_yes(engine, tool_input) -> bool:
     """True once when the person said yes to this Skill call's commands (the card `gate` raised)."""
     held = getattr(engine, YES, None)
@@ -110,11 +128,9 @@ def gate(session, tool_input, decision):
     except Exception:
         return decision
     engine = session.permission_engine
-    held = getattr(engine, YES, None)
-    if held is None:
-        held = set()
-        setattr(engine, YES, held)
+    held, asked_set = _held(engine, YES), _held(engine, ASKED)
     held.discard(_key(tool_input))
+    asked_set.discard(_key(tool_input))
     why = untrusted(getattr(cmd, "path", None), session.cwd) if cmd is not None else ""
     if not why:
         return decision
@@ -130,7 +146,7 @@ def gate(session, tool_input, decision):
             asked.append(c)
     if not asked:
         return decision
-    held.add(_key(tool_input))
+    asked_set.add(_key(tool_input))  # 3.4.1.2 (ENGINE-3): a yes only once the person answers (confirm)
     shown = "; ".join(f"`{c}`" for c in asked[:4]) + (f" (+{len(asked) - 4} more)" if len(asked) > 4 else "")
     return Decision("ask", f"{why}; it runs {shown} before the model reads it", source="skill")
 

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 from typing import Optional
 

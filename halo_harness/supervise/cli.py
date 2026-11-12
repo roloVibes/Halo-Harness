@@ -129,7 +129,7 @@ def _daemon(state_dir, as_json: bool) -> int:
         print(json.dumps({"ok": False, "error": msg, "pid": live["pid"] or single.holder(state_dir)}) if as_json else msg,
               file=None if as_json else sys.stderr)
         return 1
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     argv = [sys.executable, "-u", "-m", "halo_harness", "supervise"]
     kwargs: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if sys.platform == "win32":

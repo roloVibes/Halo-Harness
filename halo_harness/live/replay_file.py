@@ -106,7 +106,7 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
     """The replay of session `sid` on this machine. Raises ReplayError when there is no such session."""
     from halo_harness import __version__
     from halo_harness.live import history, replay_facts, timeline
-    from halo_harness.redact import sanitize_node
+    from halo_harness.privacy_redact import redact
     path = history.find(state_dir, sid)
     if path is None:
         raise ReplayError(f"no transcript of session {sid!r} on this machine")
@@ -121,11 +121,10 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
          "states": hist.get("states") or [], "costs": hist.get("costs") or [], "agent_costs": hist.get("agent_costs") or [],
          **timeline.of(hist), "plan": plan_of(lineup, cwd=cwd, state_dir=state_dir), "facts": replay_facts.session_facts(path)}
     p["id"] = f"{p['session_id']}-{time.strftime('%Y%m%d-%H%M%S', time.localtime(p['saved']))}"
-    p = sanitize_node(p)
+    from halo_harness.live.replay_private import project_root  # 3.4.1.2: the one redaction (privacy_redact.py)
+    p = redact(p, root=project_root(hist.get("cwd") or cwd))
     if "_sanitize_error" in p:
         raise ReplayError("the redactor could not clean this session's timeline; nothing was written")
-    from halo_harness.live.replay_private import project_root, scrub  # 3.4.1.1 (56): paths relative, home ~, names out
-    p = scrub(p, project_root(hist.get("cwd") or cwd))
     p["includes"] = includes(p)
     return p
 
@@ -133,14 +132,21 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
 def save(state_dir, payload: dict) -> Path:
     """Write the payload; every string passes live/replay_private.scrub first (3.4.1.1, defect 56: whatever built or
     brought it, the file never holds this machine's home path, user name or machine name)."""
-    from halo_harness.live.replay_private import scrub
-    payload = scrub(payload)
+    from halo_harness.privacy_redact import redact  # 3.4.1.2 (PACKS-5): secrets, paths and names, one function
+    original, payload = payload, redact(payload)
+    if "_sanitize_error" in payload:
+        raise ReplayError("the redactor could not clean this replay; nothing was written")
     pid = str(payload.get("id") or "")
     if not _ID.match(pid):
         raise ReplayError(f"not a replay id: {pid!r}")
     folder = replays_dir(state_dir)
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{pid}{SUFFIX}"
+    path, n = folder / f"{pid}{SUFFIX}", 1
+    while path.exists():  # 3.4.1.2 (PACKS-7): a file of the same id (an import) never replaces a saved replay
+        n += 1
+        path = folder / f"{pid[:110]}-{n}{SUFFIX}"
+    if n > 1:
+        payload["id"] = original["id"] = path.name[:-len(SUFFIX)]
     tmp = path.with_suffix(".tmp")
     tmp.write_bytes(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
     tmp.replace(path)
@@ -158,14 +164,14 @@ def upgrade(data: dict) -> dict:
             raise ReplayError(f"this replay is version {v}; this Halo reads up to version {VERSION} (halo update)")
         return data
     if isinstance(data.get("agents"), list) and isinstance(data.get("states"), list) and data.get("session_id"):
-        from halo_harness.redact import sanitize_node
+        from halo_harness.privacy_redact import redact
         sid = str(data["session_id"])
         p = {"format": FORMAT, "version": VERSION, "kind": "session", "id": f"{sid}-v0", "session_id": sid, "upgraded_from": 0,
              "title": data.get("title") or "", "saved": None, "halo": "", "started": data.get("started"), "ended": data.get("ended"),
              "cost_usd": data.get("cost_usd"), "agents": [{k: a.get(k) for k in AGENT_KEYS} for a in data["agents"] if isinstance(a, dict)],
              "states": data["states"], "costs": data.get("costs") or [], "agent_costs": data.get("agent_costs") or [],
              "marks": data.get("marks") or [], "bands": data.get("bands") or [], "plan": None}
-        p = sanitize_node(_scrub(p))
+        p = redact(_scrub(p))
         if "_sanitize_error" in p:
             raise ReplayError("the redactor could not clean this file")
         p["includes"] = includes(p)
@@ -174,13 +180,16 @@ def upgrade(data: dict) -> dict:
 
 
 def parse(text: str) -> dict:
+    from halo_harness.live.replay_guard import MAX_DEPTH, _depth_ok, _plain  # 3.4.1.2 (PACKS-7)
     try:
         data = json.loads(text)
-    except ValueError as e:
-        raise ReplayError(f"not a Halo replay: not JSON ({e})") from None
+    except (ValueError, RecursionError) as e:
+        raise ReplayError(f"not a Halo replay: not JSON ({type(e).__name__})") from None
+    if not _depth_ok(data):
+        raise ReplayError(f"not a Halo replay: nested more than {MAX_DEPTH} levels deep")
     if not isinstance(data, dict):
         raise ReplayError("not a Halo replay: not a JSON object")
-    p = upgrade(data)
+    p = _plain(upgrade(data))
     if not _ID.match(str(p.get("id") or "")):
         raise ReplayError(f"not a replay id: {p.get('id')!r}")
     return p

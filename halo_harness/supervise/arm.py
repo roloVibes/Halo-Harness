@@ -43,7 +43,7 @@ class BgJobs:
         return bool(meta) and is_our_process(meta)
 
     def start(self, session, entry: dict) -> dict:
-        import subprocess
+        from halo_harness import subprocess_safe as subprocess
         from halo_harness.agents_schedule import _fire_env, build_fire_argv
         from halo_harness.bg_run import start_background_run
         argv = build_fire_argv(entry)[3:]  # past `<python> -m halo_harness`: start_background_run adds the harness
@@ -94,12 +94,13 @@ def declares(control) -> bool:
 
 def lineups(state_dir, repos: list) -> list:
     """`[(name, cwd, scope)]`: the state dir's lineups (scope None: every session) and each repo's own."""
+    from halo_harness.project_gate import name_ok, trusted
     from halo_harness.teams_yaml import list_team_templates, project_teams_dir
     out, seen = [], set()
-    for repo in repos:
+    for repo in repos:  # 3.4.1.2 (ENGINE-1): a repo's own lineups only when it is trusted, never a shipped name
         d = project_teams_dir(repo)
-        for p in sorted(d.glob("*.yaml")) if d.is_dir() else []:
-            if not p.name.endswith(".team.yaml") and p.stem not in seen:
+        for p in sorted(d.glob("*.yaml")) if d.is_dir() and trusted(repo) else []:
+            if not p.name.endswith(".team.yaml") and p.stem not in seen and name_ok("project", "teams", p.stem):
                 seen.add(p.stem)
                 out.append((p.stem, Path(repo), Path(repo)))
     for name in list_team_templates(cwd=Path(state_dir), state_dir=state_dir, include_templates=False):

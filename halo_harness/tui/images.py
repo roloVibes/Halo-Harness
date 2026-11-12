@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import base64
 import io
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from typing import Callable, Optional
 
 KITTY_CHUNK_SIZE = 4096  # protocol max per-escape base64 payload size

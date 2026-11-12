@@ -450,7 +450,7 @@ class McpStatus(ModalScreen):
         if callable(enter):
             enter()
         try:
-            import subprocess as sp
+            from halo_harness import subprocess_safe as sp
             with app.suspend():
                 sp.run(_editor_command(editor, path, line), shell=True)
         finally:

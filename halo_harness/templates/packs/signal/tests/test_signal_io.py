@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import base64
 import queue
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import sys
 import tempfile
 import time

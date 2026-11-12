@@ -14,7 +14,7 @@ so one name cannot be both a file and a folder.)
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 from typing import Optional
 

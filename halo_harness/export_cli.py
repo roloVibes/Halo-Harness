@@ -63,8 +63,9 @@ def cmd_export(argv: list) -> int:
         print(f"halo export: session {log.session_id} has no recorded nodes", file=sys.stderr)
         return 2
 
-    if args.sanitize:
-        nodes = [sanitize_node(n) for n in nodes]
+    if args.sanitize:  # 3.4.1.2 (PACKS-5): the one redaction a replay, a report and a bug report get too
+        from halo_harness.privacy_redact import redact
+        nodes = [redact(n) for n in nodes]
 
     output_text = "\n".join(json.dumps(n, ensure_ascii=False) for n in nodes) + "\n"
 

@@ -6878,7 +6878,7 @@ class Session:
                 self._permission_waiters[request_id] = {
                     "event": threading.Event(), "decision": None,
                     "tool_name": name, "tool_input": tool_input, "tool": tool,
-                    "policy_ask": _policy_gate.is_pack(decision),  # 3.3.10.0 R2: a mode cycle never answers it
+                    "policy_ask": _policy_gate.held_for_you(decision), "engine": self.permission_engine,  # 3.4.1.2
                 }
                 return item
             # decision.action == "allow" (the PermissionRequest hook just
@@ -7226,13 +7226,13 @@ class Session:
     def resolve_permission(self, request_id: str, decision) -> bool:
         """Called from the UI THREAD: answer the `permission_request` for
         `request_id`, unblocking the worker thread parked in
-        `_await_permission_decision`. `decision` is a
-        `halo_harness.permissions.Decision` or a `{"action": ...}` dict
-        (repaired by `set_permission_mode`/mode changes before this). Returns
-        False when no such request is waiting (already answered/aborted)."""
+        `_await_permission_decision`. `decision` is a `Decision` or a `{"action": ...}` dict. Returns False
+        when no such request is waiting (already answered/aborted)."""
         slot = self._permission_waiters.get(request_id)
         if slot is None:
             return False
+        if slot.get("tool_name") == "Skill":  # 3.4.1.2 (ENGINE-3): only the person's allow is a skill card's yes
+            _policy_gate.skill_answered(slot, decision)
         slot["decision"] = decision
         slot["event"].set()
         return True

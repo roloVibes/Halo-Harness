@@ -1,13 +1,10 @@
 """halo_harness.agent.policy_gate -- a pack's verdict decides a tool call (Halo 3.3.10.0 R2; docs/EXTENSION_API.md
 "Policy hooks", docs/ARCHITECTURE-permissions.md "Pack policy hooks").
 
-`agent/loop.py _resolve_tool_call` calls `decide` where it called `permission_engine.decide` (the first decide, the
-re-decides after a PreToolUse or PermissionRequest hook rewrote the input, the plan specials), and
-`_finalize_tool_result` calls `after` on a call that ran. Every armed policy is asked (`agent` = the sub-agent or
-the Orchestra worker making the call); the winner is deny over ask over allow: deny refuses the call with the pack's
-line, ask goes to the approval flow with it, allow leaves the call to the engine as before. With no pack armed,
-`policy.armed()` is [] (a home with no packs folder: two stats), no process starts, and `decide` is exactly the one
-`permission_engine.decide` call it replaced.
+`agent/loop.py _resolve_tool_call` calls `decide` where it called `permission_engine.decide` (first, and after a
+hook rewrote the input), `_finalize_tool_result` calls `after`. Every armed policy is asked; deny over ask over
+allow: deny refuses with the pack's line, ask goes to the approval flow, allow leaves the call to the engine. With no
+pack armed, `decide` is exactly the one `permission_engine.decide` call it replaced.
 
     before(name, tool_input, *, cwd, session, agent, permission_mode) -> the winning Verdict | None
     decide(session, item, name, tool_input, tool) -> Decision
@@ -64,6 +61,18 @@ def _mode(pack_id: str):
 
 def is_pack(decision) -> bool:
     return str(getattr(decision, "source", "") or "").startswith("pack:")
+
+
+def held_for_you(decision) -> bool:
+    """3.4.1.2 (ENGINE-3): an ask a mode change never answers -- a pack's, an untrusted skill's, a hook's."""
+    return is_pack(decision) or str(getattr(decision, "source", "") or "") in ("skill", "hook")
+
+
+def skill_answered(slot: dict, decision) -> None:
+    """3.4.1.2 (ENGINE-3): the person's allow on a Skill call's card is the yes its commands run on, once."""
+    if (getattr(decision, "action", None) or (decision if isinstance(decision, dict) else {}).get("action")) == "allow":
+        from halo_harness.tools.skill_gate import confirm
+        confirm(slot.get("engine"), slot.get("tool_input"))
 
 
 def line(v, at: str = "before") -> str:

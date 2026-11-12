@@ -27,7 +27,7 @@ import json
 import os
 import platform
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path

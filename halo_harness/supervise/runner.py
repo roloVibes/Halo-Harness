@@ -22,7 +22,7 @@ status.json and its result JSON -- as `{state, why, cost_usd, failure}`;
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 from pathlib import Path
 from typing import Optional

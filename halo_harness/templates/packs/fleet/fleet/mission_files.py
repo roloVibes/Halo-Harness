@@ -55,6 +55,22 @@ def readable(rel: str, mine: list, deps: list) -> bool:
     return any(fnmatch.fnmatchcase(rel, p) for p in pats)
 
 
+#: 3.4.1.2 (PACKS-3): names a session reads as its own configuration when they sit at the part folder's root
+CONFIG_NAMES = {"claude.md", "agents.md", "claude.local.md"}
+
+
+def config_like(rel: str) -> str:
+    """'' for a path a member may write from a hub's answer; else why not. Any dot-leading part (`.claude`, `.halo`,
+    `.mcp.json`, `.git`, `.env`, `.vscode` ...) and, at the root, CLAUDE.md / AGENTS.md / CLAUDE.local.md would be read
+    as configuration by the part's session or by git, wherever they come from."""
+    parts = [x for x in str(rel).replace("\\", "/").split("/") if x]
+    if any(x.startswith(".") for x in parts):
+        return f"{rel} has a dot-leading part (configuration, never taken from a hub)"
+    if len(parts) == 1 and parts[0].lower() in CONFIG_NAMES:
+        return f"{rel} at the part folder's root would be read as instructions (never taken from a hub)"
+    return ""
+
+
 def writable(rel: str, mine: list) -> bool:
     return any(rel in (f"parts/{n}/{f}" for f in PART_FILES) or fnmatch.fnmatchcase(rel, f"artifacts/{n}/**")
                for n in mine)
@@ -129,13 +145,25 @@ class HubFiles:
     def call(self, op: str, mission: str, **fields) -> dict:
         return self.link.request("POST", protocol.PREFIX + "/mission_files", protocol.doc(op=op, mission=mission, **fields))
 
-    def pull(self, mission: str, dest) -> list:
-        """Every file this harness may read, written under `dest`; the paths."""
-        got = []
+    def pull(self, mission: str, dest, *, part: Optional[str] = None, deps: tuple = ()) -> list:
+        """Every file this harness may read, written under `dest`; the paths. 3.4.1.2 (PACKS-3): the member applies
+        its OWN rule to the hub's list -- `readable` for its part and its dependencies' paths, never a config-like
+        path -- and writes a file only under the path it asked for; a refused path is in `self.refused`."""
+        got, self.refused = [], []
         for f in self.call("list", mission).get("files") or []:
-            one = self.call("get", mission, path=f["path"])
-            _atomic(S.confine(dest, one["path"]), base64.b64decode(one.get("data_b64") or ""))
-            got.append(one["path"])
+            try:
+                rel = S.clean_rel((f or {}).get("path"))
+            except S.PathRefused as e:
+                self.refused.append(f"{str((f or {}).get('path'))[:200]}: {e}")
+                continue
+            why = config_like(rel) or ("" if part is None or readable(rel, [str(part)], list(deps)) else
+                                       f"{rel} is not part {part}'s to read")
+            if why:
+                self.refused.append(why)
+                continue
+            one = self.call("get", mission, path=rel)
+            _atomic(S.confine(dest, rel), base64.b64decode(one.get("data_b64") or ""))
+            got.append(rel)
         return got
 
     def push(self, mission: str, src, rels: list, cap: Optional[int] = None) -> "tuple[list, list]":

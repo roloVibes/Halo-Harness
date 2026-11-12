@@ -25,16 +25,23 @@ def _stems(folder: Path, suffix: str = ".yaml", skip: str = "") -> "tuple[list, 
     return [p.name[:-len(suffix)] for p in files], files
 
 
-def _folder_rows(kind: str, dirs, cwd: Path, winner_of, *, skip: str = "") -> list:
+def _folder_rows(kind: str, dirs, cwd: Path, winner_of, *, skip: str = "", project: "Path | None" = None) -> list:
+    """3.4.1.2 (ENGINE-1): the repo folder is listed even when it is not read (an untrusted folder), and says so."""
     from halo_harness.packs.contribute import folder_names, read_only_source
+    from halo_harness.project_gate import trusted
+    dirs = list(dirs)
+    if project is not None and not any(src == "project" for _d, src in dirs):
+        dirs.insert(0, (project, "project"))
     rows = []
     for rank, (folder, source) in enumerate(dirs, start=1):
         names, files = _stems(folder, skip=skip)
         if source.startswith("pack:"):  # 3.2.0.0 R1: a pack's folder lists its `<id>--<name>` names
             names = sorted(folder_names(folder, source, skip=skip))
+        unread = source == "project" and names and not trusted(cwd)
         rows.append(make(kind, folder, scope_of(source), cwd=cwd, sets=names, rank=rank, files=files,
                          note=f"{len(names)} file(s)" + (", read-only (duplicate one to edit it)" if read_only_source(source) else "")
-                         + (f", from pack {source[len('pack:'):]}" if source.startswith("pack:") else "")))
+                         + (f", from pack {source[len('pack:'):]}" if source.startswith("pack:") else "")
+                         + (", not read: this folder is not trusted" if unread else "")))
     return settle(rows, winner_of, cwd=cwd)
 
 
@@ -44,7 +51,8 @@ def lineup_folder_rows(cwd: Path, state_dir: Path) -> list:
     def winner(name):
         found = T.find_team_template_path(name, cwd=cwd, state_dir=state_dir)
         return str(found[0]) if found else None
-    return _folder_rows("lineups", T.team_search_dirs(cwd=cwd, state_dir=state_dir), cwd, winner, skip=".team.yaml")
+    return _folder_rows("lineups", T.team_search_dirs(cwd=cwd, state_dir=state_dir), cwd, winner, skip=".team.yaml",
+                        project=T.project_teams_dir(cwd))
 
 
 def bio_folder_rows(cwd: Path, state_dir: Path) -> list:
@@ -53,7 +61,8 @@ def bio_folder_rows(cwd: Path, state_dir: Path) -> list:
     def winner(name):
         found = A.find_agent_bio_path(name, cwd=cwd, state_dir=state_dir)
         return str(found[0]) if found else None
-    return _folder_rows("bios", A.agent_search_dirs(cwd=cwd, state_dir=state_dir), cwd, winner)
+    return _folder_rows("bios", A.agent_search_dirs(cwd=cwd, state_dir=state_dir), cwd, winner,
+                        project=A.project_agents_dir(cwd))
 
 
 def active_lineup_rows(cwd: Path, state_dir: Path, active: str) -> list:

@@ -1036,7 +1036,8 @@ never written over an entry already here
   init`'s live check uses). The judge reports its session id and how many
   messages its log held before the prompt (0), which `reviewer_fresh` checks.
 - a worker (`spawn_worker`): a fresh `halo -p` child process with
-  `--output-format json --permission-mode auto`, its cwd the lane's
+  `--output-format json --permission-mode auto` (3.4.1.2: the goal's `permission_mode` and `permission_rules` when
+  set -- a run the `Workflow` tool starts carries its session's mode and rules), its cwd the lane's
   worktree, and `HALO_ORCHESTRA_RUN` / `HALO_ORCHESTRA_LANE` in its
   environment, so the claim guard and the Orchestra tools are live in it and
   its holder is its own session. (The in-process sub-agent path takes the

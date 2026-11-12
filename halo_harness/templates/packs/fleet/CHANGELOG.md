@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4 (Halo 3.4.1.2)
+
+A member mirrors only the mission files its part may read and never a configuration-like path (a dot-leading folder
+such as `.claude/` or `.mcp.json`, a CLAUDE.md or AGENTS.md at the folder's root), whatever a hub lists; a mission
+folder is never a trusted folder; the own-outputs-folder rule lifts only the mode's ask, never an ask rule of yours.
+Existing installs: `halo pack update fleet`.
+
 ## 1.0.3 (Halo 3.4.1.1)
 
 The third two-machine check: a need no harness's card lists (the lead's `shell`) sends the lead's first answer back once,

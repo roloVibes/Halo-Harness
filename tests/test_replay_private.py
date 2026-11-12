@@ -57,8 +57,12 @@ def test_windows_style_paths_and_names(ctx: Ctx):
     ctx.check(f"other home paths are ~, any spelling, got {m[0]!r}", m[0] == "Read ~/notes.md, ~/x and ~/y.txt")
     ctx.check(f"names out, the project itself '.', a sibling folder is no project path, got {m[1]!r}",
               m[1] == "ran on <user>@<machine>; cd .; ~/work/trepo2/z; q.py")
-    ctx.check(f"a project-relative path keeps its words, a path outside the home loses the name, got {m[2]!r}",
-              m[2] == f"{USER}/notes.txt stays (a path inside the project); D:\\data\\<user>\\k")
+    # 3.4.1.2 (SERVERS-6): only a path the root rule made project-relative keeps its words; a relative path the model
+    # wrote may name anything (`..\\..\\Users\\<you>`), so the name goes there too
+    ctx.check(f"a relative path the model wrote loses the name, as a path outside the home does, got {m[2]!r}",
+              m[2] == "<user>/notes.txt stays (a path inside the project); D:\\data\\<user>\\k")
+    kept = scrub({"t": f"{root}\\{USER}\\notes.txt"}, root, homes=[WIN_HOME], users=[USER], machines=[MACHINE])["t"]
+    ctx.check(f"a project path the root rule made keeps its words, got {kept!r}", kept == f"{USER}/notes.txt")
     ctx.check(f"the title (the owner's own words) keeps the name, its path is relative, got {got['title']!r}",
               got["title"] == f"fix {USER}'s basket in a.txt")
 

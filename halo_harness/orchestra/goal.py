@@ -55,12 +55,15 @@ class Goal:
     plan: str = "auto"  # 3.0.9.0 R2: "review" pauses after the split for the edited plan (orchestra/plan.py)
     budget_usd: Optional[float] = None  # 3.1.2.0 R2: the forecast's budget (orchestra/forecast.py)
     workflow: dict = field(default_factory=dict)  # 3.2.0.0 R5: the pinned plan of a pack workflow (workflows/compile.py)
+    test_from: str = ""  # 3.4.1.2 (ENGINE-1): the project file that wrote `test`: decided as Bash (test_decide.py)
+    permission_mode: str = ""  # 3.4.1.2: the lanes' mode ('' = auto); a Workflow run: the parent's
+    permission_rules: dict = field(default_factory=dict)  # 3.4.1.2: {deny, ask, allow} the lanes carry (the parent's)
 
     def to_dict(self) -> dict:
         """The goal; `budget_usd` and `workflow` only when set (a goal without them is written as before)."""
         data = asdict(self)
-        for key in ("budget_usd", "workflow"):
-            if data.get(key) in (None, {}):
+        for key in ("budget_usd", "workflow", "test_from", "permission_mode", "permission_rules"):
+            if data.get(key) in (None, {}, ""):
                 data.pop(key, None)
         return data
 
@@ -72,6 +75,7 @@ class Goal:
         goal.files = list(goal.files) if isinstance(goal.files, (list, tuple)) else goal.files
         goal.handoffs = dict(goal.handoffs) if isinstance(goal.handoffs, dict) else {}
         goal.workflow = dict(goal.workflow) if isinstance(goal.workflow, dict) else {}
+        goal.permission_rules = dict(goal.permission_rules) if isinstance(goal.permission_rules, dict) else {}
         return goal
 
 
@@ -103,7 +107,7 @@ def validate_goal(data) -> list:
         problems.append(f'"budget_usd" is a number of dollars, 0 or more, got {budget!r}')
     if not isinstance(data.get("workflow", {}), dict):
         problems.append('"workflow" is the compiled workflow (an object, halo workflow run writes it)')
-    for key in ("test", "lineup", "lead", "worker"):
+    for key in ("test", "lineup", "lead", "worker", "test_from", "permission_mode"):
         value = data.get(key, "")
         if value is not None and not isinstance(value, str):
             problems.append(f'"{key}" must be a string')

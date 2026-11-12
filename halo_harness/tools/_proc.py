@@ -11,7 +11,7 @@ import atexit
 import os
 import queue
 import re
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import tempfile
 import threading
 import time

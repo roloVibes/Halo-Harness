@@ -21,7 +21,7 @@ stopped where it was started.
 from __future__ import annotations
 
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone

@@ -88,9 +88,12 @@ with a `paths:` frontmatter glob is **scoped** -- held back and only
 injected the first time a matching file is Read/Edited/Globbed this
 session, rather than loaded unconditionally at launch like an ordinary
 `CLAUDE.md`. `@path`/`@~/path`/`@//abs/path` imports inside any of these
-files are expanded recursively (max 4 hops, 4 MiB per file, cycle-safe); an
-import outside `cwd`/`~/.claude` from an **untrusted** project is skipped
-with a warning, never silently included.
+files are expanded recursively (max 4 hops, 4 MiB per file, cycle-safe). Since 3.4.1.2
+(`config/claude_md_imports.py`): in an **untrusted** folder the project's files import only from inside the cwd
+(your own `~/.claude/CLAUDE.md` still imports its `*.md` neighbours); under the Claude config folder only `*.md` is
+ever imported, never `.credentials.json`, `settings*.json`, `projects/`, `history.jsonl` or session logs, trusted or
+not; and every import passes the session's Read deny rules. Each refusal is a warning, printed once when the session
+starts -- never silently included.
 
 `settings.instructionFiles` (really
 `pluginConfigs.<the agents-md plugin>.options.instructionFiles`, with a

@@ -127,7 +127,7 @@ def _detach(a, home) -> int:
     argv = [sys.executable, "-u", "-m", "halo_harness", "host", "serve", "--foreground"]
     argv += (["--port", str(a.port)] if a.port is not None else []) + (["--bind", a.bind] if a.bind else [])
     argv += ["--no-tls"] if a.no_tls else []
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     kwargs: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if sys.platform == "win32":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0)

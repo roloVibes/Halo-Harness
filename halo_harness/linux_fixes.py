@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import tarfile
 import tempfile
 from pathlib import Path

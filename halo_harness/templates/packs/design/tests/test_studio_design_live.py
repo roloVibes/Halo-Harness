@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import base64
 import json
-import subprocess
+from halo_harness.ext import subprocess_safe as subprocess
 import sys
 import threading
 import time

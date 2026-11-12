@@ -29,15 +29,22 @@ def _square(does: str) -> str:
 @test
 def test_a_bare_name_resolves_yours_then_the_project_then_shipped(ctx: Ctx):
     from halo_harness.workflows import registry, spec
+    from tests.helpers.trust_dir import trust
     with PacksHome() as h:
-        mine = h.write(".halo/workflows/media.yaml", _square("Mine."))
-        proj = h.write(".halo/workflows/media.yaml", _square("The project's."), base=h.repo)
-        wf, _ = spec.find("media", cwd=h.repo)
-        ctx.check(f"yours first, got {wf.origin if wf else None}", wf is not None and wf.origin == "yours" and wf.ref == "media"
+        trust(h.repo)  # 3.4.1.2 (ENGINE-1): a project's squares load only in a trusted folder
+        mine = h.write(".halo/workflows/mysq.yaml", _square("Mine."))
+        proj = h.write(".halo/workflows/mysq.yaml", _square("The project's."), base=h.repo)
+        wf, _ = spec.find("mysq", cwd=h.repo)
+        ctx.check(f"yours first, got {wf.origin if wf else None}", wf is not None and wf.origin == "yours" and wf.ref == "mysq"
                   and wf.contract.does == "Mine.")
         mine.unlink()
-        wf, _ = spec.find("media", cwd=h.repo)
+        wf, _ = spec.find("mysq", cwd=h.repo)
         ctx.check(f"then the project's, got {wf.origin if wf else None}", wf is not None and wf.origin == "project")
+        proj.unlink()
+        proj = h.write(".halo/workflows/media.yaml", _square("The project's."), base=h.repo)
+        wf, _ = spec.find("media", cwd=h.repo)
+        ctx.check(f"a project file never takes a shipped name, got {wf.origin if wf else None}",
+                  wf is not None and wf.origin == "shipped")
         proj.unlink()
         wf, _ = spec.find("media", cwd=h.repo)
         ctx.check(f"then the shipped one, got {wf.origin if wf else None}", wf is not None and wf.origin == "shipped"

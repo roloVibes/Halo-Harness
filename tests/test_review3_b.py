@@ -123,6 +123,12 @@ def test_item4_untrusted_project_template_loses_mode_and_allow(ctx: Ctx):
                                                          "ask": ["Write"]}}
         _write_team(cwd, "base", {"agents": [], "permissions": perms})
         _write_team(cwd, "dev", {"extends": "base", "agents": []})
+        # 3.4.1.2 (ENGINE-1): an untrusted folder's lineups are not read at all; the trusted=False filter below is the
+        # layer split that still applies to a project-sourced layer read with trusted=False
+        ctx.check("an untrusted folder's lineup is not read",
+                  resolve_team_template("dev", cwd=cwd, state_dir=e.home / ".halo", trusted=False) is None)
+        from tests.helpers.trust_dir import trust
+        trust(cwd)
         untrusted = resolve_team_template("dev", cwd=cwd, state_dir=e.home / ".halo", trusted=False)
         got = untrusted["permissions"]
         ctx.check(f"mode dropped through extends, got {got!r}", "mode" not in got)

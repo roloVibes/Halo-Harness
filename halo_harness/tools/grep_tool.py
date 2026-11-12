@@ -17,7 +17,7 @@ import os
 import re
 import shutil
 import stat
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from pathlib import Path
 
 from halo_harness.tools._gitignore import Ignores

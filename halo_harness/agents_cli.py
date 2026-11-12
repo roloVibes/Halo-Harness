@@ -11,7 +11,7 @@ import argparse
 import os
 import shlex
 import shutil
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 import sys
 
 

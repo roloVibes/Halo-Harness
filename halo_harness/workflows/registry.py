@@ -4,7 +4,7 @@ has enabled (Halo 3.3.16.0 R3, docs/WORKFLOWS-squares.md "The registry").
 Four places, in this precedence:
 
     yours     <state>/workflows/<name>.yaml       (~/.halo/workflows; the state dir, so a test never writes ~/.halo)
-    project   <repo>/.halo/workflows/<name>.yaml
+    project   <repo>/.halo/workflows/<name>.yaml        (3.4.1.2: a trusted folder only; never a shipped name)
     packs     a running pack's contributes.workflows, ref `<pack>/<name>` (workflows/spec.py, as before)
     shipped   halo_harness/templates/workflows/<name>.yaml
 
@@ -57,8 +57,10 @@ def _state(state_dir) -> Path:
 
 
 def folders(*, cwd=None, state_dir=None) -> "list[tuple[str, Path]]":
+    """3.4.1.2 (ENGINE-1): the project's folder only when it is trusted (project_gate.py)."""
+    from halo_harness.project_gate import project_dir
     repo = Path(cwd) if cwd is not None else Path.cwd()
-    return [("yours", _state(state_dir) / "workflows"), ("project", repo / ".halo" / "workflows"),
+    return [("yours", _state(state_dir) / "workflows"), *[(o, d) for d, o in project_dir(repo / ".halo" / "workflows", repo)],
             ("shipped", shipped_dir())]
 
 
@@ -74,19 +76,22 @@ def _place(origin: str, folder: Path) -> "dict[str, Workflow]":
         files = sorted(p for p in folder.glob("*.yaml") if p.is_file())
     except OSError:
         return {}
-    return {p.stem: _read(origin, folder, p) for p in files}
+    from halo_harness.project_gate import name_ok  # 3.4.1.2: a project file never takes a shipped or pack name
+    return {p.stem: _read(origin, folder, p) for p in files if name_ok(origin, "workflows", p.stem)}
 
 
 def find_bare(name: str, *, cwd=None, state_dir=None) -> "tuple[Optional[Workflow], str]":
     from halo_harness.packs import names as N
+    from halo_harness.project_gate import name_ok, note
     if not N.is_valid_name(name):
         return None, f"{name!r} is not a workflow name: <name> (yours, the project's or shipped) or <pack>/<name>"
     for origin, folder in folders(cwd=cwd, state_dir=state_dir):
         path = folder / f"{name}.yaml"
-        if path.is_file():
+        if path.is_file() and name_ok(origin, "workflows", name):
             return _read(origin, folder, path), ""
-    return None, (f"no workflow {name!r}: not yours ({_state(state_dir) / 'workflows'}), not the project's, not shipped "
-                  "(halo workflows list)")
+    skip = note("workflows", name, cwd)  # 3.4.1.2 (ENGINE-1): the project's file was there and is not used
+    return None, skip or (f"no workflow {name!r}: not yours ({_state(state_dir) / 'workflows'}), not the project's, "
+                          "not shipped (halo workflows list)")
 
 
 def squares(*, cwd=None, state_dir=None) -> "list[Workflow]":

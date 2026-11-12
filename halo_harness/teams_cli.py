@@ -157,7 +157,7 @@ def _cmd_edit(rest: list) -> int:
     import os
     import shlex
     import shutil
-    import subprocess
+    from halo_harness import subprocess_safe as subprocess
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if not editor:
         print("halo teams edit: --yaml needs $EDITOR (or $VISUAL) set to your text editor; without --yaml the "

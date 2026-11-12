@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import subprocess
+from halo_harness import subprocess_safe as subprocess
 from contextlib import AsyncExitStack
 from typing import Optional
 
