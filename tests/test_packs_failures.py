@@ -133,12 +133,12 @@ def test_a_removed_source(ctx: Ctx):
         ctx.check(f"installed by id from the source, got {code} {err}", code == 0)
         s.cli("remove", "studio-bundle")
         shutil.rmtree(src.parent)
-        want = [f"no folder studio-bundle here, and no pack studio-bundle in the sources searched: {folder} (not a folder), "
-                "the packs Halo ships (halo pack sources add <folder|git url>)"]
+        want = [f"no pack studio-bundle in the sources searched: {folder} (not a folder), "
+                "the packs Halo ships (halo pack sources add <folder|git url>; a folder here is ./studio-bundle)"]  # 3.4.1.2
         _both(ctx, s, "studio-bundle", want, "a packs.sources folder that is gone")
         s.cli("sources", "remove", str(src.parent))
-        want = ["no folder studio-bundle here, and no pack studio-bundle in the sources searched: packs.sources (empty), "
-                "the packs Halo ships (halo pack sources add <folder|git url>)"]
+        want = ["no pack studio-bundle in the sources searched: packs.sources (empty), "
+                "the packs Halo ships (halo pack sources add <folder|git url>; a folder here is ./studio-bundle)"]
         _both(ctx, s, "studio-bundle", want, "a removed packs.sources entry")
         src = s.source()
         s.install(src)

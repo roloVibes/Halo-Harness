@@ -145,11 +145,11 @@ def test_api_route_and_the_tui(ctx: Ctx):
     from halo_harness import glossary as G
     from halo_harness.studio.api import Request, dispatch
     from halo_harness.config.paths import bridge_home
-    req = Request(method="GET", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home()))
+    req = Request(owner=True, method="GET", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home()))
     status, body = dispatch(req)
     ctx.check(f"GET /api/glossary: 200 and {len(BRIEF)} words in file order, got {status}", status == 200
               and [w["word"] for w in body["words"]] == list(BRIEF) and body["words"][0]["text"] == G.load()["lineup"])
-    status, _ = dispatch(Request(method="POST", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home())))
+    status, _ = dispatch(Request(owner=True, method="POST", path="glossary", query={}, body={}, cwd=REPO, state_dir=Path(bridge_home())))
     ctx.check(f"POST is a 405, got {status}", status == 405)
     from halo_harness.commands.builtins import _BUILTIN_SPECS
     ctx.check("/explain is a built-in (3.4.0.0 B: /start is the first-run pack's)", "explain" in _BUILTIN_SPECS and "start" not in _BUILTIN_SPECS)

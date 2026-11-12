@@ -154,7 +154,7 @@ offered twice), `packs/offers.py` (the names a pack offers, by kind),
 MCP grant filters), `packs/journal.py` (the journal and its journaled writes),
 `packs/fetch.py` (a folder or a git url), `packs/install.py` (install and
 update), `packs/remove.py` (remove; your work stays), `packs/doctor.py`
-(every problem; 3.3.10.0 R3: `packs/doctor_mcp.py`, an MCP command not on PATH), `packs/cli.py` and `packs/cli_views.py` (`halo pack`; 3.3.12.0 R4, the pack kit: `packs/scaffold/` and `packs/cli_new.py` for `halo pack new`, `packs/test_run.py`, `packs/test_run_parts.py`, `packs/test_run_proc.py`, `packs/test_run_mcp.py`, `packs/cli_test.py` and `ext/testing.py` for `halo pack test`, `packs/link.py` for `--link`, `packs/manifest_requires.py` for `requires:` tools);
+(every problem; 3.3.10.0 R3: `packs/doctor_mcp.py`, an MCP command not on PATH), `packs/cli.py`, `packs/cli_ask.py` (3.4.1.2: the questions it asks in a terminal) and `packs/cli_views.py` (`halo pack`; 3.3.12.0 R4, the pack kit: `packs/scaffold/` and `packs/cli_new.py` for `halo pack new`, `packs/test_run.py`, `packs/test_run_parts.py`, `packs/test_run_proc.py`, `packs/test_run_mcp.py`, `packs/cli_test.py` and `ext/testing.py` for `halo pack test`, `packs/link.py` for `--link`, `packs/manifest_requires.py` for `requires:` tools);
 `where/pack_files.py` is the packs group of `halo config where`. 3.2.0.0 R2,
 a pack's bios and lineups: `packs/bio_models.py` (`models.capabilities` to the
 best catalog model), `packs/bio_rules.py` (what a pack's bio and lineup may not

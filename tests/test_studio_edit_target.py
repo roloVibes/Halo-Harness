@@ -50,7 +50,7 @@ def _home():
     proj.mkdir()
     srv = start_server(port=0, cwd=proj, state_dir=state)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    write_private_atomic(studio_info_path(state), json.dumps({"pid": 0, "port": srv.server_address[1], "token": srv.token}))
+    write_private_atomic(studio_info_path(state), json.dumps({"pid": 0, "port": srv.server_address[1], "token": srv.token, "owner_salt": srv.owner_salt}))
     try:
         yield SimpleNamespace(home=home, state=state, proj=proj, srv=srv)
     finally:

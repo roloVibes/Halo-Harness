@@ -100,7 +100,7 @@ this list against the tree.
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
 - time (3.4.1.0 R1, docs/REPLAY.md): `live/timeline.py` (a session's marks and phase bands), `live/replay_file.py` (the
-  `.halo-replay` file), `live/replay_clip.py` + `live/clip_chrome.py` (the clip, filmed in headless Chrome),
+  `.halo-replay` file), `live/replay_clip.py` + `live/clip_chrome.py` + `live/clip_pipe.py` (the clip, filmed in headless Chrome; 3.4.1.2: DevTools over pipes on POSIX),
   `studio/replays_api.py` (the `replays/*` routes), `replay_verbs.py` (`halo replay list | save | open | clip`);
   R2: `live/replay_run.py` (a goal run's replay), `live/replay_facts.py` (a run's figures from its own record),
   `live/compare.py` + `live/compare_text.py` (two runs' rows, "what differed"; `halo replay compare`);

@@ -11,6 +11,10 @@ way it does on a machine that never joined a fleet.
                                        as `halo_packs.fleet.<path>` (packs/contrib_cli.load), else None
     call(rel, attr, *a, default=None, **kw)   module(rel).attr(*a, **kw), else `default`
     line()                             the one line a fleet door says when the pack is off (halo_harness/left.py)
+
+3.4.1.2 (PACKS-1): the door imports a `fleet` pack's Python into halo only when it is the pack Halo ships (its record's
+source, or its folder, is halo_harness/templates/packs/fleet) or the owner granted it `studio-routes` (a fork that asks
+for it); any other pack under the id `fleet` is not opened, and `line()` says so.
 """
 
 from __future__ import annotations
@@ -21,13 +25,37 @@ PACK = "fleet"
 
 
 def running(*, cwd=None, state_dir=None):
-    """The fleet pack when it is enabled here, else None (never raises)."""
+    """The fleet pack when it is enabled here and it is Halo's own (or granted `studio-routes`), else None (never
+    raises)."""
     try:
         from halo_harness.packs import registry
         snap = registry.snapshot(cwd=cwd, state_dir=state_dir)
+        pack = next((p for p in snap.active if p.id == PACK), None)
+        if pack is None or shipped_or_granted(pack, snap, state_dir):
+            _refused.pop("why", None)
+            return pack
     except Exception:
         return None
-    return next((p for p in snap.active if p.id == PACK), None)
+    _refused["why"] = (f"the fleet pack at {pack.root} is not the one Halo ships, so halo does not open its Python "
+                       "(halo pack remove fleet, then halo pack install fleet; a fork of it asks for studio-routes)")
+    return None
+
+
+_refused: dict = {}  # 3.4.1.2 (PACKS-1): why an enabled `fleet` pack is not opened
+
+
+def shipped_or_granted(pack, snap=None, state_dir=None) -> bool:
+    """3.4.1.2 (PACKS-1): the pack Halo ships (its record's source or its folder), or one granted `studio-routes`."""
+    from halo_harness.packs.discover import same_path
+    from halo_harness.packs.fetch import shipped_folder
+    shipped = shipped_folder(PACK)
+    rec = ((getattr(snap, "state", None) or {}).get("installed") or {}).get(PACK) or {}
+    if not rec:
+        from halo_harness.packs import state as S
+        rec = S.entry(PACK, state_dir) or {}
+    if shipped is not None and (same_path(pack.root, shipped) or same_path(str(rec.get("source") or "?"), shipped)):
+        return True
+    return "studio-routes" in (rec.get("granted") or [])
 
 
 def module(rel: str, *, cwd=None, state_dir=None):
@@ -57,6 +85,8 @@ def call(rel: str, attr: str, *args, default=None, cwd=None, state_dir=None, **k
 
 def line() -> str:
     from halo_harness.left import packed_line
+    if _refused.get("why"):
+        return _refused["why"]
     if _failed and running() is not None:
         rel, why = next(reversed(_failed.items()))
         return f"the fleet pack runs, but its {rel} did not load: {why}"

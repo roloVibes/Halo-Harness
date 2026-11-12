@@ -168,7 +168,13 @@ resolve_ref
 if [ "$NO_CLONE" = 1 ]; then
   say "Installing halo straight from GitHub at $REF"
   if [ "$DRY_RUN" = 1 ]; then run uv tool install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"
-  else uv_install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"; fi
+  else  # 3.4.1.2 (PACKS-10): the lock is fetched first and checked; without it nothing is installed (fails closed)
+    LOCK="$(mktemp -d)/requirements.lock"
+    if ! curl -fsSL "${RAW_URL}/${REF}/requirements.lock" -o "$LOCK" || ! grep -q -- '--hash=sha256:' "$LOCK"; then
+      echo "Could not fetch requirements.lock for ${REF} (${RAW_URL}/${REF}/requirements.lock), so nothing was installed. Try again, install from a clone (drop --no-clone), or install without the pin on purpose: uv tool install --reinstall git+${REPO_URL%.git}@${REF}"
+      exit 1
+    fi
+    uv_install --reinstall --constraints "$LOCK" "git+${REPO_URL%.git}@${REF}"; fi
 else
   if [ -d "$CLONE_DIR/.git" ]; then
     say "Updating the clone at $CLONE_DIR"
@@ -189,7 +195,8 @@ else
   fi
   say "Installing halo from the clone (dependencies pinned by requirements.lock)"
   if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: (cd %s && uv tool install --reinstall --constraints requirements.lock .)\n' "$CLONE_DIR"
-  else (cd "$CLONE_DIR" && uv_install --reinstall --constraints requirements.lock .); fi
+  else [ -f "$CLONE_DIR/requirements.lock" ] || { echo "No requirements.lock in $CLONE_DIR at ${REF}, so nothing was installed (pick a newer --ref)."; exit 1; }
+    (cd "$CLONE_DIR" && uv_install --reinstall --constraints requirements.lock .); fi
 fi
 
 # 5. PATH for the uv tools directory. `uv tool update-shell` edits a shell

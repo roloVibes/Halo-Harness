@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { Button, Dialog, Empty } from "../../../lib/ui";
 import { BundlesGroup } from "./Bundles"; // 3.3.7.0 R5: the bundles, each a tick with its verdict
+import { GrantDialog } from "./GrantDialog"; // 3.4.1.2: a grant that runs a pack's code, the owner's yes first
 import { cli, disablePack, enablePack, mgr, previewUpdate, removePack, rollbackPack, selectPack, serviceAct, updatePack, useMgr } from "./store";
 import type { PackRow, PolicyBlock, ServiceRow } from "./types";
 
@@ -194,6 +195,7 @@ export function InstalledDetail() {
       <BundlesGroup />
       <RemoveDialog />
       <UpdateDialog />
+      <GrantDialog />
     </div>
   );
 }

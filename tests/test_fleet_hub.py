@@ -183,7 +183,7 @@ def test_serve_starts_the_hub_inside_a_running_studio(ctx: Ctx):
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         studio_info_path(state).write_text(json.dumps({"pid": os.getpid(), "port": server.server_address[1],
-                                                       "token": server.token}), encoding="utf-8")
+                                                       "token": server.token, "owner_salt": server.owner_salt}), encoding="utf-8")
         from halo_harness.fleet.cli import cmd_serve
         out = io.StringIO()
         with contextlib.redirect_stdout(out):

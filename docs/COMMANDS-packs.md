@@ -93,11 +93,8 @@ contributes:
 
 `halo pack install <path|git url|id>` copies the pack into `~/.halo/packs/<id>/`;
 `--project` copies it into this repo's `.halo/packs/<id>/` instead. A bare id
-is looked for in each `packs.sources` entry in order, then in the packs Halo
-ships (3.2.0.0 R6: the Documentation Review reference pack), so `halo pack
-install doc-review` installs the shipped one unless a source of yours holds a
-pack with that id ([PACKS.md](PACKS.md#the-reference-pack)).
-Everything is checked before a file is written (the manifest, the API and
+Halo ships is always the shipped pack (3.4.1.2: a source holding it is named in one line; `--from <source>` takes it);
+any other bare id is looked for in `packs.sources` in order; never a folder here (`./<id>` names one). Everything is checked before a file is written (the manifest, the API and
 Halo versions); a folder already there is left as it is. Files go through
 the journal (`~/.halo/packs/journal.jsonl`); a copy that fails part way is
 rolled back. A git url is cloned fresh (`git clone --depth 1`); in offline
@@ -118,7 +115,8 @@ lose `permissions.mode` and allow rules).
 
 ### `halo pack enable`
 
-`halo pack enable <id>` turns the pack on and prints what it requests. A
+`halo pack enable <id>` turns the pack on and prints what it requests (3.4.1.2: `--grant-all` on a pack Halo does not
+ship says each grant that runs its code and asks once in a terminal, else needs `--yes`; `--grant NAME` is the yes). A
 contribution whose permission is not granted does not run: its MCP server
 does not start, its hooks do not load. Grants add up across calls. 3.3.11.0 R3:
 it ends with one line per [Setup block](EXTENSION_API.md#setup-blocks) of the

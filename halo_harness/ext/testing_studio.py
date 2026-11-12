@@ -115,7 +115,8 @@ class studio:  # noqa: N801  (used as `with testing.studio(folder) as s`)
                 raise RuntimeError("the pack does not install: " + "; ".join(lines))
             registry.invalidate()
             pack = find(self.folder.name, cwd=self.cwd, state_dir=self.state)
-        ok, lines = G.enable(pack, grant=self.grants, grant_all=self.grants is None, state_dir=self.state)
+        ok, lines = G.enable(pack, grant=self.grants, grant_all=self.grants is None, state_dir=self.state,
+                             confirm=lambda _lines: True)  # 3.4.1.2: the author's own pack in a scratch home
         if not ok:
             raise RuntimeError("the pack does not enable: " + "; ".join(lines))
         self.pack = pack

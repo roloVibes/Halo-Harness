@@ -60,7 +60,8 @@ def available_lines(rows: "list[dict]") -> "list[str]":
 
 def sources_lines(rows: "list[dict]") -> "list[str]":
     """3.2.0.0 R6: `halo pack sources` -- each place a bare id is looked for, in order, with the packs it holds."""
-    out = ["packs.sources, searched in this order, then the packs Halo ships:" if any(r["configured"] for r in rows)
+    out = ["packs.sources, searched in this order, then the packs Halo ships (an id Halo ships is always its own: "
+           "--from <source> takes a source's; 3.4.1.2):" if any(r["configured"] for r in rows)
            else "packs.sources is empty (halo pack sources add <folder|git url>); a bare id is looked for in the packs Halo ships:"]
     for r in rows:
         where = r["source"] if r["kind"] == "url" else Path(r["source"]).as_posix()

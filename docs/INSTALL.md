@@ -91,7 +91,8 @@ uv tool install git+https://github.com/roloVibes/Halo-Harness --constraints http
 
 The constraints file pins the dependency versions to the repository's
 `requirements.lock` (without it, the latest versions resolve; uv does not
-check the lock's hashes). Nothing to `cd` into first -- good for a box that only ever needs to RUN
+check the lock's hashes). 3.4.1.2: `install-halo.sh --no-clone` / `install-halo.ps1 -NoClone` and `halo update` fetch
+the lock first and install nothing when they cannot, saying how to install without it on purpose. Nothing to `cd` into first -- good for a box that only ever needs to RUN
 `halo`, never to `git pull` it. You cannot update this install with `git
 pull` (there is no local clone); re-run the same command to pick up a new
 release instead.

@@ -38,6 +38,9 @@ def serve_sse(handler) -> None:
     from halo_harness.studio.events import bridge_for
     if not handler._local_only():
         return
+    if getattr(handler.server, "only_gets", None) is not None:  # 3.4.1.2: a clip's filming Studio has no live feed
+        handler._json(403, {"error": "this Studio films a replay: it has no live feed"})
+        return
     origin = handler.headers.get("Origin")
     if origin and origin not in handler._own_origin():
         handler._json(403, {"error": "foreign origin"})

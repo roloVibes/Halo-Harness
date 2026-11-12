@@ -35,7 +35,7 @@ def _live(rig):
 def _req(rig, method: str, path: str, body=None, query=None):
     from halo_harness.studio.api import Request
     from halo_harness.studio.sessions_api import dispatch_sessions
-    return dispatch_sessions(Request(method=method, path=path, query=query or {}, body=body or {}, cwd=rig.cwd,
+    return dispatch_sessions(Request(owner=True, method=method, path=path, query=query or {}, body=body or {}, cwd=rig.cwd,
                                      state_dir=rig.cwd))
 
 

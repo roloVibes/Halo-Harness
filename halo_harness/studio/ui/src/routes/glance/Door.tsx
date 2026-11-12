@@ -48,6 +48,7 @@ export function GlanceDoor() {
               <Button variant="primary" disabled={!info} onClick={() => (window.open(here, "_blank", "noopener"), close())} data-testid="glance-door-open">Open it here</Button>
             </>}>
       <p className="muted">What runs now, what waits on you with its answers as big buttons, the spend against its cap, the last three events.</p>
+      <p className="muted" data-testid="glance-door-owner">A tab Studio opens can look but not answer (3.4.1.2): to answer from this machine, run halo studio --mode glance in a terminal (or paste the glance's address with Studio's #t= key into a new tab yourself).</p>
       {error && <p className="gz-bad">Studio could not say where the glance is: {error}</p>}
       {!info && !error && <p className="mono muted">reading...</p>}
       {info && (

@@ -148,7 +148,7 @@ def test_studio_carries_the_library_and_forgets_an_entry(ctx: Ctx):
     from halo_harness.studio.coach_api import dispatch_coach
     with Home() as h:
         _a, run_b, eid = _two_runs(h)
-        req = lambda method, path: Request(method=method, path=path, query={}, body={}, cwd=h.root, state_dir=h.state)  # noqa: E731
+        req = lambda method, path: Request(owner=True, method=method, path=path, query={}, body={}, cwd=h.root, state_dir=h.state)  # noqa: E731
         status, body = dispatch_coach(req("GET", f"orchestra/{LATER}/coach"))
         ctx.check(f"the GET carries library, got {status} {body.get('library_line')!r}", status == 200
                   and [r["entry"] for r in body["library"]] == [eid] and body["library_line"].startswith("the library: 1 "))

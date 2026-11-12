@@ -104,7 +104,7 @@ def test_item148_lineup_save_reports_bad_instances_and_an_empty_role(ctx: Ctx):
     state = Path(tempfile.mkdtemp(prefix="t4-148-")) / ".halo"
     state.mkdir(parents=True)
     raw = {"agents": [{"role": "main", "agent": "coder"}, {"role": "", "agent": "reviewer", "instances": "two"}]}
-    status, body = dispatch(Request(method="PUT", path="lineup/t", query={}, body={"raw": raw}, cwd=state.parent,
+    status, body = dispatch(Request(owner=True, method="PUT", path="lineup/t", query={}, body={"raw": raw}, cwd=state.parent,
                                     state_dir=state))
     problems = body.get("problems") or []
     ctx.check(f"422 naming the count and the role, got {status} {problems}", status == 422

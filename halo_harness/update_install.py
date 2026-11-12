@@ -6,8 +6,9 @@ old version).
 
     pin_locally(cmd)         -> (cmd, note): a `--constraints <https url>` is fetched by halo itself (providers/http's
                                 TLS policy: the system's store and any configured CA bundle) into a temp file and the
-                                command points at that file; when the fetch fails the pin is dropped for this run and
-                                the note says so (an update you asked for is not blocked by the lock's download).
+                                command points at that file. 3.4.1.2 (PACKS-10): when the fetch fails nothing installs
+                                (None, the line): an unpinned resolve from PyPI is the owner's deliberate choice, and
+                                the line names the command that makes it.
     run_install(cmd, cwd, run_fn) -> (returncode, output): runs it, prints its output, and when it failed on a
                                 certificate runs it once more on the system's certificate store. That is asked
                                 for through the environment (SYSTEM_CERTS_ENV), not a flag: uv 0.11 renamed
@@ -36,8 +37,9 @@ def _fetch_lock(url: str) -> bytes:
 fetch_lock = _fetch_lock  # the seam: tests replace this name, never the network
 
 
-def pin_locally(cmd: str, fetch: Optional[Callable[[str], bytes]] = None) -> "tuple[str, str]":
-    """The command with its https `--constraints` replaced by a local copy, and a note ("" when nothing changed)."""
+def pin_locally(cmd: str, fetch: Optional[Callable[[str], bytes]] = None) -> "tuple[Optional[str], str]":
+    """The command with its https `--constraints` replaced by a local copy and "" -- or, when the lock could not be
+    fetched, None and the one line that says so and how to install without it on purpose."""
     m = _CONSTRAINTS_RE.search(cmd or "")
     if not m:
         return cmd, ""
@@ -49,10 +51,10 @@ def pin_locally(cmd: str, fetch: Optional[Callable[[str], bytes]] = None) -> "tu
         tmp = Path(tempfile.mkdtemp(prefix="halo-lock-")) / "requirements.lock"
         tmp.write_bytes(data)
         return cmd[:m.start()] + f'{m.group("flag")}"{tmp}"' + cmd[m.end():], ""
-    except Exception as e:  # noqa: BLE001 -- any failure means "install without the pin", said once
+    except Exception as e:  # noqa: BLE001 -- any failure: nothing installs, said once (fails closed)
         reason = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
-        return cmd[:m.start()] + cmd[m.end():], (f"halo update: the dependency lock could not be fetched from "
-                                                   f"{url} ({reason}); installing without the pin this once")
+        return None, (f"halo update: the dependency lock could not be fetched from {url} ({reason}), so nothing was "
+                      f"installed; try again, or install without the pin on purpose: {cmd[:m.start()] + cmd[m.end():]}")
 
 
 def certificate_failure(text: str) -> bool:

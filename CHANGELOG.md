@@ -8,6 +8,45 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.4.1.2] - unreleased
+
+A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can
+no longer replace a shipped pack or workflow or import your Claude files, and a fleet hub can no longer plant settings on
+a member. The 2026-11-12 security review's findings, each with its test.
+
+### Studio, packs, supply chain
+
+- SERVERS-1, SERVERS-2: every change Studio makes needs the owner's own page. Any write without the owner proof is
+  refused, except a running pack's own routes, whichever route a write takes (typing into a session or answering its
+  cards included); the handlers that type into a session, start one, write or apply a bio or lineup, or shut Studio
+  down check it again themselves. A test lists every write route and fails on a new one until it is classified.
+- SERVERS-4, PACKS-2: a page a script opens (now also cut off from its opener), a frame, a link or a browser that
+  sends no Fetch Metadata gets Studio without the owner's salt (your own reload keeps it): it can look but not change things, and its status bar (the glance: under its answers) says
+  how to open Studio yourself. The shell makes the proof once at boot, keeps it where no other script on the page can
+  reach it, and loads no pack's page before. `halo studio --stop` and `--edit` keep working (the salt is
+  in the private studio.json beside the token).
+- SERVERS-2, PACKS-6: every grant says what it gives, none is blank: `studio-script` runs the pack's code inside
+  Studio's page with Studio's own power, including starting sessions that run commands; `doctor`, `cli:<verb>` and
+  `studio-routes` run its Python inside halo with your rights and Halo's keys; `services` and `hooks` run its programs
+  with your rights. A pack Halo does not ship gets one of those only on an explicit yes: `--grant NAME`, or
+  `--grant-all` after its lines and one question (`--yes` without a terminal); the Pack Manager asks in a dialog.
+- PACKS-1: a bare pack id (`halo pack install coach`, `halo pack test coach`, Studio's Install) is always the
+  pack Halo ships by that id, never a folder of the current directory; a `packs.sources` entry holding a shipped id
+  does not shadow it (one line says so; `halo pack install <id> --from <source>` takes it on purpose); the core's door
+  to a shipped pack opens its Python only when it is the shipped one (or a fork granted `studio-routes`).
+- SERVERS-5, PACKS-8: Export a clip films through a throwaway Studio of its own that answers only the replay page's
+  reads; on Linux and macOS its Chrome speaks DevTools over pipes and opens no port. The running Studio's key never
+  enters the filming browser.
+- SERVERS-7: the speech servers answer only programs on this machine at their own address: another Host name or any
+  browser Origin is refused; on Windows their port is exclusive, as Studio's.
+- SERVERS-8: a host's engine offer hands a paired peer only the engine's own key, never the value of another variable an
+  entry names.
+- PACKS-9: the CI workflow passes a dispatch's sha to its shell as data, never as script.
+- PACKS-10: `halo update` installs nothing when it cannot fetch the dependency lock and says how to install without it
+  on purpose; the installers fetch and check the lock first and stop the same way.
+- The design for the real fence of a pack's page (a sandboxed frame and a message broker) is written in the roadmap's
+  "Pack trust" item.
+
 ## [3.4.1.1] - 2026-11-12
 
 What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops

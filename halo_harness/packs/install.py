@@ -48,17 +48,22 @@ def _copy(op: "J.Op", src: Path, dest: Path, rels) -> None:
         op.write(dest / rel, source.read_bytes(), mode=source.stat().st_mode & 0o777)
 
 
-def install(source: str, *, project: bool = False, cwd=None, state_dir=None, link: bool = False) -> "tuple[bool, list[str]]":
+def install(source: str, *, project: bool = False, cwd=None, state_dir=None, link: bool = False,
+            origin: "str | None" = None) -> "tuple[bool, list[str]]":
+    """3.4.1.2 (PACKS-1): a bare id is the pack Halo ships by that id, else the first source holding it, never a folder
+    of the current directory; `origin` (`--from <source>`) names the source to take it from instead."""
     if link:  # 3.3.12.0 R4: the folder itself, read in place (packs/link.py)
         from halo_harness.packs.link import link as link_folder
         return link_folder(source, project=project, cwd=cwd, state_dir=state_dir)
     from halo_harness.packs import state as S
     from halo_harness.packs.fetch import source_for
     from halo_harness.packs.offers import offers, summary
-    source = source_for(source)  # a bare id: found through config packs.sources
+    from halo_harness.packs.fetch import shadow_line
+    shadow = "" if origin else shadow_line(source)  # 3.4.1.2 (PACKS-1): said in one line, never taken silently
+    source = source_for(source, origin=origin)  # a bare id: the shipped pack, else found through config packs.sources
     with fetched(source, state_dir=state_dir) as (src, problem):
         if src is None:
-            return False, [problem]
+            return False, [problem] + ([shadow] if shadow else [])
         pack, problems = copied_checks(src)
         if problems:
             return False, problems
@@ -96,7 +101,7 @@ def install(source: str, *, project: bool = False, cwd=None, state_dir=None, lin
     from halo_harness.packs.grants import notify_studio  # 3.2.0.0 R3: Studio's pack list (it runs disabled)
     notify_studio("installed")
     lines = [f"installed {pack.id} {pack.version} at {dest} (disabled)",
-             f"it offers: {summary(offers(installed))}"]
+             f"it offers: {summary(offers(installed))}"] + ([shadow] if shadow else [])
     asked = installed.manifest.get("permissions") or []
     lines.append(f"it requests: {', '.join(asked) if asked else 'no permissions'}")
     if kept:

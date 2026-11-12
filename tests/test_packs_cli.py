@@ -117,8 +117,11 @@ def test_install_by_id_through_packs_sources(ctx: Ctx):
         code, out, err = h.cli("install", "doc-review")
         ctx.check(f"found in a source folder, got {code} {err}", code == 0 and (h.packs / "doc-review" / "pack.yaml").is_file())
         from halo_harness.packs.state import entry
-        ctx.check("packs.sources comes before the shipped pack (3.2.0.0 R6): the record names the source folder",
-                  entry("doc-review")["source"] == str(src))
+        ctx.check("3.4.1.2 (PACKS-1): a source never shadows a shipped id: the shipped pack, and one line says so",
+                  "templates" in entry("doc-review")["source"] and "also holds a pack doc-review" in out)
+        h.cli("remove", "doc-review")
+        code, out, err = h.cli("install", "doc-review", "--from", str(src.parent))
+        ctx.check(f"--from takes the source folder, got {code} {err}", code == 0 and entry("doc-review")["source"] == str(src))
         code, out, _err = h.cli("doctor")
         ctx.check(f"doctor names the source folder that is gone, got {out}", "packs.sources:" in out and "gone is not a folder" in out)
 

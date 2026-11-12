@@ -259,7 +259,9 @@ audio shapes:
 | `POST /v1/audio/speech` (TTS) | `{"model", "input", "voice", "response_format": "pcm" or "wav"}` | `pcm` streams each sentence as it is made (`audio/pcm;rate=24000`); `wav` is sent whole |
 
 A route of the other kind answers 404 naming the server it is; a body that is not audio answers 400 with the formats
-it takes. Other audio formats (mp3, ogg) are not decoded: the voice loop sends PCM.
+it takes. 3.4.1.2: a request whose Host is not the server's own address and port (127.0.0.1, localhost, or the
+`--host` it bound), or that carries an Origin header (a web page), answers 403: the server answers programs on this
+machine, and Studio's Talk goes through Studio; on Windows its port is exclusive. Other audio formats (mp3, ogg) are not decoded: the voice loop sends PCM.
 
 ```sh
 curl -s http://127.0.0.1:<port>/v1/audio/transcriptions -F file=@hello.wav

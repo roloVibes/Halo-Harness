@@ -3,10 +3,13 @@
 // from the address bar, and sent as a bearer header. Errors are
 // typed: an ApiError carries the HTTP status and the server's `problems`.
 // 3.3.14.0 R1 (#4): the shell's own `call` also sends `X-Halo-Owner` (lib/owner.ts), with the `fetch` this module
-// took at boot; `plainCall` is the same request without it (a pack's scoped client, packlib/scoped.ts).
-import { ownerHeader } from "./owner";
+// took at boot; `plainCall` is the same request without it (a pack's scoped client, packlib/scoped.ts). 3.4.1.2
+// (PACKS-2): the request's init and headers are objects with no prototype, so no getter a script put on
+// Object.prototype is asked for a field while fetch reads them.
+import { makeOwnerProof, ownerProof } from "./owner";
 
 const fetchOwn = window.fetch.bind(window);
+const bare = Object.create.bind(Object, null) as () => Record<string, unknown>;
 const KEY = "halo-studio-token";
 const FRAGMENT = /[#&]t=([A-Za-z0-9_-]+)/;
 let current = "";
@@ -33,7 +36,7 @@ if (!adopt(location.hash)) {
     current = "";
   }
 }
-void ownerHeader(current); // made now, before any pack module loads
+makeOwnerProof(current); // made now, before any pack module loads (routes/packs/importPack.ts waits for it)
 
 const listeners = new Set<() => void>();
 window.addEventListener("hashchange", () => {
@@ -85,11 +88,14 @@ export function apiUrl(path: string, query?: Query): URL {
 async function request<T>(owner: boolean, method: string, path: string, body?: unknown, query?: Query): Promise<T> {
   const url = apiUrl(path, query);
   if (revoked) throw new ApiError(401, "this page's key is no longer Studio's: open the page again from Studio");
-  const proof = owner ? await ownerHeader(current) : "";
-  const headers: Record<string, string> = proof
-    ? { Authorization: "Bearer " + current, Accept: "application/json", "X-Halo-Owner": proof }
-    : { Authorization: "Bearer " + current, Accept: "application/json" };
-  const init: RequestInit = { method, headers };
+  const headers = bare() as Record<string, string>;
+  headers.Authorization = "Bearer " + current;
+  headers.Accept = "application/json";
+  const proof = owner ? ownerProof(current) : "";
+  if (proof) headers["X-Halo-Owner"] = proof;
+  const init = bare() as RequestInit;
+  init.method = method;
+  init.headers = headers;
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     init.body = JSON.stringify(body);

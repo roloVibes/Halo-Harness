@@ -13,7 +13,7 @@ halo pack new my-pack --kinds agents,teams,workflows,commands   # or --all for e
 cd my-pack
 halo pack test .                          # every check against fakes: RESULT: N checks, N passed, 0 failed
 halo pack install . --link --project      # the installed pack is this folder: an edit shows at once
-halo pack enable my-pack --grant-all
+halo pack enable my-pack --grant-all       # 3.4.1.2: a grant that runs your code is said first and asked once (--yes)
 ```
 
 **Or take the template on GitHub:** https://github.com/roloVibes/halo-pack-template is the `--all --github` folder as a
@@ -100,7 +100,10 @@ draws with `api.lib`, Studio's own React and parts) over the pack's own routes (
 `studio-routes`); `halo pack new --kinds studio` writes one of each, and `halo pack test` checks the page exports
 `mount` and the routes answer `GET ping`. Its palette line, its event lines and its attention rows show where the core ones do;
 its Setup blocks show in Setup; its bios and lineup in Roles. With `--link`, an edit to a panel's file shows at its next
-read. [EXTENSION_API.md](EXTENSION_API.md#studio-contributions) has every key.
+read. [EXTENSION_API.md](EXTENSION_API.md#studio-contributions) has every key. What your owner reads when they grant
+it (3.4.1.2): `studio-script` runs your page's code INSIDE Studio's page with Studio's own power -- it can do what they
+can do in Studio, including starting sessions that run commands; `studio-routes`, `doctor` and `cli:<verb>` run your
+Python inside halo with their rights and Halo's keys. Ask only for what the pack needs.
 
 ## How the fleet sees it
 

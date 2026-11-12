@@ -57,7 +57,7 @@ def _studio(h, method: str, path: str, body=None) -> "tuple[int, dict]":
         fleet_hub = None
         cwd = h.repo
         state_dir = h.state
-    req = Request(method=method, path=path, query={}, body=body or {}, cwd=h.repo, state_dir=h.state, server=_Server())
+    req = Request(owner=True, method=method, path=path, query={}, body=body or {}, cwd=h.repo, state_dir=h.state, server=_Server())
     got = dispatch(req)
     return got[0], got[1]
 

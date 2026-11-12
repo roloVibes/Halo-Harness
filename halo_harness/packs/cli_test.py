@@ -30,12 +30,16 @@ def parser() -> argparse.ArgumentParser:
 
 
 def folder_of(target: str, cwd=None) -> "tuple[Path | None, str]":
-    folder = Path(target).expanduser()
-    if folder.is_dir():
-        return folder.resolve(), ""
+    """3.4.1.2 (PACKS-1, the same mistake): a bare id that is installed here or that Halo ships is that pack, never a
+    folder of the current directory by the same name (`./<id>` names the folder); any other bare id may be a folder."""
     from halo_harness.packs.discover import find
     from halo_harness.packs.names import is_valid_pack_id
-    pack = find(target, cwd=cwd) if is_valid_pack_id(target) else None
+    bare = is_valid_pack_id(target)
+    pack = find(target, cwd=cwd) if bare else None
+    shipped_here = bare and (Path(__file__).resolve().parent.parent / "templates" / "packs" / target / "pack.yaml").is_file()
+    folder = Path(target).expanduser()
+    if pack is None and not shipped_here and folder.is_dir():
+        return folder.resolve(), ""
     if pack is None:
         shipped = Path(__file__).resolve().parent.parent / "templates" / "packs" / target  # 3.3.13.0 R3: `halo pack test signal`
         if is_valid_pack_id(target) and (shipped / "pack.yaml").is_file():

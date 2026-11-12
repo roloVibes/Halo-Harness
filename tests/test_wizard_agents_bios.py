@@ -154,7 +154,7 @@ class _Opened:
 def _put_bio(e, name: str, raw: dict) -> "tuple[int, dict]":
     """What Studio's bio form sends on Save."""
     from halo_harness.studio.api import Request, dispatch
-    return dispatch(Request(method="PUT", path=f"bio/{name}", query={}, body={"raw": raw}, cwd=e.cwd, state_dir=e.state_dir))
+    return dispatch(Request(owner=True, method="PUT", path=f"bio/{name}", query={}, body={"raw": raw}, cwd=e.cwd, state_dir=e.state_dir))
 
 
 def _names(app) -> list:
@@ -177,7 +177,7 @@ def test_a_bad_bio_save_through_studio_answers_the_lines(ctx: Ctx):
         status, body = _put_bio(e, "pilot", {"description": "x", "kind": "not-a-kind"})
         ctx.check(f"an unknown kind: 422 with the line, got {status} {body}", status == 422
                   and any("not one of" in p for p in body.get("problems", [])))
-        status, body = dispatch(Request(method="POST", path="bio", query={}, body={"name": "has spaces"}, cwd=e.cwd,
+        status, body = dispatch(Request(owner=True, method="POST", path="bio", query={}, body={"name": "has spaces"}, cwd=e.cwd,
                                         state_dir=e.state_dir))
         ctx.check(f"an invalid name: 422 naming it, got {status} {body}", status == 422 and "not a valid agent name" in body.get("error", ""))
         ctx.check("nothing was written", not (e.state_dir / "agents" / "pilot.yaml").exists())

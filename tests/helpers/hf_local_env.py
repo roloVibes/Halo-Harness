@@ -83,7 +83,7 @@ class HfHome:
 
     def api(self, method: str, path: str, body=None, query=None):
         from halo_harness.studio.api import Request, dispatch
-        return dispatch(Request(method=method, path=path, query=query or {}, body=body or {}, cwd=self.root,
+        return dispatch(Request(owner=True, method=method, path=path, query=query or {}, body=body or {}, cwd=self.root,
                                 state_dir=self.state, server=None))
 
     def wait_job(self, job: str, s: float = 15.0) -> dict:

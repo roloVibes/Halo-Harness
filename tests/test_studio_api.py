@@ -58,10 +58,13 @@ class _Studio:
         else:
             os.environ["BRIDGE_STATE_DIR"] = self._saved
 
-    def call(self, method, path, body=None, *, token=None, origin=None, raw=False):
+    def call(self, method, path, body=None, *, token=None, origin=None, raw=False, owner=True):
         req = urllib.request.Request(self.base + path, method=method,
                                      data=json.dumps(body).encode() if body is not None else None)
         req.add_header("Authorization", "Bearer " + (self.srv.token if token is None else token))
+        if owner:  # 3.4.1.2: as the owner's own page asks (studio/owner_proof.py)
+            from halo_harness.studio.owner_proof import HEADER, header_for
+            req.add_header(HEADER, header_for(self.srv))
         if body is not None:
             req.add_header("Content-Type", "application/json")
         if origin:

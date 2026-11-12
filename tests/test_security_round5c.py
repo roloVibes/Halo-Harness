@@ -99,6 +99,8 @@ def test_f26_real_resolution_picks_the_highest_release_tag(ctx: Ctx):
     log = scratch / "calls.log"
     stubs = _stub_dir(log)
     env = {"HOME": str(scratch), "HALO_CLONE_DIR": str(scratch / "clone"), "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", "")}
+    (scratch / "clone").mkdir()  # 3.4.1.2 (PACKS-10): the checkout holds its lock, which the installer now checks for
+    (scratch / "clone" / "requirements.lock").write_text("annotated-types==0.8.0", encoding="utf-8")
     res = subprocess.run([_bash(), str(SH), "--yes"], capture_output=True, text=True, timeout=90, env=env)
     calls = log.read_text(encoding="utf-8") if log.exists() else ""
     ctx.check("f26 the newest vX.Y.Z (2.0.10, not 2.0.9, not the rc) is chosen and printed with its peeled commit",

@@ -281,11 +281,13 @@ jobs:
 
       - name: Job summary
         if: always()
+        env:
+          SHA: ${{ inputs.sha || github.sha }}  # 3.4.1.2 (PACKS-9): a dispatch's input reaches the shell as data, never as script
         run: |
           {
             echo "### suites (windows, py3.12, shard ${{ matrix.shard }}/4)"
             echo
-            echo "platform: **windows**, tier: **all (fast + full)**, shard: **${{ matrix.shard }}/4** (\`python tests/run_all.py --shard ${{ matrix.shard }}/4\`), event: ${{ github.event_name }}, sha: ${{ inputs.sha || github.sha }}"
+            echo "platform: **windows**, tier: **all (fast + full)**, shard: **${{ matrix.shard }}/4** (\`python tests/run_all.py --shard ${{ matrix.shard }}/4\`), event: ${{ github.event_name }}, sha: $SHA"
             echo
             for entry in "test_bridge.py bridge ${{ steps.bridge.outcome }}" \
                          "tests/run_all.py run_all ${{ steps.run_all.outcome }}" \

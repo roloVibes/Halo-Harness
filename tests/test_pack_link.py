@@ -44,7 +44,7 @@ def test_a_link_is_listed_inspected_and_drawn_in_place(ctx: Ctx):
                   and Path(row["source"]) == folder)
         code, out, _err = s.cli("inspect", "live")
         ctx.check(f"inspect by id reads the folder, got {out[-200:]}", code == 0 and "problems: none" in out)
-        code, _out, err = s.cli("enable", "live", "--grant-all")
+        code, _out, err = s.cli("enable", "live", "--grant-all", "--yes")
         _st, reg, _h = s.call("GET", "pack/registry")
         pack = next((p for p in reg["packs"] if p["id"] == "live"), None)
         ctx.check(f"Studio's registry lists it, got {pack and [x['id'] for x in pack['sections']]}", code == 0

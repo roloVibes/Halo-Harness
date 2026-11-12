@@ -143,23 +143,32 @@ def film(base: str, token: str, rid: str, times: list, exe: str) -> list:
         c.close()
 
 
+# 3.4.1.2 (SERVERS-5 / PACKS-8): what the filming Studio answers -- the shell's files and these GETs of the replay page
+FILM_GETS = (r"^replays(/[A-Za-z0-9_.-]{1,120})?$", r"^state$", r"^pack/registry$", r"^settings/themes$", r"^lineups$",
+             r"^lineup/[^/]+$", r"^bios$", r"^tools$", r"^models(/best-for|/fallback)?$", r"^gym$", r"^workflows$")
+
+
 def _studio(state_dir, cwd) -> "tuple[str, str, Callable[[], None]]":
-    """A Studio to film in: this process's own, on a free loopback port, stopped after."""
+    """A Studio to film in: this process's own, on a free loopback port, with its own token, answering the shell's
+    files and FILM_GETS only (no write, no live feed: studio/owner_proof.py `refused`, events_sse), stopped after
+    without the live Studio's own close (which stops the local servers a Studio started)."""
+    import http.server
     from halo_harness.studio.server import Handler, _Server
     token = secrets.token_urlsafe(24)
     server = _Server(("127.0.0.1", 0), Handler, token=token, cwd=Path(cwd), state_dir=Path(state_dir), slow_ms=0)
+    server.only_gets = FILM_GETS
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     def stop() -> None:
         server.shutdown()
-        server.server_close()
+        http.server.ThreadingHTTPServer.server_close(server)
     return f"http://127.0.0.1:{server.server_address[1]}", token, stop
 
 
-def clip(state_dir, rid: str, frm=None, to=None, speed=None, *, cwd=".", studio: "tuple[str, str] | None" = None,
-         frames: Optional[Callable[[list], list]] = None) -> dict:
-    """Film replay `rid` (saved under <state>/replays/) and write the clip. `studio` = (base URL, token) of a running
-    Studio (its own route passes itself); `frames` stands in for the filming (the tests)."""
+def clip(state_dir, rid: str, frm=None, to=None, speed=None, *, cwd=".", frames: Optional[Callable[[list], list]] = None) -> dict:
+    """Film replay `rid` (saved under <state>/replays/) and write the clip, always through a throwaway Studio of its own
+    (3.4.1.2: never the running Studio's token, which Studio's Export a clip passed before); `frames` stands in for the
+    filming (the tests)."""
     from halo_harness.live import replay_file
     path = replay_file.path_for(state_dir, rid)
     if path is None:
@@ -173,16 +182,11 @@ def clip(state_dir, rid: str, frm=None, to=None, speed=None, *, cwd=".", studio:
         exe = __import__("halo_harness.live.clip_chrome", fromlist=["find_chrome"]).find_chrome()
         if not exe:
             raise ClipError("a clip is filmed in Chrome and none was found: install Chrome or set HALO_CHROME")
-        stop = None
-        if studio is None:
-            base, token, stop = _studio(state_dir, cwd)
-        else:
-            base, token = studio
+        base, token, stop = _studio(state_dir, cwd)
         try:
             pngs = film(base, token, rid, p["times"], exe)
         finally:
-            if stop:
-                stop()
+            stop()
     size = assemble(pngs, out, p["fps"])
     return {"ok": True, "path": str(out), "name": out.name, "bytes": size, "format": kind, **{k: p[k] for k in
             ("from", "to", "speed", "frames", "seconds", "fps", "width", "note", "max_seconds")}}

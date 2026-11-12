@@ -269,13 +269,21 @@ body gets it as it is. A skill or command body does not get
 
 Status: **stable**. A pack requests `permissions:` in pack.yaml: `mcp:<server>`,
 `hooks`, `bash` (3.3.14.0 R1: also what a `run:` command needs), `network`, `home-write`, `studio-script` (3.2.0.0 R3: a
-Studio bundle panel; 3.3.13.0 R2: or a section's view; 3.3.14.0 R1: "its Studio script runs in the page with a client
-scoped to this pack's own routes", [`api.lib`](#apilib)), `studio-routes` (3.3.13.0 R2, API 1.2; 3.3.14.0 R1: "runs this
-pack's Python inside Studio's server, with Halo's keys and Studio's token; turning it off takes effect at Studio's
-restart for work already started", [a pack's own routes](#a-packs-own-routes)), `services` (3.3.13.0 R3: "runs a
-program of this pack in the background while the supervisor runs"). You grant them with `halo pack
+Studio bundle panel; 3.3.13.0 R2: or a section's view; 3.4.1.2: "runs this pack's code INSIDE Studio's page with
+Studio's own power: it can do what you can do in Studio, including starting sessions that run commands",
+[`api.lib`](#apilib)), `studio-routes` (3.3.13.0 R2, API 1.2; 3.4.1.2: "runs this pack's Python inside halo (Studio's
+server) with your rights, Halo's keys and Studio's token; turning it off takes effect at Studio's restart for work
+already started", [a pack's own routes](#a-packs-own-routes)), `services` (3.3.13.0 R3: "runs a program of this pack in
+the background while the supervisor runs, with your rights: it can read what you can, Halo's key file included"),
+`doctor` and `cli:<verb>` (3.4.0.0 B; 3.4.1.2: "runs this pack's Python inside halo on every halo doctor" / "for halo
+<verb> and /<verb>", "with your rights and Halo's keys"); `hooks` says "its hooks run as commands with your rights".
+`halo_harness/packs/grants.py` WHAT is the one table; no grant has a blank line. You grant them with `halo pack
 enable <id> --grant NAME` (or `--grant-all`); grants add up and live in
-state.json; `disable` clears them. A contribution whose permission is not
+state.json; `disable` clears them. 3.4.1.2: a pack Halo does not ship gets one of these grants that runs its code
+(`studio-script`, `studio-routes`, `doctor`, `services`, `hooks`, `cli:<verb>`) only on an explicit yes: naming it
+(`--grant NAME`) is that yes; `--grant-all` prints each line and asks once in a terminal (no terminal: refused unless
+`--yes`); Studio's Pack Manager shows the lines in a dialog and grants on Grant. Once any of them is given, `bash`,
+`network` and `home-write` fence nothing: they are notes a pack's own code reads, and that code runs with your rights. A contribution whose permission is not
 granted does not run, and `halo pack doctor` says so. `bash` and `network`
 are recorded for a pack's own code to check with `is_granted`; `home-write`
 lets `write_private` / `write_yaml` write outside the pack's data folder.
@@ -497,12 +505,14 @@ own routes (`packs/<id>/...`); GET on its own `pack/<id>/file|data|config|mode|a
 `pack/<id>/publish|attention`; PUT on its own canvas layouts (`layout/<id>:<name>`); and GET on the read-only routes a
 page draws from (`pack/registry`, `state`, `session`, `tools`, `models...`, `layout/<name>`, `media/status|models|
 workflows...`, `glossary`, `field-help`). Anything else rejects with an `Error` naming that rule, and no request is
-made. Studio answers the routes that change what runs here (a pack's grant, enable, disable, install, sources, update,
-rollback, remove, service, settings and config; the bundles; Setup; Settings; a session started or typed into; 3.4.1.0
-R4: an attention row answered) only
-for a request carrying the owner's proof, `X-Halo-Owner`, which only the shell's own page holds; anything else gets 403
-"this needs the owner's own page" ([STUDIO-shell.md](STUDIO-shell.md#the-owners-page-and-a-packs-key)). This is what
-`api.lib` was always meant to be, so the extension API stays 1.2.
+made. 3.4.1.2: Studio answers EVERY write (any method but GET) only for a request carrying the owner's proof,
+`X-Halo-Owner`, which only the shell's own page holds, except a running pack's own routes (the `packs/<id>/...`,
+`pack/<id>/publish|attention` and `layout/<id>:<name>` writes above, the id taken from the path); anything else gets
+403 "this needs the owner's own page" ([STUDIO-shell.md](STUDIO-shell.md#the-owners-page-and-a-packs-key)).
+**What the scope is not:** the client is the scope a well-behaved page keeps to, and the server enforces what it can,
+but a bundle runs in Studio's own page: it can read the token, draw over the shell and press its buttons, so
+`studio-script` is said plainly as Studio's own power (above). A real fence -- a sandboxed frame with a message broker
+-- is the "Pack trust" item of plans/ROADMAP.md. The extension API stays 1.2.
 
 The same parts (without `commands`) are `globalThis.__haloStudioLib`, because a module built against them takes React
 at import time (hooks imported at the top, a `memo()` or a store made at module level). 3.3.14.0 R1: Studio imports
@@ -515,8 +525,8 @@ modules. A plain ES module reads `api.lib` in `mount`, as the kit's example does
 ### A pack's own routes
 
 3.3.13.0 R2, API 1.2 (`halo_harness/studio/packs_routes.py`). `contributes.studio.routes: {module: server/routes.py,
-prefix: design}`, granted `studio-routes` ("runs this pack's Python inside Studio's server, with Halo's keys and
-Studio's token; turning it off takes effect at Studio's restart for work already started"): Studio imports the module
+prefix: design}`, granted `studio-routes` ("runs this pack's Python inside halo (Studio's server) with your rights,
+Halo's keys and Studio's token; turning it off takes effect at Studio's restart for work already started"): Studio imports the module
 through the pack's own folder (the package `halo_packs.<id>`, so a relative import reaches the pack's other modules;
 `${CLAUDE_PLUGIN_ROOT}` semantics: nothing is copied) and answers `/api/packs/<id>/<prefix>/<path>`, behind the token
 like every route, with

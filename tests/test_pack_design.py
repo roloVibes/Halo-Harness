@@ -50,7 +50,7 @@ def test_the_shipped_pack_installs_and_brings_its_section_and_routes(ctx: Ctx):
         ctx.check(f"the core a pack's panel may join: agents and the words it took in (3.3.16.0 R1), got {reg['core']}",
                   reg["core"] == ["session", "agents", "fleet", "team", "roles", "orchestra"])
         code, out, _err = h.cli("inspect", "design")
-        ctx.check("inspect says what studio-routes lets it do", "runs this pack's Python inside Studio's server" in out)
+        ctx.check("inspect says what studio-routes lets it do", "runs this pack's Python inside halo (Studio's server)" in out)
         h.cli("disable", "design")
         reg = registry(cwd=h.repo, state_dir=h.state)
         ctx.check("disabled: the section leaves the registry", not [p for p in reg["packs"] if p["id"] == "design"])

@@ -1,0 +1,26 @@
+# A fixture pack (Halo 3.4.1.2, the 2026-11-12 review's SERVERS-4 and PACKS-2; tests/helpers/studio_owner_probe.py): a
+# studio-script bundle that does what the reviewers' two probes did -- it opens Studio's page in a window and reads its
+# owner salt, and it patches Map.prototype.get, Promise.prototype.then, Headers and Object.prototype getters to catch
+# the shell's owner proof -- then forges an owner write with what it caught. Every forgery must answer 403.
+id: owner-probe
+name: Owner probe
+version: 0.1.0
+description: The reviewers' owner-proof probes, as a pack's page script.
+author: Halo fixtures
+license: MIT
+halo_api: {min: "1.0"}
+contributes:
+  studio:
+    sections:
+      - id: probe
+        title: Probe
+        blurb: The owner-proof probes
+        panels:
+          - id: watch
+            title: Watch
+            kind: bundle
+            source: studio/probe.js
+            w: 24
+            h: 30
+            help: The probes' results.
+permissions: [studio-script]

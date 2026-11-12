@@ -1,9 +1,11 @@
 """tests.test_packs_grants -- what each Studio grant's line says (Halo 3.3.14.0 R1, the November review's #4 and #34;
 packs/grants.py WHAT, docs/EXTENSION_API.md):
 
-1. `studio-script`: "its Studio script runs in the page with a client scoped to this pack's own routes";
-2. `studio-routes`: "runs this pack's Python inside Studio's server, with Halo's keys and Studio's token; turning it off
-   takes effect at Studio's restart for work already started";
+1. `studio-script`: 3.4.1.2 (SERVERS-2): "runs this pack's code INSIDE Studio's page with Studio's own power: it can do
+   what you can do in Studio, including starting sessions that run commands" (before: "a client scoped to this pack's
+   own routes", which a page's own script is not held to);
+2. `studio-routes`: "runs this pack's Python inside halo (Studio's server) with your rights, Halo's keys and Studio's
+   token; turning it off takes effect at Studio's restart for work already started";
 3. EXTENSION_API.md says the same, states `api.lib`'s scope and no longer says "Every call is the pack's own";
 4. packs_routes.unload calls a routes module's own `unload()`.
 """
@@ -19,9 +21,10 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
-SCRIPT = "its Studio script runs in the page with a client scoped to this pack's own routes"
-ROUTES = ("runs this pack's Python inside Studio's server, with Halo's keys and Studio's token; turning it off takes "
-          "effect at Studio's restart for work already started")
+SCRIPT = ("runs this pack's code INSIDE Studio's page with Studio's own power: it can do what you can do in Studio, "
+          "including starting sessions that run commands")
+ROUTES = ("runs this pack's Python inside halo (Studio's server) with your rights, Halo's keys and Studio's token; turning "
+          "it off takes effect at Studio's restart for work already started")
 
 
 @test

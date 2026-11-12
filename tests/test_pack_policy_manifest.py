@@ -169,7 +169,8 @@ def test_inspect_lists_them_and_doctor_flags_a_missing_run(ctx: Ctx):
         for want in ("  policy hooks: fence", "  modes: fenced", "  mode fenced (Fenced): on",
                      "  policy fence: tools Write, Edit; modes fenced; impact high; on_error deny",
                      "    run: ${halo_python} ${CLAUDE_PLUGIN_ROOT}/policy/fence.py", "    armed, asked now",
-                     "  hooks (policy fence): granted -- its hooks run (a policy's hooks too)"):  # 3.3.13.0 R2: what the grant lets it do
+                     "  hooks (policy fence): granted -- its hooks run as commands with your rights (a policy's hooks too): they can read "
+                     "what you can, Halo's key file included"):  # 3.3.13.0 R2: what the grant lets it do
             ctx.check(f"inspect has {want!r}", want in lines)
         code, out, _ = h.cli("inspect", "policy-fence", "--json")
         pol = json.loads(out)["policy"]["policies"][0]

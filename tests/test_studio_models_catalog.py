@@ -68,7 +68,7 @@ def _call(state: Path, method: str, path: str, query=None, body=None):
     from halo_harness.studio.api import Request, dispatch
     proj = state.parent / "proj"
     proj.mkdir(exist_ok=True)
-    return dispatch(Request(method=method, path=path, query=query or {}, body=body or {}, cwd=proj, state_dir=state))
+    return dispatch(Request(owner=True, method=method, path=path, query=query or {}, body=body or {}, cwd=proj, state_dir=state))
 
 
 def _dbx_status(ctx: Ctx, state: Path, where: str) -> None:

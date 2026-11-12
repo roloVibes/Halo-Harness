@@ -406,7 +406,10 @@ schemas in its "contributes:" block.
    folder already at `~/.halo/packs/doc-review/` is left as it is. Installing
    a pack that is installed already: the same version says "already
    installed: nothing to do" and exits 0; another version says so with
-   `halo pack update <id>` and exits 1 (3.4.1.0).
+   `halo pack update <id>` and exits 1 (3.4.1.0). 3.4.1.2: a bare id (`halo pack install coach`, Studio's Install
+   on a card) is the pack Halo ships by that id, else the first `packs.sources` entry holding it -- never a folder of
+   the current directory (`./coach` names one); a source holding an id Halo ships does not shadow it (one line says
+   so; `halo pack install <id> --from <source>` takes that source on purpose).
 5a. A pack installed from the packs Halo ships (`halo pack install fleet`)
    does not move by itself when `halo update` brings a newer Halo: when this
    Halo ships a newer version, `halo pack list`, `halo pack inspect`, `halo
@@ -505,7 +508,7 @@ and what to do:
 | an install stopped half-way | `install of <id> stopped: <why>; every file it wrote is removed again` | fix the cause (the source moved, the disk is full) and install again |
 | an update's new version is bad | `<id>: pack.yaml: ...` then `<id> 1.0.0 stays as it is` | nothing changed; wait for a fixed version, or `--dry-run` it later |
 | an update stopped | `update of <id> stopped: <why>; 1.0.0 stays as it was (nothing was replaced)` | close what holds the pack's folder and update again |
-| a bare id no source holds | `no folder <id> here, and no pack <id> in the sources searched: <each source>, the packs Halo ships (halo pack sources add <folder\|git url>)` | `halo pack sources add` the folder or url that holds it; a source that is gone says `(not a folder)` |
+| a bare id no source holds | `no pack <id> in the sources searched: <each source>, the packs Halo ships (halo pack sources add <folder\|git url>; a folder here is ./<id>)` | `halo pack sources add` the folder or url that holds it; a source that is gone says `(not a folder)` |
 | the recorded source is gone | `<id>'s source <path> is not there any more; nothing is changed (...)` | install it again from where it is now |
 | a new version needs a grant | `<id> 1.1.0 requests network, which 1.0.0 did not; it is not granted, so what needs it does not run` | `halo pack grant <id> network`, or `halo pack rollback <id>` |
 | a grant not given | `<id>: MCP server lint does not run: mcp:lint is not granted` | `halo pack enable <id> --grant mcp:lint` |
@@ -558,9 +561,9 @@ buttons, through the same code: each action runs the function `halo pack`
 runs and shows the lines it prints, and every open Studio redraws on the
 `pack_changed` it publishes ([STUDIO-packs.md](STUDIO-packs.md)).
 
-- **Sources**: where a bare id is looked for, in order: the folders and git
-  urls of `packs.sources` (Add source, Remove: `halo pack sources add|remove`),
-  then the packs Halo ships. A pack not installed has Install (`--project`
+- **Sources**: where a bare id is looked for: an id Halo ships is always the
+  shipped pack (3.4.1.2); any other id, in order, the folders and git
+  urls of `packs.sources` (Add source, Remove: `halo pack sources add|remove`). A pack not installed has Install (`--project`
   with "into this repo"). No marketplace: only what your config names and what
   Halo ships.
 - **Installed**: every pack here, its state, the grants given of the ones it
@@ -651,9 +654,9 @@ review lineup, the review workflow (read each Markdown file, judge the
 findings, write one typed `review-report`), a Studio section with the last
 review report, the `docs.review` fleet capability, and a skill, a command, a
 hook and a lint MCP server. `halo pack list --available` shows it; `halo pack
-install doc-review` installs it (the shipped folder is the last place a bare
-id is looked for, after `packs.sources`, so a pack of yours with that id
-wins); `halo pack enable doc-review --grant bash` turns it on; `halo workflow
+install doc-review` installs it (3.4.1.2: a bare id Halo ships is always the
+shipped pack; a pack of yours with that id installs with `--from <source>` or
+by its folder, `./doc-review`); `halo pack enable doc-review --grant bash` turns it on; `halo workflow
 run doc-review/review --input docs=docs` runs its review. Its `README.md` is
 the guide to making your own pack from it: every file in one line, the API
 version, installing from a folder or a git url, checking it with `halo pack
@@ -760,6 +763,16 @@ until you grant it: an ungranted MCP server does not start, ungranted hooks
 do not load, and doctor names each one with the command that grants it.
 Grants add up across `enable` calls and live in state.json; `disable`
 clears them.
+
+What each grant gives is one line (`halo pack inspect`, the Pack Manager, `halo_harness/packs/grants.py`), said as it
+is (3.4.1.2): `studio-script` runs the pack's code INSIDE Studio's page with Studio's own power -- it can do what you
+can do in Studio, including starting sessions that run commands; `doctor`, `cli:<verb>` and `studio-routes` run the
+pack's Python inside halo with your rights and Halo's keys; `services` and `hooks` run its programs with your rights
+(they can read what you can, Halo's key file included). For a pack Halo does not ship, those grants need an explicit
+yes: `--grant NAME` names it; `--grant-all` prints each line and asks once in a terminal (refused without one unless
+`--yes`); the Pack Manager shows the lines and grants on Grant. Once any of them is given, `bash`, `network` and
+`home-write` fence nothing: the pack's code runs as you. A real fence for a page's script (a sandboxed frame) is the
+"Pack trust" item of the roadmap.
 
 ## Remove keeps your work
 

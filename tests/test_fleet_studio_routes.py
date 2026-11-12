@@ -52,7 +52,8 @@ class _Studio:
         conn = http.client.HTTPConnection("127.0.0.1", self.srv.server_address[1], timeout=30)
         try:
             conn.request(method, "/api/" + path, body=json.dumps(body).encode("utf-8") if body is not None else None,
-                         headers={"Authorization": "Bearer " + self.srv.token, "Content-Type": "application/json"})
+                         headers={"Authorization": "Bearer " + self.srv.token, "Content-Type": "application/json",
+                                  "X-Halo-Owner": __import__("halo_harness.studio.owner_proof", fromlist=["x"]).header_for(self.srv)})
             resp = conn.getresponse()
             return resp.status, json.loads(resp.read().decode("utf-8") or "{}")
         finally:

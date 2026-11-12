@@ -181,7 +181,7 @@ def test_f74_invalid_yaml_in_a_section_blocks_save_and_names_the_section(ctx: Ct
         state.mkdir(parents=True, exist_ok=True)
 
         def call(method, path, body):
-            return dispatch(Request(method=method, path=path, query={}, body=body, cwd=e.dir, state_dir=state))
+            return dispatch(Request(owner=True, method=method, path=path, query={}, body=body, cwd=e.dir, state_dir=state))
         status, body = call("POST", "yaml", {"yaml": "budget:\n  max_budget_usd: [20\n"})
         ctx.check(f"invalid YAML: 422 naming YAML, got {status} {body}", status == 422 and "YAML" in body.get("error", ""))
         status, body = call("PUT", "lineup/r9-lineup", {"raw": {"agents": [], "budget": ["a", "b"]}})

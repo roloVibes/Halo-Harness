@@ -17,6 +17,7 @@ from halo_harness import agents_yaml as A
 from halo_harness import teams_yaml as T
 from halo_harness.packs.names import read_only_source, scope_label  # 3.2.0.0 R1: shipped and pack files are read-only
 from halo_harness.studio import model as M
+from halo_harness.studio.owner_proof import owner_only  # 3.4.1.2 (SERVERS-2)
 
 
 @dataclass
@@ -29,11 +30,11 @@ class Request:
     state_dir: Path
     params: dict = field(default_factory=dict)
     server: object = None  # 3.0.3.0: the HTTP server (its live-feed bridge), None outside one
+    owner: bool = False  # 3.4.1.2: the request carried the owner proof (studio/owner_proof.py `owner_only`)
 
     @property
     def project(self) -> bool:
         return self.query.get("scope") == "project"
-
 
 def _active_team() -> str:
     from halo_harness.theme import get_config_value
@@ -288,14 +289,14 @@ def get_tools(req: Request):
     return 200, known_tool_names()
 
 
-ROUTES: list = [
+ROUTES: list = [  # 3.4.1.2: bio and lineup writes and apply change what runs (owner_only; SERVERS-2)
     ("GET", r"^state$", get_state),
-    ("GET", r"^lineups$", get_lineups), ("POST", r"^lineup$", post_lineup),
-    ("GET", r"^lineup/(?P<name>[^/]+)$", get_lineup), ("PUT", r"^lineup/(?P<name>[^/]+)$", put_lineup),
-    ("DELETE", r"^lineup/(?P<name>[^/]+)$", delete_lineup), ("POST", r"^lineup/(?P<name>[^/]+)/apply$", apply_lineup),
+    ("GET", r"^lineups$", get_lineups), ("POST", r"^lineup$", owner_only(post_lineup)),
+    ("GET", r"^lineup/(?P<name>[^/]+)$", get_lineup), ("PUT", r"^lineup/(?P<name>[^/]+)$", owner_only(put_lineup)),
+    ("DELETE", r"^lineup/(?P<name>[^/]+)$", owner_only(delete_lineup)), ("POST", r"^lineup/(?P<name>[^/]+)/apply$", owner_only(apply_lineup)),
     ("GET", r"^layout/(?P<name>[^/]+)$", get_layout), ("PUT", r"^layout/(?P<name>[^/]+)$", put_layout),
-    ("GET", r"^bios$", get_bios), ("POST", r"^bio$", post_bio),
-    ("GET", r"^bio/(?P<name>[^/]+)$", get_bio), ("PUT", r"^bio/(?P<name>[^/]+)$", put_bio), ("DELETE", r"^bio/(?P<name>[^/]+)$", delete_bio),
+    ("GET", r"^bios$", get_bios), ("POST", r"^bio$", owner_only(post_bio)),
+    ("GET", r"^bio/(?P<name>[^/]+)$", get_bio), ("PUT", r"^bio/(?P<name>[^/]+)$", owner_only(put_bio)), ("DELETE", r"^bio/(?P<name>[^/]+)$", owner_only(delete_bio)),
     ("GET", r"^models$", get_models), ("POST", r"^validate$", post_validate), ("POST", r"^yaml$", post_yaml),
     ("GET", r"^session$", get_session), ("GET", r"^tools$", get_tools)]
 
@@ -309,7 +310,6 @@ from .doctor_config_api import ROUTES as _DOCTOR_CONFIG_ROUTES  # noqa: E402  (3
 ROUTES[len(ROUTES):] = _DOCTOR_CONFIG_ROUTES
 from .packs_roles_api import ROUTES as _PACKS_ROLES_ROUTES  # noqa: E402  (3.2.0.0 R2: roles/packs, roles/clone)
 ROUTES[len(ROUTES):] = _PACKS_ROLES_ROUTES
-
 
 _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("sessions", "halo_harness.studio.sessions_api", "dispatch_sessions"),

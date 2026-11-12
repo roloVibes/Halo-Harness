@@ -118,7 +118,8 @@ def test_an_answer_needs_the_owners_proof(ctx: Ctx):
 def test_the_page_carries_the_salt_to_a_navigation_only(ctx: Ctx):
     with _rig() as rig:
         page = f"{_base(rig)}/?mode=glance"
-        status, heads, body = fetch(page)
+        nav = {"Sec-Fetch-Site": "none", "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate"}  # 3.4.1.2: one the person made
+        status, heads, body = fetch(page, headers=nav)
         ctx.check(f"a navigation: the shell's page with the salt, got {status}", status == 200 and b"data-owner-salt" in body
                   and "frame-ancestors 'self'" in heads.get("Content-Security-Policy", ""))
         status, heads, body = fetch(page, headers={"Origin": EVIL, "Sec-Fetch-Dest": "empty"})

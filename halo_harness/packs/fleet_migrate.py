@@ -63,7 +63,7 @@ def run(state_dir=None, cwd=None) -> str:
         from halo_harness.packs.install import install
         line = ""
         if find("fleet", cwd=cwd, state_dir=home) is None:
-            ok, _lines = install("fleet", cwd=cwd, state_dir=home)
+            ok, _lines = install(str(Path(__file__).resolve().parent.parent / "templates" / "packs" / "fleet"), cwd=cwd, state_dir=home)  # 3.4.1.2 (PACKS-1): the shipped folder by its full path
             registry.invalidate()
             pack = find("fleet", cwd=cwd, state_dir=home) if ok else None
             if pack is not None and G.enable(pack, grant_all=True, state_dir=home)[0]:

@@ -34,6 +34,9 @@ The 2.0.10 review lists where each of these is still incomplete.
   your rules and does not judge commands.
 - A compromised provider, gateway, Signal account, phone or computer; secrets
   sit in plain files (no OS keyring in this release).
+- A pack you grant `studio-script`, `studio-routes`, `doctor`, `services`, `hooks` or `cli:<verb>`: its code runs with
+  your power (inside Studio's page as Studio, or inside halo with your rights and Halo's keys). Each grant says so in
+  one line, and a pack Halo does not ship gets one only on your explicit yes (3.4.1.2).
 
 ## Remote control (2.0.9) in five lines
 
@@ -80,6 +83,20 @@ The 2.0.10 review lists where each of these is still incomplete.
 | Fleet pair keys | `~/.halo/fleet/keys/` (joiner), `~/.halo/fleet/hub/members.json` (hub), both 0600 | your account, root |
 | Settings, prompt history | `~/.halo/config.json`, `history.jsonl` (0600) | your account, root |
 | Session transcripts, edit snapshots, logs | `~/.halo/sessions/`, `bridge.log` | currently follow your umask (often group/world readable); tightening is tracked in the review |
+
+## 3.4.1.2: the security pass
+
+A review of v3.4.1.1 (2026-11-12) by three read-only reviewers; every finding fixed in 3.4.1.2 has its pinning test.
+Studio: every write needs the owner's own page (a pack's page reaches only its own routes, and the handlers that type
+into a session, answer its cards or change what runs check again); the owner's salt goes only to a page you opened
+yourself, and the proof is kept out of reach of other scripts on the page; a clip's browser never holds the running
+Studio's key and opens no DevTools port on Linux and macOS. Packs: a bare id never resolves to a folder of the current
+directory or a source that shadows a shipped pack; every grant says what it gives, and the ones that run a pack's code
+need your explicit yes for a pack Halo does not ship. Supply chain: `halo update` and the installers stop when the
+dependency lock cannot be fetched; the CI workflow takes a dispatch input as data. The speech servers refuse other
+Host names and browser Origins; a host's engine offer carries only the engine's own key. Not done in this release: a
+real fence for a pack's page script (a sandboxed frame; the design is the roadmap's "Pack trust" item) -- until then
+`studio-script` is Studio's own power.
 
 The 2.0.10 review of Halo's own attack surface, with every finding, its
 evidence and the fix rounds: [docs/harness/SECURITY-REVIEW-2.0.10.md](docs/harness/SECURITY-REVIEW-2.0.10.md).

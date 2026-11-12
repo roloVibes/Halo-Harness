@@ -25,7 +25,7 @@ test, TESTS = new_registry()
 
 def _call(h, method: str, path: str, body=None, query=None):
     from halo_harness.studio import api
-    return api.dispatch(api.Request(method=method, path=path, query=query or {}, body=body or {}, cwd=h.repo,
+    return api.dispatch(api.Request(owner=True, method=method, path=path, query=query or {}, body=body or {}, cwd=h.repo,
                                     state_dir=h.state))
 
 

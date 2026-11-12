@@ -98,6 +98,12 @@ yet is saved first, said. It needs Chrome (`HALO_CHROME`, else the usual install
 needs neither (3.4.1.0 R6): without Pillow the dialog and `halo replay clip --dry-run` still give the frames, width,
 path and cap, with one line saying what to install, and Export stays off until it is there.
 
+3.4.1.2 (the 2026-11-12 review's SERVERS-5): the clip is always filmed through a throwaway Studio of its own -- its own
+key, the replay page's reads only (no write, no live feed), stopped after -- so the running Studio's key never enters
+the filming browser. On Linux and macOS that Chrome speaks DevTools over two pipes (`--remote-debugging-pipe`) and opens
+no port; on Windows, where Python cannot hand a child those pipes, it keeps a loopback DevTools port for the seconds
+the clip takes, and what that port reaches is only the throwaway Studio.
+
 ## Compare two runs
 
 On History (Agents -> Live's bar, `History · N`) every row has a tick. Tick two -- any two of a session, a goal run and a

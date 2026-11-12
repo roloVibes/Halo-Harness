@@ -194,14 +194,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return
         parts = urlsplit(self.path)
         path = unquote(parts.path)[len("/api/"):]
-        from halo_harness.studio.owner_proof import NEEDS_OWNER, needs_owner, owner_ok  # 3.3.14.0 R1 (#4)
-        if needs_owner(method, path) and not owner_ok(self):
+        from halo_harness.studio.owner_proof import NEEDS_OWNER, owner_ok, refused  # 3.3.14.0 R1 (#4); 3.4.1.2: every write
+        if refused(self, method, path):  # but a running pack's own routes (studio/owner_proof.py PACK_PAGE)
             try:  # read the body first: a 403 sent with the body unread aborts the client's connection on Windows
                 self.rfile.read(min(int(self.headers.get("Content-Length") or 0), 4_000_000))
             except Exception:
                 pass
             return self._json(403, {"error": NEEDS_OWNER})
-        if method == "POST" and path == "shutdown":  # `halo studio --stop`: end serve_forever so studio.json is removed
+        if method == "POST" and path == "shutdown" and owner_ok(self):  # `halo studio --stop` (launch.cli_headers)
             self._json(200, {"ok": True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return
@@ -212,7 +212,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._json(400, {"error": f"bad JSON body: {e}"})
             return
         req = Request(method=method, path=path, query=query, body=body, cwd=self.server.cwd, state_dir=self.server.state_dir,
-                      server=self.server)
+                      server=self.server, owner=owner_ok(self))  # 3.4.1.2: the handlers' own check (owner_proof.owner_only)
         try:
             status, obj = dispatch(req)
         except Exception as e:  # a handler bug must never take the server down
@@ -231,7 +231,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not self._local_only():
             return
         rel = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
-        frame = {"X-Frame-Options": "SAMEORIGIN"}  # 3.3.14.0 R1 (#32): beside the CSP's frame-ancestors 'self'
+        frame = {"X-Frame-Options": "SAMEORIGIN", "Cross-Origin-Opener-Policy": "noopener-allow-popups"}  # #32; 3.4.1.2
         if not (DIST / "index.html").is_file():
             if rel == "index.html":
                 self._send(200, NO_BUILD, "text/html; charset=utf-8", {"Content-Security-Policy": SHELL_CSP, **frame})
@@ -438,8 +438,8 @@ def cmd_studio(argv: list) -> int:
         from halo_harness.children import start_time
         # 3.2.2.0 R3: `pstart` lets a stop (a quit, `halo update`, `--stop`) prove this pid is still this Studio.
         write_private_atomic(studio_info_path(state_dir),
-                             json.dumps({"pid": os.getpid(), "port": server.server_address[1], "token": server.token,
-                                         "pstart": start_time(os.getpid())}))
+                             json.dumps({"pid": os.getpid(), "port": server.server_address[1], "token": server.token,  # 3.4.1.2:
+                                         "pstart": start_time(os.getpid()), "owner_salt": server.owner_salt}))  # + the salt
     except OSError:
         pass
     from halo_harness.studio.glance_door import over_ssh  # 3.4.1.0 R4: + the glance's phone line (studio/glance_door.py)

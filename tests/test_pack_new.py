@@ -27,7 +27,7 @@ def _clean(ctx, k, folder: Path, what: str) -> None:
     ctx.check(f"{what}: inspect reads it clean, got {out[-300:]}", code == 0 and "problems: none" in out)
     code, out, err = k.cli("install", str(folder), "--project")
     ctx.check(f"{what}: installs into the project, got {err}", code == 0)
-    code, out, err = k.cli("enable", pid, "--grant-all")
+    code, out, err = k.cli("enable", pid, "--grant-all", "--yes")
     ctx.check(f"{what}: enables with every grant, got {err}", code == 0)
     with k.path(fake_rg=True):
         code, out, _err = k.cli("doctor", "--json")
@@ -117,7 +117,7 @@ def test_the_requires_block(ctx: Ctx):
     with KitHome() as k:
         folder = k.new("wrap", "integration")
         k.cli("install", str(folder), "--project")
-        k.cli("enable", "wrap", "--grant-all")
+        k.cli("enable", "wrap", "--grant-all", "--yes")
         with k.path():
             code, out, _err = k.cli("doctor")
             needs = k.manager_needs("wrap")

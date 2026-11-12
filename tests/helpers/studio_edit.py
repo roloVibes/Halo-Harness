@@ -172,7 +172,7 @@ class EditDriver(Driver):
         proj.mkdir(exist_ok=True)
         srv = start_server(port=0, cwd=proj, state_dir=state)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
-        write_private_atomic(studio_info_path(state), json.dumps({"pid": 0, "port": srv.server_address[1], "token": srv.token}))
+        write_private_atomic(studio_info_path(state), json.dumps({"pid": 0, "port": srv.server_address[1], "token": srv.token, "owner_salt": srv.owner_salt}))
         try:
             if self.argv[:1] == ["focus"]:
                 yield ((focus, (c, url_for(srv, "roles").replace("?mode=roles", "?mode=roles&tour=off"), state, srv)),)

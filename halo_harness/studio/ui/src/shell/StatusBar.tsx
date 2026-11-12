@@ -7,13 +7,17 @@
 // 3.3.16.0 R1: the TEAM cell went with Team's board; in Agents the layout and the status line are the view's own
 // workspace's (Cast's Roles, Runs' Orchestra). 3.3.16.0 R2 "the Fleet fold": the FLEET cell went with the section --
 // the decisions waiting are Agents' Attention chip, the agents at work the count on Agents' rail icon, the missions
-// running Runs' list.
+// running Runs' list. 3.4.1.2 (SERVERS-4): VIEW ONLY on a page Studio served without the owner salt (a tab a page or a
+// script opened, a browser that sends no Fetch Metadata), with how to open Studio so it can change things.
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
+import { ownerPage } from "../lib/owner";
 import { studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { FeedDot } from "../routes/orchestra/FeedDot";
 import { SECTIONS, useSectionDef } from "../routes";
 
+export const OWNER_NOTE = "This tab can look but not change things: Studio gives that only to a page you opened " +
+  "yourself. Run `halo studio`, or paste its address into the address bar.";
 const FEED_TEXT = { off: "feed off", connecting: "connecting", open: "live", retrying: "reconnecting", down: "feed down" } as const;
 
 export function StatusBar() {
@@ -32,6 +36,11 @@ export function StatusBar() {
           <span className="mono">{FEED_TEXT[feed.status]}</span>
         </span>
       </HudCell>
+      {!ownerPage() && (
+        <HudCell label="VIEW ONLY" title={OWNER_NOTE}>
+          <span className="mono" data-testid="owner-note">open Studio yourself to change things: halo studio</span>
+        </HudCell>
+      )}
       <HudCell label="SESSIONS">
         <span className="mono">{feed.sessions.length}</span>
       </HudCell>

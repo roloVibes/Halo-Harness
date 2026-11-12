@@ -130,7 +130,8 @@ def test_item113_stop_asks_a_live_studio_to_shut_down(ctx: Ctx):
     thread.start()
     bystander = _sleeper()  # the recorded pid belongs to someone else: only the HTTP path may end the Studio
     try:
-        studio_info_path(state).write_text(json.dumps({"pid": bystander.pid, "port": srv.server_address[1], "token": srv.token}), encoding="utf-8")
+        studio_info_path(state).write_text(json.dumps({"pid": bystander.pid, "port": srv.server_address[1], "token": srv.token,
+                                                   "owner_salt": srv.owner_salt}), encoding="utf-8")  # 3.4.1.2: as `halo studio` writes it
         ok, note = stop(state)
         thread.join(timeout=10)
         ctx.check(f"stop reports a stop, got {ok} {note!r}", ok is True and note.startswith("stopped Studio"))

@@ -15,19 +15,57 @@ from __future__ import annotations
 from halo_harness.packs import manifest as MF
 
 
-#: What each grant lets the pack do, one line (the Pack Manager, `halo pack inspect`, the README `halo pack new` writes).
-WHAT = {"hooks": "its hooks run (a policy's hooks too)", "bash": "its code may run commands",
-        "network": "its code may reach the network", "home-write": "its code may write outside its data folder",
-        # 3.3.14.0 R1 (#4, #34): what each Studio grant reaches, said as it is
-        "studio-script": "its Studio script runs in the page with a client scoped to this pack's own routes",
-        "studio-routes": ("runs this pack's Python inside Studio's server, with Halo's keys and Studio's token; turning "
-                          "it off takes effect at Studio's restart for work already started"),  # 3.3.13.0 R2 (API 1.2)
-        "services": "runs a program of this pack in the background while the supervisor runs"}  # 3.3.13.0 R3
+#: What each grant lets the pack do, one line (the Pack Manager, `halo pack inspect`, the enable prompt, the README
+#: `halo pack new` writes). 3.4.1.2 (PACKS-6, SERVERS-2): said as it is; no grant has a blank line.
+WHAT = {"hooks": "its hooks run as commands with your rights (a policy's hooks too): they can read what you can, "
+                 "Halo's key file included",
+        "bash": "its code may run commands", "network": "its code may reach the network",
+        "home-write": "its code may write outside its data folder",
+        "studio-script": ("runs this pack's code INSIDE Studio's page with Studio's own power: it can do what you can do "
+                          "in Studio, including starting sessions that run commands"),
+        "studio-routes": ("runs this pack's Python inside halo (Studio's server) with your rights, Halo's keys and "
+                          "Studio's token; turning it off takes effect at Studio's restart for work already started"),
+        "services": ("runs a program of this pack in the background while the supervisor runs, with your rights: it can "
+                     "read what you can, Halo's key file included"),
+        "doctor": "runs this pack's Python inside halo on every halo doctor, with your rights and Halo's keys"}
+CLI_WHAT = "runs this pack's Python inside halo for halo {verb} and /{verb}, with your rights and Halo's keys"
+#: 3.4.1.2: the grants that run a pack's code with your power; a pack Halo does not ship gets them only on an explicit yes.
+POWER = ("studio-script", "studio-routes", "doctor", "services", "hooks")
+SHIPPED_ONLY = ("bash", "network", "home-write")  # fences: once any POWER grant is given they fence nothing
 
 
 def what(perm: str) -> str:
-    """The one line a grant's row says; `mcp:<server>` is that server starting."""
-    return f"its MCP server {perm[4:]} starts" if str(perm).startswith("mcp:") else WHAT.get(str(perm), "")
+    """The one line a grant's row says; `mcp:<server>` is that server starting, `cli:<verb>` the pack's Python."""
+    perm = str(perm)
+    if perm.startswith("mcp:"):
+        return f"its MCP server {perm[4:]} starts as a program with your rights"
+    if perm.startswith("cli:"):
+        return CLI_WHAT.format(verb=perm[4:])
+    return WHAT.get(perm, "")
+
+
+def is_power(perm: str) -> bool:
+    """3.4.1.2: a grant that runs the pack's code with your power (POWER, cli:<verb>)."""
+    return str(perm) in POWER or str(perm).startswith("cli:")
+
+
+def shipped(pack, state_dir=None) -> bool:
+    """3.4.1.2: the pack is one Halo ships (its folder, or its record's source, is halo_harness/templates/packs/<id>)."""
+    from halo_harness.packs import state as S
+    from halo_harness.packs.discover import same_path
+    from halo_harness.packs.fetch import shipped_folder
+    folder = shipped_folder(pack.id)
+    if folder is None:
+        return False
+    rec = S.entry(pack.id, state_dir) or {}
+    return same_path(pack.root, folder) or same_path(str(rec.get("source") or "?"), folder)
+
+
+def power_lines(pack, wanted, state_dir=None) -> "list[str]":
+    """For a pack Halo does not ship: one line per POWER grant in `wanted`, what it gives ([] for a shipped pack)."""
+    if shipped(pack, state_dir):
+        return []
+    return [f"  {g}: {what(g)}" for g in wanted if is_power(g)]
 
 
 def needs(pack) -> "list[tuple[str, str]]":
@@ -78,8 +116,10 @@ def _not_requested(pack, wanted) -> "list[str]":
     return [f"{pack.id} does not request {', '.join(bad)}; it requests: {', '.join(asked) or 'nothing'}"] if bad else []
 
 
-def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None) -> "tuple[bool, list[str]]":
-    """Enable `pack` with the grants given; `(False, [line])` for a grant it does not request."""
+def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None, confirm=None) -> "tuple[bool, list[str]]":
+    """Enable `pack` with the grants given; `(False, [line])` for a grant it does not request. 3.4.1.2: `grant_all` on a
+    pack Halo does not ship, with a POWER grant among what it asks, needs `confirm(lines) -> bool` to say yes (the CLI
+    asks in a terminal; `--yes`); naming each grant (`grant=[...]`) is that yes."""
     from halo_harness.packs import state as S
     data = S.load(state_dir)
     asked = MF.requested(pack.manifest)
@@ -87,6 +127,11 @@ def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None) -> "tup
     bad = _not_requested(pack, wanted)
     if bad:
         return False, bad
+    power = power_lines(pack, wanted, state_dir) if grant_all else []
+    if power and not (confirm is not None and confirm([f"{pack.id} is not a pack Halo ships; --grant-all gives it:"] + power)):
+        return False, ([f"{pack.id} is not a pack Halo ships, and --grant-all would give it:"] + power +
+                       [f"name each one to grant it (halo pack enable {pack.id} --grant NAME), or answer yes in a "
+                        "terminal (--yes without one)"])
     rec = _record(pack, data)
     rec["granted"] = sorted(set(rec.get("granted") or []) | set(wanted))
     rec["enabled"] = True
@@ -101,13 +146,14 @@ def enable(pack, *, grant=None, grant_all: bool = False, state_dir=None) -> "tup
     return True, lines + enable_lines(pack, state_dir) + service_lines(pack, rec["granted"], state_dir)
 
 
-def enable_id(pack_id: str, *, grant=None, grant_all: bool = False, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
+def enable_id(pack_id: str, *, grant=None, grant_all: bool = False, cwd=None, state_dir=None,
+              confirm=None) -> "tuple[bool, list[str]]":
     """`halo pack enable <id>` (and Studio's Enable, 3.2.0.0 R6): the pack found here by id, then enable."""
     from halo_harness.packs.discover import find
     pack = find(pack_id, cwd=cwd, state_dir=state_dir)
     if pack is None:
         return False, [no_pack_line(pack_id)]
-    return enable(pack, grant=grant, grant_all=grant_all, state_dir=state_dir)
+    return enable(pack, grant=grant, grant_all=grant_all, state_dir=state_dir, confirm=confirm)
 
 
 def grant(pack_id: str, names, *, on: bool = True, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":

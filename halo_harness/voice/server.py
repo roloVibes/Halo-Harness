@@ -32,6 +32,12 @@ class _Http(ThreadingHTTPServer):
     # Windows keeps its default here (tests/test_server_rebind.py)
     allow_reuse_address = sys.platform != "win32"
 
+    def server_bind(self):  # 3.4.1.2 (SERVERS-7): on Windows, as Studio, no other socket may bind this port beside it
+        import socket
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
 
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="halo voice serve", description="Serve one speech model (OpenAI's audio routes) on "

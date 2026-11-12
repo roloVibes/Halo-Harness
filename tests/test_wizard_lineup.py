@@ -272,7 +272,7 @@ def _host_screen(screen):
 def _studio(e, method: str, path: str, body: "dict | None" = None) -> "tuple[int, dict]":
     """One of Studio's routes, the ones its Lineups panel and inspector use."""
     from halo_harness.studio.api import Request, dispatch
-    return dispatch(Request(method=method, path=path, query={}, body=body or {}, cwd=e.cwd, state_dir=e.state_dir))
+    return dispatch(Request(owner=True, method=method, path=path, query={}, body=body or {}, cwd=e.cwd, state_dir=e.state_dir))
 
 
 @test

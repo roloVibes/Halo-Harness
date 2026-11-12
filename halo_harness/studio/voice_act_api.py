@@ -18,6 +18,7 @@ keep running for the next turn. Nothing here runs a model.
 
 from __future__ import annotations
 
+from halo_harness.studio.owner_proof import owner_only  # 3.4.1.2: the handlers that change what runs
 import base64
 import itertools
 import threading
@@ -211,5 +212,5 @@ def get_talk(req):
 
 
 ROUTES = {("POST", "local/voice/server"): post_server, ("POST", "local/voice/download"): post_download,
-          ("POST", "local/voice/loop"): post_loop, ("POST", "local/voice/talk"): post_talk,
+          ("POST", "local/voice/loop"): owner_only(post_loop), ("POST", "local/voice/talk"): owner_only(post_talk),
           ("GET", "local/voice/talk"): get_talk}

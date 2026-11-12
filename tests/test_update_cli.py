@@ -402,9 +402,8 @@ def test_apply_update_retries_once_on_the_system_store_after_a_certificate_failu
 
 
 @test
-def test_apply_update_fetches_the_lock_itself_and_drops_the_pin_when_it_cannot(ctx: Ctx):
-    """3.3.16.0: a `--constraints https://...` is fetched by halo (the system's trust) into a local file; when that
-    fetch fails the pin is dropped for this run with one line, and the install still runs."""
+def test_apply_update_fetches_the_lock_itself_and_fails_closed_when_it_cannot(ctx: Ctx):
+    """3.3.16.0: the lock is fetched by halo into a local file; 3.4.1.2 (PACKS-10): a failed fetch installs nothing."""
     from halo_harness import update_install as UI
     url = "https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock"
     cmd = f"uv tool install --reinstall --constraints {url} git+https://github.com/roloVibes/Halo-Harness"
@@ -415,9 +414,8 @@ def test_apply_update_fetches_the_lock_itself_and_drops_the_pin_when_it_cannot(c
     def boom(u):
         raise OSError("certificate verify failed: unable to get local issuer certificate")
     dropped, note = UI.pin_locally(cmd, fetch=boom)
-    ctx.check(f"not fetched: the pin is gone and the note says so, got {dropped!r} {note!r}",
-              dropped == "uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness"
-              and "could not be fetched" in note and "without the pin" in note)
+    ctx.check(f"PACKS-10: not fetched: nothing to run, the line says how to go on, got {dropped!r} {note!r}", dropped is None
+              and "nothing was installed" in note and note.endswith("on purpose: uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness"))
     ctx.check("a command without a pin is untouched", UI.pin_locally("pip install -U x", fetch=boom) == ("pip install -U x", ""))
     ctx.check("the version is the banner's last line",
               UI.last_line("  _  _   _   _    ___  \n |_||_| |_| |_|  | | | \n\nhalo 3.3.14.0 (28d0b24)\n") == "halo 3.3.14.0 (28d0b24)")

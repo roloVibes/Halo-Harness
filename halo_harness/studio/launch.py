@@ -147,8 +147,8 @@ def api_call(state_dir: Path, method: str, path: str, body: Optional[dict] = Non
         return None
     conn = http.client.HTTPConnection("127.0.0.1", info["port"], timeout=timeout)
     try:
-        conn.request(method, "/api/" + path.lstrip("/"), body=json.dumps(body).encode("utf-8") if body is not None else None,
-                     headers={"Authorization": "Bearer " + str(info.get("token") or ""), "Content-Type": "application/json"})
+        from halo_harness.studio.owner_proof import cli_headers  # 3.4.1.2: the token and the owner proof (studio.json)
+        conn.request(method, "/api/" + path.lstrip("/"), body=json.dumps(body).encode("utf-8") if body is not None else None, headers=cli_headers(info))
         resp = conn.getresponse()
         status, data = resp.status, resp.read()
     except (OSError, http.client.HTTPException):
@@ -172,8 +172,8 @@ def _clear_info(state_dir: Path) -> None:
 def _ask_shutdown(info: dict) -> bool:
     """POST /api/shutdown with the stored token: True when a Studio answered 200 and its port went quiet."""
     import urllib.request
-    req = urllib.request.Request(f"http://127.0.0.1:{int(info['port'])}/api/shutdown", data=b"{}", method="POST",
-                                 headers={"Authorization": "Bearer " + str(info.get("token") or ""), "Content-Type": "application/json"})
+    from halo_harness.studio.owner_proof import cli_headers  # 3.4.1.2: shutdown needs the owner proof (studio.json's salt)
+    req = urllib.request.Request(f"http://127.0.0.1:{int(info['port'])}/api/shutdown", data=b"{}", method="POST", headers=cli_headers(info))
     try:
         with urllib.request.urlopen(req, timeout=3) as resp:
             if resp.status != 200:

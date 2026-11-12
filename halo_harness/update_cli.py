@@ -106,11 +106,8 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     the install -- and other halo sessions) and says what it stopped;
     `keep_running=True` refuses instead, naming each one; `force=True`
     stops nothing and installs anyway (scripts)."""
-    # Halo 2.0.3 fix pass C-1 (review finding 3): checked before anything
-    # else -- an explicit `halo update`/`/update` apply is a real
-    # reinstall (`git pull`/`uv tool install`/`pip install --upgrade`,
-    # every one of them network-reaching), never a background check, so
-    # this returns an error result instead of silently skipping.
+    # Halo 2.0.3 fix pass C-1 (review finding 3): checked first -- an apply is a real, network-reaching reinstall,
+    # never a background check, so offline mode answers an error instead of silently skipping.
     from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
     if offline_mode_enabled():
         print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
@@ -126,10 +123,8 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
         cmd = kind.get("reinstall_cmd")
     if not cmd:
         if kind.get("kind") == "source_dir":
-            # Halo 2.0.2 round 6/C: a plain source directory (no .git, no
-            # dist metadata) has no `git pull` to run and no package
-            # manager that installed it to reinstall through -- say so
-            # plainly instead of the generic "could not determine" below.
+            # Halo 2.0.2 round 6/C: a plain source directory (no .git, no dist metadata) has nothing to pull or
+            # reinstall through -- said plainly instead of the generic "could not determine" below.
             print(f"halo update: running from a plain source directory ({kind.get('spec')}) with no git "
                   f"metadata -- replace the directory to update", file=sys.stderr)
         else:
@@ -144,9 +139,13 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     cwd = spec if spec and Path(spec).is_dir() else None
     print(f"halo update: installed {upd.format_version_line(before)}")
     from halo_harness import update_install as UI  # 3.3.16.0: the lock fetched by halo, --native-tls on a cert failure
-    cmd, note = UI.pin_locally(cmd)
+    cmd, note = UI.pin_locally(cmd)  # 3.4.1.2 (PACKS-10): (None, the line) when the lock was not fetched
     if note:
-        print(note)
+        print(note, file=sys.stderr if cmd is None else sys.stdout)
+    if cmd is None:  # nothing is installed; what was stopped for the install starts again
+        from halo_harness.update_stop import restart_supervisor
+        print(restart_supervisor()) if supervisor else None
+        return 1
     print(f"halo update: running: {cmd}  (the installer's output prints when it ends; a minute or two)")
     returncode, _text = UI.run_install(cmd, cwd=cwd, run_fn=upd.run)
     after = upd.run(["halo", "--version"], capture_output=True, text=True, timeout=15)

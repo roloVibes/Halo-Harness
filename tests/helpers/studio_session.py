@@ -178,7 +178,8 @@ def focus(c, rig) -> dict:
     out: dict = {}
     opened: list = []
     launch._open = lambda u: opened.append(u) or True  # a focused page needs no new tab; record any
-    write_private_atomic(studio_info_path(rig.state), json.dumps({"pid": 0, "port": rig.server.server_address[1], "token": rig.server.token}))
+    write_private_atomic(studio_info_path(rig.state), json.dumps({"pid": 0, "port": rig.server.server_address[1], "token": rig.server.token,
+                                                                 "owner_salt": rig.server.owner_salt}))
     c.go(url(rig, "mode=fleet&focus=1"))
     c.wait(f"{TAB}.startsWith('Agents')", 30)
     end = time.time() + 15

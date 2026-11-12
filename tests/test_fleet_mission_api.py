@@ -115,7 +115,7 @@ def test_the_cli_verbs_print_and_json_round_trips(ctx: Ctx):
         fleet(rig)
         lead(lead_answer(nobody=False))
         write_private_atomic(rig.home_a / "studio.json", json.dumps({"pid": os.getpid(), "port": rig.server.server_address[1],
-                                                                    "token": rig.server.token}))
+                                                                    "token": rig.server.token, "owner_salt": rig.server.owner_salt}))
         rc, out, err = cli(rig.root_a, "mission", "new", "Scan the lab and build the findings workbook", "--no-repo",
                            "--budget", "3", "--lineup", "standard", "--json", timeout=120)
         got = json.loads(out) if rc == 0 else {}

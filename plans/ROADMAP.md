@@ -4012,6 +4012,37 @@ did what; `halo pack doctor` flags an unsigned pack with a `hooks` grant as a wa
 wording: a pack that fails verification is one line, the fix named (`halo pack trust`, or reinstall from a trusted
 source).
 
+### Pack trust: the page fence (design note, written in 3.4.1.2; no code yet)
+
+**Why.** Through 3.4.1.2 a pack's page script (`studio-script`: a bundle panel, a section's view) is imported into
+Studio's own page. 3.4.1.2 enforces what a server can (every write needs the owner proof except a running pack's own
+routes; the proof lives in a closure and is made before any pack module loads; the salt goes only to a navigation the
+person made), but a script in the page can still read the launch token, draw over the shell and press its buttons, so
+the grant is said as Studio's own power. The fence is to stop running pack code in Studio's origin at all.
+
+**The frame.** Each pack page runs in `<iframe sandbox="allow-scripts">` WITHOUT `allow-same-origin`: an opaque origin,
+so no sessionStorage (no token), no cookies, no reach into the shell's DOM or its intrinsics, and Studio's guard refuses
+its requests (Origin `null`). Its document is a fixed loader Studio serves (`/api/pack/<id>/frame?k=<the pack's key>`,
+CSP `default-src 'none'; script-src blob:; style-src 'unsafe-inline'`); the shell fetches the pack's module text with
+the key and posts it in, the loader imports it from a `blob:` URL. Nothing in the frame holds the token, the salt or a
+proof.
+
+**The broker.** The only channel is `postMessage`. The shell listens for messages whose `event.source` is that frame's
+`contentWindow`, takes `{id, method, path, body}` and applies `packlib/scoped.ts` `allowed(pack, method, route)` in the
+shell (the pack id is the frame's, never the message's), sends the request with the token alone (`plainCall`, never the
+owner header) and answers `{id, ok, data | error}`; `api.on(kind)` events, the theme's tokens (CSS variables) and the
+section's size are pushed the other way. Size and rate caps per frame; a frame that floods is dropped with one line.
+
+**What the 3.4.2.0 contribution points need across it.** React and the shell's parts (`api.lib`) cannot cross a frame:
+a pack page bundles its own React and a small kit of the shell's widgets (`vite.pack.config.ts` builds them in instead
+of mapping them to the shell's), styled from the pushed tokens. Height follows a ResizeObserver message; keyboard focus
+stays in the frame, with Esc and Mod+K forwarded to the shell; hover cards, dialogs and toasts are drawn by the shell on
+a broker call (`ui.dialog`, `ui.toast`), so they keep Studio's look and sit above the frame; a palette command, a
+`route(section)` and an attention row are broker calls; dragging between a pack page and Studio's canvas becomes a
+broker call (`drop {kind, data}`), not a DOM drag. Then the `studio-script` line can say "runs in a sealed frame that
+reaches only its own routes", and the reviewers' two probes, run from inside the frame, find no token, no salt and no
+shell to press.
+
 ## ADDED 2026-11-02 (rolo: "i feel like the roles page doesn't adjust to what the main agent creates for workflows during auto mode. I can see it in the map of session in studio. but the mapping in roles isn't 1:1 to what is going on when auto mode is happening. It would be great to have more of a whole page of what is going on bc the map in session is tiny, if the roles tab kept up with what's happening during sessions for better map views that would be huge"): the live map -- 3.3.11.0 round R2
 
 **What is wrong today (read against master).** The Roles canvas draws the LINEUP: cards for the configured roles, and

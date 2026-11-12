@@ -2,6 +2,13 @@
 launch, the DevTools websocket, evaluate, wait for a value, a PNG of a region, close. The suite's drivers have their
 own client (tests/helpers/cdp.py, with the suite's Chrome lock); this is the package's, for `halo replay clip` and
 Studio's Export a clip. Stdlib only.
+
+3.4.1.2 (SERVERS-5 / PACKS-8): on Linux and macOS the DevTools protocol runs over two pipes
+(`--remote-debugging-pipe`: Chrome reads fd 3 and writes fd 4, given to it by `os.posix_spawn`), so no port is open
+for another process on the machine to attach to. Windows has no fd 3 / fd 4 to hand a child from Python (Chrome reads
+them there through the C runtime's inherited-handle block, which `subprocess` cannot fill), so there Chrome keeps
+`--remote-debugging-port=0` on loopback, and what it films is a throwaway Studio of its own (live/replay_clip.py
+`_studio`: its own token, the replay page's GETs only, stopped after): the live Studio's token never enters it.
 """
 
 from __future__ import annotations
@@ -36,25 +43,47 @@ def find_chrome() -> Optional[str]:
     return next((shutil.which(n) for n in NAMES if shutil.which(n)), None)
 
 
+def pipe_ok() -> bool:
+    """Whether DevTools can run over pipes here (POSIX with os.posix_spawn), not a port (Windows)."""
+    return os.name == "posix" and hasattr(os, "posix_spawn")
+
+
 class Chrome:
-    def __init__(self, exe: str, width: int, height: int):
+    def __init__(self, exe: str, width: int, height: int, *, pipe: "bool | None" = None):
         self.profile = tempfile.mkdtemp(prefix="halo-clip-")
-        self.buf, self.seq, self.sock = b"", 0, None
+        self.buf, self.seq, self.sock, self.pipe, self.session = b"", 0, None, None, ""
         root = getattr(os, "geteuid", lambda: -1)() == 0
-        self.proc = subprocess.Popen([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
-                                      "--no-default-browser-check", f"--user-data-dir={self.profile}",
-                                      "--remote-debugging-port=0", f"--window-size={width},{height}", "about:blank"]
-                                     + (["--no-sandbox"] if root else []),
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        use_pipe = pipe_ok() if pipe is None else pipe
+        self.argv = ([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+                      "--no-default-browser-check", f"--user-data-dir={self.profile}",
+                      "--remote-debugging-pipe" if use_pipe else "--remote-debugging-port=0",
+                      f"--window-size={width},{height}", "about:blank"] + (["--no-sandbox"] if root else []))
         try:
-            port = self._port()
-            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-            targets = json.loads(opener.open(f"http://127.0.0.1:{port}/json/list", timeout=10).read())
-            self._connect(next(t for t in targets if t.get("type") == "page")["webSocketDebuggerUrl"])
+            if use_pipe:
+                from halo_harness.live.clip_pipe import spawn
+                self.proc, self.pipe = spawn(self.argv)
+                target = self._first_page()
+                self.session = self.call("Target.attachToTarget", targetId=target["targetId"], flatten=True)["sessionId"]
+            else:
+                self.proc = subprocess.Popen(self.argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                port = self._port()
+                opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+                targets = json.loads(opener.open(f"http://127.0.0.1:{port}/json/list", timeout=10).read())
+                self._connect(next(t for t in targets if t.get("type") == "page")["webSocketDebuggerUrl"])
             self.call("Emulation.setDeviceMetricsOverride", width=width, height=height, deviceScaleFactor=1, mobile=False)
         except Exception:
             self.close()
             raise
+
+    def _first_page(self) -> dict:
+        deadline = time.time() + 30
+        while True:
+            pages = [t for t in self.call("Target.getTargets")["targetInfos"] if t.get("type") == "page"]
+            if pages:
+                return pages[0]
+            if time.time() > deadline:
+                return {"targetId": self.call("Target.createTarget", url="about:blank")["targetId"]}
+            time.sleep(0.1)
 
     def _port(self) -> int:
         path, deadline = os.path.join(self.profile, "DevToolsActivePort"), time.time() + 60
@@ -122,9 +151,12 @@ class Chrome:
     def call(self, method: str, **params):
         self.seq += 1
         mid = self.seq
-        self._send(json.dumps({"id": mid, "method": method, "params": params}))
+        msg = {"id": mid, "method": method, "params": params}
+        if self.pipe is not None and self.session and not method.startswith(("Target.", "Browser.")):
+            msg["sessionId"] = self.session  # the page's session over the browser's one pipe
+        (self.pipe.send if self.pipe is not None else self._send)(json.dumps(msg))
         while True:
-            m = json.loads(self._recv())
+            m = json.loads(self.pipe.recv() if self.pipe is not None else self._recv())
             if m.get("id") == mid:
                 if "error" in m:
                     raise RuntimeError(f"{method}: {m['error']}")
@@ -155,15 +187,18 @@ class Chrome:
 
     def close(self) -> None:
         try:
-            if self.sock is not None:
+            if self.sock is not None or self.pipe is not None:
                 try:
                     self.call("Browser.close")
                 except Exception:
                     pass
+            if self.sock is not None:
                 self.sock.close()
+            if self.pipe is not None:
+                self.pipe.close()
         except Exception:
             pass
-        if self.proc is not None:
+        if getattr(self, "proc", None) is not None:
             try:
                 self.proc.wait(timeout=10)
             except Exception:

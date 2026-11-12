@@ -48,7 +48,7 @@ def test_settings_rows_only_while_enabled_and_config_knows_them(ctx: Ctx):
     with PacksHome() as h:
         h.install(h.source("contrib-rows"))
         ctx.check("installed, not enabled: no rows", _pack_rows() == [])
-        h.cli("enable", "contrib-rows", "--grant-all")
+        h.cli("enable", "contrib-rows", "--grant-all", "--yes")
         rows = _pack_rows()
         ctx.check(f"enabled: two rows under From packs, got {[(r.key, r.group, r.kind) for r in rows]}",
                   [(r.key, r.group, r.kind) for r in rows] == [(KEY, "from_packs", "int"),

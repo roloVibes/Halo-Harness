@@ -3,10 +3,12 @@
     halo pack list [--available] [--json]             every pack here: id, version, state, scope, source, what it offers;
                                                       --available: and what the sources hold that is not installed
     halo pack inspect <id|path> [--json]              the manifest, what it offers, its permissions and which are granted, problems
-    halo pack install <path|git url|id> [--project] [--link] [--json]
+    halo pack install <path|git url|id> [--project] [--link] [--from SOURCE] [--json]
                                                       copy it into ~/.halo/packs/<id>/ (or .halo/packs/<id>/), disabled;
-                                                      --link: the folder itself, read in place (3.3.12.0 R4, packs/link.py)
-    halo pack enable <id> [--grant NAME ...] [--grant-all] [--json]
+                                                      --link: the folder itself, read in place (3.3.12.0 R4, packs/link.py);
+                                                      a bare id is the pack Halo ships, else packs.sources, never ./<id>
+                                                      (3.4.1.2); --from: that source even for an id Halo ships
+    halo pack enable <id> [--grant NAME ...] [--grant-all [--yes]] [--json]
                                                       turn it on; grant what it requests (cli:<verb>, mcp:<server>, hooks, bash, network, home-write, services, doctor, studio-routes, ...)
     halo pack grant <id> NAME [NAME ...] [--off] [--json]
                                                       give an enabled pack more of what it requests, or take grants back (--off)
@@ -21,7 +23,7 @@
     halo pack new <id> [--kinds ...] [--all] ...      3.3.12.0 R4: a new pack that works (packs/cli_new.py)
     halo pack test <folder|id> [--kinds ...] [--json] 3.3.12.0 R4: every check against fakes (packs/cli_test.py)
     halo pack sources [add|remove <folder|git url>] [--json]
-                                                      where a bare id is looked for: config packs.sources, then the packs Halo ships
+                                                      where a bare id is looked for: the packs Halo ships, then config packs.sources
     halo pack doctor [--json]                         every problem, one line each
     halo pack verdict <bundle> [--host H] [--json]    3.3.7.0 R5: a bundle's honest verdict -- ready / needs N downloads /
                                                       won't work, with the ways out (packs/cli_bundle.py)
@@ -69,6 +71,8 @@ def _parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("source", help="a pack folder, a git url, or an id found in packs.sources or the packs Halo ships")
         p.add_argument("--project", action="store_true", help="install into this repo's .halo/packs/ instead of ~/.halo/packs/")
         p.add_argument("--link", action="store_true", help="use the folder in place: an edit shows at once (no copy)")
+        p.add_argument("--from", dest="origin", default=None, metavar="SOURCE",  # 3.4.1.2 (PACKS-1)
+                       help="take the id from this source (a folder of packs or a git url) even when Halo ships a pack by that id")
     if verb in ("enable", "grant", "disable", "update", "rollback", "remove", "unlink"):
         p.add_argument("id")
     if verb == "update":
@@ -79,7 +83,9 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     if verb == "enable":
         p.add_argument("--grant", action="append", default=[], metavar="NAME",
                        help="grant one permission the pack requests (repeat for several)")
-        p.add_argument("--grant-all", action="store_true", help="grant every permission the pack requests")
+        p.add_argument("--grant-all", action="store_true", help="grant every permission the pack requests (a pack Halo does "
+                       "not ship: each one that runs its code is printed first and asked once in a terminal)")
+        p.add_argument("--yes", action="store_true", help="with --grant-all and no terminal: give them without asking")
     if verb == "grant":
         p.add_argument("names", nargs="+", metavar="NAME", help="a permission the pack requests")
         p.add_argument("--off", action="store_true", help="take the grants back instead")
@@ -92,6 +98,9 @@ def _parser(verb: str) -> argparse.ArgumentParser:
     p.add_argument("--cwd", default=None, metavar="DIR", help="act as if run from DIR")
     p.add_argument("--json", action="store_true", help="print JSON")
     return p
+
+
+from halo_harness.packs.cli_ask import grant_yes, update_verb  # noqa: E402  (3.4.1.2: the questions a terminal asks)
 
 
 def _err(text: str, code: int = 1) -> int:
@@ -109,34 +118,6 @@ def _done(args, ok: bool, lines: "list[str]") -> int:
     for line in lines:
         print(f"halo pack: {line}", file=sys.stderr)
     return 1
-
-
-def _tty() -> bool:
-    """A terminal on both ends: only there does `halo pack update` ask (a pipe, a script, CI: as before)."""
-    try:
-        return bool(sys.stdin and sys.stdin.isatty() and sys.stdout and sys.stdout.isatty())
-    except (AttributeError, ValueError):
-        return False
-
-
-def _update(args, cwd) -> int:
-    """3.2.1.0 R4: in a terminal the dry run's lines first, then "Apply? [y/N]"; "n" or Enter leaves the pack as it
-    is (exit 1). --yes, --json, --dry-run or no terminal: no question. The lines shown are not printed twice."""
-    from halo_harness.packs.install import update
-    shown: list = []
-
-    def ask(look: "list[str]") -> bool:
-        shown.extend(look)
-        print("\n".join(look))
-        try:
-            return input("Apply? [y/N] ").strip().lower() in ("y", "yes")
-        except (EOFError, KeyboardInterrupt):
-            print()
-            return False
-
-    asks = not (args.dry_run or args.json or args.yes) and _tty()
-    ok, lines = update(args.id, dry_run=args.dry_run, cwd=cwd, confirm=ask if asks else None)
-    return _done(args, ok, [ln for ln in lines if ln not in shown])
 
 
 def _list(args, cwd) -> int:
@@ -228,9 +209,9 @@ def cmd_pack(argv: list) -> int:
         return {"list": _list, "inspect": _inspect, "doctor": _doctor, "sources": _sources}[verb](args, cwd)
     if verb == "install":
         from halo_harness.packs.install import install
-        return _done(args, *install(args.source, project=args.project, cwd=cwd, link=args.link))
+        return _done(args, *install(args.source, project=args.project, cwd=cwd, link=args.link, origin=args.origin))
     if verb == "update":
-        return _update(args, cwd)
+        return update_verb(args, cwd, _done)
     if verb == "rollback":
         from halo_harness.packs.rollback import rollback
         return _done(args, *rollback(args.id, cwd=cwd))
@@ -242,4 +223,4 @@ def cmd_pack(argv: list) -> int:
         return _done(args, *G.disable(args.id))
     if verb == "grant":
         return _done(args, *G.grant(args.id, args.names, on=not args.off, cwd=cwd))
-    return _done(args, *G.enable_id(args.id, grant=args.grant, grant_all=args.grant_all, cwd=cwd))
+    return _done(args, *G.enable_id(args.id, grant=args.grant, grant_all=args.grant_all, cwd=cwd, confirm=grant_yes(args)))

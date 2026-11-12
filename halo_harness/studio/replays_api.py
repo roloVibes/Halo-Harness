@@ -168,10 +168,9 @@ def get_clip_plan(req):
 def post_clip(req):
     from halo_harness.live import replay_clip, replay_file
     body = req.body if isinstance(req.body, dict) else {}
-    base = f"http://127.0.0.1:{req.server.server_address[1]}"
-    try:
+    try:  # 3.4.1.2 (SERVERS-5): filmed through a throwaway read-only Studio; this Studio's token never enters its Chrome
         got = replay_clip.clip(req.state_dir, req.params["rid"], _num(body.get("from")), _num(body.get("to")),
-                               _num(body.get("speed")), cwd=req.cwd, studio=(base, req.server.token))
+                               _num(body.get("speed")), cwd=req.cwd)
     except (replay_clip.ClipError, replay_file.ReplayError, TimeoutError, RuntimeError) as e:
         return 422, {"error": str(e)}
     return 200, {**got, "url": f"replays/clips/{got['name']}"}

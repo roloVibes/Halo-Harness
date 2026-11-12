@@ -6,6 +6,7 @@
 // opens by itself; it calls no model; its one write is an answer, through the path Attention's keys take.
 import { useEffect } from "react";
 import { startAlerts } from "../../lib/alerts";
+import { ownerPage } from "../../lib/owner";
 import { studio, useStore } from "../../lib/store";
 import { paint } from "../../lib/theme";
 import { Toasts } from "../../lib/ui";
@@ -118,6 +119,7 @@ export function Glance() {
         <footer className="gz-foot muted">
           <a href="/?mode=session" data-testid="glance-studio">Open Studio</a>
           <span> · this page reads and answers through this Studio; it calls no model</span>
+          {!ownerPage() && <p className="gz-bad" data-testid="glance-owner-note">This tab can look but not answer: Studio lets only a page you opened yourself answer. Paste the glance's address into the address bar (or run halo studio --mode glance).</p>}
         </footer>
       </div>
       <Toasts />

@@ -21,6 +21,7 @@ written under the file lock); a row whose pid is gone is dropped the next time t
 
 from __future__ import annotations
 
+from halo_harness.studio.owner_proof import owner_only  # 3.4.1.2: the handlers that change what runs
 import json
 import os
 import subprocess
@@ -178,5 +179,5 @@ def get_started(req):
     return 200, {"sessions": [{**r, "live": r["session_id"] in live} for r in started(req.state_dir)]}
 
 
-ROUTES = [("GET", r"^sessions/new$", get_new), ("POST", r"^sessions/new$", post_new),
+ROUTES = [("GET", r"^sessions/new$", get_new), ("POST", r"^sessions/new$", owner_only(post_new)),
           ("GET", r"^sessions/started$", get_started)]

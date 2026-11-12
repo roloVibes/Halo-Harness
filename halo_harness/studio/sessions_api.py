@@ -29,6 +29,7 @@ position's approval card in a TUI session the way the phone bridge does.
 
 from __future__ import annotations
 
+from halo_harness.studio.owner_proof import owner_only  # 3.4.1.2: the handlers that change what runs
 import re
 import threading
 import time
@@ -189,7 +190,7 @@ def get_trace(req):
 
 
 ROUTES = [("GET", r"^sessions$", list_sessions),
-          ("POST", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$", post_command),
+          ("POST", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$", owner_only(post_command)),  # 3.4.1.2 (SERVERS-1)
           ("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.-]+)/trace\.md$", get_trace)]
 from halo_harness.studio.fleet_api import ROUTES as _FLEET_ROUTES  # noqa: E402  (3.0.5.0: the agent routes)
 ROUTES[len(ROUTES):] = _FLEET_ROUTES

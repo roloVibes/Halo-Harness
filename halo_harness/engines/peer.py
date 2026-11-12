@@ -45,8 +45,10 @@ def offer(home) -> dict:
     for engine in TABLE:
         e = next((r for r in rows if isinstance(r, dict) and ours(r, engine)), None)
         if e is not None and e.get("lan"):
+            # 3.4.1.2 (SERVERS-8, the last review's REMOTE-9): only the engine's own HALO_SECRET_<ENGINE>_API_KEY (or its
+            # key file) goes to a peer, never the value of whatever variable an entry's `api_key_env` names
             out[engine] = {"name": engine, "url": e.get("url"), "model": e.get("model"), "runtime": engine, "lan": True,
-                           "api_key": os.environ.get(str(e.get("api_key_env") or key_env(engine))) or key(engine)}
+                           "api_key": os.environ.get(key_env(engine)) or key(engine)}
     return out
 
 

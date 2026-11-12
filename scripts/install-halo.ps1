@@ -169,7 +169,11 @@ Resolve-Ref
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
 if ($NoClone) {
     Say "Installing halo straight from GitHub at $Ref"
-    UvInstall --reinstall --constraints "$RawUrl/$Ref/requirements.lock" "git+$RepoUrlNoGit@$Ref"
+    $Lock = Join-Path ([IO.Path]::GetTempPath()) "halo-requirements-$PID.lock"  # 3.4.1.2 (PACKS-10): fetched first, or nothing installs
+    if (-not $DryRun) { try { Invoke-WebRequest -UseBasicParsing "$RawUrl/$Ref/requirements.lock" -OutFile $Lock } catch { }
+        if (-not ((Test-Path $Lock) -and (Select-String -Path $Lock -SimpleMatch '--hash=sha256:' -Quiet))) {
+            Write-Host "Could not fetch requirements.lock for $Ref ($RawUrl/$Ref/requirements.lock), so nothing was installed. Try again, install from a clone (drop -NoClone), or install without the pin on purpose: uv tool install --reinstall git+$RepoUrlNoGit@$Ref"; exit 1 } }
+    UvInstall --reinstall --constraints $(if ($DryRun) { "$RawUrl/$Ref/requirements.lock" } else { $Lock }) "git+$RepoUrlNoGit@$Ref"
 } else {
     if (Test-Path (Join-Path $CloneDir ".git")) {
         Say "Updating the clone at $CloneDir"

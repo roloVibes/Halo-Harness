@@ -6,6 +6,9 @@
    without `X-Halo-Owner`, and nothing changes; with the shell's proof the grant lands; reads need none.
 2. #4: the page a browser navigates to carries the salt the proof is made of, a fetch or a frame of it does not; the
    shell reads it first (lib/owner.ts, main.tsx's first import) and sends the header from its own client only.
+   3.4.1.2 (SERVERS-4): only a navigation the person made (`Sec-Fetch-Site: none`, `Dest: document`, `Mode:
+   navigate`) gets it: a window a script opened (`Site: same-origin`), a cross-site bounce, a link, and a client that
+   sends no Fetch Metadata do not; the proof is a closure string made at boot, with no Map and no promise of it.
 3. #5: a pack's key (`?k=`) opens a GET of that pack's own routes and nothing else: not a POST, not another pack's
    path, not a core route; the launch token in `?t=` is not taken on a pack GET; the registry names each key.
 4. #32: `/` and `index.html` say `frame-ancestors 'self'` and `X-Frame-Options: SAMEORIGIN`.
@@ -50,7 +53,7 @@ def test_the_owner_verbs_need_the_owners_proof(ctx: Ctx):
                       status == 403 and got.get("error") == NEEDS_OWNER)
         rec = S.entry("service-pack", s.state) or {}
         ctx.check(f"nothing changed: still enabled, no grant, got {rec}", rec.get("enabled") is True and rec.get("granted") == [])
-        status, got, _h = s.call("POST", "pack/service-pack/grant", {"need": "services"})
+        status, got, _h = s.call("POST", "pack/service-pack/grant", {"need": "services", "yes": True})  # 3.4.1.2: + the yes
         ctx.check(f"the shell's own call (with the proof) grants, got {status}", status == 200
                   and S.granted("service-pack", S.load(s.state)) == ["services"])
         status, _got, _h = s.call("POST", "pack/service-pack/grant", {"need": "bash"}, owner=False)
@@ -71,13 +74,28 @@ def test_the_page_carries_the_salt_and_the_shell_sends_the_proof(ctx: Ctx):
     import hmac
     from halo_harness.studio.owner_proof import header_for
     with PackStudio() as s:
-        status, heads, page = fetch(s.base + "/")
+        nav = {"Sec-Fetch-Site": "none", "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-User": "?1"}
+        status, heads, page = fetch(s.base + "/", headers=nav)
         salt = s.srv.owner_salt
-        ctx.check(f"a navigation's page carries data-owner-salt, got {status}",
+        ctx.check(f"a navigation the person made carries data-owner-salt, got {status}",
                   status == 200 and f'data-owner-salt="{salt}"'.encode() in page)
         for dest in ("empty", "iframe", "object"):
             ctx.check(f"Sec-Fetch-Dest {dest}: the page without it", b"data-owner-salt" not in fetch(
-                s.base + "/", headers={"Sec-Fetch-Dest": dest})[2])
+                s.base + "/", headers={**nav, "Sec-Fetch-Dest": dest})[2])
+        for site in ("same-origin", "cross-site", "same-site"):  # window.open / a link (same-origin), a bounce
+            ctx.check(f"SERVERS-4: Sec-Fetch-Site {site}: the page without it", b"data-owner-salt" not in fetch(
+                s.base + "/?mode=settings", headers={**nav, "Sec-Fetch-Site": site})[2])
+        ctx.check("SERVERS-4: Sec-Fetch-Mode cors (a fetch claiming dest document): without it", b"data-owner-salt" not in
+                  fetch(s.base + "/", headers={**nav, "Sec-Fetch-Mode": "cors"})[2])
+        reload = {**nav, "Sec-Fetch-Site": "same-origin", "Cache-Control": "max-age=0"}  # F5 after the shell's replaceState
+        ctx.check("the person's reload of a Studio page (same-origin, ?1, max-age=0): the salt", b"data-owner-salt" in fetch(
+            s.base + "/?mode=settings", headers=reload)[2])
+        ctx.check("a script's reload of another window (no ?1): without it", b"data-owner-salt" not in fetch(
+            s.base + "/", headers={k: v for k, v in reload.items() if k != "Sec-Fetch-User"})[2])
+        ctx.check("SERVERS-4: the page cuts a script-opened window off from its opener (COOP noopener-allow-popups)",
+                  fetch(s.base + "/", headers=nav)[1].get("Cross-Origin-Opener-Policy") == "noopener-allow-popups")
+        ctx.check("SERVERS-4: a client that sends no Fetch Metadata gets the page without it",
+                  b"data-owner-salt" not in fetch(s.base + "/")[2] and b"data-owner-salt" not in fetch(s.base + "/index.html")[2])
         ctx.check("the proof is HMAC-SHA256(token, salt) as hex", header_for(s.srv) ==
                   hmac.new(s.token.encode(), salt.encode(), hashlib.sha256).hexdigest())
     main = (UI / "src" / "main.tsx").read_text(encoding="utf-8")
@@ -85,7 +103,13 @@ def test_the_page_carries_the_salt_and_the_shell_sends_the_proof(ctx: Ctx):
     api = (UI / "src" / "lib" / "api.ts").read_text(encoding="utf-8")
     ctx.check("main.tsx imports lib/owner first", main.lstrip().startswith('import "./lib/owner";'))
     ctx.check("owner.ts reads the salt and removes it", "dataset.ownerSalt" in owner and "delete root.dataset.ownerSalt" in owner)
-    ctx.check("the shell's call sends X-Halo-Owner; plainCall does not", '"X-Halo-Owner": proof' in api and "request<T>(false" in api)
+    ctx.check("PACKS-2: the proof is a closure string, no Map and no promise of it", "new Map" not in owner
+              and ".get(" not in owner and "let proof = \"\"" in owner and "export function ownerProof(token: string): string" in owner)
+    ctx.check("the shell's call sends X-Halo-Owner; plainCall does not", 'headers["X-Halo-Owner"] = proof' in api and "request<T>(false" in api)
+    ctx.check("PACKS-2: the request's init and headers have no prototype", "Object.create.bind(Object, null)" in api
+              and "const headers = bare()" in api and "const init = bare()" in api)
+    imp = (UI / "src" / "routes" / "packs" / "importPack.ts").read_text(encoding="utf-8")
+    ctx.check("PACKS-2: a pack's module is imported only after the proof is made", "ownerReady()).then(run, run)" in imp)
     packlib = "".join(p.read_text(encoding="utf-8") for p in (UI / "src" / "packlib").glob("*.ts"))
     ctx.check("no packlib module reaches the owner proof", "ownerHeader" not in packlib and "lib/owner" not in packlib
               and "plainCall" in packlib and "call<T>(true" not in packlib)

@@ -11,6 +11,8 @@ VOICE.md "The server"):
                                     pcm streams each sentence as it is made (audio/pcm;rate=24000), wav is sent whole
 
 One request at a time reaches the engine (a lock); every request leaves one log line (voice/log_lines.py).
+3.4.1.2 (SERVERS-7): a request whose Host is not this server's own address and port (a DNS-rebinding page), or that
+carries any Origin (a browser page: Halo's own callers are programs, Studio's Talk goes through Studio), is 403.
 """
 
 from __future__ import annotations
@@ -110,7 +112,19 @@ def make_handler(st: State):
                 raise BadAudio(f"a body of {n:,} bytes: at most {MAX_BODY:,}")
             return self.rfile.read(n) if n > 0 else b""
 
+        def _foreign(self) -> bool:
+            """3.4.1.2 (SERVERS-7): a Host that is not this server's own, or any Origin: 403 (True)."""
+            bound, port = self.server.server_address[:2]
+            own = {f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}", f"{bound}:{port}".lower()}
+            if self.headers.get("Origin") is None and (self.headers.get("Host") or "").strip().lower() in own:
+                return False
+            self._json(403, {"error": {"message": "the speech server answers programs on this machine at its own "
+                                       "address (no other Host, no browser Origin)", "code": 403}})
+            return True
+
         def do_GET(self):  # noqa: N802
+            if self._foreign():
+                return None
             path = self.path.split("?")[0].rstrip("/")
             if path == "/health":
                 if st.status == "ok":
@@ -124,6 +138,8 @@ def make_handler(st: State):
             return self._json(404, {"error": {"message": f"no route {path}", "code": 404}})
 
         def do_POST(self):  # noqa: N802
+            if self._foreign():
+                return None
             path = self.path.split("?")[0].rstrip("/")
             want = {"/v1/audio/transcriptions": "stt", "/v1/audio/speech": "tts"}.get(path)
             if want is None:

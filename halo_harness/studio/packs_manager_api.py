@@ -9,8 +9,11 @@ Studio -- this page too -- reads the manager and the registry again.
     GET  pack/manager                                  packs/manager.py payload: {packs, sources, problems, ...}
     POST pack/install {source | id, project?}          halo pack install <source|id> [--project]  201 {ok, lines, id}
     POST pack/sources {add | remove: <folder|url>}     halo pack sources add|remove
-    POST pack/<id>/enable {grants?: [NAME], grant_all?}  halo pack enable <id> --grant NAME ... | --grant-all
-    POST pack/<id>/grant {need, on}                    halo pack grant <id> <need> [--off]
+    POST pack/<id>/enable {grants?: [NAME], grant_all?, yes?}  halo pack enable <id> --grant NAME ... | --grant-all
+    POST pack/<id>/grant {need, on, yes?}              halo pack grant <id> <need> [--off]
+                                                       3.4.1.2: a pack Halo does not ship given a grant that runs its
+                                                       code (packs/grants.py POWER, cli:<verb>) answers 409
+                                                       {needs_yes, problems: what each one gives} until `yes: true`
     POST pack/<id>/disable                             halo pack disable <id>
     POST pack/<id>/update {dry_run?}                   halo pack update <id> [--dry-run] (3.2.0.0 R7: Studio asks with
                                                        dry_run first and shows its lines: the migration notes, the plan)
@@ -153,4 +156,25 @@ def dispatch(req):
     if req.method != "POST":
         return 405, {"error": "method not allowed"}
     _watched(req)
-    return _answer(*_verb(req, m["id"], m["verb"]))
+    return _needs_yes(req, m["id"], m["verb"]) or _answer(*_verb(req, m["id"], m["verb"]))
+
+
+def _needs_yes(req, pack_id: str, verb: str):
+    """3.4.1.2 (PACKS-6, SERVERS-2): the Pack Manager shows what a grant that runs the pack's code gives a pack Halo
+    does not ship, and gives it on the owner's explicit yes (the page sends `yes: true` from its dialog)."""
+    from halo_harness.packs import grants as G
+    from halo_harness.packs import manifest as MF
+    from halo_harness.packs.discover import find
+    body = _body(req)
+    if verb not in ("enable", "grant") or body.get("yes") is True or (verb == "grant" and body.get("on") is False):
+        return None
+    pack = find(pack_id, cwd=req.cwd, state_dir=req.state_dir)
+    if pack is None:
+        return None
+    names = ([str(body.get("need") or "")] if verb == "grant" else
+             MF.requested(pack.manifest) if body.get("grant_all") is True else [str(g) for g in body.get("grants") or []])
+    lines = G.power_lines(pack, names, req.state_dir)
+    if not lines:
+        return None
+    head = f"{pack.id} is not a pack Halo ships; this gives it:"
+    return 409, {"ok": False, "needs_yes": True, "error": head, "problems": [head] + lines}

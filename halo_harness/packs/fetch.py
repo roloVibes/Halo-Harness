@@ -3,7 +3,7 @@
 
     with fetched(source, state_dir=...) as (folder, problem):
         ...   # folder is a local copy (a folder as given, a fresh shallow clone of a url); problem is ''
-    source_for("doc-review")   # a bare id: the first of config `packs.sources` that holds it, then the shipped packs
+    source_for("doc-review")   # a bare id: the pack Halo ships by that id, else the first of `packs.sources` holding it
 
 A url is cloned (`git clone --depth 1`) into a fresh folder under
 `<state>/packs/.staging-<8 hex>/`, removed when the block ends. Offline mode
@@ -30,31 +30,60 @@ def configured_sources() -> "list[str]":
     return [str(s) for s in raw if isinstance(s, str) and s.strip()] if isinstance(raw, list) else []
 
 
-def source_for(target: str) -> str:
-    """`target` as given when it is a url or a folder; for a bare pack id, the first of `packs.sources`
-    that holds it (a folder `<source>/<id>/`, a folder that is the pack, a url ending in `<id>` or `<id>.git`),
-    then the packs Halo ships (3.2.0.0 R6, packs/sources.py: the last entry of the search)."""
+def _held(src: str, target: str) -> str:
+    """Where source `src` holds pack `target` ('' when it does not): a url ending in it, `<src>/<id>/`, or `src`."""
+    from halo_harness.packs.sources import url_id
+    if is_url(src):
+        return src if url_id(src) == target else ""
+    base = Path(src).expanduser()
+    if (base / target / "pack.yaml").is_file():
+        return str(base / target)
+    return str(base) if base.name == target and (base / "pack.yaml").is_file() else ""
+
+
+def shipped_folder(target: str) -> "Path | None":
+    """The pack Halo ships under id `target`, by its full path (halo_harness/templates/packs/<id>/), else None."""
     from halo_harness.packs.names import is_valid_pack_id
-    from halo_harness.packs.sources import search, url_id
-    if is_url(target) or Path(target).expanduser().exists() or not is_valid_pack_id(target):
+    from halo_harness.packs.sources import shipped_dir
+    folder = shipped_dir() / str(target)
+    return folder if is_valid_pack_id(str(target)) and (folder / "pack.yaml").is_file() else None
+
+
+def source_for(target: str, *, origin: "str | None" = None) -> str:
+    """`target` as given when it is a url or a path; for a bare pack id, the first of `packs.sources` that holds it (a
+    folder `<source>/<id>/`, a folder that is the pack, a url ending in `<id>` or `<id>.git`), then the packs Halo
+    ships (3.2.0.0 R6, packs/sources.py). 3.4.1.2 (PACKS-1): a bare id is never a folder of the current directory
+    (`./<id>` or a full path names one), and a configured source never shadows an id Halo ships: the shipped pack is
+    taken (`shadow_line` says so) unless the owner names the source, `origin` (`halo pack install <id> --from <src>`)."""
+    from halo_harness.packs.names import is_valid_pack_id
+    if is_url(target) or not is_valid_pack_id(target):
         return target
+    if origin:
+        return _held(origin, target) or target
+    shipped = shipped_folder(target)
+    if shipped is not None:
+        return str(shipped)
+    from halo_harness.packs.sources import search
     for src in search():
-        if is_url(src):
-            if url_id(src) == target:
-                return src
-            continue
-        base = Path(src).expanduser()
-        if (base / target / "pack.yaml").is_file():
-            return str(base / target)
-        if base.name == target and (base / "pack.yaml").is_file():
-            return str(base)
+        hit = _held(src, target)
+        if hit:
+            return hit
     return target
+
+
+def shadow_line(target: str) -> str:
+    """3.4.1.2 (PACKS-1): the one line for a bare id Halo ships that a configured source holds too, else ''."""
+    if shipped_folder(target) is None:
+        return ""
+    held = next((src for src in configured_sources() if _held(src, target)), "")
+    return (f"packs.sources {held} also holds a pack {target}; Halo ships one by that id, so the shipped one is used "
+            f"(halo pack install {target} --from {held} takes that source instead)") if held else ""
 
 
 def searched_line(pack_id: str) -> str:
     """3.2.0.0 R7: a bare id no source holds, naming every place searched in order (a folder that is gone says so):
-    "no folder doc-review here, and no pack doc-review in the sources searched: ~/packs (not a folder), the packs
-    Halo ships (halo pack sources add <folder|git url>)"."""
+    "no pack doc-review in the sources searched: ~/packs (not a folder), the packs Halo ships (halo pack sources add
+    <folder|git url>; a folder here is ./doc-review)". 3.4.1.2 (PACKS-1): a bare id is never a folder here."""
     from halo_harness.packs.sources import search, shipped_dir
     places = []
     for src in search():
@@ -66,8 +95,8 @@ def searched_line(pack_id: str) -> str:
             places.append(Path(src).as_posix() + ("" if Path(src).expanduser().is_dir() else " (not a folder)"))
     if len(places) == 1:
         places.insert(0, "packs.sources (empty)")
-    return (f"no folder {pack_id} here, and no pack {pack_id} in the sources searched: {', '.join(places)} "
-            "(halo pack sources add <folder|git url>)")
+    return (f"no pack {pack_id} in the sources searched: {', '.join(places)} "
+            f"(halo pack sources add <folder|git url>; a folder here is ./{pack_id})")
 
 
 def host_of(url: str) -> str:
@@ -102,9 +131,13 @@ def fetched(source: str, *, state_dir=None, timeout: float = 120.0):
     from halo_harness.packs.state import packs_home
     if not is_url(source):
         from halo_harness.packs.names import is_valid_pack_id
+        if is_valid_pack_id(source):  # 3.4.1.2 (PACKS-1): a bare id (an older record's) is looked up, never a cwd folder
+            source = source_for(source)
+        if is_valid_pack_id(source):
+            yield None, searched_line(source)
+            return
         folder = Path(source).expanduser()
-        missing = searched_line(source) if is_valid_pack_id(source) else f"{source}: no such folder"
-        yield (folder.resolve(), "") if folder.is_dir() else (None, missing)
+        yield (folder.resolve(), "") if folder.is_dir() else (None, f"{source}: no such folder")
         return
     line = offline_line(source)
     if line:

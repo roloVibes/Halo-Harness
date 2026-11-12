@@ -38,7 +38,7 @@ def _live(rig):
 def _req(rig, method: str, path: str, body=None):
     from halo_harness.studio.api import Request
     from halo_harness.studio.sessions_api import dispatch_sessions
-    return dispatch_sessions(Request(method=method, path=path, query={}, body=body or {}, cwd=rig.cwd, state_dir=rig.cwd))
+    return dispatch_sessions(Request(owner=True, method=method, path=path, query={}, body=body or {}, cwd=rig.cwd, state_dir=rig.cwd))
 
 
 @test
@@ -113,7 +113,7 @@ def test_halo_studio_session_prompt_names_the_prompt(ctx: Ctx):
         ctx.check("--prompt alone: the newest live session", bare.session == sid and bare.prompt)
         from halo_harness.studio.api import Request
         from halo_harness.studio.focus_api import post_focus
-        status, body = post_focus(Request(method="POST", path="focus", query={}, body=t.focus(), cwd=rig.cwd, state_dir=rig.cwd))
+        status, body = post_focus(Request(owner=True, method="POST", path="focus", query={}, body=t.focus(), cwd=rig.cwd, state_dir=rig.cwd))
         ctx.check(f"POST focus keeps prompt, got {status} {body}", status == 200 and body.get("prompt") is True)
         from halo_harness.studio.server import cmd_studio
         buf = io.StringIO()

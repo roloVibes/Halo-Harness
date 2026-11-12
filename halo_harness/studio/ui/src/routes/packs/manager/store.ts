@@ -27,9 +27,11 @@ export type MgrState = {
   removing: string;
   /** 3.2.0.0 R7: the Update confirm, with what the dry run said (the migration notes first). */
   updating: UpdatePreview | null;
+  /** 3.4.1.2: a grant that runs a pack's code, for a pack Halo does not ship: what it gives, before the owner's yes. */
+  granting: { path: string; body: Record<string, unknown>; what: string; lines: string[] } | null;
 };
 
-export const mgr = createStore<MgrState>({ data: null, loaded: false, error: "", sel: "", busy: "", picks: {}, last: null, removing: "", updating: null });
+export const mgr = createStore<MgrState>({ data: null, loaded: false, error: "", sel: "", busy: "", picks: {}, last: null, removing: "", updating: null, granting: null });
 
 export function useMgr<S>(select: (s: MgrState) => S): S {
   return useStore(mgr, select);
@@ -113,6 +115,10 @@ export async function act(path: string, body: Record<string, unknown>, what: str
     return true;
   } catch (e) {
     const lines = e instanceof ApiError && e.problems.length ? e.problems : [e instanceof Error ? e.message : String(e)];
+    if (e instanceof ApiError && e.data.needs_yes === true) { // 3.4.1.2: the owner's yes first (GrantDialog.tsx)
+      mgr.update(() => ({ granting: { path, body, what, lines } }));
+      return false;
+    }
     mgr.update(() => ({ last: { ok: false, lines, what } }));
     toast(`${what}: ${lines[0]}`, "error", 6000);
     return false;

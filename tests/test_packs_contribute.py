@@ -100,7 +100,7 @@ def test_a_disabled_pack_contributes_nothing(ctx: Ctx):
         h.install(h.source())
         empty = {"bios": [], "lineups": [], "roots": [], "commands": [], "agents": [], "mcp": [], "hooks": []}
         ctx.check(f"installed, never enabled: nothing, got {_everything(h)}", _everything(h) == empty)
-        h.cli("enable", "doc-review", "--grant-all")
+        h.cli("enable", "doc-review", "--grant-all", "--yes")
         ctx.check("enabled: something", _everything(h)["bios"] != [])
         h.cli("disable", "doc-review")
         ctx.check(f"disabled again: nothing, got {_everything(h)}", _everything(h) == empty)
@@ -117,7 +117,7 @@ def test_pack_files_are_read_only(ctx: Ctx):
         before = pack_file.read_bytes()
 
         def call(fn, name, body=None, query=None):
-            req = api.Request(method="PUT", path="/", query=query or {}, body=body or {}, cwd=h.repo, state_dir=h.state,
+            req = api.Request(owner=True, method="PUT", path="/", query=query or {}, body=body or {}, cwd=h.repo, state_dir=h.state,
                               params={"name": name})
             return fn(req)
         status, data = call(api.put_bio, "doc-review--reviewer", {"raw": {"description": "changed"}})

@@ -289,6 +289,23 @@ script. Two values Studio derives from the token keep the two apart
   without it answers 403 "this needs the owner's own page". A pack's page
   gets `api.lib`'s client instead, scoped to its own routes
   ([EXTENSION_API.md](EXTENSION_API.md#apilib)).
+- **3.4.1.2 (the 2026-11-12 review's SERVERS-1, -2, -4, PACKS-2).** Every write needs the proof, not a list of
+  routes: any method but GET answers 403 without it, except a running pack's own routes (`packs/<id>/...`,
+  `pack/<id>/publish|attention`, `layout/<id>:<name>`, the id taken from the path); the handlers that end in a
+  session's control socket or change what runs (a session's command, a new session, bio and lineup writes and
+  apply, shutdown) check it again themselves (`owner_proof.owner_only`); `tests/test_studio_owner_routes.py`
+  lists every write route and fails on one nobody classified. The salt goes only to a navigation the browser marks as
+  the person's own (`Sec-Fetch-Site: none`, `Sec-Fetch-Dest: document`, `Sec-Fetch-Mode: navigate`: the address bar,
+  a bookmark, `halo studio` or `--edit` opening the browser, a pasted SSH-forward address; and the person's reload,
+  which Chrome marks `same-origin` with `Sec-Fetch-User: ?1` and `Cache-Control: max-age=0` once the page has tidied
+  its address); a window a script opened, a link, a frame, a fetch, a script's reload, a cross-site bounce and a
+  browser that sends no Fetch Metadata get the page without it, and the page's `Cross-Origin-Opener-Policy:
+  noopener-allow-popups` cuts a script-opened Studio window off from its opener. Such a page shows VIEW ONLY in the status bar (the glance says it under its answers) with
+  how to open Studio yourself; it reads everything, changes nothing. The shell makes the proof once at boot and keeps
+  it as a string in `lib/owner.ts`'s closure (no Map, no promise of it at use, the request's init and headers without a
+  prototype), and imports no pack module before it is made. `halo studio --stop` and `--edit` on a running Studio read the salt from the private `studio.json` beside the token. What this does not do: a pack's page
+  script still runs in Studio's own page and can press Studio's buttons, so `studio-script` is said as Studio's own
+  power; the sandboxed frame that would fence it is the roadmap's "Pack trust" item.
 - **A pack's key.** What a page embeds where no header can go (an iframe,
   an image, a video, a module import) carries `?k=<hex HMAC-SHA256 of
   "pack-raw:<id>" keyed by the token>`, not the token: Studio takes it on a

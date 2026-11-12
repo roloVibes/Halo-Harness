@@ -80,7 +80,7 @@ def _install(r: Run) -> bool:
     from halo_harness.packs.manifest import load_manifest
     data, _ = load_manifest(r.folder)
     r.pack = find(str(data.get("id")), cwd=r.project)
-    ok, lines = enable(r.pack, grant_all=True)
+    ok, lines = enable(r.pack, grant_all=True, confirm=lambda _lines: True)  # 3.4.1.2: the author's own pack, a scratch home
     r.add("manifest", "pack.yaml", "installs into a scratch home and enables with every grant it requests", ok,
           "; ".join(lines))
     return ok
