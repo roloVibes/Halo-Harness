@@ -152,13 +152,13 @@ def get_clip_plan(req):
     q = req.query or {}
     try:
         p = replay_clip.plan(replay_file.load(path), _num(q.get("from")), _num(q.get("to")), _num(q.get("speed")))
-        kind = replay_clip.fmt()
     except (replay_clip.ClipError, replay_file.ReplayError) as e:
         return 422, {"error": str(e)}
+    enc = replay_clip.encoder()  # 3.4.1.0 R6: the plan needs no Pillow; `pillow` / `needs` say whether Export can encode
     p.pop("times", None)
-    out = replay_file.replays_dir(req.state_dir) / "clips" / f"{rid}-{int(p['from'])}-{int(p['to'])}.{kind}"
+    out = replay_file.replays_dir(req.state_dir) / "clips" / f"{rid}-{int(p['from'])}-{int(p['to'])}.{enc['format']}"
     from halo_harness.live.clip_chrome import find_chrome
-    return 200, {**p, "format": kind, "path": str(out), "chrome": bool(find_chrome())}
+    return 200, {**p, **enc, "path": str(out), "chrome": bool(find_chrome())}
 
 
 def post_clip(req):

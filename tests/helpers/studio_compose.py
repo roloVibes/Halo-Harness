@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_blocks import go  # noqa: E402
 from tests.helpers.studio_compose_bits import Q, asked, named, block, do_it, drag, note, see, sel, undo  # noqa: E402
-from tests.helpers.studio_hover_read import none_for  # noqa: E402
+from tests.helpers.studio_hover_read import seen_for  # noqa: E402
 
 BLOCKS = "document.querySelectorAll('[data-testid=\"block\"]').length"
 LABEL = "Object.fromEntries([...document.querySelectorAll('[data-testid=\"block-when\"]')].map((l) => [l.dataset.to, l.textContent]))"
@@ -40,7 +40,8 @@ def load(c, page) -> dict:
     c.call("Emulation.setDeviceMetricsOverride", width=1800, height=1100, deviceScaleFactor=1, mobile=False)
     go(c, page)
     c.wait(f"{BLOCKS} === 3 && document.querySelectorAll('[data-testid=\"block-when\"]').length === 2", 40)
-    out = {"quiet": none_for(c, 1.0), "open": c.js(
+    seen = seen_for(c, 1.0)
+    out = {"quiet": seen is None, "seen": seen, "open": c.js(
         "['blk-confirm', 'wf-library', 'blk-note', 'block-menu', 'wf-page-when', 'blk-move', 'blk-ghost']"
         ".filter((t) => document.querySelector(`[data-testid=\"${t}\"]`))")}
     out["edges"] = c.js("[...document.querySelectorAll('[data-testid=\"block-edge\"]')].map((e) => e.dataset.to)")

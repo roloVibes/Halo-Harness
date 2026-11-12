@@ -119,7 +119,13 @@ def mode(c, page) -> dict:
         s.handle.set_mode("plan")  # the session's own mode (its status frames say it) and the registry's (runtime.py's tap)
         update(s.handle.session_id, mode="plan")
         open_page(c, page, "mode=session")
-        out["after"] = c.wait(f"{MODE}?.dataset.mode === 'plan' && {MODE}.textContent", 40)
+        try:
+            out["after"] = c.wait(f"{MODE}?.dataset.mode === 'plan' && {MODE}.textContent", 40)
+        except TimeoutError as e:  # 3.4.1.0 R6: say what the page and the registry held, not only that it waited
+            from halo_harness.remote.registry import list_live
+            rows = [(r.get("session_id") == s.handle.session_id, r.get("mode")) for r in list_live()]
+            raise TimeoutError(f"{e} -- the page's word: {c.js(f'{MODE}?.dataset.mode || null')!r}, the registry's live rows "
+                               f"(ours, mode): {rows}") from None
     return out
 
 

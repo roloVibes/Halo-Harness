@@ -3,13 +3,16 @@ filmed on Agents -> Live and written as ONE animated file, the way the capture t
 animations (tools/capture_session_anim.py: Chrome frames, Pillow writes the file).
 
     plan(payload, frm, to, speed) -> {from, to, speed, frames, seconds, fps, times, width, note}   nothing written
+    encoder()                     -> {format, pillow, needs}: what would write the file, asked without Pillow too
     assemble(pngs, path, fps)     -> bytes written (WebP when Pillow has it, else GIF; WIDTH px wide)
     clip(state_dir, rid, ...)     -> {ok, path, bytes, frames, seconds, ...}  films it through a Studio and writes
                                      <state>/replays/clips/<id>-<from>-<to>.webp|.gif
 
 The clip is WIDTH px wide, FPS frames a second, at most MAX_SECONDS long: a range that would run longer at the asked
 speed is played faster to fit (`note` says so). Needs Chrome (HALO_CHROME, else the usual install) and Pillow
-(`uv tool install "halo-harness[images]"`); without either it says which and writes nothing.
+(`uv tool install "halo-harness[images]"`); without either it says which and writes nothing. 3.4.1.0 R6: saying what a
+clip WILL write (the plan, `--dry-run`, the dialog) needs neither: only the encode needs Pillow, and `encoder()` says so
+in one line, with the install command, before anything is written.
 """
 
 from __future__ import annotations
@@ -57,12 +60,26 @@ def plan(payload: dict, frm: Optional[float] = None, to: Optional[float] = None,
             "width": WIDTH, "times": times, "note": note, "max_seconds": MAX_SECONDS}
 
 
+NEEDS_PILLOW = ('encoding a clip needs Pillow, which is not installed here: uv tool install "halo-harness[images]" '
+                '(or pip install Pillow)')
+
+
 def _pil():
     try:
         from PIL import Image, features
     except ImportError:
-        raise ClipError('a clip needs Pillow: uv tool install "halo-harness[images]" (or pip install Pillow)') from None
+        raise ClipError(NEEDS_PILLOW) from None
     return Image, features
+
+
+def encoder() -> dict:
+    """What would write the clip, asked without encoding anything: {format, pillow, needs}. Without Pillow the plan
+    still says everything else and `needs` is the one line that says what to install; the file would be WebP (Pillow's
+    wheels write animated WebP), GIF when the Pillow installed has no WebP."""
+    try:
+        return {"format": fmt(), "pillow": True, "needs": ""}
+    except ClipError as e:
+        return {"format": "webp", "pillow": False, "needs": str(e)}
 
 
 def fmt() -> str:

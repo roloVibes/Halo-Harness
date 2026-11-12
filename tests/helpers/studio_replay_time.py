@@ -7,7 +7,9 @@ tests/test_studio_replay_time.py reads it:
 History's row opens the session on the scrubber (marks, bands); the canvas is redrawn at three seeded moments (+5 s: main
 alone; +22 s: main waits on a permission card, the scout reads, the fixer works; +95 s: the scout done, the fixer
 failed) with the banner's moment and the session's own title, the sentence and the cost; Play at 16x moves and pauses; Save says what it holds and
-writes; Export a clip saves first and says its frames, width and path; Now returns; a saved file is a History row; Open
+writes; Export a clip saves first and says its frames, width and path; with Pillow hidden from the Studio (3.4.1.0 R6:
+tests/helpers/no_pillow.py) the plan still says them, one line says what to install and Export is off, and with it back
+the line goes where Pillow is installed; Now returns; a saved file is a History row; Open
 a file takes one from elsewhere; `?replay=<id>&at=22` opens it at that moment. The last stdout line is a JSON object of
 what it saw (exit 2: no Chrome). No model is called.
 """
@@ -23,6 +25,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.no_pillow import has_pillow, no_pillow  # noqa: E402
 
 Q = "document.querySelector"
 QA = "document.querySelectorAll"
@@ -97,10 +100,39 @@ def saving(c) -> dict:
     c.click_on(f"{Q}('[data-testid=\"replay-clip-save\"]')")
     out["clip_says"] = c.wait(f"!!{Q}('[data-testid=\"replay-clip-from\"]') && {d}.querySelector('[data-line=\"does\"]')?.textContent.includes('frames') && [...{d}.querySelectorAll('[data-testid=\"dialog-cost\"] dd')].map((x) => x.textContent)", 20)
     out["now_file"] = c.wait(f"{BANNER}?.dataset.kind === 'file' && {BANNER}.dataset.id", 15)
+    out.update(clip_pillow(c, d))
     c.click_on(f"[...{d}.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')")
     c.wait(f"!{d}", 10)
     c.click_on(f"{Q}('[data-testid=\"replay-close\"]')")
     out["now"] = c.wait(f"!{BANNER} && !{BAR} && 'now'", 15)
+    return out
+
+
+def _from(c, value: str) -> None:
+    """The clip dialog's From field typed into as a person types (its text selected first)."""
+    field = f"{Q}('[data-testid=\"replay-clip-from\"]')"
+    c.click_on(field)
+    c.js(f"{field}.select()")
+    c.type_text(value)
+
+
+def clip_pillow(c, d: str) -> dict:
+    """3.4.1.0 R6: Pillow hidden from this process (the Studio serves from it), the plan is asked again: it still says
+    the frames, one line says what to install, Export is off; Pillow back, the plan is asked again."""
+    does = f"({d}.querySelector('[data-line=\"does\"]')?.textContent || '')"
+    needs = f"{Q}('[data-testid=\"replay-clip-needs\"]')"
+    out = {"clip_pillow": has_pillow()}
+    try:
+        with no_pillow():
+            _from(c, "0:01")
+            out["clip_hidden"] = c.wait(f"{does}.includes('Films 0:01') && !!{needs} && [{does}, {needs}.textContent, "
+                                        f"{Q}('[data-testid=\"replay-clip-go\"]').disabled]", 20)
+        _from(c, "0:00")
+        out["clip_back"] = c.wait(f"{does}.includes('Films 0:00') && [!!{needs}, {does}]", 20)
+    except TimeoutError as e:  # say what the dialog held
+        seen = c.js(f"[{Q}('[data-testid=\"replay-clip-from\"]')?.value, {does}, {needs}?.textContent || null,"
+                    f" {Q}('[data-testid=\"replay-clip-error\"]')?.textContent || null]")
+        raise TimeoutError(f"{e} -- the dialog held (from, does, needs, error): {seen}") from None
     return out
 
 

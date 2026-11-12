@@ -5,6 +5,8 @@
 // said -- over the range From .. To at the scrubber's speed (GET / POST replays/<id>/clip) and written under
 // <state>/replays/clips/. After each, the path it wrote and a Download. 3.4.1.0 R2: a goal run saves and films the same
 // way (`{run: <id>}`: its lead and lanes from the run's record, live/replay_run.py); a mission is the fleet pack's.
+// 3.4.1.0 R6: the clip's plan needs no Pillow; without it the dialog says so in one line with the install command and
+// Export is off (only the encode needs it).
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
@@ -16,7 +18,7 @@ import { mmss } from "./timeline";
 type SavePlan = { id: string; path: string; bytes: number; includes: string[] };
 type Saved = SavePlan & { ok: boolean };
 type ClipPlan = { from: number; to: number; speed: number; frames: number; seconds: number; width: number; format: string; path: string; note: string;
-  chrome: boolean; max_seconds: number };
+  chrome: boolean; max_seconds: number; pillow: boolean; needs: string };
 type Clip = ClipPlan & { ok: boolean; name: string; url: string; bytes: number };
 
 const why = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -85,8 +87,12 @@ export function ClipDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
     if (!rid) return;
     const f = secs(from), t = secs(to);
     if (f === null || t === null) return setErr("From and To are seconds, or m:ss");
+    // 3.4.1.0 R6: only the newest ask's answer lands. The speed moving as the saved file opens and a From typed just
+    // after sent two asks; the older answering last left a plan (and so an Export) of a range the fields no longer say.
+    let newest = true;
     api.get<ClipPlan>(`replays/${encodeURIComponent(rid)}/clip`, { from: String(f), to: String(t), speed: String(r.speed) })
-      .then((p) => (setPlan(p), setErr(""))).catch((e) => (setPlan(null), setErr(why(e))));
+      .then((p) => newest && (setPlan(p), setErr(""))).catch((e) => newest && (setPlan(null), setErr(why(e))));
+    return () => { newest = false; };
   }, [rid, from, to, r.speed]);
   const saveFirst = async () => {
     setBusy(true);
@@ -111,7 +117,7 @@ export function ClipDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
     <Dialog open onClose={onClose} title="Export a clip" testid="replay-clip-dialog" cost={cost}
             footer={done ? <><Button onClick={() => void download(done.url, done.name)} data-testid="replay-clip-download">Download</Button><Button variant="primary" onClick={onClose}>Done</Button></>
               : !rid ? <><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!savePlan || busy} onClick={() => void saveFirst()} data-testid="replay-clip-save">Save first</Button></>
-              : <><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!plan || !plan.chrome || busy} onClick={() => void film()} data-testid="replay-clip-go">{busy ? "Filming..." : "Export"}</Button></>}>
+              : <><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!plan || !plan.chrome || !plan.pillow || busy} onClick={() => void film()} data-testid="replay-clip-go">{busy ? "Filming..." : "Export"}</Button></>}>
       {saveErr && !rid ? <p className="field-error">{saveErr}</p> : null}
       {rid && !done && (
         <div className="scr-range-fields">
@@ -122,6 +128,7 @@ export function ClipDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
       )}
       {err && <p className="field-error" data-testid="replay-clip-error">{err}</p>}
       {plan && !plan.chrome && !done && <p className="field-error">No Chrome found on this machine: install Chrome or set HALO_CHROME.</p>}
+      {plan && !plan.pillow && !done && <p className="field-error" data-testid="replay-clip-needs">{plan.needs[0].toUpperCase() + plan.needs.slice(1)}.</p>}
       {plan?.note && !done && <p className="muted">{plan.note}.</p>}
       {done && <p data-testid="replay-clip-done" data-path={done.path}>Wrote <span className="mono">{done.path}</span> ({kb(done.bytes)}, {done.frames} frames).</p>}
     </Dialog>

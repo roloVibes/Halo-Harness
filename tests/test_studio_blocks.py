@@ -36,7 +36,7 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_one_board_tiers_and_squares(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"nothing opens on load, got {got.get('quiet')} {got.get('insp_block')!r}", got.get("quiet") is True and got.get("insp_block") == "")
+    ctx.check(f"nothing opens on load, got {got.get('quiet')} {got.get('insp_block')!r} (open: {got.get('seen')})", got.get("quiet") is True and got.get("insp_block") == "")
     ctx.check(f"the tiers with their purpose lines, got {got.get('tiers')}",
               got.get("tiers") == [["main", "the one you talk to"], ["pool", "the workers, picked per task"]])
     ctx.check(f"both squares as open blocks, main's line into each, got {got.get('blocks')} {got.get('edges')}",

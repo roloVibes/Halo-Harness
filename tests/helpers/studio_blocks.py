@@ -24,7 +24,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_agents import open_page  # noqa: E402
-from tests.helpers.studio_hover_read import none_for  # noqa: E402
+from tests.helpers.studio_hover_read import seen_for  # noqa: E402
 
 Q = "document.querySelector"
 BLOCKS = "[...document.querySelectorAll('[data-testid=\"block\"]')]"
@@ -63,7 +63,8 @@ def go(c, page) -> None:
 def cast(c, page) -> dict:
     go(c, page)
     c.wait(f"document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0 && {BLOCKS}.length === 2", 40)
-    out = {"quiet": none_for(c, 1.0), "insp_block": c.js(f"{Q}('[data-testid=\"roles-inspector-body\"]')?.dataset.block || ''")}
+    seen = seen_for(c, 1.0)
+    out = {"quiet": seen is None, "seen": seen, "insp_block": c.js(f"{Q}('[data-testid=\"roles-inspector-body\"]')?.dataset.block || ''")}
     out.update(c.js(READ))
     mine = block("my-media")
     out["agents"] = c.js(f"[...{mine}.querySelectorAll('[data-testid=\"block-agent\"]')].map((a) => [a.dataset.bio, a.querySelector('.blk-model-name')?.textContent])")

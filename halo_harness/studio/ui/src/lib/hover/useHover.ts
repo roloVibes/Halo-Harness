@@ -1,6 +1,6 @@
 // What a box spreads on itself to get a hover card (lib/ui/HoverCard.tsx draws it): the pointer resting on the box for
-// HOVER_DELAY shows it (a move restarts the wait), the keyboard focusing the box shows it after the same wait, leaving the
-// box and the card hides it (a short grace lets the pointer cross to the card), and a pointer down on the box hides it
+// HOVER_DELAY after its first move on it shows it (a move restarts the wait), the keyboard focusing the box shows it
+// after the same wait, leaving the box and the card hides it (a short grace lets the pointer cross to the card), and a pointer down on the box hides it
 // until the pointer leaves (so it never sits over a click or a drag). On a small control inside the box (a button, a
 // chip with its own `title`: `data-hover-skip`) the card goes, and comes back on the box's own surface. `titles` says
 // whether the box should keep its plain `title` tooltips (the setting is off).
@@ -41,9 +41,11 @@ export function useHover(kind: HoverKind, key: string, render: () => ReactNode, 
   const hide = () => hideHover(id);
   if (!live) return { props: {}, titles: mode === "off" || !enabled, show, hide };
   const props: HoverProps = {
-    onPointerEnter: (e) => {
+    // 3.4.1.0 R6: the rest starts on the pointer's first MOVE on the box, not on its enter: a box drawn under a pointer
+    // that has not moved (a lineup opening under the button just clicked) gets an enter from the browser with no move,
+    // and its card would open by itself on load. A real move into the box always brings a move with its enter.
+    onPointerEnter: () => {
       spent.current = false;
-      if (e.pointerType !== "touch" && !onControl(e)) want(e.currentTarget, "pointer");
     },
     onPointerMove: (e) => {
       if (e.pointerType === "touch" || spent.current) return;

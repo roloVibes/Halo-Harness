@@ -208,6 +208,40 @@ The released 3.4.0.1 is merged into this line (History's rows keep both the tick
   fleet status`, Caps), PACKS.md (installing an installed pack, an older shipped pack), CONFIG.md
   (`fleet.mission.ask_wait_min`), ARCHITECTURE-modules.md, plans/HANDOFF.md.
 
+### R6: what the CI runners found
+
+The candidate passed on the Windows PC and was red on both GitHub runners; each cause below, found and pinned.
+
+#### Fixed
+
+- **Export a clip without Pillow.** Saying what a clip will write (the dialog, `GET replays/<id>/clip`, `halo replay
+  clip --dry-run`) no longer needs Pillow: the plan answers with its frames, width, path and cap, plus `pillow` /
+  `needs`; without Pillow the dialog says in one line what to install and Export is off, the CLI prints the same line
+  and the clip itself exits 2, before anything is written (only the encode needs Pillow, `replay_clip.encoder()`). The
+  plan answered 422 where Pillow was missing. The dialog also keeps only the newest plan: the speed moving as the saved
+  file opened and a From typed just after sent two asks, and the older answering last left a plan (and an Export) of a
+  range the fields no longer said.
+- **A hover card no longer opens by itself on load.** A box drawn under a pointer that has not moved (Cast's lineup
+  opening under the "Open auto" button just clicked) got the browser's enter with no move, and its card opened; the
+  rest now starts on the pointer's first move on the box (`lib/hover/useHover.ts`). Seen on Linux, where the fonts put
+  a card under that pointer.
+- **Studio serves again on its own port right after it stopped (Linux).** A connection it closed sits in TIME_WAIT on
+  the port for a minute and the bind failed ("Address already in use"): Studio sets SO_REUSEADDR on POSIX, where it
+  never lets two listeners share a port, and keeps SO_EXCLUSIVEADDRUSE on Windows.
+- **A slow `tasklist` no longer deletes a live session (Windows).** The session registry's liveness check spawned
+  `tasklist` with a 5 s timeout; one slower answer read a live session as dead and `list_live` pruned its row for good,
+  so Studio lost the session (Session's mode word never moved again). It now asks the process itself
+  (OpenProcess + GetExitCodeProcess), and this process's own rows at once.
+- CI installs Pillow (`requirements-ci.in`, hash-locked in `requirements-ci.lock`), so both runners encode a clip; the
+  no-Pillow path is tested on every box by hiding Pillow (`tests/helpers/no_pillow.py`).
+- Tests: a "nothing opens on load" check names the card that opened, where the pointer rests and the box under it; the
+  mode word's driver says the page's word and the registry's rows when it times out; `tests/test_studio_rebind.py`,
+  `tests/test_replay_clip_pillow.py`; the registry's slow-`tasklist` pin.
+
+#### Docs
+
+- docs/REPLAY.md (a clip's plan needs no Pillow).
+
 ## [3.4.0.1] - 2026-11-12
 
 What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says

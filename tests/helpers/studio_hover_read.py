@@ -72,11 +72,23 @@ def tab(c, shift: bool = False) -> None:
         c.call("Input.dispatchKeyEvent", type=kind, key="Tab", code="Tab", windowsVirtualKeyCode=9, modifiers=8 if shift else 0)
 
 
-def none_for(c, secs: float = 1.2) -> bool:
-    """No card at any moment over `secs` (polled)."""
+def seen_for(c, secs: float = 1.2):
+    """The first card that showed at any moment over `secs` (polled): its kind, box and where the pointer rests
+    (`pointer`, the box under it), or None when none did."""
     end = time.time() + secs
     while time.time() < end:
         if c.js(f"!!{CARD}"):
-            return False
+            got = c.js(f"(() => {{ const c = {CARD}; return {{kind: c.dataset.kind || '', for: c.dataset.for || '', by: c.dataset.by || '',"
+                       " box: document.querySelector('[aria-describedby=\"halo-hover-card\"]')?.dataset.testid || ''}; })()") or {}
+            at = getattr(c, "pointer", None)
+            got["pointer"] = at
+            if at:
+                got["under_pointer"] = c.js(f"document.elementFromPoint({at[0]}, {at[1]})?.closest('[data-testid]')?.dataset.testid || ''")
+            return got
         time.sleep(0.1)
-    return True
+    return None
+
+
+def none_for(c, secs: float = 1.2) -> bool:
+    """No card at any moment over `secs` (polled)."""
+    return seen_for(c, secs) is None

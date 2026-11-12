@@ -116,6 +116,40 @@ def test_dead_pid_and_dead_endpoint_are_swept(ctx: Ctx):
 
 
 @test
+def test_a_slow_tasklist_never_sweeps_a_live_session(ctx: Ctx):
+    """3.4.1.0 R6: on the Windows runner one `tasklist` past bg_run.pid_alive's 5 s timeout read a live session as
+    dead and list_live pruned it for good. The registry asks the process itself now (here: every tasklist times out)."""
+    import subprocess
+    from halo_harness import bg_run
+    from halo_harness.remote import registry
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], stdin=subprocess.DEVNULL)
+    real_run = bg_run.subprocess.run
+
+    def slow(args, *a, **kw):
+        if isinstance(args, list) and args and args[0] == "tasklist":
+            raise subprocess.TimeoutExpired(args, kw.get("timeout") or 5)
+        return real_run(args, *a, **kw)
+    with _Home():
+        lst = _Listener()
+        bg_run.subprocess.run = slow
+        try:
+            registry.register(_entry("mine", lst.endpoint))
+            registry.register(_entry("child", lst.endpoint, pid=child.pid))
+            ids = sorted(r["session_id"] for r in registry.list_live())
+            ctx.check(f"this process's session and a running child's stay listed, got {ids}", ids == ["child", "mine"])
+            child.kill()
+            child.wait(timeout=10)
+            ids = sorted(r["session_id"] for r in registry.list_live())
+            ctx.check(f"the child gone, its row is swept, got {ids}", ids == ["mine"])
+        finally:
+            bg_run.subprocess.run = real_run
+            lst.close()
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=10)
+
+
+@test
 def test_other_run_dir_files_are_untouched(ctx: Ctx):
     from halo_harness.remote import registry
     from halo_harness.remote.control_socket import run_dir

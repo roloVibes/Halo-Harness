@@ -41,7 +41,7 @@ def _card(got: dict, key: str) -> dict:
 @test
 def test_lines_carry_the_when_and_an_unconnected_block_is_dashed(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"nothing opens on load, got {got.get('load_quiet')} {got.get('load_open')}", got.get("load_quiet") is True and got.get("load_open") == [])
+    ctx.check(f"nothing opens on load, got {got.get('load_quiet')} {got.get('load_open')} (open: {got.get('load_seen')})", got.get("load_quiet") is True and got.get("load_open") == [])
     ctx.check(f"main's lines with their labels, got {got.get('load_edges')} {got.get('load_labels')}",
               got.get("load_edges") == ["media", "plan"] and got.get("load_labels") == {"media": "needs pdf, images, audio, video", "plan": "needs a plan"})
     ctx.check(f"review dashed and saying so, got {got.get('load_review')}", got.get("load_review") == [False, "dashed", "not connected: main never uses it"])

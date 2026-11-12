@@ -85,7 +85,9 @@ WebP): **1200 px wide**, 5 frames a second, **at most 30 seconds** (a range that
 fit, and it says so). It is filmed the way the front-page captures are: headless Chrome draws Live at each moment and
 Pillow assembles the frames. It says the frames, length, width, format and path before it writes; a session not saved
 yet is saved first, said. It needs Chrome (`HALO_CHROME`, else the usual install) and Pillow
-(`uv tool install "halo-harness[images]"`); without either it says which and writes nothing.
+(`uv tool install "halo-harness[images]"`); without either it says which and writes nothing. Saying what it will write
+needs neither (3.4.1.0 R6): without Pillow the dialog and `halo replay clip --dry-run` still give the frames, width,
+path and cap, with one line saying what to install, and Export stays off until it is there.
 
 ## Compare two runs
 

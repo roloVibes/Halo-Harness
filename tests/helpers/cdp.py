@@ -172,6 +172,7 @@ class Chrome:
         held = self.down and kind != "mouseReleased"
         self.call("Input.dispatchMouseEvent", type=kind, x=x, y=y, button="left" if kind != "mouseMoved" or held else "none",
                   buttons=1 if held else 0, clickCount=1)
+        self.pointer = [round(x), round(y)]  # where the pointer rests now (a "nothing opens" check names it)
         if kind == "mouseReleased":
             self.down = False
 

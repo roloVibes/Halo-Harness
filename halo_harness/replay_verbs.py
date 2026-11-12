@@ -137,16 +137,21 @@ def _clip(args) -> int:
     try:
         p, path = _take(args.file)
         plan = replay_clip.plan(p, _secs(args.from_), _secs(args.to), args.speed)
-        kind = replay_clip.fmt()
     except (replay_file.ReplayError, replay_clip.ClipError) as e:
         print(f"halo replay clip: {e}", file=sys.stderr)
         return 2
+    enc = replay_clip.encoder()  # 3.4.1.0 R6: the plan needs no Pillow; only the encode does, said before it runs
     if not args.json:
         print(f"Films {p['id']} from {plan['from']:.0f} s to {plan['to']:.0f} s at {plan['speed']:g}x: {plan['frames']} frames, "
-              f"{plan['seconds']} s, {replay_clip.WIDTH} px wide, {kind.upper()} (at most {replay_clip.MAX_SECONDS} s)."
+              f"{plan['seconds']} s, {replay_clip.WIDTH} px wide, {enc['format'].upper()} (at most {replay_clip.MAX_SECONDS} s)."
               + (f" Note: {plan['note']}." if plan["note"] else ""))
+        if not enc["pillow"]:
+            print(enc["needs"][:1].upper() + enc["needs"][1:] + ".")
     if args.dry_run:
         return 0
+    if not enc["pillow"]:
+        print(f"halo replay clip: {enc['needs']}", file=sys.stderr)
+        return 2
     try:
         got = replay_clip.clip(_state(), p["id"], plan["from"], plan["to"], plan["speed"], cwd=Path.cwd())
     except (replay_clip.ClipError, TimeoutError, RuntimeError) as e:

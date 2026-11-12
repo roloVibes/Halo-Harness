@@ -54,7 +54,10 @@ def slow_ms_from_env() -> int:
 
 class _Server(http.server.ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = False
+    # 3.4.1.0 R6: on POSIX, SO_REUSEADDR lets Studio serve again on its port right after it stopped (a connection it
+    # closed sits in TIME_WAIT there for a minute) and never lets two listeners share one; on Windows it would, so
+    # there server_bind sets SO_EXCLUSIVEADDRUSE instead (tests/test_studio_rebind.py).
+    allow_reuse_address = sys.platform != "win32"
 
     def __init__(self, addr, handler, *, token: str, cwd: Path, state_dir: Path, slow_ms: int = 0):
         self.token, self.cwd, self.state_dir = token, cwd, state_dir

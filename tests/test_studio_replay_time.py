@@ -7,7 +7,8 @@
    sentence rebuilt for that moment (an ask first) and the cost so far;
 3. Play at 16x moves the moment and pauses;
 4. Save says what the file holds, what it costs and where it writes, then writes it; Export a clip saves first and says
-   its frames, width, format and path; Now returns to what runs;
+   its frames, width, format and path; with Pillow hidden it still says them, one line says what to install and Export
+   is off (3.4.1.0 R6); Now returns to what runs;
 5. a saved file is a History row; Open a file takes one made elsewhere and keeps it; `?replay=<id>&at=22` opens it at
    that moment;
 6. `halo replay clip` films a saved replay in Chrome and writes one animated file 1200 px wide.
@@ -80,6 +81,12 @@ def test_save_and_clip_say_what_they_write_first(ctx: Ctx):
     ctx.check(f"a clip of an unsaved session saves first, said, got {got.get('clip_first')}", "Save writes it first" in str((got.get("clip_first") or [""])[0]))
     ctx.check(f"then its frames, width, format and path, got {clip}",
               len(clip) == 3 and "1200 px wide" in clip[0] and "frames" in clip[0] and "at most 30 s" in clip[0] and "clips" in clip[2])
+    hidden, back = got.get("clip_hidden") or [], got.get("clip_back") or []
+    ctx.check(f"Pillow hidden: the plan still says the frames, one line says what to install, Export is off, got {hidden}",
+              len(hidden) == 3 and "frames" in hidden[0] and "needs Pillow" in hidden[1] and "halo-harness[images]" in hidden[1]
+              and hidden[2] is True)
+    ctx.check(f"Pillow back: the line goes where Pillow is installed (here: {got.get('clip_pillow')}), got {back}",
+              len(back) == 2 and back[0] is (not got.get("clip_pillow")) and "frames" in back[1])
     ctx.check(f"the replay is now the saved file, and Now returns, got {got.get('now_file')} / {got.get('now')}",
               str(got.get("now_file")).startswith("replay0000seed") and got.get("now") == "now")
 

@@ -117,8 +117,14 @@ def update(session_id: str, **fields) -> bool:
 
 
 def pid_alive(pid) -> bool:
-    from halo_harness.bg_run import pid_alive as _alive
-    return _alive(pid)
+    """3.4.1.0 R6: this process at once, and on Windows the process's own exit code (children.pid_running:
+    OpenProcess + GetExitCodeProcess), never a `tasklist` spawn: one tasklist slower than its 5 s timeout on a loaded
+    box read a live session as dead, list_live pruned its row for good, and Studio lost the session (its mode word
+    never moved again: the 3.4.1.0 candidate's Windows runner)."""
+    if pid == os.getpid():
+        return True
+    from halo_harness.children import pid_running
+    return pid_running(pid)
 
 
 def _entry_alive(entry: dict) -> bool:
