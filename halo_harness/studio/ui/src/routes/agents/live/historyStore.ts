@@ -16,7 +16,7 @@ import { harnessNow, LIVE_STATES } from "./now";
 import type { HistoryKind } from "./replay";
 import { closeGoal } from "../run/goalStore";
 
-export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[] };
+export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[]; inside?: number };
 /** 3.4.0.0 D: the page the drawer shows instead of its list (a run's report), what it read, and why it could not. */
 export type HistoryPage = { kind: "run"; id: string } | null;
 type State = { open: boolean; rows: HistoryRow[]; loaded: boolean; error: string; page: HistoryPage; report: RunPayload | null; reportError: string };
@@ -48,9 +48,11 @@ function openSessions(): { open: Set<string>; busy: Set<string> } {
 /** The rows, newest first (pure: the three answers and what is live now). */
 export function historyRows(sessions: HistoryRun[], runs: RunRow[], missions: Summary[], liveRun: string, open: Set<string>, busy: Set<string>): HistoryRow[] {
   const out: HistoryRow[] = [];
+  const inside = new Map<string, number>(); // 3.4.0.1 (defect 22): "run:<id>" -> its own sessions, folded under its row
   for (const s of sessions) {
     const id = String(s.session_id || "");
-    if (!id || busy.has(id)) continue;
+    if (s.part_of) inside.set(`${s.part_of.kind}:${s.part_of.id}`, (inside.get(`${s.part_of.kind}:${s.part_of.id}`) || 0) + 1);
+    if (!id || busy.has(id) || s.part_of) continue;
     const t0 = num(s.started), t1 = num(s.finished);
     out.push({ kind: "session", id, what: String(s.task || "session " + id.slice(0, 8)), when: t0 || 0, secs: t0 && t1 && t1 > t0 ? t1 - t0 : null,
                cost: num(s.cost_usd), how: open.has(id) ? "open, nothing running" : "closed" });
@@ -66,6 +68,7 @@ export function historyRows(sessions: HistoryRun[], runs: RunRow[], missions: Su
     out.push({ kind: "mission", id: m.id, what: m.goal || "mission " + m.id, when: num(m.created) || 0, secs: t1 && t1 > m.created ? t1 - m.created : null,
                cost: num(m.cost_usd), how: m.stop_reason ? `${m.state}: ${m.stop_reason}` : String(m.state) });
   }
+  for (const r of out) if (inside.get(`${r.kind}:${r.id}`)) r.inside = inside.get(`${r.kind}:${r.id}`);
   return out.map((r, i) => [r, i] as const).sort((a, b) => b[0].when - a[0].when || a[1] - b[1]).map(([r]) => r);
 }
 

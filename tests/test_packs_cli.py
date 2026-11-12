@@ -47,6 +47,8 @@ def test_usage_help_and_exit_codes(ctx: Ctx):
         with contextlib.redirect_stdout(so):
             rc = main(["pack", "list", "--cwd", str(h.repo)])
         ctx.check(f"`halo pack` is a verb of the CLI, got {rc}", rc == 0 and so.getvalue().startswith("No packs here."))
+        ctx.check(f"3.4.0.1: an empty list points at the shipped packs, got {so.getvalue()!r}",
+                  "halo pack list --available shows them" in so.getvalue())
     from halo_harness.completion_cli import SUBCOMMANDS
     ctx.check("completion offers pack", "pack" in SUBCOMMANDS)
 

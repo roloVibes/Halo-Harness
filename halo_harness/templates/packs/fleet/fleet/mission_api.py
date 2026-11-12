@@ -72,7 +72,7 @@ def list_missions(ctx: Ctx) -> "tuple[int, dict]":
 
 def _plan(ctx: Ctx, mid: str) -> dict:
     view = ctx.dispatch.view()
-    plan = P.plan(ctx.home, mid, ctx.dispatch.entries(view), call_model=LEAD, load=Dispatch.load(view), by=ctx.by)
+    plan = P.plan(ctx.home, mid, *ctx.dispatch.split(view), call_model=LEAD, load=Dispatch.load(view), by=ctx.by)
     _journal(ctx, "mission_planned", mid, parts=len(plan["parts"]))
     _frame(ctx, mid, "planned")
     return plan

@@ -141,7 +141,7 @@ class HubState:
             m.allow_control = body.get("allow_control") if body.get("allow_control") in CONTROL_LEVELS else m.allow_control
             m.allow_answers = bool(body.get("allow_answers"))
             lk.sessions = {r["session_id"]: r for r in rows}
-            m.note_costs(rows)
+            m.note_costs(rows, body)
             after = (set(lk.sessions), m.harness.get("version"), m.share, m.allow_control)
         if before != after:
             self._member_frame(m, "sessions", sessions=m.sessions())
@@ -242,7 +242,7 @@ class HubState:
             members = sorted(self.members.values(), key=lambda m: m.name.lower())
             rows += [m.view(self.version) for m in members]
             online = sum(1 for m in members if m.online)
-        serving = {k: self.serving.get(k) for k in ("port", "bind", "tls", "fingerprint", "url")}
+        serving = {k: self.serving.get(k) for k in ("port", "bind", "tls", "fingerprint", "url", "firewall")}
         listing = _core.get("peers.hub_hosts", "listing")  # 3.3.7.0 R1: the halo hosts the members announced
         return {"harnesses": rows, "hosts": listing(self.home), "hub": {"serving": bool(self.serving.get("port")), "name": self.name, **serving,
                                            "members": len(members), "online": online,

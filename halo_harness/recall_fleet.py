@@ -238,7 +238,10 @@ def table(hits: list, harnesses: Optional[list] = None) -> str:
 
 
 def fleet_text(query: str, k: int = 8) -> str:
-    """`/recall --fleet <query>` in the TUI and in `halo -p`."""
+    """`/recall --fleet <query>` in the TUI and in `halo -p` (the fleet pack on; 3.4.0.1: this module is core)."""
+    from halo_harness.packs import fleet_door
+    if fleet_door.running() is None:
+        return f"/recall --fleet: {fleet_door.line()}"
     if not clean_query(query):
         return "/recall --fleet <query> -- every online harness of the fleet answers from its own index"
     status, body = ask(query, k)

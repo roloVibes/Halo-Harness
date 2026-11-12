@@ -133,6 +133,9 @@ def _new(args, repo: Path) -> int:
           f"test: {goal.test or '(none yet)'}")
     for line in taken:
         print(f"  {line}")
+    if not goal.files and not getattr(goal, "workflow", None):  # 3.4.0.1 (live check, defect 20)
+        print("  no files: a job may edit only the goal's files, so this run stops before its split; name them with "
+              "--file (e.g. --file calc.py --file test_calc.py), or edit goal.json's files")
     print(f"next: halo orchestra status {run_dir.name}")
     return 0
 

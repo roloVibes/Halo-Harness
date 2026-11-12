@@ -1,6 +1,6 @@
 // What each fleet panel is (`about`, one line) and how to use it (`help`, a few short lines); routes/help.ts merges them
 // into HELP. 3.3.16.0 R2 "the Fleet fold": the Fleet section went and three of its panels moved, keeping their ids --
-// Attention (Agents' chip, every view), Activity (Agents -> Live, optional) and Mission (Agents -> Runs, optional). What
+// Attention (Agents' chip, every view), Activity (Agents -> Live, optional) and Mission (Agents -> Live, optional). What
 // People, Costs, Health, Capabilities, the Map, the Tree and the Agent panel said is Live's inspector now (a machine's
 // summary, the agent inspector) and Setup -> Machines; the Ollama panel's lines are Local -> Hosts'.
 import type { Help } from "./help-orchestra";

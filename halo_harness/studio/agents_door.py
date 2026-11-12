@@ -37,6 +37,9 @@ def door_line(word) -> str:
     if not view:
         return ""
     if w == "fleet":
+        from halo_harness.packs import fleet_door
+        if fleet_door.running() is None:  # 3.4.0.1 (live check, defect 29): no Setup -> Machines to point at
+            return f"Fleet is Agents -> Live now (Alt+2 in Studio); the fleet itself is a pack: {fleet_door.line()}"
         return f"Fleet is Agents -> Live now, the fleet scope on (Alt+2 in Studio; halo studio --mode agents). {FLEET_LINE}"
     line = f"{w.title()} is Agents -> {view.title()} now (Alt+2 in Studio; halo studio --mode agents)"
     if w == "orchestra":

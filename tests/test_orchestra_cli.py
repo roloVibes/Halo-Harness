@@ -52,7 +52,19 @@ def test_new_from_flags_writes_the_files(ctx: Ctx):
     ctx.check("the flags landed in goal.json", (g.what, g.done_when, g.stop_when, g.workers, g.test, g.files, g.lineup)
               == ("five functions", "tests pass", "two returns", 3, "python -m unittest", ["basket.py", "README.md"],
                   "standard"))
-    ctx.check(f"output names the run and the next step, got {out!r}", run.name in out and "halo orchestra status" in out)
+    ctx.check(f"output names the run and the next step, got {out!r}", run.name in out and "halo orchestra status" in out
+              and "no files:" not in out)
+    rc, out, err = _run(["new", *FLAGS, "--repo", _repo()])  # 3.4.0.1 defect 20: no --file
+    ctx.check(f"a goal with no files is made, and says it cannot split and what to add, got {out!r}", rc == 0
+              and "no files: a job may edit only the goal's files" in out and "--file" in out)
+    from halo_harness.orchestra.run import goal_units
+    from halo_harness.orchestra.split import StopRun
+    try:
+        goal_units(Path(repo), G.Goal.from_dict({"what": "x", "files": []}))
+        said = ""
+    except StopRun as e:
+        said = str(e)
+    ctx.check(f"its run stops before the lead is asked (no paid call), got {said!r}", said.startswith("the goal names no files"))
 
 
 @test

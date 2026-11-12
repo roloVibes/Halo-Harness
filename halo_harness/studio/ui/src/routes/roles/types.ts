@@ -198,4 +198,5 @@ export type ReplayMeta = { harness: string; session_id: string; title: string; s
 export type ReplayEvent = { t: number; agent_id: string; state: string; activity?: string; tool?: string };
 export type Replay = { meta: ReplayMeta; events: ReplayEvent[]; t: number; t0: number; t1: number; speed: number; playing: boolean };
 
-export type HistoryRun = { session_id?: string; bio?: string; role?: string; status?: string; is_error?: boolean; cost_usd?: number; task?: string; started?: number; finished?: number };
+export type HistoryRun = { session_id?: string; bio?: string; role?: string; status?: string; is_error?: boolean; cost_usd?: number; task?: string; started?: number; finished?: number;
+  part_of?: { kind: "run" | "mission"; id: string } }; // 3.4.0.1: a goal run's or a mission's own session (History folds it)

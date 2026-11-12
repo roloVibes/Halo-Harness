@@ -15,7 +15,9 @@
   display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 2px 4px 2px 10px; font-size: 11.5px;
   color: var(--accent); border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--soft-accent);
 }
-.ag-note-x { width: 22px; height: 22px; }
+.ag-note-x { width: 22px; height: 22px; flex: none; }
+.ag-note { min-width: 0; white-space: nowrap; } /* 3.4.0.1: one line in the 40 px bar, however long; its title has all */
+.ag-note-text { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* the owns line: what a lane writes (its claims), on a plan card and a lane of the Lanes panel */
 .ag-owns { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }

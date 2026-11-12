@@ -26,6 +26,11 @@ export function cost(usd: number | null | undefined): string {
   return v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(4)}`;
 }
 
+/** 3.4.0.1: a harness's spend today (its sessions' records, finished ones too); "+" when a model had no price. */
+export function costToday(h: { cost_today?: number | null; cost_today_complete?: boolean | null }, usd?: number | null): string {
+  return cost(usd ?? h.cost_today) + (h.cost_today_complete === false ? "+" : "");
+}
+
 export function sha(s: string | null | undefined): string {
   return s ? s.slice(0, 10) : "-";
 }

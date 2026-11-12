@@ -199,7 +199,9 @@ The Fleet section's Start view, pair dialog and share / control rows folded in h
 Summary (`?block=machines`, the palette's **Setup: pair a machine**). While only this harness is here the page leads
 with what a fleet is in five lines. Then the **pair card**: **Make a pair code** gives a one-time six-word code, the
 `halo fleet join <url> --code "..."` line for the other machine and its QR (the hub's address and fingerprint);
-**Start the hub here** when none runs (it listens on the LAN port, so Windows asks once about its firewall). Then the
+**Start the hub here** when none runs (it listens on the LAN port; on Windows, when the firewall keeps other machines
+off it, the page says so in one line with the command an administrator runs: FLEET.md "Windows Firewall"). With the
+fleet pack off, Setup has no Machines step and its line reads "Providers, models, permissions, theme and lineup". Then the
 share and control rows (`fleet.share`: status | events | full; `fleet.allow_control`: none | ask | all) and the hubs
 this harness joined. Last, the **People** table: one row per harness (name, host and OS, the Halo version chip with
 "halo update" when it differs, what it shares and lets you do, live / idle / away) with **Forget** (asks first; it

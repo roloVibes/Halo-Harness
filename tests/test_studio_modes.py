@@ -107,7 +107,7 @@ def test_the_shell_has_six_sections_and_opens_each_by_mode(ctx: Ctx):
     with _NoBrowser():
         out = _cmd_studio("fleet url", facade)
     ctx.check(f"/studio fleet url: Agents -> Live on the fleet, its URL and the new door once, got {out!r}", "Agents -> Live, the fleet scope:" in out
-              and "?mode=fleet#t=" in out and out.count("Fleet is Agents -> Live now, the fleet scope on") == 1 and "Setup -> Machines" in out)
+              and "?mode=fleet#t=" in out and out.count("Fleet is Agents -> Live now") == 1 and "the fleet itself is a pack: " in out)
     with _NoBrowser():
         out = _cmd_studio("team url", facade)
     ctx.check(f"/studio team url: Agents -> Live (3.4.0.0 D), its URL and the new door, got {out!r}", "Agents -> Live:" in out and "?mode=team#t=" in out

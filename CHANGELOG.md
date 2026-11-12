@@ -8,6 +8,62 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.4.0.1] - unreleased
+
+What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
+when the firewall is in the way. A tester ran 3.4.0.0 on the Windows PC and the Kali VM, paired through the fleet pack,
+with a mission split across both, and wrote 29 defects; each line below names the one it fixes (the fleet pack is 1.0.1).
+
+- 15: a mission part is `done` only when its work is: the brief asks the worker to end its hand-back with `Outcome: done`
+  or `Outcome: blocked -- <why>`, and a part whose hand-back says it is blocked, or whose named outputs are not in the
+  mission folder, ends `failed` with the reason (the worker decides before it writes `result.json`; the hub checks a
+  member's `done` again). The mission ends "N of M part(s) did not finish: ..." (fleet/mission_outcome.py).
+- 4: `halo recall --fleet` and `/recall --fleet` run with the fleet pack on (they asked the pack for a module that
+  stayed in core); a pack module that does not import says its real error instead of "install the pack".
+- 10, 17, 26: one source of truth for a session's cost, its record (live/session_cost.py): a harness's "today" counts
+  its finished sessions too, on the hub's own machine and on a member (its announce carries its `cost_today`), so the
+  fleet caps and Studio's machine boxes see mission and goal-run spend; a call Halo could not price stays unknown
+  (`$x+`), never $0. History's session costs read the same.
+- 21: a goal run whose split failed counts its lead's calls (split.json keeps them).
+- 18: a mission part's hand-back pushed to the hub has its full local paths cut (home -> `~`, a path -> its last part).
+- 1: `halo studio --no-open` with its output redirected writes its URL lines at once.
+- 12: Halo never opens Windows Firewall, and now says when it is in the way: a hub (and `halo host serve`) on Windows
+  reads the inbound rules (no elevation) and prints one line with the command an administrator runs (remove the
+  `python.exe` Block rules Windows made from a declined prompt, then allow the port); `halo doctor`, Setup -> Machines
+  and `halo fleet serve` say the same; a join that times out says "the hub did not answer on <host>:<port>: on Windows
+  the firewall is the usual cause; on the hub run `halo doctor`" (peers/firewall.py; FLEET.md "Windows Firewall").
+- 13: opening Studio loads and calls no model: the Ollama steward's job started with Studio or the hub reads the logs
+  and runs the rules; its note and a new model's probe run only under `halo ollama steward --watch` or the new
+  `ollama.steward.watch: true`.
+- 14: a plan that needs what only an away member has names it ("X has gpu but is offline (no halo session open
+  there): open one, then plan again"); `halo fleet join` says a member is online only while a halo session runs there.
+- 16: each capability card carries the permission mode a mission part runs in; a part placed where calls that ask are
+  refused gets a note in the plan with what lets them through.
+- 27: `halo fleet leave` after a kick says "it had already removed this harness".
+- 11: `halo fleet status` names a joined hub by the hub's name, not this harness's.
+- 19: a capability card from an older read, or made by another Halo version, shows "(refreshing ...)" and is
+  gathered again.
+- 7: the fleet pack has a `halo doctor` row: whether it runs, the hub here (and the firewall in its way), each joined
+  hub and whether it answers.
+- 2: `halo pack install` / `list` count a pack's CLI verbs, slash commands, doctor rows and Studio server modules (the
+  fleet pack "offered nothing"); an empty `halo pack list` points at `--available`.
+- 3: with the fleet pack installed but off, its verbs say "the fleet pack is installed but off: halo pack enable fleet
+  --grant-all" (not "install it").
+- 5, 6: `halo studio --help` names the fleet pack for `--fleet` and `--mode fleet`; `halo pack --help` lists `cli:<verb>`
+  among the grants.
+- 8, 9: Studio's words name the Mission panel on Agents -> Live and Live's inspector, not the Runs view that went.
+- 20: `halo orchestra new` with no `--file` says a run cannot split without the goal's files; such a run stops before
+  the lead is asked.
+- 22: History folds a goal run's and a mission's own sessions under their row ("3 sessions inside").
+- 23, 24, 25: the Mission report counts parts per harness ("1 (#2)"), keeps its total whole, and says "nothing to
+  merge (files parts only)".
+- 28, 29: with the fleet pack off, Setup's line names no machines, and `?mode=fleet` / `halo studio --mode fleet` say
+  the pack's line instead of pointing at Setup -> Machines.
+- Tests: `test_studio_local_hf` (two servers: the driver's fallback click started a second one after a first start had
+  answered; it now waits for Start's answer and checks one server started) and `test_bundle_reserve` (one route call
+  timing out under load marked the host down for 30 s, so every read after it had no card; the readiness wait clears
+  the mark its own probe set).
+
 ## [3.4.0.0] - 2026-11-11
 
 **Halo is defined by its core, everything else ships as a pack, and Agents opens on the living canvas.** The core is what it was built around: the agent loop and its tools, permissions and

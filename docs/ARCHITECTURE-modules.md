@@ -88,7 +88,8 @@ this list against the tree.
   `peers/control_models.py`, `peers/control_pulls.py`, `peers/control_probes.py`
 - this harness: `peers/local_view.py`, `peers/agent_tokens.py` (each agent row's own tokens, from its transcript),
   `peers/capabilities_host.py` (the hardware), `peers/catalog.py` (the capability catalog's cache), `peers/needs.py`
-  (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in)
+  (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in),
+  `peers/firewall.py` (3.4.0.1: whether Windows Firewall lets other machines reach a port Halo listens on, read-only)
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live, out of the old fleet/):
 
@@ -98,6 +99,8 @@ this list against the tree.
   decisions), `live/pack_attention.py` (a pack's own rows, 3.2.0.0 R3), `live/steward_attention.py`
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
+- `live/session_cost.py` (3.4.0.1: a session's spend from its record, and today's), `live/history_owner.py` (3.4.0.1:
+  which past sessions are a goal run's or a mission's own)
 
 **The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
 harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who

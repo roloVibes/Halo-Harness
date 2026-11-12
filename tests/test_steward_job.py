@@ -161,7 +161,7 @@ def test_the_watch_thread_wakes_the_timer(ctx: Ctx):
 @test
 def test_status_prints_where_since_the_last_run_and_the_last_note(ctx: Ctx):
     from halo_harness.ollama_steward.cli_steward import cmd_ollama_steward
-    with Home() as h:
+    with Home(extra={"ollama": {"steward": {"watch": True}}}) as h:  # 3.4.0.1: the owner turned its watching on
         _small_window(h)
         job = _job(h, where="hub", model=("ol:qwen3.5:9b", "ollama.steward.model"),
                    caller=lambda *a, **k: {"text": "The 27B on pc needed a larger window.\nIt now gets 65,536.",

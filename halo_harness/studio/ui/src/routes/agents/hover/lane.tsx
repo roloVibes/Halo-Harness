@@ -25,7 +25,7 @@ export function LaneHover({ run, lane }: { run: string; lane: number | undefined
       ["Cost", spent(data.run.cost_usd)],
       ["Done when", goal.done_when],
     ];
-    return <HoverBody title="lead" is={goal.what} rows={rows} foot="Click: the run in Agents -> Runs" />;
+    return <HoverBody title="lead" is={goal.what} rows={rows} foot="Click: the run in Live's inspector" />;
   }
   const l = data.lanes.find((x) => x.lane === lane);
   if (!l) return null;
@@ -41,7 +41,7 @@ export function LaneHover({ run, lane }: { run: string; lane: number | undefined
     ["Waits for", after.length ? after.join(", ") : ""],
     ["Cost", spent(l.cost_usd)],
   ];
-  return <HoverBody title={`lane ${l.lane}`} is={l.title || owns.join(", ")} rows={rows} foot="Click: this lane in Agents -> Runs" />;
+  return <HoverBody title={`lane ${l.lane}`} is={l.title || owns.join(", ")} rows={rows} foot="Click: this lane in Live's inspector" />;
 }
 
 export function PartHover({ pid }: { pid: string }) {

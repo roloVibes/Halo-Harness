@@ -94,7 +94,7 @@ def test_on_the_verb_the_slash_the_check_row_and_the_panel_work(ctx: Ctx):
                   entry.get("routes") == {"prefix": "start", "api": "api/packs/first-run/start", "granted": True})
         h.cli("disable", "first-run")
         rc, _out, err = _main(["start"], h.repo)
-        ctx.check(f"disabled: the one line again, got {rc} {err!r}", rc == 2 and "halo pack install first-run" in err)
+        ctx.check(f"disabled: one line, installed but off (3.4.0.1), got {rc} {err!r}", rc == 2 and "halo pack enable first-run --grant-all" in err and "pack install" not in err)
 
 
 @test

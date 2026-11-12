@@ -119,21 +119,19 @@ def sessions(list_live: Optional[Callable] = None) -> list:
     return sorted(rows, key=lambda r: (r.get("started") or 0, r.get("session_id") or ""))
 
 
-def today_cost(rows: list) -> float:
-    day = time.strftime("%Y-%m-%d")
-    total = 0.0
-    for r in rows:
-        cost, started = r.get("cost_usd"), r.get("started")
-        if isinstance(cost, (int, float)) and isinstance(started, (int, float)) \
-                and time.strftime("%Y-%m-%d", time.localtime(started)) == day:
-            total += float(cost)
-    return round(total, 6)
+def today_fields(home_dir=None) -> dict:
+    """3.4.0.1 (defects 10, 17, 26): today's spend of this harness from its sessions' records, finished ones too
+    (live/session_cost.py); `cost_today` is the priced part, `cost_today_unknown` the models with no price."""
+    from halo_harness.live.session_cost import today
+    got = today(home_dir)
+    return {"cost_today": got["usd"], "cost_today_complete": got["complete"], "cost_today_unknown": got["unknown"],
+            "sessions_today": got["sessions"]}
 
 
 def harness_entry(rows: list, home_dir=None) -> dict:
     """The local harness as a member of its own hub: Studio's direct path, the owner's own controls."""
     return {**identity.harness(home_dir), "local": True, "share": "full", "allow_control": "all",
-            "allow_answers": True, "online": True, "last_seen": time.time(), "cost_today": today_cost(rows),
+            "allow_answers": True, "online": True, "last_seen": time.time(), **today_fields(home_dir),
             "version_mismatch": False, "sessions": rows}
 
 

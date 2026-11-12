@@ -105,7 +105,7 @@ class HubServer:
         self.server = _Server((self.bind, self.port), self, ctx)
         self.port = self.server.server_address[1]
         self.state.serving = {"port": self.port, "bind": self.bind, "tls": ctx is not None,
-                              "fingerprint": self.fingerprint, "url": self.url()}
+                              "fingerprint": self.fingerprint, "url": self.url(), "firewall": self.firewall()}
         threading.Thread(target=self.server.serve_forever, name="halo-fleet-hub", daemon=True).start()
         threading.Thread(target=self._tick, name="halo-fleet-hub-tick", daemon=True).start()
         if self.record:
@@ -116,6 +116,16 @@ class HubServer:
             except Exception:
                 self.steward_job = None
         return self
+
+    def firewall(self) -> str:
+        """3.4.0.1 (defect 12): on Windows, the one line when its firewall keeps other machines off this port, else ""
+        (read-only: peers/firewall.py reads the rules; Halo never changes one)."""
+        if self.bind.startswith("127.") or self.bind == "localhost":
+            return ""
+        try:
+            return _core.get("peers.firewall", "line")(self.port, "the fleet hub")
+        except Exception:
+            return ""
 
     def _tick(self) -> None:
         while not self.stopping.wait(TICK_S):

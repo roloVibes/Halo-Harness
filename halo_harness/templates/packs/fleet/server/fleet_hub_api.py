@@ -78,12 +78,13 @@ def start_for_flag(server, state_dir) -> str:
     except (FleetOffline, OSError, RuntimeError) as e:
         return f"Fleet hub: not started ({e})."
     how = f"TLS, fingerprint {tls.short(hub.fingerprint)}" if hub.fingerprint else "HMAC-signed HTTP, no TLS"
-    return f"Fleet hub at {hub.url()} ({how}); `halo fleet pair` makes a code for another harness."
+    return (f"Fleet hub at {hub.url()} ({how}); `halo fleet pair` makes a code for another harness."  # 3.4.0.1: + the firewall
+            + (f"\n{wall}" if (wall := hub.state.serving.get("firewall")) else ""))
 
 
 def _info(hub) -> dict:
     return {"serving": True, "name": hub.name, "url": hub.url(), "port": hub.port, "bind": hub.bind,
-            "tls": bool(hub.fingerprint), "fingerprint": hub.fingerprint}
+            "tls": bool(hub.fingerprint), "fingerprint": hub.fingerprint, "firewall": hub.state.serving.get("firewall") or ""}
 
 
 def view_for(server, state_dir) -> dict:

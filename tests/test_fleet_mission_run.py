@@ -139,6 +139,42 @@ def test_none_refuses_and_the_dependants_are_skipped(ctx: Ctx):
 
 
 @test
+def test_a_blocked_part_is_not_done(ctx: Ctx):
+    """3.4.0.1 defect 15: the worker exited cleanly but handed back "blocked" and left no output: the part fails, its
+    dependant is skipped, and the mission ends failed saying how many parts did not finish."""
+    from halo_harness.fleet import mission_store as S
+    from halo_harness.fleet.mission_outcome import verdict
+    from tests.helpers.fleet_hub_rig import HubRig
+    from tests.helpers.mission_seed import fleet, mission_ctx, reset_fakes, wait_state
+    script = {"1": {"writes": [], "cost": 0.03, "text": "nmap was refused in C:\\Users\\bob\\.halo\\fleet\\missions\\m\\artifacts\\1 "
+                    "and /home/bob/scan.\n\n**Outcome:** blocked -- nmap refused"},
+              "2": {"writes": ["artifacts/2/findings.xlsx"], "cost": 0.07}}
+    with HubRig() as rig:
+        fleet(rig, **{"fleet.allow_control": "all"})
+        A, mctx = mission_ctx(rig, "", script, [])
+        mid = _new(A, mctx)
+        A.run(mctx, mid)
+        doc = wait_state(rig.home_a, mid, ("done", "failed", "stopped"), 60)
+        p1, p2 = doc["parts"]["1"], doc["parts"]["2"]
+        ctx.check(f"part 1 failed with the reason, got {p1['state']} {p1.get('error')!r}", p1["state"] == "failed"
+                  and "artifacts/1/scan.xml" in str(p1.get("error")) and "blocked -- nmap refused" in str(p1.get("error")))
+        res = json.loads(S.read_text(S.folder(rig.home_a, mid), "parts/1/result.json") or "{}")
+        ctx.check(f"the worker's own result says failed, got {res.get('state')} ok={res.get('ok')}",
+                  res.get("state") == "failed" and res.get("ok") is False)
+        hb = S.read_text(S.folder(rig.home_a, mid), "parts/1/handback.md") or ""
+        ctx.check(f"defect 18: the hand-back pushed to the hub names no full local path, got {hb!r}",
+                  "nmap was refused in 1 and scan" in hb and "Users" not in hb and "/home/" not in hb)
+        ctx.check(f"part 2 skipped, the mission failed with the count, got {p2['state']} {doc['state']} {doc.get('stop_reason')!r}",
+                  p2["state"] == "skipped" and doc["state"] == "failed"
+                  and str(doc.get("stop_reason")).startswith("2 of 2 part(s) did not finish: part 1 failed"))
+        reset_fakes()
+    ctx.check("an Outcome: done line with its output is done", verdict("ok\nOutcome: done", None, [], "files") is None)
+    ctx.check("'the part is blocked' with no Outcome line is not done",
+              "the part is blocked" in str(verdict("The part is blocked, not done.", None, [], "files")).lower())
+    ctx.check("an orchestra part keeps its run's verdict", verdict("Outcome: blocked", None, ["x"], "orchestra") is None)
+
+
+@test
 def test_stop_reaches_a_member_part_and_a_shared_dir_is_not_mirrored(ctx: Ctx):
     from halo_harness.config.paths import bridge_home
     from halo_harness.fleet import mission_store as S

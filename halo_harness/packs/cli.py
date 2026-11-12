@@ -7,7 +7,7 @@
                                                       copy it into ~/.halo/packs/<id>/ (or .halo/packs/<id>/), disabled;
                                                       --link: the folder itself, read in place (3.3.12.0 R4, packs/link.py)
     halo pack enable <id> [--grant NAME ...] [--grant-all] [--json]
-                                                      turn it on; grant what it requests (mcp:<server>, hooks, bash, network, home-write, services)
+                                                      turn it on; grant what it requests (cli:<verb>, mcp:<server>, hooks, bash, network, home-write, services, doctor, studio-routes, ...)
     halo pack grant <id> NAME [NAME ...] [--off] [--json]
                                                       give an enabled pack more of what it requests, or take grants back (--off)
     halo pack disable <id> [--json]                   nothing of it runs from now on; its files stay
@@ -150,7 +150,7 @@ def _list(args, cwd) -> int:
     if args.json:
         print(json.dumps({"packs": rows, **({"available": more} if more is not None else {})}, indent=2, ensure_ascii=False))
     else:
-        print("\n".join(CV.list_lines(rows) + (CV.available_lines(more) if more is not None else [])))
+        print("\n".join(CV.list_lines(rows, hint=more is None) + (CV.available_lines(more) if more is not None else [])))
     return 0
 
 

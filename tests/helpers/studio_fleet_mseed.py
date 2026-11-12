@@ -52,7 +52,7 @@ class MissionFakes:
         self.rig, self.held, self.started = rig, [], []
         self.gate = threading.Event()
         A.LEAD, A.JUDGE = FakeLead(answer()), FakeJudge()
-        W.BUILD = worker({"2": {"cost": 0.042, "text": "cover.png rendered"}}, self.started, {"2": self.gate})
+        W.BUILD = worker({"2": {"cost": 0.042, "text": "cover.png rendered", "writes": ["artifacts/2/cover.png"]}}, self.started, {"2": self.gate})
         self._reply = rig.hub.state.commands.reply
         rig.closers.append(self.close)
         if not wait_for(lambda: rig.hub.state.caps.catalogs.get(rig.member_id), 30):

@@ -152,10 +152,10 @@ class HubRelay(threading.Thread):
 
     def _announce(self) -> None:
         pol = control.policy(self.entry)
-        rows = [self._row(a, pol["share"]) for a in self.actives()]
-        reply = self.link.request("POST", protocol.PREFIX + "/announce", protocol.doc(
-            link=self.link_id, harness=identity.harness(), share=pol["share"], allow_control=pol["allow_control"],
-            allow_answers=pol["allow_answers"], sessions=rows, **capabilities.announce_fields(on_change=self.poke)))
+        rows, spent = [self._row(a, pol["share"]) for a in self.actives()], _core.get("peers.local_view", "today_fields")()
+        reply = self.link.request("POST", protocol.PREFIX + "/announce", protocol.doc(  # 3.4.0.1: today from its records
+            link=self.link_id, harness=identity.harness(), **pol, sessions=rows, **spent,
+            **capabilities.announce_fields(on_change=self.poke)))
         self.member_name = reply.get("member_name") or self.member_name
         self._policy = pol
 

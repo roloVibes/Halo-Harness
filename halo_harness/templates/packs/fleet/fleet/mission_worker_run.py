@@ -134,6 +134,8 @@ class WorkerRun(threading.Thread):
         where = (f"Your folder is a git worktree of {self.f['repo']} on branch {self.f['branch']}."
                  if self.f["kind"] == "repo" else f"Your folder is the mission folder; your outputs go in artifacts/{n}/.")
         budget = f"\nKeep this part under ${self.f['budget_usd']:.2f}." if self.f.get("budget_usd") else ""
+        from .mission_outcome import OUTCOME_LINE  # a brief written before 3.4.0.1 does not ask for it
+        budget += "" if "Outcome:" in brief else f"\nEnd your reply with a short hand-back. {OUTCOME_LINE}"
         return f"{brief}\n\n{where}{budget}{self.handoff_line()}\n\n---\n\nMISSION.md (the whole mission, for context):\n\n{mission}"
 
     def handoff_line(self) -> str:
@@ -210,6 +212,10 @@ class WorkerRun(threading.Thread):
         elif self.folder is not None:
             files = [f["path"] for f in S.files(self.folder, f"artifacts/{n}")]
         text = str(out.get("text") or "").strip() or (f"(no reply) {out.get('error') or self.stopped or ''}").strip()
+        if state == "done":  # 3.4.0.1: done means the hand-back says so and the named outputs are here
+            from .mission_outcome import verdict
+            why = verdict(text, self.folder, self.f.get("outputs") or [], self.f["kind"])
+            state, out = ("failed", {**out, "error": why}) if why else (state, out)
         self.result = {"ok": state == "done", "state": state, "cost_usd": round(float(out.get("cost_usd") or 0.0), 6),
                        "error": None if state == "done" else (self.stopped or out.get("error") or "the part failed"),
                        "session_id": out.get("session_id") or getattr(getattr(self.session, "log", None), "session_id", None),
@@ -218,6 +224,9 @@ class WorkerRun(threading.Thread):
                        "refused": list(getattr(self.guard, "refused", []))[:50]}
         if self.run_id:
             self.result.update(run_id=self.run_id, run_kind=self.f["kind"])
+        if self.mode != "local":  # 3.4.0.1 (defect 18): what leaves this machine names no full local path
+            text, self.result["error"] = (_core.get("peers.catalog", "scrub")(x, (str(_core.get("config.paths", "home")()), str(self.home)))
+                                          for x in (text, self.result["error"]))
         if self.folder is not None:
             S.write_text(self.folder, f"parts/{n}/handback.md", f"# Part {n} hand-back ({state})\n\n{text}\n")
             S.write_text(self.folder, f"parts/{n}/result.json", json.dumps(self.result, indent=2))

@@ -84,8 +84,9 @@ def brief_md(doc: dict, plan: dict, part: dict) -> str:
     if part.get("depends_on"):
         lines += ["## Before you", "", "Parts " + ", ".join(part["depends_on"]) + " finished before you started; "
                   "their outputs are under `artifacts/<part>/` and their notes in `parts/<part>/handback.md`.", ""]
+    from .mission_outcome import OUTCOME_LINE
     lines += ["End your reply with a short hand-back: what you did, the files you changed or made, and anything the "
-              "owner should know.", ""]
+              "owner should know. " + OUTCOME_LINE, ""]
     return "\n".join(lines)
 
 

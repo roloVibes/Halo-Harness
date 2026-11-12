@@ -46,6 +46,9 @@ from tests.test_packs_fleet_missions import LINE, _install_on_b, _packs  # noqa:
 TOOLS_ROW = {"ref": "or:anthropic/claude-sonnet-4.6", "provider": "openrouter", "tools": True}
 
 
+WRITES = {p: {"writes": [f"artifacts/{p}/review-{p}.md"]} for p in "1234"}  # 3.4.0.1: a part leaves its named output
+
+
 def _part(pid: str, needs: list, **kw) -> dict:
     return {"id": pid, "title": f"Review set {pid}", "brief": f"Review the docs of set {pid}.", "kind": "files",
             "needs": needs, "outputs": [f"review-{pid}.md"], "est_cost_usd": 0.1, **kw}
@@ -71,7 +74,7 @@ def test_capacity_two_runs_two_then_the_third(ctx: Ctx):
         started, holds = [], {p: gate() for p in "123"}
         A.LEAD = FakeLead(json.dumps({"parts": [_part("1", ["docs.review"]), _part("2", ["docs.review"]),
                                                 _part("3", ["docs.review"]), _part("4", [])], "merge_order": []}))
-        W.BUILD = worker({}, started, holds)
+        W.BUILD = worker(WRITES, started, holds)
         try:
             mctx = A.Ctx(h.state, None, by="me")
             status, body = A.create(mctx, {"goal": "Review four sets of docs", "repo": False})
@@ -133,7 +136,7 @@ def test_a_refused_part_moves_once_to_a_harness_that_has_it(ctx: Ctx):
         answer = json.dumps({"parts": [_part("1", ["docs.review"], harness="bob@member", reason="the lead's pick"),
                                        _part("2", [], harness="alice@hub", depends_on=["1"])], "merge_order": []})
         started: list = []
-        A, mctx = mission_ctx(rig, answer, {}, started)
+        A, mctx = mission_ctx(rig, answer, WRITES, started)
         try:
             _replan_runs(ctx, rig, A, mctx, started)
         finally:

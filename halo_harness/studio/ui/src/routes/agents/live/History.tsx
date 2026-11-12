@@ -36,7 +36,8 @@ export function HistoryButton() {
 
 function Row({ r }: { r: HistoryRow }) {
   const models = r.models?.length ? `on ${r.models.map((m) => m.replace(/^[a-z]+:/, "").split("/").pop()).join(", ")}` : "";
-  const facts = [KIND[r.kind], ago(r.when), r.secs ? took(r.secs) : "", r.cost != null ? cost(r.cost) : "", r.how, models].filter(Boolean).join(" · ");
+  const facts = [KIND[r.kind], ago(r.when), r.secs ? took(r.secs) : "", r.cost != null ? cost(r.cost) : "", r.how, models,
+                 r.inside ? `${r.inside} session${r.inside === 1 ? "" : "s"} inside` : ""].filter(Boolean).join(" · ");
   const go = () => (r.kind === "run" ? void openReport(r.id) : void openLiveReplay(r.kind, r.id, r.what).then((ok) => ok && toggleHistory(false)));
   return (
     <button className="lh-row" data-density="row" onClick={go} data-testid="live-history-row" data-kind={r.kind} data-id={r.id} title={`${r.what}\n${facts}\n${r.kind === "run" ? "A click opens its report (Replay is on it)" : "A click opens it as a replay"}`}>

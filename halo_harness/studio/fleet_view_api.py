@@ -48,7 +48,7 @@ def get_fleet(req):
     """The view, and `fleet_pack`: whether the pack runs here (Studio shows its Fleet doors only then)."""
     pack = _pack(req.cwd, req.state_dir)
     view = pack.view_for(req.server, req.state_dir) if pack is not None else view_for(req.server, req.state_dir)
-    return 200, {**view, "fleet_pack": pack is not None}
+    return 200, {**view, "fleet_pack": pack is not None, **({} if pack is not None else {"fleet_line": _line()})}  # 3.4.0.1
 
 
 def _local(hid: str) -> bool:

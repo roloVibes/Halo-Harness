@@ -761,9 +761,8 @@ def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.recall import search
     query = (args or "").strip()
     if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
-        from halo_harness.packs import fleet_door  # 3.4.0.0 C: the fleet pack's
-        got = fleet_door.call("fleet/recall_fleet.py", "fleet_text", query[len("--fleet"):])
-        return got if got is not None else f"/recall --fleet: {fleet_door.line()}"
+        from halo_harness.recall_fleet import fleet_text  # 3.4.0.1 (defect 4): core; it says the line with the pack off
+        return fleet_text(query[len("--fleet"):])
     if not query:
         return ("/recall <query> -- semantic search over memory topics and past sessions "
                 "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)")

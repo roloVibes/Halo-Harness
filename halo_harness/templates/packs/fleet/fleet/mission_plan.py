@@ -122,15 +122,17 @@ def prompt(doc: dict, entries: list, load: dict, problems: Optional[list] = None
     return text
 
 
-def finalize(parts: list, order: list, entries: list, prefer: list, load: dict) -> "tuple[list, list]":
+def finalize(parts: list, order: list, entries: list, prefer: list, load: dict, away: list = ()) -> "tuple[list, list]":
     for p in parts:
-        assign(p, entries, prefer, load)
+        assign(p, entries, prefer, load, away)
     notes = sequence(parts, order)
     for p in parts:
         if p.get("pinned"):
             notes.append(f"part {p['id']} is pinned to {p.get('harness_name')}: {p.get('reason')}")
         elif p.get("unassignable"):
             notes.append(f"part {p['id']} is unassignable: {p['unassignable']}")
+        if p.get("mode_note"):  # 3.4.0.1 (defect 16): said at planning time, per part
+            notes.append(f"part {p['id']}: {p['mode_note']}")
     return parts, notes
 
 
@@ -161,7 +163,7 @@ def _commit(home, mid: str, plan: dict, by: str, why: str, cost: float = 0.0) ->
     return doc
 
 
-def plan(home, mid: str, entries: list, *, call_model: Optional[Callable] = None, load: Optional[dict] = None,
+def plan(home, mid: str, entries: list, away: list = (), *, call_model: Optional[Callable] = None, load: Optional[dict] = None,
          prefer: Optional[list] = None, by: str = "") -> dict:
     """Ask the lead (retry once), check, assign, write. Returns the plan; MissionError (422) when both answers fail."""
     doc = S.need(home, mid)
@@ -185,7 +187,7 @@ def plan(home, mid: str, entries: list, *, call_model: Optional[Callable] = None
         S.update(home, mid, lambda d: d.update(plan_cost_usd=round(float(d.get("plan_cost_usd") or 0) + cost, 6),
                                                plan_problems=problems))
         raise M.MissionError("the lead's plan failed the check twice: " + "; ".join(problems), 422)
-    parts, notes = finalize(parts, order, entries, prefer, load)
+    parts, notes = finalize(parts, order, entries, prefer, load, away)
     result = {"v": 1, "mission": mid, "created": time.time(), "attempts": attempt, "lead_cost_usd": round(cost, 6),
               "lead_sessions": sessions, "parts": parts, "merge_order": merge_order(parts, order), "notes": notes,
               "harnesses": [{"harness": e.get("harness"), "name": e.get("name"), "local": bool(e.get("local"))}

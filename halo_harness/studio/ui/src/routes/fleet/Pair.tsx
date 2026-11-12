@@ -69,7 +69,7 @@ export function PairCard() {
               <div className="fp-nohub">
                 <span>No hub runs here yet: the code waits for one.</span>
                 <Button size="sm" onClick={() => void startHub().then((ok) => { if (ok) void make(); })}>Start the hub here</Button>
-                <span className="muted">It listens on the LAN port; Windows asks once about its firewall.</span>
+                <span className="muted">It listens on the LAN port. On Windows the firewall may keep other machines off it: this page says so, with the command to run.</span>
               </div>
             )}
           </div>

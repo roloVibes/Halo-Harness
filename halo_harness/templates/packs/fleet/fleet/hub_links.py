@@ -64,6 +64,7 @@ class Member:
         self.online = False
         self.last_seen: Optional[float] = None
         self._costs: dict = {}  # (day, session id) -> cost so far today
+        self.reported: dict = {}  # 3.4.0.1: {day, usd, sessions, unknown} the member's announce said (its records)
         self.caps: dict = {}  # 3.0.6.0 R6: {hash, summary} from its last announce
 
     @property
@@ -97,8 +98,13 @@ class Member:
                     rows.append(row)
         return sorted(rows, key=lambda r: (r.get("started") or 0, r.get("session_id") or ""))
 
-    def note_costs(self, rows: list) -> None:
+    def note_costs(self, rows: list, body: Optional[dict] = None) -> None:
         day = time.strftime("%Y-%m-%d")
+        said = (body or {}).get("cost_today")  # 3.4.0.1: the member's own records (finished sessions too)
+        if isinstance(said, (int, float)) and not isinstance(said, bool) and said >= 0:
+            unknown = (body or {}).get("cost_today_unknown")
+            self.reported = {"day": day, "usd": round(float(said), 6), "sessions": (body or {}).get("sessions_today"),
+                             "unknown": [str(x)[:120] for x in unknown[:20]] if isinstance(unknown, list) else []}
         for r in rows:
             cost = r.get("cost_usd")
             started = r.get("started")
@@ -109,7 +115,15 @@ class Member:
 
     def cost_today(self) -> float:
         day = time.strftime("%Y-%m-%d")
-        return round(sum(v for (d, _sid), v in self._costs.items() if d == day), 6)
+        seen = round(sum(v for (d, _sid), v in self._costs.items() if d == day), 6)
+        said = self.reported if self.reported.get("day") == day else {}
+        return max(seen, said.get("usd") or 0.0) if said else seen  # an older member says nothing: what the hub saw
+
+    def today_fields(self) -> dict:
+        said = self.reported if self.reported.get("day") == time.strftime("%Y-%m-%d") else {}
+        return {"cost_today": self.cost_today(), "cost_today_complete": not said.get("unknown"),
+                "cost_today_unknown": list(said.get("unknown") or []),
+                "sessions_today": said.get("sessions") if isinstance(said.get("sessions"), int) else None}
 
     def close(self) -> None:
         for lk in self.links.values():
@@ -120,7 +134,7 @@ class Member:
         return {"id": self.id, "name": self.name, "host": h.get("host"), "user": h.get("user"),
                 "version": h.get("version"), "os": h.get("os"), "share": self.share,
                 "allow_control": self.allow_control, "allow_answers": self.allow_answers, "online": self.online,
-                "last_seen": self.last_seen, "cost_today": self.cost_today(), "local": False,
+                "last_seen": self.last_seen, **self.today_fields(), "local": False,
                 "version_mismatch": bool(h.get("version")) and h.get("version") != hub_version,
                 "paired_at": self.record.get("paired_at"), "capabilities_hash": self.caps.get("hash"),
                 "capabilities_summary": self.caps.get("summary"), "sessions": self.sessions()}

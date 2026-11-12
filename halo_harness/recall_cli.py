@@ -88,9 +88,9 @@ def _parse(argv: list) -> dict:
 
 
 def _fleet(a: dict) -> int:
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: recall across the fleet is the fleet pack's
-    RF = fleet_door.module("fleet/recall_fleet.py")
-    if RF is None:
+    from halo_harness.packs import fleet_door  # 3.4.0.0 C: recall across the fleet needs the fleet pack
+    from halo_harness import recall_fleet as RF  # 3.4.0.1 (defect 4): the asking side stayed core
+    if fleet_door.running() is None:
         print(f"halo recall --fleet: {fleet_door.line()}", file=sys.stderr)
         return 2
     if not a["query"]:

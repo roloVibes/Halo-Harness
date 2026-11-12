@@ -214,8 +214,8 @@ tab shows; **Dismiss** sets it to now. The palette's **Agents: while you were aw
 
 Setup's **Machines** page (the step before Summary) is where a machine joins: the **pair card** (a one-time six-word
 code, the `halo fleet join <url> --code "..."` line for the other machine and its QR, which carries the hub's address
-and fingerprint; **Start the hub here** when none runs: it listens on the LAN port, so Windows asks once about its
-firewall); the share and control rows (`fleet.share`: status | events | full; `fleet.allow_control`: none | ask | all);
+and fingerprint; **Start the hub here** when none runs: it listens on the LAN port; on Windows, when the firewall keeps other machines
+off it, the page says so in one line with the command an administrator runs: FLEET.md "Windows Firewall"); the share and control rows (`fleet.share`: status | events | full; `fleet.allow_control`: none | ask | all);
 the hubs this harness joined; and the **People** table, one row per harness with its Halo version chip, what it shares,
 and **Forget** (asks first; it pairs again with a new code). While only this harness is here the page leads with what a
 fleet is in five lines. Setup's Summary has a Machines line ([STUDIO-setup.md](STUDIO-setup.md)).

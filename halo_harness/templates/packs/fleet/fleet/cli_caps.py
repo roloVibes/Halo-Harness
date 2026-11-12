@@ -82,6 +82,7 @@ def spec_text(rows: list, *, tools: bool = False) -> str:
     for r in rows:
         if r.get("catalog"):
             out += spec_lines(r["catalog"], tools=tools, name=r.get("name"))
+            out += [f"  ({r['note']})"] if r.get("note") else []  # 3.4.0.1 (defect 19): refreshing
         else:
             out.append(f"{r.get('name')}  {r.get('summary') or ''}".rstrip())
             out.append(f"  {r.get('note') or 'no catalog yet'}")

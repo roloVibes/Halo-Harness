@@ -21,8 +21,12 @@ and `install --link` are the pack kit's ([COMMANDS-packs-kit.md](COMMANDS-packs-
 
 One line per pack here: id, version, state (`enabled`, `enabled, not
 running`, `disabled`, `not installed (found in place)`), scope (`project` or
-`user`), source and what it offers (bios, lineups, agents, skills,
-commands, MCP servers, hook events). `--json` prints `{"packs": [...]}`.
+`user`), source and what it offers (3.4.0.1: CLI verbs, slash commands,
+doctor rows and Studio server modules first, then bios, lineups, agents,
+skills, commands, MCP servers, hook events: the fleet pack offers "2 CLI
+verbs, 2 slash commands, 1 doctor row, 5 Studio server modules"). `--json`
+prints `{"packs": [...]}`. With no pack here it says so and that the packs
+Halo ships are listed by `halo pack list --available`.
 
 ```sh
 halo pack list --json

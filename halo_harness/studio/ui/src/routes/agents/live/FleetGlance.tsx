@@ -5,7 +5,7 @@
 // inspector). The Fleet section's People, Costs and Tree panels drew these before.
 import { useMemo, type ReactNode } from "react";
 import { Button } from "../../../lib/ui";
-import { cost } from "../../orchestra/format";
+import { cost, costToday } from "../../orchestra/format";
 import { balanceLines, Reached, Ticker, useCosts } from "../../fleet/Costs";
 import { DigestCard } from "../../fleet/Digest";
 import { presence } from "../../fleet/People";
@@ -56,7 +56,7 @@ export function FleetGlance() {
           <li key={h.id} className="ri-row" data-density="row" data-testid="live-glance-machine" data-harness={h.id}>
             <button className="ri-row-main" onClick={() => pickLive("machine", h.id)} title="Its summary: who, what it shares, its health, specs and spend">
               <span className="ri-row-title"><span className="fpe-dot" data-presence={presence(h, now)} aria-hidden="true" /> {h.name || h.id.slice(0, 8)}</span>
-              <span className="ri-row-state mono">{h.local ? "this halo" : presence(h, now)} · {cost(costs?.harnesses.find((x) => x.id === h.id)?.usd ?? h.cost_today)}</span>
+              <span className="ri-row-state mono">{h.local ? "this halo" : presence(h, now)} · {costToday(h, costs?.harnesses.find((x) => x.id === h.id)?.usd)}</span>
             </button>
             <Button size="sm" variant="ghost" onClick={() => pickLive("machine", h.id)} aria-label={`Open ${h.name || h.id}`}>Open</Button>
           </li>

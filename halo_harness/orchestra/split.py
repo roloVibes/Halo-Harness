@@ -203,11 +203,11 @@ def split_goal(run_dir, goal, units: list, *, call_model: Callable, base: str = 
     cost = 0.0
     sessions: list = []
     problems: list = []
-    data = None
     for attempt in (1, 2):
         text, spent, sid = _call(call_model, split_prompt(goal, units, problems if attempt == 2 else None))
         cost += spent
-        sessions += [sid] if sid else []
+        sessions += [sid] if sid else []  # 3.4.0.1 (defect 21): a split that fails still counts the lead's calls
+        jsonl.write_json(run_dir / "split.json", {"base": base, "lead_cost_usd": round(cost, 6), "lead_sessions": sessions, "jobs": []})
         data = parse_answer(text)
         if isinstance(data, dict) and str(data.get("stop") or "").strip():
             raise StopRun(f"the lead stopped the run: {str(data['stop']).strip()}")

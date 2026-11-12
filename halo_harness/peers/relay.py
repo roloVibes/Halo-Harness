@@ -61,6 +61,14 @@ def format_url(scheme: str, host: str, port: int) -> str:
     return f"{scheme}://{'[' + host + ']' if ':' in host else host}:{port}"
 
 
+def unreached(host: str, port: int, e: BaseException) -> "HubError":
+    """3.4.0.1 (defect 12): a hub that never answers names the usual cause (peers/firewall.py JOIN_TIMEOUT)."""
+    if isinstance(e, (socket.timeout, TimeoutError)) or "timed out" in str(e).lower():
+        from halo_harness.peers.firewall import JOIN_TIMEOUT
+        return HubError(JOIN_TIMEOUT.format(host=host, port=port))
+    return HubError(f"cannot reach the hub at {host}:{port}: {e}")
+
+
 def _check_offline() -> None:
     if identity.offline():
         raise HubError("offline mode is on (--offline or network.offline): the fleet relay does not connect")
@@ -88,7 +96,7 @@ def detect_scheme(host: str, port: int, timeout: float = 5.0) -> str:
         conn.getresponse().read()
         return "http"
     except (ConnectionRefusedError, socket.timeout, TimeoutError, socket.gaierror) as e:
-        raise HubError(f"cannot reach the hub at {host}:{port}: {e}") from None
+        raise unreached(host, port, e) from None
     except (OSError, http.client.HTTPException):
         return "https"
     finally:
@@ -125,7 +133,7 @@ def join(url: str, code: str, harness: dict, *, share: Optional[str] = None, all
     except tls.PinMismatch as e:
         raise HubError(str(e)) from None
     except (OSError, http.client.HTTPException) as e:
-        raise HubError(f"cannot reach the hub at {host}:{port}: {e}") from None
+        raise unreached(host, port, e) from None
     reply = _decode(status, data)
     hub = reply.get("hub") if isinstance(reply.get("hub"), dict) else {}
     b, fp = str(reply.get("b") or ""), str(hub.get("fingerprint") or "")

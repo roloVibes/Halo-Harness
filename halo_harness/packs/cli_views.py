@@ -30,10 +30,11 @@ def list_rows(snap) -> "list[dict]":
     return rows
 
 
-def list_lines(rows: "list[dict]") -> "list[str]":
+def list_lines(rows: "list[dict]", hint: bool = True) -> "list[str]":
     from halo_harness.packs.offers import summary
     if not rows:
-        return ["No packs here. A pack lives in ~/.halo/packs/<id>/ or .halo/packs/<id>/ (halo pack install <path|git url>)."]
+        return (["No packs here. A pack lives in ~/.halo/packs/<id>/ or .halo/packs/<id>/ (halo pack install <path|git url>)."]
+                + ["Halo ships packs too (fleet, coach, first-run, ...): halo pack list --available shows them."] * hint)  # 3.4.0.1
     width = max(len(r["id"]) for r in rows)
     out = []
     for r in rows:

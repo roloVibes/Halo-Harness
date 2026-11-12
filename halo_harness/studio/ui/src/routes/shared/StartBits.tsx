@@ -9,7 +9,7 @@ export const MACHINES_WHAT: string[] = [
   "Other machines join with a six-word pair code; each one says what it shares and what you may do there.",
   "Live's fleet scope draws every machine, its sessions and their agents; click an agent for its streams.",
   "Steer any agent on any machine: a nudge it reads before its next step, or a new task.",
-  "Their models show in Local, a mission splits one goal across them in Agents -> Runs.",
+  "Their models show in Local, a mission splits one goal across them in the Mission panel on Agents -> Live.",
 ];
 
 /** A Start view's numbered lines. */

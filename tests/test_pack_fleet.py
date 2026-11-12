@@ -77,6 +77,7 @@ def test_off_every_fleet_door_is_one_line_and_studio_shows_this_harness(ctx: Ctx
         ctx.check(f"GET fleet: this harness alone, fleet_pack false, got {status} {sorted(view)}",
                   status == 200 and view.get("fleet_pack") is False and len(view.get("harnesses") or []) == 1
                   and view["harnesses"][0].get("local"))
+        ctx.check(f"3.4.0.1 defect 29: and the CLI's line for Studio's banner, got {view.get('fleet_line')!r}", LINE in str(view.get("fleet_line")))
         status, body = _studio(h, "POST", "fleet/other-harness/s1/command", {"cmd": "steer", "text": "hi"})
         ctx.check(f"a command for another harness: 409 with the line, got {status} {body}", status == 409 and LINE in body["error"])
         status, body = _studio(h, "GET", "fleet/missions")
@@ -96,6 +97,8 @@ def test_on_the_verbs_the_slash_commands_and_the_routes_are_the_packs(ctx: Ctx):
         # the shipped id is the migration test's
         code, out, err = h.cli("install", str(REPO / "halo_harness" / "templates" / "packs" / "fleet"), "--link")
         ctx.check(f"halo pack install <the shipped folder> --link, got {code} {err[-300:]!r}", code == 0)
+        ctx.check(f"3.4.0.1 defect 2: it says what it offers, not 'nothing', got {out!r}",
+                  "it offers: 2 CLI verbs, 2 slash commands, 1 doctor row, 5 Studio server modules" in out)
         code, out, err = h.cli("enable", "fleet", "--grant-all")
         ctx.check(f"enable --grant-all grants cli:fleet and cli:mission, got {out!r}",
                   code == 0 and "cli:fleet" in out and "cli:mission" in out)
@@ -111,9 +114,36 @@ def test_on_the_verbs_the_slash_commands_and_the_routes_are_the_packs(ctx: Ctx):
         status, body = _studio(h, "GET", "fleet/missions")
         ctx.check(f"the pack's mission route answers, got {status}", status == 200 and "missions" in body)
         ctx.check("Settings: the Fleet group is back", "fleet" in [g["id"] for g in catalog_json()["groups"]])
+        rc, out, err = _main(["recall", "--fleet", "test"], h.repo)  # 3.4.0.1 defect 4: it asked the pack for a core module
+        ctx.check(f"halo recall --fleet runs with the pack on (no hub joined: its own error), got {rc} {err!r}",
+                  rc == 3 and "is a pack now" not in err and "pack" not in err.split(":", 1)[-1][:40])
+        from halo_harness.packs.contrib_doctor import rows as doctor_rows  # 3.4.0.1 defect 7: a fleet row in halo doctor
+        doc = [r for r in doctor_rows(h.repo, h.state) if "From packs, fleet:" in r]
+        ctx.check(f"halo doctor: the fleet pack runs, no hub here, no hub joined, got {doc}", len(doc) >= 2
+                  and "the fleet pack runs; no hub runs here" in doc[0] and any("joined no hub" in r for r in doc))
+        said = _slash("recall", h.repo, "--fleet test")
+        ctx.check(f"/recall --fleet: the same, got {said!r}", "is a pack now" not in said and said.startswith("/recall --fleet"))
         h.cli("disable", "fleet")
         rc, _out, err = _main(["fleet"], h.repo)
-        ctx.check(f"disabled: the one line again, got {rc} {err!r}", rc == 2 and LINE in err)
+        ctx.check(f"disabled: one line, installed but off (3.4.0.1 defect 3), got {rc} {err!r}", rc == 2
+                  and "the fleet pack is installed but off: halo pack enable fleet --grant-all" in err and "install fleet" not in err)
+        rc, _out, err = _main(["recall", "--fleet", "test"], h.repo)
+        ctx.check(f"halo recall --fleet with the pack off: that line, exit 2, got {rc} {err!r}", rc == 2 and "installed but off" in err)
+
+
+@test
+def test_every_door_names_a_module_the_pack_has(ctx: Ctx):
+    """3.4.0.1 defect 4: `halo recall --fleet` asked the door for fleet/recall_fleet.py, which stayed core: the door
+    answered None and the verb said "install the pack" with the pack on."""
+    import re
+    pack = REPO / "halo_harness" / "templates" / "packs" / "fleet"
+    named = set()
+    for p in sorted((REPO / "halo_harness").rglob("*.py")):
+        if "templates" not in p.parts:
+            named |= set(re.findall(r'fleet_door\.(?:module|call)\(\s*"([^"]+)"', p.read_text(encoding="utf-8")))
+    missing = sorted(rel for rel in named if not (pack / rel).is_file())
+    ctx.check(f"the core's doors name {len(named)} pack modules, every one in the pack, missing {missing}",
+              len(named) >= 8 and not missing)
 
 
 @test

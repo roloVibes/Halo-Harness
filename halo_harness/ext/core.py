@@ -52,6 +52,10 @@ REACHABLE = (
     # 3.4.0.0 D: the capability checker is core again (a pack workflow's `requires` and a pack's capability rows are
     # checked with the fleet pack off); the fleet pack re-exports it
     "packs.fleet_registry", "peers.needs", "peers.projects",
+    # 3.4.0.1: the firewall check the hub says at start and its doctor row reads (peers/firewall.py)
+    "peers.firewall",
+    # 3.4.0.1: the permission mode a mission part runs in, on the capability card (fleet/capabilities.py)
+    "config.settings",
 )
 
 

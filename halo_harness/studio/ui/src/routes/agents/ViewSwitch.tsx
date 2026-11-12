@@ -3,7 +3,9 @@
 // 40 px and quiet: nothing on it opens anything on its own. 3.3.16.0 R2: the Attention chip at its right end, in every
 // view (AttentionChip.tsx: the fleet's queue, amber while anything waits on you).
 import type { AgentsView } from "../../lib/agentsDoor";
+import { FLEET_NOTE } from "../../lib/agentsDoor";
 import { useStore } from "../../lib/store";
+import { useFleet } from "../fleet/store";
 import { agents, dismissNote, setAgentsView } from "./store";
 import { AttentionChip } from "./AttentionChip";
 import { LibraryButton } from "./workflows/Library";
@@ -29,10 +31,12 @@ export function ViewSwitch({ view }: { view: AgentsView }) {
 
 function Note() {
   const note = useStore(agents, (s) => s.note);
+  const off = useFleet((s) => (s.loaded && !s.pack ? s.packLine || "the fleet is a pack: halo pack install fleet, then halo pack enable fleet --grant-all" : ""));
   if (!note) return null;
+  const shown = note === FLEET_NOTE && off ? `Fleet: ${off}` : note; // 3.4.0.1 (defect 29): no Setup page to point at with the pack off
   return (
     <span className="ag-note mono" data-testid="agents-team-note">
-      {note}
+      <span className="ag-note-text" title={shown}>{shown}</span>
       <button className="icon-btn ag-note-x" onClick={dismissNote} aria-label="Dismiss" title="Dismiss this line">×</button>
     </span>
   );

@@ -108,6 +108,54 @@ hubs.
    within a few seconds) is announced to the hub. `halo fleet status` shows
    whether each hub answers and sees this harness online.
 
+A member is **online** on the hub while one of its halo sessions runs (a terminal, `halo -p`, a headless session;
+each session process runs the relay). Studio alone does not count: a joined machine with no session open is away,
+and it takes no mission part (3.4.0.1: a plan that needs what only an away member has says so: "X has gpu but is
+offline (no halo session open there): open one, then plan again").
+
+#### Pairing two machines, step by step
+
+What a real two-machine run used (3.4.0.1): Kali as the hub, the Windows PC as a member, and then the PC as the hub.
+
+1. Both machines, once: `halo pack install fleet`, then `halo pack enable fleet --grant-all`.
+2. The hub machine: `halo studio --fleet --no-open` (the hub on `0.0.0.0:7430`, TLS, inside Studio; the lines,
+   Studio's URL first, reach a pipe or a file at once) or, without Studio, `halo fleet serve`. **On Windows**, the
+   hub checks whether Windows Firewall lets other machines reach its port (it reads the rules, it changes none) and,
+   when it does not, prints one line with the command an administrator runs: the same line is in `halo doctor` (the
+   fleet pack's row) and in Studio's Setup -> Machines. See [Windows Firewall](#windows-firewall) below.
+3. The hub: `halo fleet pair` prints six words and the exact join line (`--ttl 30m` for more time; one machine per
+   code).
+4. The other machine: `halo fleet join https://<hub address>:7430 --code "<six words>"` (`--share full` to send
+   the agents' words, `--allow-control all` so the hub's commands and mission parts run without a card: with the
+   default `ask` a command is a card in a terminal, and a mission part has no one to answer it).
+5. Keep a halo session open on the member (a terminal, or `halo -p "..."`) while you watch it or run a mission: the
+   hub sees it online only then.
+6. Watch from the hub: `halo fleet --once`, `halo fleet members`, `halo fleet status`, or Studio -> Agents -> Live
+   with the `fleet` scope (every machine, its sessions and agents); steer a member's agent from Live's inspector.
+7. One goal across both: on the hub, in a repo, `halo mission new "<goal naming what each part needs>" --budget
+   0.5`, `halo mission plan <id>` to see where each part goes (a part on a harness in permission mode `default` is
+   noted: a call that would ask is refused there), `halo mission run <id>`, `halo mission report <id>`.
+8. Done: `halo fleet leave` on the member (or `halo fleet kick <name>` on the hub), `halo studio --stop` on the hub.
+   Pairing again needs a new code.
+
+#### Windows Firewall
+
+Halo never opens Windows Firewall and never asks for elevation. When a Windows machine runs the hub (or `halo host
+serve`), Halo reads the inbound rules (`netsh advfirewall`, no administrator needed) and says, in one line, when
+other machines cannot reach the port, with the exact command an administrator runs and what it does:
+
+- **No rule** allows the port: `New-NetFirewallRule -DisplayName 'Halo fleet hub' -Direction Inbound -Protocol TCP
+  -LocalPort 7430 -Action Allow -Profile Private` (lets machines on your private network reach port 7430).
+- **Block rules** for Halo's python: the first time a program listens, Windows asks whether to allow it; a prompt
+  declined or never seen (it can open behind other windows, or while you are away) becomes two inbound Block rules
+  named `python.exe`, one for TCP and one for UDP, for that python. They block every port that python listens on
+  (the hub, `halo host serve`), and in Windows Firewall a block beats an allow, so they go first:
+  `Get-NetFirewallApplicationFilter -Program '<that python.exe>' | Get-NetFirewallRule | Where-Object {
+  $_.Direction -eq 'Inbound' -and $_.Action -eq 'Block' } | Remove-NetFirewallRule`, then the allow rule above.
+
+A member whose join times out says: "the hub did not answer on <host>:<port>: on Windows the firewall is the usual
+cause; on the hub run `halo doctor`".
+
 ### What each share level sends
 
 `fleet.share` (default `events`; a hub entry's own `share` wins):
@@ -219,7 +267,9 @@ The control sockets, their tokens and endpoints; the pair keys (the
 joiner's in `~/.halo/fleet/keys/`, 0600; the hub's in `members.json`, 0600);
 private sessions; full local paths; permission rules and config; transcripts
 on disk (a hub reads an agent's tail only under `full`, through the
-session); and, under `status`, every word an agent writes. A capability
+session); and, under `status`, every word an agent writes. A mission part's
+hand-back pushed to the hub has its full local paths cut to their last part
+(`~` for a home) the way a catalog's are (3.4.0.1). A capability
 catalog (3.0.6.0 R6) carries names, never a path, a server command or a key
 ([Capabilities](#what-never-leaves-the-machine)).
 
@@ -401,8 +451,10 @@ the queue in Studio only.
 
 `fleet.caps.per_harness_usd_per_day`, `fleet.caps.per_project_usd_per_day`
 and `fleet.caps.fleet_usd_per_day` (dollars; unset or `0` is no cap) are
-read on the hub. Today's spend is every session started today, at the cost
-its control socket reports (the same rule as a harness's `cost_today`). When
+read on the hub. Today's spend is every session started today, finished or
+open, read from each session's record (3.4.0.1: the hub's own harness from its
+transcripts, a member's from the `cost_today` its announce carries; a call
+Halo could not price stays unknown, shown as `$x+`, never $0). When
 a cap is reached, the hub pauses the live sessions in its scope (the `pause`
 command with reason `cap`: every agent holds at its next tool boundary, so
 nothing new is spawned) and raises a `cap` row; `a` on it resumes them and
