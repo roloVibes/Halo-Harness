@@ -46,6 +46,8 @@ export function runNodes(data: RunPayload | null): LiveNode[] {
 }
 
 const money = (v: number | null | undefined) => (v ? `$${v >= 1 ? v.toFixed(2) : v.toFixed(4)}` : "$0");
+/** 3.4.1.1 (60): a replay's box before its cost is in the record says so, never $0. */
+const costOf = (n: LiveNode) => (n.costUnknown ? "unknown at this moment" : money(n.cost));
 
 function Row({ k, v, testid }: { k: string; v: string; testid?: string }) {
   return (
@@ -73,9 +75,9 @@ export function RunNodeCard({ b }: { b: LiveBox }) {
            data-state={n.state} data-glow={n.glow || undefined} data-on={on || undefined} title={t ? `Goal run ${run}: ${n.task} (a click: its summary in the inspector)` : undefined} {...hv.props}>
         <div className="rlm-head"><span className="rlm-dot" aria-hidden="true" /><b className="rlm-name">lead</b><span className="og-chip mono rlm-role">goal run</span></div>
         <Row k="GOAL" v={n.task} />
-        <Row k="STATE" v={n.state === "waiting" ? "the plan waits on you" : `running · ${n.current}`} testid="agents-live-lead-state" />
+        <Row k="STATE" v={n.state === "waiting" ? "the plan waits on you" : n.state === "running" ? `running · ${n.current}` : n.state} testid="agents-live-lead-state" />
         <Row k="MODEL" v={n.model ? bare(n.model) : "the lead role's model"} />
-        <Row k="COST" v={money(n.cost)} />
+        <Row k="COST" v={costOf(n)} />
         {n.state === "waiting" && (
           <button type="button" className="og-link mono ag-run-review" data-testid="agents-live-review" title="Open the plan review beside the canvas: edit the lanes, then Approve and run (or Reject)"
                   onClick={(e) => (e.stopPropagation(), reviewPlan())}>Review the plan</button>
@@ -91,9 +93,9 @@ export function RunNodeCard({ b }: { b: LiveBox }) {
         <span className="og-lane-n mono">{n.lane}</span>
         <b className="rlm-name" title={n.task}>{short(n.task || n.name, 40)}</b>
       </div>
-      <Row k="STATE" v={n.current} testid="agents-live-lane-state" />
+      <Row k="STATE" v={n.current || n.state} testid="agents-live-lane-state" />
       <Row k="MODEL" v={n.model ? bare(n.model) : "the worker role's model"} />
-      <Row k="COST" v={money(n.cost)} />
+      <Row k="COST" v={costOf(n)} />
       <Row k="OWNS" v={(n.owns || []).join(", ") || "nothing yet"} testid="lane-owns" />
       <div className="mono muted rlm-line ag-worktree" data-testid="agents-live-worktree" title={n.worktree || "no worktree yet"}>{n.worktree ? `⎇ ${n.worktree}` : "worktree: not yet"}</div>
       <WaitsRow id={n.id} />

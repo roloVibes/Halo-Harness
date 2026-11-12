@@ -133,6 +133,8 @@ def project_of(cwd) -> str:
     `project_key` over remote/fleet_identity.project, so a finished session counts toward the same project's cap."""
     if not cwd:
         return "no project"
+    from halo_harness.live.history_owner import _root_of  # 3.4.1.1 (66): a goal run's worker counts to its run's repo
+    cwd = _root_of(str(cwd))
     from halo_harness.live.caps import project_key
     try:
         from halo_harness.remote.fleet_identity import project

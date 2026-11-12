@@ -1,4 +1,4 @@
-"""halo_harness.permissions_ps -- Read / Edit path rules gate the PowerShell tool's readers and writers (Halo 3.3.14.0
+r"""halo_harness.permissions_ps -- Read / Edit path rules gate the PowerShell tool's readers and writers (Halo 3.3.14.0
 R2, REVIEW #13 PERMS-7; the Bash half is permissions.py `_bash_read_deny_hit` / `_bash_write_deny_hit`).
 
     read_hit(engine, command, action="deny") -> Rule | None    a reader (Get-Content / cat / gc / type, Select-String,

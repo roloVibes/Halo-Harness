@@ -12,7 +12,22 @@ The owner asked for the project to live at `~/Documents/vibes/appDev/Halo-Harnes
 the home directory means the new path. Before a push: `python scripts/prepush.py` (docs/DEVELOPMENT.md "Before you
 push"; plans/WORKER-RULES.md "The pre-push gate").
 
-## WHERE THINGS STAND -- 2026-11-12 (authoritative; every block below is history)
+## WHERE THINGS STAND -- 2026-11-12 afternoon (authoritative; every block below is history)
+
+v3.4.1.0 "Time" is released (2eeea4ab). 3.4.1.1 "Found live, the third pass" -- defects 38-66 of the third two-machine
+check (13 wrong, 6 confusing, 10 cosmetic, each with its test), plus the 3.4.1.0 rounds' open items (servers that
+rebind their port on Linux, Windows pid checks that never read a slow `tasklist` as dead, the `.ts` node tests on a
+node without TypeScript); the fleet pack is 1.0.3 -- is on branch `v3411/found-live-3` (worktree
+`~/hh-3411/found-live-3`), staged and uncommitted, awaiting the coordinator's gate (`python scripts/prepush.py --ui`
+from Git Bash), commit, push and `python scripts/release.py 3.4.1.1` (only when `conclusion == success` for the exact
+HEAD on both runners), then the PC reinstall and `halo --version`. Brief, progress log and hand-back:
+`~/hh-3411/briefs/`. The three live-check findings files: `~/hh-live/briefs/live-3400-findings.md` (defects 1-29),
+`live-3401-recheck-findings.md` (30-37) and `live-3410-findings.md` (38-66). Next, in order: (1) a pack seam for a
+React Studio section so the fleet UI (still in the core bundle, gated on `fleet_pack`) can move; (2) Pack trust
+(signed manifests, the trust prompt), including the owner proof on the fleet pack's command routes; (3) the rest of the
+Focus list (docs consolidation, module packages); (4) themes and the parity audit.
+
+## WHERE THINGS STOOD -- 2026-11-12 morning (history)
 
 v3.4.0.0 "The core" (2026-11-11) and v3.4.0.1 "Found live" (2026-11-12, 7069a05e: 29 defects of the first
 two-machine check) are released. 3.4.1.0 "Time" -- R1 the scrubber and the replay file, R2 compare two runs, R3 the run

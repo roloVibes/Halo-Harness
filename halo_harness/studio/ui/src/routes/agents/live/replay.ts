@@ -8,9 +8,8 @@
 import { api, ApiError } from "../../../lib/api";
 import { createStore, goSection, toast, useStore } from "../../../lib/store";
 import { partState, type View } from "../../fleet/mstore";
-import type { RunPayload } from "../../orchestra/types";
 import type { LiveNode } from "../../roles/liveModel";
-import { runNodes } from "./runLanes";
+import type { GroupTag } from "./groups";
 import type { Plan } from "./planStore";
 import { BLANK, fromNodes, fromSession, nodesAt, type SessionTimeline, type Timeline } from "./timeline";
 
@@ -32,9 +31,14 @@ let timer = 0;
 const num = (v: unknown): number | null => (typeof v === "number" && isFinite(v) ? v : null);
 const str = (v: unknown): string => (v == null ? "" : String(v));
 
-/** A run's lead and lanes as they ended. */
-export function runReplayNodes(data: RunPayload): LiveNode[] {
-  return runNodes({ ...data, live: true }).map((n) => ({ ...n, glow: "" as const, state: n.id.includes(":lane:") ? n.state : str(data.run.state) }));
+/** A goal run's axis (its lead `lead`, its lanes `lane-<n>`) drawn as Live draws a run: the lead's box, the lanes' boxes
+ *  in the run's block. */
+function runDressed(tl: Timeline, run: string, title: string): Timeline {
+  const lanes = tl.base.filter((n) => n.id.startsWith("lane-")).length;
+  const block: GroupTag = { id: "lead:block", kind: "run", parent: "lead", title: title.slice(0, 60) || `run ${run}`,
+                            why: `run ${run} · ${lanes} lane${lanes === 1 ? "" : "s"}` };
+  return { ...tl, base: tl.base.map((n) => (n.id === "lead" ? { ...n, run } : n.id.startsWith("lane-")
+    ? { ...n, run, lane: Number(n.id.slice(5)) || 0, group: block } : n)) };
 }
 
 /** A mission's parts as they ended, under one node for the mission. */
@@ -67,10 +71,11 @@ export async function openLiveReplay(kind: HistoryKind, id: string, title: strin
       tl = fromSession(meta, id);
       ended = num(meta.ended);
       title = meta.title || title; // the session's own title over the row's words
-    } else if (kind === "run") {
-      const data = await api.get<RunPayload>(`orchestra/${encodeURIComponent(id)}`);
-      ended = num(data.report?.ts) ?? num(data.run.created);
-      tl = fromNodes(runReplayNodes(data), ended, id);
+    } else if (kind === "run") { // 3.4.1.1 (60): from its record's own times (each lane's states, each cost at its end)
+      const meta = await api.get<SessionTimeline>("fleet/replay", { run: id });
+      title = meta.title || title;
+      tl = runDressed(fromSession(meta, id), id, title);
+      ended = num(meta.ended);
     } else {
       const v = await api.get<View>(`fleet/missions/${encodeURIComponent(id)}`);
       ended = num(v.summary?.ended) ?? num(v.summary?.updated);
@@ -95,7 +100,8 @@ export async function openFileReplay(rid: string, at: number | null = null): Pro
   liveReplay.update(() => ({ busy: `file:${rid}` }));
   try {
     const f = await api.get<ReplayFile>(`replays/${encodeURIComponent(rid)}`);
-    const tl = fromSession(f, rid);
+    const run = f.kind === "run" ? str((f as Record<string, unknown>).run_id) || rid : ""; // a saved goal run: its boxes
+    const tl = run ? runDressed(fromSession(f, rid), run, f.title || "") : fromSession(f, rid);
     if (!tl.base.length) {
       toast("Nothing to replay: the file holds no agents", "info", 4000);
       return false;

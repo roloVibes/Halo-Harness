@@ -109,7 +109,11 @@ def check(port: int, progs: Optional[set] = None, run: Optional[Callable] = None
         return _is_mine(prog, mine) and _port_in(ports, port)
     blocks = [r for r in live if str(r.get("action", "")).lower() == "block" and ours(r)]
     if blocks:
-        return {**out, "state": "blocked", "rules": [r["name"] for r in blocks],
+        progs = {str(r.get("program", "")).strip() for r in blocks}  # 3.4.1.1 (39): the same program's UDP twins, counted
+        udp = [r for r in rows if str(r.get("enabled", "")).lower() == "yes" and str(r.get("direction", "in")).lower() == "in"
+               and str(r.get("protocol", "")).lower() == "udp" and str(r.get("action", "")).lower() == "block"
+               and str(r.get("program", "")).strip() in progs and str(r.get("program", "any")).lower() != "any"]
+        return {**out, "state": "blocked", "rules": [r["name"] for r in blocks], "udp": len(udp),
                 "programs": sorted({str(r["program"]) for r in blocks if str(r.get("program", "any")).lower() != "any"}),
                 "profiles": ", ".join(sorted({str(r.get("profiles", "")) for r in blocks}))}
     allows = [r for r in live if str(r.get("action", "")).lower() == "allow" and ours(r)]
@@ -141,8 +145,10 @@ def line(port: int, what: str = "the fleet hub", got: Optional[dict] = None) -> 
         quoted = ",".join(f"'{x}'" for x in progs)  # every blocked program (TCP and UDP rules share one)
         find = (f"Get-NetFirewallApplicationFilter -Program {quoted} | Get-NetFirewallRule" if progs else
                 "Get-NetFirewallRule -DisplayName " + ",".join(f"'{x}'" for x in sorted(set(got["rules"]))))
+        udp = int(got.get("udp") or 0)  # 3.4.1.1 (39): netsh shows a UDP twin of each; the command below removes both
         return (f"Windows Firewall blocks other machines from {what} on port {port}: {n} inbound Block rule"
-                f"{'s' if n != 1 else ''} ({', '.join(sorted(set(got['rules'])))}, {got['profiles'] or 'any profile'}) "
+                f"{'s' if n != 1 else ''} for TCP{f' and {udp} for UDP' if udp else ''} "
+                f"({', '.join(sorted(set(got['rules'])))}, {got['profiles'] or 'any profile'}) "
                 "for this Halo's python, made when Windows asked to allow it and the prompt was declined or not seen; "
                 "a block beats an allow. In an administrator PowerShell: "
                 f"{find} | Where-Object "

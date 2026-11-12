@@ -7,8 +7,9 @@
   permission card `perm_1`, "ask-question" on question `q_1`; here a card waits up to `WAIT_S` for its answer (the
   fake's own 10 s is too short for a page on a loaded runner).
 
-`ask(text)` starts such a turn; `decision(id)` is what the card was answered; `restart()` stops Studio and serves it
-again on the same port with the same token and owner salt (the glance reconnects by itself); `close()` quits the
+`ask(text)` starts such a turn; `decision(id)` is what the card was answered; `restart()` serves Studio again on the
+same port with the same token and owner salt (the glance reconnects by itself), `restart(new_key=True)` as a real
+restart does, with a new token (the glance says Studio has a new key, 3.4.1.1); `close()` quits the
 session, stops Studio and puts back every variable it set. No model is called.
 """
 from __future__ import annotations
@@ -71,12 +72,19 @@ class GlanceRig:
         self.server.shutdown()
         self.server.server_close()
 
-    def restart(self) -> None:
-        """Serve Studio again on the same port, with the same token and salt (call stop_studio first)."""
+    def restart(self, new_key: bool = False) -> None:
+        """Serve Studio again on the same port (call stop_studio first): with the same token and salt, the same Studio
+        back (a network blip, the SSH forward re-made); `new_key` (3.4.1.1, defect 63): a REAL restart, a new Studio
+        with a new per-launch token and owner salt, as `halo studio --stop` then `halo studio --port P` makes."""
         port, token, salt = self.server.server_address[1], self.server.token, self.server.owner_salt
+        old = token
+        if new_key:
+            token, salt = None, ""
         for _ in range(50):
             try:
                 self._serve(port, token, salt)
+                if new_key and self.server.token == old:
+                    raise RuntimeError("the restarted Studio kept the old token")
                 return
             except OSError:
                 time.sleep(0.1)

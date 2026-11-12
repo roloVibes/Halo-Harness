@@ -54,7 +54,7 @@ def test_every_group_page_lists_the_catalog_rows(ctx: Ctx):
     ctx.check(f"the rail is the catalog's groups in order, got {got.get('rail_groups')}", got.get("rail_groups") == [g for g, _ in GROUPS if g != "from_packs"])  # 3.4.0.0 B2: From packs only with rows
     pages = got.get("pages") or {}
     for gid, _title in GROUPS:
-        want = [r.key for r in rows() if r.group == gid]
+        want = [r.key for r in rows() if r.group == gid and r.key != "studio.alerts"]  # 3.4.1.1 (64): the Alerts block's
         seen = pages.get(gid) or []
         ctx.check(f"{gid}: {len(want)} rows, the catalog's keys in its order, got {len(seen)}", seen == want)
 

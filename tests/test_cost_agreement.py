@@ -136,23 +136,68 @@ def test_a_per_project_cap_counts_finished_sessions(ctx: Ctx):
 def test_lives_sentence_counts_a_members_session_once(ctx: Ctx):
     """Live re-check defect 33: on the hub's fleet scope a member's `halo -p` session box said $0.0075, its main agent
     $0.0075, and Live's sentence $0.015 (narrate.ts summed the session node AND its agent). The spend is the agents'."""
-    import shutil
-    import subprocess
-    from tests.helpers.runner import SkipTest
+    from tests.helpers import node_ts
     ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live"
     src = (ui / "narrate.ts").read_text(encoding="utf-8")
-    ctx.check("the sentence's spend and its rows read liveSpend", "const spend = liveSpend(nodes)" in src and "liveSpend(ms)" in src)
-    node = shutil.which("node")
-    if not node:
-        raise SkipTest("no node: the source is pinned above")
+    spend = (ui / "spend.ts").read_text(encoding="utf-8")
+    ctx.check("the sentence's spend and its rows read liveSpend (3.4.1.1: through spendWords)",
+              "const spend = spendWords(nodes)" in src and "spendWords(ms)" in src and "spendText(liveSpend(nodes))" in spend)
     nodes = [{"kind": "machine", "cost": 0.1419}, {"kind": "session", "cost": 0.0075}, {"cost": 0.0075}, {"kind": "part", "cost": 0.0075}]
-    js = f"const m = await import({(ui / 'spend.ts').resolve().as_uri()!r}); console.log(JSON.stringify(m.liveSpend({json.dumps(nodes)})))"
-    r = subprocess.run([node, "--experimental-strip-types", "--no-warnings", "--input-type=module", "-e", js],
-                       capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    if r.returncode != 0 and ("strip-types" in (r.stderr or "") or "ERR_NO_TYPESCRIPT" in (r.stderr or "")):
-        raise SkipTest("this node cannot run a .ts module")  # 3.4.1.0 R6: Debian's node is built without TypeScript
-    got = json.loads((r.stdout or "null").strip().splitlines()[-1]) if r.returncode == 0 else r.stderr
-    ctx.check(f"a machine, a session, its agent and a part: the agent's $0.0075 once, got {got}", _near(got, 0.0075))
+    js = (f"const m = await import({(ui / 'spend.ts').resolve().as_uri()!r}); const n = {json.dumps(nodes)};"
+          " console.log(JSON.stringify([m.liveSpend(n), m.spendWords(n), m.spendText(0.0004), m.spendText(0),"
+          " m.spendWords([{cost: null, costUnknown: true}])]))")
+    got = node_ts.run(js)
+    ctx.check(f"a machine, a session, its agent and a part: the agent's $0.0075 once, got {got}", _near(got[0], 0.0075))
+    ctx.check(f"3.4.1.1 (44): a spend under a cent keeps its figure, nothing is $0.000, unknown is said: {got[1:]}",
+              got[1:] == ["$0.0075", "$0.0004", "$0.000", "cost unknown at this moment"])
+
+
+def _with_worker(state: Path, ctx: Ctx):
+    """The seed plus a goal run's worker session (its folder `<repo>/.halo/orchestra/r1/wt/worker-1`, $0.003)."""
+    from halo_harness.live import session_cost
+    now = time.time()
+    t0 = max(now - 600, session_cost._midnight(now) + 1)
+    seed(state, t0)
+    wt = state.parent / "shop" / ".halo" / "orchestra" / "r1" / "wt" / "worker-1"
+    _lines(state / "sessions" / "wt-proj" / "worker0000000000000000000000001.jsonl", [
+        {"type": "meta", "ts": t0 + 5, "model": "or:mock/glm-5.3", "cwd": str(wt)},
+        {"type": "user", "ts": t0 + 6, "content": "You are worker 1 of an Orchestra run"},
+        {"type": "usage", "ts": t0 + 9, "usage": {}, "cost_usd": 0.003, "model": "or:mock/glm-5.3", "status": "ok"}])
+    return now, session_cost.today(state, now=now)
+
+
+@test
+def test_a_goal_runs_worker_counts_to_its_repo(ctx: Ctx):
+    """3.4.1.1 defect 66: GET fleet's `cost_today_projects` keyed a goal run's worker sessions by their worktree folder
+    (`worker-1`, pooled across repos), so a per-project cap missed its own goal runs."""
+    with _home() as state:
+        _now, day = _with_worker(state, ctx)
+        ctx.check(f"the worker's session counts to its run's repo, not to worker-1: {day['projects']}",
+                  "shop" in day["projects"] and "worker-1" not in day["projects"] and _near(day["usd"], TOTAL + 0.003))
+
+
+@test
+def test_the_glance_and_the_per_project_figure_read_the_same_number(ctx: Ctx):
+    """3.4.1.1 defects 65 and 66. The glance's SPEND TODAY read the drawn session's spend ($0.003) while the harness's
+    today was $0.17: it reads GET fleet/costs now (caps.spend over the harness's today). A goal run's worker sessions
+    counted to their worktree folder (`worker-1`, pooled across repos): they count to the run's repo now."""
+    from halo_harness.live import caps
+    from halo_harness.peers import local_view
+    from tests.helpers import node_ts
+    with _home() as state:
+        now, _day = _with_worker(state, ctx)
+        view = {"harnesses": [local_view.harness_entry([], state)]}
+        costs = {**caps.spend(view, now), "caps": {}, "reached": []}
+        ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live"
+        js = (f"const m = await import({(ui / 'spend.ts').resolve().as_uri()!r}); const c = {json.dumps(costs)};"
+              " const h = [{local: true, sessions: [{session_id: 'live1', cwd: '/x/shop'}]}];"
+              " console.log(JSON.stringify([m.spendOf(h, c, 'live1').spent, m.spendOf(h, {...c, caps: {per_project_usd_per_day: 1}}, 'live1'),"
+              " m.spendOf(h, null, '').spent]))")
+        got = node_ts.run(js)
+        ctx.check(f"65: the glance's spend is the harness's today ($0.015), not a drawn session's: {got[0]!r}", got[0] == "$0.015")
+        ctx.check(f"with a per-project cap, the project's figure from the same source: {got[1]}",
+                  got[1]["spent"] == "$0.0030" and got[1]["cap"] == "of $1.00 a day, the cap on shop")
+        ctx.check(f"before the read: said, never $0: {got[2]!r}", got[2] == "not read yet")
 
 
 if __name__ == "__main__":

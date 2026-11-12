@@ -17,6 +17,8 @@ import { useSettings, type Row } from "./store";
 import { ThemesPage } from "./Themes"; // 3.3.12.0 R1
 
 const GROUP_BLOCKS: Record<string, ComponentType> = { ollama: OllamaBlock, local: LocalBlock, studio: AlertsBlock }; // 3.3.6.0 R5: the changes
+/** 3.4.1.1 (64): keys a group's block is the control for: its page lists no second row of them (search still finds it). */
+const BLOCK_KEYS: Record<string, string[]> = { studio: ["studio.alerts"] };
 
 export function Head({ title, about, help, count }: { title: string; about: string; help: string; count: string }) {
   const query = usePages((s) => s.query);
@@ -109,7 +111,7 @@ export function SettingsPage() {
       ) : (
         <div className="st-rows">
           {Block && <Block />}
-          {own.map((r) => (
+          {own.filter((r) => !(BLOCK_KEYS[group.id] || []).includes(r.key)).map((r) => (
             <SettingRow key={r.key} row={r} />
           ))}
         </div>

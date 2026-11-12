@@ -32,6 +32,11 @@ def find(cwd, run_id: str) -> Optional[Path]:
         return None
 
 
+def _ref(word) -> Optional[str]:
+    """A model ref (`or:...`), else None: `subagent`, `main` are role words (3.4.1.1, defect 59)."""
+    return str(word) if word and ":" in str(word) else None
+
+
 def _num(v) -> Optional[float]:
     return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
@@ -56,7 +61,7 @@ def _hist(meta: dict, goal: dict, lanes: list, report: Optional[dict], state: st
     t1 = max([t for t in ends + [t0] if t is not None], default=None)
     lead_state = "done" if state == "finished" else "failed" if state in ("stopped", "failed") else "running"
     agents = [{"agent_id": "lead", "parent": None, "name": "lead", "role": "orchestra", "bio": None, "lineup": goal.get("lineup") or None,
-               "model": goal.get("lead") or None, "state": lead_state, "since": t0, "ended": t1 if report else None,
+               "model": None, "state": lead_state, "since": t0, "ended": t1 if report else None,
                "cost_usd": None, "task": goal.get("what") or ""}]
     first = min([t for t in (_num(r.get("started")) for r in lanes) if t is not None], default=None)
     entries: dict = {"lead": ([{"kind": "thinking", "text": "the split", "ts": t0}] if t0 else [])  # the split, until the first lane
@@ -66,14 +71,35 @@ def _hist(meta: dict, goal: dict, lanes: list, report: Optional[dict], state: st
         rows = [h for h in r.get("history") or [] if isinstance(h, dict) and _num(h.get("ts")) is not None]
         claims = ", ".join(str(c) for c in r.get("claims") or [])
         lane_state = END.get(str(r.get("state") or ""), "running" if r.get("state") else "queued")
+        # 3.4.1.1 (60): a lane ends when it last merged (or failed), from its own history -- `ended` is when its last piece
+        # was written, before the review, so the replay drew it merged half a run early
+        last = [float(h["ts"]) for h in rows if h.get("state") == str(r.get("state"))]
+        end = (last[-1] if last else _num(r.get("ended"))) if lane_state in ("done", "failed") else None
         agents.append({"agent_id": aid, "parent": "lead", "name": f"lane {r.get('lane')}", "role": "lane", "bio": r.get("bio") or None,
-                       "lineup": goal.get("lineup") or None, "model": r.get("model") or goal.get("worker") or None, "state": lane_state,
-                       "since": _num(r.get("started")), "ended": _num(r.get("ended")) if lane_state in ("done", "failed") else None,
-                       "cost_usd": _num(r.get("cost_usd")), "task": str(r.get("title") or claims)})
+                       "lineup": goal.get("lineup") or None, "model": r.get("model") or _ref(goal.get("worker")), "state": lane_state,
+                       "since": _num(r.get("started")), "ended": end, "cost_usd": _num(r.get("cost_usd")), "task": str(r.get("title") or claims)})
         entries[aid] = [{"kind": ENTRY[h["state"]], "ts": float(h["ts"]), "name": "review",
                          "text": f"wrote {claims}" if h["state"] == "written" else str(h["state"])}
                         for h in rows if h.get("state") in ENTRY]
     return {"agents": agents, "entries": entries, "asks": [], "started": t0, "ended": t1}
+
+
+LEAD_UNKNOWN = "the lead (model not recorded)"
+
+
+def lead_model(state_dir, goal: dict, split: dict) -> Optional[str]:
+    """3.4.1.1 (59): the model the lead ran on. `goal.lead` is a model ref (`or:...`) or a ROLE word (`main`), which is
+    no model: then the model its own session's record names, else None ("the lead (model not recorded)")."""
+    word = str(goal.get("lead") or "")
+    if ":" in word:
+        return word
+    from halo_harness.live import history
+    for sid in (split.get("lead_sessions") or []) if isinstance(split, dict) else []:
+        path = history.find(state_dir, str(sid)) if sid else None
+        got = history._meta(history.read_nodes(path), "model") if path else None
+        if got:
+            return str(got)
+    return None
 
 
 def _facts(state_dir, run_dir: Path, goal: dict, lanes: list, report: Optional[dict], state: str, cost: float) -> dict:
@@ -82,9 +108,9 @@ def _facts(state_dir, run_dir: Path, goal: dict, lanes: list, report: Optional[d
     model_cost: dict = {}
     lead = float(split.get("lead_cost_usd") or 0.0) if isinstance(split, dict) else 0.0
     if lead:
-        model_cost[str(goal.get("lead") or "?")] = round(lead, 6)
+        model_cost[lead_model(state_dir, goal, split) or LEAD_UNKNOWN] = round(lead, 6)
     for r in lanes:
-        ref = str(r.get("model") or goal.get("worker") or "?")
+        ref = str(r.get("model") or _ref(goal.get("worker")) or "a lane (model not recorded)")
         if _num(r.get("cost_usd")):
             model_cost[ref] = round(model_cost.get(ref, 0.0) + float(r["cost_usd"]), 6)
     sids = [str(s) for s in (split.get("lead_sessions") or []) if s] if isinstance(split, dict) else []
@@ -120,6 +146,8 @@ def build_run(state_dir, run_dir) -> dict:
     state = OM.run_state(run_dir, False, report)
     cost = OM.run_cost(run_dir, report, lanes)
     h = _hist(meta, goal, lanes, report, state)
+    from halo_harness.orchestra import jsonl
+    h["agents"][0]["model"] = lead_model(state_dir, goal, jsonl.read_json(run_dir / "split.json", {}) or {})  # 3.4.1.1 (59)
     h["agents"][0]["cost_usd"] = round(cost - sum(_num(r.get("cost_usd")) or 0.0 for r in lanes), 6)
     states = []
     for a in h["agents"]:
@@ -151,5 +179,7 @@ def build_run(state_dir, run_dir) -> dict:
     p = sanitize_node(p)
     if "_sanitize_error" in p:
         raise ReplayError("the redactor could not clean this run's record; nothing was written")
+    from halo_harness.live.replay_private import scrub  # 3.4.1.1 (56): the repo (<repo>/.halo/orchestra/<id>) relative
+    p = scrub(p, run_dir.parents[2] if len(run_dir.parents) > 2 else None)
     p["includes"] = includes(p)
     return p

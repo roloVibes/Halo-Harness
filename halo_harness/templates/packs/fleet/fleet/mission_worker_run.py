@@ -132,10 +132,10 @@ class WorkerRun(threading.Thread):
         n = self.f["part"]
         mission = S.read_text(self.folder, "MISSION.md") or f"Mission {self.f['mission']}"
         brief = S.read_text(self.folder, f"parts/{n}/brief.md") or self.f["brief"]
+        from .mission_outcome import OUTCOME_LINE, write_line  # a brief before 3.4.0.1 does not ask for it; 3.4.1.1 (43)
         where = (f"Your folder is a git worktree of {self.f['repo']} on branch {self.f['branch']}."
-                 if self.f["kind"] == "repo" else f"Your folder is the mission folder; your outputs go in artifacts/{n}/.")
+                 if self.f["kind"] == "repo" else f"Your folder is the mission folder; your outputs go in artifacts/{n}/." + write_line(n))
         budget = f"\nKeep this part under ${self.f['budget_usd']:.2f}." if self.f.get("budget_usd") else ""
-        from .mission_outcome import OUTCOME_LINE  # a brief written before 3.4.0.1 does not ask for it
         budget += "" if "Outcome:" in brief else f"\nEnd your reply with a short hand-back. {OUTCOME_LINE}"
         return f"{brief}\n\n{where}{budget}{self.handoff_line()}\n\n---\n\nMISSION.md (the whole mission, for context):\n\n{mission}"
 

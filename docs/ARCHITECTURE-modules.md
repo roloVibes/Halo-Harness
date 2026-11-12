@@ -107,7 +107,9 @@ this list against the tree.
   R3: `live/report_card.py` + `live/report_card_sections.py` + `live/report_card_text.py` (the run report card and its
   Markdown, from the record), `report_cli.py` (`halo report`); R4: `studio/glance_door.py` (where the glance is: this
   machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone line), the
-  page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`
+  page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`; 3.4.1.1:
+  `live/replay_private.py` (a saved replay's paths project-relative or `~/...`, the user and machine names out;
+  `halo audit privacy --replays`)
 - `live/session_cost.py` (3.4.0.1: a session's spend from its record, and today's; 3.4.1.0 R5: today by project),
   `live/history_owner.py` (3.4.0.1: which past sessions are a goal run's or a mission's own; R5: each session's own
   repo too), `packs/shipped_newer.py` (3.4.1.0 R5: an installed pack older than the one this Halo ships), Live's

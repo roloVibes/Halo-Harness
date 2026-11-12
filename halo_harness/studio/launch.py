@@ -7,8 +7,8 @@ still answers, so a second `halo studio`, the wizard's "Open Studio"
 buttons and `/roles` from a plain shell all land on the same instance
 instead of starting another. `launch_detached` spawns `halo studio` with
 no console of its own, waits for the URL it prints, and returns it; the
-spawned Studio joins `~/.halo/run/children.json` (children.py), so the last
-halo session that quits ends it (3.2.2.0 R3), as `halo studio --stop` does.
+spawned Studio joins `~/.halo/run/children.json` (children.py), so the session
+that started it ends it on quit (3.2.2.0 R3; 3.4.1.1: a shell's has no owner).
 """
 
 from __future__ import annotations
@@ -111,8 +111,8 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
     except OSError:
         return ""
     from halo_harness import children
-    if children.spawned(proc):  # 3.2.2.0 R3: the last halo session that quits ends it
-        children.register(proc.pid, "studio", argv, state_dir=state_dir)
+    if children.spawned(proc):  # 3.2.2.0 R3; 3.4.1.1 (48): a session's Studio ends with it; a shell's has no owner
+        children.register(proc.pid, "studio", argv, state_dir=state_dir, launched=not children.in_session())
     found: dict = {}
 
     def _read() -> None:

@@ -17,9 +17,18 @@ from rich.text import Text
 from halo_harness.tui.widgets.input_sanitize import SafeStatic
 
 
+def _lines(text: str) -> list:
+    """The text's lines, the last one ended too (a last line without its newline ran into the next diff line)."""
+    out = text.splitlines(keepends=True)
+    if out and not out[-1].endswith(("\n", "\r")):
+        out[-1] += "\n"
+    return out
+
+
 def unified_diff_text(before: str, after: str, *, path: str = "", context: int = 3) -> str:
-    before_lines = before.splitlines(keepends=True) or [""]
-    after_lines = after.splitlines(keepends=True) or [""]
+    """3.4.1.1 (47): a new file's diff is `@@ -0,0 +1 @@` / `+8` -- an empty `before` used to be one empty line, so a
+    Write of "8" read `@@ -1 +1 @@` / `-+8`."""
+    before_lines, after_lines = _lines(before), _lines(after)
     diff = difflib.unified_diff(before_lines, after_lines, fromfile=path or "before",
                                  tofile=path or "after", n=context)
     text = "".join(diff)

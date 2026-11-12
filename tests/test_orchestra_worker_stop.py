@@ -58,6 +58,12 @@ def test_the_workers_module_and_prompt_carry_it(ctx: Ctx):
     text = workers.worker_prompt(Goal(), Lane())
     ctx.check("the prompt says to write no STOP line when it does not apply",
               "write no STOP line at all" in text and '"STOP: none"' in text)
+    # 3.4.1.1 (58): two workers each ran the joint test in their own worktree, called it "the gate" and stopped the run
+    Goal.stop_when, Goal.test = "the gate fails twice", "python -m unittest"
+    text = workers.worker_prompt(Goal(), Lane())
+    ctx.check("the worker's own test runs are not the gate, and the gate's failures are the run's to count",
+              "Running it in your worktree is not the gate" in text and "a failure from a unit you do not hold is not yours" in text
+              and "is the run's to count, never your own test runs" in text)
 
 
 if __name__ == "__main__":

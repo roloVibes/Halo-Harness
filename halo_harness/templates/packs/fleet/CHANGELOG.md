@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.3 (Halo 3.4.1.1)
+
+The third two-machine check: a need no harness's card lists (the lead's `shell`) sends the lead's first answer back once,
+and where the goal or the part names its harness that harness wins and the word is dropped (said in the plan's notes) --
+the part was "unassignable: nobody in the fleet has shell" on the only harness; the plan's note reads this machine's
+permission mode and `fleet.mission.ask_wait_min` now, not a cached card; a files part's brief says to write its outputs
+with the Write tool, never a shell redirect (which asks: two cards for a one-command part); the status table keeps a
+command's `|`; Attention says "1 part"; an away member the hub has not heard from since it restarted has an unknown
+today, never $0.0000; the hub rebinds its port at once after a restart on Linux. Existing installs: `halo pack update
+fleet`.
+
 ## 1.0.2 (Halo 3.4.1.0)
 
 The second two-machine check: a mission part on a harness in permission mode `default` writes its own outputs folder

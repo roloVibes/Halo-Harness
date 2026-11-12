@@ -132,9 +132,22 @@ class HubCaps:
         return out
 
 
+def _now(cat: dict, home) -> dict:
+    """3.4.1.1 (40): the mode a part runs in here and how long its ask waits, read now (two config reads) over the
+    cached card's: a plan made right after an update, or after `halo config set fleet.mission.ask_wait_min`, said the
+    old note (it read the card the background refresh had not replaced yet)."""
+    from .mission_wait import wait_min
+    from pathlib import Path
+    try:
+        return {**cat, "harness": {**(cat.get("harness") or {}), "permission_mode": caps.part_mode(Path.cwd()),
+                                   "mission_ask_wait_min": wait_min(home)}}
+    except Exception:
+        return cat
+
+
 def local_catalog(home, on_change=None) -> Optional[dict]:
     """This harness's catalog: the cache; gathered now when there is none, on a background thread
-    when it is stale (`on_change(catalog)` when that moved the hash)."""
+    when it is stale (`on_change(catalog)` when that moved the hash). Its mode and ask wait are always read now."""
     cat = caps.load(home)
     if cat is None:
         try:
@@ -143,8 +156,8 @@ def local_catalog(home, on_change=None) -> Optional[dict]:
             return None
     elif caps.stale(cat):
         caps.refresh_in_background(home, (lambda c, changed: on_change(c) if changed else None) if on_change else None)
-        return {**cat, "refreshing": True}  # 3.4.0.1 (defect 19): this read shows the old card and says so
-    return cat
+        return _now({**cat, "refreshing": True}, home)  # 3.4.0.1 (defect 19): this read shows the old card and says so
+    return _now(cat, home)
 
 
 def entry(h: dict, cat: Optional[dict], announced: Optional[dict] = None, asked=None) -> dict:

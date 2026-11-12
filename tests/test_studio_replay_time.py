@@ -58,6 +58,9 @@ def test_the_canvas_as_it_was_at_three_moments(ctx: Ctx):
               sorted(c.get("nodes") or []) == [["fixer1", "failed"], ["main", "running"], ["scout1", "done"]] and c.get("cost") == "$0.0300")
     ctx.check(f"the banner names the moment, got {b.get('banner')!r}", str(b.get("banner")).startswith("replay -- ") and "ship it" in str(b.get("banner")))
     ctx.check(f"who works, got {a.get('lit')} / {b.get('lit')} / {c.get('lit')}", a.get("lit") == "main" and b.get("lit") == "main,fixer,scout" and c.get("lit") == "main")
+    waits = b.get("waits") or []  # 3.4.1.1 (51): main's card began at +20, so its WAITS row reads 2 s at +22, not years
+    ctx.check(f"+22 s: the WAITS rows count to the scrubber's moment, got {waits}",
+              any(w.startswith("you") and w.endswith(" 2 s") for w in waits) and all("min" not in w for w in waits))
 
 
 @test
@@ -79,6 +82,10 @@ def test_save_and_clip_say_what_they_write_first(ctx: Ctx):
               str(got.get("wrote")).endswith(".halo-replay") and bool(folder) and says[2].startswith(folder + "replays"))
     clip = got.get("clip_says") or []
     ctx.check(f"a clip of an unsaved session saves first, said, got {got.get('clip_first')}", "Save writes it first" in str((got.get("clip_first") or [""])[0]))
+    wrote = str(got.get("wrote") or "")
+    ctx.check(f"53: it wrote the very name the dialog showed, got {says[2:]} / {wrote!r}", says[2:] and says[2].split(" (about")[0] == wrote)
+    ctx.check(f"54: once saved, the clip is filmed from that file (no Save first, no second file), got {got.get('clip_from')!r}",
+              wrote.endswith(f"{got.get('clip_from')}.halo-replay") and got.get("clip_save_offered") is False)
     ctx.check(f"then its frames, width, format and path, got {clip}",
               len(clip) == 3 and "1200 px wide" in clip[0] and "frames" in clip[0] and "at most 30 s" in clip[0] and "clips" in clip[2])
     hidden, back = got.get("clip_hidden") or [], got.get("clip_back") or []
@@ -87,8 +94,7 @@ def test_save_and_clip_say_what_they_write_first(ctx: Ctx):
               and hidden[2] is True)
     ctx.check(f"Pillow back: the line goes where Pillow is installed (here: {got.get('clip_pillow')}), got {back}",
               len(back) == 2 and back[0] is (not got.get("clip_pillow")) and "frames" in back[1])
-    ctx.check(f"the replay is now the saved file, and Now returns, got {got.get('now_file')} / {got.get('now')}",
-              str(got.get("now_file")).startswith("replay0000seed") and got.get("now") == "now")
+    ctx.check(f"Now returns, got {got.get('now')}", got.get("now") == "now")
 
 
 @test

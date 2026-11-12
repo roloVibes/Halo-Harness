@@ -8,6 +8,67 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.4.1.1] - unreleased
+
+What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
+Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Kali VM, the
+fleet pack joined), each with its test; the fleet pack is 1.0.3 (`halo pack update fleet`).
+
+### Fixed (wrong)
+
+- 48: a session's quit stops only what that session started: a Studio started on its own (`halo studio`, above all
+  with `--fleet`, members joined to its hub) is never stopped by another session's `/quit`; the quit line says "left
+  running: Studio (started on its own; halo studio --stop)". A Studio a shell command opened (`halo replay open`,
+  `halo init`) has no owner and stays too (children_stop.py, children.py, studio/launch.py).
+- 56: a saved replay is safe to hand on: a path inside the project is written project-relative, any other under the
+  home as `~/...` (every spelling: either separator, any case, Git Bash's `/c/...`, WSL's `/mnt/c/...`), and the user
+  name and the machine name only where the owner typed them (the title, the lineup's names) or in a project path --
+  applied when the file is written, to every field; Save's "not included" line says so; `halo audit privacy
+  --replays` checks the replay folder (live/replay_private.py). The format is unchanged: an older file opens.
+- 63: the glance on a Studio that was restarted (a new per-launch key, never kept or reused) says "Studio was restarted
+  and has a new key: open the glance again from Studio (Session's ... menu -> Open the glance)" and stops asking; the
+  same Studio back (a blip, the SSH forward re-made) is live again by itself as before.
+- 50: a session's title is the owner's first words, in a session without a terminal as in the TUI (it was the prompt
+  hook's JSON verdict, `{"ok": false, ...}`); such a stored title reads as the first words.
+- 60: a goal run on the scrubber is drawn from its record's own times (`GET fleet/replay?run=`): each lane's states (it
+  ends when it merged), its costs at each end, and "unknown at this moment" where the record cannot say, never $0.
+- 42 (fleet): a need no card lists (the lead's `shell`) sends the lead's first answer back once; a harness the goal or
+  the part names wins, and such a word is dropped there (said in the plan's notes); "1 part" in Attention.
+- 51: a replay's WAITS rows count to the scrubber's moment, not to the present (and show on every box).
+- 52: a permission card answered from Studio (a session without a terminal) reads "waiting on you" for its whole span.
+- 57: `halo orchestra new` with no terminal on Windows (NUL answers isatty) says the no-terminal line, no traceback.
+- 58: an Orchestra worker's brief says its own test runs are not the gate, and STOP WHEN's gate is the run's to count.
+- 62: the report card's "In all ... waiting on you" is the sum of every listed wait (a card's own "after N s").
+- 65: the glance's SPEND TODAY is the harness's today as the caps count it (`GET fleet/costs`), not a drawn session's.
+- 66: a goal run's worker sessions count to their run's repo for the per-project cap, not to `worker-1`.
+
+### Fixed (confusing)
+
+- 40 (fleet): the plan's note reads this machine's permission mode and ask wait now, not a cached card.
+- 43 (fleet): a files part's brief says to write its outputs with Write, never a shell redirect (which asks).
+- 45: the update note no longer says "update available" for the same commit spelled 8 and 7 characters long.
+- 46: the TUI's status bar calls the `default` mode `default`, as its cards, Studio and the mission note do.
+- 49 (fleet): an away member the hub has not heard from since it restarted has an unknown today, never $0.0000.
+- 54: Export a clip on a session already saved films that file instead of saving it again.
+
+### Fixed (cosmetic)
+
+- 38: `halo pack doctor` says the update command once, as the fix. 39: the firewall line counts the UDP twin of each
+  Block rule. 41 (fleet): the status table keeps a command's `|`. 44: a spend under a cent keeps its figure
+  (`$0.0004`, never `$0.000`). 47: a new file's diff reads `@@ -0,0 +1 @@` / `+8`. 53: Save writes the name its dialog
+  showed. 55: no invalid escape sequence in Halo's source (`halo replay clip` printed a SyntaxWarning). 59: a goal run's
+  lead is named by its model, never its role word `main`. 61: Compare says "A asked you 2 times; B 3 times." 64:
+  Settings -> Studio has one Alerts control, saying what this browser will do.
+
+### Also
+
+- Every server a user restarts on the same port rebinds at once on Linux, as Studio does: `halo host serve`, the fleet
+  hub, `halo voice serve` (tests/test_server_rebind.py). A pid is alive on Windows by its own exit code; a `tasklist`
+  slower than its timeout is unknown, never dead (process_alive.py).
+- The Python tests that run a UI `.ts` module (the cost agreement, the mode order, the model-name strip, the replay's
+  time axis) run where node has no TypeScript support (Debian's v24, built without it) by transpiling with the UI's own
+  `typescript` (tests/helpers/node_ts.py); with neither, the skip says what the box lacks.
+
 ## [3.4.1.0] - 2026-11-12
 
 **Scrub a run back in time on the canvas, save it as one file, open it anywhere.** The living canvas, part 2 (the

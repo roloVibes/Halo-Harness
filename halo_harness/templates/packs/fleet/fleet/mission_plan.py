@@ -29,7 +29,7 @@ from halo_harness.ext import core as _core
 from . import mission as M, mission_store as S
 from .mission_doc import brief_md, mission_md
 from .mission_plan_check import merge_order, normalize, sequence
-from .mission_assign import able, assign, norm_need, unique_lines
+from .mission_assign import able, assign, norm_need, unique_lines, vocab_problems
 jsonl = _core.module("orchestra.jsonl")
 _call, parse_answer = (_core.get("orchestra.split", n) for n in ("_call", "parse_answer"))
 
@@ -122,11 +122,13 @@ def prompt(doc: dict, entries: list, load: dict, problems: Optional[list] = None
     return text
 
 
-def finalize(parts: list, order: list, entries: list, prefer: list, load: dict, away: list = ()) -> "tuple[list, list]":
+def finalize(parts: list, order: list, entries: list, prefer: list, load: dict, away: list = (), goal: str = "") -> "tuple[list, list]":
     for p in parts:
-        assign(p, entries, prefer, load, away)
+        assign(p, entries, prefer, load, away, goal)
     notes = sequence(parts, order)
     for p in parts:
+        if p.get("dropped_needs"):  # 3.4.1.1 (42): a word no harness's card knows is no need
+            notes.append(f"part {p['id']}: dropped the need {', '.join(p['dropped_needs'])} (no harness lists such a capability)")
         if p.get("pinned"):
             notes.append(f"part {p['id']} is pinned to {p.get('harness_name')}: {p.get('reason')}")
         elif p.get("unassignable"):
@@ -180,6 +182,7 @@ def plan(home, mid: str, entries: list, away: list = (), *, call_model: Optional
         cost += spent
         sessions += [sid] if sid else []
         parts, order, problems = normalize(parse_answer(text), bool(doc.get("repo")))
+        problems += vocab_problems(parts, entries, away, str(doc.get("goal") or "")) if attempt == 1 else []  # 3.4.1.1 (42)
         if not problems:
             break
         S.log(home, mid, "plan_rejected", attempt=attempt, problems=problems)
@@ -187,7 +190,7 @@ def plan(home, mid: str, entries: list, away: list = (), *, call_model: Optional
         S.update(home, mid, lambda d: d.update(plan_cost_usd=round(float(d.get("plan_cost_usd") or 0) + cost, 6), plan_problems=problems,
                                                lead_sessions=list(d.get("lead_sessions") or []) + sessions))  # R5: History
         raise M.MissionError("the lead's plan failed the check twice: " + "; ".join(problems), 422)
-    parts, notes = finalize(parts, order, entries, prefer, load, away)
+    parts, notes = finalize(parts, order, entries, prefer, load, away, str(doc.get("goal") or ""))
     earlier = list((load_plan(home, mid) or {}).get("lead_sessions") or []) + list(doc.get("lead_sessions") or [])
     sessions = list(dict.fromkeys(earlier + sessions))  # 3.4.1.0 R5 (defect 35): a re-plan keeps every lead session
     result = {"v": 1, "mission": mid, "created": time.time(), "attempts": attempt, "lead_cost_usd": round(cost, 6),

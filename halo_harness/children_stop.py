@@ -10,8 +10,10 @@ never this process.
 
 A quit (`stop_for_quit`) leaves the supervisor alone (started on purpose with
 `halo supervise --daemon`), a `halo --bg` run started from a plain shell (no
-owner), and what another halo session still running in this home owns or
-uses: the Studio and orphaned children end with the last session that quits.
+owner), a Studio started on its own (`halo studio`: 3.4.1.1, defect 48), and
+what another halo session still running in this home owns or uses: a Studio a
+session started for itself and orphaned children end with the last session
+that quits.
 """
 
 from __future__ import annotations
@@ -203,9 +205,12 @@ def other_live_sessions() -> list:
 
 
 def quit_targets(state_dir=None) -> list:
-    """What a quit stops: this session's children, orphans (their owner is
-    gone) and the Studio, minus the supervisor; while another halo session of
-    this home still runs, only this session's own (the Studio stays)."""
+    """What a quit stops: only what a session started -- this session's own
+    children and, when no other halo session of this home runs, orphans (a
+    session started them and is gone) -- minus the supervisor. 3.4.1.1 (48):
+    a Studio counts like any child; one started on its own (`halo studio`,
+    above all with `--fleet`: members joined its hub) is in studio.json only,
+    owned by no session, and no session's quit ever stops it."""
     me = os.getpid()
     others = bool(other_live_sessions())
     out = []
@@ -213,15 +218,12 @@ def quit_targets(state_dir=None) -> list:
         if e.get("what") == "supervisor" or e.get("pid") == me:
             continue
         mine = e.get("owner_pid") == me
-        if e.get("what") == "studio":
-            if not others:
-                out.append(e)
-            continue
-        # No owner: started from a plain shell (`halo --bg`), on purpose -- a
-        # quit leaves it; `halo update` and `halo bg stop` end it.
+        # No owner: started from a plain shell (`halo --bg`, a Studio a shell
+        # command opened), on purpose -- a quit leaves it; `halo update`,
+        # `halo bg stop` and `halo studio --stop` end it.
         if mine or (e.get("owner_pid") is not None and not others and not C.owner_alive(e)):
             out.append(e)
-    return out if others else _with_studio(out, state_dir)
+    return out
 
 
 def stop_for_quit(state_dir=None, timeout: float = 5.0) -> str:

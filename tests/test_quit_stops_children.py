@@ -69,12 +69,13 @@ def _fake_studio_json(state: Path, pid: int) -> Path:
 
 
 @test
-def test_controller_quit_ends_the_registered_run_and_the_studio_and_says_so(ctx: Ctx):
+def test_controller_quit_ends_the_registered_run_and_the_studio_it_started_and_says_so(ctx: Ctx):
     from halo_harness.controller import Controller
     state = Path(tempfile.mkdtemp(prefix="r3-quit-"))
     studio, run, sup = _sleeper(), _sleeper(), _sleeper()
     try:
         info = _fake_studio_json(state, studio.pid)
+        C.register(studio.pid, "studio", ["halo", "studio"], state_dir=state)  # 3.4.1.1 (48): this session started it
         C.register(run.pid, "bg", [sys.executable, "-m", "halo_harness", "-p", "x"], state_dir=state, owner_pid=999999)
         C.register(sup.pid, "supervisor", ["halo", "supervise"], state_dir=state)
         controller = Controller(session=FakeSession(), cwd=state, registry=FakeRegistry(), state_dir=state)
@@ -110,8 +111,8 @@ def test_a_quit_with_nothing_running_says_nothing(ctx: Ctx):
 
 @test
 def test_the_quit_line_names_what_it_left_running_with_the_command_that_ends_it(ctx: Ctx):
-    """A `halo --bg` run from a plain shell (no owner) and the Studio while a
-    second halo session of this home is open both stay; the line names them."""
+    """A `halo --bg` run from a plain shell (no owner) and a Studio started on
+    its own (studio.json only, 3.4.1.1 defect 48) both stay; the line names them."""
     from halo_harness.controller import Controller
     from halo_harness.remote import registry
     state = Path(tempfile.mkdtemp(prefix="r3-quit-left-"))
@@ -132,7 +133,7 @@ def test_the_quit_line_names_what_it_left_running_with_the_command_that_ends_it(
         line = controller.stopped_line
         ctx.check(f"one line names both, each with the command that ends it, got {line!r}",
                   line == "left running: 1 background run from a shell (halo bg stop ab12cd34), "
-                          "Studio (another session is open; halo studio --stop)")
+                          "Studio (started on its own; halo studio --stop)")
         ctx.check("and both really keep running", studio.poll() is None and shell_run.poll() is None)
     finally:
         if saved is None:

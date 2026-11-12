@@ -3,7 +3,8 @@ words (Halo 3.2.2.0 R3), so `halo update` never surprises anyone: the quit's
 one line ends with "left running: 1 background run from a shell (halo bg
 stop <id>), Studio (another session is open; halo studio --stop)" -- only
 the kinds that apply, each with the command that ends it; '' when nothing is
-left.
+left. A Studio started on its own (`halo studio`) reads "Studio (started on
+its own; halo studio --stop)" (3.4.1.1, defect 48).
 
 Called after children_stop.stop_for_quit has stopped its targets, so every
 live entry still in children.json is one the quit left on purpose.
@@ -57,8 +58,11 @@ def left_running(state_dir=None, *, others: Optional[bool] = None) -> str:
         parts.append(_group(group, "from a shell", stop_command))
     for group in owned.values():
         parts.append(_group(group, "of a running halo", lambda r: f"it ends with pid {r.get('owner_pid')}"))
-    if others and (studio_entry(state_dir) or any(e.get("what") == "studio" for e in rows)):
-        parts.append("Studio (another session is open; halo studio --stop)")
+    studio = studio_entry(state_dir) or next((e for e in rows if e.get("what") == "studio"), None)
+    if studio:  # 3.4.1.1 (48): one started on its own (studio.json only, or no owner) is never a quit's to stop
+        reg = next((e for e in rows if e.get("what") == "studio" and e.get("pid") == studio.get("pid")), None)
+        why = "another session is open" if reg is not None and reg.get("owner_pid") is not None else "started on its own"
+        parts.append(f"Studio ({why}; halo studio --stop)")
     if supervisor:
         parts.append("supervisor (halo supervise stop)")
     return "left running: " + ", ".join(parts) if parts else ""

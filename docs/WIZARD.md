@@ -200,8 +200,9 @@ includes it). Top to bottom:
   page to it, else one starts in the background and opens your browser; the
   line under the buttons says which, with the URL (over SSH that URL is the
   way in). Open Studio (Roles) opens the Roles canvas the same way. Studio
-  keeps running after setup until `halo studio --stop` or until the halo
-  session quits (3.2.2.0: a quit ends the Studio; `halo studio` starts it
+  keeps running after setup until `halo studio --stop`, or until the halo
+  session that started it quits (3.2.2.0; 3.4.1.1: one a shell command such
+  as `halo init` started is no session's, and stays; `halo studio` starts it
   again). Editing lineups and
   bios happens there; the terminal shows them: Enter on a row opens the
   read-only lineup view (its `e` opens Studio too, `t` tests a row's

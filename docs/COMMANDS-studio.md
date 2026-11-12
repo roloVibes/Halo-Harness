@@ -10,7 +10,10 @@ Part of [Commands](COMMANDS.md), which lists every part.
 wizard's Open Studio buttons start one, detached); a second `halo studio`
 while one runs reuses it (prints the URL, opens the browser) unless
 `--port` asks for another. 3.2.2.0: the last halo session to quit ends the
-Studio as well, and `halo update` stops it before installing.
+Studio as well, and `halo update` stops it before installing. 3.4.1.1: only a
+Studio a session started for itself; one you start on your own (`halo studio`,
+above all with `--fleet`) is never stopped by a session's quit (the quit line
+says "left running: Studio (started on its own; halo studio --stop)").
 
 
 ```sh

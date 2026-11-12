@@ -22,6 +22,14 @@ from typing import Iterable, Optional
 
 OUTCOME_LINE = ("Its last line is `Outcome: done` when this part's work is done, or `Outcome: blocked -- <why>` "
                 "when it is not (a command was refused, a tool is missing, an output could not be made).")
+
+
+def write_line(n: str) -> str:
+    """3.4.1.1 (43): how a files part leaves its outputs. A shell redirect into `artifacts/<n>/` asks where the
+    machine's permission mode asks (two cards for a one-command part); the Write tool there does not."""
+    return (f" Write each output file with the Write tool (it needs no ask in artifacts/{n}/); run a command on its own "
+            "and put what it printed into the file with Write, never with a shell redirect (> or tee), which asks first "
+            "where this machine's permission mode asks.")
 _LINE = re.compile(r"^[\s>*_`#-]*outcome[\s*_`]*:[\s*_`]*(.+?)\s*$", re.I)
 _DONE = re.compile(r"^(done|finished|complete|completed|ok)\b[\s.!*_`]*$", re.I)
 _SAID = re.compile(r"\b(?:the |this )?(?:part|task|work)\s+(?:is|was)\s+(?:blocked|not done|not finished|incomplete)\b", re.I)

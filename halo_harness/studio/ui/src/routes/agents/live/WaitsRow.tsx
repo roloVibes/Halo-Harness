@@ -2,6 +2,7 @@
 // of its own -- WAITS, then you / a tool / a model reply / an agent / nothing, then what and for how long. Its seconds
 // tick here only (the node's other rows never move for it).
 import { useNow } from "../../fleet/store";
+import { useLiveReplay } from "./replay";
 import { useWaitOf } from "./useWaits";
 import { secsWords, WAIT_WORD } from "./waits";
 
@@ -9,7 +10,9 @@ export const WAITS_H = 18; // the row's height: Live's nodes grow by it (liveLay
 
 export function WaitsRow({ id }: { id: string }) {
   const w = useWaitOf(id);
-  const now = useNow(!!w?.since, 1000);
+  const r = useLiveReplay(); // 3.4.1.1 (51): in a replay the wait counts to the scrubber's moment, not to the present
+  const wall = useNow(!!w?.since && !r, 1000);
+  const now = r ? r.t * 1000 : wall;
   if (!w) return <div className="rlm-waits mono" aria-hidden="true" />;
   const secs = secsWords(w.since, now);
   const what = w.kind === "you" || w.kind === "model" ? (w.kind === "you" ? w.what : "") : w.what;

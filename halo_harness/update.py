@@ -124,10 +124,10 @@ def _checkout_root_on_pythonpath() -> Optional[Path]:
 def _git_head(checkout: Path, run_fn) -> "tuple[Optional[str], Optional[str]]":
     commit = branch = None
     try:
-        r = run_fn(["git", "rev-parse", "--short", "HEAD"], cwd=str(checkout),
+        r = run_fn(["git", "rev-parse", "HEAD"], cwd=str(checkout),  # 3.4.1.1 (45): `--short` grew to 8 here; 7 always
                    capture_output=True, text=True, timeout=5)
         if r.returncode == 0:
-            commit = r.stdout.strip() or None
+            commit = r.stdout.strip()[:7] or None
     except (OSError, subprocess.SubprocessError):
         pass
     try:

@@ -239,18 +239,18 @@ def load_run(run_id: str) -> Optional[dict]:
 
 
 def pid_alive(pid: int) -> bool:
-    """Best-effort liveness for a PID from a PAST process this one never
-    spawned (no live `Popen` handle to `.poll()`) -- `tasklist` on Windows
-    (no extra dependency; `psutil` isn't in this project's requirements),
-    a signal-0 probe on POSIX."""
+    """Liveness of a PID this process never spawned: Windows, its own exit code (process_alive, 3.4.1.1), else `tasklist`
+    (one slower than its timeout is unknown, never dead); POSIX, a signal-0 probe."""
     if not isinstance(pid, int) or pid <= 0:
         return False
     if os.name == "nt":
+        from halo_harness.process_alive import win_alive
+        if (got := win_alive(pid)) is not None:
+            return got
         try:
-            result = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"],
-                                      capture_output=True, text=True, timeout=5)
-        except (OSError, subprocess.SubprocessError):
-            return False
+            result = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError) as e:
+            return isinstance(e, subprocess.TimeoutExpired)
         return str(pid) in (result.stdout or "")
     try:
         os.kill(pid, 0)

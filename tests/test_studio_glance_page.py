@@ -10,7 +10,8 @@ tests/helpers/studio_glance.py (skipped without Chrome), every pack off; no mode
 4. the glance at 390 px: no rail, no horizontal scroll, the sentence, the ask with its three answers as large buttons
    saying what each does, the spend honestly ("unknown", "no cap set"), the elapsed time, the last three events; Allow
    once answers the card (the owner-proof path) and then nothing waits;
-5. Studio stops: the page says it is stale; Studio comes back: the page is live again by itself.
+5. Studio stops: the page says it is stale; Studio comes back: the page is live again by itself; 3.4.1.1 (63): Studio
+   restarted for real (a new token): the page says so and where to open it again, and stops asking.
 Run: python -m tests.test_studio_glance_page
 """
 from __future__ import annotations
@@ -53,6 +54,8 @@ def test_the_alert_setting_asks_once_on_a_click(ctx: Ctx):
     ctx.check(f"the click asks once and saves the choice: {got.get('asked_after_click')} {got.get('saved')}",
               got.get("asked_after_click") == 1 and got.get("saved") == "browser")
     ctx.check(f"it says what this browser will do: {got.get('state_line')!r}", "allows it" in str(got.get("state_line")))
+    ctx.check(f"3.4.1.1 (64): one control of studio.alerts, its line there before a choice: {got.get('state_on_load')!r} "
+              f"{got.get('alerts_rows')!r}", got.get("state_on_load") == "ask" and got.get("alerts_rows") == 0)
 
 
 @test
@@ -92,6 +95,12 @@ def test_the_glance_says_when_it_is_stale_and_comes_back(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Studio stopped: stale, said: {got.get('stale')!r}", str(got.get("stale", "")).startswith("stale: last heard"))
     ctx.check(f"Studio back: live by itself: {got.get('back')!r}", str(got.get("back", "")).startswith("live"))
+    # 3.4.1.1 (63): a REAL restart (a new per-launch token): said, and the page stops asking (no key is kept or reused)
+    ctx.check(f"restarted with a new key: said, with where to open it again: {got.get('rekeyed')!r}",
+              got.get("rekeyed") == "Studio was restarted and has a new key: open the glance again from Studio "
+                                    "(Session's ... menu -> Open the glance)")
+    ctx.check(f"and it stops asking: the feed off, no request in two probe periods: {got.get('feed_after')!r} "
+              f"{got.get('asked_after')!r}", got.get("feed_after") == "off" and got.get("asked_after") == 0)
 
 
 if __name__ == "__main__":

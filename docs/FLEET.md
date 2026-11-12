@@ -141,6 +141,10 @@ What a real two-machine run used (3.4.0.1): Kali as the hub, the Windows PC as a
    outputs folder (`artifacts/<n>/`) with no ask; any other call that mode asks about waits as a card in that
    machine's Attention (Studio, the TUI, the glance) and the hub shows the part "waiting on you (on <machine>)";
    nobody answering within `fleet.mission.ask_wait_min` (30 min) ends the part "not done: nobody answered ...".
+   3.4.1.1 (fleet 1.0.3): the part's brief says to write those outputs with the Write tool (a shell redirect there
+   asks); the plan's note reads the mode and the wait as they are now; a goal or a part that names a harness
+   ("on kali@kali") puts the part there, and a need no harness's card lists (the lead's `shell`) is sent back to the
+   lead once, then dropped where a harness was named (the plan's notes say so).
 8. Done: `halo fleet leave` on the member (or `halo fleet kick <name>` on the hub), `halo studio --stop` on the hub.
    Pairing again needs a new code.
 

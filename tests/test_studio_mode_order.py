@@ -14,14 +14,12 @@ Run: python -m tests.test_studio_mode_order
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
 FLEET = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "fleet"
@@ -53,16 +51,9 @@ console.log(JSON.stringify(out));
 
 @test
 def test_the_word_whatever_order_its_sources_land_in(ctx: Ctx):
-    node = shutil.which("node")
-    if not node:
-        raise SkipTest("no node (the wiring is pinned by test_the_fleet_store_merges_through_it)")
+    from tests.helpers import node_ts  # 3.4.1.1: a node without TypeScript (Debian's) transpiles with the UI's tsc
     js = JS % (json.dumps((FLEET / "modeOrder.ts").resolve().as_uri()), json.dumps(CASES))
-    r = subprocess.run([node, "--experimental-strip-types", "--no-warnings", "--input-type=module", "-e", js],
-                       capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    if r.returncode != 0 and ("strip-types" in (r.stderr or "") or "ERR_NO_TYPESCRIPT" in (r.stderr or "")):
-        raise SkipTest("this node cannot run a .ts module")  # an older node, or one built without TypeScript (Debian's)
-    got = json.loads((r.stdout or "null").strip().splitlines()[-1]) if r.returncode == 0 else {}
-    ctx.check(f"node ran modeOrder.ts: {r.stderr[-300:]!r}", r.returncode == 0)
+    got = node_ts.run(js) or {}
     for name, (_calls, want) in CASES.items():
         ctx.check(f"{name}: {want}, got {got.get(name)!r}", got.get(name) == want)
 

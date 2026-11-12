@@ -122,8 +122,12 @@ class Member:
         return max(seen, said.get("usd") or 0.0) if said else seen  # an older member says nothing: what the hub saw
 
     def today_fields(self) -> dict:
-        said = self.reported if self.reported.get("day") == time.strftime("%Y-%m-%d") else {}
-        return {"cost_today": self.cost_today(), "cost_today_complete": not said.get("unknown"),
+        """3.4.1.1 (49): a member the hub has heard nothing from today (it restarted while the member had no session
+        open) has an unknown today (None), never $0: its own figure comes with its next announce."""
+        day = time.strftime("%Y-%m-%d")
+        said = self.reported if self.reported.get("day") == day else {}
+        heard = bool(said) or any(d == day for d, _sid in self._costs)
+        return {"cost_today": self.cost_today() if heard else None, "cost_today_complete": not said.get("unknown") and heard,
                 "cost_today_unknown": list(said.get("unknown") or []),
                 "sessions_today": said.get("sessions") if isinstance(said.get("sessions"), int) else None,
                 "cost_today_projects": dict(said.get("projects") or {})}

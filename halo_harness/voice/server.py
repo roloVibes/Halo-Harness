@@ -27,7 +27,10 @@ from halo_harness.voice import log_lines as L
 
 class _Http(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = False
+    # 3.4.1.1 (the 3.4.1.0 R6 open item): as Studio -- on POSIX, SO_REUSEADDR lets it serve again on its own port right
+    # after a restart (a closed connection's TIME_WAIT held it for a minute) and never lets two listeners share one;
+    # Windows keeps its default here (tests/test_server_rebind.py)
+    allow_reuse_address = sys.platform != "win32"
 
 
 def _parser() -> argparse.ArgumentParser:

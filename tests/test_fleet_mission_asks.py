@@ -231,7 +231,7 @@ def test_the_hub_side_and_the_plan_note(ctx: Ctx):
     e = {"name": "kali@kali", "catalog": {"harness": {"permission_mode": "default", "mission_ask_wait_min": 30}}}
     said = mode_note(e)
     ctx.check(f"the plan says the part waits as a card for 30 min, its own folder needs no ask: {said!r}",
-              "waits as a card" in said and "30 min" in said and "own outputs folder needs no ask" in said and "refused" not in said)
+              "waits as a card" in said and "30 min" in said and "own outputs folder with the Write tool needs no ask" in said and "refused" not in said)
 
 
 if __name__ == "__main__":

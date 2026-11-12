@@ -496,7 +496,7 @@ opens Studio's bio form on it (3.1.1.0: Studio is the editor of bios). See
 | `researcher` | the session's own model, unless configured (see "cost-aware defaults" below) |
 | `tester` | the session's own model, unless configured -- runs named suites/live checks and reports |
 | `compaction` | the rung right after `compactionModel` (below `compactionModel`, above the session's main model) -- see "Resolution precedence" |
-| `small` | the session's own small model, unless configured; used for summaries, titles, `/improve` drafts, and compaction when NEITHER `compactionModel` NOR the `compaction` role is set |
+| `small` | the session's own small model, unless configured; used for summaries, `/improve` drafts, and compaction when NEITHER `compactionModel` NOR the `compaction` role is set |
 | `subagent_default` | the last rung before the session model, for a sub-agent with NO role at all (not a built-in, no `role:` frontmatter) |
 
 `planner`/`judge`/`tester`/`compaction`/`subagent_default` are new in Halo

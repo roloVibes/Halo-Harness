@@ -96,7 +96,9 @@ def differed(rows: list, fa: dict, fb: dict) -> list:
         r = by[key]
         if r["better"] in ("a", "b"):
             va, vb = int(r["a"]["value"]), int(r["b"]["value"])
-            found.append((30 + 4 * abs(va - vb), f"A had {_count(va, one)}; B had {_count(vb, one)}."))
+            times = lambda n: "never" if not n else "once" if n == 1 else f"{n} times"  # noqa: E731
+            found.append((30 + 4 * abs(va - vb), f"A asked you {times(va)}; B {times(vb)}." if key == "asks"  # 3.4.1.1 (61)
+                          else f"A had {_count(va, one)}; B had {_count(vb, one)}."))
     t = by["tokens"]
     if t["better"] in ("a", "b"):
         va, vb = t["a"]["value"], t["b"]["value"]

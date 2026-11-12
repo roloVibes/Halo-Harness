@@ -11,7 +11,7 @@
 import { shortModel } from "../../../lib/modelName";
 import { short } from "../../orchestra/format";
 import type { LiveNode } from "../../roles/liveModel";
-import { liveSpend } from "./spend";
+import { spendWords } from "./spend";
 import type { Wait, WaitPath } from "./waits";
 
 export const MAX_CHARS = 140;
@@ -56,8 +56,8 @@ export function narrate(nodes: LiveNode[], waits: Map<string, Wait>, path: WaitP
   const parts = [...buckets].sort((a, b) => b[1] - a[1]).map(([k, c]) => { const [what, at] = k.split("|"); return `${plural(c, "agent")} ${what}${at ? ` in ${short(at, 24)}` : ""}`; });
   const lw = !ask && path.leaf && path.wait && (path.wait.kind === "tool" || path.wait.kind === "model") ? `waiting on: ${path.leaf.role && path.leaf.role !== path.leaf.name ? path.leaf.role : path.leaf.name} -> ${short(path.wait.what, 36)}` : "";
   const models = new Set(agents.map((n) => shortModel(n.model)).filter(Boolean)).size;
-  const spend = liveSpend(nodes); // 3.4.1.0 R5 (defect 33): the agents, not their session and machine nodes again
-  const tail = `${models ? ` · on ${plural(models, "model")}` : ""} · $${spend >= 1 ? spend.toFixed(2) : spend.toFixed(3)}`;
+  const spend = spendWords(nodes); // 3.4.1.0 R5 (defect 33): the agents (liveSpend), not their session and machine nodes again; 3.4.1.1 (44, 60)
+  const tail = `${models ? ` · on ${plural(models, "model")}` : ""} · ${spend}`;
   const build = (ps: string[], more: number) => [ask, [...ps, more ? `and ${more} more` : ""].filter(Boolean).join(", "), lw].filter(Boolean).join("; ");
   let keep = parts.length, head = build(parts, 0);
   while (keep > 1 && (head + tail).length > MAX_CHARS) (keep -= 1), (head = build(parts.slice(0, keep), parts.length - keep));
@@ -67,8 +67,7 @@ export function narrate(nodes: LiveNode[], waits: Map<string, Wait>, path: WaitP
     const n = (f: (w: Wait) => boolean) => ms.filter((m) => f(waits.get(m.id)!)).length;
     const live = n((w) => w.kind !== "you"), you = n((w) => w.kind === "you");
     const ml = [...new Set(ms.map((m) => shortModel(m.model)).filter(Boolean))].join(", ");
-    const cost = liveSpend(ms);
-    return [at, [live && `${live} working`, you && `${you} waiting on you`, ml, `$${cost.toFixed(3)}`].filter(Boolean).join(" · ")];
+    return [at, [live && `${live} working`, you && `${you} waiting on you`, ml, spendWords(ms)].filter(Boolean).join(" · ")];
   });
   return { text, head, waitText, tail, rows: table.slice(0, 8) };
 }

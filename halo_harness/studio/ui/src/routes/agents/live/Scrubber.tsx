@@ -26,6 +26,14 @@ function readAxis(sid: string): void {
     .then((m) => axis.get().sid === sid && axis.update(() => ({ tl: fromSession(m, sid) }))).catch(() => undefined);
 }
 
+/** What it had cost at the scrubber's moment; 3.4.1.1 (60): "unknown at this moment" where the record cannot say. */
+function ReplayCost({ tl, t }: { tl: Timeline; t: number }) {
+  const usd = costAt(tl, t);
+  return <span className="scr-cost" data-testid="replay-cost" data-unknown={usd === null || undefined}
+               title={usd === null ? "A goal run's record gives each lane's cost when it ends: before that, the cost is unknown" : "What it had cost at this moment"}>
+    {usd === null ? "unknown at this moment" : money(usd)}</span>;
+}
+
 function Axis({ tl, t0, t1, at }: { tl: Timeline | null; t0: number; t1: number; at: number }) {
   const x = (t: number) => ((t - t0) / Math.max(1e-6, t1 - t0)) * 1000;
   const marks = (tl?.marks || []).filter((m) => m.t >= t0 && m.t <= t1);
@@ -91,7 +99,7 @@ export function Scrubber({ sid, title, started, lineup }: Props) {
           {SPEEDS.map((s) => <button key={s} className={r.speed === s ? "on" : ""} aria-pressed={r.speed === s} onClick={() => setSpeed(s)} data-speed={s}>{s}x</button>)}
         </span> : track}
         <span className="scr-clock" data-testid="replay-clock">{mmss(at - t0)} / {mmss(span)}</span>
-        {r && <span className="scr-cost" data-testid="replay-cost" title="What the session had cost at this moment">{money(costAt(r.tl, r.t))}</span>}
+        {r && <ReplayCost tl={r.tl} t={r.t} />}
         {r && <span className="scr-title replay-title" title={r.title}>{r.title}</span>}
         {r && <span className="spacer" />}
         {r && <Button size="sm" variant="ghost" onClick={() => setDialog("save")} disabled={!!saveWhy} title={saveWhy || "Save this run's replay as one file you can open anywhere (says what it holds first)"} data-testid="replay-save">Save this run's replay</Button>}
@@ -99,7 +107,8 @@ export function Scrubber({ sid, title, started, lineup }: Props) {
         <Button size="sm" onClick={backToNow} disabled={!r} title="Now: back to what runs (Esc on the canvas)" data-testid="replay-close">Now</Button>
       </div>
       {r && track}
-      {r && r.tl.coarse && <div className="scr-note muted" data-testid="replay-coarse">A goal run's or a mission's replay has each lane's start and end only: who existed and how it ended, not each step.</div>}
+      {r && r.tl.coarse && <div className="scr-note muted" data-testid="replay-coarse">A mission's replay has each part's start and end only: who existed and how it ended, not each step.</div>}
+      {r && !r.tl.coarse && r.tl.endsOnly && <div className="scr-note muted" data-testid="replay-coarse">A goal run's record holds each lane's state changes, not each step; a lane's cost is known when it ends.</div>}
       {dialog === "save" && r && <SaveDialog r={r} lineup={lineup} onClose={() => setDialog("")} />}
       {dialog === "clip" && r && <ClipDialog r={r} lineup={lineup} onClose={() => setDialog("")} />}
     </div>

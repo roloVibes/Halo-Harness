@@ -39,8 +39,13 @@ STUB = """(() => {
   FakeNote.requestPermission = () => { asks.push(Date.now()); FakeNote.permission = "granted"; return Promise.resolve("granted"); };
   Object.defineProperty(window, "Notification", { value: FakeNote, configurable: true, writable: true });
   const f = window.fetch.bind(window);
-  window.fetch = (u, init) => { const s = String(u && u.href || u); if (s.includes("/api/fleet/attention") && !s.includes("answer")) reads.push(Date.now()); return f(u, init); };
-  window.__notes = notes; window.__asks = asks; window.__reads = reads;
+  const apis = [];
+  window.fetch = (u, init) => { const s = String(u && u.href || u); if (s.includes("/api/")) apis.push(s);
+    if (s.includes("/api/fleet/attention") && !s.includes("answer")) reads.push(Date.now()); return f(u, init); };
+  const ES = window.EventSource;  // the feed's opens count as asks too
+  window.EventSource = function (url, opts) { apis.push(String(url)); return new ES(url, opts); };
+  window.EventSource.prototype = ES.prototype;
+  window.__notes = notes; window.__asks = asks; window.__reads = reads; window.__api = apis;
 })();"""
 GLANCE = f"{Q}('[data-testid=\"glance\"]')"
 ASK = f"{Q}('[data-testid=\"glance-ask\"][data-kind=\"permission\"]')"
@@ -71,7 +76,10 @@ def setting(c, rig) -> dict:
     block = f"{Q}('[data-testid=\"settings-alerts\"]')"
     _open(c, rig.url("mode=settings&group=studio"), f"!!{block} && {block}.dataset.choice === 'none'")
     out = {"asked_on_load": c.js("window.__asks.length"), "notes_on_load": c.js("window.__notes.length"),
-           "choices": c.js(f"[...{QA}('[data-testid=\"settings-alerts-choice\"]')].map((b) => b.dataset.id)")}
+           "choices": c.js(f"[...{QA}('[data-testid=\"settings-alerts-choice\"]')].map((b) => b.dataset.id)"),
+           # 3.4.1.1 (64): one control of studio.alerts, saying what this browser will do with None chosen too
+           "state_on_load": c.js(f"{Q}('[data-testid=\"settings-alerts-state\"]')?.dataset.state || ''"),
+           "alerts_rows": c.js(f"{QA}('[data-testid=\"settings-row\"][data-key=\"studio.alerts\"]').length")}
     c.click_on(f"{Q}('[data-testid=\"settings-alerts-choice\"][data-id=\"browser\"]')")
     c.wait(f"{block}.dataset.choice === 'browser' && {Q}('[data-testid=\"settings-alerts-state\"]')?.dataset.state === 'ready'", 20)
     out["asked_after_click"] = c.js("window.__asks.length")
@@ -110,7 +118,9 @@ def glance(c, rig) -> dict:
            "scroll": c.js("[document.documentElement.scrollWidth, document.documentElement.clientWidth, "
                           f"{Q}('.gz').scrollWidth, {Q}('.gz').clientWidth]"),
            "narration": c.wait(f"{Q}('[data-testid=\"glance-narration\"]')?.textContent", 20),
-           "spend": c.js(f"{Q}('[data-testid=\"glance-spend\"] dd').textContent"),
+           # 3.4.1.1 (65): the spend is GET fleet/costs' (the harness's today); wait for the read, not the first paint
+           "spend": c.wait(f"(() => {{ const t = {Q}('[data-testid=\"glance-spend\"] dd')?.textContent; "
+                           "return t && !t.includes('not read yet') ? t : ''; })()", 20),
            # 3.4.1.0 R5: a loaded box drew "no session" before the session's row landed: wait for the value asserted
            "elapsed": c.wait(f"(() => {{ const t = {Q}('[data-testid=\"glance-elapsed\"] dd')?.textContent; "
                              "return t && t !== 'no session' ? t : ''; })()", 20),
@@ -135,11 +145,22 @@ def glance(c, rig) -> dict:
 
 
 def stale(c, rig) -> dict:
+    """The same Studio back (its token): live by itself. Then a REAL restart, a new token (3.4.1.1, defect 63): the page
+    says Studio has a new key and stops asking (no request leaves it over two probe periods)."""
     status = f"{Q}('[data-testid=\"glance-status\"]')"
     rig.stop_studio()
     out = {"stale": c.wait(f"{status}.dataset.state === 'stale' && {status}.textContent", 60)}
     rig.restart()
     out["back"] = c.wait(f"{status}.dataset.state === 'live' && {status}.textContent", 60)
+    rig.stop_studio()
+    c.wait(f"{status}.dataset.state === 'stale'", 60)
+    rig.restart(new_key=True)
+    out["rekeyed"] = c.wait(f"{status}.dataset.state === 'rekeyed' && {status}.textContent", 60)
+    out["feed_after"] = c.js(f"{status}.dataset.feed")
+    n = c.js("window.__api.length")
+    # an absence over time: the page's probe asks every 3 s, so two periods with no request is "stopped asking"
+    c.wait("(() => { window.__t0 = window.__t0 || Date.now(); return Date.now() - window.__t0 > 6500; })()", 20)
+    out["asked_after"] = c.js("window.__api.length") - n
     return out
 
 

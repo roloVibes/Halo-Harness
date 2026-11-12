@@ -1445,37 +1445,18 @@ def _heuristic_title(text: str) -> str:
     return title[:60] if title else "Untitled session"
 
 
-def _clean_title(raw: str) -> str:
-    """The small model's raw reply -> a bare title: first line only,
-    surrounding quotes/punctuation/whitespace stripped, capped at 60
-    chars."""
-    first_line = (raw or "").strip().splitlines()[0].strip() if (raw or "").strip() else ""
-    return first_line.strip(" \t\"'.,;:-")[:60]
-
-
 def _generate_title(session, first_user_text: str) -> str:
-    """The small model's own one-line title for `first_user_text`,
-    falling back to `_heuristic_title` on any failure (no small model
-    configured, a network error, an empty/unusable reply, ...) -- title
-    generation must never be able to fail a session or block on a dead
-    provider. `session._call_model_for_hook` (agent/loop.py) already
-    implements "one-shot small-model call, never logged" for hooks; reused
-    here with a title-specific prompt rather than duplicating the request-
-    building plumbing."""
-    heuristic = _heuristic_title(first_user_text)
-    caller = getattr(session, "_call_model_for_hook", None)
-    if not callable(caller):
-        return heuristic
-    try:
-        raw = caller(
-            "Reply with ONLY a short 3-6 word title (no quotes, no trailing punctuation) "
-            f"summarizing this conversation's request:\n\n{first_user_text[:2000]}",
-            4.0,
-        )
-    except Exception:
-        return heuristic
-    cleaned = _clean_title(raw)
-    return cleaned or heuristic
+    """The session's title: the owner's own first words (`_heuristic_title`),
+    in a TUI session and one without a terminal alike; no model call.
+
+    3.4.1.1 (defect 50): this used to ask the small model through
+    `session._call_model_for_hook`, the prompt hooks' call, whose system
+    prompt demands a JSON verdict -- so a model that obeyed it gave
+    `{"ok": false, "reason": "Cannot verify file contents; declin` as the
+    title (a session without a terminal, then its History row, its replay,
+    its report card); one that timed out gave the first words, which is
+    what every title is now. `session` stays for the callers' signature."""
+    return _heuristic_title(first_user_text)
 
 
 def sanitize_transcript(text: str) -> str:

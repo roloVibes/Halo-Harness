@@ -21,15 +21,13 @@ from __future__ import annotations
 TIER = "full"  # headless Chrome: the full tier
 
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
-from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -95,18 +93,10 @@ def test_the_prefix_strip(ctx: Ctx):
     users = {f: (UI / f).read_text(encoding="utf-8") for f in ("routes/roles/LiveNode.tsx", "routes/session/Live.tsx")}
     ctx.check(f"the nodes and Live's tags use it, got {[f for f, t in users.items() if 'shortModel(' not in t]}",
               all("shortModel(" in t for t in users.values()))
-    node = shutil.which("node")
-    if not node:
-        raise SkipTest("no node: the strip is pinned by its source above")
+    from tests.helpers import node_ts  # 3.4.1.1: a node without TypeScript (Debian's) transpiles with the UI's tsc
     url = (UI / "lib" / "modelName.ts").resolve().as_uri()
     keys = list(SHORT)
-    js = f"const m = await import({url!r}); console.log(JSON.stringify({keys!r}.map(m.shortModel)))"
-    r = subprocess.run([node, "--experimental-strip-types", "--no-warnings", "--input-type=module", "-e", js],
-                       capture_output=True, encoding="utf-8", errors="replace", timeout=60)
-    if r.returncode != 0 and "strip-types" in (r.stderr or ""):
-        raise SkipTest("this node cannot run a .ts module")
-    import json
-    got = json.loads((r.stdout or "[]").strip().splitlines()[-1]) if r.returncode == 0 else r.stderr
+    got = node_ts.run(f"const m = await import({url!r}); console.log(JSON.stringify({keys!r}.map(m.shortModel)))")
     ctx.check(f"each id loses its prefix, its host and its vendor path, got {got}", got == [SHORT[k] for k in keys])
 
 

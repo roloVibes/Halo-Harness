@@ -2,7 +2,8 @@
 // by when something starts waiting on you -- None (the default: nothing is sent) or each channel of lib/alerts.ts
 // CHANNELS (today: this browser's notification). Choosing the browser asks THIS browser for permission then, on that
 // click (the only place Studio asks; never on load), and saves `studio.alerts`; the line under the choices says what
-// this browser will do. The `studio.alerts` row below stays generic (a terminal's `halo config set` moves the same key).
+// this browser will do. 3.4.1.1 (64): it is the page's one control of `studio.alerts` (no second, generic row below it;
+// Settings' search still finds the key, and a terminal's `halo config set` moves the same key).
 import { useState } from "react";
 import { ALERT_KEY, CHANNELS, chosenOf, type ChannelState } from "../../lib/alerts";
 import { setValue, useSettings } from "./store";
@@ -28,7 +29,8 @@ export function AlertsBlock() {
     redraw((n) => n + 1);
   };
   const choices: Choice[] = [NONE, ...Object.values(CHANNELS).map((c) => ({ id: c.id, label: c.label, what: c.what }))];
-  const ch = CHANNELS[pick];
+  // 3.4.1.1 (64): the line says what this browser will do with None chosen too (it has not been asked, it blocked them)
+  const ch = CHANNELS[pick] || Object.values(CHANNELS)[0];
   const state = ch ? ch.state() : null;
   return (
     <section className="st-ollama al-block" data-testid="settings-alerts" data-choice={pick} aria-label="Alerts">

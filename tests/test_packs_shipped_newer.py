@@ -61,7 +61,9 @@ def test_every_surface_says_an_older_shipped_pack_in_one_line(ctx: Ctx):
         code, out, _ = h.cli("inspect", PID)
         ctx.check(f"pack inspect, got {out[:300]!r}", f"  {line}" in out.splitlines())
         code, out, _ = h.cli("doctor")
-        ctx.check(f"pack doctor warns once with the fix, got {out!r}", out.count(line) == 1 and "0 problem(s)" not in out)
+        said = line.removesuffix(f": halo pack update {PID}") + f" -> halo pack update {PID}"  # 3.4.1.1 (38): the fix once
+        ctx.check(f"pack doctor warns once with the fix, said once, got {out!r}", out.count(said) == 1 and "0 problem(s)" not in out
+                  and out.count(f"halo pack update {PID}") == 1)
         from halo_harness.packs.contrib_doctor import entries_of
         rows = [r for _cid, r in entries_of(h.repo)]
         ctx.check(f"halo doctor (disabled pack too), got {rows}", any(r == f"[WARN] From packs, {PID}: {line}" for r in rows))

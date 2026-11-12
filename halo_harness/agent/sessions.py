@@ -97,9 +97,9 @@ def _first_user_text(nodes: list) -> str:
     return ""
 
 
-def _title_for(nodes: list) -> str:
+def _title_for(nodes: list) -> str:  # 3.4.1.1 (50): a model's JSON reply stored as a title is none (live/history.py)
     for node in reversed(nodes):
-        if node.get("type") == "meta" and isinstance(node.get("title"), str) and node["title"]:
+        if node.get("type") == "meta" and isinstance(node.get("title"), str) and node["title"][:1] not in ("", "{", "["):
             return node["title"]
     return ""
 
@@ -238,7 +238,7 @@ def _session_rows_for_filter(cwd) -> list:
         sid = path.stem
         entry = index.get(sid, {})
         nodes = _read_nodes(path)
-        title = entry.get("title") or _title_for(nodes)
+        title = entry["title"] if str(entry.get("title") or "")[:1] not in ("", "{", "[") else _title_for(nodes)
         summary = entry.get("first_prompt") or _first_user_text(nodes)
         out.append({"id": sid, "mtime": path.stat().st_mtime, "title": title,
                      "summary": summary, "cwd": str(cwd), "model": _model_for(nodes)})
@@ -271,7 +271,7 @@ def list_sessions(cwd) -> list:
     for path in sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
         sid = path.stem
         entry = index.get(sid, {})
-        title = entry.get("title") or _title_for(_read_nodes(path))
+        title = entry["title"] if str(entry.get("title") or "")[:1] not in ("", "{", "[") else _title_for(_read_nodes(path))
         out.append({"id": sid, "mtime": path.stat().st_mtime, "title": title,
                      "summary": entry.get("first_prompt", "")})
     return out

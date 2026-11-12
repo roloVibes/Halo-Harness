@@ -72,30 +72,8 @@ def pid_running(pid) -> bool:
     does not count; POSIX: bg_run.pid_alive, which also rules out a zombie)."""
     if not isinstance(pid, int) or pid <= 0:
         return False
-    if os.name != "nt":
-        from halo_harness.bg_run import pid_alive
-        return pid_alive(pid)
-    try:
-        import ctypes
-        from ctypes import wintypes
-        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        k32.OpenProcess.restype = wintypes.HANDLE
-        k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
-        k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
-        k32.CloseHandle.argtypes = (wintypes.HANDLE,)
-        handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
-        if not handle:
-            return False
-        try:
-            code = wintypes.DWORD()
-            if not k32.GetExitCodeProcess(handle, ctypes.byref(code)):
-                return False
-            return code.value == 259  # STILL_ACTIVE
-        finally:
-            k32.CloseHandle(handle)
-    except Exception:
-        from halo_harness.bg_run import pid_alive
-        return pid_alive(pid)
+    from halo_harness.bg_run import pid_alive  # 3.4.1.1: Windows asks process_alive.win_alive first, there too
+    return pid_alive(pid)
 
 
 def same_process(pid, recorded: Optional[str]) -> bool:
@@ -140,6 +118,17 @@ def launcher_owner() -> Optional[int]:
     `halo bg stop` still end it)."""
     raw = os.environ.get(OWNER_ENV, "")
     return int(raw) if raw.isdigit() and int(raw) > 0 else None
+
+
+def in_session() -> bool:
+    """3.4.1.1 (48): this process is a halo session (a TUI or headless row of run/sessions.json), so what it starts
+    is its own; a shell command's (`halo replay open`, `halo init`) is not."""
+    try:
+        from halo_harness.remote import registry
+        rows = registry._load(registry.registry_path())
+    except Exception:
+        return False
+    return any(r.get("pid") == os.getpid() and (r.get("kind") or "tui") in ("tui", "headless") for r in rows)
 
 
 def register(pid, what: str, cmd, *, owner_pid: Optional[int] = None, launched: bool = False, state_dir=None,

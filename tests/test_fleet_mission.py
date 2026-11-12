@@ -107,7 +107,7 @@ def test_the_plan_pins_parts_by_capability_with_reasons(ctx: Ctx):
         ctx.check("each part has its brief with its claims", "Run nmap" in brief and f"artifacts/{scan['id']}/**" in brief)
         saved = json.loads((d / "plan.json").read_text(encoding="utf-8"))
         ctx.check("plan.json keeps the parts, merge order and notes", [p["id"] for p in saved["parts"]] == ["1", "2", "3", "4", "5"]
-                  and saved["merge_order"] == plan["merge_order"] and saved["lead_cost_usd"] == 0.001)
+                  and saved["merge_order"] == plan["merge_order"] and saved["lead_cost_usd"] == 0.002)  # 3.4.1.1 (42): asked again for "metasploit"
         claims = json.loads((d / "claims.json").read_text(encoding="utf-8"))
         ctx.check("claims.json per part", claims[page["id"]] == ["docs/report/**"])
         ctx.check("the mission is planned", S.need(h.home, mid)["state"] == "planned")

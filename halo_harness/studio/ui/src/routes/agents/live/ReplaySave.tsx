@@ -41,9 +41,9 @@ function usePlan(r: LiveReplay, lineup: string): [SavePlan | null, string] {
   return [plan, err];
 }
 
-async function save(r: LiveReplay, lineup: string): Promise<Saved | null> {
-  try {
-    const got = await api.post<Saved>("replays/save", what(r, lineup));
+async function save(r: LiveReplay, lineup: string, id = ""): Promise<Saved | null> {
+  try { // 3.4.1.1 (53): `id`, the plan's, so the file is written under the name the dialog showed
+    const got = await api.post<Saved>("replays/save", { ...what(r, lineup), ...(id ? { id } : {}) });
     toast(`Saved the replay: ${got.path}`, "done", 6000);
     return got;
   } catch (e) {
@@ -56,7 +56,7 @@ export function SaveDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
   const [plan, err] = usePlan(r, lineup);
   const [done, setDone] = useState<Saved | null>(null);
   const [busy, setBusy] = useState(false);
-  const go = async () => (setBusy(true), setDone(await save(r, lineup)), setBusy(false));
+  const go = async () => (setBusy(true), setDone(await save(r, lineup, plan?.id)), setBusy(false));
   const cost = plan && !done ? { does: r.kind === "run" ? `Saves the goal run "${r.title}" as one replay file: the lead and its lanes, each lane's states over time, the marks, the run's figures`
                                     : `Saves "${r.title}" as one replay file: its agents, their states over time, the marks, the lineup's blocks`,
                                   costs: "nothing: no model call", writes: `${plan.path} (about ${kb(plan.bytes)})` } : undefined;
@@ -73,8 +73,25 @@ export function SaveDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
   );
 }
 
+type Row = { id: string; session_id?: string | null; run_id?: string | null; ended?: number | null; saved?: number | null };
+
+/** 3.4.1.1 (54): the newest replay already saved of this session or goal run (as it ended), so Export films from it
+ *  instead of saving a second file of the same run; "" when there is none. */
+function useSavedFile(r: LiveReplay): [Row | null, boolean] {
+  const [row, setRow] = useState<Row | null>(null);
+  const [read, setRead] = useState(r.kind === "file");
+  useEffect(() => {
+    if (r.kind !== "session" && r.kind !== "run") return;
+    api.get<{ replays: Row[] }>("replays").then((got) => setRow((got.replays || []).find((x) => (r.kind === "run" ? x.run_id === r.id : x.session_id === r.sid)
+      && (r.live ? false : (x.ended ?? 0) >= (r.ended ?? 0) - 1)) || null)).catch(() => setRow(null)).finally(() => setRead(true));
+  }, [r.kind, r.id, r.sid, r.ended, r.live]);
+  return [row, read];
+}
+
 export function ClipDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: string; onClose: () => void }) {
   const [rid, setRid] = useState(r.kind === "file" ? r.id : "");
+  const [have, read] = useSavedFile(r);
+  useEffect(() => { if (have && !rid) setRid(have.id); }, [have]); // eslint-disable-line react-hooks/exhaustive-deps
   const [savePlan, saveErr] = usePlan(r, lineup);
   const at = Math.round(r.t - r.tl.t0);
   const [from, setFrom] = useState("0:00");
@@ -96,7 +113,7 @@ export function ClipDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
   }, [rid, from, to, r.speed]);
   const saveFirst = async () => {
     setBusy(true);
-    const got = await save(r, lineup);
+    const got = await save(r, lineup, savePlan?.id);
     setBusy(false);
     if (got) (setRid(got.id), void openFileReplay(got.id, r.t));
   };
@@ -110,15 +127,17 @@ export function ClipDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
     }
     setBusy(false);
   };
-  const cost = !rid && savePlan ? { does: "A clip is filmed from a saved replay: Save writes it first, then the clip's range is offered", costs: "nothing: no model call", writes: savePlan.path }
+  const cost = !rid && savePlan && read ? { does: "A clip is filmed from a saved replay: Save writes it first, then the clip's range is offered", costs: "nothing: no model call", writes: savePlan.path }
     : plan && !done ? { does: `Films ${mmss(plan.from)} to ${mmss(plan.to)} at ${plan.speed}x: ${plan.frames} frames, ${plan.seconds} s, ${plan.width} px wide, ${plan.format.toUpperCase()} (at most ${plan.max_seconds} s)`,
                         costs: `nothing: no model call; a headless Chrome on this machine for about ${Math.ceil(plan.frames / 4)} s`, writes: plan.path } : undefined;
   return (
     <Dialog open onClose={onClose} title="Export a clip" testid="replay-clip-dialog" cost={cost}
             footer={done ? <><Button onClick={() => void download(done.url, done.name)} data-testid="replay-clip-download">Download</Button><Button variant="primary" onClick={onClose}>Done</Button></>
-              : !rid ? <><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!savePlan || busy} onClick={() => void saveFirst()} data-testid="replay-clip-save">Save first</Button></>
+              : !rid ? <><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!savePlan || busy || !read} onClick={() => void saveFirst()} data-testid="replay-clip-save">Save first</Button></>
               : <><Button onClick={onClose}>Cancel</Button><Button variant="primary" disabled={!plan || !plan.chrome || !plan.pillow || busy} onClick={() => void film()} data-testid="replay-clip-go">{busy ? "Filming..." : "Export"}</Button></>}>
       {saveErr && !rid ? <p className="field-error">{saveErr}</p> : null}
+      {have && rid === have.id && !done && <p className="muted" data-testid="replay-clip-from-file" data-id={have.id}>Filmed from this run's replay already
+        saved, <span className="mono">{have.id}.halo-replay</span>: nothing is saved again.</p>}
       {rid && !done && (
         <div className="scr-range-fields">
           <label>From <input className="input mono" value={from} onChange={(e) => setFrom(e.target.value)} data-testid="replay-clip-from" /></label>

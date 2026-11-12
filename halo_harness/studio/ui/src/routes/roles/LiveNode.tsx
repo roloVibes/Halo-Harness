@@ -39,9 +39,9 @@ function nowLine(n: LiveBox["node"]): string {
   return n.current && n.current !== "thinking" ? n.current : n.task || n.current || "";
 }
 
-type Props = { b: LiveBox; selected: boolean; now: number; onMenu: (m: MenuAt) => void; onPick: (key: string) => void; hover?: boolean };
+type Props = { b: LiveBox; selected: boolean; now: number; onMenu: (m: MenuAt) => void; onPick: (key: string) => void; hover?: boolean; waits?: boolean };
 
-export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }: Props) {
+export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false, waits = hover }: Props) {
   const n = b.node;
   const style = { left: b.x, top: b.y, width: b.w, height: b.h };
   const [born, grown] = useBorn(); // 3.3.15.0 L1: a node that appears after the page drew fades in once
@@ -91,7 +91,8 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
       {lead && <div className="rlm-name rlm-sub" title={t ? `the agent: ${n.name}` : undefined}>{n.name}</div>}
       <div className="mono muted rlm-meta" title={(t && n.model) || undefined}>
         <span className="rlm-model" data-testid="roles-live-model">{shortModel(n.model) || "model ?"}</span>
-        <span className="rlm-cost"><span data-testid="roles-live-cost">{cost(shown)}</span>{n.started ? ` · ${took(n, now)}` : ""}</span>
+        <span className="rlm-cost"><span data-testid="roles-live-cost" data-unknown={n.costUnknown || undefined}
+          title={n.costUnknown ? "unknown at this moment: the record gives this agent's cost at its end" : undefined}>{n.costUnknown ? "cost unknown" : cost(shown)}</span>{n.started ? ` · ${took(n, now)}` : ""}</span>
       </div>
       {n.square ? <SquareRow n={n} /> : clock.tool ? (
         <div className="mono rlm-line rlm-tool" data-testid="roles-live-tool" data-tool={clock.tool} data-secs={clock.secs ?? undefined} title={t ? row?.current || clock.tool : undefined}>
@@ -103,7 +104,7 @@ export function LiveNodeCard({ b, selected, now, onMenu, onPick, hover = false }
         <div className="muted rlm-now" title={t ? nowLine(n) : undefined} data-testid="roles-live-now">{short(nowLine(n), 140)}</div>
       )}
       {near && !!n.key && <NearRows k={n.key} />}
-      {hover && <WaitsRow id={n.id} />}
+      {waits && <WaitsRow id={n.id} />}
       <button className="rlm-steer mono" onClick={(e) => (e.stopPropagation(), steerAgent(n.key))} onDoubleClick={(e) => e.stopPropagation()}
               title={`Steer ${n.name}: the Steer box, addressed to it`} data-testid="roles-live-steer">steer ▸</button>
     </div>

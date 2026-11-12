@@ -93,6 +93,12 @@ def cmd_orchestra(argv) -> int:
     return handler(args, repo)
 
 
+def _terminal() -> bool:
+    """A terminal to ask on, as far as isatty() knows. 3.4.1.1 (57): Windows' NUL device (Git Bash's `< /dev/null`)
+    answers True too; its first `input()` is an EOF, which `_new` reads as no terminal (it was a traceback)."""
+    return bool(sys.stdin and sys.stdin.isatty())
+
+
 def _new(args, repo: Path) -> int:
     if getattr(args, "workflow", None):  # 3.2.0.0 R5: the goal, hand-offs and pinned plan a workflow compiles to
         from halo_harness.workflows.cli import orchestra_new
@@ -114,10 +120,14 @@ def _new(args, repo: Path) -> int:
     from halo_harness.packs.lineup_run import goal_defaults  # 3.2.0.0 R2: the lineup's acceptance (test, review)
     taken = goal_defaults(goal, cwd=repo, explicit_test=args.test is not None)
     missing = [(k, label) for k, label in _PROMPTS if not str(getattr(goal, k) or "").strip()]
-    if missing and sys.stdin.isatty():
-        for key, label in missing:
-            setattr(goal, key, input(f"{label}: ").strip())
-    elif missing:
+    try:
+        if missing and _terminal():
+            for key, label in missing:
+                setattr(goal, key, input(f"{label}: ").strip())
+            missing = []
+    except EOFError:  # 3.4.1.1 (57): a stdin that looked like a terminal and was not
+        pass
+    if missing:
         flags = ", ".join("--" + k.replace("_", "-") for k, _ in missing)
         print(f"halo orchestra new: no terminal to ask on; give {flags}", file=sys.stderr)
         return 2

@@ -49,7 +49,7 @@ def _render_text(findings: "list[dict]", *, history: bool) -> str:
 
 def cmd_audit(argv: "list[str]") -> int:
     if not argv or argv[0] != "privacy":
-        print("usage: halo audit privacy [--history] [--json] [--since REV] [--cwd DIR]", file=sys.stderr)
+        print("usage: halo audit privacy [--history | --replays] [--json] [--since REV] [--cwd DIR]", file=sys.stderr)
         return 2
 
     parser = argparse.ArgumentParser(
@@ -61,6 +61,9 @@ def cmd_audit(argv: "list[str]") -> int:
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON instead of text lines")
     parser.add_argument("--since", default=None, metavar="REV",
                          help="With --history, only commits in REV..HEAD instead of every commit reachable from HEAD")
+    parser.add_argument("--replays", action="store_true",
+                         help="Scan this home's saved replays (~/.halo/replays/*.halo-replay) instead: the rules above, "
+                              "plus this machine's home path, user name and machine name (3.4.1.1)")
     parser.add_argument("--cwd", default=None, metavar="DIR",
                          help="Repo directory to scan (default: the current directory)")
     args = parser.parse_args(argv[1:])
@@ -68,11 +71,16 @@ def cmd_audit(argv: "list[str]") -> int:
     start_dir = Path(args.cwd).resolve() if args.cwd else Path.cwd()
     repo = repo_root(start_dir) or start_dir
 
-    findings = scan_history(repo, since=args.since) if args.history else scan_working_tree(repo)
+    if args.replays:  # 3.4.1.1 (56): a replay is made to be handed on; its own folder, its own check
+        from halo_harness.live.replay_private import audit
+        from halo_harness.providers.config import default_state_dir
+        findings = audit(default_state_dir())
+    else:
+        findings = scan_history(repo, since=args.since) if args.history else scan_working_tree(repo)
 
     if args.json:
         payload = {
-            "mode": "history" if args.history else "working-tree",
+            "mode": "replays" if args.replays else "history" if args.history else "working-tree",
             # The repo's own NAME only -- never the absolute path, which
             # on a real machine starts with the same real home-profile
             # path (`C:\Users\<name>\...`/`/home/<name>/...`) this whole

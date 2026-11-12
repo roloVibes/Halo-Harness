@@ -4,7 +4,8 @@ this machine's sessions and `<state>/replays/` only, with the fleet pack on or o
 
     GET  replays                          {dir, replays: [row]}  newest first (live/replay_file.row)
     GET  replays/plan?session=<sid>[&lineup=] | ?run=<run-id>   what Save would write, nothing written: {id, path, bytes, includes}
-    POST replays/save  {session, lineup?} | {run}                 {ok, id, path, bytes, includes, row}
+    POST replays/save  {session, lineup?, id?} | {run, id?}       {ok, id, path, bytes, includes, row}; `id`: the plan's
+                                          (3.4.1.1: the file is written under the name the dialog showed)
     GET  replays/compare?a=<ref>&b=<ref>[&split=<s>]   two runs side by side (live/compare.py), nothing written;
                                           ref: session:<id> | run:<id> | file:<id>; the same ref twice splits it at `split`
     GET  replays/report?ref=<ref>         3.4.1.0 R3: the run report card (live/report_card.py) -> {card, markdown}; ref as
@@ -73,6 +74,9 @@ def post_save(req):
     p, err = _build(req, sid, body.get("lineup"), run)
     if err:
         return err
+    shown = str(body.get("id") or "")  # 3.4.1.1 (53): the name the dialog showed (its plan's), not a second stamp
+    if shown.startswith(f"{sid or run}-") and replay_file._ID.match(shown) and replay_file.path_for(req.state_dir, shown) is None:
+        p["id"] = shown
     path = replay_file.save(req.state_dir, p)
     return 200, {"ok": True, "id": p["id"], "path": str(path), "bytes": path.stat().st_size, "includes": p["includes"],
                  "row": replay_file.row(p, path)}

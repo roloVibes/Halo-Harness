@@ -52,10 +52,8 @@ def worker_prompt(goal, lane: Lane, retry_text: str = "") -> str:
         "key (it marks the claim written) -> OrchestraNote one line saying what you changed. Leave every other "
         "unit as it is. Do not commit; the run commits your worktree when you finish.\n"
     )
-    if goal.test:
-        text += f"The run's test command is `{goal.test}` (other workers' units may still be unwritten).\n"
-    text += ("If STOP WHEN applies to your job, end your reply with one line: STOP: <the reason>. "
-             "If it does not apply, write no STOP line at all (not even \"STOP: none\").\n")
+    from halo_harness.orchestra.worker_stop import STOP_RULE, own_test_line  # 3.4.1.1 (58): own test runs are no gate
+    text += (own_test_line(goal.test) if goal.test else "") + STOP_RULE
     extra = [t for t in (getattr(lane, "stage_text", ""), getattr(lane, "handoff_text", ""), getattr(lane, "gives_text", ""),
                          getattr(lane, "knowledge_text", "")) if t]  # 3.1.8.0 R4: the findings recall ranks for the job
     if extra:  # 3.0.9.0: only a lane that declares hand-offs (orchestra/handoff.py)

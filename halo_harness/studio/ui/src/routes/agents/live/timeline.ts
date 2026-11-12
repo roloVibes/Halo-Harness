@@ -16,11 +16,13 @@ export type TState = { t: number; agent_id: string; state: string; activity?: st
 type Point = { t: number; usd: number; agent_id?: string };
 /** What `GET fleet/replay` answers and a replay file holds (the keys both share). */
 export type SessionTimeline = {
-  session_id: string; title?: string; started?: number | null; ended?: number | null; cost_usd?: number | null; harness?: string;
+  session_id: string; kind?: string; title?: string; started?: number | null; ended?: number | null; cost_usd?: number | null; harness?: string;
   agents: Record<string, unknown>[]; states?: TState[]; costs?: Point[]; agent_costs?: Point[]; marks?: Mark[]; bands?: Band[];
 };
 export type Timeline = { t0: number; t1: number; base: LiveNode[]; states: Map<string, TState[]>; costs: Point[]; agentCosts: Map<string, Point[]>;
-  marks: Mark[]; bands: Band[]; coarse: boolean; scope: string; rows: { id: string; bio: string; lineup: string }[] };
+  marks: Mark[]; bands: Band[]; coarse: boolean; scope: string; rows: { id: string; bio: string; lineup: string }[];
+  /** 3.4.1.1 (60): a goal run's (or a mission's) record gives each agent's cost at its END only: before it, unknown. */
+  endsOnly: boolean };
 
 /** "m:ss" (or "h:mm:ss") for a number of seconds. */
 export const mmss = (v: number) => {
@@ -53,7 +55,7 @@ export function fromSession(m: SessionTimeline, scope: string): Timeline {
   const t0 = times.length ? Math.min(...times) : 0;
   const t1 = Math.max(t0 + 1, ...times);
   return { t0, t1, base, states: group(states), costs: m.costs || [], agentCosts: group(m.agent_costs || []), marks: m.marks || [], bands: m.bands || [],
-           coarse: false, scope, rows: m.agents.map((a) => ({ id: str(a.agent_id), bio: str(a.bio), lineup: str(a.lineup) })) };
+           coarse: false, scope, rows: m.agents.map((a) => ({ id: str(a.agent_id), bio: str(a.bio), lineup: str(a.lineup) })), endsOnly: m.kind === "run" };
 }
 
 /** A goal run's or a mission's axis from its nodes as they ended: each from its start to its end. */
@@ -68,7 +70,7 @@ export function fromNodes(nodes: LiveNode[], ended: number | null, scope: string
     if (n.ended && !LIVE.includes(n.state)) marks.push({ t: n.ended, kind: n.state === "failed" ? "fail" : "finish", agent_id: n.id, name: n.name, text: `${n.name} ${n.state}` });
   }
   return { t0, t1, base: nodes.map((n) => ({ ...n, key: n.key || `replay|${scope}|${n.id}` })), states: new Map(), costs: [], agentCosts: new Map(),
-           marks: marks.sort((a, b) => a.t - b.t), bands: [], coarse: true, scope, rows: [] };
+           marks: marks.sort((a, b) => a.t - b.t), bands: [], coarse: true, scope, rows: [], endsOnly: true };
 }
 
 function lastAt<T extends { t: number }>(rows: T[] | undefined, t: number): T | null {
@@ -80,7 +82,13 @@ function lastAt<T extends { t: number }>(rows: T[] | undefined, t: number): T | 
   return hit;
 }
 
-export const costAt = (tl: Timeline, t: number): number => lastAt(tl.costs, t)?.usd || 0;
+/** What it had cost at t; null where the record cannot say (an ends-only axis before its last agent ended). */
+export function costAt(tl: Timeline, t: number): number | null {
+  if (!tl.endsOnly) return lastAt(tl.costs, t)?.usd || 0;
+  if (tl.costs.length) return t >= tl.costs[tl.costs.length - 1].t - 1e-6 ? tl.costs[tl.costs.length - 1].usd : null;
+  const all = tl.base.map((n) => n.cost);
+  return t >= tl.t1 - 1e-6 && all.length && all.every((c) => c !== null) ? all.reduce((s, c) => s + Number(c), 0) : null;
+}
 
 /** The canvas as it was at t: who existed, each one's state, what it ran, what it had cost. */
 export function nodesAt(tl: Timeline, t: number): LiveNode[] {
@@ -92,8 +100,10 @@ export function nodesAt(tl: Timeline, t: number): LiveNode[] {
     const state = s ? s.state : over || (tl.coarse && t >= tl.t1 - 1e-6) ? n.state : n.started !== null && n.started > t ? "queued" : "running";
     const current = s?.activity === "tool" ? str(s.tool) : s?.activity === "typing" ? "" : n.current && !over ? n.current : "";
     const pts = tl.agentCosts.get(n.id);
-    const cost = pts?.length ? lastAt(pts, t)?.usd ?? 0 : over ? n.cost : null; // no points (a coarse axis, an older file): known at its end
-    return { ...n, parent: n.parent && ids.has(n.parent) ? n.parent : null, state, current, activity: str(s?.activity), cost,
+    const at = lastAt(pts, t)?.usd; // no points (a coarse axis, an older file): known at its end
+    const cost = pts?.length ? at ?? (tl.endsOnly ? null : 0) : over ? n.cost : null;
+    const costUnknown = tl.endsOnly && cost === null; // 3.4.1.1 (60): said "cost unknown", never $0
+    return { ...n, parent: n.parent && ids.has(n.parent) ? n.parent : null, state, current, activity: str(s?.activity), cost, costUnknown,
              ended: over ? n.ended : null, glow: "" as const }; // a replay is muted: its state shows in words, never in the live glow
   });
 }

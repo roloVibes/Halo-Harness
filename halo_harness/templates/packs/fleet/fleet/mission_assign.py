@@ -22,6 +22,8 @@ what only one harness has, so the lead is told) and after it answers
 
 from __future__ import annotations
 
+import re
+
 from halo_harness.ext import core as _core
 
 KINDS, norm_need, has = (_core.get("peers.needs", n) for n in ("KINDS", "norm_need", "has"))  # 3.4.0.0 D: core (peers/needs.py)
@@ -74,11 +76,75 @@ def _nobody(nobody: list, away: list) -> str:
             f"{'is' if len(names) == 1 else 'are'} offline (no halo session open there): open one, then plan again")
 
 
-def assign(part: dict, entries: list, prefer: list, load: dict, away: list = ()) -> dict:
+FIXED_WORDS = {"gpu", "comfyui"}
+
+
+def vocabulary(entries: list) -> set:
+    """3.4.1.1 (42): every capability word any harness's card lists -- MCP servers and tools, skills, tags, craft apps,
+    CLIs (installed or not), models, GPU name words, OS and distro, pack capabilities -- and `gpu`, `comfyui`."""
+    out = set(FIXED_WORDS)
+    for e in entries:
+        cat = e.get("catalog") if isinstance(e.get("catalog"), dict) else {}
+        for s in cat.get("mcp") or []:
+            out.add(str(s.get("name") or "").lower())
+            out |= {str(t.get("name") or "").lower() for t in s.get("tools") or [] if isinstance(t, dict)}
+        for key in ("skills", "tags", "craft_apps"):
+            out |= {str(x).lower() for x in cat.get(key) or []}
+        out |= {str(k).lower() for k in (cat.get("clis") or {})} if isinstance(cat.get("clis"), dict) else set()
+        for m in cat.get("models") or []:
+            mid = str(m.get("id") or "").lower()
+            out |= {mid, mid.split(":", 1)[-1], mid.rsplit("/", 1)[-1]}
+        hw = cat.get("hardware") if isinstance(cat.get("hardware"), dict) else {}
+        out |= {str(hw.get(k) or "").lower() for k in ("os", "distro")}
+        out |= {w for g in hw.get("gpu") or [] if isinstance(g, dict) for w in re.findall(r"[a-z0-9]+", str(g.get("name") or "").lower())}
+        out |= {str(c.get("name") or "").lower() for p in cat.get("packs") or [] if isinstance(p, dict)
+                for c in p.get("capabilities") or [] if isinstance(c, dict)}
+    return out - {""}
+
+
+def named(text: str, entries: list) -> list:
+    """3.4.1.1 (42): the harnesses `text` names (`kali@kali`, its id), by whole word, in the fleet's order."""
+    low = " " + " ".join(str(text or "").lower().replace("`", " ").replace('"', " ").split()) + " "
+    out = []
+    for e in entries:
+        keys = {str(e.get("name") or "").lower(), str(e.get("harness") or "").lower()} - {""}
+        if any(re.search(r"(?<![\w@.-])" + re.escape(k) + r"(?![\w@-])", low) for k in keys):
+            out.append(e)
+    return out
+
+
+def unknown_needs(part: dict, entries: list, away: list = ()) -> list:
+    """3.4.1.1 (42): the part's bare needs no card's vocabulary knows (the lead's `shell`): not one harness lists such a
+    capability, installed or not."""
+    every = list(entries) + list(away or [])
+    words = vocabulary(every)
+    return [n for n in (norm_need(x) for x in part.get("needs") or []) if n and n.split(":", 1)[0] not in KINDS
+            and n not in words and not any(has(e.get("catalog"), n) for e in every)]
+
+
+def said_by(part: dict, entries: list, goal: str = "") -> "tuple[list, str]":
+    """The harnesses the part's own words name, else the goal's; and which named them."""
+    own = named(f"{part.get('title') or ''} {part.get('brief') or ''}", entries)
+    return (own, "the part") if own else (named(goal, entries), "the goal")
+
+
+def vocab_problems(parts: list, entries: list, away: list = (), goal: str = "") -> list:
+    """3.4.1.1 (42): the lead's first answer is sent back for a need no card knows, unless the owner named the harness
+    (`assign` then drops it); a second answer that keeps it is taken (a capability nobody has: unassignable)."""
+    return [f"part {p.get('id')}: no harness lists {', '.join(u)} -- name only capabilities from THE FLEET blocks, and "
+            "leave out what every harness has (a shell, a file system)"
+            for p in parts if (u := unknown_needs(p, entries, away)) and not said_by(p, entries, goal)[0]]
+
+
+def assign(part: dict, entries: list, prefer: list, load: dict, away: list = (), goal: str = "") -> dict:
     """Set `harness`, `harness_name`, `pinned`, `reason`, `unassignable` on `part` by the rules (`away`: the members
-    offline now, with their cards: named when only they have a need)."""
-    needs = [norm_need(n) for n in part.get("needs") or [] if norm_need(n)]
-    part["needs"] = needs
+    offline now, with their cards: named when only they have a need). 3.4.1.1 (42): a harness the part (or else the
+    goal, `goal`) names wins over the lead's pick and the tie rules when it meets the needs; a bare need no card knows
+    (the lead's `shell`) is dropped there (`dropped_needs`, the plan says so) instead of making the part unassignable."""
+    said, by = said_by(part, entries, goal)
+    unknown = unknown_needs(part, entries, away) if said else []
+    needs = [n for n in (norm_need(x) for x in part.get("needs") or []) if n and n not in unknown]
+    part["needs"], part["dropped_needs"] = needs, unknown
     nobody = [n for n in needs if not any(has(e.get("catalog"), n) for e in entries)]
     part["pinned"], part["unassignable"] = False, None
     if nobody:
@@ -95,10 +161,15 @@ def assign(part: dict, entries: list, prefer: list, load: dict, away: list = ())
     chosen = next(((e, w) for e, w in fit if picked and picked in (str(e.get("harness")).lower(),
                                                                    str(e.get("name") or "").lower())), None)
     why_lead = str(part.get("reason") or "").strip()
+    said_fit = [(e, w) for e, w in fit if any(e is s for s in said)]
     if len(fit) == 1:
         e, whys = fit[0]
         part["pinned"] = bool(needs)
         reason = f"only {e.get('name')} has {', '.join(whys)}" if needs else f"{e.get('name')} is the only harness"
+    elif len(said_fit) == 1:  # 3.4.1.1 (42): the owner named the harness
+        e, whys = said_fit[0]
+        part["pinned"] = True
+        reason = f"{by} names {e.get('name')}" + (f", which has {', '.join(whys)}" if needs else "")
     elif chosen is not None:
         e, whys = chosen
         reason = why_lead or (f"{e.get('name')} has {', '.join(whys)}" if needs else f"the lead picked {e.get('name')}")
@@ -126,8 +197,8 @@ def mode_note(e: dict) -> str:
     allow = ("on that machine allow what the part runs with a rule (permissions.allow, e.g. Bash(nmap:*)) or "
              "`halo config set permission_mode auto`")
     if isinstance(wait, (int, float)) and not isinstance(wait, bool):
-        return (f"{e.get('name')} runs mission parts in permission mode {mode}: writing its own outputs folder needs no "
-                f"ask; any other tool call that would ask there waits as a card in its owner's Attention on that machine "
+        return (f"{e.get('name')} runs mission parts in permission mode {mode}: writing its own outputs folder with the "
+                f"Write tool needs no ask (the part's brief says so; a shell redirect there asks); any other tool call that would ask there waits as a card in its owner's Attention on that machine "
                 f"for up to {wait:g} min (fleet.mission.ask_wait_min), then the part ends not done; to need no answer, "
                 + allow)
     return (f"{e.get('name')} runs mission parts in permission mode {mode}: a tool call that would ask there is refused "

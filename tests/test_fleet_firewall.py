@@ -58,6 +58,8 @@ def test_the_live_checks_block_rules_are_found_and_said(ctx: Ctx):
               and f"Get-NetFirewallApplicationFilter -Program '{PY}'" in line and "Remove-NetFirewallRule" in line
               and "New-NetFirewallRule -DisplayName 'Halo fleet hub' -Direction Inbound -Protocol TCP -LocalPort 7430 "
                   "-Action Allow -Profile Private" in line and "\n" not in line)
+    ctx.check(f"3.4.1.1 (39): both rules counted, as netsh shows them and the command removes them, got {line!r}",
+              "1 inbound Block rule for TCP and 1 for UDP (python.exe, Private)" in line)
 
 
 @test

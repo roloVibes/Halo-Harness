@@ -22,6 +22,7 @@ import http.server
 import os
 import secrets
 import socket
+import sys
 import threading
 import time
 from pathlib import Path
@@ -43,7 +44,7 @@ OFFLINE_LINE = ("offline mode is on (--offline or network.offline): the host lis
 
 class _Server(http.server.ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = False
+    allow_reuse_address = sys.platform != "win32"  # 3.4.1.1: rebinds its port at once on POSIX, as Studio (test_server_rebind)
 
     def __init__(self, addr, svc, ssl_ctx) -> None:
         self.svc, self.ssl_ctx = svc, ssl_ctx

@@ -37,8 +37,8 @@ def variables_for(theme_name: str) -> dict:
     return {var: tokens[token] for var, token in TOKEN_FOR}
 
 
-MODE_GLYPHS = {
-    "default": "⏸ manual", "acceptEdits": "⏩ accept edits",
+MODE_GLYPHS = {  # 3.4.1.1 (46): `default` here as on its cards, Studio's mode word and the mission note (was "manual")
+    "default": "⏸ default", "acceptEdits": "⏩ accept edits",
     "plan": "\U0001f4dd plan", "auto": "⏩ auto",
     "dontAsk": "⏩ don't ask", "bypassPermissions": "⚠ bypass",
 }

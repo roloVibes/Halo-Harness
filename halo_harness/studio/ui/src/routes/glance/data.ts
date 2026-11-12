@@ -5,34 +5,62 @@
 // fleet/attention/answer with the token and the owner proof, as Attention sends it). `heard` is the last time Studio
 // answered (a read or a feed frame); past STALE_MS the page says it is stale. The feed reconnects by itself (lib/events),
 // and when the page shows again it reads everything once more and reopens a feed that went down.
-import { api } from "../../lib/api";
-import { connectEvents, onEvent, onFeedState, type FeedState } from "../../lib/events";
+// 3.4.1.1 (63): a Studio restarted on the same port has a NEW key (the token is per launch, never kept or reused), so
+// the open page's reads turn from "no answer" to 401: the page says so, revokes its key (every request and the feed stop
+// asking) and points at Studio's "Open the glance". The same Studio back (a blip, the SSH forward re-made) answers 200
+// and the page is live again by itself. While the page has not heard Studio for PROBE_MS it asks every PROBE_MS.
+import { api, ApiError, onTokenChange, revoke } from "../../lib/api";
+import { connectEvents, disconnectEvents, onEvent, onFeedState, type FeedState } from "../../lib/events";
 import { createStore, studio, useStore } from "../../lib/store";
 import { startFeed } from "../../shell/feed";
 import { loadAttention } from "../fleet/pload";
 import { panels } from "../fleet/pstore";
 import { load, startFleet } from "../fleet/sync";
-import type { Harness, SessionRow } from "../fleet/types";
+import type { CostsView } from "../agents/live/spend";
 import { startLiveTree } from "../shared/liveTree";
 
 export const STALE_MS = 15_000;
 const CAPS_MS = 30_000;
-export type CapsView = { caps: Record<string, number | null>; reached: { scope: string; key: string; label: string }[] };
-type GlanceState = { heard: number; feed: FeedState; caps: CapsView | null; lit: string; started: boolean };
+const PROBE_MS = 3_000;
+/** 3.4.1.1 (65): GET fleet/costs -- the spend every other figure reads (live/caps.spend over each harness's today from
+ *  its records, finished sessions too) and the caps -- never the drawn session's own spend. */
+export type CapsView = CostsView;
+/** `rekeyed`: Studio no longer takes this page's key ("restarted": it had answered before; "refused": never). */
+type GlanceState = { heard: number; feed: FeedState; caps: CapsView | null; lit: string; started: boolean; rekeyed: "" | "restarted" | "refused" };
 
-export const glance = createStore<GlanceState>({ heard: 0, feed: "off", caps: null, lit: "", started: false });
+export const glance = createStore<GlanceState>({ heard: 0, feed: "off", caps: null, lit: "", started: false, rekeyed: "" });
 export const useGlance = <S,>(pick: (s: GlanceState) => S): S => useStore(glance, pick);
 
 const heard = () => glance.update((s) => (Date.now() - s.heard > 500 ? { heard: Date.now() } : {}));
+let capsAt = 0;
 
-async function loadCaps(): Promise<void> {
+/** One read: the costs (`full`) or a light probe (the caps); a 401 is a key Studio does not take, never retried. */
+async function ask(full: boolean): Promise<void> {
+  if (glance.get().rekeyed) return;
+  if (full) capsAt = Date.now();
   try {
-    const c = await api.get<CapsView>("fleet/caps");
-    glance.update(() => ({ caps: { caps: c.caps || {}, reached: Array.isArray(c.reached) ? c.reached : [] } }));
+    const c = await api.get<CapsView>(full ? "fleet/costs" : "fleet/caps");
+    if (full) glance.update(() => ({ caps: { ...c, caps: c.caps || {}, reached: Array.isArray(c.reached) ? c.reached : [] } }));
     heard();
-  } catch {
-    /* the spend says "no cap read" until a read lands */
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) rekeyed();
+    /* else: no answer; the spend says "not read yet" until a read lands */
   }
+}
+const loadCaps = () => ask(true);
+
+function rekeyed(): void {
+  glance.update((s) => ({ rekeyed: s.heard ? "restarted" : "refused" }));
+  revoke();
+  disconnectEvents();
+}
+
+/** Every PROBE_MS: the costs when due, else a light probe while Studio has not been heard (a restart is told at once). */
+function probe(): void {
+  const s = glance.get();
+  if (s.rekeyed || document.hidden) return;
+  if (Date.now() - capsAt >= CAPS_MS) void ask(true);
+  else if (Date.now() - s.heard >= PROBE_MS) void ask(false);
 }
 
 /** Everything once more: the page showed again, or the feed came back. */
@@ -62,57 +90,16 @@ export function startGlance(): void {
     if (p.attention !== rows && !p.attnError) heard();
     rows = p.attention;
   });
-  window.setInterval(() => void loadCaps(), CAPS_MS);
+  window.setInterval(probe, PROBE_MS);
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) again();
+    if (!document.hidden && !glance.get().rekeyed) again();
   });
+  onTokenChange(() => { glance.update(() => ({ rekeyed: "" })); again(); }); // a fresh address pasted over the tab
   void loadCaps();
 }
 
-const money = (x: number) => `$${x >= 1 ? x.toFixed(2) : x.toFixed(3)}`;
-const today = (t: number | null | undefined) => !!t && new Date(t * 1000).toDateString() === new Date().toDateString();
-const projectOf = (s: SessionRow) =>
-  String(s.project?.repo || s.project?.root || s.cwd || "").replace(/\\/g, "/").replace(/\/+$/, "").split("/").pop() || "no project";
-
-export type Spend = { spent: string; cap: string; pct: number | null; reached: boolean };
-
-function total(rows: SessionRow[]): { usd: number; priced: number; open: boolean } {
-  let usd = 0;
-  let priced = 0;
-  let open = false;
-  for (const s of rows) {
-    if (typeof s.cost_usd === "number" && isFinite(s.cost_usd)) (usd += s.cost_usd), (priced += 1);
-    else open = true;
-    if (s.cost_complete === false) open = true;
-  }
-  return { usd, priced, open };
-}
-
-/** Today's spend (the sessions started today, as the caps count them) against the first cap set of this machine's, the
- *  watched session's project's, the fleet's; honest: a session with no price makes it "$x+" (or "unknown" when nothing
- *  was priced), never $0 for what Halo cannot price; no cap: "no cap set". */
-export function spendOf(harnesses: Harness[], caps: CapsView | null, sid: string): Spend {
-  const local = harnesses.find((h) => h.local);
-  const mine = (local?.sessions || []).filter((s) => today(s.started));
-  const all = harnesses.flatMap((h) => h.sessions || []).filter((s) => today(s.started));
-  const watched = (local?.sessions || []).find((s) => s.session_id === sid);
-  const project = watched ? projectOf(watched) : "";
-  const c = caps?.caps || {};
-  const scopes: [string, string, number | null | undefined, SessionRow[]][] = [
-    ["harness", "this machine's cap", c.per_harness_usd_per_day, mine],
-    ["project", `the cap on ${project}`, project ? c.per_project_usd_per_day : null, all.filter((s) => projectOf(s) === project)],
-    ["fleet", "the fleet's cap", c.fleet_usd_per_day, all],
-  ];
-  const first = scopes.find((x) => !!x[2]);
-  const t = total(first ? first[3] : mine);
-  const rows = (first ? first[3] : mine).length;
-  const spent = rows && !t.priced ? "unknown" : `${money(t.usd)}${t.open ? "+" : ""}`;
-  if (!caps) return { spent, cap: "the caps are not read yet", pct: null, reached: false };
-  if (!first) return { spent, cap: "no cap set", pct: null, reached: false };
-  const cap = Number(first[2]);
-  const reached = (caps.reached || []).some((r) => r.scope === first[0]);
-  return { spent, cap: `of ${money(cap)} a day, ${first[1]}`, pct: spent === "unknown" ? null : Math.min(1, t.usd / cap), reached };
-}
+// 3.4.1.1 (65): the spend against its cap is the pure module's (agents/live/spend.ts), from GET fleet/costs.
+export { spendOf, type Spend } from "../agents/live/spend";
 
 /** "12 min", "1 h 04 min", "under a minute" since `t0` (unix seconds). */
 export function elapsedWords(t0: number | null | undefined, nowMs: number): string {

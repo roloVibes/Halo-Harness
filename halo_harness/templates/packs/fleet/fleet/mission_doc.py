@@ -17,8 +17,14 @@ GUIDE = ("Every part sees this file and its own brief. A part edits only what it
 
 
 def _cell(text, n: int = 80) -> str:
-    one = " ".join(str(text or "").split()).replace("|", "/")
+    """One line of the plain-text table, cut at `n`. 3.4.1.1 (41): a `|` stays a `|` (`nmap --version | head -1` read
+    `nmap --version / head -1`, like a path); only MISSION.md's markdown table escapes it (`_md`)."""
+    one = " ".join(str(text or "").split())
     return one if len(one) <= n else one[:n - 3] + "..."
+
+
+def _md(text, n: int = 80) -> str:
+    return _cell(text, n).replace("|", "\\|")
 
 
 def _who(p: dict) -> str:
@@ -47,9 +53,9 @@ def mission_md(doc: dict, plan: dict) -> str:
     rows = ["## Plan", "", "| Part | Title | Harness | Why | Needs | Claims | Depends on | Est. $ |",
             "|---|---|---|---|---|---|---|---|"]
     for p in parts:
-        rows.append(f"| {p['id']} ({p.get('kind')}) | {_cell(p.get('title'), 60)} | {_cell(_who(p), 40)} | "
-                    f"{_cell(p.get('reason'), 90)} | {_cell(', '.join(p.get('needs') or []) or '-', 40)} | "
-                    f"{_cell(', '.join(p.get('claims') or []) or '-', 60)} | {', '.join(p.get('depends_on') or []) or '-'} | "
+        rows.append(f"| {p['id']} ({p.get('kind')}) | {_md(p.get('title'), 60)} | {_md(_who(p), 40)} | "
+                    f"{_md(p.get('reason'), 90)} | {_md(', '.join(p.get('needs') or []) or '-', 40)} | "
+                    f"{_md(', '.join(p.get('claims') or []) or '-', 60)} | {', '.join(p.get('depends_on') or []) or '-'} | "
                     f"{float(p.get('est_cost_usd') or 0):.2f} |")
     order = (plan or {}).get("merge_order") or []
     rows += ["", f"Merge order (repo parts): {', '.join(order) if order else 'none (no repo part)'}", ""]

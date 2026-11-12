@@ -118,12 +118,12 @@ def test_installed_build_git_vcs_no_requested_revision(ctx: Ctx):
 def test_installed_build_editable_runs_git_in_checkout(ctx: Ctx):
     checkout = _tmp()
     d = {"url": f"file://{checkout.as_posix()}", "dir_info": {"editable": True}}
-    run_fn = _fake_run({"rev-parse": _Proc("c0ffee1\n"), "branch": _Proc("feature-x\n")})
+    run_fn = _fake_run({"rev-parse": _Proc("c0ffee1" + "ab" * 16 + "a\n"), "branch": _Proc("feature-x\n")})
     b = upd.installed_build(direct_url=d, run_fn=run_fn)
     ctx.check("editable is True", b["editable"] is True)
     ctx.check(f"checkout resolved from the file:// url, got {b['checkout']!r}",
               Path(b["checkout"]).resolve() == checkout.resolve())
-    ctx.check(f"commit from git rev-parse, got {b['commit']!r}", b["commit"] == "c0ffee1")
+    ctx.check(f"commit from git rev-parse HEAD, cut to 7 (3.4.1.1 defect 45: --short grew to 8), got {b['commit']!r}", b["commit"] == "c0ffee1")
     ctx.check(f"branch from git branch --show-current, got {b['branch']!r}", b["branch"] == "feature-x")
 
 

@@ -11,6 +11,7 @@
 .gz-status { font-size: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--r-chip); color: var(--muted); }
 .gz-status[data-state="live"] { color: var(--ok); border-color: var(--ok); }
 .gz-status[data-state="stale"] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.gz-status[data-state="rekeyed"] { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); white-space: normal; } /* 3.4.1.1 (63) */
 
 .gz-block { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); }
 .gz-h { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .1em; color: var(--muted); }

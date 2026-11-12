@@ -10,6 +10,9 @@ studio/fleet_view_api.py's ROUTES; the same loopback + token guard.
         -> {session_id, harness, title, started, ended, cost_usd, agents: [...], states: [{t, agent_id, state,
             activity, tool?}], costs: [{t, usd}], agent_costs: [{t, agent_id, usd}], marks: [...], bands: [...]}
         the session's time axis: the scrubber under Agents -> Live replays it (3.4.1.0 R1, live/timeline.py)
+    GET  fleet/replay?run=<run id>
+        -> a goal run's replay payload (live/replay_run.build_run, kind "run": the lead and its lanes, each lane's state
+           changes and its cost at its end), what the scrubber draws a goal run from (3.4.1.1, defect 60)
 
 A member's session comes through the hub (`agent_tail` per agent, which needs
 its share `full`); this harness's from its transcripts on disk.
@@ -61,9 +64,18 @@ def get_recording(req):
 
 
 def get_replay(req):
-    sid = str(req.query.get("session") or "").strip()
+    sid, run = str(req.query.get("session") or "").strip(), str(req.query.get("run") or "").strip()
+    if run:  # 3.4.1.1 (60): a goal run's axis from its record (live/replay_run.py): each lane's states and costs at their times
+        from halo_harness.live import replay_file, replay_run
+        run_dir = replay_run.find(req.cwd, run)
+        if run_dir is None:
+            return 404, {"error": f"no goal run {run!r} in this repo"}
+        try:
+            return 200, replay_run.build_run(req.state_dir, run_dir)
+        except replay_file.ReplayError as e:
+            return 404, {"error": str(e)}
     if not sid:
-        return 422, {"error": "name the session: ?session=<id>", "problems": []}
+        return 422, {"error": "name the session: ?session=<id> (or a goal run: ?run=<id>)", "problems": []}
     hid = str(req.query.get("harness") or "local")
     hist, name = _history(req, hid, sid)
     if hist is None:

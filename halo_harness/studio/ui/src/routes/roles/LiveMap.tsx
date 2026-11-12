@@ -146,7 +146,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
                 if (n.kind === "machine") return <MachineNode key={n.id} b={b} now={now} selected={pick.kind === "machine" && pick.id === n.harness} onPick={(h) => pickLive("machine", h)} />;
                 if (n.kind === "session") return <SessionNode key={n.id} b={b} selected={!!n.key && n.key === selected} onPick={onSession} onMenu={setMenu} hover={!thumb} />;
                 if (n.kind === "part") return <PartNode key={n.id} b={b} machines={tree.machines} zoom={zoom} />;
-                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb && !replay} />;
+                return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb && !replay} waits={!thumb} />;
               })}
               {tree.tasks.map((b) => <GroupBar key={b.g.id} b={b} now={now} hover={!thumb} />)}
               </>)}

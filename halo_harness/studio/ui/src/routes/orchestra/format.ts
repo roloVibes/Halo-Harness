@@ -28,6 +28,8 @@ export function cost(usd: number | null | undefined): string {
 
 /** 3.4.0.1: a harness's spend today (its sessions' records, finished ones too); "+" when a model had no price. */
 export function costToday(h: { cost_today?: number | null; cost_today_complete?: boolean | null }, usd?: number | null): string {
+  // 3.4.1.1 (49): a member the hub has not heard from today (a hub restart) is "unknown", never $0.0000
+  if (h.cost_today === null && (usd === null || usd === undefined || usd === 0)) return "unknown";
   return cost(usd ?? h.cost_today) + (h.cost_today_complete === false ? "+" : "");
 }
 

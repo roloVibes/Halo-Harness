@@ -101,6 +101,17 @@ def test_new_without_a_terminal_and_with_bad_values(ctx: Ctx):
     finally:
         sys.stdin.isatty = saved
     ctx.check(f"rc 2 naming the missing flags, got {err!r}", rc == 2 and "--done-when" in err and "--stop-when" in err)
+
+    def eof(prompt=""):
+        raise EOFError
+    saved_input = builtins.input
+    try:  # 3.4.1.1 (57): Windows' NUL (Git Bash's `< /dev/null`) says it is a terminal; its first read is an EOF
+        sys.stdin.isatty, builtins.input = (lambda: True), eof
+        rc, _, err = _run(["new", "--what", "x", "--done-when", "y", "--repo", repo])
+    finally:
+        sys.stdin.isatty, builtins.input = saved, saved_input
+    ctx.check(f"an EOF where a terminal seemed to be: the same line, no traceback, got {rc} {err!r}",
+              rc == 2 and err.strip() == "halo orchestra new: no terminal to ask on; give --stop-when")
     rc, _, err = _run(["new", *FLAGS, "--workers", "99", "--file", "/etc/passwd", "--repo", repo])
     ctx.check(f"validation lines, got {err!r}", rc == 2 and '"workers" must be a whole number from 1 to 50' in err
               and "files[0]" in err)

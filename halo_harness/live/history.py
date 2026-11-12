@@ -84,10 +84,17 @@ def _meta(nodes: list, key: str):
 
 
 def _title(nodes: list) -> str:
+    """The newest stored title. 3.4.1.1 (50): one that is a model's JSON reply (`{"ok": false, ...}`, written by 3.4.1.0
+    and before for a session without a terminal) is no title: the owner's first words instead, as titles are made now."""
     for n in reversed(nodes):
-        if n.get("type") == "meta" and isinstance(n.get("title"), str) and n["title"]:
-            return n["title"]
-    return ""
+        t = n.get("title") if n.get("type") == "meta" else None
+        if isinstance(t, str) and t and not t.lstrip().startswith(("{", "[")):
+            return t
+    if not any(n.get("type") == "meta" and n.get("title") for n in nodes):
+        return ""
+    user = next((n.get("content") for n in nodes if n.get("type") == "user"), "")
+    text = user if isinstance(user, str) else " ".join(b.get("text", "") for b in user or [] if isinstance(b, dict))
+    return " ".join(text.split()[:6])[:60] or "Untitled session"
 
 
 ASK_TOOLS = ("AskUserQuestion", "ExitPlanMode")  # 3.4.1.0 R1: a question or a plan review waits on the owner
@@ -108,11 +115,17 @@ def asks_of(aid: str, nodes: list) -> list:
 
 
 def _with_asks(states: list, asks: list) -> list:
-    """An agent's states with each card it waited on: waiting from the ask, then what it did before, at the answer."""
+    """An agent's states with each card it waited on: waiting from the ask, then what it did before, at the answer.
+    3.4.1.1 (52): a state its transcript stamps INSIDE the card's span (a headless session's or a Studio-answered card's
+    tool call, logged after the card opened) is moved to the answer, so the whole span reads "waiting on you"."""
     for a in asks:
-        before = [s for s in states if s["agent_id"] == a["agent_id"] and s["t"] <= a["t0"]]
-        back = dict(before[-1], t=a["t1"]) if before else {"t": a["t1"], "agent_id": a["agent_id"], "state": "running", "activity": "typing"}
-        states += [{"t": a["t0"], "agent_id": a["agent_id"], "state": "waiting", "activity": "waiting"}, back]
+        aid, t0, t1 = a["agent_id"], a["t0"], a["t1"]
+        inside = sorted((s for s in states if s["agent_id"] == aid and t0 < s["t"] < t1 and s["state"] not in ("done", "failed")),
+                        key=lambda s: s["t"])
+        states = [s for s in states if not any(s is x for x in inside)]
+        before = inside or sorted((s for s in states if s["agent_id"] == aid and s["t"] <= t0), key=lambda s: s["t"])
+        back = dict(before[-1], t=t1) if before else {"t": t1, "agent_id": aid, "state": "running", "activity": "typing"}
+        states += [{"t": t0, "agent_id": aid, "state": "waiting", "activity": "waiting"}, back]
     return states
 
 

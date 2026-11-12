@@ -94,6 +94,8 @@ def spend(view: dict, now: Optional[float] = None) -> dict:
             row["sessions"] = max(row["sessions"], int(h.get("sessions_today") or 0))
         if row is not None and h.get("cost_today_unknown"):
             row["unknown"] = list(h["cost_today_unknown"])
+        elif row is not None and "cost_today" in h and said is None and not h.get("local"):  # 3.4.1.1 (49): not heard yet
+            row["unknown"] = ["its today: not heard since the hub started (it comes with its next announce)"]
     for d in list(per_h.values()) + list(per_p.values()):
         d["usd"] = round(d["usd"], 6)
     total = round(sum(h["usd"] for h in per_h.values()), 6)

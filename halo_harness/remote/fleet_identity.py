@@ -168,6 +168,8 @@ def _git_project(cwd: str) -> dict:
     gd, cd = _git(root, "rev-parse", "--git-dir"), _git(root, "rev-parse", "--git-common-dir")
     linked = bool(gd and cd and (Path(root) / gd).resolve() != (Path(root) / cd).resolve())
     out.update(ahead=ahead, behind=behind, worktree=Path(root).name, linked=linked)
+    if linked and not repo:  # 3.4.1.1 (66): a linked worktree (a goal run's worker) is its repo's, not "worker-1"
+        out["repo"] = (Path(root) / cd).resolve().parent.name or out["repo"]
     return out
 
 

@@ -115,13 +115,18 @@ room or from a phone (`routes/glance/`):
 - **what waits on you**, oldest first, each with its answers as **large buttons** (the row's own allow once / deny /
   stop, approve / send back, answer ...), each saying in one line what it does; an answer that needs words opens a text
   box first, a permission's deny takes an optional reason;
-- **the spend** against its cap: today's spend (the sessions started today, as the caps count them) and the first cap set
-  of this machine's, the session's project's, the fleet's; a session Halo cannot price makes it `$x+`, nothing priced is
-  `unknown`, never `$0`; none set reads **no cap set**; a cap reached says its sessions are paused;
+- **the spend** against its cap: today's spend as the caps count it (`GET fleet/costs`: each harness's today from its
+  records, finished sessions too -- the figure History, the Cost panel and `halo fleet` read; 3.4.1.1) for the first cap
+  set of this machine's, the session's project's, the fleet's, else this machine's; a model Halo cannot price makes it
+  `$x+`, never `$0`; none set reads **no cap set**; a cap reached says its sessions are paused;
 - **the elapsed time** of that session, and **the last three events** (a tool run, a line written, an ask), newest first;
 - a status word: **live**; **live figures; the feed is reconnecting** while the feed reconnects; **stale: last heard N s
-  ago, reconnecting** when Studio has not answered for 15 seconds. It reconnects by itself (the feed backs off and
-  retries; the queue is read every six seconds; a page that shows again reads everything once more).
+  ago, reconnecting** when Studio has not answered for 15 seconds. It reconnects by itself to the same Studio (a network
+  blip, the SSH forward re-made: the feed backs off and retries; the queue is read every six seconds; while Studio is
+  not heard the page asks every three seconds; a page that shows again reads everything once more). A Studio that was
+  **restarted** has a new key (the token is made per launch and never kept or reused): the page's asks turn from "no
+  answer" to refused, and it says **Studio was restarted and has a new key: open the glance again from Studio
+  (Session's ... menu -> Open the glance)** and stops asking (3.4.1.1).
 
 Open it from **Open the glance** (the palette's View group, and Session's "..." under ELSEWHERE), `halo studio --mode
 glance`, or the address itself. The dialog says what Open does, costs and writes (opens a tab; nothing; nothing), shows

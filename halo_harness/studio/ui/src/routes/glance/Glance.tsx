@@ -21,9 +21,13 @@ import { agoWords, elapsedWords, glance, spendOf, STALE_MS, startGlance, useGlan
 function Status() {
   const heard = useGlance((s) => s.heard);
   const feed = useGlance((s) => s.feed);
+  const rekeyed = useGlance((s) => s.rekeyed);
   const now = useNow(true, 1000);
-  const state = !heard ? "connecting" : now - heard > STALE_MS ? "stale" : "live";
-  const words = state === "connecting" ? "connecting to Studio..." : state === "stale"
+  const state = rekeyed ? "rekeyed" : !heard ? "connecting" : now - heard > STALE_MS ? "stale" : "live";
+  const again = "open the glance again from Studio (Session's ... menu -> Open the glance)"; // 3.4.1.1 (63)
+  const words = rekeyed === "restarted" ? `Studio was restarted and has a new key: ${again}`
+    : rekeyed ? `Studio does not take this address's key: ${again}`
+    : state === "connecting" ? "connecting to Studio..." : state === "stale"
     ? `stale: last heard ${agoWords(heard / 1000, now)}, reconnecting` : feed === "open" ? "live" : "live figures; the feed is reconnecting";
   return <span className="gz-status mono" data-testid="glance-status" data-state={state} data-stale={state === "stale" ? "1" : "0"} data-feed={feed}>{words}</span>;
 }

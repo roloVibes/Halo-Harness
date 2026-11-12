@@ -15,9 +15,11 @@ docs/REPLAY.md is the reference.
 3.4.1.0 R2: `kind` is "session" or "run" (a goal run, live/replay_run.py: `run_id`, the lead and its lanes as agents);
 `facts` and `run_id` are new keys a version-1 reader ignores, so the version stays 1 and an R1 file still opens.
 
-What it never holds: the prompts, the tool inputs and outputs, the thoughts, the working directory, any path outside the
-project (3.4.1.0 R3: `facts.artefacts` names the files it wrote by their path inside the project). Every string passes
-`redact.sanitize_node`, the rule `halo export --sanitize` and `halo session export` apply.
+What it never holds: the prompts, the tool inputs and outputs, the thoughts, the working directory (3.4.1.0 R3:
+`facts.artefacts` names the files it wrote by their path inside the project). Every string passes
+`redact.sanitize_node`, the rule `halo export --sanitize` and `halo session export` apply, then (3.4.1.1, defect 56)
+live/replay_private.scrub: a path is project-relative or `~/...`, the user and machine names are out of every text
+but the owner's own (the title) and a path inside the project.
 
     build(state_dir, sid, lineup=None, cwd=None) -> payload       save(state_dir, payload) -> Path
     load(path) / parse(text) -> payload (an older file upgraded)   saved(state_dir) -> rows, newest first
@@ -94,7 +96,9 @@ def includes(p: dict) -> list:
             + ("; the files it wrote (paths inside the project) and the last answer's first line" if "artefacts" in (p.get("facts") or {}) else ""),
             "a goal run's record: the lead and its lanes, each lane's state changes (not each step)" if p.get("kind") == "run"
             else f"the lineup's blocks: {plan.get('lineup')}" if plan else "no lineup blocks (the lineup did not load)",
-            "not included: prompts, tool inputs and outputs, thoughts, the working directory, any path outside the project",
+            "not included: prompts, tool inputs and outputs, thoughts, the working directory; a path is written relative to"
+            " the project or as ~/... under your home; your user or machine name only where you typed it (the title, the"
+            " lineup's names) or in a path inside the project",
             "every text passed the export redactor (`halo session export`'s rules)"]
 
 
@@ -120,11 +124,17 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
     p = sanitize_node(p)
     if "_sanitize_error" in p:
         raise ReplayError("the redactor could not clean this session's timeline; nothing was written")
+    from halo_harness.live.replay_private import project_root, scrub  # 3.4.1.1 (56): paths relative, home ~, names out
+    p = scrub(p, project_root(hist.get("cwd") or cwd))
     p["includes"] = includes(p)
     return p
 
 
 def save(state_dir, payload: dict) -> Path:
+    """Write the payload; every string passes live/replay_private.scrub first (3.4.1.1, defect 56: whatever built or
+    brought it, the file never holds this machine's home path, user name or machine name)."""
+    from halo_harness.live.replay_private import scrub
+    payload = scrub(payload)
     pid = str(payload.get("id") or "")
     if not _ID.match(pid):
         raise ReplayError(f"not a replay id: {pid!r}")

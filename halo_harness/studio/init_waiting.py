@@ -35,7 +35,7 @@ SEEN_S = 3.0
 
 
 def alive(pid) -> bool:
-    """Whether `pid` runs (bg_run.pid_alive, `tasklist` on Windows: kept SEEN_S seconds); this process at once."""
+    """Whether `pid` runs (bg_run.pid_alive: on Windows its exit code; kept SEEN_S seconds); this process at once."""
     if not isinstance(pid, int) or pid <= 0:
         return False
     if pid == os.getpid():

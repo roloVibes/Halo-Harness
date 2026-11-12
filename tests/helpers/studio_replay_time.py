@@ -57,7 +57,9 @@ def scrub_to(c, secs: float) -> dict:
     c.wait(f"{BAR}.dataset.t10 === '{v}' && {BANNER}?.dataset.at === '{int(round(secs))}'", 15)
     return {"nodes": c.wait(f"{NODES}.length && {NODES}", 10), "lit": c.js(f"{BAR}.dataset.lit"),
             "banner": c.js(f"{BANNER}.textContent"), "said": c.js(f"{Q}('[data-testid=\"live-narration\"]')?.dataset.text || ''"),
-            "cost": c.js(f"{Q}('[data-testid=\"replay-cost\"]')?.textContent || ''")}
+            "cost": c.js(f"{Q}('[data-testid=\"replay-cost\"]')?.textContent || ''"),
+            # 3.4.1.1 (51): each box's WAITS row counts to the scrubber's moment, not to the present
+            "waits": c.js(f"[...{QA}('[data-testid=\"roles-live-waits\"] .rlm-waits-v')].map((w) => w.textContent)")}
 
 
 def opened(c, page, sid: str) -> dict:
@@ -85,9 +87,15 @@ def playing(c) -> dict:
 
 
 def saving(c) -> dict:
+    c.click_on(f"{Q}('[data-testid=\"replay-clip\"]')")  # not saved yet: Export a clip says Save writes it first
+    d = DIALOG.format("clip")
+    c.wait(f"!!{Q}('[data-testid=\"replay-clip-save\"]') && !{Q}('[data-testid=\"replay-clip-save\"]').disabled", 20)
+    first = {"clip_first": c.js(f"[...{d}.querySelectorAll('[data-testid=\"dialog-cost\"] dd')].map((x) => x.textContent)")}
+    c.click_on(f"[...{d}.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')")
+    c.wait(f"!{d}", 10)
     c.click_on(f"{Q}('[data-testid=\"replay-save\"]')")
     d = DIALOG.format("save")
-    out = {"holds": c.wait(f"{d}?.querySelectorAll('[data-testid=\"replay-save-holds\"] li').length >= 4 && [...{d}.querySelectorAll('li')].map((l) => l.textContent)", 20)}
+    out = {**first, "holds": c.wait(f"{d}?.querySelectorAll('[data-testid=\"replay-save-holds\"] li').length >= 4 && [...{d}.querySelectorAll('li')].map((l) => l.textContent)", 20)}
     out["says"] = c.js(f"[...{d}.querySelectorAll('[data-testid=\"dialog-cost\"] dd')].map((x) => x.textContent)")
     c.click_on(f"{Q}('[data-testid=\"replay-save-go\"]')")
     out["wrote"] = c.wait(f"{Q}('[data-testid=\"replay-save-done\"]')?.dataset.path", 20)
@@ -95,11 +103,10 @@ def saving(c) -> dict:
     c.wait(f"!{d}", 10)
     c.click_on(f"{Q}('[data-testid=\"replay-clip\"]')")
     d = DIALOG.format("clip")
-    c.wait(f"!!{Q}('[data-testid=\"replay-clip-save\"]') && !{Q}('[data-testid=\"replay-clip-save\"]').disabled", 20)
-    out["clip_first"] = c.js(f"[...{d}.querySelectorAll('[data-testid=\"dialog-cost\"] dd')].map((x) => x.textContent)")
-    c.click_on(f"{Q}('[data-testid=\"replay-clip-save\"]')")
+    # 3.4.1.1 (54): the session was just saved, so the clip is filmed from that file: no Save first, no second file
+    out["clip_from"] = c.wait(f"{Q}('[data-testid=\"replay-clip-from-file\"]')?.dataset.id", 20)
+    out["clip_save_offered"] = c.js(f"!!{Q}('[data-testid=\"replay-clip-save\"]')")
     out["clip_says"] = c.wait(f"!!{Q}('[data-testid=\"replay-clip-from\"]') && {d}.querySelector('[data-line=\"does\"]')?.textContent.includes('frames') && [...{d}.querySelectorAll('[data-testid=\"dialog-cost\"] dd')].map((x) => x.textContent)", 20)
-    out["now_file"] = c.wait(f"{BANNER}?.dataset.kind === 'file' && {BANNER}.dataset.id", 15)
     out.update(clip_pillow(c, d))
     c.click_on(f"[...{d}.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')")
     c.wait(f"!{d}", 10)

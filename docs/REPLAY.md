@@ -66,10 +66,19 @@ then writes ONE file, `<state>/replays/<session or goal run>-<yyyymmdd-hhmmss>.h
 | `facts` | (R2) the record's own figures: the cost each call priced once, the models nothing priced, the tokens, each model's cost, the retries, the failed calls, the steers -- what Compare reads; (R3) `artefacts` (each file an Edit / Write call wrote, by its path inside the project; one outside it by its name only; a goal run's: what merged and its workflow's saved outputs) and `answer` (the first line of main's last text) -- what the report card reads |
 | `includes` | what the file holds, in words (what Save showed) |
 
-It never holds the prompts, tool inputs or outputs, thoughts, the working directory or any path outside the project (R3:
-the files it wrote are named by their path inside it), and every string passes
-`redact.sanitize_node`, the redactor `halo export --sanitize` and `halo session export` use (`tests/test_replay_file.py`
-seeds a key in the title, a task, a question and a hand-back and checks none reaches the file).
+It never holds the prompts, tool inputs or outputs, thoughts or the working directory (R3: the files it wrote are named
+by their path inside the project), and every string passes `redact.sanitize_node`, the redactor `halo export
+--sanitize` and `halo session export` use (`tests/test_replay_file.py` seeds a key in the title, a task, a question and
+a hand-back and checks none reaches the file).
+
+**Safe to hand on (3.4.1.1).** A model writes absolute paths into its own words (a sub-agent's task, a hand-back), so
+when the file is written every string is rewritten (live/replay_private.py): a path inside the project becomes
+project-relative (`a.txt`, `src/b.py`; the project itself `.`), any other path under your home `~/...`, in any spelling
+(either separator, any case of a Windows path, Git Bash's `/c/...`, WSL's `/mnt/c/...`). Your user name and your
+machine name become `<user>` and `<machine>` everywhere but the session's own words you typed (its title) and the
+lineup's names, and a path inside the project. Nothing changes in the format: a file saved before opens as it did.
+`halo audit privacy --replays` checks every file in `<state>/replays/` with the audit's rules plus this machine's home
+path, user name and machine name (`tests/test_replay_private.py` seeds them, Windows-style and POSIX, with a key).
 
 **Open it anywhere**: History's **Open a file** (a file from this disk, made here or on another machine; it is kept under
 `<state>/replays/` so History lists it), or `halo replay open <file>`. A file of an older shape -- a `GET fleet/replay`

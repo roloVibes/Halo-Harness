@@ -17,6 +17,7 @@ and for how long, which model did what, the files it wrote, and what this record
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Optional
 
@@ -45,8 +46,17 @@ def _who(a: Optional[dict], with_model: bool = True) -> str:
     return f"{name} ({bare(a['model'])})" if with_model and a.get("model") else name
 
 
+_ANSWERED = re.compile(r"\(answered \w+ after (\d+(?:\.\d+)?) s\)")
+
+
 def wait_secs(p: dict, m: dict) -> Optional[float]:
-    """How long the agent waited from mark `m` (its waiting state there until its next state), None when not recorded."""
+    """How long the agent waited from mark `m`, None when not recorded. 3.4.1.1 (62): a permission card's mark says it
+    itself ("answered allow after 30 s", the turn's own record), so that figure is taken first -- the states around a
+    headless session's card read 0 s, and an older session's 17 cards were left out of the total; else its waiting
+    state there until its next state."""
+    said = _ANSWERED.search(str(m.get("text") or ""))
+    if said:
+        return float(said.group(1))
     pts = sorted((s for s in p.get("states") or [] if str(s.get("agent_id")) == str(m.get("agent_id")) and _num(s.get("t")) is not None),
                  key=lambda s: s["t"])
     for i, s in enumerate(pts):

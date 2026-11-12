@@ -10,11 +10,13 @@ const fetchOwn = window.fetch.bind(window);
 const KEY = "halo-studio-token";
 const FRAGMENT = /[#&]t=([A-Za-z0-9_-]+)/;
 let current = "";
+let revoked = false; // revoke() below; a fresh address pasted over the tab (a new #t=) is a key again
 
 function adopt(hash: string): boolean {
   const m = FRAGMENT.exec(hash || "");
   if (!m) return false;
   current = m[1];
+  revoked = false;
   try {
     sessionStorage.setItem(KEY, current);
   } catch {
@@ -41,6 +43,13 @@ window.addEventListener("hashchange", () => {
 
 export function token(): string {
   return current;
+}
+
+/** 3.4.1.1 (63): this page's key is no longer Studio's (a restarted Studio makes a new one, never the old): every
+ *  later request fails at once without asking, and the feed, with no token, stays down instead of retrying. */
+export function revoke(): void {
+  revoked = true;
+  current = "";
 }
 
 export function onTokenChange(fn: () => void): () => void {
@@ -75,6 +84,7 @@ export function apiUrl(path: string, query?: Query): URL {
 
 async function request<T>(owner: boolean, method: string, path: string, body?: unknown, query?: Query): Promise<T> {
   const url = apiUrl(path, query);
+  if (revoked) throw new ApiError(401, "this page's key is no longer Studio's: open the page again from Studio");
   const proof = owner ? await ownerHeader(current) : "";
   const headers: Record<string, string> = proof
     ? { Authorization: "Bearer " + current, Accept: "application/json", "X-Halo-Owner": proof }

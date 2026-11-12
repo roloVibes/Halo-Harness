@@ -34,7 +34,7 @@ def rows(home, local: dict, seen: dict, now: float) -> list:
             parts = doc.get("parts") or {}
             names = sorted({str(p.get("harness_name") or p.get("harness")) for p in parts.values() if p.get("harness")})
             out.append(_row("mission_plan", mid, local, None, "", f"Mission {mid} waits for your approval",
-                            f"{doc.get('goal')} ({len(parts)} parts on {', '.join(names) or 'no harness'})"[:240],
+                            f"{doc.get('goal')} ({len(parts)} part{'' if len(parts) == 1 else 's'} on {', '.join(names) or 'no harness'})"[:240],
                             seen, now, mission=mid))
         if doc.get("state") in M.FINAL and now - float(doc.get("ended") or 0) > WITHIN_S:
             continue

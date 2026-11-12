@@ -128,7 +128,7 @@ def film(base: str, token: str, rid: str, times: list, exe: str) -> list:
         try:
             c.wait(f"!!{BAR} && {BAR}.dataset.replay === '{rid}' && !!{SCRUB}", 40)
         except TimeoutError:
-            seen = c.js("(document.body && document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 160)")
+            seen = c.js(r"(document.body && document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 160)")  # 3.4.1.1 (55)
             raise ClipError(f"Studio did not open replay {rid} on Live within 40 s (the page said: {seen!r})") from None
         out = []
         for t in times:

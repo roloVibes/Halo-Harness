@@ -253,10 +253,10 @@ the same one `tests/test_privacy_scan.py`'s own regression guard
 imports, so the two can't drift apart. See `docs/PRIVACY.md` for what
 Halo never writes to the repo in the first place.
 
-### `audit privacy [--history] [--json] [--since REV] [--cwd DIR]`
+### `audit privacy [--history | --replays] [--json] [--since REV] [--cwd DIR]`
 
-Working-tree mode (the default) scans every tracked file plus every
-untracked, non-ignored file as it sits on disk right now. Each finding
+Working-tree mode (the default; `--replays`, 3.4.1.1: this home's saved replays, plus this machine's home path, user
+and machine name) scans every tracked file plus every untracked, non-ignored file as it sits on disk right now. Each finding
 prints one line, `path:line: <kind>: <masked excerpt>` -- the matched
 value is always replaced with `<redacted>` before anything is printed or
 serialized; exit 1 if anything was found, 0 if the tree is clean:

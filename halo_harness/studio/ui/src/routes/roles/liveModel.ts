@@ -25,6 +25,8 @@ export type LiveNode = {
   id: string; key: string; parent: string | null; name: string; role: string; model: string; state: string; pick: string;
   activity: string; glow: GlowState | ""; card: string; cardLabel: string; task: string; current: string; cost: number | null;
   started: number | null; ended: number | null; virtual?: boolean;
+  /** 3.4.1.1 (60): a replay's agent whose record gives its cost at its end only, drawn before it: "cost unknown". */
+  costUnknown?: boolean;
   /** 3.3.16.0 R1: a live Orchestra run's node on the same tree (routes/agents/live/runLanes.tsx): its run, a lane's number
    *  and worktree (its branch). */
   run?: string; lane?: number; worktree?: string;
