@@ -1,5 +1,104 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.4.1.2] - 2026-11-12
+
+A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can
+no longer replace a shipped pack or workflow or import your Claude files, and a fleet hub can no longer plant settings on
+a member. The 2026-11-12 security review's findings, each with its test.
+
+### Studio, packs, supply chain
+
+- SERVERS-1, SERVERS-2: every change Studio makes needs the owner's own page. Any write without the owner proof is
+  refused, except a running pack's own routes, whichever route a write takes (typing into a session or answering its
+  cards included); the handlers that type into a session, start one, write or apply a bio or lineup, or shut Studio
+  down check it again themselves. A test lists every write route and fails on a new one until it is classified.
+- SERVERS-4, PACKS-2: a page a script opens (now also cut off from its opener), a frame, a link or a browser that
+  sends no Fetch Metadata gets Studio without the owner's salt (your own reload keeps it): it can look but not change things, and its status bar (the glance: under its answers) says
+  how to open Studio yourself. The shell makes the proof once at boot, keeps it where no other script on the page can
+  reach it, and loads no pack's page before. `halo studio --stop` and `--edit` keep working (the salt is
+  in the private studio.json beside the token).
+- SERVERS-2, PACKS-6: every grant says what it gives, none is blank: `studio-script` runs the pack's code inside
+  Studio's page with Studio's own power, including starting sessions that run commands; `doctor`, `cli:<verb>` and
+  `studio-routes` run its Python inside halo with your rights and Halo's keys; `services` and `hooks` run its programs
+  with your rights. A pack Halo does not ship gets one of those only on an explicit yes: `--grant NAME`, or
+  `--grant-all` after its lines and one question (`--yes` without a terminal); the Pack Manager asks in a dialog.
+- PACKS-1: a bare pack id (`halo pack install coach`, `halo pack test coach`, Studio's Install) is always the
+  pack Halo ships by that id, never a folder of the current directory; a `packs.sources` entry holding a shipped id
+  does not shadow it (one line says so; `halo pack install <id> --from <source>` takes it on purpose); the core's door
+  to a shipped pack opens its Python only when it is the shipped one (or a fork granted `studio-routes`).
+- SERVERS-5, PACKS-8: Export a clip films through a throwaway Studio of its own that answers only the replay page's
+  reads; on Linux and macOS its Chrome speaks DevTools over pipes and opens no port. The running Studio's key never
+  enters the filming browser.
+- SERVERS-7: the speech servers answer only programs on this machine at their own address: another Host name or any
+  browser Origin is refused; on Windows their port is exclusive, as Studio's.
+- SERVERS-8: a host's engine offer hands a paired peer only the engine's own key, never the value of another variable an
+  entry names.
+- PACKS-9: the CI workflow passes a dispatch's sha to its shell as data, never as script.
+- PACKS-10: `halo update` installs nothing when it cannot fetch the dependency lock and says how to install without it
+  on purpose; the installers fetch and check the lock first and stop the same way.
+- The design for the real fence of a pack's page (a sandboxed frame and a message broker) is written in the roadmap's
+  "Pack trust" item.
+
+### Engine, fleet files, replay privacy
+
+- **ENGINE-1.** A cloned repo's own workflows, lineups and bios (`.halo/workflows/`, `.halo/teams/`, `.halo/agents/`)
+  are read only in a folder you trusted, and a project workflow or lineup never takes a shipped or pack name (the
+  shipped `media` square stays the shipped one); `halo workflows list` and `halo config where` say which project
+  file is not used and why. A square the `Workflow` tool runs on the Orchestra engine starts its lanes in your
+  session's own permission mode and under its rules, and a test command a project file wrote (a stage's
+  `verify.test`, a lineup's `acceptance.test`) is decided as a Bash call -- your deny and ask rules, pack policies
+  and hooks -- before it runs. The same gate now keeps an untrusted repo from replacing the bio the default lineup's
+  main session runs, whose hooks ran at session start.
+- **ENGINE-2.** In a folder you have not trusted, CLAUDE.md imports come only from inside it; under the Claude config
+  folder only `*.md` files are ever imported (never credentials, settings, other projects' transcripts or history),
+  every import passes your Read deny rules, and each refusal is said once when the session starts.
+- **ENGINE-3.** Changing the permission mode (Shift+Tab, `/permissions`) no longer answers a card a pack, a hook or an
+  untrusted skill raised; an untrusted skill's commands run only on your own allow on its card.
+- **ENGINE-4.** Read and Edit deny rules now also cover `tee`, `cp`, `mv`, `install`, `ln`, `rm`, `unlink`, `shred`,
+  `truncate`, `dd`, `curl -o`, `wget -O` and `rsync` in Bash, and `Tee-Object`, `Rename-Item`, `Format-Hex`, `Import-Clixml`, `Export-Clixml`,
+  `Export-Csv`, piped readers, `${C:\path}` and the .NET stream readers and writers in PowerShell.
+- **ENGINE-5.** Switching the main session's permission mode reaches its running and background sub-agents at once;
+  a sub-agent is never left above its parent's mode.
+- **ENGINE-6.** A mission part's own-outputs-folder rule lifts only the mode's ask; an ask rule of yours stays an ask.
+- **PACKS-3.** A fleet member writes only the mission files its part may read and never a configuration-like path
+  (`.claude/`, `.mcp.json`, `.git`, a root CLAUDE.md or AGENTS.md), whatever a hub lists, and a mission folder (or a
+  repo part's worktree) is never a trusted folder. Fleet pack 1.0.4.
+- **PACKS-4.** On Windows, Halo never runs a program by its bare name from the current folder: every launch resolves
+  the program over the PATH folders first, and `NoDefaultCurrentDirectoryInExePath` is set before anything starts.
+- **PACKS-5, SERVERS-6.** Replays, `halo export --sanitize`, `/export --sanitize`, `halo session export`, the report
+  card and `halo bugreport` share one redaction: more key shapes (Groq, xAI, Perplexity, JWTs, tokens in URLs such as
+  Studio's launch link, random 30-character tokens, your secret environment values), and your home path, user name
+  and machine name in every spelling -- inside URLs and `user@host`, relative and `..` paths, 8.3 short names,
+  percent-encoded or full-width text, agent ids, the plan and keys.
+- **PACKS-7.** A hostile `.halo-replay` file cannot crash an import or the CLI (deep nesting is refused), carries no
+  terminal escape sequences into `halo replay` or `halo report`, and never replaces a replay you saved.
+
+### Privacy
+
+- **The pre-push gate checks names again.** `scripts/prepush.py` runs `halo audit privacy` in a scratch home, so it
+  never saw your private term list and every machine- and owner-name check was off in the gate. It now hands the list
+  over by file name (`HALO_PRIVACY_TERMS_FILE`, never on a command line), and when there is no list it says so in one
+  line ("name checks OFF"); CI, which has no list by design, says the same in its log.
+- **`halo audit privacy` reads more.** Every run starts with whether the name checks are on. The name terms now cover
+  the whole tree (plans, notes, reports, tools, scripts, the shipped packs, SVG text), not five folders; a finding
+  names a term by its number (`term #3`), never the term; files that are not text are counted as "not checked".
+  `--history` reads every ref the clone has (branches, tags, remotes), and `--since REV` leaves out what REV reaches.
+  An escaped Windows profile path (`C:\\Users\\<name>` in a string) and `/home/<a real default account>/...` are found
+  even when the name is a usual placeholder, unless the whole path is on the allowlist.
+- **`halo audit privacy --commits`** (new) reads every commit's author and committer address and its message: an
+  address that is not a GitHub noreply one is reported masked, with how many commits carry it, and a private term in a
+  message by its number. They fail the audit only on a commit that is not yet on `origin/master`; older ones are
+  counted (fixing them is a history rewrite). The pre-push gate runs it.
+- **Personal material out of the tree.** Machine and device names, the owner's home setup, other projects, local
+  folder paths and a user name in examples are replaced with neutral ones used the same way everywhere (`tower`,
+  `sagan`, `laptop`, `linux-vm`, the user `you`; docs/DEVELOPMENT.md "Names to use in examples and tests"); the test
+  fixture's memory text is now an invented one.
+- **Release tarballs leave out the working notes.** `plans/`, `research_notes/` and `reports/` are `export-ignore`, so
+  the release asset (`git archive` of the tag) no longer carries them; they stay in the repository.
+- **Supported versions.** SECURITY.md says the newest release is the supported one and that versions before 3.4.1.2
+  have known, fixed security problems (`halo update`). The review pages keep an open item's id, title and severity,
+  without the detail of how it works, until it is fixed.
+
 ## [3.4.1.1] - 2026-11-12
 
 What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
@@ -1758,74 +1857,3 @@ which is what `api.lib` was always meant to be.
   `JAVA_TOOL_OPTIONS` (set it for your user) and a systemd value is written as given (quote it yourself). #37
   COMMANDS-packs-kit.md: `halo pack test` runs a pack's own tests with your home and the network unless they set a
   scratch home (the template's do).
-
-## [3.3.13.1] - 2026-11-09
-
-**The steward hotfix and the review's first cut.** The usage audit of the owner's own logs (plans/ROADMAP.md, the
-Focus plan's F1) found the Ollama steward tuning itself in a loop: each cut reply proposed twice the reply reserve in
-force, auto mode applied it, its own ten-minute notes were the calls it tuned, and the profiles ended at 2^160; and a
-host entry held its key as a value in config.json. This hotfix bounds the reserve, keeps the steward's own calls out of
-what it reads, keeps it quiet when nothing changed, gives a way to reset a profile, and moves a key value out of
-config.json. With it come the review's (plans/REVIEW-2026-11.md) three high findings and four of its medium ones:
-the skill of a cloned repo, the Windows path spellings, a pack's symlinks, the supervisor's backoff and its one
-instance, and the signal pack's off switches and reactions. The rest of the review is 3.3.14.0's.
-
-### The steward hotfix
-
-#### Fixed
-- **The reply reserve is bounded** (`ollama_steward/rules_reply_bound.py`, `rules_reply.py`): `reply-cut` and
-  `cut-resent` take the target from the measured cut (twice the cut reply, at least 4,096, in 1,024 steps), never from
-  the profile's current value; never above the model's own context (its trained context from the catalog, else the
-  measured cap) minus the prompt, nor above half the window in use; at most one num_predict proposal per model per hour,
-  whatever the session; never twice for one cut (the cut is named in the finding's evidence). Where the rule before
-  this would have doubled again, a `reserve-loop` finding says so and what held it. A profile's window or reserve over
-  2^21 is never written, and a reserve over the profile's window is held to it (`profiles.clean`).
-- **The steward's own calls are not its traffic** (`agent.live_call`, `ledger_call.py`, `ledger.read_calls`,
-  `job_state.last_call_at`): its note and chat calls are tagged `by: "steward"` in the ledger; the rules, the "calls
-  flow" timer and every reader of the traffic skip them (`read_calls(own=True)` shows them).
-- **Quiet when idle** (`ollama_steward/agent_quiet.py`, `agent.due`): a note (one model call) only when a finding, a
-  server or a profile changed since the last note, or a server event fired; each note keeps that signature.
-
-#### Added
-- `halo ollama steward profiles [reset [<model>]] [--host H] [--json]` (`ollama_steward/profiles_reset.py`), and a
-  Reset button on the model's profile in Local -> Models (`POST ollama/steward/profiles-reset`): the tuned fields
-  dropped, each named with its value (an absurd one by its size), the measured dialect record kept, every change in
-  force on that profile marked reverted so no rollback or session end puts a value back.
-- **A host key value moves to the env file** (`providers/ollama_key_migrate.py`): an `ollama.hosts[].api_key` that holds
-  a key (not an env-var name) is moved the first time the hosts are read: the value to the env file as
-  `HALO_SECRET_OLLAMA_<NAME>`, config.json keeps that name as `api_key_env`, one line on stderr names the host and the
-  variable (never the value). `halo doctor --config` has a `key-value` row while a value is still there.
-  The migration writes nothing while the test flag is set without a scratch home, and the doctor tests that ran
-  `run_checks()` bare now run it against a scratch home (`tests/test_doctor_mcp_config_cli.py`): a test run never
-  reads or writes the owner's own config.json or env file.
-
-### The review, round 1
-
-#### Fixed
-- **#1 (PERMS-1) A cloned repo's skill no longer grants itself Bash** (`tools/skill_gate.py`, `tools/skill.py`,
-  `agent/policy_gate.py`, `commands/registry.py`, `commands/skills.py`): a project or plugin skill in a folder that is
-  not trusted gets no `allowed-tools` grant; its pre-run `` !`cmd` `` commands decide the Skill call (a deny rule on
-  one denies the call, naming the command; an ask is the ordinary card naming the commands, and your yes runs them
-  once); `/<skill>` typed works the same, without the card; one line says the grant was dropped. Every skill's pre-run commands now go through the
-  armed pack policies before the permission engine.
-- **#2 (PERMS-2) Windows path spellings meet the deny rules** (`permissions_paths.py`, `permissions._abs_posix`):
-  `\\?\C:\...`, `\\?\UNC\localhost\C$\...` and `\\localhost\C$\...` (also `127.0.0.1` and this machine's name) are
-  judged as `C:\...`; any other `\\`-rooted path for Read, Edit, Write, Grep or Glob is asked while a deny or ask path
-  rule covers that tool.
-- **#3 (PACKS-1) A pack ships its own files only** (`packs/fetch.stray_file`, `packs/install.copied_checks`,
-  `packs/update.py`): install and update stop at a source holding a symbolic link or a file that resolves outside its
-  folder, one line naming it, nothing written; update copies with `follow_symlinks=False`. `halo pack install --link`
-  (your own folder, read in place) is unchanged.
-- **#15 (CORE-1) A service failing a thousand times in a row no longer stops the supervisor**
-  (`supervise/services.py`, `loop.py`): the backoff exponent is capped (5 s doubling to 300 s, as documented) and a
-  fault in the services tick never skips the steward's notes and the pulse.
-- **#16 (CORE-2) One supervisor per state folder** (`supervise/single.py`, `supervise/cli.py`): `halo supervise` holds
-  an exclusive lock on `supervise/supervisor.lock` for its life, taken before the pulse is read; a second start (or
-  `--daemon`) exits 1 naming the holder's pid.
-- **#19 (REMOTE-2) The off switches stop a running bridge** (`remote/notify.py`, the signal pack's `bridge.py`,
-  `service.py`): `notify()` writes nothing while `remote.enabled` is false; the bridge reads `remote.enabled` and the
-  pack's `on` again every 5 s and ends (exit 0, one line, health `off`) when either is off.
-- **#18 (REMOTE-1) A reaction answers only a card** (the signal pack's `answers.py`, `outbox.py`, `bridge.py`,
-  `inbound.py`, `session.py`): each card message's sent timestamp is kept for its phone, and a thumbs-up (or a heart or
-  a check) answers the open card only when its `targetSentTimestamp` is one of them; on any other message it does
-  nothing.

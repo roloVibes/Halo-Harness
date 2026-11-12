@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.4.1.2] - unreleased
+## [3.4.1.2] - 2026-11-12
 
 A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can
 no longer replace a shipped pack or workflow or import your Claude files, and a fleet hub can no longer plant settings on

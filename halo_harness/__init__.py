@@ -47,7 +47,7 @@ digest) round out this round; hardware/host analysis, roles, Hugging Face,
 and docs/release prep are later rounds of the same brief.
 """
 
-__version__ = "3.4.1.1"
+__version__ = "3.4.1.2"
 # 3.4.1.2 (PACKS-4): before anything spawns -- the console script, `python -m halo_harness`, headless sessions, Studio,
 # the host and pack CLIs all import this package first -- Windows stops looking in the current folder for a bare
 # program name (halo_harness/subprocess_safe.py; every child inherits it).
