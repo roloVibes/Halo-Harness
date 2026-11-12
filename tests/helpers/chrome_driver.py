@@ -52,7 +52,7 @@ CHROME_CANDIDATES = (
 )
 CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
 # 3.3.12.0 R1: a dark system on every runner (preferredColorScheme 0): an unset `theme` draws holo, as before
-HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars", "--blink-settings=preferredColorScheme=0")
+HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars", "--blink-settings=preferredColorScheme=0", "--password-store=basic")
 
 
 EXTRA_FLAGS: list = []  # 3.3.9.0 R3: a driver's own flags (the voice driver's fake microphone), set in its process only
