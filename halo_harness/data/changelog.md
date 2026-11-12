@@ -1,5 +1,66 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.4.1.1] - 2026-11-12
+
+What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
+Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Kali VM, the
+fleet pack joined), each with its test; the fleet pack is 1.0.3 (`halo pack update fleet`).
+
+### Fixed (wrong)
+
+- 48: a session's quit stops only what that session started: a Studio started on its own (`halo studio`, above all
+  with `--fleet`, members joined to its hub) is never stopped by another session's `/quit`; the quit line says "left
+  running: Studio (started on its own; halo studio --stop)". A Studio a shell command opened (`halo replay open`,
+  `halo init`) has no owner and stays too (children_stop.py, children.py, studio/launch.py).
+- 56: a saved replay is safe to hand on: a path inside the project is written project-relative, any other under the
+  home as `~/...` (every spelling: either separator, any case, Git Bash's `/c/...`, WSL's `/mnt/c/...`), and the user
+  name and the machine name only where the owner typed them (the title, the lineup's names) or in a project path --
+  applied when the file is written, to every field; Save's "not included" line says so; `halo audit privacy
+  --replays` checks the replay folder (live/replay_private.py). The format is unchanged: an older file opens.
+- 63: the glance on a Studio that was restarted (a new per-launch key, never kept or reused) says "Studio was restarted
+  and has a new key: open the glance again from Studio (Session's ... menu -> Open the glance)" and stops asking; the
+  same Studio back (a blip, the SSH forward re-made) is live again by itself as before.
+- 50: a session's title is the owner's first words, in a session without a terminal as in the TUI (it was the prompt
+  hook's JSON verdict, `{"ok": false, ...}`); such a stored title reads as the first words.
+- 60: a goal run on the scrubber is drawn from its record's own times (`GET fleet/replay?run=`): each lane's states (it
+  ends when it merged), its costs at each end, and "unknown at this moment" where the record cannot say, never $0.
+- 42 (fleet): a need no card lists (the lead's `shell`) sends the lead's first answer back once; a harness the goal or
+  the part names wins, and such a word is dropped there (said in the plan's notes); "1 part" in Attention.
+- 51: a replay's WAITS rows count to the scrubber's moment, not to the present (and show on every box).
+- 52: a permission card answered from Studio (a session without a terminal) reads "waiting on you" for its whole span.
+- 57: `halo orchestra new` with no terminal on Windows (NUL answers isatty) says the no-terminal line, no traceback.
+- 58: an Orchestra worker's brief says its own test runs are not the gate, and STOP WHEN's gate is the run's to count.
+- 62: the report card's "In all ... waiting on you" is the sum of every listed wait (a card's own "after N s").
+- 65: the glance's SPEND TODAY is the harness's today as the caps count it (`GET fleet/costs`), not a drawn session's.
+- 66: a goal run's worker sessions count to their run's repo for the per-project cap, not to `worker-1`.
+
+### Fixed (confusing)
+
+- 40 (fleet): the plan's note reads this machine's permission mode and ask wait now, not a cached card.
+- 43 (fleet): a files part's brief says to write its outputs with Write, never a shell redirect (which asks).
+- 45: the update note no longer says "update available" for the same commit spelled 8 and 7 characters long.
+- 46: the TUI's status bar calls the `default` mode `default`, as its cards, Studio and the mission note do.
+- 49 (fleet): an away member the hub has not heard from since it restarted has an unknown today, never $0.0000.
+- 54: Export a clip on a session already saved films that file instead of saving it again.
+
+### Fixed (cosmetic)
+
+- 38: `halo pack doctor` says the update command once, as the fix. 39: the firewall line counts the UDP twin of each
+  Block rule. 41 (fleet): the status table keeps a command's `|`. 44: a spend under a cent keeps its figure
+  (`$0.0004`, never `$0.000`). 47: a new file's diff reads `@@ -0,0 +1 @@` / `+8`. 53: Save writes the name its dialog
+  showed. 55: no invalid escape sequence in Halo's source (`halo replay clip` printed a SyntaxWarning). 59: a goal run's
+  lead is named by its model, never its role word `main`. 61: Compare says "A asked you 2 times; B 3 times." 64:
+  Settings -> Studio has one Alerts control, saying what this browser will do.
+
+### Also
+
+- Every server a user restarts on the same port rebinds at once on Linux, as Studio does: `halo host serve`, the fleet
+  hub, `halo voice serve` (tests/test_server_rebind.py). A pid is alive on Windows by its own exit code; a `tasklist`
+  slower than its timeout is unknown, never dead (process_alive.py).
+- The Python tests that run a UI `.ts` module (the cost agreement, the mode order, the model-name strip, the replay's
+  time axis) run where node has no TypeScript support (Debian's v24, built without it) by transpiling with the UI's own
+  `typescript` (tests/helpers/node_ts.py); with neither, the skip says what the box lacks.
+
 ## [3.4.1.0] - 2026-11-12
 
 **Scrub a run back in time on the canvas, save it as one file, open it anywhere.** The living canvas, part 2 (the
@@ -1768,253 +1829,3 @@ instance, and the signal pack's off switches and reactions. The rest of the revi
   `inbound.py`, `session.py`): each card message's sent timestamp is kept for its phone, and a thumbs-up (or a heart or
   a check) answers the open card only when its `targetSentTimestamp` is one of them; on any other message it does
   nothing.
-
-## [3.3.13.0] - 2026-11-08
-
-**The fold.** The three runtime rounds of 3.3.9.1-3.3.9.3 (FreeToken, Strata, TensorFold) were not what the owner meant:
-"I wanted just new info that could be helpful for us ... the intent was to research and add helpful parts", and an
-outside review found three sibling packages for engines almost nobody runs odd. This version opens by folding them into
-ONE generic OpenAI-compatible local-engine adapter whose per-engine knowledge is a short descriptor table, keeping the
-two ideas that generalised -- the paged mixture-of-experts fit (RAM and the disk link, not VRAM) and the steward
-reading a non-Ollama server's log through a per-engine descriptor -- and dropping the engine-specific packages, the
-TensorFold release fetcher and the three docs pages. llama-server and mlx_lm, the two engines the owner runs, are
-untouched, and so is a user with none of the three.
-
-**The Focus plan's first cuts.** The core gets smaller: what is optional becomes a pack Halo ships and the owner turns
-on, the core keeping only the seam it plugs into.
-
-### R1: one local-engine adapter -- FreeToken, Strata and TensorFold fold into a descriptor table
-
-#### Added
-- `halo_harness/engines/`: `descriptors.py` -- THE table, one entry per engine (`freetoken`, `strata`, `tensorfold`;
-  adding one is an entry, never a round): id (the old runtime word), label, url, the source it was read from, default
-  port, base path, health and queue routes, detection (owned_by, or /health keys asked only for rows of the engine's
-  shape), program and `--version` pattern, the owner's install line per OS (Halo never installs an engine), where it
-  runs, the managed start (and a supervised engine's plan, status and stop), the log patterns with the steward's
-  sentence each, the fixes, the fit rule and figures, the tuning flags, and `verified: False` until an owner's live run;
-  `models.py` (the models each engine names: 16 FreeToken checkpoints, 24 Strata sets, 24 TensorFold models with their
-  stated sizes, one row shape); `adapter.py` (the program from `huggingface.engine_bins.<id>` or PATH, the auto-detect,
-  the entry `engine: <id>`, Halo's key, the stop, the first request's wait); `launch.py` (`halo local serve --runtime
-  <id>` from the descriptor, the plan check before a supervised start, the settle after it); `steward.py` (one log
-  reader driven by the descriptor's patterns, the /health or /metrics queue read, one rule over the events);
-  `fit.py` (the two generic rules, `vram` and `paged-moe`); `doctor.py` (one `halo doctor --local` line per engine
-  found on PATH, configured or running); `peer.py` (the host's `engines: {<id>: offer}`, a peer's
-  `hf:local/<model>@<host>`, an engine server as a placement option with its loading tax); `bench.py` (`halo local
-  bench --host <id>` through the OpenAI-compatible route, the card kept under the model's own id too).
-- Steward kinds and findings `engine-loading`, `engine-slots`, `engine-waiting`, `engine-backend-fallback`,
-  `engine-disk-bound` (one rule, the descriptor's sentence and fix line, never applied); an engine's `loaded` line is a
-  `load-result`, its errors `other-error`; knowledge/local-servers.md's "Other local engines" section with the five rows.
-- `huggingface.engine_bins` (a map of engine id to its program); glossary "local engine" and "paged MoE".
-- docs/MODELS-engines.md ("Other local engines"): the table rendered, the install lines, what Halo does and does not
-  do, `verified: false` said plainly, how to add an engine.
-- Tests: `tests/test_engines_descriptors.py`, `test_engines_adapter.py`, `test_engines_steward.py`,
-  `test_engines_fit.py`, `test_engines_doctor_host.py`, over one fake engine (`tests/helpers/fake_engine.py`,
-  `engine_home.py`, `engine_lines.py`) on free loopback ports; the old fit modules' 31 verdicts reproduced.
-
-#### Changed
-- Every seam that branched per engine reads the table: `ollama_steward/server_context_hf.py`, `server_rules_hf.py`
-  (SAYS from the descriptors), `servers_hf.py` (the runtime words), `server_log_hf.py` (the queue read, the roster's
-  model), `tune_lines_hf.py` (the descriptor's `tune`), `rules.py`; `providers/huggingface_local_probe.py` (detection,
-  the default probe ports from the table), `providers/huggingface.py` (a peer's engine), `providers/local_server.py`
-  (the stop, the supervised alive), `providers/stream.py` (the first request's wait); `local_hf_serve_cli.py`
-  (`--runtime` choices from the table), `local_hf_cli.py`, `local_bench_cli.py`, `local_sched/place.py` (the host flag
-  `engine`), `place_advice.py` (`engine_tax`), `models_library/browse.py`, `rows.py`, `search_filters.py`,
-  `host/routes_view.py` (`engines` in the catalog), `host/state.py`, `doctor_local_ids.py`,
-  `settings_catalog_rows_b.py`, `glossary.py`.
-- A `local_servers` entry that says `runtime: freetoken | strata | tensorfold` keeps working (the ids are the old
-  words); an entry Halo wrote before (`freetoken: true` ...) is still Halo's; the old `huggingface.<id>_bin` words are
-  still read and `halo doctor --local` names the new one.
-- MODELS.md, MODELS-steward-servers.md, LOCAL-MODELS.md, COMMANDS-local-servers.md, CONFIG.md, MAC.md, DEVELOPMENT.md,
-  GLOSSARY.md, ARCHITECTURE-modules.md and docs/README.md point at docs/MODELS-engines.md and lose their per-engine
-  paragraphs.
-
-#### Removed
-- `halo_harness/freetoken/` (bench, bench_cli, catalog, launch, link, peer, requirements, route, shape, waits),
-  `halo_harness/strata/` (bench, catalog, control, detect, launch, peer, requirements, route) and
-  `halo_harness/tensorfold/` (catalog, peer, requirements, route, source) -> `halo_harness/engines/`.
-- `providers/local_runtime_tensorfold.py` -> `engines/launch.py`; `providers/local_runtime_fetch_tf.py` (the TensorFold
-  release fetcher) -> nothing: Halo never downloads an engine; the install line says where the archive is.
-- `local_sched/fit_ft.py`, `fit_st.py`, `fit_tf.py` -> `engines/fit.py`; `doctor_freetoken.py`, `doctor_strata.py`,
-  `doctor_tensorfold.py` -> `engines/doctor.py`.
-- `ollama_steward/server_log_ft.py`, `server_log_strata.py`, `server_log_tensorfold.py`, `server_stats_tensorfold.py`
-  -> `engines/steward.py`; `rules_ft.py`, `rules_strata.py`, `rules_tensorfold.py` and their findings `ft-expert-thrash`,
-  `ft-pinned-cap`, `ft-kernel-jit`, `strata-disk-bound`, `strata-slots`, `strata-download`, `tf-waiting`,
-  `tf-backend-fallback`, `tf-load` -> `engine-disk-bound`, `engine-backend-fallback`, `engine-loading`,
-  `engine-slots`, `engine-waiting`; the event kinds `expert-cache`, `pin-cap`, `kernel-jit`, `ram-tight`, `download`,
-  `capacity`, `queue`, `load-start` -> the five `engine-*` kinds.
-- Verbs and flags: `halo local bench --bw [--model DIR]` (`ft bench bw`, the measured host link) -> nothing (the fit
-  says the table's link figure); `halo local serve --runtime strata --plan` and `--model-path` -> the plan check runs
-  on every supervised start; `halo local serve --runtime tensorfold --yes` fetching the archive -> nothing;
-  `halo local runtime remove tensorfold-<tag>` (no archive is fetched any more).
-- Config words: `huggingface.freetoken_bin`, `huggingface.strata_bin`, `huggingface.tensorfold_bin` ->
-  `huggingface.engine_bins.<id>` (the old words still read); the entry markers `freetoken: true`, `strata: true`,
-  `tensorfold: true` -> `engine: <id>` (the old ones still recognised); the host catalog's `freetoken`, `strata`,
-  `tensorfold` keys -> `engines: {<id>: offer}` (a peer still reads an older host's keys).
-- Glossary: "expert cache", "offload", "expert set", "streams" -> "local engine", "paged MoE".
-- Docs: docs/MODELS-freetoken.md, MODELS-strata.md, MODELS-tensorfold.md -> docs/MODELS-engines.md.
-- Tests: `tests/test_doctor_{freetoken,strata,tensorfold}.py`, `test_{freetoken,strata,tensorfold}_fit.py`,
-  `test_host_{freetoken,strata,tensorfold}.py`, `test_local_serve_{freetoken,strata,tensorfold}.py`,
-  `test_server_log_{ft,strata,tensorfold}.py`, `test_local_runtime_fetch_tensorfold.py` and the helpers
-  `fake_ft_server.py`, `fake_strata.py`, `fake_tensorfold_server.py`, `{ft,st,tf}_home.py`, `{ft,st,tf}_lines.py` ->
-  the five `tests/test_engines_*.py` and `tests/helpers/fake_engine.py`, `engine_home.py`, `engine_lines.py`.
-
-### R2: Design out -- the Design section is the shipped design pack; the core keeps the seam
-
-#### Added
-- Extension API 1.2 (`halo_harness.ext.API_VERSION`): `contributes.studio.sections[].view: {bundle}` -- a pack section
-  drawn whole by one ES module of the pack, `mount(el, api)` on the section's page, behind `studio-script`
-  (`packs/studio_view_rules.py`, `ui/src/routes/packs/PackView.tsx`); the first pack section takes the tenth key, `Alt+0`.
-- `api.lib` on the bundle api (`ui/src/packlib/`): the shell's own React, ReactDOM, jsx runtime, the `lib/ui`
-  primitives, the JSON client with the token (`fetchJson`, `authUrl`), the live feed, the store helpers, the theme
-  (`tokens()`, `css(text)` as a constructed stylesheet), the panel workspace, the composite widgets (`Markdown`,
-  `ModelSelect`, `PackForm`, ...), `kbd` and palette `commands`; it follows the shell's major version. The same object
-  is `globalThis.__haloStudioLib` for a module built with `vite.pack.config.ts` (`vite.shared.ts` `shellLib`: React
-  and `@halo/<part>` taken from the shell, never bundled). The bundle api also gains `routes` and `section`, and `on`
-  hears the pack's `pack_live` frames.
-- `contributes.studio.routes: {module, prefix}` and the `studio-routes` grant ("runs this pack's Python inside Studio's
-  server"): `studio/packs_routes.py` imports the module through the pack's folder (`halo_packs.<id>`) and answers
-  `/api/packs/<id>/<prefix>/...` with `handle(ctx, method, path, body, query)`; `ctx.publish(kind, data)` is a live-only
-  `pack_live` frame; a GET also takes the token in `?t=`; a file answer keeps its own `Content-Security-Policy`; the
-  module's `MAX_BODY` raises the 4 MB body limit for its prefix; a failure is a 500 with one line and a `halo pack doctor`
-  row (`studio-routes`); disable, remove or a grant taken back unloads it.
-- `ext.host` (`ext/host.py`): what Halo does for a pack's code (`state_dir`, `models(task)`, `media_models`,
-  `mcp_servers`, `mcp_probe`, `child_env`, `fetch`, `halo_command`, `comfy()`, `HostError`); `testing.scratch_home`,
-  `testing.studio` (a live Studio with the pack linked and granted) and `testing.pack_module`.
-- `halo pack test` checks a view (the module exports `mount`), the routes (`GET ping` in shape) and runs the pack's own
-  `tests/test_*.py` (`packs/test_run_studio.py`); `halo pack new --kinds studio` writes a page view with `api.lib` and a
-  routes module with `ping` and `note` (`templates/pack-kit/kinds/studio/`).
-- A command's `studio: <section>` frontmatter: the pack command opens its section (`commands/pack_studio.py`);
-  `/studio <pack>--<section>`, `halo studio --mode <pack>--<section>` and `?mode=<pack>--<section>` open a pack's section
-  (`studio/modes.py`, `ui/src/lib/sectionStart.ts`).
-- The **design pack** (`halo_harness/templates/packs/design/`, off until enabled): `pack.yaml` (the Design section as a
-  view of `studio/design.js`, routes `server/routes.py` under prefix `design`, `/design`, a palette line, the settings
-  `model` and `budget_usd`, `requires:` for the seven ArtCraft CLIs), `server/` (the Design Python, ext-only), `studio/src/`
-  (the Design page's sources, the Render and Settings panels), `studio/design.js` (built), `docs/DESIGN.md`,
-  `docs/STUDIO-design.md`, README, HALO-PACK.md, CHANGELOG, and `tests/` (nine test modules: the eight Design modules
-  that left the core and `test_review_pins.py`, the 3.0.2.0 review's artboard-route pins from test_review3_c/_c2; a
-  runner, a rig on `testing.studio`, a fake craft app, the demo seed, the Studio capture, `pack_test.py`).
-- Core tests `tests/test_pack_design.py` (fast: install, enable, the section and its key, `/design`, the old words, a
-  route and the seam's failures, `halo pack test design`) and `tests/test_pack_design_ui.py` (full: the Design page in
-  headless Chrome); `tests/helpers/design_pack.py`; `docs/STUDIO-local-media.md`.
-- The Pack Manager and `halo pack inspect` say what each grant lets a pack do (`packs/grants.py` WHAT).
-
-#### Changed
-- Nine core sections: Session `Alt+1`, Team `Alt+2`, Roles `Alt+3`, Fleet `Alt+4`, Orchestra `Alt+5`, Packs `Alt+6`,
-  Setup `Alt+7`, Settings `Alt+8`, Local `Alt+9`; the first pack section `Alt+0`. The modes banner is nine tiles.
-- The Media panels (status, models, workflows) are Local's optional panels (its "+" menu), floating over its page;
-  the palette's Media lines open them there. A paged section with optional panels shows its "+" menu.
-- A pack panel may join Session, Team, Roles, Fleet or Orchestra (the registry's `core` is five).
-- Layout names take `<pack id>:<name>` (the design pack keeps `design:<slug>`).
-- Design's projects move from `~/.halo/design` to the pack's data folder (`~/.halo/packs/.data/design/projects/`), once,
-  with one line saying so; Design's turn steps are the pack's `pack_live` frames of kind `turn`, a render's kind
-  `render`; the raw artboard files are the pack's `_files/` route.
-- Fleet's craft-app words and `halo media`'s comfyui lookup read their own tables (the Design crafts table went to the pack).
-- The Inspector opens the panels a pack's page draws with `api.lib.workspace` (a view section's `sectionDef` reads the
-  specs its Workspace registered), so the design pack's Knobs open its Artboards settings as before.
-- The Chrome drivers' `press` waits until the control takes a press (not `disabled`): the Pack Manager's buttons stay
-  disabled until its own reload, after the `pack_changed` frame already redrew the row.
-
-#### Removed
-- `halo_harness/design/` (store, session, sync, crafts, crafts_probe, critique, export, contrast, assets, controls,
-  jsonio, cli) and `halo_harness/studio/design_*.py` (api, api_edit, artboards_api, assets_api, critique_api,
-  export_api, files, request, system_api, turns) and `studio/media_render.py`: the design pack's `server/` now.
-- `halo design ...`: one line pointing at `halo pack enable design` and `/design` (exit 2).
-- The `/design` builtin: the pack's entry command takes the name; with the pack off, `/design` says how to turn it on.
-- `halo studio --mode design`: `--mode design--design` with the pack on; the old word says how to turn the pack on.
-- `/api/design/...`, `/design-files/...` and the 22 MB special case in `studio/server.py` (the routes seam's
-  `MAX_BODY`), `POST media/render` and `GET media/renders/<id>` (the pack's `render` / `renders/<id>`), the
-  `design_turn` and `media_render` feed kinds.
-- `ui/src/routes/design/` (21 modules), `routes/help-design.ts`, `styles/design.css`, `styles/design-thread.css`,
-  `routes/media/MediaRender.tsx`, the Design dialogs in App, the Design palette group, Design in the Start story.
-- `tools/capture_studio.py --mode design`, `tools/capture_design.py` and `tools/design_demo.py` (the pack's
-  `tests/capture_design.py` and `tests/seed.py`); the banner's Design tile.
-- `tests/test_design_{contrast,crafts,session,store}.py` and `tests/test_studio_design{,_live,_more,_rest}.py` (the
-  pack's `tests/`; `_more` and `_rest` named for what they hold, `test_design_turns_assets.py` and
-  `test_design_page_routes.py`), test_review3_c's items 35 and 112 and test_review3_c2's item 7 (the pack's
-  `test_review_pins.py`), test_studio_ui's Design checks (`tests/test_pack_design_ui.py`), test_media_comfy_cli's crafts check.
-- `docs/DESIGN.md` and `docs/STUDIO-design.md` (the pack's `docs/`; the docs map and STUDIO.md point at its README;
-  the Media panels' part is `docs/STUDIO-local-media.md`).
-
-### R3: the Signal pack -- the bridge leaves the core and becomes a conversation
-
-The owner: "it is just like a note that is sent to the user via signal. it needs to be a full back and forth
-communication option". Why it felt like a note, from the code: the bridge was a foreground process nothing started;
-pairing took four steps on two devices and every later plain text was refused unsigned; a text with no live session
-got two error lines and was dropped; the answer came as timer-cut chunks followed by "Done."; the state showed only in
-the TUI. Now the bridge is the shipped **signal pack**, run by the supervisor as a pack service, and a conversation.
-
-#### Added
-- **Pack services** (extension API 1.2, stable): `contributes.services: [{name, description, run, autostart, restart,
-  health: {file | url, max_age_s}, log}]` (`packs/manifest_services.py`, `schemas/pack_yaml.py`, `pack.schema.json`),
-  the grant `services` ("runs a program of this pack in the background while the supervisor runs"). `halo supervise`
-  starts an enabled, granted pack's autostart services, restarts them by the rule (5 s doubling to 300 s), stops them
-  on its way out (`supervise/services.py`, `services_rows.py`, `services_cli.py`); `halo supervise services`,
-  `halo supervise service start|stop <pack>/<name>`, its lines in `halo supervise status`; `halo pack enable` says
-  where each service starts; the Pack Manager's row shows "service running since 09:12" / "stopped: <line>" with
-  Start / Stop (`POST pack/<id>/service`); `halo doctor` has one row per service; `halo pack test` checks a service's
-  command and health shape (`packs/test_run_services.py`).
-- **The transport seam** (`halo_harness.ext.remote`, API 1.2, stable): the live sessions and their control sockets,
-  `start_session` (the supervisor starts it: `remote/session_start.py`, a 0.5 s lane in `halo supervise`), the cards'
-  text, the core's notes (`remote/notify.py`: `asks` from the fleet's attention queue, `supervisor` when a goal ends,
-  `steward` from the steward's attention notes via `remote/notify_sources.py`; written only while a transport
-  listens), `transcribe` (a voice note through the local speech server), `qr_text`, `words`, `service`,
-  `service_ask`, `logon_lines`, `fleet_lines`, `capture_studio`, `offline`. `halo remote transports`.
-- **A pack command that runs a program** (`run:` in a pack command's frontmatter, `commands/pack_run.py`): kind core,
-  no model call, the words as its arguments.
-- **`halo pack test` runs a pack's own `tests/test_*.py`** (`packs/test_run_own.py`), one check per module; a Setup
-  check whose file a missing requirement gates is a skip line; `halo pack test <id>` finds a pack Halo ships.
-- **The signal pack** (`halo_harness/templates/packs/signal/`, off until enabled): the bridge as the service
-  `signal/bridge`; `/signal` (status, pair, phones, unpair, reverify, sign, home, off, on, url, test, link, register,
-  notices); Setup blocks (Signal on this box, link, a number of its own, a test message, pair a phone, phones, the
-  conversation's settings, the service); `requires: signal-cli` (GPL-3.0) with the install line per OS; its README
-  (threat model, pairing, signing, chat commands, live verification), HALO-PACK.md, CHANGELOG.md and 13 test modules (with their fakes).
-  The conversation: pairing in one six-word text (a QR too), signing optional per phone; a text with no session starts
-  one in the phone's home folder (`/cd`, `/new`) and says so first; the session kept across restarts (phones.json);
-  the answer paragraph by paragraph, a code block whole, `reply.txt` past four messages, a closing line only after
-  tool work, a status line after 20 s of silence; a text that is not a card's answer is held ("... or `send`");
-  thumbs up / down answer a card; pictures, PDFs and voice notes in, `/file` and `/shot` out; `/cost`, `/fleet`,
-  `/notify on|off <kind>`; one goodbye line when the supervisor stops.
-- `tests/test_pack_signal.py` (the shipped pack in a scratch home, a whole conversation over real control sockets
-  through the stub transport, the service under the supervisor against the fake signal-cli),
-  `tests/test_supervise_services.py` (+ the `service-pack` fixture), `tests/test_remote_notify.py`,
-  `tests/test_remote_cards.py`; glossary: `pack service`, `transport`.
-
-#### Changed
-- Extension API 1.1 -> 1.2 (`ext.API_VERSION`, `ext.compat.CHANGES["1.2"]`); the `api-too-new` fixture asks for 1.3.
-- `remote.enabled` defaults to **true** and is every transport's switch (it was the Signal bridge's, default false).
-- `remote/bridge_cards.py` -> `remote/cards.py` (core: the attention queue, the supervisor's asks and every transport
-  draw the same text); `remote/daemon_units.py` -> `logon_units.py` (the supervisor's and the host's "at logon"
-  files; `JAVA_TOOL_OPTIONS` carried into the supervisor's); the pulse liveness rule -> `remote/proc_ident.pulse_alive`.
-- `fleet/push.py`: the attention queue's cards are `asks` notes on the transport seam (no `~/.halo/remote/fleet-push/`);
-  the Fleet catalog's `integrations` lists the transports listening.
-- `/remote` prints the control socket's status (socket, registry, `remote.enabled`, transports, pack services); the
-  remote chip names the transport listening or its stopped service when no phone is attached; `remote/doctor_check.py`
-  is the control line plus one row per pack service; `remote/cli_common.py` keeps only the shared CLI helpers;
-  `remote/pairing_files.py` keeps only the locked JSON helpers.
-- Docs: REMOTE.md (the control socket, the feed, the registry, a new "Transports"; the Signal sections went to the
-  pack's README), EXTENSION_API.md ("Services", "Transports", 1.2), SUPERVISE.md ("Pack services"), PACKS.md ("The
-  signal pack"), CONFIG.md, COMMANDS-fleet.md, COMMANDS-supervise.md, COMMANDS-packs-kit.md, PACK-AUTHORING.md,
-  STUDIO-packs.md, SLASH-COMMANDS-providers.md, HANDBOOK.md, FLEET.md, SECURITY.md, GLOSSARY.md.
-
-#### Removed
-- From the core, to the signal pack: `remote/bridge.py`, `bridge_commands.py`, `bridge_session.py`,
-  `bridge_outbox.py`, `bridge_state.py`, `signal_calls.py`, `signal_config.py`, `signal_errors.py`,
-  `signal_link.py`, `signal_transport.py`, `signal_typing.py`, `pairing.py`, `signing.py`, `audit.py`,
-  `ratelimit.py`, `render.py`, `cli_setup.py`, `cli_pair.py`, `cli_link.py`, `cli_run.py`, `dialog_model.py`, and
-  the TUI's `tui/dialogs/remote_status.py` and `remote_digits.py` (the `/remote` dialog).
-- `halo remote signal setup | register | link | run [--daemon] | pair | peers | unpair | reverify | status | off |
-  on`: `halo remote signal ...` prints one line pointing at the pack (`/signal`, Setup -> Signal).
-- `remote/signal_install.py`: the pinned, digest-checked signal-cli download (Halo never installs a requirement; the
-  pack's `requires:` says how).
-- Config keys `remote.signal.enabled`, `remote.rate_per_minute`, `remote.verbosity`, `remote.stale_window_s`,
-  `remote.pair_code_ttl_s` -> `packs.settings.signal.on | rate_per_minute | verbosity | stale_window_s | pair_ttl_s`
-  (`halo config get|set` of an old key says the new home; Settings -> Remote keeps only `remote.enabled`).
-- `~/.halo/remote/{signal.json, signal-cli/, peers.json, pending.json, audit.jsonl, registration-pin, register.json}`
-  -> the pack's data folder (moved once by its service; `bridge.json`, `stop`, `fleet-push/` dropped).
-- Tests moved into the pack: `test_remote_signal_transport`, `test_remote_signal_io`, `test_remote_signing`,
-  `test_remote_render` (its card test stays as `test_remote_cards`), `test_remote_bridge`, `test_remote_bridge_auth`,
-  `test_remote_pairing`, `test_remote_peers`, `test_remote_cli_install`, `test_remote_cli_run`,
-  `test_remote_cli_signal`, `test_remote_dialog`, `test_remote_dialog_text`, `test_review3_d2`, `test_review3_d2b`,
-  `test_review3_d2c`, `test_security_round5b` and the helpers `bridge_rig`, `cli_rig`, `signal_transport_rig`,
-  `fake_signal_cli`, `fake_signal_admin`; their Signal pins are the pack's `test_transport_pins` and
-  `test_bridge_pins`, the downloader's went with it.

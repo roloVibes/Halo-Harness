@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.4.1.1] - unreleased
+## [3.4.1.1] - 2026-11-12
 
 What a third two-machine run found: a saved replay no longer carries your paths, another session's exit no longer stops
 Studio, the glance says when Studio was restarted. Defects 38-66 of the 3.4.1.0 check (the PC and the Kali VM, the
