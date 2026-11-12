@@ -30,6 +30,7 @@ def keys(c, lv) -> dict:
     c.wait(f"document.activeElement === {AREA} && 1", 5)
     _clear_field(c)
     c.type_text("KEEP")
+    c.wait(f"{AREA}.value === 'KEEP' && 1", 5)  # the text has landed before Tab (Windows run 43145508827: '')
     before = c.js(TARGET_KEY)
     live = c.js(f"[...{AGENT_PICK}.options].map((o) => o.value).filter((v) => v && {list(LIVE)!r}.includes("
                 "document.querySelector(`[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key=\"${v}\"]`)?.dataset.state))") or []

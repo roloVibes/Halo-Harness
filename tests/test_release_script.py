@@ -377,7 +377,7 @@ def test_github_release_uses_gh_cli_when_present(ctx: Ctx):
     ctx.check(f"and exactly one upload call, got {gh_calls}", len(uploads) == 1)
     cmd = creates[0]
     ctx.check(f"it creates the right tag, got {cmd}", cmd[3] == "v9.9.9")
-    notes = cmd[cmd.index("--notes") + 1]
+    notes = Path(cmd[cmd.index("--notes-file") + 1]).read_text(encoding="utf-8")  # a file, not an argument
     ctx.check(f"the notes carry the CHANGELOG section's own bullet, got {notes!r}",
               "First bullet of the scratch release." in notes)
     # 2.0.6 round 8: the upload carries the tag's own tar.gz (built by

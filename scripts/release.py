@@ -291,10 +291,10 @@ def publish_github_release(version: str, notes: str, *, repo_dir: Path = REPO_DI
     gh = (gh_path_fn or _gh_cli_path)()
     if gh:
         artifact, checksums = build_release_artifact(version, repo_dir=repo_dir, run_fn=run_fn)
-        run_fn([gh, "release", "create", tag, "--title", f"Halo Harness {version}", "--notes", notes],
-               cwd=str(repo_dir), check=True)
-        run_fn([gh, "release", "upload", tag, str(artifact), str(checksums)],
-               cwd=str(repo_dir), check=True)
+        notes_file = artifact.parent / "notes.md"  # a file: 3.4.0.0's notes (36 KB) were past Windows' command line
+        notes_file.write_text(notes, encoding="utf-8", newline="\n")
+        run_fn([gh, "release", "create", tag, "--title", f"Halo Harness {version}", "--notes-file", str(notes_file)], cwd=str(repo_dir), check=True)
+        run_fn([gh, "release", "upload", tag, str(artifact), str(checksums)], cwd=str(repo_dir), check=True)
         return f"gh release create {tag} + artifact upload (via the gh CLI)"
     token = (token_fn or git_credential_token)(repo_dir, run_fn=run_fn)
     if not token:
