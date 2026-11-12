@@ -1,5 +1,249 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.4.1.0] - 2026-11-12
+
+**Scrub a run back in time on the canvas, save it as one file, open it anywhere.** The living canvas, part 2 (the
+owner, 2026-11-10: "the best real-time visualization and clarity of what is going on with multi-model multi-workflow
+jobs"), section A of its plan: time on Agents -> Live, then a run's replay as one file and its clip.
+
+### R1: the scrubber and the replay file
+
+#### Added
+
+- **The scrubber under Live's canvas** (`routes/agents/live/Scrubber.tsx`, `timeline.ts`; docs/REPLAY.md): the session's
+  time axis with its phase bands (waiting on you, a tool, thinking, writing, idle) and one mark per spawn, hand-off,
+  ask, failure and finish (hover: what it was). Dragging redraws the canvas as it was at that moment -- who existed, in
+  which block, each state and what it ran, the plan's line labels, the sentence under the bar (an ask first), the cost
+  so far -- under a "replay -- <time>" banner in muted colours; **Play** at 1x / 4x / 16x; **Now** (or Esc) returns.
+  Over the session running now it shows the axis up to now and a drag rewinds it. It is the ONE replay control: a
+  session, a goal run (coarse: each lane's start and end), a mission and a saved file play on it.
+- **The replay file** (`live/replay_file.py`): **Save this run's replay** says what the file holds, costs and writes,
+  then writes `<state>/replays/<session>-<stamp>.halo-replay` (JSON, `format: halo-replay`, `version: 1`: the agents,
+  their states over time, the costs, the marks and bands, the lineup's blocks as they were), with no prompt, tool
+  input or output, thought or path, every string through the export redactor. History lists saved files and **Open a
+  file** takes one made on another machine; an older `GET fleet/replay` answer opens as version 1.
+- **Export a clip** (`live/replay_clip.py`, `live/clip_chrome.py`): the range From .. To at the scrubber's speed,
+  filmed on Live in headless Chrome and assembled by Pillow into one WebP (else GIF), 1200 px wide, 5 frames a second,
+  at most 30 s (played faster to fit, said), under `<state>/replays/clips/`; it says the frames, length, width and
+  path before it writes.
+- `halo replay list | save <session> | open <file> | clip <file> [--from --to --speed]` (`replay_verbs.py`);
+  `halo replay <session> --model <ref>` is unchanged. Studio routes `replays`, `replays/plan`, `replays/save`,
+  `replays/import`, `replays/<id>`, `replays/<id>/clip`, `replays/clips/<name>` (`studio/replays_api.py`);
+  `?mode=agents&view=live&replay=<id>[&at=<s>]` opens a saved file.
+- `GET fleet/replay` answers `marks`, `bands` and `agent_costs` too (`live/timeline.py`); `live/history.py` rebuilds
+  each question or plan review (its AskUserQuestion / ExitPlanMode call) and each permission card (the turn record's
+  `permission_waits`) as a wait on you.
+- From 3.4.1.0 a turn's record keeps a permission card's words (`debug_timeline.record_permission_wait(..., what)`), so
+  its mark says what it asked; an older session's mark says "a permission card (answered allow after 6 s)".
+
+#### Removed
+
+- Cast's replay bar (`routes/roles/Replay.tsx`, `routes/fleet/replay.ts`, the Roles store's `replay`, `live.ts
+  agentsAt`): its doors -- the agent inspector's Replay and history "replay", the Roles Live tab's "replay", the
+  palette's "Agents: replay this session on Live" -- open the session on Live's scrubber. Its testids `replay-bar`,
+  `replay-play`, `replay-scrub` and `replay-close` are the scrubber's.
+
+#### Docs
+
+- New docs/REPLAY.md; STUDIO-live.md "Time: the scrubber", STUDIO-agents.md, STUDIO.md, COMMANDS-sessions.md, the
+  glossary's "replay", the docs map.
+
+### R2: compare two runs, and a goal run saved as a replay file
+
+#### Added
+
+- **Compare two runs** (History on Agents -> Live; `routes/agents/live/Compare.tsx`, `compareStore.ts`; docs/REPLAY.md
+  "Compare two runs"): every History row has a tick; two ticked -- any two of a session, a goal run and a saved replay
+  file -- and **Compare** opens a page of the drawer, with Back (the ticks stay). "What differed" in three plain lines
+  derived from the rows; the two runs over one time axis, each one's agents as lanes in their blocks in the phase
+  colours; the rows -- how it ended, wall time, cost, tokens, the models (each one's share of cost and time), agents
+  spawned, asks to you, failures, retries -- with the better figure named by a word in its cell (cheaper, faster, fewer,
+  finished). One ticked: **Compare before / after**, split at its first steer (else halfway), **split at** moves it. No
+  model call; nothing written. A ticked mission says it is compared from its report (the fleet pack's).
+- Every figure is read from the run's own record (`live/replay_facts.py`): a session's transcripts, a goal run's report
+  and lanes, a file's new `facts`; never a live counter. A cost Halo cannot price is "unknown" (the priced part with a
+  "+", never $0) and the better cost is not marked on that row.
+- `halo replay compare <a> <b> [--split T] [--json]` (a, b: a session id, a goal run id, a `.halo-replay` path or saved
+  id); Studio's `GET replays/compare?a=&b=[&split=]` (`live/compare.py`, `live/compare_text.py`). The rows are plain
+  data (`{key, label, a: {value, text}, b, better, word}`) another page can read.
+- **A goal run saves and films like a session** (`live/replay_run.py`): Save this run's replay and Export a clip on the
+  scrubber, `halo replay save <run-id>`, `replays/plan?run=` and `replays/save {run}`. Its file holds the lead and its
+  lanes as agents, each lane's state changes from its record, the plan review as an ask, and its figures. The file
+  format keeps version 1 (`kind: run`, `run_id` and `facts` are keys a version-1 reader ignores; an R1 file still opens
+  and compares). The redaction test covers a goal run.
+
+#### Fixed
+
+- A session's replay counted a finished sub-agent's cost twice: its parent's transcript carries the sub-agent's
+  rolled-up total and its own transcript its calls. `live/history.py` now skips the rolled-up line when it reads the
+  sub-agent's own transcript (the scrubber's cost, the file's `cost_usd`).
+
+#### Docs
+
+- docs/REPLAY.md (Compare two runs, a goal run's file, the verb), STUDIO-live.md, STUDIO-agents.md,
+  COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "replay", the docs map.
+
+### R3: the run report card, and Session says its permission mode
+
+#### Added
+
+- **The run report card** (`live/report_card.py`, `report_card_sections.py`, `report_card_text.py`; docs/REPLAY.md "The
+  report card"): one card per finished session, goal run or saved `.halo-replay` file, rendered from its record --
+  never hand-written, no model call, nothing written. R2's nine figures for that one run (the same cells Compare
+  shows), then the story in about ten lines (who was asked what, what each handed back, each ask and failure, how it
+  ended), where the time went (by phase, by block), where the money went (by model, by block), what failed and what
+  happened next, what waited on you and for how long, which model did what, the files it wrote with their paths, and
+  what this record cannot show, in words. A cost Halo cannot price is "unknown" or the priced part with a "+", never $0.
+- Studio: each History row's own **Report** door (`ReportCard.tsx`): a session's or a file's card is a page of the
+  drawer (Back, Replay, Copy Markdown); with nothing running, Live's empty state ends with a row for the session that
+  ended last and its Report card (a row, never a pop-up). **One page per goal run**: the card is the first block of its
+  report page in History; the cost / time / models lines of the report's facts moved into the card's figures, every
+  door and testid kept. Missions are the fleet pack's: no card.
+- `halo report <session|run|file> [--json]` (`report_cli.py`) prints the card's Markdown (`--json`: its data); Studio's
+  `GET replays/report?ref=` answers the card and its Markdown. A file opened on another machine gives the same card.
+- A replay's `facts` carry `artefacts` (each file an Edit / Write call wrote, by its path inside the project; one
+  outside it by its name only; a goal run's: what merged and its workflow's saved outputs) and `answer` (the first line
+  of main's last text). The file format stays version 1; an older file's card says what it cannot show.
+- **Session's bar says the session's permission mode** (`session/ModeWord.tsx`): one small word (auto, default,
+  acceptEdits, plan, bypassPermissions, dontAsk) with the mode's one-line meaning on hover, from the session's row; a
+  status frame's `permission_mode` moves it, so Shift+Tab in the terminal changes the word.
+
+#### Docs
+
+- docs/REPLAY.md "The report card" (and what a replay file now names), STUDIO-live.md, STUDIO-agents.md,
+  STUDIO-session.md "The mode word", COMMANDS-sessions.md, ARCHITECTURE-modules.md, the glossary's "report card" (+ twin),
+  the docs map.
+
+### R4: the glance, and the alert
+
+#### Added
+
+- **The glance** (`/?mode=glance`, `routes/glance/`; docs/STUDIO-live.md "The glance"): one phone-width page of this
+  Studio, no rail and no panels -- the sentence of what is going on now (Live's own grammar over the session Live
+  draws; what waits on you when there is no agent tree to read), what waits on you with its answers as large buttons
+  that each say what they do (a text box first for an answer that needs words), the spend against its cap (today's, as
+  the caps count it; "$x+" or "unknown" for what Halo cannot price, never $0; "no cap set"), the session's elapsed time
+  and the last three events. It says **live**, that the feed is reconnecting, or **stale: last heard N s ago** after 15
+  seconds without an answer, and reconnects by itself. Nothing opens on load; it calls no model.
+- Where it opens: **Open the glance** in the palette (View) and in Session's "..." menu (ELSEWHERE), a dialog with this
+  machine's address, Open it here (DOES / COSTS / WRITES first) and, for a phone, the steps and a code to scan when an
+  SSH server answers here, else plainly that the page is this-machine-only (`GET glance/door`,
+  `studio/glance_door.py`); `halo studio --mode glance` (a page word, not a section) prints the phone's line under the
+  URL. No new listener, no new port: a phone reaches it only through an SSH forward of Studio's port, the door Studio
+  already printed (docs/REMOTE.md "The glance from a phone").
+- **The alert** (`studio.alerts`, Settings -> Studio -> Alerts, `lib/alerts.ts`; docs/STUDIO-live.md "The alert"):
+  none (the default) or this browser's notification. Choosing the browser asks this browser for permission on that
+  click, once, never on load; then one notification when something starts waiting on you (what waits, on which
+  session; never one per feed event, never for what waited before the page opened), and a click on it opens the ask
+  (Session's Attention on that row; on the glance, the row). The channels are one table: a second is one entry. Nothing
+  for the Signal pack: the owner has not chosen a channel yet.
+
+#### Changed
+
+- **An answer from the attention queue needs the owner proof** (`studio/owner_proof.py`): `POST
+  fleet/attention/answer` -- Attention's keys and the glance's buttons -- joined the owner routes, so the launch token
+  alone (what a pack's page script could read) is a 403 "this needs the owner's own page" and the card still waits.
+  Studio's own page always sent the proof; nothing changes for it.
+- Studio's fleet store starts `lite` for the glance (the queue, not the capability catalogs or the missions).
+
+#### Docs
+
+- docs/STUDIO-live.md "The glance" and "The alert", docs/REMOTE.md "The glance from a phone", STUDIO-security.md,
+  STUDIO-shell.md, EXTENSION_API.md (the owner routes), COMMANDS-studio.md (`--mode glance`), CONFIG.md
+  (`studio.alerts`), ARCHITECTURE-modules.md, the glossary's "glance" (+ twin), the docs map.
+
+### R5: 3.4.0.1 merged in, and what the second two-machine check found
+
+The released 3.4.0.1 is merged into this line (History's rows keep both the tick boxes and Report doors of R2/R3 and
+3.4.0.1's "N sessions inside"; Studio's start lines keep the glance's phone line and print at once). A second check of
+3.4.0.1 on the PC and the Kali VM (numbering from the first check's 1-29):
+
+#### Fixed
+
+- **2** `halo pack inspect` lists what a pack adds to Halo under `offers:` (CLI verbs, slash commands, doctor rows,
+  Studio server modules), as `pack list` counts them; "nothing" when it offers nothing.
+- **12** `halo fleet status` on the machine serving the hub prints the firewall line too (and `serving.firewall`).
+- **22 / 35** History: a goal run's lead and worker sessions fold under their run whatever folder Studio started in
+  (each session's own record names its folder; a worker's is its run's worktree); a mission re-plan keeps every lead
+  session (plan.json `lead_sessions` appends), so the first lead is not a row of its own.
+- **30** An installed pack older than the one this Halo ships (installed from Halo's own shipped folder) is said in one
+  line with `halo pack update <id>` by `halo pack list` (and `--json` `ships`), `halo pack inspect`, `halo pack
+  doctor`, `halo doctor`, Studio's Packs ("1.0.2 available") and at the end of `halo update`. `halo pack install <id>`
+  of an installed pack: the same version says "already installed: nothing to do" and exits 0; another version says so
+  with the update command (exit 1). The fleet pack is 1.0.2.
+- **31** The firewall line resolved only the venv launcher: uv's `cpython-3.12-...` is a junction to
+  `cpython-3.12.13-...`, where Windows Firewall recorded the PC's two Block rules, so Halo said "no rule" and gave only
+  the allow command. Both the launcher and the interpreter are resolved, a rule's program is compared as written and
+  resolved; a Block rule is said first with the command that removes it, then the allow line.
+- **32** A mission part on a harness in permission mode `default` failed even when it only wrote its own output. Its
+  own outputs folder (`artifacts/<n>/` of the mission folder) needs no ask (checked against `..`, `\\?\` / `\\.\` /
+  UNC spellings, NTFS streams and links out); any other call the mode asks about waits as a card in that machine's
+  Attention (Studio, the TUI, the glance) instead of being refused, the hub shows the part "waiting on you (on
+  <machine>): <what>", and nobody answering within `fleet.mission.ask_wait_min` (default 30) ends it "not done: nobody
+  answered ...". The plan's note says so. Nothing else is allowed by Halo.
+- **33** Live's sentence on the fleet scope counted a member's session twice ($0.015 for a $0.0075 session): the spend
+  is the agents', not their session and machine boxes again.
+- **34** report.md's cost per harness reads "(1 part, #2; 0 done, 1 not)", not "(parts 2; ...)".
+- **36** Right after `halo fleet join`, before any session there, the plan and `halo fleet who` say "<member> joined
+  but has not sent its card yet (it goes with the first halo session there)" instead of "nobody in the fleet has gpu".
+- **37** A long hand-back reason is quoted whole when it fits, else cut at a word with "...".
+- Costs: a failed call (a 429, a 5xx) spent nothing and no longer marks the harness's today unknown (`$x+`) while the
+  report card called the same session whole; one finished session with a sub-agent tells one number in the report
+  card, Compare, the replay, History, the harness's today and the caps. Per-project caps count finished sessions too
+  (`cost_today_projects`, from each session's record by its project).
+- Tests: tests/helpers/studio_ollama.py reads config.json again for a moment when Windows denies the read while the
+  server replaces it (Windows run 43173639949).
+
+#### Docs
+
+- docs/FLEET.md (the recipe's step 1 on a used machine, a mission part in `default` mode, the firewall junction, `halo
+  fleet status`, Caps), PACKS.md (installing an installed pack, an older shipped pack), CONFIG.md
+  (`fleet.mission.ask_wait_min`), ARCHITECTURE-modules.md, plans/HANDOFF.md.
+
+### R6: what the CI runners found
+
+The candidate passed on the Windows PC and was red on both GitHub runners; each cause below, found and pinned.
+
+#### Fixed
+
+- **Export a clip without Pillow.** Saying what a clip will write (the dialog, `GET replays/<id>/clip`, `halo replay
+  clip --dry-run`) no longer needs Pillow: the plan answers with its frames, width, path and cap, plus `pillow` /
+  `needs`; without Pillow the dialog says in one line what to install and Export is off, the CLI prints the same line
+  and the clip itself exits 2, before anything is written (only the encode needs Pillow, `replay_clip.encoder()`). The
+  plan answered 422 where Pillow was missing. The dialog also keeps only the newest plan: the speed moving as the saved
+  file opened and a From typed just after sent two asks, and the older answering last left a plan (and an Export) of a
+  range the fields no longer said.
+- **A hover card no longer opens by itself on load.** A box drawn under a pointer that has not moved (Cast's lineup
+  opening under the "Open auto" button just clicked) got the browser's enter with no move, and its card opened; the
+  rest now starts on the pointer's first move on the box (`lib/hover/useHover.ts`). Seen on Linux, where the fonts put
+  a card under that pointer.
+- **Studio serves again on its own port right after it stopped (Linux).** A connection it closed sits in TIME_WAIT on
+  the port for a minute and the bind failed ("Address already in use"): Studio sets SO_REUSEADDR on POSIX, where it
+  never lets two listeners share a port, and keeps SO_EXCLUSIVEADDRUSE on Windows.
+- **A slow `tasklist` no longer deletes a live session (Windows).** The session registry's liveness check spawned
+  `tasklist` with a 5 s timeout; one slower answer read a live session as dead and `list_live` pruned its row for good,
+  so Studio lost the session (Session's mode word never moved again). It now asks the process itself
+  (OpenProcess + GetExitCodeProcess), and this process's own rows at once.
+- CI installs Pillow (`requirements-ci.in`, hash-locked in `requirements-ci.lock`), so both runners encode a clip; the
+  no-Pillow path is tested on every box by hiding Pillow (`tests/helpers/no_pillow.py`).
+- **Session's mode word follows the registry whatever order things land in.** GET fleet answered a snapshot from
+  before the registry moved (its 1 s cache was dropped only by a session frame, and the mode can move before the
+  session's feed reaches Studio): the registry file is part of the cache's key now (`peers/local_view.py`). On the page
+  (`routes/fleet/modeOrder.ts`), a status frame older than one already applied never puts its mode back, and an answer
+  asked before the newest status frame landed keeps that frame's mode; one asked after it wins.
+- `tools/studio_modes_banner.py --check` asks for the same size and the same pixels within 16 levels on at most 0.1 %
+  of them (`matches`): Pillow 13.0 draws the labels 42 pixels apart from 10.2 (4 levels at most), and the byte
+  comparison called the banner stale on CI once CI had Pillow; another capture or another tile order is still stale.
+- Tests: a node test that runs a `.ts` module skips on a node built without TypeScript (Debian's).
+- Tests: a "nothing opens on load" check names the card that opened, where the pointer rests and the box under it; the
+  mode word's driver says the page's word and the registry's rows when it times out; `tests/test_studio_rebind.py`,
+  `tests/test_replay_clip_pillow.py`, `tests/test_studio_mode_order.py`, `tests/test_studio_modes_banner_check.py`; the
+  registry's slow-`tasklist` pin; the report card's mode step holds the session's feed until the page has read its word.
+
+#### Docs
+
+- docs/REPLAY.md (a clip's plan needs no Pillow).
+
 ## [3.4.0.1] - 2026-11-12
 
 What a real two-machine run found: a blocked part no longer counts as done, costs count finished sessions, the hub says
@@ -1774,64 +2018,3 @@ the TUI. Now the bridge is the shipped **signal pack**, run by the supervisor as
   `test_review3_d2c`, `test_security_round5b` and the helpers `bridge_rig`, `cli_rig`, `signal_transport_rig`,
   `fake_signal_cli`, `fake_signal_admin`; their Signal pins are the pack's `test_transport_pins` and
   `test_bridge_pins`, the downloader's went with it.
-
-## [3.3.12.0] - 2026-11-08
-
-**Themes and parity.** One theming system, not two. Until now the terminal had two palettes and Studio a dark/light switch
-per browser, and the two knew nothing of each other. R1 makes a palette registry of ten -- claude-dark, claude-light, holo,
-paper, midnight, ember, forest, slate, dusk, dawn -- in one token vocabulary that both renderers draw from, chosen by one
-`theme` key: `/theme`, `halo config set theme`, the header menu and a new Settings -> Themes page all move the same value,
-Studio's palette blocks are generated from the registry so a colour lives in one place, and the daltonized variants now mean
-something. Next in this version: a pack's own themes (R2), a pack mode's theme with toggle-and-restore (R3, issue #5), the
-table panel's detail view and the parity audit (R4).
-
-### R1: one palette set -- ten palettes, one `theme` key, the terminal and Studio in step
-
-#### Added
-- The palette registry (`halo_harness/themes/`): ten palettes as data in one token vocabulary (`palettes.py`: bg, bg2, surface, surface2, border, line, text, muted, faint, accent, accent2, accent_ink, ok, warn, bad, user, tool) -- `claude-dark`, `claude-light`, `holo` (Studio's glass, cyan and amber), `paper`, `midnight`, `ember`, `forest`, `slate`, `dusk`, `dawn`, each `{id, label, posture, tokens}`; `registry.py` answers the valid names (the ten x `-daltonized` / `-ansi`), the tokens a name draws in, its posture, and the WCAG contrast of every pinned pair (body text 4.5:1 on every face, a large or UI colour 3:1, a primary button's label 4.5:1); `cli.py` holds the words `/theme` and the refusals say.
-- `-daltonized` now means something: the accent pair, the status pair and the terminal's user / tool lines become blue and orange (the Okabe-Ito hues), moved in lightness per palette until they read on its backgrounds -- never red against green.
-- Studio from the same source: `scripts/themes_css.py` writes one `:root[data-theme="<name>"]` rule per palette (its id and `-ansi`), one override per `-daltonized` name and the "follow the system" rules between two marker comments of `styles/tokens.css`; the glass, lines, glows, soft fills and scrim derive from the tokens by posture. `--check` reports drift.
-- `GET settings/themes` (the ten with their tokens and daltonized tokens, the vocabulary, the modifiers, the saved `theme`); the served index.html carries `data-theme` = the saved theme or `auto` (`studio/theme_boot.py`), so the first paint is in the right palette.
-- The header's theme menu (`shell/ThemeMenu.tsx`): Follow the system and the ten, each with a swatch row (surface, text, accent, accent-2, ok, warn, bad), the current one checked, a door to Settings -> Themes; the palette's "Theme: <id>" per palette and "Theme: follow the system".
-- Settings -> Themes (`?mode=settings&page=themes`, `halo settings themes`, after General on the rail): the ten rows with their swatches in the colours the API sends, posture and label, the current one marked; Follow the system; pointing at a row previews it on the page, Esc or moving away reverts, a click saves; Daltonized and ANSI as toggles.
-- `/theme` with no argument lists the ten with their posture and one-line label, the current one marked; `halo settings themes --terminal` prints the same.
-- Glossary: "palette" and "posture". Tests: `tests/test_theme_registry.py` (the ten, the postures, every modifier, daltonized blue / orange, the contrast pins over all thirty names, `resolve_theme` and the removed-theme notice unchanged, `halo config set theme`, the doctor), `tests/test_themes_css_drift.py`, `tests/test_studio_theme_api.py`, the Chrome `tests/test_studio_themes.py` (TIER full), and the TUI pilot `test_slash_theme_lists_the_ten_palettes_and_sets_one`.
-
-#### Changed
-- One key for both: `theme` in `~/.halo/config.json` names the palette for the terminal and Studio; the header menu, the palette, Settings -> Themes, Setup's Theme page, `/theme` and `halo config set theme` all write it (Studio through `POST settings/set` / `settings/unset`). Unset, the terminal keeps its truecolor-aware default (`claude-dark` / `claude-dark-ansi`) and Studio follows the system (`holo` dark, `paper` light). Studio's per-browser dark / light switch is gone: a saved `halo.studio.theme` is read once, written to the key when the key is unset (`dark` -> `holo`, `light` -> `claude-light`), then dropped. Studio follows a change made in a terminal at once (`files_changed`); the terminal has no config watch, so a change made in Studio reaches it on `/theme` or its next launch.
-- `theme.VALID_THEMES`, the config schema's `theme` enum and the Settings row's choices come from the registry (30 names), never a literal list; an unknown name is one line naming the ten (`/theme`, `halo config set theme`, the settings route, Setup).
-- `tui/theme.py variables_for` maps the registry's tokens to Textual's variables; `claude-dark` draws exactly as before; `claude-light`'s ok, warn and tool are a shade darker (`#3b9428`, `#b67418`, `#e45401`) so each reads 3:1 on the page. `holo` is Studio's dark of before, value for value; Studio's light of before is `claude-light` (its `--surface-2` is now the terminal's panel colour, `#dce0e8`).
-- Setup's Theme page shows the ten palettes (the modifiers live on Settings -> Themes) and says the key is the terminal's and Studio's; the Settings row is titled "Theme".
-- The Chrome drivers start headless Chrome on a dark system (`--blink-settings=preferredColorScheme=0`), so an unset theme draws holo on every runner as before.
-
-### R2: a pack's own themes -- `contributes.themes` registers into the palette registry
-
-#### Added
-- `contributes.themes` in `pack.yaml` (`packs/manifest_themes.py`, `schemas/pack_yaml.py`, `pack.schema.json` `$defs.theme`, extension API 1.1, stable): `[{id, label, posture: dark | light, palette: {every token: "#rrggbb"}}]`, checked at install with one line per bad value -- an id that is not `[a-z][a-z0-9-]*`, a core palette's id, an id ending in a modifier, an id used twice, a label left out, a posture outside the two, a missing or an extra token, a value that is not `#rrggbb`, and every pinned pair under its WCAG AA floor (the palette's own and its `-daltonized` variant's) with its ratio.
-- A pack palette is a theme like the ten while its pack is enabled, named `<pack-id>/<id>` (`pack-theme/nightshade`) with the `-daltonized` and `-ansi` modifiers derived the same way: `/theme` lists it under the pack's name and draws the terminal in it at once, `halo config set theme`, Setup and the settings route take it, and `halo doctor --config` knows it.
-- Studio: `GET settings/themes` lists the enabled packs' palettes after the ten with `pack`, `pack_name`, their tokens and the CSS variables they are drawn in; the header's theme menu, Settings -> Themes and the palette show them in a group under the pack's id with the same swatches, hover preview and Daltonized toggle; `lib/theme.ts` sets a pack palette's variables on `<html>` while it is drawn (the generated `tokens.css` blocks stay the ten's); the served page inlines a saved pack palette's variables as one `<style id="halo-pack-theme">` rule the CSP allows by its sha256, so the first frame is already in it.
-- The restore record: choosing a pack palette through any door keeps the theme saved before it in `~/.halo/packs/.data/<id>/theme.json` (`themes/restore.py`); `halo pack disable` and `halo pack remove` (and the Pack Manager's buttons) write it back while the pack's palette is the saved `theme`, or unset the key when there was none, and say so in one line (`theme: pack-theme/linen was pack-theme's palette and the pack is disabled; restored claude-dark`).
-- The fixture pack `tests/fixtures/packs/pack-theme/` (`nightshade` dark, `linen` light, AA-clean); EXTENSION_API.md "Themes" (the shape, the tokens, the contrast rule, the naming, the restore rule), the status row and `ext.compat.CHANGES["1.1"]`; glossary "pack palette". Tests: `tests/test_pack_themes_manifest.py`, `tests/test_pack_themes_lifecycle.py`, the pack cases of `tests/test_theme_registry.py` and `tests/test_studio_theme_api.py`, and the Chrome pack step of `tests/test_studio_themes.py` (the menu and the page under "pack-theme", the computed accent, the first paint with the page's scripts off, the restore on disable).
-
-#### Changed
-- The registry is live: `themes/registry.py` reads the enabled packs' palettes at call time (`themes/packs.py`, cached on the packs registry's own snapshot, so no watcher) and gains `register` / `unregister`, `pack_ids`, `all_ids`; `theme.VALID_THEMES` is now a live view (`registry.LiveNames`) instead of a frozenset built at import, and the Settings row's choices are the same view; `ids()` is still the ten.
-- `theme.persist_theme` is the one door every writer of `theme` goes through (`halo config set theme`, the settings route and Setup's route used to write the key directly), so the restore record is kept whichever door chose the palette; unsetting the key clears it.
-- A saved `theme` naming a pack palette whose pack is not enabled reads like a removed game theme: one line at the terminal's start and in `halo doctor --config` (a `warns` row, no longer an unknown value), the default drawn, Studio following the system.
-- Studio's palette derivation (`studio_vars`, `accent_vars`) moved from `scripts/themes_css.py` to `halo_harness/themes/studio_css.py` so the server can run it; the script imports it and `tokens.css` is byte for byte as before.
-
-### R4: the pack kit -- `halo pack new`, `halo pack test`, an editable install, the authoring guide
-
-#### Added
-- `halo pack new <id> [--kinds ...] [--all] [--dir] [--name] [--description] [--author] [--github | --no-github] [--license SPDX]` (`packs/cli_new.py`, `packs/scaffold/`, the templates in `halo_harness/templates/pack-kit/`): a pack folder that `halo pack inspect` reads clean, that installs and enables with every grant, that `halo pack doctor` finds nothing wrong with and that `halo pack test` passes. One working example per kind: `agents` (two bios with every section a bio has: a local model asked for by `models.capabilities: [local, tools]` with the owner's default model as the cloud fallback, the tools allow-list, a skill, the memory namespace, the system prompt, the "Pick me to ..." line Auto reads), `teams` (two roles, two tiers, acceptance), `skills` (two), `commands`, `hooks` (a PostToolUse hook appending to the data folder), `mcp` (a stdio server with one tool), `events` and `artifacts` (a schema and a sample each), `workflows` (two stages, both roles, ending in the artifact), `studio` (a markdown panel, a table over `data:rows.json`, a bundle panel using the `api`), `bundle` (a `bundle:` block), `fleet`, `policy` (a guard that denies a write under `.git/` while its mode is on), `modes`, `setup` (a form, a check, a note), `themes` (a full AA-clean palette; written once this Halo reads `contributes.themes`, R2) and `integration` (ripgrep wrapped: `requires:`, a command, an MCP server, a hook). Always: `pack.yaml`, `.claude-plugin/plugin.json`, the entry command `commands/<id>.md`, a README written from the manifest, `HALO-PACK.md` (the contract, the loop, the rules a Halo session follows in the folder), `CHANGELOG.md`, `tests/pack_test.py`; with `--github` (the default) `LICENSE`, `.gitignore` and `.github/workflows/pack-test.yml` (`halo pack test .` on Ubuntu and Windows against Halo installed at this release's tag).
-- `halo pack test <folder | id> [--kinds] [--timeout] [--verbose] [--json]` (`packs/cli_test.py`, `packs/test_run.py`, `test_run_parts.py`, `test_run_proc.py`, `test_run_mcp.py`): in a scratch home and project of its own, never a model call, never the network -- the manifest, an install with every grant and the doctor on that copy, each bio and lineup loads, each skill and command parses, the entry command runs in a fake session and lists the pack's parts, each hook runs once with a sample event of its matcher, each MCP server answers `initialize` and `tools/list` and stops (a silent one is the timeout line), each event and artifact schema takes its sample, each workflow compiles, each Studio panel's source is there and a bundle module exports `mount`, each policy answers in shape, each mode turns on and off, each Setup check runs green, each theme's contrast pins, the bundle block against a fake card, each requirement. One line per failure (`<file>: <what> -- <fix>`), a skip line for what needs the network, a model or a program not here, `RESULT: N checks, N passed, N failed`, exit 0 / 1.
-- `halo_harness.ext.testing` (stable, API 1.1): `run(folder)` (the same checks; `Report.add` for a pack's own), `manifest(folder)`, `ask_policy(folder, policy, tool, input)`.
-- `halo pack install <folder> --link [--project]` (`packs/link.py`): the installed pack is the folder itself, read in place through `<id>.link` (journal op `link`); an edit shows at the next read; `halo pack unlink` (= `remove`) takes the link away and leaves the folder (journal op `unlink`); update and rollback say there is nothing to do.
-- `requires:` tool entries (`packs/manifest_requires.py`, extension API 1.1 "Requirements", stable): `{kind: command | python | npm | git, name, version, install: {windows, linux, mac}, url, license, why, used_by}` beside the `{pack, version}` entries; one line per bad value. Halo never installs one: `halo pack doctor`'s `missing-requirement` warns row with the install line for this OS, `halo pack test` skips what it gates, the Pack Manager's row carries `needs` ("needs rg").
-- The entry command: a pack's `commands/<id>.md` is also `/<id>` (when no other command has the name), beside `/<id>:<id>`.
-- The shipped `pack-author` lineup (`templates/teams/pack-author.yaml`) with the `pack-author` (the one-page contract and the loop), `pack-researcher` (finds and evaluates open-source tools to wrap, writes the evaluation into the README) and `pack-reviewer` bios: `halo --team pack-author` in a kit folder.
-- docs/PACK-AUTHORING.md (start, the kinds, expansion packs, the loop, testing, Studio, the fleet, themes, wrapping an open-source tool, local-first packs, publishing, the checklist), docs/COMMANDS-packs-kit.md; glossary `pack kit`, `requirement`, `entry command`. Tests: `tests/test_pack_new.py`, `tests/test_pack_test.py`, `tests/test_pack_link.py`, `tests/test_pack_author_team.py`.
-
-#### Changed
-- docs/EXTENSION_API.md opens with "Start here" (the kit); the status table gains Requirements; `ext.testing` joins the stable surface and `ext.compat.CHANGES["1.1"]` lists it and the tool entries. PACKS.md "Yours first" points at the kit; COMMANDS.md's parts table gains the kit's page.
-- Eight lineups ship (`pack-author` joins); `halo pack inspect` shows a tool requirement as `<name> <version> (<kind>)`.
-- `halo pack doctor` adds the `missing-requirement` row for a running pack; a pack without tool entries is untouched, and every existing pack and fixture reads and runs as before.

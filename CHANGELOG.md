@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.4.1.0] - unreleased
+## [3.4.1.0] - 2026-11-12
 
 **Scrub a run back in time on the canvas, save it as one file, open it anywhere.** The living canvas, part 2 (the
 owner, 2026-11-10: "the best real-time visualization and clarity of what is going on with multi-model multi-workflow
