@@ -27,10 +27,11 @@ ENV = {"USERPROFILE": WIN_HOME, "HOME": NIX_HOME, "USERNAME": USER, "USER": USER
 
 
 @contextlib.contextmanager
-def _home():
+def _home(where=None):
+    """A scratch home in `where` (the temp folder when None: under the real home, inside a repo, an 8.3 spelling)."""
     keys = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR") + tuple(ENV)
     saved = {k: os.environ.get(k) for k in keys}
-    with tempfile.TemporaryDirectory(prefix="halo-private-") as d:
+    with tempfile.TemporaryDirectory(prefix="halo-private-", dir=where) as d:
         os.environ["BRIDGE_TEST_HOME"] = d
         os.environ.pop("BRIDGE_STATE_DIR", None)
         os.environ.update(ENV)
@@ -79,12 +80,12 @@ def test_posix_paths_and_names(ctx: Ctx):
     ctx.check("an id is never rewritten (a file's own name)", got["id"] == f"{USER}-1")
 
 
-@test
-def test_a_seeded_home_path_user_name_and_key_never_reach_the_file(ctx: Ctx):
+def _seeded(ctx: Ctx, where=None, label: str = "") -> None:
     from halo_harness.live import replay_file as RF
-    with _home() as state:
+    with _home(where) as state:
         sub = seed(state).parent / SID / "subagents"
         proj = str(state.parent / "work" / "secret-project")  # the session's cwd (seed's meta)
+        (Path(proj) / ".git").mkdir(parents=True, exist_ok=True)  # its own repo, wherever the scratch home lies (inside one, too)
         said = f"read {WIN_HOME}\\Documents\\plan.md and {NIX_HOME}/notes, as {USER} on {MACHINE} {FAKE_KEY}"
         task = f"count lines of {proj}{os.sep}a.txt; {said}"
         for name in ("agent-scout1.meta.json", "agent-scout1.jsonl"):  # the task: the meta's and the first user line
@@ -96,21 +97,60 @@ def test_a_seeded_home_path_user_name_and_key_never_reach_the_file(ctx: Ctx):
         from halo_harness.redact import sanitize_node
         path = RF.save(state, sanitize_node(p))
         raw = path.read_text(encoding="utf-8")
-        for bad in (FAKE_KEY, USER, MACHINE, "Users\\\\" + USER, "/home/" + USER, proj, proj.replace("\\", "\\\\"),
-                    str(state.parent).replace("\\", "\\\\"), "secret-project"):
-            ctx.check(f"{bad[:40]!r} is not in the file", bad not in raw)
+        for bad in (FAKE_KEY, USER, USER[:6], MACHINE, "Users\\\\" + USER, "/home/" + USER, proj,
+                    proj.replace("\\", "\\\\"), str(state.parent).replace("\\", "\\\\"), "secret-project"):
+            ctx.check(f"{label}{bad[:40]!r} is not in the file", bad not in raw)
         back = json.loads(raw)
         task = next(a["task"] for a in back["agents"] if a["agent_id"] == "scout1")
-        want = "read ~/Documents/plan.md and ~/notes, as <user> on <machine>"
-        ctx.check(f"the task (the model's words) reads project-relative, ~ and no names, got {task!r}",
-                  task.startswith("count lines of a.txt; " + want))
-        ctx.check(f"a text added after build is rewritten at write time, got {back['marks'][-1]['text']!r}",
-                  back["marks"][-1]["text"].startswith(want))
+        want = "count lines of a.txt; read ~/Documents/plan.md and ~/notes, as <user> on <machine>"
+        # the task is an excerpt (200 characters of the model's words, live/history.py): how much of `want` it holds
+        # depends on how long the scratch home's path was; it is `want` or a cut of it ending in "..."
+        cut = task[:-3] if task.endswith("...") else None
+        ctx.check(f"{label}the task (the model's words) reads project-relative, ~ and no names, got {task!r}",
+                  task.startswith(want) or (cut is not None and (want.startswith(cut) or (
+                      cut.endswith(("<user>", "<machine>")) and want.startswith(cut.rsplit(" ", 1)[0] + " ")))))
+        ctx.check(f"{label}a text added after build is rewritten at write time, got {back['marks'][-1]['text']!r}",
+                  back["marks"][-1]["text"].startswith(want.split("; ", 1)[1]))
         back = RF.load(path)
         ctx.check("the file opens as before (format, version 1, no new key a reader needs)",
                   back["format"] == "halo-replay" and back["version"] == 1)
         ctx.check("the dialog's includes line says the limit",
                   any("relative to the project" in x and "where you typed it" in x for x in back["includes"]))
+
+
+@test
+def test_a_seeded_home_path_user_name_and_key_never_reach_the_file(ctx: Ctx):
+    _seeded(ctx)
+
+
+@test
+def test_the_scratch_home_inside_a_repo_and_under_an_8_3_spelling(ctx: Ctx):
+    """3.4.1.2: the gate puts TEMP under the real home (and a run may put it inside the project): the redaction does not
+    depend on where the scratch home lies, nor on a short (8.3) spelling of its folder."""
+    inside = Path(__file__).resolve().parent.parent / ".prepush" / "replay-private-inside"
+    inside.mkdir(parents=True, exist_ok=True)
+    try:
+        _seeded(ctx, str(inside), "inside the working tree: ")
+    finally:
+        import shutil
+        shutil.rmtree(inside, ignore_errors=True)
+    long_dir = Path(tempfile.mkdtemp(prefix="halo private long folder name "))
+    short = str(long_dir)
+    if os.name == "nt":
+        import ctypes
+        buf = ctypes.create_unicode_buffer(1024)
+        if ctypes.windll.kernel32.GetShortPathNameW(str(long_dir), buf, 1024):
+            short = buf.value
+    _seeded(ctx, short, f"under {'an 8.3 spelling' if short != str(long_dir) else 'a long folder name'}: ")
+
+
+@test
+def test_an_excerpt_cut_inside_a_name(ctx: Ctx):
+    from halo_harness.live.replay_private import scrub
+    got = scrub({"t": f"as {USER[:7]}...", "u": f"on {MACHINE[:4]}...", "v": "the..."}, None, homes=[WIN_HOME],
+                users=[USER], machines=[MACHINE])
+    ctx.check(f"a name cut by the excerpt is still the name, got {got}",
+              got == {"t": "as <user>...", "u": "on <machine>...", "v": "the..."})
 
 
 @test

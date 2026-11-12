@@ -163,6 +163,22 @@ def _variants(s: str) -> list:
     return out + ([unescaped, unicodedata.normalize("NFKC", unescaped)] if unescaped != folded else [])
 
 
+_CUT = re.compile(r"([^\W_]{3,})(\.\.\.|…)$")
+
+
+def _cut_rule(names: list, word: str):
+    """An excerpt cut short ("... as zedteste...") can end inside a name, where the whole-name rule cannot see it: a
+    word of 3+ letters right before the closing `...` that begins a name is that name."""
+    low = [str(n).lower() for n in names if n]
+
+    def rule(s: str) -> str:
+        m = _CUT.search(s)
+        if m and any(n.startswith(m.group(1).lower()) and n != m.group(1).lower() for n in low):
+            return s[:m.start(1)] + word + m.group(2)
+        return s
+    return rule
+
+
 def scrub(payload, root=None, *, homes=None, users=None, machines=None):
     """The payload with its paths and names rewritten (see the module's doc); `root` is the project folder. 3.4.1.2:
     the names everywhere but in a path the root rule made project-relative (URLs, `user@host`, `..` and other
@@ -173,8 +189,10 @@ def scrub(payload, root=None, *, homes=None, users=None, machines=None):
     homes = homes + [h for h in _short_paths(homes) if h not in homes]
     path_rules = [r for r in [_rule(str(root), ".", "", mark=True) if root else None]
                   + [_rule(h, "~", "~/") for h in sorted(homes, key=len, reverse=True)] if r]
-    names = [r for r in (_name_rule(list(users) if users is not None else _users(homes), "<user>"),
-                         _name_rule(list(machines) if machines is not None else _machines(), "<machine>")) if r]
+    users = list(users) if users is not None else _users(homes)
+    machines = list(machines) if machines is not None else _machines()
+    names = [r for r in (_name_rule(users, "<user>"), _name_rule(machines, "<machine>")) if r]
+    names += [_cut_rule(users, "<user>"), _cut_rule(machines, "<machine>")]
 
     def rules(s: str, owner: bool) -> str:
         for rule in path_rules:
