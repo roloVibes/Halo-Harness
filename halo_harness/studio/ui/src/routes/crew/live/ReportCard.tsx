@@ -9,7 +9,7 @@
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import { short } from "../../orchestra/format";
-import { closeReport, toggleHistory } from "./historyStore";
+import { closeReport, toggleHistory } from "../../agents/live/historyStore";
 import { openFileReplay, openLiveReplay } from "./replay";
 import { bare, copyMarkdown, pct, secs, usd, useCard, type Card } from "./cardData";
 

@@ -5,7 +5,7 @@
 import { recordOf } from "../../../lib/work/record";
 import { keyOf, sessionTitle, type FleetState } from "../../fleet/store";
 import type { Harness, SessionRow } from "../../fleet/types";
-import { liveNodes, UNKNOWN, type LiveNode } from "../../roles/liveModel";
+import { liveNodes, UNKNOWN, type LiveNode } from "../../crew/live/liveModel";
 import type { GraphNode } from "../../roles/types";
 
 const BLANK = { role: "", model: "", state: "", pick: "", activity: "", glow: "" as const, card: "", cardLabel: "", task: "", current: "",

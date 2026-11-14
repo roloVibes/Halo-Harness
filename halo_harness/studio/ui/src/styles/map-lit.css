@@ -69,3 +69,34 @@
 .mp-mini-size { position: relative; }
 .mp-mini-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .mp-mini .mp-box { cursor: default; }
+
+/* 3.6.0.0 R4b: the box the session waits on; agents talking; the drawer's head, a helper's helpers, a replay's rows,
+   the plan */
+.mp-box[data-waited] { outline: 2px solid var(--warn); outline-offset: 3px; }
+.mp-box[data-talk] { box-shadow: 0 0 0 2px var(--accent); }
+.mp-talk { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 6; fill: none; animation: mp-talk-run 1.2s linear infinite; }
+@keyframes mp-talk-run { to { stroke-dashoffset: -24; } }
+.mp-talk-label { position: absolute; z-index: 2; font-size: 12px; line-height: 18px; padding: 2px 6px; border: 1px solid var(--accent);
+  border-radius: var(--r-control); background: var(--surface); color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  pointer-events: none; transform: translateX(-50%); }
+@media (prefers-reduced-motion: reduce) {
+  .mp-talk { display: none; } /* nothing travels: the two boxes are marked, the label says it */
+}
+.mpf-head { display: flex; flex-direction: column; gap: 2px; padding: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-card);
+  background: var(--bg-2); min-width: 0; }
+.mpf-fact { font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.mpf-head .mpf-buttons { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-1); }
+.mpf-under, .mpf-plan { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; margin: 0; padding: 0; }
+.mpf-row-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 28px; padding: var(--s-1) var(--s-2); text-align: left;
+  border: 1px solid var(--line); border-radius: var(--r-control); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
+.mpf-row-btn:hover, .mpf-row-btn:focus-visible { border-color: var(--accent); outline: none; }
+.mpf-row-task { display: block; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.mpf-mark { font-size: 13px; line-height: 19px; padding: 2px 0; border-bottom: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.mpf-plan-row { list-style: none; font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
+.mpf-plan-row[data-status="completed"] { color: var(--muted); }
+.mpf-plan-row[data-status="in_progress"] { color: var(--accent); }
+.mp-wait-link { font: inherit; color: var(--warn); background: none; border: 0; border-bottom: 1px dashed var(--warn); padding: 0; min-height: 28px; cursor: pointer; }
+/* the goal form and a goal run's pages, reused in the drawer: in its flow, not floating over the canvas */
+.mpf .lh-drawer { position: static; width: auto; max-width: 100%; flex: 1 1 auto; min-height: 0; }
+.mpf > [data-testid=map-feed-back] { align-self: flex-start; }
+.mpf-page { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }

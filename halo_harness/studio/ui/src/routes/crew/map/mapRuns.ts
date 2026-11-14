@@ -6,7 +6,7 @@
 // that ran on no map replays as main and its helpers. Its report card opens from the picker row (ReportCard.tsx).
 import { api, ApiError } from "../../../lib/api";
 import { createStore, toast, useStore } from "../../../lib/store";
-import { backToNow, openLiveReplay } from "../../agents/live/replay";
+import { backToNow, openLiveReplay } from "../live/replay";
 import type { OvEvent } from "./overlay";
 import { maps, openMap } from "./mapStore";
 

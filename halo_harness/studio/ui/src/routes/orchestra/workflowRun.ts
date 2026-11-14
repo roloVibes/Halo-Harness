@@ -6,7 +6,7 @@
 import { api, ApiError } from "../../lib/api";
 import { createStore, toast, useStore } from "../../lib/store";
 import type { PackWorkflow } from "../packs/manager/types";
-import { openGoal } from "../agents/run/goalStore";
+import { openGoal } from "../crew/run/goalStore";
 import { loadRuns, openRun } from "./sync";
 
 export type WfRun = { wf: PackWorkflow | null; values: Record<string, string> };

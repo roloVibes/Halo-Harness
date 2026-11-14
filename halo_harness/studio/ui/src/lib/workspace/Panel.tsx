@@ -4,16 +4,17 @@
 // The focused panel alone (`.focused`, `data-focused`: the one you clicked or tabbed into, else the main thing)
 // carries the ornament: the HUD brackets, the glow and the mono data line. `?` on a focused panel opens its help
 // (its about line first; `?` again: how the whole section works). Panels do not move: the view bar opens and closes
-// them, a drawer's inner edge (Stage.tsx) and Alt+Left / Alt+Right resize it.
+// them, a drawer's inner edge (Stage.tsx) and Alt+Left / Alt+Right resize it. 3.6.0.0 R4b: Only this / Show both in
+// the title line (Alt+Up / Alt+Down): a drawer alone on the stage, or the main thing with its drawers put aside.
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Icon } from "../ui/Icon";
 import { openHelp, studio, useStore, type SectionId } from "../store";
 import type { MotionState } from "../motion";
 import { usePanelKeys, useWorkspace } from "./controller";
-import { activatePanel, hidePanel, layoutStore, patchPanel, resetPanel } from "./persist";
+import { activatePanel, hidePanel, layoutStore, patchPanel, resetPanel, showBoth, showOnly } from "./persist";
 import { PanelHelp } from "./PanelHelp";
 import { PanelMenu, type MenuItem } from "./PanelMenu";
-import { mainOf, roleOf } from "./rules";
+import { mainOf, openDrawers, roleOf, soloOf } from "./rules";
 import type { Layout, PanelLayout, PanelSpec } from "./types";
 
 const INTERACTIVE = "input, textarea, select, button, a, iframe, [contenteditable], [tabindex]";
@@ -69,6 +70,12 @@ export function Panel({ spec, p, style, width, bar }: { spec: PanelSpec; p: Pane
   const over = useOverflow(body);
   const closeHelp = useCallback(() => setHelp(false), []);
   const role = roleOf(spec);
+  // 3.6.0.0 R4b: Only this / Show both -- a drawer, or the main thing (its tab) while a drawer is open beside it
+  const only = useStore(layoutStore(ws.section), (s) => {
+    if (bar || role === "dock" || !s.layout) return "";
+    if (soloOf(ws.specs, s.layout, s.solo) === spec.id) return "both";
+    return role === "drawer" || openDrawers(ws.specs, s.layout).length ? "only" : "";
+  });
 
   useEffect(() => {
     if (focus === spec.id && ref.current && !p.collapsed) {
@@ -150,11 +157,18 @@ export function Panel({ spec, p, style, width, bar }: { spec: PanelSpec; p: Pane
           <span className="panel-dot" data-motion={motion} aria-hidden="true" />
           <h3 className="panel-title" data-testid="panel-title" title={spec.about}>{spec.title}</h3>
           {focused && (
-            <span className="panel-data mono" data-testid="panel-data" aria-hidden="true">
+            <span className="panel-data mono" data-testid="panel-data" aria-hidden="true" title={where}>
               {where}{hasDetail ? (face === "glance" ? " · compact" : " · full") : ""}
             </span>
           )}
           <span className="panel-tools">
+            {only && (
+              <button type="button" className="btn btn-sm panel-only" data-testid="panel-only" data-only={only}
+                      onClick={() => (only === "both" ? showBoth(ws.section) : showOnly(ws.section, spec.id))}
+                      title={only === "both" ? "Show both again (Alt+Down)" : `Show only ${spec.title}: it takes the whole stage (Alt+Up)`}>
+                {only === "both" ? "Show both" : "Only this"}
+              </button>
+            )}
             <button className="icon-btn" onClick={() => setHelp(!help)} title={`How to use ${spec.title} (?)`} aria-label="Help" aria-expanded={help} data-testid="panel-help-btn">
               <Icon name="help" />
             </button>

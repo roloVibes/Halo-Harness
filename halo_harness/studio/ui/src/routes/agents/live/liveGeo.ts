@@ -5,7 +5,7 @@
 // moves anything.
 import { useMemo } from "react";
 import { liveLayout, type Density, type LiveGeometry } from "../../roles/liveLayout";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 
 /** The shape of a tree: the nodes, their parents and their boxes, in order. */
 export function shapeOf(nodes: LiveNode[]): string {

@@ -3,7 +3,7 @@
 // row, CSS ellipsis (the full text in the tooltip), nothing cut by a character count.
 import { cost } from "../../orchestra/format";
 import { findAgent, useFleet } from "../../fleet/store";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 
 export function SquareRow({ n }: { n: LiveNode }) {
   const session = useFleet((s) => Number((n.key && findAgent(s, n.key)?.s.cost_usd) || 0));

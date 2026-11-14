@@ -8,9 +8,9 @@ import { short } from "../../orchestra/format";
 import { PlanLive } from "../../roles/CanvasBar";
 import type { Density } from "../../roles/liveLayout";
 import { roles, useRoles } from "../../roles/store";
-import { HistoryButton } from "./History"; // 3.3.18.0: the past, newest first, each a replay
+import { HistoryButton } from "../../crew/live/History"; // 3.3.18.0: the past, newest first, each a replay
 import { PlanToggle } from "./PlanToggle"; // 3.3.18.0 part 2: the lineup's blocks under the agents
-import { RunGoalButton } from "../run/GoalDrawer"; // 3.4.0.0 D: the goal form as a panel (Runs' Start screen went)
+import { RunGoalButton } from "../../crew/run/GoalDrawer"; // 3.4.0.0 D: the goal form as a panel (Runs' Start screen went)
 
 type BarProps = { refs: RecordRef[]; sid: string; agents: number; live: number; zoom: number; setZoom: (z: number) => void; fit: () => void;
   empty?: boolean; plan?: { available: boolean; on: boolean; lineup: string }; levels?: ReactNode }; // 3.3.18.0: empty; part 2; part 4

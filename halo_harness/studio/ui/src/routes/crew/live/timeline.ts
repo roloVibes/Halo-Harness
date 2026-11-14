@@ -5,7 +5,7 @@
 // ended, how it ended). `nodesAt` draws the canvas AS IT WAS at t, `waitsAt` what each agent waited on then (so the
 // narration sentence and the waiting path are rebuilt by the same narrate.ts), `talksAt` the hand-offs for the plan's
 // line labels. Pure: no request, no store.
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "./liveModel";
 import type { TalkMsg } from "../../shared/liveTalk";
 import type { Wait } from "./waits";
 

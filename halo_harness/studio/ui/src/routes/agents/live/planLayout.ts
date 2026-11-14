@@ -5,7 +5,7 @@
 // in a grid of the Live node's own size (two to a row from 2 agents, three from 5, four from 10), so nothing inside is
 // squished. A block nobody uses is its title bar alone (its name and its purpose). Pure.
 import { DENSITY, type Density, type LiveBox } from "../../roles/liveLayout";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import type { Placement, PlanBlockDef } from "./planModel";
 import { FAR_SCALE } from "./levels";
 

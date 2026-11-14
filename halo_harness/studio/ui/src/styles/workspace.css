@@ -53,7 +53,6 @@
 .stage-drawer[data-side="right"] > .stage-splitter { left: -11px; }
 .stage-drawer[data-side="left"] > .stage-splitter { right: -11px; }
 .stage-splitter:hover { background: linear-gradient(90deg, transparent 4px, var(--accent) 4px, var(--accent) 6px, transparent 6px); }
-.stage-drawer[data-floating] > .stage-splitter { display: none; }
 
 .ws-cell { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
 .ws-cell[hidden] { display: none; }
@@ -85,3 +84,17 @@
 .panel-help-about { margin: 0; color: var(--text); }
 .panel-help-lines { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--muted); }
 .panel-help-foot { display: grid; gap: 4px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+
+/* -- 3.6.0.0 R4b: the line in the middle moves, and either view alone -------------------------------------------- */
+.stage-splitter::after {  /* the line is there before the pointer finds it */
+  content: ""; position: absolute; top: 50%; left: 3px; width: 4px; height: 40px; margin-top: -20px; border-radius: 2px;
+  background: var(--line-strong); opacity: .7;
+}
+.stage-splitter:hover::after, :root[data-resizing] .stage-splitter::after { background: var(--accent); opacity: 1; }
+:root[data-resizing], :root[data-resizing] * { cursor: ew-resize !important; user-select: none; }
+:root[data-resizing] iframe { pointer-events: none; }  /* a drag over an iframe keeps its pointer */
+.stage-drawer.stage-alone { flex: 1 1 auto; width: auto; }
+.stage-main[data-away] { position: absolute; inset: var(--gap); visibility: hidden; pointer-events: none; }  /* mounted, following */
+.panel-only { flex: none; white-space: nowrap; }
+.panel-bar .panel-data { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.viewbar-words { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }

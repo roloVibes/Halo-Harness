@@ -29,21 +29,21 @@ import { useClosed } from "../agents/live/groupStore";
 import type { LiveBox } from "./liveLayout";
 import { useLiveGeo } from "../agents/live/liveGeo"; // 3.3.18.0: laid out on the tree's shape, painted on its state
 import { LiveEmpty, ReplayBanner } from "../agents/live/LiveEmpty"; // 3.3.18.0: nothing runs; a replay from History
-import { HistoryDrawer } from "../agents/live/History";
-import { Scrubber } from "../agents/live/Scrubber"; // 3.4.1.0 R1 "Time": the one replay control, under the canvas
-import { replayDoor } from "../agents/live/replay";
-import { GoalDrawer } from "../agents/run/GoalDrawer"; // 3.4.0.0 D: Run a goal, a panel beside the canvas
+import { HistoryDrawer } from "../crew/live/History";
+import { Scrubber } from "../crew/live/Scrubber"; // 3.4.1.0 R1 "Time": the one replay control, under the canvas
+import { replayDoor } from "../crew/live/replay";
+import { GoalDrawer } from "../crew/run/GoalDrawer"; // 3.4.0.0 D: Run a goal, a panel beside the canvas
 import { useLivePlan } from "../agents/live/useLivePlan"; // 3.3.18.0 part 2: the plan under it
 import { PlanWorld } from "../agents/live/PlanWorld";
 import { LiveNow } from "../agents/live/LiveNow"; // 3.3.18.0 part 3: the one sentence, the waits, the waiting path
 import { WAITS_H } from "../agents/live/WaitsRow";
-import { usePathIds } from "../agents/live/useWaits";
+import { usePathIds } from "../crew/live/useWaits";
 import { fitZoom, levelOf, NEAR_H, setLevel, usePinnedLevel } from "../agents/live/levels"; // 3.3.18.0 part 4: zoom that changes meaning
 import { LevelSwitch } from "../agents/live/LevelSwitch";
 import { useZoomAnchor } from "../agents/live/zoomAnchor";
 import { fitScale, NAV_HELP, recallZoom, useCanvasNav } from "../../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same everywhere
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
-import { selectLive } from "./liveModel";
+import { selectLive } from "../crew/live/liveModel";
 import { LiveGroupBox, LiveNodeCard } from "./LiveNode";
 import { useRoles } from "./store";
 

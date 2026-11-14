@@ -23,7 +23,7 @@ import http.client
 import threading
 import time
 
-NO_PORT = {errno.EADDRINUSE, errno.EADDRNOTAVAIL, 10048, 10049}
+NO_PORT = {errno.EADDRINUSE, errno.EADDRNOTAVAIL, 10048, 10049, 10055}  # 10055: Windows says "no buffer space" for the same dry range
 _STALE = (http.client.RemoteDisconnected, http.client.BadStatusLine, ConnectionResetError, ConnectionAbortedError,
           BrokenPipeError)
 _local = threading.local()

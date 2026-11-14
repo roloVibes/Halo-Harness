@@ -7,16 +7,16 @@
 // reason ("picked at spawn: coder on <model> -- <why>", the same words the TUI's `/agents live` prints). The
 // glow is live.ts's (typing / a tool -> working, waiting on you, done, failed). Pure, plus the click / hop
 // actions LiveMap.tsx and the J / K keys (routes/fleet/hop.ts) use.
-import { recordRefs, sessionRecord, type RecordAgent, type WorkRecord } from "../../lib/work/record";
-import { select } from "../fleet/actions";
-import { activityOf } from "../fleet/frames";
-import { allAgents, fleet, findAgent, type FleetState } from "../fleet/store";
-import { pickLive } from "../agents/live/scope";
-import { withGroups, type GroupTag } from "../agents/live/groups"; // 3.3.16.3: Live in groups
-import { glowOf, type GlowState } from "./glow";
-import { matchNode, openLiveTab, watchAgent } from "./live";
-import { keyOf as cardKey, roles } from "./store";
-import type { GraphNode, LiveAgent } from "./types";
+import { recordRefs, sessionRecord, type RecordAgent, type WorkRecord } from "../../../lib/work/record";
+import { select } from "../../fleet/actions";
+import { activityOf } from "../../fleet/frames";
+import { allAgents, fleet, findAgent, type FleetState } from "../../fleet/store";
+import { pickLive } from "../../agents/live/scope";
+import { withGroups, type GroupTag } from "../../agents/live/groups"; // 3.3.16.3: Live in groups
+import { glowOf, type GlowState } from "../../roles/glow";
+import { matchNode, openLiveTab, watchAgent } from "../../roles/live";
+import { keyOf as cardKey, roles } from "../../roles/store";
+import type { GraphNode, LiveAgent } from "../../roles/types";
 
 export const UNKNOWN = "?unknown-parent";
 const WORKING = ["queued", "running", "waiting", "paused"];

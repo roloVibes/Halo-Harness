@@ -2,7 +2,7 @@
 // no group first, then each group's title row and its lanes, in the order the groups started. Pure.
 import { recordOf } from "../../../lib/work/record";
 import type { Harness, SessionRow } from "../../fleet/types";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import { withGroups, type GroupTag } from "./groups";
 
 type Lane = { key: string; h: Harness; s: SessionRow };

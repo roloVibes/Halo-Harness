@@ -4,7 +4,7 @@
 //   R9  under 1440 px one drawer at a time; at 1440 and up one per side, the oldest closing when the room runs out
 // A pack that declares its panels with grid cells (packs API 1.x) keeps working by the mapping rule: a panel with
 // cells and no role is a right drawer whose contentW is its `w` columns x 60 px; `primary` is the main thing.
-import { BP_WIDE, CELL_PX, DRAWER_MAX, DRAWER_MIN, MAIN_SHARE, type Layout, type PanelLayout, type PanelSpec, type Role, type Side } from "./types";
+import { BP_WIDE, CELL_PX, DRAWER_MAX, DRAWER_MIN, MAIN_MIN, MAIN_SHARE, type Layout, type PanelLayout, type PanelSpec, type Role, type Side } from "./types";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
@@ -36,10 +36,23 @@ export function drawerRoom(stageW: number, n = 1): number {
   return Math.max(DRAWER_MIN, Math.floor(stageW * (1 - MAIN_SHARE)) - 2 * STAGE_PAD - STAGE_PAD * n);
 }
 
-/** A drawer's width on this stage: set by hand, else its contentW; never more than the drawers' room. */
-export function drawerW(s: PanelSpec, p: PanelLayout | undefined, stageW: number): number {
+/** 3.6.0.0 R4b: the widest a drawer may be dragged on this stage. A drawer that holds a drawing (`drawing`): until the
+ *  main thing beside it is MAIN_MIN wide (`others`: the other open drawers' widths; floating: the stage less its
+ *  padding); any other drawer: 560 px and the drawers' room (R1). */
+export function drawerMax(s: PanelSpec, stageW: number, others = 0, floating = false): number {
+  if (stageW <= 0) return DRAWER_MAX;
+  if (!s.drawing) return floating ? Math.min(DRAWER_MAX, stageW - 2 * STAGE_PAD) : Math.min(DRAWER_MAX, drawerRoom(stageW));
+  const gaps = floating ? 2 * STAGE_PAD : 3 * STAGE_PAD + (others ? STAGE_PAD : 0);
+  return Math.max(DRAWER_MIN, stageW - gaps - (floating ? 0 : others + MAIN_MIN));
+}
+
+/** A drawer's width on this stage: set by hand, else its contentW; never more than the drawers' room -- a drawing's
+ *  drawer set by hand: up to drawerMax (R4b, the line in the middle moves until the main thing is MAIN_MIN wide). */
+export function drawerW(s: PanelSpec, p: PanelLayout | undefined, stageW: number, others = 0, floating = false): number {
+  if (s.drawing && p?.width && stageW > 0) return clamp(Math.round(p.width), DRAWER_MIN, drawerMax(s, stageW, others, floating));
   const want = clamp(Math.round(p?.width ?? contentWOf(s)), DRAWER_MIN, DRAWER_MAX);
-  return stageW > 0 ? Math.min(want, drawerRoom(stageW)) : want;
+  if (floating && stageW > 0) return Math.min(want, Math.max(DRAWER_MIN, stageW - 2 * STAGE_PAD));
+  return stageW > 0 && !floating ? Math.min(want, drawerRoom(stageW)) : want;
 }
 
 function fresh(s: PanelSpec, collapsed: boolean): PanelLayout {
@@ -118,6 +131,30 @@ export function closeIn(layout: Layout, specs: PanelSpec[], id: string): Layout 
 export function shownMain(specs: PanelSpec[], layout: Layout): PanelSpec | undefined {
   const tab = specs.find((s) => roleOf(s) === "tab" && layout[s.id] && !layout[s.id].collapsed);
   return tab ?? mainOf(specs);
+}
+
+/** 3.6.0.0 R4b: the panel shown alone, when `solo` still means something: an open drawer, or the main thing (or its
+ *  tab) while a drawer is open to put aside; else "" (both). */
+export function soloOf(specs: PanelSpec[], layout: Layout | null, solo: string): string {
+  const spec = solo ? specs.find((s) => s.id === solo) : undefined;
+  if (!spec || !layout?.[solo]) return "";
+  const role = roleOf(spec);
+  if (role === "drawer") return layout[solo].collapsed ? "" : solo;
+  if (role !== "main" && role !== "tab") return "";
+  return openDrawers(specs, layout).length ? solo : "";
+}
+
+/** The view bar's words for what is shown (R4b): "Map only", "Live only", "Map and Live" ("" with no drawer open). */
+export function arrangementWords(specs: PanelSpec[], layout: Layout, solo: string): string {
+  const shown = shownMain(specs, layout);
+  const alone = soloOf(specs, layout, solo);
+  const title = (id: string) => specs.find((s) => s.id === id)?.title ?? id;
+  if (alone) return `${roleOf(specs.find((s) => s.id === alone)!) === "drawer" ? title(alone) : shown?.title ?? title(alone)} only`;
+  const left = openDrawers(specs, layout, "left").map((s) => s.title), right = openDrawers(specs, layout, "right").map((s) => s.title);
+  if (!left.length && !right.length) return "";
+  if (!shown) return "";
+  const all = [...left, shown.title, ...right]; // in the order they stand on the stage
+  return `${all.slice(0, -1).join(", ")} and ${all[all.length - 1]}`;
 }
 
 /** The open drawers on `side`, oldest first (one, except in the full arrangement). */

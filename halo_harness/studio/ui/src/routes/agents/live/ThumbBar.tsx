@@ -4,7 +4,7 @@
 import { goSection } from "../../../lib/store";
 import { useScopedAttention, useScopedCounts } from "../../fleet/scope";
 import { useFleet } from "../../fleet/store";
-import { openRolesLive } from "../../roles/liveModel";
+import { openRolesLive } from "../../crew/live/liveModel";
 import { startRoles } from "../../roles/sync";
 import { chosenSession } from "../../session/store";
 

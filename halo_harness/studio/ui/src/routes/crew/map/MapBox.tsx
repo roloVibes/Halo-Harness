@@ -3,14 +3,21 @@
 // box lists its steps (the R2 read-out's words) with a link to the Workflows tab, never wired here; an agent box what it
 // may use and how careful, with a link to the Agents tab. The connect dot sits on its right edge (on a strip box, its
 // left): drag it to another box, or click it (Enter) for a list. A box grows with its text; nothing in it is cut.
+// 3.6.0.0 R4b: lit, hover is a summary card (lib/hover: never by itself, never over the box's controls; the keyboard
+// reaches the same facts in the drawer), the box the session waits on is outlined, a box talking to another is marked.
 import type { CSSProperties } from "react";
+import { useStore } from "../../../lib/store";
+import { useHover } from "../../../lib/hover/useHover";
+import { HoverBody } from "../../../lib/hover/HoverBody";
+import { cost as money } from "../../orchestra/format";
+import { waitStore } from "../live/useWaits";
 import { setAgentsView } from "../../agents/store";
 import { openAgent } from "../store";
 import { openFlow } from "../flows/flowStore";
 import { dragDot } from "./drag";
 import { setHover, setPick, toggleOpen, useMap } from "./mapStore";
 import type { BoxFacts, DrawBox } from "./mapTypes";
-import { HelperRows, LitRows, LitSteps, STATE_WORDS } from "./LitBits";
+import { HelperRows, LitRows, LitSteps, STATE_WORDS, useClock } from "./LitBits";
 import { openFeed } from "./feedOpen";
 import { useLitNow } from "./useLit";
 
@@ -47,8 +54,8 @@ function Detail({ b, facts }: { b: DrawBox; facts?: BoxFacts }) {
   );
 }
 
-export function MapBox({ b, style, inStrip, facts, mainFacts }: { b: DrawBox; style?: CSSProperties; inStrip?: boolean; facts?: BoxFacts;
-                                                                   mainFacts?: { model?: string; does?: string } }) {
+export function MapBox({ b, style, inStrip, facts, mainFacts, talking }: { b: DrawBox; style?: CSSProperties; inStrip?: boolean; facts?: BoxFacts;
+                                                                   mainFacts?: { model?: string; does?: string }; talking?: boolean }) {
   const open = useMap((s) => !!s.open[b.id]);
   const L = useLitNow();
   const ob = L.ov?.boxes[b.id];
@@ -63,6 +70,19 @@ export function MapBox({ b, style, inStrip, facts, mainFacts }: { b: DrawBox; st
     : b.kind === "workflow" ? `${steps} step${steps === 1 ? "" : "s"} · click to ${open ? "close" : "open"}`
     : b.names.length > 1 ? "main picks one per task" : modelWords(f[0]?.model);
   const summary = helper ? `made up for this task: ${helper.task || helper.name}` : b.main ? mainFacts?.does || "main" : b.kind === "workflow" ? f[0]?.for || b.name : f[0]?.does || b.name;
+  const agentIds = helper ? [helper.aid] : ob?.agents || [];
+  // R4b (R4's gap 6): the box the whole session waits on is outlined (the end of the waiting path, useWaits)
+  const waited = useStore(waitStore, (s) => !!s.leaf && L.mode === "live" && agentIds.includes(s.leaf));
+  const clock = useClock(state === "working" || state === "waiting" ? agentIds : [], L.now);
+  // R4b: hover = a summary card (what it is, what it does now, its model and cost); click = the detail in the drawer
+  const lit = L.mode !== "off" && (!!ob || !!helper);
+  const models = helper ? [helper.model].filter(Boolean) : ob?.models || [];
+  const hv = useHover("map", lit ? `${b.id}` : "", () => (
+    <HoverBody title={`${helper ? "helper" : b.main ? "main" : b.kind} ${b.name}`} is={summary}
+               rows={[["now", `${helper ? STATE_WORDS[helper.state] : ob?.doing || ""}${clock ? ` · ${clock}` : ""}`],
+                      ["model", models.join(", ") || (b.main ? "the session's model" : meta)], ["cost", money(helper ? helper.cost : ob?.cost || 0)]]}
+               foot="Click: what it thinks and says, its facts and controls, in the drawer" />
+  ), lit);
   const click = () => {
     if (!helper) toggleOpen(b.id);
     if (L.mode !== "off") openFeed(helper ? `agent:${helper.aid}` : b.id); // lit: the click opens what they think and say, for this box
@@ -71,8 +91,10 @@ export function MapBox({ b, style, inStrip, facts, mainFacts }: { b: DrawBox; st
     <div className="mp-box" data-map-box={b.id} data-name={b.name} data-kind={b.kind} data-ghost={b.ghost || undefined} data-new={b.isNew || undefined}
          data-open={open || undefined} data-missing={missing || undefined} data-hot={hover === b.id || undefined}
          data-state={state} data-lit={(L.mode !== "off" && (ob || helper)) ? L.mode : undefined} data-helper={helper ? helper.aid : undefined}
-         data-testid="map-box" tabIndex={0} style={style} title={`${b.kind} ${b.name}: ${summary}${state ? ` (${STATE_WORDS[state]})` : ""}`} aria-expanded={open}
-         onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover("")} onFocus={() => setHover(b.id)} onBlur={() => setHover("")}
+         data-testid="map-box" tabIndex={0} style={style} title={hv.titles ? `${b.kind} ${b.name}: ${summary}${state ? ` (${STATE_WORDS[state]})` : ""}` : undefined}
+         aria-expanded={open} data-hover-pad={lit ? 34 : undefined} data-waited={waited || undefined} data-talk={talking || undefined} {...hv.props}
+         onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover("")}
+         onFocus={(e) => (setHover(b.id), hv.props.onFocus?.(e))} onBlur={(e) => (setHover(""), hv.props.onBlur?.(e))}
          onClick={click} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) click(); }}>
       <div className="mp-inner">
       <span className="mp-kind mono">
@@ -82,8 +104,8 @@ export function MapBox({ b, style, inStrip, facts, mainFacts }: { b: DrawBox; st
       </span>
       <b className="mp-name">{b.name}</b>
       <span className="mp-meta">{helper ? helper.model || "main's tools and mode" : missing ? "missing: make it in Agents or Workflows" : meta}</span>
-      {ob && L.mode !== "off" && <LitRows ob={ob} />}
-      {helper && <HelperRows h={helper} sid={L.session?.sid || ""} />}
+      {ob && L.mode !== "off" && <LitRows ob={ob} now={L.now} />}
+      {helper && <HelperRows h={helper} sid={L.session?.sid || ""} all={L.ov?.helpers || []} />}
       {open && <Detail b={b} facts={facts} />}
       </div>
       {!locked && !b.ghost && !b.helper && (

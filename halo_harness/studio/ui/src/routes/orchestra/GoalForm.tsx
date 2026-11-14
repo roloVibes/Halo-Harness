@@ -11,7 +11,7 @@ import { Button, Field, Icon } from "../../lib/ui";
 import { LineupField } from "../shared/LineupField";
 import { ModelSelect } from "../shared/ModelSelect";
 import { useResolved } from "../shared/resolve";
-import { GoalSays } from "../agents/run/GoalSays";
+import { GoalSays } from "../crew/run/GoalSays";
 import { useOrch } from "./store";
 import { lastStarted, lineupTook, startRun, type RunForm } from "./sync";
 

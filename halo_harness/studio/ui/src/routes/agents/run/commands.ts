@@ -4,7 +4,7 @@
 // in the inspector); then "History: run <id>" for each finished run of this repo (its report page).
 import { orch, isLiveRun } from "../../orchestra/store";
 import { startOrchestra } from "../../orchestra/sync";
-import { openGoal } from "./goalStore";
+import { openGoal } from "../../crew/run/goalStore";
 import { openRun } from "./door";
 import { reviewPlan } from "./planPanel";
 

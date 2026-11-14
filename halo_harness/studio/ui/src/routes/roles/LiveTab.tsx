@@ -16,7 +16,7 @@
 import { useEffect } from "react";
 import { api } from "../../lib/api";
 import { cost, short } from "../orchestra/format";
-import { replaySession } from "../agents/live/replay";
+import { replaySession } from "../crew/live/replay";
 import { AgentView, useAgentRef } from "../fleet/Agent";
 import { useByNode, watchAgent } from "./live";
 import { nodeById, roles, useRoles } from "./store";

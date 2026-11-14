@@ -8,7 +8,7 @@ import { askStop, everySession, openAgentPanel, select, toggleFollow, togglePaus
 import { allAgents, fleet, findAgent, isLive, sessionTitle } from "./store";
 import { askHandoff, record } from "./extras";
 import { panels } from "./pstore";
-import { replaySession } from "../agents/live/replay"; // 3.4.1.0 R1: Live's scrubber
+import { replaySession } from "../crew/live/replay"; // 3.4.1.0 R1: Live's scrubber
 import { focusSteer } from "./Steer";
 import { openWorkerRun } from "../agents/run/door";
 

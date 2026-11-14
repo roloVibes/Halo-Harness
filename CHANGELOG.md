@@ -259,6 +259,42 @@ in canvas". One drawing now: while a session runs on a map, the same map lights 
   first-time user: each point above, the room at 1280 / 1500 / 1920, a zoom while frames arrive), `test_map_chains`
   (the frames and the log, a made-up helper), `test_crew_map_api` (from-live, the replay's map).
 
+### R4b
+
+The lit Map takes over what the old Live view still did, and Session's two views get room. The owner first: "in the
+studio sessions, map/live I am unable to adjust the sizes of the 2 views, i wanted to see the map more and shrink live
+view. Actually I cannot just see the map ... the 2 views should be viewed singly too".
+
+- **The line in the middle moves, and far.** A drawer that holds a drawing (`drawing` on its spec: Session's Map) drags
+  until the main thing is 360 px wide (`MAIN_MIN`, a drawer's least), so the Map can be the bigger view; before, the
+  Map was held to 560 px and to the drawers' 40 % of the stage, so at 1280 and 1500 it opened at its widest and a drag
+  wider did nothing. A floating drawer (under 1100 px) drags too; a drag that loses its pointer (an iframe, a window
+  switch) ends like a release. `Alt+Left` / `Alt+Right` go as far. The width is kept per view. While the line moves no
+  drawing re-fits; one nobody zoomed fits once when the drag ends (`lib/canvasNav.ts holdFits`).
+- **Either view alone.** **Only this** in every drawer's and the main thing's title line (`Alt+Up`; **Show both** /
+  `Alt+Down` comes back): a drawer takes the whole stage while the main thing stays open, hidden, and keeps following;
+  the main thing alone puts its drawers aside. The view bar says "Map only", "Live only" or "Map and Live", kept per
+  view (`solo` in the layout record).
+- **On the Map, what Live did:** the clicked box's facts in the drawer's head (model and why, may use, tokens, cost,
+  how long) with **Pause / Resume** and **Dismiss**; the seconds on what a box does now, the box the session waits on
+  outlined, the sentence's wait a link to it; a TALK between two boxes as a short dashed pulse with its first words
+  (no line added; reduced motion marks the boxes); "+N under it" on a helper that started helpers, listed in the
+  drawer; "plan: 3 of 7 done" from main's todo plan; a goal run going named in the top line with **Open** (its pages in
+  the drawer), **Run a goal** on the Map's bar, Live's whole History (goal runs, saved files, Compare) from History
+  under the map; a replay's rows in the drawer up to the scrubber; another machine's session listed in the picker;
+  `J` / `K` between working boxes; **Replay the last session** when nothing runs; a hover summary card on a lit box.
+  Not carried over: Hand to another machine, levels, the plan as blocks, a drawn second level of helpers, a goal run's
+  lanes drawn on the canvas ([STUDIO-map.md](docs/STUDIO-map.md#what-live-did-on-the-map-3600-r4b)).
+- **Moved, not copied:** the Live files the new code used (`narrate`, `useWaits`, `waits`, `replay`, `timeline`,
+  `Scrubber`, `ReplaySave`, `ReportCard`, `cardData`, `now`, `roles/liveModel`) now live in `routes/crew/live/`, and the
+  goal-run pages reused here (`GoalDrawer`, `GoalSays`, `RunInspector`, `RunPages`, `RunReport`, `Owns`, `goalStore`,
+  `runWaits`) in `routes/crew/run/`, Live's `History` and `Compare` in `routes/crew/live/`; the old Live view imports
+  them from there.
+- **Docs:** STUDIO-shell.md (the rule), STUDIO-session.md, STUDIO-map.md.
+- **Tests:** `test_studio_room` drags the line with real pointer events at 1280 / 1500 / 1920 and measures Session in
+  all three arrangements (`tests/helpers/studio_room_split.py`); `test_studio_map_takeover` (Chrome) drives every point
+  above, an ask's answer pressed in the drawer resolving the session's waiting card, and two sessions in the picker.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

@@ -3,8 +3,9 @@
 // Hovering a box lifts its lines and dims the rest; a line's label opens its When card (or, locked, only says it).
 // Zoom the house way (lib/canvasNav.ts: Ctrl / Cmd + wheel, pinch, - % + Fit, 0, a double-click); R8: when the box
 // changes width it fits again unless you zoomed it by hand (a hand zoom survives the Add drawer); Fit never goes under
-// 75 % -- past that the map pans, from main (top left).
-import { useLayoutEffect, useRef, useState } from "react";
+// 75 % -- past that the map pans, from main (top left). 3.6.0.0 R4b: agents talking light a dashed pulse box to box
+// (talkPulse.ts, no line added); J / K step between the working boxes.
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { fitScale, NAV_HELP, recallZoom, useCanvasNav, useZoomPoint } from "../../../lib/canvasNav";
 import { ZoomButtons } from "../../../lib/ui/ZoomButtons";
 import { useBuilder } from "../builderStore";
@@ -17,6 +18,21 @@ import { view } from "./view";
 import { litFile, withCard, withLit } from "./litView";
 import { lineKey } from "./overlay";
 import { useLitNow } from "./useLit";
+import { useLive } from "../../shared/liveFeed";
+import { useTalks } from "../../shared/liveTalk";
+import { talkPulses } from "./talkPulse";
+
+/** R4b (R4's gap 9): J / K move between the working (or waiting) boxes, in the map's order, and bring each into view. */
+function stepBoxes(e: KeyboardEvent<HTMLElement>): void {
+  if (e.ctrlKey || e.metaKey || e.altKey || (e.key !== "j" && e.key !== "k") || (e.target as Element).closest("input, textarea, select")) return;
+  const all = [...e.currentTarget.querySelectorAll<HTMLElement>(".mp-world [data-map-box][data-state=working], .mp-world [data-map-box][data-state=waiting]")];
+  if (!all.length) return;
+  e.preventDefault();
+  const at = all.findIndex((x) => x === document.activeElement);
+  const next = all[(at < 0 ? (e.key === "j" ? 0 : all.length - 1) : at + (e.key === "j" ? 1 : -1) + all.length) % all.length];
+  next.focus({ preventScroll: true });
+  next.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
 
 const FIT_TEXT = 16; // 12 px on screen at 75 %: the Map's floor (the brief: Fit never under 75 %)
 const ID = "crew-map";
@@ -43,7 +59,7 @@ export function MapCanvas() {
   const [heights, setHeights] = useState<Record<string, number>>({});
   const [zoom, setZoom] = useState(() => recallZoom(ID) ?? 1);
   const g = layout(v.boxes, v.lines, (b) => heights[b.id] || estimate(b, !!open[b.id], detail?.boxes[b.id]?.facts[0]?.steps?.length || 0));
-  const at = useZoomPoint(scroll, zoom, setZoom);
+  const zoomPt = useZoomPoint(scroll, zoom, setZoom);
   const fit = () => {
     const el = scroll.current;
     if (!el) return;
@@ -51,12 +67,17 @@ export function MapCanvas() {
     el.scrollLeft = 0; // past the floor it pans from main, at the top left
     el.scrollTop = 0;
   };
-  const nav = useCanvasNav(scroll, { zoom, zoomAt: at, fit, id: ID, min: 0.5, max: 2, background: ".mp-world, .mp-world-size, .mp-lines" });
+  const nav = useCanvasNav(scroll, { zoom, zoomAt: zoomPt, fit, id: ID, min: 0.5, max: 2, background: ".mp-world, .mp-world-size, .mp-lines" });
   const drawn = !!detail;
   useLayoutEffect(() => { // the first drawing fits its box (later: R8, when the box changes width)
     if (drawn && !nav.byHand()) fit();
   }, [drawn, detail?.map.name]); // eslint-disable-line react-hooks/exhaustive-deps
   const helpers = v.boxes.filter((b) => b.helper).length;
+  const msgs = useTalks((t) => t.msgs);
+  const lines = useLive((t) => t.lines);
+  const talks = L.mode === "live" ? talkPulses(msgs, lines, L.ov, L.session?.sid || "", L.now) : [];
+  const talking = new Set(talks.flatMap((t) => [t.from, t.to]));
+  const at = (id: string) => g.boxes.find((x) => x.id === id);
   useLayoutEffect(() => { // R4: a made-up helper arriving follows the re-fit rule: never under a zoom made by hand
     if (drawn && helpers && !nav.byHand()) fit();
   }, [helpers]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -79,7 +100,7 @@ export function MapCanvas() {
     return whenWords(when);
   };
   return (
-    <div className="mp-canvas" data-testid="map-canvas">
+    <div className="mp-canvas" data-testid="map-canvas" onKeyDown={stepBoxes}>
       <div className="mp-zoom"><TopLine fresh={v.strip.filter((b) => b.isNew && !b.ghost).length} /><ZoomButtons zoom={zoom} zoomAt={nav.zoomAt} fit={nav.fit} /></div>
       <div className="mp-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} data-testid="map-scroll" aria-label="The map">
         <div className="mp-world-size" style={{ width: g.w * zoom, height: g.h * zoom }}>
@@ -96,6 +117,12 @@ export function MapCanvas() {
                   <animateMotion dur="1.4s" repeatCount="1" fill="freeze" path={l.d} />
                 </circle>
               ))}
+              {talks.map((t) => { // R4b: agents talking -- a short dashed pulse box to box, no line added to the map
+                const a = at(t.from), z = at(t.to);
+                if (!a || !z) return null;
+                const [x1, y1, x2, y2] = [a.x + BOX_W / 2, a.y + a.h / 2, z.x + BOX_W / 2, z.y + z.h / 2];
+                return <path key={`t${t.n}`} d={`M${x1},${y1} L${x2},${y2}`} className="mp-talk" data-testid="map-talk" data-from={t.from} data-to={t.to} />;
+              })}
               <defs><marker id="mp-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" className="mp-tip" /></marker></defs>
             </svg>
             {g.lines.filter((l) => !l.helper).map((l) => (
@@ -107,8 +134,11 @@ export function MapCanvas() {
                 {words(l.from, l.to, l.when)}
               </button>
             ))}
+            {talks.map((t) => { const a = at(t.from), z = at(t.to); return a && z ? (
+              <span key={`tl${t.n}`} className="mp-talk-label mono" data-testid="map-talk-label" data-from={t.from} data-to={t.to}
+                    style={{ left: (a.x + z.x) / 2 + BOX_W / 2, top: (a.y + a.h / 2 + z.y + z.h / 2) / 2 - 14, width: BOX_W }} title={t.text}>{t.text}</span>) : null; })}
             {g.boxes.map((b) => (
-              <MapBox key={b.id} b={b} facts={detail?.boxes[b.id]} mainFacts={detail?.main}
+              <MapBox key={b.id} b={b} facts={detail?.boxes[b.id]} mainFacts={detail?.main} talking={talking.has(b.id)}
                       style={{ position: "absolute", left: b.x, top: b.y, width: BOX_W, minHeight: b.h }} />
             ))}
           </div>

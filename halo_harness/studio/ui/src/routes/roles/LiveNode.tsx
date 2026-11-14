@@ -23,7 +23,7 @@ import { AgentHover } from "../agents/hover/agent"; // 3.3.16.1: its hover card 
 import type { LiveBox, LiveGroup } from "./liveLayout";
 import { DismissFailed } from "../agents/live/Dismiss"; // 3.3.18.0: a failed agent stays until it is dismissed
 import { WaitsRow } from "../agents/live/WaitsRow"; // 3.3.18.0 part 3: what it waits on; the waiting path's hairline
-import { useOnPath } from "../agents/live/useWaits";
+import { useOnPath } from "../crew/live/useWaits";
 import { NearRows } from "../agents/live/NearRows"; // 3.3.18.0 part 4: the near level's thought and tool rows
 import { useLevel } from "../agents/live/levels";
 

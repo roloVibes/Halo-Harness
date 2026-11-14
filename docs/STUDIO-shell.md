@@ -32,7 +32,12 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   or the drawer's close, puts it away. The main thing keeps at least 60 % of the stage's width: under 1440 px one
   drawer opens at a time, at 1440 and up one per side, the oldest closing when the room runs out; under 1100 the
   drawer floats over the main thing with its close; under 760 the rail is a menu (the header's rail button). Drag a
-  drawer's inner edge, or press `Alt+Left` / `Alt+Right` on it, to make it wider or narrower. **Click anywhere on a
+  drawer's inner edge (a floating one too), or press `Alt+Left` / `Alt+Right` on it, to make it wider or narrower; a
+  drawer that holds a drawing (Session's Map: `drawing` on its spec) drags until the main thing is 360 px wide, so the
+  drawing can be the bigger view (3.6.0.0 R4b). **Only this** in a panel's title line (`Alt+Up`; again, or **Show
+  both** / `Alt+Down`, comes back) shows that panel alone: a drawer takes the whole stage while the main thing stays
+  open, hidden, and keeps following; the main thing alone puts its drawers aside. The view bar says what shows ("Map
+  only", "Live only", "Map and Live"), kept per view; a drawer's own button shows both again. **Click anywhere on a
   panel to work in it**: a ring marks it, and an open Inspector follows it. A panel is one title line: its title,
   its **?** (its help, the one-line "what it is" first), a close (a drawer or a tab) and ONE **...** menu: **Compact /
   Expand** (also a double-click on the title), **Close**, **Reset its width**, **Remove** (an optional panel),
@@ -51,7 +56,8 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   3.6.0.0: no two controls overlap, neighbours sit 8 px apart, a name is never cut in a box 24 characters wide or more.
   **A drawing fits its box when the box changes** (one rule, `lib/canvasNav.ts`: Live, the Map, Cast, artboards): a drawer
   opened, closed or dragged, or a breakpoint crossed, fits it again unless you zoomed or panned it by hand since (then your
-  view stays; **Fit**, `0` or a double-click makes it automatic again). The Map never fits below 12 px text: it opens on
+  view stays; **Fit**, `0` or a double-click makes it automatic again); while a drawer's line is dragged nothing re-fits,
+  and a drawing nobody zoomed fits once when the drag ends. The Map never fits below 12 px text: it opens on
   the picked (else main) agent, pans in its box, and the line under it says so. Its drawer is the widest (560 px).
   How a view declares it: a `PanelSpec` says `role` (`main` | `drawer` | `tab` | `dock`, a bar at the main thing's
   foot), `side`, `contentW` and `startOpen` (lib/workspace/types.ts; a pack's panel: `role`, `side`, `content_w`, API 1.5).

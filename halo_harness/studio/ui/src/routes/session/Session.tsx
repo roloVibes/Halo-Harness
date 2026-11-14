@@ -55,7 +55,8 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
 // left drawer (the tree), Cost, Agent, Attention and Prompt right drawers, each as wide as its content. Every other
 // panel is a button in the view bar, closed on load. The list order is the bar's and the palette's.
 export const sessionPanels: PanelSpec[] = [
-  panel("session-map", { title: "Map", side: "left", contentW: 560, // 3.6.0.0 R8: a map needs the widest drawer
+  // 3.6.0.0 R8: a map needs the widest drawer; R4b: it holds a drawing, so its line drags until Live is 360 px wide
+  panel("session-map", { title: "Map", side: "left", contentW: 560, drawing: true,
           face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
   panel("session-live", { title: "Live", primary: true, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
   panel("session-cost", { title: "Cost", contentW: 360, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),

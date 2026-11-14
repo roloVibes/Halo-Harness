@@ -141,6 +141,39 @@ and the map it started with (its row's `map`) is the one lit.
 Session's **Map** panel shows the same lit map, compact and read-only, with **Open it on the Map tab**, while a
 session runs on a map ([STUDIO-session.md](STUDIO-session.md)).
 
+### What Live did, on the Map (3.6.0.0 R4b)
+
+- **A clicked box's facts and controls.** The drawer's head, a row per fact for the box's agent: the model it runs on
+  and **why** (Auto's reason line), what it may use, its tokens, its cost, how long it has run. Beside Steer and Stop:
+  **Pause** / **Resume** (the same route as Live's node menu) and, on a failed agent, **Dismiss**.
+- **Clocks and the wait.** A working or waiting box shows the seconds on what it does now ("Bash pytest -q · 12 s",
+  "waiting on you · 40 s"), from the same waits Live's nodes used. The box the whole session waits on is outlined;
+  the top sentence's wait is a link that brings that box into view and opens it in the drawer.
+- **Agents talking.** One agent's words to another (a TALK) light a short dashed pulse between their boxes for a few
+  seconds, with the first words on a small label; no line is added to the map. With reduced motion nothing travels:
+  the two boxes are marked. The row is in the drawer as before.
+- **Depth.** A helper that started helpers says "+N under it"; a click lists them in the drawer with who started
+  whom, each a row that filters the drawer to it. No second level is drawn.
+- **The plan.** When main keeps a todo plan, the top line says "plan: 3 of 7 done"; a click lists it in the drawer.
+- **Goal runs.** A goal run going is named in the top line ("A goal run is going: <its goal>", **Open**: its pages --
+  lanes, the gate, the merge, its report -- in the drawer). **Run a goal** is on the Map's bar (the goal form, in the
+  drawer). Under the map, **Goal runs, files, Compare** opens Live's whole History in the drawer: sessions, goal runs
+  and saved replay files, each opening what it opened on Live, and **Compare** when two are ticked.
+- **A replay's words.** While a run replays on the map, the drawer shows its starts, hand-offs, asks, failures and
+  finishes up to the scrubber's moment, filtered by the clicked box.
+- **Other machines.** Another machine's running session is listed in the top line's picker, "on <machine>: open it on
+  that machine": its map frames travel on that machine's feed, so it is not lit here.
+- **Keys and the empty state.** `J` / `K` move between the working boxes. With nothing running and a finished run in
+  History, the top line offers **Replay the last session**.
+- **Hover is a summary card** on a lit box (what it is, what it does now, its model, its cost): it opens only on a
+  pointer's move, never over the box's own controls; the keyboard reaches the same facts in the drawer.
+
+**Not carried over from Live:** "Hand to another machine"; levels (`LevelSwitch`); the plan drawn as blocks under the
+tree (the todo plan is listed instead); a second level of helpers drawn on the map (it is "+N under it"); a goal run's
+lanes drawn on the canvas (its pages open in the drawer); a session on another machine lit on this map (listed, opened
+on that machine); a session row in Live's History replayed on the map from that list (it replays on Live, as before:
+the Map's own History picker replays sessions on the map).
+
 ## History
 
 Under the map: a picker of finished runs, newest first, **Replay it on the map**, and **Report card** (from the

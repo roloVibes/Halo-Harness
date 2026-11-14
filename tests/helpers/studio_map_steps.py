@@ -150,6 +150,7 @@ def keys(c, rig) -> dict:
     c.wait(f"{q('[data-testid=map-label][data-to=review]')}?.innerText === 'only when I ask'", 20)
     c.js(f"{box('review')}.click(); 1")
     out["steps"] = c.wait(f"{box('review')}.querySelector('[data-testid=map-box-steps]')?.innerText.split('\\n')", 10)
+    c.mouse("mouseMoved", 5, 5)  # off the map first: the pointer may rest on tester already (Linux fonts), so it enters it
     c.mouse("mouseMoved", *center(c, box("tester")))
     out["hover"] = c.wait(f"{q('[data-testid=map-line][data-to=tester]')}?.classList.contains('hot') && "
                           f"{q('[data-testid=map-line][data-to=coder]')}?.classList.contains('dim')", 10)

@@ -10,8 +10,8 @@
 // NOT in the sentence (they tick; the bar draws them beside it), so it changes only when a fact does. Pure.
 import { shortModel } from "../../../lib/modelName";
 import { short } from "../../orchestra/format";
-import type { LiveNode } from "../../roles/liveModel";
-import { spendWords } from "./spend";
+import type { LiveNode } from "./liveModel";
+import { spendWords } from "../../agents/live/spend";
 import type { Wait, WaitPath } from "./waits";
 
 export const MAX_CHARS = 140;

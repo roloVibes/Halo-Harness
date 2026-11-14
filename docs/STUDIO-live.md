@@ -15,7 +15,7 @@ every agent it ever had. Now:
   land on Live: what runs now, or, when nothing does, one sentence -- "Nothing is running. Start a session, or open the last
   one as a replay." -- with two actions, **Open the plan (Cast)** and **Replay the last session**. A door that names a view
   (`?view=cast`, `C` / `R` / `L` / `W`, `?mode=roles`, `/roles`, `--edit`) still lands where it says.
-- **Nothing past is drawn as present** (`routes/agents/live/now.ts`). An agent is drawn while it is queued, running,
+- **Nothing past is drawn as present** (`routes/crew/live/now.ts`, moved there in 3.6.0.0 R4b). An agent is drawn while it is queued, running,
   waiting or paused. One that finishes stays **ten seconds** (its green fades over them), then leaves; one that fails stays
   until you press its **dismiss** (Cast stops glowing for it too). A finish or a failure from before the page loaded is past
   and not drawn. The parents of what is drawn stay (the tree keeps its spine); a group goes with its last agent; a session

@@ -5,7 +5,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
-import type { Cell } from "./compareStore";
+import type { Cell } from "../../agents/live/compareStore";
 
 export type Step = { t: number; at: string; kind: string; text: string };
 export type Phase = { phase: string; words: string; secs: number; share: number | null };

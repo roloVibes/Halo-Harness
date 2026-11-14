@@ -11,7 +11,7 @@
 //   run       an Orchestra run's lead and lanes: their own block (a run is not the lineup's)
 import type { WorkRecord } from "../../../lib/work/record";
 import { matchNode } from "../../roles/live";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import type { GraphEdge, LiveAgent } from "../../roles/types";
 import type { Plan } from "./planStore";
 

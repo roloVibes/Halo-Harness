@@ -15,7 +15,7 @@
 // agents of a group were picked by Auto, the second line says the pick in plain words (whyOf).
 import type { WorkRecord } from "../../../lib/work/record";
 import { shortModel } from "../../../lib/modelName";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import type { Tier } from "../../roles/types";
 
 export const MIN_TASK = 2;

@@ -8,8 +8,8 @@
 import { useState } from "react";
 import { Button } from "../../../lib/ui";
 import { short } from "../../orchestra/format";
-import { closeReport } from "./historyStore";
-import { loadCompare, useCompare, type CmpLane, type CmpRow, type Side } from "./compareStore";
+import { closeReport } from "../../agents/live/historyStore";
+import { loadCompare, useCompare, type CmpLane, type CmpRow, type Side } from "../../agents/live/compareStore";
 import { mmss } from "./timeline";
 
 const KIND: Record<string, string> = { session: "session", run: "goal run", file: "saved replay" };

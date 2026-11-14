@@ -138,7 +138,7 @@ def test_lives_sentence_counts_a_members_session_once(ctx: Ctx):
     $0.0075, and Live's sentence $0.015 (narrate.ts summed the session node AND its agent). The spend is the agents'."""
     from tests.helpers import node_ts
     ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live"
-    src = (ui / "narrate.ts").read_text(encoding="utf-8")
+    src = (ui.parent.parent / "crew" / "live" / "narrate.ts").read_text(encoding="utf-8")  # 3.6.0.0 R4b: narrate.ts moved
     spend = (ui / "spend.ts").read_text(encoding="utf-8")
     ctx.check("the sentence's spend and its rows read liveSpend (3.4.1.1: through spendWords)",
               "const spend = spendWords(nodes)" in src and "spendWords(ms)" in src and "spendText(liveSpend(nodes))" in spend)

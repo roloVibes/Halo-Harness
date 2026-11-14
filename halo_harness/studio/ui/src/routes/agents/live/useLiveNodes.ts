@@ -7,11 +7,11 @@ import { useMemo } from "react";
 import { recordRefs, useSessionRecord, type RecordRef, type WorkRecord } from "../../../lib/work/record";
 import { fleet, useFleet, useNow, type FleetState } from "../../fleet/store";
 import { useOrch } from "../../orchestra/store";
-import { liveNodes, type LiveNode } from "../../roles/liveModel";
+import { liveNodes, type LiveNode } from "../../crew/live/liveModel";
 import { useRoles } from "../../roles/store";
 import { fleetNodes } from "./fleetModel";
-import { pickSession, present, useDismissed } from "./now";
-import { useLiveReplay } from "./replay";
+import { pickSession, present, useDismissed } from "../../crew/live/now";
+import { useLiveReplay } from "../../crew/live/replay";
 import { runNodes } from "./runLanes";
 
 export type LiveNodes = { nodes: LiveNode[]; sid: string; refs: RecordRef[]; now: number; replay: boolean; rec: WorkRecord | null };

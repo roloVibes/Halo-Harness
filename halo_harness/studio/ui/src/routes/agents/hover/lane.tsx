@@ -2,7 +2,7 @@
 // model, what it waits for, its cost. A lane's click opens Runs focused on that lane (it has no inspector page of its
 // own); the lead's opens Runs on the run.
 import { LANE_LABEL, useOrch } from "../../orchestra/store";
-import { ownsOf } from "../run/Owns";
+import { ownsOf } from "../../crew/run/Owns";
 import { HoverBody, type HoverRow } from "../../../lib/hover/HoverBody";
 import { joined, plural, spent } from "./words";
 

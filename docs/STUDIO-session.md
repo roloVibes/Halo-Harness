@@ -92,6 +92,14 @@ with **Open it on the Map tab** ([STUDIO-map.md](STUDIO-map.md#while-a-session-r
 words are on the Map tab's drawer and in Live here. A session that did not start on a map keeps the tree above until
 every session runs on a map.
 
+**The Map bigger than Live, or either alone** (3.6.0.0 R4b, the owner: "I should be able to adjust the sizes of each
+box with that line in the middle"). The line between the Map and Live drags both ways until Live is 360 px wide, so the
+Map can be the bigger view (`Alt+Left` / `Alt+Right` on the Map: 40 px a press); its width is kept across a reload, and
+the drawing re-fits once when the drag ends (never under a zoom made by hand). **Only this** in the Map's title line
+shows the Map alone, with the whole stage -- Live stays open behind it and keeps following -- and **Only this** on Live
+puts the Map aside; **Show both** (or the Map's button in the view bar) brings both back. The view bar says "Map
+only", "Live only" or "Map and Live", and Session remembers it. The lit Map and the tree obey it alike.
+
 ## Export: the session as a trace file
 
 **Export** sits on the Live column's header and on its timeline strip. It

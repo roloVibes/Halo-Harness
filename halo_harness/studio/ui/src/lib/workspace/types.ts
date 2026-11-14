@@ -12,6 +12,9 @@ export const DRAWER_MAX = 560;
 export const DRAWER_STEP = 40; // Alt+Left/Right widen / narrow the focused drawer by this
 /** The drawers together leave the main thing at least this share of the stage's width (R1). */
 export const MAIN_SHARE = 0.6;
+/** 3.6.0.0 R4b: a drawer that holds a drawing (`drawing`) may be dragged until the main thing beside it is this wide:
+ *  the narrowest any panel is read at under the room rules (a drawer's least, R2). */
+export const MAIN_MIN = DRAWER_MIN;
 /** Breakpoints (R9): under WIDE one drawer at a time; under MID drawers float over the main thing; under PHONE the
  *  rail is a menu. */
 export const BP_WIDE = 1440;
@@ -39,6 +42,9 @@ export type PanelSpec = {
   side?: Side;
   /** A drawer's width from its content, px (clamped to 360-560). */
   contentW?: number;
+  /** 3.6.0.0 R4b: a drawer that holds a drawing (Session's Map): its inner edge drags past 560 px, until the main thing
+   *  is MAIN_MIN wide, so the drawing can be the bigger of the two. */
+  drawing?: boolean;
   /** A short live word for the view bar's button ("$0.42", "1"): a hook, called while the bar draws. */
   useCount?: () => string;
   /** Grid cells of a pack that declares its panels the old way (packs API 1.x): mapped by stage.ts (cells -> a

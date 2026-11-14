@@ -5,7 +5,7 @@
 import { createStore, goSection, useStore } from "../../../lib/store";
 import type { RunForm } from "../../orchestra/sync";
 import { startOrchestra } from "../../orchestra/sync";
-import { history } from "../live/historyStore";
+import { history } from "../../agents/live/historyStore";
 
 type State = { open: boolean; seed: number; form: Partial<RunForm> | null };
 
@@ -14,8 +14,13 @@ export const useGoal = <S,>(pick: (s: State) => S): S => useStore(goal, pick);
 
 /** Live with the goal panel open (with `form`, those fields filled in). */
 export function openGoal(form?: Partial<RunForm>): void {
-  startOrchestra();
   goSection("agents", "live");
+  openGoalHere(form);
+}
+
+/** 3.6.0.0 R4b: the goal form open where it is drawn (the Map's drawer), without going to Live. */
+export function openGoalHere(form?: Partial<RunForm>): void {
+  startOrchestra();
   goal.update((s) => ({ open: true, seed: s.seed + 1, form: form || null }));
   history.update((s) => (s.open ? { open: false, page: null, report: null, reportError: "" } : {})); // one drawer at a time
 }

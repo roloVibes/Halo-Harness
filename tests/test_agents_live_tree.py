@@ -1,6 +1,6 @@
 """tests.test_agents_live_tree -- Halo 3.3.11.0 R2: the TUI's `/agents live` prints the tree Studio's Roles Live
 draws (agent/agent_hooks.py `format_tree`, `pick_line`): each agent indented under its parent, an `auto` pick's
-reason on the line under it in the same words as the Live node (routes/roles/liveModel.ts `pickLine`), and an
+reason on the line under it in the same words as the Live node (routes/crew/live/liveModel.ts `pickLine`, moved from routes/roles/ in 3.6.0.0 R4b), and an
 agent whose parent is not in the tree under one "unknown parent" line, never dropped. Pure; no session.
 Run: python -m tests.test_agents_live_tree
 """
@@ -45,7 +45,7 @@ def test_the_tree_with_the_reason_and_the_unknown_parent(ctx: Ctx):
 
 @test
 def test_the_live_node_says_the_same_words(ctx: Ctx):
-    src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "roles" / "liveModel.ts").read_text(encoding="utf-8")
+    src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live" / "liveModel.ts").read_text(encoding="utf-8")
     ctx.check("liveModel.ts pickLine builds 'picked at spawn: <role> on <model> -- <reason>'",
               "`picked at spawn: ${a.role || a.name}${a.model ? ` on ${a.model}` : \"\"} -- ${a.reason}`" in src)
     ctx.check("Live names the orphans' node 'unknown parent'", 'name: "unknown parent"' in src)

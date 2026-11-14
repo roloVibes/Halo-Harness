@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useStore } from "../store";
 import { useBreakpoint } from "./breakpoint";
 import { WorkspaceContext, type WorkspaceApi } from "./controller";
-import { answerNote, layoutStore, registerSpecs, savedLayout, setLayout, stageWidth, takeNote } from "./persist";
+import { answerNote, layoutStore, loadSaved, registerSpecs, savedLayout, setLayout, stageWidth, takeNote } from "./persist";
 import { FULL_PAGE, OPEN } from "./query";
 import { fullLayout, mainOf, merge, openIn } from "./rules";
 import { Stage } from "./Stage";
@@ -44,6 +44,8 @@ export function Workspace({ section, specs, version = 1, lead }: { section: stri
       const n = takeNote(section);
       let next = FULL_PAGE ? fullLayout(specs) : merge(specs, savedLayout(section, specs));
       if (!FULL_PAGE) for (const id of OPEN) if (next[id]) next = openIn(next, specs, id, stageWidth(section));
+      // 3.6.0.0 R4b: Only this is kept per section (a link that opens a panel shows both)
+      layoutStore(section).update(() => ({ solo: FULL_PAGE || OPEN.length ? "" : loadSaved(section)?.solo || "" }));
       setLayout(section, next, false);
       if (n) layoutStore(section).update(() => ({ note: n }));
     } else if (specs.some((s) => !s.optional && !layout[s.id])) {

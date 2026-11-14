@@ -23,7 +23,8 @@ export type BoxState = "working" | "waiting" | "done" | "failed" | "idle";
 export type OvBox = { state: BoxState; doing: string; cost: number; agents: string[]; models: string[] };
 export type Pulse = { from: string; to: string; task: string; t: number; background: boolean };
 export type LineLit = { t: number; task: string; why: string; background: boolean; running: boolean; skipped: string };
-export type Helper = { aid: string; box: string; name: string; task: string; state: BoxState; cost: number; model: string };
+/** `parent`: the agent that started it (R4b: a helper started by a helper is counted "+N under it", not drawn). */
+export type Helper = { aid: string; box: string; name: string; task: string; state: BoxState; cost: number; model: string; parent: string };
 export type Stranger = { aid: string; name: string; why: string; state: BoxState };
 export type StepLit = { n: number; name: string; state: string; agents: string[]; rounds: number; checks: number; said: string };
 export type Steps = { state: string; steps: StepLit[] };
@@ -132,7 +133,8 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number)
     const p = where.get(r.agent_id)!;
     const st = stateOf([r]);
     if (!p.box) strangers.push({ aid: r.agent_id, name: str(r.name || r.role || r.agent_id), why: p.why, state: st });
-    else if (p.helper) helpers.push({ aid: r.agent_id, box: p.box, name: str(r.name || r.agent_id), task: str(r.task), state: st, cost: num(r.cost_usd), model: str(r.model) });
+    else if (p.helper) helpers.push({ aid: r.agent_id, box: p.box, name: str(r.name || r.agent_id), task: str(r.task), state: st, cost: num(r.cost_usd), model: str(r.model),
+                                    parent: str(r.parent) });
     else groups.set(p.box, [...(groups.get(p.box) || []), r]);
   }
   const boxes: Record<string, OvBox> = {};
@@ -176,6 +178,19 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number)
              cost: rows.reduce((a, r) => a + num(r.cost_usd), 0), models: [...new Set(rows.map((r) => str(r.model)).filter(Boolean))], hops },
   };
 }
+
+/** R4b: the helpers a helper started, at any depth below it (who started whom), in the session's order. */
+export function under(helpers: Helper[], aid: string): Helper[] {
+  const out: Helper[] = [];
+  const walk = (p: string, depth: number) => {
+    for (const h of helpers) if (h.parent === p && depth < 24 && !out.includes(h)) (out.push(h), walk(h.aid, depth + 1));
+  };
+  walk(aid, 0);
+  return out;
+}
+
+/** R4b: the helpers drawn on the map: those an agent of a box started (one level; a helper's own helpers are "+N"). */
+export const firstLevel = (helpers: Helper[]): Helper[] => helpers.filter((h) => !helpers.some((x) => x.aid === h.parent));
 
 /** Recorded events up to `t` (a replay at the scrubber's moment). */
 export const eventsAt = (evs: OvEvent[], t: number): OvEvent[] => evs.filter((e) => num(e.data.t) <= t + 1e-6);

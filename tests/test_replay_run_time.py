@@ -1,7 +1,7 @@
 """tests.test_replay_run_time -- Halo 3.4.1.1 defect 60: a goal run on the scrubber is the canvas AS IT WAS. Its lanes'
 states and its costs at a past moment come from its record's own times (live/replay_run.py through `GET
 fleet/replay?run=`), and where the record cannot give a figure at a moment the page says "unknown at this moment",
-never $0 (routes/agents/live/timeline.ts, run in node through tests/helpers/node_ts.py).
+never $0 (routes/crew/live/timeline.ts -- moved there in 3.6.0.0 R4b --, run in node through tests/helpers/node_ts.py).
 
 Seed: tests/helpers/compare_seed.py's goal run, lane 1 written at +70 and merged at +80 (its `ended` says +70, as a
 real lane's does: the end of its last piece, before the review). Run: python -m tests.test_replay_run_time
@@ -22,7 +22,7 @@ from tests.helpers.compare_seed import RUN, TR, seed_run  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-LIVE = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live"
+LIVE = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live"  # 3.6.0.0 R4b: timeline.ts moved here
 
 
 @contextlib.contextmanager

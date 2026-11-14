@@ -50,6 +50,21 @@ export function fitScale(boxW: number, boxH: number, w: number, h: number, o: { 
   return all >= floor ? { zoom: all, more: false } : { zoom: floor, more: true };
 }
 
+// 3.6.0.0 R4b: while a drawer's line is being dragged no drawing re-fits (each box change waits); when the drag ends,
+// every drawing whose box changed meanwhile and that nobody zoomed by hand fits once.
+let held = false;
+const waiting = new Set<() => void>();
+export function holdFits(on: boolean): void {
+  if (on) return void (held = true);
+  // the drag's last width is drawn and its box change observed within two frames: those changes still wait, then one fit
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    held = false;
+    const runs = [...waiting];
+    waiting.clear();
+    for (const run of runs) run();
+  }));
+}
+
 const hands = new Map<string, boolean>(); // by the canvas's `id` for the visit; else by its scroller
 const handEls = new WeakMap<HTMLElement, boolean>();
 const handOf = (n: Nav, el: HTMLElement | null) => (n.id ? !!hands.get(n.id) : !!(el && handEls.get(el)));
@@ -132,12 +147,20 @@ function attach(el: HTMLElement, cur: { current: Nav }): () => void {
   let width = 0;
   // R8: the box got wider or narrower (a drawer, a breakpoint): fit again unless it is the person's view. Its height alone
   // changing (a banner, a sentence or a scrubber above or below the drawing) leaves the zoom: that is not a new box.
+  // R4b: during a drag of a drawer's line the fit waits for the drag's end (holdFits).
+  const refit = () => {
+    if (handOf(cur.current, el)) return;
+    el.dataset.refits = String(Number(el.dataset.refits || 0) + 1); // how many box changes it fitted itself to (drivers read it)
+    cur.current.fit();
+  };
   const ro = new ResizeObserver(() => {
     const now = el.clientWidth;
     const first = !width;
     if (now === width || now < 2) return;
     width = now;
-    if (!first && !handOf(cur.current, el)) cur.current.fit();
+    if (first) return;
+    if (held) waiting.add(refit);
+    else refit();
   });
   ro.observe(el);
   const onWheel = (e: WheelEvent) => {
@@ -196,6 +219,7 @@ function attach(el: HTMLElement, cur: { current: Nav }): () => void {
   el.addEventListener("dblclick", onDbl);
   return () => {
     ro.disconnect();
+    waiting.delete(refit);
     el.removeEventListener("wheel", onWheel);
     el.removeEventListener("keydown", onKey);
     el.removeEventListener("pointerdown", onDown);

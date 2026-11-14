@@ -7,9 +7,9 @@
 // nodes is a live agent (keys `replay|...`): no glow, no steer, no inspector.
 import { api, ApiError } from "../../../lib/api";
 import { createStore, goSection, toast, useStore } from "../../../lib/store";
-import type { LiveNode } from "../../roles/liveModel";
-import type { GroupTag } from "./groups";
-import type { Plan } from "./planStore";
+import type { LiveNode } from "./liveModel";
+import type { GroupTag } from "../../agents/live/groups";
+import type { Plan } from "../../agents/live/planStore";
 import { fromSession, nodesAt, type SessionTimeline, type Timeline } from "./timeline";
 
 export type HistoryKind = "session" | "run" | "file";

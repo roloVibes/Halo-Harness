@@ -212,7 +212,8 @@ class RoomDriver(Driver):
             rig.full = False
             rig.plan = ""
             self.out["seed"] = seed_long_names(rig)
-            yield ((walk, (c, rig)), (breakpoints, (c, rig)), (kept, (c, rig)), (hand, (c, rig)))
+            from tests.helpers.studio_room_split import split  # 3.6.0.0 R4b: the line in the middle, either view alone
+            yield ((walk, (c, rig)), (breakpoints, (c, rig)), (kept, (c, rig)), (hand, (c, rig)), (split, (c, rig, size, load, measure)))
 
 
 if __name__ == "__main__":

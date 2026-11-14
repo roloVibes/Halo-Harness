@@ -4,7 +4,7 @@
 // edge goes to the box's top, not to each agent. Inside the box an agent's own children hang under it as the tree does;
 // a square's box can sit inside a task's box (one level). A collapsed box is its title bar alone. Pure.
 import type { Dims } from "../../fleet/layoutTree";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import type { GroupTag } from "./groups";
 
 export const G_PAD = 12;

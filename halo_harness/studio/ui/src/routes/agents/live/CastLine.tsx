@@ -3,7 +3,7 @@
 // (roles/glow.ts: never from a session that ended).
 import { useRoles } from "../../roles/store";
 import { setAgentsView } from "../store";
-import { useLiveCount } from "./now";
+import { useLiveCount } from "../../crew/live/now";
 
 export function CastLine() {
   const used = useRoles((s) => s.info?.active_team || (s.info?.lineup_default ? `${s.info?.lineup_in_use || "auto"} (default)` : ""));

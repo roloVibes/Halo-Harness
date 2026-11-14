@@ -6,7 +6,7 @@
 // 3.3.16.0 R2 (the fleet scope): each harness's nodes (its machine node, sessions, agents, mission parts) are a
 // machine box the same way (`machines`), the box a dragged mission part is dropped into.
 import { forestOf, placeForest, type Dims, type Placed } from "../fleet/layoutTree";
-import type { LiveNode } from "./liveModel";
+import type { LiveNode } from "../crew/live/liveModel";
 import { isBoxed, placeGrouped, type GroupBox } from "../agents/live/groupLayout";
 
 export type Density = "compact" | "spread";

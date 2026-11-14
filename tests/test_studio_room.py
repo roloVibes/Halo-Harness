@@ -17,6 +17,7 @@ R9  under 1440 one drawer at a time, wider one per side while the main thing kee
     older closes; 3.6.0.0: 2560 for both, the Map drawer is 560 px), under 1100 it floats, under 760 the rail is a menu
 R10 a drawer opened is kept across a reload without a "custom layout"; an old grid layout is dropped and a newer
     layout version announced, each once
+R4b the line between Session's Map and Live drags until the Map is bigger; Map only / Live only / both (studio_room_split)
 Run: python -m tests.test_studio_room
 """
 from __future__ import annotations
@@ -181,6 +182,64 @@ def test_r10_what_is_kept(ctx: Ctx):
     ctx.check(f"R10 an older layout version: kept (Cost open, its own width) and said once, got {k.get('changed')}",
               k.get("changed") == ["changed", ["session-cost"], 420])
     ctx.check(f"R10 Use the new one: the default, and no note again, got {k.get('changed_again')}", k.get("changed_again") == [False, False])
+
+
+@test
+def test_r4b_the_line_in_the_middle_moves(ctx: Ctx):
+    """3.6.0.0 R4b, the owner's report (2026-11-14): Session's line between the Map and Live drags with real pointer
+    events (CDP) at 1280 / 1500 / 1920 until the Map is the bigger view, stays under the pointer both ways, is kept
+    across a reload, answers Alt+Right / Alt+Left; the drawing re-fits only when the drag ends (never under a hand zoom);
+    the floating drawer under 1100 px drags too."""
+    sp = _got(ctx).get("split") or {}
+    for size in ("1280x800", "1500x900", "1920x1000"):
+        s = sp.get(size) or {}
+        d = s.get("drag") or {}
+        ctx.check(f"{size}: the line under the pointer at every move, off by {d.get('off')}", len(d.get("off") or []) == 8 and all(abs(o) < 2 for o in d["off"]))
+        ctx.check(f"{size}: the Map ends wider than Live, got {s.get('wider')} (from {s.get('start')}, max {s.get('max')})",
+                  len(s.get("wider") or []) == 2 and s["wider"][0] > s["wider"][1] >= 360 and s["wider"][0] > 560)
+        ctx.check(f"{size}: the width is kept, and after a reload still that width, got {s.get('saved')} / {s.get('reloaded')}",
+                  s.get("saved") == (s.get("wider") or [0])[0] and s.get("reloaded") == s.get("wider"))
+        ctx.check(f"{size}: dragged back, under the pointer, got {s.get('back')}", len(s.get("back") or []) == 4 and all(abs(o) < 2 for o in s["back"]))
+        k = s.get("keys") or [0, 0, 0]
+        ctx.check(f"{size}: Alt+Right widens by 40, Alt+Left narrows back, got {k}", k[1] == k[0] + 40 and k[2] == k[0])
+        b, during, after, fit = d.get("before") or [], d.get("during") or [], d.get("after") or [], s.get("fit") or []
+        ctx.check(f"{size}: no re-fit while the line moves, got {b} then {during}", bool(b) and all(x == b for x in during))
+        ctx.check(f"{size}: one re-fit when the drag ends, to what Fit makes of the box, got {after} / Fit {fit}",
+                  len(after) == 2 and after[1] == b[1] + 1 and after[0] == fit[0])
+        h = s.get("hand") or {}
+        z = h.get("zoom") or []
+        ctx.check(f"{size}: a zoom by hand stays through the drag and after it, got {h}",
+                  bool(z) and all(x == z for x in h.get("during") or [None]) and (h.get("after") or [None])[0] == z[0] and (h.get("after") or [0, -1])[1] == z[1])
+    f = sp.get("float") or {}
+    ctx.check(f"1024: the floating drawer's line drags too, got {f}", f.get("floating") and f.get("to", 0) >= f.get("from", 0) + 150 and all(abs(o) < 2 for o in f.get("off") or [9]))
+
+
+@test
+def test_r4b_either_view_alone(ctx: Ctx):
+    """R4b: Only this / Show both on the Map and on Live, in the view bar's words, kept per section; Live stays mounted
+    under Map only; the Map's own button brings both back; each arrangement keeps the room rules (no sideways scrollbar,
+    nothing under 12 px, controls >= 28 px and 8 px apart, the drawing fits or pans from main)."""
+    sp = _got(ctx).get("split") or {}
+    for size in ("1280x800", "1500x900", "1920x1000"):
+        s = sp.get(size) or {}
+        ctx.check(f"{size}: Map only keeps Live mounted, hidden, the Map with the whole stage, got {s.get('mounted')}",
+                  (s.get("mounted") or [False])[0] is True and (s.get("mounted") or [0, 0])[1] > 1100)
+        ctx.check(f"{size}: Map only is kept across a reload, got {s.get('map_only_kept')}", s.get("map_only_kept") == ["Map only", True])
+        ctx.check(f"{size}: Live only: no Map drawer, its button not pressed, got {s.get('live_only')}", s.get("live_only") == [False, "false"])
+        ctx.check(f"{size}: Live only kept, then the Map's button shows both, got {s.get('both_again')}", s.get("both_again") == "Map and Live")
+        arr = s.get("arr") or {}
+        want = {"map-and-live": "Map and Live", "map-only": "Map only", "live-only": "Live only"}
+        for name, words in want.items():
+            m = arr.get(f"session@{size}={name}") or {}
+            ctx.check(f"{size} {name}: measured, the view bar says {words!r}, got {m.get('words')!r}", m.get("words") == words and m.get("regions"))
+            ctx.check(f"{size} {name}: the page never scrolls sideways", m.get("doc_hscroll") is False)
+            for r in m.get("regions") or []:
+                where = f"{size} {name} {r['id']}"
+                ctx.check(f"{where}: no sideways scrollbar {r['hscroll']}, nothing under 12 px {r['small']}, controls >= 28 px {r['low_ex']}, "
+                          f"none on another {r['over']}, 8 px apart {r.get('near')}",
+                          not r["hscroll"] and r["small"] == 0 and r["low"] == 0 and r["overlap"] == 0 and r["close"] == 0)
+            for d in m.get("drawings") or []:
+                ctx.check(f"{size} {name} {d.get('id')}: the drawing fits or pans from main, got {d}", d["nodes"] > 0 and (d["cut"] == 0 or (d["more"] and d["lead"])))
 
 
 if __name__ == "__main__":

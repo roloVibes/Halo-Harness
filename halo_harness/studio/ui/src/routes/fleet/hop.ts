@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { studio } from "../../lib/store";
 import { onPart } from "../agents/store";
 import { hopCard } from "../roles/live";
-import { hopLive } from "../roles/liveModel";
+import { hopLive } from "../crew/live/liveModel";
 import { roles, setCanvasView } from "../roles/store";
 import { askStop, hop, pin, toggleFollow, togglePause } from "./actions";
 import { fleet } from "./store";

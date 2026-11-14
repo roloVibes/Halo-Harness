@@ -4,11 +4,14 @@
 // in the view yet is added. The main thing has a button only when the view has tabs (it is the first tab then).
 // Left drawers' buttons sit at the bar's start, then the tabs; right drawers' at its end.
 // `data-testid="viewbar-btn"` + `data-panel`; `data-alias="panel-strip"` names the old strip for one release.
+// 3.6.0.0 R4b: the words for what shows ("Map only", "Map and Live"); a drawer put aside by Only this is not pressed,
+// and its button shows both again.
 import type { ReactNode } from "react";
+import { useStore } from "../store";
 import { Icon } from "../ui/Icon";
 import { useWorkspace } from "./controller";
-import { focusPanel, patchPanel, showPanel } from "./persist";
-import { roleOf, sideOf } from "./rules";
+import { focusPanel, layoutStore, patchPanel, showBoth, showPanel } from "./persist";
+import { arrangementWords, roleOf, sideOf, soloOf } from "./rules";
 import type { Layout, PanelSpec } from "./types";
 
 function Count({ spec }: { spec: PanelSpec }) {
@@ -16,9 +19,10 @@ function Count({ spec }: { spec: PanelSpec }) {
   return word ? <span className="viewbar-count mono" data-testid="viewbar-count">{word}</span> : null;
 }
 
-function press(section: string, spec: PanelSpec, layout: Layout): void {
+function press(section: string, spec: PanelSpec, layout: Layout, hidden: boolean): void {
   const p = layout[spec.id];
   if (!p) return showPanel(section, spec);
+  if (hidden) return (showBoth(section), focusPanel(section, spec.id)); // open but put aside by Only this: both again
   if (!p.collapsed && roleOf(spec) !== "main") return patchPanel(section, spec.id, { collapsed: true });
   patchPanel(section, spec.id, { collapsed: false });
   focusPanel(section, spec.id);
@@ -28,17 +32,26 @@ function Btn({ spec, layout }: { spec: PanelSpec; layout: Layout }) {
   const ws = useWorkspace();
   const p = layout[spec.id];
   const role = roleOf(spec);
-  const open = !!p && !p.collapsed;
+  const solo = useStore(layoutStore(ws.section), (s) => soloOf(ws.specs, s.layout, s.solo));
+  const hidden = !!p && !p.collapsed && !!solo && solo !== spec.id && role === "drawer";
+  const open = !!p && !p.collapsed && !hidden;
   const verb = !p ? "Add" : open ? (role === "drawer" ? "Close" : "Showing") : role === "drawer" ? "Open" : "Show";
   return (
     <button type="button" className="viewbar-btn" data-testid="viewbar-btn" data-alias="panel-strip" data-panel={spec.id} data-role={role}
             data-side={role === "drawer" ? sideOf(spec) : undefined} aria-pressed={open} data-added={p ? undefined : "no"}
-            title={`${verb} ${spec.title}${spec.about ? `: ${spec.about}` : ""}`} onClick={() => press(ws.section, spec, layout)}>
+            title={`${verb} ${spec.title}${spec.about ? `: ${spec.about}` : ""}`} onClick={() => press(ws.section, spec, layout, hidden)}>
       {!p && <Icon name="plus" />}
       <span className="viewbar-name">{spec.title}</span>
       {spec.useCount && <Count spec={spec} />}
     </button>
   );
+}
+
+/** 3.6.0.0 R4b: what the stage shows, in words ("Map only", "Live only", "Map and Live"); kept per section. */
+function Words({ specs, layout }: { specs: PanelSpec[]; layout: Layout }) {
+  const ws = useWorkspace();
+  const words = useStore(layoutStore(ws.section), (s) => arrangementWords(specs, layout, s.solo));
+  return words ? <span className="viewbar-words mono" data-testid="viewbar-arrangement" title={`Shown now: ${words} (Only this / Show both in a panel's title line, Alt+Up / Alt+Down)`}>{words}</span> : null;
 }
 
 export function ViewBar({ specs, layout, lead }: { specs: PanelSpec[]; layout: Layout; lead?: ReactNode }) {
@@ -56,6 +69,7 @@ export function ViewBar({ specs, layout, lead }: { specs: PanelSpec[]; layout: L
         </div>
       )}
       <span className="viewbar-gap" />
+      <Words specs={specs} layout={layout} />
       {right.length > 0 && <div className="viewbar-group" data-side="right">{right.map((s) => <Btn key={s.id} spec={s} layout={layout} />)}</div>}
     </div>
   );

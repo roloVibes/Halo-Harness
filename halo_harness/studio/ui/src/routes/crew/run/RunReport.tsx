@@ -14,7 +14,7 @@ import { ArtifactsTab } from "../../orchestra/Artifacts";
 import { CHECK_LABEL, cost, reportText, sha, short } from "../../orchestra/format";
 import type { Check, RunPayload } from "../../orchestra/types";
 import { openLiveReplay } from "../live/replay";
-import { closeReport, toggleHistory } from "../live/historyStore";
+import { closeReport, toggleHistory } from "../../agents/live/historyStore";
 import { openGoal } from "./goalStore";
 import { ReportCard } from "../live/ReportCard";
 

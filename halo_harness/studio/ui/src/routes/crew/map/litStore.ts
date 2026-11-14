@@ -65,6 +65,26 @@ export function chosen(all: LitSession[], pick: string, shown: string): LitSessi
   return all.find((s) => s.sid === pick) || all.find((s) => s.map && s.map === shown) || all.find((s) => !!s.map) || null;
 }
 
+/** R4b (R4's gap 4): another machine's sessions with an agent at work, from the rows Studio already has. Their map
+ *  frames do not reach this page (they ride that machine's feed), so the picker lists them, "open it on that machine". */
+export type AwaySession = { sid: string; title: string; machine: string };
+export function awayRunning(st: Pick<FleetState, "harnesses">, here: string): AwaySession[] {
+  const out: AwaySession[] = [];
+  for (const h of st.harnesses) {
+    if (h.id === here || h.local) continue;
+    for (const s of h.sessions || [])
+      if ((s.agents || []).some((a) => LIVE.includes(String(a.state || ""))) || s.busy)
+        out.push({ sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), machine: String(h.name || h.id.slice(0, 8)) });
+  }
+  return out;
+}
+
+export function useAway(): AwaySession[] {
+  const harnesses = useFleet((s) => s.harnesses);
+  const here = useFleet((s) => localId(s));
+  return useMemo(() => awayRunning({ harnesses }, here), [harnesses, here]);
+}
+
 export function useRunning(): LitSession[] {
   const harnesses = useFleet((s) => s.harnesses);
   const here = useFleet((s) => localId(s));

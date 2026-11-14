@@ -17,7 +17,7 @@
 import { useMemo } from "react";
 import { DONE_MS, useFleet } from "../../fleet/store";
 import type { Harness } from "../../fleet/types";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "./liveModel";
 import { createStore, useStore } from "../../../lib/store";
 
 export const LINGER_MS = DONE_MS; // how long a finished agent stays on Live

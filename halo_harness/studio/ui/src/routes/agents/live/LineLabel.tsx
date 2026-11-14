@@ -10,8 +10,8 @@ import { useTalks, type TalkMsg } from "../../shared/liveTalk";
 import { openConversation } from "../../session/convPick";
 import type { PlanBox, PlanLine } from "./planLayout";
 import { LABEL_W } from "./planLayout";
-import { useLiveReplay } from "./replay";
-import { talksAt } from "./timeline";
+import { useLiveReplay } from "../../crew/live/replay";
+import { talksAt } from "../../crew/live/timeline";
 
 export const HANDOFF_MS = 8000; // how long a hand-off stays on its line
 const WORD: Record<string, string> = { task: "task", square: "task", "hand-back": "back", steer: "steer", "hand-over": "over" };

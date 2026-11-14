@@ -10,7 +10,7 @@ import { memo, type PointerEvent } from "react";
 import { CARD_H, CARD_W, edgePath, type Box, type Pos } from "./layout";
 import { costText, costTitle } from "./forecast";
 import type { ForecastLine, PlanJob, PlanProblem } from "./types";
-import { OwnsLine } from "../../agents/run/Owns";
+import { OwnsLine } from "../../crew/run/Owns";
 
 type BoxProps = { k: number; b: Box; label: string; count: number; empty: boolean; hot: boolean };
 

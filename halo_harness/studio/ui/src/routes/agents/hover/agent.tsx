@@ -5,7 +5,7 @@
 import { findAgent, useFleet, useNow } from "../../fleet/store";
 import { useOrch } from "../../orchestra/store";
 import { modelRow, useRoles } from "../../roles/store";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import { useToolClock } from "../live/nodeBits";
 import { HoverBody, type HoverRow } from "../../../lib/hover/HoverBody";
 import { joined, plural, since, span, spent, takesWords, tokens } from "./words";

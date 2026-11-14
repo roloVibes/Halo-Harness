@@ -5,9 +5,9 @@
 // ended last -- what it was, when it ended, and its Report card (a page of History; never a pop-up, nothing opens by itself).
 import { Button } from "../../../lib/ui";
 import { setAgentsView } from "../store";
-import { ago, closeHistory } from "./History";
+import { ago, closeHistory } from "../../crew/live/History";
 import { openCard, useHistory } from "./historyStore";
-import { backToNow, openLiveReplay, useLiveReplay } from "./replay";
+import { backToNow, openLiveReplay, useLiveReplay } from "../../crew/live/replay";
 
 export const EMPTY_LINE = "Nothing is running. Start a session, or open the last one as a replay.";
 

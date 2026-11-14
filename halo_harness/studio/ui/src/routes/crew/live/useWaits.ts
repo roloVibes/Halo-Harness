@@ -4,7 +4,7 @@
 // running seconds are not a fact here, its start is).
 import { useEffect, useMemo } from "react";
 import { createStore, useStore } from "../../../lib/store";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "./liveModel";
 import { live, useLive } from "../../shared/liveFeed";
 import { startLiveTree } from "../../shared/liveTree"; // the feed's THINK and TALK frames too (the near rows, the hand-offs)
 import { recentOf, waitingPath, waitOf, type Wait, type WaitPath } from "./waits";

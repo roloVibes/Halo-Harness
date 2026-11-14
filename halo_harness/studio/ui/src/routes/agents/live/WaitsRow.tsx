@@ -2,9 +2,9 @@
 // of its own -- WAITS, then you / a tool / a model reply / an agent / nothing, then what and for how long. Its seconds
 // tick here only (the node's other rows never move for it).
 import { useNow } from "../../fleet/store";
-import { useLiveReplay } from "./replay";
-import { useWaitOf } from "./useWaits";
-import { secsWords, WAIT_WORD } from "./waits";
+import { useLiveReplay } from "../../crew/live/replay";
+import { useWaitOf } from "../../crew/live/useWaits";
+import { secsWords, WAIT_WORD } from "../../crew/live/waits";
 
 export const WAITS_H = 18; // the row's height: Live's nodes grow by it (liveLayout's `extra`)
 

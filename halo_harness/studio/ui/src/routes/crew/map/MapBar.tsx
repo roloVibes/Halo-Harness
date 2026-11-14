@@ -3,9 +3,11 @@
 // crew.map), and Lock (off by default: nothing can be dragged or changed). Under it the map's top line (what a change
 // does and when it takes effect, its problem lines) and the receipt of the last change with Undo.
 import { useState } from "react";
+import { openGoalHere } from "../run/goalStore";
+import { openFeed } from "./feedOpen";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, setUse, toggleLock, undoLast, useMap } from "./mapStore";
-import { LitLine } from "./LitLine";
+import { LitLine, ReplayLast } from "./LitLine";
 import { useLitNow } from "./useLit";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
@@ -63,7 +65,7 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
   if (L.mode !== "off" || L.all.length) return <span className="mp-topwrap">{strip}<LitLine /></span>;
   return (
     <p className="cw-line mp-topline" data-testid="map-topline">
-      Nothing is running on it now. {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
+      Nothing is running on it now.<ReplayLast /> {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
       {strip && <> {strip}</>}
     </p>
   );
@@ -83,6 +85,8 @@ export function MapBar() {
         <Switch on={!!name && inUse === name} label="My sessions use this" testid="map-uses" onFlip={() => void setUse(inUse !== name)}
                 title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
         <span className="spacer" />
+        <Button size="sm" onClick={() => (openGoalHere(), openFeed("goal"))} data-testid="map-run-goal"
+                title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>
         <Switch on={locked} label="Lock" testid="map-lock" onFlip={toggleLock} title="Locked: nothing on the map can be dragged or changed" />
       </div>
       {!!problems.length && (

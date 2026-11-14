@@ -9,7 +9,7 @@
 //
 // `who` of an agent wait is the lane node's id (Live follows it down the waiting path; a lane has no session key).
 import type { RunPayload } from "../../orchestra/types";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../live/liveModel";
 import type { Wait } from "../live/waits";
 
 const ms = (s: number | null | undefined) => (s ? s * 1000 : null);

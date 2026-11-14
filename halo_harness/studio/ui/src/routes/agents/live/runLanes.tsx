@@ -10,10 +10,10 @@ import { short } from "../../orchestra/format";
 import { LANE_LABEL, laneColor } from "../../orchestra/store";
 import type { RunPayload } from "../../orchestra/types";
 import type { LiveBox } from "../../roles/liveLayout";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import { useHover } from "../../../lib/hover/useHover";
 import { LaneHover } from "../hover/lane"; // 3.3.16.1: the lead's and a lane's hover cards
-import { ownsOf } from "../run/Owns";
+import { ownsOf } from "../../crew/run/Owns";
 import { reviewPlan } from "../run/planPanel";
 import { pickLive, useLivePick } from "./scope";
 import { WaitsRow } from "./WaitsRow";

@@ -18,7 +18,7 @@ import { Icon } from "../lib/ui";
 import { goSection, studio, useStore, type SectionId } from "../lib/store";
 import { useRecent } from "../lib/motion";
 import { useSections, type SectionDef } from "../routes";
-import { useLiveCount } from "../routes/agents/live/now"; // 3.3.18.0: live now only (an away member's last rows are not)
+import { useLiveCount } from "../routes/crew/live/now"; // 3.3.18.0: live now only (an away member's last rows are not)
 import { startFleet } from "../routes/fleet/sync";
 
 const ICONS: Record<string, string> = {

@@ -1,13 +1,16 @@
 // History under the map (3.6.0.0 R4; mapRuns.ts says what it reads): a picker of finished runs, newest first; Replay
 // it on the map (the run lights the map it ran on, in quiet colours, as the scrubber moves); its report card opens from
-// the picker row. The scrubber is Live's own (agents/live/Scrubber.tsx: drag, Play at 1x / 4x / 16x, Now).
+// the picker row. The scrubber is Live's own (crew/live/Scrubber.tsx: drag, Play at 1x / 4x / 16x, Now). 3.6.0.0 R4b:
+// "Goal runs, files, Compare" opens Live's whole History in the drawer (goal runs and saved files beside sessions).
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
 import { cost as money } from "../../orchestra/format";
-import { ReportCard } from "../../agents/live/ReportCard";
-import { Scrubber } from "../../agents/live/Scrubber";
+import { ReportCard } from "../live/ReportCard";
+import { Scrubber } from "../live/Scrubber";
 import { closeRun, loadMapHistory, pickRun, replayRun, toggleCard, useMapHist } from "./mapRuns";
 import { useLitNow } from "./useLit";
+import { toggleHistory } from "../../agents/live/historyStore";
+import { openFeed } from "./feedOpen";
 
 const when = (t: number) => (t ? new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 
@@ -39,6 +42,8 @@ export function MapHistory() {
             {open && <Button onClick={closeRun} data-testid="map-history-now">Back to now</Button>}
           </>
         )}
+        <Button onClick={() => (toggleHistory(true), openFeed("history"))} data-testid="map-history-all"
+                title="Every past session, goal run and saved replay file, as Live's History lists them; tick two to compare">Goal runs, files, Compare</Button>
       </div>
       {open && L.mode === "replay" && <Scrubber sid={open.sid} title={open.title} started={null} lineup="" />}
       {card && row && <ReportCard refId={`session:${card}`} />}

@@ -63,7 +63,7 @@ def test_a_runs_and_a_missions_sessions_name_their_owner(ctx: Ctx):
     store = (UI / "routes" / "agents" / "live" / "historyStore.ts").read_text(encoding="utf-8")
     ctx.check("the page leaves them out of its list and counts them on the owner's row",
               "s.part_of) continue;" in store and "r.inside = inside.get(" in store)
-    row = (UI / "routes" / "agents" / "live" / "History.tsx").read_text(encoding="utf-8")
+    row = (UI / "routes" / "crew" / "live" / "History.tsx").read_text(encoding="utf-8")  # 3.6.0.0 R4b: moved
     ctx.check("the owner's row says how many sessions it holds", "r.inside ? `${r.inside} session" in row)
 
 

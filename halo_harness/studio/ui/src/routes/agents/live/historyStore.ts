@@ -14,9 +14,9 @@ import { fleet } from "../../fleet/store";
 import { orch } from "../../orchestra/store";
 import type { RunPayload, RunRow } from "../../orchestra/types";
 import type { HistoryRun } from "../../roles/types";
-import { harnessNow, LIVE_STATES } from "./now";
-import type { HistoryKind } from "./replay";
-import { closeGoal } from "../run/goalStore";
+import { harnessNow, LIVE_STATES } from "../../crew/live/now";
+import type { HistoryKind } from "../../crew/live/replay";
+import { closeGoal } from "../../crew/run/goalStore";
 import { clearCompare, loadCompare } from "./compareStore";
 
 export type HistoryRow = { kind: HistoryKind; id: string; what: string; when: number; secs: number | null; cost: number | null; how: string; models?: string[]; inside?: number };

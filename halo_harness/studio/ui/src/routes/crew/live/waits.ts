@@ -11,7 +11,7 @@
 //
 // The waiting path is the chain from main down to what the whole session waits for: an agent that waits on you anywhere
 // first (the oldest), else main's own wait followed down through the agents it waits on. Pure.
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "./liveModel";
 import type { OpenTool } from "../../shared/liveFeed";
 import type { LiveLine } from "../../shared/liveTypes";
 

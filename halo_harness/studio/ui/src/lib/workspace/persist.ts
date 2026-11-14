@@ -6,7 +6,7 @@
 // use the new one, or keep mine); a v1 / v2 arrangement of the old grid is dropped, with the same note once.
 import { createStore, writeLocal, type Store } from "../store";
 import { FULL_PAGE } from "./query";
-import { closeIn, merge, openIn, roleOf } from "./rules";
+import { closeIn, merge, openIn, roleOf, soloOf } from "./rules";
 import type { Layout, PanelLayout, PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
@@ -14,8 +14,10 @@ const VERSION = 3;
 
 /** `focus`: a one-shot request to move the keyboard focus to a panel; `active`: the panel the user is on (the ring);
  *  `note`: the one-time layout note ("changed": a newer default exists, yours is kept; "dropped": an old grid layout went). */
-export type LayoutState = { layout: Layout | null; custom: boolean; focus: string; active: string; note: "" | "changed" | "dropped" };
-export type Saved = { open: string[]; widths: Record<string, number>; tab: string; added: string[]; lv: number };
+export type LayoutState = { layout: Layout | null; custom: boolean; focus: string; active: string; note: "" | "changed" | "dropped"; solo: string };
+/** 3.6.0.0 R4b: `solo` -- the panel shown alone (Only this: a drawer with the whole stage, or the main thing with its
+ *  drawers put aside); "" shows both. */
+export type Saved = { open: string[]; widths: Record<string, number>; tab: string; added: string[]; lv: number; solo: string };
 
 const stores = new Map<string, Store<LayoutState>>();
 const specsOf = new Map<string, PanelSpec[]>();
@@ -52,7 +54,8 @@ export function loadSaved(section: string): Saved | null {
   const list = (x: unknown) => (Array.isArray(x) ? x.filter((v): v is string => typeof v === "string") : []);
   const widths: Record<string, number> = {};
   for (const [k, v] of Object.entries(d.widths && typeof d.widths === "object" ? d.widths : {})) if (typeof v === "number" && isFinite(v)) widths[k] = v;
-  return { open: list(d.open), widths, tab: typeof d.tab === "string" ? d.tab : "", added: list(d.added), lv: typeof d.lv === "number" ? d.lv : 1 };
+  return { open: list(d.open), widths, tab: typeof d.tab === "string" ? d.tab : "", added: list(d.added), lv: typeof d.lv === "number" ? d.lv : 1,
+           solo: typeof d.solo === "string" ? d.solo : "" };
 }
 
 function oldGrid(section: string): boolean {
@@ -87,13 +90,13 @@ function toSaved(section: string, layout: Layout): Saved {
   for (const id of ids) if (layout[id].width) widths[id] = layout[id].width as number;
   const tab = ids.find((id) => roleOfId(id) === "tab" && !layout[id].collapsed) || "";
   const added = ids.filter((id) => specs.find((s) => s.id === id)?.optional);
-  return { open, widths, tab, added, lv: versions.get(section) || 1 };
+  return { open, widths, tab, added, lv: versions.get(section) || 1, solo: soloOf(specs, layout, layoutStore(section).get().solo) };
 }
 
 export function layoutStore(section: string): Store<LayoutState> {
   let s = stores.get(section);
   if (!s) {
-    s = createStore<LayoutState>({ layout: null, custom: Object.keys(loadSaved(section)?.widths || {}).length > 0, focus: "", active: "", note: "" });
+    s = createStore<LayoutState>({ layout: null, custom: Object.keys(loadSaved(section)?.widths || {}).length > 0, focus: "", active: "", note: "", solo: "" });
     stores.set(section, s);
   }
   return s;
@@ -151,13 +154,14 @@ export function patchPanel(section: string, id: string, patch: Partial<PanelLayo
   let next: Layout = { ...cur, [id]: { ...cur[id], ...rest } };
   if (collapsed === false) next = openIn(next, specs, id, stageWidth(section), {}, FULL_PAGE);
   else if (collapsed === true) next = closeIn(next, specs, id);
+  if (collapsed !== undefined) layoutStore(section).update(() => ({ solo: "" })); // a panel opened or closed: both again
   setLayout(section, next, save);
 }
 
 /** Forget the person's choices: every drawer closed, the main thing shown, widths back to their content's. */
 export function resetLayout(section: string): void {
   writeLocal(layoutKey(section), null);
-  layoutStore(section).update(() => ({ layout: null, custom: false, note: "" }));
+  layoutStore(section).update(() => ({ layout: null, custom: false, note: "", solo: "" }));
 }
 
 /** The one-time note answered: "use the new one" forgets the saved view; "keep mine" just closes the note. */
@@ -191,6 +195,7 @@ export function showPanel(section: string, spec: PanelSpec, _float = false): voi
   if (!cur) return;
   const base = cur[spec.id] ? cur : { ...cur, [spec.id]: { collapsed: true, face: spec.face ?? "detail", z: 0 } };
   const specs = specsOf.get(section) || [];
+  layoutStore(section).update(() => ({ solo: "" }));
   setLayout(section, openIn(base, specs.some((s) => s.id === spec.id) ? specs : [...specs, spec], spec.id, stageWidth(section), {}, FULL_PAGE), true);
   focusPanel(section, spec.id);
 }
@@ -202,6 +207,26 @@ export function hidePanel(section: string, id: string): void {
   const next = { ...closeIn(cur, specsOf.get(section) || [], id) };
   delete next[id];
   setLayout(section, next, true);
+}
+
+/** 3.6.0.0 R4b, Only this: `id` alone on the stage -- a drawer takes the whole stage (opened first if it was closed;
+ *  the main thing stays mounted, hidden, and keeps following), the main thing (or its tab) puts its drawers aside. */
+export function showOnly(section: string, id: string): void {
+  const cur = layoutStore(section).get().layout;
+  const specs = specsOf.get(section) || [];
+  const spec = specs.find((s) => s.id === id);
+  if (!cur || !spec || !cur[id]) return;
+  const next = roleOf(spec) === "drawer" && cur[id].collapsed ? openIn(cur, specs, id, stageWidth(section)) : cur;
+  if (!soloOf(specs, next, id)) return; // the main thing with no drawer open is alone already
+  layoutStore(section).update(() => ({ solo: id }));
+  setLayout(section, next, true);
+}
+
+/** Show both again (the drawers open before Only this, beside the main thing). */
+export function showBoth(section: string): void {
+  const cur = layoutStore(section).get().layout;
+  layoutStore(section).update(() => ({ solo: "" }));
+  if (cur) setLayout(section, cur, true);
 }
 
 export { merge };

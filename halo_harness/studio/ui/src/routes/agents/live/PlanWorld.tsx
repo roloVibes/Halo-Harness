@@ -11,7 +11,7 @@ import { GroupHover } from "../hover/group";
 import type { PlanBox, PlanGeometry } from "./planLayout";
 import { RunNodeCard } from "./runLanes";
 import { LineLabel } from "./LineLabel"; // part 3: the latest hand-off on a line, its last three exchanges
-import { usePathIds } from "./useWaits";
+import { usePathIds } from "../../crew/live/useWaits";
 import { FAR_SCALE } from "./levels";
 
 type Props = { geo: PlanGeometry; now: number; selected: string; onMenu: (m: MenuAt) => void; onPick: (key: string) => void };

@@ -9,7 +9,7 @@ import { Button, Icon } from "../../lib/ui";
 import { short } from "../orchestra/format";
 import { askHandoff, record } from "./extras";
 import { age, panels, usePanels, type Run } from "./pstore";
-import { replaySession } from "../agents/live/replay"; // 3.4.1.0 R1: Live's scrubber
+import { replaySession } from "../crew/live/replay"; // 3.4.1.0 R1: Live's scrubber
 import { keyOf, localId, useFleet } from "./store";
 import type { AgentRef } from "./types";
 

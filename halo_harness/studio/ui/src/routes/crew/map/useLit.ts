@@ -7,10 +7,10 @@ import { createContext, useContext, useEffect, useMemo } from "react";
 import { useStore } from "../../../lib/store";
 import { useSessionRecord, type WorkRecord } from "../../../lib/work/record";
 import { useNow } from "../../fleet/store";
-import type { LiveNode } from "../../roles/liveModel";
-import { useLiveReplay, type LiveReplay } from "../../agents/live/replay";
+import type { LiveNode } from "../live/liveModel";
+import { useLiveReplay, type LiveReplay } from "../live/replay";
 import type { Change } from "../types";
-import { chosen, lit, startLit, useRunning, type LitSession } from "./litStore";
+import { chosen, lit, startLit, useAway, useRunning, type AwaySession, type LitSession } from "./litStore";
 import { mapHist } from "./mapRuns";
 import { eventsAt, overlay, type OvMap, type OvRow, type Overlay } from "./overlay";
 import { useMap } from "./mapStore";
@@ -18,6 +18,8 @@ import type { MapFile } from "./mapTypes";
 
 export type Lit = {
   mode: "off" | "live" | "replay"; session: LitSession | null; all: LitSession[]; other: boolean; nomap: boolean; ov: Overlay | null;
+  /** R4b: other machines' running sessions (listed in the picker, not lit here) */
+  away: AwaySession[];
   rec: WorkRecord | null; card: Change[]; replay: LiveReplay | null; map: string; now: number;
 };
 
@@ -34,6 +36,7 @@ export function useLit(): Lit {
   const file: MapFile | null = useMap((s) => s.detail?.map || null);
   const shown = useMap((s) => s.name);
   const all = useRunning();
+  const away = useAway();
   const pick = useStore(lit, (s) => s.pick);
   const r = useLiveReplay();
   const hist = useStore(mapHist, (s) => s.open);
@@ -52,10 +55,10 @@ export function useLit(): Lit {
     return overlay(nomap ? EMPTY : file, rows, events || [], wall);
   }, [replay, hist, session, other, nomap, file, rec, events, wall, shown]);
   const mode = replay ? "replay" : session ? "live" : "off";
-  return { mode, session, all, other, nomap, ov, rec, card: other ? NONE : card, replay, map: replay ? hist?.map || "" : session?.map || "", now: replay ? replay.t : wall };
+  return { mode, session, all, away, other, nomap, ov, rec, card: other ? NONE : card, replay, map: replay ? hist?.map || "" : session?.map || "", now: replay ? replay.t : wall };
 }
 
-export const OFF: Lit = { mode: "off", session: null, all: [], other: false, nomap: false, ov: null, rec: null, card: NONE, replay: null, map: "", now: 0 };
+export const OFF: Lit = { mode: "off", session: null, all: [], away: [], other: false, nomap: false, ov: null, rec: null, card: NONE, replay: null, map: "", now: 0 };
 /** MapMain computes it once (useLit) and every part of the tab reads it here. */
 export const LitCtx = createContext<Lit>(OFF);
 export const useLitNow = (): Lit => useContext(LitCtx);

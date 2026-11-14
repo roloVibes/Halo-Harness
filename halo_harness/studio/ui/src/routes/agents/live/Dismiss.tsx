@@ -4,7 +4,7 @@
 import type { MouseEvent } from "react";
 import { ackFailed } from "../../roles/glow";
 import type { LiveAgent } from "../../roles/types";
-import { dismiss } from "./now";
+import { dismiss } from "../../crew/live/now";
 
 export function DismissFailed({ k, name }: { k: string; name: string }) {
   const go = (e: MouseEvent) => {

@@ -22,8 +22,11 @@ export function HoverCardHost() {
   useLayoutEffect(() => {
     const el = box.current;
     if (!el || !shown) return;
-    const a = shown.el.getBoundingClientRect();
-    if (!shown.el.isConnected || (a.width === 0 && a.height === 0)) return hideHover(shown.id);
+    const r = shown.el.getBoundingClientRect();
+    // 3.6.0.0 R4b: a box whose controls stand out of its edge (the Map's connect dot) names how far: the card clears them
+    const pad = Number(shown.el.dataset.hoverPad) || 0;
+    const a = pad ? { left: r.left - pad, top: r.top, right: r.right + pad, bottom: r.bottom } : r;
+    if (!shown.el.isConnected || (r.width === 0 && r.height === 0)) return hideHover(shown.id);
     const p = place(a, el.offsetWidth, el.offsetHeight, window.innerWidth, window.innerHeight);
     if (!at || at.id !== shown.id || at.left !== p.left || at.top !== p.top || at.side !== p.side) setAt({ ...p, id: shown.id });
   });

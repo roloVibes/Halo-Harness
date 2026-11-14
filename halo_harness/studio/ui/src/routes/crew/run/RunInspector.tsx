@@ -13,9 +13,9 @@ import { stopRun } from "../../orchestra/sync";
 import type { Lane, RunPayload } from "../../orchestra/types";
 import { useFleet } from "../../fleet/store";
 import { runSession, WatchInSession } from "../../session/Watch";
-import { clearPick, pickLive, setInspectorPage, useInspectorPage } from "../live/scope";
+import { clearPick, pickLive, setInspectorPage, useInspectorPage } from "../../agents/live/scope";
 import { ownsOf } from "./Owns";
-import { reviewPlan } from "./planPanel";
+import { reviewPlan } from "../../agents/run/planPanel";
 import { ClaimsPage, DiffPage, LogPage, PAGES, PlanPage, TestPage, type RunPage } from "./RunPages";
 
 function Stop({ run }: { run: string }) {

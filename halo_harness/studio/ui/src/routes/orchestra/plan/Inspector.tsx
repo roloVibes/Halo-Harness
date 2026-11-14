@@ -13,7 +13,7 @@ import type { Give, Need } from "../types";
 import { dropLane, patchJob } from "./actions";
 import { NO_JOBS, problemsOf, usePlan } from "./store";
 import type { PlanJob } from "./types";
-import { LaneClaims } from "../../agents/run/Owns";
+import { LaneClaims } from "../../crew/run/Owns";
 
 const KINDS: Give["kind"][] = ["files", "summary", "artifact"];
 

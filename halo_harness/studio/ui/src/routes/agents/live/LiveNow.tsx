@@ -6,13 +6,13 @@
 import { useMemo } from "react";
 import { useHover } from "../../../lib/hover/useHover";
 import { HoverBody } from "../../../lib/hover/HoverBody";
-import type { LiveNode } from "../../roles/liveModel";
-import { narrate } from "./narrate";
+import type { LiveNode } from "../../crew/live/liveModel";
+import { narrate } from "../../crew/live/narrate";
 import type { PlanGeometry } from "./planLayout";
-import { useWaits } from "./useWaits";
-import { secsWords } from "./waits";
-import { useLiveReplay } from "./replay";
-import { waitsAt } from "./timeline";
+import { useWaits } from "../../crew/live/useWaits";
+import { secsWords } from "../../crew/live/waits";
+import { useLiveReplay } from "../../crew/live/replay";
+import { waitsAt } from "../../crew/live/timeline";
 
 /** Scroll the canvas so the node of `id` sits in its middle. */
 export function centreNode(id: string): boolean {

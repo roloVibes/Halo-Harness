@@ -11,15 +11,15 @@
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
 import { cost, short } from "../../orchestra/format";
-import { history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
+import { history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "../../agents/live/historyStore";
 import { CardPage } from "./ReportCard";
-import { tickKey, tickedRefs, toggleTick, useCompare } from "./compareStore";
+import { tickKey, tickedRefs, toggleTick, useCompare } from "../../agents/live/compareStore";
 import { ComparePage } from "./Compare";
 import { RunReport } from "../run/RunReport";
 import { openFileReplay, openLiveReplay, useLiveReplay } from "./replay";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
-import { took } from "./GroupBox";
+import { took } from "../../agents/live/GroupBox";
 
 const KIND: Record<string, string> = { session: "session", run: "goal run", file: "file" };
 

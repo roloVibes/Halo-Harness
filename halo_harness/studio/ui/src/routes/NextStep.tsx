@@ -3,7 +3,7 @@
 // left the story with the core for the design pack). 3.4.0.0 D "the runs fold": Runs' Start view went; its step is
 // Live's Run a goal panel -- Cast -> Run a goal -> Cast. The button opens it.
 import { goSection } from "../lib/store";
-import { openGoal } from "./agents/run/goalStore";
+import { openGoal } from "./crew/run/goalStore";
 
 export type StoryStep = "cast" | "goal";
 export const STORY: StoryStep[] = ["cast", "goal"];

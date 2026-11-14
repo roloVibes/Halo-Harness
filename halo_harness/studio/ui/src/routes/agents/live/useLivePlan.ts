@@ -7,9 +7,9 @@
 import { useMemo } from "react";
 import type { WorkRecord } from "../../../lib/work/record";
 import type { Density } from "../../roles/liveLayout";
-import type { LiveNode } from "../../roles/liveModel";
+import type { LiveNode } from "../../crew/live/liveModel";
 import { useRoles } from "../../roles/store";
-import { useLiveReplay } from "./replay";
+import { useLiveReplay } from "../../crew/live/replay";
 import { NEAR_H, type Level } from "./levels";
 import { shapeOf } from "./liveGeo";
 import { groupBlocks, placeAgents, planBlocks, type Placement, type PlanBlockDef } from "./planModel";

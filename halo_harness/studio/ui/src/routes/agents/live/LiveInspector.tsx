@@ -6,7 +6,7 @@
 import { Button } from "../../../lib/ui";
 import { Watched } from "../../roles/LiveTab";
 import { LiveGlance } from "./LiveGlance";
-import { RunInspector } from "../run/RunInspector";
+import { RunInspector } from "../../crew/run/RunInspector";
 import { clearPick, useLivePick } from "./scope";
 
 function Back() {
