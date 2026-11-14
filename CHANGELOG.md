@@ -34,6 +34,13 @@ Every model field in Studio is a picker of the models you have: you never type a
 - `background.self_turns` (default 3) caps such turns in a row with no message from you; the session's spend cap stops them too; either says so in one line.
 - `background.when_done` (Settings -> Steer and turn): `continue` (the default), `tell` (shown only; your next message reads it) or `wait` (the behaviour before). A finish during a running turn, `-p` and the other headless runs are unchanged.
 
+### Also
+
+- **A path cut in half is still private.** A task is shortened to 200 characters before a replay is saved; when the
+  cut landed inside a home or project path, the stub that was left was kept as it was. It is now rewritten like the
+  whole path (`~...`, `....`), as a cut-off name already was.
+- **Dependencies:** `opentelemetry-api` 1.45.2 (CVE-2026-126360 in 1.45.1, found by the audit gate).
+
 ## [3.4.1.2] - 2026-11-12
 
 A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can

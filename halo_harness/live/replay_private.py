@@ -25,6 +25,8 @@ import re
 from pathlib import Path
 from typing import Iterable, Optional
 
+from halo_harness.live.replay_cut import cut_name_rule, cut_path_rule
+
 SEP = r"[\\/]+"
 _LEAD = r"(?<![\w.~-])"  # a POSIX path starts here: not inside a word or another path
 _TAIL = r"(?:(?P<sep>[\\/]+)(?P<rest>[^\s\"'`<>|;,]+)|(?![\w-]|\.\w))"
@@ -163,22 +165,6 @@ def _variants(s: str) -> list:
     return out + ([unescaped, unicodedata.normalize("NFKC", unescaped)] if unescaped != folded else [])
 
 
-_CUT = re.compile(r"([^\W_]{3,})(\.\.\.|…)$")
-
-
-def _cut_rule(names: list, word: str):
-    """An excerpt cut short ("... as zedteste...") can end inside a name, where the whole-name rule cannot see it: a
-    word of 3+ letters right before the closing `...` that begins a name is that name."""
-    low = [str(n).lower() for n in names if n]
-
-    def rule(s: str) -> str:
-        m = _CUT.search(s)
-        if m and any(n.startswith(m.group(1).lower()) and n != m.group(1).lower() for n in low):
-            return s[:m.start(1)] + word + m.group(2)
-        return s
-    return rule
-
-
 def scrub(payload, root=None, *, homes=None, users=None, machines=None):
     """The payload with its paths and names rewritten (see the module's doc); `root` is the project folder. 3.4.1.2:
     the names everywhere but in a path the root rule made project-relative (URLs, `user@host`, `..` and other
@@ -192,7 +178,8 @@ def scrub(payload, root=None, *, homes=None, users=None, machines=None):
     users = list(users) if users is not None else _users(homes)
     machines = list(machines) if machines is not None else _machines()
     names = [r for r in (_name_rule(users, "<user>"), _name_rule(machines, "<machine>")) if r]
-    names += [_cut_rule(users, "<user>"), _cut_rule(machines, "<machine>")]
+    names += [cut_name_rule(users, "<user>"), cut_name_rule(machines, "<machine>")]
+    path_rules.append(cut_path_rule(homes, root))
 
     def rules(s: str, owner: bool) -> str:
         for rule in path_rules:
