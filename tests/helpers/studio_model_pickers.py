@@ -73,8 +73,17 @@ def models_panel(c, url: str) -> dict:
     c.js(f"{TRIG}.focus(); 1")
     c.key("a")
     out["key_open"] = c.wait(f"{SEARCH}?.value", 10)
+    c.wait(f"{ACTIVE} === 'model-search'", 10)  # the state Esc acts on: the focus in the search box
     c.key("Escape")
     out["esc_closed"] = c.wait(f"!{SEARCH} && 'closed'", 10)
+    # an Esc that lands while the focus is still on the field (pressed before the search box takes it) closes it too
+    c.wait(f"{ACTIVE} === 'model-select'", 10)  # the close hands the focus back to the field
+    c.key("a")
+    c.wait(f"{ACTIVE} === 'model-search'", 10)
+    c.js(f"{TRIG}.focus(); 1")
+    c.wait(f"{ACTIVE} === 'model-select' && !!{SEARCH}", 10)
+    c.key("Escape")
+    out["esc_on_field_closed"] = c.wait(f"!{SEARCH} && 'closed'", 10)
     return out
 
 
@@ -120,6 +129,7 @@ def settings(c, url: str, state: Path) -> dict:
             break
         time.sleep(0.2)
     out["compaction_saved"] = cfg().get("compactionModel")
+    c.wait(f"{field}.querySelector('[data-testid=model-select]')?.dataset.value === {json.dumps(BETA)}", 15)  # the page heard the save
     open_picker(c, field)
     c.js(f"{field}.querySelector('[data-testid=settings-model-inherit]').click(); 1")
     for _ in range(60):

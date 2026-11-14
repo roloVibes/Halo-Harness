@@ -22,6 +22,7 @@ def scope(field: str) -> str:
 
 def open_picker(c, field: str, timeout: float = 15) -> None:
     t = trigger(field)
+    c.wait(f"!!{t} && !{t}.disabled", timeout)  # a field is disabled while its last pick saves: a click then does nothing
     c.js(f"{t}.scrollIntoView({{block: 'center'}}); 1")
     c.js(f"{t}.click(); 1")
     c.wait(f"!!{scope(field)}.querySelector('[data-testid$=\"-search\"]')", timeout)

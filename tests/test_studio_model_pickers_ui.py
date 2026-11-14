@@ -52,6 +52,7 @@ def test_type_to_filter_enter_picks_esc_closes(ctx: Ctx):
     ctx.check(f"Test answers beside it, got {got.get('probe')!r}", got.get("probe") == "fakeco/beta-2: ok in 42 ms")
     ctx.check(f"a letter opens it searched, got {got.get('key_open')!r}", got.get("key_open") == "a")
     ctx.check("Esc closes it", got.get("esc_closed") == "closed")
+    ctx.check("an Esc before the search box has the focus closes it too", got.get("esc_on_field_closed") == "closed")
 
 
 @test

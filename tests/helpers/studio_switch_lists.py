@@ -55,15 +55,24 @@ def setup_list(c, url, ctx) -> dict:
     c.go(url.replace("mode=roles", "mode=setup"))
     goto(c, "model")
     rows = qa("[data-testid=setup-model-row]")
-    # wait for the value asserted: the rows can be counted mid-redraw (a Linux run saw 300 rows, 200 refs, once)
-    uniq = f"new Set({rows}.map((r) => r.dataset.ref)).size"
-    out = {"rows": c.wait(f"{rows}.length === {N} && {uniq} === {N} && {rows}.length", 20),
+    # the count and the distinct refs read in ONE evaluation, so they describe the same list
+    both = f"(() => {{ const r = {rows}; return [r.length, new Set(r.map((x) => x.dataset.ref)).size]; }})()"
+    out = {"rows_and_refs": c.wait(f"(() => {{ const b = {both}; return b[0] === {N} && b[1] === {N} && b; }})()", 20),
            "count_line": c.js(_text("[data-testid=setup-model-count]"))}
-    out["refs_unique"] = c.js(uniq)
+    out["rows"], out["refs_unique"] = out["rows_and_refs"]
     _type(c, "[data-testid=setup-model-search]", "summar")
     out["searched"] = c.wait(f"{rows}.length === 1 && {rows}.map((r) => r.dataset.ref)", 10)
     _type(c, "[data-testid=setup-model-search]", "")
     c.wait(f"{rows}.length === {N}", 20)
+    # 3.4.1.3 CI red: a new array of the same list (a pick here) restarted the window at 200 rows, so every row past
+    # 200 -- the picked one too -- blinked out for a frame. Watch every DOM change through a pick of row 250.
+    c.js(f"""(() => {{ const n = () => {rows}.length; window.__fewest = n();
+      window.__mo = new MutationObserver(() => {{ window.__fewest = Math.min(window.__fewest, n()); }});
+      window.__mo.observe(document.querySelector('[data-testid=setup-default-model]'), {{childList: true, subtree: true}});
+      {rows}.find((r) => r.dataset.ref === 'or:mock/m250').click(); return 1; }})()""")
+    c.wait("document.querySelector('[data-testid=setup-model-line]')?.dataset.ref === 'or:mock/m250'", 10)
+    c.wait(f"{rows}.length === {N}", 10)
+    out["fewest_rows_through_a_pick"] = c.js("window.__mo.disconnect(), window.__fewest")
     return out
 
 

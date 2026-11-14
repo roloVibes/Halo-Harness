@@ -14,7 +14,9 @@ export function WindowedRows<T>({ items, render, testid }: { items: T[]; render:
   const first = Math.min(items.length, WINDOW_AT);
   const [shown, setShown] = useState(first);
   useEffect(() => {
-    setShown(Math.min(items.length, WINDOW_AT));
+    // 3.4.1.3 CI fix: a new array of the same list (a pick, the providers' state arriving) keeps the rows already
+    // drawn; restarting at WINDOW_AT dropped every row past 200 for a frame (a picked row 250 blinked out).
+    setShown((n) => Math.min(items.length, Math.max(n, WINDOW_AT)));
   }, [items]);
   useEffect(() => {
     if (shown >= items.length) {

@@ -1,5 +1,38 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.4.1.3] - 2026-11-13
+
+Every model field in Studio is a picker of the models you have: you never type a model reference from memory. Every drawing in Studio zooms the same way: Ctrl or Cmd + wheel, or a pinch. Finished background work shows up, and the agent picks it up, without you sending a message.
+
+### Pick, don't type
+
+- One model picker everywhere (`studio/ui/src/routes/shared/picker/`): the models of the providers set up here, grouped by provider with each provider's state in one line, searchable (ref, name, provider, best-at, takes, `cheap`, `free`, `local`, a window like `200k`), one line per row with what the model takes, keys (type to filter, Up / Down, Enter, Esc). Agents -> Models' **Test a model** (it was a bare text box), a bio's preferred model, fallback and schedule model, a lineup card's and a tier's model, the escalation's Switch to, the goal and workflow forms, the plan review, Setup's default model, Settings' model rows (`model`, `compactionModel`, both steward models, every role's model, `embeddings.model` with the Ollama models only), Session's New session, the Prompt panel's `/model `, and the design and signal packs' `model` settings all open it.
+- A saved model the catalog lacks shows as it is, marked "not in your catalog", and stays selectable; with no model at all the picker says why in one line with Refresh or Setup.
+- The last row of the picker, always: "use a reference that is not listed", checked as you type against the session's own parser (`GET /api/models/check`); a wrong prefix says which prefixes exist.
+- A field that needs a capability (a bio's `models.needs`) lists the models that state it first and dims the others.
+- Agents -> Models fits its panel: no sideways scroll; long lines wrap or end in an ellipsis with the whole on hover.
+- A static check (`tests/test_studio_model_pickers.py`) fails when a new text field in Studio is labelled as a model field without going through the picker.
+
+### Zoom and pan, the same on every drawing
+
+- One module (`studio/ui/src/lib/canvasNav.ts`) for Agents -> Live (and its replay), Session's Map, Agents -> Cast and the design pack's artboards: Ctrl + wheel (Cmd on a Mac) zooms around the pointer, a trackpad pinch zooms smoothly, a wheel notch is one step; the page's own zoom stays put over a drawing; a plain wheel scrolls, Shift + wheel pans sideways; `+`, `-` and `0` on a focused drawing; drag the background to pan, double-click it to fit; the zoom is kept for the visit.
+- Session's Map opens fitted to its panel but never smaller than its text reads: a bigger tree opens on the main agent with "more than shows: Fit shows all", and has its own - / % / + / Fit buttons; a resize no longer throws your zoom away.
+- The plan review and the Workflows board keep scrolling only: both are in the Agents section the next release replaces.
+
+### Finished background work, without a prompt
+
+- A background sub-agent or Bash job that finishes while the session is idle shows at once, with no model call: one transcript line and the status bar in the terminal (`◼ background work finished: ...`), the session's row in Studio's Attention (Agents -> Live's chip, the glance, and the browser alert when `studio.alerts` is `browser`), the line in Session's feed (`agent/bg_pickup.py`).
+- Then the main agent takes a turn by itself to read the results and report or carry on (`↻ Halo picks up the finished background work`): finishes within 3 s are one turn; never while the input box holds text or an ask is open; the turn carries no message of yours, only the finished work under the status-notice frame (not a message from the human), and is logged as such.
+- `background.self_turns` (default 3) caps such turns in a row with no message from you; the session's spend cap stops them too; either says so in one line.
+- `background.when_done` (Settings -> Steer and turn): `continue` (the default), `tell` (shown only; your next message reads it) or `wait` (the behaviour before). A finish during a running turn, `-p` and the other headless runs are unchanged.
+
+### Also
+
+- **A path cut in half is still private.** A task is shortened to 200 characters before a replay is saved; when the
+  cut landed inside a home or project path, the stub that was left was kept as it was. It is now rewritten like the
+  whole path (`~...`, `....`), as a cut-off name already was.
+- **Dependencies:** `opentelemetry-api` 1.45.2 (CVE-2026-126360 in 1.45.1, found by the audit gate).
+
 ## [3.4.1.2] - 2026-11-12
 
 A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can
@@ -1727,133 +1760,3 @@ and ran the Orchestra sample on that copy whatever the Team step applied, and ev
 #### Docs
 - COMMANDS-init.md, HANDBOOK.md, GLOSSARY.md ("lineup", "guided first run"), STUDIO-shell.md, STUDIO-setup.md and
   WIZARD.md: the run rehearses your lineup; no copy anywhere.
-
-## [3.3.14.0] - 2026-11-09
-
-**The review's fix pass: the token and the grants, then children and keys.** The November code and security review
-(plans/REVIEW-2026-11.md) found the doors that skip Halo's own machinery; 3.3.13.1 closed the three highs, and this
-version closes the mediums, with the simple lows beside them: first what a pack's page can reach through Studio's
-token and how a pack's grants and code are loaded (R1), then the children a service or an engine leaves and the keys
-they inherit (R2). The extension API stays 1.2: the client `api.lib` hands a pack's page is now scoped to that pack,
-which is what `api.lib` was always meant to be.
-
-### R1: the token and the grants
-
-#### Changed
-
-- **A pack's page cannot grant itself more** (REVIEW #4: STUDIO-5, PACKS-2, PERMS-3). The writes that change what runs
-  here -- a pack's grant, enable, disable, install, sources, update, rollback, remove, service, settings and config,
-  the bundles, Setup, Settings and every write under `sessions/` (a new session, a command, a prompt) -- answer 403
-  "this needs the owner's own page" unless the request carries `X-Halo-Owner`, an HMAC of a per-launch salt keyed by
-  the launch token (`studio/owner_proof.py`). The served page carries the salt as `data-owner-salt` (a navigation
-  only); the shell's first module (`ui/src/lib/owner.ts`) reads it and removes it before any pack module loads and
-  keeps it in its own closure; only the shell's own client (`lib/api.ts` `call`) sends the header. `api.lib`'s
-  `api`, `fetchJson` and `authUrl` are a client scoped to the pack (`ui/src/packlib/scoped.ts`): its own routes, its
-  own `pack/<id>/` files and calls, its own canvas layouts and the read-only routes a page draws from; anything else
-  rejects with an Error naming that rule. Pack modules are imported one at a time with `__haloStudioLib` set to that
-  pack's lib while each evaluates (`routes/packs/importPack.ts`), so `@halo/api` is the pack's own client too.
-  `studio-script`'s grant line: "its Studio script runs in the page with a client scoped to this pack's own routes";
-  EXTENSION_API.md's `api.lib` section states the scope ("The client's scope").
-- **The launch token leaves pack URLs** (#5: STUDIO-1, PACKS-3). What a page embeds where no header goes (an
-  iframe, an image, a video, a module import) carries the pack's own key, `?k=<HMAC("pack-raw:" + id)>`, accepted
-  only on a GET of that pack's `/api/packs/<id>/...` and `/api/pack/<id>/file/...`; `?t=` is no longer taken there.
-  `GET pack/registry` names each pack's `key`; the design pack's frames and assets go through `authUrl` as before and
-  now carry the key; its files.py docstring says what the frame can and cannot reach.
-- **`studio-routes` says what it is** (#34: PERMS-9): "runs this pack's Python inside Studio's server, with Halo's
-  keys and Studio's token; turning it off takes effect at Studio's restart for work already started", in the grant
-  line and EXTENSION_API.md; unloading a pack's routes calls the routes module's own `unload()` when it defines one.
-- **A `run:` command needs the `bash` grant** (#9: PACKS-4, PERMS-10). `packs/manifest.needed` adds `("bash",
-  "command <name> (run:)")`, so the Pack Manager row and `halo pack enable` name it; until it is granted the command
-  keeps its prompt form and `halo pack doctor` says what is missing (and when the pack does not request `bash`, that
-  its pack.yaml needs it). `HALO_PACK_ID` is the pack's id from its record (`make_run` takes it), also for a pack linked
-  from a folder of another name.
-
-#### Fixed
-
-- **Every non-media type is sandboxed; a raw pack body gets a CSP** (#6: STUDIO-3, PACKS-6). The design pack's
-  `_files/` adds `sandbox allow-scripts` to every response that is not an image (SVG is not), a video, an audio file,
-  a PDF or a font, so `.xhtml`, `.xml`, `.xsl`, `.svgz` and an unknown type get an opaque origin; a pack route's raw
-  answer with no CSP of its own gets `sandbox; default-src 'none'`.
-- **Only a loaded pack is unloaded, never on a failed read** (#7: STUDIO-4). `packs_routes.find` unloads only an id it
-  loaded (a URL's `<id>.server` drops nothing); `packs/contribute._active` answers the last good read when a registry
-  read raises (said once), so a pack folder mid-update unloads nobody's routes; a pack package gone from
-  `sys.modules` is one fresh import.
-- **The routes cache follows the install record** (#8: PACKS-5). The cache is keyed on the record's version, install
-  time and last update as well as the file's time, and `halo pack update` / `rollback` drop the pack's routes
-  (`grants.changed(unload=)` -> `notify_studio`), so an update that changes only a sibling module answers at once.
-- **The shell is not framed by another page** (#32: STUDIO-2): `frame-ancestors 'self'` in the shell's CSP and
-  `X-Frame-Options: SAMEORIGIN` on `/` and `index.html`.
-- **The access log keeps no token** (#33: STUDIO-6): with `HALO_STUDIO_LOG` set, request lines say `t=...` and `k=...`.
-- **The render route checks its project** (#38: PACKS-11): the design pack's `POST render` takes only a project slug,
-  so `../x` answers 404.
-
-### R2: children and keys
-
-#### Changed
-
-- **An untrusted project's bio or lineup does not pick your keys or the host** (REVIEW #10: PERMS-4). A bio or lineup
-  that came with the project (`.halo/agents`, `.halo/teams`, a project-scope pack), read in a folder Halo does not trust
-  yet, loses `secrets`, `environment.secrets`, `environment.pass_to_tools` and its isolation's `image`, `mounts`,
-  `user`, `group` and `env`; the lane's opt-in lines say what was not applied and why (`isolation/spec.py`
-  `untrusted_split`). Your own `~/.halo` files keep them; trusted, the project's do too.
-- **An `after` policy covers the live output** (#11: PERMS-5). A call's `tool_progress` frames go through the same
-  verdict as its result, taken once per call (`agent/policy_gate.progress`): pass streams them as they were, redact
-  sends the redacted text, drop sends none -- to the TUI, Studio and every control-socket client, a phone included.
-- **Read / Edit deny rules gate PowerShell** (#13: PERMS-7). `Get-Content` / `cat` / `gc` / `type`, `Select-String`,
-  `Import-Csv`, `Set-Content`, `Add-Content`, `Out-File`, `Clear-Content`, `New-Item`, `Remove-Item`, `Copy-Item` /
-  `Move-Item`, `>` / `>>` and `[IO.File]::*` on a denied path are denied the way Bash's readers and redirects are,
-  through script blocks, `powershell -Command` / `cmd /c` payloads and `cd` (`halo_harness/permissions_ps.py`); a Read
-  ask rule asks for the readers.
-- **Every managed server gets a tool child's environment** (#22: LOCAL-2). An engine, llama-server, mlx_lm and the
-  speech servers start with Halo's provider keys and the env file's keys left out (`providers.config.tool_child_env`
-  through `engines/launch_env.child_env`); an engine adds back only its own key.
-- **`--lan` is announced only when the engine checks the key** (#24: LOCAL-4). After the start, one request without
-  the key goes to the engine's loopback port; a 401 / 403 is "every address, behind Halo's key (it refused a request
-  without the key)", anything else stops it and starts it again on 127.0.0.1, the line saying the engine does not check
-  Halo's key and the registry row carrying `lan_off`.
-- **A FreeToken server's long wait is the first request's only** (#45: LOCAL-11): `engines/adapter.widen` gives the
-  30-minute wait once per url and server.
-
-#### Fixed
-
-- **Stopping a slow service ends its children** (#17: CORE-3, REMOTE-6, PERMS-13, PACKS-10). A pack service runs in
-  its own process group -- a new session on POSIX, `CREATE_NEW_PROCESS_GROUP` and a Job object with
-  KILL_ON_JOB_CLOSE on Windows (`supervise/procgroup.py`) -- and a stop signals the group (SIGTERM, then SIGKILL after
-  the wait; the Job ended on Windows), so signal-cli's JVM ends with its bridge; a service that ended on its own takes
-  what it left running with it.
-- **A Start / Stop written during a tick is not lost** (#25: CORE-7, PERMS-11, PACKS-8). The tick removes only the
-  asks it read from `services-want.json`, under the file's lock, which `want()` takes too.
-- **Engine rows carry `proc_start`** (#21: LOCAL-1). `halo local serve --runtime <engine>` records the process's start
-  time; "already running", `halo local stop` and the exit sweep compare pid and start, so a reused pid is never
-  signalled.
-- **The steward skips request text in a log** (#23: LOCAL-3). A prompt line (Ollama's `prompt="..."`, a `"content":`
-  / `"messages":` body, a pretty-printed request) is no server event in any classifier or line reader
-  (`ollama_steward/body_lines.py`, the rule the host already used for a peer's log view); the server's read state
-  counts them (`body_lines_skipped`). A tool result saying "CUDA out of memory" raises no finding, fingerprint or
-  reply-cut proposal.
-- **The policy pipe has a deadline** (#12: PERMS-6). Writing a request has the policy's budget; a process that stops
-  reading is ended there, the call says "policy did not answer in <n>s" and its `on_error` applies, and the next call
-  starts it again.
-- **A Hugging Face download stays in its model folder** (#14: PERMS-8). A file name or commit with a drive (`C:evil`),
-  any `:`, a backslash, a leading `/` or a `..` part answers one line and writes nothing; the target must resolve
-  inside the folder; the `.part` file is named from the hub's hash only when it is hex (`providers/hf_paths.py`).
-- **A phone's files land after the checks** (#20: REMOTE-3). The signal pack takes a message's files into `inbox/`
-  only after the sender, signature and rate checks; a refused message's files are deleted from signal-cli's folder; a
-  file sent with a `/command` is deleted and the phone told once; a running bridge clears `inbox/` files past a day
-  every hour.
-- **Small ones beside them:** a converted voice note leaves no temp folder (#29: REMOTE-4, PACKS-7); a sub-agent never
-  keeps a Skill's temporary grant (#36: PERMS-15); `halo local log <id>` and Studio's log route read only a registry
-  row's log, 404 otherwise (#39: LOCAL-5); a host's engine offer is reached on the paired host's address, an offer
-  whose runtime is no engine id skipped and said once (#40: LOCAL-6); a peer row with a port that is not 1-65535 is
-  dropped before placement and at the join (#41: LOCAL-7); a server's rotation set is its own files only, so
-  llama-6000 never reads llama-60001 (#42: LOCAL-8); a program only the current folder holds is not run (#43:
-  LOCAL-9); the runtime fetch's zip comment says what guards it and its downloaded archives are removed (#35:
-  PERMS-14).
-
-#### Docs
-
-- #26 `health: {url}` is out of the services docs and the manifest comment; EXTENSION_API.md says a url health is
-  accepted and not checked in this version. #27 SUPERVISE.md: the Windows at-logon task does not carry
-  `JAVA_TOOL_OPTIONS` (set it for your user) and a systemd value is written as given (quote it yourself). #37
-  COMMANDS-packs-kit.md: `halo pack test` runs a pack's own tests with your home and the network unless they set a
-  scratch home (the template's do).
