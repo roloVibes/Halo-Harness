@@ -32,7 +32,7 @@ function take(f: FeedFrame): void {
     });
     return;
   }
-  lit.update((s) => ({ events: { ...s.events, [sid]: [...(s.events[sid] || []), { event: f.event, data: d }].slice(-MAX_EVENTS) } }));
+  lit.update((s) => ({ events: { ...s.events, [sid]: [...(s.events[sid] || []), { event: f.event, data: { ...d, seen: Date.now() / 1000 } }].slice(-MAX_EVENTS) } }));
 }
 
 let bound = false;

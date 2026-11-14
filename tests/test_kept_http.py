@@ -58,6 +58,49 @@ def _calls(ctx: Ctx, srv) -> None:
 
 
 @test
+def test_a_port_number_that_comes_back_is_not_the_old_server(ctx: Ctx):
+    """Server A closes its listener (its kept connection's handler thread lives on); server B gets A's port number.
+    A call that names B is answered by B, not over the connection kept for A."""
+    import http.server
+    from tests.helpers import kept_http
+
+    def make(name: str, port: int):
+        class H(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def do_GET(self):  # noqa: N802
+                data = name.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def log_message(self, *a):
+                pass
+        srv = http.server.ThreadingHTTPServer(("127.0.0.1", port), H)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        return srv
+
+    a = make("a", 0)
+    port = a.server_address[1]
+    b = None
+    try:
+        first = kept_http.request(port, "GET", "/", None, {}, timeout=10, who="a")[1]
+        a.shutdown()
+        a.server_close()
+        b = make("b", port)
+        second = kept_http.request(port, "GET", "/", None, {}, timeout=10, who="b")[1]
+        ctx.check(f"A answered A's call and B answered B's, got {first!r} {second!r}", (first, second) == (b"a", b"b"))
+    finally:
+        conn = kept_http._conns().pop(port, (None, ""))[0]
+        if conn is not None:
+            conn.close()
+        if b is not None:
+            b.shutdown()
+            b.server_close()
+
+
+@test
 def test_a_connect_with_no_free_port_is_tried_again(ctx: Ctx):
     from tests.helpers import kept_http
     tries: list = []

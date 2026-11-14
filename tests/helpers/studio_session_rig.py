@@ -100,7 +100,7 @@ class StudioSessionRig:
         status, data, _h = request(self.server.server_address[1], method, "/api/" + path,
                                    json.dumps(body).encode("utf-8") if body is not None else None,
                                    {"Authorization": "Bearer " + self.server.token, "Content-Type": "application/json",
-                                    HEADER: header_for(self.server)}, timeout=30)
+                                    HEADER: header_for(self.server)}, timeout=30, who=self.server.token)
         return status, json.loads(data.decode("utf-8") or "{}")
 
     # ---- this harness's session ---------------------------------------------------

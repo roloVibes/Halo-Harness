@@ -78,7 +78,7 @@ class Studio:
         heads = {"Authorization": "Bearer " + (self.srv.token if token is None else token), HEADER: header_for(self.srv)}
         if data is not None:
             heads["Content-Type"] = "application/json"
-        status, raw, _h = request(self.srv.server_address[1], method, "/api/" + path, data, heads, timeout=20)
+        status, raw, _h = request(self.srv.server_address[1], method, "/api/" + path, data, heads, timeout=20, who=self.srv.token)
         return status, json.loads(raw or b"{}")
 
     def get(self, path: str, token: "str | None" = None):

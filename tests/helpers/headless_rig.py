@@ -136,7 +136,7 @@ class HeadlessRig:
         status, data, _h = request(server.server_address[1], method, "/api/" + path,
                                    json.dumps(body).encode("utf-8") if body is not None else None,
                                    {"Authorization": "Bearer " + server.token, "Content-Type": "application/json",
-                                    HEADER: header_for(server)}, timeout=30)
+                                    HEADER: header_for(server)}, timeout=30, who=server.token)
         return status, json.loads(data.decode("utf-8") or "{}")
 
     def rows(self) -> list:

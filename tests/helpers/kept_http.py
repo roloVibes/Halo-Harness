@@ -6,9 +6,10 @@ of the session's agent tree, an API call per step -- spent hundreds of ports a m
 400 in 12 s), and four Chrome shards beside the fast ones ran the range dry: `OSError: [WinError 10048] Only one usage
 of each socket address` raised from the rig's own connect, red beside the others and green alone.
 
-    request(port, method, path, body_bytes, headers, timeout) -> (status, bytes, headers)
-        one HTTP/1.1 connection per thread and port, kept between calls; a connection the server closed (an error
-        status closes it, an idle one times out) is opened again once, before anything was sent twice
+    request(port, method, path, body_bytes, headers, timeout, who) -> (status, bytes, headers)
+        one HTTP/1.1 connection per thread, port and server (`who`), kept between calls; a connection the server
+        closed (an error status closes it, an idle one times out) is opened again once, before anything was sent
+        twice; a connection kept for another server on the same port number is closed, never reused
     connect(open_fn, seconds=5.0)
         `open_fn()` tried again for a short, bounded time when the connect itself finds no free local port
         (WinError 10048 / EADDRINUSE, EADDRNOTAVAIL on Linux): a port comes back as TIME_WAIT entries expire
@@ -58,14 +59,25 @@ def _open(port: int, timeout: float) -> http.client.HTTPConnection:
     return conn
 
 
-def request(port: int, method: str, path: str, body: "bytes | None", headers: dict, timeout: float = 30.0):
-    """(status, body bytes, headers) over this thread's kept connection to `port`."""
+def request(port: int, method: str, path: str, body: "bytes | None", headers: dict, timeout: float = 30.0,
+            who: str = ""):
+    """(status, body bytes, headers) over this thread's kept connection to `port`.
+
+    `who` names the server meant (a rig passes its server's token). A port number comes back: a server that closed
+    its listener still has the handler thread of a kept connection alive, and the next test's server can be given
+    the same port, so a connection kept for the port alone answered from the OLD server (a POST answered 200 by
+    another test's server, Linux CI on 3.6.0.0 R4). A connection kept for another `who` is closed, never reused."""
     pool = _conns()
     for attempt in (0, 1):
-        conn = pool.get(port)
+        conn, kept_for = pool.get(port) or (None, "")
+        if conn is not None and kept_for != who:
+            conn.close()
+            pool.pop(port, None)
+            conn = None
         fresh = conn is None
         if fresh:
-            conn = pool[port] = _open(port, timeout)
+            conn = _open(port, timeout)
+            pool[port] = (conn, who)
         conn.timeout = timeout
         if conn.sock is not None:
             conn.sock.settimeout(timeout)

@@ -131,7 +131,7 @@ class CrewRig:
         if owner:
             heads[HEADER] = header_for(self.server)
         status, data, _h = request(self.server.server_address[1], method, "/api/" + path,
-                                   json.dumps(body).encode("utf-8") if body is not None else None, heads, timeout=60)
+                                   json.dumps(body).encode("utf-8") if body is not None else None, heads, timeout=60, who=self.server.token)
         return status, json.loads(data.decode("utf-8") or "{}")
 
     def __exit__(self, *exc) -> bool:

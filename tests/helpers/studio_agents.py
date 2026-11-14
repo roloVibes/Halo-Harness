@@ -166,7 +166,7 @@ class AgentsDriver(Driver):
         def call(method: str, path: str, body=None):
             status, raw, _h = request(port, method, f"/api/{path}", json.dumps(body).encode("utf-8") if body is not None else None,
                                       {"Authorization": "Bearer " + srv.token, HEADER: header_for(srv),
-                                       "Content-Type": "application/json"}, timeout=20)
+                                       "Content-Type": "application/json"}, timeout=20, who=srv.token)
             if status >= 400:
                 raise RuntimeError(f"{method} {path}: {status} {raw[:200]!r}")
             return json.loads(raw or b"{}")

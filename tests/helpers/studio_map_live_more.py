@@ -79,8 +79,9 @@ def zoom(c, rig, lv, sent) -> dict:
     press(c, plus)
     hand = c.wait(f"{world}.dataset.zoom !== '{before}' && {world}.dataset.zoom", 10)
     lv.spawn("n3wh3lp1", "general-purpose", "general-purpose", "or:mock/glm-5-coder", "Count the tests")
+    c.wait(f"!!{q('[data-helper=n3wh3lp1]')}", 15)  # the helper stays; the pulse is a few seconds: one wait each, in order
     hop(c, lv, "main -> code", "a second hand-off while zoomed")
-    c.wait(f"!!{q('[data-helper=n3wh3lp1]')} && {q('[data-testid=map-label][data-from=main][data-to=code]')}?.dataset.pulse === '1'", 15)
+    c.wait(f"{q('[data-testid=map-label][data-from=main][data-to=code]')}?.dataset.pulse === '1'", 10)
     return {"zoom": [hand, c.js(f"{world}.dataset.zoom")]}
 
 

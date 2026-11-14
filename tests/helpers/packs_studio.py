@@ -56,7 +56,7 @@ class PackStudio(PacksHome):
             heads[HEADER] = header_for(self.srv)
         if data is not None:
             heads["Content-Type"] = "application/json"
-        return request(self.srv.server_address[1], method, path, data, heads, timeout=20)
+        return request(self.srv.server_address[1], method, path, data, heads, timeout=20, who=self.srv.token)
 
     def call(self, method: str, path: str, body=None, *, owner: bool = True):
         status, raw, headers = self.raw("/api/" + path, method=method, body=body, owner=owner)

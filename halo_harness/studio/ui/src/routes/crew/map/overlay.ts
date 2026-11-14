@@ -159,7 +159,11 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number)
     else if (d.state === "start") {
       hops += 1;
       lines[k] = { t, task: str(d.task), why: str(d.why), background: !!d.background, running: true, skipped: "" };
-      if (now - t <= PULSE_S && now >= t) pulses.push({ from, to, task: str(d.task), t, background: !!d.background });
+      // a live frame is timed from when this page heard it (`seen`, litStore.ts): the session's clock and this
+      // page's are two machines' clocks, and a slow feed would otherwise never show a hand-off; a replay has no
+      // `seen` and is timed by the recording
+      const at = num(d.seen) ? Math.min(num(d.seen), now) : t; // heard between two ticks of `now`: it is now
+      if (now - at <= PULSE_S && now >= at) pulses.push({ from, to, task: str(d.task), t, background: !!d.background });
     } else if (d.state === "end") lines[k] = { ...was, running: false };
   }
   const all = Object.values(boxes);
