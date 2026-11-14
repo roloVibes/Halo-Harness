@@ -1,7 +1,8 @@
 """halo_harness.live.replay_cut -- redaction rules for a text that was CUT SHORT before the redactor saw it.
 
 live/history.py cuts a task to 200 characters and closes it with "..." before a replay is built, so the cut can
-land inside a name ("... as zedteste...") or inside a path ("... and /h...", "... C:\\Users\\zed..."), where the
+land inside a name ("... as zedteste...") or inside a path ("... and /h...", or a Windows home cut after its
+first letters), where the
 whole-name and whole-path rules of live/replay_private.py cannot match. These rules look only at the last run of
 characters before a closing "..." (or the one-character ellipsis):
 
