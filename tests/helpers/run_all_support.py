@@ -215,6 +215,10 @@ STATE_CACHES = (
     ("halo_packs.fleet.fleet.health", "_cache", "the health subset (disk of bridge_home(), providers), 60 s TTL"),
     ("halo_harness.peers.local_view", "_cache", "this home's registry sessions and their status"),
     ("halo_harness.studio.sessions_api", "_cache", "the live sessions of this home's registry"),
+    # 3.6.0.0 R3 (new modules moved shard neighbours): a pack's routes module is kept with the home that loaded it; the
+    # next module's pack install asked that deleted home, found the pack gone and unloaded halo_packs.<id>.* -- the
+    # module objects a later module's tests still hold (test_ext_api between two coach modules: ModuleNotFoundError)
+    ("halo_harness.studio.packs_routes", "_loaded", "a pack's routes module per pack id, with the home that loaded it"),
 )
 STATE_RESETS = (
     ("halo_harness.mcp.connectors_bridge", "reset_session_state", "the once-per-process connector discovery flag (its cache file lives in the state dir)"),
