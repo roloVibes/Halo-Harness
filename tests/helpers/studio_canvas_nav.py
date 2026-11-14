@@ -52,23 +52,30 @@ def wheels(c, scroller: str, world: str, target: str) -> dict:
         _wheel(c, x + w * 0.5, y + h * 0.5, -120, 2)
         time.sleep(0.15)
     c.js(f"{target}.scrollIntoView({{block: 'center', inline: 'center'}}); 1")
-    for i, (dy, mods, name) in enumerate(((-120, 2, "ctrl"), (-120, 4, "meta"), (-8, 2, "pinch"), (120, 0, "plain"))):
-        x, y, w, h = c.rect(target)
-        px, py = x + w * 0.5, y + h * 0.5
-        z0, b0 = zoom(), c.js(f"{SEEN}({scroller})")
-        c.mouse("mouseMoved", px, py)
-        _wheel(c, px, py, dy, mods)
-        if name == "plain":
-            import time
-            time.sleep(0.6)
-            out["plain"] = [z0, zoom()]
-            continue
-        c.wait(f"Math.abs(+{world}.dataset.zoom - {z0}) > 0.001", 10)
-        x2, y2, w2, h2 = c.rect(target)
-        # the point under the pointer stays: the same spot of the same box (within 6% of its size)
-        out[name] = {"from": z0, "to": zoom(), "kept": abs((px - x2) / w2 - 0.5) < 0.06 and abs((py - y2) / h2 - 0.5) < 0.06,
-                     "under": c.js(f"document.elementFromPoint({px}, {py}) && ({target}).contains(document.elementFromPoint({px}, {py}))"),
-                     "box": [b0, c.js(f"{SEEN}({scroller})")]}  # a red row says what moved under the step
+    for dy, mods, name in ((-120, 2, "ctrl"), (-120, 4, "meta"), (-8, 2, "pinch"), (120, 0, "plain")):
+        for again in range(4):
+            x, y, w, h = c.rect(target)
+            px, py = x + w * 0.5, y + h * 0.5
+            z0, b0 = zoom(), c.js(f"{SEEN}({scroller})")
+            c.mouse("mouseMoved", px, py)
+            _wheel(c, px, py, dy, mods)
+            if name == "plain":
+                time.sleep(0.6)
+                out["plain"] = [z0, zoom()]
+                break
+            c.wait(f"Math.abs(+{world}.dataset.zoom - {z0}) > 0.001", 10)
+            x2, y2, w2, h2 = c.rect(target)
+            b1 = c.js(f"{SEEN}({scroller})")
+            # the point under the pointer stays: the same spot of the same box (within 6% of its size)
+            out[name] = {"from": z0, "to": zoom(), "kept": abs((px - x2) / w2 - 0.5) < 0.06 and abs((py - y2) / h2 - 0.5) < 0.06,
+                         "under": c.js(f"document.elementFromPoint({px}, {py}) && ({target}).contains(document.elementFromPoint({px}, {py}))"),
+                         "box": [b0, b1], "again": again}  # a red row says what moved under the step
+            # "the point stays" is a claim about a box that stays: when the SAME scroller with the SAME drawing changed
+            # size under the step (a line or a bar arriving beside it), the step is taken again. A new element or
+            # another lineup under the step is never forgiven: that row stays red and says so.
+            resized = bool(b0 and b1) and b0[2:] == b1[2:] and b0[:2] != b1[:2]
+            if out[name]["kept"] or not resized:
+                break
     out["page_after"] = c.js(PAGE)
     return out
 
