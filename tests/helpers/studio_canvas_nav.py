@@ -31,6 +31,10 @@ def _wheel(c, x: float, y: float, dy: float, mods: int) -> None:
     c.call("Input.dispatchMouseEvent", type="mouseWheel", x=x, y=y, deltaX=0, deltaY=dy, modifiers=mods)
 
 
+# what a step ran on: the scroller's box, a mark that stays while it is the same element, the lineup it draws
+SEEN = "(s => s ? [s.clientWidth, s.clientHeight, (s.__nav = s.__nav || Math.round(performance.now())), (s.closest('[data-lineup]') || s).dataset.lineup || ''] : null)"
+
+
 def wheels(c, scroller: str, world: str, target: str) -> dict:
     """Ctrl, Cmd, a pinch and a plain wheel over `scroller` at the middle of `target`; the zoom from `world`."""
     out: dict = {"page_before": c.js(PAGE)}
@@ -51,7 +55,7 @@ def wheels(c, scroller: str, world: str, target: str) -> dict:
     for i, (dy, mods, name) in enumerate(((-120, 2, "ctrl"), (-120, 4, "meta"), (-8, 2, "pinch"), (120, 0, "plain"))):
         x, y, w, h = c.rect(target)
         px, py = x + w * 0.5, y + h * 0.5
-        z0 = zoom()
+        z0, b0 = zoom(), c.js(f"{SEEN}({scroller})")
         c.mouse("mouseMoved", px, py)
         _wheel(c, px, py, dy, mods)
         if name == "plain":
@@ -63,7 +67,8 @@ def wheels(c, scroller: str, world: str, target: str) -> dict:
         x2, y2, w2, h2 = c.rect(target)
         # the point under the pointer stays: the same spot of the same box (within 6% of its size)
         out[name] = {"from": z0, "to": zoom(), "kept": abs((px - x2) / w2 - 0.5) < 0.06 and abs((py - y2) / h2 - 0.5) < 0.06,
-                     "under": c.js(f"document.elementFromPoint({px}, {py}) && ({target}).contains(document.elementFromPoint({px}, {py}))")}
+                     "under": c.js(f"document.elementFromPoint({px}, {py}) && ({target}).contains(document.elementFromPoint({px}, {py}))"),
+                     "box": [b0, c.js(f"{SEEN}({scroller})")]}  # a red row says what moved under the step
     out["page_after"] = c.js(PAGE)
     return out
 
