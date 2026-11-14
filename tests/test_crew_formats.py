@@ -56,7 +56,10 @@ def test_bad_files_say_what_is_wrong(ctx: Ctx):
     got = workflow_problems(wf, name="ship")
     ctx.check(f"a workflow: its when, its repeat, the unknown field, got {got}",
               len(got) == 3 and any("when" in g for g in got) and any("repeat" in g for g in got) and any("after" in g for g in got))
-    mp = {"format": "map/1", "name": "m", "boxes": [{"id": "a", "agent": "x"}, {"id": "a", "workflow": "y"}],
+    ok = {"format": "workflow/1", "name": "ship", "for": "x", "steps": [{"name": "a", "agents": ["coder"]}], "max_usd": 0.5}
+    ctx.check("3.6.0.0 R2: a workflow's own max_usd", workflow_problems(ok) == [] and
+              workflow_problems({**ok, "max_usd": 0})[0].startswith("max_usd") and workflow_problems({**ok, "max_usd": True}))
+    mp ={"format": "map/1", "name": "m", "boxes": [{"id": "a", "agent": "x"}, {"id": "a", "workflow": "y"}],
           "lines": [{"from": "a", "to": "main", "when": "always"}, {"from": "main", "to": "zz", "when": "sometimes"}]}
     got = map_problems(mp, name="m")
     ctx.check(f"a map: the taken id, a line to main, a box not there, its when, got {got}", len(got) == 4)
@@ -146,6 +149,33 @@ def test_a_write_waits_for_a_reader(ctx: Ctx):
         left = [p.name for p in Path(d).iterdir()]
         ctx.check(f"the new text is there and no temp file is left, got {path.read_text(encoding='utf-8')!r} {left}",
                   path.read_text(encoding="utf-8") == "two" and left == ["run.json"])
+
+
+@test
+def test_a_read_waits_for_a_write(ctx: Ctx):
+    """3.6.0.0 R2 (found by the gate): on Windows a read that meets a record's swap fails with PermissionError, and a page
+    polling a running Try it got a 404. trial.get reads again; 2000 reads beside a busy writer all find the record."""
+    import json
+    import tempfile
+    import threading
+    from halo_harness.crew import store, trial
+    with tempfile.TemporaryDirectory() as d:
+        rec = {"id": "t0123456789", "started": 0, "pad": "x" * 2000}
+        path = Path(d) / "crew" / ".try" / "t0123456789.json"
+        store.write_text(path, json.dumps(rec))
+        stop = threading.Event()
+
+        def writer():
+            while not stop.is_set():
+                store.write_text(path, json.dumps(rec))
+        t = threading.Thread(target=writer, daemon=True)
+        t.start()
+        try:
+            misses = sum(1 for _ in range(2000) if trial.get("t0123456789", d) is None)
+        finally:
+            stop.set()
+            t.join(5)
+        ctx.check(f"every read found the record, got {misses} misses", misses == 0)
 
 
 if __name__ == "__main__":

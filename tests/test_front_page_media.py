@@ -94,7 +94,7 @@ def test_every_capture_has_its_files_and_every_png_is_a_capture(ctx: Ctx):
                         "studio-run-live", "studio-run-report", "studio-roles",
                         "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-agents", "studio-session",
                         "studio-packs", "studio-setup", "studio-settings", "studio-local", "studio-workflows", "studio-steer", "studio-thinking", "studio-talk", "studio-auto", "studio-model-picker",
-                        "studio-agents-tab", "studio-builder-preview"):  # 3.6.0.0 R1: tools/capture_crew.py; 3.3.5.0 R1: --mode local (tools/capture_local.py); 3.3.0.0 R4: --mode setup (tools/capture_setup.py); 3.3.3.0 R2: --mode settings (tools/capture_settings.py); hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py; 3.2.0.0 R7 --mode packs) and studio_modes_banner.py, not TUI captures
+                        "studio-agents-tab", "studio-builder-preview", "studio-workflows-tab", "studio-workflows-try"):  # 3.6.0.0 R1: tools/capture_crew.py; R2: tools/capture_flows.py; 3.3.5.0 R1: --mode local (tools/capture_local.py); 3.3.0.0 R4: --mode setup (tools/capture_setup.py); 3.3.3.0 R2: --mode settings (tools/capture_settings.py); hero_png.py, tools/capture_studio.py (--mode fleet: tools/capture_fleet.py; 3.2.0.0 R7 --mode packs) and studio_modes_banner.py, not TUI captures
             continue
         ctx.check(f"{png.name} is a capture from captures.json", png.stem in names)
     ctx.check("the animated captures are the turn and the steer",

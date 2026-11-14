@@ -105,6 +105,49 @@ to build custom agents, their model, what they do ... each of these sections nee
 - **Tests:** `test_crew_formats`, `test_builder_flows`, `test_builder_injection`, `test_crew_try`, `test_studio_crew`
   (Chrome); `test_studio_room` measures the new tab at 1280 / 1500 / 1920.
 
+### R2
+
+Make a workflow -- your agents in steps, in order -- try it, save it, or describe it and let the builder draft it. The
+owner, 2026-11-12: "We should do the same kind of thing for work flows, we can group created agents in work flows".
+
+- **Agents -> 2 · Workflows** (the `2` key): the switch reads 1 · Agents | 2 · Workflows | Cast | Live | Board (the old
+  Workflows board, still there as Board). The list on the left (yours and this project's, tagged `on the map` / `not
+  on the map` -- nothing is on a map until the Map tab, and a line says so -- then the five starters to copy) and the
+  form: name and where it is used; what it is for, with **Write it for me**; **the steps, in order** (a row per step:
+  its name, up / down, take it out, its agents as chips that work at the same time, Gets, Hands on, When it runs,
+  Repeat until at most N times; **+ Add a step** picks one of your agents or makes one -- the agent form opens filled
+  in and Save comes back with the step added); what it costs and writes (a band per run from the catalog prices,
+  "unknown until the first run" where Auto picks); Try it; Save / Discard / Copy / Delete asked on the page.
+- **The steps, drawn** beside the form: a box per step, an arrow between, a loop mark for a repeat; it draws itself,
+  zooms the house way and fits again when its box changes width (unless you zoomed it by hand).
+- **The builder on this tab**: "make a review workflow: my-reviewer, then tester, repeat until the tests pass, at most 3
+  times" gives one preview -- the workflow, a line per step, and a proposal card (**make it**) for an agent you do not
+  have -- drawn as ghost steps in the form and the drawing; one Apply, one Undo, across agents and workflows. A line
+  that lets an agent do more is never ticked for you; a workflow line widens nothing by itself.
+- **Try it on a workflow**: the band said first; every step runs once on a throwaway copy of the project; each step's
+  result, the agents that ran, their time and cost, each repeat's check appear as it runs; Stop; an Attention row when
+  you are elsewhere.
+- **A session runs a saved workflow**: the Workflow tool takes a crew workflow by name; its name wins over a square of
+  the same name, and the receipt line says it ran on the step runner.
+- **The step runner** (`halo_harness/crew/runner.py`, `runner_text.py`, `runner_when.py`, `runner_session.py`): each
+  step's agents spawned as children through `agent/subagent.py` with the specs `crew/spec.py` builds, side by side;
+  the hand-on text (each agent's reply under its name) is the next step's input with its Gets; When it runs uses the
+  router's words (`workflows/when.py`, `workflows/router.py`); Repeat until is one yes/no call by the step's last agent
+  after each round, at most `max` rounds (default 3, never more than 10); every call checks the workflow's own
+  `max_usd` (new, optional, in `workflow/1`) and the session's cap; a step naming a missing or broken agent stops the
+  run before any model call. Live draws the workflow's node, its children and the hand-off as for any sub-agent.
+- **The builder's new tools** (`crew/tools_flow.py`, `crew/tools_try.py`, `crew/changes_steps.py`): `workflow_make`,
+  `workflow_change`, `workflow_copy`, `workflow_remove`, `step_add`, `step_change`, `step_move`, `step_remove`,
+  `try_agent`, `try_workflow` (these two start the Try it run and write nothing).
+- **Routes** (docs/STUDIO-workflows.md): `GET crew/workflows`, `GET/POST/PUT/DELETE crew/workflow/<name>` (with `cost`,
+  `writes`, `missing`, `maps`), `POST crew/workflow-cost`, `POST crew/try {kind: workflow}`, `POST builder/ask {tab:
+  workflows}`; every write owner-only. Try it for a workflow: `crew/trial_flow.py`, `crew/try_flow.py`; the Workflow
+  tool: `crew/flow_door.py`, `tools/workflow.py`, `workflows/offer.py`.
+- **Tests:** `test_step_runner`, `test_builder_workflows`, `test_crew_flow_api`, `test_studio_flows` (Chrome);
+  `test_builder_injection` grows a workflow-text case; `test_studio_room` measures the new tab at 1280 / 1500 / 1920.
+- **Fixed (Windows), Try it:** a page polling a running Try it record no longer gets a 404 while the record is
+  being written (`crew/trial.py` reads again; the reader half of R1's "a record's write waits for a reader").
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

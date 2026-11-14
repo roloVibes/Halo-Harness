@@ -6,9 +6,11 @@
     POST   crew/agent/<name> {agent}   a new agent of yours (409 when you have one by that name)
     PUT    crew/agent/<name> {agent}   save it (422 with the problem lines; a starter answers 409: Copy makes yours)
     DELETE crew/agent/<name>           delete yours (409 while a workflow or a map names it, saying which)
-    GET    crew/workflows | crew/maps  the rows of those kinds (read-only in R1)
+    GET    crew/maps                   the rows of maps (read-only until R3)
+    crew/workflows, crew/workflow/<name>, crew/workflow-cost: studio/crew_flow_api.py (3.6.0.0 R2)
     GET    crew/estimate?model=<ref>   {usd, line}: one typical task on that model, said before a Try it
-    POST   crew/try {kind: agent, body, request}   {try}: the run's record, running (progress on /api/events, `crew`)
+    POST   crew/try {kind: agent | workflow, body, request}   {try}: the run's record, running (progress on
+                                       /api/events, `crew`); a workflow's runs on the step runner (crew/trial_flow.py)
     GET    crew/try/<id>               {try}
     POST   crew/try/<id>/stop | crew/try/<id>/seen
 
@@ -121,8 +123,11 @@ def _publisher(req):
 
 def post_try(req):
     body = req.body or {}
+    if body.get("kind", "agent") == "workflow":  # 3.6.0.0 R2: a workflow's Try it runs on the step runner
+        from halo_harness.studio.crew_flow_api import post_try_flow
+        return post_try_flow(req, _publisher(req))
     if body.get("kind", "agent") != "agent":
-        return 422, {"error": "Try it runs an agent in this version (a workflow's comes with the Workflows tab)"}
+        return 422, {"error": "Try it runs an agent or a workflow"}
     raw = body.get("body")
     request = str(body.get("request") or "").strip()
     if not isinstance(raw, dict) or not request:
@@ -159,7 +164,6 @@ ROUTES: list = [
     ("POST", rf"^crew/agent/{_NAME}$", owner_only(post_agent)),
     ("PUT", rf"^crew/agent/{_NAME}$", owner_only(put_agent)),
     ("DELETE", rf"^crew/agent/{_NAME}$", owner_only(delete_agent)),
-    ("GET", r"^crew/workflows$", get_kind("workflow")),
     ("GET", r"^crew/maps$", get_kind("map")),
     ("GET", r"^crew/estimate$", get_estimate),
     ("POST", r"^crew/try$", owner_only(post_try)),
@@ -167,6 +171,10 @@ ROUTES: list = [
     ("POST", rf"^crew/try/{_TID}/stop$", owner_only(post_try_stop)),
     ("POST", rf"^crew/try/{_TID}/seen$", owner_only(post_try_seen)),
 ]
+
+
+from halo_harness.studio.crew_flow_api import ROUTES as _FLOW  # noqa: E402  3.6.0.0 R2: the Workflows tab's routes
+ROUTES += _FLOW
 
 
 def dispatch_table(req, routes: list):

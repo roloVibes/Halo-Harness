@@ -38,10 +38,22 @@ def _save(rec: dict, state_dir) -> None:
 def get(try_id: str, state_dir=None) -> Optional[dict]:
     if not re.match(r"^t[0-9a-f]{10}$", str(try_id or "")):
         return None
-    try:
-        return json.loads((_folder(state_dir) / f"{try_id}.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    return _read(_folder(state_dir) / f"{try_id}.json")
+
+
+def _read(path) -> Optional[dict]:
+    """A record, read again while Windows refuses it: a read that meets the record's atomic swap (store.write_text)
+    fails with PermissionError (3.6.0.0 R2: a page or a test polling a running record got a 404 now and then)."""
+    for i in range(50):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (PermissionError, ValueError):
+            if i == 49:
+                return None
+            time.sleep(0.01)
+        except OSError:
+            return None
+    return None
 
 
 def recent(state_dir=None, within_s: float = 86400.0) -> list:
@@ -51,9 +63,8 @@ def recent(state_dir=None, within_s: float = 86400.0) -> list:
     except OSError:
         return out
     for p in files:
-        try:
-            rec = json.loads(p.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        rec = _read(p)
+        if not isinstance(rec, dict):
             continue
         if time.time() - float(rec.get("started") or 0) < within_s:
             out.append(rec)

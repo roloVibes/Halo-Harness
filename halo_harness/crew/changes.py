@@ -10,6 +10,9 @@ starts unticked (`ticked: False`), and `apply` writes only the ids the person se
 pasted document or the model's own reply can never tick one. `fill` rows write nothing: the page puts their text into
 the form (instructions drafted for an agent that is not saved yet).
 
+3.6.0.0 R2: a row may target `workflow:<name>` (crew/tools_flow.py): its step ops (crew/changes_steps.py) never widen
+-- what a workflow's agents may do is in each agent's own file, and its own rows say it.
+
 `apply(rows, ids)` writes every ticked row's target file under <state>/crew/ after checking each result with
 crew/formats.py (nothing is written when one fails) and keeps the before-image of every touched file in
 <state>/crew/.undo/<undo_id>.json (the last KEEP); `undo(undo_id)` puts each file back exactly as it was.
@@ -24,7 +27,7 @@ import time
 from pathlib import Path
 
 from halo_harness.crew import store
-from halo_harness.crew.formats import CAREFUL, agent_problems
+from halo_harness.crew.formats import CAREFUL, PROBLEMS
 
 KEEP = 20
 NARROW_USES = ("read",)
@@ -69,6 +72,10 @@ def public(rows: list) -> list:
         p = {k: v for k, v in r.items() if k != "op"}
         if r["op"].get("op") == "fill":
             p["fill"] = {"field": r["op"]["field"], "value": r["op"]["value"]}
+        if str(r["op"].get("op")).startswith("step_"):  # 3.6.0.0 R2: the page draws it as a ghost step in the form
+            p["ghost"] = {k: v for k, v in r["op"].items() if k != "op"} | {"op": r["op"]["op"]}
+        if r["target"].startswith("agent:") and r["op"].get("op") in ("create", "copy"):
+            p["body"] = r["op"]["body"]  # the proposal card's "make it" fills the agent form with it
         out.append(p)
     return out
 
@@ -96,6 +103,9 @@ def _apply_op(body, op: dict):
         else:
             more[op["field"]] = op["value"]
         body["more"] = more
+    elif o.startswith("step_"):
+        from halo_harness.crew.changes_steps import apply_step
+        body = apply_step(body, op)
     return body
 
 
@@ -114,7 +124,7 @@ def plan(rows: list, ids, *, cwd=None, state_dir=None) -> "tuple[dict, list, lis
             targets[path] = [kind, name, store.read(path) if path.is_file() else None, False]
         t = targets[path]
         if t[2] is None and r["op"].get("op") not in ("create", "copy"):
-            skipped.append(f"{r['summary']} (skipped: {name} is not one of your agents; tick the line that makes it)")
+            skipped.append(f"{r['summary']} (skipped: {name} is not one of your {kind}s; tick the line that makes it)")
             continue
         t[2] = _apply_op(t[2], r["op"])
         t[3] = True
@@ -123,7 +133,7 @@ def plan(rows: list, ids, *, cwd=None, state_dir=None) -> "tuple[dict, list, lis
         if not touched:
             continue
         if body is not None:
-            bad = agent_problems(store.clean(body), name=name) if kind == "agent" else []
+            bad = PROBLEMS[kind](store.clean(body), name=name) if kind in PROBLEMS else []
             problems += [f"{name}: {p}" for p in bad]
         out[path] = None if body is None else store.dump(body)
     return out, skipped, problems, fills

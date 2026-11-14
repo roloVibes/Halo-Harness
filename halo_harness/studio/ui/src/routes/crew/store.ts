@@ -20,10 +20,13 @@ export type CrewState = {
   busy: boolean;
   /** The builder changed the open agent while the form had edits: Reload offers what is on disk. */
   stale: boolean;
+  /** 3.6.0.0 R2: the workflow this agent was made for ("make it" / "+ Add a step" -> a new agent): Save goes back there. */
+  returnTo: string;
 };
 
 export const crew = createStore<CrewState>({
   loaded: false, error: "", agents: [], starters: [], open: null, form: null, saved: null, used: [], note: "", asking: "", busy: false, stale: false,
+  returnTo: "",
 });
 export const useCrew = <T,>(pick: (s: CrewState) => T): T => useStore(crew, pick);
 
@@ -59,7 +62,7 @@ export async function openAgent(name: string, scope?: Scope): Promise<void> {
   try {
     const r = await api.get<{ agent: Agent; scope: Scope; used: string[] }>(`crew/agent/${encodeURIComponent(name)}`, scope ? { scope } : undefined);
     const a = clean(r.agent);
-    crew.update(() => ({ open: { name, scope: r.scope }, form: a, saved: a, used: r.used, note: "", asking: "", stale: false }));
+    crew.update(() => ({ open: { name, scope: r.scope }, form: a, saved: a, used: r.used, note: "", asking: "", stale: false, returnTo: "" }));
   } catch (e) {
     toast(msg(e), "error", 5000);
   }
@@ -67,7 +70,20 @@ export async function openAgent(name: string, scope?: Scope): Promise<void> {
 
 export function newAgent(): void {
   const a = blank(unique("new-agent"));
-  crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: "Not saved yet.", asking: "", stale: false }));
+  crew.update(() => ({ open: { name: "", scope: "yours" }, form: a, saved: null, used: [], note: "Not saved yet.", asking: "", stale: false, returnTo: "" }));
+}
+
+let back: ((agent: string, workflow: string) => void) | null = null;
+/** 3.6.0.0 R2: what Save does for an agent made for a workflow (routes/crew/flows/makeIt.ts: back to the Workflows tab). */
+export function onSavedFor(fn: (agent: string, workflow: string) => void): void {
+  back = fn;
+}
+
+/** 3.6.0.0 R2: the agent form filled in for a workflow (a proposal's "make it", or "+ Add a step" -> a new agent). */
+export function fillAgent(a: Agent, workflow: string): void {
+  const form = clean({ ...blank(a.name), ...a });
+  crew.update(() => ({ open: { name: "", scope: "yours" }, form, saved: null, used: [], asking: "", stale: false, returnTo: workflow,
+    note: `Made for the workflow ${workflow}, not saved yet: read it, change what you like, Save -- you go back to the workflow.` }));
 }
 
 export async function copyFrom(name: string, scope: Scope): Promise<void> {
@@ -110,6 +126,10 @@ export async function save(): Promise<boolean> {
     const now = crew.get().form; // an edit made while the save was on its way stays (and the form reads dirty again)
     crew.update(() => ({ open: { name: a.name, scope: s.open!.scope === "project" ? "project" : "yours" }, form: now === s.form ? a : now, saved: a, note, busy: false, stale: false }));
     await loadCrew();
+    if (s.returnTo && back) {
+      crew.update(() => ({ returnTo: "" }));
+      back(a.name, s.returnTo);
+    }
     return true;
   } catch (e) {
     crew.update(() => ({ note: msg(e), busy: false }));

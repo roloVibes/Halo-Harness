@@ -13,6 +13,7 @@ import { loadAttention, loadConflicts, loadCosts } from "./pload";
 import { openRun } from "../agents/run/door";
 import { reviewPlan } from "../agents/run/planPanel";
 import { openCrewTry } from "../crew/door";
+import { openFlowTry } from "../crew/flows/flowStore";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
 
 export { showFleetPanel }; // 3.3.16.0 R2: an old Fleet panel's door opens its new home (routes/agents/fleetDoor.ts)
@@ -27,6 +28,7 @@ export function openTarget(t: OpenTarget): void {
     if (t.run && !t.stage && (t.view === "runs" || t.view === "live")) return void openRun(t.run); // 3.4.0.0 D: on Live while it runs, else History
     goSection(t.section as SectionId, t.view === "runs" ? "live" : t.view); // 3.3.16.0 R1: a row of `orchestra` or `roles` opens Agents on its view
     if (t.view === "crew" && t.agent) void openCrewTry(t.agent, t.try || ""); // 3.6.0.0 R1: a Try it run's row
+    if (t.view === "flows" && t.agent) void openFlowTry(t.agent, t.try || ""); // 3.6.0.0 R2: a workflow's Try it run
     if (t.panel === "orchestra-plan") reviewPlan(); // the supervisor's "open the plan"
     return;
   }

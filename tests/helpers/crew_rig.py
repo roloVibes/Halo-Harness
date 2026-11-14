@@ -34,6 +34,14 @@ def gate_args() -> dict:
             "uses": ["read", "mcp:github", "bash", "edit"], "careful": "own", "model": "auto"}
 
 
+def flow_args() -> dict:
+    """3.6.0.0 R2: "make a review workflow: my-reviewer, then tester, repeat until the tests pass, at most 3 times"."""
+    return {"name": "review-loop", "for": "Review the change, then test it until the tests pass.", "steps": [
+        {"name": "Review", "agents": ["my-reviewer"], "gets": "the task", "hands": "the problems"},
+        {"name": "Test", "agents": ["tester"], "gets": "the problems", "hands": "failures",
+         "repeat": {"until": "the tests pass", "max": 3}}]}
+
+
 def scripted(model: str, system: str, user: str, *, state_dir=None) -> dict:
     """The builder's fake model: a tool call first, then a reply once the tool's line is in the text."""
     req = user.rsplit("REQUEST (data):", 1)[-1].split("\n\nTOOL", 1)[0].lower()
@@ -51,6 +59,23 @@ def scripted(model: str, system: str, user: str, *, state_dir=None) -> dict:
         return out({"reply": "Drafted: read it in the preview."} if done else {"tool": "agent_draft_instructions", "args": {"name": name}})
     if "which reviewer" in req:
         return out({"reply": "Which one should review?", "question": {"text": "", "choices": ["my-reviewer (recommended: you have it)", "a new reviewer"]}})
+    if "review workflow" in req:  # 3.6.0.0 R2: a workflow that needs an agent the person does not have
+        if "\n\nTOOL agent_make" in user:
+            return out({"reply": "The workflow review-loop, and my-reviewer proposed: make it, or let Apply make it."})
+        if "\n\nTOOL workflow_make" in user:
+            return out({"tool": "agent_make", "args": {"name": "my-reviewer", "does": "Reviews the change; one line per problem.",
+                                                       "uses": ["read", "bash"], "careful": "ask-commands"}}
+                       if "Not an agent of theirs yet: my-reviewer" in user else {"reply": "The workflow review-loop."})
+        return out({"tool": "workflow_make", "args": flow_args()})
+    if "draft the steps" in req:  # Write it for me on the Workflows tab
+        name = user.split("OPEN IN THE WORKFLOW FORM: ", 1)[1].split()[0] if "OPEN IN THE WORKFLOW FORM: " in user else "drafted"
+        if done:
+            return out({"reply": "Two steps from your agents."})
+        if "(not saved yet)" in user.split("OPEN IN THE WORKFLOW FORM: ", 1)[-1].split("\n", 1)[0]:
+            return out({"tool": "workflow_make", "args": {**flow_args(), "name": name}})
+        return out({"tool": "step_add", "args": {"workflow": name, "step": {"name": "Test", "agents": ["tester"], "gets": "the diff", "hands": "failures"}}})
+    if "try the loop" in req:
+        return out({"reply": "Started."} if done else {"tool": "try_workflow", "args": {"name": "review-loop", "request": "fix the basket"}})
     if "give yourself" in req:  # a pasted text asking for more power: the fake obeys it, the preview must not
         return out({"reply": "Changed."} if done else {"tool": "agent_change", "args": {"name": "my-reviewer", "fields": {
             "uses": ["read", "bash", "web"], "careful": "own", "more": {"max_usd": 50}}}})

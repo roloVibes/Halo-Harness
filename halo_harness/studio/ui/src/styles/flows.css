@@ -1,0 +1,74 @@
+/* Agents -> 2 · Workflows (3.6.0.0 R2, routes/crew/flows/): the workflow form, its steps, the steps drawn beside it, Try
+   it's run step by step. The list, the builder and the shared form parts are crew.css's `cw-*`. The room rules hold from
+   the start: controls 28 px or more and 8 px apart, no text under 12 px, no sideways scroll, text boxes that grow. Tokens only. */
+
+.ag[data-view="flows"] { grid-template-rows: minmax(0, 1fr); }
+.workspace[data-section="agents-flows"] .ws-cell[data-role="dock"] > .panel > .panel-bar { display: none; }
+.workspace[data-section="agents-flows"] .ws-cell[data-role="dock"] > .panel > .panel-body { overflow: visible; }
+
+.fl-page { display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: flex-start; min-width: 0; }
+.fl-form { flex: 2 1 440px; }
+
+/* a step */
+.fl-step { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--line-strong);
+  border-radius: var(--r-card); background: var(--surface); min-width: 0; }
+.fl-step[data-ghost] { border-style: dashed; border-color: var(--accent); background: var(--soft-accent); }
+.fl-step-top { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
+.fl-n { color: var(--muted); font-size: var(--ts-data); line-height: 18px; }
+.fl-step-name { flex: 1 1 200px; min-width: 0; min-height: 32px; }
+.fl-ord { display: inline-flex; gap: var(--s-2); }
+.fl-ord .btn { min-width: 32px; padding: 0 8px; }
+.fl-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
+.fl-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 0 0 10px; border: 1px solid var(--line-strong);
+  border-radius: 15px; background: var(--surface-2); font-size: var(--ts-body); min-width: 0; max-width: 100%; }
+.fl-chip[data-missing] { border-color: var(--warn); color: var(--warn); }
+.fl-chip-name { overflow-wrap: anywhere; min-width: 0; }
+.fl-chip:not(:has(.fl-x)) { padding-right: 10px; }
+.fl-x { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 14px; background: none; color: var(--muted); cursor: pointer; font-size: var(--ts-body); }
+.fl-x:hover { color: var(--bad); }
+.fl-add-agent { width: auto; min-width: 120px; min-height: 30px; }
+.fl-same { flex: 0 1 auto; }
+.fl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--s-2) var(--s-3); min-width: 0; }
+.fl-grid .input { width: 100%; min-height: 32px; }
+.fl-repeat { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.fl-num { width: 64px !important; min-height: 32px; }
+.fl-note { color: var(--accent); font-size: var(--ts-data); line-height: 18px; border-top: 1px dashed var(--accent); padding-top: 4px; overflow-wrap: anywhere; }
+.fl-picker { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-card);
+  background: var(--surface-2); max-height: 360px; overflow-y: auto; overflow-x: hidden; }
+
+/* the steps, drawn */
+.fd { flex: 1 1 300px; max-width: min(100%, 460px); position: sticky; top: 0; display: flex; flex-direction: column; gap: var(--s-2);
+  height: min(calc(100vh - 380px), 600px); min-height: 240px; padding: var(--s-2); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); }
+.fd-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.fd-head .cw-label { margin: 0; }
+.fd-scroll { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; outline: none; border-radius: var(--r-control); background: var(--bg-2); }
+.fd-scroll[data-panning] { cursor: grabbing; }
+.fd-none { padding: var(--s-2); }
+.fd-world { position: relative; }
+.fd-inner { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.fd-lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.fd-arrow { stroke: var(--line-strong); stroke-width: 2; fill: none; }
+.fd-loop { stroke: var(--warn); stroke-width: 2; fill: none; stroke-dasharray: 5 4; }
+.fd-tip { fill: var(--line-strong); }
+.fd-box { position: absolute; display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border: 1px solid var(--line-strong);
+  border-radius: var(--r-control); background: var(--surface); font-size: 13px; line-height: 17px; overflow: hidden; }
+.fd-box[data-ghost] { border-style: dashed; border-color: var(--accent); background: var(--soft-accent); }
+.fd-name { font-family: var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-agents { overflow-wrap: anywhere; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-when { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-rep { color: var(--warn); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Try it, step by step */
+.fl-try-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.fl-try-step { padding: 6px 10px; border-left: 3px solid var(--line-strong); background: var(--surface-2); min-width: 0; }
+.fl-try-step[data-state="running"] { border-left-color: var(--accent); }
+.fl-try-step[data-state="done"] { border-left-color: var(--ok); }
+.fl-try-step[data-state="failed"], .fl-try-step[data-state="capped"], .fl-try-step[data-state="stopped"] { border-left-color: var(--warn); }
+.fl-try-agent { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 0 var(--s-2); min-width: 0; }
+
+/* the builder's proposal card (an agent a workflow needs and you do not have) */
+.cw-card { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; padding: 6px 10px; border: 1px solid var(--accent);
+  border-radius: var(--r-control); background: var(--soft-accent); }
+.cw-card > .cw-line { flex: 1 1 240px; color: var(--text); }
+
+@media (max-width: 760px) { .fd { flex-basis: 100%; position: static; } }

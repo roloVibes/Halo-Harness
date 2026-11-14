@@ -1,4 +1,4 @@
-// The Agents tab's shapes (3.6.0.0 R1): an agent/1 file (halo_harness/crew/formats.py), a row of GET crew/agents, a
+// The Agents and Workflows tabs' shapes (3.6.0.0 R1, R2): an agent/1 file, a workflow/1 file (halo_harness/crew/formats.py), a row of GET crew/agents, a
 // builder change line (crew/changes.py) and a Try it run's record (crew/trial.py).
 export type Careful = "ask-changes" | "ask-commands" | "own";
 
@@ -39,7 +39,17 @@ export type Change = {
   widen: boolean;
   ticked: boolean;
   fill?: { field: string; value: string };
+  /** 3.6.0.0 R2: a step line's ghost (drawn in the workflow form) and a proposed agent's body ("make it" fills the form). */
+  ghost?: { op: string; step?: Step; index?: number | null; to?: number; fields?: Partial<Step>; field?: string; value?: unknown };
+  body?: Agent;
 };
+
+/** 3.6.0.0 R2: a workflow/1 step and file (halo_harness/crew/formats.py). */
+export type When = "always" | "ask" | { needs: string[] } | { says: string[] };
+export type Step = { name: string; agents: string[]; gets?: string; hands?: string; when?: When; repeat?: { until: string; max: number } };
+export type Workflow = { format?: string; name: string; for: string; steps: Step[]; own_copy?: boolean; max_usd?: number };
+export type FlowRow = Workflow & { scope: Scope; new: boolean; problems: string[]; maps: string[] };
+export type Cost = { low: number; high: number; unknown: string[]; cap: number | null; line: string };
 
 export type Question = { text: string; choices: string[] };
 
@@ -65,6 +75,13 @@ export type TryRec = {
   seen: boolean;
   error: string;
   estimate: { usd: number | null; line: string };
+  /** 3.6.0.0 R2: a workflow's run (crew/trial_flow.py). */
+  kind?: "agent" | "workflow";
+  workflow?: string;
+  line?: string;
+  steps?: { n: number; name: string; state: string; why: string; rounds: number; stop: string; cost_usd: number;
+            agents: { name: string; state: string; cost_usd: number | null; seconds: number | null; text: string; error: string }[] }[];
+  checks?: { n: number; round: number; yes: boolean; line: string }[];
 };
 
 export const USES: [string, string, string, string][] = [

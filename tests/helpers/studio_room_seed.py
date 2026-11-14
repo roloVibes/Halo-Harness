@@ -62,3 +62,23 @@ def seed_crew(st, pref: str) -> None:
         if i == 0:
             raw["instructions"] = chr(10).join(f"{k}. Step {k} of how it works, in one plain line that is long enough to wrap in a narrow box." for k in range(1, 9))
         store.write_text(store.path_for("agent", n, state_dir=st), store.dump(raw))
+    seed_flows(st)
+
+
+FLOW = "storefront-checkout-release-and-regression-flow"
+
+
+def seed_flows(st) -> None:
+    """3.6.0.0 R2: the Workflows tab's list -- four workflows with long names; the first (`&view=flows&workflow=<FLOW>`)
+    with four steps: two agents side by side, a when of each kind, a repeat, long words everywhere."""
+    from halo_harness.crew import store
+    steps = [{"name": "Make the change the task asks for, in the checkout code", "agents": [LONG[0]], "gets": "the task and the files it names",
+              "hands": "the diff and a one-line summary of what changed"},
+             {"name": "Check it from both sides at the same time", "agents": [LONG[1], LONG[4]], "gets": "the diff",
+              "hands": "failures and problems, one line each", "repeat": {"until": "the tests pass and the audit finds nothing", "max": 3}},
+             {"name": "Read the receipts", "agents": [LONG[5]], "when": {"needs": ["pdf", "images"]}, "gets": "the attachments", "hands": "items and totals"},
+             {"name": "Write the release notes", "agents": [LONG[2]], "when": {"says": ["release", "ship"]}, "gets": "the diff", "hands": "the notes"}]
+    for i, n in enumerate((FLOW, "payments-refunds-and-chargebacks-review", "docs-and-screenshots-refresh-weekly", "inventory-sync-nightly")):
+        raw = {"format": "workflow/1", "name": n, "for": f"{n.replace('-', ' ').capitalize()}: what comes in, what each step does, what it hands back.",
+               "steps": steps if i == 0 else steps[:1 + i % 2], "own_copy": False}
+        store.write_text(store.path_for("workflow", n, state_dir=st), store.dump(raw))

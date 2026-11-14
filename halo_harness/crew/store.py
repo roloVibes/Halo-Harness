@@ -17,7 +17,9 @@ from typing import Optional
 
 import yaml
 
-from halo_harness.crew.formats import AGENT_KEYS, PROBLEMS
+from halo_harness.crew.formats import AGENT_KEYS, PROBLEMS, STEP_KEYS
+
+WORKFLOW_KEYS = ("format", "name", "for", "steps", "own_copy", "max_usd")
 
 KINDS = {"agent": "agents", "workflow": "workflows", "map": "maps"}
 SHIPPED = Path(__file__).resolve().parent.parent / "templates" / "crew"
@@ -123,6 +125,12 @@ def used_by(agent: str, *, cwd=None, state_dir=None) -> "list[str]":
     return out
 
 
+def maps_with(workflow: str, *, cwd=None, state_dir=None) -> "list[str]":
+    """3.6.0.0 R2: the maps of yours and the project's with a box for `workflow` (its tag `on the map`)."""
+    return [mp["name"] for mp in rows("map", cwd=cwd, state_dir=state_dir) if mp["_scope"] != "starter"
+            and any(isinstance(b, dict) and b.get("workflow") == workflow for b in mp.get("boxes") or [])]
+
+
 class _Dumper(yaml.SafeDumper):
     pass
 
@@ -143,7 +151,18 @@ def clean(raw: dict) -> dict:
         data["more"] = more
         order = [k for k in AGENT_KEYS if k in data] + [k for k in data if k not in AGENT_KEYS]
         data = {k: data[k] for k in order if not (k in ("instructions", "more", "needs") and data[k] in (None, "", [], {}))}
+    elif data.get("format") == "workflow/1":  # 3.6.0.0 R2: the file's order; a step's empty optional fields dropped
+        data["steps"] = [step_clean(s) for s in data.get("steps") or []]
+        order = [k for k in WORKFLOW_KEYS if k in data] + [k for k in data if k not in WORKFLOW_KEYS]
+        data = {k: data[k] for k in order if not (k == "max_usd" and data[k] in (None, "", 0))}
     return data
+
+
+def step_clean(s) -> dict:
+    if not isinstance(s, dict):
+        return s
+    out = {k: s[k] for k in STEP_KEYS if k in s and s[k] not in (None, "", [], {})}
+    return {**out, **{k: v for k, v in s.items() if k not in STEP_KEYS}}
 
 
 def dump(raw: dict) -> str:

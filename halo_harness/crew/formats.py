@@ -3,7 +3,7 @@
 One YAML file per thing, each with a `format:` line:
 
     agent/1     crew/agents/<name>.yaml      name, does, instructions, model, needs, uses, careful, more
-    workflow/1  crew/workflows/<name>.yaml   name, for, steps [{name, agents, gets, hands, when, repeat}], own_copy
+    workflow/1  crew/workflows/<name>.yaml   name, for, steps [{name, agents, gets, hands, when, repeat}], own_copy, max_usd
     map/1       crew/maps/<name>.yaml        name, boxes [{id, agent | workflow}], lines [{from, to, when}], main, caps
 
 `agent_problems(raw)`, `workflow_problems(raw)` and `map_problems(raw)` answer one plain line per problem (an empty
@@ -166,6 +166,9 @@ def workflow_problems(raw, *, name: str = "") -> "list[str]":
                 out.append(f"step {i}: {k} is not a field of a step ({', '.join(STEP_KEYS)})")
     if "own_copy" in raw and not isinstance(raw["own_copy"], bool):
         out.append("own_copy: true or false")
+    cap = raw.get("max_usd")  # 3.6.0.0 R2: what one run may spend, in dollars (the step runner stops there)
+    if cap is not None and (isinstance(cap, bool) or not isinstance(cap, (int, float)) or cap <= 0):
+        out.append("max_usd: dollars a run may spend, more than 0")
     return out
 
 

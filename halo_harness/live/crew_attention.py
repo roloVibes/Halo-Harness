@@ -2,7 +2,8 @@
 queue (Halo 3.6.0.0 R1; the 3.4.1.3 rule: finished background work shows without a prompt).
 
     crew_try   a Try it run of the last day that ended (done, stopped or failed) and that the Agents tab has not
-               shown yet (crew/trial.py `seen`)          a set aside | o open the agent in the Agents tab
+               shown yet (crew/trial.py `seen`)          a set aside | o open the agent in the Agents tab (a
+               workflow's run, 3.6.0.0 R2: the workflow in the Workflows tab)
 
 Setting it aside marks the run seen, so the row does not come back.
 """
@@ -29,16 +30,18 @@ def _rows(home, local: dict, seen: dict, now: float) -> list:
         state = rec.get("state")
         cost = rec.get("cost_usd")
         money = f" · ${cost:.4f}" if isinstance(cost, (int, float)) else ""
-        what = f"Try it {'finished' if state == 'done' else state}: {rec.get('agent')}{money}"
-        detail = " ".join(str(rec.get("reply") or rec.get("error") or "").split())[:240]
+        flow = rec.get("kind") == "workflow"  # 3.6.0.0 R2: a workflow's run opens on the Workflows tab
+        what = f"Try it {'finished' if state == 'done' else state}: {'workflow ' if flow else ''}{rec.get('agent')}{money}"
+        detail = " ".join(str(rec.get("line") or rec.get("reply") or rec.get("error") or "").split())[:240]
         out.append(_row(KIND, str(rec.get("id")), local, None, "", what, detail, seen, now,
-                        agent=rec.get("agent"), try_id=rec.get("id")))
+                        agent=rec.get("agent"), try_id=rec.get("id"), run="workflow" if flow else "agent"))
     return out
 
 
 def open_target(row: dict) -> dict:
     t = row.get("target") or {}
-    return {"section": "agents", "view": "crew", "agent": t.get("agent"), "try": t.get("try_id")}
+    view = "flows" if t.get("run") == "workflow" else "crew"
+    return {"section": "agents", "view": view, "agent": t.get("agent"), "try": t.get("try_id")}
 
 
 def set_aside(home, row: dict) -> None:

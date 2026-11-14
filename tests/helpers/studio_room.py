@@ -28,10 +28,12 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_room_js import CANVASES, DRAWER_BTNS, DRAWINGS, MEASURE, btn, drawn  # noqa: E402
 
 SIZES = ((1280, 800), (1500, 900), (1920, 1000))
-VIEWS = (("session", "session", ""), ("agents", "agents", "&view=cast"), ("crew", "agents", "&view=crew&agent=storefront-checkout-regression-reviewer"), ("packs", "packs", ""), ("local", "local", ""),
+VIEWS = (("session", "session", ""), ("agents", "agents", "&view=cast"), ("crew", "agents", "&view=crew&agent=storefront-checkout-regression-reviewer"),
+         ("flows", "agents", "&view=flows&workflow=storefront-checkout-release-and-regression-flow"), ("packs", "packs", ""), ("local", "local", ""),
          ("setup", "setup", ""), ("settings", "settings", ""))
 READY = {"session": ".stage-main [data-testid=session-live] .panel-body", "agents": ".stage-main [data-testid=roles-graph] .rc-scroll [data-testid=roles-card]",  # 3.6.0.0: its drawing drawn
          "crew": ".stage-main [data-testid=crew-form][data-name=storefront-checkout-regression-reviewer] [data-testid=crew-try-estimate]",  # 3.6.0.0 R1: 1 · Agents
+         "flows": ".stage-main [data-testid=flow-form][data-name=storefront-checkout-release-and-regression-flow] [data-testid=flow-drawn-step]",  # R2
          "packs": ".stage-main [data-testid=pm-installed] .panel-body", "local": "[data-testid=local-rail-page]",
          "setup": "[data-testid=setup-rail]", "settings": "[data-testid=settings-rail-group]"}
 SHOTS: list = []

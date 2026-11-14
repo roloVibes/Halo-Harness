@@ -9,8 +9,9 @@ Part of [Halo Studio](STUDIO.md), which lists every part; the section's other vi
 ## The tab
 
 `Alt+2` opens Agents on **1 · Agents** -- on **Live** instead while a session runs here (the design's "the Map while a session runs"; Live is this round's running picture), and on the tab you used last after that; `1` from anywhere in the section. The old
-views stay one click away in the same switch: **Cast**, **Live** and **Workflows** (a link or door that names one,
-such as `?mode=agents` or `&view=live`, still opens it). `?mode=agents&view=crew` opens this tab.
+views stay one click away in the same switch: **Cast**, **Live** and **Board** (the old Workflows board; a link or
+door that names one, such as `?mode=agents` or `&view=live`, still opens it). `?mode=agents&view=crew` opens this tab.
+3.6.0.0 R2: **2 · Workflows** (the `2` key) is the second tab: [Workflows and the step runner](STUDIO-workflows.md).
 
 - **The list** (a drawer on the left, open with the tab): **+ New agent**, then **Yours** (yours and this project's;
   `new` when made in the last day, `not used yet` when no workflow or map names it, `problem` when the file has one),
@@ -43,10 +44,12 @@ The box docked at the foot of the tab. Type what you want ("make a security revi
 GitHub"; "make it stricter"; "write the instructions for security-reviewer") and press Enter. Its conversation opens
 above it after your first request and never by itself; the browser keeps it (the last 40 lines).
 
-**What it can change: your agents' files, nothing else.** Its tools are `agent_make`, `agent_change`, `agent_copy`,
-`agent_remove` and `agent_draft_instructions` (halo_harness/crew/tools.py). It has no tool to run a command, read or
-change a project file, or reach the web; asked for one, it says what it would need instead (paste the text into the
-box). Workflows and maps come with their tabs.
+**What it can change: your agents' and workflows' files, nothing else.** Its tools are `agent_make`, `agent_change`,
+`agent_copy`, `agent_remove` and `agent_draft_instructions` (halo_harness/crew/tools.py); 3.6.0.0 R2 adds the workflow
+and step tools and `try_agent` / `try_workflow` (crew/tools_flow.py, crew/tools_try.py; [the Workflows
+tab](STUDIO-workflows.md#the-builder-on-this-tab)). It has no tool to run a command, read or change a project file, or
+reach the web; asked for one, it says what it would need instead (paste the text into the box). Each tab keeps its own
+conversation; one request may touch agents and workflows, in one preview. Maps come with the Map tab.
 
 **Preview, Apply, Undo.**
 
@@ -79,12 +82,12 @@ Every write is owner-only (the owner proof, [the shell](STUDIO-shell.md)).
 |---|---|
 | `GET crew/agents` | `{agents, starters}`: name, does, model, uses, careful, scope, new, used, problems |
 | `GET / POST / PUT / DELETE crew/agent/<name>` | read, make, save, delete one of yours (422 with the problem lines; 409 for a starter or a name in use) |
-| `GET crew/workflows`, `GET crew/maps` | the rows of those kinds (read-only this round) |
+| `GET crew/maps` | the rows of maps (read-only until the Map tab); workflows: [their routes](STUDIO-workflows.md#routes) |
 | `GET crew/estimate?model=<ref>` | `{usd, line}` before a Try it |
-| `POST crew/try {kind: agent, body, request}` | starts a run: `{try}`; `crew` frames on `/api/events` |
+| `POST crew/try {kind: agent \| workflow, body, request}` | starts a run: `{try}`; `crew` frames on `/api/events` (a workflow's: [Try it](STUDIO-workflows.md#try-it)) |
 | `GET crew/try/<id>`, `POST crew/try/<id>/stop`, `POST crew/try/<id>/seen` | the run's record, Stop, seen |
 | `GET builder` | its model, the typical cost, today's spend, the cap |
-| `POST builder/ask {tab, selection, text, conversation_id, history}` | one turn: `{reply, question?, changes, cost_usd, meta}`; 429 past the cap |
+| `POST builder/ask {tab, selection, text, conversation_id, history}` | one turn (`tab`: agents or workflows): `{reply, question?, changes, cost_usd, meta, tries?}`; 429 past the cap |
 | `POST builder/apply {conversation_id, change_ids}` | writes the ticked ids: `{undo_id, wrote, removed, skipped, filled}` |
 | `POST builder/undo {undo_id}` | `{restored}` |
 

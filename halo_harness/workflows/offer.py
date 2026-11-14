@@ -1,7 +1,7 @@
 """halo_harness.workflows.offer -- the Workflow tool is offered only when a square is enabled for the session's
 lineup (Halo 3.3.16.2, "from a session's own review": on a lineup with no square the tool answered "no square
 is enabled for this lineup", a tool that could do nothing and cost prompt tokens every turn) and (3.3.16.3) not
-every one of them has its when set to `off`.
+every one of them has its when set to `off`. 3.6.0.0 R2: or when you have a crew workflow (crew/flow_door.py).
 
     drop_unless_enabled(registry, catalog, *, team=None, cwd=None) -> bool   True when it took the tool out
 
@@ -30,6 +30,9 @@ def squares_on(team: Optional[str] = None, *, cwd=None) -> list:
 
 def drop_unless_enabled(registry, catalog=None, *, team: Optional[str] = None, cwd=None) -> bool:
     if registry is None or registry.get(TOOL) is None or squares_on(team, cwd=cwd):
+        return False
+    from halo_harness.crew.flow_door import names  # 3.6.0.0 R2: a crew workflow of yours keeps the tool offered
+    if names(cwd):
         return False
     registry.remove_tool(TOOL)
     if catalog is not None:

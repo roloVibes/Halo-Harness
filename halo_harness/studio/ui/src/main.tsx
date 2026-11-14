@@ -35,6 +35,7 @@ import "./styles/agents.css"; // 3.3.16.0 R1: Agents' bar (Cast | Runs | Live), 
 import "./styles/agents-live.css"; // 3.3.16.0 R2: Live's inspector, the Attention chip
 import "./styles/workflows.css"; // 3.3.16.0 R3: Agents -> Workflows, the board of squares; a square's Live node
 import "./styles/crew.css"; // 3.6.0.0 R1: Agents -> 1 · Agents (routes/crew/): the form, Try it, the builder box
+import "./styles/flows.css"; // 3.6.0.0 R2: Agents -> 2 · Workflows (routes/crew/flows/): the steps, the drawing, Try it
 import "./styles/packs.css";
 import "./styles/manager.css";
 import "./styles/setup.css";

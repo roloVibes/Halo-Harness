@@ -78,13 +78,13 @@ MEASURE = r"""((exempt) => {
 DRAWINGS = r"""(() => {
   const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 1 && r.height > 1 && !el.closest('[hidden]'); };
   const view = [...document.querySelectorAll('.section-view')].find(vis);
-  const NODES = '[data-testid=roles-live-node], [data-testid=fleet-session], [data-testid=roles-card]';
+  const NODES = '[data-testid=roles-live-node], [data-testid=fleet-session], [data-testid=roles-card], [data-testid=flow-drawn-step]';
   return view ? [...view.querySelectorAll('.rc-scroll')].filter(vis).map((s) => {
     const S = s.getBoundingClientRect();
     const inside = (e) => { const r = e.getBoundingClientRect(); return r.left >= S.left - 1 && r.top >= S.top - 1 && r.right <= S.right + 1 && r.bottom <= S.bottom + 1; };
     const nodes = [...s.querySelectorAll(NODES)].filter(vis);
     const lead = nodes.find((n) => n.dataset.selected) || nodes[0];
-    const box = s.closest('.rlm, .rc');
+    const box = s.closest('.rlm, .rc, .fd');
     const pct = box && box.querySelector('[data-testid=canvas-zoom-level], .rc-zoom button:nth-child(2), [data-testid=roles-live-zoom]');
     return {id: (s.closest('[data-panel-in]') || s.closest('[data-panel]'))?.dataset.panelIn || box?.dataset.testid || 'canvas', nodes: nodes.length,
             cut: nodes.filter((n) => !inside(n)).length, more: !!(box && box.querySelector('[data-testid=map-more]')), lead: !!lead && inside(lead),

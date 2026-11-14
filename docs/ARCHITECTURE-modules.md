@@ -89,12 +89,14 @@ this list against the tree.
   (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in),
   `peers/firewall.py` (3.4.0.1: whether Windows Firewall lets other machines reach a port Halo listens on, read-only)
 
-**Crew** (`halo_harness/crew/`, 3.6.0.0 R1, docs/CREW-FORMATS.md, docs/STUDIO-builder.md): `crew/formats.py` (agent/1,
+**Crew** (`halo_harness/crew/`, 3.6.0.0 R1, docs/CREW-FORMATS.md, docs/STUDIO-builder.md; R2 the step runner
+`crew/runner.py` + `runner_session.py`, Try it for a workflow `trial_flow.py` / `try_flow.py`, the builder's workflow
+tools `tools_flow.py`, docs/STUDIO-workflows.md): `crew/formats.py` (agent/1,
 workflow/1, map/1: a problem per line, the circle), `crew/store.py` (yours / a trusted project's / the starters),
 `crew/spec.py` (an agent file as the AgentSpec the Agent tool spawns), `crew/tools.py` (the builder's agent_* tools),
 `crew/changes.py` (preview rows, apply, undo), `crew/builder.py` + `crew/builder_cap.py` (one builder turn, its model
 and its daily cap), `crew/trial.py` + `crew/trial_run.py` (Try it on a throwaway worktree); Studio's routes
-`studio/crew_api.py` (`crew/`) and `studio/builder_api.py` (`builder/`).
+`studio/crew_api.py` (`crew/`), `studio/crew_flow_api.py` (`crew/workflow*`, R2) and `studio/builder_api.py` (`builder/`).
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live):
 

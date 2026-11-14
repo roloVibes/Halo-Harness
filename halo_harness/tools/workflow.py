@@ -15,6 +15,8 @@ config/agents_md.py `resolved_tools`). Tests swap `SPAWN` / `RUN_ORCHESTRA` / `T
 3.3.16.2: offered only when a square is enabled for the session's lineup (workflows/offer.py drops it from
 the tool list otherwise), and a role of the lineup that covers the reads takes the task before any square
 (workflows/lineup_roles.py; the receipt says "handing the PDF to your media role: the lineup covers it").
+3.6.0.0 R2: `name` may be one of your crew workflows (crew/flow_door.py): it wins over a square of that name and runs
+on the step runner (crew/runner.py); its receipt line says so.
 """
 
 from __future__ import annotations
@@ -89,7 +91,8 @@ class WorkflowTool(Tool):
         except Exception:
             on, rules = [], {}
         from halo_harness.workflows.when_tool import squares_tail  # 3.3.16.3: each square's "when" in a few words
-        return DESCRIPTION + squares_tail(on, rules)
+        from halo_harness.crew.flow_door import tail  # 3.6.0.0 R2: your crew workflows, by name
+        return DESCRIPTION + squares_tail(on, rules) + tail()
 
     lineup = None  # the session's lineup (the router reads the runtime's; this is only the description's)
 
@@ -111,6 +114,12 @@ class WorkflowTool(Tool):
         if not task:
             return ToolResult("The task parameter is required", is_error=True)
         files = [str(f) for f in input.get("files") or [] if isinstance(f, str) and f.strip()]
+        if str(input.get("name") or "").strip():  # 3.6.0.0 R2: a crew workflow's name wins; it runs on the step runner
+            from halo_harness.crew import flow_door
+            got = flow_door.run(runtime, str(input["name"]).strip(), task, cwd=ctx.cwd, tool_id=ctx.tool_use_id or "",
+                                files=files, spawn=SPAWN)
+            if got is not None:
+                return ToolResult(got[0], is_error=got[1])
         session = runtime.parent
         model_ref = ctx.model_ref or str(getattr(getattr(session, "model_ref", None), "raw", "") or "")
         squares = registry.enabled_squares(_lineup(runtime), cwd=ctx.cwd)

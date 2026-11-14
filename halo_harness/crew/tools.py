@@ -1,6 +1,7 @@
 """halo_harness.crew.tools -- the builder's tools: configuration only (Halo 3.6.0.0 R1, the design's tool table).
 
-R1 has the agent tools; R2 adds `workflow_*` / `step_*` and R3 `map_*` by putting their entries in TOOLS (same shape):
+R1 has the agent tools; R2 adds `workflow_*` / `step_*` (crew/tools_flow.py) and `try_agent` / `try_workflow`
+(crew/tools_try.py), R3 `map_*`, by putting their entries in TOOLS (same shape):
 
     agent_make                {name, does, instructions?, model?, needs?, uses?, careful?, more?}
     agent_change              {name, fields: {does?, instructions?, model?, needs?, uses?, careful?, more?}}
@@ -173,6 +174,10 @@ TOOLS = {
     "agent_remove": (agent_remove, '{"name"}  (deletes the file, once no workflow or map uses it)'),
     "agent_draft_instructions": (agent_draft_instructions, '{"name", "does"}  (drafts the instructions it gets)'),
 }
+
+from halo_harness.crew import tools_flow, tools_try  # noqa: E402  3.6.0.0 R2: workflow_* / step_*, try_agent / try_workflow
+TOOLS.update(tools_flow.TOOLS)
+TOOLS.update(tools_try.TOOLS)
 
 
 def run(name: str, args, ctx) -> dict:

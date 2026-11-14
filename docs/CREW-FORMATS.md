@@ -3,8 +3,8 @@
 Read this when you write or read an agent, a workflow or a map file by hand, want to know where Halo keeps them, or want to know what an agent file becomes when a session spawns it.
 
 Since 3.6.0.0 R1, Studio's Agents tab makes agents in a new format, one YAML file per thing, each with a `format:` line
-so a later change can be told apart. Workflows and maps use the same folders; their editors come in the next rounds
-(the Workflows tab, then the Map). The older lineups, bios and workflow squares are separate files: nothing here
+so a later change can be told apart. Workflows and maps use the same folders; workflows have their tab since R2
+([2 · Workflows](STUDIO-workflows.md)), maps get theirs next (the Map). The older lineups, bios and workflow squares are separate files: nothing here
 reads or converts them.
 
 ## Where they live
@@ -67,8 +67,23 @@ steps:
     hands: failures and problems
     when: always                             # always | {needs: [pdf]} | {says: [fix]} | ask
     repeat: {until: the tests pass and the review finds nothing, max: 3}
-own_copy: false                              # true: runs on the run engine in its own worktree
+own_copy: false
+max_usd: 0.50                                # optional: what one run may spend; the run stops there
 ```
+
+| Field | Means |
+|---|---|
+| `for` | one line in your words: what it is for |
+| `steps[].agents` | agent names; several run at the same time |
+| `steps[].gets` / `hands` | what the step works from / what it hands on (words the agents are given) |
+| `steps[].when` | `always` (or none) · `{needs: [pdf, images, audio, video, code, review]}` · `{says: [words]}` · `ask` (only when the request names the step or one of its agents) |
+| `steps[].repeat` | `{until: <words>, max: 1-10}`: after the step, one yes/no check by its last agent; no runs it again, at most `max` times |
+| `own_copy` | kept in the file; in this version it changes nothing (an agent with `more.worktree` gets its own worktree) |
+| `max_usd` | dollars one run may spend; with the session's cap, checked before every call |
+
+**What a session does with it.** A session's Workflow tool runs a workflow of yours (or a trusted project's) by name on
+the step runner: each step's agents spawned as children by their names, the hand-on text carried to the next step
+([the step runner](STUDIO-workflows.md#what-runs-underneath-the-step-runner)).
 
 ## A map: `format: map/1`
 

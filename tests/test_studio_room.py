@@ -37,7 +37,7 @@ REPO = Path(__file__).resolve().parent.parent
 WS = REPO / "halo_harness" / "studio" / "ui" / "src" / "lib" / "workspace"
 UI = WS.parent.parent
 _RUN: dict = {}
-STAGED = ("session", "agents", "crew", "packs")  # 3.6.0.0 R1: crew = Agents -> 1 · Agents
+STAGED = ("session", "agents", "crew", "flows", "packs")  # 3.6.0.0 R1: crew = Agents -> 1 · Agents; R2: flows = 2 · Workflows
 
 
 def _got(ctx: Ctx) -> dict:
@@ -74,6 +74,7 @@ def test_r1_r2_r8_the_main_thing_and_its_drawers(ctx: Ctx):
     room = _room(_got(ctx))
     ctx.check(f"every view measured at three sizes ({len(room)} records)", len(room) >= 21)
     ctx.check("3.6.0.0 R1: the Agents tab at 1280, 1500 and 1920", all(f"crew@{s}" in room for s in ("1280x800", "1500x900", "1920x1000")))
+    ctx.check("3.6.0.0 R2: the Workflows tab at 1280, 1500 and 1920", all(f"flows@{s}" in room for s in ("1280x800", "1500x900", "1920x1000")))
     for key, m in room.items():
         if not m or key.split("@")[0] not in STAGED or not m.get("main"):
             continue
@@ -115,7 +116,7 @@ def test_r4_r5_r6_text_and_scrollbars(ctx: Ctx):
 
 #: 3.6.0.0 R0a-finish: the views where "8 px between neighbours" holds everywhere measured (a segmented control's
 #: parts are one control); the others are listed with their pairs in the round's hand-back
-SPACED = ("session", "crew", "packs", "local", "setup", "settings")  # 3.6.0.0 R1: the Agents tab from the start
+SPACED = ("session", "crew", "flows", "packs", "local", "setup", "settings")  # 3.6.0.0 R1: the Agents tab from the start; R2: Workflows
 
 
 @test
@@ -124,7 +125,7 @@ def test_r7_controls(ctx: Ctx):
     for key, m in room.items():
         for r in (m or {}).get("regions") or []:
             where = f"{key} {r['id']}"
-            if key.startswith(("session", "packs", "agents", "crew", "local")) and r["id"] not in ("roles-bios",):
+            if key.startswith(("session", "packs", "agents", "crew", "flows", "local")) and r["id"] not in ("roles-bios",):
                 ctx.check(f"R7 {where}: no control under 28 px, got {r['low']} {r['low_ex']}", r["low"] == 0)
             ctx.check(f"R7 {where}: no two controls drawn on each other, got {r['overlap']} {r['over']}", r["overlap"] == 0)
             if key.startswith(SPACED):
@@ -138,7 +139,7 @@ def test_r8_a_drawing_fits_its_box(ctx: Ctx):
     by hand survives a drawer opening, and Fit makes the drawing automatic again."""
     seen = 0
     for key, m in _room(_got(ctx)).items():
-        if not key.startswith(("session", "agents")):
+        if not key.startswith(("session", "agents", "flows")):  # 3.6.0.0 R2: the steps drawn beside the workflow form
             continue
         for d in (m or {}).get("drawings") or []:
             seen += 1

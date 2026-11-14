@@ -8,7 +8,7 @@ import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { AttentionChip } from "../agents/AttentionChip";
 import { ViewSwitch } from "../agents/ViewSwitch";
-import { BuilderBox } from "./Builder";
+import { AgentsBuilder } from "./Builder";
 import { CrewForm } from "./Form";
 import { CrewList } from "./List";
 import { loadCrew, openAgent, useCrew } from "./store";
@@ -47,7 +47,7 @@ export const crewPanels: PanelSpec[] = [
   { id: "crew-builder", testid: "crew-builder-panel", title: "Builder", role: "dock",
     about: "Describe an agent, or say what to change: the builder answers with a preview you tick, then Apply.",
     help: "Type what you want and press Enter.\nEach change is a line with a tick; a line that lets an agent do more is never ticked for you.\nApply writes; Undo puts it back.",
-    face: "detail", glance: BuilderBox, detail: BuilderBox },
+    face: "detail", glance: AgentsBuilder, detail: AgentsBuilder },
 ];
 
 export function CrewView() {
