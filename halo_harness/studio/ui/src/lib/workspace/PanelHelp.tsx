@@ -68,7 +68,7 @@ export function PanelHelp({ spec, anchor, sectionTitle, onClose }: Props) {
       )}
       <footer className="panel-help-foot mono">
         <span>
-          <Kbd keys="Alt+Arrows" /> move · <Kbd keys="Alt+Shift+Arrows" /> resize
+          <Kbd keys="Alt+Left" /> / <Kbd keys="Alt+Right" /> wider · narrower
         </span>
         <span>
           <Kbd keys="?" /> again: how {sectionTitle} works · <Kbd keys="Esc" /> close

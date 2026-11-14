@@ -34,21 +34,21 @@
 .rlm-name { font: 600 13px var(--sans); min-width: 0; }
 /* the role leads an agent's box when it has one; the agent's own name is the muted line under it */
 .rlm-title { font: 600 13px var(--sans); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rlm-name.rlm-sub { flex: none; font: 500 10.5px var(--mono); letter-spacing: .04em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rlm-line { font: 11px var(--mono); flex: none; }
+.rlm-name.rlm-sub { flex: none; font: 500 12px var(--mono); letter-spacing: .04em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlm-line { font: 12px var(--mono); flex: none; }
 /* every line of a node has its own row and its own room (the owner: "information gets stomped on ... don't squish
    them"): the role under the name, the model beside its cost (the model gives way, the cost never does), then two
    lines of what it does; the head's badge and menu never shrink, the name is cut last */
 .rlm-head { flex: none; }
 .rlm-head .og-badge, .rlm-head .og-chip, .rlm-more, .rlm-pin { flex: none; }
-.rlm-meta { flex: none; display: flex; justify-content: space-between; gap: 10px; font: 11px var(--mono); min-width: 0; }
+.rlm-meta { flex: none; display: flex; justify-content: space-between; gap: 10px; font: 12px var(--mono); min-width: 0; }
 .rlm-model { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlm-cost { flex: none; white-space: nowrap; color: var(--text); }
-.rlm-now { font: 11px/1.35 var(--mono); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.rlm-now { font: 12px/1.35 var(--mono); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .rlm-tool { flex: none; min-width: 0; }
 .rlm-tool-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rlm-kind { font-size: 10px; }
-.rlm-clash-line { flex: none; font: 11px var(--mono); color: var(--warn); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rlm-kind { font-size: 12px; }
+.rlm-clash-line { flex: none; font: 12px var(--mono); color: var(--warn); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rlm-node.rlm-session .rlm-head { align-items: flex-start; }
 .rlm-node.rlm-session .rlm-dot { margin-top: 5px; }
 .rlm-node.rlm-session .rlm-name { white-space: normal; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

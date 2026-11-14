@@ -38,7 +38,7 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_bundle import bundle_api  # noqa: E402
 from tests.helpers.studio_packs_steps import (CUR, TABS, alt, attention, disabled, events, first_paint, mod_key, pa,  # noqa: E402
-                                              open_tab, panel, press, q, qa)
+                                              bar_btn, open_tab, panel, press, q, qa)
 
 
 
@@ -74,10 +74,10 @@ def sections(c, url, ctx) -> dict:
 def session_panel(c, url, ctx) -> dict:
     alt(c, 1)
     c.wait(f"{CUR}.startsWith('Session')", 10)
-    p = panel("doc-review--reviews", ".panel")
-    c.wait(f"!!{p}", 20)
-    return {"session_panel": [c.js(f"{p}.dataset.collapsed === 'true'"), c.js(f"{p}.querySelector('.panel-title').textContent"),
-                              c.js(f"{p}.querySelector('.panel-title').title")]}
+    b = bar_btn("doc-review--reviews")  # 3.6.0.0 R0a: a closed drawer, its button in the view bar (a strip before)
+    c.wait(f"!!{b}", 20)
+    return {"session_panel": [c.js(f"{b}.getAttribute('aria-pressed') === 'false'"), c.js(f"{b}.querySelector('.viewbar-name').textContent"),
+                              c.js(f"{b}.title.split(': ').slice(1).join(': ')")]}
 
 
 def palette(c, url, ctx) -> dict:

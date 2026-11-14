@@ -43,7 +43,7 @@ THEME_KEYS = ("id", "label", "posture", "palette")  # 3.3.12.0 R2
 # 3.2.0.0 R3: contributes.studio
 STUDIO_KEYS = ("sections", "panels", "palette", "config_form", "events", "attention",
                "routes")  # 3.3.13.0 R2: routes (a pack's own Studio API routes, API 1.2)
-PANEL_KEYS = ("id", "title", "kind", "source", "schema", "w", "h", "help", "columns", "links")  # schema: 3.2.0.0 R5 (artifact)
+PANEL_KEYS = ("id", "title", "kind", "source", "schema", "w", "h", "role", "side", "content_w", "help", "columns", "links")  # schema: 3.2.0.0 R5 (artifact); role/side/content_w: 3.6.0.0 R0a (API 1.5)
 SECTION_KEYS = ("id", "title", "blurb", "help", "panels", "view")  # view: 3.3.13.0 R2 (a whole-page bundle, API 1.2)
 ROUTES_KEYS = ("module", "prefix")
 ANSWER_KEYS = ("a", "r", "s", "o")
@@ -65,8 +65,8 @@ ROUTING_KEYS = ("task_work", "never_evict", "escalation")
 def panel(section: bool = False) -> dict:
     """One `<panel>`; `section=True` adds the core section it sits in (`contributes.studio.panels[]`)."""
     link = obj({"label": STRING, "route": STRING, "url": STRING})
-    props = {"id": STRING, "title": STRING, "kind": STRING, "source": STRING, "schema": STRING, "w": INT, "h": INT, "help": STRING,
-             "columns": _NAMES, "links": {"type": "array", "items": link}}
+    props = {"id": STRING, "title": STRING, "kind": STRING, "source": STRING, "schema": STRING, "w": INT, "h": INT,
+             "role": STRING, "side": STRING, "content_w": INT, "help": STRING, "columns": _NAMES, "links": {"type": "array", "items": link}}
     assert tuple(props) == PANEL_KEYS
     return obj({"section": STRING, **props} if section else props)
 

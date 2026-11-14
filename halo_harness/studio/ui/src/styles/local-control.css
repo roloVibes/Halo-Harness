@@ -1,6 +1,6 @@
 /* Local, controlled (3.3.5.0 R3): a pull's progress, the Jobs list, the pull-by-name box, the Loaded-now strip,
    and the card a Models row's actions menu opens. Colours from styles/tokens.css only. */
-.lc-pull { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; font-size: 11.5px; }
+.lc-pull { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; font-size: 12px; }
 .lc-pull-bar { position: relative; flex: 0 0 140px; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
 .lc-pull-bar > span { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 999px; transition: width var(--t) var(--ease); }
 .lc-pull[data-state="done"] .lc-pull-bar > span { background: var(--ok); }
@@ -22,7 +22,7 @@
 .lc-facts dt { margin: 0; }
 .lc-facts dd { margin: 0; overflow-wrap: anywhere; }
 .lc-uses { margin: 0; padding-left: 18px; font-size: 12px; }
-.lc-cli-line { overflow-wrap: anywhere; color: var(--muted); font-size: 11.5px; }
+.lc-cli-line { overflow-wrap: anywhere; color: var(--muted); font-size: 12px; }
 
 @media (max-width: 760px) {
   .lc-show { grid-template-columns: minmax(0, 1fr); }

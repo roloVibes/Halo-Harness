@@ -12,7 +12,7 @@
 .rlu-name { grid-area: name; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rlu-badges { grid-area: badges; display: flex; gap: 4px; align-items: center; }
 .rlu-badges .rc-scope { margin-left: 0; }
-.rlu-desc { grid-area: desc; font-size: 11.5px; overflow-wrap: anywhere; } /* 3.3.15.0 R3: read text is text, its full height */
+.rlu-desc { grid-area: desc; font-size: 12px; overflow-wrap: anywhere; } /* 3.3.15.0 R3: read text is text, its full height */
 .rlu-active { color: var(--accent); border-color: var(--accent); }
 .rlu-row[data-active] { border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .rbs-row[draggable="true"] { cursor: grab; }
@@ -23,43 +23,43 @@
 .re-form, .re-assign, .re-lineup, .rb-form { display: grid; gap: 8px; font-size: 13px; align-content: start; }
 .re-field { margin: 0; }
 .re-field .input { width: 100%; box-sizing: border-box; }
-.re-check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.re-check { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .re-assign-head { display: flex; align-items: baseline; gap: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .re-assign-head b { font-size: 15px; }
 .re-assign-head .rc-scope { margin-left: auto; }
-.re-resolved { display: grid; gap: 4px; margin: 4px 0; font-size: 11.5px; }
+.re-resolved { display: grid; gap: 4px; margin: 4px 0; font-size: 12px; }
 .re-resolved div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; }
 .re-resolved dt { color: var(--muted); }
 .re-resolved dd { margin: 0; overflow-wrap: anywhere; }
 .re-card-problems { margin: 0; padding-left: 18px; color: var(--warn); font-size: 12px; }
 .re-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.re-tip { font-size: 11.5px; margin: 0; }
-.re-save-problems { padding: 8px 10px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: var(--bad-soft); font-size: 12.5px; }
+.re-tip { font-size: 12px; margin: 0; }
+.re-save-problems { padding: 8px 10px; border: 1px solid var(--bad); border-radius: var(--radius-sm); background: var(--bad-soft); font-size: 13px; }
 .re-save-problems ul { margin: 4px 0 0; padding-left: 18px; }
 .re-block { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
 .re-block[data-open] { border-color: var(--line-strong); }
 .re-block-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; }
-.re-block-title { flex: 1; text-align: left; border: 0; background: none; color: var(--text); font: 600 12.5px var(--sans); cursor: pointer; padding: 4px 0; }
+.re-block-title { flex: 1; text-align: left; border: 0; background: none; color: var(--text); font: 600 13px var(--sans); cursor: pointer; padding: 4px 0; }
 .re-block[data-set] .re-block-title { color: var(--accent); }
-.re-unset { font-weight: 400; font-size: 11px; }
-.re-yaml-toggle { border: 1px solid var(--line-strong); border-radius: 99px; background: none; color: var(--muted); font-size: 10.5px; padding: 1px 8px; cursor: pointer; }
+.re-unset { font-weight: 400; font-size: 12px; }
+.re-yaml-toggle { border: 1px solid var(--line-strong); border-radius: 99px; background: none; color: var(--muted); font-size: 12px; padding: 1px 8px; cursor: pointer; }
 .re-yaml-toggle[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
-.re-about { margin: 0 10px 6px; font-size: 11.5px; }
+.re-about { margin: 0 10px 6px; font-size: 12px; }
 .re-block > .re-form, .re-block > .re-yaml { padding: 0 10px 10px; }
 .re-yaml { display: grid; gap: 6px; }
 .re-yaml-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 /* 3.3.7.0 R3: the Lineup tab's Local models block (LineupSched.tsx) */
-.re-sched-lines, .re-sched-hygiene { list-style: none; margin: 0 10px 6px; padding: 0; display: grid; gap: 2px; font-size: 11.5px; overflow-wrap: anywhere; }
+.re-sched-lines, .re-sched-hygiene { list-style: none; margin: 0 10px 6px; padding: 0; display: grid; gap: 2px; font-size: 12px; overflow-wrap: anywhere; }
 .re-block > .re-yaml-row { padding: 0 10px 8px; }
 .re-rows { display: grid; gap: 4px; }
 .re-row { display: grid; gap: 4px; align-items: center; }
 .re-row .field { margin: 0; }
-.re-row-head { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.re-row-head { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
 .re-key { font-size: 12px; }
 .re-members { display: flex; flex-wrap: wrap; gap: 4px; }
-.re-member { padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line-strong); background: none; color: var(--muted); font-size: 11px; cursor: pointer; }
+.re-member { padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line-strong); background: none; color: var(--muted); font-size: 12px; cursor: pointer; }
 .re-member[aria-pressed="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
-.re-diff { margin: 8px 0 0; padding: 8px 10px; font-size: 11.5px; color: var(--ok); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); white-space: pre-wrap; }
+.re-diff { margin: 8px 0 0; padding: 8px 10px; font-size: 12px; color: var(--ok); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-sm); white-space: pre-wrap; }
 
 /* -- Problems --------------------------------------------------------------------------- */
 .rp { display: grid; gap: 10px; align-content: start; }
@@ -67,13 +67,13 @@
 .rp-group[data-sev="blocks"] .rail-label { color: var(--bad); }
 .rp-group[data-sev="warns"] .rail-label { color: var(--warn); }
 .rp-row { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 2px 8px; text-align: left; padding: 6px 8px; border: 1px solid transparent;
-  border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+  border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .rp-row:disabled { cursor: default; }
 .rp-row:not(:disabled):hover { background: var(--accent-soft); border-color: var(--line-strong); }
 .rp-dot { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--warn); }
 .rp-row[data-sev="blocks"] .rp-dot { background: var(--bad); box-shadow: 0 0 6px var(--bad); }
 .rp-text { overflow-wrap: anywhere; }
-.rp-fix { grid-column: 2; font-size: 11.5px; }
+.rp-fix { grid-column: 2; font-size: 12px; }
 
 /* -- the bio form and the model picker --------------------------------------------------------- */
 .rb-sec { padding: 6px 0 0; border-top: 1px solid var(--line); }
@@ -88,66 +88,66 @@
 .rm-bar .input { flex: 1; min-width: 0; }
 .rm-table { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
 .rm-row { display: grid; grid-template-columns: minmax(140px, 1fr) 96px 52px minmax(150px, 1.3fr) 38px; gap: 6px; min-width: 540px; align-items: center; width: 100%; padding: 4px 8px; border: 0;
-  border-bottom: 1px solid var(--line); background: none; color: var(--text); font: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
+  border-bottom: 1px solid var(--line); background: none; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
 .rm-row:hover { background: var(--accent-soft); }
 .rm-row[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.rm-head { position: sticky; top: 0; z-index: 1; cursor: default; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; background: var(--surface-2); }
+.rm-head { position: sticky; top: 0; z-index: 1; cursor: default; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; background: var(--surface-2); }
 .rm-ref { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rm-best { display: grid; gap: 1px; min-width: 0; overflow: hidden; }
 .rm-kinds { display: flex; gap: 3px; overflow: hidden; }
-.rm-best .og-chip { font-size: 9.5px; padding: 0 5px; }
-.rm-line { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-best .og-chip { font-size: 12px; padding: 0 5px; }
+.rm-line { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 3.1.9.0 R3: what Auto learned per task kind; a dropped kind (and, with "learned for", a dropped row) struck through */
 .rm-learned { display: flex; gap: 3px; overflow: hidden; }
 .rm-learned-chip { border-style: dashed; opacity: .7; }
 .rm-learned-chip[data-counted] { border-style: solid; opacity: 1; }
 .rm-learned-chip[data-dropped] { text-decoration: line-through; color: var(--bad); border-color: var(--bad); }
 .rm-dropped .rm-ref { text-decoration: line-through; color: var(--muted); }
-.rm-bar .rm-task { flex: 0 0 auto; width: auto; max-width: 150px; font-size: 11px; }
-.rm-more { margin: 6px 8px; font-size: 11.5px; }
-.rm-count { margin: 0 2px 4px; font-size: 11.5px; } /* 3.3.5.0 R0 (f): how many models the list holds */
+.rm-bar .rm-task { flex: 0 0 auto; width: auto; max-width: 150px; font-size: 12px; }
+.rm-more { margin: 6px 8px; font-size: 12px; }
+.rm-count { margin: 0 2px 4px; font-size: 12px; } /* 3.3.5.0 R0 (f): how many models the list holds */
 .rm-typed { display: flex; gap: 6px; }
 .rm-typed .input { flex: 1; min-width: 0; }
-.rm-current { font-size: 11.5px; color: var(--muted); }
+.rm-current { font-size: 12px; color: var(--muted); }
 .rm-current b { color: var(--text); }
 .rm-warn { color: var(--warn); }
 .rm-test { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.rm-test-result { font-size: 11.5px; color: var(--bad); }
+.rm-test-result { font-size: 12px; color: var(--bad); }
 .rm-test-result[data-ok] { color: var(--ok); }
-.rmo-analysis { display: grid; gap: 1px; font-size: 11px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+.rmo-analysis { display: grid; gap: 1px; font-size: 12px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--bg-2); }
 .rmo-why { margin: 0; padding: 8px 10px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); font-size: 12px; }
 
 /* -- the Live tab ---------------------------------------------------------------------------- */
 .rl, .rl-agent { display: grid; gap: 8px; align-content: start; font-size: 13px; }
 .rl-head { display: flex; align-items: center; gap: 8px; }
-.rl-head b { font-size: 14px; }
-.rl-meta { font-size: 11px; overflow-wrap: anywhere; }
+.rl-head b { font-size: 15px; }
+.rl-meta { font-size: 12px; overflow-wrap: anywhere; }
 .rl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .rl-chip { cursor: pointer; }
 .rl-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .rl-stream { max-height: 300px; overflow: auto; }
-.rl-history ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.rl-history ul { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .rl-history .og-chip[data-bad] { color: var(--bad); border-color: var(--bad); }
-.rl-task { font-size: 11.5px; }
+.rl-task { font-size: 12px; }
 
 /* -- 3.2.0.0 R2: Lineups and Bios grouped by source (SourceGroups.tsx), a pack row's actions, read-only pack bios -- */
 .rsg { border: 1px solid var(--line); border-radius: 10px; padding: 4px 8px 6px; background: color-mix(in srgb, var(--surface) 70%, transparent); }
 .rsg[data-group^="pack:"] { border-color: color-mix(in srgb, var(--accent-2) 45%, transparent); }
 .rsg[data-empty] { opacity: .72; }
 .rsg-head { display: flex; align-items: baseline; gap: 8px; cursor: pointer; padding: 3px 0; list-style-position: inside; min-width: 0; }
-.rsg-label { font-size: 10px; letter-spacing: .1em; }
-.rsg-count { font-size: 10.5px; white-space: nowrap; }
-.rsg-hint { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.rsg-label { font-size: 12px; letter-spacing: .1em; }
+.rsg-count { font-size: 12px; white-space: nowrap; }
+.rsg-hint { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .rsg > ul { margin-top: 4px; }
 .rsg .rbs-list { max-height: none; border-bottom: 0; padding-bottom: 0; }
 .rbs-groups { display: grid; gap: 6px; max-height: 300px; overflow: auto; padding-right: 2px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-.rsg-shadowed { margin: 4px 0 0; font-size: 11px; }
+.rsg-shadowed { margin: 4px 0 0; font-size: 12px; }
 .rlu-pack { display: grid; gap: 3px; }
 .rlu-acts { display: flex; flex-wrap: wrap; gap: 4px; padding-left: 6px; }
 .rb-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
 .rb-fields:disabled { opacity: .78; }
-.rb-model-info { font-size: 11.5px; margin: 0; }
+.rb-model-info { font-size: 12px; margin: 0; }
 .ri-readonly { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; padding: 6px 8px; border: 1px dashed color-mix(in srgb, var(--accent-2) 55%, transparent); border-radius: 8px; }
 
 /* 3.3.15.0 R3: the Assignment / Lineup tab's `?` (TabHelp.tsx): each field's one-line hint, out of the form */
@@ -155,5 +155,5 @@
 .re-tab-help summary { margin-left: auto; }
 .re-tab-help-lines { margin: 6px 0 0; display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-card);
   background: var(--bg); font-size: 12px; }
-.re-tab-help-lines dt { color: var(--faint); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+.re-tab-help-lines dt { color: var(--faint); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
 .re-tab-help-lines dd { margin: 2px 0 0; color: var(--muted); }

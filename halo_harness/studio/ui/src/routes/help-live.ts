@@ -18,7 +18,7 @@ export const LIVE_HELP: Record<string, Help> = {
   "fleet-activity": {
     about: "What your sessions do: a timeline lane per live agent and the merged live log.",
     help: lines(
-      "Add it on Live with the + in the header (or the palette's Agents: Activity); it floats over the tree.",
+      "Add it on Live with its button in the bar (or the palette's Agents: Activity); it takes the canvas's place as its tab.",
       "Each lane shows the agent's states over 5, 15 or 60 minutes; the ticks are its tool calls.",
       "Hover a bar for who and when; click a lane or a line to select that agent on the tree.",
       "Filter the log by session, agent or kind; Follow keeps the newest line in view.",

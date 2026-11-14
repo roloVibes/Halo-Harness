@@ -88,13 +88,12 @@ def talk(c, rig, lv, png: Path) -> int:
     lv.talk("docs", "main", "Three tiers: under 50 none, 50 to 200 five per cent, over 200 ten; prices exclude tax.",
             "square", mid="cv-4", square="media", re="cv-2")
     time.sleep(0.6)
-    c.click_on("document.querySelector('[data-testid=panels-add]')")
-    item = "document.querySelector('[data-testid=\"panels-menu-item\"][data-panel=\"session-conversations\"]')"
+    item = "document.querySelector('.section-view:not([hidden]) [data-testid=\"viewbar-btn\"][data-panel=\"session-conversations\"]')"  # 3.6.0.0 R0a
     c.wait(f"!!{item}", 5)
     c.click_on(item)
     c.wait("!!document.querySelector('[data-testid=\"conv-panel\"]')", 10)
     for panel in ("session-map", "session-cost"):  # Conversations takes the left column's height
-        strip = f"document.querySelector('[data-panel=\"{panel}\"] [data-testid=\"panel-strip\"][aria-expanded=\"true\"]')"
+        strip = f"document.querySelector('.stage-drawer [data-panel=\"{panel}\"] [data-testid=\"panel-collapse\"]')"  # 3.6.0.0 R0a: a drawer's close
         if c.js(f"!!{strip}"):
             c.click_on(strip)
     time.sleep(0.6)

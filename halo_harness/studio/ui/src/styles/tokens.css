@@ -24,11 +24,11 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1); --ease-linear: linear;
   --ease: var(--ease-out); --t: var(--dur-fast); --t-slow: var(--dur-base);
   --blur: 0px; /* no glass: a backdrop-filter of blur(0) draws nothing */
-  /* spacing */
-  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 28px;
-  /* type: a title is mono caps, body prose 13 px, data mono 12 px, a caption 10.5 px mono caps */
+  /* 3.6.0.0 R0a, one spacing scale (4 / 8 / 12 / 16 / 24; --s-6 kept for the one sheet that uses it) and one type scale */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 28px;
+  --ts-data: 12px; --ts-body: 13px; --ts-title: 15px; --ts-page: 18px; /* data + captions, body, titles, a page title: nothing under 12 */
   --t-title: 600 12px/1 var(--font-data); --t-body: 400 13px/20px var(--font-prose);
-  --t-data: 400 12px/18px var(--font-data); --t-caption: 500 10.5px/16px var(--font-data);
+  --t-data: 400 12px/18px var(--font-data); --t-caption: 500 12px/16px var(--font-data);
   --t-node-name: 600 13px/18px var(--font-prose);
   /* the derived look (from the palette's variables, so a pack's palette gets the same) */
   --glass: var(--surface); --glass-border: var(--border);
@@ -55,7 +55,7 @@
 
 /* density: compact -- tighter spacing, a smaller type scale; nothing else changes */
 :root[data-density="compact"] {
-  --fs: 12px; --fs-sm: 11.5px; --fs-title: 11px;
+  --fs: 12px; --fs-sm: 12px; --fs-title: 12px;
   --topbar-h: 42px; --status-h: 24px; --bar-h: 32px;
   --pad: 9px; --cell-gap: 2px; --gap: 10px;
   --ctl-h: 30px; --row-h: 34px;

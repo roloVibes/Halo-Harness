@@ -12,7 +12,7 @@ export type SectionHelpCopy = { what: string; steps: [string, string][]; keys: [
 
 const PANEL_KEYS: [string, string][] = [
   ["?", "help for the focused panel; press it again (or away from a panel) for this page"],
-  ["Alt+Arrows", "move the focused panel; Alt+Shift+Arrows resizes it"],
+  ["Alt+Left / Alt+Right", "the focused drawer wider or narrower"],
   ["Mod+K", "every command, with its key"],
   ["Esc", "close the palette, a menu, the help or the Inspector"],
 ];
@@ -64,13 +64,13 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   },
   session: {
     terms: ["harness", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance
-    what: "Your own session, live: one live column of every agent at work, as it happens, fills the stage; the map of this harness's agents, what the chosen session costs and the rest wait as strips at its foot. Every machine's agents are Agents -> Live's (the fleet scope).",
+    what: "Your own session, live: one live column of every agent at work, as it happens, is the main thing; the map of this harness's agents, what the chosen session costs and the rest are buttons in the bar above it. Every machine's agents are Agents -> Live's (the fleet scope).",
     steps: [
       ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+1, the palette, Watch in Session on Agents' Live tab or a live run in Agents: Runs, and Open in Session on a node's menu on Agents -> Live land here too."],
       ["Watch everything at once", "Live, the whole stage: every agent's text, tool calls with their times and results, hand-backs and asks, in the order they happen, each line tagged with its agent and its state. Scroll up (or type a steer) to hold the view, N new rows · follow to come back; click a tag to follow one agent; the Steer box is always at the foot and names its target, the outlined row (click a row or press Tab to change it); Export saves the trace."],
       ["Read the map", "Each agent sits under the one that spawned it, its children fanned out, with its model, its cost and the tool it runs now (Bash 12s). Cyan works, amber waits on you, green just finished and fades, red failed and stays. Click an agent: its session becomes the chosen one."],
       ["Read the cost", "The spend ticks up beside its sparkline the moment the terminal's does; the context bar turns amber past 80 % and red past 95 %; the tokens, your turns and the cost per turn, and each agent's own share in one stacked bar (a finished sub-agent counts once)."],
-      ["Open what you need", "Map, Cost, Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) wait as strips at the foot; a click opens one beside Live, Reset layout puts the arrangement back."],
+      ["Open what you need", "Map, Cost, Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) are buttons in the bar above Live; a click opens one as a drawer beside it (Activity takes Live's place as its tab), Reset layout closes them all."],
       ["Glance from a phone", "The \"...\" menu's Open the glance (or the palette, or halo studio --mode glance): one phone-width page -- what runs, what waits on you as big buttons, the spend against its cap -- here, or on a phone through an SSH forward of Studio's port. Settings -> Studio -> Alerts can add one browser notification when something starts waiting on you."],
     ],
     keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
@@ -142,7 +142,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Find the right model", "Models: pick what you want a model for (code, chat, long documents, images, embed) and the rows rank by fit for this card; Use as default and Make it the coder lane are one click each."],
       ["Browse the library", "Library: search Ollama's library and the Hugging Face Hub; each row's fit badge follows the host and window you pick, a click shows its other tags or files, Copy takes its pull line."],
       ["What comes next", "Hugging Face, Benchmarks and Steward say what they will hold and the commands that do that work today."],
-      ["Media on ComfyUI", "The header's + menu (or the palette's Media lines) adds Media status, Media models and Workflows: each floats over the page until you close it."], // 3.3.13.0 R2: Design's before
+      ["Media on ComfyUI", "The palette's Media lines add Media status, Media models and Workflows: each opens as a drawer over the page's right edge until you close it."], // 3.3.13.0 R2: Design's before
     ],
     keys: [
       ["?", "this help"],

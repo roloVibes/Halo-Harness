@@ -37,8 +37,7 @@ def talk(c, lv) -> dict:
 
 def conversations(c, lv) -> dict:
     out: dict = {}
-    c.click_on("document.querySelector('[data-testid=panels-add]')")
-    item = "document.querySelector('[data-testid=\"panels-menu-item\"][data-panel=\"session-conversations\"]')"
+    item = "document.querySelector('.section-view:not([hidden]) [data-testid=\"viewbar-btn\"][data-panel=\"session-conversations\"]')"  # 3.6.0.0 R0a: the view bar
     c.wait(f"!!{item}", 5)
     c.click_on(item)
     c.wait(f"!!{CONV}", 10)

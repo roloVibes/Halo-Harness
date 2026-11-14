@@ -8,8 +8,8 @@
 .msel-trigger:focus-visible, .msel-trigger[aria-expanded="true"] { border-color: var(--accent); box-shadow: var(--glow-strong); }
 .msel-trigger-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .msel-trigger-text[data-inherit] { color: var(--muted); }
-.msel-off { flex: none; font-size: 10.5px; color: var(--warn); }
-.msel-caret { flex: none; color: var(--muted); font-size: 10px; }
+.msel-off { flex: none; font-size: 12px; color: var(--warn); }
+.msel-caret { flex: none; color: var(--muted); font-size: 12px; }
 
 /* the list */
 .mpk .rm-table { container: mpk / inline-size; overflow-x: hidden; }
@@ -18,7 +18,7 @@
 .mpk .rm-row[data-hot] { background: var(--accent-soft); outline: 1px solid var(--accent); outline-offset: -1px; }
 .mpk .rm-row[data-dim] { opacity: .55; }
 .mpk .rm-row.mpk-special { grid-template-columns: minmax(0, 1fr) auto; }
-.mpk .rm-warn { font-size: 10.5px; }
+.mpk .rm-warn { font-size: 12px; }
 @container mpk (max-width: 600px) {
   .mpk .rm-row { grid-template-columns: minmax(0, 1fr) 76px minmax(0, 150px); }
   .mpk .rm-row .rm-price, .mpk .rm-row .rm-gym { display: none; }
@@ -29,23 +29,23 @@
 }
 
 /* a provider's head: its name and its state, one line */
-.mpk-group { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 8px 3px; font-size: 11px;
+.mpk-group { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 5px 8px 3px; font-size: 12px;
   border-top: 1px solid var(--line); color: var(--muted); }
 .mpk-group-name { flex: none; color: var(--text); font-weight: 600; }
 .mpk-group-state { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mpk-group:not([data-ok]) .mpk-group-state { color: var(--warn); }
-.mpk-fold { flex: none; width: 16px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 10px; }
-.mpk-needs { font-size: 11px; }
+.mpk-fold { flex: none; width: 16px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; }
+.mpk-needs { font-size: 12px; }
 
 /* the empty state, the providers with nothing here, the last row */
 .mpk-empty { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 10px; font-size: 12px; color: var(--warn); }
 .mpk-empty-why { flex: 1 1 200px; min-width: 0; }
-.mpk-nothere { display: block; padding: 4px 8px; font-size: 11px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
-.mpk-notlisted { display: block; width: 100%; padding: 6px 8px; text-align: left; font-size: 11.5px; border-top: 1px dashed var(--line); }
+.mpk-nothere { display: block; padding: 4px 8px; font-size: 12px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.mpk-notlisted { display: block; width: 100%; padding: 6px 8px; text-align: left; font-size: 12px; border-top: 1px dashed var(--line); }
 .mpk-typed { display: grid; gap: 4px; padding: 6px 8px; border-top: 1px dashed var(--line); }
 .mpk-typed-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .mpk-typed-row .input { flex: 1 1 auto; min-width: 0; }
-.mpk-typed-line { font-size: 11px; color: var(--bad); overflow-wrap: anywhere; }
+.mpk-typed-line { font-size: 12px; color: var(--bad); overflow-wrap: anywhere; }
 .mpk-typed-line:not([data-ok]):empty, .mpk-typed-line[data-ok] { color: var(--ok); }
 
 /* the Prompt panel's `/model ` picker sits over the box */

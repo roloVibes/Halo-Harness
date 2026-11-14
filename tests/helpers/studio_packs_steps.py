@@ -53,6 +53,19 @@ def open_tab(c, title: str) -> str:
         return c.wait(f"{CUR}.startsWith({json.dumps(title)}) && {CUR}", 10)
 
 
+def bar_btn(pid: str) -> str:
+    """3.6.0.0 R0a: a panel's button in the view bar (a closed drawer is not drawn; the button opens it)."""
+    return q(f'.section-view:not([hidden]) [data-testid=viewbar-btn][data-panel="{pid}"]')
+
+
+def open_drawer(c, pid: str) -> None:
+    """Open `pid` from its view bar button (left alone when it is open already)."""
+    c.wait(f"!!{bar_btn(pid)}", 20)
+    if c.js(f"{bar_btn(pid)}.getAttribute('aria-pressed') !== 'true'"):
+        press(c, bar_btn(pid))
+    c.wait(f"!!{panel(pid, '.panel-body')}", 10)
+
+
 def press(c, expr: str) -> None:
     # 3.3.13.0 R2: a control the page holds disabled (the Pack Manager's busy flag lasts until its own reload after the
     # pack_changed frame already redrew the row) drops a press: wait until it takes one
@@ -93,11 +106,7 @@ def events(c, url, ctx) -> dict:
         c.click_on(q("[data-testid=agents-attention-close]"))
     if not c.js(f"!!{q('[data-testid=fleet-log]')}"):
         plus(c, "fleet-activity")
-    strip = q(".ws-cell[data-panel=fleet-activity] .panel-bar button[aria-label=Open]")
-    c.wait(f"!!{q('[data-testid=fleet-log]')} || !!{strip}", 20)  # the panel lands once Live has laid out (a slow box: late)
-    if c.js(f"!{q('[data-testid=fleet-log]')} && !!{strip}"):  # added as a strip: one click opens it
-        c.click_on(strip)
-    c.wait(f"!!{q('[data-testid=fleet-log]')}", 20)
+    c.wait(f"!!{q('[data-testid=fleet-log]')}", 20)  # 3.6.0.0 R0a: the view bar's button adds it as the canvas's tab
     log = qa("[data-testid=fleet-log-line][data-kind=pack]")
     seen = c.js(f"{log}.length")  # 3.3.10.0 R3: the bundle step's own hello.said line came first
     publish(ctx, "review.done", {"file": "README.md", "findings": 3})
@@ -108,7 +117,7 @@ def events(c, url, ctx) -> dict:
     live = qa("[data-testid=session-live-line][data-kind=pack]") + ".filter((l) => !l.textContent.includes('HELLO'))"  # not R3's bundle line
     c.wait(f"{live}.length >= 2", 15)
     out["live"] = c.js(f"{live}.map((l) => [l.querySelector('[data-testid=session-live-kind]').textContent, l.querySelector('[data-testid=session-live-pack]').textContent])")
-    press(c, panel("doc-review--reviews", "button[aria-label=Open]"))
+    open_drawer(c, "doc-review--reviews")  # 3.6.0.0 R0a: a pack's panel in Session is a closed drawer
     lines = qa("[data-panel='doc-review--reviews'] [data-testid=pack-event-line]")
     c.wait(f"{lines}.length >= 2", 10)
     out["panel_lines"] = c.js(f"{lines}.map((l) => [l.querySelector('.fac-kind').textContent, l.querySelector('.fac-text').textContent])")
@@ -149,7 +158,7 @@ def first_paint(c, url, ctx) -> dict:
             c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=script)
         c.call("Page.disable")
     alt(c, 1)  # the new page: Session mounted again (its Live column collects the events step's lines)
-    c.wait(f"{CUR}.startsWith('Session') && !!{panel('doc-review--reviews', '.panel')}", 20)
+    c.wait(f"{CUR}.startsWith('Session') && !!{bar_btn('doc-review--reviews')}", 20)  # 3.6.0.0 R0a: its button in the view bar
     return out
 
 
@@ -190,7 +199,7 @@ def disabled(c, url, ctx) -> dict:
     out["attn_after"] = bool(c.wait(f"!{row}", 25))
     alt(c, 1)
     c.wait(f"{CUR}.startsWith('Session')", 10)
-    out["session_panel_after"] = c.js(f"!!{panel('doc-review--reviews')}")
+    out["session_panel_after"] = c.js(f"!!{panel('doc-review--reviews')} || !!{bar_btn('doc-review--reviews')}")
     mod_key(c, "KeyK", 75, 2, "k")
     c.wait(f"!!{q('[data-testid=palette]')}", 10)
     c.wait("document.activeElement?.classList.contains('palette-input')", 10)

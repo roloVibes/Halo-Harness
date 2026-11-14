@@ -16,7 +16,7 @@ export function useLivePick(): LivePick {
 }
 
 /** The inspector says something about this (an agent's pick is also fleet.selected: liveModel.ts selectLive); a pick
- *  opens the inspector when it is a strip (as a card's click does on Cast). */
+ *  opens the inspector when it is a closed drawer (as a card's click does on Cast). */
 export function pickLive(kind: PickKind, id: string): void {
   live.update((s) => (s.pick.kind === kind && s.pick.id === id ? {} : { pick: { kind, id }, page: "" }));
   if (kind && layoutStore("roles").get().layout?.["roles-inspector"]?.collapsed) patchPanel("roles", "roles-inspector", { collapsed: false, face: "detail" }, false);

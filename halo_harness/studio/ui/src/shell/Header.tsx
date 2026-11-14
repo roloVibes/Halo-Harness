@@ -1,19 +1,17 @@
 // The top bar: brand, the current section's title and blurb (3.3.2.0 R1: the
 // section tabs became the icon rail, shell/RailSections.tsx), the ? menu
 // ("How this works" for the section and, from 3.1.1.0 R1, the Glossary),
-// 3.3.2.0 R2's "+" menu (the section's panels, shell/PanelsMenu.tsx), its
-// "..." menu (Arrange panels, Reset layout, How panels move) and the "custom
-// layout" badge (shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
+// its "..." menu (Reset layout, How panels open; 3.6.0.0 R0a: the "+" menu, Arrange and the "custom layout" badge
+// went -- every panel is a button in the view's bar, lib/workspace/ViewBar.tsx; shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
 // the rail, the inspector and the status bar; F), the command palette button,
 // 3.3.2.0 R3's density toggle (comfortable / compact, lib/density.ts) and the
 // theme menu (3.3.12.0 R1: shell/ThemeMenu.tsx, the palettes of the registry). 3.3.15.0 L1: restyled to the
 // Instrument look (styles/shell.css): the title in mono caps, a / and the blurb, the palette door a 300 px field.
 import { Button, Icon, Kbd } from "../lib/ui";
-import { openHelp, studio, toggleFocus, useStore, type SectionId } from "../lib/store";
+import { openHelp, studio, toggleFocus, toggleRail, useStore, type SectionId } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { toggleDensity, useDensity } from "../lib/density";
 import { sectionDef } from "../routes";
-import { PanelsMenu } from "./PanelsMenu";
 import { SectionMore } from "./SectionMore";
 import { ThemeMenu } from "./ThemeMenu"; // 3.3.12.0 R1: the ten palettes, one `theme` key
 import { useMenu } from "./useMenu";
@@ -69,6 +67,9 @@ export function Header() {
   const def = sectionDef(section);
   return (
     <header className="topbar" data-density="bar">
+      <button className="icon-btn icon-btn-lg rail-menu-btn" onClick={toggleRail} aria-label="Sections" title="The sections (a menu on a narrow window)" data-testid="rail-menu-btn">
+        <Icon name="rail" />
+      </button>
       <div className="brand" title="Halo Studio">
         <span className="brand-ring" aria-hidden="true" />
         <span className="brand-name">HALO</span>
@@ -80,7 +81,6 @@ export function Header() {
       </div>
       <HelpMenu section={section} />
       <div className="topbar-tools" data-testid="section-tools">
-        <PanelsMenu />
         <SectionMore />
       </div>
       <div className="spacer" />

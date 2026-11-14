@@ -8,11 +8,12 @@ Studio -- and measured with getBoundingClientRect where the primitives mark them
     [data-density=bar]   a control bar: a panel's title bar (lib/workspace/Panel.tsx), Tabs (lib/ui/Tabs.tsx), the
                          header (shell/Header.tsx), a section's bar (Agents' view switch), an inspector page's head or
                          a form's button row -- each >= 36 px tall
-    [data-density=row]   a row that is a target: a collapsed panel (the strip), an inspector Edit row -- each >= 40 px
+    [data-density=row]   a row that is a target: an inspector Edit row, a page rail's item -- each >= 40 px
     [data-density=body]  a panel's body: its inset (its own padding, plus its one child's when it draws edge to edge)
                          >= 12 px on every side
-and, per section, the panels open on load (the quiet shell: one thing per section) and the gaps between the open
-workspace cells (>= 12 px). Agents is opened on Cast and Live (3.4.0.0 D: Runs went); Cast once more with `?edit=lineup:halo-dev-cycle`
+and, per section, the panels open on load (one main thing per view, 3.6.0.0 R0a: the stage) and the gaps between the
+open panels (>= 12 px); then each closed panel opened from the view bar in turn (3.6.0.0 R0a: the strips went).
+Agents is opened on Cast and Live (3.4.0.0 D: Runs went); Cast once more with `?edit=lineup:halo-dev-cycle`
 (the inspector's summary, then one block's page). 3.3.16.0 R2: Setup -> Machines, and Live on the fleet once more with
 the Attention queue open (the chip) and the inspector's glance.
 
@@ -60,9 +61,11 @@ MEASURE = r"""(() => {
   const pad = (el) => { const cs = getComputedStyle(el); return ['Top', 'Right', 'Bottom', 'Left'].map((k) => parseFloat(cs['padding' + k]) || 0); };
   const inset = (el) => { const own = pad(el), kids = [...el.children].filter(vis);
     if (kids.length === 1) { const c = pad(kids[0]); return Math.min(...own.map((p, i) => p + c[i])); } return Math.min(...own); };
-  const ws = [...document.querySelectorAll('.workspace')].find(vis);
-  const cells = ws ? [...ws.querySelectorAll('.ws-grid > .ws-cell:not([data-floating])')].filter(vis) : [];
-  const open = cells.filter((c) => !c.querySelector(':scope > .panel[data-collapsed]'));
+  const ws = [...document.querySelectorAll('.workspace')].find((w) => vis(w) && w.querySelector('.stage-main'));
+  const open = ws ? [...ws.querySelectorAll('.stage-main > .ws-cell, .stage-drawer > .ws-cell')].filter(vis) : [];
+  const cells = open;
+  const ids = ws ? [...open.filter((c) => c.closest('.stage-main')).map((c) => c.dataset.panel),
+    ...[...ws.querySelectorAll('[data-testid=viewbar-btn]')].filter((b) => !b.dataset.added).map((b) => b.dataset.panel)] : [];
   const rs = cells.map((c) => c.querySelector(':scope > .panel').getBoundingClientRect());  // the frames, not the cells' gutters
   let gap = 999;
   for (const a of rs) for (const b of rs) {
@@ -73,7 +76,7 @@ MEASURE = r"""(() => {
   }
   return {bars: all('bar').map((el) => [name(el, false), h(el)]), rows: all('row').map((el) => [name(el, true), h(el)]),
           bodies: all('body').map((el) => [el.closest('.ws-cell')?.dataset.panel || name(el, false), inset(el)]),
-          open: open.map((c) => c.dataset.panel), ids: cells.map((c) => c.dataset.panel), cells: cells.length,
+          open: open.map((c) => c.dataset.panel), ids: [...new Set(ids)], cells: new Set(ids).size,
           gap: cells.length > 1 ? gap : null};
 })()"""
 
@@ -97,30 +100,33 @@ def settled(c, timeout: float = 20) -> dict:
     return last or {}
 
 
-# one workspace panel opened from its strip: its title bar and its body's inset (then it is collapsed again)
-CELL = """(() => { const cell = [...document.querySelectorAll('.workspace .ws-grid > .ws-cell[data-panel="{pid}"]')].find((x) => x.offsetParent);
+# one workspace panel opened from the view bar: its title bar and its body's inset (then it is closed again)
+CELL = """(() => { const cell = [...document.querySelectorAll('.workspace .stage-main > .ws-cell[data-panel="{pid}"], .workspace .stage-drawer > .ws-cell[data-panel="{pid}"]')].find((x) => x.offsetParent);
   const body = cell && cell.querySelector('.panel-body:not([hidden])'), bar = cell && cell.querySelector('.panel-bar');
   if (!body || !body.getBoundingClientRect().height) return null;
   const pad = (el) => { const cs = getComputedStyle(el); return ['Top', 'Right', 'Bottom', 'Left'].map((k) => parseFloat(cs['padding' + k]) || 0); };
   const own = pad(body), kids = [...body.children].filter((k) => k.getBoundingClientRect().height > 0);
   const inset = kids.length === 1 ? Math.min(...own.map((p, i) => p + pad(kids[0])[i])) : Math.min(...own);
   return ['{pid}', Math.round(bar.getBoundingClientRect().height * 10) / 10, inset]; })()"""
-STRIP = """(() => { const cell = [...document.querySelectorAll('.workspace .ws-grid > .ws-cell[data-panel="{pid}"]')].find((x) => x.offsetParent);
-  const b = cell && cell.querySelector('[data-testid="panel-strip"]'); if (!b) return false; b.click(); return true; })()"""
+STRIP = """(() => { const b = [...document.querySelectorAll('.section-view:not([hidden]) [data-testid=viewbar-btn][data-panel="{pid}"]')].find((x) => x.offsetParent);
+  if (!b) return false; b.click(); return b.dataset.role; })()"""
+MAIN_BTN = """(() => { const b = document.querySelector('.section-view:not([hidden]) [data-testid=viewbar-btn][data-role=main]'); if (b) b.click(); return 1; })()"""
 
 
 def each_panel(c, cells: list) -> list:
-    """Open each collapsed panel of the workspace in turn and measure it (the quiet shell opens one; the rest are strips)."""
+    """Open each closed panel of the view in turn from its button in the view bar and measure it (a drawer is closed
+    again by its button, a tab by the main thing's)."""
     out = []
     for pid in cells:
         was_open = c.js(CELL.replace("{pid}", pid))
         if was_open:
             out.append(was_open)
             continue
-        if not c.js(STRIP.replace("{pid}", pid)):
+        role = c.js(STRIP.replace("{pid}", pid))
+        if not role:
             continue
         out.append(c.wait(CELL.replace("{pid}", pid), 10))
-        c.js(STRIP.replace("{pid}", pid))
+        c.js(MAIN_BTN if role == "tab" else STRIP.replace("{pid}", pid))
         c.wait(f"!{CELL.replace('{pid}', pid)}", 10)
     return out
 
@@ -142,7 +148,7 @@ def attention(c, url: str) -> dict:
     c.wait("!!document.querySelector('[data-testid=agents-attention]') && !!document.querySelector('[data-testid=roles-live-map]')", 40)
     c.js("document.querySelector('[data-testid=agents-attention]').click(); 1")
     c.wait("!!document.querySelector('[data-panel=fleet-attention] .panel-body')", 10)
-    c.js("document.querySelector('.ws-cell[data-panel=roles-inspector] [data-testid=panel-strip]')?.click(); 1")
+    c.js("document.querySelector('.section-view:not([hidden]) [data-testid=viewbar-btn][data-panel=roles-inspector]')?.click(); 1")
     c.wait("!!document.querySelector('[data-testid=live-glance-lines]')", 20)  # the glance's lines
     got = settled(c)
     shot(c, "agents-attention")

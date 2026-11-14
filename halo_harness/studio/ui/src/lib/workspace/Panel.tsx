@@ -1,34 +1,26 @@
-// One workspace panel: a title line that drags it (3.3.2.0 R3: the title, the
-// ? help, the strip button -- Collapse to a strip, or Open on a strip -- a
-// close on an optional panel, and ONE ... menu: Float, Compact / Expand,
-// Collapse, Reset, Settings, Help), a 1 px border, eight resize handles, and
-// its two faces: the full one (detail, the default) and the compact one
-// (glance). The focused panel alone (`.focused`, `data-focused`: the one you
-// clicked or tabbed into, else the section's primary) carries the ornament:
-// the HUD brackets, the glow and the mono data line. `?` on a focused panel
-// opens its help (its about line first; `?` again: how the whole section works).
+// One workspace panel (3.6.0.0 R0a: a place on the stage, never a tile): a title line (the title, the ? help, a close
+// on a drawer or a tab, and ONE ... menu: Compact / Expand, Close, Reset width, Remove (an optional panel),
+// Settings, Help), a 1 px border, and its two faces: the full one (detail, the default) and the compact one (glance).
+// The focused panel alone (`.focused`, `data-focused`: the one you clicked or tabbed into, else the main thing)
+// carries the ornament: the HUD brackets, the glow and the mono data line. `?` on a focused panel opens its help
+// (its about line first; `?` again: how the whole section works). Panels do not move: the view bar opens and closes
+// them, a drawer's inner edge (Stage.tsx) and Alt+Left / Alt+Right resize it.
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { Icon } from "../ui/Icon";
 import { openHelp, studio, useStore, type SectionId } from "../store";
 import type { MotionState } from "../motion";
-import { useGesture, usePanelKeys, useWorkspace } from "./controller";
-import { effH } from "./grid";
+import { usePanelKeys, useWorkspace } from "./controller";
 import { activatePanel, hidePanel, layoutStore, patchPanel, resetPanel } from "./persist";
 import { PanelHelp } from "./PanelHelp";
 import { PanelMenu, type MenuItem } from "./PanelMenu";
-import type { Gesture, Layout, PanelLayout, PanelSpec } from "./types";
+import { mainOf, roleOf } from "./rules";
+import type { Layout, PanelLayout, PanelSpec } from "./types";
 
-const HANDLES: Gesture[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 const INTERACTIVE = "input, textarea, select, button, a, iframe, [contenteditable], [tabindex]";
 const TYPING = "input, textarea, select, [contenteditable]";
 const noMotion = (): MotionState => "none";
-const titleOf = (section: string) => // orchestra-plan: Orchestra; 3.2.0.0 R3: a pack's section (<id>--<name>) is "this section"
+const titleOf = (section: string) => // a pack's section (<id>--<name>) is "this section"
   section.includes("--") ? "this section" : section.charAt(0).toUpperCase() + section.split("-")[0].slice(1);
-
-function Handle({ id, g }: { id: string; g: Gesture }) {
-  const down = useGesture(id, g);
-  return <span className={`rz rz-${g}`} onPointerDown={down} aria-hidden="true" />;
-}
 
 /** True while the element's content is taller than its box (the body shows a "more below" edge). */
 function useOverflow(el: HTMLElement | null): boolean {
@@ -54,45 +46,44 @@ function useOverflow(el: HTMLElement | null): boolean {
   return over;
 }
 
-/** The panel that carries the ornament while nobody clicked one: the primary when it is open, else the first open one. */
+/** The panel that carries the ornament while nobody clicked one: the main thing when it shows, else the first open one. */
 function leadOf(specs: PanelSpec[], layout: Layout | null): string {
   const open = (s: PanelSpec) => !!layout?.[s.id] && !layout[s.id].collapsed;
-  return (specs.find((s) => s.primary && open(s)) ?? specs.find(open))?.id ?? "";
+  const main = mainOf(specs);
+  return (main && open(main) ? main : specs.find(open))?.id ?? "";
 }
 
-export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
+/** `bar` (the full arrangement only, `?open=all`): a closed panel drawn as its title line, as the drivers knew it. */
+export function Panel({ spec, p, style, width, bar }: { spec: PanelSpec; p: PanelLayout; style?: CSSProperties; width?: number; bar?: boolean }) {
   const ws = useWorkspace();
   const useMotion = spec.useMotion ?? noMotion;
   const motion = useMotion();
-  const move = useGesture(spec.id, "move");
   const keys = usePanelKeys(spec.id);
   const ref = useRef<HTMLDivElement>(null);
   const [body, setBody] = useState<HTMLDivElement | null>(null);
   const [help, setHelp] = useState(false);
   const focus = useStore(layoutStore(ws.section), (s) => s.focus);
   const active = useStore(layoutStore(ws.section), (s) => s.active === spec.id);
-  const focused = useStore(layoutStore(ws.section), (s) => (s.active && s.layout?.[s.active] ? s.active : leadOf(ws.specs, s.layout)) === spec.id);
+  const focused = useStore(layoutStore(ws.section), (s) => (s.active && s.layout?.[s.active] && !s.layout[s.active].collapsed ? s.active : leadOf(ws.specs, s.layout)) === spec.id);
   const inspecting = useStore(studio, (s) => s.inspector?.section === ws.section && s.inspector?.panel === spec.id);
   const over = useOverflow(body);
   const closeHelp = useCallback(() => setHelp(false), []);
+  const role = roleOf(spec);
 
   useEffect(() => {
-    if (focus === spec.id && ref.current) {
+    if (focus === spec.id && ref.current && !p.collapsed) {
       ref.current.focus({ preventScroll: true });
       ref.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
       layoutStore(ws.section).update(() => ({ focus: "" }));
     }
-  }, [focus, spec.id, ws.section]);
+  }, [focus, spec.id, ws.section, p.collapsed]);
 
-  const style: CSSProperties = p.floating
-    ? { position: "absolute", left: p.fx, top: p.fy, width: p.fw, height: p.fh, zIndex: 20 + (p.z || 0) }
-    : { gridColumn: `${p.x + 1} / span ${p.w}`, gridRow: `${p.y + 1} / span ${effH(p)}` };
   const hasDetail = !!spec.detail;
   const face = hasDetail ? p.face : "glance";
   const set = (patch: Partial<PanelLayout>) => patchPanel(ws.section, spec.id, patch);
-  const toggleFace = () => hasDetail && set({ face: face === "glance" ? "detail" : "glance", collapsed: false });
+  const toggleFace = () => hasDetail && set({ face: face === "glance" ? "detail" : "glance" });
   const settings = () =>
-    studio.update(() => ({ inspector: inspecting ? null : { section: ws.section as SectionId, panel: spec.id } })); // 3.3.16.0 R1: the workspace's id (Agents: roles, orchestra)
+    studio.update(() => ({ inspector: inspecting ? null : { section: ws.section as SectionId, panel: spec.id } }));
 
   /** This panel is the one the user is on: the ring, and an open Inspector shows it. */
   const activate = () => {
@@ -124,24 +115,25 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
     keys(ev);
   };
 
+  const closable = role !== "main";
   const items: MenuItem[] = [
-    { id: "float", label: p.floating ? "Dock into the grid" : "Float over the grid", icon: p.floating ? "dock" : "popout", run: () => set({ floating: !p.floating, z: (p.z || 0) + 1 }) },
     ...(hasDetail ? [{ id: "face", label: face === "glance" ? "Expand: the full face" : "Compact: the summary face", icon: face === "glance" ? "expand" : "shrink", run: toggleFace }] : []),
-    { id: "collapse", label: p.collapsed ? "Open the panel" : "Collapse to a strip", icon: p.collapsed ? "chevron-right" : "chevron-down", run: () => set({ collapsed: !p.collapsed }) },
-    { id: "reset", label: "Reset this panel", icon: "reset", run: () => resetPanel(ws.section, spec) },
+    ...(closable ? [{ id: "collapse", label: role === "tab" ? `Back to ${mainOf(ws.specs)?.title ?? "the main view"}` : "Close the drawer", icon: "close", run: () => set({ collapsed: true }) }] : []),
+    ...(role === "drawer" ? [{ id: "reset", label: "Reset its width", icon: "reset", run: () => resetPanel(ws.section, spec) }] : []),
+    ...(spec.optional ? [{ id: "remove", label: "Remove from this view (the palette adds it again)", icon: "close", run: () => hidePanel(ws.section, spec.id) }] : []),
     { id: "settings", label: inspecting ? "Close the settings" : "Settings", icon: "gear", run: settings },
     { id: "help", label: "Help", icon: "help", kbd: "?", run: () => setHelp(true) },
   ];
   const bodyRef = (show: boolean) => (show ? setBody : undefined);
+  const where = role === "drawer" ? `drawer ${Math.round(width || 0)} px` : role;
 
   return (
-    <section className="ws-cell" style={style} data-panel={spec.id} data-floating={p.floating || undefined}>
+    <section className="ws-cell" style={style} data-panel={spec.id} data-role={role} data-bar={(bar && p.collapsed) || undefined} hidden={(p.collapsed && !bar) || undefined}>
       <div
         ref={ref}
         className={"panel glass" + (focused ? " focused" : "")}
         data-motion={motion}
         data-collapsed={p.collapsed || undefined}
-        data-density={p.collapsed ? "row" : undefined}
         data-face={face}
         data-active={active || undefined}
         data-focused={focused || undefined}
@@ -154,29 +146,21 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
         data-testid={spec.testid}
       >
         {focused && <span className="hud-brackets" aria-hidden="true" />}
-        <header className="panel-bar" data-density="bar" onPointerDown={move} onDoubleClick={toggleFace} title="Drag to move. Alt+arrows move, Alt+Shift+arrows resize.">
+        <header className="panel-bar" data-density="bar" onDoubleClick={toggleFace} title={role === "drawer" ? "Alt+Left / Alt+Right: wider or narrower" : undefined}>
           <span className="panel-dot" data-motion={motion} aria-hidden="true" />
           <h3 className="panel-title" data-testid="panel-title" title={spec.about}>{spec.title}</h3>
           {focused && (
             <span className="panel-data mono" data-testid="panel-data" aria-hidden="true">
-              {p.w}x{p.collapsed ? "strip" : effH(p)}{hasDetail ? (face === "glance" ? " · compact" : " · full") : ""}
+              {where}{hasDetail ? (face === "glance" ? " · compact" : " · full") : ""}
             </span>
           )}
           <span className="panel-tools">
             <button className="icon-btn" onClick={() => setHelp(!help)} title={`How to use ${spec.title} (?)`} aria-label="Help" aria-expanded={help} data-testid="panel-help-btn">
               <Icon name="help" />
             </button>
-            {p.collapsed ? (
-              <button className="icon-btn" onClick={() => set({ collapsed: false })} title="Open the panel" aria-label="Open" aria-expanded={false} data-testid="panel-strip">
-                <Icon name="chevron-right" />
-              </button>
-            ) : (
-              <button className="icon-btn" onClick={() => set({ collapsed: true })} title="Collapse to a strip" aria-label="Collapse to a strip" aria-expanded={true} data-testid="panel-strip">
-                <Icon name="chevron-down" />
-              </button>
-            )}
-            {spec.optional && (
-              <button className="icon-btn" onClick={() => hidePanel(ws.section, spec.id)} title={`Close ${spec.title} (the + adds it again)`} aria-label="Close" data-testid="panel-close">
+            {closable && (
+              <button className="icon-btn" onClick={() => set({ collapsed: true })} title={role === "tab" ? "Back to the main view" : `Close ${spec.title} (its button in the bar opens it again)`}
+                      aria-label={`Close ${spec.title}`} data-testid="panel-collapse">
                 <Icon name="close" />
               </button>
             )}
@@ -201,7 +185,6 @@ export function Panel({ spec, p }: { spec: PanelSpec; p: PanelLayout }) {
             </div>
           )
         )}
-        {!p.collapsed && HANDLES.map((g) => <Handle key={g} id={spec.id} g={g} />)}
         {help && <PanelHelp spec={spec} anchor={ref} sectionTitle={titleOf(ws.section)} onClose={closeHelp} />}
       </div>
     </section>

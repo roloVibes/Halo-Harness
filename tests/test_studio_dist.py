@@ -82,7 +82,10 @@ def test_root_serves_the_shell_and_nothing_else(ctx: Ctx):
         ctx.check("GET / is the shell", status == 200 and b'id="root"' in body and b"studio.js" in body)
         ctx.check(f"the shell's CSP is strict, got {csp!r}", "default-src 'self'" in csp and "connect-src 'self'" in csp
                   and "unsafe-inline" not in csp)
-        ctx.check("GET /index.html is the same page", s.get("/index.html")[1] == body)
+        same = lambda b: re.sub(rb"\?b=[0-9a-f]+", b"", b)  # noqa: E731  (3.6.0.0 R0a: each page names its own studio.js load)
+        ctx.check("GET /index.html is the same page", same(s.get("/index.html")[1]) == same(body))
+        ctx.check("each served page names its script with its own query (studio/shell_assets.py)",
+                  re.search(rb'src="\./studio\.js\?b=[0-9a-f]{12}"', body) is not None and s.get("/")[1] != body)
         st, js, h = s.get("/studio.js")
         ctx.check("studio.js is served as JavaScript", st == 200 and "javascript" in h.get("Content-Type", "") and len(js) > 1000)
         ctx.check("3.0.7.0 R2: /legacy/ is gone", s.get("/legacy/index.html")[0] == 404 and s.get("/legacy/")[0] == 404)

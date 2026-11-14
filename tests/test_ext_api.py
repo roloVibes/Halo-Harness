@@ -34,13 +34,13 @@ SURFACE = ("API_VERSION", "HALO_API_VERSION", "read_yaml", "write_yaml", "check_
 @test
 def test_the_version_and_the_surface(ctx: Ctx):
     import halo_harness.ext as ext
-    ctx.check("API_VERSION is 1.4 (3.5.0.0), HALO_API_VERSION its alias", ext.API_VERSION == "1.4" and ext.HALO_API_VERSION == ext.API_VERSION)
+    ctx.check("API_VERSION is 1.5 (3.6.0.0), HALO_API_VERSION its alias", ext.API_VERSION == "1.5" and ext.HALO_API_VERSION == ext.API_VERSION)
     ctx.check(f"__all__ is the surface, got {ext.__all__}", tuple(ext.__all__) == SURFACE)
     ctx.check("every name is importable", all(hasattr(ext, name) for name in SURFACE))
     doc = (REPO / "docs" / "EXTENSION_API.md").read_text(encoding="utf-8")
     missing = [name for name in SURFACE if f"`{name}" not in doc]
     ctx.check(f"docs/EXTENSION_API.md names every one; missing {missing}", not missing)
-    ctx.check("the doc states the version", "API_VERSION = \"1.4\"" in doc)
+    ctx.check("the doc states the version", "API_VERSION = \"1.5\"" in doc)
     bad = [p.name for p in (REPO / "halo_harness" / "ext").glob("*.py") if any(ch.isdigit() for ch in p.stem)]
     ctx.check(f"no ext module is named for a version, got {bad}", not bad)
     from halo_harness.work.unit import Unit

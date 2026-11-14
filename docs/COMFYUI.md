@@ -152,7 +152,7 @@ with `set` -> `comfy_fetch` into `artboards/<id>/render.png` (a still) or
 `artboards/<id>/render.mp4` (a clip) -> `artboards/<id>/source.json`
 `{"app": "comfyui", "workflow": ..., "prompt_id": ..., "set": {...}}`.
 Its `GET crafts?probe=1` starts the server and checks `comfy_run` is there. Studio's Media panels (status, models,
-workflows) are Local's optional panels since 3.3.13.0 R2 (its "+" menu); a render into a design project is the
+workflows) are Local's optional panels since 3.3.13.0 R2 (the palette's Media lines; drawers since 3.6.0.0); a render into a design project is the
 pack's Render panel.
 
 ## Troubleshooting

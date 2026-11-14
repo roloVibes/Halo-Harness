@@ -8,8 +8,8 @@ Over this harness's real session (a lead, an implementer and a researcher
 mid-work) plus three extra agents and scripted feed frames
 (tests/helpers/studio_live_rig.py):
 
-1. the default arrangement: Map over Cost on the left, Live the whole right
-   side (14 of 24 columns, full height), Agent / Activity / Attention strips;
+1. the arrangement (3.6.0.0 R0a, the stage): Live the main thing, the widest; Map in the left drawer, Cost in the
+   right one; Agent / Activity / Attention closed, buttons in the view bar;
 2. two agents' lines interleave in arrival order, each tagged with its
    agent's name; an agent's text joins its own recent line;
 3. a tool row shows its target, its clock ticks while it runs (the map node
@@ -75,15 +75,12 @@ def test_the_default_arrangement_gives_live_the_right_side(ctx: Ctx):
     r, got = _driver("live")
     _ran(ctx, r, got)
     a = got.get("arrangement") or {}
-    ctx.check(f"Live: x 10, y 0, 14 of 24 columns, open, got {a.get('session-live')}", (a.get("session-live") or [None])[0] == 10
-              and a["session-live"][1] == 0 and a["session-live"][2] == 14 and a["session-live"][4] is False)
-    ctx.check(f"Live runs the full height (the tallest panel), got {a}", all((a["session-live"][3] >= v[1] + v[3] - 1) for k, v in a.items() if v and not v[4]))
-    ctx.check(f"Map over Cost in the left 10 columns, got {a.get('session-map')} {a.get('session-cost')}",
-              (a.get("session-map") or [None])[:3] == [0, 0, 10] and (a.get("session-cost") or [None])[0] == 0
-              and a["session-cost"][1] == a["session-map"][3] and a["session-cost"][2] == 10)
-    strips = [a.get(k) for k in ("session-agent", "session-activity", "session-attention")]
-    ctx.check(f"Agent, Activity, Attention: strips under Cost, got {strips}", all(s and s[4] is True and s[0] == 0 for s in strips)
-              and strips[0][1] == a["session-cost"][1] + a["session-cost"][3])
+    live = a.get("session-live") or ["", 0]
+    ctx.check(f"Live is the main thing and the widest panel, got {a}", live[0] == "main" and all(live[1] > v[1] for k, v in a.items() if k != "session-live"))
+    ctx.check(f"Map in the left drawer, Cost in the right one, got {a.get('session-map')} {a.get('session-cost')}",
+              (a.get("session-map") or [""])[0] == "left" and (a.get("session-cost") or [""])[0] == "right")
+    closed = [a.get(k) for k in ("session-agent", "session-activity", "session-attention")]
+    ctx.check(f"Agent, Activity, Attention: closed, buttons in the view bar, got {closed}", all(s and s[0] == "closed" for s in closed))
     ctx.check("Follow is on by default", got.get("follow_default") is True)
 
 

@@ -55,9 +55,9 @@ this list against the tree.
   pack's own tests); Design's routes are the design pack's `server/` since then (halo_harness/templates/packs/design/);
   3.3.14.0 R1: `studio/owner_proof.py` (what the launch token derives: the owner proof the shell's own page sends on
   the writes that change grants, packs, Setup, Settings and sessions, and a pack's GET-only key for what its page
-  embeds; docs/STUDIO-shell.md "The owner's page and a pack's key")
-- Media: `studio/media_api.py`
-- Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
+  embeds; docs/STUDIO-shell.md "The owner's page and a pack's key"); 3.6.0.0 R0a: `studio/shell_assets.py` (the
+  served page's last touch: the owner salt, then `?b=<nonce>` on studio.js / studio.css, a script load per page)
+- Media: `studio/media_api.py`; Orchestra: `studio/orchestra_api.py`, `studio/orchestra_plan_api.py`,
   `studio/orchestra_model.py`, `studio/orchestra_live.py`
 - the supervisor's morning line (3.1.8.0 R1): `studio/supervise_api.py`
   (`GET /api/supervise/summary`, the Session landing's "N done, M waiting, $X")

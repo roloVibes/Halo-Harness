@@ -16,7 +16,7 @@ export const SESSION_HELP: Record<string, Help> = {
     help: lines(
       "Lines land in the order they happen, in Fleet's columns: the time, the kind (TOOL, TEXT, THINK, TALK, STATE, ASK, YOU...) and the agent's tag (its colour, its name and its state: cyan works, amber waits, green done, red failed).",
       "THINK is a model's reasoning as it comes, one row per thought: four lines, show all for the rest, then how long it thought (and its tokens when the provider says). Its chip says what it led to; why? on that row opens the thought under it. Thinking beside Follow shows only the thoughts and what each led to. A model with no thinking shows none.",
-      "TALK is one agent's words to another: the speaker's tag, an arrow, the listener's, and why (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER). A hand-back is one row (the same words as the agent's last ones). Conversations (the + menu) shows them as threads.",
+      "TALK is one agent's words to another: the speaker's tag, an arrow, the listener's, and why (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER). A hand-back is one row (the same words as the agent's last ones). Conversations (its button in the bar) shows them as threads.",
       "A tool call is one row: runs Bash, what it runs on, the time ticking while it runs, then the first line of its result; click the row for the whole result.",
       "On top, the timeline: a lane per live agent of this session over 5, 15 or 60 minutes, drawn by what it does: thinking (violet), running a tool (cyan), writing (green), waiting on you (amber), idle (a thin line). Hover a segment for its length; click a thinking one to scroll to that thought; click a lane to show only that agent. The agent and kind picks beside Follow narrow the lines.",
       "Steer is always at the bottom; its line says who it reaches and what that agent does now (Steering: coder · Bash (pytest -q), 12 s). Click a row or a map node to make it the target (it stays outlined), Tab / Shift+Tab in the field cycle the live agents, s on a focused row steers it. Your steer lands under its target; the agent's next row says after your steer.",
@@ -42,7 +42,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "Left: every pair of agents that has talked, the newest first, with how many messages and the last line.",
       "Right: the chosen pair's thread. Each message sits on its speaker's side, with why it was said (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER) and when; a reply sits under what it answers.",
       "Click a message to see it in Live; show in Live narrows Live to this pair (the chip in Live's header shows everything again).",
-      "Its strip counts the threads and the messages. Live's TALK rows are the same messages, as they happen.",
+      "Its button in the bar counts the threads and the messages. Live's TALK rows are the same messages, as they happen.",
     ),
   },
   "session-map": {
@@ -58,7 +58,7 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-agent": {
     about: "The selected agent: what it thinks, what it runs, what it hands back; steer it.",
     help: lines(
-      "A strip until you open it (double-click an agent on the map opens it too).",
+      "A drawer beside Live: its button in the bar opens it (double-click an agent on the map opens it too).",
       "Thinking is its text as it types it, Working one row per tool call, Output its hand-back.",
       "Steer: a nudge it reads before its next step, or redirect to give it a new task. Pause holds it at its next step; Stop asks first (K here does the same).",
       "F follows, Space pins a mini stream that stays on screen in every section.",

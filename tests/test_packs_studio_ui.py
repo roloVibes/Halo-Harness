@@ -72,7 +72,7 @@ def test_the_packs_section_after_orchestra_with_its_panels(ctx: Ctx):
 @test
 def test_the_session_panel_starts_collapsed(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Reviews in Session, a strip, from the pack, got {got.get('session_panel')}",
+    ctx.check(f"Reviews in Session, a closed drawer (its view bar button), from the pack, got {got.get('session_panel')}",
               got.get("session_panel") == [True, "Reviews", "from pack doc-review"])
 
 

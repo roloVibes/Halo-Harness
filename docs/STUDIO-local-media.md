@@ -1,14 +1,14 @@
 # Studio: Local -> the Media panels
 
-Read this when you check ComfyUI from Studio: whether it answers, its models and its workflows, in the Media panels Local's "+" menu adds.
+Read this when you check ComfyUI from Studio: whether it answers, its models and its workflows, in the Media panels the palette opens on Local.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Media: the ComfyUI panels
 
 Halo 3.0.4.0 made them Design's optional panels; since 3.3.13.0 R2 (Design left the core for the design pack) they are
-**Local**'s, because ComfyUI is local model work: the header's **+** menu on Local lists **Media status**, **Media
-models** and **Workflows**, and each one you add floats over Local's page until you close it. The palette's Media lines
+**Local**'s, because ComfyUI is local model work: **Media status**, **Media models** and **Workflows** open from the
+palette as drawers over Local's page's right edge (3.6.0.0 R0a; the header's **+** before) until you close them. The palette's Media lines
 (**Media: status**, **scan**, **models**, **workflows**) open them too, going to Local first from another section.
 Rendering a workflow into a design project is the design pack's Render panel
 ([its README](../halo_harness/templates/packs/design/README.md)).

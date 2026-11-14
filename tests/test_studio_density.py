@@ -4,7 +4,7 @@ hard to use ... needs a review to make studio cleaner and clearer"; ROADMAP: no 
 tests/helpers/studio_density.py (skipped without one); no provider request, no model call:
 
 1. the primitives mark themselves: a panel's title bar, Tabs, the header, Agents' bar, Setup's step rail, an inspector
-   page's head and a form's button row are `data-density="bar"`; a collapsed panel, an inspector Edit row and a page
+   page's head, a form's button row and the view bar are `data-density="bar"`; an inspector Edit row and a page
    rail's item are `"row"`; a panel's body is `"body"`; the sizes are tokens (--ctl-h 36, --row-h 40) and no section
    sheet sets a panel body's padding to 0 (the 12 px is the primitive's, never exempted);
 2. Chrome, every core section on load (Session, Agents on Cast / Live and on the fleet, Packs, Setup and its
@@ -65,8 +65,9 @@ def offenders(got: dict) -> list:
 @test
 def test_the_primitives_mark_themselves(ctx: Ctx):
     panel = _src("lib/workspace/Panel.tsx")
-    ctx.check("a panel's title bar, its body and its strip are marked", 'className="panel-bar" data-density="bar"' in panel
-              and panel.count('data-density="body"') == 3 and 'data-density={p.collapsed ? "row" : undefined}' in panel)
+    ctx.check("a panel's title bar and its body are marked, and the view bar (3.6.0.0 R0a: the strips went)",
+              'className="panel-bar" data-density="bar"' in panel and panel.count('data-density="body"') == 3
+              and 'data-density="bar"' in _src("lib/workspace/ViewBar.tsx"))
     for rel, mark in (("lib/ui/Tabs.tsx", 'data-density="bar"'), ("shell/Header.tsx", 'className="topbar" data-density="bar"'),
                       ("routes/agents/ViewSwitch.tsx", 'data-density="bar"'), ("routes/setup/SetupRail.tsx", 'data-density="bar"'),
                       ("routes/local/LocalRail.tsx", 'data-density="row"'), ("routes/settings/SettingsRail.tsx", 'data-density="row"'),

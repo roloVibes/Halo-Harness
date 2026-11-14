@@ -12,7 +12,6 @@
 import { HudCell, HudStrip, Kbd } from "../lib/ui";
 import { ownerPage } from "../lib/owner";
 import { studio, useStore } from "../lib/store";
-import { layoutStore } from "../lib/workspace/persist";
 import { FeedDot } from "../routes/orchestra/FeedDot";
 import { SECTIONS, useSectionDef } from "../routes";
 
@@ -24,7 +23,6 @@ export function StatusBar() {
   const feed = useStore(studio, (s) => s.feed);
   const section = useStore(studio, (s) => s.section);
   const def = useSectionDef(section); // 3.3.16.0 R1: Agents' is the workspace it draws now (roles or orchestra)
-  const custom = useStore(layoutStore(def.id), (s) => s.custom);
   const line = useStore(studio, (s) => s.status[def.id] || s.status[section]);
   const title = def.title;
   const paged = !!def.paged; // 3.3.1.0 R1: Setup has pages, not a layout
@@ -59,7 +57,7 @@ export function StatusBar() {
       )}
       <HudCell label="VIEW" grow={!line}>
         <span className="mono">
-          {title.toLowerCase()} · {paged ? "one page at a time" : `layout ${custom ? "yours" : "default"}`}
+          {title.toLowerCase()} · {paged ? "one page at a time" : "the main thing, the rest in the bar"}
         </span>
       </HudCell>
       <HudCell>

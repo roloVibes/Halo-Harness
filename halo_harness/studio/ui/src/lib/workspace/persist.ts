@@ -1,34 +1,30 @@
-// Workspace persistence: one store per section holding its live Layout, saved
-// to localStorage under `halo.studio.layout.<section>` ({v: 2, panels}) when
-// the user changes it. A section the user never rearranged keeps no key, so
-// its defaults follow the window size. `resetLayout` removes the key. A v1
-// arrangement (3.0.3.0, when panels opened on their Glance face) keeps its
-// places and sizes but not its faces, so every panel opens on its full face.
-// A strip that opens (3.1.4.0 R1: a section may start panels as strips)
-// pushes the grid panels it now covers down; nothing else moves. 3.2.2.0 R5:
-// `arrangeLayout` (Arrange in the header's ... menu and the palette) puts the open panels
-// back in the section's default rectangles and keeps them open as they are.
-// 3.3.2.0 R3: while a section's arrangement is its quiet one (quiet.ts: the
-// primary filling the stage, strips at the foot; nobody moved anything by
-// hand), a strip that opens joins the column on the primary's right and a
-// panel collapsed again gives its columns back to the primary.
+// Workspace persistence (3.6.0.0 R0a, v3): one store per section holding its live Layout. What is kept in
+// localStorage under `halo.studio.layout.<section>` is only what a person chose: the drawers open, a drawer's width
+// set by hand, the tab shown, the optional panels added -- `{v: 3, lv, open, widths, tab, added}`. Opening a drawer is
+// not a "custom layout" (R10); `custom` is true only once a width was set by hand. `lv` is the view's layout version
+// (Workspace's `version`): a saved view of an older version is kept and the view says so once ("the layout changed":
+// use the new one, or keep mine); a v1 / v2 arrangement of the old grid is dropped, with the same note once.
 import { createStore, writeLocal, type Store } from "../store";
-import { arrange, defaultPanel, defaultRects, pushDown } from "./grid";
-import { FULL_PAGE, isQuiet, quietReflow } from "./quiet";
-import { ROW, type Layout, type PanelLayout, type PanelSpec } from "./types";
+import { FULL_PAGE } from "./query";
+import { closeIn, merge, openIn, roleOf } from "./rules";
+import type { Layout, PanelLayout, PanelSpec } from "./types";
 
 export const LAYOUT_PREFIX = "halo.studio.layout.";
-const VERSION = 2;
+const VERSION = 3;
 
-/** `focus`: a one-shot request to move the keyboard focus to a panel; `active`: the panel the user is on (the ring). */
-export type LayoutState = { layout: Layout | null; custom: boolean; focus: string; active: string };
+/** `focus`: a one-shot request to move the keyboard focus to a panel; `active`: the panel the user is on (the ring);
+ *  `note`: the one-time layout note ("changed": a newer default exists, yours is kept; "dropped": an old grid layout went). */
+export type LayoutState = { layout: Layout | null; custom: boolean; focus: string; active: string; note: "" | "changed" | "dropped" };
+export type Saved = { open: string[]; widths: Record<string, number>; tab: string; added: string[]; lv: number };
 
 const stores = new Map<string, Store<LayoutState>>();
 const specsOf = new Map<string, PanelSpec[]>();
+const versions = new Map<string, number>();
 
-/** The Workspace says which specs a section draws (so a patch can lay the quiet arrangement out again). */
-export function registerSpecs(section: string, specs: PanelSpec[]): void {
+/** The Workspace says which specs a section draws, and its layout version. */
+export function registerSpecs(section: string, specs: PanelSpec[], version = 1): void {
   specsOf.set(section, specs);
+  versions.set(section, version);
 }
 
 /** 3.3.13.0 R2: the specs a section's Workspace drew last (a pack's page draws its own: the Inspector finds them here). */
@@ -36,48 +32,90 @@ export function specsFor(section: string): PanelSpec[] | undefined {
   return specsOf.get(section);
 }
 
-/** `next` laid out quietly again when `cur` was the quiet arrangement; null when the user's own arrangement rules. */
-function requiet(section: string, cur: Layout, next: Layout): Layout | null {
-  const specs = specsOf.get(section);
-  const fill = fillOf(section);
-  return specs && !FULL_PAGE && isQuiet(specs, fill, cur) ? quietReflow(specs, fill, next) : null;
-}
-
 export function layoutKey(section: string): string {
   return LAYOUT_PREFIX + section;
 }
 
-export function loadSaved(section: string): Layout | null {
+function readRaw(section: string): unknown {
   try {
     const raw = localStorage.getItem(layoutKey(section));
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (!data || (data.v !== VERSION && data.v !== 1) || typeof data.panels !== "object") return null;
-    const out: Layout = {};
-    for (const [id, p] of Object.entries(data.panels as Record<string, Partial<PanelLayout>>)) {
-      if (!p || ![p.x, p.y, p.w, p.h].every((n) => typeof n === "number" && isFinite(n))) continue;
-      const kept = { ...p };
-      if (data.v === 1) delete kept.face;
-      out[id] = kept as PanelLayout;
-    }
-    return out;
+    return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
+/** The saved v3 record, or null (none, unreadable, or an old grid arrangement: `oldGrid` says which). */
+export function loadSaved(section: string): Saved | null {
+  const d = readRaw(section) as Partial<Saved> & { v?: number } | null;
+  if (!d || d.v !== VERSION) return null;
+  const list = (x: unknown) => (Array.isArray(x) ? x.filter((v): v is string => typeof v === "string") : []);
+  const widths: Record<string, number> = {};
+  for (const [k, v] of Object.entries(d.widths && typeof d.widths === "object" ? d.widths : {})) if (typeof v === "number" && isFinite(v)) widths[k] = v;
+  return { open: list(d.open), widths, tab: typeof d.tab === "string" ? d.tab : "", added: list(d.added), lv: typeof d.lv === "number" ? d.lv : 1 };
+}
+
+function oldGrid(section: string): boolean {
+  const d = readRaw(section) as { v?: number } | null;
+  return !!d && (d.v === 1 || d.v === 2);
+}
+
+/** The saved record as a Layout over `specs` (null: nothing saved). */
+export function savedLayout(section: string, specs: PanelSpec[]): Layout | null {
+  const s = loadSaved(section);
+  if (!s) return null;
+  const out: Layout = {};
+  for (const spec of specs) {
+    const added = !spec.optional || s.added.includes(spec.id);
+    if (!added) continue;
+    const role = roleOf(spec);
+    const open = role === "main" ? !s.tab || !specs.some((x) => x.id === s.tab) : role === "tab" ? s.tab === spec.id : s.open.includes(spec.id);
+    out[spec.id] = { collapsed: !open, face: spec.face ?? "detail", z: open ? s.open.indexOf(spec.id) + 1 : 0, ...(s.widths[spec.id] ? { width: s.widths[spec.id] } : {}) };
+  }
+  return out;
+}
+
+function toSaved(section: string, layout: Layout): Saved {
+  const specs = specsOf.get(section) || [];
+  const roleOfId = (id: string) => {
+    const s = specs.find((x) => x.id === id);
+    return s ? roleOf(s) : "drawer";
+  };
+  const ids = Object.keys(layout);
+  const open = ids.filter((id) => roleOfId(id) === "drawer" && !layout[id].collapsed).sort((a, b) => (layout[a].z || 0) - (layout[b].z || 0));
+  const widths: Record<string, number> = {};
+  for (const id of ids) if (layout[id].width) widths[id] = layout[id].width as number;
+  const tab = ids.find((id) => roleOfId(id) === "tab" && !layout[id].collapsed) || "";
+  const added = ids.filter((id) => specs.find((s) => s.id === id)?.optional);
+  return { open, widths, tab, added, lv: versions.get(section) || 1 };
+}
+
 export function layoutStore(section: string): Store<LayoutState> {
   let s = stores.get(section);
   if (!s) {
-    s = createStore<LayoutState>({ layout: null, custom: loadSaved(section) !== null, focus: "", active: "" });
+    s = createStore<LayoutState>({ layout: null, custom: Object.keys(loadSaved(section)?.widths || {}).length > 0, focus: "", active: "", note: "" });
     stores.set(section, s);
   }
   return s;
 }
 
-/** Run `go` once the section's workspace has laid out (at once when it has): a panel added from the "+" or the
- *  palette while the section is still mounting lands then, however long that takes (a slow box: seconds), instead of
- *  being dropped. Gives up after `ms`. */
+/** The note a first draw shows: an old grid arrangement is dropped now; a saved view of an older version is kept and
+ *  re-saved at today's version (so the note shows once). */
+export function takeNote(section: string): LayoutState["note"] {
+  if (oldGrid(section)) {
+    writeLocal(layoutKey(section), null);
+    return "dropped";
+  }
+  const s = loadSaved(section);
+  const lv = versions.get(section) || 1;
+  if (s && s.lv < lv) {
+    writeLocal(layoutKey(section), JSON.stringify({ v: VERSION, ...s, lv }));
+    return "changed";
+  }
+  return "";
+}
+
+/** Run `go` once the section's workspace has laid out (at once when it has); gives up after `ms`. */
 export function whenLaidOut(section: string, go: () => void, ms = 30000): void {
   const s = layoutStore(section);
   if (s.get().layout) return go();
@@ -90,48 +128,51 @@ export function whenLaidOut(section: string, go: () => void, ms = 30000): void {
   const timer = window.setTimeout(stop, ms);
 }
 
-/** Replace the section's layout; `save` (a user change) also persists it. */
+/** Replace the section's layout; `save` also persists what a person chose (open drawers, widths, the tab). */
 export function setLayout(section: string, layout: Layout, save = true): void {
   const s = layoutStore(section);
-  s.update(() => ({ layout, custom: s.get().custom || save }));
-  if (save) writeLocal(layoutKey(section), JSON.stringify({ v: VERSION, panels: layout }));
+  const custom = Object.values(layout).some((p) => !!p.width);
+  s.update(() => ({ layout, custom }));
+  if (save) writeLocal(layoutKey(section), JSON.stringify({ v: VERSION, ...toSaved(section, layout) }));
 }
 
+/** The stage's width now (drawers make room by it). */
+export function stageWidth(section: string): number {
+  const el = document.querySelector<HTMLElement>(`.workspace[data-section="${section}"]`);
+  return el?.clientWidth || window.innerWidth;
+}
+
+/** Change one panel: `collapsed: false` opens it (a drawer by the stage's rules, a tab shown), `true` puts it away. */
 export function patchPanel(section: string, id: string, patch: Partial<PanelLayout>, save = true): void {
   const cur = layoutStore(section).get().layout;
+  const specs = specsOf.get(section) || [];
   if (!cur || !cur[id]) return;
-  const next = { ...cur, [id]: { ...cur[id], ...patch } };
-  const opened = cur[id].collapsed && !next[id].collapsed && !next[id].floating;
-  const quiet = cur[id].collapsed !== next[id].collapsed || cur[id].floating !== next[id].floating ? requiet(section, cur, next) : null;
-  setLayout(section, quiet || (opened ? pushDown(next, id) : next), save);
+  const { collapsed, ...rest } = patch;
+  let next: Layout = { ...cur, [id]: { ...cur[id], ...rest } };
+  if (collapsed === false) next = openIn(next, specs, id, stageWidth(section), {}, FULL_PAGE);
+  else if (collapsed === true) next = closeIn(next, specs, id);
+  setLayout(section, next, save);
 }
 
-/** Forget the user's arrangement: the Workspace redraws the defaults. */
+/** Forget the person's choices: every drawer closed, the main thing shown, widths back to their content's. */
 export function resetLayout(section: string): void {
   writeLocal(layoutKey(section), null);
-  layoutStore(section).update(() => ({ layout: null, custom: false }));
+  layoutStore(section).update(() => ({ layout: null, custom: false, note: "" }));
 }
 
-/** The rows a section's workspace shows (Workspace.tsx's fillRows). */
-function fillOf(section: string): number {
-  const ws = document.querySelector<HTMLElement>(`.workspace[data-section="${section}"]`);
-  return Math.max(0, Math.floor(((ws?.clientHeight || 624) - 24) / ROW));
+/** The one-time note answered: "use the new one" forgets the saved view; "keep mine" just closes the note. */
+export function answerNote(section: string, useNew: boolean): void {
+  if (useNew) resetLayout(section);
+  layoutStore(section).update(() => ({ note: "" }));
 }
 
-/** Arrange: every panel open now in its default place and size; strips stay strips, faces stay, a floating one floats. */
-export function arrangeLayout(section: string, specs: PanelSpec[]): void {
-  const cur = layoutStore(section).get().layout;
-  if (!cur) return;
-  setLayout(section, defaultRects(specs, cur, fillOf(section), FULL_PAGE), true);
-}
-
-/** One panel back to its default place, size and face (the others make room). */
+/** One drawer back to its content's width. */
 export function resetPanel(section: string, spec: PanelSpec): void {
   const cur = layoutStore(section).get().layout;
   if (!cur || !cur[spec.id]) return;
-  const ws = document.querySelector<HTMLElement>(`.workspace[data-section="${section}"]`);
-  const fill = Math.floor((ws?.clientHeight || 600) / ROW) - 3;
-  setLayout(section, arrange({ ...cur, [spec.id]: { ...defaultPanel(spec, fill), z: cur[spec.id].z } }, spec.id));
+  const p = { ...cur[spec.id] };
+  delete p.width;
+  setLayout(section, { ...cur, [spec.id]: p });
 }
 
 export function focusPanel(section: string, id: string): void {
@@ -143,30 +184,24 @@ export function activatePanel(section: string, id: string): void {
   layoutStore(section).update((s) => (s.active === id ? {} : { active: id }));
 }
 
-/** Open a panel and focus it; one not in the layout yet (an optional panel) is added below the
- *  others, or popped out over the grid with `float` (a section whose canvas fills the view). */
-export function showPanel(section: string, spec: PanelSpec, float = false): void {
+/** Open a panel and focus it; an optional panel not in the view yet is added first. (`_float` is the 3.3 grid's
+ *  "pop it out over the page"; a drawer is what that is now.) */
+export function showPanel(section: string, spec: PanelSpec, _float = false): void {
   const cur = layoutStore(section).get().layout;
   if (!cur) return;
-  if (cur[spec.id]) patchPanel(section, spec.id, { collapsed: false }, false);
-  else {
-    const all = Object.values(cur);
-    const bottom = all.reduce((m, p) => Math.max(m, p.y + p.h), 0);
-    const top = all.reduce((m, p) => Math.max(m, p.z || 0), 0);
-    const n = all.filter((p) => p.floating).length;
-    const p = { ...defaultPanel({ ...spec, collapsed: false }, 60), y: bottom, face: "detail" as const };
-    const placed = float ? { ...p, floating: true, fx: 64 + n * 32, fy: 48 + n * 32, fw: 520, fh: 440, z: top + 1 } : p;
-    const next = { ...cur, [spec.id]: placed };
-    setLayout(section, requiet(section, cur, next) || arrange(next, float ? undefined : spec.id), true);
-  }
+  const base = cur[spec.id] ? cur : { ...cur, [spec.id]: { collapsed: true, face: spec.face ?? "detail", z: 0 } };
+  const specs = specsOf.get(section) || [];
+  setLayout(section, openIn(base, specs.some((s) => s.id === spec.id) ? specs : [...specs, spec], spec.id, stageWidth(section), {}, FULL_PAGE), true);
   focusPanel(section, spec.id);
 }
 
-/** Take an optional panel out of the layout again. */
+/** Take an optional panel out of the view again (a tab hands the stage back to the main thing). */
 export function hidePanel(section: string, id: string): void {
   const cur = layoutStore(section).get().layout;
   if (!cur || !cur[id]) return;
-  const next = { ...cur };
+  const next = { ...closeIn(cur, specsOf.get(section) || [], id) };
   delete next[id];
-  setLayout(section, requiet(section, cur, next) || arrange(next), true);
+  setLayout(section, next, true);
 }
+
+export { merge };

@@ -16,7 +16,7 @@
 /* -- session-cost (3.1.5.0 R3: the sparkline, the context bar, the share bar) ------------- */
 .sco { display: grid; gap: 8px; align-content: start; container-type: inline-size; }
 .sco-head { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sco-sub { margin-top: -6px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.sco-sub { margin-top: -6px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .sco-sub [data-testid="session-cost-model"] { color: var(--accent); }
 .sco-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sco-ticker { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: .02em; font-variant-numeric: tabular-nums;
@@ -34,7 +34,7 @@
 .sco-ctx[data-level="bad"] { --lv: var(--bad); border-color: color-mix(in srgb, var(--bad) 55%, var(--line)); }
 .sco-ctx-head { display: flex; align-items: baseline; gap: 10px; }
 .sco-ctx-pct { font-size: 13px; color: var(--lv); font-variant-numeric: tabular-nums; }
-.sco-ctx-of { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sco-ctx-of { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; }
 .sco-ctx-track { position: relative; height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
 .sco-ctx-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: var(--lv); box-shadow: 0 0 8px var(--lv);
   transition: width var(--t-slow) var(--ease); }
@@ -42,18 +42,18 @@
 .sco-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 @container (min-width: 340px) { .sco-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .sco-fig { display: grid; gap: 3px; min-width: 0; padding: 5px 7px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
-.sco-label { font-size: 9.5px; letter-spacing: .08em; color: var(--muted); }
+.sco-label { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
 .sco-value { font-size: 13px; font-weight: 600; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .sco-agents { display: grid; gap: 4px; }
 .sco-agents-head { display: flex; justify-content: space-between; gap: 8px; }
 .sco-share { display: flex; gap: 2px; height: 10px; border-radius: 99px; overflow: hidden; background: var(--surface-2); }
 .sco-share-seg { flex-basis: 0; min-width: 3px; background: var(--hc, var(--accent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bg) 30%, transparent); }
-.sco-share-none { font-size: 10px; line-height: 10px; padding: 0 6px; }
+.sco-share-none { font-size: 12px; line-height: 10px; padding: 0 6px; }
 .sco-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto auto 64px 36px; gap: 8px; align-items: baseline; padding: 3px 0;
-  border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+  border-bottom: 1px dashed var(--line); font-size: 13px; }
 .sco-swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--hc, var(--accent)); align-self: center; }
 .sco-row-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sco-row .mono { font-size: 11px; font-variant-numeric: tabular-nums; }
+.sco-row .mono { font-size: 12px; font-variant-numeric: tabular-nums; }
 .sco-row-usd, .sco-row-pct { text-align: right; }
 .sco-row[data-state="running"] .sco-row-state { color: var(--accent); }
 .sco-row[data-state="waiting"] .sco-row-state, .sco-row[data-state="paused"] .sco-row-state { color: var(--warn); }
@@ -63,7 +63,7 @@
 
 /* -- "Watch in Session" (Roles' Live tab header, Orchestra's run line) -------------------- */
 .watch-session { color: var(--accent); white-space: nowrap; }
-.rl-head .watch-session { font-size: 11px; }
+.rl-head .watch-session { font-size: 12px; }
 /* 3.3.5.0 R4: the last request's parts (CostComposition.tsx), token colours only */
 .sco-comp { display: flex; flex-direction: column; gap: 6px; }
 .sco-comp-head { display: flex; align-items: baseline; gap: 8px; }

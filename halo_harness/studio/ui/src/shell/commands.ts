@@ -2,14 +2,14 @@
 // the sections in the registry's order (3.3.16.0 R1: Agents -- its views, then Cast's Roles lines and Runs'
 // Orchestra lines -- and Fleet; Session has none of its own), Media, View, Layout. Each
 // command may show a key (the same hint the menus show; 3.3.2.0 R1: the Go to
-// entries carry each section's Alt+N, which the icon rail no longer prints; 3.3.2.0 R2: Layout's
-// "Arrange panels" and "Reset layout" name the section in the hint). 3.2.0.0 R3: the packs' sections join Go to and
+// entries carry each section's Alt+N, which the icon rail no longer prints; 3.6.0.0 R0a: Layout's "Reset layout"
+// names the section in the hint; Arrange went with the grid, and "Show panel: <name>" opens the drawer or tab). 3.2.0.0 R3: the packs' sections join Go to and
 // Help, and each pack's palette actions come last in their own group ("pack <id>").
 import { goSection, openHelp, studio, toast, toggleFocus, toggleRail } from "../lib/store";
 import { themeCommands } from "./themeCommands"; // 3.3.12.0 R1
 import { openGlossary } from "../lib/glossary";
 import { setDensity } from "../lib/density";
-import { arrangeLayout, layoutStore, resetLayout, showPanel, whenLaidOut } from "../lib/workspace/persist";
+import { layoutStore, resetLayout, showPanel, whenLaidOut } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { sectionDef, sections, type SectionDef } from "../routes";
 import { packCommands } from "../routes/packs/registry";
@@ -28,29 +28,20 @@ import { GLANCE_HINT, openGlanceDoor } from "../routes/glance/Door";
 /** `disabled`: drawn with its hint saying why (3.3.2.0 R2: nothing to arrange, nothing to reset); Enter does nothing. */
 export type Command = { id: string; group: string; label: string; kbd?: string; hint?: string; disabled?: boolean; run: () => void };
 
-/** Bring a panel back (or add an optional one) and focus it, bringing the section's workspace up first. */
+/** Open a panel (a drawer, a tab, or an optional one added) and focus it, bringing the section's workspace up first. */
 export function revealPanel(def: SectionDef, p: PanelSpec): void {
-  const go = () => showPanel(def.id, p, !!def.paged); // 3.3.13.0 R2: over a paged section's page (Local: Media) it floats
   def.enter?.();
-  whenLaidOut(def.id, go); // the section may still be mounting (one 120 ms retry dropped the panel on a slow runner)
+  whenLaidOut(def.id, () => showPanel(def.id, p)); // the section may still be mounting (a slow runner: seconds)
 }
 
-/** 3.3.2.0 R2: what Arrange and Reset layout would say when there is nothing to do ("" when there is). */
-export function layoutWords(def: SectionDef): { arrange: string; reset: string } {
+/** What Reset layout would say when there is nothing to do ("" when there is). */
+export function layoutWords(def: SectionDef): { reset: string } {
   const ls = layoutStore(def.id).get();
-  return {
-    arrange: ls.layout ? "" : `${def.title}: nothing to arrange, its panels are not up`,
-    reset: ls.custom ? "" : `${def.title}: nothing to reset, the layout is the default`,
-  };
+  const open = Object.values(ls.layout || {}).some((p) => !p.collapsed) && def.panels.some((s) => ls.layout?.[s.id] && !ls.layout[s.id].collapsed && !s.primary && s.role !== "main");
+  return { reset: ls.custom || open ? "" : `${def.title}: nothing to reset, every drawer is closed` };
 }
 
-/** Arrange (the palette and the header's ... menu): the open panels back in their default places. */
-export function arrangeSection(def: SectionDef): void {
-  arrangeLayout(def.id, def.panels);
-  toast(`${def.title} panels arranged`, "done");
-}
-
-/** Reset layout (the palette and the header's ... menu): forget the user's arrangement. */
+/** Reset layout (the palette and the header's ... menu): every drawer closed, widths back to their content's. */
 export function resetSection(def: SectionDef): void {
   resetLayout(def.id);
   toast(`${def.title} layout reset`, "done");
@@ -90,19 +81,16 @@ export function commands(): Command[] {
     { id: "glance", group: "View", label: "Open the glance", hint: GLANCE_HINT, run: openGlanceDoor }, // 3.4.1.0 R4
     { id: "focus", group: "View", label: "Focus", hint: "hide the rail, the inspector and the status bar; again brings them back", kbd: "F", run: toggleFocus },
   );
-  if (!cur.paged) { // 3.3.1.0 R1: a paged section (Setup) has no layout to reset or arrange
-    const w = layoutWords(cur); // 3.3.2.0 R2: the section's title in the hint; the words say when there is nothing to do
-    out.push(
-      { id: "arrange-layout", group: "Layout", label: "Arrange panels", hint: w.arrange || `${cur.title}: the open panels back in their default places and sizes`, disabled: !!w.arrange, run: () => arrangeSection(cur) },
-      { id: "reset-layout", group: "Layout", label: "Reset layout", hint: w.reset || `${cur.title}: back to the default panels`, disabled: !!w.reset, run: () => resetSection(cur) },
-    );
+  if (!cur.paged) { // 3.3.1.0 R1: a paged section (Setup) has no layout to reset
+    const w = layoutWords(cur);
+    out.push({ id: "reset-layout", group: "Layout", label: "Reset layout", hint: w.reset || `${cur.title}: every drawer closed, the main thing back`, disabled: !!w.reset, run: () => resetSection(cur) });
   }
   for (const p of cur.panels) {
     out.push({
       id: "panel-" + p.id,
       group: "Layout",
-      label: `${p.optional ? "Show" : "Focus"} panel: ${p.title}`,
-      hint: "Alt+arrows move it, Alt+Shift+arrows resize it",
+      label: `Show panel: ${p.title}`,
+      hint: p.role === "main" || p.primary ? "the main thing of this view" : "opens it beside the main thing; Alt+Left / Alt+Right on it: wider or narrower",
       run: () => revealPanel(cur, p),
     });
   }

@@ -7,13 +7,13 @@
 .su-steps { padding: 10px 14px 6px; min-width: 0; }
 .su-steps-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 2px; margin: 0; padding: 0; list-style: none; }
 .su-steps-item { display: flex; align-items: center; gap: 2px; min-width: 0; }
-.su-steps-sep { color: var(--faint); font-size: 11px; padding: 0 4px; }
+.su-steps-sep { color: var(--faint); font-size: 12px; padding: 0 4px; }
 .su-step { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 5px; border: 1px solid transparent;
-  border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+  border-radius: 999px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
 .su-step:hover { color: var(--text); border-color: var(--line); }
 .su-step:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .su-step-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 999px;
-  border: 1px solid var(--line); font-size: 10.5px; }
+  border: 1px solid var(--line); font-size: 12px; }
 .su-step[data-state=done] { color: var(--text); }
 .su-step[data-state=done] .su-step-n { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-soft); }
 .su-step[data-state=current] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); font-weight: 600; }
@@ -24,25 +24,25 @@
   border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--glow); }
 .su-page-card:focus { outline: none; }
 .su-page-head { display: grid; gap: 6px; min-width: 0; }
-.su-page-kicker { font-size: 10.5px; letter-spacing: 0.08em; color: var(--muted); }
-.su-page-title { margin: 0; font-size: 19px; font-weight: 600; color: var(--text); }
-.su-page-help summary, .su-more-box summary { cursor: pointer; font-size: 11.5px; color: var(--accent); width: max-content; max-width: 100%; }
+.su-page-kicker { font-size: 12px; letter-spacing: 0.08em; color: var(--muted); }
+.su-page-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.su-page-help summary, .su-more-box summary { cursor: pointer; font-size: 12px; color: var(--accent); width: max-content; max-width: 100%; }
 .su-page-help ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
 .su-step-body { min-width: 0; }
 .su-page-foot { display: flex; align-items: center; gap: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
-.su-page-where { font-size: 11px; margin-left: auto; }
+.su-page-where { font-size: 12px; margin-left: auto; }
 .su-page-foot [data-testid=setup-next] { min-width: 96px; }
 
 .su-sum-rows { display: grid; gap: 4px; min-width: 0; }
 .su-sum-row { display: grid; grid-template-columns: 2ch minmax(110px, 160px) minmax(0, 1fr) auto; gap: 10px; align-items: center;
-  padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); min-width: 0; font-size: 12.5px; }
+  padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm); min-width: 0; font-size: 13px; }
 .su-sum-row[data-state=todo] .su-sum-value { color: var(--warn); }
 .su-sum-mark { color: var(--muted); }
 .su-sum-row[data-state=done] .su-sum-mark { color: var(--ok); }
 .su-sum-title { font-weight: 600; }
 .su-sum-value { color: var(--accent); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .su-sum-part { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); min-width: 0; }
-.su-sum-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 12.5px; }
+.su-sum-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 13px; }
 
 .su-more-box { display: grid; gap: 6px; min-width: 0; padding-top: 4px; border-top: 1px dashed var(--line); }
 .su-more-box[open] summary { margin-bottom: 4px; }
@@ -54,6 +54,6 @@
   .su-sum-row .su-sum-value { grid-column: 2 / 4; grid-row: 2; }
 }
 /* 3.3.11.0 R3: a pack's own blocks -- the pack's name before its steps, the Check page's "From packs" line, a note */
-.su-steps-pack { color: var(--muted); font-size: 11px; padding: 0 4px 0 6px; }
-.su-check-from { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; padding: 10px 0 2px; }
+.su-steps-pack { color: var(--muted); font-size: 12px; padding: 0 4px 0 6px; }
+.su-check-from { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; padding: 10px 0 2px; }
 .su-pack-note { max-width: 72ch; }

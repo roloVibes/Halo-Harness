@@ -114,6 +114,10 @@ def rail(c, url, ctx) -> dict:
 
 def _settings(c, panel: str) -> None:
     btn = q(f'[data-panel="{panel}"] [data-testid=panel-menu-btn]')
+    bar = q(f'.section-view:not([hidden]) [data-testid=viewbar-btn][data-panel="{panel}"]')
+    c.wait(f"!!{btn} || !!{bar}", 30)
+    if not c.js(f"!!{btn}"):  # 3.6.0.0 R0a: a closed drawer: its view bar button opens it
+        c.click_on(bar)
     c.wait(f"!!{btn}", 30)
     c.click_on(btn)
     c.wait(f"!!{q('[data-testid=panel-menu]')}", 5)

@@ -31,8 +31,11 @@
         "kind": {"enum": ["markdown", "table", "form", "links", "events", "bundle", "artifact"]},
         "source": {"type": "string", "description": "a file under the pack (markdown, table, bundle, artifact) or data:<path> in its data folder (table, artifact); latest (artifact: the newest run's)"},
         "schema": {"type": "string", "description": "an artifact panel's schema: one of contributes.artifacts (3.2.0.0 R5)"},
-        "w": {"type": "integer", "minimum": 4, "maximum": 24},
-        "h": {"type": "integer", "minimum": 8, "maximum": 200},
+        "w": {"type": "integer", "minimum": 4, "maximum": 24, "description": "grid columns (API 1.0-1.4); Studio maps it to a drawer w x 60 px wide (3.6.0.0 R0a)"},
+        "h": {"type": "integer", "minimum": 8, "maximum": 200, "description": "grid rows (API 1.0-1.4); a drawer is full height since 3.6.0.0"},
+        "role": {"enum": ["main", "drawer", "tab"], "description": "API 1.5: the view's main thing, a drawer beside it (the default), or a tab of it"},
+        "side": {"enum": ["left", "right"], "description": "API 1.5: a drawer's side (default right)"},
+        "content_w": {"type": "integer", "minimum": 360, "maximum": 560, "description": "API 1.5: a drawer's width from its content, px"},
         "help": {"type": "string"},
         "columns": {"$ref": "#/$defs/names"},
         "links": {"type": "array", "items": {"$ref": "#/$defs/link"}}

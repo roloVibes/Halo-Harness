@@ -51,20 +51,18 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
   id, testid: id, ...HELP[id], ...rest, glance: whileShown(rest.glance), detail: rest.detail && whileShown(rest.detail),
 });
 
-// 24 columns, 8 px rows; h 0 fills the visible height, a negative h fills it but leaves that many rows below.
-// Left (10 columns, about 40 %): Map (46 rows, the tree fitted to it) over Cost (to the bottom, less the 15
-// rows of the four strips under it: Agent, Activity, Attention, Prompt; a y past the others only orders them, the
-// grid packs them up).
-// Right (14 columns, about 60 %, the full height): Live. The list order is the "+" menu's and the palette's.
+// 3.6.0.0 R0a, the stage: Live is the main thing; Activity (the timeline and the full log, wide) is its tab; Map is a
+// left drawer (the tree), Cost, Agent, Attention and Prompt right drawers, each as wide as its content. Every other
+// panel is a button in the view bar, closed on load. The list order is the bar's and the palette's.
 export const sessionPanels: PanelSpec[] = [
-  panel("session-map", { title: "Map", x: 0, y: 0, w: 10, h: 46, minW: 7, minH: 20, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
-  panel("session-live", { title: "Live", primary: true, x: 10, y: 0, w: 14, h: 0, minW: 6, minH: 30, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
-  panel("session-cost", { title: "Cost", x: 0, y: 46, w: 10, h: -20, minW: 4, minH: 14, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
-  panel("session-agent", { title: "Agent", x: 0, y: 200, w: 10, h: 0, minW: 5, minH: 32, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
-  panel("session-activity", { title: "Activity", x: 0, y: 205, w: 10, h: 0, minW: 5, minH: 24, face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
-  panel("session-attention", { title: "Attention", x: 0, y: 210, w: 10, h: 0, minW: 4, minH: 18, face: "detail", collapsed: true, glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
-  panel("session-prompt", { title: "Prompt", x: 0, y: 215, w: 10, h: 0, minW: 6, minH: 26, face: "detail", collapsed: true, glance: PromptGlance, detail: PromptDetail, useMotion: started(usePromptMotion) }),
+  panel("session-map", { title: "Map", side: "left", contentW: 360, face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
+  panel("session-live", { title: "Live", primary: true, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
+  panel("session-cost", { title: "Cost", contentW: 360, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
+  panel("session-agent", { title: "Agent", contentW: 400, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
+  panel("session-activity", { title: "Activity", role: "tab", face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),
+  panel("session-attention", { title: "Attention", contentW: 360, face: "detail", collapsed: true, glance: AttentionGlance, detail: AttentionDetail, useMotion: started(useAttentionMotion) }),
+  panel("session-prompt", { title: "Prompt", contentW: 420, face: "detail", collapsed: true, glance: PromptGlance, detail: PromptDetail, useMotion: started(usePromptMotion) }),
   // 3.3.16.2: agents talking, one thread per pair (Conversations.tsx); optional: the "+" menu adds it
-  panel("session-conversations", { title: "Conversations", x: 0, y: 46, w: 10, h: 40, minW: 6, minH: 20, face: "detail", optional: true, glance: ConversationsGlance, detail: ConversationsDetail, useMotion: started(useConversationsMotion) }),
+  panel("session-conversations", { title: "Conversations", contentW: 440, face: "detail", optional: true, glance: ConversationsGlance, detail: ConversationsDetail, useMotion: started(useConversationsMotion) }),
 ];
 registerPromptPanel(sessionPanels.find((p) => p.id === "session-prompt"));

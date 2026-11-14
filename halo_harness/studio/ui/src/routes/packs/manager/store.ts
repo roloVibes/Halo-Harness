@@ -91,7 +91,7 @@ export function startManager(): void {
 
 export function selectPack(id: string): void {
   mgr.update(() => ({ sel: id }));
-  // 3.3.2.0 R3: Details starts as a strip; a pick opens it beside Installed
+  // 3.6.0.0 R0a: Details is a closed drawer; a pick opens it beside Installed
   if (id && layoutStore("packs").get().layout?.["pm-details"]?.collapsed) patchPanel("packs", "pm-details", { collapsed: false }, false);
 }
 

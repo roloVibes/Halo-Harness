@@ -48,7 +48,7 @@ def load(c, page) -> dict:
     out["labels"] = c.js(LABEL)
     out["review"] = c.js(f"[!!{block('review')}.dataset.connected, getComputedStyle({block('review')}).borderTopStyle,"
                          f" {block('review')}.querySelector('[data-testid=\"block-foot\"]').textContent]")
-    strip = f"{Q}('[data-panel=\"roles-problems\"] [data-testid=\"panel-strip\"]')"
+    strip = f"{Q}('.section-view:not([hidden]) [data-testid=\"viewbar-btn\"][data-panel=\"roles-problems\"]')"  # 3.6.0.0 R0a: its button in the view bar
     c.click_on(strip)
     out["problems"] = c.wait("[...document.querySelectorAll('[data-testid=\"roles-problem-block\"]')].map((b) => b.dataset.block)", 15)
     c.click_on(strip)

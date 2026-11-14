@@ -8,6 +8,44 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.0] - unreleased
+
+Studio has room: one main thing per view, drawers and tabs instead of tiles, no sideways scrollbars, nothing smaller
+than 12 px. The owner, 2026-11-12: "I agree the panel is cramped. We need to fix that for all of studio parts."
+
+### R0a
+
+- **The stage.** The 24-column grid of tiles is gone (`lib/workspace/grid.ts`, `quiet.ts`, `room.ts`, the strips,
+  Arrange, floating panels, moving a panel). Each view has one main thing (Session's Live, Agents' Canvas, Packs'
+  Installed) with at least 60 % of the stage; every other panel is a named button in the view bar (one 44 px row:
+  `ViewBar.tsx`, a live word beside a name where it has one) and opens as a drawer beside the main thing, full
+  height, pushing it, as wide as its content says (360-560 px), or as a tab in its place (`Stage.tsx`,
+  `lib/workspace/rules.ts`). Under 1440 px one drawer at a time, at 1440 and up one per side; under 1100 it floats
+  over the main thing; under 760 the rail is a menu (`useBreakpoint()`). A drawer's inner edge, or `Alt+Left` /
+  `Alt+Right` on it, makes it wider or narrower. A panel says how it opens: `role` (main / drawer / tab), `side`,
+  `contentW` (`lib/workspace/types.ts`).
+- **What is kept** (`persist.ts`, v3): the drawers open, a width you set, the tab shown, per view; opening a drawer is
+  not a "custom layout" (the badge and "layout yours" went). A view whose default changes says so once ("Use the new
+  one" / "Keep mine"); an arrangement saved by the old grid is dropped with one line.
+- **The header.** The "+" menu went (every panel is a button in the view bar; the palette's "Show panel: <name>"
+  opens one); the "..." holds Reset layout and How panels open; Arrange went.
+- **One type scale and one spacing scale.** 12 (data, captions), 13 (body), 15 (titles), 18 (a page title): every
+  sheet's 9.5-11.5 px became 12 (the sizes measured before: 10.5 px in 3,113 text runs, 11 px in 2,585, 11.5 px in
+  1,626); spacing 4 / 8 / 12 / 16 / 24 (`tokens.css`). Buttons are 28 px tall at the least (32 by default); Live's
+  agent tags and Settings' switches too. `tests/test_studio_type_scale.py` greps the sheets for a size under 12 px.
+- **Cramped is a test that fails.** `tests/test_studio_room.py` (driver `tests/helpers/studio_room.py`, over the
+  Session rig and a long-names seed) measures rules R1-R10 on Session, Agents, Packs, Local, Setup and Settings at
+  1280, 1500 and 1920, each drawer opened in turn, then the breakpoints and what is kept.
+- **Packs** (extension API 1.5): a Studio panel may say `role`, `side` and `content_w`; a 1.0-1.4 panel's grid `w`
+  maps to a right drawer `w` x 60 px wide, a pack section's first panel is its main thing. The pack kit's Studio
+  template declares its panels the new way.
+- **The boot hop, looked into.** The Session driver's about:blank hop hid a page that stayed blank 1 in 12 runs on
+  CI. About 700 direct Studio -> Studio navigations here (the second while the first still loads, under
+  `HALO_STUDIO_SLOW_MS=400`) never left a blank page apart from the ones a rebuild of the dist emptied mid-run. As a
+  defence, each served page now names its script with its own query (`./studio.js?b=<nonce>`,
+  `studio/shell_assets.py`), so no page can take another page's script load; the room driver opens every view
+  straight from the one before.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

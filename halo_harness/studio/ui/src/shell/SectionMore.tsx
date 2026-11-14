@@ -1,57 +1,34 @@
-// The header's overflow menu and the layout badge (3.3.2.0 R2: the expanded
-// rail's LAYOUT block before). The "..." holds Arrange panels (`layout-arrange`),
-// Reset layout (`layout-reset`) and How panels move (the section help's
-// "Moving panels" part); a row with nothing to do stays in the list, disabled,
-// its word saying why. The badge "custom layout" shows only while the
-// section's layout is the user's own (`ls.custom`). A paged section (Setup)
-// has no layout: neither draws.
+// The header's overflow menu (3.3.2.0 R2; 3.6.0.0 R0a: Arrange and the "custom layout" badge went with the grid).
+// The "..." holds Reset layout (`layout-reset`: every drawer closed, widths back to their content's) and How panels
+// open (the section help's "Moving panels" part); Session adds Open the glance. A row with nothing to do stays in
+// the list, disabled, its word saying why. A paged section (Setup) has no layout: it does not draw.
 import { Menu, type MenuRow } from "../lib/ui";
 import { openHelp, studio, useStore } from "../lib/store";
 import { layoutStore } from "../lib/workspace/persist";
 import { useSectionDef, type SectionDef } from "../routes";
-import { arrangeSection, resetSection } from "./commands";
+import { layoutWords, resetSection } from "./commands";
 import { GLANCE_HINT, openGlanceDoor } from "../routes/glance/Door";
 
 function More({ def }: { def: SectionDef }) {
-  const ls = useStore(layoutStore(def.id), (s) => s);
+  useStore(layoutStore(def.id), (s) => s); // the words follow what is open
+  const w = layoutWords(def);
   const rows: MenuRow[] = [
     {
-      id: "arrange", label: "Arrange panels", icon: "grid", testid: "layout-arrange", disabled: !ls.layout,
-      word: ls.layout ? "" : "not up yet",
-      title: "Every open panel back in its default place and size (strips stay strips, a floating one floats)",
-      run: () => arrangeSection(def),
-    },
-    {
-      id: "reset", label: "Reset layout", icon: "reset", testid: "layout-reset", disabled: !ls.custom,
-      word: ls.custom ? "" : "already default",
-      title: "Forget your arrangement of this section: its default panels come back",
+      id: "reset", label: "Reset layout", icon: "reset", testid: "layout-reset", disabled: !!w.reset,
+      word: w.reset ? "already default" : "",
+      title: "Every drawer of this view closed and back to its own width: the main thing has the room",
       run: () => resetSection(def),
     },
-    { id: "moving", label: "How panels move", icon: "help", testid: "layout-help", title: "Drag, resize and the keys: the Moving panels part of this section's help", run: () => openHelp(studio.get().section, "moving") }, // 3.3.16.0 R1: Agents' help, not its part's
+    { id: "moving", label: "How panels open", icon: "help", testid: "layout-help", title: "The view bar, drawers and tabs: the Moving panels part of this section's help", run: () => openHelp(studio.get().section, "moving") },
   ];
   const elsewhere: MenuRow[] = [{ id: "glance", label: "Open the glance", icon: "popout", testid: "session-glance", title: GLANCE_HINT, run: openGlanceDoor }]; // 3.4.1.0 R4
   const groups = def.id === "session" ? [{ name: "LAYOUT", rows }, { name: "ELSEWHERE", rows: elsewhere }] : [{ name: "LAYOUT", rows }];
-  return <Menu icon="more" label={`${def.title}: layout`} title="More: arrange the panels, reset the layout, how panels move" testid="section-more" menuTestid="section-more-menu" groups={groups} width={260} />;
-}
-
-function Badge({ def }: { def: SectionDef }) {
-  const custom = useStore(layoutStore(def.id), (s) => s.custom);
-  if (!custom) return null;
-  return (
-    <span className="badge layout-badge mono" data-testid="layout-badge" title={`${def.title}'s layout is yours, kept in this browser; the ... menu's Reset layout brings the default back`}>
-      custom layout
-    </span>
-  );
+  return <Menu icon="more" label={`${def.title}: layout`} title="More: reset the layout, how panels open" testid="section-more" menuTestid="section-more-menu" groups={groups} width={260} />;
 }
 
 export function SectionMore() {
   const section = useStore(studio, (s) => s.section);
   const def = useSectionDef(section); // 3.3.16.0 R1: Agents' follows its view
   if (def.paged) return null;
-  return (
-    <>
-      <More key={def.id} def={def} />
-      <Badge key={"b-" + def.id} def={def} />
-    </>
-  );
+  return <More key={def.id} def={def} />;
 }

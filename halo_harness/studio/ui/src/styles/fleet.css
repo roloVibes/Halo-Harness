@@ -6,7 +6,7 @@
 
 /* -- Session's map bar and Live's passing edges ------------------------------------ */
 .fm-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.fm-counts { font-size: 11.5px; }
+.fm-counts { font-size: 12px; }
 .fm-attn { color: var(--warn); font-weight: 600; }
 .fm-edge { fill: none; stroke: var(--line-strong); stroke-width: 1.2; }
 .fm-edge-lit { stroke: var(--accent); stroke-width: 2.2; stroke-dasharray: 7 5; animation: og-dash .7s linear infinite; filter: drop-shadow(0 0 4px var(--accent)); }
@@ -23,19 +23,19 @@
 .fp-qr { width: 148px; height: 148px; border-radius: 6px; }
 .fp-qr-bg { fill: #ffffff; }
 .fp-qr-dots { fill: #04121c; }
-.fp-code-side { display: grid; gap: 6px; min-width: 0; font-size: 12.5px; }
-.fp-code { font-size: 17px; font-weight: 700; color: var(--accent); letter-spacing: .04em; word-spacing: .2em; }
-.fp-join { display: block; padding: 6px 8px; font-size: 11.5px; border-radius: var(--radius-sm); background: var(--bg-2); border: 1px solid var(--line); overflow-wrap: anywhere; }
-.fp-note { font-size: 11px; }
+.fp-code-side { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.fp-code { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: .04em; word-spacing: .2em; }
+.fp-join { display: block; padding: 6px 8px; font-size: 12px; border-radius: var(--radius-sm); background: var(--bg-2); border: 1px solid var(--line); overflow-wrap: anywhere; }
+.fp-note { font-size: 12px; }
 .fp-nohub { display: grid; gap: 4px; justify-items: start; padding: 8px 10px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); }
 .fp-radios { display: grid; gap: 2px; margin-bottom: 8px; }
-.fp-radio { display: grid; grid-template-columns: 18px 64px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 5px 8px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; font-size: 12.5px; }
+.fp-radio { display: grid; grid-template-columns: 18px 64px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 5px 8px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; font-size: 13px; }
 .fp-radio[data-on] { border-color: var(--line-strong); background: var(--accent-soft); }
 .fp-radio input { accent-color: var(--accent); }
-.fp-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
+.fp-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; font-size: 13px; }
 .fp-list li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.fp-none { margin: 0 0 8px; font-size: 12.5px; }
-.fs-confirm { margin: 0; font-size: 13.5px; }
+.fp-none { margin: 0 0 8px; font-size: 13px; }
+.fs-confirm { margin: 0; font-size: 13px; }
 
 /* -- the mini stream (picture in picture) ------------------------------------------- */
 .fleet-pip { position: fixed; left: 76px; bottom: 44px; width: 380px; max-height: 260px; z-index: 55; display: grid; grid-template-rows: auto auto minmax(0, 1fr); box-shadow: var(--glow), 0 24px 60px rgba(0, 0, 0, .5); }
@@ -43,10 +43,10 @@
 .app[data-focus="on"] .fleet-pip { left: 20px; }
 .pip-bar { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 6px 0 12px; border-bottom: 1px solid var(--line); cursor: grab; user-select: none; }
 .pip-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pip-meta { flex: 1; min-width: 0; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pip-now { padding: 4px 12px; font-size: 11px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pip-meta { flex: 1; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pip-now { padding: 4px 12px; font-size: 12px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pip-body { overflow: auto; padding: 4px 12px 10px; display: grid; gap: 4px; align-content: start; font-size: 12px; }
-.pip-tool { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 11px; }
+.pip-tool { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
 .pip-text[data-kind="thinking"] { color: var(--muted); font-style: italic; }
 .pip-text[data-you] { color: var(--accent); }
 

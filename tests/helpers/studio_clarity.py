@@ -32,15 +32,15 @@ def panel(c, url: str) -> dict:
     out["about"] = c.js("document.querySelectorAll('[data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the about line is the title's tooltip and the ?'s first line
     body = P.format("roles-models", ".panel-body")
     x, y, w, h = c.rect(body)
-    c.click(x + 20, y + h - 8)  # the body's padding: nothing to press there, the panel itself takes it
+    c.click(x + 6, y + 6)  # the body's padding (its top left corner): nothing to press there, the panel itself takes it
     out["active"] = c.wait(P.format("roles-models", ".panel") + ".hasAttribute('data-active')", 5)
     out["focused"] = c.js("document.activeElement === " + P.format("roles-models", ".panel"))
     out["others_active"] = c.js("document.querySelectorAll('.panel[data-active]').length")
     c.click_on(P.format("roles-lineups", ".panel-title"))  # a click on a title bar focuses, moves nothing
     out["title_click"] = c.wait(P.format("roles-lineups", ".panel") + ".hasAttribute('data-active') && 'roles-lineups'", 5)
-    out["layout_after_click"] = c.js("document.querySelector('.hud-strip').textContent.includes('layout default') ? 'default' : 'yours'")
+    out["layout_after_click"] = c.js("document.querySelector('.hud-strip').textContent.includes('layout yours') || !!document.querySelector('[data-testid=layout-badge]') ? 'yours' : 'default'")  # 3.6.0.0 R0a: no "custom layout" any more
     x, y, w, h = c.rect(body)
-    c.click(x + 20, y + h - 8)
+    c.click(x + 6, y + 6)
     c.wait(P.format("roles-models", ".panel") + ".hasAttribute('data-active')", 5)
     c.key("?")
     c.wait("!!document.querySelector('[data-testid=\"panel-help\"]')", 5)
@@ -54,7 +54,7 @@ def panel(c, url: str) -> dict:
     c.click_on("document.querySelector('[data-testid=\"panel-menu\"] [data-item=\"settings\"]')")
     out["inspector"] = c.wait("document.querySelector('.inspector-title')?.textContent", 5)
     x, y, w, h = c.rect(body)
-    c.click(x + 20, y + h - 8)
+    c.click(x + 6, y + 6)
     out["inspector_follows"] = c.wait("document.querySelector('.inspector-title')?.textContent === 'Models' && 'Models'", 5)
     toggle_face(c, '[data-panel="roles-models"]')  # 3.3.2.0 R3: Compact is a row of the ... menu
     out["compact"] = c.wait(P.format("roles-models", ".panel") + ".dataset.face === 'glance' && 'glance'", 5)
@@ -70,11 +70,10 @@ def panel(c, url: str) -> dict:
     c.click_on("document.querySelector('[data-testid=\"section-help-ok\"]')")
     out["section_closed"] = c.wait("!document.querySelector('[data-testid=\"section-help\"]')", 5)
     out["seen"] = c.js("Object.keys(localStorage).filter((k) => k.startsWith('halo.studio.seen.')).length")  # 3.3.2.0 R1: no welcome, nothing to remember
-    c.click_on("document.querySelector('[data-testid=panels-add]')")  # 3.4.0.0 D: Agents' "+" menu has its panels and no RUNS group
-    c.wait("!!document.querySelector('[data-testid=panels-menu]')", 5)
+    # 3.6.0.0 R0a: the header's "+" became the view bar (its panels; 3.4.0.0 D: no RUNS group)
+    c.wait("!!document.querySelector('.section-view:not([hidden]) [data-testid=viewbar]')", 5)
     out["menu_runs"] = c.js("document.querySelectorAll('[data-testid=orchestra-menu-run], [data-testid=orchestra-new-run]').length")
-    out["menu_text"] = c.js("document.querySelector('[data-testid=panels-menu]').innerText")
-    c.key("Escape")
+    out["menu_text"] = c.js("document.querySelector('.section-view:not([hidden]) [data-testid=viewbar]').innerText")
     return out
 
 

@@ -14,7 +14,7 @@
 .lc-hf-row [data-testid="local-hf-fit-host"][data-level="spill"], .lc-hf-row [data-testid="local-hf-fit-host"][data-level="no"] { color: var(--bad); }
 .lc-hf-go { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .lc-hf-log { margin: 0; max-height: 50vh; overflow: auto; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: var(--bg-2); color: var(--text); font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  background: var(--bg-2); color: var(--text); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .lc-act-body .lc-facts > div { grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); }
 .lc-managed { display: grid; gap: 4px; font-size: 12px; }
 .lc-managed[data-alive="no"] { color: var(--muted); }

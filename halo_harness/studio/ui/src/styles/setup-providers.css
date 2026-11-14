@@ -7,35 +7,35 @@
 .su-card[data-set] { border-color: color-mix(in srgb, var(--ok) 40%, var(--line)); }
 .su-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
 .su-card-title { font-weight: 600; font-size: 13px; }
-.su-mark { margin-left: auto; font-size: 10.5px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--muted); }
+.su-mark { margin-left: auto; font-size: 12px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--muted); }
 .su-mark[data-on] { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-soft); }
 .su-card-state { flex-basis: 100%; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
 .su-card-state[data-set] { color: var(--accent); }
-.su-card-test { flex-basis: 100%; font-size: 11px; overflow-wrap: anywhere; }
+.su-card-test { flex-basis: 100%; font-size: 12px; overflow-wrap: anywhere; }
 .su-card-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
-.su-note { font-size: 11.5px; overflow-wrap: anywhere; }
-.su-sub { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
+.su-note { font-size: 12px; overflow-wrap: anywhere; }
+.su-sub { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
 .su-on { color: var(--ok); text-transform: none; letter-spacing: 0; }
 
 .su-form { display: grid; gap: 6px; min-width: 0; }
 .su-form .btn { justify-self: start; }
 .su-input { display: grid; gap: 2px; min-width: 0; }
-.su-input-label { font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+.su-input-label { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .su-input .input { width: 100%; min-width: 0; }
 
-.su-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-.su-table th { text-align: left; font-weight: 500; color: var(--muted); font-size: 10.5px; padding: 2px 4px; border-bottom: 1px solid var(--line);
+.su-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.su-table th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 2px 4px; border-bottom: 1px solid var(--line);
   white-space: nowrap; }
 .su-table td { padding: 3px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
 .su-table td.su-wrap { white-space: normal; overflow-wrap: anywhere; width: 100%; }
 .su-table th:last-child, .su-table-act { width: 1%; white-space: nowrap; text-align: right; }
 
-.su-detect { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11.5px; background: var(--bg-2);
+.su-detect { margin: 0; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--bg-2);
   border-radius: var(--radius-sm); color: var(--muted); }
 
 /* 3.3.17.0 R2: the Copilot card (routes/setup/CopilotCard.tsx) takes the whole row; one fact a row, cut with an
    ellipsis and whole in its tooltip; the device code large enough to read off the screen. */
 .su-cp { grid-column: 1 / -1; }
-.su-cp-row { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.su-cp-code { font-size: 20px; letter-spacing: 0.2em; color: var(--accent); }
-.su-cp-steps { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 11.5px; overflow-wrap: anywhere; }
+.su-cp-row { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.su-cp-code { font-size: 18px; letter-spacing: 0.2em; color: var(--accent); }
+.su-cp-steps { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12px; overflow-wrap: anywhere; }

@@ -1,79 +1,75 @@
-// A section's workspace: its PanelSpecs on a 24-column grid (8 px rows),
-// laid out from the saved arrangement (halo.studio.layout.<section>) or the
-// section's defaults, which fill the visible height until the user moves
-// something. Floating panels sit over the grid. 3.3.2.0 R3: a section with a
-// primary panel opens on it, the rest strips at the foot (quiet.ts);
-// `?open=all` draws every panel in its spec's rectangle instead (a link, a capture).
-import { useEffect, useMemo, useRef, useState } from "react";
+// A section's workspace (3.6.0.0 R0a: a stage, not a grid of tiles). One main thing has most of the room; every other
+// panel is a named button in the view bar and opens as a drawer beside it (or as a tab in its place). The first draw
+// takes what this browser kept for the view (persist.ts v3: the drawers open, their widths, the tab shown); nothing
+// else opens by itself. `?open=a,b` opens those panels (a link, a door); `?open=all` opens every drawer, stacked in
+// one right drawer (the drivers' door and a capture's). `version`: the view's layout version (a saved view of an
+// older one shows the one-time note). `lead`: what the view puts at the start of its bar (Agents: its views).
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useStore } from "../store";
+import { useBreakpoint } from "./breakpoint";
 import { WorkspaceContext, type WorkspaceApi } from "./controller";
-import { merge, openFirst, usedRows } from "./grid";
-import { Panel } from "./Panel";
-import { layoutStore, loadSaved, setLayout, registerSpecs } from "./persist";
-import { FULL_PAGE } from "./quiet";
-import { COLS, ROW, type PanelSpec } from "./types";
+import { answerNote, layoutStore, registerSpecs, savedLayout, setLayout, stageWidth, takeNote } from "./persist";
+import { FULL_PAGE, OPEN } from "./query";
+import { fullLayout, mainOf, merge, openIn } from "./rules";
+import { Stage } from "./Stage";
+import { ViewBar } from "./ViewBar";
+import type { PanelSpec } from "./types";
 
-export { resetLayout, arrangeLayout, layoutStore, patchPanel, focusPanel, showPanel, hidePanel, LAYOUT_PREFIX } from "./persist";
+export { resetLayout, layoutStore, patchPanel, focusPanel, showPanel, hidePanel, LAYOUT_PREFIX } from "./persist";
 export type { PanelSpec, Layout, PanelLayout, Face } from "./types";
 
-/** `?open=media-status,media-render`: panels a link (or a capture) opens first, in a default arrangement only;
- *  `?open=all` (3.3.2.0 R3): every panel open in its spec's place, the full arrangement. */
-const OPEN = (/[?&]open=([\w,-]+)/.exec(location.search)?.[1] || "").split(",").filter(Boolean);
-const FULL = FULL_PAGE;
+export { FULL_PAGE } from "./query";
 
-export function Workspace({ section, specs }: { section: string; specs: PanelSpec[] }) {
+function Note({ section, note }: { section: string; note: "changed" | "dropped" }) {
+  const text = note === "dropped"
+    ? "The layout changed: each view opens on its main thing now, and every other panel is a button in this bar."
+    : "The layout of this view changed in this version. You kept yours.";
+  return (
+    <div className="layout-note" role="status" data-testid="layout-note" data-note={note}>
+      <span>{text}</span>
+      {note === "changed" && <button type="button" className="btn btn-sm" data-testid="layout-note-new" onClick={() => answerNote(section, true)}>Use the new one</button>}
+      <button type="button" className="btn btn-sm btn-ghost" data-testid="layout-note-keep" onClick={() => answerNote(section, false)}>{note === "changed" ? "Keep mine" : "OK"}</button>
+    </div>
+  );
+}
+
+export function Workspace({ section, specs, version = 1, lead }: { section: string; specs: PanelSpec[]; version?: number; lead?: ReactNode }) {
   const outer = useRef<HTMLDivElement>(null);
-  const grid = useRef<HTMLDivElement>(null);
-  const { layout, custom } = useStore(layoutStore(section), (s) => s);
-  const usedFill = useRef(0);
-  const [height, setHeight] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  registerSpecs(section, specs);
+  const { layout, note } = useStore(layoutStore(section), (s) => s);
+  const bp = useBreakpoint();
+  registerSpecs(section, specs, version);
 
   useEffect(() => {
-    const el = outer.current;
-    if (!el) return;
-    const measure = () => setHeight(el.clientHeight);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const fillRows = Math.max(0, Math.floor((height - 24) / ROW));
-  useEffect(() => {
-    // first draw, after a reset, and -- while the user has not rearranged anything -- on every resize
-    if (fillRows > 0 && (!layout || (!custom && fillRows !== usedFill.current))) {
-      usedFill.current = fillRows;
-      const merged = merge(specs, custom ? loadSaved(section) : null, fillRows, FULL);
-      setLayout(section, custom || FULL ? merged : openFirst(merged, OPEN, specs, fillRows), false);
-    } else if (fillRows > 0 && layout && specs.some((s) => !s.optional && !layout[s.id])) {
-      setLayout(section, merge(specs, layout, fillRows, FULL), false); // 3.2.0.0 R3: a pack's panel arrived: the rest stay put
+    if (!layout) {
+      const n = takeNote(section);
+      let next = FULL_PAGE ? fullLayout(specs) : merge(specs, savedLayout(section, specs));
+      if (!FULL_PAGE) for (const id of OPEN) if (next[id]) next = openIn(next, specs, id, stageWidth(section));
+      setLayout(section, next, false);
+      if (n) layoutStore(section).update(() => ({ note: n }));
+    } else if (specs.some((s) => !s.optional && !layout[s.id])) {
+      setLayout(section, merge(specs, layout), false); // a pack's panel arrived: what is open stays open
     }
-  }, [layout, custom, fillRows, section, specs]);
+  }, [layout, section, specs]);
 
   const api = useMemo<WorkspaceApi>(
     () => ({
       section,
       specs,
-      metrics: () => {
-        const w = grid.current?.clientWidth || 1;
-        const h = outer.current?.clientHeight || 1;
-        return { width: w, height: h, colW: w / COLS, rows: Math.max(0, Math.floor((h - 24) / ROW)) }; // = fillRows below
-      },
-      setDragging,
+      metrics: () => ({ width: outer.current?.clientWidth || 1, height: outer.current?.clientHeight || 1 }),
     }),
     [section, specs],
   );
-
-  const rows = layout ? usedRows(layout) : 0;
+  const hasMain = !!mainOf(specs);
   return (
     <WorkspaceContext.Provider value={api}>
-      <div className="workspace" ref={outer} data-dragging={dragging || undefined} data-section={section}>
-        <div className="ws-grid" ref={grid} style={{ minHeight: Math.max(rows * ROW, height - 24) }}>
-          {layout &&
-            specs.map((spec) => (layout[spec.id] ? <Panel key={spec.id} spec={spec} p={layout[spec.id]} /> : null))}
-        </div>
+      <div className="workspace" ref={outer} data-section={section} data-bp={bp} data-main={hasMain || undefined}>
+        {layout && (
+          <Stage specs={specs} layout={layout} bp={bp} full={FULL_PAGE}
+                 bar={<>
+                   {note && <Note section={section} note={note} />}
+                   {hasMain && <ViewBar specs={specs} layout={layout} lead={lead} />}
+                 </>} />
+        )}
       </div>
     </WorkspaceContext.Provider>
   );

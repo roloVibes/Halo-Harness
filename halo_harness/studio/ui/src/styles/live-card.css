@@ -2,7 +2,7 @@
    as a page of History or as the first block of a goal run's report, Live's row for the session that ended, and
    Session's permission-mode word. A row per fact; text wraps, never squished; colours are tokens. */
 .lh-door { flex: 0 0 auto; align-self: center; margin: 0 8px; padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
-  background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+  background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; }
 .lh-door:hover, .lh-door:focus-visible { color: var(--text); border-color: var(--accent); outline: none; }
 
 .rr-goal-inline { min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
@@ -10,10 +10,10 @@
 .rcd { display: grid; gap: var(--s-3); align-content: start; min-width: 0; padding: var(--s-2) var(--s-3) var(--s-3);
   border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); font-size: var(--fs-sm); }
 .rcd-head { display: flex; align-items: center; gap: var(--s-2); min-width: 0; flex-wrap: wrap; }
-.rcd-from { font-size: 11px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcd-from { font-size: 12px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rcd-figures { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; margin: 0; }
 .rcd-fig { display: grid; gap: 2px; min-width: 0; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); background: var(--surface-2); }
-.rcd-fig dt { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.rcd-fig dt { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .rcd-fig dd { margin: 0; font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
 .rcd-fig[data-unknown] dd { color: var(--muted); }
 .rcd-fig[data-key="ended"] dd { color: var(--text); font-weight: 600; }
@@ -21,8 +21,8 @@
 .rcd-story li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; overflow-wrap: anywhere; }
 .rcd-story li[data-kind="ask"] { color: var(--warn); }
 .rcd-story li[data-kind="fail"] { color: var(--bad); }
-.rcd-at { color: var(--muted); font-size: 11px; }
-.rcd-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 11.5px; }
+.rcd-at { color: var(--muted); font-size: 12px; }
+.rcd-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 12px; }
 .rcd-row { display: grid; grid-template-columns: minmax(90px, 160px) minmax(60px, 1fr) auto; gap: 8px; align-items: center; min-width: 0; }
 .rcd-row .rcd-k { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rcd-row[data-unknown] { color: var(--muted); }

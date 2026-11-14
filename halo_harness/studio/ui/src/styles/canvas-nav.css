@@ -7,5 +7,5 @@
 
 .cz-thumb { position: absolute; right: 10px; bottom: 10px; z-index: 3; display: flex; align-items: center; gap: 8px;
   padding: 3px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
-.cz-zoom button { padding: 0 9px; height: 24px; }
-.cz-more { font-size: 11px; white-space: nowrap; }
+.cz-zoom button { padding: 0 9px; height: 28px; }
+.cz-more { font-size: 12px; white-space: nowrap; }

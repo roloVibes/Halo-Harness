@@ -9,12 +9,12 @@
 .slv-line[data-kind="thinking"] .fac-kind { color: var(--think); }
 .slv-think { display: grid; gap: 3px; min-width: 0; padding-left: 8px; border-left: 1px solid var(--think); }
 .slv-clamp { display: grid; gap: 2px; min-width: 0; }
-.slv-clamp-text { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; font-size: 12.5px; line-height: 1.45; }
+.slv-clamp-text { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; font-size: 13px; line-height: 1.45; }
 .slv-clamp:not([data-open]) .slv-clamp-text { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .slv-clamp-text[data-typing]::after { content: "▍"; color: var(--think); margin-left: 1px; font-style: normal; }
 .slv-think-text .slv-clamp-text, .slv-think-text.slv-clamp-text { color: var(--muted); font-style: italic; font-family: var(--sans); }
-.slv-more { justify-self: start; font-size: 10.5px; padding: 0; }
-.slv-think-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 10.5px; color: var(--faint); }
+.slv-more { justify-self: start; font-size: 12px; padding: 0; }
+.slv-think-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 12px; color: var(--faint); }
 .slv-think-took { font-variant-numeric: tabular-nums; }
 .slv-led { padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-chip); background: none; color: var(--muted); font: inherit; cursor: pointer;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -28,8 +28,8 @@
 .slv-body > .slv-why-thought, .slv-body > .slv-after { grid-column: 1 / -1 !important; }
 .slv-why-thought { display: grid; gap: 4px; margin-top: 4px; padding: 6px 8px; border: 1px solid var(--line); border-left: 1px solid var(--think);
   border-radius: var(--radius-sm); background: var(--surface-2); min-width: 0; }
-.slv-why-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; font-size: 10px; letter-spacing: .08em; color: var(--think); }
-.slv-why-head .og-link { font-size: 10.5px; letter-spacing: 0; }
+.slv-why-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; font-size: 12px; letter-spacing: .08em; color: var(--think); }
+.slv-why-head .og-link { font-size: 12px; letter-spacing: 0; }
 
 /* a row scrolled to lights once */
 .slv-line[data-flash] { outline: 1px solid var(--think); outline-offset: -1px; }
@@ -39,12 +39,12 @@
 .slv-line[data-kind="talk"] .fac-kind { color: var(--talk); }
 .slv-talk { display: grid; gap: 3px; min-width: 0; }
 .slv-talk.slv-out { border-left-color: var(--ok); }
-.slv-talk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; font-size: 11px; }
+.slv-talk-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; font-size: 12px; }
 .slv-talk-arrow { color: var(--talk); }
 .slv-talk-to { min-width: 0; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--hc, var(--talk));
   padding: 0 6px; border: 1px solid color-mix(in srgb, var(--hc, var(--talk)) 45%, transparent); border-radius: 4px; }
-.slv-talk-why { font-size: 10px; letter-spacing: .1em; color: var(--talk); }
-.slv-talk-re { font-size: 10.5px; }
+.slv-talk-why { font-size: 12px; letter-spacing: .1em; color: var(--talk); }
+.slv-talk-re { font-size: 12px; }
 
 /* -- the timeline's phases ----------------------------------------------------------------- */
 .ftl-phase { filter: none; cursor: default; }
@@ -56,7 +56,7 @@
 
 /* -- the inspector's Thinking tab ---------------------------------------------------------- */
 .fa-think { border-left: 1px solid var(--think); padding-left: 8px; }
-.fa-led { font-size: 10.5px; color: var(--faint); }
+.fa-led { font-size: 12px; color: var(--faint); }
 
 /* -- Conversations ------------------------------------------------------------------------- */
 .conv-wrap { height: 100%; min-height: 0; container: conv / inline-size; }
@@ -66,9 +66,9 @@
   background: none; border: 1px solid transparent; border-radius: var(--radius-sm); min-width: 0; }
 .conv-pair:hover, .conv-pair:focus-visible { border-color: var(--line-strong); outline: none; }
 .conv-pair[data-on] { border-color: var(--talk); background: var(--surface-2); }
-.conv-pair-names { font-size: 11.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.conv-pair-count { font-size: 11px; }
-.conv-pair-last { grid-column: 1 / -1; font-size: 11.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-pair-names { font-size: 12px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-pair-count { font-size: 12px; }
+.conv-pair-last { grid-column: 1 / -1; font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .conv-thread { min-height: 0; overflow: auto; display: grid; align-content: start; gap: 6px; padding: 8px 10px; }
 .conv-thread-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .conv-bubble { display: grid; gap: 3px; max-width: 86%; padding: 6px 9px; text-align: left; cursor: pointer; color: var(--text); font: inherit;
@@ -77,10 +77,10 @@
 .conv-bubble[data-side="right"] { justify-self: end; }
 .conv-bubble[data-nested] { margin-left: 18px; }
 .conv-bubble:hover, .conv-bubble:focus-visible { border-color: var(--hc, var(--talk)); outline: none; }
-.conv-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 10.5px; color: var(--muted); }
+.conv-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 12px; color: var(--muted); }
 .conv-who { color: var(--hc, var(--talk)); font-weight: 600; }
 .conv-why { letter-spacing: .1em; color: var(--talk); }
-.conv-text { font-size: 12.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.conv-text { font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 @container conv (max-width: 480px) {
   .conv { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .conv-pairs { border-right: 0; border-bottom: 1px solid var(--line); max-height: 40%; }

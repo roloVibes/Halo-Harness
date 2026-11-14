@@ -4,19 +4,17 @@ Read this when you write a pack, or change what Halo promises a pack: the manife
 
 Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 added
 [Policy hooks](#policy-hooks) as the first `draft` part, and R2 made it `stable` (a session enforces each verdict).
-A pack is a folder Halo installs, enables and removes (see
-[PACKS.md](PACKS.md) for using one); this page is the contract a pack is
-written against. The extension API version is `API_VERSION = "1.4"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
-until 3.4.0.0, 1.3 until 3.5.0.0; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
+A pack is a folder Halo installs, enables and removes (see [PACKS.md](PACKS.md) for using one); this page is the
+contract a pack is written against. The extension API version is `API_VERSION = "1.5"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
+until 3.4.0.0, 1.3 until 3.5.0.0, 1.4 until 3.6.0.0; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
 blocks](#setup-blocks) to 1.1, 3.3.12.0 [Themes](#themes); 3.3.13.0 made it 1.2 with [Services](#services) and
 [Transports](#transports) (R3) and [a section's view](#a-sections-view), [`api.lib`](#apilib), [a pack's own
 routes](#a-packs-own-routes) and [the host services](#the-host-services) (R2), the seams the signal and design packs are
 built on; 3.4.0.0 made it 1.3 with the four `draft` contributions a pack's [CLI verbs, slash commands, doctor rows and
 settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows) and [core access](#core-access), the seams the
 first-run and coach packs are built on; 3.5.0.0 made it 1.4: [Pack capabilities](#pack-capabilities) under
-`contributes.capabilities`)
-(`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
-machine-readable manifest schema is
+`contributes.capabilities`; 3.6.0.0 made it 1.5: a Studio panel's `role`, `side` and `content_w`, the stage)
+(`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
 `halo_harness/templates/packs/doc-review/` (3.2.0.0 R6, shipped with Halo).
 
@@ -67,7 +65,7 @@ else of Halo (`tests/test_ext_api.py` walks every fixture and shipped pack's Pyt
 check it). The modules under `halo_harness/ext/` are the implementation; the
 names in `__all__` are the contract.
 
-- `API_VERSION`, `HALO_API_VERSION`: `"1.4"` (3.5.0.0; `"1.3"` from 3.4.0.0, `"1.2"` from 3.3.13.0, `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
+- `API_VERSION`, `HALO_API_VERSION`: `"1.5"` (3.6.0.0; `"1.4"` from 3.5.0.0, `"1.3"` from 3.4.0.0, `"1.2"` from 3.3.13.0, `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
 - `api_version()`, `compatible(range)`, `deprecations()`: 3.2.0.0 R7, the version policy
   ([Compatibility and migration](#compatibility-and-migration)): this API's version, whether a `halo_api`
   range takes it, the names announced for removal (`[{name, since, removed_in, use}]`, none in 1.0).
@@ -306,14 +304,14 @@ token, the shell's CSP).
 | Key | Shape | What Studio does with it |
 |---|---|---|
 | `sections` | `[{id, title, blurb, help, panels: [<panel>], view?}]` | a section of its own after the core sections (3.2.0.0 R6: after the core sections; 3.3.3.0 R2: after Settings, reached by a click or the palette; 3.3.13.0 R2: after Local, and the first pack section takes the tenth key, `Alt+0`; the icon rail shows them after a thin divider, each with the diamond, 3.3.2.0); its panels fill the 24 columns left to right, or (3.3.13.0 R2, API 1.2) `view: {bundle: <module>}` draws its whole page ([a section's view](#a-sections-view)) |
-| `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles or Orchestra, under that section's own, as a strip |
+| `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles or Orchestra: a closed drawer beside that section's main thing, its button in the view bar (3.6.0.0; a strip before) |
 | `routes` | `{module: <file>.py, prefix: <word>}` | 3.3.13.0 R2 (API 1.2): the pack's own API routes, `/api/packs/<id>/<prefix>/...`, answered by the module's `handle` ([a pack's own routes](#a-packs-own-routes)); needs `studio-routes` |
 | `palette` | `[{id, label, action}]` | a command palette line in the group "pack <id>"; `action` is `route:<section>[/<panel>]`, `url:<address>` or `config` |
 | `config_form` | `true` or `false` | a Settings panel (kind `form`) at the end of the pack's first section, and a palette line "Settings: <name>" |
 | `events` | `{<kind>: {label, line}}` | a `pack_event` of that kind (one of `contributes.events`) renders as `label` + `line`, `{field}` read from the frame's data, in Session's Live column, Agents' Activity and the pack's `events` panels; a kind no running pack declares keeps the generic line (the pack, the kind, the data in short) |
 | `attention` | `{<kind>: {label, keys: {a, r, s, o}}}` | a row of the attention queue, kind `pack:<id>:<kind>`, with the pack's label and its answers |
 
-A `<panel>` is `{id, title, kind, source, schema, w, h, help, columns, links}`:
+A `<panel>` is `{id, title, kind, source, schema, w, h, role, side, content_w, help, columns, links}`; API 1.5 (3.6.0.0, Studio's stage): `role` `main` | `drawer` (the default: beside the main thing, its button in the view bar) | `tab` (in the main thing's place), `side` `left` | `right`, `content_w` 360-560 px; a 1.0-1.4 panel's `w` columns map to a right drawer `w` x 60 px wide, a pack section's first panel its main thing:
 
 | `kind` | Reads | Draws |
 |---|---|---|
@@ -1279,7 +1277,7 @@ and `halo_harness/packs/resolve.py` apply it:
   `halo pack doctor` and in the Pack Manager's Details, in these words:
 
 ```
-pack doc-review needs extension API 1.5 to 1.9; this Halo has 1.4
+pack doc-review needs extension API 1.6 to 1.9; this Halo has 1.5
 pack x needs Halo >= 3.3; this is 3.2.0.0
 ```
 
@@ -1303,6 +1301,7 @@ Each minor version lists here the names it adds (the name, what it does, the
 version) and the names it deprecates (the name, the version it goes away in,
 what to use instead), one line each (`ext.compat.CHANGES` holds the same).
 
+- **1.5** (Halo 3.6.0.0): a Studio panel's `role`, `side`, `content_w` ([Studio contributions](#studio-contributions)); a 1.0-1.4 panel's `w` / `h` still work (`w` columns -> a right drawer `w` x 60 px wide); nothing deprecated; a pack that names a role states `{min: "1.5"}`.
 - **1.4** (Halo 3.5.0.0): the manifest's capabilities block is `contributes.capabilities`; its name before,
   `contributes.fleet`, is still read the same (its `mission` key is ignored, the locality `shared` is gone);
   `ext.remote.live_lines` (the old name `fleet_lines` still answers). A pack that names a capability states

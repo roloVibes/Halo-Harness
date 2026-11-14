@@ -8,10 +8,10 @@
 .vc-server-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
 .vc-server[data-state="running"] [data-testid="voice-server-state"] { color: var(--ok); border-color: var(--ok); }
 .vc-server[data-state="remote"] [data-testid="voice-server-state"] { color: var(--accent); border-color: var(--accent); }
-.vc-line { margin: 0; font-size: 11.5px; overflow-wrap: anywhere; }
-.vc-finding { margin: 0; font-size: 11.5px; color: var(--warn); overflow-wrap: anywhere; }
+.vc-line { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.vc-finding { margin: 0; font-size: 12px; color: var(--warn); overflow-wrap: anywhere; }
 .vc-finding[data-severity="error"] { color: var(--bad); }
-.vc-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; }
+.vc-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
 .vc-sessions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
 .vc-sessions select { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-sm); padding: 2px 4px; }

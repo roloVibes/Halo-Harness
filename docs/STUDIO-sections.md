@@ -26,8 +26,8 @@ their own capability chips with each one's truth (verified, declared, expected).
 
 **What it is.** Your own session, live (3.1.4.0, `Alt+1`, "This session,
 live"; 3.1.5.0 made it the dashboard; 3.3.2.0 opens it on Live): one live
-column of everything every agent here does, as it happens, fills the stage;
-the map of this harness's agents and what the chosen session costs wait as strips.
+column of everything every agent here does, as it happens, is the main thing (3.6.0.0 R0a);
+the map of this harness's agents and what the chosen session costs are buttons in the view bar, drawers beside it.
 The agent tree, timeline, log, attention queue and agent inspector, narrowed
 to the session you chose, plus two panels of its own,
 Live and Cost; Agents -> Live keeps everything. They are the same
@@ -96,8 +96,8 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    is already there with nothing of its own after it, that block becomes the
    TALK row; an OUT that would land after a TALK hand-back is not added. The
    edge between the two agents on the map lights once, from the speaker to
-   the listener. The optional **Conversations** panel (the header's **+**;
-   never open on load, its strip counts threads and messages) shows them as
+   the listener. The optional **Conversations** panel (its button in the view bar;
+   never open on load, its button counts threads and messages) shows them as
    threads: the pairs that have talked on the left, newest first, with the
    count and the last line; the chosen pair's messages on the right, each on
    its speaker's side with its reason and time, a reply under what it
@@ -147,9 +147,9 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    own spend shows on its line until it finishes and joins the total.
 6. **Open what you need**: Map, Cost, Agent (the inspector: its three streams, Steer,
    Pause, Stop, Follow, Pin), Activity (a lane per live agent over the full
-   log), Attention (what waits on you, one key each) and Prompt (3.3.11.0 R1: type into the session) wait as strips at
-   the foot; one click opens each beside Live (or the header's **+**), Reset layout (its **...**) puts the arrangement back, a
-   layout you made is kept. `J` / `K` hop between this harness's live agents; `Alt+Enter` opens Prompt, the keyboard in its box ([the Prompt panel](STUDIO-session.md#the-prompt-panel-33110-r1)).
+   log), Attention (what waits on you, one key each) and Prompt (3.3.11.0 R1: type into the session) are buttons in the
+   view bar; one click opens each as a drawer beside Live (Map on the left; Activity takes Live's place as its tab),
+   Reset layout (the header's **...**) closes them, the drawers you opened are kept. `J` / `K` hop between this harness's live agents; `Alt+Enter` opens Prompt, the keyboard in its box ([the Prompt panel](STUDIO-session.md#the-prompt-panel-33110-r1)).
 7. **Glance from a phone** (3.4.1.0 R4): the **...** menu's **Open the glance** (or the palette, or `halo studio --mode
    glance`) is one phone-width page -- what runs, what waits on you as big buttons, the spend against its cap -- here,
    or on a phone through an SSH forward of Studio's port; Settings -> Studio -> Alerts can add one browser notification

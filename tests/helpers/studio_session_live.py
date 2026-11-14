@@ -39,10 +39,14 @@ def lines(c) -> list:
 
 
 def arrangement(c) -> dict:
-    """The default grid: each panel's [x, y, w, h] from its grid-area, and whether it is a strip."""
-    js = ("Object.fromEntries([...document.querySelectorAll('[data-section=\"session\"] .ws-cell')].map((p) => {"
-          " const m = (p.getAttribute('style') || '').match(/grid-area: (\\d+) \\/ (\\d+) \\/ span (\\d+) \\/ span (\\d+)/);"
-          " return [p.dataset.panel, m ? [+m[2] - 1, +m[1] - 1, +m[4], +m[3], !!p.querySelector('[data-collapsed]')] : null]; }))")
+    """3.6.0.0 R0a, the stage (`?open=all`, the drivers' door): each panel's place -- `main`, `left` / `right` (the
+    drawer it is stacked in), or `closed` (a button in the view bar) -- and its width."""
+    js = ("(() => { const v = document.querySelector('.section-view[data-section=\"session\"]'), out = {};"
+          " for (const b of v.querySelectorAll('[data-testid=viewbar-btn]')) out[b.dataset.panel] = ['closed', 0];"
+          " for (const c of v.querySelectorAll('.stage-main > .ws-cell, .stage-drawer > .ws-cell')) {"
+          "  if (c.dataset.bar) continue;"  # a closed panel's title line in the full arrangement
+          "  const d = c.closest('.stage-drawer'); out[c.dataset.panel] = [d ? d.dataset.side : 'main', Math.round(c.getBoundingClientRect().width)]; }"
+          " return out; })()")
     return c.js(js) or {}
 
 

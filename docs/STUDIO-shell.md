@@ -23,68 +23,33 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
 - **One header.** Every section is drawn by the shell itself: one top bar,
   one status bar, no page framed inside another (3.0.7.0 R2 removed the last
   framed page, Roles).
-- **A movable workspace.** Every section is a set of panels on a 24-column
-  grid (8 px rows). **Click anywhere on a panel to work in it**: a ring
-  marks the panel you are on, and an open Inspector follows it. Drag a
-  panel's title bar to move it, an edge or corner to resize it; everything
-  snaps to the grid and the others make room (3.2.2.0), live while you drag:
-  a panel you drop on another takes columns from it first (the neighbour
-  gives up columns on the side facing it, down to its smallest width, and
-  the moved panel takes what is left); two panels in the same columns (both
-  full width among them) trade places, the neighbour taking the moved
-  panel's old rectangle; only when neither fits does the neighbour go down,
-  and never below the visible rows, so no panel leaves the window on a move.
-  An edge or corner you drag is a splitter: the panel on the other side of
-  that edge shrinks or grows by the same columns or rows (down to its
-  smallest size). A panel is one title line (3.3.2.0): its title, its
-  **?** (its help, the one-line "what it is" first), the strip button
-  (**Collapse to a strip**; on a strip the chevron that opens it), a close
-  on an optional panel (the **+** adds it again) and ONE **...** menu:
-  **Float** over the grid (or dock it back), **Compact / Expand** (also a
-  double-click on the title), **Collapse** to a one-line strip (or open
-  it), **Reset this panel**, **Settings** and **Help**. A strip that opens
-  in an arrangement you did not move by hand joins the column on the main
-  panel's right (the main panel gives up those columns, collapsing it
-  again gives them back); in your own arrangement it pushes the panels it now covers
-  down. With a panel focused, `Alt`+arrows move it and
-  `Alt+Shift`+arrows resize it. The arrangement is remembered per section in
-  your browser (`localStorage` key `halo.studio.layout.<section>`, version 2:
-  an arrangement saved by 3.0.3.0 keeps its places, not its faces);
-  **Arrange panels** (the header's **...** menu, or the palette)
-  puts every panel you have open back in the section's default place and
-  size in one press, and keeps what you chose (a strip stays a strip, a face
-  stays, a floating panel floats); **Reset layout** (the same two places)
-  returns to the defaults, which follow the window size until you
-  rearrange something.
-- **One thing per section** (3.3.2.0). Each section opens on its main
-  panel filling the stage, every other panel a strip at the foot (one or
-  two rows of them, side by side): Session on **Live**, Agents on Cast's **Canvas** (Live on the tree;
-  a goal run's plan review folds it while open, 3.4.0.0 D), Local on Resources (the design pack's Design on its
-  **Artboards**), Packs on **Installed**; Setup is pages and keeps
-  them. A click on a strip (or its row in the **+**) opens it in the column on
-  the main panel's right (as wide as the widest panel there, at most half
-  the stage; the panels in it share its height); a Cast card you select opens its Inspector strip. Your saved layout wins over the
-  default; **Reset layout** returns to it, and **Arrange panels** lays out
-  the panels open now by the same rule. `?open=all` in the URL draws every
-  panel in its own place instead (the arrangement before 3.3.2.0, for a
-  link or a capture); `?open=a,b` opens those strips.
-- **The section header's menus** (3.3.2.0 R2; the expanded rail's PANELS
-  list and LAYOUT block before). Beside the section's title and its **?**:
-  the **+** lists the section's panels, each row saying what a press does:
-  **add** an optional panel that is not on the page, **bring back** a strip
-  or a panel that is not up (with the **strip** badge), **focus** an open one
-  (with **float** when it floats); a section may add its own group under the
-  panels (Orchestra: **New run** and its runs, newest first). The **...** holds
-  **Arrange panels**, **Reset layout** and **How panels move** (the section
-  help, opened on its **Moving panels** part: drag a title bar to move a
-  panel, an edge to resize it, `Alt+Shift+Down` grows the focused one); a row
-  with nothing to do stays in the list, disabled, its word saying why
-  ("already default"). Both open from the keyboard (`Enter`, or `ArrowDown`
-  on the button), the arrows, `Home` and `End` move, `Esc` closes. A small
-  **custom layout** badge shows beside them only while the section's layout is
-  your own. Setup (pages, not panels) draws none of the three. In the palette,
-  **Arrange panels** and **Reset layout** name the section in their hint and
-  say so when there is nothing to do.
+- **The stage (3.6.0.0 R0a, "room for everything in Studio").** Every view has ONE main thing with most of the room
+  (Session's **Live**, Agents' **Canvas** on Cast and the tree on Live, Packs' **Installed**; a paged section's page),
+  and every other panel is a named button in the **view bar**, one 44 px row over the stage, with a live word beside
+  its name where it has one. A press opens the panel as a **drawer** (full height beside the main thing, pushing it,
+  as wide as its content says: 360-560 px; Map, Lineups and Bios open on the left, the rest on the right) or, for a
+  **tab** (Session's Activity, Live's Activity, a goal run's plan review), in the main thing's place; the button again,
+  or the drawer's close, puts it away. The main thing keeps at least 60 % of the stage's width: under 1440 px one
+  drawer opens at a time, at 1440 and up one per side, the oldest closing when the room runs out; under 1100 the
+  drawer floats over the main thing with its close; under 760 the rail is a menu (the header's rail button). Drag a
+  drawer's inner edge, or press `Alt+Left` / `Alt+Right` on it, to make it wider or narrower. **Click anywhere on a
+  panel to work in it**: a ring marks it, and an open Inspector follows it. A panel is one title line: its title,
+  its **?** (its help, the one-line "what it is" first), a close (a drawer or a tab) and ONE **...** menu: **Compact /
+  Expand** (also a double-click on the title), **Close**, **Reset its width**, **Remove** (an optional panel),
+  **Settings** and **Help**. Nothing opens by itself on load. What you choose is kept per view in your browser
+  (`localStorage` key `halo.studio.layout.<section>`, version 3: the drawers open, a width you set, the tab shown);
+  opening a drawer is not a "custom layout" (there is no such badge any more), and a version that changes a view's
+  default says so once ("The layout of this view changed": **Use the new one** / **Keep mine**; an arrangement saved
+  by the old grid is dropped with one line). **Reset layout** (the header's **...**, or the palette) closes every
+  drawer and puts the widths back. The palette's **Show panel: <name>** opens one. `?open=a,b` in the URL opens those
+  panels; `?open=all` opens every panel, each side's drawers stacked in one drawer (a link, a capture, the drivers).
+  The **...** in the header holds **Reset layout** and **How panels open** (the section help on its **Moving
+  panels** part; Session adds **Open the glance**); a row with nothing to do stays in the list, disabled, its word
+  saying why ("already default"). Setup and Settings (pages) draw neither the bar nor the **...**. Text is 12 px at
+  the least (one type scale: 12 data and captions, 13 body, 15 titles, 18 a page title), a control 28 px tall at the
+  least, and no panel scrolls sideways: `tests/test_studio_room.py` measures every rule at 1280, 1500 and 1920.
+  How a view declares it: a `PanelSpec` says `role` (`main` | `drawer` | `tab` | `dock`, a bar at the main thing's
+  foot), `side`, `contentW` and `startOpen` (lib/workspace/types.ts; a pack's panel: `role`, `side`, `content_w`, API 1.5).
 - **Two faces and the settings.** Every panel opens on its **full face**,
   ready to use with no button to press first; **Compact** (its **...**
   menu, or a double-click on the title) is its summary (what
@@ -92,8 +57,8 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   room) and is the default only where a section says so (Orchestra's
   Workflow, Run grid and Log, where it is the whole graph, every tile and the
   newest lines). **Settings** opens the Inspector on the right: what the
-  panel is and how to use it, the face, strip, float, the exact grid
-  position, reset, and the panel's own options.
+  panel is and how to use it, the face, open or closed, a drawer's width
+  in px, reset, and the panel's own options.
 - **Help where you are.** `?` on a focused panel (or the **?** on its
   title line, or Help in its ... menu) opens a small popover with its
   `about` line first and a few lines on how to use it (the **?** again
@@ -118,8 +83,8 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   chevron at its foot expands it to 176 px (3.3.15.0; 200 px before; remembered per browser,
   `halo.studio.rail`; `?rail=open` expands it for one page): each section's
   title beside its icon, and nothing else (3.3.2.0 R2: the rail holds the
-  sections only, collapsed or expanded). The panels are the header's **+**,
-  Arrange and Reset its **...**, (3.4.0.0 D: Runs' runs group went with Runs).
+  sections only, collapsed or expanded). The panels are the view bar's (3.6.0.0 R0a; the header's **+** before),
+  Reset layout the header's **...**.
 - **The inspector asks first** (3.3.2.0). The 344 px column on the right (340 before 3.3.15.0) is
   closed until something opens it: a panel's **Settings**, an artboard's knobs
   (the design pack's). Its close button (or `Esc`) gives the width back to the
@@ -131,11 +96,11 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   they were. Where a section's own `f` follows an agent or the Log (Session,
   an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on Live's canvas it switches the scope). Remembered per browser (`halo.studio.focus`).
 - **Density** (3.3.2.0): the header's rows button (or the palette's **Density: compact** / **comfortable**) switches
-  two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 2 px
-  between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48) with a type scale one step smaller;
+  two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 10 px
+  between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48), its text 12 px (never smaller);
   the colours stay. Remembered per browser (`halo.studio.density`), `data-density` on `<html>`. **The rules
   (comfortable, 3.3.16.0 R1b):** no control bar (a panel's title bar, Tabs, a section's bar, a form's button row)
-  under 36 px (`--ctl-h`), no row that is a target (a strip, a page rail's item, an inspector Edit row) under 40 px
+  under 36 px (`--ctl-h`), no row that is a target (a page rail's item, an inspector Edit row) under 40 px
   (`--row-h`), 12 px inside every panel body and 12 px between panels, one thing open per section on load. The
   primitives mark themselves (`data-density="bar|row|body"`) and `tests/test_studio_density.py` measures every
   section against them; a fix changes a token or a primitive, never exempts an element.
@@ -160,7 +125,7 @@ a title is mono caps. A state is told four ways at once: a square, a colour, a r
 - **The panel frame** (`.glass`, `lib/ui/Surface.tsx` and every workspace panel): the surface, a hairline, a 6 px
   radius and four corner ticks, 10 x 1 px in the accent at the top left and the bottom right; the panel you are on
   (the focused one) has them in the text colour. Its three faces: the **full** face (title row and body), the
-  **compact** summary and the **strip** (the collapsed title row: 44 px, 12 px apart, its bar centred); the title row is
+  **compact** summary and, closed, its button in the view bar (3.6.0.0 R0a: the strips went); the title row is
   40 px (`--bar-h`; 36 at the least) with the state square, the mono-caps title and the mono data line; a body pads 12 px.
 - **A confirmation says what it does.** A Dialog that asks before an action shows **DOES**, **COSTS** and **WRITES** as three
   mono lines before its buttons (`lib/ui/DialogCost.tsx`, `Dialog`'s `cost`): a pack's remove and update, Roles' Apply and

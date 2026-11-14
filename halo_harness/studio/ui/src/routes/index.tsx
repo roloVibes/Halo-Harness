@@ -17,8 +17,8 @@
 // 3.3.13.0 R2: Design left the core for the design pack (its section, when the pack is on, is a pack section).
 // 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra folded into Agents (Alt+2; routes/agents/). Agents draws
 // two workspaces of its own: `roles` (Cast and Live) and `orchestra` (Runs); `sectionDef("agents")` is the one it draws
-// now (partDef), so the "+" menu, the ... menu, the palette's panel rows and the status bar follow the view. Local
-// carries the Media panels as optional floating ones (its "+" menu).
+// now (partDef), so the view bar, the ... menu, the palette's panel rows and the status bar follow the view. Local
+// carries the Media panels as optional drawers over its page (the palette's Media lines; 3.6.0.0 R0a).
 // 3.3.16.0 R2 "the Fleet fold": the Fleet section went -- a machine's agents in Agents -> Live (the fleet scope), its
 // models in Local, pairing and the people in Setup -> Machines, missions in the Mission panel on Agents -> Live. Six core sections, the shell
 // the Instrument look was drawn for: Session Alt+1, Agents Alt+2, Local Alt+3, Packs Alt+4, Setup Alt+5,
@@ -55,8 +55,8 @@ export type SectionDef = {
   view?: ComponentType<{ section: string; specs: PanelSpec[] }>;
   /** Brings the panel workspace up (before the "+" menu or the palette opens a panel). */
   enter?: () => void;
-  /** 3.3.1.0 R1: pages, not panels (Setup): no "+" menu, no layout actions, the view is the room. 3.3.13.0 R2: a paged
-   *  section's optional panels (Local: Media) are still in its "+" menu; each floats over the page. */
+  /** 3.3.1.0 R1: pages, not panels (Setup): no view bar, no layout actions, the view is the room. 3.3.13.0 R2: a paged
+   *  section's optional panels (Local: Media) open from the palette as drawers over the page (3.6.0.0 R0a). */
   paged?: boolean;
 };
 

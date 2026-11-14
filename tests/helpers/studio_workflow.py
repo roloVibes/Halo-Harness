@@ -29,7 +29,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_packs_steps import CUR, alt, open_tab, pa, panel, press, q, qa  # noqa: E402
+from tests.helpers.studio_packs_steps import CUR, alt, bar_btn, open_drawer, open_tab, pa, panel, press, q, qa  # noqa: E402
 
 
 def pack_section(c, url, ctx) -> dict:
@@ -55,10 +55,10 @@ def event_data(c, url, ctx) -> dict:
     from halo_harness.studio.events import bridge_for
     out: dict = {}
     alt(c, 1)
-    c.wait(f"{CUR}.startsWith('Session') && !!{panel('doc-review--reviews')}", 20)
+    c.wait(f"{CUR}.startsWith('Session') && !!{bar_btn('doc-review--reviews')}", 20)  # 3.6.0.0 R0a: its button in the view bar
     publish_event("doc-review", "review.done", {"file": "docs/guide.md", "findings": 1}, bridge=bridge_for(ctx["srv"]))
     publish_event("doc-review", "review.done", {"file": "docs/intro.md"}, bridge=bridge_for(ctx["srv"]))
-    press(c, panel("doc-review--reviews", "button[aria-label=Open]"))
+    open_drawer(c, "doc-review--reviews")
     ev = qa("[data-panel='doc-review--reviews'] [data-testid=pack-event]")
     c.wait(f"{ev}.length >= 2", 15)
     out["event_kv"] = c.js(f"[...{ev}[0].querySelectorAll('[data-testid=pack-event-data] .pk-art-kv-row')].map((r) => r.dataset.key + '=' + r.querySelector('dd').textContent)")

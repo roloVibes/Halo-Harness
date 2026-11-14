@@ -1,3 +1,6 @@
+# 3.6.0.0 R0a (extension API 1.5): each panel says how it opens on Studio's stage -- role main (the section's main thing),
+# drawer (beside it, its button in the view bar; side left / right, content_w its width in px, 360-560) or tab (shown in
+# the main thing's place). A pack written for 1.4 or older names w / h instead; Studio maps them (w x 60 px, a right drawer).
 contributes:
   studio:
     sections:
@@ -10,16 +13,16 @@ contributes:
             title: Notes
             kind: markdown
             source: studio/notes.md
-            w: 12
-            h: 30
+            role: main
             help: The pack's notes, from studio/notes.md in its folder.
           - id: rows
             title: Rows
             kind: table
             source: data:rows.json
             columns: [item, state, note]
-            w: 12
-            h: 30
+            role: drawer
+            side: right
+            content_w: 480
             help: |-
               rows.json in the pack's data folder (~/.halo/packs/.data/__ID__/), a list of rows the pack's code writes
               with ext.write_private("__ID__", "rows.json", ...). Empty until it does.
@@ -27,8 +30,7 @@ contributes:
             title: The pack's own panel
             kind: bundle
             source: studio/view.js
-            w: 24
-            h: 20
+            role: tab
             help: studio/view.js draws this panel; it runs once the owner grants studio-script.
       - id: page
         title: __NAME__ page

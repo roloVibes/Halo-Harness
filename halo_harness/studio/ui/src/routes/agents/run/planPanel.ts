@@ -7,20 +7,19 @@
 // panel closes and the canvas opens again; Reject does the same.
 import type { PanelSpec } from "../../../lib/workspace/types";
 import { goSection } from "../../../lib/store";
-import { hidePanel, layoutStore, patchPanel, showPanel, whenLaidOut } from "../../../lib/workspace/persist";
+import { hidePanel, layoutStore, showPanel, whenLaidOut } from "../../../lib/workspace/persist";
 import { planPanels } from "../../orchestra/plan/PlanPanel";
 
-export const planPanel: PanelSpec = { ...planPanels[0], optional: true, w: 14, h: 72, minH: 30 };
+export const planPanel: PanelSpec = { ...planPanels[0], optional: true }; // 3.6.0.0 R0a: a tab of the canvas
 
 /** Live with the plan review open beside the canvas. */
 export function reviewPlan(): void {
   goSection("agents", "live");
-  whenLaidOut("roles", () => (patchPanel("roles", "roles-graph", { collapsed: true }, false), showPanel("roles", planPanel)));
+  whenLaidOut("roles", () => showPanel("roles", planPanel)); // a tab: the canvas gives it the main place
 }
 
 /** The plan went on (approved) or the run stopped (rejected): the panel leaves Live. */
 export function closePlanReview(): void {
   if (!layoutStore("roles").get().layout?.[planPanel.id]) return;
-  hidePanel("roles", planPanel.id);
-  patchPanel("roles", "roles-graph", { collapsed: false }, false);
+  hidePanel("roles", planPanel.id); // the canvas has the main place again
 }

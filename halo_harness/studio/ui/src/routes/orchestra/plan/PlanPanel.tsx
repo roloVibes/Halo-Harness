@@ -80,6 +80,6 @@ function usePlanMotion(): MotionState {
 }
 
 export const planPanels: PanelSpec[] = [
-  { id: "orchestra-plan", testid: "orchestra-plan", title: "Plan", ...HELP["orchestra-plan"], x: 0, y: 0, w: 24, h: 0, minW: 12, minH: 40,
+  { id: "orchestra-plan", testid: "orchestra-plan", title: "Plan", ...HELP["orchestra-plan"], role: "tab",
     face: "detail", glance: PlanGlance, detail: PlanDetail, useMotion: usePlanMotion },
 ];

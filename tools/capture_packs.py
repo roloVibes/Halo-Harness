@@ -51,12 +51,13 @@ def counts(c) -> dict:
     return c.js("Object.fromEntries(" + json.dumps(list(IDS)) + ".map((k) => [k, document.querySelectorAll(`[data-testid=\"${k}\"]`).length]))")
 
 
-def ready(c, url: str) -> None:
+def ready(c, url: str, templates: bool = True) -> None:
     c.go(url)
     c.wait(f"!!{ROW}", 40)
     c.click_on(f"{ROW}.querySelector('.pm-row-main')")
     c.wait("document.querySelector('[data-testid=\"pm-details-body\"]')?.dataset.id === 'doc-review'", 20)
-    c.wait("document.querySelectorAll('[data-testid=\"pm-workflow\"]').length > 0", 20)
+    if templates:  # the counts (every panel open); the picture is Installed and the Details drawer the pick opens
+        c.wait("document.querySelectorAll('[data-testid=\"pm-workflow\"]').length > 0", 20)
     c.wait("!document.querySelector('.toast')", 10)
     time.sleep(1.0)
 
@@ -74,7 +75,7 @@ def capture(out: str, as_dom: bool, serve, state: Path) -> int:
         return 2
     from tests.helpers.studio_full import full  # 3.3.2.0 R3: the counts read every panel; the picture is Installed and the Details a pick opens
     try:
-        ready(c, full(url) if as_dom else url.replace("#t=", "&open=pm-templates#t="))  # the pick opens Details beside it
+        ready(c, full(url) if as_dom else url, as_dom)  # 3.6.0.0 R0a: the pick opens the Details drawer beside Installed
         guard_page(c, "packs")
         if as_dom:
             print(json.dumps({"packs": counts(c)}))

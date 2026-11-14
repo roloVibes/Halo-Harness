@@ -74,6 +74,10 @@ CHANGES: "dict[str, dict]" = {
                                          "ignored)"],
             "deprecates": [], "keeps": "everything: a pack with contributes.fleet reads as before, its capabilities checked",
             "status": "stable (Halo 3.5.0.0: the doc-review pack uses it)"},
+    "1.5": {"halo": "3.6.0.0", "adds": ["contributes.studio panels: role (main | drawer | tab), side (left | right), content_w "
+                                         "(a drawer's width from its content, 360-560 px): how the panel opens on the stage"],
+            "deprecates": [], "keeps": "everything: a panel's w / h still work (w columns -> a right drawer w x 60 px wide)",
+            "status": "stable (Halo 3.6.0.0 R0a: the stage, one main thing per view)"},
 }
 
 

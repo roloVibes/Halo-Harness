@@ -3,9 +3,9 @@
 // redraws them in place; the components are made once per panel id. The
 // source line "from pack <id>" (its about) opens its ? help (3.3.2.0 R3: not in the title line); `?` and the ... menu's Help
 // show the pack's own `help` lines (every panel has them: the owner's clarity
-// rule). In a pack's section the panels fill the 24 columns left to right,
-// a row at a time; in a core section they go under the section's own panels,
-// as strips.
+// rule). 3.6.0.0 R0a (packs API 1.5): a panel says how it opens -- `role` (main / drawer / tab), `side`, `content_w` --
+// or keeps its old grid cells, which the stage maps (cells -> a right drawer, `w` columns x 60 px -> its contentW). In a
+// pack's section with no main panel the first one is the main thing; in a core section a pack's panel is a drawer.
 import type { ComponentType } from "react";
 import { Empty } from "../../lib/ui";
 import type { PanelSpec } from "../../lib/workspace/types";
@@ -67,33 +67,22 @@ function facesOf(id: string) {
   return f;
 }
 
-function spec(p: PackPanel, x: number, y: number): PanelSpec {
+function spec(p: PackPanel, x: number, y: number, main = false): PanelSpec {
   const w = Math.max(4, Math.min(COLS, p.w || 12));
   const help = p.help || `${p.title}: ${KIND_LINE[p.kind] || p.kind}, from pack ${p.pack}.`;
-  return { id: p.id, testid: "pack-panel", title: p.title, x, y, w, h: Math.max(8, p.h || 24), minW: 4, minH: 8, face: "detail",
+  const role = p.role || (main ? "main" : "drawer");
+  return { id: p.id, testid: "pack-panel", title: p.title, x, y, w, h: Math.max(8, p.h || 24), face: "detail", role,
+           ...(p.side ? { side: p.side } : {}), ...(p.content_w ? { contentW: p.content_w } : {}),
            collapsed: p.collapsed, about: p.about, help, ...facesOf(p.id) };
 }
 
-/** A pack section's panels, left to right, a row at a time. */
+/** A pack section's panels: its `role: main` one (else the first) is the main thing, the rest drawers or tabs. */
 export function sectionSpecs(list: PackPanel[]): PanelSpec[] {
-  let x = 0;
-  let y = 0;
-  let rowH = 0;
-  return list.map((p) => {
-    const w = Math.max(4, Math.min(COLS, p.w || 12));
-    if (x + w > COLS) {
-      y += rowH;
-      x = 0;
-      rowH = 0;
-    }
-    const out = spec(p, x, y);
-    x += w;
-    rowH = Math.max(rowH, out.h);
-    return out;
-  });
+  const named = list.some((p) => p.role === "main");
+  return list.map((p, i) => spec(p, 0, i * 24, !named && i === 0));
 }
 
-/** Panels a pack adds to a core section: strips under the section's own. */
+/** Panels a pack adds to a core section: drawers beside the section's own main thing (a `main` role is a drawer here). */
 export function coreSpecs(list: PackPanel[]): PanelSpec[] {
-  return list.map((p, i) => spec(p, 0, CORE_Y + i * 6));
+  return list.map((p, i) => ({ ...spec(p, 0, CORE_Y + i * 6), ...(p.role === "main" ? { role: "drawer" as const } : {}) }));
 }

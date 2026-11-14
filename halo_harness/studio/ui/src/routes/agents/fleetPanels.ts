@@ -1,6 +1,6 @@
 // Activity (`fleet-activity`, its panel id kept: the timeline strip and the merged live log) is an optional panel of
-// Live (roles), closed on load -- the header's "+" and the palette add it. It takes its place in the workspace's grid
-// when added.
+// Live (roles), closed on load -- the view bar and the palette add it. 3.6.0.0 R0a: a tab of the canvas (the timeline
+// is wide: it takes the main place while it shows).
 import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import type { PanelSpec } from "../../lib/workspace/types";
@@ -16,6 +16,6 @@ function started(hook: () => MotionState): () => MotionState {
 }
 
 export const activityPanel: PanelSpec = {
-  id: "fleet-activity", testid: "fleet-activity", ...HELP["fleet-activity"], title: "Activity", x: 0, y: 0, w: 12, h: 40, minW: 4, minH: 16,
+  id: "fleet-activity", testid: "fleet-activity", ...HELP["fleet-activity"], title: "Activity", role: "tab", fullGrow: 3,
   face: "detail", optional: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion),
 };

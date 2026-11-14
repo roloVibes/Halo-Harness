@@ -252,8 +252,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             from halo_harness.studio.theme_boot import theme_attr, theme_csp
             body = theme_attr(body)  # 3.3.12.0 R1: the first paint in the saved palette (`theme`), else "auto"
             csp = theme_csp(SHELL_CSP, body)  # 3.3.12.0 R2: a pack palette's first-paint rule, allowed by its hash
-            from halo_harness.studio.owner_proof import owner_attr
-            body = owner_attr(body, self)  # 3.3.14.0 R1 (#4): the owner proof's salt, read once by lib/owner.ts
+            from halo_harness.studio.shell_assets import shell_page  # 3.6.0.0 R0a: + its own studio.js load (the boot hop)
+            body = shell_page(body, self)  # 3.3.14.0 R1 (#4): the owner proof's salt, read once by lib/owner.ts
         self._send(200, body, ctype, {"Content-Security-Policy": csp, **frame})
 
     def do_GET(self):

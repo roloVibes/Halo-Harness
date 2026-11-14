@@ -57,11 +57,13 @@ function CanvasGlance() {
 const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec => ({ id, testid: id, ...HELP[id], ...rest });
 const idle = () => "idle" as MotionState;
 
+// 3.6.0.0 R0a, the stage: the Canvas is the main thing; Lineups and Bios open as left drawers, Inspector, Problems and
+// Models as right ones (this view is redrawn in the rounds after R0a: no more than the mapping here).
 export const rolesPanels: PanelSpec[] = [
-  panel("roles-lineups", { title: "Lineups", x: 0, y: 0, w: 5, h: 32, minW: 4, minH: 12, face: "detail", glance: LineupsGlance, detail: LineupsDetail, useMotion: started(idle) }),
-  panel("roles-bios", { title: "Bios", x: 0, y: 32, w: 5, h: 0, minW: 4, minH: 16, face: "detail", glance: BiosGlance, detail: BiosDetail, useMotion: started(idle) }),
-  panel("roles-graph", { title: "Canvas", primary: true, x: 5, y: 0, w: 13, h: 0, minW: 8, minH: 24, face: "detail", glance: CanvasGlance, detail: CanvasDetail, useMotion: started(useCanvasMotion) }),
-  panel("roles-inspector", { title: "Inspector", x: 18, y: 0, w: 6, h: 46, minW: 4, minH: 16, face: "detail", glance: InspectorGlance, detail: InspectorDetail }),
-  panel("roles-problems", { title: "Problems", x: 18, y: 46, w: 6, h: 20, minW: 4, minH: 10, face: "detail", glance: ProblemsGlance, detail: ProblemsDetail, useMotion: started(useProblemsMotion) }),
-  panel("roles-models", { title: "Models", x: 18, y: 66, w: 6, h: 0, minW: 4, minH: 10, face: "detail", glance: ModelsGlance, detail: ModelsDetail }),
+  panel("roles-lineups", { title: "Lineups", side: "left", contentW: 360, face: "detail", glance: LineupsGlance, detail: LineupsDetail, useMotion: started(idle) }),
+  panel("roles-bios", { title: "Bios", fullGrow: 2, side: "left", contentW: 440, face: "detail", glance: BiosGlance, detail: BiosDetail, useMotion: started(idle) }),
+  panel("roles-graph", { title: "Canvas", primary: true, face: "detail", glance: CanvasGlance, detail: CanvasDetail, useMotion: started(useCanvasMotion) }),
+  panel("roles-inspector", { title: "Inspector", fullGrow: 3, contentW: 400, face: "detail", glance: InspectorGlance, detail: InspectorDetail }),
+  panel("roles-problems", { title: "Problems", contentW: 360, face: "detail", glance: ProblemsGlance, detail: ProblemsDetail, useMotion: started(useProblemsMotion) }),
+  panel("roles-models", { title: "Models", contentW: 420, face: "detail", glance: ModelsGlance, detail: ModelsDetail }),
 ];

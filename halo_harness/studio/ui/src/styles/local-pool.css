@@ -13,13 +13,13 @@
 .pool-table tr[data-state="no"] td { color: var(--muted); }
 .pool-table td[data-wifi] { color: var(--warn); }
 .pool-badge { display: inline-block; padding: 0 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
-  font-size: 11px; white-space: nowrap; }
+  font-size: 12px; white-space: nowrap; }
 .pool-badge[data-state="pool"] { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
 .pool-badge[data-state="single"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .pool-badge[data-state="no"] { color: var(--bad); border-color: var(--bad-soft); }
 .pool-tag { margin-left: 6px; }
-.pool-verdict, .pool-preview { margin: 2px 0 0; font-size: 11.5px; overflow-wrap: anywhere; }
-.pool-lines ul { margin: 2px 0 0; padding-left: 16px; font-size: 11px; color: var(--muted); }
+.pool-verdict, .pool-preview { margin: 2px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+.pool-lines ul { margin: 2px 0 0; padding-left: 16px; font-size: 12px; color: var(--muted); }
 .pool-lines li { overflow-wrap: anywhere; }
 .pool-problems { margin: 0; padding-left: 16px; font-size: 12px; color: var(--warn); }
 .pool-scan-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -27,16 +27,16 @@
 .pool-cand { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .pool-cand[data-wifi] > span:first-child { color: var(--warn); }
 .pool-batch { font-size: 12px; }
-.pool-hidden { margin: 0; padding-left: 16px; font-size: 11.5px; }
+.pool-hidden { margin: 0; padding-left: 16px; font-size: 12px; }
 .pool-dl { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.pool-lib-lines p { margin: 2px 0 0; font-size: 11.5px; overflow-wrap: anywhere; }
+.pool-lib-lines p { margin: 2px 0 0; font-size: 12px; overflow-wrap: anywhere; }
 /* 3.3.8.0 R3: Warm and Stop (local/PoolRun.tsx) */
 .pool-run-state { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .pool-run-state[data-state="running"] { color: var(--ok); }
 .pool-run-state[data-state="degraded"], .pool-run-state[data-state="loading"] { color: var(--warn); }
 .pool-run-state[data-state="down"] { color: var(--bad); }
 .pool-run-members, .pool-checks, .pool-warm-lines { display: grid; gap: 2px; margin: 0; padding: 0; }
-.pool-run-member, .pool-check, .pool-warm-lines li { list-style: none; font-size: 11.5px; overflow-wrap: anywhere; }
+.pool-run-member, .pool-check, .pool-warm-lines li { list-style: none; font-size: 12px; overflow-wrap: anywhere; }
 .pool-run-member[data-up="down"] { color: var(--bad); }
 .pool-check-mark { display: inline-block; min-width: 44px; margin-right: 6px; color: var(--bad); }
 .pool-check-mark[data-ok] { color: var(--ok); }
@@ -45,8 +45,8 @@
 .pool-penalty { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .pool-penalty[data-measured] { color: var(--ok); }
 .pool-card-lines { display: grid; gap: 2px; margin: 0; padding: 0; }
-.pool-card-lines li { list-style: none; font-size: 11.5px; overflow-wrap: anywhere; }
-.pool-finding { list-style: none; font-size: 11.5px; overflow-wrap: anywhere; }
+.pool-card-lines li { list-style: none; font-size: 12px; overflow-wrap: anywhere; }
+.pool-finding { list-style: none; font-size: 12px; overflow-wrap: anywhere; }
 .pool-finding[data-severity="error"] { color: var(--bad); }
 .pool-finding[data-severity="warn"] { color: var(--warn); }
 .pool-claim-chip { margin-left: 6px; }

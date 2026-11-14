@@ -22,10 +22,10 @@
 .lg-bar:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
 .lg-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .lg-chev { flex: none; width: 20px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: transparent;
-  color: var(--muted); font-size: 11px; line-height: 18px; cursor: pointer; }
+  color: var(--muted); font-size: 12px; line-height: 18px; cursor: pointer; }
 .lg-chev:hover, .lg-chev:focus-visible { color: var(--text); border-color: var(--accent); }
 .lg-title { min-width: 0; font: 600 13px var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lg-counts, .lg-why { flex: none; padding-left: 26px; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lg-counts, .lg-why { flex: none; padding-left: 26px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lg-counts { color: var(--muted); }
 .lg-why { color: var(--accent-2); }
 .lg-bar[data-kind="square"] .lg-why { color: var(--text); }
@@ -33,4 +33,4 @@
 
 /* Session's timeline "by group": a group's title row over its lanes */
 .ftl-group { fill: var(--accent-2); font-weight: 600; }
-.ftl-bar > button[data-testid$="-by-group"] { font-size: 11px; padding: 2px 8px; }
+.ftl-bar > button[data-testid$="-by-group"] { font-size: 12px; padding: 2px 8px; }

@@ -1,19 +1,19 @@
-"""tests.test_studio_panels_menu -- Halo 3.3.2.0 "Quiet Studio" round R2: panels and layout leave the rail.
-Headless Chrome through tests/helpers/studio_panels_menu.py (skipped without one), over a seeded scratch home;
-no provider request, no model call:
+"""tests.test_studio_panels_menu -- Halo 3.3.2.0 "Quiet Studio" round R2: panels and layout leave the rail; 3.6.0.0 R0a:
+the header's "+" became the view bar. Headless Chrome through tests/helpers/studio_panels_menu.py (skipped without
+one), over a seeded scratch home; no provider request, no model call:
 
-1. the "+" menu in the section header lists the section's panels with the word a press does ("focus" an open
-   one, "bring back" a strip with its badge, "add" an optional one); it opens from the keyboard (ArrowDown on
-   its button), the arrows and End move, Escape closes it and gives the button the focus, Enter on a strip's
-   row opens the panel again; a change of the user's shows the "custom layout" badge;
-2. the palette's Reset layout is drawn disabled with its words on a default layout; Arrange panels (the
-   section in its hint) puts a moved panel back in its default box and says so;
-3. the "..." menu's Reset layout clears the saved layout and the badge goes; its rows then say what they would
-   do (Reset disabled, "already default"); "How panels move" opens the section help on Moving panels, which the
-   ? reaches too;
-4. Agents -> Live's "+" (3.3.16.0 R2: Fleet's Tree panel went with the section) adds the optional Activity panel, the other rows as Cast
-   left them; Orchestra's "+" carries its RUNS group with New run; the rail holds the section rows and the chevron
-   only, in both widths (<= 200 px expanded; 176 since 3.3.15.0); Setup and Local (paged) have no "+", no "..." and no badge.
+1. Agents' view bar on Cast names every panel of the view: the left drawers (Lineups, Bios), the Canvas with its tabs
+   (Activity and the plan review to add), the right drawers (Inspector, Problems, Models), every drawer closed on
+   load; a focused button and Enter open its drawer beside the canvas (the button pressed), the panel's close puts it
+   away; opening a drawer is never a "custom layout";
+2. the palette's Reset layout is drawn disabled with its words on a default layout; "Show panel: Inspector" opens its
+   drawer; Alt+Left on it widens it by 40 px and the width is kept (the v3 record); Reset layout is enabled then;
+3. the "..." menu's Reset layout (the toast) closes every drawer and clears the saved key; its rows then say so
+   (Reset disabled, "already default"); "How panels open" opens the section help on Moving panels, which the ?
+   reaches too;
+4. Agents -> Live's bar adds the optional Activity tab (it takes the canvas's place); the rail holds the section rows
+   and the chevron only, in both widths (<= 200 px expanded; 176 since 3.3.15.0); Setup and Local (paged) have no view
+   bar, no "..." and no badge.
 Run: python -m tests.test_studio_panels_menu
 """
 from __future__ import annotations
@@ -32,9 +32,10 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-ROLES = [["roles-lineups", "Lineups"], ["roles-bios", "Bios"], ["roles-graph", "Canvas"], ["roles-inspector", "Inspector"],
-         ["roles-problems", "Problems"], ["roles-models", "Models"]]
-OPEN = ("roles-lineups", "roles-bios", "roles-graph", "roles-inspector", "roles-problems", "roles-models")  # 3.3.16.0 R2: Live shares Cast's workspace
+ROWS = [["roles-lineups", "closed", "drawer", "Lineups"], ["roles-bios", "closed", "drawer", "Bios"],
+        ["roles-graph", "open", "main", "Canvas"], ["fleet-activity", "add", "tab", "Activity"], ["orchestra-plan", "add", "tab", "Plan"],
+        ["roles-inspector", "closed", "drawer", "Inspector"], ["roles-problems", "closed", "drawer", "Problems"],
+        ["roles-models", "closed", "drawer", "Models"]]
 
 
 def _got(ctx: Ctx) -> dict:
@@ -55,67 +56,61 @@ def test_the_rail_source_holds_sections_only(ctx: Ctx):
 
 
 @test
-def test_the_plus_menu_lists_and_brings_back(ctx: Ctx):
+def test_the_view_bar_names_and_opens(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Roles: six rows, each open panel 'focus', no badge, then Activity and the plan review to add (3.3.16.0 R2; "
-              f"3.4.0.0 D: Runs' plan panel is Live's; 3.5.0.0: Mission left with Fleet), one PANELS group, got {got.get('rows')} {got.get('groups')}",
-              got.get("rows") == [[p, "focus", [], t] for p, t in ROLES] + [["fleet-activity", "add", [], "Activity"],
-                                                                              ["orchestra-plan", "add", [], "Plan"]] and got.get("groups") == ["PANELS"])
-    ctx.check(f"ArrowDown opens it on the first row, ArrowDown / End move, Escape gives the button back, got "
-              f"{got.get('kbd_open')} {got.get('kbd_down')} {got.get('kbd_end')} {got.get('kbd_esc')}",
-              [got.get(k) for k in ("kbd_open", "kbd_down", "kbd_end", "kbd_esc")] == ["roles-lineups", "roles-bios", "orchestra-plan", "panels-add"])
-    strip = {r[0]: r for r in got.get("rows_strip") or []}
-    ctx.check(f"a collapsed panel reads 'bring back' with the strip badge, got {strip.get('roles-problems')}",
-              strip.get("roles-problems") == ["roles-problems", "bring back", ["strip"], "Problems"])
-    ctx.check(f"Enter on its row opens it again, got {got.get('brought_back')}", got.get("brought_back") == "open")
-    ctx.check(f"no badge on a default layout, 'custom layout' after the change, got {got.get('badge_fresh')} {got.get('badge_custom')!r}",
-              got.get("badge_fresh") is False and got.get("badge_custom") == "custom layout")
+    ctx.check(f"Agents' bar on Cast: the left drawers, the Canvas and its tabs, the right drawers, every drawer closed, got {got.get('rows')}",
+              got.get("rows") == ROWS)
+    ctx.check(f"no drawer drawn on load, no badge, got {got.get('drawers_fresh')} {got.get('badge_fresh')}",
+              got.get("drawers_fresh") == [] and got.get("badge_fresh") is False)
+    ctx.check(f"the button takes the focus, got {got.get('focus')!r}", got.get("focus") == "roles-problems")
+    opened = got.get("opened") or [[], "", True]
+    ctx.check(f"Enter opens Problems as a right drawer at its content's width, pressed, no custom layout, got {opened}",
+              opened[0] == [["roles-problems", "right", 360]] and opened[1] == "true" and opened[2] is False)
+    ctx.check(f"its close puts it away, got {got.get('closed')}", got.get("closed") == [[], "false"])
 
 
 @test
-def test_the_palette_arranges(ctx: Ctx):
+def test_the_palette_shows_and_widens(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Reset layout on a default layout: disabled, its words, got {got.get('pal_reset_fresh')}",
-              got.get("pal_reset_fresh") == ["Reset layout", "Agents: nothing to reset, the layout is the default", "true"])
-    moved, default = got.get("moved") or {}, got.get("default") or {}
-    ctx.check(f"Alt+Left moved the Inspector and saved the layout, got {moved.get('roles-inspector')} vs {default.get('roles-inspector')}",
-              moved.get("roles-inspector") != default.get("roles-inspector") and got.get("saved_moved") is True)
-    ctx.check(f"Arrange panels: enabled, the section in its hint, got {got.get('pal_arrange')}",
-              got.get("pal_arrange") == ["Arrange panels", "Agents: the open panels back in their default places and sizes", None])
-    ctx.check(f"it ran: the toast, every panel in its default box, got {got.get('arrange_toast')} {got.get('arranged')}",
-              got.get("arrange_toast") == "arranged" and got.get("arranged") == default)
+              got.get("pal_reset_fresh") == ["Reset layout", "Agents: nothing to reset, every drawer is closed", "true"])
+    ctx.check(f"Show panel: Inspector is a palette line, got {got.get('pal_show')}", (got.get("pal_show") or [""])[0] == "Show panel: Inspector")
+    before, after, saved = (got.get("widened") or [[], [], {}])[:3]
+    ctx.check(f"Alt+Left widens the Inspector drawer by 40 px, kept in the v3 record, got {before} {after} {saved}",
+              before == [["roles-inspector", "right", 400]] and after == [["roles-inspector", "right", 440]]
+              and (saved or {}).get("v") == 3 and (saved or {}).get("widths") == {"roles-inspector": 440} and (saved or {}).get("open") == ["roles-inspector"])
+    ctx.check(f"Reset layout is enabled now, the section in its hint, got {got.get('pal_reset_now')}",
+              got.get("pal_reset_now") == ["Reset layout", "Agents: every drawer closed, the main thing back", None])
 
 
 @test
 def test_the_overflow_menu_resets_and_explains(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Reset layout from the ... menu: the toast, the badge gone, the key gone, got {got.get('badge_before')!r} {got.get('reset_toast')} {got.get('after')}",
-              got.get("badge_before") == "custom layout" and got.get("reset_ran") is True and got.get("reset_toast") == "reset" and got.get("after") == [False, None])
+    ctx.check(f"Reset layout from the ... menu: the toast, the drawers closed, the key gone, got {got.get('reset_toast')} {got.get('after')}",
+              got.get("reset_ran") is True and got.get("reset_toast") == "reset" and got.get("after") == [[], None])
     ctx.check(f"the rows say what they would do, got {got.get('more_rows')}",
-              got.get("more_rows") == [["layout-arrange", False, ""], ["layout-reset", True, "already default"], ["layout-help", False, ""]])
+              got.get("more_rows") == [["layout-reset", True, "already default"], ["layout-help", False, ""]])
     on, text = (got.get("moving") or ["", ""])[:2]
-    ctx.check(f"How panels move opens the help on Moving panels, got {on!r} {text[:80]!r}",
-              got.get("help_ran") is True and on == "true" and "Drag a title bar to move a panel (the others make room)" in text and "grows the focused one" in text)
+    ctx.check(f"How panels open opens the help on Moving panels, got {on!r} {text[:80]!r}",
+              got.get("help_ran") is True and on == "true" and "Every other panel is a button in the bar above it" in text and "resets the layout" in text)
     ctx.check(f"the ? reaches the same part, got {got.get('moving_from_q')}", got.get("moving_from_q") == "plain")
 
 
 @test
-def test_fleet_tree_orchestra_runs_setup_and_the_rail(ctx: Ctx):
+def test_live_activity_setup_local_and_the_rail(ctx: Ctx):
     got = _got(ctx)
-    before = {r[0]: r[1:3] for r in got.get("fleet_rows") or []}
-    after = {r[0]: r[1:3] for r in got.get("fleet_rows_after") or []}
-    ctx.check(f"Live: Activity is 'add', the panels as Cast left them (open: 'focus'), got {before}",
-              before.get("fleet-activity") == ["add", []] and all(before.get(s) == ["focus", []] for s in OPEN)
-              and "fleet-tree" not in before and "fleet-ollama" not in before and len(before) == 8)  # 3.4.0.0 D: + Plan (3.5.0.0: Mission left)
-    ctx.check(f"the + added Activity with its log, its row now 'focus', got {got.get('tree')} {after.get('fleet-activity')}",
-              got.get("tree") is True and after.get("fleet-activity") == ["focus", []])
-    ctx.check(f"Agents' + carries its PANELS and no RUNS group (3.4.0.0 D: Runs went), got {got.get('orch_groups')} {got.get('orch_new_run')}",
-              got.get("orch_groups") == ["PANELS"] and got.get("orch_new_run") is False)
+    before = {r[0]: r[1] for r in got.get("fleet_rows") or []}
+    after = {r[0]: r[1] for r in got.get("fleet_rows_after") or []}
+    ctx.check(f"Live: Activity is 'add', the drawers closed, got {before}",
+              before.get("fleet-activity") == "add" and before.get("roles-inspector") == "closed" and len(before) == 8)
+    ctx.check(f"the bar added Activity with its log in the canvas's place, its button shown, the canvas's not, got {got.get('tree')} {after}",
+              got.get("tree") is True and after.get("fleet-activity") == "open" and after.get("roles-graph") == "closed")
     only = ["rail-sections,rail-toggle", 0, 0]
     ctx.check(f"the rail: sections only, in both widths, <= 200 px expanded, got {got.get('rail_icons')} {got.get('rail_open')} {got.get('rail_open_w')}",
               got.get("rail_icons") == only and got.get("rail_open") == only and 64 < (got.get("rail_open_w") or 0) <= 200)
-    ctx.check(f"Setup: no +, no ..., no badge, got {got.get('setup')}", got.get("setup") == [False, False, False])
-    ctx.check(f"3.3.5.0 R1: Local (paged) has a + since 3.3.13.0 R2 (the Media panels are its optional panels), no ..., no badge, got {got.get('local')}", got.get("local") == [True, False, False])
+    ctx.check(f"Setup: no view bar, no ..., no badge, got {got.get('setup')}", got.get("setup") == [False, False, False])
+    ctx.check(f"Local (paged; its Media drawers come from the palette): no view bar, no ..., no badge, got {got.get('local')}",
+              got.get("local") == [False, False, False])
 
 
 if __name__ == "__main__":

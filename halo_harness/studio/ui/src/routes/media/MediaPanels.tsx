@@ -136,13 +136,13 @@ function attached(hook: () => MotionState): () => MotionState {
   };
 }
 
-/** The Media group: optional panels at `y` the "+" menu and the palette add (Local, 3.3.13.0 R2). */
-export function mediaPanels(y: number): PanelSpec[] {
-  const base = { y, w: 6, h: 40, minW: 4, minH: 12, face: "detail" as const, optional: true };
+/** The Media group: optional panels the palette adds (Local, 3.3.13.0 R2; `_y` was their grid row before 3.6.0.0 R0a). */
+export function mediaPanels(_y = 0): PanelSpec[] {
+  const base = { contentW: 480, face: "detail" as const, optional: true }; // 3.6.0.0 R0a: a drawer over Local's page
   const at = (id: string) => ({ ...base, ...HELP[id], id, testid: id });
   return [
-    { ...at("media-status"), title: "Media status", x: 0, glance: StatusGlance, detail: StatusDetail, settings: StatusSettings, useMotion: attached(useStatusMotion) },
-    { ...at("media-models"), title: "Media models", x: 6, glance: ModelsGlance, detail: ModelsDetail, useMotion: attached(() => "none") },
-    { ...at("media-workflows"), title: "Workflows", x: 12, glance: WorkflowsGlance, detail: WorkflowsDetail, useMotion: attached(useWorkflowsMotion) },
+    { ...at("media-status"), title: "Media status", glance: StatusGlance, detail: StatusDetail, settings: StatusSettings, useMotion: attached(useStatusMotion) },
+    { ...at("media-models"), title: "Media models", glance: ModelsGlance, detail: ModelsDetail, useMotion: attached(() => "none") },
+    { ...at("media-workflows"), title: "Workflows", glance: WorkflowsGlance, detail: WorkflowsDetail, useMotion: attached(useWorkflowsMotion) },
   ];
 }

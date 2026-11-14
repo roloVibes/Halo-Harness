@@ -135,7 +135,7 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
     ctx.check(f"? opens Models' help, got {got.get('help_title')} / {got.get('help_lines')}", got.get("help_title") == "Models" and got.get("help_lines", 0) >= 2)
     ctx.check("Esc closes it", got.get("help_closed") is True)
     ctx.check(f"the ... menu (3.3.2.0 R3: Compact / Expand is its face row), got {got.get('menu')}",
-              got.get("menu") == ["float", "face", "collapse", "reset", "settings", "help"])
+              got.get("menu") == ["face", "collapse", "reset", "settings", "help"])  # 3.6.0.0 R0a: no Float (a drawer)
     ctx.check(f"Settings opens the Inspector on Bios, then it follows the click to Models, got {got.get('inspector')} / {got.get('inspector_follows')}",
               got.get("inspector") == "Bios" and got.get("inspector_follows") == "Models")
     ctx.check("the Compact toggle", got.get("compact") == "glance")
@@ -146,7 +146,7 @@ def test_panel_focus_on_click_and_help(ctx: Ctx):
               got.get("section_title") == "How Agents works" and got.get("section_steps") == 14 and "Live: run a goal" in text
               and "Runs:" not in text and (got.get("section_panels") or 0) >= 6)
     ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
-    ctx.check(f"Agents' + menu: its panels, no runs group (3.4.0.0 D), got {got.get('menu_runs')} / {got.get('menu_text')!r}",
+    ctx.check(f"Agents' view bar (3.6.0.0 R0a; the + menu before): its panels, no runs group (3.4.0.0 D), got {got.get('menu_runs')} / {got.get('menu_text')!r}",
               got.get("menu_runs") == 0 and "RUNS" not in str(got.get("menu_text") or ""))
 
 

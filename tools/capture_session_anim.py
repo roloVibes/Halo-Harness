@@ -41,18 +41,16 @@ def counts(c) -> dict:
     return c.js("Object.fromEntries(" + json.dumps(list(COUNT_IDS)) + ".map((k) => [k, document.querySelectorAll(`[data-testid=\"${k}\"]`).length]))")
 
 
-def open_session(c, rig) -> None:
-    c.go(rig.url("session", "&open=session-map,session-cost"))  # 3.3.2.0 R3: Live fills the stage, the map and the cost beside it
+def open_session(c, rig, everything: bool = False) -> None:
+    """Session with the map open beside Live (3.6.0.0 R0a: one drawer at 1500 px: Live keeps 60 % of the stage); `everything`
+    (the counts): the drivers' door, the map and the cost both open."""
+    c.go(rig.url("session", "&open=all" if everything else "&open=session-map"))
     c.wait("!!document.querySelector('[data-testid=\"session-live-detail\"]') && document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 6", 40)  # 3.3.16.0 R2: Live's nodes
     time.sleep(1.0)
 
 
-# The capture's own Roles arrangement (kept only while it films): the canvas wide, the Inspector beside it, the rest as strips.
-ROLES_LAYOUT = {"v": 2, "panels": {
-    "roles-graph": {"x": 0, "y": 0, "w": 18, "h": 86, "face": "detail", "collapsed": False},
-    "roles-inspector": {"x": 18, "y": 0, "w": 6, "h": 66, "face": "detail", "collapsed": False},
-    **{pid: {"x": 18, "y": 66 + 5 * i, "w": 6, "h": 20, "face": "detail", "collapsed": True}
-       for i, pid in enumerate(("roles-problems", "roles-lineups", "roles-bios", "roles-models"))}}}
+# The capture's own Roles arrangement (kept only while it films): the canvas, the Inspector drawer beside it (3.6.0.0 R0a, v3).
+ROLES_LAYOUT = {"v": 3, "lv": 1, "open": ["roles-inspector"], "widths": {}, "tab": "", "added": []}
 
 
 def open_roles(c, rig, wide: bool = False) -> None:
@@ -167,7 +165,7 @@ def roles(c, rig, lv, out: Path, seconds: float, every: float) -> list:
 def dom(c, rig, lv) -> dict:
     from capture_identity import guard_page
     from capture_session_scenes import play, roles_scene, session_scene
-    open_session(c, rig)
+    open_session(c, rig, everything=True)
     play(session_scene(lv)[:19]).join(10)  # through the thought, the spawn and its task, and the ask
     time.sleep(1.0)
     guard_page(c, "session")

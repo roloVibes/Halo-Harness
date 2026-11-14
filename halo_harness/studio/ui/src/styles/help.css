@@ -7,20 +7,20 @@
 /* -- "How this works" ---------------------------------------------------------- */
 .dialog.section-help { width: min(820px, calc(100vw - 32px)); }
 .section-help .dialog-head { align-items: flex-start; }
-.section-help .dialog-title { font-size: 19px; margin-top: 2px; }
+.section-help .dialog-title { font-size: 18px; margin-top: 2px; }
 .section-help .dialog-body { max-height: calc(100vh - 230px); overflow: auto; }
 .section-help-body { display: grid; gap: 16px; }
-.section-help-what { margin: 0; font-size: 14px; max-width: 72ch; }
+.section-help-what { margin: 0; font-size: 15px; max-width: 72ch; }
 .section-help-steps { gap: 9px; }
 .section-help-cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; }
-.section-help-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.section-help-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .section-help-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .section-help-list b { font-weight: 600; }
 .section-help-keys li { flex-wrap: nowrap; }
 .section-help-keys .kbd-group { flex: none; }
 .section-help-tip { margin: 10px 0 0; font-size: 12px; }
 .section-help-moving { display: grid; gap: 4px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
-.section-help-moving p { margin: 0; font-size: 12.5px; }
+.section-help-moving p { margin: 0; font-size: 13px; }
 .section-help-moving[data-on] .rail-label { color: var(--accent); }
 .section-help .dialog-foot { justify-content: space-between; align-items: center; }
 .section-help-note { font-size: 12px; }
@@ -29,7 +29,7 @@
 
 /* -- Inspector: what the panel is, how to use it -------------------------------- */
 .inspector-about { margin: -6px 0 0; color: var(--muted); font-size: 13px; }
-.inspector-help { margin: 0; padding: 8px 10px 8px 26px; display: grid; gap: 3px; font-size: 12.5px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
+.inspector-help { margin: 0; padding: 8px 10px 8px 26px; display: grid; gap: 3px; font-size: 13px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-2); }
 
 /* -- status bar: the framed page's own status line ------------------------------ */
 .section-status { overflow: hidden; text-overflow: ellipsis; }
@@ -43,10 +43,10 @@
 .og-goal-form .input { min-width: 0; }
 .rail-group { grid-template-columns: minmax(0, 1fr); }
 .og-goal-form .field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.og-more summary { padding: 2px 0; font-size: 11px; color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.og-more summary { padding: 2px 0; font-size: 12px; color: var(--muted); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .og-more .og-form-row { margin-top: 6px; }
-.og-runline { font-size: 11.5px; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
-.og-copy { justify-self: start; font-size: 11.5px; }
+.og-runline { font-size: 12px; flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+.og-copy { justify-self: start; font-size: 12px; }
 .og-start .fl-start-form .fl-actions { bottom: -20px; }
 .og-rail-run .badge { flex: none; }
 .og-rail-run .badge[data-state="running"] { color: var(--accent); border-color: var(--accent); }

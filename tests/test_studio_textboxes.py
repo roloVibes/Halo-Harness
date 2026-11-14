@@ -11,8 +11,9 @@ panel's rig (tests/helpers/prompt_rig.py); no provider request, no model call:
    empty, grows with four lines, stops at twelve and scrolls, and its placeholder takes at most two lines with no word
    wider than the box; the composer takes the panel's free height while the feed is short, and with a feed taller than
    the panel it is its own size again while the feed scrolls; the Lineup tab's field hints are in its `?`;
-4. the strips breathe (owner feedback 2026-11-09): on Fleet and Session with every panel collapsed each strip is >= 40
-   px, 12 px apart and from the edges, its bar centred; an open panel's bar is >= 36 px and its body pads >= 12 px.
+4. the bar breathes (owner feedback 2026-11-09 on the strips; 3.6.0.0 R0a: the strips became the view bar's buttons):
+   on Agents -> Live and Session with every drawer closed the bar is 44 px, each button >= 32 px, 8 px apart and from
+   the bar's ends, its name centred; an open drawer's bar is >= 36 px and its body pads >= 12 px.
 Run: python -m tests.test_studio_textboxes
 """
 from __future__ import annotations
@@ -147,21 +148,21 @@ def test_the_lineup_tab_boxes_and_its_help(ctx: Ctx):
 
 @test
 def test_the_strips_breathe(ctx: Ctx):
-    """Owner feedback 2026-11-09 (a photo of Fleet: the strips "squished and too small"): every panel collapsed, each
-    strip is >= 40 px with its bar centred and 12 px at its sides, 12 px between strips and to the edges; an open
-    panel's title bar is >= 36 px and its body pads >= 12 px."""
+    """Owner feedback 2026-11-09 (a photo of Fleet: the strips "squished and too small"); 3.6.0.0 R0a: no strips, the
+    view bar's buttons instead -- the bar 44 px, each button >= 32 px with its name centred and 12 px at its sides, 8 px
+    between buttons and to the bar's ends; an open drawer's title bar is >= 36 px and its body pads >= 12 px."""
     got = _got(ctx)
     for where in ("fleet_strips", "session_strips"):
         m = got.get(where) or {}
-        ctx.check(f"{where}: strips drawn, each >= 40 px, got {m.get('heights')}", m.get("n", 0) >= 5 and min(m.get("heights") or [0]) >= 40)
-        ctx.check(f"{where}: >= 12 px between them across and down, got {m.get('hgap')} {m.get('vgap')}",
-                  m.get("hgap", 0) >= 12 and m.get("vgap", 0) >= 12)
-        ctx.check(f"{where}: >= 12 px to the workspace's edges, 12 px side padding, the bar centred, got {m.get('edge')} "
-                  f"{m.get('pad')} {m.get('off')}", m.get("edge", 0) >= 12 and m.get("pad", 0) >= 12 and m.get("off", 99) <= 2)
+        ctx.check(f"{where}: the bar 44 px, its buttons drawn, each >= 32 px, got {m.get('bar')} {m.get('heights')}",
+                  m.get("bar") == 44 and m.get("n", 0) >= 5 and min(m.get("heights") or [0]) >= 32)
+        ctx.check(f"{where}: >= 8 px between them, got {m.get('hgap')}", m.get("hgap", 0) >= 8)
+        ctx.check(f"{where}: >= 8 px to the bar's ends, 12 px side padding, the name centred, got {m.get('edge')} "
+                  f"{m.get('pad')} {m.get('off')}", m.get("edge", 0) >= 8 and m.get("pad", 0) >= 12 and m.get("off", 99) <= 2)
         f = m.get("frame") or {}
-        ctx.check(f"{where}: an open panel's bar >= 36 px, its body pads >= 12 px, got {f}", f.get("bar", 0) >= 36 and f.get("body_pad", 0) >= 12)
+        ctx.check(f"{where}: an open drawer's bar >= 36 px, its body pads >= 12 px, got {f}", f.get("bar", 0) >= 36 and f.get("body_pad", 0) >= 12)
     src = (UI / "lib" / "workspace" / "types.ts").read_text(encoding="utf-8")
-    ctx.check("a strip is 7 rows (56 px, 44 inside the gutter)", "export const STRIP_ROWS = 7;" in src)
+    ctx.check("no strip rows any more (3.6.0.0 R0a)", "STRIP_ROWS" not in src)
 
 
 if __name__ == "__main__":

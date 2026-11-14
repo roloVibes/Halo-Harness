@@ -7,11 +7,11 @@
 .lg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .lg-help { display: inline-block; }
 .lg-help summary { cursor: pointer; list-style: none; color: var(--muted); border: 1px solid var(--line); border-radius: 50%;
-  width: 18px; height: 18px; line-height: 16px; text-align: center; font-size: 11px; }
+  width: 18px; height: 18px; line-height: 16px; text-align: center; font-size: 12px; }
 .lg-help summary::-webkit-details-marker { display: none; }
 .lg-help[open] summary { color: var(--accent); border-color: var(--accent); }
 .lg-help p { margin: 4px 0 0; font-size: var(--fs-sm); max-width: 72ch; }
-.lg-line { font-size: 12.5px; overflow-wrap: anywhere; }
+.lg-line { font-size: 13px; overflow-wrap: anywhere; }
 .lg-line[data-state="live"] { color: var(--ok); }
 .lg-line[data-state="stale"], .lg-line[data-state="quiet"] { color: var(--warn); }
 .lg-line[data-state="unreadable"], .lg-line[data-state="missing"] { color: var(--bad); }
@@ -28,7 +28,7 @@
 .lg-kind { cursor: pointer; background: var(--surface); color: var(--muted); }
 .lg-kind.on { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
 .lg-live { display: inline-flex; align-items: center; gap: 4px; }
-.lg-lines { list-style: none; margin: 6px 0 0; padding: 6px 8px; max-height: 420px; overflow: auto; font-size: 11.5px;
+.lg-lines { list-style: none; margin: 6px 0 0; padding: 6px 8px; max-height: 420px; overflow: auto; font-size: 12px;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .lg-lines li { white-space: pre-wrap; overflow-wrap: anywhere; border-bottom: 1px solid var(--grid-line); padding: 1px 0; }
 .lg-group { display: inline-block; min-width: 76px; margin-right: 8px; color: var(--faint); }

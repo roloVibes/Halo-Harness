@@ -146,18 +146,19 @@ def roles(c, rig) -> dict:
 
 def fleet_strips(c, rig) -> dict:
     """3.3.15.0 R3, owner feedback 2026-11-09 (the strips): Fleet with every panel collapsed, then People opened; 3.3.16.0
-    R2: the fleet is Agents -> Live (`?mode=agents`), so Live's panels collapsed, then its inspector opened."""
+    R2: the fleet is Agents -> Live (`?mode=agents`); 3.6.0.0 R0a: its view bar with every drawer closed, then its
+    inspector opened."""
     from halo_harness.studio.server import url_for
     from tests.helpers.studio_strips import strips
     url = url_for(rig.server, "agents").replace("#t=", "&tour=off#t=")
-    return {"fleet_strips": strips(c, url, "!!document.querySelector('.workspace .ws-cell')", "roles-inspector", shot, "fleet")}
+    return {"fleet_strips": strips(c, url, "!!document.querySelector('.workspace .stage-main .ws-cell')", "roles-inspector", shot, "fleet")}
 
 
 def session_strips(c, rig) -> dict:
     """The same on Session, then Cost opened."""
     from tests.helpers.studio_strips import strips
     url = rig.url(f"&session={rig.sid}")
-    return {"session_strips": strips(c, url, "!!document.querySelector('.workspace .ws-cell[data-panel=session-cost]')",
+    return {"session_strips": strips(c, url, "!!document.querySelector('.workspace [data-testid=viewbar-btn][data-panel=session-cost]')",
                                      "session-cost", shot, "session")}
 
 

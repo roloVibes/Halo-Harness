@@ -21,11 +21,11 @@
 .pb-bar[data-kind="square"] { border-left: 3px solid color-mix(in srgb, var(--accent) 60%, transparent); }
 .pb-title { min-width: 0; font: 600 13px var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-bar:not([data-used]) .pb-title { color: var(--muted); font-weight: 500; }
-.pb-counts, .pb-purpose { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pb-counts, .pb-purpose { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pb-counts { color: var(--text); }
 .pb-purpose { color: var(--muted); }
 
-.pb-when { position: absolute; height: 16px; font-size: 10.5px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden;
+.pb-when { position: absolute; height: 16px; font-size: 12px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; pointer-events: auto; }
 .pb-line[data-live] { stroke: color-mix(in srgb, var(--accent) 35%, var(--line-strong)); }
 .pb-toggle.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: var(--soft-accent); }

@@ -6,7 +6,7 @@
 .fl-start { position: absolute; inset: 0; overflow: auto; padding: 28px 24px; display: grid; justify-items: center; align-content: start; }
 .fl-start-inner { width: min(1120px, 100%); display: grid; gap: 22px; }
 .fl-start-head { display: grid; gap: 6px; max-width: 70ch; }
-.fl-start-head p { margin: 0; font-size: 14px; }
+.fl-start-head p { margin: 0; font-size: 15px; }
 .fl-start-title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: .01em; }
 .fl-start-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 22px; align-items: start; }
 .fl-start-form { padding: 18px; }
@@ -17,11 +17,11 @@
 .fl-explain li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; font-size: 13px; }
 .fl-explain li .og-chip { cursor: default; margin-left: 4px; }
 .fl-explain-n {
-  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: 11px;
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: 12px;
   color: var(--accent); border: 1px solid var(--accent); background: var(--accent-soft);
 }
 .fl-explain-n[data-gate] { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); border-radius: 5px; }
-.fl-explain-text { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.fl-explain-text { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
 
 /* the goal form: the action row always in view */
 .fl-actions { flex-wrap: nowrap; align-items: center; }

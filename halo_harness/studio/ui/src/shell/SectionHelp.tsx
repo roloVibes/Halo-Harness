@@ -23,7 +23,7 @@ function focusKey(keys: [string, string][]): [string, string] {
   return taken ? ["Shift+F", "Focus: hide the rail, the inspector and the status bar"] : ["F", "Focus: hide the rail, the inspector and the status bar (Shift+F too)"];
 }
 
-/** 3.3.2.0 R2: how panels move, for a section with panels; scrolled into view when the help opens on it. */
+/** 3.3.2.0 R2 (3.6.0.0 R0a: how panels open now), for a section with panels; scrolled into view when the help opens on it. */
 function MovingPanels({ on }: { on: boolean }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -33,10 +33,10 @@ function MovingPanels({ on }: { on: boolean }) {
     <section ref={ref} className="section-help-moving" aria-label="Moving panels" data-testid="help-moving" data-on={on || undefined}>
       <div className="rail-label mono">MOVING PANELS</div>
       <p className="muted">
-        Drag a title bar to move a panel (the others make room), an edge to resize it against its neighbour. <Kbd keys="Alt+Shift+Down" /> grows the focused one.
+        The main thing has the room. Every other panel is a button in the bar above it: a click opens it as a drawer beside the main thing (or, a tab, in its place); its close or the button again closes it. Drag a drawer's inner edge to resize it; <Kbd keys="Alt+Left" /> / <Kbd keys="Alt+Right" /> on it does the same.
       </p>
       <p className="muted">
-        The <b>+</b> in the header adds a panel or brings one back; its <b>...</b> menu arranges the open panels or resets the layout.
+        Under 1440 px one drawer opens at a time; under 1100 it floats over the main thing. The header's <b>...</b> menu resets the layout.
       </p>
     </section>
   );
@@ -114,7 +114,7 @@ export function SectionHelp() {
               ))}
             </ul>
             <p className="section-help-tip muted">
-              The section opens on its first panel; the others are strips at the foot, a click opens one. Click a panel to work in it. Its title line has its ? (what it is, how to use it), the strip button and a ... menu: Float, Compact / Expand, Collapse, Reset, Settings, Help.
+              The section opens on its main thing; the others are buttons in the bar above it, a click opens one beside it. Click a panel to work in it. Its title line has its ? (what it is, how to use it), a close and a ... menu: Compact / Expand, Close, Reset its width, Settings, Help.
             </p>
           </section>
           )}

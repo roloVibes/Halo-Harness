@@ -2,8 +2,8 @@
    routes/agents/live/WaitsRow.tsx, LiveNow.tsx, PlanWorld.tsx): a fixed row of its own on each live node (WAITS, then
    the fact, cut by CSS ellipsis only), the path from main to what the session waits on as a brighter hairline in the
    colours it already has, the sentence under Live's bar, and a line's latest hand-off over its when label. Tokens only. */
-.rlm-waits { flex: none; display: flex; align-items: center; gap: 6px; min-width: 0; height: 18px; font-size: 10.5px; }
-.rlm-waits-k { flex: none; color: var(--muted); letter-spacing: .08em; font-size: 9.5px; }
+.rlm-waits { flex: none; display: flex; align-items: center; gap: 6px; min-width: 0; height: 18px; font-size: 12px; }
+.rlm-waits-k { flex: none; color: var(--muted); letter-spacing: .08em; font-size: 12px; }
 .rlm-waits-v { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .rlm-waits[data-wait="you"] .rlm-waits-v { color: var(--warn); }
 .rlm-waits[data-wait="tool"] .rlm-waits-v { color: var(--tool, var(--accent)); }
@@ -16,7 +16,7 @@
 .lv-narr[data-wait="you"] { border-left-color: var(--warn); }
 .lv-narr:hover, .lv-narr:focus-visible { background: var(--surface-2); }
 .lv-narr-text { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.lv-narr-clock { flex: none; font-size: 11px; white-space: nowrap; }
+.lv-narr-clock { flex: none; font-size: 12px; white-space: nowrap; }
 
 .pb-when[data-handoff] { color: var(--text); }
 .pb-when { transition: color var(--dur-base, 240ms) var(--ease-out, ease-out); }
@@ -32,8 +32,8 @@
 .rlm-inner[data-level="far"] .pb-when { height: 32px; font-size: 24px; line-height: 32px; }
 .rlm-inner[data-level="far"] .rlm-edge { stroke-width: 3px; }
 .rlm-near { flex: none; display: flex; flex-direction: column; gap: 4px; height: 74px; min-width: 0; margin: 2px 0; }
-.rlm-near-think { font: 11px/15px var(--sans); color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+.rlm-near-think { font: 12px/15px var(--sans); color: var(--text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   overflow-wrap: anywhere; height: 45px; }
-.rlm-near-tool { flex: none; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--tool, var(--accent)); }
-.rlm-near-k { color: var(--muted); font: 9.5px var(--mono); letter-spacing: .08em; }
+.rlm-near-tool { flex: none; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--tool, var(--accent)); }
+.rlm-near-k { color: var(--muted); font: 12px var(--mono); letter-spacing: .08em; }
 .lv-levels button { padding: 3px 10px; font-size: 12px; }

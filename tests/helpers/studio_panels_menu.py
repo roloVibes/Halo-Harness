@@ -1,23 +1,24 @@
-"""tests.helpers.studio_panels_menu -- "Quiet Studio" round R2 (Halo 3.3.2.0): panels and layout leave the
-rail. Real clicks and keys in headless Chrome on the driver base, over capture_studio's seeded home (a lineup
-active); no provider request, no model call.
+"""tests.helpers.studio_panels_menu -- "Quiet Studio" round R2 (Halo 3.3.2.0): panels and layout leave the rail;
+3.6.0.0 R0a: the header's "+" became the view bar (one named button per drawer and tab, lib/workspace/ViewBar.tsx).
+Real clicks and keys in headless Chrome on the driver base, over capture_studio's seeded home (a lineup active); no
+provider request, no model call.
 
     python -m tests.helpers.studio_panels_menu
 
-`menu`: Roles' "+" lists its six panels, each "focus"; ArrowDown on the button opens it on the first row,
-ArrowDown / End move, Escape closes it and gives the button the focus; a panel collapsed to a strip reads
-"bring back" with the strip badge, Enter on its row opens it again, and the "custom layout" badge shows.
-`arrange`: a fresh Roles layout, the palette's Reset layout disabled with its words; Alt+Left moves the
-Inspector, the palette's Arrange panels puts every panel back in its default box (the toast says so).
-`reset`: the "..." menu's Reset layout clears the saved key, the badge goes, its rows then disabled with words.
-`moving`: "How panels move" opens the section help on its Moving panels part; the ? reaches it too.
-`fleet`: on Agents -> Live (3.3.16.0 R2: the Fleet section and its Tree panel went) the "+" adds the optional Activity
-panel ("add", then "focus"), the strips read "bring back"; Orchestra's
-"+" has its RUNS group with New run; the rail holds the sections only in both widths; Setup has no "+",
-no "..." and no badge.
+`menu`: Agents' view bar on Cast: the Canvas with its tabs (Activity and the plan review to add), then the drawers
+(Lineups, Bios on the left; Inspector, Problems, Models on the right), every one closed; a focused button and Enter
+open its drawer beside the canvas, the button pressed; the panel's close puts it away again; nothing says "custom
+layout".
+`arrange`: a fresh layout: the palette's Reset layout disabled with its words; the palette's "Show panel: Inspector"
+opens its drawer; Alt+Left on it widens it by 40 px (kept in the saved v3 record); Reset layout enabled now.
+`reset`: the "..." menu's Reset layout (the toast) closes the drawers and clears the saved key; its rows then say so.
+`moving`: "How panels open" opens the section help on its Moving panels part; the ? reaches it too.
+`fleet`: on Agents -> Live the bar adds the optional Activity tab ("add", then shown in the canvas's place); the rail
+holds the sections only in both widths; Setup and Local (paged) have no view bar, no "..." and no badge.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import time
@@ -29,31 +30,27 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_header_menus import PLUS_MENU, close_menus, more, open_plus, plus, plus_rows  # noqa: E402
+from tests.helpers.studio_header_menus import bar_rows, button, close_menus, more, plus  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 from tests.helpers.studio_quiet import RAIL_EXTRA  # noqa: E402
 
-WS = "document.querySelector('.workspace[data-section=\"roles\"]')"
-CELLS = f"""Object.fromEntries([...{WS}.querySelectorAll('.ws-cell')].map((c) => {{ const r = c.getBoundingClientRect();
-  return [c.dataset.panel, [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]]; }}))"""
+WS = q(".workspace[data-section=roles]")
+DRAWERS = f"[...{WS}.querySelectorAll('.stage-drawer')].map((d) => [d.dataset.panelIn, d.dataset.side, Math.round(d.getBoundingClientRect().width)])"
 ACTIVE = "(document.activeElement?.dataset.panel || document.activeElement?.dataset.testid || '')"
 BADGE = q("[data-testid=layout-badge]")
 TOASTS = "(document.querySelector('.toasts')?.textContent || '')"
-SAVED = "localStorage.getItem('halo.studio.layout.roles')"
+SAVED = "JSON.parse(localStorage.getItem('halo.studio.layout.roles') || 'null')"
+CANVAS = q(".workspace[data-section=roles] .stage-main [data-testid=roles-graph]")
 
 
 def _url(ctx, query: str) -> str:
-    return f"{ctx['base']}?{query}&feed=off&open=all#{ctx['frag']}"  # 3.3.2.0 R3: every panel open (tests/helpers/studio_full.py)
+    return f"{ctx['base']}?{query}&feed=off#{ctx['frag']}"
 
 
 def load(c, ctx, query: str, title: str) -> None:
     c.go("about:blank")  # the same address again would be a fragment hop, not a load
     c.go(_url(ctx, query))
     c.wait(f"{CUR}.startsWith('{title}')", 40)
-
-
-def arrow(c, key: str, vk: int) -> None:
-    mod_key(c, key, vk, 0, key)
 
 
 def enter(c) -> None:
@@ -74,68 +71,56 @@ def settle(c, expr: str, timeout: float = 8):
 
 
 def palette(c, text: str) -> list:
-    """Ctrl+K, `text` typed: [label, hint, aria-disabled] of the selected entry; the palette stays open."""
+    """Ctrl+K, `text` typed: [label, hint, aria-disabled] of the selected entry once it is the one asked for."""
     mod_key(c, "KeyK", 75, 2, "k")
     c.wait(f"!!{q('[data-testid=palette] input')} && document.activeElement === {q('[data-testid=palette] input')}", 10)
     c.type_text(text)
-    time.sleep(0.3)
-    return c.js(f"(() => {{ const o = {q('[data-testid=palette] [role=option][aria-selected=true]')}; return o && "
+    sel = q("[data-testid=palette] [role=option][aria-selected=true]")
+    c.wait(f"({sel}?.querySelector('.palette-label')?.textContent || '').includes({json.dumps(text.split(': ')[-1])})", 10)
+    return c.js(f"(() => {{ const o = {sel}; return o && "
                 f"[o.querySelector('.palette-label').textContent, o.querySelector('.palette-hint')?.textContent || '', o.getAttribute('aria-disabled')]; }})()")
 
 
 def menu(c, url, ctx) -> dict:
     load(c, ctx, "mode=roles&tour=off&view=workspace", "Agents")
-    c.wait(f"{WS} && {WS}.querySelectorAll('.ws-cell').length === 6", 40)
-    out = {"default": settle(c, CELLS), "badge_fresh": c.js(f"!!{BADGE}")}
-    out["rows"] = plus_rows(c)
-    out["groups"] = c.js(f"{qa('[data-testid=panels-menu] .hdr-menu-name')}.map((e) => e.textContent)")
-    close_menus(c)
-    c.js(f"{q('[data-testid=panels-add]')}.focus(); 1")
-    arrow(c, "ArrowDown", 40)
-    out["kbd_open"] = c.wait(f"!!{PLUS_MENU} && {ACTIVE}", 5)
-    arrow(c, "ArrowDown", 40)
-    out["kbd_down"] = c.js(ACTIVE)
-    arrow(c, "End", 35)
-    out["kbd_end"] = c.js(ACTIVE)
-    c.key("Escape")
-    out["kbd_esc"] = c.wait(f"!{PLUS_MENU} && {ACTIVE}", 5)
-    btn = q('[data-panel="roles-problems"] [data-testid=panel-menu-btn]')
-    c.click_on(btn)
-    c.wait(f"!!{q('[data-testid=panel-menu]')}", 5)
-    c.click_on(q("[data-testid=panel-menu] [data-item=collapse]"))
-    c.wait(f"{q('[data-panel=roles-problems] .panel')}.dataset.collapsed === 'true'", 5)
-    out["badge_custom"] = c.wait(f"{BADGE}?.textContent", 5)
-    out["rows_strip"] = plus_rows(c)
-    c.js(f"{q('[data-testid=panels-menu-item][data-panel=roles-problems]')}.focus(); 1")
+    c.wait(f"!!{CANVAS}", 40)
+    out = {"rows": bar_rows(c), "drawers_fresh": c.js(DRAWERS), "badge_fresh": c.js(f"!!{BADGE}")}
+    c.js(f"{button('roles-problems')}.focus(); 1")
+    out["focus"] = c.js(ACTIVE)
     enter(c)
-    out["brought_back"] = c.wait(f"!{PLUS_MENU} && !{q('[data-panel=roles-problems] .panel')}.dataset.collapsed && 'open'", 5)
+    c.wait(f"!!{q('.stage-drawer[data-panel-in=roles-problems] .panel-body')}", 10)
+    out["opened"] = [c.js(DRAWERS), c.js(f"{button('roles-problems')}.getAttribute('aria-pressed')"),
+                     c.js(f"!!{BADGE} || document.querySelector('.hud-strip').innerText.includes('layout yours')")]
+    c.click_on(q("[data-panel=roles-problems] [data-testid=panel-collapse]"))
+    c.wait(f"!{q('.stage-drawer[data-panel-in=roles-problems]')}", 10)
+    out["closed"] = [c.js(DRAWERS), c.js(f"{button('roles-problems')}.getAttribute('aria-pressed')")]
     return out
 
 
 def arrange(c, url, ctx) -> dict:
     c.js("localStorage.removeItem('halo.studio.layout.roles'); 1")
     load(c, ctx, "mode=roles&tour=off&view=workspace&page=2", "Agents")
-    c.wait(f"{WS} && {WS}.querySelectorAll('.ws-cell').length === 6", 40)
-    out = {"default": settle(c, CELLS), "pal_reset_fresh": palette(c, "Reset layout")}
+    c.wait(f"!!{CANVAS}", 40)
+    out = {"pal_reset_fresh": palette(c, "Reset layout")}
     c.key("Escape")
-    c.js(f"{q('[data-panel=roles-inspector] .panel')}.focus(); 1")
-    for _ in range(3):
-        mod_key(c, "ArrowLeft", 37, 1, "ArrowLeft")
-        time.sleep(0.1)
-    out["moved"] = settle(c, CELLS)
-    out["saved_moved"] = bool(c.js(SAVED))
-    out["pal_arrange"] = palette(c, "Arrange panels")
+    out["pal_show"] = palette(c, "Show panel: Inspector")
     c.key("Enter")
-    out["arrange_toast"] = c.wait(f"{TOASTS}.includes('Agents panels arranged') && 'arranged'", 10)  # 3.3.16.0 R1: Cast is Agents
-    out["arranged"] = settle(c, CELLS)
+    c.wait(f"!!{q('.stage-drawer[data-panel-in=roles-inspector] .panel-body')}", 10)
+    before = settle(c, DRAWERS)
+    c.js(f"{q('[data-panel=roles-inspector] .panel')}.focus(); 1")
+    mod_key(c, "ArrowLeft", 37, 1, "ArrowLeft")  # Alt+Left on a right drawer: wider
+    c.wait(f"JSON.stringify({DRAWERS}) !== {json.dumps(json.dumps(before))}", 10)
+    out["widened"] = [before, settle(c, DRAWERS), c.js(SAVED)]
+    out["pal_reset_now"] = palette(c, "Reset layout")
+    c.key("Escape")
     return out
 
 
 def reset(c, url, ctx) -> dict:
-    out = {"badge_before": c.js(f"{BADGE}?.textContent || ''")}
-    out["reset_ran"] = more(c, "layout-reset")
+    out = {"reset_ran": more(c, "layout-reset")}
     out["reset_toast"] = c.wait(f"{TOASTS}.includes('Agents layout reset') && 'reset'", 10)
-    out["after"] = [c.js(f"!!{BADGE}"), c.js(SAVED)]
+    c.wait(f"!{q('.workspace[data-section=roles] .stage-drawer')}", 10)
+    out["after"] = [c.js(DRAWERS), c.js(SAVED)]
     c.click_on(q("[data-testid=section-more]"))
     c.wait(f"!!{q('[data-testid=section-more-menu]')}", 5)
     out["more_rows"] = c.js(f"{qa('[data-testid=section-more-menu] [role=menuitem]')}.map((b) => [b.dataset.testid, b.disabled, b.querySelector('.menu-word')?.textContent || ''])")
@@ -163,30 +148,22 @@ def fleet(c, url, ctx) -> dict:
     c.wait(f"{CUR}.startsWith('Agents')", 15)
     c.click_on(q("[data-testid=agents-view-live]"))
     c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'live'", 10)
-    out["fleet_rows"] = plus_rows(c)
-    close_menus(c)
+    out["fleet_rows"] = bar_rows(c)
     plus(c, "fleet-activity")
-    out["tree"] = c.wait(f"!!{q('[data-testid=fleet-activity] [data-testid=fleet-log]')}", 20)
-    out["fleet_rows_after"] = settle(c, "1") and plus_rows(c)
-    close_menus(c)
+    out["tree"] = c.wait(f"!!{q('.stage-main [data-testid=fleet-activity] [data-testid=fleet-log]')}", 20)
+    out["fleet_rows_after"] = bar_rows(c)
     out["rail_icons"] = c.js(RAIL_EXTRA)
     c.click_on(q("[data-testid=rail-toggle]"))
     c.wait(f"{q('.app')}.dataset.rail === 'open'", 5)
     out["rail_open"] = c.js(RAIL_EXTRA)
     out["rail_open_w"] = c.js(f"Math.round({q('.rail')}.getBoundingClientRect().width)")
     c.click_on(q("[data-testid=rail-toggle]"))
-    c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))  # 3.4.0.0 D: Agents (Runs went: its "+" carries no RUNS)
-    c.wait(f"{CUR}.startsWith('Agents') && !!{q('[data-testid=roles-live-map]')}", 15)
-    open_plus(c)
-    out["orch_groups"] = c.js(f"{qa('[data-testid=panels-menu] .hdr-menu-name')}.map((e) => e.textContent)")
-    out["orch_new_run"] = c.js(f"!!{q('[data-testid=panels-menu] [data-testid=orchestra-new-run]')}")
-    close_menus(c)
-    load(c, ctx, "mode=setup&tour=off", "Setup")
-    time.sleep(1.0)
-    out["setup"] = c.js("['panels-add', 'section-more', 'layout-badge'].map((t) => !!document.querySelector(`[data-testid=${t}]`))")
-    load(c, ctx, "mode=local&tour=off", "Local")  # 3.3.5.0 R1: Local is paged too
-    time.sleep(1.0)
-    out["local"] = c.js("['panels-add', 'section-more', 'layout-badge'].map((t) => !!document.querySelector(`[data-testid=${t}]`))")
+    c.wait(f"{q('.app')}.dataset.rail !== 'open'", 5)
+    for name, title in (("setup", "Setup"), ("local", "Local")):
+        load(c, ctx, f"mode={name}&tour=off", title)
+        c.wait("!!document.querySelector('[data-testid=setup-rail], [data-testid=local-rail-page]')", 20)
+        out[name] = c.js("['.section-view:not([hidden]) [data-testid=viewbar]', '[data-testid=section-more]', '[data-testid=layout-badge]']"
+                         ".map((s) => !!document.querySelector(s))")
     return out
 
 

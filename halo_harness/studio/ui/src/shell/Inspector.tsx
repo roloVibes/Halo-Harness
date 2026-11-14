@@ -1,7 +1,7 @@
 // The Inspector: a panel's settings, opened from its title line's ... menu
 // (Settings); while it is open it follows the panel you click. What the
 // panel is and how to use it (its `about` and `help`), then the face
-// (Expanded / Compact), strip, float, the exact grid position, a per-panel
+// (Expanded / Compact), open or closed and (3.6.0.0 R0a) a drawer's width in px instead of grid cells, a per-panel
 // reset, and whatever settings the panel itself declares. Esc closes it.
 // 3.3.2.0 R1 "the inspector asks first": closed until something opens it (a
 // panel's Settings, a Design artboard's knobs); its close button or Esc gives
@@ -9,9 +9,10 @@
 // (`halo.studio.inspector`, lib/store.ts) and the next selection opens it again.
 import { Button, Field, Icon, Surface } from "../lib/ui";
 import { studio, useStore } from "../lib/store";
-import { arrange } from "../lib/workspace/grid";
-import { hidePanel, layoutStore, patchPanel, resetPanel, setLayout } from "../lib/workspace/persist";
-import { ROW, type PanelLayout } from "../lib/workspace/types";
+import { setDrawerWidth } from "../lib/workspace/controller";
+import { hidePanel, layoutStore, patchPanel, resetPanel } from "../lib/workspace/persist";
+import { contentWOf, roleOf } from "../lib/workspace/rules";
+import { DRAWER_MAX, DRAWER_MIN, type PanelLayout } from "../lib/workspace/types";
 import { sectionDef } from "../routes";
 
 function NumberField({ label, value, onChange, min, max }: { label: string; value: number; onChange: (n: number) => void; min: number; max?: number }) {
@@ -53,10 +54,8 @@ export function Inspector() {
   if (!spec || !p) return null;
   const close = () => studio.update(() => ({ inspector: null }));
   const patch = (next: Partial<PanelLayout>) => patchPanel(section, spec.id, next);
-  const place = (next: Partial<PanelLayout>) => {
-    const cur = layoutStore(section).get().layout;
-    if (cur) setLayout(section, arrange({ ...cur, [spec.id]: { ...cur[spec.id], ...next } }, spec.id));
-  };
+  const role = roleOf(spec);
+  const width = p.width ?? contentWOf(spec);
   const Settings = spec.settings;
   return (
     <aside className="inspector" aria-label="Inspector" data-testid="inspector">
@@ -88,25 +87,20 @@ export function Inspector() {
             ))}
           </div>
         )}
-        <div className="toggles">
-          <label className="check">
-            <input type="checkbox" checked={p.collapsed} onChange={(e) => patch({ collapsed: e.target.checked })} /> Collapse to a strip
-          </label>
-          <label className="check">
-            <input type="checkbox" checked={p.floating} onChange={(e) => patch({ floating: e.target.checked })} /> Float over the grid
-          </label>
-        </div>
-
-        {!p.floating && (
+        {role !== "main" && (
+          <div className="toggles">
+            <label className="check">
+              <input type="checkbox" checked={!p.collapsed} onChange={(e) => patch({ collapsed: !e.target.checked })} /> {role === "tab" ? "Shown in the main place" : "Open beside the main thing"}
+            </label>
+          </div>
+        )}
+        {role === "drawer" && (
           <div className="grid-fields">
-            <NumberField label="COLUMN" value={p.x} min={0} max={23} onChange={(x) => place({ x })} />
-            <NumberField label="ROW" value={p.y} min={0} onChange={(y) => place({ y })} />
-            <NumberField label="WIDTH" value={p.w} min={4} max={24} onChange={(w) => place({ w })} />
-            <NumberField label="HEIGHT" value={p.h} min={8} onChange={(h) => place({ h })} />
+            <NumberField label="WIDTH (PX)" value={width} min={DRAWER_MIN} max={DRAWER_MAX} onChange={(w) => setDrawerWidth(section, spec.id, w)} />
           </div>
         )}
         <div className="inspector-note mono muted">
-          {p.floating ? `${p.fw} x ${p.fh} px floating` : `${p.w}/24 columns, ${p.h * ROW} px tall`}
+          {role === "main" ? "the main thing of this view" : role === "tab" ? "a tab of the main thing" : `a ${spec.side === "left" ? "left" : "right"} drawer, ${width} px${p.width ? " (yours)" : " (its content's)"}`}
         </div>
         <Button size="sm" icon={<Icon name="reset" />} onClick={() => resetPanel(section, spec)}>
           Reset this panel

@@ -49,6 +49,9 @@ def _panel(pack, p: dict, section: str, *, core: bool, granted: bool) -> dict:
     out = {"id": N.qualify(pack.id, p["id"]), "name": p["id"], "pack": pack.id, "section": section,
            "title": p.get("title") or p["id"], "kind": kind, "w": p.get("w") or DEFAULT_W, "h": p.get("h") or DEFAULT_H,
            "help": str(p.get("help") or ""), "about": f"from pack {pack.id}", "collapsed": core}
+    for key in ("role", "side", "content_w"):  # 3.6.0.0 R0a (API 1.5): how it opens on Studio's stage; else w is mapped
+        if p.get(key):
+            out[key] = p[key]
     if kind == "artifact":  # 3.2.0.0 R5: drawn by its schema's x-halo-view (packs/typed.py), latest = the newest run's
         from halo_harness.packs.typed import artifact_schema, view_of
         src = p.get("source") or R.LATEST

@@ -2,7 +2,7 @@
 
 Read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
 
-Part of [Halo Studio](STUDIO.md), which lists every part. The rest of the Session section (the map, Cost, the strips) is in [Session](STUDIO-sections.md#session).
+Part of [Halo Studio](STUDIO.md), which lists every part. The rest of the Session section (the map, Cost, the view bar's drawers) is in [Session](STUDIO-sections.md#session).
 
 ## The steer's target
 
@@ -117,7 +117,7 @@ the same token as every route.
 
 The owner: "a box to just type into like it is the tui but it's in session view, and you can open it if you want like
 how the cost and map modules work. I love looking at live, but that's more for steering". **Prompt**
-(`session-prompt`) is a strip at the foot of Session (in the header's **+** menu like Cost and Map); `Alt+Enter`, the
+(`session-prompt`) is a drawer of Session (its button in the view bar, like Cost and Map); `Alt+Enter`, the
 palette's "Prompt: type into this session", `?prompt=1` and `halo studio --session <id> --prompt` open it with the
 keyboard in its box. It talks to the chosen session (the map's, else the newest live one here).
 

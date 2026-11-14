@@ -43,7 +43,7 @@ a { color: var(--accent); }
   background: linear-gradient(var(--text), var(--text)) 0 0 / 10px 1px no-repeat, linear-gradient(var(--text), var(--text)) 0 0 / 1px 10px no-repeat,
     linear-gradient(var(--text), var(--text)) 100% 100% / 10px 1px no-repeat, linear-gradient(var(--text), var(--text)) 100% 100% / 1px 10px no-repeat; }
 
-/* -- buttons: 30 px, mono, a hairline; on = the accent; one primary per screen at most -- */
+/* -- buttons: 32 px, mono, a hairline; on = the accent; one primary per screen at most (3.6.0.0 R0a, R7: nothing under 28) -- */
 .btn {
   display: inline-flex; align-items: center; gap: 8px; border-radius: var(--r-control);
   border: 1px solid var(--line); background: var(--surface); color: var(--text);
@@ -53,8 +53,8 @@ a { color: var(--accent); }
 .btn:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .btn.on, .btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--soft-accent); }
 .btn:disabled { opacity: .4; cursor: default; }
-.btn-sm { height: 26px; padding: 0 8px; font-size: 11.5px; }
-.btn-md { height: 30px; padding: 0 10px; }
+.btn-sm { height: 28px; padding: 0 8px; font-size: 12px; }
+.btn-md { height: 32px; padding: 0 12px; }
 .btn-lg { height: 36px; padding: 0 16px; font-size: 13px; font-weight: 600; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
 .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--text)); border-color: transparent; }
@@ -64,10 +64,10 @@ a { color: var(--accent); }
 .btn-danger { color: var(--bad); }
 .btn-busy { font-variant-numeric: tabular-nums; color: var(--muted); }
 .icon-btn {
-  display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0;
   border: 1px solid transparent; border-radius: var(--r-control); background: transparent; color: var(--muted); cursor: pointer;
 }
-.icon-btn-lg { width: 30px; height: 30px; }
+.icon-btn-lg { width: 32px; height: 32px; }
 .icon-btn:hover { color: var(--text); background: var(--surface-2); }
 .icon-btn[aria-pressed="true"], .icon-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); background: var(--soft-accent); }
 .icon { flex: none; display: block; }
@@ -76,12 +76,12 @@ a { color: var(--accent); }
 .kbd-group { display: inline-flex; gap: 3px; vertical-align: middle; }
 .kbd {
   display: inline-block; min-width: 16px; padding: 0 5px; height: 16px; line-height: 14px; text-align: center;
-  font-size: 10.5px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--r-chip);
+  font-size: 12px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--r-chip);
 }
 
 /* -- fields: 30 px, the page's ground, a leading glyph on a text input -- */
 .field { display: grid; gap: 4px; }
-.field-label { font-size: 10.5px; line-height: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+.field-label { font-size: 12px; line-height: 14px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .field-hint { font-size: 12px; color: var(--muted); }
 .field-error { font-size: 12px; color: var(--bad); }
 .field-control { position: relative; display: grid; }
@@ -97,12 +97,13 @@ a { color: var(--accent); }
 .input:focus { outline: none; border-color: var(--accent); }
 .check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .check input { accent-color: var(--accent); }
+summary { min-height: 28px; padding-block: 5px; box-sizing: border-box; cursor: pointer; } /* 3.6.0.0 R0a, R7: a disclosure is a control: 28 px at the least */
 .segmented { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-control); overflow: hidden; }
-.segmented button { border: 0; background: transparent; padding: 0 12px; height: 26px; cursor: pointer; color: var(--muted); font: 500 11.5px var(--mono); }
+.segmented button { border: 0; background: transparent; padding: 0 12px; height: 28px; cursor: pointer; color: var(--muted); font: 500 12px var(--mono); }
 .segmented button + button { border-left: 1px solid var(--line); }
 .segmented button.on { background: var(--soft-accent); color: var(--accent); }
 .badge {
-  font: 10px/16px var(--mono); padding: 0 6px; border-radius: var(--r-chip); color: var(--muted);
+  font: 12px/16px var(--mono); padding: 0 6px; border-radius: var(--r-chip); color: var(--muted);
   border: 1px solid var(--line); text-transform: uppercase; letter-spacing: .06em;
 }
 
@@ -110,7 +111,7 @@ a { color: var(--accent); }
 .tabs { position: relative; display: flex; gap: 0; padding: 0; border-bottom: 1px solid var(--line-soft); background: transparent; }
 .tab {
   position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
-  border: 0; background: transparent; color: var(--faint); cursor: pointer; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  border: 0; background: transparent; color: var(--faint); cursor: pointer; font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase;
 }
 .tab:hover { color: var(--text); }
 .tab.on { color: var(--accent); background: var(--bg); }

@@ -14,7 +14,7 @@
 .lc-lib-num { width: 5em; }
 .lc-lib-word { width: 7em; }
 .lc-lib-check input { accent-color: var(--accent); }
-.lc-lib-source { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; font-size: 11.5px; }
+.lc-lib-source { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; font-size: 12px; }
 .lc-lib-row { content-visibility: auto; contain-intrinsic-size: auto 72px; }
 .lc-lib-name { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--text);
   cursor: pointer; font-size: 13px; text-align: left; min-width: 0; overflow-wrap: anywhere; }
@@ -22,10 +22,10 @@
 .lc-lib-badge { display: inline-flex; }
 .lc-lib-gated { color: var(--warn); }
 .lc-lib-desc { margin: 0; font-size: 12px; }
-.lc-lib-pull { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; }
+.lc-lib-pull { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; font-size: 12px; }
 .lc-lib-pull code { overflow-wrap: anywhere; }
 .lc-lib-open { display: grid; gap: 6px; padding: 8px 10px; border-top: 1px dashed var(--line); }
-.lc-lib-why { margin: 0; font-size: 11.5px; overflow-wrap: anywhere; }
+.lc-lib-why { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .lc-lib-others { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .lc-lib-other { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; padding: 3px 0;
   border-bottom: 1px solid var(--grid-line); }

@@ -86,7 +86,7 @@ Hand to..., Record; the same one Session's strip and Cast's Live tab draw).
 **Attention** is a chip in Agents' bar on every view: the count of decisions that wait on you, amber when there are
 any; a click or `A` opens the queue over the page (one key per row: `A` / `R` / `S` / `O`), `A` or Esc closes it; the
 palette has **Agents: Attention** ([STUDIO-live-panels.md](STUDIO-live-panels.md)). **Activity** (the timeline and the
-merged live log) is an optional panel of Live, closed on load (the header's **+**, the palette).
+merged live log) is an optional tab of Live, closed on load (its button in the view bar, the palette).
 
 ### Workflows: the board of squares (3.3.16.0 R3)
 

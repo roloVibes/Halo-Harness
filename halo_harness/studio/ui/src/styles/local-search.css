@@ -19,20 +19,20 @@
 .ls-more summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .ls-group { display: grid; gap: 4px; padding: 6px 0; border-top: 1px solid var(--grid-line); }
 .ls-caps { display: flex; flex-wrap: wrap; gap: 4px; }
-.ls-cap { font-size: 11px; }
+.ls-cap { font-size: 12px; }
 .ls-cap[data-truth="verified"] .ls-glyph { color: var(--ok); }
 .ls-cap[data-truth="declared"] .ls-glyph { color: var(--accent); }
 .ls-cap[data-truth="expected"] { color: var(--muted); border-style: dashed; }
 .ls-cap[data-truth="probe"] { color: var(--warn); border-color: var(--warn-soft); }
-.ls-verdicts, .ls-cost, .ls-rank, .ls-crash { margin: 0; font-size: 11.5px; overflow-wrap: anywhere; }
+.ls-verdicts, .ls-cost, .ls-rank, .ls-crash { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
 .ls-crash { color: var(--bad); }
 .ls-crash-chip { color: var(--bad); border-color: var(--bad-soft); }
 .lc-lib-row[data-greyed] { opacity: 0.55; }
 .lc-lib-row[data-greyed]:hover { opacity: 0.85; }
-.ls-verify, .ls-stage { font-size: 11.5px; }
+.ls-verify, .ls-stage { font-size: 12px; }
 .ls-verify[data-ok], .ls-stage[data-state="done"] { color: var(--ok); }
 .ls-stage[data-state="failed"] { color: var(--bad); }
-.ls-offer { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 11.5px; }
+.ls-offer { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
 
 @media (max-width: 760px) {
   .ls-top { position: static; }

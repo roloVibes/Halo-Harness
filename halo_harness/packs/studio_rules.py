@@ -152,6 +152,12 @@ def _panel(L: _Lines, key: str, p: dict, root, manifest, own: dict) -> None:
         v = p.get(dim)
         if v is not None and (not isinstance(v, int) or isinstance(v, bool) or not lo <= v <= hi):
             L.add(f"{key}.{dim}", f" {v!r} is not {lo}..{hi}", dim, v)
+    for k, ok in (("role", ("main", "drawer", "tab")), ("side", ("left", "right"))):  # 3.6.0.0 R0a (API 1.5): how it opens
+        if p.get(k) is not None and p.get(k) not in ok:
+            L.add(f"{key}.{k}", f" {p.get(k)!r} is not one of {', '.join(ok)}", k, p.get(k))
+    cw = p.get("content_w")
+    if cw is not None and (not isinstance(cw, int) or isinstance(cw, bool) or not 360 <= cw <= 560):
+        L.add(f"{key}.content_w", f" {cw!r} is not 360..560 (px)", "content_w", cw)
     if p.get("columns") is not None and kind != "table":
         L.add(f"{key}.columns", ": columns are a table panel's", "columns")
     links = _list(p, "links")

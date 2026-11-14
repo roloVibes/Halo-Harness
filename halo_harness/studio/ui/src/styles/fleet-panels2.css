@@ -9,16 +9,16 @@
 .ftl { display: grid; gap: 4px; min-width: 0; }
 .ftl-bar { display: flex; align-items: center; gap: 8px; }
 .ftl-bar .rail-label { padding: 0; }
-.ftl-bar .segmented button { padding: 2px 10px; font-size: 11px; }
+.ftl-bar .segmented button { padding: 2px 10px; font-size: 12px; }
 .ftl-wrap { position: relative; min-width: 0; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--bg) 60%, transparent); padding: 4px 6px 2px; }
 .ftl-svg { display: block; overflow: visible; }
 .ftl-grid line { stroke: var(--grid-line); stroke-width: 1; }
-.ftl-grid text { font: 9.5px var(--mono); fill: var(--faint); }
-.ftl-none { font: 11px var(--mono); fill: var(--muted); }
+.ftl-grid text { font: 12px var(--mono); fill: var(--faint); }
+.ftl-none { font: 12px var(--mono); fill: var(--muted); }
 .ftl-lane { cursor: pointer; }
 .ftl-hit { fill: transparent; }
 .ftl-lane:hover .ftl-hit, .ftl-lane[data-selected] .ftl-hit { fill: var(--accent-soft); }
-.ftl-name { font: 600 10.5px var(--sans); fill: var(--text); }
+.ftl-name { font: 600 12px var(--sans); fill: var(--text); }
 .ftl-lane[data-selected] .ftl-name { fill: var(--accent); }
 .ftl-seg { fill: var(--faint); opacity: .85; }
 .ftl-seg[data-state="running"] { fill: var(--accent); filter: drop-shadow(0 0 3px var(--accent)); }
@@ -26,13 +26,13 @@
 .ftl-seg[data-state="done"] { fill: var(--ok); opacity: .6; }
 .ftl-seg[data-state="failed"], .ftl-seg[data-state="stopped"] { fill: var(--bad); opacity: .75; }
 .ftl-tick { stroke: var(--text); stroke-width: 1.2; opacity: .8; }
-.ftl-tip { position: absolute; z-index: 5; pointer-events: none; white-space: pre; font-size: 10.5px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: var(--glow); }
+.ftl-tip { position: absolute; z-index: 5; pointer-events: none; white-space: pre; font-size: 12px; padding: 4px 8px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--line-strong); box-shadow: var(--glow); }
 
 /* -- Activity: the filters and the live log ------------------------------------------- */
 .fac-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.fac-filters .btn { height: 26px; }
-.fac-pick { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
-.fac-pick select { max-width: 118px; height: 26px; font-size: 11.5px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-2); color: var(--text); }
+.fac-filters .btn { height: 28px; }
+.fac-pick { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.fac-pick select { max-width: 118px; height: 28px; font-size: 12px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-2); color: var(--text); }
 /* 3.1.4.0 R1: the log is a size container. Wide, a line is one row (time, kind, who, text; who shrinks to its
    ellipsis first, the text keeps >= 160 px and breaks at words); under 440 px time, kind and who share the
    first row and the text takes the full width under them (the owner's live check: a column of single letters). */
@@ -44,14 +44,14 @@
   .fac-line .fac-text { grid-column: 1 / -1; }
 }
 .fac-line:hover { background: var(--accent-soft); }
-.fac-ts { font-size: 10.5px; color: var(--faint); }
-.fac-kind { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.fac-ts { font-size: 12px; color: var(--faint); }
+.fac-kind { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .fac-line[data-kind="tool"] .fac-kind { color: var(--accent); }
 .fac-line[data-kind="ask"] .fac-kind, .fac-line[data-kind="ask"] .fac-text { color: var(--warn); }
 .fac-line[data-kind="error"] .fac-kind, .fac-line[data-kind="error"] .fac-text { color: var(--bad); }
 .fac-line[data-kind="fleet"] .fac-kind { color: var(--accent-2); }
 .fac-line[data-kind="text"] .fac-text { color: var(--muted); }
-.fac-who { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fac-who { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fac-text { min-width: 160px; overflow-wrap: break-word; }
 
 /* -- the map: conflicts and project rooms --------------------------------------------- */
@@ -62,12 +62,12 @@
 .fa > * { flex: none; }
 .fa > .fa-stream { flex: 1 1 0; min-height: 90px; }
 .fa-extras { display: flex; flex-wrap: wrap; gap: 4px; }
-.fa-extras .btn { font-size: 11.5px; }
+.fa-extras .btn { font-size: 12px; }
 .fa-none { display: grid; gap: 12px; align-content: start; }
 .fa-history { display: grid; gap: 4px; }
 .fa-history ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fa-history li { display: flex; align-items: baseline; gap: 8px; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
-.fa-history li .mono { font-size: 10.5px; flex: none; }
+.fa-history li .mono { font-size: 12px; flex: none; }
 .fa-history-task { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* -- the R4 dialogs --------------------------------------------------------------------- */
@@ -81,7 +81,7 @@
 .fdg-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .fdg-head .rail-label { padding: 0; color: var(--accent); }
 .fdg-quiet { margin: 0; font-size: 12px; }
-.fdg-totals { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); }
+.fdg-totals { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--muted); }
 .fdg-totals b { color: var(--text); font-size: 13px; }
 .fdg-bad, .fdg-bad b { color: var(--bad); }
 .fdg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }

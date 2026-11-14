@@ -34,10 +34,9 @@ def shots(c, rig, folder: str) -> dict:
         time.sleep(2.0)
         shot(f"roles-live@{w}.png", w, h)
     rig_load(c, rig, "session", "Session")
-    c.click_on(q("[data-testid=panels-add]"))
-    time.sleep(0.6)
+    c.click_on(q(".section-view:not([hidden]) [data-testid=viewbar-btn][data-panel=session-cost]"))  # 3.6.0.0 R0a: a drawer from the view bar
+    c.wait(f"!!{q('.stage-drawer[data-panel-in=session-cost] .panel-body')}", 10)
     shot("session-plus.png", 1440, 900)
-    c.key("Escape")
     rig_load(c, rig, "session", "Session")
     c.click_on(q("[data-testid=focus-toggle]"))
     time.sleep(0.6)

@@ -17,10 +17,14 @@ export type PackPanel = {
   kind: PanelKind;
   w: number;
   h: number;
+  /** 3.6.0.0 R0a (packs API 1.5): how it opens on the stage; absent: its cells are mapped (a right drawer, w x 60 px). */
+  role?: "main" | "drawer" | "tab";
+  side?: "left" | "right";
+  content_w?: number;
   help: string;
   /** The source line, "from pack <id>": the first line of the panel's ? help (3.3.2.0 R3). */
   about: string;
-  /** In a core section it starts as a strip. */
+  /** Old: it started as a strip (every drawer starts closed since 3.6.0.0 R0a). */
   collapsed: boolean;
   source?: string;
   /** The api path of its source (markdown, table, a granted bundle). */

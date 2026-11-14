@@ -9,8 +9,8 @@ import type { GroupTag } from "./groups";
 
 export const G_PAD = 12;
 export const G_GAP = 16; // between two rows of a box's grid
-const HEAD = 54; // the title bar: the task, then the counts line
-const HEAD_WHY = 72; // with the second line (Auto's pick, a square's DOES)
+const HEAD = 58; // the title bar: the task, then the counts line (3.6.0.0 R0a: 12 px text at the least)
+const HEAD_WHY = 78; // with the second line (Auto's pick, a square's DOES)
 
 type Item = { kind: "node" | "group"; id: string; kids: Item[]; rows: Item[][]; w: number; h: number; head: number; open: boolean };
 export type GroupBox = { g: GroupTag; x: number; y: number; w: number; h: number; head: number; open: boolean; depth: number;

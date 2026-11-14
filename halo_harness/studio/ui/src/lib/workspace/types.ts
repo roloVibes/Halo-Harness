@@ -1,26 +1,52 @@
-// The workspace's types. A section declares its panels as PanelSpec[]; the
-// user's arrangement is a Layout (one PanelLayout per panel id), kept per
-// section in localStorage under `halo.studio.layout.<section>`.
+// The workspace's types (3.6.0.0 R0a "room for everything in Studio": the grid of tiles became a stage). A section
+// declares its panels as PanelSpec[]: one is the view's main thing (`role: "main"`, most of the room), the others
+// open as a drawer beside it (`"drawer"`, full height, pushing the main thing, as wide as its content says:
+// `contentW`) or as a tab of the main thing (`"tab"`). What is open is a Layout (one PanelLayout per panel id in the
+// view), kept per section in localStorage under `halo.studio.layout.<section>` (persist.ts, v3).
 import type { ComponentType } from "react";
 import type { MotionState } from "../motion";
 
-export const COLS = 24; // grid columns
-export const ROW = 8; // px per grid row
-export const STRIP_ROWS = 7; // a collapsed panel's height in rows: 56 px, a 44 px strip inside the 12 px gutter (3.3.15.0 R3; 5 squeezed it to 28)
-export const MIN_W = 4;
-export const MIN_H = 8;
-export const MOVE_ROWS = 4; // Alt+Up/Down moves (and Alt+Shift resizes) by this many rows
+/** A drawer's width: its content's, between these (R2). */
+export const DRAWER_MIN = 360;
+export const DRAWER_MAX = 560;
+export const DRAWER_STEP = 40; // Alt+Left/Right widen / narrow the focused drawer by this
+/** The drawers together leave the main thing at least this share of the stage's width (R1). */
+export const MAIN_SHARE = 0.6;
+/** Breakpoints (R9): under WIDE one drawer at a time; under MID drawers float over the main thing; under PHONE the
+ *  rail is a menu. */
+export const BP_WIDE = 1440;
+export const BP_MID = 1100;
+export const BP_PHONE = 760;
+/** A grid column of a pack's old cell declaration, in px: `w` columns -> contentW (the mapping rule). */
+export const CELL_PX = 60;
 
 export type Face = "glance" | "detail";
+export type Role = "main" | "drawer" | "tab" | "dock";
+export type Side = "left" | "right";
 
 export type PanelSpec = {
   id: string;
   title: string;
-  /** Grid cells: x 0..23, w columns; y and h in 8 px rows. h <= 0 fills the visible height (h < 0 leaves -h rows below it). */
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /** 3.6.0.0 R0a: the main thing, a drawer (the default), a tab of the main thing, or a bar docked at the main thing's
+   *  foot (`dock`: always shown, as tall as its content; a prompt box). `primary` (3.3.2.0) = "main". */
+  role?: Role;
+  /** A drawer the view opens on its first load (its own default, e.g. a builder's list on the left); a person's
+   *  choice, once kept, wins. */
+  startOpen?: boolean;
+  /** Its share of a stacked drawer's height in the full arrangement (`?open=all`, the drivers' door; default 1). */
+  fullGrow?: number;
+  /** A drawer's side (default right). */
+  side?: Side;
+  /** A drawer's width from its content, px (clamped to 360-560). */
+  contentW?: number;
+  /** A short live word for the view bar's button ("$0.42", "1"): a hook, called while the bar draws. */
+  useCount?: () => string;
+  /** Grid cells of a pack that declares its panels the old way (packs API 1.x): mapped by stage.ts (cells -> a
+   *  drawer, `w` -> contentW = w x 60 px). Core specs do not set them. */
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
   minW?: number;
   minH?: number;
   /** The face it opens on (default "detail", the full face; "glance" is the compact one). */
@@ -33,35 +59,29 @@ export type PanelSpec = {
   settings?: ComponentType;
   /** A hook returning the panel's state motion (called inside the panel). */
   useMotion?: () => MotionState;
-  /** Opens as a one-line strip in the full arrangement (`?open=all`; 3.3.2.0 R3: the section's default is quiet.ts's). */
+  /** Closed even in the full arrangement (`?open=all`); every drawer starts closed on a normal load anyway. */
   collapsed?: boolean;
-  /** 3.3.2.0 R3: the section's one thing: it fills the stage by default, the other panels start as strips at the foot. */
+  /** 3.3.2.0 R3: the section's one thing; the same as `role: "main"`. */
   primary?: boolean;
-  /** Not in the default arrangement: the palette or the header's "+" menu adds it (showPanel). */
+  /** Not in the view until a door, the view bar's "more" or the palette adds it (showPanel). */
   optional?: boolean;
-  /** One line: what this panel is (3.3.2.0 R3: the first line of its ? help, the Inspector and the section help; not in the title bar). */
+  /** One line: what this panel is (the first line of its ? help, the Inspector and the section help). */
   about?: string;
   /** Three to five short lines, one per line: how to use it (the ? popover, the Inspector). */
   help?: string;
-  /** Keep the body mounted while collapsed (an iframe keeps its state). */
+  /** Keep the body mounted while closed (an iframe keeps its state). */
   keepAlive?: boolean;
   testid?: string;
 };
 
-export type Rect = { x: number; y: number; w: number; h: number };
-
-export type PanelLayout = Rect & {
+/** One panel in the view: `collapsed` = a closed drawer, or a tab (or the main thing) not shown now. */
+export type PanelLayout = {
   collapsed: boolean;
-  floating: boolean;
-  /** Floating position and size in px, relative to the workspace. */
-  fx: number;
-  fy: number;
-  fw: number;
-  fh: number;
   face: Face;
+  /** A drawer's width set by hand (px); absent: its contentW. */
+  width?: number;
+  /** When it was opened last (the oldest open drawer closes first when the room runs out). */
   z: number;
 };
 
 export type Layout = Record<string, PanelLayout>;
-
-export type Gesture = "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
