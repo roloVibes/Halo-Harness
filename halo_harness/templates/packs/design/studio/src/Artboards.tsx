@@ -99,7 +99,7 @@ export function ArtboardsDetail() {
     if (el) setZoom(Math.max(0.25, Math.min(1, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
   };
   const zoomAt = useZoomPoint(scroll, zoom, setZoom); // 3.4.1.3: Ctrl / Cmd + wheel or a pinch, the keys, the drag (the shell's)
-  useCanvasNav(scroll, { zoom, zoomAt, fit, min: 0.25, max: 2, id: slug ? `design|${slug}` : undefined });
+  const nav = useCanvasNav(scroll, { zoom, zoomAt, fit, min: 0.25, max: 2, id: slug ? `design|${slug}` : undefined }); // 3.6.0.0: refits on a new box
   if (!data) return <Empty title="No project open" body="Pick one in Projects, or make a new one." />;
   return (
     <div className="da">
@@ -111,11 +111,11 @@ export function ArtboardsDetail() {
         </span>
         <DeviceSelect compact />
         <span className="spacer" />
-        <Button size="sm" variant="ghost" onClick={fit} title="Fit every card in the panel">Fit</Button>
+        <Button size="sm" variant="ghost" onClick={nav.fit} title="Fit every card in the panel">Fit</Button>
         <span className="segmented" role="group" aria-label="Zoom" title={NAV_HELP}>
-          <button onClick={() => zoomAt(Math.max(0.25, zoom / 1.2))} aria-label="Zoom out">-</button>
-          <button onClick={() => zoomAt(1)} title="Back to 100%">{Math.round(zoom * 100)}%</button>
-          <button onClick={() => zoomAt(Math.min(2, zoom * 1.2))} aria-label="Zoom in">+</button>
+          <button onClick={() => nav.zoomAt(Math.max(0.25, zoom / 1.2))} aria-label="Zoom out">-</button>
+          <button onClick={() => nav.zoomAt(1)} title="Back to 100%">{Math.round(zoom * 100)}%</button>
+          <button onClick={() => nav.zoomAt(Math.min(2, zoom * 1.2))} aria-label="Zoom in">+</button>
         </span>
         <Button size="sm" disabled={!boards.length} onClick={() => openDialog({ kind: "export" })} data-testid="design-export">Export...</Button>
         <Button size="sm" disabled={busy === "handoff"} onClick={() => void handoff()} data-testid="design-handoff">Handoff</Button>

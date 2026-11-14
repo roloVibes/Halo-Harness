@@ -25,12 +25,12 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_room_js import CANVASES, DRAWER_BTNS, MEASURE, btn, drawn  # noqa: E402
+from tests.helpers.studio_room_js import CANVASES, DRAWER_BTNS, DRAWINGS, MEASURE, btn, drawn  # noqa: E402
 
 SIZES = ((1280, 800), (1500, 900), (1920, 1000))
 VIEWS = (("session", "session", ""), ("agents", "agents", "&view=cast"), ("packs", "packs", ""), ("local", "local", ""),
          ("setup", "setup", ""), ("settings", "settings", ""))
-READY = {"session": ".stage-main [data-testid=session-live] .panel-body", "agents": ".stage-main [data-testid=roles-graph] .panel-body",
+READY = {"session": ".stage-main [data-testid=session-live] .panel-body", "agents": ".stage-main [data-testid=roles-graph] .rc-scroll [data-testid=roles-card]",  # 3.6.0.0: its drawing drawn
          "packs": ".stage-main [data-testid=pm-installed] .panel-body", "local": "[data-testid=local-rail-page]",
          "setup": "[data-testid=setup-rail]", "settings": "[data-testid=settings-rail-group]"}
 SHOTS: list = []
@@ -42,13 +42,16 @@ def size(c, w: int, h: int) -> None:
     c.wait(f"innerWidth === {w} && innerHeight === {h}", 10)
 
 
-def measure(c, timeout: float = 20) -> dict:
-    """The page's room once two reads 300 ms apart agree (a view lays out a moment after its first paint)."""
-    expr = f"{MEASURE}({json.dumps(list(CANVASES))})"
+def measure(c, timeout: float = 20, expr: str = "") -> dict:
+    """The page's room once two reads 300 ms apart agree (a view lays out a moment after its first paint); with `expr`,
+    that read instead (3.6.0.0 R8: the drawings, once a drawer's re-fit has settled), its record under "drawings"."""
+    if not expr:
+        got = measure(c, timeout, f"{MEASURE}({json.dumps(list(CANVASES))})")
+        return {**got, "drawings": measure(c, timeout, DRAWINGS)} if isinstance(got, dict) and got else got
     end, last = time.time() + timeout, None
     while time.time() < end:
         got = c.js(expr)
-        if got and got == last:
+        if got == last and (got or isinstance(got, list)):  # no drawing on a view is an answer too
             return got
         last = got
         time.sleep(0.3)
@@ -104,11 +107,11 @@ def press(c, pid: str) -> None:
 
 def breakpoints(c, rig) -> dict:
     """R9: under 1440 one drawer at a time; at 1440 and up one per side while both leave the main thing its 60 % (at
-    2200 a left and a right one together; at 1920 the older closes); under 1100 it floats; under 760 the rail is a menu."""
+    2560 a left and a right one together; at 1920 the older closes); under 1100 it floats; under 760 the rail is a menu."""
     out: dict = {}
     # 1920: two 360 px drawers would leave the main thing 59.7 % of the stage, so R1 closes the older (`full_hd`); a left and
-    # a right drawer stand together on a wider window (`wide`, 2200 px)
-    for (w, h), key in (((1280, 800), "mid"), ((1920, 1000), "full_hd"), ((2200, 1200), "wide"), ((1024, 768), "narrow")):
+    # a right drawer stand together on a wider window (`wide`, 2560 px: 3.6.0.0, the Map drawer is 560 px wide)
+    for (w, h), key in (((1280, 800), "mid"), ((1920, 1000), "full_hd"), ((2560, 1300), "wide"), ((1024, 768), "narrow")):
         size(c, w, h)
         c.js("try { localStorage.clear(); } catch (e) {} 1")
         load(c, rig.url("session", f"&bp={key}"), "session")  # its own address: the same one again would be a fragment hop
@@ -125,6 +128,31 @@ def breakpoints(c, rig) -> dict:
     out["phone_menu"] = c.js("getComputedStyle(document.querySelector('.rail')).display")
     c.js("document.querySelector('[data-testid=rail-menu-btn]').click(); 1")
     return {"bp": out}
+
+
+CAST = ".section-view:not([hidden]) .rc"
+PCT = f"document.querySelector('{CAST} .rc-zoom button:nth-child(2)')?.textContent"
+
+
+def hand(c, rig) -> dict:
+    """3.6.0.0 R8: a zoom by hand survives a drawer opening (Agents' Cast at 1500 x 900); Fit makes the drawing automatic
+    again, so the next box change fits it anew."""
+    size(c, 1500, 900)
+    c.js("try { localStorage.clear(); } catch (e) {} 1")
+    load(c, rig.url("agents", "&view=cast&hand=1"), "agents")
+    out = {"auto": measure(c, 10, PCT)}
+    for _ in range(2):
+        c.js(f"document.querySelector('{CAST} .rc-zoom button[aria-label=\"Zoom in\"]').click(); 1")
+    out["hand"] = c.wait(f"{PCT} !== {json.dumps(out['auto'])} && {PCT}", 10)
+    first = (c.js(DRAWER_BTNS) or [""])[0]
+    press(c, first)
+    out["after_drawer"] = measure(c, 10, PCT)
+    c.js(f"document.querySelector('{CAST} button[title^=\"Fit the canvas\"]').click(); 1")
+    out["fit"] = measure(c, 10, PCT)
+    c.js(f"{btn(first)}.click(); 1")
+    c.wait(f"!{drawn(first)}", 20)
+    out["fit_after_close"] = measure(c, 10, PCT)
+    return {"hand": out}
 
 
 DRAWER_SET = "[...document.querySelectorAll('.section-view:not([hidden]) .stage-drawer')].map((d) => d.dataset.panelIn)"
@@ -177,7 +205,7 @@ class RoomDriver(Driver):
             rig.full = False
             rig.plan = ""
             self.out["seed"] = seed_long_names(rig)
-            yield ((walk, (c, rig)), (breakpoints, (c, rig)), (kept, (c, rig)))
+            yield ((walk, (c, rig)), (breakpoints, (c, rig)), (kept, (c, rig)), (hand, (c, rig)))
 
 
 if __name__ == "__main__":

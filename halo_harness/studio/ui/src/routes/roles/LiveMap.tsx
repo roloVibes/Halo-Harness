@@ -41,12 +41,13 @@ import { usePathIds } from "../agents/live/useWaits";
 import { fitZoom, levelOf, NEAR_H, setLevel, usePinnedLevel } from "../agents/live/levels"; // 3.3.18.0 part 4: zoom that changes meaning
 import { LevelSwitch } from "../agents/live/LevelSwitch";
 import { useZoomAnchor } from "../agents/live/zoomAnchor";
-import { NAV_HELP, READABLE, recallZoom, useCanvasNav } from "../../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same everywhere
+import { fitScale, NAV_HELP, recallZoom, useCanvasNav } from "../../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same everywhere
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { selectLive } from "./liveModel";
 import { LiveGroupBox, LiveNodeCard } from "./LiveNode";
 import { useRoles } from "./store";
 
+const MAP_TEXT_PX = 12; // the Map's boxes: their smallest text at 100 % (R6: never under 12)
 const LIVE = ["queued", "running", "waiting", "paused"];
 const MOTION: Record<string, string> = { working: "working", waiting: "waiting", done: "done", failed: "error" }; // lib/motion's words
 
@@ -76,7 +77,6 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const closed = useClosed();
   const navId = `${thumb ? "map" : "live"}|here`; // 3.4.1.3 ids; 3.5.0.0: one machine, no scope
   const [zoom, setZoom] = useState(() => recallZoom(navId) ?? 1);
-  const manual = useRef(recallZoom(navId) !== undefined); // the person zoomed: the Map's refit on a resize leaves it
   const pinned = usePinnedLevel();
   const level = thumb ? "mid" : pinned || levelOf(zoom); // 3.3.18.0 part 4: far | mid | near by the zoom (levels.ts; `?level=` pins it)
   useEffect(() => void (!thumb && setLevel(level)), [thumb, level]);
@@ -86,28 +86,27 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const anchorAt = useZoomAnchor(scroll, zoom, `${level}|${geo.width}x${geo.height}`, setZoom);
-  const zoomAt = (z: number, px?: number, py?: number) => ((manual.current = true), anchorAt(z, px, py));
   const fit = () => {
     const el = scroll.current;
     if (!el) return;
-    if (thumb) { // 3.4.1.3: fit to the panel, never below the size its text reads at: then the main agent, centred
-      const all = Math.min(1, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height);
-      if (all >= READABLE) return setZoom(all);
-      const main = tree.boxes.find((b) => !b.from) || tree.boxes[0];
-      setZoom(READABLE);
-      if (main) requestAnimationFrame(() => el.scrollTo((main.x + main.w / 2) * READABLE - el.clientWidth / 2, (main.y + main.h / 2) * READABLE - el.clientHeight / 2));
+    if (thumb) { // 3.6.0.0 R8 (lib/canvasNav.ts fitScale): fit to the box, never below 12 px text: then from the picked (or main) agent
+      const f = fitScale(el.clientWidth, el.clientHeight, geo.width, geo.height, { textPx: MAP_TEXT_PX });
+      setZoom(f.zoom);
+      const main = tree.boxes.find((b) => !!b.node.key && b.node.key === selected) || tree.boxes.find((b) => !b.from) || tree.boxes[0];
+      if (f.more && main) requestAnimationFrame(() => el.scrollTo(main.x * f.zoom - 12, (main.y + main.h / 2) * f.zoom - el.clientHeight / 2));
       return;
     }
     const mid = level === "far" ? (plan.on ? plan.midOf() : null) || tree : geo, far = plan.farOf() || mid; // part 4: Fit picks the level
     if (pinned) return setZoom(Math.max(0.25, Math.min(1.25, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height))); // a pinned level: a plain fit
     setZoom(fitZoom(el.clientWidth, el.clientHeight, mid.width, mid.height, far.width, far.height));
   };
-  useAutoFit(scroll, thumb, `${mode}|${sid}|${density}`, nodes.length, geo, () => { if (!manual.current) fit(); }, setZoom);
-  useCanvasNav(scroll, { zoom, zoomAt, fit: () => ((manual.current = false), fit()), id: navId });
+  const nav = useCanvasNav(scroll, { zoom, zoomAt: anchorAt, fit, id: navId }); // R8: it fits again when its box changes
+  const zoomAt = nav.zoomAt;
+  useAutoFit(scroll, thumb, `${mode}|${sid}|${density}`, nodes.length, geo, () => { if (!nav.byHand()) fit(); }, setZoom);
   const more = thumb && zoom > 0 && (geo.width * zoom > (scroll.current?.clientWidth || 1e9) + 2 || geo.height * zoom > (scroll.current?.clientHeight || 1e9) + 2);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey || thumb) return;
-    if (e.key === "f" && !e.shiftKey) fit();
+    if (e.key === "f" && !e.shiftKey) nav.fit();
     else return;
     e.preventDefault();
   };
@@ -119,12 +118,10 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   return (
     <div className="rc rlm" data-testid="roles-live-map" data-session={mode === "here" ? sid || undefined : undefined} data-scope={mode} data-nodes={agents.length}
          data-density={density} data-replay={replay || undefined}>
-      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} zoom={zoom} setZoom={zoomAt} fit={fit} empty={empty && loaded} plan={plan}
+      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} zoom={zoom} setZoom={zoomAt} fit={nav.fit} empty={empty && loaded} plan={plan}
                                                     levels={<LevelSwitch level={level} zoomAt={zoomAt} />} />}
       {!thumb && <ReplayBanner />}
       <LiveNow nodes={nodes} now={now} on={!thumb} plan={plan.geo} />
-      {thumb && <div className="cz-thumb"><ZoomButtons zoom={zoom} zoomAt={zoomAt} fit={() => ((manual.current = false), fit())} />
-        {more && <span className="cz-more mono muted" data-testid="map-more" title={NAV_HELP}>more than shows: Fit shows all</span>}</div>}
       <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Agents Live: the agent tree"
            onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
         {!loaded ? (
@@ -155,6 +152,8 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
           </div></>
         )}
       </div>
+      {thumb && /* 3.6.0.0 R8: the line under the map, never over it */ <div className="cz-thumb">{more && <span className="cz-more mono muted" data-testid="map-more" title={NAV_HELP}>more than fits at a readable size: drag to pan, Ctrl + wheel to zoom out</span>}
+        <ZoomButtons zoom={zoom} zoomAt={zoomAt} fit={nav.fit} /></div>}
       {!thumb && (replay || (mode === "here" && !!sid && !empty)) && <Scrubber sid={sid} title={refs.find((r) => r.id === sid)?.title || ""} lineup={plan.lineup}
                                                                          started={firstStart(nodes)} />}
       {!thumb && <HistoryDrawer />}
@@ -169,7 +168,8 @@ const firstStart = (nodes: { started: number | null }[]): number | null => {
   return isFinite(t) ? t : null;
 };
 
-/** The first draw of a tree (a scope, session or density change) fits one bigger than the page; the thumbnail always fits.
+/** The first draw of a tree (a scope, session or density change) fits one bigger than the page; the thumbnail fits on
+ *  every new shape (its box changing size is lib/canvasNav.ts's, R8).
  *  A layout effect: the new tree is never painted at the old one's zoom (fleet -> this halo showed the fleet's zoom for
  *  a frame, and a + pressed in that frame was overwritten by the late fit, so Fit seemed to do nothing). */
 function useAutoFit(scroll: RefObject<HTMLDivElement | null>, thumb: boolean, shape: string, count: number, geo: { width: number; height: number },
@@ -184,11 +184,4 @@ function useAutoFit(scroll: RefObject<HTMLDivElement | null>, thumb: boolean, sh
     if (geo.width > el.clientWidth || geo.height > el.clientHeight) fit();
     else setZoom(1);
   }, [shape, count, geo.width, geo.height]);
-  useEffect(() => {
-    const el = scroll.current;
-    if (!el || !thumb) return;
-    const ro = new ResizeObserver(() => fit());
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [thumb, geo.width, geo.height]);
 }

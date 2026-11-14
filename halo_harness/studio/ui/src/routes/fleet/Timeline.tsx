@@ -25,7 +25,8 @@ import { byGroup } from "../agents/live/laneGroups";
 import { toggleByGroup, useByGroup } from "../agents/live/groupStore";
 import { PHASE_WORD, spanWords, type PhaseSeg } from "../session/phases";
 
-const LANE = 18;
+const LANE = 28; // 3.6.0.0 R7: a lane row is a control a person clicks (it pins its agent): 28 px tall
+const BAR = 12; // a lane's bar, centred in its row
 const LABEL_W = 116;
 const MIN_W = 300;
 const SPANS = [5, 15, 60] as const;
@@ -122,7 +123,7 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
           {rows.map((row, i) => {
             const y = i * LANE;
             if (row.head) return (
-              <text key={"g:" + row.head.id} className="ftl-name ftl-group" x={4} y={y + 12.5} data-testid="fleet-lane-group" data-group={row.head.id}>
+              <text key={"g:" + row.head.id} className="ftl-name ftl-group" x={4} y={y + LANE / 2 + 4.5} data-testid="fleet-lane-group" data-group={row.head.id}>
                 {`▾ ${row.head.title} · ${row.n}`}
               </text>
             );
@@ -133,20 +134,20 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
             return (
               <g key={r.key} className="ftl-lane" data-testid="fleet-lane" data-key={r.key} data-selected={r.key === lit || undefined} onClick={() => onPick(r.key)} role="button" aria-label={`${name}: ${verb}`}>
                 <rect className="ftl-hit" x={0} y={y} width={W} height={LANE} />
-                <text className="ftl-name" x={4} y={y + 12.5}>{label.length > 18 ? label.slice(0, 17) + "…" : label}</text>
+                <text className="ftl-name" x={4} y={y + LANE / 2 + 4.5}>{label.length > 18 ? label.slice(0, 17) + "…" : label}</text>
                 {phases && (phases.get(r.key) || []).filter((p) => p.t1 > from && p.t0 < now).sort((a, b) => +(a.phase === "thinking") - +(b.phase === "thinking")).map((p) => (
                   <rect key={"p" + p.t0 + p.phase} className="ftl-seg ftl-phase" data-phase={p.phase} data-testid="live-phase" data-n={p.n}
-                        x={x(Math.max(from, p.t0))} y={y + (p.phase === "idle" ? 8 : 4)} width={Math.max(p.phase === "thinking" ? 4 : 1.5, x(Math.min(now, p.t1)) - x(Math.max(from, p.t0)))}
-                        height={p.phase === "idle" ? 2 : LANE - 8} rx={p.phase === "idle" ? 1 : 2}
+                        x={x(Math.max(from, p.t0))} y={y + (p.phase === "idle" ? LANE / 2 - 1 : (LANE - BAR) / 2)} width={Math.max(p.phase === "thinking" ? 4 : 1.5, x(Math.min(now, p.t1)) - x(Math.max(from, p.t0)))}
+                        height={p.phase === "idle" ? 2 : BAR} rx={p.phase === "idle" ? 1 : 2}
                         onMouseMove={(e) => hover(e, `${name} · ${PHASE_WORD[p.phase]} ${spanWords(Math.min(now, p.t1) - p.t0)} from ${hhmm(p.t0)}`)}
                         onClick={(e) => { if (p.n && onPhase) { e.stopPropagation(); onPhase(p); } }} />
                 ))}
                 {!phases && bars(lanes[r.key] || [], from, now).map((b) => (
-                  <rect key={b.t} className="ftl-seg" data-state={b.state} x={x(b.x0)} y={y + 4} width={Math.max(1.5, x(b.x1) - x(b.x0))} height={LANE - 8} rx={2}
+                  <rect key={b.t} className="ftl-seg" data-state={b.state} x={x(b.x0)} y={y + (LANE - BAR) / 2} width={Math.max(1.5, x(b.x1) - x(b.x0))} height={BAR} rx={2}
                         onMouseMove={(e) => hover(e, `${name} · ${b.state} since ${hhmm(b.t)}\n${where}`)} />
                 ))}
                 {!phases && (ticks[r.key] || []).filter((t) => t >= from).map((t, j) => (
-                  <line key={j} className="ftl-tick" x1={x(t)} x2={x(t)} y1={y + 1} y2={y + LANE - 1} onMouseMove={(e) => hover(e, `${name} · tool call at ${hhmm(t)}`)} />
+                  <line key={j} className="ftl-tick" x1={x(t)} x2={x(t)} y1={y + 4} y2={y + LANE - 4} onMouseMove={(e) => hover(e, `${name} · tool call at ${hhmm(t)}`)} />
                 ))}
               </g>
             );

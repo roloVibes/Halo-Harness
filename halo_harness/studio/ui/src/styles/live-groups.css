@@ -33,4 +33,4 @@
 
 /* Session's timeline "by group": a group's title row over its lanes */
 .ftl-group { fill: var(--accent-2); font-weight: 600; }
-.ftl-bar > button[data-testid$="-by-group"] { font-size: 12px; padding: 2px 8px; }
+.ftl-bar > button[data-testid$="-by-group"] { font-size: 12px; padding: 2px 8px; min-height: 28px; } /* 3.6.0.0 R7 */

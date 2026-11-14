@@ -17,6 +17,7 @@ ROWS = [
     Row("permission_mode", "general", "Permission mode", "enum", None, _MODES, "The permission mode new sessions start in; auto allows everything except your own deny and ask rules.", "next session"),
     Row("effort", "general", "Effort", "enum", None, _EFFORTS, "The reasoning effort a session starts with when no flag and no last-used effort says otherwise.", "next session"),
     Row("model_memory", "general", "Model memory", "enum", "cwd", ("cwd", "global"), "Whether the last-used model and effort are remembered per folder (cwd) or once for every folder (global).", "next session"),
+    Row("tools.show_halo_secrets", "general", "Show Halo's own secret files", "bool", False, (), "Off: the secret values in Halo's own files (the Studio token file, provider keys, sign-ins) read as [hidden] in what Read, Grep and Bash show, with one line saying so; on shows them (tools/halo_secrets.py).", "now"),
     Row("theme", "general", "Theme", "enum", None, _THEMES, "One palette for the terminal and Studio (the Themes page shows them all); Studio redraws at once, a running terminal on /theme. Unset: instrument everywhere (instrument-ansi in a terminal without truecolor); auto: Studio follows the system (instrument on dark, paper on light).", "next launch"),
     Row("intro", "general", "Launch intro", "bool", True, (), "Play the launch intro; --no-intro skips it for one run.", "next launch"),
     Row("tips", "general", "Tips", "bool", True, (), "Rotating tips in the input line; off leaves the line plain.", "next launch"),

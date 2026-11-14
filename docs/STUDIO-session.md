@@ -78,9 +78,12 @@ stops there and the pill counts what arrives. Following again (the pill,
 Session's **Map** (`session-map`, Live's tree as a thumbnail) zooms like every drawing in Studio: **Ctrl + wheel** (Cmd
 on a Mac) or a pinch around the pointer, `+` / `-` / `0` on the focused map, a drag on the background pans, a
 double-click there fits, and the **- / % / + / Fit** buttons in its corner for a mouse with no wheel. It opens fitted to
-its panel but never smaller than its text reads (75%): a tree too big for that opens on the main agent, centred, with
-"more than shows: Fit shows all" beside the buttons. Your zoom stays for the visit and a resize of the panel no longer
-throws it away; Fit gives the panel back to the automatic fit.
+its panel but never smaller than the zoom where its text is 12 px on screen (3.6.0.0; 75% before): a tree too big for
+that opens on the picked agent (else the main one) and pans inside its box, with "more than fits at a readable size:
+drag to pan, Ctrl + wheel to zoom out" on the line under it, beside the buttons. Its drawer is the widest (560 px, less
+where Live needs its 60 %). When the drawer's box changes (opened, dragged, the window crossing a breakpoint) it fits
+again, unless you zoomed or panned it by hand: then your view stays until Fit gives it back to the automatic fit
+(docs/STUDIO-shell.md, the one rule for every drawing).
 
 ## Export: the session as a trace file
 

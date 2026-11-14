@@ -48,31 +48,29 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   saying why ("already default"). Setup and Settings (pages) draw neither the bar nor the **...**. Text is 12 px at
   the least (one type scale: 12 data and captions, 13 body, 15 titles, 18 a page title), a control 28 px tall at the
   least, and no panel scrolls sideways: `tests/test_studio_room.py` measures every rule at 1280, 1500 and 1920.
+  3.6.0.0: no two controls overlap, neighbours sit 8 px apart, a name is never cut in a box 24 characters wide or more.
+  **A drawing fits its box when the box changes** (one rule, `lib/canvasNav.ts`: Live, the Map, Cast, artboards): a drawer
+  opened, closed or dragged, or a breakpoint crossed, fits it again unless you zoomed or panned it by hand since (then your
+  view stays; **Fit**, `0` or a double-click makes it automatic again). The Map never fits below 12 px text: it opens on
+  the picked (else main) agent, pans in its box, and the line under it says so. Its drawer is the widest (560 px).
   How a view declares it: a `PanelSpec` says `role` (`main` | `drawer` | `tab` | `dock`, a bar at the main thing's
   foot), `side`, `contentW` and `startOpen` (lib/workspace/types.ts; a pack's panel: `role`, `side`, `content_w`, API 1.5).
-- **Two faces and the settings.** Every panel opens on its **full face**,
-  ready to use with no button to press first; **Compact** (its **...**
-  menu, or a double-click on the title) is its summary (what
-  it is, one live indicator, one or two big numbers, readable from across the
-  room) and is the default only where a section says so (Orchestra's
-  Workflow, Run grid and Log, where it is the whole graph, every tile and the
-  newest lines). **Settings** opens the Inspector on the right: what the
-  panel is and how to use it, the face, open or closed, a drawer's width
-  in px, reset, and the panel's own options.
-- **Help where you are.** `?` on a focused panel (or the **?** on its
-  title line, or Help in its ... menu) opens a small popover with its
-  `about` line first and a few lines on how to use it (the **?** again
-  closes it); `?` again, `?` away from a panel, the **?** in the header beside the
-  section's title and
-  the palette's **Help: how <section> works** open **How this works** for the
-  section: what it is, five to eight numbered steps, every panel with its
-  about line, and the keys, `Focus` last (the copy is below, in
-  [How each section works](STUDIO-sections.md#how-each-section-works)).
-- **Nothing opens on its own** (3.3.2.0). A section shows its own content
-  when you open it, the first time or any time: no welcome card, no help, no
-  dialog (the first-visit welcome and its `halo.studio.seen.<section>` keys
-  are gone). (3.4.0.0: Start here, the one exception, left with the guided first run for the first-run pack.) The old exception was **Start here** on a fresh home, over the
-  section the page opened on, once per browser (below).
+- **Two faces and the settings.** Every panel opens on its **full face**, ready to use with no button to press first;
+  **Compact** (its **...** menu, or a double-click on the title) is its summary (what it is, one live indicator, one
+  or two big numbers, readable from across the room) and is the default only where a section says so (Orchestra's
+  Workflow, Run grid and Log, where it is the whole graph, every tile and the newest lines). **Settings** opens the
+  Inspector on the right: what the panel is and how to use it, the face, open or closed, a drawer's width in px,
+  reset, and the panel's own options.
+- **Help where you are.** `?` on a focused panel (or the **?** on its title line, or Help in its ... menu) opens a
+  small popover with its `about` line first and a few lines on how to use it (the **?** again closes it); `?` again,
+  `?` away from a panel, the **?** in the header beside the section's title and the palette's **Help: how <section>
+  works** open **How this works** for the section: what it is, five to eight numbered steps, every panel with its
+  about line, and the keys, `Focus` last (the copy is below, in [How each section
+  works](STUDIO-sections.md#how-each-section-works)).
+- **Nothing opens on its own** (3.3.2.0). A section shows its own content when you open it, the first time or any
+  time: no welcome card, no help, no dialog (the first-visit welcome and its `halo.studio.seen.<section>` keys are
+  gone). (3.4.0.0: Start here, the one exception, left with the guided first run for the first-run pack.) The old
+  exception was **Start here** on a fresh home, over the section the page opened on, once per browser (below).
 - **The rail** (left, 3.3.2.0) is an icon rail, 52 px (3.3.15.0; 56 px
   before): one 40 x 40 icon per
   section, its title as the tooltip, the current one in the accent with a

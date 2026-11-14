@@ -5,7 +5,7 @@
 [data-panning] { cursor: grabbing; user-select: none; }
 .rc-scroll:focus-visible, .da-scroll:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 
-.cz-thumb { position: absolute; right: 10px; bottom: 10px; z-index: 3; display: flex; align-items: center; gap: 8px;
-  padding: 3px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.cz-thumb { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; padding: 6px 10px;
+  border-top: 1px solid var(--line); background: var(--surface); } /* 3.6.0.0 R8: a row under the map, never over its boxes */
 .cz-zoom button { padding: 0 9px; height: 28px; }
-.cz-more { font-size: 12px; white-space: nowrap; }
+.cz-more { flex: 1 1 200px; min-width: 0; font-size: 12px; }

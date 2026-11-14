@@ -43,7 +43,9 @@ def copied_checks(src: Path) -> "tuple[object, list[str]]":
 
 
 def _copy(op: "J.Op", src: Path, dest: Path, rels) -> None:
-    for rel in rels:
+    """3.6.0.0: pack.yaml lands last -- a folder with no manifest is not a pack (discover.py), so a list read while the
+    copy runs (Studio's poll, `halo pack list` in another terminal) never shows a half-written pack "found in place"."""
+    for rel in sorted(rels, key=lambda r: r.as_posix() == "pack.yaml"):
         source = src / rel
         op.write(dest / rel, source.read_bytes(), mode=source.stat().st_mode & 0o777)
 

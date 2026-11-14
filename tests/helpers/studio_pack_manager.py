@@ -10,8 +10,7 @@ serves Studio in a thread with the live feed on (no provider, no model call):
 3. Details: the API range beside this Halo's, no dependency, the contributes
    block; a Grant toggle on a disabled pack picks it for Enable;
 4. Enable (with the picked grant): the row runs, 1/3 granted, the pack's own
-   section tab comes after Settings, with no key (3.3.3.0 R2); a Grant toggle on the enabled pack
-   grants at once (2/3);
+   section tab comes after Settings, with no key (3.3.3.0 R2); a Grant toggle on the enabled pack grants at once (2/3);
 4b. 3.2.0.0 R7: Update from a newer source asks first with the dry run's lines
    (its migration note), then swaps it in: Roll back to 1.0.0 shows, Details
    names the grant the new version asks for; Roll back brings 1.0.0 back;
@@ -31,6 +30,7 @@ The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 from contextlib import contextmanager
@@ -53,15 +53,13 @@ def _text(sel: str) -> str:
     return f"({q(sel)}?.textContent || '')"
 
 
-def w(c, expr: str, timeout: float = 20):
-    """`c.wait`; on a timeout a screenshot lands at $PM_SHOT when it is set (debugging a red run)."""
+def w(c, expr: str, timeout: float = 20, seen: str = ""):
+    """`c.wait`; on a timeout a screenshot lands at $PM_SHOT when it is set, and the error says what `seen` read."""
     try:
         return c.wait(expr, timeout)
-    except TimeoutError:
-        import os
-        if os.environ.get("PM_SHOT"):
-            c.shot(os.environ["PM_SHOT"])
-        raise
+    except TimeoutError as e:
+        _ = os.environ.get("PM_SHOT") and c.shot(os.environ["PM_SHOT"])
+        raise TimeoutError(f"{e}; it read {c.js(seen)!r}" if seen else str(e)) from None
 
 
 def section(c, url, ctx) -> dict:
@@ -85,7 +83,8 @@ def install(c, url, ctx) -> dict:
     except TimeoutError:
         raise TimeoutError(f"no row; the last lines: {c.js(_text('[data-testid=pm-last]'))!r}, toasts: "
                            f"{c.js(qa('.toast') + '.map((t) => t.textContent)')!r}")
-    return {"installed_state": w(c, _text(f"{ROW} [data-testid=pm-state]"), 10),
+    state = _text(f"{ROW} [data-testid=pm-state]")  # 3.6.0.0: wait for the state asserted (a row drawn mid-install read
+    return {"installed_state": w(c, f"{state} === 'disabled' && {state}", 10, state),  # "found in place": the product's fix)
             "installed_last": w(c, f"{_text('[data-testid=pm-last] .pm-lines')}.split('\\n')[0]", 10),
             "source_after": w(c, _text(f"{SRC} [data-testid=pm-source-installed]"), 15),
             "on_disk": (ctx["state"] / "packs" / "doc-review" / "pack.yaml").is_file()}
@@ -93,7 +92,8 @@ def install(c, url, ctx) -> dict:
 
 def details(c, url, ctx) -> dict:
     w(c, f"{q('[data-testid=pm-details-body]')}?.dataset.id === 'doc-review'", 20)
-    out = {"api": c.js(_text("[data-testid=pm-api]")), "requires": c.js(_text("[data-testid=pm-requires]")),
+    api = _text("[data-testid=pm-api]")  # 3.6.0.0: the range asserted, waited for (not a half-written row's "any")
+    out = {"api": w(c, f"/^1[.]4 to 1[.]9; /.test({api}) && {api}", 10, api), "requires": c.js(_text("[data-testid=pm-requires]")),
            "contributes": c.js(_text("[data-testid=pm-contributes]")),
            "perms": c.js(f"{qa('[data-testid=pm-perm]')}.map((p) => p.dataset.name)")}
     press(c, q("[data-testid=pm-grant][data-name=bash]"))

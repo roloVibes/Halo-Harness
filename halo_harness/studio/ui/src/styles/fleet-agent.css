@@ -51,7 +51,7 @@
 .fa-del { color: var(--bad); }
 .fa-output { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 
-.fa-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fa-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } /* 3.6.0.0 R7: 8 px apart */
 .fa-keys { font-size: 12px; }
 .fa-steer { display: grid; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
 .fa-steer-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

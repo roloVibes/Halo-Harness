@@ -19,7 +19,7 @@
 .lc-shelf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px;
   border-bottom: 1px solid var(--line); }
 .slv-why { margin-left: 6px; font-size: 12px; color: var(--muted); background: transparent; border: 1px solid var(--line);
-  border-radius: var(--radius-sm); padding: 0 5px; cursor: pointer; opacity: 0.6; }
+  border-radius: var(--radius-sm); padding: 0 8px; min-height: 28px; cursor: pointer; opacity: 0.6; } /* 3.6.0.0 R7: 28 px */
 .slv-line:hover .slv-why, .slv-why[aria-pressed="true"] { opacity: 1; color: var(--accent); border-color: var(--accent); }
 .session-why { display: grid; gap: 4px; }
 .session-why-line { margin: 0; color: var(--text); }

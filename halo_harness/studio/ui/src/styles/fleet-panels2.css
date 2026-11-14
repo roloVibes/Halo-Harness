@@ -61,7 +61,7 @@
 .fa { display: flex; flex-direction: column; }
 .fa > * { flex: none; }
 .fa > .fa-stream { flex: 1 1 0; min-height: 90px; }
-.fa-extras { display: flex; flex-wrap: wrap; gap: 4px; }
+.fa-extras { display: flex; flex-wrap: wrap; gap: 8px; } /* 3.6.0.0 R7 */
 .fa-extras .btn { font-size: 12px; }
 .fa-none { display: grid; gap: 12px; align-content: start; }
 .fa-history { display: grid; gap: 4px; }

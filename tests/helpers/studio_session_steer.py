@@ -76,7 +76,7 @@ def record_forward(rig) -> list:
 def shown(c, expr: str, timeout: float = 5) -> str:
     """'1' once the element `expr` evaluates to is fully shown (its opacity), else ''."""
     try:
-        return c.wait(f"(() => {{ const e = {expr}; return e && getComputedStyle(e).opacity === '1' && '1'; }})()", timeout) or ""
+        return c.wait(f"(() => {{ const e = {expr}; return e && getComputedStyle(e).opacity === '1' && getComputedStyle(e).display !== 'none' && '1'; }})()", timeout) or ""
     except TimeoutError:
         return ""
 
@@ -126,7 +126,7 @@ def tag_steer(c, lv) -> dict:
     c.wait(f"!!{line}", 10)
     btn = f"{line}.querySelector('[data-testid=\"session-live-steer-tag\"]')"
     c.mouse("mouseMoved", 4, 4)
-    out["tag_hidden"] = c.js(f"getComputedStyle({btn}).opacity")
+    out["tag_hidden"] = c.js(f"getComputedStyle({btn}).display === 'none' ? '0' : getComputedStyle({btn}).opacity")  # 3.6.0.0: not drawn
     out["tag_shown"], out["tag_under"] = hover(c, f"{line}.querySelector('[data-testid=\"session-live-tag\"]')", btn)
     c.click_on(btn)
     c.wait(f"{COL}.dataset.pinned === '{res}' && {BOX}.dataset.key === '{res}'", 5)

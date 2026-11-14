@@ -31,6 +31,18 @@ def _rel(path: str, root: Path) -> str:
         return ""
 
 
+def _drop_bytecode(root: Path, owned: dict) -> None:
+    """3.6.0.0: a `__pycache__` beside modules Halo wrote, holding only their bytecode (`<module>.<tag>.pyc`, which
+    Python wrote when it imported them), goes with them; one holding anything else stays whole (and is named)."""
+    for cache in sorted(root.rglob("__pycache__")) if root.is_dir() else []:
+        files = [p for p in cache.iterdir()] if cache.is_dir() else []
+        ours = [p for p in files if p.is_file() and p.suffix in (".pyc", ".pyo")
+                and J.norm(cache.parent / (p.name.split(".", 1)[0] + ".py")) in owned]
+        if files and len(ours) == len(files):
+            for p in ours:
+                J._unlink(p, missing_ok=True)
+
+
 def _named_by_pack(folder: Path, pack_id: str) -> "list[Path]":
     try:
         return sorted(p for p in folder.glob(f"{pack_id}{N.SEP}*.yaml") if p.is_file())
@@ -96,6 +108,7 @@ def remove(pack_id: str, *, keep_config: bool = False, cwd=None, state_dir=None)
         left = op.rollback()
         return False, [f"remove of {pack_id} stopped: {e}; every file is back as it was"] + left
     op.commit()
+    _drop_bytecode(root, owned)
     if root.is_dir():
         for p in sorted(root.rglob("*")):
             if p.is_file() and J.norm(p) not in owned:

@@ -130,6 +130,8 @@ def discover(*, cwd=None, state_dir=None) -> "list[Pack]":
     by_id: "dict[str, Pack]" = {}
     for d, scope in search_dirs(cwd=cwd, state_dir=state_dir):
         for folder, link in [(f, None) for f in _folders(d)] + [(f, lk) for lk, f in _links(d)]:
+            if link is None and not MF.manifest_path(folder).is_file():
+                continue  # 3.6.0.0: no pack.yaml is no pack (an install still copying, a leftover): leftovers() names it
             pack = read_pack(folder, scope, folder_is_id=link is None)
             pack.link = str(link or "")
             if pack.id in by_id:
@@ -137,6 +139,12 @@ def discover(*, cwd=None, state_dir=None) -> "list[Pack]":
             else:
                 by_id[pack.id] = pack
     return [by_id[k] for k in sorted(by_id)]
+
+
+def leftovers(*, cwd=None, state_dir=None) -> "list[Path]":
+    """3.6.0.0: the folders under a packs folder with no pack.yaml -- not packs; `halo pack doctor` names each once."""
+    return [f for d, _s in search_dirs(cwd=cwd, state_dir=state_dir) for f in _folders(d)
+            if not MF.manifest_path(f).is_file()]
 
 
 def find(pack_id: str, *, cwd=None, state_dir=None) -> Optional[Pack]:

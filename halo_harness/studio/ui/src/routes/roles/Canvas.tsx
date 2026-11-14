@@ -159,7 +159,7 @@ export function CanvasDetail() {
     if (el) setZoom(Math.max(0.3, Math.min(1.25, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
   };
   const zoomAt = useZoomPoint(scroll, zoom, setZoom);
-  useCanvasNav(scroll, { zoom, zoomAt, fit, min: 0.3, max: 2, id: name ? `cast|${name}` : undefined });
+  const nav = useCanvasNav(scroll, { zoom, zoomAt, fit, min: 0.3, max: 2, id: name ? `cast|${name}` : undefined }); // R8: refits on a new box
   const layout = () => graph && movePositions(autoLayout(graph));
   const fitted = useRef("");
   const shape = useRef("");
@@ -190,7 +190,7 @@ export function CanvasDetail() {
     } else if ((k === "Delete" || k === "Backspace") && sel) openDialog({ kind: "delete-card", node: sel });
     else if (k === "Enter" && sel) focusModel(sel); // 3.1.4.0 R4: the Inspector's MODEL strip
     else if (k === "a") layout();
-    else if (k === "f" && !e.shiftKey) fit(); // 3.3.2.0 R1: Shift+F is Focus
+    else if (k === "f" && !e.shiftKey) nav.fit(); // 3.3.2.0 R1: Shift+F is Focus
     else return;
     e.preventDefault();
   };
@@ -210,7 +210,7 @@ export function CanvasDetail() {
   if (!graph || !name) return <NoLineup />;
   return (
     <div className="rc" data-testid="roles-canvas" data-lineup={name}>
-      <CanvasBar zoom={zoom} setZoom={zoomAt} fit={fit} layout={layout} />
+      <CanvasBar zoom={zoom} setZoom={nav.zoomAt} fit={nav.fit} layout={layout} />
       <div className="rc-scroll" ref={scroll} tabIndex={0} onKeyDown={onKey} onDragOver={onDragOver} onDrop={onDrop} onScroll={hideLegend}
            onPointerDown={(e) => (e.target === e.currentTarget || (e.target as HTMLElement).matches?.(".rc-world, .rc-inner")) && (roles.update(() => ({ sel: "" })), clearBlock())} aria-label="Roles canvas: the lineup's cards in their tier boxes">
         <div className="rc-world" style={{ width: ext.w * zoom, height: ext.h * zoom }}>

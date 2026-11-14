@@ -41,9 +41,10 @@ CORE = ["Session", "Agents", "Local", "Packs", "Setup", "Settings"]  # 3.3.16.0 
 
 
 def _got(ctx: Ctx) -> dict:
-    info = driver_got(ctx, "tests.helpers.studio_pack_manager", why="the Pack Manager checks need headless Chrome",
-                      cache=_RUN, timeout=400, tail=600)
-    return info
+    import os  # 3.6.0.0: a slow box asked of the module reaches its driver (driver_env drops every HALO_ variable)
+    slow = {"HALO_STUDIO_SLOW_MS": os.environ["HALO_STUDIO_SLOW_MS"]} if os.environ.get("HALO_STUDIO_SLOW_MS") else None
+    return driver_got(ctx, "tests.helpers.studio_pack_manager", why="the Pack Manager checks need headless Chrome",
+                      cache=_RUN, timeout=400, tail=600, env=slow)
 
 
 @test

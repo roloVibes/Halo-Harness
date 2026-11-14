@@ -19,8 +19,8 @@
 .fat-age { font-size: 12px; color: var(--warn); flex: none; }
 .fat-what { font-size: 13px; font-weight: 600; overflow-wrap: break-word; min-width: 0; }
 .fat-detail { font-size: 12px; overflow-wrap: break-word; min-width: 0; }
-.fat-keys { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.fat-key { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; font-size: 12px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--text); cursor: pointer; }
+.fat-keys { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } /* 3.6.0.0 R7: 8 px, 28 px */
+.fat-key { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 2px 8px 2px 3px; font-size: 12px; border-radius: 99px; border: 1px solid var(--line-strong); background: var(--bg-2); color: var(--text); cursor: pointer; }
 .fat-key:hover, .fat-key:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
 .fat-key[data-key="a"] { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
 .fat-key[data-key="s"] { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }

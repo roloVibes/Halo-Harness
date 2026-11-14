@@ -16,8 +16,11 @@ def block(ref: str) -> str:
 
 
 def see(c, expr: str) -> None:
+    """`expr` scrolled into view and drawn where it stays (3.6.0.0 R8: a drawer that opened or closed refits Cast, so a
+    box moves once more after it): two reads 100 ms apart agree on its box before a click goes to it."""
     c.wait(f"!!({expr})", 15)
     c.js(f"({expr}).scrollIntoView({{block: 'center', inline: 'center'}}); 1")
+    c.wait(f"(() => {{ const r = JSON.stringify(({expr}).getBoundingClientRect()); const same = window.__seeBox === r; window.__seeBox = r; return same; }})()", 15)
 
 
 def center(c, expr: str, fx: float = 0.5, fy: float = 0.5) -> "tuple[float, float]":

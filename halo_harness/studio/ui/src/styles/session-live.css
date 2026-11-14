@@ -16,9 +16,9 @@
 .slv-counts { font-size: 12px; }
 .slv-pinned { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 99px; font-size: 12px; cursor: pointer;
   color: var(--accent); background: var(--accent-soft); border: 1px solid var(--line-strong); }
-.slv-picks { flex-wrap: nowrap; }
+.slv-picks { flex-wrap: wrap; } /* 3.6.0.0: the picks wrap at a narrow width (390: no sideways scroll) */
 .slv-strip { padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface-glass); min-width: 0; }
-.slv-rows { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.slv-rows { position: relative; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .slv-scroll { overflow: auto; min-height: 0; padding: 6px 8px 10px; display: grid; align-content: start; gap: 2px; outline: none; container: fac-log / inline-size;
   background-color: var(--bg-2);
   /* 3.3.15.0 L1: no grid here (the dot grid is the map canvases' only) */ }
@@ -40,10 +40,9 @@
 .slv-line[data-kind="you"] .fac-kind { color: var(--accent); text-shadow: 0 0 6px var(--accent-soft); }
 .slv-body { min-width: 0; }
 
-.slv-who { position: relative; display: flex; align-items: center; min-width: 0; }
-.slv-tag { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 1px 6px; border: 1px solid transparent; border-radius: 4px; background: none;
-.slv-tag, .slv-steer-tag { min-height: 28px; } /* 3.6.0.0 R0a, R7: a control is 28 px tall at the least */
-  color: var(--hc, var(--accent)); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; }
+.slv-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.slv-tag { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; min-height: 28px; padding: 1px 6px; border: 1px solid transparent; border-radius: 4px; background: none;
+  color: var(--hc, var(--accent)); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; } /* R7: 28 px at the least */
 .slv-tag:hover, .slv-tag:focus-visible { border-color: color-mix(in srgb, var(--hc, var(--accent)) 55%, transparent); outline: none; }
 .slv[data-pinned] .slv-tag { border-color: color-mix(in srgb, var(--hc, var(--accent)) 40%, transparent); }
 .slv-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -52,11 +51,11 @@
 .slv-tag[data-state="waiting"] .slv-glyph, .slv-tag[data-state="paused"] .slv-glyph { color: var(--warn); text-shadow: 0 0 6px var(--warn); }
 .slv-tag[data-state="done"] .slv-glyph { color: var(--ok); }
 .slv-tag[data-state="failed"] .slv-glyph { color: var(--bad); }
-/* the tag's "steer" button: on the line's hover, over the end of the name */
-.slv-steer-tag { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 1px 7px; border: 0; border-radius: 99px; cursor: pointer;
-  font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--hc, var(--accent)); box-shadow: 0 0 10px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent);
-  opacity: 0; pointer-events: none; transition: opacity 120ms var(--ease); }
-.slv-line:hover .slv-steer-tag, .slv-who:focus-within .slv-steer-tag { opacity: 1; pointer-events: auto; }
+/* the tag's "steer" button: on the line's hover, beside the name (3.6.0.0: in the row, 8 px from it, never over it; the
+   name gives way while it shows) */
+.slv-steer-tag { display: none; flex: none; align-items: center; min-height: 28px; padding: 1px 8px; border: 0; border-radius: 99px; cursor: pointer;
+  font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--hc, var(--accent)); box-shadow: 0 0 10px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent); }
+.slv-line:hover .slv-steer-tag, .slv-who:focus-within .slv-steer-tag { display: inline-flex; }
 
 /* -- what a line says, by kind ------------------------------------------------------------ */
 .slv-text { font-size: 13px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
@@ -102,8 +101,8 @@
 .slv-ask-keys { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .slv-ask[data-answered] { border-color: var(--line); box-shadow: none; opacity: .7; }
 
-/* -- "↓ N new" over the lines ------------------------------------------------------------- */
-.slv-new { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 2; padding: 4px 12px; border-radius: 99px; cursor: pointer;
+/* -- "↓ N new" under the lines ------------------------------------------------------------- */
+.slv-new { justify-self: center; margin: 8px 0; min-height: 28px; padding: 4px 12px; /* 3.6.0.0 R7: under the lines, never over one */ border-radius: 99px; cursor: pointer;
   font-size: 12px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; box-shadow: var(--glow-strong); }
 
 /* -- the foot: the Steer box, always, to the pinned agent or the session's main agent ---- */
@@ -113,7 +112,8 @@
 .slv-steer .fa-steer-head { justify-content: flex-start; flex-wrap: wrap; row-gap: 4px; }
 .slv-steer .fa-mode { margin-left: auto; }
 .slv-steer .fa-mode button { padding: 2px 10px; font-size: 12px; }
-.fa-steer-extra { display: inline-flex; gap: 6px; }
+.fa-steer-extra { display: inline-flex; gap: 8px; } /* R7: 8 px between neighbours */
+.slv-head .fac-filters { gap: 8px; }
 .slv-steer-to { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
 .slv-steer-to .rail-label { color: var(--accent); }
 .slv-steer-name { font-size: 12px; font-weight: 700; color: var(--hc, var(--accent)); text-shadow: 0 0 8px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent);
@@ -122,7 +122,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .slv-line { animation: none; }
-  .slv-steer-tag { transition: none; }
 }
 /* 3.3.5.0 R4: the preflight above the steer box (LivePreflight.tsx) */
 .slv-preflight { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; margin-bottom: 6px;

@@ -17,7 +17,7 @@
 .su-sub { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
 .su-on { color: var(--ok); text-transform: none; letter-spacing: 0; }
 
-.su-form { display: grid; gap: 6px; min-width: 0; }
+.su-form { display: grid; gap: 8px; min-width: 0; } /* 3.6.0.0 R7: 8 px apart */
 .su-form .btn { justify-self: start; }
 .su-input { display: grid; gap: 2px; min-width: 0; }
 .su-input-label { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }

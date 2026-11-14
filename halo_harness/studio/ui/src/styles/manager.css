@@ -25,7 +25,7 @@
 .pm-lines { margin: 0; padding: 6px 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; background: var(--bg-2);
   border-radius: var(--radius-sm); max-height: 220px; overflow: auto; }
 
-.pm-src-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pm-src-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } /* 3.6.0.0 R7: 8 px apart */
 .pm-src-add .input { flex: 1 1 220px; min-width: 0; }
 .pm-src { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
 .pm-src[data-kind="shipped"] { border-style: dashed; }

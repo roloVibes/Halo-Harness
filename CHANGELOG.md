@@ -46,6 +46,34 @@ than 12 px. The owner, 2026-11-12: "I agree the panel is cramped. We need to fix
   `studio/shell_assets.py`), so no page can take another page's script load; the room driver opens every view
   straight from the one before.
 
+### R0a, finished
+
+- **Installing a pack never shows it half there.** `halo pack install` writes `pack.yaml` last, and a folder under a
+  packs folder with no `pack.yaml` is not a pack (`packs/discover.py`): a list read while the copy runs -- Studio's
+  2 s watch, the lineups watcher, `halo pack list` in another terminal -- used to show the half-copied pack as "not
+  installed (found in place)" with no API range ("any"), which is what turned `tests.test_packs_manager_ui` red on
+  Linux CI and in the local gate. `halo pack doctor` names such a folder once ("a leftover folder, not a pack").
+- **`halo pack remove` leaves no half pack.** The bytecode Python wrote for the modules Halo installed
+  (`__pycache__/<module>.<tag>.pyc`) goes with them, so the folder goes too and `halo pack list` is clean; a file of
+  yours is kept and named, and a `__pycache__` holding anything else stays whole (`packs/remove.py`).
+- **A drawing fits its box when the box changes** (`lib/canvasNav.ts`, one rule for Live, Session's Map, Cast and the
+  design pack's artboards): its box getting wider or narrower (a drawer opened, closed or dragged, a breakpoint) fits it again unless you
+  zoomed or panned it by hand since it was last fitted; Fit makes it automatic again. Session's Map never fits below
+  12 px text: it opens on the picked (else the main) agent and pans, the line under it says so; its drawer is 560 px.
+- **Session's Live has room.** Every control is 28 px tall at the least and 8 px from its neighbours: the agent tags
+  (a broken rule had left them at 22 px), the "steer" button beside a tag instead of over its name, "why?", "by
+  group", the "N new rows" pill (under the lines now, never over one), the Agent and Attention drawers' buttons; the
+  timeline's lanes are 28 px rows. Packs, Local, Setup and Settings keep 8 px between neighbours as well.
+- **Halo's own secret files stay out of tool output** (`tools/halo_secrets.py`, through the tool registry): the
+  secret values in the Studio info file (token, owner salt), the provider key file, MCP OAuth tokens and the host
+  steward's key read as `[hidden]` in what Read, Grep, Bash, BashOutput and PowerShell show, with one line saying so.
+  Nothing is refused: the file still reads. `halo config set tools.show_halo_secrets true` shows the values.
+- **Tests.** `tests/test_studio_room.py` asserts R7 on Session (no control under 28 px, no overlap, 8 px apart on
+  every view but Agents), R5's names (never cut in a box 24 characters wide) and R8's drawings (each one fits its new
+  box, or keeps its lead node whole past the 12 px floor; a zoom by hand survives a drawer). New:
+  `tests/test_packs_leftovers.py`, `tests/test_tools_halo_secrets.py`. `tests.test_packs_manager_ui` passes
+  `HALO_STUDIO_SLOW_MS` to its driver (the driver environment dropped it) and waits for the row state it asserts.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

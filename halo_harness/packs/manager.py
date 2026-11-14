@@ -150,4 +150,4 @@ def payload(*, cwd=None, state_dir=None) -> dict:
             if src["kind"] != "url" and not p["installed"] and not p["problems"]:
                 p["details"] = row(read_pack(Path(p["path"]), "source", folder_is_id=False), snap, cwd=cwd, state_dir=state_dir)
     return {"version": 1, "halo": __version__, "halo_api": API_VERSION, "packs": packs, "sources": sources,
-            "problems": [h for h in health if not h.get("pack")]}
+            "problems": [h for h in health if not h.get("pack") and h.get("check") != "leftover"]}  # 3.6.0.0: no pack

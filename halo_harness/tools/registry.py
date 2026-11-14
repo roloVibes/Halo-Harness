@@ -186,14 +186,14 @@ class ToolRegistry:
         tool = self.get(name)
         if tool is None:
             return ToolResult(f"Unknown tool: {name!r}. Available tools: {', '.join(self.names())}", is_error=True)
-        # H10 Part A: `duration_ms` wraps every tool call -- solo AND
-        # batched (run_read_only_batch below calls THIS same method per
-        # call, on its own worker thread) -- the one choke point every
-        # dispatch goes through, so telemetry's `tool_result.ms` never
-        # needs its own per-tool instrumentation.
+        # H10 Part A: `duration_ms` wraps every tool call -- solo AND batched (run_read_only_batch below calls THIS
+        # same method per call, on its own worker thread) -- the one choke point every dispatch goes through, so
+        # telemetry's `tool_result.ms` never needs its own per-tool instrumentation. 3.6.0.0: and Halo's own secret
+        # files stay out of what a tool shows (tools/halo_secrets.py).
         t0 = time.monotonic()
         try:
-            result = tool.run(input if isinstance(input, dict) else {}, ctx)
+            from halo_harness.tools.halo_secrets import guarded
+            result = guarded(tool, name, input if isinstance(input, dict) else {}, ctx)
         except Exception as e:  # a tool must never crash the loop
             result = ToolResult(f"Tool {name!r} raised {type(e).__name__}: {e}", is_error=True)
         result.duration_ms = round((time.monotonic() - t0) * 1000, 1)

@@ -147,6 +147,9 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
         if root and not Path(root).is_dir():  # a project pack of another repo is still there: not listed
             out.append(_p(pack_id, "warns", "missing", f"state.json lists {pack_id} at {root}, and that folder "
                           "is gone", f"halo pack remove {pack_id}", S.state_path(state_dir)))
+    from halo_harness.packs.discover import leftovers  # 3.6.0.0: a folder with no pack.yaml is not a pack, said once
+    out += [_p("", "info", "leftover", f"a leftover folder, not a pack: {d}", "move it away or delete it", d)
+            for d in leftovers(cwd=cwd, state_dir=state_dir)]
     return out
 
 
