@@ -162,7 +162,15 @@ def write_text(path: Path, text: Optional[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{time.time_ns()}.tmp")
     tmp.write_text(text, encoding="utf-8", newline="\n")
-    tmp.replace(path)
+    for i in range(200):  # Windows refuses the swap while a reader holds the file open (a page polling a run's record)
+        try:
+            tmp.replace(path)
+            return
+        except PermissionError:
+            if i == 199:
+                tmp.unlink(missing_ok=True)
+                raise
+            time.sleep(0.01)
 
 
 def path_for(kind: str, name: str, *, cwd=None, state_dir=None, project: bool = False) -> Path:

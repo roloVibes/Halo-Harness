@@ -122,6 +122,32 @@ def test_an_agent_of_yours_is_spawnable_by_name(ctx: Ctx):
         ctx.check("a file with problems is left out", "gate" not in discover_agents(h.repo))
 
 
+@test
+def test_a_write_waits_for_a_reader(ctx: Ctx):
+    """A record written while a reader holds the file open (Windows refuses the swap then) still lands."""
+    import tempfile
+    import threading
+    import time
+    from halo_harness.crew import store
+    with tempfile.TemporaryDirectory() as d:
+        path = Path(d) / "run.json"
+        store.write_text(path, "one")
+        held = threading.Event()
+
+        def reader():
+            with open(path, "r", encoding="utf-8"):
+                held.set()
+                time.sleep(0.3)
+        t = threading.Thread(target=reader)
+        t.start()
+        held.wait(5)
+        store.write_text(path, "two")
+        t.join()
+        left = [p.name for p in Path(d).iterdir()]
+        ctx.check(f"the new text is there and no temp file is left, got {path.read_text(encoding='utf-8')!r} {left}",
+                  path.read_text(encoding="utf-8") == "two" and left == ["run.json"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
