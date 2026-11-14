@@ -50,9 +50,9 @@ USAGE = """usage: halo host [serve] [--port N] [--bind ADDR] [--foreground] [--n
   join       pair this harness with a host (its code); fleet.json's hosts list keeps it
   install    write the service file (systemd user unit, launchd agent, Task Scheduler at logon); prints the enable line
   uninstall  remove the service file it wrote; prints the disable line
-  grant      give a peer control, manage or admin here (fleet.allow_control caps it); revoke takes one back
+  grant      give a peer control, manage or admin here (host.allow_control caps it); revoke takes one back
   peers      the peers paired here: grants, last seen, requests
-  pending    the requests queued for you under fleet.allow_control: ask; allow / deny answers one
+  pending    the requests queued for you under host.allow_control: ask; allow / deny answers one
   steward    the duty steward: a separate opt-in process running the steward on a small local model (off by default)
   refresh    the off-hours refresh: the battery and the quick bench when the card is idle inside host.refresh.window
   rpc        llama.cpp's rpc-server for a pool on this machine's LAN address (a trusted LAN only): on, off, status"""
@@ -78,7 +78,7 @@ def cmd_serve(argv: list) -> int:
     a, rc = C.parse(p, argv)
     if a is None:
         return rc
-    from halo_harness.peers.net import FleetOffline
+    from halo_harness.peers.net import NetworkOffline
     from halo_harness.host.service import OFFLINE_LINE, HostService
     if identity.offline():
         return C.fail(a.json, "offline", f"halo host serve: {OFFLINE_LINE}")
@@ -97,7 +97,7 @@ def cmd_serve(argv: list) -> int:
         return _detach(a, home)
     try:
         svc = HostService(home, port=a.port, bind=a.bind, tls_on=False if a.no_tls else None).start()
-    except FleetOffline as e:
+    except NetworkOffline as e:
         return C.fail(a.json, "offline", f"halo host serve: {e}")
     except (OSError, RuntimeError) as e:
         return C.fail(a.json, "not_started", f"halo host serve: cannot listen on {a.bind or S.bind(home)}:"

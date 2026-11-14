@@ -1,11 +1,11 @@
 """tests.helpers.studio_hover -- the hover cards (Halo 3.3.16.1, the owner: "hovering over gives a solid summary, if we
 click one we get that other panel with all the detail") in headless Chrome on the driver base, over
-tests/helpers/studio_fleet_rig.py (halo-dev-cycle active, this harness's real session, the member kali@lab) plus three
+tests/helpers/studio_session_rig.py (halo-dev-cycle active, this harness's real session) plus three
 extra agents (tests/helpers/studio_live_rig.py) and the `media` square enabled. tests/test_studio_hover.py runs it:
 
     python -m tests.helpers.studio_hover hover   no card after Cast, Live and Workflows load; resting the real pointer on
                                                  a Cast card, a Live agent (its NOW follows a seeded tool frame), a
-                                                 session and a machine (fleet), a square on the board and a library row
+                                                 square on the board and a library row
                                                  shows one card of that kind; leaving removes it; a press removes it and
                                                  the inspector opens as before; Tab to a node shows its card; the
                                                  right-most and bottom-most nodes of a narrow window keep their card
@@ -84,21 +84,6 @@ def agent(c, rig) -> dict:
     return out
 
 
-def fleet(c, rig) -> dict:
-    go(c, rig, "&view=live&scope=fleet", f"!!{Q}('[data-testid=\"live-machine\"]') && !!{Q}('[data-testid=\"fleet-session\"]')")
-    sid = rig.act.session_id
-    sess = f"{Q}('[data-testid=\"fleet-session\"][data-sid=\"{sid}\"]')"
-    out = {"session": hover_card(c, sess, "session", "", 0.25, 0.5)}
-    away(c)
-    gone(c)
-    mach = f"{Q}('[data-testid=\"live-machine\"][data-local]')"
-    out["machine"] = hover_card(c, mach, "machine", "", 0.25, 0.3)
-    out["machine_title_attr"] = c.js(f"{mach}.getAttribute('title')")
-    away(c)
-    gone(c)
-    return out
-
-
 EDGE = """(() => {{ const v = [...document.querySelectorAll('[data-testid="roles-live-node"], [data-testid="fleet-session"], [data-testid="live-machine"]')]
   .filter((e) => {{ const r = e.getBoundingClientRect(), s = document.querySelector('[data-testid="agents"] .rlm-scroll'), p = s.getBoundingClientRect();
     const pr = p.left + s.clientWidth, pb = p.top + s.clientHeight; // 3.3.18.0: inside the canvas's own view (its scrollbars clip)
@@ -110,14 +95,10 @@ def edges(c, rig) -> dict:
     """A narrow window: the right-most and the bottom-most node keep their card inside it, off their box."""
     c.call("Emulation.setDeviceMetricsOverride", width=980, height=620, deviceScaleFactor=1, mobile=False)
     out = {}
-    from tests.helpers.studio_fleet_member import REVIEWER  # 3.3.18.0: Live draws only what is present -- the member's
-    from tests.helpers.studio_fleet_rig import MEMBER, MEMBER_SID  # reviewer works again, so the tree is as wide as before
     full, rig.full = rig.full, False  # the quiet arrangement: the canvas reaches the window's right edge
     try:
-        go(c, rig, "&view=live&scope=fleet", f"!!{Q}('[data-testid=\"live-machine\"]') && {Q}('.feed-cell')?.dataset.status === 'open'")
-        rig.hub.state.frames(MEMBER, {"link": "rig-link", "frames": [{"session_id": MEMBER_SID, "event": "agent_state", "agent_id": REVIEWER["agent_id"],
-                                                                     "ts": time.time(), "data": {**REVIEWER, "state": "running"}}]})
-        c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 5", 20)
+        go(c, rig, "&view=live", f"!!{Q}('[data-testid=\"roles-live-node\"]') && {Q}('.feed-cell')?.dataset.status === 'open'")
+        c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 3", 20)
         for _ in range(4):  # the tree runs past the window: its last boxes sit at the window's edges
             c.click_on(f"{Q}('[data-testid=\"roles-live-zoom-in\"]')")
         time.sleep(0.6)
@@ -186,18 +167,18 @@ class HoverDriver(Driver):
     @contextmanager
     def session(self, c):
         from tests.helpers.chrome_driver import emulate_motion
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_live_rig import Live
         from halo_harness.theme import set_config_value
         emulate_motion(c, "reduce")  # no fade: the card is read where it lands
-        with StudioFleetRig() as rig:
+        with StudioSessionRig() as rig:
             rig.full = False  # the page as the owner sees it (nothing opened by the driver)
             set_config_value("workflows.enabled", ["media"])
             st, body = rig.api("POST", "workflows/enable", {"ref": "media"})  # halo-dev-cycle lists its own squares
             self.out["enable"] = [st, body.get("line") or body.get("error")]
             rig.hover_live = Live(rig)
             args = (c, rig)
-            yield ((quiet, args), (cast, args), (agent, args), (fleet, args), (edges, args), (squares, args), (off, args))
+            yield ((quiet, args), (cast, args), (agent, args), (edges, args), (squares, args), (off, args))
 
 
 if __name__ == "__main__":

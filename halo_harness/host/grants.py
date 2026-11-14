@@ -3,7 +3,7 @@
 A peer holds `view` from its join on. The host's owner adds `control`, `manage` or `admin` per peer (`halo host grant
 <peer> <grant>`, peers.json's per-peer `grants` list). `manage` carries `control`'s operations too; `admin` is never
 implied by `manage` (its own grant, and its operations are not part of this version). The host machine's
-`fleet.allow_control` caps every grant:
+`host.allow_control` caps every grant:
 
     none   view only, for every peer: the host is strictly a monitor
     ask    (the default) a control / manage request is queued as a pending row in <state>/host/pending.jsonl for
@@ -37,7 +37,7 @@ def holds(grants, grant: str) -> bool:
 
 
 def cap(home) -> str:
-    raw = S._cfg("fleet.allow_control", "ask", home)
+    raw = S._cfg("host.allow_control", "ask", home)
     return raw if raw in LEVELS else "ask"
 
 
@@ -48,7 +48,7 @@ def grants_of(rec: Optional[dict]) -> tuple:
 
 def _host_name(home) -> str:
     from halo_harness.peers import identity
-    return identity.fleet_name(home)
+    return identity.harness_name(home)
 
 
 def _name(rec: Optional[dict], hid: str = "") -> str:
@@ -62,8 +62,8 @@ def missing_line(grant: str, op: str, rec: Optional[dict], home) -> str:
 
 
 def none_line(home) -> str:
-    return (f"fleet.allow_control is none on {_host_name(home)}: the host is strictly a monitor, view only for every "
-            "peer (`halo config set fleet.allow_control ask` or `all` there)")
+    return (f"host.allow_control is none on {_host_name(home)}: the host is strictly a monitor, view only for every "
+            "peer (`halo config set host.allow_control ask` or `all` there)")
 
 
 def decide(home, hid: str, rec: Optional[dict], grant: str, op: str, body: dict, *,
@@ -126,7 +126,7 @@ def grant(home, who: str, g: str) -> "tuple[bool, str]":
         line += " (admin operations are not part of this version: the grant only shows what it would mean)"
     level = cap(home)
     if level != "all" and g in ("control", "manage"):
-        line += f"; fleet.allow_control is {level} here" + (": view only for every peer" if level == "none" else
+        line += f"; host.allow_control is {level} here" + (": view only for every peer" if level == "none" else
                                                               ": each request is queued for you first")
     return True, line
 

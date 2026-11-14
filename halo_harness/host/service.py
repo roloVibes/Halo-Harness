@@ -2,7 +2,7 @@
 
 `HostService(home, port=7431, bind="0.0.0.0")` is one process with no TUI, no session and no model. `start()`:
 
-- does not start under offline mode (`network.offline`, `--offline`) with fleet/hub.py's `FleetOffline` line;
+- does not start under offline mode (`network.offline`, `--offline`) with fleet/hub.py's `NetworkOffline` line;
 - serves the signed `/host/v1/` routes (host/http.py) on its LAN port, inside TLS with its own self-signed
   certificate (fleet/tls.py, under `<state>/host/`) when `cryptography` is there, HMAC-signed HTTP otherwise;
 - starts the steward's watch for the hosts this machine serves (`ollama_steward/job.start_for(home, where="host")`:
@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness.peers import identity, protocol, tls
-from halo_harness.peers.net import FleetOffline, lan_address
+from halo_harness.peers.net import NetworkOffline, lan_address
 from halo_harness.peers.hub_join import JoinGate
 from halo_harness.host import state as S
 from halo_harness.host.http import Handler
@@ -83,7 +83,7 @@ class HostService:
         self.home = Path(home) if home is not None else identity.home()
         self.port = S.port(self.home) if port is None else int(port)
         self.bind = bind or S.bind(self.home)
-        self.name = (name or identity.fleet_name(self.home)).strip()[:64]
+        self.name = (name or identity.harness_name(self.home)).strip()[:64]
         self.identity = identity.harness(self.home)
         self.tls_on, self.record, self.forward, self.advertise = tls_on, record, forward, advertise
         self.pairing = S.HostPairing(self.home)
@@ -122,12 +122,12 @@ class HostService:
     # ---- start / stop -----------------------------------------------------------------------------
     def start(self) -> "HostService":
         if identity.offline():
-            raise FleetOffline(OFFLINE_LINE)
+            raise NetworkOffline(OFFLINE_LINE)
         ctx = None
         if self.tls_on is not False:
             got = tls.ensure_cert(S.host_dir(self.home), self.name or "halo-host")
             if got is None and self.tls_on:
-                raise RuntimeError("TLS needs the `cryptography` package (pip install 'halo-harness[fleet]')")
+                raise RuntimeError("TLS needs the `cryptography` package (pip install 'halo-harness[tls]')")
             if got is not None:
                 ctx, self.fingerprint = tls.server_context(got[0], got[1]), got[2]
         S.clear_stop(self.home)

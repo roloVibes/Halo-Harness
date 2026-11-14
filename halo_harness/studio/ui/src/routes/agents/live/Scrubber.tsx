@@ -22,7 +22,7 @@ function readAxis(sid: string): void {
   const s = axis.get();
   if (!sid || (s.sid === sid && Date.now() - s.at < 5000)) return;
   axis.update(() => ({ sid, at: Date.now(), ...(s.sid === sid ? {} : { tl: null }) }));
-  void api.get<SessionTimeline>("fleet/replay", { session: sid, harness: "local" })
+  void api.get<SessionTimeline>("live/replay", { session: sid, harness: "local" })
     .then((m) => axis.get().sid === sid && axis.update(() => ({ tl: fromSession(m, sid) }))).catch(() => undefined);
 }
 
@@ -86,7 +86,7 @@ export function Scrubber({ sid, title, started, lineup }: Props) {
              aria-label="Scrub: drag back in time" aria-valuetext={`${mmss(at - t0)} of ${mmss(span)}`} data-testid="replay-scrub" disabled={!r && !sid} />
     </div>
   );
-  const saveWhy = kind === "file" ? "This is a saved replay file already" : kind === "mission" ? "A mission is the fleet pack's: it is kept and compared from its report, not saved as a replay file" : "";
+  const saveWhy = kind === "file" ? "This is a saved replay file already" : "";
   return (
     <div className="scr mono" role="group" aria-label="Time: scrub the session back, play it forward" data-testid="replay-bar" data-mode={r ? "replay" : "live"}
          data-t={Math.round(at - t0)} data-t10={Math.round((at - t0) * 10)} data-lit={lit.join(",")} data-playing={r?.playing || undefined}
@@ -103,7 +103,7 @@ export function Scrubber({ sid, title, started, lineup }: Props) {
         {r && <span className="scr-title replay-title" title={r.title}>{r.title}</span>}
         {r && <span className="spacer" />}
         {r && <Button size="sm" variant="ghost" onClick={() => setDialog("save")} disabled={!!saveWhy} title={saveWhy || "Save this run's replay as one file you can open anywhere (says what it holds first)"} data-testid="replay-save">Save this run's replay</Button>}
-        {r && <Button size="sm" variant="ghost" onClick={() => setDialog("clip")} disabled={kind === "mission"} title={kind === "mission" ? "A clip is filmed from a saved replay: a mission's is the fleet pack's report" : "Film a range of it as one animated file (says what it writes first)"} data-testid="replay-clip">Export a clip</Button>}
+        {r && <Button size="sm" variant="ghost" onClick={() => setDialog("clip")} title="Film a range of it as one animated file (says what it writes first)" data-testid="replay-clip">Export a clip</Button>}
         <Button size="sm" onClick={backToNow} disabled={!r} title="Now: back to what runs (Esc on the canvas)" data-testid="replay-close">Now</Button>
       </div>
       {r && track}

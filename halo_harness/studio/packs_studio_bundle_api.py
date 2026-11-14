@@ -101,7 +101,7 @@ def _nudge(req) -> None:
 
     def run():
         try:
-            from halo_harness.studio.fleet_watch import watcher_for
+            from halo_harness.studio.live_watch import watcher_for
             watcher_for(req.server, req.state_dir).snapshot(0.0)
         except Exception:  # the queue picks the row up at its next tick all the same
             pass

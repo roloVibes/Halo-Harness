@@ -1,4 +1,4 @@
-"""halo_harness.host.pending -- the pending rows of `fleet.allow_control: ask` (Halo 3.3.7.0 R2; host/grants.py).
+"""halo_harness.host.pending -- the pending rows of `host.allow_control: ask` (Halo 3.3.7.0 R2; host/grants.py).
 
 `<state>/host/pending.jsonl`, one row per queued request: {id, at, peer, peer_id, kind ("op" | "grant"), grant, op,
 params, why, evidence, digest, state ("pending" | "allowed" | "denied" | "spent"), expires, answered_at?, spent_at?}.
@@ -34,7 +34,7 @@ def ask_ttl_s(home) -> float:
 
 def _host_name(home) -> str:
     from halo_harness.peers import identity
-    return identity.fleet_name(home)
+    return identity.harness_name(home)
 
 
 def _name(rec: Optional[dict], hid: str = "") -> str:
@@ -111,7 +111,7 @@ def queue(home, hid: str, rec: dict, kind: str, grant: str, op: str, body: dict,
 
 def queued_line(home, row: dict, now: float) -> str:
     left = max(0, int(float(row.get("expires") or now) - now))
-    return (f"queued for {_host_name(home)}'s owner (fleet.allow_control: ask): `halo host allow {row['id']}` there, "
+    return (f"queued for {_host_name(home)}'s owner (host.allow_control: ask): `halo host allow {row['id']}` there, "
             f"or the Hosts card of its Studio; the row expires in {left} s")
 
 

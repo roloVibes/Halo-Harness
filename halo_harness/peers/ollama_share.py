@@ -53,8 +53,8 @@ _OWN: dict = {}
 
 
 def mode() -> str:
-    """`fleet.ollama.share` -> "auto" | "all" | "off" (`true` / `false` read as all / off)."""
-    raw = identity.config_value("fleet.ollama.share", "auto")
+    """`ollama.share` (3.5.0.0; `fleet.ollama.share` before) -> "auto" | "all" | "off" (`true` / `false` read as all / off)."""
+    raw = identity.config_value("ollama.share", "auto")
     if raw is True or str(raw).strip().lower() in ("true", "all", "on"):
         return "all"
     if raw is False or str(raw).strip().lower() in ("false", "off", "none"):
@@ -90,7 +90,7 @@ def wanted(line: dict, how: str) -> bool:
     """Is this ledger line sent to a hub under `how` ("auto" | "all" | "off")?"""
     if how == "off" or not isinstance(line, dict):
         return False
-    if line.get("from") not in (None, identity.fleet_name()):
+    if line.get("from") not in (None, identity.harness_name()):
         return False  # a line this machine took in as a hub is never sent on
     return how == "all" or not served_here((line.get("host") or {}).get("url"))
 

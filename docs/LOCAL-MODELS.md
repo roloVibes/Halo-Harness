@@ -542,8 +542,8 @@ that serve your local models and the models they serve on one tab:
 **Resources** (this machine's GPU, VRAM and who holds it, RAM, CPU and
 temperature, sampled once a second while you watch, and every call to a
 local server as it happens), **Hosts** (every server Halo knows -- the
-`ollama.hosts` entries, the Hugging Face local servers, the hosts fleet
-members serve, the servers Find found -- with Load, Unload, keep-alive, Make
+`ollama.hosts` entries, the Hugging Face local servers, the hosts paired
+machines serve, the servers Find found -- with Load, Unload, keep-alive, Make
 it fit and Add to hosts) and **Models** (every installed model per host with
 its card, its fit meter and an intent filter: code, chat, long documents,
 images, embed). See [STUDIO-local.md](STUDIO-local.md); `halo local hosts`,

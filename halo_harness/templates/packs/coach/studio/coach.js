@@ -1,5 +1,5 @@
-// The coach pack's Coach panel in Studio's Agents section (Halo 3.4.0.0 B2: the run report's Coach tab and the
-// mission's Coach face were the core's until then; this panel is their one home now). Plain DOM, no build step:
+// The coach pack's Coach panel in Studio's Agents section (Halo 3.4.0.0 B2: the run report's Coach tab was the
+// core's until then; this panel is its one home now). Plain DOM, no build step:
 // Studio loads it once the owner grants studio-script and calls mount(el, api). It lists Studio's repo's Orchestra
 // runs (GET runs on the pack's routes), reads the picked run's card (GET orchestra/<run>/coach) and draws one block per
 // suggestion -- its kind, its text, its why lines -- with Ask (the lead's paragraph), Apply (the confirm card first:

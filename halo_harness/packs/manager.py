@@ -12,7 +12,7 @@ A row is `halo pack list`'s row and `halo pack inspect`'s payload (cli_views)
 plus: `health` (halo pack doctor's blocks and warns rows for it; 3.3.10.0
 R3: its info rows are `notes`), `compat` (the lines that
 keep it from running here, in the doctor's words: the extension API or Halo
-range, a dependency, a fleet capability not available here), `requires`
+range, a dependency, a capability not available here), `requires`
 with `met`, `granted` / `requested`, `contributes_lines` (the block `halo
 pack inspect` prints), `workflows` (each with its inputs, for "Run"),
 `sections` (its Studio sections, qualified), `has_settings` and (3.2.0.0 R7)
@@ -55,7 +55,7 @@ def _requires(pack, snap) -> "list[dict]":
 
 def _compat(pack, snap, granted, *, cwd, state_dir) -> "list[str]":
     """What keeps it from running here, as the doctor words it: resolve's lines as if it were enabled (the API and
-    Halo ranges, each dependency) and each fleet capability not available here."""
+    Halo ranges, each dependency) and each capability not available here."""
     from halo_harness.packs import contrib_views as CW
     from halo_harness.packs.resolve import compat_lines, resolve
     if pack.scope == "source":
@@ -75,16 +75,16 @@ def _compat(pack, snap, granted, *, cwd, state_dir) -> "list[str]":
 
 
 def _uses(d: dict, manifest: dict) -> "dict[str, list[str]]":
-    """Who else needs each permission: a bio's `tools.needs`, a fleet capability's `requires.grants`."""
+    """Who else needs each permission: a bio's `tools.needs`, a capability's `requires.grants`."""
     out: "dict[str, list[str]]" = {}
     for b in d.get("bios") or []:
         for n in b.get("needs") or []:
             out.setdefault(n["need"], []).append(f"bio {b['name']}")
-    fleet = (manifest.get("contributes") or {}).get("fleet") if isinstance(manifest.get("contributes"), dict) else None
-    for c in (fleet or {}).get("capabilities") or [] if isinstance(fleet, dict) else []:
+    from halo_harness.packs.capability_rules import capabilities_of
+    for c in capabilities_of(manifest):
         grants = ((c or {}).get("requires") or {}).get("grants") if isinstance(c, dict) else None
         for g in grants if isinstance(grants, list) else []:
-            out.setdefault(str(g), []).append(f"fleet capability {c.get('name')}")
+            out.setdefault(str(g), []).append(f"capability {c.get('name')}")
     return out
 
 

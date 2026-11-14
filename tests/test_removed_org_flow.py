@@ -14,8 +14,6 @@
 No model is called. Run: python -m tests.test_removed_org_flow
 """
 from __future__ import annotations
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 import ast
 import contextlib
@@ -98,7 +96,6 @@ def test_no_org_command_no_flow_or_org_dispatch_and_no_section(ctx: Ctx):
 def test_no_flow_feed_kind_stage_kind_unit_kind_or_attention_kind(ctx: Ctx):
     from halo_harness import events
     from halo_harness.live import attention
-    from halo_harness.fleet import mission_stage_run
     from halo_harness.live import push
     from halo_harness.orchestra import coach
     from halo_harness.studio.feed_kinds import DEFAULT_KINDS
@@ -107,7 +104,6 @@ def test_no_flow_feed_kind_stage_kind_unit_kind_or_attention_kind(ctx: Ctx):
     ctx.check(f"no flow_* feed kind, got {kinds}", not kinds and not [k for k in events.EVENT_KINDS if k.startswith("flow_")])
     ts = (PKG / "studio" / "ui" / "src" / "lib" / "events.ts").read_text(encoding="utf-8")
     ctx.check("the UI asks for no flow_* frame", '"flow_' not in ts)
-    ctx.check("no mission part kind flow", mission_stage_run.KINDS == ("orchestra",))
     ctx.check("no work unit kind step", "step" not in states.KINDS and "flow" not in store.RUN_KINDS)
     ctx.check("no coach run kind flow", "flow" not in coach.RUN_KINDS)
     ctx.check("no flow_gate attention or push row", "flow_gate" not in attention.KEYS and "flow_gate" not in push.PUSH_KINDS)

@@ -1,6 +1,6 @@
 """halo_harness.live.steward_attention -- the Ollama steward's newest note
-as a row of the Fleet attention queue (Halo 3.3.4.0 R4; fleet/attention.py
-builds the queue, studio/fleet_answer.py routes the keys).
+as a row of the attention queue (Halo 3.3.4.0 R4; live/attention.py
+builds the queue, studio/live_answer.py routes the keys).
 
     ollama_steward   a note of the last WITHIN_S whose findings carry severity
                      `error`, or any change (`attention: true` in steward.jsonl,
@@ -8,8 +8,7 @@ builds the queue, studio/fleet_answer.py routes the keys).
 
 One row, the newest such note: `what` is its first line, `detail` the rest
 (and the cost of the model's call); setting it aside hides that note's row,
-a newer one raises a new row. On a member the hub's note is its own
-(`hub-note.json`): it shows only when it says `attention`.
+a newer one raises a new row.
 """
 
 from __future__ import annotations
@@ -40,19 +39,13 @@ def _rows(home, local: dict, seen: dict, now: float) -> list:
         out.append(_row(KIND, str(n.get("id")), local, None, "", one_line(notes.first_line(n), 240),
                         one_line(" ".join(rest), 240), seen, now, note=n.get("id"), stage=n.get("stage"),
                         host=n.get("where") or (n.get("data") or {}).get("host") or ""))
-    hub = notes.hub_note(home)
-    if hub and hub.get("attention"):
-        from halo_harness.ollama_steward.ledger import parse_at
-        if now - (parse_at(hub.get("at")) or 0) < WITHIN_S:
-            out.append(_row(KIND, f"hub:{hub.get('id')}", local, None, "", one_line(notes.member_line(hub), 240),
-                            "", seen, now, note=hub.get("id"), hub=hub.get("hub")))
     return out
 
 
 def open_target(row: dict) -> dict:
     t = row.get("target") or {}
-    # 3.3.16.0 R2: the Fleet section went; the shell opens Local -> Hosts on `host` (routes/agents/fleetDoor.ts)
-    return {"section": "fleet", "panel": "ollama", "note": t.get("note"), "hub": t.get("hub"), "host": t.get("host") or ""}
+    # 3.3.16.0 R2: the shell opens Local -> Hosts on `host`
+    return {"section": "live", "panel": "ollama", "note": t.get("note"), "host": t.get("host") or ""}
 
 
 def latest_attention(home, now: float = None) -> "dict | None":

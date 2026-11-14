@@ -3,7 +3,7 @@
 when two agents of DIFFERENT sessions (any harness) touch the same file of
 the same repo, a conflict, before the merge conflict happens.
 
-Sources, merged by the hub (studio/fleet_watch.py keeps the `Touches`):
+Sources, merged by the hub (studio/live_watch.py keeps the `Touches`):
 * each agent's Edit / Write calls: the agent row's `current` ("Edit: src/a.py",
   in every `agent_state` frame and on every view) and a followed agent's
   `tool_call` entries;

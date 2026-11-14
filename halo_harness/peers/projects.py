@@ -1,5 +1,5 @@
 """halo_harness.peers.projects -- the repos this harness works in, for its capabilities catalog (Halo 3.0.6.0 R6
-as fleet/capabilities_sources.projects; 3.4.0.0 D: core, so packs/fleet_registry.host_catalog reads it with the
+as fleet/capabilities_sources.projects; 3.4.0.0 D: core, so packs/capability_check.host_catalog reads it with the
 fleet pack off). Each row is {name, repo, branch} (the basename, never a full path), from the live sessions'
 registry, Studio's folder and the newest history lines, at most PROJECTS_MAX.
 """
@@ -50,7 +50,7 @@ def _history_roots(home: Path, limit: int = 200) -> list:
 
 
 def projects(home: Path, cwd: Path) -> list:
-    from halo_harness.remote.fleet_identity import project
+    from halo_harness.remote.session_identity import project
     seen, out = set(), []
     for root in _registry_roots(home) + [str(cwd)] + _history_roots(home):
         if len(out) >= PROJECTS_MAX:

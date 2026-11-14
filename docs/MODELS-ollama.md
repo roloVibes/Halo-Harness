@@ -347,7 +347,7 @@ Every Ollama host Halo knows is controlled from Studio's **Local** tab and from 
 - **A tuned twin** from a row: [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md).
 - **Load now** / **Unload** (a warm `/api/generate`, `keep_alive: 0`) and **what is loaded** (`GET /api/ps`).
 
-A host another machine serves is controlled through its fleet member, as its owner allows ([FLEET.md](FLEET.md)).
+A host another machine serves is controlled through its host door, as its owner allows ([HOST.md](HOST.md)).
 Halo never writes a blob store itself. The commands: [COMMANDS-local.md](COMMANDS-local.md); the page:
 [STUDIO-local.md](STUDIO-local.md).
 

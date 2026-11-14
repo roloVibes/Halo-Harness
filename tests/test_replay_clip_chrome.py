@@ -66,7 +66,7 @@ def test_servers_5_export_a_clip_films_through_a_throwaway_read_only_studio(ctx:
             auth = {"Authorization": "Bearer " + token}
             ok = [p for p in ("state", "pack/registry", "replays", "lineups") if fetch(f"{base}/api/{p}", headers=auth)[0] == 200]
             ctx.check(f"the replay page's GETs answer, got {ok}", len(ok) == 4)
-            for path in ("settings/values", "fleet", "sessions", "setup/state", "local/hosts"):
+            for path in ("settings/values", "live", "sessions", "setup/state", "local/hosts"):
                 ctx.check(f"GET {path}: refused", fetch(f"{base}/api/{path}", headers=auth)[0] == 403)
             for method, path in (("POST", "settings/set"), ("POST", "sessions/new"), ("POST", "shutdown"), ("PUT", "bio/x")):
                 ctx.check(f"{method} {path}: refused", fetch(f"{base}/api/{path}", method=method, data=b"{}", headers=auth)[0] == 403)

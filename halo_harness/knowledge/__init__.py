@@ -6,8 +6,7 @@ evidence: what, where, the evidence lines, who found it, when) and a
 `decision` (a choice taken with its reason: what, why, the alternatives, who
 took it, when). They are Markdown files with a small front matter under
 `<state>/knowledge/`, written by the places that already know them, indexed
-by recall like memory and sessions, carried over the fleet like the coach
-library, and cited by the agents that reuse them. Nothing here is a
+by recall like memory and sessions, and cited by the agents that reuse them. Nothing here is a
 classifier, and no model is asked to confirm anything.
 
 * `store.py`   -- the files: write, read, list, supersede, forget, the ids, `_meta.json`.
@@ -19,8 +18,7 @@ classifier, and no model is asked to confirm anything.
                   (`knowledge.write: false` turns every writer off).
 * `sources.py` -- recall's sources: the entries (kinds finding / decision) and the owner's own notes
                   (`recall.sources`, kind note, read in place).
-* `share.py`   -- over the fleet: a member's answer to the `knowledge` command, `halo knowledge fetch`.
-* `cli.py`     -- `halo knowledge add|list|show|search|forget|supersede|fetch`.
+* `cli.py`     -- `halo knowledge add|list|show|search|forget|supersede|prune`.
 
 The agents' tools are `knowledge_add` and `knowledge_search` (tools/knowledge.py).
 """

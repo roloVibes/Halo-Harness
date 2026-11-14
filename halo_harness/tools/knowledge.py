@@ -31,8 +31,8 @@ def _strings(value) -> list:
 class KnowledgeAddTool(Tool):
     name = "knowledge_add"
     description = (
-        "Save what you established so later sessions, Orchestra runs and the other harnesses of the fleet can reuse "
-        "it. kind `finding`: a fact you verified -- give evidence lines (the command you ran and its result, the "
+        "Save what you established so later sessions and Orchestra runs can reuse it."
+        " kind `finding`: a fact you verified -- give evidence lines (the command you ran and its result, the "
         "file and line you read). kind `decision`: a choice you took -- say why in the body and list the "
         "alternatives. Returns the entry's id (f-... or d-...); cite that id when you reuse it later."
     )

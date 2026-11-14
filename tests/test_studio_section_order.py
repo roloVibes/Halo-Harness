@@ -52,9 +52,9 @@ def test_the_registry_runs_session_first_and_settings_last(ctx: Ctx):
               rows[1][1:] == ("Agents", "Alt+2", "The cast, what runs now on every machine (a goal run too), and what ran"))
     ctx.check("Local is Alt+3", rows[2][1:] == ("Local", "Alt+3", "The machines that serve models, and the models they serve"))
     ctx.check("Packs is Alt+4, the Pack Manager", rows[3][1:] == ("Packs", "Alt+4", "Install, grant and enable packs"))
-    ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme, lineup and machines"))
+    ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme and lineup"))
     ctx.check("Settings is the last, Alt+6", rows[-1][1:] == ("Settings", "Alt+6", "Every config key, one page per group"))
-    ctx.check("no Fleet section (3.3.16.0 R2: Agents -> Live, Setup -> Machines, Local)", "fleet" not in [r[0] for r in rows])
+    ctx.check("no Fleet section (3.3.16.0 R2: Agents -> Live, Local; 3.5.0.0: Fleet left)", "fleet" not in [r[0] for r in rows])
     reg = (UI / "routes" / "packs" / "registry.ts").read_text(encoding="utf-8")
     ctx.check("3.3.16.0 R2: Alt+7 to Alt+0 are the first four pack sections' (FIRST_KEY = 7, LAST_KEY = 10)",
               "const FIRST_KEY = 7;" in reg and "const LAST_KEY = 10;" in reg and "`Alt+${n % 10}`" in reg)

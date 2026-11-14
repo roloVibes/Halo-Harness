@@ -41,7 +41,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["Ctrl+Z / Ctrl+Shift+Z", "undo / redo a lineup edit"], ["Mod+S", "save the lineup"], ["J / K", "the next / previous card whose agent works: its Live tab opens"], ["Space", "pin that agent's mini stream"], ...PANEL_KEYS],
   },
   agents: { // 3.3.16.0 R1: Team, Roles and Orchestra folded into one section; R2: and Fleet; 3.4.0.0 D: Runs went
-    terms: ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "fleet", "hub", "harness", "mission", "part", "hand-off", "capability", "replay", "waiting path", "report card"],
+    terms: ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "harness", "hand-off", "capability", "replay", "waiting path", "report card"],
     what: "Your agents in one place, views on one switch: Cast is the lineup and its bios (which agent, on which model, plays each part, in which tier), Live is what runs now -- this halo's session, a goal run's lanes under its lead, or every machine of the fleet as a tree -- with History beside it for what ran, and Workflows is the board of squares main may hand work to. A goal is something you run from Live (Run a goal on its bar); its finished report is in History. Team's board, Runs and the Fleet section are gone: a run on Live shows who owns what, a machine's agents are Live's, its models Local's, pairing Setup -> Machines'.",
     steps: [
       ["Pick the view", "Cast, Live or Workflows, first on the bar (C, L, W; R, Runs' old key, lands on Live). Agents opens on Live: what runs now, or one sentence when nothing does; a door that names a view lands there. Nothing else opens on its own."],
@@ -63,7 +63,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["J / K", "the next / previous agent at work"], ...PANEL_KEYS],
   },
   session: {
-    terms: ["harness", "fleet", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance
+    terms: ["harness", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance
     what: "Your own session, live: one live column of every agent at work, as it happens, fills the stage; the map of this harness's agents, what the chosen session costs and the rest wait as strips at its foot. Every machine's agents are Agents -> Live's (the fleet scope).",
     steps: [
       ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+1, the palette, Watch in Session on Agents' Live tab or a live run in Agents: Runs, and Open in Session on a node's menu on Agents -> Live land here too."],
@@ -132,7 +132,7 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
   },
   local: {
     terms: ["host", "steward", "profile", "fit plan", "speed card", "library", "quant"], // 3.3.5.0 R1: "host", "speed card"; R2: "library", "quant"
-    what: "Everything about the machines that serve your local models and the models they serve, one page at a time: Resources (the live GPU, VRAM, RAM and CPU, and every call to a local server as it happens), Hosts (every server Halo knows, with Load, Unload and Make it fit), Models (every installed model with its card, its fit meter and the intent filter), Library (what could be installed from Ollama's library and the Hugging Face Hub, each with a fit badge), then Hugging Face, Benchmarks and Steward, which the next rounds fill. Five ideas run through every page: the fit meter, why on every number, intents not model names, make it fit, and the hub as the one picture of the network. Nothing opens on its own; halo local opens it from a terminal.",
+    what: "Everything about the machines that serve your local models and the models they serve, one page at a time: Resources (the live GPU, VRAM, RAM and CPU, and every call to a local server as it happens), Hosts (every server Halo knows, with Load, Unload and Make it fit), Models (every installed model with its card, its fit meter and the intent filter), Library (what could be installed from Ollama's library and the Hugging Face Hub, each with a fit badge), then Hugging Face, Benchmarks and Steward, which the next rounds fill. Four ideas run through every page: the fit meter, why on every number, intents not model names, and make it fit. Nothing opens on its own; halo local opens it from a terminal.",
     steps: [
       ["Pick a page", "The rail on the left lists the seven pages; a click opens one, and the page last open comes back next time."],
       ["Watch the card", "Resources: one strip per host, sampled once a second while the page is open: the VRAM bar names what holds it, the GPU line is the last minute, RAM, CPU and the temperature beside them; hover a number for its source."],

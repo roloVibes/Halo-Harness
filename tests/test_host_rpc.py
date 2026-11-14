@@ -5,7 +5,7 @@ records the argv and listens on 127.0.0.1:<-p>; no rpc-server starts); never a r
 1. on: the argv (`-H` the address the host serves on, `-p` the port, `--mem` the card's free VRAM in MiB), the state
    file with pid, port, bound address, binary and version, the trusted-LAN note once; `GET rpc` and status answer it;
    on again is "already on"; off stops it; the audit lines carry the op (read after `audited(n)`);
-2. the grants: under fleet.allow_control `none` one line naming the grant and, once per host, the trusted-LAN line;
+2. the grants: under host.allow_control `none` one line naming the grant and, once per host, the trusted-LAN line;
    `ask` queues a pending row (202); a peer without `control` is refused with the grant named; a dry preview lands
    nothing; no binary is one line (422);
 3. `halo host rpc on | status | off` on the worker itself, and `halo pool rpc <member> status | on` from the
@@ -68,7 +68,7 @@ def test_the_grants_and_the_refusals(ctx: Ctx):
         status, got = rig.act("control", "rpc_server", {"to": "on"})
         err = got.get("error") or ""
         ctx.check(f"none: one line naming the grant and the trusted-LAN line, got {status} {err!r}", status == 403
-                  and "rpc_server is a control operation: fleet.allow_control is none on" in err
+                  and "rpc_server is a control operation: host.allow_control is none on" in err
                   and "halo host grant <peer> control" in err and "a trusted LAN only" in err and not fake.argvs)
         status, got = rig.act("control", "rpc_server", {"to": "on"})
         ctx.check(f"the trusted-LAN line once per host, got {got.get('error')!r}", status == 403

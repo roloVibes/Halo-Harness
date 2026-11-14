@@ -5,7 +5,7 @@ no framed classic page), through headless Chrome over the DevTools protocol
 
     docs/media/studio-roles.png   a seeded lineup with two declared tiers (the main agent alone in tier 0,
                                   the leads in tier 1, the rest in the implicit last tier), a catalog with
-                                  prices, and a live card: the real session of tests/helpers/studio_fleet_rig.py
+                                  prices, and a live card: the real session of tests/helpers/studio_session_rig.py
                                   (its implementer mid-work glows; its Live tab open in the Inspector)
 
 With --dom the section is read twice -- its Start view first (only the
@@ -95,9 +95,9 @@ def dom(c, url: str, state: Path) -> dict:
 
 def shoot(c, png: Path) -> int:
     """The tiers lineup in the fleet rig's real session: the implementer glows; its Live tab open."""
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
+    from tests.helpers.studio_session_rig import StudioSessionRig
     placeholder()
-    with StudioFleetRig() as rig:
+    with StudioSessionRig() as rig:
         rig.full = False  # 3.3.2.0 R3: the pictures show the quiet arrangement (each names the panels it opens)
         placeholder(rig.state)  # the rig's own home: you@studio
         seed_catalog(rig.state)

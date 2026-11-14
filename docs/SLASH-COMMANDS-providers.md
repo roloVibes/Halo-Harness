@@ -1,10 +1,10 @@
-# Slash commands: providers, fleet and upkeep
+# Slash commands: providers, remote control and upkeep
 
-Read this when you set up providers, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
+Read this when you set up providers, rate limits or remote control, or run `/doctor`, `/update` and `/bugreport`.
 
 Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which lists every part.
 
-## Built-in commands: providers, fleet and upkeep
+## Built-in commands: providers, remote control and upkeep
 
 ### `/providers [list|enable <name>|disable <name>|setup <name>]`
 H15 item 21 (rule replaced by the H15 part 2 addendum): the provider-
@@ -122,24 +122,14 @@ to this session the status bar shows a `⇄ remote` chip; with none attached it 
 (`⇄ signal`) or the pack service that should run and does not. See [REMOTE.md](REMOTE.md).
 
 ### `/private [on|off]`
-Halo 3.0.5.0 (Fleet). `/private on` makes this session private: it closes
+Halo 3.0.5.0. `/private on` makes this session private: it closes
 its control socket and leaves `~/.halo/run/sessions.json`, so Studio,
-`halo remote` and the fleet no longer see it, and the status bar shows a
+and `halo remote` no longer see it, and the status bar shows a
 `private` chip. `/private off` opens the socket again and lists the
 session. Bare `/private` prints the state and the control-socket line.
-`halo --private` starts a session private, and `fleet.private: true` in
+`halo --private` starts a session private, and `control.private: true` in
 `~/.halo/config.json` makes every session start private. A `halo -p` run
-started private stays private. See [FLEET.md](FLEET.md).
-
-**`/fleet [text]` and `/mission [id]`: the fleet pack's (3.4.0.0).** With the shipped `fleet` pack on (`halo pack
-enable fleet --grant-all`), `/fleet` prints the fleet table in the transcript: one row per agent of every harness
-this machine sees (harness, session, agent indented under its parent, state, what it is doing, cost), read from
-Studio's `GET /api/fleet` when Studio runs, else the hub this machine serves, else this harness alone; `/fleet who
-<query>` and `/fleet capabilities [name]` as `halo fleet who | capabilities`. The live table with its keys (steer,
-stop, pause) is `halo fleet` in a terminal of its own. `/mission` lists the fleet's missions (id, state, parts, cost,
-harnesses, goal), or one mission's parts by harness: the same as `halo fleet mission status [id]`; making, planning,
-running and stopping a mission is `halo mission ...` ([MISSIONS.md](MISSIONS.md)). With the pack off both say in one
-line that the fleet is a pack and how to turn it on. See [FLEET.md](FLEET.md).
+started private stays private. See [REMOTE.md](REMOTE.md).
 
 ### `/offline [on|off]`
 Halo 2.0.3 round 5e. Bare `/offline` reports whether offline mode is on and

@@ -1,9 +1,9 @@
 """tests.test_steer_silent_children -- a steer to main while its sub-agents'
 model calls are still silent reaches them and keeps them alive (Halo
-3.1.7.0). Over this harness's real session (tests/helpers/studio_fleet_rig.py:
+3.1.7.0). Over this harness's real session (tests/helpers/studio_session_rig.py:
 main runs an implementer and a researcher through the real Controller; both
 are held mid-call in the scripted mock, waiting for their second reply),
-the steer goes in the way Studio's Session box sends it (`fleet_api.forward`,
+the steer goes in the way Studio's Session box sends it (`live_agents_api.forward`,
 `agent_steer`, mode nudge). Pinned:
 
 1. main accepts it as a steer (its turn is busy) and forwards it into both
@@ -23,8 +23,6 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -36,15 +34,15 @@ _RUN: dict = {}
 def _run() -> dict:
     if _RUN:
         return _RUN
-    from tests.helpers.fleet_rig import wait_for
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
+    from tests.helpers.session_rig import wait_for
+    from tests.helpers.studio_session_rig import StudioSessionRig
     out: dict = {}
-    with StudioFleetRig() as rig:
-        from halo_harness.studio import fleet_api
+    with StudioSessionRig() as rig:
+        from halo_harness.studio import live_agents_api
         out["before"] = {a.get("agent_id"): a.get("state") for a in rig.agents()}
         out["seen_before"] = (len(rig.seen["a"]), len(rig.seen["b"]))
         t0 = time.monotonic()
-        out["forward"] = fleet_api.forward(rig.act.session_id, "steer", {"agent_id": "main", "text": SENT, "mode": "nudge", **fleet_api.caller()})
+        out["forward"] = live_agents_api.forward(rig.act.session_id, "steer", {"agent_id": "main", "text": SENT, "mode": "nudge", **live_agents_api.caller()})
         ok = wait_for(lambda: len(rig.seen["a"]) >= 2 and len(rig.seen["b"]) >= 2, 5)
         out["resent_s"] = round(time.monotonic() - t0, 2)
         out["resent"] = bool(ok)

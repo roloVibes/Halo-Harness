@@ -82,7 +82,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
   - [COMMANDS-sessions.md](COMMANDS-sessions.md) (Commands: config, sessions, stats and reports): read this when you read or set config (`halo settings` opens Studio's Settings), replay or export a session, read stats, or file a bug report.
   - [COMMANDS-agents.md](COMMANDS-agents.md) (Commands: roles, review, bios and lineups): read this when you manage roles, reviews, bios and lineups from the command line.
   - [COMMANDS-studio.md](COMMANDS-studio.md) (Commands: Studio, design, media, Orchestra and teams): read this when you open Studio or run designs, media, an Orchestra goal or a team from the command line.
-  - [COMMANDS-fleet.md](COMMANDS-fleet.md) (Commands: remote control and the fleet): read this when you control sessions remotely or run a fleet and its missions.
+  - [COMMANDS-remote.md](COMMANDS-remote.md) (Commands: remote control): read this when you control sessions remotely.
   - [COMMANDS-host.md](COMMANDS-host.md) (Commands: halo host): read this when you run `halo host` on a machine that serves models, pair a harness with it, or install it as a service.
   - [COMMANDS-pool.md](COMMANDS-pool.md) (Commands: halo pool): read this when you put several machines' GPUs together for one model: list or edit the pool's members, scan the LAN for rpc-server ports, ask what the pool can run, or run the preflight, warm, stop and read the running pool.
   - [COMMANDS-copilot.md](COMMANDS-copilot.md) (Commands: halo copilot): read this when you sign in to your work's Microsoft 365 Copilot from a terminal, ask it a question about your mail, meetings, chats or files, or sign out again.
@@ -99,7 +99,7 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [SLASH-COMMANDS.md](SLASH-COMMANDS.md) (Slash commands, keys, and prompt prefixes): read this when you want what a `/command`, a key or a prompt prefix does in the TUI.
   - [SLASH-COMMANDS-session.md](SLASH-COMMANDS-session.md) (Slash commands: sessions, models and context): read this when you manage the session, its model, memory, permissions or config from the prompt (`/clear`, `/model`, `/recall`, `/config` ...).
   - [SLASH-COMMANDS-agents.md](SLASH-COMMANDS-agents.md) (Slash commands: agents, lineups, roles and review): read this when you work with bios, lineups, roles or `/review` from the prompt.
-  - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, fleet and upkeep): read this when you set up providers, rate limits, remote control or the fleet, or run `/doctor`, `/update` and `/bugreport`.
+  - [SLASH-COMMANDS-providers.md](SLASH-COMMANDS-providers.md) (Slash commands: providers, remote control and upkeep): read this when you set up providers, rate limits or remote control, or run `/doctor`, `/update` and `/bugreport`.
   - [SLASH-COMMANDS-tui.md](SLASH-COMMANDS-tui.md) (Slash commands: themes, Studio and the TUI): read this when you change themes, open Studio, copy, rewind or tune the TUI, run the guided first run or the checks, look up a word, or add your own commands, skills and images.
   - [SLASH-COMMANDS-keys.md](SLASH-COMMANDS-keys.md) (Slash commands: prefixes, keys and cards): read this when you want the `@path` and `!cmd` prefixes, a key binding, or the keys a card answers to.
 - [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
@@ -109,11 +109,11 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [WORKFLOWS.md](WORKFLOWS.md) (Workflows): read this when you write or run a pack's workflow: its stages compiled to an Orchestra run, its typed artifacts, events and memory.
 - [WORKFLOWS-squares.md](WORKFLOWS-squares.md) (Workflow squares): read this when you want the main agent to hand a task to a saved workflow (a square): the contract, where squares come from, how the router picks one, the receipts and the Workflows board.
 - [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
-- [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane, a mission part and a team stage.
+- [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane and a supervisor goal.
 - [SUPERVISE.md](SUPERVISE.md) (The supervisor): read this when you want to give Halo a goal at night and open Studio in the morning to see what finished, what waits on you and what it cost.
 - [OUTCOMES.md](OUTCOMES.md) (Verified outcomes and measured routing): read this when you want to know what an agent's work showed (its tests, sources, commands, files), how each outcome is recorded per bio and model, and how a bio can route to the model that succeeded most here.
 - [ISOLATION.md](ISOLATION.md) (Isolation): read this when a lineup's workers should run in a container or as another OS user, get their keys from a secret broker, or see only some of the tools.
-- [KNOWLEDGE.md](KNOWLEDGE.md) (Knowledge: findings and decisions): read this when you want what Halo verified or decided to outlive the session that found it: findings and decisions, who writes them, the files, the agents' tools, citing what was reused and the fleet.
+- [KNOWLEDGE.md](KNOWLEDGE.md) (Knowledge: findings and decisions): read this when you want what Halo verified or decided to outlive the session that found it: findings and decisions, who writes them, the files, the agents' tools and citing what was reused.
 - [RECALL.md](RECALL.md) (Recall): read this when you search what Halo remembers -- memory topics, past sessions, the coach library, findings, decisions and your own notes (an Obsidian vault) -- or point it at a folder of your notes.
 - [COMFYUI.md](COMFYUI.md) (ComfyUI in Halo): read this when you want Halo to render images or video with ComfyUI on your own GPU.
 - [SUBAGENTS.md](SUBAGENTS.md) (Sub-agent visibility and scale): read this when you watch or limit sub-agents: the tasks panel, concurrency and depth.
@@ -122,19 +122,19 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 
 ## I want to use Studio
 
-The browser console: every agent of your session live, your lineups and their runs (Agents), the fleet and designs.
+The browser console: every agent of your session live, your lineups and their runs (Agents), and designs.
 
-- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, designs and the fleet.
+- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, and designs.
   - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the team's door.
   - [STUDIO-session.md](STUDIO-session.md) (Studio: steering and exporting a session): read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
   - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Agents, Local, Packs, Setup, Settings).
-  - [STUDIO-agents.md](STUDIO-agents.md) (Studio: Agents): read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), what runs now and what ran (Live, a goal run on it, History), the board of squares (Workflows), and the doors the old Team, Roles, Orchestra, Runs and Fleet left.
+  - [STUDIO-agents.md](STUDIO-agents.md) (Studio: Agents): read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), what runs now and what ran (Live, a goal run on it, History), the board of squares (Workflows), and the doors the old Team, Roles, Orchestra and Runs left.
   - [STUDIO-live.md](STUDIO-live.md) (Studio: Agents -> Live, the living canvas): read this when you watch what runs now on Studio's Agents -> Live: why it shows only what is happening, where the past went (History and replays), the plan drawn under the agents, what each agent waits on, the one sentence under the bar, the three zoom levels, the scrubber that takes the canvas back in time, the glance (one phone-width page) and the alert when something starts waiting on you.
   - [REPLAY.md](REPLAY.md) (Replays: scrub a run back in time, save it as one file, film a clip, compare two runs, read its report card): read this when you want to see what a session looked like at an earlier moment on Studio's Agents -> Live, save a run's replay as one file to open on another machine, turn a stretch of it into an animated clip, compare two runs side by side (`halo replay list | save | open | clip | compare`), or read a finished run's report card (`halo report`).
   - [STUDIO-blocks.md](STUDIO-blocks.md) (Studio: blocks and groups): read this when you compose the lineup on Agents -> Cast as blocks (a tier with its purpose, a workflow square with the agents inside it) or watch Agents -> Live box the sub-agents of one task.
   - [STUDIO-feed.md](STUDIO-feed.md) (Studio: the live feed): read this when you want how Studio's pages get their live frames: the Server-Sent Events stream, its kinds and its catch-up.
   - [STUDIO-orchestra.md](STUDIO-orchestra.md) (Studio: a goal run on Live and in History): read this when you run an Orchestra goal from Studio: Run a goal on Agents -> Live, the run as a job on Live, its plan review, its lanes in the inspector, and its report in History.
-  - [STUDIO-fleet.md](STUDIO-fleet.md) (Studio: Fleet in Agents, Setup and Local): read this when you watch or steer every harness and agent from Studio: Agents -> Live on the fleet, the Attention queue, missions, pairing and the machines' models.
+  - [STUDIO-live-panels.md](STUDIO-live-panels.md) (Studio: Attention, costs, hand-offs and recordings): read this when you answer what waits on you from Studio, watch what your sessions spend, hand an agent's work on, record a session, hop between agents with the keys, or want to know what Studio reads and writes for them.
   - [STUDIO-team-roles.md](STUDIO-team-roles.md) (Studio: Team and Roles): read this when a link sent you to Studio's Team or Roles section: since 3.3.16.0 both are Agents (STUDIO-agents.md).
   - [STUDIO-packs.md](STUDIO-packs.md) (Studio: the Pack Manager): read this when you install, grant, enable, set up, update or remove packs from Studio's Packs section.
   - [STUDIO-local.md](STUDIO-local.md) (Studio: the Local section): read this when you watch the machines that serve your local models and what they serve: the live resources and traffic, every host with its controls, every model with its fit, the library of models you could install, and the Hugging Face models on disk with the local servers Halo starts for them.
@@ -150,14 +150,10 @@ The browser console: every agent of your session live, your lineups and their ru
   the craft apps and the Studio section with its routes, in [its README](../halo_harness/templates/packs/design/README.md)
   and its docs/DESIGN.md and docs/STUDIO-design.md.
 
-## I want to run a fleet
+## I want to control a session from elsewhere
 
-The fleet is the shipped `fleet` pack since 3.4.0.0 (`halo pack enable fleet --grant-all`).
+Control from another process or your phone.
 
-Several harnesses, one picture, one goal; and control from another process or your phone.
-
-- [FLEET.md](FLEET.md) (Fleet): read this when you connect several harnesses into one fleet and watch or steer them from one place.
-- [MISSIONS.md](MISSIONS.md) (Fleet missions): read this when you give one goal to the whole fleet and want to follow its parts.
 - [REMOTE.md](REMOTE.md) (Remote control): read this when you control a running session from another process, or wire a transport (a phone, a chat) to Halo.
 
 ## I want to develop Halo
@@ -171,7 +167,7 @@ How Halo is built, tested and released, and the record of how it got here.
   - [ARCHITECTURE-permissions.md](ARCHITECTURE-permissions.md) (Architecture: permissions, hooks and MCP): read this when you change permission rules and modes, the hooks protocol, or how MCP servers start and cache.
   - [ARCHITECTURE-runtime.md](ARCHITECTURE-runtime.md) (Architecture: steering, compaction, sub-agents and telemetry): read this when you change steering and interrupts, compaction, sub-agents and plan mode, or telemetry.
   - [ARCHITECTURE-tui.md](ARCHITECTURE-tui.md) (Architecture: the TUI event model): read this when you change how the TUI turns session events into widgets.
-  - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
+  - [ARCHITECTURE-modules.md](ARCHITECTURE-modules.md) (Architecture: the module map): read this when you look for the module behind a Studio, Orchestra or team feature.
   - [ARCHITECTURE-modules-two.md](ARCHITECTURE-modules-two.md) (Architecture: the module map, part two): read this when you look for the module behind the Ollama steward, packs, the extension API, isolation, Setup or Settings.
 - [PACK-AUTHORING.md](PACK-AUTHORING.md) (Writing a pack: the kit, the loop, the checks): read this when you write a pack, or point a Halo session at a folder to write one, and want it to work the first time.
 - [EXTENSION_API.md](EXTENSION_API.md) (The extension API): read this when you write a pack, or change what Halo promises a pack: the manifest, the lifecycle, what a pack may import and what each part's status is.

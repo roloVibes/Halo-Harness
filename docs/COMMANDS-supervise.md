@@ -204,8 +204,6 @@ halo knowledge prune --kind gate --older-than 7d   # what it would remove, and t
 halo knowledge prune --kind gate --older-than 7d --yes   # remove them
 halo knowledge supersede f-20261024-3c9a1e "basket.py#total rounds half up, checked on 3.1"
 halo knowledge forget d-20261024-8e41f0
-halo knowledge fetch kali@lab f-20261023-0b7d2a   # take a fleet member's entry, read-only
-halo knowledge fetch kali@lab --all decision      # every current decision it has
 ```
 
 - `add finding|decision "<title>"`: write one, `by: user`. `--body FILE` (or

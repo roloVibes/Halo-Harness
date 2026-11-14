@@ -8,8 +8,7 @@ suggestions, one per finding:
      lane_or_part, bio, text, why: [evidence lines],
      apply: {target: bio|lineup|plan, name, field, value} | null}
 
-`kind` of the run is read from the folder: an Orchestra run (goal.json), a
-mission (mission.json).
+`kind` of the run is read from the folder: an Orchestra run (goal.json).
 The rules live once in coach_rules.py (3.1.3.0 R1); one thin loader per run
 kind, `coach_<kind>_rules.py`, turns that kind's files into the rules'
 facts (the Orchestra loader reads the core's orchestra/lane_facts.py and prices.py);
@@ -46,10 +45,10 @@ jsonl = _core.module('orchestra.jsonl')
 
 KINDS = ("prompt", "model", "tools", "structure", "coordination")
 SEVERITIES = ("high", "medium", "low")
-RUN_KINDS = ("orchestra", "mission")
+RUN_KINDS = ("orchestra",)
 CACHE = "coach.json"
-_MARKERS = (("mission", "mission.json"), ("orchestra", "goal.json"))
-_SOURCES = ("report.json", "events.jsonl", "log.jsonl", "merge.json", "mission.json",
+_MARKERS = (("orchestra", "goal.json"),)
+_SOURCES = ("report.json", "events.jsonl", "log.jsonl", "merge.json",
             "split.json", "plan.json")
 
 
@@ -78,7 +77,7 @@ def coach(run_dir, *, catalog: Optional[list] = None, cwd=None, state_dir=None) 
     run_dir = Path(run_dir)
     kind = run_kind(run_dir)
     if kind is None:
-        raise ValueError(f"{run_dir} is not an Orchestra or mission run folder")
+        raise ValueError(f"{run_dir} is not an Orchestra run folder")
     import importlib
     rules = getattr(importlib.import_module(f".coach_{kind}_rules", __package__), kind)
     found, evidence = rules(run_dir, catalog=catalog, cwd=cwd, state_dir=state_dir)

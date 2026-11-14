@@ -154,7 +154,7 @@ def save(state_dir, payload: dict) -> Path:
 
 
 def upgrade(data: dict) -> dict:
-    """A file of an older shape as today's. Version 0: a 3.0.5.0-3.4.0.0 `GET fleet/replay` answer saved as is
+    """A file of an older shape as today's. Version 0: a 3.0.5.0-3.4.0.0 `GET live/replay` answer saved as is
     (session_id, agents, states, costs; no format)."""
     if data.get("format") == FORMAT:
         v = data.get("version")

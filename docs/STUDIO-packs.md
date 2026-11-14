@@ -56,10 +56,10 @@ Documentation Review reference pack). There is no marketplace.
   description, author and license; the extension API and Halo ranges beside
   this Halo's; each pack it requires and whether that is met; **what keeps
   it from running here** in the doctor's words (an API or Halo range, a
-  dependency missing or off, a fleet capability not available, with why);
+  dependency missing or off, a capability not available, with why);
   each permission it requests and what needs it, with a **Grant** toggle; what
   it contributes (the block `halo pack inspect` prints: its Studio section and
-  panels, palette lines, settings form, event lines, attention rows, fleet
+  panels, palette lines, settings form, event lines, attention rows,
   capabilities, workflows, artifact and event schemas) with links that open
   its section, its lineup in Roles and each workflow's Run; and its health,
   the doctor's rows with their fixes (3.3.10.0 R3: its info rows too, tagged

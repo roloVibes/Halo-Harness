@@ -20,8 +20,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.packs_home import PacksHome  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -89,12 +87,9 @@ def test_enable_with_and_without_grants_then_disable(ctx: Ctx):
                   code == 0 and rec["enabled"] is False and rec["granted"] == [] and "grants cleared: hooks, mcp:lint" in out
                   and (h.packs / "doc-review" / "pack.yaml").is_file())
         ctx.check("a disabled pack holds no grant", not is_granted("doc-review", "hooks"))
-        from halo_harness.fleet import capabilities as C
-        C.save({"hash": "h", "at": 123.0}, h.state)
         code, _out, _err = h.cli("enable", "doc-review", "--grant-all", "--yes")
         ctx.check("--grant-all grants every request (3.2.0.0 R2: bash, the reviewer bio's need)",
                   _state(h)["doc-review"]["granted"] == ["bash", "hooks", "mcp:lint"])
-        ctx.check("enable makes Fleet's capabilities catalog gather afresh", C.load(h.state)["at"] == 0)
 
 
 @test

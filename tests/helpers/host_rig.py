@@ -29,7 +29,7 @@ TAIL = ['time=2026-10-31T08:00:00.000Z level=INFO source=server.go:1 msg="load" 
 LOG = {"state": "live", "line": "live, last line 4 s ago", "path": "%LOCALAPPDATA%/Ollama/server.log",
        "readable": True, "last_line_at": None, "debug": True, "why": "", "rung": "local", "tail_cli": ""}
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET", "OLLAMA_HOST", "HALO_OFFLINE",
-         "HALO_FLEET_PRIVATE")
+         "HALO_PRIVATE")
 
 
 def pc_host():
@@ -81,11 +81,11 @@ class HostRig:
     def __init__(self, *, host_home: "Path | None | bool" = False, readers_=None, job=None, forward=False,
                  tls_on=None, seed: bool = True) -> None:
         self._saved = {k: os.environ.get(k) for k in _VARS}
-        for k in ("BRIDGE_STATE_DIR", "HALO_OFFLINE", "HALO_FLEET_PRIVATE"):
+        for k in ("BRIDGE_STATE_DIR", "HALO_OFFLINE", "HALO_PRIVATE"):
             os.environ.pop(k, None)
         self.root_p = tempfile.mkdtemp(prefix="hs_peer-")
         os.environ.update(BRIDGE_TEST_HOME=self.root_p, BRIDGE_TEST_NO_BACKGROUND_NET="1", OLLAMA_HOST="http://127.0.0.1:9")
-        self.set_peer(**{"fleet.name": "bob@peer", "ollama.hosts": [PC]})
+        self.set_peer(**{"harness.name": "bob@peer", "ollama.hosts": [PC]})
         from halo_harness.config.paths import bridge_home
         self.peer = bridge_home()
         if host_home is None:

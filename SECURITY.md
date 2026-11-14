@@ -47,7 +47,7 @@ The 2.0.10 review lists where each of these is still incomplete.
 
 ## Remote control (2.0.9) in five lines
 
-1. Since 3.0.5.0 every session opens its control socket (`fleet.enabled`;
+1. Since 3.0.5.0 every session opens its control socket (`control.enabled`;
    `--private` or `/private on` for one that should not); it is a Unix
    socket (mode 0600, directory 0700) or Windows loopback TCP plus a random
    token, never a network address. The phone bridge is a pack, off until
@@ -75,7 +75,7 @@ The 2.0.10 review lists where each of these is still incomplete.
    is HMAC-signed (time window, nonce, sequence), and TLS is pinned to the
    hub's fingerprint when `cryptography` is installed (else HMAC-only).
 3. A joined harness sends only its `fleet.share` level and applies a hub's
-   commands only per `fleet.allow_control` (default `ask`: a card for you);
+   commands only per `host.allow_control` (default `ask`: a card for you);
    a hub never gets a tool permission or learns a rule.
 4. `halo fleet kick` revokes a member's key; `halo fleet leave` forgets a
    hub. Details: [docs/FLEET.md](docs/FLEET.md).

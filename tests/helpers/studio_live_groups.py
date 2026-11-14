@@ -1,6 +1,6 @@
 """tests.helpers.studio_live_groups -- Live in groups (Halo 3.3.16.3, the owner: "here's this one task and here's the
 sub-agents in there, and it points to that group") in headless Chrome on the driver base, over
-tests/helpers/studio_fleet_rig.py (halo-dev-cycle, this harness's real session) plus the agents an Auto main started
+tests/helpers/studio_session_rig.py (halo-dev-cycle, this harness's real session) plus the agents an Auto main started
 (tests/helpers/studio_live_rig.py rows, each with its `spawn` step as agent/agent_hooks.py writes it):
 
     three readers   one reply of main (`main#3`), picked by Auto: a task group titled from main's own line, its second
@@ -182,9 +182,9 @@ class LiveGroupsDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        from tests.helpers.studio_session_rig import StudioSessionRig
         folder = self.argv[self.argv.index("--shots") + 1] if "--shots" in self.argv else ""
-        with StudioFleetRig() as rig:
+        with StudioSessionRig() as rig:
             a = (c, rig)
             yield ((open_live, a), (the_groups, a), (hover, a), (fold, a), (shots, (c, rig, folder)), (timeline, a))
 

@@ -76,7 +76,7 @@ test message to every paired phone), `/signal notices`.
 /sessions  /attach <n>  /new [folder]  /cd <folder>     which session the phone talks to, where new ones start
 /status  /cost  /tail [n]  /stop                        the attached session: state, spend, last lines, interrupt
 /mode <name>  /model <ref>  /effort <level>             change it
-/fleet                                                  this harness's sessions, the fleet's members, what waits on you
+/live                                                   this harness's sessions and what waits on you
 /notify [on|off <kind>]                                 turn_done asks errors supervisor steward
 /quiet  /loud  /file <path>  /shot  /signal status|unpair  /help
 ```
@@ -85,7 +85,7 @@ Anything else starting with `/` runs in the session as its own slash command.
 
 ### What arrives unprompted (`/notify`)
 
-`asks`: a card or a decision waiting anywhere (the attention queue, while Studio runs its fleet watcher; the attached
+`asks`: a card or a decision waiting anywhere (the attention queue, while Studio runs its live watcher; the attached
 session's own cards always arrive). `supervisor`: a goal of `halo supervise` that ended, parked or failed.
 `steward`: the Ollama steward's note that asks for attention. `turn_done`: one line when a turn you did not start
 ends (with `/quiet`). `errors`. New phones get `asks, errors, supervisor` (the pack's `notify` setting).

@@ -8,7 +8,7 @@ Files under `<state>/host/` (all 0600):
                    grants: ["view"]}}, kicked: {...}}   the paired peers (fleet/pairing.py's file shape)
     audit.jsonl   {at, peer, path, ok, ms} one line per request (the offline promise's evidence); R2: an acting
                   request's line adds {op, params, evidence, dry, landed, fix, change_id?, job?}
-    pending.jsonl R2: the requests queued under fleet.allow_control: ask (host/pending.py)
+    pending.jsonl R2: the requests queued under host.allow_control: ask (host/pending.py)
     fixes.jsonl   R2: each profile fix's before / after / verdict (host/verify.py)
     steward.json  R2: the duty steward's process {pid, model, peer, started} (host_steward_cli.py)
     cert.pem, key.pem   the host's self-signed certificate (fleet/tls.py), pinned by every peer

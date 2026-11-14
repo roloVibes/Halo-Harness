@@ -193,25 +193,6 @@ the cached catalog: an Ollama host is listed with the models its last read found
 **Refresh** reads every provider's list again (`POST models/refresh`). The Local models block's detection
 lines are the one live read (kept a minute).
 
-## Machines: pairing, sharing, the people (3.3.16.0 R2)
-
-The Fleet section's Start view, pair dialog and share / control rows folded in here, as the last step before the
-Summary (`?block=machines`, the palette's **Setup: pair a machine**). While only this harness is here the page leads
-with what a fleet is in five lines. Then the **pair card**: **Make a pair code** gives a one-time six-word code, the
-`halo fleet join <url> --code "..."` line for the other machine and its QR (the hub's address and fingerprint);
-**Start the hub here** when none runs (it listens on the LAN port; on Windows, when the firewall keeps other machines
-off it, the page says so in one line with the command an administrator runs: FLEET.md "Windows Firewall"). With the
-fleet pack off, Setup has no Machines step and its line reads "Providers, models, permissions, theme and lineup". Then the
-share and control rows (`fleet.share`: status | events | full; `fleet.allow_control`: none | ask | all) and the hubs
-this harness joined. Last, the **People** table: one row per harness (name, host and OS, the Halo version chip with
-"halo update" when it differs, what it shares and lets you do, live / idle / away) with **Forget** (asks first; it
-leaves this hub and pairs again with a new code). The Summary's Machines row says "this machine only" or "3 machines,
-2 online · hub here". A machine's agents are Agents -> Live on the fleet, its models Local
-([STUDIO-fleet.md](STUDIO-fleet.md#setup---machines)); the routes are FLEET.md's (`POST /api/fleet/pair`, `GET` /
-`POST /api/fleet/settings`, `POST /api/fleet/kick`, `POST /api/fleet/hub`).
-
-![Setup -> Machines: the pair card, the share and control rows, the People table with both machines](media/studio-fleet-panels.png)
-
 ## The doors: `halo init` opens Setup (3.3.0.0 R4)
 
 Setup is where a box gets set up: `halo init` on a terminal starts Studio (or reuses the one running for this
@@ -252,7 +233,6 @@ job (on the Check page too, under **From packs**, unticked), a **note** has **Ma
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
 | Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |
 | Check | `~/.halo/studio/last-check.json`; each check writes what its row says | `halo check` |
-| Machines | `fleet.share`, `fleet.allow_control` in config.json; a pair code in the hub's state; Forget removes the member | `halo config set fleet.share <v>` / `fleet.allow_control <v>`, `halo fleet pair`, `halo fleet kick` |
 
 ## The routes
 

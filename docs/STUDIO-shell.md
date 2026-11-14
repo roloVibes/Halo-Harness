@@ -9,13 +9,11 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 `halo studio` opens a React shell with six sections in the icon rail on the left (3.3.2.0; the top bar's tab strip
 before): **Session | Agents | Local | Packs | Setup | Settings** (`Alt+1`..`Alt+6`, or `?mode=` in the URL). 3.3.16.0
 folded Team, Roles and Orchestra into Agents (R1, [STUDIO-agents.md](STUDIO-agents.md): Cast, Live and Workflows, 3.4.0.0 D: Runs went; the doors
-`?mode=roles|orchestra|team` keep) and the Fleet section into Agents -> Live, Setup -> Machines and Local (R2,
-[Fleet in Agents, Setup and Local](STUDIO-fleet.md#fleet-in-agents-setup-and-local); `?mode=fleet` lands on Live on the
-fleet); Org and Flow went in 3.1.4.0, Design is the design pack's since 3.3.13.0. The order is one list, `SECTIONS` in
+`?mode=roles|orchestra|team` keep); Org and Flow went in 3.1.4.0, Design is the design pack's since 3.3.13.0. The order is one list, `SECTIONS` in
 `ui/src/routes/index.tsx`: the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each section's
-**How this works** and the status bar's key hint all read it. Session is this session, live (the fleet's pieces scoped
+**How this works** and the status bar's key hint all read it. Session is this session, live (the live pieces scoped
 to this harness, [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Agents is the cast, what runs now on every machine (a goal run too) and what ran (Cast: [the
+session of this harness is live. Agents is the cast, what runs now (a goal run too) and what ran (Cast: [the
 canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios), a goal run: [on Live and in
 History](STUDIO-orchestra.md)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
 pack's own sections come after the core ones (the first on `Alt+7`); one may be drawn whole by the pack's own module
@@ -114,15 +112,14 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   before): one 40 x 40 icon per
   section, its title as the tooltip, the current one in the accent with a
   2 px bar at its left edge, a square on Session
-  while a session is live, the number of agents at work across the fleet on Agents, the packs'
+  while a session is live, the number of agents at work on Agents, the packs'
   own sections under a thin divider with the diamond. The rows print no key:
   `Alt+N` is in the palette's **Go to** and in **How this works**. The
   chevron at its foot expands it to 176 px (3.3.15.0; 200 px before; remembered per browser,
   `halo.studio.rail`; `?rail=open` expands it for one page): each section's
   title beside its icon, and nothing else (3.3.2.0 R2: the rail holds the
   sections only, collapsed or expanded). The panels are the header's **+**,
-  Arrange and Reset its **...**, (3.4.0.0 D: Runs' runs group went with Runs). While "While you were away" waits, the
-  Agents icon carries an amber dot; a click on it opens Live on the fleet with the card (3.3.16.0 R2).
+  Arrange and Reset its **...**, (3.4.0.0 D: Runs' runs group went with Runs).
 - **The inspector asks first** (3.3.2.0). The 344 px column on the right (340 before 3.3.15.0) is
   closed until something opens it: a panel's **Settings**, an artboard's knobs
   (the design pack's). Its close button (or `Esc`) gives the width back to the
@@ -144,11 +141,11 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   section against them; a fix changes a token or a primitive, never exempts an element.
 - **The palette** (`Ctrl`/`Cmd`+`K`): a mono prompt with fuzzy matching and
   grouped results (Go to, Help, then the sections in the tab order: Agents -- its views, then the Roles and
-  Orchestra lines and the fleet's; then Local, Setup, Settings, Media, View, Layout, then each pack's group), keyboard first: arrows,
+  Orchestra lines and the live ones; then Local, Setup, Settings, Media, View, Layout, then each pack's group), keyboard first: arrows,
   `Enter`, `Esc`. Every shortcut is shown next to its command.
 - **The status bar** (26 px, 11 px mono) shows the live feed (a square that is green when
   connected, amber while connecting or reconnecting, red when unreachable;
-  3.3.15.0: it no longer ticks per event, the EVENTS count says it), the session count, the fleet (agents at work
+  3.3.15.0: it no longer ticks per event, the EVENTS count says it), the session count, the agents (at work
   and how many wait on you), the event count, the section's own status
   line (Roles: the open lineup, its cards and problems, saved or not;
   a pack's page its own) and the section's layout
@@ -167,7 +164,7 @@ a title is mono caps. A state is told four ways at once: a square, a colour, a r
   40 px (`--bar-h`; 36 at the least) with the state square, the mono-caps title and the mono data line; a body pads 12 px.
 - **A confirmation says what it does.** A Dialog that asks before an action shows **DOES**, **COSTS** and **WRITES** as three
   mono lines before its buttons (`lib/ui/DialogCost.tsx`, `Dialog`'s `cost`): a pack's remove and update, Roles' Apply and
-  its deletes, stopping a mission or a team run, a hand-off, a kick, deleting a local model.
+  its deletes, stopping a team run, a hand-off, deleting a local model.
 - **The text box** (`lib/ui/TextBox.tsx`, `Field`'s `multiline`): every multi-line box is three lines at the least, grows with
   its text to 12 then scrolls, has no resize handle, takes its panel's free height with `fill`; a placeholder is two lines at most.
 - **Map nodes** (the Session Map, Agents' Live on either scope): a 2 px rule across the top in the state colour,
@@ -263,7 +260,7 @@ another Studio. The pages subscribe through `lib/filesLive.ts`
 (`onFilesChanged`, 300 ms merge) and re-read: Roles (the lineup list, the
 open lineup, the Bios panel, the bio form, the card positions, the active
 mark and the default model), Session (`GET
-fleet`, on config), Orchestra's LINEUP list, the model selects' "the
+live`, on config), Orchestra's LINEUP list, the model selects' "the
 lineup's" / "the default" answers, the Pack Manager's Templates. Studio's own
 saves come back as a frame too and change nothing: the page compares the
 file with what it holds. A pack's files are the `pack_changed` frame's.

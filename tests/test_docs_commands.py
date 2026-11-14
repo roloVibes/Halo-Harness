@@ -24,8 +24,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.doc_parts import doc_text  # 3.1.1.0 R2: a split doc reads with its parts
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -125,15 +123,6 @@ def _gather_real_flags() -> "dict[str, set]":
     from halo_harness.media.cli import cmd_media
     for sub in ("init", "doctor", "inspect", "models", "workflows"):
         out[f"halo media {sub}"] = _flags_in(_capture(cmd_media, [sub, "--help"]))
-    # 3.0.5.0 round R2: `halo fleet` (the hub, pairing, join and the live table)
-    from halo_harness.fleet.cli import cmd_fleet
-    from halo_harness.fleet.table import cmd_table
-    out["halo fleet"] = _flags_in(_capture(cmd_table, ["--help"]))
-    for sub in ("serve", "pair", "join", "leave", "status", "members", "kick", "record", "digest",  # record, digest: R4
-                "capabilities", "who"):  # 3.0.6.0 R6
-        out[f"halo fleet {sub}"] = _flags_in(_capture(cmd_fleet, [sub, "--help"]))
-    for sub in ("new", "plan", "edit", "approve", "run", "status", "stop", "report", "open"):  # 3.0.6.0 R7
-        out[f"halo fleet mission {sub}"] = _flags_in(_capture(cmd_fleet, ["mission", sub, "--help"]))
     from halo_harness.explain_cli import cmd_explain
     out["halo explain"] = _flags_in(_capture(cmd_explain, ["--help"]))
     from halo_harness.check_cli import cmd_check  # 3.2.2.0 R2: the checks after setup
@@ -178,7 +167,7 @@ def _gather_real_flags() -> "dict[str, set]":
 def test_every_subcommand_is_documented(ctx: Ctx):
     text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
-                 "work-matrix", "ollama", "review", "media", "fleet", "team", "start", "explain", "pack", "workflow",
+                 "work-matrix", "ollama", "review", "media", "team", "start", "explain", "pack", "workflow",
                  "isolation", "secrets", "session", "settings", "workflows", "blocks", "copilot"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",

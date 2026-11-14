@@ -7,7 +7,7 @@ prerequisites, checked before anything runs (Halo 3.2.0.0 R5).
         json      parsed JSON (a default in the file is taken as written)
         artifact:<schema>   the path of a JSON file in the repo, checked against the pack's schema
     prerequisites(wf, repo=..., cwd=..., state_dir=...) -> problems: each tool on PATH, each grant
-        given to the pack, each capability available here (packs/fleet_registry.py), each file in the repo
+        given to the pack, each capability available here (packs/capability_check.py), each file in the repo
     capability_problems(wf, names, ...) -> the same check for a stage's `needs`
 
 One plain line per problem; [] means the run may start.
@@ -77,7 +77,7 @@ def parse(wf, raw: dict, *, repo) -> "tuple[dict, list]":
 
 
 def _caps(wf, *, cwd=None, state_dir=None) -> dict:
-    from halo_harness.packs import fleet_registry as reg, state as S  # 3.4.0.0 D: core, checked with the fleet pack off
+    from halo_harness.packs import capability_check as reg, state as S  # 3.4.0.0 D: core, checked with the fleet pack off
     try:
         granted = S.granted(wf.pack.id, S.load(state_dir))
         entry = reg.pack_entry(wf.pack, granted, reg.host_catalog(state_dir, cwd), cwd=cwd, state_dir=state_dir)

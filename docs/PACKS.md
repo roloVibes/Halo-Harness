@@ -259,59 +259,15 @@ halo pack enable studio-bundle --grant studio-script
   seconds), listen for them, read its data folder and its mode, raise an attention row, and take you to a section
   ([the bundle panel's `api`](EXTENSION_API.md#the-bundle-panels-api)).
 
-## In the fleet
+## Its capabilities
 
-A pack may bring worker capabilities to your fleet: what its `pack.yaml`
-declares under `contributes.fleet`
-([EXTENSION_API.md](EXTENSION_API.md#fleet-capabilities) has the shape). Each
-capability is a name from the pack's `capabilities:` with what it requires of
-a host (tools, runtimes, the platform, a GPU or RAM, a model by tag, the
-grants it needs, where its data must be). Once the pack runs here:
-
-- **The catalog** lists each one, available here or not and why: `halo fleet
-  capabilities` has a `packs` row, Studio's Capabilities card a "packs" line
-  (`docs.review · pack doc-review · 2 at once · available: tools: <model>;
-  bash granted`), the map's chips count them (`+1 pack cap`).
-- **Who can**: `halo fleet who docs review` (and Studio's Who box) finds the
-  harness whose pack has it; one listed as not available there counts half
-  and says why.
-- **Missions**: the lead sees each harness's pack capabilities and which one
-  only one harness has; a part that names one in `needs` goes only to a
-  harness where it is available (its pack runs with the grants), and the
-  plan says "docs.review · pack doc-review on <harness>". Selected, the part
-  shows the pack's inspector lines (its own markdown or JSON files): read
-  through the pack's file route when the pack runs on Studio's own harness,
-  and (3.2.1.0 R3) from the text the member's catalog carries (the file's
-  first 8 KB, paths cut) when it runs on a member.
-- **Capacity is held** (3.2.1.0 R3): the lead reads `docs.review (pack
-  doc-review, 2 at a time)`, and the hub starts at most `capacity.parallel`
-  parts holding that capability on one harness at once; the next one waits
-  ("part 3 waits: bob@member runs 2/2 of pack doc-review: docs.review") and
-  starts when one ends.
-- **The worker checks again**: before the part runs, the harness that got it
-  reads its own packs; if the pack is disabled there, or a grant is missing,
-  the part is refused with one line, "this harness does not run pack
-  doc-review with bash". (3.2.1.0 R3) The hub re-plans it once onto another
-  harness that has the capability ("part 1 replanned: bob@member refused
-  (...); alice@hub has pack doc-review: docs.review"); with none, the
-  mission goes on as it does when a harness drops out.
-- **Hidden**: `fleet.capabilities.hide` names a pack capability as it names
-  a tool (`docs.review`, or `doc-review/docs.review` for this pack's only):
-  the catalog leaves it out, so no part is planned onto it here; `halo pack
-  doctor` counts the hidden ones and `halo pack inspect` marks them
-  (3.2.1.0 R3).
-- **Mission metadata**: a mission started with the pack's lineup (the active
-  one, or `lineup:` in the request: `halo fleet mission new --lineup
-  doc-review--review`, the Mission panel's Lineup select, 3.2.1.0 R1)
-  carries the pack's `mission.metadata`, and the mission says the lineup.
-
-What a pack advertises never holds a secret, an environment reference or a
-path: the manifest refuses the first two (and a path in a description), and
-the catalog cuts every other path to its last part before anything leaves
-the machine. `halo pack inspect <id>` lists the capabilities with available /
-why in its "contributes:" block (with the Studio contributions), and
-`halo pack doctor` has a row for each one not available here (and one row
-per pack saying how many `fleet.capabilities.hide` hides, 3.2.1.0 R3).
+A pack may bring capabilities: what its `pack.yaml` declares under `contributes.capabilities`
+([EXTENSION_API.md](EXTENSION_API.md#pack-capabilities) has the shape). Each capability is a name from the pack's
+`capabilities:` with what it requires of a host (tools, runtimes, the platform, a GPU or RAM, a model by tag, the grants
+it needs, where its data must be). Once the pack runs here, each is available here or not and why; a pack workflow that
+needs one runs only while it is. What a pack declares never holds a secret, an environment reference or a path in a
+description: the manifest refuses them. `halo pack inspect <id>` lists the capabilities with available / why in its
+"contributes:" block (with the Studio contributions), and `halo pack doctor` has a row for each one not available here.
 
 ## Workflows
 
@@ -410,7 +366,7 @@ schemas in its "contributes:" block.
    on a card) is the pack Halo ships by that id, else the first `packs.sources` entry holding it -- never a folder of
    the current directory (`./coach` names one); a source holding an id Halo ships does not shadow it (one line says
    so; `halo pack install <id> --from <source>` takes that source on purpose).
-5a. A pack installed from the packs Halo ships (`halo pack install fleet`)
+5a. A pack installed from the packs Halo ships (`halo pack install coach`)
    does not move by itself when `halo update` brings a newer Halo: when this
    Halo ships a newer version, `halo pack list`, `halo pack inspect`, `halo
    pack doctor`, `halo doctor`, Studio's Packs ("1.0.2 available") and the
@@ -652,7 +608,7 @@ Halo ships six packs: **Documentation Review**, below, **Concord** ([The concord
 `halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
 review lineup, the review workflow (read each Markdown file, judge the
 findings, write one typed `review-report`), a Studio section with the last
-review report, the `docs.review` fleet capability, and a skill, a command, a
+review report, the `docs.review` capability, and a skill, a command, a
 hook and a lint MCP server. `halo pack list --available` shows it; `halo pack
 install doc-review` installs it (3.4.1.2: a bare id Halo ships is always the
 shipped pack; a pack of yours with that id installs with `--from <source>` or
@@ -661,7 +617,7 @@ run doc-review/review --input docs=docs` runs its review. Its `README.md` is
 the guide to making your own pack from it: every file in one line, the API
 version, installing from a folder or a git url, checking it with `halo pack
 doctor`. `tests/test_reference_pack.py` installs it in a fresh home, runs its
-workflow, finds it in Studio, Roles and the fleet catalog, removes it and
+workflow, finds it in Studio and Roles with its capability, removes it and
 finds nothing of it left.
 
 ## The first-run pack
@@ -681,8 +637,8 @@ access](EXTENSION_API.md#core-access)); [its README](../halo_harness/templates/p
 **Coach** (`coach`, `halo_harness/templates/packs/coach/`, 3.4.0.0) is the post-run coach, out of Halo's core: `halo
 coach` (a finished run's cards, Ask, Apply after one confirm, Undo, probes, the improvement library) and `halo improve`
 (memory and rule candidates from recent sessions), `/coach` and `/improve`, a **Coach** panel in Studio's Agents section
-(where the run report's Coach tab and the mission's Coach face went), seven rows in Settings under **From packs**
-(`packs.settings.coach.<key>`) and one `halo doctor` row. `halo orchestra coach` and `halo fleet mission coach` hand over
+(where the run report's Coach tab went), seven rows in Settings under **From packs**
+(`packs.settings.coach.<key>`) and one `halo doctor` row. `halo orchestra coach` hands over
 to its verb. `halo pack install coach`, `halo pack enable coach --grant-all` (`cli:coach`, `cli:improve`, `doctor`,
 `studio-script`, `studio-routes`). With it off each verb says in one line that the coach is a pack now, and the old keys
 `coach.*` and `improve.*` are ignored. The supervisor, replanning and verified outcomes stay in the core; [its

@@ -1,6 +1,6 @@
 """halo_harness.live.supervise_attention -- the supervisor's parked decisions
-as rows of the Fleet attention queue (Halo 3.1.8.0 R1; fleet/attention.py
-builds the queue, studio/fleet_answer.py routes the keys).
+as rows of the attention queue (Halo 3.1.8.0 R1; live/attention.py
+builds the queue, studio/live_answer.py routes the keys).
 
     goal_plan    a plan review the goal asked for       a approve | r reject (text: why) | o open the plan
     goal_gate    a gate past the return cap              a raise the cap by 1 and resume | r raise by N | s stop | o open
@@ -62,7 +62,7 @@ def open_target(row: dict) -> dict:
 
 def _by(home) -> str:
     try:
-        from halo_harness.peers.identity import fleet_name
-        return fleet_name(Path(home) if home is not None else None)
+        from halo_harness.peers.identity import harness_name
+        return harness_name(Path(home) if home is not None else None)
     except Exception:
         return ""

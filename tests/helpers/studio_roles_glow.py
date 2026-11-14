@@ -1,6 +1,6 @@
 """tests.helpers.studio_roles_glow -- the Roles card glow explained and timed
 (Halo 3.1.5.0 R3) in headless Chrome on the driver base, over
-tests/helpers/studio_fleet_rig.py (the halo-dev-cycle lineup active, its
+tests/helpers/studio_session_rig.py (the halo-dev-cycle lineup active, its
 agents mid-work) plus extra agents on the verifier and reviewer cards
 (tests/helpers/studio_live_rig.py). tests/test_studio_roles_glow.py runs it:
 
@@ -42,7 +42,7 @@ def hover(c, expr: str) -> None:
 
 
 def glow(c, rig) -> dict:
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     from tests.helpers.studio_live_rig import Live
     lv = Live(rig, extra=())
     out: dict = {}
@@ -118,8 +118,8 @@ class GlowDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             yield ((glow, (c, rig)),)
 
 

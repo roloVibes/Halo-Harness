@@ -89,7 +89,7 @@ def an_ask(c, rig) -> dict:
     out = {"ask_buttons": c.wait(f"{card} && [...{card}.querySelectorAll('[data-testid=\"prompt-ask-btn\"]')].map((b) => b.dataset.label)", 15)}
     c.click_on(f"[...{card}.querySelectorAll('[data-testid=\"prompt-ask-btn\"]')].find((b) => b.dataset.label === 'Allow')")
     out["ask_done"] = c.wait(f"{ASKS}.map((a) => a.querySelector('[data-testid=\"prompt-ask-done\"]')?.textContent).find(Boolean)", 10)
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     got = wait_for(lambda: rig.session.permission_decisions.get("perm_1"), 10)
     out["ask_decision"] = getattr(got, "action", None)
     out["ask_turn_ended"] = bool(wait_for(lambda: not rig.session.busy and rig.session.turn_count == 2, 10))
@@ -99,7 +99,7 @@ def an_ask(c, rig) -> dict:
 def busy_then_queue(c, rig) -> dict:
     typed(c, "please ask again")
     enter(c)
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     card = f"{ASKS}.filter((a) => !a.dataset.answered).pop()"
     c.wait(f"!!{card} && 'card'", 15)
     out = {"busy_session": bool(wait_for(lambda: rig.session.busy, 5))}

@@ -4,7 +4,7 @@
     client(member, home=None) -> (HostClient | None, kind, line)   kind: paired | local | address (members.resolve)
     rpc(member, to, *, home=None) -> {ok, kind, say, status, queued?}
         to: status | on | off. A paired member: `GET rpc` / `control/rpc_server {to, port}` on its halo host (the
-        host's grants: a pending row under fleet.allow_control: ask, one line under none). `local`: this machine's GPU
+        host's grants: a pending row under host.allow_control: ask, one line under none). `local`: this machine's GPU
         serves its share in llama-server itself, no rpc-server. A bare address: nobody here starts it ("start
         rpc-server there by hand: rpc-server -H <its LAN address> -p 50052"); its port is probed instead.
     act(member, op, params, *, home=None, why="") -> (ok, say, answer)   one control op on that member's host
@@ -55,7 +55,7 @@ def act(member: dict, op: str, params: dict, *, home=None, why: str = "") -> "tu
     except HostError as e:
         return False, f"{member['name']}: {e}", {"status": e.status}
     if got.get("queued"):
-        return False, f"{member['name']}: {got.get('line') or 'queued for the host owner (fleet.allow_control: ask)'}", got
+        return False, f"{member['name']}: {got.get('line') or 'queued for the host owner (host.allow_control: ask)'}", got
     return bool(got.get("ok", True)), str(got.get("say") or ""), got
 
 

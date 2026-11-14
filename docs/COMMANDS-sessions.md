@@ -35,7 +35,7 @@ BRIDGE_TEST_HOME=/tmp/demo-home halo config get model
 "or:deepseek/deepseek-v4.1-flash"
 ```
 
-A key may be dotted (`fleet.hub.port`) to read/write a nested value without disturbing its siblings; `halo config key=value`
+A key may be dotted (`host.port`) to read/write a nested value without disturbing its siblings; `halo config key=value`
 (one argv token) is accepted as shorthand for `config set key value`. The value is parsed as JSON when possible (`true`,
 `123`, a quoted string), so non-string values round-trip too.
 
@@ -49,15 +49,15 @@ value against its default, Reset to default and this same `halo config set` line
 
 ```sh
 halo settings                  # Studio on Settings (General, or the group last open)
-halo settings fleet            # the Fleet page (?mode=settings&group=fleet); a group's id or title
-halo settings fleet --terminal # the Fleet keys here: key = value (default ...), one line each
+halo settings remote           # the Remote page (?mode=settings&group=remote); a group's id or title
+halo settings remote --terminal # the Remote keys here: key = value (default ...), one line each
 halo settings --list           # the groups and how many keys each holds
 ```
 
 A Studio already running for this home is reused (its open pages switch to the page); with none, one starts in the
 background and the browser opens it. Where no browser can open (SSH, no `DISPLAY`, `HALO_NO_BROWSER`), or with no TTY, the
 URL is printed and the `--terminal` listing follows. Nothing here writes: a row in Studio or `halo config set` changes a
-key. `halo studio --edit settings:fleet` opens the same page.
+key. `halo studio --edit settings:remote` opens the same page.
 
 ## `halo replay`
 

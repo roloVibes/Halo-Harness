@@ -50,12 +50,3 @@ A model that sees gets the image as an image block (Ollama's `images`, the OpenA
 the visual lane for this turn, a model that sees describing it into the turn, or the text alone with the path. The
 Local section's Loaded now page counts which loaded Ollama models can see, so the right one is loaded before you
 share the screenshot.
-
-## A screenshot of a fleet member's display (3.3.7.0 R4)
-
-Studio's screenshot on a fleet member's session goes to that member as one `capture` command (under its
-`fleet.allow_control`, like a steer): the member takes the capture itself and keeps the file in its own attachments
-folder; the hub gets back the path, the size in bytes and the width and height, never the image -- unless that
-member's `fleet.share_captures` is `true`, which sends the PNG with it. An image file for a member's session is still
-that member's own to attach.
-

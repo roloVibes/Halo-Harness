@@ -11,7 +11,7 @@ model call:
    typed review-report artifact and the report;
 3. Studio: its section and the "Last review report" artifact panel are in
    the registry, the panel's route draws that run's report, its lineup is
-   under Roles; its fleet capability is in the catalog, available here;
+   under Roles; its capability is available here;
 4. its lint MCP server, started from its `.mcp.json` the way a session
    starts it (`${halo_python}`, R7), answers initialize, tools/list and check_links;
 5. 3.2.0.0 R7: an update from a newer copy keeps 1.0.0 as doc-review.previous;
@@ -34,8 +34,6 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.packs_home import DOC_REVIEW  # noqa: E402
 from tests.helpers.packs_studio import PackStudio  # noqa: E402
@@ -120,9 +118,11 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
         mine = [r for r in rows if r.get("name") == "doc-review--review"]
         ctx.check(f"its lineup under Roles, got {[(r['name'], r['scope']) for r in mine]}", status == 200 and len(mine) == 1
                   and "doc-review" in mine[0]["scope"])
-        from halo_harness.fleet import capabilities as caps
-        cap = next(p for p in caps.gather(h.state, cwd=h.repo)["packs"] if p["id"] == "doc-review")["capabilities"][0]
-        ctx.check(f"its fleet capability in the catalog, available, got {cap}", cap["name"] == "docs.review" and cap["available"] is True)
+        from halo_harness.packs.contrib_views import contributes
+        from halo_harness.packs.discover import find
+        got = contributes(find("doc-review", cwd=h.repo), ["bash", "hooks", "mcp:lint"], running=True, cwd=h.repo, state_dir=h.state)
+        cap = ((got.get("capabilities") or {}).get("capabilities") or [{}])[0]
+        ctx.check(f"its capability, available, got {cap}", cap.get("name") == "docs.review" and cap.get("available") is True)
 
         replies = _mcp(h.packs / "doc-review", h.repo)
         by_id = {r.get("id"): r for r in replies}

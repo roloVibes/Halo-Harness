@@ -9,7 +9,7 @@ How it differs from the TUI:
   one reader of `controller.events` (the TUI's drain loop), so the queue never grows, and the events still reach
   the control socket's feed through the controller's tap;
 * the control socket (`remote/runtime._open`) is its ONLY door: the registry row says `kind: headless` and
-  `parent: studio:<pid>` (`--session-for` names who started it; `HALO_FLEET_PARENT`, when the starter set it,
+  `parent: studio:<pid>` (`--session-for` names who started it; `HALO_SESSION_PARENT`, when the starter set it,
   wins), so Fleet, the Map, Session and `halo studio --session` list it as a session of this harness;
 * an ask (a permission card, a question, a plan, an approval) parks: the session is interactive, so its waiter
   holds the turn until an `answer` comes through the socket (Studio's Prompt panel); `status` lists the parked
@@ -84,7 +84,7 @@ def _say_no_door(line: str) -> int:
 
 
 def _mark_parent(who: str) -> None:
-    from halo_harness.remote import fleet_identity as FI
+    from halo_harness.remote import session_identity as FI
     if not FI.parent_from_env():
         os.environ[FI.PARENT_ENV] = f"{who or 'studio'}:{os.getppid()}"
 
@@ -139,9 +139,9 @@ def run(args) -> int:
     from halo_harness.remote import runtime
     if getattr(args, "print_mode", False):
         return _say_no_door("--headless runs a whole session; it does not take -p/--print")
-    if not runtime.fleet_enabled():
-        return _say_no_door("fleet.enabled is false: a session with no terminal has its control socket as its only door "
-                       "(`halo config set fleet.enabled true`)")
+    if not runtime.control_enabled():
+        return _say_no_door("control.enabled is false: a session with no terminal has its control socket as its only door "
+                       "(`halo config set control.enabled true`)")
     if getattr(args, "private", False) or runtime.private():
         return _say_no_door("a private session opens no control socket, and a session with no terminal has no other door")
     _mark_parent(getattr(args, "session_for", None) or "studio")
@@ -149,7 +149,7 @@ def run(args) -> int:
     controller, _registry, _facade = build_controller(args)
     controller.quit_stops_children = False
     done = threading.Event()
-    controller.on_fleet_shutdown = lambda _text: done.set()
+    controller.on_control_shutdown = lambda _text: done.set()
     controller.start()
     handle = HeadlessHandle(controller, done)
     act = runtime._open(handle, controller)  # noqa: SLF001  (start_for_controller with this handle and kind)

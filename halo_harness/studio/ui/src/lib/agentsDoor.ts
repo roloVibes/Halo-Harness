@@ -2,20 +2,16 @@
 // `?mode=roles` lands on Cast (`&view=live` on Live); `?mode=agents&view=cast|live|workflows` is the door itself. A saved
 // section, a `focus` frame, an attention row's `o` and a pack's route that name an old word land the same way
 // (lib/store.ts goSection). routes/agents/store.ts takes the view (onAgentsView); this file has no React and no store
-// of its own, so lib/store.ts may import it. 3.3.16.0 R2 "the Fleet fold": `fleet` is a door too -- Agents on Live with
-// the fleet scope on (`?scope=fleet`), the Mission panel up when it names a mission (`?mode=fleet&mission=<id>`); its
-// line once. 3.3.16.0 R3: `workflows` -- the board of squares. 3.3.18.0 "The living canvas": a bare `?mode=agents` lands
+// of its own, so lib/store.ts may import it. 3.3.16.0 R3: `workflows` -- the board of squares. 3.3.18.0 "The living canvas": a bare `?mode=agents` lands
 // on Live. 3.4.0.0 D "the runs fold": Runs and its Start screen are gone -- a goal run is a job on Live while it runs
 // and a row of History once it ended. Every door that named Runs (`?mode=orchestra`, `?mode=team`,
 // `?mode=agents&view=runs`, the R key) lands on Live; one that names a run (`&run=<id>`) opens that run where it is
 // (routes/agents/run/door.ts: its lead on Live while it runs, its report in History once it ended).
 export type AgentsView = "cast" | "live" | "workflows";
-export type LiveScope = "here" | "fleet";
 export const AGENTS_VIEWS: AgentsView[] = ["cast", "live", "workflows"];
 /** The words of the sections Agents took in, and the view each one lands on (3.4.0.0 D: Runs' words on Live). */
-export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "live", team: "live", fleet: "live" };
+export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "live", team: "live" };
 export const TEAM_NOTE = "Team's board is gone; a run on Live shows who owns what";
-export const FLEET_NOTE = "Fleet is Agents -> Live now: machines in Setup -> Machines, models in Local";
 /** 3.4.0.0 D: Runs' line, once in this browser, when an old door that named it brings you here. */
 export const RUNS_NOTE = "Runs is gone: a goal runs on Live (Run a goal on its bar); a finished run is in History";
 
@@ -47,19 +43,6 @@ export function urlRun(search?: string): string {
   return query(search)?.get("run") || "";
 }
 
-/** The scope a page's URL asks Live for: `?scope=fleet|here`, or the fleet for `?mode=fleet` ('' = Live decides). */
-export function urlScope(search?: string): LiveScope | "" {
-  const q = query(search);
-  const s = q?.get("scope") || "";
-  if (s === "fleet" || s === "here") return s;
-  return q?.get("mode") === "fleet" ? "fleet" : "";
-}
-
-/** The mission a page's URL names (`?mode=fleet&mission=<id>`), else '' (3.4.0.0 D: its panel opens on Live). */
-export function urlMission(search?: string): string {
-  return query(search)?.get("mission") || "";
-}
-
 /** The section a word opens and, for one of Agents' old words, the view it lands on. */
 export function doorOf(word: string): { section: string; view: AgentsView | "" } {
   const view = AGENTS_DOORS[word];
@@ -76,7 +59,7 @@ export function onAgentsView(fn: Door): void {
   if (waiting) (fn(...waiting), (waiting = null));
 }
 
-/** Agents on `view` (`word`: the door it came by; `team`, `fleet` and `runs` show their line the first time). */
+/** Agents on `view` (`word`: the door it came by; `team` and `runs` show their line the first time). */
 export function agentsDoor(view: AgentsView, word = "agents"): void {
   if (take) take(view, word);
   else waiting = [view, word];

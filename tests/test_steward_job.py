@@ -198,11 +198,11 @@ def test_the_job_starts_only_when_on_and_background_reads_are_on(ctx: Ctx):
 
 
 @test
-def test_a_note_raises_the_attention_row_and_travels_to_a_member(ctx: Ctx):
+def test_a_note_raises_the_attention_row_and_travels_to_a_paired_halo(ctx: Ctx):
     from halo_harness.live import attention
     from halo_harness.live.steward_attention import latest_attention
     from halo_harness.ollama_steward import notes
-    from halo_harness.studio.fleet_answer import SET_ASIDE, open_target
+    from halo_harness.studio.live_answer import SET_ASIDE, open_target
     with Home() as h:
         notes.append(h.state, "note", "all quiet", lines=["all quiet", "nothing changed"])
         ctx.check("a note without an error finding or a change raises nothing", latest_attention(h.state) is None)
@@ -226,8 +226,6 @@ def test_a_note_raises_the_attention_row_and_travels_to_a_member(ctx: Ctx):
         ctx.check("and not twice", not notes.take_hub_note(m.state, payload))
         ctx.check(f"the member's line, got {notes.member_line(notes.hub_note(m.state))!r}",
                   notes.member_line(notes.hub_note(m.state)).startswith("steward on pc-hub: the 30B on pc spilled"))
-        rows = [r for r in attention.build({"harnesses": []}, home=m.state) if r["kind"] == "ollama_steward"]
-        ctx.check("the hub's attention note is a row on the member", len(rows) == 1 and "steward on pc-hub" in rows[0]["what"])
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Studio: Agents
 
-Read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), what runs now and what ran (Live, a goal run on it, History), the board of squares (Workflows), and the doors the old Team, Roles, Orchestra, Runs and Fleet left.
+Read this when you work with your agents in Studio's Agents section: the lineup and its bios (Cast), what runs now and what ran (Live, a goal run on it, History), the board of squares (Workflows), and the doors the old Team, Roles, Orchestra and Runs left.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -13,7 +13,7 @@ every machine (a goal run too), and what ran"), with its views on one switch, fi
 | View | Key | What it is | It was |
 |---|---|---|---|
 | **Cast** | `C` | the lineup and its bios: the canvas with its tiers, Lineups, Bios, the Inspector (Assignment, Lineup), Problems, Models; the model picker, the glow and its legend, drop and sync (3.4.1.0: replay moved to Live's scrubber) | Roles |
-| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels; 3.4.1.0 the scrubber under the canvas takes it back in time, History compares two runs and each row's Report opens its report card, [REPLAY.md](REPLAY.md)): the session's agents, a goal run as a job (3.4.0.0 D, [STUDIO-orchestra.md](STUDIO-orchestra.md): Run a goal on its bar, its lead and lanes, the plan review, its report in History); on the **fleet** scope every machine's (3.3.16.0 R2) | Roles Live, Runs, Fleet |
+| **Live** | `L` | what runs now and nothing past (3.3.18.0, [STUDIO-live.md](STUDIO-live.md): History, the plan under it, what waits, the zoom levels; 3.4.1.0 the scrubber under the canvas takes it back in time, History compares two runs and each row's Report opens its report card, [REPLAY.md](REPLAY.md)): the session's agents, a goal run as a job (3.4.0.0 D, [STUDIO-orchestra.md](STUDIO-orchestra.md): Run a goal on its bar, its lead and lanes, the plan review, its report in History) | Roles Live, Runs |
 | **Workflows** | `W` | the board of squares main may hand work to, their library and contracts (3.3.16.0 R3, below) | new |
 
 Agents opens on **Live** with nothing else open (3.3.18.0: what runs now, or one sentence: [STUDIO-live.md](STUDIO-live.md)). `C`, `L`
@@ -43,8 +43,6 @@ Every old door still opens, on the right view; each terminal answer names the ne
 | `?mode=orchestra`, `halo studio --mode orchestra`, `/studio orchestra`, `R` | Live, with "Runs is gone: ..." the first time in this browser (3.4.0.0 D; Runs before) |
 | `?mode=team`, `halo studio --mode team`, `/studio team`, `halo studio --edit team` | Live, with "Team's board is gone; a run on Live shows who owns what" the first time in this browser |
 | `halo studio --edit bio:<name>` / `lineup:<name>` (`?mode=agents&view=cast&edit=...`) | Cast, the bio's form / the lineup's inspector |
-| `?mode=fleet`, `halo studio --mode fleet`, `/studio fleet`, the rail's away dot (3.3.16.0 R2) | Live on the fleet, with "Fleet is in Agents -> Live now" the first time |
-| `?mode=fleet&mission=<id>`, a mission part row's `o`, `M` | Live, the Mission panel on that mission (3.4.0.0 D; Runs before) |
 | an Attention row's `o` (an Orchestra gate, a supervisor decision) | the run: on Live while it runs ("open the plan": the plan review), its report in History once it ended |
 
 A saved section of an older Studio (`roles`, `orchestra`, `team`) opens Agents, and a pack's panel or route declared
@@ -79,27 +77,16 @@ colour, a row per fact (state, model, cost, owns), its worktree badge (`orchestr
 on. A click is its summary in Live's inspector, then its pages; **Run a goal** on the bar starts one; History holds a
 finished one. All of it: [STUDIO-orchestra.md](STUDIO-orchestra.md).
 
-### Live: this halo or the fleet (3.3.16.0 R2)
+### Live's inspector and Attention
 
-The Fleet section folded in here ([STUDIO-fleet.md](STUDIO-fleet.md) has the whole story). Live's bar has a scope
-switch, **this halo | fleet** (`F`, Shift+F, on the canvas; `f` still fits): **this halo** is the tree above; **fleet**
-is every machine you run or joined, one box per machine (name, Halo version chip, capability chips), its sessions as
-cards (git chips, mission and conflict chips) and each session's agents as a tree under it; a mission's parts sit in
-their machines' boxes, dashed while planned, and drag between boxes to move. `?mode=fleet` lands here on the fleet.
+**The inspector follows the pick**, summary first: nothing picked is the **glance** (the agents working, what waits on
+you, today's spend against the cap); an agent is the one agent inspector (its streams, Pause, Stop, Steer, Take over,
+Hand to..., Record; the same one Session's strip and Cast's Live tab draw).
 
-**The inspector follows the pick**, summary first: nothing picked is the **glance** (while you were away, the machines,
-the agents working, what waits on you, today's spend against the cap, one row per machine); a machine is its
-**summary** (who, health, spend today, and an Edit row per block: Specs and who can..., Spend caps, Sharing and
-control), one block at a time with Back; an agent is the one agent inspector (its streams, Pause, Stop, Steer, Take
-over, Hand to..., Record; the same one Session's strip and Cast's Live tab draw); a mission part is its card (machine,
-owns, waits for, state, Open the part's agent).
-
-**Attention** is a chip in Agents' bar on every view: the count of decisions that wait on you across the fleet, amber
-when there are any; a click or `A` opens the queue over the page (one key per row: `A` / `R` / `S` / `O`), `A` or Esc
-closes it; the palette has **Agents: Attention**. **Activity** (the timeline and the merged live log) is an optional
-panel of Live, closed on load (the header's **+**, the palette). **Missions**: `M` opens the Mission panel on Live
-(3.4.0.0 D; Runs' before), the goal panel offers **Run it across the fleet** when more than one harness is here, a
-running mission's parts draw on the fleet scope and a finished one is a row of History.
+**Attention** is a chip in Agents' bar on every view: the count of decisions that wait on you, amber when there are
+any; a click or `A` opens the queue over the page (one key per row: `A` / `R` / `S` / `O`), `A` or Esc closes it; the
+palette has **Agents: Attention** ([STUDIO-live-panels.md](STUDIO-live-panels.md)). **Activity** (the timeline and the
+merged live log) is an optional panel of Live, closed on load (the header's **+**, the palette).
 
 ### Workflows: the board of squares (3.3.16.0 R3)
 
@@ -148,9 +135,7 @@ block while the box is doing something, and one faint line saying what a click d
 | Cast card | bio, used for, model (where it comes from, what it takes), price and context, tools, limits, instances, tier | its agent's state, what it runs, its cost | the card's summary in the inspector (its Live tab while an agent runs) |
 | Live agent | agent and bio, state and for how long, model and what it takes, cost (tokens, turns), started by, has started, picked because, owns | the running tool and its time, else its last line | the agent in the inspector |
 | Session | where (project, branch, clean / dirty, ahead / behind, worktree), kind (when not the terminal's), model, cost, agents live of all, waits on you, started | | its main agent in the inspector |
-| Machine | host, this halo or its presence, Halo version (a mismatch in words), sessions and live agents, spent today and its cap, every capability, GPU and memory (once its spec card is loaded) | | its summary in the inspector |
 | Run lead / lane | the lead: run, state, lanes, lead and worker models, cost, done when; a lane: owns, state, machine, worker, worktree, waits for, cost | | its summary in Live's inspector, then its pages (3.4.0.0 D; Runs before) |
-| Mission part | owns, state, machine, worker, waits for, kind, cost, why here | | its card in the inspector |
 | Workflow square | takes, gives, covers, runs on (the lead, its model, the engine in words), costs, limits, from (and its file), last run (when, cost, how it ended, how many) | who called it, the need, for how long | the board's card: its contract in the inspector; a library row: nothing (it is dragged onto the board) |
 
 The card reads what the page already has (no request on hover). `studio.hover_cards` (Settings -> Studio, on by

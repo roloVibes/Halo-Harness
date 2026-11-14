@@ -1,7 +1,7 @@
 """tests.test_media_notes -- both directions carry more than text, and the phone sees the harness on request
 (3.3.13.0 R3): a voice note through a stub transcriber, a picture as the turn's image, a PDF named by its path,
 `/file`, `/shot`, `/notify`, a supervisor note reaching the phones that asked for it (and not the others), an `asks`
-note about the attached session skipped, `/fleet`, `/cost`. Run: python -m tests.test_media_notes"""
+note about the attached session skipped, `/live`, `/cost`. Run: python -m tests.test_media_notes"""
 
 from __future__ import annotations
 
@@ -104,11 +104,11 @@ def test_an_asks_note_about_the_attached_session_is_skipped(ctx):
 
 
 @test
-def test_fleet_status_cost(ctx):
+def test_live_status_cost(ctx):
     with Phone() as p:
         p.pair()
-        p.text("/fleet")
-        ctx.check("/fleet answers", p.wait("Waiting on you: 0"))
+        p.text("/live")
+        ctx.check("/live answers", p.wait("Waiting on you: 0"))
         p.text("/status")
         ctx.check("/status with no session says where a text starts one", p.wait("A text starts one in"))
         p.text("hello")

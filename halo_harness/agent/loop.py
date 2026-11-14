@@ -43,7 +43,7 @@ from halo_harness import events
 from halo_harness.config.paths import env_compat
 from halo_harness.agent.planmode import PLAN_MODE_NOTE, ensure_plan_file, write_plan
 from halo_harness.agent.jobs import JobRegistry
-from halo_harness.agent import agent_inbox as _fleet_gate
+from halo_harness.agent import agent_inbox as _inbox_gate
 from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent import mode_notice as _mode_notice
 from halo_harness.agent import turn_marker as _turn_marker
@@ -5919,7 +5919,7 @@ class Session:
             # Halo 3.0.5.0 (Fleet): before every model call -- hold while
             # paused, end here when stopped from Studio, else apply the
             # agent's steer inbox (agent/agent_inbox.py).
-            if (yield from _fleet_gate.before_model(self, turn_no)):
+            if (yield from _inbox_gate.before_model(self, turn_no)):
                 yield events.status(phase="idle", model=self.model_ref.raw, turn=turn_no,
                                      **self.cost_meter.cost_fields())
                 yield events.turn_done(turn=turn_no, reason="interrupted")
@@ -7783,7 +7783,7 @@ class Session:
             # Halo 3.0.5.0 (Fleet): before every tool call -- hold while
             # paused (an Esc ends the hold and is seen just below); a stop
             # (or a redirect) leaves the rest of this round unrun.
-            _fleet = _fleet_gate.before_tool(self)
+            _fleet = _inbox_gate.before_tool(self)
             if _fleet is not None:
                 yield from _abandon_queued(_fleet[0])
                 yield from self._synthesize_unrun_tool_results(
@@ -8067,7 +8067,7 @@ class Session:
             # must not start the deferred batch either.
             yield from _abandon_queued("Tool call interrupted by user")
             return True
-        _fleet = _fleet_gate.before_tool(self) if (pending_batch or agent_batch) else None
+        _fleet = _inbox_gate.before_tool(self) if (pending_batch or agent_batch) else None
         if _fleet is not None:  # 3.0.5.0: a stop or redirect that landed after the last call was queued
             yield from _abandon_queued(_fleet[0])
             return _fleet[1] or end_turn

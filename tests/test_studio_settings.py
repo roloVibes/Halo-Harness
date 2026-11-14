@@ -9,8 +9,8 @@ with one placeholder secret saved; no provider request, no model call:
    `halo config set` footer follows), Reset (the key gone from config.json, the default marker back);
 4. a mapping that is not JSON: the problems line under its editor, config.json unchanged;
 5. the search box narrows to the rows matching across groups, a caption per group;
-6. the door `?mode=settings&group=fleet` lands on Fleet and drops the group word from the address;
-7. the secret row never shows its value; the palette's "Settings: Hub port" opens Fleet with the row lit.
+6. the door `?mode=settings&group=local` lands on Local and drops the group word from the address;
+7. the secret row never shows its value; the palette's "Settings: Host port" opens Local with the row lit.
 Run: python -m tests.test_studio_settings
 """
 from __future__ import annotations
@@ -21,8 +21,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: these drive its Studio doors)
-_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
@@ -65,11 +63,11 @@ def test_a_change_saves_at_once_and_reset_brings_the_default_back(ctx: Ctx):
     ctx.check(f"the bool toggled off in config.json, got {got.get('toggle_config')!r}", got.get("toggle_config") is False)
     ctx.check(f"its flash names the effect, got {got.get('toggle_flash')!r}", got.get("toggle_flash") == "saved · takes effect in the next session")
     ctx.check("the default marker left the row", got.get("toggle_default_gone") is True)
-    ctx.check(f"the enum picked, got {got.get('enum_config')!r} {got.get('enum_flash')!r}", got.get("enum_config") == "full"
+    ctx.check(f"the enum picked, got {got.get('enum_config')!r} {got.get('enum_flash')!r}", got.get("enum_config") == "all"
               and got.get("enum_flash") == "saved · takes effect now")
     ctx.check(f"the number set, got {got.get('number_config')!r} {got.get('number_flash')!r}", got.get("number_config") == 7431
               and got.get("number_flash") == "saved · takes effect on the next launch")
-    ctx.check(f"the footer is its halo config set line, got {got.get('number_cli')!r}", got.get("number_cli") == "halo config set fleet.hub.port 7431")
+    ctx.check(f"the footer is its halo config set line, got {got.get('number_cli')!r}", got.get("number_cli") == "halo config set host.port 7431")
     ctx.check(f"Reset: the key gone from config.json, the marker back, Reset off, got {got.get('reset_config')} {got.get('reset_off')}",
               got.get("reset_marker") is True and got.get("reset_config") is False and got.get("reset_off") is True)
 
@@ -96,14 +94,14 @@ def test_the_search_narrows_across_groups(ctx: Ctx):
 @test
 def test_the_door_and_the_secret_and_the_palette(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"?mode=settings&group=fleet lands on Fleet, got {got.get('door_page')!r}", got.get("door_page") == "fleet")
+    ctx.check(f"?mode=settings&group=local lands on Local, got {got.get('door_page')!r}", got.get("door_page") == "local")
     ctx.check(f"the group word left the address, got {got.get('door_search')!r}", "group=" not in str(got.get("door_search")))
-    ctx.check(f"the page is remembered on a plain load, got {got.get('door_remembered')!r}", got.get("door_remembered") == "fleet")
+    ctx.check(f"the page is remembered on a plain load, got {got.get('door_remembered')!r}", got.get("door_remembered") == "local")
     ctx.check("the secret row says set, hidden, as an empty password field", got.get("secret_masked") is True
               and got.get("secret_type") == "password" and got.get("secret_value") == "")
     ctx.check("the secret is nowhere on the page", got.get("secret_seen") is False)
-    ctx.check(f"the palette entry opens Fleet with Hub port lit, got {got.get('palette_page')!r} {got.get('palette_lit')!r}",
-              got.get("palette_page") == "fleet" and got.get("palette_lit") == "fleet.hub.port")
+    ctx.check(f"the palette entry opens Local with Host port lit, got {got.get('palette_page')!r} {got.get('palette_lit')!r}",
+              got.get("palette_page") == "local" and got.get("palette_lit") == "host.port")
 
 
 @test

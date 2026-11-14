@@ -140,7 +140,7 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
 def api_call(state_dir: Path, method: str, path: str, body: Optional[dict] = None,
              timeout: float = 5.0) -> "Optional[tuple]":
     """3.0.5.0 R2: one call on the running Studio's loopback API with its stored token (`halo fleet`
-    reads `GET /api/fleet` and sends commands through it): `(status, body)`, or None when none answers."""
+    reads `GET /api/live` and sends commands through it): `(status, body)`, or None when none answers."""
     import http.client
     info = read_info(state_dir)
     if not info:

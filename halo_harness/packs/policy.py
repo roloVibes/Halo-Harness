@@ -25,7 +25,7 @@ from halo_harness.packs.policy_redact import redact  # noqa: F401  (re-exported:
 
 log = logging.getLogger(__name__)
 VERDICTS = ("allow", "deny", "ask")
-SCOPES = ("session", "machine", "fleet")
+SCOPES = ("session", "machine")
 EVENT = "policy"
 PROC_EVENT = "policy_proc"
 BUDGET_KEY = "packs.policy.budget_ms"
@@ -170,7 +170,7 @@ def _verdict(policy: Policy, answer, why: str, ms: int) -> Verdict:
         if v not in VERDICTS:
             why = f"a malformed answer: verdict {v!r} is not allow, deny or ask"
         elif scope not in SCOPES:
-            why = f"a malformed answer: scope {scope!r} is not session, machine or fleet"
+            why = f"a malformed answer: scope {scope!r} is not session or machine"
         else:
             reason, rule = answer.get("reason"), answer.get("rule")
             return Verdict(v, reason if isinstance(reason, str) else "", src, rule if isinstance(rule, str) else "",

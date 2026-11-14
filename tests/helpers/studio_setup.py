@@ -128,9 +128,6 @@ def section(c, url, ctx) -> dict:
     out["modes"] = c.js(qa("[data-testid=setup-mode]") + ".map((m) => m.dataset.id)")
     goto(c, "theme")
     out["theme_note"] = c.js(_text("[data-testid=setup-theme-note]"))
-    goto(c, "machines")  # 3.3.16.0 R2: the pair card, the share / control rows, the People table; alone here: the five lines first
-    out["machines"] = c.wait(f"!!{q('[data-testid=fleet-people-list]')} && !!{q('[data-testid=fleet-settings]')} && " + "['setup-machines', 'setup-machines-lead', 'fleet-pair', 'fleet-settings',"
-                             " 'fleet-people-list', 'fleet-person'].map((k) => document.querySelectorAll(`[data-testid=\"${k}\"]`).length)", 20)
     return out
 
 

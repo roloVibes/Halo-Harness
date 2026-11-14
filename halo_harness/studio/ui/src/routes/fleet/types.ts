@@ -1,6 +1,5 @@
-// The fleet's shapes (the Fleet section's until 3.3.16.0 R2): GET fleet (studio/fleet_hub_api.py, R2) is
-// {harnesses: [{..., sessions: [{...row, agents: [...]}]}], hub}; an agent row
-// and a stream entry are R1's (agent/agent_registry.py, agent/agent_transcript.py).
+// The live shapes: GET live (studio/live_api.py) is {harnesses: [{..., sessions: [{...row, agents: [...]}]}]} -- this
+// harness alone; an agent row and a stream entry are agent/agent_registry.py's and agent/agent_transcript.py's.
 
 export type AgentState = "queued" | "running" | "waiting" | "paused" | "done" | "failed" | "stopped";
 export const LIVE_STATES = ["queued", "running", "waiting", "paused"];
@@ -80,9 +79,6 @@ export type SessionRow = {
   composition?: Composition | null;
   preflight?: Preflight | null;
   eyes?: EyesPending | null;
-  /** 3.0.6.0: a `mission-worker` session's mission id and part number. */
-  mission?: string | null;
-  part?: string | number | null;
 };
 
 export type Harness = {
@@ -104,21 +100,7 @@ export type Harness = {
   sessions: SessionRow[];
 };
 
-export type HubInfo = {
-  serving?: boolean;
-  name?: string | null;
-  url?: string | null;
-  port?: number | null;
-  members?: number;
-  online?: number;
-  pair_code_active?: boolean;
-  tls?: boolean;
-  fingerprint?: string | null;
-  firewall?: string | null; // 3.4.0.1: Windows Firewall keeps other machines off the hub's port (the line to act on)
-};
-
-/** 3.4.0.0 C: `fleet_pack` -- the fleet pack runs here (its doors show only then). */
-export type FleetView = { harnesses: Harness[]; hub: HubInfo | null; fleet_pack?: boolean; fleet_line?: string };
+export type FleetView = { harnesses: Harness[] };
 
 /** One transcript entry (R1's shape) or a frame turned into one; `you` marks a steer sent from here. */
 export type Entry = {

@@ -6,14 +6,15 @@ Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 
 [Policy hooks](#policy-hooks) as the first `draft` part, and R2 made it `stable` (a session enforces each verdict).
 A pack is a folder Halo installs, enables and removes (see
 [PACKS.md](PACKS.md) for using one); this page is the contract a pack is
-written against. The extension API version is `API_VERSION = "1.3"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
-until 3.4.0.0; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
+written against. The extension API version is `API_VERSION = "1.4"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
+until 3.4.0.0, 1.3 until 3.5.0.0; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
 blocks](#setup-blocks) to 1.1, 3.3.12.0 [Themes](#themes); 3.3.13.0 made it 1.2 with [Services](#services) and
 [Transports](#transports) (R3) and [a section's view](#a-sections-view), [`api.lib`](#apilib), [a pack's own
 routes](#a-packs-own-routes) and [the host services](#the-host-services) (R2), the seams the signal and design packs are
 built on; 3.4.0.0 made it 1.3 with the four `draft` contributions a pack's [CLI verbs, slash commands, doctor rows and
 settings rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows) and [core access](#core-access), the seams the
-first-run and coach packs are built on)
+first-run and coach packs are built on; 3.5.0.0 made it 1.4: [Pack capabilities](#pack-capabilities) under
+`contributes.capabilities`)
 (`halo_harness.ext.API_VERSION`, also exported as `HALO_API_VERSION`). The
 machine-readable manifest schema is
 `halo_harness/packs/schema/pack.schema.json`; the reference pack is
@@ -36,7 +37,7 @@ guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
 | [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` (3.3.10.0 R3: its `api` publishes, listens, routes and asks for attention); 3.3.13.0 R2, API 1.2: a section drawn whole by one bundle (`view`), `api.lib` (the shell's React and parts), the pack's own API routes (`routes`, the `studio-routes` grant) |
 | [The host services](#the-host-services) | stable | `ext.host` (3.3.13.0 R2, API 1.2): what Halo does for a pack's code -- its state folder, models for a task, the registered MCP servers and a probe, the tool env, a URL fetch through Halo's one network door, Halo as a child process, ComfyUI |
-| [Fleet capabilities](#fleet-capabilities) | stable | `contributes.fleet` (3.2.0.0 R4): worker capabilities in the catalog, available or not and why; mission needs, the worker's own check, inspector lines, mission metadata |
+| [Pack capabilities](#pack-capabilities) | stable | `contributes.capabilities` (3.2.0.0 R4; API 1.4 this name): the pack's capabilities, available here or not and why, what a workflow's prerequisite checks, inspector lines |
 | [Workflow contracts](#workflow-contracts) | stable | `workflows/<name>.yaml` (3.2.0.0 R5): compiled to an Orchestra goal, its hand-offs and a pinned plan; `halo workflow` |
 | [Events and artifacts](#events-and-artifacts) | stable | typed events (3.2.0.0 R5: schemas, the events log, subscriptions), typed artifacts with viewers, memory with provenance |
 | [Compatibility and migration](#compatibility-and-migration) | stable | the version policy (`ext.compatible`, `ext.deprecations`), `migrations` shown before an update and applied, `halo pack rollback` (3.2.0.0 R7) |
@@ -66,7 +67,7 @@ else of Halo (`tests/test_ext_api.py` walks every fixture and shipped pack's Pyt
 check it). The modules under `halo_harness/ext/` are the implementation; the
 names in `__all__` are the contract.
 
-- `API_VERSION`, `HALO_API_VERSION`: `"1.2"` (3.3.13.0; `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
+- `API_VERSION`, `HALO_API_VERSION`: `"1.4"` (3.5.0.0; `"1.3"` from 3.4.0.0, `"1.2"` from 3.3.13.0, `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
 - `api_version()`, `compatible(range)`, `deprecations()`: 3.2.0.0 R7, the version policy
   ([Compatibility and migration](#compatibility-and-migration)): this API's version, whether a `halo_api`
   range takes it, the names announced for removal (`[{name, since, removed_in, use}]`, none in 1.0).
@@ -104,7 +105,7 @@ names in `__all__` are the contract.
 - `remote`: API 1.2 (3.3.13.0 R3, stable): the transport seam ([Transports](#transports)) -- `sessions()`,
   `connect(session_id)`, `start_session(cwd, model, by)`, `cards`, `KINDS` / `notify` / `listen` / `notes`,
   `transcribe(path)`, `qr_text(data)`, `words()`, `service(pack, name)`, `service_ask(pack, name, verb)`,
-  `logon_lines()`, `fleet_lines()`, `capture_studio()`, `enabled()`, `offline()`, `default_model()`.
+  `logon_lines()`, `live_lines()`, `capture_studio()`, `enabled()`, `offline()`, `default_model()`.
 - `host`: API 1.2 (3.3.13.0 R2, stable): [the host services](#the-host-services), what Halo does for a pack's code.
 - `core`: API 1.3 (3.4.0.0 B, draft): [core access](#core-access) -- `core.module(name)`, `core.get(name, attr)` over
   `core.REACHABLE`, the Orchestra engine and the lineups for the shipped packs that left the core.
@@ -137,7 +138,7 @@ contributes:
   hooks: hooks/hooks.json
   mcp: [{name: lint, description: checks links}]   # each a server in .mcp.json
   studio: {sections: [...], panels: [...], palette: [...], config_form: true, events: {...}, attention: {...}}   # 3.2.0.0 R3, below
-  fleet: {capabilities: [...], inspector: [...], mission: {metadata: {...}}}   # 3.2.0.0 R4, below
+  capabilities: {capabilities: [...], inspector: [...]}   # 3.2.0.0 R4 (API 1.4: this name), below
   artifacts: [review-report]    # 3.2.0.0 R5: artifact schemas, artifacts/<name>.json
   events: [review.done]         # the kinds the pack publishes; a kind or {kind, schema} (R5: events/<kind>.json)
   workflows: [review]           # workflow names (R2), each workflows/<name>.yaml (R5)
@@ -305,7 +306,7 @@ token, the shell's CSP).
 | Key | Shape | What Studio does with it |
 |---|---|---|
 | `sections` | `[{id, title, blurb, help, panels: [<panel>], view?}]` | a section of its own after the core sections (3.2.0.0 R6: after the core sections; 3.3.3.0 R2: after Settings, reached by a click or the palette; 3.3.13.0 R2: after Local, and the first pack section takes the tenth key, `Alt+0`; the icon rail shows them after a thin divider, each with the diamond, 3.3.2.0); its panels fill the 24 columns left to right, or (3.3.13.0 R2, API 1.2) `view: {bundle: <module>}` draws its whole page ([a section's view](#a-sections-view)) |
-| `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles, Fleet or Orchestra, under that section's own, as a strip |
+| `panels` | `[{section: <core section>, ...<panel>}]` | a panel in Session, Team, Roles or Orchestra, under that section's own, as a strip |
 | `routes` | `{module: <file>.py, prefix: <word>}` | 3.3.13.0 R2 (API 1.2): the pack's own API routes, `/api/packs/<id>/<prefix>/...`, answered by the module's `handle` ([a pack's own routes](#a-packs-own-routes)); needs `studio-routes` |
 | `palette` | `[{id, label, action}]` | a command palette line in the group "pack <id>"; `action` is `route:<section>[/<panel>]`, `url:<address>` or `config` |
 | `config_form` | `true` or `false` | a Settings panel (kind `form`) at the end of the pack's first section, and a palette line "Settings: <name>" |
@@ -579,73 +580,47 @@ so it follows the owner's config, the offline switch and the network door the wa
 | `host.comfy()` | the ComfyUI Halo is pointed at (`halo media`): `queue(workflow, sets, source="", cwd=None)` -> `{prompt_id, source, label}`, `wait`, `outputs`, `view`, `url` |
 | `host.HostError` | what a host call raises: its message and `status` |
 
-## Fleet capabilities
+## Pack capabilities
 
-Status: **stable** (3.2.0.0 R4). A pack declares the worker capabilities it
-brings under `contributes.fleet`; each becomes an entry in this harness's
-capabilities catalog (docs/FLEET.md "Capabilities"), checked on this host:
-available or not, and why. `halo fleet who` finds them, a mission's planner
-sees them in each harness's block, and a part may name one in `needs`; the
-hub sends such a part only to a harness whose pack runs with the grants the
-capability requires, and the worker checks that again before the part runs.
-Nothing changes for a fleet with no pack.
+Status: **stable** (3.2.0.0 R4; API 1.4, 3.5.0.0: its manifest key is `contributes.capabilities` -- its name before,
+`contributes.fleet`, is still read the same, its `mission` key ignored). A pack declares the capabilities it brings
+under `contributes.capabilities`; each is checked on this host: available or not, and why. A pack workflow that needs
+one runs only while the pack runs here with the grants the capability requires, `halo pack inspect` lists them with
+available / why, and `halo pack doctor` has a row per capability not available here.
 
 | Key | Shape | What Halo does with it |
 |---|---|---|
-| `capabilities` | `[{name, description, requires, capacity}]` | one catalog entry each (`packs` section): `{name, description, available, why, checks, requires, capacity}` |
-| `capabilities[].name` | one of the top-level `capabilities:` | what a part's `needs` names (`docs.review`, or `pack:docs.review`) |
-| `capabilities[].description` | a sentence | `halo fleet who` ranks by it; no path in it |
+| `capabilities` | `[{name, description, requires, capacity}]` | one entry each: `{name, description, available, why, checks, requires, capacity}` |
+| `capabilities[].name` | one of the top-level `capabilities:` | what a workflow's prerequisite names (`docs.review`, or `pack:docs.review`) |
+| `capabilities[].description` | a sentence | what `halo pack inspect` prints under it; no path in it |
 | `capabilities[].requires.tools` | `[name]` | a CLI on PATH, an MCP server or tool, a craft app here |
 | `capabilities[].requires.runtimes` | `[word]` | `python`, `node`, `java` ... found here (a version when known) |
 | `capabilities[].requires.platform` | `[word]` | this host's OS or distro is one of them (`linux`, `windows`, `darwin`, `kali` ...) |
 | `capabilities[].requires.hardware` | `{gpu: true \| false \| <a word of its name>, ram_gb: n}` | a GPU (or one whose name has the word, `4090`), at least that much RAM |
 | `capabilities[].requires.models` | `[tag or model]` | a catalog model with the tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`, `reasoning`, `open-weights`, `audio-out`), or one by its ref or family |
 | `capabilities[].requires.grants` | `[permission]` | each one of the pack's `permissions`, granted here |
-| `capabilities[].requires.locality` | `[repo \| repo:<name> \| shared \| pack-data]` | the data is on this host: a repo checkout (that repo), the fleet's shared folder, files in the pack's data folder |
-| `capabilities[].capacity` | `{parallel: 1..64}` | how many parts with it this harness takes at once: shown to the planner, and (3.2.1.0 R3) held by the hub, the next part `waiting` until one ends |
-| `inspector` | `[{label, source}]` | a mission inspector line: a markdown or JSON file of the pack, shown with a part that needs the pack (Studio's Mission plan, the part's agent); 3.2.1.0 R3: the catalog carries the file's first 8 KB as `text` (paths cut), so a hub's Studio shows it for a member |
-| `mission.metadata` | `{key: value}` | what a mission started with this pack's lineup carries (`metadata: {pack, lineup, ...}`, in MISSION.md and the Mission panel's head) |
+| `capabilities[].requires.locality` | `[repo \| repo:<name> \| pack-data]` | the data is on this host: a repo checkout (that repo), files in the pack's data folder |
+| `capabilities[].capacity` | `{parallel: 1..64}` | how many uses of it this harness takes at once |
+| `inspector` | `[{label, source}]` | an inspector line: a markdown or JSON file of the pack, shown with the capability |
 
 A capability is **available** when every `requires` holds on this host;
 `why` names what holds (`tools: or:anthropic/claude-sonnet-4.6; bash
 granted`) or what is missing (`no GPU here`, `bash not granted (halo pack
 enable doc-review --grant bash)`). Only the packs that run here are listed;
-a disabled pack adds nothing. The catalog is gathered afresh on every pack
-change (`halo pack enable | disable | update | remove`, and Studio's
-`pack_changed` for a change made in another terminal).
+a disabled pack adds nothing.
 
-**What an advertisement never carries.** The catalog leaves this machine, so
-a value under `contributes.fleet` that looks like a secret (a token shape the
-privacy scan knows, a Bearer value) or an environment reference (`$VAR`,
-`${VAR}`, `%VAR%`) is a manifest problem, and so is a path in a
-`description`: one line each naming the key and its line, and the pack does
-not install or run:
+**What a capability never carries.** A value under `contributes.capabilities` that looks like a secret (a token shape
+the privacy scan knows, a Bearer value) or an environment reference (`$VAR`, `${VAR}`, `%VAR%`) is a manifest problem,
+and so is a path in a `description`: one line each naming the key and its line, and the pack does not install or run:
 
 ```
-pack.yaml line 12: contributes.fleet.capabilities[0].description: a token-shaped value; an advertisement leaves this machine, so it never holds a secret or an environment value
-pack.yaml line 14: contributes.fleet.capabilities[0].requires.tools[0]: an environment reference ($HOME); an advertisement leaves this machine, so it never holds a secret or an environment value
+pack.yaml line 12: contributes.capabilities.capabilities[0].description: a token-shaped value; an advertisement leaves this machine, so it never holds a secret or an environment value
+pack.yaml line 14: contributes.capabilities.capabilities[0].requires.tools[0]: an environment reference ($HOME); an advertisement leaves this machine, so it never holds a secret or an environment value
 ```
 
-Any other path (a tool given by its full path, a metadata value) is cut to
-its last component by the catalog's scrub before it is cached or announced,
-like every string in the catalog. A capability name the top-level
-`capabilities:` does not list, a `requires` key outside the table above (with
-the closest one), a grant the pack does not request, an unknown locality, a
-capacity outside 1..64, an inspector source outside the pack or of another
-type, and a metadata value that is a mapping are one line each too.
-
-**The worker's own check.** A part's `needs` travel with it (`run_task`).
-Before it runs (and on a member before its owner is asked), the worker reads
-its own packs again: a need that is a pack capability runs only while that
-pack runs here with the grants the capability requires, else the part is
-refused with one line, which becomes the part's result:
-
-```
-this harness does not run pack doc-review with bash
-```
-
-It is the same explicit grant rule the harness applies to its own sessions:
-a part gains nothing because another machine's catalog said it could run.
+A capability name the top-level `capabilities:` does not list, a `requires` key outside the table above (with the
+closest one), a grant the pack does not request, an unknown locality, a capacity outside 1..64 and an inspector source
+outside the pack or of another type are one line each too.
 
 The doc-review reference pack's (`halo_harness/templates/packs/doc-review/pack.yaml`):
 
@@ -653,7 +628,7 @@ The doc-review reference pack's (`halo_harness/templates/packs/doc-review/pack.y
 capabilities: [docs.review]
 permissions: ["mcp:lint", hooks, bash]
 contributes:
-  fleet:
+  capabilities:
     capabilities:
       - name: docs.review
         description: Reviews a repo's documents for dead links, heading order and style
@@ -662,28 +637,11 @@ contributes:
           grants: [bash]
         capacity: {parallel: 2}
     inspector:
-      - {label: Review checklist, source: fleet/checklist.md}
-    mission:
-      metadata: {review: docs, style: short}
+      - {label: Review checklist, source: capabilities/checklist.md}
 ```
 
-and its catalog entry on a harness that granted bash and has a model that
-calls tools (`packs` section, as the hub receives it):
-
-```json
-{"id": "doc-review", "name": "Documentation review", "version": "1.0.0", "scope": "user",
- "capabilities": [{"name": "docs.review", "description": "Reviews a repo's documents for dead links, heading order and style",
-                   "available": true, "why": "tools: or:anthropic/claude-sonnet-4.6; bash granted",
-                   "checks": [{"key": "models", "ok": true, "line": "tools: or:anthropic/claude-sonnet-4.6"},
-                              {"key": "grants", "ok": true, "line": "bash granted"}],
-                   "requires": {"models": ["tools"], "grants": ["bash"]}, "capacity": {"parallel": 2}}],
- "inspector": [{"label": "Review checklist", "source": "fleet/checklist.md"}],
- "metadata": {"review": "docs", "style": "short"}}
-```
-
-`tests/fixtures/packs/fleet-needs-gpu/` is one not available on a host
-without a GPU (`why: no GPU here`); `fleet-secret/` and `fleet-unknown-name/`
-are the failure fixtures.
+`tests/fixtures/packs/caps-needs-gpu/` is one not available on a host without a GPU (`why: no GPU here`);
+`caps-secret/` and `caps-unknown-name/` are the failure fixtures.
 
 ## Workflow contracts
 
@@ -700,7 +658,7 @@ runs it, there is no second engine.
 | Key | Shape | What it becomes |
 |---|---|---|
 | `name`, `description` | the file's stem; a sentence | the goal's WHAT YOU WANT |
-| `prerequisites` | `{tools, grants, capabilities, files}` | checked before the run: a CLI on PATH, a grant you gave the pack, a capability available here (its `contributes.fleet` requires), a file in the repo |
+| `prerequisites` | `{tools, grants, capabilities, files}` | checked before the run: a CLI on PATH, a grant you gave the pack, a capability available here (its `contributes.capabilities` requires), a file in the repo |
 | `inputs` | `{<name>: {type: text \| path \| json \| artifact:<schema>, required, default, description}}` | `--input k=v`; a path is relative to the repo and there; an artifact input is a JSON file checked against the pack's schema |
 | `outputs` | `{<name>: {type: artifact:<schema> \| files \| summary, from: <stage>, description}}` | the run's typed results, checked at the gate, copied to `<run>/artifacts/<name>/`, in the report |
 | `stages` | `[<stage>]`, in order | one job per stage (one per file for `for_each`), `job-1..N` |
@@ -952,7 +910,7 @@ answer   {"id": "r7", "verdict": "deny", "reason": "outside the project", "rule"
 | `config` | the pack's own settings (`packs.settings.<id>` over `config.defaults`) |
 | `verdict` | `allow`, `deny` or `ask` -- `permissions.Decision`'s words |
 | `reason`, `rule` | the pack's own line, and which of its rules fired; the line a person sees is this `reason` |
-| `scope` | `session` (the default), `machine` or `fleet`: how far the verdict reaches (Federation R6 reuses the shape) |
+| `scope` | `session` (the default) or `machine`: how far the verdict reaches |
 
 The answer must come **within the budget**, `packs.policy.budget_ms` (2000 when unset). A late answer, a line that
 is not a JSON object, a verdict or scope outside the words above, or the process ending (or not starting) is the
@@ -1002,8 +960,7 @@ PreToolUse or PermissionRequest hook rewrote the input (a rewrite never routes a
 Sub-agent calls and Orchestra worker calls resolve through the same method (a worker is a session of its own, its
 `agent` is `worker:<lane>`), so the model cannot step around a fence by delegating. The plan specials
 (`EnterPlanMode`, `ExitPlanMode`) are gated only by a pack's deny, like your deny rules: their own bodies handle the
-confirmation. A fleet mission records the armed policies of the harness that made it (`policies` in `mission.json`,
-and each part's dispatch carries them); Federation R6 enforces them on the far side.
+confirmation.
 
 **The post-call verdict.** A policy that declares `after: true` is asked once more after a call it names has run,
 on the same process, within the same budget, with the same `on_error` (allow reads as pass, deny as drop) and the
@@ -1247,7 +1204,7 @@ a pack; the core never knows which one. `halo_harness.ext.remote` is what it use
 | `transcribe(path)` | a voice note's text through the local speech server that runs ([VOICE.md](VOICE.md)); `(text, "")` or `(None, the line)` |
 | `qr_text(data)`, `words()` | a QR code in half-block text; the 256 words of the signing and pairing phrases |
 | `service(pack, name)`, `service_ask(pack, name, "start" \| "stop")`, `logon_lines()` | its own service's row, a Start / Stop, how to start the supervisor at logon |
-| `fleet_lines()`, `capture_studio(session_id="")` | this harness's sessions, the fleet's members and what waits; a capture of the Studio window when it is open here |
+| `live_lines()` (`fleet_lines()` its name before 1.4, still answering), `capture_studio(session_id="")` | this harness's sessions and what waits; a capture of the Studio window when it is open here |
 
 The shipped **signal pack** (`halo_harness/templates/packs/signal/`) is the example: its service runs the bridge,
 its `/signal` command runs its program, its Setup blocks walk signal-cli, the account, pairing and the service, and
@@ -1297,18 +1254,9 @@ writers they always drove (the coach reads verified outcomes through `outcomes.r
 `core.REACHABLE` (any other raises ValueError naming the rule). These are Halo's own modules as they are in the Halo
 the pack ships with: they follow Halo's version, not the extension API's, so a third-party pack does not build on them.
 
-3.4.0.0 C adds the fleet pack's names (the hub, missions and the relay drive `peers.*` -- identity, the signed wire,
-pairing, TLS, the relay client, Ollama on the network --, `live.*` -- attention, caps, the journal, recording --, the
-session's sockets under `remote.*`, Studio's fleet route modules and the Orchestra helpers a mission part uses) and
-`core.version()`, this Halo's version. The other way, the core reaches the fleet pack only through
-`halo_harness/packs/fleet_door.py` (`module(rel)` / `call(rel, attr, ...)`: the pack's module while it runs here, else
-None), so with the pack off every core path goes on as on a machine that never joined a fleet. No manifest key is
-new, so the API version is unchanged by it.
-
-A shipped pack never imports another pack. The coach pack reaches missions and the hub through
-`core.module("packs.fleet_door")` (None while the fleet pack is off: no mission folder, no hub, one line naming the
-fleet pack); the fleet pack reaches the coach through `core.get("packs.contrib_cli", "dispatch" | "pack_call")` (the
-coach pack's verb or module while it is enabled, else the one line naming the coach pack).
+`core.version()` is this Halo's version. A shipped pack never imports another pack: the first-run pack reaches the
+coach through `core.get("packs.contrib_cli", "dispatch" | "pack_call")` (the coach pack's verb or module while it is
+enabled, else the one line naming the coach pack).
 
 ## Compatibility and migration
 
@@ -1331,7 +1279,7 @@ and `halo_harness/packs/resolve.py` apply it:
   `halo pack doctor` and in the Pack Manager's Details, in these words:
 
 ```
-pack doc-review needs extension API 1.4 to 1.9; this Halo has 1.3
+pack doc-review needs extension API 1.5 to 1.9; this Halo has 1.4
 pack x needs Halo >= 3.3; this is 3.2.0.0
 ```
 
@@ -1355,6 +1303,10 @@ Each minor version lists here the names it adds (the name, what it does, the
 version) and the names it deprecates (the name, the version it goes away in,
 what to use instead), one line each (`ext.compat.CHANGES` holds the same).
 
+- **1.4** (Halo 3.5.0.0): the manifest's capabilities block is `contributes.capabilities`; its name before,
+  `contributes.fleet`, is still read the same (its `mission` key is ignored, the locality `shared` is gone);
+  `ext.remote.live_lines` (the old name `fleet_lines` still answers). A pack that names a capability states
+  `{min: "1.4"}` to use the new key; the shipped doc-review pack does.
 - **1.3** (Halo 3.4.0.0): adds the manifest's `contributes.cli`, `contributes.slash`, `contributes.doctor` and
   `contributes.settings` with the grants `cli:<verb>` and `doctor` ([CLI verbs, slash commands, doctor rows and settings
   rows](#cli-verbs-slash-commands-doctor-rows-and-settings-rows)) and `core` ([core access](#core-access)); all draft;
@@ -1450,16 +1402,16 @@ the Design section out of the core: the example of [a section's view](#a-section
 Documentation Review, at `halo_harness/templates/packs/doc-review/`, is the reference a
 third party copies, and the regression test of this whole page
 (`tests/test_reference_pack.py` installs it in a fresh home, runs its
-workflow, finds it in Studio, Roles and the fleet catalog, removes it and
+workflow, finds it in Studio and Roles with its capability, removes it and
 finds nothing of it left; every packs test reads it too). What it shows:
 
 | Part of the API | In the pack |
 |---|---|
-| The manifest | `pack.yaml`: `halo_api: {min: "1.0", max: "1.9"}`, `halo` (the Halo it ships in: `{min: "3.2"}` from the 3.2.0.0 release), settings schema and defaults, permissions, one migration note |
+| The manifest | `pack.yaml`: `halo_api: {min: "1.4", max: "1.9"}`, `halo` (the Halo it ships in: `{min: "3.2"}` from the 3.2.0.0 release), settings schema and defaults, permissions, one migration note |
 | Agents and teams | `agents/reviewer.yaml` (by capability, a memory namespace, a need), `agents/writer.yaml` (extends it, a family preference), `teams/review.yaml` (two tiers, acceptance, its workflow) |
 | Skills, commands, hooks and MCP | `skills/check-links/`, `commands/review.md`, `agents/helper.md`, `hooks/` (a PostToolUse hook publishing review.done), `.mcp.json` + `mcp/lint_server.py` (a stdio MCP server: check_links, check_headings); both started with `${halo_python}`, Halo's own Python (3.2.0.0 R7) |
 | Studio contributions | a section (markdown, table, links, the artifact panel, Settings), a Session panel, a palette line, event lines, an attention row kind |
-| Fleet capabilities | `docs.review` (a model with tools, the bash grant, two at once), an inspector line, mission metadata |
+| Pack capabilities | `docs.review` (a model with tools, the bash grant, two at once), an inspector line |
 | Workflow contracts | `workflows/review.yaml`: read each Markdown file, judge (`gate: human`), write the report |
 | Events and artifacts | `artifacts/review-report.json` (`x-halo-view: table`), `events/review.done.json` |
 
@@ -1470,7 +1422,7 @@ version, how to install from a folder or a git url (or by id from a
 finds it: the shipped folder is the last entry of the sources search, after
 `packs.sources`. The failure fixtures stay under `tests/fixtures/packs/`
 (`wf-cycle/`, `wf-unknown-role/`, `wf-no-giver/`, `wf-input-type/`, the
-studio and fleet ones) with `tests/fixtures/workflows/report-bad.json`, an
+studio and capability ones) with `tests/fixtures/workflows/report-bad.json`, an
 artifact off its schema. 3.2.0.0 R7 adds one per lifecycle failure
 (`tests/test_packs_failures.py`): `bad-yaml/`, `no-id/`, `bad-id/`,
 `api-too-new/`, `api-too-old/`, `halo-too-new/`, `needs-base/` (a missing

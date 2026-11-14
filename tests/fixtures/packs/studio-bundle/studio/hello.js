@@ -43,7 +43,7 @@ export function mount(el, api) {
   act("getdata", "Read note.json", () => api.getData("note.json"));
   act("mode", "Read the mode", () => api.mode().then((m) => "mode " + (m.mode || "none") + (m.label ? " (" + m.label + ")" : "")));
   act("attention", "Ask for attention", () => api.attention({ row: "greet", kind: "hello.ask", what: "the bundle asks you" }).then((r) => "row " + r.row));
-  act("route", "Go to Fleet", () => (api.route("fleet") ? "routed" : "no such section"));
+  act("route", "Go to Agents", () => (api.route("agents") ? "routed" : "no such section"));
   // 3.3.14.0 R1 (the review's #4): the page asks Studio to change its own grant, through api.lib's client and with a
   // plain fetch that carries the token the page can read; neither is the owner's page.
   act("grant-self", "Change this pack's grant", async () => {

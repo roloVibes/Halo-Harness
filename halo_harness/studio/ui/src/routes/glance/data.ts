@@ -39,7 +39,7 @@ async function ask(full: boolean): Promise<void> {
   if (glance.get().rekeyed) return;
   if (full) capsAt = Date.now();
   try {
-    const c = await api.get<CapsView>(full ? "fleet/costs" : "fleet/caps");
+    const c = await api.get<CapsView>(full ? "live/costs" : "live/caps");
     if (full) glance.update(() => ({ caps: { ...c, caps: c.caps || {}, reached: Array.isArray(c.reached) ? c.reached : [] } }));
     heard();
   } catch (e) {

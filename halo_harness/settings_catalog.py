@@ -32,7 +32,7 @@ EFFECT_WORDS = {"now": "takes effect now", "next session": "takes effect in the 
 GROUPS = (("general", "General"), ("studio", "Studio"), ("agents", "Agents and roles"),
           ("knowledge", "Knowledge and recall"), ("supervise", "Supervise"), ("steer", "Steer and turn"),
           ("models", "Models"), ("providers", "Providers"), ("ollama", "Ollama"), ("network", "Network and routing"),
-          ("fleet", "Fleet"), ("remote", "Remote"), ("packs", "Packs"), ("connectors", "Connectors"),
+          ("remote", "Remote"), ("packs", "Packs"), ("connectors", "Connectors"),
           ("worktree", "Worktree"), ("update", "Update"), ("local", "Local"), ("from_packs", "From packs"))
 #: 3.4.0.0 B2: an enabled pack's `contributes.settings` rows (packs/contrib_settings.py), `packs.settings.<id>.<key>`
 PACK_KINDS = {"string": "string", "integer": "int", "number": "float", "boolean": "bool"}
@@ -91,12 +91,8 @@ def pack_rows() -> "list[Row]":
 
 
 def shown() -> "list[Row]":
-    """The rows Settings shows: every row, less the Fleet group's while the fleet pack is off (3.4.0.0 C; its keys
-    stay keys -- `halo config set` takes them -- and come back with the pack)."""
-    from halo_harness.packs import fleet_door
-    if fleet_door.running() is not None:
-        return rows()
-    return [r for r in rows() if r.group != "fleet"]
+    """The rows Settings shows: every row."""
+    return rows()
 
 
 def row(key: str) -> Optional[Row]:
@@ -110,7 +106,7 @@ def groups() -> "list[dict]":
     for r in shown():
         counts[r.group] = counts.get(r.group, 0) + 1
     return [{"id": g, "title": t, "count": counts.get(g, 0)} for g, t in GROUPS
-            if g not in ("fleet", "from_packs") or counts.get(g)]
+            if g != "from_packs" or counts.get(g)]
 
 
 def studio_page(r: Row) -> str:
@@ -176,7 +172,7 @@ def _keyed_pattern(r: Row) -> "re.Pattern":
 
 
 def match(key: str) -> "tuple[Optional[Row], str]":
-    """The row a concrete key belongs to and the entry name it fills: `fleet.enabled` -> (its row, '');
+    """The row a concrete key belongs to and the entry name it fills: `control.enabled` -> (its row, '');
     `connectors.gmail.enabled` -> (`connectors.<slug>.enabled`, 'gmail'); `ollama.hosts[lan].ssh` ->
     (`ollama.hosts[].ssh`, 'lan'); (None, '') when no row holds it. An exact row wins over a keyed one."""
     exact = row(key)
@@ -211,7 +207,7 @@ def _cli_value(value) -> str:
 
 
 def cli_line(key: str, value) -> str:
-    """The `halo config set` line that writes `value` to `key`: `halo config set fleet.enabled true`, JSON in
+    """The `halo config set` line that writes `value` to `key`: `halo config set control.enabled true`, JSON in
     single quotes for a list or a mapping. None: the placeholder `<value>`. A `[]` row's field lives in each
     entry of its list, so its line sets the whole list (`value` is that list)."""
     if "[]" in key:

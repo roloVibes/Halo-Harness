@@ -1,6 +1,6 @@
 """tests.test_remote_print_mode -- Halo 2.0.9 round 2: print mode (`halo -p`,
 which `--bg` re-runs) opens the same control socket (behind config
-`remote.enabled` until 3.0.5.0, `fleet.enabled` and on by default since; the
+`remote.enabled` until 3.0.5.0, `control.enabled` and on by default since; the
 end-to-end test still sets the old key, which no longer matters). `PrintModeHandle` is unit-tested against the scripted
 session; one end-to-end test drives a real `halo -p --input-format
 stream-json` child (mock upstream) over its socket. The loopback+token half

@@ -3,7 +3,7 @@ the command is host_steward_cli.py).
 
 The duty steward is **not** in the host process: it is its own process (`halo host steward run`), a peer of the host
 like any other with its own identity and grant (`control` by default; its peers.json record carries `duty: true`, so
-fleet.allow_control: ask does not queue it -- the owner turned it on; `none` still keeps the host a monitor). Each
+host.allow_control: ask does not queue it -- the owner turned it on; `none` still keeps the host a monitor). Each
 pass reads the host's `GET findings` and `GET card`, asks the 3.3.4.0 steward's model (ollama_steward/agent.py,
 through the host's own Ollama like any other client) for a note and any extra proposal, and lands each `where: host`
 fix through the same typed operations, the finding cited (`evidence.finding`): the host's guards and verify judge it

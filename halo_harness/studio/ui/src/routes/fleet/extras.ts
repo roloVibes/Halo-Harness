@@ -1,17 +1,15 @@
-// What the R4 Fleet panels do: answer an attention row with one key
-// (`POST fleet/attention/answer`; `o` only says where to open it), take an
-// agent over or hand it to another harness (`.../agents/<aid>/handoff`),
+// What the live panels do: answer an attention row with one key
+// (`POST live/attention/answer`; `o` only says where to open it), take an
+// agent over or hand it on as a written brief (`.../agents/<aid>/handoff`),
 // record a session or one agent (`.../recording[?agent=]`, then the file is
-// fetched with the token header and saved as a blob), send a member's owner
-// a note (`.../command {cmd: "note"}`), set the spend caps.
+// fetched with the token header and saved as a blob), set the spend caps.
 import { api, ApiError, token } from "../../lib/api";
 import { goSection, toast, type SectionId } from "../../lib/store";
 import { openLocalHost, showFleetPanel } from "../agents/fleetDoor";
-import { kick, select } from "./actions";
+import { select } from "./actions";
 import { fleet, findAgent, findSession, parseKey, sessionTitle } from "./store";
 import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
-import { loadMissions, openMission, refresh as refreshMission } from "./mload";
 import { openRun } from "../agents/run/door";
 import { reviewPlan } from "../agents/run/planPanel";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
@@ -21,34 +19,31 @@ export { showFleetPanel }; // 3.3.16.0 R2: an old Fleet panel's door opens its n
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid)?.local ? "local" : encodeURIComponent(hid));
 
-/** Where an `o` answer points: a section and view; a Fleet panel's row (3.3.16.0 R2) its new home -- a mission Runs,
- *  the steward's note Local -> Hosts on its host, a spend cap the machine on Live, an agent or a conflict Live on it. */
+/** Where an `o` answer points: a section and view; a live row (section `live`, 3.5.0.0; `fleet` before) its home --
+ *  the steward's note Local -> Hosts on its host, an agent or a conflict Live on it, a cap Agents' Attention. */
 export function openTarget(t: OpenTarget): void {
-  if (t.section !== "fleet") {
+  if (t.section !== "live" && t.section !== "fleet") {
     if (t.run && !t.stage && (t.view === "runs" || t.view === "live")) return void openRun(t.run); // 3.4.0.0 D: on Live while it runs, else History
     goSection(t.section as SectionId, t.view === "runs" ? "live" : t.view); // 3.3.16.0 R1: a row of `orchestra` or `roles` opens Agents on its view
     if (t.panel === "orchestra-plan") reviewPlan(); // the supervisor's "open the plan"
     return;
   }
-  if (t.panel === "fleet-mission" && t.mission) return openMission(t.mission, String(t.part || "")); // 3.0.6.0 R8
   if (t.panel === "ollama" || t.panel === "fleet-ollama") return openLocalHost(t.host || ""); // 3.3.4.0 R5: the steward's attention row
   const aid = t.a ? t.a.split("|")[2] : t.agent_id || "main";
   if (t.a) select(t.a);
   else if (t.harness && t.session_id) select(`${t.harness}|${t.session_id}|${aid}`);
-  const machine = t.panel !== "fleet-costs" ? "" : (t.scope === "harness" && t.key) || fleet.get().harnesses.find((h) => h.local)?.id || "";
-  showFleetPanel(t.a || t.session_id ? "fleet-agent" : t.panel || "fleet-agent", machine);
+  showFleetPanel(t.a || t.session_id ? "fleet-agent" : t.panel || "fleet-agent");
 }
 
 export async function answerRow(row: AttnRow, key: string, text = ""): Promise<boolean> {
   try {
-    const r = await api.post<{ ok?: boolean; answer?: string; open?: OpenTarget; set_aside?: boolean; lifted?: boolean }>("fleet/attention/answer", { id: row.id, key, ...(text ? { text } : {}) });
+    const r = await api.post<{ ok?: boolean; answer?: string; open?: OpenTarget; set_aside?: boolean; lifted?: boolean }>("live/attention/answer", { id: row.id, key, ...(text ? { text } : {}) });
     if (r.open) openTarget(r.open); // `o`
     else toast(`${row.what}: ${r.answer || row.keys[key] || key}`, "done");
     panels.update((s) => ({ replyFor: "", attention: r.open ? s.attention : s.attention.filter((x) => x.id !== row.id) }));
     window.setTimeout(() => (void loadAttention(), void load()), 400);
     if (row.kind === "cap") window.setTimeout(() => void loadCosts(), 600);
     if (row.kind === "conflict") window.setTimeout(() => void loadConflicts(), 600);
-    if (row.kind.startsWith("mission")) window.setTimeout(() => (void loadMissions(), void refreshMission()), 500);
     return true;
   } catch (e) {
     toast(msg(e), "error", 5000);
@@ -71,7 +66,7 @@ export async function handoff(key: string, body: { mode: "take_over"; brief: str
   const { h, s, a } = parseKey(key);
   const label = findAgent(fleet.get(), key)?.a.name || a;
   try {
-    const out = await api.post<HandoffOut>(`fleet/${hidPath(h)}/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}/handoff`, body);
+    const out = await api.post<HandoffOut>(`live/${hidPath(h)}/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}/handoff`, body);
     if (body.mode === "take_over") {
       closeDialog();
       toast(`${label}: taken over, it reads your brief before its next step`, "done");
@@ -91,7 +86,7 @@ export async function record(key: string, agentOnly: boolean): Promise<void> {
   const label = agentOnly ? findAgent(fleet.get(), key)?.a.name || a : got ? sessionTitle(got.s) : s.slice(0, 8);
   toast(`Recording ${label}...`, "info", 2000);
   try {
-    const r = await api.post<{ name: string; url: string; bytes: number }>(`fleet/${hidPath(h)}/${encodeURIComponent(s)}/recording`, {}, agentOnly ? { agent: a } : undefined);
+    const r = await api.post<{ name: string; url: string; bytes: number }>(`live/${hidPath(h)}/${encodeURIComponent(s)}/recording`, {}, agentOnly ? { agent: a } : undefined);
     openDialog({ kind: "recording", name: r.name, url: r.url, bytes: r.bytes, label });
   } catch (e) {
     toast(msg(e), "error", 6000);
@@ -120,30 +115,10 @@ export async function download(url: string, name: string): Promise<boolean> {
   }
 }
 
-// -- people -----------------------------------------------------------------------------------------
-export async function sendNote(hid: string, sid: string, text: string): Promise<boolean> {
-  const t = text.trim();
-  if (!t) return false;
-  try {
-    await api.post(`fleet/${hidPath(hid)}/${encodeURIComponent(sid)}/command`, { cmd: "note", text: t });
-    toast("Sent: its owner reads it in that session", "done");
-    closeDialog();
-    return true;
-  } catch (e) {
-    toast(msg(e), "error", 5000);
-    return false;
-  }
-}
-
-export async function kickConfirmed(hid: string, name: string): Promise<void> {
-  closeDialog();
-  await kick(hid, name);
-}
-
 // -- caps -------------------------------------------------------------------------------------------
 export async function saveCaps(values: Partial<Record<CapKey, number | null>>): Promise<boolean> {
   try {
-    await api.post("fleet/caps", values);
+    await api.post("live/caps", values);
     toast("Caps saved", "done");
     void loadCosts();
     return true;

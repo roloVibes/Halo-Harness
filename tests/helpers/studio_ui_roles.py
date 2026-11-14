@@ -4,7 +4,7 @@ kept here so that file stays small. One headless Chrome run
 (`python -m tests.helpers.studio_roles roles`, cached by the runner) over a
 seeded catalog, a lineup with two declared tiers and a card on a bio whose
 model the catalog does not have; `POST models/test` is stubbed there. Live
-Roles, J and the replay are tests/helpers/studio_ui_fleet.py's (the fleet
+Roles, J and the replay are tests/helpers/studio_ui_live.py's (the fleet
 rig's real session)."""
 from __future__ import annotations
 

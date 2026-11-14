@@ -1,6 +1,6 @@
 """tests.helpers.studio_host_acts -- Studio's Local section acting through a paired `halo host` (Halo 3.3.7.0 R2) in
 headless Chrome: tests/helpers/host_act_rig.PeerRig (the host on a scratch home, its `pc` a fake Ollama on 127.0.0.1:0;
-this process's home the peer with `control` there, fleet.allow_control all), whose Studio serves the page. No model
+this process's home the peer with `control` there, host.allow_control all), whose Studio serves the page. No model
 call, no real ssh, never a request beyond 127.0.0.1 (the rig refuses one).
 
 `hosts`: Local -> Hosts, pc's card: the grants line ("grants there: view, control"), Load on qwen3-coder:30b goes

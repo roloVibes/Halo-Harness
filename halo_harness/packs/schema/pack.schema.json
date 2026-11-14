@@ -52,21 +52,28 @@
                        "properties": {"gpu": {"type": ["boolean", "string"]}, "ram_gb": {"type": "number", "minimum": 0}}},
           "models": {"$ref": "#/$defs/names", "description": "a model ref or a capability tag (long-context, vision, tools ...)"},
           "grants": {"$ref": "#/$defs/names", "description": "permissions of the pack this capability needs granted"},
-          "locality": {"type": "array", "items": {"type": "string", "pattern": "^(repo|repo:.+|shared|pack-data)$"}}}},
+          "locality": {"type": "array", "items": {"type": "string", "pattern": "^(repo|repo:.+|pack-data)$"}}}},
         "capacity": {"type": "object", "additionalProperties": false,
                      "properties": {"parallel": {"type": "integer", "minimum": 1}}}
       }
     },
-    "fleet": {
+    "capabilities": {
       "type": "object", "additionalProperties": false,
-      "description": "What the pack brings to the fleet (3.2.0.0 R4): worker capabilities in the capabilities catalog, mission inspector lines, mission metadata.",
+      "description": "What the pack can do here (3.2.0.0 R4; API 1.4 named it contributes.capabilities): its capabilities, checked against this machine for a workflow's requires and shown with why in halo pack inspect and doctor, and inspector lines.",
       "properties": {
         "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}},
         "inspector": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["label", "source"],
-          "properties": {"label": {"type": "string"}, "source": {"type": "string", "description": "a markdown or JSON file under the pack"}}}},
-        "mission": {"type": "object", "additionalProperties": false,
-                    "properties": {"metadata": {"type": "object", "description": "what a mission started by this pack's lineup carries"}}}
+          "properties": {"label": {"type": "string"}, "source": {"type": "string", "description": "a markdown or JSON file under the pack"}}}}
+      }
+    },
+    "capabilities_old": {
+      "type": "object", "additionalProperties": false,
+      "description": "contributes.fleet: the name of contributes.capabilities before 3.5.0.0, still read; its mission key is ignored.",
+      "properties": {
+        "capabilities": {"type": "array", "items": {"$ref": "#/$defs/capability"}},
+        "inspector": {"$ref": "#/$defs/capabilities/properties/inspector"},
+        "mission": {"type": "object"}
       }
     },
     "studio": {
@@ -81,7 +88,7 @@
                                   "description": "3.3.13.0 R2: the section's whole page is one ES module of the pack, mount(el, api); needs studio-script",
                                   "properties": {"bundle": {"type": "string"}}}}}},
         "panels": {"type": "array", "items": {"allOf": [
-          {"properties": {"section": {"enum": ["session", "team", "roles", "fleet", "orchestra"]}}, "required": ["section"]},
+          {"properties": {"section": {"enum": ["session", "team", "roles", "orchestra"]}}, "required": ["section"]},
           {"$ref": "#/$defs/panel"}]}},
         "palette": {"type": "array", "items": {
           "type": "object", "additionalProperties": false, "required": ["id", "label", "action"],
@@ -144,7 +151,8 @@
         "mcp": {"type": "array", "items": {"type": "object", "required": ["name"],
                                            "properties": {"name": {"type": "string"}, "description": {"type": "string"}}}},
         "studio": {"$ref": "#/$defs/studio"},
-        "fleet": {"$ref": "#/$defs/fleet"},
+        "capabilities": {"$ref": "#/$defs/capabilities"},
+        "fleet": {"$ref": "#/$defs/capabilities_old"},
         "artifacts": {"type": "array", "items": {"type": "string", "pattern": "^([A-Za-z0-9][A-Za-z0-9_-]*|artifacts/[A-Za-z0-9][A-Za-z0-9_-]*\\.json)$"}, "description": "artifact schemas: artifacts/<name>.json (3.2.0.0 R5)"},
         "events": {"type": "array", "items": {"oneOf": [{"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}, {"type": "object", "additionalProperties": false, "required": ["kind"], "properties": {"kind": {"type": "string", "pattern": "^[a-z][a-z0-9_.-]*$"}, "schema": {"type": "string"}, "description": {"type": "string"}}}]}, "description": "a kind (its schema: events/<kind>.json when the pack ships it) or {kind, schema} (3.2.0.0 R5)"},
         "workflows": {"type": "array", "items": {"type": "string"}, "description": "workflow names (3.2.0.0 R2), each workflows/<name>.yaml when the pack ships it (workflow.schema.json, 3.2.0.0 R5)"},

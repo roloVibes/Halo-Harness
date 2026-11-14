@@ -1,29 +1,27 @@
 """halo_harness.remote.runtime -- open / close the control socket of every session in THIS process and
-keep its registry entry fresh (Halo 2.0.9 round 2; Fleet 3.0.5.0). `fleet.enabled` (default true): every
+keep its registry entry fresh (Halo 2.0.9 round 2; 3.0.5.0). `control.enabled` (default true): every
 session opens its loopback socket and lists itself in `~/.halo/run/sessions.json`: the TUI (`start_for_
 controller`), `halo -p` (`start_for_print`; Orchestra workers are `-p` children) and
-a mission worker (`start_for_session`). A private session (`--private`, `/private on`, `fleet.private`) opens
-and registers nothing; `remote.enabled` is every transport's switch (remote/notify.py). Each open and close also tells the
-fleet relay (fleet/relay_runtime.py, R2). Openers return None when off or on any failure (a socket problem never
+a session started without a terminal (`start_for_session`). A private session (`--private`, `/private on`, `control.private`) opens
+and registers nothing; `remote.enabled` is every transport's switch (remote/notify.py). Openers return None when off or on any failure (a socket problem never
 stops a launch); `stop_one`, `stop_for` and `stop` (all of them, also at exit) are idempotent."""
 
 from __future__ import annotations
 
 import atexit
-import contextlib
 import threading
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from halo_harness.remote import fleet_identity as FI
+from halo_harness.remote import session_identity as FI
 
 _lock = threading.RLock()
 _actives: list = []
 _reopeners: list = []  # (controller, opener) for sessions that went (or started) private
-_private_flag: Optional[bool] = None  # /private on|off in this process; None: --private / fleet.private decide
+_private_flag: Optional[bool] = None  # /private on|off in this process; None: --private / control.private decide
 _atexit_registered = False
-fleet_enabled, remote_enabled = FI.fleet_enabled, FI.remote_enabled
+control_enabled, remote_enabled = FI.control_enabled, FI.remote_enabled
 
 
 @dataclass
@@ -52,8 +50,8 @@ def private_chip() -> bool:
 
 
 def enabled() -> bool:
-    """True when sessions open their control socket: `fleet.enabled`, not private."""
-    return fleet_enabled() and not private()
+    """True when sessions open their control socket: `control.enabled`, not private."""
+    return control_enabled() and not private()
 
 
 def active() -> Optional[Active]:
@@ -67,7 +65,7 @@ def actives() -> list:
 
 def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -> Optional[Active]:
     global _atexit_registered
-    from halo_harness.remote import fleet_frames, registry
+    from halo_harness.remote import agent_frames, registry
     from halo_harness.remote.control_socket import ControlServer
     with _lock:
         for act in _actives:
@@ -87,7 +85,7 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
             registry.register(entry)
             act = Active(handle, server, entry["session_id"], controller, mode, entry, reopen)
             handle.hub.meta.update(session_id=act.session_id, harness=entry["harness"].get("id"))
-            act.listener = fleet_frames.attach(act)
+            act.listener = agent_frames.attach(act)
             handle.hub.add_observer(lambda ev, a=act: _watch_status(a, ev))
             _actives.append(act)
             if not _atexit_registered:
@@ -101,15 +99,8 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
             except Exception:
                 pass
             return None
-    fleet_frames.joined(act)
-    _relay("session_opened", act)
+    agent_frames.joined(act)
     return act
-
-
-def _relay(name: str, act) -> None:  # 3.0.5.0 R2: the fleet pack's relay_runtime.py follows these sessions (3.4.0.0 C)
-    with contextlib.suppress(Exception):  # the relay never stands in a session's way; the pack off: no relay
-        from halo_harness.packs import fleet_door
-        fleet_door.call("fleet/relay_runtime.py", name, act)
 
 
 def _watch_status(act: Active, ev) -> None:
@@ -119,7 +110,7 @@ def _watch_status(act: Active, ev) -> None:
     # a sub-agent's own status events reach this tap too (agent_id, session_id "agent-<id>"): never ours
     if getattr(ev, "agent_id", None) or str(ev.data.get("session_id") or "").startswith("agent-"):
         return
-    from halo_harness.remote import fleet_frames, registry
+    from halo_harness.remote import agent_frames, registry
     sid, mode = ev.data.get("session_id"), ev.data.get("permission_mode")
     if sid and sid != act.session_id:
         old, act.session_id, act.mode = act.session_id, sid, str(mode or "")
@@ -128,7 +119,7 @@ def _watch_status(act: Active, ev) -> None:
         act.handle.hub.meta["session_id"] = sid
         registry.unregister(old)
         registry.register(act.entry)
-        fleet_frames.fleet_frame(act, "register")
+        agent_frames.registry_frame(act, "register")
     elif mode and mode != act.mode:
         act.mode = act.entry["mode"] = str(mode)
         registry.update(act.session_id, mode=act.mode)
@@ -147,7 +138,7 @@ def start_for_controller(controller) -> Optional[Active]:
     def opener() -> Optional[Active]:
         from halo_harness.remote.handle import ControllerHandle
         return _open(ControllerHandle(controller), controller, reopen=opener)
-    if not fleet_enabled():
+    if not control_enabled():
         return None
     if private():
         _remember(controller, opener)
@@ -180,10 +171,10 @@ def stop_one(act: Optional[Active]) -> None:
         if act is None or act not in _actives:
             return
         _actives.remove(act)
-    from halo_harness.remote import fleet_frames, registry
-    fleet_frames.fleet_frame(act, "unregister")
-    for fn in (lambda: _relay("session_closed", act), lambda: registry.unregister(act.session_id),
-               lambda: fleet_frames.detach(act), act.server.close, act.handle.detach):
+    from halo_harness.remote import agent_frames, registry
+    agent_frames.registry_frame(act, "unregister")
+    for fn in (lambda: registry.unregister(act.session_id),
+               lambda: agent_frames.detach(act), act.server.close, act.handle.detach):
         try:
             fn()
         except Exception:
@@ -214,9 +205,9 @@ def set_private(on: bool) -> str:
                 _remember(act.controller, act.reopen)
             stop_one(act)
         return ("Private: on. This session closed its control socket and left the registry: Studio, "
-                "`halo remote` and the fleet no longer see it. `/private off` lists it again.")
-    if not fleet_enabled():
-        return "Private: off. fleet.enabled is false, so no control socket opens (`halo config set fleet.enabled true`)."
+                "`halo remote` no longer see it. `/private off` lists it again.")
+    if not control_enabled():
+        return "Private: off. control.enabled is false, so no control socket opens (`halo config set control.enabled true`)."
     with _lock:
         pending, _reopeners[:] = list(_reopeners), []
     opened = [act for act in (fn() for _c, fn in pending) if act is not None]
@@ -245,7 +236,7 @@ def status_line() -> str:
         count = 0
     plural = "" if count == 1 else "s"
     if act is None:
-        hint = (" (fleet.enabled is false; `halo config set fleet.enabled true`, then restart)" if not fleet_enabled()
+        hint = (" (control.enabled is false; `halo config set control.enabled true`, then restart)" if not control_enabled()
                 else " (a private session: `/private off` lists it again)" if private() else "")
         return f"control socket: off{hint}\nregistry: {count} live session{plural}"
     return f"control socket: on {act.endpoint}\nregistry: {count} live session{plural}"

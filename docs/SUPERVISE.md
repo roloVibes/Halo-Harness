@@ -146,8 +146,8 @@ Every lane's outcome is one row of `~/.halo/coach/outcomes.jsonl`
 Attention queue or anywhere else that answers it) is also a decision in
 `~/.halo/knowledge/` by `supervisor` -- "Goal g-7: the gate sent a piece back
 past the return cap -> raise the cap by N", your text as its why, the other
-answers as its alternatives -- which recall finds next time, here or across
-the fleet ([KNOWLEDGE.md](KNOWLEDGE.md)). "Open" and a `goal_ask` card write
+answers as its alternatives -- which recall finds next time
+([KNOWLEDGE.md](KNOWLEDGE.md)). "Open" and a `goal_ask` card write
 none; the decision never names who answered; `knowledge.write: false` turns
 it off.
 

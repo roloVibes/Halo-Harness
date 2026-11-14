@@ -13,15 +13,11 @@ Contents: [the control socket](#what-the-control-socket-is) | [the event feed](#
 [the TUI](#in-the-tui-remote-and-the-status-chip) | [command line](#command-line-reference) |
 [doctor](#doctor) | [config keys](#config-keys)
 
-Joining harnesses together (a hub other machines pair with, what each one
-shares, what a hub may do) is [FLEET.md](FLEET.md); it is built on this
-socket and changes nothing about it.
-
 ## What the control socket is
 
 Every interactive `halo` session and every `halo -p` run (including `--bg`
 runs, which re-run the same invocation, and Orchestra
-workers), and a mission worker, opens one local socket and lists itself in
+workers), opens one local socket and lists itself in
 the registry. A program that can
 reach that socket can do what the keyboard does: send a prompt (or steer the
 turn in flight), interrupt, switch mode / model / effort, run a slash
@@ -31,7 +27,7 @@ session's events as they happen. It is the same set of calls the TUI itself
 makes on the `Controller`; the socket never injects raw commands into the
 agent loop.
 
-**Two switches since 3.0.5.0 (Fleet).** `fleet.enabled` (default `true`)
+**Two switches since 3.0.5.0.** `control.enabled` (default `true`)
 opens the control socket and the registry entry for every session, so
 Studio and `halo remote` can see it; `remote.enabled` (default `true` since
 3.3.13.0) is every transport's switch -- a pack's bridge, the signal pack's
@@ -40,16 +36,16 @@ for one, answers and the core's notes go out only while it is on
 socket too; until 3.3.13.0 it was the Signal bridge's alone, default false.
 
 ```sh
-halo config set fleet.enabled false    # no session opens a control socket
+halo config set control.enabled false    # no session opens a control socket
 halo config set remote.enabled false   # no transport answers, no note is written (see Transports)
 ```
 
 Both take effect for sessions started afterwards. **A private session**
 registers nothing and opens no socket: start it with `halo --private`
-(it sets `HALO_FLEET_PRIVATE` for its own process, so the Orchestra
+(it sets `HALO_PRIVATE` for its own process, so the Orchestra
 workers it starts are private too), turn it on and off in the TUI with
 `/private on` / `/private off` (the status bar shows a `private` chip), or
-make every session private with `fleet.private: true`. In the TUI, `/remote`
+make every session private with `control.private: true`. In the TUI, `/remote`
 says whether this session's socket is on (and where) and how many live
 sessions the registry holds.
 
@@ -60,9 +56,8 @@ sessions the registry holds.
 | Linux / macOS | Unix socket `~/.halo/run/<session_id>.ctl`, mode 0600, directory 0700 | the file mode |
 | Windows | loopback TCP `127.0.0.1:<port>` (OS-assigned) | a random 16-byte hex token; the first line of a connection must be `{"token": "..."}` within 5 seconds or the connection is closed. Connections still in that handshake sit in a separate pool of 16 (the oldest is closed for a new one) and only authenticated ones count against the 32 slots; at most 16 connections hold an event feed |
 
-Nothing ever listens on a non-loopback address (the fleet hub, `halo fleet
-serve`, is a separate listener on its own port that speaks only the fleet
-protocol: [FLEET.md](FLEET.md#ports-tls-and-hmac)). The token is never logged or
+Nothing ever listens on a non-loopback address (`halo host serve` is a separate
+listener on its own port that speaks only its own signed protocol: [HOST.md](HOST.md)). The token is never logged or
 printed by `halo remote sessions`; on Windows it is stored in the registry
 entry (a 0600 file in your own state directory).
 
@@ -131,7 +126,7 @@ goes back to `sent` with the reason, and a held queued turn is dropped with one 
 `slash` and `tail` reach the socket's own commands through the same route (`GET /api/sessions/<sid>/slash` lists the
 commands). Federation extends the ladder across halos.
 
-## Agent-level commands (3.0.5.0 Fleet)
+## Agent-level commands (3.0.5.0)
 
 The commands above address the whole session. These address one agent:
 the main agent (`agent_id` `main`, or the session id), any sub-agent at any
@@ -150,10 +145,10 @@ semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio
 | `shutdown` | optional `reason` | `{shutdown: true}`: every agent ends at its next tool boundary, then the session closes: the TUI shows `shut down from Studio by <by>: <reason>` and exits, `halo -p` reads no further turn and returns |
 | `agent_follow` | `agent_id`, `on` (default true) | `{agent_id, following: [ids]}`: while on, that agent's entries are also published as `agent_event` frames |
 
-Every one takes `by` (the caller's name: Studio sends `fleet.name`, `halo
+Every one takes `by` (the caller's name: Studio sends `harness.name`, `halo
 remote` sends it too) and `via` (default `Studio`). The commands that act
 on an agent are recorded in that agent's own transcript as a `meta` node
-(`{"fleet": {"cmd", "by", "via", "agent_id", ...}}`); a steer, stop or pause
+(`{"control": {"cmd", "by", "via", "agent_id", ...}}`; `"fleet"` before 3.5.0.0, still read); a steer, stop or pause
 also leaves one line in the parent's transcript (`"<agent> steered from
 Studio by <by>: <first 80 characters>"`) and in the TUI. Old clients see
 the same wire: nothing in the earlier commands changed.
@@ -171,14 +166,14 @@ names `text_delta` in its `kinds` gets each delta raw as it streams -- the
 voice door and Studio's Talk do, so the first sentence speaks without waiting
 for a chunk; no other subscriber sees one.)
 
-**Fleet frames (3.0.5.0).** Every frame also carries `session_id` and
+**Agent and registry frames (3.0.5.0).** Every frame also carries `session_id` and
 `harness` (the harness id). Three kinds join the feed: `agent_state` (a row
 of the agent tree changed: data is the row; state, tool, turns or task at
 once, text and cost alone at most once a second per agent), `agent_event`
-(an entry of an agent someone follows with `agent_follow`) and `fleet` (this
-session's registry entry, public fields only, with `action` `register`,
+(an entry of an agent someone follows with `agent_follow`) and `registry` (this
+session's registry entry (3.5.0.0: named `fleet` before), public fields only, with `action` `register`,
 `update` or `unregister`). The first frame of every new subscription is the
-session's `fleet` frame with `action: hello`. The `subagent_*` frames are
+session's `registry` frame with `action: hello`. The `subagent_*` frames are
 unchanged.
 
 Each subscriber has a queue of 256 frames. A client that stops reading is
@@ -199,12 +194,12 @@ socket:
 ]}
 ```
 
-Since 3.0.5.0: `kind` is `tui`, `print`, `orchestra-worker` or
-`mission-worker` (3.3.11.0 R2: or `headless`, below); `harness.id` is a stable per-home id kept in `~/.halo/fleet-id` and
-`harness.name` is `fleet.name` (default `user@host`); `project` is read from
+Since 3.0.5.0: `kind` is `tui`, `print` or `orchestra-worker`
+(3.3.11.0 R2: or `headless`, below); `harness.id` is a stable per-home id kept in `~/.halo/harness-id` and
+`harness.name` is `harness.name` (default `user@host`); `project` is read from
 git a moment after the session starts (None fields outside a repo);
 `parent` is the session that started this one (an Orchestra worker names
-the session that ran the Orchestra, through `HALO_FLEET_PARENT`). An entry
+the session that ran the Orchestra, through `HALO_SESSION_PARENT`). An entry
 written by an older Halo, without these keys, still loads.
 
 It is written atomically (temp file and replace, under a best-effort lock),
@@ -228,12 +223,12 @@ for scripts and tests.
 whole session whose control socket is its ONLY door: `halo_harness/headless_session.py` builds the controller the
 TUI builds (`tui/bootstrap.build_controller`) and starts it without the Textual app; this process drains the
 controller's events in the TUI's place, so the feed and the session log are the TUI's own. Its registry row says
-`kind: headless` and `parent: studio:<pid>` (the starter's `HALO_FLEET_PARENT` wins over `--session-for`), and Fleet,
-the Map, Session and `halo studio --session` list it as a session of this harness.
+`kind: headless` and `parent: studio:<pid>` (the starter's `HALO_SESSION_PARENT` wins over `--session-for`), and Agents
+-> Live, the Map, Session and `halo studio --session` list it as a session of this harness.
 
 * **Asks park.** A permission, a question, a plan or an approval waits on the handle until an `answer` comes through
   the socket; `status` lists each under `parked` with the time it was first seen. Studio's Prompt panel answers it with
-  the card's buttons; the Fleet attention card is `parked: true`, and while no Studio page is open (Studio's feed
+  the card's buttons; the Attention card is `parked: true`, and while no Studio page is open (Studio's feed
   serves no page) its line ends "-- waiting on you in Studio".
 * **It ends** on `/quit` (or `/exit`) through `slash`, on `shutdown` (Studio's **End session**: the turn ends at its
   next tool boundary), on SIGTERM, or when its worker ends; its registry row goes with it. A quit here stops only what
@@ -268,16 +263,16 @@ What the core gives every transport, through the extension API's transport seam 
 
   | Kind | Written by |
   |---|---|
-  | `asks` | Studio's fleet watcher: each new row of the attention queue (any harness's card, a fleet ask, a waiting agent, a cap, a conflict, the supervisor's parked decisions), as the card's text with the harness name (`fleet/push.py`); its `session` field lets a transport skip the session it is attached to |
+  | `asks` | Studio's live watcher: each new row of the attention queue (a card, a waiting agent, a cap, a conflict, the supervisor's parked decisions), as the card's text with the harness name (`live/push.py`); its `session` field lets a transport skip the session it is attached to |
   | `supervisor` | a goal of `halo supervise` that ends, parks, fails or stops (`supervise/queue.set_state`) |
   | `steward` | the Ollama steward's note that asks for attention, read from its journal by the supervisor's tick (`remote/notify_sources.py`) |
   | `turn_done`, `errors` | kept for transports (the signal pack reads them from the attached session's own feed) |
 
   The transport decides per phone or chat what to pass on (the signal pack's `/notify`);
 - **the cards' text** (`remote/cards.py`: permission, question, plan, approval, and the reply parsers), a voice
-  note's transcript through the local speech server ([VOICE.md](VOICE.md)), a QR drawing, the Fleet's lines;
+  note's transcript through the local speech server ([VOICE.md](VOICE.md)), a QR drawing, the live lines (`live_lines`);
 - **the switch**: `remote.enabled` (default true since 3.3.13.0): with it false no transport answers and no note
-  is written; `fleet.enabled` still governs the control sockets;
+  is written; `control.enabled` still governs the control sockets;
 - **a service the supervisor runs** for the transport's own process ([SUPERVISE.md](SUPERVISE.md#pack-services)).
 
 `halo remote transports` lists the transports listening and the switch.
@@ -296,8 +291,8 @@ line for each OS.
 ## The glance from a phone
 
 Studio's glance (3.4.1.0 R4, [STUDIO-live.md](STUDIO-live.md#the-glance)) is one phone-width page of the loopback Studio.
-Nothing new listens for it: Studio answers 127.0.0.1 alone (its peer and its Host header), the fleet hub and `halo host`
-speak only their own signed protocols, and the control socket above is loopback. The one door from a phone is the one
+Nothing new listens for it: Studio answers 127.0.0.1 alone (its peer and its Host header), `halo host`
+speaks only its own signed protocol, and the control socket above is loopback. The one door from a phone is the one
 Studio already prints for another machine -- an SSH forward of its port:
 
 1. On the machine that runs Studio, an SSH server (OpenSSH; on Windows the optional OpenSSH Server) answers on port 22.
@@ -346,7 +341,7 @@ The `status` payload carries `remote_attached`, the count. Any other note name i
 
 | id | Checks |
 |---|---|
-| `remote` | the control sockets (`fleet.enabled`), `remote.enabled`, the transports listening and the live sessions in the registry |
+| `remote` | the control sockets (`control.enabled`), `remote.enabled`, the transports listening and the live sessions in the registry |
 | `service_<pack>_<name>` | each pack service the supervisor knows: running is OK; an autostart service that is not is a WARN with its line (the signal pack's bridge says what it needs: signal-cli, an account, the supervisor) and `-> fix: halo supervise services` |
 
 `halo pack doctor` names a pack's missing requirement (signal-cli for the signal pack) with its install line. Doctor
@@ -356,13 +351,10 @@ writes nothing.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `fleet.enabled` | `true` | open a control socket and registry entry for each session (3.0.5.0) |
-| `fleet.name` | `user@host` | this harness's name in the registry and on the commands it sends |
-| `fleet.private` | `false` | every session starts private, as with `halo --private` |
-| `fleet.share` | `events` | what a joined harness sends a hub: `status`, `events` or `full` (3.0.5.0 R2, [FLEET.md](FLEET.md)) |
-| `fleet.allow_control` | `ask` | what a hub may do here: `none`, `ask` (a card for the owner) or `all` |
-| `fleet.allow_answers` | `false` | with `allow_control: all`, a hub may also answer this harness's cards (once only) |
-| `fleet.hub.port` | `7430` | the LAN port `halo fleet serve` and `halo studio --fleet` listen on |
+| `control.enabled` | `true` | open a control socket and registry entry for each session (3.0.5.0) |
+| `harness.name` | `user@host` | this harness's name in the registry and on the commands it sends |
+| `control.private` | `false` | every session starts private, as with `halo --private` |
+| `host.allow_control` | `ask` | on a machine that runs `halo host`, the cap on every peer's grant: `none`, `ask` (each request queued for the owner) or `all` |
 | `remote.enabled` | `true` | every transport's switch (3.3.13.0; it was the Signal bridge's, default false): false and no pack's bridge answers and no note is written |
 
 The Signal bridge's keys are the signal pack's settings since 3.3.13.0 (`packs.settings.signal.*`, its README).

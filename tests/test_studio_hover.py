@@ -6,7 +6,7 @@ without one); no provider request, no model call:
 1. the shared card: one host, `role="tooltip"`, the 350 ms rest, the 8 px margin, `data-kind` / `data-for`; the
    setting `studio.hover_cards` (Settings -> Studio, on by default);
 2. nothing with `hover-card` after Cast, Live and Workflows load;
-3. the real pointer resting on a Cast card, a Live agent (its NOW follows a seeded tool frame), a session and a machine,
+3. the real pointer resting on a Cast card, a Live agent (its NOW follows a seeded tool frame),
    a square on the board and a library row shows one card of that kind with its rows; leaving removes it; a press
    removes it and the inspector opens as before; Tab to a node shows its card; Esc removes it;
 4. a right-most and a bottom-most box in a narrow window: the card inside the window, off its box;
@@ -23,8 +23,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: these drive its Studio doors)
-_fleet_pack.on()
 
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -33,7 +31,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-CARDS = ("cast", "agent", "session", "machine", "edge_right", "edge_bottom", "square", "row")
+CARDS = ("cast", "agent", "edge_right", "edge_bottom", "square", "row")
 
 
 def _got(ctx: Ctx) -> dict:
@@ -83,10 +81,6 @@ def test_each_kind_shows_its_card(ctx: Ctx):
     ctx.check(f"a Live agent: its state and its model, got {agent}", (got.get("agent") or {}).get("kind") == "agent"
               and agent.get("state", "").startswith("running") and "or:mock/qwen3-coder" in agent.get("model", ""))
     ctx.check(f"its NOW follows the seeded tool frame, got {got.get('agent_now')!r}", "Bash" in str(got.get("agent_now")) and "pytest" in str(got.get("agent_now")))
-    sess, mach = got.get("session") or {}, got.get("machine") or {}
-    ctx.check(f"a session: where it works, got {_rows(sess)}", sess.get("kind") == "session" and "feature/basket" in _rows(sess).get("where", ""))
-    ctx.check(f"a machine: what it has, in full, got {_rows(mach)}", mach.get("kind") == "machine" and bool(_rows(mach).get("what-it-has"))
-              and got.get("machine_title_attr") is None)
     sq, row = got.get("square") or {}, got.get("row") or {}
     ctx.check(f"a square on the board: its contract, got {_rows(sq)}", sq.get("kind") == "square" and sq.get("for") == "media"
               and {"takes", "gives", "runs-on", "costs", "limits", "from"} <= set(_rows(sq)))

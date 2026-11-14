@@ -11,13 +11,13 @@ wizard's Open Studio buttons start one, detached); a second `halo studio`
 while one runs reuses it (prints the URL, opens the browser) unless
 `--port` asks for another. 3.2.2.0: the last halo session to quit ends the
 Studio as well, and `halo update` stops it before installing. 3.4.1.1: only a
-Studio a session started for itself; one you start on your own (`halo studio`,
-above all with `--fleet`) is never stopped by a session's quit (the quit line
+Studio a session started for itself; one you start on your own (`halo studio`)
+is never stopped by a session's quit (the quit line
 says "left running: Studio (started on its own; halo studio --stop)").
 
 
 ```sh
-halo studio [--mode session|agents|local|packs|setup|settings|glance|<pack>--<section>] [--port N] [--no-open] [--cwd DIR] [--fleet]
+halo studio [--mode session|agents|local|packs|setup|settings|glance|<pack>--<section>] [--port N] [--no-open] [--cwd DIR]
 halo studio --edit bio:<name> | lineup:<name>[:<block>] | team [--no-open]
 halo studio --session [<id>] [--prompt] [--no-open]
 ```
@@ -25,7 +25,7 @@ halo studio --session [<id>] [--prompt] [--no-open]
 ### `--session`
 
 3.1.4.0: `--session [<id>]` opens the **Session** section (`Alt+1`, this
-session, live: the fleet's agent tree, activity, attention and agent inspector scoped to
+session, live: the agent tree, activity, attention and agent inspector scoped to
 this harness, and the session's Cost) on the session `<id>` names (a prefix
 of a live session's id will do). Without `<id>` it is the newest live
 session on this harness; with none live, Session opens on its Start view and
@@ -67,17 +67,10 @@ is not one of the three shapes: exit 2 with the reason. `halo agents edit`,
 lineup views run the same thing (see
 [AGENTS.md](AGENTS.md#editing-bios-and-lineups-studio-is-the-editor-halo-3110)).
 
-3.0.5.0: `--fleet` also runs the fleet hub inside Studio's process (on
-`fleet.hub.port`, 7430), so other harnesses can join it and Studio's
-`GET /api/fleet` lists them; see [`halo fleet`](COMMANDS-fleet.md#halo-fleet) and
-[FLEET.md](FLEET.md).
-
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one: Cast, the lineups and agent bios as an
 editable graph; Live, what runs now, a goal run included; 3.4.0.0 D: Runs, the run console, went), and `--mode roles`,
 `orchestra` and `team` still open Agents on Cast, Live and Live, printing the new door once ("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)");
-3.3.16.0 R2: `--mode fleet` opens Agents on Live with the fleet scope, printing "Fleet is Agents -> Live now, the fleet
-scope on" once with where the rest went (machines: Setup -> Machines; their models: Local; a mission's panel: Agents -> Live);
 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
 section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.
@@ -194,10 +187,10 @@ anyway. `halo doctor --roles` prints the same list for the active lineup.
 halo work [RUN] [--json]     the units of any run of any kind, as one table
 ```
 
-Halo 3.1.2.0: an Orchestra lane, a fleet mission's part and a team stage
-are all a *unit* of work (one model underneath, see
+Halo 3.1.2.0: an Orchestra lane and a supervisor goal
+are both a *unit* of work (one model underneath, see
 [WORK.md](WORK.md)). `halo work` prints the units of any run -- an Orchestra
-run, a mission or a team run -- as one table: the kind, the
+run or a goal -- as one table: the kind, the
 unit, its state, its cost, its attempts, its gate and its base. `RUN` is a
 run folder, a run id or an id prefix; with no `RUN`, the latest run of this
 repo. `--json` prints the rows. Read only; no model is called.
@@ -218,13 +211,11 @@ halo coach --undo [APPLY_ID] [--json]            put back the file of an apply (
 halo coach library [list] [--json]               3.1.6.0: the improvement library: one entry per Apply
 halo coach library show ENTRY [--json]           an entry's EXPERIENCE.md and the files it keeps
 halo coach library forget ENTRY [--yes]          delete an entry's folder (after y/N)
-halo coach library fetch HARNESS ENTRY [--json]  another harness's entry, through the hub this machine runs
 ```
 
 Halo 3.1.3.0: the coach's loop in one command (see [ORCHESTRA.md, "The
 coach"](ORCHESTRA.md#the-coach)). `RUN` is a run folder, a run id or an id
-prefix of any kind (an Orchestra run, a team run or a fleet
-mission); with no `RUN`, the latest run, as `halo work` finds it. The card
+prefix of an Orchestra run; with no `RUN`, the latest run, as `halo work` finds it. The card
 lists each suggestion with its id, its why lines, what Apply writes, its
 **applied** / **undone** state and, once asked, the lead's paragraph.
 
@@ -248,8 +239,7 @@ lists each suggestion with its id, its why lines, what Apply writes, its
   overlays (k pairs; `coach.probe.k`, each run capped at the run's cost x
   `coach.probe.budget_factor`), prints each step, the contrast table and the
   pick; the probe's card then leads the run's card (`--apply probe-<ts>`
-  writes it, `--undo` puts every file back). A mission or a team run exits
-  1 with one line. See [ORCHESTRA.md, "Probes"](ORCHESTRA.md#probes).
+  writes it, `--undo` puts every file back). See [ORCHESTRA.md, "Probes"](ORCHESTRA.md#probes).
 - `--json` prints the result; every suggestion carries `paragraph` (null
   until asked), `paragraph_error` and `applied`; 3.1.6.0 the result carries
   `library` and `library_line`, each suggestion `library_hits`.
@@ -260,15 +250,10 @@ lists each suggestion with its id, its why lines, what Apply writes, its
   (`apply` or `probe`), the title, `(undone)` and `(from <harness>)` when they
   apply; with no entry it says how one is born. `show ENTRY` prints its
   EXPERIENCE.md and the files it keeps; `forget ENTRY` asks `[y/N]` (`--yes`
-  skips) and deletes the folder; `fetch HARNESS ENTRY` asks the hub this
-  machine runs for another harness's entry (its name or id, `halo fleet
-  who`; `halo recall --fleet` finds entries as kind `coach_library`) and
-  writes it here under the same id with `from: <harness>`, never over an
-  entry already here. Exit codes: 0 done, 1 no such entry, nothing deleted
-  or a refused fetch, 2 usage, 3 no hub runs here.
+  skips) and deletes the folder. Exit codes: 0 done, 1 no such entry or
+  nothing deleted, 2 usage.
 
-The two kind verbs (`halo orchestra coach`, `halo fleet
-mission coach`) take the same `--model`, `--refresh`,
+The kind verb `halo orchestra coach` takes the same `--model`, `--refresh`,
 `--apply`, `--yes` and `--json`. Exit codes: 0 done, 1 no such run, a change
 that cannot be made or a refused undo, 2 usage. `/coach` in the TUI runs the
 same command.

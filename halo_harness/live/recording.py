@@ -4,7 +4,7 @@ self-contained HTML replay (recording_page.py: inline CSS and JS, the
 session as a JSON block, no network at all) written to
 `~/.halo/recordings/<sid>[-<aid>].html`.
 
-    render(hist, harness=, agent=) -> str     the page for a history (fleet/history.py's shape)
+    render(hist, harness=, agent=) -> str     the page for a history (live/history.py's shape)
     write(home, hist, harness=, agent=) -> Path
     path_for(home, name) -> Path | None       a recording by its file name (the download route)
     from_tails(row, tails) -> hist            a member's session, from its rows and `agent_tail` entries

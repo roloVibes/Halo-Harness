@@ -10,7 +10,7 @@ of why and the closing "where to go next" lines):
     4 plan     the lead's plan, approved (or opened on Studio's plan canvas)
     5 run      the live lanes table until the run ends
     6 report   the report's checks and the coach's cards
-    7 next     Roles, Team and Fleet, each with its command
+    7 next     Agents: Cast, Run a goal and Local, each with its command
 
 engine.py drives them (`StartRun`): every step is emitted as a frame dict
 (`{step, key, title, why, command, state, lines}`), which screen.py prints in

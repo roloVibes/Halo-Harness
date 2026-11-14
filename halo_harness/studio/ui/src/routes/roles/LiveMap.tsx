@@ -3,11 +3,9 @@
 // per agent the work record holds (lib/work/record.ts: live, or finished and still in the frames), parent -> child
 // edges, nothing dropped (liveModel.ts), each lineup card the agents match as a faint group behind them, an `auto`
 // pick's reason on its node, laid out in layers (liveLayout.ts) with zoom and Fit. 3.3.16.0 R1: a live Orchestra run
-// joins the tree (routes/agents/live/runLanes.tsx). 3.3.16.0 R2 "the Fleet fold" (a machine's agents in Agents): the
-// bar's scope switch -- **this halo** (one session of this harness, the picker) or **fleet** (every machine, its
-// sessions, their agents, the open mission's parts under the machine each runs on; the Fleet Map drew this before and
-// is gone) -- with the spawn / message edges lighting and the conflict edge; a click puts what it hit in the inspector
-// (InspectorDetail: the fleet at a glance, a machine, an agent, a part), a click on the canvas itself clears it. The
+// joins the tree (routes/agents/live/runLanes.tsx). One session of this harness (the picker), with the spawn / message
+// edges lighting and the conflict edge; a click puts what it hit in the inspector (InspectorDetail: an agent, a
+// session), a click on the canvas itself clears it. The
 // same component is Session's Map (`thumb`): this harness's sessions and their agents, fitted to the panel, a click
 // picks the Steer box's target, "Open in Agents Live" opens the full tree. 3.3.16.1: each box of the full tree has its
 // hover card (routes/agents/hover); the thumbnail keeps its plain tooltips.
@@ -15,18 +13,15 @@ import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type 
 import { Empty } from "../../lib/ui";
 import { useFleet } from "../fleet/store";
 import { startFleet } from "../fleet/sync";
-import { startMissions } from "../fleet/mload";
 import { select } from "../fleet/actions";
 import { pickNode } from "../session/steer";
 import { startOrchestra } from "../orchestra/sync"; // the goal run Live draws: the live one, else the newest
 import { FleetEdges } from "../agents/live/FleetEdges";
 import { LiveBar } from "../agents/live/LiveBar";
-import { MachineBox, MachineNode } from "../agents/live/MachineNode";
-import { PartEdges, PartNode } from "../agents/live/MissionParts";
 import { NodeMenu, type MenuAt } from "../agents/live/NodeMenu";
 import { SessionNode } from "../agents/live/SessionNode";
 import { ThumbBar } from "../agents/live/ThumbBar";
-import { clearPick, pickLive, toggleScope, useLiveScope, useLivePick } from "../agents/live/scope";
+import { clearPick, pickLive } from "../agents/live/scope";
 import { useLiveNodes } from "../agents/live/useLiveNodes";
 import { RunNodeCard } from "../agents/live/runLanes";
 import { GroupBar, GroupBox, GroupEdges } from "../agents/live/GroupBox"; // 3.3.16.3: Live in groups
@@ -70,14 +65,12 @@ function Edges({ boxes, w, h, sel }: { boxes: LiveBox[]; w: number; h: number; s
 
 export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   useEffect(() => startFleet(), []);
-  useEffect(() => (thumb ? undefined : (startOrchestra(), startMissions(), replayDoor())), [thumb]); // the newest run of this repo, the missions; `?replay=`
-  const scope = useLiveScope();
-  const mode = thumb ? "thumb" : scope;
+  useEffect(() => (thumb ? undefined : (startOrchestra(), replayDoor())), [thumb]); // the newest run of this repo; `?replay=`
+  const mode = thumb ? "thumb" : "here";
   const { nodes, sid, refs, now, replay, rec } = useLiveNodes(mode);
   const density = useRoles((s) => s.liveDensity);
   const selected = useFleet((s) => s.selected);
   const loaded = useFleet((s) => s.loaded);
-  const pick = useLivePick();
   const closed = useClosed();
   const [zoom, setZoom] = useState(1);
   const pinned = usePinnedLevel();
@@ -101,7 +94,6 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey || thumb) return;
     if (e.key === "f" && !e.shiftKey) fit();
-    else if (e.key === "F") toggleScope(); // 3.3.16.0 R2: this halo | fleet
     else if (e.key === "+" || e.key === "=") zoomAt(Math.min(2, zoom * 1.2));
     else if (e.key === "-") zoomAt(Math.max(0.12, zoom / 1.2));
     else return;
@@ -110,13 +102,12 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const onAgent = thumb ? pickNode : (key: string) => (key.startsWith("replay|") ? undefined : (selectLive(key), pickLive("agent", key))); // a replay's box is not a live agent
   const onSession = thumb ? select : onAgent;
   const agents = nodes.filter((n) => !n.virtual && !n.run && !n.kind);
-  const machines = nodes.filter((n) => n.kind === "machine").length;
   const live = agents.filter((n) => LIVE.includes(n.state)).length;
-  const empty = !nodes.length || (thumb ? mode === "here" && !agents.length && !nodes.some((n) => n.run) : !agents.length && !nodes.some((n) => n.run || n.kind === "part"));
+  const empty = !nodes.length || (thumb ? mode === "here" && !agents.length && !nodes.some((n) => n.run) : !agents.length && !nodes.some((n) => n.run));
   return (
     <div className="rc rlm" data-testid="roles-live-map" data-session={mode === "here" ? sid || undefined : undefined} data-scope={mode} data-nodes={agents.length}
-         data-machines={machines} data-density={density} data-replay={replay || undefined}>
-      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} machines={machines} zoom={zoom} setZoom={zoomAt} fit={fit} empty={empty && loaded} plan={plan}
+         data-density={density} data-replay={replay || undefined}>
+      {thumb ? <ThumbBar sid={sid} agents={agents.length} live={live} /> : <LiveBar refs={refs} sid={sid} agents={agents.length} live={live} zoom={zoom} setZoom={zoomAt} fit={fit} empty={empty && loaded} plan={plan}
                                                     levels={<LevelSwitch level={level} zoomAt={zoomAt} />} />}
       {!thumb && <ReplayBanner />}
       <LiveNow nodes={nodes} now={now} on={!thumb} plan={plan.geo} />
@@ -124,7 +115,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
            onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
         {!loaded ? (
           <div className="og-wait mono muted">reading the sessions...</div>
-        ) : empty && !thumb && !machines ? (
+        ) : empty && !thumb ? (
           <LiveEmpty />
         ) : empty && thumb ? (
           <Empty title="No session to draw" testid="roles-live-empty"
@@ -133,19 +124,15 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
           <>{empty && <LiveEmpty compact />}<div className="rc-world" style={{ width: geo.width * zoom, height: geo.height * zoom }} onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
             <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)} data-plan={plan.on ? "on" : undefined} data-level={level}>
               {plan.geo ? <PlanWorld geo={plan.geo} now={now} selected={selected} onMenu={setMenu} onPick={onAgent} /> : (<>
-              {tree.machines.map((g) => <MachineBox key={g.card} g={g} label={thumb} />)}
               {tree.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
               {tree.tasks.map((b) => <GroupBox key={b.g.id} b={b} now={now} />)}
               <GroupEdges boxes={tree.tasks} w={tree.width} h={tree.height} />
               <Edges boxes={tree.boxes} w={tree.width} h={tree.height} sel={selected} />
-              {mode !== "here" && <FleetEdges boxes={tree.boxes} w={tree.width} h={tree.height} />}
-              {mode === "fleet" && <PartEdges boxes={tree.boxes} w={tree.width} h={tree.height} />}
+              {thumb && <FleetEdges boxes={tree.boxes} w={tree.width} h={tree.height} />}
               {tree.boxes.map((b) => {
                 const n = b.node;
                 if (n.run) return <RunNodeCard key={n.id} b={b} />;
-                if (n.kind === "machine") return <MachineNode key={n.id} b={b} now={now} selected={pick.kind === "machine" && pick.id === n.harness} onPick={(h) => pickLive("machine", h)} />;
                 if (n.kind === "session") return <SessionNode key={n.id} b={b} selected={!!n.key && n.key === selected} onPick={onSession} onMenu={setMenu} hover={!thumb} />;
-                if (n.kind === "part") return <PartNode key={n.id} b={b} machines={tree.machines} zoom={zoom} />;
                 return <LiveNodeCard key={n.id} b={b} selected={!!n.key && n.key === selected} now={now} onMenu={setMenu} onPick={onAgent} hover={!thumb && !replay} waits={!thumb} />;
               })}
               {tree.tasks.map((b) => <GroupBar key={b.g.id} b={b} now={now} hover={!thumb} />)}

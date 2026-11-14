@@ -199,14 +199,14 @@ def test_a_packs_attention_rows(ctx: Ctx):
         row_file = _row(s, "review.ask", "readme", "README.md: 3 findings wait for you")
         _row(s, "review.other", "stray", "an undeclared kind")
         rows = []
-        until(lambda: rows.extend(r for r in s.call("GET", "fleet/attention")[1]["rows"] if r["kind"].startswith("pack:")) or rows)
+        until(lambda: rows.extend(r for r in s.call("GET", "live/attention")[1]["rows"] if r["kind"].startswith("pack:")) or rows)
         ctx.check(f"one pack row (the undeclared kind left out), got {[r['kind'] for r in rows]}", [r["kind"] for r in rows] == ["pack:doc-review:review.ask"])
         row = rows[0] if rows else {"id": "", "keys": {}, "label": "", "what": "", "target": {}}
         ctx.check(f"the pack's label and keys, got {row}", row["label"] == "review" and row["keys"] == {"a": "accept", "r": "redo", "s": "skip", "o": "open"}
                   and row["what"] == "README.md: 3 findings wait for you" and row["agent"] == "pack doc-review")
-        status, got, _ = s.call("POST", "fleet/attention/answer", {"id": row["id"], "key": "o"})
+        status, got, _ = s.call("POST", "live/attention/answer", {"id": row["id"], "key": "o"})
         ctx.check(f"O opens the pack's section, got {got}", status == 200 and got.get("open", {}).get("section") == "doc-review--docs")
-        status, got, _ = s.call("POST", "fleet/attention/answer", {"id": row["id"], "key": "a"})
+        status, got, _ = s.call("POST", "live/attention/answer", {"id": row["id"], "key": "a"})
         answer = s.packs / ".data" / "doc-review" / "answers" / "readme.json"
         ctx.check(f"A answers it, got {status} {got}", status == 200 and got.get("answer") == "accept" and got["result"]["answered"] is True)
         note = json.loads(answer.read_text(encoding="utf-8")) if answer.is_file() else {}
@@ -214,11 +214,11 @@ def test_a_packs_attention_rows(ctx: Ctx):
                   and note.get("kind") == "review.ask" and note.get("row") == "readme")
         ctx.check("the row file is gone", not row_file.exists())
         _row(s, "review.ask", "later", "another")
-        ctx.check("a new row lands", until(lambda: any(r["kind"].startswith("pack:") for r in s.call("GET", "fleet/attention")[1]["rows"])))
+        ctx.check("a new row lands", until(lambda: any(r["kind"].startswith("pack:") for r in s.call("GET", "live/attention")[1]["rows"])))
         from halo_harness.packs.grants import disable
         disable("doc-review")
         ctx.check("disabled: its rows are not listed",
-                  until(lambda: not any(r["kind"].startswith("pack:") for r in s.call("GET", "fleet/attention")[1]["rows"])))
+                  until(lambda: not any(r["kind"].startswith("pack:") for r in s.call("GET", "live/attention")[1]["rows"])))
 
 
 if __name__ == "__main__":

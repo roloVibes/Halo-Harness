@@ -4,7 +4,7 @@ studio/local_api.py). Built on the Ollama panel's view
 (studio/ollama_hosts_view.hosts_view: the card, the findings, the fit plan),
 never a model call and never a write to a server.
 
-    hosts(state_dir, hub=None) -> {hosts: [host], at, mode}
+    hosts(state_dir) -> {hosts: [host], at, mode}
     host {name, url, kind, source (configured | discovered | local server |
           managed server (3.3.5.0 R5: one Halo started; `managed` {id, pid, port, model, flags, ready, alive, log,
           stop_cli, log_cli}) | member), version, host {addr, url, name, started, last_seen, audit_count, error} | None
@@ -16,9 +16,8 @@ never a model call and never a write to a server.
           [names], controls {ok, via, why}, log {state, line, path, why, debug, tail_cli, rung} | None (3.3.6.0 R3)}
 
 `controls` says whether Load / Unload / keep-alive work from here: a host this
-machine serves, yes; a host a fleet member serves (its resources samples say
-so) through that member when this Studio runs the hub, unless the member's
-`fleet.allow_control` is `none`; anything else no, with the reason.
+machine serves, yes; a host a paired halo host serves, through it (its
+`host.allow_control` and this peer's grant); anything else no, with the reason.
 """
 
 from __future__ import annotations
@@ -76,48 +75,25 @@ def users_by_host(state_dir) -> dict:
     return {h: sorted(({"from": k, "calls": v} for k, v in who.items()), key=lambda r: -r["calls"]) for h, who in out.items()}
 
 
-def _member(hub, name: str):
-    if hub is None or not name:
-        return None
-    try:
-        return next((m for m in hub.state.members.values() if m.name == name), None)
-    except Exception:
-        return None
-
-
-def controls(host_url: str, host_name: str, served: bool, hub=None) -> dict:
-    """{ok, via, why, member, member_host} for Load / Unload on this host from here; 3.3.7.0 R2: `via: "host"` (ok)
-    when a paired halo host serves it and this peer holds its `control` grant -- no member session needed
-    (studio/local_host_acts.host_controls); else a member that takes the command; else the host's grant line."""
+def controls(host_url: str, host_name: str, served: bool) -> dict:
+    """{ok, via, why, member?, member_host?} for Load / Unload on this host from here; 3.3.7.0 R2: `via: "host"` (ok)
+    when a paired halo host serves it and this peer holds its `control` grant (studio/local_host_acts.host_controls);
+    else the line that says how."""
     if served:
         return {"ok": True, "via": "this machine", "why": ""}
     from halo_harness.studio.local_host_acts import host_controls
     hc = host_controls(host_url, host_name) if host_url else None
     if hc is not None and hc["ok"]:
         return hc
-    got = _member_controls(host_url, host_name, hub)
-    return got if got["ok"] or hc is None else hc
+    got = _served_by(host_url, host_name)
+    return got if hc is None else hc
 
 
-def _member_controls(host_url: str, host_name: str, hub=None) -> dict:
+def _served_by(host_url: str, host_name: str) -> dict:
     from halo_harness.ollama_steward.resources_share import serving
+    from halo_harness.providers.local_bench_link import offer_line  # 3.3.8.1: one wording, the two commands
     who = serving(host_url, host_name)
-    if who is None:
-        from halo_harness.providers.local_bench_link import offer_line  # 3.3.8.1: one wording, the two commands
-        return {"ok": False, "via": "", "why": offer_line(host_url, host_name)}
-    m = _member(hub, who["member"])
-    if m is None:
-        return {"ok": False, "via": "", "why": f"served by {who['member']}: Load goes through it from the hub "
-                f"it joined (this Studio is not that hub)", **who}
-    if m.allow_control == "none":
-        return {"ok": False, "via": "", "why": f"{m.name} has fleet.allow_control: none, so a hub does not load "
-                "models there (its owner sets ask or all)", **who}
-    if not m.sessions():  # 3.3.7.0 R2: a halo host that member announced takes it with no session (hub_host_cmd.py)
-        from halo_harness.peers.hub_host_cmd import member_controls
-        return member_controls(hub, m.name, who) or {"ok": False, "via": "", "why": f"{m.name} has no live session "
-                                                     "to take the command right now", **who}
-    via = f"fleet member {m.name}" + (" (its owner is asked first)" if m.allow_control == "ask" else "")
-    return {"ok": True, "via": via, "why": "", **who}
+    return {"ok": False, "via": "", "why": offer_line(host_url, host_name), **(who or {})}
 
 
 def _finding(fs: list) -> Optional[str]:
@@ -134,7 +110,7 @@ def _plan(p: Optional[dict]) -> Optional[dict]:
     return {"says": p.get("says"), "fits_now": p.get("fits_now"), "chosen": {k: opt.get(k) for k in keep} if opt else None}
 
 
-def _configured(h: dict, host_obj, users: dict, hub) -> dict:
+def _configured(h: dict, host_obj, users: dict) -> dict:
     card = h.get("card") or {}
     from halo_harness.studio.ollama_hosts_view import catalog_of
     names = [str(r.get("model") or r.get("name")) for r in (catalog_of(host_obj).get("models") or []) if isinstance(r, dict)]
@@ -145,7 +121,7 @@ def _configured(h: dict, host_obj, users: dict, hub) -> dict:
             "profiles": {k.split("|", 1)[1]: v for k, v in (h.get("profiles") or {}).items()},
             "users": users.get(h["name"], []), "finding": _finding(h.get("findings") or []),
             "findings": len([f for f in h.get("findings") or [] if not f.get("applied")]), "plan": _plan(h.get("plan")),
-            "models": names, "controls": controls(h["url"], h["name"], h["served_here"], hub), "log": _log(host_obj),
+            "models": names, "controls": controls(h["url"], h["name"], h["served_here"]), "log": _log(host_obj),
             "host": None if h["served_here"] else host_block(h["url"])}
 
 
@@ -192,7 +168,7 @@ def _discovered(configured_urls: set) -> list:
     return out
 
 
-def _members(known: set, hub) -> list:
+def _members(known: set) -> list:
     from halo_harness.ollama_steward.resources import STORE
     out = []
     for name in STORE.hosts():
@@ -202,7 +178,7 @@ def _members(known: set, hub) -> list:
         loaded = [{"model": x.get("name"), "size": None, "size_vram": x.get("bytes"), "vram_pct": None, "expires": None,
                    "context_length": None} for x in s.get("holders") or [] if x.get("kind") == "model"]
         row = _blank(name, s.get("url") or "", "Ollama", "member", "", served_by=s["from"], loaded=loaded)
-        row["controls"] = controls(s.get("url") or "", name, False, hub)
+        row["controls"] = controls(s.get("url") or "", name, False)
         row["host"] = host_block(s.get("url") or "")
         out.append(row)
     return out
@@ -224,7 +200,7 @@ def managed_cards(state_dir, users: dict) -> list:
     return out
 
 
-def hosts(state_dir, *, hub=None, now: Optional[float] = None) -> dict:
+def hosts(state_dir, *, now: Optional[float] = None) -> dict:
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers.ollama_discover import url_key
     from halo_harness.studio.ollama_hosts_view import hosts_view
@@ -232,7 +208,7 @@ def hosts(state_dir, *, hub=None, now: Optional[float] = None) -> dict:
     view = hosts_view(state_dir, now=now)
     objs = {h.name: h for h in resolve_ollama_hosts()}
     users = users_by_host(state_dir)
-    out = [_configured(h, objs.get(h["name"]), users, hub) for h in view["hosts"] if h["name"] in objs]
+    out = [_configured(h, objs.get(h["name"]), users) for h in view["hosts"] if h["name"] in objs]
     for s in [x for x in view["local_servers"] if x.get("source") in (None, "manual")]:  # Halo's: managed_cards
         out.append(_blank(s["name"], s["url"], "local server (OpenAI dialect)", "local server",
                           "Halo did not start this server: it is stopped where it was started (Local -> Hugging Face "
@@ -240,5 +216,5 @@ def hosts(state_dir, *, hub=None, now: Optional[float] = None) -> dict:
                           finding=_finding(s.get("findings") or []), findings=len(s.get("findings") or [])))
     out += managed_cards(state_dir, users)
     out += _discovered({url_key(h.url) for h in objs.values()})
-    out += _members({r["name"] for r in out}, hub)
+    out += _members({r["name"] for r in out})
     return {"hosts": out, "at": now, "mode": view.get("mode")}

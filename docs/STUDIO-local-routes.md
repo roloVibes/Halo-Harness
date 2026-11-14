@@ -21,7 +21,7 @@ Studio route; never a model call:
 | Route | What it answers |
 |---|---|
 | `GET local/hosts` | every host as a card (`studio/local_hosts_view.py`) |
-| `POST local/host/<name>/load {model, num_ctx?, keep_alive?}` | a load from here or through the member; 409 with the reason when neither can |
+| `POST local/host/<name>/load {model, num_ctx?, keep_alive?}` | a load from here or through the host door; 409 with the reason when neither can |
 | `POST local/host/<name>/unload {model}` | the same with `keep_alive: 0` |
 | `POST local/host/add {url, name}` | the entry written through Setup's Ollama writer |
 | `GET local/resources?host=` | the last five minutes of samples and the sampler's state |
@@ -49,8 +49,8 @@ Studio route; never a model call:
 | `GET local/host/<name>/show?model=` | `/api/show`'s facts |
 | `POST local/host/<name>/copy {src, dst}`, `.../rename {src, dst}` | a copy; a copy then the delete of the old name |
 | `POST local/host/<name>/twin {name, window?, dry?}` | the tuned twin (`dry`: the plan, its name and cost); recorded in the tune store |
-| `GET local/host/<name>/loaded` | `/api/ps` (a member's host: its newest resources sample) |
-| `POST local/host/<name>/probe {model, force?}` | 3.3.6.0: a probe job (the battery; a second ask joins it), its view, `cost` and `cli`; a member's host: that member's own job |
+| `GET local/host/<name>/loaded` | `/api/ps` (another machine's host: its newest resources sample) |
+| `POST local/host/<name>/probe {model, force?}` | 3.3.6.0: a probe job (the battery; a second ask joins it), its view, `cost` and `cli` |
 | `GET local/probes`, `GET local/profiles?host=` | the probe jobs running and the last ended ones; every kept profile (that host's only with `?host=`), without the raw evidence |
 | `GET local/hf/dirs?host=&window=` | each model folder and what is on disk in it, with the card, the fit and who serves it (`studio/local_hf_view.py`) |
 | `POST local/hf/dirs {path}`, `POST local/hf/forget {path}` | a folder added to or taken off `huggingface.model_dirs` |
@@ -60,9 +60,8 @@ Studio route; never a model call:
 | `POST local/hf/serve {path, runtime?, window?, port?, keep?, dry?}` | `dry`: the flags and their sources; else the server started (`studio/local_server_api.py`) |
 | `GET local/servers`, `POST local/server/<id>/stop`, `GET local/server/<id>/log?n=`, `GET local/server/<id>/status` | the servers Halo started; stop one; its log's tail; `/health` and `/slots` |
 
-Every R3 answer carries `cli`, the `halo models` line that does the same (`studio/local_control_api.py`). A host a
-fleet member serves goes through that member (`ollama_pull`, `ollama_delete`, `ollama_copy`, `ollama_twin`, 3.3.6.0 `ollama_probe`, under its
-`fleet.allow_control`); `none` answers 403 with the reason.
+Every R3 answer carries `cli`, the `halo models` line that does the same (`studio/local_control_api.py`). A host
+another machine serves answers 409 with the reason and the way (`halo host serve` there, `halo host join` here).
 
 Live frames: `resources` (one sample), `traffic` (`{rows}`), `pull` (a job's view: host, name, status, digest,
 total, completed, percent, speed, eta, done, error) and `download` (the same view with kind, repo, file, dir and path), `probe` (3.3.6.0: a probe job's view: host,
@@ -80,7 +79,7 @@ Download and verify's stage: pull, probe, offer, done), beside the steward's own
 | `GET local/host/<name>/dialect?model=` | the dialect record, each field's value and `from`, `cli` (`studio/local_card_api.py`) |
 | `POST local/host/<name>/dialect {model, set?: {field: value}, reset?: FIELD \| ""}` | your edit (marked `user`) or a reset; 422 with the problem when a value does not fit its field |
 | `GET local/host/<name>/shelf` | per installed model: last used, size, picked by a role, never used, the hint (`studio/local_shelf_api.py`) |
-| `POST local/host/<name>/retire {name, why?, force?}` | the delete's uses card first (409 while a live session is on it, 422 with the card unless `force`), then the delete and a shelf line; a member's host 409 |
+| `POST local/host/<name>/retire {name, why?, force?}` | the delete's uses card first (409 while a live session is on it, 422 with the card unless `force`), then the delete and a shelf line; another machine's host 409 |
 | `GET local/shelf?host=`, `POST local/shelf/repull {host, model}` | the retired models; the pull job that brings one back (a fitted twin: 409 with its recipe) |
 
 

@@ -20,8 +20,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials  # noqa: E402
 
@@ -140,26 +138,6 @@ def test_orchestra_api_refuses_422_and_force_starts(ctx: Ctx):
             orchestra_live.wait(30)
             orchestra_api.RUNNER = saved
             R.cleanup(repo)
-
-
-@test
-def test_mission_run_refuses_and_force_passes(ctx: Ctx):
-    from halo_harness.fleet import mission as M, mission_api as A, mission_store as S
-    with Home() as h:
-        h.use_team("pf-bad")
-        doc = M.new_doc(mid=M.new_id(), goal="a goal", hub={"id": "x", "name": "x"})
-        S.create(h.state_dir, doc)
-        ctx_ = A.Ctx(h.state_dir, None, publish=lambda f: None, by="t", cwd=h.cwd)
-        st, body = A.run(ctx_, doc["id"])
-        ctx.check(f"a mission run is a 422 with the preflight body, got {st} {str(body)[:200]}",
-                  st == 422 and body.get("preflight") is True and body["error"].startswith("preflight: 4 problem(s) stop mission"))
-        st, body = A.run(ctx_, doc["id"], force=True)
-        ctx.check(f"force goes past it to the mission's own state check, got {st} {body.get('error')}",
-                  st == 409 and "only an approved mission runs" in body["error"])
-        st, body = A.admin(h.state_dir, None, {"op": "run", "id": doc["id"], "force": True, "by": "t", "cwd": str(h.cwd)})
-        ctx.check(f"the local/mission route carries force, got {st}", st == 409)
-        st, _b = A.admin(h.state_dir, None, {"op": "run", "id": doc["id"], "by": "t", "cwd": str(h.cwd)})
-        ctx.check(f"and refuses without it, got {st}", st == 422)
 
 
 @test

@@ -79,7 +79,7 @@ def estimate(run_dir, k=None, factor=None) -> dict:
 
 
 def probe_line(data: Optional[dict]) -> str:
-    """The report's and the Fleet digest's probe line ('' before a probe ended)."""
+    """The report's probe line ('' before a probe ended)."""
     if not data or data.get("state") != "done":
         return ""
     return f"probe: {data.get('runs')} runs, {money((data.get('cost') or {}).get('total'))}, picked: {data.get('pick')}"
@@ -218,7 +218,7 @@ def probe(run_dir, *, k=None, factor=None, cwd=None, state_dir=None, on_step: Op
          probe_line(data) if data["state"] == "done" else f"probe failed: {data.get('error')}")
     try:
         from .coach import cached
-        cached(run_dir, cwd=cwd, state_dir=state_dir)  # the coach's runs.json takes the probe line (Fleet digest)
+        cached(run_dir, cwd=cwd, state_dir=state_dir)  # the coach's runs.json takes the probe line
     except Exception:
         pass
     return data

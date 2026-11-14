@@ -32,7 +32,7 @@ def listening(home=None) -> "list[str]":
 
 def ready(home=None) -> bool:
     """`remote.enabled` is not off and a transport listens: only then does a card leave the hub."""
-    from halo_harness.remote.fleet_identity import remote_enabled
+    from halo_harness.remote.session_identity import remote_enabled
     return remote_enabled() and bool(listening(home))
 
 
@@ -54,7 +54,7 @@ def card(row: dict, ask: Optional[dict] = None) -> str:
     elif data and kind == "approval":
         text = cards.approval_card(data)
     if not text:
-        text = "\n".join(x for x in (row.get("what"), row.get("detail")) if x) + "\n(answer it in Studio: Fleet, Attention)"
+        text = "\n".join(x for x in (row.get("what"), row.get("detail")) if x) + "\n(answer it in Studio: Agents, Attention)"
     return f"[{who}] {text}"
 
 

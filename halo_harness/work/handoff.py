@@ -9,8 +9,6 @@ What each kind declares:
 
 * lane: `handoff.needs` / `gave` / `after` / `base` of lanes/<n>.json
   (orchestra/handoff.py); its ids are job ids (`job-1`).
-* part: `depends_on` (needs, each `take` the part's own), `outputs` plus
-  its hand-back (gives), `base` (fleet/mission_handoff.py).
 * stage: the blocks it reads (needs, `take: block`) and writes (gives),
   `stage_done:<stage>` (after).
 

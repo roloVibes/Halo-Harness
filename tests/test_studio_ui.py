@@ -2,13 +2,11 @@
 3.0.7.0 R2: the React Roles section draws the lineup's cards in their tier boxes; the shell at
 / by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
 Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
-second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Fleet (studio_ui_fleet.py),
-3.0.6.0 Missions (studio_ui_mission.py) (3.0.7.0 R3's Design checks, studio_ui_design.py, are tests/test_pack_design_ui.py's
+second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Agents -> Live (studio_ui_live.py) (3.0.7.0 R3's Design checks, studio_ui_design.py, are tests/test_pack_design_ui.py's
 since 3.3.13.0 R2: the design pack),
 3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py) (R3's coach checks left with
 the coach pack in 3.4.0.0 B2); five section tabs since 3.1.4.0 R3 (Org and Flow are gone), six with Session (Alt+1 and the first tab since
 3.1.6.0 R6: tests/helpers/studio_ui_order.py reads the tab strip in order);
-3.1.4.0 R1 the Fleet default layout (studio_ui_fleet_layout.py).
 """
 
 from __future__ import annotations
@@ -21,13 +19,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: these drive its Studio doors)
-_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
-from tests.helpers.studio_ui_fleet import register as register_fleet
-from tests.helpers.studio_ui_fleet_layout import register as register_fleet_layout
-from tests.helpers.studio_ui_mission import register as register_mission
+from tests.helpers.studio_ui_live import register as register_live
 from tests.helpers.studio_ui_order import register as register_order
 from tests.helpers.studio_ui_plan import register as register_plan
 from tests.helpers.studio_ui_roles import register as register_roles
@@ -182,9 +176,7 @@ def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
               "unknown key 'notes'" in str(got.get("config_problem") or ""))
 
 
-register_fleet(test, _json_of, _chrome)  # the Fleet checks (R3 and R4): tests/helpers/studio_ui_fleet.py
-register_fleet_layout(test, _json_of, _chrome)  # 3.1.4.0 R1: the default layout, the log line, the folds: tests/helpers/studio_ui_fleet_layout.py
-register_mission(test, _json_of, _chrome)  # 3.0.6.0 R8: the Mission panel, tests/helpers/studio_ui_mission.py
+register_live(test, _json_of, _chrome)  # the live checks (R3 and R4): tests/helpers/studio_ui_live.py
 register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
 # 3.3.16.0 R1: the Team tab's checks (tests/helpers/studio_ui_team.py) went with its board
 register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/helpers/studio_ui_plan.py

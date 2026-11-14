@@ -47,8 +47,7 @@ def test_the_defaults_and_the_description_alias(ctx: Ctx):
     ctx.check("does falls back to description", c.does == "An old workflow.")
     ctx.check("not a square without gives", not c.square)
     ctx.check(f"defaults: orchestra, mid, depth 1, got {c.engine} {c.band} {c.depth}", (c.engine, c.band, c.depth) == ("orchestra", "mid", 1))
-    ctx.check("mission runs as orchestra here", read({"engine": "mission"}).run_engine() == "orchestra"
-              and read({"engine": "mission"}).run_engine(fleet=True) == "mission")
+    ctx.check("mission runs as orchestra", read({"engine": "mission"}).run_engine() == "orchestra")
 
 
 @test

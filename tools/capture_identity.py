@@ -7,9 +7,9 @@ same made-up harness, `you@studio`, and no absolute path from that machine.
   the temp root moves out of the user profile when it sits in one (Windows:
   `%ProgramData%\\halo-capture`; `HALO_CAPTURE_TMP` names another), and the
   harness's user and host read `you` and `studio`, so every home's default
-  harness name is `you@studio` (the user@host fallback of fleet/identity.py).
+  harness name is `you@studio` (the user@host fallback of peers/identity.py).
 * `placeholder(state)` before a tool serves Studio over `state` (or enters a
-  rig): `fleet.name: you@studio` in the scoped home's config and in
+  rig): `harness.name: you@studio` in the scoped home's config and in
   `<state>/config.json`, then every name Studio would draw (the harness name
   of the process and of `state`, its user and host) is checked against this
   machine's own user and host. One that carries either stops the tool with
@@ -53,7 +53,7 @@ def _placeholders() -> frozenset:
 
 
 def real_names() -> "tuple[tuple, str]":
-    """(user names, host name) of this machine, read past begin()'s placeholder (the environment, not fleet_identity)."""
+    """(user names, host name) of this machine, read past begin()'s placeholder (the environment, not session_identity)."""
     users = {os.environ.get(k, "") for k in ("USER", "USERNAME", "LOGNAME")}
     try:
         import getpass
@@ -164,7 +164,7 @@ def begin() -> None:
     """The neutral temp root and the placeholder user and host, once per process (restore() undoes both)."""
     if "begun" in _saved:
         return
-    from halo_harness.remote import fleet_identity as FI
+    from halo_harness.remote import session_identity as FI
     _saved.update(begun=True, user=FI._user, host=FI._host, tempdir=tempfile.tempdir)
     FI._user, FI._host = (lambda: USER), (lambda: HOST)
     base = _neutral_temp()
@@ -185,8 +185,8 @@ def _write_name(state: Path) -> None:
     except (OSError, ValueError):
         data = {}
     data = data if isinstance(data, dict) else {}
-    fleet = data.get("fleet") if isinstance(data.get("fleet"), dict) else {}
-    data["fleet"] = {**fleet, "name": NAME}
+    harness = data.get("harness") if isinstance(data.get("harness"), dict) else {}
+    data["harness"] = {**harness, "name": NAME}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
@@ -195,10 +195,10 @@ def drawn(states: Iterable = ()) -> list:
     """Every name Studio would draw for this harness: its name (the process's and each state's), user and host."""
     from halo_harness.peers import identity
     me = identity.harness()
-    names = [identity.fleet_name(), me.get("name"), me.get("user"), me.get("host")]
+    names = [identity.harness_name(), me.get("name"), me.get("user"), me.get("host")]
     for s in states:
         h = identity.harness(Path(s))
-        names += [identity.fleet_name(Path(s)), h.get("name"), h.get("user"), h.get("host")]
+        names += [identity.harness_name(Path(s)), h.get("name"), h.get("user"), h.get("host")]
     return [str(n) for n in names if n]
 
 
@@ -209,7 +209,7 @@ def placeholder(state=None) -> None:
     begin()
     from halo_harness.peers import identity
     from halo_harness.theme import set_config_value
-    set_config_value("fleet.name", NAME)
+    set_config_value("harness.name", NAME)
     if state is not None:
         _write_name(Path(state))
     identity.forget_cache()
@@ -228,10 +228,10 @@ def _writable(func, path, _exc) -> None:
 
 
 def restore() -> None:
-    """Undo begin(): the real fleet_identity functions, the system temp root (the capture's own folder removed)."""
+    """Undo begin(): the real session_identity functions, the system temp root (the capture's own folder removed)."""
     if "begun" not in _saved:
         return
-    from halo_harness.remote import fleet_identity as FI
+    from halo_harness.remote import session_identity as FI
     FI._user, FI._host = _saved["user"], _saved["host"]
     tempfile.tempdir = _saved["tempdir"]
     if _saved.get("own"):

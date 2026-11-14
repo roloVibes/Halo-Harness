@@ -6,7 +6,6 @@
     halo coach --undo [APPLY_ID]
     halo coach library [list|show|forget|fetch] ...   3.1.6.0 R3: the improvement library (cli/library.py)
     halo orchestra coach [RUN] ...          an Orchestra run (default: the latest of this repo)
-    halo fleet mission coach <id> ...       a mission of this harness (or the shared missions folder)
 
 `halo coach` takes a run of any kind (a folder, an id or a prefix; no RUN:
 the latest, as `halo work` finds it). Each prints the same card
@@ -205,28 +204,10 @@ def cmd_orchestra_coach(argv: list) -> int:
     return run_card(run_dir, args)
 
 
-def cmd_mission_coach(argv: list) -> int:
-    identity, fleet_door = _core.module('peers.identity'), _core.module('packs.fleet_door')  # 3.4.0.0 C: fleet pack's
-    M, S = fleet_door.module("fleet/mission.py"), fleet_door.module("fleet/mission_store.py")  # none when it is off
-    a, rc = _parse("halo fleet mission coach", argv, "the mission id (m-<yyyymmdd>-<4 hex>)", required=True)
-    if a is None:
-        return rc
-    if M is None or S is None:
-        print(f"halo fleet mission coach: {fleet_door.line()}", file=sys.stderr)
-        return 2
-    if not M.valid_id(a.run) or not (S.folder(identity.home(), a.run) / "mission.json").is_file():
-        print(f"halo fleet mission coach: no mission {a.run!r} here", file=sys.stderr)
-        return 1
-    return run_card(S.folder(identity.home(), a.run), a)
-
-
-
 def main(argv: list) -> int:
-    """The pack's verb (`contributes.cli`): `halo coach ...`, and the forms the core hands over -- `halo coach orchestra
-    ...` for `halo orchestra coach ...`, `halo coach mission ...` for `halo fleet mission coach ...`."""
+    """The pack's verb (`contributes.cli`): `halo coach ...`, and the form the core hands over -- `halo coach orchestra
+    ...` for `halo orchestra coach ...`."""
     argv = list(argv)
     if argv[:1] == ["orchestra"]:
         return cmd_orchestra_coach(argv[1:])
-    if argv[:1] == ["mission"]:
-        return cmd_mission_coach(argv[1:])
     return cmd_coach(argv)

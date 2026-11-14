@@ -1,4 +1,4 @@
-// FitMeter (3.3.5.0 R0b, the first of "Local"'s five ideas): will this model
+// FitMeter (3.3.5.0 R0b, the first of "Local"'s four ideas): will this model
 // run here at this window? One small bar beside a model row: fits (green,
 // every layer on the GPU with room), tight (amber: only with every layer
 // forced on), spill (red: part on the CPU), no (red, empty: it does not fit

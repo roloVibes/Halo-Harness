@@ -1,5 +1,5 @@
 """tests.helpers.studio_roles_live_map -- Roles Live (Halo 3.3.11.0 R2, the owner: "the roles tab kept up with what's
-happening during sessions") in headless Chrome on the driver base, over tests/helpers/studio_fleet_rig.py (the
+happening during sessions") in headless Chrome on the driver base, over tests/helpers/studio_session_rig.py (the
 halo-dev-cycle lineup open, its real session: main, an implementer and a researcher) plus three agents an Auto-mode
 main spawned (tests/helpers/studio_live_rig.py `Live`: the rows GET fleet lists and their `agent_state` frames) whose
 lineup is `auto` and whose roles no card of the open lineup has -- so the Plan canvas glows none of them.
@@ -68,8 +68,7 @@ def open_live(c, rig) -> dict:
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0 && 'plan'", 40)
     out = {"plan_glows": c.wait("[...document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')].map((n) => n.dataset.agent).sort().join(',') || null", 15)}
     l_key(c)
-    c.wait(f"!!{MAP}", 30)  # 3.3.16.0 R2: with a member paired Live opens on the fleet; this halo is one click
-    c.click_on("document.querySelector('[data-testid=\"live-scope-here\"]')")
+    c.wait(f"!!{MAP}", 30)  # 3.5.0.0: Live is this machine's, no scope to pick
     out["sid"] = c.wait(f"{MAP} && +{MAP}.dataset.nodes >= 6 && {MAP}.dataset.session", 30)
     out["rig_sid"] = rig.act.session_id
     return out
@@ -110,7 +109,7 @@ def zoom_fit(c, rig) -> dict:
 
 
 def click_node(c, rig) -> dict:
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     aid, name = SPAWNED[1][0], SPAWNED[1][1]
     card_click(c, node(aid))
     agent = "document.querySelector('[data-testid=\"roles-live\"][data-view=\"live\"] [data-testid=\"roles-live-agent\"]')"
@@ -146,8 +145,8 @@ class LiveMapDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             args = (c, rig)
             yield ((open_live, args), (the_tree, args), (zoom_fit, args), (click_node, args), (back_to_plan, args), (thumb, args))
 

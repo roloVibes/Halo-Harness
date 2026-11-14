@@ -1,5 +1,5 @@
 """tests.helpers.studio_live_rig -- scripted activity over
-tests/helpers/studio_fleet_rig.py for the Session Live column, the map's
+tests/helpers/studio_session_rig.py for the Session Live column, the map's
 tree and the Roles glow (Halo 3.1.5.0 R3): the drivers
 (studio_session_live.py, studio_session_cost_map.py, studio_roles_glow.py)
 and tools/capture_session_anim.py.

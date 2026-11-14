@@ -136,7 +136,7 @@ def format_status(st: dict, *, last_note: Optional[dict] = None) -> "list[str]":
         out = [f"steward job: running in {st.get('where')} (pid {st.get('pid')} on {st.get('machine') or 'this machine'})"
                f" since {_when(st.get('since'))}"]
     else:
-        out = ["steward job: not running (it starts with Studio, the fleet hub or `halo host`; `halo ollama steward --watch` runs "
+        out = ["steward job: not running (it starts with Studio or `halo host`; `halo ollama steward --watch` runs "
                "it here)" + (f"; the last one stopped {_when(st.get('stopped'))}" if st.get("stopped") else "")]
     run = st.get("last_run") or {}
     if run:

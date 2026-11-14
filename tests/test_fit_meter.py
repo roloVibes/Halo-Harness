@@ -1,5 +1,5 @@
 """tests.test_fit_meter -- Halo 3.3.5.0 R0b: the fit meter
-(`providers/fit_meter.py`), the first of "Local"'s five ideas. Pure arithmetic
+(`providers/fit_meter.py`), the first of "Local"'s four ideas. Pure arithmetic
 on fixture cards (tests/helpers/model_card_fixtures.py) and host cards (one
 24 GB GPU, another program holding part of it, a small RAM):
 

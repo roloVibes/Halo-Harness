@@ -67,9 +67,9 @@ def _start(h, ctype: str, extra: Optional[dict] = None) -> None:
 
 
 def _missing(svc, kind: str) -> str:
-    from halo_harness.peers.identity import fleet_name
+    from halo_harness.peers.identity import harness_name
     model = "faster-whisper:small.en" if kind == "stt" else "kokoro-82m"
-    return f"no {kind} server runs on {fleet_name(svc.home)}: there, halo local serve --{kind} {model}"
+    return f"no {kind} server runs on {harness_name(svc.home)}: there, halo local serve --{kind} {model}"
 
 
 def post(h, route: str, raw: bytes, hid: str) -> None:
@@ -130,7 +130,7 @@ def _proxy(h, base: str, kind: str, raw: bytes) -> None:
 
 
 def _turn(h, raw: bytes, hid: str) -> None:
-    from halo_harness.peers.identity import fleet_name
+    from halo_harness.peers.identity import harness_name
     from halo_harness.host import grants
     from halo_harness.theme import get_config_value
     from halo_harness.voice import turn as T
@@ -140,7 +140,7 @@ def _turn(h, raw: bytes, hid: str) -> None:
         return h._json(403, {"error": grants.missing_line("control", "voice/turn", rec, svc.home), "grant": "control"})
     if grants.cap(svc.home) == "none":
         return h._json(403, {"error": grants.none_line(svc.home), "grant": "control", "cap": "none"})
-    where = fleet_name(svc.home)
+    where = harness_name(svc.home)
     try:
         pcm, secs = T.pcm_of(raw, str(h.headers.get("Content-Type") or ""))
         h._act["params"] = {"seconds": round(secs, 2)}

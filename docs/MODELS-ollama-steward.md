@@ -61,7 +61,7 @@ R2, every call leaves a record:
   `error` (the server's one line), `retry` (0 for a first send, then 1, 2
   for the re-sends that follow a failed or trimmed call in the same
   turn), `session`, `turn`, `tools_count`, `images`, `from` (this
-  machine's fleet name while it has joined a hub) and, from 3.3.5.0,
+  machine's harness name on a line it forwards to a host) and, from 3.3.5.0,
   `switched_from` (the previous turn or compaction call's model in the
   session, when it differs) and `fitted` (a switch step ran before the
   call: [MODELS-switching.md](MODELS-switching.md)) and `body_flags`
@@ -81,8 +81,8 @@ R2, every call leaves a record:
   (`ollama_steward/ledger_tap.py`) for Studio's Local tab. The OpenAI dialect
   fills the counts from `usage` and `done_reason` from `finish_reason`.
   The file rotates to `traffic.1.jsonl` at 20 MB; `ollama.ledger: false`
-  turns it off. A fleet member sends its lines to the hub
-  (`fleet.ollama.share`, [CONFIG.md](CONFIG.md)): by default the calls
+  turns it off. A machine paired with a host sends its lines there
+  (`ollama.share`, [CONFIG.md](CONFIG.md)): by default the calls
   to a host it does not serve itself, so the machine that serves the
   models holds every halo's calls to it. `halo ollama traffic`
   ([COMMANDS-ollama.md](COMMANDS-ollama.md)) prints the rollups; each
@@ -175,8 +175,8 @@ R3, the steward judges, plans the fit, adjusts:
 
 R4, the steward's agent, selectable and cheap, and the job that runs it:
 
-- **The job**: one per state dir. It starts with Studio (`halo studio`)
-  and with the fleet hub, whichever is first, and `halo ollama steward
+- **The job**: one per state dir. It starts with Studio (`halo studio`),
+  and `halo ollama steward
   --watch` runs it in the foreground on the machine that serves the models
   (each line printed; Ctrl+C stops it). It owns the server-log tail and the
   `/api/ps` poll for the host this machine serves (`halo ollama events
@@ -232,9 +232,9 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   for 30 s and as one line in the transcript. A note whose findings carry
   an `error`, or any change, raises the attention row
   `ollama_steward` (set aside, or open Local -> Hosts). Studio's live feed gets a
-  `steward` frame `{stage, say, data}` for every line. A fleet member gets
-  the hub's newest note with the hub's profiles (the answer to its ledger
-  push) and its TUI shows "steward on <hub>: <first line>".
+  `steward` frame `{stage, say, data}` for every line. A machine paired with a host gets
+  the host's newest note with its profiles (the answer to its ledger
+  push) and its TUI shows "steward on <host>: <first line>".
 - **`halo ollama explain [<kind> | <topic>] [--sources]`** answers from
   the knowledge files with no model: an alert kind prints its
   `symptoms.md` row (an event kind or a rule name without a row of its own
@@ -307,7 +307,7 @@ first call after a load (warming). `halo local changes`, `halo local revert <id>
 
 Round R5 shows the steward in Studio, the TUI and Setup.
 
-**Local -> Hosts and Steward** (3.3.16.0 R2: the Fleet section's Ollama panel moved there). The
+**Local -> Hosts and Steward** (3.3.16.0 R2). The
 steward's attention row opens Hosts on its host with **O**, and so does the palette's "Local: the
 Ollama steward". Pick a host; a Hugging Face local server is a host here too. Each host shows:
 
@@ -383,7 +383,7 @@ notes (automatic: the key unset, none: no notes while the rules still run, or on
 `ollama.steward.model`); the mode, auto, review or off (`ollama.steward.apply`); the job switch (`ollama.steward.job`,
 the next launch); **Open the Ollama panel**. Settings -> Local lists the changes with their scopes and Revert.
 
-`every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `fleet.ollama.share` stay ordinary rows.
+`every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `ollama.share` stay ordinary rows.
 
 **Setup -> Providers.** The Ollama card has one muted line, "steward: <the first line of its last note>" (or "no note yet"), and a link to the panel.
 

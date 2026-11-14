@@ -28,7 +28,7 @@ FILE_WHAT = {
 }
 FOLDER_WHAT = {"agents": "a bio", "teams": "a lineup", "skills": "a skill", "commands": "a slash command",
                "workflows": "a workflow", "events": "an event kind's schema", "artifacts": "an artifact schema",
-               "studio": "a Studio panel's or page's source", "fleet": "a fleet inspector line", "policy": "a policy hook",
+               "studio": "a Studio panel's or page's source", "capabilities": "a capability's inspector line", "policy": "a policy hook",
                "server": "the pack's own Studio routes (Python, run inside Studio's server with studio-routes)",
                "setup": "a Setup block's file", "mcp": "an MCP server", "hooks": "a hook script",
                "tests": "a sample a schema is checked against"}
@@ -68,8 +68,8 @@ def parts(manifest: dict, files: dict) -> "list[tuple[str, str, str]]":
     out += [("Setup block", str(e.get("id")), str(e.get("title") or "")) for e in c.get("setup") or []]
     out += [("theme", f"{pid}/{e.get('id')}", str(e.get("label") or "")) for e in c.get("themes") or []]
     out += [("Studio section", str(s.get("id")), str(s.get("title") or "")) for s in (c.get("studio") or {}).get("sections") or []]
-    out += [("fleet capability", str(f.get("name")), str(f.get("description") or ""))
-            for f in (c.get("fleet") or {}).get("capabilities") or []]
+    out += [("capability", str(f.get("name")), str(f.get("description") or ""))
+            for f in (c.get("capabilities") or c.get("fleet") or {}).get("capabilities") or []]
     out += [("event", str(e), "") for e in c.get("events") or []]
     out += [("artifact", str(a), "") for a in c.get("artifacts") or []]
     if manifest.get("bundle"):

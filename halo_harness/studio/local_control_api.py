@@ -2,7 +2,7 @@
 (dispatched first by studio/local_api.dispatch_local; docs/STUDIO-local.md). Every answer carries `cli`, the
 `halo models` line that does the same. A host this machine serves is called directly (providers/
 ollama_control.py, providers/ollama_tune.py); a host a fleet member serves goes through that member
-(fleet/control_models.py) under its `fleet.allow_control` -- 403 with the reason when it is `none`.
+(fleet/control_models.py) under its `host.allow_control` -- 403 with the reason when it is `none`.
 
     POST local/host/<name>/pull {name}             a pull job (studio/local_pull_job.py); a second ask joins it
     POST local/pull/<id>/cancel                    stop it (Ollama keeps the layers it has)
@@ -48,16 +48,15 @@ def _target(req, name: str):
     """(the OllamaHost or None, controls {ok, via, why, member?, member_host?}, served_here)."""
     from halo_harness.peers.ollama_share import served_here
     from halo_harness.providers.ollama import resolve_ollama_host
-    from halo_harness.studio.local_api import _hub
     from halo_harness.studio.local_hosts_view import controls
     host = resolve_ollama_host(name)
     if host is not None:
         here = served_here(host.url)
-        return host, controls(host.url, host.name, here, _hub(req)), here
+        return host, controls(host.url, host.name, here), here
     from halo_harness.ollama_steward.resources import STORE
     s = STORE.latest(name) or {}
     if s.get("from"):
-        return None, controls(s.get("url") or "", name, False, _hub(req)), False
+        return None, controls(s.get("url") or "", name, False), False
     return None, None, False
 
 

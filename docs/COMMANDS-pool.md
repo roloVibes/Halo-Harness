@@ -105,7 +105,7 @@ halo pool rpc <member> on | off | status [--json]
 
 A member's rpc-server through its halo host: `status` reads `GET rpc` (running, pid, port, the bound address, the
 version), `on` / `off` ask the host's `rpc_server` op (the `control` grant there; a pending row under
-`fleet.allow_control: ask`, one line naming the grant under `none`). A `local` member needs none (llama-server uses
+`host.allow_control: ask`, one line naming the grant under `none`). A `local` member needs none (llama-server uses
 this machine's GPU); for a bare address the line says how to start it there by hand, and `status` probes its port.
 
 ## `halo local serve --pool`

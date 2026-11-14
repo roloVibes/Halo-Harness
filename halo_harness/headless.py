@@ -1888,7 +1888,7 @@ def run_print_mode(
         )
         slash_names = [f"/{c.name}" for c in registry.all()]
 
-        # Halo 2.0.9 round 2 / 3.0.5.0: unless `fleet.enabled` is false or the
+        # Halo 2.0.9 round 2 / 3.0.5.0: unless `control.enabled` is false or the
         # run is private (`--private`), this run opens a
         # control socket too (`halo remote sessions` lists it); the turn
         # stream is teed into the socket's event feed. None when off.

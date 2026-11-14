@@ -34,7 +34,7 @@ beside the canvas (`run-goal-drawer`), closed on load, closed again by its `x`, 
 - **Run** starts it (it is on Live at once); **Dry run** asks the lead for the split alone (one call): its jobs open as
   the dry run's report page in History.
 
-With more than one machine paired (the fleet pack on), **Run it across the fleet** opens the Mission panel on Live. Under
+Under
 the form, **or run a pack's workflow** lists the workflows of the packs that run here; a pick (or the Pack Manager's
 **Run <workflow>**) fills in that workflow's form in the goal form's place (its inputs, the MODEL, what it does, costs
 and writes, Run), compiled as `halo workflow run` does; **a blank goal instead** brings the goal form back.

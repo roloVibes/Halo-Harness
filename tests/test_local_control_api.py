@@ -10,7 +10,7 @@
 4. POST twin: the dry plan (the twin's name, the window, what it costs), then the twin made through /api/create and
    recorded in the tune store;
 5. a host another machine serves: 409 (no member) whose line ends with the way (3.3.8.1: `halo host serve` there,
-   `halo host join` here, the grant), its /api/show asked directly, 403 when its member has fleet.allow_control:
+   `halo host join` here, the grant), its /api/show asked directly, 403 when its member has host.allow_control:
    none, and with `all` the pull / delete go to the member's session as ollama_pull / ollama_delete with its own
    host name.
 Run: python -m tests.test_local_control_api
@@ -24,9 +24,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers import local_seed as L  # noqa: E402
 from tests.helpers.control_env import QWEN_SHOW  # noqa: E402
-from tests.helpers.local_api_rig import FakeHub, Local  # noqa: E402
+from tests.helpers.local_api_rig import Local  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -158,7 +157,6 @@ def test_the_twin_planned_then_made_and_recorded(ctx: Ctx):
 
 @test
 def test_another_machines_host(ctx: Ctx):
-    from halo_harness.ollama_steward.resources_share import take_remote
     with Box() as h:
         status, body = h.api("POST", "local/host/pc/pull", {"name": "gemma3:4b"})
         ctx.check(f"pc (no member serves it here): 409 with the reason, got {status} {body}", status == 409 and "another machine" in body["error"])
@@ -175,25 +173,6 @@ def test_another_machines_host(ctx: Ctx):
             OC.show = saved
         ctx.check(f"3.3.8.1: show on another machine's host is asked directly (a read is anyone's), got {ss} {asked}",
                   ss == 200 and asked == [("http://192.0.2.10:11434", "qwen3.6:27b")] and shown["cli"].endswith("--host pc"))
-    for level in ("none", "all"):
-        hub = FakeHub(level, None)
-        with Box() as h:
-            h.server = hub
-            hub.fleet_hub.home = h.state
-            cfg = h.config()
-            cfg["ollama"]["hosts"].append({"name": "mac", "url": "http://192.0.2.30:11434"})
-            (h.state / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-            take_remote(h.state, L.MEMBER, L.member_samples())
-            sp, pull = h.api("POST", "local/host/mac/pull", {"name": "gemma3:4b"})
-            sd, dele = h.api("POST", "local/host/mac/delete", {"name": "gemma3:4b"})
-            if level == "none":
-                ctx.check(f"allow_control none: 403 with the reason, nothing sent, got {sp} {pull} {sd}",
-                          sp == 403 and sd == 403 and "allow_control: none" in pull["error"] and not hub.sent)
-            else:
-                ctx.check(f"allow_control all: ollama_pull / ollama_delete to the member, got {sp} {sd} {hub.sent}",
-                          sp == 200 and pull["remote"] and sd == 200 and [s[2] for s in hub.sent] == ["ollama_pull", "ollama_delete"]
-                          and hub.sent[0][3] == {"host": "local", "model": "gemma3:4b"}
-                          and hub.sent[1][3] == {"host": "local", "model": "gemma3:4b", "force": False})
 
 
 @test

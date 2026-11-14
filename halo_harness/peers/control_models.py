@@ -1,6 +1,6 @@
 """halo_harness.peers.control_models -- a hub's control of the models on a
 host this member serves (Studio's Local tab), applied under the member's
-`fleet.allow_control` like a steer (fleet/control.py: `none` refuses, `ask`
+`host.allow_control` like a steer (fleet/control.py: `none` refuses, `ask`
 puts a card in the owner's TUI, `all` applies it). Only a host this machine
 serves is touched; nothing about the server's settings changes.
 

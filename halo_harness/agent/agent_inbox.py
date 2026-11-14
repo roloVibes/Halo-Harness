@@ -120,7 +120,7 @@ class Controls:
 # ---- the loop's two checkpoints ---------------------------------------------------
 
 def _ctx(session):
-    tree = getattr(session, "_fleet_tree", None)
+    tree = getattr(session, "_agent_tree", None)
     if tree is None:
         return None, None
     from halo_harness.agent.agent_registry import agent_key

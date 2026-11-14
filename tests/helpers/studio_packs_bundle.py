@@ -50,7 +50,7 @@ def bundle_api(c, url, ctx) -> dict:
     out["bundle_grant_self"] = _click(c, "grant-self", "lib: ")
     out["bundle_grants_after"] = S.granted("studio-bundle", S.load(ctx["state"]))
     press(c, panel(GREET, "[data-testid=bundle-route]"))
-    out["bundle_route"] = c.wait(f"{CUR}.startsWith('Agents') && {CUR}", 15)  # 3.3.16.0 R2: the fleet word is Agents -> Live
+    out["bundle_route"] = c.wait(f"{CUR}.startsWith('Agents') && {CUR}", 15)  # a core section by its id
     from tests.helpers.studio_packs_steps import fleet_queue
     fleet_queue(c)
     row = q('[data-panel="fleet-attention"] [data-testid=fleet-attn-row][data-kind="pack:studio-bundle:hello.ask"]')

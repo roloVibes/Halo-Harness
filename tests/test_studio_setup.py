@@ -42,8 +42,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: Setup's Machines page is its door)
-_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
@@ -71,10 +69,8 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
     ctx.check(f"3.3.1.0 R1: no panels on Setup, got {got.get('panels')}", got.get("panels") == [])
     steps = [s for s in got.get("steps") or [] if s != "linux"]  # Linux fixes: a step only on a box that needs them
     ctx.check(f"the rail lists the steps in the wizard's order, got {got.get('steps')}",
-              steps == ["providers", "local", "model", "permissions", "theme", "team", "check", "machines", "summary"])
-    ctx.check(f"each with its title, got {got.get('rail')}", (got.get("rail") or [""] * 3)[2] == "Default model" and (got.get("rail") or [""])[-2] == "Machines")
-    ctx.check(f"3.3.16.0 R2: Machines: the lead (one harness), the pair card, share / control, the People table, got {got.get('machines')}",
-              got.get("machines") == [1, 1, 1, 1, 1, 1])
+              steps == ["providers", "local", "model", "permissions", "theme", "team", "check", "summary"])
+    ctx.check(f"each with its title, got {got.get('rail')}", (got.get("rail") or [""] * 3)[2] == "Default model" and (got.get("rail") or [""])[-2] == "Check")
 
 
 @test

@@ -49,7 +49,7 @@ export function useStore<T extends object, S>(store: Store<T>, select: (s: T) =>
 // -- the shell's state -----------------------------------------------------------
 
 // packs: 3.2.0.0 R6; setup: 3.3.0.0 R1; settings: 3.3.3.0 R2; local: 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's;
-// 3.3.16.0 R1: agents took in team, roles and orchestra (lib/agentsDoor.ts); R2: and fleet (Live's fleet scope)
+// 3.3.16.0 R1: agents took in team, roles and orchestra (lib/agentsDoor.ts)
 export type CoreSectionId = "session" | "agents" | "local" | "packs" | "setup" | "settings";
 /** 3.2.0.0 R3: a pack's own section, `<pack id>--<section id>` (routes/packs: the registry the server builds). */
 export type PackSectionId = `${string}--${string}`;
@@ -199,9 +199,9 @@ export function closeHelp(): void {
   studio.update(() => ({ help: null }));
 }
 
-/** 3.3.16.0 R1: an old word (roles, orchestra, team; R2: fleet -- an attention row's `o`, a pack's route, a frame) opens
+/** 3.3.16.0 R1: an old word (roles, orchestra, team -- an attention row's `o`, a pack's route, a frame) opens
  *  Agents on its view (lib/agentsDoor.ts); `view` puts Agents on one. */
-export function goSection(word: SectionId | "team" | "fleet", view?: AgentsView): void {
+export function goSection(word: SectionId | "team", view?: AgentsView): void {
   const door = doorOf(word);
   const section = door.section as ShellSectionId;
   writeLocal("halo.studio.section", section);

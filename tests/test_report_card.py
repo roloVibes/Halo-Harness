@@ -161,8 +161,6 @@ def test_halo_report(ctx: Ctx):
         ctx.check("--json: the card's data; a goal run id of this repo", code == 0 and got["format"] == "halo-report-card" and got["kind"] == "run")
         code, text = _cli(["nope"], repo)
         ctx.check(f"an unknown run: one line, exit 2: {text!r}", code == 2 and text.startswith("halo report:"))
-        code, text = _cli(["mission:m-1"], repo)
-        ctx.check("a mission's report is the fleet pack's", code == 2 and "fleet pack" in text)
         src = (Path(__file__).resolve().parent.parent / "halo_harness" / "cli.py").read_text(encoding="utf-8")
         ctx.check("`halo report` is dispatched by halo's own CLI", '("replay", "report")' in src and "report_cli.cmd_report" in src)
         ctx.check("nothing written", not (state / "replays").exists())
@@ -178,8 +176,6 @@ def test_studio_report_route(ctx: Ctx):
         ctx.check(f"the card and its Markdown, one data: {code}", code == 200 and got["card"]["kind"] == "session"
                   and got["markdown"].startswith("# Report card:") and got["card"]["story"][0]["text"] in got["markdown"])
         ctx.check("a goal run", call({"ref": f"run:{RUN}"})[0] == 200)
-        code, got = call({"ref": "mission:m-1"})
-        ctx.check(f"a mission: the fleet pack's page: {got}", code == 422 and "fleet pack" in got["error"])
         ctx.check("no ref: 422; an unknown one: 404", call({})[0] == 422 and call({"ref": "session:nope"})[0] == 404)
         ctx.check("nothing written", not (state / "replays").exists())
 

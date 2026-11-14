@@ -101,7 +101,7 @@ def test_the_edit_target_and_its_url(ctx: Ctx):
     fake = SimpleNamespace(server_address=("127.0.0.1", 4321), token="tok")
     ctx.check("url_for: the target in the query, the token in the fragment",
               url_for(fake, None, "bio:coder") == "http://127.0.0.1:4321/?mode=agents&view=cast&edit=bio:coder#t=tok")
-    ctx.check("url_for without an edit is unchanged", url_for(fake, "fleet") == "http://127.0.0.1:4321/?mode=fleet#t=tok")
+    ctx.check("url_for without an edit is unchanged", url_for(fake, "agents") == "http://127.0.0.1:4321/?mode=agents#t=tok")
     ctx.check("the running Studio's URL carries it too",
               launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=agents&view=live&edit=team#t=x")
     with _home() as h:

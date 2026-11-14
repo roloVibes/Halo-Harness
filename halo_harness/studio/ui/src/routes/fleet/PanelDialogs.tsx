@@ -1,13 +1,12 @@
 // The R4 Fleet dialogs (one at a time, pstore `dialog`): Take over (type the
 // new brief: the agent reads it before its next step, recorded as a
 // hand-off in both transcripts), Hand to... (pick a harness; a markdown
-// hand-off note is written; then the agent stops) and what that made, Message a member's
-// owner, Kick a member (asks first), and a finished recording to download.
-// 3.3.15.0 R3: the brief and the message are the one TextBox (three lines at the least, grow with the text).
+// hand-off note is written; then the agent stops) and what that made, and a finished recording to download.
+// 3.3.15.0 R3: the brief is the one TextBox (three lines at the least, grow with the text).
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, TextBox } from "../../lib/ui";
 import { toast } from "../../lib/store";
-import { download, handoff, kickConfirmed, sendNote } from "./extras";
+import { download, handoff } from "./extras";
 import { closeDialog, usePanels, type Dialog as D } from "./pstore";
 import { useFleet } from "./store";
 
@@ -61,7 +60,6 @@ function HandTo({ d }: { d: Extract<D, { kind: "hand_to" }> }) {
                     writes: "a hand-off note in the repo: the task, the last hand-back, the files it touched" }}
             footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!to || busy} onClick={() => void go()} data-testid="fleet-handto-go">Hand it over</Button></>}>
       <p className="muted">The agent's task, its last hand-back and the files it touched go into a hand-off note in the repo. Then this agent stops.</p>
-      {choices.length < 2 && <p className="muted">Only this harness is in the fleet: pair another one to hand work across machines.</p>}
       <label className="fd-field">
         <span className="rail-label mono">TO</span>
         <select className="input" value={to} onChange={(e) => setTo(e.target.value)} data-testid="fleet-handto-to">
@@ -89,18 +87,6 @@ function Handed({ d }: { d: Extract<D, { kind: "handed" }> }) {
   );
 }
 
-function Message({ d }: { d: Extract<D, { kind: "message" }> }) {
-  const [text, setText] = useState("");
-  const box = useFocus<HTMLTextAreaElement>();
-  return (
-    <Dialog open onClose={closeDialog} title={`Message ${d.name}`} kicker="MACHINES · PEOPLE" testid="fleet-message"
-            footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="primary" disabled={!text.trim()} onClick={() => void sendNote(d.hid, d.sid, text)} data-testid="fleet-message-send">Send</Button></>}>
-      <p className="muted">A note its owner reads in that session; the model never sees it.</p>
-      <TextBox ref={box} className="fd-text" value={text} onChange={(e) => setText(e.target.value)} data-testid="fleet-message-text" />
-    </Dialog>
-  );
-}
-
 function Recording({ d }: { d: Extract<D, { kind: "recording" }> }) {
   return (
     <Dialog open onClose={closeDialog} title={`Recording of ${d.label}`} kicker="FLEET · RECORDING" testid="fleet-recording"
@@ -117,14 +103,5 @@ export function PanelDialogs() {
   if (d.kind === "take_over") return <TakeOver d={d} />;
   if (d.kind === "hand_to") return <HandTo d={d} />;
   if (d.kind === "handed") return <Handed d={d} />;
-  if (d.kind === "message") return <Message d={d} />;
-  if (d.kind === "recording") return <Recording d={d} />;
-  return (
-    <Dialog open onClose={closeDialog} title={`Forget ${d.name}?`} kicker="MACHINES · PEOPLE" testid="fleet-kick"
-            cost={{ does: `${d.name} leaves this hub; it pairs again with a new code to come back`, costs: "nothing: no model call",
-                    writes: "the hub's member list" }}
-            footer={<><Button onClick={closeDialog}>Cancel</Button><Button variant="danger" onClick={() => void kickConfirmed(d.hid, d.name)} data-testid="fleet-kick-yes">Forget it</Button></>}>
-      <p>{d.name} leaves this hub; to come back it pairs again with a new code.</p>
-    </Dialog>
-  );
+  return <Recording d={d} />;
 }

@@ -565,11 +565,11 @@ class BridgeApp(App):
         if callable(starter):
             starter()
             # Halo 2.0.9 round 2 / 3.0.5.0: the session's control socket opens
-            # unless `fleet.enabled` is false or it is private (closed again by
+            # unless `control.enabled` is false or it is private (closed again by
             # Controller.quit()); a `shutdown` from Studio ends the app here.
             try:
                 from halo_harness.remote.runtime import start_for_controller
-                self.controller.on_fleet_shutdown = lambda _text: self.call_from_thread(self._begin_quit)
+                self.controller.on_control_shutdown = lambda _text: self.call_from_thread(self._begin_quit)
                 start_for_controller(self.controller)
             except Exception:
                 pass

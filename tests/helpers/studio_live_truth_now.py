@@ -1,5 +1,5 @@
 """tests.helpers.studio_live_truth_now -- the "now" scene of tests/helpers/studio_live_truth.py (Halo 3.3.18.0 "The living
-canvas") over tests/helpers/studio_fleet_rig.py: this harness's real session (main, implementer, researcher at work) and
+canvas") over tests/helpers/studio_session_rig.py: this harness's real session (main, implementer, researcher at work) and
 a member whose main waits on a question; extra agents through tests/helpers/studio_live_rig.py `Live`."""
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def group(part: str) -> str:
 
 def live_now(rig) -> int:
     """The agents at work across the harnesses that count (this one, members online), from GET fleet."""
-    _st, view = rig.api("GET", "fleet")
+    _st, view = rig.api("GET", "live")
     n = 0
     for h in view.get("harnesses") or []:
         if not (h.get("local") or h.get("online") is not False):

@@ -88,7 +88,7 @@ def test_the_answer_its_citations_the_conversation_and_the_cost(ctx: Ctx):
 
 @test
 def test_in_a_session_the_call_and_its_citations_are_in_the_transcript(ctx: Ctx):
-    from tests.helpers.fleet_rig import text_step, tool_step
+    from tests.helpers.session_rig import text_step, tool_step
     from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
     from halo_harness import headless
 

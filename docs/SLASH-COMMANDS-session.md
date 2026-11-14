@@ -185,7 +185,7 @@ the verdict, the fix proposed or applied) once one has run. See
 ### `/ollama [--host NAME]` / `/ollama findings | plan | explain <kind>` / `/ollama hosts [--host NAME] [--refresh]`
 Halo 3.3.4.0 R5: the Ollama steward's view, printed in the transcript (and
 in `-p`): the mode and the steward job's status lines, the last note (and
-the hub's note on a member), per host its card line, the last hour's
+a paired host's note), per host its card line, the last hour's
 rollups (`halo ollama traffic --since 1h`) and its profiles, the Hugging
 Face local servers' lines, and the review-mode proposals with `halo ollama
 steward apply <id>`. `--host` narrows to one configured host. `/ollama
@@ -245,10 +245,7 @@ shows the top 8 with scores. Needs `embeddings.model` set in
 host; `embeddings.base_url`/`api_key` for an OpenAI-compatible server).
 The index (`~/.halo/index/embeddings.jsonl`) refreshes incrementally
 before each search; the CLI twin is `halo recall <query>`
-(`docs/COMMANDS.md`). `/recall --fleet <query>` (3.1.2.0 R3) asks the hub
-this machine runs or joined to fan the query out to every online member,
-each answering from its own index; the hits are merged by score and shown
-with their harness ([FLEET.md](FLEET.md) "Recall across the fleet").
+(`docs/COMMANDS.md`).
 3.1.8.0 R4: every hit carries its kind's chip -- `[memo]`, `[sess]`, `[lib]`,
 `[finding]` and `[decision]` (with the entry's id, who wrote it and the day;
 [KNOWLEDGE.md](KNOWLEDGE.md)) and `[note]` (your own notes,

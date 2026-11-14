@@ -71,7 +71,7 @@ def unreached(host: str, port: int, e: BaseException) -> "HubError":
 
 def _check_offline() -> None:
     if identity.offline():
-        raise HubError("offline mode is on (--offline or network.offline): the fleet relay does not connect")
+        raise HubError("offline mode is on (--offline or network.offline): the relay does not connect")
 
 
 def _connect(scheme: str, host: str, port: int, timeout: float, fingerprint: Optional[str] = None):

@@ -1,9 +1,9 @@
 # One unit of work
 
-Read this when you want the one model under an Orchestra lane, a mission part and a team stage.
+Read this when you want the one model under an Orchestra lane and a supervisor goal.
 
-Halo 3.1.2.0. A team stage, a mission part and an Orchestra lane are all
-the same thing: a piece of work with an owner, claims, a gate and a
+Halo 3.1.2.0. An Orchestra lane (and since 3.1.8.0 a supervisor goal) is
+a unit: a piece of work with an owner, claims, a gate and a
 hand-off. Three engines grew them separately, each with its own ledger,
 its own report shape and its own coach rules. This round puts one model
 underneath (`halo_harness/work/`) and keeps the three front doors: every
@@ -72,9 +72,7 @@ nearest engine word when a unit is set to it.)
 Halo 3.1.2.0 R2. Every engine write of a unit's state goes through
 `Unit.move(state)` (`work/unit.py`; an engine setter calls
 `move_word(kind, id, was, word)` with its own words): a lane's
-`lanes/<n>.json` (work/adapters/lane.py), a mission part's `mission.json`
-(work/adapters/part.py) and a team stage's board row (team/board.py
-`set_stage`, and the run's stop). A move the machine has no edge for raises
+`lanes/<n>.json` (work/adapters/lane.py) and a goal's row. A move the machine has no edge for raises
 `IllegalMove` (a `ValueError`) naming the unit, from and to, and nothing is
 written:
 
@@ -100,24 +98,21 @@ allowed. The edges (`work/states.py` `EDGES`):
 The edges in bold are the ones R2 added, each because an engine needs it
 (`states.ADDED`):
 
-- `failed -> ready`: a failed mission part runs again when asked;
+- `failed -> ready`: a failed unit runs again when asked;
 - `failed -> running`: a lane whose worker fell over gets its one more run
   in the same worktree, and a resumed run's failed lane runs again;
-- `skipped -> ready`: a skipped part is asked to run again;
+- `skipped -> ready`: a skipped unit is asked to run again;
 - `merged -> waiting`: the gate sends a merged piece back (the tests fail on
   the finished branch), and a downstream lane of it goes stale;
-- `waiting -> done`: a mission part's result lands while the hub still
-  shows it `asked` (the member ran it before the hub saw the card answered).
+- `waiting -> done`: a unit's result lands while it still shows `waiting`.
 
 A team member's own state (the stage row's `members_state`, team/parallel.py)
 walks the same edges. `tests/test_work_states.py` replays each engine's real
-fixture history (an Orchestra run with a hand-off, a team run through its
-gate, a local mission) through `Unit.move`.
+fixture history (an Orchestra run with a hand-off) through `Unit.move`.
 
 ## Scheduling on the unit model
 
-R2 schedules on this model: an orchestra part may run on a fleet member
-([MISSIONS.md](MISSIONS.md)), a downstream lane
+R2 schedules on this model: a downstream lane
 whose upstream the gate sent back is re-based before the merge
 ([ORCHESTRA.md](ORCHESTRA.md#stale-lanes)), a plan carries a cost forecast
 ([ORCHESTRA.md](ORCHESTRA.md#the-forecast); the shapes are
@@ -140,15 +135,11 @@ and every unit has one report row, a `UnitRow` (`work/report.py`):
  "gave": [{"name", "kind", "path"}], "error": ""}
 ```
 
-`harness` (3.1.2.0 R3) is the fleet harness a delegated unit ran on -- a
-mission part's harness, a team stage whose lead member is on a member or
-whose orchestra run is delegated (`refs.harness`); `null`/absent and
-`halo work`'s table reads `here` for a unit that ran on this machine, so a
-report of a delegated run reads where each unit ran.
+`harness` (3.1.2.0 R3) is the harness a unit ran on (`refs.harness`); `null`/absent and `halo work`'s table reads
+`here` for a unit that ran on this machine.
 
 Each engine's report keeps its own rows and now carries the unit rows
-beside them under a new `units` key (report.json for an Orchestra run and a
-mission; the board for a team run); nothing was removed.
+beside them under a new `units` key (report.json for an Orchestra run); nothing was removed.
 
 ## `halo work` and the route
 
@@ -157,14 +148,12 @@ halo work [RUN] [--json]     the units of any run of any kind, as one table
 ```
 
 `RUN` is a run folder, a run id or an id prefix; with no `RUN`, the latest
-run of this repo (an Orchestra run, else a team run or mission).
-`GET /api/work/<kind>/<run>` serves the same rows (`<kind>` is `orchestra`,
-`mission` or `team`). Read only; no model is called.
+run of this repo (an Orchestra run).
+`GET /api/work/<kind>/<run>` serves the same rows (`<kind>` is `orchestra`
+or `lane`). Read only; no model is called.
 
 ## What is not shared yet
 
 The three engines still run their own loops over the shared model (R2 put
 the parallel members, the delegated runs, the re-base and the forecasts into
-them), and the Studio panels keep their own routes. R3 checks delegation on
-two real machines and shares the recall index across the fleet. See
-[ROADMAP](../plans/ROADMAP.md) 3.1.2.0 R3.
+them), and the Studio panels keep their own routes.

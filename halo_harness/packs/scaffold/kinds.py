@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 KINDS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "events", "artifacts", "workflows", "studio",
-         "bundle", "fleet", "policy", "modes", "setup", "themes", "integration")
+         "bundle", "capabilities", "policy", "modes", "setup", "themes", "integration")
 WHAT = {
     "agents": "two bios (a lead and a checker) with every section a bio has",
     "teams": "a lineup with two roles, two tiers and an acceptance block",
@@ -31,7 +31,7 @@ WHAT = {
     "studio": "a Studio section (a markdown panel, a table over data:rows.json, a bundle panel) and a page the pack "
               "draws itself (a view with api.lib) over its own routes (server/routes.py)",
     "bundle": "a bundle: block -- the local model the pack keeps ready, its reservation and routing",
-    "fleet": "a fleet capability with an inspector line",
+    "capabilities": "a capability with an inspector line",
     "policy": "a policy hook with its mode: it denies one sample call and allows another",
     "modes": "a runtime mode of the pack",
     "setup": "a Setup block of each kind (a form, a check, a note)",

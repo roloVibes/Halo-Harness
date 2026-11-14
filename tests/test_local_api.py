@@ -7,7 +7,7 @@ fresh home, background reads off: no real server, no model call.
    what is loaded and its VRAM share, who calls it, the steward's finding, the fit plan's chosen option, the controls;
 2. POST local/host/box/load | unload against the fake: a /api/generate with the profile's window and keep-alive,
    then keep_alive 0; a host another machine serves is refused with the reason, and so is one whose fleet member
-   has fleet.allow_control: none; with `all` the command goes to the member's session (host = the member's name);
+   has host.allow_control: none; with `all` the command goes to the member's session (host = the member's name);
 3. POST local/host/add writes the ollama.hosts entry through Setup's writer;
 4. GET local/traffic: the fixture ledger's rows, the per-host buckets with the bytes; a ledger line written while a
    listener is on becomes a `traffic` frame; POST local/traffic (another process's tap) publishes them;
@@ -18,7 +18,6 @@ Run: python -m tests.test_local_api
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -29,7 +28,7 @@ from tests.helpers.provider_env_defaults import ensure_default_provider_credenti
 ensure_default_provider_credentials()
 
 from tests.helpers import local_seed as L  # noqa: E402
-from tests.helpers.local_api_rig import FakeHub, Local  # noqa: E402
+from tests.helpers.local_api_rig import Local  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -80,28 +79,6 @@ def test_load_and_unload(ctx: Ctx):
         status, body = h.api("POST", "local/host/pc/load", {"model": "qwen3.8:27b"})
         ctx.check(f"another machine's host: 409 with the reason, got {status} {body}", status == 409 and "another machine" in body["error"])
         ctx.check("nothing reached the fake for it", all(g["model"] != "qwen3.8:27b" for g in h.mock.generated))
-
-
-@test
-def test_a_remote_hosts_control_goes_through_its_member(ctx: Ctx):
-    from halo_harness.ollama_steward.resources_share import take_remote
-    for level, want in (("none", 409), ("all", 200)):
-        hub = FakeHub(level, None)
-        with Local(server=hub) as h:
-            hub.fleet_hub.home = h.state
-            cfg = h.config()
-            cfg["ollama"]["hosts"].append({"name": "mac", "url": "http://192.0.2.30:11434"})
-            (h.state / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-            take_remote(h.state, L.MEMBER, L.member_samples())
-            card = h.card("mac")
-            status, body = h.api("POST", "local/host/mac/load", {"model": "qwen3.5:9b"})
-            if level == "none":
-                ctx.check(f"allow_control none: disabled with the reason, got {card['controls']} {status} {body}",
-                          card["controls"]["ok"] is False and "fleet.allow_control: none" in card["controls"]["why"]
-                          and status == 409 and "allow_control: none" in body["error"] and not hub.sent)
-            else:
-                ctx.check(f"allow_control all: the command to the member's session, its own host name, got {status} {hub.sent}",
-                          status == want and hub.sent == [("hid-mac", "s-mac", "ollama_load", {"host": "local", "model": "qwen3.5:9b"})])
 
 
 @test

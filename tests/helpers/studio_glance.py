@@ -41,7 +41,7 @@ STUB = """(() => {
   const f = window.fetch.bind(window);
   const apis = [];
   window.fetch = (u, init) => { const s = String(u && u.href || u); if (s.includes("/api/")) apis.push(s);
-    if (s.includes("/api/fleet/attention") && !s.includes("answer")) reads.push(Date.now()); return f(u, init); };
+    if (s.includes("/api/live/attention") && !s.includes("answer")) reads.push(Date.now()); return f(u, init); };
   const ES = window.EventSource;  // the feed's opens count as asks too
   window.EventSource = function (url, opts) { apis.push(String(url)); return new ES(url, opts); };
   window.EventSource.prototype = ES.prototype;
@@ -97,7 +97,7 @@ def alert(c, rig) -> dict:
     # the same ask said again by its frames, and the queue read twice more: still ONE notification
     rig.server.events.publish({"session_id": rig.sid, "event": "permission_request", "agent_id": None, "turn": 1, "ts": time.time(),
                                "data": {"id": "perm_1", "name": "Bash", "input": {"command": "echo hi"}}})
-    rig.server.events.publish({"session_id": None, "event": "fleet", "agent_id": None, "turn": None, "ts": time.time(),
+    rig.server.events.publish({"session_id": None, "event": "live", "agent_id": None, "turn": None, "ts": time.time(),
                                "data": {"action": "attention", "count": 1}})
     reads = c.js("window.__reads.length")
     c.wait(f"window.__reads.length >= {reads + 2}", 40)

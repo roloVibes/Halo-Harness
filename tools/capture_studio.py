@@ -2,7 +2,7 @@
 scratch home seeded with the shipped lineups, the halo-dev-cycle lineup
 open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
-errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|agents|shell|orchestra|fleet|start|packs|setup|settings|local] [--panel ollama]
+errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|agents|shell|orchestra|start|packs|setup|settings|local]
 
 3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
 React Roles section: a seeded lineup with two tiers and a live card
@@ -12,22 +12,16 @@ lineup with a bio open, counted by data-testid; 3.0.7.0 R3's `--mode design` is 
 old Orchestra door, which lands on Agents -> Live, and Roles) and, with --dom, counts its data-testid values. `--mode
 orchestra` (tools/capture_orchestra.py; 3.4.0.0 D "the runs fold": Runs' console and Start view went) seeds a finished
 goal run (the R2 fixture: basket.py, five lanes, one judged conflict, the report) and renders its report as a page of
-History (studio-run-report.png), and a run waiting for its plan on Live (studio-run-live.png). 3.0.5.0 R3:
-`--mode fleet` (tools/capture_fleet.py) seeds two harnesses with five agents
-(tests/helpers/studio_fleet_rig.py); 3.3.16.0 R2 (the Fleet fold) renders Agents -> Live on the fleet with a
-conflict edge and the glance (studio-fleet.png), Setup -> Machines (studio-fleet-panels.png), a machine's Specs page
-with Who can... gridcraft (studio-fleet-capabilities.png) and a planned mission on Live (studio-fleet-mission.png);
---dom counts their test ids (3.1.5.0 R3: studio-roles-live.png and the Session dashboard are
-tools/capture_session_anim.py's, with their GIFs). 3.3.16.0 R1: `--mode team` (the Team section) went with
+History (studio-run-report.png), and a run waiting for its plan on Live (studio-run-live.png). studio-roles-live.png
+and the Session dashboard are tools/capture_session_anim.py's, with their GIFs. 3.3.16.0 R1: `--mode team` (the Team section) went with
 Team's board; `--mode roles` renders Agents on Cast and `--mode agents` the same page as studio-agents.png, the modes
 banner's Agents tile. 3.2.0.0 R7: `--mode packs`
 (tools/capture_packs.py) installs and enables the shipped doc-review pack and renders the Pack Manager
 (studio-packs.png, the modes banner's seventh tile); --dom counts it. 3.3.0.0 R4: `--mode setup`
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
 (studio-setup.png, the banner's eighth tile and the README's first screenshot after install); --dom counts it.
-3.3.3.0 R2: `--mode settings` (tools/capture_settings.py) renders Settings on its Fleet page (studio-settings.png, the
-banner's ninth tile); --dom counts it. (3.3.4.0 R5's `--mode fleet --panel ollama` went with the Fleet section's
-Ollama panel in 3.3.16.0 R2: Local's capture draws the hosts.) 3.3.5.0 R1:
+3.3.3.0 R2: `--mode settings` (tools/capture_settings.py) renders Settings on its General page (studio-settings.png, the
+banner's ninth tile); --dom counts it. 3.3.5.0 R1:
 `--mode local` (tools/capture_local.py) renders Local on its Resources page (studio-local.png, the banner's tenth
 tile); --dom counts it.
 """
@@ -98,7 +92,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "fleet", "packs", "setup", "settings", "local", "workflows", "picker"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
+    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "packs", "setup", "settings", "local", "workflows", "picker"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -115,14 +109,6 @@ def _render(args) -> int:
     from capture_identity import placeholder
     state = seeded_home()
     placeholder(state)  # 3.1.7.0 R2: every capture draws you@studio (exit 2 when the name would be this machine's)
-    if args.mode == "fleet":  # two harnesses, five agents: Live on the fleet, Setup -> Machines, specs, a mission (tools/capture_fleet.py)
-        from capture_fleet import capture as capture_fleet
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-fleet.png"
-        try:
-            return capture_fleet(args.out, args.dom, find_chrome)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "packs":  # 3.2.0.0 R7: the Pack Manager over the shipped pack (tools/capture_packs.py)
         from capture_packs import capture as capture_packs
         if args.out.endswith("studio.png"):
@@ -139,7 +125,7 @@ def _render(args) -> int:
             return capture_setup(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "settings":  # 3.3.3.0 R2: Settings on its Fleet page (tools/capture_settings.py)
+    if args.mode == "settings":  # 3.3.3.0 R2: Settings on its General page (tools/capture_settings.py)
         from capture_settings import capture as capture_settings
         if args.out.endswith("studio.png"):
             args.out = args.out[:-4] + "-settings.png"

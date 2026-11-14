@@ -3,8 +3,8 @@
 3.4.1.0 R2 fixed a replay counting a finished sub-agent's cost twice (the parent's rolled-up `usage` line AND the
 sub-agent's own transcript); 3.4.0.1 made the harness's "today" and History read finished sessions from their
 records (live/session_cost.py). The two read the same files differently, so this pins that they agree: the report
-card, the compare row, the replay (Live's total), History's row, the harness's today (GET fleet's own entry) and the
-fleet caps' harness figure, for a session started today with main's call ($0.004), a reviewer sub-agent ($0.008, its
+card, the compare row, the replay (Live's total), History's row, the harness's today (GET live's own entry) and the
+caps' harness figure, for a session started today with main's call ($0.004), a reviewer sub-agent ($0.008, its
 own transcript plus the rollup line in main's) and a provider failure (a 429: a usage line with no price, which spent
 nothing -- it must not make the total "unknown" in one place and whole in another).
 Run: python -m tests.test_cost_agreement
@@ -80,7 +80,7 @@ def _near(v, want=TOTAL) -> bool:
 def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
     from halo_harness.live import caps, compare, history, replay_facts, report_card, session_cost
     from halo_harness.peers import local_view
-    from halo_harness.studio import fleet_api
+    from halo_harness.studio import live_agents_api
     with _home() as state:
         now = time.time()
         t0 = max(now - 600, session_cost._midnight(now) + 1)  # today, finished a while ago
@@ -90,10 +90,10 @@ def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
         day = session_cost.today(state, now=now)
         ctx.check(f"the harness's today: one session, the same number, whole: {day}", _near(day["usd"]) and day["sessions"] == 1 and day["complete"])
         mine = local_view.today_fields(state)
-        ctx.check(f"GET fleet's own entry: {mine}", _near(mine["cost_today"]) and mine["cost_today_complete"])
+        ctx.check(f"GET live's own entry: {mine}", _near(mine["cost_today"]) and mine["cost_today_complete"])
         live = history.read(path)
         ctx.check(f"the replay (Live's total): the sub-agent once: {live['cost_usd']}", _near(live["cost_usd"]))
-        row = fleet_api.history(state, role="main")[0]
+        row = live_agents_api.history(state, role="main")[0]
         ctx.check(f"History's row: {row['cost_usd']}", _near(row["cost_usd"]))
         facts = replay_facts.session_facts(path)
         ctx.check(f"the record's figures: {facts['cost_usd']} unknown {facts['cost_unknown']}", _near(facts["cost_usd"]) and facts["cost_unknown"] == [])
@@ -105,8 +105,8 @@ def test_one_finished_session_with_a_sub_agent_tells_one_number(ctx: Ctx):
         ctx.check(f"the compare row: {cost_row['a']}", _near(cost_row["a"]["value"]) and not cost_row["a"].get("unknown"))
         view = {"harnesses": [local_view.harness_entry([], state)]}
         spent = caps.spend(view, now)
-        ctx.check(f"the caps' harness and fleet figures: {spent['harnesses']} {spent['fleet']}",
-                  _near(spent["harnesses"][0]["usd"]) and _near(spent["fleet"]) and spent["complete"])
+        ctx.check(f"the caps' harness and total figures: {spent['harnesses']} {spent['total']}",
+                  _near(spent["harnesses"][0]["usd"]) and _near(spent["total"]) and spent["complete"])
 
 
 @test

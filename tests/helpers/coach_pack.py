@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 PACK = REPO / "halo_harness" / "templates" / "packs" / "coach"
 ENGINE = ("coach", "coach_apply", "coach_ask", "coach_citations", "coach_compare", "coach_compose", "coach_experience",
-          "coach_library", "coach_library_share", "coach_mission_rules", "coach_orchestra_rules", "coach_probe",
+          "coach_library", "coach_orchestra_rules", "coach_probe",
           "coach_probe_card", "coach_probe_prompt", "coach_probe_schema", "coach_record", "coach_rules", "probe_overlay",
           "probe_runs")
 IMPROVE = ("apply", "config", "dismissed", "draft", "evidence")
@@ -74,13 +74,23 @@ def enable(state: Path, cwd=None):
 
 
 def on() -> None:
-    """The coach pack runs in every scratch home of this process and its children (PACKS_TEST_SHIPPED, as
-    tests/helpers/fleet_pack.on() does for the fleet; 3.4.0.0: the fleet's coach_library and mission coach reach it)."""
-    from tests.helpers.fleet_pack import shipped
+    """The coach pack runs in every scratch home of this process and its children (PACKS_TEST_SHIPPED)."""
     shipped("coach", True)
 
 
 def off() -> None:
-    from tests.helpers.fleet_pack import shipped
     shipped("coach", False)
+
+
+def shipped(pack: str, run: bool) -> None:
+    """Add `pack` to (or drop it from) PACKS_TEST_SHIPPED, keeping any other pack there."""
+    import os
+    ids = [x.strip() for x in os.environ.get("PACKS_TEST_SHIPPED", "").split(",") if x.strip() and x.strip() != pack]
+    ids += [pack] if run else []
+    if ids:
+        os.environ["PACKS_TEST_SHIPPED"] = ",".join(ids)
+    else:
+        os.environ.pop("PACKS_TEST_SHIPPED", None)
+    from halo_harness.packs import registry
+    registry.invalidate()
 

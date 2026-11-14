@@ -1,19 +1,18 @@
-// Feeds the Fleet store: `GET fleet` on load, then the live feed keyed by
+// Feeds the live store: `GET live` on load, then the live feed keyed by
 // harness + session_id + agent_id: `agent_state` updates a row in place (a
 // new child lights its spawn edge for a few seconds), `agent_event` and the
 // raw `text_chunk` / `tool_use_start` / `tool_result` frames feed the
-// agent's stream (streams.ts), `fleet` frames (a member's `sessions`, join,
-// leave, online, offline; a local register / update / unregister) and the
-// local `sessions` frame refresh the tree. Remote session lists arrive as
-// `fleet` frames with action `sessions`, never as `sessions` frames (R2).
+// agent's stream (streams.ts), `registry` frames (a session's register /
+// update / unregister; 3.5.0.0: named `fleet` before) and the local
+// `sessions` frame refresh the tree.
 // Polling (POLL_MS) only while the feed is not open. Started once, by the
-// rail (every section shows it) or the first Fleet panel. 3.1.5.0 R3: a GET
+// rail (every section shows it). 3.1.5.0 R3: a GET
 // answer never undoes a newer agent_state frame (fresh.ts). 3.1.8.0 R6: a
 // session's own `message_end` and `status` frames move its figures (spend,
 // tokens, turns, context, model, busy: figures.ts) on the event the terminal's
 // status bar moves on, a GET never pulls them back (fresh.ts), an older GET
 // answer never lands after a newer one, and an agent leaving `waiting` reads
-// GET fleet again at once so the session's waiting state clears. 3.3.0.0 R7
+// GET live again at once so the session's waiting state clears. 3.3.0.0 R7
 // (a slow box): a frame that ends an agent (stopped / done / failed), or one
 // that moves an ended agent again, re-reads the view at once; while anything
 // runs the view is re-read every FLOOR_MS whatever frames come; a tab shown
@@ -21,8 +20,6 @@
 import { api, ApiError } from "../../lib/api";
 import { onEvent, onFeedState, type FeedFrame } from "../../lib/events";
 import { studio, toast } from "../../lib/store";
-import { startCaps } from "./caps";
-import { startMissions } from "./mload";
 import { startPanels } from "./pload";
 import { agentWith, FIGURE_KINDS, figuresOf, ownFrame, withFigures } from "./figures";
 import { keepFresh, noteFigures, noteFrame, noteMode } from "./fresh";
@@ -68,13 +65,13 @@ export async function load(): Promise<void> {
   lastAsk = asked;
   const mine = ++asks;
   try {
-    const v = await api.get<FleetView>("fleet");
+    const v = await api.get<FleetView>("live");
     if (mine < landed) return; // a newer answer already landed: this older one never undoes it
     landed = mine;
     const got = Array.isArray(v.harnesses) ? v.harnesses.map((h) => ({ ...h, sessions: h.sessions || [] })) : [];
     fleet.update((s) => {
       const harnesses = keepFresh(s.harnesses, got, asked);
-      return { harnesses, hub: v.hub || null, pack: v.fleet_pack === true, packLine: v.fleet_line || "", loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
+      return { harnesses, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
     });
   } catch (e) {
     if (mine < landed) return;
@@ -152,8 +149,6 @@ function onSessions(f: FeedFrame): void {
   const d = (f.data || {}) as { action?: string; sessions?: SessionRow[]; state?: string; error?: string; cmd?: string };
   const s = fleet.get();
   if (d.action === "attention") return; // the watcher's count (session_id null): the panels' store reads it (pload.ts)
-  if (d.action === "capabilities") return; // 3.0.6.0 R6: a catalog changed; caps.ts refetches the catalogs
-  if (d.action === "mission") return; // 3.0.6.0 R8: a mission moved; mload.ts reads it (its sessions come as sessions frames)
   if (d.action === "sessions" && Array.isArray(d.sessions) && f.harness && s.harnesses.some((h) => h.id === f.harness)) {
     fleet.update((st) => ({ harnesses: st.harnesses.map((h) => (h.id === f.harness ? { ...h, sessions: d.sessions! } : h)), lastFrame: Date.now() }));
     return;
@@ -202,14 +197,14 @@ function onRaw(f: FeedFrame): void {
   if (!s.streams[key]?.viaEvents) append(key, e);
 }
 
-/** Start once: the first GET, the feed handlers, the poll while the feed is down. `lite` (3.4.1.0 R4, the glance): the
- *  attention queue too, not the capability catalogs or the missions. */
-export function startFleet(lite = false): void {
+/** Start once: the first GET, the feed handlers, the poll while the feed is down, the attention queue. `_lite` (3.4.1.0
+ *  R4, the glance) is the same since 3.5.0.0. */
+export function startFleet(_lite = false): void {
   if (fleet.get().started) return;
   fleet.update(() => ({ started: true }));
   onEvent("agent_state", onAgentState);
   onEvent("agent_event", onAgentEvent);
-  onEvent("fleet", onSessions);
+  onEvent("registry", onSessions);
   onEvent("sessions", () => later("load", 400, () => void load()));
   for (const k of RAW) onEvent(k, onRaw);
   for (const k of FIGURE_KINDS) onEvent(k, onFigures);
@@ -230,7 +225,4 @@ export function startFleet(lite = false): void {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) later("load", 100, () => void load()); });
   void load();
   startPanels();
-  if (lite) return;
-  startCaps();
-  startMissions();
 }

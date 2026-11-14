@@ -102,12 +102,12 @@ halo --offline -p "reply with the single word pong" --model ol:qwen3-coder:30b
 ```
 
 #### `--private`
-Halo 3.0.5.0 (Fleet), Halo-only. What: this session registers nothing and
-opens no control socket, so Studio, `halo remote` and the fleet never see
-it (sets `HALO_FLEET_PRIVATE=1` for this process, so the Orchestra workers
+Halo 3.0.5.0, Halo-only. What: this session registers nothing and
+opens no control socket, so Studio and `halo remote` never see
+it (sets `HALO_PRIVATE=1` for this process, so the Orchestra workers
 it starts are private too; never written to `~/.halo/config.json`). The
-TUI shows a `private` chip; `/private off` lists it again; `fleet.private:
-true` makes every session private. See [FLEET.md](FLEET.md).
+TUI shows a `private` chip; `/private off` lists it again; `control.private:
+true` makes every session private. See [REMOTE.md](REMOTE.md).
 ```sh
 halo --private
 halo --private -p "summarize the diff"
@@ -116,13 +116,13 @@ halo --private -p "summarize the diff"
 #### `--headless`, `--session-for WHO`
 Halo 3.3.11.0 R2, Halo-only. What: a whole session with **no terminal** -- the loop the TUI runs, the same session
 log under `~/.halo/sessions/`, the control socket its only door (`halo_harness/headless_session.py`). Its registry row
-says `kind: headless` and `parent: <WHO>:<pid>` (`--session-for` names who started it, `studio` by default), so Fleet,
-the Map, Session and `halo studio --session` list it as a session of this harness. An ask (a permission, a question,
+says `kind: headless` and `parent: <WHO>:<pid>` (`--session-for` names who started it, `studio` by default), so Agents
+-> Live, the Map, Session and `halo studio --session` list it as a session of this harness. An ask (a permission, a question,
 a plan, an approval) waits until an `answer` comes through the socket -- Studio's Prompt panel; with no Studio page
-open, the Fleet attention row says "waiting on you in Studio". `/quit` through the socket's `slash`, the socket's
+open, the Attention row says "waiting on you in Studio". `/quit` through the socket's `slash`, the socket's
 `shutdown` (Studio's **End session**) or SIGTERM end it; it never stops the Studio that started it. Studio's **New
 session** runs `halo --headless --session-for studio --session-id <id> --cwd <folder> [--model <ref>]` detached
-([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)). With `-p`, `--private` or `fleet.enabled:
+([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)). With `-p`, `--private` or `control.enabled:
 false` it exits 2 and says why (each would leave it with no door). After End session, `halo --resume <id>` opens that session in a
 terminal like any other (the Prompt panel's **Open in terminal** copies that line).
 ```sh

@@ -8,7 +8,7 @@ defaults: each of the six panel sections (Session, Team, Roles, Fleet, Orchestra
 browser (localStorage cleared, `view=workspace`): the primary panel's box over the stage, the other panels'
 state (strips at the foot), the focused ornament (one `.panel.focused`, one set of HUD brackets, one mono data
 line), no about line anywhere; with --shots a PNG per section.
-strip: on Agents -> Live (`?mode=fleet`, 3.3.16.0 R2: the Fleet section went) the inspector's strip opens in the
+strip: on Agents -> Live (`?mode=agents`, 3.3.16.0 R2: the Fleet section went) the inspector's strip opens in the
 column right of the tree (the tree gives up its columns, nothing overlaps), a click moves the ornament to it, its ?
 opens its help on the about line, collapsing it gives the rows back.
 saved: Alt+Shift+Up on the focused tree saves a layout of its own; a reload keeps it (the badge); the header's
@@ -76,7 +76,7 @@ def defaults(c, url, ctx) -> dict:
 
 
 def strip(c, url, ctx) -> dict:
-    fresh(c, ctx, "fleet", "Agents")
+    fresh(c, ctx, "agents", "Agents")
     mp = q("[data-panel=roles-graph] .panel")
     c.wait(f"!!{mp}", 40)
     time.sleep(1.0)
@@ -105,7 +105,7 @@ def strip(c, url, ctx) -> dict:
 
 
 def saved(c, url, ctx) -> dict:
-    fresh(c, ctx, "fleet", "Agents")
+    fresh(c, ctx, "agents", "Agents")
     mp = q("[data-panel=roles-graph] .panel")
     c.wait(f"!!{mp}", 40)
     time.sleep(1.0)
@@ -114,7 +114,7 @@ def saved(c, url, ctx) -> dict:
     mod_key(c, "ArrowUp", 38, 9, "ArrowUp")  # Alt+Shift+Up: four rows shorter, the user's own layout
     time.sleep(0.6)
     out = {"map_mine": c.js(f"{RECT}({mp})"), "map_default": before, "key": c.js("!!localStorage.getItem('halo.studio.layout.roles')")}
-    load(c, ctx, "fleet", "Agents")
+    load(c, ctx, "agents", "Agents")
     c.wait(f"!!{mp}", 40)
     time.sleep(1.0)
     out["map_reload"] = c.js(f"{RECT}({mp})")

@@ -3,10 +3,12 @@ and that nothing of it is left behind.
 
 1. `halo team` answers one line (it left in 3.4.0.0, and what does its job now) and exits 2; the team package,
    its Studio routes and its Attention rows are gone; the lineups (`halo teams`) are untouched.
-3. The import rule (3.4.0.0 B2; C: the fleet too): no module of halo_harness outside templates/ imports a shipped
-   pack's code, and no shipped pack imports another pack's.
+3. The import rule (3.4.0.0 B2): no module of halo_harness outside templates/ imports a shipped pack's code, and no
+   shipped pack imports another pack's.
 2. `halo start` with its pack off: one line naming the pack and how to get it (/start the same); B2: `halo coach` and
    `halo improve` the same, and nothing of the coach is left in the core.
+4. 3.5.0.0 "Fleet leaves": `halo fleet` and `halo mission` answer one line and exit 2; no fleet name is importable
+   from the core and the package ships no `templates/packs/fleet`.
 """
 
 from __future__ import annotations
@@ -56,8 +58,6 @@ def test_nothing_of_the_team_file_is_left(ctx: Ctx):
     ctx.check("no stage unit kind, no team run kind", "stage" not in states.KINDS and "team" not in store.RUN_KINDS)
     ctx.check("orchestra_run lives on in orchestra/to_report.py",
               importlib.util.find_spec("halo_harness.orchestra.to_report") is not None)
-    ctx.check("FleetDelegate lives on in the fleet pack's fleet/delegate.py (3.4.0.0 C)",
-              (REPO / "halo_harness" / "templates" / "packs" / "fleet" / "fleet" / "delegate.py").is_file())
 
 
 @test
@@ -116,17 +116,38 @@ def test_no_core_module_imports_a_shipped_pack(ctx: Ctx):
             for n in names:
                 if n.startswith("halo_packs") or n in _LEFT_FOR_PACKS or n.startswith(_LEFT_FOR_PACKS[4] + ".") \
                         or re.match(r"halo_harness\.(orchestra\.(coach\w*|probe_runs|probe_overlay)|fleet)(\.|$)", n):
-                    bad.append(f"{rel}:{node.lineno}: {n}")  # fleet: the fleet pack's (3.4.0.0 C; packs/fleet_door)
+                    bad.append(f"{rel}:{node.lineno}: {n}")
     ctx.check("no core import of a shipped pack's code:\n  " + "\n  ".join(bad), not bad)
     hard = [f"{p.relative_to(REPO).as_posix()}: {m}" for p in sorted((pkg / "templates" / "packs").rglob("*.py"))
             for m in re.findall(r"^\s*(?:from|import)\s+(halo_packs\.\w+)", p.read_text(encoding="utf-8"), re.M)
             if m.split(".")[1] != p.relative_to(pkg / "templates" / "packs").parts[0]]
-    ctx.check("a shipped pack never imports another pack (the coach and fleet packs ask through ext.core's "
-              "packs.fleet_door / packs.contrib_cli, none when the other is off):\n  " + "\n  ".join(hard), not hard)
+    ctx.check("a shipped pack never imports another pack (a pack asks through ext.core's packs.contrib_cli, none "
+              "when the other is off):\n  " + "\n  ".join(hard), not hard)
     still = [p.relative_to(REPO).as_posix() for p in list(pkg.glob("orchestra/coach*.py"))
              + list(pkg.glob("orchestra/probe_*.py")) + [pkg / "improve", pkg / "coach_cli.py", pkg / "improve_cli.py"]
              if p.exists()]
     ctx.check(f"the coach's files are the pack's only, got {still}", not still)
+
+
+@test
+def test_fleet_left_and_nothing_of_it_is_importable(ctx: Ctx):
+    """3.5.0.0: Fleet is not part of Halo Harness; the verbs answer one line, no fleet module is left in the core."""
+    for argv in (["fleet", "status"], ["mission", "new", "x"]):
+        rc, out, err = _main(argv)
+        ctx.check(f"halo {argv[0]}: exit 2, the one line, got {rc} {err!r}", rc == 2 and not out
+                  and err.strip() == f"halo {argv[0]}: Fleet is not part of Halo Harness any more (it left in 3.5.0.0); "
+                  "it is a separate pack.")
+    gone = ("halo_harness.fleet", "halo_harness.packs.fleet_door", "halo_harness.packs.fleet_migrate",
+            "halo_harness.packs.fleet_registry", "halo_harness.packs.fleet_rules", "halo_harness.studio.fleet_view_api",
+            "halo_harness.studio.fleet_api", "halo_harness.studio.fleet_hub_api", "halo_harness.studio.fleet_panels_api",
+            "halo_harness.remote.fleet_identity", "halo_harness.remote.fleet_frames", "halo_harness.remote.cli_fleet")
+    left = [m for m in gone if importlib.util.find_spec(m) is not None]
+    ctx.check(f"no fleet module in the core, got {left}", not left)
+    named = sorted(p.relative_to(REPO).as_posix() for p in (REPO / "halo_harness").rglob("*fleet*.py")
+                   if "__pycache__" not in p.parts)
+    ctx.check(f"no Python module of the package is named fleet, got {named}", not named)
+    ctx.check("the package ships no templates/packs/fleet",
+              not (REPO / "halo_harness" / "templates" / "packs" / "fleet").exists())
 
 
 if __name__ == "__main__":

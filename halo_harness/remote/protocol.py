@@ -89,7 +89,7 @@ def _message(handle, req: dict) -> dict:
     log = getattr(handle.session, "log", None)
     if log is not None:
         try:
-            log.append_meta(fleet_note=line)
+            log.append_meta(control_note=line)
         except Exception:
             pass
     from halo_harness.remote.agent_control import _announce

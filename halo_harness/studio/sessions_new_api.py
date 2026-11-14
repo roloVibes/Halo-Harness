@@ -92,7 +92,7 @@ def argv_for(sid: str, cwd: Path, model: str) -> list:
 
 def spawn(argv: list, log: Path, cwd: Path) -> subprocess.Popen:
     """Detached as studio/launch.py detaches Studio: no console, its own group (Windows) or session (POSIX)."""
-    from halo_harness.remote.fleet_identity import PARENT_ENV
+    from halo_harness.remote.session_identity import PARENT_ENV
     log.parent.mkdir(parents=True, exist_ok=True)
     env = {**os.environ, PARENT_ENV: f"studio:{os.getpid()}"}
     kwargs: dict = {"stdin": subprocess.DEVNULL, "stderr": subprocess.STDOUT, "cwd": str(cwd), "env": env}

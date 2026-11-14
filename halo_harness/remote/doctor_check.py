@@ -2,7 +2,8 @@
 bridge's rows left with it for the signal pack). `entries()` returns `[(id, line)]` in the doctor's own `[OK]` /
 `[WARN]` vocabulary (so `halo doctor --json` gets the same `{id, status, message, fix}` records as every other check):
 
-    remote             the control sockets (fleet.enabled), remote.enabled, the live sessions, the transports listening
+    remote             the control sockets (control.enabled), remote.enabled, the live sessions, the transports listening
+    fleet_keys         3.5.0.0: the `fleet.*` keys config.json still holds that nothing reads (only when there are some)
     service_<pack>_<name>   one row per pack service the supervisor knows (supervise/services_rows.py): running is OK;
                        an autostart service that is stopped or failed is a WARN with its line (the signal pack's bridge
                        says here what it needs: signal-cli, an account, the supervisor)
@@ -33,7 +34,7 @@ def _control_line() -> str:
     from halo_harness.remote import runtime
     from halo_harness.remote.notify import listening
     count = _live_count()
-    sockets = "on (fleet.enabled)" if runtime.fleet_enabled() else "off (fleet.enabled is false)"
+    sockets = "on (control.enabled)" if runtime.control_enabled() else "off (control.enabled is false)"
     names = listening()
     switch = "remote.enabled on" if runtime.remote_enabled() else "remote.enabled off (every transport silent)"
     return (f"{OK} Remote control: control sockets {sockets}, {switch}, transports listening: "
@@ -57,5 +58,18 @@ def service_entries() -> list:
     return out
 
 
+def fleet_keys_entry() -> list:
+    """3.5.0.0: one WARN naming the `fleet.*` keys config.json still holds that nothing reads (config/renamed_keys.py)."""
+    try:
+        from halo_harness.config.renamed_keys import doctor_line
+        from halo_harness.config.paths import bridge_home
+        import json
+        path = bridge_home() / "config.json"
+        line = doctor_line(json.loads(path.read_text(encoding="utf-8"))) if path.is_file() else ""
+    except (OSError, ValueError):
+        return []
+    return [("fleet_keys", _fix(f"{WARN} {line}", see="docs/CONFIG.md (remove the fleet section from ~/.halo/config.json)"))] if line else []
+
+
 def entries() -> list:
-    return [("remote", _control_line())] + service_entries()
+    return [("remote", _control_line())] + fleet_keys_entry() + service_entries()

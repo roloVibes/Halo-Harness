@@ -65,7 +65,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "The cast, what runs now on every machine (a goal run too), and what ran", panels: [], view: AgentsView },
   { id: "local", title: "Local", kbd: "Alt+3", blurb: "The machines that serve models, and the models they serve", panels: mediaPanels(0), paged: true, view: LocalView, enter: enterLocal },
   { id: "packs", title: "Packs", kbd: "Alt+4", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
-  { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme, lineup and machines", panels: [], paged: true, view: SetupView, enter: enterSetup },
+  { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
   { id: "settings", title: "Settings", kbd: "Alt+6", blurb: "Every config key, one page per group", panels: [], paged: true, view: SettingsView, enter: enterSettings },
 ];
 
@@ -102,11 +102,6 @@ export function sections(): SectionDef[] {
 export function useSections(): SectionDef[] {
   usePacks((s) => s.reg);
   return sections();
-}
-
-/** 3.4.0.1 (live check, defect 28): Setup's line names machines only while the fleet pack runs (its Machines step). */
-export function blurbOf(def: SectionDef, fleetOff: boolean): string {
-  return def.id === "setup" && fleetOff ? def.blurb.replace(", lineup and machines", " and lineup") : def.blurb;
 }
 
 export function sectionDef(id: SectionId): SectionDef {

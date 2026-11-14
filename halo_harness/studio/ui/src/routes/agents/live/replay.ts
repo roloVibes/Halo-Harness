@@ -1,5 +1,5 @@
 // A replay on Live (3.3.18.0 "The living canvas"; 3.4.1.0 R1 "Time": with time): something past -- a session, a goal
-// run, a mission, a saved `.halo-replay` file -- or the session drawn now, rewound, on Live's canvas AS IT WAS at the
+// run, a saved `.halo-replay` file -- or the session drawn now, rewound, on Live's canvas AS IT WAS at the
 // scrubber's moment (timeline.ts nodesAt), muted, under a "replay -- <time>" banner. The scrubber under the canvas
 // (Scrubber.tsx) is the ONE replay control: drag, Play at 1x / 4x / 16x, Now. Opened from History's rows, a goal run's
 // report (Replay), a file chosen in History, `?replay=<id>` (`halo replay open`), the empty state's "Replay the last
@@ -7,18 +7,17 @@
 // nodes is a live agent (keys `replay|...`): no glow, no steer, no inspector.
 import { api, ApiError } from "../../../lib/api";
 import { createStore, goSection, toast, useStore } from "../../../lib/store";
-import { partState, type View } from "../../fleet/mstore";
 import type { LiveNode } from "../../roles/liveModel";
 import type { GroupTag } from "./groups";
 import type { Plan } from "./planStore";
-import { BLANK, fromNodes, fromSession, nodesAt, type SessionTimeline, type Timeline } from "./timeline";
+import { fromSession, nodesAt, type SessionTimeline, type Timeline } from "./timeline";
 
-export type HistoryKind = "session" | "run" | "mission" | "file";
+export type HistoryKind = "session" | "run" | "file";
 /** A saved replay file's payload (live/replay_file.py, format halo-replay version 1). */
 export type ReplayFile = SessionTimeline & { format: string; version: number; id: string; saved: number | null; plan: Plan | null; includes?: string[] };
 export type LiveReplay = {
   kind: HistoryKind; id: string; title: string; ended: number | null; tl: Timeline; t: number; playing: boolean; speed: number;
-  /** the session behind it (what Save writes; "" for a run or a mission), and whether it is the one running now */
+  /** the session behind it (what Save writes; "" for a run), and whether it is the one running now */
   sid: string; live: boolean; plan: Plan | null; nodes: LiveNode[];
 };
 
@@ -41,19 +40,6 @@ function runDressed(tl: Timeline, run: string, title: string): Timeline {
     ? { ...n, run, lane: Number(n.id.slice(5)) || 0, group: block } : n)) };
 }
 
-/** A mission's parts as they ended, under one node for the mission. */
-export function missionNodes(v: View): LiveNode[] {
-  const root = `mission:${v.mission.id}`;
-  const out: LiveNode[] = [{ ...BLANK, id: root, parent: null, name: "mission", role: "mission", state: str(v.mission.state), task: str(v.summary?.goal),
-                             cost: num(v.summary?.cost_usd), started: num(v.summary?.created), ended: num(v.summary?.ended) }];
-  for (const p of v.plan?.parts || []) {
-    const run = v.mission.parts?.[p.id];
-    out.push({ ...BLANK, id: `${root}:${p.id}`, parent: root, name: str(p.title), role: str(p.kind), state: partState(v, p.id), task: str(p.brief),
-               cost: num(run?.cost_usd), started: num(run?.started), ended: num(run?.ended) });
-  }
-  return out;
-}
-
 function put(r: Omit<LiveReplay, "nodes" | "playing" | "speed" | "t">, at: number | null): void {
   window.clearInterval(timer);
   const t = Math.max(r.tl.t0, Math.min(r.tl.t1, at ?? r.tl.t1));
@@ -67,19 +53,15 @@ export async function openLiveReplay(kind: HistoryKind, id: string, title: strin
   try {
     let tl: Timeline, ended: number | null;
     if (kind === "session") {
-      const meta = await api.get<SessionTimeline>("fleet/replay", { session: id, harness: "local" });
+      const meta = await api.get<SessionTimeline>("live/replay", { session: id, harness: "local" });
       tl = fromSession(meta, id);
       ended = num(meta.ended);
       title = meta.title || title; // the session's own title over the row's words
-    } else if (kind === "run") { // 3.4.1.1 (60): from its record's own times (each lane's states, each cost at its end)
-      const meta = await api.get<SessionTimeline>("fleet/replay", { run: id });
+    } else { // a goal run, 3.4.1.1 (60): from its record's own times (each lane's states, each cost at its end)
+      const meta = await api.get<SessionTimeline>("live/replay", { run: id });
       title = meta.title || title;
       tl = runDressed(fromSession(meta, id), id, title);
       ended = num(meta.ended);
-    } else {
-      const v = await api.get<View>(`fleet/missions/${encodeURIComponent(id)}`);
-      ended = num(v.summary?.ended) ?? num(v.summary?.updated);
-      tl = fromNodes(missionNodes(v), ended, id);
     }
     if (!tl.base.length) {
       toast("Nothing to replay: it left no agents", "info", 4000);

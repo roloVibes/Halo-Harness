@@ -1,7 +1,7 @@
 # Coach
 
 The post-run coach, as a pack (Halo 3.4.0.0; part of Halo's core from 3.0.9.0 until then). It reads a finished run's
-files -- an Orchestra run or a mission -- and suggests what to change next time: a bio's prompt, model or tools, a
+files -- an Orchestra run -- and suggests what to change next time: a bio's prompt, model or tools, a
 lane's `after`, a gate that looped. Each card shows its evidence; Ask has the run's lead explain it in one paragraph,
 Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. A probe runs the
 goal again under two candidate overlays and keeps what beat the run; every Apply leaves an entry in the improvement
@@ -19,14 +19,13 @@ halo improve                           # draft candidates; halo improve --apply 
 
 With the pack on:
 
-- `halo coach`, `halo improve`, `/coach`, `/improve` (its verbs and slash commands); `halo orchestra coach` and `halo
-  fleet mission coach <id>` hand over to `halo coach`;
+- `halo coach`, `halo improve`, `/coach`, `/improve` (its verbs and slash commands); `halo orchestra coach` hands over to
+  `halo coach`;
 - a **Coach** panel in Studio's Agents section: pick a run, its cards, Ask, Apply (confirm first), Undo, Probe;
 - its rows in Studio's Settings under "From packs" (`packs.settings.coach.<key>`: probe.k, probe.budget_factor,
   library.cite, improve.enabled, improve.model, improve.since_days, improve.max_candidates) and in `halo config
   get/set`;
 - one row in `halo doctor` (what the coach keeps, the model /improve drafts with, or the grant its panel waits for);
-- the fleet's `coach_library` command (`halo coach library fetch` from another halo) answers from this box's library.
 
 With it off, `halo coach`, `halo improve`, `/coach` and `/improve` say in one line that the coach is a pack now and how
 to get it; there is no Coach panel, no Settings row and no doctor row, and the guided first run's step 6 says the same

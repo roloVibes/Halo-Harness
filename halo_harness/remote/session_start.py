@@ -65,7 +65,7 @@ def argv_for(sid: str, cwd: Path, model: str) -> list:
 
 def spawn_session(cwd: Path, model: str, state_dir=None) -> dict:
     """Start one detached headless session (as Studio's New session does); its row."""
-    from halo_harness.remote.fleet_identity import PARENT_ENV
+    from halo_harness.remote.session_identity import PARENT_ENV
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()

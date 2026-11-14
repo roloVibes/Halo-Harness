@@ -28,10 +28,10 @@ their own capability chips with each one's truth (verified, declared, expected).
 live"; 3.1.5.0 made it the dashboard; 3.3.2.0 opens it on Live): one live
 column of everything every agent here does, as it happens, fills the stage;
 the map of this harness's agents and what the chosen session costs wait as strips.
-The fleet's agent tree, timeline, log, attention queue and agent inspector, narrowed
-to this harness and the session you chose, plus two panels of its own,
-Live and Cost; Agents -> Live on the fleet keeps everything (3.3.16.0 R2). They are the same
-components (one implementation each) reading the fleet stores through one
+The agent tree, timeline, log, attention queue and agent inspector, narrowed
+to the session you chose, plus two panels of its own,
+Live and Cost; Agents -> Live keeps everything. They are the same
+components (one implementation each) reading the live stores through one
 scope, `{harness, session}`, which the section sets while it shows.
 
 Until this harness has a live session the section is its Start view, with **New session** (3.3.11.0 R2: the model, the folder, a session with no terminal at all: [A session without a terminal](STUDIO-session.md#a-session-without-a-terminal-33110-r2)); when a
@@ -51,7 +51,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    Studio opens here while a session of this harness is live.
 2. **Watch everything at once (Live)**: every agent's text, each tool call
    and its result, what it hands back and what it asks you land in one
-   column in the order they happen. Each line leads with the fleet log's
+   column in the order they happen. Each line leads with the live log's
    columns (3.1.7.0): the time, the kind (`TOOL`, `TEXT`, `THINK`, `OUT`,
    `ASK`, `SPAWN`, `STATE`, `YOU`, `ERR`) and the agent's tag: its own
    colour, its name and its state glyph (cyan works, amber waits, green
@@ -136,7 +136,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    start and end: the phase, the model, the turn) frames are the ones the
    terminal's status bar moves on, and Cost moves on the same frame; a frame
    that leaves a figure empty leaves it as it was, a sub-agent's frames
-   never move the session's figures, and a GET fleet answer read before the
+   never move the session's figures, and a GET live answer read before the
    frame never pulls a figure back. **Turns** are your turns in the session,
    the terminal's count (the turn a frame belongs to); per turn is the spend
    over them. An agent's own count on its line is its model **calls**. The spend is what the priced calls cost (3.3.3.1): when a model reports no price the figure and per turn carry a `+` whose title names the model ("main's model databricks-glm-5-3 reports no price: this is what the priced agents spent"), and main's line says "no price", never $0.0000, when main's own model is the unpriced one. A
@@ -156,7 +156,7 @@ waiting on you, $X" -- and the decisions that wait are the Attention queue's
    when something starts waiting on you ([STUDIO-live.md](STUDIO-live.md#the-glance)).
 
 **Panels.** Live (`session-live`): every agent here at once, what it types,
-runs, hands back and asks, in the fleet log's columns under this session's
+runs, hands back and asks, in the live log's columns under this session's
 timeline strip, with the Steer box at its foot. Map (`session-map`): your
 sessions on this machine as cards, each one's agents as a tree -- since 3.3.11.0 R2 the thumbnail of the tree Roles Live draws full size (**Open in Roles Live** on its bar). Cost
 (`session-cost`): the chosen session's spend and sparkline, the context bar, the tokens, your turns and cost
@@ -180,14 +180,13 @@ session read like the terminal, a box to type into it (the slash list, Queue it 
 too), and what ran"): Team, Roles and Orchestra folded into one section with its views on one switch, first on its bar
 -- **Cast** (`C`: the lineup and its bios, Roles as it was), **Live** (`L`: the session's agents as a tree, a goal run
 as a job with its lanes under its lead, Run a goal on its bar and History beside it -- 3.4.0.0 D: Runs, the Orchestra
-console, went, [STUDIO-orchestra.md](STUDIO-orchestra.md); 3.3.16.0 R2: a
-**this halo | fleet** switch, the fleet being every machine you run or joined, and the Attention chip). It opens on Live (3.3.18.0: only what
+console, went, [STUDIO-orchestra.md](STUDIO-orchestra.md); the Attention chip). It opens on Live (3.3.18.0: only what
 runs now, the past in History, [STUDIO-live.md](STUDIO-live.md)) with nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
 and `?mode=team` on Live (3.4.0.0 D: Runs went); `?mode=agents&view=cast|live|workflows` is the door itself. The whole story:
 [STUDIO-agents.md](STUDIO-agents.md).
 
-**Panels.** Cast and Live draw Roles' six (Lineups, Canvas, Inspector, Problems, Bios, Models); Live adds three
-optional ones, closed until a door opens them: Activity, Mission and a goal run's plan review (3.4.0.0 D; Runs' eight
+**Panels.** Cast and Live draw Roles' six (Lineups, Canvas, Inspector, Problems, Bios, Models); Live adds two
+optional ones, closed until a door opens them: Activity and a goal run's plan review (3.4.0.0 D; Runs' eight
 went). The header's `+` and `...` menus, the palette's panel rows and the status bar follow the view; **Workflows**
 (`W`) is the board of squares.
 
@@ -226,12 +225,12 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
    `Ctrl+Z` undoes any edit.
 7. **Watch it work**: while a session runs, the cards whose agents work
    glow; click one and the Live tab shows exactly what it types, with
-   Steer, Pause and Stop ([Live Roles](STUDIO-fleet.md#live-roles-the-lineup-lights-up)). A
+   Steer, Pause and Stop ([Live Roles](STUDIO-live-panels.md#live-roles-the-lineup-lights-up)). A
    finished session's replay plays back on the canvas.
 8. **Read the glow**: hover a glowing card's state glyph or its live badge
    and the card explains its glow (below). The tier box takes the strongest
    state of its cards, and the edges into a card take that card's colour.
-9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`; 3.3.16.0 R1: Agents' Live view, `?mode=agents&view=live`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model (3.3.15.0: without the provider prefix, the full id in the Inspector), cost and time, its state as the Session Map's nodes show it, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists every session the fleet carries, this harness first. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
+9. **See what really runs: Plan | Live** (3.3.11.0 R2; the switch first on the canvas bar, `L`, the palette's "Roles: Live", `?mode=roles&view=live[&session=<id>]`; 3.3.16.0 R1: Agents' Live view, `?mode=agents&view=live`). Plan is the lineup above; **Live** is the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, an edge from each parent, NOTHING dropped (an agent whose parent is not in the session hangs under "unknown parent"), so every agent Auto spawns is there even when it matches no card, 1:1 with the terminal's `/agents live`. A node shows its name, role, state, model (3.3.15.0: without the provider prefix, the full id in the Inspector), cost and time, its state as the Session Map's nodes show it, and an `auto` pick's reason ("picked at spawn: coder on <model> -- <why>"); the lineup card a node matches is a faint dashed group behind it. Layered layout (the Session Map's own), spread or compact, `+` / `-` and Fit (`F`; the first draw fits a tree wider than the page); a click selects the agent and the Inspector's Live tab follows it; `steer` and `...` on a node are the Map's. The session picker lists this harness's sessions. All of it reads the frames through one adapter, `ui/src/lib/work/record.ts`.
 
 **The glow, and when it comes and goes (3.1.5.0).**
 
@@ -320,19 +319,9 @@ Moved: Team's board went in 3.3.16.0 R1. Who owns what is a goal run's detail on
 lane's OWNS row, its Claims page; 3.4.0.0 D); `?mode=team` lands there with one line the first time. The team file and
 `halo team` left in 3.4.0.0.
 
-#### Fleet
-
-Moved: the Fleet section went in 3.3.16.0 R2; its pieces live where they belong. A machine's agents are Agents ->
-**Live** with the scope on **fleet** (`F` on the canvas, `?mode=fleet`): every machine as a box, its sessions as cards,
-each session's agents as a tree; the inspector follows the pick (the glance, a machine's summary with its specs and
-spend caps, one agent, a mission part). Attention is the chip in Agents' bar (`A`); Activity is an optional panel of
-Live; a mission's panel is Live's (`M`); pairing, sharing and the people are Setup -> **Machines**; the Ollama
-panel's card, traffic, fit plan and steward are Local -> **Hosts** and **Steward**. The whole story:
-[STUDIO-fleet.md](STUDIO-fleet.md).
-
 ### Local
 
-**What it is** (3.3.5.0). Local (`Alt+3`, the third core section since 3.3.16.0 R2; 3.3.16.0 R2 also gave it the Fleet section's Ollama panel) holds everything about the machines that serve your local models
+**What it is** (3.3.5.0). Local (`Alt+3`, the third core section since 3.3.16.0 R2) holds everything about the machines that serve your local models
 and the models they serve, paged like Settings: a page rail on the left (Resources, Hosts, Models, Library, Hugging Face, Logs,
 Benchmarks, Steward, Pool and Voice), one page on the right. **Resources** is the live view: a strip per host sampled once a second while
 the page is open (GPU use, VRAM and what holds it, RAM, CPU, the temperature, each number titled with its source) and the
@@ -365,7 +354,7 @@ on the Team page (`?block=team`); `halo init --terminal` is the terminal wizard.
 Reset to default and the exact `halo config set` line as its footer. A change saves at once and says when it takes effect (now,
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
 <title>`. All of it comes from one catalog, `halo_harness/settings_catalog.py` (docs/CONFIG.md's key table names each row's
-page); nothing opens on its own. `halo settings fleet` opens the Fleet page (`?mode=settings&group=fleet`), `halo settings
+page); nothing opens on its own. `halo settings remote` opens the Remote page (`?mode=settings&group=remote`), `halo settings
 --terminal` lists a group's keys in the terminal.
 
 **The Ollama page** (3.3.4.0) carries the steward's block above its rows: the job's status line, the model that writes

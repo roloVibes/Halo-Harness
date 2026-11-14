@@ -1,7 +1,7 @@
 """halo_harness.remote.cli -- `halo remote ...` (Halo 2.0.9).
 
     halo remote sessions               live halo sessions that opened a control socket
-    halo remote agents|steer|stop ...  one session's agent tree (3.0.5.0, cli_fleet.py)
+    halo remote agents|steer|stop ...  one session's agent tree (3.0.5.0, cli_agents.py)
     halo remote transports [--json]    3.3.13.0 R3: the transports listening here (a pack's bridge) and the notes seam
     halo remote signal ...             3.3.13.0 R3: one line -- the Signal bridge is the signal pack now
 """
@@ -45,7 +45,7 @@ def cmd_sessions() -> int:
     from halo_harness.remote import registry
     rows = registry.list_live()
     if not rows:
-        print("No live sessions with a control socket (start halo; fleet.enabled is on unless you turned it off, "
+        print("No live sessions with a control socket (start halo; control.enabled is on unless you turned it off, "
               "and a --private session never lists itself).")
         return 0
     print(f"{'SESSION':<10} {'PID':>7} {'KIND':<6} {'MODE':<12} {'AGE':>5}  CWD  ->  ENDPOINT   TITLE")
@@ -57,7 +57,7 @@ def cmd_sessions() -> int:
 
 
 def cmd_transports(argv: list) -> int:
-    from halo_harness.remote.fleet_identity import remote_enabled
+    from halo_harness.remote.session_identity import remote_enabled
     from halo_harness.remote.notify import listening
     names, on = listening(), remote_enabled()
     if "--json" in argv:
@@ -81,7 +81,7 @@ def cmd_remote(argv: list) -> int:
         print(SIGNAL_MOVED, file=sys.stderr)
         return 2
     if argv and argv[0] in ("agents", "steer", "stop"):
-        from halo_harness.remote import cli_fleet
-        return getattr(cli_fleet, "cmd_" + argv[0])(argv[1:])
+        from halo_harness.remote import cli_agents
+        return getattr(cli_agents, "cmd_" + argv[0])(argv[1:])
     print(USAGE, file=sys.stderr)
     return 2

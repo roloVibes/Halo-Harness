@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 
 from tests.helpers.fake_home import build_fake_home
-from tests.helpers.fleet_rig import text_step, tool_step, wait_for
+from tests.helpers.session_rig import text_step, tool_step, wait_for
 from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
 
 REPO = Path(__file__).resolve().parents[2]
@@ -57,7 +57,7 @@ def scenario(proj: Path):
 
 
 class HeadlessRig:
-    _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT")
+    _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET", "HALO_PRIVATE", "HALO_SESSION_PARENT")
 
     def __init__(self) -> None:
         self._saved = {k: os.environ.get(k) for k in self._VARS}

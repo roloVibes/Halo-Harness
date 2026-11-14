@@ -1,6 +1,6 @@
 """halo_harness.live.pack_attention -- a pack's own rows in the attention
-queue (Halo 3.2.0.0 R3; fleet/attention.py builds the queue,
-studio/fleet_answer.py routes the keys; docs/EXTENSION_API.md "Studio
+queue (Halo 3.2.0.0 R3; live/attention.py builds the queue,
+studio/live_answer.py routes the keys; docs/EXTENSION_API.md "Studio
 contributions").
 
 A pack declares its row kinds in pack.yaml under
@@ -86,7 +86,7 @@ def answer(req, row: dict, key: str, text: str):
     """`(status, body, label)`: the answer file written, the row file removed."""
     from halo_harness.packs import names as N
     from halo_harness.privateio import write_private_atomic
-    from halo_harness.studio.fleet_watch_sources import by
+    from halo_harness.studio.live_watch_sources import by
     t, label = row.get("target") or {}, row["keys"][key]
     pack_id, rid = str(t.get("pack") or ""), str(t.get("row") or "")
     if not N.is_valid_pack_id(pack_id) or not N.is_valid_name(rid):
@@ -107,4 +107,4 @@ def answer(req, row: dict, key: str, text: str):
 
 def open_target(row: dict) -> dict:
     t = row.get("target") or {}
-    return {"section": t.get("section") or "fleet", "panel": "" if t.get("section") else "fleet-attention"}
+    return {"section": t.get("section") or "live", "panel": "" if t.get("section") else "fleet-attention"}

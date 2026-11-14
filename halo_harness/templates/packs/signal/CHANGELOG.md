@@ -3,6 +3,10 @@
 Each release of the pack, newest first: the version (pack.yaml's `version`), the date, what changed for the person
 who runs it. A change they must act on also gets a `migrations` entry in pack.yaml.
 
+## 1.0.1 - unreleased (ships with Halo 3.5.0.0)
+
+- `/fleet` is `/live` (this harness's sessions and what waits on you), over `ext.remote.live_lines`.
+
 ## 1.0.0 - unreleased (ships with Halo 3.3.13.0)
 
 - The Signal bridge leaves Halo's core (`halo remote signal`) and becomes this pack, and a conversation:

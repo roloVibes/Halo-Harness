@@ -1,8 +1,7 @@
 """tests.helpers.studio_session_links -- the links into the Session dashboard
-(Halo 3.1.4.0 R2), the `links` step of tests/helpers/studio_session.py: 3.3.16.0 R2 (the Fleet section and its
-Tree panel went): this harness's agent clicked on Agents -> Live (the fleet scope) has Watch in Session in the
-inspector, which opens Session on it, while a member's agent stays in Live's inspector; a node's `...` menu has Open
-in Session on this harness's nodes only; the Roles Live tab's header has Watch in Session for a
+(Halo 3.1.4.0 R2), the `links` step of tests/helpers/studio_session.py: this harness's agent clicked on Agents ->
+Live has Watch in Session in the inspector, which opens Session on it; a node's `...` menu has Open in Session; the
+Roles Live tab's header has Watch in Session for a
 working card's agent; a live Orchestra run's line has it for the run's
 session (a run folder whose lead is this harness's session, marked live the
 way studio/orchestra_live.py marks the one it drives)."""
@@ -53,12 +52,12 @@ def live_run(rig):
 
 def links(c, rig) -> dict:
     from halo_harness.peers.identity import harness
-    from tests.helpers.studio_fleet import card, card_click
+    from tests.helpers.studio_live import card, card_click
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
     impl, res = rig.agent("Implement").get("agent_id"), rig.agent("Research").get("agent_id")
-    c.go(url(rig, "mode=fleet"))
-    c.wait(f"{inside('agents', 'fleet-box')}.length === 2", 30)
+    c.go(url(rig, "mode=agents&view=live"))
+    c.wait(f"{inside('agents', 'roles-live-node')}.length === 3", 30)
     click_node(c, rail_node(hid, impl))
     watch = "document.querySelector('[data-section=\"agents\"] [data-testid=\"roles-watch-session\"]')"
     c.wait(f"!!{watch}", 15)
@@ -66,20 +65,12 @@ def links(c, rig) -> dict:
     out["rail_local_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["rail_local_agent"] = c.wait(f"{AGENT}?.dataset.key === '{hid}|{sid}|{impl}' && 'implementer'", 15)
     c.click_on("document.querySelector('.rail [data-testid=section-tab][data-tab-id=agents]')")  # back to Agents, still on Live
-    click_node(c, rail_node(rig.member_id, "main"))
-    out["rail_member_tab"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
-    out["rail_member_agent"] = c.wait(f"{FLEET_AGENT}?.dataset.key?.startsWith('{rig.member_id}|') && 'member'", 15)
     c.js(f"({fleet_node('researcher')}).scrollIntoView({{block: 'center'}}); 1")
     c.click_on(f"{fleet_node('researcher')}.querySelector('.rlm-more')")
     out["menu_local"] = menu_items(c)
     c.click_on("document.querySelector('[data-testid=\"fleet-node-menu\"] [data-item=\"session\"]')")
     out["menu_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["menu_agent"] = c.wait(f"{AGENT}?.dataset.key === '{hid}|{sid}|{res}' && 'researcher'", 15)
-    c.go(url(rig, "mode=fleet&page=2"))  # another URL than the page's own, so it loads afresh
-    c.wait(f"{inside('agents', 'fleet-box')}.length === 2", 30)
-    c.click_on(f"[...{inside('agents', 'roles-live-node')}].find((n) => n.dataset.key.startsWith('{rig.member_id}|')).querySelector('.rlm-more')")
-    out["menu_member"] = menu_items(c)
-    c.key("Escape")
     c.go(url(rig, "mode=roles"))
     c.wait("document.querySelectorAll('[data-testid=\"roles-card\"][data-live]').length >= 3", 30)
     card_click(c, card("implementer"))
@@ -88,7 +79,7 @@ def links(c, rig) -> dict:
     out["roles_tab"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
     out["roles_agent"] = c.wait(f"{AGENT}?.dataset.key === '{hid}|{sid}|{impl}' && 'implementer'", 15)
     live_run(rig)
-    c.go(url(rig, "mode=agents&view=live&plan=off&scope=here"))  # 3.4.0.0 D: the run's lead on Live; its summary carries Watch in Session
+    c.go(url(rig, "mode=agents&view=live&plan=off"))  # 3.4.0.0 D: the run's lead on Live; its summary carries Watch in Session
     lead = "document.querySelector('[data-testid=\"agents-live-lead\"]')"
     c.wait(f"!!{lead}", 30)
     c.click_on(lead)

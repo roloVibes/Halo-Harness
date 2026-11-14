@@ -66,7 +66,7 @@ def _call(rig, method: str, path: str, body=None, *, token: "str | None" = "", o
 def _row(rig, timeout: float = 30.0) -> dict:
     deadline = time.time() + timeout
     while time.time() < deadline:
-        status, got = _call(rig, "GET", "fleet/attention")
+        status, got = _call(rig, "GET", "live/attention")
         rows = [r for r in got.get("rows") or [] if r.get("kind") == "permission"] if status == 200 else []
         if rows:
             return rows[0]
@@ -77,10 +77,10 @@ def _row(rig, timeout: float = 30.0) -> dict:
 @test
 def test_every_glance_route_refuses_without_the_token_or_from_another_origin(ctx: Ctx):
     with _rig() as rig:
-        routes = [("GET", "glance/door"), ("GET", "fleet"), ("GET", "fleet/attention"), ("GET", "fleet/caps"),
-                  ("GET", "fleet/conflicts"), ("GET", "fleet/costs"),
+        routes = [("GET", "glance/door"), ("GET", "live"), ("GET", "live/attention"), ("GET", "live/caps"),
+                  ("GET", "live/conflicts"), ("GET", "live/costs"),
                   ("GET", "settings/values"), ("GET", "settings/catalog"), ("GET", f"sessions/{rig.sid}/agents/main/tail?n=5"),
-                  ("POST", "fleet/attention/answer")]
+                  ("POST", "live/attention/answer")]
         for method, path in routes:
             ctx.check(f"{method} {path}: no token -> 401", _call(rig, method, path, token=None)[0] == 401)
             ctx.check(f"{method} {path}: a wrong token -> 401", _call(rig, method, path, token="not-the-token")[0] == 401)
@@ -91,22 +91,22 @@ def test_every_glance_route_refuses_without_the_token_or_from_another_origin(ctx
         ctx.check("the feed: no token -> 403", fetch(events)[0] == 403)
         ctx.check("the feed: a wrong token -> 403", fetch(events + "&t=not-the-token")[0] == 403)
         ctx.check("the feed: another origin -> 403", fetch(f"{events}&t={rig.server.token}", headers={"Origin": EVIL})[0] == 403)
-        ctx.check("with the token they answer", _call(rig, "GET", "glance/door")[0] == 200 and _call(rig, "GET", "fleet/caps")[0] == 200)
+        ctx.check("with the token they answer", _call(rig, "GET", "glance/door")[0] == 200 and _call(rig, "GET", "live/caps")[0] == 200)
 
 
 @test
 def test_an_answer_needs_the_owners_proof(ctx: Ctx):
     from halo_harness.studio.owner_proof import NEEDS_OWNER, needs_owner
-    ctx.check("fleet/attention/answer is an owner route", needs_owner("POST", "fleet/attention/answer")
-              and not needs_owner("GET", "fleet/attention"))
+    ctx.check("live/attention/answer is an owner route", needs_owner("POST", "live/attention/answer")
+              and not needs_owner("GET", "live/attention"))
     with _rig() as rig:
         rig.ask("ask")
         row = _row(rig)
         ctx.check(f"the card is a row of the queue: {row.get('id')}", str(row.get("id", "")).endswith(":perm_1"))
-        status, got = _call(rig, "POST", "fleet/attention/answer", {"id": row.get("id"), "key": "a"}, owner=False)
+        status, got = _call(rig, "POST", "live/attention/answer", {"id": row.get("id"), "key": "a"}, owner=False)
         ctx.check(f"the token alone: 403 naming the owner's page, got {status} {got}", status == 403 and got.get("error") == NEEDS_OWNER)
         ctx.check("and the card still waits", rig.decision("perm_1") is None)
-        status, got = _call(rig, "POST", "fleet/attention/answer", {"id": row.get("id"), "key": "a"})
+        status, got = _call(rig, "POST", "live/attention/answer", {"id": row.get("id"), "key": "a"})
         deadline = time.time() + 20
         while rig.decision("perm_1") is None and time.time() < deadline:
             time.sleep(0.1)

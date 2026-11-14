@@ -1,7 +1,6 @@
 """halo_harness.peers.hub_host_cmd -- a Studio command sent to a halo host, no member session needed (Halo 3.3.7.0 R2;
 docs/HOST.md "Peers act through the host").
 
-Before R2 every hub-to-member command needed a live session there (`hub_commands.send` -> `member.link_for(sid)`).
 A machine that runs `halo host` takes the command itself, through the host's typed vocabulary, signed with this
 harness's own pair key for that host (fleet.json's `hosts`). Studio's Load / Unload / Probe / Bench / Twin verify /
 Pull / Delete map onto the host's operations:
@@ -11,9 +10,7 @@ Pull / Delete map onto the host's operations:
     twin-verify -> control/verify_twin {model, window?}      pull -> manage/pull {model}
     delete -> manage/delete {model, force?}                  (copy / rename / twin creation: not in the vocabulary)
 
-    for_member(hub, member_name) -> HostClient | None     the paired host the member announced (fleet/hub_hosts.py)
-    member_controls(hub, member_name, who) -> controls | None   a member with no live session: its host, or the line
-    send(client, act, fields, *, port) -> (status, answer)  one op; a queued request (fleet.allow_control: ask
+    send(client, act, fields, *, port) -> (status, answer)  one op; a queued request (host.allow_control: ask
                                                             there) answers 202 with the owner's line
 """
 
@@ -52,40 +49,3 @@ def send(client, act: str, fields: dict, *, port: int) -> "tuple[int, dict]":
     if got.get("queued"):
         return 202, {**got, "ok": False, "error": got.get("line"), "say": got.get("line"), "via": "host"}
     return 200, {**got, "via": f"halo host at {client.addr}"}
-
-
-def for_member(hub, member_name: str):
-    """The paired halo host a member of this hub announced (its url or fingerprint matched in fleet.json `hosts`)."""
-    from halo_harness.peers import hub_hosts, identity, store
-    from halo_harness.ollama_steward.host_client import HostClient
-    if hub is None or not member_name:
-        return None
-    row = next((r for r in hub_hosts.listing(hub.home) if r.get("member") == member_name), None)
-    if row is None:
-        return None
-    for e in store.hosts(hub.home):
-        if e.get("state", "joined") != "joined":
-            continue
-        if (row.get("fingerprint") and e.get("fingerprint") == row["fingerprint"]) or e.get("url") == row.get("url"):
-            key = store.key_for(e, hub.home)
-            return HostClient(e, key, identity.harness(hub.home)["id"]) if key else None
-    return None
-
-
-def member_controls(hub, member_name: str, who: dict) -> Optional[dict]:
-    """A member with no live session: the halo host it announced takes the command when this hub is paired with it
-    (studio/local_host_acts.host_controls); else the line that says how; None when it announced none."""
-    from halo_harness.peers import hub_hosts
-    row = next((r for r in hub_hosts.listing(hub.home) if r.get("member") == member_name), None) if hub else None
-    if row is None:
-        return None
-    c = for_member(hub, member_name)
-    if c is None:
-        return {"ok": False, "via": "", "why": f"{member_name} has no live session, and its halo host at {row.get('url')} "
-                f"is not paired here: `halo host join {row.get('url')} --code ...` on this machine (a code from `halo host "
-                "pair` there) and Load goes through it with no session", **who}
-    from halo_harness.studio.local_host_acts import host_controls
-    rows = [r for r in c.entry.get("serves") or [] if isinstance(r, dict)]
-    url = f"http://{rows[0].get('addr')}:{rows[0].get('port')}" if rows else ""
-    got = host_controls(url, member_name) if url else None
-    return {**got, **who} if got else None

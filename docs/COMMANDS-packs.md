@@ -23,8 +23,8 @@ One line per pack here: id, version, state (`enabled`, `enabled, not
 running`, `disabled`, `not installed (found in place)`), scope (`project` or
 `user`), source and what it offers (3.4.0.1: CLI verbs, slash commands,
 doctor rows and Studio server modules first, then bios, lineups, agents,
-skills, commands, MCP servers, hook events: the fleet pack offers "2 CLI
-verbs, 2 slash commands, 1 doctor row, 5 Studio server modules"). `--json`
+skills, commands, MCP servers, hook events: the coach pack offers "2 CLI
+verbs, 2 slash commands, 1 doctor row, ..."). `--json`
 prints `{"packs": [...]}`. With no pack here it says so and that the packs
 Halo ships are listed by `halo pack list --available`.
 
@@ -61,10 +61,9 @@ requests with what needs it and whether it is granted, its settings
 (defaults with yours on top) and its problems. 3.2.0.0 R4: a "contributes:"
 block lists what it adds to Studio (sections and their panels, panels in a
 core section, palette lines, the settings form, event lines, attention rows)
-and to the fleet (each capability, available here or not and why, against
-this harness's cached capabilities catalog; its inspector lines and mission
-metadata). A path inspects a pack folder before you install it. `--json`
-adds `bios`, `lineups` and `contributes: {studio, fleet}`.
+and its capabilities (each one, available here or not and why; its inspector
+lines). A path inspects a pack folder before you install it. `--json`
+adds `bios`, `lineups` and `contributes: {studio, capabilities}`.
 
 ```sh
 $ halo pack inspect doc-review
@@ -83,10 +82,9 @@ contributes:
   the settings form (its first section's Settings panel)
   event lines: review.done
   attention rows: review.ask
-  fleet capability docs.review: available here (tools: or:anthropic/claude-sonnet-4.6; bash granted); 2 at once
+  capability docs.review: available here (tools: or:anthropic/claude-sonnet-4.6; bash granted); 2 at once
     Reviews a repo's documents for dead links, heading order and style
-  mission inspector line: Review checklist (fleet/checklist.md)
-  mission metadata: review=docs, style=short
+  inspector line: Review checklist (capabilities/checklist.md)
 ```
 
 ### `halo pack install`
@@ -104,8 +102,8 @@ says "`<id> <version> is already installed at <folder>: nothing to do`" and
 exits 0; another version says "`... is already installed at <folder>;
 <source> holds <version>: halo pack update <id>`" and exits 1. A pack
 installed from the packs Halo ships that is older than the one this Halo
-ships is said by `halo pack list` ("`(1.0.2 ships with this Halo: halo pack
-update fleet)`", `--json` `ships`), `halo pack inspect`, `halo pack doctor`,
+ships is said by `halo pack list` ("`(1.0.1 ships with this Halo: halo pack
+update coach)`", `--json` `ships`), `halo pack inspect`, `halo pack doctor`,
 `halo doctor` and Studio's Packs.
 
 #### `--project`
@@ -242,7 +240,7 @@ required pack, a requires cycle, a contribution whose permission is not
 granted, settings outside the pack's schema, a capability set no model in
 your catalog has (one row per set, naming the bios that fall back to your
 default model), a bio's need you have not granted (one row per need, with
-`halo pack enable <id> --grant <need>`), a fleet capability not available
+`halo pack enable <id> --grant <need>`), a capability not available
 here (one row each, with why, and the grant command when a grant is what is
 missing; 3.2.0.0 R4), a name two packs (or a pack and you) offer, a pack shadowed by a same-id repo pack, a state record whose
 folder is gone, a bio or lineup file pack.yaml does not list, and what the
@@ -256,7 +254,7 @@ like the concord pack's `concord-mcp`) is one warns row, `not-on-path`.
 **Severities and the exit code** (3.3.10.0 R3). Each row is `blocks` (printed
 `[ERROR]`: the pack contributes nothing until it is fixed), `warns` (`[WARN]`:
 a part of it does not run) or `info` (`[INFO]`: a note, never a problem; today
-one kind: a fleet capability hidden on purpose with `fleet.capabilities.hide`).
+one kind: an enabled pack's Setup blocks neither done nor skipped).
 Info rows print last (dimmed on a terminal) and the RESULT line counts them
 apart (`RESULT: 0 problem(s) (0 error(s), 0 warning(s)), 1 note(s).`); the
 exit code is 1 when any blocks or warns row is there and 0 when every row is

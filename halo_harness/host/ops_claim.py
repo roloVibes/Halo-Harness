@@ -9,7 +9,7 @@ L2: "a deterministic claim the host enforces"; host/ops.py has the registry).
     claim is dormant (local_sched/claims_file.live)
     3.3.8.0 R3: claim's `lease_s` sets the row's `until` (now + lease_s; local_sched/claims_file.py): past it the claim
     is not a claim; `renew {bundle, lease_s?}` moves the lease of the rows that peer placed (its heartbeat:
-    local_sched/lease.py) -- a renewal of a peer's own claim is never queued under fleet.allow_control: ask
+    local_sched/lease.py) -- a renewal of a peer's own claim is never queued under host.allow_control: ask
 
 While a claim holds a model the host's invariants count its GB in every load's budget (host/invariants.check_load:
 a load that would breach what is left is refused with the claim and the numbers), never unload or pivot it out for a

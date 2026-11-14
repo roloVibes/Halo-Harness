@@ -110,7 +110,7 @@ def stop(c, lv, sent: list) -> dict:
 
 def pause(c, lv, sent: list) -> dict:
     """Pause beside the box reaches main's command route (main holds at its next step; the rig resumes it)."""
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     out: dict = {}
     c.js(f"{BOX}.querySelector('[data-testid=\"session-live-pause\"]').scrollIntoView({{block: 'center'}}); 1")
     c.wait(f"!{BOX}.querySelector('[data-testid=\"session-live-pause\"]').disabled && !{BOX}.dataset.disabled", 30)
@@ -118,15 +118,15 @@ def pause(c, lv, sent: list) -> dict:
     got = wait_for(lambda: [d for d in sent if d["cmd"] == "pause"], 15) or [{}]
     out["pause_route"] = {"sid": got[-1].get("sid"), "agent_id": (got[-1].get("fields") or {}).get("agent_id"), "status": got[-1].get("status")}
     out["pause_ack"] = c.wait("document.querySelector('.toasts')?.textContent.includes('Paused') && 'paused'", 15)
-    from halo_harness.studio import fleet_api
-    fleet_api.forward(lv.sid, "resume", {"agent_id": "main", **fleet_api.caller()})
+    from halo_harness.studio import live_agents_api
+    live_agents_api.forward(lv.sid, "resume", {"agent_id": "main", **live_agents_api.caller()})
     return out
 
 
 def fleet_chip(c, rig, lv) -> dict:
     """In Fleet the same chip opens the Agent panel's Steer box on that agent, the keyboard in it."""
     out: dict = {}
-    c.go(rig.url("fleet"))
+    c.go(rig.url("agents"))
     c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 5", 40)
     time.sleep(1.0)
     res = lv.key("researcher")

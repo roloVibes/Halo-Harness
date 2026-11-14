@@ -38,10 +38,6 @@ def _body(req) -> dict:
     return req.body if isinstance(req.body, dict) else {}
 
 
-def _hub(req):
-    return getattr(req.server, "fleet_hub", None) if req.server is not None else None
-
-
 def _publish(req):
     if req.server is None:
         return None
@@ -51,26 +47,16 @@ def _publish(req):
 
 def get_hosts(req):
     from halo_harness.studio.local_hosts_view import hosts
-    return 200, hosts(req.state_dir, hub=_hub(req))
+    return 200, hosts(req.state_dir)
 
 
 def _remote(req, card: dict, act: str, fields: dict):
-    """Through the fleet member that serves the host (fleet/control_models.py on its side); 3.3.7.0 R2: through the
-    paired halo host that serves it (studio/local_host_acts.send: its typed vocabulary, no member session)."""
-    from halo_harness.peers.identity import fleet_name
-    from halo_harness.studio.local_hosts_view import _member
-    hub = _hub(req)
+    """3.3.7.0 R2: through the paired halo host that serves it (studio/local_host_acts.send: its typed vocabulary)."""
     c = card["controls"]
     if c.get("via") == "host":
         from halo_harness.studio.local_host_acts import send
         return send(c, act, fields)
-    m = _member(hub, c.get("member") or "")
-    sessions = m.sessions() if m is not None else []
-    if m is None or not sessions:
-        return 409, {"error": c.get("why") or "no fleet member takes this command now"}
-    sid = str(sessions[0].get("id") or sessions[0].get("session_id") or "")
-    body = {"host": c.get("member_host") or "", **fields}
-    return hub.state.commands.send(m.id, sid, f"ollama_{act}", body, by=fleet_name(hub.home), wait_s=10.0)
+    return 409, {"error": c.get("why") or "no halo host takes this command from here"}
 
 
 def post_host_act(req, name: str, act: str):
@@ -80,7 +66,7 @@ def post_host_act(req, name: str, act: str):
     model = str(body.get("model") or "").strip()
     if not model:
         return 422, {"error": f"{act} takes {{model}}", "problems": ["model: the model to " + act]}
-    card = next((h for h in hosts(req.state_dir, hub=_hub(req))["hosts"] if h["name"] == name), None)
+    card = next((h for h in hosts(req.state_dir)["hosts"] if h["name"] == name), None)
     if card is None:
         return 404, {"error": f"no host named {name!r} here"}
     if not card["controls"]["ok"]:

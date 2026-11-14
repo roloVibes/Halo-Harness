@@ -54,7 +54,7 @@ def start_one(c, rig, server) -> dict:
            "cwd_placeholder": c.js("document.querySelector('[data-testid=\"session-new-cwd\"]').placeholder")}
     c.click_on("document.querySelector('[data-testid=\"session-new-start\"]')")
     out["sid"] = sid = c.wait(f"{P}?.dataset.session", 60)
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     row = wait_for(lambda: next((r for r in rig.api(server, "GET", "sessions/started")[1].get("sessions") or [] if r["session_id"] == sid), None), 20)
     if row:
         rig.pids.append(row["pid"])
@@ -92,13 +92,13 @@ def an_ask(c, rig, server) -> dict:
     c.click_on(f"[...{card}.querySelectorAll('[data-testid=\"prompt-ask-btn\"]')].find((b) => b.dataset.label === 'Allow')")
     out["ask_done"] = c.wait(f"{ASKS}.map((a) => a.querySelector('[data-testid=\"prompt-ask-done\"]')?.textContent).find(Boolean)", 15)
     out["made"] = c.wait(f"{TEXTS}.includes('made it') && 'made'", 40)
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     out["file"] = bool(wait_for(lambda: (rig.proj / "headless-made.txt").is_file(), 15))
     return out
 
 
 def end_it(c, rig, server) -> dict:
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     sid = c.js(f"{P}?.dataset.session")
     c.wait(f"{P}?.dataset.busy === undefined && 'idle'", 30)
     c.click_on("document.querySelector('[data-testid=\"prompt-end\"]')")

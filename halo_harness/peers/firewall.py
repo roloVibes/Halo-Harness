@@ -2,15 +2,15 @@
 3.4.0.1 "Found live", defect 12). Read-only: it reads the rules (`netsh advfirewall`, no elevation) and never changes
 one; when something is in the way it says the one command an administrator runs, and what it does.
 
-The live check: a hub on Windows bound 0.0.0.0:7430 and printed its URL; a member's join timed out. Windows had added
-two inbound Block rules named `python.exe` for Halo's python the moment it listened (its "allow access?" prompt,
-declined or never seen). A rule is per program, so the same block hits every port that python listens on (the fleet
-hub, `halo host serve`); and in Windows Firewall a block beats an allow.
+The live check: a listener on Windows bound 0.0.0.0 and printed its URL; a join from another machine timed out.
+Windows had added two inbound Block rules named `python.exe` for Halo's python the moment it listened (its "allow
+access?" prompt, declined or never seen). A rule is per program, so the same block hits every port that python listens
+on (`halo host serve`); and in Windows Firewall a block beats an allow.
 
     check(port, programs=None, run=None)  {state, rules, profiles, line}
         state: allowed | blocked | no-rule | off (the firewall is off) | unknown (could not read) | not-windows
-    line(port, what="the fleet hub")      the one line to print, "" when nothing is in the way (or not Windows)
-    JOIN_TIMEOUT                          what a member says when the hub does not answer
+    line(port, what="halo host")          the one line to print, "" when nothing is in the way (or not Windows)
+    JOIN_TIMEOUT                          what a joiner says when the other side does not answer
 """
 
 from __future__ import annotations
@@ -125,7 +125,7 @@ CACHE_S = 60.0
 
 
 def cached(port: int) -> dict:
-    """`check(port)`, read at most once a minute (Studio's GET fleet asks on every refresh)."""
+    """`check(port)`, read at most once a minute (a status read asks on every refresh)."""
     import time
     hit = _seen.get(port)
     if hit is not None and time.monotonic() - hit[0] < CACHE_S:
@@ -135,10 +135,11 @@ def cached(port: int) -> dict:
     return got
 
 
-def line(port: int, what: str = "the fleet hub", got: Optional[dict] = None) -> str:
+def line(port: int, what: str = "halo host", got: Optional[dict] = None) -> str:
     """The one plain line when Windows Firewall is in the way of `port`, else ""."""
     got = got if got is not None else cached(port)
-    allow = (f"New-NetFirewallRule -DisplayName 'Halo {what.replace('the ', '')}' -Direction Inbound -Protocol TCP "
+    name = what.replace("the ", "").replace("this ", "")
+    allow = (f"New-NetFirewallRule -DisplayName '{name.capitalize() if name.startswith('halo') else 'Halo ' + name}' -Direction Inbound -Protocol TCP "
              f"-LocalPort {port} -Action Allow -Profile Private")
     if got["state"] == "blocked":
         n, progs = len(got["rules"]), got.get("programs") or []

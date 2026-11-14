@@ -26,7 +26,7 @@ test, TESTS = new_registry()
 
 @test
 def test_new_session_from_studio_then_end_it(ctx: Ctx):
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     from tests.helpers.headless_rig import MODEL, REPLY, HeadlessRig
     with HeadlessRig() as rig:
         rig.spawn_env()

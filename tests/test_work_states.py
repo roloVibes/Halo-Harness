@@ -15,8 +15,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials, ensure_scoped_state_dir_once
 
@@ -52,7 +50,7 @@ def test_every_legal_edge_moves_and_the_added_ones_are_named(ctx: Ctx):
             u.move(b)
             moved += u.state == b
     ctx.check(f"every edge moves, got {moved}", moved == sum(len(v) for v in ST.EDGES.values()))
-    same = Unit(kind="part", id="s", state="waiting").move("waiting")
+    same = Unit(kind="goal", id="s", state="waiting").move("waiting")
     ctx.check("a move to the state it is in is the state said again", same.state == "waiting")
     ctx.check(f"R2's added edges are edges, got {ST.ADDED}", all(ST.can(a, b) for a, b in ST.ADDED) and len(ST.ADDED) == 5)
     ctx.check("stopped is the one state with no way out", ST.EDGES["stopped"] == () and ST.can("merged", "waiting")
@@ -65,7 +63,7 @@ def test_three_illegal_moves_raise_naming_the_unit_from_and_to(ctx: Ctx):
     from halo_harness.work.unit import Unit, move_word
     cases = [(Unit(kind="lane", id="2", run_id="r1", state="merged"), "ready"),
              (Unit(kind="goal", id="draft", state="stopped"), "running"),
-             (Unit(kind="part", id="3", state="pending"), "merged")]
+             (Unit(kind="lane", id="3", state="pending"), "merged")]
     texts = []
     for u, to in cases:
         try:
@@ -76,9 +74,9 @@ def test_three_illegal_moves_raise_naming_the_unit_from_and_to(ctx: Ctx):
     ctx.check(f"each raises with the unit, from and to, got {texts}",
               texts[0] == "lane 2 of run r1 cannot move from merged to ready (from merged it moves to waiting)"
               and texts[1] == "goal draft cannot move from stopped to running (from stopped it moves to nothing: it is over)"
-              and texts[2].startswith("part 3 cannot move from pending to merged"))
+              and texts[2].startswith("lane 3 cannot move from pending to merged"))
     ctx.check("IllegalMove is a ValueError, and the engine-word helper raises it too",
-              isinstance(IllegalMove("x", "a", "b"), ValueError) and _raises(lambda: move_word("part", "s", "done", "pending")))
+              isinstance(IllegalMove("x", "a", "b"), ValueError) and _raises(lambda: move_word("lane", "s", "merged", "joined")))
 
 
 def _raises(fn) -> bool:
@@ -103,37 +101,6 @@ def test_an_orchestra_runs_lanes_replay_through_move(ctx: Ctx):
         ok = ok and not isinstance(got, str) and got.native == rec["state"] == "merged"
     ctx.check(f"every lane's history replays to merged, got {seen}", ok and len(seen) == 5
               and seen[2][0] == "waiting" and "joined" in seen[2])
-
-
-@test
-def test_a_local_missions_parts_replay_through_move(ctx: Ctx):
-    from halo_harness.config.paths import bridge_home
-    from halo_harness.fleet import mission_api as A
-    from halo_harness.fleet import mission_store as S
-    from halo_harness.fleet import mission_worker as W
-    from halo_harness.peers.identity import harness
-    from tests.helpers.fleet_caps_seed import seed
-    from tests.helpers.mission_seed import FakeLead, reset_fakes, wait_state, windows_host, worker
-    home = bridge_home()
-    seed(home, windows_host(harness()))
-    answer = json.dumps({"parts": [{"id": "a", "title": "One", "brief": "Write one.", "kind": "files", "outputs": ["one.txt"]},
-                                   {"id": "b", "title": "Two", "brief": "Then two.", "kind": "files", "depends_on": ["a"]}],
-                         "merge_order": []})
-    A.LEAD = FakeLead(answer)
-    W.BUILD = worker({"1": {"writes": ["artifacts/1/one.txt"]}}, [])
-    try:
-        mctx = A.Ctx(home, None, by="owner", cwd=None)
-        mid = A.create(mctx, {"goal": "Write one, then two", "repo": False})[1]["mission"]["id"]
-        A.run(mctx, mid)
-        doc = wait_state(home, mid, ("done", "failed", "stopped"), 60)
-    finally:
-        reset_fakes()
-    parts: dict = {}
-    for e in S.read_log(home, mid, ("part",)):
-        parts.setdefault(e["part"], []).append(e["state"])
-    bad = {pid: got for pid, words in parts.items() if isinstance(got := _replay("part", pid, words), str)}
-    ctx.check(f"the mission finished and each part's log replays, got {doc['state']} {parts} {bad}",
-              doc["state"] == "done" and not bad and parts and all(w[-1] == "done" for w in parts.values()))
 
 
 if __name__ == "__main__":

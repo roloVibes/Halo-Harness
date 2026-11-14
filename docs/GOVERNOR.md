@@ -21,7 +21,7 @@ Five properties:
    honouring `Retry-After` (delta-seconds or HTTP-date, capped at
    `retry_after_cap`); `ramp_after` consecutive successes add `ramp_inc`
    back toward the ceiling. A plain 500 is neutral unless the body says
-   overloaded -- a server bug must not slow the whole fleet.
+   overloaded -- a server bug must not slow everything else.
 3. **Concurrency-capped** -- a hard cross-process in-flight cap per host;
    a killed caller's permit is reaped (its pid is gone), a live one's
    only after 30 minutes.

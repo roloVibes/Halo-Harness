@@ -60,7 +60,7 @@ def remote_path(url: str) -> str:
 
 
 def repo_of(run_dir, kind: str, cwd=None) -> Optional[Path]:
-    """The repo a run belongs to: an Orchestra run's repo_root, else `cwd` (a mission)."""
+    """The repo a run belongs to: an Orchestra run's repo_root, else `cwd`."""
     run_dir = Path(run_dir)
     if kind == "orchestra":
         repo_root_of = _core.get('orchestra.goal', 'repo_root_of')
@@ -85,9 +85,6 @@ def _remote(repo: Path) -> str:
 
 def project_of(run_dir, kind: str, cwd=None) -> dict:
     repo = repo_of(run_dir, kind, cwd)
-    if kind == "mission" and repo is None:
-        named = ((jsonl.read_json(Path(run_dir) / "mission.json", {}) or {}).get("repo") or {}).get("name")
-        return {"name": str(named or ""), "remote": ""}
     if repo is None or not repo.is_dir():
         return {"name": repo.name if repo else "", "remote": ""}
     return {"name": repo.resolve().name, "remote": _remote(repo)}
@@ -95,13 +92,9 @@ def project_of(run_dir, kind: str, cwd=None) -> dict:
 
 def context_of(run_dir, kind: str) -> dict:
     """{lineup, goal: {what, done_when}} of the run."""
-    run_dir = Path(run_dir)
-    if kind == "orchestra":
-        g = jsonl.read_json(run_dir / "goal.json", {}) or {}
-        return {"lineup": str(g.get("lineup") or ""), "goal": {"what": flat(g.get("what"), GOAL_CHARS),
-                                                               "done_when": flat(g.get("done_when"), GOAL_CHARS)}}
-    m = jsonl.read_json(run_dir / "mission.json", {}) or {}
-    return {"lineup": "", "goal": {"what": flat(m.get("goal"), GOAL_CHARS), "done_when": flat(m.get("test"), GOAL_CHARS)}}
+    g = jsonl.read_json(Path(run_dir) / "goal.json", {}) or {}
+    return {"lineup": str(g.get("lineup") or ""), "goal": {"what": flat(g.get("what"), GOAL_CHARS),
+                                                           "done_when": flat(g.get("done_when"), GOAL_CHARS)}}
 
 
 def _single(change: dict) -> dict:

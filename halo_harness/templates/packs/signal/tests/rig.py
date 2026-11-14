@@ -32,7 +32,7 @@ class Phone:
         kw = {"notes": False} if notes is False else ({"notes": notes} if notes not in (True, None) else {})
         self.b = Bridge({"rate_per_minute": 100, "pair_ttl_s": 600, **cfg}, self.tr, sessions=self.sessions,
                         clock=clock, transcribe=hear, capture=capture or (lambda sid: (None, "Studio is not open")),
-                        fleet_lines=lambda: ["fleet: 1 live session", "Waiting on you: 0 (nothing)"], **kw)
+                        live_lines=lambda: ["you@studio: 1 live session(s)", "Waiting on you: 0 (nothing)"], **kw)
         self.stop = threading.Event()
         self.thread = threading.Thread(target=self.b.run, args=(self.stop, 0.02), daemon=True)
         self.thread.start()

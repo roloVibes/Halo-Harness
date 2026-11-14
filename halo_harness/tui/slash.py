@@ -1387,11 +1387,9 @@ async def _handle_recall(app, args: str) -> None:
             "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)",
             kind="command")
         return
-    if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
-        from halo_harness.recall_fleet import fleet_text  # 3.4.0.1 (defect 4): core; it says the line with the pack off
-        rest = query[len("--fleet"):]
-        app.run_worker(lambda: app.call_from_thread(app.transcript.add_note, fleet_text(rest), kind="command"),
-                       thread=True, name="recall", group="recall")
+    if query == "--fleet" or query.startswith("--fleet "):  # 3.5.0.0: recall across machines left with Fleet
+        from halo_harness.left import FLEET
+        await app.transcript.add_note(f"/recall --fleet: {FLEET}", kind="command")
         return
     session = getattr(app.controller, "session", None)
     state_dir = getattr(session, "state_dir", None)
@@ -2067,7 +2065,7 @@ def _open_teams_list(app, models: list) -> None:
 
 # ============================================================================
 # /setup [<page>] [--terminal] (3.3.0.0 R4; 3.4.0.0 B2: the wizard's screens left): Studio's Setup on that page
-# (providers, local, model, permissions, theme, team -- roles is its older name --, linux, check, machines; bare:
+# (providers, local, model, permissions, theme, team -- roles is its older name --, linux, check; bare:
 # the whole section); --terminal prints the console way to do the same (setup_cli.console_lines).
 # ============================================================================
 

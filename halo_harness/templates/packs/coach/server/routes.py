@@ -5,7 +5,7 @@ panel, studio/coach.js, is its one caller).
     GET  ping                                  {ok, pack}
     GET  runs                                  {runs: [{run_id, state, goal_what, cost_usd, created}]}: Studio's repo,
                                                newest first (the panel's run picker; the coach reads a finished one)
-    GET  orchestra/<run>/coach | fleet/missions/<id>/coach and their POST verbs (ask, apply, undo, probe) and
+    GET  orchestra/<run>/coach and its POST verbs (ask, apply, undo, probe) and
     POST coach/library/<entry>/forget          server/coach_api.py (the routes the core answered until 3.4.0.0 B2)
 """
 

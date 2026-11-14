@@ -8,7 +8,7 @@ touches the owner's home, and every process a check starts ends with it. The ste
 
 1. the manifest and every `manifest_*` check (a problem stops here: nothing installs with one);
 2. install the folder into the scratch home, enable it with every grant it requests, and `halo pack doctor` on the
-   installed copy (a row about this machine -- no catalog model with a bio's tags, a fleet capability not available,
+   installed copy (a row about this machine -- no catalog model with a bio's tags, a capability not available,
    a program not on PATH, a requirement not installed -- is a skip line, not a failure);
 3. each kind's checks (packs/test_run_parts.py, packs/test_run_proc.py).
 
@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 #: A doctor row about this machine, not the pack: a skip line in `halo pack test`.
-HERE_CHECKS = ("bio-model", "fleet-capability", "not-on-path", "missing-requirement", "fleet-hidden", "setup-waiting")
+HERE_CHECKS = ("bio-model", "capability", "not-on-path", "missing-requirement", "setup-waiting")
 
 
 class Run:
@@ -111,7 +111,7 @@ def run(folder: Path, kinds=(), timeout: float = 10.0) -> dict:
     if _manifest(r) and _install(r):
         _doctor(r)
         for step in (P.agents, P.teams, P.skills, P.commands, X.entry, X.hooks, X.mcp, P.events, P.artifacts,
-                     P.workflows, P.studio, V.views, V.routes, P.bundle, P.fleet, X.policy, P.modes, X.setup, P.themes,
+                     P.workflows, P.studio, V.views, V.routes, P.bundle, P.capabilities, X.policy, P.modes, X.setup, P.themes,
                      P.requirements, services, own_tests):
             try:
                 step(r)

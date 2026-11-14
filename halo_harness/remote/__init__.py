@@ -8,9 +8,9 @@ which left the core in 3.3.13.0 R3 for the signal pack (halo_harness/templates/p
 what it shared stays: the cards' text (`cards`), the QR drawing (`qr*`), the word list
 (`signing_words`), the small CLI helpers (`cli_common`), the locked JSON files
 (`pairing_files`), the process identity (`proc_ident`). Halo 3.0.5.0 (Fleet): every
-session opens its control socket unless config `fleet.enabled` is false or the session is
-private (`fleet_identity`, `runtime`); the agent-level commands (`agent_control`) and the
-Fleet feed frames (`fleet_frames`). 3.3.13.0 R3, the transport seam a pack's bridge uses
+session opens its control socket unless config `control.enabled` is false or the session is
+private (`session_identity`, `runtime`); the agent-level commands (`agent_control`) and the
+Fleet feed frames (`agent_frames`). 3.3.13.0 R3, the transport seam a pack's bridge uses
 (through `halo_harness.ext.remote`): the notes every transport may carry (`notify`,
 `notify_sources`), a session started for a transport (`session_start`), `/remote` and the
 chip (`status`), the doctor rows (`doctor_check`); `remote.enabled` is every transport's switch.

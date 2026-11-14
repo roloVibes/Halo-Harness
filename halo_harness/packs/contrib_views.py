@@ -1,19 +1,15 @@
-"""halo_harness.packs.contrib_views -- the "contributes" block of `halo pack
-inspect` and the fleet rows of `halo pack doctor` (Halo 3.2.0.0 R4).
+"""halo_harness.packs.contrib_views -- the "contributes" block of `halo pack inspect` and the capability rows of
+`halo pack doctor` (Halo 3.2.0.0 R4).
 
-    contributes(pack, granted, running=, cwd=, state_dir=) -> {"studio": {...} | None, "fleet": {...} | None,
+    contributes(pack, granted, running=, cwd=, state_dir=) -> {"studio": {...} | None, "capabilities": {...} | None,
                                                                 "typed": {workflows, artifacts, events} | None (3.2.0.0 R5)}
     contributes_lines(d)       the text block under "contributes:" (Studio's sections, panels, palette lines,
-                               the settings form, event lines, attention rows; the fleet capabilities, each
-                               available here or not and why, the inspector lines, the mission metadata)
-    doctor_rows(pack, granted, cwd=, state_dir=) -> one "fleet-capability" row per capability not available,
-                               and (3.2.1.0 R3) one "fleet-hidden" row saying how many fleet.capabilities.hide
-                               keeps off the catalog (inspect marks each "hidden from the fleet"); 3.3.10.0 R3:
-                               severity `info` (hidden on purpose: `halo pack doctor` exits 0 on it)
+                               the settings form, event lines, attention rows; the pack's capabilities, each
+                               available here or not and why, the inspector lines)
+    doctor_rows(pack, granted, cwd=, state_dir=) -> one "capability" row per capability not available here
 
-Availability is checked against this harness's capabilities catalog as
-cached (packs/fleet_registry.host_catalog: any age, else a light look at the
-hardware, PATH and the repos now), so inspect and doctor start no MCP server.
+Availability is checked against this machine's capabilities catalog as cached (packs/capability_check.host_catalog:
+any age, else a light look at the hardware, PATH and the repos now), so inspect and doctor start no MCP server.
 """
 
 from __future__ import annotations
@@ -37,29 +33,17 @@ def _studio(pack) -> "dict | None":
             "attention": sorted((st.get("attention") or {}).keys()) if isinstance(st.get("attention"), dict) else []}
 
 
-def _fleet(pack, granted, *, running: bool, cwd=None, state_dir=None) -> "dict | None":
-    from halo_harness.packs.fleet_rules import fleet_of, hidden
-    if not fleet_of(pack.manifest):
+def _capabilities(pack, granted, *, running: bool, cwd=None, state_dir=None) -> "dict | None":
+    from halo_harness.packs.capability_rules import contribution_of
+    if not contribution_of(pack.manifest):
         return None
-    from halo_harness.packs.fleet_registry import host_catalog, pack_entry  # 3.4.0.0 D: core, fleet pack on or off
+    from halo_harness.packs.capability_check import host_catalog, pack_entry
     try:
         cat = host_catalog(state_dir, cwd)
     except Exception:  # an unreadable cache: every check reads as not met, never a crash
         cat = {}
     got = pack_entry(pack, granted, cat, running=running, cwd=cwd, state_dir=state_dir)
-    hide = _hide(state_dir)
-    for c in got["capabilities"]:
-        if hidden(pack.id, c["name"], hide):
-            c["hidden"] = True
-    return {k: got[k] for k in ("capabilities", "inspector", "metadata")}
-
-
-def _hide(state_dir) -> set:
-    from halo_harness.peers.catalog import config
-    try:
-        return config(state_dir)["hide"]
-    except Exception:  # an unreadable config hides nothing here
-        return set()
+    return {k: got[k] for k in ("capabilities", "inspector")}
 
 
 def _typed(pack) -> "dict | None":
@@ -81,12 +65,12 @@ def _typed(pack) -> "dict | None":
 
 
 def contributes(pack, granted, *, running: bool, cwd=None, state_dir=None) -> dict:
-    return {"studio": _studio(pack), "fleet": _fleet(pack, granted, running=running, cwd=cwd, state_dir=state_dir),
+    return {"studio": _studio(pack), "capabilities": _capabilities(pack, granted, running=running, cwd=cwd, state_dir=state_dir),
             "typed": _typed(pack)}
 
 
 def contributes_lines(d: dict) -> "list[str]":
-    st, fl, ty = (d or {}).get("studio"), (d or {}).get("fleet"), (d or {}).get("typed")
+    st, fl, ty = (d or {}).get("studio"), (d or {}).get("capabilities"), (d or {}).get("typed")
     if not st and not fl and not ty:
         return []
     out = ["contributes:"]
@@ -106,13 +90,10 @@ def contributes_lines(d: dict) -> "list[str]":
         for c in fl["capabilities"]:
             state = "available here" if c["available"] else "not available here"
             par = (c.get("capacity") or {}).get("parallel")
-            out.append(f"  fleet capability {c['name']}: {state} ({c['why']})" + (f"; {par} at once" if par else "")
-                       + ("; hidden from the fleet (fleet.capabilities.hide)" if c.get("hidden") else ""))
+            out.append(f"  capability {c['name']}: {state} ({c['why']})" + (f"; {par} at once" if par else ""))
             if c.get("description"):
                 out.append(f"    {c['description']}")
-        out += [f"  mission inspector line: {x['label']} ({x['source']})" for x in fl["inspector"]]
-        if fl["metadata"]:
-            out.append("  mission metadata: " + ", ".join(f"{k}={v}" for k, v in fl["metadata"].items()))
+        out += [f"  inspector line: {x['label']} ({x['source']})" for x in fl["inspector"]]
     for w in (ty or {}).get("workflows") or []:  # 3.2.0.0 R5
         out.append(f"  workflow {w['name']}: stages {', '.join(w['stages'])}; inputs {', '.join(w['inputs']) or '-'}; outputs "
                    + (", ".join(f"{k} ({v})" for k, v in w["outputs"].items()) or "-"))
@@ -125,22 +106,15 @@ def contributes_lines(d: dict) -> "list[str]":
 
 
 def doctor_rows(pack, granted, *, cwd=None, state_dir=None) -> "list[dict]":
-    """`[{severity, check, text, fix, path}]`: a running pack's fleet capabilities that are not available here."""
-    fl = _fleet(pack, granted, running=True, cwd=cwd, state_dir=state_dir)
+    """`[{severity, check, text, fix, path}]`: a running pack's capabilities that are not available here."""
+    fl = _capabilities(pack, granted, running=True, cwd=cwd, state_dir=state_dir)
     out = []
-    shut = [c["name"] for c in (fl or {}).get("capabilities") or [] if c.get("hidden")]
-    if shut:  # 3.2.1.0 R3: how many fleet.capabilities.hide keeps off the catalog; 3.3.10.0 R3: on purpose, an info row
-        from halo_harness.peers.identity import home
-        out.append({"severity": "info", "check": "fleet-hidden", "path": str(Path(state_dir or home()) / "config.json"),
-                    "fix": "take it out of fleet.capabilities.hide to offer it to the fleet",
-                    "text": f"{pack.id}: {len(shut)} fleet capabilit{'y is' if len(shut) == 1 else 'ies are'} hidden from "
-                            f"the fleet by fleet.capabilities.hide: {', '.join(shut)}"})
     for c in (fl or {}).get("capabilities") or []:
-        if c["available"] or c.get("hidden"):
+        if c["available"]:
             continue
         grants = [x for x in c.get("checks") or [] if x["key"] == "grants" and not x["ok"]]
         fix = f"halo pack enable {pack.id} " + " ".join(f"--grant {x['line'].split()[0]}" for x in grants) if grants else \
-            "the fleet sends parts needing it to a harness that has it"
-        out.append({"severity": "warns", "check": "fleet-capability", "fix": fix, "path": str(Path(pack.root) / "pack.yaml"),
-                    "text": f"{pack.id}: fleet capability {c['name']} is not available here: {c['why']}"})
+            "a workflow needing it does not run here until it is"
+        out.append({"severity": "warns", "check": "capability", "fix": fix, "path": str(Path(pack.root) / "pack.yaml"),
+                    "text": f"{pack.id}: capability {c['name']} is not available here: {c['why']}"})
     return out

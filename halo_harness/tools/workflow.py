@@ -135,7 +135,7 @@ class WorkflowTool(Tool):
             return ToolResult(receipts.line(rec) + "\n\n" + (out.text or "(the role handed back nothing)"),
                               is_error=out.status == "failed")
         wf = r.square
-        engine = wf.contract.run_engine(fleet=False)
+        engine = wf.contract.run_engine()
         if engine == "session":
             model, _pick = square_run.lead_model(wf, task, files, r.gaps, main_ref=model_ref, state_dir=getattr(session, "state_dir", None))
             out = square_run.run_session(wf, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", model=model,

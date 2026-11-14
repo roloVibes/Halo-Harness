@@ -3,7 +3,7 @@ and fleet/cli.py; here since 3.4.0.0 C, when the fleet left the core: `halo host
 steward use them with the fleet pack off).
 
     lan_address()     this machine's LAN address (the interface its default route uses), else 127.0.0.1
-    FleetOffline      raised when offline mode (`network.offline`, `--offline`) keeps a listener from starting
+    NetworkOffline      raised when offline mode (`network.offline`, `--offline`) keeps a listener from starting
     parse_ttl(text)   "10m" / "90s" / "1h" -> seconds (a pairing code's life)
 """
 
@@ -13,7 +13,7 @@ import re
 import socket
 
 
-class FleetOffline(RuntimeError):
+class NetworkOffline(RuntimeError):
     pass
 
 

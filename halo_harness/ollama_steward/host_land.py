@@ -9,7 +9,7 @@ This harness mirrors a landed change in its own profile (`by: "hub"`, so the hos
 writes one journal line:
 
     {kind: "host-apply", key, field, from, to, why, finding, via: "host", host: <addr>, host_change, verdict: "verifying"}
-    {kind: "host-pending", ...}   queued for the host's owner (fleet.allow_control: ask there)
+    {kind: "host-pending", ...}   queued for the host's owner (host.allow_control: ask there)
     {kind: "host-refused", ...}   the host's one line (a missing grant, a guard, an invariant)
 
 `sync(state_dir)` (the steward job's pass) reads each host's `GET changes` and writes the verdict back:

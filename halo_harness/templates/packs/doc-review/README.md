@@ -95,7 +95,7 @@ A pack's Python imports `halo_harness.ext` and nothing else of Halo.
 | `events/review.done.json` | The schema of the review.done event (file, findings). |
 | `studio/notes.md` | The Review notes panel of its Studio section. |
 | `studio/checks.json` | The rows of its Checks panel. |
-| `fleet/checklist.md` | The line a fleet mission's inspector shows for a part this pack runs. |
+| `capabilities/checklist.md` | The inspector line `halo pack inspect` shows beside the docs.review capability. |
 | `skills/check-links/SKILL.md` | A skill: check the relative links of a Markdown file. |
 | `commands/review.md` | A slash command: review the named document. |
 | `hooks/hooks.json` | A PostToolUse hook on Write (runs with the `hooks` grant). |

@@ -1,18 +1,17 @@
 // What each Local page holds (`about`, one line) and how to use it (`help`, a
 // few short lines), 3.3.5.0 R1 (the Local section, docs/STUDIO-local.md);
 // routes/help.ts merges them into HELP. Each page's head shows its `about` and,
-// behind "How this page works", its own lines and the shared ones (the five ideas).
+// behind "How this page works", its own lines and the shared ones (the four ideas).
 import type { Help } from "./help-orchestra";
 
 const lines = (...l: string[]) => l.join("\n");
 
-/** Local's five ideas, named on every page (plans/ROADMAP.md "Across every round of Local"). */
+/** Local's four ideas, named on every page (plans/ROADMAP.md "Across every round of Local"). */
 export const FIVE_IDEAS = [
   "The fit meter: a small green-to-red bar wherever a model is named, for 'will this run here at this window'.",
   "Why on every number: each figure carries its source and a one-line cause as its title.",
   "Intents, not model names: code, chat, long documents, images, embed rank the models by fit for this card.",
   "Make it fit: the fit planner's chosen option applied in one click, Undo beside it.",
-  "The hub as the one picture: every machine sees the same hosts, profiles, traffic and samples through the fleet hub.",
 ];
 
 function page(about: string, ...own: string[]): Help {
@@ -27,7 +26,7 @@ export const LOCAL_HELP: Record<string, Help> = {
     "Filters narrow it by host, model, the machine that called and the kind; the sparklines count the calls per minute, a trim or a cut marked."),
   "local-hosts": page("Every server Halo knows: its address, kind, version, what is loaded, its card, its profiles, who calls it, and the controls its kind allows.",
     "Load warms a model at its profile's window (a generate with no prompt); Unload sends keep_alive 0; keep-alive picks how long a Load keeps it.",
-    "A host another machine serves loads through the fleet member that serves it, as its owner allows (fleet.allow_control); otherwise the button says why not.",
+    "A host another machine serves loads through the fleet member that serves it, as its owner allows (host.allow_control); otherwise the button says why not.",
     "Make it fit applies the fit planner's chosen option (a window per model, one at a time) as steward profiles; Undo puts them back.",
     "A server Find or Scan found that is not configured has Add to hosts: Setup's own Ollama writer adds the ollama.hosts entry. Nothing here changes a server's settings."),
   "local-models": page("Every model each host has installed, with its card, its fit meter, the roles it can hold, and the intent filter.",

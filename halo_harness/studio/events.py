@@ -226,7 +226,7 @@ class EventBridge:
 
 def bridge_for(server) -> EventBridge:
     """The server's one bridge, made on the first EventSource (or the fleet watcher's first tick); the
-    server's `event_taps` (3.0.5.0 R4: studio/fleet_watch.py) are attached to it."""
+    server's `event_taps` (3.0.5.0 R4: studio/live_watch.py) are attached to it."""
     with server.events_lock:
         if server.events is None:
             server.events = EventBridge()

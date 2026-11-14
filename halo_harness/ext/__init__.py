@@ -7,7 +7,7 @@ packs for exactly that).
 
     from halo_harness.ext import API_VERSION, read_yaml, get_config, publish_event
 
-    API_VERSION / HALO_API_VERSION  "1.3": what pack.yaml's `halo_api` range is matched against
+    API_VERSION / HALO_API_VERSION  "1.4": what pack.yaml's `halo_api` range is matched against
     api_version() / compatible(range) / deprecations()
                                     3.2.0.0 R7: this API's version, whether a `halo_api` range takes it under the
                                     policy below, the names announced for removal (none in 1.0)
@@ -56,7 +56,7 @@ is inclusive at its own precision, and with no `max` the pack runs on its `min`'
 
 from __future__ import annotations
 
-API_VERSION = "1.3"  # 3.3.10.0 R1: 1.1 adds set_mode, current_mode; 3.3.13.0: 1.2 adds remote, contributes.services (R3), host, a section's view, a pack's routes (R2); 3.4.0.0: 1.3 adds contributes.cli/.slash/.doctor/.settings and core (draft). MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
+API_VERSION = "1.4"  # 3.3.10.0 R1: 1.1 adds set_mode, current_mode; 3.3.13.0: 1.2 adds remote, contributes.services (R3), host, a section's view, a pack's routes (R2); 3.4.0.0: 1.3 adds contributes.cli/.slash/.doctor/.settings and core (draft); 3.5.0.0: 1.4 adds contributes.capabilities (contributes.fleet's new name). MAJOR.MINOR: a minor adds names, a major removes only names deprecations() announced
 HALO_API_VERSION = API_VERSION
 
 from halo_harness.ext.compat import api_version, compatible, deprecations  # noqa: E402  (3.2.0.0 R7)

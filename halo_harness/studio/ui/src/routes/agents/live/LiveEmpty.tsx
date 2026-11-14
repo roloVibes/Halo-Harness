@@ -39,7 +39,7 @@ Its report card: the story, where the time and money went, what failed, what wai
   );
 }
 
-const KIND: Record<string, string> = { session: "", run: "goal run", mission: "mission", file: "file" };
+const KIND: Record<string, string> = { session: "", run: "goal run", file: "file" };
 
 export function ReplayBanner() {
   const r = useLiveReplay();

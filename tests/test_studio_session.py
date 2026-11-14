@@ -3,7 +3,7 @@
 tests/helpers/studio_session.py `dash`; skipped without one).
 
 Over this harness's real session (a lead, an implementer and a researcher
-mid-work), a second session of this harness and a member harness `kali@lab`:
+mid-work) and a second session of this harness:
 
 1. landing: with nothing saved for the browser and a session live here the
    page lands on Session (the served page carries `data-live-session`); with
@@ -11,16 +11,16 @@ mid-work), a second session of this harness and a member harness `kali@lab`:
 2. `?mode=session` mounts the seven panels (session-map, -activity,
    -attention, -agent, -cost, 3.1.5.0 R3, -live and, 3.3.11.0 R1, -prompt: Agent, Activity, Attention and Prompt
    as strips; the arrangement itself is tests/test_studio_session_live.py's), each with its about line;
-3. the map draws only this harness's box: one card per session on it, its
+3. the map draws this harness only (no harness box since 3.5.0.0): one card per session, its
    agent tree, the working nodes lit, the newest working agent selected (lit)
    and its session the chosen card; Cost speaks of that session (its model,
    its agents); Activity draws one lane per live agent of it and logs only
-   this harness; Attention holds none of the member's rows; J / K stay on
+   this harness; Attention holds no rows; J / K stay on
    this harness;
 4. `&session=<id>` chooses that session: the agent panel and Cost follow;
-5. Alt+4 shows Fleet with both harnesses and the member's attention rows (no
-   regression), Alt+1 (3.1.6.0 R6: Session is the first tab) comes back to Session;
-6. `/studio`'s opener on the running Studio focuses the open page: on Fleet,
+5. Alt+2 shows Agents on Live with this machine's session and no harness box,
+   Alt+1 (3.1.6.0 R6: Session is the first tab) comes back to Session;
+6. `/studio`'s opener on the running Studio focuses the open page: on Agents,
    it switches to Session on that session, and no tab opens.
 The links into it are tests/test_studio_session_links.py; `/studio` and
 `halo studio --session` are tests/test_slash_studio.py and
@@ -28,8 +28,6 @@ tests/test_studio_cli_session.py.
 Run: python -m tests.test_studio_session
 """
 from __future__ import annotations
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 TIER = "full"  # headless Chrome: the full tier
 
@@ -91,7 +89,7 @@ def test_mode_session_mounts_the_seven_panels(ctx: Ctx):
 def test_the_map_is_this_harness_with_the_working_agent_lit(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"one box, this harness's, got {got.get('boxes')}", got.get("boxes") == ["you@studio"])
+    ctx.check(f"no harness box (3.5.0.0: one machine), got {got.get('boxes')}", got.get("boxes") == 0)
     ctx.check(f"a card per session here and every agent of them, nothing else, got {got.get('cards')} cards, "
               f"{got.get('nodes')} of {got.get('want_nodes')} nodes, {got.get('foreign')} foreign",
               got.get("cards") == 2 and got.get("nodes") == got.get("want_nodes") and (got.get("nodes") or 0) >= 4 and got.get("foreign") == 0)
@@ -112,7 +110,7 @@ def test_cost_activity_and_attention_are_this_session(ctx: Ctx):
     ctx.check(f"one lane per live agent of it, got {got.get('lanes')} for {got.get('want_lanes')}",
               got.get("lanes") == got.get("want_lanes") and (got.get("want_lanes") or 0) >= 2 and got.get("lane_keys_here") is True)
     ctx.check(f"the log is this harness's only, got {got.get('log_who')}", got.get("log_who") == ["you@studio"])
-    ctx.check(f"none of the member's attention rows, got {got.get('attn_here')} (empty {got.get('attn_empty')})",
+    ctx.check(f"no attention rows, got {got.get('attn_here')} (empty {got.get('attn_empty')})",
               got.get("attn_here") == 0 and got.get("attn_empty") == 1)
     ctx.check("J / K hop between this harness's agents only", got.get("hops_here") is True)
 
@@ -129,14 +127,14 @@ def test_session_param_chooses_that_session(ctx: Ctx):
 
 
 @test
-def test_alt_keys_and_fleet_keeps_everything(ctx: Ctx):
+def test_alt_keys_and_agents_live_draws_this_machine(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"Alt+2 shows Agents (3.3.16.0 R2: Fleet folded in), got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Agents"))
-    ctx.check(f"its Live still draws every harness, got {got.get('fleet_boxes')}", got.get("fleet_boxes") == ["you@studio", "kali@lab"])
-    ctx.check(f"and Attention the member's rows, got {got.get('fleet_attn')}", (got.get("fleet_attn") or 0) >= 2)
-    ctx.check(f"Alt+1 comes back to Session, its map still one box, got {got.get('alt1')!r} {got.get('back_boxes')}",
-              str(got.get("alt1")).startswith("Session") and got.get("back_boxes") == 1)
+    ctx.check(f"Alt+2 shows Agents, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Agents"))
+    ctx.check(f"its Live draws this machine's session, no harness box, got {got.get('agents_nodes')} {got.get('agents_boxes')}",
+              (got.get("agents_nodes") or 0) >= 1 and got.get("agents_boxes") == 0)
+    ctx.check(f"Alt+1 comes back to Session, its map still the two cards, got {got.get('alt1')!r} {got.get('back_cards')}",
+              str(got.get("alt1")).startswith("Session") and got.get("back_cards") == 2)
 
 
 @test
@@ -146,7 +144,7 @@ def test_studio_focuses_the_page_already_open(ctx: Ctx):
     _ran(ctx, r, got)
     ctx.check(f"/studio's opener on a running Studio: focused, one line, got {got.get('focus_how')} {got.get('focus_line')!r}",
               got.get("focus_how") == "focused" and str(got.get("focus_line")).startswith("Opened this session in the Studio page"))
-    ctx.check(f"the open page (on Fleet) switches to Session on that session, no new tab, got {got.get('focus_tab')!r} {got.get('focus_agent')} {got.get('focus_tabs_opened')}",
+    ctx.check(f"the open page (on Agents) switches to Session on that session, no new tab, got {got.get('focus_tab')!r} {got.get('focus_agent')} {got.get('focus_tabs_opened')}",
               str(got.get("focus_tab")).startswith("Session") and f"|{FAKE_SID}|" in str(got.get("focus_agent")) and got.get("focus_tabs_opened") == 0)
 
 

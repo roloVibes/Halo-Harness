@@ -63,7 +63,7 @@ from typing import Callable, Optional
 
 from halo_harness import events
 from halo_harness.agent import agent_hooks as _agent_tree
-from halo_harness.agent.agent_inbox import handback as _fleet_handback, was_stopped as _fleet_stopped
+from halo_harness.agent.agent_inbox import handback as _inbox_handback, was_stopped as _inbox_stopped
 
 log = logging.getLogger("bridge")
 from halo_harness.config.agents_md import AgentSpec, resolve_agent_model
@@ -931,7 +931,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         "agent_id": agent_id, "type": spec.name, "description": spec.description,
         "model": model_ref.raw, "parent_tool_use_id": parent_tool_use_id,
         "started": time.time(), "status": "running", "session_id": child_log.session_id,
-        # 3.0.5.0 R3: Live Roles' history (studio/fleet_api.py) lists past runs by role
+        # 3.0.5.0 R3: Live Roles' history (studio/live_agents_api.py) lists past runs by role
         "role": _effective_role_name, "lineup": getattr(team_control, "name", None),
         **({"model_reason": _model_reason} if _model_reason else {}),
     })
@@ -1107,8 +1107,8 @@ def _final_text_from_log(child) -> str:
                      if isinstance(b, dict) and b.get("type") == "text"]
             text = "".join(parts).strip()
             if text:
-                return _fleet_handback(child, text)  # 3.0.5.0: "stopped by ..." for a child stopped from Studio
-    return _fleet_handback(child, "(the sub-agent finished without producing a final text answer)")
+                return _inbox_handback(child, text)  # 3.0.5.0: "stopped by ..." for a child stopped from Studio
+    return _inbox_handback(child, "(the sub-agent finished without producing a final text answer)")
 
 
 def _one_line_preview(text: str, *, limit: int = 140) -> str:
@@ -1736,7 +1736,7 @@ def _run_one_fanout_child(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: s
         with parent._agent_notices_lock:
             parent.permission_denials.extend(child.permission_denials)
         _record_outcome(parent, child, spec, role_name, runtime.team_control, agent_id, is_error=is_error,
-                        stopped=_fleet_stopped(child))  # 3.1.8.0 R3
+                        stopped=_inbox_stopped(child))  # 3.1.8.0 R3
         end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name,
                                                   "parent_tool_use_id": tool_id, "task_id": new_task_id,
                                                   "is_error": is_error})
@@ -2173,7 +2173,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 # "completed" for both a clean and a failed run alike.
                 _write_meta(meta_path, {"is_error": is_error, "finished": time.time()})
                 _record_outcome(parent, child, spec, role_name, team_control, agent_id, is_error=is_error,
-                                stopped=child.abort.is_set() or _fleet_stopped(child), stage=bg_stage)  # 3.1.8.0 R3
+                                stopped=child.abort.is_set() or _inbox_stopped(child), stage=bg_stage)  # 3.1.8.0 R3
                 # review finding 20: the foreground path always emits
                 # `subagent_end` (see the mirror-image `end_ev` below the
                 # foreground `try/finally`); `_bg_run` never did, so a live
@@ -2260,7 +2260,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # the old path.
     acceptance_failed = None
     had_acceptance = False
-    if not is_error and not _fleet_stopped(child):  # 3.0.5.0: a stopped child is not sent back for a retry
+    if not is_error and not _inbox_stopped(child):  # 3.0.5.0: a stopped child is not sent back for a retry
         acc_ok, acc_note = _check_return_acceptance(spec, role_name, team_control, child, text)
         had_acceptance = acc_note is not None
         if not acc_ok:
@@ -2331,7 +2331,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
     # sub-agent's denied tool calls instead of silently losing them.
     parent.permission_denials.extend(child.permission_denials)
     _record_outcome(parent, child, spec, role_name, team_control, agent_id, is_error=is_error,
-                    stopped=_fleet_stopped(child), acceptance=acceptance_rec, stage=stage_verdict)
+                    stopped=_inbox_stopped(child), acceptance=acceptance_rec, stage=stage_verdict)
     end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name, "parent_tool_use_id": tool_id,
                                              "task_id": new_task_id, "is_error": is_error})
     end_ev.agent_id = agent_id
@@ -2504,7 +2504,7 @@ def _resume_task_claimed(runtime: AgentRuntime, task_id: str, tool_input: dict, 
     _fire_subagent_hook(child, "SubagentStop")
     _fire_task_hook(parent, "TaskCompleted", task_id=task_id, spec_name=spec.name, description=_desc)
     _record_outcome(parent, child, spec, role_name, getattr(runtime, "team_control", None), agent_id,
-                    is_error=is_error, stopped=_fleet_stopped(child))  # 3.1.8.0 R3: a resumed task records again
+                    is_error=is_error, stopped=_inbox_stopped(child))  # 3.1.8.0 R3: a resumed task records again
     end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name,
                                            "result_preview": _one_line_preview(text), "task_id": task_id})
     end_ev.agent_id = agent_id

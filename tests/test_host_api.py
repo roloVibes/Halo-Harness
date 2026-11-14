@@ -156,7 +156,7 @@ def test_the_tail_never_carries_a_prompt_body(ctx: Ctx):
         ctx.check(f"the size lines stay, the body line is replaced by its size, got {got['lines']}",
                   "prompt=41104" in text and "the secret plan" not in text and f"({len(BODY):,} characters)" in text)
         rig.set_peer()
-        (rig.home / "config.json").write_text('{"fleet": {"name": "pc-host"}, "host": {"tail_max": 2}}', encoding="utf-8")
+        (rig.home / "config.json").write_text('{"harness": {"name": "pc-host"}, "host": {"tail_max": 2}}', encoding="utf-8")
         from halo_harness.peers import identity
         identity.forget_cache()
         ctx.check("n is held to host.tail_max", rig.client().tail(400)["n"] == 2)

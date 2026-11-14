@@ -114,10 +114,10 @@ def entries_from_nodes(nodes: list, *, final: bool = False) -> list:
             out.append({"kind": "tool_result", "id": node.get("tool_use_id"), "name": node.get("tool"),
                         "text": _cap(node.get("content")), "is_error": bool(node.get("is_error")), "ts": ts,
                         **_policy(node.get("policy"))})
-        elif kind == "meta" and isinstance(node.get("fleet"), dict):
-            out.append({"kind": "control", **node["fleet"], "ts": ts})
-        elif kind == "meta" and isinstance(node.get("fleet_note"), str):
-            out.append({"kind": "note", "text": node["fleet_note"], "ts": ts})
+        elif kind == "meta" and isinstance(node.get("control", node.get("fleet")), dict):  # 3.5.0.0: "fleet" before
+            out.append({"kind": "control", **node.get("control", node.get("fleet")), "ts": ts})
+        elif kind == "meta" and isinstance(node.get("control_note", node.get("fleet_note")), str):
+            out.append({"kind": "note", "text": node.get("control_note", node.get("fleet_note")), "ts": ts})
         elif kind == "error":
             out.append({"kind": "error", "text": _cap(node.get("message") or ""), "ts": ts})
     if final:

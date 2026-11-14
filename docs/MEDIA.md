@@ -28,7 +28,7 @@ the Studio pictures keep the two rules under
 | `docs/media/studio-session.gif` | The README's first picture after the hero (its See pillar): the Session dashboard working (3.3.2.0: Live fills the stage, the agent tree and the cost opened beside it, the other panels strips at the foot), every agent's text, tool rows, hand-backs and an ask card scrolling in the Live column; 1500x900, 28 frames at 250 ms (7 s), looping, one shared palette that keeps the state colours | `tools/capture_session_anim.py` |
 | `docs/media/studio-session.png`, `studio-session-live.png` | The stills beside it: the whole dashboard, and the Live column up close (scale 2) | `tools/capture_session_anim.py` |
 | `docs/media/studio-roles-live.gif`, `studio-roles-live.png` | The Roles canvas while a session runs: cards lighting cyan, one waiting amber, one fading green, one failed red, the glow legend opening at the end; the still has the implementer's Live tab open | `tools/capture_session_anim.py --mode roles` |
-| `docs/media/studio-<section>*.png` | Halo Studio in the browser: the Agents (Cast: `studio-roles.png`, `studio-agents.png`; a goal run on Live and its report in History: `studio-run-live.png`, `studio-run-report.png`, 3.4.0.0 D; Live on the fleet, Setup -> Machines and a mission: `studio-fleet*.png`, 3.3.16.0 R2) and other captures through the shell, headless Chrome over fixture data (3.3.13.0 R2: `studio-design.png` is the design pack's section, its `tests/capture_design.py`) | `tools/capture_studio.py --mode orchestra\|roles\|fleet\|team` |
+| `docs/media/studio-<section>*.png` | Halo Studio in the browser: the Agents (Cast: `studio-roles.png`, `studio-agents.png`; a goal run on Live and its report in History: `studio-run-live.png`, `studio-run-report.png`, 3.4.0.0 D) and other captures through the shell, headless Chrome over fixture data (3.3.13.0 R2: `studio-design.png` is the design pack's section, its `tests/capture_design.py`) | `tools/capture_studio.py --mode orchestra\|roles\|agents` |
 | `docs/media/studio-workflows.png` | The README's Shape picture: Agents -> Cast composed (3.3.16.3): the auto lineup's tiers beside three square blocks -- `media-team` (the media template, three agents inside) for pdf and audio, `thinking` (three reasoning agents) always first, `review` for the words review and audit -- main's lines labelled with their when, the library open on "media" with its three kinds; 1500x900 at scale 2 | `python tools/capture_studio.py --mode workflows` (tools/capture_workflows.py) |
 | `docs/media/studio-model-picker.png` | The README's Mix picture (3.3.17.1; 3.4.0.0 E the pillar): Agents -> Cast with the implementer's bio form wide and its model picker open: the search box and sort, eight fixture models across `or:`, `dbx:`, `ant:`, `oai:`, `ol:` and `hf:` (`demo/` names), each row with its price in / out, its context and its takes tags, the picked row and the row pointed at with its best-at line under the list, one model with nothing stated drawn as `?`; 1500x900 at scale 2 | `python tools/capture_studio.py --mode picker` (tools/capture_picker.py) |
 | `docs/media/studio-steer.png`, `studio-thinking.png`, `studio-talk.png` | Session's Live column, drawn for the README's old "Steering a running turn" and "Watching a model think" (off the README since 3.4.0.0 E; 3.3.16.1; 3.3.16.2 the thinking and the talk): a row clicked so its agent is the steer's target with a steer typed in the box; Live on the implementer with the Thinking view on, its thoughts linked to the Read and the Edit they led to and its timeline lane in phases; TALK rows and the Conversations panel open on a thread; 1500x900 at scale 2 | `python tools/capture_steer.py` (`--only steer,thinking,talk,auto`; the two 3.3.16.2 scenes are tools/capture_talk_scene.py) |
@@ -58,7 +58,7 @@ The Studio pictures:
 python tools/capture_session_anim.py              # studio-session.gif, studio-session.png, studio-session-live.png
 python tools/capture_session_anim.py --mode roles # studio-roles-live.gif, studio-roles-live.png
 python tools/capture_steer.py                    # studio-steer.png, studio-thinking.png, studio-talk.png, studio-auto.png
-python tools/capture_studio.py --mode fleet       # one section's stills (orchestra, roles, design, fleet, packs, setup, settings, local, workflows, picker)
+python tools/capture_studio.py --mode packs       # one section's stills (orchestra, roles, design, packs, setup, settings, local, workflows, picker)
 python tools/studio_modes_banner.py               # the six-section banner, after any of the six stills changed
 python tools/hero_png.py                          # hero.png, after studio-session.png, the banner or the line changed
 python tools/hero_png.py --social                 # a 1280x640 render for your own use: written locally, not tracked
@@ -76,11 +76,9 @@ The Studio pictures are made on a real machine, so every Studio capture tool
 goes through `tools/capture_identity.py` and keeps two rules:
 
 1. **One placeholder identity.** Before a tool serves Studio, or enters a
-   rig, it writes `fleet.name: you@studio` into the scratch home's config
+   rig, it writes `harness.name: you@studio` into the scratch home's config
    (and the rig's), and the harness's user and host read `you` and
-   `studio`. Agents -> Live on the fleet, the status bar, the Session map,
-   Setup's People table and a machine's summary all draw `you@studio`; the fleet scene's member
-   keeps its own made-up name, `kali@lab`. When a name Studio would draw is
+   `studio`. Agents -> Live, the status bar and the Session map all draw `you@studio`. When a name Studio would draw is
    still this machine's `user@host`, or carries its user or host name, the
    tool stops with one line and exit code 2:
 
@@ -89,7 +87,7 @@ goes through `tools/capture_identity.py` and keeps two rules:
    ```
 
 2. **No absolute path.** The seeded Orchestra runs use a repo-relative test
-   command (`python -m unittest -q test_basket`), the fleet scene's edits are
+   command (`python -m unittest -q test_basket`), the live scene's edits are
    repo-relative (`Edit: basket.py`), and when the system temp folder sits in
    a user profile (on Windows, the profile's `AppData\Local\Temp`) the tool moves
    its temp root to `%ProgramData%\halo-capture` (`HALO_CAPTURE_TMP` names

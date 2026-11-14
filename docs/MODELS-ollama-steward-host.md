@@ -28,7 +28,7 @@ finding's id and the steward's `why`. The steward's journal gets one line:
 | Journal kind | When |
 |---|---|
 | `host-apply` | the host took it; it verifies it now (`host_change` is its change id); this harness mirrors the field in its own profile (`by: "hub"`) |
-| `host-pending` | queued for the host's owner (`fleet.allow_control: ask` there) -- the line names `halo host allow <id>` |
+| `host-pending` | queued for the host's owner (`host.allow_control: ask` there) -- the line names `halo host allow <id>` |
 | `host-refused` | the host's one line: a missing grant, a guard (one change at a time, the cooldown, the rate limit), an invariant |
 | `host-verdict` | the host's verdict on a `host-apply` (`kept` / `reverted`, its line); a reverted change takes the mirror back |
 

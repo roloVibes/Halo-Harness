@@ -15,8 +15,6 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -65,7 +63,7 @@ def test_today_counts_finished_sessions_from_their_records(ctx: Ctx):
 
 
 @test
-def test_the_caps_and_the_fleet_see_finished_spend(ctx: Ctx):
+def test_the_caps_see_finished_spend(ctx: Ctx):
     from halo_harness.live.caps import spend
     view = {"harnesses": [{"id": "hub", "name": "kali@kali", "local": True, "cost_today": 0.0138, "sessions_today": 3,
                            "sessions": []},
@@ -76,27 +74,13 @@ def test_the_caps_and_the_fleet_see_finished_spend(ctx: Ctx):
     hs = {h["name"]: (h["usd"], h["sessions"]) for h in got["harnesses"]}
     ctx.check(f"each harness counts its finished sessions (defect 17), got {hs}",
               hs == {"kali@kali": (0.0138, 3), "you@tower": (0.0434, 1)})
-    ctx.check(f"the fleet total is theirs, and it says a price is unknown, got {got['fleet']} {got['complete']}",
-              abs(got["fleet"] - 0.0572) < 1e-9 and got["complete"] is False)
-
-
-@test
-def test_a_member_says_its_own_today_and_the_hub_keeps_it(ctx: Ctx):
-    from halo_harness.fleet.hub_links import Member
-    m = Member({"id": "pc", "name": "you@tower"}, None)
-    m.note_costs([{"session_id": "live", "cost_usd": 0.000431, "started": time.time()}],
-                 {"cost_today": 0.0434, "sessions_today": 2, "cost_today_unknown": []})
-    v = m.view("3.4.0.1")
-    ctx.check(f"the member's record-based today wins over the live rows the hub saw, got {v['cost_today']}",
-              v["cost_today"] == 0.0434 and v["sessions_today"] == 2 and v["cost_today_complete"] is True)
-    old = Member({"id": "old", "name": "old@box"}, None)
-    old.note_costs([{"session_id": "s", "cost_usd": 0.02, "started": time.time()}])
-    ctx.check("a member on an older Halo (no cost_today): what the hub saw", old.view("3.4.0.1")["cost_today"] == 0.02)
+    ctx.check(f"the total is theirs, and it says a price is unknown, got {got['total']} {got['complete']}",
+              abs(got["total"] - 0.0572) < 1e-9 and got["complete"] is False)
 
 
 @test
 def test_history_reads_the_same_record(ctx: Ctx):
-    from halo_harness.studio.fleet_api import history
+    from halo_harness.studio.live_agents_api import history
     home = _home()
     _record(home, "s-priced", _ago(60), [(0.0015, "or:a")])
     _record(home, "s-unpriced", _ago(30), [(None, "ol:x")])

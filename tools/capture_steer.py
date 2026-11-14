@@ -1,5 +1,5 @@
 """tools/capture_steer.py -- the Studio stills behind the README's "Steering a running turn", "Watching a model
-think" and "Agents talking" (Halo 3.3.16.1 docs; 3.3.16.2 the last two), through headless Chrome on the driver base over tests/helpers/studio_fleet_rig.py plus the
+think" and "Agents talking" (Halo 3.3.16.1 docs; 3.3.16.2 the last two), through headless Chrome on the driver base over tests/helpers/studio_session_rig.py plus the
 extra agents of tests/helpers/studio_live_rig.py and the scripted activity of tools/capture_session_scenes.py. No model
 is called:
 
@@ -75,10 +75,10 @@ def main(argv=None) -> int:
     if not find_chrome():
         print(json.dumps({"skip": "no Chrome found"}))
         return 2
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
+    from tests.helpers.studio_session_rig import StudioSessionRig
     from tests.helpers.studio_live_rig import Live
     placeholder()
-    with StudioFleetRig() as rig:
+    with StudioSessionRig() as rig:
         rig.full = False
         placeholder(rig.state)
         rig.rail = ""

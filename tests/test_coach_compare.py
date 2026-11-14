@@ -22,8 +22,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import tests.helpers.coach_names  # noqa: E402,F401  (3.4.0.0 B2: the coach pack's modules, old names)
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all

@@ -48,7 +48,7 @@ def test_the_shipped_pack_installs_and_brings_its_section_and_routes(ctx: Ctx):
         ctx.check(f"its routes are granted under api/packs/design/design, got {entry.get('routes')}",
                   entry.get("routes") == {"prefix": "design", "api": "api/packs/design/design", "granted": True})
         ctx.check(f"the core a pack's panel may join: agents and the words it took in (3.3.16.0 R1), got {reg['core']}",
-                  reg["core"] == ["session", "agents", "fleet", "team", "roles", "orchestra"])
+                  reg["core"] == ["session", "agents", "team", "roles", "orchestra"])
         code, out, _err = h.cli("inspect", "design")
         ctx.check("inspect says what studio-routes lets it do", "runs this pack's Python inside halo (Studio's server)" in out)
         h.cli("disable", "design")

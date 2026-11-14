@@ -1,5 +1,5 @@
 """tests.helpers.studio_session_think -- Session's Live column, 3.3.16.2 "thinking you can see, agents talking", in
-headless Chrome on the driver base (tests/helpers/chrome_driver.Driver) over tests/helpers/studio_fleet_rig.py with
+headless Chrome on the driver base (tests/helpers/chrome_driver.Driver) over tests/helpers/studio_session_rig.py with
 scripted feed frames (tests/helpers/studio_live_rig.py `think` / `talk`):
 
     python -m tests.helpers.studio_session_think think   a THINK row streams with its caret, stays ONE row, clamps at
@@ -146,9 +146,9 @@ class ThinkDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_live_rig import Live
-        with StudioFleetRig() as rig:
+        with StudioSessionRig() as rig:
             lv = Live(rig)
             if (self.argv or ["think"])[0] == "talk":
                 from tests.helpers.studio_session_talk import conversations, talk

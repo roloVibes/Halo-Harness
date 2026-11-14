@@ -1,7 +1,7 @@
 """halo_harness.live.journal -- what the hub saw, kept for the digest (Halo
 3.0.5.0 "Fleet" round R4): one JSON line per thing, appended by Studio's
-fleet watcher (studio/fleet_watch.py) and the Fleet routes, read by
-digest.py (`GET /api/fleet/digest`, `halo fleet digest`).
+fleet watcher (studio/live_watch.py) and the Fleet routes, read by
+digest.py (`GET /api/live/digest`, `halo fleet digest`).
 
     <home>/fleet/journal.jsonl     0600; past MAX_BYTES it rolls to journal.1.jsonl (one old file kept)
 
@@ -20,7 +20,7 @@ with kind one of:
     mission_planned {mission, parts, by}, mission_approved {mission, by}, mission_run {mission, by},
     mission_part {mission, part, state, cost_usd?, error?}, mission_claim {mission, part, file, tool},
     mission_end {mission, state, cost_usd, reason, parts}      a fleet mission (3.0.6.0 R7, fleet/mission_run.py)
-    recall_asked {query, k, by, hub, hits, hidden?}   a hub asked this harness's index (3.1.2.0 R3, recall_fleet.py)
+    recall_asked {query, k, by, hub, hits, hidden?}   a hub asked this harness's index (3.1.2.0 R3, recall_box.py)
     library_asked {entry, by, hub, bytes}   a hub fetched an entry of this harness's coach library (3.1.6.0 R3,
                                             orchestra/coach_library_share.py)
     knowledge_asked {entry?, of?, by, hub, entries, bytes}     a hub fetched findings / decisions of this harness

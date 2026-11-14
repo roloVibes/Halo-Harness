@@ -145,7 +145,7 @@ def labels(c, rig) -> dict:
     live = "document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{}\"] [data-testid=\"roles-live-model\"]')"
     c.wait(f"!!{live.format(SPAWNED[1][0])}", 30)
     out["live_labels"] = [c.js(f"{live.format(a)}?.textContent || ''") for a, *_ in SPAWNED]
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     card_click(c, f"document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{SPAWNED[1][0]}\"]')")
     agent = "document.querySelector('[data-testid=\"roles-live\"][data-view=\"live\"] [data-testid=\"roles-live-agent\"]')"
     out["inspector_meta"] = c.wait(f"{agent} && {agent}.querySelector('.fa-meta')?.textContent", 15)  # 3.3.16.0 R2: the one agent inspector
@@ -211,8 +211,8 @@ class InstrumentDriver(Driver):
                 srv.server_close()
                 shutil.rmtree(state.parent, ignore_errors=True)
             return
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             if which == "shots":
                 from tests.helpers.studio_live_rig import Live
                 lv = Live(rig, extra=())

@@ -1,7 +1,6 @@
 """tests.test_coach_studio_routes -- the coach's Studio routes, the coach pack's since 3.4.0.0 B2
 (`/api/packs/coach/coach/...`, server/routes.py over server/coach_api.py), moved here from
-test_studio_orchestra_api.py (an Orchestra run's card and its probe) and test_fleet_mission_api.py (a mission's card),
-with the pack enabled in each Studio's home. Run: python -m tests.test_coach_studio_routes
+test_studio_orchestra_api.py (an Orchestra run's card and its probe), with the pack enabled in each Studio's home. Run: python -m tests.test_coach_studio_routes
 """
 
 from __future__ import annotations
@@ -18,8 +17,6 @@ ensure_default_provider_credentials()
 ensure_scoped_state_dir_once()
 import tests.helpers.coach_names  # noqa: E402,F401  (the coach pack's modules under their old names)
 from tests.helpers import coach_pack as CP  # noqa: E402
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (3.4.0.0 C: missions are the fleet pack's)
-_fleet_pack.on()
 from tests.helpers import orchestra_studio_rig as R  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -61,29 +58,6 @@ def test_the_coach_route_reads_the_run_and_keeps_its_card(ctx: Ctx):
                       card["kind"] == "probe" and got["coach"]["probe"]["state"] == "done" and len(got["runs"]) == 1)
     finally:
         R.cleanup(repo)
-
-
-@test
-def test_the_mission_coach_route(ctx: Ctx):
-    """3.0.9.0 R3: GET fleet/missions/<id>/coach -> the coach's card for a mission folder of this harness
-    (a part asked longer than the median part, a refused edit, a judged conflict); 404 for an unknown one."""
-    from tests.helpers.coach_seed import mission_folder
-    from tests.test_studio_api import _Studio
-    with _Studio() as s:
-        folder = mission_folder(s.state)
-        CP.enable(s.state)  # 3.4.0.0 B2: the coach pack's routes
-        status, data, _ = s.call("GET", f"/api/packs/coach/coach/fleet/missions/{folder.name}/coach")
-        ids = [x["id"] for x in data.get("suggestions") or []]
-        ctx.check(f"200, the mission's cards, got {status} {ids}", status == 200 and data["kind"] == "mission"
-                  and {"coordination-2-asked", "tools-3-claim-README.md", "structure-3-after-1"} <= set(ids))
-        ctx.check("kept in the mission folder", (folder / "coach.json").is_file())
-        ctx.check("an unknown mission is a 404", s.call("GET", "/api/packs/coach/coach/fleet/missions/m-20261017-ffff/coach")[0] == 404)
-        _fleet_pack.off()  # 3.4.0.0 C: with the fleet pack off the coach finds no mission (its door says none)
-        try:
-            gone = s.call("GET", f"/api/packs/coach/coach/fleet/missions/{folder.name}/coach")[0]
-        finally:
-            _fleet_pack.on()
-        ctx.check(f"the fleet pack off: no mission, a 404, got {gone}", gone == 404)
 
 
 if __name__ == "__main__":

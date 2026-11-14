@@ -3,9 +3,9 @@ R1, docs/WORK.md). studio/api.py dispatches `work/` here.
 
     GET work/<kind>/<run>    the units of one run as the shared rows (work/report.py)
 
-`<kind>` is `orchestra` or `mission` (or a unit kind: lane, part;
-3.4.0.0 B: `team` / `stage` left with the team file). `<run>` is a run id or a unique prefix, found the way
-each section's own routes find it (orchestra_model, the missions folder). The answer is `{run, kind, units}`; 404 for an
+`<kind>` is `orchestra` (or the unit kind `lane`; 3.4.0.0 B: `team` / `stage` left with the team file, 3.5.0.0:
+`mission` / `part` with Fleet). `<run>` is a run id or a unique prefix, found the way Agents finds it
+(orchestra_model). The answer is `{run, kind, units}`; 404 for an
 unknown run, 405 for another method. The Studio panels keep their own
 routes this round -- this one serves every kind through one shape.
 """
@@ -15,8 +15,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-PATTERN = re.compile(r"^work/(?P<kind>orchestra|mission|lane|part)/(?P<run>[A-Za-z0-9_-]+)$")
-_UNIT_RUN = {"lane": "orchestra", "part": "mission"}
+PATTERN = re.compile(r"^work/(?P<kind>orchestra|lane)/(?P<run>[A-Za-z0-9_-]+)$")
+_UNIT_RUN = {"lane": "orchestra"}
 
 
 def _orchestra(req, ref):
@@ -24,17 +24,8 @@ def _orchestra(req, ref):
     return OM.find_run(OM.repo_of(req.cwd), ref)
 
 
-def _mission(req, ref):
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
-    S = fleet_door.module("fleet/mission_store.py", cwd=req.cwd, state_dir=req.state_dir)
-    if S is None:
-        return None
-    folder = S.folder(req.state_dir, ref)
-    return folder if (folder / "mission.json").is_file() else None
-
-
-FINDERS = {"orchestra": _orchestra, "mission": _mission}
-WHAT = {"orchestra": "Orchestra run", "mission": "mission"}
+FINDERS = {"orchestra": _orchestra}
+WHAT = {"orchestra": "Orchestra run"}
 
 
 def dispatch_work(req):

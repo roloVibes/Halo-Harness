@@ -2,10 +2,10 @@
 
     halo work [RUN] [--json]
 
-Prints the units of any run of any kind -- an Orchestra run, a fleet
-mission or the supervisor's queue -- as one table (work/report.py's rows).
+Prints the units of any run of any kind -- an Orchestra run or the
+supervisor's queue -- as one table (work/report.py's rows).
 RUN is a run folder, a run id, or an id prefix; with no RUN, the latest
-Orchestra run of this repo, else the latest mission.
+Orchestra run of this repo, else the supervisor's queue.
 `--json` prints the rows. Read only: nothing is written, no model is called.
 Exit codes: 0 the table, 1 no such run, 2 usage.
 """
@@ -27,12 +27,12 @@ def _resolve(ref: Optional[str], repo: Path) -> Optional[Path]:
         p = Path(ref)
         if run_kind(p):
             return p
-        for finder in (_orchestra, _mission, _supervise):
+        for finder in (_orchestra, _supervise):
             hit = finder(ref, repo)
             if hit is not None:
                 return hit
         return None
-    for latest in (_latest_orchestra, _latest_mission, _latest_supervise):
+    for latest in (_latest_orchestra, _latest_supervise):
         hit = latest(repo)
         if hit is not None:
             return hit
@@ -44,27 +44,9 @@ def _orchestra(ref, repo):
     return G.resolve_run(repo, ref)
 
 
-def _mission(ref, repo):
-    from halo_harness.peers import identity
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
-    M, S = fleet_door.module("fleet/mission.py"), fleet_door.module("fleet/mission_store.py")
-    if M is not None and S is not None and M.valid_id(ref):
-        folder = S.folder(identity.home(), ref)
-        return folder if (folder / "mission.json").is_file() else None
-    return None
-
-
 def _latest_orchestra(repo):
     from halo_harness.orchestra import goal as G
     return G.resolve_run(repo, None)
-
-
-def _latest_mission(repo):
-    from halo_harness.peers import identity
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
-    S = fleet_door.module("fleet/mission_store.py")
-    docs = S.all_docs(identity.home()) if S is not None else []
-    return S.folder(identity.home(), docs[-1]["id"]) if docs else None
 
 
 def _supervise(ref, repo):

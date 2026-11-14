@@ -49,7 +49,7 @@ function tailPath(key: AgentKey): { local: boolean; path: string; sid: string; a
   const { h, s, a } = parseKey(key);
   const ref = findAgent(fleet.get(), key);
   const local = !!ref?.h.local;
-  const path = local ? `sessions/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}` : `fleet/${encodeURIComponent(h)}/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}`;
+  const path = local ? `sessions/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}` : `live/${encodeURIComponent(h)}/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}`;
   return { local, path, sid: s, aid: a, hid: h };
 }
 

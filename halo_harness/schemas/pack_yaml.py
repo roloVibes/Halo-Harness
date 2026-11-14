@@ -6,14 +6,14 @@ reported with the closest known key); `config.schema` / `config.defaults`
 are mappings whose inside belongs to the pack. 3.2.0.0 R3: `contributes.studio`
 is typed (`studio()`: sections, panels, palette, config_form, events,
 attention; docs/EXTENSION_API.md "Studio contributions"). 3.2.0.0 R4:
-`contributes.fleet` is typed (`fleet()`: capabilities, inspector, mission;
-"Fleet capabilities"); a capability's `requires` takes unknown keys here so
-packs/fleet_rules.py names them with their line. 3.2.0.0 R5: `contributes.events`
+`contributes.capabilities` is typed (`capabilities_block()`: capabilities, inspector; "Pack capabilities"; API 1.4,
+3.5.0.0: its old name `contributes.fleet` is still read, its `mission` key ignored); a capability's `requires` takes
+unknown keys here so packs/capability_rules.py names them with their line. 3.2.0.0 R5: `contributes.events`
 entries are a kind or `{kind, schema, description}`, `contributes.artifacts`
 schema names (packs/typed.py; a workflow file's shape is schemas/workflow_yaml.py). What a value means (an id, a
 semver, a range, a file that exists, a panel kind) is
 `halo_harness.packs.manifest.validate_manifest`'s job (packs/studio_rules.py
-for the Studio part, packs/fleet_rules.py for the fleet part). The machine-readable twin is
+for the Studio part, packs/capability_rules.py for the capabilities part). The machine-readable twin is
 `halo_harness/packs/schema/pack.schema.json`; tests/test_packs_manifest.py and
 tests/test_packs_studio_contract.py keep the two equal.
 """
@@ -28,7 +28,7 @@ _NAMES = {"type": "array", "items": STRING}
 
 TOP_KEYS = ("id", "name", "version", "description", "author", "license", "halo_api", "halo", "capabilities",
             "requires", "contributes", "config", "permissions", "migrations", "bundle")  # bundle: 3.3.7.0 R5
-CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "studio", "fleet", "artifacts",
+CONTRIBUTION_KEYS = ("agents", "teams", "skills", "commands", "hooks", "mcp", "studio", "capabilities", "fleet", "artifacts",
                      "events", "workflows",  # 3.2.0.0 R2: workflows (names a lineup's workflows may use; R5 runs them)
                      "policy", "modes",  # 3.3.10.0 R1: policy hooks and the pack's runtime modes (packs/manifest_policy.py)
                      "setup",  # 3.3.11.0 R3: the pack's own Setup blocks (packs/manifest_setup.py)
@@ -47,8 +47,8 @@ PANEL_KEYS = ("id", "title", "kind", "source", "schema", "w", "h", "help", "colu
 SECTION_KEYS = ("id", "title", "blurb", "help", "panels", "view")  # view: 3.3.13.0 R2 (a whole-page bundle, API 1.2)
 ROUTES_KEYS = ("module", "prefix")
 ANSWER_KEYS = ("a", "r", "s", "o")
-# 3.2.0.0 R4: contributes.fleet
-FLEET_KEYS = ("capabilities", "inspector", "mission")
+# 3.2.0.0 R4: contributes.capabilities (3.5.0.0: its old name contributes.fleet is read too, with `mission`)
+CONTRIBUTED_KEYS = ("capabilities", "inspector")
 CAPABILITY_KEYS = ("name", "description", "requires", "capacity")
 REQUIRES_KEYS = ("tools", "runtimes", "platform", "hardware", "models", "grants", "locality")
 HARDWARE_KEYS = ("gpu", "ram_gb")
@@ -87,15 +87,17 @@ def studio() -> dict:
     return obj(props)
 
 
-def fleet() -> dict:
+def capabilities_block(old: bool = False) -> dict:
+    """`contributes.capabilities`; `old`: its name before 3.5.0.0, `contributes.fleet`, whose `mission` is ignored."""
     hardware = obj({"gpu": {"type": ["boolean", "string"]}, "ram_gb": NUMBER})
     requires = obj({"tools": _NAMES, "runtimes": _NAMES, "platform": _NAMES, "hardware": hardware, "models": _NAMES,
-                    "grants": _NAMES, "locality": _NAMES}, strict=False)  # an unknown key: fleet_rules' line
+                    "grants": _NAMES, "locality": _NAMES}, strict=False)  # an unknown key: capability_rules' line
     cap = obj({"name": STRING, "description": STRING, "requires": requires, "capacity": obj({"parallel": INT})})
     props = {"capabilities": {"type": "array", "items": cap},
-             "inspector": {"type": "array", "items": obj({"label": STRING, "source": STRING})},
-             "mission": obj({"metadata": MAPPING})}
-    assert tuple(props) == FLEET_KEYS and tuple(cap["properties"]) == CAPABILITY_KEYS
+             "inspector": {"type": "array", "items": obj({"label": STRING, "source": STRING})}}
+    assert tuple(props) == CONTRIBUTED_KEYS and tuple(cap["properties"]) == CAPABILITY_KEYS
+    if old:
+        props["mission"] = MAPPING
     assert tuple(requires["properties"]) == REQUIRES_KEYS and tuple(hardware["properties"]) == HARDWARE_KEYS
     return obj(props)
 
@@ -146,7 +148,8 @@ def pack() -> dict:
                    "log": STRING})  # 3.3.13.0 R3: packs/manifest_services.py names each problem with its entry
     assert tuple(service["properties"]) == SERVICE_KEYS
     contributes = obj({"agents": _NAMES, "teams": _NAMES, "skills": STRING, "commands": STRING, "hooks": STRING,
-                       "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "fleet": fleet(),
+                       "mcp": {"type": "array", "items": mcp_entry}, "studio": studio(), "capabilities": capabilities_block(),
+                       "fleet": capabilities_block(old=True),
                        "artifacts": _NAMES, "events": {"type": "array", "items": event}, "workflows": _NAMES,
                        "policy": {"type": "array", "items": policy}, "modes": {"type": "array", "items": mode},
                        "setup": {"type": "array", "items": setup}, "themes": {"type": "array", "items": theme},

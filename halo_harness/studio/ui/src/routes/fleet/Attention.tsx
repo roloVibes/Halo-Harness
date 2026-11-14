@@ -6,7 +6,7 @@
 // one-key answers: A accept / allow, R deny or redo with a text, S stop, O
 // open the panel it belongs to. J / K (or the arrows) move between rows
 // while the panel has the focus. Answers go through the route that already
-// handles each kind (studio/fleet_answer.py); the count is live from the feed.
+// handles each kind (studio/live_answer.py); the count is live from the feed.
 // 3.1.4.0 R2: under a scope (scope.ts, the Session section) the rows of that harness.
 import { useEffect, useRef, useState } from "react";
 import { Button, Empty, Kbd } from "../../lib/ui";
@@ -22,7 +22,6 @@ const ORDER = ["a", "r", "s", "o"];
 const KIND: Record<string, string> = {
   permission: "permission", question: "question", plan: "plan", approval: "approval", fleet_ask: "fleet ask", waiting: "waiting",
   paused: "paused", orchestra_gate: "orchestra gate", control_ask: "command", cap: "spend cap", conflict: "conflict",
-  mission_plan: "mission plan", mission_claim: "mission claim", mission_ask: "mission part", // 3.0.6.0 R8
   goal_plan: "goal plan", goal_gate: "goal gate", goal_budget: "goal budget", goal_ask: "goal ask", // 3.1.8.0 R1
   goal_replan: "goal replan", // 3.1.8.0 R2: a replan's new plan failed its check twice
   ollama_steward: "ollama steward", // 3.3.4.0 R4: the steward's note; O opens Local -> Hosts (3.3.16.0 R2)

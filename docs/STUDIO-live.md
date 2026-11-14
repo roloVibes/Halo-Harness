@@ -9,7 +9,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part. [Studio: Agents](STUDI
 The owner, 2026-11-10: "I always see like unused older version of orchestrations that aren't even happening when I look at
 it. I'd love to see what is actually happening." Before 3.3.18.0 Agents opened on Cast (a plan, its cards glowing for every
 failed agent of any open session after each reload), and Live drew the newest session of this harness, idle or not, with
-every agent it ever had, and on the fleet the open mission's parts whatever their state. Now:
+every agent it ever had. Now:
 
 - **Agents opens on Live.** Alt+2, the rail, `?mode=agents`, `halo studio --mode agents` and a `focus` frame without a view
   land on Live: what runs now, or, when nothing does, one sentence -- "Nothing is running. Start a session, or open the last
@@ -19,15 +19,14 @@ every agent it ever had, and on the fleet the open mission's parts whatever thei
   waiting or paused. One that finishes stays **ten seconds** (its green fades over them), then leaves; one that fails stays
   until you press its **dismiss** (Cast stops glowing for it too). A finish or a failure from before the page loaded is past
   and not drawn. The parents of what is drawn stay (the tree keeps its spine); a group goes with its last agent; a session
-  goes when nothing of it is drawn; on the fleet the machines stay (they are here) with the empty sentence as a strip
-  over them. An Orchestra run is drawn only while it runs, a mission's parts only while it runs or is being planned.
+  goes when nothing of it is drawn. An Orchestra run is drawn only while it runs.
 - **History** (Live's bar, `History · N`, closed on load) lists the past, newest first: this harness's sessions (an open
-  one with nothing running says so), Orchestra runs of Studio's repo, finished missions; each row what it was, when, how
+  one with nothing running says so), Orchestra runs of Studio's repo; each row what it was, when, how
   long, its cost and how it ended. A row opens it as a **replay**: drawn as it ended, muted, never in the live colours,
   under a "replay -- <the moment drawn>" banner whose **Back to now** returns, with the scrubber under the canvas
   (Time, below). 3.4.1.0: a saved replay file is a row too, and **Open a file** takes one from disk; each row has a
   tick, and two ticked -> **Compare** (one ticked: before / after a moment), a page of the drawer with Back
-  ([REPLAY.md](REPLAY.md#compare-two-runs)). 3.4.1.0 R3: each row but a mission's has its own **Report** door: a
+  ([REPLAY.md](REPLAY.md#compare-two-runs)). 3.4.1.0 R3: each row has its own **Report** door: a
   session's or a file's **report card** opens as a page of the drawer (the story in about ten lines, where the time and
   the money went, what failed, what waited on you, which model did what, the files; Copy Markdown, Replay, Back), a goal
   run's report page has the card as its first block ([REPLAY.md](REPLAY.md#the-report-card)). With nothing running,
@@ -35,8 +34,7 @@ every agent it ever had, and on the fleet the open mission's parts whatever thei
   Esc or the `x` closes the drawer.
 - **Cast is the plan and says so**: its bar says "the lineup new sessions use: <name>", and while agents run a chip
   "N live -- see Live" goes to Live. The cards light only for agents running under them now.
-- **The rail's Agents badge** counts the agents at work on this harness and on members that are online, never an away
-  member's last rows.
+- **The rail's Agents badge** counts the agents at work on this harness.
 
 Live lays out only when the tree's shape changes (which agents, their parents, their boxes) and repaints between, so a
 long session's frames never move a box.
@@ -101,7 +99,7 @@ bands (waiting on you, a tool, thinking, writing, idle) and a tick per spawn, ha
 what it was). Drag it and the canvas is redrawn as it was at that moment: who existed, in which block, each state, the
 plan's line labels, the sentence under the bar and the cost, under "replay -- <time>" in muted colours. Over the session
 running now it shows the axis up to now and a drag rewinds it; Now returns. A session, a goal run (coarse: each lane's
-start and end), a mission and a saved `.halo-replay` file all play on it; a session and a goal run save as a file and
+start and end) and a saved `.halo-replay` file all play on it; a session and a goal run save as a file and
 film a clip (R2). [REPLAY.md](REPLAY.md) has the file, the clip, what an older session cannot show, Compare and
 `halo replay list | save | open | clip | compare`.
 
@@ -115,9 +113,9 @@ room or from a phone (`routes/glance/`):
 - **what waits on you**, oldest first, each with its answers as **large buttons** (the row's own allow once / deny /
   stop, approve / send back, answer ...), each saying in one line what it does; an answer that needs words opens a text
   box first, a permission's deny takes an optional reason;
-- **the spend** against its cap: today's spend as the caps count it (`GET fleet/costs`: each harness's today from its
-  records, finished sessions too -- the figure History, the Cost panel and `halo fleet` read; 3.4.1.1) for the first cap
-  set of this machine's, the session's project's, the fleet's, else this machine's; a model Halo cannot price makes it
+- **the spend** against its cap: today's spend as the caps count it (`GET live/costs`: each harness's today from its
+  records, finished sessions too -- the figure History and the Cost panel read; 3.4.1.1) for the first cap
+  set of this machine's, the session's project's, else this machine's; a model Halo cannot price makes it
   `$x+`, never `$0`; none set reads **no cap set**; a cap reached says its sessions are paused;
 - **the elapsed time** of that session, and **the last three events** (a tool run, a line written, an ask), newest first;
 - a status word: **live**; **live figures; the feed is reconnecting** while the feed reconnects; **stale: last heard N s
@@ -134,8 +132,8 @@ this machine's address and, for a phone, either the steps and a code to scan or,
 this-machine-only ([REMOTE.md](REMOTE.md#the-glance-from-a-phone)).
 
 **What it may do.** It is the same loopback Studio with the same token, served the same page; nothing new listens and
-no port is added. It reads what Studio's own page reads (`GET fleet`, `fleet/attention`, `fleet/caps`, an agent's tail,
-`settings/values`, `/api/events`) and its one write is an answer, `POST /api/fleet/attention/answer`, the request
+no port is added. It reads what Studio's own page reads (`GET live`, `live/attention`, `live/caps`, an agent's tail,
+`settings/values`, `/api/events`) and its one write is an answer, `POST /api/live/attention/answer`, the request
 Attention's keys send, with the token AND the owner proof (`X-Halo-Owner`): since 3.4.1.0 R4 that route is an owner
 route, so neither Attention nor the glance answers a card without the shell's own page
 ([STUDIO-security.md](STUDIO-security.md#security-model)). It calls no model.

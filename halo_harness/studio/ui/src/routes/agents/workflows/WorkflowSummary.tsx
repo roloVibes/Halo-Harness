@@ -25,7 +25,7 @@ function Lines({ q }: { q: Square }) {
     ["does", q.does || "-"], ["takes", q.takes.join(", ") || "text"], ["gives", q.gives.join(", ") || "- (not a square)"],
     ["covers", q.covers.join(", ") || "-"],
     ["lead", q.lead ? `${q.lead.bio} on ${q.lead.model || "the session's model"}` : typeof q.lineup === "string" ? `lineup ${q.lineup}` : "the session's lineup"],
-    ["engine", q.engine === "mission" ? "mission (runs as orchestra while only this halo is here)" : q.engine],
+    ["engine", q.engine === "mission" ? "mission (runs as orchestra)" : q.engine],
     ["costs", q.costs], ["limits", q.limits], ["from", `${q.group} (${q.origin})`],
   ];
   return (

@@ -17,8 +17,6 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 from tests.helpers.provider_env_defaults import ensure_default_provider_credentials  # noqa: E402
 ensure_default_provider_credentials()
 
@@ -228,47 +226,6 @@ def test_a_fresh_steward_change_is_said_once_in_the_session(ctx: Ctx):
     st2 = {"last": {"profile": {**prof, "at": at(7200)}}}
     note_prepared(st2, 1000, 100, s)
     ctx.check("an old change is not said again", len(s._pending_ollama_notices) == 1)
-
-
-@test
-def test_the_hub_hands_its_profiles_to_a_member(ctx: Ctx):
-    """The hub (A) keys its profile by its own host; the member (B) calls the
-    same server by another name ("lan"); B keeps it as `lan|...` with by
-    "hub", and its own "user" entry stays."""
-    import json
-    from halo_harness.peers import ollama_share
-    from tests.helpers.fleet_hub_rig import HubRig, wait_for
-    saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S, dict(ollama_share._OWN))
-    ollama_share.FLUSH_S, ollama_share.CHECK_S = 0.2, 0.05
-    try:
-        with HubRig() as rig:
-            cfg = json.loads((rig.home_a / "config.json").read_text(encoding="utf-8"))
-            cfg["ollama"] = {"hosts": [{"name": "pc", "url": "http://127.0.0.1:11434"}],
-                             "profiles": {KEY: {"num_ctx": 65536, "num_predict": 4096, "by": "steward", "at": at()},
-                                          "pc|qwen3-coder:30b": {"num_ctx": 32768, "by": "steward", "at": at()}}}
-            (rig.home_a / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-            rig.set_b(**{"fleet.ollama.share": "all", "ollama.profiles": {
-                "lan|qwen3-coder:30b": {"num_ctx": 16384, "by": "user"}}})
-            own = set(ollama_share.own_addresses()) | {"192.0.2.10"}
-            ollama_share._OWN.update(at=time.monotonic() + 3600, set=own)
-            rig.join()
-            from halo_harness.config.paths import bridge_home
-            from halo_harness.ollama_steward import ledger
-            ledger.record_call(bridge_home(), {"host": {"name": "lan", "url": "http://192.0.2.10:11434"},
-                                               "model": "qwen3.8:27b", "status": 200})
-            ledger.record_call(bridge_home(), {"host": {"name": "lan", "url": "http://192.0.2.10:11434"},
-                                               "model": "qwen3-coder:30b", "status": 200})
-            _controller, act = rig.session()
-            wait_for(lambda: rig.member_session(act.session_id))
-            got = wait_for(lambda: (_profiles().get("lan|qwen3.8:27b") or None), timeout=20)
-            ctx.check(f"B keeps the hub's profile under its own host name, by hub, got {got}",
-                      got and got.get("num_ctx") == 65536 and got.get("by") == "hub")
-            mine = _profiles().get("lan|qwen3-coder:30b") or {}
-            ctx.check(f"B's own user entry stays, got {mine}", mine.get("num_ctx") == 16384 and mine.get("by") == "user")
-    finally:
-        ollama_share.FLUSH_S, ollama_share.CHECK_S = saved[0], saved[1]
-        ollama_share._OWN.clear()
-        ollama_share._OWN.update(saved[2])
 
 
 if __name__ == "__main__":

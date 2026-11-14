@@ -1,6 +1,6 @@
 """halo_harness.studio.raw_body -- a Studio route that answers with bytes, not
 JSON (Halo 3.0.5.0 "Fleet" round R4: a flight recording's HTML at
-`GET /api/fleet/recordings/<name>`). A handler returns `(200, RawBody(...))`;
+`GET /api/live/recordings/<name>`). A handler returns `(200, RawBody(...))`;
 studio/server.py `_api` sends it with its own content type and headers, behind
 the same token guard as every route.
 """

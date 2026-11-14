@@ -9,16 +9,17 @@ contributes the verb (packs/contrib_cli.py); `/<verb>` in the terminal says the 
 
 from __future__ import annotations
 
+FLEET = "Fleet is not part of Halo Harness any more (it left in 3.5.0.0); it is a separate pack."
 LEFT = {
     "team": ("the team file left in 3.4.0.0; a lineup's tiers and blocks (Agents -> Cast, halo teams) and a run's "
              "lanes with their owns lines (a goal run on Agents -> Live, halo orchestra) do its job now"),
+    "fleet": FLEET,  # 3.5.0.0
+    "mission": FLEET,
 }
 PACKED = {
     "start": ("first-run", "the guided first run"),
     "coach": ("coach", "the coach"),
     "improve": ("coach", "/improve, the coach's improvement candidates,"),
-    "fleet": ("fleet", "the fleet (a hub, its members, missions across halos)"),  # 3.4.0.0 C
-    "mission": ("fleet", "a fleet mission (one goal split across halos)"),  # 3.4.0.0 C: `halo mission` = `halo fleet mission`
 }
 
 

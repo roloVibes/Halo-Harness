@@ -73,7 +73,7 @@ def handle_join(state, body: dict, peer_ip: str, gate: JoinGate):
     if ckey is None:
         gate.fail(peer_ip, now)
         return 403, {"error": "that pairing code was not accepted (wrong, already used or expired); "
-                              "run `halo fleet pair` on the hub for a new one"}
+                              "run `halo host pair` on the host for a new one"}
     b_secret, b = pair_kex.keypair()
     key = pair_kex.pair_key(b_secret, a, ckey, a, b)
     record = {"id": hid, "name": _clean(h.get("name")) or hid[:8], "host": _clean(h.get("host")),

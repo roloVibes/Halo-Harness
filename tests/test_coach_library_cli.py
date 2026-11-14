@@ -7,7 +7,7 @@ parse, over a seeded run in a scratch home (tests/helpers/coach_seed.py):
    (id, when, project, lineup, source, title; `--json`), `show` (EXPERIENCE.md
    and the files it keeps), `(undone)` once the apply is undone;
 3. `forget`: y/N (no answer deletes nothing), `--yes`; an unknown entry exits 1,
-   a word that is not an entry id exits 2; `fetch` with no hub here exits 3.
+   a word that is not an entry id exits 2; `fetch` left with Fleet (3.5.0.0).
 Run: python -m tests.test_coach_library_cli
 """
 from __future__ import annotations
@@ -20,8 +20,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -114,10 +112,10 @@ def test_forget_asks_and_the_errors(ctx: Ctx):
         eid = L.entries(h.state)[0]["id"]
         rc, out, _ = cli(["library", "forget", eid, "--yes"])
         ctx.check("--yes skips the y/N", rc == 0 and "[y/N]" not in out and L.read(eid, h.state) is None)
-        rc, _, err = cli(["library", "fetch", "kali", "e-20261020-0a1f"])
-        ctx.check(f"fetch with no hub here exits 3, got {rc} {err!r}", rc == 3 and "none runs here" in err)
+        rc, _, err = cli(["library", "fetch", "box", "e-20261020-0a1f"])
+        ctx.check(f"fetch is no verb (3.5.0.0), got {rc} {err!r}", rc == 2)
         rc, out, _ = cli(["library", "--help"])
-        ctx.check("--help names the four verbs", rc == 0 and all(v in out for v in ("list", "show", "forget", "fetch")))
+        ctx.check("--help names the three verbs", rc == 0 and all(v in out for v in ("list", "show", "forget")) and "fetch" not in out)
         from types import SimpleNamespace
         _cmd_coach = _coach_pack.module("cli/slash.py").run  # 3.4.0.0 B2: /coach is the coach pack's slash command
         from halo_harness.orchestra.coach_record import undo

@@ -166,7 +166,7 @@ def cmd_peers(argv: list) -> int:
     if not rows:
         print("no peer is paired with this host (`halo host pair` makes a code)")
         return 0
-    print(f"fleet.allow_control here: {level}" + {"none": " (view only for every peer: strictly a monitor)",
+    print(f"host.allow_control here: {level}" + {"none": " (view only for every peer: strictly a monitor)",
                                                     "ask": " (a control / manage request is queued for you first)",
                                                     "all": " (the grants apply as given)"}[level])
     for r in rows:
@@ -177,7 +177,7 @@ def cmd_peers(argv: list) -> int:
 
 def cmd_pending(argv: list) -> int:
     from halo_harness.host import grants
-    a, rc = C.parse(_parser("pending", "The requests queued for you under fleet.allow_control: ask."), argv)
+    a, rc = C.parse(_parser("pending", "The requests queued for you under host.allow_control: ask."), argv)
     if a is None:
         return rc
     rows = grants.pending(identity.home())
@@ -199,7 +199,7 @@ def cmd_pending(argv: list) -> int:
 def cmd_answer(argv: list, *, allow: bool) -> int:
     from halo_harness.host import grants
     verb = "allow" if allow else "deny"
-    p = _parser(verb, f"{verb.capitalize()} a request queued under fleet.allow_control: ask (halo host pending).")
+    p = _parser(verb, f"{verb.capitalize()} a request queued under host.allow_control: ask (halo host pending).")
     p.add_argument("id", help="the pending row's id")
     a, rc = C.parse(p, argv)
     if a is None:

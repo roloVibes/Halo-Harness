@@ -1,26 +1,20 @@
-// The fleet's one store (the lib/store pattern): every harness with its sessions and agent trees (GET fleet, then the
+// The live store (the lib/store pattern; named `fleet` since 3.0.5.0): this harness with its sessions and agent trees (GET live, then the
 // feed: sync.ts), one stream per agent (streams.ts), what each agent is doing right now, the lit spawn edges, and the
 // choices: the selected agent (the agent inspector follows it), the pinned one (the picture-in-picture mini stream),
 // follow. A key is `harness|session|agent`. 3.1.4.0 R2: `scope` narrows the panels to one harness and session (scope.ts;
-// Session sets it). 3.3.16.0 R2 "the Fleet fold": the Fleet section went (its Start view, By project); Agents -> Live,
-// Session, Setup -> Machines and the shell read this store.
+// Session sets it). Agents -> Live, Session and the shell read this store.
 import { useEffect, useMemo, useState } from "react";
 import { createStore, useStore, writeLocal } from "../../lib/store";
 import { settle, type MotionState } from "../../lib/motion";
-import { LIVE_STATES, type Activity, type AgentKey, type AgentRef, type AgentRow, type Harness, type HubInfo, type LitEdge, type SessionRow, type Stream } from "./types";
+import { LIVE_STATES, type Activity, type AgentKey, type AgentRef, type AgentRow, type Harness, type LitEdge, type SessionRow, type Stream } from "./types";
 
 export type StreamTab = "thinking" | "working" | "output";
 export type Confirm = { what: "stop" | "shutdown"; key: AgentKey; label: string } | null;
-/** 3.1.4.0 R2: what the map, the activity, the attention rows and the costs show (scope.ts); {} = the whole fleet. */
+/** 3.1.4.0 R2: what the map, the activity, the attention rows and the costs show (scope.ts); {} = every session. */
 export type Scope = { harness?: string; session?: string };
 
 export type FleetState = {
   harnesses: Harness[];
-  hub: HubInfo | null;
-  /** 3.4.0.0 C: the fleet pack runs here (GET fleet's `fleet_pack`); off, Studio shows no Fleet door. */
-  pack: boolean;
-  /** 3.4.0.1 (defect 29): with the pack off, the one line the CLI says (install it, or enable what is installed). */
-  packLine: string;
   loaded: boolean;
   error: string;
   started: boolean;
@@ -55,9 +49,6 @@ function readOpts(): Partial<FleetState> {
 
 export const fleet = createStore<FleetState>({
   harnesses: [],
-  hub: null,
-  pack: false,
-  packLine: "",
   loaded: false,
   error: "",
   started: false,
@@ -80,15 +71,6 @@ export const fleet = createStore<FleetState>({
 
 export function useFleet<S>(select: (s: FleetState) => S): S {
   return useStore(fleet, select);
-}
-
-/** 3.4.0.0 C: does the fleet pack run here (every Fleet door asks). */
-export function fleetPack(): boolean {
-  return fleet.get().pack;
-}
-
-export function useFleetPack(): boolean {
-  return useStore(fleet, (s) => s.pack);
 }
 
 export function saveOpts(): void {
@@ -131,7 +113,7 @@ export function treeOf(rows: AgentRow[]): { a: AgentRow; depth: number }[] {
   return out;
 }
 
-/** Every agent of every session of every harness, the local harness first, in tree order. */
+/** Every agent of every session, in tree order. */
 export function allAgents(s: FleetState): AgentRef[] {
   const out: AgentRef[] = [];
   for (const h of s.harnesses)

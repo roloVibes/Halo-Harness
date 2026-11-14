@@ -156,7 +156,7 @@ def test_a_members_job_followed_from_its_push(ctx: Ctx):
         job = next(j for j in J.current()["jobs"] if j["name"] == "gemma3:4b")
         J.cancel(job["job"])
         ctx.check(f"a cancel goes to the member, got {sent}", sent[-1] == {"cancel": True})
-        code, err = J.start_remote("mac", "x:1b", lambda e: (403, {"error": "mac has fleet.allow_control: none"}), "", None)
+        code, err = J.start_remote("mac", "x:1b", lambda e: (403, {"error": "mac has host.allow_control: none"}), "", None)
         ctx.check(f"a refusal is the member's answer, got {code} {err}", code == 403 and "allow_control" in err["error"])
 
 

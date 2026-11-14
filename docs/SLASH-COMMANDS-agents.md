@@ -20,7 +20,7 @@ template**.
 grouped lines as `halo agents` (project / user / shipped, kind and model per
 line, ending with the `halo agents show <name>` hint).
 
-**Halo 3.0.5.0 (Fleet)**: `/agents live` lists THIS session's running
+**Halo 3.0.5.0**: `/agents live` lists THIS session's running
 agents instead: the main agent and every sub-agent at every depth (and
 background Bash jobs), indented under their parents, with state, cost so
 far, model and what each one is doing (the tool in flight, or its task).

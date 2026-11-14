@@ -75,14 +75,14 @@ def test_url_for_puts_the_mode_in_the_query_ahead_of_the_token(ctx: Ctx):
 @test
 def test_the_shell_has_six_sections_and_opens_each_by_mode(ctx: Ctx):
     """3.1.4.0 R3: Org and Flow are gone; the keys stay positional; 3.3.16.0 R2: Session Alt+1, Agents Alt+2, Local
-    Alt+3, Packs Alt+4, Setup Alt+5, Settings Alt+6 (Fleet folded into Agents). `halo studio --mode agents|orchestra|fleet|team|session`
+    Alt+3, Packs Alt+4, Setup Alt+5, Settings Alt+6 (3.5.0.0: no Fleet). `halo studio --mode agents|orchestra|team|session`
     (and `/studio team`) put it in the query, and the shell reads every section from `?mode=` (roles, orchestra and team
     land on Agents' views: ui/src/lib/agentsDoor.ts)."""
     from halo_harness.providers.config import default_state_dir
     state = Path(default_state_dir())
     srv = studio_server.start_server(port=0, cwd=state.parent / "proj", state_dir=state)
     try:
-        for mode in ("agents", "orchestra", "fleet", "team", "session"):
+        for mode in ("agents", "orchestra", "team", "session"):
             url = studio_server.url_for(srv, mode)
             ctx.check(f"--mode {mode} carries ?mode={mode} before #t=, got {url!r}", f"/?mode={mode}#t=" in url)
     finally:
@@ -106,8 +106,7 @@ def test_the_shell_has_six_sections_and_opens_each_by_mode(ctx: Ctx):
     facade = _facade()
     with _NoBrowser():
         out = _cmd_studio("fleet url", facade)
-    ctx.check(f"/studio fleet url: Agents -> Live on the fleet, its URL and the new door once, got {out!r}", "Agents -> Live, the fleet scope:" in out
-              and "?mode=fleet#t=" in out and out.count("Fleet is Agents -> Live now") == 1 and "the fleet itself is a pack: " in out)
+    ctx.check(f"/studio fleet: no section (3.5.0.0), got {out!r}", "is not a Studio section" in out and "?mode=fleet" not in out)
     with _NoBrowser():
         out = _cmd_studio("team url", facade)
     ctx.check(f"/studio team url: Agents -> Live (3.4.0.0 D), its URL and the new door, got {out!r}", "Agents -> Live:" in out and "?mode=team#t=" in out
@@ -171,8 +170,8 @@ def test_slash_studio_and_roles_open_that_mode(ctx: Ctx):
         out = _cmd_studio("design", facade)
         ctx.check(f"3.3.13.0 R2: /studio design with the pack off says how to turn it on, got {out!r}",
                   "design pack" in out and "halo pack enable design" in out and nb.calls == [])
-        _cmd_studio("fleet", facade)
-        ctx.check(f"without `url` the browser opens on the mode URL, got {nb.calls}", len(nb.calls) == 1 and "?mode=fleet#t=" in nb.calls[0])
+        _cmd_studio("team", facade)
+        ctx.check(f"without `url` the browser opens on the mode URL, got {nb.calls}", len(nb.calls) == 1 and "?mode=team#t=" in nb.calls[0])
 
 
 @test

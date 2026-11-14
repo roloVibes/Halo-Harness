@@ -40,12 +40,10 @@ reads memory hits only.
 
 - `halo recall <query> [--k N] [--no-refresh] [--json]` -- this machine's index; exit 0 with hits, 1 with
   none, 2 when embeddings are not configured.
-- `halo recall --fleet <query>` -- every online harness of the fleet answers from its own index
-  ([FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3)); only the hits leave a box, never the index.
 - `halo recall [<query>] --namespace <pack>/<name> [--provenance]` -- one pack's memory namespace.
 - `halo recall sources [--json]` -- the folders of your own notes, with their note counts.
 - `halo knowledge search <words>` -- findings and decisions only; a plain word match when embeddings are off.
-- `/recall [--fleet] <query>` -- the same in the TUI and `halo -p`.
+- `/recall <query>` -- the same in the TUI and `halo -p`.
 
 ## Your own notes
 
@@ -68,8 +66,7 @@ halo recall "the soup recipe with basil"
 - `~` is your home. A folder outside your home needs no grant: you named it.
 - The incremental rule holds: a note whose mtime did not change is not even opened again. A note you delete is
   pruned on the next search; take a folder out of `recall.sources` and its notes go from the index too.
-- Your notes never leave this machine: a fleet recall answer leaves every `note` hit out
-  ([FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3)).
+- Your notes never leave this machine.
 
 `recall.sources` takes a list (or one folder as a string); `halo recall
 sources` prints each folder with its note count and says when one is not

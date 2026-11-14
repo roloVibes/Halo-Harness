@@ -5,7 +5,7 @@ scratch home (so the profile fields a fix lands go to the host's config.json, as
 harness, `carol@peer`, as the peer that signs every request. The host serves one Ollama host, `pc`, which is a
 MockUpstream on 127.0.0.1 (the models qwen3.8:27b, qwen3-coder:30b, qwen3.5:9b: `/api/tags`, `/api/show`,
 `/api/ps`, the load / unload generate, the pull); its hardware card is the Ollama panel seed's 24 GB card with
-ComfyUI holding 2 GB. `fleet.allow_control` is `cap`; the peer holds `grants`.
+ComfyUI holding 2 GB. `host.allow_control` is `cap`; the peer holds `grants`.
 
     rig.act(grant, op, params, **kw) -> (status, answer)     one signed request, its HTTP status kept
     rig.lines(model, n, tok_s=, trimmed=, ago=)             ledger lines on the host for pc (the verify's calls)
@@ -55,7 +55,7 @@ class ActRig:
                    "catalog": lambda h: {"models": [r[BIG], r[CODER], r[SMALL]]},
                    "tail": lambda h, n: ([], "fixture", None), "log": lambda h: {"state": "live", "line": "live"}}
         self.rig = HostRig(host_home=None, readers_=readers, seed=False).__enter__()
-        self.rig.set_peer(**{"fleet.allow_control": self.cap, "ollama.steward.probe_new": False})
+        self.rig.set_peer(**{"host.allow_control": self.cap, "ollama.steward.probe_new": False})
         self.svc = self.rig.start().svc
         self.home = self.svc.home
         self.entry = self.rig.pair()

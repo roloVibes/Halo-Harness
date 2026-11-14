@@ -155,8 +155,6 @@ def resolve(state_dir, ref: str, cwd=None) -> "tuple[dict, bool]":
     """The replay `ref` names (live/compare.resolve; CompareError when none) and whether it was read from a saved file."""
     from pathlib import Path
     from halo_harness.live import compare, replay_file
-    if ref.startswith("mission:"):
-        raise compare.CompareError("a mission's report is the fleet pack's mission page (halo fleet mission report)")
     p = compare.resolve(state_dir, ref, cwd=cwd)
     rid = ref.split(":", 1)[1] if ref.split(":", 1)[0] in ("session", "run", "file") else ref
     from_file = ref.startswith("file:") or (not ref.startswith(("session:", "run:")) and (

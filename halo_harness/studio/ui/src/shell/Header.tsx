@@ -12,8 +12,7 @@ import { Button, Icon, Kbd } from "../lib/ui";
 import { openHelp, studio, toggleFocus, useStore, type SectionId } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
 import { toggleDensity, useDensity } from "../lib/density";
-import { blurbOf, sectionDef } from "../routes";
-import { useFleet } from "../routes/fleet/store";
+import { sectionDef } from "../routes";
 import { PanelsMenu } from "./PanelsMenu";
 import { SectionMore } from "./SectionMore";
 import { ThemeMenu } from "./ThemeMenu"; // 3.3.12.0 R1: the ten palettes, one `theme` key
@@ -68,7 +67,6 @@ export function Header() {
   const section = useStore(studio, (s) => s.section);
   const focus = useStore(studio, (s) => s.focus);
   const def = sectionDef(section);
-  const fleetOff = useFleet((s) => s.loaded && !s.pack);
   return (
     <header className="topbar" data-density="bar">
       <div className="brand" title="Halo Studio">
@@ -78,7 +76,7 @@ export function Header() {
       </div>
       <div className="topbar-section" data-testid="section-title">
         <span className="topbar-title">{def.title}</span>
-        <span className="topbar-blurb">{blurbOf(def, fleetOff)}</span>
+        <span className="topbar-blurb">{def.blurb}</span>
       </div>
       <HelpMenu section={section} />
       <div className="topbar-tools" data-testid="section-tools">

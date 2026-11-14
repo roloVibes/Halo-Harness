@@ -1,7 +1,7 @@
 """halo_harness.host.routes_act -- the host's acting routes (Halo 3.3.7.0 R2; docs/HOST.md "The vocabulary").
 
     POST control/<op> | manage/<op>   {params, evidence: {finding?, lines?}, scope?, dry?, why?}
-        the grant (host/grants.decide: 403 naming it; 202 + a pending row under fleet.allow_control: ask), the
+        the grant (host/grants.decide: 403 naming it; 202 + a pending row under host.allow_control: ask), the
         params (422), the guards for a fix (host/guards.py: 422 evidence, 409 one at a time / cooldown, 429 rate),
         the preview; `dry: true` answers {ok, dry, would, writes, takes, cost} and lands nothing; a preview that
         says the card would be breached refuses in its own words (422); else the op applies. A job-shaped op

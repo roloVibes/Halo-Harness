@@ -6,7 +6,6 @@ catalog (rows as coach_prices.catalog returns them) and the bios the rules
 name. No run engine, no model call.
 """
 from __future__ import annotations
-import tests.helpers.fleet_pack  # noqa: F401,E402  (the fleet pack's modules under their old names)
 
 import json
 from pathlib import Path
@@ -86,34 +85,4 @@ def orchestra_run(root: Path, lanes: list, *, events=(), merge=None, goal=None, 
                                                "pieces_returned": r["pieces_returned"], "cost_usd": r["cost_usd"]} for r in lanes],
                                     "checks": []})
     return run_dir
-
-
-def mission_folder(home: Path, mid: str = "m-20261017-c0a1") -> Path:
-    """An ended mission (mission.json, plan.json, report.json, log.jsonl): part 2 sat `asked` for 200 s (the
-    median part took 55 s), part 3's edit was refused, part 3's merge conflicted with part 1 in docs/a.md,
-    part 4 changed no file, an output the plan named is missing."""
-    from halo_harness.fleet import mission as M
-    folder = Path(home) / "fleet" / "missions" / mid
-    parts = [{"id": "1", "title": "write a", "kind": "repo", "state": "done", "harness_name": "hub", "duration_s": 60.0,
-              "files": ["docs/a.md"], "cost_usd": 0.1}, {"id": "2", "title": "write b", "kind": "repo", "state": "done",
-              "harness_name": "kali", "duration_s": 50.0, "files": ["docs/b.md"], "cost_usd": 0.1},
-             {"id": "3", "title": "fix a", "kind": "repo", "state": "done", "harness_name": "hub", "duration_s": 70.0,
-              "files": ["docs/a.md"], "cost_usd": 0.1}, {"id": "4", "title": "check", "kind": "repo", "state": "done",
-              "harness_name": "hub", "duration_s": 10.0, "files": [], "cost_usd": 0.0}]
-    doc = M.new_doc(mid=mid, goal="Ship the docs", hub={"id": "hub-id", "name": "hub"})
-    doc.update(state="done", ended=doc["created"] + 400, parts={p["id"]: dict(M.new_part_state(p), state="done", harness="h-" + p["harness_name"],
-               harness_name=p["harness_name"], files=p["files"], cost_usd=p["cost_usd"]) for p in parts})
-    write(folder / "mission.json", doc)
-    write(folder / "plan.json", {"parts": [{"id": p["id"], "title": p["title"], "kind": "repo", "harness": "h-" + p["harness_name"],
-                                            "harness_name": p["harness_name"], "depends_on": [], "outputs": [], "claims": p["files"]}
-                                           for p in parts]})
-    write(folder / "report.json", {"mission": mid, "state": "done", "cost": {"total_usd": 0.3}, "parts": parts,
-                                   "refused": [{"part": "3", "file": "README.md", "tool": "Edit", "harness": "hub", "ts": 5.0}],
-                                   "merge": {"merged": ["1", "2", "3"], "conflicts": [{"part": "3", "file": "docs/a.md"}]},
-                                   "missing_outputs": ["artifacts/2/cover.png"]})
-    lines(folder / "log.jsonl", [{"ts": 100.0, "kind": "part", "part": "2", "state": "asked"},
-                                 {"ts": 300.0, "kind": "part", "part": "2", "state": "running"},
-                                 {"ts": 350.0, "kind": "part", "part": "2", "state": "done"}])
-    return folder
-
 

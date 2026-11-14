@@ -54,7 +54,7 @@ def line(entry: dict, kind: str, run: str, *, unit=None, by="", key=None, native
 
 
 def read(run_dir, kind: Optional[str] = None) -> list:
-    """Every line of the run's log as LedgerLines, oldest first (`kind`: lane|part|goal, else read from the folder)."""
+    """Every line of the run's log as LedgerLines, oldest first (`kind`: lane|goal, else read from the folder)."""
     from halo_harness.work.store import adapter_for, unit_kind
     k = kind or unit_kind(run_dir)
     if k is None:

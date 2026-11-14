@@ -6,7 +6,7 @@ import { goSection } from "../../../lib/store";
 import { orch, isLiveRun } from "../../orchestra/store";
 import { loadRuns, openRun as openOrchRun, startOrchestra } from "../../orchestra/sync";
 import { openReport } from "../live/historyStore";
-import { pickLive, setScope } from "../live/scope";
+import { pickLive } from "../live/scope";
 
 /** The run of `id` (an exact id or a unique prefix), read afresh when the list does not hold it. */
 async function rowOf(id: string) {
@@ -25,7 +25,6 @@ export async function openRun(id: string, lane?: number): Promise<void> {
   goSection("agents", "live");
   const row = await rowOf(id);
   if (row && isLiveRun(row.state)) {
-    setScope("here"); // a goal run is this halo's
     if (orch.get().runId !== row.run_id) await openOrchRun(row.run_id);
     pickLive(lane ? "lane" : "run", lane ? `${row.run_id}:${lane}` : row.run_id);
     return;

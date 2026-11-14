@@ -31,17 +31,11 @@ A block (3.3.16.3) is one titled box on Studio's Agents canvas with a purpose, t
 
 A lane is one worker's share of an Orchestra run: one job of the plan, with its claims, its own git worktree and branch, its state (joined, writing, written, in review, merged, or waiting when its piece came back), how often its piece came back and what it cost. `halo orchestra lanes` lists them; while the run runs, Studio's Agents -> Live draws them as boxes under the run's lead (state, model, cost, what each owns), and a finished run's report in History lists them.
 
-## part
-
-A part is one piece of a fleet mission: a slice of the goal given to the harness whose capabilities fit it, with its claims, its outputs and its hand-back. The hub's lead splits a mission into parts, and before you approve you can drag a part to another harness on Studio's map.
 
 ## step
 
 A step is one box of a run's workflow, each with its state (pending, running, planned, done, failed or skipped): an Orchestra run's goal, lead, split, workers, merge, test, gate and done; and the seven screens of `halo start`.
 
-## mission
-
-A mission is one goal for the whole fleet: the hub's lead splits it into parts and gives each to the harness that can do it, you approve the plan, the parts run on their own machines, and the report says who did what and what it cost per harness. `halo fleet mission new` and Studio's Mission panel start one.
 
 ## gate
 
@@ -57,7 +51,7 @@ A hand-off passes work from one lane or part to the next: a job with `after` wai
 
 ## square
 
-A square is a saved workflow with a contract (Halo 3.3.16.0 R3): what it does in one sentence, what it takes (text, files, a PDF, images, audio, video, links), what it gives back (text, files, a report, a repo change), the needs it covers, the bios and models it runs on, its engine (one agent, an Orchestra run, or a mission), its budget band and cap, and its limits. The main agent hands a task to a square instead of picking a model; a lineup enables the squares it may use. `halo workflows list` and Studio's Agents -> Workflows board show them.
+A square is a saved workflow with a contract (Halo 3.3.16.0 R3): what it does in one sentence, what it takes (text, files, a PDF, images, audio, video, links), what it gives back (text, files, a report, a repo change), the needs it covers, the bios and models it runs on, its engine (one agent or an Orchestra run), its budget band and cap, and its limits. The main agent hands a task to a square instead of picking a model; a lineup enables the squares it may use. `halo workflows list` and Studio's Agents -> Workflows board show them.
 
 ## router
 
@@ -77,35 +71,29 @@ The plan is the lead's split of a goal into jobs, one per lane, each with a titl
 
 ## coach
 
-The coach reads a finished run's files (an Orchestra run or a mission) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards. The coach is a pack since 3.4.0.0 (`halo pack install coach`; off unless you enable it): its verbs, the Coach panel in Studio's Agents section and its settings come with it.
+The coach reads a finished run's files (an Orchestra run) and suggests what to change next time: a bio's prompt, model or tools, a lane's `after`, a gate that looped. Each card shows its evidence; Ask the model has the run's lead explain it in one paragraph, Apply writes the change after one confirm (the file and its diff first) and Undo puts the file back. `halo coach` prints the cards. The coach is a pack since 3.4.0.0 (`halo pack install coach`; off unless you enable it): its verbs, the Coach panel in Studio's Agents section and its settings come with it.
 
 ## orchestra run
 
 An Orchestra run is several agents writing the same files at once with nothing lost: a lead splits your goal (WHAT YOU WANT, DONE WHEN, STOP WHEN) into lanes, each worker writes its part in its own worktree under claims, the parts merge one at a time and the gate runs your test. `halo orchestra new` then `halo orchestra run` start one; its folder is `<repo>/.halo/orchestra/<run id>/`.
 
-## fleet
 
-The fleet (the shipped `fleet` pack since 3.4.0.0: `halo pack enable fleet --grant-all`) is every Halo harness you run or joined, on any machine, seen as one: their sessions, every agent in them, what waits on you and what it all costs. A machine joins with a pair code (`halo fleet pair` on the hub, `halo fleet join` on the other machine); `halo fleet` is the live table and Studio's Agents -> Live on the fleet the map (3.3.16.0 R2; Setup -> Machines pairs, Local holds the machines' models).
-
-## hub
-
-The hub is the harness the others join (`halo studio --fleet` or `halo fleet serve`, the fleet pack's): it keeps the fleet's member list, relays commands and hand-offs between harnesses, and its lead plans missions. A joined harness talks to it over a fingerprint-pinned connection.
 
 ## harness
 
-A harness is one running Halo install on one machine with its own home (`~/.halo`): its fleet id, its sessions, its lineups and its capabilities. Halo itself is the harness in "Halo Harness": the program that runs a model's turns with Claude Code's tools and configuration.
+A harness is one running Halo install on one machine with its own home (`~/.halo`): its id, its sessions, its lineups and its capabilities. Halo itself is the harness in "Halo Harness": the program that runs a model's turns with Claude Code's tools and configuration.
 
 ## capability
 
-A capability is something a harness can do, as its spec card lists it: its hardware (GPU, memory), the models it reaches, its craft apps, its MCP servers and their tools, its skills and its tags. A mission gives each part to a harness whose capabilities fit it, and `halo fleet who "<query>"` ranks the fleet for what you need.
+A capability is something a harness can do, as its spec card lists it: its hardware (GPU, memory), the models it reaches, its craft apps, its MCP servers and their tools, its skills. A pack's workflow that needs a capability runs only where the capability is available (`halo pack doctor` says why not).
 
 ## unit
 
-A unit of work is what a lane, a mission part and a supervisor goal all are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The three engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.
+A unit of work is what a lane and a supervisor goal both are underneath (`halo work`, docs/WORK.md): one piece of work with an owner, its claims, its hand-offs, one state machine, a gate, an acceptance and a cost. The engines keep their own words on top; the shared model gives them one ledger line, one report row and one coach.
 
 ## pack
 
-A pack is a folder someone else maintains that adds bios, lineups, workflows, skills, commands, hooks, MCP servers, Studio sections and fleet capabilities to your Halo without changing Halo itself; every name it offers carries its id (`doc-review--reviewer`). It lives in `~/.halo/packs/<id>/` (or a repo's `.halo/packs/`), installs disabled, and runs once you enable it and grant what it asks for. `halo pack` installs, enables, updates and removes one (docs/PACKS.md), and Studio's Pack Manager (the Packs section) does the same with buttons.
+A pack is a folder someone else maintains that adds bios, lineups, workflows, skills, commands, hooks, MCP servers, Studio sections and capabilities to your Halo without changing Halo itself; every name it offers carries its id (`doc-review--reviewer`). It lives in `~/.halo/packs/<id>/` (or a repo's `.halo/packs/`), installs disabled, and runs once you enable it and grant what it asks for. `halo pack` installs, enables, updates and removes one (docs/PACKS.md), and Studio's Pack Manager (the Packs section) does the same with buttons.
 
 ## guided first run
 
@@ -125,7 +113,7 @@ The env file (`~/.config/halo/env`, or the file `HALO_ENV_FILE` names) holds the
 
 ## config key
 
-A config key is one setting in `~/.halo/config.json`, named by its dotted path (`fleet.enabled`, `ollama.discover.ports`); `halo config get` reads it, `halo config set <key> <value>` writes it, and a key you never set falls back to its default. Studio's Settings section (3.3.3.0) lists every key, one page per group, each row with its help line, its value against its default, Reset to default and the exact `halo config set` line; docs/CONFIG.md's key table is the same list in words.
+A config key is one setting in `~/.halo/config.json`, named by its dotted path (`control.enabled`, `ollama.discover.ports`); `halo config get` reads it, `halo config set <key> <value>` writes it, and a key you never set falls back to its default. Studio's Settings section (3.3.3.0) lists every key, one page per group, each row with its help line, its value against its default, Reset to default and the exact `halo config set` line; docs/CONFIG.md's key table is the same list in words.
 
 ## steward
 
@@ -133,7 +121,7 @@ The Ollama steward (3.3.4.0) watches every halo's calls to a local model server:
 
 ## profile
 
-A profile (Ollama) is what every halo reads before a call to one model on one host: `ollama.profiles["<host>|<model>"]` in `~/.halo/config.json`, with the window (`num_ctx`), the reply reserve (`num_predict`), keep-alive, the tool cap, another host to ask instead, and when to compact. The steward writes one and says why (`by: steward`), a hub hands its own to its members (`by: hub`), and yours (`by: user`) always wins; `halo ollama steward undo` reverts the steward's newest change.
+A profile (Ollama) is what every halo reads before a call to one model on one host: `ollama.profiles["<host>|<model>"]` in `~/.halo/config.json`, with the window (`num_ctx`), the reply reserve (`num_predict`), keep-alive, the tool cap, another host to ask instead, and when to compact. The steward writes one and says why (`by: steward`), a paired host hands its own to the machines that use it (`by: hub`), and yours (`by: user`) always wins; `halo ollama steward undo` reverts the steward's newest change.
 
 ## fit plan
 
@@ -145,11 +133,11 @@ A host is a model server Halo calls -- an `ollama.hosts` entry (`ol:<model>@<hos
 
 ## grant
 
-A grant is what one paired peer may do on a `halo host`: `view` (the card, the catalog and fit, the profiles, the events and the log, the live stream, the fit simulation and the routing answer, the findings) is every peer's; `control` (warm, pin, unload, pivot, the profile fields as fixes, the stated KV and flash-attention lines, the battery, the bench, a twin's verify), `manage` (pull, delete, retire, revert, the stated restart and env lines; it holds `control`'s operations too) and `admin` (its own grant; its operations are not part of this version) are given per peer with `halo host grant <peer> <grant>`. The host machine's `fleet.allow_control` caps them: `none` keeps every peer at `view` (strictly a monitor), `ask` queues each `control` or `manage` request for the owner (`halo host pending`, `halo host allow <id>`), `all` applies them as given. A request a peer holds no grant for gets one line naming the grant and the command that gives it.
+A grant is what one paired peer may do on a `halo host`: `view` (the card, the catalog and fit, the profiles, the events and the log, the live stream, the fit simulation and the routing answer, the findings) is every peer's; `control` (warm, pin, unload, pivot, the profile fields as fixes, the stated KV and flash-attention lines, the battery, the bench, a twin's verify), `manage` (pull, delete, retire, revert, the stated restart and env lines; it holds `control`'s operations too) and `admin` (its own grant; its operations are not part of this version) are given per peer with `halo host grant <peer> <grant>`. The host machine's `host.allow_control` caps them: `none` keeps every peer at `view` (strictly a monitor), `ask` queues each `control` or `manage` request for the owner (`halo host pending`, `halo host allow <id>`), `all` applies them as given. A request a peer holds no grant for gets one line naming the grant and the command that gives it.
 
 ## peer
 
-A peer is a harness paired with a `halo host` through its six-word code (`halo host pair` there, `halo host join` here), kept in this machine's `fleet.json` under `hosts` with the pair key that signs its requests; the host keeps the peer's record and grants in `peers.json` and one audit line per request it answers. A peer is not a member: that word is the lineup's.
+A peer is a harness paired with a `halo host` through its six-word code (`halo host pair` there, `halo host join` here), kept in this machine's peer store under `hosts` with the pair key that signs its requests; the host keeps the peer's record and grants in `peers.json` and one audit line per request it answers. A peer is not a member: that word is the lineup's.
 
 ## fix
 
@@ -193,7 +181,7 @@ A crash fingerprint (3.3.6.0 R2) is what the steward records when a host's serve
 
 ## log status
 
-A host's log status (3.3.6.0 R3) says whether Halo can read that host's Ollama server log and whether it is live: live (its newest line is newer than the newest call Halo made to the host, give or take a minute), stale (calls the log never saw: it writes elsewhere), quiet (nothing in fifteen minutes), unreadable (the file or the ssh read did not answer), on that machine with no ssh entry (a fleet member's push carries its events, else only `/api/ps` says the fit) or missing; `debug: on` when debug-level lines appear. The host card, `halo ollama hardware`, Local -> Hosts and Local -> Logs show it with the path and the tail command; more detail is `OLLAMA_DEBUG=1` and a restart there, said as an action Halo never takes.
+A host's log status (3.3.6.0 R3) says whether Halo can read that host's Ollama server log and whether it is live: live (its newest line is newer than the newest call Halo made to the host, give or take a minute), stale (calls the log never saw: it writes elsewhere), quiet (nothing in fifteen minutes), unreadable (the file or the ssh read did not answer), on that machine with no ssh entry (a paired host's push carries its events, else only `/api/ps` says the fit) or missing; `debug: on` when debug-level lines appear. The host card, `halo ollama hardware`, Local -> Hosts and Local -> Logs show it with the path and the tail command; more detail is `OLLAMA_DEBUG=1` and a restart there, said as an action Halo never takes.
 
 ## load result
 
@@ -376,7 +364,7 @@ A paged MoE fit (3.3.13.0 R1) is the fit rule for an engine that runs a Mixture-
 
 ## info row
 
-An info row (3.3.10.0 R3) is a `halo pack doctor` row of severity `info`: a note, never a problem, printed `[INFO]` after the errors and warnings (dimmed on a terminal) and counted apart on the RESULT line (`1 note(s)`). Today there is one kind: a fleet capability a pack offers that you hid from the fleet on purpose with `fleet.capabilities.hide`. `halo pack doctor` exits 0 when every row is an info row (`--json` keeps the severity on each row), `halo doctor --config` does not count it as a finding, and the Pack Manager shows it as a note ("1 note"), apart from the doctor lines.
+An info row (3.3.10.0 R3) is a `halo pack doctor` row of severity `info`: a note, never a problem, printed `[INFO]` after the errors and warnings (dimmed on a terminal) and counted apart on the RESULT line (`1 note(s)`). Today there is one kind: an enabled pack's Setup blocks that are neither done nor skipped. `halo pack doctor` exits 0 when every row is an info row (`--json` keeps the severity on each row), `halo doctor --config` does not count it as a finding, and the Pack Manager shows it as a note ("1 note"), apart from the doctor lines.
 
 ## receipt
 
@@ -444,7 +432,7 @@ A consult role (3.3.17.0) is a role whose model takes no tools: it answers from 
 
 ## replay
 
-A replay (3.3.18.0; 3.4.1.0 with time) is something that already happened -- a session, a goal run, a mission or a saved `.halo-replay` file -- drawn on Studio's Agents -> Live as it was at the moment the scrubber under the canvas stands on: opened from Live's History drawer (newest first: what it was, when, how long, its cost, how it ended; Open a file takes one from disk) or the empty state's Replay the last session, under a "replay -- <time>" banner, in muted colours, never the live ones. Drag the scrubber to any moment, Play at 1x / 4x / 16x, Now returns to what runs. Save this run's replay writes it as one file (`halo replay save`) that `halo replay open` opens on any machine; Export a clip films a range as one animated file (docs/REPLAY.md). The scrubber is the one replay control: Cast's replay bar went in 3.4.1.0. A goal run saves as a file too, and History compares two runs -- tick two rows, Compare: their lanes over one axis, the rows with the better figure named by a word, three "what differed" lines (`halo replay compare`; 3.4.1.0 R2).
+A replay (3.3.18.0; 3.4.1.0 with time) is something that already happened -- a session, a goal run or a saved `.halo-replay` file -- drawn on Studio's Agents -> Live as it was at the moment the scrubber under the canvas stands on: opened from Live's History drawer (newest first: what it was, when, how long, its cost, how it ended; Open a file takes one from disk) or the empty state's Replay the last session, under a "replay -- <time>" banner, in muted colours, never the live ones. Drag the scrubber to any moment, Play at 1x / 4x / 16x, Now returns to what runs. Save this run's replay writes it as one file (`halo replay save`) that `halo replay open` opens on any machine; Export a clip films a range as one animated file (docs/REPLAY.md). The scrubber is the one replay control: Cast's replay bar went in 3.4.1.0. A goal run saves as a file too, and History compares two runs -- tick two rows, Compare: their lanes over one axis, the rows with the better figure named by a word, three "what differed" lines (`halo replay compare`; 3.4.1.0 R2).
 
 ## waiting path
 

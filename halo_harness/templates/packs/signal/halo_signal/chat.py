@@ -3,7 +3,7 @@
     /sessions  /attach <n>  /new [<folder>]  /cd <folder>      which session the phone talks to, where new ones start
     /status  /cost  /tail [n]  /stop                          the attached session: its state, its spend, its last lines
     /mode <name>  /model <ref>  /effort <level>               change it
-    /fleet                                                    this harness's sessions, the fleet's members, what waits
+    /live                                                     this harness's sessions and what waits on you
     /notify [on|off <kind>]                                   what arrives unprompted: turn_done asks errors supervisor steward
     /quiet  /loud                                             only your own turns, or every turn of the attached session
     /file <path>  /shot                                       a file of the session's folder; Studio, now
@@ -19,7 +19,7 @@ from halo_signal.phones import KINDS, resolve_home, short
 from halo_signal.session import call, detach, label, live_sessions, start_new
 
 HELP = ("Chat commands:\n/sessions  /attach <n>  /new [folder]  /cd <folder>\n/status  /cost  /tail [n]  /stop\n"
-        "/mode <name>  /model <ref>  /effort <level>\n/fleet  /notify [on|off <kind>]  /quiet  /loud\n"
+        "/mode <name>  /model <ref>  /effort <level>\n/live  /notify [on|off <kind>]  /quiet  /loud\n"
         "/file <path>  /shot  /signal status|unpair\nAnything else starting with / runs in the session; plain text, "
         "a picture or a voice note is the prompt (a steer while a turn runs). A card: 1-4, a letter, approve, accept "
         "-- or a thumbs up / down on it.")
@@ -144,8 +144,8 @@ def cmd_tail(b, rt, args: str):
     b.say(rt.aci, resp["result"].get("markdown") or "(nothing yet)", markdown=True)
 
 
-def cmd_fleet(b, rt, args: str):
-    b.say(rt.aci, "\n".join(b.fleet_lines()) or "Nothing to show.")
+def cmd_live(b, rt, args: str):
+    b.say(rt.aci, "\n".join(b.live_lines()) or "Nothing to show.")
 
 
 def cmd_notify(b, rt, args: str):
@@ -187,7 +187,7 @@ HANDLERS = {
     "cost": cmd_cost, "stop": _simple("interrupt", "", "Interrupt sent."),
     "mode": _simple("mode", "mode", "Mode set to {args}."), "model": _simple("model", "ref", "Model switch queued: {args}."),
     "effort": _simple("effort", "level", "Effort set to {args}."), "quiet": cmd_verbosity("quiet"),
-    "loud": cmd_verbosity("loud"), "tail": cmd_tail, "fleet": cmd_fleet, "notify": cmd_notify,
+    "loud": cmd_verbosity("loud"), "tail": cmd_tail, "live": cmd_live, "notify": cmd_notify,
     "file": lambda b, rt, a: media.send_file(b, rt, a), "shot": lambda b, rt, a: media.shot(b, rt),
     "signal": cmd_signal, "remote": cmd_signal, "help": cmd_help,
 }

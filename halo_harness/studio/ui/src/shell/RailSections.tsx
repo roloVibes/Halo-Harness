@@ -20,9 +20,6 @@ import { useRecent } from "../lib/motion";
 import { useSections, type SectionDef } from "../routes";
 import { useLiveCount } from "../routes/agents/live/now"; // 3.3.18.0: live now only (an away member's last rows are not)
 import { startFleet } from "../routes/fleet/sync";
-import { useFleetPack } from "../routes/fleet/store";
-import { startDigest, useAway } from "../routes/fleet/Digest";
-import { openFleetLive } from "../routes/agents/fleetDoor";
 
 const ICONS: Record<string, string> = {
   session: "session", agents: "team", packs: "packs", setup: "setup", settings: "settings", local: "local", // 3.3.16.0 R1: Agents, the people icon
@@ -38,9 +35,6 @@ function useBusy(): Partial<Record<SectionId, boolean>> {
 function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean; pack: boolean }) {
   const live = useStore(studio, (st) => st.feed.sessions.length);
   const count = useLiveCount();
-  const awayDigest = useAway();
-  const fleetOn = useFleetPack(); // 3.4.0.0 C: the digest is the fleet pack's
-  const away = awayDigest && fleetOn && s.id === "agents";
   return (
     <button
       role="tab"
@@ -51,15 +45,14 @@ function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean
       data-pack={pack || undefined}
       data-kbd={s.kbd || undefined}
       data-motion={busy && !on ? "working" : "none"}
-      title={away ? `${s.title} · while you were away: the digest waits on Live` : s.title}
+      title={s.title}
       aria-label={s.title}
-      onClick={() => (away ? openFleetLive() : goSection(s.id))}
+      onClick={() => goSection(s.id)}
     >
       <span className="rail-icon">
         <Icon name={ICONS[s.id] ?? "diamond"} />
         {s.id === "session" && live > 0 && <span className="rail-live-dot" data-testid="rail-live" aria-hidden="true" />}
         {s.id === "agents" && count > 0 && <span className="rail-count mono" data-testid="rail-fleet-count" data-count={count} aria-hidden="true" />}
-        {away && <span className="rail-away-dot" data-testid="rail-away" aria-hidden="true" />}
       </span>
       <span className="tab-label rail-item-text">{s.title}</span>
     </button>
@@ -68,7 +61,6 @@ function Item({ s, on, busy, pack }: { s: SectionDef; on: boolean; busy: boolean
 
 export function RailSections() {
   useEffect(() => startFleet(), []); // the live count on the Agents icon, in every section
-  useEffect(() => startDigest(), []); // and its away dot
   const section = useStore(studio, (s) => s.section);
   const all = useSections();
   const busy = useBusy();

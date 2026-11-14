@@ -1,7 +1,7 @@
 """tests.test_host_grants -- Halo 3.3.7.0 R2 deliverable 1: per-peer grants on a halo host (host/grants.py,
 host/pending.py, the `halo host grant | revoke | peers | pending | allow | deny` commands, `GET me`):
 
-1. each cap level (fleet.allow_control none / ask / all) with each grant (view / control / manage / admin): a view
+1. each cap level (host.allow_control none / ask / all) with each grant (view / control / manage / admin): a view
    peer gets 403 naming `control`; `none` answers 403 "strictly a monitor"; `ask` queues a pending row (202) that
    the owner allows, after which the same request runs once; `all` applies it; manage holds control's ops; admin
    is its own grant and answers 501 "not part of this version";
@@ -40,7 +40,7 @@ def test_each_cap_with_each_grant(ctx: Ctx):
     with ActRig(cap="none", grants=("control",)) as rig:
         status, got = _unload(rig)
         ctx.check(f"none: 403, strictly a monitor, got {status} {got}", status == 403
-                  and "fleet.allow_control is none" in got["error"] and "strictly a monitor" in got["error"])
+                  and "host.allow_control is none" in got["error"] and "strictly a monitor" in got["error"])
         status, got = rig.act("control", "unload", {"model": SMALL}, dry=True)
         ctx.check("none: a dry preview is view-only too", status == 403)
     with ActRig(cap="ask", grants=("control",)) as rig:

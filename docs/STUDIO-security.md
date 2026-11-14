@@ -49,35 +49,27 @@ Problems; a save that fails leaves the file untouched.
   socket's own error text (for example "no pending approval request"). It
   sits behind the same bearer-token guard as every other route, so only the
   page `halo studio` opened can use it.
-- **The agent routes (3.0.5.0 Fleet, `studio/fleet_api.py`).** The session
+- **The agent routes (3.0.5.0, `studio/live_agents_api.py`).** The session
   rows also carry `harness`, `project`, `parent` and `agents` (how many
-  sub-agents are working right now; the Fleet tree shows it), and a private
+  sub-agents are working right now), and a private
   session is never listed. `GET /api/sessions/<sid>/agents` is the
   session's agent tree, `GET /api/sessions/<sid>/agents/<aid>/tail?n=&kinds=`
   one agent's last entries, `POST /api/sessions/<sid>/agents/<aid>/command
   {cmd: steer|stop|pause|resume|follow, text?, mode?, reason?, on?}` acts
   on one agent, and `POST /api/sessions/<sid>/command` also takes `shutdown`
   (`reason`), `pause` and `resume` (optional `agent_id`). Studio sends `by`
-  = `fleet.name` and `via` = `Studio`. The live feed passes `agent_state`,
-  `agent_event` and `fleet` frames with each frame's `harness`. Shapes and
-  rules: [REMOTE.md](REMOTE.md#agent-level-commands-3050-fleet),
-  [SUBAGENTS.md](SUBAGENTS.md), [FLEET.md](FLEET.md).
-- **The fleet routes (3.0.5.0 R2, `studio/fleet_hub_api.py`).** `halo studio
-  --fleet` (or `halo fleet serve` while Studio runs) starts the fleet hub
-  inside Studio's process, on its own LAN port that serves only the fleet
-  protocol; this API stays on loopback. `GET /api/fleet` is every harness
-  (this one first, then each member of the hub) with its sessions and agent
-  trees; `POST /api/fleet/<harness>/<sid>/command` and `POST
-  /api/fleet/<harness>/<sid>/agents/<aid>/command` act on this harness
-  directly and on a member through the hub, as that member's owner allows
-  (200, 202 `asked`, 403 refused with the reason); `GET
-  /api/fleet/commands/<id>` and `POST /api/fleet/hub {action: start|stop}`.
-  Member frames reach the live feed with their `harness`. See
-  [FLEET.md](FLEET.md#studio-get-apifleet-and-the-commands).
+  = `harness.name` and `via` = `Studio`. The live feed passes `agent_state`,
+  `agent_event` and `registry` frames with each frame's `harness`. Shapes and
+  rules: [REMOTE.md](REMOTE.md#agent-level-commands-3050),
+  [SUBAGENTS.md](SUBAGENTS.md).
+- **The live routes (`studio/live_api.py`).** `GET /api/live` is this harness with its sessions and agent trees;
+  `POST /api/live/<harness>/<sid>/command` and `POST /api/live/<harness>/<sid>/agents/<aid>/command` act on this
+  harness's sessions (`local` or its id; another id is a 404). See
+  [STUDIO-live-panels.md](STUDIO-live-panels.md#where-it-reads-and-writes).
 - **The owner's page and a pack's key (3.3.14.0 R1, `studio/owner_proof.py`).** A pack's page runs in the shell's
   own page, so the writes that change what runs here (a pack's grant, enable, install, update, rollback, remove,
   service, settings; the bundles; Setup; Settings; a session started or typed into; 3.4.1.0 R4: an attention row
-  answered, from Attention or the glance, `POST fleet/attention/answer`) also need `X-Halo-Owner`, a proof only the
+  answered, from Attention or the glance, `POST live/attention/answer`) also need `X-Halo-Owner`, a proof only the
   shell's own page holds; without it they are a 403, "this needs the owner's own page". What a pack's
   page embeds (an iframe, an image, a module) carries that pack's GET-only key in `?k=`, never the token
   ([the owner's page and a pack's key](STUDIO-shell.md#the-owners-page-and-a-packs-key)). No other page frames the
@@ -114,7 +106,7 @@ hide, `F` again brings them back; where a section's own `F` follows or fits
 (below), `Shift+F`. The rail's chevron (its foot) expands or collapses it. Roles (3.0.7.0 R2): on the canvas `A` lays out, `F` fits, `+` / `-`
 zoom, the arrows nudge the selected card, `Del` removes it (asks first);
 `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S`
-saves. The hop keys (3.0.5.0, [Fleet](STUDIO-fleet.md#keys-hop-around)): `J` / `K` the
+saves. The hop keys (3.0.5.0, [Keys](STUDIO-live-panels.md#keys-hop-around)): `J` / `K` the
 next / previous live agent (Live, Cast cards), `f`
 follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or resume, `K`
 in Session's Agent strip stop (asks first). Session's Live column (3.3.0.0 R6,
@@ -158,29 +150,15 @@ undo history `actions.ts`, `bioActions.ts`, the canvas `Canvas.tsx` +
 `commands.ts`), `styles/roles.css` and `roles-panels.css`, the help
 `routes/help-roles.ts`; tests: the DOM counts in `tests/test_studio_modes.py`
 (`tools/capture_studio.py --mode roles --dom`, tools/capture_roles.py) and the
-Chrome clicks in `tests/helpers/studio_roles.py`. Fleet (3.0.5.0) is
-`ui/src/routes/fleet/` (the store and the feed: `store.ts`, `sync.ts`,
-`streams.ts`; the panels `Map.tsx` + `MapNode.tsx` + `layout.ts`,
-`Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `FleetRail.tsx`, `Start.tsx` +
-`Pair.tsx`, `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
-`styles/fleet.css` and `fleet-agent.css`, the help `routes/help-fleet.ts`;
+Chrome clicks in `tests/helpers/studio_roles.py`. The live pieces (3.0.5.0) are
+`ui/src/routes/fleet/` (the folder keeps its name: the store and the feed, `store.ts`, `sync.ts`, `streams.ts`;
+`Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
+`styles/fleet.css` and `fleet-agent.css`, the help `routes/help-live.ts`;
 Live Roles is `frames.ts` (the live rows into the Roles store), `hop.ts`
 and `replay.ts` with the Roles section's `live.ts`, `LiveTab.tsx` and
-`Replay.tsx`; the
-routes `fleet_hub_api.py` (R2), `fleet_pair_api.py` and `fleet_api.py`
-(`get_history`), R4's `fleet_panels_api.py`, `fleet_handoff_api.py` and `fleet_recording_api.py`
-over the watcher `fleet_watch.py` (what it reads: `fleet_watch_sources.py`; its feed tap:
-`fleet_feed.py`; a session command: `fleet_send.py`). 3.0.6.0 R6 adds `Capabilities.tsx` + `Who.tsx` + `caps.ts` +
-`MapChips.tsx`, `styles/fleet-caps.css` and `fleet_capabilities_api.py`
-(tests: `tests/test_fleet_capabilities*.py`, the `caps` Chrome scenario in
-`tests/helpers/studio_fleet_caps.py`). 3.0.6.0 R8 adds the Mission panel:
-`Mission.tsx` + `MissionStart.tsx` + `MissionPlan.tsx` + `MissionRun.tsx` +
-`MissionReport.tsx` + `MissionDialogs.tsx`, the map overlay `MapMission.tsx`,
-the store `mstore.ts`, the loader `mload.ts`, the palette `mcommands.ts`,
-`styles/fleet-mission.css` + `fleet-mission2.css` over R7's
-`fleet_mission_api.py` (the `mission` Chrome scenario in
-`tests/helpers/studio_fleet_mission.py`, its fakes in
-`tests/helpers/studio_fleet_mseed.py`). Tests: `tests/test_fleet_studio_routes.py` and the Fleet
-tests in `tests/test_studio_ui.py` (`tests/helpers/studio_fleet.py` over
-`tests/helpers/studio_fleet_rig.py`); captures `tools/capture_studio.py
---mode fleet` (tools/capture_fleet.py).
+`Replay.tsx`; the routes `live_api.py` and `live_agents_api.py`
+(`get_history`), R4's `live_panels_api.py`, `live_handoff_api.py` and `live_recording_api.py`
+over the watcher `live_watch.py` (what it reads: `live_watch_sources.py`; its feed tap:
+`live_feed.py`; a session command: `live_send.py`). Tests: `tests/test_studio_live_routes.py` and the live
+tests in `tests/test_studio_ui.py` (`tests/helpers/studio_live.py` over
+`tests/helpers/studio_session_rig.py`).

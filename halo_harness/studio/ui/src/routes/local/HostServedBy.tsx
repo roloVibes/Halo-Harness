@@ -22,8 +22,8 @@ function Grants({ ctl, name }: { ctl: Controls; name: string }) {
   const busy = useLocal((s) => !!s.busy);
   const said = useLocal((s) => s.said[`req|${name}`]);
   if (ctl.via !== "host" || !ctl.grants) return null;
-  const how = ctl.cap === "none" ? " -- strictly a monitor there (fleet.allow_control: none)"
-    : ctl.asks ? " -- its owner is asked first (fleet.allow_control: ask)" : "";
+  const how = ctl.cap === "none" ? " -- strictly a monitor there (host.allow_control: none)"
+    : ctl.asks ? " -- its owner is asked first (host.allow_control: ask)" : "";
   return (
     <div className="mono muted lc-host-line" data-testid="local-host-grants" data-grants={ctl.grants.join(",")}
          title="this peer's grants on that halo host (halo host grant there gives one)">

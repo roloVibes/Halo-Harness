@@ -103,15 +103,15 @@ class LiveTruthDriver(Driver):
     @contextmanager
     def session(self, c):
         if "now" in self.argv:
-            from tests.helpers.studio_fleet_rig import StudioFleetRig
-            with StudioFleetRig() as rig:
+            from tests.helpers.studio_session_rig import StudioSessionRig
+            with StudioSessionRig() as rig:
                 yield tuple((fn, (c, rig)) for fn in NOW_STEPS)
             return
         from capture_studio import serve
         from halo_harness.config.paths import bridge_home
         from halo_harness.studio.server import url_for
         from tests.helpers.orchestra_studio_rig import cleanup, finished_run
-        from tests.helpers.studio_fleet_parts import PAST_SID, seed_past
+        from tests.helpers.studio_session_parts import PAST_SID, seed_past
         state = bridge_home()
         state.mkdir(parents=True, exist_ok=True)
         repo, run_dir = finished_run()

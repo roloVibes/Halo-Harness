@@ -36,7 +36,7 @@ def list_lines(rows: "list[dict]", hint: bool = True) -> "list[str]":
     from halo_harness.packs.offers import summary
     if not rows:
         return (["No packs here. A pack lives in ~/.halo/packs/<id>/ or .halo/packs/<id>/ (halo pack install <path|git url>)."]
-                + ["Halo ships packs too (fleet, coach, first-run, ...): halo pack list --available shows them."] * hint)  # 3.4.0.1
+                + ["Halo ships packs too (coach, first-run, design, ...): halo pack list --available shows them."] * hint)  # 3.4.0.1
     width = max(len(r["id"]) for r in rows)
     out = []
     for r in rows:
@@ -93,7 +93,7 @@ def inspect_payload(pack, snap, *, cwd=None) -> dict:
         problems += compat_lines(pack)
     problems += undeclared_lines(pack)
     from halo_harness.packs.roles import pack_bios, pack_lineups  # 3.2.0.0 R2: the model per bio, its needs
-    from halo_harness.packs.contrib_views import contributes  # 3.2.0.0 R4: Studio and fleet contributions
+    from halo_harness.packs.contrib_views import contributes  # 3.2.0.0 R4: Studio contributions and capabilities
     from halo_harness.packs.policy_views import block  # 3.3.10.0 R1: the policy hooks and modes
     return {"contributes": contributes(pack, granted, running=pack.id in snap.order, cwd=cwd),
             "policy": block(pack, running=pack.id in snap.order if pack.scope != "source" else None, granted=granted),

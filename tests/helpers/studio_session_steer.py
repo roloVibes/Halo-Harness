@@ -1,10 +1,10 @@
 """tests.helpers.studio_session_steer -- Session's Live column, Halo 3.1.7.0
 R1 "the steer is always at hand", through real clicks, keys and the pointer
 in headless Chrome on the driver base (tests/helpers/chrome_driver.Driver),
-over tests/helpers/studio_fleet_rig.py (this harness's real session: a lead,
+over tests/helpers/studio_session_rig.py (this harness's real session: a lead,
 an implementer and a researcher mid-work behind the real Controller) with
 three extra agents and scripted feed frames (tests/helpers/studio_live_rig.py).
-Studio's command route to a session is recorded (fleet_api.forward wrapped),
+Studio's command route to a session is recorded (live_agents_api.forward wrapped),
 so a steer is seen reaching the main agent's control socket and its answer.
 tests/test_studio_session_steer.py runs it as a subprocess:
 
@@ -61,15 +61,15 @@ def pick(c, expr: str, value: str) -> None:
 
 def record_forward(rig) -> list:
     """Every command Studio forwards to a session's socket, with its answer (restored on close)."""
-    from halo_harness.studio import fleet_api
-    orig, seen = fleet_api.forward, []
+    from halo_harness.studio import live_agents_api
+    orig, seen = live_agents_api.forward, []
 
     def forward(sid, cmd, fields):
         status, result = orig(sid, cmd, fields)
         seen.append({"sid": sid, "cmd": cmd, "fields": dict(fields), "status": status, "result": result})
         return status, result
-    fleet_api.forward = forward
-    rig.closers.append(lambda: setattr(fleet_api, "forward", orig))
+    live_agents_api.forward = forward
+    rig.closers.append(lambda: setattr(live_agents_api, "forward", orig))
     return seen
 
 
@@ -98,7 +98,7 @@ def hover(c, target: str, el: str, fx: float = 0.3, fy: float = 0.5, tries: int 
 
 def steer_main(c, rig, lv, sent: list) -> dict:
     """Nothing pinned: the box talks to main; a steer typed there echoes at once and reaches main's route."""
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     out: dict = {"main_key": lv.key("main"), "sid": rig.act.session_id}
     out["box_main"] = c.wait(f"!{COL}.dataset.pinned && {BOX} && {BOX}.dataset.key === '{lv.key('main')}' && 'ok'", 15) and box(c)
     c.click_on(AREA)
@@ -163,10 +163,10 @@ class SteerDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_live_rig import Live
         from tests.helpers.studio_session_steer2 import done_box, fleet_chip, kinds, opened, pause, stop, strip
-        with StudioFleetRig() as rig:
+        with StudioSessionRig() as rig:
             lv = Live(rig)
             sent = record_forward(rig)
             yield ((opened, (c, rig)), (steer_main, (c, rig, lv, sent)), (tag_steer, (c, lv)), (node_steer, (c, lv)), (strip, (c, lv)),

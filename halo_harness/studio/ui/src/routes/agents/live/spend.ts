@@ -21,7 +21,7 @@ export function spendWords(nodes: Costed[]): string {
   return nodes.some((n) => !n.kind && n.costUnknown) ? "cost unknown at this moment" : spendText(liveSpend(nodes));
 }
 
-/** GET fleet/costs (studio/fleet_panels_api.py): live/caps.spend -- each harness's today from its records, finished
+/** GET fleet/costs (studio/live_panels_api.py): live/caps.spend -- each harness's today from its records, finished
  *  sessions too, by project and for the fleet -- and the caps. 3.4.1.1 (65): the glance's one source for its spend. */
 export type CostsView = {
   caps: Record<string, number | null>; reached: { scope: string; key: string; label: string }[];
@@ -48,7 +48,6 @@ export function spendOf(harnesses: { local?: boolean; sessions?: Row[] }[], cost
   const scopes: [string, string, number | null | undefined, number | undefined, boolean][] = [
     ["harness", "this machine's cap", c.per_harness_usd_per_day, mine?.usd, !mine?.unknown?.length],
     ["project", `the cap on ${project}`, project ? c.per_project_usd_per_day : null, (costs.projects || []).find((p) => p.key === project)?.usd ?? 0, whole],
-    ["fleet", "the fleet's cap", c.fleet_usd_per_day, costs.fleet, whole],
   ];
   const first = scopes.find((x) => !!x[2]);
   const [, label, cap, usd, known] = first || scopes[0];

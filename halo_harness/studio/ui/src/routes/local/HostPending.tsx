@@ -1,5 +1,5 @@
 // 3.3.7.0 R2: on the machine that runs `halo host`, the requests its peers queued for the owner under
-// fleet.allow_control: ask (GET local/host-pending, studio/local_host_api.py): who asks, for which operation, how
+// host.allow_control: ask (GET local/host-pending, studio/local_host_api.py): who asks, for which operation, how
 // long the row lives, with Allow and Deny (POST local/host-pending/<id>/allow | deny). An allowed operation runs once
 // when the peer sends it again within the row's time; an allowed grant request adds the grant. Nothing shows when
 // nothing waits.

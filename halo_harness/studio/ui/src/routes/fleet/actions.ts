@@ -1,9 +1,6 @@
-// What the fleet's pieces do (Agents -> Live, Session; the Fleet section until 3.3.16.0 R2): select, pin, follow, steer, pause, stop,
-// shut a session down, pause / resume everything, pair a harness, the
-// share/control settings, kick a member. Agent commands post to
-// `fleet/<harness>/<sid>/agents/<aid>/command` ("local" for this harness:
-// the direct path), session commands to `fleet/<harness>/<sid>/command`. A
-// member answers 200, 202 (its owner's card is open) or 403 (its owner said no, with the reason).
+// What the live pieces do (Agents -> Live, Session): select, pin, follow, steer, pause, stop, shut a session down,
+// pause / resume everything. Agent commands post to `live/<harness>/<sid>/agents/<aid>/command` ("local" for this
+// harness), session commands to `live/<harness>/<sid>/command`.
 import { api, ApiError } from "../../lib/api";
 import { goSection, studio, toast } from "../../lib/store";
 import { pickLive } from "../agents/live/scope";
@@ -34,14 +31,14 @@ async function post(path: string, body: Record<string, unknown>): Promise<Outcom
 export async function agentCommand(key: AgentKey, cmd: string, fields: Record<string, unknown> = {}): Promise<Outcome> {
   const { h, s, a } = parseKey(key);
   const ref = findAgent(fleet.get(), key);
-  const out = await post(`fleet/${hidPath(ref?.h, h)}/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}/command`, { cmd, ...fields });
+  const out = await post(`live/${hidPath(ref?.h, h)}/${encodeURIComponent(s)}/agents/${encodeURIComponent(a)}/command`, { cmd, ...fields });
   window.setTimeout(() => void load(), 400);
   return out;
 }
 
 export async function sessionCommand(hid: string, sid: string, cmd: string, fields: Record<string, unknown> = {}): Promise<Outcome> {
   const got = findSession(fleet.get(), hid, sid);
-  const out = await post(`fleet/${hidPath(got?.h, hid)}/${encodeURIComponent(sid)}/command`, { cmd, ...fields });
+  const out = await post(`live/${hidPath(got?.h, hid)}/${encodeURIComponent(sid)}/command`, { cmd, ...fields });
   window.setTimeout(() => void load(), 400);
   return out;
 }
@@ -153,50 +150,4 @@ export async function everySession(cmd: "pause" | "resume"): Promise<void> {
   const results = await Promise.all(targets.map(([h, s]) => sessionCommand(h, s, cmd)));
   const ok = results.filter((r) => r.ok).length;
   toast(`${cmd === "pause" ? "Paused" : "Resumed"} ${ok} of ${targets.length} session${targets.length === 1 ? "" : "s"}`, ok ? "done" : "error");
-}
-
-// -- pairing, settings, members -----------------------------------------------------
-export type PairCode = { code: string; expires: number; ttl: number; url: string; fingerprint?: string | null; hub_running: boolean; join: string; qr: string; matrix: number[][] };
-export type Settings = {
-  name: string;
-  share: string;
-  allow_control: string;
-  levels: { share: string[]; allow_control: string[] };
-  hubs: { url: string; name?: string; state?: string; share?: string | null; allow_control?: string | null; joined_at?: number }[];
-  members: { id: string; name?: string; host?: string; version?: string; paired_at?: number }[];
-  hub: { serving: boolean; url?: string | null };
-};
-
-export async function pairCode(): Promise<PairCode | string> {
-  try {
-    return await api.post<PairCode>("fleet/pair", { ttl: 600 });
-  } catch (e) {
-    return e instanceof ApiError ? e.message : String(e);
-  }
-}
-
-export const loadSettings = () => api.get<Settings>("fleet/settings");
-
-export async function saveSetting(key: "share" | "allow_control", value: string): Promise<Settings | null> {
-  try {
-    const s = await api.post<Settings>("fleet/settings", { [key]: value });
-    toast(`${key === "share" ? "Share" : "Control"}: ${value}`, "done");
-    return s;
-  } catch (e) {
-    toast(e instanceof ApiError ? e.message : String(e), "error", 5000);
-    return null;
-  }
-}
-
-export async function startHub(): Promise<boolean> {
-  const r = await post("fleet/hub", { action: "start" });
-  if (r.ok) toast("The fleet hub listens on this machine's LAN port", "done");
-  void load();
-  return r.ok;
-}
-
-export async function kick(hid: string, name: string): Promise<void> {
-  const r = await post("fleet/kick", { harness: hid });
-  if (r.ok) toast(`${name} left this hub: it pairs again with a new code`, "done");
-  void load();
 }

@@ -9,7 +9,7 @@
                                   (3.3.11.0 R1: slash and tail, a submit's when_busy, the receipts and
                                    GET sessions/<sid>/slash | receipts: studio/sessions_prompt_api.py)
                                   -> {ok, result}; 404 for a session not in the registry, 502 with the socket's error
-    sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/fleet_api.py, 3.0.5.0)
+    sessions/<sid>/agents...      the agent tree, one agent's tail and its commands (studio/live_agents_api.py, 3.0.5.0)
     GET  sessions/<sid>/trace.md  the session as one Markdown trace (3.3.0.0 R6: session_trace.py), text/markdown
     GET  sessions/<sid>/postmortem?turn=&agent=&at=  Why this answer? (3.3.6.0 R4: studio/postmortem_api.py)
     GET|POST sessions/new, GET sessions/started  a session with no terminal (3.3.11.0 R2: studio/sessions_new_api.py)
@@ -41,7 +41,7 @@ COMMAND_TIMEOUT_S = 5.0
 COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume", "note",  # note: 3.0.5.0 R4
             "screenshot",  # 3.3.6.0 R6: a capture for the next steer (studio/session_eyes_api.py)
             "slash", "tail")  # 3.3.11.0 R1: the Prompt panel (studio/sessions_prompt_api.py)
-FLEET_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = fleet.name, via = Studio
+CONTROL_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = harness.name, via = Studio
 ANSWER_FIELDS = ("kind", "request_id", "action", "instruction", "scope", "message", "rule", "answer", "approved",
                  "feedback", "mode_after")
 _cache: dict = {}
@@ -124,12 +124,12 @@ def post_command(req):
     cmd = str(req.body.get("cmd") or "")
     if cmd not in COMMANDS:
         return 422, {"error": f"cmd is one of {', '.join(COMMANDS)}, got {cmd!r}", "problems": []}
-    if cmd in FLEET_COMMANDS:
-        from halo_harness.studio import fleet_api
-        fields = {**fleet_api.caller(), "reason": str(req.body.get("reason") or "")}
+    if cmd in CONTROL_COMMANDS:
+        from halo_harness.studio import live_agents_api
+        fields = {**live_agents_api.caller(), "reason": str(req.body.get("reason") or "")}
         if req.body.get("agent_id"):
             fields["agent_id"] = str(req.body["agent_id"])
-        status, result = fleet_api.forward(sid, cmd, fields)
+        status, result = live_agents_api.forward(sid, cmd, fields)
         with _lock:
             _cache.pop(sid, None)
         return (200, {"ok": True, "result": result}) if status == 200 else (status, result)
@@ -148,7 +148,7 @@ def post_command(req):
             return status, image
         fields = {"text": str(req.body.get("text") or ""), **image}
     elif cmd == "note":  # 3.0.5.0 R4: Fleet's Message, a line the owner reads (remote/protocol.py `_message`)
-        from halo_harness.studio.fleet_api import caller
+        from halo_harness.studio.live_agents_api import caller
         fields = {"name": "fleet.message", "text": str(req.body.get("text") or ""), "by": caller()["by"]}
     from halo_harness.studio import sessions_prompt_api as P  # 3.3.11.0 R1: origin, when_busy, slash, tail, receipts
     bad, extra = P.fields_for(cmd, req.body) if cmd in ("submit", "steer", "slash", "tail") else (None, {})
@@ -192,8 +192,8 @@ def get_trace(req):
 ROUTES = [("GET", r"^sessions$", list_sessions),
           ("POST", r"^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/command$", owner_only(post_command)),  # 3.4.1.2 (SERVERS-1)
           ("GET", r"^sessions/(?P<sid>[A-Za-z0-9_.-]+)/trace\.md$", get_trace)]
-from halo_harness.studio.fleet_api import ROUTES as _FLEET_ROUTES  # noqa: E402  (3.0.5.0: the agent routes)
-ROUTES[len(ROUTES):] = _FLEET_ROUTES
+from halo_harness.studio.live_agents_api import ROUTES as _AGENT_ROUTES  # noqa: E402  (3.0.5.0: the agent routes)
+ROUTES[len(ROUTES):] = _AGENT_ROUTES
 from halo_harness.studio.postmortem_api import ROUTES as _WHY_ROUTES  # noqa: E402  (3.3.6.0 R4: Why this answer?)
 ROUTES[len(ROUTES):] = _WHY_ROUTES
 from halo_harness.studio.session_eyes_api import ROUTES as _EYES_ROUTES  # noqa: E402  (3.3.6.0 R6: the chip's offer)

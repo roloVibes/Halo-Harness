@@ -4,7 +4,7 @@ studio/local_api.dispatch_local; docs/STUDIO-local.md "Hosts").
     POST local/host/<name>/request-control       the Hosts card's "Request control": a pending row on the paired
                                                  host that serves <name> (its owner answers it there)
     GET  local/host-pending                      on the host machine: the requests queued for its owner under
-                                                 fleet.allow_control: ask (host/grants.pending), the peers
+                                                 host.allow_control: ask (host/grants.pending), the peers
     POST local/host-pending/<id>/allow | deny    the owner's answer (host/grants.answer); an allowed `grant` row
                                                  adds the grant, an allowed op runs once when the peer sends it again
     POST local/host/<name>/server-line {op, value?}   a stated action through the host (set_kv_cache_type,

@@ -72,7 +72,7 @@ it all back. Each step is said, and a refusal is one line that names the mechani
 ### The workers: `rpc-server` behind the host's grants
 
 On a worker, `halo host` starts and stops llama.cpp's `rpc-server` on request: the host op `rpc_server {to: on|off}`
-([HOST.md](HOST.md#rpc-server-for-a-pool-3380-r3)), the `control` grant, a pending row under `fleet.allow_control: ask`, one
+([HOST.md](HOST.md#rpc-server-for-a-pool-3380-r3)), the `control` grant, a pending row under `host.allow_control: ask`, one
 line under `none` that names the grant it needs. It runs `rpc-server -H <the LAN address this host serves on> -p
 <pool.rpc_port> --mem <this machine's free VRAM in MiB>` (the card's usable memory with the helper out, minus the
 resident models and the claims -- the pool's own claim left out, it is the room rpc-server serves), keeps its pid,

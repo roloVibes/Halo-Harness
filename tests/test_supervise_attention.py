@@ -1,15 +1,13 @@
 """tests.test_supervise_attention -- Halo 3.1.8.0 R1: the parked decisions
 (supervise/decisions.py), their attention rows and answers
 (fleet/supervise_attention.py, wired into fleet/attention.build and
-studio/fleet_answer), the morning summary route (studio/supervise_api.py), and
+studio/live_answer), the morning summary route (studio/supervise_api.py), and
 an end-to-end parked plan review answered from Studio's Attention queue
-(StudioFleetRig). No model is called.
+(StudioSessionRig). No model is called.
 
 Run: python -m tests.test_supervise_attention
 """
 from __future__ import annotations
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 import os
 import sys
@@ -127,25 +125,25 @@ def test_summary_route_line(ctx: Ctx):
 
 @test
 def test_end_to_end_a_parked_plan_answered_from_attention(ctx: Ctx):
-    """StudioFleetRig: a parked goal_plan decision shows in the Fleet attention queue and Approve writes
-    the owner's answer into its decision file (studio/fleet_panels_api + fleet_answer + supervise_attention)."""
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
-    with StudioFleetRig() as rig:
+    """StudioSessionRig: a parked goal_plan decision shows in the Fleet attention queue and Approve writes
+    the owner's answer into its decision file (studio/live_panels_api + live_answer + supervise_attention)."""
+    from tests.helpers.studio_session_rig import StudioSessionRig
+    with StudioSessionRig() as rig:
         from halo_harness.supervise import decisions
         run_dir = rig.state / "orchestra" / "20261021-000000-aaaa"
         run_dir.mkdir(parents=True, exist_ok=True)
         row = decisions.park(rig.state, "goal_plan", "g-abc", "plan", "Goal g-abc: the plan waits for your review",
                              "write the release notes", run_dir=str(run_dir))
-        status, body = rig.api("GET", "fleet/attention")
+        status, body = rig.api("GET", "live/attention")
         plan = [r for r in body["rows"] if r["kind"] == "goal_plan"]
         ctx.check(f"the goal_plan row is served, got {[r['kind'] for r in body['rows']]}", len(plan) == 1)
         rid = plan[0]["id"]
         # Open answers with where to open it, sends nothing
-        s_open, b_open = rig.api("POST", "fleet/attention/answer", {"id": rid, "key": "o"})
+        s_open, b_open = rig.api("POST", "live/attention/answer", {"id": rid, "key": "o"})
         ctx.check(f"Open points at the run, got {b_open}", s_open == 200 and (b_open.get("open") or {}).get("section") == "agents" and (b_open.get("open") or {}).get("view") == "live")
         ctx.check("Open did not answer the decision", not decisions.read(rig.state, row["id"]).get("answer"))
         # Approve writes the owner's answer into the decision file
-        s_ans, b_ans = rig.api("POST", "fleet/attention/answer", {"id": rid, "key": "a"})
+        s_ans, b_ans = rig.api("POST", "live/attention/answer", {"id": rid, "key": "a"})
         ctx.check(f"Approve is accepted, got {b_ans}", s_ans == 200 and b_ans.get("ok"))
         saved = decisions.read(rig.state, row["id"])
         ctx.check("the decision file now carries the approve answer", (saved.get("answer") or {}).get("key") == "a")

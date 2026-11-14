@@ -1,7 +1,7 @@
 """halo_harness.work.report -- one report row for every kind of unit (Halo
 3.1.2.0 R1, docs/WORK.md).
 
-    {"unit": "2", "kind": "lane|part|stage", "title": "...", "owner": "...", "harness": "<name>" | null,
+    {"unit": "2", "kind": "lane|goal", "title": "...", "owner": "...", "harness": "<name>" | null,
      "state": "<machine word>", "native": "<the engine's word>", "cost_usd": 0.0031, "attempts": 0,
      "gate": "required|optional|none", "base": "<sha>" | null, "gave": [{"name", "kind", "path"}], "error": ""}
 
@@ -29,7 +29,7 @@ def row_of(unit) -> dict:
 
 
 def rows(run_dir, kind: Optional[str] = None) -> list:
-    """Every unit of the run as a report row (`kind`: lane|part|goal, else read from the folder)."""
+    """Every unit of the run as a report row (`kind`: lane|goal, else read from the folder)."""
     from halo_harness.work.store import UnitStore
     try:
         return UnitStore(run_dir, kind).rows()

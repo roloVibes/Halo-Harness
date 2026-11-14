@@ -199,7 +199,7 @@ def start_remote(host_name: str, name: str, send: Callable[[dict], "tuple[int, d
         hit = _find(host_name, name)
         if hit is not None:
             return 200, {**view(hit), "joined": True}
-    code, answer = send({})  # 202: the member's owner is asked first (fleet.allow_control: ask)
+    code, answer = send({})  # 202: the member's owner is asked first (host.allow_control: ask)
     if code not in (200, 202) or not (answer or {}).get("ok", True):
         return (code if code not in (200, 202) else 409), {"error": (answer or {}).get("error") or "the member did not start it"}
     with _lock:

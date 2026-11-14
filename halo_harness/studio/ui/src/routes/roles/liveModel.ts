@@ -11,7 +11,7 @@ import { recordRefs, sessionRecord, type RecordAgent, type WorkRecord } from "..
 import { select } from "../fleet/actions";
 import { activityOf } from "../fleet/frames";
 import { allAgents, fleet, findAgent, type FleetState } from "../fleet/store";
-import { liveScope, pickLive } from "../agents/live/scope";
+import { pickLive } from "../agents/live/scope";
 import { withGroups, type GroupTag } from "../agents/live/groups"; // 3.3.16.3: Live in groups
 import { glowOf, type GlowState } from "./glow";
 import { matchNode, openLiveTab, watchAgent } from "./live";
@@ -87,10 +87,10 @@ export function selectLive(key: string): void {
   pickLive("agent", key);
 }
 
-/** J / K in Live: the next / previous working agent, in tree order (3.3.16.0 R2: on the fleet scope, across machines). */
+/** J / K in Live: the next / previous working agent, in tree order. */
 export function hopLive(dir: 1 | -1): void {
   const st = fleet.get();
-  const rec = liveScope() === "fleet" ? null : sessionRecord(st, liveSession(st, roles.get().liveSid));
+  const rec = sessionRecord(st, liveSession(st, roles.get().liveSid));
   const order = rec ? rec.agents.filter((a) => WORKING.includes(a.state)).map((a) => a.key)
     : allAgents(st).filter((r) => WORKING.includes(String(r.a.state || ""))).map((r) => r.key);
   if (!order.length) return;

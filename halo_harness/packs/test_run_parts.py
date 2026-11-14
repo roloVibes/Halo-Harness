@@ -1,6 +1,6 @@
 """halo_harness.packs.test_run_parts -- `halo pack test`'s checks that start no process (Halo 3.3.12.0 R4): each bio
 and lineup loads, each skill and command parses, each event and artifact schema validates its sample, each workflow
-compiles, each Studio panel's source is there (a bundle module exports `mount`), the bundle block, the fleet
+compiles, each Studio panel's source is there (a bundle module exports `mount`), the bundle block, the pack's
 capabilities, a mode switch read back, a theme's contrast pins, the tools `requires:` names. `r` is test_run.Run.
 """
 
@@ -192,12 +192,12 @@ def bundle(r) -> None:
               "free", gb <= card - reserve, f"halo pack verdict {r.pack.id} judges it against your own card")
 
 
-def fleet(r) -> None:
-    from halo_harness.packs.fleet_rules import capabilities_of
-    caps = capabilities_of(r.manifest) if r.wants("fleet") else []
+def capabilities(r) -> None:
+    from halo_harness.packs.capability_rules import capabilities_of
+    caps = capabilities_of(r.manifest) if r.wants("capabilities") else []
     top = set(r.manifest.get("capabilities") or [])
     for c in caps:
-        r.add("fleet", "pack.yaml", f"fleet capability {c.get('name')} is one of the pack's capabilities",
+        r.add("capabilities", "pack.yaml", f"capability {c.get('name')} is one of the pack's capabilities",
               c.get("name") in top, "list it under the top-level capabilities:")
 
 

@@ -1,10 +1,10 @@
 """halo_harness.work.unit -- the unit of work (Halo 3.1.2.0 R1, docs/WORK.md).
 
-An Orchestra lane, a mission part and a team stage are all a
+An Orchestra lane and a supervisor goal are both a
 `Unit`: something one owner runs, with claims, hand-offs, a state on the
 one machine (work/states.py), a gate, an acceptance, a cost and refs.
 
-    {"kind": "lane|part|stage", "id": "2", "title": "...", "run_id": "...",
+    {"kind": "lane|goal", "id": "2", "title": "...", "run_id": "...",
      "owner": "the bio / member / harness that runs it",
      "claims": {"keys": [...], "mode": "unit|path|block|none"},
      "needs": [{"from", "take"}], "gives": [{"name", "kind", "path"}], "after": [...], "base": "<sha>" | null,
@@ -14,10 +14,8 @@ one machine (work/states.py), a gate, an acceptance, a cost and refs.
      "cost_usd": 0.0, "started": ts | null, "ended": ts | null, "attempts": 0, "error": "",
      "refs": {"sessions", "run", "worktree", "branch", "head", "harness", ...}, "extra": {what only one kind has}}
 
-`refs.harness` (3.1.2.0 R3) is the fleet harness a delegated unit ran on: a
-mission part's harness, a team stage whose lead member or whose orchestra
-run is on a fleet member; absent or empty = this harness. `harness`
-(the property) reads it, as a name when the engine kept one.
+`refs.harness` (3.1.2.0 R3) is the harness a unit ran on; absent or empty = this harness. `harness` (the property)
+reads it, as a name when the engine kept one.
 
 `Unit.source` keeps the engine record it was read from (not part of
 `to_dict`): the adapter writes the unit back onto that record, key order

@@ -4,7 +4,7 @@ host_cli.py serve | status | stop). Over tests/helpers/host_rig.py's scratch hom
 1. it starts on 127.0.0.1:0, writes serve.json (pid, port, bind, tls fingerprint, started, grants file), `halo host
    status` prints one block (running since, port, peers paired, last request, what it watches), `halo host stop`
    writes the stop file and it ends (serve.json gone);
-2. offline mode refuses it with the hub's FleetOffline line, `halo host serve` too; host.enabled false says so;
+2. offline mode refuses it with the hub's NetworkOffline line, `halo host serve` too; host.enabled false says so;
 3. the steward's watch runs in it (`where="host"`): it tails a fixture server log and records its events; no model,
    and the rules only report (mode off);
 4. the ledger forwarder pushes this machine's lines to a fake hub with no session open, and the host announces itself
@@ -22,8 +22,6 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.host_rig import PC, HostRig  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -79,7 +77,7 @@ def test_it_starts_writes_serve_json_status_and_stops(ctx: Ctx):
 @test
 def test_offline_mode_refuses_it(ctx: Ctx):
     import os
-    from halo_harness.peers.net import FleetOffline
+    from halo_harness.peers.net import NetworkOffline
     from halo_harness.host.service import HostService
     with HostRig(host_home=None) as rig:
         os.environ["HALO_OFFLINE"] = "1"
@@ -87,9 +85,9 @@ def test_offline_mode_refuses_it(ctx: Ctx):
             try:
                 HostService(rig.home, port=0, bind="127.0.0.1").start()
                 raised = ""
-            except FleetOffline as e:
+            except NetworkOffline as e:
                 raised = str(e)
-            ctx.check(f"start raises the hub's FleetOffline line, got {raised!r}", raised.startswith("offline mode is on"))
+            ctx.check(f"start raises the hub's NetworkOffline line, got {raised!r}", raised.startswith("offline mode is on"))
             rc, text = _cli("serve", "--foreground", "--port", "0")
             ctx.check(f"halo host serve says it in one line, got {rc} {text!r}", rc == 1 and "offline mode is on" in text
                       and len(text.strip().splitlines()) == 1)
@@ -138,48 +136,6 @@ def test_the_steward_watch_runs_in_the_host(ctx: Ctx):
             ctx.check(f"status says the watch runs here, got {text!r}", "the steward's watch runs here" in text)
     finally:
         mock.stop()
-
-
-@test
-def test_the_forwarder_pushes_to_a_hub_with_no_session_and_the_host_announces(ctx: Ctx):
-    import tempfile
-    from halo_harness.peers import identity, ollama_share, relay, store
-    from halo_harness.fleet.hub import HubServer
-    from halo_harness.peers.hub_hosts import listing
-    from halo_harness.ollama_steward.ledger import read_calls, record_call
-    saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S)
-    ollama_share.FLUSH_S, ollama_share.CHECK_S = 0.05, 0.0
-    home_a = Path(tempfile.mkdtemp(prefix="hs_hub-")) / ".halo"
-    home_a.mkdir(parents=True)
-    (home_a / "config.json").write_text(json.dumps({"fleet": {"name": "alice@hub"}}), encoding="utf-8")
-    hub = HubServer(home_a, port=0, bind="127.0.0.1", name="hub-a", tls_on=False, record=False,
-                    local_view=lambda: None).start()
-    try:
-        with HostRig(host_home=None, seed=False) as rig:
-            got = relay.join(hub.url("127.0.0.1"), hub.pairing.new_code(600)[0], identity.harness())
-            key = got.pop("key")
-            store.add_hub(got, key)
-            record_call(rig.home, {"host": PC, "model": "qwen3.8:27b", "status": 200, "prompt_eval_count": 1200})
-            rig.start()
-            time.sleep(0.1)
-            rig.svc.forward_tick()
-            lines = _wait(lambda: [x for x in read_calls(home_a) if x.get("model") == "qwen3.8:27b"])
-            ctx.check(f"the line reached the hub with from = this machine's name, no session open, got {lines}",
-                      bool(lines) and lines[0].get("from") == "bob@peer")
-            rows = listing(home_a)
-            ctx.check(f"the host announced itself: port, fingerprint, serves, got {rows}", len(rows) == 1
-                      and rows[0]["port"] == rig.svc.port and rows[0]["serves"][0]["port"] == 11434 and rows[0]["fresh"])
-            ctx.check("the hub's merged view lists it", hub.state.view()["hosts"][0]["member"] == "bob@peer")
-            rig.svc.forward_tick()
-            ctx.check("a second pass sends nothing twice",
-                      len([x for x in read_calls(home_a) if x.get("model") == "qwen3.8:27b"]) == 1)
-            st = rig.svc.forward_state.get(got["url"]) or {}
-            ctx.check(f"the forward state per hub, got {st}", st.get("sent") == 1 and not st.get("error"))
-    finally:
-        hub.stop()
-        ollama_share.FLUSH_S, ollama_share.CHECK_S = saved
-        import shutil
-        shutil.rmtree(home_a.parent, ignore_errors=True)
 
 
 @test

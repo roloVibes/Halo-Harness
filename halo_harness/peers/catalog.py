@@ -8,7 +8,6 @@ mark it stale (`invalidate`), so the next announce gathers afresh. `config` and 
 
     cache_path(home)   <home>/fleet/capabilities.json
     load(home) / save(cat, home) / invalidate(home)
-    config(home)       {tags, hide}
     scrub(obj, homes)  every absolute path cut to its last component (`~` for a home)
 """
 
@@ -36,15 +35,6 @@ def cache_path(home=None) -> Path:
     return _home(home) / "fleet" / FILE
 
 
-def config(home=None) -> dict:
-    """`{tags: [...], hide: {lower-cased names}}` from fleet.tags and fleet.capabilities.hide."""
-    from halo_harness.peers.identity import config_value
-    h = _home(home)
-    tags, hide = config_value("fleet.tags", [], h), config_value("fleet.capabilities.hide", [], h)
-    tags = [tags] if isinstance(tags, str) else tags if isinstance(tags, list) else []
-    hide = [hide] if isinstance(hide, str) else hide if isinstance(hide, list) else []
-    clean = [" ".join(str(t).split())[:32] for t in tags if str(t).strip()]
-    return {"tags": list(dict.fromkeys(clean))[:16], "hide": {str(n).strip().lower() for n in hide if str(n).strip()}}
 
 
 def _base(m) -> str:

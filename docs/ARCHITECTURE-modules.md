@@ -1,10 +1,10 @@
 # Architecture: the module map
 
-Read this when you look for the module behind a Studio, fleet, Orchestra or team feature.
+Read this when you look for the module behind a Studio, Orchestra or team feature.
 
 Part of [Architecture](ARCHITECTURE.md), which lists every part.
 
-## Module map: Studio, fleet, Orchestra, team, supervise
+## Module map: Studio, Orchestra, team, supervise
 
 One responsibility per module, named for it (3.1.0.0 R2 re-cut every module
 named by line count: no `*_more.py`, `*2.py`, `*_extra*.py` or `*_rest.py`
@@ -64,23 +64,21 @@ this list against the tree.
 - Agents (3.3.16.0 R1: Team, Roles and Orchestra in one section): `studio/agents_door.py` (the old section words as
   doors to Agents' Cast, Runs and Live, and the line each prints once)
 - Team: its routes left with the team file in 3.4.0.0
-- Fleet, this machine's half (3.4.0.0 C: the rest is the fleet pack's server/): `studio/fleet_api.py` (agent
-  commands on a live session), `studio/fleet_view_api.py` (the `fleet/*` routes the core answers, and the door to the
-  pack's when it runs), `studio/fleet_panels_api.py` (attention, costs, caps, conflicts), `studio/fleet_answer.py`
-  (one key on an attention row), `studio/fleet_handoff_api.py` (an agent's hand-off),
-  `studio/fleet_recording_api.py` (flight recordings, the replay's time axis), `studio/fleet_watch.py` (the watcher),
-  `studio/fleet_watch_sources.py` (what it reads), `studio/fleet_feed.py` (its tap on the live feed),
-  `studio/fleet_send.py` (a session command, this harness's or a member's)
+- Live (this machine's sessions): `studio/live_agents_api.py` (agent
+  commands on a live session), `studio/live_api.py` (the `live/*` routes), `studio/live_panels_api.py` (attention, costs, caps, conflicts), `studio/live_answer.py`
+  (one key on an attention row), `studio/live_handoff_api.py` (an agent's hand-off),
+  `studio/live_recording_api.py` (flight recordings, the replay's time axis), `studio/live_watch.py` (the watcher),
+  `studio/live_watch_sources.py` (what it reads), `studio/live_feed.py` (its tap on the live feed),
+  `studio/live_send.py` (a session command)
 - the one unit view (3.1.2.0): `studio/work_api.py`
   (`GET /api/work/<kind>/<run>`, the units of any run; docs/WORK.md)
-- recall (3.1.2.0 R3): `studio/recall_api.py` (`GET /api/recall?q=&fleet=1`
-  for the recall box, `GET /api/fleet/recall?q=` the hub's merged view)
+- recall (3.1.2.0 R3): `studio/recall_api.py` (`GET /api/recall?q=` for the recall box)
 
-**Peers** (`halo_harness/peers/`, 3.4.0.0 C: one machine reaching another, out of the old fleet/):
+**Peers** (`halo_harness/peers/`, 3.4.0.0 C: one machine reaching another's models):
 
 - who and where: `peers/identity.py`, `peers/store.py`, `peers/protocol.py`, `peers/tls.py`, `peers/pair_kex.py`,
   `peers/pairing.py`, `peers/hub_join.py` (the join exchange a hub and `halo host` share), `peers/net.py`
-  (`lan_address`, `FleetOffline`, `parse_ttl`)
+  (`lan_address`, `NetworkOffline`, `parse_ttl`)
 - the relay client: `peers/relay.py`, `peers/relay_stream.py`
 - hosts: `peers/hub_hosts.py` (3.3.7.0 R1: the halo hosts members announce), `peers/hub_host_cmd.py` (a Studio
   command to a host)
@@ -91,7 +89,7 @@ this list against the tree.
   (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in),
   `peers/firewall.py` (3.4.0.1: whether Windows Firewall lets other machines reach a port Halo listens on, read-only)
 
-**Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live, out of the old fleet/):
+**Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live):
 
 - `live/think.py` (3.3.16.2: every agent's thoughts as `thinking_chunk` frames), `live/talk.py` (one agent's words to
   another as `agent_talk` frames)
@@ -115,15 +113,7 @@ this list against the tree.
   repo too), `packs/shipped_newer.py` (3.4.1.0 R5: an installed pack older than the one this Halo ships), Live's
   `routes/agents/live/spend.ts` (R5: the agents' spend, once)
 
-**The fleet pack** (`halo_harness/templates/packs/fleet/`, 3.4.0.0 C): the hub (fleet/hub*.py), the relay of a joined
-harness (relay_hub, relay_runtime, control), the CLI (cli*.py, table*.py), the capability catalog and who
-(capabilities*.py), missions (mission*.py; 3.4.1.0 R5: mission_wait.py, a part's own outputs folder and its asks as
-cards on its machine), health, the digest, delegate, recall and knowledge across the fleet
-(hub_recall, knowledge_share), what packs bring to the catalog (fleet_registry, fleet_share), the two-machine check
-(live_check*), its Studio routes (server/: fleet_hub_api, fleet_pair_api, fleet_health_api, fleet_capabilities_api,
-fleet_mission_api) and its verbs (cli/). The core reaches it only through `packs/fleet_door.py`; `packs/fleet_migrate.py`
-turns it on once for a halo that had a fleet. (`tools/live_fleet_check.py` is the check's CLI;
-`halo_harness/recall_fleet.py` and `halo_harness/recall_cli.py` are the member's side and `halo recall`.)
+`halo_harness/recall_box.py` and `halo_harness/recall_cli.py` are the recall box's side and `halo recall`.
 
 **Orchestra** (`halo_harness/orchestra/`, its CLI beside the package):
 
@@ -161,8 +151,7 @@ total against a budget).
 `halo_harness/work_cli.py` is `halo work` (the units of any run as a table).
 
 **Team** (`halo_harness/team/`): left in 3.4.0.0 with the team file. `orchestra/to_report.py` keeps its
-`orchestra_run` (the supervisor's and a fleet mission part's), the fleet pack's `fleet/delegate.py` its `FleetDelegate` (the
-two-machine check's mission step).
+`orchestra_run` (the supervisor's).
 
 **Supervise** (`halo_harness/supervise/`, Halo 3.1.8.0 R1, docs/SUPERVISE.md):
 the daemon that owns a goal queue and runs it without a TUI --
@@ -228,8 +217,7 @@ filters, prune by age, the passed-gate cap `knowledge.gate_keep`),
 worker's brief block, the ids a text names, "reused by"),
 `knowledge/writers.py` (the judge, the gate, the coach's Apply, the
 supervisor's answers), `knowledge/sources.py` (recall's finding / decision /
-note sources: the entries and `recall.sources`), the fleet pack's `fleet/knowledge_share.py` (the
-`knowledge` fleet command and `halo knowledge fetch`) and `knowledge/cli.py`
+note sources: the entries and `recall.sources`) and `knowledge/cli.py`
 (`halo knowledge`); the agents' tools are `tools/knowledge.py`.
 
 **Measured, watched and shared** (Halo 3.3.8.0 R4, docs/POOL.md "Measured", docs/MODELS-bundles.md): the pool's
@@ -240,7 +228,7 @@ pool findings -- `ollama_steward/rules_pool.py` (pool-degraded, pool-rtt, pool-s
 `host/refresh_pool.py` (the plan's pool row, every member idle, the run); bundles that claim more --
 `packs/manifest_bundle_claims.py` (reservations with a host, the schedule, the priority, the floor),
 `local_sched/bundle_parts.py` (the verdict across the parts), `local_sched/preempt.py` (the lower claim gives way,
-told), `local_sched/reserve_parts.py` (claiming the pool and another host); fleet-wide placement --
+told), `local_sched/reserve_parts.py` (claiming the pool and another host); placement across your machines --
 `local_sched/place_advice.py` (the candidates, the scores and the loading tax, the adviser's placement kind, the
 re-check on a far card's change); Studio -- `studio/pool_watch_api.py` (the Pool page's Bench and Findings),
 `ui/src/routes/local/PoolWatch.tsx`, `poolwatchstore.ts`.

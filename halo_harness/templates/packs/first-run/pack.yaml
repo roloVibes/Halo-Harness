@@ -5,7 +5,7 @@
 # `halo_harness.ext.core` (API 1.3, draft); step 6 shows the coach pack's card only while that pack is enabled.
 id: first-run
 name: First run
-version: 1.0.0
+version: 1.0.1
 description: >-
   The guided first run: one real Orchestra run that rehearses your lineup on your models -- a sample repo, the plan,
   the run, the report and (with the coach pack) the coach -- with a card first that says what it does, what it costs and what it writes.

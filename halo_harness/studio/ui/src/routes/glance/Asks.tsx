@@ -19,8 +19,8 @@ const DOES: Record<string, string> = {
   "question:r": "sends your answer", "question:s": "stops the agent",
   "plan:a": "approves the plan: the work starts", "plan:r": "sends it back with your note", "plan:s": "sends it back and stops the agent",
   "approval:a": "accepts this step", "approval:r": "sends your edit", "approval:s": "stops at this step",
-  "paused:a": "lets it go on", "paused:s": "stops it", "waiting:s": "stops the agent", "fleet_ask:a": "runs the hub's command here",
-  "fleet_ask:r": "refuses it", "cap:a": "lifts the cap for today: the paused sessions go on",
+  "paused:a": "lets it go on", "paused:s": "stops it", "waiting:s": "stops the agent",
+  "cap:a": "lifts the cap for today: the paused sessions go on",
 };
 
 function Reply({ row, k, done }: { row: AttnRow; k: string; done: () => void }) {

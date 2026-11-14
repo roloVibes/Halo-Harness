@@ -1,7 +1,7 @@
 """halo_harness.peers.local_view -- this harness's own sessions and agent
 trees, the direct path (Halo 3.0.5.0 "Fleet" round R2).
 
-`snapshot()` is the local harness as `GET /api/fleet` lists it (and as the
+`snapshot()` is the local harness as `GET /api/live` lists it (and as the
 terminal table shows it when no Studio runs): the live registry
 (`~/.halo/run/sessions.json`, never a private session) plus, for each
 session, `status` and `agents` over its control socket (every call times

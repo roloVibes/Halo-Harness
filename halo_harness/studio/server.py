@@ -64,15 +64,14 @@ class _Server(http.server.ThreadingHTTPServer):
         self.slow_ms = max(0, int(slow_ms or 0))  # 3.3.0.0 R7: the latency flag (slow_ms_from_env)
         self.owner_salt = secrets.token_urlsafe(18)  # 3.3.14.0 R1 (#4): the owner proof's salt (studio/owner_proof.py)
         self.events = None  # studio.events.EventBridge, made by the first /api/events
-        self.fleet_hub = None  # 3.0.5.0 R2: fleet.hub.HubServer (`halo studio --fleet`, the fleet pack's server/fleet_hub_api.py)
         self.events_lock = threading.Lock()
         self.files_watch = None  # 3.2.2.0 R6: studio/files_live.py Watcher, started by start_server
         self.steward_job = None  # 3.3.4.0 R4: ollama_steward/job.py StewardJob, started by start_server
         super().__init__(addr, handler)
 
     def server_close(self):
-        if getattr(self, "fleet_watch", None) is not None:  # 3.0.5.0 R4: studio/fleet_watch.py
-            self.fleet_watch.stop()
+        if getattr(self, "live_watch", None) is not None:  # 3.0.5.0 R4: studio/live_watch.py
+            self.live_watch.stop()
         if getattr(self, "files_watch", None) is not None:  # 3.2.2.0 R6: studio/files_live.py
             self.files_watch.stop()
         if getattr(self, "steward_job", None) is not None:  # 3.3.4.0 R4: the Ollama steward's job
@@ -88,8 +87,6 @@ class _Server(http.server.ThreadingHTTPServer):
             pass
         if self.events is not None:
             self.events.close()
-        if self.fleet_hub is not None:  # the fleet hub ends with Studio
-            self.fleet_hub.stop()
         super().server_close()
 
     def handle_error(self, request, client_address):
@@ -329,7 +326,7 @@ def start_steward(server: _Server) -> None:
 
 
 STUDIO_SECTIONS = ("session", "agents", "local", "packs", "setup", "settings")  # 3.0.4.0 .. 3.3.5.0 R1; 3.3.13.0 R2: design is the design pack's (studio/modes.py); 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet (six core sections)
-STUDIO_MODES = STUDIO_SECTIONS + ("roles", "orchestra", "team", "fleet")  # 3.3.16.0 R1/R2: the old words stay doors to Agents' views (studio/agents_door.py)
+STUDIO_MODES = STUDIO_SECTIONS + ("roles", "orchestra", "team")  # 3.3.16.0 R1/R2: the old words stay doors to Agents' views (studio/agents_door.py)
 
 
 def url_for(server: _Server, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
@@ -364,12 +361,11 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 def cmd_studio(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
-    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section>; glance: the phone-width page (default: the mode you used last; roles opens Agents on Cast, orchestra and team on Live, fleet on Live with the fleet scope while the fleet pack runs)")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section>; glance: the phone-width page (default: the mode you used last; roles opens Agents on Cast, orchestra and team on Live)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
-    parser.add_argument("--fleet", action="store_true", help="also run the fleet hub in this process (the fleet pack: halo pack install fleet, halo pack enable fleet --grant-all): other harnesses join it with `halo fleet join` (docs/FLEET.md)")
     parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (Agents -> Cast, its form), lineup:<name>[:<block>] (its inspector, or one block's page), team (Agents -> Live), setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     parser.add_argument("--prompt", action="store_true", help="with --session (or alone: the newest live session): open its Prompt panel with the keyboard in the box, to type into the session as in the terminal")
@@ -428,10 +424,6 @@ def cmd_studio(argv: list) -> int:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
     url = url_for(server, args.mode, edit.text if edit is not None else None)
-    if args.fleet:  # 3.0.5.0 R2: the fleet hub inside Studio's process (3.4.0.0 C: the fleet pack's)
-        from halo_harness.packs import fleet_door
-        print(fleet_door.call("server/fleet_hub_api.py", "start_for_flag", server, state_dir, cwd=cwd, state_dir=state_dir,
-                              default=f"halo studio --fleet: {fleet_door.line()}"), flush=True)
     try:
         state_dir.mkdir(parents=True, exist_ok=True)
         from halo_harness.privateio import write_private_atomic

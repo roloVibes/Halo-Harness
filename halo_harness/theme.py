@@ -87,15 +87,13 @@ def _config_path() -> Path:
 
 
 def load_config() -> dict:
-    """Read `~/.halo/config.json` fresh every call; `{}` if
-    missing/invalid. Never raises -- this is a small local file a test may
-    write then immediately re-read within the same process."""
+    """Read `~/.halo/config.json` fresh every call; `{}` if missing/invalid (3.5.0.0: an old key's value under its new
+    name, config/renamed_keys.py). Never raises -- a test may write then immediately re-read it in the same process."""
     path = _config_path()
     try:
-        if not path.exists():
-            return {}
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        from halo_harness.config.renamed_keys import migrate
+        return migrate(data) if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
 
@@ -201,7 +199,7 @@ def unset_config_value(key: str) -> bool:
     wizard's One model for everything clears `team`); False when it was not
     there. Same write path and corrupt-file refusal as `set_config_value`.
 
-    3.3.3.0 R2 (Studio's Settings, Reset to default): `key` may be dotted (`"fleet.enabled"`): the leaf goes,
+    3.3.3.0 R2 (Studio's Settings, Reset to default): `key` may be dotted (`"control.enabled"`): the leaf goes,
     and a section it leaves empty goes with it; a plain key is unchanged from before."""
     path = _config_path()
     if not path.exists():

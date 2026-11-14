@@ -1,7 +1,7 @@
 """halo_harness.host.ops_rpc -- `rpc_server on | off`, the pool worker's op (Halo 3.3.8.0 R3; host/ops.py has the
 registry; docs/HOST.md "rpc_server"; docs/POOL.md "The workers").
 
-    rpc_server {to: on | off, port?, mem_mib?}   control grant (a pending row under fleet.allow_control: ask; under
+    rpc_server {to: on | off, port?, mem_mib?}   control grant (a pending row under host.allow_control: ask; under
         `none` one line naming the grant, and once per host that RPC is for a trusted LAN only)
         on:  `rpc-server -H <the LAN address this host serves on> -p <port: pool.rpc_port, 50052> --mem <this machine's
              free VRAM in MiB>` through host/rpc_runner (the runner seam), its pid, port, bound address, binary and
@@ -181,9 +181,9 @@ def refused(home, status_code: int, out: dict) -> dict:
     from halo_harness.peers import identity
     if status_code != 403:
         return out
-    name = identity.fleet_name(home)
-    line = (f"rpc_server is a control operation: fleet.allow_control is none on {name}, so it runs only after "
-            f"`halo config set fleet.allow_control ask` (or all) there and `halo host grant <peer> control`"
+    name = identity.harness_name(home)
+    line = (f"rpc_server is a control operation: host.allow_control is none on {name}, so it runs only after "
+            f"`halo config set host.allow_control ask` (or all) there and `halo host grant <peer> control`"
             if out.get("cap") == "none" else str(out.get("error") or ""))
     lan = _once(home)
     return {**out, "error": line + (f"; {lan[0]}" if lan else "")}

@@ -19,7 +19,7 @@ STEPS = (
     ("report", "The report and the coach",
      "The report ticks every check of DONE WHEN; the coach reads the run's files and says what to change next time."),
     ("next", "Where to go next",
-     "The same pieces grow with you: your own lineup, a team file for a project, a fleet of machines."),
+     "The same pieces grow with you: your own lineup, your own workflows, your local models."),
 )
 KEYS = tuple(k for k, _t, _w in STEPS)
 TOTAL = len(STEPS)
@@ -40,7 +40,7 @@ COACH_OFF = "The coach (what to change next time) is a pack: halo pack install c
 NEXT = (
     ("Agents: Cast", "edit your lineup's cards, their models and tiers", "halo studio --mode agents"),
     ("Agents: Run a goal", "give your lineup a goal in your own repo from Live's bar: its lanes on Live, its report in History", "halo orchestra new"),
-    ("Fleet", "join another machine and give the fleet one goal", "halo fleet pair"),
+    ("Local", "the machines that serve your local models and the models they serve", "halo local"),
 )
 
 

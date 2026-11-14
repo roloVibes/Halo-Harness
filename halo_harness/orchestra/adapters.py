@@ -125,7 +125,7 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
         limit = int(getattr(lane, "timeout_s", 0) or timeout_s)  # 3.2.0.0 R5: a workflow stage's own timeout_s
         env = child_env(run_dir, lane.n, os.environ)
         env.setdefault("PYTHONIOENCODING", "utf-8")
-        env.update(fleet_parent_env())
+        env.update(parent_env_of())
         values: tuple = ()
         try:
             job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
@@ -155,13 +155,13 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
     return spawn
 
 
-def fleet_parent_env() -> dict:
+def parent_env_of() -> dict:
     """3.0.5.0 (Fleet): a worker's registry entry names the session that started
     the run (`parent`), when this process has one with a control socket."""
     try:
-        from halo_harness.remote import fleet_identity, runtime
+        from halo_harness.remote import session_identity, runtime
         act = runtime.active()
-        return fleet_identity.parent_env(act.session_id if act is not None else None)
+        return session_identity.parent_env(act.session_id if act is not None else None)
     except Exception:
         return {}
 

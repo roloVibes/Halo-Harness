@@ -102,7 +102,7 @@ def test_member_and_discovered_rows_get_the_block(ctx: Ctx):
         resources.STORE.add({"host": "pc-lan", "url": "http://192.0.2.10:11434", "t": 1.0, "from": "mac@lab",
                              "holders": [], "sources": {}})
         try:
-            rows = L._members(set(), None)
+            rows = L._members(set())
             ctx.check(f"a member's host at the host's address gets the block, got {[(r['name'], r.get('host')) for r in rows]}",
                       any(r["name"] == "pc-lan" and (r.get("host") or {}).get("addr") == "127.0.0.1" for r in rows))
         finally:

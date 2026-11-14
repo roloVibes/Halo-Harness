@@ -89,7 +89,7 @@ def _rows(state_dir=None) -> "list[dict]":
 def notify(kind: str, text: str, *, source: str = "", session: str = "", state_dir=None) -> bool:
     """True when a row was written (a transport listens and `kind` is one of KINDS); 3.3.13.1 (REVIEW #19,
     REMOTE-2): never while `remote.enabled` is false, every transport's switch."""
-    from halo_harness.remote.fleet_identity import remote_enabled
+    from halo_harness.remote.session_identity import remote_enabled
     if kind not in KINDS or not str(text or "").strip() or not remote_enabled() or not listening(state_dir):
         return False
     from halo_harness.filelock import file_lock

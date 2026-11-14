@@ -1,6 +1,6 @@
 """tests.test_studio_session_figures -- Session's figures keep up with the
 terminal (Halo 3.1.8.0 R6), the server half, over a REAL session
-(tests/helpers/fleet_rig.py: the real Session, Controller and control
+(tests/helpers/session_rig.py: the real Session, Controller and control
 socket, a scripted mock model whose usage chunks carry tokens and a cost)
 and Studio's real event bridge (studio/events.py):
 
@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.fleet_rig import FleetRig, gated, text_step, tool_step, wait_for  # noqa: E402
+from tests.helpers.session_rig import SessionRig, gated, text_step, tool_step, wait_for  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -81,7 +81,7 @@ def test_each_message_end_is_the_terminals_figure_and_the_studio_row_follows(ctx
     g1, g2 = threading.Event(), threading.Event()
     seen1: list = []
     seen2: list = []
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         from halo_harness.peers import local_view
         from halo_harness.remote import runtime
         from halo_harness.studio.events import EventBridge

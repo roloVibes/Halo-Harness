@@ -1,7 +1,7 @@
 """tests.helpers.studio_session_live -- Session's Live column (Halo 3.1.5.0
 R3) through real clicks, keys and the pointer in headless Chrome on the
 driver base (tests/helpers/chrome_driver.Driver), over
-tests/helpers/studio_fleet_rig.py with three extra agents and scripted feed
+tests/helpers/studio_session_rig.py with three extra agents and scripted feed
 frames (tests/helpers/studio_live_rig.py). tests/test_studio_session_live.py
 runs it as a subprocess with a scrubbed environment:
 
@@ -165,8 +165,8 @@ class LiveDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             yield ((live, (c, rig)),)
 
 

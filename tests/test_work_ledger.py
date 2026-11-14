@@ -16,8 +16,6 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -29,7 +27,7 @@ test, TESTS = new_registry()
 @test
 def test_every_kind_s_log_reads_as_ledger_lines(ctx: Ctx):
     from halo_harness.work import ledger
-    from tests.helpers.coach_seed import mission_folder, orchestra_run
+    from tests.helpers.coach_seed import orchestra_run
     from tests.helpers import coach_seed as S
     root = Path(tempfile.mkdtemp(prefix="work-ledger-"))
     run_dir = orchestra_run(root, [S.lane(1), S.lane(2)],
@@ -42,10 +40,6 @@ def test_every_kind_s_log_reads_as_ledger_lines(ctx: Ctx):
     claim = next(x for x in lines if x.kind == "claim")
     ctx.check(f"a claim line carries the unit, holder and key, got {claim.to_dict()}",
               claim.unit == "1" and claim.by == "s1/main" and claim.key == "basket.py#f1" and claim.native == "claim")
-    for kind, folder in (("part", mission_folder(root)),):
-        got = ledger.read(folder, kind)
-        ctx.check(f"{kind}: lines read, every kind allowed, got {sorted({x.kind for x in got})}",
-                  all(x.kind in ledger.KINDS for x in got))
 
 
 @test

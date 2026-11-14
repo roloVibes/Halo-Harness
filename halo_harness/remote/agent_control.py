@@ -13,7 +13,7 @@ commands (Halo 3.0.5.0 "Fleet" round R1). Wire shapes:
 
 Rows and entries: agent/agent_registry.py, agent/agent_transcript.py.
 "main" (or the session id) is the main agent, `job:<id>` a background Bash
-job. Every command takes `by` (Studio sends `fleet.name`) and `via` (default
+job. Every command takes `by` (Studio sends `harness.name`) and `via` (default
 "Studio"); those that act on an agent are recorded in its own transcript (a
 `meta` node `{"fleet": {cmd, by, via, ...}}`), its parent's transcript and the
 TUI get one line for a steer, stop or pause. A steer is a user-role note read
@@ -86,7 +86,7 @@ def _record(handle, tree, aid: str, cmd: str, by: str, via: str, **extra) -> Non
     log = getattr(_session(handle, tree, aid), "log", None)
     if log is not None:
         try:
-            log.append_meta(fleet={"cmd": cmd, "by": by, "via": via, "agent_id": aid, **extra})
+            log.append_meta(control={"cmd": cmd, "by": by, "via": via, "agent_id": aid, **extra})
         except Exception:
             pass
 
@@ -96,7 +96,7 @@ def _parent_line(handle, tree, aid: str, line: str) -> None:
     log = getattr(_session(handle, tree, parent), "log", None) if parent else None
     if log is not None:
         try:
-            log.append_meta(fleet_note=line)
+            log.append_meta(control_note=line)
         except Exception:
             pass
     _announce(handle, line)
@@ -194,7 +194,7 @@ def cmd_shutdown(handle, tree, req: dict) -> dict:
     reason = " ".join(_str(req, "reason").split())[:300] or "no reason given"
     tree.controls.begin_shutdown(by, reason, via)
     _record(handle, tree, tree.root_id, "shutdown", by, via, reason=reason)
-    handle.fleet_shutdown(f"shut down from {via} by {by}: {reason}")
+    handle.control_shutdown(f"shut down from {via} by {by}: {reason}")
     return {"shutdown": True}
 
 

@@ -23,8 +23,8 @@ stated action, and reads what appears. The lines it reads, by kind, are in the s
   travel as base64, so the offsets stay exact; the platform that answered is kept, and per host the offset or the
   journal cursor (`<state>/ollama/server-log-remote.json`). A rotation reads the old file's end, then the new one.
   The steward's job reads every such host every 30 seconds; `halo ollama events --host H` reads it now.
-- **Another machine, no `ssh:` entry.** The ladder: a fleet member that serves it pushes its new server events with
-  its ledger push (the hub ties them to the host by the member's address), else only `/api/ps` says the fit
+- **Another machine, no `ssh:` entry.** The ladder: a paired host that serves it pushes its new server events with
+  its ledger push (tied to the host by its address), else only `/api/ps` says the fit
   (`size_vram < size` is a spill).
 
 ### Is logging live

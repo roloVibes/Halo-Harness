@@ -21,8 +21,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.policy_session import Upstream, fenced_home, outside, session_in  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -132,31 +130,6 @@ def test_the_tui_line_and_the_session_feed_row(ctx: Ctx):
     row = (UI / "routes" / "session" / "LiveTool.tsx").read_text(encoding="utf-8")
     ctx.check("the Session feed takes the frame's line", "policyLine(d.policy)" in feed and "String(e.policy" in feed)
     ctx.check("its tool row draws it", 'data-testid="session-live-policy"' in row and "{l.policy}" in row)
-
-
-@test
-def test_a_fleet_mission_records_the_armed_policies(ctx: Ctx):
-    from halo_harness.fleet import mission_api as A
-    from halo_harness.fleet import mission_store as S
-    from halo_harness.fleet.mission_dispatch import Dispatch
-    from tests.helpers.mission_seed import FakeLead
-    plan = {"parts": [{"id": "1", "title": "Write", "brief": "Write it.", "kind": "files", "needs": [], "est_cost_usd": 0.1}],
-            "merge_order": []}
-    A.LEAD = FakeLead(json.dumps(plan))
-    try:
-        with fenced_home() as h:
-            status, body = A.create(A.Ctx(h.state, None, by="me", cwd=h.repo), {"goal": "Write the notes", "repo": False})
-            mid = body["mission"]["id"]
-            doc = json.loads((S.folder(h.state, mid) / "mission.json").read_text(encoding="utf-8"))
-            ctx.check(f"the mission file records them, got {status} {doc.get('policies')}", doc.get("policies") == ["policy-fence/fence"])
-            f = Dispatch.fields(doc, {"id": "1", "kind": "files"}, plan)
-            ctx.check(f"a part's dispatch carries them, got {f.get('policies')}", f.get("policies") == ["policy-fence/fence"])
-        with fenced_home(armed=False) as h:
-            status, body = A.create(A.Ctx(h.state, None, by="me", cwd=h.repo), {"goal": "Write the notes", "repo": False})
-            ctx.check("none armed: no key at all", "policies" not in body["mission"]
-                      and "policies" not in Dispatch.fields(body["mission"], {"id": "1", "kind": "files"}, plan))
-    finally:
-        A.LEAD = None
 
 
 if __name__ == "__main__":

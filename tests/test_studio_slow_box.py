@@ -13,7 +13,7 @@ it set (headless Chrome; skipped without one):
    cross-tier drop is one ordered write now, so the held card sits in its box
    and every card keeps its spot;
 2. the Fleet map with every answer and frame 400 ms late
-   (tests/helpers/studio_slow_fleet.py): a stopped agent whose end frame and
+   (tests/helpers/studio_slow_live.py): a stopped agent whose end frame and
    every re-reading frame are lost while the feed stays alive ends on the map
    within the poll floor (fleet/sync.ts FLOOR_MS) + 1 s, and a late `running`
    frame after its end is corrected as fast (the base kept both `running`
@@ -29,8 +29,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on: these drive its Studio doors)
-_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 from tests.helpers.driver_got import got as driver_got  # noqa: E402
@@ -59,7 +57,7 @@ def _room(ctx: Ctx) -> dict:
 
 
 def _fleet(ctx: Ctx) -> dict:
-    return _got(ctx, "tests.helpers.studio_slow_fleet", [], FLEET_MS)
+    return _got(ctx, "tests.helpers.studio_slow_live", [], FLEET_MS)
 
 
 @test

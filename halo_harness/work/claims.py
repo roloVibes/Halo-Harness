@@ -6,8 +6,6 @@
 
 * lane: keys are file units (`basket.py#total`, mode `unit`); the live
   claims are the run's claims.jsonl (orchestra/claims.py ClaimLog).
-* part: keys are repo paths or globs from the plan (mode `path`); a part's
-  claims are fixed by its plan (claims.json), nothing is held live.
 
 (3.4.0.0 B: a team stage's block claims left with the team file.)
 
@@ -42,4 +40,4 @@ def claim(kind: str, run_dir, uid, key: str, holder: str):
     if k == "lane":
         from halo_harness.orchestra.claims import ClaimLog
         return ClaimLog(run_dir).claim(holder, key)
-    raise ValueError("a part's claims are its plan's (claims.json): plan the mission again to change them")
+    raise ValueError(f"a {k}'s claims are not held live: only a lane claims")

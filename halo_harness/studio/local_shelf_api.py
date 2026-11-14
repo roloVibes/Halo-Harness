@@ -55,7 +55,7 @@ def post_retire(req, name: str):
     if not ctl.get("ok"):
         return _refused(ctl)
     if not here or host is None:
-        return 409, {"error": f"{name} is served by a fleet member: retire it on that machine ({cli})", "cli": cli}
+        return 409, {"error": f"{name} is served by another machine: retire it on that machine ({cli})", "cli": cli}
     got = retire(host, model, state_dir=req.state_dir, why=str(body.get("why") or ""), force=body.get("force") is True,
                  cwd=req.cwd, row=_row(host, model))
     if got.get("ok"):

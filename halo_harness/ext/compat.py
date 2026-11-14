@@ -3,7 +3,7 @@
 
 The policy, as this module applies it:
 
-- The API version is MAJOR.MINOR (`API_VERSION`, "1.3" since Halo 3.4.0.0; "1.2" since 3.3.13.0; "1.1" since 3.3.10.0). A minor version only
+- The API version is MAJOR.MINOR (`API_VERSION`, "1.4" since Halo 3.5.0.0; "1.3" since 3.4.0.0; "1.2" since 3.3.13.0; "1.1" since 3.3.10.0). A minor version only
   adds names: every name keeps its meaning for every later minor of the same
   major. A major version may remove a name, and only one `deprecations()` has
   listed for at least one minor version before it.
@@ -18,7 +18,7 @@ The policy, as this module applies it:
   and Policy hooks is stable: a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
   take 1.1, and a pack with no `policy` or `modes` reads and runs as before (`CHANGES`).
 
-    api_version()                           "1.3"
+    api_version()                           "1.4"
     compatible({"min": "1.0", "max": "1.9"})   True on this Halo
     compatible({"min": "1.0"}, "2.0")       False: a new major
     range_words({"min": "1.2"})             "1.2 or a later 1.x"
@@ -69,6 +69,11 @@ CHANGES: "dict[str, dict]" = {
             "deprecates": [], "keeps": "everything: a 1.0, 1.1 or 1.2 pack runs unchanged; one without the four keys is untouched",
             "status": "draft (Halo 3.4.0.0: the first-run and coach packs are built on it; may change in a minor with a "
                       "migration note)"},
+    "1.4": {"halo": "3.5.0.0", "adds": ["contributes.capabilities: what the pack can do here (capabilities, inspector "
+                                         "lines), the new name of contributes.fleet, which is still read (its mission key "
+                                         "ignored)"],
+            "deprecates": [], "keeps": "everything: a pack with contributes.fleet reads as before, its capabilities checked",
+            "status": "stable (Halo 3.5.0.0: the doc-review pack uses it)"},
 }
 
 

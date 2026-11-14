@@ -50,7 +50,7 @@ def _host_act(host, op: str, params: dict) -> "tuple[bool, str]":
     except HostError as e:
         return False, str(e)
     if got.get("queued"):
-        return False, got.get("line") or "queued for the host's owner (fleet.allow_control: ask there)"
+        return False, got.get("line") or "queued for the host's owner (host.allow_control: ask there)"
     return bool(got.get("ok", True)), str(got.get("say") or "")
 
 

@@ -25,7 +25,7 @@ import re
 
 def _live_states(req, sid: str) -> dict:
     try:
-        from halo_harness.studio.fleet_handoff_api import _find
+        from halo_harness.studio.live_handoff_api import _find
         _v, _h, s, _local = _find(req, "local", sid)
     except Exception:
         return {}
@@ -114,8 +114,6 @@ def get_compare(req):
     a, b = str(req.query.get("a") or "").strip(), str(req.query.get("b") or "").strip()
     if not a or not b:
         return 422, {"error": "name two runs: ?a=<ref>&b=<ref> (session:<id>, run:<id> or file:<id>)", "problems": []}
-    if any(r.startswith("mission:") for r in (a, b)):
-        return 422, {"error": "a mission is compared from its report (the fleet pack's mission page), not here", "problems": []}
     try:
         pa = compare.resolve(req.state_dir, a, cwd=req.cwd)
         pb = pa if b == a else compare.resolve(req.state_dir, b, cwd=req.cwd)
@@ -130,8 +128,6 @@ def get_report(req):
     ref = str(req.query.get("ref") or "").strip()
     if not ref:
         return 422, {"error": "name the run: ?ref=session:<id> | run:<id> | file:<id>", "problems": []}
-    if ref.startswith("mission:"):
-        return 422, {"error": "a mission's report is the fleet pack's mission page, not a report card here", "problems": []}
     try:
         p, from_file = report_card.resolve(req.state_dir, ref, cwd=req.cwd)
     except compare.CompareError as e:

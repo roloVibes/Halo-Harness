@@ -11,7 +11,7 @@
 # - signal-cli as a requirement (Halo never installs it) and its settings (config).
 id: signal
 name: Signal
-version: 1.0.0
+version: 1.0.1
 description: >-
   Halo on your phone through Signal, as a conversation: a text starts or continues a session and the answer comes
   back paragraph by paragraph; cards are answered from the phone; pictures, PDFs and voice notes go in, files come

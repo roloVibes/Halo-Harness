@@ -8,6 +8,61 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.5.0.0] - unreleased
+
+Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one
+machine's agents and your local models. Everything about this machine's sessions stays (the registry, the control
+socket, Session, Agents -> Live, History, Attention, the glance, the scrubber and the replay, steer / pause / stop),
+and so does everything about local models on other machines (Ollama on the network, `halo host serve` and the host
+door, the pool, the steward, capability checks). Fleet's code was saved as a standalone pack folder outside this
+repository; it is not published.
+
+### What was removed
+
+| Thing | Lines |
+|---|---|
+| the shipped `fleet` pack (`halo_harness/templates/packs/fleet/`: the hub, pairing, members, missions, its CLI, Studio routes, tests, docs, UI bundle; 74 files) | 9,668 |
+| core glue (`packs/fleet_door.py`, `packs/fleet_migrate.py`, `work/adapters/part.py`, the coach pack's mission coach and library share, `tools/capture_fleet.py`, `tools/live_fleet_check.py`; 10 files) and the fleet parts of other core modules | 2,693 removed (1,161 added) |
+| Studio's fleet UI (Mission panel and dialogs, the mission store, Capabilities, Who, People, Pair, Health, Digest, Recall, the machine nodes and summary, mission parts, Setup -> Machines, the fleet scope on Live, three stylesheets; 30 files) | 3,732 removed (326 added) |
+| fleet, mission, hub, pair and member tests (49 files) and the fleet parts of mixed modules | 10,076 removed (1,595 added) |
+| docs: FLEET.md, MISSIONS.md, COMMANDS-fleet.md, STUDIO-fleet.md, four pictures; the fleet parts of every other doc | 2,676 removed (654 added) |
+
+Studio's bundle: `studio.js` 1,430,286 -> 1,332,425 bytes, `studio.css` 273,323 -> 258,852 bytes.
+
+### What was renamed (old -> new)
+
+- Studio routes: `fleet`, `fleet/<harness>/<sid>/command`, `.../agents/<aid>/command|handoff`, `fleet/history`,
+  `fleet/attention[/answer]`, `fleet/costs`, `fleet/caps`, `fleet/conflicts`, `fleet/<h>/<sid>/recording`,
+  `fleet/recordings/<name>`, `fleet/replay` -> `live/...` (`studio/live_api.py`; another harness is a 404).
+- Feed frames: a session's `fleet` frame -> `registry`; Studio's watcher's `fleet` frame -> `live`; a transcript's
+  `fleet` / `fleet_note` meta -> `control` / `control_note` (the old ones are still read).
+- Modules: `studio/fleet_view_api` -> `live_api`, `fleet_api` -> `live_agents_api`, `fleet_panels_api` ->
+  `live_panels_api`, `fleet_handoff_api` -> `live_handoff_api`, `fleet_recording_api` -> `live_recording_api`,
+  `fleet_answer` / `fleet_feed` / `fleet_send` / `fleet_watch` / `fleet_watch_sources` -> `live_*`;
+  `remote/fleet_identity` -> `session_identity`, `fleet_frames` -> `agent_frames`, `cli_fleet` -> `cli_agents`;
+  `packs/fleet_registry` -> `capability_check`, `fleet_rules` -> `capability_rules`; `recall_fleet` -> `recall_box`.
+- Config keys (an old config still loads: the old key is read once and migrated in memory): `fleet.enabled` ->
+  `control.enabled`, `fleet.private` -> `control.private`, `fleet.name` -> `harness.name`, `fleet.allow_control` ->
+  `host.allow_control`, `fleet.caps.per_harness_usd_per_day` / `per_project_usd_per_day` -> `caps.*`,
+  `fleet.attention.signal` -> `attention.signal`, `fleet.ollama.share` -> `ollama.share`. Every other `fleet.*` key
+  is ignored and `halo doctor` says once "fleet.* settings are no longer used: Fleet is a separate pack now", naming
+  them. `HALO_FLEET_PARENT` -> `HALO_SESSION_PARENT`, `HALO_FLEET_PRIVATE` -> `HALO_PRIVATE`, `~/.halo/fleet-id` ->
+  `~/.halo/harness-id` (renamed once).
+- Extension API 1.4: a pack's `contributes.fleet` is `contributes.capabilities` (the old name is still read, its
+  `mission` key ignored, the locality `shared` gone); `ext.remote.fleet_lines` -> `live_lines` (the old name still
+  answers). The shipped coach (1.0.1: no mission coach, no library fetch), first-run (1.0.1: step 7 ends on Local) and
+  signal (1.0.1: `/fleet` is `/live`) packs follow; the doc-review pack declares `contributes.capabilities`.
+- The `halo-harness[fleet]` extra is `[tls]` (the old name stays, for `halo host serve`'s TLS).
+
+### What a user who used Fleet sees
+
+`halo fleet ...` and `halo mission ...` (and `/fleet`, `/mission`, `halo recall --fleet`) answer one line and exit 2:
+"Fleet is not part of Halo Harness any more (it left in 3.5.0.0); it is a separate pack." `halo studio --fleet`,
+`--mode fleet` and `?mode=fleet` are gone; Agents -> Live draws this machine's sessions only, Setup has no Machines
+step, Settings no Fleet page, the palette no fleet lines. A home with fleet state keeps its files (`~/.halo/fleet.json`,
+`<state>/fleet/`) untouched; the pairing with a `halo host` (another machine's models) keeps working, its records
+still live in those files.
+
 ## [3.4.1.2] - 2026-11-12
 
 A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can

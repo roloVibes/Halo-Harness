@@ -26,8 +26,6 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -68,7 +66,6 @@ def test_the_cost_line_comes_first_and_y_n_guards_the_probe(ctx: Ctx):
 @test
 def test_yes_runs_it_and_prints_the_contrast_and_the_pick(ctx: Ctx):
     from tests.helpers.coach_probe_rig import Probe
-    from tests.helpers.coach_seed import mission_folder
     with Probe() as p:
         rc, out, err = _cli([str(p.run_dir), "--probe"], "y\n")
         lines = out.splitlines()
@@ -84,8 +81,6 @@ def test_yes_runs_it_and_prints_the_contrast_and_the_pick(ctx: Ctx):
         ctx.check(f"--yes --k 2: two pairs, four runs, got {rc} {[c['id'] for c in data['candidates']]}", rc == 0
                   and out.splitlines()[0].startswith("probe: 4 runs") and [c["pair"] for c in data["candidates"]] == [1, 1, 2, 2]
                   and len(data["outcomes"]) == 4 and all(o["status"] == "finished" for o in data["outcomes"].values()))
-        rc, _, err = _cli([str(mission_folder(p.state)), "--probe", "--yes"])
-        ctx.check(f"a mission is one line, exit 1, got {rc} {err!r}", rc == 1 and "takes an Orchestra run" in err)
 
 
 @test

@@ -1,6 +1,6 @@
 """tests.test_knowledge_recall -- Halo 3.1.8.0 R4: recall knows findings and
 decisions (knowledge/sources.py, recall.build_index / search, recall_cli,
-/recall, recall_fleet, Studio's recall route), on the fake embedder:
+/recall, recall_box, Studio's recall route), on the fake embedder:
 
 1. build_index indexes every current entry as kind `finding` / `decision`
    beside memory; search ranks them and carries the kind; the incremental
@@ -23,8 +23,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
@@ -90,7 +88,7 @@ def test_rank_memory_topics_stays_memory_only(ctx: Ctx):
 
 @test
 def test_shown_with_their_kinds_everywhere(ctx: Ctx):
-    from halo_harness import recall_fleet as RF
+    from halo_harness import recall_box as RF
     from halo_harness.commands.builtins import _cmd_recall
     from halo_harness.recall_cli import cmd_recall
     from halo_harness.studio.recall_api import get_recall

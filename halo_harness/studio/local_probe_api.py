@@ -6,7 +6,7 @@ and `cost`, the line said before the run.
     POST local/host/<name>/probe {model, force?}   a probe job (studio/local_probe_job.py; `probe` frames);
                                                    a host a fleet member serves: that member's own job
                                                    (fleet/control_models.py `ollama_probe`, under its
-                                                   fleet.allow_control)
+                                                   host.allow_control)
     GET  local/probes                              the jobs running and the last ended ones
     GET  local/profiles?host=                      every profile in the capability cache (that host's only
                                                    with ?host=), without the raw evidence

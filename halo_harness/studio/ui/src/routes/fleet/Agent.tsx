@@ -14,7 +14,6 @@ import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
 import { AgentExtras, RecentSessions } from "./AgentHistory";
 import { nowText } from "../agents/live/nodeBits";
-import { AgentPackInspector } from "./PackCaps";
 import { Steer } from "./Steer";
 import { EMPTY, outputOf, thinkingOf, watch, workingOf } from "./streams";
 import { OutputView, ThinkingView, Typed, WorkingView } from "./StreamViews";
@@ -150,7 +149,6 @@ export function AgentView({ r }: { r: AgentRef }) {
         <span className="fa-keys muted"><Kbd keys="J" /> <Kbd keys="K" /> hop</span>
       </div>
       <AgentExtras r={r} done={done} noControl={noControl} />
-      <AgentPackInspector mission={r.s.mission} part={r.s.part} />
       <Steer key={key} k={key} disabled={done || noControl} why={why} />
     </div>
   );

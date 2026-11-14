@@ -61,8 +61,6 @@ def is_trusted(cwd: str | Path, claude_json: dict,
     -- a non-git folder trusted at `D:/notes` must still read as trusted
     from `D:/notes/sub`)."""
     cwd_path = Path(cwd).absolute()
-    if hub_written(cwd_path):  # 3.4.1.2 (PACKS-3): a fleet mission part's folder holds what a hub sent
-        return False
 
     def has_trust_in_project(project_cwd: Path) -> bool:
         proj = lookup_project(claude_json, project_cwd)
@@ -103,27 +101,6 @@ def is_trusted(cwd: str | Path, claude_json: dict,
     if trust_dict.get(norm_cwd):
         return True
 
-    return False
-
-
-def hub_written(path: Path) -> bool:
-    """3.4.1.2 (PACKS-3): a folder a fleet hub fills is never trusted, whatever an ancestor's trust says: a mission
-    part's mirror (`<state>/fleet/missions/<id>`), a repo part's worktree (`<checkout>/.halo/missions/...`, started
-    from the hub's bundle) and a shared mission folder (`fleet.shared_dir/<id>`, read only for a folder holding a
-    MISSION.md). Its settings, hooks, MCP servers, skills and CLAUDE.md imports are read as an untrusted repo's."""
-    low = [x.lower() for x in Path(path).parts]
-    if any((low[i], low[i + 1]) in ((".halo", "missions"), ("fleet", "missions")) for i in range(len(low) - 1)):
-        return True
-    if not (Path(path) / "MISSION.md").is_file():
-        return False
-    try:
-        from halo_harness.theme import get_config_value
-        shared = str(get_config_value("fleet.shared_dir", "") or "").strip()
-        if shared:
-            Path(path).absolute().relative_to(Path(shared).expanduser().absolute())
-            return True
-    except Exception:
-        pass
     return False
 
 

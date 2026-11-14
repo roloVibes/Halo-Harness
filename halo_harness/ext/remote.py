@@ -26,7 +26,7 @@ transcript, a QR drawing, Studio's capture. The core never knows which transport
     service(pack_id, name) -> row | None    a pack service's row as the supervisor last wrote it (supervise/services_rows.py)
     service_ask(pack_id, name, verb) -> line   ask the running supervisor to start or stop one of your services
     logon_lines() -> [line]                 how to start the supervisor (and so the packs' services) at logon here
-    fleet_lines(limit=8) -> [line]          this harness's sessions, the fleet's members, what waits on you
+    live_lines(limit=8) -> [line]           this harness's sessions and what waits on you (API 1.4; fleet_lines its old name)
     capture_studio(session_id="") -> (path | None, line)   a capture of the Halo Studio window when it is open here
 """
 
@@ -46,7 +46,7 @@ PUBLIC = ("session_id", "title", "cwd", "started", "kind", "model", "pid")
 
 
 def enabled() -> bool:
-    from halo_harness.remote.fleet_identity import remote_enabled
+    from halo_harness.remote.session_identity import remote_enabled
     return remote_enabled()
 
 
@@ -175,8 +175,8 @@ def logon_lines() -> "list[str]":
             "  " + enable_command(os_n, path, SUPERVISOR["task"])]
 
 
-def fleet_lines(limit: int = 8) -> "list[str]":
-    """This harness's live sessions, the fleet's members and what waits on you (the Attention queue), as lines."""
+def live_lines(limit: int = 8) -> "list[str]":
+    """This harness's live sessions and what waits on you (the Attention queue), as lines."""
     from halo_harness.peers import identity
     from halo_harness.live.attention import build
     from halo_harness.peers.local_view import snapshot
@@ -188,19 +188,13 @@ def fleet_lines(limit: int = 8) -> "list[str]":
     for r in rows[:limit]:
         tail = "/".join([p for p in str(r.get("cwd") or "").replace("\\", "/").split("/") if p][-2:])
         out.append(f"  {cards.one_line(r.get('title') or 'untitled', 40)} ({tail}) - {r.get('status') or '?'}")
-    try:
-        from halo_harness.peers.pairing import HubPairing
-        members = [str(m.get("name") or m.get("id")) for m in HubPairing(identity.home()).members().values()]
-    except Exception:
-        members = []
-    if members:
-        out.append(f"Fleet members: {', '.join(members[:limit])}")
     waiting = build({"harnesses": [local]}, home=identity.home())
     out.append(f"Waiting on you: {len(waiting)}" + ("" if waiting else " (nothing)"))
     out += [f"  {cards.one_line(w.get('what'), 120)}" for w in waiting[:limit]]
     return out
 
 
+fleet_lines = live_lines  # API 1.4: its name before 3.5.0.0, still answering
 def capture_studio(session_id: str = "") -> "tuple[Optional[str], str]":
     from halo_harness.config.paths import bridge_home
     from halo_harness.studio.launch import port_answers, read_info

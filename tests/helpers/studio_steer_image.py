@@ -1,5 +1,5 @@
 """tests.helpers.studio_steer_image -- Halo 3.3.6.0 R6 "Studio takes an image", through real events in headless
-Chrome on the driver base (tests/helpers/chrome_driver.Driver), over tests/helpers/studio_fleet_rig.py (this
+Chrome on the driver base (tests/helpers/chrome_driver.Driver), over tests/helpers/studio_session_rig.py (this
 harness's real session behind the real Controller and control socket, which works while the test holds its
 agents). tests/test_studio_steer_image.py runs it as a subprocess:
 
@@ -73,7 +73,7 @@ def screenshot(c, rig) -> dict:
 
 def paste(c, rig) -> dict:
     """A base64 PNG pasted into the steer -> the chip -> Send -> the log's image block (its path, no base64)."""
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     rig.session.model_profile = dataclasses.replace(rig.session.model_profile, vision=True)
     rig.session._eyes_fact = None
     b64 = base64.b64encode(FIXTURE.read_bytes()).decode("ascii")
@@ -98,8 +98,8 @@ class SteerImageDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             yield ((screenshot, (c, rig)), (paste, (c, rig)))
 
 

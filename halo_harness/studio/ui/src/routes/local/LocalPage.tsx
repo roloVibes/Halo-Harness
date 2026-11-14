@@ -1,6 +1,6 @@
 // One Local page (3.3.5.0 R1): the open page under a head that says which page
 // it is and what it holds (routes/help-local.ts), its help lines one click away
-// (closed by default), and a line naming which of Local's five ideas the page
+// (closed by default), and a line naming which of Local's four ideas the page
 // carries (the fit meter, "why" on every number, intents, "make it fit", the hub
 // as the one picture). Resources, Hosts, Models and Library (3.3.5.0 R2) are
 // built, and Hugging Face (3.3.5.0 R5), Logs (3.3.6.0 R3), Benchmarks (3.3.6.0 R5), Steward (3.3.7.0 R5: the chat), Pool (3.3.8.0 R1) and Voice (3.3.9.0 R3).
@@ -23,18 +23,18 @@ const BODY: Partial<Record<PageId, ComponentType>> = { resources: ResourcesPage,
   huggingface: HfPage, logs: LogsPage, benchmarks: BenchPage, steward: StewardPage, pool: PoolPage,
   voice: VoicePage };
 
-/** Which of the five ideas each page shows (the help names all five). */
+/** Which of the four ideas each page shows (the help names all four). */
 export const IDEAS: Record<PageId, string[]> = {
-  resources: ["why on every number", "the hub as the one picture"],
-  hosts: ["fit meter", "make it fit", "why on every number", "the hub as the one picture"],
+  resources: ["why on every number"],
+  hosts: ["fit meter", "make it fit", "why on every number"],
   models: ["fit meter", "intents, not model names", "why on every number"],
   library: ["fit meter", "why on every number", "intents, not model names", "presets and the three truths"],
   huggingface: ["fit meter", "why on every number"],
-  logs: ["fit meter", "why on every number", "the hub as the one picture"],
+  logs: ["fit meter", "why on every number"],
   benchmarks: ["fit meter", "why on every number"],
-  steward: ["make it fit", "the hub as the one picture"],
-  pool: ["fit meter", "why on every number", "the hub as the one picture"],
-  voice: ["why on every number", "the hub as the one picture"],
+  steward: ["make it fit"],
+  pool: ["fit meter", "why on every number"],
+  voice: ["why on every number"],
 };
 
 function Head({ page }: { page: PageId }) {

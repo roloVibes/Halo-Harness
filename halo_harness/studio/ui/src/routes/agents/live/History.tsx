@@ -21,7 +21,7 @@ import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
 import { took } from "./GroupBox";
 
-const KIND: Record<string, string> = { session: "session", run: "goal run", mission: "mission", file: "file" };
+const KIND: Record<string, string> = { session: "session", run: "goal run", file: "file" };
 
 /** A `.halo-replay` chosen on this machine: checked and kept by the server, then opened on the scrubber. */
 async function openChosen(file: File | undefined): Promise<void> {
@@ -59,7 +59,7 @@ export function HistoryButton() {
   useEffect(() => void loadHistory(), []);
   return (
     <Button size="sm" variant="ghost" className={open ? "on" : ""} aria-pressed={open} onClick={() => toggleHistory()} data-testid="live-history" data-count={n}
-            title="History: past sessions, goal runs and missions, newest first; a session or mission opens as a replay, a run on its report">
+            title="History: past sessions and goal runs, newest first; a session opens as a replay, a run on its report">
       History · {n}
     </Button>
   );
@@ -75,14 +75,14 @@ function Row({ r }: { r: HistoryRow }) {
   const on = useCompare((s) => s.ticked.includes(key));
   return (
     <div className="lh-item" data-ticked={on || undefined}>
-      <label className="lh-tick" title={r.kind === "mission" ? "A mission is compared from its report (the fleet pack's mission page)" : "Tick two to compare them; one ticked compares it before / after a moment"}>
+      <label className="lh-tick" title="Tick two to compare them; one ticked compares it before / after a moment">
         <input type="checkbox" checked={on} onChange={() => toggleTick(key)} data-testid="live-history-tick" data-kind={r.kind} data-id={r.id} aria-label={`Tick ${short(r.what, 60)} to compare`} />
       </label>
       <button className="lh-row" data-density="row" onClick={go} data-testid="live-history-row" data-kind={r.kind} data-id={r.id} title={`${r.what}\n${facts}\n${r.kind === "run" ? "A click opens its report (Replay is on it)" : "A click opens it as a replay"}`}>
         <span className="lh-what">{short(r.what, 120)}</span>
         <span className="lh-facts mono">{facts}</span>
       </button>
-      {r.kind !== "mission" && (
+      {(
         <button className="lh-door mono" onClick={() => (r.kind === "run" ? void openReport(r.id) : openCard(key, r.what))} data-testid="live-history-card"
                 data-kind={r.kind} data-id={r.id} title="Its report card: the story, where the time and money went, what failed, what waited on you, the files (from the record, no model call)">
           Report
@@ -92,11 +92,11 @@ function Row({ r }: { r: HistoryRow }) {
   );
 }
 
-/** The Compare button (shown once a row is ticked) and, when a mission is ticked, why it is left out. */
+/** The Compare button (shown once a row is ticked). */
 function CompareBar() {
   const ticked = useCompare((s) => s.ticked);
   if (!ticked.length) return null;
-  const { refs, mission } = tickedRefs(ticked);
+  const { refs } = tickedRefs(ticked);
   const go = () => (refs.length === 2 ? openCompare(refs[0], refs[1]) : refs.length === 1 && openCompare(refs[0], refs[0]));
   return (
     <div className="lh-compare" data-density="bar" data-testid="live-history-comparebar">
@@ -105,7 +105,6 @@ function CompareBar() {
         {refs.length === 1 ? "Compare before / after" : "Compare"}
       </Button>
       <span className="mono muted">{refs.length} ticked{refs.length < 2 ? " · tick another to compare two" : ""}</span>
-      {mission && <span className="muted lh-mission" data-testid="compare-mission-note">A mission is compared from its report (the fleet pack's mission page), not here.</span>}
     </div>
   );
 }

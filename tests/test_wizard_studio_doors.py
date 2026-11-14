@@ -59,8 +59,8 @@ def test_launch_finds_a_running_studio_and_stop_reports_none(ctx: Ctx):
     port = srv.getsockname()[1]
     try:
         info.write_text(json.dumps({"pid": 1, "port": port, "token": "abc"}), encoding="utf-8")
-        url = existing_url(state, "fleet")
-        ctx.check(f"a live port gives the URL with the mode and token, got {url!r}", url == f"http://127.0.0.1:{port}/?mode=fleet#t=abc")
+        url = existing_url(state, "agents")
+        ctx.check(f"a live port gives the URL with the mode and token, got {url!r}", url == f"http://127.0.0.1:{port}/?mode=agents#t=abc")
         ctx.check("read_info reads it", read_info(state)["port"] == port)
     finally:
         srv.close()
@@ -92,7 +92,7 @@ def test_halo_setup_team_opens_setup_on_the_team_block(ctx: Ctx):
               "terminal listing instead." in text)
     rc, text, rec = _setup_cli(["roles"])
     ctx.check(f"halo setup roles: the same block, got {rec['launched']}", rc == 0 and rec["launched"][0]["edit"] == "setup:team")
-    for page in ("providers", "model", "permissions", "theme", "linux", "check", "machines", "local"):
+    for page in ("providers", "model", "permissions", "theme", "linux", "check", "local"):
         rc, text, rec = _setup_cli([page])
         ctx.check(f"halo setup {page}: that page, got {rc} {rec['launched']}", rc == 0 and rec["launched"][-1]["edit"] == f"setup:{page}")
     rc, text, rec = _setup_cli([])

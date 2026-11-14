@@ -113,9 +113,9 @@ _REAL_FLAGS = [
     # `--demo`/`--stress`/`--bare` just above.
     (["--offline"], dict(dest="offline", action="store_true")),
     # Halo 3.0.5.0 (Fleet): this session registers nothing and opens no
-    # control socket -- Studio, `halo remote` and the fleet never see it
-    # (sets HALO_FLEET_PRIVATE for THIS process; `/private on|off` in the
-    # TUI, `fleet.private` in ~/.halo/config.json).
+    # control socket -- Studio and `halo remote` never see it
+    # (sets HALO_PRIVATE for THIS process; `/private on|off` in the
+    # TUI, `control.private` in ~/.halo/config.json).
     (["--private"], dict(dest="private", action="store_true")),
     # Halo 3.3.11.0 R2: a session with no terminal (headless_session.py): the TUI's loop and session log, the
     # control socket its only door; Studio's "New session" starts one with `--session-for studio`.
@@ -460,9 +460,6 @@ def _main(argv: Optional[list] = None) -> int:
     except (ValueError, AttributeError, OSError):
         pass
     argv = sys.argv[1:] if argv is None else list(argv)
-    if "PACKS_TEST_SHIPPED" not in os.environ:  # 3.4.0.0 C: a halo that had a fleet gets the fleet pack, once
-        from halo_harness.packs.fleet_migrate import say
-        say()
 
     if argv and argv[0] == "proxy":
         return _cmd_proxy(argv[1:])
@@ -689,7 +686,7 @@ def _main(argv: Optional[list] = None) -> int:
     if getattr(args, "offline", False):
         os.environ["HALO_OFFLINE"] = "1"
     if getattr(args, "private", False):  # 3.0.5.0: a private session (see the flag's own comment)
-        os.environ["HALO_FLEET_PRIVATE"] = "1"
+        os.environ["HALO_PRIVATE"] = "1"
 
     # review finding 34: `--autocompact <auto|tokens>` used to write
     # straight into `os.environ["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]`, the

@@ -1,17 +1,13 @@
 """halo_harness.recall_cli -- `halo recall` (Halo 2.0.7; 3.1.2.0 R3 moved it out
-of recall.py and added `--fleet`; 3.2.0.0 R5 added `--namespace`, `--provenance`
-and `prune`).
+of recall.py; 3.2.0.0 R5 added `--namespace`, `--provenance` and `prune`).
 
-    halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json]
+    halo recall <query> [--k N] [--no-refresh] [--build-only] [--json]
     halo recall [<query>] --namespace <pack>/<name> [--provenance] [--json]
     halo recall prune [--json]
     halo recall sources [--json]
 
-Without `--fleet`: this harness's own index (recall.py), one line per hit
-with its score, kind, title and path. With `--fleet`: the hub this machine
-runs (or the hub it joined) fans the query out to every online member, each
-answers from its own index, and the merged hits print as one table: score,
-harness, title, excerpt (recall_fleet.py). `--namespace` reads one pack
+This harness's own index (recall.py), one line per hit with its score, kind,
+title and path. `--namespace` reads one pack
 namespace (packs/memory.py) and what other packs share with it; with
 `--provenance` each entry shows its `_meta.json` (source, run, stage,
 written, retention, shared; packs/memory_meta.py), and without a query it
@@ -20,15 +16,15 @@ lists the entries (no embedding model needed). `prune` removes every
 its kind -- [memo] [sess] [lib] [finding] [decision] [note] -- and a finding or
 decision shows its id, who and when (knowledge/); `sources` lists the folders
 `recall.sources` names with their note counts. Exit 0 with hits, 1 with
-none, 2 when unconfigured (local search) or on a usage error, 3 when there
-is no fleet to ask.
+none, 2 when unconfigured (local search), on a usage error or for `--fleet`
+(recall across machines left with Fleet in 3.5.0.0).
 """
 from __future__ import annotations
 
 import json
 import sys
 
-USAGE = ("usage: halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json] "
+USAGE = ("usage: halo recall <query> [--k N] [--no-refresh] [--build-only] [--json] "
          "[--namespace <pack>/<name>] [--provenance] | halo recall prune | halo recall sources")
 ICONS = {"memory": "memo", "session": "sess", "coach_library": "lib",  # 3.1.6.0 R3: a coach library entry
          "finding": "finding", "decision": "decision", "note": "note"}  # 3.1.8.0 R4: knowledge/, recall.sources
@@ -88,24 +84,9 @@ def _parse(argv: list) -> dict:
 
 
 def _fleet(a: dict) -> int:
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: recall across the fleet needs the fleet pack
-    from halo_harness import recall_fleet as RF  # 3.4.0.1 (defect 4): the asking side stayed core
-    if fleet_door.running() is None:
-        print(f"halo recall --fleet: {fleet_door.line()}", file=sys.stderr)
-        return 2
-    if not a["query"]:
-        print(USAGE, file=sys.stderr)
-        return 2
-    status, body = RF.ask(a["query"], a["k"])
-    if a["json"]:
-        print(json.dumps({"ok": status == 200, **body}, indent=2, ensure_ascii=False, default=str))
-    elif status != 200:
-        print(f"halo recall --fleet: {body.get('error')}", file=sys.stderr)
-    else:
-        print(RF.table(body.get("hits") or [], body.get("harnesses") or []))
-    if status != 200:
-        return 3
-    return 0 if body.get("hits") else 1
+    from halo_harness.left import FLEET  # 3.5.0.0: recall across machines left with Fleet
+    print(f"halo recall --fleet: {FLEET}", file=sys.stderr)
+    return 2
 
 
 def _meta_line(meta: dict) -> str:

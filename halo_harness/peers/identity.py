@@ -1,21 +1,14 @@
-"""halo_harness.peers.identity -- who this harness is and the fleet's config
-keys (Halo 3.0.5.0 "Fleet" round R2).
+"""halo_harness.peers.identity -- who this harness is, and the config keys a host reads (Halo 3.0.5.0 R2).
 
-`harness(home=None)` is R1's `{id, name, host, user, version, os}` (the id in
-`~/.halo/fleet-id`, the name `fleet.name`, default `user@host`). With `home`
-(a Halo state directory such as a hub's) the id and the name are read from
-that directory instead of the process's own, so one process can hold a hub
-for one home while its sessions belong to another (the tests do).
+`harness(home=None)` is `{id, name, host, user, version, os}` (the id in `~/.halo/harness-id`, the name
+`harness.name`, default `user@host`). With `home` (a Halo state directory) the id and the name are read from that
+directory instead of the process's own, so one process can serve one home while its sessions belong to another (the
+tests do).
 
-Config keys (docs/CONFIG.md):
+    host.allow_control   none | ask | all   what a paired peer may do on this host (default ask; host/grants.py)
 
-    fleet.share          status | events | full      (default events)
-    fleet.allow_control  none | ask | all            (default ask)
-    fleet.allow_answers  true | false                (default false)
-    fleet.hub.port       the hub's LAN port          (default 7430)
-
-A hub entry in `~/.halo/fleet.json` may carry its own `share` and
-`allow_control`; a missing or null one follows the config key.
+A paired entry in `~/.halo/fleet.json` (the file keeps its name: hosts paired before 3.5.0.0 are in it) may carry its
+own `allow_control`; a missing or null one follows the config key.
 """
 
 from __future__ import annotations
@@ -25,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from halo_harness.remote import fleet_identity as FI
+from halo_harness.remote import session_identity as FI
 
 SHARE_LEVELS = ("status", "events", "full")
 CONTROL_LEVELS = ("none", "ask", "all")
@@ -47,7 +40,8 @@ def _read_config(path: Path) -> dict:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
-    return data if isinstance(data, dict) else {}
+    from halo_harness.config.renamed_keys import migrate  # 3.5.0.0: an old key's value under its new name
+    return migrate(data) if isinstance(data, dict) else {}
 
 
 def config_value(key: str, default=None, home_dir: Optional[Path] = None):
@@ -71,10 +65,10 @@ def forget_cache() -> None:
     _cache.clear()
 
 
-def fleet_name(home_dir: Optional[Path] = None) -> str:
+def harness_name(home_dir: Optional[Path] = None) -> str:
     if home_dir is None:
-        return FI.fleet_name()
-    name = str(config_value("fleet.name", "", home_dir) or "").strip()
+        return FI.harness_name()
+    name = str(config_value("harness.name", "", home_dir) or "").strip()
     return (name or f"{FI._user()}@{FI._host()}")[:64]
 
 
@@ -85,7 +79,7 @@ def harness(home_dir: Optional[Path] = None) -> dict:
     import os
     import platform
     from halo_harness import __version__
-    return {"id": FI.harness_id(home_dir), "name": fleet_name(home_dir), "host": FI._host(), "user": FI._user(),
+    return {"id": FI.harness_id(home_dir), "name": harness_name(home_dir), "host": FI._host(), "user": FI._user(),
             "version": __version__, "os": (platform.system() or os.name).lower()}
 
 
@@ -94,35 +88,14 @@ def _level(value, allowed: tuple, default: str) -> str:
     return v if v in allowed else default
 
 
-def share(entry: Optional[dict] = None) -> str:
-    """The share level for one hub: the entry's own, else `fleet.share`."""
-    own = (entry or {}).get("share")
-    if own in SHARE_LEVELS:
-        return own
-    return _level(config_value("fleet.share", DEFAULT_SHARE), SHARE_LEVELS, DEFAULT_SHARE)
-
-
 def allow_control(entry: Optional[dict] = None) -> str:
     own = (entry or {}).get("allow_control")
     if own in CONTROL_LEVELS:
         return own
-    return _level(config_value("fleet.allow_control", DEFAULT_CONTROL), CONTROL_LEVELS, DEFAULT_CONTROL)
-
-
-def allow_answers() -> bool:
-    return FI.truthy(config_value("fleet.allow_answers", False), False)
-
-
-def hub_port(home_dir: Optional[Path] = None) -> int:
-    raw = config_value("fleet.hub.port", DEFAULT_PORT, home_dir)
-    try:
-        port = int(raw)
-    except (TypeError, ValueError):
-        return DEFAULT_PORT
-    return port if 0 <= port <= 65535 else DEFAULT_PORT
+    return _level(config_value("host.allow_control", DEFAULT_CONTROL), CONTROL_LEVELS, DEFAULT_CONTROL)
 
 
 def offline() -> bool:
-    """`network.offline` (`--offline`, `/offline on`): the relay stops and `serve` refuses."""
+    """`network.offline` (`--offline`, `/offline on`): the relay stops and `halo host serve` refuses."""
     from halo_harness.providers.http import offline_mode_enabled
     return offline_mode_enabled()

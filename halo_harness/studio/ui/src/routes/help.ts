@@ -1,10 +1,10 @@
 // What each panel is (`about`, one line) and how to use it (`help`, a few
 // short lines), spread into the PanelSpecs: Media here, a goal run's plan review
-// in help-orchestra.ts (3.4.0.0 D: the rest of Orchestra's went with Runs), Fleet in help-fleet.ts (Design's, 3.0.7.0 R3, are the design pack's since 3.3.13.0 R2),
+// in help-orchestra.ts (3.4.0.0 D: the rest of Orchestra's went with Runs), Attention and Activity in help-live.ts (Design's, 3.0.7.0 R3, are the design pack's since 3.3.13.0 R2),
 // Roles in help-roles.ts (3.0.7.0 R2; Team's help-team.ts went with its board, 3.3.16.0 R1),
 // Session in help-session.ts (3.1.4.0 R2), Packs in help-packs.ts (3.2.0.0 R6), Setup in help-setup.ts (3.3.0.0 R1), Settings in help-settings.ts (3.3.3.0 R2), Local in help-local.ts (3.3.5.0 R1). 3.3.2.0 R3: the title
 // line shows no `about`; the ? popover (its first line), the Inspector and the section help show both.
-import { FLEET_HELP } from "./help-fleet";
+import { LIVE_HELP } from "./help-live";
 import { RUN_HELP, type Help } from "./help-orchestra";
 import { ROLES_HELP } from "./help-roles";
 import { SESSION_HELP } from "./help-session";
@@ -18,7 +18,7 @@ const lines = (...l: string[]) => l.join("\n");
 export const HELP: Record<string, Help> = {
   ...RUN_HELP,
   ...ROLES_HELP,
-  ...FLEET_HELP,
+  ...LIVE_HELP,
   ...SESSION_HELP,
   ...PACKS_HELP, // 3.2.0.0 R6: the Pack Manager
   ...SETUP_HELP, // 3.3.0.0 R1: the Setup section

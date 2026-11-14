@@ -1,6 +1,6 @@
 """tests.test_pack_coach -- the coach as the shipped coach pack (Halo 3.4.0.0 B2, F4 of the Focus plan).
 
-Off (the default): `halo coach`, `halo improve`, `halo orchestra coach`, `halo fleet mission coach` and `/coach`,
+Off (the default): `halo coach`, `halo improve`, `halo orchestra coach` and `/coach`,
 `/improve` are one line each naming the pack; no Settings row, no doctor row, no Studio panel; the old keys `coach.*`
 and `improve.*` are ignored with one line (config set and doctor --config); the guided first run's step 6 says the
 coach is a pack. On (`--grant-all`): the verbs and the slash commands run the pack's code, its seven Settings rows and
@@ -60,13 +60,8 @@ def test_off_every_verb_is_one_line_and_nothing_shows(ctx: Ctx):
     from halo_harness.doctor import _check_entries
     from halo_harness.settings_catalog import rows
     with PacksHome() as h:
-        from tests.helpers import fleet_pack as FP  # 3.4.0.0 C: `halo fleet` is the fleet pack's; on, it hands over
-        for argv in (["coach"], ["improve", "--json"], ["orchestra", "coach"], ["fleet", "mission", "coach", "m-1"]):
-            FP.on() if argv[0] == "fleet" else None
-            try:
-                rc, out, err = _main(argv, h.repo)
-            finally:
-                FP.off()
+        for argv in (["coach"], ["improve", "--json"], ["orchestra", "coach"]):
+            rc, out, err = _main(argv, h.repo)
             ctx.check(f"halo {' '.join(argv)}: exit 2 and the one line, got {rc} {err!r}", rc == 2 and not out
                       and LINE in err and len(err.strip().splitlines()) == 1)
         for name in ("coach", "improve"):

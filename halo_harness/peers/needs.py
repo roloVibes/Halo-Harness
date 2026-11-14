@@ -1,6 +1,6 @@
 """halo_harness.peers.needs -- whether a harness's capabilities catalog meets a need, in words (Halo 3.0.6.0 R7 as
 fleet/mission_assign.has; 3.4.0.0 D: core, so a pack workflow's capability `requires` and a pack's capability rows are
-checked with the fleet pack off too -- packs/fleet_registry.py reads it; the fleet pack's mission_assign re-exports it).
+checked with the fleet pack off too -- packs/capability_check.py reads it; the fleet pack's mission_assign re-exports it).
 
 * `has(catalog, need)`: a capability name is an MCP server (`gridcraft`), one of its tools (`gridcraft/write_range` or
   `write_range`), a skill, a tag, a craft app, a CLI that is installed (`nmap`), a model id, `comfyui`, `gpu`, a word

@@ -248,8 +248,8 @@ halo ollama traffic --json
 
 Halo 3.3.4.0 R2: per host and model, the calls this machine's ledger holds
 (`~/.halo/ollama/traffic.jsonl`: one line per call to a local model server,
-see [MODELS-ollama-steward.md](MODELS-ollama-steward.md)'s "The ledger"); on a fleet hub
-that includes every member's calls to it (`fleet.ollama.share`). Above each
+see [MODELS-ollama-steward.md](MODELS-ollama-steward.md)'s "The ledger"); on a host
+that includes the calls a paired machine forwards (`ollama.share`). Above each
 host its hardware card in one line, then one line per model: calls (and
 how many were compaction), p50 / p95 prompt tokens against the window sent
 and p95's share of it, trims, cut replies (`done_reason: length`), 499 /
@@ -354,7 +354,7 @@ halo ollama steward status --json
 ```
 
 Halo 3.3.4.0 R4: `--watch` runs the steward's job here in the foreground (on the machine that serves the models;
-Studio and the fleet hub run the same job on their own): the server-log tail and the `/api/ps` poll, a run every
+Studio runs the same job on its own): the server-log tail and the `/api/ps` poll, a run every
 `ollama.steward.every_s` while calls flow and at once on a server alert, the changes per `ollama.steward.apply`, and
 the model's note when something is new. Each line is printed; Ctrl+C stops it. Exit 1 when a job already runs for this
 state dir (the line names where, the pid and since when). `status` prints whether one runs, where, since when, the

@@ -48,7 +48,7 @@ def turn_started(session, text: str) -> None:
 
 
 def observe(session, ev) -> None:
-    tree = getattr(session, "_fleet_tree", None)
+    tree = getattr(session, "_agent_tree", None)
     if tree is not None:
         try:
             tree.observe(agent_key(session), ev)
@@ -57,7 +57,7 @@ def observe(session, ev) -> None:
 
 
 def turn_ended(session) -> None:
-    tree = getattr(session, "_fleet_tree", None)
+    tree = getattr(session, "_agent_tree", None)
     if tree is not None:
         try:
             from halo_harness.live.talk import on_turn_ended  # 3.3.16.2: a child's hand-back, its words to its parent
@@ -86,7 +86,7 @@ def register_child(parent, child, *, agent_id: str, spec, model: Optional[str], 
                    task_text: str = "") -> None:
     try:
         tree = tree_for(parent)
-        child._fleet_tree = tree
+        child._agent_tree = tree
         tree.controls.clear(agent_id)
         entry = (getattr(team_control, "aliases", None) or {}).get(role) if team_control is not None else None
         bio = (entry.get("agent") if isinstance(entry, dict) else None) or getattr(spec, "name", None)

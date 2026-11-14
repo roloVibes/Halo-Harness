@@ -1,11 +1,8 @@
-// A run's lane (and its lead) and a mission part on Live, as hover cards (3.3.16.1): what it owns, its state, its machine,
-// its worker and model, what it waits for, its cost. A lane's click opens Runs focused on that lane (it has no inspector
-// page of its own); the lead's opens Runs on the run; a part's click puts its card in the inspector.
+// A run's lane (and its lead) on Live, as hover cards (3.3.16.1): what it owns, its state, its machine, its worker and
+// model, what it waits for, its cost. A lane's click opens Runs focused on that lane (it has no inspector page of its
+// own); the lead's opens Runs on the run.
 import { LANE_LABEL, useOrch } from "../../orchestra/store";
 import { ownsOf } from "../run/Owns";
-import { partAgent } from "../../fleet/MissionRun";
-import { partState, useMissions } from "../../fleet/mstore";
-import { useFleet } from "../../fleet/store";
 import { HoverBody, type HoverRow } from "../../../lib/hover/HoverBody";
 import { joined, plural, spent } from "./words";
 
@@ -42,25 +39,4 @@ export function LaneHover({ run, lane }: { run: string; lane: number | undefined
     ["Cost", spent(l.cost_usd)],
   ];
   return <HoverBody title={`lane ${l.lane}`} is={l.title || owns.join(", ")} rows={rows} foot="Click: this lane in Live's inspector" />;
-}
-
-export function PartHover({ pid }: { pid: string }) {
-  const v = useMissions((s) => s.view);
-  const harnesses = useFleet((s) => s.harnesses);
-  const p = v?.plan?.parts.find((x) => x.id === pid);
-  if (!v || !p) return null;
-  const st = partState(v, pid);
-  const run = v.mission.parts?.[pid];
-  const live = st === "running" ? partAgent(harnesses, v.mission.id, pid, run?.harness || p.harness) : null;
-  const rows: HoverRow[] = [
-    ["Owns", p.claims.join(", ") || "nothing named"],
-    ["State", st],
-    ["Machine", joined([run?.harness_name || p.harness_name || "nobody can run it yet", p.pinned && "pinned"])],
-    ["Worker", live ? joined([String(live.agent.name || live.agent.agent_id), live.agent.model]) : ""],
-    ["Waits for", p.depends_on.length ? p.depends_on.map((d) => `part ${d}`).join(", ") : ""],
-    ["Kind", p.kind === "repo" ? "repo: works in a checkout" : "files: hands files on"],
-    ["Cost", run?.cost_usd ? spent(run.cost_usd) : p.est_cost_usd ? `about ${spent(p.est_cost_usd)} (estimate)` : ""],
-    ["Why here", p.unassignable || p.reason],
-  ];
-  return <HoverBody title={`part ${p.id}: ${p.title}`} is={p.brief} rows={rows} foot="Click: its card in the inspector" />;
 }

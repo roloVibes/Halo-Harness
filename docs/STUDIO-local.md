@@ -8,7 +8,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 **Local** is Studio's third section, on `Alt+3` (3.3.16.0 R2: a machine's models, as Agents -> Live is its agents;
 the pack's own sections follow the six core ones on `Alt+7` to `Alt+0`). It holds everything Halo knows about local models in one tab, paged like Settings: a
-page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's five ideas
+page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's four ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser
 comes back (`halo.studio.local.page`). The ten pages, in the rail's order (Voice's row is in [STUDIO-local-routes.md](STUDIO-local-routes.md#the-pages-index)):
 
@@ -26,9 +26,8 @@ comes back (`halo.studio.local.page`). The ten pages, in the rail's order (Voice
 
 The doors: `halo local` opens Studio on Local's Hugging Face page (3.3.5.0 R5; a Studio already running for this home
 takes it in its open page), a page word opens that page (`halo local library`), `halo local hosts` on the Hosts page (`?mode=local&page=hosts`), `halo studio --edit local:models` the same from the
-studio command, `halo studio --mode local`, `/studio local` in the TUI, and the palette's **Local: <page>** rows. 3.3.16.0
-R2 moved the Fleet section's Ollama panel here: Hosts' **steward block** and Steward's **Run now**, hub note and changes
-([MODELS-ollama-steward.md](MODELS-ollama-steward.md)); the `ollama_steward` attention row's `O` opens Hosts on its host.
+studio command, `halo studio --mode local`, `/studio local` in the TUI, and the palette's **Local: <page>** rows. Hosts'
+**steward block** and Steward's **Run now**, note and changes ([MODELS-ollama-steward.md](MODELS-ollama-steward.md)); the `ollama_steward` attention row's `O` opens Hosts on its host.
 
 ![Local -> Resources: a live strip per host, the traffic view under it](media/studio-local.png)
 
@@ -36,7 +35,7 @@ R2 moved the Fleet section's Ollama panel here: Hosts' **steward block** and Ste
 
 **The strips.** One per host this machine serves (the `ollama.hosts` entries whose address is this machine; "this
 machine" when none is), sampled **once a second** while the page is open, and while the Ollama steward's job runs (it
-starts with Studio and the fleet hub). The page holds the sampler on with a 45-second lease it renews every 15 seconds
+starts with Studio). The page holds the sampler on with a 45-second lease it renews every 15 seconds
 (`POST local/resources/watch {on}`), so a closed tab lets it stop. Each strip shows:
 
 - **VRAM** used of total as a bar, and **what holds most of it**: the model `/api/ps` has loaded (read every five
@@ -58,9 +57,10 @@ Every number's title says where it came from, or why there is none. The readers,
 | Temperature | nvidia-smi, rocm-smi | nvidia-smi | not read (it needs sudo) |
 
 Nothing here needs sudo, and the readers are the standard library and those tools only. A host another machine serves
-has a strip here when that machine is a fleet member and its own sampler runs: the member's newest samples ride its
-ledger push to the hub (`fleet.ollama.share`), and the hub keeps the last five minutes per host, under its own name for
-the host when one of its `ollama.hosts` entries points at the member's address. The strip then says **via <member>**.
+has a strip here when that machine runs `halo host serve`, is paired with this one and its own sampler runs: its newest
+samples ride its ledger push (`ollama.share`), and this machine keeps the last five minutes per host, under its own name
+for the host when one of its `ollama.hosts` entries points at that machine's address. The strip then says **via
+<machine>**.
 
 The fit planner reads the newest sample too: when a sample is newer than a host's hardware card, its **not Ollama**
 bytes are what the planner counts as held by other programs, so a ComfyUI that starts now shrinks the budget at once.
@@ -76,7 +76,7 @@ of the newest minute. Filters narrow it by host, model, machine and kind; **Foll
 scrolling up pauses it (a pill counts what came since).
 
 A row arrives the moment its call ends: the ledger writer publishes each line (`ollama_steward/ledger_tap.py`). In
-Studio's own process (and on a hub, the lines its members forward) that is a `traffic` frame at once; a session in
+Studio's own process (and the lines a paired host forwards) that is a `traffic` frame at once; a session in
 another process posts the line to the Studio running for its home (`POST /api/local/traffic`). A page that opens later
 reads the last 15 minutes (`GET local/traffic?since=15m`); a row is never shown twice (its id is the line's own text
 hashed).
@@ -84,7 +84,7 @@ hashed).
 ## Hosts
 
 Every host Halo knows, as a card, grouped: the configured `ollama.hosts` entries, the Hugging Face local servers
-(`huggingface.local_servers`), the hosts fleet members serve (their samples reached this hub), and the servers Setup's
+(`huggingface.local_servers`), the hosts paired machines serve (their samples reached this one), and the servers Setup's
 Find or Scan found that are not added yet. A card shows the URL, the kind (Ollama, an OpenAI-dialect gateway, a local
 server), the server's version, who serves it, what is loaded now (each model's VRAM share and when it unloads), the
 hardware card's lines, the steward profiles for it, **who calls it** (the ledger's `from` over the last 24 hours), and the
@@ -101,22 +101,19 @@ The controls its kind allows:
   own guards (`ollama/steward/apply`), **Undo** beside it takes them back; a server-side option is a line to copy.
 - **Add to hosts** on a found server writes the `ollama.hosts` entry through Setup's own Ollama writer.
 
-**The steward block** (3.3.16.0 R2, the Fleet Ollama panel's before), under the cards: a host picker (every Ollama host and
+**The steward block** (3.3.16.0 R2), under the cards: a host picker (every Ollama host and
 HF local server the steward reads), the host's models table (the last hour's calls, trims, cuts, errors, the p95 prompt
 against the window, the profile and who set it, the VRAM share), its traffic timeline and its fit plan (Apply, Copy).
 
-A host this machine serves is controlled from here. A host another machine serves is controlled **through the fleet
-member that serves it** when this Studio runs the hub: the command (`ollama_load`, `ollama_unload`) goes to that member's
-live session and runs under its `fleet.allow_control`, like a steer (`ask` puts a card in its owner's TUI, `all` applies
-it, `none` refuses). When that cannot happen the buttons are off and the card says why: the member's control is `none`,
-it has no live session, this Studio is not its hub, or no member serves the host. Nothing here writes a server's
-settings.
+A host this machine serves is controlled from here. A host another machine serves is controlled through its host
+door (`halo host serve` there, `halo host join` here, a control grant): when that cannot happen the buttons are off and
+the card says why and the way. Nothing here writes a server's settings.
 
 3.3.7.0 R1: a machine a paired `halo host` serves ([HOST.md](HOST.md)) is grouped first, under **SERVED BY HALO
 HOST**, and its card says **served by halo host at <addr> -- running since ..., last seen ..., N requests in its
 audit** (or why it did not answer). Its hardware lines, its `log:` line ("via host"), its profiles and the Logs page
 read through that host. 3.3.7.0 R2: the card's **grants there** line says what this peer holds on that host and
-whether its owner is asked first (`fleet.allow_control: ask`); with `control`, Load, Unload, Probe and Bench go
+whether its owner is asked first (`host.allow_control: ask`); with `control`, Load, Unload, Probe and Bench go
 through the host ("through halo host at <addr>", no member session), the battery and the bench run there and their
 frames come here, and a server-setting picker asks the host for the stated line (the KV type, flash attention, a
 restart: the exact line for its OS, applied false). Without it, **Request control** writes a pending row the owner
@@ -174,7 +171,7 @@ card). The Library warns under a row whose weights alone exceed the card ("23 GB
 
 On top of the page, **Loaded now** (`local-loaded-row`): every model a host holds in memory (`/api/ps`), its share on
 the GPU, its window, when it unloads, and **Unload**; under it the **Jobs** list. A host another machine serves goes
-through its fleet member (below); a control that cannot run from here is disabled with the reason as its title.
+through its host door (below); a control that cannot run from here is disabled with the reason as its title.
 
 **Measured, the dialect, the shelf** (3.3.6.0 R4): a row's speed chip is the card's measured tok/s (the median of its
 last answered calls here, never the first after a load); its unfolded card adds the **Measured** block (each line
@@ -362,9 +359,8 @@ the same name joins it), and it goes on when the page closes. The **Jobs** list 
 every pull running and the last ended ones, each with its bar and **Cancel**; a page that opens later reads them
 (`GET local/pulls`) and follows the `pull` frames. A cancel closes the connection: Ollama stops and keeps the layers it
 already has in its own blob folder, so pulling the same name again starts from them. When a pull ends well every model
-list drops its cached catalog, so the next read shows the new model. A host a fleet member serves pulls on that member
-(its own job); its progress reaches the hub with the member's ledger push, every 30 seconds
-([FLEET.md](FLEET.md)).
+list drops its cached catalog, so the next read shows the new model. A host another machine serves pulls through its host door
+([HOST.md](HOST.md)).
 
 A Hugging Face download is a job of the same list (3.3.5.0 R5, `studio/local_download_job.py`, kind `download`): one
 per folder and repo or file (a second Download joins it), its bar the files' bytes of their total, its **Cancel**
@@ -375,9 +371,9 @@ Library read again.
 
 None (3.3.7.0 R5 built the last, Steward); a later round's page is framed first: what it will hold, today's commands.
 
-## Local's five ideas
+## Local's four ideas
 
-Every page names which of them it carries (its head's "ideas here" line), and the section's help lists all five:
+Every page names which of them it carries (its head's "ideas here" line), and the section's help lists all four:
 
 1. **The fit meter**: a small green-to-red bar wherever a model is named -- will this run here at this window
    (Hosts, Models, the Library's badge, the Hugging Face rows).
@@ -386,8 +382,6 @@ Every page names which of them it carries (its head's "ideas here" line), and th
 3. **Intents, not model names**: code, chat, long documents, images, embed rank the models by fit for this card (Models
    and the Library).
 4. **Make it fit**: the fit planner's chosen option in one click, Undo beside it (Hosts).
-5. **The hub as the one picture of the network**: every machine sees the same hosts, profiles, traffic and samples
-   through the fleet hub (a member's samples and lines reach the hub; Hosts lists the hosts members serve).
 
 ## The routes
 

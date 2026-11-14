@@ -29,7 +29,7 @@ class HostPush(Forwarder):
     def serves(self, line: dict) -> bool:
         from halo_harness.peers import identity
         from halo_harness.ollama_steward.host_client import _addr_port, _matches
-        if not isinstance(line, dict) or line.get("from") not in (None, "", identity.fleet_name()):
+        if not isinstance(line, dict) or line.get("from") not in (None, "", identity.harness_name()):
             return False  # a line this machine took in from another is never sent on
         addr, port = _addr_port(str((line.get("host") or {}).get("url") or ""))
         return bool(addr) and _matches(self.entry, addr, port)

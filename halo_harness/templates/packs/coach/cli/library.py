@@ -4,14 +4,11 @@ library itself: engine/coach_library.py):
     halo coach library [list] [--json]              every entry: id, when, project, lineup, source, the title
     halo coach library show <entry> [--json]        its EXPERIENCE.md and the files it keeps
     halo coach library forget <entry> [--yes]       deletes the entry's folder (after y/N)
-    halo coach library fetch <harness> <entry> [--json]
-                                                    another harness's entry, through the hub this machine runs,
-                                                    written here under the same id (never over one that is here)
 
 `halo coach` catches `library` before it parses a run (coach_cli.cmd_coach).
 An entry is born when a coach card's Apply writes (`halo coach <run> --apply
 <id>`, Studio's Apply), and a probe card's Apply too. Exit codes: 0 done, 1 no
-such entry / refused / nothing written, 2 usage, 3 no hub here (fetch).
+such entry / refused / nothing written, 2 usage.
 """
 
 from __future__ import annotations
@@ -37,10 +34,6 @@ def _parser() -> argparse.ArgumentParser:
     forget = sub.add_parser("forget", help="delete one entry's folder (after y/N)")
     forget.add_argument("entry", help="the entry id")
     forget.add_argument("--yes", action="store_true", help="skip the y/N")
-    fetch = sub.add_parser("fetch", help="take another harness's entry through the hub this machine runs")
-    fetch.add_argument("harness", help="the harness's name or id (halo fleet who)")
-    fetch.add_argument("entry", help="its entry id (halo recall --fleet finds them: kind coach_library)")
-    fetch.add_argument("--json", action="store_true", help="the result as JSON")
     return p
 
 
@@ -114,19 +107,6 @@ def cmd_forget(entry: str, yes: bool) -> int:
     return 0
 
 
-def cmd_fetch(harness: str, entry: str, as_json: bool) -> int:
-    from ..engine.coach_library_share import fetch
-    rc, out = fetch(harness, entry)
-    if as_json:
-        print(json.dumps({"ok": rc == 0, **out}, indent=2, ensure_ascii=False, default=str))
-    elif rc == 0:
-        print(f"fetched {out['entry']} from {out['from']}: {out['path']} ({len(out['files'])} file(s)); "
-              f"the coach cites it for runs like it")
-    else:
-        print(f"halo coach library fetch: {out.get('error')}", file=sys.stderr)
-    return rc
-
-
 def cmd_library(argv: list) -> int:
     try:
         a = _parser().parse_args(argv)
@@ -141,6 +121,4 @@ def cmd_library(argv: list) -> int:
         return 2
     if verb == "show":
         return cmd_show(a.entry, a.json)
-    if verb == "forget":
-        return cmd_forget(a.entry, a.yes)
-    return cmd_fetch(a.harness, a.entry, a.json)
+    return cmd_forget(a.entry, a.yes)

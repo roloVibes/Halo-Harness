@@ -9,7 +9,7 @@ page is Halo's version of it.
 
 **In a team (Halo 3.0.8.0 - 3.3.x):** the team file and its stages left in 3.4.0.0; a lineup's tiers and a run's lanes do its job.
 
-**One unit of work (Halo 3.1.2.0):** a lane is a *unit* of work -- the same thing a mission part and a team stage are, with one state machine, one ledger line, one report row and one coach. `halo work` prints the lanes of a run as that shared table; see [WORK.md](WORK.md).
+**One unit of work (Halo 3.1.2.0):** a lane is a *unit* of work -- the same thing a supervisor goal is, with one state machine, one ledger line, one report row and one coach. `halo work` prints the lanes of a run as that shared table; see [WORK.md](WORK.md).
 
 The rule behind it: **code decides wherever it can, a model judges only
 when it must.** Code owns the claims, the merge order, the tests and the
@@ -730,8 +730,8 @@ added after its `context.system_prompt` wherever the bio's prompt is composed
 **The rules live once.** Since 3.1.3.0 every run kind's rules are the same
 functions (`orchestra/coach_rules.py`); each kind keeps a thin loader
 (`coach_<kind>_rules.py`) that turns its files into unit facts (a lane, a
-part, a stage) and calls them. So a mission and a team run
-get the same ids and texts as an Orchestra run for the same finding: a
+part, a stage) and calls them. So every run kind
+gets the same ids and texts as an Orchestra run for the same finding: a
 refused write is `tools-<unit>-claim-<key>`, a gate past its limit
 `coordination-<unit>-loops` ("the gate at stage copy looped 2 times"), a
 judged conflict `structure-<unit>-after-<other>` (`depends_on` for a part),
@@ -741,13 +741,12 @@ rounds; a team stage: more than one).
 
 ### Ask the model
 
-`halo coach <run> --model` (the three kind verbs take it too), `/coach
+`halo coach <run> --model` (`halo orchestra coach` takes it too), `/coach
 --model` and the card's **Ask the model** button ask the run's own lead for
 one paragraph per card: what the evidence shows, why the change would help
 the next run, what to watch after it. The lead is the goal's `lead` role
 with the model its lineup gives that role (the entry's `models.preference`,
-else its bio's), else the role table's model, else the default model; a
-mission or team run asks the `main` role. The call is one turn of a
+else its bio's), else the role table's model, else the default model. The call is one turn of a
 fresh bare session with no tools (`adapters.one_shot`, the normal provider
 layer), given the card, its why lines and the run's evidence. The paragraph
 is kept beside the cache in `<run>/coach.ask.json`
@@ -794,15 +793,12 @@ the value filled in and saves nothing.
 
 **The coach line.** The run reports carry the coach's summary, "coach: N
 suggestions, M applied, top: <the first card>": last in `halo orchestra
-report` and the report printed after `halo orchestra run`, a mission's
-report (`report.coach`, the markdown's last line). The Fleet digest lists one coach row per run the coach
-read since `--since` (`~/.halo/coach/runs.json`).
+report` and the report printed after `halo orchestra run` (`report.coach`, the markdown's last line).
 
 Studio reads it through `GET orchestra/<run>/coach`, computed once and kept
 in `<run>/coach.json`; it is computed again when a run file it reads
 (report.json, events.jsonl, merge.json, split.json, plan.json or a lane
-file) is newer. The same coach reads a mission:
-[MISSIONS.md](MISSIONS.md#the-coach).
+file) is newer.
 
 ### Probes
 
@@ -926,7 +922,7 @@ Everything lands in `<run>/probe.json`, written as each step ends:
  "cost": {"draft": 0.0, "runs": 0.008, "judge": 0.0, "total": 0.008}, "started": 1792508550.1, "ended": 1792508552.6}
 ```
 
-The run report's coach line and the Fleet digest's coach row end with the
+The run report's coach line ends with the
 probe once one ended: "coach: 1 suggestion, 0 applied, top: ...; probe: 2
 runs, $0.0080, picked: invariant". Studio: `POST orchestra/<run>/coach/probe`
 ([In Studio](#in-studio)); the probe runs on a thread in Studio's process
@@ -1009,23 +1005,7 @@ Undo), or a lesson the lead may turn into a probe candidate.
 **The CLI.** `halo coach library` lists the entries (id, when, project,
 lineup, source, the title; `--json`), `show <entry>` prints its
 EXPERIENCE.md and the files it keeps, `forget <entry>` deletes its folder
-after `y/N` (`--yes`), `fetch <harness> <entry>` takes one from another
-harness ([COMMANDS-studio.md](COMMANDS-studio.md#halo-coach)).
-
-**The fleet.** Recall indexes every entry's EXPERIENCE.md as its own kind,
-`coach_library` (the title is its first heading; an entry gone from the
-folder is pruned), so `halo recall --fleet` finds what another box learned:
-a member answers such a hit with its Lessons as the excerpt, and
-`fleet.recall.hide: [coach_library]` keeps the library out. `halo coach
-library fetch <harness> <entry>` asks the hub this machine runs
-(`local/coach-library`), which sends the read-only `coach_library {entry}`
-command to one live session of that member; the member answers its
-entry.json, EXPERIENCE.md, overlay.json and files/ (at most 256 KB in all,
-else it refuses with the size) under the same switch as recall
-(`fleet.recall.share`) and logs a `library_asked` journal line. The entry is
-written here under the SAME id with `from: <harness>` in entry.json and is
-never written over an entry already here
-([FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3)).
+after `y/N` (`--yes`) ([COMMANDS-studio.md](COMMANDS-studio.md#halo-coach)).
 
 ## The adapters
 
@@ -1089,7 +1069,7 @@ behind the same loopback, origin and token guard as every Studio route.
 | `GET orchestra/<run>/coach` | 3.0.9.0 R3: the coach's result `{run, kind, suggestions, evidence, model, computed, source_mtime, cached}`, kept in `<run>/coach.json` ([The coach](#the-coach)); 404 for an unknown run |
 | `POST orchestra/<run>/coach/ask {id, refresh?}` | 3.1.3.0: the lead's paragraph for one card `{id, paragraph, error, model, role, cached}` ([Ask the model](#ask-the-model)) |
 | `POST orchestra/<run>/coach/apply {id, confirm?}` | 3.1.3.0: without `confirm` the confirm card `{preview: {id, target, name, field, value, file, exists, before, after, diff}, applied: null}`; with it the write, `applied` = the record row; 422 `{error}` when the change cannot be made ([Apply and Undo](#apply-and-undo)) |
-| `POST orchestra/<run>/coach/undo {apply_id}` | 3.1.3.0: `{ok, message, apply_id}`; 409 with the reason when the file changed. The mission and team coach paths take the same three verbs |
+| `POST orchestra/<run>/coach/undo {apply_id}` | 3.1.3.0: `{ok, message, apply_id}`; 409 with the reason when the file changed |
 | `POST orchestra/<run>/coach/probe {k?, confirm?}` | 3.1.6.0: without `confirm` the cost line `{estimate: {k, factor, runs, ref_usd, cap_usd, total_usd, line}, running}` and nothing runs; with it `202 {started, estimate}` and the probe on a thread ([Probes](#probes)); 409 while one of the run runs; 422 for a mission, a team run or a run with no report |
 | `POST coach/library/<entry>/forget` | 3.1.6.0: deletes one library entry's folder `{ok, entry, message}`; 404 for an unknown entry. Every coach GET (the three run kinds) carries `library`, `library_line` and each suggestion's `library_hits` ([The library](#the-library)) |
 
@@ -1161,8 +1141,8 @@ checks. The finished branch is left for you to review and merge.
 | `gate` | `run_tests(run_dir, goal, cwd)`, `record_equals_disk(run_dir, lanes, ref)`, `quality_gate(run_dir, goal, lanes, cwd)` |
 | `report` | `write_report(run_dir, *, goal, lanes, gate, status, stop_reason)`, `format_report(report)`, `load_report` |
 | `plan`, `plan_check` | `await_plan(run_dir, flow, jobs, *, check_stop)`, `approve(run_dir, jobs, by=)`, `reject(run_dir, reason, by=)`, `apply`, `normalize`, `current_jobs`, `read_decision`, `write_draft`, `is_planned`, `waiting_alive`; `plan_problems(jobs, unit_keys=, cwd=, state_dir=)`, `validate_plan` (re-exported by `workflow`) |
-| `coach`, `coach_rules`, `coach_orchestra_rules`, `coach_lane_facts`, `coach_prices`, `coach_mission_rules`, `coach_team_rules` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `overlay(result, run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; the rules once (`prompt_rules`, `outputs_rules`, `model_rules`, `tools_rules`, `wait_pairs`, `conflict_pairs`, `structure_rules`, `coordination_rules`); `orchestra(run_dir, ...)`; `lane_facts`; `catalog(state_dir)`, `price_of`, `best_for`, `price_words`; `mission`; `team` (one thin loader per run kind, `coach_<kind>_rules.<kind>`) |
+| `coach`, `coach_rules`, `coach_orchestra_rules`, `coach_lane_facts`, `coach_prices` | `coach(run_dir, *, catalog=None, cwd=None, state_dir=None)`, `cached(run_dir)`, `overlay(result, run_dir)`, `format_card(result)`, `run_kind`, `source_mtime`; the rules once (`prompt_rules`, `outputs_rules`, `model_rules`, `tools_rules`, `wait_pairs`, `conflict_pairs`, `structure_rules`, `coordination_rules`); `orchestra(run_dir, ...)`; `lane_facts`; `catalog(state_dir)`, `price_of`, `best_for`, `price_words`; `mission`; `team` (one thin loader per run kind, `coach_<kind>_rules.<kind>`) |
 | `coach_ask`, `coach_apply`, `coach_record` | 3.1.3.0: `ask(run_dir, result, id, *, refresh)`, `ask_all`, `lead_of`, `read_store`; `preview(result, id, run_dir)`, `apply(result, id, run_dir)`, `ApplyError`; `undo(apply_id)`, `applies`, `states(run_dir)`, `summary(run_dir)`, `summary_line`, `note_run`, `runs_since` |
 | `coach_probe`, `coach_probe_schema`, `probe_runs`, `probe_overlay`, `coach_compare`, `coach_compose`, `coach_probe_card` | 3.1.6.0: `estimate(run_dir, k, factor)`, `draft(run_dir, k)`, `probe(run_dir, *, k, factor, on_step, rng)`, `start`, `live`, `read`, `probe_line`; `facts(run_dir)`, `clean(kind, raw, facts)`, `for_bio`, `merge`; `create`, `plan_jobs`, `Budget`, `real_adapters`, `run_one`, `run_all`, `cleanup`; `scope_files`, `flags`, `write_scope`, `writer`; `deliverable(run_dir, patch_path=)`, `judge_prompt`, `judge(goal, rows, *, model, rng)`, `parse_verdict`, `contrast`; `compose(cands, rows, ref)`, `changes(overlay, facts)`; `card(run_dir)`, `status`, `table`, `preview`, `apply`, `format_probe` |
-| `coach_library`, `coach_experience`, `coach_citations`, `coach_library_share`, `coach_probe_prompt` | 3.1.6.0 R3: `born(result, s, run_dir, applied)`, `write(doc, experience, overlay, files)`, `read(entry)`, `entries()`, `mark_undone(apply_id)`, `forget(entry)`, `matches(run_dir, state_dir, limit=3)`, `stored_files`, `safe_rel`; `project_of(run_dir, kind, cwd)`, `remote_path(url)`, `context_of`, `overlay_of`, `markdown`, `section`; `matches`, `cite(result, run_dir)`, `line(rows)`, `lessons(run_dir)`, `same_project`; `answer(fields, *, by, hub)`, `fetch(harness, entry)`; `draft_prompt(f, k, cards, lessons)` |
+| `coach_library`, `coach_experience`, `coach_citations`, `coach_probe_prompt` | 3.1.6.0 R3: `born(result, s, run_dir, applied)`, `write(doc, experience, overlay, files)`, `read(entry)`, `entries()`, `mark_undone(apply_id)`, `forget(entry)`, `matches(run_dir, state_dir, limit=3)`, `stored_files`, `safe_rel`; `project_of(run_dir, kind, cwd)`, `remote_path(url)`, `context_of`, `overlay_of`, `markdown`, `section`; `matches`, `cite(result, run_dir)`, `line(rows)`, `lessons(run_dir)`, `same_project`; `answer(fields, *, by, hub)`, `fetch(harness, entry)`; `draft_prompt(f, k, cards, lessons)` |
 | `run`, `adapters` | `run(run_dir, *, model_calls, spawn, judge, clock, on_event)`, `request_stop`; `model_call`, `spawn_worker` (3.1.6.0: `team=`, `cwd_overlay=`), `fresh_judge`, `real_adapters` |

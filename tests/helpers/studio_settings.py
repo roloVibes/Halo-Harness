@@ -8,7 +8,7 @@ through the driver base, over a fresh scratch home (capture_studio's seeded_home
    (the key gone, the default marker back);
 4. a mapping that is not JSON: the problems line under its editor and config.json byte for byte as it was;
 5. the search box narrows to rows across groups (a caption per group);
-6. the door `?mode=settings&group=fleet` lands on Fleet and drops the group word from the address;
+6. the door `?mode=settings&group=local` lands on Local and drops the group word from the address;
 7. a secret row never shows its value; a palette entry opens its row's group and lights the row.
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -107,26 +107,26 @@ def every_page(c, url, ctx) -> dict:
 
 def edits(c, url, ctx) -> dict:
     out = {}
-    group(c, "remote")  # 3.4.0.0 C: fleet.enabled is a core key, under Remote; the rest below is the fleet pack's group
-    press(c, row("fleet.enabled", "[data-testid=settings-toggle]"), f"!!{row('fleet.enabled', '[data-testid=settings-saved]')}")
-    out["toggle_flash"] = c.js(f"{row('fleet.enabled', '[data-testid=settings-saved]')}.textContent")
-    out["toggle_config"] = config(ctx).get("fleet", {}).get("enabled")
-    out["toggle_default_gone"] = c.js(f"!{row('fleet.enabled', '[data-testid=settings-default]')}")
-    group(c, "fleet")
-    set_field(c, row("fleet.share", "select"), "full", "change")
-    out["enum_flash"] = c.wait(f"{row('fleet.share', '[data-testid=settings-saved]')}?.textContent", 15)
-    out["enum_config"] = config(ctx).get("fleet", {}).get("share")
-    port = row("fleet.hub.port", "input")
+    group(c, "remote")  # 3.4.0.0 C: control.enabled is a core key, under Remote
+    press(c, row("control.enabled", "[data-testid=settings-toggle]"), f"!!{row('control.enabled', '[data-testid=settings-saved]')}")
+    out["toggle_flash"] = c.js(f"{row('control.enabled', '[data-testid=settings-saved]')}.textContent")
+    out["toggle_config"] = config(ctx).get("control", {}).get("enabled")
+    out["toggle_default_gone"] = c.js(f"!{row('control.enabled', '[data-testid=settings-default]')}")
+    group(c, "local")  # 3.5.0.0: the Fleet page left; an enum and a number on Local
+    set_field(c, row("host.allow_control", "select"), "all", "change")
+    out["enum_flash"] = c.wait(f"{row('host.allow_control', '[data-testid=settings-saved]')}?.textContent", 15)
+    out["enum_config"] = config(ctx).get("host", {}).get("allow_control")
+    port = row("host.port", "input")
     set_field(c, port, "7431")
     c.js(f"{port}.blur(); 1")
-    out["number_flash"] = c.wait(f"{row('fleet.hub.port', '[data-testid=settings-saved]')}?.textContent", 15)
-    out["number_config"] = config(ctx).get("fleet", {}).get("hub", {}).get("port")
-    out["number_cli"] = c.js(f"{row('fleet.hub.port', '[data-testid=settings-cli]')}.textContent")
+    out["number_flash"] = c.wait(f"{row('host.port', '[data-testid=settings-saved]')}?.textContent", 15)
+    out["number_config"] = config(ctx).get("host", {}).get("port")
+    out["number_cli"] = c.js(f"{row('host.port', '[data-testid=settings-cli]')}.textContent")
     group(c, "remote")
-    press(c, row("fleet.enabled", "[data-testid=settings-reset]"), f"!!{row('fleet.enabled', '[data-testid=settings-default]')}")
+    press(c, row("control.enabled", "[data-testid=settings-reset]"), f"!!{row('control.enabled', '[data-testid=settings-default]')}")
     out["reset_marker"] = True
-    out["reset_config"] = "enabled" in config(ctx).get("fleet", {})
-    out["reset_off"] = c.js(f"{row('fleet.enabled', '[data-testid=settings-reset]')}.disabled")
+    out["reset_config"] = "enabled" in config(ctx).get("control", {})
+    out["reset_off"] = c.js(f"{row('control.enabled', '[data-testid=settings-reset]')}.disabled")
     return out
 
 
@@ -157,10 +157,10 @@ def search(c, url, ctx) -> dict:
 
 def door(c, url, ctx) -> dict:
     group(c, "general")
-    _load(c, ctx, "mode=settings&group=fleet", "Settings")
-    out = {"door_page": c.wait(f"{PAGE} === 'fleet' && {PAGE}", 20), "door_search": c.js("location.search")}
+    _load(c, ctx, "mode=settings&group=local", "Settings")
+    out = {"door_page": c.wait(f"{PAGE} === 'local' && {PAGE}", 20), "door_search": c.js("location.search")}
     _load(c, ctx, "mode=settings", "Settings")
-    out["door_remembered"] = c.wait(f"{PAGE} === 'fleet' && {PAGE}", 20)
+    out["door_remembered"] = c.wait(f"{PAGE} === 'local' && {PAGE}", 20)
     return out
 
 
@@ -179,10 +179,10 @@ def palette(c, url, ctx) -> dict:
     mod_key(c, "KeyK", 75, 2, "k")
     c.wait(f"!!{q('[data-testid=palette]')}", 10)
     c.js(f"{q('.palette-input')}.focus(); 1")
-    c.type_text("Settings: Hub port")
-    c.wait(f"{qa('[role=option]')}.some((o) => /Settings: Hub port/.test(o.textContent))", 10)
+    c.type_text("Settings: Host port")
+    c.wait(f"{qa('[role=option]')}.some((o) => /Settings: Host port/.test(o.textContent))", 10)
     c.key("Enter")
-    out = {"palette_page": c.wait(f"{PAGE} === 'fleet' && {PAGE}", 15)}
+    out = {"palette_page": c.wait(f"{PAGE} === 'local' && {PAGE}", 15)}
     out["palette_lit"] = c.wait(f"!!{q('[data-testid=settings-row][data-lit]')} && {q('[data-testid=settings-row][data-lit]')}.dataset.key", 10)
     return out
 

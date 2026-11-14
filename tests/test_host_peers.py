@@ -200,28 +200,6 @@ def test_a_terminal_sessions_own_calls_reach_the_host(ctx: Ctx):
                 t.join(5.0)
 
 
-@test
-def test_the_hub_forwards_to_a_host_a_member_announced(ctx: Ctx):
-    from types import SimpleNamespace
-    from halo_harness.peers import hub_hosts
-    from halo_harness.peers.hub_host_cmd import member_controls
-    with PeerRig(cap="all", grants=("control",)) as rig:
-        hub = SimpleNamespace(home=rig.peer)
-        who = {"member": "pc-host", "member_host": "pc"}
-        ctx.check("no announce: nothing to say", member_controls(hub, "pc-host", who) is None)
-        hub_hosts.record(rig.peer, "h1", "pc-host", "192.0.2.10", {"host": True, "port": rig.svc.port,
-                         "url": "https://192.0.2.99:7431", "fingerprint": "f" * 64, "serves": []})
-        got = member_controls(hub, "pc-host", who)
-        ctx.check(f"announced, not paired: the join line, got {got}", got and got["ok"] is False
-                  and "halo host join https://192.0.2.99:7431" in got["why"])
-        hub_hosts.record(rig.peer, "h1", "pc-host", "192.0.2.10", {"host": True, "port": rig.svc.port, "url": rig.entry["url"],
-                         "fingerprint": rig.entry.get("fingerprint"), "serves": []})
-        got = member_controls(hub, "pc-host", who)
-        ctx.check(f"announced and paired: through the host, no session, got {got}", got and got["ok"] is True
-                  and got["via"] == "host" and got["member"] == "pc-host")
-        hub_hosts.HOSTS.pop(str(rig.peer), None)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

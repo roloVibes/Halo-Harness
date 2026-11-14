@@ -66,13 +66,13 @@ def _log_path(session) -> Optional[str]:
 
 def tree_for(session) -> "AgentTree":
     """The tree `session` belongs to (a root session gets one on first use)."""
-    tree = getattr(session, "_fleet_tree", None)
+    tree = getattr(session, "_agent_tree", None)
     if tree is None:
         with _make_lock:
-            tree = getattr(session, "_fleet_tree", None)
+            tree = getattr(session, "_agent_tree", None)
             if tree is None:
                 tree = AgentTree(session)
-                session._fleet_tree = tree
+                session._agent_tree = tree
     return tree
 
 

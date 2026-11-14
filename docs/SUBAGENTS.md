@@ -144,10 +144,10 @@ This is the SAME board the tasks panel's own "Board" tab shows live.
 
 ## The live agent tree and what Studio can do to an agent
 
-Halo 3.0.5.0 (Fleet, round R1): every sub-agent at every depth is something
+Halo 3.0.5.0 (round R1): every sub-agent at every depth is something
 you can list, watch, steer, pause and stop, from Studio, from `halo remote`
-or over the control socket ([REMOTE.md](REMOTE.md#agent-level-commands-3050-fleet)
-has the wire; [FLEET.md](FLEET.md) the bigger picture). Verified against
+or over the control socket ([REMOTE.md](REMOTE.md#agent-level-commands-3050)
+has the wire). Verified against
 `halo_harness/agent/agent_registry.py`, `agent_observe.py`, `agent_hooks.py`,
 `agent_inbox.py`, `agent_transcript.py` and `halo_harness/remote/agent_control.py`.
 

@@ -22,8 +22,6 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
@@ -157,44 +155,6 @@ def test_the_watch_lease_and_the_planner_share(ctx: Ctx):
               b["others"] == 5 * GIB and b["others_from"] == "sample" and b["budget"] == 19 * GIB)
     ctx.check("another host keeps the card's", card_budget(card, "sagan")["others"] == 1 * GIB)
     R.STORE.clear()
-
-
-@test
-def test_the_hubs_store_through_the_fleet_rig(ctx: Ctx):
-    from tests.helpers.fleet_hub_rig import HubRig, wait_for
-    from tests.helpers.local_seed import member_samples
-    from halo_harness.peers import net as fleet_hub  # 3.4.0.0 C: lan_address is core (peers/net.py)
-    from halo_harness.peers import ollama_share
-    from halo_harness.ollama_steward import resources as R
-    R.STORE.clear()
-    saved = (ollama_share.FLUSH_S, ollama_share.CHECK_S, fleet_hub.lan_address)
-    ollama_share.FLUSH_S, ollama_share.CHECK_S = 0.2, 0.05
-    fleet_hub.lan_address = lambda: "192.0.2.30"
-    try:
-        with HubRig() as rig:
-            (rig.home_a / "config.json").write_text(json.dumps({"fleet": {"name": "alice@hub"}, "ollama": {
-                "hosts": [{"name": "mac", "url": "http://192.0.2.30:11434"}]}}), encoding="utf-8")
-            rig.join()
-            from halo_harness.config.paths import bridge_home
-            from halo_harness.ollama_steward import ledger
-            b = Path(bridge_home())
-            ledger.record_call(b, {"host": {"name": "pc", "url": "http://192.0.2.10:11434"}, "model": "m", "status": 200})
-            (b / "ollama" / "resources-recent.json").write_text(json.dumps({"at": 0, "samples": member_samples()}), encoding="utf-8")
-            _c, act = rig.session()
-            wait_for(lambda: rig.member_session(act.session_id))
-            got = wait_for(lambda: R.STORE.recent("mac"), 10)
-            ctx.check(f"the member's samples reached the hub under its own name for the host, got {len(got or [])}",
-                      bool(got) and got[-1]["from"] == "bob@member" and got[-1]["member_host"] == "local")
-            status, body = rig.api("GET", "local/resources?host=mac")
-            ctx.check(f"GET /api/local/resources on the hub shows them, got {status} {len(body.get('samples') or [])}",
-                      status == 200 and len(body.get("samples") or []) >= 10)
-            status, body = rig.api("GET", "local/hosts")
-            mac = next((h for h in body.get("hosts") or [] if h["name"] == "mac"), {})
-            ctx.check(f"its card: through the member that serves it, got {mac.get('controls')}",
-                      status == 200 and mac.get("controls", {}).get("member") == "bob@member")
-    finally:
-        ollama_share.FLUSH_S, ollama_share.CHECK_S, fleet_hub.lan_address = saved
-        R.STORE.clear()
 
 
 if __name__ == "__main__":

@@ -86,9 +86,9 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
         code, out, _ = h.cli("doctor", "--json")
         found = json.loads(out)["problems"]
         # 3.2.0.0 R2: the bios' row (no model in an empty catalog has long-context) and their need (bash);
-        # R4's fleet-capability row: core again since 3.4.0.0 D, so it shows with the fleet pack off too
+        # R4's capability row (core since 3.4.0.0 D)
         ctx.check(f"doctor --json: the ungranted server, exit 1, got {found}",
-                  code == 1 and [p["check"] for p in found] == ["not-granted", "bio-model", "bio-need", "fleet-capability"]
+                  code == 1 and [p["check"] for p in found] == ["not-granted", "bio-model", "bio-need", "capability"]
                   and "mcp:lint" in found[0]["text"])
         h.catalog([{"ref": "ol:long-1", "provider": "ollama", "context_tokens": 262144, "tools": True}])  # R4: docs.review's tools
         h.cli("enable", "doc-review", "--grant", "mcp:lint", "--grant", "bash")
@@ -145,7 +145,7 @@ def test_config_where_and_doctor_config_have_the_packs_group(ctx: Ctx):
         found = [f for f in config_findings(h.repo) if f["kind"] == "packs"]
         ctx.check(f"doctor --config lists the ungranted needs, got {[f['text'] for f in found]}",
                   [f["check"] for f in found] == ["pack-not-granted", "pack-not-granted", "pack-bio-model", "pack-bio-need",
-                                                  "pack-fleet-capability"]
+                                                  "pack-capability"]
                   and all(f["severity"] == "warns" for f in found))  # 3.2.0.0 R2: the bios' model row and bash; R4: docs.review
 
 

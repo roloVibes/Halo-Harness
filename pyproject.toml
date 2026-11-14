@@ -51,10 +51,13 @@ images = [
 mlx = [
     "mlx-lm; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
-# Halo 3.0.5.0 round R2: `halo fleet serve` (and `halo studio --fleet`) serve TLS
-# with a self-signed, fingerprint-pinned certificate when `cryptography` is
-# importable; without it the hub speaks HMAC-signed plain HTTP. Joiners need
-# nothing extra (the standard library pins the fingerprint).
+# `halo host serve` serves TLS with a self-signed, fingerprint-pinned certificate
+# when `cryptography` is importable; without it the host speaks HMAC-signed plain
+# HTTP. Joiners need nothing extra (the standard library pins the fingerprint).
+# 3.5.0.0: `tls`; `fleet` is its name before, kept so an older install line works.
+tls = [
+    "cryptography>=41",
+]
 fleet = [
     "cryptography>=41",
 ]

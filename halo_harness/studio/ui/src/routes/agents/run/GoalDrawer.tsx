@@ -13,7 +13,6 @@ import { WorkflowPicker } from "../../orchestra/WorkflowPicker";
 import { useOrch } from "../../orchestra/store";
 import { useWfRun } from "../../orchestra/workflowRun";
 import { openReport } from "../live/historyStore";
-import { AcrossTheFleet } from "./MissionRow";
 import { closeGoal, toggleGoal, useGoal } from "./goalStore";
 
 export function RunGoalButton() {
@@ -55,7 +54,6 @@ export function GoalDrawer() {
         {wf ? <WorkflowForm onStarted={closeGoal} /> : (
           <>
             <GoalForm initial={form} seed={seed} onStarted={started} />
-            <AcrossTheFleet />
             <WorkflowPicker />
           </>
         )}

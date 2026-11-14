@@ -37,14 +37,14 @@ test, TESTS = new_registry()
 
 @test
 def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
-    from halo_harness.remote import fleet_frames, registry, runtime
+    from halo_harness.remote import agent_frames, registry, runtime
     calls: list = []
     saved = (list(runtime._actives), registry.register, registry.unregister, registry.update,
-             fleet_frames.fleet_frame)
+             agent_frames.registry_frame)
     registry.register = lambda e: calls.append(("register", e["session_id"]))
     registry.unregister = lambda sid: calls.append(("unregister", sid))
     registry.update = lambda sid, **f: calls.append(("update", sid, f)) or True
-    fleet_frames.fleet_frame = lambda *a, **k: None
+    agent_frames.registry_frame = lambda *a, **k: None
     handle = SimpleNamespace(cwd="/w", kind="tui", title=lambda: "t", hub=SimpleNamespace(meta={}))
     # 3.0.5.0 Fleet R1: one process may hold several sessions, so `_active` became the `_actives`
     # list and the tap is bound per Active
@@ -68,7 +68,7 @@ def test_item28_child_status_never_rekeys_the_registry(ctx: Ctx):
                   calls[1:] == [("unregister", "parent-sid"), ("register", "forked-sid")])
     finally:
         runtime._actives[:] = saved[0]
-        registry.register, registry.unregister, registry.update, fleet_frames.fleet_frame = saved[1:]
+        registry.register, registry.unregister, registry.update, agent_frames.registry_frame = saved[1:]
 
 
 # ---- item 29 -------------------------------------------------------------------

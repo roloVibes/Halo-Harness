@@ -17,7 +17,7 @@ Never a model call and never a write to a server.
 from __future__ import annotations
 
 SUBS = ("findings", "plan", "explain", "hosts")
-MORE = "more: /ollama findings | plan | explain <kind> | hosts; in Studio: Fleet, the Ollama panel"
+MORE = "more: /ollama findings | plan | explain <kind> | hosts; in Studio: Local -> Hosts and Steward"
 
 
 def _state():

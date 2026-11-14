@@ -11,8 +11,8 @@
 # - a Studio section (contributes.studio): the notes, the checks, the links, the
 #   last review report, a Reviews panel in Session, a palette action, the
 #   settings form, a line for review.done and an attention row kind;
-# - the docs.review fleet capability (contributes.fleet): a harness offers it with
-#   the bash grant and a model that calls tools;
+# - the docs.review capability (contributes.capabilities): available on a machine
+#   with the bash grant and a model that calls tools;
 # - the Claude-plugin half: a skill, a command, a hook and a lint MCP server, each
 #   running only once you grant what it needs (permissions).
 id: doc-review
@@ -21,7 +21,7 @@ version: 1.0.0
 description: Reviews a repo's Markdown documents with a reviewer and a writer bio, a review workflow and a typed review report.
 author: Halo Harness
 license: MIT
-halo_api: {min: "1.0", max: "1.9"}
+halo_api: {min: "1.4", max: "1.9"}
 halo: {min: "3.4"}
 capabilities: [docs.review]
 contributes:
@@ -94,7 +94,7 @@ contributes:
       review.done: {label: REVIEW, line: "{file}: {findings} findings"}
     attention:
       review.ask: {label: review, keys: {a: accept, r: redo, s: skip, o: open}}
-  fleet:
+  capabilities:
     capabilities:
       - name: docs.review
         description: Reviews a repo's documents for dead links, heading order and style
@@ -103,9 +103,7 @@ contributes:
           grants: [bash]
         capacity: {parallel: 2}
     inspector:
-      - {label: Review checklist, source: fleet/checklist.md}
-    mission:
-      metadata: {review: docs, style: short}
+      - {label: Review checklist, source: capabilities/checklist.md}
 config:
   schema:
     properties:

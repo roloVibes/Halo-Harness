@@ -75,7 +75,12 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
     if path.name == "routes.json":
         return [] if isinstance(data, dict) else [finding("wrong-type", "blocks", row, "routes.json is a JSON object")]
     from halo_harness.schemas.config_json import PACKED_SECTIONS, REMOVED_SECTIONS, packed_line, removed_line
-    out = [f for f in _shape("config", data, row) if f["key"] not in REMOVED_SECTIONS and f["key"] not in PACKED_SECTIONS]
+    out = [f for f in _shape("config", data, row) if f["key"] not in REMOVED_SECTIONS and f["key"] not in PACKED_SECTIONS
+           and f["key"] != "fleet"]
+    from halo_harness.config.renamed_keys import doctor_line  # 3.5.0.0: the fleet.* keys nothing reads any more
+    gone = doctor_line(data) if isinstance(data, dict) else ""
+    if gone:
+        out.append(finding("fleet-section", "warns", row, gone, key="fleet"))
     for section in sorted(REMOVED_SECTIONS):
         if isinstance(data, dict) and section in data:
             out.append(finding("removed-section", "warns", row, removed_line(section), key=section))

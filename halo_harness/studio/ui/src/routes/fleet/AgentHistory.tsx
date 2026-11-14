@@ -37,7 +37,7 @@ export function AgentExtras({ r, done, noControl }: { r: AgentRef; done: boolean
 
 async function loadHistory(): Promise<void> {
   try {
-    const r = await api.get<{ runs: Run[] }>("fleet/history", { role: "main", n: 8 });
+    const r = await api.get<{ runs: Run[] }>("live/history", { role: "main", n: 8 });
     panels.update(() => ({ history: r.runs || [] }));
   } catch {
     panels.update(() => ({ history: [] }));

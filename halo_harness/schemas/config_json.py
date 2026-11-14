@@ -2,7 +2,7 @@
 
 Every top-level key some part of Halo reads (`get_config_value` /
 `load_config` callers, the table in docs/CONFIG.md) with its type. The keys
-holding a whole feature's settings (`fleet`, `remote`, `ollama`, ...) are
+holding a whole feature's settings (`remote`, `ollama`, `host`, ...) are
 checked as mappings; what sits inside them is read by that feature, which
 falls back to its default on a value it does not understand.
 
@@ -10,7 +10,8 @@ falls back to its default on a value it does not understand.
 Paperclip, 3.1.4.0; the cc:/cx: routes' `subscription_routes` and
 `settings`, 3.1.5.0): a config.json that still has one loads as before and
 the section is ignored; `halo doctor --config` names it in one line
-(`removed_line`).
+(`removed_line`). A `fleet` section (3.5.0.0) loads too: its renamed keys are read under their new names
+(config/renamed_keys.py) and the doctor names the rest in one line.
 """
 
 from __future__ import annotations
@@ -84,7 +85,9 @@ _SCALARS = {
 # cache_write]} USD per 1M tokens (3.3.3.1, providers/databricks_prices.py), catalog_max_age_hours
 # `steer`: restart_when_silent, silent_restart_s (3.2.2.0 R4); `turn`: nudge_promises (3.2.2.0 R4, agent/turn_marker.py)
 # `studio`: hover_cards (3.3.16.1: Agents' boxes show a hover card; false, their plain tooltips; Studio's lib/hover); alerts none|browser (3.4.1.0 R4, lib/alerts.ts)
-# `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py); `fleet`: ollama.share auto|all|off (3.3.4.0 R2, fleet/ollama_share.py)
+# `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py)
+# `control`: enabled, private; `harness`: name; `caps`: per_harness_usd_per_day, per_project_usd_per_day; `attention`:
+# signal (3.5.0.0: the keys that were `fleet.*`, config/renamed_keys.py); `host`: allow_control
 # `ollama`: profiles (a map "<host>|<model>" (3.3.7.0 R3: or "<host>|<model>|<role>", a lane's own) -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
 # steward.model (a model ref), steward.job (bool), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
@@ -98,8 +101,8 @@ _SCALARS = {
 # agent/local_hop.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
 # agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
-_SECTIONS = ("agents", "clipboard", "comfy", "connectors", "copilot", "databricks", "embeddings", "experiential", "fleet",
-             "governor", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
+_SECTIONS = ("agents", "attention", "caps", "clipboard", "comfy", "connectors", "control", "copilot", "databricks",
+             "embeddings", "experiential", "governor", "harness", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",
              "update", "voice", "workflows", "worktree")  # 3.3.9.0 R1: voice (stt_model, tts_model, device, tts_voice); R2: the loop's
 REMOVED_SECTIONS = {"orgs": "3.1.4.0", "paperclip": "3.1.4.0",

@@ -162,7 +162,6 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
 _STUDIO_MODE_LABELS = {"agents": "Agents: the cast, what runs now (a goal run too), and what ran",  # 3.3.16.0 R1: Team, Roles, Orchestra in one
                        "roles": "Agents -> Cast: the lineup and its bios as a graph",
                        "orchestra": "Agents -> Live: Run a goal on its bar; a goal run's lanes under its lead, its report in History",  # 3.4.0.0 D
-                       "fleet": "Agents -> Live, the fleet scope: every machine, its sessions and their agents",  # 3.3.16.0 R2
                        "team": "Agents -> Live: a goal run's lanes show who owns what",
                        "session": "Session: this session, live",
                        "packs": "Packs: install, grant and enable packs",
@@ -760,9 +759,9 @@ def _cmd_recall(args: str, facade: HeadlessFacade) -> str:
     thread-worker handler."""
     from halo_harness.recall import search
     query = (args or "").strip()
-    if query == "--fleet" or query.startswith("--fleet "):  # 3.1.2.0 R3: every online harness's own index
-        from halo_harness.recall_fleet import fleet_text  # 3.4.0.1 (defect 4): core; it says the line with the pack off
-        return fleet_text(query[len("--fleet"):])
+    if query == "--fleet" or query.startswith("--fleet "):  # 3.5.0.0: recall across machines left with Fleet
+        from halo_harness.left import FLEET
+        return f"/recall --fleet: {FLEET}"
     if not query:
         return ("/recall <query> -- semantic search over memory topics and past sessions "
                 "(set embeddings.model first, e.g. nomic-embed-text on your Ollama host)")
@@ -1798,10 +1797,10 @@ _BUILTIN_SPECS = {
     "effort": ("core", "Show or change the active reasoning effort level", "[level]", _cmd_effort),
     "offline": ("core", "Show or change enforced offline mode (network.offline)", "[on|off]", _cmd_offline),
     "studio": ("core", "Open Halo Studio, the browser GUI: in the TUI bare /studio watches this session (the Session dashboard)",
-               "[session|agents|fleet|packs|setup|settings|local|<pack>--<section>] [url]", _cmd_studio),
+               "[session|agents|packs|setup|settings|local|<pack>--<section>] [url]", _cmd_studio),
     "remote": ("core", "Remote control: this session's control socket, the transports listening, the packs' services",
                "[status]", _cmd_remote),
-    "private": ("core", "Private session: no control socket, no registry entry (Studio and the fleet never see it)",
+    "private": ("core", "Private session: no control socket, no registry entry (Studio never sees it)",
                 "[on|off]", _cmd_private),
     "escalation": ("core", "Show the hybrid-escalation policy and this session's last decisions", None,
                    _cmd_escalation),
@@ -1825,8 +1824,8 @@ _BUILTIN_SPECS = {
     "ask": ("core", "Ask the concierge (roles.concierge) a quick question without waking the main model",
             "<question>", _cmd_ask),
     "recall": ("core", "Semantic search over memory, past sessions, findings, decisions and your notes (local "
-                       "embeddings; --fleet: every harness)",
-               "[--fleet] <query>", _cmd_recall),
+                       "embeddings)",
+               "<query>", _cmd_recall),
     "tasks": ("core", "List background Bash jobs started this session", None, _cmd_tasks),
     "tools": ("core", "List the tools this session's agent sees, by capability, and what narrowed them", None, _cmd_tools),
     "whatsnew": ("core", "What this version changed: its summary and headings (halo whatsnew)",

@@ -1,6 +1,6 @@
 """halo_harness.live.history -- one session as a timeline, read from its
 transcripts on disk (Halo 3.0.5.0 "Fleet" round R4). A flight recording
-(recording.py), the canvas replay (`GET /api/fleet/replay`) and the digest
+(recording.py), the canvas replay (`GET /api/live/replay`) and the digest
 (digest.py) read it; nothing here calls a model.
 
     find(state_dir, sid) -> Path | None    <state>/sessions/<project>/<sid>.jsonl

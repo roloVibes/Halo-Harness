@@ -4,8 +4,8 @@ under the packs group.
 
     problems(cwd=..., state_dir=...) -> [{"pack", "severity": "blocks" | "warns" | "info", "check", "text", "fix", "path"}]
 
-3.3.10.0 R3: `info` is a note, not a problem (a fleet capability hidden on purpose with
-`fleet.capabilities.hide`): `halo pack doctor` prints it last, dimmed, and exits 0 when every row is one; the
+3.3.10.0 R3: `info` is a note, not a problem: `halo pack doctor` prints it last, dimmed, and exits 0 when every
+row is one; the
 Pack Manager counts it apart (`notes`). 3.3.11.0 R3: an enabled pack's Setup block neither done nor skipped is
 one `info` row "setup-waiting" (packs/setup_state.py), fixed by `halo setup <id>`. An enabled pack's `.mcp.json` server whose command is not on PATH is a
 warns row "not-on-path" (packs/doctor_mcp.py). 3.3.12.0 R4: a tool its `requires:` names that is not here is a warns
@@ -17,7 +17,7 @@ pack's range, a missing, disabled or out-of-range required pack, a requires
 cycle; a contribution whose permission is not granted (it does not run);
 settings that do not fit the pack's schema; a bio's capability set no
 catalog model has and a bio's need not granted (3.2.0.0 R2, packs/roles.py);
-a fleet capability not available here, with why (3.2.0.0 R4, packs/contrib_views.py);
+a capability not available here, with why (3.2.0.0 R4, packs/contrib_views.py);
 a permission the installed version requests that its version before the last update did not and that is not
 granted, and a use of an extension API name announced for removal (3.2.0.0 R7, packs/deprecations.py);
 two packs, or a pack and you,
@@ -113,7 +113,7 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
             from halo_harness.packs.roles import doctor_rows  # 3.2.0.0 R2: a bio's capabilities and needs
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
                     for r in doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
-            from halo_harness.packs import contrib_views as CW  # 3.2.0.0 R4: a fleet capability not available here
+            from halo_harness.packs import contrib_views as CW  # 3.2.0.0 R4: a capability not available here
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
                     for r in CW.doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
             from halo_harness.packs.deprecations import update_request_rows  # 3.2.0.0 R7: a grant the update asked for

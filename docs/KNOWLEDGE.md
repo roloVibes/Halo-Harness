@@ -1,6 +1,6 @@
 # Knowledge: findings and decisions
 
-Read this when you want what Halo verified or decided to outlive the session that found it: findings and decisions, who writes them, the files, the agents' tools, citing what was reused and the fleet.
+Read this when you want what Halo verified or decided to outlive the session that found it: findings and decisions, who writes them, the files, the agents' tools and citing what was reused.
 
 Halo 3.1.8.0 R4. Knowledge Halo verified should outlive the session that
 found it. Two recall kinds hold it: a **finding** -- a fact established with
@@ -10,8 +10,7 @@ alternatives, who took it, when. They are written by the places that
 already know them (the Orchestra judge and gate, the coach's Apply, the
 supervisor's answered decisions) and by you or an agent, as Markdown files
 with a small front matter under `~/.halo/knowledge/`. Recall indexes them
-like memory and sessions ([RECALL.md](RECALL.md)), they travel over the
-fleet like the coach library, and an agent that reuses one cites its id.
+like memory and sessions ([RECALL.md](RECALL.md)), and an agent that reuses one cites its id.
 Nothing here is a classifier: no model is asked to confirm anything, and
 every entry says who wrote it and from what evidence.
 
@@ -51,7 +50,7 @@ Why: the gate ran `python -m unittest -q test_basket` on the finished branch: ex
 ```
 
 - `by`: `judge`, `gate`, `coach`, `supervisor`, `user` or `agent:<session>/<agent>` -- the role that knew, never
-  the person who answered; an entry fetched over the fleet adds `@<harness id>` (`gate@9f3a...`).
+  the person who answered.
 - A decision carries `alternatives` instead of `confidence`; `supersedes: <id>` names the entry one replaces;
   `tags` are lower-case words.
 - `_meta.json` is a pack memory entry's provenance shape ([EXTENSION_API.md](EXTENSION_API.md)):
@@ -162,25 +161,6 @@ row in `outcomes.jsonl` carries `cited: <n>`. `halo knowledge show <id>`
 lists "reused by": every agent task whose evidence cites it. Nothing asks a
 model whether it reused anything; the id in its answer is the record.
 
-## Over the fleet
-
-`halo recall --fleet` finds another box's findings and decisions (each hit
-with `ref`, the entry's id, `by` and `when`). `halo knowledge fetch <harness>
-<id>` -- or `--all finding|decision` for every current entry of a kind --
-asks the hub this machine runs (the admin route `local/knowledge`), which
-sends the read-only `knowledge` fleet command to one live session of that
-member, over the coach library's transport. The member answers from its own
-store under the recall switch (`fleet.recall.share: false` answers none;
-`fleet.recall.hide: [knowledge]`, `[finding]` or `[decision]` keeps them in),
-scrubbed like the capabilities catalog: every absolute path cut to its last
-part, the home to `~`, every secret-shaped text redacted, `by` naming the
-harness id. At most 256 KB go in one answer (`--all` sends the newest that
-fit and counts the rest). Each answer is a `knowledge_asked` line in the
-member's journal. The entry is written here under the same id, read-only:
-its `_meta.json` says `source: fleet`, `from` (the harness id),
-`harness_name` and `fetched`; a fetch never writes over an entry already
-here. See [FLEET.md](FLEET.md#recall-across-the-fleet-3120-r3).
-
 ## Config
 
 | Key | Default | Meaning |
@@ -201,12 +181,10 @@ says "kept the rounding (f-20261024-3c9a1e)", its evidence records `cited:
 f-20261024-3c9a1e`, and `halo knowledge show f-20261024-3c9a1e` prints
 `reused by: lane 1 of 20261031-091500-7b2c (auto-coder, passed)`.
 
-**A decision another box takes.** The supervisor parks a `goal_gate` row:
+**A decision you take.** The supervisor parks a `goal_gate` row:
 lane 2 reached the return cap. You answer "raise the cap by N" with `2 --
 the flaky test is fixed upstream`. `~/.halo/knowledge/decision/2026-10/
 d-20261024-8e41f0.md` holds `Goal g-7: the gate sent a piece back past the
 return cap -> raise the cap by N`, by `supervisor`, your text as the why and
-"raise the cap by 1 and resume", "stop" as the alternatives. On the Kali box,
-`halo recall --fleet "flaky test return cap"` finds it with `ref:
-d-20261024-8e41f0`, and `halo knowledge fetch win@studio d-20261024-8e41f0`
-writes it there, read-only, `by: supervisor@<your harness id>`.
+"raise the cap by 1 and resume", "stop" as the alternatives; `halo recall "flaky test return cap"` finds it with `ref:
+d-20261024-8e41f0`.

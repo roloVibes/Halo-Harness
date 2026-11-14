@@ -44,7 +44,7 @@ link and its own `halo pack test`.
 | `events` | tell Studio, bios' triggers and workflows that something happened | `events/note.added.json` + its sample |
 | `artifacts` | produce a typed document Studio draws | `artifacts/report.json` + its sample |
 | `studio` | show something in Studio | a section: a markdown panel, a table over `data:rows.json`, a bundle panel; a page of its own (`studio/page.js` with `api.lib`) over its own routes (`server/routes.py`) |
-| `fleet` | offer a capability other harnesses can send work to | a capability and an inspector line |
+| `capabilities` | declare a capability a workflow can require | a capability and an inspector line |
 | `policy` | decide tool calls before they run while a mode is on | `policy/guard.py` and the `careful` mode |
 | `modes` | have a runtime switch of its own | the `focus` mode |
 | `setup` | ask the owner for settings or check the machine once | a form, a check and a note in Studio's Setup |
@@ -105,12 +105,11 @@ it (3.4.1.2): `studio-script` runs your page's code INSIDE Studio's page with St
 can do in Studio, including starting sessions that run commands; `studio-routes`, `doctor` and `cli:<verb>` run your
 Python inside halo with their rights and Halo's keys. Ask only for what the pack needs.
 
-## How the fleet sees it
+## How a capability is checked
 
-A `contributes.fleet` capability is one entry in this harness's capabilities catalog, available or not and why; a
-mission part that needs it goes only to a harness that runs the pack with the grants it requires, and the worker checks
-again before the part runs. An advertisement leaves the machine, so a value under `contributes.fleet` never holds a
-secret, an environment reference or a path ([EXTENSION_API.md](EXTENSION_API.md#fleet-capabilities)).
+A `contributes.capabilities` capability is checked on this host, available or not and why; a pack workflow that needs it
+runs only while the pack runs here with the grants it requires. A value under `contributes.capabilities` never holds a
+secret, an environment reference or a path ([EXTENSION_API.md](EXTENSION_API.md#pack-capabilities)).
 
 ## Themes
 

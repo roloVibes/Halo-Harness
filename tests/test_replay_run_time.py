@@ -44,7 +44,7 @@ def _run():
 
 
 def _payload(state: Path, repo: Path):
-    from halo_harness.studio.fleet_recording_api import get_replay
+    from halo_harness.studio.live_recording_api import get_replay
     req = SimpleNamespace(query={"run": RUN}, cwd=repo, state_dir=state, params={})
     return get_replay(req)
 
@@ -62,7 +62,7 @@ def test_studio_draws_a_goal_run_from_its_record(ctx: Ctx):
         costs = [(round(c["t"] - TR), c["usd"]) for c in p["costs"]]
         ctx.check(f"its costs come at each end (the record's only times for them): {costs}", costs and costs[-1] == (90, 0.05))
         bad = SimpleNamespace(query={"run": "nope"}, cwd=repo, state_dir=state, params={})
-        from halo_harness.studio.fleet_recording_api import get_replay
+        from halo_harness.studio.live_recording_api import get_replay
         ctx.check("an unknown run is 404", get_replay(bad)[0] == 404)
 
 

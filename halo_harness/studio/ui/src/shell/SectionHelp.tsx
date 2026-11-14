@@ -13,8 +13,7 @@ import { useEffect, useRef } from "react";
 import { Button, Dialog, Kbd } from "../lib/ui";
 import { closeHelp, studio, useStore } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
-import { blurbOf, sectionDef } from "../routes";
-import { fleetPack, useFleet } from "../routes/fleet/store";
+import { sectionDef } from "../routes";
 import { SECTION_HELP } from "../routes/sectionHelp";
 import { packHelp } from "../routes/packs/registry";
 
@@ -45,7 +44,6 @@ function MovingPanels({ on }: { on: boolean }) {
 
 export function SectionHelp() {
   const help = useStore(studio, (s) => s.help);
-  const loaded = useFleet((s) => s.loaded);
   if (!help) return null;
   const def = sectionDef(help.section);
   const copy = SECTION_HELP[help.section] ?? SECTION_HELP[def.id] ?? packHelp(def); // 3.2.0.0 R3: a pack's section; 3.3.16.0 R1: Agents' own copy over its part's
@@ -67,7 +65,7 @@ export function SectionHelp() {
       open
       onClose={closeHelp}
       title={`How ${def.title} works`}
-      kicker={`${def.title.toUpperCase()} · ${blurbOf(def, loaded && !fleetPack()).toUpperCase()}`}
+      kicker={`${def.title.toUpperCase()} · ${def.blurb.toUpperCase()}`}
       className="section-help"
       testid="section-help"
       footer={footer}

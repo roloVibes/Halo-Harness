@@ -1,7 +1,7 @@
 """halo_harness.live.talk -- one agent's words to another, as one shape (Halo 3.3.16.2, the owner: "a section that
 does this for model to model or agent to agent conversations ... so we see models conversing with each other").
 
-Every message is an `agent_talk` frame (the agent tree's listener publishes it, remote/fleet_frames.py; Studio's own
+Every message is an `agent_talk` frame (the agent tree's listener publishes it, remote/agent_frames.py; Studio's own
 bridge for a hand-over) whose data is:
 
     {"id": "m<n>", "from": <agent id>, "to": <agent id or "">, "text": <at most TALK_CAP characters>, "why": <WHYS>,
@@ -16,7 +16,7 @@ Where it comes from, each where the thing already happens (no model is called):
                (remote/agent_control.py); the user's own steer stays YOU and is never a talk
     square     a Workflow square hand-off and what came back: a session square's agent (its row's `square`), or an
                orchestra square's node (tools/workflow.py)
-    hand-over  Studio's "Hand to..." an agent's work to another machine (studio/fleet_handoff_api.py)
+    hand-over  Studio's "Hand to..." an agent's work to another machine (studio/live_handoff_api.py)
 
 The transcripts keep the whole text as before; a frame carries at most TALK_CAP characters and says when it was cut.
 There is no mailbox between agents in this harness: no other path exists.

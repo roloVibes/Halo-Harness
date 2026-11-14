@@ -1,7 +1,7 @@
-// fleet-costs: what the fleet spends today (`GET fleet/costs`; today = the
-// sessions started today, local day): a ticker for the whole fleet, then per
-// harness, per project and per session; the spend caps (`fleet.caps.*`,
-// `POST fleet/caps`): a cap reached pauses the sessions in its scope and
+// The costs: what this halo's sessions spend today (`GET live/costs`; today = the
+// sessions started today, local day): a ticker for the total, then per
+// project and per session; the spend caps (`caps.*`,
+// `POST live/caps`): a cap reached pauses the sessions in its scope and
 // raises an attention row, Lift for today resumes them; the provider
 // balances the balances workers last read, when there are any.
 import { useEffect, useMemo, useState } from "react";
@@ -13,7 +13,7 @@ import { loadCosts } from "./pload";
 import { usePanels, type CapKey, type Costs } from "./pstore";
 
 const REFRESH_MS = 10_000;
-const CAP_LABEL: Record<CapKey, string> = { per_harness_usd_per_day: "per harness, per day", per_project_usd_per_day: "per project, per day", fleet_usd_per_day: "the whole fleet, per day" };
+const CAP_LABEL: Record<CapKey, string> = { per_harness_usd_per_day: "this halo, per day", per_project_usd_per_day: "per project, per day" };
 
 export function useCosts(): void {
   useEffect(() => {

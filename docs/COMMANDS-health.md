@@ -88,8 +88,8 @@ a clean, deterministic answer, never a crash. See [MODELS.md](MODELS.md)'s
 "Finding and using file-backed models"/"Apple Silicon (`hf:mlx/*`, round
 5f)" sections; new local-model users are pointed at this command first.
 
-`halo recall <query> [--k N] [--no-refresh] [--build-only] [--fleet] [--json]`
-(2.0.7, the old 2.0.6 scope; `--fleet` and `--json` are 3.1.2.0 R3) is
+`halo recall <query> [--k N] [--no-refresh] [--build-only] [--json]`
+(2.0.7, the old 2.0.6 scope; `--json` is 3.1.2.0 R3) is
 semantic search over auto-memory topics and past sessions on a LOCAL
 embedding model -- Ollama's native `/api/embed` on
 the default (or named) host, or any OpenAI-compatible `/v1/embeddings`
@@ -105,13 +105,9 @@ config.json` (e.g. `"nomic-embed-text"`, `ollama pull nomic-embed-text`
 first; `embeddings.host` names a non-default Ollama host;
 `embeddings.base_url`/`api_key` point at an OpenAI-compatible server
 instead). `--build-only` rebuilds the index without searching; exit 0
-with hits, 1 with none, 2 when unconfigured/usage. `--fleet` (3.1.2.0 R3)
-asks the hub this machine runs or joined to fan the query out to every
-online member, each answering from its own index; the hits are merged by
-score and printed with their harness, and the exit is 3 when there is no
-fleet to ask ([FLEET.md](FLEET.md) "Recall across the fleet"). `--json`
-prints the hits (or the merged `{hits, harnesses}`) as JSON. The TUI twin is
-`/recall [--fleet] <query>` (`docs/SLASH-COMMANDS.md`). 3.2.0.0 R5:
+with hits, 1 with none, 2 when unconfigured/usage. `--json`
+prints the hits as JSON. The TUI twin is
+`/recall <query>` (`docs/SLASH-COMMANDS.md`). 3.2.0.0 R5:
 `halo recall [<query>] --namespace <pack>/<name> [--provenance]` reads one
 pack's memory namespace plus the entries other packs share with that pack;
 without a query it lists them (no embedding model needed), and

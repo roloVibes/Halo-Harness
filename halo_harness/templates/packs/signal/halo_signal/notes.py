@@ -1,14 +1,14 @@
 """halo_signal.notes -- the notes the core gives every transport (ext.remote.notify), passed to each phone that asked
 for their kind (`/notify on|off <kind>`; phones.py keeps the choice).
 
-The core writes them: the attention queue's cards from any session or harness (`asks`, Studio's fleet watcher), a
+The core writes them: the attention queue's cards from any session or harness (`asks`, Studio's live watcher), a
 supervisor goal that ended, parked or failed (`supervisor`), the Ollama steward's note that asks for attention
 (`steward`). The bridge says it listens (`listen("signal")`, every LISTEN_EVERY_S) so the core writes them at all, and
 reads the new ones every POLL_S. An `asks` note about the session a phone is attached to is skipped: that card already
 reached it. A blocked phone gets nothing.
 
     Notes(bridge).tick()
-    default_fleet_lines() -> [line]   `/fleet`: this harness's sessions, the fleet's members, what waits on you
+    default_live_lines() -> [line]    `/live`: this harness's sessions and what waits on you
 """
 
 from __future__ import annotations
@@ -88,8 +88,8 @@ class Notes:
         return n
 
 
-def default_fleet_lines() -> list:
+def default_live_lines() -> list:
     try:
-        return R.fleet_lines()
-    except Exception as e:  # the fleet's own trouble, in one line
-        return [f"The fleet view is not available here: {type(e).__name__}"]
+        return R.live_lines()
+    except Exception as e:  # its own trouble, in one line
+        return [f"The live view is not available here: {type(e).__name__}"]

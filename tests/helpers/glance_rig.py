@@ -22,7 +22,7 @@ from pathlib import Path
 
 from tests.helpers.fake_remote_session import FakeSession
 
-_VARS = ("BRIDGE_STATE_DIR", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT")
+_VARS = ("BRIDGE_STATE_DIR", "HALO_PRIVATE", "HALO_SESSION_PARENT")
 WAIT_S = 180.0
 
 
@@ -44,7 +44,7 @@ class GlanceRig:
         self.state = Path(default_state_dir())
         self.state.mkdir(parents=True, exist_ok=True)
         set_config_value("remote.enabled", False)  # the transports' switch, never the socket's
-        set_config_value("fleet.name", "you@studio")
+        set_config_value("harness.name", "you@studio")
         identity.forget_cache()
         self.cwd = Path(tempfile.mkdtemp(prefix="glance-cwd-"))
         self.closers: list = []

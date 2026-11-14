@@ -6,8 +6,8 @@ absolute path of the machine it runs on (tools/capture_identity.py).
   calls `placeholder` before it serves Studio or enters a rig, `begin` before
   its scratch home, guards every page before it counts or shoots it, and
   never reads the machine's user or host itself;
-* the helper: `placeholder` writes `fleet.name: you@studio` and every name
-  Studio would draw reads `you` / `studio`; a `fleet_name` that answers this
+* the helper: `placeholder` writes `harness.name: you@studio` and every name
+  Studio would draw reads `you` / `studio`; a `harness_name` that answers this
   machine's `user@host` (a fake) stops it with the one line and exit 2;
   `restore` puts the real readers and the temp root back;
 * the DOM guard: a home path, an AppData path or the machine's user or host
@@ -103,19 +103,19 @@ def _home():
 @test
 def test_placeholder_draws_you_at_studio_and_restore_puts_the_readers_back(ctx: Ctx):
     from halo_harness.peers import identity
-    from halo_harness.remote import fleet_identity as FI
+    from halo_harness.remote import session_identity as FI
     tempfile.gettempdir()  # the module caches its root on first use: the baseline is that cached value
     real_user, real_host, sys_temp = FI._user, FI._host, tempfile.tempdir
     with _home() as state:
         other = state.parent / "rig-state"
         CI.placeholder(other)
         me = identity.harness()
-        ctx.check(f"the process's harness is you@studio, got {me.get('name')}", identity.fleet_name() == "you@studio" and me.get("name") == "you@studio")
+        ctx.check(f"the process's harness is you@studio, got {me.get('name')}", identity.harness_name() == "you@studio" and me.get("name") == "you@studio")
         ctx.check(f"its user and host read you / studio, got {me.get('user')} / {me.get('host')}", (me.get("user"), me.get("host")) == ("you", "studio"))
-        ctx.check("a rig's own home is you@studio too", identity.fleet_name(other) == "you@studio" and identity.harness(other)["host"] == "studio")
+        ctx.check("a rig's own home is you@studio too", identity.harness_name(other) == "you@studio" and identity.harness(other)["host"] == "studio")
         doc = json.loads((other / "config.json").read_text(encoding="utf-8"))
-        ctx.check(f"fleet.name is written into that home's config, got {doc}", doc.get("fleet", {}).get("name") == "you@studio")
-        ctx.check("the scoped home's config names it too", json.loads((state / "config.json").read_text(encoding="utf-8"))["fleet"]["name"] == "you@studio")
+        ctx.check(f"harness.name is written into that home's config, got {doc}", doc.get("harness", {}).get("name") == "you@studio")
+        ctx.check("the scoped home's config names it too", json.loads((state / "config.json").read_text(encoding="utf-8"))["harness"]["name"] == "you@studio")
         ctx.check(f"the temp root carries no home path, got {CI.leaks(tempfile.gettempdir())}", CI.leaks(tempfile.gettempdir()) == [])
         own = CI._saved.get("own")
     ctx.check("restore() puts the real user and host readers back", FI._user is real_user and FI._host is real_host)
@@ -132,8 +132,8 @@ def test_placeholder_stops_when_studio_would_draw_this_machine(ctx: Ctx):
         fakes.append(f"{users[0]}@studio")
     for fake in fakes:
         with _home():
-            saved = identity.fleet_name
-            identity.fleet_name = lambda home_dir=None, _n=fake: _n  # a fake: this machine's own name
+            saved = identity.harness_name
+            identity.harness_name = lambda home_dir=None, _n=fake: _n  # a fake: this machine's own name
             out, code = io.StringIO(), None
             try:
                 with contextlib.redirect_stdout(out):
@@ -141,7 +141,7 @@ def test_placeholder_stops_when_studio_would_draw_this_machine(ctx: Ctx):
             except SystemExit as e:
                 code = e.code
             finally:
-                identity.fleet_name = saved
+                identity.harness_name = saved
         lines = out.getvalue().strip().splitlines()
         ctx.check(f"exit 2 when the drawn name is this machine's ({'user@host' if '@studio' not in fake else 'user@studio'}), got {code}", code == 2)
         ctx.check("one line, the stop line, naming no real name", lines == [CI.STOP_LINE] and users[0] not in CI.STOP_LINE)

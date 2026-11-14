@@ -25,8 +25,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -145,7 +143,6 @@ def test_the_cache_and_its_refresh(ctx: Ctx):
 
 @test
 def test_the_two_cli_verbs_print_the_card(ctx: Ctx):  # 3.4.0.0 B: halo team coach left with the team file
-    from halo_harness.fleet.cli import cmd_fleet
     from halo_harness.orchestra_cli import cmd_orchestra
     from tests.helpers import coach_seed as S
     with Home() as h:
@@ -158,10 +155,6 @@ def test_the_two_cli_verbs_print_the_card(ctx: Ctx):  # 3.4.0.0 B: halo team coa
         rc, out, _ = _cli(cmd_orchestra, ["coach", S.RUN, "--json", "--repo", str(h.root)])
         ctx.check("orchestra --json", rc == 0 and json.loads(out)["suggestions"][0]["id"] == "tools-1-WebFetch")
         ctx.check("an unknown run exits 1", _cli(cmd_orchestra, ["coach", "nope", "--repo", str(h.root)])[0] == 1)
-        mission = S.mission_folder(h.state)
-        rc, out, _ = _cli(cmd_fleet, ["mission", "coach", mission.name])
-        ctx.check(f"mission: the card, got {rc} {out[:200]!r}", rc == 0 and "coach: mission run m-20261017-c0a1: 5 suggestions" in out)
-        ctx.check("an unknown mission exits 1", _cli(cmd_fleet, ["mission", "coach", "m-20261017-ffff"])[0] == 1)
 
 
 if __name__ == "__main__":

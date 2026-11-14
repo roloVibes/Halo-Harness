@@ -92,7 +92,7 @@ class HostClient:
         except ValueError:
             got = {}
         got = got if isinstance(got, dict) else {}
-        if status not in (200, 202):  # 3.3.7.0 R2: 202 = queued for the owner (fleet.allow_control: ask)
+        if status not in (200, 202):  # 3.3.7.0 R2: 202 = queued for the owner (host.allow_control: ask)
             raise HostError(str(got.get("error") or f"the host answered {status}"), status)
         self.last_seen = time.time()
         return {**got, "queued": True} if status == 202 else got

@@ -32,7 +32,7 @@ it answers. The phone records, sends, and plays. The glasses are the phone's Blu
 
 1. **Pair once.** The door is a signed route of `halo host`: the app holds a pair key the way a peer harness does.
    On the PC, `halo host pair` prints a six-word code; the app runs the same exchange `halo host join` runs
-   (`POST /host/v1/join`, the fleet protocol's code-authenticated key exchange: `halo_harness/fleet/hub_join.py`,
+   (`POST /host/v1/join`, the code-authenticated key exchange: `halo_harness/peers/hub_join.py`,
    `host/join.py`) and keeps the key in the phone's keychain. On the PC, `halo host grant <app name> control`: the
    door needs the `control` grant. The key never leaves the phone and never goes in a log.
 2. **Open the microphone.** Two ways, from the toolkit (from memory, see above):
@@ -56,7 +56,7 @@ it answers. The phone records, sends, and plays. The glasses are the phone's Blu
 ```
 POST /host/v1/voice/turn?session=<id>&voice=<name>
 Content-Type: audio/pcm;rate=16000          (16-bit little-endian mono; any rate 8,000-48,000) or audio/wav
-X-Halo-Fleet-Member / -Ts / -Nonce / -Sig   the fleet protocol's HMAC headers (halo_harness/fleet/protocol.py)
+X-Halo-Fleet-Member / -Ts / -Nonce / -Sig   the signed wire's HMAC headers (halo_harness/peers/protocol.py; the names stay)
 <the utterance's bytes>
 ```
 

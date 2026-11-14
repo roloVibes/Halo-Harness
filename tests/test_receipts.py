@@ -2,7 +2,7 @@
 (remote/receipts.py, remote/receipt_seams.py, the seams in agent/loop.py, studio/sessions_prompt_api.py).
 
 1. a prompt typed in Studio climbs sent -> delivered -> read -> replied, in that order, on a REAL session (the
-   real loop over the mock upstream, tests/helpers/fleet_rig.py): the user node the request is derived from
+   real loop over the mock upstream, tests/helpers/session_rig.py): the user node the request is derived from
    carries the receipt id and the `read` row names that node's seq; the model's input holds the text; the
    turn's `user_message` frame says via studio and carries the receipt;
 2. a retry with the same `client_id` returns the stored row and the session gets ONE turn;
@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.fleet_rig import FleetRig, gated, recorded, text_step, tool_step, wait_for  # noqa: E402
+from tests.helpers.session_rig import SessionRig, gated, recorded, text_step, tool_step, wait_for  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -55,7 +55,7 @@ def _state(rig, sid: str, rid: str) -> str:
 
 @test
 def test_the_ladder_in_order_on_a_real_session(ctx: Ctx):
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         seen: list = []
         session, controller, act = _live(rig, [recorded(text_step("Read you."), seen)], "pp-ladder")
         reader = rig.reader(act)
@@ -81,7 +81,7 @@ def test_the_ladder_in_order_on_a_real_session(ctx: Ctx):
 
 @test
 def test_a_retry_with_the_same_client_id_sends_nothing(ctx: Ctx):
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         session, controller, act = _live(rig, [text_step("Once.")], "pp-retry")
         sid = act.session_id
         body = {"cmd": "submit", "text": "PP-RETRY only once", "client_id": "pp-c2"}
@@ -97,7 +97,7 @@ def test_a_retry_with_the_same_client_id_sends_nothing(ctx: Ctx):
 
 @test
 def test_a_steer_is_read_where_it_applies(ctx: Ctx):
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         gate = threading.Event()
         notes = str(rig.cwd / "notes.md")
         steps = [gated(gate, tool_step(("Read", {"file_path": notes}, "call_r1"))), text_step("Steered and done.")]

@@ -27,7 +27,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 DOCS = REPO / "docs"
 MAP = DOCS / "README.md"
-TASKS = ("## I want to set up", "## I want to run agents", "## I want to use Studio", "## I want to run a fleet",
+TASKS = ("## I want to set up", "## I want to run agents", "## I want to use Studio", "## I want to control a session from elsewhere",
          "## I want to develop Halo")
 SPLIT = ("MODELS.md", "STUDIO.md", "SLASH-COMMANDS.md", "ARCHITECTURE.md", "COMMANDS.md")  # 3.1.1.0 R3: COMMANDS.md too
 _MAP_LINE = re.compile(r"^\s*- \[([^\]]+)\]\(([^)]+)\) \([^\n]*?\): (read this when .+)$")

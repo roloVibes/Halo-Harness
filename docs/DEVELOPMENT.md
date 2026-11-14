@@ -27,7 +27,8 @@ halo_harness/            the package
   improve/                 /improve: evidence clustering, drafting, apply
   studio/                  `halo studio`: the server, the JSON routes (one
                            `*_api.py` per area), the React shell in ui/
-  fleet/                   the hub, the relay, the panels, missions
+  live/                    this machine's sessions live: attention, caps, recording, replay
+  peers/                   another machine's models: pairing, the host door, the relay
   orchestra/               the Orchestra run pipeline and the post-run coach
   *_cli.py                 each `halo <subcommand>`'s own module
                            (orchestra_cli.py + orchestra_cli_views.py /
@@ -356,10 +357,10 @@ came (`studio/server.py` `slow_ms_from_env`, `studio/events_sse.py`), so a
 test reproduces the runner's order of events here first, then pins the fix.
 It is a test flag: never set it outside tests. `tools/capture_studio.py`
 `serve(slow_ms=...)` takes it (None passes the variable through), the
-Fleet rig's server reads it, and `chrome_driver.driver_env` scrubs `HALO_*`,
+Studio rig's server reads it, and `chrome_driver.driver_env` scrubs `HALO_*`,
 so a test puts it back in the driver's environment itself.
 `tests/test_studio_slow_box.py` runs the Roles room steps at 800 ms (where
-the held drop of 3.2.3.0's Windows runner showed to the pixel) and the Fleet
+the held drop of 3.2.3.0's Windows runner showed to the pixel) and the Live
 stop at 400 ms.
 
 ```sh
@@ -482,15 +483,14 @@ part. A test that reads a split doc reads `tests/helpers/doc_parts.py`'s
   across files would scatter one coherent state machine).
 - **A module is named for its one responsibility.** When a file grows, cut
   it where its responsibilities part and name each piece for what it does
-  (`design_artboards_api.py`, `coach_mission_rules.py`, `fleet_send.py`),
+  (`design_artboards_api.py`, `coach_mission_rules.py`, `live_send.py`),
   never `*_more.py`, `*2.py`, `*_extra*.py` or `*_rest.py`
   (`tests/test_invariants.py` fails on those). `docs/ARCHITECTURE.md`'s
-  "Module map" lists every module of studio/, fleet/, orchestra/ and team/
+  "Module map" lists every module of studio/, live/, orchestra/ and team/
   and the same test checks it against the tree: a rename or a split
   updates it. 3.1.0.0 R2 re-cut the last ones: `design_api_more.py`,
   `design_api_io.py`, `design_api_turns.py`, `flow_api_io.py`,
-  `fleet_watch_io.py`, `fleet_extras_api.py`, `fleet/cli_more.py`,
-  `fleet/mission_plan_rules.py`, `orchestra/coach_more.py`,
+  `live_handoff_api.py`, `orchestra/coach_more.py`,
   `coach_rules.py`, `coach_facts.py`, `team/spec_check.py`,
   `team/spec_stages.py`, and `orchestra_cli*.py` split by verb kind.
 - **Line endings are LF in the repo.** `.gitattributes` starts with

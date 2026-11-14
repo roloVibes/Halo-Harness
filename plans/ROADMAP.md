@@ -4738,7 +4738,7 @@ names and whether rolo's tenant has consumptive billing on (he used the Graph AP
 may be the one that works first).
 
 **The order after 3.3.15.0 (rolo 2026-11-09):** 3.3.16.0 Agents (R1 the inspector says one thing at a time + the Agents
-section, R2 the Fleet fold) -> 3.3.17.0 Copilot at work -> 3.3.18.0 Federation -> Pack trust -> the remaining Focus
+section, R2 the Fleet fold) -> 3.3.17.0 Copilot at work -> (Federation: dropped, Fleet left in 3.5.0.0) -> Pack trust -> the remaining Focus
 rounds -> mode themes (#5) + the parity audit.
 
 **3.3.15.0 L1 "Instrument, the look" BUILT and MERGED 2026-11-09 afternoon (one Opus round, worktree

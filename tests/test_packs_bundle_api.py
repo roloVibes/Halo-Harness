@@ -125,7 +125,7 @@ def test_attention_writes_a_row_the_queue_lists(ctx: Ctx):
         raw = json.loads(f.read_text(encoding="utf-8")) if f.is_file() else {}
         ctx.check(f"the row file, got {raw}", raw.get("kind") == "hello.ask" and raw.get("what") == "the bundle asks you")
         rows = []
-        until(lambda: rows.extend(r for r in s.call("GET", "fleet/attention")[1]["rows"] if r["kind"].startswith("pack:")) or rows)
+        until(lambda: rows.extend(r for r in s.call("GET", "live/attention")[1]["rows"] if r["kind"].startswith("pack:")) or rows)
         row = rows[0] if rows else {}
         ctx.check(f"the queue's row, the pack named, its keys, got {row}", row.get("kind") == "pack:studio-bundle:hello.ask"
                   and row.get("agent") == "pack studio-bundle" and row.get("label") == "hello"

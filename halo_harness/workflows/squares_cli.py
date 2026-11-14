@@ -135,7 +135,7 @@ def _show(wf, repo: Path, as_json: bool) -> int:
     print(f"  from      {wf.origin} ({wf.path})")
     print(f"  covers    {', '.join(c.covers) or '-'}")
     print(f"  lineup    {c.lineup_name() or (f'lead {bio} on {model or the_parent()}' if bio else '(the session lineup)')}")
-    print(f"  engine    {c.engine}" + (" (runs as orchestra while only this harness is here)" if c.engine == "mission" else ""))
+    print(f"  engine    {c.engine}" + (" (runs as orchestra)" if c.engine == "mission" else ""))
     print(f"  costs     {c.costs()}")
     print(f"  limits    {c.limits_chip()}")
     if wf.origin == "pack":

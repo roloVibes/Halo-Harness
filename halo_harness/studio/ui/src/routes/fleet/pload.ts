@@ -1,17 +1,16 @@
-// Feeds the Fleet panels' store (pstore.ts): the attention queue from
-// `GET fleet/attention`, refetched when the watcher's `fleet` frame (action
+// Feeds the live panels' store (pstore.ts): the attention queue from
+// `GET live/attention`, refetched when the watcher's `live` frame (action
 // `attention`, session_id null) says the count changed and every POLL_MS
-// while the tab shows; conflicts and rooms the same way; costs, health and
-// the digest on demand. The activity log and the timeline lanes are built
+// while the tab shows; conflicts and rooms the same way; costs on demand. The activity log and the timeline lanes are built
 // here from the feed: every agent's state change (read off the map's store,
 // so a GET and a frame count alike), its tool calls (ticks), its text,
-// the cards it opens, errors, the fleet's own frames and (3.2.0.0 R3) a pack's lines. Started once with
+// the cards it opens, errors and (3.2.0.0 R3) a pack's lines. Started once with
 // the map's store (sync.ts startFleet).
 import { api, ApiError } from "../../lib/api";
 import { onEvent, type FeedFrame } from "../../lib/events";
 import { allAgents, fleet, keyOf, localId } from "./store";
 import { lineOf, packOf } from "../packs/events";
-import { panels, type AttnRow, type Conflicts, type Costs, type Digest, type Health, type LogKind, type LogLine, type Seg } from "./pstore";
+import { panels, type AttnRow, type Conflicts, type Costs, type LogKind, type LogLine, type Seg } from "./pstore";
 
 const POLL_MS = 6000;
 const MAX_LOG = 600;
@@ -24,7 +23,7 @@ let pending = 0;
 
 export async function loadAttention(): Promise<void> {
   try {
-    const r = await api.get<{ rows: AttnRow[]; count: number }>("fleet/attention");
+    const r = await api.get<{ rows: AttnRow[]; count: number }>("live/attention");
     const rows = Array.isArray(r.rows) ? r.rows : [];
     panels.update((s) => ({ attention: rows, attnCount: r.count ?? rows.length, attnLoaded: true, attnError: "", attnSel: rows.some((x) => x.id === s.attnSel) ? s.attnSel : rows[0]?.id || "" }));
   } catch (e) {
@@ -34,7 +33,7 @@ export async function loadAttention(): Promise<void> {
 
 export async function loadConflicts(): Promise<void> {
   try {
-    const r = await api.get<Conflicts>("fleet/conflicts");
+    const r = await api.get<Conflicts>("live/conflicts");
     panels.update(() => ({ conflicts: { conflicts: r.conflicts || [], rooms: r.rooms || [] } }));
   } catch {
     /* the map draws without them */
@@ -43,30 +42,10 @@ export async function loadConflicts(): Promise<void> {
 
 export async function loadCosts(): Promise<void> {
   try {
-    const r = await api.get<Costs>("fleet/costs");
+    const r = await api.get<Costs>("live/costs");
     panels.update(() => ({ costs: r, costsError: "" }));
   } catch (e) {
     panels.update(() => ({ costsError: msg(e) }));
-  }
-}
-
-export async function loadHealth(refresh = false): Promise<void> {
-  panels.update(() => ({ healthBusy: true }));
-  try {
-    const r = await api.get<Health>("fleet/health", refresh ? { refresh: 1 } : undefined);
-    panels.update(() => ({ health: r, healthError: "", healthAt: Date.now(), healthBusy: false }));
-  } catch (e) {
-    panels.update(() => ({ healthError: msg(e), healthBusy: false }));
-  }
-}
-
-export async function loadDigest(sinceMs: number): Promise<Digest | null> {
-  try {
-    const r = await api.get<Digest>("fleet/digest", { since: Math.floor(sinceMs / 1000) });
-    panels.update(() => ({ digest: r, digestOpen: true }));
-    return r;
-  } catch {
-    return null;
   }
 }
 
@@ -111,21 +90,13 @@ function onFrame(f: FeedFrame): void {
     const l = lineOf(p.pack, p.kind, p.data);
     addLine(keyOf(String(f.harness || localId() || ""), "", "pack:" + p.pack), "pack", `${l.label} ${l.text}`, ts);
   }
-  else if (f.event === "fleet") {
-    const action = String(d.action || "");
-    if (action === "attention") return;
-    if (["join", "leave", "online", "offline"].includes(action)) {
-      const h = fleet.get().harnesses.find((x) => x.id === f.harness);
-      addLine(keyOf(String(f.harness || ""), "", ""), "fleet", `${h?.name || String(d.name || f.harness || "a harness")}: ${action}`, ts);
-    }
-  }
 }
 
 function tick(key: string, ts: number): void {
   panels.update((s) => ({ ticks: { ...s.ticks, [key]: [...(s.ticks[key] || []).filter((t) => ts - t < KEEP_MS), ts].slice(-400) } }));
 }
 
-/** A lane gains a segment when its agent's state changes (from GET fleet or a frame alike). */
+/** A lane gains a segment when its agent's state changes (from GET live or a frame alike). */
 function noteStates(): void {
   const now = Date.now();
   const s = panels.get();
@@ -148,7 +119,7 @@ export function startPanels(): void {
   if (panels.get().started) return;
   panels.update(() => ({ started: true }));
   onEvent("*", onFrame);
-  onEvent("fleet", (f) => {
+  onEvent("live", (f) => {
     const d = (f.data || {}) as { action?: string; count?: number };
     if (d.action !== "attention") return;
     panels.update(() => ({ attnCount: Number(d.count) || 0 }));

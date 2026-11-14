@@ -29,8 +29,8 @@ ensure_scoped_state_dir_once()
 test, TESTS = new_registry()
 
 REPO = Path(__file__).resolve().parent.parent
-BRIEF = ("lineup", "bio", "role", "tier", "block", "lane", "part", "step", "mission",
-         "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "fleet", "hub", "harness", "capability", "unit",
+BRIEF = ("lineup", "bio", "role", "tier", "block", "lane", "step",
+         "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "harness", "capability", "unit",
          "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",
          "host", "grant", "peer", "fix", "duty steward", "offline promise", "speed card", "library", "quant",
@@ -131,7 +131,7 @@ def test_fuzzy_match(ctx: Ctx):
     from halo_harness import glossary as G
     for query, want in (("lineups", "lineup"), ("Lineup", "lineup"), ("handoff", "hand-off"), ("hand-offs", "hand-off"),
                         ("hand off", "hand-off"), ("orchestra_run", "orchestra run"), ("orch", "orchestra run"),
-                        ("capabilities", "capability"), ("lanes", "lane"), ("missions", "mission"), ("tiers", "tier"),
+                        ("capabilities", "capability"), ("lanes", "lane"), ("tiers", "tier"),
                         ("packs", "pack"), ("Pack", "pack")):
         word, _ = G.find(query)
         ctx.check(f"{query!r} -> {want!r}, got {word!r}", word == want)

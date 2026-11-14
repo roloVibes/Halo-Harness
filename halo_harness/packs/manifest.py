@@ -224,8 +224,8 @@ def validate_manifest(data, *, root=None, folder_is_id: bool = False) -> "list[s
     out += _meaning_lines(data)
     from halo_harness.packs.studio_rules import studio_lines  # 3.2.0.0 R3: contributes.studio's meaning
     out += studio_lines(data, root)
-    from halo_harness.packs.fleet_rules import fleet_lines  # 3.2.0.0 R4: contributes.fleet's meaning
-    out += fleet_lines(data, root)
+    from halo_harness.packs.capability_rules import contribution_lines  # 3.2.0.0 R4: contributes.capabilities
+    out += contribution_lines(data, root)
     from halo_harness.packs.typed import typed_lines  # 3.2.0.0 R5: artifact and event schemas
     from halo_harness.packs.workflow_rules import workflow_lines  # 3.2.0.0 R5: workflows/<name>.yaml
     out += typed_lines(data, root) + workflow_lines(data, root)

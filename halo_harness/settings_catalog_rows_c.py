@@ -1,4 +1,4 @@
-"""halo_harness.settings_catalog_rows_c -- the Settings rows of Fleet, Remote, Packs, Connectors, Worktree, Update
+"""halo_harness.settings_catalog_rows_c -- the Settings rows of Remote, Packs, Connectors, Worktree, Update
 and Local (settings_catalog.py has the shape; one row per line: key, group, title, kind, default, choices, help,
 effect, secret)."""
 
@@ -7,28 +7,13 @@ from __future__ import annotations
 from halo_harness.settings_catalog import Row
 
 ROWS = [
-    Row("fleet.enabled", "remote", "Fleet on", "bool", True, (), "Every session opens a control socket and lists itself, so Studio, halo remote and Signal can see and drive it.", "next session"),
-    Row("fleet.name", "remote", "Harness name", "string", None, (), "This harness's name in the registry and on every command it sends; unset, user@host.", "next session"),
-    Row("fleet.private", "remote", "Start private", "bool", False, (), "Every session starts private: no control socket, no registry entry.", "next session"),
-    Row("fleet.share", "fleet", "Share with a hub", "enum", "events", ("status", "events", "full"), "What this harness sends a hub it joined: status, events, or everything.", "now"),
-    Row("fleet.allow_control", "remote", "Hub control", "enum", "ask", ("none", "ask", "all"), "What a hub may do to this harness's sessions: nothing, ask each time, or all.", "now"),
-    Row("fleet.allow_answers", "fleet", "Hub answers cards", "bool", False, (), "With hub control all, a hub may also answer this harness's cards.", "now"),
-    Row("fleet.share_captures", "fleet", "Share captures", "bool", False, (), "A hub's screenshot of this display stays on this disk; on, the image itself goes to the hub too.", "now"),
-    Row("fleet.hub.port", "fleet", "Hub port", "int", 7430, (), "The LAN port halo fleet serve and halo studio --fleet listen on.", "next launch"),
-    Row("fleet.caps.per_harness_usd_per_day", "remote", "Cap per harness (USD/day)", "float", None, (), "Read on the hub: past it, one harness's live sessions pause for the day; 0 or unset is no cap.", "now"),
-    Row("fleet.caps.per_project_usd_per_day", "remote", "Cap per project (USD/day)", "float", None, (), "The same for every session on one repo, on any harness.", "now"),
-    Row("fleet.caps.fleet_usd_per_day", "remote", "Cap for the fleet (USD/day)", "float", None, (), "The same for every session the hub sees.", "now"),
-    Row("fleet.attention.signal", "remote", "Attention to Signal", "bool", True, (), "Each new Fleet attention row goes to the phone when the Signal bridge is on and paired.", "now"),
-    Row("fleet.tags", "fleet", "Tags", "list", [], (), "Your own words for this harness: they show first on its chips and count double in who-can searches.", "now"),
-    Row("fleet.capabilities.hide", "fleet", "Hidden capabilities", "list", [], (), "Capabilities the catalog never lists, so no hub sees them (an MCP server, a tool, a skill, a craft app).", "now"),
-    Row("fleet.ollama.share", "fleet", "Share Ollama calls", "enum", "auto", ("auto", "all", "off"), "Send this box's ledger lines to the hub: auto, the calls to a host it does not serve itself; all; or off.", "now"),
-    Row("fleet.recall.share", "fleet", "Share recall", "bool", True, (), "This box answers recall queries from the fleet.", "now"),
-    Row("fleet.recall.hide", "fleet", "Hidden recall kinds", "list", [], (), "Memory kinds this box's recall never answers for the fleet.", "now"),
-    Row("fleet.shared_dir", "fleet", "Shared folder", "path", None, (), "A folder every machine of the fleet sees; fleet missions live there instead of being mirrored.", "now"),
-    Row("fleet.mission.prefer", "fleet", "Mission preference", "list", [], (), "Harness names, in order, that break a tie when several meet a mission part's needs.", "now"),
-    Row("fleet.mission.max_parallel", "fleet", "Mission parts at once", "int", None, (), "How many parts of one mission run at once; unset, the number of harnesses.", "now"),
-    Row("fleet.mission.max_file_mb", "fleet", "Mission file limit (MB)", "int", 25, (), "The largest file a mission folder takes or gives over the fleet protocol.", "now"),
-    Row("fleet.mission.ask_wait_min", "fleet", "Mission part's card waits (min)", "int", 30, (), "How long a mission part running here waits for an answer to a call its permission mode asks about (a card in Attention) before it ends not done.", "now"),
+    Row("control.enabled", "remote", "Control sockets on", "bool", True, (), "Every session opens a control socket and lists itself, so Studio, halo remote and Signal can see and drive it.", "next session"),
+    Row("harness.name", "remote", "Harness name", "string", None, (), "This harness's name in the registry and on every command it sends; unset, user@host.", "next session"),
+    Row("control.private", "remote", "Start private", "bool", False, (), "Every session starts private: no control socket, no registry entry.", "next session"),
+    Row("host.allow_control", "local", "Host control", "enum", "ask", ("none", "ask", "all"), "What a paired peer may do on this host (load, pull, bench its models): nothing, ask each time, or all.", "now"),
+    Row("caps.per_harness_usd_per_day", "remote", "Cap per day (USD)", "float", None, (), "Past it, this machine's live sessions pause for the day; 0 or unset is no cap.", "now"),
+    Row("caps.per_project_usd_per_day", "remote", "Cap per project (USD/day)", "float", None, (), "The same for every session on one repo.", "now"),
+    Row("attention.signal", "remote", "Attention to Signal", "bool", True, (), "Each new attention row goes to the phone when the Signal bridge is on and paired.", "now"),
     Row("remote.enabled", "remote", "Transports switch", "bool", True, (), "Every transport's switch: a pack's bridge (the signal pack's) answers and the core's notes go out only while it is on.", "now"),
     Row("packs.sources", "packs", "Pack sources", "list", None, (), "Folders holding packs and git urls of packs; halo pack install <id> takes the first that holds it.", "now"),
     Row("packs.settings.<id>", "packs", "Pack settings", "keyed", {}, (), "One pack's settings, checked against its own config schema; unset, the pack's own defaults.", "now"),
@@ -49,7 +34,7 @@ ROWS = [
     Row("host.bind", "local", "Host bind address", "string", "0.0.0.0", (), "The address halo host listens on; 0.0.0.0 is every interface of this machine.", "next launch"),
     Row("host.enabled", "local", "Host on", "bool", True, (), "Whether halo host may run on this machine; false keeps halo host serve and its service from starting.", "next launch"),
     Row("host.tail_max", "local", "Host tail lines", "int", 400, (), "The most server-log lines halo host gives a peer in one tail (prompt sizes, never a request body).", "now"),
-    Row("host.ask_ttl_s", "local", "Host ask window", "int", 600, (), "Under fleet.allow_control ask, how long a peer's queued control or manage request waits for your answer (halo host pending).", "now"),
+    Row("host.ask_ttl_s", "local", "Host ask window", "int", 600, (), "Under host.allow_control ask, how long a peer's queued control or manage request waits for your answer (halo host pending).", "now"),
     Row("host.cooldown_s", "local", "Host fix cooldown", "int", 120, (), "Seconds between two fixes on the same host and model on halo host.", "now"),
     Row("host.changes_per_hour", "local", "Host fixes per hour", "int", 10, (), "The most fixes one peer lands on halo host in an hour.", "now"),
     Row("host.verify_calls", "local", "Host verify calls", "int", 5, (), "After a fix, halo host measures this many calls before it keeps or reverts it.", "now"),

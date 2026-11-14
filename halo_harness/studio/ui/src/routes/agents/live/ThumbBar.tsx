@@ -7,13 +7,12 @@ import { useFleet } from "../../fleet/store";
 import { openRolesLive } from "../../roles/liveModel";
 import { startRoles } from "../../roles/sync";
 import { chosenSession } from "../../session/store";
-import { setScope } from "./scope";
 
 export function ThumbBar({ agents, live }: { sid: string; agents: number; live: number }) {
   const c = useScopedCounts();
   const attn = useScopedAttention().count;
   const sid = useFleet((s) => chosenSession(s)?.session_id || "");
-  const go = () => openRolesLive(sid, () => (setScope("here"), goSection("agents", "live"), startRoles()));
+  const go = () => openRolesLive(sid, () => (goSection("agents", "live"), startRoles()));
   return (
     <div className="fm-bar rlm-thumb-bar">
       <span className="mono muted fm-counts">

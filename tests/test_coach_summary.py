@@ -2,11 +2,10 @@
 beyond its card, over seeded run folders (tests/helpers/coach_seed.py):
 
 1. the run reports' coach line ("coach: N suggestions, M applied, top: ...") in
-   `orchestra/report.format_report` and the flow report, and for a mission;
-2. the Fleet digest's coach row per run the coach read;
-3. Studio's coach routes: POST <coach path>/ask, /apply (confirm false: the
+   `orchestra/report.format_report` and the flow report;
+2. Studio's coach routes: POST <coach path>/ask, /apply (confirm false: the
    preview, nothing written; true: written), /undo (409 with the reason), 405;
-4. `/coach` (the slash command) prints the card and the confirm card.
+3. `/coach` (the slash command) prints the card and the confirm card.
 Run: python -m tests.test_coach_summary
 """
 from __future__ import annotations
@@ -17,8 +16,6 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from tests.helpers import coach_names as _coach_names, coach_pack as _coach_pack  # noqa: E402,F401  (3.4.0.0 B2)
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -52,26 +49,7 @@ def test_the_coach_summary_line_and_the_core_report_without_it(ctx: Ctx):
                   summary(run) == "coach: 1 suggestion, 0 applied, top: bio `coach-deny` could not call `WebFetch`")
         CA.apply(cached(run, state_dir=h.state), "tools-1-WebFetch", run, state_dir=h.state)
         ctx.check(f"one applied, got {summary(run)!r}", summary(run).startswith("coach: 1 suggestion, 1 applied, top: "))
-        ctx.check("a mission's line", summary(S.mission_folder(h.state)).startswith("coach: 5 suggestions, 0 applied"))
         ctx.check("the empty run's line names no top", summary_line(0, 0, "") == "coach: 0 suggestions, 0 applied")
-
-
-@test
-def test_the_fleet_digest_no_longer_reads_the_coach(ctx: Ctx):
-    """3.4.0.0 B2: the digest's `coach` list stays (its shape) and is empty: the core does not read the pack's files;
-    the pack still records each run it read (runs_since)."""
-    from halo_harness.fleet import digest
-    from halo_harness.orchestra.coach_record import summary
-    from tests.helpers import coach_seed as S
-    with Home() as h:
-        run = S.orchestra_run(h.root, [S.lane(1, bio="coach-deny", denied=DENIED)])
-        summary(run)
-        from halo_harness.orchestra.coach_record import runs_since
-        d = digest.compute(h.state, 0.0, local_id="me", local_name="here")
-        mine = next(b for b in d["harnesses"] if b["local"])
-        ctx.check(f"no coach row in the core's digest, got {mine['coach']}", mine["coach"] == [])
-        ctx.check("no coach line in its text", "  coach    " not in digest.text(d))
-        ctx.check("the pack still records the run it read", [r["kind"] for r in runs_since(0.0, h.state)] == ["orchestra"])
 
 
 @test

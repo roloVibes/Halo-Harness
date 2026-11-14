@@ -21,7 +21,7 @@ def _services() -> list:
 
 def text(args: str = "") -> str:
     from halo_harness.remote.cli import SIGNAL_MOVED
-    from halo_harness.remote.fleet_identity import remote_enabled
+    from halo_harness.remote.session_identity import remote_enabled
     from halo_harness.remote.notify import listening
     from halo_harness.remote.runtime import status_line
     words = (args or "").split()

@@ -89,8 +89,8 @@ def post_verify(req):
     if not ctl.get("ok"):
         return _refused(ctl)
     if not here or host is None:
-        return 409, {"error": f"{host_name} is served by {ctl.get('via') or 'a fleet member'}: Pull, then Probe on its "
-                              "Models row (each runs on that member)"}
+        return 409, {"error": f"{host_name} is served by {ctl.get('via') or 'another machine'}: Pull, then Probe on its "
+                              "Models row (each runs on that machine)"}
     role = str(b.get("role") or "").strip()
     return 200, {**J.start(host, name, _pub(req), state_dir=req.state_dir, role=role),
                  "cli": f"halo models pull {name} --host {host_name} && halo models probe {name} --host {host_name}"}

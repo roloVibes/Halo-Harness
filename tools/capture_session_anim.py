@@ -1,6 +1,6 @@
 """tools/capture_session_anim.py -- the animated captures of Session and Roles
 for the front page (Halo 3.1.5.0 R3), through headless Chrome on the driver
-base over tests/helpers/studio_fleet_rig.py plus three extra agents
+base over tests/helpers/studio_session_rig.py plus three extra agents
 (tests/helpers/studio_live_rig.py) and scripted activity
 (tools/capture_session_scenes.py): a frame every ~250 ms for ~7 s, written
 as a looping GIF with Pillow (1500 x 900, at most 3 MB), and the stills.
@@ -142,7 +142,7 @@ def session(c, rig, lv, out: Path, seconds: float, every: float) -> list:
 def roles(c, rig, lv, out: Path, seconds: float, every: float) -> list:
     from capture_identity import guard_page
     from capture_session_scenes import roles_scene
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     open_roles(c, rig, wide=True)
     guard_page(c, "roles live")
     glyph = "document.querySelector('[data-testid=\"roles-card\"][data-agent=\"implementer\"] [data-testid=\"roles-card-glyph\"]')"
@@ -198,10 +198,10 @@ def main(argv=None) -> int:
     if not find_chrome():
         print(json.dumps({"skip": "no Chrome found"}))
         return 2
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
+    from tests.helpers.studio_session_rig import StudioSessionRig
     from tests.helpers.studio_live_rig import Live
     placeholder()
-    with StudioFleetRig() as rig:
+    with StudioSessionRig() as rig:
         rig.full = False  # 3.3.2.0 R3: the pictures show the quiet arrangement (each names the panels it opens)
         placeholder(rig.state)  # the rig's own home: you@studio
         rig.rail = ""  # 3.3.2.0 R1: the pictures show Studio as it opens, the icon rail

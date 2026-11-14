@@ -13,9 +13,9 @@ paragraph each) and the captures under `docs/media/` (`hero.png`, `auto-mode.png
 ## What Studio is
 
 A browser console for a running agent harness. One window, an icon rail of sections on the left, a header, a status bar,
-and a page of panels per section. Ten sections: **Session** (this session live: the Map, Live, Cost, Agent, Activity,
+and a page of panels per section. Nine sections: **Session** (this session live: the Map, Live, Cost, Agent, Activity,
 Attention, Prompt), **Team** (the lineup plan), **Roles** (the lineup canvas with a Plan | Live switch -- Live is the real
-agent tree), **Fleet** (every halo on the LAN, missions, hand-offs), **Design**, **Orchestra** (a goal, a plan, parallel
+agent tree), **Design**, **Orchestra** (a goal, a plan, parallel
 workers, a merge, a report), **Packs** (the Pack Manager), **Setup** (pages that end in a running halo), **Settings** (every
 config key from one catalog, the Themes page), **Local** (GPU and VRAM live, hosts, models, the library with a fit badge,
 Hugging Face, benchmarks, the steward). The audience is one person running agents on their own hardware who wants to see

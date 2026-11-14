@@ -1,6 +1,6 @@
 """tests.test_supervise_replan_rows -- Halo 3.1.8.0 R2: the replan's rows and
 lines. The goal_replan decision kind (supervise/decisions.py) and its attention
-row (fleet/supervise_attention.py via fleet/attention.build, studio/fleet_answer,
+row (fleet/supervise_attention.py via fleet/attention.build, studio/live_answer,
 fleet/push), a replan's goal_plan row, a row whose goal moved on, "replanned N
 times" in `halo supervise status`, `halo goal show` and the run report, and
 `halo goal add --replan`. No model is called.
@@ -8,8 +8,6 @@ times" in `halo supervise status`, `halo goal show` and the run report, and
 Run: python -m tests.test_supervise_replan_rows
 """
 from __future__ import annotations
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 import contextlib
 import io
@@ -62,7 +60,7 @@ def test_the_goal_replan_kind_and_its_attention_row(ctx: Ctx):
         from halo_harness.live import attention
         from halo_harness.live.push import PUSH_KINDS
         from halo_harness.live.supervise_attention import open_target
-        from halo_harness.studio.fleet_answer import SUPERVISE
+        from halo_harness.studio.live_answer import SUPERVISE
         from halo_harness.supervise import decisions
         row = decisions.park(e.state_dir, "goal_replan", "g-9", "replan-1", "Goal g-9: the lead's new plan failed the "
                              "check twice", "job-5 is a lane left and the plan drops it", run_dir="/x/.halo/orchestra/r-1",
@@ -89,20 +87,20 @@ def test_the_goal_replan_kind_and_its_attention_row(ctx: Ctx):
 
 @test
 def test_studio_serves_and_answers_a_goal_replan_row(ctx: Ctx):
-    """StudioFleetRig: GET fleet/attention serves the row with its own keys; r (keep the old plan) with a why
+    """StudioSessionRig: GET fleet/attention serves the row with its own keys; r (keep the old plan) with a why
     is written into the decision file for the supervisor."""
-    from tests.helpers.studio_fleet_rig import StudioFleetRig
-    with StudioFleetRig() as rig:
+    from tests.helpers.studio_session_rig import StudioSessionRig
+    with StudioSessionRig() as rig:
         from halo_harness.supervise import decisions
         run_dir = rig.state / "orchestra" / "20261021-000000-bbbb"
         run_dir.mkdir(parents=True, exist_ok=True)
         row = decisions.park(rig.state, "goal_replan", "g-def", "replan-1", "Goal g-def: the lead's new plan failed the "
                              "check twice", "job-5 is a lane left and the plan drops it", run_dir=str(run_dir), replan=1)
-        status, body = rig.api("GET", "fleet/attention")
+        status, body = rig.api("GET", "live/attention")
         got = [r for r in body["rows"] if r["kind"] == "goal_replan"]
         ctx.check(f"the goal_replan row is served with its keys, got {[r['kind'] for r in body['rows']]}",
                   status == 200 and len(got) == 1 and got[0]["keys"].get("r") == "keep the old plan")
-        s_ans, b_ans = rig.api("POST", "fleet/attention/answer", {"id": got[0]["id"], "key": "r", "text": "keep it"})
+        s_ans, b_ans = rig.api("POST", "live/attention/answer", {"id": got[0]["id"], "key": "r", "text": "keep it"})
         saved = decisions.read(rig.state, row["id"]) or {}
         ctx.check(f"r with a why is written into the decision file, got {s_ans} {b_ans}",
                   s_ans == 200 and (saved.get("answer") or {}).get("key") == "r" and saved["answer"]["text"] == "keep it")

@@ -66,19 +66,18 @@ def test_the_catalog_and_fresh_values(ctx: Ctx):
     with _Env() as e:
         status, cat = e.call("GET", "settings/catalog")
         ctx.check(f"200, got {status}", status == 200)
-        # 3.3.16.1: Studio; 3.4.0.0 B2: Coach and improve left (From packs only with rows); C: the Fleet group (and its
-        # rows) only while the fleet pack runs
-        ctx.check(f"the groups and every row, got {len(cat.get('rows', []))}", len(cat["rows"]) == len(shown()) < len(rows())
-                  and len(cat["groups"]) == 16 and not any(r["group"] == "fleet" for r in cat["rows"]))
-        fe = next(r for r in cat["rows"] if r["key"] == "fleet.enabled")
+        # 3.3.16.1: Studio; 3.4.0.0 B2: Coach and improve left (From packs only with rows); 3.5.0.0: no Fleet group
+        ctx.check(f"the groups and every row, got {len(cat.get('rows', []))} {len(cat.get('groups', []))}",
+                  len(cat["rows"]) == len(shown()) <= len(rows()) and not any(r["group"] == "fleet" for r in cat["rows"]))
+        fe = next(r for r in cat["rows"] if r["key"] == "control.enabled")
         ctx.check(f"a row's shape, got {fe}", fe["kind"] == "bool" and fe["default"] is True and fe["page"] == "Settings -> Remote"
                   and fe["effect"] == "next session" and fe["effect_words"] == "takes effect in the next session" and fe["help"])
         status, v = e.call("GET", "settings/values")
         vals = v["values"]
         ctx.check(f"a value per row, got {len(vals)}", status == 200 and set(vals) == {r.key for r in rows()})
         ctx.check("nothing is set on a fresh home", not any(x["set"] for x in vals.values() if "entries" not in x))
-        ctx.check(f"the default beside the value, got {vals['fleet.share']}", vals["fleet.share"] == {
-            "value": None, "set": False, "default": "events", "masked": False, "cli": "halo config set fleet.share events"})
+        ctx.check(f"the default beside the value, got {vals['control.private']}", vals["control.private"] == {
+            "value": None, "set": False, "default": False, "masked": False, "cli": "halo config set control.private false"})
         prov = vals["providers.<name>.enabled"]["entries"]
         ctx.check(f"a keyed row lists its known entries unset, got {[p['name'] for p in prov]}",
                   "openrouter" in [p["name"] for p in prov] and not any(p["set"] for p in prov))
@@ -105,10 +104,10 @@ def test_masked_values_never_leave(ctx: Ctx):
 @test
 def test_set_by_kind(ctx: Ctx):
     with _Env() as e:
-        for key, value, want in (("fleet.enabled", False, False), ("fleet.hub.port", "7431", 7431), ("fleet.share", "full", "full"),
-                                 ("fleet.tags", ["gpu", "studio"], ["gpu", "studio"]), ("supervise.replan_forecast", 2.5, 2.5),
+        for key, value, want in (("control.enabled", False, False), ("caps.per_harness_usd_per_day", "2.5", 2.5),
+                                 ("supervise.replan_forecast", 2.5, 2.5),
                                  ("openai.dialect_overrides", '{"gpt-5": "responses"}', {"gpt-5": "responses"}),
-                                 ("fleet.name", "  me@box  ", "me@box"), ("intro", "off", False)):
+                                 ("harness.name", "  me@box  ", "me@box"), ("intro", "off", False)):
             status, got = e.call("POST", "settings/set", {"key": key, "value": value})
             ctx.check(f"{key}: 200 and the coerced value, got {status} {got.get('value')!r} {got.get('problems')}",
                       status == 200 and got["value"] == want and got["set"] is True)
@@ -116,7 +115,7 @@ def test_set_by_kind(ctx: Ctx):
             ctx.check(f"{key}: config.json has {want!r}", walk(e.config(), key) == want)
         ctx.check(f"the answer says when it takes effect, got {got.get('line')!r}", got["line"] == "intro saved: takes effect on the next launch"
                   and got["effect"] == "next launch" and got["cli"] == "halo config set intro false")
-        ctx.check("the siblings under fleet stay", e.config()["fleet"]["share"] == "full" and e.config()["fleet"]["hub"]["port"] == 7431)
+        ctx.check("the siblings under control stay", e.config()["control"]["enabled"] is False and e.config()["harness"]["name"] == "me@box")
         status, got = e.call("POST", "settings/set", {"key": "connectors.gmail.enabled", "value": False})
         ctx.check(f"a keyed entry, got {status} {got.get('entry', {}).get('entries')}", status == 200 and e.config()["connectors"]["gmail"] == {"enabled": False}
                   and got["entry"]["entries"] == [{"name": "gmail", "key": "connectors.gmail.enabled", "value": False, "set": True}])
@@ -131,19 +130,17 @@ def test_set_by_kind(ctx: Ctx):
 @test
 def test_refusals_write_nothing(ctx: Ctx):
     with _Env() as e:
-        e.call("POST", "settings/set", {"key": "fleet.share", "value": "status"})
+        e.call("POST", "settings/set", {"key": "control.private", "value": True})
         before = (e.state_dir / "config.json").read_bytes()
-        cases = (({"key": "fleet.hub.port", "value": "lots"}, "fleet.hub.port: 'lots' is not a whole number"),
-                 ({"key": "fleet.enabled", "value": "maybe"}, "fleet.enabled: 'maybe' is not true or false"),
-                 ({"key": "fleet.share", "value": "everything"}, "fleet.share: 'everything' is not one of status, events, full"),
-                 ({"key": "fleet.tags", "value": {"a": 1}}, "fleet.tags: {'a': 1} is not a list"),
+        cases = (({"key": "local.min_resident_s", "value": "lots"}, "local.min_resident_s: 'lots' is not a number"),
+                 ({"key": "control.enabled", "value": "maybe"}, "control.enabled: 'maybe' is not true or false"),
                  ({"key": "openai.dialect_overrides", "value": "{not json"}, "openai.dialect_overrides: not valid JSON"),
                  ({"key": "no.such.key", "value": 1}, "no.such.key: not a config key Settings knows"),
                  ({"key": "theme_scene", "value": "x"}, "theme_scene: removed in 3.1.5.0 with the game themes, the key is ignored"),
                  ({"key": "theme", "value": "doom"}, "not a valid theme name: 'doom' (the palettes: claude-dark, claude-light, holo"),
                  ({"key": "connectors.<slug>.enabled", "value": True}, "connectors.<slug>.enabled: name the entry"),
                  ({"key": "ollama.hosts[none].ssh", "value": "me@box"}, "ollama.hosts has no entries yet"),
-                 ({"key": "fleet.name", "value": ""}, "fleet.name: needs a value"),
+                 ({"key": "harness.name", "value": ""}, "harness.name: needs a value"),
                  ({"value": 1}, "the body needs key"))
         for body, want in cases:
             status, got = e.call("POST", "settings/set", body)
@@ -156,15 +153,15 @@ def test_refusals_write_nothing(ctx: Ctx):
 @test
 def test_unset_brings_the_default_back(ctx: Ctx):
     with _Env() as e:
-        e.call("POST", "settings/set", {"key": "fleet.enabled", "value": False})
+        e.call("POST", "settings/set", {"key": "control.enabled", "value": False})
         e.call("POST", "settings/set", {"key": "model", "value": "or:mock/alpha"})
-        status, got = e.call("POST", "settings/unset", {"key": "fleet.enabled"})
+        status, got = e.call("POST", "settings/unset", {"key": "control.enabled"})
         ctx.check(f"200, set false, the default back, got {status} {got}", status == 200 and got["set"] is False and got["default"] is True
-                  and got["line"] == "fleet.enabled back to its default: takes effect in the next session")
+                  and got["line"] == "control.enabled back to its default: takes effect in the next session")
         ctx.check(f"the key and the section it emptied are gone, got {e.config()}", e.config() == {"model": "or:mock/alpha"})
         status, v = e.call("GET", "settings/values")
-        ctx.check("the values say unset", v["values"]["fleet.enabled"]["set"] is False)
-        status, got = e.call("POST", "settings/unset", {"key": "fleet.enabled"})
+        ctx.check("the values say unset", v["values"]["control.enabled"]["set"] is False)
+        status, got = e.call("POST", "settings/unset", {"key": "control.enabled"})
         ctx.check("an unset key unsets again", status == 200 and got["set"] is False)
         e.call("POST", "settings/set", {"key": "ollama.hosts", "value": [{"name": "lan", "url": "http://192.0.2.10:11434", "ssh": "me@box"}]})
         status, got = e.call("POST", "settings/unset", {"key": "ollama.hosts[lan].ssh"})

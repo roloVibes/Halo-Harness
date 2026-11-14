@@ -69,7 +69,7 @@ class _BaseHandle:
     def _resolve_permission(self, request_id: str, reply: dict) -> bool:
         return self.session.resolve_permission(request_id, _decision(reply))
 
-    def fleet_shutdown(self, text: str) -> None:
+    def control_shutdown(self, text: str) -> None:
         """`shutdown` (3.0.5.0): every agent already ends at its next tool
         boundary (agent/agent_inbox.py); this closes the session once the
         turn is over. Subclasses say how (`_close_after_shutdown`)."""
@@ -214,7 +214,7 @@ class _BaseHandle:
 
 def _live_agents(session) -> int:
     """Sub-agents queued, running, waiting or paused right now (3.0.5.0 Fleet)."""
-    tree = getattr(session, "_fleet_tree", None)
+    tree = getattr(session, "_agent_tree", None)
     try:
         return tree.live_count() if tree is not None else 0
     except Exception:

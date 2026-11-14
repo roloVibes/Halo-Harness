@@ -28,9 +28,9 @@ export function toggleTick(key: string): void {
   compare.update((s) => ({ ticked: s.ticked.includes(key) ? s.ticked.filter((k) => k !== key) : [...s.ticked, key].slice(-2) }));
 }
 
-/** The refs Compare would read from the ticks (missions left out), and whether a mission is ticked. */
-export function tickedRefs(ticked: string[]): { refs: string[]; mission: boolean } {
-  return { refs: ticked.filter((k) => !k.startsWith("mission:")), mission: ticked.some((k) => k.startsWith("mission:")) };
+/** The refs Compare reads from the ticks. */
+export function tickedRefs(ticked: string[]): { refs: string[] } {
+  return { refs: ticked };
 }
 
 let asking = 0;

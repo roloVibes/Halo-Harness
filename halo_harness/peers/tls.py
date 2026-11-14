@@ -2,7 +2,7 @@
 client side (Halo 3.0.5.0 "Fleet" round R2).
 
 TLS is on when the `cryptography` package is importable on the hub (the
-`halo-harness[fleet]` extra): the first `serve` writes `cert.pem` and
+`halo-harness[tls]` extra): the first `serve` writes `cert.pem` and
 `key.pem` (0600, an EC P-256 key, ten years) under `<home>/fleet/hub/`, and
 its SHA-256 fingerprint (of the DER bytes) goes into the pair code's QR and
 the join reply. A joiner needs only the standard library: it connects
@@ -107,6 +107,6 @@ def check_pin(sock, expected: Optional[str]) -> str:
     """The peer's fingerprint; PinMismatch when `expected` is set and differs."""
     got = peer_fingerprint(sock)
     if expected and got.lower() != str(expected).lower():
-        raise PinMismatch(f"the hub's certificate changed (pinned {short(expected)}, got {short(got)}); "
-                          "`halo fleet leave` and join again if the hub was reinstalled")
+        raise PinMismatch(f"the host's certificate changed (pinned {short(expected)}, got {short(got)}); "
+                          "`halo host join` again if the host was reinstalled")
     return got

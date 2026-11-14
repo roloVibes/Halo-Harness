@@ -294,8 +294,8 @@ halo explain --json tier     # {query, word, text, closest}
 ```
 
 One paragraph per word Halo uses (lineup, bio, role, tier, team, member,
-block, stage, lane, part, step, mission, gate, claim, hand-off, plan,
-coach, orchestra run, fleet, hub, harness, capability, unit, pack, guided
+block, stage, lane, step, gate, claim, hand-off, plan,
+coach, orchestra run, harness, capability, unit, pack, guided
 first run), from
 [GLOSSARY.md](GLOSSARY.md): the same text `/explain` shows in the TUI and
 Studio's Glossary lists. An unknown word names the closest ones, exit 1.

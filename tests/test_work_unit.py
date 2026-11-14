@@ -19,8 +19,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
@@ -80,33 +78,6 @@ def test_a_lane_round_trips_byte_identical(ctx: Ctx):
 
 
 @test
-def test_a_part_reads_as_a_unit(ctx: Ctx):  # 3.4.0.0 B: a team stage left with the team file
-    from tests.helpers.coach_seed import mission_folder
-    import tempfile
-    root = Path(tempfile.mkdtemp(prefix="work-kinds-"))
-    from halo_harness.work.store import UnitStore
-    # 3.1.4.0: a flow run folder is no run kind any more; 3.4.0.0 B: nor a team run's board.json
-    flows = root / "flows" / "runs" / "20261017-120500-f10a"
-    flows.mkdir(parents=True)
-    (flows / "flow.json").write_text("{}", encoding="utf-8")
-    ctx.check("a leftover flow run folder is no unit store", _not_a_run(UnitStore, flows))
-    board = root / ".halo" / "team" / "20261017-121000-7ea0"
-    board.mkdir(parents=True)
-    (board / "board.json").write_text("{}", encoding="utf-8")
-    ctx.check("a leftover team run folder is no unit store", _not_a_run(UnitStore, board))
-    mission_dir = mission_folder(root)
-    mstore = UnitStore(mission_dir)
-    mrows = mstore.rows()
-    ctx.check(f"mission: four part units, each a path-claim unit, got {[r['unit'] for r in mrows]}",
-              mstore.kind == "part" and [r["unit"] for r in mrows] == ["1", "2", "3", "4"]
-              and mstore.need("1").claims["mode"] == "path")
-    # a part writes back without changing mission.json's updated stamp
-    doc_before = (mission_dir / "mission.json").read_bytes()
-    mstore.write(mstore.unit("1"))
-    ctx.check("a part written back unchanged leaves mission.json as it was", (mission_dir / "mission.json").read_bytes() == doc_before)
-
-
-@test
 def test_halo_work_and_the_route(ctx: Ctx):
     import io
     from contextlib import redirect_stdout
@@ -139,40 +110,6 @@ def test_halo_work_and_the_route(ctx: Ctx):
               dispatch_work(Request("POST", f"work/orchestra/{run_dir.name}", {}, {}, repo, repo))[0] == 405
               and dispatch_work(Request("GET", "work/orchestra/nope", {}, {}, repo, repo))[0] == 404
               and dispatch_work(Request("GET", "roles", {}, {}, repo, repo)) is None)
-
-
-@test
-def test_a_delegated_units_harness_is_in_the_row_the_table_and_the_route(ctx: Ctx):
-    import io
-    import tempfile
-    from contextlib import redirect_stdout
-    from halo_harness.studio.api import Request
-    from halo_harness.studio.work_api import dispatch_work
-    from halo_harness.work.report import table
-    from halo_harness.work.store import UnitStore
-    from tests.helpers.coach_seed import mission_folder
-    root = Path(tempfile.mkdtemp(prefix="work-harness-"))
-    mission_dir = mission_folder(root)
-    mrows = {r["unit"]: r for r in UnitStore(mission_dir).rows()}
-    ctx.check(f"a part names the harness it ran on, got {[(k, r['harness']) for k, r in mrows.items()]}",
-              mrows["2"]["harness"] == "kali" and mrows["1"]["harness"] == "hub"
-              and UnitStore(mission_dir).need("2").refs["harness"] == "h-kali")
-    text = table([mrows["2"], dict(mrows["1"], harness=None)])
-    ctx.check(f"halo work's table has a harness column, a local unit reads here: {text!r}",
-              "harness" in text.splitlines()[0] and "kali" in text and " here " in text)
-    from halo_harness.work_cli import cmd_work
-    out = io.StringIO()
-    with redirect_stdout(out):
-        rc = cmd_work([str(mission_dir), "--json"], repo=root)
-    import json
-    units = {u["unit"]: u for u in json.loads(out.getvalue())["units"]}
-    ctx.check("halo work --json carries it", rc == 0 and units["2"]["harness"] == "kali")
-    status, body = dispatch_work(Request("GET", f"work/mission/{Path(mission_dir).name}", {}, {}, root,
-                                         Path(mission_dir).parent.parent.parent))
-    got = {u["unit"]: u["harness"] for u in body.get("units") or []}
-    ctx.check(f"GET work/mission/<id> carries it, got {status} {got}", status == 200 and got.get("2") == "kali")
-    ctx.check("GET work/team/<run> is no route any more (3.4.0.0 B)",
-              dispatch_work(Request("GET", "work/team/20261017-121000-7ea0", {}, {}, root, root)) is None)
 
 
 if __name__ == "__main__":

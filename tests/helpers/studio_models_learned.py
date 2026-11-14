@@ -1,6 +1,6 @@
 """tests.helpers.studio_models_learned -- Auto learns, in Studio (Halo 3.1.9.0
 R3) in headless Chrome on the driver base, over tests/helpers/
-studio_fleet_rig.py with its `team:` cleared (the default `auto` lineup in
+studio_session_rig.py with its `team:` cleared (the default `auto` lineup in
 use), R1's fixture catalog in every provider's cache
 (tests/helpers/catalog_facts_seed.py) and the seeded outcomes fixture
 tests/fixtures/outcomes/learn-roster.jsonl (or:v/ears code 1/4 and
@@ -70,7 +70,7 @@ def _struck(c) -> list:
 def pick_words(c, rig) -> dict:
     """The live coder's pill, its Live tab line and its spawn line carry what was learned."""
     from halo_harness.models_auto import pick
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     from tests.helpers.studio_live_rig import Live
     chosen = pick(rig.state, rows=PICK_ROWS, needs=["tools"], band="high", main_ref="or:mock/main", kind="code", role="coder")
     out: dict = {"reason": chosen.reason, "picked": chosen.ref}
@@ -98,7 +98,7 @@ def pick_words(c, rig) -> dict:
 
 def picker(c, rig) -> dict:
     """The bio form's picker: the learned chips, the "learned for" select, the strikes."""
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     out: dict = {}
     c.go(rig.url("roles", "&view=workspace&again=1"))
     c.wait(f"!!{card('auto-coder')}", 40)
@@ -138,8 +138,8 @@ class LearnedDriver(Driver):
         from halo_harness.theme import unset_config_value
         from tests.helpers.catalog_facts_seed import seed
         from tests.helpers.outcomes_rig import seed_fixture
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             unset_config_value("team")  # nothing names a lineup: the default auto lineup is in use
             seed(rig.state)  # every provider's cache, the fixture keys in this (the server's) process env
             seed_fixture(rig.state, "learn-roster")

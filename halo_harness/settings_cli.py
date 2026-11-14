@@ -72,7 +72,7 @@ def cmd_settings(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo settings", description="Open Halo Studio on its Settings section: "
                                      "every ~/.halo/config.json key, one page per group, each with its help, its "
                                      "default and its halo config set line.")
-    parser.add_argument("group", nargs="?", default="", help="the group whose page opens (fleet, ollama, ...; --list names them)")
+    parser.add_argument("group", nargs="?", default="", help="the group whose page opens (remote, ollama, ...; --list names them)")
     parser.add_argument("--terminal", action="store_true", help="print the group's keys here (key = value (default ...)) instead of opening Studio")
     parser.add_argument("--list", action="store_true", help="print the groups and how many keys each holds")
     args = parser.parse_args(argv)

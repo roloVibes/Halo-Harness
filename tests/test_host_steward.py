@@ -4,7 +4,7 @@ a fake host and a fake Ollama (tests/helpers/host_act_rig.ActRig) and a fake mod
 1. `on`: a separate process (the spawn seam sees `halo host steward run`), steward.json with its pid and model, the
    switch on, its own peer record (duty, the control grant), its model's profile at keep_alive 2m;
 2. a pass: the host's finding -> the cited op (`control/set_num_ctx`, evidence.finding) -> verified and kept; the
-   audit line names the finding; fleet.allow_control: ask does not queue the owner's own steward; a note per pass;
+   audit line names the finding; host.allow_control: ask does not queue the owner's own steward; a note per pass;
 3. eviction: a peer's warm of a model that needs the room unloads the steward's model first;
 4. `off`: no process, no peer record, the switch off; `status` says so; `run` with the switch off does no pass.
 Run: python -m tests.test_host_steward

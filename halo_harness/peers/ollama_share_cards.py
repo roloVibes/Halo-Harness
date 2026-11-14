@@ -132,6 +132,6 @@ def take_fleet(reply, home) -> int:
     from halo_harness.ollama_steward.fingerprints import take
     if not isinstance(reply, dict) or not isinstance(reply.get("fingerprints"), list):
         return 0
-    me = identity.fleet_name(home)
+    me = identity.harness_name(home)
     rows = [fp for fp in reply["fingerprints"] if isinstance(fp, dict) and not str(fp.get("host") or "").startswith(f"{me}:")]
     return take(home, str(reply.get("fleet_from") or "hub"), rows)

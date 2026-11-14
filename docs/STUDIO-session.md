@@ -153,7 +153,7 @@ box; it registers a moment later and shows on Agents -> Live and on the Map as a
 
 You drive it from the Prompt panel exactly as a terminal session: a turn, a `/` command, Queue it and Steer while a
 turn runs. **Its asks wait for you there** -- a permission, a question, a plan, an approval shows in the panel with
-the card's buttons and the turn holds until you answer. With no Studio page open, the Fleet attention row says
+the card's buttons and the turn holds until you answer. With no Studio page open, the Attention row says
 "waiting on you in Studio", so whoever opens Studio next sees it.
 
 **Closing the tab does not end it**; nor does stopping Studio. The Prompt header of a session with no terminal has
@@ -186,7 +186,7 @@ lines). The same answer comes from `/why [turn]` in the TUI and `halo session po
 `tests/test_remote_submit.py`, `tests/test_receipts.py`, `tests/test_sessions_api_prompt.py`);
 3.3.11.0 R2 a session without a terminal: `NewSession.tsx`, `studio/sessions_new_api.py`, `halo_harness/headless_session.py`
 (tests: `tests/test_studio_headless.py` in headless Chrome, `tests/test_sessions_new_api.py`, `tests/test_headless_session.py`,
-`tests/test_fleet_attention_headless.py`);
+`tests/test_attention_headless.py`);
 `halo_harness/session_trace.py` (the trace),
 `session_trace_cli.py` (`halo session export`), `studio/sessions_api.py`
 (the route), `studio/postmortem_api.py` (Why this answer?). Tests: `tests/test_postmortem.py`, `tests/test_session_trace.py`,
@@ -196,7 +196,7 @@ lines). The same answer comes from `/why [turn]` in the TUI and `halo session po
 
 (3.3.6.0 R6.) Ctrl+V with an image on the clipboard, or an image file dropped on the Live column's Steer box, becomes a
 chip under it: the file name, its width x height and size, and a remove button; one image per steer, 5 MB at most.
-Send posts the steer with it (`fleet/<harness>/<sid>/command {cmd: steer, text, image: {media_type, data_b64}}`):
+Send posts the steer with it (`live/<harness>/<sid>/command {cmd: steer, text, image: {media_type, data_b64}}`):
 Studio writes the PNG to the session's images folder and the control socket's steer carries its path; the session
 builds the same blocks the TUI's paste builds, its log keeps `image_path` only, and a steer sent while the turn works
 lands at the steer's safe point. The **Screenshot** button in the Live header captures the screen of the machine the

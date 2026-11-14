@@ -1,0 +1,11 @@
+capabilities: [__ID__.work]
+contributes:
+  capabilities:
+    capabilities:
+      - name: __ID__.work
+        description: Drafts and checks __NAME__'s work on a machine that runs the pack
+        requires:
+          runtimes: [python]
+        capacity: {parallel: 1}
+    inspector:
+      - {label: "__NAME__: what the work needs", source: capabilities/notes.md}

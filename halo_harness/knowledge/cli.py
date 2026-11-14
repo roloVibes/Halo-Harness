@@ -8,7 +8,6 @@ docs/COMMANDS-supervise.md "halo knowledge", docs/KNOWLEDGE.md).
     halo knowledge forget <id> [--json]
     halo knowledge prune --kind gate|finding|decision --older-than 7d [--project .|all|NAME] [--dry-run] [--yes] [--json]
     halo knowledge supersede <id> "<title>" [--body FILE|-] [--evidence L] [--alternative A] [--tag T] [--json]
-    halo knowledge fetch <harness> <id> | <harness> --all finding|decision [--json]
 
 3.3.16.2: `--kind gate` is a gate's records (by: gate); `--project .` the
 folder's project (its git root's name), `all` every one; `prune` prints what
@@ -16,8 +15,7 @@ it would remove and the count, and removes them only with `--yes`.
 `--evidence`, `--alternative` and `--tag` repeat. `add` and `supersede`
 write `by: user`; `list` leaves superseded entries out unless `--all`;
 `show` adds "reused by" (the agent tasks whose evidence cites the id,
-outcomes.jsonl). Exit 0 done, 1 nothing there / refused, 2 a usage error,
-3 no hub to fetch through.
+outcomes.jsonl). Exit 0 done, 1 nothing there / refused, 2 a usage error.
 """
 
 from __future__ import annotations
@@ -26,7 +24,7 @@ import argparse
 import json
 import sys
 
-VERBS = ("add", "list", "show", "search", "forget", "supersede", "fetch", "prune")
+VERBS = ("add", "list", "show", "search", "forget", "supersede", "prune")
 KIND_CHOICES = ("gate", "finding", "decision")
 
 
@@ -64,10 +62,6 @@ def _parser() -> argparse.ArgumentParser:
     sup = sub.add_parser("supersede", help="write a new entry that replaces an older one")
     sup.add_argument("id")
     _writes(sup)
-    fe = sub.add_parser("fetch", help="take a fleet member's entry (or every one of a kind) through the hub")
-    fe.add_argument("harness", help="its name or id (halo fleet who)")
-    fe.add_argument("id", nargs="?", help="the entry id (halo recall --fleet shows it as ref)")
-    fe.add_argument("--all", choices=("finding", "decision"), metavar="KIND", help="every current entry of this kind")
     for sp in sub.choices.values():
         sp.add_argument("--json", action="store_true", help="print JSON")
     return p
@@ -121,22 +115,6 @@ def _write(a, verb: str) -> int:
                 + (f" (confidence {e['confidence']})" if e.get("confidence") else ""))
 
 
-def _fetch(a) -> int:
-    from halo_harness.packs import fleet_door  # 3.4.0.0 C: knowledge across the fleet is the fleet pack's
-    share = fleet_door.module("fleet/knowledge_share.py")
-    if share is None:
-        print(f"halo knowledge fetch: {fleet_door.line()}", file=sys.stderr)
-        return 2
-    rc, out = share.fetch(a.harness, a.id or "", kind=a.all or "", all_kind=bool(a.all and not a.id))
-    if rc != 0 and not a.json:
-        print(f"halo knowledge fetch: {out.get('error')}", file=sys.stderr)
-        return rc
-    text = (f"fetched {len(out.get('written') or [])} from {out.get('from')}: " + ", ".join(out.get("written") or [])
-            + (f"; already here: {', '.join(out['skipped'])}" if out.get("skipped") else "")
-            + (f"; {out['left_out']} left out (over 256 KB)" if out.get("left_out") else ""))
-    return _out(a, out, text, rc)
-
-
 def cmd_knowledge(argv: list) -> int:
     from halo_harness.knowledge import store
     p = _parser()
@@ -146,8 +124,6 @@ def cmd_knowledge(argv: list) -> int:
         return 2
     if a.verb in ("add", "supersede"):
         return _write(a, a.verb)
-    if a.verb == "fetch":
-        return _fetch(a)
     if a.verb in ("list", "prune"):
         from halo_harness.knowledge.curate_cli import list_or_prune
         return list_or_prune(a, _out)

@@ -1,6 +1,6 @@
 """tests.test_quit_leaves_own_studio -- Halo 3.4.1.1 defect 48: a session's quit stops only what that session
-started. A Studio the owner started on its own (`halo studio --fleet`: members joined its hub) is in studio.json
-only, owned by no session, and the last session's quit leaves it -- and its hub -- answering. A Studio a session
+started. A Studio the owner started on its own (`halo studio`) is in studio.json only, owned by no session, and
+the last session's quit leaves it answering. A Studio a session
 started for itself (studio/launch.launch_detached from inside a session) is that session's and ends with it; one a
 shell command started (`halo replay open`, `halo init`) has no owner and stays.
 """
@@ -9,7 +9,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import socket
 import subprocess
 import sys
 import tempfile
@@ -39,14 +38,6 @@ def _env(home: Path) -> dict:
     return env
 
 
-def _answers(port: int) -> bool:
-    try:
-        with socket.create_connection(("127.0.0.1", port), timeout=2):
-            return True
-    except OSError:
-        return False
-
-
 def _read_lines(proc, lines: list) -> None:
     for line in proc.stdout:
         lines.append(line.rstrip("\n"))
@@ -65,9 +56,9 @@ def _wait_for(lines: list, prefix: str, proc, within: float = 90.0) -> str:
 
 
 @test
-def test_a_standalone_studio_and_its_hub_outlive_another_sessions_quit(ctx: Ctx):
-    """Two processes: `halo studio --fleet --no-open` started on its own, then a halo session of the same home that
-    starts and quits. The Studio and its hub still answer; the quit line says it left the Studio."""
+def test_a_standalone_studio_outlives_another_sessions_quit(ctx: Ctx):
+    """Two processes: `halo studio --no-open` started on its own, then a halo session of the same home that
+    starts and quits. The Studio still answers; the quit line says it left the Studio."""
     import http.client
     home = Path(tempfile.mkdtemp(prefix="d48-home-"))
     lines: list = []
@@ -76,9 +67,7 @@ def test_a_standalone_studio_and_its_hub_outlive_another_sessions_quit(ctx: Ctx)
                               stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
     threading.Thread(target=_read_lines, args=(studio, lines), daemon=True).start()
     try:
-        hub_line = _wait_for(lines, "Fleet hub at ", studio)
         url = _wait_for(lines, "Halo Studio is at ", studio).split("Halo Studio is at ", 1)[1].strip()
-        hub_port = int(re.search(r"127\.0\.0\.1:(\d+)", hub_line).group(1))
         port, token = int(re.search(r":(\d+)/", url).group(1)), url.split("#t=", 1)[1]
         info = next(home.rglob("studio.json"))
         ctx.check(f"studio.json names the standalone Studio, got {info.read_text(encoding='utf-8')!r}",
@@ -94,13 +83,12 @@ def test_a_standalone_studio_and_its_hub_outlive_another_sessions_quit(ctx: Ctx)
         ctx.check("the Studio process still runs", studio.poll() is None)
         ctx.check("studio.json is still there", info.exists())
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
-        conn.request("GET", "/api/fleet", headers={"Authorization": "Bearer " + token})
+        conn.request("GET", "/api/live", headers={"Authorization": "Bearer " + token})
         resp = conn.getresponse()
         body = json.loads(resp.read().decode("utf-8") or "{}")
         conn.close()
-        ctx.check(f"Studio answers GET fleet, and serves the hub, got {resp.status} {body.get('hub')!r}",
-                  resp.status == 200 and (body.get("hub") or {}).get("serving") is True)
-        ctx.check(f"the hub's port {hub_port} still answers", _answers(hub_port))
+        ctx.check(f"Studio answers GET live, got {resp.status} {sorted(body)!r}",
+                  resp.status == 200 and isinstance(body.get("harnesses"), list))
     finally:
         if studio.poll() is None:
             studio.terminate()

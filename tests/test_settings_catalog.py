@@ -70,8 +70,8 @@ def test_the_config_doc_table_and_the_catalog_hold_the_same_keys(ctx: Ctx):
     ctx.check("every table row has four cells", all(len(r) == 4 for r in table))
     wrong = [(r[0], r[3]) for r in table if row(r[0]) is not None and r[3] != studio_page(row(r[0]))]
     ctx.check(f"the Studio column names each row's page (Settings -> <group>), wrong {wrong[:5]}", not wrong)
-    ctx.check("the table names Remote's page for fleet.enabled (3.4.0.0 C: a core key; Fleet's rows are the pack's)",
-              dict((r[0], r[3]) for r in table).get("fleet.enabled") == "Settings -> Remote")
+    ctx.check("the table names Remote's page for control.enabled (3.4.0.0 C: a core key; Fleet's rows are the pack's)",
+              dict((r[0], r[3]) for r in table).get("control.enabled") == "Settings -> Remote")
 
 
 @test
@@ -107,10 +107,10 @@ def test_every_row_is_complete(ctx: Ctx):
 @test
 def test_cli_line_and_match(ctx: Ctx):
     from halo_harness.settings_catalog import cli_line, match, rows
-    ctx.check("a bool", cli_line("fleet.enabled", True) == "halo config set fleet.enabled true")
+    ctx.check("a bool", cli_line("control.enabled", True) == "halo config set control.enabled true")
     ctx.check("an int", cli_line("fleet.hub.port", 7431) == "halo config set fleet.hub.port 7431")
     ctx.check("a word", cli_line("fleet.share", "full") == "halo config set fleet.share full")
-    ctx.check("a string that reads as JSON stays a string", shlex.split(cli_line("fleet.name", "123"))[-1] == '"123"')
+    ctx.check("a string that reads as JSON stays a string", shlex.split(cli_line("harness.name", "123"))[-1] == '"123"')
     ctx.check("unset: the placeholder", cli_line("model", None) == "halo config set model <value>")
     samples = {"list": ["gpu", "it's studio"], "mapping": {"gpt-5": "responses", "n": 2}}
     for r in rows():
@@ -122,7 +122,7 @@ def test_cli_line_and_match(ctx: Ctx):
     ctx.check("a [] row's line sets its list", cli_line("ollama.hosts[].ssh", [{"name": "lan"}]).startswith("halo config set ollama.hosts '"))
     for key, want in (("connectors.gmail.enabled", ("connectors.<slug>.enabled", "gmail")), ("ollama.hosts[lan].ssh", ("ollama.hosts[].ssh", "lan")),
                       ("databricks.gateway.my-ep", ("databricks.gateway.<endpoint>", "my-ep")), ("roles.coder", ("roles.<role>", "coder")),
-                      ("roles.enabled", ("roles.enabled", "")), ("fleet.enabled", ("fleet.enabled", "")), ("nope.key", (None, ""))):
+                      ("roles.enabled", ("roles.enabled", "")), ("control.enabled", ("control.enabled", "")), ("nope.key", (None, ""))):
         r, entry = match(key)
         ctx.check(f"match({key!r}) -> {want}, got {(r.key if r else None, entry)}", (r.key if r else None, entry) == want)
 

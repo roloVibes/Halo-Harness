@@ -1,7 +1,7 @@
 """tests.test_replay_compare -- Halo 3.4.1.0 R2 "Time": compare two runs (live/compare.py, compare_text.py): the rows
 from two seeded records with the better figure named by a word, a cost Halo cannot price never marked, "what
 differed" in three plain lines, a run compared with itself before / after its steer, a file saved before R2, `halo
-replay compare` and Studio's `GET replays/compare` (a mission is compared from its report).
+replay compare` and Studio's `GET replays/compare`.
 
 Seeds: tests/helpers/replay_seed.py (session A: 100 s, $0.03, a failed sub-agent, two asks) and
 tests/helpers/compare_seed.py (session B: 60 s, $0.012 + an unpriced call, glm-5.3, a steer at +30 s; a goal run:
@@ -183,8 +183,6 @@ def test_studio_compare_route(ctx: Ctx):
         ctx.check(f"the comparison: {code}", code == 200 and got["a"]["kind"] == "session" and got["b"]["kind"] == "run" and len(got["differed"]) == 3)
         code, got = call({"a": f"session:{SID_B}", "b": f"session:{SID_B}", "split": "20"})
         ctx.check("one ref twice: before / after", code == 200 and got["split"] == 20)
-        code, got = call({"a": "mission:m-1", "b": f"session:{SID}"})
-        ctx.check(f"a mission is compared from its report: {got}", code == 422 and "from its report" in got["error"])
         ctx.check("one ref only: 422", call({"a": f"session:{SID}"})[0] == 422)
         ctx.check("an unknown ref: 404", call({"a": "session:nope", "b": f"session:{SID}"})[0] == 404)
         ctx.check("nothing written", not (state / "replays").exists())

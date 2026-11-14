@@ -41,7 +41,7 @@ def _session(state: Path, sid: str, text: str) -> None:
 
 @test
 def test_a_runs_and_a_missions_sessions_name_their_owner(ctx: Ctx):
-    from halo_harness.studio.fleet_api import get_history
+    from halo_harness.studio.live_agents_api import get_history
     root = Path(tempfile.mkdtemp(prefix="hist-owner-"))
     state, repo = root / ".halo", root / "repo"
     run = repo / ".halo" / "orchestra" / "20261112-000750-5483"
@@ -72,7 +72,7 @@ def test_a_goal_run_of_another_repo_folds_too(ctx: Ctx):
     """3.4.1.0 R5 (live re-check defect 35): Studio started in krepo listed grepo's lead ("You are the lead
     orchestrator ...") and worker sessions as rows: the owners were read from Studio's folder only. Each session's
     record names its own folder (meta `cwd`): the lead's is the repo, a worker's is the run's worktree."""
-    from halo_harness.studio.fleet_api import get_history
+    from halo_harness.studio.live_agents_api import get_history
     root = Path(tempfile.mkdtemp(prefix="hist-other-"))
     state, krepo, grepo = root / ".halo", root / "krepo", root / "grepo"
     krepo.mkdir()

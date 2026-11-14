@@ -3,8 +3,7 @@ the modes banner's ninth tile), through headless Chrome over the DevTools protoc
 scratch home capture_studio seeds (no model call, no network, no probe: BRIDGE_TEST_NO_BACKGROUND_NET):
 
     docs/media/studio-settings.png   Settings on its General page as `halo settings general` opens it
-                                     (`?mode=settings&group=general`; 3.4.0.0 E: the Fleet page is the fleet pack's
-                                     now): the group rail on the left (the keys set per group), the General rows on
+                                     (`?mode=settings&group=general`): the group rail on the left (the keys set per group), the General rows on
                                      the right (the default model, the permission mode, the effort), each with its
                                      help line, its control, the default marker on the rest, Reset and its halo
                                      config set line

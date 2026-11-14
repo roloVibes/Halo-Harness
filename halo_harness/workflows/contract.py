@@ -9,8 +9,8 @@ The workflow file gains, at its root (the shape: schemas/workflow_yaml.py `squar
              (it lists and runs as before; the router never picks it)
     covers   the needs it answers: pdf vision audio video code plan research media review work-data
     lineup   a lineup name, or {lead: {bio, model}, members: [...]}: the bios on their models
-    engine   session (one agent on the lead, no worktree) | orchestra (the compile) | mission (across
-             the fleet; run as orchestra when only this harness is here)
+    engine   session (one agent on the lead, no worktree) | orchestra (the compile); `mission`, a word older
+             files use, runs as orchestra
     budget   {band: low|mid|high, cap_usd}
     limits   {depth (default 1), turns, wall_s}
 
@@ -69,9 +69,9 @@ class Contract:
         """A workflow is a square when it says what it gives."""
         return bool(self.gives)
 
-    def run_engine(self, fleet: bool = False) -> str:
-        """`mission` runs as `orchestra` when only this harness is here."""
-        return "orchestra" if self.engine == "mission" and not fleet else self.engine
+    def run_engine(self) -> str:
+        """`mission` (an older file's word) runs as `orchestra`."""
+        return "orchestra" if self.engine == "mission" else self.engine
 
     def lead(self) -> "tuple[str, str]":
         """(bio, model) of the lead; ('', '') for a lineup name or none."""

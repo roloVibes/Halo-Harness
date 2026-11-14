@@ -1,6 +1,6 @@
 """tests.helpers.studio_roles_auto -- the Auto lineup in Studio (Halo 3.1.9.0
 R2) in headless Chrome on the driver base, over tests/helpers/
-studio_fleet_rig.py with its `team:` cleared (so the default `auto` lineup is
+studio_session_rig.py with its `team:` cleared (so the default `auto` lineup is
 the one in use) and scripted agent rows (tests/helpers/studio_live_rig.py
 `Live`: the rows a GET fleet lists and the `agent_state` frames a live
 session sends). tests/test_studio_roles_auto.py runs it:
@@ -49,7 +49,7 @@ def row(aid: str, name: str, role: str, bio: str, lineup: str, model: str, why: 
 
 def auto(c, rig) -> dict:
     from halo_harness.theme import unset_config_value
-    from tests.helpers.studio_fleet import card_click
+    from tests.helpers.studio_live import card_click
     from tests.helpers.studio_live_rig import Live
     unset_config_value("team")  # nothing names a lineup: the default auto lineup is in use
     lv = Live(rig, extra=())
@@ -113,8 +113,8 @@ class AutoDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             yield ((auto, (c, rig)),)
 
 

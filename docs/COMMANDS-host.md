@@ -13,7 +13,7 @@ halo host [serve] [--port N] [--bind ADDR] [--foreground] [--no-tls] [--json]
 ```
 
 Starts the host: the steward's watch over the Ollama servers this machine serves, the resources sampler, the
-ledger forwarder to any fleet hub this machine joined, and the signed listener on `host.port` (7431). Without
+ledger forwarder to any host this machine joined, and the signed listener on `host.port` (7431). Without
 `--foreground` it starts a detached `halo host serve --foreground` and returns once that one listens; with it, it
 runs here until Ctrl+C or `halo host stop`. `--port 0` picks a free port, `--bind` the address (default
 `host.bind`, `0.0.0.0`), `--no-tls` keeps it HMAC-signed plain HTTP even with `cryptography` installed. Offline mode
@@ -87,7 +87,7 @@ halo host revoke <peer> <grant> [--json]
 
 On the host: gives a paired peer (by name or id) a grant, or takes one back (3.3.7.0 R2; what each covers is in
 [HOST.md](HOST.md#the-vocabulary)). `manage` carries `control`'s operations; `admin` is never implied by `manage`, and
-its operations are not part of this version. The line says what this machine's `fleet.allow_control` does to it
+its operations are not part of this version. The line says what this machine's `host.allow_control` does to it
 (`none`: view only for every peer; `ask`: each request queued for you first). `view` stays every paired peer's.
 
 ## `halo host peers`
@@ -97,7 +97,7 @@ halo host peers [--json]
 ```
 
 The peers paired with this host: name, id, grants, last seen and how many requests its audit holds, and this
-machine's `fleet.allow_control`. The duty steward's own peer is marked.
+machine's `host.allow_control`. The duty steward's own peer is marked.
 
 ## `halo host pending` / `halo host allow` / `halo host deny`
 
@@ -107,7 +107,7 @@ halo host allow <id> [--json]
 halo host deny <id> [--json]
 ```
 
-Under `fleet.allow_control: ask`, a peer's `control` / `manage` request (or its "Request control") waits here for
+Under `host.allow_control: ask`, a peer's `control` / `manage` request (or its "Request control") waits here for
 `host.ask_ttl_s` (600 s). `allow` lets the same request from that peer run once within the TTL (a grant request:
 adds the grant); `deny` drops it. An expired or answered row says so in one line.
 

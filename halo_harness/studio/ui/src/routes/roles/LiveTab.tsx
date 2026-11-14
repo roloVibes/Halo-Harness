@@ -31,7 +31,7 @@ function History({ card, role, bio }: { card: string; role: string; bio: string 
   const h = useRoles((s) => s.history);
   useEffect(() => {
     roles.update(() => ({ history: { card, runs: null, error: "" } }));
-    api.get<{ runs: HistoryRun[] }>("fleet/history", { role, bio, n: 12 })
+    api.get<{ runs: HistoryRun[] }>("live/history", { role, bio, n: 12 })
       .then((r) => roles.get().history.card === card && roles.update(() => ({ history: { card, runs: r.runs || [], error: "" } })))
       .catch((e) => roles.get().history.card === card && roles.update(() => ({ history: { card, runs: [], error: String(e?.message || e) } })));
   }, [card, role, bio]);

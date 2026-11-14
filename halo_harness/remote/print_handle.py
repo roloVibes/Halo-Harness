@@ -46,7 +46,7 @@ class PrintModeHandle(_BaseHandle):
             if callable(close):
                 close()
 
-    def fleet_shutdown(self, text: str) -> None:
+    def control_shutdown(self, text: str) -> None:
         """3.0.5.0: the current turn ends at its next tool boundary
         (agent/agent_inbox.py) and no further turn is read: the run returns."""
         from halo_harness import events

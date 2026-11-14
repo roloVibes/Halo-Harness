@@ -62,7 +62,7 @@ def fields_for(cmd: str, body: dict) -> "tuple[Optional[tuple], dict]":
     if cmd == "tail":
         n = body.get("n", TAIL_DEFAULT)
         return None, {"n": n if isinstance(n, int) and not isinstance(n, bool) else TAIL_DEFAULT}
-    from halo_harness.studio.fleet_api import caller
+    from halo_harness.studio.live_agents_api import caller
     extra: dict = {"origin": {"via": "studio", "by": caller()["by"]}}
     wb = str(body.get("when_busy") or "")
     if cmd == "submit" and wb:

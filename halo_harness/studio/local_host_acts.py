@@ -3,7 +3,7 @@ docs/STUDIO-local.md "Hosts").
 
     host_controls(url, name) -> {ok, via: "host", host, host_url, grants, cap, asks, manage, request, why} | None
         None when no paired host serves that url; ok when this peer holds `control` there (under the host machine's
-        fleet.allow_control: `ask` queues each request for its owner first, `none` keeps it a monitor)
+        host.allow_control: `ask` queues each request for its owner first, `none` keeps it a monitor)
     send(ctl, act, fields) -> (status, answer)        fleet/hub_host_cmd.send through this peer's own pair key
     waiter(ctl, job_id, save_card_as=None) -> a runner for local_probe_job / local_bench_job.start: the host's job,
                                                      read through `GET job/<id>`, becomes this Studio's probe / bench
@@ -49,7 +49,7 @@ def host_controls(url: str, name: str) -> Optional[dict]:
     base.update(grants=grants, cap=cap, asks=bool(me.get("asks")), manage=holds(grants, "manage"),
                 pending=[p for p in me.get("pending") or [] if p.get("state") == "pending"])
     if cap == "none":
-        return {**base, "why": f"served by halo host at {hc.addr}: fleet.allow_control is none there, so it is strictly "
+        return {**base, "why": f"served by halo host at {hc.addr}: host.allow_control is none there, so it is strictly "
                                "a monitor (view only for every peer)"}
     if holds(grants, "control"):
         return {**base, "ok": True, "why": "", "via_line": f"halo host at {hc.addr}" + (

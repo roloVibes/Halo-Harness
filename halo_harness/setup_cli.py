@@ -2,8 +2,8 @@
 Studio's Setup; 3.4.0.0 B2: every page, and the console line where no browser opens).
 
 On a real terminal `halo setup <page>` opens Halo Studio on that page of its Setup section (`?mode=setup&block=<page>`,
-studio/setup_door.py): providers, local, model, permissions, theme, team (`roles` is its older name), linux, check,
-machines; bare `halo setup` the whole section. `--terminal`, no terminal, or a box where no browser can open (SSH, no
+studio/setup_door.py): providers, local, model, permissions, theme, team (`roles` is its older name), linux, check;
+bare `halo setup` the whole section. `--terminal`, no terminal, or a box where no browser can open (SSH, no
 DISPLAY, `HALO_NO_BROWSER`, after the URL and the port-forward line) prints the console way to do the same instead:
 the command that sets it (`CONSOLE` below; team and roles also print the current roles table). The terminal wizard's
 screens left in 3.4.0.0. `/setup` (tui/slash.py `_handle_setup`) is the same from a live session. 3.3.11.0 R3: `halo
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sys
 
-USAGE = "usage: halo setup [providers|local|model|permissions|theme|team|linux|check|machines|<pack>] [--terminal]"
+USAGE = "usage: halo setup [providers|local|model|permissions|theme|team|linux|check|<pack>] [--terminal]"
 #: The console way to do what each Setup page does (3.4.0.0 B2: what `--terminal` and a box with no browser print).
 CONSOLE = {
     "": "halo init --terminal: a provider and its key, the default model, the permission mode, doctor",
@@ -28,7 +28,6 @@ CONSOLE = {
     "team": "halo teams list; halo teams use <name>; halo teams show <name>",
     "linux": "halo doctor (its rg and ~/.local/bin lines end with the fix to run)",
     "check": "halo check (doctor, the catalog, a hello call; --all adds the rest)",
-    "machines": "halo fleet pair (this machine's code); halo fleet join <code> (on the other one)",
 }
 
 

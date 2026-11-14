@@ -3,12 +3,12 @@ it read (Halo 3.1.3.0 R1). Both live in the state dir's `coach/` folder:
 
     ~/.halo/coach/applied.jsonl   one line per Apply and per Undo:
         {"op": "apply", "apply_id": "a-<10 hex>", "id": "<suggestion id>", "run": "<run id>",
-         "run_dir": "<folder>", "kind": "orchestra|mission|team", "target": "bio|lineup|plan",
+         "run_dir": "<folder>", "kind": "orchestra", "target": "bio|lineup|plan",
          "name", "field", "value", "file": "<path written>", "existed": true, "before": "<text>",
          "after": "<text>", "ts": 1760800000.0}
         {"op": "undo", "apply_id": "a-...", "file": "<path>", "ts": ...}
     ~/.halo/coach/runs.json       {"<run folder>": {run, kind, n, top, ts, probe, outcomes}}: the runs the coach
-                                  read (the Fleet digest's coach lines; 3.1.8.0 R3: `outcomes` the run's rows in
+                                  read (the coach lines; 3.1.8.0 R3: `outcomes` the run's rows in
                                   outcomes.jsonl, outcomes/records.py)
 
 The Undo rule: the file must still hold the apply's `after` text exactly;
@@ -165,7 +165,7 @@ def _undo(apply_id: Optional[str], state_dir=None) -> tuple:
 
 
 def note_run(result: dict, run_dir, state_dir=None) -> None:
-    """Keep the run's count and top card in runs.json (the Fleet digest reads it); never raises."""
+    """Keep the run's count and top card in runs.json; never raises."""
     try:
         path = folder(state_dir) / RUNS
         data = jsonl.read_json(path, {}) or {}
@@ -208,7 +208,7 @@ def probe_of(run_dir) -> str:
 
 
 def summary_line(n: int, applied: int, top: str, probe: str = "") -> str:
-    """The run reports' and the Fleet digest's one coach line (3.1.6.0 R2: the probe line after it)."""
+    """The run reports' one coach line (3.1.6.0 R2: the probe line after it)."""
     head = f"coach: {n} suggestion{'s' if n != 1 else ''}, {applied} applied"
     return head + (f", top: {top[:90]}" if n and top else "") + (f"; {probe}" if probe else "")
 

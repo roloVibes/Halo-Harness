@@ -1,7 +1,7 @@
 """halo_signal.bridge -- the conversation loop (Halo 2.0.9 round 3; 3.3.13.0 R3: the signal pack's service).
 
     Bridge(config, transport, *, sessions=None, clock=None, pairing=None, audit=None, phones=None, health=None,
-           transcribe=None, capture=None, fleet_lines=None, notes=None)
+           transcribe=None, capture=None, live_lines=None, notes=None)
       .run(stop, tick=0.25)    blocks until `stop` is set or the service's stop file appears
       .step(timeout)           one item from the inbox, then the tick (pairing trust steps, status lines, notes)
 
@@ -37,7 +37,7 @@ GOODBYE = ("No one is listening on this computer now (Halo's supervisor stopped)
 class Bridge:
     def __init__(self, config: dict, transport, *, sessions=None, clock=None, pairing: Optional[Pairing] = None,
                  audit: Optional[Audit] = None, phones: Optional[Phones] = None, health=None, transcribe=None,
-                 capture=None, fleet_lines=None, notes=None, inbox_dir=None) -> None:
+                 capture=None, live_lines=None, notes=None, inbox_dir=None) -> None:
         from halo_signal import files
         self.cfg, self.transport = config, transport
         self.sessions = sessions or Sessions()
@@ -59,7 +59,7 @@ class Bridge:
         self.health = health
         self.transcribe = transcribe or media.default_transcribe
         self.capture = capture or media.default_capture
-        self.fleet_lines = fleet_lines or notes_mod.default_fleet_lines
+        self.live_lines = live_lines or notes_mod.default_live_lines
         self.notes = notes_mod.Notes(self) if notes is None else (notes or None)  # False: none (tests)
         self.ended, self._switch_at = "", 0.0  # 3.3.13.1 (REMOTE-2): the line when a switch turned off mid-run
         self._sweep_at = self.clock.monotonic() + SWEEP_S  # service.py swept inbox/ at start

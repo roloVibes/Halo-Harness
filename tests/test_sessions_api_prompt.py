@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.fleet_rig import FleetRig, wait_for  # noqa: E402
+from tests.helpers.session_rig import SessionRig, wait_for  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
@@ -43,7 +43,7 @@ def _req(rig, method: str, path: str, body=None):
 
 @test
 def test_the_slash_list_and_a_slash_commands_lines(ctx: Ctx):
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         (rig.cwd / ".claude" / "commands").mkdir(parents=True)
         (rig.cwd / ".claude" / "commands" / "pp-hello.md").write_text("---\ndescription: say hello to the panel\n"
                                                                       "argument-hint: <name>\n---\nSay hello to $ARGUMENTS\n", encoding="utf-8")
@@ -69,7 +69,7 @@ def test_the_slash_list_and_a_slash_commands_lines(ctx: Ctx):
 
 @test
 def test_refuse_and_queue_while_busy(ctx: Ctx):
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         session, controller, act = _live(rig)
         sid = act.session_id
         _req(rig, "POST", f"sessions/{sid}/command", {"cmd": "submit", "text": "please ask first"})
@@ -99,7 +99,7 @@ def test_halo_studio_session_prompt_names_the_prompt(ctx: Ctx):
     import io
     from halo_harness.studio.launch import _query
     from halo_harness.studio.session_open import SectionTarget, cli_target
-    with FleetRig() as rig:
+    with SessionRig() as rig:
         session, controller, act = _live(rig)
         sid = act.session_id
         t, note = cli_target(sid[:10], prompt=True)

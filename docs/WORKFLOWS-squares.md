@@ -41,7 +41,7 @@ stages:
 | `gives` | What comes back: `text`, `files`, `report`, `repo-change`. Required for a square, and checked when the square returns. |
 | `covers` | The needs it answers: `pdf`, `vision`, `audio`, `video`, `code`, `plan`, `research`, `media`, `review`, `work-data` (Auto's need words where they overlap). |
 | `lineup` | The bios on their models (`lead: {bio, model}`, `members: [...]`), or a lineup name. |
-| `engine` | `session`: one agent on the lead, no worktree. `orchestra`: the compile, a full Orchestra run. `mission`: across the fleet; it runs as `orchestra` while only this harness is here. |
+| `engine` | `session`: one agent on the lead, no worktree. `orchestra`: the compile, a full Orchestra run. `mission`: runs as `orchestra` (3.5.0.0: the word stays readable). |
 | `budget` | `band` (low, mid, high) and `cap_usd`, the most one hand-off may spend. |
 | `limits` | `depth` (default 1), `turns`, `wall_s`. |
 

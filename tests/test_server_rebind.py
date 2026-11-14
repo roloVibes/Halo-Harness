@@ -1,8 +1,8 @@
 """tests.test_server_rebind -- Halo 3.4.1.1 (the 3.4.1.0 R6 open item): every server Halo starts that a user restarts on
 the same port binds like Studio does (tests/test_studio_rebind.py). On POSIX a connection the server closed first sits
 in TIME_WAIT on its port for a minute, and a listener without SO_REUSEADDR could not bind it until then: `halo host
-serve` (its fixed port), the fleet hub (7430) and a speech server's own door (`halo voice serve --port N`) now set it on
-POSIX, where it never lets two listeners share a port; Windows keeps its default (the host and the hub also set
+serve` (its fixed port) and a speech server's own door (`halo voice serve --port N`) now set it on
+POSIX, where it never lets two listeners share a port; Windows keeps its default (the host also sets
 SO_EXCLUSIVEADDRUSE there). Each class's own bind policy is exercised through a stand-in handler:
 
 1. a request it answered and closed, then stop: the same port binds again at once, no retry;
@@ -11,8 +11,6 @@ The remote control socket binds port 0 or a Unix socket (never a fixed port), an
 the engine's (llama.cpp, MLX), not Halo's: neither applies. Run: python -m tests.test_server_rebind
 """
 from __future__ import annotations
-from tests.helpers import fleet_pack as _fleet_pack  # noqa: E402  (the fleet pack on, its modules by their old names)
-_fleet_pack.on()
 
 import http.client
 import http.server
@@ -41,11 +39,9 @@ class _Ok(http.server.BaseHTTPRequestHandler):
 
 
 def _classes() -> dict:
-    from halo_harness.fleet import hub
     from halo_harness.host import service
     from halo_harness.voice import server as voice
-    return {"the host door (halo host serve)": service._Server, "the fleet hub": hub._Server,
-            "a speech server's door (halo voice serve)": voice._Http}
+    return {"the host door (halo host serve)": service._Server, "a speech server's door (halo voice serve)": voice._Http}
 
 
 def _stand_in(cls):

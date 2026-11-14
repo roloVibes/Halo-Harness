@@ -1,6 +1,6 @@
 """The coach pack's engine/coach_rules.py -- the coach's rules, once, for every run
 kind (Halo 3.1.2.0 R1 moved the Orchestra rules here; 3.1.3.0 R1 folded the
-mission and team rules in). Each rule reads unit facts -- one dict per
+mission and team rules in; both left since). Each rule reads unit facts -- one dict per
 unit of work (docs/WORK.md: a lane, a part, a stage) -- and yields
 suggestions of the one shared shape (engine/coach.py `suggestion`).
 

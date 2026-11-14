@@ -1,16 +1,15 @@
 """tests.helpers.studio_session -- the Session dashboard (Halo 3.1.4.0 R2)
 driven through real keys and clicks in headless Chrome on the driver base
-(tests/helpers/chrome_driver.Driver), over tests/helpers/studio_fleet_rig.py
-(this harness's real session with three agents mid-work, a member harness
-`kali@lab` with two) plus a second local session (the remote tests' fake
+(tests/helpers/chrome_driver.Driver), over tests/helpers/studio_session_rig.py
+(this harness's real session with three agents mid-work) plus a second local session (the remote tests' fake
 session behind the real Controller). tests/test_studio_session.py and
 tests/test_studio_session_links.py run it as a subprocess with a scrubbed
 environment:
 
     python -m tests.helpers.studio_session dash    landing (live / nothing live), the six panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
-                                                   Attention, `&session=<id>`, J / K, Alt+4 (Fleet keeps both
-                                                   harnesses) and Alt+1 (Session, the first tab); `/studio`'s opener focusing the open page
+                                                   Attention, `&session=<id>`, J / K, Alt+2 (Agents -> Live: the same
+                                                   two sessions) and Alt+1 (Session, the first tab); `/studio`'s opener focusing the open page
     python -m tests.helpers.studio_session links   the rail click rule, the map menu's Open in Session, the Roles Live
                                                    tab's Watch in Session, the Orchestra run line's (studio_session_links.py)
 
@@ -65,17 +64,17 @@ def second_session(rig):
     from halo_harness.controller import Controller
     from halo_harness.remote import runtime
     from tests.helpers.fake_remote_session import FakeRegistry, FakeSession
-    from tests.helpers.studio_fleet_rig import wait_for
+    from tests.helpers.studio_session_rig import wait_for
     ctl = Controller(session=FakeSession(FAKE_SID), cwd=rig.proj, registry=FakeRegistry()).start()
     act = runtime.start_for_controller(ctl)
     rig.closers.append(lambda: (runtime.stop_for(ctl), ctl.quit()))
-    wait_for(lambda: any(s.get("session_id") == FAKE_SID for h in rig.api("GET", "fleet")[1].get("harnesses", []) if h.get("local")
+    wait_for(lambda: any(s.get("session_id") == FAKE_SID for h in rig.api("GET", "live")[1].get("harnesses", []) if h.get("local")
                          for s in h.get("sessions") or []), 20)
     return act
 
 
 def local_view(rig) -> dict:
-    return next((h for h in rig.api("GET", "fleet")[1].get("harnesses", []) if h.get("local")), {})
+    return next((h for h in rig.api("GET", "live")[1].get("harnesses", []) if h.get("local")), {})
 
 
 def landing(c, rig) -> dict:
@@ -111,7 +110,7 @@ def dash(c, rig) -> dict:
     view = local_view(rig)
     want_nodes = sum(len(s.get("agents") or []) for s in view.get("sessions") or [])
     c.wait(f"{inside('session-map', 'roles-live-node')}.length === {want_nodes} && {inside('session-map', 'fleet-session')}.length === 2", 30)
-    out["boxes"] = c.js(f"[...{inside('session-map', 'fleet-box')}].map((b) => b.querySelector('.rlm-box-label').textContent)")
+    out["boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")  # 3.5.0.0: no harness box (one machine)
     out["nodes"], out["want_nodes"] = c.js(f"{inside('session-map', 'roles-live-node')}.length"), want_nodes
     out["cards"] = c.js(f"{inside('session-map', 'fleet-session')}.length")
     out["foreign"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].filter((n) => !n.dataset.key.startsWith('{hid}|')).length")
@@ -125,7 +124,7 @@ def dash(c, rig) -> dict:
     out["cost_model"] = c.js("document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent")
     out["cost_agents"] = c.js("document.querySelector('[data-testid=\"session-cost-agents\"]')?.textContent")
     out["cost_usd"] = c.js("document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent")
-    from tests.helpers.studio_fleet_panels import open_strip
+    from tests.helpers.studio_live_panels import open_strip
     open_strip(c, "session-activity")  # 3.1.5.0 R3: Activity and Attention start as strips under Cost
     open_strip(c, "session-attention")
     live = [a for a in rig.agents() if a.get("state") in LIVE]
@@ -152,20 +151,18 @@ def dash(c, rig) -> dict:
     out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
     out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
-    alt(c, 2)  # 3.3.16.0 R2: the Fleet section folded into Agents; 3.3.18.0: Alt+2 opens on Live (on the fleet: two harnesses here)
+    alt(c, 2)  # 3.3.18.0: Alt+2 opens Agents on Live; 3.5.0.0: this machine's sessions only
     out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
-    c.wait(f"{inside('agents', 'fleet-box')}.length === 2", 30)
-    out["fleet_boxes"] = c.js(f"[...{inside('agents', 'live-machine')}].map((b) => b.querySelector('.rlm-name').textContent)")
-    c.click_on("document.querySelector('[data-testid=\"agents-attention\"]')")  # the fleet's queue, every harness
-    out["fleet_attn"] = c.wait(f"{inside('agents', 'fleet-attn-row')}.length", 20)
+    out["agents_nodes"] = c.wait(f"{inside('agents', 'roles-live-node')}.length > 0 && {inside('agents', 'roles-live-node')}.length", 30)
+    out["agents_boxes"] = c.js(f"{inside('agents', 'fleet-box')}.length + {inside('agents', 'live-machine')}.length")
     alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
     out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
-    out["back_boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")
+    out["back_cards"] = c.wait(f"{inside('session-map', 'fleet-session')}.length === 2 && 2", 15)
     return out
 
 
 def focus(c, rig) -> dict:
-    """`/studio` (and `halo studio --session`) on a running Studio: the open page, on Agents -> Live (`?mode=fleet`), switches
+    """`/studio` (and `halo studio --session`) on a running Studio: the open page, on Agents -> Live (`?mode=agents`), switches
     to Session on that session."""
     import json
     import time
@@ -180,7 +177,7 @@ def focus(c, rig) -> dict:
     launch._open = lambda u: opened.append(u) or True  # a focused page needs no new tab; record any
     write_private_atomic(studio_info_path(rig.state), json.dumps({"pid": 0, "port": rig.server.server_address[1], "token": rig.server.token,
                                                                  "owner_salt": rig.server.owner_salt}))
-    c.go(url(rig, "mode=fleet&focus=1"))
+    c.go(url(rig, "mode=agents&focus=1"))
     c.wait(f"{TAB}.startsWith('Agents')", 30)
     end = time.time() + 15
     while time.time() < end and bridge_for(rig.server).listeners() < 1:
@@ -203,14 +200,14 @@ def focus(c, rig) -> dict:
 
 
 class SessionDriver(Driver):
-    """`dash` and `links` over tests/helpers/studio_fleet_rig.py and a second local session."""
+    """`dash` and `links` over tests/helpers/studio_session_rig.py and a second local session."""
 
     no_chrome = {"skip": "no Chrome found"}
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             second_session(rig)
             if self.argv[:1] == ["links"]:
                 from tests.helpers.studio_session_links import links

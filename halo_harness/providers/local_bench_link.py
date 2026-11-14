@@ -3,7 +3,7 @@ peer against an Ollama host this machine does not serve goes over the LAN, and i
 trip is in every number it measured, so the card is never read as the machine's own (docs/MODELS-cards.md "A card
 measured over the LAN").
 
-    from_where(state_dir=None) -> str     this halo's name: `fleet.name` when it has one, else the host name ("mac")
+    from_where(state_dir=None) -> str     this halo's name: `harness.name` when it has one, else the host name ("mac")
     link_of(host, state_dir=None) -> {rtt_ms, kind, line}   measured once, before the battery: the TCP connect RTT to
                                           the host's port (providers/rpc_probe.probe, the pool's prober) and this
                                           machine's adapter (local_pool/link.read: wired | Wi-Fi | None)
@@ -35,13 +35,13 @@ def _served_here(url: str) -> bool:
 
 
 def from_where(state_dir=None) -> str:
-    """`fleet.name` (the fleet and host peer name) when this halo has one, else the machine's host name."""
+    """`harness.name` (the fleet and host peer name) when this halo has one, else the machine's host name."""
     try:
         from halo_harness.peers import identity
-        name = str(identity.config_value("fleet.name", "", state_dir) or "").strip()
+        name = str(identity.config_value("harness.name", "", state_dir) or "").strip()
         if name:
             return name[:64]
-        from halo_harness.remote.fleet_identity import _host
+        from halo_harness.remote.session_identity import _host
         return _host()
     except Exception:
         return "this halo"
@@ -144,7 +144,7 @@ def pick(own: Optional[dict], lan: Optional[dict], now: Optional[float] = None) 
 def _you() -> str:
     try:
         from halo_harness.peers import identity
-        return identity.fleet_name()
+        return identity.harness_name()
     except Exception:
         return "<you>"
 

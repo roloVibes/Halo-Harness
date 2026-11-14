@@ -54,7 +54,6 @@ export function SessionNode({ b, selected, onPick, onMenu, hover = false }: Prop
         <span className="rlm-dot" aria-hidden="true" />
         <b className="rlm-name">{short(n.name, 80)}</b>
         <span className="spacer" />
-        {s.mission && <span className="og-chip mono" data-testid="fleet-tree-mission" data-hover-skip title={`mission ${s.mission}, part ${s.part ?? "?"}`}>mission</span>}
         {n.role && n.role !== "tui" && <span className="og-chip mono rlm-kind" data-testid="fleet-session-kind">{n.role}</span>}
         <button className="rlm-more" onClick={menu} aria-label="session: more" title="Record, shut down..." data-testid="fleet-session-more">...</button>
       </div>

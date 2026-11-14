@@ -2,7 +2,7 @@
 Session dashboard needs from the server, without a browser (Halo 3.1.4.0 R2).
 
 1. a section target and its URL: `?mode=session&session=<sid>#t=<token>`,
-   `?mode=fleet`; `launch_detached` spawns `halo studio --session <sid>`;
+   `?mode=agents`; `launch_detached` spawns `halo studio --session <sid>`;
 2. the served page carries `data-live-session` (this harness's newest live
    session, '' when none): the page's landing rule reads it;
 3. `POST /api/focus {mode, session}` puts the section's `focus` frame out;
@@ -36,15 +36,15 @@ SID = "clisession00000000000000000000001"
 
 @contextlib.contextmanager
 def _studio(live: bool = True):
-    """A fresh home (tests/helpers/fleet_rig.py), a session of it registered live when `live`, and a running Studio over it."""
+    """A fresh home (tests/helpers/session_rig.py), a session of it registered live when `live`, and a running Studio over it."""
     from halo_harness.controller import Controller
     from halo_harness.privateio import write_private_atomic
     from halo_harness.providers.config import default_state_dir
     from halo_harness.remote import runtime
     from halo_harness.studio.server import start_server, studio_info_path
     from tests.helpers.fake_remote_session import FakeRegistry, FakeSession
-    from tests.helpers.fleet_rig import FleetRig
-    with FleetRig() as rig:
+    from tests.helpers.session_rig import SessionRig
+    with SessionRig() as rig:
         act = None
         if live:
             ctl = Controller(session=FakeSession(SID), cwd=rig.cwd, registry=FakeRegistry()).start()
@@ -82,10 +82,12 @@ def test_the_section_target_and_its_url(ctx: Ctx):
     t = SectionTarget("session", SID, "this session")
     ctx.check(f"the target names itself, got {t.display!r} {t.cli!r} {t.focus()}", t.display == "this session" and t.cli == f"halo studio --session {SID}"
               and t.focus() == {"edit": "", "mode": "session", "session": SID} and t.verb == "watch")
-    f, _ = section_target("fleet", SID)
-    ctx.check(f"/studio fleet is the fleet door (3.3.16.0 R2: Agents -> Live), no session, got {f}", f is not None and f.mode == "fleet" and f.text == "" and f.query() == "?mode=fleet")
+    f, _ = section_target("team", SID)
+    ctx.check(f"/studio team is a door (Agents -> Live), no session, got {f}", f is not None and f.mode == "team" and f.text == "" and f.query() == "?mode=team")
+    gone, _ = section_target("fleet", SID)
+    ctx.check("3.5.0.0: fleet is no section and no door", gone is None)
     bad, why = section_target("kitchen")
-    ctx.check(f"an unknown section says what it takes, got {why!r}", bad is None and "local" in why and "session" in why)  # 3.3.16.0 R2: the six; fleet is a door
+    ctx.check(f"an unknown section says what it takes, got {why!r}", bad is None and "local" in why and "session" in why)  # 3.3.16.0 R2: the six
     argv = []
 
     class _P:
@@ -126,7 +128,7 @@ def test_focus_takes_a_section_and_its_session(ctx: Ctx):
         ctx.check(f"200 with the pages open, got {status} {body}", status == 200 and body.get("pages") == 1 and body.get("mode") == "session")
         ctx.check(f"the frame names the section and the session, got {frame}", (frame or {}).get("data") == {"edit": "", "mode": "session", "session": SID})
         ctx.check("a section that is not one is a 422", launch.api_call(h.state, "POST", "focus", {"mode": "kitchen"})[0] == 422)
-        ctx.check("a session for another section is a 422", launch.api_call(h.state, "POST", "focus", {"mode": "fleet", "session": SID})[0] == 422)
+        ctx.check("a session for another section is a 422", launch.api_call(h.state, "POST", "focus", {"mode": "team", "session": SID})[0] == 422)
         ctx.check("an edit target still works", launch.api_call(h.state, "POST", "focus", {"edit": "team"})[0] == 200)
         bridge_for(h.srv).unsubscribe(page)
 

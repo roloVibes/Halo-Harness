@@ -1,6 +1,6 @@
 """tests.helpers.studio_session_cost_map -- Session's Cost graphics and its
 map drawn as a tree (Halo 3.1.5.0 R3) in headless Chrome on the driver base,
-over tests/helpers/studio_fleet_rig.py with three extra agents and scripted
+over tests/helpers/studio_session_rig.py with three extra agents and scripted
 session figures (tests/helpers/studio_live_rig.py).
 tests/test_studio_session_cost_map.py runs it as a subprocess:
 
@@ -113,7 +113,7 @@ def states(c, lv) -> dict:
     out["fresh_frame"] = c.wait(f"{node(lv.key('fresher'))}?.dataset.state === 'stopped' && 'stopped'", 10)
     lv.refresh(cost_usd=0.1234)  # the page asks GET fleet again (the sessions frame); the new spend shows its answer landed
     out["fresh_get_landed"] = c.wait("document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent === '$0.1234' && 'landed'", 15)
-    out["fresh_api_says"] = next((a.get("state") for h in lv.rig.api("GET", "fleet")[1].get("harnesses", []) for s in h.get("sessions") or []
+    out["fresh_api_says"] = next((a.get("state") for h in lv.rig.api("GET", "live")[1].get("harnesses", []) for s in h.get("sessions") or []
                                   for a in s.get("agents") or [] if a.get("agent_id") == "f7e5h0s1"), None)
     out["fresh_after_get"] = c.js(f"{node(lv.key('fresher'))}?.dataset.state")
     w, d, f = lv.key("docs"), lv.key("tester"), lv.key("reviewer")
@@ -201,7 +201,7 @@ def partial(c, rig) -> dict:
     `cost_unknown` its ref) -> the ticker carries a "+" titled with the model, PER TURN too, and main's line says
     "no price" (the finished tester holds the whole priced spend, so main's own is nothing priced)."""
     lv, out = rig.cost_live, {}
-    rows = [s for h in rig.api("GET", "fleet")[1].get("harnesses", []) for s in h.get("sessions") or [] if s.get("session_id") == lv.sid]
+    rows = [s for h in rig.api("GET", "live")[1].get("harnesses", []) for s in h.get("sessions") or [] if s.get("session_id") == lv.sid]
     main_row = next((a for a in (rows[0].get("agents") or []) if a.get("agent_id") == "main"), {}) if rows else {}
     model = main_row.get("model") or c.js("document.querySelector('[data-testid=\"session-cost-model\"]')?.title") or ""
     lv.state("tester", cost_usd=3.63)
@@ -227,8 +227,8 @@ class CostMapDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
-        with StudioFleetRig() as rig:
+        from tests.helpers.studio_session_rig import StudioSessionRig
+        with StudioSessionRig() as rig:
             from tests.helpers.studio_cost_composition import composition  # 3.3.5.0 R4: the prompt budget
             yield ((costmap, (c, rig)), (figures, (c, rig)), (partial, (c, rig)), (composition, (c, rig)))
 

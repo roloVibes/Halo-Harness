@@ -13,7 +13,7 @@ import { stopRun } from "../../orchestra/sync";
 import type { Lane, RunPayload } from "../../orchestra/types";
 import { useFleet } from "../../fleet/store";
 import { runSession, WatchInSession } from "../../session/Watch";
-import { clearPick, pickLive, setMachinePage, useMachinePage } from "../live/scope";
+import { clearPick, pickLive, setInspectorPage, useInspectorPage } from "../live/scope";
 import { ownsOf } from "./Owns";
 import { reviewPlan } from "./planPanel";
 import { ClaimsPage, DiffPage, LogPage, PAGES, PlanPage, TestPage, type RunPage } from "./RunPages";
@@ -51,7 +51,7 @@ function Facts({ rows }: { rows: [string, string][] }) {
 }
 
 function Page({ page, data, lane }: { page: RunPage; data: RunPayload; lane: Lane | null }) {
-  const back = () => setMachinePage("");
+  const back = () => setInspectorPage("");
   const onKey = (e: KeyboardEvent) => e.key === "Escape" && (e.stopPropagation(), back());
   const title = PAGES.find(([p]) => p === page)?.[1] || page;
   return (
@@ -69,7 +69,7 @@ function Page({ page, data, lane }: { page: RunPage; data: RunPayload; lane: Lan
 
 export function RunInspector({ kind, id }: { kind: "run" | "lane"; id: string }) {
   const data = useOrch((s) => s.data);
-  const page = useMachinePage() as RunPage | "";
+  const page = useInspectorPage() as RunPage | "";
   const [run, n] = kind === "lane" ? [id.slice(0, id.lastIndexOf(":")), Number(id.slice(id.lastIndexOf(":") + 1))] : [id, 0];
   const lane = (data?.run.run_id === run && data.lanes.find((l) => l.lane === n)) || null;
   const workerKey = useWorkerKey(lane);
@@ -103,8 +103,8 @@ export function RunInspector({ kind, id }: { kind: "run" | "lane"; id: string })
       <ul className="ri-rows" aria-label="Open one block">
         {PAGES.map(([p, label]) => (
           <li key={p} className="ri-row" data-density="row" data-block={p}>
-            <button className="ri-row-main" onClick={() => setMachinePage(p)} data-testid={`run-block-${p}`}><span className="ri-row-title">{label}</span></button>
-            <Button size="sm" variant="ghost" onClick={() => setMachinePage(p)} data-testid={`run-open-${p}`} aria-label={`Open ${label}`}>Open</Button>
+            <button className="ri-row-main" onClick={() => setInspectorPage(p)} data-testid={`run-block-${p}`}><span className="ri-row-title">{label}</span></button>
+            <Button size="sm" variant="ghost" onClick={() => setInspectorPage(p)} data-testid={`run-open-${p}`} aria-label={`Open ${label}`}>Open</Button>
           </li>
         ))}
       </ul>

@@ -4,9 +4,7 @@
 // Space pins the current stream (its mini
 // stream stays on screen), Esc unpins, P pauses or resumes. Inside the agent
 // panel K is Stop, with a confirm, so a stray K on the map never stops
-// anything. 3.0.6.0 R8: M brings the Mission panel up (3.3.16.0 R2: in Agents,
-// Live's Mission panel since 3.4.0.0 D; the Fleet section went, Live hops every machine's agents
-// on the fleet scope). Keys typed in a box, with a modifier, or that a panel, a menu
+// anything. Keys typed in a box, with a modifier, or that a panel, a menu
 // or a dialog already took, stay where they are. An F nothing here takes
 // (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts). 3.3.11.0 R2: in Roles, L switches the
 // canvas between Plan and Live, and on Live J / K hop the session tree's working agents.
@@ -17,7 +15,6 @@ import { hopCard } from "../roles/live";
 import { hopLive } from "../roles/liveModel";
 import { roles, setCanvasView } from "../roles/store";
 import { askStop, hop, pin, toggleFollow, togglePause } from "./actions";
-import { showFleetPanel } from "./extras";
 import { fleet } from "./store";
 
 const TYPING = "input, textarea, select, [contenteditable]";
@@ -41,7 +38,6 @@ export function useHopKeys(): void {
         return;
       }
       const dir = key === "j" ? 1 : key === "k" ? -1 : 0;
-      if (key === "m" && !e.shiftKey && s.section === "agents") return (e.preventDefault(), showFleetPanel("fleet-mission"));
       if (onPart("roles")) { // Agents on Cast or Live
         const watched = roles.get().watched;
         const real = watched && !watched.startsWith("replay|") ? watched : "";

@@ -217,7 +217,7 @@ a pass, the hygiene lines (3.3.7.0 R3; 2.0.7's warning before it).
 Where each local lane of a lineup (named, else the active one) should run: every configured Ollama host is asked, a halo host-served one
 through its `route` (the helper's footprint counted), any other -- this machine's own, with no `halo host` -- from the local reads. One row
 per lane: its host and why ("fits, warm", "fits now, 18 s load", "shares weights with a lane placed there", "not pulled there"); main stays
-on its host; 3.3.8.0 R4: each lane's `scores:` -- every candidate (fleet-wide: a paired host's card, the pool) with its loading tax.
+on its host; 3.3.8.0 R4: each lane's `scores:` -- every candidate (a paired host's card, the pool) with its loading tax.
 `--apply` writes `host_for` on each moved lane's `<host>|<model>|<role>` profile (Halo-side; the changes journal); nothing loads until it asks.
 
 ### `halo local import <model> [--name NAME] [--host NAME] [--yes]`

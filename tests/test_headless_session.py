@@ -28,7 +28,7 @@ test, TESTS = new_registry()
 
 @test
 def test_a_session_with_no_terminal_end_to_end(ctx: Ctx):
-    from tests.helpers.fleet_rig import wait_for
+    from tests.helpers.session_rig import wait_for
     from tests.helpers.headless_rig import ASK_TEXT, MODEL, REPLY, HeadlessRig
     with HeadlessRig() as rig:
         proc = rig.start()

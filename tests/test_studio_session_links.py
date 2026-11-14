@@ -1,12 +1,10 @@
 """tests.test_studio_session_links -- the links into the Session dashboard in a
 real browser (Halo 3.1.4.0 R2; headless Chrome through the driver base,
 tests/helpers/studio_session.py `links` -> studio_session_links.py; skipped
-without one), over this harness's real session mid-work and a member harness:
+without one), over this harness's real session mid-work:
 
-1. Agents -> Live on the fleet (3.3.16.0 R2: the Fleet section and its Tree panel went): this harness's agent's
-   Watch in Session opens Session with that agent selected; a member's agent stays in Live's inspector;
-2. a node's `...` menu: Open in Session on this harness's nodes (it
-   opens Session on that agent), not on a member's;
+1. Agents -> Live: an agent's Watch in Session opens Session with that agent selected;
+2. a node's `...` menu: Open in Session (it opens Session on that agent);
 3. the Roles canvas: a working card's Live tab header has Watch in Session,
    which opens Session on that agent;
 4. a live Orchestra run led by this harness's session: its run line has Watch
@@ -29,24 +27,20 @@ test, TESTS = new_registry()
 
 
 @test
-def test_live_opens_this_harness_in_session_and_keeps_a_member_on_live(ctx: Ctx):
+def test_live_opens_this_harness_in_session(ctx: Ctx):
     r, got = _driver("links")
     _ran(ctx, r, got)
     ctx.check(f"this harness's agent: Session on it, got {got.get('rail_local_tab')!r} {got.get('rail_local_agent')}",
               str(got.get("rail_local_tab")).startswith("Session") and got.get("rail_local_agent") == "implementer")
-    ctx.check(f"a member's agent: Live's inspector, got {got.get('rail_member_tab')!r} {got.get('rail_member_agent')}",
-              str(got.get("rail_member_tab")).startswith("Agents") and got.get("rail_member_agent") == "member")
 
 
 @test
-def test_the_map_menu_opens_in_session_on_this_harness_only(ctx: Ctx):
+def test_the_map_menu_opens_in_session(ctx: Ctx):
     r, got = _driver("links")
     _ran(ctx, r, got)
     ctx.check(f"this harness's node has Open in Session, got {got.get('menu_local')}", "session" in (got.get("menu_local") or []))
     ctx.check(f"it opens Session on that agent, got {got.get('menu_tab')!r} {got.get('menu_agent')}",
               str(got.get("menu_tab")).startswith("Session") and got.get("menu_agent") == "researcher")
-    ctx.check(f"a member's node has no such entry, got {got.get('menu_member')}",
-              got.get("menu_member") and "session" not in got.get("menu_member"))
 
 
 @test

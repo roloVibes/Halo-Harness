@@ -107,14 +107,14 @@ def test_bare_studio_opens_this_session(ctx: Ctx):
 def test_studio_section_opens_that_section(ctx: Ctx):
     app = _App()
     with _opener("focused") as targets:
-        _slash(app, "studio", "fleet")
+        _slash(app, "studio", "orchestra")
     t = targets[0] if targets else None
-    ctx.check(f"/studio fleet: mode=fleet, no session, got {t}", t is not None and t.mode == "fleet" and t.text == "")
-    # 3.3.16.0 R2: Fleet folded into Agents -> Live: the door's line once, then where it opened
+    ctx.check(f"/studio orchestra: mode=orchestra, no session, got {t}", t is not None and t.mode == "orchestra" and t.text == "")
+    # the old word's door: its line once, then where it opened
     ctx.check(f"its lines name the new door and Agents (Live), got {app.lines}", len(app.lines) == 2
-              and app.lines[0].startswith("Fleet is Agents -> Live now") and app.lines[1].startswith("Opened Agents (Live) in the Studio page")
-              and "?mode=fleet#t=" in app.lines[1])
-    for word in ("orchestra", "roles", "fleet", "team", "session", "local"):
+              and app.lines[0].startswith("Orchestra is Agents -> Live now") and app.lines[1].startswith("Opened Agents (Live) in the Studio page")
+              and "?mode=orchestra#t=" in app.lines[1])
+    for word in ("orchestra", "roles", "team", "session", "local"):
         app = _App()
         with _opener("focused") as targets:
             _slash(app, "studio", word)

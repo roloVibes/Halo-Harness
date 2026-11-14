@@ -17,7 +17,7 @@ line naming the ten. 3.3.12.0 R2: an enabled pack's palettes are listed after th
 set by their `<pack-id>/<id>` name (`/theme pack-theme/nightshade`), at once. In the TUI, Tab completes theme names. The game themes and their toggles were removed in
 3.1.5.0. See the Themes section of the [handbook](HANDBOOK.md).
 
-### `/studio` `[session|roles|design|orchestra|fleet|team|packs|setup] [url]`
+### `/studio` `[session|roles|design|orchestra|team|packs|setup] [url]`
 Halo 3.1.4.0: bare `/studio` (or `/studio session`) opens Studio on the
 session you are in: the **Session** dashboard (`Alt+1`; `?mode=session&session=<this
 session's id>`), its map, activity, attention, agent and cost. `/studio
@@ -27,8 +27,7 @@ one is started, and one line says what happened: opened, focused, or here is
 the URL. The same as `halo studio --session` from a shell.
 
 Halo 2.1.0, modes in 3.0.2.0: the sections are `roles` and `design`;
-3.0.4.0: `orchestra` too; 3.0.5.0: `fleet`, every harness and agent live;
-3.0.8.0: `team`, the team's board; 3.1.4.0: `session` (Org and Flow are gone
+3.0.4.0: `orchestra` too; 3.0.8.0: `team`, the team's board; 3.1.4.0: `session` (Org and Flow are gone
 since 3.1.4.0; Design is the design pack's since 3.3.13.0: `/studio design--design`). Bare `/roles` is an
 unchanged short form. Roles
 is your lineups and agent bios as an editable graph in the browser.

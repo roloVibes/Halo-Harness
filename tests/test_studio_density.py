@@ -31,7 +31,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-SECTIONS = ("session", "agents-cast", "agents-live", "agents-fleet", "packs", "setup", "setup-machines", "settings", "local")
+SECTIONS = ("session", "agents-cast", "agents-live", "agents-busy", "packs", "setup", "settings", "local")
 BAR, ROW, PAD, GAP = 36, 40, 12, 12
 
 
@@ -107,7 +107,7 @@ def test_every_section_was_measured(ctx: Ctx):
     for name in SECTIONS:
         m = got.get(name) or {}
         ctx.check(f"{name}: drawn and measured, got {len(m.get('bars') or [])} bars", len(m.get("bars") or []) >= 1)
-    for name in ("session", "agents-fleet", "agents-cast", "agents-live", "packs"):
+    for name in ("session", "agents-busy", "agents-cast", "agents-live", "packs"):
         m = got.get(name) or {}
         ctx.check(f"{name}: its workspace's panels each opened and measured, got {len(m.get('panels') or [])} of {m.get('cells')}",
                   m.get("cells", 0) >= 4 and len(m.get("panels") or []) == m.get("cells"))
@@ -149,10 +149,6 @@ def test_the_fleet_fold_pieces_pass_the_rules(ctx: Ctx):
     att = got.get("agents-attention") or {}
     ctx.check(f"the queue's head is a bar >= 36 px, got {att.get('bars')}", any(t in ("agents-attention-close", "fleet-attention") or "ag-attn" in str(t) for t, _ in att.get("bars") or []))
     ctx.check(f"the queue's body is measured, got {att.get('bodies')}", any("ag-attn" in str(t) or t == "fleet-attention" for t, _ in att.get("bodies") or []))
-    rows = [r for r in att.get("rows") or [] if str(r[0]).startswith("live-glance-machine") or "ri-row" in str(r[0])]
-    ctx.check(f"the glance's machine rows are targets >= 40 px, got {rows}", rows and all(h >= ROW for _, h in rows))
-    m = got.get("setup-machines") or {}
-    ctx.check(f"Setup -> Machines drawn and measured, got {len(m.get('bars') or [])} bars", len(m.get("bars") or []) >= 1)
 
 
 @test

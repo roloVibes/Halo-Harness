@@ -15,14 +15,12 @@ import { CheckDetail } from "./Check";
 import { DefaultModelDetail } from "./DefaultModel";
 import { LinuxFixesDetail } from "./LinuxFixes";
 import { LocalModelsDetail } from "./LocalModels";
-import { MachinesDetail } from "./Machines";
 import { PackBlockPage } from "./PackBlocks";
 import { blockOf, isPackStep } from "./packSetup";
 import { HELP_KEY, step, stepsOf, titleOf, usePage, type CoreStep, type StepId } from "./pages";
 import { PermissionsDetail } from "./Permissions";
 import { ProvidersDetail } from "./Providers";
 import { useSetup } from "./store";
-import { useFleetPack } from "../fleet/store";
 import { SummaryDetail } from "./Summary";
 import { TeamDetail } from "./Team";
 import { ThemeDetail } from "./Theme";
@@ -36,7 +34,6 @@ const BODY: Record<CoreStep, ComponentType> = {
   team: TeamDetail,
   linux: LinuxFixesDetail,
   check: CheckDetail,
-  machines: MachinesDetail,
   summary: SummaryDetail,
 };
 
@@ -99,7 +96,6 @@ function Head({ page, n, of }: { page: StepId; n: number; of: number }) {
 
 export function SetupPage() {
   const page = usePage();
-  useFleetPack(); // 3.4.0.0 C: the Machines step follows the fleet pack's flag (GET fleet)
   const steps = useSetup((s) => stepsOf(s.data, page).join("|")).split("|") as StepId[];
   const { ready } = useLoadState();
   const ref = useRef<HTMLElement>(null);

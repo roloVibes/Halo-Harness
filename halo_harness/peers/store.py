@@ -7,7 +7,7 @@
     fleet/keys/<key_ref>.key    that hub's 32-byte pair key as hex (0600)
 
 A hub's `share` / `allow_control` of null follows the config keys
-(`fleet.share`, `fleet.allow_control`). `state` is `joined`, or `kicked`
+(`fleet.share`, `host.allow_control`). `state` is `joined`, or `kicked`
 once that hub removed this harness (the relay then stops trying it until
 the next join). Nothing is written here before `halo fleet join`.
 """

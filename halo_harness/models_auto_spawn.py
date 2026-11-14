@@ -129,7 +129,7 @@ def record(child, chosen: Optional[Pick], ran_on: Optional[str] = None) -> Optio
     child.model_reason = chosen.reason
     child.model_picked = "none" if chosen.fallback else chosen.how  # 3.1.9.0 R3: the outcome row's `picked`
     try:
-        child.log.append_meta(fleet_note=chosen.line())
+        child.log.append_meta(control_note=chosen.line())
     except Exception:
         pass
     return chosen.reason

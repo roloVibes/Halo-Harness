@@ -4,7 +4,7 @@
 // carries its source as its title (idea 2, "why" on every number): nvidia-smi,
 // rocm-smi, ioreg, /proc/meminfo, GlobalMemoryStatusEx, /api/ps ... or why
 // there is none. Samples come once a second (ollama_steward/resources.py); a
-// host a fleet member serves says "via <member>" (idea 5, the hub as the one picture).
+// host a paired machine serves says "via <machine>".
 import type { Sample } from "./types";
 import { gib } from "./store";
 

@@ -1,5 +1,5 @@
 """tests.helpers.studio_live_plan -- Live with the plan under it (Halo 3.3.18.0 "The living canvas" part 2) in headless
-Chrome on the driver base, over tests/helpers/studio_fleet_rig.py: its real session (main, an implementer, a researcher)
+Chrome on the driver base, over tests/helpers/studio_session_rig.py: its real session (main, an implementer, a researcher)
 runs under halo-dev-cycle, rewritten here with two tiers that have a purpose (build: worker, verify; read: research) and
 one square (media); plus three agents through tests/helpers/studio_live_rig.py: a square agent of media, its helper, and
 a scribe no card matches. tests/test_studio_live_plan.py runs it:
@@ -132,9 +132,9 @@ class LivePlanDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        from tests.helpers.studio_session_rig import StudioSessionRig
         folder = self.argv[self.argv.index("--shots") + 1] if "--shots" in self.argv else ""
-        with StudioFleetRig() as rig:
+        with StudioSessionRig() as rig:
             seed_lineup(rig.state)
             rig.full = False  # the default arrangement: the canvas has the page
             a = (c, rig)

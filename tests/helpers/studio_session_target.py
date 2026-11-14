@@ -1,7 +1,7 @@
 """tests.helpers.studio_session_target -- Session's Live column, Halo 3.3.0.0
 R6 "the steer knows its target, and the timeline exports a trace", through
 real clicks and keys in headless Chrome on the driver base
-(tests/helpers/chrome_driver.Driver), over tests/helpers/studio_fleet_rig.py
+(tests/helpers/chrome_driver.Driver), over tests/helpers/studio_session_rig.py
 (this harness's real session behind the real Controller) with three extra
 agents and scripted feed frames (tests/helpers/studio_live_rig.py).
 tests/test_studio_session_target.py runs it as a subprocess:
@@ -146,10 +146,10 @@ class TargetDriver(Driver):
 
     @contextmanager
     def session(self, c):
-        from tests.helpers.studio_fleet_rig import StudioFleetRig
+        from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_live_rig import Live
         from tests.helpers.studio_session_target2 import export, keys
-        with StudioFleetRig() as rig:
+        with StudioSessionRig() as rig:
             lv = Live(rig)
             yield ((opened, (c, rig)), (target_line, (c, lv)), (choose_row, (c, lv)), (compose, (c, lv)), (keys, (c, lv)),
                    (export, (c, rig)))

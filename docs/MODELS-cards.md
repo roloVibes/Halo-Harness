@@ -319,7 +319,7 @@ A bench run from one halo against an Ollama host another machine serves (the Mac
 host's halo when one serves it (`halo host serve` there, paired here with `control`: the card is the machine's own, no
 link in it; paired without `control`, the answer is the grant line). With no host there, it runs **directly over the LAN from here** through the same bench, and the card says
 so in its first line: `measured over the LAN from mac: includes the link (RTT 1.8 ms, wired)` -- `mac` is this halo's
-`fleet.name` (else its host name), the RTT one TCP connect to the host's port and the adapter this machine reaches it
+`harness.name` (else its host name), the RTT one TCP connect to the host's port and the adapter this machine reaches it
 on (wired / Wi-Fi), measured once before the battery (`providers/local_bench_link.py`). **What the link adds:** every
 call's round trip -- small at 1-2 ms wired, more on Wi-Fi -- to the first-token times and a little to the reply tok/s,
 so the card is a peer's view of the machine, never its own. The card keeps `over_lan`, `measured_from` and `link`

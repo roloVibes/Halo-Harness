@@ -2,7 +2,6 @@
 3.0.9.0 round R3 in the core; the coach pack's since 3.4.0.0 B2, under /api/packs/coach/coach/, server/routes.py):
 
     GET orchestra/<run>/coach        an Orchestra run of Studio's repo
-    GET fleet/missions/<id>/coach    a mission in this harness's missions folder
 
 Each answers the coach's result `{run, kind, suggestions, evidence, model,
 computed, source_mtime, cached}` (each suggestion with its `paragraph`,
@@ -23,7 +22,7 @@ computed, source_mtime, cached}` (each suggestion with its `paragraph`,
     POST orchestra/<run>/coach/probe {k?, confirm?}   confirm false: {estimate: {runs, cap_usd, total_usd, line, ...},
                                                       running} (nothing runs); confirm true: 202 {started, estimate}, the
                                                       probe on a thread (server/coach_probe_job.py); 409 while one runs;
-                                                      422 for a mission or a run with no report
+                                                      422 for a run with no report
 
 The orchestra coach's GET answer carries `probe` (its status, with `live`: a
 probe of the run runs in this Studio) and, once one ended, the probe's card first.
@@ -43,8 +42,7 @@ from halo_harness.ext import core as _core
 
 _RUN = r"[A-Za-z0-9_-]+"
 _VERB = r"(?:/(?P<verb>ask|apply|undo|probe))?$"
-PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"),
-            ("mission", rf"^fleet/missions/(?P<run>m-\d{{8}}-[0-9a-f]{{4}})/coach{_VERB}"))
+PATTERNS = (("orchestra", rf"^orchestra/(?P<run>{_RUN})/coach{_VERB}"),)
 LIBRARY = r"^coach/library/(?P<entry>e-\d{8}-[0-9a-f]{4})/forget$"
 
 
@@ -53,17 +51,8 @@ def _orchestra_dir(req, ref):
     return OM.find_run(OM.repo_of(req.cwd), ref)
 
 
-def _mission_dir(req, ref):
-    door = _core.module('packs.fleet_door')  # 3.4.0.0 C: missions are the fleet pack's (none when it is off)
-    S = door.module("fleet/mission_store.py", cwd=req.cwd, state_dir=req.state_dir)
-    if S is None:
-        return None
-    folder = S.folder(req.state_dir, ref)
-    return folder if (folder / "mission.json").is_file() else None
-
-
-FINDERS = {"orchestra": _orchestra_dir, "mission": _mission_dir}
-WHAT = {"orchestra": "Orchestra run", "mission": "mission"}
+FINDERS = {"orchestra": _orchestra_dir}
+WHAT = {"orchestra": "Orchestra run"}
 
 
 def match(path: str):

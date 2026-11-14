@@ -1,6 +1,6 @@
 """tools/capture_session_scenes.py -- the scripted activity
 tools/capture_session_anim.py films (Halo 3.1.5.0 R3): what each agent of
-the fleet rig (tests/helpers/studio_fleet_rig.py, plus the extra agents of
+the fleet rig (tests/helpers/studio_session_rig.py, plus the extra agents of
 tests/helpers/studio_live_rig.py) says, runs and hands back, second by
 second, as the feed frames a live session sends. A scene is a list of
 (seconds, step) pairs; `play` runs it on a thread against the clock so the

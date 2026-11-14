@@ -1,8 +1,7 @@
-"""halo_harness.work -- the unit of work under lanes, mission parts and
+"""halo_harness.work -- the unit of work under lanes and
 supervisor goals (Halo 3.1.2.0 R1, docs/WORK.md; 3.4.0.0 B: a team stage left with the team file).
 
-One model, three front doors: an Orchestra lane, a fleet mission's part and
-a supervisor goal are all a `Unit` (work/unit.py) on one state
+One model, two front doors: an Orchestra lane and a supervisor goal are both a `Unit` (work/unit.py) on one state
 machine (work/states.py, with each engine's words in an alias table), with
 claims (work/claims.py), hand-offs (work/handoff.py) and a gate
 (work/gate.py); every engine log line reads as a `LedgerLine`

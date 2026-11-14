@@ -17,7 +17,7 @@ import tempfile
 import threading
 from pathlib import Path
 
-_VARS = ("BRIDGE_STATE_DIR", "HALO_FLEET_PRIVATE", "HALO_FLEET_PARENT")
+_VARS = ("BRIDGE_STATE_DIR", "HALO_PRIVATE", "HALO_SESSION_PARENT")
 
 
 class PromptRig:
@@ -31,7 +31,7 @@ class PromptRig:
         self.state = Path(default_state_dir())
         self.state.mkdir(parents=True, exist_ok=True)
         set_config_value("remote.enabled", False)  # the Signal bridge's switch, never the socket's
-        set_config_value("fleet.name", "you@studio")
+        set_config_value("harness.name", "you@studio")
         identity.forget_cache()
         self.cwd = Path(tempfile.mkdtemp(prefix="prompt-cwd-"))
         self.closers: list = []

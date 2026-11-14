@@ -1,21 +1,16 @@
-"""halo_harness.live.caps -- spend today and the caps on it (Halo 3.0.5.0
-"Fleet" round R4, D6 budget guard). Pure: everything is computed from the
-hub's view (`GET /api/fleet`); studio/fleet_watch.py acts on `reached`.
+"""halo_harness.live.caps -- spend today and the caps on it (Halo 3.0.5.0 R4, the budget guard). Pure: everything
+is computed from Studio's view of this machine (`GET /api/live`); studio/live_watch.py acts on `reached`.
 
-    fleet.caps.per_harness_usd_per_day   one harness's sessions started today
-    fleet.caps.per_project_usd_per_day   every session on one repo started today, any harness
-    fleet.caps.fleet_usd_per_day         every session the hub sees started today
+    caps.per_harness_usd_per_day   this machine's sessions started today
+    caps.per_project_usd_per_day   every session on one repo started today
 
-A session counts toward today when it started today (local time). A harness's
-(and so the fleet's) total is its `cost_today`, read from its sessions'
-records, finished ones included (3.4.0.1, live/session_cost.py); a project's
-is each harness's `cost_today_projects` (3.4.1.0 R5: the same records, by
-project), or what its live sessions report when that is more (an older member
-says no projects).
-A cap reached pauses the live sessions in its scope (the `pause` command,
-reason "cap": every agent holds at its next tool boundary, so nothing new is
-spawned) and raises an attention row; lifting it (the row's `a`) resumes
-them and holds the cap off for the rest of the day.
+(Before 3.5.0.0 the keys were `fleet.caps.*`; config/renamed_keys.py still reads those.) A session counts toward
+today when it started today (local time). The machine's total is its `cost_today`, read from its sessions' records,
+finished ones included (3.4.0.1, live/session_cost.py); a project's is `cost_today_projects` (3.4.1.0 R5: the same
+records, by project), or what its live sessions report when that is more.
+A cap reached pauses the live sessions in its scope (the `pause` command, reason "cap": every agent holds at its next
+tool boundary, so nothing new is spawned) and raises an attention row; lifting it (the row's `a`) resumes them and
+holds the cap off for the rest of the day.
 """
 
 from __future__ import annotations
@@ -24,8 +19,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
-KEYS = ("per_harness_usd_per_day", "per_project_usd_per_day", "fleet_usd_per_day")
-SCOPE = {"per_harness_usd_per_day": "harness", "per_project_usd_per_day": "project", "fleet_usd_per_day": "fleet"}
+KEYS = ("per_harness_usd_per_day", "per_project_usd_per_day")
+SCOPE = {"per_harness_usd_per_day": "harness", "per_project_usd_per_day": "project"}
 
 
 def _num(v) -> Optional[float]:
@@ -38,7 +33,7 @@ def _num(v) -> Optional[float]:
 
 def config(home=None) -> dict:
     from halo_harness.peers import identity
-    raw = identity.config_value("fleet.caps", {}, Path(home) if home is not None else None)
+    raw = identity.config_value("caps", {}, Path(home) if home is not None else None)
     raw = raw if isinstance(raw, dict) else {}
     return {k: _num(raw.get(k)) for k in KEYS}
 
@@ -87,19 +82,17 @@ def spend(view: dict, now: Optional[float] = None) -> dict:
         p["sessions"] += n
         if hname not in p["harnesses"]:
             p["harnesses"].append(hname)
-    for h in view.get("harnesses") or []:  # 3.4.0.1: a harness's today counts its finished sessions (its records)
+    for h in view.get("harnesses") or []:  # 3.4.0.1: today counts the finished sessions (their records)
         said, row = h.get("cost_today"), per_h.get(str(h.get("id") or ""))
         if row is not None and isinstance(said, (int, float)) and not isinstance(said, bool) and said > row["usd"]:
             row["usd"] = float(said)
             row["sessions"] = max(row["sessions"], int(h.get("sessions_today") or 0))
         if row is not None and h.get("cost_today_unknown"):
             row["unknown"] = list(h["cost_today_unknown"])
-        elif row is not None and "cost_today" in h and said is None and not h.get("local"):  # 3.4.1.1 (49): not heard yet
-            row["unknown"] = ["its today: not heard since the hub started (it comes with its next announce)"]
     for d in list(per_h.values()) + list(per_p.values()):
         d["usd"] = round(d["usd"], 6)
     total = round(sum(h["usd"] for h in per_h.values()), 6)
-    return {"fleet": total, "complete": not any(h.get("unknown") for h in per_h.values()), "harnesses": list(per_h.values()),
+    return {"total": total, "complete": not any(h.get("unknown") for h in per_h.values()), "harnesses": list(per_h.values()),
             "projects": sorted(per_p.values(), key=lambda p: -p["usd"]), "sessions": sessions}
 
 
@@ -118,10 +111,6 @@ def reached(view: dict, caps: dict, now: Optional[float] = None) -> list:
         if p["usd"] >= cap:
             out.append({"scope": "project", "key": p["key"], "label": p["label"], "spent": p["usd"], "cap": cap,
                         "sessions": [[hid, s.get("session_id")] for hid, s in live if project_key(s) == p["key"]]})
-    cap = caps.get("fleet_usd_per_day")
-    if cap and sp["fleet"] >= cap:
-        out.append({"scope": "fleet", "key": "fleet", "label": "the whole fleet", "spent": sp["fleet"], "cap": cap,
-                    "sessions": [[hid, s.get("session_id")] for hid, s in live]})
     return out
 
 

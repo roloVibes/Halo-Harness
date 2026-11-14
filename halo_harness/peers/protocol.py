@@ -55,7 +55,7 @@ H_ADMIN = "X-Halo-Fleet-Admin"
 READ_CMDS = ("status", "agents", "doctor", "capabilities")  # R4 `doctor`: fleet/health.py; 3.0.6.0 R6 `capabilities`
 FULL_CMDS = ("agent_tail", "agent_follow", "tail")  # share: full only
 ACTING_CMDS = ("agent_steer", "agent_stop", "pause", "resume", "shutdown", "steer", "interrupt")
-TASK_CMDS = ("run_task",)  # 3.0.6.0 R7: a mission part, gated by fleet.allow_control like steer (fleet/mission_worker.py)
+TASK_CMDS = ("run_task",)  # 3.0.6.0 R7: a mission part, gated by host.allow_control like steer (fleet/mission_worker.py)
 RECALL_CMDS = ("recall",  # 3.1.2.0 R3: {query, k}, answered from the member's own index unless fleet.recall.share: false
                "coach_library",  # 3.1.6.0 R3: {entry}, one entry of its coach library (orchestra/coach_library_share.py)
                "knowledge")  # 3.1.8.0 R4: {id} | {kind, all}, its findings / decisions (knowledge/share.py)
@@ -67,7 +67,7 @@ FLEET_CMDS = READ_CMDS + FULL_CMDS + ACTING_CMDS + ("answer", "note") + TASK_CMD
 
 TEXT_KINDS = frozenset({"text_chunk", "text_delta", "thinking_delta", "thinking_chunk"})
 FULL_KINDS = TEXT_KINDS | {"agent_event", "agent_talk"}  # a followed agent's entries, one agent's words to another
-STATUS_KINDS = frozenset({"agent_state", "fleet"})
+STATUS_KINDS = frozenset({"agent_state", "registry"})
 
 
 def canonical_json(obj) -> str:
@@ -197,7 +197,7 @@ def scrub_frame(frame: dict, level: str) -> Optional[dict]:
     data = frame.get("data")
     if kind == "agent_state" and isinstance(data, dict):
         return {**frame, "data": scrub_agent(data, level)}
-    if kind == "fleet" and isinstance(data, dict):
+    if kind == "registry" and isinstance(data, dict):
         return {**frame, "data": scrub_session(data)}
     return dict(frame)
 

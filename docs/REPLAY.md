@@ -4,7 +4,7 @@ Read this when you want to see what a session looked like at an earlier moment o
 
 The scrubber, the file and the clip are 3.4.1.0 "Time" (round R1); a goal run saved as a file and Compare are round
 R2; the report card is round R3. They are core: they read this machine's sessions and
-`<state>/replays/` (`~/.halo/replays/`), with the fleet pack on or off. [Studio: Agents -> Live](STUDIO-live.md) has
+`<state>/replays/` (`~/.halo/replays/`). [Studio: Agents -> Live](STUDIO-live.md) has
 the canvas they redraw; `halo replay <session> --model <ref>` (re-run one turn on another model) is a different verb,
 in [COMMANDS-sessions.md](COMMANDS-sessions.md#halo-replay).
 
@@ -33,7 +33,7 @@ no other replay control (Cast's replay bar went in 3.4.1.0).
 A goal run's or a mission's replay is coarse: the record holds each lane's or part's start and end, so the scrub shows
 who existed and how each ended, not each step; the bar says so. A goal run SAVED as a file (below) holds each lane's
 state changes from its record -- joined, writing, written, in review, sent back, merged, failed -- so its file plays
-finer than that. A mission is the fleet pack's: it is not saved as a file here, and it is compared from its report.
+finer than that.
 
 ## What a past moment can and cannot show
 
@@ -92,7 +92,7 @@ that attacks it (case, separators, encodings, look-alikes, every kind of field).
 fields, and look-alike letters NFKC does not fold (Cyrillic, Greek).
 
 **Open it anywhere**: History's **Open a file** (a file from this disk, made here or on another machine; it is kept under
-`<state>/replays/` so History lists it), or `halo replay open <file>`. A file of an older shape -- a `GET fleet/replay`
+`<state>/replays/` so History lists it), or `halo replay open <file>`. A file of an older shape -- a `GET live/replay`
 answer saved as is (3.0.5.0 to 3.4.0.0) -- opens as version 1; a newer version than this Halo reads says to update.
 The version stays 1 in R2: `kind: run`, `run_id` and `facts` are new keys a version-1 reader ignores, and a file saved
 before them still opens and compares (its figures then come from its agents; what it never held is "unknown").
@@ -141,7 +141,6 @@ it on -- by default its first steer, else halfway; **split at** moves it. Wall t
 stretch is not faster); a stretch's cost is the running cost's difference, unknown only when an unpriced call fell in
 it; tokens are not counted per moment.
 
-A mission is the fleet pack's: ticking one says "a mission is compared from its report" and Compare leaves it out.
 `halo replay compare <a> <b> [--split T] [--json]` prints the same rows and lines; `--json` is the data (`a`, `b` with
 their `figures` and `lanes`, `rows` [{key, label, a: {value, text}, b, better, word}], `differed`, `split`, `axis`).
 
@@ -165,7 +164,7 @@ nine cells: how it ended, wall time, cost, tokens, models, agents spawned, asks,
   tokens, retries or failed calls) or R3 (no files), an older permission card's words, an untimed wait, a cost Halo could
   not price ("unknown" or the priced part with a "+", never $0), what only Live showed as it happened.
 
-**Where it opens**: each History row's **Report** door (a mission's report is the fleet pack's mission page, not a card);
+**Where it opens**: each History row's **Report** door;
 the row Live shows for the session that ended last when nothing runs (a row, never a pop-up); a goal run's card is the
 FIRST block of its report page in History (one page per goal run: the plan, the lanes, the gate, the merge, the outcomes
 and the artefacts follow it). **Copy Markdown** puts the same card on the clipboard. A `.halo-replay` file opened on

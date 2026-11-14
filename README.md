@@ -165,7 +165,6 @@ The core is what the five above need. The rest ships as packs, off until you tur
 |---|---|
 | `first-run` | The guided first run: `halo start`, one real goal run that rehearses your lineup on a sample repo |
 | `coach` | The post-run coach: suggestions from a finished run, Apply after one confirm, `halo improve` |
-| `fleet` | Several halos joined to one hub: every machine's agents on Live, one attention queue, missions across machines |
 | `design` | Prototypes, pages, decks and logos on artboards in Studio, made by a Halo turn |
 | `signal` | Halo on your phone as a chat: a text message starts or continues a session (it runs signal-cli) |
 | `concord` | Joins a repo's Concord workspace, so a session claims work and trades messages with other agents |

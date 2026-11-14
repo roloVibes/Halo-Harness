@@ -92,30 +92,6 @@ def test_packs_1_a_configured_source_does_not_shadow_a_shipped_id_unless_named(c
         ctx.check(f"--from takes that source, got {code} {err} {rec.get('version')}", code == 0 and rec.get("version") == "9.9.9")
 
 
-@test
-def test_packs_1_the_fleet_door_opens_only_the_shipped_fleet(ctx: Ctx):
-    from halo_harness.packs import fleet_door, registry
-    from halo_harness.packs.grants import enable_id
-    from halo_harness.packs.install import install
-    with PacksHome() as h:
-        fork = _plant(h.sources, "fleet")
-        (fork / "fleet").mkdir()
-        (fork / "fleet" / "marker.py").write_text("import pathlib\npathlib.Path(__file__).with_name('RAN').write_text('x')\n",
-                                                   encoding="utf-8")
-        ok, lines = install(str(fork), cwd=h.repo, state_dir=h.state)
-        ok2, lines2 = enable_id("fleet", cwd=h.repo, state_dir=h.state)
-        registry.invalidate()
-        ctx.check(f"a fleet from another folder installs and enables, got {ok} {ok2} {lines2[:1]}", ok and ok2)
-        got = fleet_door.module("fleet/marker.py", cwd=h.repo, state_dir=h.state)
-        ctx.check("the door does not open it", got is None and not (h.state / "packs" / "fleet" / "fleet" / "RAN").exists())
-        ctx.check(f"its line says why, got {fleet_door.line()!r}", "not the one Halo ships" in fleet_door.line())
-        h.cli("remove", "fleet")
-        ok, lines = install("fleet", cwd=h.repo, state_dir=h.state)
-        enable_id("fleet", grant_all=True, cwd=h.repo, state_dir=h.state)
-        registry.invalidate()
-        ctx.check(f"the shipped fleet opens, got {ok} {lines[:1]}", ok and fleet_door.running(cwd=h.repo, state_dir=h.state) is not None)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

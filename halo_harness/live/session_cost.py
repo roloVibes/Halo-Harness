@@ -13,7 +13,7 @@ not price has `cost_usd: null` and names its model: that spend is unknown, never
     started(path)               the first `ts` the record names (its meta line), else None
 
 Readers: the harness's own `cost_today` (peers/local_view.py, so the hub's machine and every member say the same),
-the fleet caps (live/caps.py), History's session rows (studio/fleet_api.py) and a goal run's lead calls.
+the fleet caps (live/caps.py), History's session rows (studio/live_agents_api.py) and a goal run's lead calls.
 """
 
 from __future__ import annotations
@@ -130,14 +130,14 @@ def today(state_dir=None, now: Optional[float] = None) -> dict:
 
 def project_of(cwd) -> str:
     """The project key of a folder, as a live session's row names it (its git repo, else the folder): live/caps.py's
-    `project_key` over remote/fleet_identity.project, so a finished session counts toward the same project's cap."""
+    `project_key` over remote/session_identity.project, so a finished session counts toward the same project's cap."""
     if not cwd:
         return "no project"
     from halo_harness.live.history_owner import _root_of  # 3.4.1.1 (66): a goal run's worker counts to its run's repo
     cwd = _root_of(str(cwd))
     from halo_harness.live.caps import project_key
     try:
-        from halo_harness.remote.fleet_identity import project
+        from halo_harness.remote.session_identity import project
         return project_key({"project": project(cwd)})
     except Exception:
         return project_key({"cwd": cwd})

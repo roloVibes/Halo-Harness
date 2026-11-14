@@ -24,7 +24,7 @@ needs them (each named in docs/WORK.md):
     skipped -> ready             a skipped stage (the run's budget held it) is asked to run again
     merged  -> waiting           the gate sends a merged piece back (the tests fail on the finished
                                  branch), and a downstream lane of it goes stale
-    waiting -> done              a mission part's result lands while the hub still shows it asked
+    waiting -> done              a unit's result lands while its engine still shows it waiting
 
 The engines keep their words on disk: `ALIASES[kind]` maps an engine word
 to the machine's word, `NATIVE[kind]` maps back. Every engine word
@@ -51,15 +51,12 @@ EDGES = {
 }
 # the edges R2 added to R1's machine, each because an engine needs it (the docstring says which)
 ADDED = (("failed", "ready"), ("failed", "running"), ("skipped", "ready"), ("merged", "waiting"), ("waiting", "done"))
-KINDS = ("lane", "part", "goal")  # 3.1.8.0 R1: a supervisor goal is a unit too
+KINDS = ("lane", "goal")  # 3.1.8.0 R1: a supervisor goal is a unit too
 
 # engine word -> machine word, per kind (the words on disk stay the engine's)
 ALIASES = {
     "lane": {"": "pending", "joined": "ready", "writing": "running", "written": "done", "in_review": "gated",
              "waiting": "waiting", "merged": "merged", "failed": "failed"},
-    # 3.2.1.0 R3: a part `waiting` is ready, held by the hub until its pack capability has a free slot on its harness
-    "part": {"pending": "pending", "waiting": "ready", "asked": "waiting", "running": "running", "done": "done",
-             "failed": "failed", "stopped": "stopped", "skipped": "skipped", "merged": "merged"},
     # 3.1.8.0 R1: a supervisor goal (supervise/queue.py). queued -> ready, parked -> waiting (it waits on the owner).
     "goal": {"queued": "ready", "running": "running", "parked": "waiting", "done": "done", "stopped": "stopped",
              "failed": "failed"},
@@ -68,8 +65,6 @@ ALIASES = {
 NATIVE = {
     "lane": {"pending": "", "ready": "joined", "running": "writing", "waiting": "waiting", "gated": "in_review",
              "done": "written", "failed": "failed", "skipped": "failed", "stopped": "failed", "merged": "merged"},
-    "part": {"pending": "pending", "ready": "waiting", "running": "running", "waiting": "asked", "gated": "running",
-             "done": "done", "failed": "failed", "skipped": "skipped", "stopped": "stopped", "merged": "merged"},
     "goal": {"pending": "queued", "ready": "queued", "running": "running", "waiting": "parked", "gated": "parked",
              "done": "done", "failed": "failed", "skipped": "stopped", "stopped": "stopped", "merged": "done"},
 }

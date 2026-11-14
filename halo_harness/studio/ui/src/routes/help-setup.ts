@@ -83,16 +83,6 @@ export const SETUP_HELP: Record<string, Help> = {
       "A note is the pack's text: Mark as read. Skip leaves any block for now; halo setup <pack> opens it again.",
     ),
   },
-  "setup-machines": {
-    about: "Your other machines: a pair code to invite one, what this harness shares with a hub and lets it do, and everyone paired.",
-    help: lines(
-      "Make a pair code: on the other machine type the halo fleet join line it shows (or scan its QR); one code admits one machine.",
-      "No hub runs here yet: Start the hub here, or halo studio --fleet keeps one running with Studio.",
-      "Share and Hub control are this harness's fleet.share and fleet.allow_control: what a hub it joined sees, and may do.",
-      "People: one row per machine with its Halo version (amber: run halo update on the older one); Forget makes it pair again.",
-      "Their agents show on Agents -> Live (the fleet scope), their models in Local.",
-    ),
-  },
   "setup-summary": {
     about: "What this setup holds now, one row per step, each with a Change jump to its page.",
     help: lines(

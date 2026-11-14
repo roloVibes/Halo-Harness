@@ -12,7 +12,7 @@ import sys
 from typing import Optional
 
 
-def make_parser(verb: str, description: str, *, json_flag: bool = True, prog: str = "halo fleet") -> argparse.ArgumentParser:
+def make_parser(verb: str, description: str, *, json_flag: bool = True, prog: str = "halo remote") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog=f"{prog} {verb}", description=description)
     if json_flag:
         p.add_argument("--json", action="store_true", help="print the result as JSON")
