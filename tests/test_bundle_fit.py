@@ -144,6 +144,21 @@ def test_the_cli_and_the_studio_route(ctx: Ctx):
         ctx.check(f"nothing pulled, got {h.mock.pulled}", h.mock.pulled == [])
 
 
+def _why_local(host) -> str:
+    """Red twice on Linux CI with `via: local` and no cause found: what each step of host_client.for_host says."""
+    import time
+    from halo_harness.ollama_steward import host_client as HC
+    from halo_harness.ollama_steward.server_log_remote import SEAMS
+    from halo_harness.peers import store
+    from halo_harness.peers.ollama_share import served_here
+    url = str(getattr(host, "url", ""))
+    addr, port = HC._addr_port(url)
+    rows = [(e.get("state"), e.get("url"), e.get("serves"), HC._matches(e, addr, port), store.key_for(e) is not None) for e in store.hosts()]
+    down = {k: round(v - time.monotonic(), 1) for k, v in HC._DOWN.items()}
+    return (f" | why local: local_on={getattr(HC._LOCAL, 'on', False)} seam={'host' in SEAMS} paired={HC.any_paired()} "
+            f"served_here={served_here(url)} url={url} hosts={rows} down={down}")
+
+
 @test
 def test_through_a_paired_halo_host(ctx: Ctx):
     from halo_harness.local_sched.bundle_fit import verdict
@@ -153,8 +168,8 @@ def test_through_a_paired_halo_host(ctx: Ctx):
     with PeerRig() as rig:
         host = OllamaHost(name="pc", url=rig.peer_url)
         v = verdict(find("compactor", cwd=Path(rig.rig.root_p))["block"], host, state_dir=rig.peer)
-        ctx.check(f"via the host's route, got {v['via']} {v['state']} {v['says']!r}", v["via"] == "host"
-                  and v["state"] in ("ready", "downloads", "wont"))
+        ctx.check(f"via the host's route, got {v['via']} {v['state']} {v['says']!r}{_why_local(host) if v['via'] != 'host' else ''}",
+                  v["via"] == "host" and v["state"] in ("ready", "downloads", "wont"))
         paths = [str(a.get("path") or "") for a in rig.rig.audit_rows(1, path="route")]  # the line lands after the reply
         ctx.check(f"the host answered route, got {paths[-3:]}", any(p.endswith("route") for p in paths))
 

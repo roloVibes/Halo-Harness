@@ -128,6 +128,11 @@ def breakpoints(c, rig) -> dict:
         out[key] = {"open": opened(c), "room": measure(c)}
     size(c, 390, 844)
     load(c, rig.url("session", "&bp=phone"), "session")
+    try:  # the page ENDS no wider than the window (measured: 390 of 390 once the stage has floated its drawer); a read at
+        # the first paint saw it wider twice (Linux CI and a loaded gate), so the value asserted is waited for
+        c.wait("document.documentElement.scrollWidth <= innerWidth + 1", 10)
+    except TimeoutError:
+        pass  # the read below says so
     out["phone"] = c.js("[getComputedStyle(document.querySelector('.rail')).display, getComputedStyle(document.querySelector('[data-testid=rail-menu-btn]')).display,"
                         " document.documentElement.scrollWidth <= innerWidth + 1]")
     c.js("document.querySelector('[data-testid=rail-menu-btn]').click(); 1")
