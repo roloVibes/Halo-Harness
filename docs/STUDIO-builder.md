@@ -49,7 +49,9 @@ above it after your first request and never by itself; the browser keeps it (the
 and step tools and `try_agent` / `try_workflow` (crew/tools_flow.py, crew/tools_try.py; [the Workflows
 tab](STUDIO-workflows.md#the-builder-on-this-tab)). It has no tool to run a command, read or change a project file, or
 reach the web; asked for one, it says what it would need instead (paste the text into the box). Each tab keeps its own
-conversation; one request may touch agents and workflows, in one preview. Maps come with the Map tab.
+conversation; one request may touch agents, workflows and maps, in one preview. 3.6.0.0 R3 adds the map tools and
+`studio_show` ([on the Map tab](#on-the-map-tab)) and offers the same tools to main in a session ([in a
+session](#in-a-session)).
 
 **Preview, Apply, Undo.**
 
@@ -74,6 +76,39 @@ $1.00). The line beside the box shows the model, "about $0.01-0.03 a request" an
 cap is kept by the server: a request past it answers with one line on how to raise it, and a turn that reaches it
 stops there. A call with no catalog price counts at $3 / $15 per million tokens; a local model at nothing.
 
+## On the Map tab
+
+3.6.0.0 R3 (crew/tools_map.py, crew/tools_show.py):
+
+| Tool | Does (nothing is written until Apply) |
+|---|---|
+| `map_box_add {map?, kind: agent or workflow, ref}` | a box (it waits under Not connected yet until a line reaches it) |
+| `map_box_remove {map?, box}` | the box and every line that touches it |
+| `map_line_add {map?, from, to, when?}` | a line, `from` / `to` a box or the name it holds; a circle is refused in one sentence |
+| `map_line_change {map?, from, to, when}` / `map_line_remove {map?, from, to}` | a line's When; take a line out |
+| `map_use {map}` | config `crew.map`: what new sessions run on. A map whose agents may do more than the map in use says so in its line, amber and unticked |
+| `studio_show {what: map, lists, connections or run, name?}` | read-only: the map in words, the lists, where a thing is used, the last hand-offs from the session records ("why did reviewer run?"); no change lines |
+
+`map` is the map open on the tab (else the one in use, else `starter`). A map that is not yours yet is copied as yours
+first: one create line, then the change lines. A map line widens nothing by itself (what an agent may do is in its own
+file). The page draws each map line where it lands: a dashed ghost box, a dashed line with its When.
+
+## In a session
+
+The same tools are offered to main in the terminal and in Studio's sessions (not in print mode), as one tool,
+`Builder` (tools/builder_tool.py; the work is crew/tools.py through crew/session_tool.py): `{tool, args}`, or
+`{changes: [...]}` for several in one card, or `{undo: <id>}`. Nothing is written without the person's card -- the
+question round trip, shown in the terminal and in Studio's ask card:
+
+- one question for the lines that let no agent do more ("Apply them" / "Leave them");
+- one question per widening line, its own choice, "No (leave this line out)" first.
+
+Only what the person picks is written (the format checked first, the before-image kept); the result names the files and
+the undo id; Studio follows the files. Dismissed: nothing is written. With no one to answer (print mode), the tool
+previews and writes nothing. `studio_show` answers at once. The permission engine lets the tool through in every mode
+but dontAsk (it asks on its own card). Tests: `tests/test_builder_session_parity.py` (the same request through main's
+tool and through `/api/builder` writes byte-identical files; the widening line never ticked for them).
+
 ## Routes
 
 Every write is owner-only (the owner proof, [the shell](STUDIO-shell.md)).
@@ -82,15 +117,15 @@ Every write is owner-only (the owner proof, [the shell](STUDIO-shell.md)).
 |---|---|
 | `GET crew/agents` | `{agents, starters}`: name, does, model, uses, careful, scope, new, used, problems |
 | `GET / POST / PUT / DELETE crew/agent/<name>` | read, make, save, delete one of yours (422 with the problem lines; 409 for a starter or a name in use) |
-| `GET crew/maps` | the rows of maps (read-only until the Map tab); workflows: [their routes](STUDIO-workflows.md#routes) |
+| `GET crew/maps`, `GET / PUT / DELETE crew/map/<name>`, `POST crew/map/<name>/use` | the Map tab's: [its routes](STUDIO-map.md#routes); workflows: [their routes](STUDIO-workflows.md#routes) |
 | `GET crew/estimate?model=<ref>` | `{usd, line}` before a Try it |
 | `POST crew/try {kind: agent \| workflow, body, request}` | starts a run: `{try}`; `crew` frames on `/api/events` (a workflow's: [Try it](STUDIO-workflows.md#try-it)) |
 | `GET crew/try/<id>`, `POST crew/try/<id>/stop`, `POST crew/try/<id>/seen` | the run's record, Stop, seen |
 | `GET builder` | its model, the typical cost, today's spend, the cap |
-| `POST builder/ask {tab, selection, text, conversation_id, history}` | one turn (`tab`: agents or workflows): `{reply, question?, changes, cost_usd, meta, tries?}`; 429 past the cap |
+| `POST builder/ask {tab, selection, text, conversation_id, history}` | one turn (`tab`: agents, workflows or map): `{reply, question?, changes, cost_usd, meta, tries?}`; 429 past the cap |
 | `POST builder/apply {conversation_id, change_ids}` | writes the ticked ids: `{undo_id, wrote, removed, skipped, filled}` |
 | `POST builder/undo {undo_id}` | `{restored}` |
 
 The files: [Crew files](CREW-FORMATS.md). Tests: `tests/test_crew_formats.py`, `tests/test_builder_flows.py`,
 `tests/test_builder_injection.py`, `tests/test_crew_try.py`, `tests/test_studio_crew.py` (Chrome), and the room rules
-over this tab in `tests/test_studio_room.py`.
+over this tab in `tests/test_studio_room.py`; 3.6.0.0 R3: `tests/test_builder_map.py`, `tests/test_builder_session_parity.py`.

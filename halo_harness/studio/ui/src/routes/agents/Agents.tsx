@@ -23,6 +23,7 @@ import { useAttentionKey } from "./attention";
 import { Board } from "./workflows/Board";
 import { CrewView } from "../crew/Crew"; // 3.6.0.0 R1: 1 · Agents
 import { FlowsView } from "../crew/flows/Flows"; // 3.6.0.0 R2: 2 · Workflows
+import { MapView } from "../crew/map/MapView"; // 3.6.0.0 R3: 3 · Map
 import { DragGhost } from "./blocks/BlockOverlay"; // 3.3.16.3: the label under the pointer while a block drag moves
 
 export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
@@ -31,14 +32,15 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
   const board = view === "workflows";
   const crew = view === "crew"; // 3.6.0.0 R1: the Agents tab (routes/crew/), its own view bar
   const flows = view === "flows"; // 3.6.0.0 R2: the Workflows tab (routes/crew/flows/), its own view bar
-  const part = crew ? "crew" : flows ? "flows" : board ? "board" : "roles";
-  const [seen, setSeen] = useState({ roles: part === "roles", board, crew, flows });
+  const map = view === "map"; // 3.6.0.0 R3: the Map tab (routes/crew/map/), its own view bar
+  const part = crew ? "crew" : flows ? "flows" : map ? "map" : board ? "board" : "roles";
+  const [seen, setSeen] = useState({ roles: part === "roles", board, crew, flows, map });
   useEffect(() => setSeen((s) => (s[part] ? s : { ...s, [part]: true })), [part]);
   useAgentsKeys();
   useAttentionKey();
   return (
     <div className="ag" data-testid="agents" data-view={view}>
-      {!crew && !flows && <AgentsBar view={view} />}
+      {!crew && !flows && !map && <AgentsBar view={view} />}
       <div className="ag-body">
         {seen.crew && (
           <div className="ag-part" hidden={!crew} data-part="crew">
@@ -50,8 +52,13 @@ export function AgentsView(_props: { section: string; specs: PanelSpec[] }) {
             <FlowsView />
           </div>
         )}
+        {seen.map && (
+          <div className="ag-part" hidden={!map} data-part="map">
+            <MapView />
+          </div>
+        )}
         {seen.roles && (
-          <div className="ag-part" hidden={board || crew || flows} data-part="roles">
+          <div className="ag-part" hidden={board || crew || flows || map} data-part="roles">
             <RolesView section="roles" specs={partPanels(reg, "roles")} />
           </div>
         )}

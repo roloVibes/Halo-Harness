@@ -37,6 +37,7 @@ from halo_harness.commands.registry import Registry
 from halo_harness.config.agents_md import discover_agents
 from halo_harness.config.claude_json import is_trusted, load_claude_json
 from halo_harness.config.paths import bridge_home, env_compat, home, lookup_project
+from halo_harness.crew import map_session as _map_session
 from halo_harness.config.settings import resolve_settings
 from halo_harness.model import DEFAULT_MODEL_REF, parse_model_ref, resolve_default_model_raw, resolve_model_profile
 from halo_harness.model import known_cost as _known_cost
@@ -945,6 +946,10 @@ def build_session(
 
     state_dir = bridge_home()
     routes = load_routes(state_dir / "routes.json")
+    # 3.6.0.0 R3: the map in use (`--map`, config `crew.map`; crew/map_session.py) -- none: nothing below changes.
+    _crew_map, _map_lines = (None, []) if (bare or agent) else _map_session.prepare(cli_flags, cwd)
+    for _ln in _map_lines:
+        print(_ln, file=sys.stderr)
 
     # H14 scope C: `settings.effective_env` (trust-filtered, shell < settings
     # chain) rather than bare os.environ, so "at work" default-model
@@ -961,6 +966,8 @@ def build_session(
     # falls through to the next source with one notice line naming it,
     # rather than failing the whole launch over a stale choice.
     model_raw = model_ref_raw
+    if model_raw is None and _map_session.model(_crew_map) and not (continue_ or resume):
+        model_raw = _map_session.model(_crew_map)  # 3.6.0.0 R3: the map's main pins a model (auto: as before)
     if model_raw is None and not (continue_ or resume):
         last_model_raw = launch_state.resolve_last_model(cwd, memory=model_memory)
         if last_model_raw:
@@ -1190,6 +1197,12 @@ def build_session(
         )
         if ws_tool is not None:
             frozen_registry.add_tool(ws_tool)
+    # 3.6.0.0 R3: Studio's builder tools for main in a session someone answers (the terminal, Studio's sessions); its
+    # approval card is the question round trip (crew/session_tool.py). Before the catalog snapshot, like WebSearch.
+    if not bare and not print_mode and frozen_registry.get("Builder") is None and "Builder" not in cli_disallow \
+            and "Builder" not in bare_deny_tool_names(deny_rules) and (tools is None or tools.strip() == "default" or "Builder" in split_tool_rule_list(tools)):
+        from halo_harness.tools.builder_tool import BuilderTool
+        frozen_registry.add_tool(BuilderTool())
 
     mcp_manager = None
     mcp_notices: list = []
@@ -1358,6 +1371,8 @@ def build_session(
     debug_timeline.mark("mcp discovery")
 
     effective_append = append_system_prompt
+    if _map_session.instructions(_crew_map):  # 3.6.0.0 R3: the map's main's instructions
+        effective_append = "\n\n".join(x for x in (effective_append, _map_session.instructions(_crew_map)) if x)
     if json_schema:
         note = f"Respond with JSON matching this schema (no prose outside the JSON): {json_schema}"
         effective_append = f"{effective_append}\n\n{note}" if effective_append else note
@@ -1409,8 +1424,16 @@ def build_session(
     # 3.1.8.0 R5: `tools.capabilities` of the lineup's main (or the --agent bio, or the run that started this
     # worker) narrows the registry before the model sees it; nothing declared, nothing changes (docs/ISOLATION.md).
     from halo_harness.isolation.capabilities import narrow_session
-    _opt_ins = [] if bare else narrow_session(frozen_registry, session_catalog, team=_team_name_for_session,
-                                              agent=agent, cwd=cwd)
+    if _crew_map is not None:  # 3.6.0.0 R3: on a map, main's tools, agents and mode come from the map's main
+        _map_session.narrow(frozen_registry, session_catalog, _crew_map)
+        discovered_agents, agent_type_restriction = _map_session.agents(discovered_agents, _crew_map)
+        if not permission_mode and not dangerously_skip_permissions:
+            resolved_mode = _crew_map.main.get("mode") or resolved_mode
+            permission_engine.mode = resolved_mode
+        _opt_ins = [_map_session.line(_crew_map)]
+    else:
+        _opt_ins = [] if bare else narrow_session(frozen_registry, session_catalog, team=_team_name_for_session,
+                                                  agent=agent, cwd=cwd)
 
     ctx = SessionContext(
         cwd=cwd, model_label=model_ref.raw, model_family=family, settings_flag=settings_flag,
@@ -1533,7 +1556,7 @@ def build_session(
         # enforces that lineup's sections through `teams_runtime.py`. An
         # unknown name degrades to a stderr line + no team (same shape as
         # the unknown `--agent` handling just above), never a hard exit.
-        team_name=_team_name_for_session,
+        team_name=_team_name_for_session, crew_map=_crew_map,
     )
     session.opt_ins = _opt_ins or None  # 3.1.8.0 R5: its agent row's lines (the tool list, a worker's isolation)
     from halo_harness.agent.policy_gate import warm as _warm_policies

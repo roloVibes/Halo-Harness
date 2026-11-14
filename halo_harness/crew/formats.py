@@ -19,7 +19,7 @@ NAME = re.compile(r"^[a-z][a-z0-9-]{0,47}$")
 USES = ("read", "edit", "bash", "web")  # plus skill:<name> and mcp:<server>
 USE_PREFIX = ("skill:", "mcp:")
 CAREFUL = ("ask-changes", "ask-commands", "own")
-NEEDS = ("images", "audio", "video", "pdf", "reasoning", "long-text")
+NEEDS = ("images", "audio", "video", "pdf", "reasoning", "long-text", "tools")  # 3.6.0.0 R3: tools (states tool calls)
 MORE_KEYS = {"fallback": str, "effort": str, "thinking": bool, "max_turns": int, "max_minutes": int,
              "max_usd": (int, float), "reads": list, "worktree": bool, "offline": bool, "check": dict}
 EFFORTS = ("low", "medium", "high", "xhigh", "max")

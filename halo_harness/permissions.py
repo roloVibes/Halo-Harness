@@ -2261,6 +2261,10 @@ class PermissionEngine:
                                          "spill files (no side effects requiring permission)", source="mode")
                 except (OSError, ValueError):
                     pass
+        if tool_name == "Builder":  # 3.6.0.0 R3: it asks through its own approval card (crew/session_tool.py)
+            if self.mode == "dontAsk":
+                return Decision("deny", "Builder asks the person on its own card, and dontAsk mode asks nothing", source="mode")
+            return Decision("allow", "Builder asks the person on its own card before anything is written", source="mode")
         if tool_name == "AskUserQuestion":
             if self.mode == "dontAsk":
                 return Decision("deny", "AskUserQuestion errors on a tool call in dontAsk mode", source="mode")

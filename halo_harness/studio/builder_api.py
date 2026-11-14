@@ -21,7 +21,7 @@ from halo_harness.studio.crew_api import dispatch_table
 from halo_harness.studio.owner_proof import owner_only
 
 _CID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
-TABS = ("agents", "workflows")  # 3.6.0.0 R2: the Workflows tab
+TABS = ("agents", "workflows", "map")  # 3.6.0.0 R2: the Workflows tab; R3: the Map tab
 
 
 def get_meta(req):
@@ -34,7 +34,7 @@ def post_ask(req):
     if not _CID.match(cid) or not text:
         return 400, {"error": "the body needs a conversation_id (letters, digits, - and _) and the text"}
     if tab not in TABS:
-        return 422, {"error": f"the builder works on the Agents and Workflows tabs in this version, not {tab!r}"}
+        return 422, {"error": f"the builder works on the Agents, Workflows and Map tabs, not {tab!r}"}
     if builder_cap.left(req.state_dir) <= 0:
         line = builder_cap.reached_line(req.state_dir)
         return 429, {"error": line, "reply": line, "capped": True, "changes": [], "meta": builder_cap.meta(req.state_dir)}

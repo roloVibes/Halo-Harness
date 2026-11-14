@@ -178,6 +178,9 @@ TOOLS = {
 from halo_harness.crew import tools_flow, tools_try  # noqa: E402  3.6.0.0 R2: workflow_* / step_*, try_agent / try_workflow
 TOOLS.update(tools_flow.TOOLS)
 TOOLS.update(tools_try.TOOLS)
+from halo_harness.crew import tools_map, tools_show  # noqa: E402  3.6.0.0 R3: map_* and the read-only studio_show
+TOOLS.update(tools_map.TOOLS)
+TOOLS.update(tools_show.TOOLS)
 
 
 def run(name: str, args, ctx) -> dict:

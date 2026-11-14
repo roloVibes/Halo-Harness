@@ -2,7 +2,7 @@
 user (driver tests/helpers/studio_flows.py over tests/helpers/crew_rig.py; skipped without Chrome). The room rules over
 this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `flows` view).
 
-1. the 2 key opens 2 · Workflows: the switch reads 1 · Agents | 2 · Workflows | Cast | Live | Board, the list open, the
+1. the 2 key opens 2 · Workflows: the switch reads 1 · Agents | 2 · Workflows | 3 · Map | Cast | Live | Board, the list open, the
    five starters, no conversation, no dialog; the empty form says how to start;
 2. a starter copied: its steps in the form and drawn; a repeat drawn as a loop mark; a step moved up and back; Save: in
    the list tagged `not on the map`, with the one line that nothing is on a map yet; the file holds the repeat; the
@@ -45,7 +45,7 @@ def test_the_2_key_opens_the_workflows_tab(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"2 lands on 2 · Workflows, got {got.get('view')!r}", got.get("view") == "flows")
     f = got.get("first") or {}
-    ctx.check(f"the switch's names, got {f.get('switch')}", f.get("switch") == ["1 · Agents", "2 · Workflows", "Cast", "Live", "Board"])
+    ctx.check(f"the switch's names, got {f.get('switch')}", f.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map", "Cast", "Live", "Board"])  # 3.6.0.0 R3: 3 · Map
     ctx.check(f"the list open, no conversation, no dialog, got {f}", f.get("list") is True and f.get("conversation") is False and f.get("dialogs") == 0)
     ctx.check(f"the five starters, got {f.get('starters')}", f.get("starters") == ["code", "media", "plan", "research", "review"])
     ctx.check(f"the empty form says how to start, got {f.get('empty')!r}", f.get("empty") == "Make your first workflow")

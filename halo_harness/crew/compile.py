@@ -1,0 +1,175 @@
+"""halo_harness.crew.compile -- a map becomes what a session already runs (Halo 3.6.0.0 R3, the design's "What runs
+underneath"; docs/CREW-sessions.md).
+
+    in_use(flag, cwd) -> (name, source)     `--map <name>` (this run), else config `crew.map`, else (None, "none")
+    compile_map(name, cwd, state_dir) -> Compiled
+    for_session(flag, cwd, state_dir) -> (Compiled | None, lines)
+                                            None with no map in use; a map with a problem is None too, and `lines`
+                                            are its problem lines (the session says them and runs as with no map)
+
+A map file and the agent and workflow files it names compile to three things:
+
+1. **main's session config** (`main`): its model (`auto`: the session's own model, as today), its instructions (added
+   to the system prompt), the tool kinds it may use (read / edit / bash / web: the kinds it does not list are taken
+   out; every other tool stays) and its permission mode from `careful` (crew/spec.py MODES).
+2. **the hand-off table** (`handoffs`): one entry per line from main, `{line, box, kind: agent | workflow, name, when}`
+   (a box naming a list of agents is one entry per agent, each with the line's when), and `chains`: the same per box,
+   for the lines that leave it (the runtime follows them when that box finishes; crew/map_run.py).
+3. **the agent specs** (`specs`): each agent file as the AgentSpec agent/subagent.py spawns (crew/spec.py), its
+   `role` its own name, so an `auto` model is picked by models_auto with the agent's `needs` (`auto_needs`).
+
+`caps.session_usd` is the session's money cap. Every problem is a plain line: a missing agent or workflow, a file with
+problems, the map's own problems (the circle is named).
+"""
+
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass, field
+from typing import Optional
+
+from halo_harness.crew import store
+from halo_harness.crew.formats import PROBLEMS
+
+AUTO_NEEDS = {"images": "vision", "long-text": "long-context"}  # agent/1 words -> models_auto's
+
+
+@dataclass
+class Compiled:
+    name: str
+    path: str = ""
+    scope: str = ""
+    mtime: float = 0.0
+    main: dict = field(default_factory=dict)
+    boxes: dict = field(default_factory=dict)      # box id -> {kind, names[]}
+    handoffs: list = field(default_factory=list)   # the lines from main
+    chains: dict = field(default_factory=dict)     # box id -> [entry]: the lines that leave it
+    specs: dict = field(default_factory=dict)      # agent name -> AgentSpec
+    agents: dict = field(default_factory=dict)     # agent name -> its file (clean)
+    workflows: dict = field(default_factory=dict)  # workflow name -> its file (clean)
+    cap_usd: Optional[float] = None
+    problems: list = field(default_factory=list)
+
+    def agent_targets(self) -> list:
+        return [h["name"] for h in self.handoffs if h["kind"] == "agent"]
+
+    def workflow_targets(self) -> list:
+        return [h["name"] for h in self.handoffs if h["kind"] == "workflow"]
+
+    def needs_of(self, name: str) -> list:
+        raw = self.agents.get(name) or {}
+        return [AUTO_NEEDS.get(str(n), str(n)) for n in raw.get("needs") or []]
+
+
+def in_use(flag: Optional[str] = None, cwd=None) -> "tuple[Optional[str], str]":
+    if isinstance(flag, str) and flag.strip():
+        return flag.strip(), "flag"
+    try:
+        from halo_harness.theme import get_config_value
+        name = get_config_value("crew.map", default=None)
+    except Exception:
+        name = None
+    if isinstance(name, str) and name.strip():
+        return name.strip(), "config"
+    return None, "none"
+
+
+def _entry(line: dict, box: dict, name: str) -> dict:
+    return {"line": f"{line['from']} -> {line['to']}", "from": line["from"], "box": line["to"], "kind": box["kind"],
+            "name": name, "when": line.get("when")}
+
+
+def _main(raw: dict, problems: list, cwd, state_dir) -> dict:
+    who = str(((raw.get("main") or {}) if isinstance(raw.get("main"), dict) else {}).get("agent") or "main")
+    body = store.load("agent", who, cwd=cwd, state_dir=state_dir)
+    if body is None:
+        problems.append(f"main: no agent named {who} (yours, this project's or a starter)")
+        return {"agent": who}
+    clean = store.clean(body)
+    bad = PROBLEMS["agent"](clean, name=who)
+    problems += [f"main ({who}): {p}" for p in bad]
+    from halo_harness.crew.spec import MODES
+    model = str(clean.get("model") or "auto")
+    return {"agent": who, "model": None if model == "auto" else model, "instructions": str(clean.get("instructions") or ""),
+            "uses": list(clean.get("uses") or []), "careful": clean.get("careful"), "mode": MODES.get(clean.get("careful"), "default"),
+            "effort": (clean.get("more") or {}).get("effort"), "scope": body.get("_scope")}
+
+
+def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None) -> Compiled:
+    """The map body `raw` compiled (nothing read but the agent and workflow files it names)."""
+    out = Compiled(name=name or str(raw.get("name") or ""))
+    out.problems = list(PROBLEMS["map"](raw, name=out.name))
+    out.main = _main(raw, out.problems, cwd, state_dir)
+    for b in raw.get("boxes") or []:
+        if not isinstance(b, dict) or not isinstance(b.get("id"), str):
+            continue
+        if b.get("workflow"):
+            out.boxes[b["id"]] = {"kind": "workflow", "names": [str(b["workflow"])]}
+        else:
+            ref = b.get("agent")
+            out.boxes[b["id"]] = {"kind": "agent", "names": [str(r) for r in (ref if isinstance(ref, list) else [ref]) if r]}
+    from halo_harness.crew.spec import agent_spec
+    for bid, box in out.boxes.items():
+        for n in box["names"]:
+            kind = box["kind"]
+            got = store.load(kind, n, cwd=cwd, state_dir=state_dir)
+            if got is None:
+                out.problems.append(f"box {bid}: no {kind} named {n} (yours, this project's or a starter)")
+                continue
+            clean = store.clean(got)
+            bad = PROBLEMS[kind](clean, name=n)
+            if bad:
+                out.problems += [f"{kind} {n}: {p}" for p in bad]
+                continue
+            if kind == "agent":
+                out.agents[n] = clean
+                spec = agent_spec(clean, source=f"crew:{got.get('_scope')}")
+                spec.role = n  # the role an `auto` model is picked for (crew/map_control.py bio_for)
+                out.specs[n] = spec
+            else:
+                out.workflows[n] = clean
+    for ln in raw.get("lines") or []:
+        if not isinstance(ln, dict) or ln.get("to") not in out.boxes:
+            continue
+        box = out.boxes[ln["to"]]
+        for n in box["names"]:
+            e = _entry(ln, box, n)
+            if ln.get("from") == "main":
+                out.handoffs.append(e)
+            else:
+                out.chains.setdefault(str(ln.get("from")), []).append(e)
+    cap = (raw.get("caps") or {}).get("session_usd") if isinstance(raw.get("caps"), dict) else None
+    out.cap_usd = float(cap) if isinstance(cap, (int, float)) and not isinstance(cap, bool) else None
+    return out
+
+
+def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
+    got = store.find("map", name, cwd=cwd, state_dir=state_dir)
+    if got is None:
+        return Compiled(name=name, problems=[f"no map named {name} (yours, this project's or a starter)"])
+    path, scope = got
+    raw = store.read(path)
+    if raw is None:
+        return Compiled(name=name, path=str(path), scope=scope, problems=[f"the map {name} is not YAML Halo can read"])
+    out = compile_raw(raw, name=name, cwd=cwd, state_dir=state_dir)
+    out.path, out.scope = str(path), scope
+    try:
+        out.mtime = os.path.getmtime(path)
+    except OSError:
+        out.mtime = 0.0
+    return out
+
+
+def problem_lines(c: Compiled) -> list:
+    head = f"halo: the map {c.name} has a problem, so this session runs as with no map:"
+    return [head] + [f"  {p}" for p in c.problems]
+
+
+def for_session(flag: Optional[str], *, cwd=None, state_dir=None) -> "tuple[Optional[Compiled], list]":
+    name, _source = in_use(flag, cwd)
+    if not name:
+        return None, []
+    c = compile_map(name, cwd=cwd, state_dir=state_dir)
+    if c.problems:
+        return None, problem_lines(c)
+    return c, []

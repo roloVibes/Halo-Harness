@@ -106,7 +106,8 @@ export function BuilderBox({ tab = "agents" }: { tab?: Tab }) {
   const agent = useCrew((s) => s.form?.name || "");
   const flow = useFlows((s) => s.form?.name || "");
   useEffect(() => void loadMeta(tab), [tab]);
-  const hint = tab === "workflows" ? `Describe a workflow, or say what to change about ${flow || "the open one"}`
+  const hint = tab === "map" ? "Say how things should connect, or ask why something happened"
+    : tab === "workflows" ? `Describe a workflow, or say what to change about ${flow || "the open one"}`
     : `Describe an agent, or say what to change about ${agent || "the open one"}`;
   return (
     <section className="cw-bld" aria-label="The builder" data-testid="builder" data-builder-tab={tab}>
@@ -131,3 +132,4 @@ export function BuilderBox({ tab = "agents" }: { tab?: Tab }) {
 
 export const AgentsBuilder = () => <BuilderBox tab="agents" />;
 export const FlowsBuilder = () => <BuilderBox tab="workflows" />;
+export const MapBuilder = () => <BuilderBox tab="map" />; // 3.6.0.0 R3

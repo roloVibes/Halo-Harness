@@ -95,17 +95,13 @@ class StudioSessionRig:
         return full(url) if self.full else url
 
     def api(self, method: str, path: str, body=None):
-        import http.client
         from halo_harness.studio.owner_proof import HEADER, header_for  # 3.3.14.0 R1: as the owner's own page asks
-        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=30)
-        try:
-            conn.request(method, "/api/" + path, body=json.dumps(body).encode("utf-8") if body is not None else None,
-                         headers={"Authorization": "Bearer " + self.server.token, "Content-Type": "application/json",
-                                  HEADER: header_for(self.server)})
-            resp = conn.getresponse()
-            return resp.status, json.loads(resp.read().decode("utf-8") or "{}")
-        finally:
-            conn.close()
+        from tests.helpers.kept_http import request  # 3.6.0.0 R3: one kept connection, not a local port per call
+        status, data, _h = request(self.server.server_address[1], method, "/api/" + path,
+                                   json.dumps(body).encode("utf-8") if body is not None else None,
+                                   {"Authorization": "Bearer " + self.server.token, "Content-Type": "application/json",
+                                    HEADER: header_for(self.server)}, timeout=30)
+        return status, json.loads(data.decode("utf-8") or "{}")
 
     # ---- this harness's session ---------------------------------------------------
     def _session(self) -> None:
@@ -140,13 +136,21 @@ class StudioSessionRig:
         return make_session(self.root, self.proj, self.mock, model)
 
     def agents(self) -> list:
-        """This harness's agent tree, over the session's own socket."""
-        from halo_harness.remote.client import ControlClient
-        c = ControlClient(self.act.endpoint, self.act.server.token, timeout=5)
-        try:
-            return (c.call("agents").get("result") or {}).get("agents") or []
-        finally:
-            c.close()
+        """This harness's agent tree, over the session's own socket: one kept client per thread (3.6.0.0 R3: a poll
+        that opened a socket per call spent a local port each, tests/helpers/kept_http.py)."""
+        kept = getattr(self, "_control", None)
+        if kept is None:
+            from halo_harness.remote.client import ControlClient
+            from tests.helpers.kept_http import Kept
+            act = self.act
+            kept = self._control = Kept(lambda: ControlClient(act.endpoint, act.server.token, timeout=5))
+            self.closers.append(kept.close)
+
+        def ask(c):
+            got = c.call("agents")
+            c.events.clear()  # frames that came first are not this helper's to keep
+            return (got.get("result") or {}).get("agents") or []
+        return kept.call(ask)
 
     def agent(self, prefix: str) -> dict:
         return next((a for a in self.agents() if (a.get("task") or "").startswith(prefix)), {})

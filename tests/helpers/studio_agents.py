@@ -159,18 +159,17 @@ class AgentsDriver(Driver):
 
     def start_run(self, srv, repo: Path) -> None:
         """POST orchestra/run, then wait until the five lanes hold their claims (the workers wait on the gate)."""
-        import urllib.request
         from halo_harness.studio.owner_proof import HEADER, header_for
+        from tests.helpers.kept_http import request  # 3.6.0.0 R3: one kept connection for the poll below
         port = srv.server_address[1]
 
         def call(method: str, path: str, body=None):
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/api/{path}", method=method,
-                                         data=json.dumps(body).encode("utf-8") if body is not None else None)
-            req.add_header("Authorization", "Bearer " + srv.token)
-            req.add_header(HEADER, header_for(srv))
-            req.add_header("Content-Type", "application/json")
-            with urllib.request.urlopen(req, timeout=20) as r:
-                return json.loads(r.read() or b"{}")
+            status, raw, _h = request(port, method, f"/api/{path}", json.dumps(body).encode("utf-8") if body is not None else None,
+                                      {"Authorization": "Bearer " + srv.token, HEADER: header_for(srv),
+                                       "Content-Type": "application/json"}, timeout=20)
+            if status >= 400:
+                raise RuntimeError(f"{method} {path}: {status} {raw[:200]!r}")
+            return json.loads(raw or b"{}")
         goal = {"what": "write the five basket functions", "done_when": "the tests pass", "stop_when": "two returns",
                 "workers": 5, "return_cap": 2, "test": "", "files": ["basket.py"], "lineup": "", "lead": "", "worker": "", "force": True}
         run_id = call("POST", "orchestra/run", goal)["run_id"]

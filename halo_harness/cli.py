@@ -139,6 +139,9 @@ _REAL_FLAGS = [
     # Overrides config's own active `team:` key for this one run, never
     # persisted; an unknown name degrades to a stderr line, no team.
     (["--team"], dict(dest="team", default=None, metavar="TEAM")),
+    # 3.6.0.0 R3: run THIS session on a map (`halo maps list`): main, its lines and the agents on it; over config's
+    # `crew.map` for this one run, never persisted. A map with a problem: its lines on stderr, the session runs without.
+    (["--map"], dict(dest="map", default=None, metavar="MAP")),
     # V2c (H15), widened Halo 2.0.2: repeatable NAME=MODEL[:EFFORT] override
     # for one of the ten built-in roles (or a currently-known custom one)
     # (orchestrator|coder|reviewer|researcher|small) -- validated in main()
@@ -569,6 +572,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "agents":
         from halo_harness.agents_cli import cmd_agents
         return cmd_agents(argv[1:])
+    if argv and argv[0] == "maps":  # 3.6.0.0 R3: your maps (list / show / use); the Map tab edits them
+        from halo_harness.maps_cli import cmd_maps
+        return cmd_maps(argv[1:])
     if argv and argv[0] == "teams":
         from halo_harness.teams_cli import cmd_teams
         return cmd_teams(argv[1:])

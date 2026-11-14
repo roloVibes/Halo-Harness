@@ -96,7 +96,11 @@ workflow/1, map/1: a problem per line, the circle), `crew/store.py` (yours / a t
 `crew/spec.py` (an agent file as the AgentSpec the Agent tool spawns), `crew/tools.py` (the builder's agent_* tools),
 `crew/changes.py` (preview rows, apply, undo), `crew/builder.py` + `crew/builder_cap.py` (one builder turn, its model
 and its daily cap), `crew/trial.py` + `crew/trial_run.py` (Try it on a throwaway worktree); Studio's routes
-`studio/crew_api.py` (`crew/`), `studio/crew_flow_api.py` (`crew/workflow*`, R2) and `studio/builder_api.py` (`builder/`).
+`studio/crew_api.py` (`crew/`), `studio/crew_flow_api.py` (`crew/workflow*`, R2), `studio/crew_map_api.py` (`crew/map*`, R3:
+the Map tab's maps, a map, its save and `use`) and `studio/builder_api.py` (`builder/`). 3.6.0.0 R3: `crew/compile.py` (a map
+-> main's config, the hand-off table, the agent specs), `crew/map_control.py` (the map held where a lineup was),
+`crew/map_run.py` (main's hand-offs and the chains), `crew/map_session.py` (the session builder's part), `crew/tools_map.py`
++ `crew/tools_show.py` (the builder's map tools and studio_show), `crew/session_tool.py` (the same tools offered to main).
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live):
 

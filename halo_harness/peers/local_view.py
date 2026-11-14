@@ -83,7 +83,8 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                preflight=data.get("preflight") if isinstance(data.get("preflight"), dict) else None,  # R4: the ask
                eyes=data.get("eyes") if isinstance(data.get("eyes"), dict) else None,  # 3.3.6.0 R6: the eyes offer
                parked=data.get("parked") if isinstance(data.get("parked"), list) else None,  # 3.3.11.0 R2: no terminal
-               bg_done=data.get("bg_done") if isinstance(data.get("bg_done"), dict) else None)  # 3.4.1.3
+               bg_done=data.get("bg_done") if isinstance(data.get("bg_done"), dict) else None,  # 3.4.1.3
+               map=data.get("map") if isinstance(data.get("map"), str) else None)  # 3.6.0.0 R3: the map it started with
     return row
 
 

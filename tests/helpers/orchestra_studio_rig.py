@@ -73,17 +73,13 @@ class Studio:
 
     def call(self, method: str, path: str, body=None, token: "str | None" = None):
         data = json.dumps(body).encode("utf-8") if body is not None else None
-        req = urllib.request.Request(self.base + "/api/" + path, data=data, method=method)
-        req.add_header("Authorization", "Bearer " + (self.srv.token if token is None else token))
         from halo_harness.studio.owner_proof import HEADER, header_for  # 3.3.14.0 R1: as the owner's own page asks
-        req.add_header(HEADER, header_for(self.srv))
+        from tests.helpers.kept_http import request  # 3.6.0.0 R3: one kept connection, not a local port per call
+        heads = {"Authorization": "Bearer " + (self.srv.token if token is None else token), HEADER: header_for(self.srv)}
         if data is not None:
-            req.add_header("Content-Type", "application/json")
-        try:
-            with urllib.request.urlopen(req, timeout=20) as r:
-                return r.status, json.loads(r.read() or b"{}")
-        except urllib.error.HTTPError as e:
-            return e.code, json.loads(e.read() or b"{}")
+            heads["Content-Type"] = "application/json"
+        status, raw, _h = request(self.srv.server_address[1], method, "/api/" + path, data, heads, timeout=20)
+        return status, json.loads(raw or b"{}")
 
     def get(self, path: str, token: "str | None" = None):
         return self.call("GET", path, token=token)

@@ -875,6 +875,7 @@ class Session:
         cli_flags: Optional[dict] = None, settings: Optional[object] = None,
         role_name: Optional[str] = None,
         team_name: Optional[str] = None,
+        crew_map: Optional[object] = None,
     ):
         # H9: identifies THIS session as a particular sub-agent (passed by
         # `agent/subagent.py`'s `_build_child_session`; the parent/main
@@ -1392,13 +1393,18 @@ class Session:
         self._team_scheduler = None
         if agent_depth == 0 and not getattr(session_context, "bare", False):
             from halo_harness.teams_runtime import load_team_control
-            self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
-                                                  trusted=getattr(session_context, "trusted", None))
+            if crew_map is not None:  # 3.6.0.0 R3: a session on a map holds it where a lineup was (crew/map_control.py)
+                from halo_harness.crew.map_control import MapControl
+                self.team_control = MapControl(crew_map, cwd=cwd, state_dir=state_dir, session=self)
+            else:
+                self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
+                                                      trusted=getattr(session_context, "trusted", None))
             # 3.1.9.0 R2: the Agent tool's description says when the lineup is `auto`
             for _tool_name in ("Agent", "Task", "Workflow"):  # 3.3.16.0 R3: Workflow lists the lineup's squares
                 _tool = self.tool_registry.get(_tool_name) if self.tool_registry is not None else None
                 if _tool is not None:
                     _tool.lineup = getattr(self.team_control, "name", None)
+                    _tool.map_control = self.team_control if getattr(self.team_control, "is_map", False) else None
             if self.team_control is not None:
                 self.agent_runtime.team_control = self.team_control
                 delegation = self.team_control.delegation
@@ -1836,6 +1842,8 @@ class Session:
         if getattr(self, "_team_scheduler", None) is not None:
             return
         if getattr(self, "agent_depth", 0) != 0 or getattr(self, "team_control", None) is None:
+            return
+        if getattr(self.team_control, "is_map", False):  # 3.6.0.0 R3: a map has no schedules or triggers
             return
         # review finding 26: a job a schedule/trigger itself fired never
         # arms (and so never re-fires) the team's schedules.
@@ -6880,6 +6888,23 @@ class Session:
             # returned for every path that could produce it, including a
             # PreToolUse hook's own reassignment, which runs before it.)
 
+        if name == "Builder" and (self.interactive or self._subagent_live_asks):
+            # 3.6.0.0 R3: the builder's tools offered to main (crew/session_tool.py): its changes are previewed and the
+            # person answers ONE approval card (this question round trip); only what they pick is written.
+            from halo_harness.crew.session_tool import preview as _builder_preview
+            _pv = _builder_preview(self, item["input"])
+            if _pv.get("card"):
+                request_id = f"{self.agent_id}:{tool_id}" if self.agent_id else tool_id
+                item["pending_question"] = True
+                item["question_request_id"] = request_id
+                item["question_input"] = _pv["card"]
+                item["builder_preview"] = _pv
+                self._question_waiters[request_id] = {"event": threading.Event(), "answer": None}
+                return item
+            item["result"] = ToolResult(_pv["text"] or "nothing to change")
+            item["ready"] = True
+            return item
+
         if name == "AskUserQuestion" and (self.interactive or self._subagent_live_asks):
             # U2 + finding "AskUserQuestion dontAsk gap": reached only once
             # decide() (and any PreToolUse hook) has already confirmed this
@@ -7665,8 +7690,9 @@ class Session:
                         # the finally below can hand unapplied steers back.
                         it["child"] = child
 
-                    _, tr = run_agent_call(
-                        runtime=self.agent_runtime, tool_id=it["tool_id"], tool_input=it["input"],
+                    from halo_harness.crew.map_run import agent_call as _map_agent_call  # 3.6.0.0 R3: main's hand-off on a map
+                    _, tr = _map_agent_call(
+                        run_agent_call, runtime=self.agent_runtime, tool_id=it["tool_id"], tool_input=it["input"],
                         tool_name=it["name"], on_event=q.put, on_child=_grab_child,
                     )
                     it["result"] = tr
@@ -7891,10 +7917,16 @@ class Session:
                 # `_resolve_tool_call` parked the waiter under, never a bare
                 # tool_id -- see that branch's own comment.
                 q_request_id = item.get("question_request_id", tool_id)
-                yield events.Event("question", {"id": q_request_id, "name": name, "input": item["input"]}, turn=turn_no)
+                yield events.Event("question", {"id": q_request_id, "name": name,
+                                                "input": item.get("question_input", item["input"])}, turn=turn_no)
                 answer = self._await_reply(self._question_waiters, q_request_id)
                 item.pop("pending_question", None)
-                if answer is None:
+                if item.get("builder_preview") is not None:  # 3.6.0.0 R3: the Builder card's answer -> what is written
+                    from halo_harness.crew.session_tool import finish as _builder_finish
+                    item["result"] = ToolResult(_builder_finish(item["builder_preview"], answer, self) if answer is not None
+                                                else item["builder_preview"]["text"] + "\nThe card was dismissed: nothing was written.")
+                    item["ready"] = True
+                elif answer is None:
                     item["text"] = "The user did not answer (the question was dismissed or the turn interrupted)."
                 else:
                     item["result"] = ToolResult(answer if isinstance(answer, str)

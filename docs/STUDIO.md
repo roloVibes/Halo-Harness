@@ -4,11 +4,7 @@ Read this when you use Halo Studio, the browser console where you watch every ag
 
 `halo studio` opens Studio in your browser: where you see every agent of a session live (what it thinks, says, runs and costs), shape the work (lineups and blocks on a canvas, workflows, goal runs) and steer it. Its editors write the same files the CLI edits: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes them through the exact functions `halo teams` and `halo agents` use. Nothing is a second source of truth.
 
-**What Studio shows is what is on disk, as it changes (3.2.2.0):** a lineup
-your session edits, `halo teams apply`, a bio saved from the terminal appear
-within two seconds, no refresh (the server watches the lineup, bio, config
-and layout files and sends `files_changed`). A form you are editing keeps
-your draft and offers **Reload** or **Keep mine**; a file deleted on disk leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
+**What Studio shows is what is on disk, as it changes (3.2.2.0):** a lineup your session edits, `halo teams apply`, a bio saved from the terminal appear within two seconds, no refresh (the server watches the lineup, bio, config and layout files and sends `files_changed`). A form you are editing keeps your draft and offers **Reload** or **Keep mine**; a file deleted on disk leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
 
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last
@@ -62,6 +58,7 @@ This page is the entry point; the content lives in the parts below, one per task
 | [Studio: Agents](STUDIO-agents.md) | you work with your agents in Studio's Agents section: the lineup and its bios (Cast), a goal they run (Runs), what runs now (Live), and the doors the old Team, Roles and Orchestra sections left | One section, three views (3.3.16.0 R1) · Cast: the lineup and its bios |
 | [Studio: Agents -> 1 · Agents and the builder](STUDIO-builder.md) | you make or change an agent in the Agents tab, ask the builder box to do it, or try an agent once | The tab · Try it · The builder (preview, Apply, Undo, its cap) · Routes |
 | [Studio: Agents -> 2 · Workflows and the step runner](STUDIO-workflows.md) | you make or change a workflow, ask the builder to draft one, try it once, or run one from a session | The tab · Try it · The builder on this tab · What runs underneath: the step runner · A session runs a workflow · Routes |
+| [Studio: Agents -> 3 · Map](STUDIO-map.md) | you connect agents and workflows on a map, say when a line hands work on, keep more than one map, or pick the one your sessions use | The tab · Adding · Connecting · Every change saves, with Undo · More than one map · The builder on this tab · Routes |
 | [Studio: Agents -> Live, the living canvas](STUDIO-live.md) | you watch what runs now on Studio's Agents -> Live: why it shows only what is happening, where the past went (History and replays), the plan drawn under the agents, what each agent waits on, the one sentence under the bar, the three zoom levels, the scrubber that takes the canvas back in time, the glance (one phone-width page) and the alert when something starts waiting on you | Truth first (3.3.18.0) · The plan under it (3.3.18.0) · Work you can see moving (3.3.18.0) · Zoom that changes meaning (3.3.18.0) · Time: the scrubber (3.4.1.0) · The glance · The alert |
 | [Studio: blocks and groups](STUDIO-blocks.md) | you compose the lineup on Agents -> Cast as blocks (a tier with its purpose, a workflow square with the agents inside it) or watch Agents -> Live box the sub-agents of one task | Blocks: the tiers and the squares on one board (3.3.16.3) · Live in groups (3.3.16.3) |
 | [Studio: a goal run on Live and in History](STUDIO-orchestra.md) | you run an Orchestra goal from Studio: Run a goal on Agents -> Live, the run as a job on Live, its plan review, its lanes in the inspector, and its report in History | Orchestra in Studio |

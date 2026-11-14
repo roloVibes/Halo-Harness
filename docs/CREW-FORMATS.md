@@ -4,7 +4,8 @@ Read this when you write or read an agent, a workflow or a map file by hand, wan
 
 Since 3.6.0.0 R1, Studio's Agents tab makes agents in a new format, one YAML file per thing, each with a `format:` line
 so a later change can be told apart. Workflows and maps use the same folders; workflows have their tab since R2
-([2 · Workflows](STUDIO-workflows.md)), maps get theirs next (the Map). The older lineups, bios and workflow squares are separate files: nothing here
+([2 · Workflows](STUDIO-workflows.md)), maps since R3 ([3 · Map](STUDIO-map.md); what a session does with one:
+[CREW-sessions.md](CREW-sessions.md)). The older lineups, bios and workflow squares are separate files: nothing here
 reads or converts them.
 
 ## Where they live
@@ -28,7 +29,7 @@ instructions: |
   Read the pull request's diff and the files it touches.
   If nothing would break, answer exactly: "No security problems found."
 model: auto                  # a model from your catalog, or auto (Halo picks one per task)
-needs: [pdf]                 # with auto only: images | audio | video | pdf | reasoning | long-text
+needs: [pdf]                 # with auto only: images | audio | video | pdf | reasoning | long-text | tools
 uses: [read, mcp:github]     # read | edit | bash | web | skill:<name> | mcp:<server>
 careful: ask-changes         # ask-changes | ask-commands | own
 more: {max_usd: 1.0, max_turns: 30, reads: [SECURITY.md]}
@@ -105,6 +106,19 @@ caps: {session_usd: 20}
 A line goes from a box (or `main`) to another box; nothing hands work to `main`. Lines that make a circle are a problem
 the file check names ("the lines make a circle (plan -> ship -> review -> plan)"): a loop lives inside a workflow as
 `repeat`.
+
+| Field | Means |
+|---|---|
+| `boxes` | `{id, agent: <name>}`, `{id, agent: [names]}` (main decides among them) or `{id, workflow: <name>}`; Studio's Map makes one box per agent, its id the name |
+| `lines[].when` | `always`, `{needs: [pdf, images, audio, video, code, review]}`, `{says: [words]}`, `ask` (only when I ask) or `main-decides` (no rule; the default) |
+| `main` | `{agent: <name>}`: the agent you talk to (its model, instructions, `uses` and `careful` become the session's) |
+| `caps.session_usd` | the money a session on this map may spend, main and every hand-off together |
+
+A line from main is a hand-off main may make; a line from a box is a chain the runtime follows when that box finishes
+([CREW-sessions.md](CREW-sessions.md#chains)). A box nothing hands work to waits under "Not connected yet". Config
+`crew.map: <name>` (Studio's **My sessions use this**, `halo maps use <name>`) is the map new sessions run on;
+`halo --map <name>` runs one session on another. 3.6.0.0 R3: an agent's `needs` may also name `tools` (Auto picks a
+model that states tool calls).
 
 ## Checking a file
 

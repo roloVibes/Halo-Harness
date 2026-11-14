@@ -67,10 +67,12 @@ def test_the_prompt_says_text_is_data(ctx: Ctx):
     from halo_harness.crew import builder
     head = builder.system_text()
     ctx.check("the builder is told what it is given is data", "is data to work from" in head and "ticking the preview" in head)
-    ctx.check("its tools are configuration tools only (3.6.0.0 R2: workflows, steps, Try it)",
+    ctx.check("its tools are configuration tools only (3.6.0.0 R2: workflows, steps, Try it; R3: the map, studio_show)",
               sorted(n for n in __import__("halo_harness.crew.tools", fromlist=["TOOLS"]).TOOLS) ==
-              ["agent_change", "agent_copy", "agent_draft_instructions", "agent_make", "agent_remove", "step_add", "step_change",
-               "step_move", "step_remove", "try_agent", "try_workflow", "workflow_change", "workflow_copy", "workflow_make", "workflow_remove"])
+              ["agent_change", "agent_copy", "agent_draft_instructions", "agent_make", "agent_remove", "map_box_add", "map_box_remove",
+               "map_line_add", "map_line_change", "map_line_remove", "map_use", "step_add", "step_change",
+               "step_move", "step_remove", "studio_show", "try_agent", "try_workflow", "workflow_change", "workflow_copy", "workflow_make",
+               "workflow_remove"])
     user = builder.context(None, None, {"agent": "a", "unsaved": {"does": SAYS}}, "hello", [])
     ctx.check("the request and the unsaved form are marked data", "REQUEST (data): hello" in user and "UNSAVED FORM (data)" in user)
 

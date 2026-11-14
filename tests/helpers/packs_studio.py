@@ -17,8 +17,6 @@ from __future__ import annotations
 import json
 import threading
 import time
-import urllib.error
-import urllib.request
 
 from tests.helpers.packs_home import PacksHome
 
@@ -49,19 +47,16 @@ class PackStudio(PacksHome):
     def raw(self, path: str, *, method: str = "GET", body=None, auth: bool = True, token: "str | None" = None,
             owner: bool = True):
         data = json.dumps(body).encode("utf-8") if body is not None else None
-        req = urllib.request.Request(self.base + path, data=data, method=method)
+        from tests.helpers.kept_http import request  # 3.6.0.0 R3: one kept connection, not a local port per call
+        heads: dict = {}
         if auth:
-            req.add_header("Authorization", "Bearer " + (self.token if token is None else token))
+            heads["Authorization"] = "Bearer " + (self.token if token is None else token)
         if auth and owner:
             from halo_harness.studio.owner_proof import HEADER, header_for
-            req.add_header(HEADER, header_for(self.srv))
+            heads[HEADER] = header_for(self.srv)
         if data is not None:
-            req.add_header("Content-Type", "application/json")
-        try:
-            with urllib.request.urlopen(req, timeout=20) as r:
-                return r.status, r.read(), dict(r.headers)
-        except urllib.error.HTTPError as e:
-            return e.code, e.read(), dict(e.headers)
+            heads["Content-Type"] = "application/json"
+        return request(self.srv.server_address[1], method, path, data, heads, timeout=20)
 
     def call(self, method: str, path: str, body=None, *, owner: bool = True):
         status, raw, headers = self.raw("/api/" + path, method=method, body=body, owner=owner)

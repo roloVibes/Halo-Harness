@@ -193,6 +193,19 @@ halo --team halo-dev-cycle
 halo -p --team balanced "delegate the research and review"
 ```
 
+#### `--map MAP`
+
+What (3.6.0.0 R3): run THIS session on a map (`halo maps list` names them; [CREW-sessions.md](CREW-sessions.md)):
+main's model, instructions, tools and careful mode come from the map's main, the Agent tool spawns exactly the
+agents main has a line to, the Workflow tool runs exactly its workflows, and the runtime follows the map's chains.
+Over config's `crew.map` (Studio's **My sessions use this**, `halo maps use <name>`) for this one run, never
+persisted. A map with a problem prints its problem lines on stderr and the session runs as with no map; a map in use
+replaces the lineup for that session (`--team` is not read beside it).
+```sh
+halo --map ship-it
+halo -p --map starter "fix the failing test in basket.py"
+```
+
 #### `--role NAME=MODEL[:EFFORT]`
 
 What: overrides one of the ten built-in roles (`orchestrator`, `planner`,

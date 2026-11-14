@@ -170,6 +170,21 @@ system service; `/agents schedule` in a running session prints the same
 list. See [AGENTS.md](AGENTS.md)'s `hooks`/`schedule`/`triggers` section
 for the bio schema.
 
+## `halo maps`
+
+(3.6.0.0 R3) Your maps: what main hands work to, and when ([CREW-sessions.md](CREW-sessions.md)). Editing one is
+Studio's Map tab (Agents -> 3 · Map) or its builder box.
+
+```sh
+halo maps list            # every map (yours, this project's in a trusted folder, the starters); * marks the one in use
+halo maps show ship-it    # main, each box, each line with its When in words, the cap, any problem
+halo maps use ship-it     # new sessions run on it (config crew.map); a running session keeps its own
+halo maps use --off       # new sessions run on no map (as before maps)
+```
+
+`use` writes `crew.map` through the builder's undo store, so Studio's Undo puts it back. `halo --map <name>` runs one
+session on a map without changing config.
+
 ## `halo teams`
 
 ```sh

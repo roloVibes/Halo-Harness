@@ -148,6 +148,67 @@ owner, 2026-11-12: "We should do the same kind of thing for work flows, we can g
 - **Fixed (Windows), Try it:** a page polling a running Try it record no longer gets a 404 while the record is
   being written (`crew/trial.py` reads again; the reader half of R1's "a record's write waits for a reader").
 
+### R3
+
+Connect your agents and workflows on a map, and let your sessions run on it. The owner, 2026-11-12: "I think live is
+where we can drag and drop workflows and agents and connect them together and make a big mapping connecting workflows
+and agents".
+
+- **Agents -> 3 · Map** (the `3` key): the switch reads 1 · Agents | 2 · Workflows | 3 · Map | Cast | Live | Board.
+  main at the left, a box per agent or workflow, one kind of line ("hands work to") with its **When** in words in a
+  label lane between the columns, never over a box; hovering a box lifts its lines and dims the rest; a box grows with
+  its text. Zoom the house way; Fit never under 75 %, past that the map pans from main; a hand zoom survives the drawer.
+- **Add**: "Agents and workflows", a slim list in a drawer that pushes the map, a grip and **Add** on every row, Enter
+  adds. While you drag a row the drop places light up and say what a drop does ("drop: main hands work to it" on a box,
+  "drop: add, connect later" on the strip). **Not connected yet**, the strip under the map, holds what nothing hands
+  work to; what you or the builder just made is tagged `new`.
+- **Connect**: a dot on every box -- drag it to another box, or click it (Enter) for a list. The **When card** opens at
+  the line: always / when the task needs (a PDF, an image, audio, video, code, a review) / when the task says (words) /
+  only when I ask / main decides per task. A line's label opens its card again, or takes the line out. Chains work
+  (main -> plan -> code -> reviewer); a line that would make a circle is refused in one sentence, on the page and by
+  the route. A workflow box opens in place to its steps and a link to the Workflows tab.
+- **Every change saves at once** with a receipt line and **Undo** (the builder's own undo store, byte for byte). A
+  starter map is saved as yours on its first change.
+- **More than one map**: the switcher ("this project's" first, yours, the starters, **+ New map**) with ONE switch, **My
+  sessions use this** (config `crew.map`); **Lock** (off by default) stops every change.
+- **The builder on this tab**: "send anything touching auth to my-reviewer after the code workflow" is one preview, a
+  box line and a line line with its When in words, drawn on the map as a dashed ghost box and a dashed line; Apply,
+  Undo. "what is my map?", "show me my workflows", "why did reviewer run?" are answered from `studio_show` with no
+  change lines.
+- **Sessions run on the map you switched on** (or `halo --map <name>` for one run; each session row carries `map`): main
+  takes its model, instructions, tools and careful mode from the map's main; the Agent tool spawns exactly the agents
+  main has a line to, the Workflow tool runs exactly its workflows; a When routes a hand-off that names no target the
+  way the router does; when a target finishes, the runtime follows its box's chain lines itself (an `always` line, a
+  `needs` / `says` / `ask` line checked against the task and its files), never a model call; each receipt names the
+  line that fired ("map ship-it · line plan -> code (always) · code"). `caps.session_usd` is the session's money cap
+  (main and every hand-off): reached, hand-offs stop with one plain line. A changed map applies at the next hand-off
+  and says so once; a map with a problem does not start a session half-configured: its lines on stderr, the session
+  runs as with no map. With no map in use a session runs exactly as before.
+- **In a session**, "make me a reviewer agent and hand reviews to it" goes through the same tools: the `Builder` tool
+  (not in print mode) shows one approval card -- the plain lines in one question, each widening line its own question
+  with No first -- in the terminal and in Studio's ask card; only what the person picks is written; Studio follows.
+- **`halo maps list / show / use [--off]`**.
+- **The compile** (`halo_harness/crew/compile.py`): a map + the files it names -> main's session config, the hand-off
+  table (`{line, box, kind, name, when}` per line from main, and per box for chains), the agent specs (`crew/spec.py`,
+  each with its own name as its role, so an `auto` agent is picked by `models_auto` with its `needs`; agent/1's `needs`
+  may now name `tools`). `crew/map_control.py` holds it where a lineup was; `crew/map_run.py` makes main's hand-offs
+  and follows the chains; `crew/map_when.py` reads a When with the router's words; `crew/map_session.py` is the session
+  builder's part. Parity: a map that mirrors the auto lineup gives the same main tools, model and mode and, for the
+  same tasks, the same model picks and permission modes; a child's tools are its `uses` (agent/1).
+- **The builder's new tools** (`crew/tools_map.py`, `crew/tools_show.py`, `crew/changes_map.py`): `map_box_add`,
+  `map_box_remove`, `map_line_add`, `map_line_change`, `map_line_remove`, `map_use` (says when the new map's agents
+  may do more, amber and unticked) and the read-only `studio_show`; `crew/session_tool.py` + `tools/builder_tool.py`
+  offer them to main.
+- **Routes** (docs/STUDIO-map.md): `GET crew/maps`, `GET / PUT / DELETE crew/map/<name>`, `POST crew/map/<name>/use`,
+  `POST builder/ask {tab: map}`; every write owner-only, each with its undo id.
+- **Docs:** [STUDIO-map.md](docs/STUDIO-map.md), [CREW-sessions.md](docs/CREW-sessions.md); STUDIO-builder.md and
+  CREW-FORMATS.md grow; `--map` and `halo maps` in COMMANDS; `crew.map` in CONFIG.md.
+- **Tests:** `test_crew_compile` (the parity table), `test_map_chains`, `test_builder_map`, `test_builder_session_parity`,
+  `test_crew_map_api`, `test_studio_map` (Chrome); `test_studio_room` measures the Map at 1280 / 1500 / 1920.
+- **Tests, steadier on Windows:** the shared rigs keep one connection per thread instead of a local port per call
+  (`tests/helpers/kept_http.py`; a session poll spent ~400 ports a module, held two minutes each in TIME_WAIT), and a
+  connect that finds no free local port is tried again for a short, bounded time.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

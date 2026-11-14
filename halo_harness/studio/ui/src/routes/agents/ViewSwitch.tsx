@@ -12,6 +12,7 @@ import { LibraryButton } from "./workflows/Library";
 const VIEWS: [AgentsView, string, string, string][] = [
   ["crew", "1 · Agents", "1", "Make an agent: its name, what it does, its model, what it may use, how careful; try it, save it"], // 3.6.0.0 R1
   ["flows", "2 · Workflows", "2", "Make a workflow: your agents in steps, in order; try it, save it"], // 3.6.0.0 R2
+  ["map", "3 · Map", "3", "Connect them: who main hands work to, and when; the map your sessions run on"], // 3.6.0.0 R3
   ["cast", "Cast", "C", "The lineup and its bios: every card, its model and its tier"],
   ["live", "Live", "L", "What runs now: this halo's session and a goal run's lanes, as a tree; History holds what ran"],
   ["workflows", "Board", "W", "The old board of squares main may hand work to (it goes in a later version)"], // 3.6.0.0 R2: the old Workflows
@@ -19,7 +20,7 @@ const VIEWS: [AgentsView, string, string, string][] = [
 
 export function ViewSwitch({ view }: { view: AgentsView }) {
   return (
-    <span className="segmented ag-views" role="tablist" aria-label="Agents: Agents, Workflows, Cast, Live or Board" data-testid="agents-views">
+    <span className="segmented ag-views" role="tablist" aria-label="Agents: Agents, Workflows, Map, Cast, Live or Board" data-testid="agents-views">
       {VIEWS.map(([v, label, key, title]) => (
         <button key={v} role="tab" className={view === v ? "on" : ""} aria-selected={view === v} aria-pressed={view === v}
                 title={`${title} (${key})`} onClick={() => setAgentsView(v)} data-testid={`agents-view-${v}`} data-view={v}>

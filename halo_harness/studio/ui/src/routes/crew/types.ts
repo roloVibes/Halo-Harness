@@ -40,7 +40,10 @@ export type Change = {
   ticked: boolean;
   fill?: { field: string; value: string };
   /** 3.6.0.0 R2: a step line's ghost (drawn in the workflow form) and a proposed agent's body ("make it" fills the form). */
-  ghost?: { op: string; step?: Step; index?: number | null; to?: number; fields?: Partial<Step>; field?: string; value?: unknown };
+  ghost?: { op: string; step?: Step; index?: number | null; to?: number | string; fields?: Partial<Step>; field?: string; value?: unknown;
+            // 3.6.0.0 R3: a map line's ghost: a box, a line, a box or line taken out, a whole map (a copy made yours)
+            box?: { id: string; agent?: string | string[]; workflow?: string }; line?: { from: string; to: string; when?: unknown };
+            id?: string; from?: string; when?: unknown; body?: unknown };
   body?: Agent;
 };
 

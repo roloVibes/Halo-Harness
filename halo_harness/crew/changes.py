@@ -72,8 +72,10 @@ def public(rows: list) -> list:
         p = {k: v for k, v in r.items() if k != "op"}
         if r["op"].get("op") == "fill":
             p["fill"] = {"field": r["op"]["field"], "value": r["op"]["value"]}
-        if str(r["op"].get("op")).startswith("step_"):  # 3.6.0.0 R2: the page draws it as a ghost step in the form
+        if str(r["op"].get("op")).startswith(("step_", "map_")):  # R2: a ghost step in the form; R3: a ghost box or line
             p["ghost"] = {k: v for k, v in r["op"].items() if k != "op"} | {"op": r["op"]["op"]}
+        if r["target"].startswith("map:") and r["op"].get("op") in ("create", "copy"):
+            p["ghost"] = {"op": "map_create", "body": r["op"]["body"]}
         if r["target"].startswith("agent:") and r["op"].get("op") in ("create", "copy"):
             p["body"] = r["op"]["body"]  # the proposal card's "make it" fills the agent form with it
         out.append(p)
@@ -106,6 +108,9 @@ def _apply_op(body, op: dict):
     elif o.startswith("step_"):
         from halo_harness.crew.changes_steps import apply_step
         body = apply_step(body, op)
+    elif o.startswith("map_"):  # 3.6.0.0 R3: boxes and lines (crew/changes_map.py)
+        from halo_harness.crew.changes_map import apply_map
+        body = apply_map(body, op)
     return body
 
 
@@ -117,6 +122,11 @@ def plan(rows: list, ids, *, cwd=None, state_dir=None) -> "tuple[dict, list, lis
     for r in ticked:
         if r["op"].get("op") == "fill":
             fills.append({"target": r["target"], "field": r["op"]["field"], "value": r["op"]["value"]})
+            continue
+        if r["op"].get("op") == "use":  # 3.6.0.0 R3: map_use writes config.json's crew.map (crew/changes_map.py)
+            from halo_harness.crew.changes_map import config_path, config_text
+            out_use = (config_path(), config_text(r["op"].get("value")))
+            targets[out_use[0]] = ["config", "crew.map", out_use[1], True]
             continue
         kind, name = r["target"].split(":", 1)
         path = store.path_for(kind, name, cwd=cwd, state_dir=state_dir)
@@ -132,11 +142,23 @@ def plan(rows: list, ids, *, cwd=None, state_dir=None) -> "tuple[dict, list, lis
     for path, (kind, name, body, touched) in targets.items():
         if not touched:
             continue
+        if kind == "config":
+            out[path] = body
+            continue
         if body is not None:
             bad = PROBLEMS[kind](store.clean(body), name=name) if kind in PROBLEMS else []
             problems += [f"{name}: {p}" for p in bad]
         out[path] = None if body is None else store.dump(body)
     return out, skipped, problems, fills
+
+
+def _write(path: Path, text) -> None:
+    """A crew file through store.write_text; config.json (map_use) as Halo writes it, 0600."""
+    from halo_harness.crew.changes_map import config_path, write_config
+    if Path(path).resolve() == config_path().resolve():
+        write_config(text)
+    else:
+        store.write_text(path, text)
 
 
 def _undo_dir(state_dir) -> Path:
@@ -148,6 +170,13 @@ def apply(rows: list, ids, *, cwd=None, state_dir=None) -> dict:
     writes, skipped, problems, fills = plan(rows, ids, cwd=cwd, state_dir=state_dir)
     if problems:
         return {"ok": False, "undo_id": "", "wrote": [], "removed": [], "skipped": skipped, "problems": problems, "filled": []}
+    undo_id = write_all(writes, state_dir=state_dir)
+    return {"ok": True, "undo_id": undo_id, "wrote": [str(p) for p, t in writes.items() if t is not None],
+            "removed": [str(p) for p, t in writes.items() if t is None], "skipped": skipped, "problems": [], "filled": fills}
+
+
+def write_all(writes: dict, *, state_dir=None) -> str:
+    """Write {path: text | None}, keeping every before-image under one undo id (also the Map tab's own edits)."""
     before = []
     for path in writes:
         try:
@@ -162,9 +191,16 @@ def apply(rows: list, ids, *, cwd=None, state_dir=None) -> dict:
         for old in sorted(folder.glob("*.json"))[:-KEEP]:
             store.write_text(old, None)
     for path, text in writes.items():
-        store.write_text(path, text)
-    return {"ok": True, "undo_id": undo_id, "wrote": [str(p) for p, t in writes.items() if t is not None],
-            "removed": [str(p) for p, t in writes.items() if t is None], "skipped": skipped, "problems": [], "filled": fills}
+        _write(path, text)
+    return undo_id
+
+
+def _undoable(path: Path, crew: Path) -> bool:
+    """A crew file (yours, or a trusted project's .halo/crew/<kind>/<name>.yaml) or config.json (map_use)."""
+    from halo_harness.crew.changes_map import config_path
+    p = path.resolve()
+    return crew in p.parents or p == config_path().resolve() or \
+        (p.parent.name in store.KINDS.values() and p.parent.parent.name == "crew" and p.parent.parent.parent.name == ".halo")
 
 
 def undo(undo_id: str, *, state_dir=None) -> dict:
@@ -180,9 +216,9 @@ def undo(undo_id: str, *, state_dir=None) -> dict:
     restored = []
     for f in rec.get("files") or []:
         path = Path(f["path"])
-        if crew not in path.resolve().parents:
+        if not _undoable(path, crew):
             continue
-        store.write_text(path, f.get("before"))
+        _write(path, f.get("before"))
         restored.append(str(path))
     store.write_text(rec_path, None)
     return {"ok": True, "restored": restored}

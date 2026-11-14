@@ -8,7 +8,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part; the agents a workflow 
 
 ## The tab
 
-Agents (`Alt+2`), then **2 · Workflows** (the `2` key). The switch reads **1 · Agents | 2 · Workflows | Cast | Live |
+Agents (`Alt+2`), then **2 · Workflows** (the `2` key). The switch reads **1 · Agents | 2 · Workflows | 3 · Map | Cast | Live |
 Board**: Board is the old Workflows board of squares, still there in this version (`W`) and gone in a later one.
 `?mode=agents&view=flows` opens this tab; `&workflow=<name>` opens one workflow.
 

@@ -138,6 +138,8 @@ class _BaseHandle:
                     preflight=getattr(self.session, "_preflight_pending", None),  # 3.3.5.0 R4: {id, line, switch_to}
                     eyes=getattr(self.session, "_eyes_pending", None),  # 3.3.6.0 R6: {id, line, choices, default}
                     bg_done=getattr(self.session, "_bg_done", None))  # 3.4.1.3: {since, at, count, line, mode}
+        tc = getattr(self.session, "team_control", None)  # 3.6.0.0 R3: the map this session started with
+        data["map"] = getattr(tc, "map_name", None) if getattr(tc, "is_map", False) else None
         return data
 
     def tail(self, n: int = 20) -> str:

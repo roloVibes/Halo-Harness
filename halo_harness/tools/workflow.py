@@ -82,8 +82,14 @@ class WorkflowTool(Tool):
     name = "Workflow"
     result_cap = None
 
+    map_control = None  # 3.6.0.0 R3: the session's map, when it runs on one
+
     @property
     def description(self) -> str:
+        if self.map_control is not None:  # 3.6.0.0 R3: on a map, exactly main's workflows
+            from halo_harness.crew.map_session import tool_tail
+            return ("Hand a task to one of your workflows: it runs step by step on your agents. Give `task` self-contained "
+                    "and `files` as paths." + tool_tail(self.map_control, "workflow"))
         try:
             from halo_harness.workflows.registry import enabled_squares
             from halo_harness.workflows.when_store import rules_for
@@ -114,6 +120,10 @@ class WorkflowTool(Tool):
         if not task:
             return ToolResult("The task parameter is required", is_error=True)
         files = [str(f) for f in input.get("files") or [] if isinstance(f, str) and f.strip()]
+        from halo_harness.crew.map_run import workflow_call  # 3.6.0.0 R3: on a map, exactly main's workflows
+        on_map = workflow_call(runtime, input, ctx)
+        if on_map is not None:
+            return on_map
         if str(input.get("name") or "").strip():  # 3.6.0.0 R2: a crew workflow's name wins; it runs on the step runner
             from halo_harness.crew import flow_door
             got = flow_door.run(runtime, str(input["name"]).strip(), task, cwd=ctx.cwd, tool_id=ctx.tool_use_id or "",

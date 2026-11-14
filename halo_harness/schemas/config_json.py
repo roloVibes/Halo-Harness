@@ -103,7 +103,8 @@ _SCALARS = {
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
 # agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
 # `background`: when_done continue|tell|wait, self_turns (3.4.1.3, agent/bg_pickup.py)
-_SECTIONS = ("agents", "attention", "background", "caps", "clipboard", "comfy", "connectors", "control", "copilot", "databricks", "tools",
+# `crew`: map (3.6.0.0 R3: the map new sessions run on, crew/compile.py in_use; Studio's Map tab, `halo maps use`)
+_SECTIONS = ("agents", "attention", "background", "caps", "clipboard", "comfy", "connectors", "control", "copilot", "crew", "databricks", "tools",
              "embeddings", "experiential", "governor", "harness", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",
              "update", "voice", "workflows", "worktree")  # 3.3.9.0 R1: voice (stt_model, tts_model, device, tts_voice); R2: the loop's

@@ -11,7 +11,7 @@ import { afterApply, crew, dirty, setForm } from "./store";
 import { showTry } from "./tryStore";
 import type { Change, Meta, Msg, TryRec } from "./types";
 
-export type Tab = "agents" | "workflows";
+export type Tab = "agents" | "workflows" | "map"; // 3.6.0.0 R3: the Map tab (routes/crew/map/mapStore.ts onTab)
 
 export type BuilderState = {
   cid: string;
@@ -37,6 +37,7 @@ const HOOKS: Record<Tab, Hooks> = {
     show: (rec) => showTry(rec.id),
   },
   workflows: { selection: () => ({}), after: async () => undefined, show: async () => undefined },
+  map: { selection: () => ({}), after: async () => undefined, show: async () => undefined },
 };
 
 /** 3.6.0.0 R2: a tab other than Agents says what is open in it and what follows an Apply (routes/crew/flows/flowStore.ts). */
@@ -66,7 +67,7 @@ function keep(tab: Tab, cid: string, msgs: Msg[]): void {
 }
 
 const make = (tab: Tab) => createStore<BuilderState>({ ...kept(tab), open: false, text: "", sending: false, pending: [], meta: null, receipt: null, error: "" });
-export const builders: Record<Tab, Store<BuilderState>> = { agents: make("agents"), workflows: make("workflows") };
+export const builders: Record<Tab, Store<BuilderState>> = { agents: make("agents"), workflows: make("workflows"), map: make("map") };
 export const builder = builders.agents;
 export const useBuilder = <T,>(pick: (s: BuilderState) => T, tab: Tab = "agents"): T => useStore(builders[tab], pick);
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));

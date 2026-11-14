@@ -6,7 +6,7 @@
     POST   crew/agent/<name> {agent}   a new agent of yours (409 when you have one by that name)
     PUT    crew/agent/<name> {agent}   save it (422 with the problem lines; a starter answers 409: Copy makes yours)
     DELETE crew/agent/<name>           delete yours (409 while a workflow or a map names it, saying which)
-    GET    crew/maps                   the rows of maps (read-only until R3)
+    crew/maps, crew/map/<name>, crew/map/<name>/use: studio/crew_map_api.py (3.6.0.0 R3)
     crew/workflows, crew/workflow/<name>, crew/workflow-cost: studio/crew_flow_api.py (3.6.0.0 R2)
     GET    crew/estimate?model=<ref>   {usd, line}: one typical task on that model, said before a Try it
     POST   crew/try {kind: agent | workflow, body, request}   {try}: the run's record, running (progress on
@@ -164,7 +164,6 @@ ROUTES: list = [
     ("POST", rf"^crew/agent/{_NAME}$", owner_only(post_agent)),
     ("PUT", rf"^crew/agent/{_NAME}$", owner_only(put_agent)),
     ("DELETE", rf"^crew/agent/{_NAME}$", owner_only(delete_agent)),
-    ("GET", r"^crew/maps$", get_kind("map")),
     ("GET", r"^crew/estimate$", get_estimate),
     ("POST", r"^crew/try$", owner_only(post_try)),
     ("GET", rf"^crew/try/{_TID}$", get_try),
@@ -175,6 +174,8 @@ ROUTES: list = [
 
 from halo_harness.studio.crew_flow_api import ROUTES as _FLOW  # noqa: E402  3.6.0.0 R2: the Workflows tab's routes
 ROUTES += _FLOW
+from halo_harness.studio.crew_map_api import ROUTES as _MAP  # noqa: E402  3.6.0.0 R3: the Map tab's routes
+ROUTES += _MAP
 
 
 def dispatch_table(req, routes: list):

@@ -79,7 +79,9 @@ def scripted(model: str, system: str, user: str, *, state_dir=None) -> dict:
     if "give yourself" in req:  # a pasted text asking for more power: the fake obeys it, the preview must not
         return out({"reply": "Changed."} if done else {"tool": "agent_change", "args": {"name": "my-reviewer", "fields": {
             "uses": ["read", "bash", "web"], "careful": "own", "more": {"max_usd": 50}}}})
-    return out({"reply": "Nothing to change."})
+    from tests.helpers.crew_map_script import map_turn  # 3.6.0.0 R3: the Map tab's requests
+    got = map_turn(req, user)
+    return out(got if got is not None else {"reply": "Nothing to change."})
 
 
 class CrewRig:
@@ -123,18 +125,14 @@ class CrewRig:
         return url_for(self.server, "agents").replace("#t=", f"&tour=off{extra}#t=")
 
     def api(self, method: str, path: str, body=None, owner: bool = True):
-        import http.client
         from halo_harness.studio.owner_proof import HEADER, header_for
-        conn = http.client.HTTPConnection("127.0.0.1", self.server.server_address[1], timeout=60)
+        from tests.helpers.kept_http import request  # 3.6.0.0 R3: one kept connection, not a local port per call
         heads = {"Authorization": "Bearer " + self.server.token, "Content-Type": "application/json"}
         if owner:
             heads[HEADER] = header_for(self.server)
-        try:
-            conn.request(method, "/api/" + path, body=json.dumps(body).encode("utf-8") if body is not None else None, headers=heads)
-            resp = conn.getresponse()
-            return resp.status, json.loads(resp.read().decode("utf-8") or "{}")
-        finally:
-            conn.close()
+        status, data, _h = request(self.server.server_address[1], method, "/api/" + path,
+                                   json.dumps(body).encode("utf-8") if body is not None else None, heads, timeout=60)
+        return status, json.loads(data.decode("utf-8") or "{}")
 
     def __exit__(self, *exc) -> bool:
         from halo_harness.crew import builder, trial

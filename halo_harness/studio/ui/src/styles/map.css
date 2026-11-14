@@ -1,0 +1,111 @@
+/* Agents -> 3 · Map (3.6.0.0 R3, routes/crew/map/): the bar, the drawing (boxes, lines, the label lane, connect dots),
+   "Not connected yet", the list to add from, the When card. The room rules hold from the start: controls 28 px or more
+   and 8 px apart, no text under 12 px, no sideways scroll in a panel, boxes that grow with their text. Tokens only. */
+
+.ag[data-view="map"] { grid-template-rows: minmax(0, 1fr); }
+.workspace[data-section="agents-map"] .ws-cell[data-role="dock"] > .panel > .panel-bar { display: none; }
+.workspace[data-section="agents-map"] .ws-cell[data-role="dock"] > .panel > .panel-body { overflow: visible; }
+
+.mp { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-height: 0; min-width: 0; }
+.mp-top { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.mp-bar { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); align-items: center; min-width: 0; }
+.mp-picker, .mp-new { display: inline-flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
+.mp-picker select { min-height: 32px; max-width: 100%; }
+.mp-new .input { min-height: 32px; width: 180px; max-width: 100%; }
+.mp-switch { display: inline-flex; gap: var(--s-2); align-items: center; min-height: 32px; font-size: var(--ts-body); cursor: pointer; }
+.mp-topline { margin: 0; }
+.mp-problems, .mp-error { display: flex; flex-direction: column; gap: 2px; padding: 4px var(--s-2); border: 1px solid var(--warn); border-radius: var(--r-control); }
+.mp-problems b { color: var(--warn); font-size: var(--ts-data); }
+.mp-error { flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.mp-error > .cw-line { flex: 1 1 200px; color: var(--text); }
+
+/* the drawing */
+.mp-canvas { position: relative; display: flex; flex-direction: column; flex: 1 0 auto; min-height: clamp(360px, calc(100vh - 330px), 820px); min-width: 0; }
+.mp-zoom { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; justify-content: flex-end; padding-bottom: var(--s-1); }
+.mp-zoom .mp-topline { flex: 1 1 260px; }
+.mp-scroll { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; outline: none; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--bg-2); }
+.mp-scroll[data-panning] { cursor: grabbing; }
+.mp-world-size { position: relative; }
+.mp-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.mp-lines { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.mp-line { fill: none; stroke: var(--line-strong); stroke-width: 1.5; transition: opacity var(--dur-fast) var(--ease); }
+.mp-line[data-ghost] { stroke: var(--accent); stroke-dasharray: 6 5; }
+.mp-line.hot { stroke: var(--accent); stroke-width: 2.5; }
+.mp-line.dim, .mp-label.dim { opacity: .3; }
+.mp-tip { fill: var(--line-strong); }
+.mp-label { position: absolute; padding: 0 8px; border: 1px solid var(--line); border-radius: var(--r-control); background: var(--bg);
+  color: var(--text); font-size: 12px; line-height: 26px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.mp-label:hover, .mp-label.hot { border-color: var(--accent); color: var(--accent); }
+.mp-label[data-ghost] { border-style: dashed; border-color: var(--accent); background: var(--soft-accent); }
+.mp-more { padding-top: var(--s-1); }
+
+/* a box */
+.mp-box { position: relative; display: flex; flex-direction: column; padding: 8px 10px; border: 1px solid var(--line-strong); border-left: 3px solid var(--line-strong);
+  border-radius: var(--r-control); background: var(--surface-2); cursor: pointer; min-width: 0; box-sizing: border-box; outline: none; }
+.mp-inner { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mp-box[data-kind="workflow"] { border-left-color: var(--user); }
+.mp-box[data-hot], .mp-box:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.mp-box[data-ghost] { border-style: dashed; border-color: var(--accent); background: var(--soft-accent); }
+.mp-box[data-missing] { border-color: var(--warn); }
+.mp-box[data-drop] { outline: 2px dashed var(--accent); outline-offset: 3px; }
+.mp-box[data-drop-on] { outline: 2px solid var(--ok); }
+.mp-box[data-drop]::after { content: attr(data-drop); position: absolute; right: 0; top: -24px; padding: 0 6px; border-radius: var(--r-control);
+  background: var(--bg); color: var(--accent); font: 600 12px/20px var(--mono); white-space: nowrap; z-index: 4; pointer-events: none; }
+.mp-kind { color: var(--muted); font-size: 12px; line-height: 16px; text-transform: uppercase; display: flex; gap: var(--s-2); align-items: center; flex-wrap: wrap; }
+.mp-box[data-kind="workflow"] .mp-kind { color: var(--user); }
+.mp-dots { letter-spacing: 2px; }
+.mp-tag { padding: 0 6px; border: 1px solid var(--accent); border-radius: var(--r-control); color: var(--accent); text-transform: none; }
+.mp-name { font-size: 13.5px; line-height: 19px; overflow-wrap: anywhere; }
+.mp-meta { color: var(--muted); font-family: var(--mono); font-size: 12px; line-height: 18px; overflow-wrap: anywhere; }
+.mp-detail { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line-soft); }
+.mp-step { font-size: 12.5px; line-height: 18px; overflow-wrap: anywhere; }
+.mp-muted { color: var(--muted); }
+.mp-link { align-self: flex-start; min-height: 28px; padding: 0; border: 0; background: none; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 12.5px; }
+.mp-dot { position: absolute; right: -15px; top: 14px; width: 28px; height: 28px; padding: 0; border: 0; background: transparent; cursor: crosshair;
+  display: grid; place-items: center; z-index: 3; }
+.mp-dot::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); background: var(--bg); }
+.mp-dot:hover::before, .mp-dot:focus-visible::before { background: var(--accent); }
+.mp[data-locked] .mp-dot { display: none; }
+.mp-rubber { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; overflow: visible; }
+.mp-drag-ghost { position: fixed; z-index: 51; padding: 2px 8px; border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--bg);
+  color: var(--accent); font-size: 12px; line-height: 20px; pointer-events: none; }
+
+/* Not connected yet */
+.mp-strip { flex: 0 0 auto; max-height: 220px; overflow-y: auto; overflow-x: hidden; padding: var(--s-2) var(--s-3) var(--s-2) 36px;
+  border: 1px dashed var(--line-strong); border-radius: var(--r-card); background: var(--bg-2); }
+.mp-strip[data-drop] { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.mp-strip[data-drop-on] { outline-color: var(--ok); outline-style: solid; }
+.mp-strip[data-drop]::before { content: attr(data-drop); display: block; color: var(--accent); font: 600 12px/20px var(--mono); }
+.mp-strip-head { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: baseline; margin-bottom: var(--s-2); }
+.mp-strip-boxes { display: flex; flex-wrap: wrap; gap: var(--s-2) 40px; }
+.mp-strip .mp-box { width: 248px; max-width: 100%; }
+.mp-strip .mp-dot { right: auto; left: -32px; }
+
+/* the list to add from */
+.mp-add-list { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.mp-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: var(--s-2); align-items: start; padding: 6px 8px;
+  border: 1px solid var(--line-soft); border-radius: var(--r-control); background: var(--surface); cursor: grab; touch-action: none; min-width: 0; }
+.mp-row[data-on] { cursor: default; opacity: .75; }
+.mp-row:focus-visible { box-shadow: 0 0 0 2px var(--accent); outline: none; }
+.mp-grip { color: var(--muted); font-size: 14px; line-height: 20px; user-select: none; }
+.mp-row-text { display: flex; flex-direction: column; min-width: 0; }
+.mp-row-text b { font-size: 12.5px; line-height: 18px; overflow-wrap: anywhere; }
+.mp-scope { color: var(--muted); font-size: 12px; }
+.mp-row-line { color: var(--muted); font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
+.mp-add { min-height: 28px; min-width: 52px; }
+
+/* the When card and the connect list */
+.mp-pop { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: var(--s-2); width: 360px; max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px); overflow-y: auto; padding: var(--s-3); border: 1px solid var(--accent); border-radius: var(--r-card); background: var(--bg); }
+.mp-opt { display: flex; gap: var(--s-2); align-items: center; min-height: 28px; font-size: var(--ts-body); cursor: pointer; }
+.mp-chips { display: flex; flex-wrap: wrap; gap: var(--s-2); padding-left: 24px; }
+.mp-chip { min-height: 28px; }
+.mp-chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--soft-accent); }
+.mp-words { margin-left: 24px; width: calc(100% - 24px); min-height: 32px; }
+.mp-pop-row { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.mp-pick-row { display: block; width: 100%; min-height: 32px; text-align: left; }
+
+@media (max-width: 760px) {
+  .mp-strip { padding-left: var(--s-3); }
+  .mp-strip .mp-dot { left: auto; right: -15px; }
+}

@@ -102,6 +102,9 @@ class AgentTool(Tool):
         if self.lineup == DEFAULT_LINEUP:
             text += (" The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose "
                      "yourself.")
+        if getattr(self, "map_control", None) is not None:  # 3.6.0.0 R3: on a map, exactly main's agents
+            from halo_harness.crew.map_session import tool_tail
+            return text + tool_tail(self.map_control, "agent")
         from halo_harness.isolation.capabilities import children_line  # 3.1.8.0 R5: what the members may use
         return text + children_line(self.lineup, self)
 
@@ -129,8 +132,9 @@ class AgentTool(Tool):
                                "supplies its own)", is_error=True)
         if not input.get("description"):
             return ToolResult("The description parameter is required", is_error=True)
-        _events, result = run_agent_call(
-            runtime=runtime, tool_id=ctx.tool_use_id or "", tool_input=input, tool_name=self.name,
+        from halo_harness.crew.map_run import agent_call  # 3.6.0.0 R3: main's hand-off on a map
+        _events, result = agent_call(
+            run_agent_call, runtime=runtime, tool_id=ctx.tool_use_id or "", tool_input=input, tool_name=self.name,
         )
         return result
 

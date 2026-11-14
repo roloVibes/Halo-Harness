@@ -82,3 +82,21 @@ def seed_flows(st) -> None:
         raw = {"format": "workflow/1", "name": n, "for": f"{n.replace('-', ' ').capitalize()}: what comes in, what each step does, what it hands back.",
                "steps": steps if i == 0 else steps[:1 + i % 2], "own_copy": False}
         store.write_text(store.path_for("workflow", n, state_dir=st), store.dump(raw))
+    seed_map(st)
+
+
+MAP = "storefront-release-day-map"
+
+
+def seed_map(st) -> None:
+    """3.6.0.0 R3: the Map tab (`&view=map&map=<MAP>`): main, two lines from it with long When words, a chain of two,
+    a workflow box, and a box nothing hands work to (Not connected yet) -- long names everywhere."""
+    from halo_harness.crew import store
+    boxes = [{"id": LONG[0], "agent": LONG[0]}, {"id": LONG[1], "agent": LONG[1]}, {"id": LONG[4], "agent": LONG[4]},
+             {"id": FLOW, "workflow": FLOW}, {"id": LONG[5], "agent": LONG[5]}]
+    lines = [{"from": "main", "to": LONG[0], "when": "main-decides"},
+             {"from": "main", "to": FLOW, "when": {"says": ["release", "ship", "checkout", "storefront", "hotfix"]}},
+             {"from": LONG[0], "to": LONG[1], "when": "always"},
+             {"from": LONG[0], "to": LONG[4], "when": {"needs": ["pdf", "images", "review"]}}]
+    raw = {"format": "map/1", "name": MAP, "boxes": boxes, "lines": lines, "main": {"agent": "main"}, "caps": {"session_usd": 20}}
+    store.write_text(store.path_for("map", MAP, state_dir=st), store.dump(raw))
