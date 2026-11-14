@@ -85,6 +85,13 @@ where Live needs its 60 %). When the drawer's box changes (opened, dragged, the 
 again, unless you zoomed or panned it by hand: then your view stays until Fit gives it back to the automatic fit
 (docs/STUDIO-shell.md, the one rule for every drawing).
 
+**While a session of this Studio runs on a map** (3.6.0.0 R4), the Map panel shows that map lit instead of the tree:
+the same drawing as Agents -> 3 · Map, compact and read-only -- each box's state and what it does now, the hand-off
+lighting its line, the helpers the session made up beside the box that started them -- fitted to the panel's width,
+with **Open it on the Map tab** ([STUDIO-map.md](STUDIO-map.md#while-a-session-runs)). Steering, stopping and the
+words are on the Map tab's drawer and in Live here. A session that did not start on a map keeps the tree above until
+every session runs on a map.
+
 ## Export: the session as a trace file
 
 **Export** sits on the Live column's header and on its timeline strip. It

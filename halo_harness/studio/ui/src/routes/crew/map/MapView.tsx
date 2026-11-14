@@ -17,8 +17,12 @@ import { MapCanvas } from "./MapCanvas";
 import { firstName, loadMaps, openMap, useMap } from "./mapStore";
 import { Strip } from "./Strip";
 import { PickList, WhenCard } from "./WhenCard";
+import { Feed } from "./Feed";
+import { FEED_PANEL, MAP_SECTION } from "./feedOpen";
+import { MapHistory } from "./MapHistory";
+import { LitCtx, useLit, useLitNow } from "./useLit";
 
-export const MAP_SECTION = "agents-map";
+export { MAP_SECTION };
 
 function ListGlance() {
   const n = useCrew((s) => s.agents.length + s.starters.length) + useFlows((s) => s.flows.length + s.starters.length);
@@ -30,13 +34,20 @@ function MainGlance() {
   return <div className="glance"><div className="glance-hint">{name ? `The map ${name}: expand it.` : "Pick a map."}</div></div>;
 }
 
+function FeedGlance() {
+  const L = useLitNow();
+  return <div className="glance"><div className="glance-hint">{L.mode === "live" ? "What the agents think and say: expand it, or click a box." : "Nothing runs on this map now."}</div></div>;
+}
+
 function MapMain() {
   const locked = useMap((s) => s.locked);
+  const L = useLitNow();
   return (
-    <div className="mp" data-testid="map" data-locked={locked || undefined}>
+    <div className="mp" data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined}>
       <MapBar />
       <MapCanvas />
       <Strip />
+      <MapHistory />
       <WhenCard />
       <PickList />
     </div>
@@ -52,6 +63,10 @@ export const mapPanels: PanelSpec[] = [
     about: "Who main hands work to, and when: boxes, lines, each line's When in words; the boxes nothing hands work to wait under it.",
     help: "Drag a box's dot to another box to connect them, or click the dot for a list.\nClick a line's label: its When, or take it out.\nClick a workflow box: its steps.\nMy sessions use this: new sessions run on this map.",
     face: "detail", glance: MainGlance, detail: MapMain },
+  { id: FEED_PANEL, testid: "map-feed-panel", title: "What they think and say", role: "drawer", side: "right", contentW: 420,
+    about: "While a session runs on this map: each agent's thoughts, words, tools, hand-offs to other agents and asks, newest at the bottom.",
+    help: "Click a box on the map: only its agents (or pick everyone).\nSteer: a few words the agent reads before its next step.\nStop: it stops at its next step.\nAn ask's answers are its buttons.",
+    face: "detail", glance: FeedGlance, detail: Feed },
   { id: "map-builder", testid: "map-builder-panel", title: "Builder", role: "dock",
     about: "Say how things should connect, or ask why something happened: the builder answers with a preview you tick, then Apply.",
     help: "Type what you want and press Enter.\nThe changes show on the map as dashed ghosts.\nApply writes; Undo puts it back.",
@@ -72,9 +87,12 @@ export function MapView() {
       <AttentionChip />
     </span>
   );
+  const lit = useLit(); // R4: one overlay for the whole tab (the canvas, the strip, the top line, the drawer)
   return (
-    <div className="cw" data-testid="map-view">
-      <Workspace section={MAP_SECTION} specs={mapPanels} lead={lead} />
-    </div>
+    <LitCtx.Provider value={lit}>
+      <div className="cw" data-testid="map-view">
+        <Workspace section={MAP_SECTION} specs={mapPanels} lead={lead} />
+      </div>
+    </LitCtx.Provider>
   );
 }

@@ -5,6 +5,8 @@
 import { useState } from "react";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, setUse, toggleLock, undoLast, useMap } from "./mapStore";
+import { LitLine } from "./LitLine";
+import { useLitNow } from "./useLit";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -47,12 +49,22 @@ function Picker() {
   );
 }
 
-export function TopLine() {
+/** The map's top line: lit (LitLine.tsx) while a session runs or a replay plays, else R3's words; R4: a box that just landed
+ *  under "Not connected yet" (`fresh`) is said with a link that brings the strip into view (it can sit under the fold). */
+export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const locked = useMap((s) => s.locked);
   const scope = useMap((s) => s.detail?.scope);
+  const L = useLitNow();
+  const strip = fresh > 0 && (
+    <button type="button" className="mp-link mp-fresh" data-testid="map-fresh" onClick={() => document.querySelector("[data-testid=map-strip]")?.scrollIntoView({ block: "nearest" })}>
+      {fresh} new, not connected yet
+    </button>
+  );
+  if (L.mode !== "off" || L.all.length) return <span className="mp-topwrap">{strip}<LitLine /></span>;
   return (
     <p className="cw-line mp-topline" data-testid="map-topline">
       Nothing is running on it now. {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
+      {strip && <> {strip}</>}
     </p>
   );
 }

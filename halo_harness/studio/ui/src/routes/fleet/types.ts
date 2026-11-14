@@ -32,6 +32,8 @@ export type AgentRow = {
   square?: { name: string; engine: string; does?: string } | null;
   /** 3.3.16.3: the parent's step that started it (agent_hooks.spawn_of): Live boxes the agents of one step. */
   spawn?: { step: string; description?: string; lead?: string } | null;
+  /** 3.6.0.0 R4: the map box it runs for (crew/map_events.py tag); `made_up`: a helper main made up, under `box`. */
+  crew?: { map?: string; box?: string; line?: string; made_up?: boolean } | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;
@@ -58,6 +60,8 @@ export type SessionRow = {
   parent?: string | null;
   status?: string | null;
   busy?: boolean;
+  /** 3.6.0.0 R3: the map the session started with (its control status `map`); none: not on a map. */
+  map?: string | null;
   pending?: Pending;
   model?: string | null;
   /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */

@@ -32,6 +32,7 @@ export const KNOWN_KINDS = [
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
   "turn_marker", "thinking_chunk", "agent_talk", // 3.3.16.2: a thought as it grows, one agent's words to another
+  "map_hop", "map_step", "map_card", // 3.6.0.0 R4: a hand-off on a map's line, a workflow box's step, a Builder card (the lit Map)
   "agent_state", "agent_event", "registry", "live", "team", "focus", // 3.5.0.0: `registry` and `live` (named `fleet` before)
   "pack_live", // 3.3.13.0 R2: a pack's routes' live frame (ctx.publish), its bundle's api.on hears it
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the live store re-reads its view

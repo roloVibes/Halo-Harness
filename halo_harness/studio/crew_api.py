@@ -176,6 +176,8 @@ from halo_harness.studio.crew_flow_api import ROUTES as _FLOW  # noqa: E402  3.6
 ROUTES += _FLOW
 from halo_harness.studio.crew_map_api import ROUTES as _MAP  # noqa: E402  3.6.0.0 R3: the Map tab's routes
 ROUTES += _MAP
+from halo_harness.studio.crew_live_api import ROUTES as _LIVE  # noqa: E402  3.6.0.0 R4: Save as an agent (from-live)
+ROUTES += _LIVE
 
 
 def dispatch_table(req, routes: list):

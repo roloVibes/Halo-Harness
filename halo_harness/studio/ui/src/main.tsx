@@ -37,6 +37,7 @@ import "./styles/workflows.css"; // 3.3.16.0 R3: Agents -> Workflows, the board 
 import "./styles/crew.css"; // 3.6.0.0 R1: Agents -> 1 · Agents (routes/crew/): the form, Try it, the builder box
 import "./styles/flows.css"; // 3.6.0.0 R2: Agents -> 2 · Workflows (routes/crew/flows/): the steps, the drawing, Try it
 import "./styles/map.css"; // 3.6.0.0 R3: Agents -> 3 · Map (routes/crew/map/): boxes, lines, When, the strip, the list
+import "./styles/map-lit.css"; // 3.6.0.0 R4: the lit Map (states, hand-offs, helpers, the feed drawer, History)
 import "./styles/packs.css";
 import "./styles/manager.css";
 import "./styles/setup.css";

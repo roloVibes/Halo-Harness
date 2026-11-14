@@ -5,6 +5,8 @@ docs/CREW-sessions.md).
         the Agent tool's call: on a map (runtime.team_control is a MapControl, main's own call) the target is one of
         the agents main has a line to -- the call's `subagent_type`, or, with none, the first line whose When fires
         (crew/map_control.py route); `inner` (agent/subagent.py run_agent_call) spawns it. Anything else: `inner`.
+        R4: a call that names no agent (or `general-purpose`) and that no When claims runs as a helper main made up for
+        the task (`_made_up`: main's own tools and mode); every hand-off is a `map_hop` frame (crew/map_events.py).
     workflow_call(runtime, input, ctx) -> ToolResult | None
         the Workflow tool's call on a map: one of main's workflows by `name`, else the first workflow line whose When
         fires; it runs on the step runner (crew/runner_session.py). None: not on a map (the squares take it).
@@ -21,7 +23,7 @@ from __future__ import annotations
 
 import re
 
-from halo_harness.crew import map_when
+from halo_harness.crew import map_events, map_when
 
 HOP_TEXT = 4000
 
@@ -58,7 +60,18 @@ def hop_prompt(task: str, prev: str, box_name: str) -> str:
             "Do your part of the task with it and hand back what you did.")
 
 
-def _run_target(inner, runtime, mc, h: dict, task: str, files, tool_id: str, prompt: str, on_event=None):
+def _tagger(runtime, mc, box: str, line: str, on_child=None, made_up: bool = False, got: "dict | None" = None):
+    """on_child for a spawn the map made: its row says its box (crew/map_events.py), its id kept in `got`."""
+    def _on(child) -> None:
+        aid = map_events.tag(runtime, child, mc, box, line=line, made_up=made_up)
+        if got is not None and aid and not got.get("aid"):
+            got["aid"] = aid
+        if on_child is not None:
+            on_child(child)
+    return _on
+
+
+def _run_target(inner, runtime, mc, h: dict, task: str, files, tool_id: str, prompt: str, on_event=None, got=None):
     """(text, is_error) for one target."""
     if h["kind"] == "workflow":
         wf = mc.map.workflows.get(h["name"])
@@ -66,11 +79,21 @@ def _run_target(inner, runtime, mc, h: dict, task: str, files, tool_id: str, pro
             return f"no workflow {h['name']} on the map", True
         from halo_harness.crew.runner_session import run_workflow
         res, text = run_workflow(runtime, wf, prompt, cwd=getattr(runtime.parent, "cwd", None), tool_id=tool_id, files=files,
-                                 spawn=inner)
+                                 spawn=inner, emit=map_events.step_emit(runtime, mc, h["box"], h["name"]))
         return text, res.state == "failed"
     _ev, tr = inner(runtime=runtime, tool_id=tool_id, tool_input={"subagent_type": h["name"], "description": f"{h['name']}: {task[:40]}",
-                                                                    "prompt": prompt}, tool_name="Agent", on_event=on_event)
+                                                                    "prompt": prompt}, tool_name="Agent", on_event=on_event,
+                    on_child=_tagger(runtime, mc, h["box"], h["line"], got=got))
     return str(tr.content), bool(tr.is_error)
+
+
+def _hop(inner, runtime, mc, h: dict, why: str, task: str, files, tool_id: str, prompt: str, on_event=None, chain=False):
+    """One hand-off on a line, said as a `map_hop` start and end (the lit Map); (text, is_error)."""
+    seen: dict = {}
+    t0 = map_events.hop(runtime, mc, h, why, task, "start", chain=chain)["t"]
+    got, bad = _run_target(inner, runtime, mc, h, task, files, tool_id, prompt, on_event, seen)
+    map_events.hop(runtime, mc, h, why, task, "end", chain=chain, t0=t0, agent_id=seen.get("aid"), error=bad)
+    return got, bad
 
 
 def follow(inner, runtime, mc, box: str, task: str, files, text: str, tool_id: str, on_event=None) -> "list[str]":
@@ -85,6 +108,7 @@ def follow(inner, runtime, mc, box: str, task: str, files, text: str, tool_id: s
             ok, why = map_when.fires(h["when"], f"{task}\n{_user_text(runtime)}", files, [h["name"], h["box"]])
             if not ok:
                 parts.append(f"map {mc.map_name} · line {h['line']} not taken ({why})")
+                map_events.hop(runtime, mc, h, why, task, "skipped", chain=True)
                 continue
             line = mc.budget_refusal()
             if line:
@@ -92,7 +116,7 @@ def follow(inner, runtime, mc, box: str, task: str, files, text: str, tool_id: s
                 return parts
             n += 1
             mc.fired.append({"line": h["line"], "name": h["name"], "why": why})
-            got, bad = _run_target(inner, runtime, mc, h, task, files, f"{tool_id}-chain{n}", hop_prompt(task, prev, at), on_event)
+            got, bad = _hop(inner, runtime, mc, h, why, task, files, f"{tool_id}-chain{n}", hop_prompt(task, prev, at), on_event, chain=True)
             parts.append(receipt(mc, h, why) + "\n" + got)
             if not bad and h["box"] not in seen:
                 seen.add(h["box"])
@@ -134,16 +158,33 @@ def agent_call(inner, *, runtime, tool_id: str, tool_input: dict, tool_name: str
     name = str(tool_input.get("subagent_type") or "").strip()
     name = "" if name == "general-purpose" else name
     task = f"{tool_input.get('description') or ''}\n{tool_input.get('prompt') or ''}".strip()
+    if not name and mc.route("agent", task)[0] is None:
+        return _made_up(inner, runtime, mc, tool_id, tool_input, tool_name, notes, on_event, on_child)
     h, why, refusal = _choose(mc, "agent", name, task, (), runtime)
     if h is None:
         return [], _err("\n".join(notes + [refusal]))
     mc.fired.append({"line": h["line"], "name": h["name"], "why": why})
+    bg, seen = bool(tool_input.get("run_in_background")), {}
+    # a background hand-off: its chain is not followed (said on the line while it runs, docs/CREW-sessions.md)
+    t0 = map_events.hop(runtime, mc, h, why, task, "start", background=bg)["t"]
     events, tr = inner(runtime=runtime, tool_id=tool_id, tool_input={**tool_input, "subagent_type": h["name"]},
-                       tool_name=tool_name, on_event=on_event, on_child=on_child)
+                       tool_name=tool_name, on_event=on_event, on_child=_tagger(runtime, mc, h["box"], h["line"], on_child, got=seen))
+    if not bg:
+        map_events.hop(runtime, mc, h, why, task, "end", t0=t0, agent_id=seen.get("aid"), error=bool(tr.is_error))
     head = notes + [receipt(mc, h, why)]
-    parts = [] if tr.is_error or tool_input.get("run_in_background") else \
-        follow(inner, runtime, mc, h["box"], task, (), str(tr.content), tool_id, on_event)
+    parts = [] if tr.is_error or bg else follow(inner, runtime, mc, h["box"], task, (), str(tr.content), tool_id, on_event)
     tr.content = "\n".join(head) + "\n" + str(tr.content) + "".join("\n\n" + p for p in parts)
+    return events, tr
+
+
+def _made_up(inner, runtime, mc, tool_id: str, tool_input: dict, tool_name: str, notes: list, on_event, on_child):
+    """A call that names no agent and that no line's When claims: a helper main makes up for this task. It is the
+    `general-purpose` spec, so it may use main's own tools in main's own mode, never more (agent/subagent.py clamps a
+    child to the session's mode); its row says the box that started it (main), so the lit Map draws it beside main."""
+    events, tr = inner(runtime=runtime, tool_id=tool_id, tool_input={**tool_input, "subagent_type": "general-purpose"},
+                       tool_name=tool_name, on_event=on_event, on_child=_tagger(runtime, mc, "main", "", on_child, made_up=True))
+    head = notes + [f"map {mc.map_name} · a helper main made up for this task (no line's When claimed it) · general-purpose"]
+    tr.content = "\n".join(head) + "\n" + str(tr.content)
     return events, tr
 
 
@@ -164,6 +205,6 @@ def workflow_call(runtime, input: dict, ctx):
     if h is None:
         return _err("\n".join(notes + [refusal]))
     mc.fired.append({"line": h["line"], "name": h["name"], "why": why})
-    text, bad = _run_target(inner, runtime, mc, h, task, files, ctx.tool_use_id or "", task)
+    text, bad = _hop(inner, runtime, mc, h, why, task, files, ctx.tool_use_id or "", task)
     parts = [] if bad else follow(inner, runtime, mc, h["box"], task, files, text, ctx.tool_use_id or "")
     return ToolResult("\n".join(notes + [receipt(mc, h, why)]) + "\n" + text + "".join("\n\n" + p for p in parts), is_error=bad)

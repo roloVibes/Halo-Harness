@@ -71,7 +71,9 @@ def narrow(registry, catalog, c) -> list:
 def agents(discovered: dict, c) -> "tuple[dict, set]":
     merged = dict(discovered or {})
     merged.update(c.specs)
-    return merged, set(c.agent_targets())
+    # 3.6.0.0 R4: `general-purpose` stays spawnable for the helper main makes up when no line claims a task
+    # (crew/map_run.py: a call naming no agent, no When fired); it gets main's own tools and mode, never more.
+    return merged, set(c.agent_targets()) | ({"general-purpose"} if "general-purpose" in merged else set())
 
 
 def line(c) -> str:

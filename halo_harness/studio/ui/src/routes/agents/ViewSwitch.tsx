@@ -8,6 +8,7 @@ import { useStore } from "../../lib/store";
 import { agents, dismissNote, setAgentsView } from "./store";
 import { AttentionChip } from "./AttentionChip";
 import { LibraryButton } from "./workflows/Library";
+import { useRunning } from "../crew/map/litStore";
 
 const VIEWS: [AgentsView, string, string, string][] = [
   ["crew", "1 · Agents", "1", "Make an agent: its name, what it does, its model, what it may use, how careful; try it, save it"], // 3.6.0.0 R1
@@ -19,11 +20,13 @@ const VIEWS: [AgentsView, string, string, string][] = [
 ];
 
 export function ViewSwitch({ view }: { view: AgentsView }) {
+  const onMap = useRunning().some((s) => !!s.map); // 3.6.0.0 R4: the Map tab shows a dot while a session runs on a map
   return (
     <span className="segmented ag-views" role="tablist" aria-label="Agents: Agents, Workflows, Map, Cast, Live or Board" data-testid="agents-views">
       {VIEWS.map(([v, label, key, title]) => (
         <button key={v} role="tab" className={view === v ? "on" : ""} aria-selected={view === v} aria-pressed={view === v}
-                title={`${title} (${key})`} onClick={() => setAgentsView(v)} data-testid={`agents-view-${v}`} data-view={v}>
+                title={`${title} (${key})${v === "map" && onMap ? " -- a session is running on a map" : ""}`} onClick={() => setAgentsView(v)}
+                data-testid={`agents-view-${v}`} data-view={v} data-running={v === "map" && onMap ? "1" : undefined}>
           {label}
         </button>
       ))}

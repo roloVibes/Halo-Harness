@@ -1515,6 +1515,9 @@ class Session:
         self._approval_waiters: dict = {}
 
         self.log = session_log or SessionLog(cwd)
+        if getattr(getattr(self, "team_control", None), "is_map", False) and agent_depth == 0:  # 3.6.0.0 R4: the map, in the log (a replay reads it)
+            from halo_harness.crew.map_events import started as _map_started
+            _map_started(self, self.team_control)
         # H9 whole-tree review finding 21: this session's own tool-results
         # spill directory is only knowable once `self.log` exists (the
         # permission engine is normally built and handed in BEFORE that) --
@@ -6899,6 +6902,8 @@ class Session:
                 item["question_request_id"] = request_id
                 item["question_input"] = _pv["card"]
                 item["builder_preview"] = _pv
+                from halo_harness.crew.map_events import card as _map_card  # R4: its ghosts on the lit Map
+                _map_card(self, request_id, _pv)
                 self._question_waiters[request_id] = {"event": threading.Event(), "answer": None}
                 return item
             item["result"] = ToolResult(_pv["text"] or "nothing to change")
@@ -7922,7 +7927,9 @@ class Session:
                 answer = self._await_reply(self._question_waiters, q_request_id)
                 item.pop("pending_question", None)
                 if item.get("builder_preview") is not None:  # 3.6.0.0 R3: the Builder card's answer -> what is written
+                    from halo_harness.crew.map_events import card_done as _map_card_done
                     from halo_harness.crew.session_tool import finish as _builder_finish
+                    _map_card_done(self, q_request_id)
                     item["result"] = ToolResult(_builder_finish(item["builder_preview"], answer, self) if answer is not None
                                                 else item["builder_preview"]["text"] + "\nThe card was dismissed: nothing was written.")
                     item["ready"] = True

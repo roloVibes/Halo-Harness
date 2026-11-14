@@ -171,6 +171,7 @@ owner POST ^crew/try/(?P<tid>t[0-9a-f]{10})/seen$
 owner PUT ^crew/map/(?P<name>[a-z][a-z0-9-]{0,47})$
 owner POST ^crew/map/(?P<name>[a-z][a-z0-9-]{0,47})/use$
 owner DELETE ^crew/map/(?P<name>[a-z][a-z0-9-]{0,47})$
+owner POST ^crew/from-live$
 owner POST ^builder/ask$
 owner POST ^builder/apply$
 owner POST ^builder/undo$

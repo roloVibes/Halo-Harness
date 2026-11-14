@@ -14,19 +14,26 @@ import { MapBox } from "./MapBox";
 import { openWhen, useMap } from "./mapStore";
 import { whenWords } from "./mapTypes";
 import { view } from "./view";
+import { litFile, withCard, withLit } from "./litView";
+import { lineKey } from "./overlay";
+import { useLitNow } from "./useLit";
 
 const FIT_TEXT = 16; // 12 px on screen at 75 %: the Map's floor (the brief: Fit never under 75 %)
 const ID = "crew-map";
 
 export function useMapView() {
   const file = useMap((s) => s.detail?.map || null);
+  const shown = useMap((s) => s.name);
   const made = useMap((s) => s.made);
   const pending = useBuilder((s) => s.pending, "map");
-  return view(file, pending, made);
+  const L = useLitNow(); // R4: lit -- helpers beside their box, a parked card's ghosts; no map: main and its helpers only
+  const bare = L.nomap || (L.mode === "replay" && L.map !== shown);
+  return withLit(view(litFile(file, bare), withCard(pending, L.card), made), L.ov);
 }
 
 export function MapCanvas() {
   const v = useMapView();
+  const L = useLitNow();
   const detail = useMap((s) => s.detail);
   const open = useMap((s) => s.open);
   const hover = useMap((s) => s.hover);
@@ -49,6 +56,10 @@ export function MapCanvas() {
   useLayoutEffect(() => { // the first drawing fits its box (later: R8, when the box changes width)
     if (drawn && !nav.byHand()) fit();
   }, [drawn, detail?.map.name]); // eslint-disable-line react-hooks/exhaustive-deps
+  const helpers = v.boxes.filter((b) => b.helper).length;
+  useLayoutEffect(() => { // R4: a made-up helper arriving follows the re-fit rule: never under a zoom made by hand
+    if (drawn && helpers && !nav.byHand()) fit();
+  }, [helpers]); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => { // boxes never squish: each is as tall as its text, measured once drawn
     const got: Record<string, number> = {};
     world.current?.querySelectorAll<HTMLElement>("[data-map-box]").forEach((el) => {
@@ -59,26 +70,41 @@ export function MapCanvas() {
   const el = scroll.current;
   const more = drawn && !!el && (g.w * zoom > el.clientWidth + 2 || g.h * zoom > el.clientHeight + 2);
   const lit = (from: string, to: string) => (hover ? (hover === from || hover === to ? "hot" : "dim") : "");
+  const pulse = (from: string, to: string) => L.ov?.pulses.find((p) => p.from === from && p.to === to);
+  const fired = (from: string, to: string) => L.ov?.lines[lineKey(from, to)];
+  const words = (from: string, to: string, when: Parameters<typeof whenWords>[0]) => {
+    const p = pulse(from, to), f = fired(from, to);
+    if (p) return p.task || whenWords(when); // the hand-off's task for a few seconds, then its When again
+    if (f?.background && f.running) return "in the background: its chain is not followed";
+    return whenWords(when);
+  };
   return (
     <div className="mp-canvas" data-testid="map-canvas">
-      <div className="mp-zoom"><TopLine /><ZoomButtons zoom={zoom} zoomAt={nav.zoomAt} fit={nav.fit} /></div>
+      <div className="mp-zoom"><TopLine fresh={v.strip.filter((b) => b.isNew && !b.ghost).length} /><ZoomButtons zoom={zoom} zoomAt={nav.zoomAt} fit={nav.fit} /></div>
       <div className="mp-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} data-testid="map-scroll" aria-label="The map">
         <div className="mp-world-size" style={{ width: g.w * zoom, height: g.h * zoom }}>
-          <div className="mp-world" ref={world} data-testid="map-world" data-zoom={zoom.toFixed(3)} data-hover={hover || undefined}
+          <div className="mp-world" ref={world} data-testid="map-world" data-zoom={zoom.toFixed(3)} data-hover={hover || undefined} data-lit={L.ov ? L.mode : undefined}
                style={{ width: g.w, height: g.h, transform: `scale(${zoom})` }}>
             <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
               {g.lines.map((l) => (
                 <path key={l.key} d={l.d} className={`mp-line ${lit(l.from, l.to)}`} data-ghost={l.ghost || undefined} data-testid="map-line"
-                      data-from={l.from} data-to={l.to} markerEnd="url(#mp-head)" />
+                      data-from={l.from} data-to={l.to} markerEnd="url(#mp-head)" data-helper={l.helper || undefined}
+                      data-pulse={pulse(l.from, l.to) ? "1" : undefined} data-fired={fired(l.from, l.to)?.t ? "1" : undefined} />
+              ))}
+              {g.lines.filter((l) => pulse(l.from, l.to)).map((l) => ( // the hand-off moving along the line (no travel when motion is reduced)
+                <circle key={`p${l.key}${pulse(l.from, l.to)!.t}`} r="5" className="mp-pulse-dot" data-testid="map-pulse">
+                  <animateMotion dur="1.4s" repeatCount="1" fill="freeze" path={l.d} />
+                </circle>
               ))}
               <defs><marker id="mp-head" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" className="mp-tip" /></marker></defs>
             </svg>
-            {g.lines.map((l) => (
+            {g.lines.filter((l) => !l.helper).map((l) => (
               <button key={`l${l.key}`} type="button" className={`mp-label mono ${lit(l.from, l.to)}`} data-ghost={l.ghost || undefined}
                       data-testid="map-label" data-from={l.from} data-to={l.to} style={{ left: l.lx, top: l.ly, width: LABEL_W, height: LABEL_H }}
-                      title={`${l.from} hands work to ${l.to}: ${whenWords(l.when)}${locked || l.ghost ? "" : " (click: change the When, or take the line out)"}`}
+                      data-pulse={pulse(l.from, l.to) ? "1" : undefined} data-skipped={fired(l.from, l.to)?.skipped ? "1" : undefined}
+                      title={`${l.from} hands work to ${l.to}: ${whenWords(l.when)}${fired(l.from, l.to)?.task ? `; last hand-off: ${fired(l.from, l.to)!.task}` : ""}${fired(l.from, l.to)?.skipped ? `; not taken: ${fired(l.from, l.to)!.skipped}` : ""}${locked || l.ghost ? "" : " (click: change the When, or take the line out)"}`}
                       onClick={() => !locked && !l.ghost && openWhen(l.from, l.to, false)}>
-                {whenWords(l.when)}
+                {words(l.from, l.to, l.when)}
               </button>
             ))}
             {g.boxes.map((b) => (

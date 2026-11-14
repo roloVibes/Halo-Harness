@@ -24,8 +24,10 @@ export type MapDetail = {
 };
 
 /** A box as the page draws it: on the map or under "Not connected yet"; `ghost` = the builder's preview. */
-export type DrawBox = { id: string; kind: "agent" | "workflow"; name: string; names: string[]; ghost?: boolean; isNew?: boolean; main?: boolean };
-export type DrawLine = MapLine & { ghost?: boolean };
+export type DrawBox = { id: string; kind: "agent" | "workflow"; name: string; names: string[]; ghost?: boolean; isNew?: boolean; main?: boolean;
+  /** 3.6.0.0 R4: a helper the running session made up (dashed, beside the box that started it), its agent id */
+  helper?: string };
+export type DrawLine = MapLine & { ghost?: boolean; helper?: boolean };
 
 export const NEEDS: [string, string][] = [["pdf", "a PDF"], ["images", "an image"], ["audio", "audio"], ["video", "video"], ["code", "code"], ["review", "a review"]];
 

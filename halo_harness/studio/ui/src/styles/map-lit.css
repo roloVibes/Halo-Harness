@@ -1,0 +1,71 @@
+/* The lit Map (3.6.0.0 R4, routes/crew/map/: overlay.ts, LitBits.tsx, LitLine.tsx, Feed.tsx, MapHistory.tsx): each box's
+   state, a row per fact (the box grows); the hand-off moving along its line (a lit line and the label alone when motion
+   is reduced); made-up helpers dashed; a replay in quiet colours; the drawer of what they think and say; History under
+   the map. Room rules: nothing under 12 px, controls 28 px and 8 px apart, no sideways scroll. Tokens only. */
+
+/* the tab's dot while a session runs on a map (CSS-drawn: the button's words stay "3 · Map") */
+.ag-views button[data-running]::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%;
+  background: var(--accent); vertical-align: middle; }
+
+/* the top line */
+.mp-topwrap { display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px; min-width: 0; }
+.mp-topwrap .mp-topline { flex: 0 0 auto; } /* in the column a flex-basis would be a height */
+.mp-lit-line { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mp-lit-line .cw-line, .mp-topline .cw-line { overflow-wrap: anywhere; }
+.mp-amber, .mp-topline.mp-amber { color: var(--warn); }
+.mp-lit-pick { min-height: 28px; max-width: 280px; margin-left: 8px; }
+.mp-fresh { min-height: 28px; }
+
+/* a lit box: a row per fact */
+.mp-lit { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; min-width: 0; }
+.mp-lit-row { font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
+.mp-lit-row[data-state="working"], .mp-box[data-state="working"] .mp-lit-row[data-state] { color: var(--accent); }
+.mp-lit-row[data-state="waiting"] { color: var(--warn); font-weight: 600; }
+.mp-lit-row[data-state="failed"] { color: var(--bad); }
+.mp-box[data-lit][data-state="working"] { border-left-color: var(--accent); box-shadow: 0 0 0 1px var(--soft-accent); }
+.mp-box[data-lit][data-state="waiting"] { border-left-color: var(--warn); border-color: var(--warn); }
+.mp-box[data-lit][data-state="done"] { border-left-color: var(--ok); }
+.mp-box[data-lit][data-state="failed"] { border-left-color: var(--bad); }
+.mp-box[data-lit][data-state="idle"] { opacity: .72; }
+.mp-box[data-helper] { border-style: dashed; border-color: var(--accent); background: var(--surface); }
+.mp-made { align-self: flex-start; font-size: 12px; line-height: 18px; }
+.mp-stranger { cursor: default; border-style: dashed; }
+
+/* the lines while lit */
+.mp-line[data-fired] { stroke: var(--accent); }
+.mp-line[data-pulse] { stroke: var(--accent); stroke-width: 3; }
+.mp-line[data-helper] { stroke: var(--accent); stroke-dasharray: 4 4; }
+.mp-label[data-pulse] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.mp-label[data-skipped] { border-style: dashed; }
+.mp-pulse-dot { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
+@media (prefers-reduced-motion: reduce) {
+  .mp-pulse-dot { display: none; } /* no travel: the lit line and the label carry the hand-off */
+}
+
+/* a replay: quiet colours */
+.mp-world[data-lit="replay"] .mp-box[data-lit] { filter: saturate(.45); }
+.mp-world[data-lit="replay"] .mp-line[data-fired], .mp-world[data-lit="replay"] .mp-line[data-pulse] { stroke: var(--muted); }
+.mp-world[data-lit="replay"] .mp-pulse-dot { fill: var(--muted); }
+
+/* History under the map */
+.mp-history { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--line); border-radius: var(--r-card);
+  background: var(--bg-2); min-width: 0; }
+.mp-history-bar { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
+.mp-history-pick { min-height: 32px; flex: 1 1 260px; max-width: 520px; min-width: 0; }
+
+/* the drawer: what they think and say */
+.mpf { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-height: 0; min-width: 0; position: relative; }
+.mpf-pick { display: flex; gap: var(--s-2); align-items: center; }
+.mpf-pick > .cw-line { flex: 0 0 auto; white-space: nowrap; }
+.mpf-pick select { min-height: 32px; flex: 1 1 auto; min-width: 0; }
+.mpf-rows { flex: 1 1 auto; min-height: 120px; overflow-y: auto; overflow-x: hidden; }
+.mpf-foot { display: flex; flex-direction: column; gap: var(--s-2); padding-top: var(--s-2); border-top: 1px solid var(--line-soft); }
+.mpf-buttons, .mpf-ask { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+
+/* Session's Map panel, lit (LitMini.tsx): compact, read-only, fitted to the panel's width */
+.mp-mini { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-height: 0; min-width: 0; }
+.mp-mini-head { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; }
+.mp-mini-scroll { flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.mp-mini-size { position: relative; }
+.mp-mini-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.mp-mini .mp-box { cursor: default; }

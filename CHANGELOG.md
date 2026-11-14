@@ -209,6 +209,56 @@ and agents".
   (`tests/helpers/kept_http.py`; a session poll spent ~400 ports a module, held two minutes each in TIME_WAIT), and a
   connect that finds no free local port is tried again for a short, bounded time.
 
+### R4
+
+The map you built is the picture that runs. The owner: "this never looks right compared to what the other views are
+for active workflows. It's never matching what is going on", and "I think we should be able to see the active line up
+in canvas". One drawing now: while a session runs on a map, the same map lights up.
+
+- **Agents -> 3 · Map, lit**: the tab shows a dot while a session runs on a map. The top line says "A session is
+  running on this map (started 14:02)", then one sentence of what goes on (who works, who waits on what or on you, the
+  models, the dollars so far: Live's own sentence) and exactly when an edit takes effect (a line, a When or a new box
+  at the next hand-off; an agent's own change the next time it starts; main's model and instructions with the next
+  session). Edits stay allowed.
+- **Each box** says its state (working, waiting on you, done, failed, not used yet), what it does now and its cost, a
+  row per fact; hover for its summary, click for its words in the drawer. **A hand-off moves along the line you drew**
+  (the line the runtime's receipt named): the line lights, a dot travels it, its label shows the task for a few
+  seconds, then its When again; a chain is seen box to box; with reduced motion the line lights and nothing travels. A
+  background hand-off says on its line that its chain is not followed.
+- **An opened workflow box** lights its steps as the step runner reports them: the step running, its agents, a
+  repeat's round and its checks.
+- **Helpers the session made up** (a task no line's When claimed: main makes a helper for it, on main's own tools and
+  mode) show beside the box that started them, dashed, "made up for this task", with **Save as an agent**: the Agents
+  form opens with an agent built from it, nothing written until you Save.
+- **What they think and say**, a drawer that pushes the map: THINK, SAY, TALK, tool and ask rows, newest at the bottom,
+  following as Session's Live does, filtered by the box you clicked or everyone; **Steer** and **Stop** (asked first) to
+  that box's agent; an ask's answers as buttons (and its box says "waiting on you").
+- **Another map running**: the top line says so in amber with **Show the running map**; several sessions: a small
+  picker, one lit at a time. **A session that did not start on a map** is offered, not drawn over your map; shown, it is
+  main and its helpers, "This session did not start on a map", no invented lines. An agent that matches no box is never
+  dropped: it waits under Not connected yet, tagged "not on this map" and why. A box landing under Not connected yet is
+  said in the top line with a link to it; a Builder card the session waits on draws its ghosts with "answer it in the
+  session".
+- **History under the map**: a picker of finished runs, newest first; **Replay it on the map** lights the map the run
+  ran on, in quiet colours, as Live's scrubber moves it; a box the run used that the map no longer has shows dashed,
+  "removed since"; **Report card** from the picker row.
+- **Session's Map panel** shows the same lit map, compact and read-only, with a link to the Map tab, while a session
+  runs on a map (a session not on a map keeps the tree until every session runs on one).
+- **How it is built**: a session on a map sends `map_hop` (a line's hand-off start / end, a chain's line not taken),
+  `map_step` (a workflow box's step runner) and `map_card` frames and keeps the first two in its log
+  (`halo_harness/crew/map_events.py`); every spawn a hand-off makes carries its box on its row (`crew`). Studio's
+  overlay (`routes/crew/map/overlay.ts`) is one pure function from one session's rows and frames to each box's state,
+  the pulses, the opened steps, the helpers and where they hang, and the rows that match nothing; a replay feeds the
+  recorded events through the same function. `runner_session.run_workflow` takes an `emit`; `GET live/replay` adds the
+  map and its events; **`POST crew/from-live {session, agent_id}`** (owner-only, writes nothing) builds the unsaved
+  agent body. No new listener, no model call for the picture.
+- **Docs:** [STUDIO-map.md](docs/STUDIO-map.md) "While a session runs" and "History", [CREW-sessions.md](docs/CREW-sessions.md)
+  (made-up helpers, the frames), STUDIO-session.md's Map panel; pictures by `tools/capture_map_live.py`.
+- **Tests:** `test_map_overlay` (the overlay in node: states, a pulse on the named line, a chain, steps and a repeat, a
+  helper and its parent, an ask, a row that matches nothing, replay equals live), `test_studio_map_live` (Chrome, as a
+  first-time user: each point above, the room at 1280 / 1500 / 1920, a zoom while frames arrive), `test_map_chains`
+  (the frames and the log, a made-up helper), `test_crew_map_api` (from-live, the replay's map).
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

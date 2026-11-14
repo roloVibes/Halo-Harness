@@ -122,9 +122,9 @@ def _talk(session, node: str, ref: str, text: str, back: bool = False, re: Optio
         return None
 
 
-def run_workflow(runtime, wf: dict, request: str, *, cwd, tool_id: str = "", files=(), spawn=None):
+def run_workflow(runtime, wf: dict, request: str, *, cwd, tool_id: str = "", files=(), spawn=None, emit=None):
     """Run a crew workflow in this session: the workflow's node under the caller, the hand-off and the result as talk,
-    each agent a child. (Result, the receipt's text)."""
+    each agent a child. (Result, the receipt's text). `emit` hears the runner's events (R4: a map box's `map_step`)."""
     from halo_harness.crew import runner, store
     from halo_harness.workflows import receipts
     session = getattr(runtime, "parent", None)
@@ -137,7 +137,7 @@ def run_workflow(runtime, wf: dict, request: str, *, cwd, tool_id: str = "", fil
     def resolve(agent: str):
         return store.load("agent", agent, cwd=cwd)
 
-    res = runner.run(wf, request, resolve=resolve, backend=backend, files=files)
+    res = runner.run(wf, request, resolve=resolve, backend=backend, files=files, emit=emit)
     _talk(session, key, name, res.text or res.line, back=True, re=said)
     receipts.node(session, name, "steps", state="done" if res.state == "done" else "failed", cost_usd=res.cost_usd, key=key)
     head = (f"crew workflow {name} · ran on the step runner · {res.state} · ${res.cost_usd:.4f} -- {res.line}")

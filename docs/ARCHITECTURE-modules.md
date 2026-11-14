@@ -101,6 +101,9 @@ the Map tab's maps, a map, its save and `use`) and `studio/builder_api.py` (`bui
 -> main's config, the hand-off table, the agent specs), `crew/map_control.py` (the map held where a lineup was),
 `crew/map_run.py` (main's hand-offs and the chains), `crew/map_session.py` (the session builder's part), `crew/tools_map.py`
 + `crew/tools_show.py` (the builder's map tools and studio_show), `crew/session_tool.py` (the same tools offered to main).
+3.6.0.0 R4: `crew/map_events.py` (what a session on a map says as it runs: the `map_hop` / `map_step` / `map_card` frames,
+the same in its log, each spawned row's `crew` box) and `studio/crew_live_api.py` (`crew/from-live`: Save as an agent
+from a helper a session made up); the lit Map's overlay is Studio's `routes/crew/map/overlay.ts`.
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live):
 

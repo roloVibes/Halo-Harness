@@ -10,6 +10,9 @@ import { openFlow } from "../flows/flowStore";
 import { dragDot } from "./drag";
 import { setHover, setPick, toggleOpen, useMap } from "./mapStore";
 import type { BoxFacts, DrawBox } from "./mapTypes";
+import { HelperRows, LitRows, LitSteps, STATE_WORDS } from "./LitBits";
+import { openFeed } from "./feedOpen";
+import { useLitNow } from "./useLit";
 
 const CAREFUL: Record<string, string> = { "ask-changes": "asks before it changes anything", "ask-commands": "asks before commands", own: "works on its own" };
 
@@ -19,11 +22,13 @@ function modelWords(m?: string): string {
 
 function Detail({ b, facts }: { b: DrawBox; facts?: BoxFacts }) {
   const f = facts?.facts || [];
+  const lit = useLitNow().ov?.steps[b.id]; // R4: a workflow box's steps lit as the step runner reports them
   if (b.kind === "workflow") {
     const steps = f[0]?.steps || [];
     return (
       <div className="mp-detail" data-testid="map-box-steps">
-        {steps.map((s, i) => <span key={i} className="mp-step">{i + 1} · {s.name} <span className="mp-muted">({s.agents.join(" + ")})</span></span>)}
+        {lit ? <LitSteps steps={lit} />
+          : steps.map((s, i) => <span key={i} className="mp-step">{i + 1} · {s.name} <span className="mp-muted">({s.agents.join(" + ")})</span></span>)}
         <button type="button" className="mp-link" onClick={(e) => { e.stopPropagation(); setAgentsView("flows"); void openFlow(b.names[0]); }}
                 data-testid="map-open-workflow">To change the steps: open it in Workflows</button>
       </div>
@@ -45,6 +50,10 @@ function Detail({ b, facts }: { b: DrawBox; facts?: BoxFacts }) {
 export function MapBox({ b, style, inStrip, facts, mainFacts }: { b: DrawBox; style?: CSSProperties; inStrip?: boolean; facts?: BoxFacts;
                                                                    mainFacts?: { model?: string; does?: string } }) {
   const open = useMap((s) => !!s.open[b.id]);
+  const L = useLitNow();
+  const ob = L.ov?.boxes[b.id];
+  const helper = b.helper ? L.ov?.helpers.find((h) => h.aid === b.helper) : undefined;
+  const state = helper?.state || ob?.state;
   const locked = useMap((s) => s.locked);
   const hover = useMap((s) => s.hover);
   const f = facts?.facts || [];
@@ -53,24 +62,31 @@ export function MapBox({ b, style, inStrip, facts, mainFacts }: { b: DrawBox; st
   const meta = b.main ? `${!mainFacts?.model || mainFacts.model === "auto" ? "your session's model" : mainFacts.model} · the agent you talk to`
     : b.kind === "workflow" ? `${steps} step${steps === 1 ? "" : "s"} · click to ${open ? "close" : "open"}`
     : b.names.length > 1 ? "main picks one per task" : modelWords(f[0]?.model);
-  const summary = b.main ? mainFacts?.does || "main" : b.kind === "workflow" ? f[0]?.for || b.name : f[0]?.does || b.name;
+  const summary = helper ? `made up for this task: ${helper.task || helper.name}` : b.main ? mainFacts?.does || "main" : b.kind === "workflow" ? f[0]?.for || b.name : f[0]?.does || b.name;
+  const click = () => {
+    if (!helper) toggleOpen(b.id);
+    if (L.mode !== "off") openFeed(helper ? `agent:${helper.aid}` : b.id); // lit: the click opens what they think and say, for this box
+  };
   return (
     <div className="mp-box" data-map-box={b.id} data-name={b.name} data-kind={b.kind} data-ghost={b.ghost || undefined} data-new={b.isNew || undefined}
          data-open={open || undefined} data-missing={missing || undefined} data-hot={hover === b.id || undefined}
-         data-testid="map-box" tabIndex={0} style={style} title={`${b.kind} ${b.name}: ${summary}`} aria-expanded={open}
+         data-state={state} data-lit={(L.mode !== "off" && (ob || helper)) ? L.mode : undefined} data-helper={helper ? helper.aid : undefined}
+         data-testid="map-box" tabIndex={0} style={style} title={`${b.kind} ${b.name}: ${summary}${state ? ` (${STATE_WORDS[state]})` : ""}`} aria-expanded={open}
          onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover("")} onFocus={() => setHover(b.id)} onBlur={() => setHover("")}
-         onClick={() => toggleOpen(b.id)} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) toggleOpen(b.id); }}>
+         onClick={click} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) click(); }}>
       <div className="mp-inner">
       <span className="mp-kind mono">
-        {b.ghost ? "new · " : ""}{b.main ? "main" : b.kind}
+        {b.ghost ? "new · " : ""}{b.main ? "main" : helper ? "helper" : b.kind}
         {b.kind === "workflow" && <span className="mp-dots" aria-hidden="true">{"●".repeat(Math.min(steps, 8))}</span>}
         {b.isNew && !b.ghost && <span className="mp-tag" data-testid="map-new">new</span>}
       </span>
       <b className="mp-name">{b.name}</b>
-      <span className="mp-meta">{missing ? "missing: make it in Agents or Workflows" : meta}</span>
+      <span className="mp-meta">{helper ? helper.model || "main's tools and mode" : missing ? "missing: make it in Agents or Workflows" : meta}</span>
+      {ob && L.mode !== "off" && <LitRows ob={ob} />}
+      {helper && <HelperRows h={helper} sid={L.session?.sid || ""} />}
       {open && <Detail b={b} facts={facts} />}
       </div>
-      {!locked && !b.ghost && (
+      {!locked && !b.ghost && !b.helper && (
         <button type="button" className="mp-dot" data-testid="map-dot" data-from={b.id} data-strip={inStrip ? "1" : undefined}
                 aria-label={`${b.name}: connect it (drag to a box, or press Enter for a list)`} title="Drag to a box to connect, or click for a list"
                 onPointerDown={(e) => dragDot(e, b.id, !!inStrip)} onClick={(e) => e.stopPropagation()}

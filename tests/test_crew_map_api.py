@@ -6,7 +6,9 @@
 2. PUT: a starter is saved as yours under its name; a new name makes a new map; a line that would make a circle is 422
    with the circle named; every write keeps its before-image (POST builder/undo puts it back byte for byte);
 3. POST use {on}: config crew.map (undo puts config back); DELETE yours only; every write needs the owner's proof;
-4. `halo maps list / show / use` say the same.
+4. `halo maps list / show / use` say the same;
+5. (R4) POST crew/from-live: an unsaved agent body from a session's made-up helper, nothing written, owner-only; GET
+   live/replay names the map a session ran on and its hops (its log).
 Run: python -m tests.test_crew_map_api
 """
 from __future__ import annotations
@@ -96,6 +98,47 @@ def test_use_the_owner_and_the_cli(ctx: Ctx):
         text = out.getvalue()
         ctx.check(f"halo maps use / list / show, got {text[:300]!r}", code == 0 and "New sessions run on the map starter" in text
                   and "* starter" in text and "line main -> plan: always" in text and "in use: starter (config)" in text)
+
+
+@test
+def test_from_live_builds_an_unsaved_agent_and_a_replay_knows_its_map(ctx: Ctx):
+    """R4: POST crew/from-live {session, agent_id} -> an unsaved agent/1 body (main's uses and careful), nothing written,
+    owner-only; GET live/replay?session= says the map the session ran on and its hops (from its log)."""
+    import json
+    from halo_harness.peers import local_view
+    with CrewRig() as rig:
+        rig.studio()
+        row = {"session_id": "s-live-1", "map": "starter", "agents": [
+            {"agent_id": "main", "name": "main", "state": "running"},
+            {"agent_id": "a7", "parent": "main", "name": "general-purpose", "state": "running", "model": "or:vendor/fast",
+             "task": "List what the repo holds for the release notes\nthen stop", "crew": {"map": "starter", "box": "main", "made_up": True}}]}
+        saved = local_view.sessions
+        local_view.sessions = lambda list_live=None: [row]
+        try:
+            before = _bytes(rig)
+            st, r = rig.api("POST", "crew/from-live", {"session": "s-live-1", "agent_id": "a7"})
+            a = r.get("agent") or {}
+            ctx.check(f"an unsaved body from the helper, got {st} {a}", st == 200 and a.get("format") == "agent/1" and
+                      a.get("name") == "list-what-repo" and a.get("does") == "List what the repo holds for the release notes"
+                      and a.get("model") == "or:vendor/fast" and r.get("problems") == [])
+            ctx.check(f"what it may use: main's uses and careful, got {a.get('uses')} {a.get('careful')}",
+                      a.get("uses") == ["read", "edit", "bash", "web"] and a.get("careful") == "ask-changes")
+            ctx.check("nothing written", _bytes(rig) == before)
+            ctx.check("no such helper: 404", rig.api("POST", "crew/from-live", {"session": "s-live-1", "agent_id": "zz"})[0] == 404)
+            ctx.check("without the owner's proof: 403", rig.api("POST", "crew/from-live", {"session": "s-live-1", "agent_id": "a7"}, owner=False)[0] == 403)
+        finally:
+            local_view.sessions = saved
+        log = rig.state / "sessions" / "proj" / "s-past-1.jsonl"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        nodes = [{"type": "meta", "ts": 1.0, "title": "a past run"},
+                 {"type": "user", "ts": 2.0, "content": "fix it"},
+                 {"type": "receipt", "kind": "map", "event": "map_start", "ts": 2.0, "data": {"map": "starter", "t": 2.0}},
+                 {"type": "receipt", "kind": "map", "event": "map_hop", "ts": 3.0,
+                  "data": {"map": "starter", "line": "main -> coder", "from": "main", "to": "coder", "state": "start", "t": 3.0}}]
+        log.write_text("".join(json.dumps(n) + "\n" for n in nodes), encoding="utf-8")
+        st, r = rig.api("GET", "live/replay?session=s-past-1&harness=local")
+        ctx.check(f"the replay says its map and its hops, got {st} {r.get('map')} {r.get('map_events')}",
+                  st == 200 and r.get("map") == "starter" and [e["data"]["line"] for e in r.get("map_events") or []] == ["main -> coder"])
 
 
 if __name__ == "__main__":

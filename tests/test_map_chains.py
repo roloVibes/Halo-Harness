@@ -6,7 +6,9 @@
    line per hand-off names the line that fired; no call decides a chain (a fake model: each agent's reply scripted);
 2. a `needs: [pdf]` line is taken only for a task with a PDF (and says why when it is not);
 3. the Agent tool on a map: exactly main's agents (another name is one line), an `ask` line runs only when the person
-   named it, a call with no target follows the first line whose When fires; the session's cap stops hand-offs.
+   named it, a call with no target follows the first line whose When fires; the session's cap stops hand-offs;
+4. (R4) every hand-off is a `map_hop` frame (start / end / skipped), a workflow box's steps `map_step` frames, the same
+   in the log, each spawned row tagged with its box; a call no line claims runs as a helper main made up.
 Fakes only, no model call. Run: python -m tests.test_map_chains
 """
 from __future__ import annotations
@@ -135,6 +137,64 @@ def test_the_session_cap_stops_hand_offs(ctx: Ctx):
                   [c["who"] for c in calls] == ["planner", "coder"] and "session cap ($1.00, caps.session_usd) is reached" in str(res.content))
         again = flow(rt, fake(calls), "another task")
         ctx.check("the next hand-off is one plain line", again.is_error and "no more hand-offs this session" in str(again.content))
+
+
+def spawning(calls: list, rt):
+    """A fake spawn that adds the child's row and hands the child to `on_child` (as run_agent_call does)."""
+    from halo_harness.agent.agent_registry import tree_for
+    from halo_harness.tools.base import ToolResult
+    from tests.helpers.workflow_fakes import FakeChild
+
+    def inner(*, runtime, tool_id, tool_input, tool_name, on_event=None, on_child=None):
+        who = tool_input.get("subagent_type")
+        child = FakeChild(f"a{len(calls)}")
+        tree_for(rt.parent).add(child.agent_id, parent="main", name=who, state="running", kind="subagent")
+        calls.append({"who": who, "aid": child.agent_id})
+        if on_child is not None:
+            on_child(child)
+        return [], ToolResult(f"<task_result>{who} did its part</task_result>")
+    return inner
+
+
+@test
+def test_every_hand_off_and_step_is_a_frame_and_in_the_log(ctx: Ctx):
+    """R4: the lit Map reads `map_hop` (start / end / skipped) and `map_step` frames; the log holds the same."""
+    with PacksHome() as h:
+        rt, calls = runtime(h), []
+        flow(rt, spawning(calls, rt), "fix the retry in client.py")
+        hops = [(d["line"], d["state"]) for k, _a, d in rt.frames if k == "map_hop"]
+        ctx.check(f"each line's start and end, the PDF line skipped, got {hops}",
+                  hops == [("main -> plan", "start"), ("main -> plan", "end"), ("plan -> code", "start"), ("plan -> code", "end"),
+                           ("code -> review", "start"), ("code -> review", "end"), ("code -> pdfs", "skipped")])
+        end = next(d for k, _a, d in rt.frames if k == "map_hop" and d["line"] == "plan -> code" and d["state"] == "end")
+        ctx.check(f"a hop names its box, its When, the task's first words and the child it spawned, got {end}",
+                  end["to"] == "code" and end["when"] == "always" and end["task"].startswith("fix the retry") and end["agent_id"] == calls[1]["aid"])
+        steps = [d["kind"] for k, _a, d in rt.frames if k == "map_step"]
+        ctx.check(f"the plan box's steps as the runner emits them, got {steps}", steps[0] == "start" and "step" in steps and "agent" in steps
+                  and steps[-1] == "end" and all(d["box"] == "plan" for k, _a, d in rt.frames if k == "map_step"))
+        from halo_harness.agent.agent_registry import tree_for
+        crew = tree_for(rt.parent).row(calls[1]["aid"]).get("crew")
+        ctx.check(f"coder's row says its box and line, got {crew}", crew == {"map": "chain", "box": "code", "line": "plan -> code"})
+        logged = [n["event"] for n in rt.parent.log.receipts() if n.get("kind") == "map"]
+        ctx.check(f"the log holds the same events (a replay reads them), got {len(logged)} of {len(hops) + len(steps)}",
+                  len(logged) == len(hops) + len(steps))
+
+
+@test
+def test_a_call_no_line_claims_is_a_made_up_helper(ctx: Ctx):
+    """R4: a call naming no agent that no When claims runs as a helper main made up; a named stranger is still one line."""
+    with PacksHome() as h:
+        rt, calls = runtime(h), []
+        got = call(rt, spawning(calls, rt), description="look around", prompt="list what the repo holds")
+        ctx.check(f"it ran as general-purpose, the receipt says made up, got {got.content!r}",
+                  not got.is_error and calls[-1]["who"] == "general-purpose" and "a helper main made up for this task" in got.content)
+        from halo_harness.agent.agent_registry import tree_for
+        crew = tree_for(rt.parent).row(calls[-1]["aid"]).get("crew")
+        ctx.check(f"its row hangs off main, made up, got {crew}", crew == {"map": "chain", "box": "main", "made_up": True})
+        got = call(rt, spawning(calls, rt), subagent_type="general-purpose", description="look around", prompt="again")
+        ctx.check("general-purpose named is the same as naming none", not got.is_error and "made up" in got.content)
+        got = call(rt, spawning(calls, rt), subagent_type="coder", description="fix it", prompt="fix it")
+        ctx.check("a named agent with no line from main stays one line", got.is_error and "no line from main" in got.content)
 
 
 if __name__ == "__main__":

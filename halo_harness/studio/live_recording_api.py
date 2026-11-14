@@ -9,7 +9,8 @@ studio/live_api.py's ROUTES; the same loopback + token guard.
     GET  live/replay?session=<sid>[&harness=<h>]
         -> {session_id, harness, title, started, ended, cost_usd, agents: [...], states: [{t, agent_id, state,
             activity, tool?}], costs: [{t, usd}], agent_costs: [{t, agent_id, usd}], marks: [...], bands: [...]}
-        the session's time axis: the scrubber under Agents -> Live replays it (3.4.1.0 R1, live/timeline.py)
+        the session's time axis: the scrubber under Agents -> Live replays it (3.4.1.0 R1, live/timeline.py);
+        3.6.0.0 R4: + {map, map_events: [{event, data}]} -- the map it ran on, its hand-offs and steps (the lit Map)
     GET  live/replay?run=<run id>
         -> a goal run's replay payload (live/replay_run.build_run, kind "run": the lead and its lanes, each lane's state
            changes and its cost at its end), what the scrubber draws a goal run from (3.4.1.1, defect 60)
@@ -82,7 +83,17 @@ def get_replay(req):
         return name
     from halo_harness.live import timeline
     keep = ("session_id", "title", "started", "ended", "cost_usd", "agents", "states", "costs", "agent_costs")
-    return 200, {"harness": name, **{k: hist.get(k) for k in keep}, **timeline.of(hist)}  # 3.4.1.0 R1: marks, bands
+    return 200, {"harness": name, **{k: hist.get(k) for k in keep}, **timeline.of(hist), **_map_part(req, hid, sid)}
+
+
+def _map_part(req, hid: str, sid: str) -> dict:
+    """3.6.0.0 R4: the map it ran on and its hand-offs and steps, as the lit Map replays them (crew/map_events.py)."""
+    if hid != "local":
+        return {"map": None, "map_events": []}
+    from halo_harness.crew.map_events import recorded
+    from halo_harness.live import history
+    got = recorded(history.find(req.state_dir, sid))
+    return {"map": got["map"], "map_events": got["events"]}
 
 
 _ID = r"[A-Za-z0-9_.:-]+"

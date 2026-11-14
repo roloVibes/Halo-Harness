@@ -45,7 +45,8 @@ FIELDS = ("agent_id", "parent", "name", "role", "bio", "lineup", "model", "kind"
           "model_reason",  # 3.1.9.0 R2: why an `auto` member runs on `model` (models_auto.py)
           "opt_ins",  # 3.1.8.0 R5: its isolation / secrets / tool-list lines (isolation/lines.py)
           "square",  # 3.3.16.0 R3: {name, engine, does} on a square's agent or node (workflows/receipts.py)
-          "spawn")  # 3.3.16.3: {step, description, lead} -- the parent's step that started it (agent_hooks.spawn_of)
+          "spawn",  # 3.3.16.3: {step, description, lead} -- the parent's step that started it (agent_hooks.spawn_of)
+          "crew")  # 3.6.0.0 R4: {map, box, line?, made_up?} -- the map box it runs for (crew/map_events.py tag)
 QUIET_FIELDS = frozenset({"last_text", "cost_usd"})
 QUIET_S = 1.0
 _make_lock = threading.Lock()

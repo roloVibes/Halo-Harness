@@ -44,6 +44,13 @@ Every hand-off's receipt names the line that fired:
 
     map ship-it · line main -> plan (always) · plan
 
+**A helper main makes up** (3.6.0.0 R4): an Agent call that names no agent (or `general-purpose`) and that no line's
+When claims runs as a helper main made up for the task, as in a session with no map: the `general-purpose` agent, on
+main's own tools in main's own mode (never more: a child never runs in a more permissive mode than the session). Its
+receipt says so (`map ship-it · a helper main made up for this task (no line's When claimed it) · general-purpose`),
+and its row carries the box that started it, so the lit Map draws it beside that box with **Save as an agent**. On a
+map with no agent box main has no Agent tool, so it makes no helper.
+
 ## Chains
 
 A line from a box (not main) is a chain. When a target finishes, the runtime follows that box's lines itself, in the
@@ -56,7 +63,23 @@ taken says why:
     map ship-it · line code -> pdfs not taken (skipped: the task needs none of pdf)
 
 The map has no circle (the format refuses one), so a chain ends. A box with two lines into it runs once per hand-off
-that reaches it; it does not wait for both. A hand-off run in the background is not followed.
+that reaches it; it does not wait for both. A hand-off run in the background is not followed (the lit Map says "in the
+background: its chain is not followed" on its line while it runs).
+
+## What a session on a map says as it runs
+
+So Studio's Map can light up (3.6.0.0 R4, [STUDIO-map.md](STUDIO-map.md#while-a-session-runs)), a session on a map
+sends three frames on its feed, and keeps the first two in its log as `receipt` nodes (kind `map`) so History replays
+the same events (`crew/map_events.py`):
+
+| Frame | Data | When |
+|---|---|---|
+| `map_hop` | `{map, line, from, to, name, kind, when, why, task, state, t, agent_id?, t1?, error?, background?, chain?}` | a hand-off starts and ends on a line; a chain's line not taken (`state: skipped`, `why`) |
+| `map_step` | `{map, box, workflow, kind, t, ...}`: the step runner's start / step / agent / check / end | a workflow box runs in the session |
+| `map_card` | `{id, changes}`, then `{id, done}` | main parked a Builder card that changes a map; answered |
+
+Each agent a hand-off spawns carries `crew: {map, box, line}` on its row (a made-up helper: `{map, box, made_up}`), and
+the log's first `map_start` node names the map. Nothing in them calls a model.
 
 ## When an edit takes effect
 
