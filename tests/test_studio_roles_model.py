@@ -5,17 +5,18 @@ studio_roles_model.py; skipped without one), over a fresh home with the
 shipped lineups and no provider set up:
 
 1. the Inspector's MODEL strip with nothing selected names the main card and,
-   with no live list, says why (every provider's line) and offers Refresh,
-   while the select still lists the refs already in use (not verified);
+   with no live list, says why in one line with its fix (3.4.1.3: no provider
+   is set up -> Setup), the Models panel every provider's line; the picker it
+   opens says the same and keeps its last row, never an empty list;
 2. Refresh over a provider that answers and one past the time box: one outcome
-   line each under the strip, and the select lists the two answered models;
+   line each under the strip, and the picker lists the two answered models;
 3. a selected card: the strip names the model it resolves to (the graph's);
    a model picked there is saved (`GET lineup` reads `models.preference`) and
    the card's pill follows; Test shows the stubbed probe inline;
 4. a card's pill click (and Enter on a selected card) selects it and focuses
-   the strip's select;
-5. "change the bio's model": the bio form, MODELS first, its select focused,
-   the picker table folded until "more..." (then one row per catalog model).
+   the strip's field;
+5. "change the bio's model": the bio form, MODELS first, its field focused,
+   the picker folded until the field is clicked (then one row per catalog model).
 Run: python -m tests.test_studio_roles_model
 """
 from __future__ import annotations
@@ -45,11 +46,12 @@ def _got(ctx: Ctx) -> dict:
 def test_the_strip_says_why_the_list_is_empty_and_offers_refresh(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"nothing selected: the main card, got {got.get('main_strip')!r}", got.get("main_strip") == "boss#0")
-    ctx.check(f"no live list: why (every provider looked at) and Refresh, got {got.get('empty_why')!r} / {got.get('looked')!r}",
-              "Looked at" in str(got.get("empty_why")) and "Databricks: not configured" in str(got.get("empty_why"))
-              and got.get("empty_refresh") is True and "OpenRouter: not configured" in str(got.get("looked")))
-    ctx.check(f"the select is not empty: the refs in use, not verified, got {got.get('empty_options')}",
-              (got.get("empty_options") or 0) > 1 and got.get("empty_unverified") is True)
+    ctx.check(f"no live list: why in one line and its fix, got {got.get('empty_why')!r} / {got.get('looked')!r}",
+              "no provider is set up here yet" in str(got.get("empty_why")) and got.get("empty_setup") is True
+              and "Looked at" in str(got.get("looked")) and "OpenRouter: not configured" in str(got.get("looked")))
+    why, last, n = (got.get("empty_dialog") or ["", False, -1])
+    ctx.check(f"the picker says it too and keeps its last row, got {got.get('empty_dialog')}",
+              "no provider is set up here yet" in why and last is True and n == 0)
 
 
 @test
@@ -60,7 +62,7 @@ def test_refresh_shows_one_line_per_provider_and_fills_the_select(ctx: Ctx):
     # either line proves one outcome per provider
     ctx.check(f"one outcome line each, got {outcomes}", len(outcomes) == 2 and outcomes[0] == "FakeRouter: ok, 2 models"
               and outcomes[1] in ("Slowpoke: timed out after 1.5 s (still asking: its list lands when it answers)", "Slowpoke: ok, 1 model"))
-    ctx.check(f"the select lists the answered models, got {got.get('live_options')}", got.get("live_options") == ["or:fakeco/alpha-1", "or:fakeco/beta-2"])
+    ctx.check(f"the picker lists the answered models, got {got.get('live_options')}", got.get("live_options") == ["or:fakeco/alpha-1", "or:fakeco/beta-2"])
     ctx.check(f"and says when, got {got.get('refreshed')!r}", got.get("refreshed") == "refreshed just now")
 
 

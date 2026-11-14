@@ -85,8 +85,11 @@ grouped tree of [STUDIO-blocks.md](STUDIO-blocks.md).
 | mid | 60% to 130% | every agent's box (with its waits-on row) |
 | near | 130% and up | each box grows by its current thought (the newest THINK row, three lines) and its running tool with its last output line |
 
-The **far | mid | near** switch on the bar sets the zoom to 50%, 100% or 150%; **Ctrl+wheel** (Cmd on a Mac) zooms around
-the pointer, `+` / `-` around the middle. A level changes only at those thresholds, and the box, block or group under the
+The **far | mid | near** switch on the bar sets the zoom to 50%, 100% or 150%; **Ctrl + wheel** (Cmd on a Mac) or a
+trackpad pinch zooms around the pointer (a wheel notch is one 10% step, a pinch a smooth fraction), `+` / `-` around the
+middle, `0` (or a double-click on the background) fits, a drag on the background pans and Shift + wheel pans sideways
+(3.4.1.3: the same on every drawing in Studio -- Live and its replay, Session's Map, Cast, the design pack's artboards
+-- from one module, `lib/canvasNav.ts`; over a drawing the browser's own page zoom is held back, nowhere else). A level changes only at those thresholds, and the box, block or group under the
 pointer stays under it (`zoomAnchor.ts`). **Fit** picks the level that shows the whole session readably: mid when it fits at
 60% or more, else far (thirty agents open at far). `?level=far|mid|near` pins the level whatever the zoom until the
 switch is used (a capture's or a driver's door; Fit is then a plain fit).
@@ -145,6 +148,12 @@ a cap -- ONE alert by the channel you picked in **Settings -> Studio -> Alerts**
 naming what waits and on which session ("Waiting on you: Permission: Bash", "shop on you@laptop · main"). Never one per
 feed event (a card is one row however many frames say it), never for what already waited when the page opened, and rows
 that land together are one alert ("and 2 more").
+
+**Background work that finished while a session was idle** (3.4.1.3) is a row of that queue too, `background_done`
+("Background work finished", the job or sub-agent and what happens next): no prompt is needed to learn it. It shows on
+Agents -> Live's attention chip, on the glance and in the alert; further finishes before your next message there keep
+the one row (one alert); your next message, or **A** set aside, takes it away. The session's side:
+[SUBAGENTS.md](SUBAGENTS.md#when-background-work-finishes-while-the-session-is-idle-halo-3413).
 
 | Choice | What it does |
 |---|---|

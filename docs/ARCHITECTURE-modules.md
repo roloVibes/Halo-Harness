@@ -40,7 +40,7 @@ this list against the tree.
   time-boxed, one outcome line each, kept with its time),
   `studio/models_fallback.py` (`GET /api/models/fallback`: the refs in use and
   the shipped OpenRouter list, not verified), `studio/models_resolve.py`
-  (`GET /api/models/resolve`: what a role runs on)
+  (`GET /api/models/resolve`: what a role runs on), `studio/models_check.py` (3.4.1.3: `GET /api/models/check`)
 - the Session dashboard (3.1.4.0): `studio/session_open.py` (a section
   target: Session on a session or any section, for `/studio` and `halo studio
   --session`; this harness's live sessions; the served page's
@@ -106,6 +106,7 @@ this list against the tree.
   Markdown, from the record), `report_cli.py` (`halo report`); R4: `studio/glance_door.py` (where the glance is: this
   machine's address, the SSH door's state and the phone's steps, `GET glance/door`; the terminal's phone line), the
   page in `studio/ui/src/routes/glance/`, the alert's channels in `studio/ui/src/lib/alerts.ts`; 3.4.1.1:
+  `live/replay_cut.py` (3.4.1.3: a name or a path the 200-character excerpt cut in half is still rewritten),
   `live/replay_private.py` (a saved replay's paths project-relative or `~/...`, the user and machine names out;
   `halo audit privacy --replays`)
 - `live/session_cost.py` (3.4.0.1: a session's spend from its record, and today's; 3.4.1.0 R5: today by project),

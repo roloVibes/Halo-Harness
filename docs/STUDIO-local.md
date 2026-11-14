@@ -196,7 +196,7 @@ the layers' bytes, the speed over the last 5 seconds and the time left, each tit
 **Cancel**, then "installed on <host>" (the host's own `/api/tags` has it, so the Models page lists it too). A GGUF file
 of a hub repo pulls through Ollama as `hf.co/<repo>:<quant>` (**Pull to <host>**). 3.3.5.0 R5: every hub row, GGUF or
 MLX, also has **Download** (into a model folder, below: the licence card first, the progress on the row, then "on disk
-in <folder>"). **Pull by name** above the list takes any name Ollama can pull (a library
+in <folder>"). **Pull by name** is the list's "not listed" row (3.4.1.3): a name the list lacks (a library
 tag or `hf.co/<repo>:<quant>`). **Copy** puts a row's pull line on the clipboard.
 
 - **Ollama's library**: one row per model and size chip (`qwen3.5:9b`, `qwen3.5:27b`), from ollama.com/library (the

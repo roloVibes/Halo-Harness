@@ -69,7 +69,7 @@ def roles_picker(c, url, ctx) -> dict:
     c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
     c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
     c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select-more\"]')"
+    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)
@@ -111,7 +111,7 @@ def setup_default(c, url, ctx) -> dict:
     c.wait(f"{qa(sel)}.length === {len(LOCAL)}", 20)
     out = {"setup_chips": c.js(f"{qa(sel)}.map((r) => r.querySelector('[data-testid=model-takes]')?.dataset.takes || '')"),
            "setup_levels": c.js(_levels(sel))}
-    pick = q("[data-testid=setup-model-input][data-ref='ol:qwen3-coder:30b']")
+    pick = q("[data-testid=setup-model-row][data-ref='ol:qwen3-coder:30b']")  # 3.4.1.3: the row itself is the pick
     c.js(f"{pick}.click(); 1")
     line = q("[data-testid=model-card-panel][data-ref='ol:qwen3-coder:30b'] [data-testid=model-check-line]")
     out["setup_line"] = c.wait(f"{line}?.textContent", 20)
@@ -142,11 +142,11 @@ def settings_row(c, url, ctx) -> dict:
     out = {"settings_panel": c.wait(f"{panel}?.dataset.ref", 20)}
     time.sleep(0.5)
     out["settings_offer"] = c.js(f"!!{row('model', '[data-testid=model-offer-lane]')}")
-    c.js(f"{row('model', '[data-testid=settings-model-open]')}.click(); 1")
+    c.js(f"{row('model', '[data-testid=model-select]')}.click(); 1")  # 3.4.1.3: the field opens THE picker
     rows_sel = '[data-testid=settings-row][data-key="model"] [data-testid=settings-model-row]'
     c.wait(f"{qa(rows_sel)}.length === {len(LOCAL)}", 20)
     out["settings_levels"] = c.js(_levels(rows_sel))
-    out["settings_chips"] = c.js(f"{qa(rows_sel)}.map((r) => r.querySelectorAll('[data-chip]').length)")
+    out["settings_chips"] = c.js(f"{qa(rows_sel)}.map((r) => r.querySelectorAll('[data-take]').length)")  # one line: what it takes
     return out
 
 

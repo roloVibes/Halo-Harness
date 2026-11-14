@@ -8,7 +8,7 @@ journaled there with `by`.
     approval        a accept | r edit (text: the instruction) | s stop (the card's own stop)
     waiting         s stop the agent
     paused          a resume the agent (or the session) | s stop it
-    orchestra_gate, conflict   a set aside (journal kind `ack`, hidden from then on)
+    orchestra_gate, conflict, background_done   a set aside (journal kind `ack`, hidden from then on)
     ollama_steward  a set aside | o open the Ollama panel (3.3.4.0 R4, live/steward_attention.py)
     cap             a lift for today: resume what the cap paused
     goal_plan | goal_gate | goal_budget | goal_ask | goal_replan   a supervisor decision (3.1.8.0 R1/R2,
@@ -37,7 +37,8 @@ ANSWER = {
 }
 NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
-SET_ASIDE = ("orchestra_gate", "conflict", "ollama_steward")  # 3.3.4.0 R4: the steward's note
+SET_ASIDE = ("orchestra_gate", "conflict", "ollama_steward",  # 3.3.4.0 R4: the steward's note
+             "background_done")  # 3.4.1.3: background work finished while a session was idle
 SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
 
 

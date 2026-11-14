@@ -25,6 +25,7 @@ const KIND: Record<string, string> = {
   goal_plan: "goal plan", goal_gate: "goal gate", goal_budget: "goal budget", goal_ask: "goal ask", // 3.1.8.0 R1
   goal_replan: "goal replan", // 3.1.8.0 R2: a replan's new plan failed its check twice
   ollama_steward: "ollama steward", // 3.3.4.0 R4: the steward's note; O opens Local -> Hosts (3.3.16.0 R2)
+  background_done: "background work", // 3.4.1.3: finished while its session was idle (agent/bg_pickup.py)
 };
 
 /** A key on a row: R with a text first opens the reply box. */

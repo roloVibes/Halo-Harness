@@ -40,7 +40,9 @@ A steer you send lands as a row right under its target row:
 `↳ steer to coder: check the tax rule`. The row the agent answers with (its
 next text, tool call or output) carries **after your steer**, so you see
 the effect. The turn-end marker (`◼ done · 42 s · 3 tools`, `◼ waiting on
-you: ...`, `◼ stopped: ...`) is a row of the same list.
+you: ...`, `◼ stopped: ...`) is a row of the same list, and so (3.4.1.3) is background work that finished while the
+session was idle (`◼ background work finished: ...`) and the turn the agent then takes by itself (`↻ Halo picks up
+the finished background work`), with no prompt sent ([SUBAGENTS.md](SUBAGENTS.md)).
 
 ## Follow, and the view holding still
 
@@ -70,6 +72,15 @@ stops there and the pill counts what arrives. Following again (the pill,
 | `s` | a focused row | that row's agent becomes the target, the field gets the keyboard |
 | `A` / `R` / `S` / `O` | the column | answer the newest ask card (`s` on a focused row steers instead) |
 | `Esc` | the column | show every agent again after a pin |
+
+## The Map: zoom and the readable opening (3.4.1.3)
+
+Session's **Map** (`session-map`, Live's tree as a thumbnail) zooms like every drawing in Studio: **Ctrl + wheel** (Cmd
+on a Mac) or a pinch around the pointer, `+` / `-` / `0` on the focused map, a drag on the background pans, a
+double-click there fits, and the **- / % / + / Fit** buttons in its corner for a mouse with no wheel. It opens fitted to
+its panel but never smaller than its text reads (75%): a tree too big for that opens on the main agent, centred, with
+"more than shows: Fit shows all" beside the buttons. Your zoom stays for the visit and a resize of the panel no longer
+throws it away; Fit gives the panel back to the automatic fit.
 
 ## Export: the session as a trace file
 

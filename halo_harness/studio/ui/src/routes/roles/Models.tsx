@@ -3,7 +3,7 @@
 // is enabled, has a key and how many models it has cached, and, when the
 // catalog is empty, why -- and Refresh (`POST models/refresh`: every
 // enabled provider's list again). "Test this model" runs the probe on any
-// ref you type here. 3.1.4.0 R4: the reason names every provider looked at
+// model you pick here (3.4.1.3: the shared picker, never a typed ref). 3.1.4.0 R4: the reason names every provider looked at
 // and why it lists nothing; under it, when the last Refresh ran and each
 // provider's outcome (shared/catalog.tsx, the lines every model select shows).
 // 3.1.9.0 R1: Analyze (`POST models/analyze`, what `halo models analyze`
@@ -15,7 +15,7 @@ import { Button } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { CatalogLines } from "../shared/catalog";
 import { analyzeModels, refreshModels } from "./bioActions";
-import { TestButton } from "./ModelPicker";
+import { ModelSelect } from "../shared/ModelSelect";
 import { useRoles } from "./store";
 import { loadModelsStatus } from "./sync";
 
@@ -61,7 +61,7 @@ export function ModelsDetail() {
             <li key={p.name} className="oco-row" data-ok={p.enabled && (p.model_count || 0) > 0}>
               <span className="oco-dot" aria-hidden="true" />
               <span className="rail-label mono">{p.label}</span>
-              <span className="mono muted">{p.status}{typeof p.model_count === "number" ? ` · ${p.model_count} cached` : ""}{p.enabled ? "" : " · not enabled"}</span>
+              <span className="mono muted rmo-state" title={p.status}>{p.status}{typeof p.model_count === "number" ? ` · ${p.model_count} cached` : ""}{p.enabled ? "" : " · not enabled"}</span>
             </li>
           ))}
           {!st.providers.some((p) => p.enabled || p.credentials) && <li className="muted">No provider is set up here yet: halo init (the keys step), then Refresh.</li>}
@@ -69,11 +69,8 @@ export function ModelsDetail() {
       ) : (
         <div className="og-wait mono muted">asking the providers...</div>
       )}
-      <div className="field re-field">
-        <span className="field-label mono">Test a model</span>
-        <input className="input mono" value={ref} placeholder="or:vendor/model, ol:qwen3:30b..." onChange={(e) => setRef(e.target.value)} aria-label="A model ref to test" data-testid="roles-models-ref" />
-        <TestButton value={ref.trim()} />
-      </div>
+      <ModelSelect label="Test a model" value={ref} onPick={setRef} testid="roles-models-ref" inline compact
+                   hint="Pick a model, then Test: a one-token round trip through the same path a session uses" />
     </div>
   );
 }

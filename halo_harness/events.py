@@ -121,11 +121,9 @@ COMMAND_KINDS = frozenset({
     # 3.0.2.0: /resume and Ctrl+P switch the session log on the worker
     # thread, between turns (agent/session_switch.py).
     "run_resume",
-    # Halo 2.0.2 round D (brief item 2): safety-net counterpart to
-    # "approval_request" above, mirroring "permission_reply"/"question_
-    # reply"/"plan_reply" -- see agent/loop.py's own matching comment on
-    # its `approval_reply` branch.
-    "approval_reply",
+    # Halo 2.0.2 round D: safety-net counterpart to "approval_request", mirroring "permission_reply" (agent/loop.py's
+    # `approval_reply` branch). 3.4.1.3 `bg_pickup`: background work finished while idle (agent/bg_pickup.py).
+    "approval_reply", "bg_pickup",
 })
 
 _ids = itertools.count(1)
@@ -331,8 +329,8 @@ def turn_done(*, turn: int = 0, reason: str = "end_turn") -> Event:
 def turn_marker(state: str, text: str, *, turn: int = 0, **extra) -> Event:
     """data: {state, text, **extra}. Halo 3.2.2.0 R4: `state` is "done",
     "waiting" or "stopped" for the line a turn ends with (or, "waiting", a
-    card the turn now waits on), "nudged"/"resend" for the loop's `↳`
-    notes. `text` is the whole line as shown."""
+    card the turn now waits on), "nudged"/"resend" for the loop's `↳` notes,
+    "background" (3.4.1.3, agent/bg_pickup.py) for background work that finished while idle. `text`: the line."""
     return Event("turn_marker", {"state": state, "text": text, **extra}, turn=turn)
 
 

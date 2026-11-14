@@ -14,6 +14,8 @@ serves them (`GET /api/live/attention`) and routes the answers.
     goal_replan    a replan's new plan failed its check twice (3.1.8.0 R2): apply / keep the old plan / stop
     ollama_steward the Ollama steward's newest note with an `error` finding or a change (3.3.4.0 R4,
                    live/steward_attention.py): set aside / open Local
+    background_done  a session's background work finished while it was idle (3.4.1.3, its status's `bg_done`,
+                   agent/bg_pickup.py): set aside / open; it goes with the person's next message there
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -47,7 +49,9 @@ KEYS = {
     "goal_ask": {"a": "allow once", "r": "deny", "s": "stop the goal", "o": "open the session"},
     "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},  # R2
     "ollama_steward": {"a": "set aside", "o": "open Local"},  # 3.3.4.0 R4: the steward's note; 3.3.16.0 R2: Local -> Hosts
+    "background_done": {"a": "set aside", **OPEN},  # 3.4.1.3: background work finished while the session was idle
 }
+BG_THEN = {"continue": "the agent picks it up by itself", "tell": "it is read with your next message"}
 # 3.3.5.0 R4: a preflight card (agent/preflight.py) answers accept = compact, edit = the bigger-window model, stop
 PREFLIGHT_KEYS = {"a": "compact", "r": "bigger-window model", "s": "stop", **OPEN}
 TEXT_FOR = {"permission": "r", "question": "r", "plan": "r", "approval": "r",
@@ -124,6 +128,13 @@ def session_rows(view: dict, asks: dict, seen: dict, now: float, pages: Optional
                 elif a.get("state") == "paused":
                     out.append(_row("paused", aid, h, s, aid, f"{a.get('name') or aid} is paused",
                                     "it holds at its next step until you resume it", seen, now))
+            bg = s.get("bg_done") if isinstance(s.get("bg_done"), dict) else None
+            if bg:  # 3.4.1.3 (agent/bg_pickup.py): no prompt needed to learn it; a new batch is a new row (one alert)
+                n = int(bg.get("count") or 1)
+                out.append(_row("background_done", f"bg-{bg.get('since')}", h, s, "main",
+                                "Background work finished" + (f" ({n} tasks)" if n > 1 else ""),
+                                one_line(f"{bg.get('line') or ''} -- {BG_THEN.get(str(bg.get('mode')), '')}", 240),
+                                seen, now))
     return out
 
 

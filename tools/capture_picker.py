@@ -70,7 +70,7 @@ def ready(c, url: str) -> None:
     c.js(f"{bio}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(bio)
-    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-more\"]')"
+    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select\"]')"
     c.wait(f"!!{more}", 20)
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)

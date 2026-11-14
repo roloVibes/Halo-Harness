@@ -9,6 +9,7 @@ import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button } from "../../lib/ui";
 import { edit } from "./actions";
 import { Check, ListIn, NumberIn, Pick, Row, TextIn } from "./controls";
+import { ModelSelect } from "../shared/ModelSelect";
 import { getPath, setPath, type Col, type FieldDef, type SectionDef } from "./sections";
 import { agentsOf, useRoles } from "./store";
 import type { Raw } from "./types";
@@ -116,7 +117,6 @@ function MapRows({ def, f, value, targets, hint }: { def: SectionDef; f: Extract
 
 export function SectionForm({ def }: { def: SectionDef }) {
   const body = useRoles((s) => (s.raw as Raw | null)?.[def.name]);
-  const models = useRoles((s) => s.models);
   const targets = useTargets();
   const help = useHelpGroup("lineup_fields");
   return (
@@ -132,7 +132,8 @@ export function SectionForm({ def }: { def: SectionDef }) {
           case "number": return <NumberIn key={f.path} label={f.label} hint={hint} value={typeof v === "number" ? v : undefined} onCommit={set} />;
           case "list": return <ListIn key={f.path} label={f.label} hint={hint} placeholder={f.placeholder} value={Array.isArray(v) ? (v as string[]) : []} onCommit={set} />;
           case "select": return <Pick key={f.path} label={f.label} hint={hint} value={String(v ?? "")} options={f.options} onChange={(x) => set(x || undefined)} />;
-          case "model": return <Pick key={f.path} label={f.label} hint={hint || "a model ref from the catalog"} value={String(v ?? "")} options={["", ...models.map((m) => m.ref)]} onChange={(x) => set(x || undefined)} />;
+          case "model": return <ModelSelect key={f.path} label={f.label} hint={hint} value={String(v ?? "")} onPick={(x) => set(x || undefined)}
+                                            testid={`roles-section-${def.name}-${f.path}`} inherit={{ label: "not set", model: "" }} inline compact />;
           case "checks": {
             const on = Array.isArray(v) ? (v as string[]) : [];
             return (

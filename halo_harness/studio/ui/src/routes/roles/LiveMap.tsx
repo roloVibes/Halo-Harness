@@ -41,6 +41,8 @@ import { usePathIds } from "../agents/live/useWaits";
 import { fitZoom, levelOf, NEAR_H, setLevel, usePinnedLevel } from "../agents/live/levels"; // 3.3.18.0 part 4: zoom that changes meaning
 import { LevelSwitch } from "../agents/live/LevelSwitch";
 import { useZoomAnchor } from "../agents/live/zoomAnchor";
+import { NAV_HELP, READABLE, recallZoom, useCanvasNav } from "../../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same everywhere
+import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { selectLive } from "./liveModel";
 import { LiveGroupBox, LiveNodeCard } from "./LiveNode";
 import { useRoles } from "./store";
@@ -72,7 +74,9 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const selected = useFleet((s) => s.selected);
   const loaded = useFleet((s) => s.loaded);
   const closed = useClosed();
-  const [zoom, setZoom] = useState(1);
+  const navId = `${thumb ? "map" : "live"}|here`; // 3.4.1.3 ids; 3.5.0.0: one machine, no scope
+  const [zoom, setZoom] = useState(() => recallZoom(navId) ?? 1);
+  const manual = useRef(recallZoom(navId) !== undefined); // the person zoomed: the Map's refit on a resize leaves it
   const pinned = usePinnedLevel();
   const level = thumb ? "mid" : pinned || levelOf(zoom); // 3.3.18.0 part 4: far | mid | near by the zoom (levels.ts; `?level=` pins it)
   useEffect(() => void (!thumb && setLevel(level)), [thumb, level]);
@@ -81,21 +85,29 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
   const geo = plan.geo || tree;
   const [menu, setMenu] = useState<MenuAt | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
-  const zoomAt = useZoomAnchor(scroll, zoom, `${level}|${geo.width}x${geo.height}`, setZoom);
+  const anchorAt = useZoomAnchor(scroll, zoom, `${level}|${geo.width}x${geo.height}`, setZoom);
+  const zoomAt = (z: number, px?: number, py?: number) => ((manual.current = true), anchorAt(z, px, py));
   const fit = () => {
     const el = scroll.current;
     if (!el) return;
-    if (thumb) return setZoom(Math.max(0.2, Math.min(1, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height)));
+    if (thumb) { // 3.4.1.3: fit to the panel, never below the size its text reads at: then the main agent, centred
+      const all = Math.min(1, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height);
+      if (all >= READABLE) return setZoom(all);
+      const main = tree.boxes.find((b) => !b.from) || tree.boxes[0];
+      setZoom(READABLE);
+      if (main) requestAnimationFrame(() => el.scrollTo((main.x + main.w / 2) * READABLE - el.clientWidth / 2, (main.y + main.h / 2) * READABLE - el.clientHeight / 2));
+      return;
+    }
     const mid = level === "far" ? (plan.on ? plan.midOf() : null) || tree : geo, far = plan.farOf() || mid; // part 4: Fit picks the level
     if (pinned) return setZoom(Math.max(0.25, Math.min(1.25, (el.clientWidth - 24) / geo.width, (el.clientHeight - 24) / geo.height))); // a pinned level: a plain fit
     setZoom(fitZoom(el.clientWidth, el.clientHeight, mid.width, mid.height, far.width, far.height));
   };
-  useAutoFit(scroll, thumb, `${mode}|${sid}|${density}`, nodes.length, geo, fit, setZoom);
+  useAutoFit(scroll, thumb, `${mode}|${sid}|${density}`, nodes.length, geo, () => { if (!manual.current) fit(); }, setZoom);
+  useCanvasNav(scroll, { zoom, zoomAt, fit: () => ((manual.current = false), fit()), id: navId });
+  const more = thumb && zoom > 0 && (geo.width * zoom > (scroll.current?.clientWidth || 1e9) + 2 || geo.height * zoom > (scroll.current?.clientHeight || 1e9) + 2);
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey || e.altKey || thumb) return;
     if (e.key === "f" && !e.shiftKey) fit();
-    else if (e.key === "+" || e.key === "=") zoomAt(Math.min(2, zoom * 1.2));
-    else if (e.key === "-") zoomAt(Math.max(0.12, zoom / 1.2));
     else return;
     e.preventDefault();
   };
@@ -111,6 +123,8 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
                                                     levels={<LevelSwitch level={level} zoomAt={zoomAt} />} />}
       {!thumb && <ReplayBanner />}
       <LiveNow nodes={nodes} now={now} on={!thumb} plan={plan.geo} />
+      {thumb && <div className="cz-thumb"><ZoomButtons zoom={zoom} zoomAt={zoomAt} fit={() => ((manual.current = false), fit())} />
+        {more && <span className="cz-more mono muted" data-testid="map-more" title={NAV_HELP}>more than shows: Fit shows all</span>}</div>}
       <div className="rc-scroll rlm-scroll holo-grid" ref={scroll} tabIndex={0} onKeyDown={onKey} aria-label="Agents Live: the agent tree"
            onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
         {!loaded ? (
@@ -122,7 +136,7 @@ export function LiveMap({ thumb = false }: { thumb?: boolean }) {
                  body="Live draws a running session's agents as they spawn. Start one in a terminal (halo), or from Session: New session (no terminal needed); it appears here the moment it registers." />
         ) : (
           <>{empty && <LiveEmpty compact />}<div className="rc-world" style={{ width: geo.width * zoom, height: geo.height * zoom }} onClick={(e) => !thumb && e.target === e.currentTarget && clearPick()}>
-            <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(2)} data-plan={plan.on ? "on" : undefined} data-level={level}>
+            <div className="rc-inner rlm-inner" style={{ width: geo.width, height: geo.height, transform: `scale(${zoom})` }} data-testid="roles-live-world" data-zoom={zoom.toFixed(3)} data-plan={plan.on ? "on" : undefined} data-level={level}>
               {plan.geo ? <PlanWorld geo={plan.geo} now={now} selected={selected} onMenu={setMenu} onPick={onAgent} /> : (<>
               {tree.groups.map((g) => <LiveGroupBox key={g.card} g={g} />)}
               {tree.tasks.map((b) => <GroupBox key={b.g.id} b={b} now={now} />)}

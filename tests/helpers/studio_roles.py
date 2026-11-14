@@ -127,16 +127,16 @@ def roles(c, url: str, state: Path) -> dict:
     time.sleep(0.3)
     c.click_on(dead)
     c.wait("!!document.querySelector('[data-testid=\"bio-form\"][data-bio=\"dead-bio\"]')", 15)
-    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-more\"]')"  # 3.1.4.0 R4: the table is folded
+    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select\"]')"  # 3.1.4.0 R4: the table is folded
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)
     out["model_rows"] = c.wait(f"{tid('model-row')}.length", 10)
-    btn = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-test\"]')"
+    btn = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-test\"]')"
     c.js(f"{btn}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(btn)
-    out["probe"] = c.wait("document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-test-result\"]')?.textContent", 10)
+    out["probe"] = c.wait("document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-result\"]')?.textContent", 10)
     out["dialogs"] = c.js("document.querySelectorAll('[role=dialog]').length")
     return out
 

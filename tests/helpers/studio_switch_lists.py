@@ -55,9 +55,11 @@ def setup_list(c, url, ctx) -> dict:
     c.go(url.replace("mode=roles", "mode=setup"))
     goto(c, "model")
     rows = qa("[data-testid=setup-model-row]")
-    out = {"rows": c.wait(f"{rows}.length === {N} && {rows}.length", 20),
+    # wait for the value asserted: the rows can be counted mid-redraw (a Linux run saw 300 rows, 200 refs, once)
+    uniq = f"new Set({rows}.map((r) => r.dataset.ref)).size"
+    out = {"rows": c.wait(f"{rows}.length === {N} && {uniq} === {N} && {rows}.length", 20),
            "count_line": c.js(_text("[data-testid=setup-model-count]"))}
-    out["refs_unique"] = c.js(f"new Set({rows}.map((r) => r.dataset.ref)).size")
+    out["refs_unique"] = c.js(uniq)
     _type(c, "[data-testid=setup-model-search]", "summar")
     out["searched"] = c.wait(f"{rows}.length === 1 && {rows}.map((r) => r.dataset.ref)", 10)
     _type(c, "[data-testid=setup-model-search]", "")
@@ -110,7 +112,7 @@ def roles_picker(c, url, ctx) -> dict:
     c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
     c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
     c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select-more\"]')"
+    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)

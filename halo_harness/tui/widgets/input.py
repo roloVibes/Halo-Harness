@@ -15,6 +15,7 @@ from textual.binding import Binding
 from textual.message import Message
 from textual.widgets import OptionList, TextArea
 
+from halo_harness.agent.bg_pickup import set_typing as _bg_typing
 from halo_harness.tools.imageutil import IMAGE_EXTENSIONS
 from halo_harness.tui.draft_copy import DraftKeeper
 from halo_harness.tui.keys import PASTE_PLACEHOLDER_MIN_LINES, PROMPT_MAX_LINES, PROMPT_MIN_LINES
@@ -266,25 +267,18 @@ class PromptInput(TextArea):
         self._drop_orphaned_images()
         self._auto_grow()
         self._maybe_query_completion()
+        # 3.4.1.3: finished background work is not picked up by itself while this box holds text
+        _bg_typing(getattr(getattr(self.app, "controller", None), "session", None), bool(self.text.strip()))
 
     # ---- paste placeholder ------------------------------------------------
 
     async def _on_paste(self, event: events.Paste) -> None:
         if self.read_only:
             return
-        # Textual dispatches a private `_on_<name>` handler at EVERY class
-        # in the MRO that defines one, INDEPENDENTLY (message_pump.py's
-        # `_get_dispatch_methods` walks `self.__class__.__mro__` and calls
-        # each level's own definition -- it does NOT rely on `super()`
-        # chaining). Calling `super()._on_paste(...)` from here would
-        # therefore run `TextArea._on_paste` TWICE: once explicitly, right
-        # now, and once more automatically and independently right after
-        # this method returns (observed: the ORIGINAL, un-substituted text
-        # got inserted a second time). The fix is to never call `super()`
-        # here at all -- mutate `event.text` in place (Paste.text is a
-        # plain mutable attribute) so the framework's OWN later, automatic
-        # call to `TextArea._on_paste` performs the (correct, one-time)
-        # insertion itself, using our substituted text.
+        # Textual dispatches a private `_on_<name>` handler at EVERY class in the MRO that defines one,
+        # independently (message_pump.py's `_get_dispatch_methods`), so `super()._on_paste(...)` here would run
+        # `TextArea._on_paste` TWICE (observed: the un-substituted text inserted a second time). Never call
+        # `super()`: mutate `event.text` in place so the framework's own later call inserts our substituted text.
         event.stop()  # never let it also bubble to the Screen/App
         # A bracketed paste is never stripped: a mouse report that lost its
         # ESC arrives as typed keys, and a pasted script's `\033[1;31m`

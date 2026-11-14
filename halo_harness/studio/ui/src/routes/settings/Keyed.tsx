@@ -3,7 +3,8 @@
 // describes one field of many entries. The entries the saved config holds (and
 // the ones the catalog knows, such as every provider) are a small table, the
 // field's own control on each with its own Reset; under it, behind a
-// disclosure, the whole section as JSON (adding an entry is writing it there).
+// disclosure, the whole section as JSON (adding an entry is writing it there). 3.4.1.3: a role's model
+// (roles.<role>) is THE model picker; a role saved as a mapping (model and effort) keeps its JSON editor.
 import { Button } from "../../lib/ui";
 import { Control } from "./Control";
 import { JsonEditor } from "./fields/JsonEditor";
@@ -34,7 +35,7 @@ export function Keyed({ row, v, problems }: { row: Row; v: Value | undefined; pr
               <tr key={e.key} data-testid="settings-entry" data-key={e.key} data-set={e.set}>
                 <td className="mono st-entry-name">{e.name}</td>
                 <td>
-                  <Control kind={kind} rowKey={row.key} keyName={e.key} label={`${row.title}: ${e.name}`} value={e.value} fallback={row.default}
+                  <Control kind={kind === "model" && e.value !== null && typeof e.value === "object" ? "mapping" : kind} rowKey={row.key} keyName={e.key} label={`${row.title}: ${e.name}`} value={e.value} fallback={row.default}
                            choices={row.choices} isSet={e.set} secret={row.secret} busy={busy === e.key} />
                 </td>
                 <td>

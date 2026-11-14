@@ -637,9 +637,9 @@ both attach the same way.
 **Background jobs**: `Bash(run_in_background: true)`, and a foreground
 command that outruns its timeout is moved to the background instead of
 being killed (Claude Code's own behavior) -- `BashOutput`/`TaskStop` poll/
-kill a job by its shell id, completion is delivered as a notice at the next
-turn (never silently lost), `/tasks` lists what's running, and every job is
-killed when the session quits.
+kill a job by its shell id, completion is delivered as a notice (never lost: 3.4.1.3, while idle it shows at once and
+the agent picks it up by itself, `background.when_done`, [SUBAGENTS.md](SUBAGENTS.md)), `/tasks` lists what's running,
+and every job is killed when the session quits.
 
 ## Sessions
 

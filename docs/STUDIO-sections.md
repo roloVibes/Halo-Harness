@@ -355,7 +355,7 @@ Reset to default and the exact `halo config set` line as its footer. A change sa
 the next session, the next launch); the search box finds a row across every group, and the palette lists every row as `Settings:
 <title>`. All of it comes from one catalog, `halo_harness/settings_catalog.py` (docs/CONFIG.md's key table names each row's
 page); nothing opens on its own. `halo settings remote` opens the Remote page (`?mode=settings&group=remote`), `halo settings
---terminal` lists a group's keys in the terminal.
+--terminal` lists a group's keys in the terminal. 3.4.1.3: a row whose value is a model (`model`, `compactionModel`, both steward models, each `roles.<role>`, `embeddings.model`) is the shared model picker, the models you have by provider (its first row puts the key back to its default); **Steer and turn** has `background.when_done` (continue / tell / wait) and `background.self_turns`.
 
 **The Ollama page** (3.3.4.0) carries the steward's block above its rows: the job's status line, the model that writes
 its notes (automatic, none, or one of this machine's local models: `ollama.steward.model`), the mode (auto, review, off:

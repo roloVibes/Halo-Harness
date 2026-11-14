@@ -69,6 +69,8 @@ import "./styles/blocks.css"; // 3.3.16.3: blocks on the Cast canvas, a tier's p
 import "./styles/blocks-compose.css"; // 3.3.16.3 part 2: lines with their when, the library on Cast, the drags
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
 import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)
+import "./styles/model-picker.css"; // 3.4.1.3: THE model picker and its field (after model-takes.css)
+import "./styles/canvas-nav.css"; // 3.4.1.3: zoom and pan, the same on every drawing
 import "./styles/hover-card.css"; // 3.3.16.1: the one hover card (lib/ui/HoverCard.tsx)
 import "./styles/textbox.css"; // 3.3.15.0 R3: the one text box (lib/ui/TextBox.tsx), after every section's sheet
 import { App } from "./App";

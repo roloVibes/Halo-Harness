@@ -15,7 +15,8 @@ waits at most WAIT_S, a slow session keeping its row without the extras).
      composition, preflight (3.3.5.0 R4: the last request's parts, agent/prompt_composition.ledger_fields;
      the preflight card waiting for an answer, {id, line, switch_to, default}), eyes (3.3.6.0 R6: the eyes
      offer waiting for an answer, {id, line, choices, default}), parked (3.3.11.0 R2: a headless session's
-     parked asks, [{id, kind, since}]; None for a session with a terminal)}
+     parked asks, [{id, kind, since}]; None for a session with a terminal), bg_done (3.4.1.3: background work
+     that finished while it was idle, {since, at, count, line, mode}, agent/bg_pickup.py; None otherwise)}
 
 (3.3.3.1: `cost_usd` is the priced part of the spend, `cost_complete` False
 when some model answered with no price, `cost_unknown` those models' refs;
@@ -81,7 +82,8 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                composition=data.get("composition") if isinstance(data.get("composition"), dict) else None,  # R4
                preflight=data.get("preflight") if isinstance(data.get("preflight"), dict) else None,  # R4: the ask
                eyes=data.get("eyes") if isinstance(data.get("eyes"), dict) else None,  # 3.3.6.0 R6: the eyes offer
-               parked=data.get("parked") if isinstance(data.get("parked"), list) else None)  # 3.3.11.0 R2: no terminal
+               parked=data.get("parked") if isinstance(data.get("parked"), list) else None,  # 3.3.11.0 R2: no terminal
+               bg_done=data.get("bg_done") if isinstance(data.get("bg_done"), dict) else None)  # 3.4.1.3
     return row
 
 

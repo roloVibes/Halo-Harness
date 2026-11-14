@@ -43,7 +43,7 @@ def test_the_new_session_select_shows_what_the_model_takes(ctx: Ctx):
     ctx.check(f"the default model's chips, the honest line as their title, got {default}",
               default[0] == EYES_TAKES and str(default[1]).startswith("vision+pdf in, tools, reasoning"))
     ctx.check(f"an option's title says it too, got {got.get('session_option_title')!r}",
-              str(got.get("session_option_title")).startswith(f"takes {EYES_TAKES}"))
+              f"takes {EYES_TAKES}" in str(got.get("session_option_title")))
     picked = got.get("session_picked") or ["", ""]
     ctx.check(f"a pick turns them to the text-only model's, got {picked}", picked[0] == "text" and "text in only" in str(picked[1]))
 

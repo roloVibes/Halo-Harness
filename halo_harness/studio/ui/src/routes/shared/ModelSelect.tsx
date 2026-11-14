@@ -1,28 +1,24 @@
-// ModelSelect (3.1.4.0 R4, "the model is where you look"): the one compact
-// model control wherever an agent is configured in Studio -- the Roles
-// Inspector's MODEL strip and Assignment tab, the bio form, Orchestra's goal
-// form, Design's New project dialog and Projects panel. A <select> of the
-// catalog grouped by provider (GET models, the rows the picker table reads),
-// each option its short ref with the price in / out and the context on its
-// title, then the refs already in use and Halo's shipped list (GET
-// models/fallback, "not verified"); a first option that keeps what the field
-// inherits when it is an override ("the bio's own (<model>)", "the lineup's
-// (...)", "the default (...)"). "more..." opens the full picker table (a
-// dialog, or folded in place with `inline`); its pick lands in the select.
-// Test runs the one-token probe (POST models/test) and shows ok and the
-// latency, or the error, under it. With no live list it says why (the
-// Models panel's lines: every provider looked at) and offers Refresh. Every
-// label's line is field_help.py's (the `model_select` group).
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+// ModelSelect (3.1.4.0 R4, "the model is where you look"): the one compact model FIELD wherever Studio takes a model --
+// the Roles Inspector's MODEL strip and Assignment tab, the bio form (preferred, fallback, a schedule's model), a tier's
+// model, a lineup's escalation, Orchestra's goal and workflow forms, the Models panel's Test, Settings' model rows,
+// Session's new session, a pack's model setting, the design pack's New project and Projects. 3.4.1.3 ("Pick, don't
+// type"): the field is a button showing the model (or what it inherits, or "not in your catalog"); a click, or a key
+// in it (Enter, Space, Down, or a letter, which starts the search), opens THE picker (shared/picker/ModelPicker.tsx) --
+// folded in place with `inline`, else a dialog -- and a pick closes it. Test runs the one-token probe beside it; what
+// the model takes shows under it; with no live list the field says why in one line with Refresh. Every label's line is
+// field_help.py's (the `model_select` group).
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button, Dialog } from "../../lib/ui";
-import { refreshModels, testModel } from "../roles/bioActions";
-import { ModelPicker } from "../roles/ModelPicker";
+import { testModel } from "../roles/bioActions";
 import { useRoles } from "../roles/store";
 import type { ModelRow } from "../roles/types";
 import { CatalogLines, modelLine, shortRef, useCatalog } from "./catalog";
-import { ModelTakes } from "./ModelTakes"; // 3.3.15.0 R2: what the picked model takes, under the select
+import { ModelTakes } from "./ModelTakes"; // 3.3.15.0 R2: what the picked model takes, under the field
+import { ModelPicker } from "./picker/ModelPicker";
+import { EmptyLine } from "./picker/PickerParts";
+import { useStatusOnce } from "./picker/state";
 
 export type Inherit = { label: string; model: string };
 
@@ -32,111 +28,98 @@ type Props = {
   label: string;
   /** The label's one line (field_help.py). */
   hint?: string;
-  /** The first option keeps what the field inherits: "the bio's own" and the model that is. */
+  /** The picker's first row keeps what the field inherits: "the bio's own" and the model that is. */
   inherit?: Inherit;
   testid: string;
-  /** "more..." folds the picker table in place instead of a dialog. */
+  /** The picker folds in place under the field instead of a dialog. */
   inline?: boolean;
-  /** Move the keyboard focus to the select once it shows; `onFocused` clears the request. */
+  /** Move the keyboard focus to the field once it shows; `onFocused` clears the request. */
   focus?: boolean;
   onFocused?: () => void;
   busy?: boolean;
-  /** A form that must keep its height: no hint line (the label's title carries it), the empty state in one line. */
+  /** A form that must keep its height: no hint line (the label's title carries it). */
   compact?: boolean;
   /** The label for screen readers only and no hint line (a strip whose own line names the field). */
   bare?: boolean;
   /** 3.3.5.0 R0b: the main agent's model -- the picker's card panel offers the coder lane when it cannot orchestrate. */
   forMain?: boolean;
+  /** What the model must take (vision, tools ...): the picker lists the fitting ones first. */
+  needs?: string[];
+  only?: (m: ModelRow) => boolean;
+  onlyWhat?: string;
+  /** No Test button (a field whose model is not a chat model, such as the embeddings model). */
+  noTest?: boolean;
+  /** The picker's test-id prefix (model-* by default). */
+  tid?: string;
 };
 
-function groupsOf(models: ModelRow[]): [string, ModelRow[]][] {
-  const by = new Map<string, ModelRow[]>();
-  for (const m of models) by.set(m.provider || "other", [...(by.get(m.provider || "other") || []), m]);
-  return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([p, list]) => [p, [...list].sort((x, y) => x.ref.localeCompare(y.ref))]);
-}
-
-export function ModelSelect({ value, onPick, label, hint, inherit, testid, inline, focus, onFocused, busy, compact, bare, forMain }: Props) {
+export function ModelSelect({ value, onPick, label, hint, inherit, testid, inline, focus, onFocused, busy, compact, bare, forMain, needs, only, onlyWhat, noTest, tid }: Props) {
   const id = useId();
   const h = useHelpGroup("model_select");
-  const { models, fallback, loaded } = useCatalog();
-  const status = useRoles((s) => s.modelsStatus);
+  const { models, loaded } = useCatalog();
+  const st = useStatusOnce();
+  const error = useRoles((s) => s.modelsError);
   const refreshing = useRoles((s) => s.busy === "refresh");
   const justRefreshed = useRoles((s) => s.justRefreshed);
   const effective = value || inherit?.model || "";
   const probe = useRoles((s) => (effective ? s.probe[effective] : undefined));
-  const [more, setMore] = useState(false);
-  const sel = useRef<HTMLSelectElement>(null);
-  const close = useCallback(() => setMore(false), []);
+  const [open, setOpen] = useState(false);
+  const [seed, setSeed] = useState("");
+  const btn = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => {
+    setOpen(false);
+    window.setTimeout(() => btn.current?.focus({ preventScroll: true }), 0);
+  }, []);
   useEffect(() => {
-    if (!focus || !sel.current) return;
-    sel.current.focus({ preventScroll: true });
-    sel.current.scrollIntoView({ block: "nearest" });
+    if (!focus || !btn.current) return;
+    btn.current.focus({ preventScroll: true });
+    btn.current.scrollIntoView({ block: "nearest" });
     onFocused?.();
   }, [focus, onFocused]);
-  const live = useMemo(() => groupsOf(models), [models]);
-  const used = useMemo(() => fallback.filter((m) => m.source === "in use"), [fallback]);
-  const shipped = useMemo(() => fallback.filter((m) => m.source === "shipped"), [fallback]);
-  const labels = useMemo(() => Object.fromEntries((status?.providers || []).map((p) => [p.name, p.label])), [status]);
-  const row = models.find((m) => m.ref === effective) || fallback.find((m) => m.ref === effective);
-  const known = !value || models.some((m) => m.ref === value) || fallback.some((m) => m.ref === value);
+  const row = models.find((m) => m.ref === effective);
+  const known = !value || models.some((m) => m.ref === value);
   const empty = loaded && !models.length;
   const pick = (ref: string) => {
-    setMore(false);
+    close();
     if (ref !== value) onPick(ref);
   };
-  const opt = (m: ModelRow) => (
-    <option key={m.ref} value={m.ref} title={modelLine(m)}>{shortRef(m.ref)}{m.verified === false ? " · not verified" : ""}</option>
-  );
-  const table = <ModelPicker value={value} onPick={pick} forMain={forMain} />;
+  const show = (s = "") => (setSeed(s), setOpen(true));
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (open) return;
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") (e.preventDefault(), show());
+    else if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) (e.preventDefault(), show(e.key));
+  };
+  const shownText = value ? shortRef(value) : inherit ? `${inherit.label} (${inherit.model ? shortRef(inherit.model) : "none resolves"})` : "(none)";
+  const table = <ModelPicker value={value} onPick={pick} forMain={forMain} inherit={inherit} needs={needs} only={only} onlyWhat={onlyWhat} autoFocus seed={seed} onClose={close} tid={tid} bare />;
   return (
     <div className="field re-field msel" data-testid={testid} data-value={value} data-empty={empty || undefined}>
       <label className={"field-label mono" + (bare ? " msel-bare" : "")} htmlFor={id} title={hint}>{label}</label>
       <div className="msel-row">
-        <select id={id} ref={sel} className="input mono msel-select" value={value} disabled={busy} title={modelLine(row, effective) || hint}
-                onChange={(e) => pick(e.target.value)} data-testid="model-select">
-          <option value="">{inherit ? `${inherit.label} (${inherit.model ? shortRef(inherit.model) : "none resolves"})` : "(none)"}</option>
-          {value && !known && <option value={value}>{shortRef(value)} · not in the catalog</option>}
-          {live.map(([p, list]) => <optgroup key={p} label={labels[p] || p}>{list.map(opt)}</optgroup>)}
-          {used.length > 0 && <optgroup label="named in your config, bios and lineups · not verified">{used.map(opt)}</optgroup>}
-          {shipped.length > 0 && <optgroup label="OpenRouter · Halo's shipped list, not verified">{shipped.map(opt)}</optgroup>}
-        </select>
-        <button type="button" className="og-link mono msel-more" aria-expanded={more} onClick={() => setMore(!more)} title={h.more} data-testid="model-select-more">
-          {more && inline ? "fold" : "more..."}
+        <button type="button" id={id} ref={btn} className="input mono msel-trigger" disabled={busy} title={modelLine(row, effective) || hint}
+                aria-haspopup="listbox" aria-expanded={open} onClick={() => (open ? close() : show())} onKeyDown={onKey} data-testid="model-select" data-value={value}>
+          <span className="msel-trigger-text" data-inherit={!value || undefined}>{shownText}</span>
+          {value && !known && <span className="msel-off" data-testid="model-select-off">not in your catalog</span>}
+          <span className="msel-caret" aria-hidden="true">▾</span>
         </button>
-        <Button size="sm" disabled={!effective || probe === "running"} onClick={() => void testModel(effective)} title={h.test} data-testid="model-select-test">
-          {probe === "running" ? "Testing..." : "Test"}
-        </Button>
+        {!noTest && (
+          <Button size="sm" disabled={!effective || probe === "running"} onClick={() => void testModel(effective)} title={h.test} data-testid="model-select-test">
+            {probe === "running" ? "Testing..." : "Test"}
+          </Button>
+        )}
       </div>
       {row && <div className="msel-takes"><ModelTakes row={row} /></div>}
-      {probe && probe !== "running" && (
+      {probe && probe !== "running" && !noTest && (
         <div className="msel-result mono" data-ok={probe.ok || undefined} data-testid="model-select-result" title={probe.cost_line}>
           {shortRef(probe.ref || effective)}: {probe.ok ? `ok in ${probe.latency_ms} ms` : `failed: ${probe.error || "no reply"}`}
         </div>
       )}
       {!loaded && <div className="msel-why mono muted">reading the catalog...</div>}
-      {empty && compact && (
-        <div className="msel-why-line mono">
-          <button type="button" className="og-link" disabled={refreshing} onClick={() => void refreshModels()} title={h.refresh} data-testid="model-select-refresh">
-            {refreshing ? "refreshing..." : "Refresh"}
-          </button>
-          <span className="msel-why-text" data-testid="model-select-why" title={status?.reason || ""}>
-            {status?.reason || "No live model list yet: Refresh asks every provider for its list."}
-          </span>
-        </div>
-      )}
-      {empty && !compact && (
-        <div className="msel-empty" data-testid="model-select-empty">
-          <span className="msel-why" data-testid="model-select-why">{status?.looked_at ? "No live model list yet; what each provider said:" : "No live model list yet: Refresh asks every provider for its list."}</span>
-          <Button size="sm" variant="primary" disabled={refreshing} onClick={() => void refreshModels()} title={h.refresh} data-testid="model-select-refresh">
-            {refreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
-      )}
-      {(empty && !compact) || justRefreshed ? <CatalogLines empty={empty && !compact} /> : null}
+      {empty && !open && <EmptyLine st={st} error={error} busy={refreshing} />}
+      {justRefreshed && !open ? <CatalogLines empty={false} /> : null}
       {hint && !compact && !bare && <div className="field-hint">{hint}</div>}
-      {more && inline && <div className="msel-fold" data-testid="model-select-fold">{table}</div>}
-      {more && !inline && createPortal(
-        <Dialog open onClose={close} title={label} kicker="MODELS · THE WHOLE CATALOG" testid="model-select-dialog">{table}</Dialog>,
+      {open && inline && <div className="msel-fold" data-testid="model-select-fold">{table}</div>}
+      {open && !inline && createPortal(
+        <Dialog open onClose={close} title={label} kicker="PICK A MODEL · THE MODELS YOU HAVE" testid="model-select-dialog">{table}</Dialog>,
         document.body,
       )}
     </div>

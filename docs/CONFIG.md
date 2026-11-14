@@ -274,6 +274,8 @@ they replace are ignored (`halo doctor --config` says so once, `halo config set`
 | `steer.restart_when_silent` | `true` | a steer typed while a model call has sent nothing yet aborts that call and resends it with the steer (`false`: the steer waits for the stream's next chunk); see [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Settings -> Steer and turn |
 | `steer.silent_restart_s` | `60` | Halo 3.2.2.0 R4: a model call with no first token after this many seconds is aborted and resent once with the same messages (the transcript says `↳ no data for 60 s, resending the call`); the second try waits the provider's read timeout. `0` turns it off; a stream that has started is never cut. See [HANDBOOK.md](HANDBOOK.md#how-a-turn-ends) | Settings -> Steer and turn |
 | `turn.nudge_promises` | `true` | Halo 3.2.2.0 R4: a reply that ends promising work ("Now I'll ...", "Let me ...") and calls no tool gets one notice, "You ended your turn while saying you would do more. Continue.", and one more model call (`↳ nudged: the reply promised work and stopped`); once per turn, never when the reply asks you something; `false` turns it off | Settings -> Steer and turn |
+| `background.when_done` | `continue` | Halo 3.4.1.3: a background sub-agent or Bash job that finishes while the session is idle. `continue`: one transcript line, the status bar and Studio's Attention row at once, then the main agent takes a turn by itself to read the results and report or carry on (finishes within 3 s are one turn; never while the input box holds text); `tell`: the line, the bar and the row only, your next message reads it; `wait`: nothing until your next message (the behaviour before). [SUBAGENTS.md](SUBAGENTS.md#when-background-work-finishes-while-the-session-is-idle-halo-3413) | Settings -> Steer and turn |
+| `background.self_turns` | `3` | Halo 3.4.1.3: how many turns finished background work may start in a row with no message from you; past it, or at the session's spend cap, one line says so and Halo waits for your next message (`0`: never by itself) | Settings -> Steer and turn |
 | `control.enabled` | `true` | Halo 3.0.5.0: every session (the TUI, `halo -p` and `--bg`, Orchestra workers) opens a local control socket and lists itself in `~/.halo/run/sessions.json`, so Studio, `halo remote` and a transport's bridge can see and drive it (see [REMOTE.md](REMOTE.md)); `halo config set control.enabled false` turns that off for sessions started afterwards; `/remote` shows whether this session's socket is on | Settings -> Remote |
 | `harness.name` | `user@host` | this harness's name in the registry (`harness.name`) and the `by` on every command Studio and `halo remote` send | Settings -> Remote |
 | `control.private` | `false` | every session starts private (as with `halo --private`): no control socket, no registry entry; `/private off` lists one again | Settings -> Remote |
@@ -543,8 +545,7 @@ ACTUALLY local by one of three tests:
 
 - a private, loopback, link-local or IPv6 ULA IP literal (RFC1918,
   169.254.0.0/16/fe80::/10, fc00::/7, ...) -- never a hostname that merely
-  *resolves* to one; computing this allow-list never itself makes a DNS
-  query,
+  *resolves* to one; computing this allow-list never itself makes a DNS query,
 - a bare single-label name (`gpubox`, no dot) or an `.local` mDNS name,
 - an `ollama.hosts`/`huggingface.local_servers` entry the user marked
   `offline_ok: true` explicitly.
@@ -564,8 +565,7 @@ the same gate before it is ever followed.
 Covers update checks (including the update command's own `git ls-remote`
 fast path, never only its API fallback), catalog refreshes, the Hugging
 Face router, OpenRouter, Databricks, Anthropic, the WebFetch/WebSearch
-tools, `--plugin-url`'s `git
-clone`, and `hf:mlx`'s first-use model download. `halo update`'s apply
+tools, `--plugin-url`'s `git clone`, and `hf:mlx`'s first-use model download. `halo update`'s apply
 step (the actual reinstall, not just `--check`) returns an error result
 instead of running `git pull`/`uv tool install`/`pip install --upgrade`.
 The claude.ai connectors bridge's own background/cold-start discovery is

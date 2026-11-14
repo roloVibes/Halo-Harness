@@ -54,6 +54,8 @@ ROWS = [
     Row("steer.restart_when_silent", "steer", "Restart a silent call", "bool", True, (), "A steer typed while a model call has sent nothing yet aborts that call and resends it with the steer.", "now"),
     Row("steer.silent_restart_s", "steer", "Silent call resend (s)", "int", 60, (), "A model call with no first token after this many seconds is resent once; 0 turns it off.", "now"),
     Row("turn.nudge_promises", "steer", "Nudge a promise", "bool", True, (), "A reply that promises more work and calls no tool gets one notice and one more model call.", "now"),
+    Row("background.when_done", "steer", "When background work finishes", "enum", "continue", ("continue", "tell", "wait"), "A background sub-agent or job that finishes while the session is idle: continue (shown at once, then the agent takes a turn by itself to read the results and report or carry on), tell (shown at once only; your next message reads it), or wait for my next message (nothing until then).", "now"),
+    Row("background.self_turns", "steer", "Turns by itself in a row", "int", 3, (), "How many turns finished background work may start in a row with no message from you; past it, or at the session's spend cap, one line says so and Halo waits for you.", "now"),
     Row("models.roster", "models", "Model roster", "bool", True, (), "The main session reads the model roster (what each model is good at) at its start.", "next session"),
     Row("models.learn", "models", "Auto learns", "bool", True, (), "The auto pick weighs what was measured per task kind and the roster drops a model that keeps failing one.", "now"),
     Row("models.learn.min_tasks", "models", "Learn after tasks", "int", 3, (), "Checked tasks of a kind a model needs before its rate counts.", "now"),

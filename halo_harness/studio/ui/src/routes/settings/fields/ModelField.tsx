@@ -1,77 +1,40 @@
-// A model row's control (3.3.5.0 R0 (f)): the text field, and under it the
-// catalog's every model (GET models, the Roles picker's rows) behind "pick
-// from the list": a search box, a count line and the full list (drawn a
-// window at a time past 200 rows, lib/ui/WindowedRows); a click saves that ref.
-// 3.3.5.0 R0b: each row carries its card's chips and the fit meter; on the
-// `model` row (`main`) the saved model's card shows under the list, with the
-// coder-lane offer when it cannot orchestrate here (shared/ModelCard.tsx).
-import { useEffect, useMemo, useState } from "react";
-import { api } from "../../../lib/api";
-import { FitMeter, WindowedRows } from "../../../lib/ui";
-import { CardChips, ModelCardPanel, type CardFields } from "../../shared/ModelCard";
-import { ModelTakes, type TakesFields } from "../../shared/ModelTakes"; // 3.3.15.0 R2
+// A model row's control (3.3.5.0 R0 (f); 3.4.1.3 "Pick, don't type"): the one model field (shared/ModelSelect.tsx)
+// over THE picker -- the models of the providers set up here, searchable, one line each with what it takes and the fit
+// meter -- never a text box. Its first row keeps the default (the key unset: a pick of it is Reset); a saved value the
+// catalog lacks shows marked "not in your catalog". `bare` (embeddings.model): the value is an Ollama model's own name,
+// so the picker lists the Ollama models only and saves the name without `ol:`. On the `model` row (`main`) the saved
+// model's card shows under it, with the coder-lane offer when it cannot orchestrate here (shared/ModelCard.tsx).
+import { ModelCardPanel } from "../../shared/ModelCard";
+import { ModelSelect } from "../../shared/ModelSelect";
+import type { ModelRow } from "../../roles/types";
 import { loadValues } from "../store";
-import { TextField } from "./Text";
 
-type Row = { ref: string; provider?: string; context?: string; effort_word?: string } & CardFields & TakesFields;
+const ollamaOnly = (m: ModelRow) => m.provider === "ollama" || m.ref.startsWith("ol:");
+const text = (v: unknown) => (typeof v === "string" ? v : v === null || v === undefined ? "" : JSON.stringify(v));
 
-export function ModelField({ id, value, fallback, label, disabled, onSave, main }: {
+export function ModelField({ value, fallback, label, disabled, onSave, onReset, main, bare }: {
   id?: string;
   value: unknown;
   fallback: unknown;
   label: string;
   disabled?: boolean;
   onSave: (v: string) => void;
+  onReset: () => void;
   main?: boolean;
+  bare?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<Row[] | null>(null);
-  const [error, setError] = useState("");
-  const [q, setQ] = useState("");
-  useEffect(() => {
-    if (!open || rows !== null) {
-      return;
-    }
-    api.get<Row[]>("models").then((r) => setRows(Array.isArray(r) ? r : []), (e) => {
-      setError(e instanceof Error ? e.message : String(e));
-      setRows([]);
-    });
-  }, [open, rows]);
-  const hit = useMemo(() => {
-    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-    return (rows || []).filter((r) => words.every((w) => `${r.ref} ${r.provider || ""} ${r.effort_word || ""}`.toLowerCase().includes(w)));
-  }, [rows, q]);
+  const saved = text(value);
+  const shown = bare && saved && !saved.startsWith("ol:") ? `ol:${saved}` : saved;
+  const dflt = text(fallback);
+  const pick = (ref: string) => {
+    if (!ref) return onReset();
+    onSave(bare ? ref.replace(/^ol:/, "").replace(/@.*$/, "") : ref);
+  };
   return (
     <div className="st-model" data-testid="settings-model">
-      <TextField id={id} value={value} fallback={fallback} label={label} disabled={disabled} onSave={onSave} />
-      <button type="button" className="st-model-open muted" onClick={() => setOpen(!open)} aria-expanded={open} data-testid="settings-model-open">
-        {open ? "hide the list" : "pick from the list"}
-      </button>
-      {open && (
-        <div className="st-model-list" data-testid="settings-model-list">
-          {rows === null ? <span className="muted mono">reading the catalog...</span> : (
-            <>
-              <input className="st-input mono" type="search" placeholder={`search ${rows.length} models`} value={q}
-                     onChange={(e) => setQ(e.target.value)} aria-label="Search the models" />
-              <span className="muted mono" data-testid="settings-model-count">{q ? `${hit.length} of ${rows.length} models` : `${rows.length} models`}</span>
-              {error && <span className="muted">{error}</span>}
-              <div className="st-model-rows">
-                <WindowedRows items={hit} render={(r) => (
-                  <button key={r.ref} type="button" className="st-model-row mono" disabled={disabled} data-testid="settings-model-row" data-ref={r.ref}
-                          aria-pressed={String(value || "") === r.ref} onClick={() => onSave(r.ref)}>
-                    <span>{r.ref}</span>
-                    <span className="muted">{[r.context && r.context !== "?" ? r.context : "", r.effort_word || ""].filter(Boolean).join(" · ")}</span>
-                    <ModelTakes row={r} />
-                    <CardChips card={r.card} />
-                    <FitMeter fit={r.fit} label={false} />
-                  </button>
-                )} />
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      {main && value ? <ModelCardPanel refName={String(value)} onLane={() => void loadValues()} /> : null}
+      <ModelSelect label={label} value={shown} onPick={pick} testid="settings-model-field" busy={disabled} inline bare compact
+                   inherit={{ label: "the default", model: dflt }} only={bare ? ollamaOnly : undefined} onlyWhat="Ollama model" noTest={bare} tid="settings-model" />
+      {main && saved ? <ModelCardPanel refName={saved} onLane={() => void loadValues()} /> : null}
     </div>
   );
 }

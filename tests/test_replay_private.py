@@ -154,6 +154,19 @@ def test_an_excerpt_cut_inside_a_name(ctx: Ctx):
 
 
 @test
+def test_an_excerpt_cut_inside_a_path(ctx: Ctx):
+    """3.4.1.3: the 200-character cut can land inside a home or project path; the stub left is rewritten too."""
+    from halo_harness.live.replay_private import scrub
+    root = WIN_HOME + chr(92) + "work" + chr(92) + "secret-project"
+    got = scrub({"a": f"read {NIX_HOME[:2]}...", "b": f"open {WIN_HOME[:7]}...", "c": f'see "{WIN_HOME[:-3]}...',
+                 "d": f"in {root[:-4]}...", "e": "ratio 3/4...", "f": "/tmp/x..."}, root, homes=[WIN_HOME, NIX_HOME],
+                users=[USER], machines=[MACHINE])
+    ctx.check(f"a path cut by the excerpt is ~ or ., got {got}",
+              got == {"a": "read ~...", "b": "open ~...", "c": 'see "~...', "d": "in ....", "e": "ratio 3/4...",
+                      "f": "/tmp/x..."})
+
+
+@test
 def test_audit_privacy_knows_the_replay_folder(ctx: Ctx):
     from halo_harness.audit_cli import cmd_audit
     from halo_harness.live import replay_file as RF

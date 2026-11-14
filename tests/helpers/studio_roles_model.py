@@ -33,6 +33,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.model_pick import DIALOG, close_picker, open_picker, pick_model, rows  # noqa: E402
 
 PROBE = {"ok": True, "latency_ms": 42, "error": "", "cost_line": "stub", "reply": "ok"}
 FAKE = {"fakeco/alpha-1": (0.5, 2.0, 200000), "fakeco/beta-2": (3.0, 15.0, 400000)}
@@ -60,35 +61,32 @@ def stand_ins(state: Path):
     return lambda state_dir, env, local=True: [("FakeRouter", "openrouter", answers), ("Slowpoke", "slowpoke", slow)]
 
 
-def pick(c, expr: str, ref: str) -> None:
-    """Choose `ref` in the <select> `expr` the way a user's choice reaches React (a change event)."""
-    c.js(f"""(() => {{ const s = {expr}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
-      set.call(s, {json.dumps(ref)}); s.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()""")
-
-
 def roles(c, url: str, state: Path) -> dict:
     out: dict = {}
     c.go(url)
     out["cards"] = c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length", 30)
     out["main_strip"] = c.wait(f"{STRIP}?.dataset.main && {STRIP}.dataset.card", 15)
-    out["empty_why"] = c.wait(f"(({STRIP}?.querySelector('[data-testid=\"model-select-why\"]')?.textContent || '').includes('Looked at') && "
-                              f"{STRIP}.querySelector('[data-testid=\"model-select-why\"]').textContent)", 15)
+    out["empty_why"] = c.wait(f"{STRIP}?.querySelector('[data-testid=\"model-select-why\"]')?.textContent", 15)  # 3.4.1.3: one line, its fix
     out["looked"] = c.wait("document.querySelector('[data-testid=\"roles-models-why\"]')?.textContent", 15)  # the Models panel: every provider's line
-    out["empty_refresh"] = c.js(f"!!{STRIP}.querySelector('[data-testid=\"model-select-refresh\"]')")
-    out["empty_options"] = c.wait(f"{SEL}?.querySelectorAll('option').length > 1 && {SEL}.querySelectorAll('option').length", 15)
-    out["empty_unverified"] = c.js(f"[...{SEL}.querySelectorAll('option')].some((o) => o.textContent.includes('not verified'))")
-    c.click_on(f"{STRIP}.querySelector('[data-testid=\"model-select-refresh\"]')")
+    out["empty_setup"] = c.js(f"!!{STRIP}.querySelector('[data-testid=\"model-select-setup\"]')")
+    open_picker(c, STRIP)  # the picker itself: the same line and its last row, never an empty list
+    out["empty_dialog"] = c.js(f"[{DIALOG}?.querySelector('[data-testid=\"models-empty\"]')?.textContent || '', "
+                               f"!!{DIALOG}?.querySelector('[data-testid=\"model-not-listed\"]'), {DIALOG}?.querySelectorAll('[data-testid=\"model-row\"]').length]")
+    close_picker(c, STRIP)
+    c.click_on("document.querySelector('[data-testid=\"roles-models-refresh\"]')")
     out["outcomes"] = c.wait(f"(() => {{ const l = [...{STRIP}.querySelectorAll('[data-testid=\"model-outcome\"]')]"
                              f".map((e) => e.textContent); return l.length >= 2 && l; }})()", 20)
-    out["live_options"] = c.wait(f"[...({SEL}?.querySelectorAll('optgroup') || [])].filter((g) => !g.label.includes('not verified'))"
-                                 f".flatMap((g) => [...g.querySelectorAll('option')].map((o) => o.value))", 15)
+    c.wait("document.querySelector('[data-testid=\"roles-models-count\"]')?.textContent === '2'", 15)
+    open_picker(c, STRIP)
+    out["live_options"] = rows(c, STRIP)
+    close_picker(c, STRIP)
     out["refreshed"] = c.js(f"{STRIP}.querySelector('[data-testid=\"model-refreshed\"]')?.textContent")
     c.click_on(card("implementer"), 0.5, 0.2)
     impl = c.wait(f"{STRIP}?.dataset.main ? '' : {STRIP}?.dataset.card", 10)
     graph = f"(await (await fetch('/api/lineup/' + document.querySelector('[data-testid=\"roles-canvas\"]').dataset.lineup, {TOKEN})).json())"
     out["runs_on"] = c.js(f"{STRIP}.querySelector('[data-testid=\"roles-model-runs-on\"]').dataset.ref")
     out["graph_model"] = c.js(f"(async () => {graph}.graph.nodes.find((n) => n.id === {json.dumps(impl)}).model)()")
-    pick(c, SEL, "or:fakeco/beta-2")
+    pick_model(c, STRIP, "or:fakeco/beta-2")
     out["saved_pref"] = c.wait(f"""(async () => {{ const p = {graph}; const n = p.graph.nodes.find((x) => x.agent === 'implementer');
       const e = p.raw.agents[n.index]; return (e.models || {{}}).preference || ''; }})()""", 15)
     out["pill_after"] = c.wait(f"{card('implementer')}.querySelector('[data-testid=\"roles-model-pill\"]').textContent.includes('beta-2') && "
@@ -113,7 +111,7 @@ def roles(c, url: str, state: Path) -> dict:
       return !!(m && d && (m.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING)); }})()""")
     out["bio_focus"] = c.wait(f"!!document.activeElement?.closest('[data-testid=\"bio-model\"]')", 10)
     out["picker_folded"] = c.js(f"{form}.querySelectorAll('[data-testid=\"model-picker\"]').length")
-    more = f"{form}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select-more\"]')"
+    more = f"{form}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"  # 3.4.1.3: the field opens the picker
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)

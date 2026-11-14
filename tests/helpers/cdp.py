@@ -20,7 +20,9 @@ import urllib.request
 KEYS = {"?": ("Slash", 191, 8), "Escape": ("Escape", 27, 0), "o": ("KeyO", 79, 0), "r": ("KeyR", 82, 0), "a": ("KeyA", 65, 0),
         # 3.0.5.0 R3: the Fleet hop keys
         "j": ("KeyJ", 74, 0), "k": ("KeyK", 75, 0), "f": ("KeyF", 70, 0), "p": ("KeyP", 80, 0), " ": ("Space", 32, 0),
-        "Enter": ("Enter", 13, 0), "l": ("KeyL", 76, 0)}  # 3.3.16.0 R2: L, Agents' Live view
+        "Enter": ("Enter", 13, 0), "l": ("KeyL", 76, 0),  # 3.3.16.0 R2: L, Agents' Live view
+        # 3.4.1.3: the model picker's keys and a canvas's zoom keys
+        "ArrowDown": ("ArrowDown", 40, 0), "ArrowUp": ("ArrowUp", 38, 0), "+": ("Equal", 187, 8), "-": ("Minus", 189, 0), "0": ("Digit0", 48, 0)}
 
 
 class Chrome:

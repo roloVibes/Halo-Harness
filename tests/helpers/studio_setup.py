@@ -83,7 +83,7 @@ def choose(c, row: str, check: str) -> str:
         c.wait(check, 4)
         return "pointer"
     except TimeoutError:
-        c.js(f"{q(row + ' input')}.click(); 1")
+        c.js(f"({q(row + ' input')} || {q(row)}).click(); 1")
         c.wait(check, 10)
         return "element"
 
@@ -164,7 +164,7 @@ def model(c, url, ctx) -> dict:
          f"set.call(s, 'summar'); s.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()")
     out["searched"] = c.wait(f"{qa('[data-testid=setup-model-row]')}.length === 1 && {qa('[data-testid=setup-model-row]')}.map((r) => r.dataset.ref)", 10)
     row = "[data-testid=setup-model-row][data-ref='or:mock/beta']"
-    out["model_by"] = choose(c, row, f"{q(row + ' input')}.checked")
+    out["model_by"] = choose(c, row, f"{q(row)}.getAttribute('aria-selected') === 'true'")  # 3.4.1.3: THE picker's row
     out["model_save_by"] = save(c, "model")
     out["model_strip"] = c.wait(f"{_cell('model')} === 'or:mock/beta' && {_cell('model')}", 10)
     out["model_config"] = _config(ctx).get("model")

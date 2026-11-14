@@ -3,13 +3,12 @@
 // or every N minutes with its prompt (and, optionally, its own model); each
 // trigger starts it once per file change, halo event or message from a role.
 // They fire only while a session that loaded the agent's lineup is alive.
-import { useMemo } from "react";
 import { Button } from "../../lib/ui";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { editBio, setKey } from "./bioActions";
 import { at, Sec } from "./BioFields";
 import { ListIn, Pick, Row, TextIn } from "./controls";
-import { useRoles } from "./store";
+import { ModelSelect } from "../shared/ModelSelect";
 import type { Raw } from "./types";
 
 const KINDS = ["file_change", "event", "message"];
@@ -45,8 +44,6 @@ function TriggerRow({ t, i, all }: { t: Trigger; i: number; all: Trigger[] }) {
 
 export function BioSchedule({ d }: { d: Raw }) {
   const h = useHelpGroup("bio");
-  const catalog = useRoles((s) => s.models);
-  const refs = useMemo(() => catalog.map((m) => m.ref), [catalog]);
   const sch = (d.schedule && typeof d.schedule === "object" && !Array.isArray(d.schedule) ? d.schedule : {}) as Raw;
   const triggers = (Array.isArray(d.triggers) ? d.triggers : []) as Trigger[];
   return (
@@ -55,7 +52,8 @@ export function BioSchedule({ d }: { d: Raw }) {
         <TextIn label="Cron" hint={h["schedule.cron"]} placeholder="0 9 * * 1-5" value={String(sch.cron ?? "")} onCommit={(v) => at("schedule", "cron")(v.trim())} testid="bio-schedule-cron" />
         <TextIn label="Every" hint={h["schedule.every"]} placeholder="30m" value={String(sch.every ?? "")} onCommit={(v) => at("schedule", "every")(v.trim())} testid="bio-schedule-every" />
         <TextIn label="Prompt" area hint={h["schedule.prompt"]} value={String(sch.prompt ?? "")} onCommit={at("schedule", "prompt")} testid="bio-schedule-prompt" />
-        <Pick label="Model" hint={h["schedule.model"]} value={String(sch.model ?? "")} options={["", ...refs]} onChange={at("schedule", "model")} />
+        <ModelSelect label="Model" hint={h["schedule.model"]} value={String(sch.model ?? "")} onPick={at("schedule", "model")} testid="bio-schedule-model"
+                     inherit={{ label: "the bio's preferred model", model: "" }} inline />
       </Sec>
       <Sec title="TRIGGERS">
         <Row hint={h.triggers}>

@@ -27,7 +27,8 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_roles_model import FAKE, STRIP, TOKEN, pick  # noqa: E402
+from tests.helpers.model_pick import close_picker, open_picker, pick_model, scope  # noqa: E402
+from tests.helpers.studio_roles_model import FAKE, STRIP, TOKEN  # noqa: E402
 
 ALPHA, BETA = "or:fakeco/alpha-1", "or:fakeco/beta-2"
 OM = "document.querySelector('[data-testid=\"orchestra-model\"]')"
@@ -42,6 +43,10 @@ def seed_catalog(state: Path) -> None:
     set_config_value("providers.openrouter.enabled", True)
 
 
+def rows_js(field: str) -> str:
+    return f"[...{scope(field)}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => r.dataset.ref)"
+
+
 def projects(c) -> str:
     return f"(async () => (await (await fetch('/api/packs/design/design/projects', {TOKEN})).json()).projects)()"
 
@@ -51,25 +56,26 @@ def forms(c, url: str, state: Path) -> dict:
     c.go(url.replace("mode=roles", "mode=agents&view=live"))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
     c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
     c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
-    out["orch_first"] = c.wait(f"{OM}?.querySelector('option')?.textContent.includes('beta-2') && {OM}.querySelector('option').textContent", 20)
+    trig = ".querySelector('.msel-trigger-text')?.textContent"  # 3.4.1.3: the field shows what it inherits
+    out["orch_first"] = c.wait(f"{OM}{trig}?.includes('beta-2') && {OM}{trig}", 20)
     out["orch_outside_disclosure"] = c.js(f"!{OM}.closest('details') && !document.querySelector('details.og-more').open")
-    out["orch_options"] = c.wait(f"(() => {{ const v = [...{OM}.querySelectorAll('optgroup option')].map((o) => o.value).filter((v) => v.startsWith('or:fakeco')); return v.length === 2 && v; }})()", 15)
-    pick(c, f"{OM}.querySelector('select')", ALPHA)
-    out["orch_value"] = c.wait(f"{OM}.querySelector('select').value === {json.dumps(ALPHA)} && {OM}.dataset.value", 10)
+    open_picker(c, OM)
+    out["orch_options"] = c.wait(f"(() => {{ const v = {rows_js(OM)}.filter((v) => v.startsWith('or:fakeco')); return v.length === 2 && v; }})()", 15)
+    close_picker(c, OM)
+    pick_model(c, OM, ALPHA)
+    out["orch_value"] = c.wait(f"{OM}.dataset.value === {json.dumps(ALPHA)} && {OM}.dataset.value", 10)
     out["orch_summary"] = c.js("document.querySelector('details.og-more summary').textContent")
     c.go(url.replace("mode=roles", "mode=design--design"))  # 3.3.13.0 R2: the design pack's section
     out["design_value"] = c.wait(f"{PM} && ({PM}.dataset.value === '' ? 'default' : {PM}.dataset.value)", 25)
-    # the first option names the inherited default once the catalog answer lands: on the Linux runner it still read
-    # "(none resolves)" when read at once (a3a4d2e), so wait for the resolved name like `orch_first` does
-    out["design_first"] = c.wait(f"{PM}.querySelector('option')?.textContent.includes('alpha-1') && {PM}.querySelector('option').textContent", 20)
-    c.wait(f"!!{PM}.querySelector('option[value=\"{BETA}\"]')", 15)
-    pick(c, f"{PM}.querySelector('select')", BETA)
+    # the field names the inherited default once the catalog answer lands (on the Linux runner it read "(none resolves)"
+    # when read at once, a3a4d2e), so wait for the resolved name like `orch_first` does
+    out["design_first"] = c.wait(f"{PM}{trig}?.includes('alpha-1') && {PM}{trig}", 20)
+    pick_model(c, PM, BETA)
     out["design_saved"] = c.wait(f"(async () => {{ const p = await {projects(c)}; return p.find((x) => x.slug === 'launch-page')?.model; }})()", 15)
     c.click_on("document.querySelector('[data-testid=\"design-new\"]')")
     c.wait(f"!!{NM}", 10)
-    out["new_first"] = c.js(f"{NM}.querySelector('option').textContent")
-    c.wait(f"!!{NM}.querySelector('option[value=\"{ALPHA}\"]')", 15)
-    pick(c, f"{NM}.querySelector('select')", ALPHA)
+    out["new_first"] = c.wait(f"{NM}{trig}", 10)
+    pick_model(c, NM, ALPHA)
     c.click_on("document.querySelector('[data-testid=\"design-new-name\"]')")
     c.type_text("Second page")
     c.click_on("document.querySelector('[data-testid=\"design-new-go\"]')")

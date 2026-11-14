@@ -5,16 +5,21 @@
 // values to `pack/<id>/config`, which checks them against the schema and
 // writes packs.settings.<id> in ~/.halo/config.json; a problem shows under
 // its field and nothing is written. 3.3.11.0 R3: Setup draws a pack's form block with it (`path` its block route,
-// `onSaved` re-reads Setup, no toast: the foot says saved).
+// `onSaved` re-reads Setup, no toast: the foot says saved). 3.4.1.3: a string key named `model` (or `*_model`) is the
+// model picker (shared/ModelSelect.tsx) -- the design and signal packs' `model` settings.
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { Button, Empty, Field } from "../../lib/ui";
+import { ModelSelect } from "../shared/ModelSelect";
 import { usePacks } from "./store";
 import type { PackPanel } from "./types";
 
 type FieldDef = { key: string; type: string; enum: unknown[] | null; help: string; default: unknown; value: unknown };
 type Config = { pack: string; name: string; key: string; fields: FieldDef[]; values: Record<string, unknown>; problems: string[] };
+
+/** A pack setting whose key says it names a model: `model`, or one ending `_model` / `-model`. */
+export const isModelKey = (key: string) => /(^|[_-])model$/.test(key);
 
 const text = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
@@ -40,6 +45,13 @@ function Control({ f, id, value, onChange }: { f: FieldDef; id: string; value: u
           </option>
         ))}
       </select>
+    );
+  if (f.type === "string" && isModelKey(f.key))  // 3.4.1.3: a setting that names a model is THE picker, never a text box
+    return (
+      <div data-testid="pack-form-input" data-key={f.key} data-value={text(value)}>
+        <ModelSelect label={f.key} value={text(value)} onPick={onChange} testid="pack-form-model" bare compact
+                     inherit={{ label: "the default model", model: "" }} />
+      </div>
     );
   const num = f.type === "integer" || f.type === "number";
   return (

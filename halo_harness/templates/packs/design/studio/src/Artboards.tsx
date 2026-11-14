@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { MotionState } from "@halo/workspace";
 import { Button, Empty } from "@halo/ui";
-import { Metric } from "@halo/widgets";
+import { Metric, NAV_HELP, useCanvasNav, useZoomPoint } from "@halo/widgets";
 import { handoff } from "./actions";
 import { ArtboardCard } from "./ArtboardCard";
 import { DeviceSelect } from "./Knobs";
@@ -98,6 +98,8 @@ export function ArtboardsDetail() {
     const el = scroll.current;
     if (el) setZoom(Math.max(0.25, Math.min(1, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
   };
+  const zoomAt = useZoomPoint(scroll, zoom, setZoom); // 3.4.1.3: Ctrl / Cmd + wheel or a pinch, the keys, the drag (the shell's)
+  useCanvasNav(scroll, { zoom, zoomAt, fit, min: 0.25, max: 2, id: slug ? `design|${slug}` : undefined });
   if (!data) return <Empty title="No project open" body="Pick one in Projects, or make a new one." />;
   return (
     <div className="da">
@@ -110,17 +112,17 @@ export function ArtboardsDetail() {
         <DeviceSelect compact />
         <span className="spacer" />
         <Button size="sm" variant="ghost" onClick={fit} title="Fit every card in the panel">Fit</Button>
-        <span className="segmented" role="group" aria-label="Zoom">
-          <button onClick={() => setZoom(Math.max(0.25, zoom / 1.2))} aria-label="Zoom out">-</button>
-          <button onClick={() => setZoom(1)} title="Back to 100%">{Math.round(zoom * 100)}%</button>
-          <button onClick={() => setZoom(Math.min(2, zoom * 1.2))} aria-label="Zoom in">+</button>
+        <span className="segmented" role="group" aria-label="Zoom" title={NAV_HELP}>
+          <button onClick={() => zoomAt(Math.max(0.25, zoom / 1.2))} aria-label="Zoom out">-</button>
+          <button onClick={() => zoomAt(1)} title="Back to 100%">{Math.round(zoom * 100)}%</button>
+          <button onClick={() => zoomAt(Math.min(2, zoom * 1.2))} aria-label="Zoom in">+</button>
         </span>
         <Button size="sm" disabled={!boards.length} onClick={() => openDialog({ kind: "export" })} data-testid="design-export">Export...</Button>
         <Button size="sm" disabled={busy === "handoff"} onClick={() => void handoff()} data-testid="design-handoff">Handoff</Button>
       </div>
       {boards.length ? (
-        <div className="da-scroll" ref={scroll} data-tool={tool}>
-          <div style={{ width: ext.w * zoom, height: ext.h * zoom }}>
+        <div className="da-scroll" ref={scroll} data-tool={tool} tabIndex={0} data-testid="design-canvas" data-zoom={zoom.toFixed(2)}>
+          <div className="cz-world" style={{ width: ext.w * zoom, height: ext.h * zoom }}>
             <div className="da-world" style={{ width: ext.w, height: ext.h, transform: `scale(${zoom})` }}>
               {boards.map((a) => {
                 const p = placed[a.id];

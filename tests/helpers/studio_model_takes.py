@@ -24,7 +24,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
-from tests.helpers.studio_roles_model import pick  # noqa: E402
+from tests.helpers.model_pick import pick_model  # noqa: E402
 
 EYES, PLAIN = "or:fakeco/eyes-1", "or:fakeco/plain-2"
 EYES_TAKES = "text,vision,pdf,tools,think"
@@ -51,9 +51,9 @@ def chips(scope: str) -> str:
 
 
 def picker_table(c) -> dict:
-    """Orchestra's "more..." opens Roles' picker table: one line per row, square tags, the detail line."""
+    """Orchestra's model field opens THE picker: one line per row, square tags, the detail line."""
     out: dict = {}
-    c.js(f"{OM}.querySelector('[data-testid=\"model-select-more\"]').click(); 1")
+    c.js(f"{OM}.querySelector('[data-testid=\"model-select\"]').click(); 1")
     rows = "[...document.querySelectorAll('[data-testid=\"model-select-dialog\"] [data-testid=\"model-row\"]')]"
     try:
         out["rows"] = c.wait(f"{rows}.length === 2 && {rows}.length", 15)
@@ -80,20 +80,18 @@ def run(c, url: str) -> dict:
     out: dict = {}
     c.go(url.replace("mode=orchestra", "mode=session").replace("feed=off", "feed=off&tour=off"))
     out["session_default"] = c.wait(f"(() => {{ const v = {chips(NS)}; return v && v[0] === {json.dumps(EYES_TAKES)} && v; }})()", 40)
-    c.wait(f"!!{NS}.querySelector('option[value=\"{PLAIN}\"]')", 15)
-    out["session_option_title"] = c.js(f"{NS}.querySelector('option[value=\"{EYES}\"]').title")
-    pick(c, f"{NS}.querySelector('[data-testid=\"session-new-model\"]')", PLAIN)
+    out["session_option_title"] = c.js(f"{NS}.querySelector('[data-testid=\"model-select\"]').title")  # 3.4.1.3: the field's title
+    pick_model(c, f"{NS}.querySelector('[data-testid=\"session-new-model\"]')", PLAIN)
     out["session_picked"] = c.wait(f"(() => {{ const v = {chips(NS)}; return v && v[0] === 'text' && v; }})()", 15)
     c.go("about:blank")
     c.go(url.replace("mode=orchestra", "mode=agents&view=live"))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
     c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
     c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
     out["orch_lead"] = c.wait(f"(() => {{ const v = {chips(OM)}; return v && v[0] === 'text' && v; }})()", 40)
-    c.wait(f"!!{OM}.querySelector('option[value=\"{EYES}\"]')", 15)
-    pick(c, f"{OM}.querySelector('select')", EYES)
+    pick_model(c, OM, EYES)
     out["orch_picked"] = c.wait(f"(() => {{ const v = {chips(OM)}; return v && v[0] === {json.dumps(EYES_TAKES)} && v; }})()", 15)
     out["orch_value"] = c.js(f"{OM}.dataset.value")
-    out["orch_select_title"] = c.js(f"{OM}.querySelector('select').title")
+    out["orch_select_title"] = c.js(f"{OM}.querySelector('[data-testid=\"model-select\"]').title")
     out.update(picker_table(c))
     return out
 

@@ -6,6 +6,7 @@
 // start as strips; 3.1.7.0 R1: Live has Fleet's columns, its timeline strip
 // and filters, and the Steer box at its foot at all times).
 import type { Help } from "./help-orchestra";
+import { NAV_HELP } from "../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same on every drawing
 
 const lines = (...l: string[]) => l.join("\n");
 
@@ -51,6 +52,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "A cyan pulse works, amber waits on you, green just finished (it fades), red failed (it stays); the edge to it glows the same.",
       "Click an agent to select it (its session becomes the chosen one); double-click opens Agent expanded; hover it and click steer to steer it from Live; the ... menu has Steer, Pause, Stop, Take over, Hand to, Record.",
       "J / K hop between this harness's live agents; Agents (Alt+2) on Live shows every harness (its fleet scope).",
+      `${NAV_HELP} The Map opens fitted to the panel, never smaller than its text reads: a bigger tree opens on the main agent, and Fit (or 0) shows it all.`,
     ),
   },
   "session-agent": {

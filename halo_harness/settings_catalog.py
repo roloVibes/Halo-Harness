@@ -129,9 +129,11 @@ def keyed_parts(r: Row) -> "tuple[str, str, bool]":
 
 def leaf_kind(r: Row) -> str:
     """The control of one entry of a keyed row, from its choices and default: enum, bool, int, float, mapping,
-    list, else string."""
+    list, else string; a role's model (`roles.<role>`) is a model."""
     if r.kind != "keyed":
         return r.kind
+    if r.key == "roles.<role>":  # 3.4.1.3: a role's model is picked from the catalog (a mapping value keeps its JSON)
+        return "model"
     if r.choices:
         return "enum"
     d = r.default

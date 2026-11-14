@@ -3,8 +3,9 @@
 // view): an agent's box, a block's or a group's bar, and the block or group around it. After the canvas has drawn at the
 // new zoom (and, when the level changed, laid out again), the scroll moves so that thing sits where it sat. Something
 // that is not drawn at the new level (an agent at far) is found by the block or group it was in; nothing at all, by the
-// point it was in the drawing.
-import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+// point it was in the drawing. 3.4.1.3: the wheel, the keys and the drag live in lib/canvasNav.ts (the same on every
+// drawing); this keeps the anchor.
+import { useLayoutEffect, useRef, type RefObject } from "react";
 
 type Mark = { sels: string[]; fx: number; fy: number; px: number; py: number; cx: number; cy: number };
 const HIT = '[data-testid="roles-live-node"], [data-testid="live-block-bar"], [data-testid="live-group-bar"]';
@@ -54,17 +55,5 @@ export function useZoomAnchor(scroll: RefObject<HTMLDivElement | null>, zoom: nu
       el.scrollTop = p.cy * zoom - p.py;
     }
   }, [zoom, layoutKey]);
-  useEffect(() => {
-    const el = scroll.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      e.preventDefault();
-      const r = el.getBoundingClientRect();
-      zoomAt(Math.max(0.12, Math.min(2, zref.current * (e.deltaY < 0 ? 1.1 : 1 / 1.1))), e.clientX - r.left, e.clientY - r.top);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  });
   return zoomAt;
 }

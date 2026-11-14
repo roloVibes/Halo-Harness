@@ -63,6 +63,7 @@ from typing import Callable, Optional
 
 from halo_harness import events
 from halo_harness.agent import agent_hooks as _agent_tree
+from halo_harness.agent.bg_pickup import finished as _bg_finished  # 3.4.1.3: background work done while idle
 from halo_harness.agent.agent_inbox import handback as _inbox_handback, was_stopped as _inbox_stopped
 
 log = logging.getLogger("bridge")
@@ -2174,17 +2175,9 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                 _write_meta(meta_path, {"is_error": is_error, "finished": time.time()})
                 _record_outcome(parent, child, spec, role_name, team_control, agent_id, is_error=is_error,
                                 stopped=child.abort.is_set() or _inbox_stopped(child), stage=bg_stage)  # 3.1.8.0 R3
-                # review finding 20: the foreground path always emits
-                # `subagent_end` (see the mirror-image `end_ev` below the
-                # foreground `try/finally`); `_bg_run` never did, so a live
-                # TUI's SubAgentCard (mounted on `subagent_start`, which DOES
-                # reach the dock via `bg_sink`) never got `card.finish()`
-                # and kept ticking "thinking Ns" forever, even after the
-                # completion notice landed right below. Reuses the same
-                # `bg_sink` the live-ask forwarder above already resolved --
-                # None for a `-p`/bare-Session run, exactly like start_ev's
-                # own live forwarding, so headless callers see no behavior
-                # change at all.
+                # review finding 20: the foreground path always emits `subagent_end`; `_bg_run` never did, so a
+                # live TUI's SubAgentCard never got `card.finish()` and kept ticking "thinking Ns" forever. Reuses
+                # the `bg_sink` the live-ask forwarder resolved (None for `-p`/a bare Session: no change there).
                 end_ev = events.Event("subagent_end", {"agent_id": agent_id, "name": _dock_name,
                                                           "parent_tool_use_id": tool_id,
                                                           "task_id": new_task_id, "is_error": is_error,
@@ -2207,6 +2200,7 @@ def run_agent_call(*, runtime: AgentRuntime, tool_id: str, tool_input: dict, too
                           f"{_wrap_task_result(text, new_task_id)}")
                 with parent._agent_notices_lock:
                     parent._pending_agent_notices.append(notice)
+                _bg_finished(parent, f"sub-agent {spec.name}{status_suffix} -- {_one_line_preview(text)}")  # 3.4.1.3
                 del child_events  # collected for parity/debuggability only; not forwarded (parent turn has ended)
             finally:
                 # H11b finding 14: whatever this background child keeps

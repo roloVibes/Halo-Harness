@@ -303,16 +303,9 @@ class JobRegistry:
                          status=status, exit_code=exit_code)
         self._push_notice(record)
 
-    # H9 whole-tree review finding 7: a completion notice used to embed the
-    # job's ENTIRE captured output (up to the collector's own ~300k-char
-    # cap) verbatim, and unlike a real tool_result this text is a plain
-    # user-role log entry that prune.py never stubs -- it stays at full
-    # size in the log FOREVER, re-sent on every later request for the rest
-    # of the session (verified: a 594k-char job produced a 300,292-char
-    # notice, about 75k tokens, resent every step). BashOutput already
-    # exists specifically to fetch a job's output on demand, so the notice
-    # only needs a short tail to show what happened at a glance, not the
-    # whole thing.
+    # H9 whole-tree review finding 7: a completion notice used to embed the job's ENTIRE captured output, a log
+    # entry prune.py never stubs, re-sent on every later request (a 594k-char job: a 300,292-char notice, about 75k
+    # tokens, every step). BashOutput fetches a job's output on demand, so the notice carries a short tail only.
     _NOTICE_OUTPUT_TAIL_CHARS = 2000
 
     def _push_notice(self, record: JobRecord) -> None:
@@ -364,6 +357,8 @@ class JobRegistry:
             return  # a bare/unit-test parent with no notice plumbing -- nothing to append to
         with notices_lock:
             notices.append(text)
+        from halo_harness.agent.bg_pickup import finished
+        finished(self.parent, f"job {one_line}")  # 3.4.1.3: shown at once, and picked up, when the session is idle
 
     # ---- tool-facing operations ---------------------------------------
 
