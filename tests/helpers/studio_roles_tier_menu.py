@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from tests.helpers.studio_roles import ctrl
-from tests.helpers.studio_roles_model import pick
+from tests.helpers.model_pick import pick_model
 from tests.helpers.studio_roles_tiers import LABELS, card, dblclick, empty_spot, members, on_disk, settle, tier, until  # noqa: F401
 
 MENU = "document.querySelector('[data-testid=\"roles-tier-menu\"]')"
@@ -59,15 +59,20 @@ def palette_and_rename(c, url: str, state: Path) -> dict:
     return out
 
 
+def pick(c, expr: str, value: str) -> None:
+    """Choose `value` in the <select> `expr` the way a user's choice reaches React (a change event)."""
+    c.js(f"""(() => {{ const s = {expr}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+      set.call(s, {json.dumps(value)}); s.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()""")
+
+
 def menu_model(c, url: str, state: Path) -> dict:
     out: dict = {}
     open_menu(c, NAME)
     out["menu_items"] = c.js(f"[...{MENU}.querySelectorAll('[role=menuitem]')].map((b) => b.dataset.item)")
     c.click_on(f"{MENU}.querySelector('[data-item=\"model\"]')")
     sel = "document.querySelector('[data-testid=\"roles-tier-model-select\"] [data-testid=\"model-select\"]')"
-    out["model_first_option"] = c.wait(f"{sel}?.querySelector('option')?.textContent", 10)
-    c.wait(f"[...{sel}.querySelectorAll('option')].some((o) => o.value === 'or:qwen/qwen3-coder')", 15)
-    pick(c, sel, "or:qwen/qwen3-coder")
+    out["model_first_option"] = c.wait(f"{sel}?.querySelector('.msel-trigger-text')?.textContent", 10)  # 3.4.1.3: what the field inherits
+    pick_model(c, sel, "or:qwen/qwen3-coder")
     out["model_on_disk"] = until(lambda: tier_on_disk(state).get("model"))
     out["model_pill"] = c.wait(f"{tier(NAME)}.querySelector('[data-testid=\"roles-tier-model\"]')?.textContent", 10)
     pill = f"{card('implementer')}.querySelector('[data-testid=\"roles-model-pill\"]')"

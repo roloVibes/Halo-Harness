@@ -50,7 +50,8 @@ def start_one(c, rig, server) -> dict:
     c.go(url(server))
     c.wait("!!document.querySelector('[data-testid=\"session-start\"] [data-testid=\"session-new-start\"]') && "
            "!document.querySelector('[data-testid=\"session-new-start\"]').disabled && 'form'", 40)
-    out = {"default_option": c.js("document.querySelector('[data-testid=\"session-new-model\"]').options[0].textContent"),
+    trig = "document.querySelector('[data-testid=\"session-new-model\"] [data-testid=\"model-select\"]')"  # 3.4.1.3: the picker's field
+    out = {"default_option": c.wait(f"{trig}.textContent.includes('default') && {trig}.textContent + ' ' + {trig}.title", 15),
            "cwd_placeholder": c.js("document.querySelector('[data-testid=\"session-new-cwd\"]').placeholder")}
     c.click_on("document.querySelector('[data-testid=\"session-new-start\"]')")
     out["sid"] = sid = c.wait(f"{P}?.dataset.session", 60)

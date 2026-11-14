@@ -10,7 +10,7 @@ calls `act`; the decision is journaled there with `by`.
     fleet_ask       a allow | r deny                   the `fleet-ask:` question on this harness
     waiting         s stop the agent
     paused          a resume the agent (or the session) | s stop it
-    orchestra_gate, control_ask, conflict   a set aside (journal kind `ack`, hidden from then on)
+    orchestra_gate, control_ask, conflict, background_done   a set aside (journal kind `ack`, hidden from then on)
     ollama_steward  a set aside | o open the Ollama panel (3.3.4.0 R4, fleet/steward_attention.py)
     cap             a lift for today: resume what the cap paused
     mission_plan    a approve and run | r edit (text: "part 2 to kali" / "drop 3") | s drop the mission  (R7)
@@ -48,7 +48,8 @@ ANSWER = {
 }
 NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"), ("mission_plan", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
-SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim", "ollama_steward")  # 3.3.4.0 R4: the steward's note
+SET_ASIDE = ("orchestra_gate", "control_ask", "conflict", "mission_claim", "ollama_steward",  # 3.3.4.0 R4: the steward's note
+             "background_done")  # 3.4.1.3: background work finished while a session was idle
 SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
 
 

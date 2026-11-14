@@ -25,7 +25,7 @@ from pathlib import Path
 from capture_identity import guard_page, placeholder
 
 IDS = ("section-tab", "roles-start", "roles-canvas", "roles-card", "roles-tier", "roles-edge", "roles-problem", "bio-form", "model-row",
-       "roles-lineup", "roles-bio", "panel-title", "roles-live-badge", "model-test", "legacy-frame")
+       "roles-lineup", "roles-bio", "panel-title", "roles-live-badge", "model-select-test", "legacy-frame")
 
 # the catalog the pills, the picker table and the dead-id check read (OpenRouter's cache shape; per-token prices as strings)
 CATALOG = {"anthropic/claude-fable-5.1": (15, 75, 400000), "anthropic/claude-opus-5.5": (12, 60, 400000), "anthropic/claude-sonnet-5": (3, 15, 400000),
@@ -83,7 +83,7 @@ def dom(c, url: str, state: Path) -> dict:
     c.js(f"{bio}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(bio)
-    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select-more\"]')"  # 3.1.4.0 R4: the table is folded
+    more = "document.querySelector('[data-testid=\"bio-form\"] [data-testid=\"model-select\"]')"  # 3.1.4.0 R4: the table is folded
     c.wait(f"!!{more}", 20)
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)

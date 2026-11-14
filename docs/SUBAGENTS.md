@@ -210,3 +210,25 @@ it never widens a permission, approves or answers a card, changes an
 Orchestra claim or skips a gate (an approval gate, a pipeline gate, a
 budget). The owner's permission engine still decides every tool call the
 agent makes, exactly as before; `by` is a label naming who sent it.
+
+## When background work finishes while the session is idle (Halo 3.4.1.3)
+
+A background sub-agent (`run_in_background`) or Bash job that finishes while no turn runs no longer waits for your next
+message to be noticed (`halo_harness/agent/bg_pickup.py`). At once, with no model call: one line in the transcript
+(`◼ background work finished: job build the docs -- exit 0 -- Halo picks it up in a few seconds, no message needed`),
+the same on the status bar, and on Studio a `background_done` row in Attention (Agents -> Live's chip, the glance, the
+browser alert: [STUDIO-live.md](STUDIO-live.md#the-alert)). Then the main agent takes a turn **by itself**
+(`↻ Halo picks up the finished background work (no message from you)`): it reads the results under the status-notice
+frame, which tells the model the block is not from you, and reports them or carries on. That turn has no message of
+yours in the log (a `bg_turn` meta node marks it).
+
+- Finishes that land within a few seconds of each other (`WINDOW_S`, 3 s) are one turn.
+- Never while you type: with text in the TUI's input box, or an ask open, the turn waits until you send or clear it
+  (a sent message reads the results with your words, as before).
+- At most `background.self_turns` (default 3) such turns in a row with no message from you; the session's spend cap
+  (a lineup's budget, a paused session) stops them too. When either stops one, one line says so; your next message
+  reads the results and starts the count over.
+- `background.when_done` (Settings -> Steer and turn): `continue` (the default, all of the above), `tell` (the line,
+  the status bar and the Studio row only; your next message reads it), `wait` (nothing until your next message, the
+  behaviour before 3.4.1.3).
+- A finish while a turn runs, `-p` and the other headless runs are unchanged: the next turn reads it.

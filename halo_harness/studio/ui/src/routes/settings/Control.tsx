@@ -1,6 +1,6 @@
 // One generic field per kind (3.3.3.0 R2): bool a switch, enum a select, int
-// and float a number field, string / path a text field, model the text field
-// and the catalog's every model (3.3.5.0 R0), list one item
+// and float a number field, string / path a text field, model THE model picker
+// (3.4.1.3; embeddings.model its Ollama-only form), list one item
 // per line, mapping the JSON editor. A list of entries that are mappings
 // (ollama.hosts, the Hugging Face endpoints and servers, or any list that
 // holds a mapping now) is edited as JSON too. Every control saves `key`
@@ -12,7 +12,7 @@ import { NumberField } from "./fields/Number";
 import { Select } from "./fields/Select";
 import { TextField } from "./fields/Text";
 import { Toggle } from "./fields/Toggle";
-import { setValue, type Kind } from "./store";
+import { resetValue, setValue, type Kind } from "./store";
 
 const ENTRY_LISTS = new Set(["ollama.hosts", "huggingface.endpoints", "huggingface.local_servers"]);
 
@@ -55,8 +55,9 @@ export function Control({ id, kind, rowKey, keyName, label, value, fallback, cho
       return <ListEditor id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} />;
     case "mapping":
       return <JsonEditor id={id} value={shown} label={label} problems={problems} disabled={busy} onSave={save} />;
-    case "model": // 3.3.5.0 R0 (f): the text field and every model of the catalog
-      return <ModelField id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} main={keyName === "model"} />;
+    case "model": // 3.4.1.3: the picker of the models you have, never a text box
+      return <ModelField id={id} value={shown} fallback={fallback} label={label} disabled={busy} onSave={save} onReset={() => void resetValue(keyName, rowKey)}
+                         main={keyName === "model"} bare={keyName === "embeddings.model"} />;
     default:
       return <TextField id={id} value={shown} fallback={fallback} secret={secret} isSet={isSet} label={label} disabled={busy} onSave={save} />;
   }

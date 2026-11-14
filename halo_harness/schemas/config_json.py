@@ -98,7 +98,8 @@ _SCALARS = {
 # agent/local_hop.py)
 # `prompt`: lean auto|on|off, topics_max, memory_max_tokens, preflight ask|compact|send (3.3.5.0 R4, agent/prompt_lean.py,
 # agent/preflight.py), shell auto|bash|powershell (3.3.16.1, agent/prompt_diet.py)
-_SECTIONS = ("agents", "clipboard", "comfy", "connectors", "copilot", "databricks", "embeddings", "experiential", "fleet",
+# `background`: when_done continue|tell|wait, self_turns (3.4.1.3, agent/bg_pickup.py)
+_SECTIONS = ("agents", "background", "clipboard", "comfy", "connectors", "copilot", "databricks", "embeddings", "experiential", "fleet",
              "governor", "host", "huggingface", "knowledge", "local", "models", "network", "ollama", "openai",
              "packs", "pool", "prompt", "providers", "recall", "remote", "roles", "routing", "steer", "studio", "supervise", "turn",
              "update", "voice", "workflows", "worktree")  # 3.3.9.0 R1: voice (stt_model, tts_model, device, tts_voice); R2: the loop's

@@ -6,10 +6,12 @@
 // box's path, steerImage.ts); a dropped file path (text) lands in the text. While a turn runs the send is
 // refused first and the busy line offers Queue it and Steer (promptSend.ts). 3.3.15.0 R3: the box is the one TextBox
 // with `fill`: three lines at the least, it grows with the draft and takes the panel's free height while the feed is
-// short; the keys moved from its placeholder into the panel's `?`.
+// short; the keys moved from its placeholder into the panel's `?`. 3.4.1.3 ("Pick, don't type"): `/model ` opens THE
+// model picker over the box (type to filter, Up / Down, Enter); a pick writes `/model <ref>` and Enter sends it.
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import { Button, Icon, TextBox } from "../../lib/ui";
 import { history, loadSlash, prompt, setDraft, slashMatches, usePrompt } from "./promptStore";
+import { ModelPicker } from "../shared/picker/ModelPicker";
 import { resolveBusy, send } from "./promptSend";
 import { imageFile, kb, readImage } from "./steerImage";
 
@@ -44,6 +46,8 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
     return () => timers.forEach((t) => window.clearTimeout(t));
   }, [focus]);
   const matches = useMemo(() => (closed === draft ? [] : slashMatches(rows, draft)), [rows, draft, closed]);
+  const modelPick = /^\/model\s+$/.test(draft) && closed !== draft;
+  const backToBox = () => window.setTimeout(() => box.current?.focus(), 0);
   const at = Math.min(pick, Math.max(0, matches.length - 1));
   const complete = () => {
     const row = matches[at];
@@ -108,7 +112,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
           <Button size="sm" variant="ghost" onClick={() => void resolveBusy("cancel")} data-testid="prompt-busy-cancel" title="Keep the text in the box">Cancel</Button>
         </div>
       )}
-      {matches.length > 0 && (
+      {matches.length > 0 && !modelPick && (
         <ul className="spp-slash" data-testid="prompt-slash-list" role="listbox" aria-label="Slash commands">
           {matches.map((r, i) => (
             <li key={r.name} role="option" aria-selected={i === at} className="spp-slash-item" data-testid="prompt-slash-item" data-name={r.name} data-on={i === at || undefined}
@@ -119,6 +123,12 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
             </li>
           ))}
         </ul>
+      )}
+      {modelPick && (
+        <div className="spp-model" data-testid="prompt-model-picker">
+          <ModelPicker value="" tid="prompt-model" autoFocus bare onPick={(ref) => (setDraft(ref ? `/model ${ref}` : draft), backToBox())}
+                       onClose={() => (setClosed(draft), backToBox())} />
+        </div>
       )}
       <div className="spp-row-in">
         <span className="spp-caret mono" aria-hidden="true">›</span>

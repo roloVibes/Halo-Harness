@@ -266,7 +266,7 @@ def test_roles_opens_as_a_react_section(ctx: Ctx):
               and roles.get("roles-start") == 0 and roles.get("legacy-frame") == 0)
     ctx.check(f"six panels (their titles; 3.3.2.0 R3: no about line), the problem row, got {roles}", roles.get("panel-title") == 6 and (roles.get("roles-problem") or 0) >= 1)
     ctx.check(f"the bio form, the model table (one row per catalog model) and its Test button, got {roles}",
-              roles.get("bio-form") == 1 and roles.get("model-row") == 7 and (roles.get("model-test") or 0) >= 1)
+              roles.get("bio-form") == 1 and roles.get("model-row") == 7 and (roles.get("model-select-test") or 0) >= 1)
 
 
 @test

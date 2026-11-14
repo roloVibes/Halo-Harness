@@ -2,6 +2,7 @@
 // the React section that replaces the framed classic page. Spread into HELP
 // (help.ts); the section help lists the `about` lines.
 import type { Help } from "./help-orchestra";
+import { NAV_HELP } from "../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same on every drawing
 
 const lines = (...l: string[]) => l.join("\n");
 
@@ -21,7 +22,8 @@ export const ROLES_HELP: Record<string, Help> = {
       "Drag a card into another tier box to move it there (the lineup saves); main stays in tier 0. A card dropped on another nudges it aside, never covers it.",
       "Drag a bio from Bios onto the canvas to add it.",
       "A tier's label strip collapses or expands it (a collapsed tier opens when you hold a card over it). While a session runs, the cards whose agents work glow: hover a card's glyph or badge for what its glow means and when it goes.",
-      "Click the canvas, then A lays out, F fits, + / - zoom, the arrows nudge the selected card, Delete removes it.",
+      "Click the canvas, then A lays out, F (or 0) fits, + / - zoom, the arrows nudge the selected card, Delete removes it.",
+      NAV_HELP,
       "Ctrl+Z undoes an edit, Ctrl+Shift+Z redoes it, Mod+S saves.",
     ),
   },

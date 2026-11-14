@@ -136,7 +136,8 @@ class _BaseHandle:
                     kind=self.kind, pid=os.getpid(), pending=self._pending(),
                     remote_attached=len(self._remote_peers), agents=_live_agents(self.session),
                     preflight=getattr(self.session, "_preflight_pending", None),  # 3.3.5.0 R4: {id, line, switch_to}
-                    eyes=getattr(self.session, "_eyes_pending", None))  # 3.3.6.0 R6: {id, line, choices, default}
+                    eyes=getattr(self.session, "_eyes_pending", None),  # 3.3.6.0 R6: {id, line, choices, default}
+                    bg_done=getattr(self.session, "_bg_done", None))  # 3.4.1.3: {since, at, count, line, mode}
         return data
 
     def tail(self, n: int = 20) -> str:

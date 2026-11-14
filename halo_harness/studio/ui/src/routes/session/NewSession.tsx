@@ -1,17 +1,18 @@
 // A session with no terminal (3.3.11.0 R2): Studio's server starts `halo --headless --session-for studio` as a
 // child (studio/sessions_new_api.py) -- the same loop and session log as the TUI, its control socket the only
-// door. The Start view and the Prompt panel (with no session here) show the form: the model (the Setup
-// default-model block's rows: GET sessions/new, the configured catalog, the default first) and the working
+// door. The Start view and the Prompt panel (with no session here) show the form: the model (3.4.1.3: THE picker
+// of the models you have, "the default (<model>)" first; GET sessions/new names the default) and the working
 // folder (Studio's by default). Start answers with the session id; Session opens on it with the Prompt focused.
 // Closing the tab never ends it: the Prompt panel's "End session" does (`shutdown`), and "Open in terminal"
 // copies the `halo --resume <id>` line that opens it in a terminal later.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { toast } from "../../lib/store";
 import { Button } from "../../lib/ui";
 import { fleet } from "../fleet/store";
-import { ModelTakes, takesText, type TakesFields } from "../shared/ModelTakes";
+import { ModelSelect } from "../shared/ModelSelect";
+import type { TakesFields } from "../shared/ModelTakes";
 import { load as loadFleet } from "../fleet/sync";
 import type { SessionRow } from "../fleet/types";
 import { openPrompt } from "./promptStore";
@@ -81,12 +82,6 @@ export function NewSession({ compact }: { compact?: boolean }) {
   useEffect(() => {
     api.get<NewInfo>("sessions/new").then(setInfo, (e) => setSaid(e instanceof Error ? e.message : String(e)));
   }, []);
-  const groups = useMemo(() => {
-    const out = new Map<string, ModelOpt[]>();
-    for (const m of info?.models || []) out.set(m.provider || "other", [...(out.get(m.provider || "other") || []), m]);
-    return [...out.entries()];
-  }, [info]);
-  const picked = (info?.models || []).find((m) => m.ref === (model || info?.model)); // 3.3.15.0 R2: its takes chips
   const go = async () => {
     setBusy(true);
     setSaid("");
@@ -101,19 +96,10 @@ export function NewSession({ compact }: { compact?: boolean }) {
   return (
     <div className="ss-new" data-testid="session-new" data-compact={compact || undefined}>
       {!compact && <div className="rail-label mono">NEW SESSION · NO TERMINAL</div>}
-      <label className="ss-new-row">
-        <span className="mono muted">model</span>
-        <select className="input mono" value={model} onChange={(e) => setModel(e.target.value)} disabled={!info} data-testid="session-new-model">
-          <option value="">{info?.model ? `the default: ${info.model}` : "the default model"}</option>
-          {groups.map(([provider, list]) => (
-            <optgroup key={provider} label={provider}>
-              {list.map((m) => <option key={m.ref} value={m.ref} title={`takes ${takesText(m)}${m.line ? ` · ${m.line}` : ""}`}>
-                {m.ref}{m.price && m.price !== "?" ? ` · ${m.price}` : ""}</option>)}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      {picked && <div className="ss-new-row"><span className="mono muted">takes</span><ModelTakes row={picked} /></div>}
+      <div className="ss-new-row ss-new-model">
+        <ModelSelect label="model" value={model} onPick={setModel} testid="session-new-model" busy={!info} compact noTest
+                     inherit={{ label: "the default", model: info?.model || "" }} />
+      </div>
       <label className="ss-new-row">
         <span className="mono muted">folder</span>
         <input className="input mono" value={cwd} onChange={(e) => setCwd(e.target.value)} placeholder={info?.cwd || "Studio's folder"}

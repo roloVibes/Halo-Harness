@@ -8,6 +8,32 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.4.1.3] - unreleased
+
+Every model field in Studio is a picker of the models you have: you never type a model reference from memory. Every drawing in Studio zooms the same way: Ctrl or Cmd + wheel, or a pinch. Finished background work shows up, and the agent picks it up, without you sending a message.
+
+### Pick, don't type
+
+- One model picker everywhere (`studio/ui/src/routes/shared/picker/`): the models of the providers set up here, grouped by provider with each provider's state in one line, searchable (ref, name, provider, best-at, takes, `cheap`, `free`, `local`, a window like `200k`), one line per row with what the model takes, keys (type to filter, Up / Down, Enter, Esc). Agents -> Models' **Test a model** (it was a bare text box), a bio's preferred model, fallback and schedule model, a lineup card's and a tier's model, the escalation's Switch to, the goal and workflow forms, the plan review, Setup's default model, Settings' model rows (`model`, `compactionModel`, both steward models, every role's model, `embeddings.model` with the Ollama models only), Session's New session, the Prompt panel's `/model `, and the design and signal packs' `model` settings all open it.
+- A saved model the catalog lacks shows as it is, marked "not in your catalog", and stays selectable; with no model at all the picker says why in one line with Refresh or Setup.
+- The last row of the picker, always: "use a reference that is not listed", checked as you type against the session's own parser (`GET /api/models/check`); a wrong prefix says which prefixes exist.
+- A field that needs a capability (a bio's `models.needs`) lists the models that state it first and dims the others.
+- Agents -> Models fits its panel: no sideways scroll; long lines wrap or end in an ellipsis with the whole on hover.
+- A static check (`tests/test_studio_model_pickers.py`) fails when a new text field in Studio is labelled as a model field without going through the picker.
+
+### Zoom and pan, the same on every drawing
+
+- One module (`studio/ui/src/lib/canvasNav.ts`) for Agents -> Live (and its replay), Session's Map, Agents -> Cast and the design pack's artboards: Ctrl + wheel (Cmd on a Mac) zooms around the pointer, a trackpad pinch zooms smoothly, a wheel notch is one step; the page's own zoom stays put over a drawing; a plain wheel scrolls, Shift + wheel pans sideways; `+`, `-` and `0` on a focused drawing; drag the background to pan, double-click it to fit; the zoom is kept for the visit.
+- Session's Map opens fitted to its panel but never smaller than its text reads: a bigger tree opens on the main agent with "more than shows: Fit shows all", and has its own - / % / + / Fit buttons; a resize no longer throws your zoom away.
+- The plan review and the Workflows board keep scrolling only: both are in the Agents section the next release replaces.
+
+### Finished background work, without a prompt
+
+- A background sub-agent or Bash job that finishes while the session is idle shows at once, with no model call: one transcript line and the status bar in the terminal (`◼ background work finished: ...`), the session's row in Studio's Attention (Agents -> Live's chip, the glance, and the browser alert when `studio.alerts` is `browser`), the line in Session's feed (`agent/bg_pickup.py`).
+- Then the main agent takes a turn by itself to read the results and report or carry on (`↻ Halo picks up the finished background work`): finishes within 3 s are one turn; never while the input box holds text or an ask is open; the turn carries no message of yours, only the finished work under the status-notice frame (not a message from the human), and is logged as such.
+- `background.self_turns` (default 3) caps such turns in a row with no message from you; the session's spend cap stops them too; either says so in one line.
+- `background.when_done` (Settings -> Steer and turn): `continue` (the default), `tell` (shown only; your next message reads it) or `wait` (the behaviour before). A finish during a running turn, `-p` and the other headless runs are unchanged.
+
 ## [3.4.1.2] - 2026-11-12
 
 A security pass: what a pack's page script can do is now said plainly and fenced on the server, an untrusted folder can

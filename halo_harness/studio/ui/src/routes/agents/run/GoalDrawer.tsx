@@ -34,7 +34,7 @@ export function GoalDrawer() {
   const wf = useWfRun((s) => s.wf);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("[role=listbox], [role=menu]") && (e.stopPropagation(), closeGoal());
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("[role=listbox], [role=menu], [role=dialog], .mpk") && (e.stopPropagation(), closeGoal());
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open]);

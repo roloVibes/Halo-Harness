@@ -135,10 +135,12 @@ def post_models_test(req: Request):
 
 
 from .models_resolve import get_models_resolve  # noqa: E402  (3.1.4.0 R4)
+from .models_check import get_models_check  # noqa: E402  (3.4.1.3: the picker's "not listed" row)
 
 ROUTES: list = [
     ("GET", r"^models/status$", get_models_status),
     ("GET", r"^models/resolve$", get_models_resolve),
+    ("GET", r"^models/check$", get_models_check),
     ("GET", r"^models/fallback$", get_models_fallback),
     ("POST", r"^models/refresh$", post_models_refresh),
     ("POST", r"^models/test$", post_models_test),

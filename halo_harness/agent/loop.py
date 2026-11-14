@@ -47,6 +47,7 @@ from halo_harness.agent import agent_inbox as _fleet_gate
 from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent import mode_notice as _mode_notice
 from halo_harness.agent import turn_marker as _turn_marker
+from halo_harness.agent import bg_pickup as _bg_pickup  # 3.4.1.3: finished background work while idle
 from halo_harness.agent import policy_gate as _policy_gate  # 3.3.10.0 R2: a pack's verdict on each tool call
 from halo_harness.remote import receipt_seams as _receipt_seams  # 3.3.11.0 R1: the receipts ladder's read mark
 from halo_harness.agent.subagent import AgentRuntime
@@ -800,24 +801,6 @@ def _compact_notices_text(notices: "list[str]", *, noun: str) -> str:
     return "\n\n".join(lines)
 
 
-# Halo 2.0.7 round 0b (rolo's live report, 2026-10-08): the wrapper that
-# stops pending notices from impersonating the user. Pre-0b a notice was
-# logged as a `user` node and yielded as a `user_message` event -- the
-# model received a status blob as plain user text inside the same user
-# turn as the owner's actual question, and answered the status first
-# ("typing a question, getting a blob back of what's been done, then an
-# answer is not a good flow"). The block below is SYSTEM-FRAMED: an
-# explicit machine-source tag plus the one instruction that fixes the
-# ordering ("answer the human's own message first"), riding as a
-# snapshot content block AFTER the human's message in the turn (log
-# order: `_turn_inner` appends the prompt BEFORE `_turn_body` calls the
-# `_apply_pending_*_notices` methods, so derive_request folds this block
-# into the same pending user turn, behind the human's words). A user
-# ROLE is kept on the wire (not a mid-conversation `system` role) --
-# every dialect takes it, and the proxy-era M4-6 bug (a trailing
-# OpenAI `system` message made models continue the environment text
-# instead of answering) is exactly what a system role here would
-# re-create on OpenAI-compat routes.
 # 2.0.7 cyber Pillar 2 (continuous canaries): the periodic health note's
 # cadence, env-tunable so a test (or an owner who wants denser signal)
 # can move it without touching code. Zero disables the cadence half.
@@ -835,6 +818,12 @@ def _canary_every_s() -> float:
         return 600.0
 
 
+# Halo 2.0.7 round 0b (rolo, 2026-10-08): pending notices stop impersonating the user. A notice was a `user`
+# node and the model answered the status before the owner's question. The block is SYSTEM-FRAMED (a machine-source
+# tag and "answer the human's own message first"), a snapshot AFTER the human's message in the turn (derive_request
+# folds it into the same user turn, behind his words). A user ROLE stays on the wire: a trailing OpenAI `system`
+# message made models continue the environment text instead of answering (the proxy-era M4-6 bug). 3.4.1.3: a turn
+# finished background work starts by itself frames its notices with agent/bg_pickup.py's FRAME_HEAD instead.
 _STATUS_NOTICE_FRAME_HEAD = (
     "<status-notices source=\"harness\">\n"
     "Automated harness status: background work finished while you were away.\n"
@@ -5755,8 +5744,9 @@ class Session:
         # routes new input to a fresh turn or to `steer`) is True for the
         # WHOLE method body below, cleared no matter how it ends.
         self._busy.set()
+        _bg = _bg_pickup.is_bg_turn(self)  # 3.4.1.3: a turn finished background work started, no message of the person's
         try:
-            if self.hook_runner is not None and self.hook_runner.has_hooks("UserPromptSubmit"):
+            if not _bg and self.hook_runner is not None and self.hook_runner.has_hooks("UserPromptSubmit"):
                 payload = self.hook_runner.payload("UserPromptSubmit", prompt_id=f"prompt_{turn_no}",
                                                      extra={"prompt": text})
                 # H5c finding 12: `abort` threaded through -- Esc during a
@@ -5807,12 +5797,14 @@ class Session:
                     blocks.append(img)
             # 3.3.11.0 R1: the node the request is derived from carries the receipt id: `read` (remote/receipt_seams)
             _rmeta = _receipt_seams.take_turn(self, text)
-            _receipt_seams.mark_read(self, _rmeta, turn_no, self.log.append_user(blocks, **_receipt_seams.tag(_rmeta)))
-            # Halo 3.2.2.0 R4: the mode in one line (and the plan-mode note
-            # on a way in made outside the EnterPlanMode tool).
-            _mode_notice.sync(self, turn_start=True)
+            if _bg:  # its log mark, its marker and the framed notices (agent/bg_pickup.py)
+                yield from _bg_pickup.open_turn(self, turn_no)
+            else:
+                _receipt_seams.mark_read(self, _rmeta, turn_no, self.log.append_user(blocks, **_receipt_seams.tag(_rmeta)))
+            _mode_notice.sync(self, turn_start=True)  # 3.2.2.0 R4: the mode in one line (and the plan-mode note)
             turn_images = images if vision_ok else None
-            yield _receipt_seams.stamp(events.user_message(text, turn=turn_no, images=turn_images), _rmeta)
+            if not _bg:
+                yield _receipt_seams.stamp(events.user_message(text, turn=turn_no, images=turn_images), _rmeta)
             yield events.status(
                 phase="thinking", model=self.model_ref.raw, turn=turn_no,
                 context_limit=self.model_profile.context_tokens,
@@ -8762,6 +8754,7 @@ class Session:
         that turn's generator while it runs (and inside the reply wait)."""
         self.mcp_status_fn = mcp_status_fn
         self._event_sink = out
+        _bg_pickup.attach(self, commands)  # 3.4.1.3: background work that finishes while idle is picked up
         out(self.status_event(phase="idle"))
         while True:
             cmd = commands.get()
@@ -8782,14 +8775,14 @@ class Session:
             data = getattr(cmd, "data", None) or {}
             if kind == "user_input":
                 self._turn_meta = data.get("meta")  # 3.3.11.0 R1: {via, by, receipt} (remote/receipt_seams.take_turn)
+                _bg_pickup.human_turn(self)
                 self._pump_turn(data.get("text", ""), data.get("images"), out)
-                # finding 5: whatever `turn()`'s own `finally` drained as
-                # "never got applied" is resubmitted here, on THIS same
-                # worker thread, as the next `user_input` Command -- run()
-                # picks it right back up on the NEXT loop iteration (a
-                # fresh turn, since `_busy` is already clear by now), so a
-                # steer that missed every internal checkpoint still isn't
-                # silently lost, it just becomes the next turn instead.
+                # finding 5: whatever `turn()`'s own `finally` drained as "never got applied" is resubmitted here,
+                # on THIS worker thread, as the next `user_input` (a fresh turn): a steer that missed every
+                # internal checkpoint is never lost, it becomes the next turn instead.
+                self._resubmit_leftover_steers(commands)
+            elif kind == "bg_pickup":  # 3.4.1.3: background work finished while idle (agent/bg_pickup.py)
+                _bg_pickup.pump(self, out)
                 self._resubmit_leftover_steers(commands)
             elif kind == "run_clear":
                 self._pump_clear(out)

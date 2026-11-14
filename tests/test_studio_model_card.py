@@ -79,8 +79,8 @@ def test_the_settings_model_row(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the saved model's card under the row, no offer, got {got.get('settings_panel')} {got.get('settings_offer')}",
               got.get("settings_panel") == "ol:qwen3.8:27b" and got.get("settings_offer") is False)
-    ctx.check(f"the list rows carry the meter and the chips, got {got.get('settings_levels')} {got.get('settings_chips')}",
-              got.get("settings_levels") == ["tight", "fits", "fits"] and all((n or 0) >= 3 for n in got.get("settings_chips") or [0]))
+    ctx.check(f"the picker's rows carry the meter and what they take, got {got.get('settings_levels')} {got.get('settings_chips')}",
+              got.get("settings_levels") == ["tight", "fits", "fits"] and all((n or 0) >= 1 for n in got.get("settings_chips") or [0]))
 
 
 @test

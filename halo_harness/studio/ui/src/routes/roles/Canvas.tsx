@@ -4,8 +4,9 @@
 // 500 ms after the last move); drop it into another tier box and the
 // lineup's tiers change and save (the main agent stays in tier 0: the card
 // snaps back with the rule). A tier's label strip collapses it. Drag a bio from the Bios panel
-// onto the canvas to add it. Click the canvas, then A lays out, F fits, + and
-// - zoom, the arrows nudge the selected card, Delete removes it (asks first).
+// onto the canvas to add it. Click the canvas, then A lays out, F (or 0) fits, + and
+// - zoom, the arrows nudge the selected card, Delete removes it (asks first); Ctrl / Cmd + wheel or a pinch zooms
+// around the pointer, a drag on the background pans, a double-click there fits (lib/canvasNav.ts).
 // 3.1.5.0 R3: the glow's life and its legend (glow.ts, GlowLegend.tsx), a
 // tier box in its cards' state colour, and an empty canvas that invites
 // ("Drag a bio here, or New lineup", CanvasEmpty.tsx). 3.1.6.0 R1: Add tier
@@ -30,6 +31,7 @@ import { CanvasBar } from "./CanvasBar";
 import { CanvasInvite, NoLineup } from "./CanvasEmpty";
 import { dropPatch } from "./drop";
 import { toast } from "../../lib/store";
+import { useCanvasNav, useZoomPoint } from "../../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same on every drawing
 import { GlowLegend } from "./GlowLegend";
 import { LiveMap } from "./LiveMap";
 import { glowOf, hideLegend, startGlow, type GlowState } from "./glow";
@@ -156,6 +158,8 @@ export function CanvasDetail() {
     const el = scroll.current;
     if (el) setZoom(Math.max(0.3, Math.min(1.25, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
   };
+  const zoomAt = useZoomPoint(scroll, zoom, setZoom);
+  useCanvasNav(scroll, { zoom, zoomAt, fit, min: 0.3, max: 2, id: name ? `cast|${name}` : undefined });
   const layout = () => graph && movePositions(autoLayout(graph));
   const fitted = useRef("");
   const shape = useRef("");
@@ -172,7 +176,7 @@ export function CanvasDetail() {
     const boxes = graph.tiers.map((t, i) => tierBox(t, xs[i], placed, !!collapsed[t.name]));
     const overlap = boxes.some((a, i) => boxes.some((b, j) => j > i && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h));
     if (overlap) movePositions(autoLayout(graph));
-    if (first && (ext.w > el.clientWidth || ext.h > el.clientHeight)) setZoom(Math.max(0.3, Math.min(1, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h)));
+    if (first && (ext.w > el.clientWidth || ext.h > el.clientHeight)) setZoom(Math.max(0.3, Math.min(1, (el.clientWidth - 24) / ext.w, (el.clientHeight - 24) / ext.h))); // the whole lineup: drags need it
   }, [name, graph, placed, collapsed, ext.w, ext.h, tierShape]);
 
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -187,8 +191,6 @@ export function CanvasDetail() {
     else if (k === "Enter" && sel) focusModel(sel); // 3.1.4.0 R4: the Inspector's MODEL strip
     else if (k === "a") layout();
     else if (k === "f" && !e.shiftKey) fit(); // 3.3.2.0 R1: Shift+F is Focus
-    else if (k === "+" || k === "=") setZoom((z) => Math.min(2, z * 1.2));
-    else if (k === "-") setZoom((z) => Math.max(0.3, z / 1.2));
     else return;
     e.preventDefault();
   };
@@ -208,11 +210,11 @@ export function CanvasDetail() {
   if (!graph || !name) return <NoLineup />;
   return (
     <div className="rc" data-testid="roles-canvas" data-lineup={name}>
-      <CanvasBar zoom={zoom} setZoom={setZoom} fit={fit} layout={layout} />
+      <CanvasBar zoom={zoom} setZoom={zoomAt} fit={fit} layout={layout} />
       <div className="rc-scroll" ref={scroll} tabIndex={0} onKeyDown={onKey} onDragOver={onDragOver} onDrop={onDrop} onScroll={hideLegend}
            onPointerDown={(e) => (e.target === e.currentTarget || (e.target as HTMLElement).matches?.(".rc-world, .rc-inner")) && (roles.update(() => ({ sel: "" })), clearBlock())} aria-label="Roles canvas: the lineup's cards in their tier boxes">
         <div className="rc-world" style={{ width: ext.w * zoom, height: ext.h * zoom }}>
-          <div className="rc-inner" style={{ width: ext.w, height: ext.h, transform: `scale(${zoom})` }}>
+          <div className="rc-inner" style={{ width: ext.w, height: ext.h, transform: `scale(${zoom})` }} data-testid="roles-world" data-zoom={zoom.toFixed(3)}>
             {graph.tiers.map((t, i) => (
               <TierBox key={t.name} t={t} b={tierBox(t, xs[i], pos, !!collapsed[t.name])} count={t.node_ids.length} state={tierGlow(t.node_ids)}
                        collapsed={!!collapsed[t.name]} hot={drag?.hot === t.name || hotT === `tier:${t.name}`} onToggle={(n) => setCollapsed(n, !roles.get().collapsed[n])} />

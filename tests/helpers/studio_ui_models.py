@@ -57,7 +57,7 @@ def models(c, url: str, state: Path) -> dict:
     c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
     c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
     c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select-more\"]')"
+    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)

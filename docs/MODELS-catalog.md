@@ -162,6 +162,35 @@ sort keys (name/price/context/speed/best) -- not just the alphabetical default,
 where a free row's own `$0` price would otherwise scatter it to the front
 of a price-sorted group, far from the paid row it's a variant of.
 
+## Studio's model picker (3.4.1.3 "Pick, don't type")
+
+Nowhere in Studio do you type a model reference from memory. Every place that takes a model -- Agents' Models panel
+(**Test a model**), a bio's preferred model, fallback and schedule model, a lineup card's model, a tier's model, the
+escalation's **Switch to**, the goal and workflow forms, the plan review's lane model, Setup's default model, Settings'
+model rows (`model`, `compactionModel`, `ollama.steward.model`, `host.steward.model`, every `roles.<role>`, and
+`embeddings.model`, which lists the Ollama models only and saves the bare name), Session's **New session**, the Prompt
+panel's `/model `, and a pack's `model` setting (design, signal) -- is one field that opens ONE picker
+(`studio/ui/src/routes/shared/picker/`):
+
+- the models of the providers set up here (`GET /api/models`, local servers included), grouped by provider with the
+  provider's state in one line ("signed in · 63 models", or why it lists nothing, with Refresh), and one line for the
+  providers not set up here with the Setup door;
+- one row per model (ref, price in / out, context and the fit meter, what it TAKES, the gym score), the honest
+  best-at line, the effort word and the card's chips on the detail line under the list;
+- search by ref, name, provider, best-at, takes, `cheap`, `free`, `local`, `cloud` or a window (`200k`); sort by
+  name (by provider), price, context or best (one list across the providers);
+- keys: type to filter, Up / Down, Enter picks, Esc closes; a letter typed on the closed field opens it searched;
+- a field that needs a capability (a bio's `models.needs`) lists the models that state it first and dims the others;
+- a saved value the catalog lacks stays as it is, marked **not in your catalog**, and stays selectable;
+- no model at all: why, in one line, with Refresh or Setup -- never an empty list, never a bare text box;
+- the last row, always: **use a reference that is not listed** -- a small field checked as you type by the session's
+  own parser (`GET /api/models/check?ref=`, no network): a prefix Halo does not know names the ones it does.
+
+`tests/test_studio_model_pickers.py` fails when a new `<input>`, `<textarea>` or `<select>` in Studio's source is
+labelled or named as a model field without going through the picker (its allowlist names the few that are not, each
+with its reason: the picker's own search box and not-listed row, Local's pull-by-name, the pool's run list, a traffic
+filter, the steward block's automatic / none choice).
+
 ## Enforced offline mode (Halo 2.0.3 round 5e)
 
 `halo --offline`/`/offline on`/`network.offline` in `~/.halo/config.json`

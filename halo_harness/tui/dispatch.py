@@ -686,17 +686,17 @@ async def _apply_event_inner(app, event) -> None:
                 card.set_phase_word("waiting")
             await app.transcript.begin_waiting_line(turn, agent_id=agent_id)
     elif kind == "turn_marker":
-        # Halo 3.2.2.0 R4: the line a turn ends with (`◼ done · 42 s ·
-        # 3 tools`, `◼ waiting on you: ...`, `◼ stopped: ...`) and the
-        # loop's `↳` notes (a nudge, a silent call resent). One muted line,
-        # main session only (a sub-agent's card says how it ended); a card's
-        # own mid-turn "waiting" marker is skipped here -- its `⏸ ..., see
-        # below` line already sits at that point in the transcript.
+        # Halo 3.2.2.0 R4: the line a turn ends with (`◼ done · 42 s · 3 tools`, `◼ waiting on you: ...`, `◼ stopped`)
+        # and the loop's `↳` notes. One muted line, main session only; a card's own mid-turn "waiting" marker is
+        # skipped (its `⏸ ..., see below` line already sits there). 3.4.1.3: `background` (agent/bg_pickup.py), work
+        # that finished while idle, is on the status bar too.
         if agent_id is None and data.get("state") == "model-check":  # 3.3.5.0 R0b (d): the line and the offer
             from halo_harness.tui.lane_offer_flow import show as show_lane_offer
             await show_lane_offer(app, data)
         elif agent_id is None and not data.get("mid_turn"):
             await app.transcript.add_note(data.get("text", ""), kind="marker")
+            if data.get("state") == "background" and not data.get("started"):
+                app.status_bar.set_notice(data.get("text", ""), 120.0)
     elif kind == "steer_restart":
         # GLM-brief.md item 3 / W2-plan item 2: the in-flight call was
         # silently aborted (no chunk had arrived yet) and is being resent

@@ -94,7 +94,7 @@ export function PullByName() {
   return (
     <div className="lc-pull-name" data-testid="local-pull-box">
       <input className="input mono" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()}
-             placeholder="pull by name: qwen3.5:9b or hf.co/<repo>:<quant>" aria-label="pull by name" data-testid="local-pull-name" />
+             placeholder="one the library does not list: qwen3.5:9b or hf.co/<repo>:<quant>" aria-label="pull by name" data-testid="local-pull-name" />
       <Button size="sm" variant="primary" disabled={!name.trim() || !host} onClick={go} data-testid="local-pull-go"
               title={name.trim() && host ? pullLine(name.trim(), host) : "type a model's name; the host is the one picked above"}>
         Pull{host ? ` to ${host}` : ""}

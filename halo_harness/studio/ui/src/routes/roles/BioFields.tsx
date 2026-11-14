@@ -7,7 +7,7 @@
 // (GET /api/field-help), the same line the TUI shows. 3.1.4.0 R4: MODELS is
 // its own block (BioModels), first in the form right under the bio's name:
 // the ModelSelect on top, the full picker table folded under "more...".
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { ModelSelect } from "../shared/ModelSelect";
 import { editBio, setKey, sub } from "./bioActions";
@@ -65,16 +65,16 @@ function CheckRow({ label, value, onChange, hint, testid }: { label: string; val
  *  inherited model is its first option), then the fallback, effort, thinking and the context budget. */
 export function BioModels({ d, mark, inherited, focus }: { d: Raw; mark: (field: string) => boolean; inherited: string; focus: boolean }) {
   const h = useHelpGroup("bio");
-  const catalog = useRoles((s) => s.models);
-  const refs = useMemo(() => catalog.map((m) => m.ref), [catalog]);
   const models = of(d, "models");
   return (
     <Sec title="MODELS">
       <div className={mark("models.preference") ? "cc-changed" : undefined} data-coach-changed={mark("models.preference") || undefined}>
         <ModelSelect label="Preferred model" hint={h["models.preference"]} value={String(models.preference ?? "")} onPick={at("models", "preference")}
-                     inherit={inherited ? { label: "inherited", model: inherited } : undefined} testid="bio-model" inline focus={focus} onFocused={focusDone} />
+                     inherit={inherited ? { label: "inherited", model: inherited } : undefined} testid="bio-model" inline focus={focus} onFocused={focusDone}
+                     needs={Array.isArray(models.needs) ? (models.needs as string[]).filter((n) => ["vision", "audio", "video", "pdf", "tools", "think"].includes(n)) : undefined} />
       </div>
-      <Pick label="Fallback" hint={h["models.fallback"]} value={String(models.fallback ?? "")} options={["", ...refs]} onChange={at("models", "fallback")} testid="bio-fallback" />
+      <ModelSelect label="Fallback" hint={h["models.fallback"]} value={String(models.fallback ?? "")} onPick={at("models", "fallback")} testid="bio-fallback"
+                   inherit={{ label: "no fallback", model: "" }} inline />
       <Pick label="Effort" hint={h["models.effort"]} value={String(models.effort ?? "")} options={EFFORTS} onChange={at("models", "effort")} testid="bio-effort" />
       <Pick label="Thinking" hint={h["models.thinking"]} value={String(models.thinking ?? "")} options={["", "native", "off"]} onChange={at("models", "thinking")} />
       <NumberIn label="Context budget (0-1)" hint={h["models.context_budget"]} value={models.context_budget as number | undefined} onCommit={at("models", "context_budget")} testid="bio-context-budget" />

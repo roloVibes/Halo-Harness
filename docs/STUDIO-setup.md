@@ -140,7 +140,7 @@ rows is drawn a window at a time (`lib/ui/WindowedRows.tsx`: the first 200 at on
 frame, each chunk skipping its paint while it is off screen), so every row is in the page and the page
 stays quick; a provider group folds with its chevron and the fold is kept in this browser. A local row
 carries its effort word (`think on/off`, `effort n/a`; [MODELS-switching.md](MODELS-switching.md)). The
-same rule holds in Roles' model picker, Settings' `model` row ("pick from the list") and the TUI's `/model`
+same rule holds in the model picker (3.4.1.3: every model field in Studio, Settings' model rows too) and the TUI's `/model`
 picker and `halo models` (a count line, never a silent cut).
 
 **The model card and the fit meter (3.3.5.0 R0b).** Each row also carries its card's chips (think, tools,

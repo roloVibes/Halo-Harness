@@ -78,7 +78,7 @@ ROWS = [
     Row("pool.allow_wifi", "local", "Pool keeps Wi-Fi members", "bool", False, (), "Keep a Wi-Fi member when the pool launches (a slower decode); off, the launch leaves it out and says so.", "now"),
     Row("pool.bind", "local", "Pool address", "string", None, (), "The address the pool's llama-server listens on; unset, the LAN address this machine's halo host serves on.", "next launch"),
     Row("pool.rpc_server_bin", "local", "rpc-server binary", "string", None, (), "The rpc-server a pool worker runs; unset, rpc-server on PATH or the one beside llama-server.", "next launch"),
-    Row("embeddings.model", "local", "Embeddings model", "string", None, (), "The embeddings model recall ranks with; unset, embeddings are off.", "now"),
+    Row("embeddings.model", "local", "Embeddings model", "model", None, (), "The embeddings model recall ranks with (an Ollama model's own name; Studio lists the Ollama models); unset, embeddings are off.", "now"),
     Row("embeddings.enabled", "local", "Embeddings on", "bool", False, (), "Turn embeddings on with the default model when no model is named.", "now"),
     Row("embeddings.host", "local", "Embeddings Ollama host", "string", None, (), "The Ollama host (by name) that serves embeddings; unset, the default host.", "now"),
     Row("embeddings.base_url", "local", "Embeddings server", "string", None, (), "An OpenAI-compatible embeddings server's base url, used instead of Ollama.", "now"),

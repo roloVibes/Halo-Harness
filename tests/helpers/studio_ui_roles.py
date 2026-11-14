@@ -58,4 +58,4 @@ def register(test, json_of, chrome) -> None:
         shows the (stubbed) probe's answer inline, no dialog."""
         got = run(ctx)
         ctx.check(f"the model table lists the catalog, got {got.get('model_rows')}", got.get("model_rows") == 7)
-        ctx.check(f"ok and the latency inline, got {got.get('probe')!r}", got.get("probe") == "ok in 42 ms" and got.get("dialogs") == 0)
+        ctx.check(f"ok and the latency inline, got {got.get('probe')!r}", str(got.get("probe") or "").endswith(": ok in 42 ms") and got.get("dialogs") == 0)

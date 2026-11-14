@@ -169,13 +169,13 @@ ASSIGNMENT = {
 #: 3.1.4.0 R4: the one model control (Studio's ModelSelect) wherever an agent is configured.
 MODEL_SELECT = {
     "runs_on": "the model this card runs on today: its own model, else its bio's",
-    "card": "a model for this card only; the first option keeps the bio's own",
+    "card": "a model for this card only; the picker's first row keeps the bio's own",
     "main": "the lineup's main card: a session on this lineup starts on it",
     "bio": "the model every card on this bio runs on, unless the card names its own",
-    "orchestra": "the model the lead and the workers run on; the first option keeps the lineup's roles",
-    "design": "the model this project's turns run on; the first option keeps the default model",
+    "orchestra": "the model the lead and the workers run on; the picker's first row keeps the lineup's roles",
+    "design": "the model this project's turns run on; the picker's first row keeps the default model",
     "team": "a stage runs on its lead member's lineup card: change the model there",
-    "more": "the whole catalog as a table: search, sort by price or context, or type a ref",
+    "more": "the models you have, by provider: search, sort by price or context; a ref the list lacks is its last row",
     "test": "a one-token round trip through the same path a session uses",
     "refresh": "pull every enabled provider's model list again",
 }
