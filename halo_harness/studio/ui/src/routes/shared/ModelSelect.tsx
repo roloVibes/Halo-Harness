@@ -20,7 +20,7 @@ import { ModelPicker } from "./picker/ModelPicker";
 import { EmptyLine } from "./picker/PickerParts";
 import { useStatusOnce } from "./picker/state";
 
-export type Inherit = { label: string; model: string };
+export type Inherit = { label: string; model: string; /** 3.6.0.0 R1: the words instead of "label (model)" (Auto) */ text?: string };
 
 type Props = {
   value: string;
@@ -92,7 +92,7 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
     if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") (e.preventDefault(), show());
     else if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) (e.preventDefault(), show(e.key));
   };
-  const shownText = value ? shortRef(value) : inherit ? `${inherit.label} (${inherit.model ? shortRef(inherit.model) : "none resolves"})` : "(none)";
+  const shownText = value ? shortRef(value) : inherit ? inherit.text ?? `${inherit.label} (${inherit.model ? shortRef(inherit.model) : "none resolves"})` : "(none)";
   const table = <ModelPicker value={value} onPick={pick} forMain={forMain} inherit={inherit} needs={needs} only={only} onlyWhat={onlyWhat} autoFocus seed={seed} onClose={close} tid={tid} bare />;
   return (
     <div className="field re-field msel" data-testid={testid} data-value={value} data-empty={empty || undefined}>

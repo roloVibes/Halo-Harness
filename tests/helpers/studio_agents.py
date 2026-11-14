@@ -3,7 +3,7 @@ scratch home and a temp git repo (tests/helpers/orchestra_fixtures.py) holding a
 on a gate (tests/helpers/orchestra_studio_rig.py `fake_runner`): the lead split it into five lanes and each lane's
 `lane:<n>` placeholder holds its claims. tests/test_studio_agents.py runs it:
 
-    python -m tests.helpers.studio_agents agents   Alt+2 opens Agents on Live with nothing else open; six section
+    python -m tests.helpers.studio_agents agents   Alt+2 opens Agents on 1 · Agents (3.6.0.0 R1) with nothing else open; six section
                                                    tabs; the doors (?mode=roles, roles&view=live, orchestra,
                                                    agents&view=runs|live) land on their views (3.4.0.0 D: Runs' on
                                                    Live); ?mode=team lands on Live with Team's line once; C / R / L / W
@@ -60,15 +60,16 @@ def cast_first(c, page) -> dict:
     out["tab_ids"] = c.js("[...document.querySelectorAll('[data-testid=\"section-tab\"]')].map((t) => t.dataset.tabId + ':' + (t.dataset.kbd || ''))")
     out["quiet"] = c.js("({inspector: document.querySelector('.app').dataset.inspector, dialogs: document.querySelectorAll('[role=dialog]').length,"
                         " help: !!document.querySelector('[data-testid=\"section-help\"]'), live_on: document.querySelector("
-                        "'[data-testid=\"agents-view-live\"]')?.getAttribute('aria-pressed')})")
-    out["cast_body"] = c.wait("document.querySelector('[data-part=\"roles\"]:not([hidden]) [data-testid=\"roles-live-map\"]') ? 'roles' : ''", 30)
+                        "'[data-testid=\"agents-view-crew\"]')?.getAttribute('aria-pressed')})")
+    # 3.6.0.0 R1: Alt+2 opens the Agents tab (routes/crew/), drawn in its own room
+    out["cast_body"] = c.wait("document.querySelector('[data-part=\"crew\"]:not([hidden]) [data-testid=\"crew-form-panel\"]') ? 'crew' : ''", 30)
     return out
 
 
 def doors(c, page) -> dict:
     out = {}
     for q in ("mode=roles", "mode=roles&view=live", "mode=orchestra", "mode=agents&view=runs", "mode=agents&view=live", "mode=agents",
-              "mode=agents&view=workflows"):  # 3.3.16.0 R3: the fourth view
+              "mode=agents&view=workflows", "mode=agents&view=crew"):  # 3.3.16.0 R3: the fourth view; 3.6.0.0 R1: the Agents tab
         open_page(c, page, q)
         out[q] = c.wait(f"{ON} === 'agents' && {VIEW}", 30)
     return out
@@ -89,7 +90,7 @@ def view_keys(c, page) -> dict:
     c.wait(f"{VIEW} === 'live'", 30)  # 3.3.18.0: a bare door opens on Live
     c.js("document.activeElement?.blur()")
     out = {}
-    for ch, want in (("r", "live"), ("w", "workflows"), ("l", "live"), ("c", "cast")):  # 3.3.16.0 R3: W; 3.4.0.0 D: R lands on Live
+    for ch, want in (("r", "live"), ("w", "workflows"), ("l", "live"), ("c", "cast"), ("1", "crew")):  # 3.3.16.0 R3: W; 3.4.0.0 D: R lands on Live; 3.6.0.0 R1: 1
         key(c, ch)
         out[ch] = c.wait(f"{VIEW} === '{want}' && {VIEW}", 10)
     return out

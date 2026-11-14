@@ -1,0 +1,17 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+format: workflow/1
+name: review
+for: 'Review a change: one line per problem.'
+steps:
+- name: Review
+  agents:
+  - reviewer
+  gets: the diff
+  hands: the problems
+- name: Test
+  agents:
+  - tester
+  gets: the diff
+  hands: the failures
+  when: always
+own_copy: false

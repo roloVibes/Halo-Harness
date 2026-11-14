@@ -323,6 +323,8 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("pack", "halo_harness.studio.packs_studio_api", "dispatch_pack"),  # 3.2.0.0 R3: Studio contributions
              ("packs", "halo_harness.studio.packs_routes", "dispatch"),  # 3.3.13.0 R2: a pack's own routes (API 1.2)
              ("replays", "halo_harness.studio.replays_api", "dispatch_replays"), ("glance", "halo_harness.studio.glance_door", "dispatch_glance"),  # 3.4.1.0 R1 / R4
+             ("crew", "halo_harness.studio.crew_api", "dispatch_crew"),  # 3.6.0.0 R1: the Agents tab (crew/ files, Try it)
+             ("builder", "halo_harness.studio.builder_api", "dispatch_builder"),  # 3.6.0.0 R1: the builder box
              ("setup", "halo_harness.studio.setup_api", "dispatch_setup"),  # 3.3.0.0 R1: the Setup section
              ("settings", "halo_harness.studio.settings_api", "dispatch_settings"),  # 3.3.3.0 R2: the Settings section
              ("ollama", "halo_harness.studio.ollama_steward_api", "dispatch_ollama"),  # 3.3.4.0 R5: the steward's panel

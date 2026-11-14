@@ -74,6 +74,37 @@ than 12 px. The owner, 2026-11-12: "I agree the panel is cramped. We need to fix
   `tests/test_packs_leftovers.py`, `tests/test_tools_halo_secrets.py`. `tests.test_packs_manager_ui` passes
   `HALO_STUDIO_SLOW_MS` to its driver (the driver environment dropped it) and waits for the row state it asserts.
 
+### R1
+
+Make an agent in Studio, or describe it and let the builder make it. The owner, 2026-11-12: "We need a much better way
+to build custom agents, their model, what they do ... each of these sections needs a prompt box".
+
+- **Agents -> 1 · Agents** (`Alt+2`; Live while a session runs; `1`): the list on the left (yours and this project's, tagged `new` and `not
+  used yet`, then ten starters to copy) and the agent's form: name, what it does, the instructions it gets, the model
+  (the shared picker, Auto first), what it may use (a switch per kind of tool, each saying what it can and cannot do),
+  how careful, Try it, More, and Save / Discard changes / Copy / Delete (asked on the page). Nothing is written until
+  Save. Cast, Live and Workflows are still in the same switch; a link that names one still opens it.
+- **The builder**, a box docked under the form: say what you want; it answers with a **preview**, one line per change
+  with a tick. A line that lets an agent do more (change files, run commands, the web, a skill, a connected tool, a
+  less careful mode, a higher money cap) is amber and never ticked for you. **Apply** writes the ticked lines, **Undo**
+  puts the files back as they were. It works on your agents' files only. **Write it for me** fills its box. Its
+  model and its daily cap (default $1.00) are in Settings -> Studio; the line beside the box shows today's spend.
+- **Try it** runs the agent once, as the form holds it, as a real agent on a throwaway copy of the project (a git
+  worktree, removed after), its careful mode honoured; the cost is said before, Stop ends it, the result shows in the
+  tab, and a run that ends while you look elsewhere is an Attention row.
+- **An agent you make is one a session can use**: the Agent tool spawns it by name.
+- **The formats** (docs/CREW-FORMATS.md): `agent/1`, `workflow/1`, `map/1`, one YAML file each in `~/.halo/crew/`
+  (or a trusted project's `.halo/crew/`), checked line by line (a map whose lines make a circle is named as one);
+  the starters re-made in them (`halo_harness/templates/crew/`: 10 agents, the code / plan / review / research /
+  media workflows, the maps `starter` and `ship-it`). The old lineups, bios and squares are untouched and still read.
+- **Routes** (docs/STUDIO-builder.md): `GET crew/agents`, `GET/POST/PUT/DELETE crew/agent/<name>`, `GET crew/workflows`,
+  `GET crew/maps`, `GET crew/estimate`, `POST crew/try`, `GET crew/try/<id>`, `POST crew/try/<id>/stop|seen`,
+  `GET builder`, `POST builder/ask|apply|undo`; every write owner-only. Config: `studio.builder.model`,
+  `studio.builder.cap_usd`. Code: `halo_harness/crew/`, `studio/crew_api.py`, `studio/builder_api.py`,
+  `live/crew_attention.py`, `studio/ui/src/routes/crew/`.
+- **Tests:** `test_crew_formats`, `test_builder_flows`, `test_builder_injection`, `test_crew_try`, `test_studio_crew`
+  (Chrome); `test_studio_room` measures the new tab at 1280 / 1500 / 1920.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

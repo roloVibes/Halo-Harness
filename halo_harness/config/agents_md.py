@@ -116,7 +116,9 @@ class AgentSpec:
             names = []
             for t in self.tools:
                 bare = t.split("(", 1)[0].strip()
-                if bare and bare not in names:
+                if bare.endswith("*"):  # 3.6.0.0 R1: `mcp__<server>__*`, a crew agent's connected tool (crew/spec.py)
+                    names += [n for n in catalog_names if n.startswith(bare[:-1]) and n not in names]
+                elif bare and bare not in names:
                     names.append(bare)
             names = [n for n in names if n in catalog_names]
             if {"Agent", "Task"} & set(names) and "Workflow" in catalog_names and "Workflow" not in names:
@@ -377,6 +379,14 @@ def parse_agents_json(text_or_path: str, *, cwd: Optional[Path] = None) -> "dict
     return out
 
 
+def _crew_agents(cwd) -> "dict[str, AgentSpec]":
+    try:
+        from halo_harness.crew.spec import crew_specs
+        return crew_specs(cwd)
+    except Exception:  # a crew folder Halo cannot read never stops a session
+        return {}
+
+
 def discover_agents(cwd, settings=None, *, agents_flag: Optional[str] = None,
                      plugin_roots: Optional[list] = None) -> "dict[str, AgentSpec]":
     """The full precedence stack, nearest/highest-priority wins per `name`.
@@ -388,6 +398,7 @@ def discover_agents(cwd, settings=None, *, agents_flag: Optional[str] = None,
     for root in reversed(plugin_roots or []):
         out.update(_load_dir_agents(Path(root) / "agents", source=f"plugin:{root}"))
     out.update(_load_dir_agents(home() / ".claude" / "agents", source="user"))
+    out.update(_crew_agents(cwd))  # 3.6.0.0 R1: the Agents tab's agents (crew/spec.py), spawnable by name
     for d in reversed(_walk_up_agent_dirs(cwd)):
         out.update(_load_dir_agents(d, source=f"project:{d.parent}"))
     if agents_flag:

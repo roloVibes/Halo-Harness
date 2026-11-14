@@ -1,0 +1,11 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+format: workflow/1
+name: research
+for: Answer a question with sources.
+steps:
+- name: Find
+  agents:
+  - researcher
+  gets: the question
+  hands: the answer and its sources
+own_copy: false

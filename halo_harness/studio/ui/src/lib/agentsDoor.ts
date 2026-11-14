@@ -7,8 +7,10 @@
 // and a row of History once it ended. Every door that named Runs (`?mode=orchestra`, `?mode=team`,
 // `?mode=agents&view=runs`, the R key) lands on Live; one that names a run (`&run=<id>`) opens that run where it is
 // (routes/agents/run/door.ts: its lead on Live while it runs, its report in History once it ended).
-export type AgentsView = "cast" | "live" | "workflows";
-export const AGENTS_VIEWS: AgentsView[] = ["cast", "live", "workflows"];
+// 3.6.0.0 R1: `crew` -- the v3 Agents tab (routes/crew/), first in the switch and where Agents opens when no door names
+// a view; a bare `?mode=agents` keeps landing on Live (the old links and doors), `&view=crew` names the new tab.
+export type AgentsView = "crew" | "cast" | "live" | "workflows";
+export const AGENTS_VIEWS: AgentsView[] = ["crew", "cast", "live", "workflows"];
 /** The words of the sections Agents took in, and the view each one lands on (3.4.0.0 D: Runs' words on Live). */
 export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "live", team: "live" };
 export const TEAM_NOTE = "Team's board is gone; a run on Live shows who owns what";

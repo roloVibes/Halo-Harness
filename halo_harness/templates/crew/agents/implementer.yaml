@@ -1,0 +1,14 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy in Studio's Agents tab makes yours.
+format: agent/1
+name: implementer
+does: Makes the change the task describes and runs the tests.
+instructions: 'You make the change the task describes and run the tests. Hand back the diff in words (file: what
+  changed) and the test result. Keep to the task.'
+model: auto
+uses:
+- read
+- edit
+- bash
+careful: ask-commands
+more:
+  max_turns: 60

@@ -85,6 +85,7 @@ _SCALARS = {
 # cache_write]} USD per 1M tokens (3.3.3.1, providers/databricks_prices.py), catalog_max_age_hours
 # `steer`: restart_when_silent, silent_restart_s (3.2.2.0 R4); `turn`: nudge_promises (3.2.2.0 R4, agent/turn_marker.py)
 # `studio`: hover_cards (3.3.16.1: Agents' boxes show a hover card; false, their plain tooltips; Studio's lib/hover); alerts none|browser (3.4.1.0 R4, lib/alerts.ts)
+# builder.model, builder.cap_usd (3.6.0.0 R1: the builder box's model and its dollars a day, crew/builder_cap.py)
 # `ollama`: ledger (3.3.4.0 R2, ollama_steward/ledger.py)
 # `control`: enabled, private; `harness`: name; `caps`: per_harness_usd_per_day, per_project_usd_per_day; `attention`:
 # signal (3.5.0.0: the keys that were `fleet.*`, config/renamed_keys.py); `host`: allow_control

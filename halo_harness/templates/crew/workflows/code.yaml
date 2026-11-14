@@ -1,0 +1,14 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+format: workflow/1
+name: code
+for: Make a change in its own copy, test it, hand back the report.
+steps:
+- name: Make the change
+  agents:
+  - coder
+  gets: the task
+  hands: the diff and the test result
+  repeat:
+    until: the tests that cover the change pass
+    max: 3
+own_copy: true

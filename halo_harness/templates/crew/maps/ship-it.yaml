@@ -1,0 +1,24 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+format: map/1
+name: ship-it
+boxes:
+- id: plan
+  workflow: plan
+- id: code
+  workflow: code
+- id: review
+  workflow: review
+lines:
+- from: main
+  to: plan
+  when: always
+- from: plan
+  to: code
+  when: always
+- from: code
+  to: review
+  when: always
+main:
+  agent: main
+caps:
+  session_usd: 20

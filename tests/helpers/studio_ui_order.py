@@ -4,7 +4,7 @@ headless Chrome run on the driver base over Studio on a scratch home with NO liv
 
     python -m tests.helpers.studio_ui_order
 
-  landing   nothing saved, nothing live, a default model set: Studio still opens on Agents (3.3.18.0: Live's empty sentence), not on
+  landing   nothing saved, nothing live, a default model set: Studio still opens on Agents (3.6.0.0 R1: its Agents tab), not on
             the first tab (3.3.0.0 R3: with no provider at all it opens on Setup, tests/test_studio_setup.py)
   tabs      the tab strip in order: each tab's label and its key chip
   keys      Alt+1 .. Alt+9 each select the tab the strip shows for that key; Alt+1 (Session, nothing live)
@@ -61,7 +61,7 @@ def landing(c, url: str) -> dict:
         c.click_on("document.querySelector('[data-testid=\"start-here-dismiss\"]')")
         c.wait("!document.querySelector('[data-testid=\"start-here\"]')", 10)
     return {"landing": c.js(SEL), "landing_live": c.js("document.documentElement.dataset.liveSession || ''"),
-            "landing_live_empty": maybe(c, "document.querySelectorAll('[data-testid=\"roles-live-empty\"]').length", 20) or 0}  # 3.3.18.0
+            "landing_view": maybe(c, "document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'crew' && !!document.querySelector('[data-testid=\"crew-empty\"]') && 'crew'", 20) or ""}  # 3.6.0.0 R1: nothing runs: the Agents tab
 
 
 def tabs(c) -> dict:
@@ -143,9 +143,9 @@ def register(test, json_of, chrome) -> None:
             raise SkipTest("no Chrome found (the tab order test needs headless Chrome)")
         r, got = json_of(*ARGS)
         ctx.check(f"the run finished, got {r.stdout[-300:]!r} {r.stderr[-600:]!r}", r.returncode == 0 and "failed" not in got)
-        ctx.check(f"nothing live, nothing saved: Studio opens on Agents (3.3.18.0: Live's one empty sentence), got {got.get('landing')!r} "
-                  f"{got.get('landing_live')!r} {got.get('landing_live_empty')}",
-                  got.get("landing") == "Agents" and got.get("landing_live") == "" and got.get("landing_live_empty") == 1)
+        ctx.check(f"nothing live, nothing saved: Studio opens on Agents, on its Agents tab (3.6.0.0 R1; Live while a session runs), got "
+                  f"{got.get('landing')!r} {got.get('landing_live')!r} {got.get('landing_view')!r}",
+                  got.get("landing") == "Agents" and got.get("landing_live") == "" and got.get("landing_view") == "crew")
         ctx.check(f"3.3.2.0 R1: the rail's rows, in order, titled, no printed key, got {got.get('tabs')}",
                   [tuple(t) for t in got.get("tabs") or []] == [(t, t, 0) for t, _ in ORDER])
         ctx.check(f"the keys in the palette's Go to: Session / Alt+1 first ... Settings / Alt+6 last, got {got.get('palette_goto_keys')}",

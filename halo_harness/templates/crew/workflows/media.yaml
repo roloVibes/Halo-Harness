@@ -1,0 +1,17 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+format: workflow/1
+name: media
+for: Read PDFs, images, audio and video, and hand back what is in them as text.
+steps:
+- name: Read
+  agents:
+  - media-reader
+  gets: the files
+  hands: their text
+  when:
+    needs:
+    - pdf
+    - images
+    - audio
+    - video
+own_copy: false

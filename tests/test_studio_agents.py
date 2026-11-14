@@ -49,14 +49,15 @@ def _live(ctx: Ctx) -> dict:
 
 
 @test
-def test_alt2_opens_agents_on_live_with_nothing_else_open(ctx: Ctx):
+def test_alt2_opens_agents_on_the_agents_tab_with_nothing_else_open(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"Alt+2 lands on Agents, on Live (3.3.18.0), got {got.get('alt2')!r}", got.get("alt2") == "live")
+    ctx.check(f"Alt+2 lands on Agents, on 1 · Agents (3.6.0.0 R1: the new tab is first and the default), got {got.get('alt2')!r}",
+              got.get("alt2") == "crew")
     ctx.check(f"six section tabs with their keys, got {got.get('tab_ids')}", got.get("tab_ids") == SIX)
     q = got.get("quiet") or {}
-    ctx.check(f"no inspector, no dialog, no help; Live pressed, got {q}",
+    ctx.check(f"no inspector, no dialog, no help; 1 · Agents pressed, got {q}",
               q == {"inspector": "closed", "dialogs": 0, "help": False, "live_on": "true"})
-    ctx.check(f"Live is drawn in Roles' room, got {got.get('cast_body')!r}", got.get("cast_body") == "roles")
+    ctx.check(f"the Agents tab is drawn in its own room, got {got.get('cast_body')!r}", got.get("cast_body") == "crew")
 
 
 @test
@@ -64,7 +65,7 @@ def test_the_doors_land_on_their_views(ctx: Ctx):
     got = _got(ctx)
     want = {"mode=roles": "cast", "mode=roles&view=live": "live", "mode=orchestra": "live",  # 3.4.0.0 D: Runs went
             "mode=agents&view=runs": "live", "mode=agents&view=live": "live", "mode=agents": "live",
-            "mode=agents&view=workflows": "workflows"}  # 3.3.16.0 R3: the fourth view
+            "mode=agents&view=workflows": "workflows", "mode=agents&view=crew": "crew"}  # 3.3.16.0 R3; 3.6.0.0 R1: the Agents tab
     seen = {k: got.get(k) for k in want}
     ctx.check(f"each door's view, got {seen}", seen == want)
     first = got.get("first") or ["", ""]
@@ -78,6 +79,7 @@ def test_c_r_l_switch_the_views(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"R Live (3.4.0.0 D), W Workflows, L Live, C Cast, got {[got.get(k) for k in 'rwlc']}",
               [got.get(k) for k in "rwlc"] == ["live", "workflows", "live", "cast"])  # 3.3.16.0 R3: W the board
+    ctx.check(f"1: the Agents tab (3.6.0.0 R1), got {got.get('1')!r}", got.get("1") == "crew")
 
 
 @test

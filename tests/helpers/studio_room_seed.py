@@ -32,6 +32,7 @@ def seed_long_names(rig) -> str:
             "tiers": [{"name": "top", "members": ["boss"]}, {"name": "build", "purpose": "the builders", "members": list(LONG[:10])},
                       {"name": "check", "purpose": "the checkers", "members": list(LONG[10:20])}], "workflows": ["media", "review"]}
     (st / "teams" / "big-crew.yaml").write_text(yaml.safe_dump(crew, sort_keys=False), encoding="utf-8")
+    seed_crew(st, pref)
     models = {}
     for i in range(40):
         v = VENDORS[i % len(VENDORS)]
@@ -47,3 +48,17 @@ def seed_long_names(rig) -> str:
         return "local seed ok"
     except Exception as e:  # Local then draws its empty states; the driver says so
         return f"local seed failed: {type(e).__name__}: {e}"
+
+
+def seed_crew(st, pref: str) -> None:
+    """3.6.0.0 R1: the Agents tab's list -- six crew agents with long names (one with every kind of tool, a skill and a
+    connected tool, its More filled), so the room rules measure a full form (`&view=crew&agent=<LONG[0]>`)."""
+    from halo_harness.crew import store
+    for i, n in enumerate(LONG[:6]):
+        raw = {"format": "agent/1", "name": n, "does": f"{n.replace('-', ' ').capitalize()}: reads the task, does the part named here and hands back one short report.",
+               "model": pref if i % 2 else "auto", "uses": ["read", "edit", "bash", "web", "skill:release-notes", "mcp:issue-tracker"] if i == 0 else ["read"],
+               "careful": ("ask-changes", "ask-commands", "own")[i % 3],
+               "more": {"max_turns": 40, "max_usd": 2.5, "reads": ["SECURITY.md", "docs/CONTRIBUTING.md"], "worktree": True} if i == 0 else {}}
+        if i == 0:
+            raw["instructions"] = chr(10).join(f"{k}. Step {k} of how it works, in one plain line that is long enough to wrap in a narrow box." for k in range(1, 9))
+        store.write_text(store.path_for("agent", n, state_dir=st), store.dump(raw))

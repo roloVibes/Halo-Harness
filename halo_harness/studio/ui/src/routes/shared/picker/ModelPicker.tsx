@@ -34,7 +34,7 @@ export type PickerProps = {
   /** The rows to list instead of GET models (Setup's page lists its cached rows: reading it probes no host). */
   rows?: ModelRow[];
   /** The first row keeps what the field inherits (picks ""): "the bio's own (<model>)", "the default (<model>)". */
-  inherit?: { label: string; model: string };
+  inherit?: { label: string; model: string; text?: string };
   tid?: string;
   autoFocus?: boolean;
   seed?: string;
@@ -134,7 +134,7 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
             {inherit && (
               <button type="button" className="rm-row mpk-special" role="option" aria-selected={!value} data-hot={hotRef === "" || undefined} tabIndex={-1}
                       onClick={() => onPick("")} onMouseEnter={() => setHot(0)} data-testid={`${tid}-inherit`}>
-                <span className="mono rm-ref">{inherit.label} ({inherit.model || "none resolves"})</span>
+                <span className="mono rm-ref">{inherit.text ?? `${inherit.label} (${inherit.model || "none resolves"})`}</span>
               </button>
             )}
             {!known && (

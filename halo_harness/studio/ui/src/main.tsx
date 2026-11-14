@@ -34,6 +34,7 @@ import "./styles/roles-live.css"; // 3.3.11.0 R2: Roles Live, New session, the n
 import "./styles/agents.css"; // 3.3.16.0 R1: Agents' bar (Cast | Runs | Live), the owns line, a lane's claims
 import "./styles/agents-live.css"; // 3.3.16.0 R2: Live's inspector, the Attention chip
 import "./styles/workflows.css"; // 3.3.16.0 R3: Agents -> Workflows, the board of squares; a square's Live node
+import "./styles/crew.css"; // 3.6.0.0 R1: Agents -> 1 · Agents (routes/crew/): the form, Try it, the builder box
 import "./styles/packs.css";
 import "./styles/manager.css";
 import "./styles/setup.css";

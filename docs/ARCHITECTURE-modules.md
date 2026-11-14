@@ -89,12 +89,20 @@ this list against the tree.
   (3.4.0.0 D: whether a catalog meets a need), `peers/projects.py` (3.4.0.0 D: the repos this harness works in),
   `peers/firewall.py` (3.4.0.1: whether Windows Firewall lets other machines reach a port Halo listens on, read-only)
 
+**Crew** (`halo_harness/crew/`, 3.6.0.0 R1, docs/CREW-FORMATS.md, docs/STUDIO-builder.md): `crew/formats.py` (agent/1,
+workflow/1, map/1: a problem per line, the circle), `crew/store.py` (yours / a trusted project's / the starters),
+`crew/spec.py` (an agent file as the AgentSpec the Agent tool spawns), `crew/tools.py` (the builder's agent_* tools),
+`crew/changes.py` (preview rows, apply, undo), `crew/builder.py` + `crew/builder_cap.py` (one builder turn, its model
+and its daily cap), `crew/trial.py` + `crew/trial_run.py` (Try it on a throwaway worktree); Studio's routes
+`studio/crew_api.py` (`crew/`) and `studio/builder_api.py` (`builder/`).
+
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live):
 
 - `live/think.py` (3.3.16.2: every agent's thoughts as `thinking_chunk` frames), `live/talk.py` (one agent's words to
   another as `agent_talk` frames)
 - the attention queue: `live/attention.py`, `live/supervise_attention.py` (3.1.8.0 R1: the supervisor's parked
-  decisions), `live/pack_attention.py` (a pack's own rows, 3.2.0.0 R3), `live/steward_attention.py`
+  decisions), `live/pack_attention.py` (a pack's own rows, 3.2.0.0 R3), `live/steward_attention.py`,
+  `live/crew_attention.py` (3.6.0.0 R1: a Try it run that ended unseen)
 - `live/caps.py`, `live/conflicts.py`, `live/journal.py`, `live/push.py`, `live/handoff.py`, `live/history.py`,
   `live/recording.py`, `live/recording_page.py`
 - time (3.4.1.0 R1, docs/REPLAY.md): `live/timeline.py` (a session's marks and phase bands), `live/replay_file.py` (the

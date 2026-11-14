@@ -1,0 +1,44 @@
+# A shipped starter (Halo 3.6.0.0): read-only; Copy makes yours.
+format: map/1
+name: starter
+boxes:
+- id: planner
+  agent: planner
+- id: researcher
+  agent: researcher
+- id: coder
+  agent: coder
+- id: reviewer
+  agent: reviewer
+- id: writer
+  agent: writer
+- id: media-reader
+  agent: media-reader
+- id: ops
+  agent: ops
+lines:
+- from: main
+  to: planner
+  when: main-decides
+- from: main
+  to: researcher
+  when: main-decides
+- from: main
+  to: coder
+  when: main-decides
+- from: main
+  to: reviewer
+  when: main-decides
+- from: main
+  to: writer
+  when: main-decides
+- from: main
+  to: media-reader
+  when: main-decides
+- from: main
+  to: ops
+  when: main-decides
+main:
+  agent: main
+caps:
+  session_usd: 20

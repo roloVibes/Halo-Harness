@@ -16,6 +16,7 @@ serves them (`GET /api/live/attention`) and routes the answers.
                    live/steward_attention.py): set aside / open Local
     background_done  a session's background work finished while it was idle (3.4.1.3, its status's `bg_done`,
                    agent/bg_pickup.py): set aside / open; it goes with the person's next message there
+    crew_try       a Try it run ended while the Agents tab did not show it (3.6.0.0 R1, live/crew_attention.py)
 
 Each row: {id, kind, harness, harness_name, local, session_id, session, agent_id, agent, what, detail,
 since, keys: {a|r|s|o: label}, text_for: "r" | None, target: {...}}. `keys` holds only the answers
@@ -50,6 +51,7 @@ KEYS = {
     "goal_replan": {"a": "apply the new plan", "r": "keep the old plan", "s": "stop the goal", "o": "open the plan"},  # R2
     "ollama_steward": {"a": "set aside", "o": "open Local"},  # 3.3.4.0 R4: the steward's note; 3.3.16.0 R2: Local -> Hosts
     "background_done": {"a": "set aside", **OPEN},  # 3.4.1.3: background work finished while the session was idle
+    "crew_try": {"a": "set aside", **OPEN},  # 3.6.0.0 R1: a Try it run ended while the Agents tab did not show it
 }
 BG_THEN = {"continue": "the agent picks it up by itself", "tell": "it is read with your next message"}
 # 3.3.5.0 R4: a preflight card (agent/preflight.py) answers accept = compact, edit = the bigger-window model, stop
@@ -182,6 +184,9 @@ def build(view: dict, *, asks: Optional[dict] = None, orchestra=(), reached=(), 
     if home is not None:  # 3.3.4.0 R4: the Ollama steward's newest note that raises the signal
         from halo_harness.live.steward_attention import rows as steward_rows
         rows += steward_rows(home, local, seen, now)
+    if home is not None:  # 3.6.0.0 R1: a Try it run that ended unseen (live/crew_attention.py)
+        from halo_harness.live.crew_attention import rows as crew_rows
+        rows += crew_rows(home, local, seen, now)
     if packs:  # 3.2.0.0 R3: a pack's own rows (`pack:<id>:<kind>`, live/pack_attention.py)
         from halo_harness.live.pack_attention import rows as pack_rows
         rows += pack_rows(list(packs), local, seen, now)

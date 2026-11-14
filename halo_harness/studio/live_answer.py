@@ -38,7 +38,8 @@ ANSWER = {
 NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
 SET_ASIDE = ("orchestra_gate", "conflict", "ollama_steward",  # 3.3.4.0 R4: the steward's note
-             "background_done")  # 3.4.1.3: background work finished while a session was idle
+             "background_done",  # 3.4.1.3: background work finished while a session was idle
+             "crew_try")  # 3.6.0.0 R1: a Try it run ended unseen (setting it aside marks it seen)
 SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
 
 
@@ -72,6 +73,9 @@ def open_target(row: dict) -> dict:
     if kind == "ollama_steward":  # 3.3.4.0 R4
         from halo_harness.live.steward_attention import open_target as steward_target
         return steward_target(row)
+    if kind == "crew_try":  # 3.6.0.0 R1
+        from halo_harness.live.crew_attention import open_target as crew_target
+        return crew_target(row)
     if kind == "cap":
         return {"section": "live", "panel": "fleet-costs", "scope": t.get("scope"), "key": t.get("key")}
     if kind == "conflict":
@@ -109,6 +113,9 @@ def act(req, watcher, row: dict, key: str, text: str):
         return supervise_answer(req, row, key, text)
     if kind in SET_ASIDE:
         watcher.acks.add(row["id"])
+        if kind == "crew_try":  # 3.6.0.0 R1: for good, not only until the watcher forgets
+            from halo_harness.live.crew_attention import set_aside
+            set_aside(watcher.home, row)
         from halo_harness.live import journal
         journal.append(watcher.home, "ack", harness=row.get("harness"), harness_name=row.get("harness_name"),
                        session_id=row.get("session_id"), row=row["id"])

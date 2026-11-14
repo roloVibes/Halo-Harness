@@ -158,3 +158,12 @@ pack DELETE ^(?P<slug>[^/]+)/artboard/(?P<aid>[^/]+)$
 pack POST ^(?P<slug>[^/]+)/turn/(?P<tid>[^/]+)/cancel$
 owner POST ^live/(?P<hid>[A-Za-z0-9_.:-]+)/(?P<sid>[A-Za-z0-9_.:-]+)/command$
 owner POST ^live/(?P<hid>[A-Za-z0-9_.:-]+)/(?P<sid>[A-Za-z0-9_.:-]+)/agents/(?P<aid>[A-Za-z0-9_.:-]+)/command$
+owner POST ^crew/agent/(?P<name>[a-z][a-z0-9-]{0,47})$
+owner PUT ^crew/agent/(?P<name>[a-z][a-z0-9-]{0,47})$
+owner DELETE ^crew/agent/(?P<name>[a-z][a-z0-9-]{0,47})$
+owner POST ^crew/try$
+owner POST ^crew/try/(?P<tid>t[0-9a-f]{10})/stop$
+owner POST ^crew/try/(?P<tid>t[0-9a-f]{10})/seen$
+owner POST ^builder/ask$
+owner POST ^builder/apply$
+owner POST ^builder/undo$
