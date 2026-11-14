@@ -41,6 +41,18 @@ def inside(scope: str, testid: str) -> str:
     return f"document.querySelectorAll('[data-testid=\"{scope}\"] [data-testid=\"{testid}\"], [data-section=\"{scope}\"] [data-testid=\"{testid}\"]')"
 
 
+# BOOT_HOP (3.4.1.3, CI red on 30cc5bcc): a Studio page opened straight from another Studio page now and then (1 in 12
+# runs at HALO_STUDIO_SLOW_MS=400, on 3.4.1.2 too) took studio.js from Chrome's memory cache and never ran it: no
+# error, the owner salt still on <html>, an empty #root. Through about:blank first, the old page is gone before it loads.
+def boot_go(c, u: str) -> None:
+    c.go("about:blank")
+    c.wait("location.href === 'about:blank'", 10)
+    c.go(u)
+
+
+# the page's errors, for the message of a page that did not boot
+ERRS_JS = ("window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e.error)));"
+           " addEventListener('unhandledrejection', (e) => window.__errs.push('rejected: ' + String(e.reason)));")
 # 3.1.5.0 R3: Agent starts as a strip; the selected agent is the map's selected node (its key and state)
 AGENT = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-selected]')"
 COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
@@ -82,14 +94,14 @@ def landing(c, rig) -> dict:
     """Nothing saved: a live session here lands on Session; nothing live lands on Roles (the boot mark, pinned)."""
     from halo_harness.studio import session_open
     out: dict = {}
-    c.go(url(rig))
+    boot_go(c, url(rig))
     out["landing_live"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 30) or c.js(TAB)
     out["boot_live"] = c.js("document.documentElement.dataset.liveSession || ''")
     saved = session_open.newest_live
     session_open.newest_live = lambda: ""
     try:
         c.js("localStorage.clear(); 1")
-        c.go(url(rig, "again=1"))
+        boot_go(c, url(rig, "again=1"))
         out["landing_none"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 30) or c.js(TAB)
         out["boot_none"] = c.js("document.documentElement.dataset.liveSession")
     finally:
@@ -102,11 +114,20 @@ def dash(c, rig) -> dict:
     from halo_harness.peers.identity import harness
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
-    c.go(url(rig, "mode=session"))
+    c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)  # a blank page says why
+    boot_go(c, url(rig, "mode=session"))
     panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost", "session-live",
               "session-prompt"]  # 3.3.11.0 R1
-    c.wait(" && ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length === 1" for p in panels), 30)
-    out["panels"] = c.js("[" + ", ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in panels) + "]")
+    counts = "[" + ", ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length" for p in panels) + "]"
+    try:
+        c.wait(" && ".join(f"document.querySelectorAll('[data-testid=\"{p}\"]').length === 1" for p in panels), 30)
+    except TimeoutError:  # say WHICH panel count was wrong (0: not mounted, 2: mounted twice)
+        got = dict(zip(panels, c.js(counts) or []))
+        page = c.js("[(window.__errs || []).slice(0, 3), document.getElementById('root')?.childElementCount, "
+                    "'ownerSalt' in document.documentElement.dataset ? 'the shell never ran' : 'the shell ran']")
+        bad = ", ".join(f"{p}={n}" for p, n in got.items() if n != 1)
+        raise TimeoutError(f"Session panels not one each: {bad}; tab {c.js(TAB)!r}; errors, #root children, boot: {page!r}")
+    out["panels"] = c.js(counts)
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
     view = local_view(rig)
     want_nodes = sum(len(s.get("agents") or []) for s in view.get("sessions") or [])
@@ -148,7 +169,7 @@ def dash(c, rig) -> dict:
         c.key("j")
         hops.append(c.wait(f"{AGENT}?.dataset.key !== '{before}' && {AGENT}.dataset.key", 5) or before)
     out["hops_here"] = all(str(k).startswith(hid + "|") for k in hops)
-    c.go(url(rig, f"mode=session&session={FAKE_SID}"))
+    boot_go(c, url(rig, f"mode=session&session={FAKE_SID}"))
     out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
     out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
@@ -180,13 +201,15 @@ def focus(c, rig) -> dict:
     launch._open = lambda u: opened.append(u) or True  # a focused page needs no new tab; record any
     write_private_atomic(studio_info_path(rig.state), json.dumps({"pid": 0, "port": rig.server.server_address[1], "token": rig.server.token,
                                                                  "owner_salt": rig.server.owner_salt}))
-    c.go(url(rig, "mode=fleet&focus=1"))
+    boot_go(c, url(rig, "mode=fleet&focus=1"))
     c.wait(f"{TAB}.startsWith('Agents')", 30)
+    # the state the opener acts on: THIS page's feed open (else the opener can find no page listening and open a tab)
+    c.wait("globalThis.__haloStudioLib?.events?.feedState() === 'open'", 15)
     end = time.time() + 15
     while time.time() < end and bridge_for(rig.server).listeners() < 1:
         time.sleep(0.1)
-    # The listener counted may still be the last page's feed (its socket outlives the navigation): a frame sent before
-    # this page subscribed is missed, so the door is sent again until the page moves (3 tries, 8 s each).
+    # A frame sent before the page's subscription reached the server is missed: the door is sent again until the page
+    # moves (3 tries, 8 s each).
     for _ in range(3):
         r = open_edit(SectionTarget("session", FAKE_SID, "this session"), cwd=rig.proj, state_dir=rig.state)
         out["focus_how"], out["focus_line"] = r["how"], describe(r)

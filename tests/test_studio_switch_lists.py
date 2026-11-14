@@ -41,6 +41,8 @@ def test_setup_default_model_shows_every_model(ctx: Ctx):
               got.get("rows") == 300 and got.get("refs_unique") == 300)
     ctx.check(f"the count line, got {got.get('count_line')!r}", got.get("count_line") == "300 models")
     ctx.check(f"the search still narrows, got {got.get('searched')}", got.get("searched") == ["or:mock/m007"])
+    ctx.check(f"a pick keeps every row drawn (no blink back to 200), fewest {got.get('fewest_rows_through_a_pick')}",
+              got.get("fewest_rows_through_a_pick") == 300)
 
 
 @test

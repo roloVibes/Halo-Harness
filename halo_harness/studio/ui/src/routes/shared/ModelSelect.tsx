@@ -85,7 +85,10 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
   };
   const show = (s = "") => (setSeed(s), setOpen(true));
   const onKey = (e: KeyboardEvent<HTMLButtonElement>) => {
-    if (open) return;
+    if (open) { // an Esc before the search box has taken the focus (it moves there a tick after the open) closes too
+      if (e.key === "Escape") (e.preventDefault(), close());
+      return;
+    }
     if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") (e.preventDefault(), show());
     else if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) (e.preventDefault(), show(e.key));
   };
