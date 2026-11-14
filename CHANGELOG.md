@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.5.0.0] - unreleased
+## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one
 machine's agents and your local models. Everything about this machine's sessions stays (the registry, the control

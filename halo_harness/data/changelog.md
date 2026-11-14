@@ -1,5 +1,60 @@
 # What changed (the newest version entries of CHANGELOG.md, shipped with the package; `halo whatsnew` reads it)
 
+## [3.5.0.0] - 2026-11-13
+
+Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one
+machine's agents and your local models. Everything about this machine's sessions stays (the registry, the control
+socket, Session, Agents -> Live, History, Attention, the glance, the scrubber and the replay, steer / pause / stop),
+and so does everything about local models on other machines (Ollama on the network, `halo host serve` and the host
+door, the pool, the steward, capability checks). Fleet's code was saved as a standalone pack folder outside this
+repository; it is not published.
+
+### What was removed
+
+| Thing | Lines |
+|---|---|
+| the shipped `fleet` pack (`halo_harness/templates/packs/fleet/`: the hub, pairing, members, missions, its CLI, Studio routes, tests, docs, UI bundle; 74 files) | 9,668 |
+| core glue (`packs/fleet_door.py`, `packs/fleet_migrate.py`, `work/adapters/part.py`, the coach pack's mission coach and library share, `tools/capture_fleet.py`, `tools/live_fleet_check.py`; 10 files) and the fleet parts of other core modules | 2,693 removed (1,161 added) |
+| Studio's fleet UI (Mission panel and dialogs, the mission store, Capabilities, Who, People, Pair, Health, Digest, Recall, the machine nodes and summary, mission parts, Setup -> Machines, the fleet scope on Live, three stylesheets; 30 files) | 3,732 removed (326 added) |
+| fleet, mission, hub, pair and member tests (49 files) and the fleet parts of mixed modules | 10,076 removed (1,595 added) |
+| docs: FLEET.md, MISSIONS.md, COMMANDS-fleet.md, STUDIO-fleet.md, four pictures; the fleet parts of every other doc | 2,676 removed (654 added) |
+
+Studio's bundle: `studio.js` 1,430,286 -> 1,332,425 bytes, `studio.css` 273,323 -> 258,852 bytes.
+
+### What was renamed (old -> new)
+
+- Studio routes: `fleet`, `fleet/<harness>/<sid>/command`, `.../agents/<aid>/command|handoff`, `fleet/history`,
+  `fleet/attention[/answer]`, `fleet/costs`, `fleet/caps`, `fleet/conflicts`, `fleet/<h>/<sid>/recording`,
+  `fleet/recordings/<name>`, `fleet/replay` -> `live/...` (`studio/live_api.py`; another harness is a 404).
+- Feed frames: a session's `fleet` frame -> `registry`; Studio's watcher's `fleet` frame -> `live`; a transcript's
+  `fleet` / `fleet_note` meta -> `control` / `control_note` (the old ones are still read).
+- Modules: `studio/fleet_view_api` -> `live_api`, `fleet_api` -> `live_agents_api`, `fleet_panels_api` ->
+  `live_panels_api`, `fleet_handoff_api` -> `live_handoff_api`, `fleet_recording_api` -> `live_recording_api`,
+  `fleet_answer` / `fleet_feed` / `fleet_send` / `fleet_watch` / `fleet_watch_sources` -> `live_*`;
+  `remote/fleet_identity` -> `session_identity`, `fleet_frames` -> `agent_frames`, `cli_fleet` -> `cli_agents`;
+  `packs/fleet_registry` -> `capability_check`, `fleet_rules` -> `capability_rules`; `recall_fleet` -> `recall_box`.
+- Config keys (an old config still loads: the old key is read once and migrated in memory): `fleet.enabled` ->
+  `control.enabled`, `fleet.private` -> `control.private`, `fleet.name` -> `harness.name`, `fleet.allow_control` ->
+  `host.allow_control`, `fleet.caps.per_harness_usd_per_day` / `per_project_usd_per_day` -> `caps.*`,
+  `fleet.attention.signal` -> `attention.signal`, `fleet.ollama.share` -> `ollama.share`. Every other `fleet.*` key
+  is ignored and `halo doctor` says once "fleet.* settings are no longer used: Fleet is a separate pack now", naming
+  them. `HALO_FLEET_PARENT` -> `HALO_SESSION_PARENT`, `HALO_FLEET_PRIVATE` -> `HALO_PRIVATE`, `~/.halo/fleet-id` ->
+  `~/.halo/harness-id` (renamed once).
+- Extension API 1.4: a pack's `contributes.fleet` is `contributes.capabilities` (the old name is still read, its
+  `mission` key ignored, the locality `shared` gone); `ext.remote.fleet_lines` -> `live_lines` (the old name still
+  answers). The shipped coach (1.0.1: no mission coach, no library fetch), first-run (1.0.1: step 7 ends on Local) and
+  signal (1.0.1: `/fleet` is `/live`) packs follow; the doc-review pack declares `contributes.capabilities`.
+- The `halo-harness[fleet]` extra is `[tls]` (the old name stays, for `halo host serve`'s TLS).
+
+### What a user who used Fleet sees
+
+`halo fleet ...` and `halo mission ...` (and `/fleet`, `/mission`, `halo recall --fleet`) answer one line and exit 2:
+"Fleet is not part of Halo Harness any more (it left in 3.5.0.0); it is a separate pack." `halo studio --fleet`,
+`--mode fleet` and `?mode=fleet` are gone; Agents -> Live draws this machine's sessions only, Setup has no Machines
+step, Settings no Fleet page, the palette no fleet lines. A home with fleet state keeps its files (`~/.halo/fleet.json`,
+`<state>/fleet/`) untouched; the pairing with a `halo host` (another machine's models) keeps working, its records
+still live in those files.
+
 ## [3.4.1.3] - 2026-11-13
 
 Every model field in Studio is a picker of the models you have: you never type a model reference from memory. Every drawing in Studio zooms the same way: Ctrl or Cmd + wheel, or a pinch. Finished background work shows up, and the agent picks it up, without you sending a message.
@@ -1512,251 +1567,3 @@ square is a workflow with a contract; the main agent hands a task to one through
   COMMANDS-workflows.md `halo workflows`; STUDIO-agents.md the fourth view and the board's rules; SLASH-COMMANDS-tui.md
   `/workflows`; PACKS.md "A pack's squares"; AGENTS.md the `Workflow` tool; CONFIG.md `workflows.enabled`; the
   glossary's "square" and "router" (and a sentence on "receipt"); the module map.
-
-## [3.3.15.0] - 2026-11-09
-
-**Studio wears the Instrument look.** A design session answered `docs/STUDIO-redesign-brief.md` with "Instrument"
-(`docs/design/studio-instrument/`: the proposal, the mock-ups, the prompt it was written to be applied with), and this
-version applies it as its first round (the second, R2, makes every model list say what a model takes): an eleventh palette, `instrument`, that Studio draws on a dark system; solid surfaces,
-1 px hairlines, corner ticks on every panel, cyan for work and selection, amber for what waits on you, mono for data
-and sans for prose; four animations that carry meaning and nothing else that moves. It restyles only: no section or
-panel is renamed, no shortcut, route, `?mode=` word or `data-testid` changes, and the rail keeps its nine core
-sections in their order with the packs' after them.
-
-### Fixed on the way: an Orchestra worker's "STOP: none" is no stop
-
-- **A worker that says the stop condition did not apply no longer kills its lane** (rolo, Kali, during the guided
-  first run; finding f-20261109-9f7492). `stop_line` read any reply line starting with `STOP:` as a real stop, so
-  "STOP: none -- my unit is written" or "STOP: not applicable" failed the lane and every lane that depended on it, and
-  the retry path never retries a stop. A reason that only says it did not apply (none, n/a, no, not applicable, does
-  not apply, nothing, not needed) is skipped (`orchestra/worker_stop.py`); a bare `STOP:` still means the worker
-  stopped; the worker prompt now says to write no STOP line at all when STOP WHEN does not apply.
-
-### L1: Instrument, the look
-
-#### Changed
-
-- **The palette.** `instrument` joins the registry (`halo_harness/themes/palettes.py`, PROPOSAL.md section 1: the
-  seventeen tokens exactly, dark; every text token over 4.5:1 on bg, surface and surface-2, the lowest faint on
-  surface-2 at 4.9; accent_ink on accent 10.5). Studio's "follow the system" draws it on a dark system (`:root`
-  alone, `data-theme="auto"` and the server's first paint did holo); `holo` stays in the theme menu and on Settings ->
-  Themes, `paper` stays the light default, the terminal's default is unchanged and `/theme` lists eleven. holo's
-  label says it was Studio's look before this version.
-- **The derived variables** (PROPOSAL.md section 2; `halo_harness/themes/studio_css.py`, the same rule for a pack's
-  palette at run time). Surfaces are solid (`--surface-glass` is the surface, `--blur` 0), the resting `--glow` is
-  no shadow and `--glow-strong` a 1 px accent ring, Studio's hairlines come from the opaque `border` token (`--line`,
-  the new `--border`; a light palette's `line` is its `border`, so a light page draws as before) with `--line-soft`
-  for row rules and `--line-strong` the border lifted toward the text, `--grid-line` is the dot of the static dot grid
-  (`--grid`, on map canvases only), one shadow level (`--shadow-1`), soft fills at 6-8 % on a dark page, and `--user`
-  / `--tool`. The static block of `styles/tokens.css` adds the scales: radii (`--r-panel` 6 ... `--r-badge` 2),
-  spacing (`--s-1`..`--s-6`: 4 8 12 16 20 28), type (`--t-title`, `--t-body` 13 px prose, `--t-data` 12 px mono,
-  `--t-caption`, `--t-node-name`), motion (`--dur-fast` 160, `--dur-base` 240, `--dur-slow` 600 ms, zero under
-  reduced motion) and the chrome sizes; comfortable density is 13 px text and a 40 px title row, compact 12 px and 32.
-  Every old variable name stays.
-- **The shell** (PROPOSAL.md section 3). The rail is 52 px of icons (176 px with titles on its chevron, kept per
-  browser as before), the selected section the accent with a 2 px bar at the left edge, its badges squares; the header
-  48 px with the section's name in mono caps, a `/` and its line, the command palette's door a 300 px field; the status
-  bar 26 px in 11 px mono; the inspector a 344 px column; the palette 560 px with 36 px rows. The rail is still
-  sections only, nothing opens on a section load, the inspector opens on a selection, Focus hides all but the page.
-- **The kit** (`lib/ui`). Buttons 30 px in mono (on = the accent, primary the accent fill), Kbd 16 px, a Field's text
-  input carries a leading `›`, Tabs are 36 px mono caps with a 1 px underline and no sliding, Menu and Dialog the one
-  shadow level, every panel frame (`.glass`) four corner ticks with the selected panel's in the text colour, Toasts
-  300 px in mono, Empty one line and a button, ErrorState one line in red, Skeleton still blocks after 300 ms, the
-  FitMeter an 8 px track. **A confirmation shows DOES / COSTS / WRITES** (`lib/ui/DialogCost.tsx`, `Dialog`'s new
-  `cost`): three mono lines before the buttons, the pack kit's offered-action rule made visible -- a pack's remove and
-  update, Roles' Apply, delete a lineup, a bio or a card, leave unsaved edits, clone over a name, stop a mission, take
-  over, hand to, kick, stop a team run, delete a local model.
-- **Map nodes and edges** (Session Map, Roles Live, the Fleet Tree; `styles/nodes.css`). A node is surface-2 with a
-  hairline and a 2 px rule across the top in its state colour (working cyan, waiting amber three pulses then steady,
-  done green fading to rest over 10 s, failed red until you click it), a state square, a 1 px outline 3 px out when it
-  is selected or a Live line for it is hovered; an edge is 1.5 px, a working child's carries a 4/8 dash moving toward
-  it, a failed one is dotted. Nodes, Roles Live's nodes, Live's tags and the Fleet Tree show the resolved model without
-  its provider prefix (`lib/modelName.ts`: `or:qwen/qwen3-coder` -> `qwen3-coder`); the Inspector, the Agent panel and
-  the tooltips keep the full id.
-- **Motion** (PROPOSAL.md section 5, `styles/motion.css`). Four animations: an agent starting (its node fades in, its
-  edge draws from the parent) and ending, a receipt ladder climbing (the Prompt panel's four marks, 160 ms apart), the
-  fit meter filling once, a toast arriving (16 px rise and fade, a 180 ms fade out; it holds 4 s, an error stays until
-  its ✕). Each plays only for a thing that appears after its page drew (`lib/motion/born.ts`), never on a section
-  load; the working state square blinks at 1.4 s. Everything else is still: no breathing, no flowing light, no sweep,
-  no fade or rise when a section, a panel, a menu, a dialog or a row appears. Under `prefers-reduced-motion` every one
-  is an instant state swap and a working edge is solid accent.
-
-#### Docs
-
-- docs/STUDIO-shell.md: the Instrument look (the rail's widths, the panel frame's ticks and faces, the Dialog's three
-  lines, the motion rule), the eleven palettes; docs/CONFIG.md `theme` and docs/GLOSSARY.md: eleven palettes,
-  `instrument` the dark default; docs/STUDIO-sections.md and docs/STUDIO-setup.md where a line counted palettes or
-  described chrome that changed; docs/STUDIO-redesign-brief.md: what shipped.
-
-### R2: the picker says what a model takes
-
-The owner: "When you use forward slash model, show what the models capabilities are like visual, audio, pdf, etc. Is
-there a way to see this info via studio?" The facts were in every catalog row and the honest line in the best-at
-cache; now every place a model is picked says them.
-
-#### Changed
-- The terminal `/model` picker's rows carry a `takes=` column right after the ref (`halo_harness/model_takes.py`):
-  what the model reads (`text` always, then `vision`, `audio`, `video`, `pdf`), `image` when it makes images, `tools`
-  and `think` when stated or measured, `?` when the catalog states no inputs. The header line explains it. The prices
-  follow it, so a narrow terminal keeps ref, takes and price and ellipsizes ctx and speed.
-- The picker's subtitle shows the highlighted model's honest line ("vision+pdf in, tools, reasoning, long context
-  (1M), premium; no audio") and the footer again when nothing is highlighted (`tui/dialogs/model_picker_takes.py`).
-- `/model <ref>`'s confirmation ends with the takes words; `halo models` prints a `takes` column for the OpenRouter
-  and Databricks tables; `halo models show <ref>` prints `takes:` and `best at:` (`--json`: `takes`, `best_at_line`).
-- Studio: one tag group (`routes/shared/ModelTakes.tsx`, `data-testid="model-takes"`, the honest line its title)
-  wherever a model is picked -- under the model select (Orchestra's goal and workflow forms, Roles' Assignment, MODEL
-  strip, tier menu, bio form), beside Session's new-session select, Settings' model rows, and as the TAKES column of
-  Roles' picker table and Setup's default model. `GET models`, the Setup rows and `GET sessions/new` carry `takes` (and
-  the new-session rows the line); no new route.
-- Studio, the owner's note on the picker's chips ("funky": ovals stretched to the row, rows several lines tall): a row
-  is one line with fixed columns (MODEL, IN / OUT, CTX, TAKES, GYM); the tags are 18 px square-cornered mono words in
-  a fixed order (vision, audio, video, pdf, image, tools, think; at most six, then `+n`; `text in` or `?` muted); the
-  ranked "best at" kinds are no longer chips in the row: they stay the "best" sort and, with the honest line, the
-  effort word and the card's chips, sit on one detail line under the list for the highlighted row
-  (`styles/model-takes.css`).
-
-#### Docs
-- SLASH-COMMANDS-session.md (`/model`: the column, the line, the confirmation), COMMANDS-providers.md (`halo models`'
-  takes column, `halo models show`'s lines), STUDIO-sections.md (the chips wherever a model is picked).
-
-### R3: text boxes fit their text
-
-The owner, with a photo of the Session Prompt panel: "These chat prompt boxes or all boxes that have text in them need
-to be bigger ... I can't ever see the example text fully because the chat window is so small." The composer was one
-line tall under a mostly empty panel, its two-line placeholder cut mid-word; the same one-line boxes held paragraphs in
-Roles' Lineup tab, Orchestra's goal form, Fleet's Steer and Mission start and the Settings editors.
-
-#### Changed
-- One text box, `lib/ui/TextBox.tsx` (styles/textbox.css): three lines tall at the least, it grows with its text up to
-  `maxRows` lines (12 by default) and then scrolls, with no resize handle and the Field look (the hairline, the accent
-  border on focus; prose 13 px for text, mono 12 px for data). It grows by `field-sizing: content` where the browser
-  has it and by its measured height on each change elsewhere. `Field` offers it as `multiline`; `lib/ui` (and a
-  pack's `api.lib.ui`) exports it. It is now the only `<textarea` in Studio's source: the Prompt composer, Fleet's
-  Steer box, Mission start's goal, the Take over brief and the Message box, Orchestra's three goal boxes and the plan's
-  reject reason, Roles' Description and How the pieces work together (Description was a one-line field), Prompt
-  notes, Rules (mono), the schedule's Prompt, the bio and section YAML (the bio's up to 24 lines), Settings' JSON and
-  list editors, and Local -> Steward's question box (it was a one-line field; Enter asks, Shift+Enter a new line).
-- The Prompt panel: the box takes the panel's free height while the conversation is short (`fill`: a hidden mirror of
-  the text sizes it, the panel's rows are the header, the feed at what it holds, the foot with the rest); a
-  conversation taller than the panel scrolls on its own and the box is three lines again, growing with the draft.
-- Placeholders fit: at most two lines in a three-line box, the rest in the panel's `?`. The composer's is "Type a turn,
-  or / for a command" (Enter, Shift+Enter and the history are in its `?`, with how the box grows); the goal's WHAT
-  YOU WANT example, Mission start's goal, Live's Steer line for a finished agent ("pin a live agent to steer"), the
-  steward's question (its examples moved to the page's `?`), the no-session line and a Settings list's default (shown
-  only when short; the row's default line has it) are shorter.
-- Read text is text: the field hints of Roles' Assignment and Lineup tabs sit in the tab's `?` (`routes/roles/TabHelp.tsx`,
-  one label and line per field, each section's fields included; the label keeps its line as a tooltip), and a
-  lineup's description in the Lineups list wraps to its full height instead of ending in an ellipsis.
-- Panels breathe (the owner, with a photo of Fleet: the strips were "squished and too small ... the bottom is too
-  short and not enough padding"): a strip was 5 grid rows, a 28 px panel under a 40 px title bar; it is 7 rows now
-  (`STRIP_ROWS`, `lib/workspace/types.ts`), a 44 px strip 12 px from the next and 18 px from the workspace's edges,
-  its bar centred over its whole height with 12 px at its sides. A title bar is 36 px at the least (compact
-  density's 32 grows), a panel body pads 12 px at the least in either density (the plan canvas, the Roles canvas and
-  the design board's 10 px too). The quiet layout gives the strips their full height and the page above them the
-  rest. Orchestra's Goal panel is 10 rows taller for its three-line goal boxes, so every field and Run still fit.
-- `tests/test_studio_textboxes.py` (full tier; driver `tests/helpers/studio_textboxes.py`): on the Prompt panel,
-  Orchestra's goal form and Roles' Lineup tab every box is three lines empty, grows with four, stops at twelve and
-  scrolls, and its placeholder fits; the composer fills the panel over a short feed and is its own size under a long
-  one; TextBox is the only `<textarea`; on Fleet and Session with every panel collapsed each strip is >= 40 px, 12 px
-  apart, its bar centred, and an open panel's bar is >= 36 px with its body padded >= 12 px
-  (`tests/helpers/studio_strips.py`).
-
-#### Docs
-- STUDIO-shell.md (the text box rule beside the Field spec, the strip's and the body's sizes), STUDIO-sections.md (the Prompt panel's box, the Lineup and
-  Assignment tabs' `?`), EXTENSION_API.md (`TextBox` in `api.lib.ui`).
-
-### R4: instrument is the default, until you change it
-
-The owner: "instrument theme should be the default theme for halo unless a user changes it." L1 drew instrument only on
-a dark system with `theme` unset; now unset means instrument everywhere, and "Follow the system" is a choice you save.
-
-#### Changed
-- `theme` unset is `instrument` for every surface: Studio on a dark AND a light system (`:root` and the page with no
-  attribute, the server's first paint, `main.tsx`'s fallback), and the terminal (`theme.DEFAULT_THEME`, `instrument-ansi`
-  on a terminal without truecolor; `claude-dark` before). `halo config get theme` with it unset prints
-  `(unset: instrument)`. The registry names it (`palettes.DEFAULT`) and `GET settings/themes` sends it (`default`).
-- `theme: auto` is a value the key takes ("follow the system": instrument on a dark system, paper on a light one); the
-  header's and Settings -> Themes' **Follow the system** write it (they cleared the key before) and are marked current
-  only while it is saved; with the key unset the mark sits on instrument. `/theme auto`, `halo config set theme auto`,
-  the config schema and the Settings row take it; a terminal draws the default for it. `halo config unset theme` is the
-  way back to the default. Setup's Theme block says "Nothing saved yet: halo and Studio draw instrument".
-- The TUI snapshots under `docs/harness/tui-snapshots/` are drawn in instrument now (re-rendered by `test_tui.py`).
-
-#### Docs
-- CONFIG.md `theme` (unset = instrument; `auto` follows the system), STUDIO-shell.md and STUDIO-sections.md (the theme
-  menu and the Themes page), GLOSSARY.md and its packaged twin (palette, posture).
-
-### R5: the guided first run belongs to custom lineups
-
-The owner: "If I have a model selected for auto, then it just tests that 1 model a bunch of times and not really has
-value ... If the user is on auto then that shouldn't happen." On the Auto lineup (or none) every part is one model
-picked per task, so the guided first run would rehearse one model five times.
-
-#### Changed
-- `halo start` on the Auto lineup (or none) prints "Your lineup is Auto: the guided first run would rehearse one model
-  five times. Build a lineup or a workflow in Roles (Agents from 3.3.16.0) and test it there.", offers `halo gym
-  --quick`, writes nothing and exits 0 (`--json`: `{ok, ran: false, reason: "auto_lineup"}`); `--lineup <name>` or an
-  active custom lineup runs as before (`halo_harness/start/auto_gate.py`).
-- The same rule everywhere the start is offered: `halo init`'s wizard Summary and console offer (`--yes` included), `halo
-  check` (`--all` and `--explain` leave it out, `--start` prints the line), the TUI's `/start`, Setup -> Check (no row;
-  `start_auto` in `GET setup/state`) and Setup's Summary, and Studio's Start here (no Run button; `auto` in `GET start`;
-  `POST start` and a Check with `start` answer 422 `auto_lineup`). The card and its costs are unchanged for a custom
-  lineup.
-
-#### Docs
-- COMMANDS-init.md and HANDBOOK.md (where the test lives now: `halo start` for a custom lineup; Agents -> Runs adds "Test
-  this lineup / workflow" in 3.3.16.0), WIZARD.md and STUDIO-setup.md (the row on Auto).
-
-### R6: init ends with both running
-
-The owner, on Kali: "during init the halo harness cli closes ... the terminal part never launched just the gui." The
-wait counted a busy Studio as gone (ten failed GETs while a check or the guided first run held it up), so `halo init`
-ended, and Setup's Done had no terminal to start halo in and said nothing.
-
-#### Changed
-- `halo init` on a terminal stays until Setup is done, then becomes the session: its line is "Setup is open in your
-  browser: <url>. This terminal starts halo when you press Done there (Ctrl+C: stop here; `halo` later starts it).";
-  failed GETs while Studio's port still answers no longer count toward "Studio closed" (only a silent port does); on
-  Done it prints the Summary's lines and "Setup is done: halo starts here, paired with Studio at <url>", then starts
-  halo in this terminal (the same home, so the session shows in Studio's Session section). Ctrl+C prints the stop line
-  and exits 0.
-- While it waits, init keeps `~/.halo/setup-wait.json` (its pid; `studio/init_waiting.py`), and Studio's Done answers
-  who starts halo (`starts`, `line`): "halo is starting in your terminal" while an init waits; with none waiting it
-  opens a terminal running halo (`studio/halo_terminal.py`: a console on Windows, Terminal on macOS, `$TERMINAL` then
-  qterminal, xfce4-terminal, gnome-terminal, ... with a display on Linux) or says "no terminal found to start halo in;
-  run `halo` yourself" in an error toast -- never silent. The Summary's Done note says which (`init_waiting` in
-  `GET setup/state`).
-- The console flow (`--yes`, no TTY), `--no-launch` and a terminal wizard that starts nothing end on one line: "Start
-  halo with `halo`; `halo studio` opens Studio beside it, and the two pair on their own".
-
-#### Docs
-- COMMANDS-init.md, WIZARD.md and STUDIO-setup.md: the terminal waits, both come up, and what Done says.
-
-### R7: the guided first run runs the lineup you picked
-
-The owner, on Kali: "The whole init guided first run doesn't even use the orchestration you picked from earlier in
-init. It keeps mentioning my-halo-dev-cycle." `halo start` copied the shipped `halo-dev-cycle` to `my-halo-dev-cycle`
-and ran the Orchestra sample on that copy whatever the Team step applied, and every surface named the copy.
-
-#### Fixed
-- `halo start` (and Setup's Check row, Studio's Start here, the TUI's `/start`) rehearses the active lineup (`team` in
-  config.json), or the one `--lineup <name>` names, read as it is: nothing is copied, `my-halo-dev-cycle` is never
-  written (one left by an earlier run stays where it is), and `start.steps.DEFAULT_LINEUP` is gone
-  (`halo_harness/start/lineup.py` `pick` / `parts`).
-- A name with no lineup behind it is one line and exit 1: "no lineup named X; `halo teams` lists them" (`--json`:
-  `reason: "no_lineup"`; Studio's `POST start`: 422). On the Auto lineup the line is now "Your lineup is Auto: pick or
-  build a lineup in Roles first, then `halo start` rehearses it." (`--explain` too).
-- The lineup's own cards play the parts: the lead is its `main` card (the lead's model on a real run), and each of the
-  sample's lanes goes to a card that writes code (a `coder`, `implementer` or `subagent` role or alias, or a card used
-  for implement or fix), in turn, as many as its `instances`; each job of the plan takes that card's bio (and the model
-  it pins), and the workers run under the lineup (`--team`). Fewer lane slots run the sample in that many lanes, one
-  line says so; a lineup with no such card says so and exits 1 before writing anything (`reason: "no_coder"`, 422 in
-  Studio).
-- The lineup step, the plan, the run, the report and the summary name the lineup and its cards; the card names the
-  lineup it rehearses, its lead and lane cards, the distinct models it will call with their prices, and an estimate
-  priced lane by lane (`start/card.py`); its "writes" line and the Setup Check row's read "a sample repo under
-  ~/.halo/start/<date>/ (your lineup is not touched)". The gym row's candidates come from the same lineup.
-
-#### Docs
-- COMMANDS-init.md, HANDBOOK.md, GLOSSARY.md ("lineup", "guided first run"), STUDIO-shell.md, STUDIO-setup.md and
-  WIZARD.md: the run rehearses your lineup; no copy anywhere.
