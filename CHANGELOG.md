@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.4.1.3] - unreleased
+## [3.4.1.3] - 2026-11-13
 
 Every model field in Studio is a picker of the models you have: you never type a model reference from memory. Every drawing in Studio zooms the same way: Ctrl or Cmd + wheel, or a pinch. Finished background work shows up, and the agent picks it up, without you sending a message.
 
