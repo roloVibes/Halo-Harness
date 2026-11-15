@@ -500,7 +500,11 @@ def main(argv: Optional[list] = None) -> int:
 
 def _main(argv: Optional[list] = None) -> int:
     _make_streams_utf8_safe()
-    from halo_harness.closing import signal_exit  # 3.6.0.0 R10: unwinds, and a bound behind it (calls in flight)
+    def signal_exit(code: int):  # 3.6.0.0 R10: unwinds, and a bound behind it (calls in flight). closing.py is
+        def handler(signum, frame):  # imported when a signal arrives, so `halo --help` stays light (R16)
+            from halo_harness.closing import signal_exit as real
+            return real(code)(signum, frame)
+        return handler
     try:  # best-effort: SIGTERM -> exit 143 (not available on every platform/thread)
         signal.signal(signal.SIGTERM, signal_exit(143))
     except (ValueError, AttributeError, OSError):
