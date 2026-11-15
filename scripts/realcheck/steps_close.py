@@ -140,19 +140,29 @@ def one_close(ctx, target: str, how: str) -> dict:
     return row
 
 
+def _programs(left: list) -> str:
+    """Every distinct program in a row's leftovers ("pid N (name) ..."), with how many of each: the first alone hid the
+    rest (16 msedge.exe in front of anything of Halo's)."""
+    names: dict = {}
+    for line in left:
+        m = re.match(r"pid \d+ \(([^)]*)\)", line)
+        name = m.group(1) if m else "?"
+        names[name] = names.get(name, 0) + 1
+    return ", ".join(f"{n} x{c}" if c > 1 else n for n, c in names.items())
+
+
 def closing(ctx):
     rows = [one_close(ctx, target, how) for target in TARGETS for how in HOW] + [serve_alone(ctx)]
     left = [r for r in rows if r.get("left")]
     unstarted = [r for r in rows if "not_started" in r]
     probe = ctx.ctrl_c()
     ev = {"rows": rows, "ctrl_c_on_this_host": probe}
-    bad = [f"{r['target']} / {r['how']}: {len(r['left'])} left ({r['left'][0][:90]})" for r in left]
+    bad = [f"{r['target']} / {r['how']}: {len(r['left'])} left, {_programs(r['left'])} ({r['left'][0][:90]})" for r in left]
     bad += [f"{r['target']} did not come up to be closed ({r['not_started'][:100]})" for r in unstarted]
     note = ("" if probe["delivered"] else f"Ctrl+C is not deliverable on this host ({probe['why']}); the one-shot, init "
             f"and studio rows sent Ctrl+Break instead (it {'ended' if probe['break_works'] else 'did not reach'} a test child). ")
     if bad:
-        raise Fail(note + f"{len(left)} of {len(rows)} ways out left processes running 5 s later: " + "; ".join(bad), ev,
-                   "R10" if left and not unstarted else "")
+        raise Fail(note + f"{len(left)} of {len(rows)} ways out left processes running 5 s later: " + "; ".join(bad), ev)
     return f"all {len(rows)} ways out ({len(TARGETS)} launches x {len(HOW)}, + `halo local serve`) left nothing", ev
 
 
@@ -194,7 +204,7 @@ def no_reuse(ctx):
         raise Fail("the second `halo init` has no Studio (no studio.json)", ev)
     if b == a or (b_started and b_started < launched - 1):
         raise Fail(f"the second `halo init` attached to the Studio from before (pid {b}, started "
-                   f"{launched - b_started:.0f}s before the launch) instead of starting its own", ev, "R10")
+                   f"{launched - b_started:.0f}s before the launch) instead of starting its own", ev)
     return f"the second `halo init` started its own Studio (pid {b}, {b_started - launched:.1f}s after it)", ev
 
 
@@ -235,7 +245,7 @@ def idle_cpu(ctx, seconds: float = 60.0):
         raise Fail("no Halo process was found to measure (the scan saw none under the home)", ev)
     if share >= 0.05:
         raise Fail(f"an idle Studio{' with its page open' if c else ''} used {share:.1%} of one core over "
-                   f"{seconds:.0f}s (budget 5%)", ev, "R13")
+                   f"{seconds:.0f}s (budget 5%)", ev)
     if c is None:
         raise Skip(f"no Chrome: measured with no page open: {share:.1%} of one core")
     return f"{share:.1%} of one core over {seconds:.0f}s with the page open", ev

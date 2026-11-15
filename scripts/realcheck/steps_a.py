@@ -155,9 +155,7 @@ def first_run(ctx):
         if d.get("traceback"):
             bad.append(f"{w} printed a traceback")
     if bad:
-        import sys
-        only_beep = all("beeps" in b for b in bad)
-        raise Fail("; ".join(bad), ev, "R12" if only_beep and sys.platform == "darwin" else "")
+        raise Fail("; ".join(bad), ev)
     return (f"address {at:.1f}s, page {s:.1f}s, Setup's read {s2:.1f}s, instrument in the terminal and the page, "
             f"no beep"), ev
 

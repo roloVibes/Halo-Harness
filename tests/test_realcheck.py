@@ -248,6 +248,106 @@ def test_the_browser_stand_in_writes_the_url_it_is_asked_to_open(ctx: Ctx):
     ctx.check(f"exit 0 and the whole URL written down, got {fakes.opened_urls(out)}", rc == 0 and fakes.opened_urls(out) == [url])
 
 
+class _StepCtx:
+    """A step's ctx with no `halo` behind it: `run` answers with the text given, nothing is left running."""
+
+    def __init__(self, repo: Path, help_text: str) -> None:
+        self.repo, self.help_text = Path(repo), help_text
+
+    def home(self, name: str):
+        return name
+
+    def run(self, h, *args, timeout: float = 60, **kw):
+        out = "halo 3.6.0.0\n" if args == ("--version",) else self.help_text
+        return core.Ran(0, out, "", 0.1)
+
+    def left_after(self, h, seconds: float = 5.0) -> list:
+        return []
+
+    def end_leftovers(self, h=None) -> list:
+        return []
+
+    def ctrl_c(self) -> dict:
+        return {"delivered": True, "via": "typed", "why": "", "break_works": True}
+
+
+@test
+def test_the_starts_step_looks_for_every_command_the_registry_lists_and_never_passes_on_none(ctx: Ctx):
+    """3.6.0.0 R16 moved every command into halo_harness/cli_commands.py; the step read cli.py only and passed with
+    "--help names all 0 commands" whatever the help said."""
+    from halo_harness import cli_commands
+    from realcheck import steps_a
+    listed = [c.name for c in cli_commands.listed()]
+    left_out = {c.name for c in cli_commands.COMMANDS if c.kind}
+    verbs, skipped = steps_a._commands_in_source(REPO)
+    ctx.check(f"every listed command is looked for ({len(listed)}), got {len(verbs)}: {verbs}",
+              bool(listed) and set(listed) <= set(verbs))
+    ctx.check(f"the internal and retired ones are not counted, got {skipped}",
+              left_out <= set(skipped) and not left_out & set(verbs))
+    full = cli_commands.help_text()
+    line, _ev = steps_a.starts(_StepCtx(REPO, full))
+    ctx.check(f"the real help passes and says how many, got {line!r}", f"names all {len(verbs)} commands" in line)
+    short = "\n".join(n for n in listed if n not in ("local", "host"))  # (other rows' purposes say "local" too)
+    try:
+        steps_a.starts(_StepCtx(REPO, short))
+        said = "PASS"
+    except core.Fail as e:
+        said = e.detail
+    ctx.check(f"a help without `local` and `host` fails and names them, got {said!r}",
+              said != "PASS" and "local" in said and "host" in said)
+    bare = Path(tempfile.mkdtemp(prefix="rc-bare-"))
+    (bare / "halo_harness").mkdir()
+    (bare / "halo_harness" / "cli.py").write_text("GONE_VERBS = {\n}\n", encoding="utf-8")
+    try:
+        steps_a.starts(_StepCtx(bare, full))
+        said = "PASS"
+    except core.Fail as e:
+        said = e.detail
+    ctx.check(f"a tree where no command can be found fails, got {said!r}", "found no command" in said)
+
+
+@test
+def test_the_closing_step_fails_untagged_and_names_every_program_left(ctx: Ctx):
+    """CI's Windows realcheck: "init / Ctrl+C: 16 left (pid 7796 (msedge.exe) ...) [expected until R10 lands]" -- R10 is
+    in this tree, and one program per row hid whatever else was left behind the first."""
+    from realcheck import steps_close
+    left = ['pid 7796 (msedge.exe) "C:/x/msedge.exe" --single-argument http://127.0.0.1:1/ [scratch path]',
+            "pid 7800 (msedge.exe) C:/x/msedge.exe --type=renderer [child of pid 7796]",
+            "pid 7900 (python.exe) python -m halo_harness studio [scratch path in its environment]"]
+    rows = {("init", "Ctrl+C"): {"target": "init", "how": "Ctrl+C", "left": left}}
+    saved = steps_close.one_close, steps_close.serve_alone
+    steps_close.one_close = lambda c, target, how: dict(rows.get((target, how), {"target": target, "how": how, "left": []}))
+    steps_close.serve_alone = lambda c: {"target": "serve", "how": "it returned", "left": []}
+    try:
+        steps_close.closing(_StepCtx(REPO, ""))
+        got = None
+    except core.Fail as e:
+        got = e
+    finally:
+        steps_close.one_close, steps_close.serve_alone = saved
+    ctx.check(f"a leftover fails the step, got {got and got.detail!r}", got is not None and "init / Ctrl+C: 3 left" in got.detail)
+    ctx.check(f"no round is named as fixing it, got {got and got.expected_until!r}", got is not None and not got.expected_until)
+    ctx.check("every distinct program left is named", got is not None and "msedge.exe" in got.detail
+              and "python.exe" in got.detail)
+
+
+@test
+def test_no_step_calls_a_failure_expected_until_a_round_that_is_in_this_tree(ctx: Ctx):
+    """3.6.0.0's rounds R10-R16 are all in this tree: a FAIL tagged "expected until R1x lands" hides a real fault."""
+    import ast
+    tagged = []
+    for f in sorted((REPO / "scripts" / "realcheck").glob("*.py")):
+        for node in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
+            if not (isinstance(node, ast.Call) and getattr(node.func, "id", "") == "Fail"):
+                continue
+            tags = node.args[2:3] + [k.value for k in node.keywords if k.arg == "expected_until"]
+            for t in tags:
+                for c in ast.walk(t):
+                    if isinstance(c, ast.Constant) and isinstance(c.value, str) and c.value.startswith("R1"):
+                        tagged.append(f"{f.name}:{node.lineno} {c.value}")
+    ctx.check(f"no landed round named, got {tagged}", not tagged)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

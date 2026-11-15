@@ -151,18 +151,30 @@ def open_url(url: str) -> bool:
     import webbrowser
     stubbed = getattr(webbrowser.open, "__module__", "webbrowser") != "webbrowser"
     if os.name == "nt" and not stubbed and _in_a_job():
-        try:
-            from halo_harness import subprocess_safe as sp
-            sp.Popen(["rundll32", "url.dll,FileProtocolHandler", str(url)],
-                     **kept_kwargs({"stdin": sp.DEVNULL, "stdout": sp.DEVNULL, "stderr": sp.DEVNULL}, env=scrubbed_env()))
-            return True
-        except Exception:
-            pass
+        from halo_harness import subprocess_safe as sp
+        chosen = _chosen_browsers(str(url))  # the person's BROWSER, as webbrowser honours it; the system's only when unset
+        for cmd in chosen or [["rundll32", "url.dll,FileProtocolHandler", str(url)]]:
+            try:
+                sp.Popen(cmd, **kept_kwargs({"stdin": sp.DEVNULL, "stdout": sp.DEVNULL, "stderr": sp.DEVNULL},
+                                            env=scrubbed_env()))
+                return True
+            except Exception:
+                continue
+        if chosen:  # BROWSER named programs and none started: never another browser in their place
+            return False
     try:
         with without_marker():
             return bool(webbrowser.open(url))
     except Exception:
         return False
+
+
+def _chosen_browsers(url: str, value: Optional[str] = None) -> list:
+    """The BROWSER a person set, read as Python's webbrowser reads it: entries split by os.pathsep, each a program
+    given the URL as its last argument (its path kept whole), or a command line whose %s is the URL. [] when unset."""
+    value = os.environ.get("BROWSER", "") if value is None else value
+    entries = [e.strip() for e in str(value).split(os.pathsep) if e.strip()]
+    return [e.replace("%s", url) if "%s" in e else [e, url] for e in entries]
 
 
 def _in_a_job() -> bool:
