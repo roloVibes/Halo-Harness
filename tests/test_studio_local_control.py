@@ -6,8 +6,12 @@ model call, nothing sent but to the fake:
 1. Library -> Pull on gemma3:4b to box: the button's title is the CLI line; the progress bar moves (percent, speed,
    time left) on `pull` frames; "installed on box" after; the Jobs list says done;
 2. the typed pull of an HF GGUF through Ollama; a slow pull cancelled from the Jobs list (the fake sees the hang-up);
-3. Models -> a row's actions menu, every item titled with its `halo models` line; Show (the /api/show facts beside
-   the model card); Load now, then Unload from the Loaded-now strip (another machine's host: Unload disabled with why);
+3. Models -> a row's actions menu, every item titled with its CLI line (Load now and Unload: `halo local warm | unload`,
+   the command that loads at the window the button does; the rest `halo models`); Show (the /api/show facts beside
+   the model card); Load now, then Unload from the Loaded-now strip; 3.6.0.0 R8: another machine's host with only
+   Ollama on it (sagan) is controlled from here through Ollama's own API, so its Unload is enabled with its line
+   (a paired halo host without `control` and a host that gave no Ollama answer stay disabled with the why:
+   tests/test_studio_hosts_host.py, tests/test_local_api.py);
 4. the tuned twin (its name, what it costs, then made and listed); Copy and Rename;
 5. Delete with the uses card (a role names it: Delete anyway, gone from the fake) and a live session keeping it.
 Run: python -m tests.test_studio_local_control
@@ -63,15 +67,18 @@ def test_the_actions_menu_show_and_load(ctx: Ctx):
     got = _got(ctx)
     titles = dict(got.get("menu_titles") or [])
     ctx.check(f"every item titled with its line, got {titles}", titles.get("show") == "halo models show qwen3.5:9b --host box"
-              and titles.get("load") == "halo models load qwen3.5:9b --host box" and titles.get("delete") == "halo models rm qwen3.5:9b --host box"
+              and titles.get("load") == "halo local warm qwen3.5:9b --host box" and titles.get("delete") == "halo models rm qwen3.5:9b --host box"
               and {"twin", "copy", "rename"} <= set(titles))
     ctx.check(f"Show: the /api/show facts beside the card, got {got.get('show')} {got.get('show_card')}",
               {"quant", "context", "capabilities"} <= set(got.get("show") or []) and got.get("show_card") is True
               and got.get("show_cli") == "halo models show qwen3.5:9b --host box")
-    ctx.check(f"Load now shows in the strip with its VRAM share; Unload from it, got {got.get('loaded')} {got.get('unloaded')}",
-              (got.get("loaded") or [""])[0] == "100% VRAM" and got.get("unloaded") == 0)
-    disabled, why = (got.get("sagan_unload") or [False, ""])[:2]
-    ctx.check(f"another machine's host: Unload disabled with why, got {got.get('sagan_unload')}", disabled is True and "another machine" in why)
+    ctx.check(f"Load now shows in the strip with its VRAM share; Unload from it, its line, got {got.get('loaded')} {got.get('unloaded')}",
+              (got.get("loaded") or ["", ""])[:2] == ["100% VRAM", "halo local unload qwen3.5:9b --host box"]
+              and got.get("unloaded") == 0)
+    # 3.6.0.0 R8: another machine with only Ollama on it is controlled from here through Ollama's own API
+    disabled, title = (got.get("sagan_unload") or [True, ""])[:2]
+    ctx.check(f"another machine's Ollama-only host: Unload enabled, titled with its line, got {got.get('sagan_unload')}",
+              disabled is False and title == "halo local unload qwen3.5:9b --host sagan")
 
 
 @test

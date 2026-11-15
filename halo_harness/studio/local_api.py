@@ -130,6 +130,10 @@ def post_host_measure(req, name: str):
     host = resolve_ollama_host(name)
     if host is None:
         return 404, {"error": f"no host named {name!r} here"}
+    from halo_harness.studio.local_hosts_view import hosts
+    card = next((h for h in hosts(req.state_dir)["hosts"] if h["name"] == name), None)
+    if card is not None and not card["controls"]["ok"]:  # the button's own rule: disabled, saying why
+        return 409, {"error": card["controls"]["why"]}
     key = (name, model)
     if (_MEASURES.get(key) or {}).get("running"):
         return 409, {"error": f"{model} on {name} is being measured already", **measure_view(name, model)}

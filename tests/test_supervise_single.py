@@ -82,6 +82,33 @@ def test_two_started_at_once_exactly_one_runs(ctx: Ctx):
                   len(other) == 1 and other[0][3] == 1 and f"pid {ran[0][0]}" in other[0][2])
 
 
+@test
+def test_a_start_that_lost_by_a_hair_still_names_the_pid(ctx: Ctx):
+    """The holder takes the lock, THEN writes supervisor.pid: a start that lost inside that gap (seen on a Windows
+    runner) reads the pid again for a moment before its line, and never waits longer than that."""
+    import threading
+    import time
+    from halo_harness.supervise import single
+    with _Home() as h:
+        d = h.state / "supervise"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "supervisor.pid").write_text("", encoding="utf-8")  # mid-write: the file is there, the pid not yet
+        late = threading.Timer(0.2, lambda: (d / "supervisor.pid").write_text("4242", encoding="utf-8"))
+        late.start()
+        t0 = time.monotonic()
+        line = single.held_line(h.state)
+        took = time.monotonic() - t0
+        late.join()
+        ctx.check(f"the pid written 0.2 s after the lock is in the line, got {line!r} after {took:.2f}s",
+                  "pid 4242" in line and took < single.PID_WAIT_S + 0.3)
+        (d / "supervisor.pid").unlink()
+        t0 = time.monotonic()
+        line = single.held_line(h.state)
+        took = time.monotonic() - t0
+        ctx.check(f"no pid ever: the line without it, after a bounded wait, got {line!r} after {took:.2f}s",
+                  "supervisor.lock" in line and "pid" not in line and single.PID_WAIT_S - 0.05 <= took < single.PID_WAIT_S + 0.5)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

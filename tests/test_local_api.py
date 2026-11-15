@@ -8,6 +8,7 @@ fresh home, background reads off: no real server, no model call.
 2. POST local/host/box/load | unload against the fake: a /api/generate with the profile's window and keep-alive,
    then keep_alive 0; a host another machine serves is refused with the reason, and so is one whose fleet member
    has host.allow_control: none; with `all` the command goes to the member's session (host = the member's name);
+   3.6.0.0 R8: a host whose last read got no Ollama answer: Warm, Unload and Measure refused with the why until Refresh;
 3. POST local/host/add writes the ollama.hosts entry through Setup's writer;
 4. GET local/traffic: the fixture ledger's rows, the per-host buckets with the bytes; a ledger line written while a
    listener is on becomes a `traffic` frame; POST local/traffic (another process's tap) publishes them;
@@ -83,6 +84,35 @@ def test_load_and_unload(ctx: Ctx):
         ctx.check(f"another machine's host: tried directly, the test flag kept it off the network, got {status} {body}",
                   status == 502 and "test flag" in body["error"])
         ctx.check("nothing reached the fake for it", all(g["model"] != "qwen3.8:27b" for g in h.mock.generated))
+
+
+@test
+def test_a_host_that_gave_no_ollama_answer_waits_saying_why(ctx: Ctx):
+    """3.6.0.0 R8: a host whose last read got no Ollama answer (nothing listening, or a page that is not Ollama's:
+    providers/ollama.request_json reads both as no answer) has Warm, Unload and Measure disabled with the why on its
+    card and refused with it by the routes; Refresh (a fresh read that answers) gives them back."""
+    from halo_harness.ollama_steward.hardware import hardware_card
+    from halo_harness.studio import ollama_hosts_view as V
+    with Local() as h:
+        seeded = dict(V.READERS)
+        V.READERS["card"] = lambda host: hardware_card(host, api=lambda path: None) if host.name == "sagan" \
+            else seeded["card"](host)
+        V.reset_cache()
+        c = h.card("sagan")["controls"]
+        ctx.check(f"sagan: not controlled from here, saying why and how to read it again, got {c}",
+                  c["ok"] is False and "did not answer as Ollama" in c["why"] and "Refresh" in c["why"]
+                  and "halo local ps --host sagan" in c["why"])
+        ctx.check(f"pc (it answered) keeps Ollama's API, got {h.card('pc')['controls']}",
+                  h.card("pc")["controls"] == {"ok": True, "via": "Ollama's API", "why": ""})
+        for act in ("load", "unload", "measure"):
+            status, body = h.api("POST", f"local/host/sagan/{act}", {"model": "qwen3.5:9b"})
+            ctx.check(f"{act} on sagan: 409 with the why, got {status} {body}",
+                      status == 409 and "did not answer as Ollama" in body.get("error", ""))
+        V.READERS["card"] = seeded["card"]
+        status, body = h.api("GET", "local/hosts", query={"fresh": "1"})
+        c = next(x for x in body["hosts"] if x["name"] == "sagan")["controls"]
+        ctx.check(f"Refresh reads an answer: sagan is controlled again, got {c}",
+                  c == {"ok": True, "via": "Ollama's API", "why": ""})
 
 
 @test

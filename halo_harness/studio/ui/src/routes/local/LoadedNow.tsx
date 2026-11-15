@@ -1,11 +1,12 @@
 // Loaded now, on top of Local -> Models (3.3.5.0 R3): every model a host has in memory (Ollama's /api/ps, through
 // GET local/models), its share on the GPU, when it unloads, and Unload (keep_alive 0; the title is the
-// `halo models unload` line). Nothing loaded: one line saying so.
+// `halo local unload` line; disabled with the host's why when it cannot be controlled from here). Nothing loaded: one
+// line saying so.
 // 3.3.6.0 R6: which loaded models can see -- each row's eye chip (shared/EyeChip.tsx) and the count in the header,
 // so the model that sees is loaded before a screenshot is shared.
 import { Button } from "../../lib/ui";
 import { EyeChip, eyeOf } from "../shared/EyeChip";
-import { line } from "./ctl";
+import { localLine } from "./ctl";
 import { gib, loadModels, unloadModel, useLocal } from "./store";
 import type { ModelsAnswer } from "./types";
 
@@ -52,7 +53,7 @@ export function LoadedNow({ hosts }: { hosts: ModelsAnswer["hosts"] }) {
                 <span className="muted" title="/api/ps expires_at">{until(l.expires)}</span>
                 <span className="spacer" />
                 <Button size="sm" variant="ghost" disabled={busy || !!why} onClick={() => void off(h, m.model)} data-testid="local-loaded-unload"
-                        title={why || line("unload", h, m.model)}>Unload</Button>
+                        title={why || localLine("unload", h, m.model)}>Unload</Button>
               </li>
             );
           })}

@@ -105,9 +105,12 @@ The controls its kind allows:
 HF local server the steward reads), the host's models table (the last hour's calls, trims, cuts, errors, the p95 prompt
 against the window, the profile and who set it, the VRAM share), its traffic timeline and its fit plan (Apply, Copy).
 
-A host this machine serves is controlled from here. A host another machine serves is controlled through its host
-door (`halo host serve` there, `halo host join` here, a control grant): when that cannot happen the buttons are off and
-the card says why and the way. Nothing here writes a server's settings.
+A host this machine serves is controlled from here. A host another machine serves with a halo host on it is controlled
+through its host door (`halo host serve` there, `halo host join` here, a control grant). 3.6.0.0 R8: an `ollama.hosts`
+entry with only Ollama on that machine is controlled from here through Ollama's own API (`halo local warm | unload |
+measure --host NAME` are the same calls; each button's title is its line). A host whose last read got no Ollama answer
+(nothing listening, or a page that is not Ollama's) has Warm, Unload and Measure off until **Refresh** reads one. When
+a control cannot run, the buttons are off and the card says why and the way. Nothing here writes a server's settings.
 
 3.3.7.0 R1: a machine a paired `halo host` serves ([HOST.md](HOST.md)) is grouped first, under **SERVED BY HALO
 HOST**, and its card says **served by halo host at <addr> -- running since ..., last seen ..., N requests in its

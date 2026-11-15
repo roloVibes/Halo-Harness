@@ -78,20 +78,39 @@ def users_by_host(state_dir) -> dict:
 OLLAMA_API = "Ollama's API"
 
 
-def controls(host_url: str, host_name: str, served: bool, *, configured_ollama: bool = False) -> dict:
+API_READER = "/api/version and /api/ps"  # ollama_steward/hardware.hardware_card's note for its read of the server
+
+
+def silent(card: Optional[dict]) -> str:
+    """Why the card's last read of the server got no Ollama answer (nothing listening, or something that is not
+    Ollama: a sign-in page, a 401, a redirect), else "". A read that was not made (the test flag, a seeded card) is
+    not a silence."""
+    for s in (card or {}).get("sources") or []:
+        if isinstance(s, dict) and s.get("reader") == API_READER and s.get("ok") is False \
+                and s.get("detail") != "background reads are off":
+            return str(s.get("detail") or "no answer")
+    return ""
+
+
+def controls(host_url: str, host_name: str, served: bool, *, configured_ollama: bool = False, quiet: str = "") -> dict:
     """{ok, via, why, member?, member_host?} for Load / Unload on this host from here; 3.3.7.0 R2: `via: "host"` (ok)
     when a paired halo host serves it and this peer holds its `control` grant (studio/local_host_acts.host_controls);
     else the line that says how. 3.6.0.0 R8: an `ollama.hosts` entry (native Ollama) no paired halo host serves is
     controlled from here through Ollama's own API (`via: "Ollama's API"`: /api/generate with keep_alive, /api/pull,
-    /api/ps) -- nothing runs on that machine but Ollama; a halo host that serves it keeps its own rules."""
+    /api/ps) -- nothing runs on that machine but Ollama; a halo host that serves it keeps its own rules. `quiet`
+    (`silent(card)`): the last read got no Ollama answer -- Warm, Unload and Measure wait, saying why, until Refresh
+    reads one (a paired halo host says its own "did not answer")."""
+    gone = "" if not (quiet and configured_ollama) else (
+        f"{host_name} did not answer as Ollama when it was last read ({quiet}): Warm, Unload and Measure wait "
+        f"until it does (Refresh reads it again; halo local ps --host {host_name})")
     if served:
-        return {"ok": True, "via": "this machine", "why": ""}
+        return {"ok": False, "via": "", "why": gone} if gone else {"ok": True, "via": "this machine", "why": ""}
     from halo_harness.studio.local_host_acts import host_controls
     hc = host_controls(host_url, host_name) if host_url else None
     if hc is not None and hc["ok"]:
         return hc
     if hc is None and configured_ollama:
-        return {"ok": True, "via": OLLAMA_API, "why": ""}
+        return {"ok": False, "via": "", "why": gone} if gone else {"ok": True, "via": OLLAMA_API, "why": ""}
     got = _served_by(host_url, host_name)
     return got if hc is None else hc
 
@@ -129,7 +148,7 @@ def _configured(h: dict, host_obj, users: dict) -> dict:
             "users": users.get(h["name"], []), "finding": _finding(h.get("findings") or []),
             "findings": len([f for f in h.get("findings") or [] if not f.get("applied")]), "plan": _plan(h.get("plan")),
             "models": names, "log": _log(host_obj),
-            "controls": controls(h["url"], h["name"], h["served_here"],
+            "controls": controls(h["url"], h["name"], h["served_here"], quiet=silent(h.get("card")),
                                  configured_ollama=host_obj is not None and kind_of(host_obj) == KINDS["ollama"]),
             "host": None if h["served_here"] else host_block(h["url"])}
 

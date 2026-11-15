@@ -21,6 +21,9 @@ export function useCtl<S>(select: (s: Ctl) => S): S {
 const enc = encodeURIComponent;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 export const line = (verb: string, host: string, ...words: string[]) => ["halo models", verb, ...words.filter(Boolean), "--host", host].join(" ");
+/** 3.6.0.0 R8: Warm and Unload are `halo local warm | unload` (local_ollama_cli.py): the window a turn will use, the
+ * same call the button makes; `halo models load` loads at max_ctx without a profile. */
+export const localLine = (verb: "warm" | "unload", host: string, model: string) => `halo local ${verb} ${model} --host ${host}`;
 
 export function openAct(act: Act, host: string, m: ModelEntry): void {
   ctl.update(() => ({ open: { act, host, m }, show: null, plan: null, uses: null, said: null, busy: false }));

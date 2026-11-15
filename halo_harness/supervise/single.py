@@ -62,7 +62,18 @@ def release(state_dir, fh) -> None:
         pass
 
 
-def held_line(state_dir) -> str:
+PID_WAIT_S = 0.5  # how long a start that lost reads supervisor.pid again before it says the line without the pid
+
+
+def held_line(state_dir, *, wait_s: float = PID_WAIT_S) -> str:
+    """The loser's one line. The holder writes its pid just AFTER it takes the lock (`take`), so a start that lost by
+    a hair can find no pid file yet, or an empty one mid-write: it reads again for a moment (`wait_s`, bounded),
+    then says the line without the pid."""
+    import time
     pid = holder(state_dir)
+    end = time.monotonic() + max(0.0, wait_s)
+    while pid is None and time.monotonic() < end:
+        time.sleep(0.05)
+        pid = holder(state_dir)
     return (f"a supervisor is already running (pid {pid}). `halo supervise stop` ends it." if pid else
             "a supervisor is already running (it holds supervise/supervisor.lock). `halo supervise stop` ends it.")

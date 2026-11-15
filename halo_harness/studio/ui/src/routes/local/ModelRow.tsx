@@ -22,7 +22,7 @@ import { SitsChips } from "../shared/ModelCardBlocks";
 import { BenchAction, BenchStrip, SpeedCardChip } from "./BenchBits";
 import { ProbeAction, ProbedMark, ProbeStrip, TwinChips } from "./ProbeBits";
 import { ShelfHint } from "./ShelfBits";
-import { line, openAct } from "./ctl";
+import { line, localLine, openAct } from "./ctl";
 import { coderLane, gib, loadModel, loadModels, resetProfile, unloadModel, useAsDefault, useLocal } from "./store";
 import type { ModelEntry } from "./types";
 
@@ -39,8 +39,8 @@ function Acts({ m, host }: { m: ModelEntry; host: string }) {
     <Menu icon="more" label={`actions on ${m.model}`} title="Show, load, twin, copy, rename, delete" testid="local-model-acts" menuTestid="local-model-menu"
           btnClass="icon-btn" align="right" width={260} groups={[{ rows: [
             row("show", "Show", line("show", host, m.model), () => openAct("show", host, m)),
-            m.loaded ? row("unload", "Unload", line("unload", host, m.model), () => void load())
-                     : row("load", "Load now", line("load", host, m.model), () => void load()),
+            m.loaded ? row("unload", "Unload", localLine("unload", host, m.model), () => void load())
+                     : row("load", "Load now", localLine("warm", host, m.model), () => void load()),
             row("twin", "Make a tuned twin", line("twin", host, m.model, "--window", "N"), () => openAct("twin", host, m)),
             row("copy", "Copy", line("copy", host, m.model, "<new name>"), () => openAct("copy", host, m)),
             row("rename", "Rename", line("rename", host, m.model, "<new name>"), () => openAct("rename", host, m)),

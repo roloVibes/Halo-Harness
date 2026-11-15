@@ -365,6 +365,7 @@ def test_a_call_never_waits_on_a_measurement(ctx: Ctx):
     finding 8): no call starts a measurement, so nothing waits on one. With the test flag off and a measurement that
     would hang for seconds, building a turn's body never starts it and returns at once."""
     import halo_harness.agent.loop as loop_mod
+    import halo_harness.providers.ollama as ollama_mod
     import halo_harness.providers.ollama_calibrate as calib_mod
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.profiles import resolve_profile
@@ -374,6 +375,7 @@ def test_a_call_never_waits_on_a_measurement(ctx: Ctx):
     old_no_net = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
     real_run = calib_mod.run_auto_calibration
     real_host = loop_mod.resolve_ollama_host
+    real_ollama_host = ollama_mod.resolve_ollama_host
     started = threading.Event()
 
     def _slow(host, model, *, state_dir, **kw):
@@ -383,6 +385,11 @@ def test_a_call_never_waits_on_a_measurement(ctx: Ctx):
 
     calib_mod.run_auto_calibration = _slow
     loop_mod.resolve_ollama_host = lambda name, env: OllamaHost(name="mock", url=mock.base_url)
+    # the call's own reads (providers/ollama_hw.resolve_context_decision resolves its host through providers/ollama)
+    # go to the same fake: with the test flag off they would otherwise go to the default host, 127.0.0.1:11434 --
+    # a real Ollama on a developer's machine, and on a Windows runner a port nobody listens on, where each refused
+    # connection costs a second or two (Linux refuses at once)
+    ollama_mod.resolve_ollama_host = lambda *a, **k: OllamaHost(name="mock", url=mock.base_url)
     try:
         session = _minimal_session(d, mock, model="budget-model")
         route = Route(provider="ollama", upstream_model="budget-model", dialect="ollama")
@@ -397,6 +404,7 @@ def test_a_call_never_waits_on_a_measurement(ctx: Ctx):
     finally:
         calib_mod.run_auto_calibration = real_run
         loop_mod.resolve_ollama_host = real_host
+        ollama_mod.resolve_ollama_host = real_ollama_host
         if old_no_net is not None:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_no_net
         mock.stop()
