@@ -110,19 +110,22 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
           </Button>
         )}
       </div>
-      {row && <div className="msel-takes"><ModelTakes row={row} /></div>}
+      {/* 3.6.0.0 R5c: one slot, the same height while the catalog is read and after: "reading the catalog..." gave way to
+          nothing (or to the takes) and everything under the field moved 22 px up under a click */}
+      <div className="msel-slot" data-testid="model-select-slot">
+        {!loaded ? <span className="msel-why mono muted">reading the catalog...</span> : row ? <div className="msel-takes"><ModelTakes row={row} /></div> : null}
+      </div>
       {probe && probe !== "running" && !noTest && (
         <div className="msel-result mono" data-ok={probe.ok || undefined} data-testid="model-select-result" title={probe.cost_line}>
           {shortRef(probe.ref || effective)}: {probe.ok ? `ok in ${probe.latency_ms} ms` : `failed: ${probe.error || "no reply"}`}
         </div>
       )}
-      {!loaded && <div className="msel-why mono muted">reading the catalog...</div>}
       {empty && !open && <EmptyLine st={st} error={error} busy={refreshing} />}
       {justRefreshed && !open ? <CatalogLines empty={false} /> : null}
       {hint && !compact && !bare && <div className="field-hint">{hint}</div>}
       {open && inline && <div className="msel-fold" data-testid="model-select-fold">{table}</div>}
       {open && !inline && createPortal(
-        <Dialog open onClose={close} title={label} kicker="PICK A MODEL · THE MODELS YOU HAVE" testid="model-select-dialog">{table}</Dialog>,
+        <Dialog open top onClose={close} title={label} kicker="PICK A MODEL · THE MODELS YOU HAVE" testid="model-select-dialog">{table}</Dialog>,
         document.body,
       )}
     </div>

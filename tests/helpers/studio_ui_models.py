@@ -11,7 +11,8 @@ cache (tests/helpers/catalog_facts_seed.py; no network, no model call):
    or:v/eyes) and the kinds it is best at on the detail line under the list,
    the line on the tags' hover too;
 3. the "best" sort puts the model good at the most kinds first; a search by
-   a line's words ("pdf in") finds the rows that say it.
+   a line's words ("pdf in") finds the rows that say it;
+4. (3.6.0.0 R5c) the picker's bar holds still while the rows under it change (bar_holds).
 
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -33,6 +34,34 @@ ROWS = "[...document.querySelectorAll('[data-testid=\"model-row\"]')]"
 Q = "document.querySelector"
 
 
+BAR = "[...document.querySelectorAll('[data-testid=\"model-picker\"] .rm-bar input, [data-testid=\"model-picker\"] .rm-bar button')]"
+BAR_RECTS = f"{BAR}.map((e) => {{ const r = e.getBoundingClientRect(); return [e.dataset.testid, Math.round(r.left), Math.round(r.top)]; }})"
+
+
+def bar_holds(c) -> list:
+    """3.6.0.0 R5c: the picker's bar (the search, the sorts) stays where it is while the rows under it change: pointing
+    at a row of another detail line, and a filter that leaves fewer rows. Centred, the dialog moved with its content and
+    Best moved out from under a click on a slow Windows runner. The moves seen ([] when none)."""
+    first = c.js(BAR_RECTS)
+    moved = []
+    rows = f"{ROWS}"
+    for i in c.js(f"[0, Math.floor({rows}.length / 2), {rows}.length - 1]"):
+        c.js(f"{rows}[{i}]?.focus(); 1")
+        time.sleep(0.15)
+        now = c.js(BAR_RECTS)
+        if now != first:
+            moved.append(f"focus row {i}: {first} -> {now}")
+    search = f"{Q}('[data-testid=\"model-search\"]')"
+    for text in ("eyes", ""):
+        c.js(f"""(() => {{ const s = {search}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          set.call(s, {text!r}); s.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()""")
+        time.sleep(0.15)
+        now = c.js(BAR_RECTS)
+        if now != first:
+            moved.append(f"filter {text!r}: {first} -> {now}")
+    return moved
+
+
 def models(c, url: str, state: Path) -> dict:
     out: dict = {}
     c.go(url)
@@ -48,6 +77,7 @@ def models(c, url: str, state: Path) -> dict:
     # for the focused row and the tag group's title; the ranked kinds sit on that line
     out["eyes_kinds"] = c.js(f"[...{eyes}.querySelectorAll('[data-testid=\"model-takes\"] [data-take]')].map((n) => n.dataset.take)")
     c.call("Emulation.setFocusEmulationEnabled", enabled=True)  # focus events fire without window focus
+    out["bar_moves"] = bar_holds(c)
     c.js(f"{eyes}.focus(); 1")
     detail = f"{Q}('[data-testid=\"model-detail\"]')"
     out["eyes_line"] = c.wait(f"{detail}?.dataset.ref === 'or:v/eyes' && {detail}.querySelector('[data-testid=\"model-best-line\"]').textContent", 10)

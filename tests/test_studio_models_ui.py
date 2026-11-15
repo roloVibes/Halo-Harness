@@ -8,7 +8,8 @@ lineups and a fixture catalog in every provider's cache:
    takes as tags, the focused row's honest line and ranked kinds on the
    detail line under the list, the full line on the tags' hover;
 3. the "best" sort leads with the model good at the most kinds; a search by
-   the line's words finds the rows that say it.
+   the line's words finds the rows that say it;
+4. the picker's bar holds still while the rows under it change (3.6.0.0 R5c).
 Run: python -m tests.test_studio_models_ui
 """
 from __future__ import annotations
@@ -58,6 +59,14 @@ def test_best_sort_and_the_line_search(ctx: Ctx):
               bool(first) and first[0][1] == got.get("max_chips"))
     refs = got.get("pdf_search") or []
     ctx.check(f"a search by the line's words finds the rows that say it, got {refs}", "or:v/eyes" in refs and "or:v/cheap" not in refs)
+
+
+@test
+def test_the_pickers_bar_holds_still_while_you_use_it(ctx: Ctx):
+    """3.6.0.0 R5c: pointing at a row with another detail line or filtering to fewer rows moves nothing in the bar (the
+    picker's dialog sits at the top; the detail line is one line). Centred, Best moved under a click (Windows CI)."""
+    got = _got(ctx)
+    ctx.check(f"the search and the sorts stay put, got {got.get('bar_moves')}", got.get("bar_moves") == [])
 
 
 if __name__ == "__main__":

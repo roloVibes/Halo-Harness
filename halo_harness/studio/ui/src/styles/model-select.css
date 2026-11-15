@@ -14,6 +14,8 @@
 .msel-empty { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border: 1px solid var(--warn);
   border-radius: var(--radius-sm); background: var(--warn-soft); }
 .msel-why { flex: 1 1 200px; font-size: 12px; min-width: 0; }
+.msel-slot { min-height: 22px; min-width: 0; } /* 3.6.0.0 R5c: "reading the catalog..." and the takes share one line's room */
+.msel-slot > .msel-why { display: block; padding-top: 3px; line-height: 19px; }
 .msel-why-line { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12px; }
 .msel-why-line .og-link { flex: none; }
 .msel-why-text { flex: 1 1 auto; min-width: 0; color: var(--warn); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

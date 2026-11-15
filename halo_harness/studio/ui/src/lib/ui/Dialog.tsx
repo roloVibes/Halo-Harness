@@ -21,9 +21,12 @@ type Props = {
   testid?: string;
   /** A confirmation: what pressing its button does, what it costs and what it writes. */
   cost?: DialogCostLines;
+  /** 3.6.0.0 R5c: held at the top, not centred -- a dialog whose content grows and shrinks as you use it (a list
+   *  that filters, a line that follows the pointer) keeps its controls where they are; centred, they moved. */
+  top?: boolean;
 };
 
-export function Dialog({ open, onClose, title, children, className, footer, kicker, testid, cost }: Props) {
+export function Dialog({ open, onClose, title, children, className, footer, kicker, testid, cost, top }: Props) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -44,7 +47,7 @@ export function Dialog({ open, onClose, title, children, className, footer, kick
   }, [open, onClose]);
   if (!open) return null;
   return (
-    <div className="scrim" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={top ? "scrim scrim-top" : "scrim"} onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={box} role="dialog" aria-modal="true" aria-label={title} className={"dialog" + (className ? " " + className : "")} data-testid={testid}>
         <Surface className="dialog-surface">
           {title && (

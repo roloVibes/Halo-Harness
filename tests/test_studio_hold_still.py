@@ -10,6 +10,9 @@ answer is held, the controls measured at first paint, the answers let go one at 
    landed, and then nothing in it moves (Review the plan first moved 41 px, then 34 px; Back was squeezed);
 4. Session as it opens (its Start view: New session, Open the workspace anyway) and its workspace opened with every
    panel open: the rail and the section hold still.
+5. the other views (3.6.0.0 R5c, second pass): Agents' Agents tab with a form open, its Workflows tab, the model
+   picker, Local, Setup, Settings;
+6. a choice made early survives (hold_still.survives): made as soon as it can be, still in effect at the end.
 Each failure names the control, how it moved and the answer that moved it.
 Run: python -m tests.test_studio_hold_still
 """
@@ -65,6 +68,31 @@ def test_the_goal_form_is_drawn_whole_and_holds_still(ctx: Ctx):
 def test_the_session_view_holds_still(ctx: Ctx):
     _view(ctx, "session", ("section-tab", "session-open-workspace"))
     _view(ctx, "session_all", ("viewbar-btn",))
+
+
+@test
+def test_the_other_views_hold_still(ctx: Ctx):
+    """3.6.0.0 R5c, the sweep's second pass: every MODEL field kept one line's room while the catalog is read (the
+    agent's form moved 22 px, then 45 px, under it); the picker's not-here line sits under the last row; Setup draws
+    Back and Next once it is read; the builder's model line has its own line."""
+    _view(ctx, "crew", ("crew-save", "crew-effort", "crew-max-turns"))  # under the form's MODEL fields
+    _view(ctx, "workflows", ("builder-input", "builder-send"))
+    _view(ctx, "picker", ("model-search", "model-sort-best", "model-not-listed"))
+    _view(ctx, "local", ("section-tab",))
+    _view(ctx, "setup", ("section-tab",))
+    _view(ctx, "settings", ("settings-search",))
+
+
+@test
+def test_a_choice_made_early_survives(ctx: Ctx):
+    """Pressed, picked or typed as soon as it can be, and still in effect once every answer has landed, whichever order
+    they land in: Best in the model picker while its catalog is read, the Library's search and source, Settings' search."""
+    got = _got(ctx)
+    for name in ("picker_best", "library_search", "library_source", "settings_search"):
+        for order in ("oldest", "newest"):
+            v = got.get(f"{name}/{order}") or {}
+            ctx.check(f"{name} ({order} first): made, got {v}", v.get("made") is True and not v.get("error"))
+            ctx.check(f"{name} ({order} first): still in effect at the end, lost after {v.get('lost')!r}", v.get("lost") == "")
 
 
 if __name__ == "__main__":

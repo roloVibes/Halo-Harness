@@ -156,8 +156,10 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
               </Fragment>
             ))}
             {models.length > 0 && !count && <p className="muted rm-more" data-testid="model-picker-nomatch">No model matches "{q}": the last row takes a reference that is not listed.</p>}
-            <NotHereLine {...gone} />
             <NotListed tid={tid} onPick={onPick} seed={q.trim()} open={typing} setOpen={setTyping} />
+            {/* 3.6.0.0 R5c: under the last row, not above it: it lands with the providers' state and pushed the last row
+                (a reference that is not listed) 46 px down under a click */}
+            <NotHereLine {...gone} />
           </div>
           {models.length > 0 && <Detail m={shown} kinds={shown ? kindsOf(shown) : []} />}
         </>

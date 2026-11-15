@@ -91,6 +91,9 @@
 .cw-bld-in { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; min-width: 0; }
 .cw-bld-name { color: var(--accent); font-size: var(--ts-data); }
 .cw-bld-input { flex: 1 1 320px; min-width: 0; height: 36px; }
+/* 3.6.0.0 R5c: the model line on its own line, while it is read and after: beside Send it took the input's room when it
+   landed and Send moved 229 px left */
+.cw-bld-in > .cw-line { flex: 1 0 100%; }
 .cw-meta { flex: 1 1 260px; }
 .cw-conv { max-height: min(26vh, 240px); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
 .cw-msg { padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: var(--r-control); background: var(--bg-2); min-width: 0; }

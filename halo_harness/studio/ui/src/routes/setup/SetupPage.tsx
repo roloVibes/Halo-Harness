@@ -97,7 +97,7 @@ function Head({ page, n, of }: { page: StepId; n: number; of: number }) {
 export function SetupPage() {
   const page = usePage();
   const steps = useSetup((s) => stepsOf(s.data, page).join("|")).split("|") as StepId[];
-  const { ready } = useLoadState();
+  const { ready, error } = useLoadState();
   const ref = useRef<HTMLElement>(null);
   const shown = useRef(false);
   const i = Math.max(0, steps.indexOf(page));
@@ -128,7 +128,9 @@ export function SetupPage() {
       <div className="su-step-body">
         <Body />
       </div>
-      <footer className="su-page-foot">
+      {/* 3.6.0.0 R5c: drawn once the setup is read (or cannot be): under an empty page it sat 1200 px higher and the
+          page landing moved Back and Next out from under a click */}
+      {(ready || !!error) && <footer className="su-page-foot">
         <Button variant="ghost" disabled={i === 0} onClick={() => step(-1)} data-testid="setup-back" title="the step before (Ctrl+Left)">
           Back
         </Button>
@@ -140,7 +142,7 @@ export function SetupPage() {
             {nextTo === "summary" ? "Summary" : "Next"}
           </Button>
         )}
-      </footer>
+      </footer>}
     </section>
   );
 }

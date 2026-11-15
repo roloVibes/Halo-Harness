@@ -17,6 +17,10 @@ failed only on slow CI runners. This check makes the order of the answers determ
 4. `moved` lists every control that moved, went away or was covered, and after which answer. Empty: it held still.
    It ends once nothing has asked for `quiet` seconds (a poll that comes back later is not waited for).
 
+`survives(c, url, ready, choose, holds, order=)` is the second check, "a choice made early survives": the choice made as
+soon as it can be (a toggle, a sort, a filter), the answers let go one at a time (oldest or newest first), the choice
+still in effect after each.
+
 A control that is not on the page at first paint is not measured: drawing a control only once it can work is fine.
 `ready` and the controls are JS expressions. The gate is taken off afterwards; the page is left as it ended."""
 from __future__ import annotations
@@ -25,7 +29,7 @@ import json
 import time
 
 GATE = """(() => { if (window.__hold) return; const f = window.fetch.bind(window); const q = [];
-  const h = window.__hold = { queue: q, inflight: 0, seen: [], next() { const e = q.shift(); if (!e) return null; h.seen.push(e.path); e.go(); return e.path; } };
+  const h = window.__hold = { queue: q, inflight: 0, seen: [], next(newest) { const e = newest ? q.pop() : q.shift(); if (!e) return null; h.seen.push(e.path); e.go(); return e.path; } };
   window.fetch = (u, o) => { const s = String(u && u.url || u); if (!/\\/api\\//.test(s)) return f(u, o);
     const path = s.replace(/^.*?\\/api\\//, '').replace(/[?#].*$/, '');
     return new Promise((go) => q.push({ path, go })).then(() => { h.inflight++; return f(u, o).finally(() => setTimeout(() => h.inflight--, 0)); }); }; })();"""
@@ -66,13 +70,19 @@ def clickables(*containers: str):
     return read
 
 
-def _release_until(c, expr: str, log: list, timeout: float = 40) -> None:
-    """Let the held answers go one at a time, oldest first, until `expr` holds."""
+def _next(c, order: str = "oldest"):
+    """Let one held answer go (the oldest, or the newest) and return its path; None when nothing waits."""
+    return c.js(f"window.__hold.next({'true' if order == 'newest' else 'false'})")
+
+
+def release_until(c, expr: str, log: "list | None" = None, timeout: float = 40, order: str = "oldest") -> None:
+    """Let the held answers go one at a time until `expr` holds (the fewest that make it hold, in `order`)."""
+    log = [] if log is None else log
     end = time.time() + timeout
     while not c.js(f"!!({expr})"):
         if time.time() > end:
             raise TimeoutError(f"hold_still: waited {timeout}s for: {expr}")
-        path = c.js("window.__hold.next()")
+        path = _next(c, order)
         if path:
             log.append(path)
             c.wait("window.__hold.inflight === 0 && 'idle'", 20)
@@ -94,13 +104,13 @@ def still(c, url: str, controls, ready: str, *, before=None, then: "str | None" 
         c.go(url)
         c.wait("!!window.__hold", 40)
         out["before_ready"] = []  # a page that draws nothing until an answer lands: the fewest answers that draw it
-        _release_until(c, ready, out["before_ready"])
+        release_until(c, ready, out["before_ready"])
         c.js(DRAWN)
         if before is not None:
             before(c)
             c.js(DRAWN)
             if then:
-                _release_until(c, then, out["before_ready"])
+                release_until(c, then, out["before_ready"])
         if callable(controls):
             controls = controls(c)
         out["first"] = {k: v for k, v in _measure(c, controls).items() if v} if controls else {}
@@ -136,6 +146,45 @@ def still(c, url: str, controls, ready: str, *, before=None, then: "str | None" 
                 else:
                     continue
                 bad.add(name)
+    finally:
+        c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
+    return out
+
+
+def survives(c, url: str, ready: str, choose, holds: str, *, order: str = "oldest", limit: int = 120, quiet: float = 0.6) -> dict:
+    """"A choice made early survives": open `url` with every /api/ answer held, let go the fewest that make `ready` hold,
+    make the choice (`choose(c)`: press a toggle, pick a sort, type a filter; it may call `release_until` for what the
+    choice itself needs drawn), check `holds` (a JS expression: the choice in effect), then let the rest go one at a time
+    (`order`: oldest or newest first) and check it after each. {"made", "released", "lost"}: `lost` names the answer
+    after which the choice was no longer in effect ("" when it survived)."""
+    c.call("Page.enable")
+    ident = c.call("Page.addScriptToEvaluateOnNewDocument", source=GATE)["identifier"]
+    out: dict = {"made": False, "released": [], "lost": "", "before_ready": []}
+    try:
+        c.go("about:blank")
+        c.go(url)
+        c.wait("!!window.__hold", 40)
+        release_until(c, ready, out["before_ready"], order=order)
+        c.js(DRAWN)
+        choose(c)
+        c.js(DRAWN)
+        out["made"] = bool(c.js(f"!!({holds})"))
+        idle_since = None
+        while out["made"] and len(out["released"]) < limit:
+            path = _next(c, order)
+            if path is None:
+                idle_since = idle_since or time.time()
+                if time.time() - idle_since > quiet:
+                    break
+                time.sleep(0.1)
+                continue
+            idle_since = None
+            out["released"].append(path)
+            c.wait("window.__hold.inflight === 0 && 'idle'", 20)
+            c.js(DRAWN)
+            if not c.js(f"!!({holds})"):
+                out["lost"] = path
+                break
     finally:
         c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
     return out

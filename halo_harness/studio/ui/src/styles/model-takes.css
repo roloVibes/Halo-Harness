@@ -25,6 +25,11 @@
 .rm-detail-ref { color: var(--text); flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rm-detail-line { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rm-detail .mcard-chips, .rm-detail .og-chip { flex: none; }
+/* 3.6.0.0 R5c: one line whichever row it follows (its title holds the whole line): it was 98 to 117 px tall by row, so
+   pointing at a row moved what sits under it, and the picker's dialog with it */
+.rm-detail { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+.rm-detail-kinds { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rm-detail .mcard-chips { flex: 0 1 auto; flex-wrap: nowrap; overflow: hidden; }
 
 /* Setup's default model: the same one-line row, fixed columns */
 .su-model { grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) 236px 72px 96px; }
