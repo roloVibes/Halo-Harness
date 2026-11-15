@@ -46,9 +46,14 @@ def left_running(state_dir=None, *, others: Optional[bool] = None) -> str:
     supervisor = _supervisor_live(state_dir) or any(e.get("what") == "supervisor" for e in rows)
     shell: dict = {}
     owned: dict = {}
+    kept_parts: list = []
     for e in rows:
         what = e.get("what") or "halo"
         if what in ("supervisor", "studio"):
+            continue
+        if e.get("keep") or what in ("host", "update", "terminal", "steward"):  # 3.6.0.0 R10
+            from halo_harness.closing import _stop_line
+            kept_parts.append(f"{C.label(what)} kept on purpose ({_stop_line(e)})")
             continue
         if e.get("owner_pid") is None:
             shell.setdefault(what, []).append(e)
@@ -63,6 +68,7 @@ def left_running(state_dir=None, *, others: Optional[bool] = None) -> str:
         reg = next((e for e in rows if e.get("what") == "studio" and e.get("pid") == studio.get("pid")), None)
         why = "another session is open" if reg is not None and reg.get("owner_pid") is not None else "started on its own"
         parts.append(f"Studio ({why}; halo studio --stop)")
+    parts += kept_parts
     if supervisor:
         parts.append("supervisor (halo supervise stop)")
     return "left running: " + ", ".join(parts) if parts else ""

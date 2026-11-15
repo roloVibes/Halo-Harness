@@ -138,6 +138,8 @@ def _detach(a, home) -> int:
     kwargs = kept_kwargs(kwargs)
     try:
         proc = (SEAMS["spawn"](argv) if "spawn" in SEAMS else subprocess.Popen(argv, **kwargs))
+        from halo_harness.closing import register_kept
+        register_kept(proc, "host", argv)
     except OSError as e:
         return C.fail(a.json, "not_started", f"halo host serve: could not start it: {e}")
     deadline = time.time() + 15.0

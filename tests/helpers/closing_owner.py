@@ -8,6 +8,10 @@ kinds: studio  -- studio/launch.launch_detached, the way `halo init` starts Stud
        tool    -- someone else's binary through subprocess_safe.Popen, in no ledger (a tool command, an MCP server)
        ledger  -- the same, recorded in children.json as this owner's (a schedule fire, a model server)
        kept    -- a spawn a person asked to keep (kept_kwargs, keep=True), like `halo --bg`
+       grandchild -- a tool command that starts its own child with the plain standard library
+       mcp     -- an MCP stdio server through mcp/stdio.connect (the MCP SDK's own spawn)
+       sub     -- its own child AND a sub-agent: a second owner (kind tool) it starts itself, which installs the
+                  closing procedure and starts its own child (an orchestra worker, a nested `halo -p`)
 Windows cannot deliver Ctrl+C to another console group: CTRL_BREAK stands in for it (mapped to KeyboardInterrupt,
 which is what Ctrl+C raises in a real halo).
 """
@@ -47,6 +51,8 @@ def main() -> int:
     home.mkdir(parents=True, exist_ok=True)
     sleeper = [sys.executable, str(Path(__file__).with_name("closing_sleeper.py"))]
     kids = []
+    if kind == "mcp":
+        return _mcp(out, home)
     if kind == "studio":
         from halo_harness.studio import launch
         url = launch.launch_detached("setup", cwd=out, state_dir=home, open_browser=False, timeout=60)
@@ -60,15 +66,31 @@ def main() -> int:
         kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
         if kind == "kept":
             kw = closing.kept_kwargs(kw)
-        proc = subprocess.Popen(sleeper + [str(target)], **kw)
+        extra = [str(out / "grandchild.json")] if kind == "grandchild" else []
+        proc = subprocess.Popen(sleeper + [str(target)] + extra, **kw)
         got = _wait_file(target, 30)
+        if kind == "grandchild":
+            g = _wait_file(out / "grandchild.json", 30)
+            kids.append({"pid": g["pid"], "start": children.start_time(g["pid"]), "what": "grandchild",
+                         "marker": g["marker"]})
+        if kind == "sub":
+            sub_out = out / "sub"
+            sub_out.mkdir(exist_ok=True)
+            sub_proc = subprocess.Popen([sys.executable, str(Path(__file__)), "tool", str(sub_out)],
+                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            sub_ready = _wait_file(sub_out / "ready.json", 60)
+            sub_ready["start"] = children.start_time(sub_proc.pid)
         if kind == "ledger":
             children.register(proc.pid, "schedule", sleeper)
         elif kind == "kept":
             children.register(proc.pid, "bg", sleeper, keep=True)
-        kids.append({"pid": proc.pid, "start": children.start_time(proc.pid), "what": kind, "marker": got["marker"]})
-    (out / "ready.json").write_text(json.dumps({"owner": os.getpid(), "marker": os.environ.get("HALO_OWNER"),
-                                                "kids": kids}), encoding="utf-8")
+        kids.insert(0, {"pid": proc.pid, "start": children.start_time(proc.pid), "what": kind, "marker": got["marker"]})
+    reaper = closing._STATE.get("reaper")
+    ready = {"owner": os.getpid(), "marker": os.environ.get("HALO_OWNER"), "kids": kids,
+             "reaper": {"pid": reaper.pid, "start": children.start_time(reaper.pid)} if reaper else None}
+    if kind == "sub":
+        ready["sub"] = sub_ready
+    (out / "ready.json").write_text(json.dumps(ready), encoding="utf-8")
     try:
         while not (out / "quit").exists():
             time.sleep(0.1)
@@ -76,6 +98,33 @@ def main() -> int:
         print("owner: interrupted", file=sys.stderr, flush=True)
         return 130
     return 0
+
+
+def _mcp(out: Path, home: Path) -> int:
+    import asyncio
+    from halo_harness import children
+    from halo_harness.mcp.stdio import connect
+    pidfile = out / "mcp.json"
+    env = dict(os.environ, R10_MCP_PIDFILE=str(pidfile), PYTHONPATH=str(REPO))
+    server = str(Path(__file__).with_name("closing_mcp_server.py"))
+
+    async def run() -> int:
+        stack, _session = await connect(command=sys.executable, args=[server], env=env, cwd=str(out),
+                                        errlog=sys.stderr, connect_timeout=60)
+        try:
+            got = _wait_file(pidfile, 30)
+            kids = [{"pid": got["pid"], "start": children.start_time(got["pid"]), "what": "mcp", "marker": got["marker"]}]
+            (out / "ready.json").write_text(json.dumps({"owner": os.getpid(), "marker": os.environ.get("HALO_OWNER"),
+                                                        "kids": kids, "reaper": None}), encoding="utf-8")
+            while not (out / "quit").exists():
+                await asyncio.sleep(0.1)
+        finally:
+            await stack.aclose()
+        return 0
+    try:
+        return asyncio.run(run())
+    except KeyboardInterrupt:
+        return 130
 
 
 if __name__ == "__main__":

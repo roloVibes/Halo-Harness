@@ -126,7 +126,7 @@ def _run_ways(ctx: Ctx, kind: str, *, kept: bool = False) -> None:
             marker = ready["marker"]
             ctx.check(f"{kind}/{way}: the owner set its own marker, got {marker!r}",
                       bool(marker) and marker.startswith(f"{ready['owner']}-"))
-            if kind in ("tool", "ledger"):
+            if kind in ("tool", "ledger", "grandchild", "mcp"):
                 ctx.check(f"{kind}/{way}: the child carries the owner's HALO_OWNER, got {kids[0].get('marker')!r}",
                           kids[0].get("marker") == marker)
             if kind == "studio":
@@ -400,10 +400,10 @@ def test_two_sessions_of_one_home_never_touch_each_others_things(ctx: Ctx):
 
 
 @test
-def test_a_halo_run_from_a_sessions_shell_ends_only_its_own(ctx: Ctx):
-    """A `halo` run from a session's own shell tool (or a sub-agent that runs halo) inherits the session's HALO_OWNER
-    and HALO_OWNER_WATCH. Ended (normally, or hard), it ends what IT started and never the session's things; it runs
-    no sweep; what it starts carries its own id, not the session's."""
+def test_a_halo_given_a_sessions_variables_but_not_started_by_it_ends_only_its_own(ctx: Ctx):
+    """A `halo` that inherited a running session's HALO_OWNER and HALO_OWNER_WATCH without being started by it (a tmux
+    pane, a terminal that kept them) is a root of its own (judge item 4). Ended (normally, or hard), it ends what IT
+    started and never the session's things; what it starts carries its own id, not the session's."""
     for way in ("normal", "kill"):
         tmp = Path(tempfile.mkdtemp(prefix=f"halo-r10-nested-{way}-"))
         home = tmp / "home"
@@ -428,6 +428,452 @@ def test_a_halo_run_from_a_sessions_shell_ends_only_its_own(ctx: Ctx):
             for k in kids:
                 _end_tree_we_started(k["pid"], k["start"])
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_a_sub_agent_killed_hard_ends_only_its_own(ctx: Ctx):
+    """Judge item 1: a sub-agent (any Halo another Halo started: an orchestra worker, a nested `halo -p`) ended -- by a
+    timeout's SIGKILL, or normally -- ends what IT started; its parent, the parent's own child and the parent's reaper
+    live on. Red at 18fbd47e on POSIX: the sub's reaper killed everything that carried the parent's marker."""
+    for way in ("normal", "kill"):
+        tmp = Path(tempfile.mkdtemp(prefix=f"halo-r10-sub-{way}-"))
+        kids: list = []
+        try:
+            proc, out, ready = _owner("sub", tmp)
+            sub_ready = ready["sub"]
+            kids += ready["kids"] + sub_ready["kids"]
+            ctx.check(f"{way}: the sub marks its child with its own id, got {sub_ready['kids'][0]['marker']!r} "
+                      f"(sub {sub_ready['marker']!r}, parent {ready['marker']!r})",
+                      sub_ready["kids"][0]["marker"] == sub_ready["marker"] != ready["marker"])
+            sub_pid, sub_start = sub_ready["owner"], sub_ready["start"]
+            if way == "kill":
+                if WIN:
+                    subprocess.run(["taskkill", "/PID", str(sub_pid), "/F"], capture_output=True, timeout=15)
+                elif _same(sub_pid, sub_start):
+                    os.kill(sub_pid, signal.SIGKILL)
+            else:
+                (out / "sub" / "quit").write_text("", encoding="utf-8")
+            ctx.check(f"{way}: the sub's own child is gone within {BOUND_S:.0f} s", not _gone_within(sub_ready["kids"]))
+            time.sleep(1.0)  # the sub's reaper has acted by now
+            own = ready["kids"][0]
+            ctx.check(f"{way}: the parent still runs", proc.poll() is None)
+            ctx.check(f"{way}: the parent's own child still runs", _same(own["pid"], own["start"]))
+            if ready.get("reaper"):
+                ctx.check(f"{way}: the parent's reaper still runs",
+                          _same(ready["reaper"]["pid"], ready["reaper"]["start"]))
+            _quit(proc, out)
+            ctx.check(f"{way}: the parent's child ends with the parent", not _gone_within(ready["kids"]))
+        finally:
+            for k in kids:
+                _end_tree_we_started(k["pid"], k["start"])
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_an_mcp_server_ends_with_its_owner(ctx: Ctx):
+    """An MCP stdio server started through mcp/stdio.connect (the MCP SDK's own spawn, not subprocess_safe) carries the
+    owner's marker and is gone within five seconds of the owner, each of the five ways (a hard kill included)."""
+    _run_ways(ctx, "mcp")
+
+
+@test
+def test_a_grandchild_ends_with_its_owner(ctx: Ctx):
+    """A tool command's own child, started with the plain standard library (its command line names no marker; it
+    inherited it in its environment), is gone within five seconds of the owner, each of the five ways."""
+    _run_ways(ctx, "grandchild")
+
+
+def _root_studio(home: Path, extra_env: "dict | None" = None):
+    from halo_harness.selfexec import python_argv
+    env = dict(_env(home), **(extra_env or {}))
+    kw: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL, "env": env}
+    if WIN:
+        kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    proc = subprocess.Popen(python_argv() + ["studio", "--no-open"], **kw)
+    info_path = home / ".halo" / "studio.json"
+    deadline = time.time() + 90
+    while time.time() < deadline:
+        try:
+            info = json.loads(info_path.read_text(encoding="utf-8"))
+            if info.get("pid") == proc.pid:
+                return proc, info
+        except (OSError, ValueError):
+            pass
+        if proc.poll() is not None:
+            break
+        time.sleep(0.1)
+    raise AssertionError(f"halo studio did not write studio.json (exit {proc.poll()})")
+
+
+def _stop_root_studio(proc, info: dict) -> None:
+    _end_tree_we_started(proc.pid, info.get("pstart"))
+    try:
+        proc.wait(timeout=15)
+    except Exception:
+        pass
+
+
+@test
+def test_a_persons_own_halo_studio_is_never_an_orphan(ctx: Ctx):
+    """Judge item 2: `halo studio` run in a terminal is its own owner: `halo ps` says owner alive, the doctor has no
+    row, `halo stop --orphans` does not pick it. Red at 18fbd47e (owner "none", picked as an orphan)."""
+    from halo_harness import ps_cli
+    from halo_harness.doctor import _check_orphans
+    home = Path(tempfile.mkdtemp(prefix="halo-r10-own-studio-"))
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+    proc, info = _root_studio(home)
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(home)
+        os.environ.pop("BRIDGE_STATE_DIR", None)
+        ctx.check(f"studio.json names it as its own owner, got {info.get('owner_pid')} vs {info['pid']}",
+                  info.get("owner_pid") == info["pid"])
+        row = next((r for r in ps_cli.rows() if r["pid"] == info["pid"]), None)
+        ctx.check(f"`halo ps`: owner alive, got {row}", bool(row) and row["owner"] == "alive")
+        ctx.check(f"no doctor row, got {_check_orphans(home / '.halo')!r}", _check_orphans(home / ".halo") is None)
+        picked, _u = ps_cli.pick(ps_cli.rows(), [], orphans=True)
+        ctx.check(f"`halo stop --orphans` does not pick it, got {picked}", all(r["pid"] != info["pid"] for r in picked))
+        ctx.check("and it still runs", _same(info["pid"], info.get("pstart")))
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        _stop_root_studio(proc, info)
+        shutil.rmtree(home, ignore_errors=True)
+
+
+_INIT_DOOR = ("from halo_harness import closing\n"
+              "closing.install()\n"
+              "from halo_harness.studio.setup_door import SetupTarget, cli_door\n"
+              "cli_door(SetupTarget(first=True), terminal_cli='halo init --terminal', fallback='wizard', "
+              "say=lambda l: print(l, flush=True), wait=True)\n")
+
+
+def _init_door(home: Path, tmp: Path):
+    return subprocess.run([sys.executable, "-c", _INIT_DOOR], env=_env(home), cwd=str(tmp), capture_output=True,
+                          text=True, encoding="utf-8", errors="replace", timeout=180)
+
+
+@test
+def test_init_uses_a_live_owned_studio_and_leaves_it_and_stops_a_leftover(ctx: Ctx):
+    """Judge item 3: with a Studio of this home whose owner is alive (a person's `halo studio`), `halo init`'s door
+    opens Setup in it, says whose it is, and leaves it running when it exits. With a Studio whose recorded owner is
+    gone, the sweep at start stops it with one line and init starts (and owns) its own. Red at 18fbd47e (init got no
+    URL: "it exited with code 0")."""
+    tmp = Path(tempfile.mkdtemp(prefix="halo-r10-init-"))
+    home = tmp / "home"
+    proc, info = _root_studio(home)
+    try:
+        r = _init_door(home, tmp)
+        text = r.stdout + r.stderr
+        ctx.check(f"init opened Setup in the running Studio, got {text[-600:]!r}",
+                  f"127.0.0.1:{info['port']}/" in text and "?mode=setup" in text)
+        ctx.check(f"and said whose it is, got {text[-600:]!r}", "Using the Studio already running" in text
+                  and str(info["pid"]) in text)
+        time.sleep(1.0)
+        ctx.check("the Studio still runs after init exited", _same(info["pid"], info.get("pstart")))
+    finally:
+        _stop_root_studio(proc, info)
+    proc2, info2 = _root_studio(home)
+    try:
+        dead_pid, dead_start = _dead_owner()
+        path = home / ".halo" / "studio.json"
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec.update(owner_pid=dead_pid, owner_start=dead_start)
+        path.write_text(json.dumps(rec), encoding="utf-8")
+        r = _init_door(home, tmp)
+        text = r.stdout + r.stderr
+        gone = not _gone_within([{"pid": info2["pid"], "start": info2.get("pstart")}])
+        ctx.check(f"the leftover is stopped with one line, got {text[-600:]!r}",
+                  "stopped a Studio server left from" in text and gone)
+        ctx.check(f"and init started its own, got {text[-600:]!r}", "?mode=setup" in text
+                  and f"127.0.0.1:{info2['port']}/" not in text)
+    finally:
+        _stop_root_studio(proc2, info2)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_a_stale_owner_watch_never_ends_a_new_halo(ctx: Ctx):
+    """Judge item 4: a `halo` whose environment carries HALO_OWNER_WATCH of a halo that is gone, or of a live one that
+    did not start it (a tmux server kept them), starts and stays up as a root; `halo --tmux` hands tmux no owner
+    variables. Red at 18fbd47e (it ended itself in 0.2 s)."""
+    from halo_harness import bg_run
+    tmp = Path(tempfile.mkdtemp(prefix="halo-r10-stale-"))
+    dead_pid, dead_start = _dead_owner()
+    other = subprocess.Popen([sys.executable, str(SLEEPER), str(tmp / "other.json")], stdin=subprocess.DEVNULL)
+    other_start = None
+    try:
+        deadline = time.time() + 20
+        while not (tmp / "other.json").exists() and time.time() < deadline:
+            time.sleep(0.05)
+        other_start = _start_time(other.pid)
+        cases = (("a gone owner", f"{dead_pid}:{dead_start}"),
+                 ("a live owner that did not start it", f"{other.pid}:{other_start}"))
+        for i, (name, watch) in enumerate(cases):
+            home = tmp / f"home-{i}"
+            proc, info = _root_studio(home, {"HALO_OWNER_WATCH": watch, "HALO_OWNER": "1-0123456789"})
+            try:
+                if i == 1:
+                    _end_tree_we_started(other.pid, other_start)
+                time.sleep(3.0)
+                ctx.check(f"{name}: the new halo is still up 3 s on",
+                          proc.poll() is None and _same(info["pid"], info.get("pstart")))
+                ctx.check(f"{name}: it is a root (its own owner), got {info.get('owner_pid')}",
+                          info.get("owner_pid") == info["pid"])
+            finally:
+                _stop_root_studio(proc, info)
+        seen: dict = {}
+
+        def fake_call(cmd, **kw):
+            seen.update(kw)
+            return 0
+        saved = {k: os.environ.get(k) for k in ("HALO_OWNER", "HALO_OWNER_WATCH")}
+        os.environ.update(HALO_OWNER="4242-0123456789", HALO_OWNER_WATCH="4242:123")
+        try:
+            bg_run.run_in_tmux(["--version"], which=lambda _n: "/usr/bin/tmux", call=fake_call)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        env = seen.get("env") or {}
+        ctx.check(f"`halo --tmux` hands tmux no owner variables, got {[k for k in env if k.startswith('HALO_OWNER')]}",
+                  bool(env) and not any(k.startswith("HALO_OWNER") for k in env))
+    finally:
+        _end_tree_we_started(other.pid, other_start)
+        other.wait(timeout=10)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_an_unreadable_start_time_is_never_signalled(ctx: Ctx):
+    """Should-fix (c): a ledger row with no recorded start time is never signalled on its pid alone."""
+    from halo_harness import children as C
+    from halo_harness import closing
+    state = Path(tempfile.mkdtemp(prefix="halo-r10-nostart-")) / ".halo"
+    state.mkdir(parents=True)
+    p = subprocess.Popen([sys.executable, str(SLEEPER), str(state / "c.json")], stdin=subprocess.DEVNULL)
+    start = _start_time(p.pid)
+    try:
+        ctx.check("no start time: no proof", C.provably_same(p.pid, None) is False)
+        ctx.check("the right start time: proof", C.provably_same(p.pid, start) is True)
+        closing.stop_entries([{"pid": p.pid, "start_time": None, "what": "schedule"}], state_dir=state,
+                             polite_s=0.3, hard_s=0.3)
+        ctx.check("stop_entries left it running", _same(p.pid, start))
+    finally:
+        _end_tree_we_started(p.pid, start)
+        p.wait(timeout=10)
+
+
+@test
+def test_kept_things_are_in_the_ledger_and_the_browser_is_never_halos(ctx: Ctx):
+    """Should-fix (b): what a person asked to keep (host serve, the supervisor, the updater, a terminal window) is
+    registered as kept, so `halo ps` lists it and the way out names it. Should-fix (a): the browser Halo opens for
+    the person (Studio's page, an MCP login) carries none of Halo's owner variables."""
+    import webbrowser
+    from halo_harness import children as C
+    from halo_harness import closing
+    state = Path(tempfile.mkdtemp(prefix="halo-r10-keptreg-")) / ".halo"
+    state.mkdir(parents=True)
+    saved_env = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+    os.environ["BRIDGE_STATE_DIR"] = str(state)
+    p = subprocess.Popen([sys.executable, str(SLEEPER), str(state / "k.json")], stdin=subprocess.DEVNULL)
+    start = _start_time(p.pid)
+    try:
+        for what in ("host", "supervisor", "update", "terminal"):
+            closing.register_kept(p, what, ["x"])
+            row = next((r for r in C.load(state) if r["pid"] == p.pid), {})
+            ctx.check(f"{what}: in the ledger as kept, got {row}", row.get("what") == what and row.get("keep") is True)
+            ctx.check(f"{what}: kept for the closing procedure", closing.kept(row))
+            ctx.check(f"{what}: the line names its own stop, got {closing._stop_line(row)!r}",
+                      bool(closing._stop_line(row)) and "halo stop" not in closing._stop_line(row))
+    finally:
+        _end_tree_we_started(p.pid, start)
+        p.wait(timeout=10)
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    seen: list = []
+    saved_open = webbrowser.open
+    saved = {k: os.environ.get(k) for k in ("HALO_OWNER", "HALO_OWNER_WATCH")}
+    os.environ.update(HALO_OWNER="4242-0123456789", HALO_OWNER_WATCH="4242:123")
+
+    def fake_open(url, *a, **k):
+        seen.append((url, os.environ.get("HALO_OWNER"), os.environ.get("HALO_OWNER_WATCH")))
+        return True
+    webbrowser.open = fake_open
+    try:
+        from halo_harness.studio.launch import _open
+        _open("http://127.0.0.1:9/studio")
+        from halo_harness.mcp import oauth
+        ctx.check("the MCP login opens the browser through the same opener",
+                  "open_url(authorize_url)" in Path(oauth.__file__).read_text(encoding="utf-8"))
+        closing.open_url("http://127.0.0.1:9/login")
+    finally:
+        webbrowser.open = saved_open
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    ctx.check(f"both opened with no owner variables, got {seen}",
+              len(seen) == 2 and all(s[1] is None and s[2] is None for s in seen))
+
+
+def _halo(home: Path, *args, timeout: float = 120):
+    from halo_harness.selfexec import python_argv
+    return subprocess.run(python_argv() + list(args), env=_env(home), capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", timeout=timeout, cwd=str(home))
+
+
+def _served(home: Path) -> list:
+    """The fake llama-server(s) `halo local serve` started for this home: [{pid, start}] from its registry."""
+    try:
+        rows = json.loads((home / ".halo" / "run" / "local-servers.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    rows = rows.get("servers", rows) if isinstance(rows, dict) else rows
+    out = []
+    for r in rows if isinstance(rows, list) else []:
+        if isinstance(r, dict) and isinstance(r.get("pid"), int):
+            out.append({"pid": r["pid"], "start": r.get("proc_start"), "owner": r.get("owner_pid")})
+    return out
+
+
+def _gguf(home: Path) -> str:
+    f = home / "models" / "r10-tiny-Q4_K_M.gguf"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_bytes(b"GGUF" + b"\0" * 2048)
+    fake = [sys.executable, str(REPO / "tests" / "helpers" / "fake_llama_server.py")]
+    r = _halo(home, "config", "set", "huggingface.llama_server_bin", json.dumps(fake))
+    assert r.returncode == 0, r.stderr[-400:]
+    return str(f)
+
+
+@test
+def test_a_local_model_server_stops_with_the_last_halo_of_its_home(ctx: Ctx):
+    """Real-use bug 2: `halo local serve` returns at once and says the server "stops when the last Halo process on
+    this home exits". With no other Halo process the server is gone within five seconds; with one running (a `halo
+    studio`) it stays, and it is gone within five seconds of that one ending -- Ctrl+C, SIGTERM, a closed terminal,
+    a hard kill (its home watch outlives the hard kill; the server is someone else's binary)."""
+    tmp = Path(tempfile.mkdtemp(prefix="halo-r10-serve-"))
+    started: list = []
+    try:
+        home = tmp / "alone"
+        model = _gguf(home)
+        r = _halo(home, "local", "serve", model)
+        rows = _served(home)
+        started += rows
+        ctx.check(f"alone: it started and said so, got {r.returncode} {r.stdout[-300:]!r}",
+                  r.returncode == 0 and bool(rows) and "stops when the last Halo process" in r.stdout)
+        ctx.check(f"alone: the server is gone within {BOUND_S:.0f} s (no Halo runs on this home)",
+                  not _gone_within(rows))
+        for way in ("ctrl_c", "sigterm", "sighup", "kill"):
+            home = tmp / f"beside-{way}"
+            model = _gguf(home)
+            proc, info = _root_studio(home)
+            try:
+                r = _halo(home, "local", "serve", model)
+                rows = _served(home)
+                started += rows
+                time.sleep(2.0)
+                ctx.check(f"{way}: with a Halo of the home running, the server stays, got {r.returncode} {rows}",
+                          bool(rows) and all(_same(s["pid"], s["start"]) for s in rows))
+                if way == "ctrl_c":
+                    os.kill(proc.pid, signal.CTRL_BREAK_EVENT if WIN else signal.SIGINT)
+                elif way == "sigterm":
+                    proc.terminate()
+                elif way == "sighup" and not WIN:
+                    os.kill(proc.pid, signal.SIGHUP)
+                else:
+                    proc.kill()
+                try:
+                    proc.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                ctx.check(f"{way}: the server is gone within {BOUND_S:.0f} s of the last Halo of its home",
+                          not _gone_within(rows))
+            finally:
+                _stop_root_studio(proc, info)
+    finally:
+        for s in started:
+            _end_tree_we_started(s["pid"], s["start"])
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+_HUNG = r'''
+import socket, sys, threading, time, signal, os
+sys.path.insert(0, sys.argv[1])
+from halo_harness import closing
+closing.install()
+srv = socket.socket(); srv.bind(("127.0.0.1", 0)); srv.listen(8)
+def call():  # a model call that never answers
+    c = socket.create_connection(srv.getsockname()); c.recv(1)
+from concurrent.futures import ThreadPoolExecutor
+pool = ThreadPoolExecutor(2); pool.submit(call)  # a sub-agent's call in a pool thread
+if hasattr(signal, "SIGHUP"):
+    signal.signal(signal.SIGHUP, closing.signal_exit(129))
+signal.signal(signal.SIGTERM, closing.signal_exit(143))
+if hasattr(signal, "SIGBREAK"):  # Ctrl+Break behaves as Ctrl+C does (KeyboardInterrupt, when bytecode runs)
+    signal.signal(signal.SIGBREAK, signal.default_int_handler)
+closing.arm_second_ctrl_c()
+open(sys.argv[2], "w").write("ready")
+try:
+    call()  # the main thread in its own call
+except KeyboardInterrupt:
+    closing.hard_exit(130)
+    sys.exit(130)
+'''
+
+
+@test
+def test_a_one_shot_with_calls_in_flight_ends_when_told(ctx: Ctx):
+    """Real-use bugs 3 and 4: a process whose main thread and a pool thread (a sub-agent) both sit in model calls that
+    never answer ends within the bound when told: SIGHUP (a closed terminal) and SIGTERM on POSIX -- interpreter exit
+    used to join the pool thread for ever -- and on Windows a second Ctrl+C (the console's handler: the main thread in
+    a socket read never sees the first). In-flight calls are abandoned; the exit code is the conventional one."""
+    tmp = Path(tempfile.mkdtemp(prefix="halo-r10-hung-"))
+    script = tmp / "hung.py"
+    script.write_text(_HUNG, encoding="utf-8")
+    ways = (("second Ctrl+C", 130),) if WIN else (("SIGHUP", 129), ("SIGTERM", 143), ("Ctrl+C", 130))
+    try:
+        for name, code in ways:
+            flag = tmp / f"{code}.ready"
+            kw: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "text": True,
+                        "env": _env(tmp / "home")}
+            if WIN:
+                kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            proc = subprocess.Popen([sys.executable, str(script), str(REPO), str(flag)], **kw)
+            deadline = time.time() + 60
+            while not flag.exists() and time.time() < deadline and proc.poll() is None:
+                time.sleep(0.05)
+            time.sleep(0.5)
+            if WIN:  # two console control events (Ctrl+Break stands in: Windows cannot send Ctrl+C to another group)
+                os.kill(proc.pid, signal.CTRL_BREAK_EVENT)
+                time.sleep(0.5)
+                os.kill(proc.pid, signal.CTRL_BREAK_EVENT)
+            else:
+                sig = {"SIGHUP": signal.SIGHUP, "SIGTERM": signal.SIGTERM, "Ctrl+C": signal.SIGINT}[name]
+                os.kill(proc.pid, sig)
+            t0 = time.monotonic()
+            try:
+                proc.wait(timeout=BOUND_S + 1)
+            except subprocess.TimeoutExpired:
+                pass
+            took = time.monotonic() - t0
+            ended = proc.poll()
+            if ended is None:
+                proc.kill()
+            proc.communicate(timeout=10)
+            ctx.check(f"{name}: the process ended within {BOUND_S:.0f} s with {code}, got {ended} after {took:.1f} s",
+                      ended == code and took <= BOUND_S)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 @test

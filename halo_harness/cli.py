@@ -460,8 +460,9 @@ def main(argv: Optional[list] = None) -> int:
 
 def _main(argv: Optional[list] = None) -> int:
     _make_streams_utf8_safe()
+    from halo_harness.closing import signal_exit  # 3.6.0.0 R10: unwinds, and a bound behind it (calls in flight)
     try:  # best-effort: SIGTERM -> exit 143 (not available on every platform/thread)
-        signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))
+        signal.signal(signal.SIGTERM, signal_exit(143))
     except (ValueError, AttributeError, OSError):
         pass
     # H9 whole-tree review finding 3: SIGHUP (closing the terminal, an SSH
@@ -470,7 +471,7 @@ def _main(argv: Optional[list] = None) -> int:
     # (AttributeError, caught as above); a real `sys.exit()` unwinds every
     # `finally: job_registry.kill_all()` / `mcp_manager.close_all()`.
     try:
-        signal.signal(signal.SIGHUP, lambda signum, frame: sys.exit(129))
+        signal.signal(signal.SIGHUP, signal_exit(129))
     except (ValueError, AttributeError, OSError):
         pass
     argv = sys.argv[1:] if argv is None else list(argv)
@@ -838,6 +839,8 @@ def _main(argv: Optional[list] = None) -> int:
             return 2
 
     from halo_harness.headless import run_print_mode
+    from halo_harness import closing
+    closing.arm_second_ctrl_c()  # 3.6.0.0 R10: Windows, a second Ctrl+C ends a turn whose call never answers
     try:
         return run_print_mode(
             prompt=prompt_text,
@@ -898,6 +901,8 @@ def _main(argv: Optional[list] = None) -> int:
         # Ctrl+C during a print-mode turn: POSIX exit-code convention
         # (128 + SIGINT's 2 = 130), never an uncaught-traceback exit 1.
         print("\nhalo: interrupted", file=sys.stderr)
+        if closing._STATE.get("installed"):  # 3.6.0.0 R10: a sub-agent's call in flight never holds the exit up
+            closing.hard_exit(130)
         return 130
 
 

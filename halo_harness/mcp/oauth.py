@@ -253,8 +253,9 @@ def run_authorization_flow(*, server_name: str, server_url: str, oauth_cfg: dict
     print_fn(f"halo mcp login {server_name}: open this URL to authorize (it may open automatically):")
     print_fn(f"  {authorize_url}")
     if open_browser:
-        try:
-            webbrowser.open(authorize_url)
+        try:  # 3.6.0.0 R10: the person's browser, never Halo's child (no marker, out of the kill group)
+            from halo_harness.closing import open_url
+            open_url(authorize_url)
         except Exception:
             pass
 

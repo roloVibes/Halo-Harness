@@ -26,6 +26,8 @@ from typing import Optional
 
 FILENAME = "children.json"
 LABELS = {"studio": ("Studio", "Studios"), "bg": ("background run", "background runs"),
+          "host": ("LAN host", "LAN hosts"), "steward": ("duty steward", "duty stewards"),
+          "update": ("updater", "updaters"), "terminal": ("terminal window", "terminal windows"),
           "schedule": ("schedule fire", "schedule fires"), "supervisor": ("supervisor", "supervisors"),
           "mlx": ("local model server", "local model servers"), "llama": ("local model server", "local model servers"),
           "halo": ("halo", "halo processes")}
@@ -85,6 +87,15 @@ def same_process(pid, recorded: Optional[str]) -> bool:
         return True
     current = start_time(pid)
     return current is None or current == recorded
+
+
+def provably_same(pid, recorded: Optional[str]) -> bool:
+    """3.6.0.0 R10: the proof a signal needs -- `pid` runs AND its start time is read now AND equals the one recorded.
+    An unreadable start time on either side is not a match: Halo never signals on a pid alone."""
+    if not recorded or not pid_running(pid):
+        return False
+    current = start_time(pid)
+    return current is not None and current == recorded
 
 
 def alive(entry: dict) -> bool:

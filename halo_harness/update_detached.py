@@ -120,12 +120,18 @@ def spawn(path, *, windows: Optional[bool] = None, cwd=None, popen=subprocess.Po
         base = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
         for flags in (base | getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0), base):
             try:
-                return popen(argv, creationflags=flags, **common).pid
+                proc = popen(argv, creationflags=flags, **common)
+                from halo_harness.closing import register_kept
+                register_kept(proc, "update", argv)
+                return proc.pid
             except OSError:
                 continue
         return None
     try:
-        return popen([shutil.which("sh") or "/bin/sh", str(path)], start_new_session=True, **common).pid
+        proc = popen([shutil.which("sh") or "/bin/sh", str(path)], start_new_session=True, **common)
+        from halo_harness.closing import register_kept
+        register_kept(proc, "update", ["sh", str(path)])
+        return proc.pid
     except OSError:
         return None
 

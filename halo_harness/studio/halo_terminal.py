@@ -89,7 +89,9 @@ def open_halo(cwd, *, env=None, platform: Optional[str] = None, which: Callable 
         from halo_harness.closing import kept_kwargs
         kwargs = kept_kwargs(kwargs)
     try:
-        (spawn or subprocess.Popen)(argv, **kwargs)
+        proc = (spawn or subprocess.Popen)(argv, **kwargs)
+        from halo_harness.closing import register_kept
+        register_kept(proc, "terminal", argv)
     except (OSError, ValueError):
         return False, NO_TERMINAL
     return True, OPENED_LINE.format(name=name)

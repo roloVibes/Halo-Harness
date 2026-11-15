@@ -268,8 +268,9 @@ def test_the_terminal_a_done_opens(ctx: Ctx):
         ctx.check(f"no display / SSH {env}: none", H.terminal_argv("/w", env=env, platform="linux", which=which) == ("", []))
     ctx.check("no known terminal: none", H.terminal_argv("/w", env={"DISPLAY": ":0"}, platform="linux", which=lambda n: None) == ("", []))
     name, argv = H.terminal_argv("C:/w", env={}, platform="win32", which=lambda n: None)
+    from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: the safe-path form, never the working folder's copy
     ctx.check(f"Windows: a console window, halo through this Python, got {name} {argv}", name == "a console window"
-              and argv[1:] == ["-m", "halo_harness"])
+              and argv == python_argv() and argv[0] == sys.executable and "halo_harness" in " ".join(argv))
     spawned: list = []
     ok, line = H.open_halo("/w", env={"DISPLAY": ":0"}, platform="linux", which=which, spawn=lambda argv, **kw: spawned.append((argv, kw)))
     ctx.check(f"open_halo spawns it in cwd, got {ok} {line} {spawned}", ok and line == "halo is starting in a new terminal window (xfce4-terminal)"

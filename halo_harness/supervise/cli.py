@@ -141,6 +141,8 @@ def _daemon(state_dir, as_json: bool) -> int:
     kwargs = kept_kwargs(kwargs)
     try:
         proc = subprocess.Popen(argv, **kwargs)
+        from halo_harness.closing import register_kept
+        register_kept(proc, "supervisor", argv)
     except OSError as e:
         print(f"could not start the supervisor: {e}", file=sys.stderr)
         return 1

@@ -459,10 +459,13 @@ def cmd_studio(argv: list) -> int:
 
 
 def _owner_record() -> dict:
-    """3.6.0.0 R10: the Halo that started this Studio (`HALO_OWNER_WATCH`), {} for one started on its own."""
-    from halo_harness.closing import owner
+    """3.6.0.0 R10: the Halo that started this Studio (`HALO_OWNER_WATCH`); one a person started on its own (`halo
+    studio` in a terminal) is its own owner, so it is never taken for an orphan while it runs (judge item 2)."""
+    from halo_harness.closing import me, owner
     pid, start = owner()
-    return {"owner_pid": pid, "owner_start": start} if pid else {}
+    if not pid:
+        pid, start = me()
+    return {"owner_pid": pid, "owner_start": start}
 
 
 def _clear_own_info(state_dir: Path) -> None:

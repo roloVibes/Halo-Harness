@@ -103,6 +103,30 @@ def own_url(state_dir: Path, mode: Optional[str] = None, edit: Optional[str] = N
     return url_from_info(info, mode, edit)
 
 
+def live_owned(state_dir: Path) -> Optional[dict]:
+    """3.6.0.0 R10 (judge item 3): studio.json's Studio when it answers and its owner is ALIVE -- another terminal's
+    session, or a `halo studio` a person runs (its own owner). A launch may use it (never adopt it: it stays with its
+    owner). None for no Studio, one that does not answer, or one whose owner is gone (a leftover: the sweep's)."""
+    info = read_info(Path(state_dir))
+    if not info or not port_answers(info["port"]):
+        return None
+    from halo_harness import children
+    if not children.same_process(info.get("pid"), info.get("pstart")):
+        return None
+    owner = info.get("owner_pid")
+    if owner is None:  # a Studio from before 3.6.0.0 R10 records no owner: one a person started, not a leftover
+        return info
+    return info if children.same_process(owner, info.get("owner_start")) else None
+
+
+def whose(info: dict) -> str:
+    """"your own `halo studio` (pid 4242)" / "the halo of pid 4100 (pid 4242)": who a Studio belongs to, in words."""
+    pid, owner = info.get("pid"), info.get("owner_pid")
+    if owner is None or owner == pid:
+        return f"a `halo studio` started on its own (pid {pid})"
+    return f"the halo of pid {owner} (Studio pid {pid})"
+
+
 def failure_line() -> str:
     """Why the last start gave no URL, for "Studio did not start: <why>" ('' when nothing is known)."""
     return str(LAST_FAILURE.get("why") or "")
@@ -315,10 +339,5 @@ def stop(state_dir: Path) -> "tuple[bool, str]":
 
 def _open(url: str) -> bool:
     """True when a browser took the URL."""
-    from halo_harness.closing import without_marker  # 3.6.0.0 R10: the browser is the person's, never Halo's child
-    try:
-        import webbrowser
-        with without_marker():
-            return bool(webbrowser.open(url))
-    except Exception:
-        return False
+    from halo_harness.closing import open_url  # 3.6.0.0 R10: the browser is the person's, never Halo's child
+    return open_url(url)

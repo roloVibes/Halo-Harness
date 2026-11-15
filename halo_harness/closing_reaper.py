@@ -29,11 +29,11 @@ def main(argv: list) -> int:
                 and (not owner_start or not e.get("owner_start") or e.get("owner_start") == owner_start)
                 and not closing.kept(e)]
         for e in rows:
-            if C.alive(e):
+            if C.provably_same(e["pid"], e.get("start_time")):
                 closing._signal_tree(e["pid"], hard=False)
         closing._wait(rows, 0.8)
         for e in rows:
-            if C.alive(e):
+            if C.provably_same(e["pid"], e.get("start_time")):
                 closing._signal_tree(e["pid"], hard=True)
         closing._wait(rows, 0.4)
         C.unregister([e["pid"] for e in rows if not C.alive(e) and e.get("source") != "local-servers"],

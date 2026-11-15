@@ -179,7 +179,7 @@ def _with_studio(entries: list, state_dir) -> list:
 
 
 def stop_all(owner: Optional[int] = None, timeout: float = 5.0, *, state_dir=None,
-             keep=("supervisor",)) -> list:
+             keep=("supervisor", "host", "update", "terminal", "steward")) -> list:
     """Stop every registered child of this home (`owner`: only that pid's),
     except the kinds in `keep`; with no owner the Studio in studio.json too.
     One line per process."""
@@ -217,6 +217,8 @@ def quit_targets(state_dir=None) -> list:
     for e in C.prune(state_dir):
         if e.get("what") == "supervisor" or e.get("pid") == me:
             continue
+        if e.get("keep") or e.get("what") in ("host", "update", "terminal", "steward"):
+            continue  # 3.6.0.0 R10: asked to keep running; the closing procedure names it
         mine = e.get("owner_pid") == me
         # No owner: started from a plain shell (`halo --bg`, a Studio a shell
         # command opened), on purpose -- a quit leaves it; `halo update`,

@@ -30,6 +30,7 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 - [INSTALL.md](INSTALL.md) (Install): read this when you install, upgrade or update Halo.
 - [MAC.md](MAC.md) (Mac quick-start (Apple Silicon)): read this when you check Halo with local models on an Apple Silicon Mac.
 - [LOCAL-MODELS.md](LOCAL-MODELS.md) (Local and cloud models): read this when you set up Ollama, Hugging Face or the OpenAI API end to end.
+- [PROCESSES.md](PROCESSES.md) (What runs, and what stops it): read this when you want to know which processes Halo starts, which ones may keep running after it, and how to list or stop them (`halo ps`, `halo stop`).
 - [HOST.md](HOST.md) (halo host): read this when a machine serves models and you want every harness on the LAN to read its card, its models, its log and its profiles without a session or ssh there.
 - [POOL.md](POOL.md) (The pool: one model across several machines): read this when you want to run a model too big for any one of your GPUs across the GPU memory of several machines on your LAN, warm or stop it, or you want to know what the pool can and cannot do.
 - [VOICE.md](VOICE.md) (Voice: talk to a session, the speech models and Halo's speech server): read this when you want to talk to a Halo session and hear it answer on your own machine, or want speech-to-text or text-to-speech locally: the voice loop, its modes, barge-in and latency card, the voice-local bundle, the speech models Halo knows, how to download and serve one, where it runs, and what the steward says about it.

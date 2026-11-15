@@ -1,5 +1,7 @@
 # What runs, and what stops it
 
+Read this when you want to know which processes Halo starts, which ones may keep running after it, and how to list or stop them (`halo ps`, `halo stop`).
+
 Halo starts other programs: Studio's server, sub-agents, your tool commands, MCP servers, local model servers and
 more. The rule since 3.6.0.0: **no process Halo started is alive five seconds after the Halo that started it is gone,
 however it went** -- you quit, pressed Ctrl+C, it got SIGTERM, you closed the terminal, or it was killed hard. The
@@ -11,12 +13,14 @@ stops it.
 | What | Started with | Stopped with |
 |---|---|---|
 | a background run | `halo --bg ...` | `halo bg stop <id>` |
-| the LAN host (and its duty steward) | `halo host serve`, `halo host steward on` | `halo host stop`, `halo host steward off` |
+| the LAN host | `halo host serve` | `halo host stop` |
 | the supervisor | `halo supervise --daemon` | `halo supervise stop` |
 | a local model server you marked kept | `halo local serve ... --keep` (or "keep" in Studio) | `halo local stop <model>` |
 | the updater | `halo update` / `/update` | it ends by itself |
 
-Nothing else: not Studio, not the Ollama steward, not a sub-agent, not an MCP server.
+Nothing else: not Studio, not the Ollama steward, not the host's duty steward (`halo host steward on` runs it as
+the host's child, ending with the host, or in the foreground when no host runs), not a sub-agent, not an MCP server.
+Each kept thing is in the ledger marked so: `halo ps` lists it and the Halo that started it names it on the way out.
 
 ## How a closing works
 
@@ -36,9 +40,13 @@ Every child carries `HALO_OWNER=<id>` in its environment, so a stray is always f
 ## Studio belongs to the launch that started it
 
 `halo init`, `halo`, `/studio` and `halo studio` each own the Studio they start; `halo init` hands its Studio to the
-session it starts in the same terminal. A launch never uses a Studio it did not start. `halo setup ...`, `halo studio
---edit ...` and `halo replay open` stay in the foreground while the Studio they started serves: Ctrl+C there ends
-both. A browser page whose Studio has gone says "Studio has stopped" and stops asking.
+session it starts in the same terminal. A launch never adopts a leftover: the sweep at start has already stopped any
+Studio whose owner is gone. A Studio of this home whose owner is alive (another terminal's session, or a `halo
+studio` you run yourself) is used as it is: `halo init` opens Setup in it and says whose it is, the doors (`halo setup
+...`, `halo studio --edit ...`) open their page in it, and it stays with the launch that started it -- leaving does
+not stop it. When none runs, `halo setup ...`, `halo studio --edit ...` and `halo replay open` start one and stay in
+the foreground while it serves: Ctrl+C there ends both. A browser page whose Studio has gone says "Studio has
+stopped" and stops asking.
 
 ## Seeing and stopping
 

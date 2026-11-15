@@ -14,6 +14,7 @@ import asyncio
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -116,9 +117,25 @@ def test_spawn_worker_argv_cwd_env_and_result(ctx: Ctx):
         out = json.dumps({"type": "result", "is_error": False, "result": "done", "session_id": "s-3",
                           "total_cost_usd": 0.0042})
         return subprocess.CompletedProcess(argv, 0, "noise\n" + out + "\n", "")
-    result = spawn_worker("or:cheap/model", run_dir=run_dir, runner=runner)(lane)
+    from halo_harness import closing
+    from halo_harness.selfexec import python_argv
+    saved = {k: os.environ.get(k) for k in (closing.MARKER, closing.WATCH)}
+    os.environ.update({closing.MARKER: "4242-0123456789", closing.WATCH: "4242:abc"})  # as an installed parent has
+    try:
+        result = spawn_worker("or:cheap/model", run_dir=run_dir, runner=runner)(lane)
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
     argv = got["argv"]
-    ctx.check("a fresh `halo -p` child", argv[1:3] == ["-m", "halo_harness"] and argv[3:5] == ["-p", "write subtotal"])
+    head = python_argv()  # 3.6.0.0 R10: this Python, the safe-path form, the halo module
+    ctx.check(f"a fresh `halo -p` child, got {argv[:6]}", argv[:len(head)] == head
+              and argv[len(head):len(head) + 2] == ["-p", "write subtotal"])
+    ctx.check("the worker carries its starter's HALO_OWNER (a scan finds it) and watches its starter (it ends with it); "
+              "its own id is the one it gives its own children at start",
+              got["env"].get(closing.MARKER) == "4242-0123456789" and got["env"].get(closing.WATCH) == "4242:abc")
     ctx.check("json output, auto mode, the model", "--output-format" in argv and "json" in argv and "auto" in argv
               and argv[-2:] == ["--model", "or:cheap/model"])
     ctx.check("cwd is the lane's worktree", got["cwd"] == str(lane.worktree))

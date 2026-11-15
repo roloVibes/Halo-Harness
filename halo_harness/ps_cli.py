@@ -147,12 +147,12 @@ def _stop_rows(targets: list, state_dir=None) -> list:
         entries = [dict(e, **{k: by_pid[e["pid"]].get(k) for k in ("model", "source")}) if e["pid"] in by_pid else e
                    for e in entries]
     gone = {e["pid"] for e in closing.stop_entries(entries, state_dir=state_dir)}
-    for t in strays:  # its marker and start time again, then the signal
-        if C.same_process(t["pid"], t["start_time"]):
+    for t in strays:  # its marker and start time again, then the signal (never on a pid alone)
+        if C.provably_same(t["pid"], t["start_time"]):
             closing._signal_tree(t["pid"], hard=False)
     closing._wait([{"pid": t["pid"], "start_time": t["start_time"]} for t in strays], closing.POLITE_S)
     for t in strays:
-        if C.same_process(t["pid"], t["start_time"]):
+        if C.provably_same(t["pid"], t["start_time"]):
             closing._signal_tree(t["pid"], hard=True)
     closing._wait([{"pid": t["pid"], "start_time": t["start_time"]} for t in strays], closing.HARD_S)
     gone |= {t["pid"] for t in strays if not C.same_process(t["pid"], t["start_time"])}

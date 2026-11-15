@@ -337,4 +337,7 @@ def run_in_tmux(argv: list, *, which=None, call=subprocess.call) -> Optional[int
     if not tmux_path:
         return None
     command = [tmux_path, "new-session", *python_argv(), *argv]
-    return call(command)
+    # 3.6.0.0 R10 (judge item 4): a tmux server this starts keeps the environment it was given for every later pane;
+    # Halo's owner variables must not be in it (a later `halo` in a pane would watch a halo that is long gone).
+    from halo_harness.closing import scrubbed_env
+    return call(command, env=scrubbed_env())

@@ -97,20 +97,22 @@ def start(model_path, *, runtime: str, port: int = 0, window: int, ngl: int, par
         out.flush()
         try:  # 3.3.14.0 R2 (REVIEW #22): a tool child's environment, Halo's provider keys left out
             from halo_harness.engines.launch_env import child_env
-            from halo_harness.closing import keep_kw  # 3.6.0.0 R10: only --keep outlives this halo
+            from halo_harness.closing import server_kw  # 3.6.0.0 R10: --keep, home-tied, or this halo's own child
             proc = subprocess.Popen(info.argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                    **keep_kw(bool(keep), child_env()))
+                                    **server_kw(bool(keep), child_env()))
         except OSError as e:
             info.ok, info.say = False, f"{runtime} did not start: {e}"
             return info
     R._register_popen(proc)
     info.pid = proc.pid
-    owner_pid, owner_start = R._owner_fingerprint()
+    from halo_harness.closing import server_owner  # 3.6.0.0 R10: a home-tied server's owner is its home watch
+    owner_pid, owner_start = server_owner(proc, bool(keep), state_dir)
     entry = {"model": model, "runtime": FMT.get(runtime, runtime), "pid": proc.pid, "port": port,
              "base_url": f"{info.url}/v1", "started": datetime.now(timezone.utc).isoformat(), "keep": bool(keep),
              "owner_pid": owner_pid, "owner_start": owner_start, "proc_start": process_start_time(proc.pid),
              "cmdline": list(info.argv), "ready": False, "id": sid, "kind": runtime, "model_path": str(path),
-             "flags": flags, "sources": info.sources, "log": str(log), "halo": True}
+             "flags": flags, "sources": info.sources, "log": str(log), "halo": True,
+             "launcher_pid": os.getpid(), "home_tied": owner_pid != os.getpid()}  # 3.6.0.0 R10: its home watch owns it
     with R._registry_lock(state_dir):  # keyed by id: two servers of one model are two rows
         R.save_registry(state_dir, [e for e in R.load_registry(state_dir) if e.get("id") != sid and e.get("port") != port] + [entry])
     size = path.stat().st_size if path.is_file() else None
@@ -234,10 +236,10 @@ def exit_sweep(state_dir=None) -> list:
         others = None
         out = []
         for e in rows:
-            mine = _entry_owned_by_this_process(e)
+            mine = _entry_owned_by_this_process(e) or e.get("launcher_pid") == os.getpid()
             if not mine:
                 others = _others_alive(state_dir) if others is None else others
-                if others or pid_alive(e.get("owner_pid")):
+                if others or (not e.get("home_tied") and pid_alive(e.get("owner_pid"))):
                     continue
             out.append(stop(e["id"], state_dir=state_dir))
         return out

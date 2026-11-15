@@ -128,13 +128,14 @@ def _start(kind, row, path: Path, dev: dict, prefix: list, *, port, keep, state_
         out.flush()
         try:  # 3.3.14.0 R2 (REVIEW #22): a tool child's environment, Halo's provider keys left out
             from halo_harness.engines.launch_env import child_env
-            from halo_harness.closing import keep_kw  # 3.6.0.0 R10: only --keep outlives this halo
+            from halo_harness.closing import server_kw  # 3.6.0.0 R10: --keep, home-tied, or this halo's own child
             proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                    **keep_kw(bool(keep), child_env()))
+                                    **server_kw(bool(keep), child_env()))
         except OSError as e:
             return 1, lines + [f"the speech server did not start: {e}"], None
     R._register_popen(proc)
-    owner_pid, owner_start = R._owner_fingerprint()
+    from halo_harness.closing import server_owner  # 3.6.0.0 R10: a home-tied server's owner is its home watch
+    owner_pid, owner_start = server_owner(proc, bool(keep), _state(state_dir))
     rt = runtime_for(kind)
     reg = {"id": kind, "kind": rt, "runtime": rt, "model": row.name, "model_path": str(path), "pid": proc.pid,
            "port": port, "base_url": f"{url}/v1", "started": datetime.now(timezone.utc).isoformat(), "keep": bool(keep),

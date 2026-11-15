@@ -137,8 +137,14 @@ def open_setup(target: SetupTarget, *, cwd=None, state_dir=None, why: Optional[s
     why = no_browser_reason() if why is None else why
     found = launch.own_url if own else launch.existing_url
     running = edit_open._focus_in_process(target, publish=False) or found(state_dir, target.mode, target.text)
+    other = None
+    if not running and own:  # 3.6.0.0 R10 (judge item 3): a Studio whose owner is alive is used as it is, never adopted
+        other = launch.live_owned(state_dir)
+        running = launch.url_from_info(other, target.mode, target.text) if other else ""
     if running:
         out = edit_open.open_edit(target, cwd=cwd, state_dir=state_dir, open_browser=not why, timeout=timeout)
+        if other:
+            out["whose"] = launch.whose(other)
     else:
         url = launch.launch_detached(target.mode, cwd=cwd, state_dir=state_dir, open_browser=False, timeout=timeout,
                                      edit=target.text)
@@ -178,6 +184,8 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
     except Exception as e:  # Studio could not be reached or started: the terminal path runs
         out = {"url": "", "how": "failed", "why": f"{type(e).__name__}: {e}"}
     url, how = out.get("url") or "", out.get("how")
+    if out.get("whose") and url:  # 3.6.0.0 R10: whose Studio this is; leaving does not stop it
+        say(f"Using the Studio already running for this home, {out['whose']}: it stays with that launch.")
     if how in ("focused", "opened", "started") and url:
         where = "in the Studio page already open" if how == "focused" else "in your browser"
         if wait:  # 3.3.15.0 R6: the terminal stays and becomes the session (halo_harness/init_wait.py)

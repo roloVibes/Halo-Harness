@@ -539,11 +539,13 @@ asked for it to keep running, and Halo names it on the way out with the command 
   within two seconds of it going. On Linux and macOS a tiny reaper waits for Halo and ends what it started when it
   dies without a word. Every child carries `HALO_OWNER=<id>` in its environment, so a stray is always findable.
 - **There is no detached Studio.** A Studio belongs to the launch that started it (`halo init` hands it to the
-  session it starts in the same terminal); a launch never uses a Studio it did not start. `halo setup`, `halo
-  studio --edit` and `halo replay open` stay in the foreground while the Studio they started serves (Ctrl+C ends
-  both). A page whose Studio has gone says "Studio has stopped" and stops asking.
-- **What may keep running, because you asked:** `halo --bg`, `halo host serve` (and its duty steward), `halo
-  supervise --daemon`, a model server started with `--keep`, and the updater. Nothing else.
+  session it starts in the same terminal). A launch never adopts a leftover; a Studio whose owner is alive (another
+  terminal's session, your own `halo studio`) is used as it is, named in one line, and left to its owner. `halo
+  setup`, `halo studio --edit` and `halo replay open` stay in the foreground while a Studio they started serves
+  (Ctrl+C ends both). A page whose Studio has gone says "Studio has stopped" and stops asking.
+- **What may keep running, because you asked:** `halo --bg`, `halo host serve`, `halo supervise --daemon`, a model
+  server started with `--keep`, and the updater -- each in the ledger, listed by `halo ps` and named on the way out.
+  Nothing else: the host's duty steward is the host's child and ends with it.
 - **The sweep at start:** a halo launch first stops what an earlier Halo left behind with no living owner (one line:
   "stopped a Studio server left from <when>").
 - **Halo's own Python never imports from your project folder.** Halo started its helpers as `python -m

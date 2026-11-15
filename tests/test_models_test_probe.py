@@ -76,8 +76,11 @@ def test_an_answer_is_ok_with_latency_and_the_cost_line(ctx: Ctx):
         ctx.check(f"the cost line comes from the catalog's prices, got {r['cost_line']!r}",
                   "~$0.0011" in r["cost_line"] and "600 in / 300 out" in r["cost_line"])
         argv, kw = s.calls[0]
+        from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: this Python, the safe-path form, the halo module
+        head = python_argv()
         ctx.check(f"the print-mode path with the one-word prompt, got {argv}",
-                  argv[1:] == ["-m", "halo_harness", "-p", PROBE_PROMPT, "--model", "or:vendor/priced", "--max-turns", "1"]
+                  argv[:len(head)] == head
+                  and argv[len(head):] == ["-p", PROBE_PROMPT, "--model", "or:vendor/priced", "--max-turns", "1"]
                   and PROBE_PROMPT == "Reply with the single word ok")
         ctx.check(f"20 s timeout, utf-8 decoding, got {kw}", kw.get("timeout") == 20.0 and kw.get("encoding") == "utf-8"
                   and kw.get("capture_output") is True)
