@@ -71,9 +71,13 @@ def test_precedence_halo_harness_theme_env_checked_too(ctx: Ctx):
 
 
 @test
-def test_precedence_settings_beats_persisted(ctx: Ctx):
+def test_precedence_the_theme_picked_in_halo_beats_claude_codes_settings(ctx: Ctx):
+    """3.5.0.1: what you picked in Halo (Setup, Settings, /theme) wins over a `theme` in Claude Code's settings
+    files. Before, a theme left in those settings beat the pick: Setup's theme step saved and nothing changed."""
     resolved = t.resolve_theme(cli_theme=None, env={}, settings_theme="claude-light", persisted_theme="claude-dark-ansi")
-    ctx.check(f"settings wins over persisted, got {resolved!r}", resolved == "claude-light")
+    ctx.check(f"the pick made in Halo wins over Claude Code's settings, got {resolved!r}", resolved == "claude-dark-ansi")
+    only = t.resolve_theme(cli_theme=None, env={}, settings_theme="claude-light", persisted_theme=None)
+    ctx.check(f"with no pick in Halo, Claude Code's settings theme still applies, got {only!r}", only == "claude-light")
 
 
 @test

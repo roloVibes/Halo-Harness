@@ -8,6 +8,22 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.5.0.1] - 2026-11-14
+
+A hotfix: Halo with a large pack enabled was slow to do anything, and the theme picked in Setup did not apply.
+
+- **Fixed: every command and every Studio read took seconds with a large pack enabled** (the owner: "halo init on my
+  mac almost freezes", Setup stuck on "reading setup"). When Halo checked a pack it read every agent file of the pack
+  again for every stage of every workflow: a pack with 48 agents and 58 workflow stages was about 2,500 YAML parses
+  each time the pack list was built, which every command and Studio's Setup page do. Measured with that pack in a
+  clean home: `halo pack list` 7.7 s before, 0.7 s after. A YAML file is now parsed once per change of the file
+  (`agents_yaml._read_yaml_file`, keyed by its time and size; each caller gets its own copy; Halo's own writes drop
+  the entry).
+- **Fixed: the theme picked in Halo wins.** The theme chosen in Setup, in Settings or with `/theme` now comes before
+  a `theme` left in Claude Code's settings files; before, that older setting beat the pick, so Setup saved the theme
+  and nothing changed. A `--theme` flag and the `HALO_THEME` variable still come first. With nothing picked anywhere
+  the theme is `instrument`, as before.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

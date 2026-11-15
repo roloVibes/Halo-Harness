@@ -90,7 +90,24 @@ def agent_search_dirs(*, cwd=None, state_dir=None) -> "list[tuple[Path, str]]":
             *agent_dirs(cwd=cwd, state_dir=state_dir), (bundled_agent_templates_dir(), "template")]
 
 
+_YAML_READS: dict = {}  # str(path) -> (mtime_ns, size, parsed): one parse per file per change (3.5.0.1)
+_YAML_READS_MAX = 4096
+
+
 def _read_yaml_file(path: Path) -> "Optional[dict]":
+    """The file's mapping, None when it cannot be read or parsed. 3.5.0.1: parsed once per change of the file
+    (its mtime and size), and each caller gets its own copy. Before, a pack's check read every bio of the pack again
+    for every stage of every workflow (48 bios x 58 stages = 2,500 parses, seconds on every command and every Studio
+    read that builds the pack registry)."""
+    import copy
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    key, stamp = str(path), (st.st_mtime_ns, st.st_size)
+    hit = _YAML_READS.get(key)
+    if hit is not None and hit[0] == stamp:
+        return copy.deepcopy(hit[1])
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -99,7 +116,12 @@ def _read_yaml_file(path: Path) -> "Optional[dict]":
         data = yaml.safe_load(text)
     except yaml.YAMLError:
         return None
-    return data if isinstance(data, dict) else (None if data is not None else {})
+    data = data if isinstance(data, dict) else (None if data is not None else {})
+    if data is not None:
+        if len(_YAML_READS) >= _YAML_READS_MAX:
+            _YAML_READS.clear()
+        _YAML_READS[key] = (stamp, copy.deepcopy(data))
+    return data
 
 
 def _write_yaml_file(path: Path, data: dict) -> "list[str]":
@@ -111,6 +133,8 @@ def _write_yaml_file(path: Path, data: dict) -> "list[str]":
         write_atomic_keep_mode(path, text)
     except OSError as e:
         return [f"cannot write {path}: {e}"]
+    finally:
+        _YAML_READS.pop(str(path), None)  # 3.5.0.1: Halo's own write is never answered from the read cache
     return []
 
 
