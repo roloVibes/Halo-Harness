@@ -385,6 +385,31 @@ def test_ensure_llama_server_binary_offers_the_build_for_this_cpu(ctx: Ctx):
               len(lines) == 1 and "arm64" in lines[0] and "install it yourself" in lines[0])
 
 
+_ARM_AND_X64_RELEASE = {"tag_name": "b12426", "prerelease": True, "assets": [
+    {"name": f"llama-b12426-bin-{n}", "browser_download_url": f"https://x/{n}", "digest": "sha256:aaa", "size": 10}
+    for n in ("macos-arm64.tar.gz", "macos-x64.tar.gz", "ubuntu-x64.tar.gz", "ubuntu-arm64.tar.gz",
+              "ubuntu-vulkan-x64.tar.gz", "ubuntu-vulkan-arm64.tar.gz", "win-cpu-x64.zip", "win-cpu-arm64.zip",
+              "win-vulkan-x64.zip", "win-vulkan-arm64.zip")]}
+
+
+@test
+def test_ensure_llama_server_binary_reads_this_machines_cpu(ctx: Ctx):
+    """The real path: no `platform_name`, no `machine`; platform.machine() says ARM64. Whatever OS runs this, the
+    offered build is this OS's arm64 GPU build (metal on a Mac, vulkan on Linux and Windows), never an x64 one and
+    never the cpu-only one."""
+    import platform
+    from unittest import mock
+    from halo_harness.providers.local_use import ensure_llama_server_binary
+    with mock.patch.object(platform, "machine", lambda: "ARM64"):
+        binary, lines = ensure_llama_server_binary(state_dir=Path(tempfile.mkdtemp(prefix="ensure-this-cpu-")),
+                                                    confirm=lambda q: False, releases=[_ARM_AND_X64_RELEASE],
+                                                    hw_runner=lambda argv, timeout: "")
+    echo = _asset_echo_lines(lines)
+    want = {"darwin": "macos-arm64", "win32": "win-vulkan-arm64"}.get(sys.platform, "ubuntu-vulkan-arm64")
+    ctx.check(f"offered this OS's arm64 GPU build ({want}), got {echo}",
+              binary is None and len(echo) == 1 and want in echo[0] and "x64" not in echo[0])
+
+
 @test
 def test_ensure_llama_server_binary_backend_override_bypasses_cuda_probe(ctx: Ctx):
     from halo_harness.providers.local_use import ensure_llama_server_binary

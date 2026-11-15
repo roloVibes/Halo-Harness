@@ -56,11 +56,11 @@ ASSET_PATTERNS = {
     ("linux", "cpu"): r"^llama-.+-bin-ubuntu-{arch}\.tar\.gz$",
     ("linux", "vulkan"): r"^llama-.+-bin-ubuntu-vulkan-{arch}\.tar\.gz$",
     ("linux", "cuda"): r"^llama-.+-bin-ubuntu-cuda-(?P<ver>[\d.]+)-{arch}\.tar\.gz$",
-    ("linux", "cuda_runtime"): r"^cudart-llama-.+-bin-ubuntu-cuda-%s-{arch}\.tar\.gz$",
+    ("linux", "cuda_runtime"): r"^cudart-llama-(?:.+-)?bin-ubuntu-cuda-%s-{arch}\.tar\.gz$",
     ("win32", "cpu"): r"^llama-.+-bin-win-cpu-{arch}\.zip$",
     ("win32", "vulkan"): r"^llama-.+-bin-win-vulkan-{arch}\.zip$",
     ("win32", "cuda"): r"^llama-.+-bin-win-cuda-(?P<ver>[\d.]+)-{arch}\.zip$",
-    ("win32", "cuda_runtime"): r"^cudart-llama-.+-bin-win-cuda-%s-{arch}\.zip$",
+    ("win32", "cuda_runtime"): r"^cudart-llama-(?:.+-)?bin-win-cuda-%s-{arch}\.zip$",
     ("darwin", "metal"): r"^llama-.+-bin-macos-arm64\.tar\.gz$",  # Metal: Apple Silicon only (see _pattern)
     ("darwin", "cpu"): r"^llama-.+-bin-macos-{arch}\.tar\.gz$",
 }
@@ -71,7 +71,10 @@ _BUILD_TAG_RE = re.compile(r"^b(\d+)$")
 def cpu_arch(machine: Optional[str] = None, platform_name: Optional[str] = None) -> str:
     """The CPU word llama.cpp's asset names use: "x64" or "arm64" (anything else as `platform.machine()` says it,
     which no asset matches). `machine` None: this machine's own when `platform_name` is None too; a caller that pins
-    a platform without a machine (a hermetic test) gets that platform's usual CPU (arm64 on macOS, x64 elsewhere)."""
+    a platform without a machine (a hermetic test) gets that platform's usual CPU (arm64 on macOS, x64 elsewhere).
+    An x86_64 Python under Rosetta on an Apple Silicon Mac reads x86_64; the hardware is asked, so it gets arm64 (the
+    native Metal build, which runs whatever started it)."""
+    read_here = machine is None and platform_name is None
     if machine is None:
         if platform_name is None:
             import platform
@@ -80,10 +83,25 @@ def cpu_arch(machine: Optional[str] = None, platform_name: Optional[str] = None)
             machine = "arm64" if platform_name == "darwin" else "x64"
     m = (machine or "").strip().lower()
     if m in ("x86_64", "amd64", "x64", "x86-64"):
-        return "x64"
+        return "arm64" if read_here and sys.platform == "darwin" and _mac_hardware_is_arm64() else "x64"
     if m in ("arm64", "aarch64", "armv8", "arm64e"):
         return "arm64"
     return m or "unknown"
+
+
+def _mac_hardware_is_arm64(runner=None) -> bool:
+    """`sysctl -n hw.optional.arm64` is 1 on Apple Silicon, also inside a Rosetta process (an Intel Mac has no such key
+    or 0). `runner(argv) -> stdout` is the test seam; never raises."""
+    argv = ["sysctl", "-n", "hw.optional.arm64"]
+    try:
+        if runner is None:
+            from halo_harness import subprocess_safe as subprocess
+            out = subprocess.run(argv, capture_output=True, text=True, timeout=5).stdout
+        else:
+            out = runner(argv)
+        return (out or "").strip() == "1"
+    except Exception:  # noqa: BLE001 -- no sysctl, a timeout, anything: not Apple Silicon as far as we can tell
+        return False
 
 
 def _pattern(platform_name: str, backend: str, arch: str) -> Optional[str]:
@@ -99,17 +117,17 @@ def backend_candidates(*, platform_name: str, cuda_version: Optional[str], overr
     """Priority-ordered backends to try, best first. `override`
     (`--backend`) short-circuits to exactly that one choice -- explicit
     always wins, no fallback chain. Otherwise: Metal alone on an Apple
-    Silicon Mac (no fallback), the x64 cpu build on an Intel Mac; the cpu
-    build on an arm64 Linux or Windows box (llama.cpp's CUDA and Vulkan
-    builds are x64 only); CUDA then Vulkan when the driver reported a CUDA
+    Silicon Mac (no fallback), the x64 cpu build on an Intel Mac. On Linux
+    and Windows, x64 and arm64 alike (llama.cpp ships CUDA and Vulkan
+    builds for both): CUDA then Vulkan when the driver reported a CUDA
     version (the live-run's own "else Vulkan" correction); Vulkan alone
-    otherwise. `machine`: see `cpu_arch`."""
+    otherwise. Any other CPU: its cpu build. `machine`: see `cpu_arch`."""
     if override:
         return [override]
     arch = cpu_arch(machine, platform_name)
     if platform_name == "darwin":
         return ["metal"] if arch == "arm64" else ["cpu"]
-    if arch != "x64":
+    if arch not in ("x64", "arm64"):
         return ["cpu"]
     if cuda_version:
         return ["cuda", "vulkan"]

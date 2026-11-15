@@ -172,12 +172,89 @@ def test_backend_candidates_follow_the_cpu(ctx: Ctx):
               backend_candidates(platform_name="darwin", cuda_version=None, machine="arm64") == ["metal"])
     ctx.check("an Intel Mac: the x64 cpu build, never the arm64 metal one",
               backend_candidates(platform_name="darwin", cuda_version=None, machine="x86_64") == ["cpu"])
-    ctx.check("an arm64 Linux box (the GPU builds are x64 only): cpu",
-              backend_candidates(platform_name="linux", cuda_version="12.8", machine="aarch64") == ["cpu"])
-    ctx.check("an arm64 Windows box: cpu",
-              backend_candidates(platform_name="win32", cuda_version=None, machine="ARM64") == ["cpu"])
+    # llama.cpp ships arm64 CUDA and Vulkan builds for Linux and Windows (release b12426:
+    # ubuntu-cuda-13.5-arm64, ubuntu-vulkan-arm64, win-cuda-13.5-arm64, win-vulkan-arm64): same chain as x64.
+    ctx.check("an arm64 Linux box with an NVIDIA driver: cuda then vulkan (its GPU builds), never cpu only",
+              backend_candidates(platform_name="linux", cuda_version="13.5", machine="aarch64") == ["cuda", "vulkan"])
+    ctx.check("an arm64 Windows box with no NVIDIA driver: vulkan",
+              backend_candidates(platform_name="win32", cuda_version=None, machine="ARM64") == ["vulkan"])
     ctx.check("an x64 Windows box keeps its chain",
               backend_candidates(platform_name="win32", cuda_version="13.2", machine="AMD64") == ["cuda", "vulkan"])
+    ctx.check("a CPU llama.cpp ships no GPU build for (s390x): cpu",
+              backend_candidates(platform_name="linux", cuda_version=None, machine="s390x") == ["cpu"])
+
+
+# Asset names exactly as llama.cpp release b12426 lists them (gh api repos/ggml-org/llama.cpp/releases/tags/b12426):
+# the Windows cudart redistributables carry no build tag, the Linux ones do.
+_B12426 = {"tag_name": "b12426", "prerelease": True, "assets": [_asset(n, 100.0) for n in (
+    "cudart-llama-b12426-bin-ubuntu-cuda-12.8-x64.tar.gz",
+    "cudart-llama-b12426-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+    "cudart-llama-b12426-bin-ubuntu-cuda-13.5-x64.tar.gz",
+    "cudart-llama-bin-win-cuda-12.4-x64.zip",
+    "cudart-llama-bin-win-cuda-13.5-arm64.zip",
+    "cudart-llama-bin-win-cuda-13.5-x64.zip",
+    "llama-b12426-bin-macos-arm64.tar.gz",
+    "llama-b12426-bin-macos-x64.tar.gz",
+    "llama-b12426-bin-ubuntu-arm64.tar.gz",
+    "llama-b12426-bin-ubuntu-cuda-12.8-x64.tar.gz",
+    "llama-b12426-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+    "llama-b12426-bin-ubuntu-cuda-13.5-x64.tar.gz",
+    "llama-b12426-bin-ubuntu-vulkan-arm64.tar.gz",
+    "llama-b12426-bin-ubuntu-vulkan-x64.tar.gz",
+    "llama-b12426-bin-ubuntu-x64.tar.gz",
+    "llama-b12426-bin-win-cpu-arm64.zip",
+    "llama-b12426-bin-win-cpu-x64.zip",
+    "llama-b12426-bin-win-cuda-12.4-x64.zip",
+    "llama-b12426-bin-win-cuda-13.5-arm64.zip",
+    "llama-b12426-bin-win-cuda-13.5-x64.zip",
+    "llama-b12426-bin-win-vulkan-arm64.zip",
+    "llama-b12426-bin-win-vulkan-x64.zip")]}
+
+
+@test
+def test_arm64_linux_and_windows_get_their_gpu_builds_with_the_cuda_runtime(ctx: Ctx):
+    from halo_harness.providers.local_runtime_fetch import select_release_and_assets as sel
+
+    def names(platform_name, backend, machine, cuda=None):
+        got = sel([_B12426], platform_name=platform_name, backend=backend, machine=machine, cuda_version=cuda)
+        return sorted(a["name"] for a in got[1]) if got else None
+    got = names("linux", "cuda", "aarch64", "13.5")
+    ctx.check(f"arm64 Linux cuda 13.5: the arm64 build and its cudart, got {got}",
+              got == ["cudart-llama-b12426-bin-ubuntu-cuda-13.5-arm64.tar.gz",
+                      "llama-b12426-bin-ubuntu-cuda-13.5-arm64.tar.gz"])
+    got = names("linux", "vulkan", "aarch64")
+    ctx.check(f"arm64 Linux vulkan: ubuntu-vulkan-arm64, got {got}", got == ["llama-b12426-bin-ubuntu-vulkan-arm64.tar.gz"])
+    got = names("win32", "vulkan", "ARM64")
+    ctx.check(f"arm64 Windows vulkan: win-vulkan-arm64, got {got}", got == ["llama-b12426-bin-win-vulkan-arm64.zip"])
+    got = names("win32", "cuda", "ARM64", "13.5")
+    ctx.check(f"arm64 Windows cuda 13.5: the arm64 build and its untagged cudart, got {got}",
+              got == ["cudart-llama-bin-win-cuda-13.5-arm64.zip", "llama-b12426-bin-win-cuda-13.5-arm64.zip"])
+    got = names("win32", "cuda", "AMD64", "12.4")
+    ctx.check(f"x64 Windows cuda 12.4: the build and its untagged cudart, got {got}",
+              got == ["cudart-llama-bin-win-cuda-12.4-x64.zip", "llama-b12426-bin-win-cuda-12.4-x64.zip"])
+
+
+@test
+def test_cpu_arch_reads_this_machine_and_sees_through_rosetta(ctx: Ctx):
+    """`machine` None and no pinned platform: the real path reads platform.machine(); on a Mac an x86_64 Python under
+    Rosetta reads x86_64 although the hardware is Apple Silicon (sysctl hw.optional.arm64 = 1), and gets arm64."""
+    import platform
+    from unittest import mock
+    from halo_harness.providers import local_runtime_fetch as f
+    with mock.patch.object(platform, "machine", lambda: "ARM64"):
+        ctx.check(f"platform.machine() ARM64 -> arm64, got {f.cpu_arch()}", f.cpu_arch() == "arm64")
+    with mock.patch.object(platform, "machine", lambda: "x86_64"), mock.patch.object(f.sys, "platform", "darwin"), \
+            mock.patch.object(f, "_mac_hardware_is_arm64", lambda: True):
+        ctx.check(f"x86_64 Python under Rosetta on Apple Silicon -> arm64, got {f.cpu_arch()}", f.cpu_arch() == "arm64")
+    with mock.patch.object(platform, "machine", lambda: "x86_64"), mock.patch.object(f.sys, "platform", "darwin"), \
+            mock.patch.object(f, "_mac_hardware_is_arm64", lambda: False):
+        ctx.check(f"an Intel Mac stays x64, got {f.cpu_arch()}", f.cpu_arch() == "x64")
+    ctx.check("sysctl says 1 -> Apple Silicon", f._mac_hardware_is_arm64(runner=lambda argv: "1\n") is True)
+    ctx.check("sysctl says 0 -> not", f._mac_hardware_is_arm64(runner=lambda argv: "0\n") is False)
+
+    def boom(argv):
+        raise OSError("no sysctl")
+    ctx.check("sysctl missing or failing -> not (never raises)", f._mac_hardware_is_arm64(runner=boom) is False)
 
 
 @test
@@ -195,7 +272,8 @@ def test_the_asset_is_the_one_for_this_cpu_or_none(ctx: Ctx):
               "llama-b11400-bin-macos-arm64.tar.gz" not in (names("darwin", "metal", "x86_64") or []))
     ctx.check(f"an arm64 Windows box's cpu build is win-cpu-arm64, got {names('win32', 'cpu', 'ARM64')}",
               names("win32", "cpu", "ARM64") == ["llama-b11400-bin-win-cpu-arm64.zip"])
-    ctx.check(f"an arm64 Windows box asked for vulkan gets nothing (x64 only), got {names('win32', 'vulkan', 'ARM64')}",
+    ctx.check(f"an arm64 Windows box asked for vulkan, in a release with no win-vulkan-arm64: nothing, never the x64 "
+              f"one, got {names('win32', 'vulkan', 'ARM64')}",
               names("win32", "vulkan", "ARM64") is None)
     ctx.check(f"an arm64 Linux box: no ubuntu arm64 build in this release, nothing, got "
               f"{names('linux', 'cpu', 'aarch64')}", names("linux", "cpu", "aarch64") is None)
