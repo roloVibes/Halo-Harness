@@ -97,7 +97,8 @@ def for_call(session, ref, window, requested, decision=None, request=None, host=
             from halo_harness.providers.ollama_wire_estimate import wire_estimate
             prompt = wire_estimate(*request) - 1024
     first = not getattr(session, "_reply_room_called", False)
-    session._reply_room_called = True
+    if not getattr(session, "_ollama_helper_call", False):  # 3.6.0.0 R8 fix pass F4: a helper call is not the first
+        session._reply_room_called = True
     profile = getattr(decision, "profile", None) or {}
     if hold:
         # 3.6.0.0 R8 fix pass M1: held only when the prompt (a 15 % margin) AND this room fit, so the room is the

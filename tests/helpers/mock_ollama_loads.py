@@ -15,13 +15,17 @@ resident); `/api/generate` with `keep_alive: 0` is an UNLOAD; `/api/ps` lists wh
 Every chat answers "ready" with Ollama's real `prompt_eval_count` (`mock_ollama._real_prompt_count`) unless
 `count_ratio` scales it (a model whose tokenizer is denser or looser than chars / 3.5).
 
-The window is the real server's (3.6.0.0 R8 fix pass): a prompt longer than `options.num_ctx` is cut to it and
-answered anyway (status 200; `prompt_eval_count` is then `num_ctx`, the way Ollama's runner truncates and the
-judge's probe models it; the reply still comes, as Ollama's default context shift gives it); a reply of
+The window is cut the way a real server cuts it (3.6.0.0 R8 fix pass; measured on Ollama 0.40.16): a prompt longer
+than `options.num_ctx` is answered anyway (status 200, `done_reason: "stop"`) with
+- a chat of several messages: whole messages dropped from the front (the system message and the last one kept)
+  until it fits, so `prompt_eval_count` lands a little under `num_ctx`;
+- one over-long message (or the kept ones still too long): the runner's cut to half the window,
+  `prompt_eval_count` = `num_ctx // 2 + 2`.
+`cut_shape` forces one shape for every cut: "edge" (`num_ctx`), "half", or ("drop", N) (`num_ctx - N`). A reply of
 `reply_tokens` that does not fit in what the window leaves after an uncut prompt, or past `num_predict`, stops
-there with `done_reason: "length"` and `eval_count` = the room it had. `fake.cuts` lists every cut
-`{"num_ctx", "real"}`. `fake.replies` (a list of assistant messages, e.g. a `tool_calls` one) is answered first,
-one per chat, before "ready".
+there with `done_reason: "length"` and `eval_count` = the room it had (the reply ran out; the prompt was not cut).
+`fake.cuts` lists every cut `{"model", "num_ctx", "real", "count"}`. `fake.replies` (a list of assistant messages,
+e.g. a `tool_calls` one) is answered first, one per chat, before "ready".
 """
 from __future__ import annotations
 
@@ -63,7 +67,8 @@ class LoadCountingOllama(MockUpstream):
         self.slow_at = {}             # num_ctx -> seconds EVERY request at that window waits (a load that never ends)
         self.count_ratio = 1.0
         self.reply_tokens = 2         # the reply's length in tokens ("ready")
-        self.cuts: list = []          # {"model", "num_ctx", "real"}: a prompt the window cut
+        self.cuts: list = []          # {"model", "num_ctx", "real", "count"}: a prompt the window cut
+        self.cut_shape = None         # None: the real server's shapes; "edge" / "half" / ("drop", N) forced
         self.replies: list = []       # scripted assistant messages, one per chat, before "ready"
         self.vram = {}              # model -> callable(num_ctx) -> (size, size_vram)
         for name in models:
@@ -127,6 +132,24 @@ class LoadCountingOllama(MockUpstream):
             time.sleep(slow)
 
     # -- the reply -----------------------------------------------------------------------------------------
+    def _cut(self, body: dict, real: int, num_ctx: int) -> int:
+        """What a real server reads of a prompt longer than the window (see the module docstring)."""
+        shape = self.cut_shape
+        if shape == "edge":
+            return num_ctx
+        if shape == "half":
+            return num_ctx // 2 + 2
+        if isinstance(shape, tuple) and shape[0] == "drop":
+            return num_ctx - int(shape[1])
+        msgs = [m for m in (body.get("messages") or []) if isinstance(m, dict)]
+        first = 1 if msgs and msgs[0].get("role") == "system" else 0
+        count = real
+        for m in msgs[first:-1]:  # whole messages from the front, the system message and the last one kept
+            if count <= num_ctx:
+                break
+            count -= int(len(json.dumps(m, ensure_ascii=False)) / 3.6 * self.count_ratio)
+        return count if count <= num_ctx else num_ctx // 2 + 2  # the runner's cut: half the window
+
     def _answer(self, handler, body) -> None:
         if body.get("stream") is False:
             from tests.helpers.mock_ollama import send_json
@@ -137,10 +160,10 @@ class LoadCountingOllama(MockUpstream):
         opts = body.get("options") if isinstance(body.get("options"), dict) else {}
         num_ctx = int(opts.get("num_ctx") or DEFAULT_CTX)
         real = max(1, int(_real_prompt_count(body) * self.count_ratio))
-        count = min(real, num_ctx)  # Ollama cuts a prompt longer than the window to the window and answers 200
+        count = self._cut(body, real, num_ctx) if real > num_ctx else real
         with self._lock:
             if real > num_ctx:
-                self.cuts.append({"model": body.get("model"), "num_ctx": num_ctx, "real": real})
+                self.cuts.append({"model": body.get("model"), "num_ctx": num_ctx, "real": real, "count": count})
             message = self.replies.pop(0) if self.replies else {"role": "assistant", "content": "ready"}
         eval_count, reason = int(self.reply_tokens), "stop"
         predict = opts.get("num_predict")

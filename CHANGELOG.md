@@ -484,16 +484,21 @@ took 33-39 s through Halo on first use (0.2 s straight from Ollama): Halo measur
   you ask: `halo local measure`, or Measure on a host's card in Studio's Local section.
 - **The window a turn asks for** is the window the model is already loaded at on that server when it holds the
   request -- the prompt with a 15 % margin for the estimate plus the reply's full room at that window -- and is not
-  known to spill to the CPU (nobody's model is reloaded, another machine's load included; one that spills is reloaded
-  once under the spill, with a line saying why). Otherwise a `halo -p` run asks for what its request needs on the
+  on the CPU (nobody's model is reloaded, another machine's load included; what the card holds right now decides, and a
+  window that runs partly on the CPU is reloaded once under it, with a line saying why). Otherwise a `halo -p` run asks for what its request needs on the
   ladder 8,192 / 16,384 / 32,768 / 65,536, and a session that takes more turns (the TUI, Studio, `--input-format
   stream-json`) asks for the largest window it may use, so a session is one load; a session that has to grow goes
-  straight to that largest window. Never above the host's `max_ctx`, a measured cap or a window seen spilling. A
+  straight to that largest window. Helper calls (the small model, compaction, titles, hooks) stay on the ladder, and
+  every session of one process (sub-agents too) shares the window last asked of a model, so two calls starting
+  together never reload it back and forth. Never above the host's `max_ctx`, a measured cap or a window seen spilling. A
   steward profile's window still wins. The traffic ledger's `window_source` says which: `loaded`, `request size`,
   `last used`, `steward profile`, ... Auto-compaction's share is of the most the window can be.
-- **A prompt the window cut is sent again.** Ollama cuts a prompt longer than the window and answers anyway; a
-  `prompt_eval_count` at the window's end now marks the call trimmed and sends it once more at a window that holds it,
-  with one line. The reply's room is never squeezed by a loaded window.
+- **A prompt the window cut is sent again.** Ollama cuts a prompt longer than the window and answers anyway (one long
+  message to half the window, `num_ctx / 2 + 2`; a chat by dropping whole messages from the front). A count at that
+  half, one reaching into the room kept for the reply, one smaller than the last call's while the conversation only
+  grew, or one under 70 % of the estimate now marks the call trimmed and sends it once more at the largest window,
+  with one line; such a count never sets the ratio. The reply's room is never squeezed by a loaded window. The
+  `/api/ps` read before a call waits 3 s at most (it was 10) and says in one line when it gave up.
 - **The estimate is honest.** The ledger's `estimate_tokens` is the prompt's (it carried the reply's room, 16,384
   on a first call); the real `prompt_eval_count` of a call that loaded the model (nothing cached), or one at or above
   the raw estimate, sets this model's ratio, which the next estimate starts from when chars / 3.5 is more than 15 %
@@ -505,7 +510,8 @@ took 33-39 s through Halo on first use (0.2 s straight from Ollama): Halo measur
   fit"), keeps the safe window it measured when a later step is slow, and runs once per model digest and server
   version (`--again` repeats it). One measurement per server runs at a time, across every Halo process (a second is
   refused with a line), and it leaves the server as it found it: the model back at the window it had, or unloaded
-  when it was not loaded; the report says which.
+  when it was not loaded (when the server's answer afterwards is unreadable, only that model, and the line says the
+  others were not checked); the report says which.
 - **The wait says what it is**: "loading <model> on <host> (16.6 GB)" before a call that loads the model, then how
   long it took -- in the TUI's status line and transcript, Studio's Live row, and a `system`/`status` line in
   `--output-format stream-json`.

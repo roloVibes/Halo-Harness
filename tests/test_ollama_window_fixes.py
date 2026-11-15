@@ -5,8 +5,9 @@ Every end-to-end test runs a real `halo -p` (tests/helpers/halo_turn_net.py) aga
 `tests/helpers/mock_ollama_loads.LoadCountingOllama` on loopback: never a real Ollama, never a real model.
 
 Pinned (the judge's findings on R8, brief v360-R8-judge):
-- S7: the fake cuts a prompt longer than `num_ctx` to it (`prompt_eval_count` = `num_ctx`) and answers 200; a reply
-  that runs out of room stops with `done_reason: "length"`;
+- S7 (second pass F1): the fake cuts a prompt longer than `num_ctx` the way Ollama 0.40.16 was measured to: one
+  over-long message to `num_ctx // 2 + 2`, a chat by dropping whole messages from the front; both answer 200 and
+  "stop"; a reply that runs out of room stops with `done_reason: "length"`;
 - M1: a loaded window is held only when the prompt (a 15 % margin) and the reply's room at that window fit; a count
   at the window's end is a cut prompt, sent again once at a window that holds it, with one line; the reply's room in
   a held window is never squeezed under the window's own;
@@ -91,9 +92,9 @@ def _ok(ctx, result, what: str) -> None:
 
 # ---- S7: the fake cuts like the real server ------------------------------------------------------------------------
 
-def _chat(fake, num_ctx: int, chars: int, **opts) -> dict:
+def _chat(fake, num_ctx: int, chars: int, messages: list = None, **opts) -> dict:
     body = {"model": MODEL, "stream": True, "options": {"num_ctx": num_ctx, **opts},
-            "messages": [{"role": "user", "content": "x" * chars}]}
+            "messages": messages or [{"role": "user", "content": "x" * chars}]}
     req = urllib.request.Request(fake.base_url + "/api/chat", data=json.dumps(body).encode("utf-8"),
                                  headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=30) as resp:
@@ -102,14 +103,23 @@ def _chat(fake, num_ctx: int, chars: int, **opts) -> dict:
 
 
 @test
-def test_the_fake_cuts_a_prompt_longer_than_its_window(ctx: Ctx):
+def test_the_fake_cuts_a_prompt_the_way_the_real_server_does(ctx: Ctx):
+    # the shapes measured on Ollama 0.40.16 (one message: num_ctx // 2 + 2 at 2,048 / 4,096 / 8,192; 61 messages:
+    # 2,020 at 2,048 and 4,012 at 4,096 -- whole messages dropped from the front), done_reason "stop" for both
     fake = L._fake()
     try:
-        last = _chat(fake, 4096, 60000)  # about 16.6k tokens into a 4,096 window
-        ctx.check(f"a prompt longer than the window is read as the window: 4096, got {last.get('prompt_eval_count')}",
-                  last.get("prompt_eval_count") == 4096)
-        ctx.check(f"and answered (status 200, a reply), got {last}", last.get("done") is True)
-        ctx.check(f"the cut is counted, got {fake.cuts}", len(fake.cuts) == 1 and fake.cuts[0]["num_ctx"] == 4096)
+        for window in (2048, 4096, 8192):
+            last = _chat(fake, window, 34000)  # one message of about 9.4k tokens
+            ctx.check(f"one over-long message at {window}: read as {window // 2 + 2}, got {last}",
+                      last.get("prompt_eval_count") == window // 2 + 2 and last.get("done_reason") == "stop")
+        many = [{"role": "system", "content": "You answer."}] + [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": "y" * 560} for i in range(60)]
+        for window in (2048, 4096):
+            last = _chat(fake, window, 0, messages=many)  # 61 messages, about 10k tokens
+            got = last.get("prompt_eval_count") or 0
+            ctx.check(f"61 messages at {window}: whole messages dropped from the front, a little under it, got {last}",
+                      window - 200 < got <= window and last.get("done_reason") == "stop")
+        ctx.check(f"every cut is counted, got {len(fake.cuts)}", len(fake.cuts) == 5)
         fake.reply_tokens = 9000
         last = _chat(fake, 8192, 400)
         room = 8192 - last.get("prompt_eval_count", 0)
@@ -179,7 +189,7 @@ def test_a_prompt_the_window_cut_is_sent_again_once_at_a_window_that_holds_it(ct
         if len(sent) == 2:
             ctx.check(f"the second time at the largest window {CAP}, got {sent[1].get('num_ctx')}",
                       sent[1].get("num_ctx") == CAP)
-        said = [ln for ln in result.stdout.splitlines() if "the whole" in ln and "re-sent" in ln]
+        said = [ln for ln in result.stdout.splitlines() if "about half the 16k window" in ln and "re-sent" in ln]
         ctx.check(f"one line says so, got {said} in {result.stdout[-800:]!r}", len(said) == 1)
         lines = L._turn_lines(fh)
         ctx.check(f"the ledger marks the cut call trimmed, got {[x.get('trimmed') for x in lines]}",
@@ -307,7 +317,8 @@ def test_a_loaded_window_that_spills_to_the_cpu_is_reloaded_under_it_once(ctx: C
         ctx.check(f"one reload in three runs, got {fake.loads}", len(fake.loads) == 1)
         ctx.check(f"once the spill is known, never 32,768 again, got {sent}", 32768 not in sent[1:])
         ctx.check(f"the reload is under the spill, got {fake.loads}", bool(fake.loads) and fake.loads[0]["num_ctx"] < 32768)
-        ctx.check(f"one line says why, got {outs[1][-600:]!r}", "partly on the CPU" in outs[1])
+        said = [o for o in outs if "partly on the CPU" in o]
+        ctx.check(f"one run (the one that reloads) says why, got {[o[-300:] for o in outs]!r}", len(said) == 1)
     finally:
         fake.stop()
 
@@ -411,7 +422,7 @@ def test_the_read_after_a_turn_waits_at_most_a_second(ctx: Ctx):
 
 
 @test
-def test_the_calls_of_a_turn_read_nothing_and_the_turn_reads_ps_once(ctx: Ctx):
+def test_after_call_reads_nothing_and_turn_end_check_reads_ps_once_per_turn(ctx: Ctx):
     from types import SimpleNamespace
     import halo_harness.providers.ollama as O
     from halo_harness.agent import ollama_window_truth as W

@@ -521,6 +521,13 @@ def last_ps_entry(host_url: str, model: str, *, max_age_s: float = 60.0) -> "tup
     return True, got[1]
 
 
+def ps_gave_up(host_url: str, *, max_age_s: float = 60.0) -> bool:
+    """3.6.0.0 R8 fix pass F6: the last `/api/ps` read of `host_url` was given up on (it ran past its 3 s)."""
+    from halo_harness.providers.ollama import ps_gave_up_at
+    at = ps_gave_up_at(host_url)
+    return at is not None and time.monotonic() - at <= max_age_s
+
+
 def ps_rows(reply) -> "Optional[list]":
     """3.6.0.0 R8 fix pass S2: the model rows of an `/api/ps` answer, or None when the answer is not one (a failed
     read, HTML, an error object, junk): unknown, which is never the same fact as "nothing is loaded"."""
@@ -567,6 +574,8 @@ def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=N
     if row is None:
         return None
     from halo_harness.providers.ollama import fetch_ps, ollama_names_match
+    # 3.6.0.0 R8 fix pass F6: `fetch_ps` waits 3 s at most (a server that stopped answering costs seconds, not ten
+    # a call); a read given up on is noted for the call's one line (ps_gave_up)
     rows = ps_rows(fetch_ps(host))
     ps_models = rows or []
     loaded_entry = None

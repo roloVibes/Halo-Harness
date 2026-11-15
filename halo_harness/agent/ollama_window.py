@@ -118,12 +118,13 @@ def gpu_fits_up_to(session) -> Optional[int]:
 
 def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handled: bool,
                   current_num_ctx: Optional[int], cut_at: Optional[int] = None,
-                  full_at: Optional[int] = None) -> "tuple[str, Optional[int], str]":
+                  full_at: Optional[int] = None, shape: Optional[dict] = None) -> "tuple[str, Optional[int], str]":
     """`("resend", num_ctx, line)` -- raise the window and send again;
     `("compact", None, line)` -- compact, then send again; `("error",
     None, line)` -- a second trim in this turn, or no room left at all.
-    3.6.0.0 R8 fix pass: `full_at` -- Ollama read the whole window (the
-    prompt was cut there, `is_cut_at_window`); a resend grows the window
+    3.6.0.0 R8 fix pass: `full_at` -- the window Ollama cut the prompt in
+    (`shape`: agent/ollama_window_truth.cut_kind's verdict, for the line);
+    a resend grows the window
     once, to the largest this call may use (the session's cap, S4), never
     a step at a time."""
     from halo_harness.providers.ollama_fit import power_of_two_ceil
@@ -151,9 +152,10 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
         if last.get("host_url"):
             st["factor"][(last["host_url"], last["model"])] = TRIM_RESEND_FACTOR
         return "resend", target, trim_line(host_name, seen, estimate, window=target, reserve=reserve, cut_at=cut_at,
-                                           full_at=full_at)
+                                           full_at=full_at, shape=shape)
     if not overflow_handled:
-        return "compact", None, trim_line(host_name, seen, estimate, reserve=reserve, cut_at=cut_at, full_at=full_at)
+        return "compact", None, trim_line(host_name, seen, estimate, reserve=reserve, cut_at=cut_at, full_at=full_at,
+                                         shape=shape)
     return "error", None, (f"{host_name} trimmed the request ({fmt_tokens(prompt_part(estimate or 1))} tokens) "
                            f"and the window is already at its ceiling after compaction: stopped")
 

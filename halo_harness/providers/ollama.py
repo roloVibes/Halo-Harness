@@ -783,11 +783,27 @@ def fetch_show(host: OllamaHost, model: str, *, timeout: float = _READ_TIMEOUT_S
     return _get_json(host, "/api/show", method="POST", body={"model": model}, timeout=timeout)
 
 
-def fetch_ps(host: OllamaHost, *, timeout: float = _READ_TIMEOUT_S) -> Optional[dict]:
+PS_READ_TIMEOUT_S = 3.0
+_PS_GAVE_UP: "dict[str, float]" = {}  # host.url -> monotonic time a read ran out of its time
+
+
+def ps_gave_up_at(host_url: str) -> Optional[float]:
+    return _PS_GAVE_UP.get(host_url)
+
+
+def fetch_ps(host: OllamaHost, *, timeout: float = PS_READ_TIMEOUT_S) -> Optional[dict]:
     """`GET /api/ps` -- currently-loaded models: `size` vs `size_vram`
     (partial CPU offload), `expires_at`, and the loaded `context_length`
-    (research doc Q1/Q3)."""
-    return _get_json(host, "/api/ps", timeout=timeout)
+    (research doc Q1/Q3). 3.6.0.0 R8 fix pass F6: 3 s at most (a cheap
+    read; a server that stopped answering costs seconds, not ten a call);
+    a read that ran out of its time is noted (`ps_gave_up_at`)."""
+    t0 = time.monotonic()
+    got = _get_json(host, "/api/ps", timeout=timeout)
+    if got is None and time.monotonic() - t0 >= 0.9 * timeout:
+        _PS_GAVE_UP[host.url] = time.monotonic()
+    elif got is not None:
+        _PS_GAVE_UP.pop(host.url, None)
+    return got
 
 
 def probe_openai_models(host: OllamaHost, *, timeout: float = _READ_TIMEOUT_S) -> Optional[dict]:

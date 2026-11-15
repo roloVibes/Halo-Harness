@@ -204,25 +204,41 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     spill. A prompt larger than all of that is the prompt floor's to raise (agent/ollama_window.prepare_window)."""
     st = _state(session)
     key = (host.url, ref.model)
+    own = is_main_call(session, ref)  # fix pass F4: helper calls (small model, compaction, titles, hooks) never grow
     asked = st.setdefault("asked", {})
-    prev = asked.get(key)
+    prev = asked.get(key) if own else None
+    recent = process_asked(host.url, ref.model)  # fix pass F5: a window another call of this process just asked
 
     def _ask(window: int, source: str, hold: bool) -> "tuple[int, str, bool]":
-        asked[key] = window
+        if own:
+            asked[key] = window
+        note_process_ask(host.url, ref.model, window)
         return window, source, hold
 
     if cap_source == "steward profile":
         st.setdefault("cap", {})[key] = cap
         return _ask(cap, cap_source, False)
     state_dir = getattr(session, "state_dir", None)
+    from halo_harness.providers.ollama_hw import last_ps_entry, ps_gave_up
+    if ps_gave_up(host.url):  # fix pass F6: the read before the call was given up on
+        from halo_harness.agent.prompt_wire import _queue_line
+        _queue_line(session, f"{host.name} did not answer /api/ps within 3 s: the window was chosen without "
+                             "knowing what is loaded there")
+    known, row = last_ps_entry(host.url, ref.model)
+    loaded = _pos((row or {}).get("context_length")) if known else None
+    live = _live_fit(row) if loaded else None  # fix pass F2: what the card holds right now decides
     t = truth(state_dir, host.url, ref.model)
-    spill = _pos(t.get("spills"))
+    if live is True and _pos(t.get("spills")) and t["spills"] <= loaded:
+        record_truth(state_dir, host.url, ref.model, num_ctx=loaded, size=row.get("size"),
+                     size_vram=row.get("size_vram"), digest=row.get("digest"),
+                     num_gpu=t.get("num_gpu") if t.get("num_ctx") == loaded else None)
+        t = truth(state_dir, host.url, ref.model)
+    spill = min([w for w in (_pos(t.get("spills")), loaded if live is False else None) if w] or [0]) or None
     if spill and cap >= spill:
         fits = _pos(t.get("fits"))
         cap, cap_source = max(_below(spill), fits if fits and fits < spill else 0), "known to spill"
     st.setdefault("cap", {})[key] = cap
     _raw, prompt = prompt_estimate(state_dir, host.url, ref.model, *request)
-    own = ref is getattr(session, "model_ref", None)
     first = own and not getattr(session, "_reply_room_called", False)
     profile = getattr(decision, "profile", None) or {}
 
@@ -236,30 +252,77 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
     def _holds(w) -> bool:
         return bool(_pos(w)) and int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w) <= w
 
-    from halo_harness.providers.ollama_hw import last_ps_entry
-    known, row = last_ps_entry(host.url, ref.model)
-    loaded = _pos((row or {}).get("context_length")) if known else None
-    if loaded and _holds(loaded):
-        if not (spill and loaded >= spill):
-            return _ask(loaded, "loaded", True)
-        from halo_harness.agent.prompt_wire import _queue_line
-        from halo_harness.providers.ollama_prompt import fmt_window
-        _queue_line(session, f"{ref.model} on {host.name} is loaded at a {fmt_window(loaded)} window that ran partly "
-                             f"on the CPU there: reloaded at {fmt_window(cap)}, the largest known to fit the card")
-        return _ask(cap, cap_source, False)
-    if not known:
-        for w in (prev, _pos(t.get("num_ctx"))):  # unknown: the window most likely resident, when it holds this
-            if _holds(w) and not (spill and w >= spill):
-                return _ask(w, "last used", True)
-    if (own and many_turns(session)) or prev:
-        return _ask(cap, cap_source, False)
-    for w in _ladder(_pos(cap) or LADDER_START):
-        need = int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w)
-        if first:
-            need = max(need, 2 * prompt)
-        if need <= w:
-            return _ask(w, ("request size" if w < cap else cap_source), False)
-    return _ask(cap, cap_source, False)
+    def _ok(w) -> bool:
+        return _holds(w) and not (spill and w >= spill)
+
+    def _choose() -> "tuple[int, str, bool]":
+        if loaded and _holds(loaded):
+            if not (spill and loaded >= spill):
+                return loaded, "loaded", True
+            from halo_harness.agent.prompt_wire import _queue_line
+            from halo_harness.providers.ollama_prompt import fmt_window
+            now = "runs partly on the CPU there now" if live is False else "ran partly on the CPU there"
+            _queue_line(session, f"{ref.model} on {host.name} is loaded at a {fmt_window(loaded)} window that {now}: "
+                                 f"reloaded at {fmt_window(cap)}, the largest known to fit the card")
+            return cap, cap_source, False
+        if not known:
+            for w in (prev, _pos(t.get("num_ctx"))):  # unknown: the window most likely resident, when it holds this
+                if _ok(w):
+                    return w, "last used", True
+        if own and (many_turns(session) or prev):
+            return cap, cap_source, False
+        for w in _ladder(_pos(cap) or LADDER_START):
+            need = int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w)
+            if first:
+                need = max(need, 2 * prompt)
+            if need <= w:
+                return w, ("request size" if w < cap else cap_source), False
+        return cap, cap_source, False
+
+    window, source, hold = _choose()
+    if recent and recent > window and _ok(recent):
+        # F5: another call of this process asked for a larger window a moment ago (it may still be loading): asking
+        # for less would reload the model back and forth
+        window, source, hold = recent, "asked here", True
+    return _ask(window, source, hold)
+
+
+def _live_fit(row) -> Optional[bool]:
+    """From a live `/api/ps` row: True wholly on the card, False partly on the CPU, None when it does not say."""
+    size, vram = (row or {}).get("size"), (row or {}).get("size_vram")
+    if not (_pos(size) and isinstance(vram, int) and not isinstance(vram, bool)):
+        return None
+    return vram >= size
+
+
+def is_main_call(session, ref) -> bool:
+    """The session's own model in its own conversation: not a helper call (the small model, compaction, a title, a
+    hook) that runs on the same model (fix pass F4: only the main call grows straight to the largest window)."""
+    return ref is getattr(session, "model_ref", None) and not getattr(session, "_ollama_helper_call", False)
+
+
+# ---- F5: one map of the window last asked for, every session of this process ------------------------------------
+
+PROCESS_ASK_TTL_S = 60.0
+_ASKED: dict = {}  # (url, model) -> (window, monotonic)
+_ASKED_LOCK = __import__("threading").Lock()
+
+
+def note_process_ask(host_url: str, model: str, window: int) -> None:
+    if not _pos(window):
+        return
+    with _ASKED_LOCK:
+        _ASKED[_key(host_url, model)] = (window, time.monotonic())
+
+
+def process_asked(host_url: str, model: str) -> Optional[int]:
+    """The window a call of this process (the parent, a sub-agent, a parallel one) asked of this model on this server
+    in the last minute, or None."""
+    with _ASKED_LOCK:
+        got = _ASKED.get(_key(host_url, model))
+    if not got or time.monotonic() - got[1] > PROCESS_ASK_TTL_S:
+        return None
+    return got[0]
 
 
 def resident_options(session, host, model: str, body: dict, source: str) -> dict:
@@ -341,7 +404,56 @@ def _host_for_url(session, url: str):
 TURN_END_READ_S = 1.0
 
 
-def after_call(session, req, meta: Optional[dict]) -> None:
+HALF_CUT_BAND = 8      # Ollama's runner keeps num_ctx - (num_ctx - keep) // 2 tokens: num_ctx // 2 + 2 with keep 4
+SHRINK_TOLERANCE = 64
+
+
+def cut_kind(*, count, num_ctx, num_predict=None, ceiling=None, prompt=None, raw=None, prev=None,
+             reserve=None) -> Optional[str]:
+    """Fix pass F1: the signs that Ollama cut the prompt (it answers 200 and `done_reason: "stop"` either way; a reply
+    that ran out is `"length"` and is not one of these). Measured on Ollama 0.40.16:
+    - "half": one over-long message is cut by the runner to half the window, `prompt_eval_count` =
+      `num_ctx // 2 + 2` (a few tokens more with a larger keep), while the estimate says the prompt is that long;
+    - "room": the count reaches into the room the call kept for the reply (`count > num_ctx - num_predict`; a chat
+      that lost whole messages from the front lands a little under `num_ctx`), or the whole window -- below the
+      largest window this call may use (at it, a full window is compaction's to fix);
+    - "shrink": fewer tokens than the previous call of the same conversation (`prev` = (count, raw estimate)) by
+      more than a small tolerance while Halo's own estimate did not shrink: the server dropped messages;
+    - "low": under 70 % of the estimate (agent/ollama_window's older rule, `is_trimmed`).
+    None when none applies."""
+    from halo_harness.providers.ollama_prompt import is_cut_at_window, is_trimmed
+    if not (_pos(count) and _pos(num_ctx)):
+        return None
+    half = num_ctx // 2 + 2
+    if half <= count <= half + HALF_CUT_BAND and _pos(prompt) and prompt >= 0.75 * half:
+        return "half"
+    below_top = not _pos(ceiling) or num_ctx < ceiling
+    if is_cut_at_window(count, num_ctx) or (below_top and _pos(num_predict) and count > num_ctx - num_predict):
+        return "room"
+    if prev and _pos(prev[0]) and _pos(raw) and _pos(prev[1]) and raw >= prev[1] - SHRINK_TOLERANCE \
+            and count < prev[0] - max(SHRINK_TOLERANCE, prev[0] // 50):
+        return "shrink"
+    if _pos(prompt) and is_trimmed(count, prompt + (reserve or 1024), reserve or 1024):
+        return "low"
+    return None
+
+
+def take_cut(session, req) -> Optional[dict]:
+    """The verdict `after_call` gave the call `req` (`{"kind", "count", "prev"}`) when it saw a cut, once."""
+    got = getattr(session, "_ollama_cut_verdict", None)
+    if not got or got.get("req") != id(req) or not got.get("kind"):
+        return None
+    session._ollama_cut_verdict = None
+    return got
+
+
+def cut_seen(session, req) -> bool:
+    """For the ledger line: `after_call` saw a cut on `req` (the verdict is not consumed)."""
+    got = getattr(session, "_ollama_cut_verdict", None)
+    return bool(got and got.get("req") == id(req) and got.get("kind"))
+
+
+def after_call(session, req, meta: Optional[dict], kind: str = "turn") -> None:
     """After an Ollama answer (status 200), with no request of its own: the count against the estimate
     (`token_ratio`; only from a call that loaded the model or a count at or above the raw estimate, never from a
     prompt the window cut -- fix pass S3/M1), the line that says how long a load took, and the window this call
@@ -362,10 +474,27 @@ def after_call(session, req, meta: Optional[dict]) -> None:
         timing = (meta or {}).get("timing_ns") or {}
         loading = getattr(session, "_ollama_loading", None)
         fresh = bool(loading and loading.get("model") == model)
-        sent = (_state(session).get("sent") or {}).get((str(host.url).rstrip("/"), model)) or {}
-        from halo_harness.providers.ollama_prompt import is_cut_at_window
+        st = _state(session)
+        skey = (str(host.url).rstrip("/"), model)
+        sent = (st.get("sent") or {}).get(skey) or {}
         count = timing.get("prompt_eval_count")
-        if sent.get("raw_prompt") and not is_cut_at_window(count, opts.get("num_ctx")):
+        # fix pass F1: was the prompt cut? (any of four signs; never a ratio from such a count)
+        last = st.get("last") or {}
+        choice = last.get("choice") if last.get("model") == model else None
+        ceiling = getattr(choice, "ceiling", None) or (st.get("cap") or {}).get((host.url, model))
+        track = kind == "turn" and is_main_call(session, getattr(session, "model_ref", None)) \
+            and getattr(getattr(session, "model_ref", None), "model", None) == model
+        prev = (st.get("counts") or {}).get(skey) if track else None
+        prompt = (sent.get("estimate") or 0) - (sent.get("reserve") or 0)
+        cut = cut_kind(count=count, num_ctx=opts.get("num_ctx"), num_predict=opts.get("num_predict"),
+                       ceiling=ceiling, prompt=prompt, raw=sent.get("raw_prompt"), prev=prev,
+                       reserve=sent.get("reserve"))
+        if kind == "turn":  # the main loop's resend and the ledger read it; any call's cut keeps its count out
+            session._ollama_cut_verdict = {"req": id(req), "kind": cut, "count": count,
+                                           "prev": (prev or (None,))[0]}
+        if track and _pos(count) and not cut:
+            st.setdefault("counts", {})[skey] = (count, sent.get("raw_prompt"))
+        if sent.get("raw_prompt") and not cut:
             record_ratio(state_dir, host.url, model, raw_prompt=sent["raw_prompt"], prompt_eval_count=count,
                          fresh=fresh)
         pending = getattr(session, "_ollama_turn_reads", None)
@@ -439,8 +568,9 @@ def turn_end_check(session, *, timeout: float = TURN_END_READ_S) -> None:
         log.debug("ollama: the check at the end of a turn failed", exc_info=True)
 
 
-def wrap_stream(session, req, gen):
-    """`gen` (an Ollama call's wire events) passed through unchanged; `after_call` once it ended with an answer."""
+def wrap_stream(session, req, gen, kind: str = "turn"):
+    """`gen` (an Ollama call's wire events) passed through unchanged; `after_call` once it ended with an answer
+    (`kind`: the ledger's turn / compaction / small / repair)."""
     meta: dict = {}
     answered = False
     for ev in gen:
@@ -451,4 +581,4 @@ def wrap_stream(session, req, gen):
             answered = True
         yield ev
     if answered:
-        after_call(session, req, meta)
+        after_call(session, req, meta, kind)

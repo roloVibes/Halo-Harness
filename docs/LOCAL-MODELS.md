@@ -240,10 +240,18 @@ that window) and is not known to spill to the CPU; otherwise a `halo -p`
 run asks for the window its request needs, and a session that takes more
 turns (the TUI, Studio, `--input-format stream-json`) asks for the largest
 window it may use, so it loads once. A session that has to grow goes
-straight to that largest window, never a step at a time. When Ollama
-reads the whole window (`prompt_eval_count` at `num_ctx`), the prompt was
-cut there: the call is sent once more at a window that holds it, with one
-line. At the end of each turn one `/api/ps` read (one second at most) says
+straight to that largest window, never a step at a time (helper calls --
+the small model, compaction, titles, hooks -- stay on the ladder, and two
+calls of one process never ask the same model for different windows at
+once). Ollama cuts a prompt longer than the window and answers anyway:
+one long message to half the window (`prompt_eval_count` = `num_ctx / 2 +
+2`), a chat by dropping whole messages from the front. A count at that
+half, a count reaching into the room kept for the reply, a count smaller
+than the last call's while the conversation only grew, or one under 70 %
+of the estimate means the prompt was cut: the call is sent once more at
+the largest window, with one line, and the count teaches nothing. The
+read before a call waits 3 s at most, and says so in one line when it
+gives up. At the end of each turn one `/api/ps` read (one second at most) says
 whether the model sat wholly on the card; a read that fails is unknown,
 never "not loaded". The ladder of loads runs only when you ask: `halo
 local measure MODEL [--host NAME]` (never above the host's `max_ctx`, the

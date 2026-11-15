@@ -203,11 +203,16 @@ def test_the_next_estimate_starts_from_the_measured_ratio(ctx: Ctx):
     try:
         fh = _home(fake)
         _ok(ctx, _run(fh, fake), "the first turn")
+        # 3.6.0.0 R8 second fix pass (F1): a first count 1.8x the estimate reaches into the reply's room, so the
+        # first process sends the call once more at a larger window (one or two turn lines); the next process's
+        # call is the one that starts from the measured ratio
+        first = len(_turn_lines(fh))
         _ok(ctx, _run(fh, fake), "the next process")
         lines = _turn_lines(fh)
-        ctx.check(f"two turn lines, got {len(lines)}", len(lines) == 2)
-        if len(lines) == 2:
-            est, real = lines[1].get("estimate_tokens"), lines[1].get("prompt_eval_count")
+        ctx.check(f"one turn line for the next process, got {len(lines) - first} after {first}",
+                  len(lines) == first + 1 and first in (1, 2))
+        if len(lines) == first + 1:
+            est, real = lines[-1].get("estimate_tokens"), lines[-1].get("prompt_eval_count")
             ok = isinstance(est, int) and isinstance(real, int) and real > 0 and real / 1.5 <= est <= real * 1.5
             ctx.check(f"the second estimate {est} is within 1.5x of the real {real}", ok)
     finally:

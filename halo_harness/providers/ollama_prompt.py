@@ -226,16 +226,24 @@ def too_large_line(prompt_tokens: int, tool_tokens: int, model: str, host_name: 
 
 def trim_line(host_name: str, seen: Optional[int], estimate: int, *, window: Optional[int] = None,
               reserve: int = REPLY_RESERVE_TOKENS, cut_at: Optional[int] = None,
-              full_at: Optional[int] = None) -> str:
+              full_at: Optional[int] = None, shape: Optional[dict] = None) -> str:
     """The one line for a trimmed request (or, `cut_at` = the window the
-    reply ran into, a reply cut there; `full_at` = the window Ollama read
-    to its end, a prompt cut there): re-sent with a larger window
-    (`window` given) or compacted and re-sent. `seen` is Ollama's own
-    count (None for the 500, which carries none)."""
+    reply ran into, a reply cut there; `full_at` = the window Ollama cut
+    the prompt in, `shape` the sign it showed -- agent/ollama_window_truth.
+    cut_kind): re-sent with a larger window (`window` given) or compacted
+    and re-sent. `seen` is Ollama's own count (None for the 500, which
+    carries none)."""
     done = f"re-sent with a {fmt_window(window)} window" if window else "compacted and re-sent"
     if full_at:
-        return (f"{host_name} read {fmt_tokens(seen or full_at)} tokens, the whole {fmt_window(full_at)} window: "
-                f"the prompt was longer and was cut there; {done}")
+        n, w, kind = fmt_tokens(seen or full_at), fmt_window(full_at), (shape or {}).get("kind")
+        if kind == "half":
+            why = f"about half the {w} window, where Ollama cuts a prompt longer than the window"
+        elif kind == "shrink" and _pos_int((shape or {}).get("prev")):
+            why = (f"fewer than the last call's {fmt_tokens(shape['prev'])} although the conversation only grew: "
+                   f"Ollama dropped messages to fit the {w} window")
+        else:
+            why = f"into the room the {w} window kept for the reply: the prompt was longer and was cut"
+        return f"{host_name} read {n} tokens, {why}; {done}"
     if cut_at:
         return f"{host_name} cut the reply at the window ({fmt_tokens(seen or 0)} of {fmt_window(cut_at)} tokens): {done}"
     part = fmt_tokens(prompt_part(estimate, reserve))

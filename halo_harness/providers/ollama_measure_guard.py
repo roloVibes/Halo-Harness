@@ -13,7 +13,9 @@ let go when it ends or dies), with `<server>.json` beside it naming the model an
 sees. Before the ladder, one `/api/ps` read records what was loaded and at which window; afterwards the measured
 model is loaded back at the window it had (the ladder's last step left it at another window with every layer
 forced onto the card) or unloaded when it was not loaded, and every other model the ladder moved off the card is
-loaded back at its window. When the first read was not Ollama's answer nothing is restored, and the line says so.
+loaded back at its window. When the first read was not Ollama's answer nothing is restored, and the line says so;
+when the read after the ladder is not, only the measured model is put back and the line says the others were not
+checked.
 """
 
 from __future__ import annotations
@@ -104,7 +106,7 @@ class measuring:  # noqa: N801 -- used as `with measuring(...) as g`
         if before is None:
             return (f"left {host.name} with {model} as the last step loaded it (what was loaded before the measurement "
                     "could not be read, so nothing was put back)")
-        after = _resident(host) or {}
+        after = _resident(host)  # fix pass F3: unreadable is unknown, never "nothing is loaded"
         done, oks = [], []
         mine = _find(before, model)
         if mine is not None and isinstance(before[mine], int):
@@ -119,8 +121,15 @@ class measuring:  # noqa: N801 -- used as `with measuring(...) as g`
             got = unload(host, model)
             done.append(f"{model} unloaded (it was not loaded before)" if got["ok"] else got["say"])
             oks.append(got["ok"])
-        for other, window in before.items():
-            if other == mine or (_find(after, other) is not None and after.get(_find(after, other)) == window):
+        others = [m for m in before if m != mine]
+        if after is None and others:
+            oks.append(False)
+            done.append(f"the other models ({', '.join(others)}) were not checked: {host.name} did not give a readable "
+                        "/api/ps after the measurement")
+            others = []
+        for other in others:
+            window = before[other]
+            if _find(after, other) is not None and after.get(_find(after, other)) == window:
                 continue
             got = load(host, other, num_ctx=window if isinstance(window, int) else None,
                        window_from="the window it had")

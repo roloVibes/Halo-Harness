@@ -154,10 +154,12 @@ def _write(session, req, kind: str, target: dict, base: dict, extra: dict) -> No
         line = {**base, **extra}
         reserve = line.pop("_reserve", 1024)
         if target["dialect"] == "ollama" and line.get("status") == 200 and not line.get("trimmed"):
+            from halo_harness.agent.ollama_window_truth import cut_seen
             from halo_harness.providers.ollama_prompt import is_cut_at_window, is_trimmed
-            # 3.6.0.0 R8 fix pass M1: a count at the window's end is a prompt the window cut, too
+            # 3.6.0.0 R8 fix pass M1/F1: the server's own cut shapes (agent/ollama_window_truth.cut_kind) too
             line["trimmed"] = bool(is_trimmed(line.get("prompt_eval_count"), line.get("estimate_tokens"), reserve)
-                                   or is_cut_at_window(line.get("prompt_eval_count"), line.get("num_ctx_sent")))
+                                   or is_cut_at_window(line.get("prompt_eval_count"), line.get("num_ctx_sent"))
+                                   or cut_seen(session, req))
         line["retry"] = _bump_retry(session, kind, line)
         prompt_finish(line, reserve, session)  # 3.3.5.0 R4: warming, cache; 3.3.6.0 R4: dialect, loop, ladder
         from halo_harness.agent.ollama_log_recovery import ledger_kinds  # 3.3.6.0 R3: what the server log showed
