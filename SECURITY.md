@@ -65,20 +65,27 @@ The 2.0.10 review lists where each of these is still incomplete.
 5. Full threat model, layer by layer: the signal pack's README
    (`halo_harness/templates/packs/signal/README.md`); the socket: [docs/REMOTE.md](docs/REMOTE.md).
 
-## The fleet hub (3.0.5.0) in four lines
+## What listens on your network, and when
 
-1. Nothing listens on the LAN until you start a hub (`halo fleet serve` or
-   `halo studio --fleet`); it serves only the fleet protocol, never Studio's
-   loopback API, and offline mode refuses it.
-2. A harness joins only with a one-time six-word code; the pair key comes
-   from a code-authenticated key exchange, every request and every command
-   is HMAC-signed (time window, nonce, sequence), and TLS is pinned to the
-   hub's fingerprint when `cryptography` is installed (else HMAC-only).
-3. A joined harness sends only its `fleet.share` level and applies a hub's
-   commands only per `host.allow_control` (default `ask`: a card for you);
-   a hub never gets a tool permission or learns a rule.
-4. `halo fleet kick` revokes a member's key; `halo fleet leave` forgets a
-   hub. Details: [docs/FLEET.md](docs/FLEET.md).
+Studio listens on this machine only (loopback). Three things listen on the network, and each only after you
+start it:
+
+1. **`halo host serve`** (port 7431): the model-free monitor of this machine's model servers, for paired Halo
+   peers only; offline mode refuses it, and `halo host stop` ends it. A peer pairs only with a one-time six-word
+   code (`halo host pair`, one peer, ten minutes); the pair key comes from a code-authenticated key exchange,
+   every request is HMAC-signed, and TLS is pinned to the host's certificate fingerprint when `cryptography` is
+   installed (else, or with `--no-tls`, signed plain HTTP).
+2. A paired peer holds `view` only. More (`control`, `manage`) is given peer by peer with
+   `halo host grant <peer> <grant>` and taken back with `halo host revoke <peer> <grant>`; this machine's
+   `host.allow_control` caps every grant (`none`: view only; `ask`, the default: each acting request waits for
+   you in `halo host pending`; `all`). No grant runs a shell; every request leaves an audit line.
+3. **`halo host rpc on`** starts llama.cpp's rpc-server for a pool on this machine's LAN address. It has no
+   authentication: a trusted LAN only. `halo host rpc off` stops it.
+4. **`halo local serve --runtime <engine> --lan`** serves one model on every address, behind a key Halo makes;
+   without `--lan` it serves loopback only.
+
+Details: [docs/HOST.md](docs/HOST.md), [docs/COMMANDS-local-servers.md](docs/COMMANDS-local-servers.md). Fleet,
+and its hub, left Halo in 3.5.0.0.
 
 ## 3.4.1.2: the engine, a hub's files and what you share
 
@@ -100,7 +107,7 @@ The 2.0.10 review lists where each of these is still incomplete.
 | Provider keys | `~/.config/halo/env` (0600, dir 0700) | your account, root |
 | Signal signing secrets, signal-cli keys, registration PIN | the signal pack's data folder `~/.halo/packs/.data/signal/` (files 0600; `~/.halo/remote/` before 3.3.13.0) | your account, root |
 | MCP OAuth tokens | `~/.halo/mcp/oauth/*.json` (0700 / 0600) | your account, root |
-| Fleet pair keys | `~/.halo/fleet/keys/` (joiner), `~/.halo/fleet/hub/members.json` (hub), both 0600 | your account, root |
+| Host pair keys | `~/.halo/fleet/keys/` (peer), `<state>/host/peers.json` (host), both 0600 | your account, root |
 | Settings, prompt history | `~/.halo/config.json`, `history.jsonl` (0600) | your account, root |
 | Session transcripts, edit snapshots, logs | `~/.halo/sessions/`, `bridge.log` | currently follow your umask (often group/world readable); tightening is tracked in the review |
 

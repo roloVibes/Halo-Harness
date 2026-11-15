@@ -146,6 +146,26 @@ def test_every_command_halo_prints_resolves(ctx: Ctx):
     ctx.check("every `halo ...` a line sends a person to exists:\n  " + "\n  ".join(bad), not bad)
 
 
+@test
+def test_security_md_names_only_commands_that_exist_and_the_listeners_that_do(ctx: Ctx):
+    """SECURITY.md is the page the README sends a person to for security. 3.6 audit: it still described the fleet
+    hub (`halo fleet serve / kick / leave`, gone since 3.5.0.0; its link docs/FLEET.md is gone too) and said nothing
+    of the listeners that exist: `halo host serve`, `halo host rpc`, `halo local serve --lan`."""
+    kw = dict(pack_verbs=_pack_verbs(), internal=_internal_sub_verbs(), flags=_top_flags())
+    for name in ("SECURITY.md", "README.md"):
+        text = (REPO / name).read_text(encoding="utf-8")
+        bad = unresolved(text, **kw)
+        ctx.check(f"every `halo ...` {name} names exists, got {bad}", not bad)
+        broken = [link for link in re.findall(r"\]\(([^)#\s]+)(?:#[^)]*)?\)", text)
+                  if "://" not in link and not link.startswith("mailto:") and not (REPO / link).exists()]
+        ctx.check(f"every relative link of {name} resolves, got {broken}", not broken)
+    sec = (REPO / "SECURITY.md").read_text(encoding="utf-8")
+    for must in ("halo host serve", "halo host pair", "halo host revoke", "halo host stop", "host.allow_control",
+                 "--no-tls", "halo host rpc", "halo local serve", "--lan", "docs/HOST.md"):
+        ctx.check(f"SECURITY.md names {must!r}", must in sec)
+    ctx.check("SECURITY.md describes no fleet hub", "halo fleet" not in sec and "fleet hub" not in sec.lower())
+
+
 def _home() -> str:
     home = tempfile.mkdtemp(prefix="halo-printed-commands-")
     os.environ["BRIDGE_TEST_HOME"] = home

@@ -115,7 +115,7 @@ def test_token_validity_200_reports_ok_with_endpoint_count(ctx: Ctx):
 @test
 def test_token_validity_host_only_still_probes_and_names_missing_token(ctx: Ctx):
     """Scope E: "host configured, token missing -> fix: halo init
-    --preset work"; the reachability probe still runs without a token (a
+    --provider databricks"; the reachability probe still runs without a token (a
     401 without one proves the host is reachable)."""
     mock = MockDatabricks().start()
     mock.set_endpoints_error("401")  # a real Databricks host also 401s with no token
@@ -126,7 +126,7 @@ def test_token_validity_host_only_still_probes_and_names_missing_token(ctx: Ctx)
             ctx.check(f"names the exact host-only state, got {line!r}",
                       "host configured, token missing" in line)
             ctx.check(f"still shows the probe reached the host, got {line!r}", "401" in line)
-            ctx.check("fix points at init --preset work", "init --preset work" in line)
+            ctx.check("fix points at init --provider databricks", "init --provider databricks" in line)
             ctx.check("at least one real request reached the mock", len(mock.requests) >= 1)
     finally:
         mock.stop()
@@ -202,7 +202,7 @@ def test_run_work_checks_end_to_end_host_only_state_reaches_the_real_report(ctx:
                   "host configured, token missing" in joined)
         ctx.check("names the real host (not swallowed into a generic 'not configured')",
                   "your-workspace.cloud.databricks.com" in joined)
-        ctx.check("points at init --preset work", "init --preset work" in joined)
+        ctx.check("points at init --provider databricks", "init --provider databricks" in joined)
 
 
 if __name__ == "__main__":

@@ -88,10 +88,13 @@ def test_every_warn_or_missing_line_in_run_checks_has_a_fix_or_see(ctx: Ctx):
               f"{len(warn_or_missing)}", len(warn_or_missing) >= 8)
     bad = _missing_fix_lines(lines)
     ctx.check(f"every WARN/MISSING line ends with -> fix: or -> see:, offenders={bad}", not bad)
-    # 3.6.0.0: a fresh home's one MISSING line was "~/.claude directory" (now an optional WARN); `ok` is still the
-    # absence of MISSING lines, whatever this machine lacks
-    ctx.check("ok is True exactly when nothing came back MISSING",
-              ok is (not [l for l in lines if l.startswith("[MISSING]")]))
+    # 3.6.0.0 (words-docs batch 2): this used to assert `ok is False`, true only
+    # because an absent ~/.claude was MISSING; Halo needs no Claude Code, so a
+    # fresh home fails only on a row that is really missing.
+    missing = [l for l in lines if l.startswith("[MISSING]")]
+    ctx.check(f"ok is exactly 'no MISSING row', missing={missing}", ok is (not missing))
+    ctx.check(f"no Claude Code folder is not a MISSING row, missing={missing}",
+              not any("~/.claude" in l for l in missing))
 
 
 @test
@@ -428,22 +431,85 @@ def _hermetic_child_env() -> dict:
 
 
 @test
-def test_fx_no_claude_folder_is_a_warn_not_missing(ctx: Ctx):
+def test_fx_no_claude_folder_is_not_missing_and_prescribes_nothing(ctx: Ctx):
     """3.6.0.0 fx windows-shell: Halo runs without Claude Code, yet a machine with no ~/.claude folder got `[MISSING]
     ~/.claude directory -> fix: claude` and `halo doctor` exited 1, also right after a finished `halo init` (and the
-    Windows installer ends on `halo doctor`). It is optional like settings.json and .claude.json."""
-    from halo_harness.doctor import MISSING, WARN, _check_claude_layout, run_checks
+    Windows installer ends on `halo doctor`). It is optional like settings.json and .claude.json: an OK row (the
+    join chose OK over WARN: nothing is wrong for a person who does not use Claude Code)."""
+    from halo_harness.doctor import MISSING, OK, _check_claude_layout, run_checks
 
     def go(home):
         return _check_claude_layout(), run_checks(cwd=home)[0]
 
     rows, lines = _isolated(go)
-    row = next((r for r in rows if "~/.claude directory" in r), "")
-    ctx.check(f"a WARN, got {row!r}", row.startswith(WARN))
+    row = next((r for r in rows if "~/.claude:" in r), "")
+    ctx.check(f"an OK row, got {row!r}", row.startswith(OK))
     ctx.check(f"says it is optional and names no `claude` fix, got {row!r}",
-              "optional" in row and "-> fix: claude" not in row and "-> see:" in row)
+              "optional" in row and "-> fix: claude" not in row)
     ctx.check("no MISSING line about ~/.claude in the whole doctor",
               not [l for l in lines if l.startswith(MISSING) and ".claude" in l])
+
+
+# ---------------------------------------------------------------------------
+# 3.6.0.0 fix (words-docs batch 2): a machine without Claude Code passes the
+# doctor; the platform row and the provider fixes say what is true.
+# ---------------------------------------------------------------------------
+
+@test
+def test_no_claude_code_folder_is_ok_not_missing(ctx: Ctx):
+    """README: "No Claude Code? Halo needs none". A home without ~/.claude
+    must not make `halo doctor` fail, nor prescribe `claude` as the fix."""
+    from halo_harness import doctor
+
+    lines = _isolated(lambda home: doctor._check_claude_layout())
+    ctx.check(f"three rows still (ids zip onto them), got {lines!r}", len(lines) == 3)
+    first = lines[0]
+    ctx.check(f"absent ~/.claude is OK, got {first!r}", first.startswith(doctor.OK))
+    ctx.check(f"says it is optional, got {first!r}", "optional" in first)
+    ctx.check(f"no row is MISSING, got {lines!r}", not any(ln.startswith(doctor.MISSING) for ln in lines))
+    ctx.check(f"no row prescribes `claude`, got {lines!r}", not any("fix: claude" in ln for ln in lines))
+
+
+@test
+def test_windows_platform_row_names_the_release_not_a_build_host(ctx: Ctx):
+    """Halo runs on Windows, macOS and Linux; the platform row must not call
+    Windows a build/test host or any Linux the primary target."""
+    from unittest import mock
+    from halo_harness import doctor
+
+    with mock.patch("platform.system", return_value="Windows"), \
+            mock.patch("platform.release", return_value="11"), \
+            mock.patch("platform.version", return_value="10.0.26200"):
+        line = doctor._check_platform()
+    ctx.check(f"OK, got {line!r}", line.startswith(doctor.OK))
+    ctx.check(f"names the release, got {line!r}", "Windows 11" in line and "10.0.26200" in line)
+    ctx.check(f"no 'build/test host' / 'primary target', got {line!r}",
+              "build/test host" not in line and "primary target" not in line)
+    src = (REPO_DIR / "halo_harness" / "doctor.py").read_text(encoding="utf-8")
+    ctx.check("no platform row calls itself the primary target", "primary target platform" not in src)
+
+
+@test
+def test_doctor_fixes_never_prescribe_the_deprecated_preset_flag(ctx: Ctx):
+    """`halo init --help` calls `--preset` a deprecated alias: the provider
+    rows' fixes name `--provider openrouter` / `--provider databricks`."""
+    from halo_harness import doctor
+
+    def _rows(home):
+        for var in ("OPENROUTER_API_KEY", "DATABRICKS_HOST", "DATABRICKS_TOKEN"):
+            os.environ.pop(var, None)
+        return doctor._check_openrouter(), doctor._check_databricks()
+
+    o_line, d_line = _isolated(_rows)
+    ctx.check(f"OpenRouter fix is --provider openrouter, got {o_line!r}",
+              "fix: halo init --provider openrouter" in o_line)
+    ctx.check(f"Databricks fix is --provider databricks, got {d_line!r}",
+              "fix: halo init --provider databricks" in d_line)
+    for rel in ("halo_harness/doctor.py", "halo_harness/agents_doctor.py", "halo_harness/crew/checks.py",
+                "docs/COMMANDS-health.md"):
+        text = (REPO_DIR / rel).read_text(encoding="utf-8")
+        ctx.check(f"{rel} prints no `halo init --preset`", "halo init --preset" not in text
+                  and 'cmd="halo init --preset' not in text)
 
 
 if __name__ == "__main__":

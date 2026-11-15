@@ -94,9 +94,9 @@ def _check_claude_layout() -> list:
     if cfg_dir.is_dir():
         lines.append(f"{OK} ~/.claude directory: {cfg_dir}")
     else:
-        # 3.6.0.0: Halo runs without Claude Code; a fresh machine has no ~/.claude and that is not a fault
-        lines.append(_fix(f"{WARN} ~/.claude directory: {cfg_dir}",
-                          see="docs/HANDBOOK.md (Config reuse from Claude Code) -- optional, defaults apply"))
+        # 3.6.0.0: Halo needs no Claude Code (README); it reads Claude Code's
+        # files only when they exist, so an absent folder is never MISSING.
+        lines.append(f"{OK} ~/.claude: not there (optional: Halo reads Claude Code's files when they exist)")
     settings_path = cfg_dir / "settings.json"
     if settings_path.exists():
         lines.append(f"{OK} settings.json: {settings_path}")
@@ -175,7 +175,7 @@ def _check_openrouter() -> str:
         return _fix(f"{WARN} OpenRouter: could not check ({type(e).__name__}: {e})", cmd="halo init")
     if orc is None:
         return _fix(f"{WARN} OpenRouter: not configured (no OPENROUTER_API_KEY found)",
-                     cmd="halo init --preset home")
+                     cmd="halo init --provider openrouter")
     return f"{OK} OpenRouter: key found ({orc.base_url})"
 
 
@@ -188,7 +188,7 @@ def _check_databricks() -> str:
         return _fix(f"{WARN} Databricks: could not check ({type(e).__name__}: {e})", cmd="halo init")
     if dbx is None:
         return _fix(f"{WARN} Databricks: not configured (no host/token found)",
-                     cmd="halo init --preset work")
+                     cmd="halo init --provider databricks")
     return f"{OK} Databricks: configured ({dbx.host})"
 
 
@@ -403,12 +403,10 @@ def _check_platform() -> str:
         except OSError:
             os_release = ""
         if "kali" in os_release:
-            return f"{OK} Linux (Kali) -- halo's primary target platform"
+            return f"{OK} Linux (Kali) -- {platform.release()}"
         return f"{OK} Linux -- {platform.release()}"
     if system == "Windows":
-        wsl = shutil.which("wsl")
-        hint = " (wsl.exe found -- verify parity there too)" if wsl else " (no wsl.exe found on PATH)"
-        return f"{OK} Windows -- build/test host, not the primary target{hint}"
+        return f"{OK} Windows {platform.release()} -- {platform.version()}"
     return f"{OK} {system} -- {platform.release()}"
 
 
@@ -1347,7 +1345,7 @@ def _check_ucode_settings() -> str:
     path = claude_config_dir() / "ucode-settings.json"
     if not path.exists():
         return _fix(f"{WARN} ucode-settings.json: not found at {path} (ug/unity-gateway CLI not run on this "
-                     f"box, or not installed)", cmd="halo init --preset work")
+                     f"box, or not installed)", cmd="halo init --provider databricks")
     parsed = load_ucode_settings(path)
     if parsed is None:
         return _fix(f"{WARN} ucode-settings.json: found at {path} but no recognizable gateway URL/token in it",
@@ -1366,7 +1364,7 @@ def _work_check_vpn_reachability(host: Optional[str]) -> str:
     (verified: ~64s against an unresolvable `*.cloud.databricks.com` host)."""
     if not host:
         return _fix(f"{MISSING} Databricks host: not configured (see the Databricks line above) -- nothing "
-                     f"to reach", cmd="halo init --preset work")
+                     f"to reach", cmd="halo init --provider databricks")
     import urllib.parse
     from halo_harness.providers.http import UpstreamConnectError, open_upstream
     parsed = urllib.parse.urlparse(host if "://" in host else f"https://{host}")
@@ -1424,7 +1422,7 @@ def _work_check_token_validity(host: Optional[str], token: Optional[str]) -> str
     reachability") rather than skipping the network call outright."""
     if not host:
         return _fix(f"{MISSING} Token validity: not configured -- nothing to check",
-                     cmd="halo init --preset work")
+                     cmd="halo init --provider databricks")
     from halo_harness.providers.config import derive_workspace_root
     from halo_harness.providers.databricks import probe_databricks_status
     root = derive_workspace_root(host)
@@ -1433,10 +1431,10 @@ def _work_check_token_validity(host: Optional[str], token: Optional[str]) -> str
             status, raw = probe_databricks_status(root, "")
         except Exception as e:
             return _fix(f"{MISSING} Token validity: host configured, token missing, and the reachability "
-                         f"probe failed ({type(e).__name__}: {e})", cmd="halo init --preset work")
+                         f"probe failed ({type(e).__name__}: {e})", cmd="halo init --provider databricks")
         _kind, detail = _classify_databricks_probe(status, raw)
         return _fix(f"{MISSING} Token validity: host configured, token missing (probe reached the host: "
-                     f"{detail})", cmd="halo init --preset work")
+                     f"{detail})", cmd="halo init --provider databricks")
     try:
         status, raw = probe_databricks_status(root, token)
     except Exception as e:
@@ -1560,7 +1558,7 @@ def _work_check_reasoning_replay_after_tool_call(host: Optional[str], token: Opt
              "split hold for the CONFIGURED model?"]
     if not host or not token:
         lines.append("  " + _fix(f"{MISSING} cannot probe -- Databricks not configured",
-                                  cmd="halo init --preset work"))
+                                  cmd="halo init --provider databricks"))
         return lines
     try:
         from halo_harness.providers.databricks import probe_databricks_endpoints_full
@@ -1656,10 +1654,10 @@ def _work_check_entries() -> "list[tuple[str, str]]":
         databricks_config_line = f"{OK} Databricks config: host {host}"
     elif host:
         databricks_config_line = _fix(f"{MISSING} Databricks config: host configured, token missing ({host})",
-                                       cmd="halo init --preset work")
+                                       cmd="halo init --provider databricks")
     else:
         databricks_config_line = _fix(f"{MISSING} Databricks config: not configured",
-                                       cmd="halo init --preset work")
+                                       cmd="halo init --provider databricks")
     entries = [
         ("databricks_config", databricks_config_line),
         ("ucode_settings", _check_ucode_settings()),

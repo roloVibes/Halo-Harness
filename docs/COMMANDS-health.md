@@ -218,9 +218,9 @@ BRIDGE_TEST_HOME=/tmp/demo-home halo doctor
 ```
 halo doctor
   [OK] Python 3.11.7
-  [WARN] ~/.claude directory: /tmp/demo-home/.claude -> see: docs/HANDBOOK.md (Config reuse from Claude Code) -- optional, defaults apply
-  [WARN] OpenRouter: not configured (no OPENROUTER_API_KEY found) -> fix: halo init --preset home
-  [WARN] Databricks: not configured (no host/token found) -> fix: halo init --preset work
+  [OK] ~/.claude: not there (optional: Halo reads Claude Code's files when they exist)
+  [WARN] OpenRouter: not configured (no OPENROUTER_API_KEY found) -> fix: halo init --provider openrouter
+  [WARN] Databricks: not configured (no host/token found) -> fix: halo init --provider databricks
   [OK] Sessions: 0 logged under ~/.halo/sessions; stats cache last written never
   [OK] MCP servers: none configured
   [OK] Default model: not set in config.json -- built-in default 'or:deepseek/deepseek-v4.1-flash' applies (HALO_MODEL/routes.json still win when set)

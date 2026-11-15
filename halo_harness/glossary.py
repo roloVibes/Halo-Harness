@@ -21,7 +21,8 @@ import re
 from pathlib import Path
 from typing import Optional
 
-TERMS = ("lineup", "bio", "role", "tier", "block", "lane", "step",  # 3.4.0.0 B: team, member, stage left; 3.5.0.0: part, mission, fleet, hub
+TERMS = ("agent", "workflow", "map", "starter",  # 3.6.0.0: the words 3.6 is built on (docs/AGENTS.md)
+         "lineup", "bio", "role", "tier", "block", "lane", "step",  # 3.4.0.0 B: team, member, stage left; 3.5.0.0: part, mission, fleet, hub
          "gate", "claim", "hand-off", "square", "router", "group", "when", "plan", "coach", "orchestra run", "harness",
          "capability", "unit", "pack", "guided first run", "setup", "provider", "env file",
          "config key", "steward", "profile", "fit plan",

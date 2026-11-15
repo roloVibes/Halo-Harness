@@ -225,7 +225,7 @@ def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
                 hosts.setdefault(bare, []).append(f"{role}={pref}")
             else:
                 problems.append(f"dbx: roles configured ({pref}) but no DATABRICKS_HOST is set -- "
-                                "the gateway cannot be probed (run `halo init --preset work`).")
+                                "the gateway cannot be probed (run `halo init --provider databricks`).")
     from halo_harness.providers.http import open_upstream
     for host, uses in hosts.items():
         try:

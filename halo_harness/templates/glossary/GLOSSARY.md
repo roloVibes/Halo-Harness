@@ -7,25 +7,41 @@ prints it, the TUI's `/explain <word>` shows it in a card, and Studio lists
 every word under the `?` menu's Glossary (each section's "How this works"
 page links the words it uses). `halo explain` with no word lists them all.
 
+## agent
+
+An agent (3.6.0.0) is one file, `~/.halo/crew/agents/<name>.yaml` (format `agent/1`), saying what it does, which model it runs on and which tools it may use; a project's own sit in `<repo>/.halo/crew/agents/` and are read only in a folder you trusted. An agent does nothing until a map connects it or main names it in an `Agent` call. Studio's Agents -> 1 · Agents and `halo agents list | show | new | copy | edit | try` make and change them; agents replace 3.5's bios.
+
+## workflow
+
+A workflow (format `workflow/1`, `~/.halo/crew/workflows/<name>.yaml`) is steps of agents: each step names the agents that do it, in order. A map can connect a workflow so main hands a task to it, and `halo workflows run <name> "<request>"` runs one here by hand. Studio's Agents -> 2 · Workflows and `halo workflows list | show | new | edit | try | run` make and change them.
+
+## map
+
+A map (format `map/1`, `~/.halo/crew/maps/<name>.yaml`) connects the agents and workflows main may hand work to: its boxes are agents or workflows, and each line says when main uses one (a need such as a PDF, words in the task, or always). A session runs on the map in use: `halo maps use <name>`, `halo --map <name>` for one session, or Studio's Agents -> 3 · Map. With no map set a session runs as a plain session always did, drawn as the `starter` map.
+
+## starter
+
+A starter is an agent, workflow or map Halo ships (10 agents, 5 workflows and 2 maps under `halo_harness/templates/crew/`). Starters are read-only: `halo agents copy <starter>` (`--as <name>` names it), or Copy in Studio, makes your own copy to edit, and when two files share a name the project's wins, then yours, then the starter. The `starter` map is what a session with no map set is drawn as.
+
 ## lineup
 
 A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Since 3.6.0.0 R5 lineups and bios are no longer read: agents, workflows and maps in `~/.halo/crew/` replace them (Studio's Agents section, tabs 1 · Agents, 2 · Workflows and 3 · Map; `halo agents`, `halo workflows`, `halo maps`), and `halo teams` prints one line pointing there. `halo start` rehearses the active lineup as it is.
 
 ## bio
 
-An agent bio (`~/.halo/agents/<name>.yaml`) describes one agent: its prompt, the models it prefers, its tools, its limits and the shape of what it hands back. A lineup's card points at a bio, and one bio can play several cards. Studio's Bios panel and `halo agents` edit bios; the coach's cards name the bio they would change.
+An agent bio (`~/.halo/agents/<name>.yaml`) was 3.5's description of one agent: its prompt, the models it prefers, its tools, its limits and the shape of what it hands back; a lineup's card pointed at a bio. Since 3.6.0.0 bios are no longer read: an agent file (`halo explain agent`) replaces them, and docs/MOVING-from-3.5.md says how to move one.
 
 ## role
 
-A role is the part a card plays in a session: `main` (the agent you talk to, exactly one per lineup), `subagent` (what the main agent spawns for a task), `reviewer`, `researcher`, `custom` and the others `halo roles` lists. When two cards share a role, the card's alias (`as:`) tells them apart, and routing and tiers use that alias.
+A role is a name in the model table (`roles.<name>` in config; `halo config get roles` shows it): it decides which model a plain session's helper of that name runs on, `main` being the agent you talk to. `halo roles point <role> <model>`, or `/role <name> <model>` in a session, sets one. In a 3.5 lineup a role was the part a card played, and an alias (`as:`) told two cards apart; lineups are no longer read.
 
 ## tier
 
-A tier is a box of cards in a lineup's `tiers:` list: a member spawns only into the next tier down, `main` sits alone in tier 0, and `max_parallel` caps how many members of one tier run at once. A lineup with no tiers has one, `all`, holding every card. Studio's Roles canvas draws each tier as a box you drag cards between.
+A tier was a box of cards in a 3.5 lineup's `tiers:` list: a member spawned only into the next tier down, `main` sat alone in tier 0, and `max_parallel` capped how many members of one tier ran at once. Since 3.6.0.0 lineups and their tiers are no longer read: a map's boxes and lines (`halo explain map`) say who main hands work to.
 
 ## block
 
-A block (3.3.16.3) is one titled box on Studio's Agents canvas with a purpose, the agents inside it and how main reaches it: a lineup tier (its `purpose` names it, "thinking", "the workers") or a workflow square (its DOES line); main is the one card in no block, and a block opens to show its agents or folds to its lines.
+A block (3.3.16.3) was one titled box on 3.5 Studio's Agents canvas with a purpose, the agents inside it and how main reached it: a lineup tier (its `purpose` named it, "thinking", "the workers") or a workflow square (its DOES line). Since 3.6.0.0 the lineups blocks were drawn from are no longer read, and Agents -> 3 · Map draws a map's boxes instead.
 
 ## lane
 
