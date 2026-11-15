@@ -86,7 +86,14 @@ def test_every_verb_has_its_own_help_and_halo_help_names_local_and_host(ctx: Ctx
            "PYTHONPATH": str(REPO_DIR)}
     got = subprocess.run([sys.executable, "-m", "halo_harness", "--help"], env=env, cwd=str(REPO_DIR),
                          capture_output=True, text=True, timeout=120, encoding="utf-8", errors="replace")
-    ctx.check("`halo --help` names local and host", "local (" in got.stdout and "host (" in got.stdout)
+    # 3.6.0.0 R16: the commands block is built from cli_commands' registry -- one `    <name>  <purpose>` row each
+    block = got.stdout.split("Commands:", 1)[-1].splitlines()
+    rows = {ln.split(None, 1)[0]: ln.split(None, 1)[1] for ln in block
+            if ln.startswith("    ") and len(ln.split(None, 1)) == 2}
+    ctx.check(f"`halo --help` exits 0 and has a row for local and one for host, got {got.returncode} {sorted(rows)}",
+              got.returncode == 0 and "local" in rows and "host" in rows)
+    ctx.check(f"the local row names its verbs, got {rows.get('local')!r}",
+              all(v in rows.get("local", "") for v in ("ps", "warm", "unload", "pull", "measure")))
 
 
 @test

@@ -114,6 +114,8 @@ owner POST setup/ollama/measure/stop
 owner * setup/packs
 owner * ^setup/packs/(?P<id>[a-z][a-z0-9-]*)/(?P<block>[a-z][a-z0-9_-]*)$
 owner * ^setup/provider/(?P<name>[a-z]+)$
+owner * setup/done-at
+owner * studio/timings
 owner POST local/voice/server
 owner POST local/voice/download
 owner POST local/voice/loop

@@ -219,6 +219,10 @@ STATE_CACHES = (
     # next module's pack install asked that deleted home, found the pack gone and unloaded halo_packs.<id>.* -- the
     # module objects a later module's tests still hold (test_ext_api between two coach modules: ModuleNotFoundError)
     ("halo_harness.studio.packs_routes", "_loaded", "a pack's routes module per pack id, with the home that loaded it"),
+    # 3.6.0.0 R14: both keyed by the file's full path and stamp (correct across homes by themselves); cleared so a
+    # module never starts on a parse another module's home left
+    ("halo_harness.theme", "_CONFIG_READS", "config.json parsed, per full path and stamp"),
+    ("halo_harness.project_gate", "_TRUSTED", "a folder's trust answer, per folder and the stamps of ~/.claude.json and trust.json"),
 )
 STATE_RESETS = (
     ("halo_harness.mcp.connectors_bridge", "reset_session_state", "the once-per-process connector discovery flag (its cache file lives in the state dir)"),
@@ -231,6 +235,9 @@ STATE_RESETS = (
     # "no GPU" runner (test_providers_ollama_panel after test_local_fit's cards)
     ("halo_harness.providers.ollama_hw", "reset_local_gpu_cache", "this machine's GPU reading(s), one TTL slot"),
     ("halo_harness.providers.ollama_hw", "reset_ssh_gpu_cache", "a host's GPU over ssh, per user@host, one TTL slot"),
+    # 3.6.0.0 R14: Studio's shared local-models view, 20 s per (state dir, config stamp, env): a mock Ollama on a reused
+    # 127.0.0.1 port in the next module must be asked, not answered from this one's view
+    ("halo_harness.providers.local_view_cache", "forget", "the local models view per state dir, config stamp and env (20 s)"),
 )
 
 

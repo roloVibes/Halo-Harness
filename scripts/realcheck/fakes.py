@@ -74,7 +74,13 @@ class Provider:
         self._lock = threading.Lock()
         self.calls: list = []  # (marker, size) per POST
 
+    _KEYS = ("realcheck", "model")
+    _MISSING = object()
+
     def start(self) -> "Provider":
+        # the mock's scenario table is one dict for the whole process: what these names held before is put back on
+        # stop (popping "model" took the mock's own default answer from every later test in the same process)
+        self._saved = {k: self._scenarios.get(k, self._MISSING) for k in self._KEYS}
         self._scenarios["realcheck"] = self._answer
         self._scenarios["model"] = self._answer  # any model name that is not mock/<x>
         self.mock.start()
@@ -152,8 +158,15 @@ class Provider:
 
     def stop(self) -> None:
         self.release()
-        for k in ("realcheck", "model"):
-            self._scenarios.pop(k, None)
+        saved, self._saved = getattr(self, "_saved", {}), {}
+        for k in self._KEYS:
+            if self._scenarios.get(k) != self._answer:  # another owner took the name since: theirs now
+                continue
+            was = saved.get(k, self._MISSING)
+            if was is self._MISSING:
+                self._scenarios.pop(k, None)
+            else:
+                self._scenarios[k] = was
         try:
             self.mock.stop()
         except Exception:

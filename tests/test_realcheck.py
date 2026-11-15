@@ -156,7 +156,13 @@ def test_the_terminal_gives_a_tty_and_ends_a_child_three_ways(ctx: Ctx):
             code = t.wait(15)
             ctx.check(f"{how}: a terminal on stdin and stdout, then the child ended (exit {code})", up and code is not None)
             if how == "ctrl_c":
-                ctx.check(f"Ctrl+C reached it as an interrupt, got {t.plain()[-80:]!r}", code == 7 and "GOT CTRL-C" in t.plain())
+                # the child's last line can reach the reader after its exit code does (a pseudoconsole drains its
+                # output after the process ends: exit 7 with the line not read yet was this test's red on Windows)
+                end = time.monotonic() + 5
+                while "GOT CTRL-C" not in t.plain() and time.monotonic() < end:
+                    time.sleep(0.05)
+                ctx.check(f"Ctrl+C reached it as an interrupt, got exit {code} {t.plain()[-80:]!r} (probe {probe})",
+                          code == 7 and "GOT CTRL-C" in t.plain())
         finally:
             t.hard_kill()
             t.cleanup()
@@ -202,6 +208,18 @@ def _post(url: str, body: dict) -> str:
 
 @test
 def test_the_fake_provider_scripts_a_real_turn_by_what_the_request_says(ctx: Ctx):
+    from tests.helpers.mock_openai import SCENARIOS
+    before = {k: SCENARIOS.get(k) for k in ("model", "realcheck")}
+    try:
+        _fake_provider_turn(ctx)
+    finally:
+        # the mock's scenario table is the whole process's: the stand-in puts back what it borrowed (popping "model"
+        # once took the mock's default answer from every later module of a CI shard: test_w6a_release_fixes' 404s)
+        ctx.check(f"stopped, the table holds what it held before, got {[SCENARIOS.get(k) for k in before]}",
+                  all(SCENARIOS.get(k) is v for k, v in before.items()) and before["model"] is not None)
+
+
+def _fake_provider_turn(ctx: Ctx) -> None:
     p = fakes.Provider().start()
     try:
         ask = {"model": "any/thing", "stream": True, "messages": [{"role": "user", "content": "RC-WORK file=/x/n.txt wf=w"}]}

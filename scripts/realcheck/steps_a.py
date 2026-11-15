@@ -23,16 +23,37 @@ def _no_leftovers(ctx, h, what: str) -> None:
                    + "; ".join(p.short(90) for p in left[:3]), {"left": said})
 
 
+def _registry_commands(repo: Path) -> "tuple[set, set]":
+    """3.6.0.0 R16: (the commands halo_harness/cli_commands.py registers for `halo --help`, the ones it leaves out on
+    purpose: internal and retired), read from the file's `_c(...)` rows without importing it."""
+    import ast
+    path = repo / "halo_harness" / "cli_commands.py"
+    if not path.is_file():
+        return set(), set()
+    listed, left_out = set(), set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_c" and node.args
+                and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str)):
+            continue
+        kind = next((k.value.value for k in node.keywords if k.arg == "kind" and isinstance(k.value, ast.Constant)), "")
+        if len(node.args) > 4 and isinstance(node.args[4], ast.Constant):
+            kind = node.args[4].value
+        (left_out if kind else listed).add(node.args[0].value)
+    return listed, left_out
+
+
 def _commands_in_source(repo: Path) -> "tuple[list, list]":
-    """(every top-level verb cli.py dispatches, the ones that only say where a verb went)."""
+    """(every top-level verb halo runs -- the registry's listed commands and any verb cli.py still dispatches itself --,
+    the ones that only say where a verb went or are left out of the help on purpose)."""
     src = (repo / "halo_harness" / "cli.py").read_text(encoding="utf-8")
-    verbs = set(re.findall(r'argv\[0\] == "([a-z][\w-]*)"', src))
+    listed, left_out = _registry_commands(repo)
+    verbs = set(re.findall(r'argv\[0\] == "([a-z][\w-]*)"', src)) | listed
     for group in re.findall(r"argv\[0\] in \(([^)]*)\)", src):
         verbs.update(re.findall(r'"([a-z][\w-]*)"', group))
     verbs.update(re.findall(r'argv\[:2\] == \["([a-z][\w-]*)"', src))
     gone = set(re.findall(r'^\s+"([a-z][\w-]*)": "', src.split("GONE_VERBS = {", 1)[1].split("}", 1)[0], re.M))
     moved = set(re.findall(r'argv\[0\] == "([a-z][\w-]*)":[^\n]*\n(?:[^\n]*\n){0,2}[^\n]*moved_line\(', src))
-    return sorted(verbs - gone - moved), sorted(gone | moved)
+    return sorted(verbs - gone - moved - left_out), sorted(gone | moved | left_out)
 
 
 def starts(ctx):
@@ -52,6 +73,8 @@ def starts(ctx):
     text = re.sub(r"\s+", " ", hp.out)
     missing = [w for w in verbs if not re.search(rf"(?<![\w-]){re.escape(w)}(?![\w-])", text)]
     ev.update(commands=len(verbs), not_in_help=missing, not_counted=skipped)
+    if not verbs:  # the scan found nothing to look for: "names all 0 commands" would pass whatever the help says
+        bad.append("found no command in halo_harness/cli_commands.py or cli.py to look for in `halo --help`")
     if missing:
         bad.append(f"`halo --help` does not name {len(missing)} of the {len(verbs)} commands halo runs: "
                    + ", ".join(missing))
