@@ -329,6 +329,85 @@ def test_a_changed_map_applies_at_the_next_hand_off_said_once(ctx: Ctx):
         ctx.check("the same line is not said twice", mc.take_notes() == [])
 
 
+def _careful(name: str, careful: str) -> str:
+    return (f"format: agent/1\nname: {name}\ndoes: Talks with you.\nmodel: auto\nuses: [read, edit, bash, web]\n"
+            f"careful: {careful}\n")
+
+
+def _mode_of(repo: Path, flags: dict) -> "tuple[str, str]":
+    import contextlib
+    import io
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        s = _session(repo, flags)
+    mode = s.permission_engine.mode
+    s.close_runtimes()
+    return mode, err.getvalue()
+
+
+@test
+def test_a_map_never_raises_the_mode_you_set(ctx: Ctx):
+    """batch01 #2: a map's main narrows the mode the flag, config and settings resolved, never raises it (the rule a
+    sub-agent has); only a map and main that are both yours may raise it, said in one line. No map: the mode as set."""
+    from halo_harness.theme import set_config_value
+    from tests.helpers.trust_dir import trust
+    with S.home("crew-mode-") as (root, state):
+        S.seed(state)
+        repo = root / "repo"
+        (repo / ".halo" / "crew" / "agents").mkdir(parents=True)
+        (repo / ".halo" / "crew" / "agents" / "main.yaml").write_text(_careful("main", "own"), encoding="utf-8")
+        trust(repo)
+        plain = root / "plain"
+        plain.mkdir()
+        for mode in ("default", "plan"):
+            set_config_value("permission_mode", mode)
+            got, err = _mode_of(repo, {"map": "ship-it"})
+            ctx.check(f"config {mode}: a project's main (careful: own) on ship-it keeps {mode}, got {got}; said {err!r}",
+                      got == mode and ("never raises" in err) == (mode != "plan"))
+            got, _err = _mode_of(repo, {})
+            ctx.check(f"config {mode}: no map, the mode as set, got {got}", got == mode)
+        set_config_value("permission_mode", "acceptEdits")
+        got, err = _mode_of(plain, {"map": "ship-it"})
+        ctx.check(f"config acceptEdits: ship-it's main (ask-changes) narrows it to default, nothing said, got {got} {err!r}",
+                  got == "default" and "careful" not in err)
+        got, _err = _mode_of(plain, {})
+        ctx.check(f"config acceptEdits: no map, acceptEdits, got {got}", got == "acceptEdits")
+        set_config_value("permission_mode", "default")
+        crew = state / "crew"
+        (crew / "agents").mkdir(parents=True, exist_ok=True)
+        (crew / "maps").mkdir(parents=True, exist_ok=True)
+        (crew / "agents" / "boss.yaml").write_text(_careful("boss", "own"), encoding="utf-8")
+        (crew / "maps" / "mine.yaml").write_text("format: map/1\nname: mine\nboxes:\n- {id: code, agent: coder}\n"
+                                                 "lines:\n- {from: main, to: code}\nmain: {agent: boss}\n", encoding="utf-8")
+        got, err = _mode_of(plain, {"map": "mine"})
+        ctx.check(f"your own map and main (careful: own) raise it to auto, said in one line, got {got} {err!r}",
+                  got == "auto" and "runs in auto" in err)
+        import contextlib
+        import io
+        import os
+        from halo_harness.maps_cli import cmd_maps
+        out, here = io.StringIO(), os.getcwd()
+        os.chdir(plain)
+        try:
+            with contextlib.redirect_stdout(out):
+                cmd_maps(["use", "mine"])
+        finally:
+            os.chdir(here)
+        ctx.check(f"halo maps use mine says main runs in auto, got {out.getvalue()!r}",
+                  "main runs in auto (careful: own): nothing is asked" in out.getvalue())
+        from halo_harness.crew.compile import Compiled
+        from halo_harness.crew.map_session import main_mode
+        pack = Compiled(name="demo--review", scope="pack", source="config",
+                        main={"agent": "demo--writer", "mode": "auto", "careful": "own", "scope": "pack"})
+        ctx.check("a pack's map with main careful: own never raises (default, dontAsk); it narrows bypass to auto",
+                  main_mode(pack, "default")[0] == "default" and main_mode(pack, "dontAsk")[0] == "dontAsk"
+                  and main_mode(pack, "bypassPermissions") == ("auto", ""))
+        set_config_value("crew.map", "")
+        set_config_value("permission_mode", "plan")
+        got, err = _mode_of(plain, {"map": "mine"})
+        ctx.check(f"plan stays plan even under your own map, got {got}", got == "plan")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

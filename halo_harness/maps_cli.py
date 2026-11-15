@@ -90,4 +90,14 @@ def cmd_maps(argv) -> int:
             f"New sessions run as by default (the {DEFAULT_MAP} map draws what they do; no map of yours is set)."
             if choice in (None, DEFAULT_MAP) else f"New sessions run on the map {args.name}; a running session keeps its own.")
     print(said + f" (undo id {undo_id}: Studio's builder Undo puts it back)")
+    if choice not in (None, DEFAULT_MAP, ONE_MODEL):  # batch01 #2: what its main does to your permission mode
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_session import main_mode
+        from halo_harness.permissions import normalize_permission_mode
+        from halo_harness.theme import get_config_value
+        mode = get_config_value("permission_mode", default=None)
+        mode = normalize_permission_mode(mode) if isinstance(mode, str) and mode else "default"
+        _m, line = main_mode(compile_map(args.name, cwd=cwd), mode)
+        if line:
+            print(line[len("halo: "):] if line.startswith("halo: ") else line)
     return 0

@@ -197,6 +197,109 @@ def test_a_call_no_line_claims_is_a_made_up_helper(ctx: Ctx):
         ctx.check("a named agent with no line from main stays one line", got.is_error and "no line from main" in got.content)
 
 
+HELD = """format: map/1
+name: chain
+boxes:
+- {id: code, agent: coder}
+- {id: review, agent: reviewer}
+- {id: plan, workflow: plan}
+lines:
+- {from: main, to: code, when: main-decides}
+- {from: main, to: review, when: always}
+- {from: code, to: review, when: always}
+- {from: review, to: plan, when: always}
+"""
+
+
+def held(h, rules: dict, mode: str = "default", print_mode: bool = False):
+    """A map main -> code -> review -> plan (and main -> review, always) with the person's permission rules."""
+    from halo_harness.permissions import PermissionEngine, parse_rule
+    rt = runtime(h, HELD)
+    rt.parent.permission_engine = PermissionEngine(
+        mode=mode, cwd=h.repo, print_mode=print_mode,
+        deny_rules=[parse_rule(r, action="deny") for r in rules.get("deny", [])],
+        ask_rules=[parse_rule(r, action="ask") for r in rules.get("ask", [])])
+    return rt
+
+
+def hand(rt, calls: list, **tool_input):
+    """main's own Agent call (the session already decided it) with the fake model; the workflow box's spawn is the fake too."""
+    import halo_harness.agent.subagent as sub
+    inner = fake(calls)
+    saved = sub.run_agent_call
+    sub.run_agent_call = inner
+    try:
+        return call(rt, inner, **tool_input)
+    finally:
+        sub.run_agent_call = saved
+
+
+@test
+def test_a_deny_for_one_agent_holds_on_the_maps_lines(ctx: Ctx):
+    """batch01 #1: `Agent(reviewer)` denied -- neither a chain hop nor a routed call starts reviewer, in any mode."""
+    with PacksHome() as h:
+        rt, calls = held(h, {}), []
+        got = hand(rt, calls, subagent_type="coder", description="fix it", prompt="fix it")
+        ctx.check(f"no rules: coder, the chain to reviewer and the plan box's planner all run, got {[c['who'] for c in calls]}",
+                  [c["who"] for c in calls] == ["coder", "reviewer", "planner"] and not got.is_error)
+        for mode, pm in (("default", False), ("acceptEdits", False), ("auto", False), ("default", True), ("dontAsk", True)):
+            rt, calls = held(h, {"deny": ["Agent(reviewer)"]}, mode=mode, print_mode=pm), []
+            got = hand(rt, calls, subagent_type="coder", description="fix it", prompt="fix it")
+            ctx.check(f"{mode}{' -p' if pm else ''}: coder runs, the chain hop to reviewer is refused naming the rule, got "
+                      f"{[c['who'] for c in calls]} {got.content!r}",
+                      [c["who"] for c in calls] == ["coder"] and "line code -> review refused" in got.content
+                      and "Agent(reviewer)" in got.content)
+            hops = [(d["line"], d["state"]) for k, _a, d in rt.frames if k == "map_hop"]
+            ctx.check(f"{mode}: the refused hop is drawn as not taken, got {hops}", ("code -> review", "skipped") in hops)
+            got = hand(rt, calls, description="look it over", prompt="look over the change")
+            ctx.check(f"{mode}{' -p' if pm else ''}: a call naming nobody is not routed to reviewer, got {[c['who'] for c in calls]} "
+                      f"{got.content!r}", got.is_error and [c["who"] for c in calls] == ["coder"] and "Agent(reviewer)" in got.content)
+
+
+@test
+def test_an_ask_for_one_agent_is_not_followed_by_the_map_itself(ctx: Ctx):
+    """batch01 #1: `Agent(reviewer)` asked -- the map never starts reviewer by itself; main naming it is the session's
+    own call (the person is asked there), and then it runs."""
+    with PacksHome() as h:
+        rt, calls = held(h, {"ask": ["Agent(reviewer)"]}), []
+        got = hand(rt, calls, subagent_type="coder", description="fix it", prompt="fix it")
+        ctx.check(f"coder runs, the hop to reviewer is not followed and says main may name it, got {[c['who'] for c in calls]} "
+                  f"{got.content!r}", [c["who"] for c in calls] == ["coder"] and "line code -> review not followed" in got.content
+                  and "Agent(reviewer)" in got.content)
+        got = hand(rt, calls, description="look it over", prompt="look over the change")
+        ctx.check(f"a call naming nobody is not routed to reviewer, got {got.content!r}",
+                  got.is_error and [c["who"] for c in calls] == ["coder"] and "reviewer" in got.content)
+        got = hand(rt, calls, subagent_type="reviewer", description="review it", prompt="review the change")
+        ctx.check(f"main names reviewer (the session asked the person): it runs; its chain into the plan box is not followed "
+                  f"by itself (an Agent rule asks for a workflow, R16), got {[c['who'] for c in calls]} {got.content!r}",
+                  not got.is_error and [c["who"] for c in calls] == ["coder", "reviewer"]
+                  and "line review -> plan not followed" in got.content)
+
+
+@test
+def test_a_workflow_box_on_a_chain_stands_where_the_workflow_tool_does(ctx: Ctx):
+    """batch01 #1: any Agent rule refuses a Workflow call (R16), so a chain hop into a workflow box is refused too: its
+    steps would spawn sub-agents the rule was written for."""
+    with PacksHome() as h:
+        rt, calls = held(h, {"deny": ["Agent(planner)"]}), []
+        got = hand(rt, calls, subagent_type="coder", description="fix it", prompt="fix it")
+        ctx.check(f"coder and reviewer run, the plan box (planner's step) is refused, got {[c['who'] for c in calls]} {got.content!r}",
+                  [c["who"] for c in calls] == ["coder", "reviewer"] and "line review -> plan refused" in got.content)
+
+
+@test
+def test_a_made_up_helper_is_held_by_a_rule_for_general_purpose(ctx: Ctx):
+    """batch01 #1 (the same seam): the helper the map makes up is `general-purpose`, decided on that name."""
+    with PacksHome() as h:
+        rt, calls = runtime(h), []
+        from halo_harness.permissions import PermissionEngine, parse_rule
+        rt.parent.permission_engine = PermissionEngine(mode="default", cwd=h.repo,
+                                                       deny_rules=[parse_rule("Agent(general-purpose)", action="deny")])
+        got = call(rt, spawning(calls, rt), description="look around", prompt="list what the repo holds")
+        ctx.check(f"refused naming the rule, nothing spawned, got {got.content!r}",
+                  got.is_error and calls == [] and "Agent(general-purpose)" in got.content)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

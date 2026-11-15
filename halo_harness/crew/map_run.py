@@ -88,6 +88,31 @@ def _run_target(inner, runtime, mc, h: dict, task: str, files, tool_id: str, pro
     return str(tr.content), bool(tr.is_error)
 
 
+def held(runtime, mc, h: dict, asked: "dict | None" = None) -> str:
+    """"" when the person's permission rules let the map itself start `h`'s target; else the one line saying why not.
+
+    The session decides main's own call on what the model wrote; a target the MAP picks (a routed call, a chain hop, a
+    workflow box, the made-up helper) is decided here on its own name, as that call would be: `Agent(<name>)` for an
+    agent, the Workflow tool for a workflow box (any Agent rule holds a workflow back, permissions.py R16). A deny
+    refuses it; an ask is not followed by itself (main may name the agent: the session asks the person). `asked`: the
+    call the session already decided -- the same answer there was already given (or asked) and holds."""
+    engine = getattr(getattr(runtime, "parent", None), "permission_engine", None)
+    if engine is None:
+        return ""
+    tool, ti = ("Agent", {"subagent_type": h["name"]}) if h["kind"] == "agent" else ("Workflow", {"name": h["name"]})
+    d = engine.decide(tool, ti, None)
+    if d.action == "allow":
+        return ""
+    if asked is not None:
+        d0 = engine.decide(tool, asked, None)
+        if d0.action == d.action and getattr(d0, "matched_rule", None) is getattr(d, "matched_rule", None):
+            return ""
+    if d.action == "deny":
+        return f"map {mc.map_name} · line {h['line']} refused: {d.reason} · {h['name']}"
+    return (f"map {mc.map_name} · line {h['line']} not followed by itself: {d.reason} -- main may name {h['name']} "
+            f"(the person is asked then) · {h['name']}")
+
+
 def _hop(inner, runtime, mc, h: dict, why: str, task: str, files, tool_id: str, prompt: str, on_event=None, chain=False):
     """One hand-off on a line, said as a `map_hop` start and end (the lit Map); (text, is_error)."""
     seen: dict = {}
@@ -110,6 +135,11 @@ def follow(inner, runtime, mc, box: str, task: str, files, text: str, tool_id: s
             if not ok:
                 parts.append(f"map {mc.map_name} · line {h['line']} not taken ({why})")
                 map_events.hop(runtime, mc, h, why, task, "skipped", chain=True)
+                continue
+            no = held(runtime, mc, h)  # batch01 #1: the person's deny / ask rules hold on a chain's hop
+            if no:
+                parts.append(no)
+                map_events.hop(runtime, mc, h, no.split(" · ")[-2], task, "skipped", chain=True)
                 continue
             line = mc.budget_refusal()
             if line:
@@ -185,6 +215,9 @@ def agent_call(inner, *, runtime, tool_id: str, tool_input: dict, tool_name: str
     if not name and mc.route("agent", task)[0] is None:
         return _made_up(inner, runtime, mc, tool_id, tool_input, tool_name, notes, on_event, on_child)
     h, why, refusal = _choose(mc, "agent", name, task, (), runtime)
+    if h is not None and not name:  # the map routed it: decided on the agent it picked (batch01 #1)
+        refusal = held(runtime, mc, h, asked=tool_input)
+        h = None if refusal else h
     if h is None:
         return [], _err("\n".join(notes + [refusal]))
     mc.fired.append({"line": h["line"], "name": h["name"], "why": why})
@@ -205,6 +238,9 @@ def _made_up(inner, runtime, mc, tool_id: str, tool_input: dict, tool_name: str,
     """A call that names no agent and that no line's When claims: a helper main makes up for this task. It is the
     `general-purpose` spec, so it may use main's own tools in main's own mode, never more (agent/subagent.py clamps a
     child to the session's mode); its row says the box that started it (main), so the lit Map draws it beside main."""
+    no = held(runtime, mc, {"kind": "agent", "name": "general-purpose", "line": "main -> a helper"}, asked=tool_input)
+    if no:
+        return [], _err("\n".join(notes + [no]))
     events, tr = inner(runtime=runtime, tool_id=tool_id, tool_input={**tool_input, "subagent_type": "general-purpose"},
                        tool_name=tool_name, on_event=on_event, on_child=_tagger(runtime, mc, "main", "", on_child, made_up=True))
     head = notes + [f"map {mc.map_name} · a helper main made up for this task (no line's When claimed it) · general-purpose"]
@@ -226,6 +262,9 @@ def workflow_call(runtime, input: dict, ctx):
     task = str(input.get("task") or "").strip()
     files = [str(f) for f in input.get("files") or [] if isinstance(f, str) and f.strip()]
     h, why, refusal = _choose(mc, "workflow", str(input.get("name") or "").strip(), task, files, runtime)
+    if h is not None and not str(input.get("name") or "").strip():  # routed by the map (batch01 #1)
+        refusal = held(runtime, mc, h, asked=input)
+        h = None if refusal else h
     if h is None:
         return _err("\n".join(notes + [refusal]))
     mc.fired.append({"line": h["line"], "name": h["name"], "why": why})

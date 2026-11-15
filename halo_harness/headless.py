@@ -1461,10 +1461,12 @@ def build_session(
         # 3.6.0.0 R5: main's own Agent calls are held to the map by crew/map_run.py (a named target needs a line from
         # main); the session-wide restriction would also stop the step runner's, a chain's and /review's own spawns
         discovered_agents, _map_targets = _map_session.agents(discovered_agents, _crew_map)
-        # 3.6.0.0 R5: a map you chose sets main's mode from its `careful`
+        # 3.6.0.0 R5: a map you chose sets main's mode from its `careful` -- narrowing only, unless map and main are yours
         if not permission_mode and not dangerously_skip_permissions:
-            resolved_mode = _crew_map.main.get("mode") or resolved_mode
+            resolved_mode, _mode_said = _map_session.main_mode(_crew_map, resolved_mode)
             permission_engine.mode = resolved_mode
+            if _mode_said:
+                print(_mode_said, file=sys.stderr)
         _opt_ins = [_map_session.line(_crew_map)]
     else:
         _opt_ins = [] if bare else narrow_session(frozen_registry, session_catalog, team=_team_name_for_session,

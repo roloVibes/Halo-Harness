@@ -102,6 +102,31 @@ def agents(discovered: dict, c) -> "tuple[dict, set]":
     return merged, set(c.agent_targets()) | ({"general-purpose"} if "general-purpose" in merged else set())
 
 
+RANK = {"dontAsk": 0, "default": 1, "acceptEdits": 2, "auto": 3, "bypassPermissions": 4}  # as agent/subagent.py's clamp
+
+
+def own_map(c) -> bool:
+    """The map and its main agent are both yours (~/.halo/crew): the only files that may raise the session's mode."""
+    return getattr(c, "scope", "") == "yours" and (getattr(c, "main", None) or {}).get("scope") == "yours"
+
+
+def main_mode(c, resolved: str) -> "tuple[str, str]":
+    """(the session's mode, a line to say or ""): a map's main (`careful`) may narrow the mode the flag, config and
+    settings resolved, never raise it -- the rule a sub-agent has (agent/subagent.py). `plan` stays plan. A map and main
+    that are both yours may raise it, said in one line; a pack's, a project's or a starter's never does (batch01 #2)."""
+    want = (getattr(c, "main", None) or {}).get("mode") if c is not None and not is_default(c) else None
+    if not want or want == resolved or resolved == "plan":
+        return resolved, ""
+    if RANK.get(want, 99) < RANK.get(resolved, 99):
+        return want, ""
+    care = c.main.get("careful")
+    if own_map(c):
+        quiet = ": nothing is asked (your deny and ask rules still hold)" if want == "auto" else ""
+        return want, f"halo: the map {c.name}'s main runs in {want} (careful: {care}){quiet}; your own mode was {resolved}"
+    return resolved, (f"halo: the map {c.name}'s main asks for {want} (careful: {care}), but a map or main agent that is not "
+                      f"yours never raises your permission mode, so it stays {resolved}")
+
+
 def line(c) -> str:
     """The one line `/status` and the session's row say: the map in use."""
     return f"Map: {c.name} ({len(c.handoffs)} line{'' if len(c.handoffs) == 1 else 's'} from main)" if c is not None else ""

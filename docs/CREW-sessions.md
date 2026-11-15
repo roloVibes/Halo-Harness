@@ -26,7 +26,9 @@ project's in a trusted folder, the starters: nearest wins) and makes three thing
    own model, as today; a model ref pins it when no `--model` is given), its instructions (added to the system prompt),
    its tools (the kinds its `uses` does not list -- read, edit, bash, web -- are taken out; every other tool stays) and
    its permission mode from `careful` (ask-changes: default, ask-commands: acceptEdits, own: auto; a `--permission-mode`
-   flag still wins).
+   flag still wins). `careful` only narrows the mode you set (config `permission_mode`, settings), never raises it, and
+   plan stays plan -- unless the map and its main agent are both yours (`~/.halo/crew`): then it may raise it, and the
+   session and `halo maps use` say so in one line. A pack's, a project's or a starter's main never raises it.
 2. **The hand-off table**: one entry per line from main, `{line, box, kind: agent | workflow, name, when}` (a box that
    names a list of agents is one entry per agent). The existing **Agent** tool spawns exactly the agents main has a line
    to; the existing **Workflow** tool runs exactly its workflows (on the step runner); a tool with nothing to hand to is
@@ -67,6 +69,11 @@ taken says why:
 
     map ship-it · line plan -> code (always) · code
     map ship-it · line code -> pdfs not taken (skipped: the task needs none of pdf)
+
+**Your permission rules hold on every target the map picks** (a chain's hop, a call routed by a When, the made-up
+helper): it is decided as `Agent(<name>)` (a workflow box as a Workflow call, which any Agent rule holds back). A deny
+refuses the hop (`map ship-it · line code -> review refused: denied by rule 'Agent(reviewer)' · reviewer`); an ask is
+not followed by the runtime itself -- main may name that agent, and you are asked then.
 
 The map has no circle (the format refuses one), so a chain ends. A box with two lines into it runs once per hand-off
 that reaches it; it does not wait for both. A hand-off run in the background is not followed (the lit Map says "in the
