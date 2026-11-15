@@ -455,7 +455,7 @@ On an Apple Silicon Mac only, an optional extra routes straight to a
 Hugging Face Hub repo, no file management needed:
 
 ```sh
-uv tool install --reinstall "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
 halo -p "..." --model hf:mlx/mlx-community/Qwen2.5-7B-Instruct-4bit
 ```
 

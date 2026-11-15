@@ -50,7 +50,18 @@ def versions_only(text: str) -> str:
     return "\n".join(_HASH_RE.sub("", line).rstrip() for line in joined.splitlines()) + "\n"
 
 
+# The same as versions_only, as one `python -c` that runs inside the update's own command, AFTER its `git pull`:
+# a checkout's lock is the pulled release's, not the one on disk when `halo update` started (checker, batch 1).
+# Written for sh's and cmd.exe's double quotes alike: no backslash, quote, dollar, backtick or percent sign.
+_VERSIONS_ONLY_PY = ("import re,sys;t=open(sys.argv[1],encoding='utf-8').read();"
+                     "t=t.replace(chr(13),'').replace(chr(9),' ').replace(chr(92)+chr(10),' ');"
+                     "t=re.sub(' *--hash[= ] *[^ '+chr(10)+']+','',t);"
+                     "open(sys.argv[2],'w',encoding='utf-8').write("
+                     "chr(10).join(x.rstrip() for x in t.split(chr(10))));sys.exit(0 if '==' in t else 1)")
+
+
 def _pin_pip_locally(cmd: str, m: "re.Match", fetch) -> "tuple[Optional[str], str]":
+    import sys
     from halo_harness.update import _quote_for_shell
     where = m.group("val").strip("\"'")
     try:
@@ -62,6 +73,12 @@ def _pin_pip_locally(cmd: str, m: "re.Match", fetch) -> "tuple[Optional[str], st
         k = cmd.rfind('--pip-args="', 0, m.start())
         inside = k >= 0 and '"' not in cmd[k + len('--pip-args="'):m.start()]
         val = str(tmp) if inside else _quote_for_shell(str(tmp))  # pipx splits its --pip-args itself
+        step = cmd.rfind(" && ", 0, m.start())
+        if not where.startswith("https://") and step >= 0:  # a checkout: the copy is made again after its pull
+            step += len(" && ")
+            again = (f'{_quote_for_shell(sys.executable)} -c "{_VERSIONS_ONLY_PY}" '
+                     f"{_quote_for_shell(where)} {_quote_for_shell(str(tmp))} && ")
+            return cmd[:step] + again + cmd[step:m.start()] + m.group("flag") + val + cmd[m.end():], ""
         return cmd[:m.start()] + m.group("flag") + val + cmd[m.end():], ""
     except Exception as e:  # noqa: BLE001 -- any failure: nothing installs, said once (fails closed)
         reason = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__

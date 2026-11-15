@@ -51,7 +51,7 @@ carries it to anything subscribed.
 
 `halo voice on` and `halo voice off` do the same in a running session from another terminal, through its control
 socket (the `slash` command the socket already carries; `--session ID` when several run). Every missing piece is one
-line with its command: the extra (`uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"`), a microphone (`halo voice
+line with its command: the extra (`uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"`), a microphone (`halo voice
 devices`; `--input-file` without one), a speech model (`halo voice download <model>`).
 
 ## The modes
@@ -198,7 +198,7 @@ are imported from `halo_harness/voice/catalog.py`. The Library's speech rows nam
 The engines' Python packages are an optional extra:
 
 ```sh
-uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"
 ```
 
 It adds `faster-whisper`, `kokoro-onnx`, `onnxruntime`, `numpy`, `soundfile` and (R2) `sounddevice` for the

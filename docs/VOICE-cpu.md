@@ -26,7 +26,7 @@ LAN (stt: stt@pc)` instead.
 ## On this CPU
 
 ```sh
-uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"     # the engines and sounddevice (Linux: sudo apt install libportaudio2)
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"     # the engines and sounddevice (Linux: sudo apt install libportaudio2)
 halo voice download faster-whisper:base.en            # or small.en: better hearing, more work per second of audio
 halo voice download kokoro-82m
 halo voice download silero-vad

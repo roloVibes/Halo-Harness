@@ -306,8 +306,8 @@ def with_extras(spec: str, extras) -> str:
 
 
 def extra_install_line(extra: str, *, direct_url: "object" = _UNSET, prefix: Optional[str] = None) -> str:
-    """The one command that adds `extra` to THIS install (3.6.0.0 fix: the printed `uv tool install
-    "halo-harness[voice]"` could never resolve -- halo is installed from GitHub, the name is not on PyPI): the
+    """The one command that adds `extra` to THIS install (3.6.0.0 fix: the old printed line named the bare
+    halo-harness[voice] and could never resolve -- halo is installed from GitHub, the name is not on PyPI): the
     installer that made it, the same source (a git install's release tag or exact commit, a checkout's folder),
     every extra already asked for kept. No subprocess: it reads the install's own files only."""
     prefix = sys.prefix if prefix is None else prefix

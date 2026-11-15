@@ -35,7 +35,7 @@ _LINE: "list[str]" = []
 
 def install_line() -> str:
     """The command that adds the voice extra to THIS install (update.extra_install_line; 3.6.0.0 fix: the old
-    constant named a bare `halo-harness[voice]`, which no index has). Read once per process."""
+    constant named the bare halo-harness[voice], which no index has). Read once per process."""
     if not _LINE:
         from halo_harness.update import extra_install_line
         _LINE.append(extra_install_line("voice"))

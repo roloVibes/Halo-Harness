@@ -106,12 +106,20 @@ def test_the_printed_lines_come_from_the_install(ctx: Ctx):
     ctx.check(f"voice's line, got {voice.INSTALL_LINE!r}", voice.INSTALL_LINE == upd.extra_install_line("voice"))
     ctx.check("replay clips' line", upd.extra_install_line("images") in replay_clip.needs_pillow())
     bare = re.compile(r"""halo-harness\[[\w,]+\]["'`]""")
-    hits = []
-    for path in list((REPO / "halo_harness").rglob("*.py")) + [REPO / "README.md"] + list((REPO / "docs").rglob("*.md")):
-        for n, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            if bare.search(line) and re.search(r"\binstall\b", line):
-                hits.append(f"{path.relative_to(REPO)}:{n}")
+    hits, unpinned = [], []
+    # checker, batch 1: the steward's knowledge (*.md under halo_harness) too, and a line broken after `install`
+    for path in (list((REPO / "halo_harness").rglob("*.py")) + list((REPO / "halo_harness").rglob("*.md"))
+                 + [REPO / "README.md"] + list((REPO / "docs").rglob("*.md"))):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for m in bare.finditer(text):
+            if re.search(r"\binstall\b", text[max(0, m.start() - 120):m.start()]):
+                hits.append(f"{path.relative_to(REPO)}:{text.count(chr(10), 0, m.start()) + 1}")
+        if path.suffix == ".md":  # a pasted doc line keeps the dependency pins, as the install line itself does
+            for m in re.finditer(r"install [^`\n]*\"halo-harness\[[\w,]+\] @ git\+[^`\n]*", text):
+                if "--constraints" not in m.group(0):
+                    unpinned.append(f"{path.relative_to(REPO)}:{text.count(chr(10), 0, m.start()) + 1}")
     ctx.check(f"no install line names a bare `halo-harness[<extra>]`, got {hits}", hits == [])
+    ctx.check(f"every doc line that adds an extra carries the lock (--constraints), got {unpinned}", unpinned == [])
 
 
 if __name__ == "__main__":

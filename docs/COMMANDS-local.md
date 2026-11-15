@@ -181,8 +181,8 @@ install hint for this OS. See [LOCAL-MODELS.md](LOCAL-MODELS.md)'s "Managed loca
 
 - `--runtime llama-server|mlx` (`mlx_lm` still reads as mlx): mlx is Apple Silicon only. Round 5f: with `--runtime mlx`
   the model can be a bare Hugging Face repo id (`halo local serve mlx-community/Qwen2.5-7B-Instruct-4bit --runtime
-  mlx`), the explicit form of `hf:mlx/<org>/<repo>` ([MAC.md](MAC.md)); `mlx_lm` is the `uv tool install
-  "halo-harness[mlx]"` extra, never fetched.
+  mlx`), the explicit form of `hf:mlx/<org>/<repo>` ([MAC.md](MAC.md)); `mlx_lm` comes with the `mlx` extra
+  (its install line is in [MAC.md](MAC.md)), never fetched.
 - `--window N`: the window instead of the planner's (a note says when it is past what stays on the GPU).
 - `--port P`: the port (default: a free one). `--keep`: keep it running after Halo exits.
 - `--yes`: fetch `llama-server` without asking when none is found. `--backend cuda|vulkan|cpu|metal`: which build to

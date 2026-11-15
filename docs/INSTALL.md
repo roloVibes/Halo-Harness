@@ -262,12 +262,12 @@ halo doctor              # read-only environment check -- every WARN/MISSING lin
 
 **On an Apple Silicon Mac**, once the install above is verified, see
 [docs/MAC.md](MAC.md) for a full quick-start covering the Mac's own
-Ollama daemon and the optional, experimental `uv tool install
-"halo-harness[mlx]"` extra (`hf:mlx/<org>/<repo>`, round 5f) -- off by
+Ollama daemon and the optional, experimental `mlx` extra
+(its install line is in MAC.md) (`hf:mlx/<org>/<repo>`, round 5f) -- off by
 default and only installable on macOS/arm64 in the first place.
 
 **To talk to a session, and for speech-to-text and text-to-speech on this machine** (3.3.9.0), the engines and the
-audio are an optional extra: `uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"` (faster-whisper, kokoro-onnx,
+audio are an optional extra: `uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"` (faster-whisper, kokoro-onnx,
 onnxruntime, numpy, soundfile, and sounddevice for the microphone and the speaker). On Linux (Kali included)
 sounddevice needs PortAudio from the system: `sudo apt install libportaudio2`. Without the extra the catalog,
 downloads, `halo voice devices` and `halo voice stats` work, and `halo voice`, `/voice on` and `serve` print that one

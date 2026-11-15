@@ -110,6 +110,73 @@ def test_the_real_pip_accepts_what_an_update_of_a_pip_install_runs(ctx: Ctx):
     shutil.rmtree(proj, ignore_errors=True)
 
 
+_PYPROJ = ('[build-system]\nrequires = ["setuptools"]\nbuild-backend = "setuptools.build_meta"\n'
+           '[project]\nname = "{name}"\nversion = "{ver}"\ndependencies = [{deps}]\n'
+           '[tool.setuptools]\npackages = ["{pkg}"]\n')
+
+
+@test
+def test_a_pip_checkout_update_gets_the_lock_of_the_release_it_pulls(ctx: Ctx):
+    """Checker, batch 1: the lock was copied when the update started, BEFORE the command's own `git pull`, so pip
+    got the old release's pins against the new release's pyproject (ResolutionImpossible, then a restore). Real git,
+    two local wheels (dep 1.0 / 2.0), a clone one release behind, pip --dry-run --no-index: nothing is installed."""
+    import hashlib
+    try:
+        import setuptools  # noqa: F401
+        for c in (["git", "--version"], [sys.executable, "-m", "pip", "--version"]):
+            if subprocess.run(c, capture_output=True, text=True, timeout=60).returncode != 0:
+                raise OSError(c[0])
+    except (ImportError, OSError):
+        raise SkipTest("git, pip or setuptools is missing here")
+    root = Path(tempfile.mkdtemp(prefix="halo-piplock-pull-"))
+    wh = root / "wheels"
+
+    def sh(args):
+        r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=240)
+        if r.returncode != 0:
+            raise AssertionError(f"{args}: {r.stdout[-300:]} {r.stderr[-500:]}")
+    for ver in ("1.0", "2.0"):
+        d = root / f"dep-{ver}"
+        (d / "dep").mkdir(parents=True)
+        (d / "dep" / "__init__.py").write_text("", encoding="utf-8")
+        (d / "pyproject.toml").write_text(_PYPROJ.format(name="dep", ver=ver, deps="", pkg="dep"), encoding="utf-8")
+        sh([sys.executable, "-m", "pip", "wheel", "-q", "--no-deps", "--no-build-isolation", "--no-index",
+            "--disable-pip-version-check", "-w", str(wh), str(d)])
+    origin = root / "origin"
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "-C", str(origin)]
+    sh(["git", "init", "-q", str(origin)])
+    (origin / "app").mkdir()
+    (origin / "app" / "__init__.py").write_text("", encoding="utf-8")
+
+    def release(ver):
+        h = hashlib.sha256(next(wh.glob(f"dep-{ver}-*.whl")).read_bytes()).hexdigest()
+        (origin / "pyproject.toml").write_text(_PYPROJ.format(name="app", ver=ver, deps=f'"dep=={ver}"', pkg="app"),
+                                               encoding="utf-8")
+        (origin / "requirements.lock").write_text(f"dep=={ver} \\\n    --hash=sha256:{h}\n", encoding="utf-8")
+        sh(git + ["add", "-A"])
+        sh(git + ["commit", "-q", "-m", f"v{ver}"])
+    release("1.0")
+    clone = root / "clone"
+    sh(["git", "clone", "-q", str(origin), str(clone)])
+    release("2.0")  # the new release: the clone has not pulled it yet
+
+    def no_tools(cmd, **kw):
+        return subprocess.CompletedProcess(cmd, 1, "", "")
+    from halo_harness import update_checkout as uc
+    prefix = tempfile.mkdtemp(prefix="halo-piplock-prefix-")  # no uv receipt, no pipx metadata: the pip branch
+    cmd = (uc.sync_cmd(str(clone), upd._quote_for_shell, detached=False, target=None) + " && "
+           + upd._tool_reinstall_cmd(prefix, no_tools, editable=False, path=str(clone)))
+    pinned, note = UI.pin_locally(cmd)  # what update_cli / update_detached do before the runner runs the command
+    dry = f' -m pip install --dry-run --no-index --find-links "{wh}" --no-build-isolation --disable-pip-version-check '
+    r = subprocess.run((pinned or "").replace(" -m pip install ", dry, 1), shell=True, cwd=str(clone),
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+    out = r.stdout + r.stderr
+    ctx.check(f"pip resolves the pulled release with its own pins, got {r.returncode} {out[-600:]!r} for {pinned!r}",
+              r.returncode == 0 and note == "" and re.search(r"Would install.*app-2\.0", out) is not None
+              and "dep-2.0" in out)
+    shutil.rmtree(root, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

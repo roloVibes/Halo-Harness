@@ -318,7 +318,7 @@ Off by default -- `mlx-lm` is an optional extra, never installed unless
 you ask for it:
 
 ```sh
-uv tool install --reinstall "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/master/requirements.lock "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
 ```
 
 (Halo prints this line for your own install: your release or clone, with the extras you already have. `halo-harness` is not on PyPI, so the bare name never installs.)
