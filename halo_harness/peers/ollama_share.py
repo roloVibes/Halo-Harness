@@ -64,8 +64,12 @@ def mode() -> str:
 
 def own_addresses() -> set:
     """Loopback names, this machine's host name and its LAN address (cached a minute)."""
-    if _OWN.get("at", 0) > time.monotonic() - 60:
-        return _OWN["set"]
+    # 3.6.0.0: "no entry" is not time 0. The monotonic clock counts from boot, so in the first minute after a start
+    # an empty cache passed the age check and `_OWN["set"]` raised KeyError (a host service started at logon; a CI
+    # runner that reaches this within its first minute); host_client.for_host's callers read that as "no paired host".
+    hit = _OWN.get("set")
+    if hit is not None and time.monotonic() - _OWN.get("at", 0.0) < 60:
+        return hit
     names = {"127.0.0.1", "::1", "localhost", "0.0.0.0"}
     try:
         host = socket.gethostname().lower()

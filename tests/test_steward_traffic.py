@@ -162,6 +162,29 @@ def test_halo_ollama_events(ctx: Ctx):
         ctx.check(f"an unknown --host is exit 1, got {code}", code == 1 and "no configured host named" in out)
 
 
+@test
+def test_own_addresses_in_the_first_minute_after_boot(ctx: Ctx):
+    """3.6.0.0: the monotonic clock counts from boot; with nothing cached yet and the clock under a minute,
+    own_addresses() took "no entry" for a fresh one and raised KeyError (red on Linux CI three times: the runner
+    reaches a paired-host test within its first minute, and for_host's callers read the error as "not paired")."""
+    from halo_harness.peers import ollama_share as OS
+    real, kept = OS.time.monotonic, dict(OS._OWN)
+    OS._OWN.clear()
+    try:
+        OS.time.monotonic = lambda: 5.0  # five seconds since boot
+        try:
+            got = OS.own_addresses()
+        except KeyError as e:
+            got = e
+        ctx.check(f"nothing cached, 5 s after boot: the addresses, got {got!r:.80}", isinstance(got, set) and "127.0.0.1" in got)
+        ctx.check("and a 127.x url is served here", OS.served_here("http://127.0.0.1:11434") is True)
+        ctx.check("the second call is the cached set", OS.own_addresses() is got)
+    finally:
+        OS.time.monotonic = real
+        OS._OWN.clear()
+        OS._OWN.update(kept)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

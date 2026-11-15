@@ -259,6 +259,14 @@ in canvas". One drawing now: while a session runs on a map, the same map lights 
   first-time user: each point above, the room at 1280 / 1500 / 1920, a zoom while frames arrive), `test_map_chains`
   (the frames and the log, a made-up helper), `test_crew_map_api` (from-live, the replay's map).
 
+### Fixed along the way
+
+- **A paired host was not found in the first minute after a start.** `peers/ollama_share.own_addresses()` treated
+  "nothing cached yet" as a fresh entry while the machine had been up for under a minute and raised an error, which
+  the code that looks up a paired halo host read as "not paired": a host service started at logon, or anything
+  that ran within a minute of boot, judged a network Ollama host as local and unknown. It now asks whether there is
+  an entry before it asks how old it is.
+
 ### R4b
 
 The lit Map takes over what the old Live view still did, and Session's two views get room. The owner first: "in the
