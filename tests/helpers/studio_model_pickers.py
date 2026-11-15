@@ -4,6 +4,8 @@ two fake OpenRouter models and no other provider; no provider request, no model 
 
     python -m tests.helpers.studio_model_pickers pickers
 
+0. the Map bar holds still (bar_still): Run a goal sits where it was drawn when the map list lands, and a click there
+   opens the goal form;
 1. the Map's Run a goal panel: its MODEL is the picker field (3.6.0.0 R5; Agents -> Models' "Test a model" before);
    at the panel's default size nothing in it scrolls sideways; a click opens the picker with its search focused, typing
    filters, Enter picks the first match, Test answers;
@@ -47,6 +49,38 @@ def _clear_and_type(c, expr: str, text: str) -> None:
     c.js(f"(() => {{ const s = {expr}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; "
          f"set.call(s, ''); s.dispatchEvent(new Event('input', {{bubbles: true}})); s.focus(); return 1; }})()")
     c.type_text(text)
+
+
+GOAL = "document.querySelector('[data-testid=\"map-run-goal\"]')"
+# the page's GET crew/maps waits until the step lets it go (the Map bar is drawn before the map list lands)
+HOLD_MAPS = """(() => { const f = window.fetch; let go; const gate = new Promise((ok) => (go = ok)); window.__mapsGo = go;
+  window.fetch = (u, o) => (/\\/api\\/crew\\/maps\\b/.test(String(u)) ? gate.then(() => f(u, o)) : f(u, o)); })();"""
+
+
+def bar_still(c, url: str) -> dict:
+    """3.6.0.0 R5c: Run a goal sits where it was drawn when the map list lands. The switcher's width was its longest
+    map name, so the list landing widened it, Lock wrapped to a second line and Run a goal moved 94 px right: a click
+    measured before the list landed and handled after it (a slow machine) hit the bar's empty space and nothing
+    opened -- the Linux CI failure of this driver and of studio_model_select's `forms`."""
+    out: dict = {}
+    c.call("Page.enable")
+    sid = c.call("Page.addScriptToEvaluateOnNewDocument", source=HOLD_MAPS)["identifier"]
+    try:
+        c.go(url)
+        c.wait(f"!!{GOAL} && typeof window.__mapsGo === 'function'", 40)
+        before = c.rect(GOAL)
+        c.js("window.__mapsGo(); 1")
+        c.wait("document.querySelectorAll('[data-testid=map-switcher] option').length > 1", 20)
+        out["bar_still"] = [[round(v) for v in before], [round(v) for v in c.rect(GOAL)]]
+        x, y, w, h = before
+        c.click(x + w / 2, y + h / 2)  # where the button was before the list landed
+        try:
+            out["bar_click_opens"] = bool(c.wait("!!document.querySelector('[data-testid=\"run-goal-drawer\"]')", 5))
+        except TimeoutError:
+            out["bar_click_opens"] = False
+    finally:
+        c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=sid)
+    return out
 
 
 def models_panel(c, url: str) -> dict:
@@ -146,7 +180,8 @@ def settings(c, url: str, state: Path) -> dict:
 
 
 def pickers(c, url: str, state: Path) -> dict:
-    out = models_panel(c, url)
+    out = bar_still(c, url)
+    out.update(models_panel(c, url))
     out.update(not_listed(c))
     out.update(settings(c, url, state))
     return out

@@ -1,6 +1,8 @@
 """tests.test_studio_model_pickers_ui -- Halo 3.4.1.3 "Pick, don't type" in headless Chrome (tests/helpers/
 studio_model_pickers.py; skipped without one), over a fresh home with two fake OpenRouter models, no model call:
 
+0. the Map bar holds still: Run a goal sits where it was drawn when the map list lands, and a click there opens the
+   goal form (3.6.0.0 R5c: the switcher widened to its longest map name and the button moved out from under a click);
 1. the Map's Run a goal panel: its MODEL is the picker field (3.6.0.0 R5; Agents -> Models' "Test a model" before;
    a button, not a text box); the panel scrolls sideways neither closed nor open; a click focuses the picker's search, the rows are grouped by provider with its state,
    typing filters to one row (highlighted), Enter picks it and closes, Test answers beside the field;
@@ -31,6 +33,14 @@ ALPHA, BETA = "or:fakeco/alpha-1", "or:fakeco/beta-2"
 def _got(ctx: Ctx) -> dict:
     return driver_got(ctx, "tests.helpers.studio_model_pickers", why="the model picker checks need headless Chrome", cache=_RUN,
                       args=("pickers",), timeout=400, tail=600, stdin=False)
+
+
+@test
+def test_run_a_goal_holds_still_when_the_map_list_lands(ctx: Ctx):
+    got = _got(ctx)
+    before, after = (got.get("bar_still") or [None, None])
+    ctx.check(f"Run a goal sits where it was drawn before the map list landed, got {before} then {after}", before is not None and before == after)
+    ctx.check(f"a click where it was drawn opens the goal form, got {got.get('bar_click_opens')!r}", got.get("bar_click_opens") is True)
 
 
 @test
