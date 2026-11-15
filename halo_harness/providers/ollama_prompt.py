@@ -47,6 +47,7 @@ _SOURCE_WORDS = {
     # 3.6.0.0 R8 (agent/ollama_window_truth.start_window): the window it was loaded at, the request's need, under
     # a window seen spilling to the CPU
     "loaded": "loaded", "request size": "request", "known to spill": "spill",
+    "last used": "last",  # fix pass S2: /api/ps unreadable, the window last used (most likely resident)
 }
 
 
@@ -177,6 +178,18 @@ def is_window_cut(done_reason, prompt_eval_count, eval_count, num_ctx, num_predi
     return prompt_eval_count + eval_count >= 0.97 * num_ctx
 
 
+CUT_EDGE_TOKENS = 32
+
+
+def is_cut_at_window(prompt_eval_count, num_ctx) -> bool:
+    """3.6.0.0 R8 fix pass M1: Ollama read the whole window (`prompt_eval_count` at `num_ctx`, or within a small
+    margin of it: 32 tokens, or 0.5 % of a large window). Ollama cuts a prompt longer than the window to the
+    window and answers 200, so a count there is a prompt that was cut, whatever the estimate said."""
+    if not (_pos_int(prompt_eval_count) and _pos_int(num_ctx)):
+        return False
+    return prompt_eval_count >= num_ctx - max(CUT_EDGE_TOKENS, num_ctx // 200)
+
+
 def is_trimmed(prompt_eval_count, estimate: Optional[int], reserve: int = REPLY_RESERVE_TOKENS) -> bool:
     """True when Ollama read under 70 % of the request's prompt part and
     the estimate is above 2,048 tokens (a small request's estimate is too
@@ -212,12 +225,17 @@ def too_large_line(prompt_tokens: int, tool_tokens: int, model: str, host_name: 
 
 
 def trim_line(host_name: str, seen: Optional[int], estimate: int, *, window: Optional[int] = None,
-              reserve: int = REPLY_RESERVE_TOKENS, cut_at: Optional[int] = None) -> str:
+              reserve: int = REPLY_RESERVE_TOKENS, cut_at: Optional[int] = None,
+              full_at: Optional[int] = None) -> str:
     """The one line for a trimmed request (or, `cut_at` = the window the
-    reply ran into, a reply cut there): re-sent with a larger window
+    reply ran into, a reply cut there; `full_at` = the window Ollama read
+    to its end, a prompt cut there): re-sent with a larger window
     (`window` given) or compacted and re-sent. `seen` is Ollama's own
     count (None for the 500, which carries none)."""
     done = f"re-sent with a {fmt_window(window)} window" if window else "compacted and re-sent"
+    if full_at:
+        return (f"{host_name} read {fmt_tokens(seen or full_at)} tokens, the whole {fmt_window(full_at)} window: "
+                f"the prompt was longer and was cut there; {done}")
     if cut_at:
         return f"{host_name} cut the reply at the window ({fmt_tokens(seen or 0)} of {fmt_window(cut_at)} tokens): {done}"
     part = fmt_tokens(prompt_part(estimate, reserve))

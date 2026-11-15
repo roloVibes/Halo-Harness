@@ -8,7 +8,9 @@ view, diagnose on failure; no background watcher.
         the window a call starts from (B): a loaded window that holds the request (`hold`), else the request's
         need on the ladder (8,192 / 16,384 / 32,768 / ...) up to `cap`; a steward profile's window wins
     resident_options(session, host, model, body, source) -> body   `num_gpu` the way the resident runner has it
-    after_call(session, req, meta)    one `/api/ps` read after an answer: the window truth, the ratio, the "loaded" line
+    after_call(session, req, meta)    after an answer, no request: the ratio, the "loaded" line, the read kept for...
+    turn_end_check(session)           ...the one `/api/ps` read at the end of a turn (1 s at most): the window truth
+    many_turns(session) -> bool       a session that takes more turns (loads once, at the largest window)
     loading_line(session, body) -> str | None    "loading <model> on <host> (16.6 GB)" when this call loads it (F)
     drain_loaded(session) -> [line]   "<model> loaded on <host> in 12.3 s", once the call answered
     compaction_window(session) -> int | None     the most the window can be (auto-compaction's 80 % is of this)
@@ -19,9 +21,10 @@ the card (`size_vram == size` after a call), the smallest seen partly on the CPU
 (a resident runner keeps them; asking for others reloads it) -- and `token_ratio["<url>|<model>"] = {ratio, n, at}`,
 Ollama's `prompt_eval_count` over chars / 3.5 for this model (applied when it is off by more than 15 %).
 
-The seam for the steward's redesign (3.6.0.0 R7a job 0, not landed in this round): `after_call` is the one check on
-use, called from `agent/loop.Session._stream` after an Ollama answer; it runs in the call's own thread, never in the
-background, and never loads anything. A measurement (the ladder of loads) is `halo local measure` / Studio's Local
+The seam for the steward's redesign (3.6.0.0 R7a job 0, not landed in this round): `after_call` (called from
+`agent/loop.Session._stream` after an Ollama answer) and `turn_end_check` (from `Session.turn` when the turn ends) are
+the one check on use; they run in the turn's own thread (the read waited on for a second at most), never as a
+background watcher, and never load anything. A measurement (the ladder of loads) is `halo local measure` / Studio's Local
 Measure only (providers/ollama_measure.py).
 """
 
@@ -89,10 +92,15 @@ def token_ratio(state_dir, host_url: str, model: str) -> float:
     return float(ratio) if abs(float(ratio) - 1.0) > RATIO_DEADBAND else 1.0
 
 
-def record_ratio(state_dir, host_url: str, model: str, *, raw_prompt, prompt_eval_count) -> Optional[float]:
+def record_ratio(state_dir, host_url: str, model: str, *, raw_prompt, prompt_eval_count,
+                 fresh: bool = False) -> Optional[float]:
     """Folds one answer's real count against the raw chars / 3.5 of what was sent into the running ratio. A count
-    under 256 tokens, or a ratio outside 0.5-3 (a cache-shortened count, a trimmed prompt), is not a measurement."""
+    under 256 tokens, or a ratio outside 0.5-3 (a trimmed prompt), is not a measurement. Fix pass (S3): nor is a
+    count a reused prefix may have shortened -- only the call that loaded the model (`fresh`: nothing cached) or a
+    count at or above the raw estimate (no cache could have made it larger) is folded in."""
     if not (_pos(raw_prompt) and _pos(prompt_eval_count)) or prompt_eval_count < RATIO_MIN_COUNT:
+        return None
+    if not fresh and prompt_eval_count < raw_prompt:
         return None
     ratio = prompt_eval_count / raw_prompt
     if not RATIO_MIN <= ratio <= RATIO_MAX:
@@ -175,31 +183,45 @@ def _below(spill: int) -> int:
     return w
 
 
+def many_turns(session) -> bool:
+    """A session that will take more turns (the TUI, Studio typing into it, `--input-format stream-json`): fix pass
+    S4. `halo -p` with one prompt is a one-shot run. `session.many_turns` when set, else `session.interactive`."""
+    got = getattr(session, "many_turns", None)
+    return bool(got) if got is not None else bool(getattr(session, "interactive", False))
+
+
 def start_window(session, *, host, ref, decision, cap: int, cap_source: str, request,
                  requested=None) -> "tuple[int, str, bool]":
     """`(window, source, hold)`: (1) a steward profile's window (the user's) as it is; (2) the window the model is
-    loaded at on that server when it holds this request (`hold`: the reply's room fits inside it, nobody's model is
-    reloaded); (3) the request's need -- the prompt (the measured ratio applied) plus the reply's room, the first
-    call of a session with room to grow (Halo's own prompt at most half) -- on the ladder, never above `cap` (the
-    old `min()`: trained context, `max_ctx`, a measured cap, the memory estimate) nor above a window known to
+    loaded at on that server when it holds this request with the ladder's own need (`hold`: the prompt with a 15 %
+    margin for the estimate, plus the reply's room at that window -- fix pass M1), unless the recorded truth says
+    that window spills to the CPU (S1: reloaded under the spill, one line says why); a failed `/api/ps` read is
+    unknown (S2): the window this session or the last call used, when it holds the request, so nothing is reloaded
+    on that reading; (3) a load: a session that takes more turns, or any session that has to grow past the window
+    it asked for, asks for `cap` at once (S4: one load, never a step at a time); a one-shot run's first call asks
+    for the request's need on the ladder (8,192 / 16,384 / ...; Halo's own prompt at most half). Never above `cap`
+    (the old `min()`: trained context, `max_ctx`, a measured cap, the memory estimate) nor above a window known to
     spill. A prompt larger than all of that is the prompt floor's to raise (agent/ollama_window.prepare_window)."""
     st = _state(session)
     key = (host.url, ref.model)
+    asked = st.setdefault("asked", {})
+    prev = asked.get(key)
+
+    def _ask(window: int, source: str, hold: bool) -> "tuple[int, str, bool]":
+        asked[key] = window
+        return window, source, hold
+
     if cap_source == "steward profile":
         st.setdefault("cap", {})[key] = cap
-        return cap, cap_source, False
+        return _ask(cap, cap_source, False)
     state_dir = getattr(session, "state_dir", None)
-    spill = known_spill(state_dir, host.url, ref.model)
+    t = truth(state_dir, host.url, ref.model)
+    spill = _pos(t.get("spills"))
     if spill and cap >= spill:
-        cap, cap_source = _below(spill), "known to spill"
+        fits = _pos(t.get("fits"))
+        cap, cap_source = max(_below(spill), fits if fits and fits < spill else 0), "known to spill"
     st.setdefault("cap", {})[key] = cap
     _raw, prompt = prompt_estimate(state_dir, host.url, ref.model, *request)
-    from halo_harness.providers.ollama_hw import last_ps_entry
-    from halo_harness.providers.ollama_prompt import REPLY_RESERVE_TOKENS
-    known, row = last_ps_entry(host.url, ref.model)
-    loaded = _pos((row or {}).get("context_length")) if known else None
-    if loaded and prompt + REPLY_RESERVE_TOKENS <= loaded:
-        return loaded, "loaded", True
     own = ref is getattr(session, "model_ref", None)
     first = own and not getattr(session, "_reply_room_called", False)
     profile = getattr(decision, "profile", None) or {}
@@ -211,19 +233,39 @@ def start_window(session, *, host, ref, decision, cap: int, cap_source: str, req
         from halo_harness.agent.reply_room import _explicit, room
         return room(w, requested, profile_num_predict=profile.get("num_predict"), explicit=_explicit(session))[0]
 
+    def _holds(w) -> bool:
+        return bool(_pos(w)) and int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w) <= w
+
+    from halo_harness.providers.ollama_hw import last_ps_entry
+    known, row = last_ps_entry(host.url, ref.model)
+    loaded = _pos((row or {}).get("context_length")) if known else None
+    if loaded and _holds(loaded):
+        if not (spill and loaded >= spill):
+            return _ask(loaded, "loaded", True)
+        from halo_harness.agent.prompt_wire import _queue_line
+        from halo_harness.providers.ollama_prompt import fmt_window
+        _queue_line(session, f"{ref.model} on {host.name} is loaded at a {fmt_window(loaded)} window that ran partly "
+                             f"on the CPU there: reloaded at {fmt_window(cap)}, the largest known to fit the card")
+        return _ask(cap, cap_source, False)
+    if not known:
+        for w in (prev, _pos(t.get("num_ctx"))):  # unknown: the window most likely resident, when it holds this
+            if _holds(w) and not (spill and w >= spill):
+                return _ask(w, "last used", True)
+    if (own and many_turns(session)) or prev:
+        return _ask(cap, cap_source, False)
     for w in _ladder(_pos(cap) or LADDER_START):
-        need = prompt + _room(w)
+        need = int(math.ceil(prompt * (1 + RATIO_DEADBAND))) + _room(w)
         if first:
             need = max(need, 2 * prompt)
         if need <= w:
-            return w, ("request size" if w < cap else cap_source), False
-    return cap, cap_source, False
+            return _ask(w, ("request size" if w < cap else cap_source), False)
+    return _ask(cap, cap_source, False)
 
 
 def resident_options(session, host, model: str, body: dict, source: str) -> dict:
     """A call that uses the loaded window sends `num_gpu` the way the runner was loaded: the last call's own when
     Halo loaded it at that window, else none (another client's load); any other `num_gpu` reloads it."""
-    if source != "loaded":
+    if source not in ("loaded", "last used"):
         return body
     opts = dict(body.get("options") or {})
     t = truth(getattr(session, "state_dir", None), host.url, model)
@@ -296,11 +338,15 @@ def _host_for_url(session, url: str):
     return None
 
 
+TURN_END_READ_S = 1.0
+
+
 def after_call(session, req, meta: Optional[dict]) -> None:
-    """After an Ollama answer (status 200): one `/api/ps` read of that server -- is the model wholly on the card at
-    the window this call used (`window_truth`), the offload marker and the next call's loaded window from it -- the
-    count against the estimate (`token_ratio`), and, when this call loaded the model, the line that says how long
-    it took. Never raises; nothing here loads or unloads a model."""
+    """After an Ollama answer (status 200), with no request of its own: the count against the estimate
+    (`token_ratio`; only from a call that loaded the model or a count at or above the raw estimate, never from a
+    prompt the window cut -- fix pass S3/M1), the line that says how long a load took, and the window this call
+    used, kept for the one `/api/ps` read at the end of the turn (`turn_end_check`, fix pass S10). Never raises;
+    nothing here loads or unloads a model."""
     try:
         body = getattr(req, "prebuilt_ollama_body", None) or {}
         url = str(getattr(getattr(req, "creds", None), "base_url", "") or "") or getattr(
@@ -314,26 +360,20 @@ def after_call(session, req, meta: Optional[dict]) -> None:
         opts = body.get("options") or {}
         state_dir = getattr(session, "state_dir", None)
         timing = (meta or {}).get("timing_ns") or {}
-        sent = (_state(session).get("sent") or {}).get((str(host.url).rstrip("/"), model)) or {}
-        if sent.get("raw_prompt"):
-            record_ratio(state_dir, host.url, model, raw_prompt=sent["raw_prompt"],
-                         prompt_eval_count=timing.get("prompt_eval_count"))
-        from halo_harness.providers.ollama import fetch_ps, ollama_names_match
-        from halo_harness.providers.ollama_hw import _record_last_known_offload
-        ps = fetch_ps(host, timeout=5.0)
-        if isinstance(ps, dict):
-            row = next((e for e in ps.get("models") or [] if isinstance(e, dict) and (
-                ollama_names_match(e.get("model"), model) or ollama_names_match(e.get("name"), model))), None)
-            _record_last_known_offload(host.url, model, row)
-            if row and row.get("context_length") in (None, opts.get("num_ctx")):
-                kind = record_truth(state_dir, host.url, model, num_ctx=opts.get("num_ctx"), size=row.get("size"),
-                                    size_vram=row.get("size_vram"), num_gpu=opts.get("num_gpu"),
-                                    digest=row.get("digest"))
-                if kind and getattr(session, "model_ref", None) is not None \
-                        and getattr(session.model_ref, "model", None) == model:
-                    session._last_ollama_offloaded = kind == "spills"
         loading = getattr(session, "_ollama_loading", None)
-        if loading and loading.get("model") == model:
+        fresh = bool(loading and loading.get("model") == model)
+        sent = (_state(session).get("sent") or {}).get((str(host.url).rstrip("/"), model)) or {}
+        from halo_harness.providers.ollama_prompt import is_cut_at_window
+        count = timing.get("prompt_eval_count")
+        if sent.get("raw_prompt") and not is_cut_at_window(count, opts.get("num_ctx")):
+            record_ratio(state_dir, host.url, model, raw_prompt=sent["raw_prompt"], prompt_eval_count=count,
+                         fresh=fresh)
+        pending = getattr(session, "_ollama_turn_reads", None)
+        if not isinstance(pending, dict):
+            pending = session._ollama_turn_reads = {}
+        pending[(str(host.url).rstrip("/"), model)] = {"host": host, "model": model, "num_ctx": opts.get("num_ctx"),
+                                                        "num_gpu": opts.get("num_gpu")}
+        if fresh:
             session._ollama_loading = None
             load_s = (timing.get("load_duration") or 0) / 1e9
             took = load_s if load_s >= 0.5 else time.monotonic() - loading["t0"]
@@ -341,6 +381,62 @@ def after_call(session, req, meta: Optional[dict]) -> None:
             session._ollama_loaded_lines = lines + [f"{model} loaded on {loading['host']} in {took:.1f} s"]
     except Exception:
         log.debug("ollama: the check after a call failed", exc_info=True)
+
+
+def _read_ps_bounded(hosts: list, timeout: float) -> dict:
+    """`{host.url: /api/ps reply}` for each host, read side by side and waited on for `timeout` seconds in all; a
+    host that has not answered by then is left out (unknown), its read abandoned."""
+    import threading
+    from halo_harness.providers.ollama import fetch_ps
+    got: dict = {}
+
+    def _one(h) -> None:
+        try:
+            got[h.url] = fetch_ps(h, timeout=timeout)
+        except Exception:
+            pass
+    threads = [threading.Thread(target=_one, args=(h,), daemon=True, name="halo-ollama-ps") for h in hosts]
+    for th in threads:
+        th.start()
+    deadline = time.monotonic() + timeout
+    for th in threads:
+        th.join(max(0.0, deadline - time.monotonic()))
+    return {u: got[u] for u in list(got)}
+
+
+def turn_end_check(session, *, timeout: float = TURN_END_READ_S) -> None:
+    """Fix pass S10: the check on use, once at the end of a turn -- one `/api/ps` read per server the turn called,
+    waited on for at most `timeout` (1 s) in all: is each model wholly on the card at the window its last call used
+    (`window_truth`), the offload marker, the next call's loaded window. A read that failed, came back unreadable or
+    did not answer in time is unknown (S2): nothing is recorded from it. Never raises."""
+    try:
+        pending = getattr(session, "_ollama_turn_reads", None)
+        session._ollama_turn_reads = {}
+        if not pending:
+            return
+        hosts = {}
+        for item in pending.values():
+            hosts.setdefault(item["host"].url, item["host"])
+        replies = _read_ps_bounded(list(hosts.values()), timeout)
+        from halo_harness.providers.ollama import ollama_names_match
+        from halo_harness.providers.ollama_hw import _record_last_known_offload, ps_rows
+        state_dir = getattr(session, "state_dir", None)
+        for item in pending.values():
+            host, model = item["host"], item["model"]
+            rows = ps_rows(replies.get(host.url))
+            if rows is None:
+                continue
+            row = next((e for e in rows if ollama_names_match(e.get("model"), model)
+                        or ollama_names_match(e.get("name"), model)), None)
+            _record_last_known_offload(host.url, model, row)
+            if row and row.get("context_length") in (None, item.get("num_ctx")):
+                kind = record_truth(state_dir, host.url, model, num_ctx=item.get("num_ctx"), size=row.get("size"),
+                                    size_vram=row.get("size_vram"), num_gpu=item.get("num_gpu"),
+                                    digest=row.get("digest"))
+                if kind and getattr(getattr(session, "model_ref", None), "model", None) == model:
+                    session._last_ollama_offloaded = kind == "spills"
+    except Exception:
+        log.debug("ollama: the check at the end of a turn failed", exc_info=True)
 
 
 def wrap_stream(session, req, gen):

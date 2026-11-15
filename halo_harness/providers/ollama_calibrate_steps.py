@@ -203,7 +203,8 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
     def _unknown(ctx: int) -> CalibrationResult:
         return _result("inconclusive" if st["reached"] else "unreachable", unknown=ctx)
 
-    candidate = max(_floor_pow2(max(1, start_ctx)), min_ctx)
+    # 3.6.0.0 R8 fix pass S6: the first step too is bounded by min(trained context, the hard cap / host max_ctx)
+    candidate = max(_floor_pow2(max(1, min(start_ctx, up_bound))), min_ctx)
     failed: Optional[int] = None
     safe: Optional[int] = None
     while candidate >= min_ctx:

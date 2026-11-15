@@ -1,8 +1,9 @@
 """halo_harness.providers.ollama_calibrate -- Halo 2.0.3 round 5b item 1/2:
 "fit calibration from Ollama's own telemetry, no GPU tool required."
-`halo ollama calibrate <model> [--host NAME] [--start N]` (and the same
-procedure run automatically the first time a model is used on a host with
-no learned cap) loads a model at a candidate `num_ctx`, reads `/api/ps`
+`halo ollama calibrate <model> [--host NAME] [--start N]` (and `halo local
+measure`, Studio's Measure, Setup's "Measure the found models"; since
+3.6.0.0 only when a person asks, never from a turn) loads a model at a
+candidate `num_ctx`, reads `/api/ps`
 back (`size` vs `size_vram`), and steps down by powers of two until the
 model is FULLY resident -- a measured fact, never a GPU-memory guess.
 Results persist in `~/.halo/ollama-fit.json` (state dir), mirroring

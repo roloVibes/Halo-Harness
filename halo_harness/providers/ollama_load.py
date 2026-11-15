@@ -43,13 +43,37 @@ def _keep(host, model: str, keep_alive) -> Optional[object]:
     return prof.get("keep_alive") or getattr(host, "keep_alive", None)
 
 
+def came_back(reply) -> str:
+    """3.6.0.0 R8 fix pass M2/S8: what a server answered when it was not Ollama's answer, in plain words."""
+    status = getattr(reply, "status", None)
+    if reply.failure == "unreadable":
+        return f"a page that is not Ollama's JSON (it starts {reply.error!r})" if reply.error else \
+            "an empty or unreadable page, not Ollama's JSON"
+    if reply.failure == "http":
+        if status in (401, 403):
+            return f"HTTP {status} (it asks for a sign-in or a key: something in front of Ollama)"
+        if isinstance(status, int) and 300 <= status < 400:
+            return f"HTTP {status} (a redirect: something other than Ollama answers at this address)"
+        return f"HTTP {status}" + (f": {reply.error}" if reply.error else "")
+    return "JSON that is not an Ollama answer"
+
+
+def is_ollama_answer(reply, key: str = "done") -> bool:
+    """A 200 whose JSON carries Ollama's own `key` (`done` for /api/generate, `models` for /api/ps)."""
+    return reply.failure is None and isinstance(reply.body, dict) and key in reply.body
+
+
 def _say(reply, verb: str, model: str, host) -> str:
     name = getattr(host, "name", "?")
-    if reply.failure is None:
+    act = verb[:-2] if verb.endswith("ed") else verb
+    if is_ollama_answer(reply):
         return f"{model} {verb} on {name}"
-    if reply.failure == "http":
-        return f"{name} answered HTTP {reply.status} to {verb[:-2] if verb.endswith('ed') else verb} {model}"
-    return f"{name} did not answer ({reply.failure})"
+    if reply.failure in ("unreachable", "timeout", "error"):
+        return f"{name} did not answer ({reply.failure})"
+    status = reply.status if isinstance(reply.status, int) else 0
+    if reply.failure == "http" and status not in (401, 403) and not 300 <= status < 400:
+        return f"{name} answered HTTP {reply.status} to {act} {model}"
+    return f"{name} answered the {act} of {model} with {came_back(reply)}: nothing was done"
 
 
 def load(host, model: str, *, num_ctx: Optional[int] = None, keep_alive=None, window_from: Optional[str] = None) -> dict:
@@ -70,11 +94,12 @@ def load(host, model: str, *, num_ctx: Optional[int] = None, keep_alive=None, wi
         body["keep_alive"] = keep
     reply = request_json(host, "/api/generate", method="POST", body=body, timeout=LOAD_TIMEOUT_S)
     say = _say(reply, "loaded", model, host)
-    if reply.failure is None:
+    ok = is_ollama_answer(reply)  # 3.6.0.0 R8 fix pass M2: a real Ollama answer, not a proxy's page
+    if ok:
         say += f" at {int(num_ctx):,} ({where})" if num_ctx else " at the server's default window"
         if keep is not None:
             say += f", kept {keep}"
-    return {"ok": reply.failure is None, "say": say, "status": reply.status, "num_ctx": num_ctx, "keep_alive": keep,
+    return {"ok": ok, "say": say, "status": reply.status, "num_ctx": num_ctx, "keep_alive": keep,
             "window_from": where}
 
 
@@ -85,5 +110,5 @@ def unload(host, model: str) -> dict:
         return {"ok": False, "say": control_blocked(host), "status": None, "num_ctx": None, "keep_alive": 0}
     reply = request_json(host, "/api/generate", method="POST", body={"model": model, "keep_alive": 0, "stream": False},
                          timeout=UNLOAD_TIMEOUT_S)
-    return {"ok": reply.failure is None, "say": _say(reply, "unloaded", model, host), "status": reply.status,
+    return {"ok": is_ollama_answer(reply), "say": _say(reply, "unloaded", model, host), "status": reply.status,
             "num_ctx": None, "keep_alive": 0}

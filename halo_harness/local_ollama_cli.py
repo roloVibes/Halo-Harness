@@ -11,7 +11,8 @@ for the people who run one).
     halo local measure MODEL [--host NAME] [--again] [--json]      the ladder of loads: the largest window wholly on the
                                                                    card (asked for only; never from a turn)
 
-Exit codes: 0 done (or nothing to do), 1 the server said no (a model it does not have, an error), 2 a usage
+Exit codes: 0 done (or nothing to do), 1 the server said no (a model it does not have, an error) or answered with
+something that is not Ollama's answer (a sign-in page, a 401, a redirect: nothing is reported from it), 2 a usage
 error (no such host, a bad argument), 3 the server did not answer. One plain line on a failure.
 """
 
@@ -24,8 +25,9 @@ import time
 from typing import Optional
 
 OK, REFUSED, USAGE, UNREACHABLE = 0, 1, 2, 3
-EXIT_CODES = ("exit codes: 0 done (or nothing to do), 1 the server said no (a model it does not have, an error), "
-              "2 a usage error (no such host), 3 the server did not answer")
+EXIT_CODES = ("exit codes: 0 done (or nothing to do), 1 the server said no (a model it does not have, an error) or "
+              "answered with something that is not Ollama's answer (a sign-in page, a redirect), 2 a usage error "
+              "(no such host), 3 the server did not answer")
 WARM_DEFAULT_WINDOW = 16384
 _GB = 1024 ** 3
 
@@ -96,10 +98,13 @@ def ps_view(host) -> dict:
     if why:
         return {**view, "say": f"{host.name}: {why}"}
     reply = request_json(host, "/api/ps", timeout=10.0)
-    if not isinstance(reply.body, dict):
-        if reply.failure in ("unreachable", "timeout"):
+    from halo_harness.providers.ollama_load import came_back, is_ollama_answer
+    if not is_ollama_answer(reply, "models") or not isinstance(reply.body.get("models"), list):
+        if reply.failure in ("unreachable", "timeout", "error"):
             return {**view, "say": f"{host.name} ({host.url}) did not answer ({reply.failure})"}
-        return {**view, "reachable": True, "say": f"{host.name} answered HTTP {reply.status} to /api/ps"}
+        # 3.6.0.0 R8 fix pass M2/S8: it answered, and not as Ollama does -- nothing was read, nothing is reported
+        return {**view, "reachable": True, "say": f"{host.name} ({host.url}) answered /api/ps with {came_back(reply)}: "
+                                                  "not Ollama's answer, so nothing was read or changed"}
     rows = []
     for x in reply.body.get("models") or []:
         if not isinstance(x, dict):
@@ -185,8 +190,8 @@ def warm(host, model: str, *, window: Optional[int] = None, keep=None) -> dict:
     from halo_harness.providers.ollama_load import load
     num_ctx, where = warm_window(host, model, window)
     v = ps_view(host)
-    if not v["reachable"]:
-        return {"ok": False, "code": UNREACHABLE, "model": model, "say": v["say"]}
+    if not v["ok"]:  # 3.6.0.0 R8 fix pass S8: no answer (3), or one that is not Ollama's (1)
+        return {"ok": False, "code": UNREACHABLE if not v["reachable"] else REFUSED, "model": model, "say": v["say"]}
     here = next((m for m in v["models"] if ollama_names_match(m["model"], model)), None)
     if here is not None and keep is None and (window is None or here.get("window") == num_ctx):
         # loaded already: a turn uses the loaded window when it holds the request, so it is not loaded again
@@ -268,9 +273,9 @@ def cmd_unload(argv: list) -> int:
         _out({"ok": False, "say": err}, args.json, err, err=True)
         return USAGE
     v = ps_view(host)
-    if not v["reachable"]:
+    if not v["ok"]:  # 3.6.0.0 R8 fix pass M2: never "nothing is loaded" from an answer that was not Ollama's
         _out({"ok": False, "say": v["say"]}, args.json, v["say"], err=True)
-        return UNREACHABLE
+        return UNREACHABLE if not v["reachable"] else REFUSED
     loaded = [m["model"] for m in v["models"]]
     from halo_harness.providers.ollama import ollama_names_match
     names = loaded if args.all else list(args.models)
@@ -364,8 +369,8 @@ def measure(host, model: str, *, again: bool = False, say=None, timeout: Optiona
     from halo_harness.providers.ollama_prompt import fmt_window
     say = say or (lambda s: None)
     v = ps_view(host)
-    if not v["reachable"]:
-        return {"ok": False, "code": UNREACHABLE, "say": v["say"]}
+    if not v["ok"]:
+        return {"ok": False, "code": UNREACHABLE if not v["reachable"] else REFUSED, "say": v["say"]}
     row = catalog_row(get_catalog(host, force=True), model)
     if row is None:
         return {"ok": False, "code": REFUSED,
@@ -390,12 +395,22 @@ def measure(host, model: str, *, again: bool = False, say=None, timeout: Optiona
             reading.kind, "no answer in its time (not counted as does-not-fit)")
         say(f"  {fmt_window(ctx)}: {what}")
 
-    line = run_auto_calibration(host, model, state_dir=state, timeout=timeout, on_step=_on_step)
+    # 3.6.0.0 R8 fix pass S5: one measurement per server at a time (every process), the server left as it was found
+    from halo_harness.providers.ollama_measure_guard import measuring
+    with measuring(host, model, state) as guard:
+        if not guard.ok:
+            return {"ok": False, "code": REFUSED, "busy": True, "say": guard.say}
+        line = run_auto_calibration(host, model, state_dir=state, timeout=timeout, on_step=_on_step)
+    left = guard.left
+    if left:
+        say(left)
     if line is None:
-        return {"ok": False, "code": REFUSED, "say": f"the measurement of {model} on {host.name} failed"}
+        return {"ok": False, "code": REFUSED, "left": left,
+                "say": f"the measurement of {model} on {host.name} failed" + (f"; {left}" if left else "")}
     learned = lookup_learned_cap(state, host_url=host.url, model=model, digest=row.get("digest"))
     ok = "no answer from the host" not in line
-    return {"ok": ok, "code": OK if ok else UNREACHABLE, "max_full_gpu_ctx": learned, "say": line}
+    return {"ok": ok, "code": OK if ok else UNREACHABLE, "max_full_gpu_ctx": learned, "left": left,
+            "say": line + (f"; {left}" if left else "")}
 
 
 def cmd_measure(argv: list) -> int:

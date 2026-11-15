@@ -84,7 +84,7 @@ def for_call(session, ref, window, requested, decision=None, request=None, host=
     model (a smaller one reloads it), unless a steward profile names the window. `requested` and `window`
     unchanged for a switch-fitted session (its reserve is the window class's already) and for anything that
     is not the session's model. 3.6.0.0 R8: `hold` -- the window the model is loaded at holds the request
-    (agent/ollama_window_truth.start_window): it stays, the room is what it leaves (never under 1,024)."""
+    and this room (agent/ollama_window_truth.start_window): it stays, the room is the window's own."""
     if ref is not getattr(session, "model_ref", None) or getattr(session, "_switch_reserve", None) or not _pos(window):
         return requested, window
     prompt = None
@@ -100,10 +100,10 @@ def for_call(session, ref, window, requested, decision=None, request=None, host=
     session._reply_room_called = True
     profile = getattr(decision, "profile", None) or {}
     if hold:
+        # 3.6.0.0 R8 fix pass M1: held only when the prompt (a 15 % margin) AND this room fit, so the room is the
+        # window's own, never squeezed by the prompt (a reply that would not fit is a reason to grow the window)
         tokens, _sized = room(window, requested, explicit=_explicit(session),
                               profile_num_predict=profile.get("num_predict"))
-        if _pos(prompt):
-            tokens = max(1024, min(tokens, window - prompt))
         session._reply_room_windows = {**(getattr(session, "_reply_room_windows", None) or {}),
                                        getattr(ref, "model", None): window}
         return tokens, window

@@ -117,10 +117,15 @@ def gpu_fits_up_to(session) -> Optional[int]:
 
 
 def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handled: bool,
-                  current_num_ctx: Optional[int], cut_at: Optional[int] = None) -> "tuple[str, Optional[int], str]":
+                  current_num_ctx: Optional[int], cut_at: Optional[int] = None,
+                  full_at: Optional[int] = None) -> "tuple[str, Optional[int], str]":
     """`("resend", num_ctx, line)` -- raise the window and send again;
     `("compact", None, line)` -- compact, then send again; `("error",
-    None, line)` -- a second trim in this turn, or no room left at all."""
+    None, line)` -- a second trim in this turn, or no room left at all.
+    3.6.0.0 R8 fix pass: `full_at` -- Ollama read the whole window (the
+    prompt was cut there, `is_cut_at_window`); a resend grows the window
+    once, to the largest this call may use (the session's cap, S4), never
+    a step at a time."""
     from halo_harness.providers.ollama_fit import power_of_two_ceil
     from halo_harness.providers.ollama_prompt import TRIM_RESEND_FACTOR, fmt_tokens, prompt_part, trim_line
     st = _state(session)
@@ -139,13 +144,16 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
     # than the window sent: at least double it (floor x 1.5 when larger).
     want = max(power_of_two_ceil(int(math.ceil(estimate * TRIM_RESEND_FACTOR))) if estimate else 0,
                2 * current_num_ctx if isinstance(current_num_ctx, int) else 0)
-    target = min(ceiling, want)
+    # 3.6.0.0 R8 fix pass S4: a reload to grow goes to the largest window the session may use at once
+    largest = (st.get("cap") or {}).get((last.get("host_url"), last.get("model")))
+    target = min(ceiling, max(want, largest if isinstance(largest, int) else 0))
     if isinstance(current_num_ctx, int) and target > current_num_ctx:
         if last.get("host_url"):
             st["factor"][(last["host_url"], last["model"])] = TRIM_RESEND_FACTOR
-        return "resend", target, trim_line(host_name, seen, estimate, window=target, reserve=reserve, cut_at=cut_at)
+        return "resend", target, trim_line(host_name, seen, estimate, window=target, reserve=reserve, cut_at=cut_at,
+                                           full_at=full_at)
     if not overflow_handled:
-        return "compact", None, trim_line(host_name, seen, estimate, reserve=reserve, cut_at=cut_at)
+        return "compact", None, trim_line(host_name, seen, estimate, reserve=reserve, cut_at=cut_at, full_at=full_at)
     return "error", None, (f"{host_name} trimmed the request ({fmt_tokens(prompt_part(estimate or 1))} tokens) "
                            f"and the window is already at its ceiling after compaction: stopped")
 

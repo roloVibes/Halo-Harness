@@ -2941,7 +2941,7 @@ class Session:
 
     def _ollama_trimmed(self, turn_no: int, seen, body: dict, overflow_handled: bool, *,
                         raw_message: Optional[str] = None, cut_at: Optional[int] = None,
-                        log_trim: Optional[dict] = None):
+                        log_trim: Optional[dict] = None, full_at: Optional[int] = None):
         """Halo 3.2.3.0 R1: one trimmed Ollama request (a `prompt_eval_
         count` far under the estimate, or the 500 "no user query found in
         messages"). Yields the one line; returns `(body, req)` to re-send
@@ -2955,7 +2955,7 @@ class Session:
             from halo_harness.agent.ollama_log_recovery import exact
             exact(self, log_trim)
         kind, num_ctx, line = trim_recovery(self, turn_no, seen, overflow_handled=overflow_handled,
-                                            current_num_ctx=current, cut_at=cut_at)
+                                            current_num_ctx=current, cut_at=cut_at, full_at=full_at)
         if log_trim and kind in ("resend", "compact"):
             from halo_harness.agent.ollama_log_recovery import trim_said
             line = trim_said(log_trim, kind, num_ctx, (self._ollama_window_state.get("last") or {}).get("host_name")
@@ -4426,11 +4426,16 @@ class Session:
                     from halo_harness.agent.ollama_window_steward import squeezed_cut
                     _cut = squeezed_cut(self, harness_meta.get("done_reason"), _eval, _opts.get("num_predict"))
                 _trim = _log["trim"] if not getattr(self, "_preflight_sent_now", False) else None  # the log's exact cut
-                if _trim or _cut or (not _log["clean"] and is_trimmed(_seen, last_estimate(self), last_reserve(self))
-                                     and not getattr(self, "_preflight_sent_now", False)):  # 3.3.5.0 R4: a chosen cut stands
+                # 3.6.0.0 R8 fix pass M1: Ollama read the whole window -- the prompt was cut there (no log needed)
+                from halo_harness.providers.ollama_prompt import is_cut_at_window
+                _full = (not _trim and not _cut and not getattr(self, "_preflight_sent_now", False)
+                         and is_cut_at_window(_seen, _opts.get("num_ctx")))
+                if _trim or _cut or _full or (not _log["clean"] and is_trimmed(_seen, last_estimate(self), last_reserve(self))
+                                              and not getattr(self, "_preflight_sent_now", False)):  # 3.3.5.0 R4: a chosen cut stands
                     _recovery = yield from self._ollama_trimmed(
                         turn_no, _trim["limit"] if _trim else (_seen + _eval) if _cut else _seen, body, overflow_handled,
-                        cut_at=_opts.get("num_ctx") if _cut and not _trim else None, log_trim=_trim)
+                        cut_at=_opts.get("num_ctx") if _cut and not _trim else None, log_trim=_trim,
+                        full_at=_opts.get("num_ctx") if _full else None)
                     if _recovery is None or _recovery is _OVERFLOW_NEEDS_COMPACTION:
                         return _recovery
                     body, req = _recovery
@@ -5546,6 +5551,9 @@ class Session:
                 yield ev
         finally:
             _agent_tree.turn_ended(self)
+            # 3.6.0.0 R8 fix pass S10: the one /api/ps read after the turn's Ollama calls, bounded to 1 s
+            from halo_harness.agent.ollama_window_truth import turn_end_check
+            turn_end_check(self)
             record = self._timeline.end_turn()
             if record is not None:
                 try:

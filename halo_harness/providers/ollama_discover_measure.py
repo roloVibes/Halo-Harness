@@ -53,6 +53,10 @@ def _outcome_text(result, up_bound: int) -> str:
     return f"{outcome or 'no result'}, nothing recorded"
 
 
+class _Busy(Exception):
+    """Another measurement holds this server (providers/ollama_measure_guard.py): its line, nothing loaded."""
+
+
 def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None, state_dir=None,
                    on_line: "Optional[Callable[[str], None]]" = None) -> "list[dict]":
     """One calibration per model of `host` (an `OllamaHost`); returns one
@@ -74,6 +78,7 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
     # layer on the GPU and the card's size for the headroom rule, so the
     # window recorded here is the SAFE one a tuned twin is made from.
     gpu_total = host_gpu_total_bytes(host)
+    cap = host.max_ctx if isinstance(getattr(host, "max_ctx", None), int) and host.max_ctx > 0 else None
     for model in models:
         started = time.monotonic()
         record = {"host": host.name, "url": host.url, "model": model, "outcome": None,
@@ -84,12 +89,19 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
             start = estimate if isinstance(estimate, int) and not isinstance(estimate, bool) and estimate > 0 \
                 else 32768
             row = catalog_row(catalog, model) or {}
-            kwargs = {"start_ctx": start, "keep_alive": host.keep_alive, "step_up": True,
-                      "trained_context": trained, "num_gpu": gpu_layers_for(row.get("model_info")),
-                      "gpu_total": gpu_total}
+            # 3.6.0.0 R8 fix pass S6: never a step above the host's max_ctx
+            kwargs = {"start_ctx": min(start, cap) if cap else start, "keep_alive": host.keep_alive,
+                      "step_up": True, "trained_context": trained, "num_gpu": gpu_layers_for(row.get("model_info")),
+                      "gpu_total": gpu_total, "hard_cap": cap}
             if timeout:
                 kwargs["timeout"] = float(timeout)
-            result = run_calibration(host, model, **kwargs)
+            from halo_harness.providers.ollama_measure_guard import measuring  # S5: one at a time, left as found
+            with measuring(host, model, state_dir) as guard:
+                if not guard.ok:
+                    record["outcome"] = "busy"
+                    raise _Busy(guard.say)
+                result = run_calibration(host, model, **kwargs)
+            record["left"] = guard.left
             record["outcome"] = result.outcome
             record["max_full_gpu_ctx"] = result.max_full_gpu_ctx
             if result.outcome in _RECORDED:
@@ -97,9 +109,11 @@ def measure_models(host, models: "list[str]", *, timeout: Optional[float] = None
                                    max_full_gpu_ctx=result.max_full_gpu_ctx, ollama_version=version,
                                    tight_ctx=getattr(result, "tight_ctx", None), tight_vram=getattr(result, "tight_vram", None),
                                    gpu_total=getattr(result, "gpu_total", None))
-            up_bound = min(trained, HARD_CONTEXT_CAP) if isinstance(trained, int) and trained > 0 \
-                else HARD_CONTEXT_CAP
-            text = _outcome_text(result, up_bound)
+            up_bound = min(trained, cap or HARD_CONTEXT_CAP) if isinstance(trained, int) and trained > 0 \
+                else (cap or HARD_CONTEXT_CAP)
+            text = _outcome_text(result, up_bound) + (f"; {guard.left}" if guard.left else "")
+        except _Busy as busy:
+            text = str(busy)
         except Exception as exc:  # one model's failure never stops the others
             record["outcome"] = "error"
             text = f"could not be measured ({type(exc).__name__}: {exc})"

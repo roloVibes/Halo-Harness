@@ -89,6 +89,7 @@ def pull(host, name: str, on_status: Optional[Callable[[dict], None]] = None,
                 err = None
             return {**out, "error": err or f"HTTP {resp.status}", "say": f"{_name(host)} answered HTTP {resp.status} "
                     f"to the pull of {name}" + (f": {err}" if err else "")}
+        junk, seen_json = b"", False
         while True:
             if cancel is not None and cancel.is_set():
                 break
@@ -97,7 +98,9 @@ def pull(host, name: str, on_status: Optional[Callable[[dict], None]] = None,
                 break
             try:
                 obj = json.loads(raw.strip() or b"{}")
+                seen_json = True
             except ValueError:
+                junk = junk or raw.strip()[:200]  # 3.6.0.0 R8 fix pass S8: what came back, when it is not Ollama's
                 continue
             if not isinstance(obj, dict) or not obj:
                 continue
@@ -128,12 +131,19 @@ def pull(host, name: str, on_status: Optional[Callable[[dict], None]] = None,
                 pass
     if cancel is not None and cancel.is_set():
         return {**out, "cancelled": True, "say": f"the pull of {name} on {_name(host)} was cancelled: {KEPT}"}
+    if junk and not seen_json:
+        words = " ".join(junk.decode("utf-8", "replace").split())[:60]
+        return {**out, "error": "unreadable", "say": f"{_name(host)} answered the pull of {name} with a page that is "
+                f"not Ollama's JSON (it starts {words!r}): nothing was pulled"}
     return {**out, "error": "ended", "say": f"{_name(host)} ended the pull of {name} before it said success"}
 
 
 def _reply_say(reply, what: str, host) -> str:
     if reply.failure == "http":
         return f"{_name(host)} answered HTTP {reply.status} to {what}"
+    if reply.failure == "unreadable":  # 3.6.0.0 R8 fix pass S8: it answered, not as Ollama does
+        from halo_harness.providers.ollama_load import came_back
+        return f"{_name(host)} answered {what} with {came_back(reply)}"
     return f"{_name(host)} did not answer ({reply.failure})"
 
 

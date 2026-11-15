@@ -1894,6 +1894,9 @@ def run_print_mode(
         agent=agent, agents_flag=agents_flag, roles_flag=roles_flag, cli_flags=cli_flags,
     )
     session, frozen_registry, model_ref = (build.session, build.tool_registry, build.model_ref)
+    # 3.6.0.0 R8 fix pass S4: a stream-json run takes more turns (a local model loads once, at its largest window);
+    # one prompt is a one-shot run (it asks for what that prompt needs)
+    session.many_turns = input_format == "stream-json"
     mcp_manager, resolved_mode, session_log = build.mcp_manager, build.resolved_mode, build.session_log
     _pre_existing_log, _pre_existing_log_size = build.pre_existing_log, build.pre_existing_log_size
     family = model_family(model_ref.model)

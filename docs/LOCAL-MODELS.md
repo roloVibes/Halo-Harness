@@ -233,20 +233,34 @@ host is normally unnecessary; it stays the hard ceiling when you set one.
 The result is saved (`~/.halo/ollama-fit.json`) and used from then on --
 it changes when you re-pull the model or upgrade Ollama; a saved window
 below the current request's floor is raised over, never measured again
-on its own. Since 3.6.0.0 no turn measures a model: a turn asks for the
-window its request needs (or the window the model is already loaded at,
-when that holds it), and after the answer one `/api/ps` read says whether
-the model sat wholly on the card there. The ladder of loads runs only when
-you ask: `halo local measure MODEL [--host NAME]` (never above the host's
-`max_ctx`, the cold first load counted as a load, once per model digest
-and server version; `--again` repeats it) or Measure on the host's card.
+on its own. Since 3.6.0.0 no turn measures a model: a turn uses the
+window the model is already loaded at when that holds the request (the
+prompt with a 15 % margin for the estimate, plus the reply's full room at
+that window) and is not known to spill to the CPU; otherwise a `halo -p`
+run asks for the window its request needs, and a session that takes more
+turns (the TUI, Studio, `--input-format stream-json`) asks for the largest
+window it may use, so it loads once. A session that has to grow goes
+straight to that largest window, never a step at a time. When Ollama
+reads the whole window (`prompt_eval_count` at `num_ctx`), the prompt was
+cut there: the call is sent once more at a window that holds it, with one
+line. At the end of each turn one `/api/ps` read (one second at most) says
+whether the model sat wholly on the card; a read that fails is unknown,
+never "not loaded". The ladder of loads runs only when you ask: `halo
+local measure MODEL [--host NAME]` (never above the host's `max_ctx`, the
+cold first load counted as a load, once per model digest and server
+version; `--again` repeats it) or Measure on the host's card. One
+measurement per server runs at a time (a second one is refused with a
+line), and afterwards the model is back at the window it had, or unloaded
+when it was not loaded; the report says which.
 
 A model on another machine is controlled from this one with nothing but
 Ollama running there: `halo local ps` (what is loaded where, its window,
 the card, how long it stays), `halo local warm MODEL [--window N] [--keep
 30m|forever]`, `halo local unload MODEL|--all`, `halo local pull MODEL`
 and `halo local measure MODEL`, each with `--host NAME`, `--json` and exit
-codes 0 (done), 1 (the server said no), 2 (usage), 3 (no answer).
+codes 0 (done), 1 (the server said no, or answered with something that is
+not Ollama's answer: a sign-in page, a 401, a redirect; nothing is
+reported from it), 2 (usage), 3 (no answer).
 
 ### The host panel and `halo ollama doctor`
 
@@ -664,9 +678,10 @@ when they'll be fixed:
 - `halo local serve` doesn't validate a model file before launching a
   server with it -- a bad download fails with "didn't answer in time,"
   not a named reason; `halo local`'s listing doesn't skip it either.
-- Auto-calibration can load a model two or three times on first use
-  (about a minute for a 27B-class model); whether it should skip that
-  step-up by default is still an open question.
+- No turn measures a model on its own any more (3.6.0.0). A measurement
+  you ask for (`halo local measure`, Studio's Measure) loads the model a
+  few times, about a minute for a 27B-class model, one measurement per
+  server at a time, and leaves the server as it found it.
 - Escalation's "ask" mode is a plain notification, not yet a full
   accept/keep-local/turn-this-off card.
 - The "saved $x" figure isn't in `-p --output-format json`'s result

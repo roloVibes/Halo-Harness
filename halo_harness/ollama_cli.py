@@ -153,11 +153,19 @@ def cmd_ollama_calibrate(argv: list) -> int:
         vram = f" ({reading.size_vram / 1024 ** 3:.1f} GB on the GPU)" if reading.size_vram else ""
         print(f"    {fmt_window(ctx)}: {what}{vram}")
 
-    result = run_calibration(host, args.model, start_ctx=start, keep_alive=host.keep_alive,
-                              step_up=not args.no_up, trained_context=trained_context_for(catalog, args.model),
-                              budget_s=budget, on_step=_on_step, num_gpu=gpu_layers_for(row.get("model_info")),
-                              gpu_total=host_gpu_total_bytes(host),
-                              hard_cap=host.max_ctx if isinstance(host.max_ctx, int) and host.max_ctx > 0 else None)
+    # 3.6.0.0 R8 fix pass S5: one measurement per server at a time, the server left as it was found
+    from halo_harness.providers.ollama_measure_guard import measuring
+    with measuring(host, args.model, bridge_home()) as guard:
+        if not guard.ok:
+            print(f"halo ollama calibrate: {guard.say}", file=sys.stderr)
+            return 1
+        result = run_calibration(host, args.model, start_ctx=start, keep_alive=host.keep_alive,
+                                  step_up=not args.no_up, trained_context=trained_context_for(catalog, args.model),
+                                  budget_s=budget, on_step=_on_step, num_gpu=gpu_layers_for(row.get("model_info")),
+                                  gpu_total=host_gpu_total_bytes(host),
+                                  hard_cap=host.max_ctx if isinstance(host.max_ctx, int) and host.max_ctx > 0 else None)
+    if guard.left:
+        print(f"  {guard.left}")
     if result.prompt_tok_s:
         record_prompt_speed(bridge_home(), host_url=host.url, model=args.model, tok_s=result.prompt_tok_s)
     if result.outcome in ("inconclusive", "unreachable"):

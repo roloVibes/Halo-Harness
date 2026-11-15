@@ -58,7 +58,7 @@ steps it took, or "does not fit... even at num_ctx=4096"); either outcome
 is recorded in `~/.halo/ollama-fit.json` (a "does not fit" result is a
 real, remembered fact too, not a failure to retry on the next run).
 Since 3.6.0.0 no turn runs this on its own: a turn learns from its own
-answer (one `/api/ps` read after it), and the ladder of loads runs only
+answer (one `/api/ps` read as the turn ends), and the ladder of loads runs only
 when you ask -- this command, `halo local measure` (never above the host's
 `max_ctx`, once per model digest and server version) or Measure on the
 host's card in Studio. `ollama.auto_calibrate` has no effect any more.

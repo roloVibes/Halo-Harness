@@ -14,6 +14,14 @@ resident); `/api/generate` with `keep_alive: 0` is an UNLOAD; `/api/ps` lists wh
 
 Every chat answers "ready" with Ollama's real `prompt_eval_count` (`mock_ollama._real_prompt_count`) unless
 `count_ratio` scales it (a model whose tokenizer is denser or looser than chars / 3.5).
+
+The window is the real server's (3.6.0.0 R8 fix pass): a prompt longer than `options.num_ctx` is cut to it and
+answered anyway (status 200; `prompt_eval_count` is then `num_ctx`, the way Ollama's runner truncates and the
+judge's probe models it; the reply still comes, as Ollama's default context shift gives it); a reply of
+`reply_tokens` that does not fit in what the window leaves after an uncut prompt, or past `num_predict`, stops
+there with `done_reason: "length"` and `eval_count` = the room it had. `fake.cuts` lists every cut
+`{"num_ctx", "real"}`. `fake.replies` (a list of assistant messages, e.g. a `tool_calls` one) is answered first,
+one per chat, before "ready".
 """
 from __future__ import annotations
 
@@ -54,7 +62,10 @@ class LoadCountingOllama(MockUpstream):
         self.first_load_s = 0.0       # the server's first load only (a cold start)
         self.slow_at = {}             # num_ctx -> seconds EVERY request at that window waits (a load that never ends)
         self.count_ratio = 1.0
-        self.vram = {}                # model -> callable(num_ctx) -> (size, size_vram)
+        self.reply_tokens = 2         # the reply's length in tokens ("ready")
+        self.cuts: list = []          # {"model", "num_ctx", "real"}: a prompt the window cut
+        self.replies: list = []       # scripted assistant messages, one per chat, before "ready"
+        self.vram = {}              # model -> callable(num_ctx) -> (size, size_vram)
         for name in models:
             self.scenarios[name] = self._answer
 
@@ -123,12 +134,26 @@ class LoadCountingOllama(MockUpstream):
                                      "message": {"role": "assistant", "content": "r"},
                                      "prompt_eval_count": 11, "eval_count": 1, "load_duration": 1000})
             return
+        opts = body.get("options") if isinstance(body.get("options"), dict) else {}
+        num_ctx = int(opts.get("num_ctx") or DEFAULT_CTX)
         real = max(1, int(_real_prompt_count(body) * self.count_ratio))
+        count = min(real, num_ctx)  # Ollama cuts a prompt longer than the window to the window and answers 200
+        with self._lock:
+            if real > num_ctx:
+                self.cuts.append({"model": body.get("model"), "num_ctx": num_ctx, "real": real})
+            message = self.replies.pop(0) if self.replies else {"role": "assistant", "content": "ready"}
+        eval_count, reason = int(self.reply_tokens), "stop"
+        predict = opts.get("num_predict")
+        if real <= num_ctx and count + eval_count > num_ctx:
+            eval_count, reason = num_ctx - count, "length"  # the reply ran out of the window's room
+        if isinstance(predict, int) and predict > 0 and eval_count > predict:
+            eval_count, reason = predict, "length"
         self.real_prompt_counts = False  # the count below is the one this fake reads
-        _finish_chat(handler, [{"message": {"role": "assistant", "content": "ready"}, "done": True,
-                                "done_reason": "stop", "prompt_eval_count": real,
-                                "prompt_eval_duration": 50_000_000, "eval_count": 2, "eval_duration": 10_000_000,
-                                "load_duration": 1_000_000, "total_duration": 70_000_000}])
+        _finish_chat(handler, [{"message": message, "done": True,
+                                "done_reason": reason, "prompt_eval_count": count,
+                                "prompt_eval_duration": 50_000_000, "eval_count": eval_count,
+                                "eval_duration": 10_000_000, "load_duration": 1_000_000,
+                                "total_duration": 70_000_000}])
 
     def summary(self) -> str:
         return json.dumps({"loads": self.loads, "unloads": self.unloads, "calibrates": len(self.calibrates),

@@ -477,27 +477,42 @@ took 33-39 s through Halo on first use (0.2 s straight from Ollama): Halo measur
 (three reloads, one past the host's cap), asked for the cap as the window, and estimated tokens 4.5x too high.
 
 - **A turn never waits for a measurement.** No call loads a model to measure it any more (the first-use
-  auto-calibration is gone). After an answer, one `/api/ps` read says whether the model sits wholly on the card at the
-  window used; Halo keeps that (`window_truth` in `ollama-fit.json`, agent/ollama_window_truth.py). The ladder of
-  loads runs only when you ask: `halo local measure`, or Measure on a host's card in Studio's Local section.
+  auto-calibration is gone). At the end of each turn one `/api/ps` read (a second at most, never one per tool step)
+  says whether the model sits wholly on the card at the window used; Halo keeps that (`window_truth` in
+  `ollama-fit.json`, agent/ollama_window_truth.py). A read that fails or is not Ollama's answer is unknown, never
+  "not loaded": no "loading" line, nothing kept, and the window last used stays. The ladder of loads runs only when
+  you ask: `halo local measure`, or Measure on a host's card in Studio's Local section.
 - **The window a turn asks for** is the window the model is already loaded at on that server when it holds the
-  request (nobody's model is reloaded, another machine's load included), else what the request needs plus the reply's
-  room on the ladder 8,192 / 16,384 / 32,768 / 65,536, never above the host's `max_ctx`, a measured cap or a window
-  seen spilling to the CPU. A steward profile's window still wins. The traffic ledger's `window_source` says which:
-  `loaded`, `request size`, `steward profile`, ... Auto-compaction's share is of the most the window can be.
+  request -- the prompt with a 15 % margin for the estimate plus the reply's full room at that window -- and is not
+  known to spill to the CPU (nobody's model is reloaded, another machine's load included; one that spills is reloaded
+  once under the spill, with a line saying why). Otherwise a `halo -p` run asks for what its request needs on the
+  ladder 8,192 / 16,384 / 32,768 / 65,536, and a session that takes more turns (the TUI, Studio, `--input-format
+  stream-json`) asks for the largest window it may use, so a session is one load; a session that has to grow goes
+  straight to that largest window. Never above the host's `max_ctx`, a measured cap or a window seen spilling. A
+  steward profile's window still wins. The traffic ledger's `window_source` says which: `loaded`, `request size`,
+  `last used`, `steward profile`, ... Auto-compaction's share is of the most the window can be.
+- **A prompt the window cut is sent again.** Ollama cuts a prompt longer than the window and answers anyway; a
+  `prompt_eval_count` at the window's end now marks the call trimmed and sends it once more at a window that holds it,
+  with one line. The reply's room is never squeezed by a loaded window.
 - **The estimate is honest.** The ledger's `estimate_tokens` is the prompt's (it carried the reply's room, 16,384
-  on a first call); after each answer the real `prompt_eval_count` sets this model's ratio, which the next estimate
-  starts from when chars / 3.5 is more than 15 % off.
+  on a first call); the real `prompt_eval_count` of a call that loaded the model (nothing cached), or one at or above
+  the raw estimate, sets this model's ratio, which the next estimate starts from when chars / 3.5 is more than 15 %
+  off.
 - **Halo does not unload or shorten what it did not load on request.** No request carries a `keep_alive` nobody set
   (the capability battery and probe sent "5m", which overrode a server that keeps models for ever).
-- **A measurement, when asked for,** never steps above the host's `max_ctx`, gives the cold first load a load's own
-  time (one load, never "does not fit"), keeps the safe window it measured when a later step is slow, and runs once per
-  model digest and server version (`--again` repeats it).
+- **A measurement, when asked for,** never steps above the host's `max_ctx` (`halo ollama discover --calibrate` and
+  Setup's "Measure the found models" too), gives the cold first load a load's own time (one load, never "does not
+  fit"), keeps the safe window it measured when a later step is slow, and runs once per model digest and server
+  version (`--again` repeats it). One measurement per server runs at a time, across every Halo process (a second is
+  refused with a line), and it leaves the server as it found it: the model back at the window it had, or unloaded
+  when it was not loaded; the report says which.
 - **The wait says what it is**: "loading <model> on <host> (16.6 GB)" before a call that loads the model, then how
   long it took -- in the TUI's status line and transcript, Studio's Live row, and a `system`/`status` line in
   `--output-format stream-json`.
 - **Control from this machine with nothing but Ollama on the other one**: `halo local ps | warm | unload | pull |
-  measure` (`--host`, `--json`, exit codes 0 / 1 / 2 / 3), through Ollama's own API; `halo --help` names `local` and
+  measure` (`--host`, `--json`, exit codes 0 / 1 / 2 / 3), through Ollama's own API; a server that answers with
+  something that is not Ollama's answer (a sign-in page, a 401, a redirect) gets one line naming what came back and
+  exit 1, never "nothing is loaded"; `halo --help` names `local` and
   `host`, `halo local --help` the verbs. Studio's host cards control an `ollama.hosts` entry no halo host serves
   through Ollama's API (Warm, Unload, Measure, Refresh, each saying what it does and costs). `halo local warm MODEL`
   loads at the window a turn will use and leaves the keep-alive to the server unless `--keep`.

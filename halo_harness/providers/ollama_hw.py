@@ -521,6 +521,22 @@ def last_ps_entry(host_url: str, model: str, *, max_age_s: float = 60.0) -> "tup
     return True, got[1]
 
 
+def ps_rows(reply) -> "Optional[list]":
+    """3.6.0.0 R8 fix pass S2: the model rows of an `/api/ps` answer, or None when the answer is not one (a failed
+    read, HTML, an error object, junk): unknown, which is never the same fact as "nothing is loaded"."""
+    if not isinstance(reply, dict) or not isinstance(reply.get("models"), list):
+        return None
+    return [e for e in reply["models"] if isinstance(e, dict)]
+
+
+def forget_ps_entry(host_url: str, model: str) -> None:
+    """The last `/api/ps` reading of (host_url, model) is unknown now (a read failed): `last_ps_entry` says
+    `known` False and the offload marker says nothing, rather than a stale or a made-up "not loaded"."""
+    with _LAST_OFFLOAD_LOCK:
+        _LAST_PS_ENTRY.pop((host_url, model), None)
+        _LAST_OFFLOAD_CACHE.pop((host_url, model), None)
+
+
 def last_known_offload_sizes(host_url: str, model: str) -> "Optional[tuple[int, int]]":
     """Review fix pass (finding 14): the raw `(size, size_vram)` bytes
     behind the SAME reading `last_known_offload` summarizes to a bool --
@@ -551,14 +567,17 @@ def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=N
     if row is None:
         return None
     from halo_harness.providers.ollama import fetch_ps, ollama_names_match
-    ps = fetch_ps(host) or {}
-    ps_models = [e for e in (ps.get("models") or []) if isinstance(e, dict)]
+    rows = ps_rows(fetch_ps(host))
+    ps_models = rows or []
     loaded_entry = None
     for entry in ps_models:
         if ollama_names_match(entry.get("model"), model) or ollama_names_match(entry.get("name"), model):
             loaded_entry = entry
             break
-    _record_last_known_offload(host.url, model, loaded_entry)
+    if rows is None:
+        forget_ps_entry(host.url, model)  # 3.6.0.0 R8 fix pass S2: a failed read is unknown, never "not loaded"
+    else:
+        _record_last_known_offload(host.url, model, loaded_entry)
     # Halo 3.2.3.0 R1: a LOADED model is estimated from memory too, never
     # from its own loaded `context_length` -- a model loaded at 8192 used
     # to report 8192 as its fit forever. Its own `size_vram` counts as

@@ -647,8 +647,10 @@ class JsonReply:
     """One `request_json` answer: `body` on a 200, else `None` with
     `failure` = "timeout" (the socket read ran past `timeout`),
     "unreachable" (the connect phase failed), "http" (a non-200, `status`
-    set) or "error" (bad JSON, a malformed response). 3.3.6.0 R6: `error` is
-    the server's own `error` text of a non-200 (the vision probe reads it)."""
+    set), "unreadable" (a 200 that is not JSON -- a proxy's page; `error`
+    holds its first words; 3.6.0.0 R8 fix pass) or "error" (a malformed
+    response, a dropped connection). 3.3.6.0 R6: `error` is the server's own
+    `error` text of a non-200 (the vision probe reads it)."""
     body: object = None
     failure: Optional[str] = None
     status: Optional[int] = None
@@ -691,7 +693,13 @@ def request_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_
         if resp.status != 200:
             log.debug("ollama: %s %s -> HTTP %s", method, full_path, resp.status)
             return JsonReply(failure="http", status=resp.status, error=_error_text(raw))
-        return JsonReply(body=json.loads(raw.decode("utf-8", "replace")) if raw else {}, status=200)
+        try:
+            return JsonReply(body=json.loads(raw.decode("utf-8", "replace")) if raw else {}, status=200)
+        except ValueError:
+            # 3.6.0.0 R8 fix pass M2: the server answered, with something that is not JSON (a proxy's HTML page):
+            # "unreadable", never "did not answer"
+            text = " ".join(raw.decode("utf-8", "replace").split())[:60]
+            return JsonReply(failure="unreadable", status=200, error=text)
     except UpstreamConnectError as e:
         log.debug("ollama: %s %s unreachable: %s", method, full_path, e)
         return JsonReply(failure="unreachable")
