@@ -262,9 +262,13 @@ def start_kept(args, *, what: str, shown=None, **kw):
 _OUTSIDE_RUNNER = r'''
 import json, os, subprocess, sys
 spec_path = sys.argv[1]
-with open(spec_path, encoding="utf-8") as fh:
+try:  # take the spec first: a caller that gave up has taken it back, and then nothing may start
+    os.rename(spec_path, spec_path + ".taken")
+except OSError:
+    sys.exit(0)
+with open(spec_path + ".taken", encoding="utf-8") as fh:
     s = json.load(fh)
-os.remove(spec_path)
+os.remove(spec_path + ".taken")
 def sink(p):
     return open(p, "ab") if p else subprocess.DEVNULL
 r = {}
@@ -304,11 +308,32 @@ def _stdio_path(value) -> "tuple[bool, Optional[str]]":
     return False, None
 
 
+STARTED_UNKNOWN = 0  # start_outside_job: the runner took the spec (the program is starting) but gave no pid
+
+
+def _outside_answer(result: Path, wait_s: float) -> "tuple[bool, Optional[int]]":
+    """(the runner answered, the pid -- None when it could not start the program) within `wait_s`."""
+    import json
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        try:
+            got = json.loads(result.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            time.sleep(0.05)
+            continue
+        return True, (int(got["pid"]) if isinstance(got.get("pid"), int) else None)
+    return False, None
+
+
 def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
     """Windows: start `args` from outside every Job object -- a kept spawn whose outer Job (a terminal's, a service's)
     forbids breakaway. WMI creates a tiny Python runner as nobody's child (no Job of this tree reaches it), and that
-    runner starts the program with this spawn's environment, folder, flags and output files, then leaves. The pid,
-    or None when it cannot be done (no WMI, a pipe to read, the runner gave no pid in `wait_s`)."""
+    runner starts the program with this spawn's environment, folder, flags and output files, then leaves. The pid;
+    STARTED_UNKNOWN when the runner took the spec but gave no pid (it is started: never start it again); None only
+    when nothing was started (no WMI, a pipe to read, a runner that never took the spec -- it is taken back first, so
+    a late runner starts nothing). The spec holds the environment (keys included) for the moment the runner needs
+    it: the runner deletes it on reading, this folder goes when this returns, and a folder a hard-ended halo left is
+    removed by the next call."""
     if os.name != "nt" or not isinstance(args, (list, tuple)) or kw.get("shell") or kw.get("executable"):
         return None
     if kw.get("stdin") not in (None, -3):  # DEVNULL
@@ -322,42 +347,58 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
     import json
     import shutil
     import tempfile
+    for old in Path(tempfile.gettempdir()).glob("halo-kept-*"):  # left by a halo ended hard mid-start
+        try:
+            if time.time() - old.stat().st_mtime > 600:
+                shutil.rmtree(old, ignore_errors=True)
+        except OSError:
+            pass
     folder = Path(tempfile.mkdtemp(prefix="halo-kept-"))
+    runner, spec, result = folder / "runner.py", folder / "spec.json", folder / "result.json"
+    written = False
     try:
-        runner, spec, result = folder / "runner.py", folder / "spec.json", folder / "result.json"
-        runner.write_text(_OUTSIDE_RUNNER, encoding="utf-8")
-        env = kw.get("env") if isinstance(kw.get("env"), dict) else dict(os.environ)
-        cwd = str(kw.get("cwd") or os.getcwd())  # the runner's folder too: never this temp one (it is removed)
-        spec.write_text(json.dumps({"argv": [str(a) for a in args], "env": {str(k): str(v) for k, v in env.items()},
-                                    "cwd": cwd,
-                                    "flags": int(kw.get("creationflags") or 0), "stdout": out, "stderr": err,
-                                    "result": str(result)}), encoding="utf-8")
-        cmdline = _sp.list2cmdline([sys.executable, "-I", "-S", str(runner), str(spec)])
-        ps = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "WindowsPowerShell", "v1.0",
-                          "powershell.exe")
-        r = _sp.run([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], capture_output=True, text=True,
-                    timeout=wait_s, env={**os.environ, "HALO_KEPT_CMDLINE": cmdline, "HALO_KEPT_CWD": cwd},
-                    stdin=_sp.DEVNULL, creationflags=0x08000000)  # CREATE_NO_WINDOW
-        if (r.stdout or "").strip() != "0":
+        try:
+            runner.write_text(_OUTSIDE_RUNNER, encoding="utf-8")
+            env = kw.get("env") if isinstance(kw.get("env"), dict) else dict(os.environ)
+            cwd = str(kw.get("cwd") or os.getcwd())  # the runner's folder too: never this temp one (it is removed)
+            spec.write_text(json.dumps({"argv": [str(a) for a in args],
+                                        "env": {str(k): str(v) for k, v in env.items()}, "cwd": cwd,
+                                        "flags": int(kw.get("creationflags") or 0), "stdout": out, "stderr": err,
+                                        "result": str(result)}), encoding="utf-8")
+            written = True
+            cmdline = _sp.list2cmdline([sys.executable, "-I", "-S", str(runner), str(spec)])
+            ps = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "WindowsPowerShell",
+                              "v1.0", "powershell.exe")
+            r = _sp.run([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], capture_output=True,
+                        text=True, timeout=wait_s, env={**os.environ, "HALO_KEPT_CMDLINE": cmdline,
+                                                        "HALO_KEPT_CWD": cwd},
+                        stdin=_sp.DEVNULL, creationflags=0x08000000)  # CREATE_NO_WINDOW
+            if (r.stdout or "").strip() == "0":
+                answered, pid = _outside_answer(result, wait_s)
+                if answered:
+                    return pid
+        except Exception:
+            pass
+        if not written:
             return None
-        deadline = time.monotonic() + wait_s
-        while time.monotonic() < deadline:
-            try:
-                got = json.loads(result.read_text(encoding="utf-8"))
-                return int(got["pid"]) if isinstance(got.get("pid"), int) else None
-            except (OSError, ValueError):
-                time.sleep(0.05)
-        return None
-    except Exception:
-        return None
+        try:  # take the spec back: then no runner, however late, starts the program
+            spec.rename(folder / "spec.void")
+            return None
+        except OSError:
+            pass  # the runner took it: the program is started or starting, never start it a second time
+        answered, pid = _outside_answer(result, 10.0)
+        return pid if answered else STARTED_UNKNOWN
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 
 
-def say_held_in_job(pid, args) -> None:
-    """The one line when a kept spawn could not leave an outer Job object: it ends when that Job's holder does."""
+def say_held_in_job(pid, args, env=None) -> None:
+    """The one line when a kept (or home-tied) spawn could not leave an outer Job object: it ends when that Job's
+    holder does. "Asked to keep" only when a person asked (the kept marker); a home-tied server was not asked for."""
     name = os.path.basename(str(args[0] if isinstance(args, (list, tuple)) and args else args))
-    _say(f"halo: {name} (pid {pid}) was asked to keep running, but the program that started halo holds it in a Job "
+    asked = isinstance(env, dict) and str(env.get(MARKER) or "").startswith(KEPT_PREFIX)
+    what = "was asked to keep running" if asked else "should outlive this halo"
+    _say(f"halo: {name} (pid {pid}) {what}, but the program that started halo holds it in a Job "
          "object it may not leave, so it ends when that program closes")
 
 

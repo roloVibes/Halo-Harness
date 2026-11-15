@@ -498,6 +498,109 @@ def test_a_kept_spawn_survives_an_outer_job_that_forbids_breakaway_or_halo_says_
             _end(*kept)
 
 
+# -- batch 1 repair: the outer-Job way never starts a program twice, and its line says what is true ------------------
+
+_OUTER_SHORT = r'''
+import json, sys, time
+from halo_harness import closing, subprocess_safe
+closing.install(sweep_at_start=False)
+p = subprocess_safe.start_kept([sys.executable, "-I", "-c", "open({tally!r}, 'a').write('ran\\n')"], what="bg",
+                               stdin=subprocess_safe.DEVNULL, stdout=subprocess_safe.DEVNULL,
+                               stderr=subprocess_safe.DEVNULL)
+print(json.dumps({{"pid": p.pid, "poll": p.poll()}}), flush=True)
+time.sleep(3)
+'''
+
+
+@test
+def test_a_kept_program_that_ends_at_once_inside_an_outer_job_runs_once_and_nothing_false_is_said(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows only: Job objects")
+    import ctypes
+    base = getattr(sys, "_base_executable", None) or sys.executable
+    tmp = Path(tempfile.mkdtemp(prefix="fx-kept-once-"))
+    tally = tmp / "tally.txt"
+    env = _env(tmp / "home")
+    env["PYTHONPATH"] = os.pathsep.join([str(REPO), sysconfig.get_paths()["purelib"]])
+    k32, job = _no_breakaway_job()
+    proc = _starter(tmp, _OUTER_SHORT.format(tally=tally.as_posix()), env, python=base, flags=0x4)
+    try:
+        ctx.check("the starter is in the test's Job", k32.AssignProcessToJobObject(job, int(proc._handle)))
+        ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
+        ready = _ready_line(proc, 60.0)
+        ctx.check(f"start_kept returned, got {ready}", "pid" in ready)
+        proc.wait(timeout=60)
+        err = proc.stderr.read()
+        time.sleep(2.0)
+        runs = tally.read_text().count("ran") if tally.exists() else 0
+        ctx.check(f"the program ran exactly once (the candidate's fallback ran it twice), got {runs}", runs == 1)
+        ctx.check(f"and no line claims it was held in a Job, got {err!r}", "Job object" not in err)
+    finally:
+        k32.CloseHandle(job)
+        if proc.poll() is None:
+            proc.kill()
+
+
+def _fake_wmi(take: bool, seen: list):
+    """Stands in for subprocess.run of the WMI call: answers "created" (0); `take`: the runner has taken the spec
+    (renamed it, as the real runner does first) but gives no pid in time."""
+    def run(argv, **kw):
+        spec = Path(kw["env"]["HALO_KEPT_CMDLINE"].rsplit(" ", 1)[-1].strip('"'))
+        seen.append(spec)
+        if take:
+            spec.rename(str(spec) + ".taken")
+        return subprocess.CompletedProcess(argv, 0, "0", "")
+    return run
+
+
+@test
+def test_a_slow_runner_never_leads_to_a_second_start(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows only: the WMI way out of a Job")
+    from halo_harness import closing
+    tmp = Path(tempfile.mkdtemp(prefix="fx-kept-slow-"))
+    tally = tmp / "tally.txt"
+    argv = [sys.executable, "-I", "-c", f"open({str(tally)!r}, 'a').write('ran\\n')"]
+    kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+          "env": dict(os.environ), "cwd": str(tmp)}
+    real = subprocess.run
+    try:
+        seen: list = []
+        subprocess.run = _fake_wmi(True, seen)
+        got = closing.start_outside_job(argv, kw, wait_s=0.3)
+        ctx.check(f"a runner that took the spec counts as started (never None: the caller would start it again), "
+                  f"got {got!r}", got is not None)
+        seen.clear()
+        subprocess.run = _fake_wmi(False, seen)
+        got = closing.start_outside_job(argv, kw, wait_s=0.3)
+        ctx.check(f"a runner that never took the spec counts as not started, got {got!r}", got is None)
+        ctx.check("and its spec was taken back, so a late runner finds nothing", seen and not seen[0].exists())
+    finally:
+        subprocess.run = real
+    runner = tmp / "runner.py"
+    runner.write_text(closing._OUTSIDE_RUNNER, encoding="utf-8")
+    late = real([sys.executable, "-I", "-S", str(runner), str(seen[0])], capture_output=True, text=True, timeout=30)
+    ctx.check(f"a runner that comes late starts nothing, got rc={late.returncode} {late.stderr[-300:]!r}",
+              late.returncode == 0 and not tally.exists())
+    leftovers = [p for p in Path(tempfile.gettempdir()).glob("halo-kept-*") if p in [s.parent for s in seen]]
+    ctx.check(f"its folder (the environment, keys included) is removed, got {leftovers}", not leftovers)
+
+
+@test
+def test_the_held_in_a_job_line_says_asked_only_when_a_person_asked(ctx: Ctx):
+    import contextlib
+    import io
+    from halo_harness import closing
+    for env, asked in (({closing.MARKER: closing.KEPT_PREFIX + "x"}, True), ({closing.MARKER: "home-x"}, False)):
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            closing.say_held_in_job(123, ["llama-server.exe", "-m", "m.gguf"], env)
+        line = buf.getvalue()
+        ctx.check(f"one line naming the program, got {line!r}", line.count("\n") == 1 and "llama-server" in line)
+        ctx.check(f"'asked to keep' only for a kept one (asked={asked}), got {line!r}",
+                  ("asked to keep" in line) == asked)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

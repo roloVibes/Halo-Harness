@@ -163,33 +163,36 @@ class Popen(_sp.Popen):
             kept = closing.is_kept_env(kw.get("env"))
             if kept and not a:  # an outer Job forbids leaving it: a kept spawn starts from outside every Job
                 pid = closing.start_outside_job(resolve(args, kw), kw)
-                if pid and self._stand_for(args, pid):
+                if pid is not None:  # started out there: never a second time in here, even if it has ended
+                    self._stand_for(args, pid)
                     return
             kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
             super().__init__(resolve(args, kw), *a, **kw)
             if kept:
-                closing.say_held_in_job(self.pid, args)
+                closing.say_held_in_job(self.pid, args, kw.get("env"))
         try:
             closing.after_spawn(self, kw)
         except Exception:
             pass
 
-    def _stand_for(self, args, pid: int) -> bool:
+    def _stand_for(self, args, pid: int) -> None:
         """Windows: this Popen stands for process `pid`, started elsewhere (closing.start_outside_job): pid, poll,
-        wait, terminate and kill work on it through a handle opened now; it has no pipes."""
+        wait, terminate and kill work on it through a handle opened now; it has no pipes. When no handle opens (it
+        has already ended) or its pid is unknown, it stands for a finished process (exit code not known: 0)."""
         import _winapi
-        try:  # SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE
-            handle = _winapi.OpenProcess(0x00100000 | 0x1000 | 0x0001, False, int(pid))
-        except OSError:
-            return False
-        self.args, self.pid, self.returncode = args, int(pid), None
+        handle = None
+        if pid:
+            try:  # SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE
+                handle = _winapi.OpenProcess(0x00100000 | 0x1000 | 0x0001, False, int(pid))
+            except OSError:
+                handle = None
+        self.args, self.pid, self.returncode = args, int(pid), (None if handle else 0)
         self.stdin = self.stdout = self.stderr = None
         self.encoding = self.errors = None
         self.text_mode, self.pipesize = False, -1
         self._sigint_wait_secs, self._closed_child_pipe_fds = 0.25, True
         self._input, self._communication_started = None, False
-        self._handle, self._child_created = _sp.Handle(handle), True
-        return True
+        self._handle, self._child_created = (_sp.Handle(handle) if handle else None), bool(handle)
 
 
 def start_kept(args, *, what: str, shown=None, **kw):

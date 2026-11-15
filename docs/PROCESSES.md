@@ -24,7 +24,9 @@ stops it.
 On Windows a kept thing leaves Halo's Job object. When the program that started Halo holds it in a Job object of
 its own that does not let anything leave (some terminals and services do), Halo starts the kept thing from outside
 every Job instead; when even that cannot be done, Halo says so in one line: that thing then ends when the program
-that started Halo closes.
+that started Halo closes. Starting it from outside means handing its command and environment (your keys included) to
+a small helper through a file in your own temp folder for a moment; the helper deletes the file as it reads it, and a
+folder a halo ended hard left behind is removed the next time.
 
 Nothing else: not Studio, not the Ollama steward, not the host's duty steward (`halo host steward on` runs it as
 the host's child, ending with the host, or in the foreground when no host runs), not a sub-agent, not an MCP server.
