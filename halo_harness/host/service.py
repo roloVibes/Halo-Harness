@@ -128,7 +128,8 @@ class HostService:
         if self.tls_on is not False:
             got = tls.ensure_cert(S.host_dir(self.home), self.name or "halo-host")
             if got is None and self.tls_on:
-                raise RuntimeError("TLS needs the `cryptography` package (pip install 'halo-harness[tls]')")
+                from halo_harness.update import extra_install_line
+                raise RuntimeError(f"TLS needs the `cryptography` package ({extra_install_line('tls')})")
             if got is not None:
                 ctx, self.fingerprint = tls.server_context(got[0], got[1]), got[2]
         S.clear_stop(self.home)

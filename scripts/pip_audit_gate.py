@@ -10,7 +10,10 @@ the lock and resolves nothing on its own.
 
 Regenerating the lock (uv; no hand edits):
 
-    uv pip compile pyproject.toml --universal --generate-hashes -o requirements.lock
+    uv pip compile pyproject.toml --universal --generate-hashes -o requirements.lock --python-version 3.10
+
+(`--python-version` = pyproject's requires-python floor: without it the lock fits only the interpreter that
+generated it, and an install on the floor finds no solution; tests/test_install_lock_floor.py checks it.)
 
 and installing from it, hashes enforced:
 

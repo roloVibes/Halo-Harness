@@ -279,9 +279,10 @@ def _ask_shutdown(info: dict) -> bool:
 
 def _windows_cmdline(pid: int) -> str:
     try:
-        r = subprocess.run(["powershell", "-NoProfile", "-Command",
+        r = subprocess.run(["powershell", "-NoProfile", "-Command",  # UTF-8 both ways: see update.PS_UTF8
+                            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
                             f"(Get-CimInstance Win32_Process -Filter 'ProcessId={int(pid)}').CommandLine"],
-                           capture_output=True, text=True, timeout=15)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
     except (OSError, subprocess.SubprocessError, ValueError):
         return ""
     return (r.stdout or "").strip()

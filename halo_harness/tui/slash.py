@@ -829,6 +829,9 @@ def _update_worker(app) -> None:
     checkout = Path(build["checkout"]) if build.get("checkout") else None
     from halo_harness.update_cli import older_release  # 3.6.0.0 R13: versions, not commit counts on two lines
     older = older_release(build, avail, avail.get("channel") or upd.default_channel(build))
+    if not older and build.get("commit") != avail.get("commit"):  # 3.6.0.0 fix: a checkout ahead of the offer
+        from halo_harness.update_cli import ahead_of_offer
+        older = ahead_of_offer(build, avail, avail.get("channel"), checkout)
     lines, _count = ([], None) if older else upd.commits_between(build.get("commit"), avail.get("commit"),
                                                                  checkout=checkout)
     ordering = None if older else upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
@@ -882,6 +885,10 @@ def update_check_startup_worker(app) -> None:
     from halo_harness.update_cli import older_release
     if older_release(build, avail, avail.get("channel") or upd.default_channel(build)):
         return  # 3.6.0.0 R13: an older release is not an update
+    from pathlib import Path
+    from halo_harness.update_cli import ahead_of_offer
+    if ahead_of_offer(build, avail, avail.get("channel"), Path(build["checkout"]) if build.get("checkout") else None):
+        return  # 3.6.0.0 fix: nor is a main line this checkout is already ahead of
     if not upd.note_due_today(state_dir):
         return
     new_version = avail["ref"][1:] if (avail.get("ref") or "").startswith("v") else build["version"]

@@ -189,7 +189,9 @@ install --upgrade <spec>` (pip), `git pull` then the same reinstall
 (editable checkout), or plain `git pull` (bare checkout on PYTHONPATH). A
 checkout left on a detached tag by the installer uses `git fetch --tags --force
 origin && git checkout --detach <tag>` in place of `git pull`. Every reinstall
-keeps the dependency versions pinned to `requirements.lock` (`--constraints`).
+keeps the dependency versions pinned to `requirements.lock` (`--constraints`;
+pip and pipx get a copy without its hashes: pip cannot check hashes for a git
+or folder install and refuses the whole install when a constraint has them).
 On the stable channel a plain `halo update` moves a `git+https` install pinned
 at a tag to the newest tag. After it installs a newer version its last lines are that version's summary;
 `halo whatsnew` (or `/whatsnew`) shows what it changed, from the changelog the package ships (3.3.16.2).
@@ -265,7 +267,7 @@ Ollama daemon and the optional, experimental `uv tool install
 default and only installable on macOS/arm64 in the first place.
 
 **To talk to a session, and for speech-to-text and text-to-speech on this machine** (3.3.9.0), the engines and the
-audio are an optional extra: `uv tool install --reinstall "halo-harness[voice]"` (faster-whisper, kokoro-onnx,
+audio are an optional extra: `uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"` (faster-whisper, kokoro-onnx,
 onnxruntime, numpy, soundfile, and sounddevice for the microphone and the speaker). On Linux (Kali included)
 sounddevice needs PortAudio from the system: `sudo apt install libportaudio2`. Without the extra the catalog,
 downloads, `halo voice devices` and `halo voice stats` work, and `halo voice`, `/voice on` and `serve` print that one

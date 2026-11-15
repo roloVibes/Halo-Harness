@@ -26,7 +26,7 @@ LAN (stt: stt@pc)` instead.
 ## On this CPU
 
 ```sh
-uv tool install --reinstall "halo-harness[voice]"     # the engines and sounddevice (Linux: sudo apt install libportaudio2)
+uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"     # the engines and sounddevice (Linux: sudo apt install libportaudio2)
 halo voice download faster-whisper:base.en            # or small.en: better hearing, more work per second of audio
 halo voice download kokoro-82m
 halo voice download silero-vad
@@ -34,6 +34,8 @@ halo config set voice.stt_model faster-whisper:base.en
 halo config set voice.device cpu
 halo voice
 ```
+
+(Halo prints this line for your own install: your release or clone, with the extras you already have. `halo-harness` is not on PyPI, so the bare name never installs.)
 
 - **Speech-to-text**: `faster-whisper:base.en` or `faster-whisper:small.en`, both int8 on the CPU (CTranslate2 picks
   int8 when `--device cpu`). base.en is the lighter; small.en hears names and code words better. large-v3-turbo on a

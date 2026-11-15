@@ -155,7 +155,8 @@ def ensure_mlx_server(repo_id: str, *, confirm: "Optional[Callable[[str], bool]]
     from halo_harness.providers.local_runtime import find_runtime_binary, start_managed_server
     binary = binary_argv if binary_argv is not None else find_runtime_binary("mlx_lm", state_dir=state_dir)
     if binary is None:
-        lines.append('mlx_lm is not installed -- run `uv tool install "halo-harness[mlx]"` and try again '
+        from halo_harness.update import extra_install_line
+        lines.append(f"mlx_lm is not installed -- run `{extra_install_line('mlx')}` and try again "
                      "(docs/harness/GPU-RESEARCH.md section 7).")
         return None, lines
     # Review fix pass (finding 15): the SAME already-cached size this

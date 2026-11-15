@@ -192,7 +192,8 @@ def _runnability_text(fmt: str, path, *, state_dir, running: "Optional[dict]" = 
         # strictly REQUIRED here, but naming it avoids any doubt next to
         # an `hf:mlx/<repo>` hint on the SAME row (see `build_local_view`).
         if runtime == "mlx_lm":
-            hint = "" if found else ' (not installed -- `uv tool install "halo-harness[mlx]"`)'
+            from halo_harness.update import extra_install_line
+            hint = "" if found else f" (not installed -- `{extra_install_line('mlx')}`)"
             text = f"servable: {runtime}{hint} [halo local serve {path} --runtime mlx_lm]"
         else:
             hint = "" if found else " (not installed -- `halo local serve` offers to fetch it)"

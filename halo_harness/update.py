@@ -266,6 +266,76 @@ def _constraints_for(path: str, spec_ref: Optional[str]) -> Optional[str]:
     return str(lock) if lock.is_file() else None
 
 
+_EXTRAS_RE = re.compile(r"\[([A-Za-z0-9_.,\s-]+)\]")
+
+
+def requested_extras(prefix: Optional[str] = None) -> "list[str]":
+    """The extras this install was asked for (`voice`, `mlx`, ...): uv's receipt (`extras = [...]` on the
+    halo-harness requirement) or pipx's metadata (`package_or_url`). [] for pip, which records none (3.6.0.0 fix:
+    a reinstall that names no extra drops it, so `halo update` and every extra's install line carry these)."""
+    prefix = sys.prefix if prefix is None else prefix
+    found: "list[str]" = []
+    try:
+        receipt = Path(prefix, "uv-receipt.toml")
+        if receipt.is_file():
+            for req in re.findall(r"\{[^{}]*\}", receipt.read_text(encoding="utf-8")):
+                if re.search(rf'name\s*=\s*"{DIST_NAME}"', req):
+                    m = re.search(r"extras\s*=\s*\[([^\]]*)\]", req)
+                    found += re.findall(r'"([^"]+)"', m.group(1)) if m else []
+        meta = Path(prefix, "pipx_metadata.json")
+        if meta.is_file():
+            main = (json.loads(meta.read_text(encoding="utf-8")).get("main_package") or {})
+            m = _EXTRAS_RE.search(str(main.get("package_or_url") or "").split("@", 1)[0])
+            found += [x.strip() for x in m.group(1).split(",")] if m else []
+    except (OSError, ValueError, AttributeError):
+        return []
+    return sorted({x for x in found if re.fullmatch(r"[A-Za-z0-9_.-]+", x)})
+
+
+def with_extras(spec: str, extras) -> str:
+    """`spec` asking for `extras`, quoted for any shell (brackets are a glob in sh and zsh): a git spec as
+    `"halo-harness[a,b] @ git+..."`, a folder as `"<folder>[a,b]"`. Halo is not on PyPI, so a bare
+    `halo-harness[x]` never resolves; unchanged when there is no extra."""
+    names = sorted({str(x) for x in extras or () if x})
+    if not names:
+        return spec
+    bare = spec.strip('"')
+    if bare.startswith("git+"):
+        return f'"{DIST_NAME}[{",".join(names)}] @ {bare}"'
+    return f'"{bare}[{",".join(names)}]"'
+
+
+def extra_install_line(extra: str, *, direct_url: "object" = _UNSET, prefix: Optional[str] = None) -> str:
+    """The one command that adds `extra` to THIS install (3.6.0.0 fix: the printed `uv tool install
+    "halo-harness[voice]"` could never resolve -- halo is installed from GitHub, the name is not on PyPI): the
+    installer that made it, the same source (a git install's release tag or exact commit, a checkout's folder),
+    every extra already asked for kept. No subprocess: it reads the install's own files only."""
+    prefix = sys.prefix if prefix is None else prefix
+    d = _direct_url() if direct_url is _UNSET else direct_url
+    extras = sorted(set(requested_extras(prefix)) | {extra})
+    spec, ref, editable, lock = f"git+{REPO_URL}", None, False, None
+    vcs = d.get("vcs_info") if isinstance(d, dict) else None
+    dir_info = d.get("dir_info") if isinstance(d, dict) else None
+    if isinstance(vcs, dict) and vcs.get("vcs") == "git":
+        rev, commit = vcs.get("requested_revision"), vcs.get("commit_id")
+        ref = rev if rev and _TAG_RE.match(rev) else (commit or rev)
+        spec = f"git+{d.get('url') or REPO_URL}" + (f"@{ref}" if ref else "")
+    else:
+        folder = (_url_to_path(d.get("url")) if isinstance(dir_info, dict) else None) or (
+            _checkout_root_on_pythonpath() if d is None else None)
+        if folder is not None:
+            spec, editable = str(folder), bool(isinstance(dir_info, dict) and dir_info.get("editable"))
+            lock = str(Path(folder, "requirements.lock")) if Path(folder, "requirements.lock").is_file() else None
+    target = with_extras(spec, extras)
+    if Path(prefix, "uv-receipt.toml").exists():
+        lock = lock or (constraints_url(ref) if spec.startswith("git+") else None)
+        pin = f" --constraints {_quote_for_shell(lock)}" if lock else ""
+        return f"uv tool install --reinstall{pin}{' --editable' if editable else ''} {target}"
+    if Path(prefix, "pipx_metadata.json").exists():
+        return f"pipx install --force{' -e' if editable else ''} {target}"
+    return f"{_quote_for_shell(sys.executable)} -m pip install{' -e' if editable else ''} {target}"
+
+
 def _tool_reinstall_cmd(prefix: str, run_fn, *, editable: bool, path: str = ".",
                         spec_ref: Optional[str] = None) -> str:
     """Which of the three installers THIS install actually used, by the
@@ -275,10 +345,13 @@ def _tool_reinstall_cmd(prefix: str, run_fn, *, editable: bool, path: str = ".",
     one we're even running from right now) `uv tool list`/`pipx list`
     naming this distribution. Falls back to plain pip. The reinstall keeps
     the dependency versions pinned to the repo's requirements.lock
-    (`--constraints`), as the installer's own first install does."""
+    (`--constraints`), as the installer's own first install does, and the
+    extras the install was asked for (`requested_extras`: a reinstall that
+    names none drops them)."""
     path = _quote_for_shell(path)
     lock = _constraints_for(path, spec_ref)
     lock_q = _quote_for_shell(lock) if lock else None
+    path = with_extras(path, requested_extras(prefix))
     if Path(prefix, "uv-receipt.toml").exists() or _uv_tool_has(DIST_NAME, run_fn):
         pin = f" --constraints {lock_q}" if lock_q else ""
         return f"uv tool install --reinstall{pin}{' --editable' if editable else ''} {path}"
@@ -746,17 +819,25 @@ def _ancestor_pids(this_pid: int, pid_to_ppid: "dict[int, int]") -> "set[int]":
     return seen
 
 
-def list_processes(*, run_fn=None) -> "list[tuple[int, int, str]]":
+# Windows PowerShell 5.1 writes in the console's OEM code page (437/850) and Python reads text in the ANSI one
+# (cp1252): one u-umlaut (OEM byte 0x81, undefined in cp1252) in ANY process's command line emptied the whole list
+# (3.6.0.0 fix). Asked for UTF-8 and read as UTF-8, a byte that still does not decode is replaced, never fatal.
+PS_UTF8 = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+
+
+def list_processes(*, run_fn=None, windows: Optional[bool] = None) -> "list[tuple[int, int, str]]":
     """`(pid, ppid, command line)` for every process (`Get-CimInstance
     Win32_Process` on Windows, `ps -eo pid,ppid,args` elsewhere); `[]` when
     the list cannot be read."""
     run_fn = run_fn or run
+    windows = os.name == "nt" if windows is None else windows
     out: "list[tuple[int, int, str]]" = []
     try:
-        if os.name == "nt":
+        if windows:
             r = run_fn(["powershell", "-NoProfile", "-Command",
-                        "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CommandLine | "
-                        "ConvertTo-Json -Compress"], capture_output=True, text=True, timeout=10)
+                        PS_UTF8 + "Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,CommandLine | "
+                        "ConvertTo-Json -Compress"], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=10)
             rows = json.loads(r.stdout) if (r.stdout or "").strip() else []
             rows = [rows] if isinstance(rows, dict) else (rows if isinstance(rows, list) else [])
             for row in rows:
@@ -766,7 +847,7 @@ def list_processes(*, run_fn=None) -> "list[tuple[int, int, str]]":
                 if pid is not None and ppid is not None:
                     out.append((int(pid), int(ppid), str(row.get("CommandLine") or "")))
         else:
-            r = run_fn(["ps", "-eo", "pid,ppid,args"], capture_output=True, text=True, timeout=10)
+            r = run_fn(["ps", "-eo", "pid,ppid,args"], capture_output=True, text=True, errors="replace", timeout=10)
             for line in (r.stdout or "").splitlines()[1:]:
                 parts = line.strip().split(None, 2)
                 if len(parts) < 3 or not parts[0].isdigit() or not parts[1].isdigit():

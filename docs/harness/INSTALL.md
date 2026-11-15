@@ -210,8 +210,8 @@ uv tool install --editable . --offline --find-links wheels
 ```
 
 Re-run `vendor_wheels.py` after any dependency change (`pyproject.toml`'s
-`dependencies` plus a fresh `uv pip compile pyproject.toml --universal -o
-requirements.lock`) -- the wheels directory is a point-in-time snapshot of
+`dependencies` plus a fresh `uv pip compile pyproject.toml --universal
+--generate-hashes -o requirements.lock --python-version 3.10`) -- the wheels directory is a point-in-time snapshot of
 that lock file, not something that stays in sync on its own.
 
 ### `ug`/unity-gateway compatibility
@@ -264,8 +264,11 @@ packages there). Regenerate it after changing `pyproject.toml`'s
 `dependencies`:
 
 ```sh
-uv pip compile pyproject.toml --universal -o requirements.lock
+uv pip compile pyproject.toml --universal --generate-hashes -o requirements.lock --python-version 3.10
 ```
+
+`--python-version` is the oldest Python halo supports (`requires-python` in
+`pyproject.toml`): without it the lock fits only the Python that generated it.
 
 `uv tool install --editable .` and `pip install --user -e .` both resolve
 straight from `pyproject.toml` (not this file) and already do the right

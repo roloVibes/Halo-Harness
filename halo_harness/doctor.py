@@ -1029,10 +1029,11 @@ def _check_mlx_extra() -> Optional[str]:
     if not is_apple_silicon():
         return None
     import importlib.util
+    from halo_harness.update import extra_install_line
     if importlib.util.find_spec("mlx_lm") is not None:
         return f"{OK} MLX (Apple Silicon): mlx-lm installed -- hf:mlx/<org>/<repo> is ready to use"
     return _fix(f"{WARN} MLX (Apple Silicon): mlx-lm not installed -- hf:mlx/<org>/<repo> will decline until it is",
-                cmd='uv tool install "halo-harness[mlx]"')
+                cmd=extra_install_line("mlx"))
 
 
 def _format_age(seconds: float) -> str:

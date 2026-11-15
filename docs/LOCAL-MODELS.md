@@ -455,9 +455,11 @@ On an Apple Silicon Mac only, an optional extra routes straight to a
 Hugging Face Hub repo, no file management needed:
 
 ```sh
-uv tool install "halo-harness[mlx]"
+uv tool install --reinstall "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
 halo -p "..." --model hf:mlx/mlx-community/Qwen2.5-7B-Instruct-4bit
 ```
+
+(Halo prints this line for your own install: your release or clone, with the extras you already have. `halo-harness` is not on PyPI, so the bare name never installs.)
 
 Experimental, off by default, and unavailable to install on any other
 OS/CPU combination. See [docs/MAC.md](MAC.md) for the full walkthrough

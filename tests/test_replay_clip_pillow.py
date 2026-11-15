@@ -28,7 +28,8 @@ from tests.helpers.replay_seed import SID, T0, seed  # noqa: E402
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-INSTALL = 'uv tool install "halo-harness[images]"'
+from halo_harness.update import extra_install_line  # noqa: E402
+INSTALL = extra_install_line("images")  # 3.6.0.0 fix: this install's own line, never a bare `halo-harness[images]`
 
 
 @contextlib.contextmanager

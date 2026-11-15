@@ -124,8 +124,10 @@ measured at.
 ## 7. Install the MLX extra
 
 ```sh
-uv tool install "halo-harness[mlx]"
+uv tool install --reinstall "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
 ```
+
+(Halo prints this line for your own install: your release or clone, with the extras you already have. `halo-harness` is not on PyPI, so the bare name never installs.)
 
 This installs `mlx-lm` -- Apple's MLX inference runtime -- ONLY because
 your `sys_platform`/`platform_machine` match `darwin`/`arm64`

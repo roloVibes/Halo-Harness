@@ -318,8 +318,10 @@ Off by default -- `mlx-lm` is an optional extra, never installed unless
 you ask for it:
 
 ```sh
-uv tool install "halo-harness[mlx]"
+uv tool install --reinstall "halo-harness[mlx] @ git+https://github.com/roloVibes/Halo-Harness"
 ```
+
+(Halo prints this line for your own install: your release or clone, with the extras you already have. `halo-harness` is not on PyPI, so the bare name never installs.)
 
 (`pyproject.toml`'s own environment marker restricts this to macOS on
 arm64 -- `uv`/`pip` never even attempt it on any other platform.) `halo

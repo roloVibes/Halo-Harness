@@ -92,6 +92,20 @@ def older_release(build: dict, avail: dict, channel: Optional[str]) -> Optional[
             f"the main line; `halo update --to {avail.get('ref')}` moves back on purpose")
 
 
+def ahead_of_offer(build: dict, avail: dict, channel: Optional[str], checkout: Optional[Path]) -> Optional[str]:
+    """3.6.0.0 fix: the checkout's git says the commit on offer is an ANCESTOR of this build (release.py's version
+    commit on rc/<version>, a local commit ahead of its branch): the plain sentence that says so -- nothing to apply,
+    and applying would move this build back -- else None (no checkout to ask, the same commit, or no such order)."""
+    mine, theirs = build.get("commit"), avail.get("commit")
+    if not mine or not theirs or mine == theirs:
+        return None
+    if upd.commit_is_ancestor(theirs, mine, checkout=checkout) is not True:
+        return None
+    where = avail.get("ref") or channel or "the main line"
+    return (f"this build ({mine}) is ahead of {where} ({theirs}): the offer is older, nothing to apply; "
+            f"`halo update --to {where}` moves back on purpose")
+
+
 def _exit_code(build: dict, avail: dict) -> int:
     if not avail.get("commit") or not build.get("commit"):
         return 1
@@ -283,12 +297,18 @@ def cmd_update(argv: "list[str]") -> int:
         lines, count = upd.commits_between(build.get("commit"), avail.get("commit"), checkout=checkout)
         ordering = upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
         code = _exit_code(build, avail)
+    ahead = None if older or args.to or code != 10 or ordering is True else ahead_of_offer(build, avail, channel,
+                                                                                            checkout)
+    if ahead:
+        lines, count, code = [], None, 0
     # The reinstall command is shown only when there is something to apply
     # (or a --to was asked for) and this is a --check: an apply prints "running: ..." itself,
     # and an up-to-date install has nothing to run.
     _print_report(build, avail, lines, count, cmd, ordering=ordering, show_cmd=bool(args.check and (code == 10 or args.to)))
     if older:
         print(older)
+    if ahead:
+        print(ahead)
     if channel == "stable":
         # Review item 81: an install made from the release archive is
         # compared with that release's checksums.txt; a git or checkout
@@ -302,6 +322,9 @@ def cmd_update(argv: "list[str]") -> int:
     if older:
         print(f"halo update: not moving back -- {older}", file=sys.stderr)
         return 1
+    if ahead:
+        print(f"halo update: nothing to install -- {ahead}")
+        return 0
     if code == 0:
         where = f" ({avail.get('ref')})" if avail.get("ref") else ""
         print(f"halo update: already up to date -- {build.get('commit') or '?'} is the newest on {channel}{where}{cache_note(avail)}")

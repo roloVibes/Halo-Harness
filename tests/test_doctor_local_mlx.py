@@ -64,6 +64,7 @@ def test_doctor_local_hf_mlx_on_non_apple_box_fails_all_steps_with_sentence(ctx:
     a real Apple-silicon box the real path runs too, with the mlx_lm binary absent (never a server, never a
     download): every step says what to install."""
     from halo_harness.doctor_local import run_local_acceptance_check
+    from halo_harness.update import extra_install_line
     with _Env() as e, pinned(False):
         steps, ok = run_local_acceptance_check("hf:mlx/mlx-community/does-not-matter", state_dir=e.state_dir)
         ctx.check("4 steps always returned", len(steps) == 4)
@@ -76,7 +77,7 @@ def test_doctor_local_hf_mlx_on_non_apple_box_fails_all_steps_with_sentence(ctx:
             steps, ok = run_local_acceptance_check("hf:mlx/mlx-community/does-not-matter", state_dir=e.state_dir)
             ctx.check(f"Apple Silicon without mlx_lm: 4 FAIL steps naming the extra, got {steps!r}",
                       len(steps) == 4 and ok is False and all(s["ok"] is False for s in steps)
-                      and all("halo-harness[mlx]" in s["reason"] for s in steps))
+                      and all(extra_install_line("mlx") in s["reason"] for s in steps))
 
 
 @test

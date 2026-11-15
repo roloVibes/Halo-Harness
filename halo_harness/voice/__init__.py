@@ -16,7 +16,6 @@ Nothing in this round captures or plays audio (R2 brings the loop, R3 the host, 
 
 from __future__ import annotations
 
-INSTALL_LINE = 'uv tool install --reinstall "halo-harness[voice]"'
 KINDS = ("stt", "tts", "vad")
 RUNTIMES = ("voice-stt", "voice-tts")
 ENGINE_ENV = "HALO_VOICE_ENGINE"
@@ -31,5 +30,23 @@ def runtime_for(kind: str) -> str:
     return f"voice-{kind}"
 
 
+_LINE: "list[str]" = []
+
+
+def install_line() -> str:
+    """The command that adds the voice extra to THIS install (update.extra_install_line; 3.6.0.0 fix: the old
+    constant named a bare `halo-harness[voice]`, which no index has). Read once per process."""
+    if not _LINE:
+        from halo_harness.update import extra_install_line
+        _LINE.append(extra_install_line("voice"))
+    return _LINE[0]
+
+
+def __getattr__(name: str):
+    if name == "INSTALL_LINE":  # every `from halo_harness.voice import INSTALL_LINE` keeps working
+        return install_line()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def install_says(what: str = "the speech engines") -> str:
-    return f"{what} are not installed: {INSTALL_LINE}"
+    return f"{what} are not installed: {install_line()}"

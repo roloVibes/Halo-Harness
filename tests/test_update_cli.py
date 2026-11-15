@@ -655,6 +655,32 @@ def test_an_archive_install_of_the_current_tag_is_not_called_older(ctx: Ctx):
     ctx.check("a known main-line build ahead of the tag still is told", got and "OLDER" in got)
 
 
+@test
+def test_a_build_ahead_of_the_main_line_is_told_and_nothing_is_offered(ctx: Ctx):
+    """3.6.0.0 fix (realcheck on every release candidate): a checkout whose HEAD is AHEAD of the branch head on
+    offer (release.py's version commit on rc/<version>, a local commit) was told "differs from (main) ... to apply:
+    halo update" with exit 10, and `halo update` would have moved it back. The checkout's git says the offer is an
+    ancestor of this build: said in plain words, exit 0, no install line, and a plain `halo update` installs nothing.
+    With no checkout to ask, or a real divergence, the old answer stands."""
+    from tests.helpers.update_inline import PLANS
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb")
+    upd.commit_is_ancestor = lambda old, new, **kw: (old, new) == ("bbbbbbb", "aaaaaaa")  # the offer is behind
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"--check: exit 0, says this build is ahead and the offer older, no install line, got {code} {out!r}",
+                  code == 0 and "ahead of master (bbbbbbb)" in out and "older" in out and "to apply:" not in out)
+        before = len(PLANS)
+        code, out, err = _capture(update_cli.cmd_update, [])
+        ctx.check(f"a plain `halo update` installs nothing and says why, got {code} {out!r} {err!r}",
+                  code == 0 and len(PLANS) == before and "nothing to install" in out and "ahead of master" in out)
+        upd.commit_is_ancestor = lambda old, new, **kw: False  # diverged: neither leads to the other
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"a real divergence keeps 'differs from' and exit 10, got {code} {out!r}",
+                  code == 10 and "differs from (main): bbbbbbb" in out and "ahead of" not in out)
+    finally:
+        _restore_all(orig)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

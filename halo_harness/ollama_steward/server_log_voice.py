@@ -19,11 +19,13 @@ import re
 from typing import Optional
 
 from halo_harness.ollama_steward.server_rules import event
-from halo_harness.voice import INSTALL_LINE
 from halo_harness.voice.log_lines import parse
 
 SAYS = ("load-failed", "http-500", "other-error", "timing", "load-result")
 _EXC = re.compile(r"^\w*(Error|Exception): ")
+# the voice extra's install line, in any form a speech server ever logged (the bare one before 3.6.0.0, then
+# `"halo-harness[voice] @ git+..."` or a clone's `"<folder>[tls,voice]"`)
+_EXTRA = re.compile(r"halo-harness\[[^\]]*\bvoice\b|\[[^\]]*\bvoice\b[^\]]*\]\"?$")
 
 
 def classify(line: str, at=None, runtime: Optional[str] = None) -> Optional[dict]:
@@ -51,7 +53,7 @@ def classify(line: str, at=None, runtime: Optional[str] = None) -> Optional[dict
     if w == "load-failed":
         return event("load-failed", f"the speech server failed to load {got['model']} on {got['device']}: "
                      f"{got['error'][:160]}", text, at=at, model=got["model"], runtime=rt, device=got["device"],
-                     error=got["error"], extra=INSTALL_LINE in got["error"] or None, voice=got["kind"])
+                     error=got["error"], extra=bool(_EXTRA.search(got["error"])) or None, voice=got["kind"])
     if w == "request-failed":
         kind = "http-500" if got["status"] == 500 else "other-error"
         return event(kind, f"a speech request failed ({got['method']} {got['path']} {got['status']}): {got['error'][:160]}",

@@ -10,7 +10,7 @@ animations (tools/capture_session_anim.py: Chrome frames, Pillow writes the file
 
 The clip is WIDTH px wide, FPS frames a second, at most MAX_SECONDS long: a range that would run longer at the asked
 speed is played faster to fit (`note` says so). Needs Chrome (HALO_CHROME, else the usual install) and Pillow
-(`uv tool install "halo-harness[images]"`); without either it says which and writes nothing. 3.4.1.0 R6: saying what a
+(the images extra: `update.extra_install_line("images")`); without either it says which and writes nothing. 3.4.1.0 R6: saying what a
 clip WILL write (the plan, `--dry-run`, the dialog) needs neither: only the encode needs Pillow, and `encoder()` says so
 in one line, with the install command, before anything is written.
 """
@@ -60,15 +60,18 @@ def plan(payload: dict, frm: Optional[float] = None, to: Optional[float] = None,
             "width": WIDTH, "times": times, "note": note, "max_seconds": MAX_SECONDS}
 
 
-NEEDS_PILLOW = ('encoding a clip needs Pillow, which is not installed here: uv tool install "halo-harness[images]" '
-                '(or pip install Pillow)')
+def needs_pillow() -> str:
+    """The one line when Pillow is missing, with the command that adds the images extra to THIS install."""
+    from halo_harness.update import extra_install_line
+    return (f"encoding a clip needs Pillow, which is not installed here: {extra_install_line('images')} "
+            "(or pip install Pillow)")
 
 
 def _pil():
     try:
         from PIL import Image, features
     except ImportError:
-        raise ClipError(NEEDS_PILLOW) from None
+        raise ClipError(needs_pillow()) from None
     return Image, features
 
 

@@ -164,10 +164,13 @@ def reinstall_cmd(to: Optional[str] = None) -> "tuple[Optional[str], dict]":
     cmd = kind.get("reinstall_cmd")
     stable_tag = avail.get("ref") if channel == "stable" and upd._TAG_RE.match(avail.get("ref") or "") else None
     new_ref = to or stable_tag
-    from halo_harness.update_cli import older_release
+    from pathlib import Path
+    from halo_harness.update_cli import ahead_of_offer, older_release
     from halo_harness.update_plan import expectation
+    checkout = Path(build["checkout"]) if build.get("checkout") else None
     kind = {**kind, "current_cmd": kind.get("reinstall_cmd"), "expect": expectation(new_ref, channel, avail, build),
-            "older": None if to else older_release(build, avail, channel)}
+            "older": None if to else (older_release(build, avail, channel)
+                                      or ahead_of_offer(build, avail, channel, checkout))}
     if new_ref and cmd and kind.get("spec"):
         cmd = _retarget_cmd(cmd, kind["spec"], new_ref)
     return cmd, kind

@@ -182,6 +182,7 @@ def test_hf_mlx_on_non_apple_box_is_a_clean_refusal(ctx: Ctx):
     local.py` already documents) -- on THIS box (never Apple Silicon)
     the refusal is the one deterministic, portable outcome to pin."""
     from halo_harness.gym_run import run_gym_for_model
+    from halo_harness.update import extra_install_line
     keys = ("tool_call_accuracy", "edit_success", "context_recall", "instruction_adherence")
     with _Env() as env, pinned(False):  # R12: the non-Apple refusal, pinned on every host
         result = run_gym_for_model("hf:mlx/mlx-community/does-not-matter", quick=True, state_dir=env.state_dir)
@@ -192,7 +193,7 @@ def test_hf_mlx_on_non_apple_box_is_a_clean_refusal(ctx: Ctx):
         with _Env() as env, no_mlx_runtime():
             result = run_gym_for_model("hf:mlx/mlx-community/does-not-matter", quick=True, state_dir=env.state_dir)
             ctx.check(f"Apple Silicon: one plain line naming the extra, got {result['errors']}",
-                      len(result["errors"]) == 1 and "halo-harness[mlx]" in result["errors"][0])
+                      len(result["errors"]) == 1 and extra_install_line("mlx") in result["errors"][0])
             ctx.check("Apple Silicon: every score stayed None", all(result[k]["score"] is None for k in keys))
 
 

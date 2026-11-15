@@ -37,12 +37,47 @@ def _fetch_lock(url: str) -> bytes:
 fetch_lock = _fetch_lock  # the seam: tests replace this name, never the network
 
 
+# pip's and pipx's flag (`--constraint`, inside pipx's `--pip-args="..."`): an https URL or a checkout's own path.
+_PIP_CONSTRAINT_RE = re.compile(r"""(?P<flag>--constraint\s+)(?P<val>"[^"]+"|'[^']+'|[^\s"']+)""")
+_HASH_RE = re.compile(r"\s+--hash[=\s]\S+")
+
+
+def versions_only(text: str) -> str:
+    """requirements.lock without its `--hash=` options (markers and comments kept). A hash anywhere in a constraints
+    file puts pip in hash-checking mode for the WHOLE install, and pip cannot hash a git URL or a folder -- the very
+    thing `halo update` installs on a pipx or pip install (3.6.0.0 fix). uv does not compare those hashes."""
+    joined = re.sub(r"\\\r?\n", " ", text)
+    return "\n".join(_HASH_RE.sub("", line).rstrip() for line in joined.splitlines()) + "\n"
+
+
+def _pin_pip_locally(cmd: str, m: "re.Match", fetch) -> "tuple[Optional[str], str]":
+    from halo_harness.update import _quote_for_shell
+    where = m.group("val").strip("\"'")
+    try:
+        data = (fetch or fetch_lock)(where) if where.startswith("https://") else Path(where).read_bytes()
+        if not data or b"==" not in data:
+            raise ValueError("not a requirements lock")
+        tmp = Path(tempfile.mkdtemp(prefix="halo-lock-")) / "requirements.lock"
+        tmp.write_text(versions_only(data.decode("utf-8", "replace")), encoding="utf-8")
+        k = cmd.rfind('--pip-args="', 0, m.start())
+        inside = k >= 0 and '"' not in cmd[k + len('--pip-args="'):m.start()]
+        val = str(tmp) if inside else _quote_for_shell(str(tmp))  # pipx splits its --pip-args itself
+        return cmd[:m.start()] + m.group("flag") + val + cmd[m.end():], ""
+    except Exception as e:  # noqa: BLE001 -- any failure: nothing installs, said once (fails closed)
+        reason = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+        bare = re.sub(r'\s*--pip-args="\s*"', "", cmd[:m.start()].rstrip() + cmd[m.end():])
+        return None, (f"halo update: the dependency lock could not be read from {where} ({reason}), so nothing was "
+                      f"installed; try again, or install without the pin on purpose: {bare}")
+
+
 def pin_locally(cmd: str, fetch: Optional[Callable[[str], bytes]] = None) -> "tuple[Optional[str], str]":
     """The command with its https `--constraints` replaced by a local copy and "" -- or, when the lock could not be
-    fetched, None and the one line that says so and how to install without it on purpose."""
+    fetched, None and the one line that says so and how to install without it on purpose. pip's and pipx's
+    `--constraint` (a URL or a checkout's path) always gets a local copy without hashes (`versions_only`)."""
     m = _CONSTRAINTS_RE.search(cmd or "")
     if not m:
-        return cmd, ""
+        pm = _PIP_CONSTRAINT_RE.search(cmd or "")
+        return _pin_pip_locally(cmd, pm, fetch) if pm else (cmd, "")
     url = m.group("url")
     try:
         data = (fetch or fetch_lock)(url)

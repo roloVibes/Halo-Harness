@@ -43,7 +43,8 @@ def binary(runtime: str, *, state_dir=None) -> "tuple[Optional[list], str]":
             return None, "under the test flag (BRIDGE_TEST_NO_BACKGROUND_NET) mlx_lm.server is not started"
         import importlib.util
         if importlib.util.find_spec("mlx_lm") is None:
-            return None, 'mlx-lm is not installed: uv tool install "halo-harness[mlx]" (or pip install mlx-lm)'
+            from halo_harness.update import extra_install_line
+            return None, f"mlx-lm is not installed: {extra_install_line('mlx')} (or pip install mlx-lm)"
         from halo_harness.selfexec import python_argv  # never the project folder's own mlx_lm (it runs there)
         return python_argv("mlx_lm.server"), "python -m mlx_lm.server (mlx-lm in this Python)"
     conf = get_config_value("huggingface.llama_server_bin", default=None)

@@ -8,7 +8,7 @@ Read this when you talk to a session from the command line (`halo voice`, `halo 
 them. What the loop does, the models, the routes, the device choice and the steward's findings are in
 [VOICE.md](VOICE.md). Part of [Commands](COMMANDS.md), which lists every part. Exit codes: 0 done, 1 could not (the
 reason printed), 2 nothing to run (a declared model with no engine, the voice extra not installed: the one install
-line `uv tool install --reinstall "halo-harness[voice]"`).
+line `uv tool install --reinstall "halo-harness[voice] @ git+https://github.com/roloVibes/Halo-Harness"`).
 
 ## `halo voice`
 

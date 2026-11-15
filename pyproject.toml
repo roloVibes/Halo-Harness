@@ -38,7 +38,7 @@ vision = [
 images = [
     "Pillow>=10",
 ]
-# Halo 2.0.3 round 5f: `uv tool install "halo-harness[mlx]"` -- the
+# Halo 2.0.3 round 5f: the `mlx` extra (its install line: update.extra_install_line) -- the
 # `hf:mlx/<org>/<repo>` route's own managed `mlx_lm.server` helper
 # (halo_harness/providers/huggingface_mlx.py). The environment marker
 # restricts this to Apple Silicon ONLY (macOS on arm64) so `uv`/`pip`
@@ -61,7 +61,7 @@ tls = [
 fleet = [
     "cryptography>=41",
 ]
-# Halo 3.3.9.0 round R1: `uv tool install --reinstall "halo-harness[voice]"` -- the
+# Halo 3.3.9.0 round R1: the `voice` extra (its install line: update.extra_install_line) -- the
 # speech server's engines (halo_harness/voice/engines.py): faster-whisper
 # (CTranslate2) for speech-to-text, kokoro-onnx (onnxruntime) for
 # text-to-speech, numpy and soundfile for the audio. All MIT / Apache-2.0 /
