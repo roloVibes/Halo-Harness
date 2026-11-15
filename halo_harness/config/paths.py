@@ -702,26 +702,40 @@ def memory_dir(cwd: str | Path, settings=None) -> Path:
     return claude_config_dir() / "projects" / slug / "memory"
 
 
-def git_bash() -> Path | None:
-    """Return git bash path if found, else None."""
-    if os.name == "nt":
-        # Windows: check env var first
-        env_path = os.environ.get("CLAUDE_CODE_GIT_BASH_PATH")
+def git_bash(env=None, which=None, windows: Optional[bool] = None) -> Path | None:
+    """Return git bash path if found, else None.
+
+    Windows (3.6.0.0): CLAUDE_CODE_GIT_BASH_PATH, then Git's install folders (%ProgramFiles%, %ProgramW6432%,
+    %ProgramFiles(x86)%, a per-user %LOCALAPPDATA%\\Programs; `C:\\Program Files` when the variable is unset), then the Git whose git.exe is on
+    PATH, then a bash.exe on PATH -- never WSL's launcher (System32\\bash.exe, a WindowsApps alias). `env`, `which` and
+    `windows` are the inputs a test feeds."""
+    env = os.environ if env is None else env
+    which = shutil.which if which is None else which
+    if (os.name == "nt") if windows is None else windows:
+        env_path = env.get("CLAUDE_CODE_GIT_BASH_PATH")
         if env_path:
             p = Path(env_path)
             if p.exists():
                 return p
-        # Try common locations
-        paths = [
-            Path("C:\\Program Files\\Git\\usr\\bin\\bash.exe"),
-            Path("C:\\Program Files\\Git\\bin\\bash.exe"),
-        ]
-        for p in paths:
-            if p.exists():
-                return p
+        roots = [Path(env[k]) / "Git" for k in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)") if env.get(k)]
+        if env.get("LOCALAPPDATA"):
+            roots.append(Path(env["LOCALAPPDATA"]) / "Programs" / "Git")
+        if not env.get("ProgramFiles"):  # a stripped environment
+            roots.append(Path("C:\\Program Files\\Git"))
+        git = which("git")
+        if git:  # <root>\cmd\git.exe, <root>\bin\git.exe, <root>\mingw64\bin\git.exe
+            here = Path(git).parent
+            roots += [here.parent, here.parent.parent]
+        for root in roots:
+            for p in (root / "usr" / "bin" / "bash.exe", root / "bin" / "bash.exe"):
+                if p.is_file():
+                    return p
+        bash = which("bash")
+        if bash and not {s.lower() for s in Path(bash).parts} & {"system32", "sysnative", "windowsapps"}:
+            return Path(bash)
         return None
     # POSIX
-    bash = shutil.which("bash")
+    bash = which("bash")
     if bash:
         return Path(bash)
     return Path("/bin/bash")

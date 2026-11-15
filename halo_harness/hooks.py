@@ -502,8 +502,9 @@ def _shell_argv(hook: HookDef, command_text: str) -> list:
     (`dash` on Kali/Debian: `[[ ... ]]` and other bashisms fail). The
     "no explicit shell" default genuinely IS `/bin/sh` on POSIX [D-CFG]
     -- only a REQUEST for bash specifically must get real bash."""
+    from halo_harness.tools.powershell import powershell_argv  # 3.6.0.0: its output is UTF-8, as it is read
     if hook.shell == "powershell":
-        return ["powershell", "-NoProfile", "-NonInteractive", "-Command", command_text]
+        return powershell_argv(command_text)
     if sys.platform == "win32" and hook.shell in (None, "bash"):
         # Git Bash on win32 for both the default and an explicit "bash"
         # request (there is no separate native POSIX /bin/sh on Windows).
@@ -512,10 +513,16 @@ def _shell_argv(hook: HookDef, command_text: str) -> list:
         if bash is not None:
             return [str(bash), "-c", command_text]
         log.warning("hook: no Git Bash found on PATH -- falling back to PowerShell")
-        return ["powershell", "-NoProfile", "-NonInteractive", "-Command", command_text]
+        return powershell_argv(command_text)
     if hook.shell == "bash":
         return ["/bin/bash", "-c", command_text]
     return ["/bin/sh", "-c", command_text]  # default (no explicit `shell`) on POSIX [D-CFG]
+
+
+def _private_console(argv: list) -> int:
+    """PowerShell (which sets its own console's code page to UTF-8 first) gets a hidden console of its own."""
+    from halo_harness.tools.powershell import PRIVATE_CONSOLE, UTF8_FIRST
+    return PRIVATE_CONSOLE if len(argv) == 5 and str(argv[4]).startswith(UTF8_FIRST) else 0
 
 
 def run_command_hook(hook: HookDef, payload: dict, *, cwd, env: dict, abort=None) -> HookResult:
@@ -543,7 +550,7 @@ def run_command_hook(hook: HookDef, payload: dict, *, cwd, env: dict, abort=None
         proc = subprocess.Popen(
             argv, cwd=str(cwd), env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
+            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | _private_console(argv) if os.name == "nt" else 0),
             start_new_session=(os.name != "nt"),
         )
     except OSError as e:

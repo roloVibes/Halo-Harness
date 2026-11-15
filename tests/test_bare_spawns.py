@@ -119,6 +119,79 @@ def test_packs4_a_planted_exe_in_the_cwd_is_not_run(ctx: Ctx):
     ctx.check(f"collect_git_info in that folder never ran the copy, got {info[:120]!r}", host not in info)
 
 
+def _plant(folder: Path, name: str, body: str) -> Path:
+    """A runnable script `name` in `folder`: `<name>.cmd` on Windows, an executable sh file elsewhere."""
+    p = folder / (name + (".cmd" if sys.platform == "win32" else ""))
+    p.write_text(("@echo off\r\n" + body + "\r\n") if sys.platform == "win32" else ("#!/bin/sh\n" + body + "\n"),
+                 encoding="utf-8")
+    os.chmod(p, 0o755)
+    return p
+
+
+@test
+def test_fx_which_never_answers_from_the_current_folder(ctx: Ctx):
+    """3.6.0.0 fx windows-shell: `subprocess_safe.which` is `shutil.which` over the PATH folders alone. A program only
+    the current folder holds is not found (Python 3.10 / 3.11's shutil.which on Windows puts the current folder first),
+    nor through a relative PATH entry (`.` or an empty one), on every platform."""
+    from halo_harness import subprocess_safe as S
+    base = Path(tempfile.mkdtemp(prefix="which-cwd-")).resolve()
+    here, there = base / "proj", base / "bin"
+    here.mkdir()
+    there.mkdir()
+    name = "halo-fx-probe-tool"
+    planted = _plant(here, name, "echo planted")
+    old_cwd, old_path = os.getcwd(), os.environ.get("PATH")
+    os.chdir(here)
+    os.environ["PATH"] = os.pathsep.join([".", "", str(there)])
+    try:
+        ctx.check(f"only the current folder holds it: None, got {S.which(name)!r}", S.which(name) is None)
+        real = _plant(there, name, "echo real")
+        got = S.which(name)
+        ctx.check(f"the PATH folder's copy, got {got!r}", bool(got) and Path(got).parent == there)
+        ctx.check("an absolute path names its own file", S.which(str(planted)) == str(planted))
+        alt = S.which(name, path=os.pathsep.join([".", str(there)]))
+        ctx.check(f"an explicit path= keeps its absolute folders only, got {alt!r}",
+                  bool(alt) and Path(alt).parent == there)
+        ctx.check("a folder is never a program", S.which("bin", path=str(base)) is None)
+        ctx.check(f"found = {real.name} exists", real.is_file())
+    finally:
+        os.chdir(old_cwd)
+        if old_path is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = old_path
+
+
+@test
+def test_fx_windows_a_planted_rg_cmd_in_the_project_is_not_run_by_grep(ctx: Ctx):
+    """3.6.0.0 fx windows-shell: on Windows `import halo_harness` makes `shutil.which` the safe one, so the ~90 places
+    that ask it for a program (Grep's rg, Setup's halo, gh, ffmpeg, nvidia-smi, the updater's python ...) never get a
+    file from the current folder, on Python 3.10 / 3.11 too."""
+    if sys.platform != "win32":
+        ctx.check("POSIX: shutil.which never searches the current folder (PATH folders only)", True)
+        return
+    import halo_harness  # noqa: F401
+    from halo_harness import subprocess_safe as S
+    from halo_harness.tools.base import ToolContext
+    from halo_harness.tools.grep_tool import GrepTool
+    here = Path(tempfile.mkdtemp(prefix="which-rg-")).resolve()
+    marker = here / "PLANTED-RAN.txt"
+    _plant(here, "rg", f'echo ran> "{marker}"')
+    (here / "a.txt").write_text("hello\n", encoding="utf-8")
+    old_cwd = os.getcwd()
+    os.chdir(here)
+    try:
+        hit = shutil.which("rg")
+        ctx.check(f"shutil.which('rg') is not the project's file, got {hit!r}",
+                  not hit or Path(hit).resolve().parent != here)
+        res = GrepTool().run({"pattern": "hello", "path": str(here)}, ToolContext(cwd=here))
+        ctx.check(f"Grep still searched, got {res.content[:200]!r}", "a.txt" in res.content)
+    finally:
+        os.chdir(old_cwd)
+    ctx.check("the project's rg.cmd never ran", not marker.exists())
+    ctx.check("shutil.which is subprocess_safe.which after the import", shutil.which is getattr(S, "which", None))
+
+
 @test
 def test_packs4_a_tests_replacement_still_gets_the_call(ctx: Ctx):
     from halo_harness import subprocess_safe as S

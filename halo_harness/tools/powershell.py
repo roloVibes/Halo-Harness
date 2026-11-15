@@ -18,6 +18,17 @@ from halo_harness.tools.base import Tool, ToolContext, ToolResult
 DEFAULT_TIMEOUT_MS = 120_000
 MAX_TIMEOUT_MS = 600_000
 
+#: 3.6.0.0: Windows PowerShell 5.1 writes in the console's OEM code page and Halo reads UTF-8 (umlauts came back as
+#: U+FFFD, CJK as '?'), so every command Halo hands it sets UTF-8 (no BOM) first ...
+UTF8_FIRST = "try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; "
+#: ... in a console of its own (hidden), so that code page is never the person's terminal's
+PRIVATE_CONSOLE = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
+
+
+def powershell_argv(command: str) -> list:
+    """The argv the PowerShell tool and a `shell: "powershell"` hook start (start it with PRIVATE_CONSOLE)."""
+    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", UTF8_FIRST + command]
+
 DESCRIPTION = (
     "Executes a PowerShell command (Windows only).\n\n"
     "Usage notes:\n"
@@ -68,9 +79,9 @@ class PowerShellTool(Tool):
         env["CLAUDECODE"] = "1"
         env["HALO_OWNER_PID"] = str(os.getpid())  # 3.2.2.0 R3: a `halo --bg` run from here belongs to this session
 
-        argv = ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command]
+        argv = powershell_argv(command)
         raw_output, exit_code, timed_out, aborted = run_streamed(
-            argv, cwd=ctx.cwd, env=env, timeout_s=timeout_ms / 1000.0,
+            argv, cwd=ctx.cwd, env=env, timeout_s=timeout_ms / 1000.0, creationflags=PRIVATE_CONSOLE,
             abort=getattr(ctx, "abort", None), progress_cb=getattr(ctx, "progress_cb", None),
         )
 

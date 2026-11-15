@@ -3,7 +3,7 @@ named by a bare name (`git`, `netsh`, `taskkill` ...) is resolved to its absolut
 current folder, before it is started.
 
 On Windows, CreateProcess looks for a bare name in the parent's current folder before System32 and PATH, so a repo
-holding `git.exe` ran it the moment Halo asked git for the branch. Two parts close that:
+holding `git.exe` ran it the moment Halo asked git for the branch. Three parts close that:
 
 1. `guard_cwd_search()` sets `NoDefaultCurrentDirectoryInExePath=1` in this process (halo_harness/__init__.py runs it
    first, so the console script, `python -m halo_harness`, headless sessions, Studio, the host and pack CLIs all have it
@@ -11,7 +11,9 @@ holding `git.exe` ran it the moment Halo asked git for the branch. Two parts clo
 2. every module of the package and the shipped packs imports this module as its `subprocess`
    (`from halo_harness import subprocess_safe as subprocess`), so `run` / `Popen` / `call` / `check_call` /
    `check_output` resolve a bare argv[0] with `exe()`. tests/test_bare_spawns.py fails on a module that imports the
-   standard module instead.
+   standard module instead;
+3. (3.6.0.0) on Windows `guard_cwd_search()` also makes `shutil.which` this module's `which` (PATH folders only):
+   Python 3.10 / 3.11's own answered `.\\rg.CMD` from the current folder, and callers run the path it answers.
 
 A test that replaced the standard function (`subprocess.run = fake`) still gets the call, unchanged. A name not found
 on PATH is passed as it was (the first part keeps Windows from looking in the current folder for it). Anything else is
@@ -21,6 +23,7 @@ the standard module's (`__getattr__`).
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess as _sp
 import sys
 from subprocess import DEVNULL, PIPE, STDOUT, CalledProcessError, CompletedProcess, SubprocessError, TimeoutExpired  # noqa: F401
@@ -30,17 +33,43 @@ STDLIB_POPEN = _sp.Popen
 _ORIG = {"run": _sp.run, "call": _sp.call, "check_call": _sp.check_call, "check_output": _sp.check_output,
          "Popen": _sp.Popen}
 _cache: dict = {}
+_STD_WHICH = getattr(shutil, "_halo_std_which", shutil.which)  # the standard one, also after a reload of this module
+shutil._halo_std_which = _STD_WHICH
 
 
 def guard_cwd_search() -> None:
-    """Windows: CreateProcess (and Python 3.12's shutil.which) skip the current folder for a bare program name."""
+    """Windows: CreateProcess skips the current folder for a bare program name, and so does `shutil.which` (3.6.0.0:
+    Python 3.10 / 3.11's own put the current folder first whatever the variable says, and about 90 places run the
+    path it answers: Grep's rg, Setup's halo, gh, ffmpeg ... It is this module's `which` from here on)."""
     if sys.platform == "win32":
         os.environ.setdefault("NoDefaultCurrentDirectoryInExePath", "1")
+        shutil.which = which
 
 
 def _bare(name) -> bool:
     return (isinstance(name, str) and bool(name) and not any(ch in name for ch in "/\\:")
             and not os.path.isabs(name))
+
+
+def which(cmd, mode: int = os.F_OK | os.X_OK, path=None) -> Optional[str]:
+    """`shutil.which` over the absolute PATH folders alone: never the current folder, never a relative entry (`.` or
+    an empty one names the current folder). A name with a folder in it is the standard function's."""
+    if not _bare(cmd):
+        return _STD_WHICH(cmd, mode, path)
+    path = os.environ.get("PATH", os.defpath) if path is None else os.fsdecode(path)
+    names = [cmd]
+    if sys.platform == "win32":
+        exts = [e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e]
+        names = ([cmd] if os.path.splitext(cmd)[1] else []) + [cmd + e for e in exts]
+    for folder in path.split(os.pathsep):
+        folder = folder.strip().strip('"')
+        if not folder or not os.path.isabs(folder):
+            continue
+        for n in names:
+            cand = os.path.join(folder, n)
+            if os.path.exists(cand) and os.access(cand, mode) and not os.path.isdir(cand):
+                return cand
+    return None
 
 
 def exe(name: str) -> str:

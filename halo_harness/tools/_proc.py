@@ -246,7 +246,7 @@ def run_streamed(
     on_timeout_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
     steer_cut: Optional["threading.Event"] = None,
     on_steer_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
-    on_spill: Optional[Callable[[Path], None]] = None,
+    on_spill: Optional[Callable[[Path], None]] = None, creationflags: int = 0,
 ) -> "tuple[str, Optional[int], bool, bool]":
     """Run `argv`, return (merged_output, exit_code, timed_out, aborted).
     `exit_code` is None only when the process itself could never be
@@ -294,7 +294,7 @@ def run_streamed(
         proc = subprocess.Popen(
             argv, cwd=str(cwd), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
-            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0),
+            creationflags=((subprocess.CREATE_NEW_PROCESS_GROUP | creationflags) if os.name == "nt" else 0),
             start_new_session=(os.name != "nt"),
         )
     except OSError as e:

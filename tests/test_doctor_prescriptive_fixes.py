@@ -88,7 +88,10 @@ def test_every_warn_or_missing_line_in_run_checks_has_a_fix_or_see(ctx: Ctx):
               f"{len(warn_or_missing)}", len(warn_or_missing) >= 8)
     bad = _missing_fix_lines(lines)
     ctx.check(f"every WARN/MISSING line ends with -> fix: or -> see:, offenders={bad}", not bad)
-    ctx.check("ok is False (something came back MISSING)", ok is False)
+    # 3.6.0.0: a fresh home's one MISSING line was "~/.claude directory" (now an optional WARN); `ok` is still the
+    # absence of MISSING lines, whatever this machine lacks
+    ctx.check("ok is True exactly when nothing came back MISSING",
+              ok is (not [l for l in lines if l.startswith("[MISSING]")]))
 
 
 @test
@@ -422,6 +425,25 @@ def _hermetic_child_env() -> dict:
     for k in [k for k in env if k.startswith("HALO_")]:
         env.pop(k, None)
     return env
+
+
+@test
+def test_fx_no_claude_folder_is_a_warn_not_missing(ctx: Ctx):
+    """3.6.0.0 fx windows-shell: Halo runs without Claude Code, yet a machine with no ~/.claude folder got `[MISSING]
+    ~/.claude directory -> fix: claude` and `halo doctor` exited 1, also right after a finished `halo init` (and the
+    Windows installer ends on `halo doctor`). It is optional like settings.json and .claude.json."""
+    from halo_harness.doctor import MISSING, WARN, _check_claude_layout, run_checks
+
+    def go(home):
+        return _check_claude_layout(), run_checks(cwd=home)[0]
+
+    rows, lines = _isolated(go)
+    row = next((r for r in rows if "~/.claude directory" in r), "")
+    ctx.check(f"a WARN, got {row!r}", row.startswith(WARN))
+    ctx.check(f"says it is optional and names no `claude` fix, got {row!r}",
+              "optional" in row and "-> fix: claude" not in row and "-> see:" in row)
+    ctx.check("no MISSING line about ~/.claude in the whole doctor",
+              not [l for l in lines if l.startswith(MISSING) and ".claude" in l])
 
 
 if __name__ == "__main__":

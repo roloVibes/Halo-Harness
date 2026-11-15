@@ -129,6 +129,58 @@ def test_git_bash_never_raises(ctx: Ctx):
         ctx.check(f"git_bash() must never raise, got {e!r}", False)
 
 
+def _touch(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"")
+    return path
+
+
+@test
+def test_fx_git_bash_found_outside_the_one_fixed_folder(ctx: Ctx):
+    """3.6.0.0 fx windows-shell: on Windows Git Bash was looked for in `C:\\Program Files\\Git` only, so a per-user
+    install (%LOCALAPPDATA%\\Programs\\Git), one on D:, or one only PATH knows (scoop, a portable Git) lost the Bash
+    tool, and hooks written for sh ran in PowerShell. Fed its inputs (the environment, what PATH holds) it runs
+    everywhere."""
+    tmp = Path(tempfile.mkdtemp(prefix="fx-git-bash-")).resolve()
+    empty = tmp / "empty"
+    empty.mkdir()
+    base = {"ProgramFiles": str(empty), "ProgramW6432": str(empty), "ProgramFiles(x86)": str(empty)}
+    nothing = lambda name: None  # noqa: E731
+    try:
+        user = _touch(tmp / "la" / "Programs" / "Git" / "usr" / "bin" / "bash.exe")
+        got = p.git_bash(env=dict(base, LOCALAPPDATA=str(tmp / "la")), which=nothing, windows=True)
+        ctx.check(f"a per-user install (LOCALAPPDATA\\Programs\\Git), got {got}", got == user)
+
+        pf = _touch(tmp / "pf" / "Git" / "bin" / "bash.exe")
+        got = p.git_bash(env=dict(base, ProgramFiles=str(tmp / "pf")), which=nothing, windows=True)
+        ctx.check(f"%ProgramFiles%\\Git on another drive, got {got}", got == pf)
+
+        d = _touch(tmp / "d" / "tools" / "Git" / "usr" / "bin" / "bash.exe")
+        git = _touch(tmp / "d" / "tools" / "Git" / "cmd" / "git.exe")
+        got = p.git_bash(env=dict(base), which=lambda n: str(git) if n == "git" else None, windows=True)
+        ctx.check(f"found from git on PATH (<root>\\cmd\\git.exe), got {got}", got == d)
+
+        shim = _touch(tmp / "scoop" / "shims" / "bash.exe")
+        got = p.git_bash(env=dict(base), which=lambda n: str(shim) if n == "bash" else None, windows=True)
+        ctx.check(f"a bash on PATH (a scoop shim), got {got}", got == shim)
+
+        for bad in (tmp / "Windows" / "System32" / "bash.exe",
+                    tmp / "Users" / "x" / "AppData" / "Local" / "Microsoft" / "WindowsApps" / "bash.exe"):
+            _touch(bad)
+            env = dict(base, SystemRoot=str(tmp / "Windows"))
+            got = p.git_bash(env=env, which=lambda n, b=bad: str(b) if n == "bash" else None, windows=True)
+            ctx.check(f"never WSL's launcher {bad.parent.name}\\bash.exe, got {got}", got is None)
+
+        env_bash = _touch(tmp / "own" / "bash.exe")
+        got = p.git_bash(env=dict(base, CLAUDE_CODE_GIT_BASH_PATH=str(env_bash), LOCALAPPDATA=str(tmp / "la")),
+                         which=nothing, windows=True)
+        ctx.check(f"CLAUDE_CODE_GIT_BASH_PATH still wins, got {got}", got == env_bash)
+        ctx.check("nothing anywhere: None",
+                  p.git_bash(env=dict(base), which=nothing, windows=True) is None)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 @test
 def test_bridge_home_default_and_override(ctx: Ctx):
     """2.0.0 rename: `BRIDGE_TEST_HOME` is now ALSO scoped here (it wasn't

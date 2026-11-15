@@ -218,7 +218,7 @@ BRIDGE_TEST_HOME=/tmp/demo-home halo doctor
 ```
 halo doctor
   [OK] Python 3.11.7
-  [MISSING] ~/.claude directory: /tmp/demo-home/.claude -> fix: claude
+  [WARN] ~/.claude directory: /tmp/demo-home/.claude -> see: docs/HANDBOOK.md (Config reuse from Claude Code) -- optional, defaults apply
   [WARN] OpenRouter: not configured (no OPENROUTER_API_KEY found) -> fix: halo init --preset home
   [WARN] Databricks: not configured (no host/token found) -> fix: halo init --preset work
   [OK] Sessions: 0 logged under ~/.halo/sessions; stats cache last written never

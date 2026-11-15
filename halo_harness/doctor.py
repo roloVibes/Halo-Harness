@@ -94,19 +94,21 @@ def _check_claude_layout() -> list:
     if cfg_dir.is_dir():
         lines.append(f"{OK} ~/.claude directory: {cfg_dir}")
     else:
-        lines.append(_fix(f"{MISSING} ~/.claude directory: {cfg_dir}", cmd="claude"))
+        # 3.6.0.0: Halo runs without Claude Code; a fresh machine has no ~/.claude and that is not a fault
+        lines.append(_fix(f"{WARN} ~/.claude directory: {cfg_dir}",
+                          see="docs/HANDBOOK.md (Config reuse from Claude Code) -- optional, defaults apply"))
     settings_path = cfg_dir / "settings.json"
     if settings_path.exists():
         lines.append(f"{OK} settings.json: {settings_path}")
     else:
         lines.append(_fix(f"{WARN} settings.json: {settings_path}",
-                           see="README.md (Config reuse from Claude Code) -- optional, defaults apply"))
+                           see="docs/HANDBOOK.md (Config reuse from Claude Code) -- optional, defaults apply"))
     cj_path = claude_json_path()
     if cj_path.exists():
         lines.append(f"{OK} .claude.json: {cj_path}")
     else:
         lines.append(_fix(f"{WARN} .claude.json: {cj_path}",
-                           see="README.md (Config reuse from Claude Code) -- optional, defaults apply"))
+                           see="docs/HANDBOOK.md (Config reuse from Claude Code) -- optional, defaults apply"))
     return lines
 
 
