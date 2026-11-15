@@ -243,6 +243,10 @@ def cmd_update(argv: "list[str]") -> int:
     parser.add_argument("--no-verify", dest="verify", action="store_false",
                         help="Skip the target tag's release-checksums check before installing")
     args = parser.parse_args(argv)
+    # A config.json that does not parse is said first, in cli.main's one line with exit 2 (review item 84) -- `--check`
+    # writes nothing any more (3.6.0.0 R13), so the strict read is asked for here, never left to a write.
+    from halo_harness.theme import _config_path, _load_config_for_write
+    _load_config_for_write(_config_path())  # raises CorruptConfigError; reads only
     from halo_harness.update_plan import take_unseen_line
     last = take_unseen_line()  # 3.6.0.0 R13: what the last updater did, said once (Windows runs it in its own window)
     if last:
