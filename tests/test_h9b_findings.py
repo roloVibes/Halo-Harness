@@ -1294,6 +1294,32 @@ def _h9b_mcp_only_claude_json(home: Path) -> None:
     }), encoding="utf-8")
 
 
+def _h9b_servers_of(marker: str, home) -> list:
+    """3.6.0.0 R10: the fake MCP servers of THIS test's home only. Shards run this test at the same time on one box;
+    a bare `pgrep -f` saw (and `pkill -f` killed) another shard's servers, so under load the test failed on servers
+    that were never its own. A pid counts when its environment or its working folder names this test's home (no
+    /proc: every match, as before)."""
+    r = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True)
+    pids = [int(x) for x in (r.stdout or "").split() if x.isdigit()]
+    if not os.path.isdir("/proc/self"):
+        return pids
+    want = str(home)
+    mine = []
+    for pid in pids:
+        try:
+            with open(f"/proc/{pid}/environ", "rb") as fh:
+                env = fh.read().decode("utf-8", "replace")
+        except OSError:
+            env = ""
+        try:
+            cwd = os.readlink(f"/proc/{pid}/cwd")
+        except OSError:
+            cwd = ""
+        if want in env or cwd.startswith(want):
+            mine.append(pid)
+    return mine
+
+
 @test
 def test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup(ctx: Ctx):
     """NEW from H9: an MCP stdio server subprocess must never outlive the
@@ -1323,8 +1349,7 @@ def test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup(ctx: 
         gone = False
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline:
-            r = subprocess.run(["pgrep", "-f", server_marker], capture_output=True, text=True)
-            if r.returncode != 0 or not r.stdout.strip():
+            if not _h9b_servers_of(server_marker, fh1["home"]):
                 gone = True
                 break
             time.sleep(0.2)
@@ -1358,8 +1383,7 @@ def test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup(ctx: 
             found = False
             deadline = time.monotonic() + 20.0
             while time.monotonic() < deadline:
-                r = subprocess.run(["pgrep", "-f", server_marker], capture_output=True, text=True)
-                if r.returncode == 0 and r.stdout.strip():
+                if _h9b_servers_of(server_marker, fh2["home"]):
                     found = True
                     break
                 if proc.poll() is not None:
@@ -1378,8 +1402,7 @@ def test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup(ctx: 
             gone = False
             deadline2 = time.monotonic() + 15.0
             while time.monotonic() < deadline2:
-                r = subprocess.run(["pgrep", "-f", server_marker], capture_output=True, text=True)
-                if r.returncode != 0 or not r.stdout.strip():
+                if not _h9b_servers_of(server_marker, fh2["home"]):
                     gone = True
                     break
                 time.sleep(0.2)
@@ -1387,7 +1410,11 @@ def test_h9b_mcp_stdio_server_dies_with_the_process_normal_exit_and_sighup(ctx: 
         finally:
             if proc.poll() is None:
                 proc.kill()
-            subprocess.run(["pkill", "-f", server_marker], capture_output=True)
+            for pid in _h9b_servers_of(server_marker, fh2["home"]):  # only this test's own, never by name
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    pass
     finally:
         mock2.stop()
 

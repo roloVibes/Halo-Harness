@@ -55,6 +55,78 @@ export function revoke(): void {
   current = "";
 }
 
+/** 3.6.0.0 R10: the server is gone (the Halo that started Studio closed, and Studio with it). After STOP_AFTER
+ *  requests in a row that reached no server, the page says "Studio has stopped" and stops asking: every later request
+ *  fails at once, the live feed stays down (lib/events.ts reads `stopped()`). A fresh address (a new #t=) or the
+ *  page's own reload button starts over. */
+const STOP_AFTER = 3;
+let unreachable = 0;
+let gone = false;
+
+export function stopped(): boolean {
+  return gone;
+}
+
+function showStopped(): void {
+  if (document.getElementById("halo-studio-stopped")) return;
+  const box = document.createElement("div");
+  box.id = "halo-studio-stopped";
+  box.setAttribute("role", "alertdialog");
+  box.setAttribute("data-testid", "studio-stopped");
+  box.style.cssText = "position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;" +
+    "background:rgba(4,8,14,0.82);color:var(--text,#e6edf3);font:15px/1.5 system-ui,sans-serif;padding:16px";
+  const card = document.createElement("div");
+  card.style.cssText = "max-width:460px;background:var(--panel,#0d1520);border:1px solid var(--line,#2a3a4a);" +
+    "border-radius:10px;padding:20px 22px";
+  const h = document.createElement("h2");
+  h.textContent = "Studio has stopped";
+  h.style.cssText = "margin:0 0 8px;font-size:18px";
+  const p = document.createElement("p");
+  p.textContent = "The Halo that started this Studio has closed, and Studio closed with it. This page has stopped asking. " +
+    "Start it again with `halo studio` (or `halo`), then open the address it prints.";
+  p.style.margin = "0 0 14px";
+  const again = document.createElement("button");
+  again.textContent = "Try this address again";
+  again.setAttribute("data-testid", "studio-stopped-retry");
+  again.onclick = () => location.reload();
+  card.append(h, p, again);
+  box.append(card);
+  document.body.append(box);
+}
+
+function noteReached(ok: boolean): void {
+  if (ok) {
+    unreachable = 0;
+    return;
+  }
+  unreachable += 1;
+  if (unreachable >= STOP_AFTER && !gone) {
+    gone = true;
+    try {
+      showStopped();
+    } catch {
+      /* no document (a test): the flag alone stops the asking */
+    }
+    stoppedListeners.forEach((fn) => fn());
+  }
+}
+
+const stoppedListeners = new Set<() => void>();
+
+/** The live feed lost its connection: one plain request says whether a server still answers on this port. */
+export function probeServer(): void {
+  if (gone) return;
+  fetchOwn(location.origin + "/", { method: "GET", cache: "no-store" }).then(
+    () => noteReached(true),
+    () => noteReached(false),
+  );
+}
+
+export function onStopped(fn: () => void): () => void {
+  stoppedListeners.add(fn);
+  return () => stoppedListeners.delete(fn);
+}
+
 export function onTokenChange(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -88,6 +160,7 @@ export function apiUrl(path: string, query?: Query): URL {
 async function request<T>(owner: boolean, method: string, path: string, body?: unknown, query?: Query): Promise<T> {
   const url = apiUrl(path, query);
   if (revoked) throw new ApiError(401, "this page's key is no longer Studio's: open the page again from Studio");
+  if (gone) throw new ApiError(0, "Studio has stopped");
   const headers = bare() as Record<string, string>;
   headers.Authorization = "Bearer " + current;
   headers.Accept = "application/json";
@@ -104,8 +177,10 @@ async function request<T>(owner: boolean, method: string, path: string, body?: u
   try {
     res = await fetchOwn(url, init);
   } catch (e) {
+    noteReached(false);
     throw new ApiError(0, "Studio server unreachable: " + (e instanceof Error ? e.message : String(e)));
   }
+  noteReached(true);
   const text = await res.text();
   let data: Record<string, unknown> = {};
   if (text) {

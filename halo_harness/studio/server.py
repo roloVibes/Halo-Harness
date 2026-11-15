@@ -352,10 +352,8 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
         _BACKGROUND["server"] = srv
     url = url_for(srv, mode)
     if open_browser:
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
+        from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
+        _open(url)
     return url
 
 
@@ -413,10 +411,8 @@ def cmd_studio(argv: list) -> int:
         from halo_harness.studio.glance_door import note  # 3.4.1.0 R4: `--mode glance` says how a phone reaches it
         print(f"Halo Studio is already running at {running}\nhalo studio --stop stops it.{note(running, args.mode)}")
         if not args.no_open:
-            try:
-                webbrowser.open(running)
-            except Exception:
-                pass
+            from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
+            _open(running)
         return 0
     try:
         server = start_server(port=args.port, cwd=cwd, state_dir=state_dir)
@@ -431,7 +427,8 @@ def cmd_studio(argv: list) -> int:
         # 3.2.2.0 R3: `pstart` lets a stop (a quit, `halo update`, `--stop`) prove this pid is still this Studio.
         write_private_atomic(studio_info_path(state_dir),
                              json.dumps({"pid": os.getpid(), "port": server.server_address[1], "token": server.token,  # 3.4.1.2:
-                                         "pstart": start_time(os.getpid()), "owner_salt": server.owner_salt}))  # + the salt
+                                         "pstart": start_time(os.getpid()), "owner_salt": server.owner_salt,  # + the salt
+                                         **_owner_record()}))  # 3.6.0.0 R10: the launch it belongs to (closing.py)
     except OSError:
         pass
     from halo_harness.studio.glance_door import over_ssh  # 3.4.1.0 R4: + the glance's phone line (studio/glance_door.py)
@@ -439,7 +436,8 @@ def cmd_studio(argv: list) -> int:
     print("Ctrl+C stops it (from another shell: halo studio --stop).", flush=True)
     if not args.no_open:
         try:
-            threading.Timer(0.3, lambda: webbrowser.open(url)).start()
+            from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
+            threading.Timer(0.3, lambda: _open(url)).start()
         except Exception:
             pass
     def _on_term(*_a):
@@ -454,8 +452,26 @@ def cmd_studio(argv: list) -> int:
         print("\nstudio stopped")
     finally:
         server.server_close()
-        try:
-            studio_info_path(state_dir).unlink()
-        except OSError:
-            pass
+        _clear_own_info(state_dir)
     return 0
+
+
+def _owner_record() -> dict:
+    """3.6.0.0 R10: the Halo that started this Studio (`HALO_OWNER_WATCH`), {} for one started on its own."""
+    from halo_harness.closing import owner
+    pid, start = owner()
+    return {"owner_pid": pid, "owner_start": start} if pid else {}
+
+
+def _clear_own_info(state_dir: Path) -> None:
+    """studio.json goes only when it is still this Studio's (another Studio of the home may have written its own)."""
+    path = studio_info_path(state_dir)
+    try:
+        if json.loads(path.read_text(encoding="utf-8")).get("pid") != os.getpid():
+            return
+    except (OSError, ValueError, AttributeError):
+        pass
+    try:
+        path.unlink()
+    except OSError:
+        pass

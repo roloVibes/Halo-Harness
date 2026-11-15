@@ -21,6 +21,7 @@ written under the file lock); a row whose pid is gone is dropped the next time t
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 from halo_harness.studio.owner_proof import owner_only  # 3.4.1.2: the handlers that change what runs
 import json
 import os
@@ -85,7 +86,7 @@ def remember(state_dir, row: dict) -> None:
 
 
 def argv_for(sid: str, cwd: Path, model: str) -> list:
-    argv = [sys.executable, "-u", "-m", "halo_harness", "--headless", "--session-for", "studio",
+    argv = [*python_argv(unbuffered=True), "--headless", "--session-for", "studio",
             "--session-id", sid, "--cwd", str(cwd)]
     return argv + (["--model", model] if model else [])
 

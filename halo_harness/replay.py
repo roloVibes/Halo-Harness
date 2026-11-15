@@ -22,6 +22,7 @@ original's turn-N outcome vs the replay's.
 """
 
 from __future__ import annotations
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 
 import difflib
 import json
@@ -156,7 +157,7 @@ def replay_session(cwd, session_id: str, *, model: str, turn: Optional[int] = No
     env = dict(__import__("os").environ)
     if extra_env:
         env.update(extra_env)
-    argv = [python or sys.executable, "-m", "halo_harness", "-p", target.user_text,
+    argv = [*python_argv(python=python or ""), "-p", target.user_text,
             "--model", model, "--cwd", str(cwd), "--session-id", fork_id,
             "--max-turns", str(max_turns)]
     try:

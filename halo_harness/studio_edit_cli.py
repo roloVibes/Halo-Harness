@@ -32,4 +32,7 @@ def open_in_studio(kind: str, name: str, *, no_open: bool, prog: str) -> int:
         return 2
     result = open_edit(target, cwd=Path.cwd(), state_dir=Path(default_state_dir()), open_browser=not no_open)
     print(describe(result))
+    if result.get("how") in ("started", "printed"):  # 3.6.0.0 R10: a Studio this command started runs while it does
+        from halo_harness.studio.launch import hold
+        hold(Path(default_state_dir()))
     return 1 if result.get("how") == "failed" else 0

@@ -18,6 +18,7 @@ not (the reason on stderr), 2 usage.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import argparse
 import os
 import sys
@@ -124,7 +125,7 @@ def cmd_serve(argv: list) -> int:
 
 def _detach(a, home) -> int:
     from halo_harness.host import state as S
-    argv = [sys.executable, "-u", "-m", "halo_harness", "host", "serve", "--foreground"]
+    argv = [*python_argv(unbuffered=True), "host", "serve", "--foreground"]
     argv += (["--port", str(a.port)] if a.port is not None else []) + (["--bind", a.bind] if a.bind else [])
     argv += ["--no-tls"] if a.no_tls else []
     from halo_harness import subprocess_safe as subprocess
@@ -133,6 +134,8 @@ def _detach(a, home) -> int:
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0)
     else:
         kwargs["start_new_session"] = True
+    from halo_harness.closing import kept_kwargs  # 3.6.0.0 R10: `halo host serve` was asked to keep running
+    kwargs = kept_kwargs(kwargs)
     try:
         proc = (SEAMS["spawn"](argv) if "spawn" in SEAMS else subprocess.Popen(argv, **kwargs))
     except OSError as e:

@@ -973,7 +973,7 @@ def test_init_wait_ctrl_c_and_studio_gone_launch_nothing(ctx: Ctx):
     seen: dict = {}
     rc, text, rec, launched, gets, slept = _wait_init([], interrupted, seen=seen)
     ctx.check(f"Ctrl+C: the line and 0, no launch, got {rc} {launched} {text!r}", rc == 0 and not launched
-              and "Setup stays open in the browser; run `halo` when you are done there." in text)
+              and "Stopped here: Studio closes with this command; `halo init` opens Setup again." in text)
     ctx.check(f"Ctrl+C: the waiting record goes too, got {seen.get('after')}", seen.get("after") is None and seen.get("records"))
     rc, text, rec, launched, gets, slept = _wait_init([], lambda _i: None)
     ctx.check(f"Studio gone for 10 s: the line and 0, no launch, got {rc} {launched} {len(gets)} {text!r}", rc == 0 and not launched

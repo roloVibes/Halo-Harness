@@ -15,6 +15,7 @@ lineup tier's own `trigger` arms the same way, as its lead's
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import datetime
 import json
 import os
@@ -211,7 +212,7 @@ def build_fire_argv(entry: dict) -> "list[str]":
     (2.0.5 release-review finding 6: the fired job previously ran a bare
     prompt session, not the AGENT -- both flags exist on the main parser)
     and the entry's model when it carries one."""
-    argv = [sys.executable, "-m", "halo_harness", "-p", str(entry.get("prompt") or "")]
+    argv = [*python_argv(), "-p", str(entry.get("prompt") or "")]
     if entry.get("agent"):
         argv += ["--agent", str(entry["agent"])]
     if entry.get("team"):

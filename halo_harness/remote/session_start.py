@@ -16,6 +16,7 @@ A request older than STALE_S is dropped unserved. Nothing here runs a model: the
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import os
 from halo_harness import subprocess_safe as subprocess
@@ -58,7 +59,7 @@ def request(cwd, model: str = "", by: str = "", state_dir=None) -> str:
 
 
 def argv_for(sid: str, cwd: Path, model: str) -> list:
-    argv = [sys.executable, "-u", "-m", "halo_harness", "--headless", "--session-for", "remote",
+    argv = [*python_argv(unbuffered=True), "--headless", "--session-for", "remote",
             "--session-id", sid, "--cwd", str(cwd)]
     return argv + (["--model", model] if model else [])
 

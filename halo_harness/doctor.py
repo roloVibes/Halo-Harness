@@ -842,6 +842,13 @@ def _check_test_leftovers(state_dir: Optional[Path] = None) -> Optional[str]:
                 cmd=f"inspect and remove by hand from {mcp_dir}")
 
 
+def _check_orphans(state_dir: Optional[Path] = None) -> Optional[str]:
+    """3.6.0.0 R10: "N processes of Halo have no living owner", with the command that stops them; None when none."""
+    from halo_harness.ps_cli import doctor_line
+    line = doctor_line(state_dir)
+    return _fix(f"{WARN} {line}", cmd="halo stop --orphans  (halo ps lists them)") if line else None
+
+
 def _check_mcp_servers(cwd: Optional[Path]) -> str:
     """New (RECOMMENDATIONS.md P0 #2 / section 3, "MCP startup cost is the
     biggest perceived-speed item"): configured MCP servers -- a pure config
@@ -1742,6 +1749,7 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("clipboard", _fix(clip_line, cmd=clip_fix, see=clip_see)))
     entries.append(("mcp_servers", _check_mcp_servers(cwd)))
     entries.append(("test_leftovers", _check_test_leftovers()))
+    entries.append(("orphans", _check_orphans()))
     entries.append(("mcp_connectors", _check_mcp_connectors()))
     entries.extend(_check_ollama_hosts())
     entries.append(("mlx_extra", _check_mlx_extra()))

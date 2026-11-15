@@ -123,18 +123,20 @@ def _state_dir() -> Path:
 
 
 def open_setup(target: SetupTarget, *, cwd=None, state_dir=None, why: Optional[str] = None,
-               timeout: float = 15.0) -> dict:
+               timeout: float = 15.0, own: bool = False) -> dict:
     """`{"url", "how": focused|opened|started|printed|failed, "pages", "target", "why"}`: Studio on Setup.
 
     A Studio already running for this home is reused (its open pages take the `focus` frame, else the browser
     opens the URL); none: one starts in the background (`launch_detached`, no browser of its own) and this
     process opens the browser, so a browser that cannot open is known here. `why` (default `no_browser_reason()`)
-    set: Studio is found or started and only the URL is the answer."""
+    set: Studio is found or started and only the URL is the answer. `own` (3.6.0.0 R10, `halo init`): only a Studio
+    this process started counts as running -- a launch never attaches to a server it did not start (closing.py)."""
     from halo_harness.studio import edit_open, launch
     state_dir = Path(state_dir) if state_dir is not None else _state_dir()
     cwd = Path(cwd) if cwd is not None else Path.cwd()
     why = no_browser_reason() if why is None else why
-    running = edit_open._focus_in_process(target, publish=False) or launch.existing_url(state_dir, target.mode, target.text)
+    found = launch.own_url if own else launch.existing_url
+    running = edit_open._focus_in_process(target, publish=False) or found(state_dir, target.mode, target.text)
     if running:
         out = edit_open.open_edit(target, cwd=cwd, state_dir=state_dir, open_browser=not why, timeout=timeout)
     else:
@@ -142,6 +144,10 @@ def open_setup(target: SetupTarget, *, cwd=None, state_dir=None, why: Optional[s
                                      edit=target.text)
         how = "failed" if not url else ("printed" if why else ("started" if launch._open(url) else "printed"))
         out = {"url": url, "how": how, "pages": 0, "target": target.display}
+        if how == "failed":  # 3.6.0.0 R10: the child's exit code and its last line, every time
+            out["why"] = launch.failure_line() or "it gave no address and no reason"
+            out["target"] = target.display
+            return out
     if out.get("how") == "printed" and not why:
         why = "no browser took the URL"
     out["why"] = why if out.get("how") == "printed" else ""
@@ -168,7 +174,7 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
     waits for Setup's Done (halo_harness/init_wait.py); 3.3.15.0 R6: "This terminal starts halo when you press Done
     there (Ctrl+C: stop here; `halo` later starts it)." (init_wait.WAIT_LINE)."""
     try:
-        out = open_setup(target, cwd=cwd, state_dir=state_dir)
+        out = open_setup(target, cwd=cwd, state_dir=state_dir, own=wait)
     except Exception as e:  # Studio could not be reached or started: the terminal path runs
         out = {"url": "", "how": "failed", "why": f"{type(e).__name__}: {e}"}
     url, how = out.get("url") or "", out.get("how")
@@ -179,8 +185,9 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
             say(WAIT_LINE.format(where=f"{target.display} is open {where}", url=url))
         else:
             say(f"{target.display} is open {where}: {url}. `{terminal_cli}` runs the terminal {fallback} instead.")
-        if how == "started":
-            say("Studio keeps running in the background; halo studio --stop ends it.")
+        if how == "started" and not wait:  # 3.6.0.0 R10: no detached Studio -- it runs while this command does
+            from halo_harness.studio.launch import hold
+            hold(state_dir if state_dir is not None else _state_dir(), say)
         return True
     if url:
         say(f"{target.display} is at {url} (no browser opens here: {out.get('why') or 'none answered'}).")

@@ -21,6 +21,7 @@ status.json and its result JSON -- as `{state, why, cost_usd, failure}`;
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import os
 from halo_harness import subprocess_safe as subprocess
 import sys
@@ -182,4 +183,4 @@ def stop_job(goal: dict) -> bool:
 
 
 def harness_argv() -> list:
-    return [sys.executable, "-m", "halo_harness"]
+    return python_argv()

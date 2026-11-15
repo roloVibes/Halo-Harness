@@ -16,6 +16,7 @@ the same name {name, url, log, runtime, model, device, pid, voice: true} the ste
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 from halo_harness import subprocess_safe as subprocess
 import sys
 import time
@@ -63,7 +64,7 @@ def server_cmd() -> "tuple[list, bool]":
         return list(raw), True
     if isinstance(raw, str) and raw.strip():
         return [raw.strip()], True
-    return [sys.executable, "-m", "halo_harness.voice.server"], False
+    return python_argv("halo_harness.voice.server"), False
 
 
 def _state(state_dir):
@@ -127,8 +128,9 @@ def _start(kind, row, path: Path, dev: dict, prefix: list, *, port, keep, state_
         out.flush()
         try:  # 3.3.14.0 R2 (REVIEW #22): a tool child's environment, Halo's provider keys left out
             from halo_harness.engines.launch_env import child_env
+            from halo_harness.closing import keep_kw  # 3.6.0.0 R10: only --keep outlives this halo
             proc = subprocess.Popen(argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                    env=child_env())
+                                    **keep_kw(bool(keep), child_env()))
         except OSError as e:
             return 1, lines + [f"the speech server did not start: {e}"], None
     R._register_popen(proc)

@@ -9,6 +9,7 @@ print run answers an ask with no: Try it does not wait for you, and the result l
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import os
 import shutil
@@ -61,7 +62,7 @@ def drop(copy: Path, repo) -> None:
 
 def command(raw: dict, request: str, model: str) -> list:
     more = raw.get("more") or {}
-    cmd = [sys.executable, "-m", "halo_harness", "-p", request, "--agents", json.dumps(agents_json(raw)),
+    cmd = [*python_argv(), "-p", request, "--agents", json.dumps(agents_json(raw)),
            "--agent", str(raw.get("name")), "--permission-mode", MODES.get(raw.get("careful"), "default"),
            "--output-format", "stream-json", "--verbose",
            "--max-turns", str(more.get("max_turns") if isinstance(more.get("max_turns"), int) else TURNS)]

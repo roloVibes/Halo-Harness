@@ -13,6 +13,7 @@ that started it ends it on quit (3.2.2.0 R3; 3.4.1.1: a shell's has no owner).
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import os
 import socket
@@ -79,17 +80,49 @@ def existing_url(state_dir: Path, mode: Optional[str] = None, edit: Optional[str
     return url_from_info(info, mode, edit)
 
 
+LAST_FAILURE: dict = {}  # 3.6.0.0 R10: why the last launch_detached gave no URL ("exit code 1: <last line>")
+
+
+def owned_by_me(info: Optional[dict]) -> bool:
+    """3.6.0.0 R10: this process started the Studio studio.json names (its ledger entry, or the owner it records)."""
+    if not info or not isinstance(info.get("pid"), int):
+        return False
+    from halo_harness import children, closing
+    pid, start = closing.me()
+    if info.get("owner_pid") == pid and (not info.get("owner_start") or not start or info["owner_start"] == start):
+        return True
+    return any(e.get("pid") == info["pid"] and e.get("what") == "studio" and closing._mine(e) for e in children.load())
+
+
+def own_url(state_dir: Path, mode: Optional[str] = None, edit: Optional[str] = None) -> str:
+    """The running Studio's URL only when this process started it ('' otherwise): a launch never attaches to a
+    server it did not start (3.6.0.0 R10, closing.py)."""
+    info = read_info(state_dir)
+    if not owned_by_me(info) or not port_answers(info["port"]):
+        return ""
+    return url_from_info(info, mode, edit)
+
+
+def failure_line() -> str:
+    """Why the last start gave no URL, for "Studio did not start: <why>" ('' when nothing is known)."""
+    return str(LAST_FAILURE.get("why") or "")
+
+
 def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_browser: bool = True,
                     timeout: float = 15.0, edit: Optional[str] = None) -> str:
-    """Reuse the running Studio, else spawn `halo studio --mode <mode>` (or
-    `--edit <target>`, 3.1.1.0 R3) as a detached process and return the URL
-    it prints ('' on timeout)."""
-    url = existing_url(state_dir, mode, edit)
+    """Reuse the Studio THIS process started, else spawn `halo studio --mode <mode>` (or `--edit <target>`, 3.1.1.0
+    R3) and return the URL it prints ('' on failure; `failure_line()` says why). 3.6.0.0 R10: the Studio belongs to
+    this process -- it is in the ledger with this process as its owner, it watches this process and ends within two
+    seconds of it (closing.py), and it opens no browser itself (this process does: a browser started from inside
+    the Studio would be the Studio's child)."""
+    LAST_FAILURE.clear()
+    url = own_url(state_dir, mode, edit)
     if url:
         if open_browser:
             _open(url)
         return url
-    argv = [sys.executable, "-u", "-m", "halo_harness", "studio", "--cwd", str(cwd)]
+    from halo_harness.selfexec import python_argv
+    argv = [*python_argv(unbuffered=True), "studio", "--cwd", str(cwd)]
     if mode == "session":  # 3.1.4.0 R2: `edit` is the session to watch ('' = the newest live one); 3.3.11.0 R1: --prompt
         from halo_harness.studio.session_open import SectionTarget
         t = SectionTarget.from_text(edit or "")
@@ -98,43 +131,77 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
         argv += ["--edit", edit]
     elif mode in STUDIO_MODES or mode == "glance" or "--" in str(mode or ""):  # 3.3.13.0 R2: a pack's section; 3.4.1.0 R4: the glance
         argv += ["--mode", mode]
-    if not open_browser:
-        argv.append("--no-open")
-    kwargs: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE, "stderr": subprocess.DEVNULL, "text": True,
-                    "encoding": "utf-8", "errors": "replace"}
+    argv.append("--no-open")
+    from halo_harness import closing
+    env = {**os.environ, **closing.owner_env()}
+    kwargs: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.PIPE, "stderr": subprocess.STDOUT, "text": True,
+                    "encoding": "utf-8", "errors": "replace", "env": env}
     if sys.platform == "win32":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "CREATE_NO_WINDOW", 0)
     else:
         kwargs["start_new_session"] = True
     try:
         proc = subprocess.Popen(argv, **kwargs)
-    except OSError:
+    except OSError as e:
+        LAST_FAILURE["why"] = f"{type(e).__name__}: {e}"
         return ""
     from halo_harness import children
-    if children.spawned(proc):  # 3.2.2.0 R3; 3.4.1.1 (48): a session's Studio ends with it; a shell's has no owner
-        children.register(proc.pid, "studio", argv, state_dir=state_dir, launched=not children.in_session())
+    if children.spawned(proc) or isinstance(proc, subprocess.STDLIB_POPEN):  # 3.6.0.0 R10: always this process's
+        children.register(proc.pid, "studio", argv, state_dir=state_dir)
     found: dict = {}
+    tail: list = []
 
     def _read() -> None:
         try:
             for line in proc.stdout:  # type: ignore[union-attr]
-                if "Halo Studio is at " in line:
+                if line.strip():
+                    tail[:] = (tail + [line.rstrip()])[-5:]
+                if "url" not in found and "Halo Studio is at " in line:
                     found["url"] = line.split("Halo Studio is at ", 1)[1].strip()
-                    break
         except Exception:
             pass
 
-    threading.Thread(target=_read, daemon=True).start()
+    threading.Thread(target=_read, daemon=True).start()  # reads to the end: the pipe never fills
     deadline = time.time() + timeout
+    url = ""
     while time.time() < deadline:  # studio.json appears as soon as the server binds; stdout is the fallback
-        url = found.get("url") or existing_url(state_dir, mode, edit)
+        url = found.get("url") or own_url(state_dir, mode, edit)
         if url:
-            threading.Thread(target=lambda: proc.stdout and proc.stdout.read(), daemon=True).start()  # keep the pipe drained
-            return url
+            break
         if proc.poll() is not None:
+            time.sleep(0.2)  # the reader takes the last lines
+            last = tail[-1] if tail else "no output"
+            LAST_FAILURE["why"] = f"it exited with code {proc.returncode}: {last}"
             return ""
         time.sleep(0.2)
-    return found.get("url", "")
+    url = url or found.get("url", "")
+    if not url:
+        LAST_FAILURE["why"] = f"it gave no address within {int(timeout)} s" + (f" (last line: {tail[-1]})" if tail else "")
+        return ""
+    if open_browser:
+        _open(url)
+    return url
+
+
+HOLD_LINE = "Studio runs while this command does: Ctrl+C here stops it."
+
+
+def hold(state_dir: Path, say=print, poll_s: float = 0.5) -> bool:
+    """3.6.0.0 R10: a shell command that started a Studio (`halo setup team`, `halo studio --edit ...`) stays in the
+    foreground while it serves -- there is no detached Studio. Returns at once (False) when the Studio studio.json
+    names is not this process's own (a running session's was focused, or a test's stand-in answered); else waits
+    until Ctrl+C or the Studio stops, and True."""
+    from halo_harness import children
+    info = read_info(Path(state_dir))
+    if not owned_by_me(info):
+        return False
+    say(HOLD_LINE)
+    try:
+        while children.same_process(info["pid"], info.get("pstart")):
+            time.sleep(poll_s)
+    except KeyboardInterrupt:
+        pass
+    return True
 
 
 def api_call(state_dir: Path, method: str, path: str, body: Optional[dict] = None,
@@ -212,7 +279,7 @@ def pid_is_studio(pid: int, info: Optional[dict] = None) -> bool:
         from halo_harness.update import halo_what
         return halo_what(_windows_cmdline(pid)) == "studio"
     names = [os.path.basename(x) for x in argv[:3]]  # the interpreter, then `-m halo_harness` or the halo launcher
-    return b"studio" in argv[1:] and (b"halo_harness" in b" ".join(argv[:4]) or any(n.startswith((b"halo", b"halo.")) for n in names))
+    return b"studio" in argv[1:] and (b"halo_harness" in b" ".join(argv[:6]) or any(n.startswith((b"halo", b"halo.")) for n in names))
 
 
 _pid_is_studio = pid_is_studio
@@ -248,8 +315,10 @@ def stop(state_dir: Path) -> "tuple[bool, str]":
 
 def _open(url: str) -> bool:
     """True when a browser took the URL."""
+    from halo_harness.closing import without_marker  # 3.6.0.0 R10: the browser is the person's, never Halo's child
     try:
         import webbrowser
-        return bool(webbrowser.open(url))
+        with without_marker():
+            return bool(webbrowser.open(url))
     except Exception:
         return False

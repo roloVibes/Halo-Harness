@@ -448,6 +448,9 @@ def main(argv: Optional[list] = None) -> int:
     line and exit 2, never a traceback; library callers still get the
     exception from `theme.set_config_value` itself."""
     from halo_harness.theme import CorruptConfigError
+    if argv is None:  # 3.6.0.0 R10: the real process (console script, `python -m`): the closing procedure (closing.py)
+        from halo_harness import closing
+        closing.install()
     try:
         return _main(argv)
     except CorruptConfigError as e:
@@ -571,6 +574,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "worktree":
         from halo_harness.worktree_cli import cmd_worktree
         return cmd_worktree(argv[1:])
+    if argv and argv[0] in ("ps", "stop"):  # 3.6.0.0 R10: every live process of Halo, and the way to end them
+        from halo_harness import ps_cli
+        return (ps_cli.cmd_ps if argv[0] == "ps" else ps_cli.cmd_stop)(argv[1:])
     if argv and argv[0] == "bg":
         from halo_harness.bg_cli import cmd_bg
         return cmd_bg(argv[1:])

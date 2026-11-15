@@ -116,7 +116,7 @@ def _open(args) -> int:
     url = ""
     if not args.no_studio:
         from halo_harness.studio.launch import launch_detached
-        url = launch_detached("agents", cwd=Path.cwd(), state_dir=_state())
+        url = launch_detached("agents", cwd=Path.cwd(), state_dir=_state(), open_browser=False)
         if url:
             head, _, frag = url.partition("#")
             url = f"{head}{'&' if '?' in head else '?'}view=live&replay={p['id']}" + (f"#{frag}" if frag else "")
@@ -129,6 +129,9 @@ def _open(args) -> int:
           + (" (an older file, read as version 1)" if p.get("upgraded_from") is not None else ""))
     print(f"Kept at {path}; History on Agents -> Live lists it.")
     print(f"Studio: {url}" if url else "Open it in Studio: halo studio, then Agents -> Live -> History.")
+    if url:  # 3.6.0.0 R10: the Studio this command started runs while it does
+        from halo_harness.studio.launch import hold
+        hold(_state())
     return 0
 
 

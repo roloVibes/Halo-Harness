@@ -10,6 +10,7 @@ entry; --smoke renders a 64x64 image through the text-to-image starter.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import sys
 import time
 from pathlib import Path
@@ -24,7 +25,7 @@ SMOKE_SET = {"width": 64, "height": 64, "steps": 8, "seed": "random", "prompt": 
 
 
 def server_entry(url: str) -> dict:
-    return {"type": "stdio", "command": sys.executable, "args": ["-m", "halo_harness.media.comfy_server"],
+    return {"type": "stdio", "command": sys.executable, "args": python_argv("halo_harness.media.comfy_server")[1:],  # R10: -P
             "env": {"COMFY_URL": url}}
 
 

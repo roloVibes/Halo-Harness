@@ -23,6 +23,7 @@ point the way Halo's own features do.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import os
 import sys
 import time
@@ -97,7 +98,7 @@ def fetch(url: str, timeout_s: float = 20, limit: int = 2_000_000) -> str:
 
 
 def halo_command() -> list:
-    return [sys.executable, "-m", "halo_harness"]
+    return python_argv()
 
 
 class _Comfy:

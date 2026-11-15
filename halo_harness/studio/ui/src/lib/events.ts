@@ -3,7 +3,7 @@
 // Reconnects with backoff (1 s doubling to 30 s); after five failures in a
 // row the state is "down" but it keeps retrying. Subscribers register per
 // event kind ("*" for all); `onFeedState` reports the connection state.
-import { onTokenChange, token } from "./api";
+import { onTokenChange, probeServer, stopped, token } from "./api";
 
 export type FeedFrame = {
   session_id: string | null;
@@ -105,6 +105,12 @@ function open(): void {
     es.close();
     source = null;
     failures += 1;
+    if (stopped()) {
+      // 3.6.0.0 R10: the server is gone (lib/api.ts): the feed stops asking too
+      setState("down");
+      return;
+    }
+    probeServer();
     setState(failures >= 5 ? "down" : "retrying");
     const wait = Math.min(30_000, 1000 * 2 ** Math.min(failures - 1, 5));
     timer = window.setTimeout(open, wait);

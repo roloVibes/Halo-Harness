@@ -199,6 +199,12 @@ def drop_registry_entries(state_dir, victims: "list[tuple]") -> None:
             save_registry(state_dir, kept)
 
 
+def _keep_kw(keep, env: dict) -> dict:
+    """3.6.0.0 R10 (closing.py): a server marked keep leaves this halo's Job object and carries a kept marker."""
+    from halo_harness.closing import keep_kw
+    return keep_kw(bool(keep), env)
+
+
 def _owner_fingerprint() -> "tuple[int, Optional[str]]":
     """This process's own `(pid, start_time)` -- recorded on every entry
     it creates (see `ManagedServer.owner_pid`/`owner_start`'s own
@@ -441,7 +447,7 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
     try:
         proc = subprocess.Popen(argv, stdout=subprocess.DEVNULL,
                                  stderr=(stderr_file if stderr_file is not None else subprocess.DEVNULL),
-                                 stdin=subprocess.DEVNULL, env=child_env())
+                                 stdin=subprocess.DEVNULL, **_keep_kw(keep, child_env()))
     except OSError as e:
         if stderr_file is not None:
             stderr_file.close()

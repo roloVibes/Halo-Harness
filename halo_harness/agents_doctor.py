@@ -12,6 +12,7 @@ bio and the active template -- every referenced agent exists").
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 from typing import Callable, Optional
 
 
@@ -29,7 +30,7 @@ def print_mode_argv(model_ref: str, prompt: str) -> "list[str]":
     print-mode command every smoke call, acceptance run and model probe
     (`model_probe.probe_model`) spawns."""
     import sys
-    return [sys.executable, "-m", "halo_harness", "-p", prompt, "--model", model_ref, "--max-turns", "1"]
+    return [*python_argv(), "-p", prompt, "--model", model_ref, "--max-turns", "1"]
 
 
 def _default_call(model_ref: str, prompt: str, *, timeout: float = 60.0) -> str:

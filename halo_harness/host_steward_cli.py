@@ -13,6 +13,7 @@ false. `status` says whether it runs, its model, its last note and what it holds
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import os
 import sys
 import time
@@ -87,13 +88,15 @@ def cmd_on(argv: list) -> int:
         _stop_path(home).unlink()
     except OSError:
         pass
-    argv_ = [sys.executable, "-u", "-m", "halo_harness", "host", "steward", "run"]
+    argv_ = [*python_argv(unbuffered=True), "host", "steward", "run"]
     from halo_harness import subprocess_safe as subprocess
     kw: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if sys.platform == "win32":
         kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0)
     else:
         kw["start_new_session"] = True
+    from halo_harness.closing import kept_kwargs  # 3.6.0.0 R10: `steward on` asked for it; `steward off` ends it
+    kw = kept_kwargs(kw)
     try:
         proc = SEAMS["spawn"](argv_) if "spawn" in SEAMS else subprocess.Popen(argv_, **kw)
     except OSError as e:

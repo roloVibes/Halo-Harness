@@ -16,6 +16,7 @@ and says who runs. Exit codes: 0 done, 1 could not (the reason on stderr),
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import argparse
 import json
 import sys
@@ -130,12 +131,14 @@ def _daemon(state_dir, as_json: bool) -> int:
               file=None if as_json else sys.stderr)
         return 1
     from halo_harness import subprocess_safe as subprocess
-    argv = [sys.executable, "-u", "-m", "halo_harness", "supervise"]
+    argv = [*python_argv(unbuffered=True), "supervise"]
     kwargs: dict = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if sys.platform == "win32":
         kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "DETACHED_PROCESS", 0)
     else:
         kwargs["start_new_session"] = True
+    from halo_harness.closing import kept_kwargs  # 3.6.0.0 R10: `halo supervise --daemon` was asked to keep running
+    kwargs = kept_kwargs(kwargs)
     try:
         proc = subprocess.Popen(argv, **kwargs)
     except OSError as e:

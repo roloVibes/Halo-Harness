@@ -101,4 +101,6 @@ def _describe(url: str, how, target: str, result: dict) -> str:
         return f"Started Studio and opened {target} in your browser: {url}  (halo studio --stop ends it)"
     if how == "printed":
         return f"Studio is at {url}  (open it to {verb} {target})"
-    return f"Studio did not start: run `{cli}` in a shell."
+    from halo_harness.studio.launch import failure_line  # 3.6.0.0 R10: why, every time
+    why = failure_line()
+    return f"Studio did not start{f' ({why})' if why else ''}: run `{cli}` in a shell."

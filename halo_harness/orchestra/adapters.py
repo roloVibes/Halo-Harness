@@ -24,6 +24,7 @@ table (`halo roles`), else the configured default model.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import io
 import json
 import os
@@ -102,7 +103,7 @@ def worker_argv(prompt: str, model: Optional[str], agent: Optional[str] = None, 
                 rules: Optional[dict] = None) -> list:
     """3.4.1.2 (ENGINE-1): `mode` and `rules` are the run's (`goal.permission_mode` / `permission_rules`: a run the
     Workflow tool started carries its parent's); '' is auto, as a run you start yourself always was."""
-    argv = [sys.executable, "-m", "halo_harness", "-p", prompt, "--output-format", "json",
+    argv = [*python_argv(), "-p", prompt, "--output-format", "json",
             "--permission-mode", mode or "auto"]
     rules = {k: [str(r) for r in v] for k, v in (rules or {}).items() if k in ("deny", "ask", "allow") and v}
     argv += ["--settings", json.dumps({"permissions": rules})] if rules else []

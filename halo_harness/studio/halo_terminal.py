@@ -20,6 +20,7 @@ passes its own `spawn`.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import os
 import shlex
 import shutil
@@ -39,7 +40,7 @@ LINUX_TERMINALS = (("x-terminal-emulator", ["-e"]), ("qterminal", ["-e"]), ("xfc
 
 def halo_argv(which: Callable = shutil.which) -> list:
     found = which("halo")
-    return [found] if found else [sys.executable, "-m", "halo_harness"]
+    return [found] if found else python_argv()
 
 
 def terminal_argv(cwd, *, env=None, platform: Optional[str] = None, which: Callable = shutil.which) -> "tuple[str, list]":
@@ -84,6 +85,9 @@ def open_halo(cwd, *, env=None, platform: Optional[str] = None, which: Callable 
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
     else:
         kwargs.update(start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if spawn is None:  # 3.6.0.0 R10: a terminal window the person opened is its own session, never Studio's child
+        from halo_harness.closing import kept_kwargs
+        kwargs = kept_kwargs(kwargs)
     try:
         (spawn or subprocess.Popen)(argv, **kwargs)
     except (OSError, ValueError):

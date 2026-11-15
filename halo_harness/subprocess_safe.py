@@ -84,6 +84,8 @@ def _call(name: str, args, kw: dict):
     fn = getattr(_sp, name)
     if fn is not _ORIG[name]:  # a test replaced the standard function: it gets the call as written
         return fn(args, **kw)
+    from halo_harness.selfexec import fix_kw  # 3.6.0.0 R10: Halo's own Python child imports this installation
+    kw = fix_kw(args, kw)
     return fn(resolve(args, kw), **kw)
 
 
@@ -112,7 +114,23 @@ class Popen(_sp.Popen):
         return super().__new__(cls)
 
     def __init__(self, args, *a, **kw):
-        super().__init__(resolve(args, kw), *a, **kw)
+        # 3.6.0.0 R10 (closing.py): the child carries this tree's HALO_OWNER marker even in an environment the caller
+        # built, joins this process's Job object on Windows (unless a person asked to keep it), and a kept spawn that
+        # may not break away from an outer Job starts without the breakaway flag rather than not at all.
+        from halo_harness import closing, selfexec
+        kw = closing.before_spawn(selfexec.fix_kw(args, kw))
+        try:
+            super().__init__(resolve(args, kw), *a, **kw)
+        except PermissionError:
+            flags = int(kw.get("creationflags") or 0)
+            if not (flags & closing._BREAKAWAY):
+                raise
+            kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
+            super().__init__(resolve(args, kw), *a, **kw)
+        try:
+            closing.after_spawn(self, kw)
+        except Exception:
+            pass
 
 
 def __getattr__(name: str):

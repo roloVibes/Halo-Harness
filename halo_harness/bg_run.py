@@ -16,6 +16,7 @@ tmux-missing fallback are the parts worth pinning directly.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import os
 from halo_harness import subprocess_safe as subprocess
@@ -63,8 +64,8 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
     forced_argv = list(argv)
     if "-p" not in forced_argv and "--print" not in forced_argv:
         forced_argv = forced_argv + ["-p"]
-    real_command = [sys.executable, "-m", "halo_harness", *forced_argv]
-    command = [sys.executable, "-m", "halo_harness._bg_wrapper", str(status_path), *real_command]
+    real_command = [*python_argv(), *forced_argv]
+    command = [*python_argv("halo_harness._bg_wrapper"), str(status_path), *real_command]
 
     log_fh = open(log_path, "ab")
     # review finding 91: piped input (`echo task | halo --bg -p`) is spooled
@@ -74,11 +75,12 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
     if stdin_data is not None:
         (run_dir / "stdin.bin").write_bytes(stdin_data)
         stdin_fh = open(run_dir / "stdin.bin", "rb")
+    from halo_harness.closing import kept_kwargs  # 3.6.0.0 R10: a `--bg` run was asked to outlive its starter
     try:
         proc = popen(
             command, cwd=str(cwd or Path.cwd()), stdout=log_fh, stderr=subprocess.STDOUT,
             stdin=stdin_fh if stdin_fh is not None else subprocess.DEVNULL,
-            **({"env": env} if env is not None else {}),
+            env=kept_kwargs(env=env)["env"],
             # review finding 37: CREATE_NEW_PROCESS_GROUP alone still
             # leaves this child attached to the launching console --
             # Windows sends CTRL_CLOSE_EVENT to every process attached to
@@ -88,8 +90,8 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
             # closing by construction). DETACHED_PROCESS is what actually
             # detaches it from the console, same intent as `start_new_
             # session` on POSIX.
-            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-                           if os.name == "nt" else 0),
+            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS | 0x01000000
+                           if os.name == "nt" else 0),  # 3.6.0.0 R10: + CREATE_BREAKAWAY_FROM_JOB (closing.py)
             start_new_session=(os.name != "nt"),
         )
     finally:
@@ -106,7 +108,7 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
         pass
     from halo_harness import children
     if children.spawned(proc):  # 3.2.2.0 R3: a quit / `halo update` finds it (children.py)
-        children.register(proc.pid, "bg", real_command, launched=launched, bg_id=run_id)
+        children.register(proc.pid, "bg", real_command, launched=launched, bg_id=run_id, keep=True)
     return {"id": run_id, "log_path": str(log_path), "pid": proc.pid, "meta_path": str(meta_path)}
 
 
@@ -267,6 +269,13 @@ def pid_alive(pid: int) -> bool:
             state = fh.read().rsplit(")", 1)[-1].split()[0]
         return state != "Z"
     except (OSError, IndexError, ValueError):
+        if os.path.isdir("/proc/self"):  # 3.6.0.0 R10: /proc has it no more -- it was reaped between the two looks
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                return False
+            except OSError:
+                pass
         return True
     except OSError:
         return False
@@ -327,5 +336,5 @@ def run_in_tmux(argv: list, *, which=None, call=subprocess.call) -> Optional[int
     tmux_path = which("tmux")
     if not tmux_path:
         return None
-    command = [tmux_path, "new-session", sys.executable, "-m", "halo_harness", *argv]
+    command = [tmux_path, "new-session", *python_argv(), *argv]
     return call(command)

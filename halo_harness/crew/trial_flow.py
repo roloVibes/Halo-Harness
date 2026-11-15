@@ -17,6 +17,7 @@ into the record and ends the run with a plain line.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import secrets
 import sys
@@ -100,7 +101,7 @@ def _run(rec: dict, wf: dict, agents: dict, request: str, cwd, state_dir, publis
         spec = Path(path)
         with open(fd, "w", encoding="utf-8") as f:
             json.dump({"workflow": wf, "agents": agents, "request": request, "model": model}, f)
-        proc = trial_run.spawn([sys.executable, "-m", "halo_harness.crew.try_flow", str(spec)], copy)
+        proc = trial_run.spawn([*python_argv("halo_harness.crew.try_flow"), str(spec)], copy)
         with trial._LOCK:
             trial.RUNNING[rec["id"]] = (proc, rec)
         rec["now"] = "running"

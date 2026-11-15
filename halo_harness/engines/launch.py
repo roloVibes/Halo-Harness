@@ -144,7 +144,9 @@ def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state
         out.write(f"--- halo starts: {' '.join(cmd)}\n".encode("utf-8"))
         out.flush()
         try:
-            proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=env)
+            from halo_harness.closing import keep_kw  # 3.6.0.0 R10: only --keep (or a supervised engine) outlives this halo
+            proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                    **keep_kw(bool(keep) or bool(start.get("supervised")), env))
         except OSError as e:
             return 1, lines + [f"{d['label']} did not start: {e}"], None
     R._register_popen(proc)

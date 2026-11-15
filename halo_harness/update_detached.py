@@ -112,6 +112,9 @@ def spawn(path, *, windows: Optional[bool] = None, cwd=None, popen=subprocess.Po
     windows = os.name == "nt" if windows is None else windows
     common = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
               "cwd": str(cwd or Path(path).parent), "close_fds": True}
+    if popen is subprocess.Popen:  # 3.6.0.0 R10: the updater outlives the halo it replaces on purpose (closing.py)
+        from halo_harness.closing import kept_kwargs
+        common["env"] = kept_kwargs()["env"]
     if windows:
         argv = [os.environ.get("COMSPEC") or "cmd.exe", "/c", str(path)]
         base = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)

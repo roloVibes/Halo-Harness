@@ -523,6 +523,34 @@ took 33-39 s through Halo on first use (0.2 s straight from Ollama): Halo measur
   through Ollama's API (Warm, Unload, Measure, Refresh, each saying what it does and costs). `halo local warm MODEL`
   loads at the window a turn will use and leaves the keep-alive to the server unless `--keep`.
 
+### R10
+
+When Halo closes, everything it started closes. A Studio that `halo init` started was found still running fourteen
+hours later with no parent, and the next `halo init` used it. Now no process Halo started is alive five seconds after
+the Halo that started it is gone -- a normal exit, Ctrl+C, SIGTERM, a closed terminal or a hard kill -- unless you
+asked for it to keep running, and Halo names it on the way out with the command that stops it.
+
+- **One closing procedure, on every way out** (halo_harness/closing.py): what this Halo started, newest first, is
+  asked to stop the way it stops itself (Studio's stop route, a model server's stop), then signalled as a group or a
+  tree, then ended hard, within 3 s + 2 s. Nothing is printed when all is well; one line for each thing left
+  running on purpose.
+- **A hard kill still takes the children down.** On Windows every child Halo starts is in Halo's Job object, which
+  the system ends with Halo. Every Halo child (the Studio server first) watches the Halo that started it and closes
+  within two seconds of it going. On Linux and macOS a tiny reaper waits for Halo and ends what it started when it
+  dies without a word. Every child carries `HALO_OWNER=<id>` in its environment, so a stray is always findable.
+- **There is no detached Studio.** A Studio belongs to the launch that started it (`halo init` hands it to the
+  session it starts in the same terminal); a launch never uses a Studio it did not start. `halo setup`, `halo
+  studio --edit` and `halo replay open` stay in the foreground while the Studio they started serves (Ctrl+C ends
+  both). A page whose Studio has gone says "Studio has stopped" and stops asking.
+- **What may keep running, because you asked:** `halo --bg`, `halo host serve` (and its duty steward), `halo
+  supervise --daemon`, a model server started with `--keep`, and the updater. Nothing else.
+- **The sweep at start:** a halo launch first stops what an earlier Halo left behind with no living owner (one line:
+  "stopped a Studio server left from <when>").
+- **Halo's own Python never imports from your project folder.** Halo started its helpers as `python -m
+  halo_harness`, which put the current folder first: from a folder holding a `halo_harness/` checkout "Studio did not
+  start", and a project's `json.py` would have run. Every helper now starts with `-P` (Python 3.11+) or a small
+  bootstrap that drops that entry (3.10). "Studio did not start" says why: the exit code and the last line.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

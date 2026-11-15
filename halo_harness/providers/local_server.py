@@ -97,8 +97,9 @@ def start(model_path, *, runtime: str, port: int = 0, window: int, ngl: int, par
         out.flush()
         try:  # 3.3.14.0 R2 (REVIEW #22): a tool child's environment, Halo's provider keys left out
             from halo_harness.engines.launch_env import child_env
+            from halo_harness.closing import keep_kw  # 3.6.0.0 R10: only --keep outlives this halo
             proc = subprocess.Popen(info.argv, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                    env=child_env())
+                                    **keep_kw(bool(keep), child_env()))
         except OSError as e:
             info.ok, info.say = False, f"{runtime} did not start: {e}"
             return info

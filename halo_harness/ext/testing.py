@@ -19,6 +19,7 @@ returns.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import os
 import shutil
@@ -100,7 +101,7 @@ def run(folder, kinds=None, timeout_s: float = 10.0) -> Report:
     """Every check of `halo pack test` on the pack in `folder`, in a scratch home of its own."""
     folder = Path(folder).resolve()
     home = Path(tempfile.mkdtemp(prefix="halo-pack-test-"))
-    argv = [sys.executable, "-m", "halo_harness.packs.test_run", str(folder), "--timeout", str(timeout_s),
+    argv = [*python_argv("halo_harness.packs.test_run"), str(folder), "--timeout", str(timeout_s),
             "--kinds", ",".join(kinds or [])]
     try:
         (home / ".halo").mkdir()

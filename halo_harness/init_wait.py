@@ -39,7 +39,7 @@ POLL_S = 1.0
 GONE_S = 10.0
 NO_LAUNCH_ENV = "HALO_INIT_NO_LAUNCH"
 POLL_ENV = "HALO_INIT_POLL_S"
-INTERRUPTED_LINE = "Setup stays open in the browser; run `halo` when you are done there."
+INTERRUPTED_LINE = "Stopped here: Studio closes with this command; `halo init` opens Setup again."  # 3.6.0.0 R10
 GONE_LINE = "Studio closed; run `halo` when you are ready."
 WAIT_LINE = ("{where}: {url}. This terminal starts halo when you press Done there (Ctrl+C: stop here; `halo` later "
              "starts it).")  # 3.3.15.0 R6: the door's one line when init waits

@@ -10,6 +10,7 @@ fake both seams and never touch the real network or install anything.
 
 from __future__ import annotations
 
+from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
 import json
 import os
 import re
@@ -834,7 +835,7 @@ def relaunch_halo(extra_args: "list[str]", *, exec_fn: Optional[Callable] = None
         argv = [halo_path, *extra_args]
     else:
         halo_path = sys.executable
-        argv = [halo_path, "-m", "halo_harness", *extra_args]
+        argv = [*python_argv(), *extra_args]
     if exec_fn is None and sys.platform == "win32":
         call_fn = call_fn or subprocess.call
         sys.exit(call_fn(argv))
