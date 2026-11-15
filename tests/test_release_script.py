@@ -80,6 +80,12 @@ def _scratch_repo(version: str = "9.9.9", *, unreleased: bool = True, dirty_extr
     subprocess.run(["git", "config", "user.name", "Test"], cwd=str(repo), check=True)
     subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
     subprocess.run(["git", "commit", "-q", "-m", "scratch init"], cwd=str(repo), check=True)
+    # 3.6.0.0 R13: a release starts from origin/master -- the scratch repo's origin is a LOCAL bare repo
+    origin = Path(tempfile.mkdtemp(prefix="release-script-origin-")) / "origin.git"
+    subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
+    subprocess.run(["git", "branch", "-M", "master"], cwd=str(repo), check=True)
+    subprocess.run(["git", "remote", "add", "origin", str(origin)], cwd=str(repo), check=True)
+    subprocess.run(["git", "push", "-q", "-u", "origin", "master"], cwd=str(repo), check=True, capture_output=True)
     if dirty_extra:
         (repo / "tests" / "scratch.txt").write_text("uncommitted\n", encoding="utf-8")
     return repo
@@ -321,6 +327,7 @@ def test_install_tag_urls_are_rewritten_on_a_real_run(ctx: Ctx):
     (repo / "docs" / "INSTALL.md").write_text("# Install" + nl + nl + url + nl + nl + ps1 + nl, encoding="utf-8")
     subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
     subprocess.run(["git", "commit", "-q", "-m", "tag urls"], cwd=str(repo), check=True, capture_output=True)
+    subprocess.run(["git", "push", "-q", "origin", "master"], cwd=str(repo), check=True, capture_output=True)
     rc = release.main(["9.9.9", "--dry-run"], repo_dir=repo)
     ctx.check(f"dry run exits 0, got {rc}", rc == 0)
     ctx.check("dry run leaves the tag URL alone", "v9.9.8/scripts/install-halo.sh" in readme_path.read_text(encoding="utf-8"))
@@ -568,6 +575,7 @@ def test_the_shipped_packs_halo_min_follows_the_release(ctx: Ctx):
                     encoding="utf-8")
     subprocess.run(["git", "add", "-A"], cwd=str(repo), check=True)
     subprocess.run(["git", "commit", "-q", "-m", "the shipped pack"], cwd=str(repo), check=True)
+    subprocess.run(["git", "push", "-q", "origin", "master"], cwd=str(repo), check=True, capture_output=True)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         rc = release.main(["9.9.9", "--dry-run"], repo_dir=repo, run_fn=_fake_run([]), pids_fn=lambda: [])
@@ -581,6 +589,89 @@ def test_the_shipped_packs_halo_min_follows_the_release(ctx: Ctx):
     ctx.check("the other lines survive", 'halo_api: {min: "1.0", max: "1.9"}' in text and "capabilities: [docs.review]" in text)
     added = [c for c in calls if c[:2] == ["git", "add"]]
     ctx.check(f"pack.yaml is staged into the release commit, got {added}", any(release._SHIPPED_PACK.as_posix() in c for c in added))
+
+
+# ---- the judge's pass (3.6.0.0 R13): resume after a red gate, a refused push, the main line as GitHub has it ----
+def _real_git(repo, gh, refuse=None):
+    """git for real inside the scratch repo (its origin is a local bare repo), gh faked; `refuse`: an argv that fails
+    the way a protected or moved remote refuses it."""
+    def run(cmd, **kw):
+        if cmd and cmd[0] == "gh":
+            return gh(cmd, **kw)
+        assert cmd and cmd[0] == "git", cmd  # nothing but git, only in the scratch repo
+        if refuse is not None and list(cmd) == refuse:
+            raise subprocess.CalledProcessError(1, cmd, "", "! [rejected] master -> master (fetch first)")
+        r = subprocess.run(cmd, cwd=str(repo), capture_output=True, text=True)
+        if r.returncode:
+            raise subprocess.CalledProcessError(r.returncode, cmd, r.stdout, r.stderr)
+        return r
+    return run
+
+
+def _release(repo, gh, refuse=None):
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        rc = release.main(["9.9.9", "--no-github-release", "--no-install"], repo_dir=repo,
+                          run_fn=_real_git(repo, gh, refuse), pids_fn=lambda: [])
+    return rc, out.getvalue(), err.getvalue()
+
+
+def _g(repo, *a) -> str:
+    return subprocess.run(["git", *a], cwd=str(repo), capture_output=True, text=True).stdout.strip()
+
+
+@test
+def test_a_red_gate_then_a_plain_rerun_resumes_and_tags(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    repo = _scratch_repo("9.9.9")
+    rc, _o, err = _release(repo, FakeGh(conclusions={"suites (windows, py3.12, shard 2/4)": "failure"}))
+    ctx.check(f"1st run, red: exit 1, nothing tagged, got {rc} {err!r}", rc == 1 and _g(repo, "tag") == ""
+              and "nothing was tagged" in err)
+    version_commit = _g(repo, "rev-parse", "rc/9.9.9")
+    rc, out, err = _release(repo, FakeGh())
+    ctx.check(f"2nd run on rc/9.9.9 after the job turned green: resumes, exit 0, got {rc} {err!r}",
+              rc == 0 and "already holds the version commit" in out)
+    ctx.check("no second version commit; master and the tag are that commit, on origin too",
+              _g(repo, "rev-parse", "rc/9.9.9") == version_commit == _g(repo, "rev-parse", "master")
+              == _g(repo, "rev-parse", "origin/master") == _g(repo, "rev-parse", "v9.9.9^{commit}")
+              and _g(repo, "ls-remote", "--tags", "origin", "v9.9.9") != "")
+    _g(repo, "switch", "-q", "master")
+    rc, out, err = _release(repo, FakeGh())
+    ctx.check(f"3rd run from master: the release is there, a re-run finishes cleanly, got {rc} {err!r}", rc == 0)
+
+
+@test
+def test_a_refused_push_names_what_is_done_and_what_is_left(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    repo = _scratch_repo("9.9.9")
+    rc, _o, err = _release(repo, FakeGh(), refuse=["git", "push", "origin", "master"])
+    ctx.check(f"no traceback: exit 1 with the failed command and git's own line, got {rc} {err!r}",
+              rc == 1 and "`git push origin master` failed (exit 1): ! [rejected]" in err)
+    ctx.check(f"what is done, then what is left in order, got {err!r}",
+              "done: git fetch origin; git switch -c rc/9.9.9" in err and "git merge --ff-only rc/9.9.9" in err
+              and 'left to do, in order: git push origin master; git tag -a v9.9.9 -m "Halo Harness 9.9.9"; '
+                  "git push origin v9.9.9" in err and "resumes from rc/9.9.9" in err)
+    rc, _o, err = _release(repo, FakeGh())
+    ctx.check(f"a plain re-run finishes it, got {rc} {err!r}", rc == 0 and _g(repo, "rev-parse", "origin/master")
+              == _g(repo, "rev-parse", "rc/9.9.9") and _g(repo, "tag") == "v9.9.9")
+
+
+@test
+def test_a_release_starts_from_origin_master_and_refuses_a_foreign_branch(ctx: Ctx):
+    from tests.helpers.fake_gh import FakeGh
+    repo = _scratch_repo("9.9.9")
+    (repo / "notes.txt").write_text("local only\n", encoding="utf-8")
+    _g(repo, "add", "notes.txt")
+    _g(repo, "commit", "-qm", "a local commit not on origin")
+    rc, _o, err = _release(repo, FakeGh())
+    ctx.check(f"HEAD ahead of origin/master: refused in one line before anything is written, got {rc} {err!r}",
+              rc == 1 and "is not origin/master" in err and err.strip().count("\n") == 0 and _g(repo, "branch", "--list",
+                                                                                                "rc/9.9.9") == "")
+    repo = _scratch_repo("9.9.9")
+    _g(repo, "branch", "rc/9.9.9")  # a branch of that name that is not a version commit
+    rc, _o, err = _release(repo, FakeGh())
+    ctx.check(f"an rc branch that is not the version commit: refused, never reused, got {rc} {err!r}",
+              rc == 1 and "exists but is not the version commit" in err and "git branch -D rc/9.9.9" in err)
 
 
 if __name__ == "__main__":

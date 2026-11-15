@@ -794,14 +794,39 @@ def other_halo_processes(*, run_fn=None, prefix: Optional[str] = None) -> "list[
     return found
 
 
-def halo_ancestors(*, run_fn=None) -> "list[int]":
-    """This process's ancestors that are halo themselves (the Windows uv/pipx
-    `halo.exe` launcher that waits on this python): a detached updater waits
-    for them to end too."""
+def launch_lineage(*, run_fn=None) -> "tuple[list[int], list[dict]]":
+    """(launchers, openers). `launchers`: the CONTIGUOUS chain of plain halo processes right above this one (the
+    Windows uv/pipx `halo.exe` stub that waits on this python) -- a detached updater waits for them to end.
+    3.6.0.0 R13 (judge): the chain stops at the first process that is not a plain halo, so a Studio (or the
+    supervisor) that opened this halo is never waited on as if it were this halo's launcher; `openers` are those
+    Studio / supervisor processes right above the chain ({pid, what, cmd}): they are stopped, not waited for."""
     rows = list_processes(run_fn=run_fn)
     by_pid = {pid: (ppid, cmd) for pid, ppid, cmd in rows}
-    chain = _ancestor_pids(os.getpid(), {pid: ppid for pid, ppid, _ in rows}) - {os.getpid()}
-    return sorted(p for p in chain if p in by_pid and halo_what(by_pid[p][1]))
+    me = os.getpid()
+    seen, chain, openers = {me}, [], []
+    pid = by_pid.get(me, (None, ""))[0]
+    while pid in by_pid and pid not in seen and halo_what(by_pid[pid][1]) == "halo":
+        seen.add(pid)
+        chain.append(pid)
+        pid = by_pid[pid][0]
+    while pid in by_pid and pid not in seen:
+        what = halo_what(by_pid[pid][1])
+        if what not in ("studio", "supervisor"):
+            break
+        seen.add(pid)
+        openers.append({"pid": pid, "what": what, "cmd": by_pid[pid][1]})
+        pid = by_pid[pid][0]
+    return sorted(chain), openers
+
+
+def halo_ancestors(*, run_fn=None) -> "list[int]":
+    """The launchers of `launch_lineage`: this halo's own `halo.exe` stub chain, nothing above it."""
+    return launch_lineage(run_fn=run_fn)[0]
+
+
+def halo_openers(*, run_fn=None) -> "list[dict]":
+    """The openers of `launch_lineage`: a Studio or supervisor that started this halo."""
+    return launch_lineage(run_fn=run_fn)[1]
 
 
 def other_halo_pids(*, run_fn=None) -> "list[int]":

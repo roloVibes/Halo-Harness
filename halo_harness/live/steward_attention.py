@@ -21,6 +21,9 @@ KIND = "ollama_steward"
 
 def rows(home, local: dict, seen: dict, now: float) -> list:
     try:
+        from halo_harness.ollama_steward.job import enabled
+        if not enabled(home):  # 3.6.0.0 R13: a steward that is off raises no row from its old notes
+            return []
         return _rows(home, local, seen, now)
     except Exception:  # the queue never fails over the steward's file
         return []

@@ -30,6 +30,7 @@ PLAN_NAME = "update-plan.json"
 RESULT_NAME = "update-result.json"
 LOCK_NAME = "update-previous.lock"
 LOG_NAME = "update.log"
+RUN_LOG_NAME = "update-run.log"  # this run's lines only: the Windows window (`--watch`) shows them
 WINDOWS_PAUSE_S = 15.0
 _HEX_RE = re.compile(r"^[0-9a-f]{7,40}$")
 _CONSTRAINT_RE = re.compile(r'(--constraints?\s+)("[^"]*"|[^\s"]+)')
@@ -157,7 +158,9 @@ def build_plan(*, cmd: str, cwd: Optional[str], before: dict, expect: dict, rest
     from halo_harness.update import format_version_line
     windows = os.name == "nt" if windows is None else windows
     rd = run_dir(state_dir)
+    import secrets
     return {"version": 1, "log": str(_state(state_dir) / LOG_NAME), "result": str(rd / RESULT_NAME),
+            "run_log": str(rd / RUN_LOG_NAME), "run_id": secrets.token_hex(8),
             "wait_pids": [int(p) for p in wait_pids], "stop_pids": [int(p) for p in stop_pids],
             "held": [{"pid": int(h["pid"]), "what": h.get("what") or "halo"} for h in held if h.get("pid")],
             "supervisor_stop_file": supervisor_stop_file, "restart_supervisor": bool(restart_supervisor),
@@ -206,19 +209,32 @@ def write_plan(plan: dict, state_dir=None) -> Path:
     return path
 
 
+def launch_refusal(python: Optional[list] = None, *, need_python: bool = True) -> Optional[str]:
+    """Why the updater cannot start here, as the one line to print, or None. `halo update` asks this BEFORE it stops
+    any of the user's processes (judge should-fix 1). The switch is `HALO_NO_UPDATER=1`, or a scratch test home
+    (`BRIDGE_TEST_HOME`); `BRIDGE_STATE_DIR` is a user's own setting and never blocks an update."""
+    if os.environ.get("HALO_NO_UPDATER") == "1" or "BRIDGE_TEST_HOME" in os.environ:
+        return ("halo update: the updater is switched off here (HALO_NO_UPDATER, or a test home), so nothing was "
+                "installed")
+    if need_python and not (python if python is not None else outside_python()):
+        return ("halo update: no Python outside halo's own environment was found to run the updater, so nothing "
+                "was installed; run the install from a shell instead")
+    return None
+
+
 def launch(plan: dict, *, state_dir=None, windows: Optional[bool] = None, python: Optional[list] = None,
            popen=None, execv=None, quiet: bool = False) -> Optional[int]:
     """Start the updater. POSIX: this process becomes it (exec; nothing of this environment runs after the
-    install). Windows: its own window, started now, waiting for this halo to exit; returns 0. None when it could
-    not start (nothing was installed); the caller says so."""
+    install). Windows: the updater runs with NO console (closing a window or a Ctrl+C never stops it halfway) and
+    waits for this halo to exit; its window is `update_runner.py --watch`, which shows its output and the outcome.
+    Returns 0; None when it could not start (nothing was installed; the line was printed)."""
     from halo_harness import subprocess_safe as subprocess
     windows = os.name == "nt" if windows is None else windows
-    if popen is None and execv is None and (os.environ.get("HALO_NO_UPDATER") == "1"
-                                            or "BRIDGE_TEST_HOME" in os.environ or "BRIDGE_STATE_DIR" in os.environ):
-        # a scratch test home (or the switch) never starts a real updater: it would run a real install
-        print("halo update: the updater is switched off here (HALO_NO_UPDATER, or a test home), so nothing was "
-              "installed", file=sys.stderr)
-        return None
+    if popen is None and execv is None:
+        why = launch_refusal(python)
+        if why:
+            print(why, file=sys.stderr)
+            return None
     py = python if python is not None else outside_python()
     if not py:
         print("halo update: no Python outside halo's own environment was found to run the updater, so nothing was "
@@ -235,12 +251,13 @@ def launch(plan: dict, *, state_dir=None, windows: Optional[bool] = None, python
             print(f"halo update: the updater did not start ({e}); nothing was installed", file=sys.stderr)
             return None
         return 0  # an exec that returned: only a test's fake
-    flags = (getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+    run = popen or subprocess.Popen
+    detached = getattr(subprocess, "DETACHED_PROCESS", 0x08) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
     started = None
     for extra in (getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0x01000000), 0):
         try:
-            started = (popen or subprocess.Popen)(argv, creationflags=flags | extra, stdin=subprocess.DEVNULL,
-                                                  cwd=str(run_dir(state_dir)), close_fds=True)
+            started = run(argv, creationflags=detached | extra, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL, cwd=str(run_dir(state_dir)), close_fds=True)
             break
         except OSError:
             continue
@@ -248,9 +265,15 @@ def launch(plan: dict, *, state_dir=None, windows: Optional[bool] = None, python
         print(f"halo update: the updater did not start ({runner}); nothing was installed; run `halo update` again",
               file=sys.stderr)
         return None
+    window = getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
+    try:  # the window is a viewer only: without it the update still runs, its log says how it went
+        run([*py, str(runner), "--watch", str(plan_path), str(getattr(started, "pid", "") or "")],
+            creationflags=window, stdin=subprocess.DEVNULL, cwd=str(run_dir(state_dir)), close_fds=True)
+    except OSError:
+        pass
     if not quiet:
-        print("halo update: the install runs in its own window once this halo has exited (Windows cannot replace "
-              f"the files of a running halo); it checks the new version and puts the old one back if it fails. "
+        print("halo update: the install runs once this halo has exited (Windows cannot replace the files of a "
+              "running halo), in its own window; it checks the new version and puts the old one back if it fails. "
               f"Its log: {plan.get('log')}; then `halo --version`")
     return 0
 

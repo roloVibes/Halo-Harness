@@ -203,7 +203,10 @@ def test_a_note_raises_the_attention_row_and_travels_to_a_paired_halo(ctx: Ctx):
     from halo_harness.live.steward_attention import latest_attention
     from halo_harness.ollama_steward import notes
     from halo_harness.studio.live_answer import SET_ASIDE, open_target
-    with Home() as h:
+    with Home() as off:  # 3.6.0.0 R13: a steward that is off raises no row from its notes
+        notes.append(off.state, "note", "spilled", lines=["spilled"], attention=True)
+        ctx.check("off (the default): no attention row from its notes", latest_attention(off.state) is None)
+    with Home(extra={"ollama": {"steward": {"job": True}}}) as h:
         notes.append(h.state, "note", "all quiet", lines=["all quiet", "nothing changed"])
         ctx.check("a note without an error finding or a change raises nothing", latest_attention(h.state) is None)
         notes.append(h.state, "note", "the 30B on pc spilled 3 GiB to the CPU while ComfyUI held the card",

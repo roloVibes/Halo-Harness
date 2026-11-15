@@ -196,6 +196,109 @@ def test_off_the_readers_say_so_in_one_line(ctx: Ctx):
         ctx.check("a config that says true stays true", cfg["ollama"]["steward"]["job"] is True)
 
 
+# ---- the judge's pass (3.6.0.0 R13) ----
+@test
+def test_two_reactions_to_one_write_never_orphan_a_job(ctx: Ctx):
+    """Judge: the Settings request and the files watcher both call sync_steward for one config write; serialised,
+    with the registry as the truth, they leave exactly one job (on) or none (off), never an orphan."""
+    from types import SimpleNamespace
+    from tests.helpers.local_seed import Seams
+    from tests.helpers.session_rig import SessionRig
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.ollama_steward import job as J
+    from halo_harness.ollama_steward import resources as R
+    from halo_harness.studio.server import sync_steward
+    from halo_harness.theme import set_config_value
+    saved_host, saved_seams = os.environ.get("OLLAMA_HOST"), dict(R.SAMPLER_SEAMS)
+    os.environ["OLLAMA_HOST"] = "http://127.0.0.1:9"
+    with SessionRig():
+        os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+        R.SAMPLER_SEAMS.update({"seams": Seams().as_seams(), "hosts": lambda: [], "ps": lambda host: None})
+        server = SimpleNamespace(state_dir=bridge_home(), steward_job=None, steward_synced=threading.Event(),
+                                 steward_lines=[])
+        try:
+            for value in (True, False, True):
+                set_config_value("ollama.steward.job", value)
+                ts = [threading.Thread(target=sync_steward, args=(server,)) for _ in range(4)]
+                for t in ts:
+                    t.start()
+                for t in ts:
+                    t.join(30)
+                registered = J._JOBS.get(str(server.state_dir))
+                timers = [n for n in _names() if n == "halo-steward-timer"]
+                ctx.check(f"{'on' if value else 'off'}: the Studio's job is the registry's, {int(value)} timer thread, "
+                          f"got {server.steward_job is registered} {timers}",
+                          server.steward_job is registered and (registered is not None) == value
+                          and len([t for t in threading.enumerate() if t.name == "halo-steward-timer"]) == int(value))
+        finally:
+            set_config_value("ollama.steward.job", False)
+            sync_steward(server)
+            R.SAMPLER_SEAMS.clear()
+            R.SAMPLER_SEAMS.update(saved_seams)
+            if saved_host is None:
+                os.environ.pop("OLLAMA_HOST", None)
+            else:
+                os.environ["OLLAMA_HOST"] = saved_host
+
+
+@test
+def test_halo_host_obeys_the_switch_without_a_restart(ctx: Ctx):
+    """Judge: `halo host serve` started the resources sampler whatever the switch said, and a change reached it only
+    at a restart. Now: off, no sampler and no job; the setting changed while it runs, its loop follows (sync_steward,
+    called every tick). No listener is opened here: the service object is driven directly."""
+    from tests.helpers.session_rig import SessionRig
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.host.service import HostService
+    from halo_harness.ollama_steward import resources as R
+    from halo_harness.theme import set_config_value
+    wants, made = [], []
+
+    class _Job:
+        def stop(self):
+            made.append("stopped")
+            return []
+    saved_want = R.want
+    R.want = lambda state_dir, owner, on, **kw: wants.append((owner, on)) or {}
+    try:
+        with SessionRig():
+            svc = HostService(bridge_home(), port=0, bind="127.0.0.1", name="gpu-box", record=False,
+                              job=lambda home: made.append("started") or _Job())
+            from halo_harness.ollama_steward.job import enabled
+            svc._steward_on = enabled()
+            ctx.check("off by default", svc._steward_on is False)
+            ctx.check("off: nothing changes on a tick", svc.sync_steward() == [] and wants == [] and made == [])
+            set_config_value("ollama.steward.job", True)
+            svc.sync_steward()
+            ctx.check(f"turned on: the job and the sampler start, got {made} {wants}",
+                      made == ["started"] and wants == [("host", True)])
+            set_config_value("ollama.steward.job", False)
+            svc.sync_steward()
+            ctx.check(f"turned off: the job stops and the sampler is released, got {made} {wants}",
+                      made == ["started", "stopped"] and wants[-1] == ("host", False) and svc.job is None)
+    finally:
+        R.want = saved_want
+
+
+@test
+def test_a_home_whose_job_was_on_before_hears_once_that_it_is_off(ctx: Ctx):
+    from tests.helpers.session_rig import SessionRig
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.ollama_steward import job as J
+    from halo_harness.theme import set_config_value, unset_config_value
+    with SessionRig():
+        state = bridge_home()
+        ctx.check("a fresh home (the job never ran): no notice", J.off_notice(state) is None)
+        (state / "ollama").mkdir(parents=True, exist_ok=True)
+        (state / "ollama" / "steward-job.json").write_text('{"where": "studio", "stopped": 1}', encoding="utf-8")
+        first, second = J.off_notice(state), J.off_notice(state)
+        ctx.check(f"a home whose job ran before 3.6.0.0: once, got {first!r} then {second!r}",
+                  first and "now off by default; turn it on in Settings > Ollama" in first and second is None)
+        (state / "ollama" / J._NOTICE_MARK).unlink()
+        set_config_value("ollama.steward.job", False)
+        ctx.check("a home that set the key itself: no notice", J.off_notice(state) is None)
+        unset_config_value("ollama.steward.job")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

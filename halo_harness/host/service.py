@@ -139,16 +139,52 @@ class HostService:
             self.job = self.job_factory(self.home)
         except Exception:
             self.job = None
-        try:
-            from halo_harness.config.paths import background_net_disabled
-            from halo_harness.ollama_steward import resources
-            resources.want(self.home, "host", True, lease=None, start=not background_net_disabled())
-        except Exception:
-            pass
+        from halo_harness.ollama_steward.job import enabled
+        self._steward_on = enabled()
+        if self._steward_on:  # 3.6.0.0 R13 (judge): no sampler while the steward is off
+            self._want_sampler(True)
         if self.record:
             self._write_info()
         threading.Thread(target=self._loop, name="halo-host-loop", daemon=True).start()
         return self
+
+    def _want_sampler(self, on: bool) -> None:
+        try:
+            from halo_harness.config.paths import background_net_disabled
+            from halo_harness.ollama_steward import resources
+            if on:
+                resources.want(self.home, "host", True, lease=None, start=not background_net_disabled())
+            else:
+                resources.want(self.home, "host", False)
+        except Exception:
+            pass
+
+    def sync_steward(self) -> list:
+        """3.6.0.0 R13 (judge): `ollama.steward.job` changed while the host runs -- its job and its sampler follow
+        at once (the loop asks every tick), no restart. Returns any line about a thread that did not stop."""
+        from halo_harness.ollama_steward.job import enabled
+        on = enabled()
+        if on == getattr(self, "_steward_on", None):
+            return []
+        self._steward_on, lines = on, []
+        if on:
+            if self.job is None:
+                try:
+                    self.job = self.job_factory(self.home)
+                except Exception:
+                    self.job = None
+            self._want_sampler(True)
+        else:
+            if self.job is not None:
+                try:
+                    lines = self.job.stop() or []
+                except Exception:
+                    lines = []
+                self.job = None
+            self._want_sampler(False)
+        if self.record and self.server is not None:
+            self._write_info()
+        return lines
 
     def watches(self) -> list:
         return [h.name for h in self.view.hosts()]
@@ -165,6 +201,7 @@ class HostService:
             if S.stop_path(self.home).exists():
                 self.stopping.set()
                 break
+            self.sync_steward()
             if time.monotonic() >= nxt:
                 nxt = time.monotonic() + FORWARD_S
                 try:

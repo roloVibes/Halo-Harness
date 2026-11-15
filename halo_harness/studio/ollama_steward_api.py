@@ -43,9 +43,11 @@ def get_steward(req):
     applied = {r.get("finding") for r in journal if r.get("kind") == "apply"}
     pending = [r for r in journal if r.get("kind") == "proposal" and r.get("id") not in quiet
                and r.get("id") not in applied]
-    from halo_harness.ollama_steward.job import OFF_LINE, enabled
+    from halo_harness.ollama_steward.job import OFF_LINE, enabled, off_notice
     on = enabled() or bool(st.get("running"))  # 3.6.0.0 R13: the page shows the one off line instead of old notes
-    return 200, {"on": on, "off_line": None if on else OFF_LINE,
+    notice = off_notice(state)  # once, for a home whose job was on by default before (Settings shows it)
+    return 200, {"on": on, "off_line": None if on else (f"{OFF_LINE}. {notice}" if notice else OFF_LINE),
+                 "notice": notice,
                  "status": st, "status_lines": job_state.format_status(st, last_note=last),
                  "current": job.current(state), "notes": notes.read(state, since_s=86400.0)[-NOTES:],
                  "last_note": last, "hub_note": notes.hub_note(state), "mode": steward.mode(),

@@ -215,6 +215,61 @@ def set_changelog_date(version: str, date_str: str, repo_dir: Path = REPO_DIR) -
     __import__("halo_harness.whatsnew", fromlist=["write_data"]).write_data(repo_dir)  # `halo whatsnew` reads it
 
 
+def dated_section_body(version: str, repo_dir: Path = REPO_DIR) -> str:
+    """The body of `## [<version>] - <date>` (a resumed release: the version commit already dated it)."""
+    text = (repo_dir / "CHANGELOG.md").read_text(encoding="utf-8")
+    m = re.search(rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}[^\n]*\n", text, re.MULTILINE)
+    if not m:
+        raise ReleaseError(f'CHANGELOG.md has no dated "## [{version}] - <date>" section')
+    nxt = text.find("\n## [", m.end())
+    return text[m.end():] if nxt == -1 else text[m.end():nxt]
+
+
+def _git_out(repo_dir: Path, *args: str) -> "Optional[str]":
+    """A read-only git question, asked for real (local only); None when git says no."""
+    r = subprocess.run(["git", *args], cwd=str(repo_dir), capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def _rev(repo_dir: Path, ref: str) -> "Optional[str]":
+    return _git_out(repo_dir, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}")
+
+
+def candidate_state(version: str, repo_dir: Path) -> "tuple[bool, str]":
+    """3.6.0.0 R13 (judge): (resume, why). `rc/<version>` absent: (False, ""), a fresh release (HEAD must be
+    origin/master). Present and its head is the version commit (the subject, `__version__`, the CHANGELOG dated)
+    on top of origin/master, or already on it: (True, its sha) -- a plain re-run pushes it and gates again,
+    no new commit. Present and anything else: ReleaseError, said in one line."""
+    branch = candidate_branch(version)
+    rc = _rev(repo_dir, f"refs/heads/{branch}")
+    om = _rev(repo_dir, "refs/remotes/origin/master")
+    if om is None:
+        raise ReleaseError("there is no origin/master here (`git fetch origin` first): a release starts from the main "
+                           "line as it is on GitHub")
+    tag = _rev(repo_dir, f"refs/tags/v{version}")
+    if rc is None:
+        head = _rev(repo_dir, "HEAD") or "?"
+        if head != om:
+            raise ReleaseError(f"HEAD ({head[:12]}) is not origin/master ({om[:12]}): `git switch master && git pull "
+                               f"--ff-only` first -- a release starts from the main line as it is on GitHub")
+        if tag is not None:
+            raise ReleaseError(f"the tag v{version} already exists ({tag[:12]}); a released version is not released again")
+        return False, ""
+    subject = _git_out(repo_dir, "log", "-1", "--format=%s", rc) or ""
+    init = _git_out(repo_dir, "show", f"{rc}:halo_harness/__init__.py") or ""
+    log = _git_out(repo_dir, "show", f"{rc}:CHANGELOG.md") or ""
+    m = _VERSION_RE.search(init)
+    dated = re.search(rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}", log, re.MULTILINE)
+    parent = _rev(repo_dir, f"{rc}^")
+    if not (subject.startswith(f"release: Halo Harness {version}") and m and m.group(1) == version and dated
+            and om in (parent, rc)):
+        raise ReleaseError(f"{branch} exists but is not the version commit on top of origin/master; look at it, then "
+                           f"`git branch -D {branch}` (and `git push origin --delete {branch}`) to start again")
+    if tag is not None and tag != rc:
+        raise ReleaseError(f"the tag v{version} already exists on {tag[:12]}, not on {branch} ({rc[:12]})")
+    return True, rc
+
+
 def commit_message_body(section_body: str, max_bullets: int = 5) -> str:
     """Deliverable 2 step 4's "message body from the CHANGELOG section's
     first bullets" -- the section's own top-level `- ` lines, verbatim,
@@ -419,8 +474,15 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
     def step(description: str) -> None:
         steps.append(description)
 
+    done: "list[str]" = []
+    planned: "list[list]" = []
+
     def git(*a: str) -> None:
         run_fn(["git", *a], cwd=str(repo_dir), check=True)
+        done.append(" ".join(["git", *a]))
+
+    def shown(cmd: list) -> str:
+        return " ".join(f'"{c}"' if (" " in c or not c) else c for c in cmd)
 
     try:
         dirty = dirty_files(repo_dir)
@@ -428,74 +490,95 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             raise ReleaseError("refusing: the tree is dirty under halo_harness/, tests/, or docs/: "
                                 + ", ".join(dirty))
         step("tree is clean under halo_harness/, tests/, docs/")
-        unreleased_section_body(version, repo_dir)  # raises ReleaseError when missing, before anything is written
-
-        # 3.6.0.0 R13: the version commit is made on the candidate branch, never on master
-        step(f"git switch -c {branch} (the version commit goes on the candidate branch)")
+        # 3.6.0.0 R13 (judge): the main line as GitHub has it, then: a fresh release, or the resume of one
+        step("git fetch origin (the release starts from origin/master, or resumes the candidate branch)")
         if not args.dry_run:
-            git("switch", "-c", branch)
-
-        current_version = read_version(repo_dir)
-        if current_version == version:
-            step(f'halo_harness/__init__.py already says __version__ = "{version}"')
+            git("fetch", "origin")
+        resume, rc_sha = candidate_state(version, repo_dir)
+        tag_msg = f"Halo Harness {version}"
+        after_gate = [["switch", "master"], ["merge", "--ff-only", branch], ["push", "origin", "master"],
+                      ["tag", "-a", f"v{version}", "-m", tag_msg], ["push", "origin", f"v{version}"]]
+        if resume:
+            section_body = dated_section_body(version, repo_dir)
+            current = _git_out(repo_dir, "branch", "--show-current")
+            step(f"{branch} already holds the version commit {rc_sha[:12]}: no new commit; push it and gate it again")
+            before_gate = ([] if current == branch else [["switch", branch]]) + [["push", "-u", "origin", branch]]
+            planned.extend(before_gate + after_gate)
+            if not args.dry_run:
+                for c in before_gate:
+                    git(*c)
         else:
-            step(f'set halo_harness/__init__.py::__version__ to "{version}" (was "{current_version}")')
+            unreleased_section_body(version, repo_dir)  # raises ReleaseError when missing, before anything is written
+            planned.extend([["switch", "-c", branch], ["add", "..."], ["commit", "..."], ["push", "-u", "origin", branch]]
+                           + after_gate)
+            # 3.6.0.0 R13: the version commit is made on the candidate branch, never on master
+            step(f"git switch -c {branch} (the version commit goes on the candidate branch)")
             if not args.dry_run:
-                write_version(version, repo_dir)
-        if (repo_dir / _SHIPPED_PACK).exists():  # 3.2.0.0 R7: the shipped reference pack requires the release it ships in
-            step(f'set the shipped reference pack\'s halo: {{min: "{major_minor(version)}"}} ({_SHIPPED_PACK.as_posix()})')
+                git("switch", "-c", branch)
+
+            current_version = read_version(repo_dir)
+            if current_version == version:
+                step(f'halo_harness/__init__.py already says __version__ = "{version}"')
+            else:
+                step(f'set halo_harness/__init__.py::__version__ to "{version}" (was "{current_version}")')
+                if not args.dry_run:
+                    write_version(version, repo_dir)
+            if (repo_dir / _SHIPPED_PACK).exists():  # 3.2.0.0 R7: the shipped reference pack requires the release it ships in
+                step(f'set the shipped reference pack\'s halo: {{min: "{major_minor(version)}"}} ({_SHIPPED_PACK.as_posix()})')
+                if not args.dry_run:
+                    write_shipped_pack_min(version, repo_dir)
+
+            section_body = unreleased_section_body(version, repo_dir)
+            step(f'CHANGELOG.md has a "## [{version}] - unreleased" section; set its date to {date_str}')
             if not args.dry_run:
-                write_shipped_pack_min(version, repo_dir)
+                set_changelog_date(version, date_str, repo_dir)
 
-        section_body = unreleased_section_body(version, repo_dir)
-        step(f'CHANGELOG.md has a "## [{version}] - unreleased" section; set its date to {date_str}')
-        if not args.dry_run:
-            set_changelog_date(version, date_str, repo_dir)
-
-        # Deliverable 6: the README badge rewrite is staged into the SAME
-        # commit as the version bump and the CHANGELOG date below -- one
-        # release, one commit, exactly like before this round.
-        step(f"rewrite README.md's version badge to {version!r}")
-        if not args.dry_run:
-            write_readme_badge_version(version, repo_dir)
-        step(f"rewrite the install one-liners' tag URL to v{version} (README.md, docs/INSTALL.md)")
-        if not args.dry_run:
-            write_install_tag_urls(version, repo_dir)
-
-        # 2.0.8: the README gallery under docs/screenshots/ embeds the
-        # version string (the launch scene's banner), and
-        # tests/test_screenshots.py pins every committed SVG to a fresh
-        # render -- so the bump re-renders the gallery into the SAME
-        # release commit. Skipped when the script is absent (scratch repos).
-        shots = repo_dir / "scripts" / "screenshots.py"
-        if shots.exists():
-            step("re-render docs/screenshots/ with scripts/screenshots.py (the banner carries the version)")
+            # Deliverable 6: the README badge rewrite is staged into the SAME
+            # commit as the version bump and the CHANGELOG date below -- one
+            # release, one commit, exactly like before this round.
+            step(f"rewrite README.md's version badge to {version!r}")
             if not args.dry_run:
-                run_fn([sys.executable, str(shots)], cwd=str(repo_dir), check=True)
+                write_readme_badge_version(version, repo_dir)
+            step(f"rewrite the install one-liners' tag URL to v{version} (README.md, docs/INSTALL.md)")
+            if not args.dry_run:
+                write_install_tag_urls(version, repo_dir)
 
-        body_text = commit_message_body(section_body)
-        commit_subject = f"release: Halo Harness {version}"
-        full_message = commit_subject if not body_text else f"{commit_subject}\n\n{body_text}"
-        step(f"git commit -m {commit_subject!r} (+ {len(body_text.splitlines())} body line(s) from the CHANGELOG) "
-             f"on {branch}")
-        step(f"git push -u origin {branch} (every platform's suites run on it)")
-        if not args.dry_run:
-            to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md", "halo_harness/data/changelog.md"]
-            if (repo_dir / "docs" / "INSTALL.md").exists():
-                to_add.append("docs/INSTALL.md")
-            if (repo_dir / _SHIPPED_PACK).exists():
-                to_add.append(_SHIPPED_PACK.as_posix())
-            if (repo_dir / "docs" / "screenshots").is_dir():
-                to_add.append("docs/screenshots")
-            git("add", *to_add)
-            git("commit", "-m", full_message)
-            git("push", "-u", "origin", branch)
+            # 2.0.8: the README gallery under docs/screenshots/ embeds the
+            # version string (the launch scene's banner), and
+            # tests/test_screenshots.py pins every committed SVG to a fresh
+            # render -- so the bump re-renders the gallery into the SAME
+            # release commit. Skipped when the script is absent (scratch repos).
+            shots = repo_dir / "scripts" / "screenshots.py"
+            if shots.exists():
+                step("re-render docs/screenshots/ with scripts/screenshots.py (the banner carries the version)")
+                if not args.dry_run:
+                    run_fn([sys.executable, str(shots)], cwd=str(repo_dir), check=True)
+
+            body_text = commit_message_body(section_body)
+            commit_subject = f"release: Halo Harness {version}"
+            full_message = commit_subject if not body_text else f"{commit_subject}\n\n{body_text}"
+            step(f"git commit -m {commit_subject!r} (+ {len(body_text.splitlines())} body line(s) from the CHANGELOG) "
+                 f"on {branch}")
+            step(f"git push -u origin {branch} (every platform's suites run on it)")
+            if not args.dry_run:
+                to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md", "halo_harness/data/changelog.md"]
+                if (repo_dir / "docs" / "INSTALL.md").exists():
+                    to_add.append("docs/INSTALL.md")
+                if (repo_dir / _SHIPPED_PACK).exists():
+                    to_add.append(_SHIPPED_PACK.as_posix())
+                if (repo_dir / "docs" / "screenshots").is_dir():
+                    to_add.append("docs/screenshots")
+                git("add", *to_add)
+                done[-1] = "git add (the release files)"
+                git("commit", "-m", full_message)
+                done[-1] = f"git commit -m {commit_subject!r}"
+                git("push", "-u", "origin", branch)
 
         # The gate: the candidate branch's run for the version commit, every required job green
         if args.dry_run:
             gate_lines.append(gate.describe(branch, macos=args.require_macos, realcheck=args.require_realcheck))
         else:
-            sha = gate.head_sha(repo_dir)
+            sha = _rev(repo_dir, f"refs/heads/{branch}") or gate.head_sha(repo_dir)
             accepted, warnings = (gate_fn or gate.candidate_gate)(sha, branch=branch, repo_dir=repo_dir,
                                                                   run_fn=run_fn, macos=args.require_macos,
                                                                   realcheck=args.require_realcheck)
@@ -503,13 +586,17 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
 
         step(f"git switch master && git merge --ff-only {branch} (master moves to the green commit)")
         step("git push origin master")
-        step(f'git tag -a v{version} -m "Halo Harness {version}"')
+        step(f'git tag -a v{version} -m "{tag_msg}"')
         step(f"git push origin v{version}")
         if not args.dry_run:
             git("switch", "master")
             git("merge", "--ff-only", branch)
             git("push", "origin", "master")
-            git("tag", "-a", f"v{version}", "-m", f"Halo Harness {version}")
+            have = _rev(repo_dir, f"refs/tags/v{version}")
+            if have is None:
+                git("tag", "-a", f"v{version}", "-m", tag_msg)
+            else:
+                done.append(f"git tag -a v{version} (already there)")
             git("push", "origin", f"v{version}")
 
         if args.no_github_release:
@@ -554,6 +641,24 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
                     run_fn(ssh_cmd, check=True)
     except ReleaseError as e:
         print(f"release.py: {e}", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as e:  # 3.6.0.0 R13 (judge): never a traceback; what is done, what is left
+        cmd = e.cmd if isinstance(e.cmd, list) else [str(e.cmd)]
+        err = (e.stderr or e.output or "") if isinstance(e.stderr or e.output or "", str) else ""
+        first = next((ln.strip() for ln in err.splitlines() if ln.strip()), "")
+        failed = cmd[1:] if cmd[:1] == ["git"] else None
+        print(f"release.py: `{shown(cmd)}` failed (exit {e.returncode})" + (f": {first}" if first else ""),
+              file=sys.stderr)
+        print("release.py: done: " + ("; ".join(done) if done else "nothing"), file=sys.stderr)
+        left, seen_failed = [], failed is None
+        for c in planned:
+            if c == failed:
+                seen_failed = True
+            if seen_failed and "..." not in c:
+                left.append(shown(["git", *c]))
+        if left:
+            print("release.py: left to do, in order: " + "; ".join(left)
+                  + f" -- or run `python scripts/release.py {version}` again: it resumes from {branch}", file=sys.stderr)
         return 1
     except gate.GateError as e:
         print(f"release.py: the gate on {branch}: {e}", file=sys.stderr)

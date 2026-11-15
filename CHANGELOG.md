@@ -598,7 +598,14 @@ you wanted it or not, and a release script that pushed to a main line that no lo
   concluded success (Linux x4, Windows x4, studio-ui; macOS x4 and `realcheck` behind a flag in
   `scripts/release_gate.py`) fast-forwards master, tags and publishes the release with its tar.gz and
   `checksums.txt`. A red run stops it naming the failing jobs, with nothing tagged. "driver retried once" lines in
-  the run's log are printed as warnings. `--skip-windows` is gone.
+  the run's log are printed as warnings. `--skip-windows` is gone. It starts only from origin/master as GitHub has it,
+  and a plain re-run after a red gate or a refused push resumes from `rc/<version>` (no second commit); a failed git
+  step says what is done and what is left, never a traceback.
+- **The updater cannot be stopped halfway.** The installer runs in its own process group and its output streams as
+  it comes; a Ctrl+C or a closed terminal during the install still gets the old version put back, and the outcome
+  is always written. On Windows the updater runs without a console and its window only shows it (it stays open on
+  any outcome but a success). A Studio that opened the halo being updated is stopped by the updater, never waited
+  on; nothing is stopped before the updater is known to start; `halo update --check` writes nothing.
 - **Tests:** `test_update_runner` (the real updater against a scratch tool environment: an installer that fails
   halfway, a wrong version, a failed restore, a halo that does not exit, held files), `test_update_cli`,
   `test_update_detached`, `test_steward_off` (a Studio and a session with no steward thread and under 2 % of a core

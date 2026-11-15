@@ -253,8 +253,13 @@ def test_launch_uses_an_outside_python_and_never_runs_in_a_test_home(ctx: Ctx):
         pid = 4321
     got = UP.launch(plan, state_dir=state, windows=True, python=["C:/py/python.exe", "-I"],
                     popen=lambda argv, **kw: popens.append((argv, kw)) or _P())
-    ctx.check(f"Windows: its own console, detached from this halo, got {got} {popens}",
-              got == 0 and popens and popens[0][1]["creationflags"] & 0x10 and popens[0][0][0] == "C:/py/python.exe")
+    run_flags = popens[0][1]["creationflags"] if popens else 0
+    ctx.check(f"Windows: the updater runs with NO console (a closed window or Ctrl+C never stops it), detached from "
+              f"this halo, got {got} {popens}", got == 0 and len(popens) == 2 and run_flags & 0x08
+              and not run_flags & 0x10 and popens[0][0][0] == "C:/py/python.exe" and "--watch" not in popens[0][0])
+    ctx.check("its window is the viewer (`--watch` with the updater's pid), a console of its own",
+              len(popens) == 2 and popens[1][0][-3:-1] == ["--watch", popens[0][0][-1]] and popens[1][0][-1] == "4321"
+              and popens[1][1]["creationflags"] & 0x10)
     import contextlib
     import io
     err = io.StringIO()
@@ -277,6 +282,130 @@ def test_the_runner_imports_nothing_from_halo(ctx: Ctx):
     ctx.check(f"standard library only (it runs outside halo's environment), got {names}",
               not any(n.startswith("halo_harness") for n in names))
 
+
+# ---- the judge's pass (3.6.0.0 R13): its probes, as tests ----
+class _P:
+    def __init__(self, rc=0, out=""):
+        self.returncode, self.stdout, self.stderr = rc, out, ""
+
+
+OLD_LINE = "halo 3.5.0.1 (aaaaaaa, v3.5.0.1)"
+
+
+def _judge_plan(**extra) -> dict:
+    p = {"before": {"line": OLD_LINE, "version": "3.5.0.1", "commit": "aaaaaaa"},
+         "expect": {"version": "3.6.0.0", "label": "3.6.0.0"},
+         "install": {"cmd": "INSTALL"}, "restore": {"cmd": "RESTORE"}, "halo": ["halo"]}
+    p.update(extra)
+    return p
+
+
+def _go(run_fn, **kw):
+    return R.run_plan(_judge_plan(**kw.pop("plan", {})), run_fn=run_fn, alive_fn=kw.pop("alive_fn", lambda p: False),
+                      kill_fn=kw.pop("kill_fn", lambda p: None), sleep_fn=kw.pop("sleep_fn", lambda s: None),
+                      out=lambda s: None, **kw)
+
+
+@test
+def test_a_ctrl_c_during_the_install_still_puts_the_old_one_back(ctx: Ctx):
+    import signal
+    calls, ignored = [], []
+
+    def ctrl_c(cmd, **kw):
+        calls.append(cmd)
+        if cmd == "INSTALL":
+            ignored.append(signal.getsignal(signal.SIGINT) is signal.SIG_IGN)
+            raise KeyboardInterrupt
+        return _P(0, OLD_LINE)
+    code, res = _go(ctrl_c, protect=True)
+    ctx.check(f"the putting back ran after the Ctrl+C, got {calls}", "RESTORE" in calls and code == 1)
+    ctx.check(f"restored, saying it was interrupted, got {res}", res["outcome"] == "restored"
+              and "interrupted (Ctrl+C)" in res["line"])
+    ctx.check("while it installs, a Ctrl+C is ignored by the updater (protect=True)", ignored == [True])
+    ctx.check("and the handler is back afterwards", signal.getsignal(signal.SIGINT) is not signal.SIG_IGN)
+    kw = R._own_group_kw()
+    ctx.check(f"the installer runs in its own process group / session, got {kw}",
+              kw.get("start_new_session") is True if os.name != "nt" else bool(kw.get("creationflags", 0) & 0x200))
+
+
+@test
+def test_nothing_put_back_and_nothing_changed_is_said_as_such(ctx: Ctx):
+    def net_down(cmd, **kw):
+        return _P(1, "error: failed to fetch") if cmd in ("INSTALL", "RESTORE") else _P(0, OLD_LINE)
+    code, res = _go(net_down)
+    ctx.check(f"the restore failed and the old halo answers: 'nothing changed', not 'restored', got {res}",
+              code == 1 and res["outcome"] == "unchanged" and "nothing changed" in res["line"])
+
+
+@test
+def test_main_always_writes_the_outcome_whatever_the_way_out(ctx: Ctx):
+    d = Path(tempfile.mkdtemp(prefix="r13-main-"))
+    plan = _judge_plan(result=str(d / "res.json"), log=str(d / "u.log"), run_id="abc")
+    (d / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    saved = R.run_plan
+
+    def boom(plan, **kw):
+        raise KeyboardInterrupt
+    R.run_plan = boom
+    try:
+        code = R.main([str(d / "plan.json")])
+    except BaseException as e:  # noqa: BLE001
+        code = f"escaped {type(e).__name__}"
+    finally:
+        R.run_plan = saved
+    res = json.loads((d / "res.json").read_text(encoding="utf-8")) if (d / "res.json").exists() else {}
+    log = (d / "u.log").read_text(encoding="utf-8") if (d / "u.log").exists() else ""
+    ctx.check(f"a Ctrl+C that escapes the plan: exit 1, the result file and the log's last line, got {code} {res}",
+              code == 1 and res.get("outcome") == "broken" and res.get("run_id") == "abc"
+              and log.rstrip().endswith("=== broken"))
+
+
+@test
+def test_a_studio_that_opened_this_halo_is_stopped_not_waited_on(ctx: Ctx):
+    from halo_harness import update as upd
+    me = os.getpid()
+    rows = [{"ProcessId": 300, "ParentProcessId": 1, "CommandLine": "C:\\Users\\u\\.local\\bin\\halo.exe studio"},
+            {"ProcessId": 400, "ParentProcessId": 300,
+             "CommandLine": "C:\\uv\\tools\\halo-harness\\Scripts\\python.exe C:\\Users\\u\\.local\\bin\\halo studio"},
+            {"ProcessId": 500, "ParentProcessId": 400, "CommandLine": "C:\\Users\\u\\.local\\bin\\halo.exe"},
+            {"ProcessId": me, "ParentProcessId": 500,
+             "CommandLine": "C:\\uv\\tools\\halo-harness\\Scripts\\python.exe C:\\Users\\u\\.local\\bin\\halo"}]
+    ps = (lambda cmd, **kw: _P(0, json.dumps(rows))) if os.name == "nt" else (
+        lambda cmd, **kw: _P(0, "PID PPID ARGS\n" + "\n".join(f"{r['ProcessId']} {r['ParentProcessId']} "
+                                                            f"{r['CommandLine']}" for r in rows)))
+    chain, openers = upd.launch_lineage(run_fn=ps)
+    ctx.check(f"the launcher chain stops at Studio, got {chain} {[o['pid'] for o in openers]}",
+              chain == [500] and [o["pid"] for o in openers] == [400, 300] and openers[0]["what"] == "studio")
+    clock, killed = [0.0], []
+    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [me, *chain], "stop_pids": [400],
+                                                                 "wait_s": 300},
+                    alive_fn=lambda p: p in (300, 400) and p not in killed, kill_fn=killed.append,
+                    sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
+    ctx.check(f"installed at once, Studio stopped, no 300 s wait, got {code} {res['outcome']} {clock} {killed}",
+              code == 0 and res["outcome"] == "updated" and clock[0] < 10 and killed == [400])
+    clock[0], killed[:] = 0.0, []
+    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [400], "stop_pids": [400], "wait_s": 300},
+                    alive_fn=lambda p: p == 400 and p not in killed, kill_fn=killed.append,
+                    sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
+    ctx.check(f"a pid both to stop and to wait for is stopped first, got {code} {clock} {killed}",
+              code == 0 and killed == [400] and clock[0] < 10)
+
+
+@test
+def test_a_reused_pid_is_neither_waited_on_nor_ended(ctx: Ctx):
+    killed, clock, looks = [], [0.0], {}
+
+    def start_later(pid):  # each pid's first look sees "t1"; every later look sees another program on that pid
+        looks[pid] = looks.get(pid, 0) + 1
+        return "t1" if looks[pid] == 1 else "t2"
+    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [700], "stop_pids": [400]},
+                    alive_fn=lambda p: p in (400, 700), kill_fn=killed.append, start_fn=start_later,
+                    sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
+    ctx.check(f"pid 700 now runs another program: not waited on (no 300 s), got {clock}", clock[0] < 10)
+    ctx.check(f"pid 400 now runs another program: not ended, got {killed} {res['outcome']}",
+              killed == [] and res["outcome"] == "updated")
+    ctx.check("the real start time of this very process is known and stable", R._start_time(os.getpid()) is not None
+              and R._start_time(os.getpid()) == R._start_time(os.getpid()))
 
 if __name__ == "__main__":
     ctx = Ctx()

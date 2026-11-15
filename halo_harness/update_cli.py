@@ -76,7 +76,9 @@ def older_release(build: dict, avail: dict, channel: Optional[str]) -> Optional[
     commit counts between two lines that do not lead to each other (a laptop's `--check` said the older release was
     "3 commit(s) ahead")."""
     from halo_harness.update_plan import tag_version, version_key
-    if channel != "stable" or not avail.get("commit") or build.get("commit") == avail.get("commit"):
+    if channel != "stable" or not avail.get("commit") or not build.get("commit"):
+        return None  # 3.6.0.0 R13 (judge): a build whose commit is unknown (an archive install) is not "older"
+    if build.get("commit") == avail.get("commit"):
         return None
     offered = tag_version(avail.get("ref"))
     mine, theirs = version_key(build.get("version")), version_key(offered)
@@ -96,7 +98,7 @@ def _exit_code(build: dict, avail: dict) -> int:
     return 0 if build["commit"] == avail["commit"] else 10
 
 
-def _stop_or_refuse(keep_running: bool) -> "Optional[bool]":
+def _stop_or_refuse(keep_running: bool, skip=()) -> "Optional[bool]":
     """3.2.2.0 R3: before the install, every process of this install that
     still runs (update_stop.lingering: the registry, then the scan) is
     stopped, one line each -- or, with `keep_running`, named with the
@@ -111,7 +113,7 @@ def _stop_or_refuse(keep_running: bool) -> "Optional[bool]":
                 print(row, file=sys.stderr)
             return None
         return False
-    lines, supervisor = update_stop.stop_lingering()
+    lines, supervisor = update_stop.stop_lingering(skip=skip)
     for row in lines:
         print(f"halo update: {row}")
     return supervisor
@@ -156,9 +158,21 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     if offline_mode_enabled():
         print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
         return 1
+    from halo_harness import update_plan as UP
+    if launch is None:  # 3.6.0.0 R13 (judge): every reason the updater cannot start, BEFORE anything is stopped
+        why = UP.launch_refusal()
+        if why:
+            print(why, file=sys.stderr)
+            return 1
+    # a Studio or supervisor that opened this halo: never stopped from inside its own tree (that ends this halo
+    # too) and never waited on as this halo's launcher; named now, stopped by the updater once this halo exited
+    openers = upd.halo_openers()
+    for o in openers:
+        print(f"halo update: {'Studio' if o['what'] == 'studio' else 'the supervisor'} (pid {o['pid']}) opened this "
+              f"halo; the updater stops it once this halo has exited")
     supervisor = False
     if not force:
-        supervisor = _stop_or_refuse(keep_running)
+        supervisor = _stop_or_refuse(keep_running, skip=[o["pid"] for o in openers])
         if supervisor is None:
             return 1
     before = upd.installed_build()
@@ -182,7 +196,6 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     spec = kind.get("spec")
     cwd = spec if spec and Path(spec).is_dir() else None
     from halo_harness import update_install as UI  # 3.3.16.0: the lock fetched by halo, --native-tls on a cert failure
-    from halo_harness import update_plan as UP
     from halo_harness.update_stop import restart_supervisor
     current_cmd = kind.get("reinstall_cmd")
     cmd, note = UI.pin_locally(cmd)  # 3.4.1.2 (PACKS-10): (None, the line) when the lock was not fetched
@@ -198,6 +211,7 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     windows = os.name == "nt"
     plan = UP.build_plan(cmd=cmd, cwd=cwd, before=before, expect=expect or {"label": "the newest"}, restore=restore,
                          wait_pids=[os.getpid(), *upd.halo_ancestors()] if windows else [],
+                         stop_pids=[o["pid"] for o in openers],
                          held=_held(force), restart_supervisor=bool(supervisor), windows=windows)
     code = _launch(plan)
     if code is None:  # the updater did not start: nothing was installed
@@ -233,7 +247,7 @@ def cmd_update(argv: "list[str]") -> int:
     last = take_unseen_line()  # 3.6.0.0 R13: what the last updater did, said once (Windows runs it in its own window)
     if last:
         print(f"last update: {last.removeprefix('halo update: ')}")
-    if args.channel:
+    if args.channel and not args.check:  # 3.6.0.0 R13: --check reports only and writes nothing, ever
         from halo_harness.theme import set_config_value
         set_config_value("update.channel", args.channel)
     build = upd.installed_build()

@@ -132,7 +132,10 @@ def test_run_after_exit_writes_the_script_starts_it_and_names_the_log(ctx: Ctx):
     from halo_harness import update_stop
     state = Path(tempfile.mkdtemp(prefix="r3-after-exit-"))
     started = []
-    saved = (UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering, UP.outside_python)
+    saved = (UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering, UP.outside_python, UD.launch,
+             upd.halo_openers)
+    UD.launch = lambda plan, **kw: 0  # 3.6.0.0 R13: set, so the test home's guard does not refuse; never called here
+    upd.halo_openers = lambda **kw: []
     UD.reinstall_cmd = lambda to=None: ("echo reinstall", {"kind": "uv_tool", "spec": "git+https://x"})
     UD.spawn = lambda path, **kw: started.append(Path(path)) or 4321
     upd.halo_ancestors = lambda **kw: [77]
@@ -143,7 +146,8 @@ def test_run_after_exit_writes_the_script_starts_it_and_names_the_log(ctx: Ctx):
         with contextlib.redirect_stdout(out):
             code = UD.run_after_exit(state_dir=state, resume_hint="halo --continue")
     finally:
-        UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering, UP.outside_python = saved
+        (UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering, UP.outside_python, UD.launch,
+         upd.halo_openers) = saved
     text = out.getvalue()
     ctx.check(f"exit 0 and one updater started, got {code} {started}", code == 0 and len(started) == 1)
     script = started[0].read_text(encoding="utf-8")
@@ -164,7 +168,9 @@ def test_run_after_exit_hands_the_plan_to_the_python_updater(ctx: Ctx):
     from halo_harness import update_plan as UP
     from halo_harness import update_stop
     got = []
-    saved = (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python, upd._direct_url)
+    saved = (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python, upd._direct_url,
+             upd.halo_openers)
+    upd.halo_openers = lambda **kw: []
     UD.reinstall_cmd = lambda to=None: ("uv tool install --reinstall git+https://x/y@v2.0.3", {
         "kind": "uv_tool", "spec": "git+https://x/y", "current_cmd": "uv tool install --reinstall git+https://x/y",
         "expect": {"version": "2.0.3", "label": "2.0.3"}})
@@ -180,11 +186,11 @@ def test_run_after_exit_hands_the_plan_to_the_python_updater(ctx: Ctx):
                                        resume_hint="halo --continue") for w in (True, False)]
     finally:
         (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python,
-         upd._direct_url) = saved
+         upd._direct_url, upd.halo_openers) = saved
     ctx.check(f"both hand over, got {codes} {len(got)}", codes == [0, 0] and len(got) == 2)
     win, nix = got[0][0], got[1][0]
-    ctx.check(f"Windows waits for this halo and its launcher; POSIX only for the launcher, got {win['wait_pids']} "
-              f"{nix['wait_pids']}", win["wait_pids"] == [os.getpid(), 77] and nix["wait_pids"] == [77])
+    ctx.check(f"Windows waits for this halo and its launcher; POSIX execs and waits for nothing, got {win['wait_pids']} "
+              f"{nix['wait_pids']}", win["wait_pids"] == [os.getpid(), 77] and nix["wait_pids"] == [])
     ctx.check("the updater stops the lingering Studio", win["stop_pids"] == [4242])
     ctx.check(f"the expected version and the way back ride along, got {win['expect']} {win['restore']}",
               win["expect"]["version"] == "2.0.3" and (win["restore"] or {}).get("cmd", "").startswith(

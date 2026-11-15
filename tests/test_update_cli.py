@@ -44,7 +44,7 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
     wants the new "differs from" wording passes `ordering=False`."""
     orig = {name: getattr(upd, name) for name in
             ("installed_build", "latest_available", "install_kind", "commits_between",
-             "commit_is_ancestor", "other_halo_pids", "other_halo_processes", "run", "halo_ancestors")}
+             "commit_is_ancestor", "other_halo_pids", "other_halo_processes", "run", "halo_ancestors", "halo_openers")}
     orig["update_stop._stop"] = update_stop._stop
     # 3.6.0.0 R13: the install runs in the standalone updater; here it runs in this process over the fakes below
     from tests.helpers.update_inline import inline
@@ -62,6 +62,7 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
     upd.commit_is_ancestor = lambda *a, **kw: ordering
     upd.other_halo_pids = lambda **kw: list(other_pids or [])
     upd.halo_ancestors = lambda **kw: []  # 3.6.0.0 R13: the Windows updater waits for these; never a real process list
+    upd.halo_openers = lambda **kw: []
     # 3.2.2.0 R3: the scan's details and the stop itself are fakes too -- a
     # test never lists or ends a real process.
     upd.other_halo_processes = lambda **kw: [{"pid": p, "ppid": 1, "what": "halo", "cmd": "halo --continue"}
@@ -578,7 +579,10 @@ def test_cmd_update_channel_flag_is_remembered_in_config(ctx: Ctx):
     try:
         ctx.check("no remembered channel yet", upd.default_channel({}) == "main")
         _capture(update_cli.cmd_update, ["--check", "--channel", "stable"])
-        ctx.check("--channel stable is now remembered by default_channel()",
+        ctx.check("3.6.0.0 R13: `--check --channel stable` reports only and writes nothing",
+                  upd.default_channel({}) == "main" and not (state_dir / "config.json").exists())
+        _capture(update_cli.cmd_update, ["--channel", "stable"])
+        ctx.check("--channel stable (no --check) is now remembered by default_channel()",
                   upd.default_channel({}) == "stable")
     finally:
         _restore_all(orig)
@@ -586,6 +590,67 @@ def test_cmd_update_channel_flag_is_remembered_in_config(ctx: Ctx):
             os.environ.pop("BRIDGE_STATE_DIR", None)
         else:
             os.environ["BRIDGE_STATE_DIR"] = old_state_dir_env
+
+
+# ---- the judge's pass (3.6.0.0 R13) ----
+@test
+def test_an_updater_that_cannot_start_stops_nothing_first(ctx: Ctx):
+    """Judge should-fix 1 and 2: the reasons the updater cannot start are checked BEFORE any process is stopped;
+    BRIDGE_STATE_DIR (a user's own setting) never blocks an update, only HALO_NO_UPDATER and a test home do."""
+    from halo_harness import update_plan as UP
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    stopped = orig["stopped"]
+    update_cli.launch = None  # the real launch path, whose guard refuses here (HALO_NO_UPDATER / a test home)
+    saved_env = {k: os.environ.get(k) for k in ("HALO_NO_UPDATER", "BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
+    try:
+        os.environ["HALO_NO_UPDATER"] = "1"
+        code, out, err = _capture(update_cli.apply_update)
+        ctx.check(f"refused in one line, and nothing stopped, got {code} {stopped} {err!r}",
+                  code == 1 and stopped == [] and "switched off here" in err and err.strip().count("\n") == 0)
+        os.environ.pop("HALO_NO_UPDATER")
+        os.environ.pop("BRIDGE_TEST_HOME", None)
+        os.environ["BRIDGE_STATE_DIR"] = str(Path(tempfile.mkdtemp(prefix="r13-statedir-")))
+        ctx.check("BRIDGE_STATE_DIR alone does not switch the updater off",
+                  UP.launch_refusal(python=["/opt/py/python3", "-I"]) is None)
+        ctx.check("no outside Python is a reason too (said before anything stops)",
+                  "no Python outside" in (UP.launch_refusal(python=[]) or ""))
+    finally:
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        _restore_all(orig)
+
+
+@test
+def test_a_studio_that_opened_this_halo_is_left_to_the_updater(ctx: Ctx):
+    """Judge must-fix 3: a Studio above this halo is named up front, never stopped from inside its own tree (that
+    would end this halo too) and never waited on: the updater stops it once this halo has exited."""
+    from tests.helpers.update_inline import PLANS
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242, 400])
+    stopped = orig["stopped"]
+    upd.halo_openers = lambda **kw: [{"pid": 400, "what": "studio", "cmd": "halo studio"}]
+    try:
+        code, out, _err = _capture(update_cli.apply_update)
+        ctx.check(f"named up front, got {out!r}", "Studio (pid 400) opened this halo; the updater stops it" in out)
+        ctx.check(f"the other halo stopped here, the opener not, got {[e['pid'] for e in stopped]}",
+                  [e["pid"] for e in stopped] == [4242])
+        ctx.check(f"the opener is in the updater's stop list, got {PLANS[-1].get('stop_pids')}",
+                  code == 0 and PLANS[-1].get("stop_pids") == [400] and 400 not in PLANS[-1].get("wait_pids", []))
+    finally:
+        _restore_all(orig)
+
+
+@test
+def test_an_archive_install_of_the_current_tag_is_not_called_older(ctx: Ctx):
+    """Judge should-fix: a build whose commit is unknown is "unknown", never "older"."""
+    got = update_cli.older_release({"version": "3.5.0.1", "commit": None, "requested_revision": None},
+                                   {"commit": "aaaaaaa", "ref": "v3.5.0.1"}, "stable")
+    ctx.check(f"commit unknown -> None, got {got!r}", got is None)
+    got = update_cli.older_release({"version": "3.6.0.0", "commit": "c0ffee1"}, {"commit": "aaaaaaa", "ref": "v3.5.0.1"},
+                                   "stable")
+    ctx.check("a known main-line build ahead of the tag still is told", got and "OLDER" in got)
 
 
 if __name__ == "__main__":

@@ -196,7 +196,15 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
         print(f"halo update: not moving back -- {kind['older']}", file=sys.stderr)
         return 1
     windows = os.name == "nt" if windows is None else windows
+    if launch is None:  # 3.6.0.0 R13 (judge): why the updater cannot start, before anything is listed to stop
+        why = UP.launch_refusal(need_python=False)  # no outside Python: the shell script below does it
+        if why:
+            print(why, file=sys.stderr)
+            return 1
+    openers = upd.halo_openers()  # a Studio that opened this halo: stopped by the updater, never waited on
     rows = lingering(state_dir)
+    rows += [{"pid": o["pid"], "what": o["what"], "cmd": str(o.get("cmd") or "").split()} for o in openers
+             if all(r["pid"] != o["pid"] for r in rows)]
     supervisor = any(r.get("what") == "supervisor" for r in rows)
     from halo_harness.supervise.pulse import stop_path
     spec = kind.get("spec")
@@ -219,7 +227,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
     if py:
         plan = UP.build_plan(cmd=cmd, cwd=cwd, before=before, expect=kind.get("expect") or {"label": "the newest"},
                              restore=restore, state_dir=state_dir,
-                             wait_pids=[os.getpid(), *ancestors] if windows else ancestors,
+                             wait_pids=[os.getpid(), *ancestors] if windows else [],  # POSIX: exec, no wait
                              stop_pids=[r["pid"] for r in rows], supervisor_stop_file=stop_file,
                              restart_supervisor=supervisor, windows=windows)
         for r in rows:

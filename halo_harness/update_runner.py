@@ -19,6 +19,12 @@ PATH, or `uv run`), with one argument, the plan file `<state>/run/update-plan.js
    run by hand;
 7. start the supervisor again when it ran, print the new version's summary.
 
+Judge pass (3.6.0.0 R13): the installer runs in its own process group and its output is streamed as it comes; while
+the install, the check and the putting back run, Ctrl+C / SIGHUP / console events are ignored and any way out of the
+install (BaseException) still runs the putting back; the result file and the log's last line are always written;
+waits and stops check the pid AND its start time; a pid that is both to stop and to wait for is stopped first. On
+Windows the updater runs with no console and `--watch` is its window (it stays open on any outcome but `updated`).
+
 Every line goes to stdout and to `<state>/update.log`; the outcome to `<state>/run/update-result.json`
 ({outcome: updated | restored | unchanged | broken | not_started, line, ...}), which the next `halo update` reports.
 
@@ -97,6 +103,44 @@ def _kill(pid: int) -> None:
             return
 
 
+def _start_time(pid: int):
+    """When the process with this pid started (an opaque value compared for equality), or None when unknown: a pid
+    the OS gave to another program since it was listed is never waited on or ended (judge item 10)."""
+    if pid <= 0:
+        return None
+    if os.name == "nt":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            k32.OpenProcess.restype = wintypes.HANDLE
+            handle = k32.OpenProcess(0x1000, False, int(pid))
+            if not handle:
+                return None
+            try:
+                c, e, k, u = (wintypes.FILETIME() for _ in range(4))
+                if not k32.GetProcessTimes(handle, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)):
+                    return None
+                return (c.dwHighDateTime << 32) | c.dwLowDateTime
+            finally:
+                k32.CloseHandle(handle)
+        except Exception:  # noqa: BLE001
+            return None
+    try:
+        with open(f"/proc/{int(pid)}/stat", encoding="utf-8", errors="replace") as fh:
+            return fh.read().rsplit(")", 1)[-1].split()[19]
+    except (OSError, IndexError):
+        pass
+    ps = shutil.which("ps")
+    if not ps:
+        return None
+    try:
+        r = subprocess.run([ps, "-o", "lstart=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5)
+        return r.stdout.strip() or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def last_line(text: str) -> str:
     lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
     return lines[-1] if lines else ""
@@ -117,28 +161,106 @@ def answers(line: str, want: dict) -> bool:
     return True
 
 
+def _own_group_kw() -> dict:
+    """The installer runs in its own process group / session (a Ctrl+C at the terminal never reaches it) and, on
+    Windows, without a console window of its own."""
+    if os.name == "nt":
+        return {"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
+                | getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)}
+    return {"start_new_session": True}
+
+
+def stream_run(cmd, *, out, shell: bool = True, cwd=None, env=None, timeout: float = INSTALL_TIMEOUT_S):
+    """Runs `cmd` in its own process group and says each line of its output AS IT COMES (a silent two minutes
+    invites a Ctrl+C); returns (code, all the text). A timeout ends it (its group) and answers 124."""
+    import threading
+    proc = subprocess.Popen(cmd, shell=shell, cwd=cwd or None, env=env, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace",
+                            **_own_group_kw())
+    lines: list = []
+
+    def pump():
+        for raw in proc.stdout:
+            line = raw.rstrip("\r\n")
+            lines.append(line)
+            out(line)
+    t = threading.Thread(target=pump, daemon=True)
+    t.start()
+    try:
+        code = proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _end_tree(proc.pid)
+        code = 124
+        out(f"halo update: the command ran past {timeout:.0f} s and was ended")
+    t.join(5.0)
+    return code, "\n".join(lines)
+
+
+def _end_tree(pid: int) -> None:
+    if os.name == "nt":
+        tk = shutil.which("taskkill") or os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32",
+                                                       "taskkill.exe")
+        subprocess.run([tk, "/PID", str(pid), "/T", "/F"], capture_output=True, text=True, timeout=30)
+        return
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except OSError:
+        pass
+
+
 class _Run:
-    def __init__(self, plan: dict, run_fn, alive_fn, kill_fn, sleep_fn, clock, out):
+    def __init__(self, plan: dict, run_fn, alive_fn, kill_fn, sleep_fn, clock, out, start_fn, stream):
         self.plan, self.run_fn, self.alive_fn, self.kill_fn = plan, run_fn, alive_fn, kill_fn
-        self.sleep_fn, self.clock, self.out = sleep_fn, clock, out
+        self.sleep_fn, self.clock, self.out, self.start_fn, self.stream = sleep_fn, clock, out, start_fn, stream
         self.halo = list(plan.get("halo") or ["halo"])
+        self.started: dict = {}  # pid -> its start time when the updater first saw it
 
     def say(self, line: str) -> None:
         self.out(line)
 
+    def note(self, pids) -> None:
+        for p in pids:
+            if p not in self.started:
+                self.started[p] = self.start_fn(p)
+
+    def same(self, pid: int) -> bool:
+        """The pid still runs AND is the process the updater first saw (a reused pid is not)."""
+        if not self.alive_fn(pid):
+            return False
+        then = self.started.get(pid)
+        return then is None or self.start_fn(pid) in (None, then)
+
     def wait_gone(self, pids, limit: float) -> list:
+        self.note(pids)
         deadline = self.clock() + limit
-        left = [p for p in pids if self.alive_fn(p)]
+        left = [p for p in pids if self.same(p)]
         while left and self.clock() < deadline:
             self.sleep_fn(1.0)
-            left = [p for p in left if self.alive_fn(p)]
+            left = [p for p in left if self.same(p)]
         return left
 
-    def shell(self, cmd: str, cwd, env_extra=None) -> "tuple[int, str]":
-        kw = {"env": {**os.environ, **env_extra}} if env_extra else {}
+    def stop(self, pid: int) -> None:
+        if not self.same(pid):
+            self.say(f"halo update: pid {pid} is gone (or is another program now): not stopped")
+            return
+        self.say(f"halo update: stopping pid {pid}")
         try:
-            r = self.run_fn(cmd, shell=True, cwd=cwd or None, capture_output=True, text=True,
-                            timeout=float(self.plan.get("install_timeout_s") or INSTALL_TIMEOUT_S), **kw)
+            self.kill_fn(int(pid))
+        except Exception as e:  # noqa: BLE001 -- one that will not stop is named by the held check
+            self.say(f"halo update: pid {pid} did not stop ({e})")
+
+    def shell(self, cmd: str, cwd, env_extra=None) -> "tuple[int, str]":
+        env = {**os.environ, **env_extra} if env_extra else None
+        timeout = float(self.plan.get("install_timeout_s") or INSTALL_TIMEOUT_S)
+        if self.stream:
+            try:
+                return stream_run(cmd, out=self.say, cwd=cwd, env=env, timeout=timeout)
+            except (OSError, subprocess.SubprocessError) as e:
+                self.say(f"halo update: the command did not run: {e}")
+                return 1, str(e)
+        kw = {"env": env} if env else {}
+        try:
+            r = self.run_fn(cmd, shell=True, cwd=cwd or None, capture_output=True, text=True, timeout=timeout, **kw)
         except (OSError, subprocess.SubprocessError) as e:
             self.say(f"halo update: the command did not run: {e}")
             return 1, str(e)
@@ -162,9 +284,14 @@ class _Run:
                          "needs its CA in the system store), then run the command above by hand")
         return code
 
+    def run(self, argv, timeout: float):
+        kw = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)} if (
+            os.name == "nt" and self.stream) else {}
+        return self.run_fn(argv, capture_output=True, text=True, timeout=timeout, **kw)
+
     def version(self) -> str:
         try:
-            r = self.run_fn([*self.halo, "--version"], capture_output=True, text=True, timeout=VERSION_TIMEOUT_S)
+            r = self.run([*self.halo, "--version"], VERSION_TIMEOUT_S)
         except (OSError, subprocess.SubprocessError):
             return ""
         return last_line(r.stdout) if int(r.returncode or 0) == 0 else ""
@@ -173,7 +300,7 @@ class _Run:
         if not self.plan.get("restart_supervisor"):
             return
         try:
-            self.run_fn([*self.halo, "supervise", "--daemon"], capture_output=True, text=True, timeout=60)
+            self.run([*self.halo, "supervise", "--daemon"], 60)
             self.say("halo update: started the supervisor again")
         except (OSError, subprocess.SubprocessError) as e:
             self.say(f"halo update: the supervisor did not start again ({e}); `halo supervise --daemon` starts it")
@@ -181,7 +308,7 @@ class _Run:
     def whats_new(self) -> None:
         """The new version's summary and any installed pack older than the one it ships (the new halo says both)."""
         try:
-            got = self.run_fn([*self.halo, "whatsnew", "--summary"], capture_output=True, text=True, timeout=30)
+            got = self.run([*self.halo, "whatsnew", "--summary"], 30)
             text = (got.stdout or "").strip() if int(got.returncode or 0) == 0 else ""
         except (OSError, subprocess.SubprocessError):
             text = ""
@@ -189,7 +316,7 @@ class _Run:
             self.say(f"halo update: what is new -- {text}")
         self.say(f"halo update: {MORE}")
         try:
-            got = self.run_fn([*self.halo, "pack", "list", "--json"], capture_output=True, text=True, timeout=60)
+            got = self.run([*self.halo, "pack", "list", "--json"], 60)
             rows = (json.loads(got.stdout or "{}").get("packs") or []) if int(got.returncode or 0) == 0 else []
         except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
             rows = []
@@ -203,19 +330,69 @@ def _result(outcome: str, line: str, **extra) -> dict:
     return {"outcome": outcome, "line": line, "at": time.time(), "seen": False, **extra}
 
 
+class _Shield:
+    """While the install, the check and the putting back run, a Ctrl+C, a closed terminal (SIGHUP) or, on Windows,
+    a console event does not end the updater: the roll-back always gets to run (judge item 2)."""
+
+    def __init__(self, on: bool):
+        self.on, self.saved = on, {}
+
+    def __enter__(self):
+        if not self.on:
+            return self
+        for name in ("SIGINT", "SIGHUP", "SIGBREAK", "SIGTERM"):
+            sig = getattr(signal, name, None)
+            if sig is None:
+                continue
+            try:
+                self.saved[sig] = signal.signal(sig, signal.SIG_IGN)
+            except (ValueError, OSError):  # not the main thread, or not settable here
+                pass
+        if os.name == "nt":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleCtrlHandler(None, True)  # this process ignores Ctrl+C
+            except Exception:  # noqa: BLE001
+                pass
+        return self
+
+    def __exit__(self, *exc):
+        for sig, old in self.saved.items():
+            try:
+                signal.signal(sig, old)
+            except (ValueError, OSError):
+                pass
+        if self.on and os.name == "nt":
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetConsoleCtrlHandler(None, False)
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+
 def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=None, clock=None,
-             out=None) -> "tuple[int, dict]":
-    """The whole update from the plan; (0, result) when the new version answers, else (1, result)."""
+             out=None, start_fn=None, protect: bool = False) -> "tuple[int, dict]":
+    """The whole update from the plan; (0, result) when the new version answers, else (1, result). Whatever ends
+    the install or its check -- an error, a Ctrl+C, a closed window -- the putting back still runs."""
+    real = alive_fn is None
     r = _Run(plan, run_fn or subprocess.run, alive_fn or _alive, kill_fn or _kill, sleep_fn or time.sleep,
-             clock or time.monotonic, out or print)
+             clock or time.monotonic, out or print, start_fn or (_start_time if real else (lambda p: None)),
+             stream=run_fn is None)
     before = plan.get("before") or {}
     before_line = before.get("line") or "the installed halo"
     expect = plan.get("expect") or {}
     target = expect.get("label") or "the newest"
     install = plan.get("install") or {}
     cmd = install.get("cmd") or ""
+    wait_pids = [int(p) for p in plan.get("wait_pids") or []]
+    stop_pids = [int(p) for p in plan.get("stop_pids") or []]
+    r.note(wait_pids + stop_pids)  # who they are now: a pid reused later is neither waited on nor ended
     r.say(f"halo update: installed {before_line}")
-    left = r.wait_gone([int(p) for p in plan.get("wait_pids") or []], float(plan.get("wait_s") or WAIT_S))
+    both = [p for p in stop_pids if p in wait_pids]
+    for pid in both:  # one that must be stopped is stopped first, never waited on for minutes (judge item 3)
+        r.stop(pid)
+    left = r.wait_gone(wait_pids, float(plan.get("wait_s") or WAIT_S))
     if left:
         line = (f"halo update: halo (pid {', '.join(map(str, left))}) did not exit, so nothing was installed and "
                 f"{before_line} is unchanged; close it and run `halo update` again")
@@ -228,12 +405,9 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
             r.sleep_fn(5.0)
         except OSError:
             pass
-    for pid in plan.get("stop_pids") or []:
-        r.say(f"halo update: stopping pid {pid}")
-        try:
-            r.kill_fn(int(pid))
-        except Exception as e:  # noqa: BLE001 -- one that will not stop is named by the held check below
-            r.say(f"halo update: pid {pid} did not stop ({e})")
+    for pid in stop_pids:
+        if pid not in both:
+            r.stop(pid)
     held = [h for h in plan.get("held") or [] if isinstance(h, dict) and h.get("pid")]
     if held:
         still = set(r.wait_gone([int(h["pid"]) for h in held], float(plan.get("held_wait_s") or HELD_WAIT_S)))
@@ -244,10 +418,20 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
                     f"--force, which stops them) and try again")
             r.say(line)
             return 1, _result("not_started", line, before=before_line)
-    r.say(f"halo update: running: {cmd}  (the installer's output prints when it ends; a minute or two)")
-    code = r.install(cmd, install.get("cwd"))
-    got = r.version()
-    if code == 0 and answers(got, expect):
+    with _Shield(protect):
+        return _install_and_check(r, plan, before, before_line, expect, target, cmd, install)
+
+
+def _install_and_check(r, plan, before, before_line, expect, target, cmd, install) -> "tuple[int, dict]":
+    r.say(f"halo update: running: {cmd}  (its output follows as it comes; a minute or two)")
+    stopped_by = None
+    code, got = 1, ""
+    try:
+        code = r.install(cmd, install.get("cwd"))
+        got = r.version()
+    except BaseException as e:  # noqa: BLE001 -- Ctrl+C, a closed window, anything: the roll-back still runs
+        stopped_by = e
+    if stopped_by is None and code == 0 and answers(got, expect):
         r.say(f"halo update: before {before_line}")
         r.say(f"halo update: after  {got}")
         r.restart_supervisor()
@@ -255,7 +439,10 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
             r.whats_new()
         line = f"halo update: done -- {before_line} -> {got}"
         return 0, _result("updated", line, before=before_line, after=got)
-    if code != 0:
+    if stopped_by is not None:
+        what = "Ctrl+C" if isinstance(stopped_by, KeyboardInterrupt) else type(stopped_by).__name__
+        reason = f"the install was interrupted ({what})"
+    elif code != 0:
         reason = f"the installer exited with code {code}"
     elif got:
         reason = f"`halo --version` answered {got!r}, not {target}"
@@ -264,18 +451,23 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
     r.say(f"halo update: the update to {target} failed: {reason}")
     restore = plan.get("restore") or {}
     want_before = {"version": before.get("version"), "commit": before.get("commit")}
-    if restore.get("cmd"):
-        r.say(f"halo update: putting back {before_line}: {restore['cmd']}")
-        r.shell(restore["cmd"], restore.get("cwd"))
-    now = r.version()
+    restore_code = None
+    now = ""
+    try:
+        if restore.get("cmd"):
+            r.say(f"halo update: putting back {before_line}: {restore['cmd']}")
+            restore_code, _t = r.shell(restore["cmd"], restore.get("cwd"))
+        now = r.version()
+    except BaseException as e:  # noqa: BLE001
+        r.say(f"halo update: putting it back was interrupted ({type(e).__name__})")
+    again = cmd or "halo update"
     if answers(now, want_before):
         r.restart_supervisor()
-        again = cmd or "halo update"
-        if restore.get("cmd"):
+        if restore.get("cmd") and restore_code == 0:
             line = (f"halo update: the update to {target} failed ({reason}); {before_line} was put back and answers "
                     f"again. To try the update by hand: {again}")
             outcome = "restored"
-        else:
+        else:  # nothing was put back (none to run, or it failed): what answers is what was never touched
             line = (f"halo update: the update to {target} failed ({reason}); nothing changed, {before_line} still "
                     f"answers. To try again by hand: {again}")
             outcome = "unchanged"
@@ -289,59 +481,128 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
     return 1, _result("broken", line, before=before_line, after=now, by_hand=by_hand)
 
 
+def _write_result(result_path, result: dict) -> None:
+    if not result_path:
+        return
+    try:
+        tmp = result_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(result, fh, indent=2)
+        os.replace(tmp, result_path)
+    except OSError:
+        pass
+
+
+def watch(plan_path: str, runner_pid: "int | None" = None, *, poll: float = 0.5) -> int:
+    """Windows: the updater's window. The updater itself runs with no console (closing this window or a Ctrl+C here
+    never stops it); this shows its output as it comes, then the outcome, and stays open on any outcome but
+    `updated`, saying where the log is (judge item 11)."""
+    with open(plan_path, encoding="utf-8") as fh:
+        plan = json.load(fh)
+    run_log, result_path, run_id = plan.get("run_log"), plan.get("result"), plan.get("run_id")
+    print("Halo update -- this window shows the updater's progress; closing it does not stop the update.", flush=True)
+    pos, result = 0, None
+    while result is None:
+        try:
+            with open(run_log, encoding="utf-8", errors="replace") as fh:
+                fh.seek(pos)
+                chunk = fh.read()
+                pos = fh.tell()
+            if chunk:
+                print(chunk, end="", flush=True)
+        except (OSError, TypeError):
+            pass
+        try:
+            with open(result_path, encoding="utf-8") as fh:
+                got = json.load(fh)
+            if got.get("run_id") == run_id:
+                result = got
+                break
+        except (OSError, ValueError, TypeError):
+            pass
+        if runner_pid and not _alive(runner_pid):
+            time.sleep(poll)
+            try:
+                with open(result_path, encoding="utf-8") as fh:
+                    got = json.load(fh)
+                result = got if got.get("run_id") == run_id else None
+            except (OSError, ValueError, TypeError):
+                result = None
+            if result is None:
+                result = {"outcome": "broken", "line": "halo update: the updater stopped without saying how it ended"}
+            break
+        time.sleep(poll)
+    print("", flush=True)
+    print(result.get("line") or "", flush=True)
+    if result.get("outcome") == "updated":
+        time.sleep(float(plan.get("pause_s") or 5))
+        return 0
+    print(f"The log: {plan.get('log')}. Press Enter to close this window.", flush=True)
+    try:
+        input()
+    except (EOFError, KeyboardInterrupt, OSError):
+        time.sleep(600)
+    return 1
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if os.name == "nt":
         os.environ.setdefault("NoDefaultCurrentDirectoryInExePath", "1")
+    if argv[:1] == ["--watch"] and len(argv) >= 2:
+        return watch(argv[1], int(argv[2]) if len(argv) > 2 and argv[2].isdigit() else None)
     if not argv:
-        print("usage: update_runner.py <plan.json>", file=sys.stderr)
+        print("usage: update_runner.py <plan.json> | --watch <plan.json> [pid]", file=sys.stderr)
         return 2
     with open(argv[0], encoding="utf-8") as fh:
         plan = json.load(fh)
     if list(plan.get("halo") or ["halo"]) == ["halo"]:  # the installed halo, found on PATH the way the shell finds it
         plan["halo"] = [shutil.which("halo") or "halo"]
     log_path, result_path = plan.get("log"), plan.get("result")
-    log = None
-    if log_path:
-        try:
-            os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
-            log = open(log_path, "a", encoding="utf-8")
-            log.write(f"=== halo update {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        except OSError:
-            log = None
+    logs = []
+    for path, mode in ((log_path, "a"), (plan.get("run_log"), "w")):
+        if path:
+            try:
+                os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+                fh = open(path, mode, encoding="utf-8")
+                fh.write(f"=== halo update {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                fh.flush()
+                logs.append(fh)
+            except OSError:
+                pass
 
     def out(line: str) -> None:
         try:
             print(line, flush=True)
-        except (OSError, ValueError):
+        except (OSError, ValueError, AttributeError):
             pass
-        if log is not None:
+        for fh in logs:
             try:
-                log.write(line + "\n")
-                log.flush()
+                fh.write(line + "\n")
+                fh.flush()
             except OSError:
                 pass
 
+    code, result = 1, None
     try:
-        code, result = run_plan(plan, out=out)
-    except Exception as e:  # noqa: BLE001 -- the updater says what stopped it instead of a traceback
+        code, result = run_plan(plan, out=out, protect=True)
+    except BaseException as e:  # noqa: BLE001 -- whatever the way out, the outcome is written and said
         by_hand = (plan.get("restore") or {}).get("cmd") or (plan.get("install") or {}).get("cmd") or "halo update"
-        line = f"halo update: the updater stopped ({type(e).__name__}: {e}); if `halo --version` fails, run: {by_hand}"
+        what = "Ctrl+C" if isinstance(e, KeyboardInterrupt) else f"{type(e).__name__}: {e}"
+        line = f"halo update: the updater stopped ({what}); if `halo --version` fails, run: {by_hand}"
         out(line)
         code, result = 1, _result("broken", line, by_hand=by_hand)
-    if result_path:
-        try:
-            tmp = result_path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as fh:
-                json.dump(result, fh, indent=2)
-            os.replace(tmp, result_path)
-        except OSError:
-            pass
-    if log is not None:
-        log.write(f"=== {result.get('outcome')}\n")
-        log.close()
-    if plan.get("pause_s"):  # Windows: the updater's own window stays a moment so its last line can be read
-        time.sleep(float(plan["pause_s"]))
+    finally:
+        if result is None:
+            result = _result("broken", "halo update: the updater stopped without an outcome")
+        result["run_id"] = plan.get("run_id")
+        _write_result(result_path, result)
+        for fh in logs:
+            try:
+                fh.write(f"=== {result.get('outcome')}\n")
+                fh.close()
+            except OSError:
+                pass
     return code
 
 

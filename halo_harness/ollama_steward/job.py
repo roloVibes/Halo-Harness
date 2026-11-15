@@ -59,10 +59,52 @@ OFF_LINE = ("the steward is off (ollama.steward.job is false): nothing of it run
 STOP_WAIT_S = 3.0
 
 
-def enabled() -> bool:
-    """3.6.0.0 R13: on only when a person set `ollama.steward.job` to true."""
+def _job_key(state_dir):
+    """`ollama.steward.job` as `<state_dir>/config.json` holds it (None when the key was never set)."""
+    import json
+    from pathlib import Path
+    try:
+        data = json.loads((Path(state_dir) / "config.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if "ollama.steward.job" in data:
+        return data["ollama.steward.job"]
+    ollama = data.get("ollama")
+    steward = ollama.get("steward") if isinstance(ollama, dict) else None
+    return steward.get("job") if isinstance(steward, dict) else None
+
+
+def enabled(state_dir=None) -> bool:
+    """3.6.0.0 R13: on only when a person set `ollama.steward.job` to true (this process's config, or the given state
+    dir's own config.json)."""
+    if state_dir is not None:
+        return _job_key(state_dir) is True
     from halo_harness.ollama_steward.agent import _cfg
     return _cfg("ollama.steward.job", False) is True
+
+
+OFF_NOTICE = ("the steward's background job is now off by default; turn it on in Settings > Ollama "
+              "(or `halo config set ollama.steward.job true`)")
+_NOTICE_MARK = "steward-off-noticed"
+
+
+def off_notice(state_dir) -> Optional[str]:
+    """3.6.0.0 R13 (judge): a home whose job ran before 3.6.0.0 (on by default then) and that never set the key
+    hears ONCE that it is off now; None every other time."""
+    from pathlib import Path
+    if state_dir is None or _job_key(state_dir) is not None:
+        return None
+    d = Path(state_dir) / "ollama"
+    mark = d / _NOTICE_MARK
+    if mark.exists() or not any((d / n).exists() for n in (job_state.STATE_FILE, "steward.jsonl")):
+        return None
+    try:
+        mark.write_text("noticed\n", encoding="utf-8")
+    except OSError:
+        return None
+    return OFF_NOTICE
 
 
 class StewardJob:
@@ -272,16 +314,21 @@ def current(state_dir) -> Optional[dict]:
     return {"where": job.where, "frames": list(job.frames)} if job is not None else None
 
 
+_SYNC_LOCK = threading.Lock()
+
+
 def sync(job: Optional[StewardJob], state_dir, *, where: str, publish: Optional[Callable] = None
          ) -> "tuple[Optional[StewardJob], list]":
     """3.6.0.0 R13: the switch, applied at once -- (the running job, []) when it should run (started when it was
     not); (None, lines) when it should not: stopped, its threads joined, `lines` naming any thread still alive after
     the bound ([] when all are gone)."""
-    if enabled():
-        return (job if job is not None else start_for(state_dir, where=where, publish=publish)), []
-    if job is not None:
-        return None, job.stop()
-    return None, []
+    with _SYNC_LOCK:  # judge: two reactions to one config write never orphan a job; the registry is the truth
+        running = _JOBS.get(str(state_dir)) or job
+        if enabled():
+            return (running if running is not None else start_for(state_dir, where=where, publish=publish)), []
+        if running is not None:
+            return None, running.stop()
+        return None, []
 
 
 def start_for(state_dir, *, where: str, publish: Optional[Callable] = None) -> Optional[StewardJob]:

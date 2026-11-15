@@ -315,17 +315,21 @@ def start_local_tap(server: _Server) -> None:
         server.local_tap_stop = None
 
 
+_STEWARD_SYNC = threading.Lock()
+
+
 def sync_steward(server) -> list:
     """3.6.0.0 R13: `ollama.steward.job` applied at once -- Settings' switch and `halo config set` (seen by the
     files watcher) start the job or stop it, its threads with it, without a restart."""
     lines: list = []
-    try:
-        from halo_harness.ollama_steward.job import sync
-        from halo_harness.studio.events import bridge_for
-        server.steward_job, lines = sync(getattr(server, "steward_job", None), server.state_dir, where="studio",
-                                         publish=lambda frame: bridge_for(server).publish_local(frame))
-    except Exception as e:
-        lines = [f"the steward's switch did not apply: {type(e).__name__}: {e}"]
+    with _STEWARD_SYNC:  # the Settings request and the files watcher both react to one write: one at a time
+        try:
+            from halo_harness.ollama_steward.job import sync
+            from halo_harness.studio.events import bridge_for
+            server.steward_job, lines = sync(getattr(server, "steward_job", None), server.state_dir, where="studio",
+                                             publish=lambda frame: bridge_for(server).publish_local(frame))
+        except Exception as e:
+            lines = [f"the steward's switch did not apply: {type(e).__name__}: {e}"]
     for line in lines:  # said, never swallowed: a thread still alive after the bound
         import logging
         logging.getLogger("bridge").warning("studio: %s", line)

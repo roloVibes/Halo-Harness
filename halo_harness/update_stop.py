@@ -73,9 +73,11 @@ def scanned(known=()) -> list:
              "cmd": str(r.get("cmd") or "").split(), "source": "scan"} for r in found if r["pid"] not in skip]
 
 
-def lingering(state_dir=None) -> list:
-    reg = registered(state_dir)
-    return reg + scanned(e["pid"] for e in reg)
+def lingering(state_dir=None, *, skip=()) -> list:
+    """3.6.0.0 R13: `skip` -- pids not to list here (a Studio that opened this very halo: stopping it from inside
+    its own tree would end this halo too; the updater stops it once this halo has exited)."""
+    reg = [e for e in registered(state_dir) if e.get("pid") not in set(skip)]
+    return reg + [e for e in scanned(e["pid"] for e in reg) if e.get("pid") not in set(skip)]
 
 
 def first_words(entry: dict, n: int = 4) -> str:
@@ -126,11 +128,13 @@ def _stop_line(entry: dict, timeout: float, state_dir) -> str:
     return CS.line(result) + (f" -- {words}" if words else "")
 
 
-def stop_lingering(state_dir=None, *, timeout: float = 5.0) -> "tuple[list, bool]":
-    """Stop the registry's processes, then what the scan still finds. One line each."""
+def stop_lingering(state_dir=None, *, timeout: float = 5.0, skip=()) -> "tuple[list, bool]":
+    """Stop the registry's processes, then what the scan still finds. One line each. `skip`: pids left for the
+    updater (see `lingering`)."""
+    skip = set(skip)
     sup = _supervisor_entry(state_dir) is not None
-    lines = [_stop_line(e, timeout, state_dir) for e in registered(state_dir)]
-    lines += [_stop_line(e, timeout, state_dir) for e in scanned()]
+    lines = [_stop_line(e, timeout, state_dir) for e in registered(state_dir) if e.get("pid") not in skip]
+    lines += [_stop_line(e, timeout, state_dir) for e in scanned() if e.get("pid") not in skip]
     return lines, sup
 
 

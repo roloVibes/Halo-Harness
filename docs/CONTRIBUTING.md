@@ -131,6 +131,9 @@ fix. Green, master is fast-forwarded to the commit, then the tag, the
 GitHub release (the tag's tar.gz and `checksums.txt`) and the install
 refresh follow. "driver retried once" lines in the run's log are printed
 as warnings. `--skip-windows` is gone: Windows is a required check like
-the others. The gate needs the `gh` CLI, logged in. `tests/test_release_ci_gate.py` drives the gate over a
+the others. The script starts only from origin/master as GitHub has it; after
+a red gate (a re-run job) or a refused push, run it again: it resumes from
+`rc/<version>` without a second commit, and a failed git step names what is
+done and what is left. The gate needs the `gh` CLI, logged in. `tests/test_release_ci_gate.py` drives the gate over a
 fake `gh`. `tests/test_release_script.py` drives it against a
 scratch git repo, never this one.

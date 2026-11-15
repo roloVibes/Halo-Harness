@@ -72,6 +72,7 @@ def test_the_stewards_note_is_a_row_that_sets_aside_and_opens_ollama(ctx: Ctx):
     from halo_harness.ollama_steward import notes
     from halo_harness.studio.live_answer import act
     home = Path(tempfile.mkdtemp(prefix="r4_attention-"))
+    (home / "config.json").write_text('{"ollama": {"steward": {"job": true}}}', encoding="utf-8")  # 3.6.0.0 R13: on
     notes.append(home, "note", "qwen3-coder:30b on pc reloaded 9 times: two halos sent it two windows",
                  lines=["qwen3-coder:30b on pc reloaded 9 times: two halos sent it two windows", "one window now"],
                  attention=True)
