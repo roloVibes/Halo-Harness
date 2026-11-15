@@ -2197,6 +2197,10 @@ def run_print_mode(
         _stop_managed_local_servers_quietly()
         if mcp_manager is not None:
             mcp_manager.close_all()
+        if getattr(session_log, "write_error", None) and not cli_flags.get("no_session_persistence"):
+            # a transcript that could not be written (a full disk): one plain line, never silent
+            print(f"halo: this session's log could not be written ({session_log.write_error}); "
+                  "it cannot be resumed", file=sys.stderr)
         if cli_flags.get("no_session_persistence"):
             # W4a `--no-session-persistence`: "sessions will not be saved to
             # disk and cannot be resumed" -- the session still runs/logs

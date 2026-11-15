@@ -38,6 +38,16 @@ NODE_TYPES = frozenset({
 })
 
 
+def log_has_content(path) -> bool:
+    """False for a session log that is empty (every append failed: a full
+    disk) or gone; such a log is never the one `--continue`/`--resume` picks
+    or lists, since resuming it would continue an empty session."""
+    try:
+        return path.stat().st_size > 0
+    except OSError:
+        return False
+
+
 class SessionLog:
     """One session's append-only JSONL file at
     ~/.halo/sessions/<slug>/<session_id>.jsonl, PLUS an in-memory
@@ -59,6 +69,10 @@ class SessionLog:
         self.path = self.dir / f"{self.session_id}.jsonl"
         self._nodes: list = []
         self._lock = threading.Lock()
+        # The first append that could not reach the disk (a full disk, a
+        # read-only home): kept so it is said once, never silently lost.
+        self.write_error: Optional[str] = None
+        self._write_error_said = False
 
     def _append(self, node: dict) -> dict:
         node = dict(node)
@@ -79,10 +93,20 @@ class SessionLog:
                 with open(self.path, "a", encoding="utf-8", errors="surrogateescape",
                           opener=private_opener) as f:
                     f.write(json.dumps(node, ensure_ascii=False) + "\n")
-            except OSError:
-                pass
+            except OSError as e:
+                if self.write_error is None:
+                    self.write_error = str(e)
             self._nodes.append(node)
         return node
+
+    def take_write_error_note(self) -> Optional[str]:
+        """The one plain line saying this session is not being saved, the
+        first time it is asked for after an append failed; None otherwise."""
+        with self._lock:
+            if self.write_error is None or self._write_error_said:
+                return None
+            self._write_error_said = True
+            return f"halo: this session's log could not be written ({self.write_error}); it cannot be resumed"
 
     # ---- typed append helpers -----------------------------------------
 
@@ -366,7 +390,8 @@ class SessionLog:
         session_dir = bridge_home() / "sessions" / slug
         if not session_dir.is_dir():
             return None
-        candidates = sorted(session_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        candidates = sorted((p for p in session_dir.glob("*.jsonl") if log_has_content(p)),
+                            key=lambda p: p.stat().st_mtime, reverse=True)
         if not candidates:
             return None
         log = cls(cwd, session_id=candidates[0].stem)

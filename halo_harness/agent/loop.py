@@ -5542,6 +5542,11 @@ class Session:
                 if not ev.agent_id:
                     _agent_tree.observe(self, ev)
                 yield ev
+            # A transcript that could not be written (a full disk) is said once, as a session line.
+            _take = None if self.agent_id else getattr(getattr(self, "log", None), "take_write_error_note", None)
+            _log_note = _take() if callable(_take) else None
+            if _log_note:
+                yield events.system_note(_log_note)
         finally:
             _agent_tree.turn_ended(self)
             # 3.6.0.0 R8 fix pass S10: the one /api/ps read after the turn's Ollama calls, bounded to 1 s

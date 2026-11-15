@@ -754,9 +754,11 @@ class Controller:
         stamped = []
         for path in directory.glob("*.jsonl"):
             try:
-                stamped.append((path.stat().st_mtime, path))
+                st = path.stat()
             except OSError:
                 continue
+            if st.st_size > 0:  # an empty log (every write failed: a full disk) is nothing to resume
+                stamped.append((st.st_mtime, path))
         for mtime, path in sorted(stamped, key=lambda pair: pair[0], reverse=True):
             summary, title, model, cost_usd, turns = "", "", "", 0.0, 0
             try:

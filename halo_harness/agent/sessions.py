@@ -40,7 +40,8 @@ def resolve_continue(cwd) -> Optional[str]:
     if not directory.is_dir():
         return None
     from halo_harness.safe_id import is_safe_session_id
-    candidates = sorted((p for p in directory.glob("*.jsonl") if is_safe_session_id(p.stem)),
+    from halo_harness.agent.log import log_has_content  # an empty log (a full disk) is no session to continue
+    candidates = sorted((p for p in directory.glob("*.jsonl") if is_safe_session_id(p.stem) and log_has_content(p)),
                         key=lambda p: p.stat().st_mtime, reverse=True)
     return candidates[0].stem if candidates else None
 
@@ -234,7 +235,8 @@ def _session_rows_for_filter(cwd) -> list:
         return []
     index = load_index(cwd)
     out = []
-    for path in sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
+    from halo_harness.agent.log import log_has_content
+    for path in sorted(filter(log_has_content, directory.glob("*.jsonl")), key=lambda p: p.stat().st_mtime, reverse=True):
         sid = path.stem
         entry = index.get(sid, {})
         nodes = _read_nodes(path)
@@ -268,7 +270,8 @@ def list_sessions(cwd) -> list:
     if not directory.is_dir():
         return out
     index = load_index(cwd)
-    for path in sorted(directory.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True):
+    from halo_harness.agent.log import log_has_content
+    for path in sorted(filter(log_has_content, directory.glob("*.jsonl")), key=lambda p: p.stat().st_mtime, reverse=True):
         sid = path.stem
         entry = index.get(sid, {})
         title = entry["title"] if str(entry.get("title") or "")[:1] not in ("", "{", "[") else _title_for(_read_nodes(path))

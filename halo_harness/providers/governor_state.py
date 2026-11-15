@@ -40,6 +40,8 @@ import warnings
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from halo_harness.filelock import lock_unsupported
+
 try:
     import fcntl
     _HAVE_FLOCK = True
@@ -87,6 +89,23 @@ MAX_REFILL_INTERVAL_S = 60.0
 LOG_ROTATE_BYTES = 1_000_000
 
 
+class GovernorWarning(UserWarning):
+    """The governor's degradation lines; shown as one `halo: ...` line, not
+    as a raw UserWarning with this module's path and source line."""
+
+
+_plain_formatwarning = warnings.formatwarning
+
+
+def _formatwarning(message, category, filename, lineno, line=None):
+    if isinstance(category, type) and issubclass(category, GovernorWarning):
+        return f"halo: {message}\n"
+    return _plain_formatwarning(message, category, filename, lineno, line)
+
+
+warnings.formatwarning = _formatwarning
+
+
 def warn_once(message: str) -> None:
     """One `warnings.warn` per process per reason -- the fail-loud half
     of every degradation path in this module."""
@@ -95,7 +114,7 @@ def warn_once(message: str) -> None:
         return
     DEGRADED["degraded"] = True
     DEGRADED["reason"] = reason
-    warnings.warn(message, stacklevel=2)
+    warnings.warn(message, GovernorWarning, stacklevel=2)
 
 
 def is_degraded() -> "Optional[str]":
@@ -205,7 +224,16 @@ class _Lock:
                     try:
                         fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                         return self
-                    except OSError:
+                    except OSError as e:
+                        if lock_unsupported(e):
+                            # A filesystem with no locks (ENOSYS, ENOLCK, ...):
+                            # waiting the timeout cannot help. Same degrade as an
+                            # unopenable lock file: the process RLock only.
+                            os.close(self._fd)
+                            self._fd = None
+                            warn_once(f"governor: the filesystem under {self._p.parent} has no file locks "
+                                      f"({e}); falling back to IN-PROCESS only limiting (not shared across sessions)")
+                            return self
                         if time.monotonic() >= deadline:
                             self._release_fd()
                             raise LockFailed(f"lock {self._p} contended for {LOCK_TIMEOUT_S:.0f}s")

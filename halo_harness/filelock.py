@@ -10,41 +10,63 @@ changes; holding this lock across the read-modify-write fixes that.
 The lock is on a sidecar file (`<target>.lock`), never on the target itself,
 so `os.replace` of the target keeps working. It is advisory and best-effort:
 if the lock cannot be taken within `timeout` seconds (a stuck holder, a
-read-only directory, a filesystem without locking) the body still runs and
-`acquired` is False, because a state-file write must never hang or fail a
-launch. Do not nest two locks on the same file in one thread.
+read-only directory) the body still runs and `acquired` is False, because a
+state-file write must never hang or fail a launch. A filesystem without
+locking (flock answers ENOSYS / ENOLCK / ...) runs the body at once, without
+waiting the timeout. Do not nest two locks on the same file in one thread.
 """
 from __future__ import annotations
 
+import errno
 import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
 
+try:
+    import fcntl
+except ImportError:  # Windows: msvcrt below
+    fcntl = None
 
-def _try_lock(fh) -> bool:
+#: What flock() answers while another process holds the lock: worth a retry.
+#: Any other error (ENOSYS, ENOLCK, EOPNOTSUPP, EINVAL: Lustre without the
+#: flock mount option, NFS with no lock service) means this filesystem has no
+#: locks at all; waiting the whole timeout for one only slows every launch.
+_HELD_ERRNOS = frozenset(e for e in (getattr(errno, "EWOULDBLOCK", None), errno.EAGAIN,
+                                     errno.EACCES, errno.EINTR) if e is not None)
+
+
+def lock_unsupported(err: OSError) -> bool:
+    """True when a failed POSIX flock() means "no locks on this filesystem",
+    False when it means "held by someone else, try again"."""
+    return getattr(err, "errno", None) not in _HELD_ERRNOS
+
+
+def _try_lock(fh):
+    """True: taken. False: held elsewhere, retry. None: this filesystem has
+    no locks, do not wait."""
     try:
-        if os.name == "nt":
+        if fcntl is not None:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        else:
             import msvcrt
             fh.seek(0)
             msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         return True
-    except (OSError, ImportError):
-        return False
+    except OSError as e:
+        return None if fcntl is not None and lock_unsupported(e) else False
+    except ImportError:
+        return None
 
 
 def _unlock(fh) -> None:
     try:
-        if os.name == "nt":
+        if fcntl is not None:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+        else:
             import msvcrt
             fh.seek(0)
             msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
     except (OSError, ImportError):
         pass
 
@@ -65,10 +87,11 @@ def file_lock(target, timeout: float = 5.0):
     if fh is not None:
         deadline = time.monotonic() + max(0.0, timeout)
         while True:
-            if _try_lock(fh):
+            got = _try_lock(fh)
+            if got:
                 acquired = True
                 break
-            if time.monotonic() >= deadline:
+            if got is None or time.monotonic() >= deadline:
                 break
             time.sleep(0.02)
     try:
