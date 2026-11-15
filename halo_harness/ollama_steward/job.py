@@ -115,6 +115,7 @@ class StewardJob:
 
     def tick(self, now: Optional[float] = None) -> Optional[dict]:
         now = self.clock() if now is None else now
+        stopping = self.stop_event.is_set  # 3.6.0.0 R13: a stop is seen between the steps of a pass
         try:  # 3.3.6.0 R1: a new or changed model is probed while the card is idle (probe_new.py)
             from halo_harness.ollama_steward.probe_new import maybe
             maybe(self, now) if job_state.watching(self.where) else None  # 3.4.0.1: no load unless watching
@@ -128,12 +129,16 @@ class StewardJob:
                 self.on_event(row)
         except Exception:
             pass
+        if stopping():
+            return None
         try:  # 3.3.7.0 R2: calls pushed to their halo host, its verdicts on this steward's changes (host_fold.py)
             from halo_harness.ollama_steward.host_fold import tick as host_tick
             for r in host_tick(self.state_dir)["verdicts"]:
                 self.emit("change", r["say"], {"change": r["id"], "key": r["key"], "kind": "host-verdict"}, attention=True)
         except Exception:
             pass
+        if stopping():
+            return None
         ok, why = self.due(now)
         if ok:
             return self.run_once(now)
@@ -230,20 +235,35 @@ class StewardJob:
             self.wake.wait(TICK_S)
             self.wake.clear()
 
-    def stop(self) -> None:
+    def stop(self) -> "list[str]":
+        """3.6.0.0 R13: sets the one stop Event every thread of the job waits on (the watch, the timer, and the
+        sampler when nothing else holds it), JOINS each within STOP_WAIT_S, and returns one line per thread still
+        alive after that bound ([] = every thread is gone) -- never "done" while one still runs."""
         self.stop_event.set()
         self.wake.set()
         from halo_harness.ollama_steward import resources
+        sampler = resources._SAMPLER.get("one")
         resources.want(self.state_dir, "job", False)
-        deadline = time.monotonic() + STOP_WAIT_S  # 3.6.0.0 R13: off means its threads are gone, not "soon"
-        for t in list(self.threads):
+        threads = list(self.threads)
+        if sampler is not None and sampler.stop_event.is_set() and sampler.thread is not None:
+            threads.append(sampler.thread)  # stopped because the job held it: it goes with the job
+        deadline = time.monotonic() + STOP_WAIT_S
+        for t in threads:
             if t is not threading.current_thread() and t.is_alive():
                 t.join(max(0.0, deadline - time.monotonic()))
+        alive = [t.name for t in threads if t is not threading.current_thread() and t.is_alive()]
+        lines = [f"the steward's thread {', '.join(alive)} did not stop within {STOP_WAIT_S:.0f} s (a read still "
+                 f"running); it ends when that read returns"] if alive else []
+        try:
+            job_state.update(self.state_dir, stop_problem=lines[0] if lines else None)
+        except Exception:
+            pass
         if _JOBS.get(str(self.state_dir)) is self:
             _JOBS.pop(str(self.state_dir), None)
         if self.lock is not None:
             job_state.release(self.state_dir, self.lock)
             self.lock = None
+        return lines
 
 
 def current(state_dir) -> Optional[dict]:
@@ -253,14 +273,15 @@ def current(state_dir) -> Optional[dict]:
 
 
 def sync(job: Optional[StewardJob], state_dir, *, where: str, publish: Optional[Callable] = None
-         ) -> Optional[StewardJob]:
-    """3.6.0.0 R13: the switch, applied at once -- the running job when it should run (started when it was not),
-    None when it should not (stopped, its threads joined, when it ran)."""
+         ) -> "tuple[Optional[StewardJob], list]":
+    """3.6.0.0 R13: the switch, applied at once -- (the running job, []) when it should run (started when it was
+    not); (None, lines) when it should not: stopped, its threads joined, `lines` naming any thread still alive after
+    the bound ([] when all are gone)."""
     if enabled():
-        return job if job is not None else start_for(state_dir, where=where, publish=publish)
+        return (job if job is not None else start_for(state_dir, where=where, publish=publish)), []
     if job is not None:
-        job.stop()
-    return None
+        return None, job.stop()
+    return None, []
 
 
 def start_for(state_dir, *, where: str, publish: Optional[Callable] = None) -> Optional[StewardJob]:

@@ -134,7 +134,7 @@ def format_status(st: dict, *, last_note: Optional[dict] = None) -> "list[str]":
     from halo_harness.ollama_steward.agent import NO_MODEL
     from halo_harness.ollama_steward.job import OFF_LINE, enabled
     if not st.get("running") and not enabled():  # 3.6.0.0 R13: one line, not the last run of a job that is off
-        return [f"steward job: not running -- {OFF_LINE}"]
+        return [f"steward job: not running -- {OFF_LINE}"] + ([f"  {st['stop_problem']}"] if st.get("stop_problem") else [])
     if st.get("running"):
         out = [f"steward job: running in {st.get('where')} (pid {st.get('pid')} on {st.get('machine') or 'this machine'})"
                f" since {_when(st.get('since'))}"]

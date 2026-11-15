@@ -8,8 +8,10 @@ The owner's laptop sat near one full CPU core on the steward's threads (`halo-st
 2. A Studio and a session in a scratch home, background reads ALLOWED (the tests' usual switch that stops every
    background job is lifted here, so only the steward's own switch keeps it off): no thread of the steward exists,
    and the process sits under 2% of one core over 20 s idle.
-3. Settings' switch (the API the Studio page calls) turns it on -- its threads appear -- and off: they are gone at
-   once, no restart. `halo config set ollama.steward.job true|false` does the same through the Studio's files watcher.
+3. Settings' switch (the API the Studio page calls) turns it on -- its threads appear -- and off: every thread is
+   JOINED within the bound before the answer comes back, the answer names any still alive (none), no restart.
+   `halo config set ollama.steward.job true|false` does the same through the Studio's files watcher; the test waits
+   on the sync's own result (`steward_synced`), never on a pause.
 4. Off, what read its findings says so in one line: the status lines (Local -> Steward, Settings, `halo ollama steward
    status`), the API's `on`/`off_line`, the doctor's server-log rows; the TUI starts no poll of its notes.
 The sampler reads a fake machine (resources.SAMPLER_SEAMS), the Ollama address is a refused port: nothing real is read.
@@ -41,16 +43,6 @@ def _names() -> set:
 
 def _steward_threads() -> list:
     return sorted(n for n in _names() if n in STEWARD_THREADS)
-
-
-def _wait(fn, timeout: float = 10.0):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        got = fn()
-        if got:
-            return got
-        time.sleep(0.05)
-    return fn()
 
 
 @test
@@ -104,26 +96,46 @@ def test_off_nothing_of_it_runs_and_the_switch_applies_at_once(ctx: Ctx):
             def switch(value):
                 req = Request(method="POST", path="/api/settings/set", query={}, cwd=rig.cwd, state_dir=state,
                               body={"key": "ollama.steward.job", "value": value}, server=srv)
-                return post_set(req)[0]
-            ctx.check("Settings' switch: on", switch(True) == 200)
-            on = _wait(lambda: "halo-steward-timer" in _names(), 5)
-            ctx.check(f"on: the job's threads run without a restart, got {_steward_threads()}",
-                      on and srv.steward_job is not None and "halo-local-resources" in _wait(_names, 1))
-            ctx.check("Settings' switch: off", switch(False) == 200)
-            ctx.check(f"off: its threads are gone at once, got {_steward_threads()}",
+                return post_set(req)
+
+            def synced(want_on: bool, within: float = 15.0) -> bool:
+                """Waits on the switch's own result (srv.steward_synced, set when a sync finished, its threads
+                joined), never on a pause: True once a sync left the job as wanted."""
+                deadline = time.monotonic() + within
+                while time.monotonic() < deadline:
+                    if not srv.steward_synced.wait(max(0.0, deadline - time.monotonic())):
+                        break
+                    srv.steward_synced.clear()
+                    if (srv.steward_job is not None) == want_on:
+                        return True
+                return (srv.steward_job is not None) == want_on
+
+            status, body = switch(True)
+            ctx.check(f"Settings' switch: on, got {status} {body.get('steward_lines')}",
+                      status == 200 and body.get("steward_lines") == [])
+            ctx.check(f"on: the job's threads run without a restart (the start is synchronous), got {_steward_threads()}",
+                      srv.steward_job is not None and "halo-steward-timer" in _names()
+                      and "halo-steward-watch" in _names() and "halo-local-resources" in _names())
+            status, body = switch(False)
+            ctx.check(f"Settings' switch: off -- every thread joined within the bound, none reported alive, got "
+                      f"{status} {body.get('steward_lines')}", status == 200 and body.get("steward_lines") == [])
+            ctx.check(f"off: so its threads are gone when the answer comes, got {_steward_threads()}",
                       _steward_threads() == [] and srv.steward_job is None)
 
             from halo_harness.config_cli import cmd_config
+            srv.steward_synced.clear()
             with contextlib.redirect_stdout(io.StringIO()):
                 rc_on = cmd_config(["set", "ollama.steward.job", "true"])
-            on = _wait(lambda: "halo-steward-timer" in _names(), 10)
-            ctx.check(f"`halo config set ollama.steward.job true`: on, got {rc_on} {_steward_threads()}",
-                      rc_on == 0 and on)
+            on = synced(True)
+            ctx.check(f"`halo config set ollama.steward.job true`: the watcher's sync started it, got {rc_on} "
+                      f"{_steward_threads()}", rc_on == 0 and on and "halo-steward-timer" in _names())
+            srv.steward_synced.clear()
             with contextlib.redirect_stdout(io.StringIO()):
                 rc_off = cmd_config(["set", "ollama.steward.job", "false"])
-            gone = _wait(lambda: not _steward_threads(), 10)
-            ctx.check(f"`halo config set ollama.steward.job false`: off, got {rc_off} {_steward_threads()}",
-                      rc_off == 0 and gone)
+            off = synced(False)
+            ctx.check(f"`halo config set ollama.steward.job false`: the sync joined every thread, got {rc_off} "
+                      f"{srv.steward_lines} {_steward_threads()}",
+                      rc_off == 0 and off and srv.steward_lines == [] and _steward_threads() == [])
         finally:
             if srv is not None:
                 srv.shutdown()

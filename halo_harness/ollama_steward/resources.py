@@ -153,7 +153,7 @@ class Sampler:
             body = self.ps_fn(host)
         elif not off(self.seams):
             from halo_harness.providers.ollama import fetch_ps
-            body = fetch_ps(host, timeout=2.0)
+            body = fetch_ps(host, timeout=0.75)  # 3.6.0.0 R13: short, so a stop waits on no long read
         rows = parse_ps(body) if isinstance(body, dict) else None
         self.ps_cache[host.url] = (now, rows)
         return rows
@@ -163,11 +163,15 @@ class Sampler:
         from halo_harness.ollama_steward.resources_system import ram
         now = self.clock() if now is None else now
         g, why_g = rr.gpu(self.seams)
+        if self.stop_event.is_set():  # 3.6.0.0 R13: a stop is seen between its reads, not after a whole pass
+            return []
         apps, _why_a = rr.apps(self.seams)
         r, why_r = ram(self.seams)
         cpu, why_c = self.cpu.read()
         out = []
         for host in self.hosts_fn():
+            if self.stop_event.is_set():
+                break
             s = build_sample(host, now, g, why_g or "", apps, self._loaded(host, now), r, why_r or "", cpu, why_c or "")
             STORE.add(s)
             out.append(s)

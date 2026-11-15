@@ -209,18 +209,23 @@ def scan(state_dir, host, *, path=None, platform=None, runner=None, api=None,
     return written, None
 
 
-def _default_api(host):
+WATCH_CALL_S = 0.75  # 3.6.0.0 R13: one call of the watch never holds it longer than this; `stop` is seen between
+
+
+def _default_api(host, timeout: float = WATCH_CALL_S):
     from halo_harness.config.paths import background_net_disabled
     if background_net_disabled():
         return lambda _path: None
     from halo_harness.providers.ollama import fetch_ps, probe_version
-    return lambda p: probe_version(host) if p == "/api/version" else fetch_ps(host)
+    return lambda p: probe_version(host, timeout=timeout) if p == "/api/version" else fetch_ps(host, timeout=timeout)
 
 
 def watch(state_dir, host, stop, *, path=None, platform=None, runner=None, api: Optional[Callable] = None,
           on_event: Optional[Callable] = None, from_start: bool = False, tail_s: float = TAIL_S,
           poll_s: float = POLL_S, clock: Callable = time.time) -> None:
-    """The tail and the poll as one loop until `stop` (a threading.Event) is set."""
+    """The tail and the poll as one loop until `stop` (a threading.Event) is set. 3.6.0.0 R13: `stop` is checked
+    between every step (the read, each API call, the events) and each call is short (WATCH_CALL_S), so a set
+    `stop` ends the loop within a fraction of a second, not after a whole pass."""
     from halo_harness.ollama_steward.hardware_sources import parse_ps
     from halo_harness.ollama_steward.server_context import Rules
     from halo_harness.ollama_steward.server_events import ps_delta
@@ -232,17 +237,23 @@ def watch(state_dir, host, stop, *, path=None, platform=None, runner=None, api: 
         lines, st, _why = read_new(state_dir, host, path=path, platform=platform, runner=runner,
                                    from_start=from_start and first, st=st)
         first = False
+        if stop.is_set():
+            break
         evs = [e for line in lines for e in rules.feed(line)]
         now = clock()
         evs += rules.tick(now)
         if now >= next_poll:
             next_poll = now + poll_s
             evs += rules.api_result(isinstance(api("/api/version"), dict), now)
+            if stop.is_set():
+                break
             ps = api("/api/ps")
             if isinstance(ps, dict):
                 rows = parse_ps(ps)
                 evs += ps_delta(before, rows, now)
                 before = rows
+        if stop.is_set():
+            break
         for row in _emit(state_dir, host, evs, st, path, api, runner):
             if on_event is not None:
                 on_event(row)

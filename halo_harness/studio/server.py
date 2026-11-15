@@ -67,6 +67,8 @@ class _Server(http.server.ThreadingHTTPServer):
         self.events_lock = threading.Lock()
         self.files_watch = None  # 3.2.2.0 R6: studio/files_live.py Watcher, started by start_server
         self.steward_job = None  # 3.3.4.0 R4: ollama_steward/job.py StewardJob, started by start_server
+        self.steward_synced = threading.Event()  # 3.6.0.0 R13: set each time the steward's switch was applied
+        self.steward_lines: list = []  # ... and what it said (a thread still alive after the bound)
         super().__init__(addr, handler)
 
     def server_close(self):
@@ -313,16 +315,25 @@ def start_local_tap(server: _Server) -> None:
         server.local_tap_stop = None
 
 
-def sync_steward(server) -> None:
+def sync_steward(server) -> list:
     """3.6.0.0 R13: `ollama.steward.job` applied at once -- Settings' switch and `halo config set` (seen by the
     files watcher) start the job or stop it, its threads with it, without a restart."""
+    lines: list = []
     try:
         from halo_harness.ollama_steward.job import sync
         from halo_harness.studio.events import bridge_for
-        server.steward_job = sync(getattr(server, "steward_job", None), server.state_dir, where="studio",
-                                  publish=lambda frame: bridge_for(server).publish_local(frame))
-    except Exception:
-        pass
+        server.steward_job, lines = sync(getattr(server, "steward_job", None), server.state_dir, where="studio",
+                                         publish=lambda frame: bridge_for(server).publish_local(frame))
+    except Exception as e:
+        lines = [f"the steward's switch did not apply: {type(e).__name__}: {e}"]
+    for line in lines:  # said, never swallowed: a thread still alive after the bound
+        import logging
+        logging.getLogger("bridge").warning("studio: %s", line)
+    server.steward_lines = lines
+    synced = getattr(server, "steward_synced", None)
+    if synced is not None:
+        synced.set()  # the switch's result is ready (tests and callers wait on this, not on the clock)
+    return lines
 
 
 def start_steward(server: _Server) -> None:
