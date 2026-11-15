@@ -523,8 +523,11 @@ def project_slug(cwd: str | Path) -> str:
     return f"{truncated}-{suffix}"
 
 
-# What sits under `<sessions>/<slug>`: `\<32 hex>\subagents\agent-<8>.evidence.json` (72 characters) plus room.
-_STATE_TAIL = 80
+# What sits under `<sessions>/<slug>`: the deepest file is a sub-agent's spilled tool output,
+# `\<32 hex>\subagents\agent-<8>\tool-results\toolu_<24>.txt` (106 characters), plus room for a longer tool id.
+_STATE_TAIL = 110
+# The cut slug carries `-<base36 hash>`: at most 7 characters.
+_STATE_HASH = 7
 
 
 def state_slug(cwd: str | Path, *, base: str | Path | None = None, windows: Optional[bool] = None) -> str:
@@ -539,7 +542,7 @@ def state_slug(cwd: str | Path, *, base: str | Path | None = None, windows: Opti
     if not ((os.name == "nt") if windows is None else windows):
         return slug
     base_str = str(bridge_home() / "sessions") if base is None else str(base)
-    cap = max(48, min(200, 259 - len(base_str) - 1 - _STATE_TAIL))
+    cap = max(48, min(200, 259 - len(base_str) - 1 - _STATE_HASH - _STATE_TAIL))
     if len(slug) <= cap:
         return slug
     try:

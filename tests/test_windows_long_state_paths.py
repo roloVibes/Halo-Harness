@@ -33,7 +33,11 @@ SID = "0123456789abcdef0123456789abcdef"
 def _files(home: str, slug: str) -> list:
     base = home + "\\sessions\\" + slug
     sub = base + "\\" + SID + "\\subagents\\agent-0123abcd"
-    return [base + "\\" + SID + ".jsonl", sub + ".jsonl", sub + ".meta.json", sub + ".evidence.json"]
+    # A large tool output is spilled to `<session dir>\tool-results\<tool id>.txt` (tools/truncate.py,
+    # tools/mcp_tool.py); a sub-agent's session dir is `<sid>\subagents\agent-<8>`.
+    spill = "\\tool-results\\toolu_01XFDUDYJgAACzvnptvVoYEL.txt"
+    return [base + "\\" + SID + ".jsonl", sub + ".jsonl", sub + ".meta.json", sub + ".evidence.json",
+            base + "\\" + SID + spill, sub + spill]
 
 
 @test

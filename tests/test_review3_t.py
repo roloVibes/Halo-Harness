@@ -165,7 +165,9 @@ def test_item73_list_sessions_skips_a_file_that_vanished(ctx: Ctx):
     root = Path(tempfile.mkdtemp(prefix="r3t-sessions-"))
     cwd = root / "proj"
     cwd.mkdir()
-    sessions = root / "sessions" / state_slug(cwd)
+    # The same base the controller reads under (state_dir/sessions), not the default home: on Windows the slug's
+    # length depends on the base, so a long test home must not make the writer and the reader disagree.
+    sessions = root / "sessions" / state_slug(cwd, base=root / "sessions")
     sessions.mkdir(parents=True)
     (sessions / "keep.jsonl").write_text('{"type": "user", "content": [{"type": "text", "text": "hi"}]}\n')
     gone = sessions / "gone.jsonl"
