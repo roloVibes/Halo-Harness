@@ -1705,6 +1705,43 @@ def _check_remote() -> "list[tuple[str, str]]":
         return [("remote", f"{WARN} Remote control: the check failed ({type(e).__name__}: {e})")]
 
 
+def _check_state_home() -> str:
+    """Halo's own folder first: one that cannot be read or written (a read-only home, root-owned after a `sudo
+    halo` run, a file in its place) is why every other part of Halo fails, so doctor names it, as `halo` does."""
+    from halo_harness.config.paths import bridge_home
+    from halo_harness.state_home import problem
+    found = problem()
+    if found:
+        return f"{MISSING} {found[len('halo: '):]}"
+    return f"{OK} Halo's folder: {bridge_home()} can be read and written"
+
+
+def _os_error_row(cid: str, e: OSError) -> str:
+    """A check that could not read or write a file is one MISSING row naming the file; the other checks still run."""
+    from halo_harness.state_home import line_for_error
+    own = line_for_error(e)
+    if own:
+        return f"{MISSING} {cid}: {own[len('halo: '):]}"
+    where = f" {e.filename}" if e.filename else ""
+    return f"{MISSING} {cid}: could not be checked ({type(e).__name__}:{where} {e.strerror or e})"
+
+
+def _row(cid: str, check, *args):
+    """One check's line; an OSError is its MISSING row instead of the end of the whole run."""
+    try:
+        return check(*args)
+    except OSError as e:
+        return _os_error_row(cid, e)
+
+
+def _rows(cid: str, check) -> list:
+    """`_row` for a check that gives several `(id, line)` rows."""
+    try:
+        return list(check())
+    except OSError as e:
+        return [(cid, _os_error_row(cid, e))]
+
+
 def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = None) -> "list[tuple[str, str]]":
     """`[(id, rendered_line), ...]` -- the ONE table both `run_checks`
     (the plain `lines`/`ok` pair every existing caller/test already uses)
@@ -1713,26 +1750,27 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     returns `None` (the new PART B checks that only apply sometimes --
     tmux mouse mode off-tmux, `~/.local/bin` on win32) is skipped entirely
     rather than appearing as an empty/placeholder entry."""
-    entries: "list[tuple[str, Optional[str]]]" = [("python", _check_python())]
+    entries: "list[tuple[str, Optional[str]]]" = [("state_home", _check_state_home()),
+                                                  ("python", _row("python", _check_python))]
     claude_ids = ("claude_dir", "claude_settings_json", "claude_dot_json")
-    entries.extend(zip(claude_ids, _check_claude_layout(), strict=False))
-    entries.append(("state_dir_migration", _check_state_dir_migration()))
-    entries.append(("env_file", _check_env_file()))
-    entries.append(("openrouter", _check_openrouter()))
-    entries.append(("databricks", _check_databricks()))
-    entries.append(("experiential", _check_experiential()))
-    entries.append(("chrome", _check_chrome()))
-    entries.append(("playwright", _check_playwright()))
-    entries.append(("ripgrep", _check_ripgrep()))
-    entries.append(("editor", _check_editor()))
-    entries.append(("terminal_program", _check_terminal_program()))
-    entries.append(("shell", _check_shell()))
-    entries.append(("plugins", _check_plugins()))
-    entries.append(("platform", _check_platform()))
-    entries.append(("governor", _check_governor()))
-    entries.append(("drain_tick_rate", _check_drain_tick_rate()))
-    entries.append(("local_bin_on_path", _check_local_bin_on_path()))
-    entries.append(("tmux_mouse", _check_tmux_mouse()))
+    entries.extend(_rows("claude_dir", lambda: list(zip(claude_ids, _check_claude_layout(), strict=False))))
+    entries.append(("state_dir_migration", _row("state_dir_migration", _check_state_dir_migration)))
+    entries.append(("env_file", _row("env_file", _check_env_file)))
+    entries.append(("openrouter", _row("openrouter", _check_openrouter)))
+    entries.append(("databricks", _row("databricks", _check_databricks)))
+    entries.append(("experiential", _row("experiential", _check_experiential)))
+    entries.append(("chrome", _row("chrome", _check_chrome)))
+    entries.append(("playwright", _row("playwright", _check_playwright)))
+    entries.append(("ripgrep", _row("ripgrep", _check_ripgrep)))
+    entries.append(("editor", _row("editor", _check_editor)))
+    entries.append(("terminal_program", _row("terminal_program", _check_terminal_program)))
+    entries.append(("shell", _row("shell", _check_shell)))
+    entries.append(("plugins", _row("plugins", _check_plugins)))
+    entries.append(("platform", _row("platform", _check_platform)))
+    entries.append(("governor", _row("governor", _check_governor)))
+    entries.append(("drain_tick_rate", _row("drain_tick_rate", _check_drain_tick_rate)))
+    entries.append(("local_bin_on_path", _row("local_bin_on_path", _check_local_bin_on_path)))
+    entries.append(("tmux_mouse", _row("tmux_mouse", _check_tmux_mouse)))
     # Halo 2.0.4 round 3 (deliverable 5): _check_catalog_ages() now reports seven catalogs, not three (see its own
     # docstring) -- `zip(..., strict=False)` would otherwise silently TRUNCATE the extra four lines to nothing (zip
     # stops at the shorter iterable), so this tuple must stay the same length `_check_catalog_ages` actually emits, in
@@ -1741,47 +1779,49 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     catalog_ids = ("catalog_models_json", "catalog_anthropic_models_json", "catalog_dbx_endpoints",
                    "catalog_models_dev", "catalog_huggingface_models_json", "catalog_openai_models_json",
                    "catalog_experiential_models_json")
-    entries.extend(zip(catalog_ids, _check_catalog_ages(), strict=False))
+    entries.extend(_rows("catalogs", lambda: list(zip(catalog_ids, _check_catalog_ages(), strict=False))))
     from halo_harness.providers.left_core import leftover_lines  # 3.4.0.0: a provider that left, its key still here
-    entries.extend(("left_core", f"{WARN} {line}") for line in leftover_lines(cwd=cwd))
+    entries.extend(_rows("left_core", lambda: [("left_core", f"{WARN} {line}") for line in leftover_lines(cwd=cwd)]))
     from halo_harness.crew.old_files import line as _old_files_line  # 3.6.0.0 R5: said while the old folders hold files
-    _old = _old_files_line(cwd)
+    _old = _row("old_files", _old_files_line, cwd)
     if _old:
-        entries.append(("old_files", f"[INFO] {_old}"))
-    entries.extend(("crew_maps", _fix(f"{WARN} {line}", cmd=f"halo maps edit {name}"))  # 3.6.0.0 R5d
-                   for name, line in _dangling_maps(cwd))
-    entries.append(("sessions", _check_telemetry()))  # 3.4.0.0 B2: /improve's row is the coach pack's own now
+        entries.append(("old_files", _old if _old.startswith(MISSING) else f"[INFO] {_old}"))
+    entries.extend(_rows("crew_maps", lambda: [("crew_maps", _fix(f"{WARN} {line}", cmd=f"halo maps edit {name}"))
+                                               for name, line in _dangling_maps(cwd)]))  # 3.6.0.0 R5d
+    entries.append(("sessions", _row("sessions", _check_telemetry)))  # 3.4.0.0 B2: /improve's row is the coach pack's own now
     # U5 leftover / H8: tui/clipboard.py's clipboard_doctor_line(), wired here; H12 Part B: its WARN (no
     # xclip/wl-copy/xsel on PATH, e.g. a fresh WSL) gets the fix suffix HERE (`_fix` is this module's vocabulary).
     from halo_harness.providers.copilot_doctor import entries as _copilot_rows  # 3.3.17.0 R2: the Copilot row
-    entries.extend(_copilot_rows())
+    entries.extend(_rows("copilot", _copilot_rows))
     # 3.1.6.0 R5: the row names its own fix (the apt line, the tmux
     # setting, or the troubleshooting entry when no display session is up).
     from halo_harness.tui.clipboard_doctor import clipboard_doctor_parts
-    clip_line, clip_fix, clip_see = clipboard_doctor_parts()
-    entries.append(("clipboard", _fix(clip_line, cmd=clip_fix, see=clip_see)))
-    entries.append(("mcp_servers", _check_mcp_servers(cwd)))
-    entries.append(("test_leftovers", _check_test_leftovers()))
-    entries.append(("orphans", _check_orphans()))
-    entries.append(("mcp_connectors", _check_mcp_connectors()))
-    entries.extend(_check_ollama_hosts())
-    entries.append(("mlx_extra", _check_mlx_extra()))
-    entries.append(("default_model", _check_default_model(cwd, settings_flag)))
-    entries.append(("permission_rules", _check_permission_rules(cwd)))
-    entries.append(("state_modes", _check_state_modes()))
-    entries.append(("permission_mode", _check_permission_mode(cwd, settings_flag)))
+    def _clipboard_row() -> str:
+        clip_line, clip_fix, clip_see = clipboard_doctor_parts()
+        return _fix(clip_line, cmd=clip_fix, see=clip_see)
+    entries.append(("clipboard", _row("clipboard", _clipboard_row)))
+    entries.append(("mcp_servers", _row("mcp_servers", _check_mcp_servers, cwd)))
+    entries.append(("test_leftovers", _row("test_leftovers", _check_test_leftovers)))
+    entries.append(("orphans", _row("orphans", _check_orphans)))
+    entries.append(("mcp_connectors", _row("mcp_connectors", _check_mcp_connectors)))
+    entries.extend(_rows("ollama_hosts", _check_ollama_hosts))
+    entries.append(("mlx_extra", _row("mlx_extra", _check_mlx_extra)))
+    entries.append(("default_model", _row("default_model", _check_default_model, cwd, settings_flag)))
+    entries.append(("permission_rules", _row("permission_rules", _check_permission_rules, cwd)))
+    entries.append(("state_modes", _row("state_modes", _check_state_modes)))
+    entries.append(("permission_mode", _row("permission_mode", _check_permission_mode, cwd, settings_flag)))
     from halo_harness.workflows.doctor_rows import rows as _lineup_rows  # 3.1.9.0 R2 the lineup; 3.3.16.2 its squares
     from halo_harness.isolation.doctor_rows import entries as _isolation_rows  # 3.1.8.0 R5: isolation, secrets
-    entries.extend(_lineup_rows(cwd) + _isolation_rows(cwd))
-    entries.append(("providers_enabled", _check_providers_enabled(cwd, settings_flag)))
-    entries.append(("install", _check_install()))
-    entries.append(("command_on_path", check_command_on_path()))
-    entries.append(("old_rolo_claude_on_path", _check_old_rolo_claude_leftover()))
-    entries.extend(_check_remote())
+    entries.extend(_rows("lineup", lambda: _lineup_rows(cwd)) + _rows("isolation", lambda: _isolation_rows(cwd)))
+    entries.append(("providers_enabled", _row("providers_enabled", _check_providers_enabled, cwd, settings_flag)))
+    entries.append(("install", _row("install", _check_install)))
+    entries.append(("command_on_path", _row("command_on_path", check_command_on_path)))
+    entries.append(("old_rolo_claude_on_path", _row("old_rolo_claude_on_path", _check_old_rolo_claude_leftover)))
+    entries.extend(_rows("remote", _check_remote))
     from halo_harness.packs.setup_state import doctor_lines as _pack_setup  # 3.3.11.0 R3: a pack's Setup block waiting
-    entries.extend(_pack_setup(cwd))
+    entries.extend(_rows("pack_setup", lambda: _pack_setup(cwd)))
     from halo_harness.packs.contrib_doctor import entries_of as _pack_rows  # 3.4.0.0 B2: an enabled pack's own rows
-    entries.extend(_pack_rows(cwd))
+    entries.extend(_rows("pack_rows", lambda: _pack_rows(cwd)))
     return [(cid, line) for cid, line in entries if line is not None]
 
 

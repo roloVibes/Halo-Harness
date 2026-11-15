@@ -73,14 +73,101 @@ def test_a_session_stored_through_the_link_is_found_from_the_real_folder(ctx: Ct
         cj = {"projects": {normalize_cwd(real): {"allowedTools": ["Read"]}}}
         ctx.check("a ~/.claude.json project entry is found through the link",
                   lookup_project(cj, link).get("allowedTools") == ["Read"])
+        # fix pass 2: a stored key is never followed through its link (a trust record would follow the link's
+        # target of today); it is found by its own spelling, as Claude Code finds it
         cj = {"projects": {str(link): {"allowedTools": ["Grep"]}}}
-        ctx.check("an entry written under the link spelling is found from the real folder",
-                  lookup_project(cj, real).get("allowedTools") == ["Grep"])
+        ctx.check("an entry written under the link spelling is found under that spelling",
+                  lookup_project(cj, str(link)).get("allowedTools") == ["Grep"])
+        ctx.check("and it does not apply to the folder the link happens to point at",
+                  lookup_project(cj, real) == {})
     finally:
         if saved is None:
             os.environ.pop("BRIDGE_TEST_HOME", None)
         else:
             os.environ["BRIDGE_TEST_HOME"] = saved
+
+
+@test
+def test_a_trust_record_for_a_symlink_never_follows_where_the_link_points_today(ctx: Ctx):
+    """fix pass 2 (sessions-storage): a `~/.claude.json` key `~/current` -> my-repo, trusted. Repointing the link
+    at a freshly downloaded clone must not make the clone trusted (its .halo hooks and workflows would run)."""
+    if os.name == "nt":
+        raise SkipTest("Windows: folder_key keeps a spelling as given, no key is followed (the POSIX legs run this)")
+    from halo_harness.config.claude_json import is_trusted
+    root = Path(tempfile.mkdtemp(prefix="folder-key-trust-"))
+    repo, clone, current = root / "my-repo", root / "downloaded-clone", root / "current"
+    repo.mkdir()
+    clone.mkdir()
+    os.symlink(repo, current, target_is_directory=True)
+    cj = {"projects": {str(current): {"hasTrustDialogAccepted": True}}}
+    ctx.check("the clone is not trusted while the link points at my-repo", not is_trusted(clone, cj, {}))
+    current.unlink()
+    os.symlink(clone, current, target_is_directory=True)
+    ctx.check("the clone is still not trusted after the link is repointed at it", not is_trusted(clone, cj, {}))
+    ctx.check("a key written resolved (as halo writes it) still trusts its folder through a link",
+              is_trusted(current, {"projects": {os.path.realpath(clone): {"hasTrustDialogAccepted": True}}}, {}))
+
+
+@test
+def test_a_lookup_resolves_the_cwd_once_and_never_a_stored_key(ctx: Ctx):
+    """fix pass 2: 400 stored keys made one lookup_project 2,800 lstat calls (each key realpath'd), and a key on a
+    dead network mount stalled every lookup. Only the cwd is resolved."""
+    if os.name == "nt":
+        raise SkipTest("Windows: folder_key never resolves, so no key is ever stat'ed there")
+    from unittest import mock
+    from halo_harness.config import paths
+    root = Path(tempfile.mkdtemp(prefix="folder-key-many-"))
+    cj = {"projects": {f"/net/gpu-box/share/proj{i}": {"allowedTools": ["Read"]} for i in range(400)}}
+    cj["projects"][os.path.realpath(root)] = {"allowedTools": ["Grep"]}
+    real = os.path.realpath
+    calls = []
+
+    def counting(p, *a, **kw):
+        calls.append(str(p))
+        return real(p, *a, **kw)
+    with mock.patch.object(paths.os.path, "realpath", counting):
+        found = paths.lookup_project(cj, root)
+    ctx.check("the matching record is found", found.get("allowedTools") == ["Grep"])
+    ctx.check(f"no stored key is resolved, got {len(calls)} realpath calls",
+              len(calls) <= 2 and not any("/net/gpu-box" in c for c in calls))
+
+
+@test
+def test_memory_and_sessions_use_one_slug_through_a_link(ctx: Ctx):
+    """fix pass 2: on Windows memory_dir resolve()d a junction or subst drive while sessions kept the spelling,
+    so one folder had its sessions under one project slug and its memory under another."""
+    saved = os.environ.get("BRIDGE_TEST_HOME")
+    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="folder-key-home-")
+    try:
+        from halo_harness.agent.sessions import sessions_dir
+        from halo_harness.config.paths import memory_dir, project_slug
+        real, link = _linked_project()
+        for spelling in (link, real):
+            ctx.check(f"memory sits under the sessions' slug ({spelling.name})",
+                      memory_dir(spelling).parent.name == project_slug(spelling) == sessions_dir(spelling).name)
+    finally:
+        if saved is None:
+            os.environ.pop("BRIDGE_TEST_HOME", None)
+        else:
+            os.environ["BRIDGE_TEST_HOME"] = saved
+
+
+@test
+def test_a_claude_md_exclude_written_through_a_link_matches(ctx: Ctx):
+    """fix pass 2: on Windows a claudeMdExcludes pattern spelled through a junction (or subst / mapped drive)
+    matched nothing, because the file is resolve()d and the pattern's folder was not."""
+    from halo_harness.config.claude_md import _excluded
+    real, link = _linked_project()
+    (real / "sub").mkdir()
+    md = real / "sub" / "CLAUDE.md"
+    md.write_text("x", encoding="utf-8")
+    via_link = str(link).replace("\\", "/") + "/sub/*"
+    via_real = str(real).replace("\\", "/") + "/sub/*"
+    ctx.check("a pattern through the link excludes the file reached through the link",
+              _excluded(link / "sub" / "CLAUDE.md", [via_link]))
+    ctx.check("and the file reached directly", _excluded(md, [via_link]))
+    ctx.check("a pattern on the real folder still works", _excluded(link / "sub" / "CLAUDE.md", [via_real]))
+    ctx.check("an unrelated pattern does not", not _excluded(md, [str(real.parent).replace("\\", "/") + "/other/*"]))
 
 
 if __name__ == "__main__":

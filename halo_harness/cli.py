@@ -526,12 +526,25 @@ def main(argv: Optional[list] = None) -> int:
     if argv is None and sys.argv[1:] not in (["--help"], ["-h"], ["--version"]):
         from halo_harness import closing
         closing.install()
+        # Halo's own folder unusable (read-only, root-owned after `sudo halo`, a file): one plain line before
+        # anything starts in it; `halo doctor` shows the same line as its first row instead.
+        if not any(a in ("-h", "--help") for a in sys.argv[1:]) and sys.argv[1:2] != ["doctor"]:
+            from halo_harness.state_home import problem
+            home_problem = problem()
+            if home_problem:
+                print(home_problem, file=sys.stderr)
+                return 2
     try:
         return _main(argv)
     except Exception as e:  # 3.6.0.0 R16: theme is imported only here, so `halo --help` stays light
         from halo_harness.theme import CorruptConfigError
         if not isinstance(e, CorruptConfigError):
-            raise
+            from halo_harness.state_home import line_for_error
+            own = line_for_error(e)  # a file in Halo's own folders it cannot read or write: the plain line
+            if own is None:
+                raise
+            print(own, file=sys.stderr)
+            return 2
         print(f"halo: {e}", file=sys.stderr)
         return 2
 

@@ -273,7 +273,7 @@ def set_server_disabled_in_config(name: str, *, cwd: Path, disabled: bool) -> st
     # on POSIX `normalize_cwd` leaves a backslash-shaped key (copied from a
     # Windows install) unrecognisable, so the normalized compare alone missed it.
     touched = [k for k, v in projects.items()
-               if isinstance(v, dict) and (k in candidates or normalize_cwd(k) in candidates)]
+               if isinstance(v, dict) and (k in candidates or normalize_cwd(k, resolve=False) in candidates)]
     if not touched:
         projects.setdefault(key, {})
         touched = [key]
@@ -807,11 +807,11 @@ def _cmd_remove(rest: list) -> int:
                     print(f"Removed MCP server {args.name!r} from user scope")
                     return 0
             else:  # local
-                key = normalize_cwd(cwd)
+                key_forms = set(project_key_candidates(cwd))  # a stored key by its spelling, as lookup_project
                 projects = data.get("projects")
                 if isinstance(projects, dict):
                     for pkey, prec in projects.items():
-                        if isinstance(prec, dict) and normalize_cwd(pkey) == key:
+                        if isinstance(prec, dict) and normalize_cwd(pkey, resolve=False) in key_forms:
                             servers = prec.get("mcpServers")
                             if isinstance(servers, dict) and args.name in servers:
                                 del servers[args.name]

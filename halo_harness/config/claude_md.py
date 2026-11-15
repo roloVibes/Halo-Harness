@@ -327,7 +327,15 @@ def _pattern_spellings(pat: str) -> "tuple[str, ...]":
     if not sep or not head:
         return (pat,)
     from halo_harness.config.paths import folder_key
-    resolved = folder_key(head).replace("\\", "/")
+    if os.name == "nt" and os.path.isabs(head):
+        # the file is resolve()d (a junction, a subst or mapped drive followed), so the pattern's folder is
+        # spelled the same way; only used to match, never stored
+        try:
+            resolved = os.path.realpath(head).replace("\\", "/")
+        except (OSError, ValueError):
+            resolved = head
+    else:
+        resolved = folder_key(head).replace("\\", "/")
     return (pat,) if resolved == head else (pat, resolved + pat[len(head):])
 
 

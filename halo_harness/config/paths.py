@@ -463,7 +463,7 @@ def project_slug(cwd: str | Path) -> str:
 _WIN_DRIVE_RE = re.compile(r"^([a-zA-Z]):[\\/](.*)$", re.DOTALL)
 
 
-def normalize_cwd(path: str | Path) -> str:
+def normalize_cwd(path: str | Path, *, resolve: bool = True) -> str:
     """Return an absolute path with forward slashes and an uppercase drive
     letter. `~/.claude.json`'s `projects` keys can be Windows-shaped
     (`C:\\Users\\you`) regardless of which OS is running THIS process --
@@ -474,7 +474,11 @@ def normalize_cwd(path: str | Path) -> str:
     treats "C:/Users/user" as a relative path and prepends the real cwd
     (producing garbage like "/home/user/proj/C:/Users/user"). Anything that
     doesn't match the drive-letter shape falls through to ordinary
-    host-appropriate absolute-path normalization."""
+    host-appropriate absolute-path normalization.
+
+    `resolve=False` spells a STORED key as written (string work only, no
+    filesystem call): a stored key is never followed through a symlink, or a
+    trust record for a link would follow wherever the link points today."""
     s = str(path)
     m = _WIN_DRIVE_RE.match(s)
     if m:
@@ -483,7 +487,8 @@ def normalize_cwd(path: str | Path) -> str:
     p = Path(s)
     if not p.is_absolute():
         p = Path.cwd() / p
-    normalized = folder_key(p)  # R12: resolved through symlinks on POSIX, as Claude Code's own cwd is
+    # R12: resolved through symlinks on POSIX, as Claude Code's own cwd is (the cwd side only)
+    normalized = folder_key(p) if resolve else str(p)
     if os.name == "nt":
         normalized = normalized.replace("\\", "/")
         if re.match(r"^[a-zA-Z]:/", normalized):
@@ -492,16 +497,21 @@ def normalize_cwd(path: str | Path) -> str:
 
 
 def project_key_candidates(cwd: str | Path) -> list[str]:
-    """Return both key forms Claude Code's projects map might use for this cwd."""
-    normalized = normalize_cwd(cwd)
-    candidates = [normalized]
-    # Second form: replace '/' with '\' (on POSIX this is identical)
-    candidates.append(normalized.replace("/", "\\"))
+    """Return the key forms Claude Code's projects map might use for this cwd: the cwd as given and as
+    `folder_key` spells it (resolved on POSIX), each with '/' and with '\\' (on POSIX the second is identical)."""
+    candidates: list[str] = []
+    for normalized in (normalize_cwd(cwd), normalize_cwd(cwd, resolve=False)):
+        for form in (normalized, normalized.replace("/", "\\")):
+            if form not in candidates:
+                candidates.append(form)
     return candidates
 
 
 def lookup_project(claude_json: dict, cwd: str | Path) -> dict:
-    """Merge every projects[key] record matching project_key_candidates(cwd)."""
+    """Merge every projects[key] record matching project_key_candidates(cwd). Only the cwd is resolved, once; a
+    stored key is compared by its own spelling (no filesystem call per key): a key that is a symlink trusts the
+    folder it was written for, never whatever the link points at today, and a key on a dead network mount cannot
+    stall the lookup."""
     # Degrade gracefully on malformed claude_json
     if not isinstance(claude_json, dict):
         return {}
@@ -513,7 +523,7 @@ def lookup_project(claude_json: dict, cwd: str | Path) -> dict:
     for key, value in projects.items():
         if not isinstance(key, str) or not isinstance(value, dict):
             continue
-        normalized_key = normalize_cwd(key)
+        normalized_key = normalize_cwd(key, resolve=False)
         if normalized_key in candidates:
             matching_records.append(value)
     if not matching_records:
@@ -574,8 +584,9 @@ def find_git_root(path: str | Path) -> Path | None:
     """Walk up from `path` looking for a `.git` entry (dir or file, for a
     worktree/submodule pointer); returns the containing directory, or None
     if `path` isn't inside a git working tree. Pure filesystem check -- no
-    `git` subprocess, so it works even when `git` isn't on PATH."""
-    current = Path(path).resolve()
+    `git` subprocess, so it works even when `git` isn't on PATH. The walk starts from the folder as `folder_key`
+    spells it (POSIX: resolved; Windows: a junction or subst drive keeps its spelling, as sessions do)."""
+    current = Path(folder_key(os.path.abspath(path)))
     while True:
         if (current / ".git").exists():
             return current
@@ -606,7 +617,9 @@ def memory_dir(cwd: str | Path, settings=None) -> Path:
             auto_dir = settings.get("autoMemoryDirectory")
     if auto_dir and isinstance(auto_dir, str):
         return Path(auto_dir).expanduser()
-    abs_cwd = Path(cwd).resolve()
+    # spelled by folder_key, as sessions are: on Windows resolve() followed a junction or subst drive, so one
+    # folder kept its sessions under one project slug and its memory under another
+    abs_cwd = Path(folder_key(os.path.abspath(cwd)))
     root = find_git_root(abs_cwd) or abs_cwd
     slug = project_slug(root)
     return claude_config_dir() / "projects" / slug / "memory"

@@ -76,7 +76,7 @@ def other_project_mcp_jsons(*, cwd: Path, claude_json: dict, limit: int = 5) -> 
     here = normalize_cwd(cwd)
     found: list = []
     for key in sorted(k for k in projects if isinstance(k, str)):
-        if normalize_cwd(key) == here:
+        if normalize_cwd(key, resolve=False) == here:
             continue
         candidate = Path(key) / ".mcp.json"
         try:

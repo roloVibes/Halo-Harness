@@ -375,6 +375,132 @@ def test_governor_warning_reads_as_a_halo_line_not_a_raw_userwarning(ctx: Ctx):
     ctx.check(f"other warnings keep their usual shape, got {other!r}", "UserWarning" in other)
 
 
+# ---- a home Halo cannot use (fix pass 2) ---------------------------------------
+
+def _run_halo(home: Path, *args: str, stdin: str = "") -> "tuple[int, str]":
+    """The real `python -m halo_harness <args>` in a scratch home (no network, no updater)."""
+    import subprocess
+    env = dict(os.environ, BRIDGE_TEST_HOME=str(home), HOME=str(home), USERPROFILE=str(home),
+               OLLAMA_HOST="http://127.0.0.1:9", HALO_NO_UPDATER="1", PYTHONIOENCODING="utf-8",
+               OPENROUTER_API_KEY="sk-test-dummy",
+               PYTHONPATH=str(Path(__file__).resolve().parent.parent))
+    env.pop("BRIDGE_STATE_DIR", None)
+    proj = home / "proj"
+    proj.mkdir(exist_ok=True)
+    p = subprocess.run([sys.executable, "-m", "halo_harness", *args], cwd=str(proj), env=env, input=stdin,
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    return p.returncode, (p.stdout or "") + (p.stderr or "")
+
+
+def _home_with_halo_as_a_file() -> Path:
+    home = Path(tempfile.mkdtemp(prefix="halo-file-home-"))
+    (home / ".halo").write_text("x", encoding="utf-8")
+    return home
+
+
+@test
+def test_a_state_folder_that_is_a_file_stops_halo_with_one_plain_line(ctx: Ctx):
+    """`halo -p` and `halo init` in a home whose ~/.halo is a file ended with a traceback (FileNotFoundError /
+    FileExistsError deep in the first mkdir). Now: one `halo: cannot use ...` line, exit 2."""
+    home = _home_with_halo_as_a_file()
+    for args, stdin in ((("-p", "hello"), ""), (("init", "--no-live", "--provider", "openrouter"), "\n")):
+        rc, out = _run_halo(home, *args, stdin=stdin)
+        ctx.check(f"`halo {' '.join(args)}`: exit 2, got {rc}", rc == 2)
+        ctx.check(f"`halo {' '.join(args)}`: one plain line, no traceback, got {out[-600:]!r}",
+                  "Traceback" not in out and f"halo: cannot use {home / '.halo'}" in out)
+
+
+@test
+def test_the_state_folder_check_cases(ctx: Ctx):
+    from halo_harness.state_home import problem
+    root = Path(tempfile.mkdtemp(prefix="halo-state-check-"))
+    ctx.check("an existing folder that can be written: nothing to say", problem(root) is None)
+    ctx.check("a folder that can be created: nothing to say", problem(root / "new" / ".halo") is None)
+    ctx.check("nothing was created by looking", not (root / "new").exists())
+    (root / "file").write_text("x", encoding="utf-8")
+    said = problem(root / "file") or ""
+    ctx.check(f"a file in its place: the plain line, got {said!r}", said.startswith(f"halo: cannot use {root / 'file'}"))
+    said = problem(root / "file" / ".halo") or ""
+    ctx.check(f"a file where a parent folder should be: the plain line, got {said!r}",
+              said.startswith("halo: cannot use"))
+    if os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0):
+        return  # the mode bits below mean nothing on Windows or to root
+    ro = root / "readonly-home"
+    ro.mkdir()
+    os.chmod(ro, 0o555)
+    try:
+        said = problem(ro / ".halo") or ""
+        ctx.check(f"a home that cannot be written: the plain line naming sudo chown, got {said!r}",
+                  said.startswith(f"halo: cannot use {ro / '.halo'}") and f"sudo chown -R $USER {ro})" in said)
+        ro2 = root / "locked"
+        ro2.mkdir()
+        os.chmod(ro2, 0o000)
+        try:
+            said = problem(ro2) or ""
+            ctx.check(f"a ~/.halo that cannot be read (root-owned after sudo): the plain line, got {said!r}",
+                      said.startswith(f"halo: cannot use {ro2}"))
+        finally:
+            os.chmod(ro2, 0o700)
+    finally:
+        os.chmod(ro, 0o755)
+
+
+@test
+def test_an_os_error_inside_halos_folder_is_the_plain_line_not_a_traceback(ctx: Ctx):
+    from halo_harness import cli
+    from halo_harness.state_home import line_for_error
+    with scoped_home() as home:
+        own = PermissionError(errno.EACCES, "Permission denied", str(home / ".halo" / "config.json"))
+        said = line_for_error(own) or ""
+        ctx.check(f"a file in ~/.halo: the plain line, got {said!r}",
+                  said.startswith(f"halo: cannot use {home / '.halo' / 'config.json'} (Permission denied)"))
+        other = PermissionError(errno.EACCES, "Permission denied", str(home / "proj" / "notes.txt"))
+        ctx.check("a file elsewhere stays a real error", line_for_error(other) is None)
+        real_main = cli._main
+
+        def failing(argv=None):
+            raise own
+        cli._main = failing
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(err):
+                rc = cli.main(["-p", "x"])
+        finally:
+            cli._main = real_main
+        ctx.check(f"halo ends with exit 2 and the line, got {rc} / {err.getvalue()!r}",
+                  rc == 2 and err.getvalue().startswith("halo: cannot use"))
+
+
+@test
+def test_doctor_names_the_state_folder_first_and_a_failing_check_is_one_row(ctx: Ctx):
+    """`halo doctor` said nothing about a ~/.halo it could not use, and one check that could not read its file
+    (PermissionError on .halo/models-dev.json) ended the whole run with a traceback."""
+    from halo_harness import doctor
+    with scoped_home() as home:
+        (home / ".halo").write_text("x", encoding="utf-8")
+        checks, ok = doctor.run_checks_structured()
+        ctx.check(f"the first row names the folder, got {checks[0] if checks else None}",
+                  checks and checks[0]["id"] == "state_home" and checks[0]["status"] == "missing"
+                  and "cannot use" in checks[0]["message"])
+        ctx.check("doctor is not ok", ok is False)
+    with scoped_home() as home:
+        real = doctor._check_catalog_ages
+
+        def unreadable():
+            raise PermissionError(errno.EACCES, "Permission denied", str(home / ".halo" / "models-dev.json"))
+        doctor._check_catalog_ages = unreadable
+        try:
+            checks, ok = doctor.run_checks_structured()
+        finally:
+            doctor._check_catalog_ages = real
+        ids = [c["id"] for c in checks]
+        row = next((c for c in checks if c["id"] == "catalogs"), None)
+        ctx.check(f"the failing check is one missing row naming the file, got {row}",
+                  row is not None and row["status"] == "missing" and "models-dev.json" in row["message"])
+        ctx.check(f"the checks after it still ran, got {ids[-5:]}", "install" in ids and "permission_mode" in ids)
+        ctx.check("the folder row is ok in a usable home", checks[0]["id"] == "state_home" and checks[0]["status"] == "ok")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
