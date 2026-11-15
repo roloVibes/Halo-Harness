@@ -13,7 +13,9 @@ when its contract says what it gives (contract.py); the others list and run as b
 
 Enabled per lineup: a lineup's `workflows:` list (any ref; `workflows: []` is none, on purpose); the auto
 lineup, no lineup and (3.3.16.2) a lineup with no `workflows:` key read `workflows.enabled` in config
-(default: the shipped `media` square). `enabled_from` says which of the two answered.
+(default: the shipped `media` square). `enabled_from` says which of the two answered. 3.6.0.0 R5c: a session reads
+no lineup, so the set in force is config's (`active_lineup` is the plain session's name, read from crew/plain.py);
+a lineup file is read only when one is named.
 
     squares(cwd=, state_dir=)          -> [Workflow] (one per bare name, its nearest place; every pack's)
     find_bare(name, cwd=, state_dir=)  -> (Workflow, "") | (None, why)
@@ -123,13 +125,23 @@ def check(wf, *, cwd=None, state_dir=None) -> "list[str]":
 # -- the enabled sets ---------------------------------------------------------------------------------------------
 
 def active_lineup() -> Optional[str]:
-    from halo_harness.lineup_default import lineup_in_use
-    return lineup_in_use()[0]
+    """3.6.0.0 R5c: the plain session's name (crew/plain.py): no session reads a lineup since 3.6 (config `team:` is read
+    by nobody), and a map runs exactly main's workflows (crew/map_run.workflow_call), so the set is config's."""
+    from halo_harness.crew.plain import NAME
+    return NAME
 
 
 def uses_config(lineup) -> bool:
-    from halo_harness.lineup_default import DEFAULT_LINEUP
-    return not lineup or lineup == DEFAULT_LINEUP
+    """config `workflows.enabled` answers: no name, the plain session's, the starter map's, or any map's name."""
+    from halo_harness.crew.compile import DEFAULT_MAP
+    from halo_harness.crew.plain import NAME
+    if not lineup or lineup in (NAME, DEFAULT_MAP) or str(lineup).startswith("map:"):  # map:<name>: a map session's
+        return True
+    try:
+        from halo_harness.crew import store
+        return store.find("map", str(lineup)) is not None
+    except Exception:
+        return False
 
 
 def _config_refs() -> "list[str]":

@@ -30,7 +30,7 @@ instructions: |
   If nothing would break, answer exactly: "No security problems found."
 model: auto                  # a model from your catalog, or auto (Halo picks one per task)
 needs: [pdf]                 # with auto only: images | audio | video | pdf | reasoning | long-text | tools
-uses: [read, mcp:github]     # read | edit | bash | web | skill:<name> | mcp:<server>
+uses: [read, mcp:github]     # read | edit | bash | web | fetch | skill:<name> | mcp:<server>
 careful: ask-changes         # ask-changes | ask-commands | own
 more: {max_usd: 1.0, max_turns: 30, reads: [SECURITY.md]}
 ```
@@ -40,7 +40,7 @@ more: {max_usd: 1.0, max_turns: 30, reads: [SECURITY.md]}
 | `does` | one line in your words; the list and the Agent tool show it |
 | `instructions` | what the agent is told; empty: "You are <name>. <does>" |
 | `model` | a catalog ref, or `auto` |
-| `uses` | read: Read, Glob, Grep · edit: Edit, Write, NotebookEdit · bash: Bash, PowerShell, BashOutput, TaskStop · web: WebFetch, WebSearch · `skill:<n>`: that skill · `mcp:<server>`: that server's tools |
+| `uses` | read: Read, Glob, Grep · edit: Edit, Write, NotebookEdit · bash: Bash, PowerShell, BashOutput, TaskStop · web: WebFetch, WebSearch · fetch: WebFetch only (opens a page it is given, no search; 3.6.0.0 R5c) · `skill:<n>`: that skill · `mcp:<server>`: that server's tools |
 | `careful` | `ask-changes`: every edit and every command waits for your OK (the `default` mode) · `ask-commands`: edits go ahead, a command waits (`acceptEdits`) · `own`: nothing waits (`auto`; your deny and ask rules still hold) |
 | `more` | `fallback` (a model), `effort`, `thinking`, `max_turns`, `max_minutes`, `max_usd`, `reads` (files it always reads), `worktree` (its own copy of the repo), `offline` (no web tools), `check` (`{ask, expect}`) |
 
@@ -113,6 +113,7 @@ the file check names ("the lines make a circle (plan -> ship -> review -> plan)"
 | `lines[].when` | `always`, `{needs: [pdf, images, audio, video, code, review]}`, `{says: [words]}`, `ask` (only when I ask) or `main-decides` (no rule; the default) |
 | `main` | `{agent: <name>}`: the agent you talk to (its model, instructions, `uses` and `careful` become the session's) |
 | `caps.session_usd` | the money a session on this map may spend, main and every hand-off together |
+| `caps.max_depth`, `caps.max_parallel` | how deep hand-offs may nest and how many run at once on this map (3.6.0.0 R5c; a 1.x pack lineup's `delegation` reads as these); your own `agents.max_depth` / `agents.max_concurrent` win |
 
 A line from main is a hand-off main may make; a line from a box is a chain the runtime follows when that box finishes
 ([CREW-sessions.md](CREW-sessions.md#chains)). A box nothing hands work to waits under "Not connected yet". Config

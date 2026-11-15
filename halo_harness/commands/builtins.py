@@ -1465,16 +1465,21 @@ def _cmd_explain(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_workflows(args: str, facade: HeadlessFacade) -> str:
-    """3.6.0.0 R5b: your workflows (halo workflows list | show <name>), read-only; the squares went with lineups."""
+    """3.6.0.0 R5b: your workflows (halo workflows list | show <name>), read-only. 3.6.0.0 R5c: the list is the
+    Workflow tool's (crew/flow_door.listing: the workflows it runs by name, then the squares it enables)."""
     import contextlib
     import io
     from halo_harness.workflows_cli import cmd_workflows
     words = (args or "").split()
     if words[:1] not in ([], ["list"], ["show"]):
         return "Usage: /workflows [list | show <name>] (halo workflows new / edit / try / run in a terminal)"
+    if words[:1] in ([], ["list"]):
+        from halo_harness.crew.flow_door import listing
+        control = getattr(getattr(facade, "session", None), "team_control", None)
+        return "\n".join(listing(facade.cwd, lineup=getattr(control, "name", None)))
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-        cmd_workflows(words or ["list"])
+        cmd_workflows(words)
     return buf.getvalue().rstrip() or "No workflows."
 
 

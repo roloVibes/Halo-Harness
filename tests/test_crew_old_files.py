@@ -7,7 +7,9 @@
    folders hold files -- and every file byte for byte as it was (nothing deleted, converted or rewritten);
 3. 3.6.0.0 R5 fix: Halo's own unchanged copies of its shipped lineups and bios are not named; a changed one is, and a
    configured `team:` is named with what to do;
-4. the old `--team <name>` says it is gone in one line and the session runs on the map in use (the starter).
+4. the old `--team <name>` says it is gone in one line and the session runs on the map in use (the starter);
+5. 3.6.0.0 R5c (the judge's S5): old_stock.txt holds every version Halo ever shipped -- today's files and three older
+   copies (tests/fixtures/old_copies, from git history) are Halo's own: no line.
 Run: python -m tests.test_crew_old_files
 """
 from __future__ import annotations
@@ -100,6 +102,35 @@ def test_halos_own_copies_say_nothing_and_a_set_team_is_named(ctx: Ctx):
         text = old_files.line(root, state)
         ctx.check(f"a configured team: named with what to do, got {text!r}", "team: quality" in text
                   and "halo maps use <name>" in text and "\n" not in text)
+
+
+@test
+def test_every_shipped_version_is_halos_own(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S5): Halo copied its starters once and never overwrote them, so a long-time user holds
+    an older version. old_stock.txt is written from git history (scripts/old_stock.py): today's files and three older
+    ones (two reviewer bios, one lineup) are in it, and a home holding the old copies gets no line."""
+    import hashlib
+    from halo_harness.crew import old_files
+    shipped = Path(old_files.__file__).resolve().parent.parent / "templates"
+    stock = old_files._shipped()
+    def sha(p: Path) -> str:
+        return hashlib.sha256(p.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    missing = [f"{k}/{p.name}" for k in ("teams", "agents", "workflows") for p in sorted((shipped / k).glob("*.yaml"))
+               if f"{k}/{p.name} {sha(p)}" not in stock]
+    ctx.check(f"today's shipped lineups, bios and squares are all in old_stock.txt, missing {missing}", not missing)
+    old = Path(__file__).resolve().parent / "fixtures" / "old_copies"
+    copies = {"agents/reviewer.yaml": ["reviewer-58bad0f8.yaml", "reviewer-b1dc8997.yaml"],
+              "teams/halo-dev-cycle.yaml": ["halo-dev-cycle-58bad0f8.yaml"]}
+    for where, files in copies.items():
+        for f in files:
+            data = (old / f).read_bytes()
+            now = (shipped / where).read_bytes() if (shipped / where).is_file() else b""
+            ctx.check(f"{f} is an older version than today's {where}", data.replace(b"\r\n", b"\n") != now.replace(b"\r\n", b"\n"))
+            with S.home("crew-old-version-") as (root, state):
+                (state / where).parent.mkdir(parents=True)
+                (state / where).write_bytes(data)
+                ctx.check(f"a home holding {f} as {where}: Halo's own copy, no line, got {old_files.line(root, state)!r}",
+                          old_files.line(root, state) == "")
 
 
 @test

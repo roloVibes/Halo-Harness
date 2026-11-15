@@ -1,5 +1,5 @@
 """tests.test_local_uses -- Halo 3.3.5.0 R3: `local_models_view.uses_of(ref)` (studio/local_uses.py) on a seeded home:
-the `local-coder` map's agents (written the way R0b's offer writes them; 3.6.0.0 R5b: a map, where it was a lineup), a role, the default model, `compactionModel`, a steward
+two agent files of yours, `local-coder-main` and `local-coder-coder` (3.6.0.0 R5c: written here; the lane offer writes roles.coder now), a role, the default model, `compactionModel`, a steward
 profile on box (and one on another host) and a live session (the live-session reader's seam) all naming `ol:qwen3-coder:30b@box`; the card's
 one line; a model nothing uses; the tag rule (`:latest`) and the host rule (another host's model of the same name is
 not this one). No server is read.
@@ -29,16 +29,17 @@ class Seeded(Home):
 
     def __enter__(self):
         super().__enter__()
-        from halo_harness.agent.main_model_check import write_lane
         from halo_harness.studio import local_uses
         cfg = json.loads((self.state / "config.json").read_text(encoding="utf-8"))
         cfg.update(model=CODER, compactionModel="ol:qwen3-coder:30b@box", roles={"reviewer": CODER, "small": SMALL})
         cfg["ollama"]["profiles"] = {"box|qwen3-coder:30b": {"num_ctx": 32768, "by": "steward"},
                                      "other|qwen3-coder:30b": {"num_ctx": 8192, "by": "you"}}
         (self.state / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
-        ok, problems = write_lane({"coder": CODER, "orchestrator": SMALL, "lineup": "local-coder"}, cwd=self.root,
-                                  state_dir=self.state)
-        assert ok, problems
+        from halo_harness.crew import store  # 3.6.0.0 R5c: two agent files of yours on the two models (the lane offer
+        for name, model in (("local-coder-main", SMALL), ("local-coder-coder", CODER)):  # writes roles.coder now)
+            store.write_text(store.path_for("agent", name, state_dir=self.state), store.dump({
+                "format": "agent/1", "name": name, "does": f"Runs on {model}.", "model": model, "uses": ["read"],
+                "careful": "ask-changes"}))
         local_uses.READERS["live"] = lambda: list(self.live)
         return self
 

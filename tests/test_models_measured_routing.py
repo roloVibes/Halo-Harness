@@ -10,8 +10,9 @@
 3. `teams_yaml` reads `measured` like `auto` with its own source word, the
    shipped auto lineup's bios stay `auto`, `halo teams show` says how it is
    picked;
-4. at spawn: a lineup card whose bio says `measured` runs on the measured
-   best, the reason on its agent row; with nothing measured, on the auto pick.
+4. at spawn: a plain session's coder card under `roles.coder: measured`
+   (3.6.0.0 R5c: a session reads no lineup) runs on the measured best, the
+   reason on its agent row; with nothing measured, on the auto pick.
 No real model call (a mocked upstream). Run: python -m tests.test_models_measured_routing
 """
 from __future__ import annotations
@@ -110,23 +111,19 @@ def test_teams_yaml_reads_measured_like_auto(ctx: Ctx):
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
+@test
 def test_at_spawn_a_measured_card_runs_on_the_measured_best(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S8): back on, on a plain session -- `roles.coder: measured` (where it was a lineup's
+    measured bio; a session reads no lineup since 3.6)."""
     from tests import test_auto_spawn as A
     from tests.test_outcomes_measured import seed_outcomes
-    from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.teams_yaml import save_team_template
-    from halo_harness.theme import set_config_value
+    from halo_harness.theme import get_config_value, set_config_value
     mock = A._mock()
     try:
         with A._Env() as e:
             A._seed_index(e.state_dir, A.ROWS)
-            save_agent_bio("measured-coder", {"description": "routes by what succeeded", "kind": "coder",
-                                              "models": {"preference": "measured", "needs": ["tools"]}}, state_dir=e.state_dir)
-            ok, problems = save_team_template("measured", {
-                "description": "a coder routed by measured success", "routing": {"fix": "coder"},
-                "agents": [{"agent": "default-model", "role": "main"}, {"agent": "measured-coder", "role": "coder"}]},
-                state_dir=e.state_dir)
-            set_config_value("team", "measured")
+            set_config_value("roles.coder", "measured")
+            ok, problems = get_config_value("roles.coder", default=None) == "measured", ["roles.coder was not set"]
             session = A._session(e, mock)
             A._dispatch(session, "c1", "fix the bug in basket.py", description="fix the bug")
             row0 = A._child(session, "c1").get("row") or {}
@@ -137,9 +134,9 @@ def test_at_spawn_a_measured_card_runs_on_the_measured_best(ctx: Ctx):
             row = A._child(session, "c2").get("row") or {}
     finally:
         mock.stop()
-    ctx.check(f"the lineup saves, got {problems}", ok)
+    ctx.check(f"roles.coder is measured, got {problems if not ok else 'measured'}", ok)
     ctx.check(f"nothing measured yet: the auto pick, saying so, got {row0.get('model')!r} {row0.get('model_reason')!r}",
-              str(row0.get("model_reason") or "").startswith("nothing measured for code yet, so the auto pick: the bio asks for tools"))
+              str(row0.get("model_reason") or "").startswith("nothing measured for code yet, so the auto pick"))
     ctx.check(f"measured: the best code rate runs it, the reason on its row, got {out2[:60]!r} {row.get('model')!r} "
               f"{row.get('model_reason')!r}", "EYES SAW IT" in out2 and row.get("model") == "or:mock/auto-eyes"
               and str(row.get("model_reason") or "").endswith("(measured 4/5 code)"))

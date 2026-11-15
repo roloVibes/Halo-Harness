@@ -8,7 +8,7 @@ change set and kind:
 3. a file deleted -> its name under `removed`;
 4. config.json -> kind config; a layout -> kind layouts; a bio -> kind agents;
 5. a Studio started in the home dir (cwd/.halo is the state dir) lists the
-   folder once;
+   folder once; a project's .halo/crew is watched in a trusted folder only (3.6.0.0 R5c);
 6. through a real server: the frame reaches a browser queue, even one that
    follows a single session, and server_close stops the watcher.
 
@@ -147,11 +147,22 @@ def test_project_halo_and_state_dir_the_same_folder_list_once(ctx: Ctx):
         got = _data(h.wait())
         ctx.check(f"one frame naming it once, got {got}", got == [{"kind": "maps", "names": ["solo"], "removed": []}])
         ctx.check("one signature for it", len(snapshot(h.proj, h.state)["maps"]["solo"]) == 1)
-    with _Home() as h:
+    with _Home() as h:  # 3.6.0.0 R5c (the judge's S11): an untrusted folder's crew is never read, so never watched
         (h.proj / ".halo" / "crew" / "maps").mkdir(parents=True)
         (h.proj / ".halo" / "crew" / "maps" / "repo.yaml").write_text("name: repo\n", encoding="utf-8")
-        got = _data(h.wait())
-        ctx.check(f"the project's .halo/crew/maps is watched too, got {got}", got == [{"kind": "maps", "names": ["repo"], "removed": []}])
+        got = _data(h.wait(1, timeout=0.6, quiet=0.1))
+        ctx.check(f"an untrusted project's .halo/crew/maps is not watched, got {got}", got == [])
+    from halo_harness import project_gate
+    was = project_gate.trusted
+    project_gate.trusted = lambda cwd=None: True
+    try:
+        with _Home() as h:
+            (h.proj / ".halo" / "crew" / "maps").mkdir(parents=True)
+            (h.proj / ".halo" / "crew" / "maps" / "repo.yaml").write_text("name: repo\n", encoding="utf-8")
+            got = _data(h.wait())
+    finally:
+        project_gate.trusted = was
+    ctx.check(f"a trusted project's .halo/crew/maps is watched too, got {got}", got == [{"kind": "maps", "names": ["repo"], "removed": []}])
 
 
 @test

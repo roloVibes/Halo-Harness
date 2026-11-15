@@ -52,14 +52,17 @@ def inputs(state_dir, host: Optional[str] = None, lineup: Optional[str] = None) 
                       "rows": [r for r in (V.catalog_of(h) or {}).get("models") or [] if isinstance(r, dict)]})
     lanes, gaps, pv = [], [], None
     try:
-        from halo_harness.crew.in_use import map_name, role_table
-        from halo_harness.local_sched.preview import lanes_for, preview
+        from halo_harness.crew.in_use import main_model, map_name, session_table
+        from halo_harness.local_sched.preview import preview
+        from halo_harness.local_sched.warm_set import lanes_of
         name = lineup or map_name()  # 3.6.0.0 R5b: a map (the one in use unless named)
         if name:
-            lanes = lanes_for(name, state_dir=state_dir)[0]
-            pv = preview(name, state_dir=state_dir)
+            # 3.6.0.0 R5c: what a new session's agents run on -- the map's agents, and on a plain session your
+            # roles.<name> (the table alone answered nothing there, and the adviser went quiet)
+            table = session_table(name, state_dir=state_dir)
+            lanes = lanes_of(table or {}, main_model())
+            pv = preview(name, state_dir=state_dir, lanes=lanes)
             from halo_harness.models_library.role_gaps import gaps as role_gaps
-            table = role_table(name, state_dir=state_dir)
             if table:
                 gaps = role_gaps(table, state_dir, roles=list(table))
     except Exception:

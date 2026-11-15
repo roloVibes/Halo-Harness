@@ -96,7 +96,7 @@ ol:qwen3-coder:30b@lan, a coding model -- how Halo calls it:
 switching to ol:qwen3-coder:30b@lan: window 65,536 (the card's fit); fits (9,800 of 65,536)
 on ol:qwen3-coder:30b@lan: no tools (answers only); reply reserve 16,384
 qwen3-coder:30b is a coding model with no tool calling on this server: it can write and answer but cannot act; as the main agent it would not run tools
-Keep it as the coder lane under ol:qwen3.8:27b@lan (lineup 'local-coder'), or go ahead anyway.
+Keep it as the coder lane under ol:qwen3.8:27b@lan (roles.coder), or go ahead anyway.
 ```
 
 ### A child on another model

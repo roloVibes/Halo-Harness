@@ -54,12 +54,15 @@ def poll_s() -> float:
 
 
 def folders(cwd, state_dir) -> dict:
-    """kind -> [(folder, suffix)], each folder once (a Studio started in the home dir has `.halo` twice)."""
-    state, proj = Path(state_dir), Path(cwd) / ".halo"
+    """kind -> [(folder, suffix)], each folder once (a Studio started in the home dir has `.halo` twice). 3.6.0.0 R5c:
+    the project's `.halo/crew` only in a trusted folder -- the rule crew/store.folders reads it by."""
+    from halo_harness.crew.store import folders as crew_folders
+    state = Path(state_dir)
+    proj = [f.parent.parent for f, scope in crew_folders("agent", cwd=cwd, state_dir=state) if scope == "project"]
     out: dict = {"agents": [], "workflows": [], "maps": [], "config": [], "layouts": [(state / "studio" / "layouts", ".json")]}
     for kind in ("agents", "workflows", "maps"):
         seen = set()
-        for base in (state, proj):
+        for base in [state] + proj:
             d = base / "crew" / kind
             key = os.path.normcase(os.path.abspath(str(d)))
             if key not in seen:

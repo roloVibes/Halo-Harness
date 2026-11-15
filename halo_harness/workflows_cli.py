@@ -46,6 +46,9 @@ def _load(name: str, cwd: Path, verb: str):
     from halo_harness.crew import runner, store
     from halo_harness.crew.formats import workflow_problems
     got = store.load("workflow", name, cwd=cwd)
+    _full, said = store.resolve("workflow", name, cwd=cwd)  # 3.6.0.0 R5c: a pack's workflow named bare
+    if said:
+        print(said, file=sys.stderr)
     if got is None:
         print(f"halo workflows {verb}: no workflow named {name!r} (halo workflows list)", file=sys.stderr)
         return None, None

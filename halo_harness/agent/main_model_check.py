@@ -10,13 +10,16 @@ to keep it as the coder lane under a model that can.
 `line` says what the model is and what it cannot do as the main agent
 ("qwen3-coder:30b is a coding model with no tool calling on this server: it
 can write and answer but cannot act; as the main agent it would not run
-tools") and `offer` names the fix: a map (`local-coder`, or
-`<model>-coder` for a cloud model) with a coder agent on this model, main on
-the best orchestrator among the configured models (local first, then cloud:
-the Auto pool's pick), the starter reviewer / researcher / writer on `auto`
-(3.6.0.0 R5b: a map and two agents, where it was a lineup). `accept` writes
-them and puts the map in use (`halo maps use`); the caller then moves the
-session to the orchestrator. Going ahead anyway always works: nothing is written then.
+tools") and `offer` names the fix: keep this model as the coder of a plain
+session (config `roles.coder`: the starter's coder card runs on it, and the
+words implement / fix / refactor / code still route there), main on the best
+orchestrator among the configured models (local first, then cloud: the Auto
+pool's pick), the other cards on `auto` -- what 3.5's `local-coder` lane
+lineup did (3.6.0.0 R5c: a plain session's role, where R5b wrote a map).
+`accept` writes `roles.coder` (and turns roles on); a map you put in use is
+taken out of use, as applying the lane lineup replaced the lineup in force,
+and the line says how to bring it back. The caller then moves the session to
+the orchestrator. Going ahead anyway always works: nothing is written then.
 `offer` is None when no configured model can orchestrate either.
 """
 
@@ -52,6 +55,7 @@ def warning_line(card: dict) -> str:
 
 
 def lineup_name(card: dict) -> str:
+    """The offer's short name (`local-coder`, `<model>-coder` for a cloud model): what the UI and the lines call it."""
     if card.get("kind") != "cloud":
         return "local-coder"
     slug = re.sub(r"[^a-z0-9]+", "-", str(card.get("name") or "model").lower()).strip("-")[:40] or "model"
@@ -113,8 +117,7 @@ def pick_orchestrator(state_dir, *, exclude: str = "", rows=None, prefer=()) -> 
 def offer_line(offer: Optional[dict]) -> str:
     if not offer:
         return "No configured model can orchestrate here; it runs as the main agent as it is."
-    return (f"Keep it as the coder under {offer['orchestrator']} (map '{offer['lineup']}'), "
-            "or go ahead anyway.")
+    return f"Keep it as the coder lane under {offer['orchestrator']} (roles.coder), or go ahead anyway."
 
 
 def check(ref, *, state_dir, card: Optional[dict] = None, catalog=None, host=None, probe=None, rows=None,
@@ -126,70 +129,40 @@ def check(ref, *, state_dir, card: Optional[dict] = None, catalog=None, host=Non
         return None
     orch, why = pick_orchestrator(state_dir, exclude=card["ref"], rows=rows, prefer=prefer)
     name = lineup_name(card)
-    offer = ({"lineup": name, "coder": card["ref"], "orchestrator": orch, "why": why,
-              "command": f"halo maps use {name} && halo config set model {orch}"} if orch else None)
+    offer = ({"lineup": name, "role": "coder", "coder": card["ref"], "orchestrator": orch, "why": why,
+              "command": f"halo roles point coder {card['ref']} && halo config set model {orch}"} if orch else None)
     return {"line": warning_line(card), "card": card, "offer": offer, "offer_line": offer_line(offer)}
 
 
-def lane_files(offer: dict) -> "tuple[dict, dict]":
-    """3.6.0.0 R5b: the offer as files -- ({agent name: agent/1 body}, the map/1 body): main on the orchestrator, a
-    coder agent on the picked model, and lines from main to it and to the starter reviewer, researcher and writer
-    (their models picked per task)."""
-    coder, orch, name = offer["coder"], offer["orchestrator"], offer["lineup"]
-    agents = {
-        f"{name}-main": {"format": "agent/1", "name": f"{name}-main", "does": f"Main on {orch}: plans, acts and hands code work to {name}-coder.",
-                         "instructions": (f"You run on {orch}, which plans, acts and delegates. Hand code work to {name}-coder "
-                                          f"({coder}); review, research and writing go to the reviewer, researcher and writer."),
-                         "model": orch, "uses": ["read", "edit", "bash", "web"], "careful": "ask-changes"},
-        f"{name}-coder": {"format": "agent/1", "name": f"{name}-coder",
-                          "does": f"Makes the change the task describes on {coder}, runs the tests that cover it and says what changed.",
-                          "model": coder, "uses": ["read", "edit", "bash"], "careful": "ask-changes"},
-    }
-    boxes = [{"id": "coder", "agent": f"{name}-coder"}, {"id": "reviewer", "agent": "reviewer"},
-             {"id": "researcher", "agent": "researcher"}, {"id": "writer", "agent": "writer"}]
-    body = {"format": "map/1", "name": name, "boxes": boxes,
-            "lines": [{"from": "main", "to": b["id"], "when": "main-decides"} for b in boxes],
-            "main": {"agent": f"{name}-main"}}
-    return agents, body
-
-
-def write_lane(offer: dict, *, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
-    """The map and its two agents in your crew folder (not put in use): `halo maps use <name>` does that."""
-    from halo_harness.crew import store
-    from halo_harness.crew.formats import PROBLEMS
-    agents, body = lane_files(offer)
-    problems = [p for n, a in agents.items() for p in PROBLEMS["agent"](a, name=n)] + PROBLEMS["map"](body, name=offer["lineup"])
-    if problems:
-        return False, problems
-    try:
-        for n, a in agents.items():
-            store.write_text(store.path_for("agent", n, state_dir=state_dir), store.dump(a))
-        store.write_text(store.path_for("map", offer["lineup"], state_dir=state_dir), store.dump(body))
-    except OSError as e:
-        return False, [f"could not write: {e}"]
-    return True, []
-
-
 def accept(offer: dict, *, session=None, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
-    """Write the map and put it in use (config `crew.map`, as `halo maps use`); `(ok, lines)`."""
-    ok, problems = write_lane(offer, cwd=cwd, state_dir=state_dir)
+    """`roles.coder` = the model and roles on, a map in use taken out of use (`halo maps use <name>` brings it back);
+    this session's coder follows at once. `(ok, lines)`; the caller moves main to the orchestrator."""
+    from halo_harness.roles import assign_role, roles_mode_enabled, set_roles_enabled
+    from halo_harness.theme import get_config_value, set_config_value
+    ok, problems = assign_role("coder", offer["coder"])
     if not ok:
-        return False, list(problems)
-    from halo_harness.crew.changes_map import config_text, write_config
+        return False, list(problems) or [f"roles.coder could not be set to {offer['coder']}"]
+    tail = []
     try:
-        write_config(config_text(offer["lineup"]))
+        if not roles_mode_enabled():
+            set_roles_enabled(True)
+            tail.append("roles are on again (they were off: one model for everything)")
+        named = get_config_value("crew.map", default=None)
+        if isinstance(named, str) and named.strip():
+            set_config_value("crew.map", None)
+            tail.append(f"map {named.strip()} is no longer in use (halo maps use {named.strip()} brings it back)")
     except OSError as e:
-        return False, [f"could not put the map in use: {e}"]
-    runtime = getattr(session, "agent_runtime", None)  # this session's coder follows at once (new sessions: the map)
+        return False, [f"could not write the config: {e}"]
+    runtime = getattr(session, "agent_runtime", None)  # this session's coder follows at once
     if runtime is not None and isinstance(getattr(runtime, "role_table", None), dict):
         runtime.role_table["coder"] = offer["coder"]
-    return True, [f"map {offer['lineup']} is in use for new sessions: {offer['coder']} is the coder, "
-                  f"{offer['orchestrator']} runs main"]
+    return True, [f"roles.coder = {offer['coder']}: new sessions hand code work to it, "
+                  f"{offer['orchestrator']} runs main"] + tail
 
 
 def config_lines(ref: str, state_dir) -> "list[str]":
-    """What `halo config set model` and `halo init --model` print when the model cannot orchestrate: the line,
-    and the lineup written (not active) with the command that makes it active."""
+    """What `halo config set model` and `halo init --model` print when the model cannot orchestrate: the line, and the
+    command that keeps it as the coder (nothing is written)."""
     try:
         got = check(ref, state_dir=state_dir)
     except Exception:
@@ -201,8 +174,4 @@ def config_lines(ref: str, state_dir) -> "list[str]":
     offer = got["offer"]
     if offer is None:
         return out + [got["offer_line"]]
-    ok, problems = write_lane(offer, state_dir=state_dir)
-    if not ok:
-        return out + [f"the map could not be written: {'; '.join(problems)}"]
-    return out + [f"To keep it as the coder under {offer['orchestrator']}: {offer['command']} "
-                  f"(map '{offer['lineup']}' is written, not in use)"]
+    return out + [f"To keep it as the coder under {offer['orchestrator']}: {offer['command']}"]

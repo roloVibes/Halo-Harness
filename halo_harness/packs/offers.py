@@ -18,12 +18,17 @@ from pathlib import Path
 from halo_harness.packs import names as N
 
 KINDS = ("bios", "lineups", "agents", "skills", "commands", "mcp", "hooks", "policies", "modes")  # 3.3.10.0 R1: + policies, modes
+# 3.6.0.0 R5c (the judge's S4): what a session gets, counted -- agents (2.0 files, 1.x bios read as agents, the plugin
+# layout's .md agents), maps (2.0 files, 1.x lineups read as maps), workflows (2.0 files, a 1.x plain workflow); the
+# bios and lineups themselves are no longer counted or listed (packs/crew_v1.py says what is not carried)
+SHOWN = ("agents", "maps", "workflows", "skills", "commands", "mcp", "hooks", "policies", "modes")
 # 3.4.0.1 (live check, defect 2): what a pack adds to Halo itself -- its CLI verbs, slash commands, doctor rows and
 # Studio route modules (`server/*.py`) -- counts too: the fleet pack "offered nothing" while it adds two verbs
 CONTRIBS = ("verbs", "slash", "doctor", "routes")
 LABELS = {"verbs": ("CLI verb", "CLI verbs"), "slash": ("slash command", "slash commands"),
           "doctor": ("doctor row", "doctor rows"), "routes": ("Studio server module", "Studio server modules"),
           "bios": ("bio", "bios"), "lineups": ("lineup", "lineups"), "agents": ("agent", "agents"),
+          "maps": ("map", "maps"), "workflows": ("workflow", "workflows"),
           "skills": ("skill", "skills"), "commands": ("command", "commands"),
           "mcp": ("MCP server", "MCP servers"), "hooks": ("hook event", "hook events"),
           "policies": ("policy hook", "policy hooks"), "modes": ("mode", "modes")}
@@ -68,6 +73,12 @@ def offers(pack) -> "dict[str, list[str]]":
     out["policies"], out["modes"] = MP.ids(MP.policies_of(pack.manifest)), MP.ids(MP.modes_of(pack.manifest))
     for kind, fn in (("agents", agents), ("skills", skills), ("commands", commands), ("mcp", mcp), ("hooks", hooks)):
         out[kind] = _safe(fn, [])
+
+    def crew(kind):
+        from halo_harness.packs.crew_v1 import items
+        return sorted(items(pack, kind))
+    out["agents"] = sorted(set(out["agents"]) | set(_safe(lambda: crew("agent"), [])))
+    out["maps"], out["workflows"] = _safe(lambda: crew("map"), []), _safe(lambda: crew("workflow"), [])
     from halo_harness.packs.contrib_cli import entries
     out["verbs"] = sorted(str(e["verb"]) for e in entries(pack.manifest, "cli") if e.get("verb"))
     out["slash"] = sorted("/" + str(e["name"]) for e in entries(pack.manifest, "slash") if e.get("name"))
@@ -77,9 +88,9 @@ def offers(pack) -> "dict[str, list[str]]":
 
 
 def summary(found: dict) -> str:
-    """`2 bios, 1 lineup, 1 skill, ...`, or `nothing`."""
+    """`2 agents, 1 map, 1 skill, ...`, or `nothing`."""
     parts = []
-    for kind in CONTRIBS + KINDS:
+    for kind in CONTRIBS + SHOWN:
         n = len(found.get(kind) or [])
         if n:
             one, many = LABELS[kind]

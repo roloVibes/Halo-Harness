@@ -214,26 +214,39 @@ qualified name. A pack file is never written: Copy in Studio's Agents tabs makes
 the folder is read when it is there.
 
 **A 1.x pack on 2.0.** A pack whose `halo_api` range is 1.x still installs and runs (everything that is not crew is
-unchanged), and its crew files are READ as 2.0's where the meaning is clear (`halo_harness/packs/crew_v1.py`):
+unchanged; `ext.compatible` says it is not compatible, `ext.reads_as_1x` that it loads anyway, and its `halo pack list`
+line says "made for extension API 1.x ...; read by this Halo's 2.0 as 1.x"), and its crew files are READ as 2.0's where
+the meaning is clear (`halo_harness/packs/crew_v1.py`):
 
 - a bio (`agents/<n>.yaml`) is the agent `<id>--<n>`: `does` its description, `instructions` its
   `context.system_prompt`, `model` its `models.preference` when that names a model (else `auto`, with its
   `models.needs` / `capabilities` as needs), `uses` from `tools.allow` (Read / Glob / Grep: read; Edit / Write: edit;
-  Bash: bash; WebFetch / WebSearch: web), `careful` from `tools.permission_mode` (auto: own), `more` its effort,
-  `limits.max_iterations` and `limits.max_budget_usd`;
-- a lineup (`teams/<n>.yaml`) is the map `<id>--<n>`: main its `role: main` card's agent, a box per other card with a
-  line from main (`when: {says: [...]}` from its `routing` words, else main decides), `caps.session_usd` its
-  `budget.max_budget_usd`;
+  Bash: bash; WebFetch and WebSearch: web; WebFetch alone: fetch, which opens a page and does not search), `careful`
+  from `tools.permission_mode` (auto: own), `more` its effort, `limits.max_iterations` and `limits.max_budget_usd`;
+- a lineup (`teams/<n>.yaml`, `agents:` or the `roles:` shorthand, `extends:` followed to another lineup of the pack or
+  one Halo 3.5 shipped) is the map `<id>--<n>`: main its `role: main` card's agent, a box per other card with a line
+  from main (`when: {says: [...]}` from its `routing` words, else main decides), `caps.session_usd` its
+  `budget.max_budget_usd`, `caps.max_depth` / `caps.max_parallel` its `delegation`'s. A card may name the pack's own
+  bios or Halo's: `default-model` as main is main (the session's model), `auto-coder` / `auto-reviewer` / ... the
+  starter agent that does that job now (coder, reviewer, ...). A lineup that names an agent nobody has is not read as a
+  map, and the pack's line names it with why;
 - a pack workflow (`workflows/<n>.yaml`) whose stages are plain (no `for_each`, no required input, no human gate) is
   the workflow `<id>--<n>`, a step per stage on its `role`'s agent.
 
-What is not carried (a lineup's tiers, permissions, delegation, pipeline, escalation, context, acceptance; a bio's
-hooks, memory, schedules, isolation and secrets; a workflow that is not plain) is ONE line per pack in `halo pack list`
-and an `info` row in `halo pack doctor`:
+What is not carried (a lineup's tiers, permissions, pipeline, escalation, context, acceptance; a bio's hooks, memory,
+schedules, isolation and secrets) is ONE line per pack in `halo pack list` and an `info` row in `halo pack doctor`. A
+workflow that is not plain is no session's workflow; it runs on the run engine as in 1.x (`halo orchestra new
+--workflow <id>/<name>`, Studio's Packs -> Templates), and the line says so:
 
 ```
-pack old-pack: not read: 1 workflow (gated) (Halo 3.6 reads a 1.x pack's bios as agents, lineups as maps, ...)
+pack old-pack: 1 workflow (gated) run on the run engine only (halo orchestra new --workflow old-pack/<name>), not as a
+session's workflow; its lineups' tiers are not carried (Halo 3.6 reads a 1.x pack's bios as agents, ...)
 ```
+
+**A 3.5 name, typed bare.** `--map hunt`, `halo maps use hunt`, `--agent scout` or a workflow named `sweep` read the
+pack's `old-pack--hunt` / `--scout` / `--sweep` when exactly one enabled pack has that name and nothing of yours, the
+project's or a starter's does, with one line naming the full name; several packs: one line lists them. `--team hunt`
+and a config `team: hunt` say the exact command (`--map old-pack--hunt`, `halo maps use old-pack--hunt`).
 
 **Moving a pack to 2.0.** Write each bio as `crew/agents/<name>.yaml` (`format: agent/1`, the fields above), each
 lineup as `crew/maps/<name>.yaml` (`format: map/1`: `boxes`, `lines`, `main`), each workflow as
@@ -1281,7 +1294,13 @@ and `halo_harness/packs/resolve.py` apply it:
 - **A pack states `halo_api: {min, max}`.** `min` is required (the API it was
   written for); `max` is inclusive at its own precision (`max: "1.9"` takes
   1.9.4). Without `max` a pack runs on its `min`'s major only: `{min: "1.0"}`
-  runs on every 1.x and not on 2.0. `ext.compatible(range)` answers it.
+  runs on every 1.x and not on 2.0. `ext.compatible(range)` answers it, for
+  every range (3.6.0.0 R5c: `{min: "1.0", max: "1.2"}` is not compatible with
+  2.0). The one exception is 2.0 and the crew names it removed whole:
+  `ext.reads_as_1x(range)` -- a 1.x pack still loads on a 2.x Halo, its bios,
+  lineups and plain workflows read as agents, maps and workflows ([A pack's
+  crew](#a-packs-crew-agents-workflows-and-maps)), so no pack that ran on 3.5
+  goes silent; `halo pack list` says so on its line.
   `halo: {min, max}` is matched against Halo's own version the same way,
   without the major rule.
 - **A Halo outside a range does not run the pack, and says so in one line**:

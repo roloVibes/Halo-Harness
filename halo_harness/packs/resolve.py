@@ -31,11 +31,12 @@ def compat_lines(pack, *, api_version=None, halo_version=None) -> "list[str]":
     """The pack's `halo_api` and `halo` ranges against this Halo, one line each in the policy's words
     (3.2.0.0 R7, ext/compat.py: no `max` means the `min`'s major only):
     "pack doc-review needs extension API 1.3 to 1.9; this Halo has 1.2", "pack x needs Halo >= 3.3; this is 3.2.0.0"."""
-    from halo_harness.ext.compat import compatible, range_words
+    from halo_harness.ext.compat import compatible, range_words, reads_as_1x
     api, halo = _versions(api_version, halo_version)
     out = []
     api_range = pack.manifest.get("halo_api")
-    if isinstance(api_range, dict) and not V.range_problem(api_range) and not compatible(api_range, api):
+    if isinstance(api_range, dict) and not V.range_problem(api_range) and not compatible(api_range, api) \
+            and not reads_as_1x(api_range, api):  # 3.6.0.0 R5c: a 1.x pack loads on 2.x (its list line says so)
         out.append(f"pack {pack.id} needs extension API {range_words(api_range)}; this Halo has {api}")
     halo_range = pack.manifest.get("halo")
     if isinstance(halo_range, dict) and not V.range_problem(halo_range) and not V.in_range(halo, halo_range):

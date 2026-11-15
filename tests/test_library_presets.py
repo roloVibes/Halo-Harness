@@ -4,12 +4,15 @@ and a fake Ollama on 127.0.0.1:0 whose pulls are scripted (tests/helpers/mock_ol
 answers the battery like a full agent (tests/helpers/mock_ollama_battery.py). No real server, no model call:
 
 1. each preset's bundle (needs at their floors, fit, supply, its role), all nine in order;
-2. Save as role template writes `local-<preset>` through the teams path, and the role entry of a lineup named;
+2. Save as role template writes the agent `local-<preset>` on the model (3.6.0.0 R5c, where it wrote a lineup), a new
+   session hands it work on that model; with no model, a lineup named, or no role it refuses in one line; a fresh
+   home gets no `teams` folder and no old-files line;
 3. the sentence parser ("a local coder that can use tools" -> Coder + tools verified-or-declared, and the extras);
 4. the inverse flow: a lineup role -> its preset -> the ranked rows, a probed model first; a lineup gap names it
    (`halo teams show`, Roles -> Problems' `find`);
 5. Download and verify: one job, `pull` then `probe` frames, the profile written, the role offered; the offer
-   accepted writes the lineup (POST local/library/assign).
+   accepted writes roles.<role> and nothing else (POST local/library/assign); a new session's coder card runs on an
+   assigned coder model.
 Run: python -m tests.test_library_presets
 """
 from __future__ import annotations
@@ -59,27 +62,68 @@ def test_each_presets_bundle(ctx: Ctx):
               s == 200 and [p["id"] for p in body["presets"]] == list(ORDER))
 
 
+def _new_session(h):
+    from halo_harness import headless  # a new plain session, as `halo -p` builds one
+    return headless.build_session(cwd=h.root, model_ref_raw="ol:bt-coder:30b@box", print_mode=True, cli_flags={}).session
+
+
+def _fresh(h) -> "tuple[str, bool]":
+    from halo_harness.crew import old_files
+    return old_files.line(state_dir=h.state), (h.state / "teams").exists()
+
+
 @test
-def test_save_as_role_template_writes_the_lineup(ctx: Ctx):
-    from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
+def test_save_as_role_template_writes_an_agent(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's M1): an agent file in today's format, not a lineup no session reads."""
+    from halo_harness.crew import store
+    from tests.test_crew_compile import _child
     with SearchHome(card=box_card()) as h:
         s, ans = _api(h, "POST", "local/library/template", {"preset": "verifier", "model": "ol:bt-coder:30b@box"})
-        from halo_harness.teams_yaml import load_team_template_raw
-        t = resolve_team_template("local-verifier", state_dir=h.state) or {}
-        table = _models(resolve_role_table(t, state_dir=h.state)[0] if t else {})
-        raw = load_team_template_raw("local-verifier", state_dir=h.state) or {}
-        s2, ans2 = _api(h, "POST", "local/library/template", {"preset": "coder", "lineup": "local-verifier", "model": "ol:qwen3-coder:30b@box"})
-        t2 = resolve_team_template("local-verifier", state_dir=h.state) or {}
-        raw2 = load_team_template_raw("local-verifier", state_dir=h.state) or {}
+        body = store.load("agent", "local-verifier", state_dir=h.state) or {}
+        line, teams = _fresh(h)
+        fresh = _new_session(h)
+        child = _child(fresh, fresh.agent_runtime.agents["local-verifier"], None, "check the diff")
+        fresh.close_runtimes()
+        bare = _api(h, "POST", "local/library/template", {"preset": "verifier"})
+        named = _api(h, "POST", "local/library/template", {"preset": "coder", "lineup": "local-verifier", "model": "ol:qwen3-coder:30b@box"})
+        embed = _api(h, "POST", "local/library/template", {"preset": "embeddings", "model": "ol:nomic-embed-text@box"})
         bad = _api(h, "POST", "local/library/template", {"preset": "poetry"})
-    ctx.check(f"written, not active, with the command that applies it, got {s} {ans}",
-              s == 200 and ans["ok"] and ans["lineup"] == "local-verifier" and "halo teams apply local-verifier" in ans["say"])
-    ctx.check(f"the lineup: main and verify on the model, the bundle as `search`, got {table} {raw.get('search')}",
-              table.get("verify") == "ol:bt-coder:30b@box" and (raw.get("search") or {}).get("verify", {}).get("id") == "verifier")
-    ctx.check(f"into a lineup named: its coder entry added with the model and the bundle, got {s2} {ans2.get('say')}",
-              s2 == 200 and _models(resolve_role_table(t2, state_dir=h.state)[0]).get("coder") == "ol:qwen3-coder:30b@box"
-              and "coder" in (raw2.get("search") or {}))
+        line2, teams2 = _fresh(h)
+    ctx.check(f"written: one line naming the agent and the model, got {s} {ans}",
+              s == 200 and ans["ok"] and ans["agent"] == "local-verifier" and ans["say"].startswith("agent local-verifier written")
+              and "halo teams" not in ans["say"])
+    ctx.check(f"the agent file: agent/1 on the model, read only, got {body}", body.get("format") == "agent/1"
+              and body.get("model") == "ol:bt-coder:30b@box" and body.get("uses") == ["read"])
+    ctx.check(f"a new session hands it work on that model, got {child}", child["model"] == "ol:bt-coder:30b@box")
+    ctx.check(f"a fresh home: no teams folder, no old-files line, got {teams} {line!r}", not teams and line == "")
+    ctx.check(f"no model: refused in one line, got {bare}", bare[0] == 422 and len(bare[1]["lines"]) == 1
+              and bare[1]["say"].startswith("pick a model first"))
+    ctx.check(f"a lineup named: refused in one line, got {named}", named[0] == 422 and "reads no lineup" in named[1]["say"])
+    ctx.check(f"no role (Embeddings): refused in one line, got {embed}", embed[0] == 422 and "fills no role" in embed[1]["say"])
     ctx.check(f"an unknown preset names the nine, got {bad}", bad[0] == 422 and "coder" in bad[1]["say"])
+    ctx.check(f"and still no teams folder, no old-files line, got {teams2} {line2!r}", not teams2 and line2 == "")
+
+
+@test
+def test_assign_writes_the_role_and_a_new_session_runs_on_it(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's M1): roles.<role> and nothing else -- no lineup, no `halo teams apply`, roles kept on."""
+    from halo_harness.theme import get_config_value
+    from tests.test_crew_compile import _child
+    with SearchHome(card=box_card()) as h:
+        before = dict(get_config_value("roles", default={}) or {})
+        s, ans = _api(h, "POST", "local/library/assign", {"role": "coder", "ref": "ol:qwen3-coder:30b@box"})
+        after = dict(get_config_value("roles", default={}) or {})
+        line, teams = _fresh(h)
+        fresh = _new_session(h)
+        child = _child(fresh, fresh.agent_runtime.agents["coder"], "coder", "implement the retry in client.py")
+        fresh.close_runtimes()
+    ctx.check(f"one line, roles.coder, no lineup words, got {s} {ans}", s == 200 and ans["ok"]
+              and ans["say"].startswith("roles.coder = ol:qwen3-coder:30b@box") and "lineup" not in ans["say"]
+              and "teams" not in ans["say"])
+    ctx.check(f"roles.coder written and nothing else, got {before} -> {after}",
+              {k: v for k, v in after.items() if before.get(k) != v} == {"coder": "ol:qwen3-coder:30b@box"})
+    ctx.check(f"a fresh home: no teams folder, no old-files line, got {teams} {line!r}", not teams and line == "")
+    ctx.check(f"a new session's coder runs on it, got {child}", child["model"] == "ol:qwen3-coder:30b@box")
 
 
 @test
@@ -121,8 +165,8 @@ def test_download_and_verify_is_one_job_in_two_stages(ctx: Ctx):
             from halo_harness.providers.ollama_capability import profile_for
             prof = profile_for(h.state, "bt-coder:30b", "box")
             s, ans = _api(h, "POST", "local/library/assign", {"role": "verify", "ref": done["offer"]["ref"] if done.get("offer") else ""})
-            from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
-            table = _models(resolve_role_table(resolve_team_template(ans.get("lineup") or "-", state_dir=h.state) or {}, state_dir=h.state)[0])
+            from halo_harness.roles import configured_role_table
+            table = _models(configured_role_table())
             s2, routed = _api(h, "POST", "local/library/verify", {"host": "box", "name": "bt-coder:30b", "role": "verify"})
             s3, _vs = _api(h, "GET", "local/library/verifies")
     finally:
@@ -136,7 +180,7 @@ def test_download_and_verify_is_one_job_in_two_stages(ctx: Ctx):
     ctx.check(f"the profile is written to the capability cache, got {prof and prof.get('sits')}", prof is not None and prof.get("tools") == "yes")
     ctx.check(f"the offer: assign `verify` to ol:bt-coder:30b@box?, got {done.get('offer')}",
               done["ok"] and done["offer"]["ok"] and done["offer"]["line"] == "assign `verify` to ol:bt-coder:30b@box?")
-    ctx.check(f"accepted: the lineup's verify role on it, got {s} {ans} {table}",
+    ctx.check(f"accepted: roles.verify on it, got {s} {ans} {table}",
               s == 200 and ans["ok"] and table.get("verify") == "ol:bt-coder:30b@box")
     ctx.check(f"the route starts the same job, and lists it, got {s2} {routed.get('stage')} {s3}", s2 == 200 and routed.get("job") and s3 == 200)
 

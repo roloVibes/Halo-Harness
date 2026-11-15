@@ -5,15 +5,16 @@ loop rig (tests/helpers/model_switch_rig.py: a fake Ollama on 127.0.0.1:0)
 with one more model, `coder:30b` (tools declared, the probe got no call):
 
 1. `/model` to it: the card's `how` lines come before the switch line, the
-   main-model line after it, with the offer (lineup `local-coder`, main on
-   the best local orchestrator);
-2. accept -> the lineup written and active, the coder role on the model, the
-   session's role table updated; go ahead -> nothing written;
+   main-model line after it, with the offer (`local-coder`: roles.coder on
+   it, main on the best local orchestrator);
+2. accept -> roles.coder on the model (a plain session: 3.6.0.0 R5c), the
+   session's role table updated, and a NEW session's coder child runs on the
+   model, routed by "fix", at depth 2; go ahead -> nothing written;
 3. a model that can orchestrate -> no line;
 4. a sub-agent on the coder lane gets the flattened text protocol (no tool
    catalog on its wire, tool turns as text);
-5. `halo config set model` prints the line and the command; Studio's
-   `POST models/lane` writes the lineup and sets `model`;
+5. `halo config set model` prints the line and the command (writes
+   nothing); Studio's `POST models/lane` points roles.coder and sets `model`;
 6. the TUI's one-key card: y / Enter accepts, any other key goes ahead.
 Never a real server, never a model call, a fake home per rig.
 Run: python -m tests.test_main_model_check
@@ -83,34 +84,56 @@ def test_the_line_and_the_offer_after_model(ctx: Ctx):
     offer = data.get("offer") or {}
     ctx.check(f"the offer: local-coder, the coder on it, main on the best local orchestrator, got {offer}",
               offer.get("lineup") == "local-coder" and offer.get("coder") == CODER and offer.get("orchestrator") == "ol:big:30b"
-              and "halo maps use local-coder" in offer.get("command", ""))
+              and f"halo roles point coder {CODER}" in offer.get("command", ""))
     ctx.check(f"the line ends with the offer in words, got {data.get('text')!r}",
-              data.get("text", "").endswith("Keep it as the coder under ol:big:30b (map 'local-coder'), or go ahead anyway."))
+              data.get("text", "").endswith("Keep it as the coder lane under ol:big:30b (roles.coder), or go ahead anyway."))
 
 
 @test
-def test_accept_writes_the_map_and_go_ahead_writes_nothing(ctx: Ctx):
-    """3.6.0.0 R5b: the offer is a map and two agents (it was a lineup), put in use as `halo maps use` does."""
+def test_accept_points_the_coder_and_a_new_session_runs_on_it(ctx: Ctx):
+    """3.6.0.0 R5c: the offer keeps a plain session and points roles.coder at the model (R5b wrote a map whose lines
+    were main-decides only, depth 1): a new session hands "fix ..." to its coder card, the child runs on the model,
+    and the depth is the plain session's 2 -- what 3.5's lane lineup did."""
     from halo_harness.agent.main_model_check import accept
-    from halo_harness.crew.compile import compile_map
-    from halo_harness.crew import store
+    from tests.test_crew_compile import _child
     with _rig() as rig:
         s = rig.session("ol:big:30b@lan")
         evs = _switch(rig, s, CODER)
         offer = next(e.data["offer"] for e in evs if e.kind == "turn_marker" and e.data.get("state") == "model-check")
-        ctx.check("going ahead writes nothing: no map, nothing in use",
-                  store.find("map", "local-coder", state_dir=rig.state_dir) is None and _config("crew.map") is None)
+        ctx.check("going ahead writes nothing: no role, no map",
+                  _config("roles.coder") is None and _config("crew.map") is None)
         ok, lines = accept(offer, session=s, state_dir=rig.state_dir)
-        c = compile_map("local-coder", state_dir=rig.state_dir)
         live = dict(getattr(s.agent_runtime, "role_table", {}) or {})
-        in_use = _config("crew.map")
-    ctx.check(f"accepted: one line naming the map, got {lines[:1]}", ok and lines[0].startswith("map local-coder is in use")
-              and f"{CODER} is the coder, ol:big:30b runs main" in lines[0])
-    ctx.check(f"the map is in use, got {in_use}", in_use == "local-coder")
-    ctx.check(f"main on the orchestrator, the coder on the model, the starters beside, got {c.problems} {c.main} "
-              f"{ {n: s_.model for n, s_ in c.specs.items()} }", not c.problems and c.main.get("model") == "ol:big:30b"
-              and c.specs["local-coder-coder"].model == CODER and {"reviewer", "researcher", "writer"} <= set(c.specs))
+        role, in_use = _config("roles.coder"), _config("crew.map")
+        from halo_harness import headless  # a new session, as `halo -p` builds one
+        fresh = headless.build_session(cwd=rig.fh["proj"], model_ref_raw="ol:big:30b@lan", print_mode=True,
+                                       cli_flags={}).session
+        rt = fresh.agent_runtime
+        word, card = fresh.team_control.route_call({"prompt": "fix the failing parser test"}, "fix the parser")
+        child = _child(fresh, rt.agents["coder"], card, "fix the failing parser test")
+        depth = rt.max_depth
+        fresh.close_runtimes()
+    ctx.check(f"accepted: one line naming the role and main, got {lines[:1]}", ok
+              and lines[0] == f"roles.coder = {CODER}: new sessions hand code work to it, ol:big:30b runs main")
+    ctx.check(f"roles.coder on the model, no map put in use, got {role} {in_use}", role == CODER and in_use is None)
     ctx.check(f"the session's role table follows, got {live.get('coder')}", live.get("coder") == CODER)
+    ctx.check(f"a new session routes 'fix' to its coder card, got {word} {card}", (word, card) == ("fix", "coder"))
+    ctx.check(f"and that child runs on the model, got {child['model']}", child["model"] == CODER)
+    ctx.check(f"at the plain session's depth, got {depth}", depth == 2)
+
+
+@test
+def test_accept_takes_a_map_out_of_use_and_says_how_to_bring_it_back(ctx: Ctx):
+    """3.6.0.0 R5c: as applying 3.5's lane lineup replaced the lineup in force, accepting takes a map you put in use
+    out of use (roles.coder reaches a plain session only), and the line names the command that brings it back."""
+    from halo_harness.agent.main_model_check import accept
+    from halo_harness.theme import set_config_value
+    with _rig() as rig:
+        set_config_value("crew.map", "mine")
+        ok, lines = accept({"lineup": "local-coder", "coder": CODER, "orchestrator": "ol:big:30b"}, state_dir=rig.state_dir)
+        in_use = _config("crew.map")
+    ctx.check(f"the map out of use, one line with the way back, got {in_use} {lines}", ok and not in_use
+              and "map mine is no longer in use (halo maps use mine brings it back)" in lines)
 
 
 @test
@@ -147,7 +170,6 @@ def test_a_sub_agent_on_the_coder_lane_gets_the_flattened_protocol(ctx: Ctx):
 def test_config_set_model_and_studios_lane_button(ctx: Ctx):
     from halo_harness.config_cli import cmd_config
     from halo_harness.studio.api import Request
-    from halo_harness.crew import store
     from halo_harness.studio.model_card_api import post_models_lane
     with _rig() as rig:
         s = rig.session("ol:big:30b@lan")
@@ -156,15 +178,14 @@ def test_config_set_model_and_studios_lane_button(ctx: Ctx):
         with contextlib.redirect_stdout(out):
             rc = cmd_config(["set", "model", CODER])
         text = out.getvalue()
-        written = store.find("map", "local-coder", state_dir=rig.state_dir) is not None
-        team_after_set = _config("crew.map")
+        role_after_set = _config("roles.coder")
         status, body = post_models_lane(Request("POST", "models/lane", {}, {"ref": CODER}, rig.fh["proj"], rig.state_dir))
-        model, team = _config("model"), _config("crew.map")
+        model, role, team = _config("model"), _config("roles.coder"), _config("crew.map")
     ctx.check(f"config set: saved, the line, the command, got {text!r}", rc == 0 and LINE in text
-              and "halo maps use local-coder && halo config set model ol:big:30b" in text)
-    ctx.check("the map is written but not in use", written and team_after_set is None)
-    ctx.check(f"Studio's button: the map in use and model on the orchestrator, got {status} {body}",
-              status == 200 and team == "local-coder" and model == "ol:big:30b" and body.get("coder") == CODER)
+              and f"halo roles point coder {CODER} && halo config set model ol:big:30b" in text)
+    ctx.check(f"config set writes no role, got {role_after_set}", role_after_set is None)
+    ctx.check(f"Studio's button: roles.coder on the model and model on the orchestrator, got {status} {body}",
+              status == 200 and role == CODER and team is None and model == "ol:big:30b" and body.get("coder") == CODER)
 
 
 @test

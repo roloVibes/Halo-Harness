@@ -117,7 +117,7 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
             left = left_line(pack)
             if left:
                 out.append(_p(pack.id, "info", "crew-1x", left, "move them to crew/agents, crew/workflows and crew/maps "
-                              "(docs/EXTENSION-API.md, 2.0)", str(pack.root)))
+                              "(docs/EXTENSION_API.md, 2.0)", str(pack.root)))
             from halo_harness.packs import contrib_views as CW  # 3.2.0.0 R4: a capability not available here
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
                     for r in CW.doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]

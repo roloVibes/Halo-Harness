@@ -55,7 +55,8 @@ def instructions(c) -> str:
 
 def removed_names(names, c) -> list:
     uses = set((c.main or {}).get("uses") or [])
-    out = [n for kind, tools in KINDS.items() if kind not in uses for n in tools if n in names]
+    keep = {"WebFetch"} if "fetch" in uses else set()  # 3.6.0.0 R5c: fetch keeps WebFetch only
+    out = [n for kind, tools in KINDS.items() if kind not in uses for n in tools if n in names and n not in keep]
     if not c.agent_targets():
         out += [n for n in ("Agent", "Task") if n in names]
     if not c.workflow_targets() and "Workflow" in names:

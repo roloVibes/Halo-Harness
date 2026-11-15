@@ -92,6 +92,7 @@ export const USES: [string, string, string, string][] = [
   ["edit", "Change files", "can write and delete files in the project (git can undo it)", "it can read but never change files"],
   ["bash", "Run commands", "can run shell commands: tests, builds, git", "it cannot run anything"],
   ["web", "The web", "can search and open web pages", "it stays off the web"],
+  ["fetch", "Open web pages", "can open a web page it is given, but not search", "it opens no web page"],
 ];
 
 export const CAREFUL: [Careful, string, string][] = [

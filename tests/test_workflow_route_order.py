@@ -164,12 +164,14 @@ def test_the_offer_the_doctor_line_the_list_and_an_inherited_edit(ctx: Ctx):
         ctx.check(f"and off, got {squares_line('one', cwd=h.repo)!r}", "media (not connected), plan" in squares_line("one", cwd=h.repo))
         from halo_harness.theme import set_config_value
         from halo_harness.workflows.squares_cli import cmd_workflows
-        set_config_value("team", "rule")
+        # 3.6.0.0 R5c: the list marks the set a session runs with -- config's (no session reads config `team:` since
+        # R5a; the list was its last reader), so the rule is config's own `workflows.when`
+        set_config_value("workflows.when", {"media": {"needs": ["pdf"]}})
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             cmd_workflows(["list", "--repo", str(h.repo)])
         media = next((ln for ln in buf.getvalue().splitlines() if "] media" in ln), "")
-        ctx.check(f"list: the mark and the when column, got {media!r}", "-- on for rule" in media and "when: needs pdf" in media)
+        ctx.check(f"list: the mark and the when column, got {media!r}", "-- on for auto" in media and "when: needs pdf" in media)
         for name in ("nokey", "nokey2"):
             h.write(f".halo/teams/{name}.yaml", LINEUP.format(name=name))
         ok, _ = registry.enable("review", "nokey", cwd=h.repo)

@@ -85,19 +85,20 @@ cannot do here (`agent/main_model_check.py`):
     qwen3-coder:30b is a coding model with no tool calling on this server: it can write and answer but
     cannot act; as the main agent it would not run tools
 
-and offers the fix: **keep it as the coder lane under an orchestrator**. The
-lineup `local-coder` (a cloud model: `<model>-coder`) pins the coder role to
-this model, puts main on the best orchestrator among the configured models
-(local first; then cloud, the model you were on or the Auto pool's pick) and
-reviewer, researcher and small on the `auto` pool. It is written through the
-`halo teams apply` path, made active, and the session moves to the
-orchestrator; Roles shows the lineup. In the TUI the offer is one key (`y` or
-Enter accepts, any other key goes ahead); in Studio one button
-(`Keep it as the coder lane under ...`). `halo config set model` and
-`halo init --model` print the line and the command instead (`halo teams apply
-local-coder && halo config set model <orchestrator>`; the lineup file is
-written, not made active). **Going ahead anyway always works**: the model
-stays the main one and nothing is written.
+and offers the fix: **keep it as the coder lane under an orchestrator**.
+Accepting points `roles.coder` at this model and moves main to the best
+orchestrator among the configured models (local first; then cloud, the model
+you were on or the Auto pool's pick): a plain session then hands "fix",
+"implement", "refactor" and "code" to its coder card on this model, two
+hand-offs deep, and the other cards stay on the `auto` pool (3.6.0.0 R5c; on
+3.5 this was the lineup `local-coder`). A map you had put in use is taken out
+of use, and the line names `halo maps use <name>` to bring it back. In the TUI
+the offer is one key (`y` or Enter accepts, any other key goes ahead); in
+Studio one button (`Keep it as the coder lane under ...`). `halo config set
+model` and `halo init --model` print the line and the commands instead
+(`halo roles point coder <model> && halo config set model <orchestrator>`;
+nothing is written). **Going ahead anyway always works**: the model stays the
+main one and nothing is written.
 
 Sub-agents the lineup spawns on a model with no tool calling get the
 flattened text protocol: no tool catalog on their wire, tool turns as text

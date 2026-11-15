@@ -4,7 +4,8 @@
 catalog. 2-4 (3.6.0.0 R5b, crew/preflight.py): the entry points check the goal's MAP -- a box naming no agent, an
 agent on a model id its catalog does not know -- and refuse with every blocking problem and its fix -- `halo
 orchestra run`, `POST /api/orchestra/run` -- while `--force` / `{"force": true}` goes past it (through the seam
-orchestra_api.RUNNER); a goal naming no map that exists is not stopped; `halo doctor --roles` lists the map's
+orchestra_api.RUNNER); a goal naming no map that exists is stopped (3.6.0.0 R5c: one `map-missing` row naming the maps
+here, as 3.5's `lineup-missing`); `halo doctor --roles` lists the map's
 problems. No model is called.
 
 Run: python -m tests.test_preflight
@@ -146,9 +147,10 @@ def test_orchestra_api_refuses_422_and_force_starts(ctx: Ctx):
             st, _b = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "pf-good"}, repo, h.state_dir))
             ctx.check(f"a clean map starts without force, got {st}", st == 201)
             orchestra_live.wait(60)
-            st, _b = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "an-old-lineup"}, repo, h.state_dir))
-            ctx.check(f"a goal naming no map that exists is not stopped, got {st}", st == 201)
-            orchestra_live.wait(60)
+            st, body = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "an-old-lineup"}, repo, h.state_dir))
+            ctx.check(f"a goal naming no map that exists is stopped (3.5's lineup-missing), one row naming the maps here, "
+                      f"got {st} {str(body)[:300]}", st == 422 and [p["id"] for p in body.get("problems") or []] == ["map-missing"]
+                      and "`an-old-lineup` does not exist" in body["error"] and "pf-good" in body["error"])
         finally:
             orchestra_live.wait(30)
             orchestra_api.RUNNER = saved

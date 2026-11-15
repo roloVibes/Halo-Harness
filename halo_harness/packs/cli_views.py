@@ -21,6 +21,7 @@ def list_rows(snap) -> "list[dict]":
     from halo_harness.packs import state as S
     from halo_harness.packs.offers import offers
     from halo_harness.packs.shipped_newer import newer  # 3.4.1.0 R5 (defect 30): an older copy than Halo ships
+    from halo_harness.ext.compat import made_for_line
     rows = []
     for pack in snap.packs:
         rec = S.entry(pack.id, data=snap.state) or {}
@@ -28,6 +29,7 @@ def list_rows(snap) -> "list[dict]":
                      "enabled": pack.id in snap.enabled, "running": pack.id in snap.order, "scope": pack.scope,
                      "root": str(pack.root), "source": str(rec.get("source") or ""), "offers": offers(pack),
                      "ships": "" if rec.get("link") else newer(pack.id, pack.version, str(rec.get("source") or "")),  # R5
+                     "made_for": made_for_line(pack.manifest.get("halo_api")),  # 3.6.0.0 R5c: a 1.x pack read on 2.x
                      "problems": list(pack.problems) + list(snap.problems.get(pack.id, []))})
     return rows
 
@@ -44,7 +46,8 @@ def list_lines(rows: "list[dict]", hint: bool = True) -> "list[str]":
         out.append(f"{r['id']:<{width}}  {r['version'] or '?':<8}  {r['state']:<12}  {r['scope']:<7}{source}  "
                    f"offers {summary(r['offers'])}" + (f"  ({len(r['problems'])} problem(s): halo pack doctor)"
                                                        if r["problems"] else "")
-                   + (f"  ({r['ships']} ships with this Halo: halo pack update {r['id']})" if r.get("ships") else ""))
+                   + (f"  ({r['ships']} ships with this Halo: halo pack update {r['id']})" if r.get("ships") else "")
+                   + (f"  ({r['made_for']})" if r.get("made_for") else ""))
     return out
 
 
@@ -137,7 +140,7 @@ def role_lines(d: dict) -> "list[str]":
 
 def inspect_lines(d: dict) -> "list[str]":
     from halo_harness.packs import semver as V
-    from halo_harness.packs.offers import CONTRIBS, KINDS, LABELS
+    from halo_harness.packs.offers import CONTRIBS, LABELS, SHOWN as KINDS  # 3.6.0.0 R5c: agents, maps, workflows
     out = [f"{d['id']} {d['version']} -- {d['name']} ({d['state']})", f"  {d['description']}".rstrip(),
            f"  folder: {Path(d['root']).as_posix()} ({d['scope']})",
            f"  works with: extension API {V.describe(d['halo_api'])}, Halo {V.describe(d['halo'])}"]

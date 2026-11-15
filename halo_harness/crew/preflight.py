@@ -2,7 +2,8 @@
 R5b: on a map and its agents, where it was a lineup and its bios).
 
 Before `halo orchestra run` (and its Studio route) starts, the map the goal names (its `lineup` field) is checked
-for what would make its agents come back empty: a problem in the map (a missing agent, a circle), and an agent model id
+for what would make its agents come back empty: a map that does not exist (3.6.0.0 R5c, as 3.5's `lineup-missing`), a
+problem in the map (a missing agent, a circle), and an agent model id
 its provider's catalog does not know (the silent-404 case `halo doctor --roles` finds after the fact). Each finding is
 `{id, severity: "blocks"|"warns", text, fix}`; the entry points list every `blocks` finding with its fix and stop,
 unless `--force` / `{"force": true}` says run anyway.
@@ -24,8 +25,16 @@ def run_problems(name: Optional[str] = None, *, cwd=None, state_dir=None) -> "li
     from halo_harness.crew.checks import missing_model_provider
     from halo_harness.crew.compile import compile_map
     from halo_harness.crew import store
-    if not name or store.find("map", name, cwd=cwd, state_dir=state_dir) is None:
-        return []  # no map of that name: a goal naming an old lineup is not stopped here (its worker says it, --map)
+    if not name:
+        return []
+    name, _said = store.resolve("map", name, cwd=cwd, state_dir=state_dir)  # a pack's map named bare (3.6.0.0 R5c)
+    if store.find("map", name, cwd=cwd, state_dir=state_dir) is None:  # 3.6.0.0 R5c (the judge's S6): as 3.5 stopped
+        try:                                                           # a goal whose lineup did not resolve
+            have = sorted({r["name"] for r in store.rows("map", cwd=cwd, state_dir=state_dir)})
+        except Exception:
+            have = []
+        return [_finding("map-missing", "blocks", f"map `{name}` does not exist (the maps here: "
+                         f"{', '.join(have) or 'none'})", "name one that exists (halo maps list), or none for the starter")]
     try:
         c = compile_map(name, cwd=cwd, state_dir=state_dir)
     except Exception:

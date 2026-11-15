@@ -3,11 +3,12 @@
 as every Studio route; never a model call; nothing downloads until Download and verify is pressed.
 
     GET  local/library/presets                       the presets, each bundle expanded (models_library/presets.py)
-    POST local/library/template {preset, model?, lineup?, bundle?}   Save as role template (the teams path)
+    POST local/library/template {preset, model?, bundle?}   Save as role template: the agent local-<preset> on the model
+                                                     (models_library/presets_save.py; refused in one line without one)
     POST local/library/verify {host, name, role?}    Download and verify (studio/local_verify_job.py; `verify`,
                                                      `pull` and `probe` frames)
     GET  local/library/verifies                      the verify jobs running and the last ended ones
-    POST local/library/assign {role, ref, lineup?}   the role offer accepted: the lineup's role gets the model
+    POST local/library/assign {role, ref}            the role offer accepted: roles.<role> = the model (nothing else)
     GET  local/crashes?host=                         the crash fingerprints (ollama_steward/fingerprints.py)
 
     spec_of(query) -> the search spec GET local/library reads (preset, for_role, ask, need, exclude_crashed, edited
@@ -72,8 +73,8 @@ def post_template(req):
     over = b.get("bundle") if isinstance(b.get("bundle"), dict) else None
     ok, lines, name = save_template(preset, state_dir=req.state_dir, model=str(b.get("model") or "").strip(),
                                     lineup=str(b.get("lineup") or "").strip(), bundle_over=over)
-    return (200 if ok else 422), {"ok": ok, "lineup": name, "lines": lines, "say": "; ".join(lines),
-                                  "cli": f"halo models browse --preset {preset} --save-template"}
+    return (200 if ok else 422), {"ok": ok, "agent": name, "lines": lines, "say": "; ".join(lines),
+                                  "cli": f"halo models browse --preset {preset} --save-template --model <model>"}
 
 
 def post_verify(req):
@@ -101,9 +102,9 @@ def post_assign(req):
     b = _body(req)
     role, ref = str(b.get("role") or "").strip(), str(b.get("ref") or "").strip()
     if not role or not ref:
-        return 422, {"error": "assign takes {role, ref}", "problems": ["role: the lineup role", "ref: ol:<model>@<host>"]}
-    ok, lines, name = assign(role, ref, state_dir=req.state_dir, lineup=str(b.get("lineup") or "").strip())
-    return (200 if ok else 422), {"ok": ok, "lineup": name, "lines": lines, "say": "; ".join(lines)}
+        return 422, {"error": "assign takes {role, ref}", "problems": ["role: the role (roles.<role>)", "ref: ol:<model>@<host>"]}
+    ok, lines, _name = assign(role, ref, state_dir=req.state_dir)
+    return (200 if ok else 422), {"ok": ok, "role": role, "lines": lines, "say": "; ".join(lines)}
 
 
 def get_crashes(req):

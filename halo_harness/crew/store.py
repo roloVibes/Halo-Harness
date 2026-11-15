@@ -7,7 +7,8 @@
                                                          place (a 1.x pack's bios, lineups and plain workflows read as
                                                          agents, maps and workflows)
 
-`find(kind, name)` answers the file a name means (the project's, then yours, then a starter's); `rows(kind)` every
+`find(kind, name)` answers the file a name means (the project's, then yours, then a starter's, then a pack's; R5c: a
+bare name that is exactly one enabled pack's `<pack>--<name>` reads that one, `resolve` gives the line); `rows(kind)` every
 file of a kind with its scope; `used_by(name)` the workflows and maps that name an agent; `write` / `remove` touch
 only yours (or the project's, when asked). Nothing here reads the old lineups, bios or squares.
 """
@@ -94,6 +95,34 @@ def _packed(name: str) -> bool:
     return "--" in str(name or "")
 
 
+def pack_match(kind: str, name: str, *, cwd=None, state_dir=None) -> list:
+    """3.6.0.0 R5c: the enabled packs' `<pack>--<name>` whose own part is `name` -- a 3.5 name typed bare."""
+    if not name or _packed(name):
+        return []
+    return sorted(n for n in pack_items(kind, cwd=cwd, state_dir=state_dir) if n.split("--", 1)[1] == name)
+
+
+def resolve(kind: str, name: str, *, cwd=None, state_dir=None) -> "tuple[str, str]":
+    """(the name a bare `name` reads, one line or ""): no file of yours, the project's or a starter's by that name and
+    exactly one enabled pack's `<pack>--<name>` -- that one, the line naming it; several -- the name as typed, the line
+    listing them."""
+    if not name or _packed(name) or any((f / f"{name}.yaml").is_file() for f, _s in folders(kind, cwd=cwd, state_dir=state_dir)):
+        return name, ""
+    got = pack_match(kind, name, cwd=cwd, state_dir=state_dir)
+    if len(got) == 1:
+        return got[0], f"halo: {kind} {name} is {got[0]} (an enabled pack's; its full name from now on)"
+    if len(got) > 1:
+        return name, f"halo: {kind} {name} could be {', '.join(got)}: name one in full"
+    return name, ""
+
+
+def _pack_name(kind: str, name: str, cwd, state_dir) -> Optional[str]:
+    if _packed(name):
+        return name
+    got = pack_match(kind, name, cwd=cwd, state_dir=state_dir)
+    return got[0] if len(got) == 1 else None
+
+
 def find(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> "Optional[tuple[Path, str]]":
     for folder, sc in folders(kind, cwd=cwd, state_dir=state_dir):
         if scope and sc != scope:
@@ -101,8 +130,9 @@ def find(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> 
         p = folder / f"{name}.yaml"
         if p.is_file():
             return p, sc
-    if _packed(name) and scope in ("", "pack"):
-        body = pack_items(kind, cwd=cwd, state_dir=state_dir).get(name)
+    if scope in ("", "pack") and name:
+        full = _pack_name(kind, name, cwd, state_dir)  # 3.6.0.0 R5c: a bare name of exactly one pack's reads it
+        body = pack_items(kind, cwd=cwd, state_dir=state_dir).get(full) if full else None
         if body is not None:
             return Path(body["_path"]), "pack"
     return None
@@ -113,7 +143,8 @@ def load(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> 
     if got is None:
         return None
     if got[1] == "pack":
-        body = pack_items(kind, cwd=cwd, state_dir=state_dir).get(name)
+        full = _pack_name(kind, name, cwd, state_dir)
+        body = pack_items(kind, cwd=cwd, state_dir=state_dir).get(full) if full else None
         return {**body, "_scope": "pack"} if body is not None else None
     data = read(got[0])
     if data is None:

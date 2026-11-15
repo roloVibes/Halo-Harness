@@ -2,7 +2,7 @@
 // studio/local_verify_job.py): POST local/library/verify {host, name, role} starts one job -- the pull (its `pull`
 // frames feed jobs.ts's bar), the battery (`probe` frames, probes.ts), then the offer -- and every `verify` frame
 // moves its stage here; GET local/library/verifies catches up a page that opens while one runs. Assign posts the
-// offer (POST local/library/assign: the lineup's role gets the model); Save as role template posts the preset's
+// offer (POST local/library/assign: roles.<role> = the model); Save as role template posts the preset's
 // bundle as it stands (POST local/library/template).
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";

@@ -37,18 +37,31 @@ def test_the_policy_functions(ctx: Ctx):
     from halo_harness.ext import compat
     from halo_harness.ext.compat import range_words
     ctx.check("api_version() is API_VERSION", ext.api_version() == ext.API_VERSION == "2.0")  # 3.6.0.0 R5b
-    ctx.check("a 1.x pack runs on 2.0 (its crew read as 2.0's)", compat.compatible({"min": "1.4", "max": "1.9"}, "2.0")
-              and compat.compatible({"min": "1.0"}, "2.0") and not compat.compatible({"min": "2.0"}, "3.0"))
-    ctx.check("a 1.0 pack keeps everything on 1.1 (3.3.10.0 R1)", ext.compatible({"min": "1.0"}) and ext.compatible({"min": "1.0", "max": "1.9"})
+    # 3.6.0.0 R5c (the judge's S9): compatible() tells the truth for a capped range; a 1.x pack still LOADS on 2.0
+    # (reads_as_1x, its crew read as 2.0's) and its list line says so (made_for_line)
+    ctx.check("a capped 1.x range is not compatible with 2.0, nor is {min: 1.0}",
+              not compat.compatible({"min": "1.0", "max": "1.2"}, "2.0") and not compat.compatible({"min": "1.4", "max": "1.9"}, "2.0")
+              and not compat.compatible({"min": "1.0"}, "2.0") and not compat.compatible({"min": "2.0"}, "3.0"))
+    ctx.check("but a 1.x pack loads on 2.0 through the 1.x reader, capped or not; a 2.0 pack on 3.0 does not",
+              compat.reads_as_1x({"min": "1.0", "max": "1.2"}, "2.0") and compat.reads_as_1x({"min": "1.4", "max": "1.9"}, "2.0")
+              and compat.reads_as_1x({"min": "1.0"}, "2.0") and not compat.reads_as_1x({"min": "2.0"}, "3.0")
+              and not compat.reads_as_1x({"min": "1.0", "max": "1.9"}, "1.5") and not compat.reads_as_1x({"min": "2.0"}, "2.0"))
+    ctx.check(f"its line says so, got {compat.made_for_line({'min': '1.0', 'max': '1.2'}, '2.0')!r}",
+              compat.made_for_line({"min": "1.0", "max": "1.2"}, "2.0").startswith("made for extension API 1.0 to 1.2; read by "
+                                                                                  "this Halo's 2.0 as 1.x")
+              and compat.made_for_line({"min": "2.0", "max": "2.9"}, "2.0") == "")
+    ctx.check("a 1.0 pack keeps everything on 1.1 (3.3.10.0 R1)", ext.compatible({"min": "1.0"}, "1.1")
+              and ext.compatible({"min": "1.0", "max": "1.9"}, "1.1")
               and "everything" in compat.CHANGES["1.1"]["keeps"] and "set_mode" in compat.CHANGES["1.1"]["adds"])
     cases = [({"min": "1.0", "max": "1.9"}, "1.0", True), ({"min": "1.0", "max": "1.9"}, "1.9.4", True),
-             ({"min": "1.0", "max": "1.9"}, "2.0", True), ({"min": "1.2", "max": "1.9"}, "1.0", False),
-             ({"min": "1.0"}, "1.7", True), ({"min": "1.0"}, "2.0", True), ({"min": "2.0"}, "1.0", False),
+             ({"min": "1.0", "max": "1.9"}, "2.0", False), ({"min": "1.2", "max": "1.9"}, "1.0", False),
+             ({"min": "1.0"}, "1.7", True), ({"min": "1.0"}, "2.0", False), ({"min": "2.0"}, "1.0", False),
              ({"min": "2.0"}, "3.0", False), ({"min": "1.0", "max": "1.9"}, "3.0", False),
              ({"max": "1.9"}, "1.0", True), ({"min": "x"}, "1.0", False), ("1.0", "1.0", False)]
     for rng, version, want in cases:
         ctx.check(f"compatible({rng}, {version}) is {want}", ext.compatible(rng, version) is want)
-    ctx.check("compatible(range) reads this Halo's API by default", ext.compatible({"min": "1.0"}) is True)
+    ctx.check("compatible(range) reads this Halo's API by default (2.0)", ext.compatible({"min": "2.0"}) is True
+              and ext.compatible({"min": "1.0"}) is False)
     words = {"1.0 to 1.9": {"min": "1.0", "max": "1.9"}, "1.2 or a later 1.x": {"min": "1.2"}, "<= 1.9": {"max": "1.9"}}
     for want, rng in words.items():
         ctx.check(f"range_words({rng}) is {want!r}, got {range_words(rng)!r}", range_words(rng) == want)

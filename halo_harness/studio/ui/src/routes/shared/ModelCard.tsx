@@ -143,7 +143,7 @@ export function ModelCardPanel({ refName, offer = true, onLane }: { refName: str
           {check.offer ? (
             <span className="mcard-offer">
               <Button size="sm" variant="primary" disabled={busy || !!said?.ok} onClick={() => void lane()} data-testid="model-offer-lane"
-                      title={`writes lineup '${check.offer.lineup}' (${check.offer.coder} as the coder, ${check.offer.orchestrator} as main) and makes it active`}>
+                      title={`points roles.coder at ${check.offer.coder} and moves main to ${check.offer.orchestrator}: a new session hands code work to it`}>
                 {busy ? "Writing..." : `Keep it as the coder lane under ${check.offer.orchestrator}`}
               </Button>
               <span className="muted">or go ahead anyway: it is saved as it is</span>

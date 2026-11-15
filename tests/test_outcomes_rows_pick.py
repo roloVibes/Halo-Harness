@@ -97,22 +97,17 @@ def test_a_spawned_members_row_says_how_its_model_was_picked(ctx: Ctx):
               and fell.get("reason") == "oai:gpt-eyes has no credentials here; using main's")
 
 
+@test
 def test_a_measured_cards_row_says_measured(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S8): back on, on a plain session with `roles.coder: measured` (no lineup)."""
     from tests import test_auto_spawn as A
     from tests.test_outcomes_measured import seed_outcomes
-    from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.teams_yaml import save_team_template
     from halo_harness.theme import set_config_value
     mock = A._mock()
     try:
         with A._Env() as e:
             A._seed_index(e.state_dir, A.ROWS)
-            save_agent_bio("measured-coder", {"description": "routes by what succeeded", "kind": "coder",
-                                              "models": {"preference": "measured", "needs": ["tools"]}}, state_dir=e.state_dir)
-            save_team_template("measured", {"description": "a measured coder", "routing": {"fix": "coder"},
-                                            "agents": [{"agent": "default-model", "role": "main"},
-                                                       {"agent": "measured-coder", "role": "coder"}]}, state_dir=e.state_dir)
-            set_config_value("team", "measured")
+            set_config_value("roles.coder", "measured")
             seed_outcomes(e.state_dir, "or:mock/auto-eyes", "code", ["passed", "passed", "passed", "failed"])
             session = A._session(e, mock)
             A._dispatch(session, "c1", "fix the bug in basket.py", description="fix the bug")

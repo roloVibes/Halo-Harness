@@ -3,7 +3,7 @@ plans/local-model-fit-brief.md D1 3 and 8; 3.6.0.0 R5b: the map in use, where it
 
     lanes_for(name=None, *, main_ref=None, cwd=None, state_dir=None) -> (lanes, declared, name)
         `name`: a map (None: the map in use, crew/in_use.py); main is the session's model (config `model`) unless given
-    preview(name=None, *, main_ref=None, cwd=None, state_dir=None) -> Preview
+    preview(name=None, *, main_ref=None, cwd=None, state_dir=None, lanes=None) -> Preview   (lanes: the caller's)
     Preview = {lineup, hosts [WarmSet], swaps, swap_s, cards, declared [model], lines [str], hygiene [str]}
 
 The lines: one warm-set line per card (local_sched/warm_set.pack), then the total -- "this map swaps 7x on one
@@ -107,12 +107,15 @@ def _vram_aware(ws: dict, group: list) -> "tuple[list, str]":
                  f"on {ws['host']}: they run on main's model instead (the VRAM-aware rule), no swap")
 
 
-def preview(lineup=None, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> dict:
+def preview(lineup=None, *, main_ref: Optional[str] = None, cwd=None, state_dir=None, lanes=None) -> dict:
     from halo_harness.local_sched.facts import host_named
     from halo_harness.local_sched.swap_cost import secs
     from halo_harness.local_sched.warm_set import by_host, pack
     from halo_harness.providers.ollama import ollama_names_match
-    lanes, declared, name = lanes_for(lineup, main_ref=main_ref, cwd=cwd, state_dir=state_dir)
+    if lanes is None:
+        lanes, declared, name = lanes_for(lineup, main_ref=main_ref, cwd=cwd, state_dir=state_dir)
+    else:  # 3.6.0.0 R5c: the caller's lanes (the adviser's: a plain session's roles too)
+        declared, name = [], str(lineup or "")
     out = {"lineup": name, "hosts": [], "swaps": 0, "swap_s": 0.0, "cards": 0, "declared": declared, "lines": [],
            "hygiene": [], "lanes": lanes}
     if not lanes:

@@ -284,8 +284,8 @@ fit is worked out at; the foot counts the rows.
 - Each row's capabilities print with their truth marks (`[tools◇ coder≈ agentic-ready?]`: ✓ verified, ◇ declared,
   ≈ expected, ? needs a probe); `--why` adds the two verdicts (`fits: yes · role-ready: not yet (download and
   verify)`), the cost line and the rank line.
-- `--save-template [--model M] [--lineup L]`: write `--preset` as the lineup `local-<preset>` (or that role's entry in
-  `--lineup`), through the `halo teams` path; nothing else runs.
+- `--save-template --model M`: write `--preset` as the agent `local-<preset>` on M (3.6.0.0 R5c; it was the lineup `local-<preset>`, or that role's entry in
+  `--lineup`, through the `halo teams` path); nothing else runs.
 
 ## `halo ollama log` (3.3.6.0 R3)
 

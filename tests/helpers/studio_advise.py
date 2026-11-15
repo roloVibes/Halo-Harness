@@ -1,6 +1,7 @@
 """tests.helpers.studio_advise -- Studio's Adviser panel and the guards' lines (Halo 3.3.7.0 R4) in headless Chrome:
 real clicks through tests/helpers/studio_local.LocalDriver's session (R1's seeded home; `box` a fake Ollama on
-127.0.0.1:0). Seeded here: a lineup `adv` in force whose coder and verify lanes are both qwen models on box, and box's
+127.0.0.1:0). Seeded here: a plain session whose roles.coder and roles.verify are both qwen models on box (3.6.0.0 R5c, where it
+was a lineup `adv` in force), and box's
 catalog with a gemma3:12b and a second 9B qwen beside its own three; box's /api/ps holds llama3:8b that no halo call
 explains. No provider request, no model call, nothing sent but to the fake:
 
@@ -27,18 +28,13 @@ ROWS = "[data-testid=local-adviser-row]"
 
 
 def seed(ctx) -> None:
-    import yaml
     from halo_harness.studio import ollama_hosts_view as V
     from tests.helpers import local_seed as L
     state, mock = ctx["state"], ctx["mock"]
-    (state / "teams").mkdir(parents=True, exist_ok=True)
-    (state / "teams" / "adv.yaml").write_text(yaml.safe_dump({"name": "adv", "description": "adviser fixture", "version": 1,
-                                                             "roles": {"main": "general",
-                                                                       "coder": {"agent": "general", "models": {"preference": "ol:qwen3-coder:30b@box"}},
-                                                                       "verify": {"agent": "general", "models": {"preference": "ol:qwen3.5:9b@box"}}}}),
-                                              encoding="utf-8")
-    cfg = config(ctx)
-    cfg.update(team="adv", roles={**(cfg.get("roles") or {}), "enabled": True})
+    cfg = config(ctx)  # 3.6.0.0 R5c: a plain session whose coder and verify roles are both qwen models on box
+    cfg.update(roles={**(cfg.get("roles") or {}), "enabled": True, "coder": "ol:qwen3-coder:30b@box",
+                      "verify": "ol:qwen3.5:9b@box"})
+    cfg.pop("team", None)
     (state / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
     extra = [{"model": "gemma3:12b", "size": 8164039587, "digest": "sha256:9e33", "capabilities": ["vision"],
               "details": {"family": "gemma3", "parameter_size": "12.2B", "quantization_level": "Q4_K_M"}},

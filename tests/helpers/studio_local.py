@@ -140,7 +140,9 @@ def models(c, url, ctx) -> dict:
     said = q('[data-testid=local-model-row][data-host=box][data-model="qwen3-coder:30b"] [data-testid=local-said]')
     press(c, lane, f"!!{said}")
     out["lane_said"] = c.js(f"{said}.textContent")
-    out["lane_config"] = [config(ctx).get("team"), config(ctx).get("model")]
+    out["lane_config"] = [(config(ctx).get("roles") or {}).get("coder"), config(ctx).get("model")]
+    from halo_harness.crew.in_use import main_model, map_name, session_table  # 3.6.0.0 R5c: what a new session runs on
+    out["lane_runs"] = [map_name(), (session_table() or {}).get("coder"), main_model()]
     return out
 
 

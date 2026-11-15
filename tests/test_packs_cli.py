@@ -67,7 +67,8 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
         ctx.check(f"list --json: the row, got {row}", row["id"] == "doc-review" and row["state"] == "disabled"
                   and row["offers"]["bios"] == ["doc-review--reviewer", "doc-review--writer"] and row["source"] == str(src))
         code, out, _ = h.cli("list")
-        ctx.check(f"list: one line per pack, got {out!r}", out.count("\n") == 1 and "doc-review" in out and "2 bios" in out)
+        ctx.check(f"list: one line per pack, got {out!r}", out.count("\n") == 1 and "doc-review" in out
+                  and "3 agents, 1 map, 1 workflow" in out)  # 3.6.0.0 R5c: what a session gets, not bios (S4)
         code, out, _ = h.cli("enable", "doc-review", "--grant", "hooks", "--json")
         ctx.check("enable --json", code == 0 and json.loads(out)["ok"])
         code, out, _ = h.cli("inspect", "doc-review", "--json")
@@ -78,7 +79,7 @@ def test_every_verb_in_text_and_json(ctx: Ctx):
         ctx.check("inspect --json: the settings with their defaults", d["settings"] == {"style": "short", "max_findings": 20})
         ctx.check("inspect --json: no problems", d["problems"] == [] and d["state"] == "enabled")
         code, out, _ = h.cli("inspect", "doc-review")
-        ctx.check("inspect: the text", code == 0 and "mcp:lint (MCP server lint): not granted" in out and "lineups: doc-review--review" in out)
+        ctx.check("inspect: the text", code == 0 and "mcp:lint (MCP server lint): not granted" in out and "maps: doc-review--review" in out)  # 3.6.0.0 R5c: offers lists maps (S4)
         code, out, _ = h.cli("inspect", str(src))
         ctx.check(f"inspect a folder (a source), got {out[:80]!r}", code == 0 and "(a source folder)" in out)
         code, _out, err = h.cli("inspect", "nope")

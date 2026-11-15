@@ -5,6 +5,7 @@ One YAML file per thing, each with a `format:` line:
     agent/1     crew/agents/<name>.yaml      name, does, instructions, model, needs, uses, careful, more
     workflow/1  crew/workflows/<name>.yaml   name, for, steps [{name, agents, gets, hands, when, repeat}], own_copy, max_usd
     map/1       crew/maps/<name>.yaml        name, boxes [{id, agent | workflow}], lines [{from, to, when}], main, caps
+                                             (session_usd, max_depth, max_parallel)
 
 `agent_problems(raw)`, `workflow_problems(raw)` and `map_problems(raw)` answer one plain line per problem (an empty
 list: the file is good). A map whose lines make a circle has a problem line here, so no saved map can loop.
@@ -16,7 +17,7 @@ import re
 
 AGENT, WORKFLOW, MAP = "agent/1", "workflow/1", "map/1"
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,47}$")
-USES = ("read", "edit", "bash", "web")  # plus skill:<name> and mcp:<server>
+USES = ("read", "edit", "bash", "web", "fetch")  # plus skill:<name> and mcp:<server>; fetch: WebFetch only (3.6.0.0 R5c)
 USE_PREFIX = ("skill:", "mcp:")
 CAREFUL = ("ask-changes", "ask-commands", "own")
 NEEDS = ("images", "audio", "video", "pdf", "reasoning", "long-text", "tools")  # 3.6.0.0 R3: tools (states tool calls)
@@ -27,6 +28,7 @@ AGENT_KEYS = ("format", "name", "does", "instructions", "model", "needs", "uses"
 STEP_KEYS = ("name", "agents", "gets", "hands", "when", "repeat")
 WHEN_WORDS = ("always", "ask")
 LINE_WHEN = ("always", "ask", "main-decides")
+CAPS = ("session_usd", "max_depth", "max_parallel")  # 3.6.0.0 R5c: depth and parallel hand-offs (a 1.x lineup's delegation)
 
 
 def name_problem(name, what: str = "name") -> str:
@@ -105,7 +107,7 @@ def agent_problems(raw, *, name: str = "") -> "list[str]":
     if uses is None:
         uses = []
     if not isinstance(uses, list) or not all(use_ok(u) for u in uses):
-        out.append("uses: a list of read, edit, bash, web, skill:<name>, mcp:<server>")
+        out.append("uses: a list of read, edit, bash, web, fetch, skill:<name>, mcp:<server>")
     elif len(set(uses)) != len(uses):
         out.append("uses: each one once")
     if raw.get("careful") not in CAREFUL:
@@ -234,8 +236,9 @@ def map_problems(raw, *, name: str = "") -> "list[str]":
         out.append(f"the lines make a circle ({' -> '.join(loop)}): a loop lives inside a workflow as repeat until")
     caps = raw.get("caps")
     if caps is not None and not (isinstance(caps, dict) and all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
-                                                                for v in caps.values())):
-        out.append("caps: {session_usd: <dollars>}")
+                                                                for v in caps.values())
+                                 and set(caps) <= set(CAPS) and all(isinstance(caps.get(k), int) for k in CAPS[1:] if k in caps)):
+        out.append("caps: {session_usd: <dollars>, max_depth: <hand-offs deep>, max_parallel: <at once>}")
     return out
 
 

@@ -4,7 +4,7 @@
 // the roles it can hold (a role it cannot hold says why as its title), the card's
 // `how` lines unfolded on click, "Use as default" (Setup's own save: setup/config
 // model) and, when it cannot orchestrate here but can be a coder, "Make it the coder lane" (R0b's
-// offer: POST models/lane writes the local-coder lineup and makes it active). 3.3.5.0 R3: the actions menu
+// offer: POST models/lane points roles.coder at it, a plain session; 3.6.0.0 R5c). 3.3.5.0 R3: the actions menu
 // (`local-model-acts`): Show, Load now / Unload, Make a tuned twin, Copy, Rename, Delete -- each row's title is
 // the `halo models` line that does the same; a host this Studio cannot control has them disabled with the reason.
 // 3.3.5.0 R4: "warm" / "cold (~N s to load)", "cache reused N %" and a card quirk ("re-reads the whole prompt every turn").

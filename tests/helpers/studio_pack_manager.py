@@ -93,7 +93,7 @@ def install(c, url, ctx) -> dict:
 def details(c, url, ctx) -> dict:
     w(c, f"{q('[data-testid=pm-details-body]')}?.dataset.id === 'doc-review'", 20)
     api = _text("[data-testid=pm-api]")  # 3.6.0.0: the range asserted, waited for (not a half-written row's "any")
-    out = {"api": w(c, f"/^1[.]4 to 1[.]9; /.test({api}) && {api}", 10, api), "requires": c.js(_text("[data-testid=pm-requires]")),
+    out = {"api": w(c, f"/^2[.]0 to 2[.]9; /.test({api}) && {api}", 10, api), "requires": c.js(_text("[data-testid=pm-requires]")),
            "contributes": c.js(_text("[data-testid=pm-contributes]")),
            "perms": c.js(f"{qa('[data-testid=pm-perm]')}.map((p) => p.dataset.name)")}
     press(c, q("[data-testid=pm-grant][data-name=bash]"))

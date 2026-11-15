@@ -6,7 +6,7 @@ underneath", R1's part: the Agent tool can spawn a crew agent by name).
     crew_specs(cwd, state_dir) -> {name: AgentSpec}: an enabled pack's, yours and this project's (a trusted folder)
 
 What the fields become: `uses` -> the tool list (read: Read, Glob, Grep; edit: Edit, Write, NotebookEdit; bash: Bash,
-PowerShell, BashOutput, TaskStop; web: WebFetch, WebSearch; skill:<n>: Skill with that skill; mcp:<server>: that
+PowerShell, BashOutput, TaskStop; web: WebFetch, WebSearch; fetch: WebFetch only; skill:<n>: Skill with that skill; mcp:<server>: that
 server's tools), `careful` -> the permission mode (ask-changes: default, ask-commands: acceptEdits, own: auto -- your
 deny and ask rules still hold), `model` (auto stays auto: models_auto picks per task), `more` -> max_turns, effort,
 its own worktree, offline (no web tools), the files it always reads (named in its instructions).
@@ -15,7 +15,8 @@ its own worktree, offline (no web tools), the files it always reads (named in it
 from __future__ import annotations
 
 TOOLS = {"read": ["Read", "Glob", "Grep"], "edit": ["Edit", "Write", "NotebookEdit"],
-         "bash": ["Bash", "PowerShell", "BashOutput", "TaskStop"], "web": ["WebFetch", "WebSearch"]}
+         "bash": ["Bash", "PowerShell", "BashOutput", "TaskStop"], "web": ["WebFetch", "WebSearch"],
+         "fetch": ["WebFetch"]}  # 3.6.0.0 R5c: open a page it is given, no search (a 1.x bio's tools.allow: [WebFetch])
 MODES = {"ask-changes": "default", "ask-commands": "acceptEdits", "own": "auto"}
 WEB = ("WebFetch", "WebSearch")
 

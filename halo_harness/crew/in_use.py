@@ -10,6 +10,8 @@ ask a few questions that a lineup or a bio answered on 3.5. This module answers 
                                                 agent's own model, `auto` (picked per task), `default` (main: the
                                                 session's model); a plain session's cards (auto / default). None
                                                 when the map cannot be read
+    session_table(name, cwd, state_dir)         R5c: role_table, and for a plain session your `roles.<name>` over its
+                                                cards (what a new session's agents run on: the adviser reads it)
     lanes(name, main_ref, cwd, state_dir) -> list   the local models of that table (local_sched/warm_set.lanes_of)
     agent(name, cwd, state_dir) -> dict | None  an agent as the fields the run engine and outcomes read: name, kind,
                                                 models {preference, needs}, prompt, tools, careful, acceptance
@@ -67,6 +69,22 @@ def role_table(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Optio
     for n, spec in c.specs.items():
         table[n] = spec.model or "auto"
     return table
+
+
+def session_table(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Optional[dict]:
+    """What a new session's agents run on (3.6.0.0 R5c, the adviser's question): the map's table, and for a plain
+    session each card's model under your `roles.<name>` (a card runs on its role's model when you set one: `halo
+    roles point`), plus the roles of your own the table does not name (`roles.verify`, `roles.judge`)."""
+    name = name or map_name(cwd)
+    table = role_table(name, cwd=cwd, state_dir=state_dir)
+    if table is None or not _is_plain(name, cwd):
+        return table
+    try:
+        from halo_harness.roles import configured_role_table
+        own = configured_role_table()
+    except Exception:
+        own = {}
+    return {**table, **{k: v for k, v in own.items() if k != "main" and v not in (None, "")}}
 
 
 def lanes(name: Optional[str] = None, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> list:

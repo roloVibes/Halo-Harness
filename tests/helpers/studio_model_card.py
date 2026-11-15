@@ -124,8 +124,10 @@ def setup_default(c, url, ctx) -> dict:
         c.js(f"{btn}?.click(); 1")
     out["setup_said"] = c.wait(f"{said}?.textContent", 20)
     from halo_harness.theme import get_config_value
-    out["team"], out["model"] = get_config_value("team", None), get_config_value("model", None)
+    out["team"], out["model"] = get_config_value("crew.map", None), get_config_value("model", None)
     out["coder_role"] = get_config_value("roles.coder", None)
+    from halo_harness.crew.in_use import main_model, map_name, session_table  # 3.6.0.0 R5c: what a new session runs on
+    out["runs"] = [map_name(), (session_table() or {}).get("coder"), main_model()]
     return out
 
 

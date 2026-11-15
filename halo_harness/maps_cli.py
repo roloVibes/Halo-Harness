@@ -64,6 +64,10 @@ def cmd_maps(argv) -> int:
         from halo_harness.crew.tools_show import studio_show
         print(studio_show({"what": "map", "name": args.name}, {"cwd": cwd, "state_dir": None})["text"])
         return 0
+    if not (args.off or args.none) and args.name:
+        args.name, said = store.resolve("map", args.name, cwd=cwd)  # 3.6.0.0 R5c: a pack's map named bare
+        if said:
+            print(said, file=sys.stderr)
     if not (args.off or args.none) and (not args.name or store.find("map", args.name, cwd=cwd) is None):
         print(f"halo maps use: no map named {args.name!r} (halo maps list)", file=sys.stderr)
         return 1

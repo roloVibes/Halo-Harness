@@ -20,7 +20,8 @@ A map file and the agent and workflow files it names compile to three things:
 3. **the agent specs** (`specs`): each agent file as the AgentSpec agent/subagent.py spawns (crew/spec.py), its
    `role` its own name, so an `auto` model is picked by models_auto with the agent's `needs` (`auto_needs`).
 
-`caps.session_usd` is the session's money cap. Every problem is a plain line: a missing agent or workflow, a file with
+`caps.session_usd` is the session's money cap; `caps.max_depth` / `caps.max_parallel` (3.6.0.0 R5c) how deep
+hand-offs nest and how many run at once (a knob you set yourself, `agents.max_depth` / `agents.max_concurrent`, wins). Every problem is a plain line: a missing agent or workflow, a file with
 problems, the map's own problems (the circle is named).
 """
 
@@ -50,6 +51,7 @@ class Compiled:
     agents: dict = field(default_factory=dict)     # agent name -> its file (clean)
     workflows: dict = field(default_factory=dict)  # workflow name -> its file (clean)
     cap_usd: Optional[float] = None
+    delegation: dict = field(default_factory=dict)  # 3.6.0.0 R5c: caps.max_depth / caps.max_parallel (a 1.x lineup's)
     problems: list = field(default_factory=list)
     source: str = ""                               # 3.6.0.0 R5: how it came to be in use: flag, config or default
 
@@ -166,10 +168,14 @@ def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None) -> Compi
                 out.chains.setdefault(str(ln.get("from")), []).append(e)
     cap = (raw.get("caps") or {}).get("session_usd") if isinstance(raw.get("caps"), dict) else None
     out.cap_usd = float(cap) if isinstance(cap, (int, float)) and not isinstance(cap, bool) else None
+    caps = raw.get("caps") if isinstance(raw.get("caps"), dict) else {}
+    out.delegation = {k: caps[k] for k in ("max_depth", "max_parallel")
+                      if isinstance(caps.get(k), int) and not isinstance(caps.get(k), bool) and caps[k] > 0}
     return out
 
 
 def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
+    name = store.resolve("map", name, cwd=cwd, state_dir=state_dir)[0]  # 3.6.0.0 R5c: a pack's map named bare
     got = store.find("map", name, cwd=cwd, state_dir=state_dir)
     if got is None:
         return Compiled(name=name, problems=[f"no map named {name} (yours, this project's or a starter)"])
@@ -195,13 +201,16 @@ def for_session(flag: Optional[str], *, cwd=None, state_dir=None) -> "tuple[Opti
     name, _source = in_use(flag, cwd)
     if not name:
         return None, []
+    name, said = store.resolve("map", name, cwd=cwd, state_dir=state_dir)  # 3.6.0.0 R5c: a 3.5 name typed bare
+    told = [said] if said else []
     c = compile_map(name, cwd=cwd, state_dir=state_dir)
     c.source = _source  # 3.6.0.0 R5: "default" -- no map was chosen, the starter runs (main's mode stays the session's)
     if not c.problems:
-        return c, []
+        return c, told
     lines = problem_lines(c)
     if name == DEFAULT_MAP:
-        return None, [lines[0].replace(f"runs on the map {DEFAULT_MAP}", "runs as with no map")] + lines[1:]
+        return None, told + [lines[0].replace(f"runs on the map {DEFAULT_MAP}", "runs as with no map")] + lines[1:]
+    lines = told + lines
     back = compile_map(DEFAULT_MAP, cwd=cwd, state_dir=state_dir)  # 3.6.0.0 R5: never a session on no map
     back.source = "default"
     return (None, lines) if back.problems else (back, lines)

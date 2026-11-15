@@ -420,18 +420,41 @@ Changed:
   none. `tests/test_crew_compile.py` pins it on the values recorded on 3.5.
 - **Local models follow the map**: `halo local warm` / `halo local place` take a map (the one in use when none is
   named), the swap preview and the steward's rules read its agents' models ("this map swaps 2x on one card"), and
-  Local's Delete names the agent files that use a model ("the model of agent `x`").
-- **The lane offer** ("keep it as the coder under a model that can"): writes a map and two agents and `halo maps use`
-  puts it in use, where it wrote a lineup.
-- **`/status`** says the map the session runs on; **`/workflows`** lists your workflows (read-only).
-- **Studio's file watcher** watches `~/.halo/crew/` (agents, workflows, maps) and a trusted project's `.halo/crew/`, so
-  an agent, workflow or map written in a terminal shows at once in the three tabs, and the model lookup's cache is
-  cleared on a change.
+  Local's Delete names the agent files that use a model ("the model of agent `x`"). For a plain home, a home on a map
+  of yours and the cold `halo local place`, every one of these answers what 3.5 answered (tests/test_crew_readers.py).
+- **Local's adviser** reads what a new session's agents run on: on a plain session your `roles.<name>` over its cards
+  (and your own roles, such as `roles.verify`), on a map its agents. It had gone quiet: it asked a lineup no session
+  reads any more.
+- **The lane offer** ("keep it as the coder lane under a model that can") keeps a plain session and points
+  `roles.coder` at the model, main moving to the orchestrator: "fix" and "implement" go to that coder, two hand-offs
+  deep, every spawn as before -- what 3.5's lane lineup did. A map you had put in use is taken out of use, with the
+  command that brings it back. `halo config set model` names the two commands and writes nothing.
+- **Local's "Assign <role> to <model>"** writes `roles.<role>` and nothing else; **"Save as role template"** writes the
+  agent `local-<preset>` on the model you picked (with no model it says so in one line). Neither writes a lineup,
+  copies Halo's lineups into `~/.halo/teams` or names a retired command any more.
+- **`/status`** says the map the session runs on; **`/workflows`** lists what the Workflow tool lists: the workflows it
+  runs by name (yours, the project's, an enabled pack's) and the squares it enables. A pack's workflow runs by name too.
+- **Studio's file watcher** watches `~/.halo/crew/` (agents, workflows, maps) and, in a trusted folder only, the
+  project's `.halo/crew/`, so an agent, workflow or map written in a terminal shows at once in the three tabs, and the
+  model lookup's cache is cleared on a change.
+- **Orchestra stops a goal whose map does not exist** before it starts (one line naming the maps here), as 3.5 stopped
+  a goal whose lineup did not resolve.
+- **Old files**: every version of every lineup, bio and square Halo ever copied into a home is known as Halo's own
+  (`crew/old_stock.txt`, written from git history by `scripts/old_stock.py`), so a long-time user's untouched copies
+  are never named as theirs.
 - **Extension API 2.0** (`halo_harness.ext.API_VERSION`): a pack ships `crew/agents`, `crew/workflows` and
   `crew/maps`, read in place as `<pack>--<name>` (sessions spawn its agents, `halo maps use` takes its maps, the
   Workflow tool runs its workflows). A 1.x pack still installs and runs: its bios are read as agents, its lineups as
-  maps and its plain workflows as workflows; `halo pack list` and `halo pack doctor` say in one line what is not
-  carried. The doc-review pack ships its crew in 2.0 files. docs/EXTENSION_API.md "A pack's crew"; docs/MOVING-from-3.5.md.
+  maps (Halo's own bio names such as `default-model` and `auto-coder` read as the starters that do that job, `extends:`
+  followed, its `delegation` as the map's depth and parallel caps) and its plain workflows as workflows; a bio allowed
+  WebFetch alone gets WebFetch alone (`uses: [fetch]`); a workflow that is not plain still runs on the run engine
+  (`halo orchestra new --workflow`). `halo pack list` counts the agents, maps and workflows a pack gives, says "made for
+  extension API 1.x; read by this Halo's 2.0 as 1.x" on its line, and with `halo pack doctor` says in one line what is
+  not carried (a lineup naming an agent nobody has is named with why). A 3.5 name typed bare (`--map hunt`, `halo maps
+  use hunt`, `--agent scout`) reads the one enabled pack's `<pack>--hunt` with a line naming it; `--team hunt` and a
+  config `team: hunt` name the exact command. `ext.compatible` now tells the truth for a capped range;
+  `ext.reads_as_1x` says a 1.x pack loads anyway. The doc-review pack ships its crew in 2.0 files.
+  docs/EXTENSION_API.md "A pack's crew"; docs/MOVING-from-3.5.md.
 
 ## [3.5.0.0] - 2026-11-13
 

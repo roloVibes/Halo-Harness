@@ -145,7 +145,7 @@ def test_doctor_and_the_list_say_which_squares_are_on(ctx: Ctx):
             "Squares for lineup none: none (the lineup's own `workflows:`), so the Workflow tool is not offered"))
         keys = [k for k, _line in rows(h.repo)]
         ctx.check(f"doctor: the lineup, then its squares, got {keys}", keys == ["lineup", "lineup_squares"])
-        set_config_value("team", "own")
+        set_config_value("workflows.enabled", ["plan"])  # 3.6.0.0 R5c: the session's set is config's (no `team:`)
         import contextlib
         import io
         from halo_harness.workflows.squares_cli import cmd_workflows
@@ -153,9 +153,9 @@ def test_doctor_and_the_list_say_which_squares_are_on(ctx: Ctx):
         with contextlib.redirect_stdout(buf):
             code = cmd_workflows(["list", "--repo", str(h.repo)])
         out = buf.getvalue()
-        ctx.check(f"list: on for the lineup, off for the rest, got {out[:400]!r}", code == 0
-                  and "plan" in out and "-- on for own" in out and "-- off" in out
-                  and "Squares for lineup own: plan" in out)
+        ctx.check(f"list: on for the session's set, off for the rest, got {out[:400]!r}", code == 0
+                  and "plan" in out and "-- on for auto" in out and "-- off" in out
+                  and "Squares for lineup auto: plan" in out)
 
 
 if __name__ == "__main__":

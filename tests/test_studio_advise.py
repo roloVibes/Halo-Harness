@@ -1,5 +1,5 @@
 """tests.test_studio_advise -- Halo 3.3.7.0 R4, Local -> Models' Adviser and the guards' lines in headless Chrome
-through tests/helpers/studio_advise.py (skipped without one), over R1's seeded home with a lineup whose coder and verify
+through tests/helpers/studio_advise.py (skipped without one), over R1's seeded home with a plain session whose roles.coder and roles.verify
 are one family, two more models on box and an unexplained model in box's /api/ps; no provider request, no model call:
 
 1. the Adviser lists its suggestions by kind (mismatch, overlap, freshness), each with one button and its CLI line;

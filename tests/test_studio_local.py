@@ -116,8 +116,11 @@ def test_the_models_page_and_the_intent_filter(ctx: Ctx):
     lanes = got.get("lane_buttons") or []
     ctx.check(f"the coder lane offered where the model cannot orchestrate but can code (not the embedding model), got {lanes}",
               "qwen3-coder:30b" in lanes and "nomic-embed-text" not in lanes)
-    ctx.check(f"the button writes the lineup and the main model, got {got.get('lane_said')!r} {got.get('lane_config')}",
-              "local-coder" in str(got.get("lane_said")) and got.get("lane_config") == ["local-coder", "ol:qwen3.5:9b@box"])
+    ctx.check(f"the button points roles.coder and moves main, got {got.get('lane_said')!r} {got.get('lane_config')}",
+              str(got.get("lane_said")).startswith("roles.coder = ol:qwen3-coder:30b@box")
+              and got.get("lane_config") == ["ol:qwen3-coder:30b@box", "ol:qwen3.5:9b@box"])
+    ctx.check(f"a new session runs a plain map, its coder on the model and main on the orchestrator, got {got.get('lane_runs')}",
+              got.get("lane_runs") == ["starter", "ol:qwen3-coder:30b@box", "ol:qwen3.5:9b@box"])
 
 
 if __name__ == "__main__":

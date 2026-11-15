@@ -2,7 +2,7 @@
 // resident models: every filter is worked out against it and reads again when the host or the window moves), the
 // preset buttons (Coder, Reasoner / planner, Bulk worker, Compactor, Verifier, Security / pentest, Multimodal,
 // Embeddings, Offline-only), and the bundle of the preset on show, expanded and editable -- each need at its truth
-// floor, each fit and supply value removable -- with Save as role template (a `local-<preset>` lineup).
+// floor, each fit and supply value removable -- with Save as role template (the agent `local-<preset>` on a picked model; 3.6.0.0 R5c).
 import { Button } from "../../lib/ui";
 import { applyPreset, editBundle, useLib } from "./libstore";
 import type { Bundle, Strip } from "./types";
@@ -75,7 +75,7 @@ function BundleView({ b }: { b: Bundle }) {
       {b.id && b.id !== "pool" && (
         <div className="ls-save">
           <Button size="sm" onClick={() => void saveTemplate(b.id, { needs, fit, supply })} data-testid="local-save-template"
-                  title={`write these filters as the lineup local-${b.id} (main and the ${b.lineup_role || "search"} role; not active until halo teams apply)`}>
+                  title={`write the agent local-${b.id} on the model you picked for the ${b.lineup_role || "search"} role (pick a model first: Download and verify a row)`}>
             Save as role template
           </Button>
           {saved && <span className="mono lc-said" data-ok={saved.ok || undefined} data-testid="local-save-template-said">{saved.text}</span>}

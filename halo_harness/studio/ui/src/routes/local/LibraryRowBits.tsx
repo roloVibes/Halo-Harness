@@ -95,7 +95,7 @@ export function VerifyBits({ row }: { row: LibRow }) {
           <span className="mono">{job.offer.line}</span>
           {job.offer.ok && !assigned?.ok && (
             <Button size="sm" variant="primary" onClick={() => void assignRole(job)} data-testid="local-library-assign"
-                    title={`the lineup's ${job.offer.role} role gets ${job.offer.ref} (the halo teams path)`}>Assign</Button>
+                    title={`roles.${job.offer.role} = ${job.offer.ref} (as halo roles point; nothing else is written)`}>Assign</Button>
           )}
           {assigned && <span className="mono lc-said" data-ok={assigned.ok || undefined} data-testid="local-library-assigned">{assigned.text}</span>}
         </span>

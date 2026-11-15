@@ -34,6 +34,9 @@ from tests.test_subagent_e2e import (_general_purpose_spec, _new_session,
 
 test, TESTS = new_registry()
 
+from halo_harness.agent import subagent as _subagent  # noqa: E402
+_REAL_ACCEPTANCE = _subagent._return_acceptance_for  # 3.6.0.0 R5c: the real source, before any test puts its seam in
+
 _LAST_NODES: list = [[]]
 
 
@@ -204,6 +207,53 @@ def test_no_acceptance_block_is_the_old_path(ctx: Ctx):
             ctx.check("no criteria -> accepted (ok=True), same as the old path",
                       nodes[0].get("ok") is True)
     finally:
+        mock.stop()
+        SCENARIOS.pop("acc-parent", None)
+        SCENARIOS.pop("acc-child", None)
+
+
+@test
+def test_a_routed_plain_card_is_held_to_its_own_acceptance(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S8): no seam -- the real source. A plain session routes "implement ..." to its coder card
+    (crew/plain.py); the gate checks the hand-back against the card's own acceptance (templates/crew/plain/session.yaml:
+    expect non-empty) and records the verdict in the task meta; a call no card claims ("do the work") has no gate. (A
+    hand-back that fails `non-empty` is an empty completion, which the provider layer already turns into an error, so
+    the retry itself is pinned through the seam above.)"""
+    from halo_harness.agent import subagent
+    mock = MockUpstream().start()
+    held = subagent._return_acceptance_for
+    subagent._return_acceptance_for = _REAL_ACCEPTANCE
+    metas = {}
+    try:
+        for word, prompt in (("routed", "implement the retry in client.py"), ("unrouted", "do the work")):
+            SCENARIOS["acc-parent"] = ScriptedTurns([
+                _tool_call_step("Task", {"description": prompt, "prompt": prompt, "subagent_type": "general-purpose",
+                                         "model": "or:mock/acc-child"}),
+                _text_step("parent saw the result"),
+            ])
+            SCENARIOS["acc-child"] = _child_scenario("the retry is in client.py now", "SHOULD NEVER BE SENT")
+            cwd = Path(tempfile.mkdtemp(prefix=f"acc-plain-{word}-"))
+            session = _new_session(mock=mock, model="or:mock/acc-parent", cwd=cwd,
+                                   agents={"general-purpose": _general_purpose_spec()})
+            from halo_harness.crew.plain import load as plain  # the e2e rig is a bare session: give it the control a
+            session.team_control = session.agent_runtime.team_control = plain()  # plain one holds (crew/plain.py)
+            _drain(session, "delegate it")
+            folder = session.log.dir / session.log.session_id / "subagents"
+            found = []
+            for f in sorted(folder.glob("*.json")):
+                try:
+                    found.append(json.loads(f.read_text(encoding="utf-8")))
+                except (OSError, ValueError):
+                    continue
+            metas[word] = [m for m in found if isinstance(m, dict) and m.get("status") == "completed"]
+        ctx.check("the real source answered (no seam in place)", subagent._return_acceptance_for is _REAL_ACCEPTANCE
+                  and not getattr(_REAL_ACCEPTANCE, "_seam", False))
+        ctx.check(f"the routed card's hand-back went through its acceptance and was accepted, got {metas.get('routed')}",
+                  len(metas.get("routed") or []) == 1 and metas["routed"][0].get("accepted") is True)
+        ctx.check(f"a call no card claims has no gate (no verdict), got {metas.get('unrouted')}",
+                  len(metas.get("unrouted") or []) == 1 and "accepted" not in metas["unrouted"][0])
+    finally:
+        subagent._return_acceptance_for = held
         mock.stop()
         SCENARIOS.pop("acc-parent", None)
         SCENARIOS.pop("acc-child", None)

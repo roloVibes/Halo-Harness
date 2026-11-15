@@ -34,9 +34,9 @@ Studio route; never a model call:
 | `POST local/library/refresh` | the library's cache dropped: the next read is live |
 | `GET local/library?...&preset=&for_role=&ask=&need=tools=declared,coder&exclude_crashed=1&edited=1&<fit and supply filters>` | 3.3.6.0 R2: the search (`studio/local_search_api.spec_of`): the rows ranked with their facts, cost and verdicts, and `search`, `presets`, `strip` |
 | `GET local/library/presets` | the nine presets, each bundle expanded |
-| `POST local/library/template {preset, model?, lineup?, bundle?}` | Save as role template: `local-<preset>`, or the role entry of the lineup named |
+| `POST local/library/template {preset, model?, bundle?}` | Save as role template: the agent `local-<preset>` (agent/1, `~/.halo/crew/agents/`) on the model; refused in one line with no model (3.6.0.0 R5c) |
 | `POST local/library/verify {host, name, role?}`, `GET local/library/verifies` | Download and verify (`studio/local_verify_job.py`); its jobs |
-| `POST local/library/assign {role, ref, lineup?}` | the role offer accepted: the lineup's role gets the model |
+| `POST local/library/assign {role, ref}` | the role offer accepted: `roles.<role>` = the model, nothing else (3.6.0.0 R5c) |
 | `GET local/crashes?host=` | the crash fingerprints (`ollama_steward/fingerprints.py`) |
 | `GET local/host/<name>/log?n=200&kind=all\|fit\|headroom\|truncation\|failure` | 3.3.6.0 R3: the bounded tail, each line's group and time, its source, `cli` and `tail_cli` |
 | `GET local/host/<name>/log/status`, `GET local/host/<name>/log/models` | the log status (`ollama_steward/log_status.py`); per model the last load, this session's cuts, the errors, the crash |

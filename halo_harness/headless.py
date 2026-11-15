@@ -745,6 +745,30 @@ class SessionBuild:
     pre_existing_log_size: int = 0
 
 
+
+def _agent_by_old_name(agent: str, discovered: dict, cwd) -> str:
+    """3.6.0.0 R5c: `--agent <name>` that no agent file of yours, the project's or a pack's has. A 3.5 name: exactly one
+    enabled pack's `<pack>--<name>` (one line names it; several: one line lists them), else the starter agent of that
+    name (3.5's shipped bios coder / reviewer / researcher ... ran as `--agent`; an Orchestra lane's worker still asks
+    for them), added to `discovered`. Returns the name to run."""
+    packed = sorted(n for n in discovered if "--" in n and n.split("--", 1)[1] == agent)
+    if len(packed) == 1:
+        print(f"halo: agent {agent} is {packed[0]} (an enabled pack's; its full name from now on)", file=sys.stderr)
+        return packed[0]
+    if len(packed) > 1:
+        print(f"halo: agent {agent} could be {', '.join(packed)}: name one in full", file=sys.stderr)
+        return agent
+    try:
+        from halo_harness.crew import store
+        from halo_harness.crew.formats import agent_problems
+        from halo_harness.crew.spec import agent_spec as _spec
+        body = store.load("agent", agent, cwd=cwd, scope="starter")
+        if body is not None and not agent_problems(store.clean(body), name=agent):
+            discovered[agent] = _spec(store.clean(body), source="crew:starter")
+    except Exception:
+        pass
+    return agent
+
 def build_session(
     *, cwd: Path, model_ref_raw: Optional[str] = None, small_model_ref_raw: Optional[str] = None,
     settings_flag: Optional[str] = None, setting_sources: Optional[list] = None,
@@ -1386,6 +1410,8 @@ def build_session(
     # `Registry.discover` below).
     discovered_agents = {} if bare else discover_agents(cwd, settings=settings, agents_flag=agents_flag,
                                                           plugin_roots=(plugin_roots or None))
+    if agent and not bare and agent not in discovered_agents:
+        agent = _agent_by_old_name(agent, discovered_agents, cwd)  # 3.6.0.0 R5c: a pack's or a starter's, named bare
     agent_spec = discovered_agents.get(agent) if agent else None
     agent_type_restriction = None
     if agent_spec is not None:
@@ -1414,8 +1440,12 @@ def build_session(
     # the session runs on the map in use (`--map <name>` picks one for this run).
     _team_name_for_session = None
     if (cli_flags or {}).get("team") and not bare:
+        from halo_harness.crew.old_files import pack_maps
+        _packed = pack_maps(str(cli_flags["team"]), cwd=cwd)  # 3.6.0.0 R5c: a pack lineup's name: its map now
+        _pick = (f"--map {_packed[0]} runs it" if len(_packed) == 1 else
+                 f"--map one of {', '.join(_packed)}" if _packed else "--map <name> picks one; halo maps list")
         print(f"halo: --team is gone (lineups are gone): this session runs on the map "
-              f"{getattr(_crew_map, 'name', None) or 'in use'} (--map <name> picks one; halo maps list)", file=sys.stderr)
+              f"{getattr(_crew_map, 'name', None) or 'in use'} ({_pick})", file=sys.stderr)
     # 3.1.8.0 R5: `tools.capabilities` of the lineup's main (or the --agent bio, or the run that started this
     # worker) narrows the registry before the model sees it; nothing declared, nothing changes (docs/ISOLATION.md).
     from halo_harness.isolation.capabilities import narrow_session

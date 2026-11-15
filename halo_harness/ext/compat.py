@@ -6,7 +6,9 @@ The policy, as this module applies it:
 - The API version is MAJOR.MINOR (`API_VERSION`, "2.0" since Halo 3.6.0.0; "1.5" in 3.6.0.0's first rounds; "1.4" since 3.5.0.0; "1.3" since 3.4.0.0; "1.2" since 3.3.13.0; "1.1" since 3.3.10.0). A minor version only
   adds names: every name keeps its meaning for every later minor of the same
   major. A major version may remove a name, and only one `deprecations()` has
-  listed for at least one minor version before it.
+  listed for at least one minor version before it -- or, as 2.0 did with the crew
+  names (lineups, bios, squares left Halo whole), one it keeps READING for the
+  packs of the major before (`reads_as_1x`), so no pack that ran goes silent.
 - A pack states `halo_api: {min, max}`. `min` is required; `max` is inclusive
   at its own precision (`max: "1.9"` takes 1.9.4). Without `max` a pack runs on
   its `min`'s major only: `{min: "1.0"}` runs on every 1.x and not on 2.0.
@@ -23,9 +25,14 @@ The policy, as this module applies it:
   pack workflow as a session's workflow. A 1.x pack (min 1.0 or later) still runs on 2.0: everything that is not crew
   runs unchanged, and its bios, lineups and plain workflows are read as agents, maps and workflows where the meaning is
   clear (packs/crew_v1.py); what is not carried is one line in `halo pack list` and `halo pack doctor`.
+  3.6.0.0 R5c: `compatible` tells the truth for every range (a pack capped at 1.2 is not compatible with 2.0, nor is
+  `{min: "1.0"}`); whether such a pack loads is `reads_as_1x`: a 1.x pack on a 2.x Halo does, through the 1.x reader,
+  and `halo pack list` says so on its line (`made_for_line`).
 
     api_version()                           "2.0"
-    compatible({"min": "1.0", "max": "1.9"})   True on this Halo (a 1.x pack runs on 2.0, its crew read as 2.0's)
+    compatible({"min": "1.0", "max": "1.9"})   False on this Halo (2.0 is past 1.9)
+    reads_as_1x({"min": "1.0", "max": "1.2"})  True on this Halo: it loads, its crew read as 2.0's
+    made_for_line({"min": "1.4", "max": "1.9"}) "made for extension API 1.4 to 1.9; read by this Halo's 2.0 as 1.x: ..."
     compatible({"min": "2.0"}, "3.0")       False: a new major
     range_words({"min": "1.2"})             "1.2 or a later 1.x"
     deprecations()                          [{name, since, removed_in, use}]; empty in 1.0
@@ -108,19 +115,37 @@ def _major(version) -> Optional[int]:
 
 def compatible(rng, version=None) -> bool:
     """True when the API `version` (default this Halo's) is inside a pack's `halo_api` range under the policy:
-    `min <= version <= max`, and with no `max`, the same major as `min`. 2.0 also runs a 1.x pack (its crew read as
-    2.0's, packs/crew_v1.py)."""
+    `min <= version <= max`, and with no `max`, the same major as `min`. The truth for every range (3.6.0.0 R5c, the
+    judge's S9: a capped 1.x range is not compatible with 2.0); whether a 1.x pack still loads is `reads_as_1x`."""
     from halo_harness.packs import semver as V
     version = str(version if version is not None else api_version())
     if not isinstance(rng, dict) or V.range_problem(rng) or V.release(version) is None:
         return False
-    if _major(version) == 2 and rng.get("min") is not None and _major(rng["min"]) == 1:
-        return True
     if not V.in_range(version, rng):
         return False
     if rng.get("max") is None and rng.get("min") is not None:
         return _major(version) == _major(rng["min"])
     return True
+
+
+def reads_as_1x(rng, version=None) -> bool:
+    """3.6.0.0 R5c: a pack made for API 1.x (its `min` a 1.x) that a 2.x Halo does not call compatible still loads:
+    its non-crew parts as before, its bios / lineups / plain workflows read as agents / maps / workflows
+    (packs/crew_v1.py). A pack that worked on 3.5 never goes silent."""
+    from halo_harness.packs import semver as V
+    version = str(version if version is not None else api_version())
+    if not isinstance(rng, dict) or V.range_problem(rng) or V.release(version) is None or rng.get("min") is None:
+        return False
+    return _major(version) == 2 and _major(rng["min"]) == 1 and not compatible(rng, version)
+
+
+def made_for_line(rng, version=None) -> str:
+    """"" for a compatible pack; for one `reads_as_1x` loads, what its `halo pack list` line says."""
+    version = str(version if version is not None else api_version())
+    if not reads_as_1x(rng, version):
+        return ""
+    return (f"made for extension API {range_words(rng)}; read by this Halo's {version} as 1.x: its bios, lineups and "
+            "plain workflows as agents, maps and workflows")
 
 
 def range_words(rng) -> str:
@@ -137,4 +162,5 @@ def deprecations() -> "list[dict]":
              "use": str(info.get("use") or "")} for name, info in sorted(DEPRECATED.items())]
 
 
-__all__ = ["DEPRECATED", "CHANGES", "api_version", "compatible", "range_words", "deprecations"]
+__all__ = ["DEPRECATED", "CHANGES", "api_version", "compatible", "reads_as_1x", "made_for_line", "range_words",
+           "deprecations"]

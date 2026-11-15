@@ -84,8 +84,20 @@ def team_line() -> str:
         return ""
     if not (isinstance(team, str) and team.strip()):
         return ""
-    return (f"Your config sets team: {team.strip()}, which no session reads any more (lineups are gone): pick a map with "
-            "halo maps use <name>, and clear the old key with halo config set team null.")
+    got = pack_maps(team.strip())  # 3.6.0.0 R5c: a pack lineup's name: the map it reads as now
+    use = (f"halo maps use {got[0]}" if len(got) == 1 else
+           f"halo maps use one of {', '.join(got)}" if got else "pick a map with halo maps use <name>")
+    return (f"Your config sets team: {team.strip()}, which no session reads any more (lineups are gone): {use}, "
+            "and clear the old key with halo config set team null.")
+
+
+def pack_maps(name: str, cwd=None, state_dir=None) -> list:
+    """The enabled packs' maps `<pack>--<name>` a 3.5 lineup name reads as now ([] when none, or the packs cannot be read)."""
+    try:
+        from halo_harness.crew.store import pack_match
+        return pack_match("map", name, cwd=cwd, state_dir=state_dir)
+    except Exception:
+        return []
 
 
 def found(cwd=None, state_dir=None) -> "tuple[list, int]":

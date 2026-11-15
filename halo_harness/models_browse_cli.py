@@ -4,14 +4,13 @@
                        [--intent code|chat|docs|images|embed] [--family F] [--quant Q] [--cap C] [--max-gb N]
                        [--license L] [--limit N] [--why] [--refresh] [--json] [query...]
                        3.3.6.0 R2: [--preset P] [--need cap[=verified|declared|expected|any]]... [--for-role ROLE]
-                       [--ask "a local coder that can use tools"] [--exclude-crashed] [--save-template [--model M]
-                       [--lineup L]]
+                       [--ask "a local coder that can use tools"] [--exclude-crashed] [--save-template --model M]
     halo models browse <source>/<id>     one model's tags (ollama/qwen3.5) or one repo's files (hf/<org>/<repo>)
 
 3.3.6.0 R2: each capability carries its truth mark -- ✓ verified (probed here), ◇ declared (metadata), ≈ expected
 (the family, size or name), ? needs a probe; `--why` adds each row's rank line, its two verdicts and its cost
-preview (models_library/search.py). `--save-template` writes the preset as a `local-<preset>` lineup (or the role
-entry of `--lineup`).
+preview (models_library/search.py). `--save-template --model M` writes the agent `local-<preset>` on M (3.6.0.0 R5c:
+an agent file, where it was a lineup; models_library/presets_save.py).
 
 Each row: the fit word on the host (fits / tight / spill / no / ?), the name and tag or file, its size on disk,
 the card's chips, and the pull line (nothing is pulled here: 3.3.5.0 R3). The same rows as Studio's Local ->
@@ -50,12 +49,12 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--preset", default="", help="coder | reasoner | bulk | compactor | verifier | security | multimodal | "
                    "embeddings | offline: the preset's filter bundle")
     p.add_argument("--need", action="append", default=[], help="cap[=verified|declared|expected|any], repeatable")
-    p.add_argument("--for-role", default="", help="a lineup role (verify, coder, planner ...): its preset")
+    p.add_argument("--for-role", default="", help="a role (verify, coder, planner ...): its preset")
     p.add_argument("--ask", default="", help='a plain sentence: "a local coder that can use tools"')
     p.add_argument("--exclude-crashed", action="store_true", help="grey the models that crashed on this host, put them last")
-    p.add_argument("--save-template", action="store_true", help="write --preset as a role template (a lineup)")
+    p.add_argument("--save-template", action="store_true", help="write --preset as the agent local-<preset> on --model")
     p.add_argument("--model", default="", help="with --save-template: the model the role gets")
-    p.add_argument("--lineup", default="", help="with --save-template: put the role in this lineup instead")
+    p.add_argument("--lineup", default="", help=argparse.SUPPRESS)
     return p
 
 

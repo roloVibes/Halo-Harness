@@ -59,7 +59,7 @@ def test_the_roles_picker_rows_carry_the_card_and_the_meter(ctx: Ctx):
 
 
 @test
-def test_setup_default_model_shows_the_card_and_the_offer_writes_the_lineup(ctx: Ctx):
+def test_setup_default_model_shows_the_card_and_the_offer_points_the_coder(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Setup's rows carry takes tags and meters, got {got.get('setup_chips')} {got.get('setup_levels')}",
               len(got.get("setup_chips") or []) == 3 and all(got.get("setup_chips") or [""])
@@ -67,11 +67,13 @@ def test_setup_default_model_shows_the_card_and_the_offer_writes_the_lineup(ctx:
     ctx.check(f"the one plain line, got {got.get('setup_line')!r}", got.get("setup_line") == LINE)
     ctx.check(f"the offer names the orchestrator, got {got.get('setup_offer')!r}",
               got.get("setup_offer") == "Keep it as the coder lane under ol:qwen3.8:27b")
-    ctx.check(f"the button wrote the lineup and moved main, got {got.get('setup_said')!r}",
-              (got.get("setup_said") or "").startswith("lineup 'local-coder' applied"))
-    ctx.check(f"active, the coder role on the model, main on the orchestrator, got {got.get('team')} {got.get('coder_role')} "
-              f"{got.get('model')}", got.get("team") == "local-coder" and got.get("coder_role") == "ol:qwen3-coder:30b"
-              and got.get("model") == "ol:qwen3.8:27b")
+    ctx.check(f"the button pointed roles.coder and moved main, got {got.get('setup_said')!r}",
+              (got.get("setup_said") or "").startswith("roles.coder = ol:qwen3-coder:30b"))
+    ctx.check(f"no map put in use, the coder role on the model, main on the orchestrator, got {got.get('team')} "
+              f"{got.get('coder_role')} {got.get('model')}", got.get("team") is None
+              and got.get("coder_role") == "ol:qwen3-coder:30b" and got.get("model") == "ol:qwen3.8:27b")
+    ctx.check(f"a new session: the plain map, its coder on the model, main on the orchestrator, got {got.get('runs')}",
+              got.get("runs") == ["starter", "ol:qwen3-coder:30b", "ol:qwen3.8:27b"])
 
 
 @test

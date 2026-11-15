@@ -88,7 +88,7 @@ class PoolWatchDriver(Driver):
             if not got.get("ok"):
                 raise RuntimeError(f"the pool did not warm: {got.get('lines')}")
             write(rig.peer, "pooled", {"worker": "ol:qwen3.8:27b@pc"})
-            set_config_value("team", "pooled")
+            set_config_value("crew.map", "pooled")  # 3.6.0.0 R5c: the map in use (config `team:` is read by nobody)
 
             def degrade() -> None:
                 r = launch.run(rig.peer)

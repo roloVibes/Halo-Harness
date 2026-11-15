@@ -121,7 +121,7 @@ def test_the_librarys_pool_preset(ctx: Ctx):
         ctx.check("another preset keeps its rows (no pool rows)", s == 200 and not any(r.get("pool") for r in got["rows"]))
         s, got = _api(h.state, "POST", "local/library/template", {"preset": "pool"})
         ctx.check(f"Save as role template refuses Pool with one line, got {s} {got}", s != 200
-                  and "fills no lineup role" in str(got))
+                  and "fills no role" in str(got))  # 3.6.0.0 R5c: no lineup words (M1)
 
 
 if __name__ == "__main__":

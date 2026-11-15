@@ -115,8 +115,18 @@ class MapControl(NoRules):
     def targets(self) -> list:
         return list(self.map.handoffs)
 
-    def yields_to(self, _key: str) -> bool:
-        return True
+    @property
+    def delegation(self) -> dict:
+        """3.6.0.0 R5c: the map's `caps.max_depth` / `caps.max_parallel` ({} when it sets none)."""
+        return dict(getattr(self.map, "delegation", None) or {})
+
+    def yields_to(self, key: str) -> bool:
+        """A knob you set yourself (`agents.max_depth`, `agents.max_concurrent`) wins over the map's caps."""
+        from halo_harness.theme import get_config_value
+        try:
+            return get_config_value(key, default=None) is not None
+        except Exception:
+            return True
 
     @property
     def cap_usd(self) -> Optional[float]:
