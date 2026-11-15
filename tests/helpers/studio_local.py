@@ -14,7 +14,6 @@ model call:
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
-import json
 import shutil
 import sys
 import time
@@ -28,6 +27,7 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, alt, q, qa  # noqa: E402
 from tests.helpers.studio_settings import press  # noqa: E402
+from tests.helpers.config_read import config_json  # noqa: E402
 
 OPEN = "[document.querySelectorAll('[data-testid=section-help]').length, document.querySelectorAll('[role=dialog]').length]"
 PAGE = "(document.querySelector('[data-testid=local-page]')?.dataset.page || '')"
@@ -45,7 +45,7 @@ def card(name: str, inner: str = "") -> str:
 
 
 def config(ctx) -> dict:
-    return json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))
+    return config_json(ctx["state"])
 
 
 def alt9(c, url, ctx) -> dict:

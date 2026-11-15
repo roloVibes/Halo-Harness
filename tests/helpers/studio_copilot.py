@@ -15,7 +15,6 @@ real browser: `HALO_NO_BROWSER=1` stays set):
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import sys
@@ -32,6 +31,7 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_packs_steps import q, qa  # noqa: E402
 from tests.helpers.studio_setup_pages import OPEN, goto  # noqa: E402
 from tests.helpers.studio_setup_providers import fill, press  # noqa: E402
+from tests.helpers.config_read import config_json  # noqa: E402
 
 CARD = "[data-testid=setup-copilot]"
 MARK = f"({q('[data-testid=setup-copilot-mark]')}?.textContent || '')"
@@ -70,7 +70,7 @@ def configure(c, url, ctx) -> dict:
     out = {"tenant_by": fill(c, "copilot", "tenant", TENANT), "app_by": fill(c, "copilot", "client_id", CLIENT_ID)}
     out["save_by"] = press(c, "copilot", f"{STATUS}.includes('tenant: {TENANT}')")
     out["status1"] = c.js(STATUS)
-    cfg = json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))
+    cfg = config_json(ctx["state"])
     out["config"] = cfg.get("copilot")
     return out
 

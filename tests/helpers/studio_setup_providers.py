@@ -133,7 +133,7 @@ def local(c, url, ctx) -> dict:
     except TimeoutError:
         c.js(f"{btn}?.click(); 1")
         c.wait(f"!!{q('[data-testid=setup-card-lines][data-card=local-runtime]')}", 15)
-    cfg = json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))
+    cfg = config_json(ctx["state"])
     out["runtime_config"] = (cfg.get("huggingface") or {}).get("preferred_runtime")
     out["dirs_config"] = (cfg.get("huggingface") or {}).get("model_dirs")
     return out
@@ -141,5 +141,6 @@ def local(c, url, ctx) -> dict:
 
 # 3.3.0.0 R5: Find, Add, the Models panel and Measure run right after the Ollama host step
 from tests.helpers.studio_setup_discover import STEPS as DISCOVER_STEPS  # noqa: E402
+from tests.helpers.config_read import config_json  # noqa: E402
 
 STEPS = (providers, ollama, *DISCOVER_STEPS, local)

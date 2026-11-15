@@ -17,7 +17,6 @@ The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No mod
 """
 from __future__ import annotations
 
-import json
 import sys
 import time
 from contextlib import contextmanager
@@ -28,6 +27,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
+from tests.helpers.config_read import config_json  # noqa: E402
 
 Q = "document.querySelector"
 QA = "document.querySelectorAll"
@@ -83,7 +83,7 @@ def setting(c, rig) -> dict:
     c.click_on(f"{Q}('[data-testid=\"settings-alerts-choice\"][data-id=\"browser\"]')")
     c.wait(f"{block}.dataset.choice === 'browser' && {Q}('[data-testid=\"settings-alerts-state\"]')?.dataset.state === 'ready'", 20)
     out["asked_after_click"] = c.js("window.__asks.length")
-    cfg = json.loads((rig.state / "config.json").read_text(encoding="utf-8"))
+    cfg = config_json(rig.state)
     out["saved"] = (cfg.get("studio") or {}).get("alerts")
     out["state_line"] = c.js(f"{Q}('[data-testid=\"settings-alerts-state\"]').textContent")
     return out

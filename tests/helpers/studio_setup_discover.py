@@ -19,11 +19,11 @@ GPU-memory estimate), so no model loads:
 """
 from __future__ import annotations
 
-import json
 import time
 from types import SimpleNamespace
 
 from tests.helpers.studio_packs_steps import CUR, alt, q, qa
+from tests.helpers.config_read import config_json
 
 OTHER = {"models": [{"name": "llama3.2:3b", "model": "llama3.2:3b", "size": 2000, "digest": "sha256:feed1",
                      "details": {"family": "llama"}}]}
@@ -105,7 +105,7 @@ def _steps(c, ctx, rig) -> dict:
     out["hosts_rows"] = c.js(f"{hosts_rows}.map((r) => [...r.querySelectorAll('td')].slice(0, 3).map((t) => t.textContent))")
     out["configured_after"] = c.wait(f"{qa('[data-testid=setup-found-configured]')}.length === 2 && 2", 10)
     out["add_lines"] = c.js(f"{q('[data-testid=setup-card-lines][data-card=ollama-found]')}?.textContent || ''")
-    cfg = json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))
+    cfg = config_json(ctx["state"])
     out["hosts_config"] = [[h.get("name"), h.get("url"), h.get("default")] for h in (cfg.get("ollama") or {}).get("hosts", [])]
     names = [h[0] for h in out["hosts_config"][1:]]
     out["added_names"] = names

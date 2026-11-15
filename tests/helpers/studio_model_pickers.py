@@ -32,6 +32,7 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.model_pick import open_picker, scope  # noqa: E402
 from tests.helpers.studio_model_select import BETA, seed_catalog  # noqa: E402
 from tests.helpers.studio_roles_model import PROBE  # noqa: E402
+from tests.helpers.config_read import config_json  # noqa: E402
 
 REF = "document.querySelector('[data-testid=\"orchestra-model\"]')"
 TRIG = f"{REF}?.querySelector('[data-testid=\"model-select\"]')"
@@ -146,7 +147,7 @@ def not_listed(c) -> dict:
 
 def settings(c, url: str, state: Path) -> dict:
     from tests.helpers.studio_settings import group, row
-    cfg = lambda: json.loads((state / "config.json").read_text(encoding="utf-8")) if (state / "config.json").is_file() else {}  # noqa: E731
+    cfg = lambda: config_json(state)  # noqa: E731
     out: dict = {}
     c.go("about:blank")
     c.go(url.replace("mode=agents", "mode=settings"))

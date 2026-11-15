@@ -10,6 +10,7 @@ are voice/log_lines.py's own formats; nothing runs, nothing is sent.
 from __future__ import annotations
 
 import json
+from tests.helpers.config_read import config_json
 
 PY = "/usr/bin/python3 -m halo_harness.voice.server"
 STT_LOG = f"""--- halo starts: {PY} --kind stt --model faster-whisper:large-v3-turbo --path /models/turbo --device cpu --port 8091 --log stt.log --gpu-free-mib 22000
@@ -40,7 +41,7 @@ def seed(home) -> None:
     reg_path = home.state / "run" / "local-servers.json"
     reg_path.parent.mkdir(parents=True, exist_ok=True)
     rows = json.loads(reg_path.read_text(encoding="utf-8")) if reg_path.is_file() else []
-    cfg = json.loads((home.state / "config.json").read_text(encoding="utf-8"))
+    cfg = config_json(home.state)
     entries = cfg.setdefault("huggingface", {}).setdefault("local_servers", [])
     for kind, model, port, text, device in (("stt", "faster-whisper:large-v3-turbo", 8091, STT_LOG, "cpu"),
                                             ("tts", "kokoro-82m", 8092, TTS_LOG, "cpu")):

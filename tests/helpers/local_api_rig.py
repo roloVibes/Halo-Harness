@@ -4,10 +4,10 @@ fresh home (tests/helpers/steward_seed.Home) with tests/helpers/local_seed.py's 
 """
 from __future__ import annotations
 
-import json
 
 from tests.helpers import local_seed as L
 from tests.helpers.steward_seed import Home
+from tests.helpers.config_read import config_json
 
 
 class Local(Home):
@@ -44,4 +44,4 @@ class Local(Home):
         return next(h for h in self.api("GET", "local/hosts")[1]["hosts"] if h["name"] == name)
 
     def config(self) -> dict:
-        return json.loads((self.state / "config.json").read_text(encoding="utf-8"))
+        return config_json(self.state)

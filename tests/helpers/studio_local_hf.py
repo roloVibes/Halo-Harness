@@ -28,6 +28,7 @@ sys.path.insert(0, str(REPO / "tools"))
 from tests.helpers.studio_local import PAGE, LocalDriver, page  # noqa: E402
 from tests.helpers.studio_packs_steps import q, qa  # noqa: E402
 from tests.helpers.studio_settings import press, set_field  # noqa: E402
+from tests.helpers.config_read import config_json  # noqa: E402
 
 REPO_ID = "unsloth/Qwen3.8-27B-GGUF"
 FILE = "Qwen3.8-27B-Q4_K_M.gguf"
@@ -56,7 +57,7 @@ def folder(c, url, ctx) -> dict:
     out["add_title"] = c.js(f"{q('[data-testid=local-hf-add]')}.title")
     press(c, q("[data-testid=local-hf-add]"), f"!!{q('[data-testid=local-hf-dir]')}")
     out["dir"] = c.js(f"{q('[data-testid=local-hf-dir]')}.dataset.path")
-    out["config_dirs"] = json.loads((ctx["state"] / "config.json").read_text(encoding="utf-8"))["huggingface"]["model_dirs"]
+    out["config_dirs"] = config_json(ctx["state"])["huggingface"]["model_dirs"]
     return out
 
 

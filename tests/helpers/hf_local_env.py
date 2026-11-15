@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 
 from tests.helpers.mock_hub import MockHub, gguf_bytes
+from tests.helpers.config_read import config_json
 
 FAKE = Path(__file__).resolve().parent / "fake_llama_server.py"
 FAKE_VOICE = Path(__file__).resolve().parent / "fake_voice_server.py"
@@ -79,7 +80,7 @@ class HfHome:
         (self.state / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
     def config(self) -> dict:
-        return json.loads((self.state / "config.json").read_text(encoding="utf-8"))
+        return config_json(self.state)
 
     def api(self, method: str, path: str, body=None, query=None):
         from halo_harness.studio.api import Request, dispatch
