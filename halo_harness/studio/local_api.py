@@ -92,7 +92,9 @@ def post_host_act(req, name: str, act: str):
     if via not in ("this machine", "Ollama's API"):  # 3.6.0.0 R8: an ollama.hosts entry is reached directly
         code, out = _remote(req, card, act, fields)
         from halo_harness.studio import ollama_hosts_view as V
+        from halo_harness.providers.local_view_cache import forget
         V.reset_cache()
+        forget()  # 3.6.0.0 fix pass: the shared local view holds the loaded models too
         return code, out
     from halo_harness.providers.ollama_load import load, unload
     host = resolve_ollama_host(name)
@@ -104,7 +106,9 @@ def post_host_act(req, name: str, act: str):
     out = load(host, model, num_ctx=fields.get("num_ctx"), keep_alive=fields.get("keep_alive"), window_from=where) \
         if act == "load" else unload(host, model)
     from halo_harness.studio import ollama_hosts_view as V
+    from halo_harness.providers.local_view_cache import forget
     V.reset_cache()  # the next read shows what /api/ps has now
+    forget()  # and the shared local view (the model picker's), which holds the loaded models too
     return (200 if out["ok"] else 502), ({**out, "via": via} if out["ok"] else {"error": out["say"], **out})
 
 

@@ -478,6 +478,30 @@ def _run_command(argv: list) -> Optional[int]:
     return rc if isinstance(rc, int) else 0
 
 
+NEAR_MISS_HINTS = {"theme": "halo config set theme <name>"}
+
+
+def _near_miss_command(argv: list) -> Optional[int]:
+    """A first word that is no command but is one letter or two off a listed one (`docter`, `initt`, `map`), or a
+    word with a known home (`theme`): say so and exit 2 instead of sending it to the model as a prompt. A prompt of
+    several words in one argument, or a word near no command, is left alone (None)."""
+    import difflib
+    import re
+    from halo_harness.cli_commands import COMMANDS
+    word = argv[0]
+    if not re.fullmatch(r"[a-z][a-z0-9-]{2,}", word):  # three letters at least: `halo go` / `halo hi` stay prompts
+        return None
+    hint = NEAR_MISS_HINTS.get(word)
+    if hint is None:
+        close = difflib.get_close_matches(word, [c.name for c in COMMANDS if not c.kind], n=1, cutoff=0.75)
+        if not close:
+            return None
+        hint = f"halo {close[0]}"
+    print(f"halo: no command '{word}' -- did you mean `{hint}`? (to send it as a prompt: halo -- \"{word}\")",
+          file=sys.stderr)
+    return 2
+
+
 def main(argv: Optional[list] = None) -> int:
     """Entry point. A config.json that does not parse (`CorruptConfigError`
     from a config writer anywhere below) is reported as one `halo: ...`
@@ -527,6 +551,9 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and not argv[0].startswith("-"):  # 3.4.0.0 B: a pack's own verb; a verb that left says where it went
         from halo_harness.packs.contrib_cli import dispatch
         rc = dispatch(argv)
+        if rc is not None:
+            return rc
+        rc = _near_miss_command(argv)  # 3.6.0.0 fix pass: `halo docter` is a typo, not a prompt
         if rc is not None:
             return rc
 

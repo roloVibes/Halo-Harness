@@ -149,6 +149,25 @@ def test_version_is_one_line(ctx: Ctx):
               is not None or not (REPO / ".git").exists())
 
 
+@test
+def test_a_mistyped_command_says_did_you_mean_and_starts_no_session(ctx: Ctx):
+    """3.6.0.0 fix pass: `halo docter` used to go to the model as a prompt (a full session titled 'docter' on a
+    terminal, a billed call); `halo map show x` / `halo theme x` dumped argparse's usage."""
+    env = _env()
+    for args, want in ((["docter"], "halo doctor"), (["initt"], "halo init"), (["map", "show", "nosuch-map"], "halo maps"),
+                       (["theme", "nosuch"], "halo config set theme")):
+        got = _halo(args, env)
+        err = got.stderr
+        ctx.check(f"`halo {' '.join(args)}` exits 2, got {got.returncode} {err[-300:]!r}", got.returncode == 2)
+        ctx.check(f"`halo {' '.join(args)}` says no such command and suggests {want!r}, got {err[-300:]!r}",
+                  "no command" in err and want in err)
+        ctx.check(f"`halo {' '.join(args)}` dumps no usage and starts no session, got {err[-300:]!r}",
+                  "usage:" not in err and "interactive terminal" not in err)
+    from halo_harness import cli
+    ctx.check("a word close to no command is left alone (a prompt)", cli._near_miss_command(["hello"]) is None)
+    ctx.check("a sentence prompt is left alone", cli._near_miss_command(["fix the docter page"]) is None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

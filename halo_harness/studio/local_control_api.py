@@ -86,6 +86,13 @@ def _done(got: dict, cmd_line: str, **extra):
                                                       "cli": cmd_line}
 
 
+def _after_forward(code: int) -> None:
+    """3.6.0.0 fix pass: a delete / copy / rename another machine carried out changes the lists here too."""
+    if code < 400:
+        from halo_harness.studio.local_pull_job import after_change
+        after_change()
+
+
 def post_pull(req, name: str, host, ctl: dict, here: bool):
     from halo_harness.studio import local_pull_job as J
     model = str(_body(req).get("name") or _body(req).get("model") or "").strip()
@@ -123,6 +130,7 @@ def post_delete(req, name: str, host, ctl: dict, here: bool):
         return 422, {"error": uses["line"], "uses": uses, "problems": [uses["line"]], "cli": cli("delete", name, model=model, force=True)}
     if not here or host is None:
         code, answer = _forward(req, ctl, "delete", {"model": model, "force": force})
+        _after_forward(code)
         return code, {**answer, "uses": uses, "cli": line}
     from halo_harness.providers.ollama_control import delete
     from halo_harness.providers.ollama_tune_store import forget_twin
@@ -153,6 +161,7 @@ def post_copy(req, name: str, host, ctl: dict, here: bool, rename: bool):
     line = cli(act, name, model=src, dst=dst)
     if not here or host is None:
         code, answer = _forward(req, ctl, "copy", {"src": src, "dst": dst, "rename": rename})
+        _after_forward(code)
         return code, {**answer, "cli": line}
     return _done((C.rename if rename else C.copy)(host, src, dst), line)
 

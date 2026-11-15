@@ -404,7 +404,7 @@ def urlopen_tls(req, timeout=None):
     return opener.open(req, timeout=timeout)
 
 
-def format_connect_error(host: "str | None", detail) -> str:
+def format_connect_error(host: "str | None", detail, port: "int | None" = None) -> str:
     """The ONE canonical wording for a connect-phase failure (hotfix 2's
     rule: "the error message names the host and says 'cannot resolve/reach
     <host> -- check the machine's network, DNS or VPN'") -- used for every
@@ -413,9 +413,37 @@ def format_connect_error(host: "str | None", detail) -> str:
     exception (or any str-able detail) that actually triggered it, kept in
     parentheses for anyone debugging the underlying OS error; never part of
     the required phrase itself so `is_connect_failure_message` is never at
-    the mercy of one platform's own errno text."""
+    the mercy of one platform's own errno text.
+
+    3.6.0.0 fix pass: a REFUSED connection (the host answered; nothing
+    listens on that port -- a local Ollama that is not running) is not a
+    network, DNS or VPN problem: it says so, names host:port, and for a
+    local or LAN address says how to start the model server. The marker
+    stays as the lead-in either way."""
     named = host or "the upstream host"
+    if isinstance(detail, ConnectionRefusedError):
+        where = f"{named}:{port}" if port else named
+        hint = ("is the model server running there? (Ollama: `ollama serve`)" if _local_or_lan_host(host)
+                else "is the server running, and is the port right?")
+        return f"{CONNECT_FAILURE_MARKER} {where} -- nothing is listening there (connection refused); {hint} ({detail})"
     return f"{CONNECT_FAILURE_MARKER} {named} -- check the machine's network, DNS or VPN ({detail})"
+
+
+def _local_or_lan_host(host: "str | None") -> bool:
+    """True for loopback, a private / link-local address, `localhost`, a
+    `.local` name or a bare one-label name (`gpu-box`): where a refused
+    connection most likely means a model server that is not started."""
+    h = (host or "").strip("[]").lower()
+    if not h:
+        return False
+    if h == "localhost" or h.endswith(".local") or "." not in h and ":" not in h:
+        return True
+    try:
+        import ipaddress
+        ip = ipaddress.ip_address(h)
+        return ip.is_loopback or ip.is_private or ip.is_link_local
+    except ValueError:
+        return False
 
 
 def format_post_connect_error(host: "str | None", detail) -> str:
@@ -504,7 +532,9 @@ def _bounded_connect(conn, timeout_s: float, host: str) -> None:
             host=host)
     if outcome:
         e = outcome[0]
-        raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
+        # the port is the target's only on a direct connection (through a proxy tunnel it is the proxy's)
+        port = None if getattr(conn, "_tunnel_host", None) else getattr(conn, "port", None)
+        raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
 
 def pick_proxy(host: str, tls: bool = True) -> str | None:
@@ -947,7 +977,7 @@ def call_openai_chat(base_url: str, api_key: str, body: dict, extra_headers: dic
     try:
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
+        raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
     def _send() -> UpstreamResult:
         # finding 35: a Connection:close'd overload must not silently
@@ -998,7 +1028,7 @@ def call_openai_responses(base_url: str, api_key: str, body: dict, extra_headers
     try:
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
+        raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
     def _send() -> UpstreamResult:
         nonlocal conn  # finding 35: see _reopened_if_needed
@@ -1047,7 +1077,7 @@ def call_ollama_chat(base_url: str, api_key: "str | None", body: dict, extra_hea
     try:
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
+        raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
     def _send() -> UpstreamResult:
         nonlocal conn  # finding 35: see _reopened_if_needed
@@ -1086,7 +1116,7 @@ def _dbx_post(base_url: str, path: str, api_key: str, req_body: dict, extra_head
     try:
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
+        raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
     class _RespResult(UpstreamResult):
         """_dbx_post returns (resp, conn), not UpstreamResult -- a tiny
@@ -1251,7 +1281,7 @@ def proxy_anthropic(base_url: str, api_key: str, body: dict, extra_headers: dict
     try:
         conn = open_upstream(host, port, tls, on_connect=on_connect)
     except (OSError, socket.timeout, ssl.SSLError, http.client.HTTPException) as e:
-        raise UpstreamConnectError(format_connect_error(host, e), host=host) from e
+        raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
     def _send() -> UpstreamResult:
         nonlocal conn  # finding 35: see _reopened_if_needed
