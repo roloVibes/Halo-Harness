@@ -510,115 +510,55 @@ def _minimal_session(state_dir, mock):
     )
 
 
-@test
-def test_maybe_auto_calibrate_skips_under_no_background_net(ctx: Ctx):
-    """The safe/hermetic case every OTHER test in this suite runs under:
-    `BRIDGE_TEST_NO_BACKGROUND_NET=1` means the trigger never touches the
-    network at all -- no notice queued, and the (host, model) pair is
-    still marked "attempted" so a SECOND call this same process is a fast
-    no-op rather than re-checking every time."""
+def _build_turn_body(session, mock, model: str) -> dict:
+    """One Ollama body built the way a turn builds it (`_build_ollama_body_for_ref`), the host on the mock."""
+    import halo_harness.agent.loop as loop_mod
+    from halo_harness.model import parse_model_ref
     from halo_harness.providers.ollama import OllamaHost
-    d = _fresh_state_dir("ol-autocal-session-nonet-")
-    mock = MockUpstream().start()
+    from halo_harness.providers.profiles import resolve_profile
+    from halo_harness.providers.routing import Route
+    real = loop_mod.resolve_ollama_host
+    loop_mod.resolve_ollama_host = lambda name, env: OllamaHost(name="mock", url=mock.base_url)
     try:
+        ref = parse_model_ref(f"ol:{model}")
+        session.model_ref = ref
+        route = Route(provider="ollama", upstream_model=model, dialect="ollama")
+        return session._build_ollama_body_for_ref(
+            ref=ref, route=route, profile=resolve_profile(route), system_text="sys",
+            messages=[{"role": "user", "content": [{"type": "text", "text": "hi"}]}], tools=[], tool_choice=None,
+            effort=None, requested_max_tokens=256)
+    finally:
+        loop_mod.resolve_ollama_host = real
+
+
+@test
+def test_a_call_never_measures_the_model_whatever_the_flag_config_or_store_say(ctx: Ctx):
+    """3.6.0.0 R8 (was four tests of the first-use auto-calibration's gates: the test flag, `ollama.auto_calibrate:
+    false`, a fresh entry, a stale digest): no call measures a model any more. With the test flag OFF, the opt-out
+    unset, no entry, and then a STALE-digest entry, building a turn's body sends no `/api/chat` at all -- the ladder
+    of loads is `halo local measure` / Studio's Measure, when a person asks (tests/test_local_ollama_verbs.py pins
+    its once-per-digest rule). The session has no measurement of its own left to call."""
+    from halo_harness.agent.loop import Session
+    from halo_harness.providers.ollama_calibrate import record_calibration
+    d = _fresh_state_dir("ol-nomeasure-session-")
+    mock = MockUpstream().start()
+    old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    try:
+        ctx.check("the session has no first-use measurement any more",
+                  not hasattr(Session, "_maybe_auto_calibrate_ollama"))
         session = _minimal_session(d, mock)
-        host = OllamaHost(name="mock", url=mock.base_url)
-        ctx.check("BRIDGE_TEST_NO_BACKGROUND_NET is set for this whole suite",
-                  os.environ.get("BRIDGE_TEST_NO_BACKGROUND_NET") == "1")
-        session._maybe_auto_calibrate_ollama(host, "qwen3:30b")
-        ctx.check("no notice queued", session._pending_ollama_notices == [])
-        ctx.check("the pair is recorded as attempted",
-                  (host.url, "qwen3:30b") in session._ollama_calibrate_attempted)
-        before = len(mock.requests)
-        session._maybe_auto_calibrate_ollama(host, "qwen3:30b")  # second call, same pair
-        ctx.check("a repeat call for the SAME pair never even reaches the dedupe-bypassing checks "
-                  "(no new HTTP request at all)", len(mock.requests) == before)
-    finally:
-        mock.stop()
-        _clear_state_dir_env()
-
-
-@test
-def test_maybe_auto_calibrate_skips_when_config_disabled(ctx: Ctx):
-    from halo_harness.providers.ollama import OllamaHost
-    from halo_harness.theme import set_config_value
-    d = _fresh_state_dir("ol-autocal-session-optout-")
-    mock = MockUpstream().start()
-    try:
-        set_config_value("ollama.auto_calibrate", False)
-        old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
-        try:
-            session = _minimal_session(d, mock)
-            host = OllamaHost(name="mock", url=mock.base_url)
-            session._maybe_auto_calibrate_ollama(host, "qwen3:30b")
-            ctx.check("opted out -> no notice, no HTTP request at all", session._pending_ollama_notices == []
-                      and len(mock.requests) == 0)
-        finally:
-            if old_flag is not None:
-                os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
-    finally:
-        mock.stop()
-        _clear_state_dir_env()
-
-
-@test
-def test_maybe_auto_calibrate_skips_when_already_calibrated(ctx: Ctx):
-    """FIX PASS (finding 10): the recorded digest/version must be the
-    mock's own REAL values (`sha256:deadbeef1`/`0.1.0-mock`, `tests/
-    helpers/mock_ollama.py`'s own `DEFAULT_TAGS`/`DEFAULT_VERSION`) --
-    the gate is now staleness-aware, so a FRESH entry is what "already
-    calibrated" means; a stale one re-triggers (see the sibling test
-    right below)."""
-    from halo_harness.providers.ollama import OllamaHost
-    from halo_harness.providers.ollama_calibrate import record_calibration
-    d = _fresh_state_dir("ol-autocal-session-existing-")
-    mock = MockUpstream().start()
-    try:
-        record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:deadbeef1",
-                            max_full_gpu_ctx=16384, ollama_version="0.1.0-mock")
-        old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
-        try:
-            session = _minimal_session(d, mock)
-            host = OllamaHost(name="mock", url=mock.base_url)
-            session._maybe_auto_calibrate_ollama(host, "qwen3:30b")
-            ctx.check("an existing, FRESH entry -> no notice, never re-measured automatically",
-                      session._pending_ollama_notices == [])
-            chats = [r for r in mock.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
-            ctx.check("never loads the model just to check this", len(chats) == 0)
-        finally:
-            if old_flag is not None:
-                os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
-    finally:
-        mock.stop()
-        _clear_state_dir_env()
-
-
-@test
-def test_maybe_auto_calibrate_rerun_when_the_recorded_digest_is_stale(ctx: Ctx):
-    """Review fix pass (finding 10): an entry recorded under a DIFFERENT
-    digest than the one the host's catalog reports right now (a re-pulled
-    model) must NOT read as "already calibrated" -- the gate re-measures,
-    exactly the "re-measured... when the model digest... changes" commit
-    9af8dac promised but never actually wired up."""
-    from halo_harness.providers.ollama import OllamaHost
-    from halo_harness.providers.ollama_calibrate import record_calibration
-    d = _fresh_state_dir("ol-autocal-session-staledigest-")
-    mock = MockUpstream().start()
-    try:
+        body = _build_turn_body(session, mock, "qwen3:30b")
+        chats = [r for r in mock.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"a body was built, and no load was sent to measure first, got {len(chats)}",
+                  (body.get("options") or {}).get("num_ctx") and not chats)
         record_calibration(d, host_url=mock.base_url, model="qwen3:30b", digest="sha256:some-older-pull",
-                            max_full_gpu_ctx=16384, ollama_version="0.1.0-mock")
-        old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
-        try:
-            session = _minimal_session(d, mock)
-            host = OllamaHost(name="mock", url=mock.base_url)
-            session._maybe_auto_calibrate_ollama(host, "qwen3:30b")
-            chats = [r for r in mock.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
-            ctx.check(f"a stale digest re-triggers real calibration (a /api/chat load happened), got {len(chats)}",
-                      len(chats) > 0)
-        finally:
-            if old_flag is not None:
-                os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
+                           max_full_gpu_ctx=16384, ollama_version="0.1.0-mock")
+        _build_turn_body(_minimal_session(d, mock), mock, "qwen3:30b")
+        chats = [r for r in mock.requests if r["method"] == "POST" and r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"a stale digest is no reason to measure from a call either, got {len(chats)}", not chats)
     finally:
+        if old_flag is not None:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
         mock.stop()
         _clear_state_dir_env()
 
@@ -739,60 +679,54 @@ def _no_gpu(ollama_hw):
 
 
 @test
-def test_auto_calibration_records_after_the_turns_wait(ctx: Ctx):
-    """The turn waits `budget_s` (here 0.3 s); the measurement (a 1 s load)
-    keeps going, records when it finishes, and its line is drained on a
-    later turn."""
-    import time as _time
+def test_a_measurement_counts_the_cold_load_as_a_load_and_keeps_what_it_learned(ctx: Ctx):
+    """3.6.0.0 R8 (was: the first-use measurement keeps running past a turn's wait and records later -- no turn
+    waits on a measurement any more). The asked-for measurement (`run_auto_calibration`, no `timeout`): every load
+    of this server is slower than a step's budget; the first step is the cold load and gets a load's own allowance
+    (one load, no timeout and retry), and a later step that stays unknown ends the run with the safe window it
+    measured RECORDED -- never `inconclusive` with nothing kept (the evidence's "measured all over again")."""
+    from halo_harness.providers import ollama_calibrate as C
     from halo_harness.providers import ollama_hw
     from halo_harness.providers.ollama import OllamaHost, reset_catalog_cache
-    from halo_harness.providers.ollama_calibrate import lookup_learned_cap
-    d = _fresh_state_dir("ol-autocal-late-")
+    d = _fresh_state_dir("ol-measure-slow-")
     mock = MockUpstream().start()
     model = "qwen3:30b"
     real = _no_gpu(ollama_hw)
-    old_flag = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    real_budget = C.load_budget_s
+    C.load_budget_s = lambda size_gb, remote: 0.4
     try:
         reset_catalog_cache()
         mock.load_delay_s[model] = 1.0
-        session = _minimal_session(d, mock)
-        host = OllamaHost(name="pc", url=mock.base_url)
-        t0 = _time.monotonic()
-        session._maybe_auto_calibrate_ollama(host, model, budget_s=0.3)
-        ctx.check(f"the turn waited about its budget, not the whole load, got {_time.monotonic() - t0:.2f} s",
-                  _time.monotonic() - t0 < 0.95)
-        ctx.check("nothing shown yet", session._drain_pending_ollama_notices() == [])
-        deadline = _time.monotonic() + 10
-        while _time.monotonic() < deadline and lookup_learned_cap(d, host_url=host.url, model=model) is None:
-            _time.sleep(0.1)
-        got = lookup_learned_cap(d, host_url=host.url, model=model)
-        ctx.check(f"recorded once the load finished, got {got}", got == 32768)
-        _time.sleep(0.2)
-        lines = session._drain_pending_ollama_notices()
-        ctx.check(f"the outcome line arrives on the next drain, got {lines!r}",
-                  len(lines) == 1 and lines[0].startswith(f"{model} on pc: 32k fits"))
+        host = OllamaHost(name="pc", url=mock.base_url, max_ctx=65536)
+        line = C.run_auto_calibration(host, model, state_dir=d)
+        nums = [r["body"]["options"]["num_ctx"] for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
+        ctx.check(f"the cold first load is one load at the start window, got {nums}", nums and nums.count(nums[0]) == 1)
+        ctx.check(f"never above the host's max_ctx, got {nums}", max(nums) <= 65536)
+        got = C.lookup_learned_cap(d, host_url=host.url, model=model)
+        ctx.check(f"the safe window it measured is recorded, got {got} {line!r}",
+                  got == 32768 and isinstance(line, str) and line.startswith(f"{model} on pc: 32k fits"))
     finally:
-        if old_flag is not None:
-            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = old_flag
+        C.load_budget_s = real_budget
         ollama_hw.get_local_gpu_memories = real
         mock.stop()
         _clear_state_dir_env()
 
 
 @test
-def test_a_recorded_cap_under_the_prompt_floor_is_discarded_once(ctx: Ctx):
+def test_a_recorded_cap_under_the_prompt_floor_is_raised_over_and_kept(ctx: Ctx):
+    """3.6.0.0 R8 (was: discarded once so the model is measured again -- no call measures any more): a request
+    above a recorded cap gets the window it needs (the prompt floor raises over the cap) and the cap stays."""
     from types import SimpleNamespace
     from halo_harness.agent.ollama_window import prepare_window
     from halo_harness.providers.ollama import OllamaHost
     from halo_harness.providers.ollama_calibrate import lookup_learned_cap, record_calibration
-    d = _fresh_state_dir("ol-floor-discard-")
+    d = _fresh_state_dir("ol-floor-kept-")
     mock = MockUpstream().start()
     try:
         session = _minimal_session(d, mock)
         host = OllamaHost(name="pc", url=mock.base_url)
         record_calibration(d, host_url=host.url, model="qwen3:30b", digest=None, max_full_gpu_ctx=4096,
-                            ollama_version=None)
-        session._ollama_calibrate_attempted.add((host.url, "qwen3:30b"))
+                           ollama_version=None)
         decision = SimpleNamespace(learned_cap=4096, num_ctx=4096, source="learned cap", trained_context=40960,
                                    fit_estimate=None, host_max_ctx=None)
         ref = SimpleNamespace(model="qwen3:30b")
@@ -800,18 +734,11 @@ def test_a_recorded_cap_under_the_prompt_floor_is_discarded_once(ctx: Ctx):
                       system_text="x" * 35000, messages=[], tools=[], auto_calibrate=True)
         estimate, _factor = prepare_window(session, **kwargs)
         ctx.check(f"the request is above the cap, got {estimate}", estimate > 4096)
-        ctx.check("the cap is discarded", lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") is None)
-        ctx.check("the model is measured again on the next turn",
-                  (host.url, "qwen3:30b") not in session._ollama_calibrate_attempted)
-        record_calibration(d, host_url=host.url, model="qwen3:30b", digest=None, max_full_gpu_ctx=4096,
-                            ollama_version=None)
-        prepare_window(session, **kwargs)
-        ctx.check("a second small measurement stays (discarded once per process; the floor raises over it)",
-                  lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") == 4096)
-        fresh = _minimal_session(d, mock)  # a new process: the re-measured cap is not discarded again
-        prepare_window(fresh, **kwargs)
-        ctx.check("a cap measured after a floor discard is kept by the next process too",
-                  lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") == 4096)
+        sent = session._ollama_window_state["sent"][(host.url, "qwen3:30b")]
+        ctx.check(f"the window holds the request (the floor raised over the cap), got {sent}",
+                  sent["num_ctx"] >= estimate and sent["source"] == "prompt floor")
+        ctx.check("the cap is kept", lookup_learned_cap(d, host_url=host.url, model="qwen3:30b") == 4096)
+        ctx.check("nothing was sent to the server", not [r for r in mock.requests if r["method"] == "POST"])
     finally:
         mock.stop()
         _clear_state_dir_env()

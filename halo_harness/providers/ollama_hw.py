@@ -489,6 +489,9 @@ def _record_last_known_offload(host_url: str, model: str, ps_entry: Optional[dic
     size = (ps_entry or {}).get("size") if isinstance(ps_entry, dict) else None
     size_vram = (ps_entry or {}).get("size_vram") if isinstance(ps_entry, dict) else None
     with _LAST_OFFLOAD_LOCK:
+        # Halo 3.6.0.0 R8: the whole row too (its `context_length`): the window it is loaded at, read by the next
+        # call's window choice (agent/ollama_window_truth.start_window) -- no request of its own
+        _LAST_PS_ENTRY[key] = (time.monotonic(), dict(ps_entry) if isinstance(ps_entry, dict) else None)
         if isinstance(size, int) and isinstance(size_vram, int) and size > 0:
             _LAST_OFFLOAD_CACHE[key] = (size_vram < size, size, size_vram)
         else:
@@ -502,6 +505,20 @@ def last_known_offload(host_url: str, model: str) -> Optional[bool]:
     with _LAST_OFFLOAD_LOCK:
         cached = _LAST_OFFLOAD_CACHE.get((host_url, model))
     return cached[0] if cached is not None else None
+
+
+_LAST_PS_ENTRY: dict = {}  # (host.url, model) -> (monotonic_ts, the /api/ps row | None when not loaded)
+
+
+def last_ps_entry(host_url: str, model: str, *, max_age_s: float = 60.0) -> "tuple[bool, Optional[dict]]":
+    """Halo 3.6.0.0 R8: `(known, row)` from the latest `/api/ps` read of `host_url` this process made for `model`
+    (the call's own fit read, or the read after the last answer): `known` False when there was none in the last
+    `max_age_s` seconds; `row` None when the model was not loaded then."""
+    with _LAST_OFFLOAD_LOCK:
+        got = _LAST_PS_ENTRY.get((host_url, model))
+    if got is None or time.monotonic() - got[0] > max_age_s:
+        return False, None
+    return True, got[1]
 
 
 def last_known_offload_sizes(host_url: str, model: str) -> "Optional[tuple[int, int]]":

@@ -20,6 +20,18 @@ import argparse
 import sys
 
 
+LOCAL_VERBS = """\
+a model on this machine or on another one (an ollama.hosts entry), through Ollama's own API -- nothing runs
+there but Ollama (run `halo local <verb> --help`):
+  ps [--host NAME]                                  what is loaded where: its window, the card, how long it stays
+  warm MODEL [--host NAME] [--window N] [--keep 30m|forever]   load it now, so the first turn is fast
+  unload MODEL|--all [--host NAME]                  take it off the card now
+  pull MODEL [--host NAME]                          pull it onto that server, with progress
+  measure MODEL [--host NAME] [--again]             the largest window wholly on the card (asked for only)
+more: hosts, models, resources, place, advise, refresh, prompt, bench, tune, changes, revert,
+      download, ls, rm, serve, stop, servers, log, add, forget, import, runtime"""
+
+
 def _confirm(question: str, *, yes: bool) -> bool:
     """`--yes`, else a plain stdin yes/no -- the SAME idiom `halo work-
     matrix apply` already uses (`input(... "[y/N] ")`, EOFError -> no)."""
@@ -37,7 +49,9 @@ def _cmd_default(argv: list) -> int:
     parser = argparse.ArgumentParser(
         prog="halo local", add_help=True,
         description="Merged local-model view: Ollama hosts, running Hugging Face local servers "
-                     "(auto-detected and manual), the Hugging Face Hub cache, and huggingface.model_dirs.")
+                     "(auto-detected and manual), the Hugging Face Hub cache, and huggingface.model_dirs.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=LOCAL_VERBS)
     parser.add_argument("--terminal", action="store_true", help="print the merged view here (on a real terminal "
                          "`halo local` opens Studio's Local section instead)")
     parser.add_argument("--refresh", action="store_true",
@@ -144,75 +158,6 @@ def _cmd_runtime(argv: list) -> int:
     return 2
 
 
-def _cmd_warm(argv: list) -> int:
-    """2.0.7 ollama polish: `halo local warm [MODELS...] [--host NAME]
-    [--keep-alive DURATION]` -- pre-load the session's local-role models
-    (or the named ones) so the FIRST real call doesn't pay the cold-load.
-    One 1-token /api/chat per model at its fit-num_ctx, `keep_alive` set
-    so the weights actually STAY (default: 30m, matching a work session;
-    `--keep-alive 0` drops them right after, `--keep-alive -1` forever).
-    With no model args, warms every `ol:` ref in the roles table plus the
-    default `model` when it is one."""
-    from halo_harness.providers.ollama import _get_json, ollama_names_match, resolve_ollama_host
-    parser = argparse.ArgumentParser(
-        prog="halo local warm",
-        description="Pre-load local models so the first real call skips the cold-load.")
-    parser.add_argument("models", nargs="*", help="Model names (default: every ol: role in the table)")
-    parser.add_argument("--host", default=None, help="A named Ollama host (default: the default host)")
-    parser.add_argument("--keep-alive", default="30m",
-                        help="How long weights stay resident after warming (default 30m; -1 = forever)")
-    args = parser.parse_args(argv)
-    # Ollama reads a bare JSON number as seconds (negative = forever) but a
-    # string only with a unit ("30m"), so "-1" / "0" / "3600" go out as numbers.
-    keep_alive = args.keep_alive
-    try:
-        keep_alive = int(keep_alive)
-    except ValueError:
-        pass
-    host = resolve_ollama_host(args.host)
-    if host is None:
-        print("halo local warm: no Ollama host configured -- set ollama.hosts in ~/.halo/config.json")
-        return 2
-    models = list(args.models)
-    if not models:
-        from halo_harness.roles import configured_role_table
-        from halo_harness.theme import get_config_value
-        for value in list(configured_role_table().values()) + [get_config_value("model", default=None)]:
-            if isinstance(value, str) and value.startswith("ol:"):
-                name = value[3:].split("@")[0]
-                if name and name not in models:
-                    models.append(name)
-    if not models:
-        print("halo local warm: no models named and no ol: roles configured -- nothing to warm.")
-        return 0
-    # Check what is actually resident first (/api/ps): already-loaded
-    # models are reported, not re-paid.
-    ps = _get_json(host, "/api/ps") or {}
-    resident = [m.get(k) for m in ps.get("models", []) if isinstance(m, dict) for k in ("name", "model")]
-    failed = []
-    for name in models:
-        if any(ollama_names_match(name, r) for r in resident):
-            print(f"  {name}: already resident -- nothing to do")
-            continue
-        # A tiny 1-token chat forces the load; the fit ctx is not needed
-        # for warming (the first real call re-seats it if larger).
-        body = {"model": name, "stream": False,
-                "messages": [{"role": "user", "content": "hi"}],
-                "options": {"num_predict": 1},
-                "keep_alive": keep_alive}
-        out = _get_json(host, "/api/chat", method="POST", body=body, timeout=180.0)
-        if out is None:
-            failed.append(name)
-            print(f"  {name}: FAILED to load (host reachable? model pulled? keep-alive syntax is 30m, 24h or -1)")
-        else:
-            print(f"  {name}: warmed (keep_alive={keep_alive})")
-    if failed:
-        print(f"halo local warm: {len(failed)} model(s) failed: {', '.join(failed)}")
-        return 1
-    print(f"halo local warm: {len(models)} model(s) ready.")
-    return 0
-
-
 def _sched(name: str):
     """3.3.7.0 R3: `halo local warm [<lineup>]` (local_warm_cli.py; model names: _cmd_warm) and `halo local place`."""
     import importlib
@@ -233,6 +178,9 @@ def _hf_commands() -> dict:
 
 def cmd_local(argv: list) -> int:
     from halo_harness.local_bench_cli import COMMANDS as BENCH  # 3.3.6.0 R5: bench | tune | changes | revert
+    from halo_harness.local_ollama_cli import COMMANDS as OLLAMA  # 3.6.0.0 R8: ps | unload | pull | measure
+    if argv and argv[0] in OLLAMA:
+        return OLLAMA[argv[0]](argv[1:])
     if argv and argv[0] in BENCH:
         return BENCH[argv[0]](argv[1:])
     if argv and argv[0] in _hf_commands():

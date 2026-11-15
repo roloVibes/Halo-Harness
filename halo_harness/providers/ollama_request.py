@@ -140,6 +140,8 @@ def build_ollama_request_body(
     steward_profile: Optional[dict] = None,
     # Halo 3.3.5.0 R0: `models.think.<ref>` (on / off / default; low / medium / high on gpt-oss)
     think_choice: Optional[str] = None,
+    # Halo 3.6.0.0 R8: the window the call starts from, when the caller chose one
+    start_num_ctx: Optional[int] = None,
 ) -> dict:
     """Build the native `/api/chat` body. `messages`/`system_text` are the
     SAME Anthropic-shaped derived-transcript inputs `providers.request.
@@ -211,6 +213,10 @@ def build_ollama_request_body(
     ollama_messages = _ollama_messages_from_oai(oai_messages)
     num_ctx = compute_num_ctx(trained_context, host.max_ctx, fit_estimate, learned_cap=learned_cap, remote=remote,
                                recorded_does_not_fit=recorded_does_not_fit, cpu_only=cpu_only)
+    if isinstance(start_num_ctx, int) and not isinstance(start_num_ctx, bool) and start_num_ctx > 0:
+        # Halo 3.6.0.0 R8: the window the caller chose (agent/ollama_window_truth.start_window): the request's
+        # need on the ladder, or the loaded window -- the `min()` above is only its upper bound there
+        num_ctx = start_num_ctx
     reply_room = None
     if prompt_tokens:
         from halo_harness.providers.ollama_prompt import reply_reserve, window_for

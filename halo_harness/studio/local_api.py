@@ -6,6 +6,12 @@ route. Never a model call; nothing here writes a server's settings.
     POST local/host/<name>/load {model, num_ctx?, keep_alive?}   a warm generate (providers/ollama_load.load) on a
                                         host this machine serves, or through the fleet member that serves it
     POST local/host/<name>/unload {model}                         the same with keep_alive 0
+                                        3.6.0.0 R8: an ollama.hosts entry no halo host serves is reached through
+                                        Ollama's own API (controls.via "Ollama's API"); Load's window is the one a
+                                        turn will use (local_ollama_cli.warm_window), not max_ctx
+    POST local/host/<name>/measure {model, again?}   GET ...?model=   3.6.0.0 R8: the asked-for measurement
+                                        (local_ollama_cli.measure) in a thread; GET reads its lines and outcome
+    GET  local/hosts?fresh=1            3.6.0.0 R8: Refresh -- the caches dropped, /api/ps read again
     POST local/host/add {url, name}     the discovered server as an ollama.hosts entry, through Setup's own writer
                                         (studio/setup_providers_api.post_ollama_host)
     GET  local/resources?host=          the last 5 minutes of samples (ollama_steward/resources.py) and the sampler's state
@@ -30,7 +36,7 @@ from __future__ import annotations
 
 import re
 
-_HOST_ACT = re.compile(r"^local/host/(?P<name>[^/]+)/(?P<act>load|unload)$")
+_HOST_ACT = re.compile(r"^local/host/(?P<name>[^/]+)/(?P<act>load|unload|measure)$")
 MAX_SINCE_S = 86400.0
 
 
@@ -47,6 +53,11 @@ def _publish(req):
 
 def get_hosts(req):
     from halo_harness.studio.local_hosts_view import hosts
+    if str(req.query.get("fresh") or "") in ("1", "true", "yes"):  # 3.6.0.0 R8: Refresh -- read /api/ps again now
+        from halo_harness.providers.ollama import reset_catalog_cache
+        from halo_harness.studio import ollama_hosts_view as V
+        V.reset_cache()
+        reset_catalog_cache()
     return 200, hosts(req.state_dir)
 
 
@@ -77,18 +88,68 @@ def post_host_act(req, name: str, act: str):
             fields["num_ctx"] = body["num_ctx"]
         if body.get("keep_alive") not in (None, ""):
             fields["keep_alive"] = body["keep_alive"]
-    if card["controls"]["via"] != "this machine":
+    via = card["controls"]["via"]
+    if via not in ("this machine", "Ollama's API"):  # 3.6.0.0 R8: an ollama.hosts entry is reached directly
         code, out = _remote(req, card, act, fields)
         from halo_harness.studio import ollama_hosts_view as V
         V.reset_cache()
         return code, out
     from halo_harness.providers.ollama_load import load, unload
     host = resolve_ollama_host(name)
-    out = load(host, model, num_ctx=fields.get("num_ctx"), keep_alive=fields.get("keep_alive")) if act == "load" \
-        else unload(host, model)
+    where = None
+    if act == "load" and not fields.get("num_ctx"):
+        # 3.6.0.0 R8: the window a turn will use (the profile's, the last call's, else 16,384), not max_ctx
+        from halo_harness.local_ollama_cli import warm_window
+        fields["num_ctx"], where = warm_window(host, model, None)
+    out = load(host, model, num_ctx=fields.get("num_ctx"), keep_alive=fields.get("keep_alive"), window_from=where) \
+        if act == "load" else unload(host, model)
     from halo_harness.studio import ollama_hosts_view as V
     V.reset_cache()  # the next read shows what /api/ps has now
-    return (200 if out["ok"] else 502), ({**out, "via": "this machine"} if out["ok"] else {"error": out["say"], **out})
+    return (200 if out["ok"] else 502), ({**out, "via": via} if out["ok"] else {"error": out["say"], **out})
+
+
+_MEASURES: dict = {}  # (host name, model) -> {running, lines, line, ok, max_full_gpu_ctx, at}
+
+
+def measure_view(name: str, model: str) -> dict:
+    got = _MEASURES.get((name, model))
+    return dict(got) if got else {"running": False, "lines": [], "line": "", "ok": None}
+
+
+def post_host_measure(req, name: str):
+    """3.6.0.0 R8: Measure on a host's card -- `halo local measure` (local_ollama_cli.measure) in a thread of its own:
+    the ladder of loads, never above max_ctx, once per model digest and server version unless {again: true}.
+    GET local/host/<name>/measure?model= reads its lines back."""
+    import threading
+    import time
+    from halo_harness.providers.ollama import resolve_ollama_host
+    body = _body(req)
+    model = str(body.get("model") or "").strip()
+    if not model:
+        return 422, {"error": "measure takes {model}", "problems": ["model: the model to measure"]}
+    host = resolve_ollama_host(name)
+    if host is None:
+        return 404, {"error": f"no host named {name!r} here"}
+    key = (name, model)
+    if (_MEASURES.get(key) or {}).get("running"):
+        return 409, {"error": f"{model} on {name} is being measured already", **measure_view(name, model)}
+    state = {"running": True, "lines": [], "line": "", "ok": None, "at": time.time()}
+    _MEASURES[key] = state
+
+    def _run() -> None:
+        from halo_harness.local_ollama_cli import measure
+        try:
+            got = measure(host, model, again=bool(body.get("again")), say=state["lines"].append)
+            state.update(line=got.get("say") or "", ok=bool(got.get("ok")), max_full_gpu_ctx=got.get("max_full_gpu_ctx"))
+        except Exception as e:  # noqa: BLE001 -- the line says what broke
+            state.update(line=f"the measurement stopped: {type(e).__name__}: {e}", ok=False)
+        finally:
+            state["running"] = False
+            from halo_harness.studio import ollama_hosts_view as V
+            V.reset_cache()
+
+    threading.Thread(target=_run, daemon=True, name=f"halo-measure-{name}").start()
+    return 200, {"ok": True, **measure_view(name, model)}
 
 
 def post_host_add(req):
@@ -195,10 +256,15 @@ def dispatch_local(req):
         return fn(req)
     m = _HOST_ACT.match(req.path)
     if m:
+        import urllib.parse
+        name, act = urllib.parse.unquote(m.group("name")), m.group("act")
+        if act == "measure":  # 3.6.0.0 R8: POST starts it, GET reads its lines
+            if req.method == "GET":
+                return 200, measure_view(name, str(req.query.get("model") or "").strip())
+            return post_host_measure(req, name) if req.method == "POST" else (405, {"error": "method not allowed"})
         if req.method != "POST":
             return 405, {"error": "method not allowed"}
-        import urllib.parse
-        return post_host_act(req, urllib.parse.unquote(m.group("name")), m.group("act"))
+        return post_host_act(req, name, act)
     if any(p == req.path for _m, p in ROUTES):
         return 405, {"error": "method not allowed"}
     return 404, {"error": f"no route for {req.method} /api/{req.path}"}

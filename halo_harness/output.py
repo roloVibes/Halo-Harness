@@ -634,6 +634,12 @@ class StreamJsonSink:
             self._write({"type": "subagent_stop", "session_id": self.session_id, "agent_id": agent_id,
                           "name": event.data.get("name"), "parent_tool_use_id": event.data.get("parent_tool_use_id")})
             return
+        if kind == "turn_marker" and (event.data or {}).get("state") in ("loading", "loaded"):
+            # Halo 3.6.0.0 R8: the wait says what it is -- a local model loading on its server, then how long
+            text = str(event.data.get("text") or "").lstrip("↳ ").strip()
+            self._write({"type": "system", "subtype": "status", "session_id": self.session_id,
+                         "status": event.data.get("state"), "text": text, "agent_id": agent_id})
+            return
 
         buf = self._buf(agent_id)
         if parent_tool_use_id is not None:

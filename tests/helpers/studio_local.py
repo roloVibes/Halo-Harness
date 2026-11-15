@@ -108,7 +108,12 @@ def hosts(c, url, ctx) -> dict:
     out = {"cards": c.wait(f"{qa('[data-testid=local-host-card]')}.length >= 4 && {qa('[data-testid=local-host-card]')}.map((h) => [h.dataset.name, h.dataset.source, h.dataset.control])", 20)}
     out["pc_vram"] = c.js(f"{card('pc', '[data-testid=local-host-vram]')}.textContent")
     out["pc_users"] = c.js(f"{card('pc', '[data-testid=local-host-users]')}.textContent")
-    out["pc_why"] = c.js(f"{card('pc', '[data-testid=local-control-why]')}?.textContent || ''")
+    out["pc_why"] = c.js(f"{card('pc', '[data-testid=local-control-via]')}?.textContent || ''")  # 3.6.0.0 R8
+    out["pc_words"] = c.js(f"{card('pc', '[data-testid=local-acts-words]')}?.textContent || ''")
+    out["refresh"] = c.js(f"{qa('[data-testid=local-host-card]')}.filter((h) => h.querySelector('[data-testid=local-refresh]'))"
+                          ".map((h) => h.dataset.name)")
+    measure = q('[data-testid=local-host-card][data-name="box"] [data-testid=local-host-model] [data-testid=local-measure]')
+    out["measure_title"] = c.js(f"{measure}?.title || ''")
     load = q('[data-testid=local-host-card][data-name="box"] [data-testid=local-host-model][data-model="qwen3.5:9b"] [data-testid=local-load]')
     loaded = card("box", '[data-testid=local-host-loaded][data-model="qwen3.5:9b"]')
     press(c, load, f"!!{loaded}")

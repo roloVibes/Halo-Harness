@@ -470,6 +470,38 @@ Changed:
   `ext.reads_as_1x` says a 1.x pack loads anyway. The doc-review pack ships its crew in 2.0 files.
   docs/EXTENSION_API.md "A pack's crew"; docs/MOVING-from-3.5.md.
 
+### R8
+
+A model on another machine answers as fast as that machine can. A one-word answer from a model on another machine
+took 33-39 s through Halo on first use (0.2 s straight from Ollama): Halo measured the model's window before the turn
+(three reloads, one past the host's cap), asked for the cap as the window, and estimated tokens 4.5x too high.
+
+- **A turn never waits for a measurement.** No call loads a model to measure it any more (the first-use
+  auto-calibration is gone). After an answer, one `/api/ps` read says whether the model sits wholly on the card at the
+  window used; Halo keeps that (`window_truth` in `ollama-fit.json`, agent/ollama_window_truth.py). The ladder of
+  loads runs only when you ask: `halo local measure`, or Measure on a host's card in Studio's Local section.
+- **The window a turn asks for** is the window the model is already loaded at on that server when it holds the
+  request (nobody's model is reloaded, another machine's load included), else what the request needs plus the reply's
+  room on the ladder 8,192 / 16,384 / 32,768 / 65,536, never above the host's `max_ctx`, a measured cap or a window
+  seen spilling to the CPU. A steward profile's window still wins. The traffic ledger's `window_source` says which:
+  `loaded`, `request size`, `steward profile`, ... Auto-compaction's share is of the most the window can be.
+- **The estimate is honest.** The ledger's `estimate_tokens` is the prompt's (it carried the reply's room, 16,384
+  on a first call); after each answer the real `prompt_eval_count` sets this model's ratio, which the next estimate
+  starts from when chars / 3.5 is more than 15 % off.
+- **Halo does not unload or shorten what it did not load on request.** No request carries a `keep_alive` nobody set
+  (the capability battery and probe sent "5m", which overrode a server that keeps models for ever).
+- **A measurement, when asked for,** never steps above the host's `max_ctx`, gives the cold first load a load's own
+  time (one load, never "does not fit"), keeps the safe window it measured when a later step is slow, and runs once per
+  model digest and server version (`--again` repeats it).
+- **The wait says what it is**: "loading <model> on <host> (16.6 GB)" before a call that loads the model, then how
+  long it took -- in the TUI's status line and transcript, Studio's Live row, and a `system`/`status` line in
+  `--output-format stream-json`.
+- **Control from this machine with nothing but Ollama on the other one**: `halo local ps | warm | unload | pull |
+  measure` (`--host`, `--json`, exit codes 0 / 1 / 2 / 3), through Ollama's own API; `halo --help` names `local` and
+  `host`, `halo local --help` the verbs. Studio's host cards control an `ollama.hosts` entry no halo host serves
+  through Ollama's API (Warm, Unload, Measure, Refresh, each saying what it does and costs). `halo local warm MODEL`
+  loads at the window a turn will use and leaves the keep-alive to the server unless `--keep`.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

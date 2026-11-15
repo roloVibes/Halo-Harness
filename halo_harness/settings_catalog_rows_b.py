@@ -56,7 +56,7 @@ ROWS = [
     Row("ollama.steward.probe_new", "ollama", "Probe new models", "bool", True, (), "The steward's job runs the capability battery on a newly pulled or newly seen model (or a changed digest or Ollama version) while the card is idle; false probes only when you ask (halo models probe).", "now"),
     Row("ollama.steward.note_every_s", "ollama", "Note at most every (s)", "int", 600, (), "The steward's model writes at most one note per this many seconds, and only when something is new.", "now"),
     Row("ollama.steward.chat_tokens", "ollama", "Chat context (tokens)", "int", 6000, (), "The most context the steward's chat sends its model; when short, the events, then the calls, then the cards are left out, and the answer says so.", "now"),
-    Row("ollama.auto_calibrate", "ollama", "Auto calibrate", "bool", True, (), "Run the fit calibration the first time a model is used on a host with no learned cap.", "now"),
+    Row("ollama.auto_calibrate", "ollama", "Auto calibrate", "bool", True, (), "No effect since 3.6.0.0: no turn measures a model on its own (halo local measure, or Measure on a host's card, does when you ask).", "now"),
     Row("ollama.discover.ports", "ollama", "Discovery ports", "list", [11434], (), "The ports Find Ollama servers and Scan this network ask on every address.", "now"),
     Row("ollama.discover.subnets", "ollama", "Discovery subnets", "list", [], (), "Extra IPv4 CIDRs the network scan sweeps besides this machine's own /24.", "now"),
     Row("network.offline", "network", "Offline", "bool", False, (), "Only local hosts are called; every request to a remote host fails at once.", "now"),

@@ -44,6 +44,9 @@ _SOURCE_WORDS = {
     "trained context": "trained", "prompt floor": "prompt floor", "hard cap": "hard cap",
     "fallback": "fallback", "remote default": "remote default", "conservative default": "default",
     "steward profile": "profile",  # 3.3.4.0 R3 (ollama_steward/profiles.py)
+    # 3.6.0.0 R8 (agent/ollama_window_truth.start_window): the window it was loaded at, the request's need, under
+    # a window seen spilling to the CPU
+    "loaded": "loaded", "request size": "request", "known to spill": "spill",
 }
 
 

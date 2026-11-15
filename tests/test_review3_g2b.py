@@ -60,39 +60,46 @@ def test_g2_63_model_id_in_quotes_is_not_a_replacement(ctx: Ctx):
 # ---- item 64 ---------------------------------------------------------------
 
 def _warm(argv, **mock_kw):
-    from halo_harness.local_cli import _cmd_warm
-    from tests.helpers.mock_ollama import MockUpstream, send_json
-
-    def one_shot(h, body):
-        send_json(h, 200, {"message": {"role": "assistant", "content": "hi"}, "done": True})
-    mock = MockUpstream(scenarios={"qwen3:30b": one_shot, "qwen3": one_shot}, **mock_kw).start()
+    """3.6.0.0 R8: `halo local warm MODEL` loads through Ollama's own `/api/generate` (local_ollama_cli.py; the
+    2.0.7 one-token `/api/chat` warm is gone) on an `ollama.hosts` entry in a state dir of its own."""
+    from halo_harness.local_ollama_cli import cmd_warm_models
+    from halo_harness.theme import set_config_value
+    from tests.helpers.mock_ollama import MockUpstream
+    mock = MockUpstream(**mock_kw).start()
     out = io.StringIO()
     try:
-        with env_patch(OLLAMA_HOST=mock.base_url), contextlib.redirect_stdout(out):
-            rc = _cmd_warm(argv)
-        return rc, out.getvalue(), [r for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
+        with env_patch(BRIDGE_STATE_DIR=str(_tmp("g2b-warm-"))), contextlib.redirect_stdout(out):
+            set_config_value("ollama.hosts", [{"name": "box", "url": mock.base_url}])
+            rc = cmd_warm_models(argv)
+        return rc, out.getvalue(), [r for r in mock.requests if r["path"].rstrip("/") == "/api/generate"]
     finally:
         mock.stop()
 
 
 @test
 def test_g2_64_keep_alive_minus_one_goes_out_as_a_number(ctx: Ctx):
-    rc, text, chats = _warm(["qwen3:30b", "--keep-alive", "-1"], ps_response={"models": []})
-    ctx.check(f"warmed, rc={rc} {text!r}", rc == 0 and len(chats) == 1)
-    ka = chats[0]["body"].get("keep_alive")
+    rc, text, loads = _warm(["qwen3:30b", "--keep", "-1"], ps_response={"models": []})
+    ctx.check(f"warmed, rc={rc} {text!r}", rc == 0 and len(loads) == 1)
+    ka = loads[0]["body"].get("keep_alive") if loads else None
     ctx.check(f"the wire value is the number -1, got {ka!r}", ka == -1 and isinstance(ka, int))
-    _rc, _text, chats = _warm(["qwen3:30b", "--keep-alive", "24h"], ps_response={"models": []})
-    ctx.check(f"a duration with a unit stays a string, got {chats[0]['body'].get('keep_alive')!r}",
-              chats[0]["body"].get("keep_alive") == "24h")
-    _rc, _text, chats = _warm(["qwen3:30b", "--keep-alive", "3600"], ps_response={"models": []})
-    ctx.check("a bare integer string is a number", chats[0]["body"].get("keep_alive") == 3600)
+    _rc, _text, loads = _warm(["qwen3:30b", "--keep", "forever"], ps_response={"models": []})
+    ctx.check("--keep forever is the number -1 too", loads and loads[0]["body"].get("keep_alive") == -1)
+    _rc, _text, loads = _warm(["qwen3:30b", "--keep-alive", "24h"], ps_response={"models": []})
+    ctx.check(f"a duration with a unit stays a string, got {loads[0]['body'].get('keep_alive') if loads else None!r}",
+              loads and loads[0]["body"].get("keep_alive") == "24h")
+    _rc, _text, loads = _warm(["qwen3:30b", "--keep", "3600"], ps_response={"models": []})
+    ctx.check("a bare integer string is a number", loads and loads[0]["body"].get("keep_alive") == 3600)
+    _rc, _text, loads = _warm(["qwen3:30b"], ps_response={"models": []})
+    ctx.check(f"no --keep: no keep_alive on the wire (the server's own stands), got {loads[0]['body'] if loads else None}",
+              loads and "keep_alive" not in loads[0]["body"])
 
 
 @test
 def test_g2_64_untagged_name_matches_its_latest_row_in_ps(ctx: Ctx):
-    rc, text, chats = _warm(["qwen3"], ps_response={"models": [{"name": "qwen3:latest", "model": "qwen3:latest"}]})
-    ctx.check(f"reported resident, got {text!r}", "already resident" in text and rc == 0)
-    ctx.check(f"no load request was sent, got {len(chats)}", not chats)
+    rc, text, loads = _warm(["qwen3"], ps_response={"models": [{"name": "qwen3:latest", "model": "qwen3:latest",
+                                                                "context_length": 8192}]})
+    ctx.check(f"reported loaded already, got {text!r}", "already loaded" in text and rc == 0)
+    ctx.check(f"no load request was sent, got {len(loads)}", not loads)
 
 
 # ---- item 133 --------------------------------------------------------------

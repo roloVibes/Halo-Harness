@@ -196,7 +196,9 @@ def run(host, model: str, *, client=None, card=None, on_status: Optional[Callabl
     info = show.get("model_info") if isinstance(show.get("model_info"), dict) else {}
     was_loaded = _ps_entry(client.call("GET", "/api/ps", timeout=10.0), model) is not None
     used = _window(host, model, info, card, row, window)
-    keep = getattr(host, "keep_alive", None) or "5m"
+    # 3.6.0.0 R8: the host's keep_alive or none at all -- a "5m" of Halo's own overrode a server that keeps
+    # its models for ever, and the model left the card five minutes after the probe
+    keep = getattr(host, "keep_alive", None)
     replies, ev, total = {}, {}, len(B.ORDER) + 2  # 3.3.6.0 R4: the multi-tool probe, R6: the vision probe last
     for i, probe in enumerate(B.ORDER, 1):
         say({"step": i, "of": total, "probe": probe, "say": f"{i}/{total} {B.WORDS[probe]}"})

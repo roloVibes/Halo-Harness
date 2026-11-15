@@ -17,10 +17,20 @@ import { HostServedBy } from "./HostServedBy";
 import { HostStated } from "./HostStated";
 import { HostWarm } from "./HostWarm"; // 3.3.7.0 R3: the active lineup's warm set on this card
 import { HostGuards } from "./HostGuards"; // 3.3.7.0 R4: foreign clients, idle, the off-hours refresh
-import { addHost, gib, loadModel, makeItFit, undoFit, unloadModel, useLocal } from "./store";
+import { addHost, gib, loadModel, makeItFit, measureModel, refreshHosts, undoFit, unloadModel, useLocal } from "./store";
 import type { HostCard as Host } from "./types";
 
 const KEEPS = ["", "5m", "30m", "1h", "-1"];
+
+// 3.6.0.0 R8: what each action does and what it costs, said in plain words on the card before anything runs.
+const WORDS = {
+  warm: "Warm: loads the model now at the window a turn will use, so the first turn does not wait. Costs its load time "
+    + "(seconds; up to a minute for a big model over the network) and its memory on the card while it stays.",
+  unload: "Unload: takes the model off the card now; the next turn on it loads it again.",
+  measure: "Measure: loads the model at a few windows, one full load each (seconds to a minute each on a big model), "
+    + "to find the largest window that stays wholly on the card. Once per model version; no turn ever does this.",
+  refresh: "Refresh: reads the server again now (one request; nothing loads).",
+};
 
 function until(iso: string | null): string {
   if (!iso) return "";
@@ -104,6 +114,10 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
         <span className="og-chip mono" data-testid="local-host-source">{h.source}</span>
         {h.version && <span className="mono muted" title="the server's version (/api/version)">v{h.version}</span>}
         <span className="spacer" />
+        {h.kind.toLowerCase() === "ollama" && h.source === "configured" && (
+          <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => void refreshHosts(h.name)} data-testid="local-refresh"
+                  title={`${WORDS.refresh} (halo local ps --host ${h.name})`}>Refresh</Button>
+        )}
         <span className="mono muted" data-testid="local-host-served">{h.served_here ? "served here" : h.served_by ? `served by ${h.served_by}` : ""}</span>
       </header>
       <div className="mono lc-host-url" data-testid="local-host-url">{h.url}</div>
@@ -129,7 +143,9 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
               <span className="muted">{until(m.expires)}</span>
               {m.bench && <span className="mono muted" data-testid="local-host-bench" title="its speed card (Local -> Benchmarks)">{m.bench}</span>}
               <span className="spacer" />
-              <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `halo models unload ${m.model} --host ${h.name} (keep_alive 0, via ${ctl.via})` : ctl.why}
+              <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `${WORDS.measure} (halo local measure ${m.model} --host ${h.name})` : ctl.why}
+                      onClick={() => void measureModel(h.name, m.model || "")} data-testid="local-measure">Measure</Button>
+              <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `${WORDS.unload} (halo local unload ${m.model} --host ${h.name}: keep_alive 0, via ${ctl.via})` : ctl.why}
                       onClick={() => void unloadModel(h.name, m.model || "")} data-testid="local-unload">Unload</Button>
             </li>
           ))}
@@ -142,21 +158,27 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
               <span className="mono">{m}</span>
               <FitMeter fit={fits[m]} />
               <span className="spacer" />
-              <Button size="sm" disabled={!!busy || !ctl.ok} title={ctl.ok ? `halo models load ${m} --host ${h.name} (a warm generate at the profile's window, via ${ctl.via})` : ctl.why}
-                      onClick={() => void loadModel(h.name, m, keep)} data-testid="local-load">Load</Button>
+              <Button size="sm" variant="ghost" disabled={!!busy || !ctl.ok} title={ctl.ok ? `${WORDS.measure} (halo local measure ${m} --host ${h.name})` : ctl.why}
+                      onClick={() => void measureModel(h.name, m)} data-testid="local-measure">Measure</Button>
+              <Button size="sm" disabled={!!busy || !ctl.ok} title={ctl.ok ? `${WORDS.warm} (halo local warm ${m} --host ${h.name}, via ${ctl.via})` : ctl.why}
+                      onClick={() => void loadModel(h.name, m, keep)} data-testid="local-load">Warm</Button>
               <Said k={`${h.name}|${m}`} />
             </li>
           ))}
           <li className="lc-keep">
-            <label className="mono muted">keep-alive for Load{" "}
+            <label className="mono muted">keep-alive for Warm{" "}
               <select value={keep} onChange={(e) => setKeep(e.target.value)} data-testid="local-keep" disabled={!ctl.ok}>
-                {KEEPS.map((v) => <option key={v} value={v}>{v === "" ? "the profile's" : v === "-1" ? "until unloaded" : v}</option>)}
+                {KEEPS.map((v) => <option key={v} value={v}>{v === "" ? "the server's own" : v === "-1" ? "until unloaded" : v}</option>)}
               </select>
             </label>
           </li>
         </ul>
       )}
       {h.loaded.map((m) => <Said key={m.model} k={`${h.name}|${m.model}`} />)}
+      {ctl.ok && h.kind.toLowerCase() === "ollama" && (h.loaded.length > 0 || h.models.length > 0) && (
+        <p className="muted lc-why" data-testid="local-acts-words">{WORDS.warm} {WORDS.unload} {WORDS.measure}</p>
+      )}
+      <Said k={`refresh|${h.name}`} />
       {Object.keys(h.profiles).length > 0 && (
         <div className="mono muted lc-host-line" data-testid="local-host-profiles">
           profiles: {Object.entries(h.profiles).map(([m, p]) => `${m} ${[p.num_ctx ? `window ${p.num_ctx.toLocaleString("en-US")}` : "", p.num_predict ? `reserve ${p.num_predict}` : "", p.keep_alive != null ? `keep-alive ${p.keep_alive}` : ""].filter(Boolean).join(" ")} (by ${p.by || "you"})`).join(" · ")}
@@ -176,6 +198,9 @@ export function HostCard({ h, fits }: { h: Host; fits: Record<string, Fit> }) {
       )}
       {!ctl.ok && h.source !== "discovered" && ctl.why && <p className="muted lc-why" data-testid="local-control-why">{ctl.why}</p>}
       {ctl.ok && ctl.via === "host" && <p className="mono muted lc-why" data-testid="local-control-via">through {ctl.via_line || "the halo host"}</p>}
+      {ctl.ok && ctl.via === "Ollama's API" && (
+        <p className="mono muted lc-why" data-testid="local-control-via">through Ollama's own API: nothing of Halo's runs on that machine</p>
+      )}
       {ctl.ok && ctl.via === "host" && <HostStated name={h.name} />}
     </article>
   );

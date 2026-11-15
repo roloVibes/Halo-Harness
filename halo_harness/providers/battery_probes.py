@@ -63,6 +63,8 @@ def body(model: str, name: str, *, num_ctx: int, keep_alive, cap: Optional[int] 
     messages, predict, tools = PROBES[name]
     out = {"model": model, "messages": messages, "stream": False, "keep_alive": keep_alive,
            "options": {"num_ctx": num_ctx, "temperature": 0, "num_predict": cap or predict}}
+    if keep_alive is None:  # 3.6.0.0 R8: the server's own keep-alive stands
+        out.pop("keep_alive")
     if tools:
         out["tools"] = [TOOL]
     return out
@@ -211,9 +213,12 @@ def vision_asked(show) -> "tuple[bool, str]":
 
 def vision_body(model: str, *, num_ctx: int, keep_alive, cap: Optional[int] = None) -> dict:
     import base64
-    return {"model": model, "stream": False, "keep_alive": keep_alive,
-            "messages": [{"role": "user", "content": VISION_ASK, "images": [base64.b64encode(VISION_PNG).decode("ascii")]}],
-            "options": {"num_ctx": num_ctx, "temperature": 0, "num_predict": cap or VISION_PREDICT}}
+    out = {"model": model, "stream": False, "keep_alive": keep_alive,
+           "messages": [{"role": "user", "content": VISION_ASK, "images": [base64.b64encode(VISION_PNG).decode("ascii")]}],
+           "options": {"num_ctx": num_ctx, "temperature": 0, "num_predict": cap or VISION_PREDICT}}
+    if keep_alive is None:  # 3.6.0.0 R8: the server's own keep-alive stands
+        out.pop("keep_alive")
+    return out
 
 
 def score_vision(reply) -> "tuple[str, str]":

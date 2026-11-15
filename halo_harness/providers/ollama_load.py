@@ -52,13 +52,14 @@ def _say(reply, verb: str, model: str, host) -> str:
     return f"{name} did not answer ({reply.failure})"
 
 
-def load(host, model: str, *, num_ctx: Optional[int] = None, keep_alive=None) -> dict:
-    """Load `model` at the profile's window (or `num_ctx`), kept for `keep_alive`."""
+def load(host, model: str, *, num_ctx: Optional[int] = None, keep_alive=None, window_from: Optional[str] = None) -> dict:
+    """Load `model` at the profile's window (or `num_ctx`, `window_from` saying where it came from), kept for
+    `keep_alive`."""
     from halo_harness.providers.ollama import request_json
     from halo_harness.providers.ollama_guard import control_blocked  # 3.3.5.0 R3
     if control_blocked(host):
         return {"ok": False, "say": control_blocked(host), "status": None, "num_ctx": num_ctx, "keep_alive": keep_alive}
-    where = "asked"
+    where = window_from or "asked"
     if num_ctx is None:
         num_ctx, where = window_for(host, model)
     keep = _keep(host, model, keep_alive)

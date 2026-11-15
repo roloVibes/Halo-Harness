@@ -56,12 +56,13 @@ fitting candidate. Prints the host/model being calibrated, the starting
 candidate, and the result (the fully-resident `num_ctx` and how many
 steps it took, or "does not fit... even at num_ctx=4096"); either outcome
 is recorded in `~/.halo/ollama-fit.json` (a "does not fit" result is a
-real, remembered fact too, not a failure to retry on the next run). The
-SAME procedure also runs automatically the first time a model is used on
-a host with no learned cap at all -- `ollama.auto_calibrate: false`
-(`docs/CONFIG.md`) opts out of that; this command is always available
-regardless, for an explicit re-measurement after a GPU/driver/other-
-process change. See [MODELS.md](MODELS.md)'s "Fit calibration" section.
+real, remembered fact too, not a failure to retry on the next run).
+Since 3.6.0.0 no turn runs this on its own: a turn learns from its own
+answer (one `/api/ps` read after it), and the ladder of loads runs only
+when you ask -- this command, `halo local measure` (never above the host's
+`max_ctx`, once per model digest and server version) or Measure on the
+host's card in Studio. `ollama.auto_calibrate` has no effect any more.
+See [MODELS.md](MODELS.md)'s "Fit calibration" section.
 
 Halo 3.2.3.0: a load counts only when it finished within its budget and
 `/api/ps` lists the model at that window; otherwise the step is retried

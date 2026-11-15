@@ -89,11 +89,18 @@ def test_the_traffic_view_follows_the_ledger(ctx: Ctx):
 @test
 def test_the_hosts_page_and_its_controls(ctx: Ctx):
     got = _got(ctx)
+    # 3.6.0.0 R8: a configured Ollama on another machine is controlled from here through Ollama's own API
     ctx.check(f"every host as a card, the controls where they apply, got {got.get('cards')}", (got.get("cards") or [])[:4] ==
-              [["pc", "configured", "no"], ["sagan", "configured", "no"], ["box", "configured", "yes"], ["llama-box", "local server", "no"]])
+              [["pc", "configured", "yes"], ["sagan", "configured", "yes"], ["box", "configured", "yes"], ["llama-box", "local server", "no"]])
     ctx.check(f"pc's numbers: 90% VRAM, who calls it, got {got.get('pc_vram')!r} {got.get('pc_users')!r}",
               got.get("pc_vram") == "90% VRAM" and got.get("pc_users") == "who calls it: this machine 12")
-    ctx.check(f"pc: why there is no Load from here, got {got.get('pc_why')!r}", "served by another machine" in str(got.get("pc_why")))
+    ctx.check(f"pc: Warm / Unload / Measure through Ollama's API, said on the card, got {got.get('pc_why')!r}",
+              "through Ollama's own API" in str(got.get("pc_why")))
+    ctx.check(f"what each action does and costs, in plain words before it runs, got {got.get('pc_words')!r}",
+              all(w in str(got.get("pc_words")) for w in ("Warm: loads", "Unload: takes", "Measure: loads")))
+    ctx.check(f"a Refresh on each configured Ollama card, got {got.get('refresh')}", got.get("refresh") == ["pc", "sagan", "box"])
+    ctx.check(f"Measure beside Warm on box's installed rows, got {got.get('measure_title')!r}",
+              "halo local measure" in str(got.get("measure_title")))
     ctx.check(f"Load reached the fake (a generate), Unload sent keep_alive 0, got {got.get('loaded')} {got.get('unloaded')!r}",
               got.get("loaded") == ["qwen3.5:9b"] and got.get("unloaded") == 0)
     prof = got.get("fit_profiles") or {}

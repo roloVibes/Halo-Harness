@@ -231,14 +231,22 @@ does not fit (6 min 10 s)"). With the headroom rule a `max_ctx` on the
 host is normally unnecessary; it stays the hard ceiling when you set one.
 
 The result is saved (`~/.halo/ollama-fit.json`) and used from then on --
-it changes when you re-pull the model or upgrade Ollama, and a saved
-window below the current request's floor is discarded and measured
-again. The first time you use a model on a host with no saved
-measurement, Halo runs this automatically: the turn waits up to 20 s, the
-measurement keeps its own budget in the background and its one line
-appears when it finishes (the next turn uses it). Turn that off with
-`halo config set ollama.auto_calibrate false` if you'd rather calibrate
-by hand only.
+it changes when you re-pull the model or upgrade Ollama; a saved window
+below the current request's floor is raised over, never measured again
+on its own. Since 3.6.0.0 no turn measures a model: a turn asks for the
+window its request needs (or the window the model is already loaded at,
+when that holds it), and after the answer one `/api/ps` read says whether
+the model sat wholly on the card there. The ladder of loads runs only when
+you ask: `halo local measure MODEL [--host NAME]` (never above the host's
+`max_ctx`, the cold first load counted as a load, once per model digest
+and server version; `--again` repeats it) or Measure on the host's card.
+
+A model on another machine is controlled from this one with nothing but
+Ollama running there: `halo local ps` (what is loaded where, its window,
+the card, how long it stays), `halo local warm MODEL [--window N] [--keep
+30m|forever]`, `halo local unload MODEL|--all`, `halo local pull MODEL`
+and `halo local measure MODEL`, each with `--host NAME`, `--json` and exit
+codes 0 (done), 1 (the server said no), 2 (usage), 3 (no answer).
 
 ### The host panel and `halo ollama doctor`
 

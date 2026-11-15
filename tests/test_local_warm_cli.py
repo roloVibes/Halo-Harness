@@ -69,19 +69,23 @@ def test_dry_warm_loads_nothing(ctx: Ctx):
 
 
 @test
-def test_model_names_keep_the_207_form(ctx: Ctx):
-    from tests.helpers.mock_ollama import MockUpstream, send_json
-    def one_shot(handler, body):
-        send_json(handler, 200, {"message": {"role": "assistant", "content": "hi"}, "done": True})
+def test_model_names_load_the_model_on_its_server(ctx: Ctx):
+    """3.6.0.0 R8: a model name (no map) loads it through Ollama's own /api/generate at the window a turn will use
+    (local_ollama_cli.py) -- the 2.0.7 form's one-token /api/chat and its 30m default keep_alive are gone."""
+    from tests.helpers.mock_ollama import MockUpstream
     with SchedHome() as h:
-        mock = MockUpstream(scenarios={"qwen3:30b": one_shot}).start()
+        mock = MockUpstream().start()
         try:
             h.config(**{"ollama.hosts": [{"name": "box", "url": mock.base_url}]})
             rc, text = _run(["qwen3:30b", "--keep-alive", "-1"])
+            gen = list(mock.generated)
+            chats = [r for r in mock.requests if r["path"].rstrip("/") == "/api/chat"]
         finally:
             mock.stop()
-        ctx.check(f"a model name warms the model (one /api/chat), got {rc} {text!r}",
-                  rc == 0 and "qwen3:30b: warmed (keep_alive=-1)" in text)
+        ctx.check(f"a model name loads the model, got {rc} {text!r}",
+                  rc == 0 and "qwen3:30b loaded on box at 16,384" in text and "kept until unloaded" in text)
+        ctx.check(f"one /api/generate with keep_alive -1, no chat, got {gen} {len(chats)}",
+                  len(gen) == 1 and gen[0]["keep_alive"] == -1 and not chats)
 
 
 @test

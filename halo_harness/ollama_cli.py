@@ -156,7 +156,8 @@ def cmd_ollama_calibrate(argv: list) -> int:
     result = run_calibration(host, args.model, start_ctx=start, keep_alive=host.keep_alive,
                               step_up=not args.no_up, trained_context=trained_context_for(catalog, args.model),
                               budget_s=budget, on_step=_on_step, num_gpu=gpu_layers_for(row.get("model_info")),
-                              gpu_total=host_gpu_total_bytes(host))
+                              gpu_total=host_gpu_total_bytes(host),
+                              hard_cap=host.max_ctx if isinstance(host.max_ctx, int) and host.max_ctx > 0 else None)
     if result.prompt_tok_s:
         record_prompt_speed(bridge_home(), host_url=host.url, model=args.model, tok_s=result.prompt_tok_s)
     if result.outcome in ("inconclusive", "unreachable"):

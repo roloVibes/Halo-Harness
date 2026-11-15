@@ -312,6 +312,9 @@ class _Handler(BaseHTTPRequestHandler):
                 "headers": {k.lower(): v for k, v in self.headers.items()},
                 "body": body, "ts": time.monotonic(),
             })
+        observe = getattr(mock, "observe", None)  # 3.6.0.0 R8: the load-counting fake (mock_ollama_loads.py)
+        if observe is not None:
+            observe(method, self.path.rstrip("/"), body)
 
     def do_GET(self):
         mock: MockUpstream = self.server.mock  # type: ignore[attr-defined]

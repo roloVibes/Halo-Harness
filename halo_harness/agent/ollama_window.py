@@ -5,9 +5,11 @@
 only grows by the call sites:
 
 - `prepare_window` runs inside `_build_ollama_body_for_ref`, before every
-  Ollama call: the request's estimate, the window it gets, and a saved
-  calibration cap under the prompt floor discarded (the model is measured
-  again on the next turn, once per process).
+  Ollama call: the request's estimate (3.6.0.0 R8: with the model's
+  measured ratio, agent/ollama_window_truth.py) and the window it gets. A
+  saved cap under the prompt floor is raised over, never discarded to be
+  measured again (no call measures the model; `halo local measure` does,
+  when asked).
 - `pre_send_line` is the one line when even the largest window this call
   can get does not hold the request: the turn compacts before sending.
 - `trim_recovery` is the once-per-turn answer to a trimmed request (a low
@@ -29,7 +31,7 @@ log = logging.getLogger("bridge")
 def _state(session) -> dict:
     st = getattr(session, "_ollama_window_state", None)
     if st is None:
-        st = {"factor": {}, "discarded": set(), "trim_turn": None, "late": [], "last": None}
+        st = {"factor": {}, "trim_turn": None, "last": None}
         session._ollama_window_state = st
     return st
 
@@ -40,35 +42,27 @@ def prepare_window(session, *, host, ref, decision, base_num_ctx: int, base_sour
     """Returns `(estimate, factor)` for `build_ollama_request_body`'s
     `prompt_tokens`/`window_factor`; records the choice on the session for
     `pre_send_line`/`trim_recovery` when `ref` is the session's own model."""
+    from halo_harness.agent.ollama_window_truth import prompt_estimate
     from halo_harness.providers.ollama_prompt import reply_reserve, tool_output_tokens, window_for
-    from halo_harness.providers.ollama_wire_estimate import wire_estimate  # 3.3.16.1: the body that is sent
+    del auto_calibrate  # 3.6.0.0 R8: no measurement from a call; a saved cap under the floor is raised over, kept
     st = _state(session)
     key = (host.url, ref.model)
     reserve = reply_reserve(reply_tokens)
     if ref is session.model_ref and getattr(session, "_switch_reserve", None):  # 3.3.5.0 R0: the switch's reserve
         reserve = max(reserve, int(session._switch_reserve))
-    estimate = wire_estimate(system_text, messages, tools, reply_tokens=reply_tokens) \
-        + max(0, reserve - reply_reserve(reply_tokens))
+    # 3.3.16.1: the body that is sent; 3.6.0.0 R8: with this model's measured ratio (agent/ollama_window_truth.py)
+    raw_prompt, prompt = prompt_estimate(getattr(session, "state_dir", None), host.url, ref.model,
+                                         system_text, messages, tools)
+    estimate = prompt + reserve
     factor = st["factor"].get(key, 1.0)
     profile = getattr(decision, "profile", None) or {}  # 3.3.4.0 R3: the reply's room never under its num_predict
     choice = window_for(estimate, decision, base=base_num_ctx, base_source=base_source, factor=factor,
                         host_max_ctx=host.max_ctx, reserve=reserve, min_reply=profile.get("num_predict"))
-    cap = getattr(decision, "learned_cap", None)
-    if auto_calibrate and isinstance(cap, int) and cap < estimate and key not in st["discarded"]:
-        st["discarded"].add(key)
-        try:
-            from halo_harness.providers.ollama_calibrate import discard_calibration, remeasured_after_floor
-            if session.state_dir is not None and not remeasured_after_floor(
-                    session.state_dir, host_url=host.url, model=ref.model) and discard_calibration(
-                    session.state_dir, host_url=host.url, model=ref.model):
-                session._ollama_calibrate_attempted.discard(key)
-                log.info("ollama: discarded the saved cap %s for %s on %s (under the prompt floor %s)",
-                         cap, ref.model, host.name, estimate)
-        except Exception:
-            log.debug("ollama: discarding a cap under the floor failed", exc_info=True)
-    # 3.3.4.0 R2: the ledger line of this call reads the window's source and the estimate back
+    # 3.3.4.0 R2: the ledger line of this call reads the window's source and the estimate back; 3.6.0.0 R8: the
+    # raw chars / 3.5 too, for the ratio the answer's real count measures
     st.setdefault("sent", {})[(str(host.url).rstrip("/"), ref.model)] = {
-        "estimate": estimate, "source": choice.source, "num_ctx": choice.num_ctx, "reserve": reserve}
+        "estimate": estimate, "source": choice.source, "num_ctx": choice.num_ctx, "reserve": reserve,
+        "raw_prompt": raw_prompt}
     if ref is session.model_ref:
         st["last"] = {"estimate": estimate, "choice": choice, "host_name": host.name, "host_url": host.url,
                       "model": ref.model, "tool_tokens": tool_output_tokens(messages),
@@ -154,25 +148,6 @@ def trim_recovery(session, turn_no: int, seen: Optional[int], *, overflow_handle
         return "compact", None, trim_line(host_name, seen, estimate, reserve=reserve, cut_at=cut_at)
     return "error", None, (f"{host_name} trimmed the request ({fmt_tokens(prompt_part(estimate or 1))} tokens) "
                            f"and the window is already at its ceiling after compaction: stopped")
-
-
-def track_late_calibration(session, done, notice_box: list) -> None:
-    """A first-use calibration still running when the turn's wait ended:
-    its outcome line is shown on a later drain, once it finishes."""
-    _state(session)["late"].append((done, notice_box))
-
-
-def drain_late_calibrations(session) -> list:
-    st = _state(session)
-    out, keep = [], []
-    for done, box in st["late"]:
-        if done.is_set():
-            if box and box[0]:
-                out.append(box[0])
-        else:
-            keep.append((done, box))
-    st["late"] = keep
-    return out
 
 
 def _block_text(content) -> "Optional[str]":

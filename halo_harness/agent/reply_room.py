@@ -76,22 +76,37 @@ def _ceiling(decision, host) -> Optional[int]:
         return None
 
 
-def for_call(session, ref, window, requested, decision=None, request=None, host=None) -> "tuple[Optional[int], int]":
+def for_call(session, ref, window, requested, decision=None, request=None, host=None, *,
+             hold: bool = False) -> "tuple[Optional[int], int]":
     """(the room, the window the call starts from) for a call to the session's own model (`decision`: the
     call's context decision, its profile and its ceiling; `request`: (system, messages, tools), the prompt
     that may raise the window). The start never drops under the window this session last asked of the same
     model (a smaller one reloads it), unless a steward profile names the window. `requested` and `window`
     unchanged for a switch-fitted session (its reserve is the window class's already) and for anything that
-    is not the session's model."""
+    is not the session's model. 3.6.0.0 R8: `hold` -- the window the model is loaded at holds the request
+    (agent/ollama_window_truth.start_window): it stays, the room is what it leaves (never under 1,024)."""
     if ref is not getattr(session, "model_ref", None) or getattr(session, "_switch_reserve", None) or not _pos(window):
         return requested, window
     prompt = None
     if request is not None:
-        from halo_harness.providers.ollama_wire_estimate import wire_estimate
-        prompt = wire_estimate(*request) - 1024
+        from halo_harness.agent.ollama_window_truth import prompt_estimate
+        if host is not None:  # 3.6.0.0 R8: the measured ratio applied
+            prompt = prompt_estimate(getattr(session, "state_dir", None), host.url, getattr(ref, "model", ""),
+                                     *request)[1]
+        else:
+            from halo_harness.providers.ollama_wire_estimate import wire_estimate
+            prompt = wire_estimate(*request) - 1024
     first = not getattr(session, "_reply_room_called", False)
     session._reply_room_called = True
     profile = getattr(decision, "profile", None) or {}
+    if hold:
+        tokens, _sized = room(window, requested, explicit=_explicit(session),
+                              profile_num_predict=profile.get("num_predict"))
+        if _pos(prompt):
+            tokens = max(1024, min(tokens, window - prompt))
+        session._reply_room_windows = {**(getattr(session, "_reply_room_windows", None) or {}),
+                                       getattr(ref, "model", None): window}
+        return tokens, window
     ceiling = _ceiling(decision, host) if decision is not None else None
     kept = (getattr(session, "_reply_room_windows", None) or {}).get(getattr(ref, "model", None))
     if _pos(kept):  # after a call the session's context is the window last sent (a re-send's larger one too)

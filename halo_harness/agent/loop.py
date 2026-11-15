@@ -975,15 +975,11 @@ class Session:
         # shows only the last few (a session realistically sees a handful
         # of these at most).
         self._escalation_decisions: list = []
-        # Round 5b: `_maybe_auto_calibrate_ollama`'s own per-process dedupe
-        # (a (host.url, model) pair already attempted this run, success or
-        # failure, is never retried within the SAME process -- a completed
-        # calibration persists to `~/.halo/ollama-fit.json` regardless of
-        # outcome, so a FRESH process finds `has_calibration_entry` already
-        # true and never re-triggers at all) and the plain-notice queue
-        # `_step` flushes as real `notification` events right after
-        # `_derive_and_build` returns.
-        self._ollama_calibrate_attempted: set = set()
+        # Round 5b: the plain-notice queue `_step` flushes as real
+        # `notification` events right after `_derive_and_build` returns.
+        # (3.6.0.0 R8: a call no longer measures the model first -- the first-
+        # use auto-calibration and its per-process dedupe set are gone;
+        # agent/ollama_window_truth.py learns from the call itself.)
         self._pending_ollama_notices: list = []
         # Round 5b (brief item 7): throughput for the status bar's model
         # chip and `halo ollama`'s own "last turn" printout -- `_account_
@@ -2943,110 +2939,6 @@ class Session:
         body = _dialect_body(self, body)
         return system_text, messages, tools, body
 
-    def _maybe_auto_calibrate_ollama(self, host, model: str, *, budget_s: float = 20.0) -> None:
-        """Halo 2.0.3 round 5b (brief item 2): "run it automatically the
-        first time a model is used on a host with no learned cap."
-        Gated three ways, cheapest check first: (1) this (host.url, model)
-        pair was already attempted THIS PROCESS (`_ollama_calibrate_
-        attempted`, in-memory only -- see `__init__`'s own comment for why
-        that's enough); (2) `BRIDGE_TEST_NO_BACKGROUND_NET` (never touches
-        the network in a hermetic test); (3) `ollama.auto_calibrate: false`
-        (brief's own opt-out) or an entry already on disk (a different
-        process already measured this pair, or an earlier `halo ollama
-        calibrate` did). Any exception anywhere in this path is swallowed
-        and logged at DEBUG -- a failed calibration attempt must never
-        block the ordinary turn it was trying to help.
-
-        Review fix pass (finding 8): ONLY called from `_derive_and_build`
-        (the main turn) and `_run_compaction` now -- `call_small_model`
-        (titles, hooks, `/local <question>`, the escalation judge) skips
-        it entirely (`_build_ollama_body_for_ref`'s own `auto_calibrate`
-        flag), since that method's OWN `timeout_s` budget used to start
-        only AFTER this ran, so a slow/asleep host silently ate the small
-        model's entire caller-visible budget before the small model's own
-        request was ever sent.
-
-        The actual measurement (`run_auto_calibration`, several `/api/
-        chat` + `/api/ps` round trips) runs in a background daemon thread
-        -- this method waits for it, but ONLY up to `budget_s` AND only
-        while `self.abort` stays clear, polling both every 0.2s. Either
-        one firing first means "stop waiting", not "stop measuring": no
-        abort hook reaches this deep into the HTTP layer to cut an
-        in-flight request off mid-socket-read (`providers.stream`'s own
-        `_phase1_abort_watcher`/`sock_box` is the one place in this
-        codebase that does, for the one stream a turn is actually
-        waiting on) -- so the measurement keeps running and still records
-        its result for a LATER turn to find via `has_calibration_entry`
-        (which is why the dedupe flag above is set unconditionally,
-        BEFORE this wait, not after: a second concurrent/later call for
-        the SAME pair must never pile another measurement on top of one
-        already in flight). The notice is simply not shown for THIS turn
-        when the wait times out or aborts first -- never queued late,
-        since `_pending_ollama_notices` is read from this same thread's
-        turn-processing loop, not safe to append into from the
-        background thread after this method has already returned."""
-        key = (host.url, model)
-        if key in self._ollama_calibrate_attempted:
-            return
-        self._ollama_calibrate_attempted.add(key)
-        try:
-            from halo_harness.config.paths import background_net_disabled
-            if background_net_disabled():
-                return
-            from halo_harness.providers.ollama_calibrate import (
-                auto_calibrate_enabled, has_calibration_entry, run_auto_calibration,
-            )
-            if not auto_calibrate_enabled():
-                return
-            state_dir = self.state_dir
-            # Review fix pass (finding 10): the gate itself must be
-            # digest/version-aware -- a bare `has_calibration_entry(...,
-            # model=model)` (no digest/version) answers "some entry
-            # exists, period", so a re-pulled model (new digest) or an
-            # upgraded Ollama server (new version) kept a stale
-            # measurement looking "already calibrated" forever, exactly
-            # the gap commit 9af8dac's own "re-measured... when the
-            # model digest or Ollama version changes" promise never
-            # closed. `cached_ollama_version` pays for a real `/api/
-            # version` probe at most once per host this whole process.
-            from halo_harness.providers.ollama import cached_ollama_version, get_catalog
-            from halo_harness.providers.ollama_hw import catalog_row
-            digest = None
-            try:
-                digest = (catalog_row(get_catalog(host), model) or {}).get("digest")
-            except Exception:
-                log.debug("ollama: catalog read for digest failed for %s@%s", model, host.name, exc_info=True)
-            ollama_version = cached_ollama_version(host)
-            if has_calibration_entry(state_dir, host_url=host.url, model=model, digest=digest,
-                                      ollama_version=ollama_version):
-                return
-            done = threading.Event()
-            notice_box: list = [None]
-
-            def _run_calibration() -> None:
-                try:
-                    notice_box[0] = run_auto_calibration(host, model, state_dir=state_dir)
-                except Exception:
-                    log.debug("ollama: background auto-calibration failed for %s@%s", model, host.name,
-                              exc_info=True)
-                finally:
-                    done.set()
-
-            threading.Thread(target=_run_calibration, name="ollama-auto-calibrate", daemon=True).start()
-            deadline = time.monotonic() + max(0.1, budget_s)
-            while time.monotonic() < deadline and not self.abort.is_set():
-                if done.wait(timeout=0.2):
-                    break
-            if done.is_set() and notice_box[0]:
-                self._pending_ollama_notices.append(notice_box[0])
-            elif not done.is_set():
-                # Halo 3.2.3.0 R1: the measurement keeps its own budget past
-                # this turn's wait; its line is shown once it finishes.
-                from halo_harness.agent.ollama_window import track_late_calibration
-                track_late_calibration(self, done, notice_box)
-        except Exception:
-            log.debug("ollama: auto-calibration for %s@%s failed", model, host.name, exc_info=True)
-
     def _ollama_trimmed(self, turn_no: int, seen, body: dict, overflow_handled: bool, *,
                         raw_message: Optional[str] = None, cut_at: Optional[int] = None,
                         log_trim: Optional[dict] = None):
@@ -3110,7 +3002,8 @@ class Session:
     def _drain_pending_ollama_notices(self) -> list:
         """Round 5b part 2 (brief item 7, "the auto-calibrate notice
         flushes from the two secondary call sites too"): pops and clears
-        every notice `_maybe_auto_calibrate_ollama` queued since the last
+        every queued notice (an offloaded load's line, 3.6.0.0 R8: no
+        calibration notice any more) since the last
         drain, from WHICHEVER call site actually triggered it -- `_step`'s
         own main-turn flush (unchanged, still inline there) and this
         method share the exact same list, so a notice is never shown
@@ -3120,8 +3013,6 @@ class Session:
         docstring on why its return value must stay clean) logs the
         drained text instead of yielding it; `_run_compaction` (a real
         event-yielding generator) yields it exactly like `_step` does."""
-        from halo_harness.agent.ollama_window import drain_late_calibrations
-        self._pending_ollama_notices.extend(drain_late_calibrations(self))
         if not self._pending_ollama_notices:
             return []
         notices = list(self._pending_ollama_notices)
@@ -3201,8 +3092,10 @@ class Session:
         from halo_harness.ollama_steward.profiles import lane as _lane  # 3.3.7.0 R3: <host>|<model>|<role> first
         with _lane(getattr(self, "role_name", None)):
             host, decision_ref = host_for(self, host, ref, env)  # 3.3.4.0 R3: a profile's host_for
-        if auto_calibrate:
-            self._maybe_auto_calibrate_ollama(host, ref.model)
+        # Halo 3.6.0.0 R8: no measurement before or during a call (`auto_calibrate` is kept for the call sites'
+        # signature only): what Halo needs it learns from the call itself (agent/ollama_window_truth.after_call);
+        # the ladder of loads is `halo local measure` / Studio's Measure, when a person asks.
+        del auto_calibrate
         from halo_harness.providers.ollama_hw import resolve_context_decision
         with _lane(getattr(self, "role_name", None)):
             decision = resolve_context_decision(decision_ref, env)
@@ -3227,10 +3120,18 @@ class Session:
             decision.trained_context, host.max_ctx, decision.fit_estimate, learned_cap=effective_learned_cap,
             remote=decision.remote, recorded_does_not_fit=decision.recorded_does_not_fit, cpu_only=decision.cpu_only)
         base_source = "steward profile" if decision.profile and base_num_ctx == decision.profile.get("num_ctx") else base_source
-        requested_max_tokens, base_num_ctx = _reply_room(self, ref, base_num_ctx, requested_max_tokens, decision, (system_text, messages, tools), host)
+        # Halo 3.6.0.0 R8: the `min()` above is the most the call may ask for; it asks for what the request needs
+        # on the ladder, or for the window the model is already loaded at when that holds it (nobody's model is
+        # reloaded), a steward profile's window as it is (agent/ollama_window_truth.start_window)
+        from halo_harness.agent.ollama_window_truth import resident_options, start_window
+        base_num_ctx, base_source, _hold = start_window(
+            self, host=host, ref=ref, decision=decision, cap=base_num_ctx, cap_source=base_source,
+            request=(system_text, messages, tools), requested=requested_max_tokens)
+        requested_max_tokens, base_num_ctx = _reply_room(self, ref, base_num_ctx, requested_max_tokens, decision,
+                                                         (system_text, messages, tools), host, hold=_hold)
         prompt_tokens, window_factor = prepare_window(
             self, host=host, ref=ref, decision=decision, base_num_ctx=base_num_ctx, base_source=base_source,
-            system_text=system_text, messages=messages, tools=tools, auto_calibrate=auto_calibrate,
+            system_text=system_text, messages=messages, tools=tools, auto_calibrate=False,
             reply_tokens=requested_max_tokens)
         if getattr(self, "_ollama_overflow_handled", False) and ref is self.model_ref:
             # Compaction already ran this step and the turn in progress (its
@@ -3259,7 +3160,9 @@ class Session:
             supports_thinking=decision.supports_thinking, effort_explicit=effort_explicit,
             steward_profile=decision.profile,
             think_choice=_think_choice_for(ref.raw),  # 3.3.5.0 R0: models.think.<ref>
+            start_num_ctx=base_num_ctx,  # 3.6.0.0 R8: the window start_window chose (window_for may raise it)
         )
+        body = resident_options(self, host, ref.model, body, base_source)  # 3.6.0.0 R8: num_gpu as it is resident
         # Halo 2.0.3 round 5c FIX PASS: `_build_request`'s own side-channel
         # read, same lazy-attribute pattern as `_last_ollama_host_url`/
         # `_last_ollama_offloaded` just below -- UNCONDITIONAL (every
@@ -3287,6 +3190,7 @@ class Session:
             # offload`'s cache (a side effect of the fit-estimate's own
             # `/api/ps` read above), never a dedicated extra probe.
             self._last_ollama_host_url = host.url
+            self._last_ollama_host = host  # 3.6.0.0 R8: the loading line names it
             self._last_ollama_offloaded = decision.offloaded
             self._ollama_supports_thinking = decision.supports_thinking  # 3.3.5.0 R0: the effort tag
         return body
@@ -3424,8 +3328,12 @@ class Session:
         # Halo 3.3.4.0 R2: a local server's call (`ol:`, `hf:local`) leaves one line in `<state>/ollama/traffic.jsonl`
         # (`kind`: turn, compaction, small, repair); every other call's stream is untouched.
         from halo_harness.ollama_steward.ledger_call import observe_call
-        gen = (stream_ollama_completion(req, abort=eff_abort) if req.route.dialect == "ollama"
-               else stream_completion(req, abort=eff_abort))
+        if req.route.dialect == "ollama":
+            # Halo 3.6.0.0 R8: check on use -- after the answer, one /api/ps read (agent/ollama_window_truth.py)
+            from halo_harness.agent.ollama_window_truth import wrap_stream
+            gen = wrap_stream(self, req, stream_ollama_completion(req, abort=eff_abort))
+        else:
+            gen = stream_completion(req, abort=eff_abort)
         return observe_call(self, req, gen, kind=kind, abort=eff_abort)
 
     def _abort_sleep(self, delay: float) -> bool:
@@ -3563,6 +3471,18 @@ class Session:
                 if _fix_row:
                     body = apply_param_fix(body, ParamFix(
                         field=_field, action=_fix_row.get("action"), value=_fix_row.get("value")))
+        _loading = None
+        if self.route.dialect == "ollama":
+            # Halo 3.6.0.0 R8: the wait says what it is -- this call is going to load the model (it is not in
+            # the server's /api/ps at this window): "loading <model> on <host> (16.6 GB)" before it goes out
+            try:
+                from halo_harness.agent.ollama_window_truth import loading_line
+                _host_now = getattr(self, "_last_ollama_host", None)  # set by _build_ollama_body_for_ref
+                _loading = loading_line(self, _host_now, body) if _host_now is not None else None
+            except Exception:
+                log.debug("ollama: the loading line failed", exc_info=True)
+            if _loading:
+                yield events.turn_marker("loading", f"↳ {_loading}", turn=turn_no)
         req = self._build_request(body)
 
         attempts = 0
@@ -3621,7 +3541,8 @@ class Session:
             # one `phase` event per transition the UI renders a live line
             # from -- "request_sent" fires on every attempt (a retry or a
             # steer-restart both genuinely send a fresh request).
-            yield events.phase(state="request_sent", turn=turn_no, model=self.model_ref.raw)
+            yield events.phase(state="request_sent", turn=turn_no, model=self.model_ref.raw,
+                               kind="loading" if (_loading and attempts == 1) else None)  # 3.6.0.0 R8
             # GLM-brief.md item 3 / W2-plan item 2: "when a steer arrives
             # and no chunk has been received for the in-flight call, abort
             # that call and resend with the steer appended" -- the existing
@@ -5043,8 +4964,14 @@ class Session:
             else:
                 system_text, messages, _ = derive_request(self.log, tools=None)
                 prompt_tokens = _rough_estimate(system_text, messages)
+        # Halo 3.6.0.0 R8: an Ollama call asks for the window its request needs; the share that compacts is of
+        # the most that window can grow to (agent/ollama_window_truth.compaction_window), never of the ask
+        _window = self.model_profile.context_tokens
+        if self.route.dialect == "ollama":
+            from halo_harness.agent.ollama_window_truth import compaction_window
+            _window = max(_window or 0, compaction_window(self) or 0) or _window
         do_it, trigger_tokens = should_compact(
-            prompt_tokens, self.model_profile.context_tokens, self.model_profile.max_output_tokens,
+            prompt_tokens, _window, self.model_profile.max_output_tokens,
             self._compaction_knobs,
         )
         # finding 1: never auto-compact twice in a row with no successful
@@ -6012,6 +5939,9 @@ class Session:
                 yield events.turn_done(turn=turn_no, reason="error")
                 return
             self._account_usage(result)
+            from halo_harness.agent.ollama_window_truth import drain_loaded  # 3.6.0.0 R8: how long the load took
+            for _line in drain_loaded(self):
+                yield events.turn_marker("loaded", f"↳ {_line}", turn=turn_no)
             yield from self._maybe_auto_compact(turn_no)
 
             # H2 scope B: the repair layer's text-embedded-call handling.

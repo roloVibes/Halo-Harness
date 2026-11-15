@@ -300,16 +300,22 @@ def current_window(host, model: str) -> "tuple[Optional[int], Optional[str]]":
         return None, None
 
 
-def run_auto_calibration(host, model: str, *, state_dir, timeout: Optional[float] = None) -> Optional[str]:
-    """The first-use calibration `agent/loop.py` runs in a background
-    thread before the first request to a (host, model) pair with no
-    entry. The per-step budget is `load_budget_s` for this model's size
-    and host (`timeout` overrides it). `fits`/`does_not_fit` are recorded;
+COLD_LOAD_BUDGET_S = 300.0
+
+
+def run_auto_calibration(host, model: str, *, state_dir, timeout: Optional[float] = None,
+                         on_step=None) -> Optional[str]:
+    """The measurement a person asks for (3.6.0.0 R8: `halo local measure`,
+    Studio's Local Measure; no call runs it any more). The per-step budget
+    is `load_budget_s` for this model's size and host (`timeout` overrides
+    it). 3.6.0.0 R8: it never steps above the host's `max_ctx`; the first
+    step is the cold load and gets a load's own allowance (`COLD_LOAD_
+    BUDGET_S`, unless `timeout` is given) -- a slow load is a load, never
+    "does not fit". `fits`/`does_not_fit` are recorded;
     `inconclusive`/`unreachable` record nothing but an inconclusive marker
-    for `halo ollama` (`record_inconclusive`), so a fresh process measures
-    again. Returns the one outcome line, or None on any failure (never
-    raises)."""
-    from halo_harness.providers.ollama import get_catalog, probe_version, trained_context_for
+    for `halo ollama` (`record_inconclusive`). Returns the one outcome
+    line, or None on any failure (never raises)."""
+    from halo_harness.providers.ollama import HARD_CONTEXT_CAP, get_catalog, probe_version, trained_context_for
     from halo_harness.providers.ollama_hw import catalog_row, estimate_fit_for_host, is_local_host
     try:
         catalog = get_catalog(host)
@@ -319,15 +325,19 @@ def run_auto_calibration(host, model: str, *, state_dir, timeout: Optional[float
         digest = row.get("digest")
         version_info = probe_version(host)
         ollama_version = (version_info or {}).get("version") if isinstance(version_info, dict) else None
+        cap = host.max_ctx if isinstance(host.max_ctx, int) and host.max_ctx > 0 else HARD_CONTEXT_CAP
         start = estimate_fit_for_host(host, model, catalog)
         if not isinstance(start, int) or isinstance(start, bool) or start <= 0:
             start = 32768
-        budget = timeout if isinstance(timeout, (int, float)) and timeout > 0 else \
-            load_budget_s(model_size_gb(catalog, model), not is_local_host(host))
+        start = min(start, cap)
+        explicit = isinstance(timeout, (int, float)) and timeout > 0
+        budget = timeout if explicit else load_budget_s(model_size_gb(catalog, model), not is_local_host(host))
         result = run_calibration(host, model, start_ctx=start, keep_alive=host.keep_alive,
                                   trained_context=trained_context_for(catalog, model), step_up=True,
                                   budget_s=budget, num_gpu=gpu_layers_for(row.get("model_info")),
-                                  gpu_total=host_gpu_total_bytes(host))
+                                  gpu_total=host_gpu_total_bytes(host), hard_cap=min(cap, HARD_CONTEXT_CAP),
+                                  first_budget_s=None if explicit else max(budget, COLD_LOAD_BUDGET_S),
+                                  on_step=on_step)
         if result.prompt_tok_s:
             record_prompt_speed(state_dir, host_url=host.url, model=model, tok_s=result.prompt_tok_s)
         if result.outcome in ("inconclusive", "unreachable"):

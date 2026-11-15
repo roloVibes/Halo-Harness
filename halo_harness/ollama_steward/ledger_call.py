@@ -107,15 +107,20 @@ def _window(session, url: str, body: dict) -> dict:
     num_ctx = opts.get("num_ctx")
     sent = (getattr(session, "_ollama_window_state", None) or {}).get("sent") or {}
     rec = sent.get((url, body.get("model"))) or {}
+    # Halo 3.6.0.0 R8: `estimate_tokens` is the PROMPT's estimate, what `prompt_eval_count` counts -- it used to
+    # carry the reply's room too (16,384 on a first call), so a 4,707-token prompt read as 21,473 (4.5x)
     if rec:
         source = rec.get("source") if rec.get("num_ctx") == num_ctx else "trim resend"
-        return {"num_ctx_sent": num_ctx, "window_source": source, "estimate_tokens": rec.get("estimate"),
-                "_reserve": rec.get("reserve") or 1024}
+        est = rec.get("estimate")
+        reserve = rec.get("reserve") or 1024
+        return {"num_ctx_sent": num_ctx, "window_source": source,
+                "estimate_tokens": max(1, int(est) - int(reserve)) if isinstance(est, int) else None, "_reserve": 0}
     from halo_harness.providers.ollama_prompt import estimate_request_tokens
     reply = opts.get("num_predict") or body.get("max_tokens") or body.get("max_completion_tokens")
     est = estimate_request_tokens(body.get("messages"), body.get("tools"), "", reply_tokens=reply)
+    reserve = max(1024, reply or 0) if isinstance(reply, int) else 1024
     return {"num_ctx_sent": num_ctx, "window_source": ("request" if num_ctx else "server default"),
-            "estimate_tokens": est, "_reserve": max(1024, reply or 0) if isinstance(reply, int) else 1024}
+            "estimate_tokens": max(1, est - reserve), "_reserve": 0}
 
 
 def error_status(exc) -> "tuple[object, str]":

@@ -35,6 +35,8 @@ def _phase_word_for(state: "str | None", kind: "str | None") -> "str | None":
     its own (`headers` alone stays "thinking" -- the richer "no tokens
     yet"/token-count text is the transcript's own phase line's job, not
     this compact word)."""
+    if state == "request_sent" and kind == "loading":  # 3.6.0.0 R8: the call loads a local model first
+        return "loading the model"
     if state in ("request_sent", "headers"):
         return "thinking"
     if state == "first_token":
@@ -697,6 +699,9 @@ async def _apply_event_inner(app, event) -> None:
             await app.transcript.add_note(data.get("text", ""), kind="marker")
             if data.get("state") == "background" and not data.get("started"):
                 app.status_bar.set_notice(data.get("text", ""), 120.0)
+            elif data.get("state") in ("loading", "loaded"):  # 3.6.0.0 R8: a local model loading, then how long
+                app.status_bar.set_notice(str(data.get("text", "")).lstrip("↳ "), 120.0 if data["state"] == "loading"
+                                          else 15.0)
     elif kind == "steer_restart":
         # GLM-brief.md item 3 / W2-plan item 2: the in-flight call was
         # silently aborted (no chunk had arrived yet) and is being resent

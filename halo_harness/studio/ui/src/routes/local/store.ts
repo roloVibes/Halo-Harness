@@ -160,6 +160,47 @@ export async function unloadModel(host: string, model: string): Promise<void> {
   if (await act(`${host}|${model}`, `local/host/${encodeURIComponent(host)}/unload`, { model })) void loadHosts();
 }
 
+/** 3.6.0.0 R8: Refresh -- the server's /api/ps and catalog read again now (the caches dropped). */
+export async function refreshHosts(host: string): Promise<void> {
+  local.update(() => ({ busy: `refresh|${host}` }));
+  try {
+    const r = await api.get<{ hosts: HostCard[] }>("local/hosts", { fresh: "1" });
+    local.update(() => ({ hosts: r.hosts || [], error: "" }));
+    say(`refresh|${host}`, { ok: true, text: "read again just now" });
+  } catch (e) {
+    say(`refresh|${host}`, { ok: false, text: msg(e) });
+  } finally {
+    local.update(() => ({ busy: "" }));
+  }
+}
+
+type MeasureView = { running: boolean; lines: string[]; line: string; ok: boolean | null };
+
+/** 3.6.0.0 R8: Measure -- `halo local measure` on the host (the ladder of loads, once per model digest and server
+ * version); its lines are read back until it ends, then the cards are read again. */
+export async function measureModel(host: string, model: string): Promise<void> {
+  const key = `${host}|${model}`;
+  const path = `local/host/${encodeURIComponent(host)}/measure`;
+  if (!(await act(key, path, { model }))) return;
+  say(key, { ok: true, text: `measuring ${model} on ${host}: a few full loads, one at a time` });
+  for (let i = 0; i < 600; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    let v: MeasureView;
+    try {
+      v = await api.get<MeasureView>(path, { model });
+    } catch {
+      continue;
+    }
+    const last = v.lines.length ? v.lines[v.lines.length - 1].trim() : "";
+    if (!v.running) {
+      say(key, { ok: !!v.ok, text: v.line || last || "measured" });
+      void loadHosts();
+      return;
+    }
+    if (last) say(key, { ok: true, text: `measuring: ${last}` });
+  }
+}
+
 /** 3.3.7.0 R2: the Hosts card's "Request control" -- a pending row on the paired halo host (its owner answers it). */
 export async function requestControl(host: string): Promise<void> {
   if (await act(`req|${host}`, `local/host/${encodeURIComponent(host)}/request-control`, {})) void loadHosts();

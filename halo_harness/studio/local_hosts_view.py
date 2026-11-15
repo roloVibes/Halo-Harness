@@ -75,16 +75,23 @@ def users_by_host(state_dir) -> dict:
     return {h: sorted(({"from": k, "calls": v} for k, v in who.items()), key=lambda r: -r["calls"]) for h, who in out.items()}
 
 
-def controls(host_url: str, host_name: str, served: bool) -> dict:
+OLLAMA_API = "Ollama's API"
+
+
+def controls(host_url: str, host_name: str, served: bool, *, configured_ollama: bool = False) -> dict:
     """{ok, via, why, member?, member_host?} for Load / Unload on this host from here; 3.3.7.0 R2: `via: "host"` (ok)
     when a paired halo host serves it and this peer holds its `control` grant (studio/local_host_acts.host_controls);
-    else the line that says how."""
+    else the line that says how. 3.6.0.0 R8: an `ollama.hosts` entry (native Ollama) no paired halo host serves is
+    controlled from here through Ollama's own API (`via: "Ollama's API"`: /api/generate with keep_alive, /api/pull,
+    /api/ps) -- nothing runs on that machine but Ollama; a halo host that serves it keeps its own rules."""
     if served:
         return {"ok": True, "via": "this machine", "why": ""}
     from halo_harness.studio.local_host_acts import host_controls
     hc = host_controls(host_url, host_name) if host_url else None
     if hc is not None and hc["ok"]:
         return hc
+    if hc is None and configured_ollama:
+        return {"ok": True, "via": OLLAMA_API, "why": ""}
     got = _served_by(host_url, host_name)
     return got if hc is None else hc
 
@@ -121,7 +128,9 @@ def _configured(h: dict, host_obj, users: dict) -> dict:
             "profiles": {k.split("|", 1)[1]: v for k, v in (h.get("profiles") or {}).items()},
             "users": users.get(h["name"], []), "finding": _finding(h.get("findings") or []),
             "findings": len([f for f in h.get("findings") or [] if not f.get("applied")]), "plan": _plan(h.get("plan")),
-            "models": names, "controls": controls(h["url"], h["name"], h["served_here"]), "log": _log(host_obj),
+            "models": names, "log": _log(host_obj),
+            "controls": controls(h["url"], h["name"], h["served_here"],
+                                 configured_ollama=host_obj is not None and kind_of(host_obj) == KINDS["ollama"]),
             "host": None if h["served_here"] else host_block(h["url"])}
 
 

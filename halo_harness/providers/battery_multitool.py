@@ -43,8 +43,11 @@ CAP = 300
 
 
 def first_body(model: str, *, num_ctx: int, keep_alive, cap: Optional[int] = None) -> dict:
-    return {"model": model, "messages": [{"role": "user", "content": ASK}], "stream": False, "keep_alive": keep_alive,
-            "tools": TOOLS, "options": {"num_ctx": num_ctx, "temperature": 0, "num_predict": cap or CAP}}
+    out = {"model": model, "messages": [{"role": "user", "content": ASK}], "stream": False, "keep_alive": keep_alive,
+           "tools": TOOLS, "options": {"num_ctx": num_ctx, "temperature": 0, "num_predict": cap or CAP}}
+    if keep_alive is None:  # 3.6.0.0 R8: the server's own keep-alive stands
+        out.pop("keep_alive")
+    return out
 
 
 def _args(raw) -> dict:

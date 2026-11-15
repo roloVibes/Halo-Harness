@@ -76,8 +76,9 @@ def _run_capability_probe(host: OllamaHost, model: str, timeout: float) -> bool:
         "messages": [{"role": "user", "content": f"Call the {_PROBE_TOOL_NAME} tool now, with no arguments."}],
         "tools": [tool],
         "options": {"num_ctx": FALLBACK_NUM_CTX},
-        "keep_alive": host.keep_alive or "5m",
     }
+    if host.keep_alive:  # 3.6.0.0 R8: never a keep_alive nobody set (it overrides the server's own)
+        body["keep_alive"] = host.keep_alive
     result = _get_json(host, "/api/chat", method="POST", body=body, timeout=timeout)
     if not isinstance(result, dict):
         return False

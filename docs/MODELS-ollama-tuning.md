@@ -25,12 +25,12 @@ the whole `min()` and raises the window over a smaller saved cap. It never expir
 own; it is re-measured only by an explicit re-run of the command, or
 automatically the moment the model's own `digest` (re-pulled weights) or
 the host's `ollama_version` (a server upgrade) changes. The FIRST time a
-model is used on a host with no learned cap at all, Halo runs the same
-procedure automatically before the first request, with one plain notice
-line ("qwen3-coder:30b on pc: 32k fits, 65k does not (1 min 50 s)"; the
-turn waits up to 20 s, the measurement finishes in the background and its
-line appears on a later turn) -- opt out
-with `ollama.auto_calibrate: false` (docs/CONFIG.md). `/ollama`/`halo
+model is used on a host with no learned cap at all, Halo used to run the
+same procedure before the first request; since 3.6.0.0 it never does (a
+turn learns from its own answer), and `halo local measure` or Studio's
+Measure runs it when you ask, ending with one plain line
+("qwen3-coder:30b on pc: 32k fits, 65k does not (1 min 50 s)";
+`ollama.auto_calibrate` has no effect any more). `/ollama`/`halo
 ollama` show every catalog model's learned cap (or "not calibrated") next
 to a "what fits" column and the one-phrase source of that decision
 ("learned cap" / "host max_ctx" / "fit estimate" / "remote default" /

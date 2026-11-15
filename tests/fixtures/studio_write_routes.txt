@@ -22,7 +22,7 @@ owner * local/advise
 owner POST local/host/add
 owner POST local/resources/watch
 owner POST local/traffic
-owner * ^local/host/(?P<name>[^/]+)/(?P<act>load|unload)$
+owner * ^local/host/(?P<name>[^/]+)/(?P<act>load|unload|measure)$
 owner * local/benches
 owner * ^local/host/(?P<name>[^/]+)/bench$
 owner * ^local/host/(?P<name>[^/]+)/(?P<act>measured|dialect)$

@@ -11,7 +11,9 @@ A line (`blank_line` has every field, `None` when unknown):
 
     at, host {name, url}, model, ref, dialect ("ollama" | "openai"), kind
     ("turn" | "compaction" | "calibrate" | "small" | "repair"), num_ctx_sent,
-    window_source, estimate_tokens, prompt_eval_count, eval_count,
+    window_source (3.6.0.0 R8 adds "loaded", "request size", "known to spill"),
+    estimate_tokens (3.6.0.0 R8: the prompt's, what prompt_eval_count counts; it carried the reply's room before),
+    prompt_eval_count, eval_count,
     done_reason, total_ms, load_ms, prompt_eval_ms, eval_ms, eval_tok_s,
     trimmed, status (200 | 400 | 499 | 500 | 503 | ... | "timeout" |
     "connection"), error, retry, session, turn, tools_count, images, from,

@@ -148,14 +148,17 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
                      step_up: bool = False, trained_context: Optional[int] = None,
                      hard_cap: Optional[int] = None, budget_s: Optional[float] = None,
                      on_step=None, num_gpu: Optional[int] = UNKNOWN_LAYERS,
-                     gpu_total: Optional[int] = None) -> CalibrationResult:
+                     gpu_total: Optional[int] = None, first_budget_s: Optional[float] = None) -> CalibrationResult:
     """Step DOWN by halves from `start_ctx` (floored to a power of two,
     never below `min_ctx`) to the first SAFE load (`does_not_fit` past the
     floor); with `step_up`, double from there until a load is tight or
     offloaded (bounded by min(trained context, hard cap)), then try the
     midpoint (x 1.5) once. `budget_s` (`timeout` is its older name; 60 s
     when neither) is the per-step budget. `on_step(ctx, reading)` is
-    called after every load."""
+    called after every load. 3.6.0.0 R8: `first_budget_s` is the first
+    step's budget (the cold load: a slow load is a load, never "does not
+    fit"); a step ABOVE a measured safe window that stays unknown ends the
+    run with that safe window recorded, never `inconclusive`."""
     from halo_harness.providers.ollama import HARD_CONTEXT_CAP
     from halo_harness.providers.ollama_prompt import prompt_speed
     budget = next((float(b) for b in (budget_s, timeout) if isinstance(b, (int, float)) and b > 0),
@@ -169,7 +172,8 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
 
     def _measure(ctx: int) -> StepReading:
         reading = StepReading("unknown", False)
-        for step_budget in (budget, budget * 2):
+        first = st["steps"] == 0 and isinstance(first_budget_s, (int, float)) and first_budget_s > budget
+        for step_budget in ((float(first_budget_s),) if first else (budget, budget * 2)):
             st["steps"] += 1
             reading = measure_step(host, model, ctx, keep_alive=keep_alive, budget_s=step_budget,
                                    num_gpu=num_gpu, gpu_total=gpu_total, speed_box=speeds)
@@ -226,7 +230,7 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
         while up <= up_bound:
             reading = _measure(up)
             if reading.kind == "unknown":
-                return _unknown(up)
+                return _result("fits", fit=safe, failed=failed, unknown=up)  # 3.6.0.0 R8: kept what it learned
             if reading.kind != "safe":
                 failed = up if reading.kind == "offloaded" else failed
                 above = up
@@ -237,7 +241,7 @@ def run_calibration(host, model: str, *, start_ctx: int, min_ctx: int = MIN_CALI
     if above is not None and above == safe * 2 and mid <= up_bound:
         reading = _measure(mid)
         if reading.kind == "unknown":
-            return _unknown(mid)
+            return _result("fits", fit=safe, failed=failed, unknown=mid)  # 3.6.0.0 R8: kept what it learned
         if reading.kind == "safe":
             safe = mid
         elif reading.kind == "offloaded":

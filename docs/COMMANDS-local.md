@@ -207,10 +207,10 @@ With a lineup (named, else the active one): pre-warms its **warm set**, per card
 "already warm", "pivots later (~25 s, the ledger; does not fit beside ...)"), the total. Each load is at its lane's window, through the
 paired halo host's `warm` (`beside` for the second model on the card) when a host serves it, else the Ollama API; the loads count on the
 loading tax; a lineup's `warm:` list goes first. `--host`: only that host; `--keep-alive`: default the profile's, else the host's;
-`--dry`: load nothing; `--json`: the rows; exit 1 when a load failed. Names that are not a lineup are models (2.0.7): one 1-token
-`/api/chat` each with `keep_alive` (default `30m`; `-1` forever, `0` drops them), resident ones skipped; no names and no lineup: every
-`ol:` ref in the roles table plus the default `model`. `halo teams use` prints the lineup's swap preview: the warm set per card, the swaps
-a pass, the hygiene lines (3.3.7.0 R3; 2.0.7's warning before it).
+`--dry`: load nothing; `--json`: the rows; exit 1 when a load failed. Names that are not a lineup are models (3.6.0.0 R8): each
+loaded at the window a turn will use (`--window N`), the server's keep-alive unless `--keep 30m|forever`; no names: the roles' `ol:`
+models. Beside it, through Ollama's API alone: `halo local ps | unload | pull | measure` ([LOCAL-MODELS.md](LOCAL-MODELS.md)). `halo
+teams use` prints the lineup's swap preview: the warm set per card, the swaps a pass, the hygiene lines (3.3.7.0 R3; 2.0.7's warning before it).
 
 ### `halo local place [<lineup>] [--apply] [--json]` (3.3.7.0 R3)
 

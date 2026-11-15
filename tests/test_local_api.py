@@ -48,8 +48,9 @@ def test_the_hosts_page(ctx: Ctx):
                   pc["users"] == [{"from": None, "calls": 12}] and "cut" in (pc["finding"] or ""))
         ctx.check(f"pc: the fit plan's chosen option has changes, got {pc['plan']}",
                   pc["plan"] and pc["plan"]["fits_now"] is False and pc["plan"]["chosen"]["changes"])
-        ctx.check(f"pc: no control from here, and why, got {pc['controls']}",
-                  pc["controls"]["ok"] is False and "served by another machine" in pc["controls"]["why"])
+        # 3.6.0.0 R8: an ollama.hosts entry no halo host serves is controlled from here through Ollama's own API
+        ctx.check(f"pc: control from here through Ollama's API, got {pc['controls']}",
+                  pc["controls"] == {"ok": True, "via": "Ollama's API", "why": ""})
         ctx.check(f"box: served here, its models from the catalog, Load from here, got {box['controls']} {box['models']}",
                   box["served_here"] and box["controls"] == {"ok": True, "via": "this machine", "why": ""}
                   and box["models"] == list(L.BOX_MODELS) and box["version"] == "0.40.6")
@@ -76,8 +77,11 @@ def test_load_and_unload(ctx: Ctx):
                   status == 200 and h.mock.generated[-1]["keep_alive"] == 0 and h.card("box")["loaded"] == [])
         status, body = h.api("POST", "local/host/box/load", {"model": "not-here:1b"})
         ctx.check(f"a model the server does not have: its answer, got {status} {body.get('error')!r}", status == 502 and "404" in body["error"])
+        # 3.6.0.0 R8: another machine's host is reached through Ollama's own API from here; under the test flag
+        # its (documentation-range) address is never sent to: the answer says so
         status, body = h.api("POST", "local/host/pc/load", {"model": "qwen3.8:27b"})
-        ctx.check(f"another machine's host: 409 with the reason, got {status} {body}", status == 409 and "another machine" in body["error"])
+        ctx.check(f"another machine's host: tried directly, the test flag kept it off the network, got {status} {body}",
+                  status == 502 and "test flag" in body["error"])
         ctx.check("nothing reached the fake for it", all(g["model"] != "qwen3.8:27b" for g in h.mock.generated))
 
 

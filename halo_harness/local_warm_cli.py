@@ -142,16 +142,30 @@ def cmd_warm(argv: list) -> int:
         "are models (the 2.0.7 form)."))
     parser.add_argument("names", nargs="*", help="a map (default: the one in use), or model names")
     parser.add_argument("--host", default=None, help="only this Ollama host (its name here)")
-    parser.add_argument("--keep-alive", default=None, help="how long the weights stay (30m, 24h, -1); default: the "
-                                                           "profile's, else the host's")
+    parser.add_argument("--keep", "--keep-alive", dest="keep_alive", default=None,
+                        help="how long the server keeps it: 30m, 24h, forever; default: the profile's, else the "
+                             "host's, else the server's own")
+    parser.add_argument("--window", type=int, default=None, help="model names: the window (num_ctx) to load at "
+                        "(default: the profile's, else the last call's, else 16,384)")
     parser.add_argument("--dry", action="store_true", help="say what it would load, load nothing")
     parser.add_argument("--json", action="store_true", help="print JSON")
+    parser.epilog = ("model names: `halo local warm MODEL [--host NAME] [--window N] [--keep 30m|forever]` loads each "
+                     "on its server through Ollama's own API (no Halo daemon there). Exit codes: 0 done, 1 the server "
+                     "said no, 2 a usage error, 3 the server did not answer.")
     args = parser.parse_args(argv)
     lineup = _lineup_named(args.names)
     if lineup is None:
-        from halo_harness.local_cli import _cmd_warm
-        rest = list(args.names) + (["--host", args.host] if args.host else [])
-        return _cmd_warm(rest + ["--keep-alive", args.keep_alive or "30m"])
+        # Halo 3.6.0.0 R8: model names load through Ollama's own /api/generate at the window a turn will use,
+        # kept by the server's own keep-alive unless --keep (local_ollama_cli.py; the 2.0.7 30m default is gone)
+        from halo_harness.local_ollama_cli import cmd_warm_models, role_models
+        names = list(args.names) or role_models()
+        if not names:
+            print("halo local warm: no models named and no ol: roles configured -- nothing to warm.")
+            return 0
+        rest = names + (["--host", args.host] if args.host else []) + (
+            ["--keep", str(args.keep_alive)] if args.keep_alive else []) + (
+            ["--window", str(args.window)] if args.window else []) + (["--json"] if args.json else [])
+        return cmd_warm_models(rest)
     got = warm_lineup(lineup, host=args.host, keep_alive=args.keep_alive, dry=args.dry,
                       say=None if args.json else print)
     if args.json:
