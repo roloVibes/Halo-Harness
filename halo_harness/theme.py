@@ -2,8 +2,10 @@
 
 Precedence: `--theme` (CLI flag) > `HALO_THEME`/`CLAUDE_BRIDGE_THEME`/
 `ROLO_CLAUDE_THEME` (env, checked in that order -- the 2.0.0 rename's new
-canonical name first, both legacy names still honoured) > settings `theme`
-> "instrument" (built-in default since 3.3.15.0 R4; "claude-dark" before;
+canonical name first, both legacy names still honoured) > the theme picked
+in Halo (`~/.halo/config.json`'s `theme`: Setup, Settings, `/theme`; before
+3.5.0.1 this tier came AFTER the next one) > a `theme` in Claude Code's
+settings files > "instrument" (built-in default since 3.3.15.0 R4; "claude-dark" before;
 `auto`, follow the system, draws the default in the terminal). Pure data -- Textual itself is NOT
 imported here (U2's job); this module only decides WHICH theme name is
 active and reads/writes the one place a `/theme` command would persist a
@@ -302,10 +304,10 @@ def resolve_theme(*, cli_theme: Optional[str] = None, env: Optional[dict] = None
     defaults to `os.environ` (a test seam accepts a plain dict instead); an
     unrecognized value at any tier is skipped (falls through to the next
     tier) rather than raising -- a stale/typo'd env var or settings value
-    must never crash startup. `persisted_theme` (what `/theme` last wrote)
-    sits between settings and the built-in default, matching D-TUI: a
-    persisted choice from a previous session is itself a form of "settings",
-    just ours rather than Claude Code's. Only when NONE of the four tiers
+    must never crash startup. `persisted_theme` (what Setup, Settings
+    or `/theme` last wrote in Halo) comes BEFORE `settings_theme` (a `theme`
+    in Claude Code's settings files) since 3.5.0.1: the pick made in Halo is
+    the newer, deliberate one. Only when NONE of the four tiers
     named anything valid does the terminal's own truecolor support pick
     the final fallback (`auto_theme_for_env`) -- an explicit choice at any
     tier is always honoured verbatim, never silently upgraded/downgraded
@@ -325,11 +327,14 @@ def resolve_theme(*, cli_theme: Optional[str] = None, env: Optional[dict] = None
                 logging.getLogger(__name__).debug("%s is deprecated, use HALO_THEME instead", var)
             return drawn(candidate)
 
-    if is_theme_value(settings_theme):
-        return drawn(settings_theme)
-
+    # 3.5.0.1: the theme picked IN HALO (Setup's theme step, Settings, /theme: `persisted_theme`) wins over a `theme`
+    # in Claude Code's settings files. Before, the settings tier came first, so a theme left there long ago beat the
+    # one just picked: Setup saved it and nothing changed.
     if is_theme_value(persisted_theme):
         return drawn(persisted_theme)
+
+    if is_theme_value(settings_theme):
+        return drawn(settings_theme)
 
     return auto_theme_for_env(environ)
 

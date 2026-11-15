@@ -261,6 +261,16 @@ in canvas". One drawing now: while a session runs on a map, the same map lights 
 
 ### Fixed along the way
 
+- **Every command and every Studio read took seconds with a large pack enabled** (the owner: "halo init on my mac
+  almost freezes", Setup stuck on "reading setup"; measured on that machine: `halo pack list` 12.6 s, `halo
+  --version` 0.1 s). When Halo checked a pack it read every agent file of the pack again for every stage of every
+  workflow: 48 agents and 58 stages were about 2,500 YAML parses per build of the pack list. A YAML file is now
+  parsed once per change (`agents_yaml._read_yaml_file`: its time, size, file id and change time; a file changed in
+  the last three seconds is never kept; each caller gets its own copy). Also released as 3.5.0.1.
+- **The theme picked in Halo wins.** The theme chosen in Setup, in Settings or with `/theme` now comes before a
+  `theme` left in Claude Code's settings files (before, that setting came first). A `--theme` flag and the
+  `HALO_THEME` variable still come first; with nothing picked the theme is `instrument`. Also in 3.5.0.1.
+
 - **A paired host was not found in the first minute after a start.** `peers/ollama_share.own_addresses()` treated
   "nothing cached yet" as a fresh entry while the machine had been up for under a minute and raised an error, which
   the code that looks up a paired halo host read as "not paired": a host service started at logon, or anything
