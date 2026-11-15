@@ -45,11 +45,13 @@ def squares_line(lineup: Optional[str] = None, *, cwd=None) -> str:
     rules = rules_of(name, cwd)
     on = [_named(w, rules) for w in registry.enabled_squares(name, cwd=cwd)]
     src = where_words(where, name)
+    # 3.6.0.0 R5c (the judge's S-f): a session reads no lineup, so the session's set is config's -- named as that
+    head = "Squares a session enables" if name == registry.active_lineup() else f"Squares for lineup {name}"
     if not on:
         missing = f" ({', '.join(refs)} not found)" if refs else ""
-        return (f"Squares for lineup {name}: none{missing} ({src}), so the Workflow tool is not offered; "
+        return (f"{head}: none{missing} ({src}), so the Workflow tool is not offered; "
                 f"`halo workflows enable media` turns one on")
-    return f"Squares for lineup {name}: {', '.join(on)} ({src})"
+    return f"{head}: {', '.join(on)} ({src})"
 
 
 def rows(cwd=None) -> list:

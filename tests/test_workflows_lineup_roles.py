@@ -154,8 +154,8 @@ def test_doctor_and_the_list_say_which_squares_are_on(ctx: Ctx):
             code = cmd_workflows(["list", "--repo", str(h.repo)])
         out = buf.getvalue()
         ctx.check(f"list: on for the session's set, off for the rest, got {out[:400]!r}", code == 0
-                  and "plan" in out and "-- on for auto" in out and "-- off" in out
-                  and "Squares for lineup auto: plan" in out)
+                  and "plan" in out and "-- on for a session" in out and "-- off" in out  # 3.6.0.0 R5c (S-f)
+                  and "Squares a session enables: plan (config workflows.enabled)" in out and "lineup auto" not in out)
 
 
 if __name__ == "__main__":

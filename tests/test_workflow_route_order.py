@@ -171,7 +171,7 @@ def test_the_offer_the_doctor_line_the_list_and_an_inherited_edit(ctx: Ctx):
         with contextlib.redirect_stdout(buf):
             cmd_workflows(["list", "--repo", str(h.repo)])
         media = next((ln for ln in buf.getvalue().splitlines() if "] media" in ln), "")
-        ctx.check(f"list: the mark and the when column, got {media!r}", "-- on for auto" in media and "when: needs pdf" in media)
+        ctx.check(f"list: the mark and the when column, got {media!r}", "-- on for a session" in media and "when: needs pdf" in media)
         for name in ("nokey", "nokey2"):
             h.write(f".halo/teams/{name}.yaml", LINEUP.format(name=name))
         ok, _ = registry.enable("review", "nokey", cwd=h.repo)

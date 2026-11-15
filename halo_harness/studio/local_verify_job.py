@@ -1,7 +1,8 @@
 """halo_harness.studio.local_verify_job -- Halo 3.3.6.0 R2: Download and verify (plans/local-model-fit-brief.md
 F4): one job that pulls a library row onto a host (studio/local_pull_job.py, its `pull` frames), runs the battery on
 the new tag (studio/local_probe_job.py, its `probe` frames: the profile is written to the capability cache), then
-offers the role ("assign `verify` to ol:<model>@<host>?" -> POST local/library/assign, the teams path). Every
+offers the role ("assign `reviewer` to ol:<model>@<host>?" -> POST local/library/assign: roles.<role>; 3.6.0.0 R5c:
+only a role a session reads, `verify` offered as the reviewer card, Security's line says to save the agent). Every
 stage change publishes
 
     {session_id: "local", event: "verify", ts, data: {job, host, name, stage: "pull" | "probe" | "offer" | "done",
@@ -66,11 +67,16 @@ def offer_for(role: str, host: str, model: str, profile: Optional[dict]) -> Opti
     if not role:
         return None
     from halo_harness.models_library.presets import PRESETS, preset_for_role
+    from halo_harness.models_library.presets_save import card_for, unread_line
     from halo_harness.providers.placement import verdict
     preset = preset_for_role(role)
     place = (PRESETS.get(preset) or {}).get("role") or role
-    v = verdict(profile, place) if profile else {"ok": None, "why": "not probed"}
     ref = f"ol:{model}@{host}"
+    role = card_for(role) or role  # 3.6.0.0 R5c (the judge's F1): the role a session reads (`verify` -> reviewer)
+    no = unread_line(role, ref)
+    if no:  # a role no session runs is never offered as one (Security: save it as an agent)
+        return {"role": role, "ref": ref, "ok": False, "why": no, "line": no}
+    v = verdict(profile, place) if profile else {"ok": None, "why": "not probed"}
     ok = v["ok"] is not False and profile is not None
     return {"role": role, "ref": ref, "ok": ok, "why": v.get("why") or "",
             "line": f"assign `{role}` to {ref}?" if ok else f"{model} is not ready for `{role}`: {v.get('why')}"}

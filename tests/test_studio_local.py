@@ -11,7 +11,7 @@ the fixture's nvidia-smi and /proc answers; no provider request, no model call:
 5. Hosts: the cards' numbers (pc's 90% VRAM, who calls it, why it has no control from here); Load and Unload on box
    reach the fake (a generate, then keep_alive 0); Make it fit writes the plan's profile change and Undo takes it back;
 6. Models: every row with the card's chips and the fit meter; the intent filter's order (embed: the embedding model;
-   code: the coder first) and its why line; the coder-lane button only where it applies, and it writes the lineup.
+   code: the coder first) and its why line; the coder-lane button only where it applies, and it points roles.coder.
 Run: python -m tests.test_studio_local
 """
 from __future__ import annotations

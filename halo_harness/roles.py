@@ -222,21 +222,25 @@ def roles_state_line() -> str:
     state (brief: "`halo roles` prints the state as its first line") --
     `halo roles` (CLI), `/roles` and `/roles on|off` (TUI/print mode), and
     the wizard's own off-sentence all quote this verbatim, so the state is
-    described identically everywhere it's shown. "on" names the active
-    `team:` lineup when one is set (the common case once a lineup has been
-    applied); with roles on but no `team:` (3.1.9.0 R2) it names the default
-    `auto` lineup, and says a hand-set role table wins over it role by role -- "off" is
+    described identically everywhere it's shown. 3.6.0.0 R5c: "on" names the
+    map in use when one is (config `crew.map`, which runs even with roles
+    off: crew/compile.in_use), else the plain session's cards, and says a
+    hand-set role table wins card by card (no `team:` lineup is read) -- "off" is
     always described the same way `standard.yaml` (docs/AGENTS.md) itself
     resolves: every role lands on the session's own default model."""
-    if not roles_mode_enabled():
-        return "roles: off (standard: every role uses the default model)"
+    # 3.6.0.0 R5c (the judge's S-f): what a session runs on now -- a map you put in use (config `crew.map`, which
+    # runs whether roles are on or off: crew/compile.in_use), else the plain session; config `team:` is read by nobody
     from halo_harness.theme import get_config_value
-    team = get_config_value("team", default=None)
-    if isinstance(team, str) and team.strip():
-        return f"roles: on (lineup {team.strip()})"
-    # 3.1.9.0 R2: no `team:` set -- the default `auto` lineup runs (lineup_default.py)
-    typed = "; your role table wins role by role" if configured_role_table() else ""
-    return f"roles: on (lineup auto, the default{typed})"
+    named = get_config_value("crew.map", default=None)
+    named = named.strip() if isinstance(named, str) and named.strip() else ""
+    if not roles_mode_enabled():
+        if named:
+            return f"roles: off, but map {named} is in use (its agents run on their own models; halo maps use picks one)"
+        return "roles: off (standard: every role uses the default model)"
+    if named:
+        return f"roles: on (map {named}: its agents run on their own models)"
+    typed = "; your role table wins card by card" if configured_role_table() else ""
+    return f"roles: on (the plain session's cards, each picked per task{typed})"
 
 
 def resolve_role_table(*, provider: Optional[str] = None, subagent_model: Optional[str] = None) -> dict:

@@ -137,8 +137,13 @@ def check(ref, *, state_dir, card: Optional[dict] = None, catalog=None, host=Non
 def accept(offer: dict, *, session=None, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
     """`roles.coder` = the model and roles on, a map in use taken out of use (`halo maps use <name>` brings it back);
     this session's coder follows at once. `(ok, lines)`; the caller moves main to the orchestrator."""
-    from halo_harness.roles import assign_role, roles_mode_enabled, set_roles_enabled
+    from halo_harness.roles import (assign_role, configured_role_table, role_value_parts, roles_mode_enabled,
+                                    set_roles_enabled)
     from halo_harness.theme import get_config_value, set_config_value
+    try:  # 3.6.0.0 R5c (the judge's S-c): what the answer replaces and switches back on, named in it
+        before = {k: role_value_parts(v)[0] for k, v in configured_role_table().items()}
+    except Exception:
+        before = {}
     ok, problems = assign_role("coder", offer["coder"])
     if not ok:
         return False, list(problems) or [f"roles.coder could not be set to {offer['coder']}"]
@@ -146,7 +151,11 @@ def accept(offer: dict, *, session=None, cwd=None, state_dir=None) -> "tuple[boo
     try:
         if not roles_mode_enabled():
             set_roles_enabled(True)
-            tail.append("roles are on again (they were off: one model for everything)")
+            from halo_harness.crew.in_use import read_roles
+            read = read_roles()
+            parked = [f"{k} on {v}" for k, v in sorted(before.items()) if k != "coder" and k in read and v]
+            tail.append("roles are on again (they were off: one model for everything)"
+                        + (f"; your roles run again: {', '.join(parked)}" if parked else ""))
         named = get_config_value("crew.map", default=None)
         if isinstance(named, str) and named.strip():
             set_config_value("crew.map", None)
@@ -156,7 +165,9 @@ def accept(offer: dict, *, session=None, cwd=None, state_dir=None) -> "tuple[boo
     runtime = getattr(session, "agent_runtime", None)  # this session's coder follows at once
     if runtime is not None and isinstance(getattr(runtime, "role_table", None), dict):
         runtime.role_table["coder"] = offer["coder"]
-    return True, [f"roles.coder = {offer['coder']}: new sessions hand code work to it, "
+    was = before.get("coder")
+    was = f" (was {was})" if was and was != offer["coder"] else ""
+    return True, [f"roles.coder = {offer['coder']}{was}: new sessions hand code work to it, "
                   f"{offer['orchestrator']} runs main"] + tail
 
 

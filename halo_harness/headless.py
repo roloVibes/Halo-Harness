@@ -747,27 +747,26 @@ class SessionBuild:
 
 
 def _agent_by_old_name(agent: str, discovered: dict, cwd) -> str:
-    """3.6.0.0 R5c: `--agent <name>` that no agent file of yours, the project's or a pack's has. A 3.5 name: exactly one
-    enabled pack's `<pack>--<name>` (one line names it; several: one line lists them), else the starter agent of that
-    name (3.5's shipped bios coder / reviewer / researcher ... ran as `--agent`; an Orchestra lane's worker still asks
-    for them), added to `discovered`. Returns the name to run."""
-    packed = sorted(n for n in discovered if "--" in n and n.split("--", 1)[1] == agent)
-    if len(packed) == 1:
-        print(f"halo: agent {agent} is {packed[0]} (an enabled pack's; its full name from now on)", file=sys.stderr)
-        return packed[0]
-    if len(packed) > 1:
-        print(f"halo: agent {agent} could be {', '.join(packed)}: name one in full", file=sys.stderr)
-        return agent
+    """3.6.0.0 R5c: `--agent <name>` that the discovered agents do not have, read in the ONE order `crew/store.resolve`
+    and `find` use (the judge's F2): yours and the project's, then Halo's starter of that name (3.5's shipped bios
+    coder / reviewer / researcher ... ran as `--agent`; an Orchestra lane's worker still asks for them), and only then
+    exactly one enabled pack's `<pack>--<name>` (one line names it; several: one line lists them). The file found is
+    added to `discovered`. Returns the name to run."""
     try:
         from halo_harness.crew import store
         from halo_harness.crew.formats import agent_problems
         from halo_harness.crew.spec import agent_spec as _spec
-        body = store.load("agent", agent, cwd=cwd, scope="starter")
-        if body is not None and not agent_problems(store.clean(body), name=agent):
-            discovered[agent] = _spec(store.clean(body), source="crew:starter")
+        name, said = store.resolve("agent", agent, cwd=cwd)
+        if said:
+            print(said, file=sys.stderr)
+        if name in discovered:
+            return name
+        body = store.load("agent", name, cwd=cwd)
+        if body is not None and not agent_problems(store.clean(body), name=name):
+            discovered[name] = _spec(store.clean(body), source=f"crew:{body.get('_scope')}")
+        return name
     except Exception:
-        pass
-    return agent
+        return agent
 
 def build_session(
     *, cwd: Path, model_ref_raw: Optional[str] = None, small_model_ref_raw: Optional[str] = None,

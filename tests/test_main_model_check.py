@@ -137,6 +137,25 @@ def test_accept_takes_a_map_out_of_use_and_says_how_to_bring_it_back(ctx: Ctx):
 
 
 @test
+def test_accept_names_what_it_replaced_and_the_roles_it_switches_back_on(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S-c): over a roles.coder you set and roles you parked (roles off), the same answer says
+    "(was <old coder>)" and names each parked role that runs again; a role no session reads is not named."""
+    from halo_harness.agent.main_model_check import accept
+    from halo_harness.theme import set_config_value
+    with _rig() as rig:
+        set_config_value("roles.coder", "ol:old-coder:7b@lan")
+        set_config_value("roles.planner", "ol:plan:14b@lan")
+        set_config_value("roles.verify", "ol:qwen3.5:9b@lan")
+        set_config_value("roles.enabled", False)
+        ok, lines = accept({"lineup": "local-coder", "coder": CODER, "orchestrator": "ol:big:30b"}, state_dir=rig.state_dir)
+    ctx.check(f"the coder line says what it replaced, got {lines[:1]}", ok and lines[0] ==
+              f"roles.coder = {CODER} (was ol:old-coder:7b@lan): new sessions hand code work to it, ol:big:30b runs main")
+    ctx.check(f"the roles-on line names the parked roles that run again, got {lines[1:]}",
+              "roles are on again (they were off: one model for everything); your roles run again: "
+              "planner on ol:plan:14b@lan" in lines and not any("verify" in x for x in lines))
+
+
+@test
 def test_a_model_that_can_orchestrate_gets_no_line(ctx: Ctx):
     with _rig() as rig:
         s = rig.session("ol:big:30b@lan")

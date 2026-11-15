@@ -8,17 +8,21 @@ path; a session reads neither lineups nor bios now).
         what to do instead: no model picked (a role template is a model for a role now), a preset that fills no role
         (Embeddings, Pool), Offline-only (main's model: `halo config set model`), a lineup named (3.6 reads none)
     assign(role, ref, *, state_dir, cwd=None, lineup="") -> (ok, lines, "")
-        "assign `verify` to <model>?": `roles.<role> = <ref>` in the model table a session reads (as `halo roles
-        point`), and nothing else
-    LINEUP_ROLE: the role each preset fills (verify, planner, small, ...)
+        "assign `reviewer` to <model>?": `roles.<role> = <ref>` in the model table a session reads (as `halo roles
+        point`), and nothing else; refused in one line for a role no session reads (unread_line: `verify` names the
+        reviewer card, `security` the agent to save)
+    LINEUP_ROLE: the role each preset fills (reviewer, planner, small, ...)
+    card_for(role) / unread_line(role, ref)   the role a session reads for `role`; the line when it reads none
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
+#: 3.6.0.0 R5c (the judge's F1): the Verifier fills the `reviewer` card (what a plain session hands review work to);
+#: `security` is no role a session reads, so its offer says to save the agent `local-security` (unread_line)
 LINEUP_ROLE = {"coder": "coder", "reasoner": "planner", "bulk": "small", "compactor": "compaction",
-               "verifier": "verify", "security": "security", "multimodal": "eyes", "offline": "main", "embeddings": ""}
+               "verifier": "reviewer", "security": "security", "multimodal": "eyes", "offline": "main", "embeddings": ""}
 USES = {"coder": ["read", "edit", "bash"], "security": ["read", "bash", "web"]}  # the rest read only
 
 
@@ -48,8 +52,8 @@ def save(preset: str, *, state_dir=None, cwd=None, model: str = "", lineup: str 
     if role == "main":
         return False, [f"{b['title']} is main's model: halo config set model <model>" + (f" ({model})" if model else "")], ""
     if not model:
-        return False, [f"pick a model first: Save as role template writes the agent {name} on it (or Download and "
-                       f"verify a row, whose offer points roles.{role})"], ""
+        offer = "" if unread_line(role) else f" (or Download and verify a row, whose offer points roles.{role})"
+        return False, [f"pick a model first: Save as role template writes the agent {name} on it{offer}"], ""
     from halo_harness.crew import store
     from halo_harness.crew.formats import PROBLEMS
     body = _agent(preset, b, model)
@@ -66,10 +70,42 @@ def save(preset: str, *, state_dir=None, cwd=None, model: str = "", lineup: str 
                   f"(hand it work by name: {name})"], name
 
 
+def card_for(role: str) -> str:
+    """The role a session reads for `role`: itself when a session reads it, else its preset's (`verify` -> the
+    `reviewer` card); "" when neither is read."""
+    from halo_harness.crew.in_use import read_roles
+    read = read_roles()
+    if role in read:
+        return role
+    from halo_harness.models_library.presets import preset_for_role
+    got = LINEUP_ROLE.get(preset_for_role(role) or "", "")
+    return got if got in read else ""
+
+
+def unread_line(role: str, ref: str = "") -> str:
+    """3.6.0.0 R5c (the judge's F1): "" when a session reads `roles.<role>`, else the one line saying what to do
+    instead -- no assign reports success for a role no session runs."""
+    from halo_harness.crew.in_use import read_roles
+    if role in read_roles():
+        return ""
+    if role == "main":
+        return f"main runs the session's model, not a role: halo config set model {ref or '<model>'}"
+    card = card_for(role)
+    if card:
+        return f"no session runs a `{role}` role: assign `{card}` (the card a session hands that work to)"
+    preset = next((p for p, r in LINEUP_ROLE.items() if r == role), "")
+    name = f"local-{preset or role}"
+    return (f"no session runs a `{role}` role: save it as the agent {name} (Save as role template) and hand it work "
+            f"by name: {name}")
+
+
 def assign(role: str, ref: str, *, state_dir=None, cwd=None, lineup: str = "") -> "tuple[bool, list, str]":
     from halo_harness.roles import assign_role
     if not role or not ref:
         return False, ["assign takes a role and a model"], ""
+    no = unread_line(role, ref)
+    if no:
+        return False, [no], ""
     ok, problems = assign_role(role, ref)
     if not ok:
         return False, list(problems), ""

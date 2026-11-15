@@ -41,7 +41,9 @@ def test_the_slash_command_prints_the_same_lines(ctx: Ctx):
     with PacksHome() as h:
         ctx.check("/workflows is a builtin", "workflows" in _BUILTIN_SPECS)
         text = slash_text("", h.repo)
-        ctx.check(f"the list, got {text[:60]!r}", text.startswith("squares (lineup auto; * = enabled):") and "* [shipped] media · " in text)
+        ctx.check(f"the list, got {text[:80]!r}", text.startswith(  # 3.6.0.0 R5c (S-f): a session reads no lineup
+            "squares (a session's set: config workflows.enabled; * = enabled):") and "lineup auto" not in text
+                  and "* [shipped] media · " in text)
         ctx.check("show", "  engine    session" in slash_text("show media", h.repo))
 
 

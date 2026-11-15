@@ -1,12 +1,12 @@
 """tests.helpers.studio_advise -- Studio's Adviser panel and the guards' lines (Halo 3.3.7.0 R4) in headless Chrome:
 real clicks through tests/helpers/studio_local.LocalDriver's session (R1's seeded home; `box` a fake Ollama on
-127.0.0.1:0). Seeded here: a plain session whose roles.coder and roles.verify are both qwen models on box (3.6.0.0 R5c, where it
+127.0.0.1:0). Seeded here: a plain session whose roles.coder and roles.reviewer are both qwen models on box (3.6.0.0 R5c, where it
 was a lineup `adv` in force), and box's
 catalog with a gemma3:12b and a second 9B qwen beside its own three; box's /api/ps holds llama3:8b that no halo call
 explains. No provider request, no model call, nothing sent but to the fake:
 
 `advise`: Local -> Models' Adviser lists its suggestions by kind, each with its one button and its CLI line; the
-mismatch's "Point verify at gemma3:12b@box" writes roles.verify and nothing else; Local -> Hosts' box card shows the
+mismatch's "Point reviewer at gemma3:12b@box" writes roles.reviewer and nothing else; Local -> Hosts' box card shows the
 foreign line and the refresh line; the traffic view shows the foreign line; Steward shows the refresh block. The last
 stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -31,9 +31,9 @@ def seed(ctx) -> None:
     from halo_harness.studio import ollama_hosts_view as V
     from tests.helpers import local_seed as L
     state, mock = ctx["state"], ctx["mock"]
-    cfg = config(ctx)  # 3.6.0.0 R5c: a plain session whose coder and verify roles are both qwen models on box
+    cfg = config(ctx)  # 3.6.0.0 R5c: a plain session whose coder and reviewer cards are both qwen models on box
     cfg.update(roles={**(cfg.get("roles") or {}), "enabled": True, "coder": "ol:qwen3-coder:30b@box",
-                      "verify": "ol:qwen3.5:9b@box"})
+                      "reviewer": "ol:qwen3.5:9b@box"})  # (no session runs a `verify` role)
     cfg.pop("team", None)
     (state / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
     extra = [{"model": "gemma3:12b", "size": 8164039587, "digest": "sha256:9e33", "capabilities": ["vision"],

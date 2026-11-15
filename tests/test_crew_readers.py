@@ -7,7 +7,9 @@
    `halo local place --json` -- equal the main line's answers, recorded here (RECORDED; the plain session's name is
    "plain": `auto` there, the starter map here);
 2. the adviser (Local -> Models) sees a plain session's roles (roles.<name> over its cards: the main line's adviser read
-   the lineup in force, which 3.6 has no more) and a map's agents;
+   the lineup in force, which 3.6 has no more; a role no session reads, `verify`, is no lane) and a map's agents;
+2b. a 3.5 home that still says `team: balanced` (every upgraded user): the readers, the cold CLI, the adviser, the
+   pool's worker lane on a map and `halo roles`' first line answer as the same home without it (the judge's S-e);
 3. a plain session's build and a routed spawn import none of the old lineup modules (a fresh process; the judge's S10);
 4. `--agent coder` (a 3.5 bio's name; an Orchestra lane's worker asks for it) runs the starter coder, no unknown line;
 5. `/workflows` lists what the Workflow tool lists: the crew workflows it runs by name, then its squares.
@@ -120,15 +122,46 @@ def test_the_adviser_sees_a_plain_sessions_roles_and_a_maps_agents(ctx: Ctx):
     with ConfigHome() as h:
         home = h.home
         _cfg(home, ollama={"hosts": {"lan": LAN}}, model="ol:qwen3:8b@lan",
-             roles={"coder": "ol:qwen3-coder:30b@lan", "verify": "ol:qwen3.5:9b@lan"})
+             roles={"coder": "ol:qwen3-coder:30b@lan", "reviewer": "ol:qwen3.5:9b@lan", "verify": "ol:gemma3:12b@lan"})
         plain = sorted((ln["lane"], ln["model"]) for ln in inputs(home / ".halo")["lanes"])
         _map_mine(home)
         _cfg(home, crew={"map": "mine"})
         mapped = sorted((ln["lane"], ln["model"]) for ln in inputs(home / ".halo")["lanes"])
-    ctx.check(f"a plain session: main, and the coder card and the verify role on your roles, got {plain}",
-              plain == [("coder", "qwen3-coder:30b"), ("main", "qwen3:8b"), ("verify", "qwen3.5:9b")])
+    # 3.6.0.0 R5c (the judge's F1): roles.verify is no lane -- no session runs a `verify` role
+    ctx.check(f"a plain session: main, and the coder and reviewer cards on your roles (no verify lane), got {plain}",
+              plain == [("coder", "qwen3-coder:30b"), ("main", "qwen3:8b"), ("reviewer", "qwen3.5:9b")])
     ctx.check(f"a map: main and its agent (your roles.* are not the map's), got {mapped}",
               mapped == [("coder", "qwen3-coder:30b"), ("main", "qwen3:8b")])
+
+
+@test
+def test_a_35_home_that_still_says_team_balanced(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S-e): config `team: balanced` is read by nobody -- the readers and the cold CLI answer as
+    home B (RECORDED), the adviser sees the plain session's lanes and, with a map in use, the pool's worker lane (as
+    tests/helpers/studio_pool_watch.py sets it up), and `halo roles` names no lineup."""
+    from halo_harness.models_library.advise import inputs
+    from halo_harness.roles import roles_state_line
+    from tests.helpers.sched_lineup import write
+    with ConfigHome() as h:
+        home = h.home
+        _cfg(home, ollama={"hosts": {"lan": LAN}}, model="ol:qwen3:8b@lan", roles={"coder": "ol:qwen3-coder:30b@lan"},
+             team="balanced")
+        got, cli = _ask(home), _cli(home)
+        plain = sorted((ln["lane"], ln["model"]) for ln in inputs(home / ".halo")["lanes"])
+        state = roles_state_line()
+        write(home / ".halo", "pooled", {"worker": "ol:qwen3.8:27b@lan"})
+        _cfg(home, crew={"map": "pooled"})
+        pooled = sorted((ln["lane"], ln["model"]) for ln in inputs(home / ".halo")["lanes"])
+        state_map = roles_state_line()
+    ctx.check(f"every reader as home B, got {got}", got == RECORDED["B"])
+    ctx.check(f"the cold CLI as home B, got {cli}", cli == RECORDED_CLI["B"])
+    ctx.check(f"the adviser: main and the coder card, got {plain}", plain == [("coder", "qwen3-coder:30b"), ("main", "qwen3:8b")])
+    ctx.check(f"the pool's map in use: its worker lane and main, got {pooled}",
+              pooled == [("main", "qwen3:8b"), ("worker", "qwen3.8:27b")])
+    ctx.check(f"halo roles names no lineup (the judge's S-f), got {state!r} / {state_map!r}",
+              "lineup" not in state and "balanced" not in state
+              and state == "roles: on (the plain session's cards, each picked per task; your role table wins card by card)"
+              and state_map == "roles: on (map pooled: its agents run on their own models)")
 
 
 MODS = r'''

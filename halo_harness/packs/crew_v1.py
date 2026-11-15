@@ -7,7 +7,8 @@ worked on 3.5 never goes silent:
 
 - a bio (`agents/<n>.yaml`) is an agent: `does` its description, `instructions` its `context.system_prompt`, `model` its
   `models.preference` when that is a model (else auto, with its needs), `uses` from `tools.allow`, `careful` from
-  `tools.permission_mode`, `more` its effort, `limits.max_iterations` and `limits.max_budget_usd`;
+  `tools.permission_mode`, `more` its effort, `limits.max_iterations` and `limits.max_budget_usd`, and its
+  `acceptance` (prompt, expect) as `more.check` (ask, expect: the hand-back check and `halo doctor --agents`);
 - a lineup (`teams/<n>.yaml`) is a map: main its `role: main` card's agent, a box and a line from main per other card
   (`when: {says: [...]}` from its `routing` words, else main decides), `caps.session_usd` its `budget.max_budget_usd`,
   `caps.max_depth` / `caps.max_parallel` its `delegation`'s (3.6.0.0 R5c);
@@ -15,7 +16,8 @@ worked on 3.5 never goes silent:
   workflow: a step per stage, its `role`'s agent. Any other runs on the run engine as before, not as a workflow.
 
 Every name is `<pack>--<name>`, so a pack never shadows yours or a starter. What is not carried (a lineup's tiers,
-permissions, stages; a bio's hooks, memory, schedules; a workflow that is not plain) is one line per pack:
+permissions, stages, a card's own `models.preference`; a bio's hooks, memory, schedules; a workflow that is not plain)
+is one line per pack:
 
     items(pack, kind) -> {name: body}      the pack's agents / workflows / maps, 2.0 files and 1.x ones read as them
     left_line(pack) -> str                 "" or the one line `halo pack list` and `halo pack doctor` say
@@ -83,6 +85,11 @@ def agent_of(pid: str, stem: str, bio: dict) -> dict:
         more["max_turns"] = limits["max_iterations"]
     if isinstance(limits.get("max_budget_usd"), (int, float)) and not isinstance(limits.get("max_budget_usd"), bool)             and limits["max_budget_usd"] > 0:
         more["max_usd"] = limits["max_budget_usd"]
+    acc = bio.get("acceptance") if isinstance(bio.get("acceptance"), dict) else {}
+    if isinstance(acc.get("prompt"), str) and acc["prompt"].strip():  # 3.6.0.0 R5c (the judge's S-b): the hand-back
+        more["check"] = {"ask": acc["prompt"].strip()}               # check and `halo doctor --agents`, as on 3.5
+        if isinstance(acc.get("expect"), str) and acc["expect"].strip():
+            more["check"]["expect"] = acc["expect"].strip()
     if more:
         out["more"] = more
     return out
@@ -300,8 +307,11 @@ def left_line(pack) -> str:
         left.append(f"{len(flows)} workflow{'s' if len(flows) != 1 else ''} ({', '.join(flows[:3])}"
                     f"{', ...' if len(flows) > 3 else ''}) run on the run engine only (halo orchestra new --workflow "
                     f"{pack.id}/<name>), not as a session's workflow")
-    parts = [n for n in LINEUP_LEFT if any(isinstance(t, dict) and t.get(n) for t in
-                                           (_yaml(q) for q in _files(root, "teams")))]
+    teams = [t for t in (_yaml(q) for q in _files(root, "teams")) if isinstance(t, dict)]
+    parts = [n for n in LINEUP_LEFT if any(t.get(n) for t in teams)]
+    if any(isinstance(e.get("models"), dict) and e["models"].get("preference") for t in teams for e in _cards(t)):
+        parts.append("card models (models.preference: a card runs on its agent's model)")  # 3.6.0.0 R5c: a map box
+        # names an agent and no model of its own, so a card's pin is named here, not carried
     if not left and not parts:
         return ""
     what = "; ".join(x for x in left + (["its lineups' " + ", ".join(parts) + " are not carried"] if parts else []))

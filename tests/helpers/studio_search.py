@@ -58,6 +58,22 @@ def _seed(ctx) -> None:
     mock.load_delay_s["qwen3:8b"] = 0.3
 
 
+def _new_session_reviewer(ctx) -> list:
+    """3.6.0.0 R5c (the judge's F1): what Assign changed, as a session sees it -- a NEW plain session built in this home
+    (as `halo -p` builds one) routes "review the diff" to its card; [the card, that child's model]."""
+    from halo_harness import headless
+    from tests.test_crew_compile import _child
+    repo = Path(ctx["state"]).parent / "search-repo"
+    repo.mkdir(exist_ok=True)
+    s = headless.build_session(cwd=repo, model_ref_raw="ol:qwen3:8b@box", print_mode=True, cli_flags={}).session
+    try:
+        _word, card = s.team_control.route_call({"prompt": "review the diff"}, "review the diff")
+        spec = s.agent_runtime.agents.get(card or "")
+        return [card, _child(s, spec, card, "review the diff")["model"] if spec is not None else None]
+    finally:
+        s.close_runtimes()
+
+
 def search(c, url, ctx) -> dict:
     _seed(ctx)
     c.go(f"{ctx['base']}?mode=local&page=library&tour=off#{ctx['frag']}")
@@ -104,8 +120,11 @@ def search(c, url, ctx) -> dict:
                           f"const o = {_row('qwen3:8b', '[data-testid=local-library-offer]')}; return o && o.textContent; }})()", 90)
     out["stages"] = c.js("[...new Set(window.__st || [])]")
     out["pull_bar"] = c.js(f"{qa('[data-testid=local-verify-stage]')}.map((s) => [s.dataset.step, s.dataset.state])")
+    from tests.helpers.studio_local import config
+    out["reviewer_before"] = (config(ctx).get("roles") or {}).get("reviewer")
     press(c, _row("qwen3:8b", "[data-testid=local-library-assign]"), f"!!{_row('qwen3:8b', '[data-testid=local-library-assigned]')}")
     out["assigned"] = c.js(f"{_row('qwen3:8b', '[data-testid=local-library-assigned]')}.textContent")
+    out["reviewer_child"] = _new_session_reviewer(ctx)
     press(c, q("[data-testid=local-save-template]"), f"!!{q('[data-testid=local-save-template-said]')}")
     out["template"] = c.js(f"{q('[data-testid=local-save-template-said]')}.textContent")
     out["pulled"] = list(ctx["mock"].pulled)

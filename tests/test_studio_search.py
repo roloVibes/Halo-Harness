@@ -8,7 +8,8 @@ answers the battery for; no provider request, no model call, nothing pulled but 
 3. a row's capabilities carry the three marks (verified, declared, expected) with titles; the verdicts side by side;
 4. the cost line (download and eta, VRAM, tok/s, what it evicts, each source in its title);
 5. the crashed model shows its line, and Exclude crashed greys it and puts it last;
-6. Download and verify: one job, the pull then the probe, to the role offer; Assign; Save as role template.
+6. Download and verify: one job, the pull then the probe, to the role offer (a Verifier row: the reviewer card);
+   Assign, and a new plain session's reviewer runs on the model; Save as role template names its agent.
 Run: python -m tests.test_studio_search
 """
 from __future__ import annotations
@@ -89,14 +90,19 @@ def test_a_crashed_row_is_greyed(ctx: Ctx):
 def test_download_and_verify_to_the_role_offer(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the button says what it does and that nothing downloads before, got {got.get('verify_title')!r}",
-              "run the battery" in str(got.get("verify_title")) and "verify role" in str(got.get("verify_title")))
+              "run the battery" in str(got.get("verify_title")) and "reviewer role" in str(got.get("verify_title")))  # 3.6.0.0 R5c (F1)
     ctx.check(f"the job: pull, then probe, then the offer, got {got.get('first_stage')} {got.get('stages')} {got.get('pull_bar')}",
               got.get("first_stage") in ("pull", "probe") and "offer" in (got.get("stages") or []) and ["pull", "done"] in (got.get("pull_bar") or []))
-    ctx.check(f"the offer, got {got.get('offer')!r}", "assign `verify` to ol:qwen3:8b@box?" in str(got.get("offer")))
-    ctx.check(f"Assign writes the active lineup and applies it again, got {got.get('assigned')!r}",
-              "verify is ol:qwen3:8b@box in " in str(got.get("assigned")) and "roles.verify follows" in str(got.get("assigned")))
+    ctx.check(f"the offer, got {got.get('offer')!r}", "assign `reviewer` to ol:qwen3:8b@box?" in str(got.get("offer")))
+    ctx.check(f"Assign says it in one line, got {got.get('assigned')!r}",
+              str(got.get("assigned")).startswith("roles.reviewer = ol:qwen3:8b@box: "))
+    # 3.6.0.0 R5c (the judge's F1): the outcome, not a sentence -- a NEW plain session's reviewer runs on the model
+    ctx.check(f"a new session's reviewer child runs on the assigned model (it did not before), got "
+              f"{got.get('reviewer_before')!r} -> {got.get('reviewer_child')}",
+              got.get("reviewer_before") != "ol:qwen3:8b@box" and got.get("reviewer_child") == ["reviewer", "ol:qwen3:8b@box"])
     ctx.check(f"pulled from the fake only, got {got.get('pulled')}", got.get("pulled") == ["qwen3:8b"])
-    ctx.check(f"Save as role template, got {got.get('template')!r}", "lineup local-verifier written (not active)" in str(got.get("template")))
+    ctx.check(f"Save as role template names the agent it writes, never a lineup, got {got.get('template')!r}",
+              "local-verifier" in str(got.get("template")) and "lineup" not in str(got.get("template")))
 
 
 if __name__ == "__main__":

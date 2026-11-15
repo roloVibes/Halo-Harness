@@ -73,7 +73,8 @@ def post_template(req):
     over = b.get("bundle") if isinstance(b.get("bundle"), dict) else None
     ok, lines, name = save_template(preset, state_dir=req.state_dir, model=str(b.get("model") or "").strip(),
                                     lineup=str(b.get("lineup") or "").strip(), bundle_over=over)
-    return (200 if ok else 422), {"ok": ok, "agent": name, "lines": lines, "say": "; ".join(lines),
+    said = "; ".join(lines)  # 3.6.0.0 R5c: a refusal's line is its `error` too (the page shows that, not the status)
+    return (200 if ok else 422), {"ok": ok, "agent": name, "lines": lines, "say": said, **({} if ok else {"error": said}),
                                   "cli": f"halo models browse --preset {preset} --save-template --model <model>"}
 
 
@@ -104,7 +105,8 @@ def post_assign(req):
     if not role or not ref:
         return 422, {"error": "assign takes {role, ref}", "problems": ["role: the role (roles.<role>)", "ref: ol:<model>@<host>"]}
     ok, lines, _name = assign(role, ref, state_dir=req.state_dir)
-    return (200 if ok else 422), {"ok": ok, "role": role, "lines": lines, "say": "; ".join(lines)}
+    said = "; ".join(lines)  # 3.6.0.0 R5c: a refusal (a role no session reads) is its `error` too, so the page shows it
+    return (200 if ok else 422), {"ok": ok, "role": role, "lines": lines, "say": said, **({} if ok else {"error": said})}
 
 
 def get_crashes(req):

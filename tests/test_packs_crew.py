@@ -41,7 +41,8 @@ OLD = {
                           "limits: {max_iterations: 12, max_budget_usd: 2}\n"),
     "agents/lead.yaml": "name: lead\ndescription: Leads the hunt.\nmodels: {preference: default}\ntools: {permission_mode: auto}\n",
     "teams/hunt.yaml": ("name: hunt\ndescription: the lead and a scout\nagents:\n  - {agent: lead, role: main}\n"
-                        "  - {agent: scout, role: researcher, as: scout}\nrouting: {find: scout}\n"
+                        "  - {agent: scout, role: researcher, as: scout, models: {preference: 'ol:qwen3:8b@lan'}}\n"
+                        "routing: {find: scout}\n"
                         "budget: {max_budget_usd: 9}\ntiers:\n  - {name: lead, members: [main]}\n"),
     "workflows/sweep.yaml": ("name: sweep\ndescription: Sweep the repo.\nstages:\n  - {id: look, title: Look around, role: scout, brief: Look, "
                              "gives: [{name: notes, kind: summary}]}\n  - {id: tell, title: Tell, role: lead, brief: Tell, after: [look]}\n"),
@@ -129,6 +130,8 @@ def test_a_1_x_packs_bios_lineup_and_plain_workflow_are_read(ctx: Ctx):
         line = [x for x in out.splitlines() if x.startswith("pack old-pack:")]
         ctx.check(f"halo pack list says it in one line, got {line}", code == 0 and len(line) == 1
                   and "1 workflow (gated)" in line[0] and "tiers" in line[0])
+        ctx.check(f"a card's own models.preference is named as not carried (3.6.0.0 R5c), got {line}",
+                  "card models (models.preference: a card runs on its agent's model)" in line[0])
         code, out, _err = h.cli("doctor", "--json")
         rows = [r for r in json.loads(out)["problems"] if r["check"] == "crew-1x"]
         ctx.check(f"halo pack doctor: one info row, got {rows}", len(rows) == 1 and rows[0]["severity"] == "info")
@@ -192,6 +195,110 @@ def test_a_bare_35_name_reads_the_packs_one(ctx: Ctx):
         _n, said = store.resolve("map", "hunt", cwd=h.repo)
         ctx.check(f"two packs' hunt: one line naming both, got {said!r}",
                   said == "halo: map hunt could be old-pack--hunt, twin-pack--hunt: name one in full")
+
+
+@test
+def test_agent_flag_reads_the_starter_before_a_pack(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's F2): `--agent <name>` reads in the order store.resolve / find use -- yours and the
+    project's, Halo's starter of that name, and only then an enabled pack's `<pack>--<name>`. With the shipped doc-review
+    pack enabled (it has doc-review--reviewer and doc-review--writer), `--agent reviewer` / `writer` run the starter's
+    with no line; a name only a pack has (scout) still reads the pack's, and the line says so."""
+    import io
+    from contextlib import redirect_stderr
+    from halo_harness import headless
+    from halo_harness.crew import store
+    with PacksHome() as h:
+        h.install(h.source(), enable=True)
+        h.install(_old_pack(h), enable=True)
+        got = {}
+        for name in ("reviewer", "writer", "scout"):
+            err = io.StringIO()
+            with redirect_stderr(err):
+                b = headless.build_session(cwd=h.repo, model_ref_raw="or:v/eyes", print_mode=True, cli_flags={}, agent=name)
+            b.session.close_runtimes()
+            full = store.resolve("agent", name, cwd=h.repo)[0]
+            spec = (b.agents or {}).get(full)
+            got[name] = (full, getattr(spec, "source", None), err.getvalue().strip(),
+                         bool(spec) and b.ctx.system_prompt == spec.body)
+    for name in ("reviewer", "writer"):
+        full, source, said, runs = got[name]
+        ctx.check(f"--agent {name}: the starter's, no pack line, got {got[name]}",
+                  full == name and source == "crew:starter" and "doc-review--" not in said and runs)
+    full, source, said, runs = got["scout"]
+    ctx.check(f"--agent scout (only a pack has it): the pack's, and the line says so, got {got['scout']}",
+              full == "old-pack--scout" and runs
+              and "halo: agent scout is old-pack--scout (an enabled pack's; its full name from now on)" in said)
+
+
+SQ = {  # 3.6.0.0 R5c (the judge's S-a): a 1.x pack whose plain workflows have the names of squares, and one that is free
+    "pack.yaml": ('id: sq-pack\nname: Sq pack\nversion: 1.0.0\ndescription: a 1.x pack whose plain workflow is called review\n'
+                  'halo_api: {min: "1.0", max: "1.2"}\ncontributes:\n  agents: [agents/scout.yaml]\n'
+                  '  workflows: [review, code, tidy]\n'),
+    "agents/scout.yaml": "name: scout\ndescription: Finds.\ntools: {allow: [Read]}\n",
+    "workflows/review.yaml": "name: review\ndescription: Not the square.\nstages:\n  - {id: look, title: Look, role: scout, brief: Look}\n",
+    "workflows/code.yaml": "name: code\ndescription: Not the square either.\nstages:\n  - {id: look, title: Look, role: scout, brief: Look}\n",
+    "workflows/tidy.yaml": "name: tidy\ndescription: Tidy up.\nstages:\n  - {id: look, title: Look, role: scout, brief: Look}\n",
+}
+
+
+@test
+def test_a_packs_workflow_never_takes_a_squares_name(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S-a): a bare `review` / `code` stays the square (no pack's workflow takes the name of a
+    built-in square, of a starter, or of yours); the full `sq-pack--review` reaches the pack's; a name nothing nearer has
+    (tidy) reaches the pack's and the run's line names it in full; yours of that name wins over the pack's."""
+    from halo_harness.crew.flow_door import named, pack_line
+    with PacksHome() as h:
+        src = h.sources / "sq-pack"
+        for rel, text in SQ.items():
+            (src / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / rel).write_text(text, encoding="utf-8")
+        h.install(src, enable=True)
+        bare = {n: (named(n, h.repo) or {}).get("name") for n in ("review", "code", "plan")}
+        full = (named("sq-pack--review", h.repo) or {}).get("name")
+        tidy = named("tidy", h.repo)
+        line = pack_line("tidy", tidy)
+        mine = h.state / "crew" / "workflows"
+        mine.mkdir(parents=True, exist_ok=True)
+        (mine / "tidy.yaml").write_text("format: workflow/1\nname: tidy\nfor: My tidy.\nsteps:\n  - {name: do, agents: [coder], "
+                                        "gets: the task, hands: the change}\n", encoding="utf-8")
+        own = named("tidy", h.repo) or {}
+    ctx.check(f"a bare square name reaches no pack's workflow (the squares take it), got {bare}",
+              bare == {"review": None, "code": None, "plan": None})
+    ctx.check(f"the full name reaches the pack's, got {full}", full == "sq-pack--review")
+    ctx.check(f"a free name reaches the pack's, and the line names it in full, got {(tidy or {}).get('name')} {line!r}",
+              (tidy or {}).get("name") == "sq-pack--tidy"
+              and line == "workflow tidy is sq-pack--tidy (an enabled pack's; its full name from now on)")
+    ctx.check(f"yours of that name wins, with no line, got {own.get('_scope')} {pack_line('tidy', own)!r}",
+              own.get("_scope") == "yours" and pack_line("tidy", own) == "")
+
+
+@test
+def test_a_1x_bios_acceptance_is_its_check(ctx: Ctx):
+    """3.6.0.0 R5c (the judge's S-b): a 1.x bio's `acceptance:` (prompt, expect) is its agent's `more.check` (ask,
+    expect), so the hand-back check and `halo doctor --agents` run it as 3.5 ran the bio's."""
+    from halo_harness.crew import store
+    from halo_harness.crew.agents_doctor import run_checks
+    from halo_harness.crew.in_use import agent
+    files = {"pack.yaml": ('id: acc-pack\nname: Acc pack\nversion: 1.0.0\ndescription: a bio with an acceptance block\n'
+                           'halo_api: {min: "1.0"}\ncontributes:\n  agents: [agents/checker.yaml]\n'),
+             "agents/checker.yaml": ("name: checker\ndescription: Checks.\n"
+                                     "tools: {allow: [Read]}\nacceptance:\n  prompt: Say OK.\n  expect: OK\n")}
+    with PacksHome() as h:
+        src = h.sources / "acc-pack"
+        for rel, text in files.items():
+            (src / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / rel).write_text(text, encoding="utf-8")
+        h.install(src, enable=True)
+        body = store.clean(store.load("agent", "acc-pack--checker", cwd=h.repo) or {})
+        got = (agent("acc-pack--checker", cwd=h.repo) or {}).get("acceptance")
+        calls: list = []
+        res = [r for r in run_checks(cwd=h.repo, call_fn=lambda ref, p: calls.append((ref, p)) or "OK, done",
+                                     default_model="ol:qwen3:8b@lan") if r[0] == "acc-pack--checker"]
+        calls = [c for c in calls if c[1] == "Say OK."]
+    ctx.check(f"the agent's more.check, got {body.get('more')}", (body.get("more") or {}).get("check") == {"ask": "Say OK.", "expect": "OK"})
+    ctx.check(f"the hand-back check reads it, got {got}", got == {"prompt": "Say OK.", "expect": "OK"})
+    ctx.check(f"halo doctor --agents runs it (on the default model: the bio pins none), got {res} {calls}",
+              calls == [("ol:qwen3:8b@lan", "Say OK.")] and len(res) == 1 and res[0][1] is True)
 
 
 @test

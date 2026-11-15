@@ -11,7 +11,9 @@ ask a few questions that a lineup or a bio answered on 3.5. This module answers 
                                                 session's model); a plain session's cards (auto / default). None
                                                 when the map cannot be read
     session_table(name, cwd, state_dir)         R5c: role_table, and for a plain session your `roles.<name>` over its
-                                                cards (what a new session's agents run on: the adviser reads it)
+                                                cards (what a new session's agents run on: the adviser reads it); only
+                                                the roles a session reads (read_roles)
+    read_roles() -> (name, ...)                 a plain session's cards and the roles the code reads (SYSTEM_ROLES)
     lanes(name, main_ref, cwd, state_dir) -> list   the local models of that table (local_sched/warm_set.lanes_of)
     agent(name, cwd, state_dir) -> dict | None  an agent as the fields the run engine and outcomes read: name, kind,
                                                 models {preference, needs}, prompt, tools, careful, acceptance
@@ -71,10 +73,31 @@ def role_table(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Optio
     return table
 
 
+#: 3.6.0.0 R5c (the judge's F1): the roles Halo's own code reads by name, beside a plain session's cards -- the
+#: built-in agents' roles (config/agents_md.py: general-purpose `orchestrator`, Judge `judge`, Tester `tester`), the
+#: judge and escalation (`judge`), the small model (headless.py `small`), compaction (agent/loop.py `compaction`), a
+#: sub-agent's default (`subagent_default`), the eyes offer (agent/eyes_offer.py `visual`, `eyes`) and the concierge.
+SYSTEM_ROLES = ("orchestrator", "judge", "tester", "small", "compaction", "subagent_default", "visual", "eyes",
+                "concierge")
+
+
+def read_roles() -> tuple:
+    """Every `roles.<name>` a session reads: a plain session's cards (crew/plain.py; `main` is the session's model, set
+    with `halo config set model`, so it is not one) and SYSTEM_ROLES. A role outside these changes nothing."""
+    try:
+        from halo_harness.crew.plain import load
+        plain = load()
+        cards = tuple(n for n in plain.cards if n != "main") if plain is not None else ()
+    except Exception:
+        cards = ()
+    return tuple(dict.fromkeys(cards + SYSTEM_ROLES))
+
+
 def session_table(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Optional[dict]:
     """What a new session's agents run on (3.6.0.0 R5c, the adviser's question): the map's table, and for a plain
     session each card's model under your `roles.<name>` (a card runs on its role's model when you set one: `halo
-    roles point`), plus the roles of your own the table does not name (`roles.verify`, `roles.judge`)."""
+    roles point`), plus the roles of yours the code reads that the table does not name (`roles.judge`,
+    `roles.small`; read_roles). A role nothing reads (`roles.verify`) is no lane."""
     name = name or map_name(cwd)
     table = role_table(name, cwd=cwd, state_dir=state_dir)
     if table is None or not _is_plain(name, cwd):
@@ -84,7 +107,8 @@ def session_table(name: Optional[str] = None, *, cwd=None, state_dir=None) -> Op
         own = configured_role_table()
     except Exception:
         own = {}
-    return {**table, **{k: v for k, v in own.items() if k != "main" and v not in (None, "")}}
+    read = read_roles()
+    return {**table, **{k: v for k, v in own.items() if k in read and v not in (None, "")}}
 
 
 def lanes(name: Optional[str] = None, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> list:

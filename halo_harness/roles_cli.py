@@ -247,31 +247,12 @@ _TEMPLATE_SUBCOMMANDS = {
 }
 
 
-def _active_lineup_keys() -> "tuple[str | None, set]":
-    """The active lineup's name and the role names its agents define (empty
-    when no lineup is set or it cannot be resolved)."""
-    try:
-        from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
-        from halo_harness.theme import get_config_value
-        team = get_config_value("team", default=None)
-        if not (isinstance(team, str) and team.strip()):
-            return None, set()
-        template = resolve_team_template(team.strip())
-        if template is None:
-            return team.strip(), set()
-        return team.strip(), set(resolve_role_table(template)[0])
-    except Exception:
-        return None, set()
-
-
-def _role_source(name: str, model, effort, lineup_keys: set, team) -> str:
-    """Where one role's value came from: its lineup, the older saved role
-    table, or nothing set (it follows the session model)."""
+def _role_source(name: str, model, effort, read) -> str:
+    """Where one role's value came from: your role table (config `roles`; 3.6.0.0 R5c: no `team:` lineup is read, the
+    judge's S-f), saying so when no session reads that role, or nothing set (it follows the session model)."""
     if model is None and effort is None:
         return "session default"
-    if team and name in lineup_keys:
-        return f"lineup {team}"
-    return "legacy table"
+    return "your role table" if name in read else "your role table; no session reads this role"
 
 
 def _cmd_table() -> int:
@@ -282,7 +263,7 @@ def _cmd_table() -> int:
     command printed the template usage line and exited 0.
 
     2.0.5 round 2b (brief item 1): the FIRST line is always `roles.
-    roles_state_line()` -- "roles: on (lineup <name>)" / "roles: off
+    roles_state_line()` -- "roles: on (the plain session's cards ...)" / "roles: off
     (standard: ...)" -- so a terminal reading just the top of the output
     already knows the one thing that decides whether the table below even
     applies."""
@@ -293,18 +274,19 @@ def _cmd_table() -> int:
     # plain lines a FIRST-TIME user needs before the table means anything
     # -- what a role IS, and WHEN it fires.
     print("A role names the model for one job; it fires whenever that job runs "
-          "(a sub-agent's bio or an active lineup names it).")
+          "(a plain session's card of that name, or Halo's own small / compaction / judge ... work).")
     print("Roles are off -> every job, including halo's own sub-agents, uses the session model.")
+    from halo_harness.crew.in_use import read_roles
     table = configured_role_table()
     names = known_role_names(table)
     w = max(len(n) for n in names)
-    team, lineup_keys = _active_lineup_keys()
+    read = read_roles()
     print("Configured roles (model / effort / where it came from; `halo roles template ...` manages saved tables):")
     for name in names:
         model, effort = role_value_parts(table.get(name))
         fires = ROLE_WHEN_IT_FIRES.get(name)
         fires_note = f"   -- {fires}" if fires else ""
-        src = _role_source(name, model, effort, lineup_keys, team)
+        src = _role_source(name, model, effort, read)
         if model is None and effort is None:
             print(f"  {name:<{w}}  (session model)  [{src}]{fires_note}")
         else:

@@ -2,7 +2,7 @@
 
     halo workflows list [--json]                        every square with its contract line (and the other workflows)
     halo workflows show <ref> [--json]                  the contract, then the file (inputs, outputs, stages)
-    halo workflows enable <ref> [--lineup <name>]       on for the active lineup (the auto lineup: config workflows.enabled)
+    halo workflows enable <ref> [--lineup <name>]       on for a session (config workflows.enabled; 3.6 reads no lineup)
     halo workflows disable <ref> [--lineup <name>]
     halo workflows test <ref> [--task TEXT]             the check pass + a dry run of the router on a sample task
     halo workflows new <name> --from <square>           copy a square into yours (~/.halo/workflows/<name>.yaml)
@@ -108,13 +108,13 @@ def _list(repo: Path, as_json: bool) -> int:
     if as_json:
         print(json.dumps({"lineup": registry.active_lineup(), "squares": got}, indent=2, default=str))
         return 0
-    lineup = registry.active_lineup() or "none"
-    print(f"squares (lineup {lineup}; * = enabled):")
+    # 3.6.0.0 R5c (the judge's S-f): a session reads no lineup; the set it enables is config workflows.enabled
+    print(f"squares (a session's set: config {registry.CONFIG_KEY}; * = enabled):")
     from halo_harness.workflows.doctor_rows import squares_line  # 3.3.16.2: which are on, and from where
     print(f"  {squares_line(cwd=repo)}")
     for r in got:
         mark = "*" if r["enabled"] else " "
-        tail = (f"  -- on for {lineup}" if r["enabled"] else "  -- off") if r["square"] else \
+        tail = ("  -- on for a session" if r["enabled"] else "  -- off") if r["square"] else \
             "  (not a square: its file says no gives)"
         when = f"  when: {r['when_label']}" if r.get("when_label") else ""  # 3.3.16.3: the when column
         print(f" {mark} [{r['group']:<7}] {r['line']}{tail}{when}")

@@ -423,17 +423,27 @@ Changed:
   Local's Delete names the agent files that use a model ("the model of agent `x`"). For a plain home, a home on a map
   of yours and the cold `halo local place`, every one of these answers what 3.5 answered (tests/test_crew_readers.py).
 - **Local's adviser** reads what a new session's agents run on: on a plain session your `roles.<name>` over its cards
-  (and your own roles, such as `roles.verify`), on a map its agents. It had gone quiet: it asked a lineup no session
-  reads any more.
+  (and the roles Halo itself reads, such as `roles.small` or `roles.judge`), on a map its agents. It had gone quiet: it
+  asked a lineup no session reads any more. A role no session runs (`roles.verify`) is no lane, and a home that still
+  says `team: balanced` gets the same answers as one that does not.
 - **The lane offer** ("keep it as the coder lane under a model that can") keeps a plain session and points
   `roles.coder` at the model, main moving to the orchestrator: "fix" and "implement" go to that coder, two hand-offs
   deep, every spawn as before -- what 3.5's lane lineup did. A map you had put in use is taken out of use, with the
-  command that brings it back. `halo config set model` names the two commands and writes nothing.
+  command that brings it back. The same answer says which coder model it replaced ("(was ...)") and, when roles were
+  off, each role of yours that runs again. `halo config set model` names the two commands and writes nothing.
 - **Local's "Assign <role> to <model>"** writes `roles.<role>` and nothing else; **"Save as role template"** writes the
   agent `local-<preset>` on the model you picked (with no model it says so in one line). Neither writes a lineup,
-  copies Halo's lineups into `~/.halo/teams` or names a retired command any more.
+  copies Halo's lineups into `~/.halo/teams` or names a retired command any more. A Verifier row now offers the
+  `reviewer` card (what a plain session hands review work to), and a new session's reviewer runs on the model. A role
+  no session reads is never reported as assigned: `verify` says to assign `reviewer`, Security says to save the agent
+  `local-security` and hand it work by name, anything else says so in one line, and nothing is written. Studio shows
+  these refusal lines (it showed "Unprocessable Entity").
 - **`/status`** says the map the session runs on; **`/workflows`** lists what the Workflow tool lists: the workflows it
-  runs by name (yours, the project's, an enabled pack's) and the squares it enables. A pack's workflow runs by name too.
+  runs by name (yours, the project's, an enabled pack's) and the squares it enables. A pack's workflow runs by name too,
+  but never under the name of a square or of your own workflow: a bare `review` stays the review square, and a bare name
+  that reaches a pack's workflow says its full `<pack>--<name>`. `halo workflows list` says the set is the session's
+  (config `workflows.enabled`), and `halo roles` names the map in use or the plain session's cards, not a `team:`
+  lineup nothing reads.
 - **Studio's file watcher** watches `~/.halo/crew/` (agents, workflows, maps) and, in a trusted folder only, the
   project's `.halo/crew/`, so an agent, workflow or map written in a terminal shows at once in the three tabs, and the
   model lookup's cache is cleared on a change.
@@ -447,11 +457,15 @@ Changed:
   Workflow tool runs its workflows). A 1.x pack still installs and runs: its bios are read as agents, its lineups as
   maps (Halo's own bio names such as `default-model` and `auto-coder` read as the starters that do that job, `extends:`
   followed, its `delegation` as the map's depth and parallel caps) and its plain workflows as workflows; a bio allowed
-  WebFetch alone gets WebFetch alone (`uses: [fetch]`); a workflow that is not plain still runs on the run engine
+  WebFetch alone gets WebFetch alone (`uses: [fetch]`); a bio's `acceptance:` is its agent's check, so the hand-back
+  check and `halo doctor --agents` run it as before; a lineup card's own `models.preference` is not carried (a map box
+  has no model of its own) and the pack's line says so; a workflow that is not plain still runs on the run engine
   (`halo orchestra new --workflow`). `halo pack list` counts the agents, maps and workflows a pack gives, says "made for
   extension API 1.x; read by this Halo's 2.0 as 1.x" on its line, and with `halo pack doctor` says in one line what is
   not carried (a lineup naming an agent nobody has is named with why). A 3.5 name typed bare (`--map hunt`, `halo maps
-  use hunt`, `--agent scout`) reads the one enabled pack's `<pack>--hunt` with a line naming it; `--team hunt` and a
+  use hunt`, `--agent scout`) reads the one enabled pack's `<pack>--hunt` with a line naming it, but only when no file
+  of yours, the project's or Halo's starters has that name (`--agent reviewer` is the starter reviewer even with
+  doc-review enabled); `--team hunt` and a
   config `team: hunt` name the exact command. `ext.compatible` now tells the truth for a capped range;
   `ext.reads_as_1x` says a 1.x pack loads anyway. The doc-review pack ships its crew in 2.0 files.
   docs/EXTENSION_API.md "A pack's crew"; docs/MOVING-from-3.5.md.
