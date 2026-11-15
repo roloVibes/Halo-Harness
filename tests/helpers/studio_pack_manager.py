@@ -203,7 +203,7 @@ def templates(c, url, ctx) -> dict:
     run = q("[data-testid=pm-workflow][data-ref='doc-review/review'] [data-testid=pm-run-workflow]")
     w(c, f"!!{run}", 20)
     out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)"),
-           "old_line": c.js(_text("[data-testid=pm-templates-old]"))}  # 3.6.0.0 R5: a pack's lineups and bios are not read
+           "old_line": c.js(_text("[data-testid=pm-templates-old]"))}  # 3.6.0.0 R5b: a pack's lineups and bios are read as maps and agents
     press(c, run)
     out["section_after_run"] = w(c, f"{CUR}.startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'map' && {CUR}", 15)  # 3.6.0.0 R5: the Map's drawer
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 20)

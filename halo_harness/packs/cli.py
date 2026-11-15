@@ -122,16 +122,20 @@ def _done(args, ok: bool, lines: "list[str]") -> int:
 
 def _list(args, cwd) -> int:
     from halo_harness.packs import cli_views as CV
+    from halo_harness.packs.crew_v1 import left_line
     from halo_harness.packs.registry import snapshot
-    rows = CV.list_rows(snapshot(cwd=cwd))
+    snap = snapshot(cwd=cwd)
+    rows = CV.list_rows(snap)
     more = None
     if args.available:
         from halo_harness.packs.sources import available
         more = available(cwd=cwd)
+    left = [ln for ln in (left_line(p) for p in snap.active) if ln]  # 3.6.0.0 R5b: what an enabled 1.x pack does not carry
     if args.json:
-        print(json.dumps({"packs": rows, **({"available": more} if more is not None else {})}, indent=2, ensure_ascii=False))
+        print(json.dumps({"packs": rows, **({"crew_left": left} if left else {}),
+                          **({"available": more} if more is not None else {})}, indent=2, ensure_ascii=False))
     else:
-        print("\n".join(CV.list_lines(rows, hint=more is None) + (CV.available_lines(more) if more is not None else [])))
+        print("\n".join(CV.list_lines(rows, hint=more is None) + left + (CV.available_lines(more) if more is not None else [])))
     return 0
 
 

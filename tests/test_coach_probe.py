@@ -122,7 +122,7 @@ def test_a_whole_probe_runs_two_candidates_under_the_reference(ctx: Ctx):
         one = next(r for r in p.log if r["cand"] == inv["id"] and r["lane"] == 1)
         argv = one["argv"]
         ctx.check(f"the worker's argv carries the overlay, got {argv[7:]}", _flag(argv, "--agent") == "coach-cheap"
-                  and _flag(argv, "--model") == "or:vendor/strong" and _flag(argv, "--team") == "probe-line"
+                  and _flag(argv, "--model") == "or:vendor/strong" and _flag(argv, "--map") == "probe-line"
                   and NOTE_I in _flag(argv, "--append-system-prompt") and _flag(argv, "--max-turns") == "30")
         files = one["files"]
         ctx.check(f"the worktree's project scope, got {sorted(files)}", ".halo/.gitignore" in files

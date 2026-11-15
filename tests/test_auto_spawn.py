@@ -152,36 +152,6 @@ def test_the_pick_runs_the_child_and_rides_on_its_row_frame_meta_and_note(ctx: C
 
 
 @test
-def test_mains_model_and_a_tiers_model_come_before_the_pick(ctx: Ctx):
-    from halo_harness.teams_yaml import save_team_template
-    from halo_harness.theme import set_config_value
-    mock = _mock()
-    try:
-        with _Env() as e:
-            _seed_index(e.state_dir, ROWS)
-            session = _session(e, mock)
-            out = _dispatch(session, "c1", "Look at shot.png", description="describe the screenshot", model="or:mock/auto-override")
-            row = _child(session, "c1").get("row") or {}
-            ctx.check(f"main's model: on the call wins, with no pick, got {out[:80]!r} {row.get('model')!r} {row.get('model_reason')!r}",
-                      "OVERRIDE RAN" in out and row.get("model") == "or:mock/auto-override" and not row.get("model_reason"))
-            ok, problems = save_team_template("tiered", {
-                "description": "a tier names the pool's model",
-                "agents": [{"agent": "default-model", "role": "main"}, {"agent": "auto-coder", "role": "coder"}],
-                "routing": {"fix": "coder"},
-                "tiers": [{"name": "main", "members": ["main"]}, {"name": "pool", "members": ["coder"], "model": "or:mock/auto-tier"}],
-            }, state_dir=e.state_dir)
-            ctx.check(f"the tiered lineup saves, got {problems}", ok)
-            set_config_value("team", "tiered")
-            session = _session(e, mock)
-            out = _dispatch(session, "c2", "fix the bug in basket.py", description="fix the bug")
-            row = _child(session, "c2").get("row") or {}
-            ctx.check(f"a tier's model comes before `auto`, got {out[:80]!r} {row.get('model')!r}",
-                      "TIER RAN" in out and row.get("model") == "or:mock/auto-tier" and not row.get("model_reason"))
-    finally:
-        mock.stop()
-
-
-@test
 def test_a_pick_that_does_not_resolve_runs_on_mains_model(ctx: Ctx):
     mock = _mock()
     saved = {k: os.environ.pop(k) for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL") if k in os.environ}
@@ -198,33 +168,6 @@ def test_a_pick_that_does_not_resolve_runs_on_mains_model(ctx: Ctx):
                           "MAIN RAN" in out and row.get("model") == "or:mock/auto-main" and row.get("model_reason") == why)
     finally:
         os.environ.update(saved)
-        mock.stop()
-
-
-@test
-def test_a_lineup_without_auto_runs_as_before(ctx: Ctx):
-    from halo_harness.agents_yaml import save_agent_bio
-    from halo_harness.teams_yaml import save_team_template
-    from halo_harness.theme import set_config_value
-    mock = _mock()
-    try:
-        with _Env() as e:
-            _seed_index(e.state_dir, ROWS)
-            save_agent_bio("plain-bio", {"description": "pinned", "models": {"preference": "or:mock/plain-worker"}},
-                           state_dir=e.state_dir)
-            ok, _p = save_team_template("plain", {"description": "no auto here", "routing": {"screenshot": "worker"},
-                                                  "agents": [{"agent": "default-model", "role": "main"},
-                                                             {"agent": "plain-bio", "role": "subagent", "as": "worker"}]},
-                                        state_dir=e.state_dir)
-            set_config_value("team", "plain")
-            session = _session(e, mock)
-            out = _dispatch(session, "c1", "Look at shot.png", description="describe the screenshot")
-            row = _child(session, "c1").get("row") or {}
-            ctx.check(f"the pinned model runs it, no reason, got {out[:80]!r} {row.get('model')!r} {row.get('model_reason')!r}",
-                      ok and "PLAIN RAN" in out and row.get("model") == "or:mock/plain-worker" and row.get("model_reason") is None)
-            ctx.check("and no pick note opens its transcript",
-                      not any(x.get("kind") == "note" and str(x.get("text", "")).startswith("auto:") for x in _notes(row["transcript"])))
-    finally:
         mock.stop()
 
 

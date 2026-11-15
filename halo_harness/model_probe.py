@@ -45,7 +45,7 @@ def probe_model(ref: "Optional[str]", *, timeout: float = PROBE_TIMEOUT_S, state
     if not ref:
         out["error"] = "no model ref given"
         return out
-    from halo_harness.agents_doctor import print_mode_argv
+    from halo_harness.crew.checks import print_mode_argv
     started = time.monotonic()
     try:
         proc = subprocess.run(print_mode_argv(ref, PROBE_PROMPT), capture_output=True, text=True,

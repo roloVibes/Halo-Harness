@@ -352,7 +352,7 @@ Changed:
   sub-agent's model is picked as before (the same needs and routing words); the coder edits your own files (no
   worktree); `halo roles point <role> <model>` and `/role` reach the agent of that role; the Workflow tool is there;
   nothing is added to the system prompt and the Agent and Workflow tools say what they said. These values are read
-  from the shipped `auto` lineup until the next round moves them. A test compares the default session with values
+  from one shipped file (R5b, below). A test compares the default session with values
   recorded on 3.5. A map you pick or write keeps its rules: main held to its lines, its cap, its instructions, main's
   mode from its `careful`. A map with a problem says its lines and the session runs on the default. The step
   runner's, a chain's and `/review`'s own spawns are not held to a map.
@@ -389,6 +389,49 @@ Changed:
   the Cast pictures (`studio-workflows.png`, `studio-model-picker.png`, `studio-roles*.png`, the Roles GIF) and their
   capture tools went; the Agents tile of the modes banner, the goal run pictures and the tabs' own pictures are
   re-shot.
+
+### R5b
+
+The rest of Halo asks the map, not the lineup. Local scheduling, warm sets, placement, the steward, doctor, Studio's
+model lookup and its file watcher, the run engine's lanes and the outcomes read the map in use and the agent files; a
+session with no map reads one shipped file for what a 3.5 plain session did; packs move to extension API 2.0. (The
+old lineup and bio modules still ship for the two shipped packs that drive them, first-run and coach, and are not on
+any session's path; they go when those packs are re-made.)
+
+Removed (and what replaces each):
+
+- **Schedules and triggers of lineups** (`/agents schedule`, the supervisor's armed lineups): a map has none; `/agents
+  schedule` says so in one line.
+- **`halo doctor --teams`**: one line pointing at `halo doctor --agents`, which now checks your agent files (their
+  problems, and each agent's own `more.check` on one call) and the map in use.
+- **A lineup's acceptance as an Orchestra goal's default test** (`halo orchestra new --lineup`, Studio's run form, the
+  supervisor's queue): nothing is taken; a goal's `lineup` field names the map its job's session runs on (`--map`).
+- **A session's tools narrowed by its lineup's or its `--agent` bio's `tools.capabilities`**: a session reads no lineup
+  or bio (a map agent's tools are its `uses`); an Orchestra lane keeps its run's list, isolation and secrets (the run
+  engine's lanes still name bios while the first-run and coach packs ship them).
+- The lineup graph and bio views of `studio/model.py`.
+
+Changed:
+
+- **A session with no map** keeps every 3.5 answer (tools, spawns, depth 2 / 4 parallel, the model picks and the
+  routing words, no cap, `halo roles point` reaching the agent) from one shipped file,
+  `templates/crew/plain/session.yaml` (what was the `auto` lineup and its seven bios), read from the package only. An
+  `--agent` session and a session built directly hold the same answers; roles off ("One model for everything") holds
+  none. `tests/test_crew_compile.py` pins it on the values recorded on 3.5.
+- **Local models follow the map**: `halo local warm` / `halo local place` take a map (the one in use when none is
+  named), the swap preview and the steward's rules read its agents' models ("this map swaps 2x on one card"), and
+  Local's Delete names the agent files that use a model ("the model of agent `x`").
+- **The lane offer** ("keep it as the coder under a model that can"): writes a map and two agents and `halo maps use`
+  puts it in use, where it wrote a lineup.
+- **`/status`** says the map the session runs on; **`/workflows`** lists your workflows (read-only).
+- **Studio's file watcher** watches `~/.halo/crew/` (agents, workflows, maps) and a trusted project's `.halo/crew/`, so
+  an agent, workflow or map written in a terminal shows at once in the three tabs, and the model lookup's cache is
+  cleared on a change.
+- **Extension API 2.0** (`halo_harness.ext.API_VERSION`): a pack ships `crew/agents`, `crew/workflows` and
+  `crew/maps`, read in place as `<pack>--<name>` (sessions spawn its agents, `halo maps use` takes its maps, the
+  Workflow tool runs its workflows). A 1.x pack still installs and runs: its bios are read as agents, its lineups as
+  maps and its plain workflows as workflows; `halo pack list` and `halo pack doctor` say in one line what is not
+  carried. The doc-review pack ships its crew in 2.0 files. docs/EXTENSION_API.md "A pack's crew"; docs/MOVING-from-3.5.md.
 
 ## [3.5.0.0] - 2026-11-13
 

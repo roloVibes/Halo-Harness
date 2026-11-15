@@ -108,9 +108,9 @@ def test_engine1_trusted_project_files_load_but_never_take_a_shipped_name(ctx: C
         ctx.check(f"trusted: the project-only square loads, got {wf and wf.origin} {why!r}",
                   wf is not None and wf.origin == "project")
         mine = find_team_template_path("mine", cwd=proj)
-        auto = find_team_template_path("auto", cwd=proj)
-        ctx.check(f"trusted: lineup mine is the project's ({mine}); auto is not ({auto})",
-                  mine is not None and mine[1] == "project" and (auto is None or auto[1] != "project"))
+        standard = find_team_template_path("standard", cwd=proj)
+        ctx.check(f"trusted: lineup mine is the project's ({mine}); a shipped name is not ({standard})",
+                  mine is not None and mine[1] == "project" and (standard is None or standard[1] != "project"))
         ctx.check("trusted: the project's bio is used (bios may override in a trusted folder, like its hooks)",
                   bool((resolve_agent_bio("default-model", cwd=proj) or {}).get("hooks")))
         (proj / ".halo" / "teams" / "fleet--x.yaml").write_text(LINEUP.format(name="fleet--x"), encoding="utf-8")
@@ -122,16 +122,16 @@ def test_engine1_trusted_project_files_load_but_never_take_a_shipped_name(ctx: C
 def test_engine1_main_bio_hooks_of_an_untrusted_repo_do_not_arm(ctx: Ctx):
     with _home():
         os.environ.pop("CLAUDE_CODE_SANDBOXED", None)
-        from halo_harness.teams_runtime import load_team_control
+        from halo_harness.crew.plain import load  # 3.6.0.0 R5b: a plain session's answers, read from the package only
         proj, old = _repo(), Path.cwd()
         os.chdir(proj)
         try:
-            control = load_team_control("auto", cwd=proj)
+            control = load()
             main = next((a for a, e in (control.aliases if control else {}).items() if e.get("role") == "main"), None)
             hooks = control.member_hooks(main) if control is not None and main else {}
         finally:
             os.chdir(old)
-        ctx.check(f"the auto lineup's main carries no repo hooks, got {hooks!r}", control is not None and not hooks)
+        ctx.check(f"a plain session's main carries no repo hooks, got {hooks!r}", control is not None and not hooks)
 
 
 def _parent(proj: Path, mode: str, deny=()):

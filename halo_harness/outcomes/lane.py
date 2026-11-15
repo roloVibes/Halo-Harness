@@ -51,7 +51,7 @@ def _bio(name: str, cwd) -> dict:
     if not name:
         return {}
     try:
-        from halo_harness.agents_yaml import resolve_agent_bio
+        from halo_harness.crew.in_use import agent_or_bio as resolve_agent_bio  # 3.6.0.0 R5b: an agent file, else a bio
         return resolve_agent_bio(name, cwd=cwd) or {}
     except Exception:
         return {}

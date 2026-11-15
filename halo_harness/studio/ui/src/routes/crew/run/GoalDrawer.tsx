@@ -20,7 +20,7 @@ export function RunGoalButton() {
   const live = useOrch((s) => (s.data?.live ? s.runId : ""));
   return (
     <Button size="sm" variant="ghost" className={open ? "on" : ""} aria-pressed={open} onClick={toggleGoal} data-testid="live-run-goal"
-            title={live ? `Run a goal: run ${live} is live, so the form opens and Run waits for it to end` : "Run a goal: give the lineup a goal; it runs here as lanes under a lead, and its report lands in History"}>
+            title={live ? `Run a goal: run ${live} is live, so the form opens and Run waits for it to end` : "Run a goal: give it a goal; it runs here as lanes under a lead, and its report lands in History"}>
       Run a goal
     </Button>
   );

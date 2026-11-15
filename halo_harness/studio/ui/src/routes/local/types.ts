@@ -123,7 +123,7 @@ export type PullJob = {
   kind?: "pull" | "download"; repo?: string; file?: string; dir?: string; path?: string | null; // 3.3.5.0 R5
 };
 export type Uses = {
-  ref: string; model: string; host: string; lineups: { name: string; role: string }[]; roles: string[]; compaction: boolean;
+  ref: string; model: string; host: string; agents: string[]; roles: string[]; compaction: boolean;
   default_model: boolean; profiles: string[]; sessions: { id: string; title: string; live: boolean }[]; any: boolean; live: number; line: string;
 };
 export type ShowAnswer = {

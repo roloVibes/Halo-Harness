@@ -139,17 +139,17 @@ def post_models_lane(req):
     from halo_harness.agent.main_model_check import accept, check
     got = check(ref, state_dir=req.state_dir)
     if got is None:
-        return 409, {"error": f"{ref} can orchestrate here: no lineup is needed", "problems": []}
+        return 409, {"error": f"{ref} can orchestrate here: no map is needed", "problems": []}
     if not got.get("offer"):
         return 409, {"error": got["offer_line"], "problems": [got["line"]]}
     offer = got["offer"]
     ok, lines = accept(offer, cwd=req.cwd, state_dir=req.state_dir)
     if not ok:
-        return 422, {"error": lines[0] if lines else "the lineup was not written", "problems": lines}
+        return 422, {"error": lines[0] if lines else "the map was not written", "problems": lines}
     from halo_harness.theme import set_config_value
     set_config_value("model", offer["orchestrator"])
     return 200, {"ok": True, "lineup": offer["lineup"], "orchestrator": offer["orchestrator"], "coder": offer["coder"],
-                 "lines": [lines[0], f"model = {offer['orchestrator']} (the main agent); {ref} is the coder lane"]}
+                 "lines": [lines[0], f"model = {offer['orchestrator']} (the main agent); {ref} is the coder"]}
 
 
 def _effort(ref: str) -> dict:

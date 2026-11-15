@@ -79,7 +79,7 @@ export function TestPage({ data, lane }: { data: RunPayload; lane: Lane | null }
   const r = data.report;
   return (
     <div className="rp-test" data-testid="run-page-test-rows">
-      <p className="mono muted">the gate: {data.goal.test || "the lineup's test, if it names one"} · done when: {short(data.goal.done_when, 120)}</p>
+      <p className="mono muted">the gate: {data.goal.test || "no test named"} · done when: {short(data.goal.done_when, 120)}</p>
       {lane?.rebased && <p className="mono">re-based on {lane.rebased.onto.map((o) => `lane ${o.lane}`).join(", ")}: tests {lane.rebased.tests_ok ? "pass" : "do not pass"}</p>}
       {lane?.pieces_returned ? <p className="mono">the gate sent this lane back {lane.pieces_returned}x (cap {data.goal.return_cap})</p> : null}
       {gate.length ? <ul className="rp-list mono">{gate.map((e, i) => <li key={i}>{elapsed(e.elapsed_s)} · {e.text}</li>)}</ul> : <p className="muted">The gate has not run{lane ? " on this lane" : ""} yet.</p>}

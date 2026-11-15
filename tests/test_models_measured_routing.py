@@ -81,10 +81,10 @@ def test_nothing_measured_falls_back_to_the_auto_pick(ctx: Ctx):
 def test_teams_yaml_reads_measured_like_auto(ctx: Ctx):
     import os
     import tempfile
-    from halo_harness.agents_yaml import resolve_agent_bio, save_agent_bio
+    from halo_harness.agents_yaml import save_agent_bio
     from halo_harness.models_auto import is_auto, is_measured, spawn_word
     from halo_harness.models_auto_spawn import pool_words
-    from halo_harness.teams_yaml import bio_pinned_model, member_model, resolve_team_template
+    from halo_harness.teams_yaml import bio_pinned_model, member_model
     saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     d = Path(tempfile.mkdtemp(prefix="measured-teams-"))
     os.environ["BRIDGE_TEST_HOME"], os.environ["BRIDGE_STATE_DIR"] = str(d), str(d / ".halo")
@@ -102,16 +102,14 @@ def test_teams_yaml_reads_measured_like_auto(ctx: Ctx):
         words = pool_words(template, entry, state_dir=state)
         ctx.check(f"`halo teams show` says how it is picked, got {words!r}",
                   words == " -- model picked at spawn (by measured success at its kind, else as auto; needs: tools; band mid)")
-        auto = resolve_team_template("auto", state_dir=state) or {}
-        prefs = {e["agent"]: (resolve_agent_bio(e["agent"], state_dir=state) or {}).get("models", {}).get("preference")
-                 for e in auto.get("agents") or [] if e.get("agent", "").startswith("auto-")}
-        ctx.check(f"the shipped auto lineup's bios stay auto, got {prefs}", len(prefs) == 7 and set(prefs.values()) == {"auto"})
+        from halo_harness.crew.plain import load  # 3.6.0.0 R5b: the auto lineup is a plain session's cards now
+        prefs = {n: c.get("model") or "auto" for n, c in (load().cards if load() else {}).items() if n != "main"}
+        ctx.check(f"a plain session's cards stay auto, got {prefs}", len(prefs) == 7 and set(prefs.values()) == {"auto"})
     finally:
         for k, v in saved.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
-@test
 def test_at_spawn_a_measured_card_runs_on_the_measured_best(ctx: Ctx):
     from tests import test_auto_spawn as A
     from tests.test_outcomes_measured import seed_outcomes

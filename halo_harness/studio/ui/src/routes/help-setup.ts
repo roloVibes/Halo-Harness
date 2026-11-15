@@ -49,11 +49,11 @@ export const SETUP_HELP: Record<string, Help> = {
     ),
   },
   "setup-team": {
-    about: "The lineup new sessions run: team and roles.enabled in ~/.halo/config.json.",
+    about: "The map new sessions run on: crew.map and roles.enabled in ~/.halo/config.json.",
     help: lines(
-      "One model for everything: roles off, no lineup. auto (the default): each sub-task goes to a model picked for it.",
-      "Any other lineup gives each job its own agent and model; the preview shows role -> agent -> model and the cost line.",
-      "Apply writes the lineup (team in ~/.halo/config.json, as halo teams use does); Edit in Agents opens the lineup in Agents (Cast).",
+      "One model for everything: roles off, no map. starter (the default): each sub-task goes to a model picked for it.",
+      "Any other map gives each job its own agent and model; the preview shows its boxes and lines.",
+      "Apply writes the map (crew.map in ~/.halo/config.json, as halo maps use does); Edit opens it in Agents -> 3 · Map.",
     ),
   },
   "setup-linux": {

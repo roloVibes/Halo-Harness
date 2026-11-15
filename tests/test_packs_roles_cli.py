@@ -4,8 +4,8 @@ with the model it resolves to and the grants it needs, and each lineup with
 its members, tiers, workflows and acceptance (an installed pack and a
 source folder); `halo pack doctor` adds a row per capability set no catalog
 model has and per ungranted need; `halo agents list` / `halo teams list`
-print one group per pack (unchanged with none); `halo orchestra new
---lineup` starts with the lineup's acceptance.test and review.
+print one group per pack (unchanged with none). (3.6.0.0 R5b: `halo orchestra
+new --lineup` no longer takes a lineup's acceptance; lineups are gone.)
 Run: python -m tests.test_packs_roles_cli
 """
 
@@ -86,24 +86,6 @@ def test_doctor_rows_for_an_unresolved_capability_set_and_an_ungranted_need(ctx:
         h.cli("enable", "rare-caps", "--grant", "network")
         code, out, _err = h.cli("doctor")
         ctx.check(f"a row that has them and the grant: clean, got {out}", code == 0 and "RESULT: 0 problem(s)" in out)
-
-
-@test
-def test_orchestra_new_starts_with_the_lineups_acceptance(ctx: Ctx):
-    from halo_harness.orchestra_cli import cmd_orchestra
-    with PacksHome() as h:
-        h.install(h.source(), enable=True)
-        base = ["new", "--what", "w", "--done-when", "d", "--stop-when", "s", "--lineup", "doc-review--review", "--repo", str(h.repo)]
-        code, out = _run(cmd_orchestra, base, cwd=h.repo)
-        goals = sorted((h.repo / ".halo" / "orchestra").glob("*/goal.json"))
-        goal = json.loads(goals[-1].read_text(encoding="utf-8")) if goals else {}
-        ctx.check(f"the test and the review come from the lineup, and the output says so, got {out!r}",
-                  code == 0 and goal.get("test") == "python -m pytest -q" and goal.get("plan") == "review"
-                  and "(from lineup doc-review--review's acceptance.test)" in out)
-        code, out = _run(cmd_orchestra, base + ["--test", "make check"], cwd=h.repo)
-        goals = sorted((h.repo / ".halo" / "orchestra").glob("*/goal.json"), key=lambda p: p.stat().st_mtime_ns)
-        goal = json.loads(goals[-1].read_text(encoding="utf-8")) if goals else {}
-        ctx.check(f"--test wins, got {goal.get('test')!r}", code == 0 and goal.get("test") == "make check")
 
 
 if __name__ == "__main__":

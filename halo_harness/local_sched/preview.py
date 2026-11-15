@@ -1,13 +1,12 @@
-"""halo_harness.local_sched.preview -- a lineup's swap preview and its hygiene lines (Halo 3.3.7.0 R3;
-plans/local-model-fit-brief.md D1 3 and 8): what `halo teams use` prints and the Roles lineup tab shows.
+"""halo_harness.local_sched.preview -- a map's swap preview and its hygiene lines (Halo 3.3.7.0 R3;
+plans/local-model-fit-brief.md D1 3 and 8; 3.6.0.0 R5b: the map in use, where it was a lineup).
 
-    lanes_for(lineup, *, main_ref=None, cwd=None, state_dir=None) -> (lanes, declared, name)
-        `lineup`: a name or a resolved template; main is the session's model (config `model`) unless given
-    preview(lineup, *, main_ref=None, cwd=None, state_dir=None) -> Preview
+    lanes_for(name=None, *, main_ref=None, cwd=None, state_dir=None) -> (lanes, declared, name)
+        `name`: a map (None: the map in use, crew/in_use.py); main is the session's model (config `model`) unless given
+    preview(name=None, *, main_ref=None, cwd=None, state_dir=None) -> Preview
     Preview = {lineup, hosts [WarmSet], swaps, swap_s, cards, declared [model], lines [str], hygiene [str]}
-    warm_problems(data) -> [str]          the `warm:` list's shape (teams_yaml.validate_team_template)
 
-The lines: one warm-set line per card (local_sched/warm_set.pack), then the total -- "this lineup swaps 7x on one
+The lines: one warm-set line per card (local_sched/warm_set.pack), then the total -- "this map swaps 7x on one
 card ~ 3 m 02 s of loading a pass" or "its local models co-reside: 0 swaps a pass". The hygiene lines: a verify
 lane and a worker lane on one card (share weights: "0 swaps between them"; different weights: each hand-off a
 swap, unless both stay warm), a lane that never fits beside main, a lane that could not be judged (no catalog
@@ -22,20 +21,14 @@ VERIFY = ("verify", "verifier", "reviewer", "review", "judge", "checker", "teste
 WORKER = ("worker", "coder", "implement", "implementer", "builder", "dev", "developer")
 
 
-def _template(lineup, cwd=None, state_dir=None) -> Optional[dict]:
-    if isinstance(lineup, dict):
-        return lineup
-    from halo_harness.teams_yaml import resolve_team_template
-    return resolve_team_template(str(lineup or ""), cwd=cwd, state_dir=state_dir)
-
-
-def _main_ref() -> Optional[str]:
-    try:
-        from halo_harness.theme import get_config_value
-        v = get_config_value("model", default=None)
-    except Exception:
-        return None
-    return v if isinstance(v, str) and v.strip() else None
+def warm_problems(data) -> list:
+    """A 1.x lineup file's `warm:` list's shape (teams_yaml.validate_team_template, while that validator stays)."""
+    raw = (data or {}).get("warm") if isinstance(data, dict) else None
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or not all(isinstance(x, str) and x.strip() for x in raw):
+        return ['"warm" must be a list of lane names or model references (the models that stay loaded together)']
+    return []
 
 
 def declared_models(raw, lanes: list) -> list:
@@ -49,24 +42,14 @@ def declared_models(raw, lanes: list) -> list:
     return [m for m in out if m]
 
 
-def lanes_for(lineup, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> "tuple[list, list, str]":
-    from halo_harness.local_sched.warm_set import lanes_of
-    t = _template(lineup, cwd, state_dir)
-    if t is None:
-        return [], [], str(lineup or "")
-    from halo_harness.teams_yaml import resolve_role_table
-    table, _notes = resolve_role_table(t, cwd=cwd, state_dir=state_dir)
-    lanes = lanes_of(table, main_ref if main_ref is not None else _main_ref())
-    return lanes, declared_models(t.get("warm"), lanes), str(t.get("name") or lineup or "")
-
-
-def warm_problems(data) -> list:
-    raw = (data or {}).get("warm") if isinstance(data, dict) else None
-    if raw is None:
-        return []
-    if not isinstance(raw, list) or not all(isinstance(x, str) and x.strip() for x in raw):
-        return ['"warm" must be a list of lane names or model references (the models that stay loaded together)']
-    return []
+def lanes_for(name=None, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> "tuple[list, list, str]":
+    """The local lanes of the map `name` (None: the one in use): main and each agent on an `ol:` model. A map declares
+    no `warm:` list, so `declared` is empty."""
+    from halo_harness.crew.in_use import lanes, map_name
+    name = name or map_name(cwd)
+    if not name:
+        return [], [], ""
+    return lanes(name, main_ref=main_ref, cwd=cwd, state_dir=state_dir), [], str(name)
 
 
 def _kind(lane: str, words) -> bool:
@@ -124,16 +107,7 @@ def _vram_aware(ws: dict, group: list) -> "tuple[list, str]":
                  f"on {ws['host']}: they run on main's model instead (the VRAM-aware rule), no swap")
 
 
-def use_lines(lineup, **kw) -> list:
-    """What `halo teams use` prints under the roles: nothing for a lineup with no local lanes."""
-    pv = preview(lineup, **kw)
-    if not pv["lanes"]:
-        return []
-    return (["Local models (the swap preview, one pass of the lineup):"] + [f"  {x}" for x in pv["lines"]]
-            + [f"  [!] {x}" for x in pv["hygiene"]])
-
-
-def preview(lineup, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> dict:
+def preview(lineup=None, *, main_ref: Optional[str] = None, cwd=None, state_dir=None) -> dict:
     from halo_harness.local_sched.facts import host_named
     from halo_harness.local_sched.swap_cost import secs
     from halo_harness.local_sched.warm_set import by_host, pack
@@ -169,7 +143,7 @@ def preview(lineup, *, main_ref: Optional[str] = None, cwd=None, state_dir=None)
     judged = [ws for ws in out["hosts"] if ws["warm"] or ws["pivots"]]
     if out["swaps"]:
         where = "one card" if out["cards"] == 1 else f"{out['cards']} cards"
-        out["lines"].append(f"this lineup swaps {out['swaps']}x on {where} ~ {secs(out['swap_s'])} of loading a pass")
+        out["lines"].append(f"this map swaps {out['swaps']}x on {where} ~ {secs(out['swap_s'])} of loading a pass")
     elif judged:
-        out["lines"].append("this lineup's local models co-reside: 0 swaps a pass")
+        out["lines"].append("this map's local models co-reside: 0 swaps a pass")
     return out

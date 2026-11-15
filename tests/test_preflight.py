@@ -1,12 +1,11 @@
-"""tests.test_preflight -- Halo 3.0.7.0 round R1: the run-start preflight
-(lineup_preflight.lineup_problems): each finding over a
-scratch lineup and a seeded catalog (dead model id, dead fallback, missing
-bio, empty tools.allow, a tier problem), no false dead id from an unread
-catalog, and the entry points refusing with every blocking problem and
-its fix -- `halo orchestra run`, `POST /api/orchestra/run`, a mission
-`run` -- while `--force` / `{"force": true}` goes past it (through the
-seams: orchestra_api.RUNNER, mission_api). `halo doctor --roles` lists the same findings.
-No model is called.
+"""tests.test_preflight -- Halo 3.0.7.0 round R1: the run-start preflight. 1: the old lineup checker
+(lineup_preflight.lineup_problems, kept while the first-run pack drives it) over a scratch lineup and a seeded catalog
+(dead model id, dead fallback, missing bio, empty tools.allow, a tier problem), no false dead id from an unread
+catalog. 2-4 (3.6.0.0 R5b, crew/preflight.py): the entry points check the goal's MAP -- a box naming no agent, an
+agent on a model id its catalog does not know -- and refuse with every blocking problem and its fix -- `halo
+orchestra run`, `POST /api/orchestra/run` -- while `--force` / `{"force": true}` goes past it (through the seam
+orchestra_api.RUNNER); a goal naming no map that exists is not stopped; `halo doctor --roles` lists the map's
+problems. No model is called.
 
 Run: python -m tests.test_preflight
 """
@@ -33,6 +32,22 @@ GOAL = {"what": "Write the five functions of basket.py", "done_when": "the tests
         "workers": 5, "files": ["basket.py"]}
 
 
+def _maps(state_dir) -> None:
+    """pf-bad: a box naming no agent and an agent on a model id the seeded or catalog does not know; pf-good: clean."""
+    crew = Path(state_dir) / "crew"
+    (crew / "agents").mkdir(parents=True, exist_ok=True)
+    (crew / "maps").mkdir(parents=True, exist_ok=True)
+    (crew / "agents" / "worker.yaml").write_text(
+        "format: agent/1\nname: worker\ndoes: Writes the code.\nmodel: or:vendor/gone\nuses: [read, edit]\n"
+        "careful: ask-changes\n", encoding="utf-8")
+    (crew / "maps" / "pf-bad.yaml").write_text(
+        "format: map/1\nname: pf-bad\nboxes:\n- {id: worker, agent: worker}\n- {id: ghost, agent: ghost}\n"
+        "lines:\n- {from: main, to: worker}\n- {from: main, to: ghost}\n", encoding="utf-8")
+    (crew / "maps" / "pf-good.yaml").write_text(
+        "format: map/1\nname: pf-good\nboxes:\n- {id: coder, agent: coder}\nlines:\n- {from: main, to: coder}\n",
+        encoding="utf-8")
+
+
 def _req(method, path, body, cwd, state_dir):
     from halo_harness.studio.api import Request
     return Request(method=method, path=path, query={}, body=body, cwd=Path(cwd), state_dir=Path(state_dir))
@@ -41,7 +56,6 @@ def _req(method, path, body, cwd, state_dir):
 @test
 def test_each_finding_with_its_severity_and_fix(ctx: Ctx):
     from halo_harness.lineup_preflight import blocking, lineup_problems
-    from halo_harness.preflight import lineup_problems as also
     with Home() as h:
         found = {p["id"]: p for p in lineup_problems("pf-bad", cwd=h.cwd, state_dir=h.state_dir)}
         ctx.check(f"every finding is there, got {sorted(found)}", set(found) == {
@@ -64,13 +78,9 @@ def test_each_finding_with_its_severity_and_fix(ctx: Ctx):
         ctx.check("the tier problem is the validator's own line", "must hold the main agent 'main' alone" in found["tiers:0"]["text"])
         ctx.check("the clean lineup has only the fallback warning",
                   [p["id"] for p in lineup_problems("pf-good", cwd=h.cwd, state_dir=h.state_dir)] == ["dead-fallback:helper"])
-        ctx.check("halo_harness.preflight re-exports it", also is lineup_problems)
         ctx.check("an unknown lineup blocks", [p["id"] for p in lineup_problems("nope", cwd=h.cwd, state_dir=h.state_dir)]
                   == ["lineup-missing"])
         ctx.check("no lineup and no active team is no finding", lineup_problems(None, cwd=h.cwd, state_dir=h.state_dir) == [])
-        h.use_team("pf-good")
-        ctx.check("an empty name reads the active team", [p["id"] for p in lineup_problems("", cwd=h.cwd, state_dir=h.state_dir)]
-                  == ["dead-fallback:helper"])
     with Home(catalog=False) as h:
         ids = [p["id"] for p in lineup_problems("pf-bad", cwd=h.cwd, state_dir=h.state_dir)]
         ctx.check(f"an unreadable catalog gives no dead-id finding, got {ids}", not any(i.startswith("dead-") for i in ids))
@@ -83,6 +93,7 @@ def test_orchestra_cli_refuses_and_force_runs(ctx: Ctx):
     from halo_harness.orchestra.goal import Goal, new_run
     from tests.helpers import orchestra_fixtures as F
     with Home() as h:
+        _maps(h.state_dir)
         repo = F.make_repo("pf-orch-")
         new_run(repo, Goal(**{**GOAL, "lineup": "pf-bad"}))
         args = argparse.Namespace(run=None, model=None, dry_run=False, force=False)
@@ -90,9 +101,9 @@ def test_orchestra_cli_refuses_and_force_runs(ctx: Ctx):
         with contextlib.redirect_stderr(err):
             rc = CR.cmd_run(args, repo)
         text = err.getvalue()
-        ctx.check(f"exit 2 with every blocking problem and its fix, got {rc} {text[:300]!r}",
-                  rc == 2 and text.startswith("preflight: 4 problem(s) stop run ") and text.count("    fix: ") == 4
-                  and "`ghost` names bio `ghost-bio`" in text and "run anyway with --force" in text)
+        ctx.check(f"exit 2 with every blocking problem and its fix, got {rc} {text[:400]!r}",
+                  rc == 2 and text.startswith("preflight: 2 problem(s) stop run ") and text.count("    fix: ") == 2
+                  and "no agent named ghost" in text and "or:vendor/gone" in text and "run anyway with --force" in text)
         saved = (run_mod.run, adapters.real_adapters, report.format_report)
         seen = []
         run_mod.run = lambda run_dir, **kw: seen.append(run_dir) or {"status": "finished"}
@@ -118,21 +129,25 @@ def test_orchestra_api_refuses_422_and_force_starts(ctx: Ctx):
     from tests.helpers import orchestra_fixtures as F
     from tests.helpers import orchestra_studio_rig as R
     with Home() as h:
+        _maps(h.state_dir)
         repo = F.make_repo("pf-orch-api-")
         saved = orchestra_api.RUNNER
         orchestra_api.RUNNER = R.fake_runner()
         try:
             st, body = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "pf-bad"}, repo, h.state_dir))
             ctx.check(f"422 with the preflight body, got {st} {str(body)[:200]}", st == 422 and body.get("preflight") is True
-                      and {p["id"] for p in body["problems"]} >= {"dead-model:worker", "missing-bio:ghost"}
-                      and body["error"].startswith("preflight: 4 problem(s)") and '{"force": true}' in body["error"])
+                      and {p["id"] for p in body["problems"]} == {"dead-model", "map"}
+                      and body["error"].startswith("preflight: 2 problem(s)") and '{"force": true}' in body["error"])
             ctx.check("no run folder was made", not (repo / ".halo").exists() or not any((repo / ".halo").rglob("goal.json")))
             st, body = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "pf-bad", "force": True},
                                                    repo, h.state_dir))
             ctx.check(f"force: true starts the run, got {st} {body}", st == 201 and body.get("run_id"))
             ctx.check("the run ends", orchestra_live.wait(60))
             st, _b = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "pf-good"}, repo, h.state_dir))
-            ctx.check(f"a clean lineup (a warning only) starts without force, got {st}", st == 201)
+            ctx.check(f"a clean map starts without force, got {st}", st == 201)
+            orchestra_live.wait(60)
+            st, _b = orchestra_api.post_run(_req("POST", "orchestra/run", {**GOAL, "lineup": "an-old-lineup"}, repo, h.state_dir))
+            ctx.check(f"a goal naming no map that exists is not stopped, got {st}", st == 201)
             orchestra_live.wait(60)
         finally:
             orchestra_live.wait(30)
@@ -141,17 +156,19 @@ def test_orchestra_api_refuses_422_and_force_starts(ctx: Ctx):
 
 
 @test
-def test_doctor_roles_lists_the_same_findings(ctx: Ctx):
+def test_doctor_roles_lists_the_maps_problems(ctx: Ctx):
     from halo_harness.doctor import cmd_doctor
+    from halo_harness.theme import set_config_value
     with Home() as h:
-        h.use_team("pf-bad")
+        _maps(h.state_dir)
+        set_config_value("crew.map", "pf-bad")
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             rc = cmd_doctor(["--roles", "--json"])
         data = json.loads(out.getvalue()[out.getvalue().index("{"):])
-        ctx.check(f"doctor --roles carries the preflight list, got {rc} {sorted(p['id'] for p in data.get('preflight', []))}",
-                  rc == 1 and data["lineup"] == "pf-bad" and {p["id"] for p in data["preflight"]} >= {"dead-model:worker", "tiers:0"}
-                  and any("lineup pf-bad: `worker` (bio `dead-bio`)" in p for p in data["problems"]))
+        ctx.check(f"doctor --roles carries the map's problems, got {rc} {data.get('problems')}",
+                  rc == 1 and data["map"] == "pf-bad" and any(p.startswith("map pf-bad: ") and "or:vendor/gone" in p
+                                                              for p in data["problems"]))
 
 
 if __name__ == "__main__":

@@ -98,7 +98,7 @@ def ref_problem(ref, state_dir=None) -> str:
     if ref.startswith(("cc:", "cx:")):
         return f"{ref} is on a route removed in 3.1.5.0"
     try:
-        missing_model_provider = _core.get('agents_doctor', 'missing_model_provider')
+        missing_model_provider = _core.get('crew.checks', 'missing_model_provider')  # Halo 3.6 (crew/checks.py)
         provider = missing_model_provider(ref.strip(), catalogs={}, state_dir=state_dir)
     except Exception:
         provider = None

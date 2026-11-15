@@ -33,10 +33,10 @@ def _run(req):
 
 
 def _lineup_findings(run_dir, state_dir) -> list:
-    from halo_harness.lineup_preflight import lineup_problems
+    from halo_harness.crew.preflight import run_problems  # 3.6.0.0 R5b: the goal's map, where it was its lineup
     lineup = str(OM.goal_of(run_dir).get("lineup") or "") or None
     try:
-        return lineup_problems(lineup, cwd=OM.repo_of(run_dir), state_dir=state_dir) if lineup else []
+        return run_problems(lineup, cwd=OM.repo_of(run_dir), state_dir=state_dir) if lineup else []
     except Exception:
         return []
 

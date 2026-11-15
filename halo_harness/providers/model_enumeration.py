@@ -613,3 +613,23 @@ def enumerate_live(state_dir, *, env: "Optional[dict]" = None, routes: "Optional
             _progress_once(label, "not reachable (timed out)")
 
     return build_model_rows(state_dir, env=env, routes=routes)
+
+
+def rows_by_ref() -> dict:
+    """`{ref: row}` from the already-cached catalog files: no network, `{}` on any failure (3.6.0.0 R5b: from the
+    team preview, which went with lineups)."""
+    try:
+        from halo_harness.config.paths import bridge_home
+        rows = build_model_rows(bridge_home(), cached=True)  # no Ollama host or local port probed
+        return {r.get("ref"): r for r in rows if isinstance(r, dict) and r.get("ref")}
+    except Exception:
+        return {}
+
+
+def price_of(row, key):
+    """A row's price per million tokens (`price_in_per_m` / `price_out_per_m`), None when it has none."""
+    v = (row or {}).get(key)
+    try:
+        return float(v) if v is not None and not isinstance(v, bool) and float(v) >= 0 else None
+    except (TypeError, ValueError):
+        return None

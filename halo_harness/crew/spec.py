@@ -3,7 +3,7 @@ underneath", R1's part: the Agent tool can spawn a crew agent by name).
 
     agent_spec(raw)     -> config.agents_md.AgentSpec (the dict agent/subagent.py spawns from)
     agents_json(raw)    -> the `--agents` JSON entry of the same agent (Try it runs `halo -p --agents ... --agent <name>`)
-    crew_specs(cwd, state_dir) -> {name: AgentSpec}: yours and this project's (a trusted folder), for discover_agents
+    crew_specs(cwd, state_dir) -> {name: AgentSpec}: an enabled pack's, yours and this project's (a trusted folder)
 
 What the fields become: `uses` -> the tool list (read: Read, Glob, Grep; edit: Edit, Write, NotebookEdit; bash: Bash,
 PowerShell, BashOutput, TaskStop; web: WebFetch, WebSearch; skill:<n>: Skill with that skill; mcp:<server>: that
@@ -84,7 +84,7 @@ def crew_specs(cwd, state_dir=None) -> dict:
         rows = store.rows("agent", cwd=cwd, state_dir=state_dir)
     except Exception:
         return out
-    for scope in ("yours", "project"):
+    for scope in ("pack", "yours", "project"):  # 3.6.0.0 R5b: an enabled pack's agents too (<pack>--<name>)
         for r in rows:
             if r["_scope"] == scope and not r["_problems"] and not agent_problems(store.clean(r), name=r["name"]):
                 out[r["name"]] = agent_spec(store.clean(r), source=f"crew:{scope}")

@@ -85,14 +85,9 @@ def post_run(req):
     if missing:
         return _bad([f"{f} is not a file in {repo}" for f in missing])
     taken: list = []
-    if compiled is None:  # 3.2.1.0 R1: the lineup's acceptance (test, review), as `halo orchestra new` takes it
-        from halo_harness.packs.lineup_run import goal_defaults
-        g = Goal.from_dict(data)
-        taken = goal_defaults(g, cwd=repo, state_dir=req.state_dir, explicit_test=bool(str(data.get("test") or "").strip()))
-        data = g.to_dict()
     if not body.get("force"):  # 3.0.7.0 R1: the run-start preflight (lineup_preflight.py)
-        from halo_harness.lineup_preflight import blocking, lineup_problems, refusal_body
-        problems = lineup_problems(str(data.get("lineup") or "") or None, cwd=repo, state_dir=req.state_dir)
+        from halo_harness.crew.preflight import blocking, refusal_body, run_problems
+        problems = run_problems(str(data.get("lineup") or "") or None, cwd=repo, state_dir=req.state_dir)
         if blocking(problems):
             return 422, refusal_body(problems, what="the Orchestra run")
     busy = live.live_id()

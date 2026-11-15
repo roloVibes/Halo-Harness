@@ -1,14 +1,14 @@
 // What Studio shows is what is on disk, as it changes (3.2.2.0 R6): the
-// server's watcher (studio/files_live.py) publishes `files_changed` when a
-// lineup, bio, config.json or a canvas layout moves -- a session's model
-// editing a lineup, `halo teams apply`, a bio saved from the terminal, or
+// server's watcher (studio/files_live.py) publishes `files_changed` when an
+// agent, workflow or map file, config.json or a canvas layout moves -- a session's
+// model editing an agent, `halo maps use`, a workflow saved from the terminal, or
 // Studio's own PUT (that one finds the page already current). A page
 // subscribes with `onFilesChanged(kinds, fn)`: the frames of those kinds
 // that land within DEBOUNCE_MS are merged into one call (the fleet pattern,
 // `later("load", 300, ...)`), so a burst of writes is one re-read.
 import { onEvent } from "./events";
 
-export type FilesKind = "lineups" | "bios" | "config" | "layouts";
+export type FilesKind = "agents" | "workflows" | "maps" | "config" | "layouts";
 /** One merged change: the kinds that moved, the names written (added or modified), the names removed. */
 export type FilesChange = { kinds: FilesKind[]; names: string[]; removed: string[] };
 

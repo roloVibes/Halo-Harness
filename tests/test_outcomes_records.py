@@ -10,7 +10,8 @@
    (the lane at the cap) and `stopped` (the others);
 3. a session's sub-agents record the same at their end: a pool member whose
    acceptance holds is `passed` (check `acceptance`), one whose acceptance
-   fails twice is `failed` with one return; its evidence.json sits beside
+   fails twice is `failed` with one return (3.6.0.0 R5b: set on the card
+   through the one seam; a bio set it before); its evidence.json sits beside
    its transcript;
 4. `halo outcomes` prints the table, filters by bio / model / kind / since,
    and `--json` gives the rows.
@@ -97,30 +98,24 @@ def test_once_per_report_the_coachs_count_and_a_stopped_run(ctx: Ctx):
 
 def _spawn_rows(ctx: Ctx):
     from tests import test_auto_spawn as A
-    from halo_harness.agents_yaml import save_agent_bio
+    from halo_harness.agent import subagent
     from halo_harness.outcomes.records import read
-    from halo_harness.teams_yaml import save_team_template
-    from halo_harness.theme import set_config_value
     mock = A._mock()
+    real = subagent._return_acceptance_for
     try:
         with A._Env() as e:
             A._seed_index(e.state_dir, A.ROWS)
             session = A._session(e, mock)
             out = A._dispatch(session, "c1", "Summarize notes.md in two lines", description="summarize the notes")
             ok = "CHEAP DONE" in out
-            save_agent_bio("strict-bio", {"description": "never satisfied", "kind": "writer",
-                                          "models": {"preference": "or:mock/plain-worker"},
-                                          "acceptance": {"expect": "NEVER-SAID"}}, state_dir=e.state_dir)
-            saved, _p = save_team_template("strict", {"description": "an acceptance that fails",
-                                                      "routing": {"draft": "drafter"},
-                                                      "agents": [{"agent": "default-model", "role": "main"},
-                                                                 {"agent": "strict-bio", "role": "subagent", "as": "drafter"}]},
-                                           state_dir=e.state_dir)
-            set_config_value("team", "strict")
+            # 3.6.0.0 R5b: a bio held an acceptance that never holds; bios are gone, so the writer card's is set here
+            subagent._return_acceptance_for = lambda spec, role, tc, child: (
+                {"expect": "NEVER-SAID"} if role == "writer" else real(spec, role, tc, child))
             session2 = A._session(e, mock)
             out2 = A._dispatch(session2, "c2", "Draft the notes", description="draft the notes")
-            return ok and saved and "PLAIN RAN" in out2, read(e.state_dir), session, session2
+            return ok and bool(out2), read(e.state_dir), session, session2
     finally:
+        subagent._return_acceptance_for = real
         mock.stop()
 
 
@@ -134,15 +129,15 @@ def test_a_sessions_sub_agents_record_at_their_end(ctx: Ctx):
               good["source"] == "session" and good["outcome"] == "passed" and good["check"] == "acceptance"
               and good["bio"] == "auto-writer" and good["model"] == "or:mock/auto-cheap" and good["kind"] == "writing"
               and good["run"] == session.log.session_id and good["task"].startswith("agent "))
-    ctx.check(f"the strict bio failed its acceptance twice: failed, one return, got {bad}",
+    ctx.check(f"an acceptance that never holds failed twice: failed, one return, got {bad}",
               bad["outcome"] == "failed" and bad["check"] == "acceptance" and bad["returns"] == 1
-              and bad["bio"] == "strict-bio" and bad["model"] == "or:mock/plain-worker" and bad["run"] == session2.log.session_id)
+              and bad["run"] == session2.log.session_id)
     ev = Path(bad["evidence"])
     data = json.loads(ev.read_text(encoding="utf-8")) if ev.is_file() else {}
     ctx.check(f"its evidence sits beside its transcript, got {ev}",
               ev.parent.name == "subagents" and ev.name.endswith(".evidence.json")
               and (ev.parent / ev.name.replace(".evidence.json", ".jsonl")).is_file()
-              and data.get("acceptance", {}).get("met") is False and data["acceptance"]["expect"] == "NEVER-SAID")
+              and data.get("acceptance", {}).get("met") is False)
 
 
 def _cli(argv) -> str:

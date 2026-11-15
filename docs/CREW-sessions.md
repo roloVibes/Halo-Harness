@@ -12,7 +12,8 @@ shipped `starter` map so the Map tab shows what it does, but sets no rules (3.6.
 session with no lineup set -- every agent it finds can be spawned (yours win over a starter agent of the same name),
 no money cap, delegation two deep and four at a time, each sub-agent's model picked as before, `halo roles point`
 honoured, the Workflow tool there, nothing added to the system prompt (`crew/compile.py` `is_default` is the one
-check; `crew/map_control.py` `PlainMap` answers from the shipped `auto` lineup). With roles off ("One model for
+check; `crew/map_control.py` `PlainMap` answers from one shipped file, `templates/crew/plain/session.yaml`, through
+`crew/plain.py`; an `--agent` session holds the same answers with no map drawn). With roles off ("One model for
 everything", `halo maps use --none`) a session runs on no map at all. Everything below is what a map you pick or
 write does. Each session row (Studio's sessions, `GET fleet`) carries `map`: the map it started with.
 

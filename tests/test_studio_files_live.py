@@ -1,12 +1,12 @@
 """tests.test_studio_files_live -- Halo 3.2.2.0 R6: Studio sees what the
-session changes. `studio/files_live.py` polls the lineup, bio, config and
+session changes. `studio/files_live.py` polls the agent, workflow, map, config and
 layout files (here every 0.1 s) and publishes one `files_changed` frame per
 change set and kind:
 
-1. a lineup written -> one frame naming it (kind lineups);
+1. a map written -> one frame naming it (kind maps; 3.6.0.0 R5b: the crew folders, where it watched lineups and bios);
 2. three files in a burst -> one frame with the three names;
 3. a file deleted -> its name under `removed`;
-4. config.json -> kind config; a layout -> kind layouts; a bio -> kind bios;
+4. config.json -> kind config; a layout -> kind layouts; a bio -> kind agents;
 5. a Studio started in the home dir (cwd/.halo is the state dir) lists the
    folder once;
 6. through a real server: the frame reaches a browser queue, even one that
@@ -45,7 +45,7 @@ class _Home:
     def __init__(self, project_is_home: bool = False):
         self.root = Path(tempfile.mkdtemp(prefix="studio-files-live-"))
         self.state = self.root / ".halo"
-        for sub in ("teams", "agents", "studio/layouts"):
+        for sub in ("crew/maps", "crew/agents", "studio/layouts"):
             (self.state / sub).mkdir(parents=True)
         self.proj = self.root if project_is_home else self.root / "proj"
         self.proj.mkdir(exist_ok=True)
@@ -89,15 +89,15 @@ def _data(frames: list) -> list:
 @test
 def test_a_lineup_written_is_one_frame_naming_it(ctx: Ctx):
     with _Home() as h:
-        h.write("teams/alpha.yaml")
+        h.write("crew/maps/alpha.yaml")
         got = h.wait()
-        ctx.check(f"one frame, kind lineups, naming alpha, got {_data(got)}",
-                  _data(got) == [{"kind": "lineups", "names": ["alpha"], "removed": []}])
+        ctx.check(f"one frame, kind maps, naming alpha, got {_data(got)}",
+                  _data(got) == [{"kind": "maps", "names": ["alpha"], "removed": []}])
         f = got[0] if got else {}
         ctx.check(f"the frame's shape: studio's files_changed with a ts, got {f}",
                   f.get("session_id") == "studio" and f.get("event") == "files_changed" and isinstance(f.get("ts"), float))
-        h.write("teams/alpha.yaml", "name: alpha\ndescription: edited by a session\n")
-        ctx.check("an edit of it is another frame", _data(h.wait()) == [{"kind": "lineups", "names": ["alpha"], "removed": []}])
+        h.write("crew/maps/alpha.yaml", "name: alpha\ndescription: edited by a session\n")
+        ctx.check("an edit of it is another frame", _data(h.wait()) == [{"kind": "maps", "names": ["alpha"], "removed": []}])
         ctx.check("nothing moves: no frame", h.wait(1, timeout=0.5, quiet=0.2) == [])
 
 
@@ -105,20 +105,20 @@ def test_a_lineup_written_is_one_frame_naming_it(ctx: Ctx):
 def test_a_burst_of_three_files_is_one_frame(ctx: Ctx):
     with _Home() as h:
         for n in ("one", "two", "three"):
-            h.write(f"teams/{n}.yaml")
+            h.write(f"crew/maps/{n}.yaml")
         got = _data(h.wait())
         ctx.check(f"one frame with the three names, got {got}",
-                  got == [{"kind": "lineups", "names": ["one", "three", "two"], "removed": []}])
+                  got == [{"kind": "maps", "names": ["one", "three", "two"], "removed": []}])
 
 
 @test
 def test_a_deleted_file_is_named_under_removed(ctx: Ctx):
     with _Home() as h:
-        h.write("agents/scout.yaml")
+        h.write("crew/agents/scout.yaml")
         h.wait()
-        (h.state / "agents" / "scout.yaml").unlink()
+        (h.state / "crew" / "agents" / "scout.yaml").unlink()
         got = _data(h.wait())
-        ctx.check(f"kind bios, removed scout, got {got}", got == [{"kind": "bios", "names": [], "removed": ["scout"]}])
+        ctx.check(f"kind agents, removed scout, got {got}", got == [{"kind": "agents", "names": [], "removed": ["scout"]}])
 
 
 @test
@@ -128,30 +128,30 @@ def test_config_layouts_and_bios_each_have_their_kind(ctx: Ctx):
         ctx.check("config.json -> kind config", _data(h.wait()) == [{"kind": "config", "names": ["config"], "removed": []}])
         h.write("studio/layouts/alpha.json", json.dumps({"nodes": {}, "tiers": {}}))
         ctx.check("a layout -> kind layouts", _data(h.wait()) == [{"kind": "layouts", "names": ["alpha"], "removed": []}])
-        h.write("agents/scout.yaml")
-        h.write("teams/beta.yaml")
+        h.write("crew/agents/scout.yaml")
+        h.write("crew/maps/beta.yaml")
         got = _data(h.wait(2))
-        ctx.check(f"a bio and a lineup together: one frame per kind, got {got}",
-                  got == [{"kind": "lineups", "names": ["beta"], "removed": []}, {"kind": "bios", "names": ["scout"], "removed": []}])
-        h.write("teams/.hidden.yaml")
-        h.write("teams/notes.txt")
-        ctx.check("a dot file or another suffix is no lineup", h.wait(1, timeout=0.6, quiet=0.1) == [])
+        ctx.check(f"an agent and a map together: one frame per kind, got {got}",
+                  got == [{"kind": "agents", "names": ["scout"], "removed": []}, {"kind": "maps", "names": ["beta"], "removed": []}])
+        h.write("crew/maps/.hidden.yaml")
+        h.write("crew/maps/notes.txt")
+        ctx.check("a dot file or another suffix is no map", h.wait(1, timeout=0.6, quiet=0.1) == [])
 
 
 @test
 def test_project_halo_and_state_dir_the_same_folder_list_once(ctx: Ctx):
     from halo_harness.studio.files_live import folders, snapshot
     with _Home(project_is_home=True) as h:
-        ctx.check("the teams folder is listed once", len(folders(h.proj, h.state)["lineups"]) == 1)
-        h.write("teams/solo.yaml")
+        ctx.check("the maps folder is listed once", len(folders(h.proj, h.state)["maps"]) == 1)
+        h.write("crew/maps/solo.yaml")
         got = _data(h.wait())
-        ctx.check(f"one frame naming it once, got {got}", got == [{"kind": "lineups", "names": ["solo"], "removed": []}])
-        ctx.check("one signature for it", len(snapshot(h.proj, h.state)["lineups"]["solo"]) == 1)
+        ctx.check(f"one frame naming it once, got {got}", got == [{"kind": "maps", "names": ["solo"], "removed": []}])
+        ctx.check("one signature for it", len(snapshot(h.proj, h.state)["maps"]["solo"]) == 1)
     with _Home() as h:
-        (h.proj / ".halo" / "teams").mkdir(parents=True)
-        (h.proj / ".halo" / "teams" / "repo.yaml").write_text("name: repo\n", encoding="utf-8")
+        (h.proj / ".halo" / "crew" / "maps").mkdir(parents=True)
+        (h.proj / ".halo" / "crew" / "maps" / "repo.yaml").write_text("name: repo\n", encoding="utf-8")
         got = _data(h.wait())
-        ctx.check(f"the project's .halo/teams is watched too, got {got}", got == [{"kind": "lineups", "names": ["repo"], "removed": []}])
+        ctx.check(f"the project's .halo/crew/maps is watched too, got {got}", got == [{"kind": "maps", "names": ["repo"], "removed": []}])
 
 
 @test
@@ -162,14 +162,14 @@ def test_the_frame_reaches_a_browser_and_server_close_stops_the_watch(ctx: Ctx):
     os.environ["HALO_STUDIO_FILES_POLL_S"] = str(POLL)
     root = Path(tempfile.mkdtemp(prefix="studio-files-srv-"))
     state = root / ".halo"
-    (state / "teams").mkdir(parents=True)
+    (state / "crew" / "maps").mkdir(parents=True)
     srv = start_server(port=0, cwd=root / "proj", state_dir=state)
     try:
         w = srv.files_watch
         ctx.check("start_server started the watcher on the env poll", w is not None and abs(w.poll - POLL) < 1e-9)
         bridge = bridge_for(srv)
         everyone, one = bridge.subscribe("all"), bridge.subscribe("some-session")
-        (state / "teams" / "live.yaml").write_text("name: live\n", encoding="utf-8")
+        (state / "crew" / "maps" / "live.yaml").write_text("name: live\n", encoding="utf-8")
 
         def first(q):
             end = time.time() + 4
@@ -179,7 +179,7 @@ def test_the_frame_reaches_a_browser_and_server_close_stops_the_watch(ctx: Ctx):
                     return f
             return None
         got = first(everyone)
-        ctx.check(f"the browser hears it, got {got}", bool(got) and got["data"] == {"kind": "lineups", "names": ["live"], "removed": []})
+        ctx.check(f"the browser hears it, got {got}", bool(got) and got["data"] == {"kind": "maps", "names": ["live"], "removed": []})
         ctx.check("a browser following one session hears it too", bool(first(one)))
     finally:
         srv.server_close()

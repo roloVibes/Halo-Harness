@@ -67,12 +67,10 @@ def _mark(state_dir) -> None:
 
 
 def lineup_defaults(goal: dict, state_dir=None) -> "list[str]":
-    """3.2.1.0 R1: an orchestra goal's lineup acceptance, as `halo orchestra new --lineup` takes it
-    (packs/lineup_run.py): an empty `test` gets the lineup's, `plan: auto` becomes review when the lineup
-    says review. A test you gave wins. The lines say what was taken."""
-    from halo_harness.packs.lineup_run import run_defaults
+    """3.2.1.0 R1: an orchestra goal's lineup acceptance (an empty `test` got the lineup's, `plan: auto` became
+    review). 3.6.0.0 R5b: lineups are gone, so nothing is taken; the lines stay empty."""
     name = goal.get("lineup") or ""
-    took = run_defaults(name, cwd=goal.get("repo"), state_dir=state_dir) if name else {}
+    took: dict = {}
     lines: "list[str]" = []
     if took.get("test") and not str(goal.get("test") or "").strip():
         goal["test"] = took["test"]

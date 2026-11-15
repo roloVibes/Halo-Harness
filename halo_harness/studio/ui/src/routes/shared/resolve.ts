@@ -22,7 +22,7 @@ let watching = false;
 async function load(role: string, lineup: string): Promise<void> {
   if (!watching) {
     watching = true;
-    onFilesChanged(["lineups", "bios", "config"], () => forgetResolved());
+    onFilesChanged(["agents", "maps", "config"], () => forgetResolved());
   }
   const k = keyOf(role, lineup);
   if (cache.get().by[k]) return;

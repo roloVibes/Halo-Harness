@@ -113,7 +113,7 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
                  timeout_s: int = WORKER_TIMEOUT_S, team: Optional[str] = None,
                  cwd_overlay: Optional[Callable] = None, mode: str = "", rules: Optional[dict] = None) -> Callable:
     """`spawn(lane)`: a fresh `halo -p` in the lane's worktree. 3.1.6.0 R2 (the coach's probe runs,
-    orchestra/probe_overlay.py): `team` adds `--team <lineup>`; `cwd_overlay(lane)` writes an overlay into
+    orchestra/probe_overlay.py): `team` adds `--map <name>` (3.6.0.0 R5b: a map, where it was a lineup); `cwd_overlay(lane)` writes an overlay into
     the worktree before the worker starts and answers extra worker flags. Both None: the argv as before."""
     from halo_harness.isolation import Stop
     from halo_harness.isolation.lane import prepare
@@ -131,7 +131,7 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
             job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
             argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None,
                                mode=mode, rules=rules)
-            argv += (["--team", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
+            argv += (["--map", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
             argv, env, values = prepare(lane, argv, env, run_dir=run_dir, team=team)  # 3.1.8.0 R5 (docs/ISOLATION.md)
             proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=limit,

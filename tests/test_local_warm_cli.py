@@ -1,9 +1,9 @@
-"""tests.test_local_warm_cli -- Halo 3.3.7.0 R3: `halo local warm [<lineup>]` (local_warm_cli.py) over a fake Ollama
+"""tests.test_local_warm_cli -- Halo 3.3.7.0 R3: `halo local warm [<map>]` (local_warm_cli.py) over a fake Ollama
 on 127.0.0.1:0 (tests/helpers/sched_rig.SchedHome) and, for the host path, R2's PeerRig:
 
 1. the lineup's warm set: what is not resident is loaded at its lane's window (one row each, the seconds), what is
    already loaded says "already warm", a model that cannot co-reside "pivots later" with its load time; the total;
-2. `--dry` loads nothing; `warm:` in the lineup file goes first; a bad `warm:` is a validator line;
+2. `--dry` loads nothing (3.6.0.0 R5b: a map has no `warm:` list, so its checks went with lineups);
 3. no lineup named and none in force: the 2.0.7 form (model names) still runs;
 4. host-served: the loads go through the host's `warm` operation, the second one `beside`;
 5. Studio: GET local/sched (the swap preview + the Warm rows), POST local/warm, GET local/warm-set (the Hosts card).
@@ -59,19 +59,13 @@ def test_the_lineups_warm_set_is_loaded_and_said(ctx: Ctx):
 
 
 @test
-def test_dry_warm_list_and_the_validator(ctx: Ctx):
-    from halo_harness.teams_yaml import resolve_team_template, validate_team_template
+def test_dry_warm_loads_nothing(ctx: Ctx):
     with SchedHome() as h:
         h.config(model=f"ol:{CODER}@pc")
-        write(h.state, "loc", LANES, warm=["reviewer"])
+        write(h.state, "loc", LANES)
         rc, text = _run(["loc", "--dry"])
         ctx.check(f"--dry loads nothing, says what it would, got {text!r}", rc == 0 and not h.mock.generated
-                  and "qwen3.8:27b (reviewer): would load at 32,768" in text)
-        ctx.check("the declared warm set went first: the coder pivots", "qwen3-coder:30b (main, coder): pivots later" in text)
-        t = resolve_team_template("loc")
-        ctx.check(f"`warm:` survives the resolve, got {t.get('warm')}", t.get("warm") == ["reviewer"])
-        bad = validate_team_template({**t, "warm": "coder"}, name="loc")
-        ctx.check(f"a bad `warm:` is one line, got {bad}", any('"warm" must be a list' in p for p in bad))
+                  and "would load at" in text)
 
 
 @test
@@ -123,13 +117,13 @@ SMALL_9B = "qwen3.5:9b"
 def test_studio_routes(ctx: Ctx):
     from halo_harness.studio.api import Request, dispatch
     with SchedHome() as h:
-        h.config(model=f"ol:{CODER}@pc", team="loc")
+        h.config(model=f"ol:{CODER}@pc", **{"crew.map": "loc"})
         write(h.state, "loc", LANES)
         ask = lambda m, p, q=None, b=None: dispatch(Request(method=m, path=p, query=q or {}, body=b or {},  # noqa: E731
                                                             cwd=Path(h.root), state_dir=h.state, server=None))
         code, got = ask("GET", "local/sched", {"lineup": "loc"})
         ctx.check(f"the swap preview, got {code} {got.get('lines')}", code == 200 and got["swaps"] == 2
-                  and got["lines"][-1].startswith("this lineup swaps 2x on one card ~ "))
+                  and got["lines"][-1].startswith("this map swaps 2x on one card ~ "))
         code, got = ask("GET", "local/warm-set", {"host": "pc"})
         ctx.check(f"the Hosts card's line for the active lineup, got {got}", code == 200 and got["line"].startswith(
             "warm on pc: qwen3-coder:30b (main, coder), qwen2.5:1.5b (small) -- 20.8 of 21.5 GB"))

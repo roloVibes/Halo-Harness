@@ -101,7 +101,7 @@ export function PlanProblems() {
         </ul>
       )}
       {preflight.length > 0 && (
-        <ul className="pc-preflight" aria-label="The lineup's preflight">
+        <ul className="pc-preflight" aria-label="The preflight">
           {preflight.map((f) => (
             <li key={f.id} data-severity={f.severity} title={f.fix}>lineup: {f.text}</li>
           ))}

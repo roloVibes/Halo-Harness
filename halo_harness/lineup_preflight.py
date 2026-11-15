@@ -27,10 +27,7 @@ def _finding(fid: str, severity: str, text: str, fix: str) -> dict:
 
 def _resolve(name: "Optional[str]", *, cwd, state_dir) -> "tuple[Optional[str], Optional[dict]]":
     from halo_harness.teams_yaml import resolve_team_template
-    if not name:
-        from halo_harness.teams_runtime import active_team_name
-        name = active_team_name()
-    if not name:
+    if not name:  # 3.6.0.0 R5b: no lineup is in force any more (sessions run on maps); only a named one is checked
         return None, None
     try:
         return name, resolve_team_template(name, cwd=cwd, state_dir=state_dir)

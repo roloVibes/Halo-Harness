@@ -23,8 +23,20 @@ from typing import Optional
 KINDS = ("teams", "workflows", "agents")
 MARKS = {"terminal": ".old-files-said", "studio": ".old-files-set-aside"}
 FILES = ("*.yaml", "*.yml", "*.md", "*.json")
-SHIPPED = Path(__file__).resolve().parent.parent / "templates"
+STOCK_FILE = Path(__file__).resolve().parent / "old_stock.txt"  # 3.6.0.0 R5b: 3.5's shipped files, by name and hash
 _STOCK: dict = {}  # path -> (size, mtime_ns, is Halo's own copy): a file is read again only when it changed
+_SHIPPED: set = set()
+
+
+def _shipped() -> set:
+    """{"<kind>/<name> <sha256>"} of every lineup, bio and square Halo 3.5 shipped (the files it copied into ~/.halo)."""
+    if not _SHIPPED:
+        try:
+            _SHIPPED.update(ln.strip() for ln in STOCK_FILE.read_text(encoding="utf-8").splitlines()
+                            if ln.strip() and not ln.startswith("#"))
+        except OSError:
+            pass
+    return _SHIPPED
 
 
 def _home(state_dir=None) -> Path:
@@ -39,16 +51,17 @@ def _bytes(p: Path) -> bytes:
 
 
 def stock(p: Path, kind: str) -> bool:
-    """3.6.0.0 R5 fix: a file Halo itself copied there (a shipped lineup, bio or square, unchanged: the same bytes as
-    the shipped file of its name, line ends aside) -- not the user's, so never named as theirs."""
+    """3.6.0.0 R5 fix: a file Halo itself copied there (a lineup, bio or square 3.5 shipped, unchanged: the same bytes
+    as the shipped file of its name, line ends aside; R5b: by its hash, old_stock.txt, as those files leave the
+    package) -- not the user's, so never named as theirs."""
     try:
         st = p.stat()
         key = (st.st_size, st.st_mtime_ns)
         hit = _STOCK.get(str(p))
         if hit is not None and hit[:2] == key:
             return hit[2]
-        twin = SHIPPED / kind / p.name
-        same = twin.is_file() and _bytes(twin) == _bytes(p)
+        import hashlib
+        same = f"{kind}/{p.name} {hashlib.sha256(_bytes(p)).hexdigest()}" in _shipped()
         _STOCK[str(p)] = (*key, same)
         return same
     except OSError:

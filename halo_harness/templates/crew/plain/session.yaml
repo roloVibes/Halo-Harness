@@ -1,0 +1,143 @@
+# Halo 3.6.0.0 R5b -- what a plain session answers: a session that names no map (and none in config) runs as it did
+# on 3.5, and the starter map is its drawing (halo_harness/crew/plain.py). Read only from here, the package, never a
+# copy in ~/.halo. Main runs on the session's own model and hands sub-tasks to the agents below; each one's model is
+# picked when it starts (halo_harness/models_auto.py) from what its task needs and `budget.band`, unless your own
+# `roles.<name>` names one (it wins). The starter map's agents of the same names say the same needs (a test pins it).
+name: auto
+about: >-
+  Main runs on the session's model and delegates. Each member's model was
+  picked for its task when it started (its first note says which and why).
+  You are in the pool: do the task yourself and hand back the result;
+  spawn no other lineup member.
+
+# One card per agent main may hand work to. `name` is the role its model is picked for (and your `roles.<name>`);
+# `starter` the starter map's agent drawn for it; `use_for` the words that name it in a hand-off; `role` the word its
+# model pick is also told (custom: none of its own).
+cards:
+  - name: main
+    agent: default-model
+    kind: main
+    model: default
+    acceptance: {prompt: "Reply with exactly one word: ok", expect: ok}
+  - name: planner
+    agent: auto-planner
+    use_for: [plan, outline]
+    kind: planner
+    needs: [reasoning]
+    prompt: >-
+      You are the planner of Halo's auto lineup. Turn the goal you were given into
+      a short plan: the steps in order, what each one touches (files, commands),
+      the risks, and how to check each step is done. Read what you need; change
+      nothing. Hand back the plan as a numbered list.
+    acceptance: {prompt: "Plan, in three numbered steps, how to add a --verbose flag to a command-line tool.", expect: non-empty}
+  - name: researcher
+    agent: auto-researcher
+    use_for: [research, investigate]
+    kind: researcher
+    needs: [long-context]
+    prompt: >-
+      You are the researcher of Halo's auto lineup. Find what the task asks: read
+      the repo, its docs and the web when you have the tools for it. Hand back
+      the answer first, then the evidence (file paths with line numbers, URLs,
+      the exact numbers you measured), then what you could not find.
+    acceptance: {prompt: "Name the file a Python project lists its dependencies in, in one line.", expect: non-empty}
+  - name: coder
+    agent: auto-coder
+    use_for: [implement, fix, refactor]
+    kind: coder
+    needs: [tools]
+    prompt: >-
+      You are the coder of Halo's auto lineup. Make the change the task
+      describes, run the tests that cover it, and hand back what you changed (each
+      file with one line on why), what you ran and what it printed. Keep to the
+      task; name anything else you noticed instead of changing it.
+    acceptance: {prompt: "Name the command that runs a Python project's tests with pytest, in one line.", expect: non-empty}
+  - name: reviewer
+    agent: auto-reviewer
+    use_for: [review, audit, judge]
+    kind: reviewer
+    needs: [reasoning]
+    prompt: >-
+      You are the reviewer of Halo's auto lineup. Review what the task names (a
+      diff, files, a plan). Hand back the findings ordered by severity, each with
+      the file and line, why it is wrong and the fix. Say plainly when you found
+      nothing.
+    acceptance: {prompt: "Name one bug in: def add(a, b): return a - b", expect: non-empty}
+  - name: media
+    agent: auto-media
+    role: custom
+    starter: media-reader
+    use_for: [screenshot, video, audio, transcribe]
+    kind: media
+    needs: []
+    prompt: >-
+      You are the media agent of Halo's auto lineup. Turn the media the task names
+      (images, screenshots, audio, video, PDFs) into understanding: use the Media
+      tool for frames and metadata, Read for images and PDFs, then look at what
+      you got. Hand back what you saw or heard, with timestamps or page numbers.
+    acceptance: {prompt: "Name the tool this agent uses to extract video frames, in one line.", expect: non-empty}
+  - name: writer
+    agent: auto-writer
+    role: custom
+    use_for: [summarize, draft, docs, changelog]
+    kind: writer
+    needs: []
+    prompt: >-
+      You are the writer of Halo's auto lineup. Write the text the task asks for
+      (docs, a summary, release notes, a message) in plain words for the person
+      who will read it. Hand back the text itself, ready to paste.
+    acceptance: {prompt: "Write one sentence that says a build passed.", expect: non-empty}
+  - name: ops
+    agent: auto-ops
+    role: custom
+    use_for: [deploy, release, install, ci]
+    kind: ops
+    needs: []
+    prompt: >-
+      You are the ops agent of Halo's auto lineup. Run the commands the task needs
+      (builds, installs, CI checks, releases), read their output, and hand back
+      what ran, what it printed that matters and the state it left. Stop at the
+      first failure and say what failed.
+    acceptance: {prompt: "Name the command that shows a git repository's current branch, in one line.", expect: non-empty}
+
+delegation:
+  max_parallel: 4
+  max_depth: 2
+
+# The first word of an Agent call's description or prompt that appears here names the card (an explicit `role` on the
+# call always wins). No default: a call that matches nothing runs as it always did.
+routing:
+  image: media
+  screenshot: media
+  video: media
+  audio: media
+  pdf: media
+  transcribe: media
+  review: reviewer
+  audit: reviewer
+  judge: reviewer
+  plan: planner
+  outline: planner
+  research: researcher
+  investigate: researcher
+  implement: coder
+  fix: coder
+  refactor: coder
+  summarize: writer
+  draft: writer
+  docs: writer
+  changelog: writer
+  deploy: ops
+  release: ops
+  install: ops
+  ci: ops
+
+# What the auto pick weighs cost against: low = the cheapest model that has what the task needs; mid = the best of them
+# within 3x the cheapest paid one (free and local ones count); high = the strongest.
+budget:
+  band: mid
+
+# Main hands work to the pool; a card in the pool does its work itself (it spawns no other card).
+tiers:
+  - {name: main, members: [main], purpose: the one you talk to}
+  - {name: pool, members: [planner, researcher, coder, reviewer, media, writer, ops], purpose: "the workers, picked per task"}

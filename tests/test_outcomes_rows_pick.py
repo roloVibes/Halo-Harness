@@ -10,7 +10,7 @@
    learned for writing ("(writing 3/3 here)"); main's `model:` on the call
    leaves `picked: none` and no reason; a pick that does not resolve leaves
    `none` with the reason saying main's model ran it;
-3. a `measured` card's row says `picked: measured`.
+3. (3.6.0.0 R5b: a `measured` lineup card's row test went with config `team:` lineups.)
 No real model call. Run: python -m tests.test_outcomes_rows_pick
 """
 from __future__ import annotations
@@ -97,7 +97,6 @@ def test_a_spawned_members_row_says_how_its_model_was_picked(ctx: Ctx):
               and fell.get("reason") == "oai:gpt-eyes has no credentials here; using main's")
 
 
-@test
 def test_a_measured_cards_row_says_measured(ctx: Ctx):
     from tests import test_auto_spawn as A
     from tests.test_outcomes_measured import seed_outcomes

@@ -13,7 +13,9 @@ permission mode still apply to what is left.
 
 Which list wins, nearest first: the member's card, its tier, its bio, the
 lineup's own. The label says where it came from: "by lineup <name>" or
-"by bio <name>".
+"by bio <name>". 3.6.0.0 R5b: only an Orchestra run's lanes still resolve a
+list this way (isolation/spec.py, while the run engine's lanes name bios); a
+session reads no lineup or bio (a map agent's tools are its `uses`).
 """
 
 from __future__ import annotations
@@ -131,37 +133,15 @@ def narrow(registry, caps, catalog=None) -> "list[str]":
     return removed
 
 
-def _main_of(name: str, cwd) -> "tuple[Optional[list], str]":
-    from halo_harness.agents_yaml import resolve_agent_bio
-    from halo_harness.teams_tiers import main_key
-    from halo_harness.teams_yaml import resolve_team_template
-    template = resolve_team_template(name, cwd=cwd)
-    if not template:
-        return None, ""
-    entry = next((e for e in template.get("agents") or [] if isinstance(e, dict) and e.get("role") == "main"), {})
-    bio = resolve_agent_bio(entry.get("agent"), cwd=cwd) if entry.get("agent") else None
-    return resolve(template, name, main_key(template.get("agents")), bio, entry.get("agent") or "")
-
-
 def session_caps(*, team: Optional[str], agent: Optional[str], cwd=None, env=None) -> "tuple[Optional[list], str]":
-    """The top session's list: an Orchestra worker's comes from its run (CAPS_ENV); else the lineup's main
-    (card, tier, bio, lineup), else the `--agent` bio's. Never raises."""
+    """The top session's list: an Orchestra worker's comes from its run (CAPS_ENV); else none (3.6.0.0 R5b: a session
+    reads no lineup or bio; a map agent's tools are its `uses`). Never raises."""
     env = os.environ if env is None else env
     try:
         from halo_harness.orchestra.workers import LANE_ENV
         if env.get(LANE_ENV):
             raw = env.get(CAPS_ENV)
             return ([c for c in raw.split(",") if c], env.get(CAPS_BY_ENV, "")) if raw is not None else (None, "")
-        from halo_harness.teams_runtime import active_team_name
-        name = active_team_name(team)
-        caps, by = _main_of(name, cwd) if name else (None, "")
-        if caps is not None:
-            return caps, by
-        if agent:
-            from halo_harness.agents_yaml import resolve_agent_bio
-            caps = caps_of((resolve_agent_bio(agent, cwd=cwd) or {}).get("tools"))
-            if caps is not None:
-                return caps, f"bio {agent}"
     except Exception:
         return None, ""
     return None, ""
@@ -177,46 +157,3 @@ def narrow_session(registry, catalog, *, team: Optional[str], agent: Optional[st
         return lines
     narrow(registry, caps, catalog)
     return lines + [line(caps, by)]
-
-
-def narrow_member(registry, team_control, alias: Optional[str]):
-    """A sub-agent under a lineup: `(registry, opt-in lines or None)`, the member's list applied in place."""
-    if team_control is None:
-        return registry, None
-    try:
-        entry = team_control.assignment_for(alias) or {}
-        caps, by = resolve(team_control.template, team_control.name, alias, team_control.bio_for(alias),
-                           entry.get("agent") or "")
-    except Exception:
-        return registry, None
-    if caps is None:
-        return registry, None
-    narrow(registry, caps)
-    return registry, [line(caps, by)]
-
-
-def children_line(lineup: Optional[str], holder=None) -> str:
-    """The Agent tool description's sentence: what each member of the lineup may use ('' when none declares)."""
-    cached = getattr(holder, "_caps_children", None)
-    if cached is not None and cached[0] == lineup:
-        return cached[1]
-    text = ""
-    try:
-        from halo_harness.agents_yaml import resolve_agent_bio
-        from halo_harness.teams_yaml import resolve_team_template
-        template = resolve_team_template(lineup) if lineup else None
-        parts = []
-        for e in [e for e in (template or {}).get("agents") or [] if isinstance(e, dict) and e.get("role") != "main"]:
-            caps, _by = resolve(template, lineup, _key(e), resolve_agent_bio(e["agent"]) if e.get("agent") else None)
-            if caps is not None:
-                parts.append(f"{_key(e)}: {', '.join(caps) or '(none)'}")
-        if parts:
-            text = f" Under lineup {lineup} each member sees only the tools of its capabilities: {'; '.join(parts)}."
-    except Exception:
-        text = ""
-    if holder is not None:
-        try:
-            holder._caps_children = (lineup, text)
-        except Exception:
-            pass
-    return text

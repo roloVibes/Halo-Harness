@@ -852,13 +852,7 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
              f"Theme: {facade.theme or '?'}", cost_line]
     if session is not None:  # Halo 3.3.5.0 R4: the last request's composition (3.3.16.1: and the first turn's)
         lines.append(_composition_text(session, first=True))
-    # 3.1.9.0 R2: the lineup this session runs under ("auto (default)" when no team: is set)
-    from halo_harness.lineup_default import lineup_line
-    _team = getattr(session, "team_control", None) if session is not None else None
-    if _team is not None:
-        lines.append(lineup_line(name=_team.name, default=_team.default))
-    else:
-        lines.append(lineup_line(name="") if session is not None else lineup_line())
+    lines.append(_map_line(session))  # 3.6.0.0 R5b: the map this session runs on, where it was its lineup
     # Halo 2.0.1 W2a (HALO-2.0.1-liveness-tips-brief.md Part C): same
     # "requested X, sent Y" comparison `/context` shows, from the same
     # shared helper -- /status is the quick one-shot check with no
@@ -876,6 +870,20 @@ def _cmd_status(args: str, facade: HeadlessFacade) -> str:
             lines.append("This route changed:")
             lines.extend(change_lines)
     return "\n".join(lines)
+
+
+def _map_line(session) -> str:
+    """`Map: starter (the default: it draws what this session does)`, `Map: ship-it`, or no map at all."""
+    if session is None:
+        from halo_harness.crew.in_use import map_name
+        name = map_name()
+        return f"Map: {name} (in use for new sessions)" if name else "Map: none (One model for everything)"
+    mc = getattr(session, "team_control", None)
+    c = getattr(mc, "map", None) if getattr(mc, "is_map", False) else None
+    if c is None:
+        return "Map: none (One model for everything, a bare session or --agent)"
+    from halo_harness.crew.compile import is_default
+    return f"Map: {c.name}" + (" (the default: it draws what this session does)" if is_default(c) else "")
 
 
 def _cmd_config(args: str, facade: HeadlessFacade) -> str:
@@ -905,24 +913,13 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
     type=...)` resolves against) when one is running, so this never drifts
     from what a sub-agent call would actually see.
 
-    Halo 2.0.4 round 4 (deliverable 6): a SECOND section lists every
-    agent BIO (`halo_harness/agents_yaml.py`, `halo agents show <name>`
-    for the full YAML) -- a bio describes what an agent IS (models,
-    tools, context, limits); it's a DIFFERENT, additive concept from the
-    `.claude/agents/*.md` sub-agent definitions above (never merged into
-    them), assigned to a role/position by a team template
-    (`halo_harness/teams_yaml.py`, `/teams`).
-
-    Halo 2.0.5 round 5: `/agents schedule` -- what schedule/trigger set is
-    armed right now (any owning session) and each schedule's next fire
-    time, the same lines `halo agents schedule list` prints."""
+    3.6.0.0 R5b: a SECOND line names your agent files (~/.halo/crew/agents,
+    `halo agents list`); schedules and triggers went with lineups."""
     session = getattr(facade, "session", None)
     if (args or "").strip().split(None, 1)[:1] == ["live"]:
         return _agents_live(session)
     if (args or "").strip().split(None, 1)[:1] == ["schedule"]:
-        from halo_harness.agents_schedule import list_schedules, schedule_status_lines
-        state_dir = getattr(session, "state_dir", None) if session is not None else None
-        return "Armed schedules and triggers:\n" + "\n".join(schedule_status_lines(list_schedules(state_dir)))
+        return "Schedules and triggers went with lineups (3.6.0.0): a map has none."
     agents = getattr(getattr(session, "agent_runtime", None), "agents", None)
     if not agents:
         from halo_harness.config.agents_md import discover_agents
@@ -936,9 +933,10 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
     else:
         lines.append("No sub-agent definitions found.")
     try:
-        from halo_harness.teams_cli_views import agent_group_lines
-        lines.append("")
-        lines.extend(agent_group_lines(cwd=facade.cwd))
+        from halo_harness.crew.in_use import agent_names
+        names = agent_names(cwd=facade.cwd)
+        if names:
+            lines += ["", "Agent files (halo agents list; Studio: Agents -> 1 · Agents): " + ", ".join(names)]
     except Exception:
         pass
     return "\n".join(lines)
@@ -979,25 +977,6 @@ def _cmd_map(args: str, facade: HeadlessFacade) -> str:
         out.append(f"  not connected yet: {', '.join(sorted(loose))}")
     out.append("To change it, open Studio: halo studio (Agents -> 3 · Map), or halo maps use <name> for another.")
     return chr(10).join(out)
-
-
-def _render_roles_table(facade: HeadlessFacade) -> str:
-    from halo_harness.roles import format_roles_table, resolve_all_roles, resolve_role_table
-    hint = "(tip: /setup roles opens a guided setup screen with templates)\n"
-    session = getattr(facade, "session", None)
-    if session is None:
-        return hint + "Nothing to show yet: /roles needs a live session to resolve against."
-    runtime = getattr(session, "agent_runtime", None)
-    role_table = getattr(runtime, "role_table", None)
-    if role_table is None:
-        role_table = resolve_role_table(provider=getattr(session.model_ref, "provider", None))
-    cli_overrides = getattr(runtime, "cli_role_overrides", None) or {}
-    rows = resolve_all_roles(
-        role_table=role_table, cli_overrides=cli_overrides, parent_ref=session.model_ref,
-        parent_profile=session.model_profile, state_dir=session.state_dir,
-        routes=getattr(runtime, "routes", None),
-    )
-    return hint + format_roles_table(rows)
 
 
 def _set_one_role(rest: str, facade: HeadlessFacade) -> str:
@@ -1486,9 +1465,17 @@ def _cmd_explain(args: str, facade: HeadlessFacade) -> str:
 
 
 def _cmd_workflows(args: str, facade: HeadlessFacade) -> str:
-    """3.3.16.0 R3: the workflow squares and their contract lines (halo workflows list | show | test)."""
-    from halo_harness.workflows.squares_cli import slash_text
-    return slash_text(args, facade.cwd)
+    """3.6.0.0 R5b: your workflows (halo workflows list | show <name>), read-only; the squares went with lineups."""
+    import contextlib
+    import io
+    from halo_harness.workflows_cli import cmd_workflows
+    words = (args or "").split()
+    if words[:1] not in ([], ["list"], ["show"]):
+        return "Usage: /workflows [list | show <name>] (halo workflows new / edit / try / run in a terminal)"
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        cmd_workflows(words or ["list"])
+    return buf.getvalue().rstrip() or "No workflows."
 
 
 def _cmd_tools(args: str, facade: HeadlessFacade) -> str:
@@ -1626,7 +1613,7 @@ _BUILTIN_SPECS = {
     "status": ("core", "Show session status", None, _cmd_status),
     "config": ("core", "Show or set a config value; /config where lists every file in effect", "[key=value|where]", _cmd_config),
     "skills": ("core", "List discovered skills", None, _cmd_skills),
-    "agents": ("core", "List available sub-agents and agent bios; `live`: this session's running agents",
+    "agents": ("core", "List available sub-agents and your agent files; `live`: this session's running agents",
                "[live|schedule]", _cmd_agents),
     "teams": ("core", "Lineups are gone: one line saying where to go (the map)", None, _cmd_teams),
     "roles": ("core", "Lineups are gone: one line saying where to go (the map)", None, _cmd_roles),
@@ -1677,8 +1664,8 @@ _BUILTIN_SPECS = {
     "tools": ("core", "List the tools this session's agent sees, by capability, and what narrowed them", None, _cmd_tools),
     "whatsnew": ("core", "What this version changed: its summary and headings (halo whatsnew)",
                  "[<version>] [--since <version>] [--full]", _cmd_whatsnew),  # 3.3.16.2
-    "workflows": ("core", "The workflow squares: each one's contract line, * = enabled for this lineup (halo workflows)",
-                  "[list | show <ref> | test <ref>]", _cmd_workflows),  # 3.3.16.0 R3
+    "workflows": ("core", "Your workflows, read-only (halo workflows; Studio: Agents -> 2 · Workflows)",
+                  "[list | show <name>]", _cmd_workflows),  # 3.6.0.0 R5b
     "orchestra": ("core", "Show the latest Orchestra run: its steps, worker lanes and run log", "[run]",
                   _cmd_orchestra),
     "check": ("core", "Run the checks Halo offers after setup (doctor, catalog, hello by default; --all, --gym, "

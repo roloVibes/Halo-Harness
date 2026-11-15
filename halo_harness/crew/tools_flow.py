@@ -207,7 +207,8 @@ def step_remove(args: dict, ctx) -> dict:
 
 _STEP = '{"name", "agents": [names: several work at the same time], "gets"?, "hands"?, "when"? always|ask|{"needs": [pdf|images|audio|video|code|review]}|{"says": [words]}, "repeat"? {"until": words, "max": 1-10}}'
 TOOLS = {
-    "workflow_make": (workflow_make, '{"name", "for", "steps": [' + _STEP + '], "own_copy"?, "max_usd"?}'),
+    "workflow_make": (workflow_make, '{"name", "for", "steps": [' + _STEP + '], "own_copy"? (not yet: saved, still runs '
+                                     'on the step runner), "max_usd"?}'),
     "workflow_change": (workflow_change, '{"name", "fields": {any of for, own_copy, max_usd}}'),
     "workflow_copy": (workflow_copy, '{"name", "new_name"}'),
     "workflow_remove": (workflow_remove, '{"name"}  (deletes the file, once no map has it)'),

@@ -1381,24 +1381,21 @@ class Session:
         from halo_harness.agent.subagent import SessionConcurrencyGate, effective_max_concurrent
         self.agent_runtime.concurrency_semaphore = SessionConcurrencyGate(
             effective_max_concurrent(self.agent_runtime))
-        # Halo 2.0.5 round 5 "team control": a top-level, non-bare session
-        # running under a team (`--team`, or config's own `team:` key) holds
-        # ONE enforced lineup for its whole tree -- delegation caps ride the
-        # existing depth/in-flight knobs, the MAIN assignment's own bio
-        # hooks merge into THIS session's hook runner (HALO_AGENT set), and
-        # the first turn arms the schedule/trigger scheduler
-        # (`agents_schedule.arm_session`). A child Session never builds its
-        # own (the control travels down through `_build_child_session`); a
-        # session with no active team touches nothing at all.
+        # The session's control (3.6.0.0 R5b, crew/): a top-level, non-bare session on a map holds a MapControl (a map
+        # you chose) or a PlainMap (the default map: the starter drawn, a plain session's answers); one with no map
+        # (an `--agent` session, a Session built directly) holds a plain session's answers alone (crew/plain.py), as
+        # on 3.5; roles off ("One model for everything") holds none. Delegation caps ride the existing depth /
+        # in-flight knobs. A child Session never builds its own (the control travels down through
+        # `_build_child_session`).
         self._team_scheduler = None
         if agent_depth == 0 and not getattr(session_context, "bare", False):
-            from halo_harness.teams_runtime import load_team_control
             if crew_map is not None:  # 3.6.0.0 R3: a session on a map holds it where a lineup was (crew/map_control.py)
                 from halo_harness.crew.map_control import control_for
                 self.team_control = control_for(crew_map, cwd=cwd, state_dir=state_dir, session=self)
             else:
-                self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
-                                                      trusted=getattr(session_context, "trusted", None))
+                from halo_harness.crew.compile import in_use as _map_in_use
+                from halo_harness.crew.plain import load as _plain
+                self.team_control = _plain() if _map_in_use(None, cwd)[0] else None
             from halo_harness.crew.compile import is_default as _default_map
             # 3.6.0.0 R5 fix: on the default map the tools describe themselves as a plain session's did (no map tail)
             _held = (self.team_control if getattr(self.team_control, "is_map", False)
@@ -1435,9 +1432,8 @@ class Session:
                 # config, so its aliases/routed roles must still resolve
                 # (`resolve_agent_model` reads exactly this table).
                 try:
-                    from halo_harness.teams_yaml import resolve_role_table as _resolve_team_roles
-                    _team_roles, _notes = _resolve_team_roles(self.team_control.template,
-                                                              cwd=cwd, state_dir=state_dir)
+                    _role_table_of = getattr(self.team_control, "role_table", None)  # 3.6.0.0 R5b: crew/plain.py
+                    _team_roles = _role_table_of() if callable(_role_table_of) else {}
                     if _team_roles:
                         merged = dict(self.agent_runtime.role_table or {})
                         merged.update(_team_roles)
@@ -1844,31 +1840,8 @@ class Session:
         return judge_says_confident(answer)
 
     def _arm_team_scheduler_once(self) -> None:
-        """Halo 2.0.5 round 5 (deliverable 3): arm the team's schedules and
-        triggers on the ROOT session's first turn -- never a child's (the
-        control object is shared, a child arming its own scheduler would
-        double-fire), never a bare/teamless session (nothing to arm)."""
-        if getattr(self, "_team_scheduler", None) is not None:
-            return
-        if getattr(self, "agent_depth", 0) != 0 or getattr(self, "team_control", None) is None:
-            return
-        if getattr(self.team_control, "is_map", False):  # 3.6.0.0 R3: a map has no schedules or triggers
-            return
-        # review finding 26: a job a schedule/trigger itself fired never
-        # arms (and so never re-fires) the team's schedules.
-        if os.environ.get("HALO_SCHEDULED_FIRE"):
-            return
-        from halo_harness.agents_schedule import arm_session, supervisor_owns
-        try:
-            # 3.1.8.0 R1: a live supervisor (`halo supervise`) keeps this team armed already.
-            if supervisor_owns(self.team_control.name, getattr(self, "state_dir", None)):
-                return
-        except Exception:
-            pass
-        try:
-            self._team_scheduler = arm_session(self, self.team_control)
-        except Exception:
-            self._team_scheduler = None
+        """3.6.0.0 R5b: nothing to arm -- schedules and triggers went with lineups (a map has none)."""
+        return None
 
     def _observe_team_triggers(self, ev) -> None:
         scheduler = getattr(self, "_team_scheduler", None)
@@ -2493,15 +2466,6 @@ class Session:
         headless.py's own atexit/finally cleanup, a finished sub-agent and
         SIGTERM/SIGHUP (via the same paths that already call
         job_registry.kill_all())."""
-        # Halo 2.0.5 round 5: a session that armed team schedules/triggers
-        # disarms them here -- they live exactly as long as the session
-        # ("while a session that loaded the team is alive, never a system
-        # service"). `stop_session_scheduler` is a no-op without one.
-        try:
-            from halo_harness.agents_schedule import stop_session_scheduler
-            stop_session_scheduler(self)
-        except Exception:
-            pass
 
     def clear(self) -> None:
         """U5 must-do: `/clear` starts a genuinely NEW session log --

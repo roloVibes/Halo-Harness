@@ -114,8 +114,8 @@ def test_update_asks_first_and_rollback_brings_it_back(ctx: Ctx):
 @test
 def test_run_a_workflow_fills_the_orchestra_form(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"3.6.0.0 R5: no lineup under Templates, one line that they are not read, got {got.get('lineups')} {got.get('old_line')!r}",
-              got.get("lineups") == [] and "no longer read" in str(got.get("old_line")))
+    ctx.check(f"3.6.0.0 R5b: no lineup under Templates, one line that they are read as agents and maps, got {got.get('lineups')} "
+              f"{got.get('old_line')!r}", got.get("lineups") == [] and "read as agents and maps" in str(got.get("old_line")))
     ctx.check(f"Run review goes to the goal form in the Map's drawer (3.6.0.0 R5), got {got.get('section_after_run')!r}", str(got.get("section_after_run")).startswith("Agents"))
     ctx.check(f"the form names the workflow, got {got.get('wf_ref')!r} {got.get('wf_title')!r}", got.get("wf_ref") == "doc-review/review"
               and got.get("wf_title") == "Run the workflow review")

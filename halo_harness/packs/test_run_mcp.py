@@ -99,7 +99,7 @@ def handshake(cfg, env: dict, cwd, timeout: float) -> "tuple[list[str], str]":
 
 
 def declared_tools(r, server: str) -> "list[str]":
-    from halo_harness.agents_yaml import _read_yaml_file
+    from halo_harness.yamlfile import _read_yaml_file
     names: "list[str]" = []
     for bio in sorted((Path(r.root) / "agents").glob("*.yaml")) if (Path(r.root) / "agents").is_dir() else []:
         allow = ((_read_yaml_file(bio) or {}).get("tools") or {}).get("allow") or []

@@ -7,6 +7,8 @@ Run: python -m tests.test_blocks
 """
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import sys
 import tempfile
 from pathlib import Path
@@ -50,10 +52,9 @@ def test_the_purpose_survives_the_yaml_write(ctx: Ctx):
 
 @test
 def test_the_shipped_auto_lineup_names_its_tiers(ctx: Ctx):
-    from halo_harness.agents_yaml import _read_yaml_file
-    from halo_harness.teams_tiers import effective_tiers
-    auto = _read_yaml_file(REPO / "halo_harness" / "templates" / "teams" / "auto.yaml") or {}
-    got = [(t["name"], t.get("purpose")) for t in effective_tiers(auto)]
+    """3.6.0.0 R5b: the auto lineup is what a plain session answers (crew/plain.py, templates/crew/plain/session.yaml)."""
+    from halo_harness.crew.plain import load
+    got = [(t["name"], t.get("purpose")) for t in (load() or SimpleNamespace(tiers=[])).tiers]
     ctx.check(f"main and the pool each say what they are for, got {got}",
               got == [("main", "the one you talk to"), ("pool", "the workers, picked per task")])
 

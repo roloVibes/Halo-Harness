@@ -113,6 +113,11 @@ def problems(*, cwd=None, state_dir=None) -> "list[dict]":
             from halo_harness.packs.roles import doctor_rows  # 3.2.0.0 R2: a bio's capabilities and needs
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
                     for r in doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]
+            from halo_harness.packs.crew_v1 import left_line  # 3.6.0.0 R5b: what of a 1.x pack's crew is not carried
+            left = left_line(pack)
+            if left:
+                out.append(_p(pack.id, "info", "crew-1x", left, "move them to crew/agents, crew/workflows and crew/maps "
+                              "(docs/EXTENSION-API.md, 2.0)", str(pack.root)))
             from halo_harness.packs import contrib_views as CW  # 3.2.0.0 R4: a capability not available here
             out += [_p(pack.id, r["severity"], r["check"], r["text"], r["fix"], r["path"])
                     for r in CW.doctor_rows(pack, S.granted(pack.id, snap.state), cwd=cwd, state_dir=state_dir)]

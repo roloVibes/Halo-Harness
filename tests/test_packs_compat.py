@@ -25,7 +25,7 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 def _with_range(src: Path, api: str, halo: str = "") -> None:
-    text = (src / "pack.yaml").read_text(encoding="utf-8").replace('halo_api: {min: "1.4", max: "1.9"}', api)
+    text = (src / "pack.yaml").read_text(encoding="utf-8").replace('halo_api: {min: "2.0", max: "2.9"}', api)
     if halo:
         text = text.replace('halo: {min: "3.1"}', halo)
     (src / "pack.yaml").write_text(text, encoding="utf-8")
@@ -36,12 +36,15 @@ def test_the_policy_functions(ctx: Ctx):
     import halo_harness.ext as ext
     from halo_harness.ext import compat
     from halo_harness.ext.compat import range_words
-    ctx.check("api_version() is API_VERSION", ext.api_version() == ext.API_VERSION == "1.5")  # 3.6.0.0
+    ctx.check("api_version() is API_VERSION", ext.api_version() == ext.API_VERSION == "2.0")  # 3.6.0.0 R5b
+    ctx.check("a 1.x pack runs on 2.0 (its crew read as 2.0's)", compat.compatible({"min": "1.4", "max": "1.9"}, "2.0")
+              and compat.compatible({"min": "1.0"}, "2.0") and not compat.compatible({"min": "2.0"}, "3.0"))
     ctx.check("a 1.0 pack keeps everything on 1.1 (3.3.10.0 R1)", ext.compatible({"min": "1.0"}) and ext.compatible({"min": "1.0", "max": "1.9"})
               and "everything" in compat.CHANGES["1.1"]["keeps"] and "set_mode" in compat.CHANGES["1.1"]["adds"])
     cases = [({"min": "1.0", "max": "1.9"}, "1.0", True), ({"min": "1.0", "max": "1.9"}, "1.9.4", True),
-             ({"min": "1.0", "max": "1.9"}, "2.0", False), ({"min": "1.2", "max": "1.9"}, "1.0", False),
-             ({"min": "1.0"}, "1.7", True), ({"min": "1.0"}, "2.0", False), ({"min": "2.0"}, "1.0", False),
+             ({"min": "1.0", "max": "1.9"}, "2.0", True), ({"min": "1.2", "max": "1.9"}, "1.0", False),
+             ({"min": "1.0"}, "1.7", True), ({"min": "1.0"}, "2.0", True), ({"min": "2.0"}, "1.0", False),
+             ({"min": "2.0"}, "3.0", False), ({"min": "1.0", "max": "1.9"}, "3.0", False),
              ({"max": "1.9"}, "1.0", True), ({"min": "x"}, "1.0", False), ("1.0", "1.0", False)]
     for rng, version, want in cases:
         ctx.check(f"compatible({rng}, {version}) is {want}", ext.compatible(rng, version) is want)
@@ -70,7 +73,7 @@ def test_the_policy_lines(ctx: Ctx):
     ctx.check("the brief's API line", lines({"min": "1.2", "max": "1.9"}) == ["pack doc-review needs extension API 1.2 to 1.9; this Halo has 1.0"])
     ctx.check("too old: a pack for an API this Halo is past", lines({"min": "0.5", "max": "0.9"})
               == ["pack doc-review needs extension API 0.5 to 0.9; this Halo has 1.0"])
-    ctx.check("a new major without max", lines({"min": "1.0"}, at="2.0") == ["pack doc-review needs extension API 1.0 or a later 1.x; this Halo has 2.0"])
+    ctx.check("a new major without max", lines({"min": "2.0"}, at="3.0") == ["pack doc-review needs extension API 2.0 or a later 2.x; this Halo has 3.0"])
     ctx.check("the brief's Halo line", lines({"min": "1.0"}, {"min": "3.3"}, this="3.2.0") == ["pack doc-review needs Halo >= 3.3; this is 3.2.0"])
     ctx.check("both at once: two lines, API first", len(lines({"min": "1.2"}, {"max": "3.1"})) == 2)
     ctx.check("in range: no line", lines({"min": "1.0", "max": "1.9"}, {"min": "3.1"}) == [])
@@ -80,9 +83,9 @@ def test_the_policy_lines(ctx: Ctx):
 def test_the_same_line_on_the_cli_and_in_studio(ctx: Ctx):
     with PackStudio() as s:
         src = s.source()
-        _with_range(src, 'halo_api: {min: "1.6", max: "1.9"}')  # 3.6.0.0: past this Halo's 1.5
+        _with_range(src, 'halo_api: {min: "2.1", max: "2.9"}')  # 3.6.0.0 R5b: past this Halo's 2.0
         code, _out, err = s.cli("install", str(src))
-        line = "pack doc-review needs extension API 1.6 to 1.9; this Halo has 1.5"
+        line = "pack doc-review needs extension API 2.1 to 2.9; this Halo has 2.0"
         ctx.check(f"the CLI refuses with the one line, got {err!r}", code == 1 and err.strip() == f"halo pack: {line}")
         status, body, _ = s.call("POST", "pack/install", {"source": str(src)})
         ctx.check(f"Studio's Install answers the same line, got {status} {body}", status == 422 and body["problems"] == [line])
@@ -123,7 +126,7 @@ def test_a_deprecated_name_gets_a_doctor_row(ctx: Ctx):
 def test_the_doc_states_the_policy(ctx: Ctx):
     doc = (REPO / "docs" / "EXTENSION_API.md").read_text(encoding="utf-8")
     section = doc.split("## Compatibility and migration", 1)[1].split("\n## ", 1)[0]
-    for needle in ("pack doc-review needs extension API 1.6 to 1.9; this Halo has 1.5", "pack x needs Halo >= 3.3; this is 3.2.0.0",
+    for needle in ("pack doc-review needs extension API 2.1 to 2.9; this Halo has 2.0", "pack x needs Halo >= 3.3; this is 3.2.0.0",
                    "### Changes in 1.x", "### Updating a pack", "### Rolling back", "deprecations()", "compatible(", "api_version()"):
         ctx.check(f"the section has {needle!r}", needle in section)
     rows = [r for r in doc.split("## Status of each part", 1)[1].split("\n## ", 1)[0].splitlines() if r.startswith("| [")]

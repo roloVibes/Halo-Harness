@@ -14,8 +14,8 @@ Each tick:
   4. decisions: a parked decision the owner answered is applied (approve or
      reject a plan, raise a cap and resume, stop); a goal_ask past its
      deadline is answered for the owner;
-  5. arm: every declaring lineup not armed yet is armed (arm.py); the live
-     sessions' feed is drained into the armers;
+  5. the live sessions' feed is drained (a parked ask; 3.6.0.0 R5b: the
+     lineups' schedules and triggers went with lineups);
   6. the pulse is written with the goal counts.
 
 The supervisor runs each goal's orchestra run in its own thread (so several
@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-from halo_harness.supervise import apply, arm, asks, budget, decisions, heartbeat, pulse, queue, replan, runner
+from halo_harness.supervise import apply, asks, budget, decisions, heartbeat, pulse, queue, replan, runner
 from halo_harness.supervise.settings import ask_wait_s, settings
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ class Supervisor:
         self.clock = clock
         self.cfg = settings(self.state_dir)
         self.pulse = pulse.Pulse(self.state_dir, clock=clock)
-        self.armer = arm.Armer(self.state_dir, popen=popen)
         self._popen = popen
         self._threads: dict = {}        # goal id -> the thread running its orchestra run
         self._thread_result: dict = {}  # goal id -> its outcome once the thread finished
@@ -159,10 +158,9 @@ class Supervisor:
     def _arm(self) -> None:
         repos = sorted({g["repo"] for g in queue.all_goals(self.state_dir)
                         if g.get("state") in ("queued", "running", "parked") and g.get("repo")})
-        self.armer.scan([Path(r) for r in repos])
+        del repos  # 3.6.0.0 R5b: the lineups' schedules and triggers went with lineups; the feed still parks asks
         for frame in self._drain_feed():
             self._session_cwd.update(_cwd_from_frame(frame))
-            self.armer.feed(frame, self._session_cwd.get)
             parked = asks.park_frame(self.state_dir, frame, asks.session_goals(self.state_dir), ask_wait_s(self.cfg))
             if parked is not None and self.cfg.get("asks") == "deny":
                 asks.send(parked, "r" if parked["target"].get("ask") in ("question",) else "s", "")
@@ -218,14 +216,12 @@ class Supervisor:
                 apply.park_plan(self, goal)
 
     def close(self) -> None:
-        self.armer.stop()
         self.services.stop_all()
         self.pulse.write("stopped", queue.counts(self.state_dir))
 
 
 def _cwd_from_frame(frame: dict) -> dict:
-    """A `sessions` frame carries each attached session's cwd; keep it so a repo lineup's triggers
-    only see that repo's sessions (arm.Armer.feed)."""
+    """A `sessions` frame carries each attached session's cwd (kept per session id)."""
     if frame.get("event") != "sessions":
         return {}
     data = frame.get("data") if isinstance(frame.get("data"), dict) else {}

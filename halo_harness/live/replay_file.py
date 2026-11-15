@@ -7,7 +7,7 @@ docs/REPLAY.md is the reference.
      "agents":  [{agent_id, parent, name, role, bio, lineup, model, state, since, ended, cost_usd, task}],
      "states":  [{t, agent_id, state, activity, tool?}],  "costs": [{t, usd}],  "agent_costs": [{t, agent_id, usd}],
      "marks":   [{t, kind, agent_id, name, text, to?}],   "bands": [{t0, t1, phase}],
-     "plan":    {"lineup", "graph", "squares"} | null,    the lineup's blocks as they were when it was saved
+     "plan":    null (3.6.0.0 R5b; a 3.4 / 3.5 file has the lineup's blocks here, read and never drawn)
      "facts":   {cost_usd, cost_unknown, tokens, model_cost, retries, failed_calls, steers}   3.4.1.0 R2: the record's
                                                           own figures (live/replay_facts.py), what Compare reads
      "includes": [line, ...]}                             what the file holds, in words (said before it is written)
@@ -59,28 +59,10 @@ def _scrub(obj):
     return obj
 
 
-def plan_of(lineup: Optional[str], cwd=None, state_dir=None) -> Optional[dict]:
-    """The lineup's blocks now (its graph and its enabled squares), as Live's plan reads them; None when it does not load."""
-    if not lineup:
-        return None
-    try:
-        from halo_harness.studio import model as M
-        from halo_harness import teams_yaml as T
-        resolved = T.resolve_team_template(lineup, cwd=cwd, state_dir=state_dir)
-        if not resolved:
-            return None
-        graph = M.graph_for(resolved, cwd=cwd, state_dir=state_dir)
-    except Exception:
-        return None
-    squares: list = []
-    try:
-        from halo_harness.workflows import registry
-        from halo_harness.workflows.squares_cli import rows
-        on = set(registry.enabled_refs(lineup, cwd=cwd))
-        squares = [r for r in rows(Path(cwd or "."), lineup) if r.get("ref") in on and r.get("square")]
-    except Exception:
-        squares = []
-    return _scrub({"lineup": lineup, "graph": graph, "squares": squares})
+def plan_of(_lineup: Optional[str] = None, cwd=None, state_dir=None) -> Optional[dict]:
+    """None: 3.6.0.0 R5b, lineups and their blocks are gone (a 3.4 / 3.5 replay file's `plan` is still read, never
+    drawn); the map a session ran on rides on each of its agents' rows."""
+    return None
 
 
 def includes(p: dict) -> list:
@@ -111,9 +93,6 @@ def build(state_dir, sid: str, *, lineup: Optional[str] = None, cwd=None, live_s
     if path is None:
         raise ReplayError(f"no transcript of session {sid!r} on this machine")
     hist = history.read(path, live_states=live_states)
-    if not lineup:
-        from halo_harness.lineup_default import lineup_in_use
-        lineup = lineup_in_use()[0]
     p = {"format": FORMAT, "version": VERSION, "kind": "session", "id": "", "session_id": hist["session_id"],
          "title": hist.get("title") or "", "saved": round(time.time(), 3), "halo": __version__,
          "started": hist.get("started"), "ended": hist.get("ended"), "cost_usd": hist.get("cost_usd"),

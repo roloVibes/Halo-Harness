@@ -88,8 +88,10 @@ def test_halos_own_copies_say_nothing_and_a_set_team_is_named(ctx: Ctx):
             for src in sorted((shipped / kind).glob("*.yaml")):
                 (state / kind / src.name).write_bytes(src.read_bytes().replace(b"\n", b"\r\n"))  # as Windows wrote them
         ctx.check(f"Halo's own copies: no line, got {old_files.line(root, state)!r}", old_files.line(root, state) == "")
+        ctx.check("3.5's auto lineup, which left the package, is still known as Halo's own (its hash)",
+                  any(x.startswith("teams/auto.yaml ") for x in old_files._shipped()))
         ctx.check("no doctor row", _doctor(root) == [])
-        auto = state / "teams" / "auto.yaml"
+        auto = state / "teams" / "standard.yaml"  # 3.6.0.0 R5b: auto.yaml left the package (crew/plain); its hash stays
         auto.write_bytes(auto.read_bytes() + b"# mine now\n")
         text = old_files.line(root, state)
         ctx.check(f"a copy the user changed is theirs: named, got {text!r}", "~/.halo/teams (1 file of yours)" in text)

@@ -2,6 +2,7 @@
 // agent open in the form and what is saved of it, Save / Discard / Copy / Delete through the crew routes
 // (studio/crew_api.py). Nothing is written until Save; Delete asks on the page first. Try it lives in tryStore.ts.
 import { api, ApiError } from "../../lib/api";
+import { onFilesChanged } from "../../lib/filesLive";
 import { createStore, toast, useStore } from "../../lib/store";
 import { blank, type Agent, type Row, type Scope } from "./types";
 
@@ -37,7 +38,13 @@ export function dirty(s: CrewState): boolean {
   return !!s.form && (!s.saved || !same(s.form, s.saved));
 }
 
+let watching = false;
+
 export async function loadCrew(): Promise<void> {
+  if (!watching) {  // 3.6.0.0 R5b: an agent file written outside Studio (the terminal, a session's model) shows at once
+    watching = true;
+    onFilesChanged(["agents"], () => void loadCrew());
+  }
   try {
     const r = await api.get<{ agents: Row[]; starters: Row[] }>("crew/agents");
     crew.update(() => ({ loaded: true, error: "", agents: r.agents, starters: r.starters }));

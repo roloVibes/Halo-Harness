@@ -85,7 +85,7 @@ export function startManager(): void {
   if (started) return;
   started = true;
   onEvent("pack_changed", () => void loadManager());
-  onFilesChanged("lineups", () => void loadManager());
+  onFilesChanged(["agents", "maps"], () => void loadManager());
   void loadManager();
 }
 

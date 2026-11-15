@@ -1,0 +1,9 @@
+# The doc-review pack's starter map (extension API 2.0: map/1, `halo maps use doc-review--review`): the writer
+# is main and hands a review to the reviewer when the request says review or check.
+format: map/1
+name: review
+boxes:
+  - {id: reviewer, agent: doc-review--reviewer}
+lines:
+  - {from: main, to: reviewer, when: {says: [review, check]}}
+main: {agent: doc-review--writer}

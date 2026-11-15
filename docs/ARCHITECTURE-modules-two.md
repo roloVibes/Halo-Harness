@@ -178,6 +178,8 @@ environment reference anywhere), `packs/capability_check.py` (each running
 pack's capabilities, available here or not and why) and
 `packs/contrib_views.py` (`halo pack inspect`'s contributes block, the doctor's
 capability rows), 3.4.0.0 B (draft, API 1.3): `packs/contrib_cli.py` (a pack's own `halo <verb>`), `packs/contrib_slash.py` (its `/<name>`), `packs/contrib_doctor.py` (its doctor rows), `packs/contrib_settings.py` (its Settings rows), `packs/contrib_lines.py` (their rules for the manifest) and `ext/core.py` (the core modules the shipped packs that left the core drive). 3.2.0.0 R5, workflows and artifacts (docs/WORKFLOWS.md):
+3.6.0.0 R5b (extension API 2.0): `packs/crew_v1.py` (a pack's crew: its `crew/` agents, workflows and maps, and a 1.x
+pack's bios, lineups and plain workflows read as them, `<pack>--<name>`; the one line of what is not carried).
 `packs/workflow_rules.py` and `packs/workflow_stages.py` (what a workflow file
 may say, with the manifest; its shape is `schemas/workflow_yaml.py`, its JSON
 twin `packs/schema/workflow.schema.json`), `packs/typed.py` (artifact and

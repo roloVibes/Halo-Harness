@@ -201,11 +201,11 @@ def test_a_tier_model_and_trigger_validate_carry_and_print(ctx: Ctx):
 @test
 def test_the_model_order_bio_default_tier_pin_and_slot(ctx: Ctx):
     """3.1.6.0 R1: card override -> a pinning bio -> the tier's model -> a `default` bio (the session) -> fallbacks,
-    the same at the four readers (role table, Studio's card pill, the preflight, the coach)."""
+    the same at the three readers left (role table, the preflight, the coach; 3.6.0.0 R5b: Studio's card pill went
+    with the lineup graph)."""
     from halo_harness.agents_yaml import save_agent_bio, resolve_agent_bio
     from halo_harness.lineup_preflight import _models
     from halo_harness.orchestra.coach_ask import _lineup_model
-    from halo_harness.studio.model import graph_for
     from halo_harness.teams_yaml import resolve_role_table, save_team_template
     from halo_harness.theme import set_config_value
     with _Env() as e:
@@ -221,9 +221,6 @@ def test_the_model_order_bio_default_tier_pin_and_slot(ctx: Ctx):
         want = {"main": "or:vendor/session", "media": "or:vendor/tier", "editor": "or:vendor/pinned", "cutter": "or:vendor/slot"}
         table, _n = resolve_role_table(template, cwd=e.cwd, state_dir=e.state_dir)
         ctx.check(f"the lineup saves and the role table follows the order, got {problems} {table}", ok and table == want)
-        nodes = {n["alias"] or n["role"]: (n["model"], n["model_source"]) for n in graph_for(template, cwd=e.cwd, state_dir=e.state_dir, catalog={})["nodes"]}
-        ctx.check(f"Studio's card pill and where it came from, got {nodes}", nodes == {
-            "main": (want["main"], "session"), "media": (want["media"], "tier:media"), "editor": (want["editor"], "bio"), "cutter": (want["cutter"], "card")})
         pre = {a.get("as") or a["role"]: _models(template, a, resolve_agent_bio(a["agent"], state_dir=e.state_dir), state_dir=e.state_dir)[0] for a in agents}
         coach = {k: _lineup_model("order-team", k, e.cwd, e.state_dir) for k in want}
         ctx.check(f"the preflight and the coach read the same, got {pre} {coach}", pre == want and coach == want)

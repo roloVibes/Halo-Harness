@@ -23,13 +23,7 @@ from typing import Optional
 def place_lineup(name: Optional[str] = None) -> dict:
     from halo_harness.local_sched.place_advice import scored as solve  # 3.3.8.0 R4: every candidate's score
     from halo_harness.local_sched.preview import lanes_for
-    if not name:
-        from halo_harness.teams_runtime import active_team_name
-        try:
-            name = active_team_name(None)
-        except Exception:
-            name = None
-    lanes, _declared, lineup = lanes_for(name)
+    lanes, _declared, lineup = lanes_for(name or None)  # 3.6.0.0 R5b: a map (None: the one in use)
     got = solve(lanes)
     from halo_harness.local_pool.route import pool_host  # 3.3.8.0 R3: the pool is one more option, said
     pool = None
@@ -41,16 +35,16 @@ def place_lineup(name: Optional[str] = None) -> dict:
 
 def cmd_place(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo local place", description=(
-        "Where each local lane of a lineup should run: every reachable Ollama host asked (a halo host's route "
+        "Where each local lane of a map should run: every reachable Ollama host asked (a halo host's route "
         "answer, else the local reads), scored on fits / warm / the load time / what it evicts. --apply writes "
         "host_for on each moved lane's profile (Halo-side only)."))
-    parser.add_argument("lineup", nargs="?", default=None, help="a lineup (default: the active one)")
+    parser.add_argument("lineup", nargs="?", default=None, help="a map (default: the one in use)")
     parser.add_argument("--apply", action="store_true", help="write host_for on each moved lane's <host>|<model>|<role>")
     parser.add_argument("--json", action="store_true", help="print JSON")
     args = parser.parse_args(argv)
-    from halo_harness.teams_yaml import resolve_team_template
-    if args.lineup and resolve_team_template(args.lineup) is None:
-        print(f"halo local place: no lineup named {args.lineup!r} (halo teams lists them)", file=sys.stderr)
+    from halo_harness.crew import store
+    if args.lineup and store.find("map", args.lineup) is None:
+        print(f"halo local place: no map named {args.lineup!r} (halo maps list shows them)", file=sys.stderr)
         return 1
     plan = place_lineup(args.lineup)
     written = []
@@ -61,7 +55,7 @@ def cmd_place(argv: list) -> int:
         print(json.dumps({**plan, "written": written}, indent=2, default=str))
         return 0
     if not plan["lanes"]:
-        print(f"halo local place: {plan['lineup'] or 'this lineup'} has no local lanes (no `ol:` models)")
+        print(f"halo local place: {plan['lineup'] or 'this map'} has no local lanes (no `ol:` models)")
         return 0
     print(f"halo local place {plan['lineup']}: {plan['line']}")
     from halo_harness.local_sched.place_advice import score_line

@@ -30,7 +30,7 @@ export const PACKS_HELP: Record<string, Help> = {
       "The extension API and Halo ranges beside this Halo's, each pack it requires and whether that is met.",
       "What keeps it from running here is the doctor's words: an API range, a missing dependency, a fleet capability not available.",
       "Each permission it requests has a Grant toggle: on an enabled pack it grants (or takes back) at once; on a disabled one it is picked for Enable.",
-      "What it contributes is the block halo pack inspect prints; the links open its section, its lineup in Agents (Cast) and each workflow's Run.",
+      "What it contributes is the block halo pack inspect prints; the links open its section and each workflow's Run; its agents and maps are in Agents.",
     ),
   },
   "pm-settings": {
@@ -41,7 +41,7 @@ export const PACKS_HELP: Record<string, Help> = {
     ),
   },
   "pm-templates": {
-    about: "The selected pack's lineups, bios and workflows, each with what you can do with it.",
+    about: "The selected pack's workflows, each with Run; its agents and maps (<pack>--<name>) are in Agents.",
     help: lines(
       "Preview opens a lineup or a bio in Agents (Cast), read-only; Clone copies it into your files; Customize clones it and opens your copy.",
       "Apply makes a lineup the one new sessions use (it asks first and names the pack).",

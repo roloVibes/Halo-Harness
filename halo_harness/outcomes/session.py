@@ -36,7 +36,7 @@ def _bio(team_control, role_name, spec_name: str, child) -> dict:
             bio = team_control.bio_for(role_name)
             if bio:
                 return dict(bio, name=str((entry or {}).get("agent") or bio.get("name") or spec_name))
-        from halo_harness.agents_yaml import resolve_agent_bio
+        from halo_harness.crew.in_use import agent as resolve_agent_bio  # 3.6.0.0 R5b: an agent file
         return resolve_agent_bio(spec_name, cwd=getattr(child, "cwd", None), state_dir=getattr(child, "state_dir", None)) or {}
     except Exception:
         return {}

@@ -1,0 +1,15 @@
+# The doc-review pack's workflow (extension API 2.0: workflow/1, run by name as doc-review--review-docs): the
+# reviewer reads, then the writer turns the findings into fixes. (workflows/review.yaml, one job per file and a
+# typed report, runs on the run engine.)
+format: workflow/1
+name: review-docs
+for: Review the documents the task names and fix what the review finds.
+steps:
+  - name: Read the documents
+    agents: [doc-review--reviewer]
+    gets: the task
+    hands: the findings
+  - name: Fix what matters
+    agents: [doc-review--writer]
+    gets: the findings
+    hands: what changed

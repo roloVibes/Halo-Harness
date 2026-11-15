@@ -182,7 +182,7 @@ def test_f26_fired_jobs_carry_the_marker_and_do_not_arm_schedules(ctx: Ctx):
         ctx.check("a fired job arms nothing", armed == [])
         os.environ.pop("HALO_SCHEDULED_FIRE")
         Session._arm_team_scheduler_once(holder)
-        ctx.check("an ordinary session still arms", armed == [1])
+        ctx.check("3.6.0.0 R5b: an ordinary session arms nothing either (a map has no schedules)", armed == [])
     finally:
         agents_schedule.arm_session = real_arm
         if saved is not None:

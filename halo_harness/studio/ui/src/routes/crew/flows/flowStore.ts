@@ -4,6 +4,7 @@
 // answer counts only for the form it was asked for -- `costKey` -- so a slow one never shows another form's band), and
 // Save / Discard / Copy / Delete through the crew routes (studio/crew_flow_api.py). Nothing is written until Save.
 import { api, ApiError } from "../../../lib/api";
+import { onFilesChanged } from "../../../lib/filesLive";
 import { createStore, toast, useStore } from "../../../lib/store";
 import { onTab } from "../builderStore";
 import { loadCrew } from "../store";
@@ -44,7 +45,13 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 export const flowDirty = (s: FlowState) => !!s.form && (!s.saved || !same(s.form, s.saved));
 export const blankFlow = (name: string): Workflow => ({ format: "workflow/1", name, for: "", steps: [] });
 
+let watching = false;
+
 export async function loadFlows(): Promise<void> {
+  if (!watching) {  // 3.6.0.0 R5b: a workflow file written outside Studio shows at once
+    watching = true;
+    onFilesChanged(["workflows"], () => void loadFlows());
+  }
   try {
     const r = await api.get<{ workflows: FlowRow[]; starters: FlowRow[] }>("crew/workflows");
     flows.update(() => ({ loaded: true, error: "", flows: r.workflows, starters: r.starters }));

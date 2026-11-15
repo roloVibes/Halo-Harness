@@ -392,40 +392,6 @@ def test_check_active_team_validates_the_configured_team_key(ctx: Ctx):
 
 
 @test
-def test_doctor_agents_flag_with_mock_reports_shape_and_acceptance(ctx: Ctx):
-    from halo_harness.doctor import cmd_doctor
-    with _Env():
-        buf = io.StringIO()
-        with redirect_stdout(buf):
-            rc = cmd_doctor(["--agents", "--mock"])
-        out = buf.getvalue()
-        ctx.check(f"every shipped bio name appears, got {out!r}", "orchestrator" in out and "coder" in out)
-        ctx.check("a RESULT summary line is printed", "RESULT:" in out)
-        # --mock's fake call returns "" -- every bio WITH a model fails
-        # against its own real acceptance.expect; this just proves the
-        # whole plumbing ran end to end without crashing, not that it
-        # passed (test_run_all_acceptance_... above already proves a
-        # REAL pass with a matching mock).
-        ctx.check(f"a real exit code came back, got rc={rc}", isinstance(rc, int))
-
-
-# ---------------------------------------------------------------------------
-# /agents and /teams (commands/builtins.py's headless text path).
-# ---------------------------------------------------------------------------
-
-@test
-def test_cmd_agents_lists_bios_alongside_sub_agent_definitions(ctx: Ctx):
-    from halo_harness.commands.builtins import HeadlessFacade, _cmd_agents
-    with _Env() as e:
-        facade = HeadlessFacade(cwd=e.cwd)
-        text = _cmd_agents("", facade)
-        ctx.check(f"the built-in sub-agent definitions still show, got {text!r}", "general-purpose" in text)
-        ctx.check(f"the agent BIOS section shows too, got {text!r}",
-                  "Shipped agents:" in text and "orchestrator" in text and "coder" in text
-                  and text.rstrip().endswith("halo agents show <name>"))
-
-
-@test
 def test_bio_hooks_schedule_triggers_validate_round_trip_and_extend(ctx: Ctx):
     from halo_harness.agents_yaml import resolve_agent_bio, save_agent_bio, validate_agent_bio
     with _Env() as e:

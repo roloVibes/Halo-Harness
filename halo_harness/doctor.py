@@ -1277,12 +1277,16 @@ def _check_permission_mode(cwd: Optional[Path] = None, settings_flag: Optional[s
 
 
 def _check_lineup() -> str:
-    """3.1.9.0 R2: `Lineup: auto (default) -- ...; change it with ...` (lineup_default.py)."""
+    """3.6.0.0 R5b: `Map: starter (the default) -- ...; change it with ...` (crew/in_use.py), where it was the lineup."""
     try:
-        from halo_harness.lineup_default import lineup_line
-        return f"{OK} {lineup_line()}"
+        from halo_harness.crew.compile import in_use
+        name, source = in_use(None)
+        if not name:
+            return f"{OK} Map: none (One model for everything: roles off); halo maps use <name> picks one"
+        how = {"default": "the default: it draws what a plain session does", "config": "config crew.map"}.get(source, source)
+        return f"{OK} Map: {name} ({how}); halo maps use <name> changes it, halo maps list shows them"
     except Exception as e:
-        return f"{OK} Lineup: could not be read ({type(e).__name__})"
+        return f"{OK} Map: could not be read ({type(e).__name__})"
 
 
 def _dbx_probe_target():
@@ -1835,16 +1839,14 @@ def cmd_doctor(argv: list) -> int:
     # seam) and validates the ACTIVE team template (every referenced
     # agent actually exists).
     parser.add_argument("--agents", action="store_true",
-                         help="Validate every agent bio and the active team template, then run each bio's "
-                             "own acceptance check against a real model call")
+                         help="Validate every agent file and the map in use, then run each agent's own check "
+                             "(more.check) against a real model call")
     parser.add_argument("--mock", action="store_true", help="With --agents/--teams: never call a real model (tests only)")
     # Halo 2.0.5 round 5 (deliverable 4): `halo doctor --teams [NAME]` --
     # validate the named (or active) team template and exercise its FIRST
     # required pipeline gate end to end, the same gate the live agent loop
     # runs between stages (`agents_doctor.check_team_gates`).
-    parser.add_argument("--teams", action="store_true",
-                         help="Validate the active (or named) team template and exercise its first required "
-                             "pipeline gate")
+    parser.add_argument("--teams", action="store_true", help=argparse.SUPPRESS)  # 3.6.0.0 R5b: one line
     # Halo 2.0.6 round 7 (the v2.0.4 review's item 6): `halo doctor
     # --roles` -- the lineup editor's own warning set, headless: no
     # 'main', judge in the same family as coder (self-preference bias),
@@ -1854,9 +1856,9 @@ def cmd_doctor(argv: list) -> int:
     # set and the validators (doctor_config.py).
     parser.add_argument("--config", action="store_true",
                          help="Check every file `halo config where` lists: unknown keys (with the closest known "
-                              "key), wrong types, missing bios and lineups, a key two files set differently")
+                              "key), wrong types, a key two files set differently")
     parser.add_argument("--roles", action="store_true",
-                         help="Check the roles lineup's hygiene headlessly: a missing 'main', "
+                         help="Check the model table's hygiene (roles.*) headlessly: a missing 'main', "
                              "judge/coder family bias, unreachable gateways")
     # ONE shared optional positional for BOTH `--teams [NAME]` and
     # `--mcp deep [NAME]` (mutually exclusive presets): a second
@@ -1904,21 +1906,16 @@ def cmd_doctor(argv: list) -> int:
         from halo_harness.doctor_config import cmd_doctor_config
         return cmd_doctor_config(cwd=doctor_cwd, settings_flag=settings_flag, as_json=args.json)
     if args.agents:
-        from halo_harness.agents_doctor import check_active_team, run_all_acceptance
-        from halo_harness.agents_yaml import list_agent_bios, load_agent_bio_raw, validate_agent_bio
+        from halo_harness.crew.agents_doctor import map_problems, run_checks as _agent_checks, shape_problems as _shapes
         if not args.json:  # finding 78: --json output starts at the JSON
             print("halo doctor --agents")
-            print("  Validates every agent bio's shape and the active team template, then runs each bio's "
-                  "own acceptance prompt against a real model call (--mock: never call one, tests only) -- "
+            print("  Validates every agent file and the map in use, then runs each agent's own check "
+                  "(more.check) against a real model call (--mock: never call one, tests only) -- "
                   "real requests spend tokens and take a moment.")
-        shape_problems = []
-        for name in list_agent_bios(cwd=doctor_cwd):
-            raw = load_agent_bio_raw(name, cwd=doctor_cwd)
-            for p in (validate_agent_bio(raw, name=name, cwd=doctor_cwd) if raw is not None else [f"{name}: not found"]):
-                shape_problems.append(f"{name}: {p}")
-        team_problems = check_active_team(cwd=doctor_cwd)
+        shape_problems = _shapes(cwd=doctor_cwd)
+        team_problems = map_problems(cwd=doctor_cwd)
         call_fn = (lambda _ref, _prompt: "") if args.mock else None
-        results = run_all_acceptance(cwd=doctor_cwd, call_fn=call_fn)
+        results = _agent_checks(cwd=doctor_cwd, call_fn=call_fn)
         if args.json:
             print(json.dumps({"shape_problems": shape_problems, "team_problems": team_problems,
                               "acceptance": [{"name": n, "ok": ok, "message": m} for n, ok, m in results]},
@@ -1927,7 +1924,7 @@ def cmd_doctor(argv: list) -> int:
             for p in shape_problems:
                 print(f"  SHAPE: {p}")
             for p in team_problems:
-                print(f"  TEAM: {p}")
+                print(f"  MAP: {p}")
             ran = skipped = failed = 0
             for name, ok, message in results:
                 if message == "no acceptance block":
@@ -1937,66 +1934,45 @@ def cmd_doctor(argv: list) -> int:
                 if not ok:
                     failed += 1
                 print(f"  {name}: {message}")
-            print(f"RESULT: {ran - failed}/{ran} bio(s) passed acceptance ({skipped} with no acceptance block); "
-                  f"{len(shape_problems)} shape problem(s), {len(team_problems)} active-team problem(s).")
+            print(f"RESULT: {ran - failed}/{ran} agent(s) passed their check ({skipped} with no check); "
+                  f"{len(shape_problems)} shape problem(s), {len(team_problems)} map problem(s).")
         return 0 if not shape_problems and not team_problems and all(ok for _n, ok, m in results
                                                                        if m != "no acceptance block") else 1
     if args.mcp == "deep":
         return _cmd_mcp_deep(mcp_name=args.mcp_name, apply=args.apply, corpus_dir=args.mcp_from, cwd=doctor_cwd)
     if args.roles:
-        from halo_harness.agents_doctor import check_roles_hygiene
+        from halo_harness.crew.checks import check_roles_hygiene
         if not args.json:
             print("halo doctor --roles")
-            print("  The roles lineup's hygiene, headless: no 'main' set, judge in the same model family as "
+            print("  The model table's hygiene (roles.*), headless: no 'main' set, judge in the same model family as "
                   "coder (self-preference bias), unreachable gateways, and 2.0.7's dead model ids -- every "
                   "configured model resolved against its provider's own catalog (the silent-404 case "
                   "rolo hit live: a retired deepseek id, sub-agents coming back empty).")
-        from halo_harness.agents_doctor import check_dead_model_ids
+        from halo_harness.crew.checks import check_dead_model_ids
         problems = check_roles_hygiene(cwd=doctor_cwd)
         dead_ids = check_dead_model_ids(cwd=doctor_cwd)
         if dead_ids:
             problems = problems + dead_ids
-        # 3.0.7.0 R1: the run-start preflight's list for the active lineup --
-        # the same findings `halo orchestra run` / a mission
-        # run stop on (lineup_preflight.py; the dead-id walk is shared).
-        from halo_harness.lineup_preflight import lineup_problems
-        from halo_harness.teams_runtime import active_team_name
-        lineup_name = active_team_name()
-        preflight = lineup_problems(lineup_name, cwd=doctor_cwd) if lineup_name else []
-        problems = problems + [f"lineup {lineup_name}: {p['text']} (fix: {p['fix']})" for p in preflight
-                               if p["severity"] == "blocks"]
+        # 3.6.0.0 R5b: the map in use's own problems (a missing agent, a dead model id on an agent's `model`)
+        from halo_harness.crew.agents_doctor import map_problems
+        from halo_harness.crew.in_use import map_name
+        in_use = map_name(doctor_cwd)
+        on_map = map_problems(cwd=doctor_cwd)
+        problems = problems + [f"map {in_use}: {p}" for p in on_map]
         if args.json:
-            print(json.dumps({"problems": problems, "dead_model_ids": dead_ids, "lineup": lineup_name,
-                              "preflight": preflight}, indent=2))
+            print(json.dumps({"problems": problems, "dead_model_ids": dead_ids, "map": in_use}, indent=2))
         else:
             for p in problems:
                 print(f"  {p}")
-            for p in preflight:
-                if p["severity"] == "warns":
-                    print(f"  warning: lineup {lineup_name}: {p['text']} (fix: {p['fix']})")
             n = len(problems)
-            print(f"RESULT: {'clean --' if not n else f'{n} problem(s);'} the roles lineup "
+            print(f"RESULT: {'clean --' if not n else f'{n} problem(s);'} the model table "
                   f"{'looks healthy.' if not n else 'needs attention.'}")
         return 0 if not problems else 1
-    if args.teams:
-        from halo_harness.agents_doctor import check_team_gates
-        if not args.json:
-            print("halo doctor --teams")
-            print("  Validates the active (or named) team template and exercises its first required pipeline "
-                  "gate -- the same gate the live agent loop runs between stages (a real model call unless "
-                  "--mock; the acceptance prompt spends tokens and takes a moment).")
-        call_fn = (lambda _role, _prompt: "") if args.mock else None
-        team_name, results = check_team_gates(args.mcp_name, cwd=doctor_cwd, call_fn=call_fn)
-        if args.json:
-            print(json.dumps({"team": team_name,
-                              "gates": [{"stage": s, "ok": ok, "message": m} for s, ok, m in results]},
-                             indent=2))
-        else:
-            print(f"  team: {team_name or '(none resolved)'}")
-            for stage, ok, message in results:
-                print(f"  {stage}: {'ok' if ok else 'FAILED'} -- {message}")
-            print(f"RESULT: {sum(1 for _s, ok, _m in results if ok)}/{len(results)} gate check(s) passed.")
-        return 0 if team_name is not None and all(ok for _s, ok, _m in results) else 1
+    if args.teams:  # 3.6.0.0 R5b: lineups and their pipeline gates are gone (help, not a refusal)
+        line = ("halo doctor --teams: lineups are gone; every session runs on a map. halo doctor --agents checks your "
+                "agent files and the map in use (halo maps show <name>).")
+        print(json.dumps({"team": None, "gates": [], "line": line}) if args.json else line)
+        return 0
     if args.voice:
         from halo_harness.doctor_voice import cmd as voice_doctor
         return voice_doctor(as_json=args.json)

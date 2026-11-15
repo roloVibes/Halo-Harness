@@ -7,7 +7,6 @@ mocked upstream, a fixture team -- the brief's own Tests section).
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 import tempfile
@@ -462,33 +461,6 @@ def test_team_escalation_switches_and_ask_shows_the_card(ctx: Ctx):
         control.escalated = False
         list(Session._maybe_team_escalate(stub2, 1))
         ctx.check(f"accepted switches, got {stub2.model_label}", stub2.model_label == "or:mock/team-bigger")
-
-
-@test
-def test_session_under_config_team_loads_control_and_caps(ctx: Ctx):
-    from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
-    mock = MockUpstream().start()
-    try:
-        SCENARIOS["team-main"] = lambda h, b: _finish(h, _text("MAIN"))
-        SCENARIOS["team-worker"] = lambda h, b: _finish(h, _text("WORKER READY"))
-        with _Env() as e:
-            _fixture(e)
-            from halo_harness.theme import set_config_value
-            set_config_value("team", "fixture-team")
-            set_config_value("roles", {"worker": "or:mock/team-worker", "reviewer": "or:mock/team-reviewer"})
-            session = _make_team_session(e, mock, "team-main", None)
-            ctx.check("the session picked the config team up",
-                      getattr(session, "team_control", None) is not None
-                      and session.team_control.name == "fixture-team")
-            ctx.check("the control rides the runtime",
-                      session.agent_runtime.team_control is session.team_control)
-            ctx.check("delegation.max_parallel sized the in-flight cap",
-                      session.agent_runtime.concurrency_semaphore.limit == 2)
-            ctx.check("delegation.max_depth set the depth cap", session.agent_runtime.max_depth == 1)
-            ctx.check("the team's own role table merged in",
-                      session.agent_runtime.role_table.get("worker") == "or:mock/team-worker")
-    finally:
-        mock.stop()
 
 
 if __name__ == "__main__":

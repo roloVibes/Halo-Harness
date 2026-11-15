@@ -117,8 +117,7 @@ def _new(args, repo: Path) -> int:
         goal.workers = args.workers
     if args.files:
         goal.files = list(args.files)
-    from halo_harness.packs.lineup_run import goal_defaults  # 3.2.0.0 R2: the lineup's acceptance (test, review)
-    taken = goal_defaults(goal, cwd=repo, explicit_test=args.test is not None)
+    taken: list = []  # 3.6.0.0 R5b: a lineup's acceptance (test, review) went with lineups
     missing = [(k, label) for k, label in _PROMPTS if not str(getattr(goal, k) or "").strip()]
     try:
         if missing and _terminal():

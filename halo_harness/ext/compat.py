@@ -3,7 +3,7 @@
 
 The policy, as this module applies it:
 
-- The API version is MAJOR.MINOR (`API_VERSION`, "1.4" since Halo 3.5.0.0; "1.3" since 3.4.0.0; "1.2" since 3.3.13.0; "1.1" since 3.3.10.0). A minor version only
+- The API version is MAJOR.MINOR (`API_VERSION`, "2.0" since Halo 3.6.0.0; "1.5" in 3.6.0.0's first rounds; "1.4" since 3.5.0.0; "1.3" since 3.4.0.0; "1.2" since 3.3.13.0; "1.1" since 3.3.10.0). A minor version only
   adds names: every name keeps its meaning for every later minor of the same
   major. A major version may remove a name, and only one `deprecations()` has
   listed for at least one minor version before it.
@@ -18,9 +18,15 @@ The policy, as this module applies it:
   and Policy hooks is stable: a 1.0 pack keeps everything -- `{min: "1.0"}` and `{min: "1.0", max: "1.9"}`
   take 1.1, and a pack with no `policy` or `modes` reads and runs as before (`CHANGES`).
 
-    api_version()                           "1.4"
-    compatible({"min": "1.0", "max": "1.9"})   True on this Halo
-    compatible({"min": "1.0"}, "2.0")       False: a new major
+- 2.0 (3.6.0.0 R5b): a pack contributes `crew/agents`, `crew/workflows` and `crew/maps` (agent/1, workflow/1, map/1).
+  Lineups, bios and squares left Halo, so 2.0 drops `contributes.agents` (bios), `contributes.teams` (lineups) and a
+  pack workflow as a session's workflow. A 1.x pack (min 1.0 or later) still runs on 2.0: everything that is not crew
+  runs unchanged, and its bios, lineups and plain workflows are read as agents, maps and workflows where the meaning is
+  clear (packs/crew_v1.py); what is not carried is one line in `halo pack list` and `halo pack doctor`.
+
+    api_version()                           "2.0"
+    compatible({"min": "1.0", "max": "1.9"})   True on this Halo (a 1.x pack runs on 2.0, its crew read as 2.0's)
+    compatible({"min": "2.0"}, "3.0")       False: a new major
     range_words({"min": "1.2"})             "1.2 or a later 1.x"
     deprecations()                          [{name, since, removed_in, use}]; empty in 1.0
 """
@@ -31,7 +37,7 @@ from typing import Optional
 
 #: The names announced for removal: `{name: {"since": "1.x", "removed_in": "2.0", "use": "<the name to use>"}}`.
 #: A name is listed here for at least one minor version before the major that removes it. Empty in 1.0 and 1.1.
-DEPRECATED: "dict[str, dict]" = {}
+DEPRECATED: "dict[str, dict]" = {}  # 2.0 removed crew names without one (CHANGES["2.0"]["removes"]): a 1.x pack still runs
 #: What each minor version added, and what a pack written for the one before keeps (docs/EXTENSION_API.md
 #: "Changes in 1.x" lists the same).
 CHANGES: "dict[str, dict]" = {
@@ -78,6 +84,13 @@ CHANGES: "dict[str, dict]" = {
                                          "(a drawer's width from its content, 360-560 px): how the panel opens on the stage"],
             "deprecates": [], "keeps": "everything: a panel's w / h still work (w columns -> a right drawer w x 60 px wide)",
             "status": "stable (Halo 3.6.0.0 R0a: the stage, one main thing per view)"},
+    "2.0": {"halo": "3.6.0.0", "adds": ["crew/agents, crew/workflows, crew/maps: a pack's agents, workflows and maps "
+                                         "(agent/1, workflow/1, map/1), read in place as <pack>--<name>"],
+            "deprecates": [], "removes": ["contributes.agents (bios)", "contributes.teams (lineups)",
+                                          "contributes.workflows as a session's workflow"],
+            "keeps": "a 1.x pack runs: its non-crew parts unchanged, its bios / lineups / plain workflows read as agents / "
+                     "maps / workflows; what is not carried is one line in halo pack list and halo pack doctor",
+            "status": "stable (Halo 3.6.0.0 R5b: the doc-review pack is built on it)"},
 }
 
 
@@ -95,11 +108,14 @@ def _major(version) -> Optional[int]:
 
 def compatible(rng, version=None) -> bool:
     """True when the API `version` (default this Halo's) is inside a pack's `halo_api` range under the policy:
-    `min <= version <= max`, and with no `max`, the same major as `min`."""
+    `min <= version <= max`, and with no `max`, the same major as `min`. 2.0 also runs a 1.x pack (its crew read as
+    2.0's, packs/crew_v1.py)."""
     from halo_harness.packs import semver as V
     version = str(version if version is not None else api_version())
     if not isinstance(rng, dict) or V.range_problem(rng) or V.release(version) is None:
         return False
+    if _major(version) == 2 and rng.get("min") is not None and _major(rng["min"]) == 1:
+        return True
     if not V.in_range(version, rng):
         return False
     if rng.get("max") is None and rng.get("min") is not None:

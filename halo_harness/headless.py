@@ -1420,7 +1420,7 @@ def build_session(
     # worker) narrows the registry before the model sees it; nothing declared, nothing changes (docs/ISOLATION.md).
     from halo_harness.isolation.capabilities import narrow_session
     from halo_harness.crew.compile import is_default as _default_map
-    from halo_harness.crew.map_control import PLAIN_LINEUP
+    from halo_harness.crew.plain import NAME as PLAIN_LINEUP
     if _default_map(_crew_map):
         # 3.6.0.0 R5 fix: the default map is a drawing of a plain session -- its tools narrowed as a plain session's
         # were (the default lineup, isolation/capabilities.py), every discovered agent kept, the session's own mode

@@ -5,8 +5,9 @@ Read this when you write a pack, or change what Halo promises a pack: the manife
 Halo 3.2.0.0 (written in R1, final in R7: every part was `stable`); 3.3.10.0 R1 added
 [Policy hooks](#policy-hooks) as the first `draft` part, and R2 made it `stable` (a session enforces each verdict).
 A pack is a folder Halo installs, enables and removes (see [PACKS.md](PACKS.md) for using one); this page is the
-contract a pack is written against. The extension API version is `API_VERSION = "1.5"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
-until 3.4.0.0, 1.3 until 3.5.0.0, 1.4 until 3.6.0.0; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
+contract a pack is written against. The extension API version is `API_VERSION = "2.0"` (1.0 until 3.3.10.0, 1.1 until 3.3.13.0, 1.2
+until 3.4.0.0, 1.3 until 3.5.0.0, 1.4 until 3.6.0.0, 1.5 in 3.6.0.0's first rounds; 2.0 since 3.6.0.0: [a pack's
+crew](#a-packs-crew-agents-workflows-and-maps), and a 1.x pack still runs; a 1.0, 1.1 or 1.2 pack keeps everything, [Changes in 1.x](#changes-in-1x); 3.3.11.0 added [Setup
 blocks](#setup-blocks) to 1.1, 3.3.12.0 [Themes](#themes); 3.3.13.0 made it 1.2 with [Services](#services) and
 [Transports](#transports) (R3) and [a section's view](#a-sections-view), [`api.lib`](#apilib), [a pack's own
 routes](#a-packs-own-routes) and [the host services](#the-host-services) (R2), the seams the signal and design packs are
@@ -30,7 +31,7 @@ guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK
 | [The stable surface](#the-stable-surface-halo_harnessext) | stable | names and meanings hold for every 1.x |
 | [The manifest](#the-manifest-packyaml) | stable | format 1, read by API 1.x |
 | [The lifecycle](#the-lifecycle) | stable | `halo pack` verbs, state.json, the journal |
-| [Agents and teams](#agents-and-teams) | stable | bios and lineups under `<id>--<name>`; R2: capabilities, needs, namespace, workflows, acceptance |
+| [A pack's crew](#a-packs-crew-agents-workflows-and-maps) | stable | 2.0: `crew/agents`, `crew/workflows`, `crew/maps` under `<id>--<name>`; a 1.x pack's bios, lineups and plain workflows read as them |
 | [Skills, commands, hooks and MCP](#skills-commands-hooks-and-mcp) | stable | the Claude-plugin layout, namespaced |
 | [Permissions and grants](#permissions-and-grants) | stable | requested in pack.yaml, granted by you |
 | [Studio contributions](#studio-contributions) | stable | `contributes.studio` (3.2.0.0 R3): sections, panels, palette, the settings form, event lines, attention rows; a bundle only with `studio-script` (3.3.10.0 R3: its `api` publishes, listens, routes and asks for attention); 3.3.13.0 R2, API 1.2: a section drawn whole by one bundle (`view`), `api.lib` (the shell's React and parts), the pack's own API routes (`routes`, the `studio-routes` grant) |
@@ -65,7 +66,7 @@ else of Halo (`tests/test_ext_api.py` walks every fixture and shipped pack's Pyt
 check it). The modules under `halo_harness/ext/` are the implementation; the
 names in `__all__` are the contract.
 
-- `API_VERSION`, `HALO_API_VERSION`: `"1.5"` (3.6.0.0; `"1.4"` from 3.5.0.0, `"1.3"` from 3.4.0.0, `"1.2"` from 3.3.13.0, `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
+- `API_VERSION`, `HALO_API_VERSION`: `"2.0"` (3.6.0.0; `"1.5"` in its first rounds, `"1.4"` from 3.5.0.0, `"1.3"` from 3.4.0.0, `"1.2"` from 3.3.13.0, `"1.1"` from 3.3.10.0 R1, `"1.0"` before).
 - `api_version()`, `compatible(range)`, `deprecations()`: 3.2.0.0 R7, the version policy
   ([Compatibility and migration](#compatibility-and-migration)): this API's version, whether a `halo_api`
   range takes it, the names announced for removal (`[{name, since, removed_in, use}]`, none in 1.0).
@@ -195,39 +196,50 @@ update | remove | doctor` ([COMMANDS-packs.md](COMMANDS-packs.md)).
 - **Remove** deletes only the pack's own files (the journal's, unchanged) and `<id>.previous`;
   your bios, lineups, memory folders and settings stay and are listed.
 
-## Agents and teams
+## A pack's crew: agents, workflows and maps
 
-Status: **stable** (`contributes.agents` and `contributes.teams`; the schema
-deltas below are stable since 3.2.0.0 R2). `agents/*.yaml` (bios) and
-`teams/*.yaml` (lineups) are
-read in place by the pack tier of `agent_search_dirs` / `team_search_dirs`:
-after the project and home folders, before the shipped templates; the source
-label is `pack:<id>`, the name `<id>--<name>`, and `_pack` and `_name` are
-attached. Inside the pack, a lineup's `agent:` and a file's `extends:` may
-name the pack's own bios and lineups bare; Halo qualifies them. A pack file
-is never written: Studio answers 409 and offers a duplicate in your scope,
-which wins (and `halo pack doctor` names the shadow). A project pack's lineup
-loses `permissions.mode` and allow rules. `agents/*.md` are Claude-plugin agents.
+Status: **stable** (API 2.0, Halo 3.6.0.0). Lineups, bios and squares left Halo in 3.6.0.0: a session runs on a map
+(agent -> workflow -> map, [CREW-sessions.md](CREW-sessions.md)). A 2.0 pack ships its crew in the same three formats
+a person writes, read in place:
 
-The bio and lineup schemas are the user's ([AGENTS.md](AGENTS.md),
-[ROLES.md](ROLES.md)); a pack's files add or narrow these (checked with the
-manifest, `halo_harness/packs/bio_rules.py`, one line per problem naming the
-file and line):
-
-| Where | Key | Meaning |
+| Folder | Format | Becomes |
 |---|---|---|
-| bio | `models.capabilities: [tag, ...]` | resolved at load to the best catalog model with every tag (`long-context`, `vision`, `audio`, `video`, `files`, `image-out`, `tools`, `local`, and since 3.2.1.0 `reasoning`, `open-weights`, `audio-out`; `halo_harness/packs/bio_models.py`); none: the user's `default` model and a doctor row. A bio of the user's may say it too. |
-| bio | `models.preference` | a bare family name only (`claude-sonnet`): the family the pick prefers. A route prefix (`or:` ...), a `vendor/model` path, a Databricks name, or `models.provider`, is a manifest problem. |
-| bio | `context.memory.namespace` | default the pack's id; the folder `~/.halo/packs/.data/<id>/memory/<namespace>/`; recall (`recall.search(namespace=...)`) reads it apart from the user's and every other pack's. |
-| bio | `tools.needs: [need, ...]` | `bash`, `network`, `home-write`, `hooks`, `mcp:<server>`, each requested in `permissions`; an ungranted need loads the bio and gets a doctor row naming `halo pack enable <id> --grant <need>`. |
-| lineup | `workflows: [name, ...]` | names from the manifest's `contributes.workflows` (names, or `workflows/<name>.yaml` whose stem is the name; R5 runs them). 3.2.1.0 R2: an item may be `<id>/<name>` (the pack's own; another pack's is a manifest line); the resolved lineup carries `workflow_refs` (`["<id>/<name>", ...]`) beside the names ([PACKS.md](PACKS.md#a-lineups-workflows)). |
-| lineup | `acceptance.test`, `acceptance.review` | the Orchestra goal's `test` and `plan: review` a run with this lineup starts with (`halo orchestra new --lineup`); `prompt` / `expect` stay the doctor's smoke prompt. |
-| both | `from_pack: <id>@<version>` | written by Studio's Clone on the copy in the user's folder; changes nothing at run time. |
+| `crew/agents/<name>.yaml` | `agent/1` | an agent: spawnable by name in every session (`Agent(subagent_type="<id>--<name>")`), on a map's box, in a workflow's step |
+| `crew/workflows/<name>.yaml` | `workflow/1` | a workflow: the Workflow tool runs it by name, a map's box hands work to it |
+| `crew/maps/<name>.yaml` | `map/1` | a map: `halo maps use <id>--<name>` or `--map <id>--<name>` runs a session on it (the pack's starter map) |
 
-The manifest gains `contributes.workflows` (a list of names). Clone and
-Customize copy a pack's bio or lineup into the user's folder as `<name>`
-(`halo_harness/packs/clone.py`); a file of the user's, or a shipped one,
-with that name is written only after the user's confirm.
+Every name is `<id>--<name>` (the pack's id, two dashes, the file's stem), so a pack never shadows an agent, workflow or
+map of yours or a starter; inside the pack, a map's box and a workflow's step may name the pack's own agents with the
+qualified name. A pack file is never written: Copy in Studio's Agents tabs makes yours. Nothing needs a manifest key:
+the folder is read when it is there.
+
+**A 1.x pack on 2.0.** A pack whose `halo_api` range is 1.x still installs and runs (everything that is not crew is
+unchanged), and its crew files are READ as 2.0's where the meaning is clear (`halo_harness/packs/crew_v1.py`):
+
+- a bio (`agents/<n>.yaml`) is the agent `<id>--<n>`: `does` its description, `instructions` its
+  `context.system_prompt`, `model` its `models.preference` when that names a model (else `auto`, with its
+  `models.needs` / `capabilities` as needs), `uses` from `tools.allow` (Read / Glob / Grep: read; Edit / Write: edit;
+  Bash: bash; WebFetch / WebSearch: web), `careful` from `tools.permission_mode` (auto: own), `more` its effort,
+  `limits.max_iterations` and `limits.max_budget_usd`;
+- a lineup (`teams/<n>.yaml`) is the map `<id>--<n>`: main its `role: main` card's agent, a box per other card with a
+  line from main (`when: {says: [...]}` from its `routing` words, else main decides), `caps.session_usd` its
+  `budget.max_budget_usd`;
+- a pack workflow (`workflows/<n>.yaml`) whose stages are plain (no `for_each`, no required input, no human gate) is
+  the workflow `<id>--<n>`, a step per stage on its `role`'s agent.
+
+What is not carried (a lineup's tiers, permissions, delegation, pipeline, escalation, context, acceptance; a bio's
+hooks, memory, schedules, isolation and secrets; a workflow that is not plain) is ONE line per pack in `halo pack list`
+and an `info` row in `halo pack doctor`:
+
+```
+pack old-pack: not read: 1 workflow (gated) (Halo 3.6 reads a 1.x pack's bios as agents, lineups as maps, ...)
+```
+
+**Moving a pack to 2.0.** Write each bio as `crew/agents/<name>.yaml` (`format: agent/1`, the fields above), each
+lineup as `crew/maps/<name>.yaml` (`format: map/1`: `boxes`, `lines`, `main`), each workflow as
+`crew/workflows/<name>.yaml` (`format: workflow/1`: `steps` of `agents`, `gets`, `hands`); set `halo_api: {min:
+"2.0"}`; delete `agents/*.yaml`, `teams/` and `contributes.agents` / `teams` / `workflows`. The doc-review pack is the
+worked example (`halo_harness/templates/packs/doc-review/crew/`). `agents/*.md` (Claude-plugin agents) are unchanged.
 
 ## Skills, commands, hooks and MCP
 
@@ -1277,7 +1289,7 @@ and `halo_harness/packs/resolve.py` apply it:
   `halo pack doctor` and in the Pack Manager's Details, in these words:
 
 ```
-pack doc-review needs extension API 1.6 to 1.9; this Halo has 1.5
+pack doc-review needs extension API 2.1 to 2.9; this Halo has 2.0
 pack x needs Halo >= 3.3; this is 3.2.0.0
 ```
 

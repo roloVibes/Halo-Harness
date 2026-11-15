@@ -97,7 +97,7 @@ def _gives(stage: dict) -> list:
 
 
 def _lineup(wf) -> str:
-    from halo_harness.agents_yaml import _read_yaml_file
+    from halo_harness.yamlfile import _read_yaml_file
     from halo_harness.packs import names as N
     from halo_harness.packs.lineup_run import workflow_refs
     if getattr(wf, "origin", "pack") != "pack":  # 3.3.16.0 R3: a square of yours / shipped names its lineup itself

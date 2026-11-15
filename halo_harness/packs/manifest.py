@@ -1,7 +1,7 @@
 """halo_harness.packs.manifest -- a pack's `pack.yaml` (Halo 3.2.0.0 R1,
 docs/EXTENSION_API.md "The manifest").
 
-    data, problems = load_manifest(root)     # read through agents_yaml._read_yaml_file
+    data, problems = load_manifest(root)     # read through yamlfile._read_yaml_file
     validate_manifest(data, root=root)       # [] when valid; one line per problem
 
 Shape comes from `schemas.check_file_shape("pack", ...)` (an unknown key
@@ -40,7 +40,7 @@ def manifest_path(root) -> Path:
 
 def load_manifest(root) -> "tuple[Optional[dict], list[str]]":
     """`(data, [])`, or `(None, [one line])` when pack.yaml is missing or is not a YAML mapping."""
-    from halo_harness.agents_yaml import _read_yaml_file
+    from halo_harness.yamlfile import _read_yaml_file
     path = manifest_path(root)
     if not path.is_file():
         return None, [f"no {MANIFEST} in {Path(root).name or root}"]

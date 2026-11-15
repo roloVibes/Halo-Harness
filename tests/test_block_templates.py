@@ -1,8 +1,8 @@
 """tests.test_block_templates -- blocks you can start from, and who is inside a square (Halo 3.3.16.3 "Blocks",
 workflows/blocks.py, blocks_tier.py, members.py, blocks_cli.py, studio/blocks_api.py): the four shipped templates load
 and validate, every agent on `auto` (nothing names a provider); a square template writes a square of YOURS and wires it
-(remove undoes it); a tier template merges below the last tier (aliases kept apart, routing words not overwritten; a
-shipped lineup copied to yours); an agent joins / leaves a square of yours in place, a shipped square is copied to yours
+(remove undoes it); (3.6.0.0 R5b: the tier template's test went -- it merged into the shipped auto lineup, which
+left the package); an agent joins / leaves a square of yours in place, a shipped square is copied to yours
 first and the board swaps to the copy with its rule; the last agent cannot leave; `halo blocks list | add | show` and
 `halo teams show`'s block lines. No model.
 Run: python -m tests.test_block_templates
@@ -66,28 +66,6 @@ def test_a_square_template_writes_yours_and_wires_it(ctx: Ctx):
         ctx.check(f"remove undoes it, got {line3!r}", ok3 and not mine.exists() and "thinking" not in registry.enabled_refs(cwd=h.repo))
         ok4, _l, info4 = B.add("media", None, None, cwd=h.repo)
         ctx.check(f"media adds as media-team, the shipped media untouched, got {info4}", ok4 and info4["ref"] == "media-team")
-
-
-@test
-def test_a_tier_template_merges_below_the_last_tier(ctx: Ctx):
-    from halo_harness.agents_yaml import _read_yaml_file
-    from halo_harness.teams_yaml import validate_team_template
-    from halo_harness.workflows import blocks as B
-    from halo_harness.workflows.blocks_tier import merge
-    with PacksHome() as h:
-        ok, line, info = B.add("local-workers", None, "auto", cwd=h.repo)
-        raw = _read_yaml_file(h.state / "teams" / "auto.yaml") or {}
-        ctx.check(f"a shipped lineup becomes your copy, got {line!r}", ok and "your copy now" in line)
-        ctx.check(f"the tier is last with its purpose, got {raw['tiers'][-1]}",
-                  raw["tiers"][-1]["name"] == "local" and raw["tiers"][-1]["members"] == ["local-coder", "local-writer", "local-ops"]
-                  and raw["tiers"][-1]["purpose"].startswith("local workers"))
-        ctx.check(f"it validates, got {validate_team_template(raw, cwd=h.repo)}", validate_team_template(raw, cwd=h.repo) == [])
-        again, name = merge(raw, B.load("local-workers")[0])
-        ctx.check(f"twice: the aliases and the tier kept apart, got {name} {again['tiers'][-1]['members']}",
-                  name == "local-2" and again["tiers"][-1]["members"] == ["local-coder-2", "local-writer-2", "local-ops-2"])
-        ctx.check("routing words already there are not overwritten", again["routing"]["bulk"] == "local-coder")
-        none, why = merge({"agents": [{"agent": "default-model", "role": "main"}]}, B.load("local-workers")[0])
-        ctx.check(f"a lineup with no tiers says add one first, got {why!r}", none is None and "add one first" in why)
 
 
 @test

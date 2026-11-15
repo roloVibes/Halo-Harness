@@ -191,19 +191,19 @@ def test_the_default_session_is_a_plain_session(ctx: Ctx):
 
 @test
 def test_the_starter_carries_the_lineup_needs_and_no_cap(ctx: Ctx):
-    """The starter's agents say the needs the lineup's cards picked by (one source in a session: the lineup; this pins
-    the drawing to it), the starter has no cap, and a cap on a default map is never applied."""
-    from halo_harness.agents_yaml import resolve_agent_bio
+    """The starter's agents say the needs a plain session's cards picked by (one source in a session: crew/plain.py's
+    file; this pins the drawing to it), the starter has no cap, and a cap on a default map is never applied."""
     from halo_harness.crew.compile import compile_map
-    from halo_harness.crew.map_control import MapControl, control_for, plain_lineup
+    from halo_harness.crew.map_control import MapControl, control_for
+    from halo_harness.crew.plain import load
     with S.home("crew-starter-") as (root, _state):
         c = compile_map("starter", cwd=root)
-        lineup = plain_lineup()
-        for alias, entry in lineup.aliases.items():
+        plain = load()
+        ctx.check("a plain session's answers are read (templates/crew/plain/session.yaml)", plain is not None)
+        for alias in plain.cards:
             if alias == "main":
                 continue
-            bio = resolve_agent_bio(entry["agent"]) or {}
-            want = list((bio.get("models") or {}).get("needs") or [])
+            want = plain.needs_of(alias)
             ctx.check(f"starter {STARTER.get(alias, alias)} needs {c.needs_of(STARTER.get(alias, alias))}, the lineup's {alias} {want}",
                       c.needs_of(STARTER.get(alias, alias)) == want)
         ctx.check("the starter has no cap", c.cap_usd is None)
@@ -212,7 +212,7 @@ def test_the_starter_carries_the_lineup_needs_and_no_cap(ctx: Ctx):
         ctx.check("a default map's cap is never applied", MapControl(capped).budget_refusal() is None
                   and "max_budget_usd" not in MapControl(capped).budget and capped.cap_usd == 20.0)
         mc = control_for(c)
-        ctx.check("the starter as a chosen map is a map with rules", type(mc) is MapControl and not hasattr(mc, "lineup"))
+        ctx.check("the starter as a chosen map is a map with rules", type(mc) is MapControl and not hasattr(mc, "plain"))
 
 
 @test

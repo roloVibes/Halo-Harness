@@ -484,9 +484,7 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
                       else parent.tool_registry.names())
     tool_names = spec.resolved_tools(catalog_names)
     child_registry = parent.tool_registry.filtered(tool_names)
-    from halo_harness.isolation.capabilities import narrow_member  # 3.1.8.0 R5: the member's tools.capabilities
-    child_registry, _opt_ins = narrow_member(child_registry, getattr(runtime, "team_control", None),
-                                             role_override or spec.role)
+    _opt_ins = None  # 3.6.0.0 R5b: a lineup member's tools.capabilities went with lineups (a map agent: its `uses`)
 
     ctx = SessionContext(
         cwd=child_cwd, model_label=parent.model_label, model_family="generic",
@@ -1208,11 +1206,9 @@ def _forward_child_escalation_decisions(parent, child, spec) -> None:
 
 
 def _return_acceptance_for(spec, role_name: "Optional[str]", team_control, child) -> "Optional[dict]":
-    """2.0.6 round 3: the bio's own `acceptance` block for THIS return --
-    the team assignment's bio first (a team member's criteria are the
-    team's), else the bio of the same name resolved against the CHILD's
-    own cwd/state (project scope first, then user). None when neither has
-    one (the byte-for-byte old path: no gate, no retry)."""
+    """2.0.6 round 3: the `acceptance` block for THIS return -- a plain
+    session's card's (crew/plain.py: its `expect`). None otherwise (the
+    byte-for-byte old path: no gate, no retry)."""
     if team_control is not None and role_name:
         try:
             bio = team_control.bio_for(role_name) or {}
@@ -1221,14 +1217,7 @@ def _return_acceptance_for(spec, role_name: "Optional[str]", team_control, child
                 return acceptance
         except Exception:
             pass
-    from halo_harness.agents_yaml import resolve_agent_bio
-    try:
-        bio = resolve_agent_bio(spec.name, cwd=getattr(child, "cwd", None),
-                                state_dir=getattr(child, "state_dir", None)) or {}
-    except Exception:
-        return None
-    acceptance = bio.get("acceptance")
-    return acceptance if isinstance(acceptance, dict) else None
+    return None  # 3.6.0.0 R5b: a bio of the spawned agent's name held one; bios are gone (an agent file's check is Try it's)
 
 
 def _check_return_acceptance(spec, role_name: "Optional[str]", team_control, child,
@@ -1241,7 +1230,7 @@ def _check_return_acceptance(spec, role_name: "Optional[str]", team_control, chi
     acceptance = _return_acceptance_for(spec, role_name, team_control, child)
     if not acceptance:
         return True, None
-    from halo_harness.agents_doctor import check_expectation
+    from halo_harness.crew.checks import check_expectation
     expect = acceptance.get("expect") or "non-empty"
     ok = bool(check_expectation(text or "", expect))
     return ok, f"acceptance {expect!r}"

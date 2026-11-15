@@ -42,7 +42,7 @@ def _named_by_config(model: str, host_name: str) -> bool:
     try:
         from halo_harness.studio.local_uses import uses_of
         u = uses_of(f"ol:{model}@{host_name}")
-        return bool(u.get("lineups") or u.get("roles") or u.get("default_model") or u.get("compaction"))
+        return bool(u.get("agents") or u.get("roles") or u.get("default_model") or u.get("compaction"))
     except Exception:
         return False
 

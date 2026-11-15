@@ -4,8 +4,10 @@
 # doc-review --grant bash` turns it on, `halo pack doctor` checks it.
 #
 # What it shows, one part of the extension API each (docs/EXTENSION_API.md):
-# - a reviewer and a writer bio (agents/) and the review lineup (teams/), read in
-#   place as doc-review--reviewer, doc-review--writer and doc-review--review;
+# - its crew (extension API 2.0, crew/): the reviewer and writer agents, the review
+#   map and the review-docs workflow, read in place as doc-review--reviewer,
+#   doc-review--writer, doc-review--review and doc-review--review-docs (its 1.x
+#   bios in agents/ and lineup in teams/ stay for the run engine's workflow below);
 # - the review workflow (workflows/review.yaml): read every Markdown file, judge
 #   the findings, write one typed review-report (artifacts/review-report.json);
 # - a Studio section (contributes.studio): the notes, the checks, the links, the
@@ -21,7 +23,7 @@ version: 1.0.0
 description: Reviews a repo's Markdown documents with a reviewer and a writer bio, a review workflow and a typed review report.
 author: Halo Harness
 license: MIT
-halo_api: {min: "1.4", max: "1.9"}
+halo_api: {min: "2.0", max: "2.9"}
 halo: {min: "3.5"}
 capabilities: [docs.review]
 contributes:

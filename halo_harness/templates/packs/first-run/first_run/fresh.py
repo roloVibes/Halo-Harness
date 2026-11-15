@@ -37,14 +37,23 @@ def own_lineups(cwd, state_dir) -> "list[str]":
     T = _core.module("teams_yaml")
     from halo_harness.ext import core as _core
     read_only_source = _core.get("packs.names", "read_only_source")
-    from halo_harness.ext import core as _core
-    M = _core.module("studio.model")
     out = []
     for name in T.list_team_templates(cwd=cwd, state_dir=state_dir):
-        row = M.lineup_summary(name, cwd=cwd, state_dir=state_dir) or {}
-        if row and not read_only_source(row.get("scope")) and not row.get("shipped_copy"):  # 3.2.0.0 R1: packs too
+        raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir) or {}
+        if raw and not read_only_source(raw.get("_source", "")) and not _shipped_copy(T, name, raw):  # 3.2.0.0 R1: packs too
             out.append(name)
     return out
+
+
+def _shipped_copy(T, name: str, raw: dict) -> bool:
+    """A user-scope file that is still the copy Halo made of a shipped lineup (line ends aside)."""
+    shipped = T.bundled_team_templates_dir() / f"{name}.yaml"
+    try:
+        if not raw.get("_path") or not shipped.is_file():
+            return False
+        return Path(raw["_path"]).read_bytes().replace(b"\r\n", b"\n") == shipped.read_bytes().replace(b"\r\n", b"\n")
+    except OSError:
+        return False
 
 
 def sample_repos(state_dir) -> "list[Path]":

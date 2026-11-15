@@ -114,7 +114,7 @@ def warm_lineup(name: Optional[str], *, host: Optional[str] = None, keep_alive=N
             say(f"  {rows[-1]['say']}")
         out["hosts"].append({"host": host_name, "line": ws["line"], "rows": rows, "set": ws})
     if not lanes:
-        out["line"] = f"halo local warm: {lineup or 'this lineup'} has no local lanes (no `ol:` models): nothing to warm"
+        out["line"] = f"halo local warm: {lineup or 'this map'} has no local lanes (no `ol:` models): nothing to warm"
     else:
         verb = "would load" if dry else "loaded"
         out["line"] = (f"halo local warm {lineup}: {out['loaded']} {verb}" + (f" in {secs(out['seconds'])}" if out["loaded"]
@@ -124,25 +124,23 @@ def warm_lineup(name: Optional[str], *, host: Optional[str] = None, keep_alive=N
 
 
 def _lineup_named(names: list) -> "Optional[str]":
-    from halo_harness.teams_yaml import resolve_team_template
-    if len(names) == 1 and resolve_team_template(names[0]) is not None:
+    """A map's name (one name that is a map, or none: the map in use); None when the names are models."""
+    from halo_harness.crew import store
+    if len(names) == 1 and store.find("map", names[0]) is not None:
         return names[0]
     if not names:
-        from halo_harness.teams_runtime import active_team_name
-        try:
-            active = active_team_name(None)
-        except Exception:
-            active = None
-        return active if active and resolve_team_template(active) is not None else None
+        from halo_harness.crew.in_use import map_name
+        active = map_name()
+        return active if active and store.find("map", active) is not None else None
     return None
 
 
 def cmd_warm(argv: list) -> int:
     parser = argparse.ArgumentParser(prog="halo local warm", description=(
-        "Pre-warm a lineup's warm set (the models that co-reside on each card): what is not resident is loaded, "
-        "each row says how long it took; the models that cannot co-reside pivot later. Names that are not a lineup "
+        "Pre-warm a map's warm set (the models that co-reside on each card): what is not resident is loaded, "
+        "each row says how long it took; the models that cannot co-reside pivot later. Names that are not a map "
         "are models (the 2.0.7 form)."))
-    parser.add_argument("names", nargs="*", help="a lineup (default: the active one), or model names")
+    parser.add_argument("names", nargs="*", help="a map (default: the one in use), or model names")
     parser.add_argument("--host", default=None, help="only this Ollama host (its name here)")
     parser.add_argument("--keep-alive", default=None, help="how long the weights stay (30m, 24h, -1); default: the "
                                                            "profile's, else the host's")

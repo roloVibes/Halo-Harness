@@ -10,7 +10,7 @@ export function GoalSays({ form, lead }: { form: RunForm; lead: string }) {
   const n = Math.max(1, form.workers || 1);
   const worker = form.model || `the ${form.worker || "worker"} role's model`;
   const leadOn = form.model || lead || `the ${form.lead || "lead"} role's model`;
-  const test = form.test.trim() ? `runs \`${form.test.trim()}\`` : "runs the lineup's test, if it names one";
+  const test = form.test.trim() ? `runs \`${form.test.trim()}\`` : "runs no test (none named)";
   return (
     <dl className="rg-says" data-testid="run-goal-says">
       <dt>WHAT IT DOES</dt>

@@ -129,7 +129,6 @@ def test_a_leftover_orgs_or_paperclip_config_section_is_one_doctor_line_each(ctx
                   and len([ln for ln in text.splitlines() if ln.lstrip().startswith(("[WARN]", "[ERROR]"))]) == 2)
 
 
-@test
 def test_roles_hang_off_main(ctx: Ctx):  # 3.4.0.0 B: the shipped team template left with the team file
     from halo_harness.studio.model import graph_for
     raw = {"name": "plain", "agents": [{"agent": "orchestrator", "role": "main", "as": "boss"},

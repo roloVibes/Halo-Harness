@@ -23,7 +23,7 @@ function Lists({ p }: { p: PackRow }) {
       ) : <p className="muted">No workflow.</p>}
       {(p.lineups.length > 0 || p.bios.length > 0) && (
         <p className="muted" data-testid="pm-templates-old">
-          {p.lineups.length} lineup(s) and {p.bios.length} bio(s) in this pack are no longer read: lineups and bios are gone (agents, workflows and maps live in ~/.halo/crew/).
+          This pack's {p.bios.length} bio(s) and {p.lineups.length} lineup(s) are read as agents and maps named {p.id}--&lt;name&gt; (extension API 2.0; lineups and bios are gone): find them in Agents and on the Map; halo pack doctor says what is not carried.
         </p>
       )}
     </>
@@ -36,7 +36,7 @@ export function TemplatesDetail() {
   if (!p.running)
     return (
       <Empty title={p.installed ? "Enable it first" : "Install and enable it first"} testid="pm-templates-off"
-             body={`${p.name} offers ${p.lineups.length} lineup(s), ${p.bios.length} bio(s) and ${p.workflows.length} workflow(s); they are read in place while it runs.`} />
+             body={`${p.name} offers ${p.workflows.length} workflow(s), and its agents and maps; they are read in place while it runs.`} />
     );
   return (
     <div className="pm-templates" data-testid="pm-templates-body" data-id={p.id}>

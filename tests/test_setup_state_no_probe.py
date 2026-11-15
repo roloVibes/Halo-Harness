@@ -4,7 +4,7 @@ connection (Halo 3.3.0.0 R3, deliverable 4b). R1's Default model rows
 Ollama host on each `GET setup/state`; the state's rows now come from what
 is cached (`model_rows(cached=True)`, providers/local_models_cached.py), and
 the guided first run's card and the check costs read the cached catalog too
-(team_preview.catalog_by_ref). The hosts here are documentation addresses
+(model_enumeration.rows_by_ref). The hosts here are documentation addresses
 (192.0.2.x); every connection attempt is refused and recorded.
 Run: python -m tests.test_setup_state_no_probe
 """

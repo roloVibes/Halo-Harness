@@ -49,7 +49,7 @@ class Lines:
 
 
 def read_workflow(path) -> "tuple[object, str]":
-    from halo_harness.agents_yaml import _read_yaml_file
+    from halo_harness.yamlfile import _read_yaml_file
     try:
         text = Path(path).read_text(encoding="utf-8")
     except OSError:

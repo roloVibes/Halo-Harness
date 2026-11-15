@@ -174,7 +174,7 @@ def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
     if got is None:
         return Compiled(name=name, problems=[f"no map named {name} (yours, this project's or a starter)"])
     path, scope = got
-    raw = store.read(path)
+    raw = store.read(path) if scope != "pack" else store.clean(store.load("map", name, cwd=cwd, state_dir=state_dir) or {})
     if raw is None:
         return Compiled(name=name, path=str(path), scope=scope, problems=[f"the map {name} is not YAML Halo can read"])
     out = compile_raw(raw, name=name, cwd=cwd, state_dir=state_dir)

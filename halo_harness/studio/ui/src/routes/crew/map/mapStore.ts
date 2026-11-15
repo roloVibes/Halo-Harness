@@ -4,6 +4,7 @@
 // "My sessions use this" is POST crew/map/<name>/use. Lock (off by default, kept in this browser) stops every change.
 // The builder box on this tab says which map is open and reloads it after an Apply or an Undo (builderStore onTab).
 import { api, ApiError } from "../../../lib/api";
+import { onFilesChanged } from "../../../lib/filesLive";
 import { createStore, useStore, writeLocal } from "../../../lib/store";
 import { loadCrew } from "../store";
 import { loadFlows } from "../flows/flowStore";
@@ -35,7 +36,13 @@ export const maps = createStore<MapState>({ rows: [], inUse: null, name: "", det
 export const useMap = <T,>(pick: (s: MapState) => T): T => useStore(maps, pick);
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
 
+let watching = false;
+
 export async function loadMaps(): Promise<void> {
+  if (!watching) {  // 3.6.0.0 R5b: a map file (or config's crew.map) changed outside Studio shows at once
+    watching = true;
+    onFilesChanged(["maps", "config"], () => void loadMaps());
+  }
   try {
     const r = await api.get<{ maps: MapRow[]; in_use: string | null }>("crew/maps");
     maps.update(() => ({ rows: r.maps, inUse: r.in_use }));

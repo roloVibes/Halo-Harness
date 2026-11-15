@@ -85,7 +85,7 @@ export function RunInspector({ kind, id }: { kind: "run" | "lane"; id: string })
     ? [["GOAL", g.what], ["OWNS", ownsOf(lane, data.claims || []).join(", ") || "nothing yet"], ["STATE", [LANE_LABEL[lane.state] || lane.state || "pending", lane.error].filter(Boolean).join(": ")],
        ["LAST OUTPUT", short(last, 240) || "nothing yet"], ["COST", cost(lane.cost_usd)], ["MODEL", lane.model || g.worker || "the worker role's model"], ["WORKTREE", lane.branch]]
     : [["GOAL", g.what], ["DONE WHEN", g.done_when], ["STATE", data.run.state === "planned" ? "the plan waits on you" : data.run.state], ["LANES", counts || "none yet"],
-       ["COST", cost(data.run.cost_usd)], ["THE GATE", g.test || "the lineup's test, if it names one"]];
+       ["COST", cost(data.run.cost_usd)], ["THE GATE", g.test || "no test named"]];
   return (
     <div className="ri-sum rn-sum" data-testid="run-inspector" data-pick={kind} data-run={run} data-lane={lane?.lane || undefined}>
       <div className="rn-title">

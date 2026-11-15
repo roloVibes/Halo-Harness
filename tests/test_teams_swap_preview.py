@@ -1,7 +1,7 @@
 """tests.test_teams_swap_preview -- Halo 3.3.7.0 R3: the switch cost in the plan and the lineup's swap preview
 (local_sched/preview.py, `halo teams use`, model_switch.plan's `load_s`), over tests/helpers/sched_rig.SchedHome:
 
-1. `halo teams use` prints the swap preview under the roles: the warm set per card, "this lineup swaps 2x on one
+1. `halo teams use` prints the swap preview under the roles: the warm set per card, "this map swaps 2x on one
    card ~ ... of loading a pass", and the hygiene lines (verify and worker on different weights that do not
    co-reside; a lane that never fits beside main);
 2. verify and worker on one model: "share weights ...: 0 swaps between them"; all co-reside: "0 swaps a pass";
@@ -32,7 +32,7 @@ def test_shared_weights_and_co_residing_lanes(ctx: Ctx):
         write(h.state, "same", {"worker": f"ol:{CODER}@pc", "verify": f"ol:{CODER}@pc"})
         pv = preview("same")
         ctx.check(f"0 swaps a pass, got {pv['lines']}", pv["swaps"] == 0
-                  and pv["lines"][-1] == "this lineup's local models co-reside: 0 swaps a pass")
+                  and pv["lines"][-1] == "this map's local models co-reside: 0 swaps a pass")
         ctx.check(f"share weights, got {pv['hygiene']}",
                   "verify and worker share weights (qwen3-coder:30b): 0 swaps between them" in pv["hygiene"])
         write(h.state, "two", {"worker": f"ol:{TINY}@pc", "verify": f"ol:{CODER}@pc"})

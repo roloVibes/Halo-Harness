@@ -139,8 +139,8 @@ def _overlaps(good: list, deps: dict) -> list:
 
 def job_preflight(good: list, *, cwd=None, state_dir=None) -> list:
     """The lineup preflight for each job's own bio and model."""
-    from halo_harness.agents_doctor import missing_model_provider
-    from halo_harness.agents_yaml import resolve_agent_bio
+    from halo_harness.crew.checks import missing_model_provider
+    from halo_harness.crew.in_use import agent_or_bio as resolve_agent_bio  # 3.6.0.0 R5b: an agent file, else a bio
     out, catalogs, bios = [], {}, {}
     for jid, job in good:
         bio_name, model = str(job.get("bio") or "").strip(), str(job.get("model") or "").strip()

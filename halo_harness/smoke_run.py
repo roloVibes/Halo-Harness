@@ -57,7 +57,7 @@ def run_bio_smoke(model_ref_raw: str, prompt: "Optional[str]" = None, *,
     choice (the editor passes it when the bio has one). Never raises;
     the return is the call's stdout (empty on any failure -- the caller's
     note says so plainly)."""
-    from halo_harness.agents_doctor import _default_call
+    from halo_harness.crew.checks import call_once as _default_call
     text = (prompt or "Reply with one short sentence confirming you can see this "
                       "smoke prompt, then stop.").strip()
     return _default_call(model_ref_raw, text, timeout=timeout)

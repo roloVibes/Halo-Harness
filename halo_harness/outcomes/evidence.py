@@ -169,7 +169,7 @@ def _acceptance(bio: dict, summary: str, tests: list) -> Optional[dict]:
     acc = bio.get("acceptance") if isinstance(bio.get("acceptance"), dict) else None
     if not acc:
         return None
-    from halo_harness.agents_doctor import check_expectation
+    from halo_harness.crew.checks import check_expectation
     expect = str(acc.get("expect") or "non-empty")
     met = bool(check_expectation(summary or "", expect))
     why = f"acceptance {expect!r} on the final text: {'met' if met else 'not met'}"

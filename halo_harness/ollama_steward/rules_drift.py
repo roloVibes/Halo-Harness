@@ -32,13 +32,10 @@ def refs(state_dir) -> list:
         pass
     try:
         from halo_harness.local_sched.preview import lanes_for
-        from halo_harness.teams_runtime import active_team_name
-        name = active_team_name(None)
+        lanes, _declared, name = lanes_for(None, state_dir=state_dir)  # 3.6.0.0 R5b: the map in use
         if name:
-            lanes, declared, _n = lanes_for(name, state_dir=state_dir)
-            out += [(f"lineup {name} lane {ln['lane']}", f"ol:{ln['model']}@{ln['host']}", None) for ln in lanes
+            out += [(f"map {name} agent {ln['lane']}", f"ol:{ln['model']}@{ln['host']}", None) for ln in lanes
                     if ln["lane"] != "main"]
-            out += [(f"lineup {name} warm:", f"ol:{m}", None) for m in declared if not any(m == ln["model"] for ln in lanes)]
     except Exception:
         pass
     try:

@@ -10,13 +10,13 @@ to keep it as the coder lane under a model that can.
 `line` says what the model is and what it cannot do as the main agent
 ("qwen3-coder:30b is a coding model with no tool calling on this server: it
 can write and answer but cannot act; as the main agent it would not run
-tools") and `offer` names the fix: a lineup (`local-coder`, or
-`<model>-coder` for a cloud model) with the coder role pinned to this model,
-main on the best orchestrator among the configured models (local first, then
-cloud: the Auto pool's pick), reviewer / researcher / small on the `auto`
-pool. `accept` writes it through the `halo teams apply` path
-(`teams_cli_views.apply_lineup`); the caller then moves the session to the
-orchestrator. Going ahead anyway always works: nothing is written then.
+tools") and `offer` names the fix: a map (`local-coder`, or
+`<model>-coder` for a cloud model) with a coder agent on this model, main on
+the best orchestrator among the configured models (local first, then cloud:
+the Auto pool's pick), the starter reviewer / researcher / writer on `auto`
+(3.6.0.0 R5b: a map and two agents, where it was a lineup). `accept` writes
+them and puts the map in use (`halo maps use`); the caller then moves the
+session to the orchestrator. Going ahead anyway always works: nothing is written then.
 `offer` is None when no configured model can orchestrate either.
 """
 
@@ -113,7 +113,7 @@ def pick_orchestrator(state_dir, *, exclude: str = "", rows=None, prefer=()) -> 
 def offer_line(offer: Optional[dict]) -> str:
     if not offer:
         return "No configured model can orchestrate here; it runs as the main agent as it is."
-    return (f"Keep it as the coder lane under {offer['orchestrator']} (lineup '{offer['lineup']}'), "
+    return (f"Keep it as the coder under {offer['orchestrator']} (map '{offer['lineup']}'), "
             "or go ahead anyway.")
 
 
@@ -127,56 +127,64 @@ def check(ref, *, state_dir, card: Optional[dict] = None, catalog=None, host=Non
     orch, why = pick_orchestrator(state_dir, exclude=card["ref"], rows=rows, prefer=prefer)
     name = lineup_name(card)
     offer = ({"lineup": name, "coder": card["ref"], "orchestrator": orch, "why": why,
-              "command": f"halo teams apply {name} && halo config set model {orch}"} if orch else None)
+              "command": f"halo maps use {name} && halo config set model {orch}"} if orch else None)
     return {"line": warning_line(card), "card": card, "offer": offer, "offer_line": offer_line(offer)}
 
 
-def lane_template(offer: dict) -> dict:
-    coder, orch = offer["coder"], offer["orchestrator"]
-    return {
-        "description": f"{coder} as the coder lane under {orch} (written when {coder} was picked as the main model)",
-        "version": "1.0", "tags": ["lane", "local" if _is_local(coder) else "cloud"],
-        "about": (f"Main runs on {orch}, which plans, acts and delegates. Code work goes to the coder, {coder}; "
-                  "review, research and small jobs go to the auto pool. You are in the lineup: do your task and hand "
-                  "back the result."),
-        "agents": [
-            {"agent": "default-model", "role": "main", "models": {"preference": orch}},
-            {"agent": "auto-coder", "role": "coder", "use_for": ["implement", "fix", "refactor", "code"],
-             "models": {"preference": coder}},
-            {"agent": "auto-reviewer", "role": "reviewer", "use_for": ["review", "audit"]},
-            {"agent": "auto-researcher", "role": "researcher", "use_for": ["research", "investigate"]},
-            {"agent": "auto-writer", "role": "small", "use_for": ["summarize", "draft"]},
-        ],
-        "delegation": {"mode": "by-skill", "max_parallel": 2, "max_depth": 2, "handoff": "summary", "forward_text": False},
-        "routing": {"implement": "coder", "fix": "coder", "refactor": "coder", "code": "coder", "review": "reviewer",
-                    "audit": "reviewer", "research": "researcher", "investigate": "researcher", "summarize": "small",
-                    "draft": "small"},
-        "budget": {"band": "mid"},
+def lane_files(offer: dict) -> "tuple[dict, dict]":
+    """3.6.0.0 R5b: the offer as files -- ({agent name: agent/1 body}, the map/1 body): main on the orchestrator, a
+    coder agent on the picked model, and lines from main to it and to the starter reviewer, researcher and writer
+    (their models picked per task)."""
+    coder, orch, name = offer["coder"], offer["orchestrator"], offer["lineup"]
+    agents = {
+        f"{name}-main": {"format": "agent/1", "name": f"{name}-main", "does": f"Main on {orch}: plans, acts and hands code work to {name}-coder.",
+                         "instructions": (f"You run on {orch}, which plans, acts and delegates. Hand code work to {name}-coder "
+                                          f"({coder}); review, research and writing go to the reviewer, researcher and writer."),
+                         "model": orch, "uses": ["read", "edit", "bash", "web"], "careful": "ask-changes"},
+        f"{name}-coder": {"format": "agent/1", "name": f"{name}-coder",
+                          "does": f"Makes the change the task describes on {coder}, runs the tests that cover it and says what changed.",
+                          "model": coder, "uses": ["read", "edit", "bash"], "careful": "ask-changes"},
     }
+    boxes = [{"id": "coder", "agent": f"{name}-coder"}, {"id": "reviewer", "agent": "reviewer"},
+             {"id": "researcher", "agent": "researcher"}, {"id": "writer", "agent": "writer"}]
+    body = {"format": "map/1", "name": name, "boxes": boxes,
+            "lines": [{"from": "main", "to": b["id"], "when": "main-decides"} for b in boxes],
+            "main": {"agent": f"{name}-main"}}
+    return agents, body
 
 
 def write_lane(offer: dict, *, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
-    """The lineup file only (not made active): `halo teams apply <name>` makes it active."""
-    from halo_harness.teams_yaml import ensure_builtin_team_templates, save_team_template
+    """The map and its two agents in your crew folder (not put in use): `halo maps use <name>` does that."""
+    from halo_harness.crew import store
+    from halo_harness.crew.formats import PROBLEMS
+    agents, body = lane_files(offer)
+    problems = [p for n, a in agents.items() for p in PROBLEMS["agent"](a, name=n)] + PROBLEMS["map"](body, name=offer["lineup"])
+    if problems:
+        return False, problems
     try:
-        ensure_builtin_team_templates(state_dir=state_dir)
-    except Exception:
-        pass
-    return save_team_template(offer["lineup"], lane_template(offer), cwd=cwd, state_dir=state_dir)
+        for n, a in agents.items():
+            store.write_text(store.path_for("agent", n, state_dir=state_dir), store.dump(a))
+        store.write_text(store.path_for("map", offer["lineup"], state_dir=state_dir), store.dump(body))
+    except OSError as e:
+        return False, [f"could not write: {e}"]
+    return True, []
 
 
 def accept(offer: dict, *, session=None, cwd=None, state_dir=None) -> "tuple[bool, list[str]]":
-    """Write the lineup and make it active (the `halo teams apply` path); `(ok, lines)`."""
+    """Write the map and put it in use (config `crew.map`, as `halo maps use`); `(ok, lines)`."""
     ok, problems = write_lane(offer, cwd=cwd, state_dir=state_dir)
     if not ok:
         return False, list(problems)
-    from halo_harness.teams_apply_answer import apply_answer
-    from halo_harness.teams_cli_views import apply_lineup
-    ok, lines, notes = apply_lineup(offer["lineup"], cwd=cwd, state_dir=state_dir, session=session)
-    if not ok:
-        return False, list(lines)
-    head, _details = apply_answer(offer["lineup"], notes)
-    return True, [f"{head}: {offer['coder']} is the coder lane, {offer['orchestrator']} runs main"] + list(lines)
+    from halo_harness.crew.changes_map import config_text, write_config
+    try:
+        write_config(config_text(offer["lineup"]))
+    except OSError as e:
+        return False, [f"could not put the map in use: {e}"]
+    runtime = getattr(session, "agent_runtime", None)  # this session's coder follows at once (new sessions: the map)
+    if runtime is not None and isinstance(getattr(runtime, "role_table", None), dict):
+        runtime.role_table["coder"] = offer["coder"]
+    return True, [f"map {offer['lineup']} is in use for new sessions: {offer['coder']} is the coder, "
+                  f"{offer['orchestrator']} runs main"]
 
 
 def config_lines(ref: str, state_dir) -> "list[str]":
@@ -195,6 +203,6 @@ def config_lines(ref: str, state_dir) -> "list[str]":
         return out + [got["offer_line"]]
     ok, problems = write_lane(offer, state_dir=state_dir)
     if not ok:
-        return out + [f"the lineup could not be written: {'; '.join(problems)}"]
-    return out + [f"To keep it as the coder lane under {offer['orchestrator']}: {offer['command']} "
-                  f"(lineup '{offer['lineup']}' is written, not active)"]
+        return out + [f"the map could not be written: {'; '.join(problems)}"]
+    return out + [f"To keep it as the coder under {offer['orchestrator']}: {offer['command']} "
+                  f"(map '{offer['lineup']}' is written, not in use)"]

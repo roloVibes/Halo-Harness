@@ -2,8 +2,9 @@
 sub-agent returns.
 
 The v2.0.4 model review's item 2, the part 2.0.5 round 5 left open: when
-a sub-agent returns, the result is checked against the bio's own
-`acceptance` criteria; a failure gets ONE retry (the critique as a second
+a sub-agent returns, the result is checked against its `acceptance`
+criteria (3.6.0.0 R5b: a plain session's card's, crew/plain.py; a bio's
+before, bios are gone); a failure gets ONE retry (the critique as a second
 user turn on the SAME child -- it keeps its context); a second failure
 escalates with the failure MARKED: the hand-back carries the note, the
 cost rollup's `ok` counts it failed (round 2's cost-per-accepted), and
@@ -47,16 +48,21 @@ def _drain(session, prompt):
     return events
 
 
+_ACCEPT: dict = {}  # agent name -> its acceptance, for the next run (3.6.0.0 R5b: a bio held it; bios are gone)
+
+
 def _write_acceptance_bio(cwd: Path, name: str, expect: str, critique=None) -> None:
-    # project_agents_dir(cwd) is <cwd>/.halo/agents -- the bio search path's
-    # nearest-wins project scope
-    d = cwd / ".halo" / "agents"
-    d.mkdir(parents=True, exist_ok=True)
-    body = {"name": name, "description": f"bio for {name}",
-            "acceptance": {"expect": expect}}
-    if critique:
-        body["acceptance"]["critique"] = critique
-    (d / f"{name}.yaml").write_text(json.dumps(body), encoding="utf-8")
+    """The acceptance `name`'s hand-back is checked against. 3.6.0.0 R5b: bios are gone; a plain session's cards
+    (crew/plain.py) carry one, so the gate stays and is driven here through its one seam, `_return_acceptance_for`."""
+    from halo_harness.agent import subagent
+    _ACCEPT[name] = {"expect": expect, **({"critique": critique} if critique else {})}
+    if not getattr(subagent._return_acceptance_for, "_seam", False):
+        real = subagent._return_acceptance_for
+
+        def seam(spec, role_name, team_control, child):
+            return _ACCEPT.get(spec.name) or real(spec, role_name, team_control, child)
+        seam._seam = True
+        subagent._return_acceptance_for = seam
 
 
 def _child_scenario(first_text: str, retry_text: "str | None"):
@@ -89,7 +95,10 @@ def _run_one(mock, parent_scn, child_scn, *, cwd):
                            agents={"general-purpose": _general_purpose_spec()})
     from tests.helpers.trust_dir import trust
     trust(cwd)  # 3.4.1.2 (ENGINE-1): a project's bios load only in a trusted folder (the home _new_session scoped)
-    return _drain(session, "delegate it")
+    try:
+        return _drain(session, "delegate it")
+    finally:
+        _ACCEPT.clear()
 
 
 def _rollup_nodes():

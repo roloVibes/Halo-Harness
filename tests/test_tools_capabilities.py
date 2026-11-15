@@ -1,7 +1,8 @@
 """tests.test_tools_capabilities -- Halo 3.1.8.0 R5: `tools.capabilities` (isolation/capabilities.py): the one
-table, which list wins (card, tier, bio, lineup), the narrowed registry of a lineup member, a plain session's (3.6.0.0 R5: the default map, a drawing, takes nothing
-out; a chosen map's main: tests/test_crew_compile.py), an Orchestra worker's list
-from its run, the Agent tool's description, `/tools`, and that allow/deny still apply inside the list. No model is
+table, a plain session's (3.6.0.0 R5: the default map, a drawing, takes nothing out; a chosen map's main:
+tests/test_crew_compile.py), an Orchestra worker's list from its run (3.6.0.0 R5b: a session reads no lineup or bio,
+so which-list-wins, a lineup member's narrowed registry and the Agent tool's members sentence went with them), `/tools`,
+and that allow/deny still apply inside the list. No model is
 called.
 
 Run: python -m tests.test_tools_capabilities
@@ -57,30 +58,6 @@ def test_the_one_table(ctx: Ctx):
 
 
 @test
-def test_which_list_wins_card_tier_bio_lineup(ctx: Ctx):
-    with IsoEnv() as e:
-        _crew(e)
-        from halo_harness.teams_runtime import load_team_control
-        tc = load_team_control("crew")
-        from halo_harness.isolation.capabilities import narrow_member
-        from halo_harness.tools.registry import ToolRegistry
-        got = {}
-        for alias in ("coder", "researcher", "reviewer", "tester"):
-            reg, lines = narrow_member(ToolRegistry(), tc, alias)
-            got[alias] = (reg.names(), lines)
-        ctx.check(f"the card wins, got {got['coder']}", got["coder"][1] == ["tools: read, edit (by lineup crew)"]
-                  and set(got["coder"][0]) == {"Edit", "Glob", "Grep", "NotebookEdit", "Read", "Write"})
-        ctx.check(f"then the tier, got {got['researcher'][1]}", got["researcher"][1] == ["tools: read, web (by lineup crew)"]
-                  and "WebFetch" in got["researcher"][0] and "Bash" not in got["researcher"][0])
-        ctx.check(f"then the bio, got {got['reviewer'][1]}", got["reviewer"][1] == ["tools: read (by bio reviewer)"]
-                  and set(got["reviewer"][0]) == {"Glob", "Grep", "Read"})
-        ctx.check(f"then the lineup's own, got {got['tester'][1]}", got["tester"][1] == ["tools: read, bash (by lineup crew)"]
-                  and "Bash" in got["tester"][0] and "Edit" not in got["tester"][0])
-        reg, lines = narrow_member(ToolRegistry(), None, "coder")
-        ctx.check("no lineup: every tool, no line", lines is None and "Bash" in reg.names() and "Agent" in reg.names())
-
-
-@test
 def test_allow_and_deny_still_apply_inside_the_list(ctx: Ctx):
     from halo_harness.config.agents_md import AgentSpec
     from halo_harness.isolation.capabilities import narrow
@@ -121,8 +98,9 @@ def test_an_orchestra_worker_takes_its_list_from_its_run(ctx: Ctx):
         ctx.check("the run's list", session_caps(team="crew", agent=None, env=env) == (["read", "edit"], "bio coder"))
         ctx.check("a worker the run did not narrow is not narrowed by the lineup's main",
                   session_caps(team="crew", agent=None, env={"HALO_ORCHESTRA_LANE": "2"}) == (None, ""))
-        ctx.check("outside a run the main's list", session_caps(team="crew", agent=None, env={})[0] == ["read", "agent"])
-        ctx.check("an --agent bio's own list", session_caps(team=None, agent="reviewer", env={}) == (["read"], "bio reviewer"))
+        ctx.check("outside a run no list: a session reads no lineup or bio (3.6.0.0 R5b)",
+                  session_caps(team="crew", agent=None, env={}) == (None, "")
+                  and session_caps(team=None, agent="reviewer", env={}) == (None, ""))
         from tests.helpers.isolation_rig import Recorder, run_with_lane
         from halo_harness.orchestra.adapters import spawn_worker
         _repo, run_dir, lane = run_with_lane(lineup="crew", bio="reviewer")
@@ -132,20 +110,6 @@ def test_an_orchestra_worker_takes_its_list_from_its_run(ctx: Ctx):
         ctx.check(f"the spawn hands the worker its list, got {env.get('HALO_TOOLS_CAPS')!r}",
                   env.get("HALO_TOOLS_CAPS") == "read" and env.get("HALO_TOOLS_CAPS_BY") == "bio reviewer")
         ctx.check("and the line it shows", env.get("HALO_OPT_INS") == "tools: read (by bio reviewer)")
-
-
-@test
-def test_the_agent_tool_says_what_the_members_may_use(ctx: Ctx):
-    with IsoEnv() as e:
-        _crew(e)
-        from halo_harness.tools.agent import AgentTool
-        tool = AgentTool()
-        before = tool.description
-        tool.lineup = "crew"
-        text = tool.description
-        ctx.check("one sentence naming each member's list", "Under lineup crew each member sees only the tools of its "
-                  "capabilities: coder: read, edit; reviewer: read; researcher: read, web; tester: read, bash." in text)
-        ctx.check("no lineup: the description as before", "Under lineup" not in before)
 
 
 @test

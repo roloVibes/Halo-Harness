@@ -30,6 +30,8 @@ REACHABLE = (
     "agents_doctor", "agents_yaml", "config.memory", "headless", "knowledge.store", "knowledge.writers",
     "orchestra.forecast", "orchestra.gate", "orchestra.gitops", "orchestra.jsonl", "orchestra.lane_facts",
     "orchestra.prices", "orchestra.split", "outcomes.records", "providers.hooks", "recall", "telemetry", "work_cli",
+    # 3.6.0.0 R5b: the map in use, the crew files, the run-start preflight and the model checks (crew/)
+    "crew.compile", "crew.store", "crew.preflight", "crew.checks", "crew.in_use", "providers.model_enumeration",
 )
 
 

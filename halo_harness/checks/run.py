@@ -44,8 +44,8 @@ def call_price(ref: str, tokens_in: int, tokens_out: int, rows=None) -> str:
     """"free (local)", "about $X at <ref>'s catalog price" or "price unknown for <ref>"."""
     if is_local(ref):
         return "free (a local model)"
-    from halo_harness.tui.dialogs.team_preview import _price, catalog_by_ref
-    row = (catalog_by_ref() if rows is None else rows).get(ref)
+    from halo_harness.providers.model_enumeration import price_of as _price, rows_by_ref
+    row = (rows_by_ref() if rows is None else rows).get(ref)
     pin, pout = _price(row, "price_in_per_m"), _price(row, "price_out_per_m")
     if pin is None or pout is None:
         return f"price unknown for {ref} (the catalog has no price for it)"
@@ -98,8 +98,8 @@ def run_hello(ctx) -> "list[str]":
 
 # -- gym ----------------------------------------------------------------------
 def gym_candidates(ctx) -> "list[str]":
-    """The models the gym row offers: the default model, then the active lineup's pinned models, in that order,
-    each once (3.4.0.0 B: read from the lineup itself, no longer through the guided first run's card)."""
+    """The models the gym row offers: the default model, then the models the map in use pins (an agent's own model),
+    in that order, each once (3.6.0.0 R5b: the map, where it was the lineup)."""
     out: "list[str]" = []
 
     def add(ref) -> None:
@@ -107,12 +107,10 @@ def gym_candidates(ctx) -> "list[str]":
             out.append(ref)
     add(ctx.model)
     try:
-        from halo_harness.lineup_default import lineup_in_use
-        from halo_harness.teams_yaml import resolve_team_template
-        name, _source = lineup_in_use()
-        for card in ((resolve_team_template(name, cwd=ctx.cwd, state_dir=ctx.state_dir) or {}).get("agents") or []
-                     if name else []):
-            add(((card.get("models") or {}) if isinstance(card, dict) else {}).get("preference"))
+        from halo_harness.crew.in_use import role_table  # 3.6.0.0 R5b: the map in use, its agents' own models
+        from halo_harness.roles import role_value_parts
+        for value in (role_table(cwd=ctx.cwd, state_dir=ctx.state_dir) or {}).values():
+            add(role_value_parts(value)[0])
     except Exception:
         pass
     return out

@@ -130,7 +130,7 @@ function RemoveDialog() {
             cost={{ does: `removes ${id}: the files its install or update wrote that still hold what it wrote`, costs: "nothing: no model call",
                     writes: keep ? "the pack's own files go; its record and grants stay for a later install" : "the pack's own files, its record and its grants go; your files stay" }}
             footer={<><Button onClick={close}>Cancel</Button><Button variant="danger" onClick={() => void yes()} data-testid="pm-remove-yes">Remove</Button></>}>
-      <p>Removes the pack's own files: the ones its install or update wrote that still hold what it wrote. A file of its folder you changed stays, and so does everything of yours: your bios and lineups, your settings, the memory folders. Each one is listed after.</p>
+      <p>Removes the pack's own files: the ones its install or update wrote that still hold what it wrote. A file of its folder you changed stays, and so does everything of yours: your agents, workflows and maps, your settings, the memory folders. Each one is listed after.</p>
       <label className="og-switch mono">
         <input type="checkbox" checked={keep} onChange={(e) => setKeep(e.target.checked)} data-testid="pm-keep-config" />
         Keep its record and grants for a later install

@@ -179,9 +179,7 @@ def recheck(state_dir, *, now: Optional[float] = None, lanes=None, hosts=None, a
     changed = {h: ms for h, ms in changed.items() if ms}
     if lanes is None:
         from halo_harness.local_sched.preview import lanes_for
-        from halo_harness.teams_runtime import active_team_name
-        name = active_team_name(None)
-        lanes = lanes_for(name, state_dir=state_dir)[0] if name else []
+        lanes = lanes_for(None, state_dir=state_dir)[0]  # 3.6.0.0 R5b: the map in use
     placed = prev.get("placed") or {}
     if not prev:  # the first look: where each lane goes now, remembered; nothing to compare yet
         placed = {r["lane"]: r.get("host") for r in scored([ln for ln in lanes if ln.get("lane") != "main"],

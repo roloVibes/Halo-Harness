@@ -2,7 +2,7 @@
 `GET setup/state` (Halo 3.3.0.0 R3, Studio's Setup section;
 docs/STUDIO-setup.md "Check" and "Linux fixes"). Nothing here opens a
 connection: the costs and the card read the cached catalog
-(`catalog_by_ref`, no host probed).
+(`model_enumeration.rows_by_ref`, no host probed).
 
     checks: [{key, title, what, cost, time, writes, default_on}]
                      checks/catalog.py CHECKS (doctor, catalog, hello, steward, gym), each cost with its models' prices
@@ -159,7 +159,7 @@ def model_notes() -> list:
 
 def check_blocks(cwd=None, state_dir=None) -> dict:
     from halo_harness.checks.catalog import default_ctx
-    from halo_harness.tui.dialogs.team_preview import catalog_by_ref
+    from halo_harness.providers.model_enumeration import rows_by_ref as catalog_by_ref
     ctx = default_ctx(cwd, state_dir=state_dir)
     rows = catalog_by_ref()
     gym = gym_rows(ctx)

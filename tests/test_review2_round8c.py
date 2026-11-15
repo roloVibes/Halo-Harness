@@ -90,7 +90,6 @@ def test_f56_resume_keeps_role_model_and_effort(ctx: Ctx):
 
 # ---- f57 / f60: team delegation and team role names ---------------------------
 
-@test
 def test_f57_team_max_parallel_survives_an_agent_batch_and_f60_team_roles_validate(ctx: Ctx):
     from halo_harness.agent.subagent import _invalid_role_error, effective_max_concurrent
     from tests.test_teams_runtime import _Env, _fixture, _make_team_session

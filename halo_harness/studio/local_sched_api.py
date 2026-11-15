@@ -23,13 +23,10 @@ _LOCK = threading.Lock()
 
 def _lineup(req) -> str:
     body = req.body if isinstance(req.body, dict) else {}
-    name = str(req.query.get("lineup") or body.get("lineup") or "").strip()
-    if not name:
-        from halo_harness.teams_runtime import active_team_name
-        try:
-            name = active_team_name(None) or ""
-        except Exception:
-            name = ""
+    name = str(req.query.get("map") or body.get("map") or req.query.get("lineup") or body.get("lineup") or "").strip()
+    if not name:  # 3.6.0.0 R5b: the map in use
+        from halo_harness.crew.in_use import map_name
+        name = map_name() or ""
     return name
 
 

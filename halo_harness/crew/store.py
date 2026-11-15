@@ -3,6 +3,9 @@
     <state>/crew/{agents,workflows,maps}/<name>.yaml     yours (~/.halo/crew/)
     <repo>/.halo/crew/{agents,workflows,maps}/           this project's, read in a trusted folder only
     halo_harness/templates/crew/{agents,workflows,maps}/ the shipped starters: read-only, Copy makes yours
+    an enabled pack's crew (3.6.0.0 R5b, extension API 2.0: packs/crew_v1.py): `<pack>--<name>`, read-only, read in
+                                                         place (a 1.x pack's bios, lineups and plain workflows read as
+                                                         agents, maps and workflows)
 
 `find(kind, name)` answers the file a name means (the project's, then yours, then a starter's); `rows(kind)` every
 file of a kind with its scope; `used_by(name)` the workflows and maps that name an agent; `write` / `remove` touch
@@ -68,6 +71,29 @@ def read(path: Path) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
+def pack_items(kind: str, *, cwd=None, state_dir=None) -> dict:
+    """{`<pack>--<name>`: body} of every enabled pack (packs/crew_v1.py); {} when the packs cannot be read."""
+    out: dict = {}
+    try:
+        from halo_harness.packs.contribute import _active
+        from halo_harness.packs.crew_v1 import items
+        packs = _active(cwd, state_dir)
+    except Exception:
+        return out
+    for pack in packs:
+        try:
+            got = items(pack, kind)
+        except Exception:
+            continue
+        for n, body in got.items():
+            out.setdefault(n, body)
+    return out
+
+
+def _packed(name: str) -> bool:
+    return "--" in str(name or "")
+
+
 def find(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> "Optional[tuple[Path, str]]":
     for folder, sc in folders(kind, cwd=cwd, state_dir=state_dir):
         if scope and sc != scope:
@@ -75,6 +101,10 @@ def find(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> 
         p = folder / f"{name}.yaml"
         if p.is_file():
             return p, sc
+    if _packed(name) and scope in ("", "pack"):
+        body = pack_items(kind, cwd=cwd, state_dir=state_dir).get(name)
+        if body is not None:
+            return Path(body["_path"]), "pack"
     return None
 
 
@@ -82,6 +112,9 @@ def load(kind: str, name: str, *, cwd=None, state_dir=None, scope: str = "") -> 
     got = find(kind, name, cwd=cwd, state_dir=state_dir, scope=scope)
     if got is None:
         return None
+    if got[1] == "pack":
+        body = pack_items(kind, cwd=cwd, state_dir=state_dir).get(name)
+        return {**body, "_scope": "pack"} if body is not None else None
     data = read(got[0])
     if data is None:
         return None
@@ -105,6 +138,8 @@ def rows(kind: str, *, cwd=None, state_dir=None) -> "list[dict]":
                 age = NEW_S
             out.append({**data, "name": p.stem, "_scope": scope, "_path": str(p), "_problems": probs,
                         "_new": scope != "starter" and age < NEW_S})
+    for name, body in pack_items(kind, cwd=cwd, state_dir=state_dir).items():  # 3.6.0.0 R5b: an enabled pack's
+        out.append({**body, "name": name, "_scope": "pack", "_problems": PROBLEMS[kind](clean(body), name=name), "_new": False})
     return out
 
 

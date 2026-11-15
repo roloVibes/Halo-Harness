@@ -1,13 +1,8 @@
 """halo_harness.studio.model -- what Studio shows, built from the same
-functions the wizard and the CLI use (Halo 2.1.0 round B3). Nothing here
-re-implements a rule: lineups and bios come from `teams_yaml` /
-`agents_yaml`, the model catalog from `providers.model_enumeration`, the
-live session from the files a session writes under ~/.halo/sessions.
-
-A lineup becomes a graph: one node per `agents:` entry (the assignment,
-the bio behind it, the model that resolves, price/context from the
-catalog, scope, problems), edges for delegation (main -> member, labelled
-with the routing keys that reach it) and pipeline stage order.
+functions the wizard and the CLI use (Halo 2.1.0 round B3): the model
+catalog from `providers.model_enumeration`, a pack canvas's saved layout,
+the live session from the files a session writes under ~/.halo/sessions.
+(3.6.0.0 R5b: the lineup graph and the bio views went with lineups and bios.)
 """
 
 from __future__ import annotations
@@ -19,9 +14,6 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-
-from halo_harness import agents_yaml as A
-from halo_harness import teams_yaml as T
 
 _PRIVATE = ("_source", "_path")
 
@@ -118,37 +110,7 @@ def model_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
     return rows
 
 
-def _catalog_index(state_dir=None) -> dict:
-    try:
-        return {r["ref"]: r for r in model_rows(state_dir)}
-    except Exception:
-        return {}
-
-
-# -- lineups ----------------------------------------------------------------------
-
-def _effective_model(raw: dict, entry: dict, bio: Optional[dict], *, cwd=None, state_dir=None) -> tuple[str, str, str]:
-    """3.1.6.0 R1: (model, fallback, source) in `teams_yaml.member_model`'s
-    order -- the card's own, a pinning bio, its tier's model, the session's
-    (a `default` bio), the fallbacks; `source` says which ("card", "bio",
-    "tier:<name>", "session", "fallback")."""
-    return T.member_model(raw, entry, cwd=cwd, state_dir=state_dir, bio=bio)
-
-
-def _removed_route_warnings(*refs) -> list:
-    """3.1.5.0 R1: a card still naming a cc:/cx: model (routes removed in 3.1.5.0), or a ts: one (3.4.0.0: TypeSafe
-    left the core), falls through to the session model -- say so on the card."""
-    if any(str(r or "").startswith(("cc:", "cx:", "ts:")) for r in refs):
-        return ["names a cc:/cx: or ts: model (removed in 3.1.5.0 and 3.4.0.0) -- it falls through to the session model; "
-                "pick an API route, e.g. ant:sonnet"]
-    return []
-
-
-def _bio_warnings(bio, source: str, state_dir) -> list:
-    """3.2.0.0 R2: no catalog model has the bio's capabilities; a pack bio's need not granted (packs/roles.py)."""
-    from halo_harness.packs.roles import card_warnings
-    return card_warnings(bio, source, state_dir=state_dir) if bio else []
-
+# -- node ids (a pack canvas's nodes, a ComfyUI graph's) --------------------------
 
 def _node_base(entry: dict, i: int) -> str:
     return str(entry.get("as") or entry.get("role") or entry.get("agent") or f"n{i}")
@@ -167,187 +129,6 @@ def node_ids(entries: list) -> list:
         seen[base] = seen.get(base, 0) + 1
     return out
 
-
-def legacy_node_ids(entries: list) -> list:
-    """The ids before 3.2.2.0: the name plus the card's index in the lineup."""
-    return [f"{_node_base(e, i)}#{i}" for i, e in enumerate(entries)]
-
-
-def migrate_layout_ids(layout: dict, raw: dict) -> dict:
-    """A layout saved with the index ids (before 3.2.2.0) reads with today's
-    ids when its cards are this lineup's cards under the old ids: all of
-    them, or some of them when one of those ids can only be an old one (a
-    layout keeps only the cards that were moved). Anything else -- a layout
-    already in today's ids, cards that are not this lineup's -- is left as
-    it is."""
-    layout = normalize_layout(layout)
-    entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
-    old, new = legacy_node_ids(entries), node_ids(entries)
-    saved = set(layout["nodes"])
-    if old == new or not saved or not saved <= set(old) or saved == set(new):
-        return layout
-    if saved <= set(new) and saved != set(old):
-        return layout  # every id reads either way: today's
-    to_new = dict(zip(old, new))
-    return {**layout, "nodes": {to_new[k]: v for k, v in layout["nodes"].items()}}
-
-
-def graph_for(raw: dict, *, cwd=None, state_dir=None, catalog: Optional[dict] = None) -> dict:
-    catalog = _catalog_index(state_dir) if catalog is None else catalog
-    entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
-    nodes, by_alias, by_role = [], {}, {}
-    ids = node_ids(entries)
-    for i, e in enumerate(entries):
-        bio = A.resolve_agent_bio(str(e.get("agent") or ""), cwd=cwd, state_dir=state_dir) if e.get("agent") else None
-        model, fallback, source = _effective_model(raw, e, bio, cwd=cwd, state_dir=state_dir)
-        inherit, _fb, inherit_source = _effective_model(raw, {k: v for k, v in e.items() if k != "models"}, bio,
-                                                        cwd=cwd, state_dir=state_dir)
-        cat = catalog.get(model) or {}
-        problems = []
-        if not e.get("agent"):
-            problems.append("no agent named")
-        elif bio is None:
-            problems.append(f"agent bio '{e.get('agent')}' not found")
-        if not model:
-            problems.append("no model resolves for this assignment")
-        inst = e.get("instances")  # a hand-edited value must not stop the lineup from opening: the validator words the problem
-        good = isinstance(inst, int) and not isinstance(inst, bool) and inst >= 1
-        if inst is not None and not good:
-            problems.append('"instances" must be a positive integer')
-        allow = ((bio or {}).get("tools") or {}).get("allow") if isinstance((bio or {}).get("tools"), dict) else None
-        node = {
-            "id": ids[i], "index": i, "agent": str(e.get("agent") or ""), "role": str(e.get("role") or "subagent"),
-            "alias": str(e.get("as") or ""), "instances": inst if good else 1,
-            "use_for": list(e["use_for"]) if isinstance(e.get("use_for"), list) else [],
-            "model": model, "fallback": fallback, "price": cat.get("price", ""), "context": cat.get("context", ""),
-            # 3.1.4.0 R4: what the card runs on without its own model; 3.1.6.0 R1: where each comes from
-            "bio_model": inherit, "model_source": source, "inherit_source": inherit_source,
-            "tools": (len(allow) if isinstance(allow, list) else 0) if bio else None,
-            "scope": (bio or {}).get("_source", ""), "kind": (bio or {}).get("kind", ""),
-            "description": (bio or {}).get("description", ""), "problems": problems,
-            "warnings": _removed_route_warnings(model, fallback) + _bio_warnings(bio, source, state_dir),
-            "overrides": {k: v for k, v in e.items() if k not in ("agent", "role", "as", "instances", "use_for")},
-        }
-        nodes.append(node)
-        if node["alias"]:
-            by_alias.setdefault(node["alias"], node["id"])
-        by_role.setdefault(node["role"], node["id"])
-    mains = [n for n in nodes if n["role"] == "main"]
-    if len(mains) != 1:
-        for n in nodes:
-            n["warnings"].append(f"{len(mains)} assignments have role main (exactly one is expected)")
-    seen_alias = {}
-    for n in nodes:
-        if n["alias"]:
-            if n["alias"] in seen_alias:
-                n["warnings"].append(f"alias '{n['alias']}' is used twice")
-            seen_alias[n["alias"]] = True
-    edges = []
-    routing = raw.get("routing") if isinstance(raw.get("routing"), dict) else {}
-    target_labels: dict = {}
-    for key, target in routing.items():
-        nid = by_alias.get(str(target)) or by_role.get(str(target))
-        if nid:
-            target_labels.setdefault(nid, []).append(str(key))
-    if mains:
-        for n in nodes:   # every member hangs off main by its delegation edge
-            if n is not mains[0]:
-                edges.append({"from": mains[0]["id"], "to": n["id"], "kind": "delegation", "label": ", ".join(target_labels.get(n["id"], []))})
-    stages = ((raw.get("pipeline") or {}).get("stages") or []) if isinstance(raw.get("pipeline"), dict) else []
-    prev = None
-    for st in stages:
-        if not isinstance(st, dict):
-            continue
-        nid = by_alias.get(str(st.get("role"))) or by_role.get(str(st.get("role")))
-        if prev and nid and prev != nid:
-            edges.append({"from": prev, "to": nid, "kind": "pipeline", "label": f"then {st.get('name') or ''}".strip()})
-        prev = nid or prev
-    # 3.0.7.0 R1: the lineup's tiers (declared, plus the implicit last tier;
-    # one implicit tier `all` when none are declared) -- `members` are the
-    # assignment aliases, `node_ids` the cards that sit in each tier.
-    from halo_harness.teams_tiers import effective_tiers
-    by_key = {}
-    for n in nodes:
-        by_key.setdefault(n["alias"] or n["role"], []).append(n["id"])
-    tiers = [{**t, "node_ids": [i for m in t["members"] for i in by_key.get(m, [])]} for t in effective_tiers(raw)]
-    return {"nodes": nodes, "edges": edges, "tiers": tiers}
-
-
-def lineup_summary(name: str, *, cwd=None, state_dir=None, active: str = "") -> Optional[dict]:
-    raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir)
-    if raw is None:
-        return None
-    entries = [e for e in (raw.get("agents") or []) if isinstance(e, dict)]
-    return {"name": name, "scope": raw.get("_source", ""), "description": str(raw.get("description") or ""),
-            "about": str(raw.get("about") or ""), "active": name == active, "agents": len(entries),
-            "roles": sorted({str(e.get("as") or e.get("role") or "") for e in entries} - {""}),
-            "shipped_copy": _is_shipped_copy(name, raw), **_pack_fields("lineups", name, raw, cwd, state_dir)}
-
-
-def _pack_fields(kind: str, name: str, data: dict, cwd, state_dir) -> dict:
-    """3.2.0.0 R2: a row's shadow, its clone origin and (bios) its capabilities (studio/packs_roles_api.py)."""
-    from halo_harness.studio.packs_roles_api import row_fields
-    return row_fields(kind, name, data, cwd=cwd, state_dir=state_dir)
-
-
-def _is_shipped_copy(name: str, raw: dict) -> bool:
-    """3.0.7.0 R2: a user-scope file that is still the byte-identical copy
-    `ensure_builtin_team_templates` made of a shipped lineup (Studio's Roles
-    Start view counts those as shipped, not as a lineup of your own)."""
-    shipped = T.bundled_team_templates_dir() / f"{name}.yaml"
-    try:
-        if not raw.get("_path") or not shipped.is_file():
-            return False
-        # the copy is written in text mode, so on Windows a shipped file checked out with LF comes back CRLF:
-        # compare the lines, not the line endings
-        same = Path(raw["_path"]).read_bytes().replace(b"\r\n", b"\n") == shipped.read_bytes().replace(b"\r\n", b"\n")
-        return same
-    except OSError:
-        return False
-
-
-def lineup_payload(name: str, *, cwd=None, state_dir=None, active: str = "", layout: Optional[dict] = None) -> Optional[dict]:
-    raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir)
-    if raw is None:
-        return None
-    resolved = T.resolve_team_template(name, cwd=cwd, state_dir=state_dir) or raw
-    problems = T.validate_team_template(clean(raw), name=name, cwd=cwd, state_dir=state_dir)
-    table, notes = T.resolve_role_table(resolved, cwd=cwd, state_dir=state_dir)
-    out = {
-        "name": name, "scope": raw.get("_source", ""), "path": raw.get("_path", ""), "active": name == active,
-        "pack": str(raw.get("_pack") or ""),  # 3.2.0.0 R2: a pack's lineup opens read-only
-        "raw": clean(raw), "yaml": to_yaml(raw), "graph": graph_for(resolved, cwd=cwd, state_dir=state_dir),
-        "role_table": table, "notes": notes, "problems": problems,
-        "sections": {s: resolved.get(s) for s in T.TOP_SECTIONS if resolved.get(s) is not None},
-        "enforcement": {s: list(T.SECTION_ENFORCEMENT.get(s, ("", ""))) for s in T.TOP_SECTIONS},
-    }
-    if layout is not None:  # 3.2.2.0 R5: the canvas layout, old card ids read as today's
-        out["layout"] = legacy_layout_view(migrate_layout_ids(layout, resolved))
-    return out
-
-
-def bio_summary(name: str, *, cwd=None, state_dir=None) -> Optional[dict]:
-    bio = A.resolve_agent_bio(name, cwd=cwd, state_dir=state_dir)
-    if bio is None:
-        return None
-    return {"name": name, "scope": bio.get("_source", ""), "description": str(bio.get("description") or ""),
-            "kind": str(bio.get("kind") or ""), "model": str(((bio.get("models") or {}).get("preference")) or ""),
-            "tools": len(((bio.get("tools") or {}).get("allow") or [])), **_pack_fields("bios", name, bio, cwd, state_dir)}
-
-
-def bio_payload(name: str, *, cwd=None, state_dir=None) -> Optional[dict]:
-    raw = A.load_agent_bio_raw(name, cwd=cwd, state_dir=state_dir)
-    if raw is None:
-        return None
-    resolved = A.resolve_agent_bio(name, cwd=cwd, state_dir=state_dir) or raw
-    return {"name": name, "scope": raw.get("_source", ""), "path": raw.get("_path", ""), "raw": clean(raw),
-            "resolved": clean(resolved), "yaml": to_yaml(raw),
-            "problems": A.validate_agent_bio(clean(raw), name=name, cwd=cwd, state_dir=state_dir),
-            "sections": list(A.BIO_SECTIONS), "kinds": list(A.KNOWN_KINDS),
-            "pack": str(raw.get("_pack") or ""), "model_info": resolved.get("_model") or None}  # 3.2.0.0 R2
-
-
-# -- layouts and the live session ------------------------------------------------
 
 def layouts_dir(state_dir: Path) -> Path:
     return Path(state_dir) / "studio" / "layouts"

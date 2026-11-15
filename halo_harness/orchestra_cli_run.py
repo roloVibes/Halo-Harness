@@ -48,8 +48,8 @@ def cmd_run(args, repo: Path) -> int:
         print(f"halo orchestra run: {e}", file=sys.stderr)
         return 2
     if not getattr(args, "force", False):
-        from halo_harness.lineup_preflight import blocking, lineup_problems, refusal_text
-        problems = lineup_problems(goal.lineup or None, cwd=repo)
+        from halo_harness.crew.preflight import blocking, refusal_text, run_problems
+        problems = run_problems(goal.lineup or None, cwd=repo)
         if blocking(problems):
             print(refusal_text(problems, what=f"run {run_dir.name}"), file=sys.stderr)
             return 2

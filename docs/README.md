@@ -69,6 +69,7 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 Work in the TUI and on the command line, and give agents bios, lineups, roles and jobs.
 
 - [CREW-FORMATS.md](CREW-FORMATS.md) (Crew files: agents, workflows and maps): read this when you write or read an agent, a workflow or a map file by hand, want to know where Halo keeps them, or want to know what an agent file becomes when a session spawns it.
+- [MOVING-from-3.5.md](MOVING-from-3.5.md) (Moving from 3.5): read this when you used lineups, bios, squares or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files.
 - [CREW-sessions.md](CREW-sessions.md) (How a session runs on a map): read this when you want to know what a map does to a session: what compiles to what, which agents and workflows main may hand work to, when an edit to the map takes effect, how a chain is followed, what the map's money cap stops, or how a session with no map runs.
 - [HANDBOOK.md](HANDBOOK.md) (Halo Harness handbook): read this when you want the long-form guide: configuration, providers, permissions, steering, hooks, skills, MCP, sessions and themes.
 - [COMMANDS.md](COMMANDS.md) (Commands): read this when you want every `halo` subcommand and flag, with examples.

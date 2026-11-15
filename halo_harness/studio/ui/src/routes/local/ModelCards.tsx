@@ -113,7 +113,7 @@ function DeleteCard({ host, m }: { host: string; m: ModelEntry }) {
       <p className="lc-why" data-testid="local-delete-uses">{u.line}</p>
       {u.any && (
         <ul className="lc-uses mono muted">
-          {u.lineups.map((x) => <li key={`l${x.name}${x.role}`} data-use="lineup">the {x.role} in {x.name}</li>)}
+          {u.agents.map((a) => <li key={`a${a}`} data-use="agent">the model of agent {a}</li>)}
           {u.roles.map((r) => <li key={`r${r}`} data-use="role">the {r} role (config.json roles)</li>)}
           {u.default_model && <li data-use="model">the default model (model)</li>}
           {u.compaction && <li data-use="compaction">the compaction model (compactionModel)</li>}

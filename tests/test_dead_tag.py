@@ -101,7 +101,6 @@ def test_point_the_role_at_it(ctx: Ctx):
 def test_the_preview_warm_and_problems_speak_it(ctx: Ctx):
     from halo_harness.local_sched.preview import preview
     from halo_harness.local_warm_cli import warm_lineup
-    from halo_harness.lineup_preflight import template_problems
     from tests.helpers.sched_lineup import write
     from tests.helpers.sched_rig import BIG, CODER, SchedHome
     with SchedHome() as h:
@@ -113,14 +112,11 @@ def test_the_preview_warm_and_problems_speak_it(ctx: Ctx):
         write(h.state, "dead-lane", {"coder": f"ol:{CODER}@pc", "verify": f"ol:{BIG}@pc"})
         pv = preview("dead-lane", main_ref=f"ol:{CODER}@pc")
         warm = warm_lineup("dead-lane", dry=True)
-        from halo_harness.teams_yaml import resolve_team_template
-        probs = template_problems(resolve_team_template("dead-lane"), state_dir=h.state)
     want = f"`{BIG}` was deleted from pc -- nearest equivalent `qwen3.8:27b-gpu`"
     ctx.check(f"the swap preview's hygiene, got {pv['hygiene']}", any(want in x for x in pv["hygiene"]))
     rows = [r for host in warm["hosts"] for r in host["rows"]]
     ctx.check(f"halo local warm --dry: the row is deleted, got {rows}", any(r["state"] == "deleted" and want in r["say"]
                                                                             for r in rows))
-    ctx.check(f"the Roles page's Problems, got {[p['text'] for p in probs]}", any(want in p["text"] for p in probs))
 
 
 if __name__ == "__main__":

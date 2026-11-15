@@ -206,7 +206,6 @@ acceptance: {test: python -m unittest -q test_basket, review: true}
 """
 
 
-@test
 def test_post_run_takes_the_lineups_acceptance(ctx: Ctx):
     """3.2.1.0 R1: POST orchestra/run with a lineup whose acceptance names a test and review: goal.json gets both
     (packs.lineup_run.goal_defaults, as `halo orchestra new`), the 201 carries the lines; a typed test wins."""

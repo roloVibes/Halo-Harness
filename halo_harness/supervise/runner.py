@@ -126,30 +126,12 @@ def report_outcome(run_dir, report: dict) -> dict:
             "failure": failure(kind, run_dir, str(report.get("stop_reason") or ""), report) if kind else None}
 
 
-def main_bio(lineup: str, repo) -> Optional[str]:
-    """The bio the lineup's main card names, or None."""
-    if not lineup:
-        return None
-    from halo_harness.teams_yaml import resolve_team_template
-    try:
-        resolved = resolve_team_template(lineup, cwd=repo) or {}
-    except Exception:
-        return None
-    for entry in resolved.get("agents") or []:
-        if isinstance(entry, dict) and (entry.get("as") or entry.get("role")) == "main":
-            return entry.get("agent")
-    return None
-
-
 def job_argv(goal: dict, cap: Optional[float]) -> list:
     argv = ["-p", goal["what"], "--output-format", "json", "--permission-mode", "auto"]
     if cap is not None:
         argv += ["--max-budget-usd", f"{cap:.6f}".rstrip("0").rstrip(".") or "0"]
-    if goal.get("lineup"):
-        argv += ["--team", goal["lineup"]]
-        bio = main_bio(goal["lineup"], goal.get("repo"))
-        if bio:
-            argv += ["--agent", bio]
+    if goal.get("lineup"):  # 3.6.0.0 R5b: a goal's `lineup` field names the map the job's session runs on
+        argv += ["--map", goal["lineup"]]
     return argv
 
 

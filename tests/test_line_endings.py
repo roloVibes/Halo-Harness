@@ -15,7 +15,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -103,24 +102,6 @@ def test_no_bytes_comparison_of_a_text_file_is_left_without_the_fold(ctx: Ctx):
               + "\n  ".join(problems), not problems)
     stale = sorted(set(_BYTES_COMPARE_ALLOWED) - seen_allowed)
     ctx.check(f"every allow-listed comparison still exists (remove the entry otherwise): {stale}", not stale)
-
-
-@test
-def test_a_crlf_copy_of_a_shipped_lineup_is_still_the_shipped_copy(ctx: Ctx):
-    from halo_harness import teams_yaml as T
-    from halo_harness.studio.model import _is_shipped_copy
-    shipped = T.bundled_team_templates_dir() / "standard.yaml"
-    ctx.check("the shipped `standard` lineup exists", shipped.is_file())
-    body = shipped.read_bytes().replace(b"\r\n", b"\n")
-    d = Path(tempfile.mkdtemp(prefix="line-endings-"))
-    crlf, lf, edited = d / "crlf.yaml", d / "lf.yaml", d / "edited.yaml"
-    crlf.write_bytes(body.replace(b"\n", b"\r\n"))
-    lf.write_bytes(body)
-    edited.write_bytes(body + b"# my own line\n")
-    ctx.check("a CRLF copy is the shipped copy", _is_shipped_copy("standard", {"_path": str(crlf)}))
-    ctx.check("an LF copy is the shipped copy", _is_shipped_copy("standard", {"_path": str(lf)}))
-    ctx.check("an edited copy is a lineup of your own", not _is_shipped_copy("standard", {"_path": str(edited)}))
-    shutil.rmtree(d, ignore_errors=True)
 
 
 if __name__ == "__main__":

@@ -165,9 +165,9 @@ def test_run_one_and_run_many(ctx: Ctx):
 def test_cost_lines(ctx: Ctx):
     from halo_harness.checks import catalog as C
     from halo_harness.checks import run as R
-    from halo_harness.tui.dialogs import team_preview
+    from halo_harness.providers import model_enumeration
     rows = {"or:v/m": {"price_in_per_m": 1.0, "price_out_per_m": 2.0}}
-    with _patched(team_preview, catalog_by_ref=lambda: rows):
+    with _patched(model_enumeration, rows_by_ref=lambda: rows):
         got = C.cost_line(C.check("hello"), _ctx(model="or:v/m"))
         ctx.check(f"hello: the catalog price of one tiny call, got {got!r}", got == "one tiny call, about $0.0020 at or:v/m's catalog price")
         ctx.check("hello: a local model is free", C.cost_line(C.check("hello"), _ctx(model="ol:qwen3")).endswith("free (a local model)"))

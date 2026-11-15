@@ -97,16 +97,15 @@ class AgentTool(Tool):
         if roster_enabled():
             text += (" The roster in your context says what each model is good at; name a model with `model` "
                      "when a sub-task needs one.")
-        # 3.1.9.0 R2: the auto lineup (the default) picks each sub-agent's model
-        from halo_harness.lineup_default import DEFAULT_LINEUP
-        if self.lineup == DEFAULT_LINEUP:
+        # 3.1.9.0 R2: a plain session (the default, crew/plain.py) picks each sub-agent's model
+        from halo_harness.crew.plain import NAME as PLAIN
+        if self.lineup == PLAIN:
             text += (" The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose "
                      "yourself.")
         if getattr(self, "map_control", None) is not None:  # 3.6.0.0 R3: on a map, exactly main's agents
             from halo_harness.crew.map_session import tool_tail
             return text + tool_tail(self.map_control, "agent")
-        from halo_harness.isolation.capabilities import children_line  # 3.1.8.0 R5: what the members may use
-        return text + children_line(self.lineup, self)
+        return text
 
     @property
     def input_schema(self) -> dict:

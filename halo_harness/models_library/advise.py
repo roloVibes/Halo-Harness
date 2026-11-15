@@ -52,19 +52,16 @@ def inputs(state_dir, host: Optional[str] = None, lineup: Optional[str] = None) 
                       "rows": [r for r in (V.catalog_of(h) or {}).get("models") or [] if isinstance(r, dict)]})
     lanes, gaps, pv = [], [], None
     try:
+        from halo_harness.crew.in_use import map_name, role_table
         from halo_harness.local_sched.preview import lanes_for, preview
-        from halo_harness.teams_runtime import active_team_name
-        name = lineup or active_team_name(None)
+        name = lineup or map_name()  # 3.6.0.0 R5b: a map (the one in use unless named)
         if name:
             lanes = lanes_for(name, state_dir=state_dir)[0]
             pv = preview(name, state_dir=state_dir)
             from halo_harness.models_library.role_gaps import gaps as role_gaps
-            from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
-            t = resolve_team_template(name, state_dir=state_dir)
-            if t:
-                table, _n = resolve_role_table(t, state_dir=state_dir)
-                gaps = role_gaps(table, state_dir, roles=[e.get("as") or e.get("role") for e in t.get("agents") or []
-                                                           if isinstance(e, dict)])
+            table = role_table(name, state_dir=state_dir)
+            if table:
+                gaps = role_gaps(table, state_dir, roles=list(table))
     except Exception:
         pass
     from halo_harness.ollama_steward.fingerprints import read as fps

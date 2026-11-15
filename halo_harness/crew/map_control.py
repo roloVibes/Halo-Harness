@@ -18,9 +18,8 @@ Everything else a lineup had (tiers, stages, escalation, memory, hooks) a map do
 
 **The default map** (no map named, none in config: crew/compile.py `is_default`) is a drawing, never a rule:
 `control_for` gives a `PlainMap`, which draws the starter map (the lit Map, its boxes and hand-offs) and answers every
-question a session asks with what a plain 3.5 session's default lineup answered -- the shipped `auto` lineup
-(templates/teams/auto.yaml, its bios' needs, its delegation and routing, no money cap; your `roles.*` win). One
-source: the values are read from that lineup, never copied here. (3.6.0.0 R5 fix; R5b moves that source.)
+question a session asks with what a plain 3.5 session answered: crew/plain.py, from one shipped file
+(templates/crew/plain/session.yaml: its cards' needs, its delegation and routing, no money cap; your `roles.*` win).
 """
 
 from __future__ import annotations
@@ -34,7 +33,60 @@ from halo_harness.crew import map_when
 CHANGED = "your map changed: lines and boxes apply at the next hand-off"
 
 
-class MapControl:
+class NoRules:
+    """What a map (and a plain session) does not have -- tiers, stages, escalation, memory, hooks, extra
+    permissions: the answers a session asks for "none"."""
+
+    def main_alias(self) -> Optional[str]:
+        return None
+
+    def spawn_refusal(self, *_a, **_k) -> Optional[str]:
+        return None
+
+    def stage_for(self, *_a) -> Optional[dict]:
+        return None
+
+    def gate_block(self, _stage) -> Optional[str]:
+        return None
+
+    def tier_claim(self, *_a) -> None:
+        return None
+
+    def tier_release(self, *_a) -> None:
+        return None
+
+    def evaluate_stage(self, *_a, **_k) -> "tuple[bool, str]":
+        return True, ""
+
+    def record_stage(self, *_a) -> None:
+        return None
+
+    def member_context_addition(self, *_a, **_k) -> str:
+        return ""
+
+    def member_hooks(self, *_a) -> dict:
+        return {}
+
+    def member_memory(self, *_a):
+        return None, False
+
+    def member_permissions(self) -> dict:
+        return {"mode": None, "deny": [], "ask": [], "allow": [], "offline": False}
+
+    def handoff_text(self, _target, text: str, **_k) -> str:
+        return text
+
+    def reports_for(self, _target) -> bool:
+        return False
+
+    def record_report(self, _target, one_line: str) -> str:
+        return one_line
+
+    def escalation_decision(self, **_k):
+        return None
+
+
+class MapControl(NoRules):
     is_map = True
     default = False
     tiers: list = []
@@ -159,119 +211,45 @@ class MapControl:
         with self.lock:
             self.turn_count += int(turns or 0)
 
-    # -- what a map does not have: the lineup's answers for "none" ----------------------------------------------------
-    def main_alias(self) -> Optional[str]:
-        return None
-
-    def spawn_refusal(self, *_a, **_k) -> Optional[str]:
-        return None
-
-    def stage_for(self, *_a) -> Optional[dict]:
-        return None
-
-    def gate_block(self, _stage) -> Optional[str]:
-        return None
-
-    def tier_claim(self, *_a) -> None:
-        return None
-
-    def tier_release(self, *_a) -> None:
-        return None
-
-    def evaluate_stage(self, *_a, **_k) -> "tuple[bool, str]":
-        return True, ""
-
-    def record_stage(self, *_a) -> None:
-        return None
-
-    def member_context_addition(self, *_a, **_k) -> str:
-        return ""
-
-    def member_hooks(self, *_a) -> dict:
-        return {}
-
-    def member_memory(self, *_a):
-        return None, False
-
-    def member_permissions(self) -> dict:
-        return {"mode": None, "deny": [], "ask": [], "allow": [], "offline": False}
-
-    def handoff_text(self, _target, text: str, **_k) -> str:
-        return text
-
-    def reports_for(self, _target) -> bool:
-        return False
-
-    def record_report(self, _target, one_line: str) -> str:
-        return one_line
-
-    def escalation_decision(self, **_k):
-        return None
-
 
 # -- the default map: the starter drawn, a plain session's answers ----------------------------------------------------
-PLAIN_LINEUP = "auto"  # the lineup a plain 3.5 session ran (lineup_default.DEFAULT_LINEUP)
-PLAIN_ROLES = {"media-reader": "media"}  # a starter agent whose name is not its card's alias in that lineup
-
-# What the session, agent/subagent.py, models_auto_spawn and the Workflow tool ask a team control; on the default map
-# the lineup answers every one of them (properties and bound methods alike).
-LINEUP_ANSWERS = ("aliases", "budget", "delegation", "template", "tiers", "tiers_declared", "context", "default",
-                  "yields_to", "assignment_for", "bio_for", "route_call", "budget_refusal", "record_spend", "record_turn",
-                  "main_alias", "spawn_refusal", "stage_for", "gate_block", "tier_claim", "tier_release", "evaluate_stage",
-                  "record_stage", "member_context_addition", "member_hooks", "member_memory", "member_permissions",
-                  "handoff_text", "reports_for", "record_report", "escalation_decision")
+# What the session, agent/subagent.py, models_auto_spawn and the Agent tool ask a session's control; on the default map
+# a plain session's answers (crew/plain.py, one file) give every one of them.
+PLAIN_ANSWERS = ("aliases", "budget", "delegation", "template", "tiers", "tiers_declared", "context", "default",
+                 "yields_to", "assignment_for", "bio_for", "route_call", "main_alias", "spawn_refusal",
+                 "member_context_addition", "reports_for", "record_report", "role_table")
 
 
-def plain_lineup(cwd=None, state_dir=None):
-    """The shipped `auto` lineup as a plain 3.5 session held it (teams_runtime.TeamControl, `default` true: a knob or a
-    role you set yourself wins). Read from the shipped file only: ~/.halo/teams is no longer read. None when it cannot
-    be read."""
-    try:
-        from halo_harness.teams_runtime import TeamControl
-        from halo_harness.teams_yaml import _expand_roles_shorthand, _read_yaml_file, bundled_team_templates_dir
-        path = bundled_team_templates_dir() / f"{PLAIN_LINEUP}.yaml"
-        raw = _read_yaml_file(path)
-        if not isinstance(raw, dict):
-            return None
-        template = {**_expand_roles_shorthand(dict(raw)), "name": PLAIN_LINEUP, "_source": "template", "_path": str(path)}
-    except Exception:
-        return None
-    aliases = {(e.get("as") or e["role"]): e for e in template.get("agents") or [] if isinstance(e, dict) and e.get("role")}
-    return TeamControl(name=PLAIN_LINEUP, template=template, aliases=aliases, default=True)
-
-
-def plain_role(name: str) -> str:
-    """The lineup alias a starter agent stands for (its role, so its model is picked as that card's was)."""
-    return PLAIN_ROLES.get(name, name)
+def plain_role(name: str, plain=None) -> str:
+    """The card a starter agent stands for (its role, so its model is picked as that card's was)."""
+    if plain is None:
+        from halo_harness.crew.plain import load
+        plain = load()
+    return plain.card_of(name) if plain is not None else name
 
 
 class PlainMap(MapControl):
-    """The default map: draws the starter map, answers as the plain session's lineup (LINEUP_ANSWERS). Its `name` is
-    that lineup's, so the Agent and Workflow tools describe themselves as they did; `map_name` is the map drawn."""
+    """The default map: draws the starter map, answers as a plain session (PLAIN_ANSWERS, crew/plain.py). Its `name` is
+    the plain session's, so the Agent tool describes itself as it did; `map_name` is the map drawn."""
 
-    def __init__(self, compiled, lineup, **kw) -> None:
+    def __init__(self, compiled, plain, **kw) -> None:
         super().__init__(compiled, **kw)
-        self.lineup = lineup
-        self.name = lineup.name
+        self.plain = plain
+        self.name = plain.name
 
     def refresh(self) -> None:
         return None  # the shipped starter does not change under a running session, and it sets no rules to re-read
 
-    def __getattr__(self, key):  # anything else the lineup has (escalation, routing, stages, budget_exhausted ...)
-        lineup = self.__dict__.get("lineup")
-        if lineup is None:
-            raise AttributeError(key)
-        return getattr(lineup, key)
 
-
-for _k in LINEUP_ANSWERS:
-    setattr(PlainMap, _k, property(lambda self, _k=_k: getattr(self.lineup, _k)))
+for _k in PLAIN_ANSWERS:
+    setattr(PlainMap, _k, property(lambda self, _k=_k: getattr(self.plain, _k)))
 
 
 def control_for(compiled, *, cwd=None, state_dir=None, session=None) -> MapControl:
     """The team control of a session on `compiled`: a PlainMap on the default map, else a MapControl."""
     from halo_harness.crew.compile import is_default
-    lineup = plain_lineup(cwd, state_dir) if is_default(compiled) else None
-    if lineup is not None:
-        return PlainMap(compiled, lineup, cwd=cwd, state_dir=state_dir, session=session)
+    from halo_harness.crew.plain import load
+    plain = load() if is_default(compiled) else None
+    if plain is not None:
+        return PlainMap(compiled, plain, cwd=cwd, state_dir=state_dir, session=session)
     return MapControl(compiled, cwd=cwd, state_dir=state_dir, session=session)

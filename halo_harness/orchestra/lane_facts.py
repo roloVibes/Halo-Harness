@@ -27,7 +27,7 @@ def _bio_model(bio: str, cwd, state_dir) -> str:
     if not bio:
         return ""
     try:
-        from halo_harness.agents_yaml import resolve_agent_bio
+        from halo_harness.crew.in_use import agent_or_bio as resolve_agent_bio  # 3.6.0.0 R5b: an agent file, else a bio
         data = resolve_agent_bio(bio, cwd=cwd, state_dir=state_dir) or {}
         return str((data.get("models") or {}).get("preference") or "")
     except Exception:

@@ -22,12 +22,13 @@ Once enabled, its own section "Docs review" comes after the core sections.
 
 ## The API version
 
-`halo_api: {min: "1.0", max: "1.9"}`: it is written against extension API
-1.0 (`halo_harness.ext.API_VERSION`), and a 1.x Halo keeps every name it
-uses. `halo` is the Halo it needs (the release it ships in: `{min: "3.2"}`
-from 3.2.0.0). Install refuses a pack whose range this Halo is outside, with
-one line saying which: `pack doc-review needs extension API 1.3 to 1.9; this
-Halo has 1.2`.
+`halo_api: {min: "2.0", max: "2.9"}`: it is written against extension API
+2.0 (`halo_harness.ext.API_VERSION`, Halo 3.6.0.0: a pack's crew in `crew/`),
+and a 2.x Halo keeps every name it uses. `halo` is the Halo it needs. Install
+refuses a pack whose range this Halo is outside, with one line saying which:
+`pack doc-review needs extension API 2.1 to 2.9; this Halo has 2.0`. A 1.x
+pack still runs on 2.0: its bios, lineups and plain workflows are read as
+agents, maps and workflows (docs/EXTENSION_API.md, "A pack's crew").
 
 ## Make your own pack from this one
 
@@ -86,11 +87,15 @@ A pack's Python imports `halo_harness.ext` and nothing else of Halo.
 |---|---|
 | `pack.yaml` | The manifest: id, version, the API range, what it contributes, its settings schema, the permissions it requests. |
 | `README.md` | This guide. |
-| `agents/reviewer.yaml` | The reviewer bio (`doc-review--reviewer`): asks for a model with long context, needs bash, keeps its own memory namespace. |
-| `agents/writer.yaml` | The writer bio (`doc-review--writer`): extends the reviewer, prefers the claude-sonnet family, may edit files. |
+| `crew/agents/reviewer.yaml` | The reviewer agent (`doc-review--reviewer`, agent/1, extension API 2.0): a model picked for long text, reads and runs commands, changes nothing. |
+| `crew/agents/writer.yaml` | The writer agent (`doc-review--writer`, agent/1): reads and edits the documents the findings name. |
+| `crew/maps/review.yaml` | The pack's starter map (`doc-review--review`, map/1): the writer is main and hands a review to the reviewer when the request says review or check (`halo maps use doc-review--review`). |
+| `crew/workflows/review-docs.yaml` | A workflow (`doc-review--review-docs`, workflow/1): the reviewer reads, then the writer fixes what matters; the Workflow tool runs it by name. |
+| `agents/reviewer.yaml` | The 1.x reviewer bio, kept for the run engine's workflow below (its `role: reviewer`); a session reads `crew/agents/reviewer.yaml`. |
+| `agents/writer.yaml` | The 1.x writer bio, kept for the run engine's workflow below (its `role: writer`). |
 | `agents/helper.md` | A Claude-plugin agent (`doc-helper`) that answers questions about a docs folder. |
-| `teams/review.yaml` | The review lineup (`doc-review--review`): the writer leads, the reviewer checks, two tiers, its acceptance and workflow. |
-| `workflows/review.yaml` | The review workflow: read each Markdown file, judge the findings (you approve the plan), write the report. |
+| `teams/review.yaml` | The 1.x review lineup, kept beside `crew/maps/review.yaml` (which a session uses) for a Halo before 3.6. |
+| `workflows/review.yaml` | The run engine's review workflow: read each Markdown file, judge the findings (you approve the plan), write the report. |
 | `artifacts/review-report.json` | The review report's schema: a summary and one row per finding; Studio draws it as a table. |
 | `events/review.done.json` | The schema of the review.done event (file, findings). |
 | `studio/notes.md` | The Review notes panel of its Studio section. |

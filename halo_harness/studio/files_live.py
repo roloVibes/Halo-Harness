@@ -2,18 +2,19 @@
 live feed (Halo 3.2.2.0 R6, "I have to refresh the page"): what Studio shows
 is what is on disk, as it changes.
 
-A session's model edits a lineup, `halo teams apply` sets config.json's
-`team`, a bio is saved from the terminal: none of those writers publishes
+A session's model edits an agent file, `halo maps use` sets config.json's
+`crew.map`, a workflow is saved from the terminal: none of those writers publishes
 anything (and none has to: this watcher sees every writer, the model's Edit
 tool included). Each Studio server runs one daemon thread (started by
 `server.start_server`, stopped by its `server_close`, the shape of
 packs_studio_live.py) that lists, every POLL_S seconds (1.5;
 `HALO_STUDIO_FILES_POLL_S` for tests):
 
-    lineups   the user `teams/` and the project `.halo/teams/` (`*.yaml`; a
-              team file `<project>.team.yaml` lists as `<project>.team`)
-    bios      the user `agents/` and the project `.halo/agents/`
-    config    `config.json` in the state dir (`team`, `roles.*`, `model`...)
+    agents    the user `crew/agents/` and the project `.halo/crew/agents/` (`*.yaml`)
+    workflows the user `crew/workflows/` and the project `.halo/crew/workflows/`
+    maps      the user `crew/maps/` and the project `.halo/crew/maps/`
+              (3.6.0.0 R5b: the crew folders, where it watched `teams/` and `agents/`)
+    config    `config.json` in the state dir (`crew.map`, `roles.*`, `model`...)
     layouts   `studio/layouts/*.json` (the canvas positions; `_pc-x.json`
               lists as `_pc-x`)
 
@@ -21,11 +22,11 @@ by name, mtime and size. A change is gathered for DEBOUNCE_S (0.3 s, again
 while files keep moving) and published once per kind:
 
     {"session_id": "studio", "event": "files_changed", "ts": ...,
-     "data": {"kind": "lineups", "names": [added or modified], "removed": [...]}}
+     "data": {"kind": "agents", "names": [added or modified], "removed": [...]}}
 
-through `EventBridge.publish_local`. The packs' own bio and lineup folders are
-packs_studio_live.py's (`pack_changed`). Studio's own writes (a PUT lineup,
-bio or layout) also come back as a frame 1.5 s later: that is fine, the page
+through `EventBridge.publish_local`. The packs' own folders are
+packs_studio_live.py's (`pack_changed`). Studio's own writes (a PUT agent,
+workflow, map or layout) also come back as a frame 1.5 s later: that is fine, the page
 that wrote is already current (it compares what it reads with what it holds).
 """
 
@@ -41,7 +42,7 @@ DEFAULT_POLL_S = 1.5
 DEBOUNCE_S = 0.3
 SETTLE_ROUNDS = 10  # a folder still moving after this many debounces publishes what it has
 FRAME_KIND = "files_changed"
-KINDS = ("lineups", "bios", "config", "layouts")
+KINDS = ("agents", "workflows", "maps", "config", "layouts")
 
 
 def poll_s() -> float:
@@ -55,11 +56,11 @@ def poll_s() -> float:
 def folders(cwd, state_dir) -> dict:
     """kind -> [(folder, suffix)], each folder once (a Studio started in the home dir has `.halo` twice)."""
     state, proj = Path(state_dir), Path(cwd) / ".halo"
-    out: dict = {"lineups": [], "bios": [], "config": [], "layouts": [(state / "studio" / "layouts", ".json")]}
-    for kind, sub in (("lineups", "teams"), ("bios", "agents")):
+    out: dict = {"agents": [], "workflows": [], "maps": [], "config": [], "layouts": [(state / "studio" / "layouts", ".json")]}
+    for kind in ("agents", "workflows", "maps"):
         seen = set()
         for base in (state, proj):
-            d = base / sub
+            d = base / "crew" / kind
             key = os.path.normcase(os.path.abspath(str(d)))
             if key not in seen:
                 seen.add(key)

@@ -1,5 +1,5 @@
 """tests.test_local_uses -- Halo 3.3.5.0 R3: `local_models_view.uses_of(ref)` (studio/local_uses.py) on a seeded home:
-the `local-coder` lineup (written the way R0b's offer writes it), a role, the default model, `compactionModel`, a steward
+the `local-coder` map's agents (written the way R0b's offer writes them; 3.6.0.0 R5b: a map, where it was a lineup), a role, the default model, `compactionModel`, a steward
 profile on box (and one on another host) and a live session (the live-session reader's seam) all naming `ol:qwen3-coder:30b@box`; the card's
 one line; a model nothing uses; the tag rule (`:latest`) and the host rule (another host's model of the same name is
 not this one). No server is read.
@@ -55,13 +55,13 @@ def test_every_place_that_names_the_coder(ctx: Ctx):
             {"session_id": "s-other", "title": "chat", "model": SMALL}]
     with Seeded(live) as h:
         u = uses_of(CODER, cwd=h.root, state_dir=h.state)
-        ctx.check(f"the lineup and its role, got {u['lineups']}", u["lineups"] == [{"name": "local-coder", "role": "coder"}])
+        ctx.check(f"the coder agent, got {u['agents']}", u["agents"] == ["local-coder-coder"])
         ctx.check(f"the role, the default, the compaction model, got {u['roles']} {u['default_model']} {u['compaction']}",
                   u["roles"] == ["reviewer"] and u["default_model"] and u["compaction"])
         ctx.check(f"box's profile (not other's), got {u['profiles']}", u["profiles"] == ["box|qwen3-coder:30b"])
         ctx.check(f"the one live session on it, got {u['sessions']}", u["sessions"] == [{"id": "s-live", "title": "fixing the parser", "live": True}]
                   and u["live"] == 1 and u["any"])
-        ctx.check(f"the card's line, got {u['line']!r}", u["line"] == "qwen3-coder:30b is the coder in `local-coder`, the "
+        ctx.check(f"the card's line, got {u['line']!r}", u["line"] == "qwen3-coder:30b is the model of agent `local-coder-coder`, the "
                   "`reviewer` role, the default model (`model`), the compaction model (`compactionModel`) and the model of "
                   "1 profile; 1 live session is on it")
 
@@ -71,9 +71,9 @@ def test_the_orchestrator_and_a_model_nothing_uses(ctx: Ctx):
     from halo_harness.studio.local_models_view import uses_of
     with Seeded() as h:
         u = uses_of(SMALL, cwd=h.root, state_dir=h.state)
-        ctx.check(f"main in the lineup, the small role, got {u['lineups']} {u['roles']}",
-                  u["lineups"] == [{"name": "local-coder", "role": "main"}] and u["roles"] == ["small"] and u["live"] == 0)
-        ctx.check(f"its line, got {u['line']!r}", u["line"] == "qwen3.5:9b is the main in `local-coder` and the `small` role")
+        ctx.check(f"the map's main agent, the small role, got {u['agents']} {u['roles']}",
+                  u["agents"] == ["local-coder-main"] and u["roles"] == ["small"] and u["live"] == 0)
+        ctx.check(f"its line, got {u['line']!r}", u["line"] == "qwen3.5:9b is the model of agent `local-coder-main` and the `small` role")
         none = uses_of("ol:nomic-embed-text@box", cwd=h.root, state_dir=h.state)
         ctx.check(f"nothing uses the embedder, got {none}", not none["any"] and none["line"] == "nomic-embed-text: nothing Halo knows of uses it")
 
@@ -88,7 +88,7 @@ def test_the_tag_and_host_rules(ctx: Ctx):
         ctx.check("a cloud ref never matches", not refers_to("or:qwen/qwen3-coder", "qwen3-coder:30b", "box"))
         other = uses_of("ol:qwen3-coder:30b@other", cwd=h.root, state_dir=h.state)
         ctx.check(f"on `other` only its own profile, got {other['profiles']} {other['roles']}",
-                  other["profiles"] == ["other|qwen3-coder:30b"] and not other["roles"] and not other["lineups"])
+                  other["profiles"] == ["other|qwen3-coder:30b"] and not other["roles"] and not other["agents"])
 
 
 if __name__ == "__main__":

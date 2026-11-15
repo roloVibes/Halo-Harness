@@ -171,22 +171,30 @@ def test_the_one_line_reasons(ctx: Ctx):
     ctx.check("no key reaches a line", fake not in clean(f"Bearer {fake} failed") and fake not in clean(f"key {fake}") and "<redacted>" in clean(f"key {fake}"))
 
 
+def _crew(state) -> None:
+    """3.6.0.0 R5b: an agent file on a pinned model and a map with it on a box (where a bio and a lineup were)."""
+    crew = state / "crew"
+    (crew / "agents").mkdir(parents=True, exist_ok=True)
+    (crew / "maps").mkdir(parents=True, exist_ok=True)
+    (crew / "agents" / "pinned.yaml").write_text(chr(10).join([
+        "format: agent/1", "name: pinned", "does: Writes the code.", "model: dbx:databricks-glm-5-3", "uses: [read]",
+        "careful: ask-changes", ""]), encoding="utf-8")
+    (crew / "maps" / "mine.yaml").write_text(chr(10).join([
+        "format: map/1", "name: mine", "boxes:", "- {id: pinned, agent: pinned}", "lines:", "- {from: main, to: pinned}", ""]),
+        encoding="utf-8")
+
+
 @test
 def test_fallback_offers_the_refs_in_use_and_the_shipped_list(ctx: Ctx):
-    from halo_harness.agents_yaml import save_agent_bio
     from halo_harness.theme import set_config_value
     with _home() as (_home_dir, state):
         set_config_value("roles.worker", "ol:qwen3-coder:30b@lan")
-        save_agent_bio("pinned", {"description": "x", "kind": "subagent", "models": {"preference": "dbx:databricks-glm-5-3"}}, state_dir=state)
-        (state / "teams").mkdir(exist_ok=True)
-        lines = ["name: mine", "agents:", "  - {agent: pinned, role: main, models: {preference: 'or:vendor/card-pick'}}", ""]
-        (state / "teams" / "mine.yaml").write_text(chr(10).join(lines), encoding="utf-8")
+        _crew(state)
         status, fb = _call(state, "GET", "models/fallback")
         rows = {r["ref"]: r for r in fb.get("rows", [])}
-        ctx.check(f"config.json's and a bio's refs, not verified, with where, got {sorted(rows)[:5]}",
+        ctx.check(f"config.json's and an agent file's refs, not verified, with where, got {sorted(rows)[:5]}",
                   rows.get("ol:qwen3-coder:30b@lan", {}).get("verified") is False and "roles.worker" in rows["ol:qwen3-coder:30b@lan"]["detail"]
-                  and "bio pinned" in rows.get("dbx:databricks-glm-5-3", {}).get("detail", ""))
-        ctx.check(f"a lineup card's own model too, got {rows.get('or:vendor/card-pick')}", "lineup mine (main)" in rows.get("or:vendor/card-pick", {}).get("detail", ""))
+                  and "agent pinned" in rows.get("dbx:databricks-glm-5-3", {}).get("detail", ""))
         ctx.check("OpenRouter not set up: no shipped list", not fb.get("shipped"))
         set_config_value("providers.openrouter.enabled", True)
         status, fb = _call(state, "GET", "models/fallback")
@@ -196,22 +204,21 @@ def test_fallback_offers_the_refs_in_use_and_the_shipped_list(ctx: Ctx):
 
 @test
 def test_resolve_names_what_a_role_runs_on(ctx: Ctx):
-    from halo_harness.teams_yaml import ensure_builtin_team_templates
     from halo_harness.theme import set_config_value
     with _home() as (_home_dir, state):
-        ensure_builtin_team_templates(state_dir=state)
-        status, r = _call(state, "GET", "models/resolve", {"role": "main", "lineup": "standard"})
-        ctx.check(f"a lineup's card for the role, got {r}", status == 200 and r["source"] == "lineup" and r["card"] and r["ref"])
+        _crew(state)
+        status, r = _call(state, "GET", "models/resolve", {"role": "pinned", "map": "mine"})
+        ctx.check(f"a map's agent and its own model, got {r}", status == 200 and r["source"] == "lineup" and r["card"] == "pinned"
+                  and r["ref"] == "dbx:databricks-glm-5-3")
         set_config_value("roles.main", "or:fakeco/beta-2")
-        set_config_value("team", "standard")
+        set_config_value("crew.map", "mine")
         status, r = _call(state, "GET", "models/resolve", {"role": "main"})
-        ctx.check(f"the role table, and the active lineup's card for a link, got {r}",
-                  r["source"] == "roles" and r["ref"] == "or:fakeco/beta-2" and r["lineup"] == "standard" and r["card"])
+        ctx.check(f"the role table, and the map in use named for a link, got {r}",
+                  r["source"] == "roles" and r["ref"] == "or:fakeco/beta-2" and r["lineup"] == "mine")
         set_config_value("model", "or:fakeco/alpha-1")
         status, r = _call(state, "GET", "models/resolve")
         ctx.check(f"no role: the default model, got {r}", r["source"] == "default" and r["ref"] == "or:fakeco/alpha-1")
-        ctx.check("an unknown lineup is a 404", _call(state, "GET", "models/resolve", {"role": "main", "lineup": "nope"})[0] == 404)
-
+        ctx.check("an unknown map is a 404", _call(state, "GET", "models/resolve", {"role": "main", "lineup": "nope"})[0] == 404)
 
 @test
 def test_rows_carry_best_at_and_analyze_rebuilds_it(ctx: Ctx):

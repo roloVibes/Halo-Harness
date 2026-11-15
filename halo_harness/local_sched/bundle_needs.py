@@ -159,9 +159,7 @@ def coder_of(host, state_dir=None) -> Optional[dict]:
     lanes: list = []
     try:
         from halo_harness.local_sched.preview import lanes_for
-        from halo_harness.teams_runtime import active_team_name
-        lineup = active_team_name(None)
-        lanes = lanes_for(lineup, state_dir=state_dir)[0] if lineup else []
+        lanes = lanes_for(None, state_dir=state_dir)[0]  # 3.6.0.0 R5b: the map in use
     except Exception:
         lanes = []
     here = [ln for ln in lanes if str(ln.get("host") or "").lower() == name.lower()]

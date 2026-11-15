@@ -3,9 +3,8 @@ beside the live catalog (Halo 3.1.4.0 R4: "the dropdown always has the refs
 the user already uses").
 
 `GET models/fallback` answers `{rows, in_use, shipped}`: every model ref named
-in config.json (`model`, `roles.*`), in a bio (`models.preference` /
-`fallback`) or in a lineup card (`agents[].models.*`) that the live catalog
-lacks, and -- when OpenRouter is set up (the session's resolution,
+in config.json (`model`, `roles.*`) or in an agent file (`model`; 3.6.0.0 R5b,
+where it was a bio or a lineup card) that the live catalog lacks, and -- when OpenRouter is set up (the session's resolution,
 catalog_env) but has no live list -- Halo's shipped OpenRouter list
 (models_dev.load_vendored_openrouter_fallback). Each row has the catalog row's
 shape plus `verified: false` and `source` ("in use" | "shipped"); its detail
@@ -13,9 +12,6 @@ says where it comes from. "Test" in the select tells whether a ref answers.
 """
 
 from __future__ import annotations
-
-from halo_harness import agents_yaml as A
-from halo_harness import teams_yaml as T
 
 _PREFIX = {"or": "openrouter", "ol": "ollama", "dbx": "databricks", "db": "databricks", "ant": "anthropic", "oai": "openai",
            "hf": "huggingface", "xp": "experiential"}
@@ -35,7 +31,7 @@ def _refs_of(models) -> list:
 
 
 def in_use(state_dir, cwd=None) -> dict:
-    """{ref: [where, ...]} for every model ref config.json, the bios and the lineups name."""
+    """{ref: [where, ...]} for every model ref config.json and the agent files name."""
     from halo_harness.theme import get_config_value
     out: dict = {}
 
@@ -49,22 +45,14 @@ def in_use(state_dir, cwd=None) -> dict:
     for role, v in (roles.items() if isinstance(roles, dict) else ()):
         for ref in _refs_of(v):
             add(ref, f"config.json roles.{role}")
-    for name in A.list_agent_bios(cwd=cwd, state_dir=state_dir):
-        try:
-            bio = A.load_agent_bio_raw(name, cwd=cwd, state_dir=state_dir) or {}
-        except Exception:
-            continue
-        for ref in _refs_of(bio.get("models")):
-            add(ref, f"bio {name}")
-    for name in T.list_team_templates(cwd=cwd, state_dir=state_dir):
-        try:
-            raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir) or {}
-        except Exception:
-            continue
-        for e in raw.get("agents") or []:
-            if isinstance(e, dict):
-                for ref in _refs_of(e.get("models")):
-                    add(ref, f"lineup {name} ({e.get('as') or e.get('role') or e.get('agent') or '?'})")
+    try:
+        from halo_harness.crew import store
+        rows = store.rows("agent", cwd=cwd, state_dir=state_dir)
+    except Exception:
+        rows = []
+    for r in rows:
+        if r.get("model") and r.get("model") != "auto":
+            add(str(r["model"]), f"agent {r['name']}")
     return out
 
 
