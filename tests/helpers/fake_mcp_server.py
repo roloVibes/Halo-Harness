@@ -79,7 +79,9 @@ def serve_http_401():
     (an unrecognized http/sse failure suggests `l` too, not just a
     correctly-classified needs_auth one). Yields the base URL."""
     import threading
-    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from http.server import BaseHTTPRequestHandler
+
+    from halo_harness.http_bind import HTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
     class Handler(BaseHTTPRequestHandler):
         def _deny(self) -> None:

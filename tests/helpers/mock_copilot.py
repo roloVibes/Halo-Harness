@@ -23,8 +23,10 @@ import hashlib
 import json
 import threading
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+from halo_harness.http_bind import HTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
 TENANT = "pretend-tenant"
 CLIENT_ID = "00000000-0000-0000-0000-000000000000"

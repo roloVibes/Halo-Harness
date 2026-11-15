@@ -16,8 +16,10 @@ from __future__ import annotations
 import json
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+from halo_harness.http_bind import HTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
 from halo_harness.providers.profiles import DATABRICKS_BODY_ALLOWLIST
 

@@ -104,7 +104,8 @@ class _Server(http.server.ThreadingHTTPServer):
     def server_bind(self):
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        super().server_bind()
+        from halo_harness.http_bind import bind_no_lookup  # 3.6.0.0: no reverse name lookup before listen()
+        bind_no_lookup(self)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):

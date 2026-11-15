@@ -23,9 +23,10 @@ import secrets
 import threading
 import time
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Callable, Optional
 
+from halo_harness.http_bind import HTTPServer  # 3.6.0.0: binds without a reverse name lookup
 from halo_harness.providers import copilot_account as A
 from halo_harness.providers import copilot_errors as E
 from halo_harness.providers import copilot_tokens as T

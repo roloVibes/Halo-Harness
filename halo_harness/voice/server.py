@@ -18,7 +18,7 @@ import argparse
 import sys
 import threading
 import time
-from http.server import ThreadingHTTPServer
+from halo_harness.http_bind import ThreadingHTTPServer, bind_no_lookup
 from pathlib import Path
 from typing import Optional
 
@@ -36,7 +36,7 @@ class _Http(ThreadingHTTPServer):
         import socket
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-        super().server_bind()
+        bind_no_lookup(self)  # 3.6.0.0: no reverse name lookup before listen() (halo_harness/http_bind.py)
 
 
 def _parser() -> argparse.ArgumentParser:

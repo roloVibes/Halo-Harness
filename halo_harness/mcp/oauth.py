@@ -24,7 +24,7 @@ import secrets
 import threading
 import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Callable, Optional
 from urllib.error import HTTPError, URLError
@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 from halo_harness.config.paths import bridge_home
+from halo_harness.http_bind import HTTPServer  # 3.6.0.0: binds without a reverse name lookup
 
 DEFAULT_CALLBACK_TIMEOUT_S = 120.0
 
@@ -214,7 +215,7 @@ def _serve_until_matched(httpd: HTTPServer, result: _CallbackResult, deadline: f
     while not result.event.is_set() and time.monotonic() < deadline:
         try:
             httpd.handle_request()
-        except OSError:
+        except (OSError, ValueError):  # ValueError: the socket was closed under it (fd -1), as on a cancel
             return
 
 

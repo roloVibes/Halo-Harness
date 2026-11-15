@@ -31,7 +31,14 @@ _PROVIDER_ENV_VARS = (
 
 _STUB_LISTENS = '''
 import json, sys
+import socketserver
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class HTTPServer(HTTPServer):  # binds without a reverse name lookup (tests/test_http_bind.py)
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 port = int(sys.argv[sys.argv.index("--port") + 1])
 

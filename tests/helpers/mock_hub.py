@@ -21,7 +21,9 @@ import json
 import threading
 import time
 import urllib.parse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+
+from halo_harness.http_bind import ThreadingHTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
 CHUNK = 64 * 1024
 COMMIT = "c0ffee" + "0" * 34

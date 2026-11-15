@@ -22,7 +22,11 @@ import os
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from halo_harness.http_bind import ThreadingHTTPServer  # noqa: E402  (no reverse name lookup: tests/test_http_bind.py)
 
 
 def _arg(argv: list, *names, default=None):

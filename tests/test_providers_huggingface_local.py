@@ -195,7 +195,14 @@ def test_local_server_api_key_env_reference_resolves_and_plaintext_still_works(c
 
 _STUB_ALIAS_AWARE = '''
 import json, sys
+import socketserver
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class HTTPServer(HTTPServer):  # binds without a reverse name lookup (tests/test_http_bind.py)
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 port = int(sys.argv[sys.argv.index("--port") + 1])
 alias = sys.argv[sys.argv.index("--alias") + 1] if "--alias" in sys.argv else "stub-model"

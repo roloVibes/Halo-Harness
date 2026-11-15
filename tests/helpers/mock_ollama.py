@@ -21,8 +21,10 @@ import json
 import threading
 import time
 import traceback
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
+
+from halo_harness.http_bind import HTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
 from tests.helpers.mock_openai import ClientDisconnected, free_port
 

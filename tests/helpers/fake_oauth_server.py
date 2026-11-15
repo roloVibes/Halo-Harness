@@ -26,8 +26,10 @@ import hashlib
 import json
 import secrets
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlencode, urlparse
+
+from halo_harness.http_bind import HTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
 
 def _b64url(raw: bytes) -> str:

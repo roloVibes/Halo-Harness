@@ -20,9 +20,9 @@ from __future__ import annotations
 import os
 import tempfile
 import threading
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 
+from halo_harness.http_bind import ThreadingHTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 from tests.helpers.mock_openai import end_sse, start_sse, write_sse_chunk
 
 _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "HALO_VOICE_ENGINE", "HALO_VOICE_AUDIO", "HALO_VOICE_FAKE_MS")

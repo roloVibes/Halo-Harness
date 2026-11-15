@@ -23,7 +23,14 @@ test, TESTS = new_registry()
 
 _STUB_LISTENS = '''
 import json, sys
+import socketserver
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class HTTPServer(HTTPServer):  # binds without a reverse name lookup (tests/test_http_bind.py)
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 port = int(sys.argv[sys.argv.index("--port") + 1])
 
@@ -51,7 +58,14 @@ _STUB_NEVER_LISTENS = "import time\ntime.sleep(60)\n"
 
 _STUB_LISTENS_AFTER_DELAY = '''
 import json, sys, time
+import socketserver
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+class HTTPServer(HTTPServer):  # binds without a reverse name lookup (tests/test_http_bind.py)
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 port = int(sys.argv[sys.argv.index("--port") + 1])
 time.sleep(1.5)

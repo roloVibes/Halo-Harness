@@ -16,9 +16,11 @@ from __future__ import annotations
 import base64
 import json
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
+
+from halo_harness.http_bind import ThreadingHTTPServer  # binds without a reverse name lookup (tests/test_http_bind.py)
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "comfy"
 PNG_1X1 = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")

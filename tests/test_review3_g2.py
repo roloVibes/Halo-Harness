@@ -113,7 +113,12 @@ def test_g2_59_concurrent_processes_keep_the_seeded_cap_and_every_write(ctx: Ctx
 
 _MLX_STUB = (
     "import json, sys\n"
+    "import socketserver\n"
     "from http.server import BaseHTTPRequestHandler, HTTPServer\n"
+    "class HTTPServer(HTTPServer):\n"  # binds without a reverse name lookup (tests/test_http_bind.py)
+    "    def server_bind(self):\n"
+    "        socketserver.TCPServer.server_bind(self)\n"
+    "        self.server_name, self.server_port = self.server_address[:2]\n"
     "port = int(sys.argv[sys.argv.index('--port') + 1])\n"
     "mid = sys.argv[sys.argv.index('--model') + 1]\n"
     "class H(BaseHTTPRequestHandler):\n"

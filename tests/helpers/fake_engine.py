@@ -21,10 +21,12 @@ import subprocess
 import sys
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(1, str(Path(__file__).resolve().parents[2]))
+from halo_harness.http_bind import ThreadingHTTPServer  # noqa: E402  (no reverse name lookup: tests/test_http_bind.py)
 import engine_lines as L  # noqa: E402
 
 VERSIONS = {"freetoken": "freetoken version 0.0.0+gfake", "strata": "strata 0.2.10 (build fake; python 3)",
