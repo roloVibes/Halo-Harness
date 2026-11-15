@@ -24,7 +24,7 @@ NEEDS = ("images", "audio", "video", "pdf", "reasoning", "long-text", "tools")  
 MORE_KEYS = {"fallback": str, "effort": str, "thinking": bool, "max_turns": int, "max_minutes": int,
              "max_usd": (int, float), "reads": list, "worktree": bool, "offline": bool, "check": dict}
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
-AGENT_KEYS = ("format", "name", "does", "instructions", "model", "needs", "uses", "careful", "more")
+AGENT_KEYS = ("format", "name", "does", "instructions", "model", "needs", "uses", "careful", "more", "from")  # from: a copy's source (R5d)
 STEP_KEYS = ("name", "agents", "gets", "hands", "when", "repeat")
 WHEN_WORDS = ("always", "ask")
 LINE_WHEN = ("always", "ask", "main-decides")

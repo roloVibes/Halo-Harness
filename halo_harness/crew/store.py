@@ -262,11 +262,16 @@ def path_for(kind: str, name: str, *, cwd=None, state_dir=None, project: bool = 
     return own_folder(kind, cwd=cwd, state_dir=state_dir, project=project) / f"{name}.yaml"
 
 
+def _a(kind: str) -> str:
+    return f"an {kind}" if kind[:1] in "aeiou" else f"a {kind}"
+
+
 def own_copy(kind: str, name: str, *, as_name: Optional[str] = None, cwd=None, state_dir=None) -> "tuple[Path, str]":
     """3.6.0.0 R5d: your own copy of the agent, workflow or map `name` (a starter, an enabled pack's, the project's or
-    one of yours), to edit: the file as Halo reads it, named `as_name` (default `my-<name>`, a pack's `<pack>--` left
-    off), written to ~/.halo/crew/<kind>s/. Never writes over a file of yours. `(path, new name)`; ValueError with
-    the one line when it cannot."""
+    one of yours), to edit: the file as Halo reads it plus `from: <scope> <name>`, named `as_name` (default
+    `my-<name>`, a pack's `<pack>--` left off), written to ~/.halo/crew/<kind>s/. Never writes over a file of yours,
+    nor under a name a trusted project's own file would shadow. `(path, new name)`; ValueError with the one line when
+    it cannot."""
     from halo_harness.crew.formats import name_problem
     got = load(kind, name, cwd=cwd, state_dir=state_dir)
     if got is None:
@@ -277,7 +282,41 @@ def own_copy(kind: str, name: str, *, as_name: Optional[str] = None, cwd=None, s
         raise ValueError(bad)
     path = path_for(kind, new, cwd=cwd, state_dir=state_dir)
     if path.exists():
-        raise ValueError(f"you have a {kind} named {new} already ({path}): name the copy with --as")
-    raw = {**clean(got), "name": new}
+        raise ValueError(f"you have {_a(kind)} named {new} already ({path}): name the copy with --as")
+    nearer = find(kind, new, cwd=cwd, state_dir=state_dir, scope="project")  # the judge's item 8b: a nearer file wins
+    if nearer is not None:
+        raise ValueError(f"this project has {_a(kind)} named {new} ({nearer[0]}), read before yours here, so a copy by "
+                         f"that name would not be the one that runs or that edit opens: name the copy with --as")
+    full = str(got.get("name") or name) if got["_scope"] != "pack" else (_pack_name(kind, name, cwd, state_dir) or name)
+    raw = {**clean(got), "name": new, "from": f"{got['_scope']} {full}"}  # the judge's item 8a: where it came from
     write_text(path, dump(raw))
     return path, new
+
+
+def from_note(raw: dict) -> str:
+    """The `from:` a copy carries ("pack doc-review--flow", "starter coder"; 3.6.0.0 R5d), "" when none."""
+    got = raw.get("from") if isinstance(raw, dict) else None
+    return got.strip() if isinstance(got, str) else ""
+
+
+def missing_agents(raw: dict, *, cwd=None, state_dir=None) -> "list[str]":
+    """The agents a map's main or boxes name that no file answers any more (a disabled pack's, a deleted file)."""
+    names: list = []
+    main = (raw.get("main") or {}).get("agent") if isinstance(raw.get("main"), dict) else None
+    for ref in [main] + [b.get("agent") for b in raw.get("boxes") or [] if isinstance(b, dict)]:
+        for n in (ref if isinstance(ref, list) else [ref]):
+            if isinstance(n, str) and n and n not in names:
+                names.append(n)
+    return [n for n in names if find("agent", n, cwd=cwd, state_dir=state_dir) is None]
+
+
+def dangling_line(raw: dict, *, cwd=None, state_dir=None) -> str:
+    """One line when map `raw` names an agent that no longer exists (3.6.0.0 R5d: say after a pack is disabled), ""."""
+    gone = missing_agents(raw, cwd=cwd, state_dir=state_dir)
+    if not gone:
+        return ""
+    src = from_note(raw)
+    why = (f" (a copy of {src.split(' ', 1)[1]}: is that pack still enabled? halo pack list)" if src.startswith("pack ")
+           else f" (a copy of {src})" if src else "")
+    return (f"map {raw.get('name')} names {'agent' if len(gone) == 1 else 'agents'} {', '.join(gone)}, which no longer "
+            f"{'exists' if len(gone) == 1 else 'exist'}{why}: its boxes for them do nothing")

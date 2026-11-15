@@ -70,8 +70,8 @@ def covering_role(gaps: list, team_control) -> str:
 
 
 def nothing_reads(gaps: list, files=()) -> str:
-    """(d) "no role or square reads PDFs here: `halo workflows enable media`, or give a role a model that takes
-    PDFs" -- for the reads; '' when the gaps hold no read."""
+    """(d) "no role or square reads PDFs here: add media to config workflows.enabled, or give a role a model that
+    takes PDFs" -- for the reads; '' when the gaps hold no read."""
     reads = [g for g in gaps or [] if g in _PLURAL]
     if not reads:
         return ""

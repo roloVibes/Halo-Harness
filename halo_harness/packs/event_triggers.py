@@ -1,5 +1,5 @@
 """halo_harness.packs.event_triggers -- a bio's trigger on a pack's event
-(Halo 3.2.0.0 R5; agents_schedule.py's TeamScheduler polls it each tick).
+(Halo 3.2.0.0 R5; 3.6.0.0 R5d: the bio scheduler that polled it is gone, so only `normalize` is read).
 
 A bio's `triggers:` already starts it on a Halo event (`{on: event, name:
 <kind>}`, one shot per session). The name space now holds pack events too:

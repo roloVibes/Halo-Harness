@@ -64,7 +64,7 @@ def pack_artifact(req, pack, schema_name: str):
     schema = artifact_schema(pack.root, schema_name)
     return 200, {"name": "", "schema": schema_name, "view": view_of(schema) if schema else "keyvalue", "columns": columns(schema),
                  "data": None, "run": "", "path": "", "ok": True, "problems": [],
-                 "why": f"no finished run in this repo wrote a {schema_name} yet (halo workflow run ... writes one)"}
+                 "why": f"no finished run in this repo wrote a {schema_name} yet (halo orchestra new --workflow ... writes one)"}
 
 
 def run_artifact(req):

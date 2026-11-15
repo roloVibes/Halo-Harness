@@ -57,9 +57,9 @@ halo                         # full-screen TUI
    jumps straight to any one step, skipping the Quick/Full choice.
    Reach Team again later with `/setup team` or `halo setup team` (Setup in Studio on its Team block;
    `--terminal` for this screen), or the
-   bios and lineups any
-   time with `/agents`/`/teams` (they show bios and lineups; Studio edits them:
-   `halo agents|teams edit <name>`, `/edit <thing>`, `e` in a view) --
+   agents and maps any
+   time with `/agents` and `/map` (Studio edits them: `halo agents|workflows|maps edit <name>`,
+   `/edit <thing>`) --
    see `docs/WIZARD.md` for the full ten-rule interaction model and chord
    table, `docs/COMMANDS.md`'s `init`/`setup`/`agents`/`teams` sections,
    and `docs/AGENTS.md`'s own wizard section for exactly what each step
@@ -353,9 +353,9 @@ per role and manages templates (`templates`/`save`/`load`/`new`/`edit`/
 --roles` sums sub-agent spend per role; `halo completion bash|zsh|
 powershell` completes role names and cached model refs too. A switch,
 `roles.enabled` (default on), turns the whole table off (every role
-resolves to the session model) -- `halo roles on|off`, `/roles on|off`,
-and the wizard's own top-of-step toggle all flip the SAME switch; `halo
-roles` always prints the current state as its first line. The init
+resolves to the session model) -- `halo maps use --none` ("One model for
+everything") and the wizard's own Map step flip the SAME switch
+(3.6.0.0: `halo roles` other than `halo roles point` prints one line pointing at `halo maps`). The init
 wizard's Roles step (`halo
 init`, `/setup roles`, `halo setup roles`) offers three shipped presets
 (`balanced`/`quality`/`local-first`) with a live preview. See
@@ -725,8 +725,8 @@ In the TUI the reviewers show up in `/tasks` while they work and the result
 lands as one card per finding; click a card's `file:line` to copy it, press
 Enter to unfold its failure scenario, Esc to abort. A review reports and never
 gates anything; `--fix` edits the working tree but never commits. The
-`code-review` team template (`halo teams use code-review`) maps the `reviewer`,
-`judge` and `coder` roles so each part can run on its own model. Details,
+`reviewer`, `judge` and `coder` roles (`halo roles point <role> <model>`) let each
+part run on its own model. Details,
 the JSON shape and cost notes: [REVIEW.md](REVIEW.md).
 
 ## Telemetry and `/improve`

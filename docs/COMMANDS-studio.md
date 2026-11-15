@@ -73,8 +73,8 @@ on the live feed); with no page open the browser opens the URL, and with no
 browser the URL is printed. With none running, `halo studio --edit` starts
 one as usual, on the target. `--no-open` only prints the URL. A target that
 is not one of the three shapes: exit 2 with the reason. `halo agents edit`,
-`halo teams edit`, the TUI's `/edit` and `e` in the terminal's bio and
-lineup views run the same thing (see
+`halo workflows edit`, `halo maps edit` and the TUI's `/edit` run the same
+thing when no editor is set (see
 [AGENTS.md](AGENTS.md#making-and-changing-an-agent)).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight

@@ -30,7 +30,7 @@ once, in the terminal and in Studio's Attention: they are no longer read, and wh
 | `halo roles point <role> <model>`, `/role`, `roles.*` | kept: the model table; on a session with no map it reaches the agent of that name |
 | the squares a lineup enabled (`workflows:` in a lineup), `halo workflows enable / disable / when` | config `workflows.enabled` and `workflows.when.<square>` (`halo config set`, Studio's Settings); the `Workflow` tool reads only these |
 | a `roles` table in config.json turned into the lineup `migrated` at session start | nothing is migrated: `roles.*` is the model table a session reads as it is |
-| `halo config where`'s Active lineup, Lineup folders and Bio folders rows; `halo doctor --config`'s lineup and bio checks | gone with the files they listed (the old-files line still names your old files) |
+| `halo config where`'s Active lineup, Lineup folders and Bio folders rows; `halo doctor --config`'s lineup and bio checks | gone with the files they listed (the old-files line still names your old files); `halo config where` lists the agent, workflow and map folders in their place |
 | the block templates (`halo blocks add`, Studio's "Blocks you can start from") | the workflow starters: `halo workflows new <name> --from <starter>` |
 
 Old addresses still land somewhere sensible: `?view=cast|live|roles|team|orchestra` open the Map, `?view=workflows`

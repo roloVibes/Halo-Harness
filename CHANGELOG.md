@@ -498,7 +498,22 @@ Removed (and what to do instead):
 Added: **your own copy to edit** (`own_copy`): `halo agents | workflows | maps copy <name> [--as <new>]` writes a
 starter's (or a pack's, or the project's) file to `~/.halo/crew/<kind>s/my-<name>.yaml` and never over a file of yours;
 `edit` on a starter names it. Studio's button for it comes in the next round. A workflow's `own_copy: true` field still
-changes nothing (it does not move a workflow onto the run engine yet).
+changes nothing (it does not move a workflow onto the run engine yet). A copy carries `from: <where> <name>` (a pack's
+map: `from: pack <pack>--<name>`); once that pack is disabled, `halo maps list` and `halo doctor` say in one line that
+the copied map names an agent that is gone. A copy a trusted project's own file of that name would shadow is refused
+in one line naming `--as`.
+
+Fixed after review: the /model picker's Agents source listed nothing (it asked for the wrong kind and hid the error;
+only a missing or unreadable file now reads as "no agents"), and picking an agent there sets that agent's model (one
+with no model of its own leaves the session's alone and says so). `halo config set` stores a list for every key the
+Settings catalog types a list (`media,review`, one name, or a JSON list), so `halo config set workflows.enabled
+media,review` turns both squares on; the reader takes a hand-written comma string too, and `halo doctor --config`
+says in one line when a list-typed key holds one plain value. `halo config where` (and `/config where`) lists the
+agent, workflow and map folders where the lineup and bio folders were: the project's, yours, the starters and each
+enabled pack's (read-only), with which file wins a name two of them hold. The scheduler leftovers in the session loop and the
+`templates/blocks` package data are gone. The map's caps (`max_parallel`) and its agents as `Agent(role=...)` names
+keep their tests (tests/test_review2_round8c.py). Docs and help text no longer send anyone to `halo workflow run`,
+`halo teams` or `halo workflows enable`.
 
 Docs: AGENTS.md and ROLES.md rewritten short for agents and the model table; WORKFLOWS-squares.md says config holds
 the squares; MOVING-from-3.5.md lists what R5d removed and what is not moved yet, and the README links it.

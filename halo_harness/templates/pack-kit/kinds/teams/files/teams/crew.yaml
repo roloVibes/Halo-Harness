@@ -1,6 +1,6 @@
 # __NAME__'s lineup, read in place as __ID__--crew: two roles (the lead as main, the checker as reviewer), two tiers
-# (the lead spawns only into the checks tier below it) and an acceptance block. `halo --team __ID__--crew` runs a
-# session under it; Roles shows it under the pack, Team and Orchestra offer it like any lineup.
+# (the lead spawns only into the checks tier below it) and an acceptance block. `halo --map __ID__--crew` runs a
+# session on it (3.6.0.0: a pack's lineup reads as a map); halo maps list shows it under the pack.
 name: crew
 description: The lead drafts __NAME__'s work; the checker reads every draft before it is done.
 version: "0.1"

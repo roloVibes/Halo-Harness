@@ -63,7 +63,7 @@ A group (Halo 3.3.16.3; Agents -> Live went in 3.6.0.0 R5) was how Agents -> Liv
 
 ## when
 
-A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square work, carried by the line from main to its box on Studio's Agents -> Map: when main needs something (pdf, images, audio, video, code, a plan, research, a review, work data -- the square's covers, narrowed), when the task says one of its words, only when main names it, or always first. A block with no line is not connected: main never uses it. A lineup writes it as `{ref, when: {needs, words, mode}}` in its `workflows:` list (the auto lineup in config `workflows.when.<ref>`); `halo workflows enable <ref> --when ...` sets it and the router's receipt names the rule that fired.
+A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square work, carried by the line from main to its box on Studio's Agents -> Map: when main needs something (pdf, images, audio, video, code, a plan, research, a review, work data -- the square's covers, narrowed), when the task says one of its words, only when main names it, or always first. A block with no line is not connected: main never uses it. Config holds it as `workflows.when.<ref>` (`{needs, words, mode}`), beside `workflows.enabled`; `halo config set workflows.when.<ref> '{"mode": "named"}'` sets one, and the router's receipt names the rule that fired.
 
 ## plan
 

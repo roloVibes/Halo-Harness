@@ -139,10 +139,16 @@ def test_config_where_and_doctor_config_have_the_packs_group(ctx: Ctx):
         ctx.check(f"the repo folder, the home folder, state.json; got {[r['file'] for r in rows]}",
                   [r["file"] for r in rows] == ["./.halo/packs", "~/.halo/packs", "~/.halo/packs/state.json"])
         ctx.check("the home row lists the pack, running", rows[1]["sets"] == ["doc-review"] and "1 running" in rows[1]["note"])
-        bios = [r for r in where_rows(h.repo) if r["kind"] == "bios" and r["scope"] == "pack"]
-        ctx.check(f"the pack's bio folder is a read-only bios row, got {[(r['sets'], r['note']) for r in bios]}",
+        # 3.6.0.0 R5d: the pack's files are read as agents, workflows and maps (its bio folder was a bios row)
+        mine = {k: [r for r in where_rows(h.repo) if r["kind"] == k and r["scope"] == "pack"] for k in ("agents", "workflows", "maps")}
+        bios = mine["agents"]
+        ctx.check(f"the pack's agent folder is a read-only agents row, got {[(r['sets'], r['note']) for r in bios]}",
                   len(bios) == 1 and bios[0]["sets"] == ["doc-review--reviewer", "doc-review--writer"]
-                  and "read-only" in bios[0]["note"])
+                  and "read-only" in bios[0]["note"] and "from pack doc-review" in bios[0]["note"])
+        ctx.check(f"and its workflow and map folders, got {[(k, [r['sets'] for r in v]) for k, v in mine.items()]}",
+                  [r["sets"] for r in mine["workflows"]] == [["doc-review--review-docs"]]
+                  and [r["sets"] for r in mine["maps"]] == [["doc-review--review"]]
+                  and all("read-only" in r["note"] for v in mine.values() for r in v))
         found = [f for f in config_findings(h.repo) if f["kind"] == "packs"]
         ctx.check(f"doctor --config lists the ungranted needs, got {[f['text'] for f in found]}",
                   [f["check"] for f in found] == ["pack-not-granted", "pack-not-granted", "pack-bio-model", "pack-bio-need",

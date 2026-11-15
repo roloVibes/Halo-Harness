@@ -3,8 +3,8 @@ every file that sets something for this repo and this home, in one table.
 
 Groups, in this order: Halo's config (`~/.halo/config.json`, `routes.json`),
 the env files (names only), Claude Code's `settings.json` layers, the MCP
-server files, the Databricks team preset, the packs (3.6.0.0 R5d: the lineup and
-bio rows went with them). Inside a
+server files, the agent, workflow and map folders (3.6.0.0 R5d, where the lineup and bio
+folders were: where/crew_files.py), the Databricks team preset, the packs. Inside a
 group the row with rank 1 is the one the resolver reads first; `wins` and
 `loses` say which file decides each key two files set (halo_harness/where/).
 
@@ -22,6 +22,7 @@ from typing import Optional
 
 GROUPS = (("config", "Halo's config"), ("env", "Env files (variable names only)"),
           ("settings", "settings.json (Claude Code's; Halo reads them)"), ("mcp", "MCP servers"),
+          ("agents", "Agent folders"), ("workflows", "Workflow folders"), ("maps", "Map folders"),  # 3.6.0.0 R5d
           ("team-preset", "Databricks team preset"),
           ("packs", "Packs"))  # 3.2.0.0 R1: where/pack_files.py
 
@@ -34,7 +35,8 @@ def where_rows(cwd=None, *, state_dir=None, settings_flag: Optional[str] = None)
     cwd = Path(cwd if cwd is not None else Path.cwd()).resolve()
     state = Path(state_dir) if state_dir is not None else bridge_home()
     from halo_harness.where.pack_files import pack_rows
-    rows = halo_rows(cwd, state) + claude_rows(cwd, settings_flag)
+    from halo_harness.where.crew_files import crew_rows
+    rows = halo_rows(cwd, state) + claude_rows(cwd, settings_flag) + crew_rows(cwd, state)
     rows += pack_rows(cwd, state)
     order = {kind: i for i, (kind, _title) in enumerate(GROUPS)}
     return sorted(rows, key=lambda r: (order.get(r["kind"], 99), r["rank"]))

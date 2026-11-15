@@ -1,25 +1,26 @@
 """halo_harness.workflows.when -- a block's "when": the rule that says when main hands work to a square
 (Halo 3.3.16.3 "Blocks", docs/WORKFLOWS-squares.md "When").
 
-A lineup's `workflows:` item is a plain ref (today's meaning: the square's `covers` against the gaps) or
+A rule (config `workflows.when.<ref>`; a 1.x pack lineup's `workflows:` item, read in place, may carry one as
+`{ref, when}`; a plain ref means the square's `covers` against the gaps) is
 
-    {ref: <ref>, when: {needs: [pdf, audio], words: [review, audit], mode: auto}}
+    {needs: [pdf, audio], words: [review, audit], mode: auto}
 
 - `mode: auto` (the default): the square takes a hand-off when main needs one of `needs` (the square's
   `covers`, narrowed; none given = its covers) or the task says one of `words`;
 - `named`: only when main asks for it by name;
 - `always`: first -- a hand-off that names no need goes to it before any other (the Workflow tool's
   description tells main to hand it the task before it answers);
-- `off`: not connected -- main never uses it; the block stays on the board, drawn dashed.
+- `off`: not connected -- main never uses it.
 
-The auto lineup keeps its rules in config `workflows.when.<ref>` (when_store.py reads and writes both).
+when_store.py reads the rules from config (3.6.0.0 R5d: lineups and the board are gone).
 
     read(raw) -> Rule | None        None for a plain ref (or no `when`)
     problems(raw) -> [line]         one line per bad value
     item_ref(item) -> str           a `workflows:` item's ref
     label(rule, covers) -> str      the line's label: "needs pdf, audio" | "says review" | "by name only" | ...
     sentence(rule, ref, covers)     the hover card's sentence: "main hands media work when it needs a PDF or audio"
-    parse(text) -> (raw | None, problem)   the CLI's --when: needs=pdf,audio | words=review,audit | named | always | off | auto
+    parse(text) -> (raw | None, problem)   a rule in words: needs=pdf,audio | words=review,audit | named | always | off | auto
     word_hit(rule, task) -> str     the first of the rule's words the task says ("" when none)
 """
 
@@ -150,7 +151,7 @@ def when_line(rule: Optional[Rule], covers=()) -> str:
 
 
 def sentence(rule: Optional[Rule], ref: str, covers=()) -> str:
-    """The rule in a sentence (a line's hover card, `halo workflows when`)."""
+    """The rule in a sentence (a line's hover card)."""
     rule = rule or Rule()
     if rule.mode == "off":
         return f"{ref} is not connected: main never uses it"

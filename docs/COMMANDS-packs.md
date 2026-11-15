@@ -375,14 +375,15 @@ a late answer is the policy's `on_error` verdict, said with what happened.
 `halo pack policy log ... --since WHEN`: only the verdicts after WHEN: `30m`, `2h`, `1d` (that long ago), epoch
 seconds, or an ISO time (`2026-11-03T12:00`, local when it has no zone). Anything else is a usage line (exit 2).
 
-## A pack in `halo agents list` and `halo teams list`
+## A pack in `halo agents list`, `halo workflows list` and `halo maps list`
 
-With a pack enabled, `halo agents list` and `halo teams list` print your
-names (and the shipped ones) one per line as before, then one group per
-pack: `pack <id>:` and its `<id>--<name>` names, indented. A name a file of
-yours shadows says so: `  doc-review--reviewer  shadowed by
-~/.halo/agents/doc-review--reviewer.yaml`. With no pack the output is
-unchanged.
+With a pack enabled, its agents, workflows and maps are listed after yours,
+the project's and the starters, each as `<id>--<name>` with the scope `pack`
+(3.6.0.0 R5b). `halo agents copy <id>--<name>` (and the same verb of
+`workflows` and `maps`) makes your own copy to edit; the copy says where it
+came from (`from: pack <id>--<name>`), and once the pack is disabled `halo
+maps list` and `halo doctor` say in one line when a copied map names an agent
+that is gone. With no pack the output is unchanged.
 
 #### `--cwd`
 

@@ -11,7 +11,7 @@ you make your own: every file is explained below in one line.
 ```
 halo pack install doc-review                  # Halo finds it: the shipped folder is the last place it looks
 halo pack enable doc-review --grant bash      # add --grant hooks and --grant mcp:lint for the plugin half
-halo workflow run doc-review/review --input docs=docs
+halo orchestra new --workflow doc-review/review --input docs=docs
 halo pack remove doc-review                   # its own files go; what you made stays, each one listed
 ```
 

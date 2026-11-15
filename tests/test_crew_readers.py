@@ -169,7 +169,7 @@ import sys
 sys.path.insert(0, sys.argv[1])
 from tests.helpers import catalog_facts_seed as S
 OLD = ("halo_harness.teams_runtime", "halo_harness.teams_yaml", "halo_harness.agents_yaml", "halo_harness.lineup_default",
-       "halo_harness.agents_schedule", "halo_harness.teams_tiers", "halo_harness.lineup_preflight")
+       "halo_harness.teams_tiers", "halo_harness.lineup_preflight")
 from halo_harness.models_best_at import rebuild
 from halo_harness import headless
 from tests.test_crew_compile import _child

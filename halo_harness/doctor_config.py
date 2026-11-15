@@ -70,8 +70,32 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
     out += [finding("packed-section", "warns", row, packed_line(sec), key=sec)  # 3.4.0.0 B2: the coach's keys
             for sec in sorted(PACKED_SECTIONS) if isinstance(data, dict) and sec in data]
     out = _removed_theme_findings(out, data, row)
+    out += _list_type_findings(data, row, {f["key"] for f in out}) if path.name == "config.json" else []
     from halo_harness.providers.ollama_key_migrate import key_findings  # 3.3.13.1: a host api_key held as a value
     out += key_findings(data, row, finding) if path.name == "config.json" else []
+    return out
+
+
+SCALAR_OK = ("local.ladder", "recall.sources", "huggingface.voice_server_cmd")  # their readers take one word or path too
+
+
+def _list_type_findings(data, row: dict, seen: set) -> list:
+    """3.6.0.0 R5d: one line per key the Settings catalog types `list` that holds one plain value (a hand edit, or a
+    `halo config set` before it wrote lists): what `halo config set` writes instead."""
+    if not isinstance(data, dict):
+        return []
+    from halo_harness.settings_catalog import rows as catalog_rows
+    out = []
+    for r in catalog_rows():
+        if r.kind != "list" or r.key in SCALAR_OK or r.key in seen:
+            continue
+        node = data
+        for part in r.key.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if isinstance(node, (str, int, float, bool)):
+            out.append(finding("wrong-type", "warns", row, f"{r.key} is a list, not {json.dumps(node)}", key=r.key,
+                               fix=f"halo config set {r.key} {node if isinstance(node, str) and node else '<a,b>'} "
+                                   f"(it writes the list)"))
     return out
 
 

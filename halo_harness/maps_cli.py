@@ -56,6 +56,9 @@ def cmd_maps(argv) -> int:
             mark = "*" if r["name"] == used else " "
             bad = f"  problem: {r['_problems'][0]}" if r["_problems"] else ""
             print(f"{mark} {r['name']:<20} {r['_scope']:<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
+            gone = store.dangling_line(r, cwd=cwd) if r["_scope"] != "starter" and not r["_problems"] else ""
+            if gone:  # 3.6.0.0 R5d: a copy of a pack's map outlives the pack
+                print(f"    {gone}")
         print(f"in use: {used} ({source})" if used else "in use: none (One model for everything: roles off)")
         return 0
     if args.cmd == "copy":  # 3.6.0.0 R5d: own_copy

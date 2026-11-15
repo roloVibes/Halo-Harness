@@ -38,7 +38,7 @@ beside the map (`run-goal-drawer`), closed on load, closed again by its `x`, Esc
 Under
 the form, **or run a pack's workflow** lists the workflows of the packs that run here; a pick (or the Pack Manager's
 **Run <workflow>**) fills in that workflow's form in the goal form's place (its inputs, the MODEL, what it does, costs
-and writes, Run), compiled as `halo workflow run` does; **a blank goal instead** brings the goal form back.
+and writes, Run), compiled as `halo orchestra new --workflow` does; **a blank goal instead** brings the goal form back.
 
 ## The run on the Map
 

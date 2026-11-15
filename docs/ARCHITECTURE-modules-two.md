@@ -161,9 +161,8 @@ best catalog model), `packs/bio_rules.py` (what a pack's bio and lineup may not
 say, with the manifest), `packs/memory.py` (a pack bio's memory namespace,
 recall's filter), `packs/lineup_run.py` (`workflows`, `acceptance.test` /
 `review` as the Orchestra defaults), `packs/roles.py` (the bios and lineups
-`halo pack inspect` / `doctor` and the list groups read), `packs/clone.py`
-(Clone into your folder); `studio/packs_roles_api.py` is Studio's
-`roles/packs` and `roles/clone`. 3.2.0.0 R3, Studio contributions:
+`halo pack inspect` / `doctor` and the list groups read; 3.6.0.0 R5d: `halo agents | workflows | maps copy` makes
+your own copy of a pack's crew). 3.2.0.0 R3, Studio contributions:
 `packs/studio_rules.py` and `packs/studio_keys.py` (what `contributes.studio` may say, with the manifest: the
 panels, then the other keys),
 `packs/studio_registry.py` (the registry the shell reads: ids qualified, routes
@@ -250,9 +249,8 @@ and `isolation/Dockerfile` the worker image.
   `measure`: `providers/ollama_discover.py` and the calibration from the page) and
   `studio/setup_discover_jobs.py` (the scan and measure background jobs, their `setup` frames, the rows found)
 - Studio's Setup section (3.3.0.0 R1): `studio/setup_api.py` (its routes: `GET setup/state`,
-  `POST setup/config` for model / permission_mode / theme, `POST setup/team`, the Team preview),
-  `studio/setup_state.py` (what the state holds, read from the places the wizard reads) and
-  `lineup_choice.py` (the Team step's three writes, called by the wizard and by Setup alike);
+  `POST setup/config` for model / permission_mode / theme, `POST setup/team` {map} for the Map step and its preview)
+  and `studio/setup_state.py` (what the state holds, read from the places the wizard reads);
   R2: `studio/setup_providers_api.py` (the Providers and Local models routes, each calling the
   wizard's writer) and `studio/setup_providers_state.py` (the provider cards' masked state, the
   Ollama hosts, the Hugging Face entries, the model folders, the runtime, the detection lines); 3.3.17.0 R2: `studio/setup_copilot_api.py` (the Copilot card's routes).

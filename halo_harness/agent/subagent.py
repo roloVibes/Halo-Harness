@@ -996,8 +996,8 @@ def _team_queue_report(parent, line: str, *, from_role: "Optional[str]" = None) 
     """Halo 2.0.5 round 5: lineup reporting -- a member's one-line report
     lands on the ROOT session's pending-notice queue (the same queue a
     background sub-agent's completion notice uses, so the next turn
-    delivers it as a user-role notice), and any `on: message, from:
-    <role>` trigger armed on the root's scheduler fires."""
+    delivers it as a user-role notice). `from_role` is kept for the callers: the
+    scheduler whose `on: message` triggers it fed went with the lineups (3.6.0.0 R5d)."""
     root = parent
     hops = 0
     while getattr(root, "agent_depth", 0) > 0 and getattr(root, "agent_id", None) is not None and hops < 8:
@@ -1012,9 +1012,6 @@ def _team_queue_report(parent, line: str, *, from_role: "Optional[str]" = None) 
     if lock is not None and notices is not None:
         with lock:
             notices.append(line)
-    scheduler = getattr(root, "_team_scheduler", None)
-    if scheduler is not None and from_role:
-        scheduler.notify_message(from_role)
 
 
 def _tag(ev, *, agent_id: str, parent_tool_use_id: str):

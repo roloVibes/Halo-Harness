@@ -93,19 +93,12 @@ cancelled, step, last_event, report?}`.
 answered (`{ts, goal, row, key, by}`); `halo goal show` prints a goal's lines,
 and the Session landing's morning line reads it.
 
-## Schedules stay armed
+## Schedules
 
-A session's schedules and triggers die when the session closes (see
-[AGENTS.md](AGENTS.md)). While the supervisor runs it
-arms every lineup -- in the state dir and in each queued goal's repo -- that
-declares a schedule or a trigger, with its store entries marked `owner:
-supervisor`. A session that loads a lineup the supervisor already owns does
-not arm it a second time (its `_arm_team_scheduler_once` checks the live
-pulse), and the supervisor's `_persist`/`disarm` only ever replace or drop its
-own entries, so nothing double-fires. A trigger firing while its previous fire
-still runs does not start a second job -- the store keeps the running fire's
-background-run id and a due fire is skipped with a log line. `on: event` and
-`on: message` triggers are fed from the live sessions' control-socket feeds.
+Until 3.6.0.0 the supervisor armed the schedules and triggers a lineup's bios
+declared. Lineups and bios went in 3.6.0.0 R5, and the scheduler with them in
+R5d, so the supervisor arms nothing of a lineup's any more; a goal you queue
+(`halo goal`) is what it runs.
 
 ## Checkpoint resume
 

@@ -204,7 +204,7 @@ PACK = {
     "contributes.fleet": "contributes.capabilities under its name before extension API 1.4 (read the same; its mission key is ignored)",
     "contributes.artifacts": "its artifact schemas (artifacts/<name>.json): a workflow output's type, drawn by its x-halo-view",
     "contributes.events": "the event kinds it publishes on Studio's live feed; a kind's schema is events/<kind>.json",
-    "contributes.workflows": "its workflows (workflows/<name>.yaml), compiled to Orchestra runs: halo workflow run <id>/<name>",
+    "contributes.workflows": "its workflows (workflows/<name>.yaml), compiled to Orchestra runs: halo orchestra new --workflow <id>/<name>",
     "contributes.policy": "3.3.10.0: its policy hooks -- a command in the pack whose allow, deny or ask decides each matching tool call once armed (after: true, its result too: pass, redact, drop; halo pack policy)",
     "contributes.modes": "3.3.10.0: its runtime modes (id, label, theme); turning one on arms the policies that name it (halo pack mode)",
     "contributes.themes": "3.3.12.0: its own palettes (id, label, posture: dark | light, palette: every token as #rrggbb); each is the theme <pack-id>/<id> while the pack is enabled (/theme, Settings -> Themes)",

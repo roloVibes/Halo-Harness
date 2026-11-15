@@ -86,34 +86,33 @@ listed as not read, because Halo reads only the home one), the env file
 value; Halo does not read `.env`), Claude Code's `settings.json` layers
 (managed, `--settings`, local, project, user), the MCP server files
 (`managed-mcp.json`, `~/.claude.json` and its entry for this folder,
-`.mcp.json`), the active lineup and each lineup it `extends`, the lineup and
-bio folders (repo `.halo/`, `~/.halo/`, shipped) and the Databricks preset (`team.json`).
+`.mcp.json`), the agent, workflow and map folders (3.6.0.0 R5d: the project's `.halo/crew/<kind>s/`, listed
+and marked not read in a folder you have not trusted, yours `~/.halo/crew/<kind>s/`, the shipped starters, and
+each enabled pack's, read-only), the Databricks preset (`team.json`) and the packs.
 Each row: the
 file, its scope (`home`, `repo`, `env`, `shipped`), whether it exists, what
-it sets (its top-level keys, or the names of the lineups, bios,
+it sets (its top-level keys, or the names of the agents, workflows, maps,
 servers or variables it holds) and its rank (1 = the file the resolver
 reads first). When two files set the same key, `wins` and `loses to` say
-which one decides, as the resolvers decide it (the lineup and bio
-finders, the settings merge, the MCP resolver, the start-model and theme
+which one decides, as the resolvers decide it (the crew finder, the settings merge, the MCP resolver, the start-model and theme
 order, the env file's "the environment wins" rule). `/config where` in the
 TUI prints the same table.
 
-`halo doctor --config` checks every file that table lists: against one
-schema set (`halo_harness/schemas/`: config.json, a lineup, a bio, a team
-file) for unknown keys (with the closest known key) and wrong
-types, and against the existing validators for meaning: a lineup or team
-naming a bio or lineup that does not exist, `team:` in config.json naming a
-lineup that is not there. A section of a removed feature is one warning
-line: `orgs: removed in 3.1.4.0, the section is ignored` (and the same for
-`paperclip`) in config.json, `org: removed in 3.1.4.0, ignored` in a lineup.
-It also reports a key two files set to different values, with the file that
-wins. Shipped templates are not re-checked. Exit 0 when nothing is found,
-1 otherwise. Studio's Roles section shows the findings about the open
-lineup in its Problems panel, under **Config** (`GET /api/doctor/config?lineup=<name>`).
+`halo doctor --config` checks every file that table lists: against the
+schema set (`halo_harness/schemas/`) for unknown keys (with the closest known
+key) and wrong types, and against the existing validators for meaning. A key
+the Settings catalog types a list that holds one plain value is one warning
+line naming the `halo config set` that writes the list (3.6.0.0 R5d). A
+section of a removed feature is one warning line: `orgs: removed in 3.1.4.0,
+the section is ignored` (and the same for `paperclip`). Lineups and bios are
+not read since 3.6.0.0, so their files are not checked. It also reports a key
+two files set to different values, with the file that wins. Shipped
+templates are not re-checked. Exit 0 when nothing is found, 1 otherwise
+(`GET /api/doctor/config` answers the same findings).
 
 ```
 halo doctor --config
   [WARN] ~/.halo/config.json: unknown key 'modle' (closest known key: 'model'); nothing reads it -> fix: rename it to model
-  [ERROR] ~/.halo/teams/mine.yaml: agents[0]: no such agent bio: 'ghost-bio' -> fix: halo agents new <name>, or name a bio halo agents lists
-RESULT: 2 finding(s) in 9 file(s) checked (1 error(s), 1 warning(s)).
+  [WARN] ~/.halo/config.json: workflows.enabled is a list, not "review" -> fix: halo config set workflows.enabled review (it writes the list)
+RESULT: 2 finding(s) in 9 file(s) checked (0 error(s), 2 warning(s)).
 ```

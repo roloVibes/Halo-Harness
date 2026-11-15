@@ -389,6 +389,13 @@ def experiential_balance_refresh_worker(app) -> None:
 
 
 def _apply_model(app, ref) -> None:
+    if isinstance(ref, dict):  # 3.6.0.0 R5d: a row of the picker's Agents source -- that agent's model for the session
+        agent = str(ref.get("agent") or "")
+        ref = str(ref.get("model") or "")
+        if agent and not ref:
+            app.notify(f"{agent} has no model of its own (it runs on the session's); the model is unchanged",
+                       title="/model")
+            return
     if not ref:
         return
     err = app.controller.set_model(ref)

@@ -83,6 +83,39 @@ def test_the_precedence_column_follows_the_resolvers(ctx: Ctx):
 
 
 @test
+def test_the_agent_workflow_and_map_folders_are_rows(ctx: Ctx):
+    """3.6.0.0 R5d (where the lineup and bio folders were): per kind the project's `.halo/crew/<kind>s` (listed and marked
+    not read in an untrusted folder), yours, the starters (read-only); a name in two folders loses to crew/store.find's
+    pick."""
+    from tests.helpers.trust_dir import trust
+    with ConfigHome() as h:
+        seed(h)
+        mine = h.state / "crew" / "agents" / "coder.yaml"
+        mine.parent.mkdir(parents=True, exist_ok=True)
+        mine.write_text("format: agent/1\nname: coder\ndoes: mine\nmodel: auto\nuses: [read]\ncareful: ask-changes\n", encoding="utf-8")
+        proj = h.repo / ".halo" / "crew" / "maps" / "local.yaml"
+        proj.parent.mkdir(parents=True, exist_ok=True)
+        proj.write_text("format: map/1\nname: local\nmain: {agent: main}\nboxes: []\nlines: []\n", encoding="utf-8")
+        rows = _rows(h)
+        for kind in ("agents", "workflows", "maps"):
+            got = [(r["file"], r["scope"]) for r in rows if r["kind"] == kind]
+            ctx.check(f"{kind}: project, yours, the starters, got {got}",
+                      got == [(f"./.halo/crew/{kind}", "repo"), (f"~/.halo/crew/{kind}", "home"),
+                              (f"<halo>/templates/crew/{kind}", "shipped")])
+        starters = by(rows, "agents", "<halo>/templates/crew/agents")
+        ctx.check(f"the starters are read-only and name the copy verb, got {starters['note']!r}",
+                  "read-only (halo agents copy <name> makes yours)" in starters["note"] and "coder" in starters["sets"])
+        ctx.check("your coder wins over the starter's", "coder" in by(rows, "agents", "~/.halo/crew/agents")["wins"]
+                  and {"key": "coder", "to": "~/.halo/crew/agents/coder.yaml"}.items() <= next(
+                      e for e in starters["loses"] if e["key"] == "coder").items())
+        untrusted = by(rows, "maps", "./.halo/crew/maps")
+        ctx.check(f"an untrusted project's maps: listed, not read, got {untrusted['read']} {untrusted['note']!r}",
+                  untrusted["sets"] == ["local"] and not untrusted["read"] and "not trusted" in untrusted["note"])
+        trust(h.repo)
+        ctx.check("trusted: read", by(_rows(h), "maps", "./.halo/crew/maps")["read"])
+
+
+@test
 def test_json_is_the_same_rows(ctx: Ctx):
     from halo_harness.config_cli import cmd_config
     with ConfigHome() as h:

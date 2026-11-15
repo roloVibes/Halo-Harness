@@ -78,7 +78,7 @@ Documentation Review reference pack). There is no marketplace.
   sessions use; it asks first). Its workflows with **Run <name>**: Orchestra's
   Start view opens with the workflow's form filled in -- its ref, its stages,
   one field per input at its default -- and Run compiles it exactly as
-  `halo workflow run` does (a missing input shows the compile's lines under
+  `halo orchestra new --workflow` does (a missing input shows the compile's lines under
   the form). A pack's templates are read in place while it runs, so a
   disabled pack shows "Enable it first". Live's Run a goal panel (3.4.0.0 D; Orchestra's Start view before) lists the
   same workflows under its goal form, **or run a pack's workflow** (3.2.1.0 R2,

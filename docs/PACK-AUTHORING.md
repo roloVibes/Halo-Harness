@@ -56,7 +56,7 @@ link and its own `halo pack test`.
 
 A pack is to a session what an expansion is to a card game: it adds cards without changing the rules. Its agents are
 new bios (`<id>--lead`), its lineup a new way to combine them (`halo --team <id>--crew`), its workflows new jobs a session
-or the Orchestra can be asked to run (`halo workflow run <id>/flow`), its skills new know-how a bio or a workflow
+or the Orchestra can be asked to run (`halo orchestra new --workflow <id>/flow`), its skills new know-how a bio or a workflow
 stage cites (`<id>:brief`), its commands new slash commands. Roles, Team and Orchestra show them as the pack's: Roles
 lists the bios and the lineup under "pack <id>", Team offers the lineup like any other, Orchestra runs the workflow with
 the lineup whose `workflows:` names it. The kit's set is the pattern: two bios that show every section, a lineup with

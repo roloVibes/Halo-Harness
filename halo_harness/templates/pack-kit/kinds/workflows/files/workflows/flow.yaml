@@ -1,7 +1,7 @@
 # __NAME__'s workflow (docs/WORKFLOWS.md): the lead drafts the request (following the brief skill), the checker goes
 # through the checklist skill and writes one typed report (artifacts/report.json, checked at the gate). It compiles to
 # an Orchestra goal, its hand-offs and a pinned plan:
-#   halo workflow run __ID__/flow --input request="a one-page README for the tool"
+#   halo orchestra new --workflow __ID__/flow --input request="a one-page README for the tool"
 name: flow
 description: Draft one piece of work from a request, check it against the checklist and write one report.
 inputs:

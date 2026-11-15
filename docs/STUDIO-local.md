@@ -242,8 +242,8 @@ or the window reads every row again against it ("fits at 32,768 with 2.8 GB free
 needs at a truth floor (verified, verified or declared, expected, or any: "any" also keeps a model that needs a probe),
 its fit and supply values; every one is editable or removable, and the list reads again. **Save as role template**
 writes the bundle as the lineup `local-<preset>` (main on the session model, the preset's role -- `verify`, `planner`,
-`small`, `compaction`, `eyes`, `coder`, `security` -- its filters kept as the lineup's `search` block; not active until
-`halo teams apply`). The filters under the chevron are F2's three groups: **role and capability** (every capability at
+`small`, `compaction`, `eyes`, `coder`, `security` -- its filters kept as the lineup's `search` block; 3.6.0.0 R5c: it writes the agent `local-<preset>` instead,
+as `halo models browse --save-template` does). The filters under the chevron are F2's three groups: **role and capability** (every capability at
 its floor), **fit and resources** (fits at the window, fully on the GPU, co-resides with a model, quant, params, disk,
 tok/s, cold load, KV per token) and **supply, licence, platform** (licence class, gated, source, runs on this OS and
 GPU, this Ollama loads it, updated within N months, exclude crashed, and the family / quant / licence words).

@@ -4,7 +4,7 @@
 # approve the plan (gate: human), and the writer turns the verdict into one
 # review report (artifact:review-report, checked against
 # artifacts/review-report.json at the gate). It compiles to an Orchestra goal,
-# its hand-offs and a pinned plan: `halo workflow run doc-review/review --input docs=docs`.
+# its hand-offs and a pinned plan: `halo orchestra new --workflow doc-review/review --input docs=docs`.
 name: review
 description: Review the Markdown files under a folder and write one review report.
 prerequisites:

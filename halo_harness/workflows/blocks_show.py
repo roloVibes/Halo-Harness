@@ -1,9 +1,10 @@
 """halo_harness.workflows.blocks_show -- a lineup's blocks in lines (Halo 3.3.16.3): its squares, each with its "when"
 (workflows/when.py), then its declared tiers with their purpose and the words that reach them (`routing`, a card's
-`use_for`). `halo blocks list | show`, `halo teams show` (packs/lineup_run.workflow_lines) print them.
+`use_for`). No command prints them since 3.6.0.0 R5 (`halo blocks` and `halo teams` are gone); packs/lineup_run.py's
+`workflow_lines` still builds them.
 
     lineup_blocks(lineup=None, repo) -> {lineup, blocks: [{name, kind, when, detail: [line]}], lines: [line]}
-    block_lines(template) -> [line]     `halo teams show`'s "  block ..." lines for a resolved lineup
+    block_lines(template) -> [line]     the "  block ..." lines for a resolved lineup
 """
 
 from __future__ import annotations

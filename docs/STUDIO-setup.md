@@ -153,10 +153,8 @@ shows the same card and offer under its list. See [MODELS-cards.md](MODELS-cards
 
 **No toast on a paged page.** A block's Save, a card's Save & test, the Ollama block's Find / Add / Measure
 and Refresh answer on their own lines under the block or the card, never in a toast (toasts sit top right
-under the header on every section, clear of the Back / Next foot). Applying a lineup answers in one line --
-"lineup 'local-first' applied; main, small, researcher and judge run on the session model (their agents
-name none)" -- with the per-role sentences folded under "the details" (`teams_apply_answer.py`; `/teams
-apply` and `halo teams apply` print the same line and the sentences indented under it).
+under the header on every section, clear of the Back / Next foot). Picking a map on the Map step answers in
+one line too (3.6.0.0 R5: lineups and `halo teams apply` are gone).
 
 ## Check and Linux fixes (3.3.0.0 R3)
 
@@ -228,7 +226,7 @@ job (on the Check page too, under **From packs**, unticked), a **note** has **Ma
 | Default model | `model` (a ref the catalog of the providers set up here lists) | `halo config set model <ref>` |
 | Permissions | `permission_mode` (`auto`, `acceptEdits`, `default` or `plan`) | `halo config set permission_mode <mode>` |
 | Theme | `theme` (3.3.12.0: the palettes, eleven since 3.3.15.0, each swatch in its own colours; the one key the terminal and Studio draw from; the modifiers are on Settings -> Themes) | `/theme <name>` |
-| Team | One model for everything: `team` removed, `roles.enabled` false; `auto` with no `team` set: `roles.enabled` true only; a lineup: its `roles.*`, `team: <name>`, `roles.enabled` true | the wizard's Team step (`lineup_choice.py`, which both call) |
+| Map | `crew.map` (3.6.0.0 R5: the map new sessions run on; One model for everything: `roles.enabled` false) | the wizard's Map step, `halo maps use <name>` |
 | Providers | the env file: `DATABRICKS_HOST`/`DATABRICKS_TOKEN`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `EXPLABS_API_KEY`, `HF_TOKEN`, `HALO_SECRET_*` (3.3.17.0: the Copilot card's sign-in writes `HALO_SECRET_COPILOT_REFRESH`); config.json: `ollama.hosts`, `huggingface.endpoints`, `huggingface.local_servers`, `providers.<name>.enabled`, `copilot.*` | `halo init`'s Providers tabs; `halo copilot signin`, `halo config set copilot.<key>` |
 | Local models | `huggingface.model_dirs`, `huggingface.preferred_runtime` | `halo init`'s Local models step, `/local add` |
 | Linux fixes | `~/.local/bin/rg`; the PATH line in `~/.zshenv` or `~/.profile` (only the fixes listed) | the wizard's Linux step |

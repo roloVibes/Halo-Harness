@@ -5,7 +5,7 @@
 `~/.halo/packs/.data/<id>/events.jsonl` (one JSON object per line: `{ts, pack,
 kind, data, problems?}`), besides the Studio frame. That file is what a
 subscription reads from any process: a bio's `triggers: [{on: event, name:
-<pack>:<kind>}]` (agents_schedule.py) and a workflow stage's `after_event:
+<pack>:<kind>}]` (until 3.6.0.0 R5d) and a workflow stage's `after_event:
 <pack>:<kind>` (workflows/runtime.py).
 
     check(pack_id, kind, data, cwd=..., state_dir=...)  -> (refusal, problems): refusal '' when the pack runs

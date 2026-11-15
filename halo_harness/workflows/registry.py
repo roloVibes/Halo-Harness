@@ -133,7 +133,9 @@ def _config_refs() -> "list[str]":
         got = get_config_value(CONFIG_KEY, None)
     except Exception:
         got = None
-    return [str(x) for x in got if isinstance(x, str) and x.strip()] if isinstance(got, list) else list(DEFAULT_ENABLED)
+    if isinstance(got, str):  # 3.6.0.0 R5d: a hand-written `"media,review"` (halo config set writes the list)
+        got = [p.strip() for p in got.split(",")]
+    return [str(x).strip() for x in got if isinstance(x, str) and x.strip()] if isinstance(got, list) else list(DEFAULT_ENABLED)
 
 
 def enabled_from(lineup=None, *, cwd=None, state_dir=None) -> "tuple[list, str]":

@@ -106,7 +106,7 @@ def validate_goal(data) -> list:
     if budget is not None and (isinstance(budget, bool) or not isinstance(budget, (int, float)) or budget < 0):
         problems.append(f'"budget_usd" is a number of dollars, 0 or more, got {budget!r}')
     if not isinstance(data.get("workflow", {}), dict):
-        problems.append('"workflow" is the compiled workflow (an object, halo workflow run writes it)')
+        problems.append('"workflow" is the compiled workflow (an object, halo orchestra new --workflow writes it)')
     for key in ("test", "lineup", "lead", "worker", "test_from", "permission_mode"):
         value = data.get(key, "")
         if value is not None and not isinstance(value, str):

@@ -552,8 +552,8 @@ The profile then decides where the model goes, on its own:
   CVE or CWE: resolve it with a tool or a stronger model;
 - **a 32k window** -> chunk inputs; never compaction (it receives whole
   sessions);
-- **pivot-only** -> a lineup naming it beside another big model is flagged as
-  a pivot schedule (`halo teams show`, Roles -> Problems);
+- **pivot-only** -> a map naming it beside another big model is flagged as
+  a pivot schedule (`halo local place`);
 - **not interactive** -> greyed in the `/model` picker with the reason.
 
 On a 24 GB RTX 4090 only one of six models passed every gate (`qwen3-coder`:

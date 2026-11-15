@@ -43,7 +43,7 @@ command is `commands/__ID__.md`; keep its list true when you add or remove a par
    to read. `python -m tests.pack_test` runs the same checks plus the pack's own (`tests/pack_test.py`).
 3. `halo pack install . --link --project` -- once: the installed pack is this folder, so every edit shows at the next
    read with no reinstall. Then `halo pack enable __ID__ --grant-all` (or only the grants you need).
-4. Try it: `/__ID__` in a session, `halo --team __ID__--<lineup>` for a lineup, `halo workflow run __ID__/<name>`
+4. Try it: `/__ID__` in a session, `halo --map __ID__--<lineup>` for a lineup (read as a map), `halo orchestra new --workflow __ID__/<name>`
    for a workflow, the pack's section in Studio.
 5. `halo pack doctor` -- nothing about this pack left. Then go back to 1.
 

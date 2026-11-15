@@ -78,7 +78,7 @@ def yours(pack_id: str, *, cwd=None, state_dir=None) -> "list[str]":
     from halo_harness.theme import get_config_value
     team = get_config_value("team", default=None)
     if isinstance(team, str) and N.unqualify(team)[0] == pack_id:
-        out.append(f"config.json team: {team} stays; it names the pack's lineup (halo teams use <name>)")
+        out.append(f"config.json team: {team} stays; nothing reads it since 3.6 (halo maps use <name> picks the map sessions run on)")
     return out
 
 

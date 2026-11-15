@@ -1383,7 +1383,6 @@ class Session:
         # on 3.5; roles off ("One model for everything") holds none. Delegation caps ride the existing depth /
         # in-flight knobs. A child Session never builds its own (the control travels down through
         # `_build_child_session`).
-        self._team_scheduler = None
         if agent_depth == 0 and not getattr(session_context, "bare", False):
             if crew_map is not None:  # 3.6.0.0 R3: a session on a map holds it where a lineup was (crew/map_control.py)
                 from halo_harness.crew.map_control import control_for
@@ -1834,18 +1833,6 @@ class Session:
         except Exception:
             return True
         return judge_says_confident(answer)
-
-    def _arm_team_scheduler_once(self) -> None:
-        """3.6.0.0 R5b: nothing to arm -- schedules and triggers went with lineups (a map has none)."""
-        return None
-
-    def _observe_team_triggers(self, ev) -> None:
-        scheduler = getattr(self, "_team_scheduler", None)
-        if scheduler is not None:
-            try:
-                scheduler.observe_event(getattr(ev, "kind", "") or "")
-            except Exception:
-                pass
 
     def _merge_main_member_hooks(self) -> None:
         """Halo 2.0.5 round 5 (deliverable 2): the MAIN assignment's own bio
@@ -5543,11 +5530,6 @@ class Session:
         instance, never the `debug_timeline` module's shared default --
         see `Session.__init__`'s own comment."""
         self._timeline.start_turn(self.turn_count + 1)
-        # Halo 2.0.5 round 5: the ROOT session's first turn under a team
-        # arms that team's schedules/triggers (`agents_schedule.arm_session`
-        # -- they live exactly as long as this session does); every event
-        # the turn emits is then observed for `on: event` triggers.
-        self._arm_team_scheduler_once()
         # Halo 3.0.5.0 (Fleet): the session's live agent tree sees every
         # event THIS session produced (a child's own are tagged later).
         _agent_tree.turn_started(self, text)
@@ -5557,7 +5539,6 @@ class Session:
         try:
             for ev in _turn_marker.with_markers(self, self._turn_inner(text, images=images), self.turn_count + 1):
                 self._timeline.record_turn_event(ev)
-                self._observe_team_triggers(ev)
                 if not ev.agent_id:
                     _agent_tree.observe(self, ev)
                 yield ev

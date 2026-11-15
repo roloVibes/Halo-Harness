@@ -97,7 +97,7 @@ catalog no longer has, gets one line from one module (`ollama_steward/dead_tag.p
 (deleted, or never pulled there)". The nearest equivalent (`models_library/nearest.py`) is scored by the same family
 (the name's base, else the catalog's family), the same size (parameters within 15 %), the same quant, fitting the same
 window on that card and the battery's verified tool calls; nothing sharing the family or the size has no answer, and
-then the closest spelling is named as such. `halo doctor --local`, `halo teams use` (the swap preview's hygiene),
+then the closest spelling is named as such. `halo doctor --local`,
 `halo local warm` (the row's state is `deleted`), `halo local place`, the Roles page's Problems and the steward's
 `tag-deleted` finding (error) all say the same line. "Point the role at it" is `halo roles point <role> <model>` or
 `POST roles/<role>/point`: `roles.<role>` in config.json and nothing else.

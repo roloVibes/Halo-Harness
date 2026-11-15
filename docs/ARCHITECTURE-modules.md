@@ -21,7 +21,7 @@ this list against the tree.
   shows, built from the wizard's and the CLI's functions)
 - the live feed: `studio/events.py` (the registry watcher), `studio/events_sse.py`
   (`GET /api/events`), `studio/feed_kinds.py` (the frame kinds it asks for)
-- Roles and models: `studio/roles_api.py`, `studio/roles_findings.py`,
+- Roles and models: `studio/roles_api.py`,
   `studio/models_api.py` (the coach's routes left with the coach pack in 3.4.0.0); the live sessions: `studio/sessions_api.py` (3.3.11.0 R1: the Prompt panel's
   sends with their receipts, its slash list and the receipts' rows: `studio/sessions_prompt_api.py`; the session's
   side: `remote/prompt_queue.py`, `remote/receipts.py`, `remote/receipt_seams.py`; 3.3.11.0 R2: a session with no terminal,
@@ -189,8 +189,7 @@ summary), `supervise/pulse.py` (the pulse and the stop file),
 `supervise/budget.py` (a goal's and the queue's cap as a stop),
 `supervise/runner.py` (the orchestra and job runners and their outcome),
 `supervise/decisions.py` (the parked decisions), `supervise/asks.py` (a
-supervised job's asks), `supervise/arm.py` (the lineups' schedules and
-triggers, armed by the supervisor), `supervise/loop.py` (the tick),
+supervised job's asks), `supervise/loop.py` (the tick),
 `supervise/apply.py` (settling a goal and applying a decision),
 `supervise/cli.py` (`halo supervise`) and `supervise/goal_cli.py` (`halo
 goal`); 3.3.13.0 R3, the packs' services: `supervise/services.py` (start, restart
@@ -336,18 +335,16 @@ from the workflow file and its meaning lines), `workflows/registry.py` (the four
 project > shipped for a bare name and a pack's by `<pack>/<name>`; the enabled sets per lineup), `workflows/router.py`
 (the gaps, the pick, the why line, the depth and the cap), `workflows/square_run.py` (a square's run by its engine and
 the `gives` check), `workflows/receipts.py` (the receipt node, the Live tree's square, the cost, an Orchestra run's
-squares), `workflows/squares_cli.py` (`halo workflows`, the TUI's `/workflows`), `tools/workflow.py` (the `Workflow`
+squares), `tools/workflow.py` (the `Workflow`
 tool); the board's routes went with it in 3.6.0.0 R5. 3.3.16.2: `workflows/offer.py` (the `Workflow` tool leaves the session's list when no square is on
 for its lineup), `workflows/lineup_roles.py` (a lineup role that covers the reads takes the task before a square; the
 "nothing reads it" line) and `workflows/doctor_rows.py` (`halo doctor`'s squares line, `halo workflows list`'s
-header). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence, the CLI's
-`--when`), `workflows/when_store.py` (where the rules live: a lineup's `workflows:` items, config `workflows.when` on
-the auto lineup), `workflows/when_route.py` (always, then words, then needs: an explicit when comes before a covering
-role, a plain ref after it), `workflows/when_tool.py` (the Workflow tool's words for each rule), `workflows/squares_when_cli.py` (`halo workflows
-enable --when`, `halo workflows when`), `workflows/blocks.py` and `workflows/blocks_tier.py` (the block templates:
-load, check, add a square of yours or a tier), `workflows/members.py` (who is inside a square; a shipped one copied to
-yours first), `workflows/blocks_show.py` (a lineup's blocks in lines); `halo blocks`, `halo teams` and the composing routes went in
-3.6.0.0 R5 (their one line: cli.py `GONE_VERBS`).
+header). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence),
+`workflows/when_store.py` (where the rules live: config `workflows.when`), `workflows/when_route.py` (always, then
+words, then needs: an explicit when comes before a covering role, a plain ref after it), `workflows/when_tool.py` (the
+Workflow tool's words for each rule), `workflows/blocks_show.py` (the squares on, in lines); `halo blocks`, `halo
+teams`, the `halo workflows` square verbs and the composing routes went in 3.6.0.0 R5 (their one line: cli.py
+`GONE_VERBS`).
 
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

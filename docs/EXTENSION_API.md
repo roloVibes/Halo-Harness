@@ -722,8 +722,8 @@ which the conflict judge reads too.
 workflows/flow.yaml line 6: stages.audit.role 'auditor' is not a bio of the pack (by name or kind) nor a bio Halo ships
 ```
 
-The commands: `halo workflow list | show | check | run` ([COMMANDS-workflows.md](COMMANDS-workflows.md)),
-`halo orchestra new --workflow <pack>/<name> --input k=v`, and (with the supervisor) `halo workflow run ... --as goal`.
+The command: `halo orchestra new --workflow <pack>/<name> --input k=v` ([COMMANDS-workflows.md](COMMANDS-workflows.md));
+`halo workflow` went in 3.6.0.0 R5 (it prints one line pointing at `halo workflows`).
 
 ## Events and artifacts
 
@@ -742,8 +742,8 @@ with one line (ValueError) and nothing is kept. Every accepted event is
 appended to `~/.halo/packs/.data/<id>/events.jsonl` (`packs/events_log.py`),
 which the SUBSCRIPTIONS read from any process:
 
-- a bio's trigger `{on: event, name: <pack>:<kind>}` (short: `{event: <pack>:<kind>}`) starts it once when the
-  pack publishes that kind (agents_schedule.py, the bio trigger mechanism; packs/event_triggers.py);
+- (3.2.0.0 R5 to 3.5) a bio's trigger `{on: event, name: <pack>:<kind>}` started it once when the pack published
+  that kind; bios and their schedules and triggers went in 3.6.0.0 R5d, so nothing arms one now;
 - a workflow stage's `after_event: <pack>:<kind>` holds its lane until the event comes.
 
 Studio draws a kind's line from `contributes.studio.events` and, when the

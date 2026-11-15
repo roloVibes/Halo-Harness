@@ -25,8 +25,8 @@ names do not.
   `templates/` (label "template"); nearest wins by name. A pack tier sits
   after the home and before the shipped folder, read in place, label
   `pack:<id>`, names `<id>--<name>`.
-- **Prior art.** `teams_bundle.py` (validate before writing, skip collisions,
-  "shadows shipped", rollback) and `orchestra/coach_record.py` (`{existed,
+- **Prior art.** The team bundles' importer (validate before writing, skip collisions,
+  "shadows shipped", rollback; gone with the lineups in 3.6.0.0 R5d) and `orchestra/coach_record.py` (`{existed,
   before, after}` rows) shape the install journal; YAML through
   `agents_yaml._read_yaml_file` / `_write_yaml_file`; shapes through
   `schemas.check`; private files through `privateio.write_private_atomic`;

@@ -6080,8 +6080,11 @@ def test_slash_config_where_prints_the_files_table(ctx: Ctx):
                 note = next((t for t in app.transcript.plain_log if "halo config where" in t), "")
                 ctx.check(f"/config where printed the table, got {note[:120]!r}",
                           note == render(where_rows(h.repo), cwd=h.repo))
-                ctx.check("the table has the lineup folders and the precedence lines",
-                          "Lineup folders" in note and "loses to" in note)
+                # 3.6.0.0 R5d: the agent, workflow and map folders (yours and the project's) where the lineup folders were
+                ctx.check("the table has the agent, workflow and map folders and the precedence lines",
+                          all(t in note for t in ("Agent folders", "Workflow folders", "Map folders", "./.halo/crew/agents",
+                                                  "~/.halo/crew/agents", "./.halo/crew/maps", "~/.halo/crew/maps"))
+                          and "Lineup folders" not in note and "loses to" in note)
         asyncio.run(body())
 
 

@@ -191,10 +191,11 @@ def _agent_picker_rows(cwd=None, state_dir=None) -> "list[dict]":
     """One row per agent file a session can name (crew/store.py: yours, the project's, the starters, an enabled
     pack's): `{"name", "description", "preferred_model", "tools_summary"}`, read from disk, never a network call
     (3.6.0.0 R5d: the agent files; the bios before)."""
-    try:
-        from halo_harness.crew.store import rows as crew_rows
-        found = crew_rows("agents", cwd=cwd, state_dir=state_dir)
-    except Exception:
+    import yaml
+    from halo_harness.crew.store import rows as crew_rows
+    try:  # only what a missing or unreadable file raises: a programming error must never look like "no agents"
+        found = crew_rows("agent", cwd=cwd, state_dir=state_dir)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
         return []
     rows: "list[dict]" = []
     seen: set = set()

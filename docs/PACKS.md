@@ -280,10 +280,10 @@ workflow names its prerequisites, typed inputs and outputs, and stages
 retries, timeout, budget and checks. Halo compiles it to an Orchestra run:
 
 ```sh
-halo workflow list                                        # the workflows of the packs that run here
-halo workflow check doc-review/review --input docs=docs   # the jobs it compiles to, or every problem
-halo workflow run doc-review/review --input docs=docs     # run it now (an Orchestra run)
+halo orchestra new --workflow doc-review/review --input docs=docs   # run it (an Orchestra run)
 ```
+
+(`halo workflow list | check | run` went in 3.6.0.0 R5; `halo workflow` prints one line pointing at `halo workflows`.)
 
 The goal form (Live's Run a goal panel, 3.4.0.0 D; Orchestra's new-run form before) has a picker too (3.2.1.0 R2): with no workflow
 filled in, "or run a pack's workflow" under the goal form lists the workflows
@@ -535,7 +535,7 @@ runs and shows the lines it prints, and every open Studio redraws on the
 - **Settings**: the pack's settings form, for a disabled pack too.
 - **Templates**: its lineups and bios with Preview, Clone, Customize and Apply
   (Roles' own actions), and Run <workflow>: Orchestra's new-run form filled
-  in with the workflow and its inputs; Run compiles it as `halo workflow run` does.
+  in with the workflow and its inputs; Run compiles it as `halo orchestra new --workflow` does.
   Orchestra's Start view offers the same workflows in its own picker (3.2.1.0 R2).
 - **Bundles** (3.3.7.0 R5, under Installed): every bundle here and the nine Halo ships, each a tick with its
   verdict line, its ways out and the one download button; [Bundles](#bundles) below.

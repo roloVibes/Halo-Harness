@@ -121,8 +121,7 @@ key, 3.3.14.0 R1; tests: `tests/test_studio_owner_proof.py`),
 `events.py` (the live feed: the registry watcher and `/api/events`),
 `ui/` (the React shell's sources; see docs/DEVELOPMENT.md "Studio UI"),
 `static/dist/` (its committed build; the only page since 3.0.7.0 R2),
-`api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`, `POST models/analyze`), `roles_findings.py`
-(the Problems panel's findings), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `media_api.py` (the ComfyUI
+`api.py` (the routes), `roles_api.py` (`GET gym`, `GET models/best-for`, `POST models/analyze`), `doctor_config_api.py` (`GET doctor/config`, the panel's Config group), `models_api.py` (the catalog status, Refresh, the probe), `media_api.py` (the ComfyUI
 routes), `sessions_api.py` (the live sessions and
 their commands), `packs_routes.py` (3.3.13.0 R2: a pack's own routes; Design's are the design pack's `server/`), `model.py` (the graph, the catalog rows, the session
 reader). Tests: `tests/test_studio_api.py`,

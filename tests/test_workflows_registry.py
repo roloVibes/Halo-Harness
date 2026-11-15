@@ -91,6 +91,46 @@ def test_the_set_is_configs(ctx: Ctx):
         ctx.check("a name given changes nothing (lineups are gone)", registry.enabled_refs("quality", cwd=h.repo) == ["plan"])
 
 
+@test
+def test_config_set_writes_a_list_and_a_plain_session_offers_both(ctx: Ctx):
+    """3.6.0.0 R5d (the judge's item 4): `halo config set workflows.enabled media,review` stores the list (it stored the
+    string, which the reader took for the default), every list-typed key alike; the reader takes a hand-written comma
+    string; `halo doctor --config` says in one line when a list-typed key holds one plain value."""
+    import contextlib
+    import io
+    import json
+    from halo_harness.config_cli import as_list, cmd_config
+    from halo_harness.doctor_config import config_findings
+    from halo_harness.theme import get_config_value, set_config_value
+    from halo_harness.workflows.offer import squares_on
+    with PacksHome() as h:
+        with contextlib.redirect_stdout(io.StringIO()):
+            rc = cmd_config(["set", "workflows.enabled", "media,review"])
+        ctx.check(f"stored as a list, got {rc} {get_config_value('workflows.enabled')!r}",
+                  rc == 0 and get_config_value("workflows.enabled") == ["media", "review"])
+        got = [w.ref for w in squares_on(None, cwd=h.repo)]
+        ctx.check(f"a plain session offers both squares, got {got}", got == ["media", "review"])
+        for given, want in (("review", ["review"]), ('["plan","media"]', ["plan", "media"]), ("", [])):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cmd_config(["set", "workflows.enabled", given])
+            ctx.check(f"{given!r} stores {want}, got {get_config_value('workflows.enabled')!r}",
+                      get_config_value("workflows.enabled") == want)
+        ctx.check("every list-typed key alike (a number stays a number); other keys unchanged",
+                  as_list("ollama.discover.ports", "11434,11435") == [11434, 11435]
+                  and as_list("recall.sources", "~/notes") == ["~/notes"] and as_list("model", "a,b") == "a,b"
+                  and as_list("ollama.hosts", {"lan": "x"}) == {"lan": "x"})
+        set_config_value("workflows.enabled", "media, review")
+        got = [w.ref for w in squares_on(None, cwd=h.repo)]
+        ctx.check(f"the reader takes a hand-written comma string, got {got}", got == ["media", "review"])
+        found = [f for f in config_findings(h.repo, state_dir=h.state) if f["key"] == "workflows.enabled"]
+        ctx.check(f"doctor --config: one line for the plain value, got {found}",
+                  len(found) == 1 and found[0]["severity"] == "warns"
+                  and found[0]["text"].endswith('workflows.enabled is a list, not ' + json.dumps("media, review"))
+                  and "halo config set workflows.enabled" in found[0]["fix"])
+        set_config_value("workflows.enabled", ["media"])
+        ctx.check("a list: no line", not [f for f in config_findings(h.repo, state_dir=h.state) if f["key"] == "workflows.enabled"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -176,22 +176,10 @@ sit on top of.
 
 #### `--team TEAM`
 
-What: run THIS session under that team template (`halo teams list` names
-them; `docs/AGENTS.md` for the schema) -- the lineup's sections are
-ENFORCED by the live agent loop through `teams_runtime.py` (Halo 2.0.5
-round 5): `routing` maps a task kind to a role/alias at spawn time,
-`delegation` caps depth/parallel and shapes the hand-back, `budget` stops
-delegation with its reason when exhausted, `escalation` switches on its
-triggers, `context`/`permissions` apply to every member, `pipeline` gates
-stages in order, and member bios' `hooks`/`schedule`/`triggers` arm.
-Overrides config's own active `team:` key for this one run, never
-persisted; an unknown name degrades to a stderr line and no team (same
-shape as an unknown `--agent`). The team's own resolved role table rides
-ON TOP of the persisted one, so a `--team` run needs no config change.
-```sh
-halo --team halo-dev-cycle
-halo -p --team balanced "delegate the research and review"
-```
+What: gone in 3.6.0.0 R5 with the lineups. The flag is still accepted and
+says in one line on stderr that lineups are gone and which map the session
+runs on; use `--map` (below) or `halo maps use <name>`
+([MOVING-from-3.5.md](MOVING-from-3.5.md)).
 
 #### `--map MAP`
 

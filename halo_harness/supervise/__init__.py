@@ -17,7 +17,6 @@ finished, what waits on you and what it cost.
     runner.py     the goal runners (an Orchestra run, a background job) and their outcome
     decisions.py  the parked decisions: <state>/supervise/decisions/<rid>.json
     asks.py       a supervised job's asks, parked from its control socket's feed
-    arm.py        the lineups' schedules and triggers, armed by the supervisor
     drift.py      R2: when a run drifts (forecast, returns, blocked, stalled), each with its number
     replan.py     R2: the replan pause, its gate (mode, replan_max, the cooldown), the spawn hook, the tick's watch
     replan_ask.py R2: the lead asked in the goal's thread, the answer checked, applied or parked

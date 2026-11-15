@@ -151,13 +151,9 @@ what was sent, and a periodic health note (calls, filtered, failures,
 spend, context fill) every 25 model calls or 10 minutes (env-tunable via
 `HALO_CANARY_EVERY_N_CALLS`/`HALO_CANARY_EVERY_S`).
 
-`halo doctor --teams [NAME] [--mock]` (2.0.5 round 5) validates the named
-(or active) team template and then exercises its FIRST `required`
-pipeline gate end to end -- the same gate the live agent loop runs
-between stages (`agents_doctor.check_team_gates` through
-`teams_runtime.TeamControl.evaluate_stage`, the stage's own acceptance
-or its bio's): one real model call unless `--mock`, exit 0 iff the gate
-passed and the template resolved.
+`halo doctor --teams` (2.0.5 round 5; 3.6.0.0 R5b) says in one line that lineups
+and their pipeline gates are gone, and points at `halo doctor --agents`, which
+checks your agent files and the map in use; exit 0.
 
 `halo doctor --mcp deep [name] [--apply] [--from DIR]` (2.0.4 round 6)
 is the deep dive for a server the ordinary `/mcp`/`halo mcp fix` repair

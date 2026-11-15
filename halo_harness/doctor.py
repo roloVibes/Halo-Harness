@@ -1283,6 +1283,17 @@ def _check_permission_mode(cwd: Optional[Path] = None, settings_flag: Optional[s
             f"permission_mode auto` to set one)")
 
 
+def _dangling_maps(cwd) -> "list[tuple[str, str]]":
+    """3.6.0.0 R5d: (name, one line) per map of yours or the project's that names an agent no file answers any more
+    (a copy of a pack's map after `halo pack disable`)."""
+    try:
+        from halo_harness.crew import store
+        rows = [r for r in store.rows("map", cwd=cwd) if r["_scope"] in ("yours", "project") and not r["_problems"]]
+        return [(r["name"], ln) for r, ln in ((r, store.dangling_line(r, cwd=cwd)) for r in rows) if ln]
+    except (OSError, ValueError):
+        return []
+
+
 def _check_lineup() -> str:
     """3.6.0.0 R5b: `Map: starter (the default) -- ...; change it with ...` (crew/in_use.py), where it was the lineup."""
     try:
@@ -1737,6 +1748,8 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     _old = _old_files_line(cwd)
     if _old:
         entries.append(("old_files", f"[INFO] {_old}"))
+    entries.extend(("crew_maps", _fix(f"{WARN} {line}", cmd=f"halo maps edit {name}"))  # 3.6.0.0 R5d
+                   for name, line in _dangling_maps(cwd))
     entries.append(("sessions", _check_telemetry()))  # 3.4.0.0 B2: /improve's row is the coach pack's own now
     # U5 leftover / H8: tui/clipboard.py's clipboard_doctor_line(), wired here; H12 Part B: its WARN (no
     # xclip/wl-copy/xsel on PATH, e.g. a fresh WSL) gets the fix suffix HERE (`_fix` is this module's vocabulary).

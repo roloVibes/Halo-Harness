@@ -14,7 +14,7 @@ workflows main may hand work to. Bios and lineups (3.5) are gone and their files
 | Yours | `~/.halo/crew/agents/<name>.yaml` | the ones you make |
 | This project's | `<repo>/.halo/crew/agents/<name>.yaml` | read only in a folder you trusted |
 | An enabled pack's | the pack's `crew/agents/` | named `<pack>--<name>`, read in place |
-| The starters | shipped with Halo | copy one to make yours (`halo agents new <name> --from <starter>`) |
+| The starters | shipped with Halo | read-only; `halo agents copy <starter>` makes your own copy to edit (`--as <name>` names it) |
 
 The format (`agent/1`: `does`, `instructions`, `model`, `needs`, `uses`, `careful`, `more`) is in
 [CREW-FORMATS.md](CREW-FORMATS.md). `model: auto` picks a model for each task from your catalog by what the agent
@@ -24,7 +24,7 @@ The format (`agent/1`: `does`, `instructions`, `model`, `needs`, `uses`, `carefu
 
 - **Studio**: Agents -> 1 · Agents is the editor: the form, Write it for me, Try it, the builder box
   ([STUDIO-agents.md](STUDIO-agents.md)).
-- **Terminal**: `halo agents list | show | new | edit | try` ([COMMANDS-agents.md](COMMANDS-agents.md)).
+- **Terminal**: `halo agents list | show | new | copy | edit | try` ([COMMANDS-agents.md](COMMANDS-agents.md)).
 - An agent does nothing until a map connects it, or until main names it in an `Agent` call.
 
 ## How a session reaches an agent

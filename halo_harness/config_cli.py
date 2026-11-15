@@ -6,7 +6,8 @@ list) -- never Claude Code's `settings.json`, which this project only ever
 reads. `halo config` / `config list` prints every key; `config get
 <key>` prints one value; `config set <key> <value>` persists one (the value
 is parsed as JSON when possible, e.g. `true`/`123`/`"a string"`, so a caller
-can set non-string values too, else stored as the raw string given);
+can set non-string values too, else stored as the raw string given; 3.6.0.0 R5d: a key the Settings catalog types
+`list` stores a list: `a,b`, one name or a JSON list);
 `config where [--json]` lists every file in effect here (config_where.py).
 """
 
@@ -81,6 +82,33 @@ def _cmd_get(rest: list) -> int:
     return 0
 
 
+def list_typed(key: str) -> bool:
+    """3.6.0.0 R5d: the Settings catalog types `key` a list (settings_catalog.py: a `list` row, or a keyed row whose
+    entry is one)."""
+    from halo_harness.settings_catalog import leaf_kind, match
+    r, _entry = match(key)
+    return r is not None and leaf_kind(r) == "list"
+
+
+def _item(text: str):
+    try:
+        got = json.loads(text)
+    except ValueError:
+        return text
+    return got if isinstance(got, (int, float)) and not isinstance(got, bool) else text
+
+
+def as_list(key: str, value):
+    """3.6.0.0 R5d: the value `halo config set` stores for a list-typed key: a JSON list as given, `a,b` the list of
+    its names (a number stays a number), one name a list of one, "" the empty list. A mapping, null or any other key's
+    value is unchanged."""
+    if isinstance(value, (list, dict)) or value is None or not list_typed(key):
+        return value
+    if isinstance(value, str):
+        return [_item(p.strip()) for p in value.split(",") if p.strip()]
+    return [value]
+
+
 def _cmd_set(rest: list) -> int:
     parser = argparse.ArgumentParser(prog="halo config set", add_help=True)
     parser.add_argument("key")
@@ -90,6 +118,7 @@ def _cmd_set(rest: list) -> int:
         value = json.loads(args.value)
     except (ValueError, TypeError):
         value = args.value
+    value = as_list(args.key, value)
     if args.key == "theme" and not theme_mod.is_theme_value(value):
         from halo_harness.themes.cli import refusal  # 3.3.12.0 R1: the ten palettes named
         print(f"halo config: {refusal(value)}",

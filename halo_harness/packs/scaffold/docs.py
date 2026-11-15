@@ -92,7 +92,7 @@ def entry_command(manifest: dict, files: dict) -> str:
     cmds = [ref for what, ref, _ in rows if what == "command"]
     if flows:
         action = (f"Run the pack's default action, the workflow {flows[0]}, with the request below as its input: tell "
-                  f"the user the command (`halo workflow run {flows[0]} --input request=\"<the request>\"`), what it "
+                  f"the user the command (`halo orchestra new --workflow {flows[0]} --input request=\"<the request>\"`), what it "
                   "costs (its budget_usd) and run it once they agree.")
     elif cmds:
         action = f"Do what {cmds[0]} does, with the request below."

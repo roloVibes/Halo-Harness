@@ -132,14 +132,11 @@ like any other sub-agent. Review the result with `git diff`.
 ## Choosing models: the `code-review` team
 
 The three parts use three roles: `reviewer` (the dimension reviewers),
-`judge` (verification and re-verification) and `coder` (the fixer). The
-shipped team template `code-review` maps all three (as shipped, each to the
-session's default model):
+`judge` (verification and re-verification) and `coder` (the fixer). Each runs on the
+session's default model until you point it at another:
 
 ```sh
-halo teams use code-review      # or pick it in the init wizard's Team step / /teams
-halo teams edit code-review     # give each role its own model
-halo roles                      # the resulting role table
+halo roles point reviewer <model>   # and judge, coder: give each role its own model
 ```
 
 A cheap model for the reviewers and a stronger one for the judge is the usual
