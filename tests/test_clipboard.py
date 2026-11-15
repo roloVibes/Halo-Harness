@@ -208,11 +208,28 @@ def test_osc52_trusted_windows_terminal_vs_conhost_via_the_seam(ctx: Ctx):
 
 
 @test
-def test_osc52_trusted_always_true_off_windows(ctx: Ctx):
+def test_osc52_trusted_true_off_windows_in_a_plain_terminal(ctx: Ctx):
     from halo_harness.tui.clipboard import osc52_trusted
 
-    ctx.check("linux is always trusted", osc52_trusted({}, platform="linux") is True)
-    ctx.check("darwin is always trusted", osc52_trusted({}, platform="darwin") is True)
+    ctx.check("linux is trusted", osc52_trusted({}, platform="linux") is True)
+    ctx.check("darwin is trusted", osc52_trusted({}, platform="darwin") is True)
+    ctx.check("iTerm on darwin is trusted",
+              osc52_trusted({"TERM_PROGRAM": "iTerm.app"}, platform="darwin") is True)
+
+
+@test
+def test_osc52_not_sent_in_apple_terminal_so_a_copy_rings_no_bell(ctx: Ctx):
+    """3.6.0.0 fix pass: Apple Terminal has no OSC 52; the BEL that closes the sequence rings the
+    bell on every copy (the same fault R12 removed from the start-up bytes). pbcopy does the copy."""
+    from halo_harness.tui.clipboard import active_clipboard_backend_name, osc52_trusted
+
+    env = {"TERM_PROGRAM": "Apple_Terminal"}
+    ctx.check("Apple Terminal is not trusted on darwin", osc52_trusted(env, platform="darwin") is False)
+    ctx.check("Apple Terminal is not trusted on linux either (TERM_PROGRAM sent over ssh)",
+              osc52_trusted(env, platform="linux") is False)
+    line = active_clipboard_backend_name(env, platform="darwin")
+    ctx.check(f"the doctor line names pbcopy and not OSC 52 as the path, got {line!r}",
+              line.startswith("pbcopy") and "OSC 52, plus" not in line)
 
 
 @test

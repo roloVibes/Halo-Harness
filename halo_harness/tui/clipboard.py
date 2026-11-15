@@ -182,11 +182,18 @@ def osc52_trusted(env: "Optional[dict]" = None, *, platform: "Optional[str]" = N
     fallback always ALSO runs regardless of this result
     (belt-and-suspenders), so a wrong `True` here on some exotic terminal
     never loses the copy outright. `env`/`platform` default to the real
-    `os.environ`/`sys.platform` -- both are test seams."""
+    `os.environ`/`sys.platform` -- both are test seams.
+
+    3.6.0.0: Apple Terminal (`TERM_PROGRAM=Apple_Terminal`) has no OSC 52;
+    the BEL that closes the sequence rings the bell on every copy (see
+    term_profile.py), so it is untrusted there and pbcopy alone copies."""
     environ = env if env is not None else os.environ
     plat = platform if platform is not None else _platform()
     if plat == "win32":
         return bool(environ.get("WT_SESSION"))
+    from halo_harness.term_profile import is_apple_terminal
+    if is_apple_terminal(environ):
+        return False
     mode = tmux_clipboard_mode(environ)
     if mode is not None:
         return mode in ("on", "external")
@@ -235,6 +242,9 @@ def active_clipboard_backend_name(env: "Optional[dict]" = None, *,
             return "OSC 52 (Windows Terminal), plus the clip.exe fallback"
         return "clip.exe (OSC 52 is not relayed by this console host)"
     if plat == "darwin":
+        from halo_harness.term_profile import is_apple_terminal
+        if is_apple_terminal(env if env is not None else os.environ):
+            return "pbcopy (Apple Terminal does not take OSC 52)"
         return "OSC 52, plus the pbcopy fallback"
     tmux_mode = tmux_clipboard_mode(env)
     found = find_clipboard_tool()
