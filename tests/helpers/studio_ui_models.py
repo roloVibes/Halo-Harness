@@ -12,7 +12,9 @@ cache (tests/helpers/catalog_facts_seed.py; no network, no model call):
    the line on the tags' hover too;
 3. the "best" sort puts the model good at the most kinds first; a search by
    a line's words ("pdf in") finds the rows that say it;
-4. (3.6.0.0 R5c) the picker's bar holds still while the rows under it change (bar_holds).
+4. (3.6.0.0 R5c) the picker's bar holds still while the rows under it change (bar_holds);
+5. (3.6.0.0 R5e) the keyboard walks every row while the pointer rests over the list (resting_pointer), and a row
+   focused, Best pressed or a filter typed while the picker's answers are on their way survives them (early).
 
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
@@ -99,6 +101,89 @@ def models(c, url: str, state: Path) -> dict:
     return out
 
 
+TRIG = f"{FORM}?.querySelector('[data-testid=\"crew-model\"] [data-testid=\"model-select\"]')"
+DETAIL = f"{Q}('[data-testid=\"model-detail\"]')"
+HOT = f"{Q}('[data-testid=\"model-row\"][data-hot]')"
+SEARCH = f"{Q}('[data-testid=\"model-search\"]')"
+EYES = f"{ROWS}.find((r) => r.dataset.ref === 'or:v/eyes')"
+OPEN = "!!document.querySelector('[data-testid=\"model-select-dialog\"]')"
+
+
+def resting_pointer(c, url: str, state: Path) -> dict:
+    """3.6.0.0 R5e: the pointer rests over the list (where the click that opened the picker left it, or a row pointed at)
+    while the keyboard walks the rows. Each Down scrolls the list under the resting pointer; Chrome then reports the row
+    now under it as entered (a mouseover with no move), and the row took the highlight: the detail line showed that row
+    and Down started again from it, so the keyboard never got past it. A pointer that has not moved takes nothing."""
+    out: dict = {}
+    c.go("about:blank")
+    c.go(url)
+    c.wait(f"!!{TRIG}", 30)
+    c.click_on(TRIG)
+    c.wait(f"{ROWS}.length > 10", 15)
+    x, y, w, h = c.rect(f"{ROWS}[2]")
+    c.mouse("mouseMoved", x + w / 2, y + h / 2)  # a person points at the third row and leaves the pointer there
+    c.wait(f"{DETAIL}?.dataset.ref === {ROWS}[2].dataset.ref", 10)
+    c.js(f"{SEARCH}.focus(); 1")
+    last = c.js(f"{ROWS}[{ROWS}.length - 1].dataset.ref")
+    walked = []
+    for _ in range(c.js(f"{ROWS}.length") + 3):  # Down past the end stays on the last row
+        c.key("ArrowDown")
+        walked.append(c.js(f"new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r({HOT}?.dataset.ref || null))))"))
+    out["rest_last"] = last
+    out["rest_walked"] = walked
+    out["rest_detail"] = c.js(f"{DETAIL}?.dataset.ref")
+    return out
+
+
+def _open_picker(c):
+    from tests.helpers.hold_still import release_until
+    c.click_on(TRIG)
+    release_until(c, OPEN)
+
+
+def _focus_eyes_early(c):
+    """The rows' first paint, the measured cards, the providers' state, the best-at kinds and the gym still on their way."""
+    from tests.helpers.hold_still import release_until
+    _open_picker(c)
+    release_until(c, f"!!{EYES}")
+    c.js(f"{EYES}.focus(); 1")
+
+
+def _best_early(c):
+    from tests.helpers.hold_still import release_until
+    _open_picker(c)
+    release_until(c, f"!!{Q}('[data-testid=\"model-sort-best\"]')")
+    c.click_on(f"{Q}('[data-testid=\"model-sort-best\"]')")
+
+
+def _filter_early(c):
+    _open_picker(c)
+    c.js(f"{SEARCH}.focus(); 1")
+    c.type_text("pdf in")  # typed, as a person types, before the catalog has landed
+
+
+# name: (the choice made as soon as it can be, the expression that holds while it is in effect)
+EARLY = {
+    "focus": (_focus_eyes_early, f"{OPEN} && {DETAIL}?.dataset.ref === 'or:v/eyes' && {HOT}?.dataset.ref === 'or:v/eyes'"),
+    "best": (_best_early, f"{OPEN} && {Q}('[data-testid=\"model-sort-best\"]')?.getAttribute('aria-pressed') === 'true'"),
+    "filter": (_filter_early, f"{OPEN} && {SEARCH}?.value === 'pdf in' && !{ROWS}.some((r) => r.dataset.ref === 'or:v/cheap')"),
+}
+
+
+def early(c, url: str, state: Path) -> dict:
+    """3.6.0.0 R5e: a choice made in the picker while its answers are on their way (hold_still.survives) is still in
+    effect once every answer has landed, oldest first and newest first."""
+    from tests.helpers.hold_still import survives
+    out: dict = {}
+    for name, (choose, holds) in EARLY.items():
+        for order in ("oldest", "newest"):
+            try:
+                out[f"early_{name}/{order}"] = survives(c, url, f"!!{TRIG}", choose, holds, order=order)
+            except Exception as e:
+                out[f"early_{name}/{order}"] = {"error": f"{type(e).__name__}: {e}"[:300]}
+    return out
+
+
 class ModelsUiDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -112,8 +197,8 @@ class ModelsUiDriver(Driver):
         from tests.helpers.studio_full import full
         url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         try:
-            yield ((models, (c, url.replace("mode=orchestra", "mode=agents").replace("feed=off", "feed=off&tour=off&view=crew&agent=coder"),
-                             state)),)
+            page = url.replace("mode=orchestra", "mode=agents").replace("feed=off", "feed=off&tour=off&view=crew&agent=coder")
+            yield ((models, (c, page, state)), (resting_pointer, (c, page, state)), (early, (c, page, state)))
         finally:
             srv.shutdown()
             srv.server_close()

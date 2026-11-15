@@ -19,6 +19,8 @@ export type ModelsState = {
   /** 3.1.9.0 R1: the last Analyze on this page (POST models/analyze). */
   analysis: Analysis | null;
   modelsStatus: ModelsStatus | null;
+  /** 3.6.0.0 R5e: GET models/status has answered (or failed): an empty catalog's fix (Setup or Refresh) is known. */
+  statusRead: boolean;
   probe: Record<string, Probe | "running">;
   busy: string;
 };
@@ -27,7 +29,7 @@ export const NONE: never[] = [];
 
 export const models = createStore<ModelsState>({
   models: [], modelsLoaded: false, fallback: [], modelsError: "", justRefreshed: false, bestFor: {}, gym: {}, analysis: null,
-  modelsStatus: null, probe: {}, busy: "",
+  modelsStatus: null, statusRead: false, probe: {}, busy: "",
 });
 
 export function useModels<S>(pick: (s: ModelsState) => S): S {

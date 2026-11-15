@@ -13,6 +13,7 @@ answer is held, the controls measured at first paint, the answers let go one at 
 5. the other views (3.6.0.0 R5c, second pass): Agents' Agents tab with a form open, its Workflows tab, the model
    picker, Local, Setup, Settings;
 6. a choice made early survives (hold_still.survives): made as soon as it can be, still in effect at the end.
+7. the same over a FRESH home (3.6.0.0 R5e): nothing seeded, a provider set up, no catalog yet.
 Each failure names the control, how it moved and the answer that moved it.
 Run: python -m tests.test_studio_hold_still
 """
@@ -93,6 +94,31 @@ def test_a_choice_made_early_survives(ctx: Ctx):
             v = got.get(f"{name}/{order}") or {}
             ctx.check(f"{name} ({order} first): made, got {v}", v.get("made") is True and not v.get("error"))
             ctx.check(f"{name} ({order} first): still in effect at the end, lost after {v.get('lost')!r}", v.get("lost") == "")
+
+
+_FRESH: dict = {}
+
+
+def _fresh(ctx: Ctx) -> dict:
+    return driver_got(ctx, "tests.helpers.studio_hold_still", why="the hold-still checks need headless Chrome", cache=_FRESH, key="fresh",
+                      args=("--fresh",), timeout=400)
+
+
+@test
+def test_a_fresh_home_holds_still(ctx: Ctx):
+    """3.6.0.0 R5e: the views above over a FRESH home (nothing seeded, a provider set up, no catalog yet), the home a
+    person starts with. Seeded, the checks above missed: every control under the agent's MODEL fields and Settings' Save
+    moved 38-77 px when the empty catalog's line landed; Session's Setup gave way to Refresh once the providers' status
+    was read; Local's traffic host moved."""
+    got = _fresh(ctx)
+    for name in ("session", "crew", "workflows", "map", "local", "setup", "settings"):
+        v = got.get(name) or {}
+        ctx.check(f"fresh {name}: the view was read, got {v.get('error') or sorted(v)}", "first" in v and not v.get("error"))
+        ctx.check(f"fresh {name}: nothing moved, went away or was covered while the answers landed, got {v.get('moved')}", v.get("moved") == [])
+    for name in ("settings_search", "library_search"):
+        for order in ("oldest", "newest"):
+            v = got.get(f"{name}/{order}") or {}
+            ctx.check(f"fresh {name} ({order} first): made and still in effect, got {v}", v.get("made") is True and v.get("lost") == "" and not v.get("error"))
 
 
 if __name__ == "__main__":

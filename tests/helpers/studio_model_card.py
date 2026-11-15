@@ -79,10 +79,14 @@ def roles_picker(c, url, ctx) -> dict:
     detail = f"{picker}.querySelector('[data-testid=\"model-detail\"]')"
     c.call("Emulation.setFocusEmulationEnabled", enabled=True)  # focus events fire without window focus
     for ref in c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => r.dataset.ref)") or []:
-        # focus() and a pointer-over, since the row's onFocus did not fire on the hosted Linux runner (6a300007, shard 2)
+        # focus() and the pointer moved onto the row, as a person points at it. (6a300007, shard 2: the highlight did
+        # not follow focus() on a hosted runner; 3.6.0.0 R5e found why: the pointer resting over the list took it back
+        # when the list scrolled. A row under a pointer that has not moved takes nothing now, and a dispatched
+        # mouseover, which is not a move, no longer points.)
         row_js = f"{picker}.querySelector('[data-testid=\"model-row\"][data-ref=\"{ref}\"]')"
-        c.js(f"{row_js}.scrollIntoView({{block: 'nearest'}}); {row_js}.focus(); "
-             f"{row_js}.dispatchEvent(new MouseEvent('mouseover', {{bubbles: true}})); 1")
+        c.js(f"{row_js}.scrollIntoView({{block: 'nearest'}}); {row_js}.focus(); 1")
+        x, y, w, h = c.rect(row_js)
+        c.mouse("mouseMoved", x + w / 2, y + h / 2)
         c.wait(f"{detail}?.dataset.ref === {json.dumps(ref)}", 10)
         out["picker_chips"].append(c.js(f"[...{detail}.querySelectorAll('[data-chip]')].map((x) => x.textContent).join(' ')"))
         out["picker_eyes"].append(c.js(f"[{detail}.querySelector('[data-testid=eye-chip]')?.dataset.eye, "

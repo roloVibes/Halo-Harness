@@ -17,7 +17,7 @@ import type { ModelRow } from "../../crew/models/types";
 import { useCatalog } from "../catalog";
 import { CardDetail, ModelCardPanel } from "../ModelCard";
 import { NotListed } from "./NotListed";
-import { Detail, EmptyLine, GroupHead, NotHereLine, Row } from "./PickerParts";
+import { Detail, EmptyLine, GroupHead, NotHereLine, pointed, Row } from "./PickerParts";
 import { fits, groupRows, notHere, type Sort } from "./rows";
 import { readFolds, saveFolds, useStatusOnce } from "./state";
 
@@ -59,7 +59,8 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
   const [q, setQ] = useState(seed);
   const [sort, setSort] = useState<Sort>("name");
   const [task, setTask] = useState("");
-  const [hot, setHot] = useState(-1);
+  // 3.6.0.0 R5e: the highlighted row by its ref, not its place: a re-sort or a list landing under it keeps it
+  const [hot, setHot] = useState<string | null>(null);
   const [typing, setTyping] = useState(false);
   const [folds, setFolds] = useState<Record<string, boolean>>(() => readFolds(foldKey));
   const box = useRef<HTMLInputElement>(null);
@@ -77,21 +78,26 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
     return () => window.clearTimeout(t);
   }, [autoFocus]);
   const specials = (inherit ? 1 : 0) + (known ? 0 : 1); // a search lands on its first match, not on the field's own rows
+  const firstMatch = count ? flat[specials] ?? null : null;
   useEffect(() => {
-    setHot(q.trim() ? (count ? specials : -1) : -1);
-  }, [q, count]); // eslint-disable-line react-hooks/exhaustive-deps -- a new search, or the list arriving under one
+    setHot(q.trim() ? firstMatch : null);
+  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps -- a new search
+  useEffect(() => {
+    if (q.trim()) setHot((h) => (h !== null && flat.includes(h) ? h : firstMatch));
+  }, [count]); // eslint-disable-line react-hooks/exhaustive-deps -- the list arriving under a search
   useEffect(() => {
     list.current?.querySelector("[data-hot]")?.scrollIntoView({ block: "nearest" });
   }, [hot]);
-  const hotRef = hot >= 0 ? flat[hot] : undefined;
+  const hotRef = hot !== null && flat.includes(hot) ? hot : undefined;
   const shown = models.find((m) => m.ref === hotRef) || models.find((m) => m.ref === value);
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
-      if (flat.length) setHot((h) => (e.key === "ArrowDown" ? Math.min(flat.length - 1, h + 1) : Math.max(0, h - 1)));
+      const at = hotRef === undefined ? -1 : flat.indexOf(hotRef);
+      if (flat.length) setHot(flat[e.key === "ArrowDown" ? Math.min(flat.length - 1, at + 1) : Math.max(0, at - 1)]);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (hot >= 0 && hot < flat.length) onPick(flat[hot]);
+      if (hotRef !== undefined) onPick(hotRef);
       else if (!flat.length && q.trim()) setTyping(true);
     } else if (e.key === "Escape" && onClose) {
       e.preventDefault();
@@ -133,7 +139,7 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
             <div className="rm-row rm-head mono" aria-hidden="true"><span>model</span><span className="rm-price">in / out</span><span className="rm-ctx">ctx</span><span>takes</span><span className="rm-gym">gym</span></div>
             {inherit && (
               <button type="button" className="rm-row mpk-special" role="option" aria-selected={!value} data-hot={hotRef === "" || undefined} tabIndex={-1}
-                      onClick={() => onPick("")} onMouseEnter={() => setHot(0)} data-testid={`${tid}-inherit`}>
+                      onClick={() => onPick("")} onMouseMove={pointed(() => setHot(""))} data-testid={`${tid}-inherit`}>
                 <span className="mono rm-ref">{inherit.text ?? `${inherit.label} (${inherit.model || "none resolves"})`}</span>
               </button>
             )}
@@ -149,7 +155,7 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
                 {open(g.provider) && <WindowedRows items={g.rows} render={(m) => (
                   <Fragment key={m.ref}>
                     <Row m={m} tid={tid} on={m.ref === value} hot={m.ref === hotRef} dim={dimOf(m)} task={task} gym={gym[m.ref]} kinds={kindsOf(m).length}
-                         onPick={() => onPick(m.ref)} onHot={() => setHot(flat.indexOf(m.ref))} />
+                         onPick={() => onPick(m.ref)} onHot={() => setHot(m.ref)} />
                     {m.ref === value && m.card && !embedded ? <div className="rm-card"><CardDetail card={m.card} refName={m.ref} /></div> : null}
                   </Fragment>
                 )} />}

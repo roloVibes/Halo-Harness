@@ -23,8 +23,8 @@ export async function loadModels(): Promise<void> {
 export async function loadModelsStatus(): Promise<void> {
   try {
     const st = await api.get<ModelsStatus>("models/status");
-    models.update(() => ({ modelsStatus: st }));
+    models.update(() => ({ modelsStatus: st, statusRead: true }));
   } catch {
-    /* the picker says it could not ask */
+    models.update(() => ({ statusRead: true })); // the empty line offers Setup
   }
 }

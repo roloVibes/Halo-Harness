@@ -113,14 +113,17 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
       {/* 3.6.0.0 R5c: one slot, the same height while the catalog is read and after: "reading the catalog..." gave way to
           nothing (or to the takes) and everything under the field moved 22 px up under a click */}
       <div className="msel-slot" data-testid="model-select-slot">
-        {!loaded ? <span className="msel-why mono muted">reading the catalog...</span> : row ? <div className="msel-takes"><ModelTakes row={row} /></div> : null}
+        {/* 3.6.0.0 R5e: an empty catalog's why and its fix sit in the same slot, one line: drawn under it, the box pushed
+            every control below the field 38 px down per MODEL field once the catalog landed (a fresh home) */}
+        {!loaded ? <span className="msel-why mono muted">reading the catalog...</span>
+          : empty ? (open ? null : <EmptyLine st={st} error={error} busy={refreshing} line />)
+            : row ? <div className="msel-takes"><ModelTakes row={row} /></div> : null}
       </div>
       {probe && probe !== "running" && !noTest && (
         <div className="msel-result mono" data-ok={probe.ok || undefined} data-testid="model-select-result" title={probe.cost_line}>
           {shortRef(probe.ref || effective)}: {probe.ok ? `ok in ${probe.latency_ms} ms` : `failed: ${probe.error || "no reply"}`}
         </div>
       )}
-      {empty && !open && <EmptyLine st={st} error={error} busy={refreshing} />}
       {justRefreshed && !open ? <CatalogLines empty={false} /> : null}
       {hint && !compact && !bare && <div className="field-hint">{hint}</div>}
       {open && inline && <div className="msel-fold" data-testid="model-select-fold">{table}</div>}

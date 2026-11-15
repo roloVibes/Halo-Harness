@@ -2,6 +2,7 @@
 lands (3.6.0.0 R5c; tests/helpers/hold_still.py does the holding), for tests/test_studio_hold_still.py:
 
     python -m tests.helpers.studio_hold_still
+    python -m tests.helpers.studio_hold_still --fresh   (3.6.0.0 R5e: the views over a fresh home, see `fresh`)
 
 Over a scratch home with two ended sessions and a finished goal run (the replay seeds: the Map's History has rows), in
 headless Chrome, each with every /api/ answer held and then let go one at a time:
@@ -136,6 +137,32 @@ def views(c, page) -> dict:
     return out
 
 
+FRESH_VIEWS = ("session", "crew", "workflows", "map", "local", "setup", "settings")
+FRESH_CHOICES = ("settings_search", "library_search")
+
+
+def fresh(c, page) -> dict:
+    """3.6.0.0 R5e: the same views and choices over a FRESH home (nothing seeded, a provider key set and no catalog yet),
+    the home a person starts with. The seeded home above did not see: the agent's form and Settings moving 38-77 px when
+    the empty catalog's line landed under each MODEL field, Session's Setup giving way to Refresh once the providers'
+    status was read, Local's traffic host moving when its options landed."""
+    out = {}
+    for name in FRESH_VIEWS:
+        query, boxes, ready, before, then = VIEWS[name]
+        try:
+            out[name] = still(c, page(query), clickables(*boxes), ready, before=before, then=then)
+        except Exception as e:
+            out[name] = {"error": f"{type(e).__name__}: {e}"[:300]}
+    for name in FRESH_CHOICES:
+        query, ready, choose, holds = CHOICES[name]
+        for order in ("oldest", "newest"):
+            try:
+                out[f"{name}/{order}"] = survives(c, page(query), ready, choose, holds, order=order)
+            except Exception as e:
+                out[f"{name}/{order}"] = {"error": f"{type(e).__name__}: {e}"[:300]}
+    return out
+
+
 class HoldStillDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -144,6 +171,23 @@ class HoldStillDriver(Driver):
         from capture_studio import serve
         from halo_harness.config.paths import bridge_home
         from halo_harness.studio.server import url_for
+        if "--fresh" in self.argv:
+            import os
+            state = bridge_home()
+            state.mkdir(parents=True, exist_ok=True)
+            # a provider is set up (its key in the env) and nothing is listed yet; its address answers nothing (no network)
+            os.environ["OPENROUTER_API_KEY"] = "sk-or-test-not-a-key"
+            os.environ["BRIDGE_OPENROUTER_BASE_URL"] = "http://127.0.0.1:9"
+            proj = state.parent / "project"
+            proj.mkdir(parents=True, exist_ok=True)
+            srv, _url = serve(state, proj=proj)
+            base = url_for(srv)
+            try:
+                yield ((fresh, (c, lambda query: base.replace("/#t=", f"/?{query}&tour=off#t="))),)
+            finally:
+                srv.shutdown()
+                srv.server_close()
+            return
         from tests.helpers.compare_seed import seed_b, seed_run
         from tests.helpers.catalog_facts_seed import seed as seed_catalog
         from tests.helpers.replay_seed import seed

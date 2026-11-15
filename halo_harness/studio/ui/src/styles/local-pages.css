@@ -16,6 +16,16 @@
 .lc-spark { width: 120px; height: 24px; }
 .lc-axis { stroke: var(--line); stroke-width: 1; }
 .lc-line { stroke: var(--accent); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+/* 3.6.0.0 R5e: a strip's rows never wrap, so its height is the same for every sample and before the first (the
+   placeholder strip draws the same rows): the numbers wrapped by their widths and the strip went 140 <-> 164 px, and
+   the first sample replaced a 40 px note -- the traffic view under it moved 74 px under a click */
+.lc-strip > .lc-strip-head { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; height: 20px; }
+.lc-strip > .lc-vram { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; }
+.lc-strip > .lc-vram > *, .lc-strip-nums > .lc-num, .lc-strip-nums .lc-num { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lc-strip > .lc-vram > .lc-holder { grid-column: 1 / -1; }
+.lc-strip > .lc-strip-nums { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.lc-strip > .lc-strip-nums > .lc-gpu { grid-column: 1 / -1; min-width: 0; }
+.lc-strip-wait .lc-num-value, .lc-strip-wait .lc-holder { color: var(--muted); }
 .lc-mark { fill: var(--warn); }
 .lc-mark[data-kind="cut"] { fill: var(--bad); }
 

@@ -9,7 +9,9 @@ lineups and a fixture catalog in every provider's cache:
    detail line under the list, the full line on the tags' hover;
 3. the "best" sort leads with the model good at the most kinds; a search by
    the line's words finds the rows that say it;
-4. the picker's bar holds still while the rows under it change (3.6.0.0 R5c).
+4. the picker's bar holds still while the rows under it change (3.6.0.0 R5c);
+5. the keyboard walks every row while the pointer rests over the list, and a row focused, Best pressed or a filter
+   typed while the picker's answers are on their way survives them (3.6.0.0 R5e).
 Run: python -m tests.test_studio_models_ui
 """
 from __future__ import annotations
@@ -67,6 +69,30 @@ def test_the_pickers_bar_holds_still_while_you_use_it(ctx: Ctx):
     picker's dialog sits at the top; the detail line is one line). Centred, Best moved under a click (Windows CI)."""
     got = _got(ctx)
     ctx.check(f"the search and the sorts stay put, got {got.get('bar_moves')}", got.get("bar_moves") == [])
+
+
+@test
+def test_the_keyboard_walks_the_rows_under_a_resting_pointer(ctx: Ctx):
+    """3.6.0.0 R5e (Windows CI, three times): with the pointer resting over the list, each Down scrolled the list under
+    it and Chrome reported the row now under the pointer as entered (no move); that row took the highlight, the detail
+    line showed it and Down started again from it. Only a pointer that moves takes the highlight now."""
+    got = _got(ctx)
+    walked = got.get("rest_walked") or []
+    ctx.check(f"Down reaches the last row, got {walked}", bool(walked) and walked[-1] == got.get("rest_last"))
+    ctx.check(f"the detail line follows the keyboard, got {got.get('rest_detail')!r}", got.get("rest_detail") == got.get("rest_last"))
+
+
+@test
+def test_a_choice_made_early_in_the_picker_survives(ctx: Ctx):
+    """3.6.0.0 R5e: a row focused, Best pressed or a filter typed while the catalog, the providers' state, the best-at
+    kinds and the gym are still on their way (tests/helpers/hold_still.survives) still stands once they have all landed,
+    oldest first and newest first: the focused row's detail line, Best pressed, the filter applied."""
+    got = _got(ctx)
+    for name in ("focus", "best", "filter"):
+        for order in ("oldest", "newest"):
+            v = got.get(f"early_{name}/{order}") or {}
+            ctx.check(f"{name} ({order} first): made, got {v}", v.get("made") is True and not v.get("error"))
+            ctx.check(f"{name} ({order} first): still in effect at the end, lost after {v.get('lost')!r} ({v.get('released')})", v.get("lost") == "")
 
 
 if __name__ == "__main__":
