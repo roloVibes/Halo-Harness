@@ -142,8 +142,8 @@ def test_a_key_two_files_set_differently_names_the_winner(ctx: Ctx):
                   "./.claude/settings.local.json wins" in texts.get("./.claude/settings.json|model", ""))
         ctx.check("config.json model vs routes.json default: routes.json wins",
                   "~/.halo/routes.json wins" in texts.get("~/.halo/config.json|model", ""))
-        ctx.check("config.json theme vs settings.json theme: settings.json wins",
-                  "~/.claude/settings.json wins" in texts.get("~/.halo/config.json|theme", ""))
+        ctx.check(f"3.5.0.1: config.json's theme (picked in Halo) is not reported as losing to settings.json, got {texts.get('~/.halo/config.json|theme')!r}",
+                  "~/.halo/config.json|theme" not in texts)
         ctx.check("MCP server fs in two files: .mcp.json wins", "./.mcp.json wins" in texts.get("~/.claude.json|fs", ""))
         ctx.check("lineup standard in the repo and the home folder with different contents",
                   not any(k.startswith("<halo>") for k in texts))

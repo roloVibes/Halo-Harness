@@ -8,6 +8,7 @@ import io
 import os
 import sys
 import tempfile
+import time
 from contextlib import redirect_stdout
 from pathlib import Path
 
@@ -817,14 +818,14 @@ def test_b2_slash_teams_overview_apply_preview(ctx: Ctx):
 @test
 def test_a_yaml_file_is_parsed_once_per_change(ctx: Ctx):
     """3.5.0.1: a pack's check read every bio again for every stage of every workflow (thousands of parses, seconds
-    on every command). A file is parsed once per change; each caller gets its own copy; a write drops the entry."""
+    on every command). A file is parsed once per change; each caller gets its own copy; a file changed in the last
+    three seconds is always read from the disk (a same-size rewrite inside one clock tick is never served old)."""
     from halo_harness import agents_yaml as A
     with tempfile.TemporaryDirectory(prefix="yaml-once-") as d:
         f = Path(d) / "coder.yaml"
-        f.write_text("name: coder
-kind: coder
-tools: {allow: [Read]}
-", encoding="utf-8")
+        f.write_text("name: coder\nkind: coder\ntools: {allow: [Read]}\n", encoding="utf-8")
+        old = time.time() - 60
+        os.utime(f, (old, old))  # a file that has not changed for a minute
         calls: list = []
         real = A.yaml.safe_load
         A.yaml.safe_load = lambda text: (calls.append(1), real(text))[1]
@@ -832,19 +833,26 @@ tools: {allow: [Read]}
             first = A._read_yaml_file(f)
             for _ in range(50):
                 A._read_yaml_file(f)
-            ctx.check(f"51 reads of an unchanged file parse it once, got {len(calls)}", len(calls) == 1)
+            ctx.check(f"51 reads of a settled, unchanged file parse it once, got {len(calls)}", len(calls) == 1)
             first["tools"]["allow"].append("Bash")
             again = A._read_yaml_file(f)
             ctx.check(f"a caller's change to its copy is not seen by the next reader, got {again['tools']['allow']}",
                       again["tools"]["allow"] == ["Read"])
-            f.write_text("name: coder
-kind: reviewer
-note: a longer file now
-", encoding="utf-8")
-            ctx.check(f"a changed file is read again, got {A._read_yaml_file(f).get('kind')!r}", A._read_yaml_file(f).get("kind") == "reviewer")
+            # the judge's case: rewrites of the SAME size, back to back, by a writer that is not Halo's own
+            stale = 0
+            for i in range(200):
+                f.write_text(f"count: {i % 10}\n", encoding="utf-8")
+                if A._read_yaml_file(f).get("count") != i % 10:
+                    stale += 1
+            ctx.check(f"200 same-size rewrites, each read back at once: none stale, got {stale}", stale == 0)
             problems = A._write_yaml_file(f, {"name": "coder", "kind": "planner"})
             ctx.check(f"Halo's own write is read back, got {problems} {A._read_yaml_file(f).get('kind')!r}",
                       problems == [] and A._read_yaml_file(f).get("kind") == "planner")
+            before = len(calls)
+            A._read_yaml_file(f)
+            A._read_yaml_file(f)
+            ctx.check(f"a file written a moment ago is read from the disk each time, got {len(calls) - before} parses",
+                      len(calls) - before == 2)
             ctx.check("a file that is not there is None", A._read_yaml_file(Path(d) / "none.yaml") is None)
         finally:
             A.yaml.safe_load = real

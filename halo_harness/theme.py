@@ -2,8 +2,10 @@
 
 Precedence: `--theme` (CLI flag) > `HALO_THEME`/`CLAUDE_BRIDGE_THEME`/
 `ROLO_CLAUDE_THEME` (env, checked in that order -- the 2.0.0 rename's new
-canonical name first, both legacy names still honoured) > settings `theme`
-> "instrument" (built-in default since 3.3.15.0 R4; "claude-dark" before;
+canonical name first, both legacy names still honoured) > the theme picked
+in Halo (`~/.halo/config.json`'s `theme`: Setup, Settings, `/theme`; before
+3.5.0.1 this tier came AFTER the next one) > a `theme` in Claude Code's
+settings files > "instrument" (built-in default since 3.3.15.0 R4; "claude-dark" before;
 `auto`, follow the system, draws the default in the terminal). Pure data -- Textual itself is NOT
 imported here (U2's job); this module only decides WHICH theme name is
 active and reads/writes the one place a `/theme` command would persist a

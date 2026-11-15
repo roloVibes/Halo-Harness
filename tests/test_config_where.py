@@ -90,7 +90,8 @@ def test_the_precedence_column_follows_the_resolvers(ctx: Ctx):
                   loses(by(rows, "mcp", "~/.claude.json"))["fs"] == "./.mcp.json")
         cfg = loses(by(rows, "config", "~/.halo/config.json"))
         ctx.check(f"config.json's model loses to routes.json's default, got {cfg}", cfg.get("model") == "routes.json default")
-        ctx.check("config.json's theme loses to settings.json's theme", cfg.get("theme") == "settings.json theme")
+        ctx.check(f"3.5.0.1: config.json's theme (picked in Halo) no longer loses to settings.json's theme, got {cfg.get('theme')!r}",
+                  cfg.get("theme") is None)
         ctx.check("the active lineup's own roles win over its parent's",
                   "roles" in by(rows, "lineup", "~/.halo/teams/mine.yaml")["wins"])
         (h.repo / ".halo" / "teams" / "standard.yaml").unlink()

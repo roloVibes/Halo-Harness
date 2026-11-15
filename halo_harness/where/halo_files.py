@@ -61,8 +61,11 @@ def _model_and_theme(cfg_row: dict, cwd: Path) -> None:
     if isinstance(theme, str) and theme not in T.REMOVED_THEMES:  # 3.1.5.0: doctor --config names a game theme
         chosen = T.resolve_theme(persisted_theme=theme, settings_theme=_settings_theme(cwd))
         if chosen != T.drawn_theme(theme):  # 3.3.15.0 R4: auto draws the default in a terminal
+            # 3.5.0.1: the theme picked in Halo (this file) now wins over a `theme` in Claude Code's settings files,
+            # so only an environment variable can still beat it here
             var = next((v for v in T._ENV_VARS if T.is_theme_value(os.environ.get(v))), "")
-            lose(cfg_row, "theme", var or "settings.json theme")
+            if var:
+                lose(cfg_row, "theme", var)
 
 
 def _settings_theme(cwd: Path):
