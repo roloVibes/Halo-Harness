@@ -1,22 +1,17 @@
-// Live's "Run a goal" panel (3.4.0.0 D "the runs fold"; Runs' Start screen before): closed on load, opened only by a
-// click -- the button on Live's bar, the palette's "Agents: Run a goal", History's "Run it again" (`form`: that run's
-// goal filled in), the Pack Manager's Run <workflow> (orchestra/workflowRun.ts fills the workflow's form instead) --
-// and closed by its x, Esc, or a run that started. `seed` re-reads the form each time it opens.
-import { createStore, goSection, useStore } from "../../../lib/store";
+// The "Run a goal" form (3.4.0.0 D; 3.6.0.0 R5: in the Map's drawer, crew/run/door.ts openGoal): closed on load, opened
+// only by a click -- the Map bar's Run a goal, the palette's "Agents: Run a goal", History's "Run it again" (`form`: that
+// run's goal filled in), the Pack Manager's Run <workflow> (orchestra/workflowRun.ts fills the workflow's form instead)
+// -- and closed by its x, Esc, or a run that started. `seed` re-reads the form each time it opens.
+import { createStore, useStore } from "../../../lib/store";
 import type { RunForm } from "../../orchestra/sync";
 import { startOrchestra } from "../../orchestra/sync";
-import { history } from "../../agents/live/historyStore";
+import { history } from "../live/historyStore";
 
+export type GoalForm = Partial<RunForm>;
 type State = { open: boolean; seed: number; form: Partial<RunForm> | null };
 
 export const goal = createStore<State>({ open: false, seed: 0, form: null });
 export const useGoal = <S,>(pick: (s: State) => S): S => useStore(goal, pick);
-
-/** Live with the goal panel open (with `form`, those fields filled in). */
-export function openGoal(form?: Partial<RunForm>): void {
-  goSection("agents", "live");
-  openGoalHere(form);
-}
 
 /** 3.6.0.0 R4b: the goal form open where it is drawn (the Map's drawer), without going to Live. */
 export function openGoalHere(form?: Partial<RunForm>): void {
@@ -31,5 +26,5 @@ export function closeGoal(): void {
 
 export function toggleGoal(): void {
   if (goal.get().open) closeGoal();
-  else openGoal();
+  else openGoalHere();
 }

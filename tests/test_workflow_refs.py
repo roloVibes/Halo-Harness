@@ -13,9 +13,6 @@ Run: python -m tests.test_workflow_refs
 
 from __future__ import annotations
 
-import contextlib
-import io
-import os
 import sys
 from pathlib import Path
 
@@ -31,56 +28,6 @@ agents:
   - {agent: doc-review--writer, role: main}
 workflows: [doc-review/review, doc-review--review, other-pack/flow, loose]
 """
-
-
-def _show(name: str, cwd) -> "tuple[int, str]":
-    from halo_harness.teams_cli import cmd_teams
-    out, old = io.StringIO(), os.getcwd()
-    try:
-        os.chdir(cwd)
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            code = cmd_teams(["show", name])
-    finally:
-        os.chdir(old)
-    return code, out.getvalue()
-
-
-@test
-def test_a_packs_lineup_resolves_its_refs_beside_its_names(ctx: Ctx):
-    from halo_harness import teams_yaml as T
-    with PacksHome() as h:
-        h.install(h.source(), enable=True, grants=["bash"])
-        got = T.resolve_team_template("doc-review--review", cwd=h.repo)
-        ctx.check(f"workflows stay the bare names, the refs beside them, got {got.get('workflows')} {got.get('workflow_refs')}",
-                  got.get("workflows") == ["review"] and got.get("workflow_refs") == ["doc-review/review"])
-        code, out = _show("doc-review--review", h.repo)
-        ctx.check(f"halo teams show prints the ref, got {out!r}",
-                  code == 0 and "  workflows: doc-review/review (halo workflow run doc-review/review)\n" in out)
-
-
-@test
-def test_a_lineup_of_yours_names_refs_and_a_ref_no_pack_holds_is_one_line(ctx: Ctx):
-    from halo_harness import teams_yaml as T
-    with PacksHome() as h:
-        h.install(h.source(), enable=True, grants=["bash"])
-        h.write("teams/mine.yaml", MINE, base=h.state)
-        raw = T.load_team_template_raw("mine", cwd=h.repo)
-        problems = T.validate_team_template(raw, name="mine", cwd=h.repo)
-        ctx.check(f"one line, the ref no running pack holds, got {problems}",
-                  problems == ["\"workflows\" 'other-pack/flow': pack other-pack is not installed here (halo pack list)"])
-        got = T.resolve_team_template("mine", cwd=h.repo)
-        ctx.check(f"the refs, one per workflow, got {got.get('workflow_refs')}",
-                  got.get("workflow_refs") == ["doc-review/review", "other-pack/flow"]
-                  and got.get("workflows") == ["doc-review/review", "doc-review--review", "other-pack/flow", "loose"])
-        code, out = _show("mine", h.repo)
-        ctx.check(f"halo teams show: the refs and the bare name with no pack, got {out!r}", code == 0
-                  and "  workflows: doc-review/review, other-pack/flow (halo workflow run doc-review/review)\n" in out
-                  and "  workflows: loose names no pack: a lineup of yours names <pack>/loose\n" in out)
-        from halo_harness.packs.grants import disable
-        disable("doc-review")
-        problems = [p for p in T.validate_team_template(raw, name="mine", cwd=h.repo) if p.startswith('"workflows"')]
-        ctx.check(f"the pack disabled: its refs are lines too, got {problems}", len(problems) == 3
-                  and problems[0] == "\"workflows\" 'doc-review/review': pack doc-review is not enabled here (halo pack list)")
 
 
 @test

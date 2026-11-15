@@ -39,16 +39,16 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 SHOTS: list = []
 
 # (name, mode, extra query) -- the six sections, Agents on Cast and Live, idle and busy (3.4.0.0 D: Runs went)
-SECTIONS = (("session", "session", ""), ("agents-cast", "agents", "&view=cast"),
-            ("agents-live", "agents", "&view=live"), ("agents-busy", "agents", "&view=live"), ("packs", "packs", ""), ("setup", "setup", ""),
+# 3.6.0.0 R5: Agents is three tabs (Cast and Live went); agents-busy is the Map while a session runs
+SECTIONS = (("session", "session", ""),  # 1 · Agents opens its list beside its form by design: the room test measures it
+            ("agents-map", "agents", "&view=map"), ("agents-busy", "agents", "&view=map"), ("packs", "packs", ""), ("setup", "setup", ""),
             ("settings", "settings", ""), ("local", "local", ""))
 
 # what each section draws once it is there (the measure waits for it, then for two equal reads)
 # 3.3.18.0: a view of Agents is ready when its workspace has laid out a cell AND drawn what the view shows (Live over this
 # seeded home: its one empty sentence), never on its bar alone (a Windows runner measured Live's 0 of 0 panels once)
-READY = {"session": ".ws-cell", "agents-busy": "[data-testid=roles-live-map]",
-         "agents-cast": "[data-part=roles] [data-testid=roles-canvas], [data-part=roles] [data-testid=roles-start]",
-         "agents-live": ".ws-cell [data-testid=roles-live-empty]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
+READY = {"session": ".ws-cell", "agents-busy": "[data-part=map] [data-testid=map-canvas]",
+         "agents-map": "[data-part=map] [data-testid=map-canvas]", "packs": ".ws-cell", "setup": "[data-testid=setup-rail]",
          "settings": "[data-testid=settings-rail-group]", "local": "[data-testid=local-rail-page]"}
 
 MEASURE = r"""(() => {
@@ -142,36 +142,24 @@ def section(c, url: str, name: str) -> dict:
 
 
 def attention(c, url: str) -> dict:
-    """3.3.16.0 R2: Live with the Attention queue open (the chip) and the inspector's glance."""
+    """3.3.16.0 R2: the Map (3.6.0.0 R5: Live went) with the Attention queue open (the chip)."""
     c.go("about:blank")
     c.go(url)
-    c.wait("!!document.querySelector('[data-testid=agents-attention]') && !!document.querySelector('[data-testid=roles-live-map]')", 40)
-    c.js("document.querySelector('[data-testid=agents-attention]').click(); 1")
+    c.wait("!!document.querySelector('[data-part=map]:not([hidden]) [data-testid=agents-attention]') && !!document.querySelector('[data-testid=map-canvas]')", 40)
+    c.js("document.querySelector('[data-part=map]:not([hidden]) [data-testid=agents-attention]').click(); 1")
     c.wait("!!document.querySelector('[data-panel=fleet-attention] .panel-body')", 10)
-    c.js("document.querySelector('.section-view:not([hidden]) [data-testid=viewbar-btn][data-panel=roles-inspector]')?.click(); 1")
-    c.wait("!!document.querySelector('[data-testid=live-glance-lines]')", 20)  # the glance's lines
     got = settled(c)
     shot(c, "agents-attention")
     return {"agents-attention": got}
 
 
 def living(c, url: str) -> dict:
-    """3.3.18.0 "The living canvas": Live's History drawer open over the seeded home (its head a bar, its rows targets;
-    the one sentence and a block's bar are measured where agents run: tests/helpers/studio_live_plan.py)."""
+    """3.3.18.0 "The living canvas"; 3.6.0.0 R5: the History under the Map over the seeded home (its rows targets)."""
     q = lambda t: f"document.querySelector('[data-testid=\"{t}\"]')"  # noqa: E731
-    c.js("try { localStorage.removeItem('halo.studio.layout.roles'); } catch (e) {} 1")  # the sections above moved its panels
+    c.js("try { localStorage.removeItem('halo.studio.layout.agents-map'); } catch (e) {} 1")  # the sections above moved its panels
     c.go("about:blank")
     c.go(url)
-    c.wait(f"!!{q('live-history')} && !!{q('roles-live-empty')}", 40)
-    drawn = f"!!{q('live-history-head')} && (!!{q('live-history-row')} || !!{q('live-history-none')})"
-    for _ in range(2):  # a click that landed while the page still laid out is pressed once more
-        c.js(f"{q('live-history-drawer')} || {q('live-history')}.click(); 1")
-        try:
-            c.wait(drawn, 20)
-            break
-        except TimeoutError:
-            pass
-    c.wait(drawn, 20)
+    c.wait(f"!!{q('map-history')}", 40)
     out = {"agents-live-history": settled(c)}
     shot(c, "agents-live-history")
     return out
@@ -180,22 +168,6 @@ def living(c, url: str) -> dict:
 def page_url(srv, mode: str, extra: str = "") -> str:
     from halo_harness.studio.server import url_for
     return url_for(srv, mode).replace(f"?mode={mode}", f"?mode={mode}{extra}&tour=off")
-
-
-def inspector(c, srv) -> dict:
-    """Cast with the halo-dev-cycle lineup open: the inspector's summary, then the Budget page."""
-    from halo_harness.studio.server import url_for
-    q = lambda t: f"document.querySelector('[data-testid=\"{t}\"]')"  # noqa: E731
-    c.go("about:blank")
-    c.go(url_for(srv, None, "lineup:halo-dev-cycle").replace("#t=", "&tour=off#t="))
-    c.wait(f"!!{q('roles-summary')}", 40)
-    out = {"inspector-summary": settled(c)}
-    shot(c, "inspector-summary")
-    c.js(f"{q('roles-edit-budget')}.click(); 1")
-    c.wait(f"!!{q('roles-page-budget')}", 10)
-    out["inspector-page"] = settled(c)
-    shot(c, "inspector-page")
-    return out
 
 
 class DensityDriver(Driver):
@@ -215,10 +187,10 @@ class DensityDriver(Driver):
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:
             with PromptRig() as rig:  # Session and Live on the fleet over a live session (the Prompt rig); the rest over the seeded home
-                live = (("session", rig.url(f"&session={rig.sid}")), ("agents-busy", page_url(rig.server, "agents", "&view=live")))
+                live = (("session", rig.url(f"&session={rig.sid}")), ("agents-busy", page_url(rig.server, "agents", "&view=map")))
                 seeded = tuple((n, page_url(srv, m, x)) for n, m, x in SECTIONS if n not in ("session", "agents-busy"))
-                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((inspector, (c, srv)), (attention, (c, page_url(rig.server, "agents", "&view=live"))),
-                    (living, (c, page_url(srv, "agents", "&view=live"))))
+                yield tuple((section, (c, u, n)) for n, u in live + seeded) + ((attention, (c, page_url(rig.server, "agents", "&view=map"))),
+                    (living, (c, page_url(srv, "agents", "&view=map"))))
         finally:
             srv.shutdown()
             srv.server_close()

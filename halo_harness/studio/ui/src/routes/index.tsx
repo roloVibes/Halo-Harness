@@ -15,24 +15,24 @@
 // `paged`: a step rail over one page at a time, no panels), 3.3.3.0 R2 Settings (every config.json key, one page per
 // group), 3.3.5.0 R1 Local (the machines that serve models, and the models they serve), each paged too.
 // 3.3.13.0 R2: Design left the core for the design pack (its section, when the pack is on, is a pack section).
-// 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra folded into Agents (Alt+2; routes/agents/). Agents draws
-// two workspaces of its own: `roles` (Cast and Live) and `orchestra` (Runs); `sectionDef("agents")` is the one it draws
-// now (partDef), so the view bar, the ... menu, the palette's panel rows and the status bar follow the view. Local
-// carries the Media panels as optional drawers over its page (the palette's Media lines; 3.6.0.0 R0a).
-// 3.3.16.0 R2 "the Fleet fold": the Fleet section went -- a machine's agents in Agents -> Live (the fleet scope), its
-// models in Local, pairing and the people in Setup -> Machines, missions in the Mission panel on Agents -> Live. Six core sections, the shell
+// 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra folded into Agents (Alt+2; routes/agents/). 3.6.0.0 R5:
+// Agents is three tabs, each with its own workspace (1 · Agents, 2 · Workflows, 3 · Map: routes/crew/); the Cast / Live
+// workspace (`roles`) went. Local carries the Media panels as optional drawers over its page (the palette's Media lines;
+// 3.6.0.0 R0a). 3.3.16.0 R2 "the Fleet fold": the Fleet section went -- a machine's sessions on Agents -> 3 · Map, its
+// models in Local, pairing and the people in Setup -> Machines. Six core sections, the shell
 // the Instrument look was drawn for: Session Alt+1, Agents Alt+2, Local Alt+3, Packs Alt+4, Setup Alt+5,
 // Settings Alt+6; then the pack sections (routes/packs/registry.ts FIRST_KEY: the first pack section is Alt+7).
 import type { ComponentType } from "react";
-import type { AgentsPart, SectionId } from "../lib/store";
+import type { SectionId } from "../lib/store";
 import type { PanelSpec } from "../lib/workspace/types";
 import { specsFor } from "../lib/workspace/persist";
 import type { MenuGroup } from "../lib/ui/Menu";
 import { AgentsView } from "./agents/Agents";
-import { partPanels } from "./agents/parts";
-import { agentsPart, useAgentsPart } from "./agents/store";
+import { agentsView, useAgentsView } from "./agents/store";
+import { CREW_SECTION, crewPanels } from "./crew/Crew";
+import { FLOWS_SECTION, flowPanels } from "./crew/flows/Flows";
+import { MAP_SECTION, mapPanels } from "./crew/map/MapView";
 import { mediaPanels } from "./media/MediaPanels";
-import { setView as enterRoles } from "./roles/store";
 import { sessionPanels } from "./session/Session";
 import { SessionView } from "./session/Start";
 import { enterSession } from "./session/store";
@@ -62,23 +62,12 @@ export type SectionDef = {
 
 export const SECTIONS: SectionDef[] = [
   { id: "session", title: "Session", kbd: "Alt+1", blurb: "This session, live", panels: sessionPanels, view: SessionView, enter: enterSession },
-  { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "The cast, what runs now on every machine (a goal run too), and what ran", panels: [], view: AgentsView },
+  { id: "agents", title: "Agents", kbd: "Alt+2", blurb: "Make agents and workflows, connect them on the map, watch it run", panels: [], view: AgentsView },
   { id: "local", title: "Local", kbd: "Alt+3", blurb: "The machines that serve models, and the models they serve", panels: mediaPanels(0), paged: true, view: LocalView, enter: enterLocal },
   { id: "packs", title: "Packs", kbd: "Alt+4", blurb: "Install, grant and enable packs", panels: packsPanels, enter: enterPacks },
-  { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme and lineup", panels: [], paged: true, view: SetupView, enter: enterSetup },
+  { id: "setup", title: "Setup", kbd: "Alt+5", blurb: "Providers, models, permissions, theme and map", panels: [], paged: true, view: SetupView, enter: enterSetup },
   { id: "settings", title: "Settings", kbd: "Alt+6", blurb: "Every config key, one page per group", panels: [], paged: true, view: SettingsView, enter: enterSettings },
 ];
-
-/** 3.3.16.0 R1: Agents' workspace as a section def (its layout key is its id; the title and key are Agents'). */
-const PARTS: Record<AgentsPart, Pick<SectionDef, "menu" | "enter">> = {
-  roles: { enter: () => enterRoles("workspace") },
-};
-
-const AGENTS = SECTIONS[1];
-
-export function partDef(part: AgentsPart): SectionDef {
-  return { ...AGENTS, ...PARTS[part], id: part, panels: partPanels(packs.get().reg, part), view: undefined };
-}
 
 // 3.2.0.0 R3: the packs' sections come after the core ones (3.3.3.0 R2: after Settings, reached by a click or the palette;
 // 3.3.16.0 R1: then the pack's own sections, by their rail row) and their panels join the core sections' (routes/packs/registry.ts, from the
@@ -90,7 +79,7 @@ export function sections(): SectionDef[] {
   const reg = packs.get().reg;
   if (merged.reg !== reg) {
     const core = SECTIONS.map((s) => {
-      const extra = s.paged || s.id === "agents" ? [] : packPanels(reg, s.id); // a paged section draws no workspace for a pack's panel; Agents' parts take theirs
+      const extra = s.paged || s.id === "agents" ? [] : packPanels(reg, s.id); // a paged section draws no workspace for a pack's panel; nor do Agents' tabs
       return extra.length ? { ...s, panels: [...s.panels, ...extra] } : s;
     });
     merged = { reg, out: [...core, ...packSections(reg)] };
@@ -104,18 +93,27 @@ export function useSections(): SectionDef[] {
   return sections();
 }
 
+/** 3.6.0.0 R5: Agents' def is the workspace of the tab it shows (its id is that workspace's: the palette's Show panel
+ *  lines, the + menu and the status bar follow the tab). */
+function agentsDef(view: string = agentsView()): SectionDef {
+  const [id, panels] = view === "crew" ? [CREW_SECTION, crewPanels] : view === "workflows" ? [FLOWS_SECTION, flowPanels] : [MAP_SECTION, mapPanels];
+  return { ...SECTIONS[1], id: id as SectionId, panels, view: undefined };
+}
+
+const TAB_OF: Record<string, string> = { [CREW_SECTION]: "crew", [FLOWS_SECTION]: "workflows", [MAP_SECTION]: "map" };
+
 export function sectionDef(id: SectionId): SectionDef {
-  if (id === "roles") return partDef(id);
-  if (id === "agents") return partDef(agentsPart()); // 3.3.16.0 R1: the workspace Agents draws now
+  if (id === "agents") return agentsDef();
+  if (TAB_OF[id]) return agentsDef(TAB_OF[id]); // a tab's own workspace (the Inspector remembers it by that id)
   const def = sections().find((s) => s.id === id) ?? SECTIONS[0];
   // 3.3.13.0 R2: a pack's page with a Workspace of its own (api.lib.workspace): its panels, for the Inspector
   const own = def.view && def.paged && !def.panels.length ? specsFor(def.id) : undefined;
   return own?.length ? { ...def, panels: own } : def;
 }
 
-/** sectionDef, re-read when the packs registry or Agents' view changes (the "+" menu, the ... menu, the status bar). */
+/** sectionDef, re-read when the packs registry changes (the "+" menu, the ... menu, the status bar). */
 export function useSectionDef(id: SectionId): SectionDef {
   usePacks((s) => s.reg);
-  useAgentsPart();
+  useAgentsView();
   return sectionDef(id);
 }

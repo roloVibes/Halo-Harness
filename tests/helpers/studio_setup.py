@@ -172,22 +172,17 @@ def model(c, url, ctx) -> dict:
 
 
 def team(c, url, ctx) -> dict:
+    """3.6.0.0 R5: the Team step is Map: the maps (the shipped starter and ship-it), the one in use, a pick, its preview,
+    Save writes crew.map to config.json and the strip follows."""
     goto(c, "team")
-    row = "[data-testid=setup-lineup][data-name=balanced]"
-    out = {"lineups": c.js(qa("[data-testid=setup-lineup]") + ".map((r) => r.dataset.name)"),
-           "in_use": c.js(qa("[data-testid=setup-lineup][data-active]") + ".map((r) => r.dataset.name)"),
+    row = "[data-testid=setup-map][data-name=ship-it]"
+    out = {"maps": c.js(qa("[data-testid=setup-map]") + ".map((r) => r.dataset.name)"),
+           "in_use": c.js(qa("[data-testid=setup-map][data-active]") + ".map((r) => r.dataset.name)"),
            "team_by": choose(c, row, f"{q(row + ' input')}.checked")}
-    out["preview"] = c.wait(f"{_text('[data-testid=setup-team-preview]')}.startsWith('balanced') && {_text('[data-testid=setup-team-preview]')}.split('\\n')[0]", 15)
+    out["preview"] = c.wait(f"{_text('[data-testid=setup-team-preview]')}.includes('ship-it') && {_text('[data-testid=setup-team-preview]')}.split('\\n')[0]", 15)
     out["team_save_by"] = save(c, "team")
-    out["team_strip"] = c.wait(f"{_cell('lineup')} === 'balanced' && {_cell('lineup')}", 10)
-    cfg = _config(ctx)
-    out["team_config"] = [cfg.get("team"), (cfg.get("roles") or {}).get("enabled")]
-    one = "[data-testid=setup-lineup][data-name=one-model]"
-    choose(c, one, f"{q(one + ' input')}.checked")
-    save(c, "team")
-    out["one_strip"] = c.wait(f"{_cell('lineup')} === 'one model for everything' && {_cell('lineup')}", 10)
-    cfg = _config(ctx)
-    out["one_config"] = ["team" in cfg, (cfg.get("roles") or {}).get("enabled")]
+    out["team_strip"] = c.wait(f"{_cell('lineup')} === 'ship-it' && {_cell('lineup')}", 10)
+    out["team_config"] = (_config(ctx).get("crew") or {}).get("map")
     return out
 
 

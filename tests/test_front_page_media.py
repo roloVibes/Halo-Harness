@@ -66,7 +66,8 @@ def test_every_readme_png_comes_from_captures_json(ctx: Ctx):
                          "hero",  # 3.1.6.0 R4: tools/hero_png.py, the wordmark over the Session dashboard
                          "studio-session-live",  # 3.1.5.0 R3: tools/capture_session_anim.py (with the studio-session and studio-roles-live GIFs)
                          "studio-fleet", "studio-roles-live", "studio-fleet-panels", "studio-fleet-capabilities", "studio-fleet-mission", "studio-agents", "studio-session",
-                         "studio-setup", "studio-settings", "studio-local", "studio-workflows", "studio-steer", "studio-thinking", "studio-talk", "studio-auto", "studio-model-picker"):  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots; 3.3.0.0 R4: --mode setup; 3.3.3.0 R2: --mode settings; 3.3.5.0 R1: --mode local
+                         "studio-setup", "studio-settings", "studio-local", "studio-workflows", "studio-steer", "studio-thinking", "studio-talk", "studio-auto", "studio-model-picker",
+                         "studio-map", "studio-agents-tab"):  # 3.6.0.0 R5: tools/capture_map.py, tools/capture_crew.py  # tools/capture_studio.py (and studio_modes_banner.py) render these, not the TUI pilots; 3.3.0.0 R4: --mode setup; 3.3.3.0 R2: --mode settings; 3.3.5.0 R1: --mode local
             continue
         ctx.check(f"{ref} matches a capture name in tools/captures.json", path.stem in names)
     for ref in sorted({i for i in _readme_images() if i.endswith(".anim.svg")}):

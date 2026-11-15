@@ -3,12 +3,9 @@ real browser (Halo 3.1.4.0 R2; headless Chrome through the driver base,
 tests/helpers/studio_session.py `links` -> studio_session_links.py; skipped
 without one), over this harness's real session mid-work:
 
-1. Agents -> Live: an agent's Watch in Session opens Session with that agent selected;
-2. a node's `...` menu: Open in Session (it opens Session on that agent);
-3. the Roles canvas: a working card's Live tab header has Watch in Session,
-   which opens Session on that agent;
-4. a live Orchestra run led by this harness's session: its run line has Watch
-   in Session, which opens Session with that session chosen.
+a live Orchestra run led by this harness's session: its pages (the Map's line, Open) have Watch in Session, which
+opens Session with that session chosen. 3.6.0.0 R5: Live's Watch in Session, its node menu's Open in Session and Roles'
+Live tab went with those views.
 Run: python -m tests.test_studio_session_links
 """
 from __future__ import annotations
@@ -27,38 +24,12 @@ test, TESTS = new_registry()
 
 
 @test
-def test_live_opens_this_harness_in_session(ctx: Ctx):
-    r, got = _driver("links")
-    _ran(ctx, r, got)
-    ctx.check(f"this harness's agent: Session on it, got {got.get('rail_local_tab')!r} {got.get('rail_local_agent')}",
-              str(got.get("rail_local_tab")).startswith("Session") and got.get("rail_local_agent") == "implementer")
-
-
-@test
-def test_the_map_menu_opens_in_session(ctx: Ctx):
-    r, got = _driver("links")
-    _ran(ctx, r, got)
-    ctx.check(f"this harness's node has Open in Session, got {got.get('menu_local')}", "session" in (got.get("menu_local") or []))
-    ctx.check(f"it opens Session on that agent, got {got.get('menu_tab')!r} {got.get('menu_agent')}",
-              str(got.get("menu_tab")).startswith("Session") and got.get("menu_agent") == "researcher")
-
-
-@test
-def test_roles_live_tab_watches_in_session(ctx: Ctx):
-    r, got = _driver("links")
-    _ran(ctx, r, got)
-    ctx.check(f"the working card's Live tab has the button, got {got.get('watch_roles')!r}", got.get("watch_roles") == "Watch in Session")
-    ctx.check(f"it opens Session on that agent, got {got.get('roles_tab')!r} {got.get('roles_agent')}",
-              str(got.get("roles_tab")).startswith("Session") and got.get("roles_agent") == "implementer")
-
-
-@test
 def test_orchestra_run_line_watches_its_session(ctx: Ctx):
     r, got = _driver("links")
     _ran(ctx, r, got)
     ctx.check(f"a live run's line has the button, got {got.get('watch_orchestra')!r}", got.get("watch_orchestra") == "Watch in Session")
-    ctx.check(f"it opens Session with the run's session chosen, got {got.get('orchestra_tab')!r} {got.get('orchestra_session')} {got.get('orchestra_agent')}",
-              str(got.get("orchestra_tab")).startswith("Session") and got.get("orchestra_session") == got.get("sid") and got.get("orchestra_agent") is True)
+    ctx.check(f"it opens Session with the run's session chosen, got {got.get('orchestra_tab')!r} {got.get('orchestra_session')}",
+              str(got.get("orchestra_tab")).startswith("Session") and got.get("orchestra_session") == got.get("sid"))
 
 
 if __name__ == "__main__":

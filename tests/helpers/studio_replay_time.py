@@ -43,9 +43,14 @@ def open_page(c, page, query: str) -> None:
 
 
 def history(c) -> None:
-    c.wait(f"!!{Q}('[data-testid=\"live-history\"]')", 30)
+    """3.6.0.0 R5: History is in the Map's drawer ("Goal runs, files, Compare" under the map; Live's bar before)."""
+    view = "document.querySelector('[data-testid=\"agents\"]')?.dataset.view"
+    c.wait(f"!!{view}", 30)
+    if c.js(f"{view} !== 'map'"):
+        c.click_on(f"{Q}('.ag-part:not([hidden]) [data-testid=\"agents-view-map\"]')")
+    c.wait(f"!!{Q}('[data-testid=\"map-history-all\"]')", 30)
     if not c.js(f"!!{Q}('[data-testid=\"live-history-drawer\"]')"):
-        c.click_on(f"{Q}('[data-testid=\"live-history\"]')")
+        c.click_on(f"{Q}('[data-testid=\"map-history-all\"]')")
     c.wait(f"{ROWS}.length >= 1", 20)
 
 

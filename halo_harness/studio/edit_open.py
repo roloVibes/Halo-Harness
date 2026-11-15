@@ -82,8 +82,15 @@ def open_edit(target, *, cwd, state_dir, open_browser: bool = True, timeout: flo
 
 
 def describe(result: dict) -> str:
-    """One line for the terminal: what happened and the URL."""
+    """One line for the terminal: what happened and the URL (3.6.0.0 R5: an old bio: / lineup: / team target says the
+    old files' line first)."""
+    from halo_harness.studio.edit_target import OLD_LINE
     url, how, target = result.get("url") or "", result.get("how"), result.get("target") or "?"
+    old = str(target).split(":")[0] in ("bio", "lineup", "team")
+    return (f"halo: {OLD_LINE}" + chr(10) if old else "") + _describe(url, how, target, result)
+
+
+def _describe(url: str, how, target: str, result: dict) -> str:
     verb, cli = result.get("verb") or "edit", result.get("cli") or f"halo studio --edit {target}"
     if how == "focused":
         n = result.get("pages") or 1

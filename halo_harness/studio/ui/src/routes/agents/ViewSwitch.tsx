@@ -1,28 +1,22 @@
-// Agents' bar (3.3.16.0 R1): the view switch first -- 1 · Agents (3.6.0.0 R1, the new tab; it draws the switch in its own
-// view bar) | 2 · Workflows (3.6.0.0 R2, the same) | Cast | Live | Board (the old Workflows board; C, L, W; 3.4.0.0 D: Runs went, R lands on
-// Live) -- then what the view adds; a folded section's one line the first time its old door brought this browser here. The bar is
-// 40 px and quiet: nothing on it opens anything on its own. 3.3.16.0 R2: the Attention chip at its right end, in every
-// view (AttentionChip.tsx: the fleet's queue, amber while anything waits on you).
+// Agents' tab switch (3.6.0.0 R5: three tabs and nothing else): 1 · Agents | 2 · Workflows | 3 · Map, keys 1 2 3. Each
+// tab draws it first in its own view bar; the Map tab carries a dot while a session runs on a map. An old door's one
+// line (Note) shows beside it the first time it brought this browser here.
 import type { AgentsView } from "../../lib/agentsDoor";
 import { useStore } from "../../lib/store";
 import { agents, dismissNote, setAgentsView } from "./store";
-import { AttentionChip } from "./AttentionChip";
-import { LibraryButton } from "./workflows/Library";
 import { useRunning } from "../crew/map/litStore";
 
 const VIEWS: [AgentsView, string, string, string][] = [
   ["crew", "1 · Agents", "1", "Make an agent: its name, what it does, its model, what it may use, how careful; try it, save it"], // 3.6.0.0 R1
-  ["flows", "2 · Workflows", "2", "Make a workflow: your agents in steps, in order; try it, save it"], // 3.6.0.0 R2
+  ["workflows", "2 · Workflows", "2", "Make a workflow: your agents in steps, in order; try it, save it"], // 3.6.0.0 R2
   ["map", "3 · Map", "3", "Connect them: who main hands work to, and when; the map your sessions run on"], // 3.6.0.0 R3
-  ["cast", "Cast", "C", "The lineup and its bios: every card, its model and its tier"],
-  ["live", "Live", "L", "What runs now: this halo's session and a goal run's lanes, as a tree; History holds what ran"],
-  ["workflows", "Board", "W", "The old board of squares main may hand work to (it goes in a later version)"], // 3.6.0.0 R2: the old Workflows
 ];
 
 export function ViewSwitch({ view }: { view: AgentsView }) {
   const onMap = useRunning().some((s) => !!s.map); // 3.6.0.0 R4: the Map tab shows a dot while a session runs on a map
   return (
-    <span className="segmented ag-views" role="tablist" aria-label="Agents: Agents, Workflows, Map, Cast, Live or Board" data-testid="agents-views">
+    <>
+    <span className="segmented ag-views" role="tablist" aria-label="Agents: Agents, Workflows or Map" data-testid="agents-views">
       {VIEWS.map(([v, label, key, title]) => (
         <button key={v} role="tab" className={view === v ? "on" : ""} aria-selected={view === v} aria-pressed={view === v}
                 title={`${title} (${key})${v === "map" && onMap ? " -- a session is running on a map" : ""}`} onClick={() => setAgentsView(v)}
@@ -31,10 +25,12 @@ export function ViewSwitch({ view }: { view: AgentsView }) {
         </button>
       ))}
     </span>
+    <Note />
+    </>
   );
 }
 
-function Note() {
+export function Note() {
   const note = useStore(agents, (s) => s.note);
   if (!note) return null;
   const shown = note;
@@ -43,17 +39,5 @@ function Note() {
       <span className="ag-note-text" title={shown}>{shown}</span>
       <button className="icon-btn ag-note-x" onClick={dismissNote} aria-label="Dismiss" title="Dismiss this line">×</button>
     </span>
-  );
-}
-
-export function AgentsBar({ view }: { view: AgentsView }) {
-  return (
-    <div className="ag-bar" data-testid="agents-bar" data-density="bar">
-      <ViewSwitch view={view} />
-      {(view === "workflows" || view === "cast") && <LibraryButton plus />}
-      <Note />
-      <span className="spacer" />
-      <AttentionChip />
-    </div>
   );
 }

@@ -183,6 +183,10 @@ class Chrome:
             self.mouse(kind, x, y)
 
     def click_on(self, expr: str, fx: float = 0.5, fy: float = 0.5) -> None:
+        # an element out of sight (under the map, clipped low in a scrolled panel) is scrolled to first, as a person would
+        self.js(f"""(() => {{ const e = ({expr}); const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+          const at = x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight ? document.elementFromPoint(x, y) : null;
+          if (r.width && (!at || !(e === at || e.contains(at) || at.contains(e)))) e.scrollIntoView({{block: 'center', inline: 'center'}}); return 1; }})()""")
         x, y, w, h = self.rect(expr)
         self.click(x + w * fx, y + h * fy)
 

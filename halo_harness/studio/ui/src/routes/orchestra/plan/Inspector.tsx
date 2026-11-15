@@ -1,14 +1,14 @@
 // The plan card's inspector (3.0.9.0 R2): the selected lane's title, its
 // claims as chips (add one from the goal's units), what it runs after, what
 // it takes (needs: from a lane, all / summary / one of its gives) and what it
-// hands on (gives), its bio (the Roles bios) and its model (the Roles model
-// picker with "Test this model"), Drop lane, and the problems on this card. 3.3.16.0 R1: under CLAIMS, the claim
+// hands on (gives), its agent (3.6.0.0 R5: your agents and the starters, Agents -> 1 · Agents; the bios before) and its
+// model (the model picker with "Test this model"), Drop lane, and the problems on this card. 3.3.16.0 R1: under CLAIMS, the claim
 // ledger's rows for those units (holder, state; none until a worker joins: routes/agents/run/Owns.tsx).
 // Every change is one edit: the draft is PUT and the problems come back.
 import { useEffect, useState } from "react";
 import { Button, Field } from "../../../lib/ui";
-import { ModelPicker } from "../../roles/ModelPicker";
-import { useRoles } from "../../roles/store";
+import { ModelPicker } from "../../shared/picker/ModelPicker";
+import { loadCrew, useCrew } from "../../crew/store";
 import type { Give, Need } from "../types";
 import { dropLane, patchJob } from "./actions";
 import { NO_JOBS, problemsOf, usePlan } from "./store";
@@ -102,7 +102,11 @@ export function PlanInspector() {
   const sel = usePlan((s) => s.sel);
   const units = usePlan((s) => s.units);
   const problems = usePlan((s) => s.problems);
-  const bios = useRoles((s) => s.bios);
+  const yours = useCrew((s) => s.agents);
+  const starters = useCrew((s) => s.starters);
+  const loaded = useCrew((s) => s.loaded);
+  useEffect(() => { if (!loaded) void loadCrew(); }, [loaded]);
+  const bios = [...yours, ...starters];
   const [picking, setPicking] = useState(false);
   const job = jobs.find((j) => j.id === sel);
   if (!job) return <p className="muted pc-none">Click a lane card to edit it, or Add lane.</p>;
@@ -137,7 +141,7 @@ export function PlanInspector() {
       </Field>
       <Field label="TAKES (NEEDS)">{() => <Needs job={job} jobs={jobs} />}</Field>
       <Field label="HANDS ON (GIVES)">{() => <Gives job={job} />}</Field>
-      <Field label="BIO">
+      <Field label="AGENT">
         {(id) => (
           <select id={id} className="input mono" value={job.bio || ""} onChange={(e) => patchJob(job.id, { bio: e.target.value })} data-testid="plan-bio">
             <option value="">the goal's worker role</option>

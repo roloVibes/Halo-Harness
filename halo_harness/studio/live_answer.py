@@ -39,7 +39,7 @@ NEEDS_TEXT = {("question", "r"), ("plan", "r"), ("approval", "r"),
               ("goal_gate", "r"), ("goal_budget", "r")}
 SET_ASIDE = ("orchestra_gate", "conflict", "ollama_steward",  # 3.3.4.0 R4: the steward's note
              "background_done",  # 3.4.1.3: background work finished while a session was idle
-             "crew_try")  # 3.6.0.0 R1: a Try it run ended unseen (setting it aside marks it seen)
+             "crew_try", "crew_old")  # 3.6.0.0 R1: a Try it run ended unseen (setting it aside marks it seen); R5: old files
 SUPERVISE = ("goal_plan", "goal_gate", "goal_budget", "goal_ask", "goal_replan")  # R2: goal_replan
 
 
@@ -66,14 +66,14 @@ def open_target(row: dict) -> dict:
         from halo_harness.live.pack_attention import open_target as pack_target
         return pack_target(row)
     if kind == "orchestra_gate":
-        return {"section": "agents", "view": "live", "run": t.get("run")}  # 3.4.0.0 D: the run on Live, else its report in History
+        return {"section": "agents", "view": "map", "run": t.get("run")}  # 3.6.0.0 R5: its pages in the Map's drawer, else its report
     if kind in SUPERVISE:  # 3.1.8.0 R1
         from halo_harness.live.supervise_attention import open_target as supervise_target
         return supervise_target(row)
     if kind == "ollama_steward":  # 3.3.4.0 R4
         from halo_harness.live.steward_attention import open_target as steward_target
         return steward_target(row)
-    if kind == "crew_try":  # 3.6.0.0 R1
+    if kind in ("crew_try", "crew_old"):  # 3.6.0.0 R1; R5: the old files' line opens the Map
         from halo_harness.live.crew_attention import open_target as crew_target
         return crew_target(row)
     if kind == "cap":
@@ -113,7 +113,7 @@ def act(req, watcher, row: dict, key: str, text: str):
         return supervise_answer(req, row, key, text)
     if kind in SET_ASIDE:
         watcher.acks.add(row["id"])
-        if kind == "crew_try":  # 3.6.0.0 R1: for good, not only until the watcher forgets
+        if kind in ("crew_try", "crew_old"):  # 3.6.0.0 R1: for good, not only until the watcher forgets
             from halo_harness.live.crew_attention import set_aside
             set_aside(watcher.home, row)
         from halo_harness.live import journal

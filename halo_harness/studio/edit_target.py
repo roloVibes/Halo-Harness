@@ -1,56 +1,58 @@
-"""halo_harness.studio.edit_target -- what `halo studio --edit` opens (Halo 3.1.1.0 R3).
+"""halo_harness.studio.edit_target -- what `halo studio --edit` opens (Halo 3.1.1.0 R3; 3.6.0.0 R5: the three tabs).
 
-Studio is the one editor of bios and lineups. An edit target names what to
-open there:
+Studio is the one editor of agents, workflows and maps. An edit target names what to open there:
 
-    bio:<name>      Agents on Cast, the Bios panel open on that bio's form
-    lineup:<name>   Agents on Cast, that lineup open with the Inspector on its Lineup tab's summary
-    lineup:<name>:<block>   the same, on that block's page (3.3.16.0 R1b: description, workers, schedule or a section)
-    team            Agents on Live (3.3.16.0 R1: Team's board went; 3.4.0.0 D: Runs too; the page says so once)
+    agent:<name>      Agents -> 1 · Agents, that agent's form
+    workflow:<name>   Agents -> 2 · Workflows, that workflow's form
+    map:<name>        Agents -> 3 · Map, that map
 
-It rides in the page URL as `?mode=agents&view=<cast|runs>&edit=<target>` (the token
-stays in the fragment; 3.3.16.0 R1: `?mode=roles|team&edit=` before, still landed by the page):
+The old forms still parse and open the tab that replaced them, with the old files' one line (OLD_LINE): `bio:<name>`
+(1 · Agents), `lineup:<name>[:<block>]` and `team` (3 · Map). It rides in the page URL as
+`?mode=agents&view=<crew|workflows|map>&edit=<target>` (the token stays in the fragment):
 
-    http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>
+    http://127.0.0.1:<port>/?mode=agents&view=crew&edit=agent:coder#t=<token>
 
-`resolve` also takes a bare name (the TUI's `/edit coder`): a bio of that
-name, else a lineup of that name.
+`resolve` also takes a bare name (the TUI's `/edit coder`): an agent of that name, else a workflow, else a map.
 
-3.3.0.0 R4: `setup`, `setup:first` and `setup:<block>` are Setup targets
-(studio/setup_door.py `SetupTarget`: `?mode=setup&first=1`, `&block=team`),
-the doors `halo init`, `halo setup` and `/setup` open. 3.3.3.0 R2: `settings` and
-`settings:<group>` are Settings targets (studio/settings_door.py: `?mode=settings&group=fleet`); 3.3.5.0 R1:
-`local` and `local:<page>` are Local targets (studio/local_door.py: `?mode=local&page=hosts`).
+3.3.0.0 R4: `setup`, `setup:first` and `setup:<block>` are Setup targets (studio/setup_door.py `SetupTarget`), the
+doors `halo init`, `halo setup` and `/setup` open. 3.3.3.0 R2: `settings` and `settings:<group>` are Settings targets
+(studio/settings_door.py); 3.3.5.0 R1: `local` and `local:<page>` are Local targets (studio/local_door.py).
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import quote
 
-KINDS = ("bio", "lineup", "team")
-USAGE = "bio:<name>, lineup:<name>[:<block>] or team"
-#: 3.3.16.0 R1b: the inspector's pages of a lineup (routes/roles/defaults.ts LINEUP_BLOCKS)
-LINEUP_BLOCKS = ("description", "workers", "schedule", "delegation", "routing", "budget", "escalation", "context",
-                 "permissions", "pipeline", "acceptance", "tiers")
+KINDS = ("agent", "workflow", "map")
+OLD = ("bio", "lineup", "team")
+USAGE = "agent:<name>, workflow:<name> or map:<name>"
+OLD_LINE = "lineups and bios are no longer read: agents, workflows and maps live in ~/.halo/crew/"
+VIEWS = {"agent": "crew", "bio": "crew", "workflow": "workflows", "map": "map", "lineup": "map", "team": "map"}
+_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 
 
 @dataclass(frozen=True)
 class EditTarget:
     kind: str
     name: str = ""
-    block: str = ""  # 3.3.16.0 R1b: a lineup's page
+    block: str = ""  # an old lineup target's page (read, not opened: lineups are gone)
 
     @property
     def mode(self) -> str:
-        """The Studio section the target opens in (3.3.16.0 R1: Agents; roles and team before)."""
+        """The Studio section the target opens in."""
         return "agents"
 
     @property
     def view(self) -> str:
-        """Agents' view: Live for the team (3.4.0.0 D: a goal run on Live shows who owns what), Cast for a bio or a lineup."""
-        return "live" if self.kind == "team" else "cast"
+        """Agents' tab: 1 · Agents for an agent (or an old bio), 2 · Workflows, 3 · Map (a map, an old lineup or team)."""
+        return VIEWS[self.kind]
+
+    @property
+    def old(self) -> bool:
+        return self.kind in OLD
 
     @property
     def text(self) -> str:
@@ -59,56 +61,45 @@ class EditTarget:
         return f"{self.kind}:{self.name}" + (f":{self.block}" if self.block else "")
 
     def query(self) -> str:
-        """`?mode=agents&view=cast&edit=bio:coder`: what goes in front of the URL's fragment."""
+        """`?mode=agents&view=crew&edit=agent:coder`: what goes in front of the URL's fragment."""
         return f"?mode={self.mode}&view={self.view}&edit={quote(self.text, safe=':')}"
 
 
-def _valid_name(kind: str, name: str) -> bool:
-    if kind == "bio":
-        from halo_harness.agents_yaml import is_valid_agent_name
-        return is_valid_agent_name(name)
-    from halo_harness.teams_yaml import is_valid_team_name
-    return is_valid_team_name(name)
-
-
 def parse(text: str) -> "tuple[Optional[EditTarget], str]":
-    """`(target, '')`, or `(None, why)` when `text` is not `bio:<name>`, `lineup:<name>` or `team`."""
+    """`(target, '')`, or `(None, why)` when `text` is not one of the targets above."""
     text = (text or "").strip()
     if text == "team":
         return EditTarget("team"), ""
-    if text.partition(":")[0].strip().lower() == "setup":  # 3.3.0.0 R4: Setup, its first run or one block (setup_door.py)
+    head = text.partition(":")[0].strip().lower()
+    if head == "setup":  # 3.3.0.0 R4: Setup, its first run or one block (setup_door.py)
         from halo_harness.studio.setup_door import parse as parse_setup
         return parse_setup(text)
-    if text.partition(":")[0].strip().lower() == "settings":  # 3.3.3.0 R2: Settings, or one group's page (settings_door.py)
+    if head == "settings":  # 3.3.3.0 R2: Settings, or one group's page (settings_door.py)
         from halo_harness.studio.settings_door import parse as parse_settings
         return parse_settings(text)
-    if text.partition(":")[0].strip().lower() == "local":  # 3.3.5.0 R1: Local, or one of its pages (local_door.py)
+    if head == "local":  # 3.3.5.0 R1: Local, or one of its pages (local_door.py)
         from halo_harness.studio.local_door import parse as parse_local
         return parse_local(text)
     kind, sep, name = text.partition(":")
     kind, name = kind.strip().lower(), name.strip()
-    if not sep or kind not in ("bio", "lineup"):
+    if not sep or kind not in KINDS + ("bio", "lineup"):
         return None, f"{text!r} is not an edit target: use {USAGE}"
     name, _, block = name.partition(":") if kind == "lineup" else (name, "", "")
     name, block = name.strip(), block.strip().lower()
-    if not _valid_name(kind, name):
+    if not _NAME.match(name):
         return None, f"{name!r} is not a valid {kind} name (letters, digits, - and _)"
-    if block and block not in LINEUP_BLOCKS:
-        return None, f"{block!r} is not a block of a lineup: use one of {', '.join(LINEUP_BLOCKS)}"
     return EditTarget(kind, name, block), ""
 
 
 def resolve(text: str, *, cwd=None, state_dir=None) -> "tuple[Optional[EditTarget], str]":
-    """`parse`, plus a bare name: the bio of that name, else the lineup of that name."""
+    """`parse`, plus a bare name: the agent of that name, else the workflow, else the map."""
     text = (text or "").strip()
     if not text:
         return None, f"name what to edit: {USAGE}"
     if ":" in text or text in ("team", "setup", "settings", "local"):
         return parse(text)
-    from halo_harness.agents_yaml import find_agent_bio_path
-    from halo_harness.teams_yaml import find_team_template_path
-    if find_agent_bio_path(text, cwd=cwd, state_dir=state_dir):
-        return parse(f"bio:{text}")
-    if find_team_template_path(text, cwd=cwd, state_dir=state_dir):
-        return parse(f"lineup:{text}")
-    return None, f"no bio or lineup named {text!r}: use {USAGE}"
+    from halo_harness.crew import store
+    for kind in KINDS:
+        if store.find(kind, text, cwd=cwd, state_dir=state_dir):
+            return parse(f"{kind}:{text}")
+    return None, f"no agent, workflow or map named {text!r}: use {USAGE}"

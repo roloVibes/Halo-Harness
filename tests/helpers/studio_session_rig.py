@@ -60,6 +60,8 @@ class StudioSessionRig:
         self.state = Path(default_state_dir())
         self.state.mkdir(parents=True, exist_ok=True)
         ensure_builtin_team_templates(state_dir=self.state)
+        from halo_harness.crew.old_files import mark  # 3.6.0.0 R5: the old files' line is said; no Attention row for it here
+        mark(self.state, "studio")
         for k, v in (("team", "halo-dev-cycle"), ("roles.enabled", True), ("agents.max_depth", 2), ("remote.enabled", False),
                      ("harness.name", "you@studio")):
             set_config_value(k, v)

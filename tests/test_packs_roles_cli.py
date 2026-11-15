@@ -89,23 +89,6 @@ def test_doctor_rows_for_an_unresolved_capability_set_and_an_ungranted_need(ctx:
 
 
 @test
-def test_agents_and_teams_list_print_one_group_per_pack(ctx: Ctx):
-    from halo_harness.agents_cli import cmd_agents
-    from halo_harness.teams_cli import cmd_teams
-    with PacksHome() as h:
-        _code, plain = _run(cmd_agents, ["list"], cwd=h.repo)
-        _code, teams_plain = _run(cmd_teams, ["list"], cwd=h.repo)
-        ctx.check("no pack: one name per line, no group", "pack " not in plain and "pack " not in teams_plain and "coder\n" in plain)
-        h.install(h.source(), enable=True)
-        code, out = _run(cmd_agents, ["list"], cwd=h.repo)
-        ctx.check(f"halo agents list: yours as before, then the pack's group, got {out[-120:]!r}",
-                  code == 0 and out.startswith(plain) and out[len(plain):] == "pack doc-review:\n  doc-review--reviewer\n  doc-review--writer\n")
-        code, out = _run(cmd_teams, ["list"], cwd=h.repo)
-        ctx.check(f"halo teams list: the same, got {out[-80:]!r}",
-                  code == 0 and out.startswith(teams_plain) and out.endswith("pack doc-review:\n  doc-review--review\n"))
-
-
-@test
 def test_orchestra_new_starts_with_the_lineups_acceptance(ctx: Ctx):
     from halo_harness.orchestra_cli import cmd_orchestra
     with PacksHome() as h:

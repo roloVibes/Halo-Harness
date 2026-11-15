@@ -154,7 +154,7 @@ def test_try_it_on_a_workflow(ctx: Ctx):
                       len(rows) == 1 and rows[0]["what"].startswith("Try it finished: workflow ship"))
             _st, got = rig.api("POST", "live/attention/answer", {"id": rows[0]["id"], "key": "o"})
             ctx.check(f"open lands on the Workflows tab, got {got.get('open')}",
-                      got.get("open") == {"section": "agents", "view": "flows", "agent": "ship", "try": rec["id"]})
+                      got.get("open") == {"section": "agents", "view": "workflows", "agent": "ship", "try": rec["id"]})
             bad = _wf(checker="nobody-here")
             st, r = rig.api("POST", "crew/try", {"kind": "workflow", "body": bad, "request": "x"})
             ctx.check(f"an agent that does not exist: 422 before any run, got {st} {r.get('error')!r}", st == 422 and "nobody-here" in r["error"])

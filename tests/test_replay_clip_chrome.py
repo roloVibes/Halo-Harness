@@ -64,7 +64,7 @@ def test_servers_5_export_a_clip_films_through_a_throwaway_read_only_studio(ctx:
             base, token, stop = replay_clip._studio(s.state, s.repo)
             ctx.check("its token is its own", token != s.token and not base.endswith(f":{s.srv.server_address[1]}"))
             auth = {"Authorization": "Bearer " + token}
-            ok = [p for p in ("state", "pack/registry", "replays", "lineups") if fetch(f"{base}/api/{p}", headers=auth)[0] == 200]
+            ok = [p for p in ("models", "pack/registry", "replays", "crew/maps") if fetch(f"{base}/api/{p}", headers=auth)[0] == 200]  # R5: state, lineups went
             ctx.check(f"the replay page's GETs answer, got {ok}", len(ok) == 4)
             for path in ("settings/values", "live", "sessions", "setup/state", "local/hosts"):
                 ctx.check(f"GET {path}: refused", fetch(f"{base}/api/{path}", headers=auth)[0] == 403)

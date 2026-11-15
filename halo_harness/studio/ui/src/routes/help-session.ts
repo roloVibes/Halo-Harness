@@ -46,13 +46,12 @@ export const SESSION_HELP: Record<string, Help> = {
     ),
   },
   "session-map": {
-    about: "Your sessions on this machine, each one's agents as a tree: who spawned whom, the model, the cost, the tool running now.",
+    about: "The map this session runs on, lit: its boxes light up as the agents on them work (3.6.0.0: every session runs on a map).",
     help: lines(
-      "Each agent sits under the one that spawned it; a node shows its model, what it costs and, while a tool runs, its name and time (Bash 12s).",
-      "A cyan pulse works, amber waits on you, green just finished (it fades), red failed (it stays); the edge to it glows the same.",
-      "Click an agent to select it (its session becomes the chosen one); double-click opens Agent expanded; hover it and click steer to steer it from Live; the ... menu has Steer, Pause, Stop, Take over, Hand to, Record.",
-      "J / K hop between this harness's live agents; Agents (Alt+2) on Live shows every harness (its fleet scope).",
-      `${NAV_HELP} The Map opens fitted to the panel, never smaller than its text reads: a bigger tree opens on the main agent, and Fit (or 0) shows it all.`,
+      "Each box is an agent on the map; a lit box works now, and a helper it started shows under it.",
+      "A cyan pulse works, amber waits on you, green just finished, red failed.",
+      "Open it on the Map tab (Agents -> 3 · Map) for the whole map, what they think and say, and History under it.",
+      `${NAV_HELP} The map opens fitted to the panel, never smaller than its text reads; Fit (or 0) shows it all.`,
     ),
   },
   "session-agent": {

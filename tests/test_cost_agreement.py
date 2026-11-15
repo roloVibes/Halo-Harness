@@ -137,7 +137,7 @@ def test_lives_sentence_counts_a_members_session_once(ctx: Ctx):
     """Live re-check defect 33: on the hub's fleet scope a member's `halo -p` session box said $0.0075, its main agent
     $0.0075, and Live's sentence $0.015 (narrate.ts summed the session node AND its agent). The spend is the agents'."""
     from tests.helpers import node_ts
-    ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live"
+    ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live"
     src = (ui.parent.parent / "crew" / "live" / "narrate.ts").read_text(encoding="utf-8")  # 3.6.0.0 R4b: narrate.ts moved
     spend = (ui / "spend.ts").read_text(encoding="utf-8")
     ctx.check("the sentence's spend and its rows read liveSpend (3.4.1.1: through spendWords)",
@@ -188,7 +188,7 @@ def test_the_glance_and_the_per_project_figure_read_the_same_number(ctx: Ctx):
         now, _day = _with_worker(state, ctx)
         view = {"harnesses": [local_view.harness_entry([], state)]}
         costs = {**caps.spend(view, now), "caps": {}, "reached": []}
-        ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live"
+        ui = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live"
         js = (f"const m = await import({(ui / 'spend.ts').resolve().as_uri()!r}); const c = {json.dumps(costs)};"
               " const h = [{local: true, sessions: [{session_id: 'live1', cwd: '/x/shop'}]}];"
               " console.log(JSON.stringify([m.spendOf(h, c, 'live1').spent, m.spendOf(h, {...c, caps: {per_project_usd_per_day: 1}}, 'live1'),"

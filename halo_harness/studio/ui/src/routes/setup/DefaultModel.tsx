@@ -21,8 +21,8 @@
 import { useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { Button, Empty } from "../../lib/ui";
-import { loadModels } from "../roles/sync";
-import type { ModelRow as CatalogRow } from "../roles/types";
+import { loadModels } from "../crew/models/sync";
+import type { ModelRow as CatalogRow } from "../crew/models/types";
 import { CardChips, ModelCardPanel } from "../shared/ModelCard";
 import { ModelPicker } from "../shared/picker/ModelPicker";
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";

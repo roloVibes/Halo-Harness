@@ -6,7 +6,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part.
 
 ## Local: the machines and the models (3.3.5.0)
 
-**Local** is Studio's third section, on `Alt+3` (3.3.16.0 R2: a machine's models, as Agents -> Live is its agents;
+**Local** is Studio's third section, on `Alt+3` (3.3.16.0 R2: a machine's models, as Agents -> Map is its agents;
 the pack's own sections follow the six core ones on `Alt+7` to `Alt+0`). It holds everything Halo knows about local models in one tab, paged like Settings: a
 page rail on the left, one page on the right, a head on each page that says what it holds, which of Local's four ideas
 it carries, and its help behind **How this page works**. Nothing opens on its own; the page last open in this browser

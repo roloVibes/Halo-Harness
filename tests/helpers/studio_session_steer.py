@@ -139,25 +139,6 @@ def tag_steer(c, lv) -> dict:
     return out
 
 
-def node_steer(c, lv) -> dict:
-    """The implementer's map node: "steer" on hover; the click pins it in Live, the box focused."""
-    out: dict = {}
-    impl = lv.key("implementer")
-    node = f"document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key=\"{impl}\"]')"
-    chip = f"{node}.querySelector('[data-testid=\"roles-live-steer\"]')"
-    c.mouse("mouseMoved", 4, 4)
-    out["node_hidden"] = c.js(f"getComputedStyle({chip}).opacity")
-    out["node_shown"], out["node_under"] = hover(c, node, chip, 0.4, 0.7)
-    c.click_on(chip)
-    c.wait(f"{COL}.dataset.pinned === '{impl}' && {BOX}.dataset.key === '{impl}'", 5)
-    time.sleep(0.2)
-    out["node_steer"] = box(c)
-    out["impl_key"] = impl
-    out["pick_after_node"] = c.js(f"{AGENT_PICK}.value")
-    c.mouse("mouseMoved", 4, 4)
-    return out
-
-
 class SteerDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -165,12 +146,13 @@ class SteerDriver(Driver):
     def session(self, c):
         from tests.helpers.studio_session_rig import StudioSessionRig
         from tests.helpers.studio_live_rig import Live
-        from tests.helpers.studio_session_steer2 import done_box, fleet_chip, kinds, opened, pause, stop, strip
+        from tests.helpers.studio_session_steer2 import done_box, kinds, opened, pause, stop, strip
         with StudioSessionRig() as rig:
             lv = Live(rig)
             sent = record_forward(rig)
-            yield ((opened, (c, rig)), (steer_main, (c, rig, lv, sent)), (tag_steer, (c, lv)), (node_steer, (c, lv)), (strip, (c, lv)),
-                   (kinds, (c, lv)), (done_box, (c, lv)), (stop, (c, lv, sent)), (pause, (c, lv, sent)), (fleet_chip, (c, rig, lv)))
+            # 3.6.0.0 R5: node_steer and fleet_chip (the old tree's node chips) went with the tree
+            yield ((opened, (c, rig)), (steer_main, (c, rig, lv, sent)), (tag_steer, (c, lv)), (strip, (c, lv)),
+                   (kinds, (c, lv)), (done_box, (c, lv)), (stop, (c, lv, sent)), (pause, (c, lv, sent)))
 
 
 if __name__ == "__main__":

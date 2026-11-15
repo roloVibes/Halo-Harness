@@ -43,21 +43,6 @@ def _read(c) -> dict:
             "copy_on": c.js(f"!{Q}('[data-testid=\"report-card-copy\"]').disabled")}
 
 
-def ended(c, page, sid_b: str) -> dict:
-    open_page(c, page, "mode=agents")
-    row = f"{Q}('[data-testid=\"live-empty-card\"]')"
-    out = {"row": c.wait(f"{row}?.dataset.id", 30)}
-    out["quiet"] = c.js(f"!{Q}('[data-testid=\"live-history-drawer\"]') && !{CARD}")
-    out["row_text"] = c.js(f"{row}.textContent")
-    c.click_on(row)
-    c.wait(f"{CARD}?.dataset.state === 'ready' && {CARD}.dataset.ref === 'session:{sid_b}'", 30)
-    out["page"] = c.js(f"{Q}('[data-testid=\"history-page\"]')?.dataset.kind")
-    out["b"] = _read(c)
-    c.click_on(f"{Q}('[data-testid=\"report-card-back\"]')")
-    c.wait(f"!{CARD} && {QA}('[data-testid=\"live-history-row\"]').length >= 3", 15)
-    return out
-
-
 def doors(c, sid: str, run: str) -> dict:
     history(c)
     out = {"doors": c.js(f"[...{QA}('[data-testid=\"live-history-card\"]')].map((d) => d.dataset.kind + ':' + d.dataset.id)")}
@@ -169,7 +154,8 @@ class ReportCardDriver(Driver):
         def page(query: str) -> str:
             return base.replace("/#t=", f"/?{query}&tour=off&level=mid#t=")
         try:
-            yield ((ended, (c, page, SID_B)), (doors, (c, SID, RUN)), (mode, (c, page)))
+            open_page(c, page, "mode=agents&view=map")  # 3.6.0.0 R5: Live's ended-session row went; History is the Map's
+            yield ((doors, (c, SID, RUN)), (mode, (c, page)))
         finally:
             srv.shutdown()
             srv.server_close()

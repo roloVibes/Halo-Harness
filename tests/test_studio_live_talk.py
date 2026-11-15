@@ -28,12 +28,11 @@ test, TESTS = new_registry()
 
 
 @test
-def test_talk_rows_carry_both_tags_and_the_map_edge_lights(ctx: Ctx):
+def test_talk_rows_carry_both_tags(ctx: Ctx):
     r, got = _driver("talk")
     _ran(ctx, r, got)
     ctx.check("Conversations is not open on load", got.get("conv_on_load") is False)
     ctx.check(f"TALK, main, -> researcher, TASK, got {got.get('talk_row')}", got.get("talk_row") == ["TALK", "main", "researcher", "TASK"])
-    ctx.check(f"the edge lights from main to the researcher, with its arrow, got {got.get('edge')}", got.get("edge") == [True, True, True])
 
 
 @test

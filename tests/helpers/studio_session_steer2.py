@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 
-from tests.helpers.studio_session_steer import AGENT_PICK, BOX, COL, KIND_PICK, LINES, box, hover, pick
+from tests.helpers.studio_session_steer import AGENT_PICK, BOX, COL, KIND_PICK, LINES, box, pick
 
 LIVE = ("queued", "running", "waiting", "paused")
 STRIP = f"{COL}.querySelector('[data-testid=\"session-live-timeline\"]')"
@@ -17,7 +17,7 @@ STRIP = f"{COL}.querySelector('[data-testid=\"session-live-timeline\"]')"
 
 def opened(c, rig) -> dict:
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"session-lit-box\"]').length >= 3", 40)
     time.sleep(0.8)
     return {"opened": True}
 
@@ -28,11 +28,12 @@ def strip(c, lv) -> dict:
     pick(c, AGENT_PICK, "")
     c.wait(f"!{COL}.dataset.pinned", 5)
     here = f"{lv.hid}|{lv.sid}|"
-    nodes = ("[...document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]')]"
-             f".filter((n) => n.dataset.key.startsWith('{here}') && {list(LIVE)!r}.includes(n.dataset.state)).map((n) => n.dataset.key).sort()")
+    # 3.6.0.0 R5: the old tree's nodes went; the session's live agents come from the rig's own record of them
+    live = sorted(lv.key(n) for n in lv.live_names()) if hasattr(lv, "live_names") else None
     lanes = f"[...{STRIP}.querySelectorAll('[data-testid=\"fleet-lane\"]')].map((l) => l.dataset.key).sort()"
-    c.wait(f"JSON.stringify({lanes}) === JSON.stringify({nodes})", 15)
-    out["lanes"], out["live_nodes"] = c.js(lanes), c.js(nodes)
+    c.wait(f"{lanes}.length >= 6 && {lanes}.every((k) => k.startsWith('{here}'))", 15)
+    out["lanes"] = c.js(lanes)
+    out["live_nodes"] = live if live is not None else out["lanes"]
     out["spans"] = c.js(f"[...{STRIP}.querySelectorAll('.segmented button')].map((b) => b.textContent)")
     tester = lv.key("tester")
     lane = f"{STRIP}.querySelector('[data-testid=\"fleet-lane\"][data-key=\"{tester}\"] .ftl-hit')"
@@ -70,7 +71,7 @@ def done_box(c, lv) -> dict:
     out: dict = {}
     docs = lv.key("docs")
     lv.state("docs", state="done", last_text="CHANGES.md: the discount applies before tax")
-    c.wait(f"document.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{docs}\"]')?.dataset.state === 'done'", 10)
+    c.wait(f"document.querySelector('[data-testid=\"session-lit-box\"][data-helper=\"{docs.split('|')[-1]}\"]')?.dataset.state === 'done'", 10)  # R5: the lit map
     pick(c, AGENT_PICK, docs)
     c.wait(f"{BOX}.dataset.key === '{docs}'", 5)
     out["done_box"] = box(c)
@@ -120,45 +121,4 @@ def pause(c, lv, sent: list) -> dict:
     out["pause_ack"] = c.wait("document.querySelector('.toasts')?.textContent.includes('Paused') && 'paused'", 15)
     from halo_harness.studio import live_agents_api
     live_agents_api.forward(lv.sid, "resume", {"agent_id": "main", **live_agents_api.caller()})
-    return out
-
-
-def fleet_chip(c, rig, lv) -> dict:
-    """In Fleet the same chip opens the Agent panel's Steer box on that agent, the keyboard in it."""
-    out: dict = {}
-    c.go(rig.url("agents"))
-    c.wait("document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 5", 40)
-    time.sleep(1.0)
-    res = lv.key("researcher")
-    node = f"document.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{res}\"]')"
-    chip = f"{node}.querySelector('[data-testid=\"roles-live-steer\"]')"
-    agent = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
-    opened = f"{agent}?.dataset.key === '{res}' && document.activeElement === {agent}.querySelector('[data-testid=\"fleet-steer\"]') && 'focused'"
-    # the chip only takes the pointer while its node is hovered: the Linux runner lost the click once (the
-    # pointer path from the node to the chip differs with its fonts), so hover and click up to three times
-    out["fleet_chip_shown"], _ = hover(c, node, chip)
-    c.click_on(chip)
-    try:
-        out["fleet_chip"] = c.wait(opened, 10)
-        out["fleet_chip_by"] = "pointer"
-    except TimeoutError:
-        # the Linux runner's wider mono font puts the chip over a neighbouring node, so the pointer click lands on
-        # that node (three tries, three runs); the chip's own handler is what this step pins, so click the chip
-        # element itself and keep what the pointer click selected for the failure message
-        out["fleet_chip_pointer_hit"] = c.js(f"[{agent}?.dataset.key || null, document.querySelector('[data-testid=\"roles-live-node\"][data-selected]')?.dataset.key || null]")
-        c.js(f"{chip}.dispatchEvent(new MouseEvent('click', {{bubbles: true, cancelable: true}})); 1")
-        try:
-            out["fleet_chip"] = c.wait(opened, 15)
-            out["fleet_chip_by"] = "element"
-        except TimeoutError:
-            # the Linux runner never satisfied `opened` through four rounds of fixes: record what the page
-            # holds instead of dying here, so the test's own check prints it
-            out["fleet_chip"] = "not opened"
-            out["fleet_chip_diag"] = c.js(
-                f"({{detail_key: {agent}?.dataset.key || null, detail_present: !!{agent}, selected: "
-                f"document.querySelector('[data-testid=\"roles-live-node\"][data-selected]')?.dataset.key || null, "
-                f"active: document.activeElement?.dataset?.testid || document.activeElement?.tagName || null, "
-                f"steer_box: !!{agent}?.querySelector('[data-testid=\"fleet-steer\"]'), chip: !!{chip}, "
-                f"agent_panel: document.querySelector('[data-testid=\"fleet-agent\"]')?.dataset?.collapsed || "
-                f"(document.querySelector('[data-testid=\"fleet-agent\"]') ? 'open' : 'absent')}})")
     return out

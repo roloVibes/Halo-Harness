@@ -41,7 +41,6 @@ def test_pure_parsing_is_tolerant(ctx: Ctx):
     ctx.check("garbage verdict is None", parse_verdict('{"verdict": "maybe"}') is None)
 
 
-
 @test
 def test_dedupe_and_rank_are_pure_and_severity_first(ctx: Ctx):
     from halo_harness.review.findings import Finding
@@ -63,27 +62,6 @@ def test_dedupe_and_rank_are_pure_and_severity_first(ctx: Ctx):
     ctx.check(f"severity first, then verdict, got {order}", order == [
         ("a.py", "high", "CONFIRMED"), ("c.py", "high", "PLAUSIBLE"),
         ("a.py", "medium", "CONFIRMED"), ("b.py", "low", "CONFIRMED")])
-
-
-
-@test
-def test_code_review_team_template_maps_the_three_roles(ctx: Ctx):
-    import tempfile
-    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="rv-team-home-")
-    from halo_harness.teams_yaml import list_team_templates, resolve_team_template, validate_team_template
-    from halo_harness.tui.dialogs.teams_list import team_rows
-    template = resolve_team_template("code-review")
-    ctx.check("the template ships", template is not None and "code-review" in list_team_templates())
-    ctx.check(f"it validates, got {validate_team_template(template, name='code-review')}",
-              validate_team_template(template, name="code-review") == [])
-    roles = {a.get("role") for a in template.get("agents") or []}
-    ctx.check(f"it maps reviewer, judge and coder, got {sorted(r for r in roles if r)}",
-              {"reviewer", "judge", "coder"} <= roles)
-    rows = team_rows()
-    row = next((r for r in rows if r["name"] == "code-review"), None)
-    ctx.check(f"the wizard's Team step row exists, got {row}", row is not None and "review" in row["description"].lower())
-
-
 
 
 if __name__ == "__main__":

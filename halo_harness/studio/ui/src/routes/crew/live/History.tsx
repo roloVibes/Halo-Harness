@@ -11,15 +11,14 @@
 import { useEffect } from "react";
 import { Button } from "../../../lib/ui";
 import { cost, short } from "../../orchestra/format";
-import { history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "../../agents/live/historyStore";
+import { history, loadHistory, openCard, openCompare, openReport, toggleHistory, useHistory, type HistoryRow } from "./historyStore";
 import { CardPage } from "./ReportCard";
-import { tickKey, tickedRefs, toggleTick, useCompare } from "../../agents/live/compareStore";
+import { tickKey, tickedRefs, toggleTick, useCompare } from "./compareStore";
 import { ComparePage } from "./Compare";
 import { RunReport } from "../run/RunReport";
-import { openFileReplay, openLiveReplay, useLiveReplay } from "./replay";
+import { openFileReplay, openLiveReplay, replaySession, useLiveReplay } from "./replay";
 import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
-import { took } from "../../agents/live/GroupBox";
 
 const KIND: Record<string, string> = { session: "session", run: "goal run", file: "file" };
 
@@ -70,6 +69,7 @@ function Row({ r }: { r: HistoryRow }) {
   const facts = [KIND[r.kind], ago(r.when), r.secs ? took(r.secs) : "", r.cost != null ? cost(r.cost) : "", r.how, models,
                  r.inside ? `${r.inside} session${r.inside === 1 ? "" : "s"} inside` : ""].filter(Boolean).join(" · ");
   const go = () => (r.kind === "run" ? void openReport(r.id) : r.kind === "file" ? void openFileReplay(r.id).then((ok) => ok && toggleHistory(false))
+    : r.kind === "session" ? void replaySession(r.id, r.what).then((ok) => ok && toggleHistory(false))
     : void openLiveReplay(r.kind, r.id, r.what).then((ok) => ok && toggleHistory(false)));
   const key = tickKey(r);
   const on = useCompare((s) => s.ticked.includes(key));
@@ -154,3 +154,9 @@ export function HistoryDrawer() {
 }
 
 export const closeHistory = () => history.get().open && toggleHistory(false);
+
+/** "45s", "3m 20s", "1h 5m": how long a run took (3.6.0.0 R5: from the old Live's group box, which went). */
+export function took(s: number): string {
+  const v = Math.max(0, Math.round(s));
+  return v < 60 ? `${v}s` : v < 3600 ? `${Math.floor(v / 60)}m ${v % 60}s` : `${Math.floor(v / 3600)}h ${Math.floor((v % 3600) / 60)}m`;
+}

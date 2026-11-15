@@ -6,7 +6,7 @@
 // model's card shows under it, with the coder-lane offer when it cannot orchestrate here (shared/ModelCard.tsx).
 import { ModelCardPanel } from "../../shared/ModelCard";
 import { ModelSelect } from "../../shared/ModelSelect";
-import type { ModelRow } from "../../roles/types";
+import type { ModelRow } from "../../crew/models/types";
 import { loadValues } from "../store";
 
 const ollamaOnly = (m: ModelRow) => m.provider === "ollama" || m.ref.startsWith("ol:");

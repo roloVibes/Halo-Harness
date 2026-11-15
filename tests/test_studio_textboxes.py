@@ -34,8 +34,7 @@ REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
 TOUCHED = ["lib/ui/TextBox.tsx", "lib/ui/Field.tsx", "lib/ui/index.ts", "styles/textbox.css", "styles/prompt.css", "main.tsx",
-           "routes/session/PromptComposer.tsx", "routes/session/Prompt.tsx", "routes/orchestra/GoalForm.tsx", "routes/roles/controls.tsx",
-           "routes/roles/TabHelp.tsx", "routes/roles/LineupTab.tsx", "routes/roles/Assignment.tsx", "routes/fleet/Steer.tsx",
+           "routes/session/PromptComposer.tsx", "routes/session/Prompt.tsx", "routes/orchestra/GoalForm.tsx", "routes/fleet/Steer.tsx",  # 3.6.0.0 R5: Roles' tabs went
            "styles/workspace.css", "lib/workspace/types.ts"]
 
 
@@ -133,20 +132,6 @@ def test_the_orchestra_goal_boxes(ctx: Ctx):
 
 
 @test
-def test_the_lineup_tab_boxes_and_its_help(ctx: Ctx):
-    got = _got(ctx)
-    rows = got.get("roles") or []
-    ctx.check(f"Description and How the pieces work together, got {[b.get('testid') for b in rows]}",
-              [b.get("testid") for b in rows] == ["roles-description", "roles-about"])
-    _sizes(ctx, "the Lineup tab", rows)
-    _placeholders(ctx, "the Lineup tab", rows)
-    h = got.get("roles_help") or {}
-    # 3.3.16.0 R1b: the tab opens on its summary (no box); the Description page's ? lists its three fields only
-    ctx.check(f"the fields' hints are in the page's ?, none under a field, the summary has no box, got {h}", h.get("help")
-              and h.get("help_lines", 0) >= 3 and h.get("hints_under_fields") == 0 and h.get("summary_boxes") == 0)
-
-
-@test
 def test_the_strips_breathe(ctx: Ctx):
     """Owner feedback 2026-11-09 (a photo of Fleet: the strips "squished and too small"); 3.6.0.0 R0a: no strips, the
     view bar's buttons instead -- the bar 44 px, each button >= 32 px with its name centred and 12 px at its sides, 8 px
@@ -155,7 +140,7 @@ def test_the_strips_breathe(ctx: Ctx):
     for where in ("fleet_strips", "session_strips"):
         m = got.get(where) or {}
         ctx.check(f"{where}: the bar 44 px, its buttons drawn, each >= 32 px, got {m.get('bar')} {m.get('heights')}",
-                  m.get("bar") == 44 and m.get("n", 0) >= 5 and min(m.get("heights") or [0]) >= 32)
+                  m.get("bar") == 44 and m.get("n", 0) >= 4 and min(m.get("heights") or [0]) >= 32)  # the Map's bar: four (3.6.0.0 R5)
         ctx.check(f"{where}: >= 8 px between them, got {m.get('hgap')}", m.get("hgap", 0) >= 8)
         ctx.check(f"{where}: >= 8 px to the bar's ends, 12 px side padding, the name centred, got {m.get('edge')} "
                   f"{m.get('pad')} {m.get('off')}", m.get("edge", 0) >= 8 and m.get("pad", 0) >= 12 and m.get("off", 99) <= 2)

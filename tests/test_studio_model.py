@@ -144,14 +144,7 @@ def test_every_card_hangs_off_main(ctx: Ctx):
     ctx.check(f"worker hangs off main, got {kinds}", kinds.get((ids["boss"], ids["worker"])) == "delegation")
     ctx.check("tester hangs off main too, no reports edge", kinds.get((ids["boss"], ids["tester"])) == "delegation"
               and "reports" not in kinds.values())
-    from pathlib import Path as _P
-    roles = _P(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "roles"
-    canvas, assign, parts, card = ((roles / f).read_text(encoding="utf-8") for f in ("Canvas.tsx", "Assignment.tsx", "CanvasParts.tsx", "CardSummary.tsx"))
-    assign += card  # 3.3.16.0 R1b: the Assignment header is the card's summary (CardSummary.tsx)
-    ctx.check("the React canvas has no drop-to-report and no Reports-to field",
-              "setReportsTo" not in canvas and 'label="Reports to"' not in assign and '"reports"' not in parts)
-    ctx.check("a shipped bio's badge (3.2.2.0 R5: in the Inspector's Assignment header, not on the card) says what it is and what to do",
-              "Duplicate it in the Bios panel" in assign and "rc-scope" in assign and "rc-scope" not in parts)
+    # 3.6.0.0 R5: the Cast canvas and its Inspector went (routes/roles/); the graph above is what is left of it
 
 
 @test
@@ -225,9 +218,6 @@ def test_layout_shapes_old_and_new(ctx: Ctx):
     ctx.check(f"the API view has nodes, tiers and the flat positions, got {view}",
               view == {"main#0": {"x": 9, "y": 9}, "nodes": {"main#0": {"x": 9, "y": 9}}, "tiers": {"top": {"collapsed": True}}})
     ctx.check("an empty layout's API view is {}", M.legacy_layout_view(M.read_layout(state, "none")) == {})
-    ui = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes"
-    ctx.check("3.0.7.0 R2: the React readers take `nodes` and the flat map alike",
-              all('"nodes" in' in (ui / d / "sync.ts").read_text(encoding="utf-8") or "r.nodes" in (ui / d / "sync.ts").read_text(encoding="utf-8") for d in ("roles",)))
 
 
 if __name__ == "__main__":

@@ -32,8 +32,7 @@ def keys(c, lv) -> dict:
     c.type_text("KEEP")
     c.wait(f"{AREA}.value === 'KEEP' && 1", 5)  # the text has landed before Tab (Windows run 43145508827: '')
     before = c.js(TARGET_KEY)
-    live = c.js(f"[...{AGENT_PICK}.options].map((o) => o.value).filter((v) => v && {list(LIVE)!r}.includes("
-                "document.querySelector(`[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key=\"${v}\"]`)?.dataset.state))") or []
+    live = c.js(f"[...{AGENT_PICK}.options].filter((o) => o.value && !o.disabled).map((o) => o.value)") or []  # R5: the picker's own
     out["tab_live"], out["tab_before"] = live, before
     out["tab_expected"] = live[(live.index(before) + 1) % len(live)] if before in live else (live[0] if live else "")
     press(c, "Tab", "Tab", 9)

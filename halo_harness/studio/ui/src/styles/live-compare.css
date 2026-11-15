@@ -12,7 +12,7 @@
 .lh-mission { flex: 1 1 100%; font-size: 12px; }
 .lh-drawer[data-wide] { width: min(1100px, calc(100% - 16px)); }
 
-.cmp { display: grid; gap: var(--s-3); align-content: start; font-size: var(--fs-sm); min-width: 0; }
+.cmp { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s-3); align-content: start; font-size: var(--fs-sm); min-width: 0; }
 .cmp .rr-head .mono { font-size: 12px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmp-split { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .cmp-split .input { width: 72px; }

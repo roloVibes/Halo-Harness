@@ -13,8 +13,7 @@ folded Team, Roles and Orchestra into Agents (R1, [STUDIO-agents.md](STUDIO-agen
 `ui/src/routes/index.tsx`: the rail's rows, the `Alt+N` keys, the palette's groups, the first key of each section's
 **How this works** and the status bar's key hint all read it. Session is this session, live (the live pieces scoped
 to this harness, [Session](STUDIO-sections.md#session)); with nothing saved for the browser Studio opens on it while a
-session of this harness is live. Agents is the cast, what runs now (a goal run too) and what ran (Cast: [the
-canvas](STUDIO-agents.md#cast-the-lineup-and-its-bios), a goal run: [on Live and in
+session of this harness is live. Agents is three tabs: make an agent, steps of agents (workflows) and the Map that connects them, where what runs now (a goal run too) lights up and what ran is replayed ([Agents](STUDIO-agents.md), a goal run: [on the Map and in
 History](STUDIO-orchestra.md)); Packs is `Alt+4` ([STUDIO-packs.md](STUDIO-packs.md)). A
 pack's own sections come after the core ones (the first on `Alt+7`); one may be drawn whole by the pack's own module
 (3.3.13.0 R2: a view, as the design pack's Design section is: [EXTENSION_API.md](EXTENSION_API.md#a-sections-view)).
@@ -24,7 +23,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   one status bar, no page framed inside another (3.0.7.0 R2 removed the last
   framed page, Roles).
 - **The stage (3.6.0.0 R0a, "room for everything in Studio").** Every view has ONE main thing with most of the room
-  (Session's **Live**, Agents' **Canvas** on Cast and the tree on Live, Packs' **Installed**; a paged section's page),
+  (Session's **Live**, Agents' **Map**, Packs' **Installed**; a paged section's page),
   and every other panel is a named button in the **view bar**, one 44 px row over the stage, with a live word beside
   its name where it has one. A press opens the panel as a **drawer** (full height beside the main thing, pushing it,
   as wide as its content says: 360-560 px; Map, Lineups and Bios open on the left, the rest on the right) or, for a
@@ -54,7 +53,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   the least (one type scale: 12 data and captions, 13 body, 15 titles, 18 a page title), a control 28 px tall at the
   least, and no panel scrolls sideways: `tests/test_studio_room.py` measures every rule at 1280, 1500 and 1920.
   3.6.0.0: no two controls overlap, neighbours sit 8 px apart, a name is never cut in a box 24 characters wide or more.
-  **A drawing fits its box when the box changes** (one rule, `lib/canvasNav.ts`: Live, the Map, Cast, artboards): a drawer
+  **A drawing fits its box when the box changes** (one rule, `lib/canvasNav.ts`: the Map, artboards): a drawer
   opened, closed or dragged, or a breakpoint crossed, fits it again unless you zoomed or panned it by hand since (then your
   view stays; **Fit**, `0` or a double-click makes it automatic again); while a drawer's line is dragged nothing re-fits,
   and a drawing nobody zoomed fits once when the drag ends. The Map never fits below 12 px text: it opens on
@@ -98,7 +97,7 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   header or the palette's **Focus** hide the rail, the inspector and the
   status bar; the stage takes the whole window. `F` again brings them back as
   they were. Where a section's own `f` follows an agent or the Log (Session,
-  an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on Live's canvas it switches the scope). Remembered per browser (`halo.studio.focus`).
+  an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on the Map it switches the scope). Remembered per browser (`halo.studio.focus`).
 - **Density** (3.3.2.0): the header's rows button (or the palette's **Density: compact** / **comfortable**) switches
   two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 10 px
   between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48), its text 12 px (never smaller);
@@ -136,7 +135,7 @@ a title is mono caps. A state is told four ways at once: a square, a colour, a r
   its deletes, stopping a team run, a hand-off, deleting a local model.
 - **The text box** (`lib/ui/TextBox.tsx`, `Field`'s `multiline`): every multi-line box is three lines at the least, grows with
   its text to 12 then scrolls, has no resize handle, takes its panel's free height with `fill`; a placeholder is two lines at most.
-- **Map nodes** (the Session Map, Agents' Live on either scope): a 2 px rule across the top in the state colour,
+- **Map nodes** (the Session Map and Agents' Map): a 2 px rule across the top in the state colour,
   a 1 px outline 3 px out when the node is selected or a Live line for it is hovered, the model without its provider
   prefix (the full id in the tooltip and the Inspector).
 
@@ -295,9 +294,9 @@ http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>
 http://127.0.0.1:<port>/?mode=agents&view=live&edit=team#t=<token>
 ```
 
-A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opens Agents on Cast with the Bios panel on
+A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opened Agents on Cast with the Bios panel on
 that bio's form, `lineup:` that lineup with the Inspector on its Lineup tab's summary (`lineup:<name>:<block>`, 3.3.16.0
-R1b: that block's page), `team` Agents on Live (3.4.0.0 D; the page says so once). Start here stays shut on such a page.
+R1b: that block's page), `team` Agents on Live (3.4.0.0 D); since 3.6.0.0 R5 Cast and Live are gone and all three land on the Map. Start here stays shut on such a page.
 
 `halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
 the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's

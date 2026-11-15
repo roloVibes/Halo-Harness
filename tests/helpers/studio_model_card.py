@@ -38,8 +38,12 @@ from tests.helpers.studio_setup_pages import goto  # noqa: E402
 
 LOCAL = ("qwen3-coder:30b", "qwen3.8:27b", "qwen3.5:9b")
 SID = "m1cardsession000000000000000001"
-FORM = "document.querySelector('[data-testid=\"bio-form\"][data-bio=\"implementer\"]')"
-STRIP = "document.querySelector('[data-testid=\"roles-model-strip\"]')"
+FORM = "document.querySelector('[data-part=crew] [data-testid=\"crew-form\"]')"  # 3.6.0.0 R5: an agent's form (the bio form's before)
+PICKER = "document.querySelector('[data-testid=\"model-select-dialog\"] [data-testid=\"model-picker\"]')"
+
+
+def crew_url(url: str) -> str:
+    return url.replace("mode=roles&tour=off&view=workspace", "mode=agents&tour=off&view=crew&agent=coder")
 
 
 def rows(state) -> list:
@@ -60,20 +64,13 @@ def _levels(sel: str) -> str:
 
 
 def roles_picker(c, url, ctx) -> dict:
-    card = "[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === 'implementer')"
-    c.go(url)
-    c.wait(f"!!{card}", 40)
-    c.js(f"{card}.scrollIntoView({{block: 'center'}}); 1")
-    time.sleep(0.3)
-    c.click_on(card, 0.5, 0.2)
-    c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
-    c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
-    c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
+    c.go(crew_url(url))
+    c.wait(f"{FORM}?.dataset.name === 'coder'", 40)
+    more = f"{FORM}.querySelector('[data-testid=\"crew-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)
-    picker = f"{FORM}.querySelector('[data-testid=\"model-picker\"]')"
+    picker = PICKER
     c.wait(f"{picker}?.querySelectorAll('[data-testid=\"model-row\"]').length === {len(LOCAL)}", 20)
     out = {"picker_levels": c.js(f"[...{picker}.querySelectorAll('[data-testid=\"model-row\"] [data-testid=\"fit-meter\"]')]"
                                  ".map((m) => m.dataset.level)"), "picker_chips": [], "picker_eyes": []}

@@ -60,7 +60,7 @@ def test_a_runs_and_a_missions_sessions_name_their_owner(ctx: Ctx):
     ctx.check(f"each run or mission session names its owner, the owner's own session none, got {own}", status == 200
               and own["lead-1"] == own["lead-2"] == own["worker-1"] == {"kind": "run", "id": "20261112-000750-5483"}
               and own["m-lead"] == own["m-part"] == {"kind": "mission", "id": "m-20261112-dd68"} and own["mine"] is None)
-    store = (UI / "routes" / "agents" / "live" / "historyStore.ts").read_text(encoding="utf-8")
+    store = (UI / "routes" / "crew" / "live" / "historyStore.ts").read_text(encoding="utf-8")  # 3.6.0.0 R5: moved
     ctx.check("the page leaves them out of its list and counts them on the owner's row",
               "s.part_of) continue;" in store and "r.inside = inside.get(" in store)
     row = (UI / "routes" / "crew" / "live" / "History.tsx").read_text(encoding="utf-8")  # 3.6.0.0 R4b: moved

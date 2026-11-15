@@ -111,12 +111,7 @@ def test_item111_layout_and_delete_names_are_validated(ctx: Ctx):
         ctx.check("nothing was written outside or inside the layouts folder", not list(s.state.parent.glob("pwn*")) and not list(s.state.rglob("*pwn*")))
         ctx.check("a lineup name and the pc:<id> form are fine", api.put_layout(req("PUT", "my-lineup", {"positions": {}}))[0] == 200
                   and api.put_layout(req("PUT", "pc:3f2a-11", {"positions": {"a": {"x": 1, "y": 2}}}))[0] == 200)
-        ctx.check("delete_lineup refuses a traversal name", api.delete_lineup(req("DELETE", evil))[0] == 422)
-        ctx.check("delete_bio refuses a traversal name", api.delete_bio(req("DELETE", evil))[0] == 422)
-        victim = s.state.parent / "other.yaml"
-        victim.write_text("x: 1\n", encoding="utf-8")
-        api.delete_lineup(req("DELETE", f"..{bs}other"))
-        ctx.check("the file the name pointed at is still there", victim.exists())
+        # 3.6.0.0 R5: the lineup and bio delete routes went with Cast (crew names: tests/test_crew_formats.py)
 
 
 if __name__ == "__main__":

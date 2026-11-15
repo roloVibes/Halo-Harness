@@ -1,21 +1,12 @@
-"""tests.test_studio_edit_route -- `halo studio --edit` in a real browser (Halo
-3.1.1.0 R3: Studio is the one editor of bios and lineups; headless Chrome
-through the driver base, tests/helpers/studio_edit.py; skipped without one).
+"""tests.test_studio_edit_route -- `halo studio --edit` in a real browser (Halo 3.1.1.0 R3; 3.6.0.0 R5: Studio is the
+one editor of agents, workflows and maps; headless Chrome through the driver base, tests/helpers/studio_edit.py;
+skipped without one).
 
-1. the URL: a page opened on `?mode=roles&edit=bio:coder` lands on Agents (Cast) with
-   coder's bio form open (no Start here, no welcome over it); the form has
-   every field the terminal's bio view shows, each with field_help.py's line
-   (GET /api/field-help), the efforts up to xhigh and max, and the YAML
-   toggle; fields typed into the form and saved land in the bio's file
-   (tags, context files, acceptance, the schedule, environment.offline);
-2. the focus of a running Studio: with a page open, what `halo studio
-   --edit` runs (studio/edit_open.open_edit) focuses it -- lineup:<name>
-   opens that lineup with the Inspector on its Lineup tab (a section's line
-   from field_help.py; a section edited there and saved lands in the file),
-   team opens Agents on Runs (3.3.16.0 R1), bio:<name> the bio form -- and opens no new
-   browser tab.
-The no-browser half (the targets, the URL, the focus API, the CLI verbs) is
-tests/test_studio_edit_target.py.
+1. the URL: a page opened on `?edit=agent:coder` lands on Agents -> 1 · Agents with coder's form open, nothing over it;
+2. the focus of a running Studio: with a page open, what `halo studio --edit` runs (studio/edit_open.open_edit) focuses
+   it -- map:<name> opens the Map on that map, workflow:<name> the Workflows tab on it, an old bio:<name> 1 · Agents
+   with the old files' line -- and opens no new browser tab.
+The no-browser half (the targets, the URL, the focus API, the CLI verbs) is tests/test_studio_edit_target.py.
 Run: python -m tests.test_studio_edit_route
 """
 from __future__ import annotations
@@ -51,42 +42,25 @@ def _driver(*argv: str) -> "tuple[subprocess.CompletedProcess, dict]":
 
 
 @test
-def test_the_edit_url_opens_the_bio_form_on_that_bio(ctx: Ctx):
-    r, got = _driver("bio")
+def test_the_edit_url_opens_the_agent_form(ctx: Ctx):
+    r, got = _driver("url")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
-    ctx.check(f"Agents (Cast), coder's bio form, nothing over it, got {got.get('section')} {got.get('form')} {got.get('overlays')}",
-              got.get("form") == "coder" and str(got.get("section") or "").startswith("Agents") and got.get("overlays") == 0)
-    ctx.check(f"every field the terminal view shows is in the form; missing: {got.get('missing')}", got.get("missing") == [])
-    ctx.check(f"the help lines are field_help.py's, got {got.get('help_from_source')}", got.get("help_from_source") == [True] * 6)
-    ctx.check(f"effort offers xhigh and max, got {got.get('efforts')}", got.get("efforts") == ["", "low", "medium", "high", "xhigh", "max"])
-    ctx.check("the YAML toggle shows the draft as the file would hold it", "every: 30m" in str(got.get("yaml") or "")
-              and "- alpha" in str(got.get("yaml") or ""))
-    ctx.check(f"the typed fields saved through the form, got {got.get('saved')} {got.get('problems')!r}", got.get("saved") == {
-        "tags": ["alpha", "beta"], "files": ["CLAUDE.md", "plans/STATUS.md"], "accept": "say ok",
-        "schedule": {"every": "30m", "prompt": "check the inbox"}, "offline": True})
+    ctx.check(f"Agents (1 · Agents), coder's form, nothing over it, got {got.get('section')} {got.get('form')} {got.get('overlays')}",
+              str(got.get("section") or "").startswith("Agents") and got.get("form") == "coder" and got.get("overlays") == 0)
 
 
 @test
 def test_a_running_studio_is_focused_on_the_target(ctx: Ctx):
-    from halo_harness import field_help
     r, got = _driver("focus")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
-    ctx.check(f"one page listening, focused, got {got.get('listeners')} {got.get('lineup_how')} {got.get('lineup_pages')}",
-              got.get("listeners") == 1 and got.get("lineup_how") == "focused" and got.get("lineup_pages") == 1)
-    ctx.check(f"lineup:<name> opens its Lineup tab, got {got.get('lineup_tab')} {got.get('lineup_selected')}",
-              got.get("lineup_tab") == "halo-dev-cycle" and got.get("lineup_selected") == "true")
-    ctx.check(f"the section's line is field_help.py's, got {got.get('about')!r}", got.get("about") == field_help.LINEUP_SECTIONS["delegation"])
-    ctx.check(f"a section edited in the inspector is saved, got {got.get('delegation_saved')}", got.get("delegation_saved") == "round-robin")
-    ctx.check(f"3.3.16.0 R1b: it opens on the summary, got {got.get('summary_policy')!r}",
-              "9 sections:" in str(got.get("summary_policy")) and "at Halo's default" in str(got.get("summary_policy")))
-    ctx.check(f"lineup:<name>:tiers opens that page with the real default, got {got.get('tiers_default')!r}",
-              got.get("tiers_default") == "not set = Halo does: " + field_help.LINEUP_DEFAULTS["tiers"])
-    ctx.check(f"team opens Agents on Live (3.3.16.0 R1: the Team section went; 3.4.0.0 D: Runs too), got {got.get('team_how')} {got.get('team_section')}",
-              got.get("team_how") == "focused" and str(got.get("team_section") or "") == "Agents:live")
-    ctx.check(f"bio:<name> opens the bio form back on Agents (Cast), got {got.get('bio_form')} {got.get('bio_section')}",
-              got.get("bio_how") == "focused" and got.get("bio_form") == "reviewer" and str(got.get("bio_section") or "").startswith("Agents"))
+    ctx.check(f"one page listening, focused, got {got.get('listeners')} {got.get('map_how')} {got.get('map_pages')}",
+              got.get("listeners") == 1 and got.get("map_how") == "focused" and got.get("map_pages") == 1)
+    ctx.check(f"map:<name> opens the Map on it, got {got.get('map')!r}", got.get("map") == "ship-it")
+    ctx.check(f"workflow:<name> opens the Workflows tab on it, got {got.get('flow')!r}", got.get("flow") == "code")
+    ctx.check(f"an old bio:<name> opens 1 · Agents with the old files' line, got {got.get('old_how')} {got.get('old_view')} {got.get('old_line')!r}",
+              got.get("old_how") == "focused" and got.get("old_view") == "crew" and "no longer read" in str(got.get("old_line")))
     ctx.check(f"no browser tab was opened, got {got.get('tabs_opened')}", got.get("tabs_opened") == 0)
-    ctx.check(f"the URL it reports names the target, got {got.get('url')}", str(got.get("url") or "").endswith("/?mode=agents&view=cast&edit=bio:reviewer"))  # 3.3.16.0 R1
+    ctx.check(f"the URL it reports names the target, got {got.get('url')}", str(got.get("url") or "").endswith("/?mode=agents&view=crew&edit=bio:reviewer"))
 
 
 if __name__ == "__main__":

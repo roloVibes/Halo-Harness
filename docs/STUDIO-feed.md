@@ -15,7 +15,7 @@ first). The shell's status bar, the Orchestra panels and the rail's Session dot 
 its run log here too (`orchestra_*` frames), and its files watcher `files_changed` (3.2.2.0: [what is on
 disk](STUDIO-shell.md#what-is-on-disk-as-it-changes-3220)).
 
-**What Session reads, and the delays that remain (3.1.8.0).** The Session tab (and Agents -> Live) reads the feed, not a poll: a
+**What Session reads, and the delays that remain (3.1.8.0).** The Session tab (and Agents -> Map) reads the feed, not a poll: a
 session's own `message_end` (the end of each model call) and `status` (a turn's start and end) frames move its spend, tokens,
 turns, context, model and busy dot on the frame the terminal's status bar moves on (a frame with an `agent_id`, or whose
 `data.session_id` starts with `agent-`, is a sub-agent's and moves nothing of the session's); `agent_state` moves an agent's row

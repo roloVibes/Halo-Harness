@@ -110,27 +110,16 @@ def test_a_disabled_pack_contributes_nothing(ctx: Ctx):
 
 @test
 def test_pack_files_are_read_only(ctx: Ctx):
-    from halo_harness.studio import api
     with PacksHome() as h:
         h.install(h.source(), enable=True)
         pack_file = h.packs / "doc-review" / "agents" / "reviewer.yaml"
         before = pack_file.read_bytes()
 
-        def call(fn, name, body=None, query=None):
-            req = api.Request(owner=True, method="PUT", path="/", query=query or {}, body=body or {}, cwd=h.repo, state_dir=h.state,
-                              params={"name": name})
-            return fn(req)
-        status, data = call(api.put_bio, "doc-review--reviewer", {"raw": {"description": "changed"}})
-        ctx.check(f"PUT a pack bio: 409, got {status} {data}", status == 409 and "pack doc-review bio" in data["error"])
-        status, _data = call(api.delete_bio, "doc-review--reviewer")
-        ctx.check("DELETE a pack bio: 409", status == 409)
-        status, _data = call(api.put_lineup, "doc-review--review", {"raw": {"agents": []}})
-        ctx.check("PUT a pack lineup: 409", status == 409)
-        ctx.check("the pack's file is untouched", pack_file.read_bytes() == before)
-        status, data = call(api.put_bio, "doc-review--reviewer", {"raw": {"description": "my copy"}}, {"duplicate": "1"})
+        # 3.6.0.0 R5: Studio's bio and lineup routes went with Cast; a copy of yours shadows the pack's all the same
         mine = h.state / "agents" / "doc-review--reviewer.yaml"
-        ctx.check(f"duplicate saves your own copy, which wins, got {status}", status == 200 and mine.is_file()
-                  and pack_file.read_bytes() == before)
+        mine.parent.mkdir(parents=True, exist_ok=True)
+        mine.write_bytes(before.replace(b"description:", b"description: my copy --", 1))
+        ctx.check("the pack's file is untouched", pack_file.read_bytes() == before)
         from halo_harness.packs.doctor import problems
         ctx.check("doctor names your copy shadowing the pack's", any("doc-review--reviewer" in p["text"] and "yours is used" in p["text"]
                                                                    for p in problems(cwd=h.repo)))

@@ -131,7 +131,7 @@ commands). Federation extends the ladder across halos.
 The commands above address the whole session. These address one agent:
 the main agent (`agent_id` `main`, or the session id), any sub-agent at any
 depth (its 8-character id), or a background Bash job (`job:<id>`). They are
-what Studio's Agents -> Live and `halo remote agents | steer | stop` send; the
+what Studio's Agents -> Map and `halo remote agents | steer | stop` send; the
 semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio-can-do-to-an-agent).
 
 | `cmd` | Fields | Result |
@@ -224,7 +224,7 @@ whole session whose control socket is its ONLY door: `halo_harness/headless_sess
 TUI builds (`tui/bootstrap.build_controller`) and starts it without the Textual app; this process drains the
 controller's events in the TUI's place, so the feed and the session log are the TUI's own. Its registry row says
 `kind: headless` and `parent: studio:<pid>` (the starter's `HALO_SESSION_PARENT` wins over `--session-for`), and Agents
--> Live, the Map, Session and `halo studio --session` list it as a session of this harness.
+-> Map, Session and `halo studio --session` list it as a session of this harness.
 
 * **Asks park.** A permission, a question, a plan or an approval waits on the handle until an `answer` comes through
   the socket; `status` lists each under `parked` with the time it was first seen. Studio's Prompt panel answers it with

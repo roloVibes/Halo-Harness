@@ -11,7 +11,7 @@ import { studio, useStore } from "../../lib/store";
 import { paint } from "../../lib/theme";
 import { Toasts } from "../../lib/ui";
 import { narrate } from "../crew/live/narrate";
-import { useLiveNodes } from "../agents/live/useLiveNodes";
+import { useLiveNodes } from "../crew/live/useLiveNodes";
 import { useWaits } from "../crew/live/useWaits";
 import { usePanels } from "../fleet/pstore";
 import { findAgent, fleet, sessionTitle, useFleet, useNow } from "../fleet/store";
@@ -93,7 +93,7 @@ function Recent({ sid }: { sid: string }) {
 export function Glance() {
   const theme = useStore(studio, (s) => s.theme);
   const loaded = useFleet((s) => s.loaded);
-  const { nodes, sid, now } = useLiveNodes("here");
+  const { nodes, sid, now } = useLiveNodes();
   const { waits, path } = useWaits(nodes, now, true);
   const said = narrate(nodes, waits, path, (n) => n.group?.title || "").head; // the sentence; the spend is said below, honestly
   const rows = usePanels((s) => s.attention); // the array itself: a filtered copy per read would never settle

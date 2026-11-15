@@ -2,7 +2,7 @@
 user (driver tests/helpers/studio_flows.py over tests/helpers/crew_rig.py; skipped without Chrome). The room rules over
 this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `flows` view).
 
-1. the 2 key opens 2 · Workflows: the switch reads 1 · Agents | 2 · Workflows | 3 · Map | Cast | Live | Board, the list open, the
+1. the 2 key opens 2 · Workflows: the switch reads 1 · Agents | 2 · Workflows | 3 · Map (3.6.0.0 R5), the list open, the
    five starters, no conversation, no dialog; the empty form says how to start;
 2. a starter copied: its steps in the form and drawn; a repeat drawn as a loop mark; a step moved up and back; Save: in
    the list tagged `not on the map`, with the one line that nothing is on a map yet; the file holds the repeat; the
@@ -14,7 +14,7 @@ this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `flows` view
 5. Write it for me on a saved workflow: the box filled and focused; its step line a ghost step; Discard drops it;
 6. Try it: the band first; each step's state and the agents that ran; three checks, the receipt's why; the total;
    marked seen;
-7. Delete asks on the page; Keep it; the old board is still there as Board, and the switch comes back.
+7. Delete asks on the page; Keep it; the switch is the three tabs, and W (the old board's key) lands on 2 · Workflows.
 Run: python -m tests.test_studio_flows
 """
 from __future__ import annotations
@@ -43,9 +43,9 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_the_2_key_opens_the_workflows_tab(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"2 lands on 2 · Workflows, got {got.get('view')!r}", got.get("view") == "flows")
+    ctx.check(f"2 lands on 2 · Workflows, got {got.get('view')!r}", got.get("view") == "workflows")
     f = got.get("first") or {}
-    ctx.check(f"the switch's names, got {f.get('switch')}", f.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map", "Cast", "Live", "Board"])  # 3.6.0.0 R3: 3 · Map
+    ctx.check(f"the switch's names, got {f.get('switch')}", f.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map"])  # 3.6.0.0 R5: three tabs
     ctx.check(f"the list open, no conversation, no dialog, got {f}", f.get("list") is True and f.get("conversation") is False and f.get("dialogs") == 0)
     ctx.check(f"the five starters, got {f.get('starters')}", f.get("starters") == ["code", "media", "plan", "research", "review"])
     ctx.check(f"the empty form says how to start, got {f.get('empty')!r}", f.get("empty") == "Make your first workflow")
@@ -110,11 +110,12 @@ def test_try_it_step_by_step(ctx: Ctx):
 
 
 @test
-def test_delete_asks_and_the_board_stays(ctx: Ctx):
+def test_delete_asks_and_the_three_tabs(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the question, got {got.get('ask')!r}", got.get("ask") == "Delete my-review? Its file goes; nothing else changes.")
     ctx.check(f"Keep it: still there, got {got.get('kept')}", got.get("kept") == [True, 200])
-    ctx.check(f"the old board as Board, then back, got {got.get('board')!r} {got.get('back')!r}", got.get("board") == "board" and got.get("back") == "my-review")
+    ctx.check(f"three tabs, and W lands on 2 · Workflows, got {got.get('tabs')!r} {got.get('back')!r}",
+              got.get("tabs") == ["1 · Agents", "2 · Workflows", "3 · Map"] and got.get("back") == "my-review")
 
 
 if __name__ == "__main__":

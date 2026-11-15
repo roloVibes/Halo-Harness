@@ -8,7 +8,7 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    box" (3.3.15.0 R5: on Auto the line in place of Run; with a custom lineup the
    palette's overlay has Run), its Run's 422 lands on Setup with a toast; no `?mode=` opens on
    Setup whatever was saved;
-1. `?mode=setup` opens it, and Alt+5 from Agents; the strip names the provider, model, lineup, mode, theme and last
+1. `?mode=setup` opens it, and Alt+5 from Agents; the strip names the provider, model, map, mode, theme and last
    check; no block says it comes later; (3.3.1.0 R1) no panels: the rail lists the steps, one page each; 3.3.16.0 R2:
    Machines last before the Summary (the pair card, share / control, the People table);
    (R2) Providers: OpenRouter's Save & test with a test key writes the env
@@ -22,7 +22,7 @@ env file in that home (`HALO_ENV_FILE`); no provider request, no model call:
    config.json and the strip follows;
 3. Terminal theme: the ten palettes (3.3.12.0) drawn in their own colours, claude-light saved;
 4. Default model: grouped by provider, the search narrows it, saved;
-5. Team: balanced with its preview, Apply writes team and roles on; One model for everything removes team, roles off;
+5. Map (3.6.0.0 R5; Team before): the shipped maps, the one in use, a pick with its preview, Save writes crew.map;
 6. a config.json write from outside: the strip follows the frame;
 6b. (R4) the doors: ?first=1 opens nothing (3.3.1.0 R1) and the strip says "set up this box"; ?block=team and a focus
    frame open that block's page and focus it;
@@ -76,9 +76,9 @@ def test_setup_opens_by_mode_and_by_alt_8(ctx: Ctx):
 @test
 def test_the_strip_says_what_is_set(ctx: Ctx):
     got = _got(ctx)
-    want = [["provider", "no provider set"], ["model", "not set"], ["lineup", "halo-dev-cycle"], ["permissions", "not set"],
+    want = [["provider", "no provider set"], ["model", "not set"], ["lineup", "starter (default)"], ["permissions", "not set"],
             ["theme", "instrument (default)"], ["check", "not run"]]  # 3.3.15.0 R4: claude-dark before
-    ctx.check(f"provider, model, lineup, permissions, theme, got {got.get('strip')}", got.get("strip") == want)
+    ctx.check(f"provider, model, the map (3.6.0.0 R5: the starter until one is picked), permissions, theme, got {got.get('strip')}", got.get("strip") == want)
     ctx.check("the strip is there on ?mode=setup too", got.get("mode_first_strip") == want)
 
 
@@ -176,9 +176,6 @@ def test_find_add_and_measure_ollama_servers(ctx: Ctx):
     ctx.check(f"the hosts table shows all three, the rows say configured, got {got.get('hosts_rows')} {got.get('configured_after')}",
               [r[0] for r in got.get("hosts_rows") or []] == [h[0] for h in hosts] and got.get("configured_after") == 2)
     ctx.check(f"the add lines, got {got.get('add_lines')!r}", str(got.get("add_lines")).count("added Ollama host") == 2)
-    panel = got.get("models_panel") or []
-    ctx.check(f"the Models panel lists Ollama (<name>) for each new host, got {panel}",
-              all(any(line.startswith(f"Ollama ({n}): ok, ") for line in panel) for n in got.get("added_names") or ["?"]))
     ctx.check(f"Measure offers every model of the added hosts, ticked, got {got.get('measure_models')}",
               len(got.get("measure_models") or []) == 3 and all(m[1] for m in got["measure_models"]))
     lines = got.get("measure_lines") or []
@@ -231,16 +228,14 @@ def test_default_model_save(ctx: Ctx):
 
 
 @test
-def test_team_apply(ctx: Ctx):
+def test_the_map_step(ctx: Ctx):
+    """3.6.0.0 R5: the Team step is Map (lineups are gone)."""
     got = _got(ctx)
-    ctx.check(f"One model first, auto, then the lineups, got {got.get('lineups')}",
-              (got.get("lineups") or [])[:2] == ["one-model", "auto"] and "balanced" in got["lineups"])
-    ctx.check(f"the seeded lineup is in use, got {got.get('in_use')}", got.get("in_use") == ["halo-dev-cycle"])
-    ctx.check(f"the preview of the pick, got {got.get('preview')!r}", str(got.get("preview")).startswith("balanced"))
-    ctx.check(f"Apply: team and roles on in config.json, the strip follows, got {got.get('team_config')} {got.get('team_strip')!r}",
-              got.get("team_config") == ["balanced", True] and got.get("team_strip") == "balanced")
-    ctx.check(f"One model for everything: no team, roles off, got {got.get('one_config')} {got.get('one_strip')!r}",
-              got.get("one_config") == [False, False] and got.get("one_strip") == "one model for everything")
+    ctx.check(f"the shipped maps, got {got.get('maps')}", "starter" in (got.get("maps") or []) and "ship-it" in (got.get("maps") or []))
+    ctx.check(f"the starter is in use (every session runs on a map), got {got.get('in_use')}", got.get("in_use") == ["starter"])
+    ctx.check(f"the preview of the pick, got {got.get('preview')!r}", "ship-it" in str(got.get("preview")))
+    ctx.check(f"Save: crew.map in config.json, the strip follows, got {got.get('team_config')} {got.get('team_strip')!r}",
+              got.get("team_config") == "ship-it" and got.get("team_strip") == "ship-it")
 
 
 @test

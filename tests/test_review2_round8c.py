@@ -119,50 +119,6 @@ def test_f57_team_max_parallel_survives_an_agent_batch_and_f60_team_roles_valida
 
 # ---- f58: the live role table follows /roles off and provider switches --------
 
-@test
-def test_f58_role_table_is_recomputed_and_explicit_subagent_model_beats_the_default(ctx: Ctx):
-    from halo_harness.agent.loop import Session
-    from halo_harness.roles import COST_AWARE_DEFAULTS, resolve_role_table, set_roles_enabled
-    home = tempfile.mkdtemp(prefix="r8-f58-")
-    saved = os.environ.get("BRIDGE_TEST_HOME")
-    os.environ["BRIDGE_TEST_HOME"] = home
-    try:
-        ctx.check("the default keeps researcher when nothing explicit is set",
-                  "researcher" in resolve_role_table(provider="databricks"))
-        ctx.check("an explicit subagent model drops the default's sub-agent role",
-                  "researcher" not in resolve_role_table(provider="databricks", subagent_model="or:x/y"))
-        stub = SimpleNamespace(agent_runtime=SimpleNamespace(role_table={}), model_ref=SimpleNamespace(provider="databricks"),
-                               tool_env={}, settings=None, _role_table_base={})
-        Session.refresh_role_table(stub)
-        ctx.check(f"a switch onto Databricks installs the cost-aware default, got {stub.agent_runtime.role_table}",
-                  stub.agent_runtime.role_table == COST_AWARE_DEFAULTS)
-        stub.agent_runtime.role_table["worker"] = "or:mock/team-worker"  # a team / template addition
-        stub.model_ref = SimpleNamespace(provider="openrouter")
-        Session.refresh_role_table(stub)
-        ctx.check(f"switching away drops the default but keeps session additions, got {stub.agent_runtime.role_table}",
-                  stub.agent_runtime.role_table == {"worker": "or:mock/team-worker"})
-        stub.model_ref = SimpleNamespace(provider="databricks")
-        stub.tool_env = {"CLAUDE_CODE_SUBAGENT_MODEL": "or:x/y"}
-        Session.refresh_role_table(stub)
-        ctx.check("with CLAUDE_CODE_SUBAGENT_MODEL set the live table has no researcher",
-                  "researcher" not in stub.agent_runtime.role_table)
-        set_roles_enabled(False)
-        Session.refresh_role_table(stub)
-        ctx.check(f"/roles off empties the live table, got {stub.agent_runtime.role_table}",
-                  stub.agent_runtime.role_table == {})
-        # the slash command itself refreshes the live session
-        from halo_harness.commands.builtins import _cmd_roles
-        calls: list = []
-        facade = SimpleNamespace(session=SimpleNamespace(state_dir=Path(home), refresh_role_table=lambda: calls.append(1)))
-        _cmd_roles("on", facade)
-        ctx.check("/roles on|off asks the live session to refresh", calls == [1])
-    finally:
-        if saved is None:
-            os.environ.pop("BRIDGE_TEST_HOME", None)
-        else:
-            os.environ["BRIDGE_TEST_HOME"] = saved
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

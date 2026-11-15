@@ -107,7 +107,7 @@ hide, `F` again brings them back; where a section's own `F` follows or fits
 zoom, the arrows nudge the selected card, `Del` removes it (asks first);
 `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S`
 saves. The hop keys (3.0.5.0, [Keys](STUDIO-live-panels.md#keys-hop-around)): `J` / `K` the
-next / previous live agent (Live, Cast cards), `f`
+next / previous live agent (Session's Live column, the Map's boxes), `f`
 follow, `Space` pin the mini stream, `Esc` unpin, `P` pause or resume, `K`
 in Session's Agent strip stop (asks first). Session's Live column (3.3.0.0 R6,
 [steering and exporting](STUDIO-session.md#keys)): `Tab` / `Shift+Tab` in the
@@ -129,28 +129,19 @@ reader). Tests: `tests/test_studio_api.py`,
 `tests/test_studio_model.py`, `tests/test_studio_dist.py` (the build and
 its routes), `tests/test_studio_live.py` (the live feed),
 `tests/test_studio_media_sessions.py` (the 3.0.4.0 Media and sessions routes),
-`tests/test_studio_ui.py` (headless Chrome over the shell; the Orchestra Start
-view and grid through `--mode orchestra --dom` (tools/capture_orchestra.py),
-and clicks and keys through `tests/helpers/studio_clarity.py` over the
-DevTools protocol, `tests/helpers/cdp.py`). The Media
+`tests/test_studio_ui.py` (headless Chrome over the shell; a goal run's report
+through `--mode orchestra --dom` (tools/capture_orchestra.py), and clicks and keys
+through `tests/helpers/studio_plan.py` over the DevTools protocol, `tests/helpers/cdp.py`). The Media
 panels are `ui/src/routes/media/`; the Orchestra
 Start view `ui/src/routes/orchestra/Start.tsx`; the help copy
 `ui/src/routes/sectionHelp.ts`, `help.ts` and `help-orchestra.ts`. Design (3.0.7.0 R3) is the design pack's since
 3.3.13.0 R2: its page's sources are `halo_harness/templates/packs/design/studio/src/`, built into its
 `studio/design.js` by `vite.pack.config.ts` on the shell's own React and parts (`ui/src/packlib/`, the bundle api's
 `lib`); the safe markdown is `ui/src/lib/markdown.tsx`; tests the pack's own `tests/` and the Chrome checks in
-`tests/helpers/studio_design.py` (`tests/test_pack_design_ui.py`). Roles (3.0.7.0 R2) is
-`ui/src/routes/roles/` (the store `store.ts`, `sync.ts`, the edits and the
-undo history `actions.ts`, `bioActions.ts`, the canvas `Canvas.tsx` +
-`CanvasParts.tsx` + `CanvasBar.tsx` + `layout.ts`, Live Roles `live.ts` +
-`LiveTab.tsx`, `Replay.tsx`, the Inspector `Inspector.tsx` + `Assignment.tsx`
-+ `LineupTab.tsx` + `SectionForm.tsx` + `sections.ts` + `controls.tsx`,
-`Problems.tsx` + `ConfigProblems.tsx`, `Lineups.tsx`, `Bios.tsx` + `BioForm.tsx` +
-`ModelPicker.tsx`, `Models.tsx`, `Start.tsx`, `Dialogs.tsx`, `keys.ts`,
-`commands.ts`), `styles/roles.css` and `roles-panels.css`, the help
-`routes/help-roles.ts`; tests: the DOM counts in `tests/test_studio_modes.py`
-(`tools/capture_studio.py --mode roles --dom`, tools/capture_roles.py) and the
-Chrome clicks in `tests/helpers/studio_roles.py`. The live pieces (3.0.5.0) are
+`tests/helpers/studio_design.py` (`tests/test_pack_design_ui.py`). Agents (3.6.0.0 R5: three tabs; Roles' canvas, Cast and Live went) is
+`ui/src/routes/crew/` (1 · Agents `Crew.tsx`, 2 · Workflows `flows/`, 3 · Map `map/`, a goal run's pages `run/`,
+History and the replay `live/`, the model list `models/`) and `ui/src/routes/agents/` (the tab bar and the doors);
+tests: `tests/test_studio_crew.py`, `tests/test_studio_flows.py` and `tests/test_studio_map.py`. The live pieces (3.0.5.0) are
 `ui/src/routes/fleet/` (the folder keeps its name: the store and the feed, `store.ts`, `sync.ts`, `streams.ts`;
 `Agent.tsx` + `StreamViews.tsx` + `Steer.tsx`; `Pip.tsx`, `hop.ts`, `frames.ts`, `commands.ts`, `Dialogs.tsx`),
 `styles/fleet.css` and `fleet-agent.css`, the help `routes/help-live.ts`;
@@ -159,6 +150,6 @@ and `replay.ts` with the Roles section's `live.ts`, `LiveTab.tsx` and
 `Replay.tsx`; the routes `live_api.py` and `live_agents_api.py`
 (`get_history`), R4's `live_panels_api.py`, `live_handoff_api.py` and `live_recording_api.py`
 over the watcher `live_watch.py` (what it reads: `live_watch_sources.py`; its feed tap:
-`live_feed.py`; a session command: `live_send.py`). Tests: `tests/test_studio_live_routes.py` and the live
-tests in `tests/test_studio_ui.py` (`tests/helpers/studio_live.py` over
-`tests/helpers/studio_session_rig.py`).
+`live_feed.py`; a session command: `live_send.py`). Tests: `tests/test_studio_live_routes.py` and the Session
+dashboard's (`tests/test_studio_session.py`, `tests/test_studio_session_live.py` over
+`tests/helpers/studio_session_rig.py`; 3.6.0.0 R5: Agents -> Live and its driver went).

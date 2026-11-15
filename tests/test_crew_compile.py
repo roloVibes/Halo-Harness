@@ -1,13 +1,15 @@
 """tests.test_crew_compile -- Halo 3.6.0.0 R3: a map compiles to what a session already runs (halo_harness/crew/
 compile.py, map_control.py, map_session.py; docs/CREW-sessions.md).
 
-1. PARITY: a map that mirrors today's auto lineup (main + a "main decides per task" line to each pool member, each
+1. PARITY: a map that mirrors the old auto lineup (main + a "main decides per task" line to each pool member, each
    agent file mirroring its auto bio, and the media workflow) gives a session whose main tools, main model and mode,
    and -- for the same tasks -- the spawned child's model pick (models_auto, a seeded catalog) and permission mode
-   equal today's; the child's tools are its `uses` (agent/1), every tool under the lineup: the one designed difference;
+   equal what the lineup gave (3.6.0.0 R5: RECORDED_*, the lineup is no longer on a session's path); the child's tools
+   are its `uses` (agent/1), every tool under the lineup: the one designed difference; with no map set a session runs
+   on the shipped `starter` map;
 2. the compile: main's config, the hand-off table, the chains, the specs (role = the agent's name), the cap;
-3. a map with a problem (a missing agent, a circle, a bad file) gives no session config and its problem lines;
-4. a changed map compiles again at the next hand-off and says so once; with `crew.map` unset nothing changes.
+3. a map with a problem (a missing agent, a circle, a bad file) gives its problem lines and the starter map instead;
+4. a changed map compiles again at the next hand-off and says so once; with `crew.map` unset the starter map is used.
 Seeded catalog, no model call. Run: python -m tests.test_crew_compile
 """
 from __future__ import annotations
@@ -65,6 +67,34 @@ def _child(session, spec, role, task: str) -> dict:
     return out
 
 
+# 3.6.0.0 R5: what the auto lineup gave for this test (recorded on 4979de40, the last tree that had the lineup on a
+# session's path; the platform's own shell tool, PowerShell on Windows, left out): main's tools, model and mode, and per
+# task the pool member it routed to, that child's model pick and mode, and the child's tools (every tool main had).
+RECORDED_MAIN_TOOLS = [
+    "Agent", "AskUserQuestion", "Bash", "BashOutput", "Edit", "EnterPlanMode", "ExitPlanMode", "Glob", "Grep",
+    "ListMcpResourcesTool", "Media", "NotebookEdit", "Read", "ReadMcpResourceTool", "Screenshot", "Skill", "Task",
+    "TaskCreate", "TaskList", "TaskStop", "TaskUpdate", "TodoWrite", "ToolSearch", "WebFetch", "WebSearch",
+    "Workflow", "Write", "knowledge_add", "knowledge_search"
+]
+RECORDED_MAIN = ("or:v/eyes", "default")
+RECORDED_CHILD_TOOLS = [
+    "AskUserQuestion", "Bash", "BashOutput", "Edit", "EnterPlanMode", "ExitPlanMode", "Glob", "Grep",
+    "ListMcpResourcesTool", "Media", "NotebookEdit", "Read", "ReadMcpResourceTool", "Screenshot", "Skill",
+    "TaskCreate", "TaskList", "TaskStop", "TaskUpdate", "TodoWrite", "ToolSearch", "WebFetch", "WebSearch",
+    "Workflow", "Write", "knowledge_add", "knowledge_search"
+]
+RECORDED_PICKS = {
+    "plan the migration of the billing tables": ["planner", "dbx:databricks-gemini-x-pro", "default"],
+    "research how the cache invalidates": ["researcher", "dbx:databricks-gemini-9-flash", "default"],
+    "implement the retry in client.py": ["coder", "dbx:databricks-gemini-9-flash", "default"],
+    "review the diff for the login change": ["reviewer", "dbx:databricks-gemini-x-pro", "default"],
+    "describe the screenshot shot.png": ["media", "dbx:databricks-gemini-9-flash", "default"],
+    "summarize the release notes": ["writer", "or:v/cheap", "default"],
+    "deploy the staging build": ["ops", "or:v/cheap", "default"],
+}
+SHELL = {"PowerShell"}
+
+
 @test
 def test_a_map_that_mirrors_the_auto_lineup_runs_as_it(ctx: Ctx):
     from halo_harness.crew.map_run import _choose
@@ -76,38 +106,38 @@ def test_a_map_that_mirrors_the_auto_lineup_runs_as_it(ctx: Ctx):
         _mirror(state)
         repo = root / "repo"
         repo.mkdir()
-        today, mapped = _session(repo, {}), _session(repo, {"map": "mirror"})
-        tc, mc = today.team_control, mapped.team_control
-        ctx.check(f"today: the auto lineup; on the map: the map, got {getattr(tc, 'name', None)} / {getattr(mc, 'name', None)}",
-                  getattr(tc, "name", None) == "auto" and getattr(mc, "is_map", False))
-        ctx.check(f"main's tools are the same, got only-today {sorted(set(today.tool_registry.names()) - set(mapped.tool_registry.names()))} "
-                  f"only-map {sorted(set(mapped.tool_registry.names()) - set(today.tool_registry.names()))}",
-                  sorted(today.tool_registry.names()) == sorted(mapped.tool_registry.names()))
-        ctx.check(f"main's model and mode, got {today.model_ref.raw}/{today.permission_engine.mode} vs {mapped.model_ref.raw}/"
-                  f"{mapped.permission_engine.mode}", (today.model_ref.raw, today.permission_engine.mode) ==
-                  (mapped.model_ref.raw, mapped.permission_engine.mode))
-        ctx.check("the Agent tool's targets are the pool's names", set(mc.map.agent_targets()) == set(POOL) and
-                  set(POOL) <= set(tc.aliases))
-        gp = today.agent_runtime.agents["general-purpose"]
+        default, mapped = _session(repo, {}), _session(repo, {"map": "mirror"})
+        dc, mc = default.team_control, mapped.team_control
+        ctx.check(f"no map set: the session runs on the starter map, got {getattr(getattr(dc, 'map', None), 'name', None)}",
+                  getattr(dc, "is_map", False) and dc.map.name == "starter" and getattr(mc, "is_map", False))
+        ctx.check(f"the starter map hands work to the auto lineup's pool, got {sorted(dc.map.agent_targets())}",
+                  sorted(dc.map.agent_targets()) == sorted(["planner", "researcher", "coder", "reviewer", "writer",
+                                                            "media-reader", "ops"]))
+        have = sorted(set(mapped.tool_registry.names()) - SHELL)
+        ctx.check(f"main's tools are the lineup's, got only-recorded {sorted(set(RECORDED_MAIN_TOOLS) - set(have))} "
+                  f"only-map {sorted(set(have) - set(RECORDED_MAIN_TOOLS))}", have == sorted(RECORDED_MAIN_TOOLS))
+        ctx.check(f"main's model and mode, got {mapped.model_ref.raw}/{mapped.permission_engine.mode}",
+                  (mapped.model_ref.raw, mapped.permission_engine.mode) == RECORDED_MAIN)
+        ctx.check("the Agent tool's targets are the pool's names", set(mc.map.agent_targets()) == set(POOL))
         rows = []
         for task, who in TASKS:
-            _kind, alias = tc.route_call({"description": task, "prompt": task}, task)
+            alias, model, mode = RECORDED_PICKS[task]
             h, _why, refusal = _choose(mc, "agent", who, task, (), mapped.agent_runtime)  # main decides per task: it names who
-            a = _child(today, gp, alias, task)
             b = _child(mapped, mapped.agent_runtime.agents[h["name"]], None, task)
-            rows.append((task, alias, a, h["name"], b))
-            ctx.check(f"{task!r}: today routes to {alias}, the map's main names {who}", alias == who and not refusal)
-            ctx.check(f"{task!r}: the same model pick, got {a['model']} vs {b['model']}", a["model"] == b["model"])
-            ctx.check(f"{task!r}: the same permission mode, got {a['mode']} vs {b['mode']}", a["mode"] == b["mode"])
-            want = sorted({"TodoWrite", *[t for k in ("read", "edit", "bash", "web") for t in TOOLS[k]]} & set(a["tools"]))
-            ctx.check(f"{task!r}: the map's child has its uses, the lineup's every tool", b["tools"] == want and
-                      set(b["tools"]) <= set(a["tools"]))
-        picks = {r[2]["model"] for r in rows}
+            rows.append((task, alias, model, h["name"], b))
+            ctx.check(f"{task!r}: the lineup routed to {alias}, the map's main names {who}", alias == who and not refusal)
+            ctx.check(f"{task!r}: the same model pick, got {model} vs {b['model']}", model == b["model"])
+            ctx.check(f"{task!r}: the same permission mode, got {mode} vs {b['mode']}", mode == b["mode"])
+            want = sorted({"TodoWrite", *[t for k in ("read", "edit", "bash", "web") for t in TOOLS[k]]} & set(RECORDED_CHILD_TOOLS))
+            got = sorted(set(b["tools"]) - SHELL)
+            ctx.check(f"{task!r}: the map's child has its uses, the lineup's had every tool", got == want and
+                      set(got) <= set(RECORDED_CHILD_TOOLS))
+        picks = {r[4]["model"] for r in rows}
         ctx.check(f"the picks differ by need (the catalog is seeded), got {sorted(picks)}", len(picks) >= 2)
-        for task, alias, a, name, b in rows:
-            print(f"  parity | {task[:34]:<34} | today {alias:<10} {a['model']:<26} {a['mode']:<8} {len(a['tools'])} tools"
-                  f" | map {name:<10} {b['model']:<26} {b['mode']:<8} {len(b['tools'])} tools")
-        for s in (today, mapped):
+        for task, alias, model, name, b in rows:
+            print(f"  parity | {task[:34]:<34} | recorded {alias:<10} {model:<26} | map {name:<10} {b['model']:<26} "
+                  f"{b['mode']:<8} {len(b['tools'])} tools")
+        for s in (default, mapped):
             s.close_runtimes()
 
 
@@ -132,7 +162,7 @@ def test_the_compile_main_handoffs_chains_specs_cap(ctx: Ctx):
 
 
 @test
-def test_a_map_with_a_problem_starts_no_half_session(ctx: Ctx):
+def test_a_map_with_a_problem_runs_the_session_on_the_starter_map(ctx: Ctx):
     from halo_harness.crew.compile import for_session
     from halo_harness.theme import set_config_value
     with S.home("crew-problem-") as (root, state):
@@ -142,9 +172,11 @@ def test_a_map_with_a_problem_starts_no_half_session(ctx: Ctx):
             "lines:\n- {from: main, to: a}\n- {from: a, to: b}\n- {from: b, to: a}\n", encoding="utf-8")
         got, lines = for_session("broken", cwd=root)
         text = "\n".join(lines)
-        ctx.check(f"no config, the problem lines (the circle named, the missing agent), got {lines}",
-                  got is None and "circle (a -> b -> a)" in text and "no agent named nobody" in text and "runs as with no map" in lines[0])
-        ctx.check("no map set: nothing", for_session(None, cwd=root) == (None, []))
+        ctx.check(f"the problem lines (the circle named, the missing agent) and the starter map instead, got {lines}",
+                  getattr(got, "name", None) == "starter" and "circle (a -> b -> a)" in text and "no agent named nobody" in text
+                  and "runs on the map starter" in lines[0])
+        got, lines = for_session(None, cwd=root)
+        ctx.check("no map set: the starter map (3.6.0.0 R5)", getattr(got, "name", None) == "starter" and lines == [])
         set_config_value("crew.map", "ship-it")
         got, lines = for_session(None, cwd=root)
         ctx.check("config crew.map: that map", got is not None and got.name == "ship-it" and lines == [])

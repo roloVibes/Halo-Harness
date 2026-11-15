@@ -75,7 +75,7 @@ stops there and the pill counts what arrives. Following again (the pill,
 
 ## The Map: zoom and the readable opening (3.4.1.3)
 
-Session's **Map** (`session-map`, Live's tree as a thumbnail) zooms like every drawing in Studio: **Ctrl + wheel** (Cmd
+Session's **Map** (`session-map`, the lit map of the session, smaller) zooms like every drawing in Studio: **Ctrl + wheel** (Cmd
 on a Mac) or a pinch around the pointer, `+` / `-` / `0` on the focused map, a drag on the background pans, a
 double-click there fits, and the **- / % / + / Fit** buttons in its corner for a mouse with no wheel. It opens fitted to
 its panel but never smaller than the zoom where its text is 12 px on screen (3.6.0.0; 75% before): a tree too big for
@@ -177,7 +177,7 @@ grouped by provider, the rows the Setup default-model block lists, the default f
 own by default), then **New session**. Studio's server starts `halo --headless --session-for studio` as a child: the
 same loop the terminal runs, the same session log, its control socket the only door
 ([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)). Session opens on it with the keyboard in the Prompt
-box; it registers a moment later and shows on Agents -> Live and on the Map as a session of this harness, its chip saying
+box; it registers a moment later and shows on Agents -> Map and on Session's Map as a session of this harness, its chip saying
 **no terminal**.
 
 You drive it from the Prompt panel exactly as a terminal session: a turn, a `/` command, Queue it and Steer while a

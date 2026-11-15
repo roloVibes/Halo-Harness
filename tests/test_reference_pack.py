@@ -114,10 +114,7 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
             time.sleep(0.2)
         ctx.check(f"the panel draws that run's report, got {status} {body.get('run')} {body.get('view')} {sorted(body)}", status == 200
                   and body.get("data") == GOOD_REPORT and body.get("run") == run.name and body.get("view") == "table")
-        status, rows, _ = h.call("GET", "lineups")
-        mine = [r for r in rows if r.get("name") == "doc-review--review"]
-        ctx.check(f"its lineup under Roles, got {[(r['name'], r['scope']) for r in mine]}", status == 200 and len(mine) == 1
-                  and "doc-review" in mine[0]["scope"])
+        # 3.6.0.0 R5: Studio's lineups route went with Cast (a pack's crew contributions are packs API 2.0's, next round)
         from halo_harness.packs.contrib_views import contributes
         from halo_harness.packs.discover import find
         got = contributes(find("doc-review", cwd=h.repo), ["bash", "hooks", "mcp:lint"], running=True, cwd=h.repo, state_dir=h.state)
@@ -130,8 +127,10 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
                   and [t["name"] for t in by_id.get(2, {}).get("result", {}).get("tools", [])] == ["check_links", "check_headings"]
                   and by_id.get(3, {}).get("result", {}).get("content", [{}])[0].get("text") == "guide.md line 3: missing.md is not there")
 
-        status, body, _ = h.call("POST", "roles/clone", {"kind": "bio", "name": "doc-review--writer", "as": "my-writer"})
-        ctx.check(f"you clone its writer bio, got {status}", status == 201)
+        # 3.6.0.0 R5: Studio's roles/clone route went with Cast; a file of yours made from the pack (as Clone wrote it)
+        mine = h.home / ".halo" / "agents" / "my-writer.yaml"
+        mine.parent.mkdir(parents=True, exist_ok=True)
+        mine.write_text("name: my-writer" + chr(10) + "from_pack: doc-review@1.0.0" + chr(10), encoding="utf-8")
         status, _body, _ = h.call("POST", "pack/doc-review/settings", {"values": {"style": "long"}})
         ctx.check("you set a setting", status == 200)
         newer = Path(tempfile.mkdtemp(prefix="doc-review-next-")) / "doc-review"  # 3.2.0.0 R7: a newer version, outside the home

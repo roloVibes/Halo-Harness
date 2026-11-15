@@ -10,15 +10,8 @@ session figures (tests/helpers/studio_live_rig.py):
 2. the spend sparkline gains a point each time the spend rises; cost per
    turn is the spend over the turns; the share bar has a segment per agent
    that spent, sized by what it spent; the agent rows carry their tokens;
-3. a running tool's name and clock on its node ("Bash 2s · pytest -q");
-4. the tree fans out: main's five children sit in rows under it, side by
-   side, each naming main as its parent, and no two labels touch;
-5. the state colours on node and edge: waiting amber, failed red (and it
-   stays), done green that fades back after ten seconds (the motion media
-   pinned to no-preference through CDP, the same on every runner; under
-   reduce a done node is green with no fade, the product rule);
-6. (follow-up) a GET fleet answer never undoes a newer agent_state frame: a
-   frame says stopped, GET still says running, the node stays stopped;
+3.-6. (3.6.0.0 R5: the tree's nodes, their tool clock, their state colours and the GET-versus-frame node went
+   with the agent tree; the Session's map is the lit map now, tests/test_studio_map_live.py)
 7. (3.1.8.0 R6) with main mid-turn on its gated sub-agents, the session's own
    `message_end` moves the spend, the tokens and the turns within 1.5 s (no
    cache clear, no sessions frame); a GET from before it (lower figures)
@@ -100,65 +93,6 @@ def test_the_sparkline_rises_and_per_turn_and_the_share_bar_read(ctx: Ctx):
               any("/" in t and t != "-" for t in toks))
 
 
-@test
-def test_a_node_shows_its_tool_and_its_clock(ctx: Ctx):
-    r, got = _driver("costmap")
-    _ran(ctx, r, got)
-    s0, s1, text = (got.get("node_secs") or ["", "", ""])
-    ctx.check(f"the clock ticks on the node, got {s0} -> {s1}", str(s0).isdigit() and str(s1).isdigit() and int(s1) >= int(s0) + 2)
-    ctx.check(f"with the tool and its target, got {text!r}", str(text).startswith("Bash ") and str(text).endswith("pytest -q"))
-
-
-@test
-def test_the_tree_fans_out_and_no_labels_overlap(ctx: Ctx):
-    r, got = _driver("costmap")
-    _ran(ctx, r, got)
-    t = got.get("tree") or {}
-    main, kids = t.get("main") or [0, 0], t.get("kids") or []
-    ctx.check(f"five children placed, got {kids}", len(kids) == 5 and all(len(k) == 2 for k in kids))
-    ctx.check(f"every child below main, got main {main} kids {kids}", all(k[1] > main[1] for k in kids))
-    rows: dict = {}
-    for k in kids:
-        rows.setdefault(k[1], []).append(k[0])
-    first = rows[min(rows)] if rows else []
-    ctx.check(f"a fan: at least two children side by side on one row, got rows {rows}", len(first) >= 2 and len(set(first)) == len(first))
-    ctx.check(f"each names main as its parent, got {t.get('parents')}", sum(str(p).endswith("|main") or p == "main" for p in t.get("parents") or []) >= 5)  # 3.3.16.0 R2: Live names the parent by its key
-    ctx.check(f"no two labels touch, got {got.get('overlaps')}", got.get("overlaps") == [])
-
-
-@test
-def test_state_colours_and_the_done_fade(ctx: Ctx):
-    r, got = _driver("costmap")
-    _ran(ctx, r, got)
-    w = got.get("waiting") or ["", "", ""]
-    ctx.check(f"waiting: the node and its edge amber, got {w}", w[0] == "waiting" and w[1] == _rgb(w[2]))
-    f = got.get("red") or ["", "", ""]
-    ctx.check(f"failed: red on its edge, got {f}", f[0] == "error" and f[1] == _rgb(f[2]))
-    d = got.get("done") or ["", ""]
-    ctx.check(f"done: green that fades (the fade animation runs), got {d}", d[0] == "done" and d[1] == "n-node-rest")  # 3.3.15.0 L1: styles/nodes.css, the border fades to rest over 10 s (3.3.16.0 R2: Live's node)
-    ctx.check(f"ten seconds on, done has settled and failed has stayed, got {got.get('done_later')} {got.get('red_later')}",
-              got.get("done_later") == "idle" and got.get("red_later") == "error")
-
-
-@test
-def test_under_reduced_motion_done_is_green_with_no_fade(ctx: Ctx):
-    r, got = _driver("costmap")
-    _ran(ctx, r, got)
-    rd = got.get("reduced_done") or ["", "", "", False]
-    ctx.check(f"prefers-reduced-motion: reduce: the done node is green, no fade animation, got {rd}",
-              rd[0] == "done" and rd[1] == "none" and "0.239216 0.839216 0.54902" in str(rd[2]) and rd[3] is True)  # instrument's ok, the border at 50 %
-
-
-@test
-def test_a_get_answer_never_undoes_a_newer_frame(ctx: Ctx):
-    r, got = _driver("costmap")
-    _ran(ctx, r, got)
-    ctx.check(f"the frame said stopped, got {got.get('fresh_frame')!r}", got.get("fresh_frame") == "stopped")
-    ctx.check(f"GET fleet still said running and its answer landed, got {got.get('fresh_api_says')!r} {got.get('fresh_get_landed')!r}",
-              got.get("fresh_api_says") == "running" and got.get("fresh_get_landed") == "landed")
-    ctx.check(f"the node kept the frame's newer state, got {got.get('fresh_after_get')!r}", got.get("fresh_after_get") == "stopped")
-
-
 FIGS = ["$0.2468", "54.3k", "4.3k", "3", "$0.0823", "60.0"]  # spend, in, out, turns, per turn, context %
 
 
@@ -192,7 +126,6 @@ def test_a_status_frame_without_totals_and_a_sub_agents_frames_leave_the_figures
 def test_a_finished_child_is_counted_once_and_turns_are_one_unit(ctx: Ctx):
     r, got = _driver("costmap")
     _ran(ctx, r, got)
-    ctx.check(f"main's own row says the session total, got {got.get('fig_main_row')!r}", got.get("fig_main_row") == "row")
     share = dict(got.get("fig_share") or [])
     ctx.check(f"main's share is the total less the finished tester's: 0.2468 - 0.012, got {share}",
               share.get("main") == 0.2348 and share.get("t7e5s1t0") == 0.012 and share.get("d0c5w1r1") == 0.004)

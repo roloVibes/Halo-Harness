@@ -2,6 +2,10 @@
 
 Read this when you write or edit an agent bio or a lineup, field by field.
 
+Note (3.6.0.0 R5): bios (`~/.halo/agents`) and lineups (`~/.halo/teams`) are no longer read; Studio's Agents section
+makes agents, workflows and maps instead (files in `~/.halo/crew/`, [STUDIO-agents.md](STUDIO-agents.md)). This page
+describes the files as they were.
+
 Halo 2.0.4 round 4 (owner: "each role should have a yaml file that can be
 editable too"), two layers, approved 2026-10-05/06:
 
@@ -263,8 +267,8 @@ Halo 3.3.16.3: a `workflows:` item may carry its **when** -- `{ref: review, when
 `{ref: media, when: {needs: [pdf]}}`, `{ref: thinking, when: {mode: always}}` (`mode`: `auto`, `named`, `always`, `off`)
 -- beside plain refs, which keep their meaning (the square's `covers`). The router reads it, and its receipt names the
 rule that fired; on the auto lineup it lives in config `workflows.when.<ref>`
-([WORKFLOWS-squares.md](WORKFLOWS-squares.md#when)). A tier's `purpose` (a few words) names the tier as a block on
-Studio's Cast; a tier's reach stays its `routing` words and its cards' `use_for`.
+([WORKFLOWS-squares.md](WORKFLOWS-squares.md#when)). A tier's `purpose` (a few words) named the tier as a block on
+Studio's Cast (gone in 3.6.0.0 R5); a tier's reach stays its `routing` words and its cards' `use_for`.
 
 ## The `copilot_ask` tool and `cp:work`: your work's Copilot (Halo 3.3.17.0 R2)
 
@@ -465,7 +469,7 @@ What each section DOES at runtime:
   tier's lead (its first member) as a background job under the lineup with
   `HALO_TIER_FIRED=<tier>`, and that lead may spawn its own tier's other
   members and the next tier down. 3.3.16.3: `tiers[].purpose` (a few words: "thinking",
-  "the workers") titles the tier's block on Studio's Cast and its group on Agents -> Live. The full rule is in
+  "the workers") titled the tier's block on Studio's Cast and its group on Agents -> Live (both gone in 3.6.0.0 R5). The full rule is in
   [ROLES.md](ROLES.md#tiers-halo-3070).
 - **isolation, secrets, tools** (Halo 3.1.8.0 R5, [ISOLATION.md](ISOLATION.md))
   -- three opt-ins, none set by default: `isolation: container | user` (or
@@ -637,9 +641,9 @@ opens Studio on the one you want to change; it never edits a field itself.
 
 | From | What it opens |
 |---|---|
-| `halo studio --edit bio:<name>` | Agents on Cast, the Bios panel on that bio's form |
-| `halo studio --edit lineup:<name>[:<block>]` | Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary (with a block: that block's page) |
-| `halo studio --edit team` | Agents on Live (3.3.16.0 R1: Team's board went; 3.4.0.0 D: Runs too; the page says so once) |
+| `halo studio --edit bio:<name>` | Agents on the Map (3.6.0.0 R5: Cast and its Bios panel went) |
+| `halo studio --edit lineup:<name>[:<block>]` | Agents on the Map (3.6.0.0 R5: Cast went) |
+| `halo studio --edit team` | Agents on the Map (3.3.16.0 R1: Team's board went; 3.4.0.0 D: Runs too; 3.6.0.0 R5: Live too) |
 | `halo agents edit <bio>`, `halo teams edit <lineup>` | the same, for that bio or lineup (a name that does not exist yet gets a starter file first) |
 | `halo agents new <bio> --studio`, `halo teams new <lineup> --studio` | the starter file, then Studio on it |
 | `/edit bio:<name>`, `/edit lineup:<name>`, `/edit team`, `/edit <name>` | the same from the TUI (a bare name: the bio of that name, else the lineup) |
@@ -652,7 +656,7 @@ reused: every Studio page that is open switches to the bio or lineup, and no
 new tab opens. With no page open the browser opens the URL; when no browser
 can be opened, or with `--no-open`, the URL is printed (and over SSH that is
 the way in: forward the port as `halo studio` says). The URL carries the
-target, `http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>` (3.3.16.0 R1; `?mode=roles` before, still landed); see
+target, `http://127.0.0.1:<port>/?mode=agents&view=cast&edit=bio:coder#t=<token>` (3.3.16.0 R1; since 3.6.0.0 R5 `view=cast` and `?mode=roles` land on the Map); see
 [STUDIO-shell.md](STUDIO-shell.md#opening-studio-on-a-bio-a-lineup-or-the-team-halo-studio---edit).
 
 On a box with no browser at all, `halo agents edit <bio> --yaml` and
@@ -810,4 +814,4 @@ enforce it later" boundary every other lineup section in this file
 already draws; this round's own job was building and proving the
 assembly itself.
 
-**Teams (Halo 3.0.8.0 - 3.3.x):** `halo team` (no s) and its team file left in 3.4.0.0; a lineup's tiers and blocks (Agents -> Cast) and a goal run's lanes (on Agents -> Live) do its job.
+**Teams (Halo 3.0.8.0 - 3.3.x):** `halo team` (no s) and its team file left in 3.4.0.0; a map's boxes and lines (Agents -> Map, 3.6.0.0 R5) and a goal run's lanes (its pages in the Map's drawer) do its job.

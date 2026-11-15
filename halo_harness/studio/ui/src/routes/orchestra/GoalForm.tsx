@@ -1,14 +1,12 @@
-// The goal form (3.4.0.0 D: in Live's Run a goal panel, routes/agents/run/GoalDrawer.tsx; Runs' Start view and Goal
-// panel before): WHAT YOU WANT, DONE WHEN, STOP WHEN with examples, the files (the shared files) and the test (the
-// gate's), the budget (workers, return cap) and the lineup, the MODEL (its first option "the lineup's (<the lead's
-// model>)"), Review the plan first, then who plays the parts under a disclosure; what it will do, what it may cost and
-// where it writes (GoalSays.tsx) right above Run and Dry run, which post it (POST orchestra/run). LINEUP offers every
-// lineup by name (shared/LineupField.tsx); the three goal boxes are the one text box (three lines at the least).
+// The goal form (3.4.0.0 D; 3.6.0.0 R5: in the Map's drawer, routes/crew/run/GoalDrawer.tsx): WHAT YOU WANT, DONE WHEN,
+// STOP WHEN with examples, the files (the shared files) and the test (the gate's), the budget (workers, return cap),
+// the MODEL (its first option the lead's), Review the plan first, then who plays the parts under a disclosure; what it
+// will do, what it may cost and where it writes (GoalSays.tsx) right above Run and Dry run, which post it (POST
+// orchestra/run). The LINEUP field went with lineups (3.6.0.0 R5); the three goal boxes are the one text box.
 import { useEffect, useState } from "react";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { useStore } from "../../lib/store";
 import { Button, Field, Icon } from "../../lib/ui";
-import { LineupField } from "../shared/LineupField";
 import { ModelSelect } from "../shared/ModelSelect";
 import { useResolved } from "../shared/resolve";
 import { GoalSays } from "../crew/run/GoalSays";
@@ -83,7 +81,7 @@ export function GoalForm({ initial, seed, onStarted }: Props) {
   };
   const why = live ? `Run ${live} is live: stop it or wait for its report` : "";
   const review = (
-    <label className="og-switch mono" title="The run stops after the lead's split: the plan waits for you on Live (Review the plan on its lead), then Approve and run (or Reject)">
+    <label className="og-switch mono" title="The run stops after the lead's split: the plan waits for you (on the Map: Open the goal run, then Review the plan), then Approve and run (or Reject)">
       <input type="checkbox" checked={!!form.review} onChange={(e) => set("review")(e.target.checked)} data-testid="orchestra-review" />
       Review the plan first
     </label>
@@ -98,13 +96,12 @@ export function GoalForm({ initial, seed, onStarted }: Props) {
         <Line label="THE GATE'S TEST" value={form.test} set={set("test")} mono example={EXAMPLE.test} />
       </div>
       {took && <p className="og-took mono muted" data-testid="orchestra-test-from-lineup">test from the lineup: {took}</p>}
-      <div className="og-form-row og-form-row3" role="group" aria-label="Budget and lineup">
+      <div className="og-form-row og-form-row3" role="group" aria-label="Budget">
         <Num label="WORKERS" value={form.workers} set={set("workers")} min={1} max={50} title="How many lanes, one worker each (1 to 50)" />
         <Num label="RETURN CAP" value={form.return_cap} set={set("return_cap")} min={0} max={20} title="How many times the gate may send one part back" />
-        <LineupField label="LINEUP" value={form.lineup} set={set("lineup")} example="optional" testid="orchestra-lineup" />
       </div>
       <ModelSelect label="MODEL" hint={help.orchestra} value={form.model} onPick={set("model")} testid="orchestra-model"
-                   inherit={{ label: "the lineup's", model: lead?.ref || "" }} />
+                   inherit={{ label: "the lead's", model: lead?.ref || "" }} />
       <details className="md-support og-more">
         <summary className="mono">who plays the parts ({form.lead} leads, {form.worker} works)</summary>
         <div className="og-form-row">

@@ -6,9 +6,9 @@
 // at and why it listed nothing. The Models panel and every ModelSelect show
 // the same lines, so an empty dropdown always says why.
 import { useEffect } from "react";
-import { priceText, roles, useRoles } from "../roles/store";
-import { loadModels, loadModelsStatus } from "../roles/sync";
-import type { ModelRow } from "../roles/types";
+import { priceText, models, useModels } from "../crew/models/store";
+import { loadModels, loadModelsStatus } from "../crew/models/sync";
+import type { ModelRow } from "../crew/models/types";
 import { takesText } from "./ModelTakes";
 
 /** The ref without its provider prefix (the provider is the option group). */
@@ -34,26 +34,26 @@ let asked = false;
 
 /** Read the catalog once (Roles' start reads it too); its status (the why lines) whenever nothing live is listed. */
 export function useCatalog(): { models: ModelRow[]; fallback: ModelRow[]; loaded: boolean } {
-  const models = useRoles((s) => s.models);
-  const fallback = useRoles((s) => s.fallback);
-  const loaded = useRoles((s) => s.modelsLoaded);
-  const status = useRoles((s) => s.modelsStatus);
+  const rows = useModels((s) => s.models);
+  const fallback = useModels((s) => s.fallback);
+  const loaded = useModels((s) => s.modelsLoaded);
+  const status = useModels((s) => s.modelsStatus);
   useEffect(() => {
-    if (!asked && !roles.get().modelsLoaded) {
+    if (!asked && !models.get().modelsLoaded) {
       asked = true;
       void loadModels();
     }
   }, []);
   useEffect(() => {
-    if (loaded && !models.length && !status) void loadModelsStatus();
-  }, [loaded, models.length, status]);
-  return { models, fallback, loaded };
+    if (loaded && !rows.length && !status) void loadModelsStatus();
+  }, [loaded, rows.length, status]);
+  return { models: rows, fallback, loaded };
 }
 
 /** The last Refresh, one line per provider; with no live list, what was looked at and why it listed nothing. */
 export function CatalogLines({ empty }: { empty: boolean }) {
-  const st = useRoles((s) => s.modelsStatus);
-  const error = useRoles((s) => s.modelsError);
+  const st = useModels((s) => s.modelsStatus);
+  const error = useModels((s) => s.modelsError);
   const outcomes = st?.outcomes || [];
   const failing = empty ? (st?.looked_at || []).filter((l) => !l.ok) : [];
   const unset = failing.filter((l) => l.line.startsWith("not configured"));

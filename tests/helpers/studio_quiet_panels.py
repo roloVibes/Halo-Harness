@@ -32,7 +32,7 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_header_menus import button, more  # noqa: E402
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 
-PRIMARY = [("session", "Session", "session-live"), ("roles", "Agents", "roles-graph"), ("packs", "Packs", "pm-installed")]
+PRIMARY = [("session", "Session", "session-live"), ("roles", "Agents", "map-main"), ("packs", "Packs", "pm-installed")]
 RECT = "((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; })"
 COVER = ("((p) => { const a = RECT(document.querySelector('.section-view:not([hidden]) [data-panel=\"' + p + '\"] .panel')), "
          "s = RECT(document.querySelector('.stage')); return Math.round(1000 * a[2] * a[3] / (s[2] * s[3])) / 1000; })").replace("RECT", RECT)
@@ -41,8 +41,8 @@ STATE = ("[...document.querySelectorAll('.section-view:not([hidden]) [data-testi
          ".concat([...document.querySelectorAll('.section-view:not([hidden]) .stage-main > .ws-cell')].map((c) => [c.dataset.panel, 'open']))")
 ORNAMENT = (f"[{qa('.section-view:not([hidden]) .panel.focused')}.map((p) => p.closest('.ws-cell').dataset.panel), {qa('.section-view:not([hidden]) .panel[data-focused]')}.length, "
             f"{qa('.section-view:not([hidden]) .hud-brackets')}.length, {qa('.section-view:not([hidden]) .panel-data')}.length, {qa('[data-testid=panel-about], .panel-about')}.length]")
-MAP = q(".section-view:not([hidden]) [data-panel=roles-graph] .panel")
-INSP = q(".section-view:not([hidden]) .stage-drawer [data-panel=roles-inspector] .panel")
+MAP = q(".section-view:not([hidden]) [data-panel=map-main] .panel")
+INSP = q(".section-view:not([hidden]) .stage-drawer [data-panel=map-feed] .panel")
 
 
 def _url(ctx, query: str) -> str:
@@ -88,22 +88,22 @@ def defaults(c, url, ctx) -> dict:
 
 
 def drawer(c, url, ctx) -> dict:
-    fresh(c, ctx, "agents", "Agents")
+    fresh(c, ctx, "roles", "Agents")  # the old Roles door: the Map
     c.wait(f"!!{MAP}", 40)
     out = {"map_before": steady(c, f"{RECT}({MAP})")}
-    c.click_on(button("roles-inspector"))
+    c.click_on(button("map-feed"))
     c.wait(f"!!{INSP}", 10)
     out["att_open"] = steady(c, f"{RECT}({INSP})")
     out["map_open"] = c.js(f"{RECT}({MAP})")
-    c.click_on(q(".section-view:not([hidden]) [data-panel=roles-inspector] .panel-title"))
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] .panel-title"))
     c.wait(f"{INSP}.classList.contains('focused')", 5)
     out["ornament_click"] = c.js(ORNAMENT)
-    c.click_on(q(".section-view:not([hidden]) [data-panel=roles-inspector] [data-testid=panel-help-btn]"))
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] [data-testid=panel-help-btn]"))
     out["help_first"] = c.wait(f"{q('[data-testid=panel-help] .panel-help-about')}?.textContent", 10)
-    out["about_title"] = c.js(f"{q('.section-view:not([hidden]) [data-panel=roles-inspector] .panel-title')}.title")
-    c.click_on(q(".section-view:not([hidden]) [data-panel=roles-inspector] [data-testid=panel-help-btn]"))
+    out["about_title"] = c.js(f"{q('.section-view:not([hidden]) [data-panel=map-feed] .panel-title')}.title")
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] [data-testid=panel-help-btn]"))
     out["help_toggled"] = c.wait(f"!{q('[data-testid=panel-help]')} && 'closed'", 5)
-    c.click_on(q(".section-view:not([hidden]) [data-panel=roles-inspector] [data-testid=panel-collapse]"))
+    c.click_on(q(".section-view:not([hidden]) [data-panel=map-feed] [data-testid=panel-collapse]"))
     c.wait(f"!{INSP}", 10)
     out["map_back"] = steady(c, f"{RECT}({MAP})")
     out["custom_after"] = c.js(f"!!{q('[data-testid=layout-badge]')}")
@@ -111,42 +111,42 @@ def drawer(c, url, ctx) -> dict:
 
 
 def saved(c, url, ctx) -> dict:
-    fresh(c, ctx, "agents", "Agents")
+    fresh(c, ctx, "roles", "Agents")
     c.wait(f"!!{MAP}", 40)
     before = steady(c, f"{RECT}({MAP})")
-    c.click_on(button("roles-inspector"))
+    c.click_on(button("map-feed"))
     c.wait(f"!!{INSP}", 10)
-    out = {"map_mine": steady(c, f"{RECT}({MAP})"), "map_default": before, "key": c.js("!!localStorage.getItem('halo.studio.layout.roles')")}
-    load(c, ctx, "agents", "Agents")
+    out = {"map_mine": steady(c, f"{RECT}({MAP})"), "map_default": before, "key": c.js("!!localStorage.getItem('halo.studio.layout.agents-map')")}
+    load(c, ctx, "roles", "Agents")
     c.wait(f"!!{MAP} && !!{INSP}", 40)
     out["map_reload"] = steady(c, f"{RECT}({MAP})")
     out["badge"] = c.js(f"!!{q('[data-testid=layout-badge]')}")
     out["reset"] = more(c, "layout-reset")
     c.wait(f"!{INSP}", 10)
     out["map_reset"] = steady(c, f"{RECT}({MAP})")
-    out["cover_reset"] = c.js(f"{COVER}('roles-graph')")
+    out["cover_reset"] = c.js(f"{COVER}('map-main')")
     return out
 
 
 def _tokens(c) -> list:
     return c.js("[document.documentElement.dataset.density || '', getComputedStyle(document.documentElement).getPropertyValue('--pad').trim(), "
                 "getComputedStyle(document.querySelector('.section-view:not([hidden]) .stage-row')).columnGap, "
-                "Math.round(document.querySelector('.section-view:not([hidden]) [data-panel=roles-graph] .panel-bar').getBoundingClientRect().height), "
+                "Math.round(document.querySelector('.section-view:not([hidden]) [data-panel=map-main] .panel-bar').getBoundingClientRect().height), "
                 "getComputedStyle(document.body).fontSize]")
 
 
 def density(c, url, ctx) -> dict:
     fresh(c, ctx, "roles", "Agents")
-    c.wait(f"!!{q('[data-panel=roles-graph] .panel-body')}", 40)
+    c.wait(f"!!{q('[data-panel=map-main] .panel-body')}", 40)
     out = {"comfortable": steady(c, "1") and _tokens(c), "toggle_title": c.js(f"{q('[data-testid=density-toggle]')}.title")}
     c.click_on(q("[data-testid=density-toggle]"))
     c.wait("document.documentElement.dataset.density === 'compact'", 5)
-    out["compact"] = steady(c, "JSON.stringify(" + "document.querySelector('.section-view:not([hidden]) [data-panel=roles-graph] .panel-bar').getBoundingClientRect().height)") and _tokens(c)
+    out["compact"] = steady(c, "JSON.stringify(" + "document.querySelector('.section-view:not([hidden]) [data-panel=map-main] .panel-bar').getBoundingClientRect().height)") and _tokens(c)
     out["saved"] = c.js("localStorage.getItem('halo.studio.density')")
     if ctx.get("shots"):
         c.shot(Path(ctx["shots"]) / "q3_roles_compact.png", 1280, 800, 1)
     load(c, ctx, "roles", "Agents")
-    c.wait(f"!!{q('[data-panel=roles-graph] .panel-body')}", 40)
+    c.wait(f"!!{q('[data-panel=map-main] .panel-body')}", 40)
     out["reload"] = _tokens(c)
     mod_key(c, "KeyK", 75, 2, "k")
     c.wait("document.activeElement?.classList.contains('palette-input')", 10)

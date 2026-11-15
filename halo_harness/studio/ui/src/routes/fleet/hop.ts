@@ -6,14 +6,10 @@
 // panel K is Stop, with a confirm, so a stray K on the map never stops
 // anything. Keys typed in a box, with a modifier, or that a panel, a menu
 // or a dialog already took, stay where they are. An F nothing here takes
-// (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts). 3.3.11.0 R2: in Roles, L switches the
-// canvas between Plan and Live, and on Live J / K hop the session tree's working agents.
+// (and every Shift+F) goes on to Focus (3.3.2.0 R1, shell/keys.ts). 3.6.0.0 R5: Cast and Live went (the Map's own
+// J / K hop its working boxes: routes/crew/map), so these keys are Session's.
 import { useEffect } from "react";
 import { studio } from "../../lib/store";
-import { onPart } from "../agents/store";
-import { hopCard } from "../roles/live";
-import { hopLive } from "../crew/live/liveModel";
-import { roles, setCanvasView } from "../roles/store";
 import { askStop, hop, pin, toggleFollow, togglePause } from "./actions";
 import { fleet } from "./store";
 
@@ -35,19 +31,6 @@ export function useHopKeys(): void {
           e.preventDefault();
           pin("");
         }
-        return;
-      }
-      const dir = key === "j" ? 1 : key === "k" ? -1 : 0;
-      if (onPart("roles")) { // Agents on Cast or Live
-        const watched = roles.get().watched;
-        const real = watched && !watched.startsWith("replay|") ? watched : "";
-        if (dir) (roles.get().canvasView === "live" ? hopLive(dir) : hopCard(dir)); // 3.3.11.0 R2: Live hops the tree
-        else if (key === "l") setCanvasView(roles.get().canvasView === "live" ? "plan" : "live"); // 3.3.11.0 R2: Plan | Live
-        else if (key === " " && real && !t?.closest?.(PRESSABLE)) pin(f.pinned === real ? "" : real);
-        else if (key === "p" && real && roles.get().tab === "live") void togglePause(real);
-        else if (key === "f" && real && roles.get().tab === "live") toggleFollow();
-        else return;
-        e.preventDefault();
         return;
       }
       if (s.section !== "session" || f.confirm) return; // 3.1.4.0 R2: Session hops this harness's agents

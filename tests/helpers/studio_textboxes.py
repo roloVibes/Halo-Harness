@@ -115,33 +115,12 @@ def shot(c, name: str) -> None:
 def orchestra(c, rig) -> dict:
     from halo_harness.studio.server import url_for
     c.go("about:blank")
-    c.go(url_for(rig.server, "agents").replace("#t=", "&tour=off&view=live#t="))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
-    c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
-    c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
+    c.go(url_for(rig.server, "agents").replace("#t=", "&tour=off&view=map#t="))  # 3.6.0.0 R5: the goal form is in the Map's drawer (Run a goal on its bar)
+    c.wait("!!document.querySelector('[data-testid=\"map-run-goal\"]')", 30)
+    c.click_on("document.querySelector('[data-testid=\"map-run-goal\"]')")
     c.wait("document.querySelectorAll('[data-testid=\"orchestra-goal-form\"] textarea').length >= 3", 30)
     shot(c, "orchestra-goal")
     return {"orchestra": boxes(c, "[data-testid=\"orchestra-goal-form\"] textarea")}
-
-
-def roles(c, rig) -> dict:
-    from halo_harness.studio.server import url_for
-    c.go("about:blank")
-    c.go(url_for(rig.server, edit="lineup:halo-dev-cycle").replace("#t=", "&tour=off#t="))
-    # 3.3.16.0 R1b: the tab opens on the summary (no text box); Description's Edit opens its page, the two boxes on it
-    c.wait("document.querySelector('[data-testid=\"roles-lineup-tab\"]')?.dataset.lineup === 'halo-dev-cycle' && "
-           "!!document.querySelector('[data-testid=\"roles-summary\"]')", 30)
-    summary_boxes = c.js("document.querySelectorAll('[data-testid=\"roles-lineup-tab\"] textarea').length")
-    c.js("document.querySelector('[data-testid=\"roles-edit-description\"]').click(); 1")
-    c.wait("!!document.querySelector('[data-testid=\"roles-page-description\"]') && "
-           "document.querySelectorAll('[data-testid=\"roles-lineup-tab\"] textarea').length >= 2", 20)
-    # the tab's help block lands after the form (Linux shard 2 on 91f5d090 read it before it was there): wait for its rows
-    c.wait("(document.querySelector('[data-testid=\"roles-lineup-help\"]')?.querySelectorAll('dt').length || 0) > 0", 20)
-    help_ = c.js("""(() => { const h = document.querySelector('[data-testid="roles-lineup-help"]');
-      return {help: !!h, help_lines: h ? h.querySelectorAll('dt').length : 0,
-              hints_under_fields: document.querySelectorAll('[data-testid="roles-lineup-tab"] .field-hint').length}; })()""")
-    shot(c, "roles-lineup")
-    help_["summary_boxes"] = summary_boxes
-    return {"roles": boxes(c, "[data-testid=\"roles-lineup-tab\"] textarea"), "roles_help": help_}
 
 
 def fleet_strips(c, rig) -> dict:
@@ -150,8 +129,8 @@ def fleet_strips(c, rig) -> dict:
     inspector opened."""
     from halo_harness.studio.server import url_for
     from tests.helpers.studio_strips import strips
-    url = url_for(rig.server, "agents").replace("#t=", "&tour=off#t=")
-    return {"fleet_strips": strips(c, url, "!!document.querySelector('.workspace .stage-main .ws-cell')", "roles-inspector", shot, "fleet")}
+    url = url_for(rig.server, "agents").replace("#t=", "&view=map&tour=off#t=")  # 3.6.0.0 R5: the Map's bar
+    return {"fleet_strips": strips(c, url, "!!document.querySelector('.section-view:not([hidden]) .workspace .stage-main .ws-cell')", "map-feed", shot, "fleet")}
 
 
 def session_strips(c, rig) -> dict:
@@ -171,7 +150,7 @@ class TextBoxDriver(Driver):
         from tests.helpers.prompt_rig import PromptRig
         with PromptRig() as rig:
             SHOTS[:] = self.argv[:1]
-            yield ((prompt, (c, rig)), (prompt_long, (c, rig)), (orchestra, (c, rig)), (roles, (c, rig)),
+            yield ((prompt, (c, rig)), (prompt_long, (c, rig)), (orchestra, (c, rig)),
                    (fleet_strips, (c, rig)), (session_strips, (c, rig)))
 
 

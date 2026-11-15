@@ -31,7 +31,7 @@ test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
 UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
-SECTIONS = ("session", "agents-cast", "agents-live", "agents-busy", "packs", "setup", "settings", "local")
+SECTIONS = ("session", "agents-map", "agents-busy", "packs", "setup", "settings", "local")  # R5: three tabs
 BAR, ROW, PAD, GAP = 36, 40, 12, 12
 
 
@@ -44,15 +44,20 @@ def _src(rel: str) -> str:
     return (UI / rel).read_text(encoding="utf-8")
 
 
+DOCKS = ("map-builder", "crew-builder", "flow-builder")  # 3.6.0.0 R5: the builder box, docked on every tab
+
+
 def offenders(got: dict) -> list:
     """Every 'section: testid NN px (rule)' in the order the sections were opened."""
     out = []
-    for name in (*SECTIONS, "inspector-summary", "inspector-page", "agents-attention", "agents-live-history"):
+    for name in (*SECTIONS, "agents-attention", "agents-live-history"):
         m = got.get(name) or {}
         out += [f"{name}: bar {t} {h} px (< {BAR})" for t, h in m.get("bars") or [] if h < BAR]
         out += [f"{name}: row {t} {h} px (< {ROW})" for t, h in m.get("rows") or [] if h < ROW]
         out += [f"{name}: body {t} inset {h} px (< {PAD})" for t, h in m.get("bodies") or [] if h < PAD]
         for p in m.get("panels") or []:
+            if p and p[0] in DOCKS:  # a dock (the builder box) is one line at the main thing's foot, no title bar
+                continue
             if p and p[1] < BAR:
                 out.append(f"{name}: panel {p[0]} bar {p[1]} px (< {BAR})")
             if p and p[2] < PAD:
@@ -69,9 +74,8 @@ def test_the_primitives_mark_themselves(ctx: Ctx):
               'className="panel-bar" data-density="bar"' in panel and panel.count('data-density="body"') == 3
               and 'data-density="bar"' in _src("lib/workspace/ViewBar.tsx"))
     for rel, mark in (("lib/ui/Tabs.tsx", 'data-density="bar"'), ("shell/Header.tsx", 'className="topbar" data-density="bar"'),
-                      ("routes/agents/ViewSwitch.tsx", 'data-density="bar"'), ("routes/setup/SetupRail.tsx", 'data-density="bar"'),
-                      ("routes/local/LocalRail.tsx", 'data-density="row"'), ("routes/settings/SettingsRail.tsx", 'data-density="row"'),
-                      ("routes/roles/LineupSummary.tsx", 'data-density="row"'), ("routes/roles/LineupPage.tsx", 'data-density="bar"')):
+                      ("routes/setup/SetupRail.tsx", 'data-density="bar"'),  # R5: the tab switch sits in each tab's view bar
+                      ("routes/local/LocalRail.tsx", 'data-density="row"'), ("routes/settings/SettingsRail.tsx", 'data-density="row"')):
         ctx.check(f"{rel} carries {mark}", mark in _src(rel))
 
 
@@ -108,10 +112,10 @@ def test_every_section_was_measured(ctx: Ctx):
     for name in SECTIONS:
         m = got.get(name) or {}
         ctx.check(f"{name}: drawn and measured, got {len(m.get('bars') or [])} bars", len(m.get("bars") or []) >= 1)
-    for name in ("session", "agents-busy", "agents-cast", "agents-live", "packs"):
+    for name in ("session", "agents-busy", "agents-map", "packs"):
         m = got.get(name) or {}
         ctx.check(f"{name}: its workspace's panels each opened and measured, got {len(m.get('panels') or [])} of {m.get('cells')}",
-                  m.get("cells", 0) >= 4 and len(m.get("panels") or []) == m.get("cells"))
+                  m.get("cells", 0) >= 3 and len(m.get("panels") or []) == m.get("cells"))
     for name, rows in (("settings", 15), ("local", 8)):
         ctx.check(f"{name}: its page rail's rows measured", len((got.get(name) or {}).get("rows") or []) >= rows)
 
@@ -126,20 +130,8 @@ def test_no_bar_under_36_no_row_under_40_no_body_under_12(ctx: Ctx):
 def test_one_thing_per_section_on_load(ctx: Ctx):
     got = _got(ctx)
     for name in SECTIONS:
-        opened = (got.get(name) or {}).get("open") or []
+        opened = [o for o in (got.get(name) or {}).get("open") or [] if o not in DOCKS]
         ctx.check(f"{name}: at most one panel open on load, got {opened}", len(opened) <= 1)
-    ctx.check("an edit target opens the canvas and the inspector, nothing else",
-              sorted((got.get("inspector-summary") or {}).get("open") or []) == ["roles-graph", "roles-inspector"])
-
-
-@test
-def test_the_inspector_rows_are_targets(ctx: Ctx):
-    got = _got(ctx)
-    rows = [r for r in (got.get("inspector-summary") or {}).get("rows") or [] if r[0].startswith("roles-block-")]
-    ctx.check(f"the summary's twelve Edit rows, each >= 40 px, got {rows}", len(rows) == 12 and min(h for _t, h in rows) >= ROW)
-    bars = [b for b in (got.get("inspector-page") or {}).get("bars") or [] if b[0] == "roles-page-budget"]
-    ctx.check(f"a page's head is a bar >= 36 px, got {bars}", len(bars) == 1 and bars[0][1] >= BAR)
-
 
 
 @test
@@ -154,16 +146,14 @@ def test_the_fleet_fold_pieces_pass_the_rules(ctx: Ctx):
 
 @test
 def test_the_living_canvas_pieces_pass_the_rules(ctx: Ctx):
-    """3.3.18.0: Live's empty state is measured (its panels too), the History drawer's head is a bar and its rows targets,
-    (the one sentence under Live's bar and a block's title bar are bars too: tests/test_studio_live_plan.py measures them
-    where agents run)."""
+    """3.3.18.0; 3.6.0.0 R5: the Map over a home with nothing running (its panels too) and the History under it (its
+    rows targets) pass the rules."""
     got = _got(ctx)
-    live = got.get("agents-live") or {}
-    ctx.check(f"Live over a home with nothing running: its panels measured, got {len(live.get('panels') or [])} of {live.get('cells')}",
-              live.get("cells", 0) >= 4 and len(live.get("panels") or []) == live.get("cells"))
+    m = got.get("agents-map") or {}
+    ctx.check(f"the Map over a home with nothing running: its panels measured, got {len(m.get('panels') or [])} of {m.get('cells')}",
+              m.get("cells", 0) >= 3 and len(m.get("panels") or []) == m.get("cells"))
     h = got.get("agents-live-history") or {}
-    ctx.check(f"History's head is a bar >= 36 px, got {h.get('bars')}", any(t == "live-history-head" and v >= BAR for t, v in h.get("bars") or []))
-    rows = [r for r in h.get("rows") or [] if r[0] == "live-history-row"]
+    rows = [r for r in h.get("rows") or [] if "history" in str(r[0])]
     ctx.check(f"History's rows are targets >= 40 px (or none yet), got {rows}", all(v >= ROW for _, v in rows))
 
 

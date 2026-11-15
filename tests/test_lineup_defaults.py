@@ -54,40 +54,6 @@ def test_the_numbers_are_the_codes(ctx: Ctx):
     ctx.check("no tiers: no tier gate", tc.tier_gate("a", "b") is None)
 
 
-@test
-def test_the_terminal_and_the_docs_say_the_same(ctx: Ctx):
-    from halo_harness import field_help
-    view = (REPO / "halo_harness" / "tui" / "dialogs" / "lineup_editor.py").read_text(encoding="utf-8")
-    ctx.check("the lineup view prints the default under an unset section", 'f"(not set = Halo does: {lineup_default(section)})"' in view)
-    roles = (REPO / "docs" / "ROLES.md").read_text(encoding="utf-8").replace("`", "")
-    missing = [k for k, line in field_help.LINEUP_DEFAULTS.items() if line not in roles]
-    ctx.check(f"docs/ROLES.md lists every line; missing {missing}", not missing)
-    bundle = REPO / "halo_harness" / "studio" / "static" / "dist" / "studio.js"
-    if bundle.is_file():
-        js = bundle.read_text(encoding="utf-8", errors="replace")
-        ctx.check("the bundle carries no copy of the lines", field_help.LINEUP_DEFAULTS["tiers"] not in js)
-
-
-@test
-def test_an_edit_target_opens_one_block(ctx: Ctx):
-    from halo_harness.studio.edit_target import LINEUP_BLOCKS, parse
-    t, _ = parse("lineup:halo-dev-cycle:budget")
-    ctx.check(f"lineup:<name>:<block>, got {t}", t is not None and (t.name, t.block, t.text) == ("halo-dev-cycle", "budget", "lineup:halo-dev-cycle:budget")
-              and t.query() == "?mode=agents&view=cast&edit=lineup:halo-dev-cycle:budget")
-    t, _ = parse("lineup:halo-dev-cycle")
-    ctx.check("no block: the summary", t is not None and t.block == "" and t.text == "lineup:halo-dev-cycle")
-    for bad in ("lineup:x:nope", "bio:coder:budget", "lineup::budget"):
-        got, why = parse(bad)
-        ctx.check(f"{bad!r} is not a target, with a reason", got is None and why)
-    defaults = (UI / "routes" / "roles" / "defaults.ts").read_text(encoding="utf-8")
-    sections = (UI / "routes" / "roles" / "sections.ts").read_text(encoding="utf-8")
-    head = re.findall(r'\{ id: "(\w+)", title:', defaults[defaults.index("HEAD_BLOCKS"):defaults.index("LINEUP_BLOCKS")])
-    names = re.findall(r'\{ name: "(\w+)", title:', sections)
-    ctx.check(f"the shell's blocks are the same, got {head + names}", tuple(head + names) == LINEUP_BLOCKS)
-    edit = (UI / "shell" / "edit.ts").read_text(encoding="utf-8")
-    ctx.check("the shell reads the block off the target", "lineupBlock(m[3])" in edit and "page: target.block" in edit)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

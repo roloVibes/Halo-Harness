@@ -1,16 +1,16 @@
 # Replays: scrub a run back in time, save it as one file, film a clip, compare two runs, read its report card
 
-Read this when you want to see what a session looked like at an earlier moment on Studio's Agents -> Live, save a run's replay as one file to open on another machine, turn a stretch of it into an animated clip, compare two runs side by side (`halo replay list | save | open | clip | compare`), or read a finished run's report card (`halo report`).
+Read this when you want to see what a session looked like at an earlier moment on Studio's Agents -> Map, save a run's replay as one file to open on another machine, turn a stretch of it into an animated clip, compare two runs side by side (`halo replay list | save | open | clip | compare`), or read a finished run's report card (`halo report`).
 
 The scrubber, the file and the clip are 3.4.1.0 "Time" (round R1); a goal run saved as a file and Compare are round
 R2; the report card is round R3. They are core: they read this machine's sessions and
-`<state>/replays/` (`~/.halo/replays/`). [Studio: Agents -> Live](STUDIO-live.md) has
-the canvas they redraw; `halo replay <session> --model <ref>` (re-run one turn on another model) is a different verb,
+`<state>/replays/` (`~/.halo/replays/`). [Studio: Agents -> 3 · Map](STUDIO-map.md) has
+the map they redraw; `halo replay <session> --model <ref>` (re-run one turn on another model) is a different verb,
 in [COMMANDS-sessions.md](COMMANDS-sessions.md#halo-replay).
 
 ## The scrubber
 
-Under Live's canvas, one bar: **Play** / Pause, the speed (**1x**, **4x**, **16x**), the clock ("0:22 / 1:40"), the cost
+Under the Map, one bar: **Play** / Pause, the speed (**1x**, **4x**, **16x**), the clock ("0:22 / 1:40"), the cost
 the session had spent at that moment, what is drawn, **Save this run's replay**, **Export a clip** and **Now**. Under
 them the session's time axis:
 
@@ -19,7 +19,7 @@ them the session's time axis:
 - **marks**: one tick per spawn (a sub-agent started, its task), hand-off (it handed back, the first line), ask (a
   question, a plan review or a permission card), failure and finish. Hover a tick for what it was.
 
-Drag anywhere on the axis and the canvas is redrawn **as it was at that moment**: who existed, in which block, each one's
+Drag anywhere on the axis and the map is redrawn **as it was at that moment**: who existed, in which block, each one's
 state and what it ran, the plan's line labels (a hand-off shows on its line for eight seconds of replay time), the
 sentence under the bar (what waited on you first, then who was doing what) and the cost so far, under a
 "replay -- <time>" banner in muted colours. Play runs it forward from there (from the start when it stands at the end);
@@ -28,7 +28,7 @@ sentence under the bar (what waited on you first, then who was doing what) and t
 Over the session drawn now the bar shows its axis up to this second (read when the pointer comes to it); dragging back
 rewinds that session. History's rows (a session, a goal run, a mission, a saved file), a goal run's report (Replay), the
 empty state's Replay the last session, an agent's history ("replay") and the palette all open on this one bar: there is
-no other replay control (Cast's replay bar went in 3.4.1.0).
+no other replay control (Cast's replay bar went in 3.4.1.0; Cast itself went in 3.6.0.0).
 
 A goal run's or a mission's replay is coarse: the record holds each lane's or part's start and end, so the scrub shows
 who existed and how each ended, not each step; the bar says so. A goal run SAVED as a file (below) holds each lane's
@@ -100,9 +100,9 @@ before them still opens and compares (its figures then come from its agents; wha
 ## Export a clip
 
 **Export a clip** films the range From .. To (prefilled: the start to where the scrubber stands) at the scrubber's speed
-on Live and writes ONE animated file, `<state>/replays/clips/<id>-<from>-<to>.webp` (GIF where Pillow has no animated
+on the Map and writes ONE animated file, `<state>/replays/clips/<id>-<from>-<to>.webp` (GIF where Pillow has no animated
 WebP): **1200 px wide**, 5 frames a second, **at most 30 seconds** (a range that would run longer is played faster to
-fit, and it says so). It is filmed the way the front-page captures are: headless Chrome draws Live at each moment and
+fit, and it says so). It is filmed the way the front-page captures are: headless Chrome draws the Map at each moment and
 Pillow assembles the frames. It says the frames, length, width, format and path before it writes; a session not saved
 yet is saved first, said. It needs Chrome (`HALO_CHROME`, else the usual install) and Pillow
 (`uv tool install "halo-harness[images]"`); without either it says which and writes nothing. Saying what it will write
@@ -117,7 +117,7 @@ the clip takes, and what that port reaches is only the throwaway Studio.
 
 ## Compare two runs
 
-On History (Agents -> Live's bar, `History · N`) every row has a tick. Tick two -- any two of a session, a goal run and a
+On History (under the Map, `History · N`) every row has a tick. Tick two -- any two of a session, a goal run and a
 saved replay file -- and press **Compare**: a page of the drawer (the drawer widens; **Back** returns to the list with
 the ticks kept). Nothing opens by itself, and a third tick lets the oldest go.
 
@@ -177,7 +177,7 @@ Markdown; `--json` prints the card's data (`format: halo-report-card`, `story`, 
 ```sh
 halo replay list [--json]                                      # the saved replays, newest first
 halo replay save <session> [--lineup NAME] [--dry-run] [--json]  # says what it holds and where, then writes it
-halo replay open <file> [--no-studio] [--json]                 # checks it, keeps it under replays/, opens Live on it
+halo replay open <file> [--no-studio] [--json]                 # checks it, keeps it under replays/, opens the Map on it
 halo replay clip <file|id> [--from T] [--to T] [--speed N] [--dry-run] [--json]   # T: seconds or m:ss
 halo replay compare <a> <b> [--split T] [--json]              # two runs side by side; a, b: session id, goal run id, file
 halo report <session|run|file> [--json]                        # the run report card (R3): Markdown, or its data
@@ -185,7 +185,7 @@ halo report <session|run|file> [--json]                        # the run report 
 
 `save` takes a goal run id of the repo you are in as well as a session id.
 
-`open` starts Studio (or reuses the running one) at `?mode=agents&view=live&replay=<id>`; `&at=<seconds>` opens it at
+`open` starts Studio (or reuses the running one) at `?mode=agents&view=live&replay=<id>` (an old address; it lands on the Map); `&at=<seconds>` opens it at
 that moment. Studio's routes: `GET replays`, `GET replays/plan?session=|run=`, `POST replays/save {session}|{run}`,
 `GET replays/compare?a=&b=[&split=]`, `GET replays/report?ref=` (the card and its Markdown), `POST replays/import`,
 `GET replays/<id>`, `GET|POST replays/<id>/clip`, `GET replays/clips/<name>` (studio/replays_api.py).

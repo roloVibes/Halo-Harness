@@ -6,7 +6,7 @@ them, and the rows each block offers (the wizard's own lists).
     {model, permission_mode, theme, theme_default,
      themes: [{name, palette: {bg, surface, panel, text, muted, accent, ok, warn, bad, tool}}],
      permission_modes: [{id, label, note}],            init_cli._PERMISSION_MODE_ROWS
-     team: {active, source, roles_enabled, lineups: [{name, label, scope, description, active, default}]},
+     team: {active, source, maps: [{name, label, scope, description, boxes, lines, active, default}]}  (the Map step),
      models: [{ref, provider, label, best_at, price, context}],   the Models panel's rows (studio/model.py), cached only
      model_notes: [lines],                            a configured Ollama host nothing read yet ("not read yet: Refresh")
      providers: {<name>: {label, set, source, tail, enabled, reachable, catalog_count, detail, host_hint, fields}},
@@ -79,36 +79,28 @@ def model_list(state_dir=None, cwd=None) -> list:
     return out
 
 
-def lineup_rows(cwd=None, state_dir=None) -> list:
-    """The Team step's rows (tui/dialogs/team_step_actions.py `_rows`): One model for everything, then every
-    lineup with its scope; `active` marks the one in use, `default` the auto lineup while no `team:` is set."""
-    from halo_harness import teams_yaml as T
-    from halo_harness.lineup_choice import ONE_MODEL_WORD
-    from halo_harness.lineup_default import DEFAULT_LINEUP, configured_team
-    from halo_harness.roles import roles_mode_enabled
-    from halo_harness.tui.dialogs.team_preview import ONE_MODEL_LABEL
-    T.ensure_builtin_team_templates(state_dir=state_dir)
-    off = not roles_mode_enabled()
-    team = configured_team()
-    rows = []
-    for name in T.list_team_templates(cwd=cwd, state_dir=state_dir):
-        found = T.find_team_template_path(name, cwd=cwd, state_dir=state_dir)
-        raw = T.load_team_template_raw(name, cwd=cwd, state_dir=state_dir) or {}
-        default = not off and team is None and name == DEFAULT_LINEUP
-        rows.append({"name": name, "label": name, "scope": found[1] if found else "?", "description": str(raw.get("description") or ""),
-                     "active": not off and (name == team or default), "default": default})
-    one = {"name": ONE_MODEL_WORD, "label": ONE_MODEL_LABEL, "scope": "", "description": "the default model runs every job",
-           "active": off or not any(r["active"] for r in rows), "default": False}
-    return [one, *rows]
+def map_rows(cwd=None, state_dir=None) -> list:
+    """The Map step's rows (3.6.0.0 R5, the Team step before): every map, nearest first (yours, this project's, the
+    starters); `active` marks the one new sessions run on, `default` the starter map while no `crew.map` is set."""
+    from halo_harness.crew import store
+    from halo_harness.crew.compile import DEFAULT_MAP, in_use
+    used, source = in_use(None, cwd)
+    rows, seen = [], set()
+    for r in store.rows("map", cwd=cwd, state_dir=state_dir):
+        if r["name"] in seen:
+            continue
+        seen.add(r["name"])
+        rows.append({"name": r["name"], "label": r["name"], "scope": r["_scope"], "description": str(r.get("about") or ""),
+                     "boxes": len(r.get("boxes") or []), "lines": len(r.get("lines") or []), "active": r["name"] == used,
+                     "default": source == "default" and r["name"] == DEFAULT_MAP})
+    return rows
 
 
 def team_block(cwd=None, state_dir=None) -> dict:
-    from halo_harness.lineup_choice import ONE_MODEL_WORD
-    from halo_harness.lineup_default import lineup_in_use
-    from halo_harness.roles import roles_mode_enabled
-    name, source = lineup_in_use()
-    return {"active": name or ONE_MODEL_WORD, "source": source, "roles_enabled": bool(roles_mode_enabled()),
-            "lineups": lineup_rows(cwd, state_dir)}
+    """The Map step (its block id stays `team`: `halo setup team`, `?block=team`): the map in use and every map."""
+    from halo_harness.crew.compile import in_use
+    name, source = in_use(None, cwd)
+    return {"active": name or "", "source": source, "maps": map_rows(cwd, state_dir)}
 
 
 def setup_state(cwd=None, state_dir=None) -> dict:

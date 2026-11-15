@@ -4,6 +4,7 @@ open Studio there (3.3.13.0 R2: `/design` and `--mode design` are the design pac
 system prompt name Studio; 3.0.7.0: design and roles are React sections (their DOM through
 tools/capture_studio.py --dom); 3.0.8.0 R2: Team; 3.1.4.0 R3: Org and Flow are gone; R2: Session, six sections;
 3.3.16.0 R1: Agents took in Team, Roles and Orchestra; R2: and Fleet (six sections; the four words are doors that say the new one).
+3.6.0.0 R5: the doors land on Agents -> 3 · Map; Cast and Live went (with their two DOM checks); /roles is one line.
 Run: python -m tests.test_studio_modes
 """
 
@@ -109,8 +110,8 @@ def test_the_shell_has_six_sections_and_opens_each_by_mode(ctx: Ctx):
     ctx.check(f"/studio fleet: no section (3.5.0.0), got {out!r}", "is not a Studio section" in out and "?mode=fleet" not in out)
     with _NoBrowser():
         out = _cmd_studio("team url", facade)
-    ctx.check(f"/studio team url: Agents -> Live (3.4.0.0 D), its URL and the new door, got {out!r}", "Agents -> Live:" in out and "?mode=team#t=" in out
-              and "Team is Agents -> Live now (Alt+2 in Studio; halo studio --mode agents)" in out and "Team's board is gone" in out)
+    ctx.check(f"/studio team url: Agents -> 3 · Map (3.6.0.0 R5), its URL and the new door, got {out!r}", "Agents -> 3 · Map" in out and "?mode=team#t=" in out
+              and "Team is Agents -> 3 · Map now (Alt+2 in Studio; halo studio --mode agents)" in out and "lineups are gone" in out)
     with _NoBrowser():
         out = _cmd_studio("agents url", facade)
     ctx.check(f"/studio agents url names Agents, no door line, got {out!r}", "Agents:" in out and "?mode=agents#t=" in out and " now (Alt+2" not in out)
@@ -157,14 +158,14 @@ def test_slash_studio_and_roles_open_that_mode(ctx: Ctx):
     facade = _facade()
     with _NoBrowser() as nb:
         out = _cmd_studio("roles url", facade)
-        ctx.check(f"/studio roles url: Agents -> Cast, its URL and the new door once, got {out!r}", "Agents -> Cast:" in out
-                  and "?mode=roles#t=" in out and out.count("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)") == 1)
+        ctx.check(f"/studio roles url: Agents -> 3 · Map (3.6.0.0 R5), its URL and the new door once, got {out!r}", "Agents -> 3 · Map" in out
+                  and "?mode=roles#t=" in out and out.count("Roles is Agents -> 3 · Map now (Alt+2 in Studio; halo studio --mode agents)") == 1)
         ctx.check("`url` keeps the browser shut", nb.calls == [])
         out = _cmd_roles("gui url", facade)
-        ctx.check(f"/roles gui url opens Agents on Cast, got {out!r}", "Agents -> Cast:" in out and "?mode=roles#t=" in out)
+        ctx.check(f"/roles is one line now (lineups are gone), got {out!r}", "lineups are gone" in out and "/map" in out and nb.calls == [])
         out = _cmd_studio("orchestra url", facade)
-        ctx.check(f"/studio orchestra url: Agents -> Live and the new door (3.4.0.0 D: Runs went), got {out!r}", "Agents -> Live: Run a goal" in out
-                  and "Orchestra is Agents -> Live now" in out and "Runs is gone: a goal runs on Live" in out)
+        ctx.check(f"/studio orchestra url: Agents -> 3 · Map and the new door (3.6.0.0 R5: Live went), got {out!r}", "Agents -> 3 · Map: Run a goal" in out
+                  and "Orchestra is Agents -> 3 · Map now" in out and "halo orchestra still runs one" in out)
         out = _cmd_studio("url", facade)
         ctx.check("bare /studio keeps the saved mode (no query)", "?mode=" not in out)
         out = _cmd_studio("design", facade)
@@ -175,19 +176,19 @@ def test_slash_studio_and_roles_open_that_mode(ctx: Ctx):
 
 
 @test
-def test_roles_table_is_the_text_table(ctx: Ctx):
+def test_roles_table_is_the_one_line_too(ctx: Ctx):
     facade = _facade()
     with _NoBrowser():
         table = _cmd_roles("table", facade)
         bare = _cmd_roles("", facade)
-        ctx.check("`/roles table` prints exactly what bare /roles prints outside the TUI", table == bare and "Halo Studio" not in table)
+        ctx.check(f"`/roles table` and bare /roles print the one line (3.6.0.0 R5), got {bare!r}", table == bare and "lineups are gone" in bare)
 
 
 @test
-def test_tui_bare_roles_routes_to_the_gui(ctx: Ctx):
+def test_tui_roles_is_the_one_line(ctx: Ctx):
+    """3.6.0.0 R5: the TUI's /roles editor left; /roles and /teams print the one line (builtins.LINEUPS_GONE)."""
     src = (REPO_DIR / "halo_harness" / "tui" / "slash.py").read_text(encoding="utf-8")
-    roles = src.split("async def _handle_roles(", 1)[1].split("async def ", 1)[0]
-    ctx.check("bare /roles in the TUI becomes `gui`", 'args = sub = "gui"' in roles)
+    ctx.check("no TUI /roles handler is left", "async def _handle_roles(" not in src)
     ctx.check("no /org handler is left", "async def _handle_org(" not in src)
 
 
@@ -195,9 +196,9 @@ def test_tui_bare_roles_routes_to_the_gui(ctx: Ctx):
 def test_top_level_help_names_the_gui(ctx: Ctx):
     from halo_harness.cli import _build_parser
     text = " ".join(_build_parser().format_help().split())  # width-independent
-    for word in ("studio", "teams", "agents", "pack", "--mode agents", "/studio and /roles", "halo pack install design"):
+    for word in ("studio", "agents", "workflows", "maps", "pack", "--mode agents", "halo pack install design"):
         ctx.check(f"halo --help mentions {word!r}", word in text)
-    for mod, fn in (("halo_harness.roles_cli", "cmd_roles"), ("halo_harness.teams_cli", "cmd_teams"), ("halo_harness.agents_cli", "cmd_agents")):
+    for mod, fn in (("halo_harness.roles_cli", "cmd_roles"),):  # 3.6.0.0 R5: halo teams went; halo agents is the crew's
         import importlib
         buf = io.StringIO()
         err = io.StringIO()
@@ -217,7 +218,7 @@ def test_system_prompt_tells_the_model_about_studio(ctx: Ctx):
     ctx.check("names the slash commands", "`/studio` or `/roles`" in text and "`/design`" in text)
 
 
-from tests.helpers.studio_modes_dom import dom as _dom, need_chrome as _need_chrome  # noqa: E402
+from tests.helpers.studio_modes_dom import need_chrome as _need_chrome  # noqa: E402
 
 
 @test
@@ -247,40 +248,6 @@ def test_design_opens_as_the_packs_page(ctx: Ctx):
     ctx.check("no section is framed any more (3.0.7.0 R2)", "legacyPanels" not in routes and "view: AgentsView" in routes
               and "designPanels" not in routes)
     ctx.check("the legacy bridge is gone", not (ui / "shell" / "legacy.ts").exists() and not (ui / "routes" / "legacy").exists())
-
-
-@test
-def test_roles_opens_as_a_react_section(ctx: Ctx):
-    """3.0.7.0 R2: `--mode roles`: with only the shipped lineups (none active) one Start view and no panels; over a
-    seeded lineup with two declared tiers and a card whose model the catalog lacks, the canvas with its eight cards
-    in three tier boxes, the Problems panel's row, and, a bio clicked, the bio form with the model picker table."""
-    _need_chrome()
-    got = _dom("roles")
-    start, roles = got.get("start", {}), got.get("roles", {})
-    ctx.check(f"the Start view, no canvas and no frame, got {start or got}",
-              start.get("section-tab") == 6 and start.get("roles-start") == 1 and start.get("roles-canvas") == 0
-              and start.get("panel-title") == 0 and start.get("legacy-frame") == 0)
-    ctx.check(f"the canvas, eight cards, three tier boxes, the edges, got {roles}",
-              roles.get("roles-canvas") == 1 and roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and (roles.get("roles-edge") or 0) >= 7
-              and roles.get("roles-start") == 0 and roles.get("legacy-frame") == 0)
-    ctx.check(f"six panels (their titles; 3.3.2.0 R3: no about line), the problem row, got {roles}", roles.get("panel-title") == 6 and (roles.get("roles-problem") or 0) >= 1)
-    ctx.check(f"the bio form, the model table (one row per catalog model) and its Test button, got {roles}",
-              roles.get("bio-form") == 1 and roles.get("model-row") == 7 and (roles.get("model-select-test") or 0) >= 1)
-
-
-@test
-def test_orchestra_opens_a_planned_run_on_the_plan_canvas(ctx: Ctx):
-    """3.0.9.0 R2; 3.4.0.0 D "the runs fold": a seeded review run waiting for its plan is its lead on Agents -> Live,
-    waiting on you with Review the plan; nothing opens by itself (no plan panel, no goal panel), and the old
-    `--mode orchestra` door lands on Live with Run a goal on its bar (tests/helpers/studio_plan.py drives the rest)."""
-    _need_chrome()
-    got = _dom("orchestra")
-    plan, old = got.get("plan") or {}, got.get("old_door") or {}
-    ctx.check(f"the lead on Live with Review the plan, nothing open, got {plan or got}", plan.get("agents-live-lead") == 1
-              and plan.get("agents-live-review") == 1 and plan.get("orchestra-plan") == 0 and plan.get("run-goal-drawer") == 0
-              and plan.get("section-tab") == 6 and plan.get("orchestra-root") == 0)
-    ctx.check(f"the old door: Live, Run a goal on its bar, no Start view, got {old}", old.get("roles-live-map") == 1
-              and old.get("live-run-goal") == 1 and old.get("start-view") == 0)
 
 
 if __name__ == "__main__":

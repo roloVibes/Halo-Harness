@@ -3,8 +3,8 @@
 // harness), session commands to `live/<harness>/<sid>/command`.
 import { api, ApiError } from "../../lib/api";
 import { goSection, studio, toast } from "../../lib/store";
-import { pickLive } from "../agents/live/scope";
-import { roles } from "../roles/store";
+import { pickLive } from "../crew/live/scope";
+import { openFeed } from "../crew/map/feedOpen";
 import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
 import { scopedAgents } from "./scope";
 import { append, follow, watch } from "./streams";
@@ -52,7 +52,7 @@ export function select(key: AgentKey): void {
 }
 
 /** Double-click / Enter on a node: the agent's inspector, expanded and focused -- Session's Agent strip in Session, else
- *  (3.3.16.0 R2: the Fleet section went) Agents -> Live's inspector on the agent. */
+ *  (3.6.0.0 R5: Live went) the Map's "What they think and say" drawer filtered to the agent. */
 export function openAgentPanel(key?: AgentKey): void {
   if (key) select(key);
   const k = key || fleet.get().selected;
@@ -63,12 +63,8 @@ export function openAgentPanel(key?: AgentKey): void {
     }
     return;
   }
-  if (k) pickLive("agent", k);
-  if (studio.get().section !== "agents" || roles.get().canvasView !== "live") goSection("agents", "live");
-  if (layoutStore("roles").get().layout) {
-    patchPanel("roles", "roles-inspector", { collapsed: false, face: "detail" }, false);
-    focusPanel("roles", "roles-inspector");
-  }
+  goSection("agents", "map");
+  if (k) openFeed(`agent:${parseKey(k).a}`);
 }
 
 export function pin(key: AgentKey | "" = fleet.get().selected): void {

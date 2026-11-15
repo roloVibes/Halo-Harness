@@ -82,11 +82,11 @@ def publish(ctx, kind: str, data) -> None:
 
 
 def agents_live(c) -> None:
-    """Alt+2, then Agents' Live view (3.3.16.0 R2: the Fleet section folded in)."""
+    """Alt+2, then Agents -> 3 · Map (3.6.0.0 R5: Live went; the Attention chip is on every tab's bar)."""
     alt(c, 2)
     c.wait(f"{CUR}.startsWith('Agents')", 20)
-    c.click_on(q("[data-testid=agents-view-live]"))
-    c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'live'", 10)
+    c.click_on(q(".ag-part:not([hidden]) [data-testid=agents-view-map]"))
+    c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'map'", 10)
 
 
 def fleet_queue(c) -> None:
@@ -101,19 +101,22 @@ def fleet_queue(c) -> None:
 def events(c, url, ctx) -> dict:
     from tests.helpers.studio_header_menus import plus
     out: dict = {}
-    agents_live(c)  # 3.3.16.0 R2: Activity is Live's optional panel (the "+")
+    agents_live(c)
     if c.js(f"!!{q('[data-testid=agents-attention-close]')}"):  # the queue from the step before covers the page
         c.click_on(q("[data-testid=agents-attention-close]"))
-    if not c.js(f"!!{q('[data-testid=fleet-log]')}"):
-        plus(c, "fleet-activity")
-    c.wait(f"!!{q('[data-testid=fleet-log]')}", 20)  # 3.6.0.0 R0a: the view bar's button adds it as the canvas's tab
-    log = qa("[data-testid=fleet-log-line][data-kind=pack]")
+    alt(c, 1)  # 3.6.0.0 R5: Activity (the merged live log) is Session's tab (Agents -> Live went)
+    if not c.js(f"!!{q('.section-view:not([hidden]) [data-testid=fleet-log]')}"):
+        plus(c, "session-activity")
+    c.wait(f"!!{q('.section-view:not([hidden]) [data-testid=fleet-log]')}", 20)
+    log = qa(".section-view:not([hidden]) [data-testid=fleet-log-line][data-kind=pack]")
     seen = c.js(f"{log}.length")  # 3.3.10.0 R3: the bundle step's own hello.said line came first
     publish(ctx, "review.done", {"file": "README.md", "findings": 3})
     publish(ctx, "review.started", {"file": "docs/A.md"})
     c.wait(f"{log}.length >= {seen + 2}", 15)
     out["activity"] = c.js(f"{log}.slice({seen}).map((l) => l.querySelector('.fac-text').textContent)")
-    alt(c, 1)
+    from tests.helpers.studio_header_menus import button
+    c.click_on(button("session-activity"))  # the tab closes: Session's Live has the main place again
+    c.wait(f"{button('session-activity')}.getAttribute('aria-pressed') !== 'true'", 10)
     live = qa("[data-testid=session-live-line][data-kind=pack]") + ".filter((l) => !l.textContent.includes('HELLO'))"  # not R3's bundle line
     c.wait(f"{live}.length >= 2", 15)
     out["live"] = c.js(f"{live}.map((l) => [l.querySelector('[data-testid=session-live-kind]').textContent, l.querySelector('[data-testid=session-live-pack]').textContent])")

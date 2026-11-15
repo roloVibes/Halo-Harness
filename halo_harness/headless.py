@@ -946,7 +946,7 @@ def build_session(
 
     state_dir = bridge_home()
     routes = load_routes(state_dir / "routes.json")
-    # 3.6.0.0 R3: the map in use (`--map`, config `crew.map`; crew/map_session.py) -- none: nothing below changes.
+    # 3.6.0.0 R3: the map in use (`--map`, config `crew.map`, else `starter`: 3.6.0.0 R5; crew/map_session.py).
     _crew_map, _map_lines = (None, []) if (bare or agent) else _map_session.prepare(cli_flags, cwd)
     for _ln in _map_lines:
         print(_ln, file=sys.stderr)
@@ -1410,24 +1410,23 @@ def build_session(
         print(f"halo: unknown --agent {agent!r} (known: {', '.join(sorted(discovered_agents)) or '(none)'})",
               file=sys.stderr)
 
-    # Halo 2.0.5 round 5: `--team <name>` overrides config's own active
-    # `team:` key for THIS run only (never persisted); an unknown name is
-    # reported on stderr and the session runs without a team, the same
-    # degrade-not-die shape the unknown `--agent` branch just above uses.
-    _team_name_for_session = (cli_flags or {}).get("team")
-    if _team_name_for_session and not bare:
-        from halo_harness.teams_yaml import resolve_team_template
-        if resolve_team_template(_team_name_for_session, cwd=cwd) is None:
-            print(f"halo: unknown --team {_team_name_for_session!r} (halo teams list shows every template) "
-                  f"-- running without a team", file=sys.stderr)
-            _team_name_for_session = None
+    # 3.6.0.0 R5: lineups are gone and every session runs on a map; the old `--team <name>` says so in one line and
+    # the session runs on the map in use (`--map <name>` picks one for this run).
+    _team_name_for_session = None
+    if (cli_flags or {}).get("team") and not bare:
+        print(f"halo: --team is gone (lineups are gone): this session runs on the map "
+              f"{getattr(_crew_map, 'name', None) or 'in use'} (--map <name> picks one; halo maps list)", file=sys.stderr)
     # 3.1.8.0 R5: `tools.capabilities` of the lineup's main (or the --agent bio, or the run that started this
     # worker) narrows the registry before the model sees it; nothing declared, nothing changes (docs/ISOLATION.md).
     from halo_harness.isolation.capabilities import narrow_session
     if _crew_map is not None:  # 3.6.0.0 R3: on a map, main's tools, agents and mode come from the map's main
         _map_session.narrow(frozen_registry, session_catalog, _crew_map)
-        discovered_agents, agent_type_restriction = _map_session.agents(discovered_agents, _crew_map)
-        if not permission_mode and not dangerously_skip_permissions:
+        # 3.6.0.0 R5: main's own Agent calls are held to the map by crew/map_run.py (a named target needs a line from
+        # main); the session-wide restriction would also stop the step runner's, a chain's and /review's own spawns
+        discovered_agents, _map_targets = _map_session.agents(discovered_agents, _crew_map)
+        # 3.6.0.0 R5: a map you chose sets main's mode from its `careful`; the default starter keeps the session's own
+        # (settings, config), as the auto lineup it replaced did
+        if not permission_mode and not dangerously_skip_permissions and getattr(_crew_map, "source", "") != "default":
             resolved_mode = _crew_map.main.get("mode") or resolved_mode
             permission_engine.mode = resolved_mode
         _opt_ins = [_map_session.line(_crew_map)]
@@ -1551,11 +1550,7 @@ def build_session(
         session_catalog=session_catalog, mcp_manager=mcp_manager, hook_runner=hook_runner,
         agents=discovered_agents, routes=routes, agent_type_restriction=agent_type_restriction,
         roles=persisted_roles, cli_roles=cli_roles, cli_flags=cli_flags, settings=settings,
-        # Halo 2.0.5 round 5: `--team <name>` (this one run; config's own
-        # `team:` key applies when the flag is absent) -- the session then
-        # enforces that lineup's sections through `teams_runtime.py`. An
-        # unknown name degrades to a stderr line + no team (same shape as
-        # the unknown `--agent` handling just above), never a hard exit.
+        # 3.6.0.0 R5: the map in use (every session runs on one); `--team` is gone
         team_name=_team_name_for_session, crew_map=_crew_map,
     )
     session.opt_ins = _opt_ins or None  # 3.1.8.0 R5: its agent row's lines (the tool list, a worker's isolation)

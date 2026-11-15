@@ -52,6 +52,7 @@ KEYS = {
     "ollama_steward": {"a": "set aside", "o": "open Local"},  # 3.3.4.0 R4: the steward's note; 3.3.16.0 R2: Local -> Hosts
     "background_done": {"a": "set aside", **OPEN},  # 3.4.1.3: background work finished while the session was idle
     "crew_try": {"a": "set aside", **OPEN},  # 3.6.0.0 R1: a Try it run ended while the Agents tab did not show it
+    "crew_old": {"a": "set aside", "o": "open the Map"},  # 3.6.0.0 R5: the old files' one line (crew/old_files.py)
 }
 BG_THEN = {"continue": "the agent picks it up by itself", "tell": "it is read with your next message"}
 # 3.3.5.0 R4: a preflight card (agent/preflight.py) answers accept = compact, edit = the bigger-window model, stop

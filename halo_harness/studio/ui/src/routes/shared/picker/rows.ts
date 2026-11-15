@@ -1,6 +1,6 @@
 // The model picker's rows (3.4.1.3 "Pick, don't type"): what one search box matches, how the catalog groups by
 // provider, which rows a field's needs dim, and the flat order the keyboard walks. Pure: no React, no store.
-import type { ModelRow, ModelsStatus } from "../../roles/types";
+import type { ModelRow, ModelsStatus } from "../../crew/models/types";
 
 export type Sort = "name" | "price" | "context" | "best";
 export type Group = { provider: string; label: string; state: string; ok: boolean; rows: ModelRow[] };

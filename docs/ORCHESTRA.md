@@ -655,7 +655,7 @@ not held yet (`workflows/outputs.py`).
   whole run; a hold before one stage is not a thing yet.
 - **The stage set stays the file's:** the plan review keeps it, and the
   supervisor's replanner never pauses a workflow run ([SUPERVISE.md](SUPERVISE.md#replanning)).
-- **Studio's goal panel picks a workflow** (3.4.0.0 D: Live's Run a goal; the Start view before): "or run a pack's workflow" under
+- **Studio's goal panel picks a workflow** (3.4.0.0 D: Run a goal, on the Map's bar since 3.6.0.0 R5; the Start view before): "or run a pack's workflow" under
   the goal form ([STUDIO-orchestra.md](STUDIO-orchestra.md)).
 
 ## The coach
@@ -1046,8 +1046,8 @@ after `y/N` (`--yes`) ([COMMANDS-studio.md](COMMANDS-studio.md#halo-coach)).
 
 ## In Studio
 
-`halo studio`, started in the repo, runs goals from Agents -> Live (3.4.0.0 D: Run a goal on its bar; the Runs view and
-the Orchestra section before it went): a goal run is a job on Live and its report a page of History, as
+`halo studio`, started in the repo, runs goals from Agents -> Map (3.4.0.0 D: Run a goal on its bar, Live's until 3.6.0.0 R5; the Runs view and
+the Orchestra section before it went): a goal run going shows on the Map ("A goal run is going", Open) and its report is a page of History, as
 [STUDIO-orchestra.md](STUDIO-orchestra.md) describes. Its
 backend is `studio/orchestra_api.py`. The routes sit under `/api/orchestra/`
 behind the same loopback, origin and token guard as every Studio route.

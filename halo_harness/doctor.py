@@ -1722,6 +1722,10 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.extend(zip(catalog_ids, _check_catalog_ages(), strict=False))
     from halo_harness.providers.left_core import leftover_lines  # 3.4.0.0: a provider that left, its key still here
     entries.extend(("left_core", f"{WARN} {line}") for line in leftover_lines(cwd=cwd))
+    from halo_harness.crew.old_files import line as _old_files_line  # 3.6.0.0 R5: said while the old folders hold files
+    _old = _old_files_line(cwd)
+    if _old:
+        entries.append(("old_files", f"[INFO] {_old}"))
     entries.append(("sessions", _check_telemetry()))  # 3.4.0.0 B2: /improve's row is the coach pack's own now
     # U5 leftover / H8: tui/clipboard.py's clipboard_doctor_line(), wired here; H12 Part B: its WARN (no
     # xclip/wl-copy/xsel on PATH, e.g. a fresh WSL) gets the fix suffix HERE (`_fix` is this module's vocabulary).

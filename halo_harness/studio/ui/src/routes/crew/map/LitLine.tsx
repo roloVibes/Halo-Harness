@@ -46,7 +46,7 @@ export function showWaited(L: Lit, leaf: string): void {
 }
 
 function useSentence(L: Lit): Sentence {
-  const nodes: LiveNode[] = useMemo(() => (L.rec ? liveNodes(L.rec, fleet.get(), [], "", L.now * 1000) : []), [L.rec, L.now]);
+  const nodes: LiveNode[] = useMemo(() => (L.rec ? liveNodes(L.rec, fleet.get(), L.now * 1000) : []), [L.rec, L.now]);
   const { waits, path } = useWaits(nodes, L.now * 1000, L.mode === "live" && !L.other);
   const box = useMemo(() => {
     const m = new Map<string, string>();
@@ -72,7 +72,7 @@ function Picker({ L }: { L: Lit }) {
 }
 
 /** R4b: the session's todo plan ("plan: 3 of 7 done"), a goal run going, each a link into the drawer. */
-function Extras({ L }: { L: Lit }) {
+export function Extras({ L }: { L: Lit }) {
   useEffect(() => (startTodos(), startOrchestra()), []);
   const plan = planWords(useTodos(L.session?.sid || ""));
   const run = useOrch((s) => s.runs.find((r) => isLiveRun(r.state)));
@@ -110,7 +110,7 @@ export function LitLine() {
     return (
       <p className="cw-line mp-topline" data-testid="map-topline">
         Nothing is running on it now.{off ? <> {L.all.length} session{L.all.length === 1 ? "" : "s"} running, not on a map: <Button size="sm" onClick={() => pickSession(off.sid)} data-testid="map-lit-show-nomap">Show it</Button></> : ""}
-        {" "}{WHEN_WORDS}
+        {" "}{WHEN_WORDS} <Extras L={L} />
       </p>
     );
   }

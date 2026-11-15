@@ -28,7 +28,7 @@ export function makeForStep(): void {
 }
 
 onSavedFor((agent, workflow) => {
-  setAgentsView("flows");
+  setAgentsView("workflows");
   if (stepFor && flows.get().form?.name === stepFor) addStep(agent);
   else refreshCost();
   stepFor = "";

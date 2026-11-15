@@ -30,7 +30,7 @@ column of everything every agent here does, as it happens, is the main thing (3.
 the map of this harness's agents and what the chosen session costs are buttons in the view bar, drawers beside it.
 The agent tree, timeline, log, attention queue and agent inspector, narrowed
 to the session you chose, plus two panels of its own,
-Live and Cost; Agents -> Live keeps everything. They are the same
+Live and Cost; Agents -> Map shows the lit map of a session. They are the same
 components (one implementation each) reading the live stores through one
 scope, `{harness, session}`, which the section sets while it shows.
 
@@ -176,24 +176,23 @@ session read like the terminal, a box to type into it (the slash list, Queue it 
 
 ### Agents
 
-**What it is** (3.3.16.0 R1). Your agents in one place (`Alt+2`, "The cast, what runs now on every machine (a goal run
-too), and what ran"): Team, Roles and Orchestra folded into one section with its views on one switch, first on its bar
--- **Cast** (`C`: the lineup and its bios, Roles as it was), **Live** (`L`: the session's agents as a tree, a goal run
-as a job with its lanes under its lead, Run a goal on its bar and History beside it -- 3.4.0.0 D: Runs, the Orchestra
-console, went, [STUDIO-orchestra.md](STUDIO-orchestra.md); the Attention chip). It opens on Live (3.3.18.0: only what
-runs now, the past in History, [STUDIO-live.md](STUDIO-live.md)) with nothing else open. The old doors land on their views: `?mode=roles` on Cast (`&view=live` on Live), `?mode=orchestra`
-and `?mode=team` on Live (3.4.0.0 D: Runs went); `?mode=agents&view=cast|live|workflows` is the door itself. The whole story:
-[STUDIO-agents.md](STUDIO-agents.md).
+**What it is** (3.3.16.0 R1; rebuilt in 3.6.0.0 R5). Your agents in one place (`Alt+2`): three tabs on one switch --
+**1 · Agents** (make an agent: the form, Try it, the builder; [STUDIO-builder.md](STUDIO-builder.md)), **2 · Workflows**
+(steps of agents; [STUDIO-workflows.md](STUDIO-workflows.md)) and **3 · Map** (connect them: who main hands work to and
+when; every session runs on a map, and while one runs the map lights up; a goal run is started from the Map's **Run a
+goal**, [STUDIO-orchestra.md](STUDIO-orchestra.md); History under the map replays past runs,
+[STUDIO-live.md](STUDIO-live.md), [STUDIO-map.md](STUDIO-map.md)). Keys `1` / `2` / `3` switch tabs; `C` and `L` land on
+the Map, `W` on Workflows. The old doors (`?mode=roles`, `?mode=team`, `?mode=orchestra`, `view=cast`, `view=live`) land
+on the Map. The whole story: [STUDIO-agents.md](STUDIO-agents.md).
 
-**Panels.** Cast and Live draw Roles' six (Lineups, Canvas, Inspector, Problems, Bios, Models); Live adds two
-optional ones, closed until a door opens them: Activity and a goal run's plan review (3.4.0.0 D; Runs' eight
-went). The header's `+` and `...` menus, the palette's panel rows and the status bar follow the view; **Workflows**
-(`W`) is the board of squares.
+**Panels.** Cast and Live, with Roles' six panels (Lineups, Canvas, Inspector, Problems, Bios, Models), and the
+Workflows board went in 3.6.0.0 R5; the notes under Roles, Orchestra and Team below describe them as they were.
 
 #### Roles
 
-Moved: Roles is Agents' **Cast** (and its Plan | Live switch is Agents' Cast | Live) since 3.3.16.0 R1;
-everything below is as it was, reached by `Alt+2` then `C`, or the old door `?mode=roles`.
+Moved: Roles was Agents' **Cast** (and its Plan | Live switch Agents' Cast | Live) from 3.3.16.0 R1; Cast went in
+3.6.0.0 R5 (agents, workflows and the Map replace it, [STUDIO-agents.md](STUDIO-agents.md)), and `?mode=roles` lands on
+the Map. Everything below describes Cast as it was.
 
 
 **What it is.** A lineup says which agent, on which model, plays each part in
@@ -244,7 +243,6 @@ boxes you can arrange and edit; the files are `~/.halo/teams/<name>.yaml` and
 A lineup with one tier lays its members out as a fan under main; a lineup
 with no cards (or none open) shows "Drag a bio here, or New lineup" on the canvas.
 
-![Roles: the cards light up as their agents work, one waits, one finishes and fades, one fails](media/studio-roles-live.gif)
 
 **Panels.** Lineups: your lineups and the shipped ones; the active one is
 marked. Canvas: the open lineup as cards, one box per tier: who plays each
@@ -258,12 +256,11 @@ pickers read, per provider, and why it is empty when it is.
 `Del` removes it (asks first); `Ctrl+Z` / `Ctrl+Shift+Z` undo / redo a lineup edit, `Ctrl`/`Cmd`+`S` saves; `J` / `K` the next / previous card whose agent works (on Live: the next / previous working agent of the tree),
 its Live tab open; `Space` pins that agent's mini stream, with the Live tab open `F` follows and `P` pauses; `Esc` unpins (or closes a replay).
 
-![Roles: the lineup in two declared tiers and the implicit last one, the implementer at work](media/studio-roles.png)
 
 #### Orchestra
 
-Moved: Orchestra was Agents' **Runs** from 3.3.16.0 R1; since 3.4.0.0 D a goal run is a job on Agents -> **Live** (Run a
-goal on its bar) and its report a page of History (`?mode=orchestra` lands on Live); what follows is the engine
+Moved: Orchestra was Agents' **Runs** from 3.3.16.0 R1; since 3.4.0.0 D a goal run is started from Agents -> **Map** (Run a
+goal on its bar; 3.6.0.0 R5) and its report is a page of History (`?mode=orchestra` lands on the Map); what follows is the engine
 ([STUDIO-orchestra.md](STUDIO-orchestra.md), [STUDIO-agents.md](STUDIO-agents.md#who-owns-what-the-owns-line)).
 
 
@@ -315,8 +312,8 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 #### Team
 
-Moved: Team's board went in 3.3.16.0 R1. Who owns what is a goal run's detail on Agents -> **Live** (each
-lane's OWNS row, its Claims page; 3.4.0.0 D); `?mode=team` lands there with one line the first time. The team file and
+Moved: Team's board went in 3.3.16.0 R1. Who owns what is a goal run's detail on Agents -> **Map** (each
+lane's OWNS row, its Claims page; 3.4.0.0 D); `?mode=team` lands there. The team file and
 `halo team` left in 3.4.0.0.
 
 ### Local

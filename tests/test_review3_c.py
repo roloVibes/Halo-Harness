@@ -64,7 +64,7 @@ class _Studio:
 @test
 def test_item34_foreign_host_header_is_refused_everywhere(ctx: Ctx):
     with _Studio() as s:
-        for label, path in (("page", "/"), ("api", "/api/state")):
+        for label, path in (("page", "/"), ("api", "/api/models")):
             own = s.get(path)[0]
             ctx.check(f"{label}: the own Host answers, got {own}", own == 200)
             ctx.check(f"{label}: localhost on the own port answers", s.get(path, host=f"localhost:{s.port}")[0] == 200)
@@ -72,7 +72,7 @@ def test_item34_foreign_host_header_is_refused_everywhere(ctx: Ctx):
             ctx.check(f"{label}: a rebound name with no port is a 403", s.get(path, host="evil.example")[0] == 403)
             ctx.check(f"{label}: loopback on another port is a 403", s.get(path, host=f"127.0.0.1:{s.port + 1}")[0] == 403)
             ctx.check(f"{label}: a missing port is a 403", s.get(path, host="127.0.0.1")[0] == 403)
-        ctx.check("the API refuses a foreign Host before the token is checked", s.get("/api/state", host="evil.example:1", token=False)[0] == 403)
+        ctx.check("the API refuses a foreign Host before the token is checked", s.get("/api/models", host="evil.example:1", token=False)[0] == 403)
 
 
 @test
@@ -81,7 +81,7 @@ def test_item109_a_refused_request_closes_the_connection(ctx: Ctx):
         body = b'{"raw": {}}'
         head = (f"POST /api/validate HTTP/1.1\r\nHost: 127.0.0.1:{s.port}\r\nAuthorization: Bearer wrong\r\n"
                 f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n").encode()
-        nxt = f"GET /api/state HTTP/1.1\r\nHost: 127.0.0.1:{s.port}\r\n\r\n".encode()
+        nxt = f"GET /api/models HTTP/1.1\r\nHost: 127.0.0.1:{s.port}\r\n\r\n".encode()
         sock = socket.create_connection(("127.0.0.1", s.port), timeout=10)
         sock.sendall(head + body + nxt)
         data = b""

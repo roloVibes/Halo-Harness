@@ -12,7 +12,7 @@ steward's finding. The **Attention** chip in Agents' bar shows the count (amber,
 arrives); a click or `A` opens the queue over the page, `A` or Esc closes it. Each row answers with one key, through the
 route that already handles that kind (`GET /api/live/attention`, `POST /api/live/attention/answer`): **A** accepts,
 allows or resumes, **R** denies, redoes or answers with the text you type (a deny reason is optional), **S** stops the
-agent, **O** opens where the row belongs (the agent on Live, the run on Live or its report, Local on that host) and
+agent, **O** opens where the row belongs (the agent on the Map, the run in the Map's drawer or its report, Local on that host) and
 sends nothing. Click a row (or move with `J` / `K` or the arrows), then press the key; every decision is journaled with
 who made it. The count is live on the Agents icon in the rail in every section (a `live` frame with action `attention`
 each time it changes).
@@ -28,7 +28,7 @@ tomorrow.
 ### How this works: Conflicts
 
 Studio watches what each agent is editing (its current Edit / Write, and the Orchestra claims). When two agents of
-different sessions edit the same file of the same repo, an attention row names both; its `O` opens Live on them. Each
+different sessions edit the same file of the same repo, an attention row names both; its `O` opens them on the Map. Each
 session's git state (clean or dirty, ahead / behind, the worktree) comes with it (`GET /api/live/conflicts`, polled with
 the queue).
 
@@ -51,10 +51,10 @@ browser and can be sent to anyone. The dialog's **Download** fetches it with Stu
 
 | Key | Where | What |
 |---|---|---|
-| `Alt+2` | everywhere | Agents (then `L` for Live) |
+| `Alt+2` | everywhere | Agents (then `3` for the Map; `L` lands there too) |
 | `A` | Agents | open or close the Attention queue |
-| `J` / `K` | Live, the Session map, the Cast canvas | the next / previous live agent |
-| `f` | Live's canvas; an agent watched on Agents; Session | Live's canvas: fit the tree; else follow: the stream scrolls with the agent |
+| `J` / `K` | Session's Live column, the Session map, the Map | the next / previous live agent |
+| `f` | an agent watched on Agents; Session | follow: the stream scrolls with the agent |
 | `Space` | an agent watched on Agents; Session | pin the stream: a **mini stream** floats over whatever you look at, in every section |
 | `Esc` | everywhere | unpin the mini stream (once the palette, a menu or the inspector is closed) |
 | `P` | an agent watched on Agents; Session | pause or resume the agent |
@@ -64,7 +64,7 @@ browser and can be sent to anyone. The dialog's **Download** fetches it with Stu
 | `J` / `K`, arrows | inside the Attention queue | the next / previous row |
 
 **The mini stream** (picture in picture) shows the pinned agent's state, cost, what it does now and the newest lines of
-its stream; drag it by its bar, its arrow opens the agent on Live, `x` or `Esc` unpins. It hides while the inspector
+its stream; drag it by its bar, its arrow opens the agent on the Map, `x` or `Esc` unpins. It hides while the inspector
 already shows that agent.
 
 **The palette's Agents group**: Attention, answer next, Activity, follow / steer / pause / stop the picked agent, take
@@ -73,21 +73,8 @@ session's run; **Local: the Ollama steward**.
 
 ### Live Roles: the lineup lights up
 
-On the **Cast** canvas the cards whose agents work right now glow. Every live agent is matched to the card it runs
-under: the lineup must be the open one, then its alias, else its bio, else a role only one card has (a session's main
-agent on the main card). The glow is in the state's colour and follows what the agent does: **working** cyan (a steady
-flow along the top while it types, one pulse per **tool call** and the tool on the card's badge); **waiting on you**
-amber, three pulses then steady; **done** green, fading over ten seconds; **failed** red, staying until you click the
-card. A queued agent shows its badge with no glow. Hover the card's state glyph or its badge and the card explains its
-glow ([Agents](STUDIO-sections.md#agents)). A badge counts the agents when several share a card (`×2`) and ticks their
-cost. The edge into a card takes its colour, and the tier box takes the strongest state of its cards.
-
-![Roles: the implementer and the researcher at work, the main card waiting, the implementer's Live tab](media/studio-roles-live.png)
-
-Select a card with a live agent and the inspector opens its **Live** tab: a chip per agent when several run on the card,
-then the one agent inspector above. A card nobody runs right now shows its track record instead: the last runs under
-that role or bio on this harness (`GET /api/live/history`: when, which bio, the outcome, the cost, the task), each with
-**replay**.
+Went in 3.6.0.0 R5 with Cast: the boxes of the map your session runs on light up instead
+([STUDIO-map.md](STUDIO-map.md#while-a-session-runs)).
 
 ### Where it reads and writes
 

@@ -87,109 +87,29 @@ def test_guard_token_origin_and_static(ctx: Ctx):
                   all(s.call("GET", "/" + f, raw=True)[0] == 200 for f in ("studio.css", "studio.js")))
         ctx.check("the classic page is gone", s.call("GET", "/legacy/index.html", raw=True)[0] == 404 and s.call("GET", "/app.js", raw=True)[0] == 404)
         ctx.check("a path outside static is refused", s.call("GET", "/../server.py", raw=True)[0] == 404)
-        ctx.check("no token is a 401", s.call("GET", "/api/state", token="")[0] == 401)
-        ctx.check("a wrong token is a 401", s.call("GET", "/api/state", token="nope")[0] == 401)
-        ctx.check("a foreign origin is a 403", s.call("GET", "/api/state", origin="http://evil.example")[0] == 403)
-        ctx.check("the server's own origin passes", s.call("GET", "/api/state", origin=s.base)[0] == 200)
+        ctx.check("no token is a 401", s.call("GET", "/api/models", token="")[0] == 401)
+        ctx.check("a wrong token is a 401", s.call("GET", "/api/models", token="nope")[0] == 401)
+        ctx.check("a foreign origin is a 403", s.call("GET", "/api/models", origin="http://evil.example")[0] == 403)
+        ctx.check("the server's own origin passes", s.call("GET", "/api/models", origin=s.base)[0] == 200)
         ctx.check("an unknown route is a 404", s.call("GET", "/api/nope")[0] == 404)
-        ctx.check("a wrong method is a 405", s.call("DELETE", "/api/state")[0] == 405)
+        ctx.check("a wrong method is a 405", s.call("DELETE", "/api/models")[0] == 405)
 
 
 @test
-def test_read_routes(ctx: Ctx):
+def test_read_routes_and_the_latency_flag(ctx: Ctx):
+    """3.6.0.0 R5: the lineup, bio, state, session, tools, validate and yaml routes went with Cast (the crew routes are
+    tests/test_crew_*); what is left here: the catalog, field help, a pack canvas's layout, the latency flag."""
     with _Studio() as s:
-        status, st, _ = s.call("GET", "/api/state")
-        ctx.check("state names the version, the shipped lineups and the top sections",
-                  status == 200 and st["version"] and "balanced" in st["shipped_lineups"] and "delegation" in st["top_sections"])
-        status, ls, _ = s.call("GET", "/api/lineups")
-        ctx.check("the six shipped lineups are listed with their agent counts",
-                  status == 200 and {l["name"] for l in ls} >= {"balanced", "code-review", "halo-dev-cycle", "local-first", "quality", "standard"}
-                  and all(l["agents"] >= 1 for l in ls))
-        status, lp, _ = s.call("GET", "/api/lineup/halo-dev-cycle")
-        nodes, edges = lp["graph"]["nodes"], lp["graph"]["edges"]
-        ctx.check("halo-dev-cycle has seven nodes, one main, delegation edges from it and pipeline edges",
-                  status == 200 and len(nodes) == 7 and sum(n["role"] == "main" for n in nodes) == 1
-                  and sum(e["kind"] == "delegation" for e in edges) == 6 and any(e["kind"] == "pipeline" for e in edges))
-        ctx.check("delegation edges carry the routing keys", any("implement" in e["label"] for e in edges if e["kind"] == "delegation"))
-        ctx.check("every node resolves a model and names its bio's scope", all(n["model"] and n["scope"] for n in nodes))
-        ctx.check("the payload carries raw, yaml, a role table, notes and sections",
-                  lp["raw"]["name"] == "halo-dev-cycle" and "agents:" in lp["yaml"] and isinstance(lp["role_table"], dict)
-                  and isinstance(lp["notes"], list) and "delegation" in lp["sections"])
-        status, bs, _ = s.call("GET", "/api/bios")
-        ctx.check("bios list the shipped bios with model and kind", status == 200 and any(b["name"] == "reviewer" for b in bs))
-        status, b, _ = s.call("GET", "/api/bio/reviewer")
-        ctx.check("a bio payload carries raw, resolved, yaml and no problems", status == 200 and b["raw"]["name"] == "reviewer" and b["problems"] == [])
         ctx.check("models answers a list (empty on a bare home)", s.call("GET", "/api/models")[0] == 200)
-        ctx.check("session answers running as a bool and an agents list", isinstance(s.call("GET", "/api/session")[1]["running"], bool) and isinstance(s.call("GET", "/api/session")[1]["agents"], list))
-        from halo_harness.tools.registry import known_tool_names
-        ctx.check("tools answers exactly the registry's names (3.0.7.0)", s.call("GET", "/api/tools")[1] == known_tool_names()
-                  and "Bash" in known_tool_names() and "WebSearch" in known_tool_names())
-        api_src = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "api.py").read_text(encoding="utf-8")
-        get_tools_src = api_src[api_src.index("def get_tools"):api_src.index("ROUTES: list")]
-        ctx.check("no hardcoded tool names remain in get_tools", '"Read"' not in get_tools_src and '"Bash"' not in get_tools_src
-                  and "builtin_tool_names" not in api_src)
-        from halo_harness import field_help  # 3.1.1.0 R3: the bio form's help lines, one source
+        from halo_harness import field_help  # 3.1.1.0 R3: the form's help lines, one source
         ctx.check("field-help answers field_help.py's lines", s.call("GET", "/api/field-help")[1] == field_help.as_json())
-
-
-@test
-def test_write_routes(ctx: Ctx):
-    from halo_harness.theme import get_config_value
-    with _Studio() as s:
-        status, body, _ = s.call("PUT", "/api/lineup/balanced", {"raw": {"name": "balanced", "agents": []}})
-        ctx.check("saving a shipped lineup without duplicate is a 409", status == 409 and "duplicate" in body["error"])
-        status, new, _ = s.call("POST", "/api/lineup", {"name": "studio-t", "from": "balanced"})
-        ctx.check("a new lineup from a shipped one lands in user scope", status == 201 and new["scope"] == "user" and Path(new["path"]).is_file())
-        raw = new["raw"]
-        raw["description"] = "studio edit"
-        status, saved, _ = s.call("PUT", "/api/lineup/studio-t", {"raw": raw})
-        ctx.check("a valid save round-trips through the validator", status == 200 and saved["raw"]["description"] == "studio edit")
-        status, bad, _ = s.call("PUT", "/api/lineup/studio-t", {"yaml": "name: studio-t\nagents: [{agent: nope, role: main}]\n"})
-        ctx.check("an invalid save is a 422 with the validator's lines and leaves the file alone",
-                  status == 422 and any("nope" in p for p in bad["problems"])
-                  and s.call("GET", "/api/lineup/studio-t")[1]["raw"]["description"] == "studio edit")
-        status, bad, _ = s.call("PUT", "/api/lineup/studio-t", {"yaml": "- not: a mapping\n"})
-        ctx.check("YAML that is not a mapping is a 422", status == 422)
-        status, v, _ = s.call("POST", "/api/validate", {"kind": "lineup", "raw": raw})
-        ctx.check("validate returns problems and a graph without writing", status == 200 and v["problems"] == [] and v["graph"]["nodes"])
-        s.call("PUT", "/api/layout/studio-t", {"positions": {"main#0": {"x": 10, "y": 20}}})
-        ctx.check("a layout persists: the flat positions for the legacy page, plus nodes and tiers (3.0.7.0)",
-                  s.call("GET", "/api/layout/studio-t")[1] == {"main#0": {"x": 10, "y": 20}, "nodes": {"main#0": {"x": 10, "y": 20}},
-                                                              "tiers": {}})
-        s.call("PUT", "/api/layout/studio-t", {"nodes": {"main#0": {"x": 1, "y": 2}}, "tiers": {"all": {"collapsed": True}}})
-        ctx.check("a {nodes, tiers} save keeps the tier state", s.call("GET", "/api/layout/studio-t")[1]["tiers"] == {"all": {"collapsed": True}})
-        ctx.check("a bad tiers value is a 422", s.call("PUT", "/api/layout/studio-t", {"positions": {}, "tiers": [1]})[0] == 422)
-        ctx.check("the lineup payload carries graph tiers and the layout view",
-                  s.call("GET", "/api/lineup/studio-t")[1]["graph"]["tiers"][0]["name"] == "all"
-                  and s.call("GET", "/api/lineup/studio-t")[1]["layout"]["nodes"] == {"main#0": {"x": 1, "y": 2}})
-        lay = {"nodes": {"main#0": {"x": 7, "y": 9}}, "tiers": {"all": {"collapsed": False}}}  # 3.3.0.0 R7: one ordered write
-        status, carried, _ = s.call("PUT", "/api/lineup/studio-t", {"raw": raw, "layout": lay})
-        ctx.check("a lineup save carrying the layout writes both, and its answer reads the new layout back",
-                  status == 200 and carried["layout"]["nodes"] == lay["nodes"] and s.call("GET", "/api/layout/studio-t")[1]["tiers"] == lay["tiers"])
-        raw["description"] = "not saved"
-        ctx.check("a bad layout is a 422 and the lineup is not written", s.call("PUT", "/api/lineup/studio-t", {"raw": raw, "layout": {"tiers": [1]}})[0] == 422
-                  and s.call("GET", "/api/lineup/studio-t")[1]["raw"]["description"] == "studio edit")
+        for gone in ("/api/state", "/api/lineups", "/api/bios", "/api/session", "/api/tools"):
+            ctx.check(f"{gone} went with Cast: a 404", s.call("GET", gone)[0] == 404)
+        ctx.check("a pack canvas's layout reads", s.call("GET", "/api/layout/design:demo")[0] == 200)
         s.srv.slow_ms, t0 = 300, time.monotonic()  # the latency flag (HALO_STUDIO_SLOW_MS): every answer that late
         # 0.25, not 0.3: Windows' sleep can wake a few ms early against time.monotonic (0.297 s seen on this box)
-        ctx.check("with the latency flag an answer comes 300 ms late", s.call("GET", "/api/state")[0] == 200 and time.monotonic() - t0 >= 0.25)
+        ctx.check("with the latency flag an answer comes 300 ms late", s.call("GET", "/api/models")[0] == 200 and time.monotonic() - t0 >= 0.25)
         s.srv.slow_ms = 0
-        status, ap, _ = s.call("POST", "/api/lineup/studio-t/apply")
-        ctx.check("apply writes team and roles like halo teams use",
-                  status == 200 and ap["active_team"] == "studio-t" and get_config_value("team", "") == "studio-t"
-                  and get_config_value("roles.enabled", None) is True)
-        ctx.check("lineups now mark it active", any(l["name"] == "studio-t" and l["active"] for l in s.call("GET", "/api/lineups")[1]))
-        status, nb, _ = s.call("POST", "/api/bio", {"name": "studio-bio", "from": "general"})
-        ctx.check("a new bio from a shipped one is created", status == 201 and nb["scope"] == "user")
-        braw = nb["raw"]
-        braw["models"] = {"preference": "or:vendor/model"}
-        status, sb, _ = s.call("PUT", "/api/bio/studio-bio", {"raw": braw})
-        ctx.check("a bio save round-trips", status == 200 and sb["raw"]["models"]["preference"] == "or:vendor/model")
-        status, bad, _ = s.call("PUT", "/api/bio/studio-bio", {"raw": {"name": "studio-bio", "kind": "not-a-kind"}})
-        ctx.check("a bad bio is a 422", status == 422 and bad["problems"])
-        ctx.check("deleting a shipped bio is a 409", s.call("DELETE", "/api/bio/general")[0] == 409)
-        ctx.check("deleting the user bio and lineup works",
-                  s.call("DELETE", "/api/bio/studio-bio")[0] == 200 and s.call("DELETE", "/api/lineup/studio-t")[0] == 200)
-        ctx.check("a bad name is a 422", s.call("POST", "/api/lineup", {"name": "bad name!"})[0] == 422)
 
 
 @test

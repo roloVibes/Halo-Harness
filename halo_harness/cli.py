@@ -133,14 +133,11 @@ _REAL_FLAGS = [
     # sessions land this milestone).
     (["--agent"], dict(dest="agent", default=None, metavar="AGENT")),
     (["--agents"], dict(dest="agents", default=None, metavar="JSON_OR_FILE")),
-    # Halo 2.0.5 round 5 "team control": run THIS session under a team
-    # template (`halo teams list` names them) -- its lineup sections are
-    # enforced by the live agent loop (`docs/AGENTS.md`'s runtime table).
-    # Overrides config's own active `team:` key for this one run, never
-    # persisted; an unknown name degrades to a stderr line, no team.
+    # 3.6.0.0 R5: lineups are gone; the old flag still parses, says so in one line, and the session runs on the map in
+    # use (headless.build_session). `--map <name>` picks the map.
     (["--team"], dict(dest="team", default=None, metavar="TEAM")),
     # 3.6.0.0 R3: run THIS session on a map (`halo maps list`): main, its lines and the agents on it; over config's
-    # `crew.map` for this one run, never persisted. A map with a problem: its lines on stderr, the session runs without.
+    # `crew.map` for this one run, never persisted. A map with a problem: its lines on stderr, the session runs on starter.
     (["--map"], dict(dest="map", default=None, metavar="MAP")),
     # V2c (H15), widened Halo 2.0.2: repeatable NAME=MODEL[:EFFORT] override
     # for one of the ten built-in roles (or a currently-known custom one)
@@ -288,12 +285,12 @@ def _build_parser() -> argparse.ArgumentParser:
         description="halo - The multi-agent, multi-workflow harness you can watch: every model's thinking, hand-offs "
                     "and cost, live, and yours to steer. It starts an interactive session by default; use -p/--print "
                     "for non-interactive output",
-        epilog="Commands: init, explain, studio, media, orchestra, work, teams, agents, roles, models, mcp, proxy, "
+        epilog="Commands: init, explain, studio, media, orchestra, work, agents, workflows, maps, models, mcp, proxy, "
                "config, doctor, update, stats, review, preflight, audit, export, session, pack, "
                "completion, and an enabled pack's own (coach, improve, start) (run `halo <command> --help`; `halo init` "
                "opens Studio's Setup to set up a fresh box; `halo init --terminal` is the plain console setup). "
-               "The GUI: `halo studio --mode agents` -- lineups and agent bios as a graph, their runs, what runs now; "
-               "in the TUI, /studio and /roles. Design is a pack: halo pack install design.",
+               "The GUI: `halo studio --mode agents` -- your agents, workflows and the map your sessions run on, lit while "
+               "one runs; in the TUI, /studio. Design is a pack: halo pack install design.",
     )
     try:
         parser._positionals.title = "Arguments"
@@ -434,6 +431,15 @@ def launch_bare(cwd=None) -> int:
     return _run_full_screen(args, [])
 
 
+#: 3.6.0.0 R5: the verbs of the lineups, bios and squares, and the one line each prints (help, then exit 0)
+GONE_VERBS = {
+    "teams": "lineups are gone: halo maps use <name> picks the map your sessions run on (halo maps list)",
+    "roles": "lineups are gone: halo maps use <name> picks the map your sessions run on (halo maps list)",
+    "blocks": "starters: halo workflows new <name> --from <starter> (halo workflows list)",
+    "workflow": "use halo workflows (list / show / new / edit / try / run)",
+}
+
+
 def main(argv: Optional[list] = None) -> int:
     """Entry point. A config.json that does not parse (`CorruptConfigError`
     from a config writer anywhere below) is reported as one `halo: ...`
@@ -566,27 +572,24 @@ def _main(argv: Optional[list] = None) -> int:
     if argv and argv[0] == "bg":
         from halo_harness.bg_cli import cmd_bg
         return cmd_bg(argv[1:])
-    if argv and argv[0] == "roles":
+    if argv[:2] == ["roles", "point"]:  # the role write a steward or adviser line offers (until the next round moves it)
         from halo_harness.roles_cli import cmd_roles
         return cmd_roles(argv[1:])
-    if argv and argv[0] == "agents":
+    if argv and argv[0] in GONE_VERBS:  # 3.6.0.0 R5: lineups, bios and squares are gone; each old verb says where to go
+        print(f"halo {argv[0]}: {GONE_VERBS[argv[0]]}")
+        return 0
+    if argv and argv[0] == "agents":  # 3.6.0.0 R5: your agents (~/.halo/crew/agents)
         from halo_harness.agents_cli import cmd_agents
         return cmd_agents(argv[1:])
     if argv and argv[0] == "maps":  # 3.6.0.0 R3: your maps (list / show / use); the Map tab edits them
         from halo_harness.maps_cli import cmd_maps
         return cmd_maps(argv[1:])
-    if argv and argv[0] == "teams":
-        from halo_harness.teams_cli import cmd_teams
-        return cmd_teams(argv[1:])
     if argv and argv[0] == "pack":  # 3.2.0.0 R1: capability packs (docs/PACKS.md)
         from halo_harness.packs.cli import cmd_pack
         return cmd_pack(argv[1:])
-    if argv and argv[0] in ("workflows", "blocks"):  # 3.3.16.0 R3: workflow squares; 3.3.16.3: block templates
-        from halo_harness.workflows.squares_cli import cmd_workflows; from halo_harness.blocks_cli import cmd_blocks  # noqa: E702
-        return cmd_workflows(argv[1:]) if argv[0] == "workflows" else cmd_blocks(argv[1:])
-    if argv and argv[0] == "workflow":  # 3.2.0.0 R5: a pack's workflows, compiled to Orchestra runs (docs/WORKFLOWS.md)
-        from halo_harness.workflows.cli import cmd_workflow
-        return cmd_workflow(argv[1:])
+    if argv and argv[0] == "workflows":  # 3.6.0.0 R5: your workflows (~/.halo/crew/workflows)
+        from halo_harness.workflows_cli import cmd_workflows
+        return cmd_workflows(argv[1:])
     if argv and argv[0] == "design":  # 3.3.13.0 R2: Design is the design pack's (studio/modes.py MOVED)
         from halo_harness.studio.modes import moved_line
         print(f"halo design: {moved_line('design')}", file=sys.stderr)
@@ -747,6 +750,9 @@ def _main(argv: Optional[list] = None) -> int:
     if getattr(args, "headless", False):  # 3.3.11.0 R2: a session with no terminal (headless_session.py)
         from halo_harness.headless_session import run as run_headless
         return run_headless(args)
+    if not getattr(args, "bare", False) and sys.stderr.isatty():  # 3.6.0.0 R5: the old files' one line, once
+        from halo_harness.crew.old_files import terminal_once
+        terminal_once(Path.cwd())
     if not args.print_mode:
         # U2: bare `halo [PROMPT]` and `halo --demo` (without
         # -p) both open the full-screen TUI; textual/rich become real

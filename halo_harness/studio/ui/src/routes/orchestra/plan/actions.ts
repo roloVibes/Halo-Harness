@@ -8,7 +8,7 @@ import { api, ApiError } from "../../../lib/api";
 import { toast } from "../../../lib/store";
 import { orch } from "../store";
 import { refresh } from "../sync";
-import { closePlanReview } from "../../agents/run/planPanel";
+import { closePlanReview } from "../../crew/run/planPanel";
 import { layersOf } from "./layout";
 import { plan, upstreams } from "./store";
 import type { Forecast, PlanJob, PlanPayload, PlanProblem } from "./types";

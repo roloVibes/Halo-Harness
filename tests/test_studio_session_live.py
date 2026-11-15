@@ -21,10 +21,7 @@ mid-work) plus three extra agents and scripted feed frames
 6. an ask lands as an amber card with its A / R / S / O keys; a new agent's
    spawn and a finished agent's hand-back land as their own lines;
 7. 1000 more lines keep the DOM at the newest 500, the rest named as older;
-8. tools/capture_session_anim.py --dom: both filmed scenes draw what the
-   captures show (the Live lines and their tags, an ask card, the tree and
-   its edges, the Cost graphics; the Roles cards glowing, their glyphs, the
-   legend's four rows);
+8. (3.6.0.0 R5: the capture tool's DOM count of both scenes went with the Roles scene.)
 9. (3.1.7.0 R1) Fleet's time and KIND lead a tool, a text and a state row,
    stacked under 440 px; a click opens a tool row's whole result.
 Run: python -m tests.test_studio_session_live
@@ -103,7 +100,6 @@ def test_a_tool_row_ticks_and_takes_its_result(ctx: Ctx):
     e = got.get("elapsed") or ["", ""]
     secs = [int(m.group(1)) if (m := re.match(r"(\d+)s$", str(x or ""))) else -1 for x in e]
     ctx.check(f"its clock ticks while it runs, got {e}", secs[0] >= 0 and secs[1] >= secs[0] + 2)
-    ctx.check(f"the map node shows the tool and its time, got {got.get('node_clock')!r}", re.match(r"Bash \d+s", str(got.get("node_clock") or "")) is not None)
     ctx.check(f"it takes its result's first line, got {got.get('result')!r}", str(got.get("result") or "").endswith("M basket.py"))
 
 
@@ -150,8 +146,6 @@ def test_a_tag_pins_esc_unpins_and_hover_lights_the_node(ctx: Ctx):
               got.get("pinned") == got.get("res_key") and got.get("pinned_only") is True and got.get("pinned_steer") is True)
     ctx.check(f"Esc shows everyone again, got {got.get('unpinned')!r} ({got.get('everyone_back')} agents)",
               got.get("unpinned") == "everyone" and (got.get("everyone_back") or 0) >= 4)
-    ctx.check(f"hovering a line lights that agent's node, got {got.get('hover_node')} for {got.get('pinned')}",
-              got.get("hover_node") == got.get("res_key") and got.get("hover_off") == "off")
 
 
 @test
@@ -205,7 +199,7 @@ def _gif_facts(path: Path) -> dict:
 
 @test
 def test_the_committed_gifs_loop_at_1500x900_under_3mb(ctx: Ctx):
-    for name in ("studio-session.gif", "studio-roles-live.gif"):
+    for name in ("studio-session.gif",):  # 3.6.0.0 R5: the Roles GIF went with Cast
         path = REPO / "docs" / "media" / name
         ctx.check(f"docs/media/{name} exists", path.is_file())
         if not path.is_file():
@@ -213,32 +207,9 @@ def test_the_committed_gifs_loop_at_1500x900_under_3mb(ctx: Ctx):
         f = _gif_facts(path)
         ctx.check(f"{name}: a looping GIF89a at 1500 x 900, 24 frames or more, at most 3 MB, got {f} {path.stat().st_size} bytes",
                   f["sig"] == b"GIF89a" and (f["w"], f["h"]) == (1500, 900) and f["loop"] and f["frames"] >= 24 and path.stat().st_size <= 3 * 1024 * 1024)
-    for name in ("studio-session.png", "studio-session-live.png", "studio-roles-live.png"):
+    for name in ("studio-session.png", "studio-session-live.png"):
         path = REPO / "docs" / "media" / name
         ctx.check(f"docs/media/{name}: a PNG under 1 MB", path.is_file() and path.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n" and path.stat().st_size < 1024 * 1024)
-
-
-@test
-def test_the_capture_tool_dom_mode_counts_both_scenes(ctx: Ctx):
-    from tests.helpers.chrome_driver import driver_env, find_chrome
-    if not find_chrome():
-        raise SkipTest("no Chrome found")
-    r = subprocess.run([sys.executable, str(REPO / "tools" / "capture_session_anim.py"), "--dom"], capture_output=True, encoding="utf-8",
-                       errors="replace", timeout=500, env=driver_env(REPO), cwd=str(REPO))
-    try:
-        got = json.loads(r.stdout.strip().splitlines()[-1])
-    except (ValueError, IndexError):
-        got = {}
-    ctx.check(f"it ran, got {r.returncode} {r.stderr[-400:]!r}", r.returncode == 0 and "session" in got)
-    s, ro = got.get("session") or {}, got.get("roles") or {}
-    ctx.check(f"Session: one Live column, its lines each tagged, an ask card, got {s}",
-              s.get("session-live") == 1 and (s.get("session-live-line") or 0) >= 8 and s.get("session-live-tag") == s.get("session-live-line")
-              and (s.get("session-live-ask") or 0) >= 1)
-    ctx.check(f"the tree: seven agents, an edge into each or into its group (3.3.16.3: the rig's two are one reply's); the Cost graphics, got {s}",
-              s.get("roles-live-node") == 7 and s.get("roles-live-edge") == 6 and s.get("session-cost-context") == 1 and s.get("session-cost-spark") == 1)
-    ctx.check(f"Roles: the lineup's seven cards, the working ones glowing with their glyphs, one tier, the legend's four rows, got {ro}",
-              ro.get("roles-card") == 7 and (ro.get("live-card") or 0) >= 3 and (ro.get("roles-card-glyph") or 0) >= 3
-              and ro.get("roles-tier") == 1 and ro.get("roles-glow-legend-row") == 4)
 
 
 if __name__ == "__main__":

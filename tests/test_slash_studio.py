@@ -111,8 +111,8 @@ def test_studio_section_opens_that_section(ctx: Ctx):
     t = targets[0] if targets else None
     ctx.check(f"/studio orchestra: mode=orchestra, no session, got {t}", t is not None and t.mode == "orchestra" and t.text == "")
     # the old word's door: its line once, then where it opened
-    ctx.check(f"its lines name the new door and Agents (Live), got {app.lines}", len(app.lines) == 2
-              and app.lines[0].startswith("Orchestra is Agents -> Live now") and app.lines[1].startswith("Opened Agents (Live) in the Studio page")
+    ctx.check(f"its lines name the new door and Agents (Map), got {app.lines}", len(app.lines) == 2  # 3.6.0.0 R5: three tabs
+              and app.lines[0].startswith("Orchestra is Agents -> 3 · Map now") and app.lines[1].startswith("Opened Agents (Map) in the Studio page")
               and "?mode=orchestra#t=" in app.lines[1])
     for word in ("orchestra", "roles", "team", "session", "local"):
         app = _App()
@@ -133,22 +133,21 @@ def test_studio_section_opens_that_section(ctx: Ctx):
 
 @test
 def test_the_old_section_words_are_doors_to_agents(ctx: Ctx):
-    """3.3.16.0 R1: `/studio roles|orchestra|team` open Agents on Cast, Live, Live (3.4.0.0 D: Runs went; the page lands the word) and say
-    the new door once; bare `/roles` is still `/roles gui` (the builtin: Agents on Cast, its door line);
-    `/orchestra` keeps its terminal panel."""
-    for word, view in (("roles", "Cast"), ("orchestra", "Live"), ("team", "Live")):
+    """3.3.16.0 R1: `/studio roles|orchestra|team` open Agents (3.6.0.0 R5: each on 3 · Map; the page lands the word) and
+    say the new door once; bare `/roles` is the core command's one line (lineups are gone); `/orchestra` keeps its
+    terminal panel."""
+    for word, view in (("roles", "Map"), ("orchestra", "Map"), ("team", "Map")):
         app = _App()
         with _opener("focused") as targets:
             _slash(app, "studio", word)
-        doors = [line for line in app.lines if f"{word.title()} is Agents -> {view} now" in line]
+        doors = [line for line in app.lines if f"{word.title()} is Agents -> 3 · {view} now" in line]
         ctx.check(f"/studio {word}: the {word} door, Agents ({view}), the new door once, got {app.lines}",
                   targets and targets[0].mode == word and len(doors) == 1
                   and any(line.startswith(f"Opened Agents ({view}) in the Studio page") and f"?mode={word}#t=" in line for line in app.lines))
-    app = _App()
+    from halo_harness.commands.builtins import LINEUPS_GONE, _cmd_roles, _cmd_teams
     from halo_harness.tui import slash
-    with _stub(slash, "_run_slash_worker", lambda a, name, args: a.controller.slashes.append((name, args))):
-        _slash(app, "roles", "")
-    ctx.check(f"bare /roles is /roles gui (Agents on Cast), got {app.controller.slashes}", app.controller.slashes == [("roles", "gui")])
+    ctx.check("bare /roles and /teams are the one line", _cmd_roles("", None) == LINEUPS_GONE == _cmd_teams("apply x", None)
+              and "lineups are gone" in LINEUPS_GONE)
     src = Path(slash.__file__).read_text(encoding="utf-8")
     ctx.check("/orchestra keeps its terminal panel", '"orchestra": _handle_orchestra' in src and "OrchestraPanel" in src)
 
@@ -184,8 +183,8 @@ def test_studio_is_in_the_completion_list_and_the_handlers_stay(ctx: Ctx):
               spec is not None and str(spec[2]).startswith("[session|") and "this session" in spec[1])
     src = Path(slash.__file__).read_text(encoding="utf-8")
     ctx.check("the TUI handles /studio itself", '"studio": _handle_studio' in src)
-    ctx.check("/roles and /edit keep their handlers",
-              '"roles": _handle_roles' in src and '"edit": _handle_edit' in src)
+    ctx.check("/edit keeps its handler; /roles is the core command's one line (3.6.0.0 R5)",
+              '"roles": _handle_roles' not in src and '"edit": _handle_edit' in src)
 
 
 if __name__ == "__main__":

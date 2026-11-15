@@ -9,8 +9,7 @@ through the driver base, tests/helpers/studio_start.py; skipped without one).
    lineup of its own and a start now; 3.3.2.0 R1: and this browser answered
    the offer, `halo.studio.start`, so it never comes back on its own)
 2. the ? menu's Glossary lists every glossary word; a section help's word link
-   opens the Glossary on that word; the Start view's Next footer goes to
-   the next section of the story (Roles -> Orchestra)
+   opens the Glossary on that word (3.6.0.0 R5: the Next footer went with Cast)
 Run: python -m tests.test_studio_start
 """
 from __future__ import annotations
@@ -46,19 +45,17 @@ def _driver(*argv: str) -> "tuple[subprocess.CompletedProcess, dict]":
 
 
 @test
-def test_glossary_word_links_and_the_next_footer(ctx: Ctx):
+def test_glossary_and_a_word_link(ctx: Ctx):
     r, got = _driver("glossary")
     ctx.check(f"the driver ran, got {r.returncode} {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0 and "failed" not in got)
     ctx.check(f"?tour=off keeps Start here shut, got {got.get('overlay_quiet')}", got.get("overlay_quiet") == 0)
     from halo_harness.glossary import TERMS
     ctx.check(f"the ? menu's Glossary: {len(TERMS)} words, lineup first, got {got.get('words')} {got.get('first')}",
               got.get("words") == len(TERMS) and got.get("first") == "lineup")
-    ctx.check(f"How Agents works names its words (3.3.16.0 R1; 3.3.18.0: Live's two; 3.5.0.0: no fleet, hub, mission, part), got {got.get('terms')}",
-              got.get("terms") == ["lineup", "bio", "tier", "orchestra run", "lane", "claim", "plan", "gate", "harness", "hand-off", "capability", "replay", "waiting path", "report card"])  # 3.3.18.0; 3.4.1.0 R3: the report card
+    ctx.check(f"How Agents works names its words (3.6.0.0 R5: the three tabs' words), got {got.get('terms')}",
+              got.get("terms") == ["step", "hand-off", "when", "live map", "replay", "report card", "waiting path", "orchestra run", "gate"])
     ctx.check(f"a word link opens the Glossary on it and closes the help, got {got.get('opened_on')}",
-              got.get("opened_on") == "tier" and got.get("help_closed") is True)
-    ctx.check(f"Cast's Next footer opens Run a goal on Live (3.4.0.0 D; Runs before), got {got.get('next')} {got.get('went_to')} {got.get('goal_open')}",
-              got.get("next") == "goal" and str(got.get("went_to") or "").startswith("Agents") and got.get("goal_open") is True)
+              got.get("opened_on") == "replay" and got.get("help_closed") is True)
 
 
 if __name__ == "__main__":

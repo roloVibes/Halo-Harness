@@ -3,9 +3,8 @@
 studio_ui_models.py; skipped without one), over a fresh home with the shipped
 lineups and a fixture catalog in every provider's cache:
 
-1. the Models panel's Analyze shows the models analyzed, the count per kind
-   and each kind's strongest model;
-2. the bio form's picker table has a "takes" column (3.3.15.0 R2): a row's
+1. (3.6.0.0 R5: the Models panel's Analyze went with Roles' panels;)
+2. an agent's MODEL picker (Agents -> 1 · Agents; the bio form's before) has a "takes" column (3.3.15.0 R2): a row's
    takes as tags, the focused row's honest line and ranked kinds on the
    detail line under the list, the full line on the tags' hover;
 3. the "best" sort leads with the model good at the most kinds; a search by
@@ -36,16 +35,6 @@ def _got(ctx: Ctx) -> dict:
 
 
 @test
-def test_analyze_shows_the_counts_per_kind(ctx: Ctx):
-    got = _got(ctx)
-    ctx.check(f"the panel counts the catalog, got {got.get('count')}", isinstance(got.get("count"), (int, float)) and got["count"] >= 10)
-    ctx.check(f"Analyze says how many and per kind, got {got.get('analysis')!r}",
-              "models analyzed" in str(got.get("analysis")) and "visual" in str(got.get("analysis")))
-    ctx.check(f"each kind's strongest model is named, got {got.get('analysis_kinds')}",
-              {"visual", "audio", "bulk"} <= set(got.get("analysis_kinds") or []))
-
-
-@test
 def test_the_picker_has_a_takes_column_and_a_detail_line(ctx: Ctx):
     """3.3.15.0 R2 (owner feedback 2026-11-09, "the chips"): the best-at column became TAKES (tags only); the honest
     line and the ranked kinds moved to the detail line under the list."""
@@ -57,7 +46,8 @@ def test_the_picker_has_a_takes_column_and_a_detail_line(ctx: Ctx):
               got.get("eyes_line") == "vision+pdf in, tools, reasoning; no audio" and got.get("eyes_row_line") is False)
     ctx.check(f"the ranked kinds sit on that line, got {got.get('eyes_best')!r}", "visual" in str(got.get("eyes_best")))
     ctx.check("the full line is on the tags' hover", got.get("eyes_title") == got.get("eyes_line"))
-    ctx.check("no dialog opened on the way", got.get("dialogs") == 0)
+    ctx.check(f"the picker is the one dialog (the form's MODEL opens it; 3.6.0.0 R5), got {got.get('dialogs')}",
+              got.get("dialogs") == ["model-select-dialog"])
 
 
 @test

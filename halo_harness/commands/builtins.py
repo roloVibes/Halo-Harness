@@ -159,13 +159,13 @@ def _cmd_cost(args: str, facade: HeadlessFacade) -> str:
     return "\n".join(lines)
 
 
-_STUDIO_MODE_LABELS = {"agents": "Agents: the cast, what runs now (a goal run too), and what ran",  # 3.3.16.0 R1: Team, Roles, Orchestra in one
-                       "roles": "Agents -> Cast: the lineup and its bios as a graph",
-                       "orchestra": "Agents -> Live: Run a goal on its bar; a goal run's lanes under its lead, its report in History",  # 3.4.0.0 D
-                       "team": "Agents -> Live: a goal run's lanes show who owns what",
+_STUDIO_MODE_LABELS = {"agents": "Agents: your agents, workflows and the map your sessions run on",  # 3.6.0.0 R5: three tabs
+                       "roles": "Agents -> 3 · Map (lineups are gone)",
+                       "orchestra": "Agents -> 3 · Map: Run a goal on its bar; a goal run's report in History under the map",
+                       "team": "Agents -> 3 · Map (lineups are gone)",
                        "session": "Session: this session, live",
                        "packs": "Packs: install, grant and enable packs",
-                       "setup": "Setup: providers, the default model, permissions, the terminal theme and the lineup",  # 3.3.0.0 R1
+                       "setup": "Setup: providers, the default model, permissions, the terminal theme and the map",  # 3.3.0.0 R1; 3.6.0.0 R5
                        "settings": "Settings: every config key, one page per group",  # 3.3.3.0 R2
                        "local": "Local: the machines that serve models, and the models they serve"}  # 3.3.5.0 R1
 
@@ -965,173 +965,38 @@ def _teams_verb(verb: str, rest: str, facade: HeadlessFacade) -> str:
     return "\n".join([line, *(f"    {n}" for n in details), *lines])
 
 
+#: 3.6.0.0 R5: the old lineup commands' one line (help, never a refusal): the map is where sessions are set up now
+LINEUPS_GONE = "lineups are gone: every session runs on a map; /map shows the one in use, halo maps use <name> picks one"
+
+
 def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
-    """Halo 2.0.4 round 4 (deliverable 7): lists every TEAM TEMPLATE
-    ("lineup") -- a named set of agent-bio assignments to roles/
-    positions (`halo_harness/teams_yaml.py`). The active one (`team:` in
-    config.json, `halo teams use <name>`) is marked; `halo teams show
-    <name>`/`/teams show <name>` prints the full resolved role table."""
-    from halo_harness.teams_yaml import ensure_builtin_team_templates, list_team_templates, resolve_team_template
-    from halo_harness.theme import get_config_value
-    note_lines: "list[str]" = []
-    try:
-        note_lines = ensure_builtin_team_templates() or []
-        names = list_team_templates(cwd=facade.cwd)
-    except Exception:
-        names = []
-    if not names:
-        return "\n".join([*note_lines, "No lineups found."])
-    active = get_config_value("team", default=None)
-    from halo_harness.lineup_default import lineup_in_use  # 3.1.9.0 R2: no team: set -> the default auto
-    in_use, in_use_source = lineup_in_use()
-    # Halo 2.0.5 round 5: `/teams show <name>` -- the SAME resolved print
-    # `halo teams show` gives (assignments, role table, enforcement
-    # state per section); bare `/teams` keeps its list.
-    parts = (args or "").strip().split(None, 1)
-    verb = parts[0].lower() if parts else ""
-    if verb in ("apply", "use", "preview", "diff"):
-        return _teams_verb(verb, (parts[1].strip() if len(parts) > 1 else ""), facade)
-    if not parts:
-        from halo_harness.teams_cli_views import overview_lines
-        return "\n".join([*note_lines, *overview_lines(cwd=facade.cwd)])
-    if parts and parts[0].lower() == "show":
-        from halo_harness.teams_yaml import enforcement_lines, resolve_role_table
-        name = parts[1].strip() if len(parts) > 1 else in_use
-        if not name:
-            return "Usage: /teams show <name> (no lineup is active yet)"
-        template = resolve_team_template(name, cwd=facade.cwd)
-        if template is None:
-            return f"No lineup named {name!r}, or its file has problems."
-        lines = [f"{template['name']} -- {template.get('description') or '(no description)'}"]
-        from halo_harness.models_auto_spawn import pool_words  # 3.1.9.0 R2
-        for entry in template.get("agents") or []:
-            label = entry.get("as") or entry.get("role")
-            lines.append(f"  {entry.get('role')} ({label}): agent={entry.get('agent')}"
-                         f"{pool_words(template, entry, cwd=facade.cwd)}")
-        role_table, _notes = resolve_role_table(template)
-        lines.append("  resolved role table:")
-        for k, v in sorted(role_table.items()):
-            shown = v if isinstance(v, str) else v.get("model")
-            lines.append(f"    {k}: {shown}{' (picked at spawn)' if shown == 'auto' else ''}")
-        enforced = enforcement_lines(template)
-        if enforced:
-            lines.append("  enforcement (Halo 2.0.5: the live loop runs these):")
-            lines.extend(enforced)
-        return "\n".join(lines)
-    lines = [*note_lines, "Team templates (`halo teams show <name>`/`halo teams use <name>`):"]
-    for name in names:
-        template = resolve_team_template(name, cwd=facade.cwd)
-        marker = " [active]" if name == active else (
-            " [active: the default]" if in_use_source == "default" and name == in_use else "")
-        desc = (template.get("description") if template else None) or "(failed to load)"
-        lines.append(f"  {name}{marker} -- {desc}")
-    return "\n".join(lines)
+    return LINEUPS_GONE
 
 
 def _cmd_roles(args: str, facade: HeadlessFacade) -> str:
-    """V2c (H15), extended Halo 2.0.2 (brief A.2/A.5): bare `/roles` --
-    the role table (model, effort, endpoint/path type, price per role),
-    read from the LIVE session's own `agent_runtime.role_table`/
-    `.cli_role_overrides` (the SAME table `Agent(role=...)`/a role-bearing
-    agent actually resolves against) when one is running, exactly like
-    `/agents` above. `/roles templates|save <name>|load <name>|new <name>|
-    show <name>` manage `~/.halo/roles/<name>.json` templates; `/roles set
-    <name> <model> [effort]` is the long form of `/role` (below) -- both
-    set ONE role for THIS session only, mutating the live `session.roles`
-    dict in place (the SAME object `session.agent_runtime.role_table`
-    already points at). `/roles edit <name>` has no headless/print-mode
-    form (the TUI form, `tui/dialogs/roles_editor.py`, intercepts it
-    first); here it just names that."""
+    return LINEUPS_GONE
+
+
+def _cmd_map(args: str, facade: HeadlessFacade) -> str:
+    """3.6.0.0 R5: the map this session runs on, read-only: main, each box, each line's When in words."""
     session = getattr(facade, "session", None)
-    state_dir = getattr(session, "state_dir", None) if session is not None else None
-    parts = (args or "").strip().split(None, 1)
-    sub = parts[0].lower() if parts else ""
-    rest = parts[1].strip() if len(parts) > 1 else ""
-    if sub == "gui":  # 3.0.2.0: the browser GUI (what bare /roles does in the TUI)
-        return _cmd_studio("roles " + rest, facade)
-    if sub == "table":  # the text table, explicitly (bare /roles outside the TUI)
-        sub, rest = "", ""
-
-    if sub == "templates":
-        from halo_harness.roles import list_role_templates
-        names = list_role_templates(state_dir=state_dir)
-        if not names:
-            return "No role templates saved yet. /roles save <name> saves the current table as one."
-        return "Role templates:\n" + "\n".join(f"  {n}" for n in names)
-
-    if sub == "save":
-        if not rest:
-            return "Usage: /roles save <name>"
-        from halo_harness.roles import save_role_template
-        runtime = getattr(session, "agent_runtime", None) if session is not None else None
-        role_table = getattr(runtime, "role_table", None) or getattr(session, "roles", None) or {}
-        ok, problems = save_role_template(rest, {"roles": role_table}, state_dir=state_dir)
-        return (f"Saved the current role table as template {rest!r}." if ok
-                else "Could not save: " + "; ".join(problems))
-
-    if sub == "new":
-        if not rest:
-            return "Usage: /roles new <name>"
-        from halo_harness.roles import save_role_template
-        ok, problems = save_role_template(rest, {"roles": {}}, state_dir=state_dir)
-        return f"Created an empty role template {rest!r}." if ok else "Could not create: " + "; ".join(problems)
-
-    if sub == "show":
-        if not rest:
-            return "Usage: /roles show <name>"
-        from halo_harness.roles import load_role_template, role_value_parts
-        template = load_role_template(rest, state_dir=state_dir)
-        if template is None:
-            return f"No such role template: {rest!r} (or it failed validation)"
-        lines = [f"{template['name']} -- {template['description'] or '(no description)'}"]
-        for role_name, value in sorted(template["roles"].items()):
-            model, effort = role_value_parts(value)
-            lines.append(f"  {role_name}: {model}" + (f" ({effort})" if effort else ""))
-        return "\n".join(lines)
-
-    if sub == "load":
-        if not rest:
-            return "Usage: /roles load <name>"
-        from halo_harness.roles import apply_role_template, load_role_template
-        ok, problems = apply_role_template(rest, state_dir=state_dir)
-        if not ok:
-            return "Could not load: " + "; ".join(problems)
-        # Takes effect immediately for THIS live session too -- without
-        # this, a running session would only pick up the template after
-        # the next full restart (config.json is re-read at session start,
-        # never mid-session).
-        if session is not None:
-            template = load_role_template(rest, state_dir=state_dir)
-            runtime = getattr(session, "agent_runtime", None)
-            role_table = getattr(runtime, "role_table", None)
-            if template and isinstance(role_table, dict):
-                role_table.update(template["roles"])
-            elif template and hasattr(session, "roles"):
-                session.roles.update(template["roles"])
-        # `apply_role_template` now also turns `roles.enabled` on (round
-        # 2b weak-spot fix) -- said here too, same reasoning as the CLI's
-        # own `roles_cli._cmd_load`.
-        return f"Loaded role template {rest!r} (roles: on)."
-
-    if sub == "edit":
-        return ("/roles edit opens the roles editor form in the TUI only -- "
-                "use /roles set <name> <model> [effort] here instead.")
-
-    if sub == "set":
-        return _set_one_role(rest, facade)
-
-    if sub in ("on", "off"):
-        # 2.0.5 round 2b (brief item 1): "/roles on|off" -- the SAME one
-        # switch `halo roles on|off` and the wizard's own toggle write to.
-        from halo_harness.roles import roles_state_line, set_roles_enabled
-        set_roles_enabled(sub == "on")
-        # vibes/review.md finding 58: the live session's table follows the
-        # switch now, not only the next launch.
-        if session is not None and hasattr(session, "refresh_role_table"):
-            session.refresh_role_table()
-        return roles_state_line()
-
-    return _render_roles_table(facade)
+    mc = getattr(session, "team_control", None)
+    c = getattr(mc, "map", None) if getattr(mc, "is_map", False) else None
+    if c is None:
+        return "This session runs on no map (a bare session or --agent). Studio: Agents -> 3 · Map."
+    from halo_harness.crew.map_when import words
+    out = [f"Map: {c.name} (main: {(c.main or {}).get('agent') or 'main'})"]
+    for h in c.handoffs:
+        out.append(f"  main -> {h['box']} ({h['kind']} {h['name']}): {words(h['when'])}")
+    for box, lines in sorted((c.chains or {}).items()):
+        for h in lines:
+            out.append(f"  {box} -> {h['box']} ({h['kind']} {h['name']}): {words(h['when'])}")
+    loose = [b for b in c.boxes if not any(h["box"] == b for h in c.handoffs) and not any(
+        h["box"] == b for lines in (c.chains or {}).values() for h in lines)]
+    if loose:
+        out.append(f"  not connected yet: {', '.join(sorted(loose))}")
+    out.append("To change it, open Studio: halo studio (Agents -> 3 · Map), or halo maps use <name> for another.")
+    return chr(10).join(out)
 
 
 def _render_roles_table(facade: HeadlessFacade) -> str:
@@ -1781,9 +1646,9 @@ _BUILTIN_SPECS = {
     "skills": ("core", "List discovered skills", None, _cmd_skills),
     "agents": ("core", "List available sub-agents and agent bios; `live`: this session's running agents",
                "[live|schedule]", _cmd_agents),
-    "teams": ("core", "Show the active lineup; apply, preview or diff lineups", "[apply|preview <name>|diff <a> <b>]", _cmd_teams),
-    "roles": ("core", "Open Studio's Agents on Cast (bare, in the TUI); the role table, roles on/off, role templates",
-              "[gui|table|on|off|templates|save|load|new|edit|show <name>|set <name> <model> [effort]]", _cmd_roles),
+    "teams": ("core", "Lineups are gone: one line saying where to go (the map)", None, _cmd_teams),
+    "roles": ("core", "Lineups are gone: one line saying where to go (the map)", None, _cmd_roles),
+    "map": ("core", "The map this session runs on: main, its boxes and lines (read-only; Studio changes it)", None, _cmd_map),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",
                "[target] [--level low|medium|high] [--dimensions a,b] [--fix] [--no-verify]", _cmd_review),

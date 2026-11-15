@@ -55,7 +55,8 @@ and `roles.enabled`):
 2. **The command line** -- `halo teams use <name>` points the active
    lineup at one; `halo roles on|off` flips the switch.
 3. **Studio** -- `halo studio --mode agents` (or `/roles` in a session):
-   Agents' Cast (the Roles section, 3.0.7.0 R2; Agents since 3.3.16.0) shows the lineup as cards in tier boxes;
+   Agents' Cast (the Roles section, 3.0.7.0 R2; Agents since 3.3.16.0; Cast itself went in 3.6.0.0 R5, see
+   [STUDIO-agents.md](STUDIO-agents.md)) showed the lineup as cards in tier boxes;
    New, Duplicate, Delete and Apply a lineup, edit a card's slot and every
    section, drag a card into another tier, edit bios with the model picker
    table and **Test this model**, and read every problem with its fix as you
@@ -826,8 +827,8 @@ delegation:
 ```
 
 **A tier's purpose (3.3.16.3).** `purpose:` is a few words saying what the tier is for (`{name: pool, members: [...],
-purpose: the workers, picked per task}`): Studio's Cast titles the tier's block with it (its `...` menu edits it), Agents
--> Live groups the tier's agents under it, `halo teams show` prints it on the tier's line. It changes no rule; a tier
+purpose: the workers, picked per task}`): Studio's Cast titled the tier's block with it (its `...` menu edited it), Agents
+-> Live grouped the tier's agents under it (both gone in 3.6.0.0 R5), `halo teams show` prints it on the tier's line. It changes no rule; a tier
 without one is drawn as before. The shipped auto lineup names both of its tiers.
 
 **The rule:** a member spawns only into the next tier down. `main` (tier 0)

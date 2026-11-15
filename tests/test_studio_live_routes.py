@@ -104,18 +104,6 @@ def test_the_rig_this_harness_three_agents_and_the_meta_role(ctx: Ctx):
         ctx.check(f"so its history lists it, got {got}", status == 200 and got["runs"][0]["task"].startswith("Implement: apply the discount"))
 
 
-@test
-def test_live_roles_is_wired_into_the_react_canvas(ctx: Ctx):
-    """3.0.7.0 R2: Live Roles drives the React Roles canvas through the store: no framed page,
-    no postMessage, and the canvas never calls the live routes itself."""
-    ui = REPO / "halo_harness" / "studio" / "ui" / "src"
-    frames = (ui / "routes" / "fleet" / "frames.ts").read_text(encoding="utf-8")
-    ctx.check("frames.ts writes the live rows into the Roles store", "roles.update(() => ({ live: rows }))" in frames and "postMessage" not in frames)
-    live = (ui / "routes" / "roles" / "live.ts").read_text(encoding="utf-8")
-    ctx.check("the canvas matches agents to cards and hops across them", "export function matchNode" in live and "export function hopCard" in live and "api/live" not in live)
-    ctx.check("no static/legacy left", not (REPO / "halo_harness" / "studio" / "static" / "legacy").exists())
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

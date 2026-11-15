@@ -1,25 +1,16 @@
-// Agents' view (3.3.16.0 R1, lib/agentsDoor.ts): Cast, Live or Workflows. Cast and Live are the Roles canvas's Plan |
-// Live (routes/roles/store.ts canvasView), so the canvas bar's own switch, the L key and this one never disagree; both
-// draw Roles' workspace (`roles`: its layout, status line and panels keep that id); Workflows is the board (a flag here).
-// `note` is a folded section's one line, the first time this browser comes by its old door: Team's (`?mode=team`),
-// 3.4.0.0 D Runs' (`?mode=orchestra`, `?view=runs`, R). 3.4.0.0 D "the runs fold": the Runs
-// view and its workspace (`orchestra`) are gone -- a goal run is a job on Live, a finished one a row of History.
-import { onAgentsView, RUNS_NOTE, TEAM_NOTE, urlDoor, urlRun, type AgentsView } from "../../lib/agentsDoor";
-import { createStore, studio, useStore, writeLocal, type AgentsPart } from "../../lib/store";
+// Agents' tab (lib/agentsDoor.ts, 3.6.0.0 R5): 1 · Agents (`crew`), 2 · Workflows (`workflows`) or 3 · Map (`map`).
+// No door: while a session runs here Agents opens on the Map (the design: "on the Map while a session runs"), else on
+// the tab used last (1 · Agents the first time). A door or a pick of the person's wins. `note` is an old door's one
+// line, the first time this browser comes by it (`?mode=fleet`: Fleet left Halo in 3.5).
+import { FLEET_NOTE, onAgentsView, urlDoor, urlRun, type AgentsView } from "../../lib/agentsDoor";
+import { createStore, studio, useStore, writeLocal } from "../../lib/store";
 import { counts, fleet } from "../fleet/store";
-import { roles, setCanvasView, useRoles } from "../roles/store";
-import { openRun } from "./run/door";
+import { openRun } from "../crew/run/door";
 
-// 3.3.16.0 R3: board = the Workflows view; 3.6.0.0 R1: crew = the Agents tab, `chosen` = a door or the person named a view
-// 3.6.0.0 R2: flows = the Workflows tab
-export type AgentsState = { note: string; board: boolean; crew: boolean; flows: boolean; map: boolean; chosen: boolean }; // R3: map, the Map tab
-const LAST = "halo.studio.agents-view"; // 3.6.0.0 R1: the tab used last, where Agents opens when no door names one
+export type AgentsState = { note: string; view: AgentsView; chosen: boolean };
+const LAST = "halo.studio.agents-view"; // the tab used last, where Agents opens when no door names one
 
-const NOTES: Record<string, [string, string]> = {
-  team: ["halo.studio.team-note", TEAM_NOTE],
-  runs: ["halo.studio.runs-note", RUNS_NOTE],
-  orchestra: ["halo.studio.runs-note", RUNS_NOTE],
-};
+const NOTES: Record<string, [string, string]> = { fleet: ["halo.studio.fleet-note", FLEET_NOTE] };
 
 function noteOnce(word: string): string {
   const got = NOTES[word];
@@ -38,68 +29,43 @@ const first = urlDoor();
 function lastView(): AgentsView {
   try {
     const v = localStorage.getItem(LAST);
-    return v === "cast" || v === "live" || v === "workflows" || v === "flows" || v === "map" ? v : "crew";
+    return v === "workflows" || v === "flows" ? "workflows" : v === "map" ? "map" : "crew";
   } catch {
     return "crew";
   }
 }
 
-// No door: while a session runs here Agents opens on Live (the design: "on the Map while a session runs"; Live is R1's
-// running picture), else on the tab used last (the Agents tab the first time). A door or a pick of the person's wins.
-const opening: AgentsView = first.view || lastView();
-export const agents = createStore<AgentsState>({ note: noteOnce(first.word), board: opening === "workflows", crew: opening === "crew",
-  flows: opening === "flows", map: opening === "map", chosen: !!first.view });
-if (!first.view && opening !== "crew" && opening !== "flows" && opening !== "map") window.setTimeout(() => setCanvasView(opening === "live" ? "live" : "plan"), 0);
+export const agents = createStore<AgentsState>({ note: noteOnce(first.word), view: first.view || lastView(), chosen: !!first.view });
 
-/** Once, before the person is on Agents: a session runs here, so Agents will open on Live (never a flip under them). */
-function liveWhileRunning(): void {
+/** Once, before the person is on Agents: a session runs here, so Agents will open on the Map (never a flip under them). */
+function mapWhileRunning(): void {
   const s = agents.get();
   if (s.chosen || counts(fleet.get()).live === 0 || (studio.get().section === "agents" && !first.view && seenHere)) return;
-  agents.update(() => ({ crew: false, board: false, flows: false, map: false, chosen: true }));
-  if (roles.get().canvasView !== "live") setCanvasView("live");
+  agents.update(() => ({ view: "map", chosen: true }));
 }
-let seenHere = false; // Agents was on screen with the opening view: a session starting later does not move it
-studio.subscribe(() => { if (studio.get().section === "agents" && !seenHere) window.setTimeout(() => { seenHere = studio.get().section === "agents"; }, 1500); }); // the first answer of the live view has come by then
-fleet.subscribe(liveWhileRunning);
-window.setTimeout(liveWhileRunning, 0);
-if (first.view && urlRun()) window.setTimeout(() => void openRun(urlRun()), 0); // `&run=<id>`: on Live, or its report in History
+let seenHere = false; // Agents was on screen with the opening tab: a session starting later does not move it
+studio.subscribe(() => { if (studio.get().section === "agents" && !seenHere) window.setTimeout(() => { seenHere = studio.get().section === "agents"; }, 1500); });
+fleet.subscribe(mapWhileRunning);
+window.setTimeout(mapWhileRunning, 0);
+if (urlRun()) window.setTimeout(() => void openRun(urlRun()), 0); // `&run=<id>`: the goal run in the Map's drawer
 
-/** Agents on `view`; `word` is the door it came by (`team`, `runs` show their line the first time). */
+/** Agents on `view`; `word` is the door it came by (`fleet` shows its line the first time). */
 export function setAgentsView(view: AgentsView, word = "agents"): void {
   const note = noteOnce(word);
-  const board = view === "workflows";
-  const crew = view === "crew";
-  const flows = view === "flows";
-  const map = view === "map";
   writeLocal(LAST, view);
-  agents.update((s) => (s.board === board && s.crew === crew && s.flows === flows && s.map === map && s.chosen && !note ? {} : { board, crew, flows, map, chosen: true, ...(note ? { note } : {}) }));
-  if (!board && !crew && !flows && !map) setCanvasView(view === "live" ? "live" : "plan");
+  agents.update((s) => (s.view === view && s.chosen && !note ? {} : { view, chosen: true, ...(note ? { note } : {}) }));
 }
 
-onAgentsView(setAgentsView); // goSection("roles" | "orchestra" | "team"), goSection("agents", view)
+onAgentsView(setAgentsView); // goSection("roles" | "orchestra" | "team" | "fleet"), goSection("agents", view)
 
 export function dismissNote(): void {
   agents.update((s) => (s.note ? { note: "" } : {}));
 }
 
 export function agentsView(): AgentsView {
-  return agents.get().crew ? "crew" : agents.get().flows ? "flows" : agents.get().map ? "map" : agents.get().board ? "workflows" : roles.get().canvasView === "live" ? "live" : "cast";
+  return agents.get().view;
 }
 
 export function useAgentsView(): AgentsView {
-  const board = useStore(agents, (s) => s.board);
-  const crew = useStore(agents, (s) => s.crew);
-  const flows = useStore(agents, (s) => s.flows);
-  const map = useStore(agents, (s) => s.map);
-  const live = useRoles((s) => s.canvasView === "live");
-  return crew ? "crew" : flows ? "flows" : map ? "map" : board ? "workflows" : live ? "live" : "cast";
-}
-
-/** The workspace Agents draws: roles (Cast and Live; 3.4.0.0 D: the only one, Runs' went). */
-export const agentsPart = (): AgentsPart => "roles";
-export const useAgentsPart = (): AgentsPart => "roles";
-
-/** Agents is on screen and draws `part` (the keys and the glow of each workspace run only then). */
-export function onPart(part: AgentsPart): boolean {
-  return studio.get().section === "agents" && !agents.get().board && !agents.get().crew && !agents.get().flows && agentsPart() === part; // R3: the board is neither; 3.6.0.0 R1: nor the Agents tab
+  return useStore(agents, (s) => s.view);
 }

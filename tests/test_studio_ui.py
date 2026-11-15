@@ -1,12 +1,9 @@
 """tests.test_studio_ui -- Studio in a real browser (headless Chrome; skipped without one).
-3.0.7.0 R2: the React Roles section draws the lineup's cards in their tier boxes; the shell at
-/ by its data-testid counts. 3.0.4.0 R6b (tests/helpers/studio_clarity.py): the Orchestra
-Start view then the grid, a click focuses a panel and `?` opens its help; no section nests a
-second header. Registered here: R2 Roles (studio_ui_roles.py), 3.0.5.0 Agents -> Live (studio_ui_live.py) (3.0.7.0 R3's Design checks, studio_ui_design.py, are tests/test_pack_design_ui.py's
-since 3.3.13.0 R2: the design pack),
-3.0.8.0 R2 the Team tab (studio_ui_team.py), 3.0.9.0 R2 the plan canvas (studio_ui_plan.py) (R3's coach checks left with
-the coach pack in 3.4.0.0 B2); five section tabs since 3.1.4.0 R3 (Org and Flow are gone), six with Session (Alt+1 and the first tab since
-3.1.6.0 R6: tests/helpers/studio_ui_order.py reads the tab strip in order);
+The shell at / by its data-testid counts (3.6.0.0 R5: the old Orchestra and Roles doors land on Agents -> 3 · Map); a
+goal run's report as a page of History and a planned run on the Map (tools/capture_orchestra.py). Registered here:
+3.0.9.0 R2 the plan canvas (studio_ui_plan.py; 3.6.0.0 R5: reached from the Map's line) and the tab order (3.1.6.0 R6:
+tests/helpers/studio_ui_order.py reads the tab strip in order). 3.6.0.0 R5: Roles' canvas (studio_ui_roles.py), Live
+(studio_ui_live.py) and Cast's panel clicks (studio_clarity.py) went with those views.
 """
 
 from __future__ import annotations
@@ -21,10 +18,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
-from tests.helpers.studio_ui_live import register as register_live
 from tests.helpers.studio_ui_order import register as register_order
 from tests.helpers.studio_ui_plan import register as register_plan
-from tests.helpers.studio_ui_roles import register as register_roles
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -58,23 +53,9 @@ def _json_of(*args: str) -> "tuple[subprocess.CompletedProcess, dict]":
 
 
 @test
-def test_page_boots_and_draws_nodes_in_headless_chrome(ctx: Ctx):
-    """3.0.7.0 R2: tools/capture_studio.py --dom (Roles, React): the Start view with only the shipped
-    lineups, then the seeded lineup's eight cards in three tier boxes."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the page smoke needs headless Chrome)")
-    r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "roles", "--dom")
-    ctx.check(f"the capture tool ran, got {r.stdout[-300:]!r} {r.stderr[-300:]!r}", r.returncode == 0)
-    start, roles = info.get("start", {}), info.get("roles", {})
-    ctx.check(f"the Start view first, got {start}", start.get("roles-start") == 1 and start.get("roles-card") == 0)
-    ctx.check(f"then the cards in their tier boxes, got {roles}", roles.get("roles-card") == 8 and roles.get("roles-tier") == 3 and roles.get("roles-canvas") == 1)
-
-
-@test
 def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
-    """3.0.3.0: the React shell at / draws the section tabs (five since
-    3.1.4.0: Orchestra, Roles, Design, Fleet, Team); Orchestra shows its
-    console, Roles (3.0.7.0 R2) its React canvas, no frame."""
+    """3.0.3.0: the React shell at / draws the section tabs (six since 3.3.16.0 R2); 3.6.0.0 R5: the old Orchestra
+    and Roles doors land on Agents -> 3 · Map, no frame."""
     if not _chrome():
         raise SkipTest("no Chrome found (the shell smoke needs headless Chrome)")
     env = _env()
@@ -85,12 +66,10 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
     except (ValueError, IndexError):
         info = {}
     orch, roles = info.get("orchestra", {}), info.get("roles", {})
-    # 3.4.0.0 D: the old Orchestra door lands on Agents -> Live (nothing runs here): Run a goal on its bar, no Start view
-    ctx.check(f"the old Orchestra door: Agents -> Live, Run a goal on the bar, no Start view, got {orch}", orch.get("section-tab") == 6
-              and orch.get("start-view") == 0 and orch.get("orchestra-root") == 0 and orch.get("roles-live-map") == 1 and orch.get("live-run-goal") == 1)
-    ctx.check(f"Roles (Agents -> Cast): six section tabs and its canvas, no frame, got {roles}",
-              roles == {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "roles-canvas": 1, "roles-start": 0, "legacy-frame": 0,
-                        "roles-live-map": 0, "live-run-goal": 0})
+    # 3.6.0.0 R5: the old Orchestra and Roles doors land on Agents -> 3 · Map: the starter map, Run a goal on its bar
+    want = {"section-tab": 6, "orchestra-root": 0, "start-view": 0, "legacy-frame": 0, "map": 1, "map-canvas": 1, "map-run-goal": 1, "map-history": 1}
+    ctx.check(f"the old Orchestra door: the Map, Run a goal on its bar, no Start view, got {orch}", orch == want)
+    ctx.check(f"the old Roles door: the Map too, no frame, got {roles}", roles == want)
     ctx.check("the title names the section", "Halo Studio" in info.get("title", ""))
 
 
@@ -98,8 +77,8 @@ def test_shell_boots_with_its_sections_in_headless_chrome(ctx: Ctx):
 def test_a_finished_run_is_a_report_page_in_history_in_headless_chrome(ctx: Ctx):
     """3.4.0.0 D "the runs fold": over a seeded finished run (the R2 fixture: five lanes, one judged conflict, eight
     checks) its door `?mode=agents&run=<id>` opens History on the run's report -- every check, every lane, Replay and
-    Run it again -- and nothing finished is drawn on Live; a run waiting for its plan is a lead on Live that waits on you
-    with Review the plan, the plan panel NOT open (nothing opens by itself); the old Orchestra door is Live."""
+    Run it again -- and nothing finished is on the Map's line; a run waiting for its plan is the Map's line "A goal run
+    is going", the plan panel NOT open (nothing opens by itself); the old Orchestra door is the Map (3.6.0.0 R5)."""
     if not _chrome():
         raise SkipTest("no Chrome found (the run smoke needs headless Chrome)")
     r, info = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
@@ -107,78 +86,15 @@ def test_a_finished_run_is_a_report_page_in_history_in_headless_chrome(ctx: Ctx)
     ctx.check(f"History open on the run's report, got {info}", info.get("history-report") == 1 and info.get("history-page") == 1
               and info.get("report-check") == 8 and info.get("report-lane") == 5)
     ctx.check(f"Replay and Run it again on it, got {info}", info.get("history-report-replay") == 1 and info.get("history-report-again") == 1)
-    ctx.check(f"nothing finished on Live, no console, got {info}", info.get("agents-live-lead") == 0 and info.get("agents-live-lane") == 0
+    ctx.check(f"nothing finished on the Map's line, no console, got {info}", info.get("map-lit-run") == 0
               and info.get("orchestra-root") == 0 and info.get("start-view") == 0 and info.get("section-tab") == 6)
     plan, old = info.get("plan") or {}, info.get("old_door") or {}
-    ctx.check(f"a planned run: its lead on Live with Review the plan, the plan panel closed, got {plan}", plan.get("agents-live-lead") == 1
-              and plan.get("agents-live-review") == 1 and plan.get("orchestra-plan") == 0 and plan.get("run-goal-drawer") == 0)
-    ctx.check(f"the old Orchestra door: Live with Run a goal, got {old}", old.get("roles-live-map") == 1 and old.get("live-run-goal") == 1
+    ctx.check(f"a planned run: the Map says a goal run is going, nothing open, got {plan}", plan.get("map-lit-run") == 1
+              and plan.get("run-review") == 0 and plan.get("orchestra-plan") == 0 and plan.get("run-goal-drawer") == 0)
+    ctx.check(f"the old Orchestra door: the Map with Run a goal, got {old}", old.get("map") == 1 and old.get("map-run-goal") == 1
               and old.get("history-report") == 0)
 
 
-@test
-def test_panel_focus_on_click_and_help(ctx: Ctx):
-    """R6b: a click on a panel's body focuses it (the ring, the keyboard
-    focus); `?` opens its help from the PanelSpec and Esc closes it; the ...
-    menu has Float, Collapse, Reset, Settings and Help; Settings opens the
-    Inspector, which follows the next panel clicked; the Compact toggle; the
-    section's "How this works" from the ? in the header (3.3.2.0 R1: nothing to remember as seen); Agents' "+"
-    menu. 3.4.0.0 D: on Cast's panels (Runs' Orchestra panels, where this ran, went with the runs fold)."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the click test needs headless Chrome)")
-    r, got = _json_of("-m", "tests.helpers.studio_clarity", "panel")
-    ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
-    ctx.check(f"six about lines (Cast's panels), each its title's tooltip (3.3.2.0 R3), got {got.get('about')}", got.get("about") == 6)
-    ctx.check(f"the clicked panel is the one active and focused, got {got}", got.get("active") is True and got.get("focused") is True and got.get("others_active") == 1)
-    ctx.check(f"a click on a title bar focuses that panel and leaves the layout default, got {got.get('title_click')} / {got.get('layout_after_click')}",
-              got.get("title_click") == "roles-lineups" and got.get("layout_after_click") == "default")
-    ctx.check(f"? opens Models' help, got {got.get('help_title')} / {got.get('help_lines')}", got.get("help_title") == "Models" and got.get("help_lines", 0) >= 2)
-    ctx.check("Esc closes it", got.get("help_closed") is True)
-    ctx.check(f"the ... menu (3.3.2.0 R3: Compact / Expand is its face row), got {got.get('menu')}",
-              got.get("menu") == ["face", "collapse", "reset", "settings", "help"])  # 3.6.0.0 R0a: no Float (a drawer)
-    ctx.check(f"Settings opens the Inspector on Bios, then it follows the click to Models, got {got.get('inspector')} / {got.get('inspector_follows')}",
-              got.get("inspector") == "Bios" and got.get("inspector_follows") == "Models")
-    ctx.check("the Compact toggle", got.get("compact") == "glance")
-    ctx.check(f"the ? beside the tabs is a menu: How this works and the Glossary (3.1.1.0 R1), got {got.get('help_menu')}",
-              got.get("help_menu") == ["section-help-item", "glossary-item"])
-    text = str(got.get("section_text") or "")
-    ctx.check(f"How Agents works: fourteen steps, Run a goal and History in them, no Runs view (3.4.0.0 D), got {got.get('section_steps')}",
-              got.get("section_title") == "How Agents works" and got.get("section_steps") == 14 and "Live: run a goal" in text
-              and "Runs:" not in text and (got.get("section_panels") or 0) >= 6)
-    ctx.check("closed; nothing remembered as seen (3.3.2.0 R1: no welcome to hold back)", got.get("section_closed") is True and got.get("seen") == 0)
-    ctx.check(f"Agents' view bar (3.6.0.0 R0a; the + menu before): its panels, no runs group (3.4.0.0 D), got {got.get('menu_runs')} / {got.get('menu_text')!r}",
-              got.get("menu_runs") == 0 and "RUNS" not in str(got.get("menu_text") or ""))
-
-
-@test
-def test_roles_header_is_not_nested(ctx: Ctx):
-    """3.0.7.0 R2: Roles is a React section: no framed page, so no second header, its status line
-    straight from its store in the shell's status bar."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Roles test needs headless Chrome)")
-    r, dom = _json_of(str(REPO / "tools" / "capture_studio.py"), "--mode", "orchestra", "--dom")
-    roles = dom.get("roles", {})  # tools/capture_orchestra.py dumps the Roles section beside the run
-    ctx.check(f"the Roles section: its canvas and cards, no frame, got {roles}",
-              roles.get("roles-canvas") == 1 and (roles.get("roles-card") or 0) >= 7 and roles.get("legacy-frame") == 0 and roles.get("section-tab") == 6)
-
-
-@test
-def test_roles_canvas_draws_tier_boxes(ctx: Ctx):
-    """3.0.7.0 R2: the Roles canvas draws one labelled box per tier (the seeded lineup: top, leads
-    and the implicit rest) with every card inside the box of its tier."""
-    if not _chrome():
-        raise SkipTest("no Chrome found (the Roles test needs headless Chrome)")
-    r, got = _json_of("-m", "tests.helpers.studio_roles", "roles")
-    ctx.check(f"the click run finished, got {r.stdout[-300:]!r} {r.stderr[-400:]!r}", r.returncode == 0)
-    ctx.check(f"eight cards in three tier boxes, got {got.get('cards')} {got.get('tiers')}", got.get("cards") == 8 and got.get("tiers") == ["top", "leads", "rest"])
-    ctx.check("every card sits inside the box of its tier", got.get("cards_in_tiers") is True)
-    ctx.check(f"3.1.1.0 R2: the Problems panel's Config group lists the lineup's unknown key, got {got.get('config_problem')!r}",
-              "unknown key 'notes'" in str(got.get("config_problem") or ""))
-
-
-register_live(test, _json_of, _chrome)  # the live checks (R3 and R4): tests/helpers/studio_ui_live.py
-register_roles(test, _json_of, _chrome)  # 3.0.7.0 R2: Roles in React, tests/helpers/studio_ui_roles.py
-# 3.3.16.0 R1: the Team tab's checks (tests/helpers/studio_ui_team.py) went with its board
 register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/helpers/studio_ui_plan.py
 register_order(test, _json_of, _chrome)  # 3.1.6.0 R6: the tab order and the keys, tests/helpers/studio_ui_order.py
 

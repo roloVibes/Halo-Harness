@@ -128,71 +128,6 @@ def rig_load(c, rig, sid: str, title: str, extra: str = "") -> None:
     c.wait(f"{CUR}.startsWith('{title}') && !!{q('[data-testid=rail-toggle]')}", 40)
 
 
-def labels(c, rig) -> dict:
-    from tests.helpers.studio_live_rig import Live
-    from tests.helpers.studio_roles_live_map import l_key
-    lv = rig.live_map = Live(rig, extra=())
-    for aid, name, role, model, task in SPAWNED:
-        lv.spawn(aid, name, role, model, task)
-        lv.state(name, lineup="auto", bio=role, kind="member")
-    media(c)
-    c.go(rig.url("session"))
-    node = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-key$=\"|{}\"]')"
-    c.wait(f"document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6 && !!{node.format(SPAWNED[0][0])}", 40)
-    out = {"map_labels": [c.js(f"{node.format(a)}?.querySelector('[data-testid=roles-live-model]')?.textContent || ''") for a, *_ in SPAWNED],
-           "map_titles": [c.js(f"{node.format(a)}?.querySelector('[data-testid=roles-live-model]')?.parentElement?.title || ''") for a, *_ in SPAWNED]}  # 3.3.16.0 R2: Live's node line
-    alt(c, 2)  # 3.3.18.0: Agents opens on Live
-    live = "document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{}\"] [data-testid=\"roles-live-model\"]')"
-    c.wait(f"!!{live.format(SPAWNED[1][0])}", 30)
-    out["live_labels"] = [c.js(f"{live.format(a)}?.textContent || ''") for a, *_ in SPAWNED]
-    from tests.helpers.studio_live import card_click
-    card_click(c, f"document.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"{SPAWNED[1][0]}\"]')")
-    agent = "document.querySelector('[data-testid=\"roles-live\"][data-view=\"live\"] [data-testid=\"roles-live-agent\"]')"
-    out["inspector_meta"] = c.wait(f"{agent} && {agent}.querySelector('.fa-meta')?.textContent", 15)  # 3.3.16.0 R2: the one agent inspector
-    c.js("document.activeElement?.blur()")
-    l_key(c)
-    return out
-
-
-def dialog(c, rig) -> dict:
-    btn = q("[data-testid=roles-apply]")
-    c.wait(f"!!{btn} && !{btn}.disabled", 30)
-    c.click_on(btn)
-    box = q("[data-testid=roles-apply-dialog] [data-testid=dialog-cost]")
-    c.wait(f"!!{box}", 10)
-    out = {"cost_keys": c.js(f"{qa('[data-testid=roles-apply-dialog] [data-testid=dialog-cost] dt')}.map((d) => d.textContent)"),
-           "cost_lines": c.js(f"{qa('[data-testid=roles-apply-dialog] [data-testid=dialog-cost] dd')}.map((d) => d.textContent)"),
-           "cost_font": c.js(f"getComputedStyle({box}).fontFamily"),
-           "dialog_ticks": c.js(TICKS.format(q("[data-testid=roles-apply-dialog] .dialog-surface")))}
-    c.key("Escape")
-    c.wait(f"!{q('[data-testid=roles-apply-dialog]')}", 5)
-    return out
-
-
-def reduced(c, rig) -> dict:
-    """The working agents animate (the control); under prefers-reduced-motion a state change leaves nothing running."""
-    lv = rig.live_map
-    media(c)
-    c.go("about:blank")
-    c.go(rig.url("session"))
-    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
-    time.sleep(0.6)
-    out = {"motion_running": c.js(f"{RUNNING}.length")}
-    media(c, reduce=True)
-    c.go("about:blank")
-    c.go(rig.url("session"))
-    c.wait("document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
-    triage, scribe = q('[data-testid=roles-live-node][data-key$="|t2r1a6e0"]'), q('[data-testid=roles-live-node][data-key$="|s3c2r1b0"]')
-    lv.state("triage", state="waiting", current="waits on you")
-    c.wait(f"{triage}?.dataset.state === 'waiting'", 20)
-    lv.state("scribe", state="done", current="")
-    c.wait(f"{scribe}?.dataset.state === 'done'", 20)
-    time.sleep(0.4)
-    out["reduced_running"] = c.js(RUNNING)
-    media(c)
-    return out
-
-
 class InstrumentDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
 
@@ -220,8 +155,8 @@ class InstrumentDriver(Driver):
                     lv.spawn(aid, name, role, model, task)
                 from tests.helpers.studio_instrument_shots import shots
                 yield ((shots, (c, rig, self.argv[1])),)
-            else:
-                yield ((labels, (c, rig)), (dialog, (c, rig)), (reduced, (c, rig)))
+            else:  # 3.6.0.0 R5: the rig's steps read the old tree's nodes and Cast's Apply dialog, which went
+                yield ()
 
 
 if __name__ == "__main__":

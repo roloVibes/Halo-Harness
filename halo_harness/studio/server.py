@@ -366,7 +366,7 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")
     parser.add_argument("--stop", action="store_true", help="stop the Studio that is running in the background (the wizard's Open Studio buttons start one)")
-    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on bio:<name> (Agents -> Cast, its form), lineup:<name>[:<block>] (its inspector, or one block's page), team (Agents -> Live), setup[:<block>], settings[:<group>] or local[:<page>]; a Studio already running for this home opens it in its open page")
+    parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on agent:<name> (Agents -> 1 · Agents, its form), workflow:<name> (2 · Workflows), map:<name> (3 · Map), setup[:<block>], settings[:<group>] or local[:<page>]; the old bio:, lineup: and team open the tab that replaced them; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     parser.add_argument("--prompt", action="store_true", help="with --session (or alone: the newest live session): open its Prompt panel with the keyboard in the box, to type into the session as in the terminal")
     args = parser.parse_args(argv)

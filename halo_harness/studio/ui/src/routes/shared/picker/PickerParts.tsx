@@ -2,9 +2,9 @@
 // gym score and learned chips -- the 3.3.15.0 R2 look), a provider's head (its name and state in one line), the detail
 // line under the list, the providers with nothing here, and the empty state (why, in one line, with its one fix).
 import { FitMeter } from "../../../lib/ui";
-import { refreshModels } from "../../roles/bioActions";
-import { droppedFor, LearnedChips } from "../../roles/LearnedChips";
-import type { GymScore, ModelRow, ModelsStatus } from "../../roles/types";
+import { refreshModels } from "../../crew/models/actions";
+import { droppedFor, LearnedChips } from "../../crew/models/LearnedChips";
+import type { GymScore, ModelRow, ModelsStatus } from "../../crew/models/types";
 import { applyDoor } from "../../setup/door";
 import { CardChips } from "../ModelCard";
 import { honestLine, ModelTakes } from "../ModelTakes";

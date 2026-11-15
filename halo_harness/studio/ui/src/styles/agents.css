@@ -2,13 +2,9 @@
    workspace. The bar is one 40 px band with a hairline under it; each view's room fills the rest. The owns line on a
    lane (runs/Owns.tsx) and a lane's claims. Tokens only. */
 
-.ag { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-.ag-bar {
-  display: flex; align-items: center; gap: var(--gap); min-height: var(--bar-h); padding: 0 var(--pad);
-  background: var(--bg-2); border-bottom: 1px solid var(--line-soft); min-width: 0;
-}
+.ag { position: absolute; inset: 0; } /* 3.6.0.0 R5: the bar went (each tab's view bar leads with the tabs): the body is all of it */
 .ag-views button { height: 28px; padding: 0 14px; }
-.ag-body { position: relative; min-height: 0; }
+.ag-body { position: absolute; inset: 0; }
 .ag-part { position: absolute; inset: 0; }
 .ag-part[hidden] { display: none; }
 .ag-note {

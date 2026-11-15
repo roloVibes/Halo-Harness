@@ -14,8 +14,6 @@ Run: python -m tests.test_library_presets
 """
 from __future__ import annotations
 
-import contextlib
-import io
 import sys
 import time
 from pathlib import Path
@@ -99,39 +97,6 @@ def test_the_sentence_parser(ctx: Ctx):
     got = {r: preset_for_role(r) for r in ("verify", "coder", "planner", "compaction", "small", "eyes", "embed", "lunch")}
     ctx.check(f"a lineup role -> its preset, got {got}", got == {"verify": "verifier", "coder": "coder", "planner": "reasoner",
               "compaction": "compactor", "small": "bulk", "eyes": "multimodal", "embed": "embeddings", "lunch": ""})
-
-
-@test
-def test_the_inverse_flow_and_the_lineup_gap(ctx: Ctx):
-    from halo_harness.models_library.presets import for_role
-    with SearchHome(card=box_card()) as h:
-        h.profile("qwen3:14b", size_gb=9.3)
-        h.profile("qwen3:8b", tools="no", agentic_ready=False)
-        got = for_role("verify", state_dir=h.state, host="box")
-        said = for_role("a local coder that can use tools", state_dir=h.state, host="box")
-        from halo_harness.models_library.presets_save import save
-        save("verifier", state_dir=h.state, model="ol:qwen3:8b@box")  # verify on a model with no tool calling
-        out = io.StringIO()
-        from halo_harness.teams_cli import cmd_teams
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            rc = cmd_teams(["show", "local-verifier"])
-        from halo_harness.teams_yaml import load_team_template_raw
-        from halo_harness.studio.roles_findings import findings_for
-        found = findings_for(load_team_template_raw("local-verifier", state_dir=h.state), problems=[], graph={}, state_dir=h.state)
-    rows = got["rows"]
-    ctx.check(f"verify -> the Verifier preset, the probed model first, got {got['search']['preset']} {[r['name'] for r in rows[:3]]}",
-              got["search"]["preset"] == "verifier" and rows and rows[0]["name"] == "qwen3:14b" and rows[0]["gate_tier"] == 3
-              and rows[0]["verdicts"]["role_ready"]["ok"] is True)
-    ctx.check(f"the rest need a probe (download and verify), got {rows[1]['facts']['verifier']['why'] if len(rows) > 1 else None}",
-              len(rows) > 1 and all(r["gate_tier"] == 0 for r in rows[1:]))
-    ctx.check(f"a sentence -> Coder with tools, got {said['search']['understood']}",
-              said["search"]["preset"] == "coder" and said["rows"] and all(r["facts"]["tools"]["value"] for r in said["rows"]))
-    text = out.getvalue()
-    ctx.check(f"halo teams show names the gap and the command, got {text[-400:]!r}",
-              rc == 0 and "(gap) `verify` on ol:qwen3:8b@box: no tool calling" in text and "halo models browse --for-role verify" in text)
-    gap = next((f for f in found if f["id"] == "gap:verify"), None)
-    ctx.check(f"Roles -> Problems: the gap carries find {{role, preset}}, got {gap}",
-              gap and gap["find"] == {"role": "verify", "preset": "verifier"} and "find a model for this role" in gap["fix"])
 
 
 @test

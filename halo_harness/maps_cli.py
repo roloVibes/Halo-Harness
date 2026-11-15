@@ -3,7 +3,8 @@
     halo maps list            every map: yours, this project's (a trusted folder), the starters; the one in use marked
     halo maps show <name>     main, each box, each line with its When in words, what waits under "Not connected yet",
                               the cap, the problems (studio_show's own text)
-    halo maps use <name>      new sessions run on it (config `crew.map`); `--off` stops using a map
+    halo maps use <name>      new sessions run on it (config `crew.map`); `--off` goes back to the starter map
+    halo maps edit <name>     your $VISUAL / $EDITOR on your map's file; else Studio, Agents -> 3 · Map, on it
 
 Editing a map is Studio's Map tab (`halo studio`, Agents -> 3 · Map) or its builder box; `--map <name>` runs one session
 on a map without changing config.
@@ -24,7 +25,9 @@ def _parser() -> argparse.ArgumentParser:
     show.add_argument("name")
     use = sub.add_parser("use", help="new sessions run on this map (config crew.map)")
     use.add_argument("name", nargs="?")
-    use.add_argument("--off", action="store_true", help="new sessions run on no map")
+    use.add_argument("--off", action="store_true", help="stop using a map of your choice: new sessions run on the starter map")
+    edit = sub.add_parser("edit", help="open it in your editor, or in Studio")
+    edit.add_argument("name")
     return p
 
 
@@ -47,8 +50,11 @@ def cmd_maps(argv) -> int:
             mark = "*" if r["name"] == used else " "
             bad = f"  problem: {r['_problems'][0]}" if r["_problems"] else ""
             print(f"{mark} {r['name']:<20} {r['_scope']:<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
-        print(f"in use: {used} ({source})" if used else "in use: none -- sessions run as before maps (halo maps use <name>)")
+        print(f"in use: {used} ({source})" if used else "in use: none")
         return 0
+    if args.cmd == "edit":  # 3.6.0.0 R5
+        from halo_harness.crew_cli_parts import edit
+        return edit("map", args.name, cwd)
     if args.cmd == "show":
         if store.find("map", args.name, cwd=cwd) is None:
             print(f"halo maps show: no map named {args.name!r} (halo maps list)", file=sys.stderr)
@@ -62,6 +68,6 @@ def cmd_maps(argv) -> int:
     from halo_harness.crew.changes import write_all
     from halo_harness.crew.changes_map import config_path, config_text
     undo_id = write_all({config_path(): config_text(None if args.off else args.name)})
-    print(("New sessions run on no map." if args.off else f"New sessions run on the map {args.name}; a running session keeps its own.")
+    print(("New sessions run on the starter map (no map of yours is set)." if args.off else f"New sessions run on the map {args.name}; a running session keeps its own.")
           + f" (undo id {undo_id}: Studio's builder Undo puts it back)")
     return 0

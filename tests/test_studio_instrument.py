@@ -11,9 +11,7 @@ no provider request, no model call:
 4. Chrome: a fresh dark-system page is `data-theme="instrument"` (3.3.15.0 R4; `auto` before), drawn in instrument; the rail is 52 px, 176 px on its
    chevron, kept across a reload; a panel and the palette carry their four corner ticks (the selected panel's in the
    text colour); nothing animates on any core section's load or switch;
-5. Chrome, the rig: the Session Map's and Roles Live's nodes show the model without its provider prefix, the
-   Inspector's Live tab the full id; Roles' Apply asks with the three mono lines DOES / COSTS / WRITES; the working
-   agents animate, and with prefers-reduced-motion nothing runs after a state change.
+(3.6.0.0 R5: the rig's checks of the old Live tree's nodes and Cast's Apply dialog went with them.)
 Run: python -m tests.test_studio_instrument
 """
 from __future__ import annotations
@@ -35,7 +33,7 @@ UI = REPO / "halo_harness" / "studio" / "ui" / "src"
 _RUN: dict = {}
 PROPOSAL = ("#07090C", "#0B0E12", "#0F1318", "#151A21", "#232A33", "#1A2028", "#E6EDF3", "#9AA6B2", "#7D8995",
             "#22D3EE", "#F5A524", "#031317", "#3DD68C", "#F5A524", "#FF5C6A", "#A78BFA", "#67E8F9")
-REWRITTEN = ["styles/base.css", "styles/shell.css", "styles/motion.css", "styles/nodes.css", "styles/instrument.css", "styles/holo.css",
+REWRITTEN = ["styles/base.css", "styles/shell.css", "styles/motion.css", "styles/instrument.css", "styles/holo.css",  # R5: nodes.css went
              "styles/workspace.css", "lib/ui/Dialog.tsx", "lib/ui/DialogCost.tsx", "lib/ui/Surface.tsx", "lib/ui/Toast.tsx",
              "lib/ui/Field.tsx", "lib/ui/FitMeter.tsx", "lib/modelName.ts", "lib/motion/born.ts"]
 SHORT = {"or:qwen/qwen3-coder": "qwen3-coder", "ol:qwen3:30b@gpu-box": "qwen3:30b", "hf:local/Qwen2.5-7B@box": "Qwen2.5-7B",
@@ -90,7 +88,7 @@ def test_the_prefix_strip(ctx: Ctx):
     src = (UI / "lib" / "modelName.ts").read_text(encoding="utf-8")
     ctx.check("one rule, Halo's route words", "/^(or|ol|dbx|db|ant|oai|hf|xp):/" in src)
     # 3.3.16.0 R2: the Fleet map's and Tree's nodes went; Agents -> Live draws every agent with LiveNode on either scope
-    users = {f: (UI / f).read_text(encoding="utf-8") for f in ("routes/roles/LiveNode.tsx", "routes/session/Live.tsx")}
+    users = {f: (UI / f).read_text(encoding="utf-8") for f in ("routes/session/Cost.tsx", "routes/session/Live.tsx")}  # R5: LiveNode went
     ctx.check(f"the nodes and Live's tags use it, got {[f for f, t in users.items() if 'shortModel(' not in t]}",
               all("shortModel(" in t for t in users.values()))
     from tests.helpers import node_ts  # 3.4.1.1: a node without TypeScript (Debian's) transpiles with the UI's tsc
@@ -134,37 +132,6 @@ def test_nothing_animates_on_a_section_load(ctx: Ctx):
     ctx.check(f"each core section loaded: no animation started, got {loads}", len(loads) == 6 and all(v == [] for v in loads.values()))  # 3.3.16.0 R2: six
     ctx.check(f"each reached by Alt+1..6: none either, got {keys}", len(keys) == 6 and all(v == [] for v in keys.values()))
     ctx.check(f"the listener sees one that does start, got {got.get('listener_control')}", got.get("listener_control") == ["m-blink"])
-
-
-@test
-def test_a_node_shows_the_model_without_its_prefix(ctx: Ctx):
-    got = _got(ctx, "rig")
-    want = ["cheap-coder", "cheap-fast", "glm-5-coder"]
-    ctx.check(f"the Session Map's nodes, got {got.get('map_labels')}", got.get("map_labels") == want)
-    ctx.check(f"their tooltip keeps the full id, got {got.get('map_titles')}",
-              all(f"or:mock/{w}" in str(t) for w, t in zip(want, got.get("map_titles") or [])))  # 3.3.16.0 R2: the line's title is the full id
-    ctx.check(f"Roles Live's nodes, got {got.get('live_labels')}",
-              [str(x).split(" ·")[0] for x in got.get("live_labels") or []] == want)
-    ctx.check(f"the Inspector's Live tab has the full id, got {got.get('inspector_meta')!r}", "or:mock/cheap-fast" in str(got.get("inspector_meta")))
-
-
-@test
-def test_a_confirmation_shows_does_costs_writes(ctx: Ctx):
-    got = _got(ctx, "rig")
-    ctx.check(f"three keys, got {got.get('cost_keys')}", got.get("cost_keys") == ["DOES", "COSTS", "WRITES"])
-    lines = got.get("cost_lines") or []
-    ctx.check(f"three lines, each said, got {lines}", len(lines) == 3 and all(str(x).strip() for x in lines)
-              and "config.json" in str(lines[2]))
-    ctx.check(f"in mono, got {got.get('cost_font')!r}", "Mono" in str(got.get("cost_font")) or "monospace" in str(got.get("cost_font")))
-    ctx.check(f"the dialog wears its ticks, got {got.get('dialog_ticks')}", (got.get("dialog_ticks") or [0])[0] == 4)
-
-
-@test
-def test_reduced_motion_is_an_instant_state_swap(ctx: Ctx):
-    got = _got(ctx, "rig")
-    ctx.check(f"the working agents animate with motion allowed, got {got.get('motion_running')}", (got.get("motion_running") or 0) > 0)
-    ctx.check(f"with prefers-reduced-motion nothing runs after a state change, got {got.get('reduced_running')}",
-              got.get("reduced_running") == [])
 
 
 if __name__ == "__main__":

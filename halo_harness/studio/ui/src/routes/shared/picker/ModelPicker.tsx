@@ -10,10 +10,10 @@
 // not listed" (NotListed.tsx). `tid` prefixes the test ids (model-*, setup-model-*, settings-model-*).
 import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { WindowedRows } from "../../../lib/ui";
-import { TestButton } from "../../roles/TestButton";
-import { learnedKinds } from "../../roles/LearnedChips";
-import { useRoles } from "../../roles/store";
-import type { ModelRow } from "../../roles/types";
+import { TestButton } from "../../crew/models/TestButton";
+import { learnedKinds } from "../../crew/models/LearnedChips";
+import { useModels } from "../../crew/models/store";
+import type { ModelRow } from "../../crew/models/types";
 import { useCatalog } from "../catalog";
 import { CardDetail, ModelCardPanel } from "../ModelCard";
 import { NotListed } from "./NotListed";
@@ -51,10 +51,10 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
   const all = rows ?? catalog.models;
   const loaded = rows ? true : catalog.loaded;
   const st = useStatusOnce();
-  const bestFor = useRoles((s) => s.bestFor);
-  const gym = useRoles((s) => s.gym);
-  const error = useRoles((s) => s.modelsError);
-  const busy = useRoles((s) => s.busy === "refresh");
+  const bestFor = useModels((s) => s.bestFor);
+  const gym = useModels((s) => s.gym);
+  const error = useModels((s) => s.modelsError);
+  const busy = useModels((s) => s.busy === "refresh");
   const models = useMemo(() => (only ? all.filter(only) : all), [all, only]);
   const [q, setQ] = useState(seed);
   const [sort, setSort] = useState<Sort>("name");

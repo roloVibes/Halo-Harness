@@ -1,8 +1,8 @@
 """tests.test_studio_model_pickers_ui -- Halo 3.4.1.3 "Pick, don't type" in headless Chrome (tests/helpers/
 studio_model_pickers.py; skipped without one), over a fresh home with two fake OpenRouter models, no model call:
 
-1. Agents -> Models: "Test a model" is the picker field (a button, not a text box); the panel scrolls sideways
-   neither closed nor open; a click focuses the picker's search, the rows are grouped by provider with its state,
+1. the Map's Run a goal panel: its MODEL is the picker field (3.6.0.0 R5; Agents -> Models' "Test a model" before;
+   a button, not a text box); the panel scrolls sideways neither closed nor open; a click focuses the picker's search, the rows are grouped by provider with its state,
    typing filters to one row (highlighted), Enter picks it and closes, Test answers beside the field;
 2. a letter on the closed field opens the picker with that letter searched; Esc closes it;
 3. the last row: a wrong prefix names the known ones and Use it stays off; a good ref is checked as typed, Enter uses
@@ -52,7 +52,6 @@ def test_type_to_filter_enter_picks_esc_closes(ctx: Ctx):
     ctx.check(f"Test answers beside it, got {got.get('probe')!r}", got.get("probe") == "fakeco/beta-2: ok in 42 ms")
     ctx.check(f"a letter opens it searched, got {got.get('key_open')!r}", got.get("key_open") == "a")
     ctx.check("Esc closes it", got.get("esc_closed") == "closed")
-    ctx.check("an Esc before the search box has the focus closes it too", got.get("esc_on_field_closed") == "closed")
 
 
 @test

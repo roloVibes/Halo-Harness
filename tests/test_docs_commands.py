@@ -112,8 +112,7 @@ def _gather_real_flags() -> "dict[str, set]":
     out["halo work-matrix show"] = _flags_in(_capture(work_matrix_mod.cmd_work_matrix, ["show", "--help"]))
     out["halo work-matrix apply"] = _flags_in(_capture(work_matrix_mod.cmd_work_matrix, ["apply", "--help"]))
     # 2.0.6 rounds: the new surfaces join the table
-    from halo_harness import teams_cli, gym_cli, replay_cli, report_cli  # report_cli: 3.4.1.0 R3, the run report card
-    out["halo teams"] = _flags_in(_capture(teams_cli.cmd_teams, ["--help"]))
+    from halo_harness import gym_cli, replay_cli, report_cli  # report_cli: 3.4.1.0 R3, the run report card (3.6.0.0 R5: teams went)
     out["halo gym"] = _flags_in(_capture(gym_cli.cmd_gym, ["--help"]))
     out["halo replay"], out["halo report"] = (_flags_in(_capture(replay_cli.cmd_replay, ["--help"])), _flags_in(_capture(report_cli.cmd_report, ["--help"])))
     # 2.0.10 round 1: `halo review`
@@ -147,17 +146,19 @@ def _gather_real_flags() -> "dict[str, set]":
     out.update({f"halo knowledge {v}": _flags_in(_capture(cmd_knowledge, [v, "--help"])) for v in KNOWLEDGE_VERBS})
     from halo_harness.packs.cli import VERBS as PACK_VERBS, cmd_pack  # 3.2.0.0 R1: `halo pack`
     out.update({f"halo pack {v}": _flags_in(_capture(cmd_pack, [v, "--help"])) for v in PACK_VERBS})
-    from halo_harness.workflows.cli import cmd_workflow  # 3.2.0.0 R5: `halo workflow`
-    out.update({f"halo workflow {v}": _flags_in(_capture(cmd_workflow, [v, "--help"])) for v in ("list", "show", "check", "run")})
-    from halo_harness.workflows.squares_cli import cmd_workflows  # 3.3.16.0 R3: `halo workflows`, the squares
+    from halo_harness.workflows_cli import cmd_workflows  # 3.6.0.0 R5: `halo workflows`, the crew workflows
     out.update({f"halo workflows {v}": _flags_in(_capture(cmd_workflows, [v, "--help"]))
-                for v in ("list", "show", "enable", "disable", "test", "new", "when")})
+                for v in ("list", "show", "new", "edit", "try", "run")})
+    from halo_harness.agents_cli import cmd_agents  # 3.6.0.0 R5: `halo agents`, the crew agents
+    out.update({f"halo agents {v}": _flags_in(_capture(cmd_agents, [v, "--help"])) for v in ("list", "show", "new", "edit", "try")})
+    from halo_harness.maps_cli import cmd_maps  # 3.6.0.0 R3 / R5: `halo maps`
+    out.update({f"halo maps {v}": _flags_in(_capture(cmd_maps, [v, "--help"])) for v in ("list", "show", "use", "edit")})
     from halo_harness.isolation.cli import cmd_isolation  # 3.1.8.0 R5: `halo isolation`, `halo secrets`
     from halo_harness.isolation.secrets import cmd_secrets
     out.update({f"halo isolation {v}": _flags_in(_capture(cmd_isolation, [v, "--help"])) for v in ("image", "build", "check")})
     out["halo secrets check"] = _flags_in(_capture(cmd_secrets, ["check", "--help"]))
     # 3.3.7.0 R1: `halo host`; 3.3.8.0 R1: `halo pool`; 3.3.16.3: `halo blocks`; 3.3.17.0 R1: `halo copilot`
-    for word in ("host", "pool", "blocks", "copilot"):
+    for word in ("host", "pool", "copilot"):  # 3.6.0.0 R5: blocks went
         m = __import__(f"halo_harness.{word}_cli", fromlist=["VERBS"])
         out.update({f"halo {word} {v}": _flags_in(_capture(getattr(m, f"cmd_{word}"), [v, "--help"])) for v in m.VERBS})
     return out
@@ -168,7 +169,7 @@ def test_every_subcommand_is_documented(ctx: Ctx):
     text = doc_text("COMMANDS.md")
     for name in ("init", "doctor", "update", "models", "mcp", "config", "stats", "export", "improve", "proxy",
                  "work-matrix", "ollama", "review", "media", "team", "start", "explain", "pack", "workflow",
-                 "isolation", "secrets", "session", "settings", "workflows", "blocks", "copilot"):
+                 "isolation", "secrets", "session", "settings", "workflows", "agents", "maps", "copilot"):
         label = f"halo {name}"
         ctx.check(f"COMMANDS.md documents {label!r} (as a heading)",
                   re.search(rf"^#{{1,3}}\s+.*`?{re.escape(label)}`?", text, re.MULTILINE) is not None)

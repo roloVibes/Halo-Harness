@@ -3,7 +3,7 @@ agents of one task (agent/agent_hooks.py `spawn_of`, agent/agent_observe.py's pe
 description, lead}` -- every Agent call of one reply shares the step (the parent's id and its reply count), a call in
 the next reply has another, a count job queued then built keeps the step it was queued with, `lead` is the last line
 the parent wrote in that reply; a square's agent row carries the square's DOES line (workflows/receipts.py). The
-grouping itself is Studio's (routes/agents/live/groups.ts): its rule is pinned in the source here. Pure; no model.
+grouping itself is Studio's (routes/crew/live/groups.ts): its rule is pinned in the source here. Pure; no model.
 Run: python -m tests.test_live_groups
 """
 from __future__ import annotations
@@ -98,9 +98,9 @@ def test_a_square_agent_carries_its_does_line(ctx: Ctx):
 
 @test
 def test_studio_groups_by_these_fields(ctx: Ctx):
-    """The rule Studio draws by (routes/agents/live/groups.ts): siblings of one step, two or more, are a task group; a
+    """The rule Studio draws by (routes/crew/live/groups.ts): siblings of one step, two or more, are a task group; a
     square's agent and the agents under it are its group; the rest of a lineup tier's agents are grouped by the tier."""
-    src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "agents" / "live" / "groups.ts").read_text(encoding="utf-8")
+    src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "live" / "groups.ts").read_text(encoding="utf-8")
     for needle in ("spawn?.step", "square", "tier", "MIN_TASK = 2"):
         ctx.check(f"groups.ts reads {needle!r}", needle in src)
 

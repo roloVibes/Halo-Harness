@@ -14,8 +14,8 @@ import { ArtifactsTab } from "../../orchestra/Artifacts";
 import { CHECK_LABEL, cost, reportText, sha, short } from "../../orchestra/format";
 import type { Check, RunPayload } from "../../orchestra/types";
 import { openLiveReplay } from "../live/replay";
-import { closeReport, toggleHistory } from "../../agents/live/historyStore";
-import { openGoal } from "./goalStore";
+import { closeReport, toggleHistory } from "../live/historyStore";
+import { openGoal } from "./door";
 import { ReportCard } from "../live/ReportCard";
 
 const mark = (ok: boolean | null) => (ok === true ? "✓" : ok === false ? "✗" : "—");
@@ -85,7 +85,7 @@ export function RunReport({ data }: { data: RunPayload }) {
         {r && <span className="mono">{judged.filter((c) => c.ok).length}/{judged.length} checks</span>}
         <span className="spacer" />
         {r && <Button size="sm" variant="ghost" onClick={() => copy(reportText(r))} data-testid="history-report-copy" title="The report as halo orchestra report prints it">Copy</Button>}
-        <Button size="sm" variant="ghost" data-testid="history-report-replay" title="Draw it on Live as it ended (Back to now returns)"
+        <Button size="sm" variant="ghost" data-testid="history-report-replay" title="Replay it as it ended, under the map (Back to now returns)"
                 onClick={() => void openLiveReplay("run", run, data.goal.what).then((ok) => ok && toggleHistory(false))}>Replay</Button>
         <Button size="sm" onClick={again} data-testid="history-report-again" title="The goal panel with this goal filled in: nothing runs until you press Run">Run it again</Button>
       </div>

@@ -55,7 +55,7 @@ def live(c, rig) -> dict:
     lv = Live(rig)
     out: dict = {}
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"session-lit-box\"]').length >= 3", 40)
     time.sleep(0.8)
     out["arrangement"] = arrangement(c)
     out["follow_default"] = c.js(f"{COL}.dataset.follow === 'true'")
@@ -78,7 +78,6 @@ def live(c, rig) -> dict:
     time.sleep(2.3)
     e1 = c.js(f"{tool}.querySelector('[data-testid=\"session-live-elapsed\"]').textContent")
     out["elapsed"] = [e0, e1]
-    out["node_clock"] = c.js(f"document.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{impl}\"] [data-testid=\"roles-live-tool\"] .rlm-tool-text')?.textContent || ''")
     lv.result("implementer", "live-t1", "M basket.py\n?? notes.md")
     out["result"] = c.wait(f"{tool}.querySelector('[data-testid=\"session-live-result\"]')?.textContent", 10)
     from tests.helpers.studio_session_insight import columns  # 3.1.7.0 R1: Fleet's columns, the narrow layout, the whole result
@@ -139,13 +138,7 @@ def pin_and_hover(c, lv, res: str) -> dict:
     c.key("Escape")
     out["unpinned"] = c.wait(f"!{COL}.dataset.pinned && 'everyone'", 5) or False
     out["everyone_back"] = c.js(f"new Set({LINES}.map((l) => l.dataset.key)).size")
-    line = f"{LINES}.filter((l) => l.dataset.key === '{res}').pop()"
-    c.js(f"{line}.scrollIntoView({{block: 'center'}}); 1")
-    x, y, w, h = c.rect(line)
-    c.mouse("mouseMoved", x + w * 0.7, y + h / 2)
-    out["hover_node"] = c.wait("document.querySelector('[data-testid=\"roles-live-node\"][data-hover]')?.dataset.key", 5)
-    c.mouse("mouseMoved", 5, 5)
-    out["hover_off"] = c.wait("!document.querySelector('[data-testid=\"roles-live-node\"][data-hover]') && 'off'", 5) or False
+    # 3.6.0.0 R5: a line's hover lit the old tree's node; the session's lit map has no hover link to the feed
     return out
 
 

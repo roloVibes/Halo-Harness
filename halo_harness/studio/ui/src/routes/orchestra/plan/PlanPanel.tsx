@@ -8,8 +8,8 @@ import { useEffect } from "react";
 import type { MotionState } from "../../../lib/motion";
 import type { PanelSpec } from "../../../lib/workspace/types";
 import { HELP } from "../../help";
-import { loadLists, loadModels } from "../../roles/sync";
-import { roles } from "../../roles/store";
+import { loadModels } from "../../crew/models/sync";
+import { models } from "../../crew/models/store";
 import { Metric } from "../bits";
 import { useOrch } from "../store";
 import { PlanBar, PlanProblems, RejectCard } from "./Bar";
@@ -27,9 +27,7 @@ function usePlanLoad(): void {
     if (runId && !(p.staged && p.runId === runId)) void loadPlan(runId); // 3.0.9.0 R3: a staged coach edit is kept
   }, [runId]);
   useEffect(() => {
-    const r = roles.get();
-    if (!r.loaded) void loadLists();
-    if (!r.modelsLoaded) void loadModels();
+    if (!models.get().modelsLoaded) void loadModels();
   }, []);
 }
 
@@ -39,7 +37,7 @@ export function PlanDetail() {
   const n = usePlan((s) => s.jobs.length);
   const waits = useOrch((s) => s.data?.run.state === "planned" || !!stagedFor(s.runId)); // 3.4.0.0 D: a Live panel any time
   if (!waits)
-    return <p className="muted" data-testid="plan-none">No goal run waits for its plan here. Start one with Review the plan first (Run a goal on Live's bar); its lead on Live then offers Review the plan.</p>;
+    return <p className="muted" data-testid="plan-none">No goal run waits for its plan here. Start one with Review the plan first (Run a goal on the Map's bar); its pages in the Map's drawer then offer Review the plan.</p>;
   if (!loaded) return <div className="og-wait mono muted">reading the plan...</div>;
   return (
     <div className="pc" data-testid="plan-editor">

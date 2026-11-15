@@ -29,7 +29,7 @@ function FormGlance() {
 function fromUrl(): { name: string; run: string } {
   try {
     const q = new URLSearchParams(location.search);
-    return q.get("view") === "flows" ? { name: (q.get("workflow") || "").toLowerCase(), run: q.get("try") || "" } : { name: "", run: "" };
+    return ["workflows", "flows"].includes(q.get("view") || "") ? { name: (q.get("workflow") || "").toLowerCase(), run: q.get("try") || "" } : { name: "", run: "" };
   } catch {
     return { name: "", run: "" };
   }
@@ -62,7 +62,7 @@ export function FlowsView() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const lead = (
     <span className="cw-lead">
-      <ViewSwitch view="flows" />
+      <ViewSwitch view="workflows" />
       <AttentionChip />
     </span>
   );

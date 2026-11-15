@@ -64,7 +64,7 @@ def test_the_stage_in_the_source(ctx: Ctx):
     ctx.check("persist keeps v3 with a layout version", "const VERSION = 3;" in (WS / "persist.ts").read_text(encoding="utf-8"))
     css = (UI / "styles" / "workspace.css").read_text(encoding="utf-8")
     ctx.check("no grid, no strip, no resize handles in the sheet", ".ws-grid" not in css and ".rz-" not in css and "data-dragging" not in css)
-    for rel in ("routes/session/Session.tsx", "routes/roles/Roles.tsx", "routes/packs/manager/Manager.tsx"):
+    for rel in ("routes/session/Session.tsx", "routes/crew/map/MapView.tsx", "routes/packs/manager/Manager.tsx"):  # R5: Roles went
         src = (UI / rel).read_text(encoding="utf-8")
         ctx.check(f"{rel}: no grid cells in a core spec", not re.search(r"\bx: \d+, y: \d+, w: \d+, h: -?\d+", src))
     ctx.check("the header's + menu went", not (UI / "shell" / "PanelsMenu.tsx").exists())
@@ -167,7 +167,7 @@ def test_r9_breakpoints(ctx: Ctx):
     if room.get("main"):
         ctx.check(f"R9 2560: the main thing keeps 60 % beside both, got {room['main'][2]}/{room['stage'][2]}", room["main"][2] >= 0.6 * room["stage"][2] - 1)
     ctx.check(f"R9 1024: the drawer floats over the main thing, got {narrow.get('open')}", narrow.get("open") == [["session-cost", True]])
-    ctx.check(f"R9 390: the rail hidden, its menu button shown, no sideways scroll, got {bp.get('phone')}", (bp.get("phone") or [""])[0] == "none" and (bp.get("phone") or ["", "none"])[1] != "none" and (bp.get("phone") or [0, 0, False])[2] is True)
+    ctx.check(f"R9 390: the rail hidden, its menu button shown, no sideways scroll, got {bp.get('phone')} {bp.get('phone_wide')}", (bp.get("phone") or [""])[0] == "none" and (bp.get("phone") or ["", "none"])[1] != "none" and (bp.get("phone") or [0, 0, False])[2] is True)
     ctx.check(f"R9 390: the menu button opens the rail, got {bp.get('phone_menu')!r}", bp.get("phone_menu") == "flex")
 
 

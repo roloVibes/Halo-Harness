@@ -4,8 +4,9 @@ two fake OpenRouter models and no other provider; no provider request, no model 
 
     python -m tests.helpers.studio_model_pickers pickers
 
-1. Agents -> Models: "Test a model" is the picker field; at the panel's default size nothing in it scrolls sideways;
-   a click opens the picker with its search focused, typing filters, Enter picks the first match, Test answers;
+1. the Map's Run a goal panel: its MODEL is the picker field (3.6.0.0 R5; Agents -> Models' "Test a model" before);
+   at the panel's default size nothing in it scrolls sideways; a click opens the picker with its search focused, typing
+   filters, Enter picks the first match, Test answers;
 2. a letter typed on the closed field opens the picker with that letter searched; Esc closes it;
 3. the last row: a wrong prefix says which prefixes exist and Use it stays off; a good ref is checked as typed and
    Enter uses it; the field then marks it "not in your catalog" and the picker shows it as its saved row;
@@ -30,9 +31,11 @@ from tests.helpers.model_pick import open_picker, scope  # noqa: E402
 from tests.helpers.studio_model_select import BETA, seed_catalog  # noqa: E402
 from tests.helpers.studio_roles_model import PROBE  # noqa: E402
 
-REF = "document.querySelector('[data-testid=\"roles-models-ref\"]')"
+REF = "document.querySelector('[data-testid=\"orchestra-model\"]')"
 TRIG = f"{REF}?.querySelector('[data-testid=\"model-select\"]')"
-SEARCH = f"{REF}?.querySelector('[data-testid=\"model-search\"]')"
+PICK = scope(REF)  # the open picker: its dialog
+SEARCH = f"{PICK}?.querySelector('[data-testid=\"model-search\"]')"
+DRAWER = "document.querySelector('[data-testid=\"run-goal-drawer\"]')"
 ACTIVE = "document.activeElement?.dataset?.testid"
 # the nearest ancestor that scrolls sideways (or the page), and whether it does
 SIDEWAYS = """((el) => { const out = []; for (let n = el; n && n !== document.body; n = n.parentElement) {
@@ -49,23 +52,25 @@ def _clear_and_type(c, expr: str, text: str) -> None:
 def models_panel(c, url: str) -> dict:
     out: dict = {}
     c.go(url)
+    c.wait("!!document.querySelector('[data-testid=\"map-run-goal\"]')", 40)
+    c.click_on("document.querySelector('[data-testid=\"map-run-goal\"]')")
     c.wait(f"!!{TRIG}", 40)
     c.js(f"{REF}.scrollIntoView({{block: 'center'}}); 1")
-    out["sideways_closed"] = c.js(f"{SIDEWAYS}(document.querySelector('[data-testid=\"roles-models-body\"]'))")
+    out["sideways_closed"] = c.js(f"{SIDEWAYS}({DRAWER})")
     out["is_button"] = c.js(f"{TRIG}.tagName")
     c.click_on(TRIG)
     out["search_focused"] = c.wait(f"{ACTIVE} === 'model-search' && 'focused'", 10)
-    out["sideways_open"] = c.js(f"{SIDEWAYS}({REF}.querySelector('[data-testid=\"model-row\"]'))")
-    out["rows"] = c.wait(f"(() => {{ const r = [...{REF}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => r.dataset.ref); return r.length === 2 && r; }})()", 20)
-    out["groups"] = c.js(f"[...{REF}.querySelectorAll('[data-testid=\"model-group\"]')].map((g) => g.textContent)")
+    out["sideways_open"] = c.js(f"{SIDEWAYS}({PICK}.querySelector('[data-testid=\"model-row\"]'))")
+    out["rows"] = c.wait(f"(() => {{ const r = [...{PICK}.querySelectorAll('[data-testid=\"model-row\"]')].map((r) => r.dataset.ref); return r.length === 2 && r; }})()", 20)
+    out["groups"] = c.js(f"[...{PICK}.querySelectorAll('[data-testid=\"model-group\"]')].map((g) => g.textContent)")
     c.type_text("beta")
-    out["typed_rows"] = c.wait(f"(() => {{ const r = [...{REF}.querySelectorAll('[data-testid=\"model-row\"]')]; return r.length === 1 && r[0].dataset.hot && r.map((x) => [x.dataset.ref, !!x.dataset.hot]); }})()", 10)
+    out["typed_rows"] = c.wait(f"(() => {{ const r = [...{PICK}.querySelectorAll('[data-testid=\"model-row\"]')]; return r.length === 1 && r[0].dataset.hot && r.map((x) => [x.dataset.ref, !!x.dataset.hot]); }})()", 10)
     c.key("Enter")
     try:
         out["enter_pick"] = c.wait(f"{REF}.dataset.value === {json.dumps(BETA)} && !{SEARCH} && {REF}.dataset.value", 10)
     except TimeoutError:
         raise TimeoutError("enter: " + json.dumps(c.js(f"[{REF}?.dataset.value, !!{SEARCH}, {ACTIVE}, location.search, "
-                                                       "document.querySelectorAll('[data-testid=roles-models-body]').length, "
+                                                       "document.querySelectorAll('[data-testid=run-goal-drawer]').length, "
                                                        "document.querySelectorAll('[data-testid=model-select]').length, document.activeElement?.outerHTML?.slice(0, 160)]")))
     c.click_on(f"{REF}.querySelector('[data-testid=\"model-select-test\"]')")
     out["probe"] = c.wait(f"{REF}.querySelector('[data-testid=\"model-select-result\"]')?.textContent", 10)
@@ -76,24 +81,18 @@ def models_panel(c, url: str) -> dict:
     c.wait(f"{ACTIVE} === 'model-search'", 10)  # the state Esc acts on: the focus in the search box
     c.key("Escape")
     out["esc_closed"] = c.wait(f"!{SEARCH} && 'closed'", 10)
-    # an Esc that lands while the focus is still on the field (pressed before the search box takes it) closes it too
-    c.wait(f"{ACTIVE} === 'model-select'", 10)  # the close hands the focus back to the field
-    c.key("a")
-    c.wait(f"{ACTIVE} === 'model-search'", 10)
-    c.js(f"{TRIG}.focus(); 1")
-    c.wait(f"{ACTIVE} === 'model-select' && !!{SEARCH}", 10)
-    c.key("Escape")
-    out["esc_on_field_closed"] = c.wait(f"!{SEARCH} && 'closed'", 10)
+    # (3.6.0.0 R5: an Esc on the field itself while the picker is open was a check of the inline fold; this field's
+    # picker is a dialog over it, so the field cannot hold the focus while it is open)
     return out
 
 
 def not_listed(c) -> dict:
     out: dict = {}
     open_picker(c, REF)
-    c.js(f"{REF}.querySelector('[data-testid=\"model-not-listed\"]').click(); 1")
-    box = f"{REF}.querySelector('[data-testid=\"model-typed\"]')"
-    line = f"{REF}.querySelector('[data-testid=\"model-typed-check\"]')"
-    use = f"{REF}.querySelector('[data-testid=\"model-typed-use\"]')"
+    c.js(f"{PICK}.querySelector('[data-testid=\"model-not-listed\"]').click(); 1")
+    box = f"{PICK}.querySelector('[data-testid=\"model-typed\"]')"
+    line = f"{PICK}.querySelector('[data-testid=\"model-typed-check\"]')"
+    use = f"{PICK}.querySelector('[data-testid=\"model-typed-use\"]')"
     c.wait(f"{ACTIVE} === 'model-typed'", 10)
     _clear_and_type(c, box, "zz:thing")
     out["bad_line"] = c.wait(f"{line}?.textContent.includes('not a prefix') && {line}.textContent", 10)
@@ -116,7 +115,7 @@ def settings(c, url: str, state: Path) -> dict:
     cfg = lambda: json.loads((state / "config.json").read_text(encoding="utf-8")) if (state / "config.json").is_file() else {}  # noqa: E731
     out: dict = {}
     c.go("about:blank")
-    c.go(url.replace("mode=roles", "mode=settings"))
+    c.go(url.replace("mode=agents", "mode=settings"))
     c.wait("document.querySelectorAll('[data-testid=settings-row]').length > 0", 40)
     group(c, "general")
     field = row("compactionModel")
@@ -167,7 +166,7 @@ class PickersDriver(Driver):
         from tests.helpers.studio_full import full
         url = full(url)
         try:
-            yield ((pickers, (c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace"), state)),)
+            yield ((pickers, (c, url.replace("mode=orchestra", "mode=agents").replace("feed=off", "feed=off&tour=off&view=map"), state)),)
         finally:
             srv.shutdown()
             srv.server_close()

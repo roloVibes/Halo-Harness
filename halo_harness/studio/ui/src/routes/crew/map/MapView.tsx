@@ -3,9 +3,12 @@
 // rules (R0a): the map is the main thing (the bar, the drawing, the strip under it); "Agents and workflows" is a left
 // drawer that pushes the map (closed until you open it from the view bar); the builder is docked at the foot. The view
 // bar carries Agents' switch and the Attention chip. Nothing opens by itself.
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
+import { planPanel } from "../run/planPanel";
+import { packPanels } from "../../packs/registry";
+import { usePacks } from "../../packs/store";
 import { AttentionChip } from "../../agents/AttentionChip";
 import { ViewSwitch } from "../../agents/ViewSwitch";
 import { MapBuilder } from "../Builder";
@@ -54,6 +57,8 @@ function MapMain() {
   );
 }
 
+const PACK_WORDS = ["agents", "roles", "orchestra", "team"];
+
 export const mapPanels: PanelSpec[] = [
   { id: "map-add", testid: "map-add-panel", title: "Agents and workflows", role: "drawer", side: "left", contentW: 360,
     about: "Your agents, then your workflows: drag one onto the map, or Add it.",
@@ -71,6 +76,7 @@ export const mapPanels: PanelSpec[] = [
     about: "Say how things should connect, or ask why something happened: the builder answers with a preview you tick, then Apply.",
     help: "Type what you want and press Enter.\nThe changes show on the map as dashed ghosts.\nApply writes; Undo puts it back.",
     face: "detail", glance: MapBuilder, detail: MapBuilder },
+  planPanel, // 3.6.0.0 R5: a goal run's plan review (crew/run/planPanel.ts), optional, opened by "Review the plan"
 ];
 
 export function MapView() {
@@ -88,10 +94,14 @@ export function MapView() {
     </span>
   );
   const lit = useLit(); // R4: one overlay for the whole tab (the canvas, the strip, the top line, the drawer)
+  const reg = usePacks((s) => s.reg);
+  // 3.6.0.0 R5: a pack's panel declared for Agents (or its old words: roles, orchestra, team) joins the Map's workspace,
+  // where Cast's workspace held it before
+  const specs = useMemo(() => [...mapPanels, ...PACK_WORDS.flatMap((w) => packPanels(reg, w))], [reg]);
   return (
     <LitCtx.Provider value={lit}>
       <div className="cw" data-testid="map-view">
-        <Workspace section={MAP_SECTION} specs={mapPanels} lead={lead} />
+        <Workspace section={MAP_SECTION} specs={specs} lead={lead} />
       </div>
     </LitCtx.Provider>
   );

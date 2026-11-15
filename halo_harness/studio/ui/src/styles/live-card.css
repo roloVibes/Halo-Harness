@@ -36,12 +36,5 @@
 .rcd-sub { margin: 2px 0 0; padding-left: 16px; color: var(--muted); }
 .lh-page .rr > .rcd { margin: 0; }
 
-.lv-ended { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 14px; padding: 8px 12px; min-width: 0; border: 1px solid var(--line);
-  border-radius: var(--r-card); background: var(--surface-2); color: var(--text); font-size: 12px; text-align: left; cursor: pointer; }
-.lv-ended:hover, .lv-ended:focus-visible { border-color: var(--accent); outline: none; }
-.lv-ended-what { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
-.lv-ended-go { flex: 0 0 auto; color: var(--accent); }
-.lv-empty-strip .lv-ended { width: auto; margin-top: 0; }
-
 .slv-mode { text-transform: none; }
 .slv-mode[data-mode="plan"] { color: var(--accent); border-color: var(--accent); }

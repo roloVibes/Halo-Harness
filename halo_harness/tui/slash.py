@@ -73,11 +73,6 @@ async def handle_slash(app, name: str, args: str) -> None:
         "intro": _handle_intro,
         # W4c item 2: /copy, /copy code [N], /copy tool.
         "copy": _handle_copy,
-        # Halo 2.0.2 brief A.5: only `/roles edit <name>` needs real
-        # interactive behavior (a form, or $EDITOR) -- every other /roles
-        # subcommand (and /role, and the bare table) stays on the generic
-        # headless-text fallback below.
-        "roles": _handle_roles,
         # Halo 2.0.2 round 3 (brief C item 1): same toggle Ctrl+T uses.
         "tasks": _handle_tasks,
         # Halo 3.0.3.0: the latest Orchestra run's lanes, refreshed from its run log.
@@ -117,13 +112,10 @@ async def handle_slash(app, name: str, args: str) -> None:
         # on `app.prompt_input`, no Controller/session round trip at all.
         "paste": _handle_paste, "images": _handle_images,
         "screenshot": _handle_screenshot,  # 3.3.6.0 R6: a capture, attached like /paste
-        # Halo 2.0.5 round 2 (deliverable 4): "/agents"/"/teams" (list,
-        # new, edit, duplicate/delete, activate) open the SAME form
-        # module the wizard uses -- every OTHER subcommand (show/
-        # validate/use/export/import) stays on the generic headless-text
-        # fallback below, same split `_handle_roles` uses.
-        "agents": _handle_agents, "teams": _handle_teams,
-        # Halo 3.1.1.0 R3: /edit bio:<name> | lineup:<name> | team opens Studio on it.
+        # 3.6.0.0 R5: /agents edit|new <name> opens Studio's Agents tab on it; /roles and /teams are the core
+        # commands' one line (lineups are gone), /map the map this session runs on.
+        "agents": _handle_agents,
+        # Halo 3.1.1.0 R3; 3.6.0.0 R5: /edit agent:<name> | workflow:<name> | map:<name> opens Studio on it.
         "edit": _handle_edit,
         # Halo 3.1.4.0 R2: bare /studio opens Studio on this session (the Session
         # dashboard), /studio <section> on that section; `... url` prints the URL.
@@ -213,112 +205,6 @@ def _open_model_picker(app, models) -> None:
     last_used = launch_state.resolve_last_model(app.cwd, memory=get_config_value("model_memory", default="cwd")) or ""
     app.push_screen(ModelPicker(models, current=app.status_bar.model, last_used=last_used),
                      lambda ref: _apply_model(app, ref))
-
-
-async def _handle_roles(app, args: str) -> None:
-    """Halo 2.0.2 brief A.5: `/roles edit <name>` opens a real form
-    (`tui/dialogs/roles_editor.py`), or shells to `$EDITOR` when
-    `roles.editor: "external"` is configured -- every other `/roles`
-    subcommand (`templates`/`save`/`load`/`new`/`show`/`set`, or the bare
-    table) still goes through the SAME headless-text fallback every other
-    command uses (`commands/builtins.py::_cmd_roles`, off the UI thread,
-    exactly like `/effort`'s own bare case)."""
-    parts = (args or "").strip().split(None, 1)
-    sub = parts[0].lower() if parts else ""
-    if not sub:  # 3.0.2.0: bare /roles opens Halo Studio's Roles mode (3.3.16.0 R1: Agents on Cast; `/roles table` is the text table)
-        args = sub = "gui"
-    if sub != "edit":
-        app.run_worker(lambda: _run_slash_worker(app, "roles", args), thread=True, name="run-slash", group="run-slash", exit_on_error=False)
-        return
-    name = parts[1].strip() if len(parts) > 1 else ""
-    if not name:
-        await app.transcript.add_note("Usage: /roles edit <name>", kind="command")
-        return
-    from halo_harness.theme import get_config_value
-    if get_config_value("roles.editor", default="") == "external":
-        _edit_role_template_externally(app, name)
-        return
-    app.run_worker(lambda: _roles_edit_form_worker(app, name), thread=True, name="roles-edit-form",
-                    group="roles-edit-form")
-
-
-def _edit_role_template_externally(app, name: str) -> None:
-    """`roles.editor: "external"` -- the SAME `app.suspend()` dance
-    `action_open_editor` (Ctrl+E, `tui/app.py`) uses: `$EDITOR` needs the
-    REAL terminal, not Textual's own screen buffer, so this runs
-    synchronously on the UI thread like that one does (`suspend()`'s own
-    contract), never inside a `thread=True` worker."""
-    import json
-    import os
-    from halo_harness import subprocess_safe as sp
-
-    from halo_harness.roles import load_role_template, role_templates_dir, save_role_template, validate_role_template
-
-    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
-    if not editor:
-        app.notify("No $VISUAL/$EDITOR set.", severity="warning", title="/roles edit")
-        return
-    # vibes/review.md finding 22: distinguish "no template file yet" from
-    # "a file exists but is invalid". `load_role_template` returns None for
-    # BOTH, and the old code then saved `{"roles": {}}` over it -- so one
-    # bad byte in a template file (a truncated write, a hand edit) meant
-    # `/roles edit` cheerfully replaced the whole template with an empty
-    # one. A file that exists-but-doesn't-load is refused, not clobbered.
-    from halo_harness.tui.edit_guard import refusal_text, unloadable_path
-    if load_role_template(name) is None:
-        existing_path = unloadable_path("role", name)
-        if existing_path is not None:
-            app.notify(refusal_text("role", name, existing_path), severity="error", title="/roles edit")
-            return
-        ok, problems = save_role_template(name, {"roles": {}})
-        if not ok:
-            app.notify(f"Could not create {name!r}: " + "; ".join(problems), severity="error", title="/roles edit")
-            return
-    path = role_templates_dir() / f"{name}.json"
-    app._enter_suspend_for_editor()
-    try:
-        with app.suspend():
-            sp.run(f'{editor} "{path}"', shell=True)
-    finally:
-        app._exit_suspend_for_editor()
-    try:
-        problems = validate_role_template(json.loads(path.read_text(encoding="utf-8")))
-    except (OSError, ValueError) as e:
-        app.notify(f"Could not re-read role template {name!r}: {e}", severity="error", title="/roles edit")
-        return
-    if problems:
-        app.notify(f"Role template {name!r} is now invalid: " + "; ".join(problems),
-                    severity="error", title="/roles edit")
-    else:
-        app.notify(f"Saved role template {name!r}.", title="/roles edit")
-
-
-def _roles_edit_form_worker(app, name: str) -> None:
-    """A brand-new (not-yet-on-disk) template is only ever built IN
-    MEMORY here -- never written until the user actually presses ctrl+s
-    inside `RolesEditor.action_save` -- so pressing Esc on a template
-    that never existed before leaves nothing on disk at all."""
-    from halo_harness.roles import load_role_template
-    from halo_harness.tui.edit_guard import refusal_text, unloadable_path
-    broken = unloadable_path("role", name)
-    if broken is not None:  # review 3 item 149: never open (and later save) an empty form over it
-        app.call_from_thread(app.notify, refusal_text("role", name, broken), severity="error", title="/roles edit")
-        return
-    template = load_role_template(name) or {"name": name, "description": "", "roles": {}}
-    models = app.controller.list_models()
-    app.call_from_thread(_open_roles_editor, app, name, template, models)
-
-
-def _open_roles_editor(app, name: str, template: dict, models: list) -> None:
-    from halo_harness.tui.dialogs.roles_editor import RolesEditor
-
-    def _after(saved) -> None:
-        if saved:
-            app.notify(f"Saved role template {name!r}.", title="/roles edit")
-        else:
-            app.notify("Role template edit cancelled.", title="/roles edit")
-
-    app.push_screen(RolesEditor(name, template["roles"], models, description=template.get("description", "")), _after)
 
 
 def catalog_auto_refresh_worker(app) -> None:
@@ -1888,9 +1774,9 @@ def _edit_in_studio(app, target: str) -> None:
 
 
 async def _handle_edit(app, args: str) -> None:
-    """`/edit bio:<name> | lineup:<name> | team` (or a bare bio or lineup name): Studio on it."""
+    """`/edit agent:<name> | workflow:<name> | map:<name>` (or a bare name): Studio on it (3.6.0.0 R5)."""
     if not (args or "").strip():
-        await app.transcript.add_note("Usage: /edit bio:<name> | lineup:<name> | team (or a bio or lineup name)",
+        await app.transcript.add_note("Usage: /edit agent:<name> | workflow:<name> | map:<name> (or a bare name)",
                                       kind="command")
         return
     _edit_in_studio(app, args.strip())
@@ -1909,165 +1795,25 @@ async def _handle_studio(app, args: str) -> None:
     studio_open.open_section(app, words[0] if words else "", cwd=app.cwd, on_line=_studio_line(app))
 
 
-def _new_then_studio(app, kind: str, name: str) -> None:
-    """`/agents new <name>` / `/teams new <name>`: the starter file (unless it exists), then Studio on it."""
-    from halo_harness.tui import studio_open
-    if kind == "bio":
-        from halo_harness.agents_yaml import find_agent_bio_path
-        exists = find_agent_bio_path(name, cwd=app.cwd) is not None
-        made, problems = ("", []) if exists else studio_open.new_bio(cwd=app.cwd, name=name)
-    else:
-        from halo_harness.teams_yaml import find_team_template_path
-        exists = find_team_template_path(name, cwd=app.cwd) is not None
-        made, problems = ("", []) if exists else studio_open.new_lineup(cwd=app.cwd, name=name)
-    if problems:
-        app.notify("; ".join(problems), title=f"/{'agents' if kind == 'bio' else 'teams'} new", severity="error")
-        return
-    _edit_in_studio(app, f"{kind}:{name}")
-
-
 async def _handle_agents(app, args: str) -> None:
+    """3.6.0.0 R5: `/agents edit|new <name>` opens Studio's Agents -> 1 · Agents on it (an agent of ~/.halo/crew); every
+    other form is the text command (commands/builtins.py `_cmd_agents`)."""
     parts = (args or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else ""
     rest = parts[1].strip() if len(parts) > 1 else ""
-    if sub in ("new", "edit", "view"):
+    if sub in ("new", "edit"):
         if not rest:
             await app.transcript.add_note(f"Usage: /agents {sub} <name>", kind="command")
             return
-        if sub == "view":
-            app.run_worker(lambda: _agents_view_worker(app, rest), thread=True, name="agents-view",
-                           group="agents-view")
-        elif sub == "edit":
-            _edit_in_studio(app, f"bio:{rest}")
-        else:
-            _new_then_studio(app, "bio", rest)
+        if sub == "new":  # a blank agent of yours first (unless one by that name is there), then Studio on it
+            from halo_harness.agents_cli import BLANK
+            from halo_harness.crew import store
+            if store.find("agent", rest, cwd=app.cwd) is None:
+                store.write_text(store.path_for("agent", rest), store.dump({**BLANK, "name": rest}))
+        _edit_in_studio(app, f"agent:{rest}")
         return
-    if sub == "duplicate":
-        bits = rest.split(None, 1)
-        if not bits:
-            await app.transcript.add_note("Usage: /agents duplicate <name> [new-name]", kind="command")
-            return
-        src = bits[0]
-        dst = bits[1].strip() if len(bits) > 1 else src
-        from halo_harness.agents_yaml import new_agent_bio_from_template
-        ok, problems = new_agent_bio_from_template(dst, src, cwd=app.cwd)
-        app.notify(f"Duplicated {src!r} into user scope" + (f" as {dst!r}." if dst != src else ".") if ok
-                   else "; ".join(problems), title="/agents duplicate", severity="information" if ok else "error")
-        return
-    if sub == "delete":
-        if not rest:
-            await app.transcript.add_note("Usage: /agents delete <name>", kind="command")
-            return
-        from halo_harness.agents_yaml import delete_agent_bio
-        ok = delete_agent_bio(rest, cwd=app.cwd)
-        app.notify(f"Deleted {rest!r}." if ok else f"Nothing to delete for {rest!r} at project/user scope.",
-                    title="/agents delete", severity="information" if ok else "warning")
-        return
-    if sub and sub != "list":
-        app.run_worker(lambda: _run_slash_worker(app, "agents", args), thread=True, name="run-slash",
-                        group="run-slash")
-        return
-    # bare "/agents" or "/agents list" -- the interactive list+actions screen.
-    app.run_worker(lambda: _agents_list_worker(app), thread=True, name="agents-list", group="agents-list")
+    app.run_worker(lambda: _run_slash_worker(app, "agents", args), thread=True, name="run-slash", group="run-slash")
 
-
-def _agents_view_worker(app, name: str) -> None:
-    models = app.controller.list_models()
-    app.call_from_thread(_open_agent_bio_view, app, name, models)
-
-
-def _open_agent_bio_view(app, name: str, models: list) -> None:
-    from halo_harness.agents_yaml import find_agent_bio_path
-    if find_agent_bio_path(name, cwd=app.cwd) is None:
-        app.notify(f"No agent bio named {name!r}.", title="/agents view", severity="error")
-        return
-    from halo_harness.tui.dialogs.agent_bio_editor import AgentBioView
-    app.push_screen(AgentBioView(name, None, models, cwd=app.cwd))
-
-
-def _agents_list_worker(app) -> None:
-    models = app.controller.list_models()
-    app.call_from_thread(_open_agents_list, app, models)
-
-
-def _open_agents_list(app, models: list) -> None:
-    from halo_harness.tui.dialogs.agents_step import AgentsListScreen
-    app.push_screen(AgentsListScreen(cwd=app.cwd, models=models))
-
-
-async def _handle_teams(app, args: str) -> None:
-    parts = (args or "").strip().split(None, 1)
-    sub = parts[0].lower() if parts else ""
-    rest = parts[1].strip() if len(parts) > 1 else ""
-    if sub in ("new", "edit", "view"):
-        if not rest:
-            await app.transcript.add_note(f"Usage: /teams {sub} <name>", kind="command")
-            return
-        if sub == "view":
-            app.run_worker(lambda: _teams_view_worker(app, rest), thread=True, name="teams-view",
-                           group="teams-view")
-        elif sub == "edit":
-            _edit_in_studio(app, f"lineup:{rest}")
-        else:
-            _new_then_studio(app, "lineup", rest)
-        return
-    if sub == "activate":
-        if not rest:
-            await app.transcript.add_note("Usage: /teams activate <name>", kind="command")
-            return
-        from halo_harness.teams_yaml import resolve_team_template, validate_team_template
-        template = resolve_team_template(rest, cwd=app.cwd)
-        problems = [] if template is None else validate_team_template(template, name=rest, cwd=app.cwd)
-        if template is None:
-            app.notify(f"No such team template: {rest!r}", severity="error", title="/teams activate")
-            return
-        if problems:
-            app.notify("; ".join(problems), severity="error", title="/teams activate")
-            return
-        from halo_harness.teams_cli_views import apply_lineup
-        ok, lines, _notes = apply_lineup(rest, cwd=app.cwd)
-        app.notify(f"Now using lineup {rest!r}." if ok else "; ".join(lines),
-                   severity="information" if ok else "error", title="/teams activate")
-        return
-    if sub != "list":
-        # bare `/teams` prints the overview (same words as `halo teams`);
-        # apply / preview / diff / show run through the shared builtin.
-        # `/teams list` is the interactive list screen.
-        app.run_worker(lambda: _run_slash_worker(app, "teams", args), thread=True, name="run-slash",
-                        group="run-slash")
-        return
-    app.run_worker(lambda: _teams_list_worker(app), thread=True, name="teams-list", group="teams-list")
-
-
-def _teams_view_worker(app, name: str) -> None:
-    models = app.controller.list_models()
-    app.call_from_thread(_open_lineup_view, app, name, models)
-
-
-def _open_lineup_view(app, name: str, models: list) -> None:
-    from halo_harness.teams_yaml import find_team_template_path
-    if find_team_template_path(name, cwd=app.cwd) is None:
-        app.notify(f"No lineup named {name!r}.", title="/teams view", severity="error")
-        return
-    from halo_harness.tui.dialogs.lineup_editor import LineupView
-    app.push_screen(LineupView(name, None, models, cwd=app.cwd))
-
-
-def _teams_list_worker(app) -> None:
-    models = app.controller.list_models()
-    app.call_from_thread(_open_teams_list, app, models)
-
-
-def _open_teams_list(app, models: list) -> None:
-    from halo_harness.tui.dialogs.teams_list import TeamsListScreen
-    app.push_screen(TeamsListScreen(cwd=app.cwd, models=models))
-
-
-# ============================================================================
-# /setup [<page>] [--terminal] (3.3.0.0 R4; 3.4.0.0 B2: the wizard's screens left): Studio's Setup on that page
-# (providers, local, model, permissions, theme, team -- roles is its older name --, linux, check; bare:
-# the whole section); --terminal prints the console way to do the same (setup_cli.console_lines).
-# ============================================================================
 
 async def _handle_setup(app, args: str) -> None:
     from halo_harness.setup_cli import CONSOLE, console_lines

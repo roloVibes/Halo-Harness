@@ -53,9 +53,9 @@ def projects(c) -> str:
 
 def forms(c, url: str, state: Path) -> dict:
     out: dict = {}
-    c.go(url.replace("mode=roles", "mode=agents&view=live"))  # 3.4.0.0 D: the goal form is Live's Run a goal panel
-    c.wait("!!document.querySelector('[data-testid=\"live-run-goal\"]')", 30)
-    c.click_on("document.querySelector('[data-testid=\"live-run-goal\"]')")
+    c.go(url.replace("mode=roles", "mode=agents&view=map"))  # 3.6.0.0 R5: the goal form is in the Map's drawer (Run a goal on its bar)
+    c.wait("!!document.querySelector('[data-testid=\"map-run-goal\"]')", 30)
+    c.click_on("document.querySelector('[data-testid=\"map-run-goal\"]')")
     trig = ".querySelector('.msel-trigger-text')?.textContent"  # 3.4.1.3: the field shows what it inherits
     out["orch_first"] = c.wait(f"{OM}{trig}?.includes('beta-2') && {OM}{trig}", 20)
     out["orch_outside_disclosure"] = c.js(f"!{OM}.closest('details') && !document.querySelector('details.og-more').open")

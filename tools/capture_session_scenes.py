@@ -47,25 +47,6 @@ def session_scene(lv) -> list:
     ]
 
 
-def roles_scene(lv) -> list:
-    """Roles: the cards light as agents work, a tool pulse each call, one waits, one is done and fades, one fails."""
-    return [
-        (0.2, lambda: lv.spawn("v3r1f1e8", "verifier", "verifier", "or:mock/qwen3-coder", "Verify: the basket suite")),
-        (0.6, lambda: lv.tool("implementer", "Edit", "r-i1", "basket.py")),
-        (1.0, lambda: lv.spawn("r3v1e2w8", "reviewer", "reviewer", "or:mock/kimi-k3-research", "Review: the basket diff")),
-        (1.4, lambda: lv.tool("researcher", "Grep", "r-r1", "discount")),
-        (1.8, lambda: lv.result("implementer", "r-i1", "basket.py: 3 lines changed", tool="Edit")),
-        (2.2, lambda: lv.tool("implementer", "Bash", "r-i2", "git diff --stat")),
-        (2.6, lambda: lv.state("reviewer", state="waiting")),
-        (3.0, lambda: lv.tool("verifier", "Bash", "r-v1", "pytest -q")),
-        (3.6, lambda: lv.state("verifier", state="done", last_text="the suite passes")),
-        (4.2, lambda: lv.tool("researcher", "Read", "r-r2", "notes.md")),
-        (5.0, lambda: lv.state("reviewer", state="running")),
-        (5.6, lambda: lv.state("reviewer", state="failed", last_text="the diff did not apply")),
-        (6.2, lambda: lv.tool("implementer", "Bash", "r-i3", "pytest -q")),
-    ]
-
-
 def play(steps: list) -> threading.Thread:
     """Run `steps` against the clock on a thread (each at its second from now); the thread is returned started."""
     def run() -> None:

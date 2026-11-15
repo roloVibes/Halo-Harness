@@ -32,10 +32,9 @@ import { installEdit } from "./shell/edit";
 import { useFocusKey, useGlobalKeys } from "./shell/keys";
 import { FleetDialogs } from "./routes/fleet/Dialogs";
 import { PanelDialogs } from "./routes/fleet/PanelDialogs";
-import { useRolesLive } from "./routes/fleet/frames";
+import { useStartFleet } from "./routes/fleet/frames";
 import { useHopKeys } from "./routes/fleet/hop";
 import { FleetPip } from "./routes/fleet/Pip";
-import { RolesDialogs } from "./routes/roles/Dialogs";
 import { GlanceDoor } from "./routes/glance/Door";
 import { startAlerts } from "./lib/alerts";
 import { openAsk } from "./routes/glance/openAsk";
@@ -51,7 +50,7 @@ export function App() {
   useGlobalKeys();
   useHopKeys();
   useFocusKey(); // after the hop keys: an F a section already uses wins there
-  useRolesLive();
+  useStartFleet();
   useEffect(() => {
     paint(theme); // 3.3.12.0 R2: data-theme, and a pack palette's variables on <html>
   }, [theme]);
@@ -84,7 +83,6 @@ export function App() {
       <Glossary />
       <FleetDialogs />
       <PanelDialogs />
-      <RolesDialogs />
       <GlanceDoor />
       <Toasts />
       <HoverCardHost />

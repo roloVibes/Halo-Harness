@@ -13,7 +13,7 @@ fresh scratch home with no provider; no provider request, no model call:
 4. Next walks Providers to the Summary (the last Next says Summary), Back
    walks back (off on Providers); a rail jump; Ctrl+Right is Next;
 5. Enter in a block's choice is its Save;
-6. `?block=team` opens Team; the Summary's rows, a Change jump and its button
+6. `?block=team` opens the Map step (3.6.0.0 R5: the Team step became Map); the Summary's rows, a Change jump and its button
    to the Check page;
 7. the page is remembered for the home, and `?block=` wins;
 8. the Ollama finders are a disclosure, closed until opened;
@@ -75,7 +75,7 @@ def test_the_rail_and_its_states(ctx: Ctx):
             ["team", "done"], ["check", "todo"], ["summary", "todo"]]
     ctx.check(f"the wizard's order and the states of a fresh home, got {got.get('rail')}", _steps(got.get("rail")) == want)
     titles = [t for t in got.get("rail_titles") or [] if t != "Linux fixes"]
-    ctx.check(f"the wizard's words, got {titles}", titles == ["Providers", "Local models", "Default model", "Permissions", "Theme", "Team",
+    ctx.check(f"the wizard's words, got {titles}", titles == ["Providers", "Local models", "Default model", "Permissions", "Theme", "Map",
                                                              "Check", "Summary"])
 
 
@@ -105,7 +105,7 @@ def test_enter_is_the_blocks_save(ctx: Ctx):
 @test
 def test_block_door_and_the_summary(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"?block=team opens Team, the word leaves the address, got {got.get('block_page')!r} {got.get('block_search')!r}",
+    ctx.check(f"?block=team opens the Map step, the word leaves the address, got {got.get('block_page')!r} {got.get('block_search')!r}",
               got.get("block_page") == "team" and "block=" not in str(got.get("block_search")))
     rows = _steps(got.get("summary_rows"))
     ctx.check(f"one row per step, in order, got {rows}", [r[0] for r in rows] == ORDER[:-1])

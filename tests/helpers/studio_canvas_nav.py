@@ -87,64 +87,16 @@ def session_map(c, rig) -> dict:
         lv.spawn(aid, name, role, model, task)
         lv.state(name, lineup="auto", bio=role, kind="member")
     c.go(rig.url("session"))
-    sm = "document.querySelector('[data-testid=\"session-map\"]')"
-    c.wait(f"{sm}?.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 7", 40)
-    world = f"{sm}.querySelector('[data-testid=\"roles-live-world\"]')"
-    node = f"{sm}.querySelector('[data-testid=\"roles-live-node\"][data-agent=\"main\"]')"
-    out = {"map_nodes": c.js(f"{sm}.querySelectorAll('[data-testid=\"roles-live-node\"]').length")}
+    sm = "document.querySelector('[data-testid=\"session-map\"]')"  # 3.6.0.0 R5: the session drawn as its map (LitMini)
+    c.wait(f"{sm}?.querySelectorAll('[data-testid=\"session-lit-box\"]').length >= 7", 40)
+    world = f"{sm}.querySelector('.mp-mini-world')"
+    node = f"{sm}.querySelector('[data-testid=\"session-lit-box\"][data-box=\"main\"]')"
+    out = {"map_nodes": c.js(f"{sm}.querySelectorAll('[data-testid=\"session-lit-box\"]').length")}
     out["map_open_zoom"] = c.wait(f"+{world}.dataset.zoom", 10)
-    out["map_text_px"] = c.js(f"(() => {{ const n = {node} || {sm}.querySelector('[data-testid=\"roles-live-node\"]'); "
+    out["map_text_px"] = c.js(f"(() => {{ const n = ({node} || {sm}.querySelector('[data-testid=\"session-lit-box\"]')).querySelector('.mp-name'); "
                               f"return parseFloat(getComputedStyle(n).fontSize) * +{world}.dataset.zoom; }})()")
     out["map_buttons"] = c.js(f"!!{sm}.querySelector('[data-testid=\"canvas-zoom\"]') && !!{sm}.querySelector('[data-testid=\"canvas-fit\"]')")
-    out["map"] = wheels(c, f"{sm}.querySelector('.rlm-scroll')", world, node)
-    return out
-
-
-def live(c, rig) -> dict:
-    c.go(rig.url("roles", "&view=live"))
-    mp = "document.querySelector('[data-testid=\"roles-live-map\"]')"
-    c.wait(f"{mp} && +{mp}.dataset.nodes >= 7", 40)
-    if c.js("!!document.querySelector('[data-testid=\"live-scope-here\"]')"):
-        c.click_on("document.querySelector('[data-testid=\"live-scope-here\"]')")
-    world = "document.querySelector('[data-testid=\"agents\"] [data-testid=\"roles-live-world\"]')"
-    node = "document.querySelector('[data-testid=\"agents\"] [data-testid=\"roles-live-node\"][data-agent=\"main\"]')"
-    c.wait(f"!!{node}", 20)
-    return {"live": wheels(c, "document.querySelector('[data-testid=\"agents\"] .rlm-scroll')", world, node)}
-
-
-def cast(c, rig) -> dict:
-    c.click_on("document.querySelector('[data-testid=\"agents-view-cast\"]')")
-    world = "document.querySelector('[data-testid=\"roles-world\"]')"
-    scroller = "document.querySelector('[data-testid=\"roles-canvas\"] .rc-scroll')"
-    card = "document.querySelector('[data-testid=\"roles-card\"]')"
-    c.wait(f"!!{world} && !!{card}", 30)
-    out = {"cast": wheels(c, scroller, world, card)}
-    c.js(f"{scroller}.focus(); 1")
-    z0 = float(c.js(f"+{world}.dataset.zoom"))
-    c.key("+")
-    out["key_plus"] = [z0, c.wait(f"+{world}.dataset.zoom > {z0} && +{world}.dataset.zoom", 5)]
-    for _ in range(3):
-        c.key("+")
-    x, y, w, h = c.rect(scroller)
-    # the background: a spot of the scroller with no card, tier box or button under it
-    spot = c.js(f"""(() => {{ const s = {scroller}, r = s.getBoundingClientRect();
-      for (let fy = 0.95; fy > 0.3; fy -= 0.05) for (let fx = 0.95; fx > 0.3; fx -= 0.05) {{
-        const x = r.left + r.width * fx, y = r.top + r.height * fy, e = document.elementFromPoint(x, y);
-        if (e === s || e?.matches?.('.rc-world, .rc-inner, .rc-tier')) return [x, y]; }} return null; }})()""")
-    out["bg_spot"] = bool(spot)
-    if spot:
-        before = c.js(f"[{scroller}.scrollLeft, {scroller}.scrollTop]")
-        c.drag(spot[0], spot[1], spot[0] - 60, spot[1] - 40)
-        out["pan"] = [before, c.js(f"[{scroller}.scrollLeft, {scroller}.scrollTop]")]
-        z1 = float(c.js(f"+{world}.dataset.zoom"))
-        for kind in ("mousePressed", "mouseReleased"):
-            c.call("Input.dispatchMouseEvent", type=kind, x=spot[0] - 60, y=spot[1] - 40, button="left", clickCount=2)
-        out["dbl_fit"] = [z1, c.wait(f"+{world}.dataset.zoom < {z1} && +{world}.dataset.zoom", 5)]
-    c.js(f"{scroller}.focus(); 1")
-    c.key("+")
-    z2 = float(c.js(f"+{world}.dataset.zoom"))
-    c.key("0")
-    out["key_zero"] = [z2, c.wait(f"+{world}.dataset.zoom < {z2} && +{world}.dataset.zoom", 5)]
+    out["map"] = wheels(c, f"{sm}.querySelector('.mp-mini-scroll')", world, node)
     return out
 
 
@@ -157,7 +109,7 @@ class NavDriver(Driver):
         c.call("Emulation.setFocusEmulationEnabled", enabled=True)
         with StudioSessionRig() as rig:
             args = (c, rig)
-            yield ((session_map, args), (live, args), (cast, args))
+            yield ((session_map, args),)  # 3.6.0.0 R5: Live's and Cast's steps went with them
 
 
 if __name__ == "__main__":

@@ -48,11 +48,11 @@ def test_the_registry_runs_session_first_and_settings_last(ctx: Ctx):
     ctx.check(f"the order is Session, Agents, Local, Packs, Setup, Settings, got {[r[1] for r in rows]}",
               [r[0] for r in rows] == ["session", "agents", "local", "packs", "setup", "settings"])
     ctx.check("Session is Alt+1, This session, live", rows[0][1:] == ("Session", "Alt+1", "This session, live"))
-    ctx.check("Agents is Alt+2, the cast, what runs now on every machine and what ran (3.4.0.0 D)",
-              rows[1][1:] == ("Agents", "Alt+2", "The cast, what runs now on every machine (a goal run too), and what ran"))
+    ctx.check("Agents is Alt+2: make agents and workflows, connect them on the map, watch it run (3.6.0.0 R5)",
+              rows[1][1:] == ("Agents", "Alt+2", "Make agents and workflows, connect them on the map, watch it run"))
     ctx.check("Local is Alt+3", rows[2][1:] == ("Local", "Alt+3", "The machines that serve models, and the models they serve"))
     ctx.check("Packs is Alt+4, the Pack Manager", rows[3][1:] == ("Packs", "Alt+4", "Install, grant and enable packs"))
-    ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme and lineup"))
+    ctx.check("Setup is Alt+5", rows[4][1:] == ("Setup", "Alt+5", "Providers, models, permissions, theme and map"))
     ctx.check("Settings is the last, Alt+6", rows[-1][1:] == ("Settings", "Alt+6", "Every config key, one page per group"))
     ctx.check("no Fleet section (3.3.16.0 R2: Agents -> Live, Local; 3.5.0.0: Fleet left)", "fleet" not in [r[0] for r in rows])
     reg = (UI / "routes" / "packs" / "registry.ts").read_text(encoding="utf-8")

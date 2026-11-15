@@ -4,9 +4,8 @@ at"): real clicks in headless Chrome through the driver base, over a fresh
 home with the shipped lineups and a fixture catalog in every provider's
 cache (tests/helpers/catalog_facts_seed.py; no network, no model call):
 
-1. the Models panel: Analyze (`POST models/analyze`) shows how many models
-   it analyzed and the count per kind, each kind's strongest model;
-2. the bio form's picker table (a card, "change the bio's model", more...):
+1. (3.6.0.0 R5: the Models panel's Analyze went with Roles' panels.)
+2. an agent's form (Agents -> 1 · Agents, its MODEL picker; the bio form's before):
    3.3.15.0 R2: the "takes" column header, a row's takes as tags, and for the
    focused row its one line ("vision+pdf in, tools, reasoning; no audio" for
    or:v/eyes) and the kinds it is best at on the detail line under the list,
@@ -17,7 +16,6 @@ cache (tests/helpers/catalog_facts_seed.py; no network, no model call):
 The last stdout line is the JSON of what it saw (exit 2: no Chrome)."""
 from __future__ import annotations
 
-import json
 import shutil
 import sys
 import time
@@ -30,62 +28,44 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 
-STRIP = "document.querySelector('[data-testid=\"roles-model-strip\"]')"
-FORM = "document.querySelector('[data-testid=\"bio-form\"][data-bio=\"implementer\"]')"
-ROWS = f"[...{FORM}.querySelectorAll('[data-testid=\"model-row\"]')]"
-
-
-def card(agent: str) -> str:
-    return f"[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === '{agent}')"
+FORM = "document.querySelector('[data-part=crew] [data-testid=\"crew-form\"]')"
+ROWS = "[...document.querySelectorAll('[data-testid=\"model-row\"]')]"
+Q = "document.querySelector"
 
 
 def models(c, url: str, state: Path) -> dict:
     out: dict = {}
     c.go(url)
-    count = "document.querySelector('[data-testid=\"roles-models-count\"]')"
-    out["count"] = c.wait(f"+({count}?.textContent || 0) > 0 && +{count}.textContent", 30)
-    c.click_on("document.querySelector('[data-testid=\"roles-models-analyze\"]')")
-    out["analysis"] = c.wait("document.querySelector('[data-testid=\"roles-models-analysis\"]')?.textContent", 20)
-    out["analysis_kinds"] = c.js("[...document.querySelectorAll('[data-testid=\"roles-models-analysis\"] [data-kind]')]"
-                                 ".map((n) => n.dataset.kind)")
-    # the canvas draws its cards after the Models panel has its catalog: on the Linux runner the card was not there
-    # yet when the click came (518f1c7), so wait for it and bring it into view first
-    c.wait(f"!!{card('implementer')}", 30)
-    c.js(f"{card('implementer')}.scrollIntoView({{block: 'center'}}); 1")
-    time.sleep(0.3)
-    c.click_on(card("implementer"), 0.5, 0.2)
-    c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
-    c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
-    c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
+    c.wait(f"{FORM}?.dataset.name === 'coder'", 30)
+    more = f"{FORM}.querySelector('[data-testid=\"crew-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)
     out["rows"] = c.wait(f"{ROWS}.length", 15)
-    out["head"] = c.js(f"{FORM}.querySelector('.rm-head')?.textContent")
+    out["head"] = c.js(f"{Q}('.rm-head')?.textContent")
     eyes = f"{ROWS}.find((r) => r.dataset.ref === 'or:v/eyes')"
     # 3.3.15.0 R2 (owner feedback 2026-11-09): the TAKES column's tags; the line is the detail line under the list
     # for the focused row and the tag group's title; the ranked kinds sit on that line
     out["eyes_kinds"] = c.js(f"[...{eyes}.querySelectorAll('[data-testid=\"model-takes\"] [data-take]')].map((n) => n.dataset.take)")
     c.call("Emulation.setFocusEmulationEnabled", enabled=True)  # focus events fire without window focus
     c.js(f"{eyes}.focus(); 1")
-    detail = f"{FORM}.querySelector('[data-testid=\"model-detail\"]')"
+    detail = f"{Q}('[data-testid=\"model-detail\"]')"
     out["eyes_line"] = c.wait(f"{detail}?.dataset.ref === 'or:v/eyes' && {detail}.querySelector('[data-testid=\"model-best-line\"]').textContent", 10)
     out["eyes_best"] = c.js(f"{detail}.querySelector('[data-testid=\"model-best-kinds\"]')?.textContent")
     out["eyes_title"] = c.js(f"{eyes}.querySelector('[data-testid=\"model-takes\"]')?.title")
     out["eyes_row_line"] = c.js(f"!!{eyes}.querySelector('[data-testid=\"model-best-line\"]')")
-    sort_best = f"{FORM}.querySelector('[data-testid=\"model-sort-best\"]')"
+    sort_best = f"{Q}('[data-testid=\"model-sort-best\"]')"
     c.js(f"{sort_best}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(sort_best)
-    out["best_first"] = c.wait(f"{FORM}.querySelector('[data-testid=\"model-sort-best\"]').getAttribute('aria-pressed') === 'true' && "
+    out["best_first"] = c.wait(f"{Q}('[data-testid=\"model-sort-best\"]').getAttribute('aria-pressed') === 'true' && "
                                f"{ROWS}.slice(0, 3).map((r) => [r.dataset.ref, Number(r.dataset.kinds)])", 10)
     out["max_chips"] = c.js(f"Math.max(...{ROWS}.map((r) => Number(r.dataset.kinds)))")
-    search = f"{FORM}.querySelector('[data-testid=\"model-search\"]')"
+    search = f"{Q}('[data-testid=\"model-search\"]')"
     c.js(f"""(() => {{ const s = {search}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
       set.call(s, 'pdf in'); s.dispatchEvent(new Event('input', {{bubbles: true}})); return 1; }})()""")
     out["pdf_search"] = c.wait(f"{ROWS}.length && {ROWS}.map((r) => r.dataset.ref)", 10)
-    out["dialogs"] = c.js("document.querySelectorAll('[role=dialog]').length")
+    out["dialogs"] = c.js("[...document.querySelectorAll('[role=dialog]')].map((d) => d.dataset.testid)")
     return out
 
 
@@ -102,7 +82,7 @@ class ModelsUiDriver(Driver):
         from tests.helpers.studio_full import full
         url = full(url)  # 3.3.2.0 R3: every panel open, the arrangement this driver works in
         try:
-            yield ((models, (c, url.replace("mode=orchestra", "mode=roles").replace("feed=off", "feed=off&tour=off&view=workspace"),
+            yield ((models, (c, url.replace("mode=orchestra", "mode=agents").replace("feed=off", "feed=off&tour=off&view=crew&agent=coder"),
                              state)),)
         finally:
             srv.shutdown()

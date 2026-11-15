@@ -11,7 +11,7 @@
 import { shortModel } from "../../../lib/modelName";
 import { short } from "../../orchestra/format";
 import type { LiveNode } from "./liveModel";
-import { spendWords } from "../../agents/live/spend";
+import { spendWords } from "./spend";
 import type { Wait, WaitPath } from "./waits";
 
 export const MAX_CHARS = 140;

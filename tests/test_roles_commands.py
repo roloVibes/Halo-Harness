@@ -109,65 +109,6 @@ def test_role_command_override_wins_over_frontmatter_model(ctx: Ctx):
               ref.raw == "or:vendor/overridden")
 
 
-@test
-def test_roles_set_is_the_same_as_role(ctx: Ctx):
-    from halo_harness.commands.builtins import _cmd_role, _cmd_roles
-    facade1, session1 = _fake_facade_with_session(roles={})
-    facade2, session2 = _fake_facade_with_session(roles={})
-    _cmd_roles("set coder or:vendor/x high", facade1)
-    _cmd_role("coder or:vendor/x high", facade2)
-    overrides1 = session1.agent_runtime.cli_role_overrides
-    overrides2 = session2.agent_runtime.cli_role_overrides
-    ctx.check(f"/roles set and /role agree, got {overrides1} vs {overrides2}",
-              overrides1 == overrides2 and overrides1.get("coder") == {"model": "or:vendor/x", "effort": "high"})
-
-
-@test
-def test_roles_templates_save_show_load_round_trip(ctx: Ctx):
-    from halo_harness.commands.builtins import _cmd_roles
-    d = Path(tempfile.mkdtemp(prefix="roles-cmd-templates-"))
-    facade, session = _fake_facade_with_session(roles={"coder": "or:vendor/coder-model"}, state_dir=d)
-
-    out_empty = _cmd_roles("templates", facade)
-    ctx.check(f"nothing saved yet, got {out_empty!r}", "No role templates" in out_empty)
-
-    out_save = _cmd_roles("save my-template", facade)
-    ctx.check(f"save confirms, got {out_save!r}", "my-template" in out_save)
-
-    out_list = _cmd_roles("templates", facade)
-    ctx.check(f"the saved template is now listed, got {out_list!r}", "my-template" in out_list)
-
-    out_show = _cmd_roles("show my-template", facade)
-    ctx.check(f"show renders the saved role, got {out_show!r}", "coder" in out_show and "coder-model" in out_show)
-
-    # A fresh session with nothing configured, then /roles load.
-    facade2, session2 = _fake_facade_with_session(roles={}, state_dir=d)
-    out_load = _cmd_roles("load my-template", facade2)
-    ctx.check(f"load confirms, got {out_load!r}", "my-template" in out_load)
-    ctx.check(f"the live session picked it up immediately, got {session2.roles}",
-              session2.roles.get("coder") == "or:vendor/coder-model")
-
-
-@test
-def test_roles_new_creates_an_empty_template(ctx: Ctx):
-    from halo_harness.commands.builtins import _cmd_roles
-    from halo_harness.roles import load_role_template
-    d = Path(tempfile.mkdtemp(prefix="roles-cmd-new-"))
-    facade, _session = _fake_facade_with_session(roles={}, state_dir=d)
-    out = _cmd_roles("new blank-profile", facade)
-    ctx.check(f"confirms creation, got {out!r}", "blank-profile" in out)
-    ctx.check("an empty template now exists on disk",
-              load_role_template("blank-profile", state_dir=d) == {"name": "blank-profile", "description": "", "roles": {}})
-
-
-@test
-def test_roles_edit_has_no_headless_form(ctx: Ctx):
-    from halo_harness.commands.builtins import _cmd_roles
-    facade, _session = _fake_facade_with_session(roles={})
-    out = _cmd_roles("edit anything", facade)
-    ctx.check(f"names the TUI as the real home for this, got {out!r}", "TUI" in out)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

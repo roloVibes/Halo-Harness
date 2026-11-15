@@ -8,7 +8,6 @@
 // workflow's Run; and its health, the doctor's rows.
 import { Empty } from "../../../lib/ui";
 import { goSection, type SectionId } from "../../../lib/store";
-import { applyEdit } from "../../../shell/edit";
 import { runWorkflow } from "../../orchestra/workflowRun";
 import { cli, grantPack, selected, togglePick, useMgr } from "./store";
 import type { PackRow, Permission } from "./types";
@@ -35,24 +34,16 @@ function Grant({ p, perm }: { p: PackRow; perm: Permission }) {
   );
 }
 
-function openRoles(name: string): void {
-  if (name) void applyEdit({ kind: "lineup", name, text: `lineup:${name}` });
-  else goSection("agents", "cast");
-}
-
 function Links({ p }: { p: PackRow }) {
   return (
     <div className="pm-links" data-testid="pm-links">
       {p.running && p.sections.map((s) => (
         <button key={s.id} className="og-link" onClick={() => goSection(s.id as SectionId)} data-testid="pm-open-section">open {s.title}</button>
       ))}
-      {p.running && p.lineups.length > 0 && (
-        <button className="og-link" onClick={() => openRoles(p.lineups[0].name)} data-testid="pm-open-roles">Roles: {p.lineups[0].name}</button>
-      )}
       {p.running && p.workflows.map((w) => (
         <button key={w.ref} className="og-link" onClick={() => runWorkflow(w)} data-testid="pm-details-run" data-ref={w.ref}>Run {w.name}</button>
       ))}
-      {!p.running && <span className="muted">{p.installed ? "Enable it and its section, lineups and workflows open from here." : "Install and enable it to open its section, lineups and workflows."}</span>}
+      {!p.running && <span className="muted">{p.installed ? "Enable it and its section and workflows open from here." : "Install and enable it to open its section and workflows."}</span>}
     </div>
   );
 }

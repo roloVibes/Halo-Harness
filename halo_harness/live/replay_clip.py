@@ -116,20 +116,21 @@ def assemble(pngs: list, path: Path, fps: int = FPS) -> int:
 
 SCRUB = "document.querySelector('[data-testid=\"replay-scrub\"]')"
 BAR = "document.querySelector('[data-testid=\"replay-bar\"]')"
-MAP = "document.querySelector('[data-testid=\"roles-live-map\"]')"
+MAP = "document.querySelector('[data-testid=\"map-canvas\"]')"  # 3.6.0.0 R5: the Map (Live went)
 
 
 def film(base: str, token: str, rid: str, times: list, exe: str) -> list:
-    """A PNG of Live's canvas at each time, through one headless Chrome on the Studio at `base`."""
+    """A PNG of the Map at each time (3.6.0.0 R5: the replay plays on the Map; Live's canvas before), through one headless
+    Chrome on the Studio at `base`."""
     from halo_harness.live.clip_chrome import Chrome
     c = Chrome(exe, *VIEW)
     try:
-        c.call("Page.navigate", url=f"{base}/?mode=agents&view=live&replay={rid}&level=mid#t={token}")
+        c.call("Page.navigate", url=f"{base}/?mode=agents&view=map&replay={rid}#t={token}")
         try:
             c.wait(f"!!{BAR} && {BAR}.dataset.replay === '{rid}' && !!{SCRUB}", 40)
         except TimeoutError:
             seen = c.js(r"(document.body && document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 160)")  # 3.4.1.1 (55)
-            raise ClipError(f"Studio did not open replay {rid} on Live within 40 s (the page said: {seen!r})") from None
+            raise ClipError(f"Studio did not open replay {rid} on the Map within 40 s (the page said: {seen!r})") from None
         out = []
         for t in times:
             v = int(round(t * 10))
@@ -144,8 +145,8 @@ def film(base: str, token: str, rid: str, times: list, exe: str) -> list:
 
 
 # 3.4.1.2 (SERVERS-5 / PACKS-8): what the filming Studio answers -- the shell's files and these GETs of the replay page
-FILM_GETS = (r"^replays(/[A-Za-z0-9_.-]{1,120})?$", r"^state$", r"^pack/registry$", r"^settings/themes$", r"^lineups$",
-             r"^lineup/[^/]+$", r"^bios$", r"^tools$", r"^models(/best-for|/fallback)?$", r"^gym$", r"^workflows$")
+FILM_GETS = (r"^replays(/[A-Za-z0-9_.-]{1,120})?$", r"^pack/registry$", r"^settings/themes$",  # 3.6.0.0 R5: the Map's
+             r"^models(/best-for|/fallback)?$", r"^gym$", r"^crew/(maps|agents|workflows)$", r"^crew/map/[^/]+$")
 
 
 def _studio(state_dir, cwd) -> "tuple[str, str, Callable[[], None]]":

@@ -99,16 +99,6 @@ def test_steer_on_a_tags_hover_pins_it_and_focuses_the_box(ctx: Ctx):
 
 
 @test
-def test_steer_on_a_map_nodes_hover_pins_it_in_live(ctx: Ctx):
-    r, got = _driver()
-    _ran(ctx, r, got)
-    ctx.check(f"the node's chip shows on hover, got {got.get('node_hidden')!r} -> {got.get('node_shown')!r}", got.get("node_hidden") == "0" and got.get("node_shown") == "1")
-    n = got.get("node_steer") or {}
-    ctx.check(f"the click: the implementer pinned in Live, the box to it and focused, the pick on it, got {n} {got.get('pick_after_node')}",
-              n.get("pinned") == got.get("impl_key") and n.get("key") == got.get("impl_key") and n.get("focused") is True and got.get("pick_after_node") == got.get("impl_key"))
-
-
-@test
 def test_the_strip_has_a_lane_per_live_agent_and_a_lane_click_pins(ctx: Ctx):
     r, got = _driver()
     _ran(ctx, r, got)
@@ -152,15 +142,6 @@ def test_stop_asks_first_and_pause_reaches_mains_route(ctx: Ctx):
     p = got.get("pause_route") or {}
     ctx.check(f"Pause reached main's command route, got {p} {got.get('pause_ack')!r}",
               p.get("sid") == got.get("sid") and p.get("agent_id") == "main" and p.get("status") == 200 and got.get("pause_ack") == "paused")
-
-
-@test
-def test_in_fleet_the_node_chip_opens_the_agent_panels_steer(ctx: Ctx):
-    r, got = _driver()
-    _ran(ctx, r, got)
-    ctx.check(f"Fleet's map: the chip opens Agent on that agent, the keyboard in its Steer box, got {got.get('fleet_chip')!r} "
-              f"by {got.get('fleet_chip_by')!r} pointer_hit={got.get('fleet_chip_pointer_hit')!r} diag={got.get('fleet_chip_diag')!r}",
-              got.get("fleet_chip") == "focused")
 
 
 if __name__ == "__main__":

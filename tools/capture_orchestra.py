@@ -4,9 +4,9 @@ R6b; 3.4.0.0 D "the runs fold": Runs' console, its Start view and its plan canva
 * the seeded finished run (the R2 fixture: basket.py, five lanes, one judged conflict, the report; lane 2 takes lane
   1's summary) in a temp git repo, opened by its door `?mode=agents&run=<id>`: its report as a page of History
   (docs/media/studio-run-report.png);
-* a review run waiting for its plan (tests/helpers/studio_plan_rig.py): Agents -> Live draws its lead waiting on you
-  with Review the plan, nothing else open (docs/media/studio-run-live.png);
-* with --dom each page is dumped and its data-testid values counted, plus the Roles section (`roles`: its canvas).
+* a review run waiting for its plan (tests/helpers/studio_plan_rig.py): Agents -> 3 · Map says a goal run is going
+  (Open), nothing else open (docs/media/studio-run-live.png; 3.6.0.0 R5: Live went);
+* with --dom each page is dumped and its data-testid values counted, plus the old Roles door (`roles`: the Map).
 
 Every run's goal has a repo-relative test command (`rel_test`), every Studio draws you@studio
 (tools/capture_identity.py) and every page is guarded before it is counted or shot.
@@ -21,10 +21,9 @@ from pathlib import Path
 
 from capture_identity import checked_dump, placeholder
 
-IDS = ("section-tab", "orchestra-root", "start-view", "roles-live-map", "live-run-goal", "live-history", "history-report",
-       "history-page", "report-check", "report-lane", "history-report-replay", "history-report-again", "agents-live-lead",
-       "agents-live-lane", "agents-live-review", "orchestra-plan", "plan-canvas", "run-goal-drawer", "roles-canvas", "roles-card",
-       "roles-tier", "legacy-frame", "panel-title", "section-help")
+IDS = ("section-tab", "orchestra-root", "start-view", "map", "map-run-goal", "map-lit-run", "run-review", "live-history-drawer",
+       "history-report", "history-page", "report-check", "report-lane", "history-report-replay", "history-report-again",
+       "orchestra-plan", "plan-canvas", "run-goal-drawer", "legacy-frame", "panel-title", "section-help")  # 3.6.0.0 R5: the Map
 WINDOW = "--window-size=1500,900"
 
 
@@ -52,12 +51,12 @@ def shoot(chrome, url: str, target: Path) -> int:
 
 
 def planned(out: "Path | None", chrome) -> "dict | int":
-    """A run waiting for its plan, on Live: its counts (`out` None) or its picture at `out`."""
+    """A run waiting for its plan, on the Map: its counts (`out` None) or its picture at `out`."""
     from tests.helpers.studio_plan_rig import PlanRig
     placeholder()
     with PlanRig(test=rel_test()) as rig:
         placeholder(rig.studio.state)
-        url = rig.url("agents").replace("#t=", "&feed=off&tour=off#t=")
+        url = rig.url("agents").replace("#t=", "&feed=off&tour=off#t=").replace("?mode=agents", "?mode=agents&view=map")
         if out is None:
             r = checked_dump(chrome, url, "run live", WINDOW, "--virtual-time-budget=20000")
             return counts(r.stdout) if r is not None else 2
@@ -73,7 +72,7 @@ def capture(out: str, dom: bool, chrome, serve, state: Path) -> int:
     try:
         report = url.replace("mode=orchestra&feed=off", f"mode=agents&run={Path(run_dir).name}&feed=off&tour=off")
         roles = url.replace("mode=orchestra&feed=off", "mode=roles&feed=off&tour=off")
-        old = url.replace("feed=off", "feed=off&tour=off")  # the old door: Live, Runs' line once
+        old = url.replace("feed=off", "feed=off&tour=off")  # the old door: the Map (3.6.0.0 R5), Runs' line once
         if dom:
             got = [checked_dump(chrome, u, f"run {k}", WINDOW, "--virtual-time-budget=20000") for k, u in (("report", report), ("roles", roles), ("old", old))]
             if any(r is None for r in got):

@@ -1,20 +1,20 @@
-"""tests.helpers.studio_plan -- a goal run on Agents -> Live (Halo 3.0.9.0 round R2's plan canvas; 3.4.0.0 D "the runs
-fold": Runs' console went, a goal run is a job on Live) in headless Chrome over the DevTools protocol
+"""tests.helpers.studio_plan -- a goal run on Agents -> 3 · Map (Halo 3.0.9.0 round R2's plan canvas; 3.4.0.0 D "the runs
+fold"; 3.6.0.0 R5: Live went, the Map's line says a goal run is going and Open shows its pages) in headless Chrome over the DevTools protocol
 (tests/helpers/cdp.py), over a Studio server on a temp git repo with the R2 fakes as `orchestra_api.RUNNER` (no model
 call). tests/test_studio_ui.py runs it as a subprocess with a scrubbed environment (tests/helpers/studio_ui_plan.py):
 
     python -m tests.helpers.studio_plan
 
-* a review run waiting for its plan is its lead on Live, waiting on you, with Review the plan; nothing is open until
-  that click, which opens the plan beside the canvas: five lanes in two layer boxes, one edge; each card's priced cost
-  chip and the header's forecast total, red over the goal's budget;
+* a review run waiting for its plan is the Map's line "A goal run is going"; nothing is open until Open (its pages in
+  the drawer) and Review the plan, which opens the plan beside the map: five lanes in two layer boxes, one edge; each
+  card's priced cost chip and the header's forecast total, red over the goal's budget;
 * dragging lane 3 into the second box sets its `after` and draws its edges;
 * a claim of lane 5's added to lane 4 (both in the first box) shows a problem on both cards and disables Approve and
   run; Undo clears it;
-* Approve and run: the plan panel closes, the run turns running (the fake workers are held) and its five lanes are
-  boxes under the lead, a row per fact; a click on a lane is its summary in the inspector, Claims one page; released,
-  the run finishes and leaves Live, and History holds it: its row opens its report (the checks, the lanes), Replay on it;
-* a second run from Live's Run a goal panel (the form says what it does, may cost and writes) with Review the plan
+* Approve and run: the plan panel closes, the run's pages say it runs (the fake workers are held), Claims one page;
+  released, the run finishes and leaves the Map's line, and History holds it: its row opens its report (the checks, the
+  lanes), Replay on it;
+* a second run from the Map's Run a goal panel (the form says what it does, may cost and writes) with Review the plan
   first on: Reject asks for a reason on a card and the run stops with it.
 
 Every step WAITS for the state it reads. The last stdout line is a JSON object of what it saw (exit 2: no Chrome)."""
@@ -66,12 +66,18 @@ def pick(c, testid: str, value: str) -> None:
          f" set.call(el, {json.dumps(value)}); el.dispatchEvent(new Event('change', {{bubbles: true}})); return 1; }})()")
 
 
+def review(c) -> None:
+    """The Map's line: A goal run is going -> Open (its pages in the drawer) -> Review the plan."""
+    click(c, TID.format("map-lit-run-open"))
+    c.wait(f"!!{TID.format('run-review')}", 20)
+    click(c, TID.format("run-review"))
+
+
 def lanes_and_layers(c, url: str, out: dict) -> None:
     c.go(url)
-    out["lead_waits"] = c.wait(f"{TID.format('agents-live-lead')}?.dataset.state === 'waiting' && !!{TID.format('agents-live-review')} && 'waits'", 30)
+    out["lead_waits"] = c.wait(f"!!{TID.format('map-lit-run')} && !!{TID.format('map-lit-run-open')} && 'waits'", 30)
     out["nothing_open"] = c.js(f"{N.format('orchestra-plan')} === 0 && {N.format('run-goal-drawer')} === 0 && {N.format('history-page')} === 0")
-    out["narration_asks"] = c.wait(f"({TID.format('live-narration')}?.dataset.text || '').startsWith('waiting on you') && 'asks'", 10)
-    click(c, TID.format("agents-live-review"))
+    review(c)
     c.wait(f"{N.format('plan-lane')} === 5 && {N.format('plan-edge')} === 1", 30)
     out["canvas"] = {k: c.js(N.format(k)) for k in ("orchestra-plan", "plan-canvas", "plan-lane", "plan-edge", "plan-approve", "orchestra-root")}
     out["layers"] = c.js(f"{TID.format('plan-canvas')}.dataset.layers")
@@ -108,33 +114,15 @@ def overlap_problem(c, out: dict) -> None:
     out["undo_clears"] = c.wait(f"{N.format('plan-problem')} === 0 && !{TID.format('plan-approve')}.disabled && 'clear'", 15)
 
 
-LANE_BOX = "document.querySelector('[data-testid=\"agents-live-lane\"][data-lane=\"{}\"]')"
-
-
 def approve_runs(c, rig, out: dict) -> None:
     click(c, TID.format("plan-approve"))
-    out["running"] = c.wait(f"{TID.format('agents-live-lead')}?.dataset.state === 'running' && 'running'", 20)
     out["plan_closed"] = c.wait(f"{N.format('orchestra-plan')} === 0 && 'closed'", 15)
-    out["lanes_on_live"] = c.wait(f"{N.format('agents-live-lane')} === 5 && 5", 20)
-    out["lane_rows"] = c.wait(f"(() => {{ const b = {LANE_BOX.format(1)}; const rows = b && [...b.querySelectorAll('.ag-run-k')].map((x) => x.textContent);"
-                              f" return rows && rows.length >= 4 ? rows : null; }})()", 10)
-    out["lane_owns"] = c.js(f"{LANE_BOX.format(1)}.querySelector('[data-testid=\"lane-owns\"] .ag-run-v')?.textContent")
-    out["run_block"] = c.js("document.querySelectorAll('[data-testid=\"live-group\"][data-kind=\"run\"], [data-testid=\"live-block\"][data-kind=\"run\"]').length")
-    out["run_block_title"] = c.js("document.querySelector('[data-testid=\"live-block-bar\"][data-kind=\"run\"]')?.textContent || "
-                                  "document.querySelector('[data-testid=\"live-group\"][data-kind=\"run\"]')?.textContent")
-    click(c, LANE_BOX.format(1))
-    out["lane_summary"] = c.wait(f"{TID.format('run-inspector')}?.dataset.pick === 'lane' && {TID.format('run-inspector')}.dataset.lane === '1'"
-                                 f" && [...{TID.format('run-summary-facts')}.querySelectorAll('dt')].map((d) => d.textContent)", 10)
-    out["stop_offered"] = c.js(f"!!{TID.format('run-stop')}")
-    click(c, TID.format("run-open-claims"))
-    out["claims_page"] = c.wait(f"{TID.format('run-page')}?.dataset.block === 'claims' && !!{TID.format('lane-claims')} && 'claims'", 10)
-    click(c, TID.format("run-page-back"))
-    c.wait(f"!!{TID.format('run-summary-facts')}", 5)
+    out["running"] = c.wait(f"!!{TID.format('map-lit-run')} && !!{TID.format('run-stop')} && 'running'", 20)
+    out["stop_offered"] = True
     rig.hold.set()
     try:
-        out["left_live"] = c.wait(f"{N.format('roles-live-map')} === 1 && {N.format('agents-live-lead')} === 0 && {N.format('agents-live-lane')} === 0"
-                                  f" && !!{TID.format('live-history')} && 'gone'", 60)
-        click(c, TID.format("live-history"))
+        out["left_live"] = c.wait(f"{N.format('map-lit-run')} === 0 && 'gone'", 60)
+        click(c, TID.format("map-history-all"))
         row = "document.querySelector('[data-testid=\"live-history-row\"][data-kind=\"run\"]')"
         out["history_row"] = c.wait(f"{row}?.textContent", 15)
         click(c, row)
@@ -149,7 +137,7 @@ def approve_runs(c, rig, out: dict) -> None:
 
 
 def reject_stops(c, rig, out: dict) -> None:
-    click(c, TID.format("live-run-goal"))
+    click(c, TID.format("map-run-goal"))
     c.wait(f"!!{TID.format('orchestra-goal-form')} && !!{TID.format('run-goal-says')}", 20)
     out["says"] = c.js(f"[...{TID.format('run-goal-says')}.querySelectorAll('dt')].map((d) => d.textContent)")
     for label, text in (("WHAT YOU WANT", "Write the five functions of basket.py"), ("DONE WHEN", "the tests pass"),
@@ -161,26 +149,26 @@ def reject_stops(c, rig, out: dict) -> None:
     click(c, TID.format("orchestra-review"))
     out["review_on"] = c.wait(f"{TID.format('orchestra-review')}.checked && (({TID.format('run-goal-does')}?.textContent || '').includes('the plan waits for you')) && true", 5)
     click(c, TID.format("orchestra-run"))
-    out["drawer_closed"] = c.wait(f"{N.format('run-goal-drawer')} === 0 && {TID.format('agents-live-lead')}?.dataset.state === 'waiting' && 'closed'", 30)
-    click(c, TID.format("agents-live-review"))
+    out["drawer_closed"] = c.wait(f"{N.format('run-goal-drawer')} === 0 && !!{TID.format('map-lit-run-open')} && 'closed'", 30)
+    review(c)
     c.wait(f"{N.format('plan-lane')} === 5", 30)
     click(c, TID.format("plan-reject"))
     c.wait(f"!!{TID.format('plan-reject-card')}", 10)
     click(c, TID.format("plan-reject-reason"))
     c.type_text("one lane per file instead")
     click(c, TID.format("plan-reject-confirm"))
-    out["stopped"] = c.wait(f"{N.format('agents-live-lead')} === 0 && {N.format('orchestra-plan')} === 0 && 'stopped'", 30)
+    out["stopped"] = c.wait(f"{N.format('map-lit-run')} === 0 && {N.format('orchestra-plan')} === 0 && 'stopped'", 30)
     out["stop_reason"] = rig.last_report().get("stop_reason")
 
 
 class PlanDriver(Driver):
-    """A goal run on Live, its plan review, its lanes, its report in History, over tests/helpers/studio_plan_rig.py."""
+    """A goal run on the Map, its plan review, its report in History, over tests/helpers/studio_plan_rig.py."""
 
     @contextmanager
     def session(self, c):
         from tests.helpers.studio_plan_rig import PlanRig
         with PlanRig() as rig:
-            url = rig.url("agents").replace("&open=all", "")  # 3.4.0.0 D: Live as it opens (one thing per section)
+            url = rig.url("agents").replace("&open=all", "").replace("?mode=agents", "?mode=agents&view=map")  # the Map as it opens
             yield ((lanes_and_layers, (c, url, self.out)), (drag_into_layer, (c, rig, self.out)), (overlap_problem, (c, self.out)),
                    (approve_runs, (c, rig, self.out)), (reject_stops, (c, rig, self.out)))
 

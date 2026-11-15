@@ -9,7 +9,7 @@
                                        a trusted project's stays the project's): {undo_id, map, problems: []}; 422 with
                                        the problem lines (a line that would make a circle is named); 409 while locked
                                        is the page's own rule, not the route's
-    POST crew/map/<name>/use {on}      config `crew.map` -- what new sessions run on (off: no map); {undo_id, in_use}
+    POST crew/map/<name>/use {on}      config `crew.map` -- what new sessions run on (off: the starter map); {undo_id, in_use}
     DELETE crew/map/<name>             delete yours (a starter or the project's: 409)
 
 Every write goes through crew/changes.py (the before-image kept: the builder's Undo, `POST builder/undo`, puts it back)

@@ -1,28 +1,14 @@
 # Every write route Studio answers (tests/helpers/studio_write_routes.py harvest), classified (Halo 3.4.1.2, SERVERS-2):
 # owner = 403 without the owner proof; pack = a pack page's own route (packs/<id>/... through the pack's server, or
 # pack/<id>/publish|attention). A new route fails tests/test_studio_owner_routes.py until it is added here.
-owner POST ^lineup$
-owner PUT ^lineup/(?P<name>[^/]+)$
-owner DELETE ^lineup/(?P<name>[^/]+)$
-owner POST ^lineup/(?P<name>[^/]+)/apply$
 owner PUT ^layout/(?P<name>[^/]+)$
-owner POST ^bio$
-owner PUT ^bio/(?P<name>[^/]+)$
-owner DELETE ^bio/(?P<name>[^/]+)$
-owner POST ^validate$
-owner POST ^yaml$
 owner POST ^models/refresh$
 owner POST ^models/test$
 owner POST ^models/lane$
 owner POST ^models/think$
 owner POST ^models/analyze$
 owner POST ^roles/(?P<role>[a-z][a-z0-9_]*)/point$
-owner POST ^roles/clone$
 owner * orchestra
-owner * workflows/when
-owner * workflows/members
-owner * workflows/swap
-owner * workflows/templates
 owner * field-help
 owner POST ^sessions/(?P<sid>[A-Za-z0-9_.:-]+)/agents/(?P<aid>[A-Za-z0-9_.:-]+)/command$
 owner POST ^live/(?P<hid>[A-Za-z0-9_.:-]+)/(?P<sid>[A-Za-z0-9_.:-]+)/agents/(?P<aid>[A-Za-z0-9_.:-]+)/handoff$
@@ -134,11 +120,6 @@ owner POST local/voice/loop
 owner POST local/voice/talk
 owner * local/voice
 owner * ^work/(?P<kind>orchestra|lane)/(?P<run>[A-Za-z0-9_-]+)$
-owner * workflows
-owner * workflows/enable
-owner * workflows/disable
-owner * workflows/yaml
-owner * workflows/contract
 pack POST ^projects$
 pack POST ^(?P<slug>[^/]+)/run$
 pack POST ^(?P<slug>[^/]+)/comment$

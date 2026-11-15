@@ -35,31 +35,8 @@ sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 
-MAP = "document.querySelector('[data-testid=\"session-map\"]')"
 CTX = "document.querySelector('[data-testid=\"session-cost-context\"]')"
 SPARK = "document.querySelector('[data-testid=\"session-cost-spark\"]')"
-
-
-def node(key: str) -> str:
-    return f"{MAP}.querySelector('[data-testid=\"roles-live-node\"][data-key=\"{key}\"]')"
-
-
-def edge(key: str) -> str:
-    return f"{MAP}.querySelector('[data-testid=\"roles-live-edge\"][data-to=\"{key}\"]')"
-
-
-def xy(c, key: str) -> list:
-    # 3.3.16.0 R2: Live's HTML node, placed by its style (the Fleet map's svg transform before)
-    return c.js(f"(() => {{ const n = {node(key)}; return n ? [parseFloat(n.style.left), parseFloat(n.style.top)] : []; }})()") or []
-
-
-def labels_overlap(c) -> list:
-    """Every pair of node names (or session titles) on the map whose boxes intersect."""
-    js = (f"(() => {{ const r = [...{MAP}.querySelectorAll('.rlm-name')].map((t) => [t.textContent, t.getBoundingClientRect()]);"
-          " const out = []; for (let i = 0; i < r.length; i++) for (let j = i + 1; j < r.length; j++) { const a = r[i][1], b = r[j][1];"
-          " if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5) out.push([r[i][0], r[j][0]]); }"
-          " return out; })()")
-    return c.js(js) or []
 
 
 def costmap(c, rig) -> dict:
@@ -72,7 +49,7 @@ def costmap(c, rig) -> dict:
     from tests.helpers.chrome_driver import emulate_motion
     emulate_motion(c, "no-preference")  # the done fade is an animation: the same media on every runner
     c.go(rig.url("session"))
-    c.wait(f"!!{CTX} && {MAP}.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 6", 40)
+    c.wait(f"!!{CTX} && document.querySelectorAll('[data-testid=\"session-cost-agent\"]').length >= 1", 40)  # 3.6.0.0 R5: no tree
     out["ctx"] = [[c.wait(f"{CTX}.dataset.pct === '50.0' && {CTX}.dataset.level", 10)]]
     for used, want in ((85_000, "85.0"), (97_000, "97.0")):
         lv.refresh(context_tokens=used)
@@ -89,63 +66,10 @@ def costmap(c, rig) -> dict:
     out["share"] = c.wait("[...document.querySelectorAll('[data-testid=\"session-cost-share-seg\"]')].length >= 2 && "
                           "[...document.querySelectorAll('[data-testid=\"session-cost-share-seg\"]')].map((s) => [s.dataset.key.split('|')[2], +s.style.flexGrow])", 10)
     out["agent_tokens"] = c.js("[...document.querySelectorAll('[data-testid=\"session-cost-agent-tokens\"]')].map((t) => t.textContent)")
-    lv.tool("tester", "Bash", "cm-1", "pytest -q")
-    tool = f"{node(lv.key('tester'))}?.querySelector('[data-testid=\"roles-live-tool\"]')"
-    s0 = c.wait(f"{tool}?.dataset.secs", 10)
-    # 3.2.1.0 R5: wait for two ticks, not a fixed 2.2 s: on WSL the 1 s clock ticked once in 2.2 s (0 -> 1), the
-    # read came early in its second or the wall clock stepped back (WSL2's does, ~1.1 s)
-    s1 = _seen(c, f"+{tool}?.dataset.secs >= {int(s0) + 2 if str(s0).isdigit() else 2} && {tool}.dataset.secs", 6)
-    out["node_secs"] = [s0, s1 or c.js(f"{tool}?.dataset.secs"), c.js(f"{tool}?.querySelector('.rlm-tool-text')?.textContent")]
-    main, kids = lv.key("main"), [lv.key(n) for n in ("implementer", "researcher", "tester", "docs", "reviewer")]
-    out["tree"] = {"main": xy(c, main), "kids": [xy(c, k) for k in kids], "parents": c.js(f"[...{MAP}.querySelectorAll('[data-testid=\"roles-live-node\"]')].map((n) => n.dataset.parent || '')")}
-    out["overlaps"] = labels_overlap(c)
-    out.update(states(c, lv))
-    return out
-
-
-def states(c, lv) -> dict:
-    """waiting: amber on node and edge; done: green, fading back to the plain line after ten seconds; failed: red that stays."""
-    out: dict = {}
-    # 3.1.5.0 R3 follow-up: a frame says stopped while GET fleet still says running; the GET right after keeps the frame's state
-    lv.spawn("f7e5h0s1", "fresher", "fresher", "or:mock/qwen3-coder", "Fresh: a frame newer than the GET")
-    c.wait(f"{node(lv.key('fresher'))}?.dataset.state === 'running'", 10)
-    lv.frame("fresher", "agent_state", {**lv.rows["f7e5h0s1"], "state": "stopped"})
-    out["fresh_frame"] = c.wait(f"{node(lv.key('fresher'))}?.dataset.state === 'stopped' && 'stopped'", 10)
-    lv.refresh(cost_usd=0.1234)  # the page asks GET fleet again (the sessions frame); the new spend shows its answer landed
-    out["fresh_get_landed"] = c.wait("document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent === '$0.1234' && 'landed'", 15)
-    out["fresh_api_says"] = next((a.get("state") for h in lv.rig.api("GET", "live")[1].get("harnesses", []) for s in h.get("sessions") or []
-                                  for a in s.get("agents") or [] if a.get("agent_id") == "f7e5h0s1"), None)
-    out["fresh_after_get"] = c.js(f"{node(lv.key('fresher'))}?.dataset.state")
-    w, d, f = lv.key("docs"), lv.key("tester"), lv.key("reviewer")
-    lv.state("docs", state="waiting")
-    c.wait(f"{node(w)}?.dataset.motion === 'waiting'", 10)
-    time.sleep(0.6)  # the edge's stroke eases to its colour (roles-live.css transition): read it once it has landed
-    out["waiting"] = [c.wait(f"{node(w)}?.dataset.motion === 'waiting' && {edge(w)}?.dataset.motion", 10),
-                      c.js(f"getComputedStyle({edge(w)}).stroke"), c.js(f"getComputedStyle(document.documentElement).getPropertyValue('--warn').trim()")]
+    lv.state("docs", state="waiting")  # the states the figures below count from (the tree that drew them went, 3.6.0.0 R5)
     lv.state("tester", state="done", last_text="the basket suite passes")
     lv.state("reviewer", state="failed", last_text="the diff did not apply")
-    c.wait(f"{node(f)}?.dataset.motion === 'error'", 10)
-    time.sleep(0.6)  # the edge's stroke eases to red (the transition): read it once it has landed
-    out["done"] = [c.wait(f"{node(d)}?.dataset.motion === 'done' && {edge(d)}?.dataset.motion", 10), c.js(f"getComputedStyle({node(d)}).animationName")]  # 3.3.16.0 R2: the map is Live's HTML nodes
-    out["red"] = [c.wait(f"{node(f)}?.dataset.motion === 'error' && {edge(f)}?.dataset.motion", 10), c.js(f"getComputedStyle({edge(f)}).stroke"),
-                     c.js("getComputedStyle(document.documentElement).getPropertyValue('--bad').trim()")]
-    # 3.2.1.0 R5: the page's wall clock steps back 1.5 s inside the fade (WSL2's clock steps back ~1.1 s at times):
-    # the fade's timer then fires while the done time still looks young, and the node kept its glow until the
-    # timer re-armed itself (lib/motion useRecent). `_seen`: a node that stays done is a check, not a dead driver
-    c.js("(() => { const real = Date.now.bind(Date); window.__haloRealNow = real; Date.now = () => real() - 1500; return 1; })()")
-    time.sleep(10.4)
-    out["done_later"] = _seen(c, f"{node(d)}?.dataset.motion !== 'done' && {node(d)}.dataset.motion", 6) or c.js(f"{node(d)}?.dataset.motion")
-    c.js("Date.now = window.__haloRealNow; 1")
-    out["red_later"] = c.js(f"{node(f)}?.dataset.motion")
-    from tests.helpers.chrome_driver import emulate_motion
-    emulate_motion(c, "reduce")  # the product rule: under reduce a done node is green with no fade
-    lv.spawn("t1d3r0m0", "tidier", "tidier", "or:mock/qwen3-coder", "Tidy: the basket imports")
-    t = lv.key("tidier")
-    c.wait(f"{node(t)}?.dataset.motion === 'working'", 10)
-    lv.state("tidier", state="done", last_text="imports tidied")
-    out["reduced_done"] = [c.wait(f"{node(t)}?.dataset.motion === 'done' && 'done'", 10), c.js(f"getComputedStyle({node(t)}).animationName"),
-                           c.js(f"getComputedStyle({node(t)}).borderTopColor"), c.js("matchMedia('(prefers-reduced-motion: reduce)').matches")]
-    emulate_motion(c, "no-preference")
+    time.sleep(1.0)
     return out
 
 
@@ -188,7 +112,6 @@ def figures(c, rig) -> dict:
     time.sleep(0.8)
     out["fig_after_child"] = c.js(FIGS_JS + ".concat([document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent])")
     lv.state("main", cost_usd=0.2468)  # main's own row figure is the session's total: it holds the finished tester's 0.012
-    out["fig_main_row"] = _seen(c, f"{node(lv.key('main'))}?.querySelector('[data-testid=\"roles-live-cost\"]')?.textContent === '$0.2468' && 'row'", 10)
     out["fig_share"] = c.js(SEGS_JS)
     main = f"document.querySelector('[data-testid=\"session-cost-agent\"][data-key=\"{lv.key('main')}\"]')"
     out["fig_main_line"] = c.js(f"[{main}?.querySelector('[data-testid=\"session-cost-agent-usd\"]')?.textContent, "

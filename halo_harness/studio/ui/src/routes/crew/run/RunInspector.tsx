@@ -13,9 +13,9 @@ import { stopRun } from "../../orchestra/sync";
 import type { Lane, RunPayload } from "../../orchestra/types";
 import { useFleet } from "../../fleet/store";
 import { runSession, WatchInSession } from "../../session/Watch";
-import { clearPick, pickLive, setInspectorPage, useInspectorPage } from "../../agents/live/scope";
+import { clearPick, pickLive, setInspectorPage, useInspectorPage } from "../live/scope";
 import { ownsOf } from "./Owns";
-import { reviewPlan } from "../../agents/run/planPanel";
+import { reviewPlan } from "./planPanel";
 import { ClaimsPage, DiffPage, LogPage, PAGES, PlanPage, TestPage, type RunPage } from "./RunPages";
 
 function Stop({ run }: { run: string }) {
@@ -74,7 +74,7 @@ export function RunInspector({ kind, id }: { kind: "run" | "lane"; id: string })
   const lane = (data?.run.run_id === run && data.lanes.find((l) => l.lane === n)) || null;
   const workerKey = useWorkerKey(lane);
   const watch = useFleet((s) => (data?.live ? runSession(s, data.run.run_id, [data.run.lead_holder || "", ...data.lanes.map((l) => l.holder)]) : ""));
-  if (!data || data.run.run_id !== run) return <p className="muted" data-testid="run-gone">Run {run} is not on Live any more: its report is in History.</p>;
+  if (!data || data.run.run_id !== run) return <p className="muted" data-testid="run-gone">Run {run} is not going any more: its report is in History.</p>;
   if (kind === "lane" && !lane) return <p className="muted" data-testid="run-gone">Lane {n} of run {run} is not in the run any more.</p>;
   if (page && PAGES.some(([p]) => p === page)) return <Page page={page as RunPage} data={data} lane={lane} />;
   const g = data.goal;

@@ -15,7 +15,7 @@ export const RUN_HELP: Record<string, Help> = {
       "Click a card: its title, claims, bio, model, what it takes and hands on.",
       "Every edit is checked: a problem outlines its card in red and holds Approve and run.",
       "Reject asks for a reason and stops the run; Ctrl+Z undoes any edit.",
-      "It opens from the run's lead on Live (Review the plan) and closes when the run goes on.",
+      "It opens from the run's pages (on the Map: A goal run is going, Open, then Review the plan) and closes when the run goes on.",
     ),
   },
 };

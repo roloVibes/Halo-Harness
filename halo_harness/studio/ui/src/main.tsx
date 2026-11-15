@@ -21,7 +21,6 @@ import "./styles/shared.css";
 import "./styles/roles.css";
 import "./styles/roles-panels.css";
 import "./styles/roles-inspector.css"; // 3.3.16.0 R1b: the inspector's summary, Edit rows and one block's page
-import "./styles/disk-note.css";
 import "./styles/start.css";
 import "./styles/session.css";
 import "./styles/model-select.css";
@@ -30,10 +29,9 @@ import "./styles/session-live.css";
 import "./styles/session-target.css";
 import "./styles/session-think.css";
 import "./styles/prompt.css"; // 3.3.11.0 R1: Session's Prompt panel
-import "./styles/roles-live.css"; // 3.3.11.0 R2: Roles Live, New session, the no-terminal line
-import "./styles/agents.css"; // 3.3.16.0 R1: Agents' bar (Cast | Runs | Live), the owns line, a lane's claims
+import "./styles/roles-live.css"; // 3.3.11.0 R2: New session, the no-terminal line (Roles Live went, 3.6.0.0 R5)
+import "./styles/agents.css"; // Agents: the tab switch and its note, the owns line, a lane's claims
 import "./styles/agents-live.css"; // 3.3.16.0 R2: Live's inspector, the Attention chip
-import "./styles/workflows.css"; // 3.3.16.0 R3: Agents -> Workflows, the board of squares; a square's Live node
 import "./styles/crew.css"; // 3.6.0.0 R1: Agents -> 1 · Agents (routes/crew/): the form, Try it, the builder box
 import "./styles/flows.css"; // 3.6.0.0 R2: Agents -> 2 · Workflows (routes/crew/flows/): the steps, the drawing, Try it
 import "./styles/map.css"; // 3.6.0.0 R3: Agents -> 3 · Map (routes/crew/map/): boxes, lines, When, the strip, the list
@@ -60,17 +58,12 @@ import "./styles/local-guards.css"; // 3.3.7.0 R4: the foreign line, the refresh
 import "./styles/local-steward.css"; // 3.3.7.0 R5: the Steward page's chat box and model picker
 import "./styles/local-pool.css"; // 3.3.8.0 R1: Local -> Pool, the members, the scan, the recommendation, the Pool badge
 import "./styles/local-voice.css"; // 3.3.9.0 R3: Local -> Voice, the speech servers, Talk, the turns
-import "./styles/nodes.css"; // 3.3.15.0 L1: the Instrument look's map nodes and edges (after fleet.css and roles-live.css)
 import "./styles/live-groups.css"; // 3.3.16.3: Live in groups, the group boxes (after nodes.css)
 import "./styles/live-truth.css"; // 3.3.18.0: Live's empty sentence, History, the replay banner, Cast's plan line
-import "./styles/live-plan.css"; // 3.3.18.0 part 2: the plan under Live, its blocks and when lines
 import "./styles/live-time.css"; // 3.4.1.0 R1: the scrubber under Live's canvas, Save and Export a clip
 import "./styles/live-compare.css"; // 3.4.1.0 R2: History's ticks and the Compare page
 import "./styles/live-card.css"; // 3.4.1.0 R3: the run report card, History's Report door, Session's mode word
-import "./styles/live-waits.css"; // 3.3.18.0 part 3: waits on, the waiting path, the one sentence
 import "./styles/glance.css"; // 3.4.1.0 R4: the glance page, Open the glance, Settings -> Studio -> Alerts
-import "./styles/blocks.css"; // 3.3.16.3: blocks on the Cast canvas, a tier's purpose line
-import "./styles/blocks-compose.css"; // 3.3.16.3 part 2: lines with their when, the library on Cast, the drags
 import "./styles/instrument.css"; // 3.3.15.0 L1: the kit's pieces whose CSS lived elsewhere (fit meter, the Dialog's cost block)
 import "./styles/model-takes.css"; // 3.3.15.0 R2: what a model takes, the picker's one-line rows (after model-card.css)
 import "./styles/model-picker.css"; // 3.4.1.3: THE model picker and its field (after model-takes.css)

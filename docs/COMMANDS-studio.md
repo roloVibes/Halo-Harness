@@ -51,9 +51,9 @@ its **Prompt** panel up and the keyboard in its box, to type into the session as
 
 3.1.1.0: Studio is the one editor of bios and lineups, and `--edit TARGET`
 opens it on one: `bio:<name>` (Agents on Cast, the Bios panel on that bio's form),
-`lineup:<name>` (Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary; 3.3.16.0 R1b:
+`lineup:<name>` (Agents on Cast, that lineup open, the Inspector on its Lineup tab's summary; 3.6.0.0 R5: Cast went, these land on the Map; 3.3.16.0 R1b:
 `lineup:<name>:<block>` opens that block's page, a block being `description`, `workers`, `schedule` or one of the
-nine sections) or `team` (Agents on Live; 3.3.16.0 R1: the Team section went, 3.4.0.0 D: Runs too); 3.3.0.0 R4: `setup`, `setup:first` (what
+nine sections) or `team` (Agents on the Map, Live before 3.6.0.0 R5; 3.3.16.0 R1: the Team section went, 3.4.0.0 D: Runs too); 3.3.0.0 R4: `setup`, `setup:first` (what
 `halo init` opens: `?mode=setup&first=1`) and `setup:<block>` (`halo setup
 team`: `?mode=setup&block=team`), [STUDIO-setup.md](STUDIO-setup.md). The target rides in the URL as
 `?mode=roles&edit=bio:<name>` (the token stays in the `#t=` fragment). When
@@ -68,9 +68,8 @@ lineup views run the same thing (see
 [AGENTS.md](AGENTS.md#editing-bios-and-lineups-studio-is-the-editor-halo-3110)).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
-into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one: Cast, the lineups and agent bios as an
-editable graph; Live, what runs now, a goal run included; 3.4.0.0 D: Runs, the run console, went), and `--mode roles`,
-`orchestra` and `team` still open Agents on Cast, Live and Live, printing the new door once ("Roles is Agents -> Cast now (Alt+2 in Studio; halo studio --mode agents)");
+into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one; 3.4.0.0 D: Runs, the run console, went; 3.6.0.0 R5: three tabs, 1 · Agents, 2 · Workflows and 3 · Map, where what runs now lights up the map), and `--mode roles`,
+`orchestra` and `team` still open Agents, landing on the Map;
 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's
 section (`--mode design--design`, the design pack's), and `--mode design` with that pack off says how to turn it on.
@@ -78,7 +77,7 @@ section (`--mode design--design`, the design pack's), and `--mode design` with t
 what waits on you as large buttons, the spend against its cap -- and says under the URL how a phone reaches it: through
 an SSH app's forward of Studio's port when an SSH server answers here, else that the page is this-machine-only
 ([STUDIO-live.md](STUDIO-live.md#the-glance), [REMOTE.md](REMOTE.md#the-glance-from-a-phone)).
-The TUI's `/roles` (Agents on Cast) and, with the design pack on, `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
+The TUI's `/roles` (Agents on the Map) and, with the design pack on, `/design` are the same doors from a live session. It Starts a loopback-only server on a free port (or
 `--port`), prints its URL (the URL carries a per-launch token: open exactly
 that) and opens the browser unless `--no-open`; `--cwd` is the project
 directory for project-scope files (default: the current directory). Ctrl+C
@@ -261,8 +260,8 @@ same command.
 ## `halo team` (left in 3.4.0.0)
 
 The team file (`.halo/team.yaml`) and `halo team` left the core in 3.4.0.0; `halo team` answers one line
-saying so. A lineup's tiers and blocks (Agents -> Cast, `halo teams`) and a run's lanes with their owns lines
-(a goal run on Agents -> Live, `halo orchestra`) do its job.
+saying so. A map's boxes and lines (Agents -> Map, `halo maps`) and a run's lanes with their owns lines
+(a goal run's pages in the Map's drawer, `halo orchestra`) do its job.
 
 ## `/tasks` (Ctrl+T)
 

@@ -3,12 +3,15 @@
 // tokens, its cost, how long it has run -- and beside Steer and Stop (Feed.tsx) the owner's other controls: Pause /
 // Resume (the same route Live's node menu calls, routes/fleet/actions.ts togglePause) and, on a failed agent, Dismiss
 // (Live's own: agents/live/now.ts dismiss + roles/glow.ts ackFailed). "Hand to another machine" is not carried over.
+// 3.6.0.0 R5 (Live's node menu went): Take over beside Pause -- your brief replaces its task, recorded as a hand-off
+// (routes/fleet/extras.ts askHandoff, the same dialog and route the palette's "take over" uses).
 import { Button } from "../../../lib/ui";
 import type { RecordAgent } from "../../../lib/work/record";
 import { togglePause } from "../../fleet/actions";
+import { askHandoff } from "../../fleet/extras";
 import { cost as money } from "../../orchestra/format";
-import { ackFailed } from "../../roles/glow";
-import type { LiveAgent } from "../../roles/types";
+import { ackFailed } from "../live/glow";
+import type { LiveAgent } from "../models/types";
 import { dismiss, useDismissed } from "../live/now";
 import { secsWords } from "../live/waits";
 import { useMap } from "./mapStore";
@@ -56,6 +59,10 @@ export function BoxHead({ L, a, box }: { L: Lit; a: RecordAgent; box: string }) 
                     title={a.state === "paused" ? `Resume ${a.name}` : `Pause ${a.name}: it holds at its next tool or model call`}>
               {a.state === "paused" ? `Resume ${a.name}` : `Pause ${a.name}`}
             </Button>
+          )}
+          {live && a.id !== "main" && (
+            <Button onClick={() => askHandoff("take_over", a.key)} data-testid="map-feed-takeover"
+                    title={`Take over ${a.name}: your brief replaces its task, recorded as a hand-off`}>Take over</Button>
           )}
           {a.state === "failed" && !gone && (
             <Button onClick={() => (dismiss(a.key), ackFailed([{ key: a.key, state: "failed" } as LiveAgent]))} data-testid="map-feed-dismiss"

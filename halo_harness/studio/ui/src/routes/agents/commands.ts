@@ -1,15 +1,14 @@
-// The palette's Agents lines (3.3.16.0 R1): "Agents: Cast", "Agents: Live", "Agents: Workflows", each with its key; Cast's
-// Roles lines and a goal run's lines follow in the same group (routes/roles/commands.ts, routes/agents/run/commands.ts:
-// 3.4.0.0 D, Run a goal, stop the run, review its plan, a lane, a finished run's report).
+// The palette's Agents lines (3.6.0.0 R5): "Agents: 1 · Agents", "Agents: 2 · Workflows", "Agents: 3 · Map", each with
+// its key; a goal run's lines follow in the same group (routes/crew/run/commands.ts).
 import type { AgentsView } from "../../lib/agentsDoor";
 import { goSection } from "../../lib/store";
 
 export type AgentsCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
 
 const VIEWS: [AgentsView, string, string, string][] = [
-  ["cast", "Cast", "C", "the lineup and its bios: cards in their tiers"],
-  ["live", "Live", "L", "what runs now: the session's agents and a goal run's lanes as a tree; History holds what ran"],
-  ["workflows", "Workflows", "W", "the squares main may hand work to: the board, the library"],
+  ["crew", "1 · Agents", "1", "make an agent: its name, what it does, its model, what it may use; try it, save it"],
+  ["workflows", "2 · Workflows", "2", "your agents in steps, in order; try it, save it"],
+  ["map", "3 · Map", "3", "who main hands work to, and when; lit while a session runs, History replays on it"],
 ];
 
 export function agentsCommands(): AgentsCommand[] {

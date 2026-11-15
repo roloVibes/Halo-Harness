@@ -90,14 +90,9 @@ def test_the_map_is_this_harness_with_the_working_agent_lit(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"no harness box (3.5.0.0: one machine), got {got.get('boxes')}", got.get("boxes") == 0)
-    ctx.check(f"a card per session here and every agent of them, nothing else, got {got.get('cards')} cards, "
-              f"{got.get('nodes')} of {got.get('want_nodes')} nodes, {got.get('foreign')} foreign",
-              got.get("cards") == 2 and got.get("nodes") == got.get("want_nodes") and (got.get("nodes") or 0) >= 4 and got.get("foreign") == 0)
-    ctx.check(f"the working nodes lit, got {got.get('working')}", (got.get("working") or 0) >= 2)
-    sel = str(got.get("selected") or "")
-    ctx.check(f"the newest working agent selected on enter, lit, got {sel} {got.get('selected_state')} {got.get('selected_lit')}",
-              sel.startswith(f"{got.get('hid')}|{got.get('sid')}|") and got.get("selected_state") == "running" and got.get("selected_lit") == "working")
-    ctx.check(f"its session is the chosen card, got {got.get('chosen_card')}", got.get("chosen_card") == got.get("sid"))
+    ctx.check(f"3.6.0.0 R5: the session running here drawn as its map: main and its helpers, got {got.get('nodes')} boxes",
+              (got.get("nodes") or 0) >= 3)
+    ctx.check(f"the working boxes lit, got {got.get('working')}", (got.get("working") or 0) >= 2)
 
 
 @test
@@ -112,7 +107,6 @@ def test_cost_activity_and_attention_are_this_session(ctx: Ctx):
     ctx.check(f"the log is this harness's only, got {got.get('log_who')}", got.get("log_who") == ["you@studio"])
     ctx.check(f"no attention rows, got {got.get('attn_here')} (empty {got.get('attn_empty')})",
               got.get("attn_here") == 0 and got.get("attn_empty") == 1)
-    ctx.check("J / K hop between this harness's agents only", got.get("hops_here") is True)
 
 
 @test
@@ -120,21 +114,18 @@ def test_session_param_chooses_that_session(ctx: Ctx):
     from tests.helpers.studio_session import FAKE_SID
     r, got = _driver("dash")
     _ran(ctx, r, got)
-    ctx.check(f"&session=<id>: the agent panel follows, got {got.get('deep_agent')}",
-              str(got.get("deep_agent") or "").endswith(f"|{FAKE_SID}|main"))
-    ctx.check(f"and Cost and the chosen card, got {got.get('deep_cost')} {got.get('deep_card')}",
-              got.get("deep_cost") == FAKE_SID and got.get("deep_card") == FAKE_SID)
+    ctx.check(f"and Cost, got {got.get('deep_cost')}", got.get("deep_cost") == FAKE_SID)
 
 
 @test
-def test_alt_keys_and_agents_live_draws_this_machine(ctx: Ctx):
+def test_alt_keys_and_agents_opens_on_the_map(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"Alt+2 shows Agents, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Agents"))
-    ctx.check(f"its Live draws this machine's session, no harness box, got {got.get('agents_nodes')} {got.get('agents_boxes')}",
-              (got.get("agents_nodes") or 0) >= 1 and got.get("agents_boxes") == 0)
-    ctx.check(f"Alt+1 comes back to Session, its map still the two cards, got {got.get('alt1')!r} {got.get('back_cards')}",
-              str(got.get("alt1")).startswith("Session") and got.get("back_cards") == 2)
+    ctx.check(f"it opens on the Map while a session runs (3.6.0.0 R5), no harness box, got {got.get('agents_view')} {got.get('agents_boxes')}",
+              got.get("agents_view") == "map" and got.get("agents_boxes") == 0)
+    ctx.check(f"Alt+1 comes back to Session, its map still lit, got {got.get('alt1')!r} {got.get('back_map')}",
+              str(got.get("alt1")).startswith("Session") and got.get("back_map") == "lit")
 
 
 @test

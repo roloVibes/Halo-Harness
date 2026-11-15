@@ -1515,9 +1515,6 @@ class Session:
         self._approval_waiters: dict = {}
 
         self.log = session_log or SessionLog(cwd)
-        if getattr(getattr(self, "team_control", None), "is_map", False) and agent_depth == 0:  # 3.6.0.0 R4: the map, in the log (a replay reads it)
-            from halo_harness.crew.map_events import started as _map_started
-            _map_started(self, self.team_control)
         # H9 whole-tree review finding 21: this session's own tool-results
         # spill directory is only knowable once `self.log` exists (the
         # permission engine is normally built and handed in BEFORE that) --
@@ -1583,6 +1580,11 @@ class Session:
             self._fire_directory_added_at_start()
             self._fire_setup_if_first_run()
             self._fire_worktree_created()
+            if getattr(getattr(self, "team_control", None), "is_map", False) and agent_depth == 0:
+                # 3.6.0.0 R4: the map, in the log (a replay reads it); R5: after the system node, never before it (a
+                # log whose first node is not the system one reads as a resumed one and gets no system node)
+                from halo_harness.crew.map_events import started as _map_started
+                _map_started(self, self.team_control)
         else:
             # finding 4: RESUMING an existing log -- NEVER re-append
             # meta/system/snapshots (a second system node makes

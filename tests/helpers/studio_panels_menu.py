@@ -9,7 +9,7 @@ provider request, no model call.
 (Lineups, Bios on the left; Inspector, Problems, Models on the right), every one closed; a focused button and Enter
 open its drawer beside the canvas, the button pressed; the panel's close puts it away again; nothing says "custom
 layout".
-`arrange`: a fresh layout: the palette's Reset layout disabled with its words; the palette's "Show panel: Inspector"
+`arrange`: a fresh layout: the palette's Reset layout disabled with its words; the palette's "Show panel: What they think and say"
 opens its drawer; Alt+Left on it widens it by 40 px (kept in the saved v3 record); Reset layout enabled now.
 `reset`: the "..." menu's Reset layout (the toast) closes the drawers and clears the saved key; its rows then say so.
 `moving`: "How panels open" opens the section help on its Moving panels part; the ? reaches it too.
@@ -34,13 +34,13 @@ from tests.helpers.studio_header_menus import bar_rows, button, close_menus, mor
 from tests.helpers.studio_packs_steps import CUR, mod_key, q, qa  # noqa: E402
 from tests.helpers.studio_quiet import RAIL_EXTRA  # noqa: E402
 
-WS = q(".workspace[data-section=roles]")
+WS = q(".workspace[data-section=agents-map]")  # 3.6.0.0 R5: Agents -> 3 · Map (Cast's workspace went)
 DRAWERS = f"[...{WS}.querySelectorAll('.stage-drawer')].map((d) => [d.dataset.panelIn, d.dataset.side, Math.round(d.getBoundingClientRect().width)])"
 ACTIVE = "(document.activeElement?.dataset.panel || document.activeElement?.dataset.testid || '')"
 BADGE = q("[data-testid=layout-badge]")
 TOASTS = "(document.querySelector('.toasts')?.textContent || '')"
-SAVED = "JSON.parse(localStorage.getItem('halo.studio.layout.roles') || 'null')"
-CANVAS = q(".workspace[data-section=roles] .stage-main [data-testid=roles-graph]")
+SAVED = "JSON.parse(localStorage.getItem('halo.studio.layout.agents-map') || 'null')"
+CANVAS = q(".workspace[data-section=agents-map] .stage-main [data-testid=map-canvas]")
 
 
 def _url(ctx, query: str) -> str:
@@ -82,32 +82,32 @@ def palette(c, text: str) -> list:
 
 
 def menu(c, url, ctx) -> dict:
-    load(c, ctx, "mode=roles&tour=off&view=workspace", "Agents")
+    load(c, ctx, "mode=agents&tour=off&view=map", "Agents")
     c.wait(f"!!{CANVAS}", 40)
     out = {"rows": bar_rows(c), "drawers_fresh": c.js(DRAWERS), "badge_fresh": c.js(f"!!{BADGE}")}
-    c.js(f"{button('roles-problems')}.focus(); 1")
+    c.js(f"{button('map-feed')}.focus(); 1")
     out["focus"] = c.js(ACTIVE)
     enter(c)
-    c.wait(f"!!{q('.stage-drawer[data-panel-in=roles-problems] .panel-body')}", 10)
-    out["opened"] = [c.js(DRAWERS), c.js(f"{button('roles-problems')}.getAttribute('aria-pressed')"),
+    c.wait(f"!!{q('.stage-drawer[data-panel-in=map-feed] .panel-body')}", 10)
+    out["opened"] = [c.js(DRAWERS), c.js(f"{button('map-feed')}.getAttribute('aria-pressed')"),
                      c.js(f"!!{BADGE} || document.querySelector('.hud-strip').innerText.includes('layout yours')")]
-    c.click_on(q("[data-panel=roles-problems] [data-testid=panel-collapse]"))
-    c.wait(f"!{q('.stage-drawer[data-panel-in=roles-problems]')}", 10)
-    out["closed"] = [c.js(DRAWERS), c.js(f"{button('roles-problems')}.getAttribute('aria-pressed')")]
+    c.click_on(q("[data-panel=map-feed] [data-testid=panel-collapse]"))
+    c.wait(f"!{q('.stage-drawer[data-panel-in=map-feed]')}", 10)
+    out["closed"] = [c.js(DRAWERS), c.js(f"{button('map-feed')}.getAttribute('aria-pressed')")]
     return out
 
 
 def arrange(c, url, ctx) -> dict:
-    c.js("localStorage.removeItem('halo.studio.layout.roles'); 1")
-    load(c, ctx, "mode=roles&tour=off&view=workspace&page=2", "Agents")
+    c.js("localStorage.removeItem('halo.studio.layout.agents-map'); 1")
+    load(c, ctx, "mode=agents&tour=off&view=map&page=2", "Agents")
     c.wait(f"!!{CANVAS}", 40)
     out = {"pal_reset_fresh": palette(c, "Reset layout")}
     c.key("Escape")
-    out["pal_show"] = palette(c, "Show panel: Inspector")
+    out["pal_show"] = palette(c, "Show panel: What they think and say")
     c.key("Enter")
-    c.wait(f"!!{q('.stage-drawer[data-panel-in=roles-inspector] .panel-body')}", 10)
+    c.wait(f"!!{q('.stage-drawer[data-panel-in=map-feed] .panel-body')}", 10)
     before = settle(c, DRAWERS)
-    c.js(f"{q('[data-panel=roles-inspector] .panel')}.focus(); 1")
+    c.js(f"{q('[data-panel=map-feed] .panel')}.focus(); 1")
     mod_key(c, "ArrowLeft", 37, 1, "ArrowLeft")  # Alt+Left on a right drawer: wider
     c.wait(f"JSON.stringify({DRAWERS}) !== {json.dumps(json.dumps(before))}", 10)
     out["widened"] = [before, settle(c, DRAWERS), c.js(SAVED)]
@@ -119,7 +119,7 @@ def arrange(c, url, ctx) -> dict:
 def reset(c, url, ctx) -> dict:
     out = {"reset_ran": more(c, "layout-reset")}
     out["reset_toast"] = c.wait(f"{TOASTS}.includes('Agents layout reset') && 'reset'", 10)
-    c.wait(f"!{q('.workspace[data-section=roles] .stage-drawer')}", 10)
+    c.wait(f"!{q('.workspace[data-section=agents-map] .stage-drawer')}", 10)
     out["after"] = [c.js(DRAWERS), c.js(SAVED)]
     c.click_on(q("[data-testid=section-more]"))
     c.wait(f"!!{q('[data-testid=section-more-menu]')}", 5)
@@ -146,11 +146,11 @@ def fleet(c, url, ctx) -> dict:
     out: dict = {}
     c.click_on(q(".rail [data-testid=section-tab][data-tab-id=agents]"))
     c.wait(f"{CUR}.startsWith('Agents')", 15)
-    c.click_on(q("[data-testid=agents-view-live]"))
-    c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'live'", 10)
+    c.click_on(q("[data-part=crew] [data-testid=agents-view-map], [data-testid=agents-view-map]"))  # 3.6.0.0 R5: Live went
+    c.wait("document.querySelector('[data-testid=agents]')?.dataset.view === 'map'", 10)
     out["fleet_rows"] = bar_rows(c)
-    plus(c, "fleet-activity")
-    out["tree"] = c.wait(f"!!{q('.stage-main [data-testid=fleet-activity] [data-testid=fleet-log]')}", 20)
+    plus(c, "orchestra-plan")  # the Map's optional panel: a goal run's plan review
+    out["tree"] = c.wait(f"!!{q('[data-part=map] [data-panel=orchestra-plan]')}", 20)
     out["fleet_rows_after"] = bar_rows(c)
     out["rail_icons"] = c.js(RAIL_EXTRA)
     c.click_on(q("[data-testid=rail-toggle]"))

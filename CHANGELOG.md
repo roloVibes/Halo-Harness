@@ -313,6 +313,67 @@ view. Actually I cannot just see the map ... the 2 views should be viewed singly
   all three arrangements (`tests/helpers/studio_room_split.py`); `test_studio_map_takeover` (Chrome) drives every point
   above, an ask's answer pressed in the drawer resolving the session's waiting card, and two sessions in the picker.
 
+### R5a
+
+Every session runs on a map, and the old lineups, bios, squares and the old canvas leave Studio and the terminal. The
+owner: "I do not care if it completely removes previously saved things, this is much better". (This round's first
+half: the switch, the views, the verbs and the dialogs. The modules underneath go next.)
+
+Removed (and what replaces each):
+
+- **Agents' Cast, Live and Board views**, with their panels (Lineups, Bios, the Inspector, Problems, Models), the
+  blocks library and the board of squares, their routes (`lineups`, `lineup/*`, `bios`, `bio/*`, `state`, `session`,
+  `tools`, `validate`, `yaml`, `roles/packs`, `roles/clone`, `workflows/*`), stores, CSS and drivers. Agents is three
+  tabs: **1 · Agents | 2 · Workflows | 3 · Map** (keys 1 2 3; for this release C and L open the Map, W Workflows). An
+  old address lands on a tab: `view=cast|live|orchestra|runs`, `mode=roles|team|orchestra` on the Map,
+  `view=flows` on Workflows, `mode=fleet` on the Map with "Fleet left Halo in 3.5" once.
+- **Live's node menu**: Take over is a button in the Map's drawer beside Pause (the same dialog and route); Pin is
+  dropped (the drawer's filter by box does its job); Record is the scrubber's "Save this run's replay", on the Map.
+  Live's History, its goal-run pages and Run a goal are the Map's drawer; a session row replays on the map it ran on.
+- **Session's Map panel's tree**: the panel draws the session as its map (a session not on a map: main and the
+  helpers it started), and zooms and pans the house way.
+- **`halo teams`, `halo roles`, `halo blocks`, `halo workflow`, `/teams`, `/roles`**: each prints one line ("lineups
+  are gone: halo maps use <name> ..."; "starters: halo workflows new <name> --from <starter>"; "use halo workflows")
+  and exits 0. `halo roles point` stays for this release (the steward's and the adviser's lines offer it).
+- **The TUI's lineup editor and view, roles editor, bio editor, teams list and agents list.** `/map` shows the map
+  the session runs on, read-only, with "open Studio to change it".
+- **`--team <name>`**: it prints one line and the session runs on the map in use; `--map <name>` picks one.
+- **The Orchestra goal form's LINEUP field**, and a pack's lineups and bios in the Pack Manager's Templates (one line
+  says they are no longer read).
+
+Changed:
+
+- **Every session runs on a map**: with no `crew.map` set, the shipped `starter` (main hands work to planner,
+  researcher, coder, reviewer, writer, media-reader and ops, "main decides per task": the auto lineup's twin; the
+  parity test now compares with the auto lineup's recorded picks). A map with a problem says its lines and the
+  session runs on `starter`. The starter keeps the session's own permission mode; a map you chose sets main's from
+  its `careful`. Main's own Agent calls are held to the map; the step runner's, a chain's and `/review`'s own spawns
+  are not (a session-wide restriction stopped them).
+- **The old files: one line, once.** When `~/.halo/teams`, `~/.halo/workflows`, `~/.halo/agents` (or this project's)
+  hold files, Halo says once that they are no longer read and where the new ones live: in the terminal at the first
+  start, as an Attention row until set aside, and in `halo doctor` while they are there. Nothing is deleted,
+  converted or rewritten.
+- **`halo agents`** (list / show / new [--from] / edit / try) and **`halo workflows`** (list / show / new [--from] /
+  edit / try / run) work on the agents and workflows of `~/.halo/crew/`; **`halo maps edit`** joins `list / show /
+  use`. `--edit agent:<n> | workflow:<n> | map:<n>` (the TUI's `/edit` too); the old `bio:` / `lineup:` / `team`
+  say the old files' line and open the tab that replaced them.
+- **Setup's Team step is Map**: pick the map new sessions run on (`starter` is the default); Apply writes `crew.map`.
+- A pack's panel declared for Agents (or roles, orchestra, team) joins the Map's workspace; the palette's Show panel
+  lines follow the tab on screen.
+- Fixes found on the way: a session on a map logged its `map_start` before the system node, so every print-mode
+  session on a map failed "session log has no 'system' node"; the status strip made the page 8 px wider than a
+  390 px window when a cell's text grew (it scrolls inside itself now); Reset layout counted the builder's dock as an
+  open drawer; a panel's Settings never opened the inspector on an Agents tab (the column looked for the tab's
+  workspace among the sections), nor kept it across a reload; History's Compare put its Apply past a narrow drawer's
+  edge; a goal run's Replay from its report drew no scrubber on the Map; a goal run waiting on you had no line on a
+  Map with no session running (the line says "A goal run is going" with Open now, whatever runs); Agents opened
+  straight on Workflows drew nothing (its part had no height once the old bar went); Session's lit map says "more than
+  fits" when it pans past the readable size, as the Map does.
+- The README's Shape and Mix pictures are the Map and 1 · Agents now (`studio-map.png`, `studio-agents-tab.png`);
+  the Cast pictures (`studio-workflows.png`, `studio-model-picker.png`, `studio-roles*.png`, the Roles GIF) and their
+  capture tools went; the Agents tile of the modes banner, the goal run pictures and the tabs' own pictures are
+  re-shot.
+
 ## [3.5.0.0] - 2026-11-13
 
 Fleet is no longer part of Halo Harness: the pack, its missions, its hub and its pages are removed; Halo is one

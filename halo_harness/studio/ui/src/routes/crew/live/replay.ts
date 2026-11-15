@@ -8,8 +8,9 @@
 import { api, ApiError } from "../../../lib/api";
 import { createStore, goSection, toast, useStore } from "../../../lib/store";
 import type { LiveNode } from "./liveModel";
-import type { GroupTag } from "../../agents/live/groups";
-import type { Plan } from "../../agents/live/planStore";
+import type { GroupTag } from "./groups";
+/** The lineup plan a replay file of 3.4 / 3.5 carries (read, never drawn: 3.6.0.0 R5, lineups are gone). */
+type Plan = Record<string, unknown>;
 import { fromSession, nodesAt, type SessionTimeline, type Timeline } from "./timeline";
 
 export type HistoryKind = "session" | "run" | "file";
@@ -98,10 +99,16 @@ export async function openFileReplay(rid: string, at: number | null = null): Pro
   }
 }
 
-/** A session played back from the agent inspector, the Roles Live tab's history or the palette: on Live. */
+let onMap: ((sid: string) => Promise<boolean>) | null = null;
+/** routes/crew/map/mapRuns.ts registers how a session replays ON its map (this module may not import it: a cycle). */
+export function replayOnMapWith(fn: (sid: string) => Promise<boolean>): void {
+  onMap = fn;
+}
+
+/** A session played back from History, an agent's history or the palette: on the Map it ran on (3.6.0.0 R5: Live went). */
 export function replaySession(sid: string, title = ""): Promise<boolean> {
-  goSection("agents", "live");
-  return openLiveReplay("session", sid, title || `session ${sid.slice(0, 8)}`);
+  goSection("agents", "map");
+  return onMap ? onMap(sid) : openLiveReplay("session", sid, title || `session ${sid.slice(0, 8)}`);
 }
 
 function patch(fn: (r: LiveReplay) => Partial<LiveReplay>): void {

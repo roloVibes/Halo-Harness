@@ -11,9 +11,9 @@ import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } f
 import { createPortal } from "react-dom";
 import { useHelpGroup } from "../../lib/fieldHelp";
 import { Button, Dialog } from "../../lib/ui";
-import { testModel } from "../roles/bioActions";
-import { useRoles } from "../roles/store";
-import type { ModelRow } from "../roles/types";
+import { testModel } from "../crew/models/actions";
+import { useModels } from "../crew/models/store";
+import type { ModelRow } from "../crew/models/types";
 import { CatalogLines, modelLine, shortRef, useCatalog } from "./catalog";
 import { ModelTakes } from "./ModelTakes"; // 3.3.15.0 R2: what the picked model takes, under the field
 import { ModelPicker } from "./picker/ModelPicker";
@@ -58,11 +58,11 @@ export function ModelSelect({ value, onPick, label, hint, inherit, testid, inlin
   const h = useHelpGroup("model_select");
   const { models, loaded } = useCatalog();
   const st = useStatusOnce();
-  const error = useRoles((s) => s.modelsError);
-  const refreshing = useRoles((s) => s.busy === "refresh");
-  const justRefreshed = useRoles((s) => s.justRefreshed);
+  const error = useModels((s) => s.modelsError);
+  const refreshing = useModels((s) => s.busy === "refresh");
+  const justRefreshed = useModels((s) => s.justRefreshed);
   const effective = value || inherit?.model || "";
-  const probe = useRoles((s) => (effective ? s.probe[effective] : undefined));
+  const probe = useModels((s) => (effective ? s.probe[effective] : undefined));
   const [open, setOpen] = useState(false);
   const [seed, setSeed] = useState("");
   const btn = useRef<HTMLButtonElement>(null);

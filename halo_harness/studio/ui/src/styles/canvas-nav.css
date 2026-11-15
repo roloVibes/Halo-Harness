@@ -3,9 +3,5 @@
 .rc-scroll, .da-scroll { cursor: grab; }
 .rc-scroll [data-testid="roles-live-node"], .rc-scroll .rc-card, .rc-scroll button, .da-scroll .da-card { cursor: pointer; }
 [data-panning] { cursor: grabbing; user-select: none; }
-.rc-scroll:focus-visible, .da-scroll:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-
-.cz-thumb { flex: none; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; padding: 6px 10px;
-  border-top: 1px solid var(--line); background: var(--surface); } /* 3.6.0.0 R8: a row under the map, never over its boxes */
+.rc-scroll:focus-visible, .da-scroll:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; } /* 3.6.0.0 R8: a row under the map, never over its boxes */
 .cz-zoom button { padding: 0 9px; height: 28px; }
-.cz-more { flex: 1 1 200px; min-width: 0; font-size: 12px; }

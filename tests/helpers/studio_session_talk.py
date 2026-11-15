@@ -1,5 +1,5 @@
 """tests.helpers.studio_session_talk -- the TALK steps of tests/helpers/studio_session_think.py `talk` (3.3.16.2
-"agents talking"): TALK rows with both tags and the reason; the map's edge lights from the speaker to the listener; a
+"agents talking"): TALK rows with both tags and the reason; (3.6.0.0 R5: the map's talk pulse is the Map tab's); a
 hand-back is one row (no OUT beside it); Conversations is not open on load, the "+" menu adds it, it lists the pair,
 shows the thread, a bubble's click scrolls Live to its row, "show in Live" narrows Live to the pair. No model is called."""
 from __future__ import annotations
@@ -16,8 +16,7 @@ def talk(c, lv) -> dict:
     main, res = lv.key("main"), lv.key("researcher")
     out["conv_on_load"] = c.js(f"!!{CONV}")
     lv.talk("main", "researcher", "Read the pricing notes and tell me when the discount applies, before or after tax.", "task", mid="tk-1")
-    edge = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"fleet-lit-edge\"][data-kind=\"talk\"]')"
-    out["edge"] = c.wait(f"{edge} && [{edge}.dataset.from === '{main}', {edge}.dataset.to === '{res}', !!{edge}.getAttribute('marker-end')]", 5)
+    # 3.6.0.0 R5: the old tree's talk edge went; the Map tab draws a talk as a pulse (tests/test_studio_map_takeover.py)
     row = f"{of_kind('talk', main)}[0]"
     c.wait(f"!!{row}", 10)
     out["talk_row"] = c.js(f"[{row}.querySelector('[data-testid=\"session-live-kind\"]').textContent, {row}.querySelector('.slv-name').textContent, "

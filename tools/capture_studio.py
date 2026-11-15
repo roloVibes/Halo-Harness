@@ -4,18 +4,18 @@ open, through headless Chrome (Halo 2.1.0 round B3). Also the smoke
 `tests/test_studio_ui.py` runs: the page boots, draws nodes, no console
 errors. Usage: python tools/capture_studio.py [--out PATH] [--dom] [--mode roles|agents|shell|orchestra|start|packs|setup|settings|local]
 
-3.0.7.0 R2: `--mode roles` (the default; tools/capture_roles.py) renders the
-React Roles section: a seeded lineup with two tiers and a live card
-(docs/media/studio-roles.png), with --dom its Start view and the seeded
-lineup with a bio open, counted by data-testid; 3.0.7.0 R3's `--mode design` is the design pack's
+3.6.0.0 R5: `--mode agents` (the default; `roles` is the old word for it) renders Agents -> 3 · Map, the starter map
+the sessions run on (docs/media/studio-agents.png, the modes banner's Agents tile; Cast and tools/capture_roles.py
+went); with --dom it counts the page's data-testid values. 3.0.7.0 R3's `--mode design` is the design pack's
 (halo_harness/templates/packs/design/tests/capture_design.py, 3.3.13.0 R2); `--mode shell` renders the React shell at / (the
-old Orchestra door, which lands on Agents -> Live, and Roles) and, with --dom, counts its data-testid values. `--mode
+old Orchestra door and the old Roles door, both on Agents -> 3 · Map since 3.6.0.0 R5) and, with --dom, counts its
+data-testid values. `--mode
 orchestra` (tools/capture_orchestra.py; 3.4.0.0 D "the runs fold": Runs' console and Start view went) seeds a finished
 goal run (the R2 fixture: basket.py, five lanes, one judged conflict, the report) and renders its report as a page of
-History (studio-run-report.png), and a run waiting for its plan on Live (studio-run-live.png). studio-roles-live.png
-and the Session dashboard are tools/capture_session_anim.py's, with their GIFs. 3.3.16.0 R1: `--mode team` (the Team section) went with
-Team's board; `--mode roles` renders Agents on Cast and `--mode agents` the same page as studio-agents.png, the modes
-banner's Agents tile. 3.2.0.0 R7: `--mode packs`
+History (studio-run-report.png), and a run waiting for its plan on the Map (studio-run-live.png). The Session
+dashboard is tools/capture_session_anim.py's, with its GIF. 3.3.16.0 R1: `--mode team` (the Team section) went with
+Team's board; 3.6.0.0 R5: `--mode workflows` (the board of squares) and `--mode picker` (Cast's model picker) went
+with Cast. 3.2.0.0 R7: `--mode packs`
 (tools/capture_packs.py) installs and enables the shipped doc-review pack and renders the Pack Manager
 (studio-packs.png, the modes banner's seventh tile); --dom counts it. 3.3.0.0 R4: `--mode setup`
 (tools/capture_setup.py) renders Setup as `halo init` opens it, a provider set from a placeholder env file
@@ -78,8 +78,8 @@ def serve(state: Path, shell: bool = True, proj: "Path | None" = None, slow_ms: 
 
 
 def shell_counts(dom: str) -> dict:
-    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "roles-canvas", "roles-start", "legacy-frame",
-                                                         "roles-live-map", "live-run-goal")}  # 3.4.0.0 D: the old Orchestra door lands on Live
+    return {k: dom.count(f'data-testid="{k}"') for k in ("section-tab", "orchestra-root", "start-view", "legacy-frame", "map", "map-canvas",
+                                                         "map-run-goal", "map-history")}  # 3.6.0.0 R5: the old doors land on the Map
 
 
 def chrome(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | None":
@@ -92,7 +92,7 @@ def main(argv: list) -> int:
     parser = argparse.ArgumentParser(description="Render docs/media/studio.png through headless Chrome")
     parser.add_argument("--out", default=str(REPO / "docs" / "media" / "studio.png"))
     parser.add_argument("--dom", action="store_true", help="print the rendered DOM's node count instead of a PNG")
-    parser.add_argument("--mode", choices=["roles", "agents", "shell", "orchestra", "packs", "setup", "settings", "local", "workflows", "picker"], default="roles", help="the section to render (the design pack's section: its tests/capture_design.py)")
+    parser.add_argument("--mode", choices=["agents", "roles", "shell", "orchestra", "packs", "setup", "settings", "local"], default="agents", help="the section to render (the design pack's section: its tests/capture_design.py)")
     args = parser.parse_args(argv)
     from capture_identity import begin
     from tests.helpers.chrome_driver import scope_home
@@ -141,30 +141,6 @@ def _render(args) -> int:
             return capture_local(args.out, args.dom, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "workflows":  # 3.3.16.1: Agents -> Workflows with three squares and the library (tools/capture_workflows.py)
-        from capture_workflows import capture as capture_workflows
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-workflows.png"
-        try:
-            return capture_workflows(args.out, args.dom, serve, state)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode == "picker":  # 3.3.17.1: the model picker open on a role (tools/capture_picker.py)
-        from capture_picker import capture as capture_picker
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + "-model-picker.png"
-        try:
-            return capture_picker(args.out, args.dom, serve, state)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
-    if args.mode in ("roles", "agents"):  # 3.0.7.0 R2: the React Roles section (tools/capture_roles.py); 3.3.16.0 R1: Agents, Cast
-        from capture_roles import capture as capture_roles
-        if args.out.endswith("studio.png"):
-            args.out = args.out[:-4] + f"-{args.mode}.png"
-        try:
-            return capture_roles(args.out, args.dom, serve, state)
-        finally:
-            shutil.rmtree(state.parent, ignore_errors=True)
     if args.mode == "orchestra":  # a goal run: its report in History, a planned run on Live (tools/capture_orchestra.py)
         from capture_orchestra import capture as capture_orchestra
         if args.out.endswith("studio.png"):
@@ -173,16 +149,27 @@ def _render(args) -> int:
             return capture_orchestra(args.out, args.dom, chrome, serve, state)
         finally:
             shutil.rmtree(state.parent, ignore_errors=True)
-    if args.out.endswith("studio.png"):  # --mode shell
-        args.out = args.out[:-4] + "-shell.png"
+    agents = args.mode in ("agents", "roles")  # 3.6.0.0 R5: Agents -> 3 · Map (Cast went)
+    if args.out.endswith("studio.png"):  # --mode shell, or agents
+        args.out = args.out[:-4] + ("-agents.png" if agents else "-shell.png")
     srv, url = serve(state)
+    if agents:
+        url = url.replace("mode=orchestra&feed=off", "mode=agents&view=map&tour=off&feed=off")
     try:
-        if args.dom:  # the shell twice: the old Orchestra door (Live, nothing running here) and Roles (the canvas of the active lineup)
+        if args.dom and agents:
             from capture_identity import checked_dump
-            budget = "--virtual-time-budget=20000"  # the Roles canvas needs the lineup fetched: 6 s is short on the Windows runner
+            a = checked_dump(chrome, url, "agents", "--virtual-time-budget=20000")
+            if a is None:
+                print("no Chrome found")
+                return 2
+            print(json.dumps(shell_counts(a.stdout)))
+            return 0
+        if args.dom:  # the shell twice: the old Orchestra door and the old Roles door, both on the Map
+            from capture_identity import checked_dump
+            budget = "--virtual-time-budget=20000"  # the map needs its file fetched: 6 s is short on the Windows runner
             roles_url = url.replace("mode=orchestra", "mode=roles")
             a, b = checked_dump(chrome, url, "shell orchestra", budget), checked_dump(chrome, roles_url, "shell roles", budget)
-            if b is not None and shell_counts(b.stdout).get("roles-canvas") == 0:  # the lineup fetch outran 20 s once on the Windows runner (e0957871): one more try, twice the budget
+            if b is not None and shell_counts(b.stdout).get("map-canvas") == 0:  # a slow runner: one more try, twice the budget
                 b = checked_dump(chrome, roles_url, "shell roles", "--virtual-time-budget=40000")
             if a is None or b is None:
                 print("no Chrome found")

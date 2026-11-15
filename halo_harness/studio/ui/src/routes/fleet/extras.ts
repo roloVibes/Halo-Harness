@@ -5,13 +5,14 @@
 // fetched with the token header and saved as a blob), set the spend caps.
 import { api, ApiError, token } from "../../lib/api";
 import { goSection, toast, type SectionId } from "../../lib/store";
+import { viewOf } from "../../lib/agentsDoor";
 import { openLocalHost, showFleetPanel } from "../agents/fleetDoor";
 import { select } from "./actions";
 import { fleet, findAgent, findSession, parseKey, sessionTitle } from "./store";
 import { load } from "./sync";
 import { loadAttention, loadConflicts, loadCosts } from "./pload";
-import { openRun } from "../agents/run/door";
-import { reviewPlan } from "../agents/run/planPanel";
+import { openRun } from "../crew/run/door";
+import { reviewPlan } from "../crew/run/planPanel";
 import { openCrewTry } from "../crew/door";
 import { openFlowTry } from "../crew/flows/flowStore";
 import { closeDialog, openDialog, panels, type AttnRow, type CapKey, type HandoffOut, type OpenTarget } from "./pstore";
@@ -25,10 +26,11 @@ const hidPath = (hid: string) => (fleet.get().harnesses.find((h) => h.id === hid
  *  the steward's note Local -> Hosts on its host, an agent or a conflict Live on it, a cap Agents' Attention. */
 export function openTarget(t: OpenTarget): void {
   if (t.section !== "live" && t.section !== "fleet") {
-    if (t.run && !t.stage && (t.view === "runs" || t.view === "live")) return void openRun(t.run); // 3.4.0.0 D: on Live while it runs, else History
-    goSection(t.section as SectionId, t.view === "runs" ? "live" : t.view); // 3.3.16.0 R1: a row of `orchestra` or `roles` opens Agents on its view
+    const view = viewOf(String(t.view || "")) || undefined; // 3.6.0.0 R5: an old view word lands on the tab that replaced it
+    if (t.run && !t.stage && view === "map") return void openRun(t.run); // its pages in the Map's drawer while it runs, else History
+    goSection(t.section as SectionId, view);
     if (t.view === "crew" && t.agent) void openCrewTry(t.agent, t.try || ""); // 3.6.0.0 R1: a Try it run's row
-    if (t.view === "flows" && t.agent) void openFlowTry(t.agent, t.try || ""); // 3.6.0.0 R2: a workflow's Try it run
+    if (view === "workflows" && t.agent) void openFlowTry(t.agent, t.try || ""); // 3.6.0.0 R2: a workflow's Try it run
     if (t.panel === "orchestra-plan") reviewPlan(); // the supervisor's "open the plan"
     return;
   }

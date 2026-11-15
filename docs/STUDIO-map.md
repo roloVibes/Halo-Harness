@@ -10,8 +10,8 @@ and the file is a `map/1` [crew file](CREW-FORMATS.md#a-map-format-map1).
 
 ## The tab
 
-Agents (`Alt+2`), then **3 · Map** (the `3` key). The switch reads **1 · Agents | 2 · Workflows | 3 · Map | Cast | Live |
-Board** (Cast, Live and Board are the older views, still there in this version). It opens on the starter map, or the
+Agents (`Alt+2`), then **3 · Map** (the `3` key). The switch reads **1 · Agents | 2 · Workflows | 3 · Map**
+(Cast, Live and Board went in 3.6.0.0 R5; their old addresses land here). It opens on the starter map, or the
 map you opened last, a link's `&map=<name>`, this project's map, or the one your sessions use. Nothing opens by itself:
 the list to add from is a drawer you open from the bar ("Agents and workflows"), the builder is a box docked below.
 
@@ -157,8 +157,8 @@ session runs on a map ([STUDIO-session.md](STUDIO-session.md)).
 - **The plan.** When main keeps a todo plan, the top line says "plan: 3 of 7 done"; a click lists it in the drawer.
 - **Goal runs.** A goal run going is named in the top line ("A goal run is going: <its goal>", **Open**: its pages --
   lanes, the gate, the merge, its report -- in the drawer). **Run a goal** is on the Map's bar (the goal form, in the
-  drawer). Under the map, **Goal runs, files, Compare** opens Live's whole History in the drawer: sessions, goal runs
-  and saved replay files, each opening what it opened on Live, and **Compare** when two are ticked.
+  drawer). Under the map, **Goal runs, files, Compare** opens the whole History in the drawer: sessions, goal runs
+  and saved replay files, each opening what it opened before, and **Compare** when two are ticked.
 - **A replay's words.** While a run replays on the map, the drawer shows its starts, hand-offs, asks, failures and
   finishes up to the scrubber's moment, filtered by the clicked box.
 - **Other machines.** Another machine's running session is listed in the top line's picker, "on <machine>: open it on
@@ -171,8 +171,7 @@ session runs on a map ([STUDIO-session.md](STUDIO-session.md)).
 **Not carried over from Live:** "Hand to another machine"; levels (`LevelSwitch`); the plan drawn as blocks under the
 tree (the todo plan is listed instead); a second level of helpers drawn on the map (it is "+N under it"); a goal run's
 lanes drawn on the canvas (its pages open in the drawer); a session on another machine lit on this map (listed, opened
-on that machine); a session row in Live's History replayed on the map from that list (it replays on Live, as before:
-the Map's own History picker replays sessions on the map).
+on that machine); a session row in that list replayed on the map (the Map's own History picker replays sessions on the map).
 
 ## History
 

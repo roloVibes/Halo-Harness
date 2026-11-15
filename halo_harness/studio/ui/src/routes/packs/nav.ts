@@ -12,11 +12,13 @@ import type { PaletteEntry, Route } from "./types";
 
 const SAFE = /^(https?:|mailto:)/i;
 
-/** 3.3.16.0 R1: the workspace a route's panel lives in: Agents' Cast (`agents`, `roles`) or Runs (`orchestra`, `team`). */
-const WS: Record<string, string> = { agents: "roles", team: "roles", orchestra: "roles" }; // 3.4.0.0 D: Runs went
+/** The workspace a route's panel lives in: a panel declared for Agents (or roles, orchestra, team) is on the Map's
+ *  (3.6.0.0 R5: Cast's workspace went). */
+const WS: Record<string, string> = { agents: "agents-map", roles: "agents-map", team: "agents-map", orchestra: "agents-map" };
 
 export function openRoute(r: Route): void {
-  goSection(r.section as SectionId);
+  if (WS[r.section]) goSection("agents", "map");
+  else goSection(r.section as SectionId);
   const panel = r.panel;
   if (!panel) return;
   const ws = WS[r.section] || r.section;

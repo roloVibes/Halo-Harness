@@ -21,7 +21,9 @@ export function AttentionChip() {
   const [blink, setBlink] = useState(false);
   useEffect(() => {
     if (!newest || newest === seen.current) return;
+    const first = !seen.current; // the queue's first answer after a load is what was there: no blink (3.6.0.0 R5)
     seen.current = newest;
+    if (first) return;
     setBlink(true);
     const id = window.setTimeout(() => setBlink(false), 900);
     return () => window.clearTimeout(id);

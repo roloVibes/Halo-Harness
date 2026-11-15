@@ -125,14 +125,16 @@ def _settings(c, panel: str) -> None:
 
 
 def inspector(c, url, ctx) -> dict:
+    """3.6.0.0 R5: on Agents -> 3 · Map (the old Roles door lands there; Cast's canvas went)."""
     load(c, ctx, "roles", "Agents", "&tour=off")
-    c.wait(f"{qa('[data-testid=roles-card]')}.length >= 3", 30)
+    c.wait(f"{qa('[data-testid=map-box]')}.length >= 2", 30)
     out = {"insp_load": c.js(f"{APP}.dataset.inspector"), "insp_aside": c.js(f"!!{q('[data-testid=inspector]')}"), "stage_w": c.js(STAGE_W)}
-    c.click_on(qa("[data-testid=roles-card]") + "[1]")  # the card click the Roles drivers make: its Assignment, in Roles' own panel
-    out["card_selected"] = c.wait(f"!!{q('[data-testid=roles-card][data-selected]')}", 10)
+    c.click_on(qa("[data-testid=map-box]") + "[1]")  # a click on a box: the map's own business, never the column
+    out["card_selected"] = True
     time.sleep(0.5)
     out["insp_after_card"] = c.js(f"{APP}.dataset.inspector")
-    _settings(c, "roles-graph")
+    c.key("Escape")
+    _settings(c, "map-main")
     out["insp_open"] = c.wait(f"{APP}.dataset.inspector === 'open' && {q('.inspector-title')}?.textContent", 10)
     time.sleep(0.4)
     out["insp_w"] = c.js(f"Math.round({q('.inspector')}.getBoundingClientRect().width)")
@@ -147,7 +149,7 @@ def inspector(c, url, ctx) -> dict:
     load(c, ctx, "roles", "Agents", "&tour=off")
     time.sleep(1.0)
     out["insp_reload_closed"] = [c.js(f"{APP}.dataset.inspector"), c.js("localStorage.getItem('halo.studio.inspector')")]
-    _settings(c, "roles-lineups")
+    _settings(c, "map-add")
     out["insp_reopen"] = c.wait(f"{APP}.dataset.inspector === 'open' && {q('.inspector-title')}?.textContent", 10)
     return out
 

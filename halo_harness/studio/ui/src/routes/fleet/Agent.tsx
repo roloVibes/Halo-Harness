@@ -13,7 +13,7 @@ import { cost, elapsed, short } from "../orchestra/format";
 import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
 import { AgentExtras, RecentSessions } from "./AgentHistory";
-import { nowText } from "../agents/live/nodeBits";
+import { nowText } from "../crew/live/nodeBits";
 import { Steer } from "./Steer";
 import { EMPTY, outputOf, thinkingOf, watch, workingOf } from "./streams";
 import { OutputView, ThinkingView, Typed, WorkingView } from "./StreamViews";

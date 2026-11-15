@@ -9,9 +9,10 @@ state (studio/setup_state.py) plus the lines saying what was written.
     POST setup/config {key, value}      key one of model | permission_mode | theme; the value checked
                                         against the rows the state lists, then `set_config_value`
                                         -> 200 {...state, lines}; 422 {error, problems} and nothing written
-    POST setup/team {lineup}            a lineup name, "one-model" or "auto": the Team step's three
-                                        writes (lineup_choice.apply_lineup_choice) -> 200 {...state, lines}
-    GET  setup/team/<name>/preview      {name, lines}: the Team step's preview (team_preview.preview_lines)
+    POST setup/team {map}               3.6.0.0 R5, the Map step (the Team step before): new sessions run on that
+                                        map (config `crew.map`, as `halo maps use`) -> 200 {...state, lines}; a body
+                                        naming a lineup gets one line: lineups are gone
+    GET  setup/team/<name>/preview      {name, lines}: the map in words (crew/tools_show.py, as `halo maps show`)
     POST setup/provider/<name>, setup/ollama-host[/remove], setup/hf, setup/model-dir, setup/runtime
                                         the Providers and Local models blocks (studio/setup_providers_api.py, R2)
     POST setup/check, GET setup/check, POST setup/check/stop, POST setup/linux-fixes
@@ -93,36 +94,31 @@ def post_config(req):
 
 
 def _known(name: str, req) -> bool:
-    from halo_harness import teams_yaml as T
-    from halo_harness.lineup_choice import is_one_model
-    if is_one_model(name):
-        return True
-    T.ensure_builtin_team_templates(state_dir=req.state_dir)
-    return name in T.list_team_templates(cwd=req.cwd, state_dir=req.state_dir)
+    from halo_harness.crew import store
+    return store.find("map", name, cwd=req.cwd, state_dir=req.state_dir) is not None
 
 
 def post_team(req):
-    from halo_harness.lineup_choice import apply_lineup_choice
-    name = str(_body(req).get("lineup") or "").strip()
+    body = _body(req)
+    name = str(body.get("map") or "").strip()
+    if not name and body.get("lineup"):
+        return _refused(["lineups are gone: pick a map (halo maps list names them)"])
     if not name:
-        return _refused(["the body needs lineup: a lineup name, one-model or auto"])
+        return _refused(["the body needs map: a map name (halo maps list names them)"])
     if not _known(name, req):
-        return _refused([f"no lineup named {name!r} here (halo teams list names them)"])
-    details: list = []
-    ok, line, _kind = apply_lineup_choice(name, cwd=req.cwd, state_dir=req.state_dir, details=details)
-    if not ok:
-        return _refused([line])
-    return 200, {**_state(req), "lines": [line], "details": details}  # 3.3.5.0 R0 (h): the per-role notes
+        return _refused([f"no map named {name!r} here (halo maps list names them)"])
+    from halo_harness.crew.changes import write_all
+    from halo_harness.crew.changes_map import config_path, config_text
+    write_all({config_path(): config_text(name)})
+    return 200, {**_state(req), "lines": [f"crew.map = {name}: new sessions run on the map {name}"]}
 
 
 def get_preview(req, name: str):
-    from halo_harness.lineup_choice import is_one_model
-    from halo_harness.tui.dialogs.team_preview import ONE_MODEL_ID, preview_lines
     if not _known(name, req):
-        return 404, {"error": f"no lineup named {name!r} here"}
-    target = ONE_MODEL_ID if is_one_model(name) else name
-    lines = preview_lines(target, cwd=req.cwd, state_dir=req.state_dir, width=400)  # wide: the page wraps them
-    return 200, {"name": name, "lines": lines}
+        return 404, {"error": f"no map named {name!r} here"}
+    from halo_harness.crew.tools_show import studio_show
+    text = studio_show({"what": "map", "name": name}, {"cwd": req.cwd, "state_dir": req.state_dir}).get("text") or ""
+    return 200, {"name": name, "lines": str(text).splitlines()}
 
 
 def dispatch_setup(req):

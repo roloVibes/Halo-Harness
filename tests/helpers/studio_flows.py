@@ -12,7 +12,7 @@ tests/test_studio_flows.py reads what it saw:
              form filled in; Save there -> back here, its lines out of the preview; Apply -> the workflow file; Undo
     write    Write it for me on a saved workflow: the box filled and focused; its step line a ghost step; Discard
     try      the band said first; a test request; each step's state, the agents that ran, the checks; seen
-    delete   Delete asks on the page; Keep it.     board    the old board as Board, then back
+    delete   Delete asks on the page; Keep it.     tabs     the three tabs; back  W lands on 2 · Workflows
 
     python -m tests.helpers.studio_flows [DIR]     DIR: also save studio-workflows-tab.png and studio-workflows-try.png
 No model is called beyond the mock upstream and the scripted builder."""
@@ -32,7 +32,7 @@ from tests.helpers.studio_agents import key  # noqa: E402
 from tests.helpers.studio_crew import said, until  # noqa: E402
 
 VIEW = "document.querySelector('[data-testid=\"agents\"]')?.dataset.view"
-P = "[data-part=\"flows\"] "
+P = "[data-part=\"workflows\"] "  # 3.6.0.0 R5: the tab's id is workflows (flows before)
 SHOTS: list = []
 
 
@@ -69,7 +69,7 @@ def first(c, rig) -> dict:
     c.wait(f"{VIEW} === 'crew' && !!document.querySelector('[data-testid=\"crew-starter\"]')", 40)
     c.js("document.activeElement?.blur(); 1")
     key(c, "2")
-    out = {"view": c.wait(f"{VIEW} === 'flows' && {VIEW}", 20), "slow_ms": rig.server.slow_ms}
+    out = {"view": c.wait(f"{VIEW} === 'workflows' && {VIEW}", 20), "slow_ms": rig.server.slow_ms}
     c.wait(f"{qa('[data-testid=flow-starter]')}.length >= 5 && !!{t('builder-meta')}", 30)
     out["first"] = c.js(f"({{list: !!{q('.stage-drawer[data-panel-in=flow-list]')}, conversation: !!{t('builder-conversation')},"
                         f" starters: {qa('[data-testid=flow-starter]')}.map((b) => b.dataset.name), empty: {t('flow-empty')}?.innerText.split('\\n')[0],"
@@ -138,7 +138,7 @@ def make(c, rig) -> dict:
     crew = '[data-part="crew"] '
     out["made"] = c.wait(f"{VIEW} === 'crew' && {t('crew-name', crew)}?.value === 'my-reviewer' && [{t('crew-note', crew)}.innerText, {t('crew-use-bash', crew)}.getAttribute('aria-checked')]", 20)
     click(c, "crew-save", crew)
-    c.wait(f"{VIEW} === 'flows'", 20)
+    c.wait(f"{VIEW} === 'workflows'", 20)
     lines = qa('[data-testid=builder-line][data-target="agent:my-reviewer"] input')
     out["unticked"] = c.js(f"{lines}.map((x) => x.checked)")
     click(c, "builder-apply")
@@ -188,10 +188,12 @@ def delete(c, rig) -> dict:
     out = {"ask": c.js(f"{t('flow-delete-ask')}.innerText.split('\\n')[0]")}
     click(c, "flow-delete-no")
     out["kept"] = [c.wait(f"!!{t('flow-savebar')}", 10), rig.api("GET", "crew/workflow/my-review")[0]]
-    c.js(f"{q('[data-testid=agents-view-workflows]')}.click(); 1")
-    out["board"] = c.wait(f"{VIEW} === 'workflows' && !document.querySelector('[data-part=workflows]').hidden && 'board'", 20)
-    c.js("document.querySelector('[data-part=\"workflows\"] [data-testid=agents-view-flows], [data-testid=agents-bar] [data-testid=agents-view-flows]').click(); 1")
-    out["back"] = c.wait(f"{VIEW} === 'flows' && {t('flow-name')}?.value", 20)
+    # 3.6.0.0 R5: the old board went; the switch is three tabs and W lands here (on 2 · Workflows)
+    out["tabs"] = c.js("[...document.querySelectorAll('[data-part=workflows] [data-testid=agents-views] button')].map((b) => b.textContent)")
+    c.js("document.querySelector('[data-part=crew] [data-testid=agents-view-crew], [data-testid=agents-view-crew]').click(); 1")
+    c.wait(f"{VIEW} === 'crew'", 20)
+    c.js("window.dispatchEvent(new KeyboardEvent('keydown', {key: 'w'})); 1")
+    out["back"] = c.wait(f"{VIEW} === 'workflows' && {t('flow-name')}?.value", 20)
     return out
 
 

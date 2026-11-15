@@ -149,34 +149,6 @@ def test_import_never_silently_overwrites_a_colliding_bio(ctx: Ctx):
                   ok2 is True and "the bundle's version" in local2)
 
 
-@test
-def test_the_cli_wires_bundle_both_ways(ctx: Ctx):
-    import subprocess
-    src_home = Path(tempfile.mkdtemp(prefix="tb-cli-src-"))
-    out = src_home / "bundle"
-    with _scoped(src_home):
-        _write_team(src_home, "cli-team", [{"agent": "cli-bio", "role": "main", "as": "boss"}])
-        _write_bio(src_home, "cli-bio")
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
-        env.update({"BRIDGE_TEST_HOME": str(src_home), "PYTHONPATH": str(REPO_DIR)})
-        r = subprocess.run([sys.executable, "-m", "halo_harness", "teams", "export",
-                            "cli-team", "--bundle", str(out)],
-                           env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=120)
-        ctx.check(f"export --bundle exits 0, got {r.returncode} err={r.stderr[-200:]!r}",
-                  r.returncode == 0 and (out / "bundle.json").is_file())
-    dst_home = Path(tempfile.mkdtemp(prefix="tb-cli-dst-"))
-    with _scoped(dst_home):
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
-        env.update({"BRIDGE_TEST_HOME": str(dst_home), "PYTHONPATH": str(REPO_DIR)})
-        r2 = subprocess.run([sys.executable, "-m", "halo_harness", "teams", "import", str(out)],
-                            env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=120)
-        ctx.check(f"import <dir> exits 0, got {r2.returncode} out={r2.stdout[-200:]!r}",
-                  r2.returncode == 0)
-        ctx.check("the hint names the activation command", "halo teams use cli-team" in r2.stdout)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -112,7 +112,11 @@
 .hud-strip {
   grid-area: status; display: flex; align-items: stretch; z-index: 30; font: 12px/1 var(--mono);
   background: var(--bg-2); border-top: 1px solid var(--line-soft); color: var(--muted);
+  /* 3.6.0.0 R5: the strip never makes the page wider than the window (at 390 px, in a loaded run, its last cell ended
+     at 398 px and the page scrolled sideways for as long as that cell's text was long): it scrolls inside itself */
+  min-width: 0; overflow-x: auto; scrollbar-width: none;
 }
+.hud-strip::-webkit-scrollbar { display: none; }
 .hud-cell { display: flex; align-items: center; gap: 8px; padding: 0 12px; border-right: 1px solid var(--line-soft); white-space: nowrap; }
 .hud-cell:last-child { border-right: 0; }
 .hud-grow { flex: 1; min-width: 0; overflow: hidden; }

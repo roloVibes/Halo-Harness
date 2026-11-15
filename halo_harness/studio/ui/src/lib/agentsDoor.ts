@@ -1,23 +1,18 @@
-// 3.3.16.0 R1 "Agents: one section": Team, Roles and Orchestra fold into Agents (Alt+2). The old words stay doors:
-// `?mode=roles` lands on Cast (`&view=live` on Live); `?mode=agents&view=cast|live|workflows` is the door itself. A saved
-// section, a `focus` frame, an attention row's `o` and a pack's route that name an old word land the same way
-// (lib/store.ts goSection). routes/agents/store.ts takes the view (onAgentsView); this file has no React and no store
-// of its own, so lib/store.ts may import it. 3.3.16.0 R3: `workflows` -- the board of squares. 3.3.18.0 "The living canvas": a bare `?mode=agents` lands
-// on Live. 3.4.0.0 D "the runs fold": Runs and its Start screen are gone -- a goal run is a job on Live while it runs
-// and a row of History once it ended. Every door that named Runs (`?mode=orchestra`, `?mode=team`,
-// `?mode=agents&view=runs`, the R key) lands on Live; one that names a run (`&run=<id>`) opens that run where it is
-// (routes/agents/run/door.ts: its lead on Live while it runs, its report in History once it ended).
-// 3.6.0.0 R1: `crew` -- the v3 Agents tab (routes/crew/), first in the switch and where Agents opens when no door names
-// a view; a bare `?mode=agents` keeps landing on Live (the old links and doors), `&view=crew` names the new tab.
-// 3.6.0.0 R2: `flows` -- the v3 Workflows tab (routes/crew/flows/); `workflows` stays the old board (named Board) until R4
-// 3.6.0.0 R3: `map` -- the v3 Map tab (routes/crew/map/): boxes, lines, When; `&map=<name>` opens one
-export type AgentsView = "crew" | "flows" | "map" | "cast" | "live" | "workflows";
-export const AGENTS_VIEWS: AgentsView[] = ["crew", "flows", "map", "cast", "live", "workflows"];
-/** The words of the sections Agents took in, and the view each one lands on (3.4.0.0 D: Runs' words on Live). */
-export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "cast", orchestra: "live", team: "live" };
-export const TEAM_NOTE = "Team's board is gone; a run on Live shows who owns what";
-/** 3.4.0.0 D: Runs' line, once in this browser, when an old door that named it brings you here. */
-export const RUNS_NOTE = "Runs is gone: a goal runs on Live (Run a goal on its bar); a finished run is in History";
+// Agents (Alt+2) has three tabs (3.6.0.0 R5): `crew` 1 · Agents, `workflows` 2 · Workflows, `map` 3 · Map. Every older
+// door lands on one of them: `?mode=roles|orchestra|team|fleet` and `?mode=agents&view=cast|live|roles|team|orchestra|
+// runs` on the Map (where a session is lit while it runs and History replays it), `view=flows` (3.6.0.0 R2's id for the
+// Workflows tab) on Workflows. A saved section, a `focus` frame, an attention row's `o` and a pack's route that name an
+// old word land the same way (lib/store.ts goSection). routes/agents/store.ts takes the view (onAgentsView); this file has
+// no React and no store of its own, so lib/store.ts may import it. `&run=<id>` (a goal run) opens on the Map's drawer.
+export type AgentsView = "crew" | "workflows" | "map";
+export const AGENTS_VIEWS: AgentsView[] = ["crew", "workflows", "map"];
+/** The words of the sections Agents took in, and the tab each one lands on. */
+export const AGENTS_DOORS: Record<string, AgentsView> = { roles: "map", orchestra: "map", team: "map", fleet: "map" };
+/** The views of the tabs before 3.6.0.0 R5 and where each lands now. */
+export const OLD_VIEWS: Record<string, AgentsView> = { cast: "map", live: "map", roles: "map", team: "map", orchestra: "map",
+  runs: "map", flows: "workflows" };
+/** 3.5.0.0 took Fleet out; an old `?mode=fleet` link says so once, on the Map. */
+export const FLEET_NOTE = "Fleet left Halo in 3.5: this machine's sessions run on the Map";
 
 const isView = (v: string): v is AgentsView => (AGENTS_VIEWS as string[]).includes(v);
 
@@ -29,28 +24,30 @@ function query(search?: string): URLSearchParams | null {
   }
 }
 
-/** The view a page's URL asks Agents for, and the word it came by ('' when the URL names none of Agents' doors). An old
- *  view word (`runs`) or section word (`orchestra`, `team`) comes as the word `runs`: Live, with Runs' line once. */
+/** The tab a page's URL asks Agents for, and the word it came by ('' when the URL names none of Agents' doors). */
 export function urlDoor(search?: string): { view: AgentsView | ""; word: string } {
   const q = query(search);
   if (!q) return { view: "", word: "" };
   const word = q.get("mode") || "";
   const view = q.get("view") || "";
-  if (word === "agents") return view === "runs" ? { view: "live", word: "runs" } : { view: isView(view) ? view : "live", word }; // 3.3.18.0: what is live
-  if (word === "roles") return { view: view === "live" ? "live" : "cast", word };
-  if (word === "orchestra") return { view: "live", word: "runs" };
+  if (word === "agents") return { view: isView(view) ? view : OLD_VIEWS[view] || "", word };
   return { view: AGENTS_DOORS[word] || "", word: AGENTS_DOORS[word] ? word : "" };
 }
 
-/** 3.4.0.0 D: the run a page's URL names (`&run=<id>`): routes/agents/run/door.ts opens it on Live or in History. */
+/** The goal run a page's URL names (`&run=<id>`): routes/crew/run opens it in the Map's drawer. */
 export function urlRun(search?: string): string {
   return query(search)?.get("run") || "";
 }
 
-/** The section a word opens and, for one of Agents' old words, the view it lands on. */
+/** The section a word opens and, for one of Agents' old words, the tab it lands on. */
 export function doorOf(word: string): { section: string; view: AgentsView | "" } {
   const view = AGENTS_DOORS[word];
   return view ? { section: "agents", view } : { section: word, view: "" };
+}
+
+/** A view word of any age (an old link's `cast`, `flows`) as the tab it is now ('' for none). */
+export function viewOf(word: string): AgentsView | "" {
+  return isView(word) ? word : OLD_VIEWS[word] || "";
 }
 
 type Door = (view: AgentsView, word: string) => void;
@@ -63,7 +60,7 @@ export function onAgentsView(fn: Door): void {
   if (waiting) (fn(...waiting), (waiting = null));
 }
 
-/** Agents on `view` (`word`: the door it came by; `team` and `runs` show their line the first time). */
+/** Agents on `view` (`word`: the door it came by; `fleet` shows its line the first time). */
 export function agentsDoor(view: AgentsView, word = "agents"): void {
   if (take) take(view, word);
   else waiting = [view, word];

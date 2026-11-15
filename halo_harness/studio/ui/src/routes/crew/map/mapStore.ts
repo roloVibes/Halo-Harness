@@ -55,9 +55,9 @@ export function firstName(): string {
 
 export async function openMap(name: string): Promise<void> {
   if (!name) return;
+  writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
   try {
     const detail = await api.get<MapDetail>(`crew/map/${name}`);
-    writeLocal(LAST, name);
     maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {} }));
   } catch (e) {
     maps.update(() => ({ error: msg(e) }));

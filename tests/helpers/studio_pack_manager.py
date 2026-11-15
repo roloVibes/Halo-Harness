@@ -203,9 +203,9 @@ def templates(c, url, ctx) -> dict:
     run = q("[data-testid=pm-workflow][data-ref='doc-review/review'] [data-testid=pm-run-workflow]")
     w(c, f"!!{run}", 20)
     out = {"lineups": c.js(f"{qa('[data-testid=pm-template][data-kind=lineup]')}.map((r) => r.dataset.name)"),
-           "template_workflow": c.js(f"{qa('[data-testid=pm-template-workflow]')}.map((r) => r.textContent)")}  # 3.3.10.0 R3
+           "old_line": c.js(_text("[data-testid=pm-templates-old]"))}  # 3.6.0.0 R5: a pack's lineups and bios are not read
     press(c, run)
-    out["section_after_run"] = w(c, f"{CUR}.startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'live' && {CUR}", 15)  # 3.4.0.0 D: Live's goal panel
+    out["section_after_run"] = w(c, f"{CUR}.startsWith('Agents') && document.querySelector('[data-testid=agents]')?.dataset.view === 'map' && {CUR}", 15)  # 3.6.0.0 R5: the Map's drawer
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 20)
     out["wf_ref"] = c.js(_text("[data-testid=orchestra-workflow-ref]"))
     out["wf_inputs"] = c.js(f"{qa('[data-testid=orchestra-workflow-input]')}.map((i) => [i.dataset.key, i.value])")
@@ -222,9 +222,11 @@ def picker(c, url, ctx) -> dict:
     """3.2.1.0 R2: the goal form with no workflow filled in (3.4.0.0 D: Live's Run a goal panel, Runs' Start view before):
     the picker under the goal form; a pick fills in the form Run <workflow> fills."""
     alt(c, 2)
-    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=live-run-goal]')}", 15)
-    if not c.js(f"!!{q('[data-testid=run-goal-drawer]')}"):
-        press(c, q("[data-testid=live-run-goal]"))
+    w(c, f"{CUR}.startsWith('Agents')", 15)
+    if not c.js(f"!!{q('[data-testid=run-goal-drawer]')}"):  # 3.6.0.0 R5: Run a goal is on the Map's bar
+        press(c, q(".ag-part:not([hidden]) [data-testid=agents-view-map]"))
+        w(c, f"!!{q('[data-testid=map-run-goal]')}", 15)
+        press(c, q("[data-testid=map-run-goal]"))
     w(c, f"!!{q('[data-testid=orchestra-workflow-form]')}", 15)
     press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{PICK}", 20)
@@ -252,10 +254,12 @@ def disable(c, url, ctx) -> dict:
            "disabled_enable": c.js(f"!!{q(ROW + ' [data-testid=pm-enable]')}"),
            "tabs_off": c.js(f"{TABS}.map((t) => t.querySelector('.tab-label').textContent)"),
            "templates_off": bool(w(c, f"!!{q('[data-testid=pm-templates-off]')}", 10))}
-    alt(c, 2)  # no workflow, no picker: Live's Run a goal panel (3.4.0.0 D; Agents on Runs before)
-    w(c, f"{CUR}.startsWith('Agents') && !!{q('[data-testid=live-run-goal]')}", 15)
+    alt(c, 2)  # no workflow, no picker: the Map's Run a goal (3.6.0.0 R5; Live's panel before)
+    w(c, f"{CUR}.startsWith('Agents')", 15)
     if not c.js(f"!!{q('[data-testid=run-goal-drawer]')}"):
-        press(c, q("[data-testid=live-run-goal]"))
+        press(c, q(".ag-part:not([hidden]) [data-testid=agents-view-map]"))
+        w(c, f"!!{q('[data-testid=map-run-goal]')}", 15)
+        press(c, q("[data-testid=map-run-goal]"))
     if c.js(f"!!{q('[data-testid=orchestra-workflow-clear]')}"):  # a workflow left filled in: back to a blank goal
         press(c, q("[data-testid=orchestra-workflow-clear]"))
     w(c, f"!!{q('[data-testid=orchestra-goal-form]')}", 15)

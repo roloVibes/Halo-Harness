@@ -5,12 +5,16 @@ queue (Halo 3.6.0.0 R1; the 3.4.1.3 rule: finished background work shows without
                shown yet (crew/trial.py `seen`)          a set aside | o open the agent in the Agents tab (a
                workflow's run, 3.6.0.0 R2: the workflow in the Workflows tab)
 
-Setting it aside marks the run seen, so the row does not come back.
+    crew_old   3.6.0.0 R5: the old files' one line (crew/old_files.py): ~/.halo/teams, workflows, agents (and this
+               project's) hold files Halo no longer reads   a set aside (for good) | o open the Map tab
+
+Setting it aside marks the run seen (or the old files' line said), so the row does not come back.
 """
 
 from __future__ import annotations
 
 KIND = "crew_try"
+OLD = "crew_old"
 
 
 def rows(home, local: dict, seen: dict, now: float) -> list:
@@ -21,9 +25,13 @@ def rows(home, local: dict, seen: dict, now: float) -> list:
 
 
 def _rows(home, local: dict, seen: dict, now: float) -> list:
-    from halo_harness.crew import trial
+    from halo_harness.crew import old_files, trial
     from halo_harness.live.attention import _row
     out = []
+    if not old_files.said(home, "studio"):
+        text = old_files.line(None, home)
+        if text:
+            out.append(_row(OLD, "old-files", local, None, "", "Old files: no longer read", text, seen, now))
     for rec in trial.recent(home):
         if rec.get("seen") or rec.get("state") in ("running", "stopping"):
             continue
@@ -40,12 +48,17 @@ def _rows(home, local: dict, seen: dict, now: float) -> list:
 
 def open_target(row: dict) -> dict:
     t = row.get("target") or {}
-    view = "flows" if t.get("run") == "workflow" else "crew"
+    if row.get("kind") == OLD:
+        return {"section": "agents", "view": "map"}
+    view = "workflows" if t.get("run") == "workflow" else "crew"
     return {"section": "agents", "view": view, "agent": t.get("agent"), "try": t.get("try_id")}
 
 
 def set_aside(home, row: dict) -> None:
-    from halo_harness.crew import trial
+    from halo_harness.crew import old_files, trial
+    if row.get("kind") == OLD:
+        old_files.mark(home, "studio")
+        return
     tid = (row.get("target") or {}).get("try_id")
     if tid:
         trial.seen(str(tid), home)

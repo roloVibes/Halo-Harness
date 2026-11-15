@@ -89,8 +89,8 @@ def test_rest_of_readme_unchanged_below_quick_start(ctx: Ctx):
               "halo pack new" in packs and "docs/PACKS.md" in packs and "halo-pack-template" in packs)
     images = re.findall(r'src="(docs/media/[^"]+)"', text)
     ctx.check(f"3.4.0.0 E: the hero, then See, Shape, Mix, Local and Start's pictures, got {images}",
-              images == ["docs/media/hero.png", "docs/media/studio-session.gif", "docs/media/studio-workflows.png",
-                         "docs/media/studio-model-picker.png", "docs/media/studio-local.png", "docs/media/studio-setup.png"])
+              images == ["docs/media/hero.png", "docs/media/studio-session.gif", "docs/media/studio-map.png",  # 3.6.0.0 R5: Cast's two went
+                         "docs/media/studio-agents-tab.png", "docs/media/studio-local.png", "docs/media/studio-setup.png"])
     for gone in ("studio-run-", "studio-fleet", "studio-roles", "halo team ", "Runs view", "studio-modes"):
         ctx.check(f"3.4.0.0 E: nothing 3.4.0.0 took out of the core is pictured ({gone!r})", gone not in text)
     # the sections the owner took off the page (the features stay in the product)

@@ -31,19 +31,6 @@ def _got(ctx: Ctx) -> dict:
 
 
 @test
-def test_live_says_the_session_ended_with_a_row_to_its_card(ctx: Ctx):
-    got = _got(ctx)
-    ctx.check(f"nothing opens by itself on load: {got.get('quiet')}", got.get("quiet") is True)
-    ctx.check(f"a row for the session that ended last: {got.get('row')} {got.get('row_text')!r}",
-              str(got.get("row")).endswith("0002") and "Report card" in str(got.get("row_text")) and "Ship the basket fix" in str(got.get("row_text")))
-    b = got.get("b") or {}
-    figures = dict(b.get("figures") or [])
-    ctx.check(f"its card is a page of History with the nine figures: {got.get('page')} {figures}",
-              got.get("page") == "card" and len(figures) == 9 and figures.get("cost") == "$0.0120+" and figures.get("ended") == "finished")
-    ctx.check(f"its story: {b.get('story')}", len(b.get("story") or []) == 4 and "main asked reviewer (glm-5.3): review" in str(b.get("story")))
-
-
-@test
 def test_a_rows_report_door_and_a_goal_runs_one_page(ctx: Ctx):
     got = _got(ctx)
     doors = got.get("doors") or []

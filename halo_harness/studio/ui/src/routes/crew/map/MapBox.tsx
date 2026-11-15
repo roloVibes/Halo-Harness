@@ -36,7 +36,7 @@ function Detail({ b, facts }: { b: DrawBox; facts?: BoxFacts }) {
       <div className="mp-detail" data-testid="map-box-steps">
         {lit ? <LitSteps steps={lit} />
           : steps.map((s, i) => <span key={i} className="mp-step">{i + 1} · {s.name} <span className="mp-muted">({s.agents.join(" + ")})</span></span>)}
-        <button type="button" className="mp-link" onClick={(e) => { e.stopPropagation(); setAgentsView("flows"); void openFlow(b.names[0]); }}
+        <button type="button" className="mp-link" onClick={(e) => { e.stopPropagation(); setAgentsView("workflows"); void openFlow(b.names[0]); }}
                 data-testid="map-open-workflow">To change the steps: open it in Workflows</button>
       </div>
     );

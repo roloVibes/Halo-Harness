@@ -630,7 +630,7 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
     import re as _re
     problems = []
     coverage = (REPO_DIR / "tests" / "test_docs_commands.py").read_text(encoding="utf-8")
-    for label in ("halo replay", "halo teams", "halo gym"):
+    for label in ("halo replay", "halo gym"):  # 3.6.0.0 R5: halo teams went (one line)
         if f'"{label}"' not in coverage:
             problems.append(f"the docs-coverage table does not gather {label!r}")
     doc = doc_text("COMMANDS.md")

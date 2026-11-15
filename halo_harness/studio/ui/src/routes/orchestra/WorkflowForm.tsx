@@ -46,7 +46,7 @@ export function WorkflowForm({ onStarted }: { onStarted: () => void }) {
       <ModelSelect label="MODEL" hint={help.orchestra} value={model} onPick={setModel} testid="orchestra-workflow-model" inherit={{ label: "each stage's bio", model: "" }} />
       <dl className="rg-says" data-testid="run-goal-says">
         <dt>WHAT IT DOES</dt>
-        <dd>Compiles to a goal run as <code>halo workflow run</code> does: its stages as lanes on each stage's bio, the gate, the merge; it shows on Live and its report lands in History.</dd>
+        <dd>Compiles to a goal run as <code>halo workflow run</code> does: its stages as lanes on each stage's bio, the gate, the merge; the Map says it is going and its report lands in History.</dd>
         <dt>WHAT IT MAY COST</dt>
         <dd>One worker session per stage lane on its bio's model (or the MODEL above), again for each part the gate sends back; no dollar cap.</dd>
         <dt>WHERE IT WRITES</dt>

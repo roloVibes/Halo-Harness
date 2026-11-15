@@ -1,8 +1,4 @@
-/* Time on Agents -> Live (3.4.1.0 R1, routes/agents/live/Scrubber.tsx, ReplaySave.tsx): the scrubber under the canvas --
-   its controls row, the axis (the phase bands in the 3.3.16.2 colours, one tick per mark, the head where it stands) under
-   a range input that takes the drag -- and the two dialogs' lists and fields. Tokens only. */
-.rlm > .scr { flex: none; }
-.rlm[data-replay] .pb-box, .rlm[data-replay] .pb-line, .rlm[data-replay] .pb-when { filter: grayscale(1); opacity: .8; } /* the plan's blocks, muted too */
+ /* the plan's blocks, muted too */
 .scr { display: flex; flex-direction: column; gap: 4px; padding: 6px 10px 8px; border-top: 1px solid var(--line); background: var(--surface); font-size: 12px; min-width: 0; }
 .scr-row { display: flex; align-items: center; gap: 8px; min-height: 28px; min-width: 0; flex-wrap: wrap; }
 .scr-speed button { min-width: 34px; }

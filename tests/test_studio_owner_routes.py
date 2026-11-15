@@ -58,24 +58,26 @@ def test_servers_2_every_write_route_is_classified_and_owner_routes_refuse_the_t
                 if status != 403 or got.get("error") != NEEDS_OWNER:
                     bad.append(f"{method} {r['path']} -> {status}")
         ctx.check(f"every owner route is 403 NEEDS_OWNER with the token alone, these were not: {bad[:12]}", not bad)
-        ctx.check("Studio still answers after all that (shutdown was refused too)", s.call("GET", "state", owner=False)[0] == 200)
+        ctx.check("Studio still answers after all that (shutdown was refused too)", s.call("GET", "crew/maps", owner=False)[0] == 200)
 
 
 @test
 def test_servers_2_the_reviewers_chain_is_refused_and_writes_nothing(ctx: Ctx):
     from halo_harness.studio.owner_proof import NEEDS_OWNER
     with PackStudio() as s:
-        hook = {"raw": {"hooks": {"on_start": [{"command": "echo pwned > pwned.txt"}]}}}
-        steps = [("PUT", "bio/evil", hook), ("POST", "bio", {"name": "evil2"}), ("POST", "lineup", {"name": "evilteam"}),
-                 ("PUT", "lineup/evilteam", {"raw": {"agents": []}}), ("POST", "lineup/standard/apply", {}),
-                 ("DELETE", "bio/x", None), ("POST", "shutdown", {}), ("POST", "sessions/s-1/command", {"cmd": "submit", "text": "hi"})]
+        # 3.6.0.0 R5: the bio and lineup routes went with Cast; the agent and map routes are the writes that change what runs
+        evil = {"agent": {"does": "x", "instructions": "echo pwned > pwned.txt", "uses": ["bash"], "careful": "own"}}
+        steps = [("PUT", "crew/agent/evil", evil), ("POST", "crew/agent/evil2", evil),
+                 ("PUT", "crew/map/evilmap", {"map": {"format": "map/1", "name": "evilmap", "boxes": [], "lines": []}}),
+                 ("POST", "crew/map/starter/use", {"on": True}),
+                 ("DELETE", "crew/agent/x", None), ("POST", "shutdown", {}), ("POST", "sessions/s-1/command", {"cmd": "submit", "text": "hi"})]
         for method, path, body in steps:
             status, got, _h = s.call(method, path, body, owner=False)
             ctx.check(f"{method} {path} with the token alone: 403, got {status} {got}", status == 403 and got.get("error") == NEEDS_OWNER)
-        agents = s.state / "agents"
-        ctx.check("no bio was written", not (agents / "evil.yaml").exists() and not (agents / "evil2.yaml").exists())
-        ctx.check("no lineup was written", not (s.state / "teams" / "evilteam.yaml").exists())
-        ctx.check("Studio still runs", s.call("GET", "state", owner=False)[0] == 200)
+        agents = s.state / "crew" / "agents"
+        ctx.check("no agent was written", not (agents / "evil.yaml").exists() and not (agents / "evil2.yaml").exists())
+        ctx.check("no map was written", not (s.state / "crew" / "maps" / "evilmap.yaml").exists())
+        ctx.check("Studio still runs", s.call("GET", "crew/maps", owner=False)[0] == 200)
         s.install_pack("routes-pack", grants=["studio-routes"])
         status, got, _h = s.call("POST", "packs/routes-pack/r/ping", {}, owner=False)
         ctx.check(f"a running pack's own route takes the token alone, got {status} {got}", status == 200 and got.get("method") == "POST")
@@ -84,18 +86,18 @@ def test_servers_2_the_reviewers_chain_is_refused_and_writes_nothing(ctx: Ctx):
         status, _got, _h = s.call("PUT", "layout/routes-pack:canvas", {"positions": {}}, owner=False)
         ctx.check(f"a running pack's own layout takes the token alone, got {status}", status == 200)
         status, got, _h = s.call("PUT", "layout/standard", {"positions": {}}, owner=False)
-        ctx.check(f"a lineup's layout is the owner's, got {status}", status == 403)
-        status, got, _h = s.call("PUT", "bio/mine", {"raw": {"description": "mine"}})
-        ctx.check(f"the shell's own call (with the proof) still writes a bio, got {status} {got.get('error')}", status == 200)
+        ctx.check(f"a layout not of a running pack is the owner's, got {status}", status == 403)
+        status, got, _h = s.call("PUT", "crew/agent/mine", {"agent": {"does": "Reads the notes and answers.", "model": "auto", "uses": ["read"], "careful": "ask-changes"}})
+        ctx.check(f"the shell's own call (with the proof) still writes an agent, got {status} {got.get('error')}", status == 200)
 
 
 @test
 def test_servers_1_the_handlers_are_owner_only_themselves(ctx: Ctx):
-    from halo_harness.studio import api, sessions_api
+    from halo_harness.studio import crew_api, sessions_api
     from halo_harness.studio.api import Request
     from halo_harness.studio.owner_proof import NEEDS_OWNER
-    wanted = {"sessions/x/command", "sessions/new", "lineup", "lineup/x", "lineup/x/apply", "bio", "bio/x"}
-    routes = list(api.ROUTES) + list(sessions_api.ROUTES)
+    wanted = {"sessions/x/command", "sessions/new", "crew/agent/x", "crew/map/x", "crew/map/x/use", "crew/workflow/x"}  # 3.6.0.0 R5
+    routes = list(crew_api.ROUTES) + list(sessions_api.ROUTES)
     gated = {(m, p) for m, p, fn in routes if getattr(fn, "owner_only", False)}
     import re
     for path in sorted(wanted):

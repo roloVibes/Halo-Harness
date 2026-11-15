@@ -108,10 +108,8 @@ def test_the_check_catches_a_new_free_text_model_field(ctx: Ctx):
 def test_every_model_field_goes_through_the_one_picker(ctx: Ctx):
     def src(rel):
         return (UI / rel).read_text(encoding="utf-8")
-    for rel in ("routes/roles/Models.tsx", "routes/roles/BioFields.tsx", "routes/roles/BioSchedule.tsx", "routes/roles/SectionForm.tsx",
-                "routes/settings/fields/ModelField.tsx", "routes/session/NewSession.tsx", "routes/packs/PackForm.tsx",
-                "routes/roles/Assignment.tsx", "routes/roles/ModelStrip.tsx", "routes/roles/TierMenu.tsx", "routes/orchestra/GoalForm.tsx",
-                "routes/orchestra/WorkflowForm.tsx"):
+    for rel in ("routes/settings/fields/ModelField.tsx", "routes/session/NewSession.tsx", "routes/packs/PackForm.tsx",  # R5: Cast's went
+                "routes/orchestra/GoalForm.tsx", "routes/orchestra/WorkflowForm.tsx"):
         ctx.check(f"{rel} uses ModelSelect", "<ModelSelect" in src(rel))
     for rel in ("routes/setup/DefaultModel.tsx", "routes/session/PromptComposer.tsx", "routes/shared/ModelSelect.tsx", "routes/orchestra/plan/Inspector.tsx"):
         ctx.check(f"{rel} draws the one list", "<ModelPicker" in src(rel))
@@ -119,7 +117,7 @@ def test_every_model_field_goes_through_the_one_picker(ctx: Ctx):
     ctx.check("ModelSelect has no native <select> any more", "<select" not in ms and "msel-select" not in ms)
     ctx.check("ModelField has no text box any more", "TextField" not in src("routes/settings/fields/ModelField.tsx"))
     ctx.check("no Pick of catalog refs is left", not [p for p in UI.rglob("*.tsx") if re.search(r"options=\{\[\"\", \.\.\.(refs|models\.map)", p.read_text(encoding="utf-8"))])
-    ctx.check("the old ModelPicker path re-exports the shared one", "shared/picker/ModelPicker" in src("routes/roles/ModelPicker.tsx"))
+    ctx.check("the old ModelPicker path went with Cast (3.6.0.0 R5)", not (UI / "routes" / "roles").exists())
     for p in (REPO / "halo_harness" / "templates" / "packs" / "design" / "studio" / "src").rglob("*.tsx"):
         t = p.read_text(encoding="utf-8")
         if "model" in t and "ModelSelect" not in t:
@@ -140,9 +138,9 @@ def test_the_settings_catalog_types_model_keys(ctx: Ctx):
 @test
 def test_files_stay_under_the_cap(ctx: Ctx):
     for rel in ("routes/shared/picker/ModelPicker.tsx", "routes/shared/picker/PickerParts.tsx", "routes/shared/picker/NotListed.tsx",
-                "routes/shared/picker/rows.ts", "routes/shared/picker/state.ts", "routes/shared/ModelSelect.tsx", "routes/roles/Models.tsx",
+                "routes/shared/picker/rows.ts", "routes/shared/picker/state.ts", "routes/shared/ModelSelect.tsx",
                 "routes/settings/fields/ModelField.tsx", "routes/setup/DefaultModel.tsx", "routes/session/PromptComposer.tsx",
-                "routes/session/NewSession.tsx", "routes/packs/PackForm.tsx", "styles/model-picker.css", "routes/roles/TestButton.tsx"):
+                "routes/session/NewSession.tsx", "routes/packs/PackForm.tsx", "styles/model-picker.css", "routes/crew/models/TestButton.tsx"):
         text = (UI / rel).read_text(encoding="utf-8")
         raw = re.findall(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", re.sub(r"/\*.*?\*/", "", text, flags=re.S)) if rel.endswith(".css") else []
         ctx.check(f"{rel}: {len(text.splitlines())} lines <= 250, no colour literal {raw}", len(text.splitlines()) <= 250 and not raw)

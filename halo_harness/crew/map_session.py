@@ -4,8 +4,8 @@
 and no bare session:
 
     prepare(cli_flags, cwd) -> (Compiled | None, lines)   the map (`--map`, config `crew.map`) compiled; a map with a
-                                                          problem gives None and its problem lines (said on stderr;
-                                                          the session runs as with no map)
+                                                          problem gives its problem lines (said on stderr) and the
+                                                          `starter` map instead (3.6.0.0 R5: every session is on a map)
     model(c) -> str | None                                main's model (None: `auto`, the session's own, as today)
     instructions(c) -> str                                main's instructions, added to the system prompt
     narrow(registry, catalog, c)                          main's tools: the kinds its `uses` does not list are taken
@@ -14,7 +14,7 @@ and no bare session:
                                                           a workflow to hand to
     agents(discovered, c) -> (agents, restriction)        the map's agent specs over the discovered ones; the Agent tool
                                                           may spawn exactly main's agents
-With no map in use, nothing here changes anything: the session runs exactly as before 3.6.0.0 R3.
+With no map set, the session runs on the shipped `starter` map (crew/compile.py DEFAULT_MAP, 3.6.0.0 R5).
 """
 
 from __future__ import annotations

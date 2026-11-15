@@ -1,16 +1,12 @@
-// session-map (3.1.4.0 R2; 3.3.11.0 R2 the thumbnail of Roles Live's tree; 3.3.16.0 R2 "the Fleet fold": the Fleet Map
-// went, so this panel draws Agents -> Live's own tree, routes/roles/LiveMap.tsx with `thumb`): this harness's sessions
-// and each one's agents as a tree, fitted to the panel -- who spawned whom, what each runs on and costs, the tool
-// running and for how long, the Steer box's target outlined; a click picks the target, a double-click opens the Agent
-// strip, "Open in Agents Live" the same tree full size. 3.6.0.0 R4: while a session of this harness runs on a map, the
-// panel shows that lit map instead, compact and read-only (routes/crew/map/LitMini.tsx), with a link to the Map tab; a
-// session that did not start on a map keeps this tree until every session runs on a map (the next round).
+// session-map (3.1.4.0 R2; 3.6.0.0 R4 the lit map; 3.6.0.0 R5: every session runs on a map, the old tree went): the
+// session running here drawn as its map, compact and read-only (routes/crew/map/LitMini.tsx) -- its boxes, what each
+// does now, the helpers it made up -- with a link to Agents -> 3 · Map, where the same map is lit full size. With several
+// running, the one on a map first; a session on another machine is listed in the Map's picker, opened on that machine.
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { useScopedCounts } from "../fleet/scope";
 import { useFleet } from "../fleet/store";
-import { LiveMap } from "../roles/LiveMap";
 import { LitMini } from "../crew/map/LitMini";
 import { useRunning } from "../crew/map/litStore";
 
@@ -18,10 +14,12 @@ export function MapDetail() {
   const loaded = useFleet((s) => s.loaded);
   const error = useFleet((s) => s.error);
   const any = useFleet((s) => s.harnesses.length);
-  const onMap = useRunning().find((x) => !!x.map);
+  const running = useRunning();
+  const s = running.find((x) => !!x.map) || running[0];
   if (!loaded) return null; // the section's own wait says it while it reads
   if (error && !any) return <Empty title="Studio could not read the sessions" body={error} />;
-  return onMap ? <LitMini s={onMap} /> : <LiveMap thumb />;
+  if (!s) return <Empty title="No session is running here" body="Start one (Session's prompt, or halo in a terminal): it is drawn here as its map." />;
+  return <LitMini key={s.sid} s={s} />;
 }
 
 export function MapGlance() {
@@ -33,7 +31,7 @@ export function MapGlance() {
         <Metric value={c.live} label="agents live" tone="accent" />
         <Metric value={c.attention} label="need you" tone={c.attention ? "warn" : undefined} />
       </div>
-      <div className="glance-hint">Expand for the tree: every session here and its agents.</div>
+      <div className="glance-hint">Expand for the map: the session running here, its boxes and helpers.</div>
     </div>
   );
 }

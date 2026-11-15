@@ -1,8 +1,8 @@
-// The palette's Agents lines for this machine's sessions: Agents: Attention (A), Agents: Activity, follow / steer /
+// The palette's Agents lines for this machine's sessions: Agents: Attention (A), follow / steer /
 // pause / stop the selected agent, follow any live agent by name, pause all, resume all, answer next (the Attention
 // panel on the oldest row), record, take over, hand to, replay the selected session, Local: the Ollama steward.
 import { goSection } from "../../lib/store";
-import { openActivity, openLocalHost } from "../agents/fleetDoor";
+import { openLocalHost } from "../agents/fleetDoor";
 import { setAttention, toggleAttention } from "../agents/attention";
 import { askStop, everySession, openAgentPanel, select, toggleFollow, togglePause } from "./actions";
 import { allAgents, fleet, findAgent, isLive, sessionTitle } from "./store";
@@ -10,7 +10,7 @@ import { askHandoff, record } from "./extras";
 import { panels } from "./pstore";
 import { replaySession } from "../crew/live/replay"; // 3.4.1.0 R1: Live's scrubber
 import { focusSteer } from "./Steer";
-import { openWorkerRun } from "../agents/run/door";
+import { openWorkerRun } from "../crew/run/door";
 
 export type FleetCommand = { id: string; group: string; label: string; hint?: string; kbd?: string; run: () => void };
 
@@ -20,7 +20,6 @@ export function fleetCommands(): FleetCommand[] {
   const waiting = panels.get().attention.length;
   const out: FleetCommand[] = [
     { id: "fleet-attention", group: g, label: "Agents: Attention", hint: `${waiting} waiting · every decision, one key each`, kbd: "A", run: () => (goSection("agents"), toggleAttention()) },
-    { id: "fleet-activity", group: g, label: "Agents: Activity", hint: "the timeline strip and the merged live log of every session", run: openActivity },
     { id: "fleet-follow", group: g, label: s.follow ? "Agents: stop following the agent" : "Agents: follow the agent", hint: "the stream scrolls with it", kbd: "F", run: toggleFollow },
     { id: "fleet-pause-all", group: g, label: "Agents: pause all", hint: "every session holds at its next tool or model call", run: () => void everySession("pause") },
     { id: "fleet-resume-all", group: g, label: "Agents: resume all", hint: "every paused session carries on", run: () => void everySession("resume") },
@@ -38,8 +37,8 @@ export function fleetCommands(): FleetCommand[] {
       { id: "fleet-handto", group: g, label: `Agents: hand ${name} to...`, hint: "its task as a written brief; it stops", run: () => askHandoff("hand_to", sel.key) },
       { id: "fleet-record", group: g, label: `Agents: record ${name}`, hint: "one HTML file that replays anywhere", run: () => void record(sel.key, true) },
     );
-    if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Agents: replay this session on Live", hint: "drag the scrubber back, or Play", run: () => void replaySession(sel.s.session_id) });
-    if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Agents: open this session's run", hint: "its lane on Live, or its report in History", run: () => openWorkerRun(String(sel.s.cwd || "")) });
+    if (sel.h.local) out.push({ id: "fleet-replay", group: g, label: "Agents: replay this session on the Map", hint: "drag the scrubber back, or Play", run: () => void replaySession(sel.s.session_id) });
+    if (sel.s.kind === "orchestra-worker") out.push({ id: "fleet-orchestra", group: g, label: "Agents: open this session's run", hint: "its pages in the Map's drawer, or its report in History", run: () => openWorkerRun(String(sel.s.cwd || "")) });
   }
   for (const r of allAgents(s).filter((x) => isLive(x.a)).slice(0, 24))
     out.push({

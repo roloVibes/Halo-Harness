@@ -10,7 +10,6 @@ from __future__ import annotations
 import sys
 import tempfile
 from pathlib import Path
-from types import SimpleNamespace as NS
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
@@ -57,31 +56,6 @@ def test_the_shipped_auto_lineup_names_its_tiers(ctx: Ctx):
     got = [(t["name"], t.get("purpose")) for t in effective_tiers(auto)]
     ctx.check(f"main and the pool each say what they are for, got {got}",
               got == [("main", "the one you talk to"), ("pool", "the workers, picked per task")])
-
-
-def _req(body: dict, cwd: Path):
-    return NS(body=body, cwd=str(cwd), query={}, path="workflows/contract", method="PUT")
-
-
-@test
-def test_a_block_purpose_saves_into_yours_and_a_shipped_one_says_copy(ctx: Ctx):
-    from halo_harness.studio.workflows_api import put_contract
-    from halo_harness.workflows.registry import folders
-    from halo_harness.workflows.squares_cli import _new
-    with tempfile.TemporaryDirectory() as d:
-        repo = Path(d)
-        _new("my-media", "media", repo)
-        mine = folders(cwd=repo)[0][1] / "my-media.yaml"
-        try:
-            code, got = put_contract(_req({"ref": "my-media", "does": "Reads the scans and hands back the numbers."}, repo))
-            text = mine.read_text(encoding="utf-8")
-            ctx.check(f"saved into yours, got {code} {got}", code == 200 and got.get("line", "").startswith("my-media: purpose saved to"))
-            ctx.check("the file says it", "does: Reads the scans and hands back the numbers." in text and "covers:" in text)
-            code, got = put_contract(_req({"ref": "media", "does": "x"}, repo))
-            ctx.check(f"a shipped square is read-only and says how to copy it, got {code} {got}",
-                      code == 422 and "halo workflows new my-media --from media" in got.get("error", ""))
-        finally:
-            mine.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

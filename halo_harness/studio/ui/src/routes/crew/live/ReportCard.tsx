@@ -9,7 +9,7 @@
 import type { ReactNode } from "react";
 import { Button } from "../../../lib/ui";
 import { short } from "../../orchestra/format";
-import { closeReport, toggleHistory } from "../../agents/live/historyStore";
+import { closeReport, toggleHistory } from "./historyStore";
 import { openFileReplay, openLiveReplay } from "./replay";
 import { bare, copyMarkdown, pct, secs, usd, useCard, type Card } from "./cardData";
 
@@ -170,7 +170,7 @@ export function CardPage({ refId, what }: { refId: string; what: string }) {
         <b className="lh-title">Report card</b>
         <span className="rr-goal-inline" title={what}>{short(what, 90)}</span>
         <span className="spacer" />
-        <Button size="sm" variant="ghost" onClick={() => void replay()} data-testid="report-card-replay" title="Draw it on Live as it ended (Back to now returns)">Replay</Button>
+        <Button size="sm" variant="ghost" onClick={() => void replay()} data-testid="report-card-replay" title="Replay it as it ended (Back to now returns)">Replay</Button>
       </div>
       <ReportCard refId={refId} />
     </div>

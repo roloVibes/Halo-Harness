@@ -2,7 +2,7 @@
 tests/helpers/studio_map.py over tests/helpers/crew_rig.py; skipped without Chrome). The room rules over this tab at
 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `map` view).
 
-1. the 3 key opens 3 · Map: the switch reads 1 · Agents | 2 · Workflows | 3 · Map | Cast | Live | Board; the starter map,
+1. the 3 key opens 3 · Map: the switch reads 1 · Agents | 2 · Workflows | 3 · Map; the starter map,
    main at the left, a label per line in the lane, never over a box; no dialog, no conversation, the list closed;
 2. a row dragged with the pointer: the drop places light up and say what a drop does; dropped on main, the When card at
    the line; "when the task says test" saved: the label, the receipt, the file;
@@ -42,7 +42,7 @@ def _got(ctx: Ctx) -> dict:
 def test_the_3_key_opens_the_starter_map(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"3 lands on 3 · Map, got {got.get('view')!r}", got.get("view") == "map")
-    ctx.check(f"the switch, got {got.get('switch')}", got.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map", "Cast", "Live", "Board"])
+    ctx.check(f"the switch, got {got.get('switch')}", got.get("switch") == ["1 · Agents", "2 · Workflows", "3 · Map"])
     f = got.get("first") or {}
     ctx.check(f"the starter map, no dialog, no conversation, the list closed, got {f}",
               f.get("map") == "starter" and f.get("dialogs") == 0 and f.get("conversation") is False and f.get("drawer") is False)
@@ -108,6 +108,17 @@ def test_the_builder_draws_ghosts_apply_undo(ctx: Ctx):
               len(lines) == 3 and "code hands work to my-reviewer, when the task says auth" in lines[2])
     ctx.check("Apply draws it for real; Undo takes it away", got.get("applied") is True and got.get("b_undone") is True)
     ctx.check(f"the driver ran every step, got {got.get('failed')!r}", not got.get("failed"))
+
+
+@test
+def test_the_old_doors_land_on_the_three_tabs(ctx: Ctx):
+    """3.6.0.0 R5: Cast, Live and the board went; their addresses and keys land on the Map (the board's on Workflows)."""
+    d = _got(ctx)
+    want = {"&view=cast": "map", "&view=live": "map", "&view=orchestra": "map", "&view=flows": "workflows", "&mode=roles": "map",
+            "&mode=team": "map", "&mode=fleet": "map"}
+    ctx.check(f"each old address on its tab, got {d}", all(d.get(k) == v for k, v in want.items()))
+    ctx.check(f"mode=fleet says Fleet left once, got {d.get('fleet_note')!r}", "Fleet left Halo in 3.5" in str(d.get("fleet_note")))
+    ctx.check(f"the keys: W -> Workflows, C and L -> Map, got {d}", d.get("key_w") == "workflows" and d.get("key_c") == "map" and d.get("key_l") == "map")
 
 
 if __name__ == "__main__":

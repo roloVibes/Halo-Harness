@@ -113,33 +113,6 @@ def test_who_is_inside_a_square(ctx: Ctx):
         ctx.check(f"an unknown bio says so, got {line!r}", not ok and "no bio" in line)
 
 
-@test
-def test_the_cli_and_the_routes(ctx: Ctx):
-    from halo_harness.blocks_cli import cmd_blocks
-    from halo_harness.studio.workflows_api import dispatch_workflows
-    with PacksHome() as h:
-        code, out = run(cmd_blocks, "list", "--repo", str(h.repo))
-        ctx.check(f"list: templates then the lineup's blocks, got {out!r}",
-                  code == 0 and "thinking       square thinking: three reasoning models" in out and "block media (square): when needs pdf" in out
-                  and "block pool (tier 1)" in out)
-        code, out = run(cmd_blocks, "show", "review-panel", "--repo", str(h.repo))
-        ctx.check(f"show a template, got {out!r}", code == 0 and "review panel of three" in out and "auto-reviewer on auto" in out)
-        code, out = run(cmd_blocks, "add", "review-panel", "--as", "panel", "--repo", str(h.repo))
-        ctx.check(f"add --as, got {out!r}", code == 0 and "panel added from template review-panel" in out)
-        code, out = run(cmd_blocks, "show", "panel", "--repo", str(h.repo))
-        ctx.check(f"show a block of the lineup, got {out!r}", code == 0 and "panel (square block)" in out and "when" in out)
-        req = lambda path, method, body=None, query=None: NS(path=path, method=method, body=body or {}, query=query or {}, cwd=str(h.repo))  # noqa: E731
-        code, got = dispatch_workflows(req("workflows/templates", "GET"))
-        ctx.check(f"GET templates, got {[t['name'] for t in got['templates']]}", code == 200 and len(got["templates"]) == 4 and all(not t["problems"] for t in got["templates"]))
-        code, got = dispatch_workflows(req("workflows/when", "PUT", {"ref": "panel", "when": {"mode": "always"}}))
-        ctx.check(f"PUT when, got {got}", code == 200 and "always first" in got["line"])
-        code, got = dispatch_workflows(req("workflows", "GET"))
-        row = next(r for r in got["squares"] if r["ref"] == "panel")
-        ctx.check(f"the board carries the rule, got {row.get('when_label')!r}", row["when_label"] == "always first" and row["when_mode"] == "always")
-        code, got = dispatch_workflows(req("workflows/templates/merge", "POST", {"template": "local-workers", "raw": {"tiers": [{"name": "a", "members": ["main"]}], "agents": [{"agent": "default-model", "role": "main"}]}}))
-        ctx.check(f"merge answers the mapping, got {code}", code == 200 and got["raw"]["tiers"][-1]["name"] == "local")
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

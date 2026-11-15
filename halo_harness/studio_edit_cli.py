@@ -22,7 +22,7 @@ def add_studio_flags(parser, what: str) -> None:
 
 
 def open_in_studio(kind: str, name: str, *, no_open: bool, prog: str) -> int:
-    """`kind` is bio or lineup. 0 when Studio opened (or its URL printed), 1 when it did not start, 2 bad name."""
+    """`kind` is agent, workflow or map (3.6.0.0 R5). 0 when Studio opened (or its URL printed), 1 when it did not start, 2 bad name."""
     from halo_harness.providers.config import default_state_dir
     from halo_harness.studio.edit_open import describe, open_edit
     from halo_harness.studio.edit_target import parse

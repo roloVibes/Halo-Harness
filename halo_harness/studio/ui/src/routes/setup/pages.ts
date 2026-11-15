@@ -27,7 +27,7 @@ export const TITLES: Record<CoreStep, string> = {
   model: "Default model",
   permissions: "Permissions",
   theme: "Theme",
-  team: "Team",
+  team: "Map",
   linux: "Linux fixes",
   check: "Check",
   summary: "Summary",
@@ -69,8 +69,8 @@ export function stepsOf(d: SetupData | null, page: StepId): StepId[] {
   return [...placed, "summary"];
 }
 
-export function lineupWord(d: SetupData): string {
-  return d.team.active === "one-model" ? "one model for everything" : d.team.active + (d.team.source === "default" ? " (default)" : "");
+export function mapWord(d: SetupData): string {
+  return d.team.active + (d.team.source === "default" ? " (default)" : "");
 }
 
 /** Does step `s`'s block have what it needs. */
@@ -130,7 +130,7 @@ export function valueOf(d: SetupData | null, s: StepId): string {
     case "theme":
       return d.theme || `${d.theme_default} (default)`;
     case "team":
-      return lineupWord(d);
+      return mapWord(d);
     case "linux":
       return d.linux_fixes.needed ? `${d.linux_fixes.items.length} to apply` : "nothing to fix";
     case "check":

@@ -1,14 +1,14 @@
 // The picker's small state (3.4.1.3): the providers' status read once (the group heads' state lines and the empty
 // line), and which provider groups are folded (kept per browser for a picker with a `foldKey`, Setup's page).
 import { useEffect } from "react";
-import { useRoles } from "../../roles/store";
-import { loadModelsStatus } from "../../roles/sync";
-import type { ModelsStatus } from "../../roles/types";
+import { useModels } from "../../crew/models/store";
+import { loadModelsStatus } from "../../crew/models/sync";
+import type { ModelsStatus } from "../../crew/models/types";
 
 let asked = false;
 
 export function useStatusOnce(): ModelsStatus | null {
-  const st = useRoles((s) => s.modelsStatus);
+  const st = useModels((s) => s.modelsStatus);
   useEffect(() => {
     if (!st && !asked) {
       asked = true;

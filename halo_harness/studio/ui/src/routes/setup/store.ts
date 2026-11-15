@@ -13,7 +13,8 @@ import type { PackSetup } from "./packSetup";
 
 export type ThemeRow = { name: string; palette: Record<string, string> };
 export type ModeRow = { id: string; label: string; note: string };
-export type LineupRow = { name: string; label: string; scope: string; description: string; active: boolean; default: boolean };
+/** 3.6.0.0 R5: a row of the Map step (the Team step's lineups before). */
+export type MapRow = { name: string; label: string; scope: string; description: string; boxes: number; lines: number; active: boolean; default: boolean };
 export type ModelRow = { ref: string; provider: string; label: string; best_at: string; price: string; context: string; effort?: string;
   /** 3.3.15.0 R2: what it takes (halo_harness/model_takes.py). */
   takes?: string[] } & CardFields;
@@ -42,7 +43,7 @@ export type SetupData = {
   theme_default: string;
   themes: ThemeRow[];
   permission_modes: ModeRow[];
-  team: { active: string; source: string; roles_enabled: boolean; lineups: LineupRow[] };
+  team: { active: string; source: string; maps: MapRow[] };
   models: ModelRow[];
   providers: Record<string, ProviderInfo>;
   env_file: string;
@@ -119,10 +120,10 @@ export function blockWord(s: SetupState, b: BlockId): "saved" | "1 changed" | "p
 
 export const providersSet = (d: SetupData | null) => Object.entries(d?.providers || {}).filter(([, v]) => v.set).map(([k]) => k);
 
-/** The section's status line (the header): the providers set up, the default model, the lineup. */
+/** The section's status line (the header): the providers set up, the default model, the map. */
 export function showStatus(d: SetupData): void {
   const set = providersSet(d);
-  setSectionStatus("setup", `${set.length ? set.join(", ") : "no provider"} · ${d.model || "no default model"} · lineup ${d.team.active}`);
+  setSectionStatus("setup", `${set.length ? set.join(", ") : "no provider"} · ${d.model || "no default model"} · map ${d.team.active}`);
 }
 
 let started = false;
@@ -170,7 +171,7 @@ export async function loadSetup(): Promise<void> {
 export function startSetup(): void {
   if (started) return;
   started = true;
-  onFilesChanged(["config", "lineups"], () => void loadSetup());
+  onFilesChanged(["config"], () => void loadSetup());
   void loadSetup();
 }
 
@@ -208,8 +209,8 @@ export async function act(path: string, body: Record<string, unknown>, block: Bl
   }
 }
 
-/** Save block `b`'s pick: the team through `setup/team`, the three config keys through `setup/config`. */
+/** Save block `b`'s pick: the map through `setup/team` (3.6.0.0 R5), the three config keys through `setup/config`. */
 export function save(b: BlockId): Promise<boolean> {
   const value = shownOf(setup.get(), b);
-  return b === "team" ? act("setup/team", { lineup: value }, b) : act("setup/config", { key: b, value }, b);
+  return b === "team" ? act("setup/team", { map: value }, b) : act("setup/config", { key: b, value }, b);
 }

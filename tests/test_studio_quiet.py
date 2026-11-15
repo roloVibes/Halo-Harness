@@ -104,15 +104,15 @@ def test_the_icon_rail(ctx: Ctx):
 def test_the_inspector_asks_first(ctx: Ctx):
     got = _got(ctx, "seeded")
     ctx.check(f"closed on load, got {got.get('insp_load')} {got.get('insp_aside')}", got.get("insp_load") == "closed" and got.get("insp_aside") is False)
-    ctx.check(f"a card click selects in Roles' own panel, the column stays closed, got {got.get('card_selected')} {got.get('insp_after_card')}",
+    ctx.check(f"a click on a map box keeps the column closed (3.6.0.0 R5; a Cast card before), got {got.get('card_selected')} {got.get('insp_after_card')}",
               got.get("card_selected") is True and got.get("insp_after_card") == "closed")
     ctx.check(f"a panel's Settings opens it at 344 px (3.3.15.0 L1), the stage gives the width, got {got.get('insp_open')} {got.get('insp_w')} {got.get('stage_w')} -> {got.get('stage_w_open')}",
-              got.get("insp_open") == "Canvas" and got.get("insp_w") == 344 and (got.get("stage_w") or 0) - (got.get("stage_w_open") or 0) == 344)
+              got.get("insp_open") == "Map" and got.get("insp_w") == 344 and (got.get("stage_w") or 0) - (got.get("stage_w_open") or 0) == 344)
     ctx.check(f"remembered per browser, open across a reload, got {got.get('insp_saved')} {got.get('insp_reload_open')}",
-              json.loads(got.get("insp_saved") or "{}") == {"section": "roles", "panel": "roles-graph"} and got.get("insp_reload_open") == "Canvas")
+              json.loads(got.get("insp_saved") or "{}") == {"section": "agents-map", "panel": "map-main"} and got.get("insp_reload_open") == "Map")
     ctx.check(f"its close button gives the width back, closed across a reload, got {got.get('insp_closed')} {got.get('stage_w_closed')} {got.get('insp_reload_closed')}",
               got.get("insp_closed") == "closed" and got.get("stage_w_closed") == got.get("stage_w") and got.get("insp_reload_closed") == ["closed", None])
-    ctx.check(f"the next selection opens it again, got {got.get('insp_reopen')}", got.get("insp_reopen") == "Lineups")
+    ctx.check(f"the next selection opens it again, got {got.get('insp_reopen')}", got.get("insp_reopen") == "Agents and workflows")
 
 
 @test

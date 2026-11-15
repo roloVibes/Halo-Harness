@@ -83,7 +83,7 @@ preview and hygiene lines), `local_sched/loads.py` (the loading tax), `local_sch
 over the hosts' `route` answers and the local reads); `local_warm_cli.py` (`halo local warm <lineup>`),
 `local_place_cli.py` (`halo local place`), `ollama_profile_cli.py` (`halo ollama profile`), `roles_fit.py` (the
 spawn-time verdict), `models_auto_local.py` (Auto's fit + warm weights), `agent/local_hop.py` (the local -> local
-hop), `studio/local_sched_api.py`; `ui/src/routes/roles/LineupSched.tsx`, `ui/src/routes/local/HostWarm.tsx`,
+hop), `studio/local_sched_api.py`; `ui/src/routes/local/HostWarm.tsx` (3.6.0.0 R5: the lineup's LineupSched.tsx went),
 `HostsPlace.tsx`, `ui/src/routes/session/LoadingTax.tsx`.
 
 **The guards, the refresh and the adviser** (Halo 3.3.7.0 R4, docs/MODELS-ollama-steward-guards.md and

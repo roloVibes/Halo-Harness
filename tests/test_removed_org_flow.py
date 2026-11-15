@@ -130,33 +130,6 @@ def test_a_leftover_orgs_or_paperclip_config_section_is_one_doctor_line_each(ctx
 
 
 @test
-def test_a_leftover_lineup_org_section_warns_once_and_never_blocks(ctx: Ctx):
-    from halo_harness.doctor_config import config_findings
-    from halo_harness.lineup_preflight import blocking, lineup_problems
-    from halo_harness.teams_cli import cmd_teams
-    from halo_harness.teams_yaml import load_team_template_raw, resolve_team_template, validate_team_template
-    with ConfigHome() as h:
-        h.write(".halo/teams/old.yaml", "name: old\nagents:\n  - {agent: orchestrator, role: main}\n"
-                "org:\n  positions:\n    - {title: Boss, agent: orchestrator, reports_to: nobody}\n")
-        raw = load_team_template_raw("old")
-        ctx.check(f"the lineup validates clean, got {validate_team_template(raw, name='old')}",
-                  validate_team_template(raw, name="old") == [])
-        ctx.check("the section is ignored on load", "org" not in (resolve_team_template("old") or {"org": 1}))
-        found = lineup_problems("old")
-        org = [f for f in found if f["id"] == "removed:org"]
-        ctx.check(f"the preflight warns once, got {found}", len(org) == 1 and org[0]["text"] == LINEUP_LINE
-                  and org[0]["severity"] == "warns" and not [f for f in blocking(found) if "org" in f["text"]])
-        lines = [f for f in config_findings(h.repo) if f["file"] == "~/.halo/teams/old.yaml"]
-        ctx.check(f"doctor --config: the one line, no unknown key, got {[(f['check'], f['text']) for f in lines]}",
-                  [(f["check"], f["severity"], f["text"]) for f in lines] == [("removed-section", "warns", LINEUP_LINE)])
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = cmd_teams(["validate", "old"])
-        ctx.check(f"halo teams validate: ok plus the warning, exit 0, got {code} {out.getvalue()!r}",
-                  code == 0 and "old: ok" in out.getvalue() and f"old: warning: {LINEUP_LINE}" in out.getvalue())
-
-
-@test
 def test_roles_hang_off_main(ctx: Ctx):  # 3.4.0.0 B: the shipped team template left with the team file
     from halo_harness.studio.model import graph_for
     raw = {"name": "plain", "agents": [{"agent": "orchestrator", "role": "main", "as": "boss"},

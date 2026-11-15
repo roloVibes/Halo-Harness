@@ -67,8 +67,10 @@ def _post_section(req, body: dict):
         if group is None:
             return 422, {"error": why, "problems": [why]}
         data.update(group=group)
-    if mode == "agents" and str(body.get("view") or "") in ("cast", "runs", "live", "workflows"):  # 3.3.16.0 R1: Agents' view
-        data.update(view="live" if body["view"] == "runs" else str(body["view"]))  # 3.4.0.0 D: Runs lands on Live
+    if mode == "agents":  # 3.6.0.0 R5: Agents' tab (an old view word lands where it is now: studio/agents_door.py)
+        from halo_harness.studio.agents_door import tab_of
+        if tab_of(body.get("view")):
+            data.update(view=tab_of(body.get("view")))
     if mode == "local":  # 3.3.5.0 R1 (studio/local_door.py): the page that opens
         from halo_harness.studio.local_door import page_word
         page, why = page_word(str(body.get("page") or ""))

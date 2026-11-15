@@ -12,7 +12,7 @@ import { WorkflowForm } from "../../orchestra/WorkflowForm";
 import { WorkflowPicker } from "../../orchestra/WorkflowPicker";
 import { useOrch } from "../../orchestra/store";
 import { useWfRun } from "../../orchestra/workflowRun";
-import { openReport } from "../../agents/live/historyStore";
+import { openReport } from "../live/historyStore";
 import { closeGoal, toggleGoal, useGoal } from "./goalStore";
 
 export function RunGoalButton() {

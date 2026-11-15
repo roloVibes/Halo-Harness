@@ -165,24 +165,6 @@ def test_cmd_roles_no_session_is_a_clean_message(ctx: Ctx):
     ctx.check(f"no traceback, a plain message, got {out!r}", "session" in out.lower())
 
 
-@test
-def test_cmd_roles_with_live_session_renders_table(ctx: Ctx):
-    from types import SimpleNamespace
-    from halo_harness.commands.builtins import HeadlessFacade, _cmd_roles
-    from halo_harness.model import ModelProfile, parse_model_ref
-    from halo_harness.roles import ROLE_NAMES
-
-    fake_runtime = SimpleNamespace(role_table={"researcher": "or:vendor/researcher-model"},
-                                    cli_role_overrides={}, routes={})
-    fake_session = SimpleNamespace(model_ref=parse_model_ref("or:vendor/parent"), model_profile=ModelProfile(),
-                                    state_dir=Path(tempfile.mkdtemp()), agent_runtime=fake_runtime)
-    facade = HeadlessFacade(cwd=Path(tempfile.mkdtemp()), session=fake_session)
-    out = _cmd_roles("", facade)
-    for name in ROLE_NAMES:
-        ctx.check(f"{name!r} appears in /roles output", name in out)
-    ctx.check("the researcher role's configured model appears", "researcher-model" in out)
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

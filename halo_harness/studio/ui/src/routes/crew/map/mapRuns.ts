@@ -6,7 +6,7 @@
 // that ran on no map replays as main and its helpers. Its report card opens from the picker row (ReportCard.tsx).
 import { api, ApiError } from "../../../lib/api";
 import { createStore, toast, useStore } from "../../../lib/store";
-import { backToNow, openLiveReplay } from "../live/replay";
+import { backToNow, openLiveReplay, replayOnMapWith } from "../live/replay";
 import type { OvEvent } from "./overlay";
 import { maps, openMap } from "./mapStore";
 
@@ -65,6 +65,8 @@ export async function replayRun(sid = mapHist.get().pick): Promise<boolean> {
     mapHist.update(() => ({ busy: false }));
   }
 }
+
+replayOnMapWith((sid) => replayRun(sid)); // 3.6.0.0 R5: History's and the palette's session replays land here
 
 /** Back to what runs: the replay leaves the map. */
 export function closeRun(): void {

@@ -43,20 +43,6 @@ def test_item37_a_hand_edited_lineup_still_opens(ctx: Ctx):
     ctx.check("a bio spelling tools as a list does not raise; the node shows 0 tools", n["tools"] == 0 and n["model"] == "")
 
 
-@test
-def test_item37_the_lineup_route_answers_200_with_problems(ctx: Ctx):
-    import urllib.request
-    with _Studio() as s:
-        teams = s.state / "teams"
-        teams.mkdir(parents=True, exist_ok=True)
-        (teams / "handy.yaml").write_text("name: handy\nagents:\n  - agent: orchestrator\n    role: main\n    instances: two\n", encoding="utf-8")
-        req = urllib.request.Request(f"http://127.0.0.1:{s.port}/api/lineup/handy", headers={"Authorization": "Bearer " + s.srv.token})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = json.loads(r.read())
-        ctx.check("GET /api/lineup/handy is a 200 with a graph", r.status == 200 and len(data["graph"]["nodes"]) == 1)
-        ctx.check(f"the validator's line is in problems, got {data['problems']}", any("instances" in p for p in data["problems"]))
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

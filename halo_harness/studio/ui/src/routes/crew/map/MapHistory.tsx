@@ -7,15 +7,17 @@ import { Button } from "../../../lib/ui";
 import { cost as money } from "../../orchestra/format";
 import { ReportCard } from "../live/ReportCard";
 import { Scrubber } from "../live/Scrubber";
+import { useLiveReplay } from "../live/replay";
 import { closeRun, loadMapHistory, pickRun, replayRun, toggleCard, useMapHist } from "./mapRuns";
 import { useLitNow } from "./useLit";
-import { toggleHistory } from "../../agents/live/historyStore";
+import { toggleHistory } from "../live/historyStore";
 import { openFeed } from "./feedOpen";
 
 const when = (t: number) => (t ? new Date(t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
 
 export function MapHistory() {
   const L = useLitNow();
+  const R = useLiveReplay(); // a session's replay on its map, or a goal run's (History's report: Replay)
   const rows = useMapHist((s) => s.rows);
   const loaded = useMapHist((s) => s.loaded);
   const pick = useMapHist((s) => s.pick);
@@ -39,13 +41,13 @@ export function MapHistory() {
             <Button disabled={!pick} onClick={toggleCard} aria-pressed={!!card} data-testid="map-history-card" title="Its report card, from the record (no model call)">
               {card ? "Hide the report card" : "Report card"}
             </Button>
-            {open && <Button onClick={closeRun} data-testid="map-history-now">Back to now</Button>}
+            {(open || R) && <Button onClick={closeRun} data-testid="map-history-now">Back to now</Button>}
           </>
         )}
         <Button onClick={() => (toggleHistory(true), openFeed("history"))} data-testid="map-history-all"
                 title="Every past session, goal run and saved replay file, as Live's History lists them; tick two to compare">Goal runs, files, Compare</Button>
       </div>
-      {open && L.mode === "replay" && <Scrubber sid={open.sid} title={open.title} started={null} lineup="" />}
+      {R && <Scrubber sid={open?.sid ?? R.sid} title={open?.title ?? R.title} started={null} lineup="" />}
       {card && row && <ReportCard refId={`session:${card}`} />}
     </section>
   );

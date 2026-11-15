@@ -9,7 +9,7 @@ page links the words it uses). `halo explain` with no word lists them all.
 
 ## lineup
 
-A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Halo ships six (`halo teams list`); a copy of one is yours to edit (Studio's Agents section, on Cast, or `halo teams new <name> --from <shipped>`), and `halo teams use <name>` makes it the one new sessions use. `halo start` rehearses the active lineup as it is.
+A lineup (a team template, `~/.halo/teams/<name>.yaml`) says which agent bio, on which model, plays each role in your sessions, and in which tier each card sits. Each entry of its `agents:` list is a card. Since 3.6.0.0 R5 lineups and bios are no longer read: agents, workflows and maps in `~/.halo/crew/` replace them (Studio's Agents section, tabs 1 · Agents, 2 · Workflows and 3 · Map; `halo agents`, `halo workflows`, `halo maps`), and `halo teams` prints one line pointing there. `halo start` rehearses the active lineup as it is.
 
 ## bio
 
@@ -59,15 +59,15 @@ The router is the `Workflow` tool (Halo 3.3.16.0 R3): it works out what the task
 
 ## group
 
-A group (Halo 3.3.16.3) is how Agents -> Live boxes the agents of one task: the sub-agents one step of a parent started together (the Agent calls of one reply), titled by that task in a few words; the agents of one square, titled by the square and its DOES line; or, when nothing more specific applies, a lineup tier's agents under its purpose. The parent's line goes to the group, not to each agent; its title bar counts who is working, waiting or done, its cost and its time, and says Auto's pick in plain words. An agent started alone is not boxed.
+A group (Halo 3.3.16.3; Agents -> Live went in 3.6.0.0 R5) was how Agents -> Live boxed the agents of one task: the sub-agents one step of a parent started together (the Agent calls of one reply), titled by that task in a few words; the agents of one square, titled by the square and its DOES line; or, when nothing more specific applies, a lineup tier's agents under its purpose. The parent's line goes to the group, not to each agent; its title bar counts who is working, waiting or done, its cost and its time, and says Auto's pick in plain words. An agent started alone is not boxed.
 
 ## when
 
-A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square work, carried by the line from main to its block on Studio's Cast canvas: when main needs something (pdf, images, audio, video, code, a plan, research, a review, work data -- the square's covers, narrowed), when the task says one of its words, only when main names it, or always first. A block with no line is not connected: main never uses it. A lineup writes it as `{ref, when: {needs, words, mode}}` in its `workflows:` list (the auto lineup in config `workflows.when.<ref>`); `halo workflows enable <ref> --when ...` sets it and the router's receipt names the rule that fired.
+A block's when (Halo 3.3.16.3) is the rule for when main hands a workflow square work, carried by the line from main to its box on Studio's Agents -> Map: when main needs something (pdf, images, audio, video, code, a plan, research, a review, work data -- the square's covers, narrowed), when the task says one of its words, only when main names it, or always first. A block with no line is not connected: main never uses it. A lineup writes it as `{ref, when: {needs, words, mode}}` in its `workflows:` list (the auto lineup in config `workflows.when.<ref>`); `halo workflows enable <ref> --when ...` sets it and the router's receipt names the rule that fired.
 
 ## plan
 
-The plan is the lead's split of a goal into jobs, one per lane, each with a title, its claims, an optional bio and model, `after` and its hand-offs. With `plan: review` (`halo orchestra run --review`) the run waits until you approve it (`halo orchestra approve`, or Approve and run in the plan review Studio opens from the run's lead on Live) or reject it with a reason; every edit is checked before it is saved.
+The plan is the lead's split of a goal into jobs, one per lane, each with a title, its claims, an optional bio and model, `after` and its hand-offs. With `plan: review` (`halo orchestra run --review`) the run waits until you approve it (`halo orchestra approve`, or Approve and run in the plan review Studio opens from the Map's "A goal run is going" line, Open, Review the plan) or reject it with a reason; every edit is checked before it is saved.
 
 ## coach
 
@@ -97,11 +97,11 @@ A pack is a folder someone else maintains that adds bios, lineups, workflows, sk
 
 ## guided first run
 
-The guided first run (the first-run pack since 3.4.0.0) is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a lineup in Agents -> Cast first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
+The guided first run (the first-run pack since 3.4.0.0) is `halo start`: one real Orchestra run on your own models that rehearses the lineup you picked (the active one, or the one `--lineup` names, read as it is and never copied) and walks the pieces Halo is made of (your lineup's lead and lane cards, a sample git repo, one goal, the lead's plan for you to approve, the lanes, the report and the coach) in seven screens. On the Auto lineup there is nothing to rehearse: pick or build a map in Agents -> Map first. It is not a test of your models (`halo gym` measures them). It opens on a card that says the lineup, the models it will call with their prices, an estimated cost, the time and what it writes; `halo start --explain` prints only the card, and Studio's Start here shows it above its Run button.
 
 ## setup
 
-Setup is what a box needs before Halo can work on it: the providers it calls, the default model, the permission mode, the terminal theme and the lineup. `halo init` walks it as the terminal wizard, and Studio's Setup section (3.3.0.0) holds the same blocks as forms you fill in any order, each with its own Save; both write `~/.halo/config.json` (and the keys to the env file), the same keys `halo config set` writes.
+Setup is what a box needs before Halo can work on it: the providers it calls, the default model, the permission mode, the terminal theme and the map (3.6.0.0; the lineup before). `halo init` walks it as the terminal wizard, and Studio's Setup section (3.3.0.0) holds the same blocks as forms you fill in any order, each with its own Save; both write `~/.halo/config.json` (and the keys to the env file), the same keys `halo config set` writes.
 
 ## provider
 
@@ -380,7 +380,7 @@ A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo
 
 ## live map
 
-The live map (3.3.11.0 R2) is Agents' **Live** view (`L` in Agents; Roles' Live canvas before 3.3.16.0): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is its thumbnail ("Open in Agents Live"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
+The live map (3.3.11.0 R2) was Agents' **Live** view (`L` in Agents; Roles' Live canvas before 3.3.16.0; it went in 3.6.0.0 R5, `L` and `?view=live` now land on the Map): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is now the lit map of the session, smaller ("Open in Agents -> Map"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
 
 ## setup block
 
@@ -432,11 +432,11 @@ A consult role (3.3.17.0) is a role whose model takes no tools: it answers from 
 
 ## replay
 
-A replay (3.3.18.0; 3.4.1.0 with time) is something that already happened -- a session, a goal run or a saved `.halo-replay` file -- drawn on Studio's Agents -> Live as it was at the moment the scrubber under the canvas stands on: opened from Live's History drawer (newest first: what it was, when, how long, its cost, how it ended; Open a file takes one from disk) or the empty state's Replay the last session, under a "replay -- <time>" banner, in muted colours, never the live ones. Drag the scrubber to any moment, Play at 1x / 4x / 16x, Now returns to what runs. Save this run's replay writes it as one file (`halo replay save`) that `halo replay open` opens on any machine; Export a clip films a range as one animated file (docs/REPLAY.md). The scrubber is the one replay control: Cast's replay bar went in 3.4.1.0. A goal run saves as a file too, and History compares two runs -- tick two rows, Compare: their lanes over one axis, the rows with the better figure named by a word, three "what differed" lines (`halo replay compare`; 3.4.1.0 R2).
+A replay (3.3.18.0; 3.4.1.0 with time) is something that already happened -- a session, a goal run or a saved `.halo-replay` file -- drawn on Studio's Agents -> Map as it was at the moment the scrubber under the map stands on: opened from History under the map (newest first: what it was, when, how long, its cost, how it ended; Open a file takes one from disk) or the empty state's Replay the last session, on the Map, under a "replay -- <time>" banner, in muted colours, never the live ones. Drag the scrubber to any moment, Play at 1x / 4x / 16x, Now returns to what runs. Save this run's replay writes it as one file (`halo replay save`) that `halo replay open` opens on any machine; Export a clip films a range as one animated file (docs/REPLAY.md). The scrubber is the one replay control: Cast's replay bar went in 3.4.1.0. A goal run saves as a file too, and History compares two runs -- tick two rows, Compare: their lanes over one axis, the rows with the better figure named by a word, three "what differed" lines (`halo replay compare`; 3.4.1.0 R2).
 
 ## waiting path
 
-The waiting path (3.3.18.0) is the chain on Studio's Agents -> Live from main down to whatever the whole session waits on now: an agent that waits on you first, else main's own wait followed through the agents it waits on, down to a tool, a model reply or an ask. It is drawn as a brighter hairline on those boxes and lines, and Live's sentence under the bar says it ("waiting on: reviewer -> Bash pytest", with its seconds beside it); a click on the sentence centres that agent. Each live agent's box also says what it waits on: you, a tool, a model reply, another agent, or nothing (working).
+The waiting path (3.3.18.0) is the chain on Studio's Agents -> Map from main down to whatever the whole session waits on now: an agent that waits on you first, else main's own wait followed through the agents it waits on, down to a tool, a model reply or an ask. It is drawn as a brighter hairline on those boxes and lines, and the sentence under the bar says it ("waiting on: reviewer -> Bash pytest", with its seconds beside it); a click on the sentence centres that agent. Each live agent's box also says what it waits on: you, a tool, a model reply, another agent, or nothing (working).
 
 ## report card
 

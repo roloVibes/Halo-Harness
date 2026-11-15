@@ -359,13 +359,11 @@ It is a test flag: never set it outside tests. `tools/capture_studio.py`
 `serve(slow_ms=...)` takes it (None passes the variable through), the
 Studio rig's server reads it, and `chrome_driver.driver_env` scrubs `HALO_*`,
 so a test puts it back in the driver's environment itself.
-`tests/test_studio_slow_box.py` runs the Roles room steps at 800 ms (where
-the held drop of 3.2.3.0's Windows runner showed to the pixel) and the Live
-stop at 400 ms.
+(3.6.0.0 R5: `tests/test_studio_slow_box.py` went with the Roles canvas and Live it ran on; set the
+variable on any Chrome driver to see the runner's order.)
 
 ```sh
-HALO_STUDIO_SLOW_MS=800 BRIDGE_TEST_NO_BACKGROUND_NET=1 python -m tests.helpers.studio_roles_room room
-python -m tests.test_studio_slow_box
+HALO_STUDIO_SLOW_MS=800 BRIDGE_TEST_NO_BACKGROUND_NET=1 python -m tests.test_studio_map
 ```
 
 ### Flake rules

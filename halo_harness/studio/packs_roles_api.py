@@ -1,15 +1,6 @@
-"""halo_harness.studio.packs_roles_api -- Studio's Roles over packs (Halo
-3.2.0.0 R2): the active packs the Lineups and Bios panels group by, and
-Clone (Customize is Clone, then the copy opened).
-
-    GET  roles/packs                 [{id, name, version, scope}] -- the packs that run here (a disabled one is absent)
-    POST roles/clone?scope=user|project  {kind: bio|lineup, name: <id>--<name>, as?: <name>, replace?: true}
-         201 {ok, name, path, from_pack, replaced}
-         409 {error, exists: true, name, path}     a file of yours has that name: ask, then send replace: true
-         404 / 422 {error, problems}
-
-Clone never writes into a file of yours unless the request says `replace`
-(Studio sends it only from the confirm), and never into the pack's folder.
+"""halo_harness.studio.packs_roles_api -- what a pack's rows carry (Halo 3.2.0.0 R2; 3.6.0.0 R5: its routes, roles/packs
+and roles/clone, went with Cast's Lineups and Bios panels): the active packs, and a row's shadow and clone origin
+(studio/model.py reads `row_fields`). The lineup and bio layers it reads go in the next round.
 """
 
 from __future__ import annotations
@@ -32,24 +23,3 @@ def row_fields(kind: str, name: str, data: dict, *, cwd=None, state_dir=None) ->
         info = data.get("_model") if isinstance(data.get("_model"), dict) else {}
         out.update(capabilities=list(info.get("capabilities") or []), model_problem=str(info.get("problem") or ""))
     return out
-
-
-def get_packs(req):
-    return 200, active_packs(req.cwd, req.state_dir)
-
-
-def post_clone(req):
-    from halo_harness.packs.clone import clone
-    body = req.body if isinstance(req.body, dict) else {}
-    kind, name = str(body.get("kind") or ""), str(body.get("name") or "").strip()
-    out = clone(kind, name, as_name=(str(body.get("as") or "").strip() or None), project=req.project,
-                replace=body.get("replace") is True, cwd=req.cwd, state_dir=req.state_dir)
-    if out.get("ok"):
-        return 201, out
-    if out.get("exists"):
-        return 409, out
-    status = 404 if "not a pack's" in out.get("error", "") else 422
-    return status, {"error": out.get("error") or "not cloned", "problems": list(out.get("problems") or [])}
-
-
-ROUTES = [("GET", r"^roles/packs$", get_packs), ("POST", r"^roles/clone$", post_clone)]

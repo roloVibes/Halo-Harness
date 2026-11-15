@@ -103,13 +103,12 @@ def test_the_state_has_every_block_and_no_key(ctx: Ctx):
         ctx.check(f"the key in the environment shows as set, from the environment, its tail, got {orp}",
                   orp["set"] is True and orp["source"] == "environment" and orp["tail"] == "****cdef")
         ctx.check("and the key is nowhere in the answer", "sk-or-v1" not in json.dumps(s) and "0123456789abcdef" not in json.dumps(s))
-        team = s["team"]
-        rows = {r["name"]: r for r in team["lineups"]}
-        ctx.check(f"a fresh home runs the auto lineup by default, got {team['active']} {team['source']}",
-                  team["active"] == "auto" and team["source"] == "default" and team["roles_enabled"] is True)
-        ctx.check("One model for everything first, then the lineups; auto checked as the default",
-                  team["lineups"][0]["name"] == "one-model" and team["lineups"][0]["label"] == "One model for everything"
-                  and rows["auto"]["default"] and rows["auto"]["active"] and not rows["one-model"]["active"] and "balanced" in rows)
+        team = s["team"]  # 3.6.0.0 R5: the Map step (its block id stays team)
+        rows = {r["name"]: r for r in team["maps"]}
+        ctx.check(f"a fresh home runs the starter map by default, got {team['active']} {team['source']}",
+                  team["active"] == "starter" and team["source"] == "default")
+        ctx.check(f"every map listed, the starter checked as the default, got {list(rows)}",
+                  rows["starter"]["default"] and rows["starter"]["active"] and "ship-it" in rows and not rows["ship-it"]["active"])
         ctx.check("R3: no check ran yet; the Linux fixes block's shape (its items depend on the box)",
                   s["last_check"] is None and set(s["linux_fixes"]) == {"needed", "items", "platform"}
                   and s["linux_fixes"]["needed"] == bool(s["linux_fixes"]["items"]))
@@ -142,42 +141,29 @@ def test_config_takes_three_keys_and_checks_each_value(ctx: Ctx):
 
 
 @test
-def test_team_writes_the_wizards_three_choices(ctx: Ctx):
+def test_the_map_step_writes_crew_map(ctx: Ctx):
+    """3.6.0.0 R5: the Team step is the Map step: a map name writes config `crew.map` (as `halo maps use`); a lineup
+    name gets the one line; the preview is the map in words."""
     with _Env() as e:
-        status, s = e.call("POST", "setup/team", {"lineup": "one-model"})
+        status, s = e.call("POST", "setup/team", {"map": "ship-it"})
         cfg = e.config()
-        ctx.check(f"one-model: no team, roles off, got {status} {cfg}", status == 200 and "team" not in cfg
-                  and cfg.get("roles", {}).get("enabled") is False and s["team"]["active"] == "one-model")
-        ctx.check(f"its line, got {s.get('lines')}", s["lines"] == ["one model for everything (roles off, no lineup)"])
-        status, s = e.call("POST", "setup/team", {"lineup": "auto"})
-        cfg = e.config()
-        ctx.check(f"auto: roles on, still no team, got {cfg}", status == 200 and "team" not in cfg and cfg["roles"]["enabled"] is True
-                  and s["team"]["active"] == "auto" and s["team"]["source"] == "default")
-        status, s = e.call("POST", "setup/team", {"lineup": "balanced"})
-        cfg = e.config()
-        roles = {k for k in cfg.get("roles", {}) if k != "enabled"}
-        from halo_harness.teams_yaml import resolve_role_table, resolve_team_template
-        table, _notes = resolve_role_table(resolve_team_template("balanced", cwd=e.cwd, state_dir=e.state_dir), cwd=e.cwd, state_dir=e.state_dir)
-        ctx.check(f"a lineup: team, the roles.* its table resolves and roles on, got {cfg.get('team')} {sorted(roles)}",
-                  status == 200 and cfg.get("team") == "balanced" and cfg["roles"]["enabled"] is True and roles == set(table)
-                  and s["team"]["active"] == "balanced" and s["lines"][0].startswith("lineup 'balanced' applied")
-                  and isinstance(s.get("details"), list))
-        rows = {r["name"]: r for r in s["team"]["lineups"]}
-        ctx.check("the rows follow: balanced checked, auto no longer the default", rows["balanced"]["active"] and not rows["auto"]["default"])
-        status, s = e.call("POST", "setup/team", {"lineup": "auto"})
-        ctx.check("auto over a set team applies auto (the wizard's rule)", status == 200 and e.config().get("team") == "auto")
+        ctx.check(f"ship-it: crew.map, got {status} {cfg.get('crew')} {s.get('lines')}", status == 200
+                  and (cfg.get("crew") or {}).get("map") == "ship-it" and s["team"]["active"] == "ship-it" and s["team"]["source"] == "config"
+                  and s["lines"] == ["crew.map = ship-it: new sessions run on the map ship-it"])
+        rows = {r["name"]: r for r in s["team"]["maps"]}
+        ctx.check("the rows follow: ship-it checked, the starter no longer the default", rows["ship-it"]["active"] and not rows["starter"]["default"])
         before = e.config()
-        for body in ({"lineup": "no-such-lineup"}, {}, {"lineup": "../x"}):
+        for body in ({"map": "no-such-map"}, {}, {"map": "../x"}, {"lineup": "balanced"}):
             status, got = e.call("POST", "setup/team", body)
             ctx.check(f"{body} is a 422 with problems, got {status} {got.get('error')}", status == 422 and got["problems"])
+        status, got = e.call("POST", "setup/team", {"lineup": "balanced"})
+        ctx.check(f"a lineup's name: lineups are gone, got {got.get('error')}", "lineups are gone" in str(got.get("error")))
         ctx.check("and wrote nothing", e.config() == before)
-        status, p = e.call("GET", "setup/team/balanced/preview")
-        ctx.check(f"the preview: the Team step's lines, got {status} {p.get('lines', [''])[:1]}",
-                  status == 200 and p["name"] == "balanced" and p["lines"][0].startswith("balanced"))
-        status, p = e.call("GET", "setup/team/one-model/preview")
-        ctx.check(f"One model's preview, got {p.get('lines', [''])[:1]}", status == 200 and p["lines"][0] == "One model for everything:")
+        status, p = e.call("GET", "setup/team/ship-it/preview")
+        ctx.check(f"the preview: the map in words, got {status} {p.get('lines', [''])[:2]}",
+                  status == 200 and p["name"] == "ship-it" and any("plan" in ln for ln in p["lines"]))
         status, _ = e.call("GET", "setup/team/nope/preview")
-        ctx.check(f"an unknown lineup's preview is a 404, got {status}", status == 404)
+        ctx.check(f"an unknown map's preview is a 404, got {status}", status == 404)
 
 
 @test

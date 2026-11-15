@@ -21,8 +21,8 @@ import { panels, usePanels, type Seg } from "./pstore";
 import { sessionsIn, useScope } from "./scope";
 import { allAgents, isLive, sessionTitle, useFleet, useNow, type Scope } from "./store";
 import type { AgentKey } from "./types";
-import { byGroup } from "../agents/live/laneGroups";
-import { toggleByGroup, useByGroup } from "../agents/live/groupStore";
+import { byGroup } from "../crew/live/laneGroups";
+import { toggleByGroup, useByGroup } from "../crew/live/groupStore";
 import { PHASE_WORD, spanWords, type PhaseSeg } from "../session/phases";
 
 const LANE = 28; // 3.6.0.0 R7: a lane row is a control a person clicks (it pins its agent): 28 px tall

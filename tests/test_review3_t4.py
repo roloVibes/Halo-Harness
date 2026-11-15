@@ -96,51 +96,6 @@ def test_item145_bang_command_keeps_image_chips_and_drops_their_labels(ctx: Ctx)
     asyncio.run(body())
 
 
-@test
-def test_item148_lineup_save_reports_bad_instances_and_an_empty_role(ctx: Ctx):
-    """3.1.1.0 R3: lineups are edited in Studio; its save (`PUT /api/lineup/<name>`) names a bad
-    Instances count and an empty Role instead of dropping either, and writes nothing."""
-    from halo_harness.studio.api import Request, dispatch
-    state = Path(tempfile.mkdtemp(prefix="t4-148-")) / ".halo"
-    state.mkdir(parents=True)
-    raw = {"agents": [{"role": "main", "agent": "coder"}, {"role": "", "agent": "reviewer", "instances": "two"}]}
-    status, body = dispatch(Request(owner=True, method="PUT", path="lineup/t", query={}, body={"raw": raw}, cwd=state.parent,
-                                    state_dir=state))
-    problems = body.get("problems") or []
-    ctx.check(f"422 naming the count and the role, got {status} {problems}", status == 422
-              and any('"instances" must be a positive integer' in p for p in problems)
-              and any('"role" is required' in p for p in problems))
-    ctx.check("nothing was written", not (state / "teams" / "t.yaml").exists())
-
-
-@test
-def test_item149_form_editors_refuse_an_unloadable_file(ctx: Ctx):
-    from halo_harness.roles import role_templates_dir
-    from halo_harness.tui import slash
-
-    notes, opened = [], []
-    fake = SimpleNamespace(notify=lambda text, **kw: notes.append(text),
-                           call_from_thread=lambda fn, *a, **kw: fn(*a, **kw),
-                           controller=SimpleNamespace(list_models=lambda: []))
-    real_roles = slash._open_roles_editor
-    slash._open_roles_editor = lambda *a: opened.append("roles")
-    role_file = role_templates_dir() / "mine.json"
-    try:
-        role_file.parent.mkdir(parents=True, exist_ok=True)
-        role_file.write_text('{"roles": {"main": "or:a/b", "revi', encoding="utf-8")
-        slash._roles_edit_form_worker(fake, "mine")
-        ctx.check(f"no editor opened, got {opened}", opened == [])
-        ctx.check(f"one note naming the file, got {notes}", len(notes) == 1 and all("cannot be loaded" in n for n in notes))
-        ctx.check("the file is untouched", role_file.read_text(encoding="utf-8").endswith('"revi'))
-        role_file.unlink()
-        slash._roles_edit_form_worker(fake, "mine")
-        ctx.check(f"a missing template still opens a fresh form, got {opened}", opened == ["roles"])
-    finally:
-        slash._open_roles_editor = real_roles
-        if role_file.exists():
-            role_file.unlink()
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -1,40 +1,8 @@
-/* The fleet's shared pieces (3.0.5.0 R3; 3.3.16.0 R2 "the Fleet fold": the section, its map and its Tree panel went --
-   Agents -> Live draws the tree, styles/agents-live.css): the bar over Session's map, the passing edges Live draws
-   (a spawn or a message lighting, a conflict), a node's menu, the pair card and the share / control settings
-   (Setup -> Machines), the confirm dialog and the mini stream. Tokens only (the QR alone is black on white, so a
-   phone camera reads it). */
 
-/* -- Session's map bar and Live's passing edges ------------------------------------ */
-.fm-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.fm-counts { font-size: 12px; }
-.fm-attn { color: var(--warn); font-weight: 600; }
-.fm-edge { fill: none; stroke: var(--line-strong); stroke-width: 1.2; }
-.fm-edge-lit { stroke: var(--accent); stroke-width: 2.2; stroke-dasharray: 7 5; animation: og-dash .7s linear infinite; filter: drop-shadow(0 0 4px var(--accent)); }
-.fm-edge-lit[data-kind="message"] { stroke: var(--accent-2); }
-.fm-menu { position: fixed; }
 
 /* -- the pair card and the settings (Setup -> Machines), a Start view's try-it line ------- */
 .fs-try { display: grid; gap: 4px; padding: 10px 12px; border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); font-size: 13px; }
 .fs-try code, .fp-none code, .fp-start code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--bg-2); border: 1px solid var(--line); }
-.fp-pair, .fp-settings { display: grid; gap: 8px; }
-.fp-start { display: grid; gap: 8px; justify-items: start; }
-.fp-start p { margin: 0; font-size: 13px; }
-.fp-code-grid { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 14px; align-items: start; }
-.fp-qr { width: 148px; height: 148px; border-radius: 6px; }
-.fp-qr-bg { fill: #ffffff; }
-.fp-qr-dots { fill: #04121c; }
-.fp-code-side { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
-.fp-code { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: .04em; word-spacing: .2em; }
-.fp-join { display: block; padding: 6px 8px; font-size: 12px; border-radius: var(--radius-sm); background: var(--bg-2); border: 1px solid var(--line); overflow-wrap: anywhere; }
-.fp-note { font-size: 12px; }
-.fp-nohub { display: grid; gap: 4px; justify-items: start; padding: 8px 10px; border: 1px solid var(--warn); border-radius: var(--radius-sm); background: var(--warn-soft); }
-.fp-radios { display: grid; gap: 2px; margin-bottom: 8px; }
-.fp-radio { display: grid; grid-template-columns: 18px 64px minmax(0, 1fr); align-items: baseline; gap: 6px; padding: 5px 8px; border-radius: var(--radius-sm); border: 1px solid transparent; cursor: pointer; font-size: 13px; }
-.fp-radio[data-on] { border-color: var(--line-strong); background: var(--accent-soft); }
-.fp-radio input { accent-color: var(--accent); }
-.fp-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; font-size: 13px; }
-.fp-list li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.fp-none { margin: 0 0 8px; font-size: 13px; }
 .fs-confirm { margin: 0; font-size: 13px; }
 
 /* -- the mini stream (picture in picture) ------------------------------------------- */
@@ -49,7 +17,3 @@
 .pip-tool { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; }
 .pip-text[data-kind="thinking"] { color: var(--muted); font-style: italic; }
 .pip-text[data-you] { color: var(--accent); }
-
-@media (prefers-reduced-motion: reduce) {
-  .fm-edge-lit, .fm-edge { animation: none !important; }
-}

@@ -12,7 +12,7 @@
 import { api, ApiError } from "../../lib/api";
 import { onEvent } from "../../lib/events";
 import { createStore, useStore } from "../../lib/store";
-import { refreshModels } from "../roles/bioActions";
+import { refreshModels } from "../crew/models/actions";
 import { cards } from "./cards";
 import { setup, showStatus, type SetupData } from "./store";
 

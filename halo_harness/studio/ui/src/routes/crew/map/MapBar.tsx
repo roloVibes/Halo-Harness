@@ -7,7 +7,7 @@ import { openGoalHere } from "../run/goalStore";
 import { openFeed } from "./feedOpen";
 import { Button } from "../../../lib/ui";
 import { dismissError, newMap, openMap, setUse, toggleLock, undoLast, useMap } from "./mapStore";
-import { LitLine, ReplayLast } from "./LitLine";
+import { Extras, LitLine, ReplayLast } from "./LitLine";
 import { useLitNow } from "./useLit";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
@@ -66,7 +66,7 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
   return (
     <p className="cw-line mp-topline" data-testid="map-topline">
       Nothing is running on it now.<ReplayLast /> {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
-      {strip && <> {strip}</>}
+      {strip && <> {strip}</>} <Extras L={L} />
     </p>
   );
 }

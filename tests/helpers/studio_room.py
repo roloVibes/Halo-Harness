@@ -28,11 +28,11 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 from tests.helpers.studio_room_js import CANVASES, DRAWER_BTNS, DRAWINGS, MEASURE, btn, drawn  # noqa: E402
 
 SIZES = ((1280, 800), (1500, 900), (1920, 1000))
-VIEWS = (("session", "session", ""), ("agents", "agents", "&view=cast"), ("crew", "agents", "&view=crew&agent=storefront-checkout-regression-reviewer"),
+VIEWS = (("session", "session", ""), ("crew", "agents", "&view=crew&agent=storefront-checkout-regression-reviewer"),
          ("flows", "agents", "&view=flows&workflow=storefront-checkout-release-and-regression-flow"),
          ("map", "agents", "&view=map&map=storefront-release-day-map"), ("packs", "packs", ""), ("local", "local", ""),  # 3.6.0.0 R3: 3 · Map
          ("setup", "setup", ""), ("settings", "settings", ""))
-READY = {"session": ".stage-main [data-testid=session-live] .panel-body", "agents": ".stage-main [data-testid=roles-graph] .rc-scroll [data-testid=roles-card]",  # 3.6.0.0: its drawing drawn
+READY = {"session": ".stage-main [data-testid=session-live] .panel-body",  # 3.6.0.0 R5: Cast went (its row with it)
          "crew": ".stage-main [data-testid=crew-form][data-name=storefront-checkout-regression-reviewer] [data-testid=crew-try-estimate]",  # 3.6.0.0 R1: 1 · Agents
          "flows": ".stage-main [data-testid=flow-form][data-name=storefront-checkout-release-and-regression-flow] [data-testid=flow-drawn-step]",  # R2
          "map": ".stage-main [data-testid=map-world] [data-map-box=storefront-checkout-regression-reviewer]",  # R3
@@ -70,9 +70,13 @@ def shot(c, name: str) -> None:
 
 
 def load(c, url: str, name: str) -> None:
-    """`url` straight from the page before (no about:blank hop); never the page's own address (a fragment hop)."""
+    """`url` straight from the page before (no about:blank hop); never the page's own address (a fragment hop).
+    3.6.0.0 R5: `Page.navigate` answers before the new page commits, and the page before is often the same section
+    (BOOTED and READY true on it), so the old page is marked and the wait is for a page without the mark: a read
+    after this never lands on the old page or on the new one mid-boot (gate: `.stage-row` null in the split step)."""
+    c.js("window.__roomOld = 1; 1")
     c.go(url)
-    c.wait(BOOTED, 40)
+    c.wait(f"!window.__roomOld && {BOOTED}", 40)
     c.wait(f"!!document.querySelector('{READY[name]}')", 40)
 
 
@@ -135,6 +139,7 @@ def breakpoints(c, rig) -> dict:
         pass  # the read below says so
     out["phone"] = c.js("[getComputedStyle(document.querySelector('.rail')).display, getComputedStyle(document.querySelector('[data-testid=rail-menu-btn]')).display,"
                         " document.documentElement.scrollWidth <= innerWidth + 1]")
+    out["phone_wide"] = c.js(WIDE)  # 3.6.0.0 R5: what is wider than the window when the page scrolls sideways
     c.js("document.querySelector('[data-testid=rail-menu-btn]').click(); 1")
     c.wait("getComputedStyle(document.querySelector('.rail')).display !== 'none'", 10)
     out["phone_menu"] = c.js("getComputedStyle(document.querySelector('.rail')).display")
@@ -142,24 +147,35 @@ def breakpoints(c, rig) -> dict:
     return {"bp": out}
 
 
-CAST = ".section-view:not([hidden]) .rc"
-PCT = f"document.querySelector('{CAST} .rc-zoom button:nth-child(2)')?.textContent"
+# 3.6.0.0 R5: what makes the page scroll sideways: every element whose right edge is past the window and that no
+# ancestor clips (overflow other than visible) and that is not fixed -- its class, test id and edges -- then the stage's
+# float flag and drawers, the window and the page's width, and whether this is still the page before the load
+WIDE = ("(() => { const free = (e) => { for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) {"
+        " const cs = getComputedStyle(p); if (cs.overflowX !== 'visible' || cs.position === 'fixed') return false; } return getComputedStyle(e).position !== 'fixed'; };"
+        " const far = [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > innerWidth + 1 && free(e))"
+        ".slice(0, 8).map((e) => [String(e.className).slice(0, 60), e.getAttribute('data-testid') || '', Math.round(e.getBoundingClientRect().left),"
+        " Math.round(e.getBoundingClientRect().right)]); const st = document.querySelector('.section-view:not([hidden]) .stage-row');"
+        " return {far, float: st ? st.getAttribute('data-float') : null, drawers: [...document.querySelectorAll('.stage-drawer')].map((d) =>"
+        " [d.dataset.panelIn, d.getAttribute('data-floating'), Math.round(d.getBoundingClientRect().width)]),"
+        " w: innerWidth, sw: document.documentElement.scrollWidth, old: !!window.__roomOld, href: location.search}; })()")
+CAST = ".section-view:not([hidden]) [data-testid=map-view]"  # 3.6.0.0 R5: the Map (Cast went)
+PCT = f"document.querySelector('{CAST} [data-testid=canvas-zoom-level]')?.textContent"
 
 
 def hand(c, rig) -> dict:
-    """3.6.0.0 R8: a zoom by hand survives a drawer opening (Agents' Cast at 1500 x 900); Fit makes the drawing automatic
-    again, so the next box change fits it anew."""
+    """3.6.0.0 R8: a zoom by hand survives a drawer opening (3.6.0.0 R5: Agents -> 3 · Map at 1500 x 900, Cast before);
+    Fit makes the drawing automatic again, so the next box change fits it anew."""
     size(c, 1500, 900)
     c.js("try { localStorage.clear(); } catch (e) {} 1")
-    load(c, rig.url("agents", "&view=cast&hand=1"), "agents")
+    load(c, rig.url("agents", "&view=map&map=storefront-release-day-map&hand=1"), "map")
     out = {"auto": measure(c, 10, PCT)}
     for _ in range(2):
-        c.js(f"document.querySelector('{CAST} .rc-zoom button[aria-label=\"Zoom in\"]').click(); 1")
+        c.js(f"document.querySelector('{CAST} [data-testid=canvas-zoom-in]').click(); 1")
     out["hand"] = c.wait(f"{PCT} !== {json.dumps(out['auto'])} && {PCT}", 10)
     first = (c.js(DRAWER_BTNS) or [""])[0]
     press(c, first)
     out["after_drawer"] = measure(c, 10, PCT)
-    c.js(f"document.querySelector('{CAST} button[title^=\"Fit the canvas\"]').click(); 1")
+    c.js(f"document.querySelector('{CAST} [data-testid=canvas-fit]').click(); 1")
     out["fit"] = measure(c, 10, PCT)
     c.js(f"{btn(first)}.click(); 1")
     c.wait(f"!{drawn(first)}", 20)

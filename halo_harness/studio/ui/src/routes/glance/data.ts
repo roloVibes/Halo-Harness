@@ -16,7 +16,7 @@ import { startFeed } from "../../shell/feed";
 import { loadAttention } from "../fleet/pload";
 import { panels } from "../fleet/pstore";
 import { load, startFleet } from "../fleet/sync";
-import type { CostsView } from "../agents/live/spend";
+import type { CostsView } from "../crew/live/spend";
 import { startLiveTree } from "../shared/liveTree";
 
 export const STALE_MS = 15_000;
@@ -99,7 +99,7 @@ export function startGlance(): void {
 }
 
 // 3.4.1.1 (65): the spend against its cap is the pure module's (agents/live/spend.ts), from GET fleet/costs.
-export { spendOf, type Spend } from "../agents/live/spend";
+export { spendOf, type Spend } from "../crew/live/spend";
 
 /** "12 min", "1 h 04 min", "under a minute" since `t0` (unix seconds). */
 export function elapsedWords(t0: number | null | undefined, nowMs: number): string {

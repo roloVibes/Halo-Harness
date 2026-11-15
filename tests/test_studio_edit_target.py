@@ -1,15 +1,14 @@
 """tests.test_studio_edit_target -- `halo studio --edit` without a browser (Halo
-3.1.1.0 R3: Studio is the one editor of bios and lineups).
+3.1.1.0 R3; 3.6.0.0 R5: Studio is the one editor of agents, workflows and maps).
 
-1. an edit target (bio:<name>, lineup:<name>, team, a bare name) and the URL
-   it rides in: `?mode=agents&view=cast&edit=bio:coder#t=<token>` (3.3.16.0 R1; `?mode=roles` before);
+1. an edit target (agent:<name>, workflow:<name>, map:<name>, the old bio: / lineup: / team, a bare name) and the URL
+   it rides in: `?mode=agents&view=crew&edit=agent:coder#t=<token>`;
 2. a Studio running for this home is focused, not started again: `POST
    /api/focus` puts a `focus` frame on the live feed of every open page;
    with no page open the browser opens the URL, and with no browser the URL
    is the answer; `--no-open` only prints it;
 3. no Studio running: one is started in the background with `--edit`;
-4. `halo studio --edit`, `halo agents edit`, `halo teams edit` (and
-   `--no-open`) and `GET /api/field-help` (field_help.py's lines).
+4. `halo studio --edit`, `halo agents edit` and `GET /api/field-help` (field_help.py's lines).
 The DOM half (the bio form open on that bio, a focused page) is
 tests/test_studio_edit_route.py (headless Chrome).
 Run: python -m tests.test_studio_edit_target
@@ -89,26 +88,31 @@ def test_the_edit_target_and_its_url(ctx: Ctx):
     from halo_harness.studio import launch
     from halo_harness.studio.edit_target import parse, resolve
     from halo_harness.studio.server import url_for
+    t, _ = parse("agent:coder")
+    ctx.check(f"agent:coder opens Agents (1 · Agents), got {t}", t is not None and (t.kind, t.name, t.mode, t.view, t.text) == ("agent", "coder", "agents", "crew", "agent:coder"))
+    t, _ = parse("workflow:code")
+    ctx.check("workflow:<name> opens 2 · Workflows", t is not None and t.query() == "?mode=agents&view=workflows&edit=workflow:code")
+    t, _ = parse("map:starter")
+    ctx.check("map:<name> opens 3 · Map", t is not None and t.query() == "?mode=agents&view=map&edit=map:starter")
     t, _ = parse("bio:coder")
-    ctx.check(f"bio:coder opens Agents (Cast), got {t}", t is not None and (t.kind, t.name, t.mode, t.view, t.text) == ("bio", "coder", "agents", "cast", "bio:coder"))
+    ctx.check("an old bio: target opens 1 · Agents, marked old", t is not None and t.view == "crew" and t.old)
     t, _ = parse("lineup:halo-dev-cycle")
-    ctx.check("lineup:<name> opens Agents on Cast", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=cast&edit=lineup:halo-dev-cycle")
+    ctx.check("an old lineup: target opens the Map, marked old", t is not None and t.query() == "?mode=agents&view=map&edit=lineup:halo-dev-cycle" and t.old)
     t, _ = parse("team")
-    ctx.check("team opens Agents on Live (3.3.16.0 R1: the Team section went; 3.4.0.0 D: Runs too)", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=live&edit=team")
-    for bad in ("", "coder", "bio:", "bio:../etc", "org:x", "lineup:a/b"):
+    ctx.check("team opens the Map (3.6.0.0 R5)", t is not None and t.mode == "agents" and t.query() == "?mode=agents&view=map&edit=team")
+    for bad in ("", "coder", "agent:", "agent:../etc", "org:x", "lineup:a/b"):
         got, why = parse(bad)
         ctx.check(f"{bad!r} is not a target, with a reason", got is None and why)
     fake = SimpleNamespace(server_address=("127.0.0.1", 4321), token="tok")
     ctx.check("url_for: the target in the query, the token in the fragment",
-              url_for(fake, None, "bio:coder") == "http://127.0.0.1:4321/?mode=agents&view=cast&edit=bio:coder#t=tok")
+              url_for(fake, None, "agent:coder") == "http://127.0.0.1:4321/?mode=agents&view=crew&edit=agent:coder#t=tok")
     ctx.check("url_for without an edit is unchanged", url_for(fake, "agents") == "http://127.0.0.1:4321/?mode=agents#t=tok")
     ctx.check("the running Studio's URL carries it too",
-              launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=agents&view=live&edit=team#t=x")
+              launch.url_from_info({"port": 99, "token": "x"}, None, "team") == "http://127.0.0.1:99/?mode=agents&view=map&edit=team#t=x")
     with _home() as h:
-        from halo_harness.teams_yaml import ensure_builtin_team_templates
-        ensure_builtin_team_templates(state_dir=h.state)
-        ctx.check("a bare bio name resolves to bio:", resolve("coder", state_dir=h.state)[0].text == "bio:coder")
-        ctx.check("a bare lineup name resolves to lineup:", resolve("balanced", state_dir=h.state)[0].text == "lineup:balanced")
+        ctx.check("a bare agent name resolves to agent:", resolve("coder", state_dir=h.state)[0].text == "agent:coder")
+        ctx.check("a bare workflow name resolves to workflow:", resolve("code", state_dir=h.state)[0].text == "workflow:code")
+        ctx.check("a bare map name resolves to map:", resolve("ship-it", state_dir=h.state)[0].text == "map:ship-it")
         ctx.check("an unknown bare name says so", resolve("no-such-thing", state_dir=h.state)[0] is None)
 
 
@@ -123,20 +127,20 @@ def test_a_running_studio_is_focused_not_started_again(ctx: Ctx):
             _stub(launch, "launch_detached", lambda *a, **k: started.append(k) or "x"):
         page = bridge_for(h.srv).subscribe("all")
         page.get(0.5)  # the sessions frame every new page gets first
-        r = open_edit(parse("lineup:halo-dev-cycle")[0], cwd=h.proj, state_dir=h.state)
+        r = open_edit(parse("map:starter")[0], cwd=h.proj, state_dir=h.state)
         frame = page.get(2)
         ctx.check(f"one open page: focused, got {r}", r["how"] == "focused" and r["pages"] == 1 and not opened and not started)
         ctx.check(f"the page got a focus frame naming the target, got {frame}",
-                  frame and frame.get("event") == "focus" and (frame.get("data") or {}).get("edit") == "lineup:halo-dev-cycle")
-        ctx.check("the URL names the target", "?mode=agents&view=cast&edit=lineup:halo-dev-cycle#t=" in r["url"])
-        ctx.check(f"the line says it opened in the open page, got {describe(r)!r}", describe(r).startswith("Opened lineup:halo-dev-cycle in the Studio page"))
+                  frame and frame.get("event") == "focus" and (frame.get("data") or {}).get("edit") == "map:starter")
+        ctx.check("the URL names the target", "?mode=agents&view=map&edit=map:starter#t=" in r["url"])
+        ctx.check(f"the line says it opened in the open page, got {describe(r)!r}", describe(r).startswith("Opened map:starter in the Studio page"))
         bridge_for(h.srv).unsubscribe(page)
-        r = open_edit(parse("bio:coder")[0], cwd=h.proj, state_dir=h.state)
+        r = open_edit(parse("agent:coder")[0], cwd=h.proj, state_dir=h.state)
         ctx.check(f"no page open: the browser opens the URL, got {r} {opened}", r["how"] == "opened" and opened == [r["url"]])
         with _stub(launch, "_open", lambda url: False):
             r = open_edit(parse("team")[0], cwd=h.proj, state_dir=h.state)
-        ctx.check(f"no browser: the URL is the answer, got {r}", r["how"] == "printed" and describe(r).startswith("Studio is at http"))
-        r = open_edit(parse("bio:coder")[0], cwd=h.proj, state_dir=h.state, open_browser=False)
+        ctx.check(f"no browser: the URL is the answer, got {r}", r["how"] == "printed" and describe(r).splitlines()[-1].startswith("Studio is at http") and "no longer read" in describe(r))
+        r = open_edit(parse("agent:coder")[0], cwd=h.proj, state_dir=h.state, open_browser=False)
         ctx.check(f"--no-open only prints it, got {r}", r["how"] == "printed" and len(opened) == 1)
         status, body = launch.api_call(h.state, "POST", "focus", {"edit": "nope"})
         ctx.check(f"POST /api/focus refuses a non-target with its reason, got {status} {body}", status == 422 and "edit target" in body.get("error", ""))
@@ -147,9 +151,9 @@ def test_a_running_studio_is_focused_not_started_again(ctx: Ctx):
         S._BACKGROUND["server"] = h.srv
         try:
             page = bridge_for(h.srv).subscribe("all")
-            r = open_edit(parse("bio:coder")[0], cwd=h.proj, state_dir=h.state)
+            r = open_edit(parse("agent:coder")[0], cwd=h.proj, state_dir=h.state)
             ctx.check(f"the session's own Studio is focused too, got {r}", r["how"] == "focused" and r["pages"] == 1
-                      and f":{h.srv.server_address[1]}/?mode=agents&view=cast&edit=bio:coder" in r["url"])
+                      and f":{h.srv.server_address[1]}/?mode=agents&view=crew&edit=agent:coder" in r["url"])
             bridge_for(h.srv).unsubscribe(page)
         finally:
             S._BACKGROUND.pop("server", None)
@@ -164,10 +168,10 @@ def test_no_studio_running_starts_one_with_the_edit(ctx: Ctx):
     calls = []
     home = Path(tempfile.mkdtemp(prefix="halo-edit-none-"))
     try:
-        with _stub(launch, "launch_detached", lambda mode, **k: calls.append((mode, k)) or "http://127.0.0.1:1/?mode=roles&edit=bio:coder#t=t"):
-            r = open_edit(parse("bio:coder")[0], cwd=home, state_dir=home / ".halo")
+        with _stub(launch, "launch_detached", lambda mode, **k: calls.append((mode, k)) or "http://127.0.0.1:1/?mode=agents&edit=agent:coder#t=t"):
+            r = open_edit(parse("agent:coder")[0], cwd=home, state_dir=home / ".halo")
         ctx.check(f"started, with --edit, got {r} {calls}", r["how"] == "started" and calls and calls[0][0] == "agents"
-                  and calls[0][1].get("edit") == "bio:coder" and calls[0][1].get("open_browser") is True)
+                  and calls[0][1].get("edit") == "agent:coder" and calls[0][1].get("open_browser") is True)
         with _stub(launch, "launch_detached", lambda mode, **k: ""):
             r = open_edit(parse("team")[0], cwd=home, state_dir=home / ".halo")
         ctx.check(f"a Studio that does not start says so, got {r}", r["how"] == "failed")
@@ -189,31 +193,30 @@ def test_no_studio_running_starts_one_with_the_edit(ctx: Ctx):
 
 @test
 def test_the_cli_verbs_open_studio_on_the_thing(ctx: Ctx):
-    from halo_harness import agents_cli, teams_cli
+    from halo_harness import agents_cli, maps_cli, workflows_cli
     from halo_harness.studio import launch
     from halo_harness.studio.server import cmd_studio
     rc, text = _out(cmd_studio, ["--edit", "nope"])
-    ctx.check(f"halo studio --edit nope: exit 2 with the reason, got {rc} {text!r}", rc == 2 and "bio:<name>" in text)
+    ctx.check(f"halo studio --edit nope: exit 2 with the reason, got {rc} {text!r}", rc == 2 and "agent:<name>" in text)
     with _home() as h, _stub(launch, "_open", lambda url: False):
-        rc, text = _out(cmd_studio, ["--edit", "bio:coder", "--no-open"])
+        rc, text = _out(cmd_studio, ["--edit", "agent:coder", "--no-open"])
         ctx.check(f"halo studio --edit ... --no-open on a running Studio prints the URL, got {rc} {text!r}",
-                  rc == 0 and "?mode=agents&view=cast&edit=bio:coder#t=" in text and text.startswith("Studio is at"))
-        rc, text = _out(agents_cli.cmd_agents, ["edit", "coder", "--no-open"])
-        ctx.check(f"halo agents edit coder --no-open prints the URL, got {rc} {text!r}", rc == 0 and "edit=bio:coder" in text)
-        rc, text = _out(teams_cli.cmd_teams, ["edit", "my-team", "--no-open"])
-        ctx.check(f"halo teams edit my-team --no-open: the starter lineup, then the URL, got {rc} {text!r}",
-                  rc == 0 and "Created lineup 'my-team'" in text and "edit=lineup:my-team" in text)
-        ctx.check("the starter lineup is on disk", (h.state / "teams" / "my-team.yaml").is_file())
-        saved_editor = os.environ.pop("EDITOR", None), os.environ.pop("VISUAL", None)
+                  rc == 0 and "?mode=agents&view=crew&edit=agent:coder#t=" in text and text.startswith("Studio is at"))
+        rc, text = _out(cmd_studio, ["--edit", "bio:coder", "--no-open"])
+        ctx.check(f"an old bio: target says the old files' line, then the URL, got {rc} {text!r}",
+                  rc == 0 and "no longer read" in text and "view=crew&edit=bio:coder" in text)
+        saved = os.environ.pop("EDITOR", None), os.environ.pop("VISUAL", None)
         try:
-            rc, text = _out(agents_cli.cmd_agents, ["edit", "coder", "--yaml"])
+            for mod, verb, name, want in ((agents_cli.cmd_agents, "agents", "coder", "edit=agent:coder"),
+                                          (workflows_cli.cmd_workflows, "workflows", "code", "edit=workflow:code"),
+                                          (maps_cli.cmd_maps, "maps", "starter", "edit=map:starter")):
+                rc, text = _out(mod, ["edit", name])
+                ctx.check(f"halo {verb} edit {name} on a starter (no editor): Studio on it, got {rc} {text!r}",
+                          rc == 0 and "a starter (read-only)" in text and want in text)
         finally:
-            for k, v in zip(("EDITOR", "VISUAL"), saved_editor):
+            for k, v in zip(("EDITOR", "VISUAL"), saved):
                 if v is not None:
                     os.environ[k] = v
-        ctx.check(f"--yaml is the $EDITOR escape hatch (none set: says so), got {rc} {text!r}", rc == 1 and "--yaml needs $EDITOR" in text)
-        rc, text = _out(agents_cli.cmd_agents, ["edit", "--help"])
-        ctx.check("halo agents edit --help names --no-open and --yaml", "--no-open" in text and "--yaml" in text and "--form" not in text)
 
 
 @test
@@ -233,9 +236,6 @@ def test_field_help_is_served_from_one_source(ctx: Ctx):
         ctx.check(f"POST is 405, got {status}", status == 405)
     from halo_harness.teams_yaml import TOP_SECTIONS
     ctx.check("every lineup section has its line", all(field_help.LINEUP_SECTIONS.get(s) for s in TOP_SECTIONS))
-    from halo_harness.tui.dialogs.bio_view_text import FIELDS
-    missing = [f"{s}.{k}" for s, k, _l in FIELDS if not field_help.BIO.get(f"{s}.{k}")]
-    ctx.check(f"every field the terminal view shows has its line; missing: {missing}", not missing)
     bundle = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "static" / "dist" / "studio.js"
     if bundle.is_file():
         js = bundle.read_text(encoding="utf-8", errors="replace")

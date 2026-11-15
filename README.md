@@ -57,36 +57,36 @@ Studio, a page in your browser, is where you watch it and change it.
 <a href="docs/media/studio-session.gif"><img alt="Studio's Session dashboard: every agent's thinking, tool calls, hand-backs and an ask card scrolling in the Live column, the agent tree and the cost beside it on the right" src="docs/media/studio-session.gif" width="100%"></a>
 
 Every agent of a session in one live column: what it thinks (THINK), what it says to another agent (TALK), each tool
-call with its time and result, and what each agent costs, beside a tree of who spawned whom. Agents -> Live is the
-living canvas: only what runs now, the plan lighting up under it, what each agent waits on, and one sentence that says
-what is going on. A finished run moves to History, with its report and a replay.
+call with its time and result, and what each agent costs, beside a tree of who spawned whom. Agents -> Map is where
+your agents are connected: while a session runs, its map lights up (who works, who waits on what, one sentence that says
+what is going on). A finished run moves to History under the map, with its report and a replay.
 
-**How:** `halo studio`, then Session (`Alt+1`) or Agents -> Live (`Alt+2`, `L`); `/studio` from a terminal session.
-[Session](docs/STUDIO-sections.md#session) · [the living canvas](docs/STUDIO-live.md)
+**How:** `halo studio`, then Session (`Alt+1`) or Agents -> Map (`Alt+2`, `3`); `/studio` from a terminal session.
+[Session](docs/STUDIO-sections.md#session) · [the lit map](docs/STUDIO-live.md)
 
 ## Shape
 
-<a href="docs/media/studio-workflows.png"><img alt="Studio's Agents section on Cast: the auto lineup's tiers beside its workflow blocks, main's lines into them each labelled with its when (needs pdf, audio; always first; says review, audit), a media block open with its three agents, and the library open on the left" src="docs/media/studio-workflows.png" width="100%"></a>
+<a href="docs/media/studio-map.png"><img alt="Studio's Agents section on 3 · Map: main and the agents it hands work to, each line labelled with its when, the map picker with My sessions use this, Run a goal and the builder box under the map" src="docs/media/studio-map.png" width="100%"></a>
 
-Your lineup is a canvas of blocks: tiers of agents, and workflows (squares) that main hands work to, each line labelled
-with its `when` (a need such as a PDF, words the task says, or always first). Drag a block or an agent from the library;
-each drop says what it adds and costs before it happens. Steer a running turn from Session's Steer box (main, or the
-agent you pin), and run a goal (several agents writing the same files, each in its own git worktree) from Live's
+Your map connects agents and workflows (steps of agents) that main hands work to, each line labelled
+with its `when` (a need such as a PDF, words the task says, or always first). Add a box from the list beside the map;
+each add says what it adds and costs before it happens. Steer a running turn from Session's Steer box (main, or the
+agent you pin), and run a goal (several agents writing the same files, each in its own git worktree) from the Map's
 **Run a goal**.
 
-**How:** Agents -> Cast (`Alt+2`, `C`); `halo workflows`, `halo blocks add thinking`.
-[Agents](docs/STUDIO-agents.md) · [blocks](docs/STUDIO-blocks.md) · [steering](docs/STUDIO-session.md) · [goal runs](docs/ORCHESTRA.md)
+**How:** Agents -> Map (`Alt+2`, `3`); `halo agents`, `halo workflows`, `halo maps`.
+[Agents](docs/STUDIO-agents.md) · [the Map](docs/STUDIO-map.md) · [steering](docs/STUDIO-session.md) · [goal runs](docs/ORCHESTRA.md)
 
 ## Mix
 
-<a href="docs/media/studio-model-picker.png"><img alt="Studio's model picker open on the implementer's bio: eight models across or:, dbx:, ant:, oai:, ol: and hf: each with its price in and out, its context and its takes tags, one row picked with its best-at line under the list, and one model with nothing stated shown as ?" src="docs/media/studio-model-picker.png" width="100%"></a>
+<a href="docs/media/studio-agents-tab.png"><img alt="Studio's Agents section on 1 · Agents: your agents and the starters to copy, an agent's form with how careful it is, Try it run once on a throwaway copy with what it cost, and the builder box under it" src="docs/media/studio-agents-tab.png" width="100%"></a>
 
-One job, many models: each role of a lineup runs on its own model, across OpenRouter, Databricks, Anthropic, OpenAI,
+One job, many models: each agent runs on its own model, across OpenRouter, Databricks, Anthropic, OpenAI,
 Ollama, Hugging Face, your work's Microsoft 365 Copilot or any OpenAI-compatible server. The `auto` lineup picks a model
 for each task and learns from what succeeded here. `/model` swaps the model mid-session; the history, tools and rules
 come along.
 
-**How:** Agents -> Cast, a card's MODEL strip; `halo teams apply <lineup>`; `/model` in a session.
+**How:** Agents -> 1 · Agents, an agent's model picker; `halo agents`; `/model` in a session.
 [Models](docs/MODELS.md) · [the auto lineup](docs/ROLES.md#the-auto-lineup-halo-3190) · [providers](docs/MODELS-references.md)
 
 ## Local

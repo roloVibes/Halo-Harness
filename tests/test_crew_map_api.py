@@ -38,8 +38,8 @@ def test_read_the_maps_and_one_map(ctx: Ctx):
     with CrewRig() as rig:
         rig.studio()
         st, r = rig.api("GET", "crew/maps")
-        ctx.check(f"the two starters, none in use, got {st} {[m['name'] for m in r['maps']]}",
-                  st == 200 and {m["name"] for m in r["maps"]} == {"starter", "ship-it"} and r["in_use"] is None)
+        ctx.check(f"the two starters, the starter in use by default (3.6.0.0 R5), got {st} {[m['name'] for m in r['maps']]} {r['in_use']}",
+                  st == 200 and {m["name"] for m in r["maps"]} == {"starter", "ship-it"} and r["in_use"] == "starter")
         st, m = rig.api("GET", "crew/map/ship-it")
         ctx.check(f"ship-it: its boxes' facts (a workflow's steps), no problem, got {st} {m.get('problems')}",
                   st == 200 and m["problems"] == [] and m["boxes"]["plan"]["kind"] == "workflow"

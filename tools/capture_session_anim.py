@@ -1,4 +1,4 @@
-"""tools/capture_session_anim.py -- the animated captures of Session and Roles
+"""tools/capture_session_anim.py -- the animated capture of Session
 for the front page (Halo 3.1.5.0 R3), through headless Chrome on the driver
 base over tests/helpers/studio_session_rig.py plus three extra agents
 (tests/helpers/studio_live_rig.py) and scripted activity
@@ -7,14 +7,12 @@ as a looping GIF with Pillow (1500 x 900, at most 3 MB), and the stills.
 
     python tools/capture_session_anim.py                 docs/media/studio-session.gif, studio-session.png (the whole
                                                          dashboard) and studio-session-live.png (the Live column up close)
-    python tools/capture_session_anim.py --mode roles    docs/media/studio-roles-live.gif and studio-roles-live.png (the
-                                                         canvas glowing, the implementer's Live tab open)
-    python tools/capture_session_anim.py --dom           both scenes, short, counted by data-testid: the last stdout line
-                                                         is the JSON tests/test_studio_session_live.py pins
+    python tools/capture_session_anim.py --dom           the scene, short, counted by data-testid (the last stdout line)
 
 Options: --out DIR (default docs/media), --seconds N (default 7), --every S (default 0.25). Exit 2 without Chrome.
 No model is called. 3.1.7.0 R2: the rig's harness is you@studio (tools/capture_identity.py; exit 2 when the
-name would be this machine's) and every page is guarded before it is counted, filmed or shot.
+name would be this machine's) and every page is guarded before it is counted, filmed or shot. 3.6.0.0 R5: `--mode roles`
+(Roles' canvas glowing, its GIF) went with Cast; Session's map is the lit map.
 """
 from __future__ import annotations
 
@@ -32,9 +30,8 @@ sys.path.insert(0, str(REPO / "tools"))
 
 W, H = 1500, 900
 MAX_GIF = 3 * 1024 * 1024
-LIVE_CARDS = "document.querySelectorAll('[data-testid=\"roles-card\"][data-live]')"
-COUNT_IDS = ("session-live", "session-live-line", "session-live-tag", "session-live-ask", "roles-live-node", "roles-live-edge", "session-cost-context",
-             "session-cost-spark", "session-cost-share-seg", "roles-card", "roles-card-glyph", "roles-live-badge", "roles-tier", "roles-glow-legend-row")
+COUNT_IDS = ("session-live", "session-live-line", "session-live-tag", "session-live-ask", "session-lit-map", "session-lit-box",
+             "session-cost-context", "session-cost-spark", "session-cost-share-seg")
 
 
 def counts(c) -> dict:
@@ -45,22 +42,8 @@ def open_session(c, rig, everything: bool = False) -> None:
     """Session with the map open beside Live (3.6.0.0 R0a: one drawer at 1500 px: Live keeps 60 % of the stage); `everything`
     (the counts): the drivers' door, the map and the cost both open."""
     c.go(rig.url("session", "&open=all" if everything else "&open=session-map"))
-    c.wait("!!document.querySelector('[data-testid=\"session-live-detail\"]') && document.querySelectorAll('[data-testid=\"roles-live-node\"]').length >= 6", 40)  # 3.3.16.0 R2: Live's nodes
+    c.wait("!!document.querySelector('[data-testid=\"session-live-detail\"]')", 40)
     time.sleep(1.0)
-
-
-# The capture's own Roles arrangement (kept only while it films): the canvas, the Inspector drawer beside it (3.6.0.0 R0a, v3).
-ROLES_LAYOUT = {"v": 3, "lv": 1, "open": ["roles-inspector"], "widths": {}, "tab": "", "added": []}
-
-
-def open_roles(c, rig, wide: bool = False) -> None:
-    c.go(rig.url("roles"))
-    c.wait(f"{LIVE_CARDS}.length >= 3", 40)
-    if wide:
-        c.js(f"localStorage.setItem('halo.studio.layout.roles', {json.dumps(json.dumps(ROLES_LAYOUT))}); location.reload(); 1")
-        time.sleep(1.0)
-        c.wait(f"{LIVE_CARDS}.length >= 3", 40)
-    time.sleep(1.2)  # the canvas fits itself after its first draw
 
 
 def frame(c):
@@ -137,53 +120,19 @@ def session(c, rig, lv, out: Path, seconds: float, every: float) -> list:
     return [("studio-session.gif", g), ("studio-session.png", s), ("studio-session-live.png", live)]
 
 
-def roles(c, rig, lv, out: Path, seconds: float, every: float) -> list:
-    from capture_identity import guard_page
-    from capture_session_scenes import roles_scene
-    from tests.helpers.studio_live import card_click
-    open_roles(c, rig, wide=True)
-    guard_page(c, "roles live")
-    glyph = "document.querySelector('[data-testid=\"roles-card\"][data-agent=\"implementer\"] [data-testid=\"roles-card-glyph\"]')"
-
-    def hover() -> None:
-        x, y, w, h = c.rect(glyph)
-        c.mouse("mouseMoved", x + w / 2, y + h / 2)
-    n = int(seconds / every)
-    shots = film(c, roles_scene(lv), seconds, every, at={int(n * 0.72): hover})
-    guard_page(c, "studio-roles-live")  # what the last frames drew, before any file is written
-    g = write_gif(shots, out / "studio-roles-live.gif", every)
-    c.mouse("mouseMoved", 4, 4)
-    card_click(c, "document.querySelector('[data-testid=\"roles-card\"][data-agent=\"implementer\"]')")
-    c.wait("!!document.querySelector('[data-testid=\"roles-live\"]')", 15)
-    time.sleep(1.2)
-    guard_page(c, "studio-roles-live still")
-    s = c.shot(out / "studio-roles-live.png")
-    c.js("localStorage.removeItem('halo.studio.layout.roles'); 1")
-    return [("studio-roles-live.gif", g), ("studio-roles-live.png", s)]
-
-
 def dom(c, rig, lv) -> dict:
     from capture_identity import guard_page
-    from capture_session_scenes import play, roles_scene, session_scene
+    from capture_session_scenes import play, session_scene
     open_session(c, rig, everything=True)
     play(session_scene(lv)[:19]).join(10)  # through the thought, the spawn and its task, and the ask
     time.sleep(1.0)
     guard_page(c, "session")
     got = {"session": counts(c)}
-    open_roles(c, rig)
-    play(roles_scene(lv)[:4]).join(10)
-    time.sleep(1.0)
-    x, y, w, h = c.rect("document.querySelector('[data-testid=\"roles-card-glyph\"]')")
-    c.mouse("mouseMoved", x + w / 2, y + h / 2)
-    c.wait("!!document.querySelector('[data-testid=\"roles-glow-legend\"]')", 5)
-    guard_page(c, "roles live")
-    got["roles"] = {**counts(c), "live-card": c.js(f"{LIVE_CARDS}.length")}
     return got
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Session and Roles, animated, for the front page")
-    ap.add_argument("--mode", choices=("session", "roles"), default="session")
+    ap = argparse.ArgumentParser(description="Session, animated, for the front page")
     ap.add_argument("--dom", action="store_true")
     ap.add_argument("--out", default=str(REPO / "docs" / "media"))
     ap.add_argument("--seconds", type=float, default=7.0)
@@ -211,7 +160,7 @@ def main(argv=None) -> int:
                 return 0
             out = Path(a.out).resolve()
             out.mkdir(parents=True, exist_ok=True)
-            wrote = (session if a.mode == "session" else roles)(c, rig, lv, out, a.seconds, a.every)
+            wrote = session(c, rig, lv, out, a.seconds, a.every)
         finally:
             c.close()
             if made is not None:

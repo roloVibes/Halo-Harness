@@ -35,6 +35,18 @@ TAB = "(document.querySelector('[data-testid=\"section-tab\"][aria-selected=\"tr
 LIVE = ("queued", "running", "waiting", "paused")
 
 
+def open_strip(c, pid: str) -> None:
+    """3.1.4.0 R1: a panel that starts closed opens with one click; 3.6.0.0 R0a: its button in the view bar (the strips
+    went). A panel already open stays as it is. (3.6.0.0 R5: moved here from studio_live_panels.py, which went with Live.)"""
+    btn = f"document.querySelector('.section-view:not([hidden]) [data-testid=\"viewbar-btn\"][data-panel=\"{pid}\"]')"
+    cell = f"document.querySelector('.section-view:not([hidden]) .ws-cell[data-panel=\"{pid}\"] .panel-body:not([hidden])')"
+    c.wait(f"!!{btn} || !!{cell}", 30)
+    if not c.js(f"!!{cell}"):
+        c.js(f"(() => {{ const el = {btn}; if (el) el.scrollIntoView({{block: 'center', inline: 'nearest'}}); return !!el; }})()")
+        c.click_on(btn)
+        c.wait(f"!!{cell}", 10)
+
+
 def inside(scope: str, testid: str) -> str:
     """Every `testid` inside the panel (or section) `scope`."""
     return f"document.querySelectorAll('[data-testid=\"{scope}\"] [data-testid=\"{testid}\"], [data-section=\"{scope}\"] [data-testid=\"{testid}\"]')"
@@ -53,7 +65,8 @@ def boot_go(c, u: str) -> None:
 ERRS_JS = ("window.__errs = []; addEventListener('error', (e) => window.__errs.push(String(e.message || e.error)));"
            " addEventListener('unhandledrejection', (e) => window.__errs.push('rejected: ' + String(e.reason)));")
 # 3.1.5.0 R3: Agent starts as a strip; the selected agent is the map's selected node (its key and state)
-AGENT = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"][data-selected]')"
+# 3.6.0.0 R5: the selected agent is the Agent panel's (the old tree's selected node went with the tree)
+AGENT = "document.querySelector('[data-section=\"session\"] [data-testid=\"fleet-agent-detail\"]')"
 COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
 
 
@@ -128,24 +141,16 @@ def dash(c, rig) -> dict:
         raise TimeoutError(f"Session panels not one each: {bad}; tab {c.js(TAB)!r}; errors, #root children, boot: {page!r}")
     out["panels"] = c.js(counts)
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
-    view = local_view(rig)
-    want_nodes = sum(len(s.get("agents") or []) for s in view.get("sessions") or [])
-    c.wait(f"{inside('session-map', 'roles-live-node')}.length === {want_nodes} && {inside('session-map', 'fleet-session')}.length === 2", 30)
+    # 3.6.0.0 R5: Session's Map draws the session running here as its map (main and the helpers it started)
+    c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3", 30)
     out["boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")  # 3.5.0.0: no harness box (one machine)
-    out["nodes"], out["want_nodes"] = c.js(f"{inside('session-map', 'roles-live-node')}.length"), want_nodes
-    out["cards"] = c.js(f"{inside('session-map', 'fleet-session')}.length")
-    out["foreign"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].filter((n) => !n.dataset.key.startsWith('{hid}|')).length")
-    out["working"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].filter((n) => n.dataset.motion === 'working').length")
-    out["selected"] = c.wait(f"{AGENT}?.dataset.key", 20)
-    out["selected_state"] = c.js(f"{AGENT}?.dataset.state")
-    out["selected_lit"] = c.js(f"[...{inside('session-map', 'roles-live-node')}].find((n) => n.dataset.selected)?.dataset.motion")
-    out["chosen_card"] = c.wait(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid", 10)
+    out["nodes"] = c.js(f"{inside('session-map', 'session-lit-box')}.length")
+    out["working"] = c.js(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length")
     out["sid"], out["hid"] = sid, hid
     out["cost_session"] = c.wait(f"{COST}?.dataset.session", 15)
     out["cost_model"] = c.js("document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent")
     out["cost_agents"] = c.js("document.querySelector('[data-testid=\"session-cost-agents\"]')?.textContent")
     out["cost_usd"] = c.js("document.querySelector('[data-testid=\"session-cost-usd\"]')?.textContent")
-    from tests.helpers.studio_live_panels import open_strip
     open_strip(c, "session-activity")  # 3.1.5.0 R3: Activity and Attention start as strips under Cost
     open_strip(c, "session-attention")
     live = [a for a in rig.agents() if a.get("state") in LIVE]
@@ -160,25 +165,15 @@ def dash(c, rig) -> dict:
         pass  # the counts below say what was there
     out["attn_here"] = c.js(f"{inside('session-attention', 'fleet-attn-row')}.length")
     out["attn_empty"] = c.js(f"{inside('session-attention', 'fleet-attn-empty')}.length")
-    x, y, w, h = c.rect("document.querySelector('[data-testid=\"session-map\"] .rlm-scroll')")
-    c.click(x + w - 20, y + h - 20)  # the map's empty corner: the panel takes J / K
-    hops = []
-    for _ in range(4):
-        before = c.js(f"{AGENT}?.dataset.key")
-        c.key("j")
-        hops.append(c.wait(f"{AGENT}?.dataset.key !== '{before}' && {AGENT}.dataset.key", 5) or before)
-    out["hops_here"] = all(str(k).startswith(hid + "|") for k in hops)
     boot_go(c, url(rig, f"mode=session&session={FAKE_SID}"))
-    out["deep_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 30)
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
-    out["deep_card"] = c.js(f"[...{inside('session-map', 'fleet-session')}].find((n) => n.dataset.chosen)?.dataset.sid")
     alt(c, 2)  # 3.3.18.0: Alt+2 opens Agents on Live; 3.5.0.0: this machine's sessions only
     out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
-    out["agents_nodes"] = c.wait(f"{inside('agents', 'roles-live-node')}.length > 0 && {inside('agents', 'roles-live-node')}.length", 30)
+    out["agents_view"] = c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'map' && 'map'", 30)  # R5: the Map while a session runs
     out["agents_boxes"] = c.js(f"{inside('agents', 'fleet-box')}.length + {inside('agents', 'live-machine')}.length")
     alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
     out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
-    out["back_cards"] = c.wait(f"{inside('session-map', 'fleet-session')}.length === 2 && 2", 15)
+    out["back_map"] = c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3 && 'lit'", 15)
     return out
 
 
@@ -217,7 +212,7 @@ def focus(c, rig) -> dict:
             out["focus_tab"] = None
     if not out["focus_tab"]:
         raise TimeoutError(f"the page stayed on {c.js(TAB)!r} ({c.js('location.search')!r}); open_edit: {out['focus_how']!r} {out['focus_line']!r}")
-    out["focus_agent"] = c.wait(f"{AGENT}?.dataset.key?.includes('|{FAKE_SID}|') && {AGENT}.dataset.key", 20)
+    out["focus_agent"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && '|{FAKE_SID}|'", 20)  # R5: the chosen session
     out["focus_tabs_opened"] = len(opened)
     return out
 

@@ -143,56 +143,6 @@ def _host(screen):
 
 
 @test
-def test_f70_ctrl_s_with_the_effort_prompt_open_commits_the_pick(ctx: Ctx):
-    from textual.widgets import Input
-
-    from halo_harness.tui.dialogs.roles_editor import RolesEditor
-
-    async def body():
-        with _Env():
-            editor = RolesEditor("r9-demo", {}, MODELS)
-            app = _host(editor)
-            async with app.run_test(size=(120, 45)) as pilot:
-                await pilot.pause(0.2)
-                editor._model_picked("orchestrator", "or:vendor/strong-model")
-                editor.query_one("#roles-effort-input", Input).value = "bogus"
-                editor.action_save()
-                ctx.check("an unrecognized effort is refused, nothing committed",
-                          editor.roles.get("orchestrator") is None and editor._pending_role == "orchestrator")
-                editor.query_one("#roles-effort-input", Input).value = "high"
-                editor.action_save()
-                await pilot.pause(0.1)
-                ctx.check(f"the picked model and effort are in the saved roles, got {editor.roles.get('orchestrator')}",
-                          editor.roles.get("orchestrator") == {"model": "or:vendor/strong-model", "effort": "high"})
-    asyncio.run(body())
-
-
-# ---- f74 ------------------------------------------------------------------------------
-
-@test
-def test_f74_invalid_yaml_in_a_section_blocks_save_and_names_the_section(ctx: Ctx):
-    """3.1.1.0 R3: lineups are edited in Studio; its YAML toggle goes through `POST /api/yaml` and the
-    save through `PUT /api/lineup/<name>`: invalid YAML and a section that is not a mapping are both
-    refused with the reason, and nothing is written."""
-    from halo_harness.studio.api import Request, dispatch
-
-    with _Env() as e:
-        state = e.dir / ".halo"
-        state.mkdir(parents=True, exist_ok=True)
-
-        def call(method, path, body):
-            return dispatch(Request(owner=True, method=method, path=path, query={}, body=body, cwd=e.dir, state_dir=state))
-        status, body = call("POST", "yaml", {"yaml": "budget:\n  max_budget_usd: [20\n"})
-        ctx.check(f"invalid YAML: 422 naming YAML, got {status} {body}", status == 422 and "YAML" in body.get("error", ""))
-        status, body = call("PUT", "lineup/r9-lineup", {"raw": {"agents": [], "budget": ["a", "b"]}})
-        ctx.check(f"a list where budget's mapping goes: 422 naming budget, got {status} {body}",
-                  status == 422 and any("budget" in p for p in body.get("problems", [])))
-        ctx.check("nothing was saved", not (state / "teams" / "r9-lineup.yaml").exists())
-
-
-# ---- f75 ------------------------------------------------------------------------------
-
-@test
 def test_f75_clear_resets_the_auto_title_first_turn_counter(ctx: Ctx):
     async def body():
         with _Env():

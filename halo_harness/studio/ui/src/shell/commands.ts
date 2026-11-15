@@ -15,10 +15,9 @@ import { sectionDef, sections, type SectionDef } from "../routes";
 import { packCommands } from "../routes/packs/registry";
 import { packs } from "../routes/packs/store";
 import { mediaCommands } from "../routes/media/commands";
-import { runCommands } from "../routes/agents/run/commands"; // 3.4.0.0 D: a goal run's lines (Runs' went)
+import { runCommands } from "../routes/crew/run/commands"; // 3.4.0.0 D: a goal run's lines (Runs' went)
 import { fleetCommands } from "../routes/fleet/commands";
 import { packPageCommands } from "../packlib/kbd"; // 3.3.13.0 R2: a pack page's own lines (api.lib.commands)
-import { rolesCommands } from "../routes/roles/commands";
 import { agentsCommands } from "../routes/agents/commands";
 import { settingsCommands } from "../routes/settings/commands";
 import { localCommands } from "../routes/local/commands";
@@ -37,7 +36,7 @@ export function revealPanel(def: SectionDef, p: PanelSpec): void {
 /** What Reset layout would say when there is nothing to do ("" when there is). */
 export function layoutWords(def: SectionDef): { reset: string } {
   const ls = layoutStore(def.id).get();
-  const open = Object.values(ls.layout || {}).some((p) => !p.collapsed) && def.panels.some((s) => ls.layout?.[s.id] && !ls.layout[s.id].collapsed && !s.primary && s.role !== "main");
+  const open = Object.values(ls.layout || {}).some((p) => !p.collapsed) && def.panels.some((s) => ls.layout?.[s.id] && !ls.layout[s.id].collapsed && !s.primary && s.role !== "main" && s.role !== "dock"); // 3.6.0.0 R5: a dock (the builder box) stays
   return { reset: ls.custom || open ? "" : `${def.title}: nothing to reset, every drawer is closed` };
 }
 
@@ -95,7 +94,7 @@ export function commands(): Command[] {
     });
   }
   out.push(promptCommand()); // 3.3.11.0 R1: Session's Prompt panel, Alt+Enter
-  out.push(...agentsCommands(), ...rolesCommands(), ...runCommands(), ...fleetCommands(), ...mediaCommands());
+  out.push(...agentsCommands(), ...runCommands(), ...fleetCommands(), ...mediaCommands());
   out.push(...settingsCommands()); // 3.3.3.0 R2: "Settings: <title>", one per config key
   out.push(...localCommands()); // 3.3.5.0 R1: "Local: <page>", one per page
   out.push(...packCommands(packs.get().reg), ...packPageCommands());

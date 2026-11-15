@@ -6,7 +6,7 @@
 import { api, ApiError } from "../../lib/api";
 import { createStore, toast, useStore } from "../../lib/store";
 import type { PackWorkflow } from "../packs/manager/types";
-import { openGoal } from "../crew/run/goalStore";
+import { openGoal } from "../crew/run/door";
 import { loadRuns, openRun } from "./sync";
 
 export type WfRun = { wf: PackWorkflow | null; values: Record<string, string> };
@@ -40,7 +40,7 @@ export async function startWorkflow(model: string): Promise<string[]> {
   try {
     const inputs = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ""));
     const r = await api.post<{ run_id: string }>("orchestra/run", { workflow: wf.ref, inputs, ...(model ? { model } : {}) });
-    toast(`Workflow ${wf.ref}: run ${r.run_id} started: it is on Live`, "info");
+    toast(`Workflow ${wf.ref}: run ${r.run_id} started: the Map says it is going`, "info");
     clearWorkflow();
     await loadRuns();
     await openRun(r.run_id);

@@ -31,24 +31,16 @@ sys.path.insert(0, str(REPO))
 
 from tests.helpers.chrome_driver import Driver  # noqa: E402
 
-STRIP = "document.querySelector('[data-testid=\"roles-model-strip\"]')"
-FORM = "document.querySelector('[data-testid=\"bio-form\"][data-bio=\"auto-coder\"]')"
-ROWS = f"[...{FORM}.querySelectorAll('[data-testid=\"model-row\"]')]"
-KIND = f"{FORM}.querySelector('[data-testid=\"model-learned-kind\"]')"
+FORM = "document.querySelector('[data-part=crew] [data-testid=\"crew-form\"]')"  # 3.6.0.0 R5: an agent's form (the bio form's before)
+PICK = "document.querySelector('[data-testid=\"model-select-dialog\"]')"
+ROWS = f"[...({PICK}?.querySelectorAll('[data-testid=\"model-row\"]') || [])]"
+KIND = f"{PICK}.querySelector('[data-testid=\"model-learned-kind\"]')"
 LINES = "[...document.querySelectorAll('[data-testid=\"session-live-line\"]')]"
 COL = "document.querySelector('[data-testid=\"session-live-detail\"]')"
 PICK_ROWS = {"or:v/ears": {"kinds": ["code"], "scores": {"code": 0.9}, "facts": {"price_in_per_m": 0.3, "price_out_per_m": 2.5,
                                                                                   "tools": True, "modalities_out": ["text"]}},
              "or:v/eyes": {"kinds": ["code"], "scores": {"code": 0.8}, "facts": {"price_in_per_m": 1.0, "price_out_per_m": 2.0,
                                                                                   "tools": True, "modalities_out": ["text"]}}}
-
-
-def card(agent: str) -> str:
-    return f"document.querySelector('[data-testid=\"roles-card\"][data-agent=\"{agent}\"]')"
-
-
-def pill(agent: str) -> str:
-    return f"{card(agent)}?.querySelector('[data-testid=\"roles-model-pill\"]')"
 
 
 def _row(aid: str, name: str, bio: str, model: str, why: str, task: str) -> dict:
@@ -68,46 +60,29 @@ def _struck(c) -> list:
 
 
 def pick_words(c, rig) -> dict:
-    """The live coder's pill, its Live tab line and its spawn line carry what was learned."""
+    """The live coder's spawn line on Session's Live carries what was learned (3.6.0.0 R5: Cast's pill and its Live tab
+    went with Cast)."""
     from halo_harness.models_auto import pick
-    from tests.helpers.studio_live import card_click
     from tests.helpers.studio_live_rig import Live
     chosen = pick(rig.state, rows=PICK_ROWS, needs=["tools"], band="high", main_ref="or:mock/main", kind="code", role="coder")
     out: dict = {"reason": chosen.reason, "picked": chosen.ref}
     lv = Live(rig, extra=())
-    c.go(rig.url("roles"))
-    c.wait("!!document.querySelector('[data-testid=\"roles-start\"]') || document.querySelectorAll('[data-testid=\"roles-card\"]').length > 0", 40)
-    if c.js("!!document.querySelector('[data-testid=\"roles-start-open-default\"]')"):
-        c.click_on("document.querySelector('[data-testid=\"roles-start-open-default\"]')")
-    c.wait("document.querySelectorAll('[data-testid=\"roles-card\"]').length >= 8", 30)
-    time.sleep(1.2)  # the canvas fits itself after its first draw
-    lv.rows["c0d3a001"] = _row("c0d3a001", "coder", "auto-coder", chosen.ref, chosen.reason, "Fix the basket total")
-    lv.state("coder")
-    out["pill"] = c.wait(f"{pill('auto-coder')}?.dataset.picked && [{pill('auto-coder')}.textContent, {pill('auto-coder')}.title]", 15)
-    card_click(c, card("auto-coder"))
-    out["live_tab"] = c.wait("document.querySelector('[data-testid=\"roles-live-reason\"]')?.textContent", 15)
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 3", 40)
-    time.sleep(1.0)  # the first look at the tree is silent
+    c.wait(f"!!{COL}", 40)
+    time.sleep(1.0)  # the first look is silent
     lv.rows["c0d3a002"] = _row("c0d3a002", "coder-2", "auto-coder", chosen.ref, chosen.reason, "Fix the tax rounding")
-    lv.state("coder-2")  # a second coder (Live finds a row by its name)
+    lv.state("coder-2")  # a coder (Live finds a row by its name)
     out["spawn_line"] = c.wait(f"{LINES}.filter((l) => l.dataset.kind === 'spawn' && l.textContent.includes('learned'))"
                                ".map((l) => l.textContent).pop()", 15)
     return out
 
 
 def picker(c, rig) -> dict:
-    """The bio form's picker: the learned chips, the "learned for" select, the strikes."""
-    from tests.helpers.studio_live import card_click
+    """An agent's MODEL picker (Agents -> 1 · Agents): the learned chips, the "learned for" select, the strikes."""
     out: dict = {}
-    c.go(rig.url("roles", "&view=workspace&again=1"))
-    c.wait(f"!!{card('auto-coder')}", 40)
-    time.sleep(1.2)
-    card_click(c, card("auto-coder"))
-    c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
-    c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
-    c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
+    c.go(rig.url("agents", "&view=crew&agent=coder"))
+    c.wait(f"{FORM}?.dataset.name === 'coder'", 40)
+    more = f"{FORM}.querySelector('[data-testid=\"crew-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)
@@ -126,7 +101,7 @@ def picker(c, rig) -> dict:
     out["struck_plan"] = c.wait(f"{ROWS}.find((r) => r.dataset.ref === 'or:v/cheap')?.dataset.dropped && 1", 10) and _struck(c)
     _choose(c, "")
     out["struck_none"] = c.wait(f"!{ROWS}.some((r) => r.dataset.dropped) && 1", 10) and _struck(c)
-    out["dialogs"] = c.js("document.querySelectorAll('[role=dialog]').length")
+    out["dialogs"] = c.js("[...document.querySelectorAll('[role=dialog]')].map((d) => d.dataset.testid)")
     return out
 
 

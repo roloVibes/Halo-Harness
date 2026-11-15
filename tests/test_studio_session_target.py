@@ -89,8 +89,7 @@ def test_a_row_click_makes_it_the_target_and_it_stays_highlighted(ctx: Ctx):
               and ch.get("was") == "(was main)" and bool(ch.get("call")))
     ctx.check(f"the clicked row is the held one, outlined, got {got.get('held_n')} {got.get('row_n')} {got.get('outline')}",
               got.get("held_n") and got.get("held_n") == got.get("row_n") and got.get("outline") == "solid")
-    ctx.check(f"its map node is outlined with its steer chip lit, its lane lit, got {got.get('node_target')} {got.get('node_chip')} {got.get('lane_lit')}",
-              got.get("node_target") is True and got.get("node_chip") == "1" and got.get("lane_lit") is True)
+    ctx.check(f"its lane lit, got {got.get('lane_lit')}", got.get("lane_lit") is True)
     ctx.check(f"ten rows later it is still the held row and in view, got {got.get('held_after')} {got.get('held_in_view')}",
               got.get("held_after") == got.get("row_n") and got.get("held_in_view") is True)
 

@@ -161,7 +161,7 @@ export async function startRun(form: RunForm, dryRun: boolean): Promise<string[]
     const r = await api.post<{ run_id: string; taken?: string[]; test?: string }>("orchestra/run", { ...goal, ...(model ? { model } : {}), ...(review ? { review: true } : {}), dry_run: dryRun });
     const tookTest = (r.taken || []).some((l) => l.startsWith("test: "));
     lineupTook.update(() => (tookTest ? { run: r.run_id, test: r.test || "" } : { run: "", test: "" }));
-    toast(dryRun ? `Dry run ${r.run_id}: the lead's jobs, in History` : `Run ${r.run_id} started: it is on Live${review ? "; its plan waits on you there" : ""}`, "info");
+    toast(dryRun ? `Dry run ${r.run_id}: the lead's jobs, in History` : `Run ${r.run_id} started: the Map says a goal run is going${review ? "; its plan waits on you (Open, then Review the plan)" : ""}`, "info");
     lastStarted.id = r.run_id;
     await loadRuns();
     await openRun(r.run_id);

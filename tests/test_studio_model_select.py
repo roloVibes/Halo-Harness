@@ -4,7 +4,7 @@ studio_model_select.py, two runs one after the other; skipped without one):
 
 1. Orchestra's goal form shows the select without opening "who plays the
    parts" (the disclosure keeps the lead / worker roles), its first option
-   "the lineup's (<the lead's model>)" from the role table, and a pick lands;
+   "the lead's (<the lead's model>)" from the role table (3.6.0.0 R5: lineups are gone), and a pick lands;
 2. Design's Projects panel shows the open project's model (first option "the
    default (<model>)"); a pick saves the project (`GET design/projects`); New
    project's dialog creates the project on the picked model;
@@ -37,7 +37,7 @@ def _got(ctx: Ctx, kind: str) -> dict:
 @test
 def test_orchestra_shows_the_model_without_the_disclosure(ctx: Ctx):
     got = _got(ctx, "forms")
-    ctx.check(f"its first option is the lineup's lead model, got {got.get('orch_first')!r}", got.get("orch_first") == "the lineup's (fakeco/beta-2)")
+    ctx.check(f"its first option is the lead's model, got {got.get('orch_first')!r}", got.get("orch_first") == "the lead's (fakeco/beta-2)")
     ctx.check("it sits outside the closed disclosure", got.get("orch_outside_disclosure") is True)
     ctx.check(f"the catalog is in it and a pick lands, got {got.get('orch_options')} {got.get('orch_value')!r}",
               got.get("orch_options") == ["or:fakeco/alpha-1", "or:fakeco/beta-2"] and got.get("orch_value") == "or:fakeco/alpha-1")

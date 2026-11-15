@@ -1,7 +1,8 @@
 """tests.test_tools_capabilities -- Halo 3.1.8.0 R5: `tools.capabilities` (isolation/capabilities.py): the one
-table, which list wins (card, tier, bio, lineup), the narrowed registry of a lineup member and of the top
-session (headless.build_session), an Orchestra worker's list from its run, the Agent tool's description,
-`/tools`, and that allow/deny still apply inside the list. No model is called.
+table, which list wins (card, tier, bio, lineup), the narrowed registry of a lineup member (3.6.0.0 R5: the top
+session runs on a map now, its tools are the map main's: tests/test_crew_compile.py), an Orchestra worker's list
+from its run, the Agent tool's description, `/tools`, and that allow/deny still apply inside the list. No model is
+called.
 
 Run: python -m tests.test_tools_capabilities
 """
@@ -92,23 +93,6 @@ def test_allow_and_deny_still_apply_inside_the_list(ctx: Ctx):
     reg = full.without(["Grep"])
     narrow(reg, ["read"])
     ctx.check("a tool a deny rule removed never comes back", "Grep" not in reg.names() and "Read" in reg.names())
-
-
-@test
-def test_the_top_session_is_built_with_the_lineup_mains_list(ctx: Ctx):
-    with IsoEnv() as e:
-        _crew(e)
-        from halo_harness import headless
-        build = headless.build_session(cwd=e.root, model_ref_raw="or:deepseek/deepseek-v4.1-flash", bare=False,
-                                       print_mode=True, cli_flags={"team": "crew"})
-        names = build.tool_registry.names()
-        ctx.check(f"main sees read and agent only, got {names}",
-                  {"Agent", "Read"} <= set(names) and not {"Bash", "Edit", "Write", "WebFetch"} & set(names))
-        ctx.check("the session's catalog agrees", not {"Bash", "Edit"} & set(build.session.session_catalog.names))
-        ctx.check(f"its agent row line, got {build.session.opt_ins}", build.session.opt_ins == ["tools: read, agent (by bio boss)"])
-        plain = headless.build_session(cwd=e.root, model_ref_raw="or:deepseek/deepseek-v4.1-flash", bare=False,
-                                       print_mode=True)
-        ctx.check("no declaring lineup: everything as before", "Bash" in plain.tool_registry.names() and not plain.session.opt_ins)
 
 
 @test

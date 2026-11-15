@@ -38,8 +38,12 @@ HOST = "https://your-workspace.cloud.databricks.com"
 ROWS = [{"ref": f"or:mock/m{i:03d}", "provider": "openrouter", "group": "OpenRouter", "detail": f"Mock {i}", "price": "$1.00",
          "context": "128k", "context_tokens": 128000, "price_in": 1.0, "price_out": 2.0, "chips": [],
          "best_at": {"line": "summaries" if i == 7 else "", "kinds": []}, "learned": {}} for i in range(N)]
-FORM = "document.querySelector('[data-testid=\"bio-form\"][data-bio=\"implementer\"]')"
-STRIP = "document.querySelector('[data-testid=\"roles-model-strip\"]')"
+FORM = "document.querySelector('[data-part=crew] [data-testid=\"crew-form\"]')"  # 3.6.0.0 R5: an agent's form (the bio form's before)
+PICKER = "document.querySelector('[data-testid=\"model-select-dialog\"] [data-testid=\"model-picker\"]')"
+
+
+def crew_url(url: str) -> str:
+    return url.replace("mode=roles&tour=off&view=workspace", "mode=agents&tour=off&view=crew&agent=coder")
 
 
 def _text(sel: str) -> str:
@@ -108,26 +112,16 @@ def toasts(c, url, ctx) -> dict:
     return out
 
 
-def card(agent: str) -> str:
-    return f"[...document.querySelectorAll('[data-testid=\"roles-card\"]')].find((n) => n.dataset.agent === '{agent}')"
-
-
 def roles_picker(c, url, ctx) -> dict:
-    c.go(url)
-    c.wait(f"!!{card('implementer')}", 40)
-    c.js(f"{card('implementer')}.scrollIntoView({{block: 'center'}}); 1")
-    time.sleep(0.3)
-    c.click_on(card("implementer"), 0.5, 0.2)
-    c.wait(f"{STRIP}?.dataset.card && !{STRIP}.dataset.main", 15)
-    c.click_on(f"{STRIP}.querySelector('[data-testid=\"roles-model-bio-link\"]')")
-    c.wait(f"!!{FORM}", 15)
-    more = f"{FORM}.querySelector('[data-testid=\"bio-model\"] [data-testid=\"model-select\"]')"
+    c.go(crew_url(url))
+    c.wait(f"{FORM}?.dataset.name === 'coder'", 40)
+    more = f"{FORM}.querySelector('[data-testid=\"crew-model\"] [data-testid=\"model-select\"]')"
     c.js(f"{more}.scrollIntoView({{block: 'center'}}); 1")
     time.sleep(0.3)
     c.click_on(more)
-    rows = f"{FORM}.querySelectorAll('[data-testid=\"model-row\"]')"
-    out = {"picker_rows": c.wait(f"{rows}.length === {N} && {rows}.length", 20),
-           "picker_count": c.js(f"{FORM}.querySelector('[data-testid=\"model-count\"]')?.textContent")}
+    rows = f"{PICKER}.querySelectorAll('[data-testid=\"model-row\"]')"
+    out = {"picker_rows": c.wait(f"!!{PICKER} && {rows}.length === {N} && {rows}.length", 20),
+           "picker_count": c.js(f"{PICKER}.querySelector('[data-testid=\"model-count\"]')?.textContent")}
     return out
 
 

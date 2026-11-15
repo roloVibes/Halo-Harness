@@ -1,11 +1,12 @@
 """halo_harness.crew.compile -- a map becomes what a session already runs (Halo 3.6.0.0 R3, the design's "What runs
 underneath"; docs/CREW-sessions.md).
 
-    in_use(flag, cwd) -> (name, source)     `--map <name>` (this run), else config `crew.map`, else (None, "none")
+    in_use(flag, cwd) -> (name, source)     `--map <name>` (this run), else config `crew.map`, else the shipped
+                                            `starter` map ("default": every session runs on a map, 3.6.0.0 R5)
     compile_map(name, cwd, state_dir) -> Compiled
     for_session(flag, cwd, state_dir) -> (Compiled | None, lines)
-                                            None with no map in use; a map with a problem is None too, and `lines`
-                                            are its problem lines (the session says them and runs as with no map)
+                                            a map with a problem: its problem lines, and the session runs on
+                                            `starter` instead (None only when `starter` itself cannot be read)
 
 A map file and the agent and workflow files it names compile to three things:
 
@@ -49,6 +50,7 @@ class Compiled:
     workflows: dict = field(default_factory=dict)  # workflow name -> its file (clean)
     cap_usd: Optional[float] = None
     problems: list = field(default_factory=list)
+    source: str = ""                               # 3.6.0.0 R5: how it came to be in use: flag, config or default
 
     def agent_targets(self) -> list:
         return [h["name"] for h in self.handoffs if h["kind"] == "agent"]
@@ -61,6 +63,9 @@ class Compiled:
         return [AUTO_NEEDS.get(str(n), str(n)) for n in raw.get("needs") or []]
 
 
+DEFAULT_MAP = "starter"
+
+
 def in_use(flag: Optional[str] = None, cwd=None) -> "tuple[Optional[str], str]":
     if isinstance(flag, str) and flag.strip():
         return flag.strip(), "flag"
@@ -71,7 +76,7 @@ def in_use(flag: Optional[str] = None, cwd=None) -> "tuple[Optional[str], str]":
         name = None
     if isinstance(name, str) and name.strip():
         return name.strip(), "config"
-    return None, "none"
+    return DEFAULT_MAP, "default"  # 3.6.0.0 R5: every session runs on a map; with none set, the starter (the auto lineup's twin)
 
 
 def _entry(line: dict, box: dict, name: str) -> dict:
@@ -161,7 +166,7 @@ def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
 
 
 def problem_lines(c: Compiled) -> list:
-    head = f"halo: the map {c.name} has a problem, so this session runs as with no map:"
+    head = f"halo: the map {c.name} has a problem, so this session runs on the map {DEFAULT_MAP}:"
     return [head] + [f"  {p}" for p in c.problems]
 
 
@@ -170,6 +175,12 @@ def for_session(flag: Optional[str], *, cwd=None, state_dir=None) -> "tuple[Opti
     if not name:
         return None, []
     c = compile_map(name, cwd=cwd, state_dir=state_dir)
-    if c.problems:
-        return None, problem_lines(c)
-    return c, []
+    c.source = _source  # 3.6.0.0 R5: "default" -- no map was chosen, the starter runs (main's mode stays the session's)
+    if not c.problems:
+        return c, []
+    lines = problem_lines(c)
+    if name == DEFAULT_MAP:
+        return None, [lines[0].replace(f"runs on the map {DEFAULT_MAP}", "runs as with no map")] + lines[1:]
+    back = compile_map(DEFAULT_MAP, cwd=cwd, state_dir=state_dir)  # 3.6.0.0 R5: never a session on no map
+    back.source = "default"
+    return (None, lines) if back.problems else (back, lines)

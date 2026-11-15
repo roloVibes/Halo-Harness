@@ -62,7 +62,7 @@ this list against the tree.
 - the supervisor's morning line (3.1.8.0 R1): `studio/supervise_api.py`
   (`GET /api/supervise/summary`, the Session landing's "N done, M waiting, $X")
 - Agents (3.3.16.0 R1: Team, Roles and Orchestra in one section): `studio/agents_door.py` (the old section words as
-  doors to Agents' Cast, Runs and Live, and the line each prints once)
+  doors to Agents, landing on the Map since 3.6.0.0 R5, and the line each prints once)
 - Team: its routes left with the team file in 3.4.0.0
 - Live (this machine's sessions): `studio/live_agents_api.py` (agent
   commands on a live session), `studio/live_api.py` (the `live/*` routes), `studio/live_panels_api.py` (attention, costs, caps, conflicts), `studio/live_answer.py`
@@ -103,7 +103,10 @@ the Map tab's maps, a map, its save and `use`) and `studio/builder_api.py` (`bui
 + `crew/tools_show.py` (the builder's map tools and studio_show), `crew/session_tool.py` (the same tools offered to main).
 3.6.0.0 R4: `crew/map_events.py` (what a session on a map says as it runs: the `map_hop` / `map_step` / `map_card` frames,
 the same in its log, each spawned row's `crew` box) and `studio/crew_live_api.py` (`crew/from-live`: Save as an agent
-from a helper a session made up); the lit Map's overlay is Studio's `routes/crew/map/overlay.ts`.
+from a helper a session made up); the lit Map's overlay is Studio's `routes/crew/map/overlay.ts`. 3.6.0.0 R5: `crew/old_files.py`
+(the old lineups', bios' and squares' one line, once: the terminal, the Attention row `crew_old`, `halo doctor`),
+`agents_cli.py` + `workflows_cli.py` + `crew_cli_parts.py` (`halo agents`, `halo workflows`: list / show / new / edit /
+try, and a workflow's `run` on the step runner).
 
 **Live** (`halo_harness/live/`, 3.4.0.0 C: this machine's sessions live):
 
@@ -328,8 +331,7 @@ project > shipped for a bare name and a pack's by `<pack>/<name>`; the enabled s
 (the gaps, the pick, the why line, the depth and the cap), `workflows/square_run.py` (a square's run by its engine and
 the `gives` check), `workflows/receipts.py` (the receipt node, the Live tree's square, the cost, an Orchestra run's
 squares), `workflows/squares_cli.py` (`halo workflows`, the TUI's `/workflows`), `tools/workflow.py` (the `Workflow`
-tool) and `studio/workflows_api.py` (Agents -> Workflows: the board's rows, enable / disable, the YAML, a square's
-budget and limits). 3.3.16.2: `workflows/offer.py` (the `Workflow` tool leaves the session's list when no square is on
+tool); the board's routes went with it in 3.6.0.0 R5. 3.3.16.2: `workflows/offer.py` (the `Workflow` tool leaves the session's list when no square is on
 for its lineup), `workflows/lineup_roles.py` (a lineup role that covers the reads takes the task before a square; the
 "nothing reads it" line) and `workflows/doctor_rows.py` (`halo doctor`'s squares line, `halo workflows list`'s
 header). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence, the CLI's
@@ -338,8 +340,8 @@ the auto lineup), `workflows/when_route.py` (always, then words, then needs: an 
 role, a plain ref after it), `workflows/when_tool.py` (the Workflow tool's words for each rule), `workflows/squares_when_cli.py` (`halo workflows
 enable --when`, `halo workflows when`), `workflows/blocks.py` and `workflows/blocks_tier.py` (the block templates:
 load, check, add a square of yours or a tier), `workflows/members.py` (who is inside a square; a shipped one copied to
-yours first), `workflows/blocks_show.py` (a lineup's blocks in lines: `halo blocks`, `halo teams show`), `blocks_cli.py`
-(`halo blocks list | add | show`) and `studio/blocks_api.py` (the composing routes: when, members, swap, templates).
+yours first), `workflows/blocks_show.py` (a lineup's blocks in lines); `halo blocks`, `halo teams` and the composing routes went in
+3.6.0.0 R5 (their one line: cli.py `GONE_VERBS`).
 
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama
 steward, packs, the extension API, isolation, the guided first run, Setup and Settings.

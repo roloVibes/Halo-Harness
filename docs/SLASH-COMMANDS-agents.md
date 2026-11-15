@@ -1,82 +1,26 @@
-# Slash commands: agents, lineups, roles and review
+# Slash commands: agents, maps and review
 
-Read this when you work with bios, lineups, roles or `/review` from the prompt.
+Read this when you work with your agents, the map a session runs on, or `/review` from the prompt.
 
 Part of [Slash commands, keys, and prompt prefixes](SLASH-COMMANDS.md), which lists every part.
 
-## Built-in commands: agents, lineups, roles and review
+## Built-in commands: agents, maps and review
 
-### `/agents [new <name>|edit <name>|view <name>|duplicate <name> [new-name]|delete <name>]`
-Bare `/agents` (or `/agents list`) lists every discovered sub-agent
-definition (built-ins plus `.claude/agents`/`~/.claude/agents`/
-`--agents`/managed/plugin), pulled from the live session's own agent
-runtime when one is attached, plus a second section listing every
-**agent bio** (`halo_harness/agents_yaml.py`, `halo agents show <name>`
-for the full YAML) -- a different, additive concept describing what an
-agent IS (models/tools/context/limits), assigned to a role by a **team
-template**.
+### `/agents [new <name>|edit <name>|live]`
+Halo 3.6.0.0 R5: your agents are files in `~/.halo/crew/agents/` (agent/1). Bare `/agents` lists the agents this
+session may hand work to; `/agents live` the session's running agents. `/agents edit <name>` opens Studio's
+Agents -> 1 · Agents on that agent; `/agents new <name>` makes a blank one of yours first, then opens it there. The
+terminal's `halo agents` (list / show / new / edit / try) does the same from a shell.
 
-**Halo 2.1.0**: in print mode, the bios section of `/agents` uses the same
-grouped lines as `halo agents` (project / user / shipped, kind and model per
-line, ending with the `halo agents show <name>` hint).
+### `/map`
+Halo 3.6.0.0 R5: the map this session runs on, read-only: its name, main, one line per hand-off (`main -> coder (agent
+coder): main decides per task`), the chains, and the boxes nothing hands work to yet. Every session runs on a map --
+the shipped `starter` until you pick one (`halo maps use <name>`, or **My sessions use this** on Studio's Map). To
+change it, open Studio (`halo studio`, Agents -> 3 · Map).
 
-**Halo 3.0.5.0**: `/agents live` lists THIS session's running
-agents instead: the main agent and every sub-agent at every depth (and
-background Bash jobs), indented under their parents, with state, cost so
-far, model and what each one is doing (the tool in flight, or its task).
-It is the same tree Studio and `halo remote agents <session>` show; see
-[SUBAGENTS.md](SUBAGENTS.md). Since 3.3.11.0 R2 an agent an `auto` lineup picked a model for has its pick on the
-line under it (`picked at spawn: coder on <model> -- <why>`, the words Studio's Roles Live puts on the node), and an
-agent whose parent is not in the tree is listed under one "unknown parent" line (not as a second root), so the
-terminal and Roles Live agree 1:1 ([Roles](STUDIO-sections.md#roles)).
-
-**Halo 2.0.5 round 2, 3.1.1.0**: bare `/agents` instead opens an interactive
-list-with-actions screen over the bios (New, New from..., View, Edit in
-Studio, Duplicate, Delete, Import from `.claude/agents/*.md`, one result line
-each). Studio is the one editor of bios: `/agents edit <name>` opens Studio's
-bio form on it (the Studio page already open switches to it, else Studio
-starts and opens your browser; the transcript line says which, with the
-URL); `/agents new <name>` writes the starter bio, then opens it in Studio;
-`/agents view <name>` shows the bio read-only in the terminal (every field
-with its help line, the file as YAML; `e` opens Studio on it, `t` tries it,
-cost first). `duplicate <name> [new-name]` copies a bio (a shipped one lands
-in user scope, shadowing it); `delete <name>` removes a project/user-scope
-bio. Every other subcommand (`show`/`validate`/`export`/`import`) stays the
-plain-text form documented above. From the CLI: `halo agents edit <name>` --
-see [COMMANDS-agents.md](COMMANDS-agents.md#halo-agents).
-
-**Halo 2.0.5 round 5**: `/agents schedule` prints what schedule/trigger
-set is armed right now (any owning session) and each schedule's next
-fire time -- the same lines `halo agents schedule list` prints. A bio's
-`schedule:`/`triggers:` arm while a session that loaded the agent's team
-is alive and disarm when it closes; see [AGENTS.md](AGENTS.md)'s
-`hooks`/`schedule`/`triggers` section.
-
-### `/teams [apply <name>|preview <name>|diff <a> <b>|list|new <name>|edit <name>|view <name>|activate <name>]`
-**Halo 2.1.0**: bare `/teams` prints the same overview as `halo teams` (the
-active lineup, its tree, one line per other lineup); `/teams apply <name>`
-(or `use`) applies a lineup exactly like `halo teams apply` (writes
-`roles.*` and `team:`, turns roles on; `standard` turns them off);
-`/teams preview <name>` prints the tree; `/teams diff <a> <b>` compares two
-lineups. The interactive list screen moved to `/teams list`.
-
-Bare `/teams` lists every installed **team template** ("lineup" --
-`halo_harness/teams_yaml.py`, `~/.halo/teams/<name>.yaml`), marking the
-active one (`team` in config.json, `halo teams use <name>`).
-
-**Halo 2.0.5 round 2, 3.1.1.0**: `/teams list` opens an interactive list
-screen (View, Edit in Studio, New, Activate). Studio is the one editor of
-lineups: `/teams edit <name>` opens the lineup in Studio's inspector (Lineup
-tab), `/teams new <name>` writes the starter lineup and opens it there, and
-`/teams view <name>` shows it read-only in the terminal (the resolved
-assignments, warnings, costs, every section's YAML, the `about:` text; `e`
-opens Studio, `t` tests the highlighted row's model, Smoke run runs every
-member's acceptance prompt, cost first). `activate <name>` validates and sets
-the active `team:`. Every other subcommand (`show`/`validate`/`use`/`export`/
-`import`) stays the plain-text form documented above -- `halo teams show
-<name>` (CLI) prints the full resolved role table and the `about:` text when
-the lineup has one. From the CLI: `halo teams edit <name>` -- see
-[COMMANDS-agents.md](COMMANDS-agents.md#halo-teams).
+### `/teams`, `/roles`
+Halo 3.6.0.0 R5: lineups are gone. Each prints one line saying where to go (the map) and changes nothing. `/role
+<name> <model> [effort]` below still sets one role's model for this session.
 
 ### `/tools`
 Halo 3.1.8.0 R5: the tools this session's agent sees, one line per
@@ -87,53 +31,10 @@ nothing does, then an Orchestra worker's isolation and secrets lines. A
 lineup or bio narrows it with `tools.capabilities`; see
 [ISOLATION.md](ISOLATION.md#toolscapabilities).
 
-### `/edit <bio:name|lineup:name|team>`
-Halo 3.1.1.0: opens Studio on the thing to edit -- `bio:<name>` (the bio
-form), `lineup:<name>` (the lineup's inspector), `team` (Agents on Live, 3.4.0.0 D),
-or a bare name (the bio of that name, else the lineup of that name) -- the
-same as `halo studio --edit`. A Studio already running for this home switches
-its open page to it; otherwise one starts in the background and opens your
-browser. The transcript gets one line: what opened, and the URL (when no
-browser can be opened, the URL is the way in). An unknown name says so and
-opens nothing. In print mode `/edit` prints the `halo studio --edit` command
-to run.
-
-**Halo 2.0.5 round 5**: `/teams show <name>` prints the same resolved
-view as the CLI, plus the per-section ENFORCEMENT state (enforced / not
-set / checked by doctor, one behaviour line each) -- a session running
-under the team (`team:` in config.json or `--team <name>`) executes
-those sections through `teams_runtime.py`.
-
-### `/roles [gui|table|on|off|templates|save <name>|load <name>|new <name>|edit <name>|show <name>|set <name> <model> [effort]]`
-Halo 3.0.2.0: in the TUI, bare `/roles` opens **Halo Studio's Roles mode** (3.3.16.0 R1: Agents, on Cast; the answer names the new door) in
-the browser (lineups and agent bios as an editable graph, see
-[STUDIO.md](STUDIO.md)); `/roles gui` says the same thing anywhere, `/roles
-gui url` prints the URL without opening a browser, and `/roles table` is the
-text table below. Outside the TUI (`halo -p`, Signal) bare `/roles` stays the
-text table.
-
-V2c (H15), extended Halo 2.0.2: the text table: the resolved role table
-(model, effort, endpoint/path type, price per role), pulled from the live
-session's own `agent_runtime.role_table`/`.cli_role_overrides` (the SAME
-table a role-bearing `Agent`/`Task` call actually resolves against) so it
-never drifts from real behavior. `templates`/`save`/`load`/`new`/`show`
-manage `~/.halo/roles/<name>.json` templates; `edit` opens a form in the TUI
-only (print mode names that instead); `set` is the long form of `/role`
-below. Round 5b part 2: a VRAM-aware role redirected to the main model
-(`docs/MODELS.md`'s "VRAM-aware role defaults") shows `(same as main:
-fits beside it: no)` next to that role's own source. See `docs/ROLES.md`.
-
-Halo 2.0.5 round 2b: `on`/`off` is the ONE switch for `roles.enabled` --
-the SAME key `halo roles on|off` and the wizard's "Roles: on / off" toggle
-write; `load <name>` now also turns it on (printed in the reply).
-
-Halo 2.0.4 round 4: `edit <name>` (and the wizard's own "Edit roles...")
-now picks a model from the SAME merged, enumerated, grouped list `/model`
-shows (`docs/ROLES.md`'s own "Enumeration after the keys step" section),
-with autocomplete and a one-line note on a typed-only ref, plus a second
-**Auto** tab that fills every role from a preset, an installed team
-template, or `halo gym propose` in one action (`ctrl+a`), adjustable
-before `ctrl+s`.
+### `/edit <agent:name|workflow:name|map:name>`
+Halo 3.1.1.0 R3; 3.6.0.0 R5: opens Studio on that agent (Agents -> 1 · Agents), workflow (2 · Workflows) or map (3 ·
+Map); a bare name is an agent, else a workflow, else a map. The old forms (`bio:<name>`, `lineup:<name>`, `team`)
+say that lineups and bios are no longer read and open the tab that replaced them.
 
 ### `/role <name> <model> [effort]`
 Halo 2.0.2: sets ONE role for THIS session only -- mutates the live

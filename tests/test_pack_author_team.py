@@ -51,18 +51,6 @@ def test_the_bios_carry_the_contract_and_the_loop(ctx: Ctx):
                   all(w in research for w in ("license", "telemetry", "install", "Never copy")))
 
 
-@test
-def test_halo_team_pack_author_is_a_lineup_the_cli_knows(ctx: Ctx):
-    import contextlib
-    import io
-    from halo_harness.teams_cli import cmd_teams
-    with ConfigHome():
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
-            code = cmd_teams(["show", "pack-author"])
-        ctx.check(f"halo teams show pack-author, got {out.getvalue()[:200]}", code == 0 and "pack-author" in out.getvalue())
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

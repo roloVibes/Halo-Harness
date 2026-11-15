@@ -76,8 +76,8 @@ def test_nothing_of_the_coach_is_left_in_the_core(ctx: Ctx):
 
 @test
 def test_the_lineups_are_untouched(ctx: Ctx):
-    rc, out, _err = _main(["teams", "list"])
-    ctx.check(f"halo teams list still lists the shipped lineups, got {rc} {out[:200]!r}", rc == 0 and "auto" in out)
+    rc, out, _err = _main(["teams", "list"])  # 3.6.0.0 R5: lineups are gone; the verb prints its one line, exit 0
+    ctx.check(f"halo teams prints the one line and exits 0, got {rc} {out[:200]!r}", rc == 0 and "lineups are gone" in out and "halo maps" in out)
     from halo_harness.left import line
     ctx.check("`teams` (with an s) is no verb that left", line("teams") == "")
 

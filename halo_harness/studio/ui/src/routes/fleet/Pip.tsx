@@ -10,11 +10,9 @@ import { Icon, toolIcon } from "../../lib/ui";
 import { studio, useStore } from "../../lib/store";
 import { layoutStore } from "../../lib/workspace/persist";
 import { showFleetPanel } from "../agents/fleetDoor";
-import { useLivePick } from "../agents/live/scope";
-import { roles } from "../roles/store";
 import { cost, short } from "../orchestra/format";
 import { pin, select } from "./actions";
-import { nowText } from "../agents/live/nodeBits";
+import { nowText } from "../crew/live/nodeBits";
 import { EMPTY } from "./streams";
 import { Typed } from "./StreamViews";
 import { agentMotion, findAgent, isLive, useFleet, type FleetState } from "./store";
@@ -29,15 +27,12 @@ export function FleetPip() {
   const st = useFleet((s) => (s.pinned ? s.streams[s.pinned] : undefined)) || EMPTY;
   const doneAt = useFleet((s) => s.doneAt[s.pinned] || 0);
   const section = useStore(studio, (s) => s.section);
-  const pick = useLivePick();
-  const liveShown = useStore(layoutStore("roles"), (l) => !!l.layout?.["roles-inspector"] && !l.layout["roles-inspector"].collapsed);
   const sessionShown = useStore(layoutStore("session"), (l) => !!l.layout?.["session-agent"] && !l.layout["session-agent"].collapsed); // 3.1.4.0 R2
   const sessionStart = useSessionStart();
   const [off, setOff] = useState({ x: 0, y: 0 });
   const drag = useRef<{ sx: number; sy: number; x: number; y: number } | null>(null);
   const ref = useMemo(() => (pinned ? findAgent({ harnesses } as FleetState, pinned) : null), [pinned, harnesses]);
   if (!pinned || !ref) return null;
-  if (section === "agents" && roles.get().canvasView === "live" && liveShown && pick.kind === "agent" && pick.id === pinned) return null;
   if (section === "session" && !sessionStart && sessionShown && selected === pinned) return null;
   const { a } = ref;
   const lines = st.entries.filter((e) => e.kind === "text" || e.kind === "thinking" || e.kind === "tool_call" || e.kind === "spawn" || e.kind === "user").slice(-LINES);

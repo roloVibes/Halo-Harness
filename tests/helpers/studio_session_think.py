@@ -36,7 +36,7 @@ def of_kind(kind: str, key: str = "") -> str:
 
 def opened(c, rig) -> dict:
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"roles-live-node\"]').length >= 6", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"session-lit-box\"]').length >= 3", 40)
     time.sleep(0.6)
     return {}
 

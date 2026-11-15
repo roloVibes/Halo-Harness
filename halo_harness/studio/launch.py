@@ -51,7 +51,7 @@ def port_answers(port: int, timeout: float = 0.3) -> bool:
 
 
 def _query(mode: Optional[str], edit: Optional[str]) -> str:
-    """`?mode=<mode>`, or with an edit target (3.1.1.0 R3, studio/edit_target.py) `?mode=roles&edit=bio:<name>`;
+    """`?mode=<mode>`, or with an edit target (3.1.1.0 R3, studio/edit_target.py) `?mode=agents&view=crew&edit=agent:<name>`;
     for Session (3.1.4.0 R2, studio/session_open.py) `edit` is the session: `?mode=session&session=<sid>`."""
     if mode == "session" and edit:
         from halo_harness.studio.session_open import SectionTarget
