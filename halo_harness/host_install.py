@@ -10,7 +10,7 @@ serves no Ollama host and writes nothing (ollama.hosts and the synthesized defau
 
 from __future__ import annotations
 
-from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
+from halo_harness.selfexec import persisted_argv  # 3.6.0.0 R10: never the working folder's copy, on any Python
 import argparse
 import sys
 from typing import Optional
@@ -23,7 +23,7 @@ UNIT = {"stem": "halo-host", "label": "com.halo.host", "task": "Halo Host",
 
 
 def argv_for(port: Optional[int] = None, bind: Optional[str] = None) -> list:
-    out = [*python_argv("halo_harness.cli"), "host", "serve", "--foreground"]
+    out = [*persisted_argv("halo_harness.cli"), "host", "serve", "--foreground"]  # 3.6.0.0 R10: written to a unit
     return out + (["--port", str(int(port))] if port is not None else []) + (["--bind", bind] if bind else [])
 
 

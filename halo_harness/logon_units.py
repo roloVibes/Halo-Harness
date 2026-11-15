@@ -21,7 +21,7 @@ it, and a systemd value is written as given (docs/SUPERVISE.md "The service file
 
 from __future__ import annotations
 
-from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
+from halo_harness.selfexec import persisted_argv  # 3.6.0.0 R10: never the working folder's copy, on any Python
 import os
 import shutil
 import sys
@@ -47,7 +47,7 @@ def os_name(platform: Optional[str] = None) -> str:
 def halo_argv() -> list:
     """How a unit starts halo: the `halo` command when it is on PATH, otherwise this interpreter with `-m halo_harness`."""
     exe = shutil.which("halo")
-    return [exe] if exe else python_argv()
+    return [exe] if exe else persisted_argv()  # 3.6.0.0 R10: written to a unit: the form every Python takes
 
 
 def _quote(word: str) -> str:

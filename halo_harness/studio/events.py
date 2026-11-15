@@ -30,7 +30,7 @@ QUEUE_MAX = 512
 RETRY_S = 10.0
 CALL_TIMEOUT_S = 1.0
 FRESH_KINDS = frozenset({"turn_done", "message_end", "status"})
-EVERY_BROWSER = frozenset({"sessions", "files_changed"})  # 3.2.2.0 R6: a one-session feed hears the disk too (files_live.py)
+EVERY_BROWSER = frozenset({"sessions", "files_changed", "studio_stopped"})  # 3.2.2.0 R6: the disk too; 3.6.0.0 R10: the goodbye
 
 
 def _forget_snapshot() -> None:

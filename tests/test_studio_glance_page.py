@@ -95,12 +95,24 @@ def test_the_glance_says_when_it_is_stale_and_comes_back(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Studio stopped: stale, said: {got.get('stale')!r}", str(got.get("stale", "")).startswith("stale: last heard"))
     ctx.check(f"Studio back: live by itself: {got.get('back')!r}", str(got.get("back", "")).startswith("live"))
+    ctx.check(f"3.6.0.0 R10: a blip never says Studio has stopped: {got.get('blip_said_stopped')!r}",
+              got.get("blip_said_stopped") is False)
     # 3.4.1.1 (63): a REAL restart (a new per-launch token): said, and the page stops asking (no key is kept or reused)
     ctx.check(f"restarted with a new key: said, with where to open it again: {got.get('rekeyed')!r}",
               got.get("rekeyed") == "Studio was restarted and has a new key: open the glance again from Studio "
                                     "(Session's ... menu -> Open the glance)")
     ctx.check(f"and it stops asking: the feed off, no request in two probe periods: {got.get('feed_after')!r} "
               f"{got.get('asked_after')!r}", got.get("feed_after") == "off" and got.get("asked_after") == 0)
+
+
+@test
+def test_the_page_says_studio_has_stopped_only_when_it_has(ctx: Ctx):
+    """3.6.0.0 R10: Studio closing for good says goodbye on the live feed: the glance says "Studio has stopped" and
+    stops asking; before it, and through a blip (above), it never says so."""
+    got = _got(ctx)
+    ctx.check(f"not before the goodbye: {got.get('before_goodbye')!r}", got.get("before_goodbye") is False)
+    ctx.check(f"said after it: {got.get('said_stopped')!r}", str(got.get("said_stopped", "")).startswith("Studio has stopped"))
+    ctx.check(f"and no request after it: {got.get('asked_after_goodbye')!r}", got.get("asked_after_goodbye") == 0)
 
 
 if __name__ == "__main__":

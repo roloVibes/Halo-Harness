@@ -120,7 +120,10 @@ def test_media_init_writes_only_the_comfyui_entry(ctx: Ctx):
         after = json.loads(cj.read_text(encoding="utf-8"))
         entry = after["mcpServers"].get("comfyui")
         ctx.check(f"the entry is the stdio server with COMFY_URL, got {entry}",
-                  entry == {"type": "stdio", "command": sys.executable, "args": ["-m", "halo_harness.media.comfy_server"], "env": {"COMFY_URL": fake.url}})
+                  entry == {"type": "stdio", "command": sys.executable, "env": {"COMFY_URL": fake.url},
+                            # 3.6.0.0 R10: a persisted entry: the form every supported Python takes, off the working folder
+                            "args": __import__("halo_harness.selfexec", fromlist=["x"]).persisted_argv(
+                                "halo_harness.media.comfy_server")[1:]})
         del after["mcpServers"]["comfyui"]
         ctx.check("nothing else in ~/.claude.json changed", after == before)
         conf = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))

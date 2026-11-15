@@ -13,6 +13,7 @@ and the ask's frames again: still one. A click on it opens Session's Attention o
 `glance`: at 390 px wide: no horizontal scroll, the sentence, the ask with its answers as large buttons, the spend ("no cap
 set"), the elapsed time, the last events; Allow once answers the card through the owner-proof path; then nothing waits.
 `stale`: Studio stops: the page says it is stale; Studio comes back on its port: the page is live again by itself.
+`goodbye` (3.6.0.0 R10): Studio closing for good says goodbye: the page says "Studio has stopped" and stops asking.
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called.
 """
 from __future__ import annotations
@@ -152,6 +153,7 @@ def stale(c, rig) -> dict:
     out = {"stale": c.wait(f"{status}.dataset.state === 'stale' && {status}.textContent", 60)}
     rig.restart()
     out["back"] = c.wait(f"{status}.dataset.state === 'live' && {status}.textContent", 60)
+    out["blip_said_stopped"] = c.js(f"!!{Q}('[data-testid=\"studio-stopped\"]')")  # 3.6.0.0 R10: a blip never does
     rig.stop_studio()
     c.wait(f"{status}.dataset.state === 'stale'", 60)
     rig.restart(new_key=True)
@@ -161,6 +163,21 @@ def stale(c, rig) -> dict:
     # an absence over time: the page's probe asks every 3 s, so two periods with no request is "stopped asking"
     c.wait("(() => { window.__t0 = window.__t0 || Date.now(); return Date.now() - window.__t0 > 6500; })()", 20)
     out["asked_after"] = c.js("window.__api.length") - n
+    return out
+
+
+def goodbye(c, rig) -> dict:
+    """3.6.0.0 R10: Studio closing for good says goodbye on the live feed: the open glance says "Studio has stopped"
+    and stops asking (a blip -- `stale` above -- never says it)."""
+    stopped = f"{Q}('[data-testid=\"studio-stopped\"]')"
+    _open(c, rig.url("mode=glance"), f"{Q}('[data-testid=\"glance-status\"]')?.dataset.state === 'live'")
+    out = {"before_goodbye": c.js(f"!!{stopped}")}
+    from halo_harness.studio.server import say_goodbye
+    say_goodbye(rig.server)
+    out["said_stopped"] = c.wait(f"{stopped} && {stopped}.textContent", 20)
+    n = c.js("window.__api.length")
+    c.wait("(() => { window.__t1 = window.__t1 || Date.now(); return Date.now() - window.__t1 > 6500; })()", 20)
+    out["asked_after_goodbye"] = c.js("window.__api.length") - n
     return out
 
 
@@ -174,7 +191,8 @@ class GlanceDriver(Driver):
         c.call("Page.addScriptToEvaluateOnNewDocument", source=STUB)
         rig = GlanceRig()
         try:
-            yield ((door, (c, rig)), (setting, (c, rig)), (alert, (c, rig)), (glance, (c, rig)), (stale, (c, rig)))
+            yield ((door, (c, rig)), (setting, (c, rig)), (alert, (c, rig)), (glance, (c, rig)), (stale, (c, rig)),
+                   (goodbye, (c, rig)))
         finally:
             rig.close()
 

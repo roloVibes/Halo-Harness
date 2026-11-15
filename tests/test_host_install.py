@@ -68,19 +68,20 @@ def test_the_three_service_files_for_the_hosts_argv(ctx: Ctx):
         ctx.check(f"linux: halo-host.service under <state>/host, a user unit, got {unit}", unit.name == "halo-host.service"
                   and unit.parent.name == "host" and "WantedBy=default.target" in body and "Restart=on-failure" in body)
         ctx.check(f"linux: ExecStart runs halo_harness.cli host serve --foreground, got {body!r}",
-                  "-m halo_harness.cli host serve --foreground" in body and sys.executable.split("\\")[-1] in body)
+                  "halo_harness.cli" in body and "host serve --foreground" in body and "-P" not in body.split()
+                  and sys.executable.split("\\")[-1] in body)
         ctx.check(f"linux: the enable command links and enables, got {lin['enable']!r}",
                   lin["enable"].startswith("systemctl --user link ") and "enable --now halo-host.service" in lin["enable"])
         mac = Path(rows["macos"]["unit"])
         plist = mac.read_text(encoding="utf-8")
         ctx.check(f"macos: com.halo.host.plist with its own label and the argv, got {mac.name}", mac.name == "com.halo.host.plist"
-                  and "<string>com.halo.host</string>" in plist and "<string>halo_harness.cli</string>" in plist
+                  and "<string>com.halo.host</string>" in plist and "halo_harness.cli" in plist
                   and "<string>--foreground</string>" in plist and rows["macos"]["enable"].startswith("launchctl bootstrap"))
         win = Path(rows["windows"]["unit"])
         xml = win.read_bytes().decode("utf-16")
         ctx.check(f"windows: halo-host-task.xml at logon, the argv, Task Scheduler's name, got {win.name}",
                   win.name == "halo-host-task.xml" and "<LogonTrigger>" in xml
-                  and "-m halo_harness.cli host serve --foreground" in xml
+                  and "halo_harness.cli" in xml and "host serve --foreground" in xml
                   and rows["windows"]["enable"].startswith('schtasks /Create /TN "Halo Host"'))
         ctx.check(f"no service manager ran, got {nsm.calls}", not nsm.calls)
 

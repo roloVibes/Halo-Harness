@@ -3,7 +3,7 @@
 // Reconnects with backoff (1 s doubling to 30 s); after five failures in a
 // row the state is "down" but it keeps retrying. Subscribers register per
 // event kind ("*" for all); `onFeedState` reports the connection state.
-import { onTokenChange, probeServer, stopped, token } from "./api";
+import { markStopped, onTokenChange, probeServer, stopped, token } from "./api";
 
 export type FeedFrame = {
   session_id: string | null;
@@ -32,6 +32,7 @@ export const KNOWN_KINDS = [
   "notification", "phase", "compaction", "governor", "remote_attached",
   "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
   "turn_marker", "thinking_chunk", "agent_talk", // 3.3.16.2: a thought as it grows, one agent's words to another
+  "studio_stopped", // 3.6.0.0 R10: Studio's goodbye as it closes (lib/api.ts markStopped)
   "map_hop", "map_step", "map_card", // 3.6.0.0 R4: a hand-off on a map's line, a workflow box's step, a Builder card (the lit Map)
   "agent_state", "agent_event", "registry", "live", "team", "focus", // 3.5.0.0: `registry` and `live` (named `fleet` before)
   "pack_live", // 3.3.13.0 R2: a pack's routes' live frame (ctx.publish), its bundle's api.on hears it
@@ -75,6 +76,10 @@ function dispatch(kind: string, ev: MessageEvent): void {
   }
   handlers.get(kind)?.forEach((fn) => fn(frame));
   handlers.get("*")?.forEach((fn) => fn(frame));
+  if (kind === "studio_stopped") {
+    markStopped();
+    disconnectEvents();
+  }
 }
 
 function bind(kind: string): void {

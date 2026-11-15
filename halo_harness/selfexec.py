@@ -22,8 +22,8 @@ import os
 import sys
 from pathlib import Path
 
-BOOT = ("import sys\nif sys.path and sys.path[0] in ('', '.'): del sys.path[0]\n"
-        "import runpy\nrunpy.run_module({module!r}, run_name='__main__', alter_sys=True)")
+BOOT = ("import sys; sys.path[:1] = [] if sys.path and sys.path[0] in ('', '.') else sys.path[:1]; "
+        "import runpy; runpy.run_module({module!r}, run_name='__main__', alter_sys=True)")  # one line: unit files too
 
 
 def python_argv(module: str = "halo_harness", *, unbuffered: bool = False, python: str = "") -> list:
@@ -33,6 +33,13 @@ def python_argv(module: str = "halo_harness", *, unbuffered: bool = False, pytho
     if sys.version_info >= (3, 11):
         return [exe, "-P", *flags, "-m", module]
     return [exe, *flags, "-c", BOOT.format(module=module)]
+
+
+def persisted_argv(module: str = "halo_harness", *, python: str = "") -> list:
+    """The command line Halo WRITES INTO A FILE that outlives this run (an MCP entry in a user's config, a service unit,
+    a logon task): it may be run by another Python of the install, so it must work on every supported one (3.10 has
+    no `-P`) and still never import from the working folder -- the one-line bootstrap, on every version."""
+    return [python or sys.executable, "-c", BOOT.format(module=module)]
 
 
 def _norm(p: str) -> str:

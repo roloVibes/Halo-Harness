@@ -55,12 +55,13 @@ export function revoke(): void {
   current = "";
 }
 
-/** 3.6.0.0 R10: the server is gone (the Halo that started Studio closed, and Studio with it). After STOP_AFTER
- *  requests in a row that reached no server, the page says "Studio has stopped" and stops asking: every later request
- *  fails at once, the live feed stays down (lib/events.ts reads `stopped()`). A fresh address (a new #t=) or the
- *  page's own reload button starts over. */
-const STOP_AFTER = 3;
-let unreachable = 0;
+/** 3.6.0.0 R10: the page says "Studio has stopped" and stops asking only when Studio HAS stopped: it said goodbye
+ *  on the live feed as it closed (a `studio_stopped` frame, `markStopped()`), or nothing has answered on this port at
+ *  all for STOP_AFTER_MS (it was ended hard). A shorter silence is a blip -- an SSH forward re-made, a Studio paused --
+ *  and the page keeps reconnecting by itself (the glance's own promise). Once stopped every later request fails at
+ *  once and the live feed stays down (lib/events.ts reads `stopped()`); the page's own button starts over. */
+const STOP_AFTER_MS = 120_000;
+let unreachableSince = 0;
 let gone = false;
 
 export function stopped(): boolean {
@@ -94,21 +95,26 @@ function showStopped(): void {
   document.body.append(box);
 }
 
+/** Studio said it is closing (or has been unreachable for STOP_AFTER_MS): say so and stop asking. */
+export function markStopped(): void {
+  if (gone) return;
+  gone = true;
+  try {
+    showStopped();
+  } catch {
+    /* no document (a test): the flag alone stops the asking */
+  }
+  stoppedListeners.forEach((fn) => fn());
+}
+
 function noteReached(ok: boolean): void {
   if (ok) {
-    unreachable = 0;
+    unreachableSince = 0;
     return;
   }
-  unreachable += 1;
-  if (unreachable >= STOP_AFTER && !gone) {
-    gone = true;
-    try {
-      showStopped();
-    } catch {
-      /* no document (a test): the flag alone stops the asking */
-    }
-    stoppedListeners.forEach((fn) => fn());
-  }
+  const now = Date.now();
+  if (!unreachableSince) unreachableSince = now;
+  if (now - unreachableSince >= STOP_AFTER_MS) markStopped();
 }
 
 const stoppedListeners = new Set<() => void>();

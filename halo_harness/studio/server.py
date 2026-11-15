@@ -350,6 +350,8 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
         srv = start_server(port=0, cwd=cwd, state_dir=state_dir)
         threading.Thread(target=srv.serve_forever, name="halo-studio", daemon=True).start()
         _BACKGROUND["server"] = srv
+        from halo_harness.closing import on_close  # 3.6.0.0 R10: the session's Studio says goodbye as it closes
+        on_close(lambda: say_goodbye(srv))
     url = url_for(srv, mode)
     if open_browser:
         from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
@@ -453,9 +455,22 @@ def cmd_studio(argv: list) -> int:
     except KeyboardInterrupt:
         print("\nstudio stopped")
     finally:
+        say_goodbye(server)
         server.server_close()
         _clear_own_info(state_dir)
     return 0
+
+
+def say_goodbye(server) -> None:
+    """3.6.0.0 R10: Studio is closing for good: every open page hears it on the live feed (`studio_stopped`), says
+    "Studio has stopped" and stops asking (ui/src/lib/api.ts). A silence without it is a blip the page rides out."""
+    try:
+        import time as _t
+        from halo_harness.studio.events import bridge_for
+        bridge_for(server).publish_local({"session_id": "studio", "event": "studio_stopped", "ts": _t.time(), "data": {}})
+        _t.sleep(0.3)  # the frame reaches the open streams before the sockets close
+    except Exception:
+        pass
 
 
 def _owner_record() -> dict:
