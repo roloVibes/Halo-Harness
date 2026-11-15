@@ -179,12 +179,14 @@ def _inside(path: str, prefix: str) -> bool:
 
 def outside_python() -> Optional[list]:
     """argv that runs a Python which is not the environment `halo update` replaces: the venv's base interpreter,
-    else a python on PATH that is not under it (never the Store's alias stub), else `uv run`. None when none is."""
+    else a python on PATH that is not under it (never the Store's alias stub), else `uv run`. None when none is.
+    The running interpreter (or a venv's base) is never skipped for living under WindowsApps: a Microsoft Store
+    Python lives there and it is running right now; only a name found on PATH there can be the stub."""
     in_venv = sys.prefix != getattr(sys, "base_prefix", sys.prefix)
-    cands = [getattr(sys, "_base_executable", None)] if in_venv else [sys.executable]
-    cands += [shutil.which(n) for n in ("python3", "python", "py")]
-    for c in cands:
-        if not c or not os.path.isfile(c) or "windowsapps" in c.lower():
+    running = getattr(sys, "_base_executable", None) if in_venv else sys.executable
+    on_path = [shutil.which(n) for n in ("python3", "python", "py")]
+    for c in [running] + on_path:
+        if not c or not os.path.isfile(c) or (c is not running and "windowsapps" in c.lower()):
             continue
         if in_venv and _inside(c, sys.prefix):
             continue

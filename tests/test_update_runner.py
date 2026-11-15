@@ -274,6 +274,36 @@ def test_launch_uses_an_outside_python_and_never_runs_in_a_test_home(ctx: Ctx):
 
 
 @test
+def test_a_store_python_that_runs_halo_runs_the_updater(ctx: Ctx):
+    """Windows, Python from the Microsoft Store, no uv and no py launcher: the running interpreter (and a venv's base
+    made from it) lives under ...\\WindowsApps\\, like the alias stubs on PATH. It is running right now, so it works;
+    only the names found on PATH can be the stub that opens the Store."""
+    root = Path(tempfile.mkdtemp(prefix="r13-store-"))
+    store = root / "Microsoft" / "WindowsApps" / "PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0" / "python.exe"
+    alias = root / "Microsoft" / "WindowsApps" / "python.exe"
+    store.parent.mkdir(parents=True)
+    store.write_bytes(b"")
+    alias.write_bytes(b"")
+    venv = root / "venv"
+    saved = (sys.prefix, sys.executable, getattr(sys, "_base_executable", None), UP.shutil.which)
+    UP.shutil.which = lambda n: str(alias) if n in ("python", "python3") else None
+    try:
+        sys.prefix, sys._base_executable = str(venv), str(store)  # a pipx / uv-made venv over the Store Python
+        got_venv = UP.outside_python()
+        sys.prefix, sys.executable = sys.base_prefix, str(store)  # pip into the Store Python itself
+        got_plain = UP.outside_python()
+        sys.prefix, sys._base_executable = str(venv), None  # nothing running is known: only the PATH stubs remain
+        got_stub = UP.outside_python()
+    finally:
+        sys.prefix, sys.executable, sys._base_executable, UP.shutil.which = saved
+    ctx.check(f"a venv over the Store Python: its base interpreter runs the updater, got {got_venv}",
+              got_venv == [str(store), "-I"])
+    ctx.check(f"pip into the Store Python itself: that interpreter runs the updater, got {got_plain}",
+              got_plain == [str(store), "-I"])
+    ctx.check(f"the WindowsApps aliases found on PATH are still never chosen, got {got_stub}", got_stub is None)
+
+
+@test
 def test_the_runner_imports_nothing_from_halo(ctx: Ctx):
     import ast
     tree = ast.parse(Path(R.__file__).read_text(encoding="utf-8"))
