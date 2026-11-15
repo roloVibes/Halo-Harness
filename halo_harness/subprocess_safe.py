@@ -60,7 +60,9 @@ def which(cmd, mode: int = os.F_OK | os.X_OK, path=None) -> Optional[str]:
     names = [cmd]
     if sys.platform == "win32":
         exts = [e for e in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";") if e]
-        names = ([cmd] if os.path.splitext(cmd)[1] else []) + [cmd + e for e in exts]
+        # as Python 3.12's own: the name as given only when its ending is in PATHEXT (or X_OK is not asked for)
+        direct = not (mode & os.X_OK) or any(cmd.upper().endswith(e.upper()) for e in exts)
+        names = ([cmd] if direct else []) + [cmd + e for e in exts]
     for folder in path.split(os.pathsep):
         folder = folder.strip().strip('"')
         if not folder or not os.path.isabs(folder):

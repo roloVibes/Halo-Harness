@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
 ROOT = Path(__file__).resolve().parent.parent / "halo_harness"
@@ -160,6 +160,24 @@ def test_fx_which_never_answers_from_the_current_folder(ctx: Ctx):
             os.environ.pop("PATH", None)
         else:
             os.environ["PATH"] = old_path
+
+
+@test
+def test_fx_windows_which_a_dotted_name_gets_only_runnable_files(ctx: Ctx):
+    """Batch 1 repair: for a name with a dot whose ending is not in PATHEXT (`python3.12`) the safe `which` also tried
+    the bare file, which Windows cannot run; the standard function tries name + PATHEXT only."""
+    if sys.platform != "win32":
+        raise SkipTest("PATHEXT is Windows's")
+    from halo_harness import subprocess_safe as S
+    there = Path(tempfile.mkdtemp(prefix="which-dot-")).resolve()
+    (there / "python3.12").write_text("not a program")
+    ctx.check(f"a bare `python3.12` is not a program, got {S.which('python3.12', path=str(there))!r}",
+              S.which("python3.12", path=str(there)) is None)
+    exe = there / "python3.12.exe"
+    exe.write_bytes(b"MZ")
+    got = S.which("python3.12", path=str(there))
+    ctx.check(f"python3.12.exe is, got {got!r}", bool(got) and Path(got).name.lower() == "python3.12.exe")
+    ctx.check("a PATHEXT ending names its own file", Path(S.which("python3.12.exe", path=str(there))) == exe)
 
 
 @test

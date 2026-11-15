@@ -722,14 +722,22 @@ def git_bash(env=None, which=None, windows: Optional[bool] = None) -> Path | Non
             roots.append(Path(env["LOCALAPPDATA"]) / "Programs" / "Git")
         if not env.get("ProgramFiles"):  # a stripped environment
             roots.append(Path("C:\\Program Files\\Git"))
-        git = which("git")
+        def found(roots):
+            for root in roots:
+                for p in (root / "usr" / "bin" / "bash.exe", root / "bin" / "bash.exe"):
+                    if p.is_file():
+                        return p
+            return None
+
+        p = found(roots)
+        if p:
+            return p
+        git = which("git")  # PATH searched only when no install folder has Git (git_bash runs per Bash call)
         if git:  # <root>\cmd\git.exe, <root>\bin\git.exe, <root>\mingw64\bin\git.exe
             here = Path(git).parent
-            roots += [here.parent, here.parent.parent]
-        for root in roots:
-            for p in (root / "usr" / "bin" / "bash.exe", root / "bin" / "bash.exe"):
-                if p.is_file():
-                    return p
+            p = found([here.parent, here.parent.parent])
+            if p:
+                return p
         bash = which("bash")
         if bash and not {s.lower() for s in Path(bash).parts} & {"system32", "sysnative", "windowsapps"}:
             return Path(bash)

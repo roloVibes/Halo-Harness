@@ -11,6 +11,7 @@ this tool's -- this tool just runs the command.
 from __future__ import annotations
 
 import os
+import re
 
 from halo_harness.tools._proc import run_streamed
 from halo_harness.tools.base import Tool, ToolContext, ToolResult
@@ -20,14 +21,21 @@ MAX_TIMEOUT_MS = 600_000
 
 #: 3.6.0.0: Windows PowerShell 5.1 writes in the console's OEM code page and Halo reads UTF-8 (umlauts came back as
 #: U+FFFD, CJK as '?'), so every command Halo hands it sets UTF-8 (no BOM) first ...
-UTF8_FIRST = "try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; "
+#: Both sides, each in a try of its own (a hook's payload arrives on stdin as UTF-8 too).
+UTF8_FIRST = ("try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; "
+              "try { [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; ")
 #: ... in a console of its own (hidden), so that code page is never the person's terminal's
 PRIVATE_CONSOLE = 0x08000000 if os.name == "nt" else 0  # CREATE_NO_WINDOW
+#: PowerShell takes `using` statements only at the very start of a script: they stay ahead of the prefix
+_LEADING_USING = re.compile(r"(?:\s*using\s+(?:namespace|module|assembly)\s[^;\r\n]*(?:;|\r?\n|$))+", re.IGNORECASE)
 
 
 def powershell_argv(command: str) -> list:
     """The argv the PowerShell tool and a `shell: "powershell"` hook start (start it with PRIVATE_CONSOLE)."""
-    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", UTF8_FIRST + command]
+    m = _LEADING_USING.match(command)
+    cut = m.end() if m else 0
+    head = command[:cut] + "\n" if cut else ""
+    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", head + UTF8_FIRST + command[cut:]]
 
 DESCRIPTION = (
     "Executes a PowerShell command (Windows only).\n\n"

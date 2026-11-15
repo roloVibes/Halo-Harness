@@ -177,6 +177,11 @@ def test_fx_git_bash_found_outside_the_one_fixed_folder(ctx: Ctx):
         ctx.check(f"CLAUDE_CODE_GIT_BASH_PATH still wins, got {got}", got == env_bash)
         ctx.check("nothing anywhere: None",
                   p.git_bash(env=dict(base), which=nothing, windows=True) is None)
+
+        asked = []
+        got = p.git_bash(env=dict(base, ProgramFiles=str(tmp / "pf")), which=lambda n: asked.append(n), windows=True)
+        ctx.check(f"Git in an install folder: PATH is never searched (git_bash runs per Bash call), "
+                  f"got {got} after asking {asked}", got == pf and asked == [])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

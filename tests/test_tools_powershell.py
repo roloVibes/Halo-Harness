@@ -82,6 +82,52 @@ def test_fx_powershell_hook_hands_back_non_ascii_text_unchanged(ctx: Ctx):
 
 
 @test
+def test_fx_powershell_hook_reads_a_non_ascii_payload_unchanged(ctx: Ctx):
+    """Batch 1 repair: the UTF-8 prefix set only the output side, and the hook's own (hidden) console read its stdin in
+    the OEM code page, so a hook echoing a payload value back (a path, a reason) handed back garbled text."""
+    if sys.platform != "win32":
+        raise SkipTest("PowerShell is win32-only here")
+    import os
+    from halo_harness.hooks import HookDef, run_command_hook
+    hook = HookDef(type="command", shell="powershell",
+                   command="$d = [Console]::In.ReadToEnd() | ConvertFrom-Json; Write-Output $d.tool_input.file_path")
+    d = Path(tempfile.mkdtemp(prefix="ps-hook-stdin-"))
+    res = run_command_hook(hook, {"tool_name": "Read", "tool_input": {"file_path": TEXT}}, cwd=d, env=dict(os.environ))
+    ctx.check(f"exit 0 and the payload's text as it is, got {res.exit_code} {res.stdout!r} {res.stderr[:200]!r}",
+              res.exit_code == 0 and res.stdout.strip() == TEXT)
+
+
+@test
+def test_fx_powershell_command_may_start_with_using(ctx: Ctx):
+    """Batch 1 repair: a command that starts with `using namespace ...` failed with a parse error once the prefix
+    came before it (PowerShell takes `using` only at the very start of a script)."""
+    if sys.platform != "win32":
+        raise SkipTest("PowerShell tool is win32-only")
+    from halo_harness.tools.powershell import PowerShellTool
+    d = Path(tempfile.mkdtemp(prefix="ps-using-"))
+    cmd = f"using namespace System.Text; [StringBuilder]::new('{TEXT}').ToString()"
+    result = PowerShellTool().run({"command": cmd}, ToolContext(cwd=d))
+    ctx.check(f"no error and the text as it is, got {result.content!r}",
+              result.is_error is False and result.content.strip() == TEXT)
+
+
+@test
+def test_fx_powershell_argv_keeps_leading_using_lines_first(ctx: Ctx):
+    """Runs everywhere: leading `using` statements stay first, the UTF-8 prefix follows them, the rest is unchanged."""
+    from halo_harness.tools.powershell import UTF8_FIRST, powershell_argv
+    for cmd, head, rest in [
+        ("using namespace System.Text; [StringBuilder]::new('x')", "using namespace System.Text;",
+         " [StringBuilder]::new('x')"),
+        ("Using Namespace A\nusing module B;\r\nGet-Date", "Using Namespace A\nusing module B;", "\r\nGet-Date"),
+        ("using namespace A", "using namespace A", ""),
+        ("Get-Date; using namespace A", "", "Get-Date; using namespace A"),
+    ]:
+        got = powershell_argv(cmd)[4]
+        want = (head + "\n" + UTF8_FIRST + rest) if head else UTF8_FIRST + rest
+        ctx.check(f"{cmd!r}: using first, then UTF-8, then the rest; got {got!r}", got == want)
+
+
+@test
 def test_fx_powershell_argv_sets_utf8_output_first(ctx: Ctx):
     """Runs everywhere: the argv the tool and the hooks start sets PowerShell's output encoding to UTF-8 (no BOM)
     before the person's command, which comes last and unchanged."""
@@ -90,8 +136,11 @@ def test_fx_powershell_argv_sets_utf8_output_first(ctx: Ctx):
     ctx.check(f"powershell.exe -NoProfile -NonInteractive -Command, got {argv[:4]}",
               argv[:4] == ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command"])
     ctx.check(f"UTF-8 first, the command last, got {argv[4]!r}",
-              argv[4].startswith("try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) }")
+              argv[4].startswith("try { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; ")
               and argv[4].endswith("; Get-Date"))
+    ctx.check(f"the input side in a try of its own (a redirected stdin cannot skip the output side), got {argv[4]!r}",
+              "catch {}; try { [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false) } catch {}; "
+              in argv[4])
 
 
 @test
