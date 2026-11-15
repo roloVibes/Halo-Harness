@@ -1,8 +1,9 @@
 """halo_harness.crew.compile -- a map becomes what a session already runs (Halo 3.6.0.0 R3, the design's "What runs
 underneath"; docs/CREW-sessions.md).
 
-    in_use(flag, cwd) -> (name, source)     `--map <name>` (this run), else config `crew.map`, else the shipped
-                                            `starter` map ("default": every session runs on a map, 3.6.0.0 R5)
+    in_use(flag, cwd) -> (name, source)     `--map <name>` (this run), else config `crew.map`, else (roles off) no
+                                            map, else the shipped `starter` map ("default", 3.6.0.0 R5)
+    is_default(c) -> bool                   the default map: a drawing of a plain session, no rules of its own
     compile_map(name, cwd, state_dir) -> Compiled
     for_session(flag, cwd, state_dir) -> (Compiled | None, lines)
                                             a map with a problem: its problem lines, and the session runs on
@@ -66,7 +67,17 @@ class Compiled:
 DEFAULT_MAP = "starter"
 
 
+def _roles_on() -> bool:
+    try:
+        from halo_harness.roles import roles_mode_enabled
+        return bool(roles_mode_enabled())
+    except Exception:
+        return True
+
+
 def in_use(flag: Optional[str] = None, cwd=None) -> "tuple[Optional[str], str]":
+    """`--map` (this run), else config `crew.map`, else -- roles off ("One model for everything") -- no map at all
+    (None, "none"), else the starter map as the default ("default")."""
     if isinstance(flag, str) and flag.strip():
         return flag.strip(), "flag"
     try:
@@ -76,7 +87,17 @@ def in_use(flag: Optional[str] = None, cwd=None) -> "tuple[Optional[str], str]":
         name = None
     if isinstance(name, str) and name.strip():
         return name.strip(), "config"
-    return DEFAULT_MAP, "default"  # 3.6.0.0 R5: every session runs on a map; with none set, the starter (the auto lineup's twin)
+    if not _roles_on():  # 3.6.0.0 R5 fix (M6): one model, no hand-offs, nothing added -- as 3.5's roles off
+        return None, "none"
+    return DEFAULT_MAP, "default"  # 3.6.0.0 R5: with none set, the starter map, drawn (is_default below)
+
+
+def is_default(c) -> bool:
+    """The one place that says a session runs on the DEFAULT map: it named no map and config sets none (or the map it
+    named has a problem and the starter stands in). The default map is a drawing of what a plain session already did
+    (crew/map_control.py PlainMap): nothing a 3.5 plain session could do is refused, capped, moved or reworded --
+    no cap, no gate on agent names, no instructions added, no tool taken out. A map you picked or wrote keeps its rules."""
+    return c is not None and getattr(c, "source", "") == "default"
 
 
 def _entry(line: dict, box: dict, name: str) -> dict:

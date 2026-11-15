@@ -79,13 +79,20 @@ def model_list(state_dir=None, cwd=None) -> list:
     return out
 
 
+from halo_harness.crew.changes_map import ONE_MODEL  # noqa: E402  the Map step's "One model for everything" row
+
+
 def map_rows(cwd=None, state_dir=None) -> list:
-    """The Map step's rows (3.6.0.0 R5, the Team step before): every map, nearest first (yours, this project's, the
-    starters); `active` marks the one new sessions run on, `default` the starter map while no `crew.map` is set."""
+    """The Map step's rows (3.6.0.0 R5, the Team step before): One model for everything first, then every map, nearest
+    first (yours, this project's, the starters); `active` marks the one new sessions run on, `default` the starter
+    map while no `crew.map` is set."""
     from halo_harness.crew import store
     from halo_harness.crew.compile import DEFAULT_MAP, in_use
     used, source = in_use(None, cwd)
-    rows, seen = [], set()
+    # 3.6.0.0 R5 fix (M6): "One model for everything" (roles off, no map), the choice the Team step had
+    rows, seen = [{"name": ONE_MODEL, "label": "One model for everything", "scope": "",
+                   "description": "No map: main does every job on your model and hands nothing off (roles off).",
+                   "boxes": 0, "lines": 0, "active": source == "none", "default": False}], set()
     for r in store.rows("map", cwd=cwd, state_dir=state_dir):
         if r["name"] in seen:
             continue
@@ -100,7 +107,7 @@ def team_block(cwd=None, state_dir=None) -> dict:
     """The Map step (its block id stays `team`: `halo setup team`, `?block=team`): the map in use and every map."""
     from halo_harness.crew.compile import in_use
     name, source = in_use(None, cwd)
-    return {"active": name or "", "source": source, "maps": map_rows(cwd, state_dir)}
+    return {"active": name or ONE_MODEL, "source": source, "maps": map_rows(cwd, state_dir)}
 
 
 def setup_state(cwd=None, state_dir=None) -> dict:

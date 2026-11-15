@@ -1,6 +1,6 @@
 """tests.test_tools_capabilities -- Halo 3.1.8.0 R5: `tools.capabilities` (isolation/capabilities.py): the one
-table, which list wins (card, tier, bio, lineup), the narrowed registry of a lineup member (3.6.0.0 R5: the top
-session runs on a map now, its tools are the map main's: tests/test_crew_compile.py), an Orchestra worker's list
+table, which list wins (card, tier, bio, lineup), the narrowed registry of a lineup member, a plain session's (3.6.0.0 R5: the default map, a drawing, takes nothing
+out; a chosen map's main: tests/test_crew_compile.py), an Orchestra worker's list
 from its run, the Agent tool's description, `/tools`, and that allow/deny still apply inside the list. No model is
 called.
 
@@ -93,6 +93,23 @@ def test_allow_and_deny_still_apply_inside_the_list(ctx: Ctx):
     reg = full.without(["Grep"])
     narrow(reg, ["read"])
     ctx.check("a tool a deny rule removed never comes back", "Grep" not in reg.names() and "Read" in reg.names())
+
+
+@test
+def test_a_plain_session_keeps_every_tool(ctx: Ctx):
+    """3.6.0.0 R5 fix (the cut check, retargeted): a session that names no map runs on the default map, a drawing --
+    nothing declares a list, so nothing is taken out and no tools line rides on its row, as before."""
+    with IsoEnv() as e:
+        _crew(e)
+        from halo_harness import headless
+        plain = headless.build_session(cwd=e.root, model_ref_raw="or:deepseek/deepseek-v4.1-flash", bare=False,
+                                       print_mode=True)
+        names = plain.tool_registry.names()
+        ctx.check(f"no declaring list: everything as before, got {sorted(names)}",
+                  {"Bash", "Edit", "Write", "Read", "Agent", "Workflow"} <= set(names))
+        ctx.check(f"no tools line on its row, got {plain.session.opt_ins}",
+                  not any(str(x).startswith("tools:") for x in plain.session.opt_ins or []))
+        plain.session.close_runtimes()
 
 
 @test

@@ -944,27 +944,6 @@ def _cmd_agents(args: str, facade: HeadlessFacade) -> str:
     return "\n".join(lines)
 
 
-def _teams_verb(verb: str, rest: str, facade: HeadlessFacade) -> str:
-    """`/teams apply|use <name>`, `/teams preview <name>`, `/teams diff <a>
-    <b>` -- the same words `halo teams` prints."""
-    from halo_harness.teams_cli_views import apply_lineup, diff_lines, preview_text
-    names = rest.split()
-    if verb == "diff":
-        if len(names) != 2:
-            return "Usage: /teams diff <lineup> <lineup>"
-        return "\n".join(diff_lines(names[0], names[1], cwd=facade.cwd)[1])
-    if len(names) != 1:
-        return f"Usage: /teams {verb} <lineup>"
-    if verb == "preview":
-        return "\n".join(preview_text(names[0], cwd=facade.cwd)[1])
-    ok, lines, notes = apply_lineup(names[0], cwd=facade.cwd, session=getattr(facade, "session", None))
-    if not ok:
-        return f"Could not use {names[0]!r}:\n" + "\n".join(f"  - {x}" for x in lines)
-    from halo_harness.teams_apply_answer import apply_answer  # 3.3.5.0 R0 (h): one line, the notes indented
-    line, details = apply_answer(names[0], notes)
-    return "\n".join([line, *(f"    {n}" for n in details), *lines])
-
-
 #: 3.6.0.0 R5: the old lineup commands' one line (help, never a refusal): the map is where sessions are set up now
 LINEUPS_GONE = "lineups are gone: every session runs on a map; /map shows the one in use, halo maps use <name> picks one"
 
@@ -983,9 +962,12 @@ def _cmd_map(args: str, facade: HeadlessFacade) -> str:
     mc = getattr(session, "team_control", None)
     c = getattr(mc, "map", None) if getattr(mc, "is_map", False) else None
     if c is None:
-        return "This session runs on no map (a bare session or --agent). Studio: Agents -> 3 · Map."
+        return ("This session runs on no map (One model for everything, a bare session or --agent). "
+                "Studio: Agents -> 3 · Map.")
+    from halo_harness.crew.compile import is_default
     from halo_harness.crew.map_when import words
-    out = [f"Map: {c.name} (main: {(c.main or {}).get('agent') or 'main'})"]
+    drawn = " -- the default: it draws what this session does, and sets no rules" if is_default(c) else ""
+    out = [f"Map: {c.name} (main: {(c.main or {}).get('agent') or 'main'}){drawn}"]
     for h in c.handoffs:
         out.append(f"  main -> {h['box']} ({h['kind']} {h['name']}): {words(h['when'])}")
     for box, lines in sorted((c.chains or {}).items()):

@@ -96,8 +96,8 @@ def test_use_the_owner_and_the_cli(ctx: Ctx):
         finally:
             os.chdir(cwd)
         text = out.getvalue()
-        ctx.check(f"halo maps use / list / show, got {text[:300]!r}", code == 0 and "New sessions run on the map starter" in text
-                  and "* starter" in text and "line main -> plan: always" in text and "in use: starter (config)" in text)
+        ctx.check(f"halo maps use / list / show, got {text[:300]!r}", code == 0 and "New sessions run as by default" in text
+                  and "* starter" in text and "line main -> plan: always" in text and "in use: starter (default)" in text)
 
 
 @test

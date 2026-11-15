@@ -81,7 +81,12 @@ def edit(kind: str, name: str, cwd: Path) -> int:
     path, scope = found
     editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
     if scope != "starter" and editor and sys.stdin.isatty():
-        return subprocess.call([*editor.split(), str(path)])
+        try:
+            return subprocess.call([*editor_argv(editor), str(path)])
+        except (OSError, ValueError) as e:  # 3.6.0.0 R5 fix: one plain line, never a traceback
+            print(f"halo {kind}s edit: your editor ({editor}) did not start ({type(e).__name__}): set VISUAL or EDITOR "
+                  f"to one that runs, or open it in Studio: halo studio --edit {kind}:{name}", file=sys.stderr)
+            return 1
     if scope == "starter":
         print(f"{name} is a starter (read-only): halo {kind}s new my-{name} --from {name} makes yours")
     print(f"opening Studio on it: halo studio --edit {kind}:{name} (Agents -> {TABS[kind]})")
@@ -89,15 +94,40 @@ def edit(kind: str, name: str, cwd: Path) -> int:
     return open_in_studio(kind, name, no_open=False, prog=f"halo {kind}s edit")
 
 
-def wait_try(rec: dict, state_dir=None, poll: float = 0.5) -> dict:
-    """Wait for a Try it run to end; its record."""
+def editor_argv(editor: str) -> list:
+    """$VISUAL / $EDITOR as an argv: a path that exists as it is (a Windows "Program Files" path, spaces and all),
+    else the words, quotes honoured."""
+    import shlex
+    if Path(editor.strip().strip('"')).is_file():
+        return [editor.strip().strip('"')]
+    words = shlex.split(editor, posix=os.name != "nt")
+    return [w.strip('"') for w in words] or [editor]
+
+
+WAIT_S = 3600.0  # the longest a terminal waits on a Try it run (it runs inside this command, so it ends with it)
+
+
+def wait_try(rec: dict, state_dir=None, poll: float = 0.5, limit: float = WAIT_S) -> dict:
+    """Wait for a Try it run to end; its record. Bounded (3.6.0.0 R5 fix): a record that is gone, `limit` seconds, or
+    Ctrl+C end the wait with a record that says why."""
     from halo_harness.crew import trial
+    if rec.get("state") not in ("running", "stopping"):
+        return rec
     tid = rec.get("id")
-    while True:
-        got = trial.get(str(tid), state_dir) or rec
-        if got.get("state") not in ("running", "stopping"):
-            return got
-        time.sleep(poll)
+    end = time.monotonic() + limit
+    try:
+        while True:
+            got = trial.get(str(tid), state_dir)
+            if got is None:
+                return {**rec, "state": "lost", "error": f"the Try it record {tid} is gone; nothing more to wait for"}
+            if got.get("state") not in ("running", "stopping"):
+                return got
+            if time.monotonic() >= end:
+                return {**got, "state": "cut short", "error": f"stopped after {int(limit)} s without an end; try it in Studio "
+                                                              "(Agents -> 1 · Agents) for a longer run"}
+            time.sleep(poll)
+    except KeyboardInterrupt:
+        return {**rec, "state": "cut short", "error": "stopped (Ctrl+C)"}
 
 
 def say_try(rec: dict) -> int:

@@ -334,7 +334,8 @@ Removed (and what replaces each):
   helpers it started), and zooms and pans the house way.
 - **`halo teams`, `halo roles`, `halo blocks`, `halo workflow`, `/teams`, `/roles`**: each prints one line ("lineups
   are gone: halo maps use <name> ..."; "starters: halo workflows new <name> --from <starter>"; "use halo workflows")
-  and exits 0. `halo roles point` stays for this release (the steward's and the adviser's lines offer it).
+  and exits 0. `halo roles point` stays for this release (the steward's and the adviser's lines offer it, and it
+  reaches a session with no map).
 - **The TUI's lineup editor and view, roles editor, bio editor, teams list and agents list.** `/map` shows the map
   the session runs on, read-only, with "open Studio to change it".
 - **`--team <name>`**: it prints one line and the session runs on the map in use; `--map <name>` picks one.
@@ -343,21 +344,36 @@ Removed (and what replaces each):
 
 Changed:
 
-- **Every session runs on a map**: with no `crew.map` set, the shipped `starter` (main hands work to planner,
-  researcher, coder, reviewer, writer, media-reader and ops, "main decides per task": the auto lineup's twin; the
-  parity test now compares with the auto lineup's recorded picks). A map with a problem says its lines and the
-  session runs on `starter`. The starter keeps the session's own permission mode; a map you chose sets main's from
-  its `careful`. Main's own Agent calls are held to the map; the step runner's, a chain's and `/review`'s own spawns
-  are not (a session-wide restriction stopped them).
+- **A session with no map runs as it did on 3.5, and the Map draws it.** With no `crew.map` set (and roles on), the
+  session draws the shipped `starter` map (main and planner, researcher, coder, reviewer, writer, media-reader and
+  ops) so the Map tab shows what it does, but the starter sets no rules: every agent the session finds can be
+  spawned (the built-ins such as Explore, your `.claude/agents`, a project's, a pack's, `--agents`), and yours wins
+  over a starter agent of the same name; no money cap; sub-agents delegate two levels deep, four at a time; each
+  sub-agent's model is picked as before (the same needs and routing words); the coder edits your own files (no
+  worktree); `halo roles point <role> <model>` and `/role` reach the agent of that role; the Workflow tool is there;
+  nothing is added to the system prompt and the Agent and Workflow tools say what they said. These values are read
+  from the shipped `auto` lineup until the next round moves them. A test compares the default session with values
+  recorded on 3.5. A map you pick or write keeps its rules: main held to its lines, its cap, its instructions, main's
+  mode from its `careful`. A map with a problem says its lines and the session runs on the default. The step
+  runner's, a chain's and `/review`'s own spawns are not held to a map.
+- **One model for everything is still there**: `roles.enabled: false` with no map set means no map at all, as on 3.5
+  (one model, no hand-offs). Setup's Map step lists it first; `halo maps use --none` sets it, `halo maps use --off`
+  (or picking `starter`) goes back to the default, and picking a map turns roles back on.
 - **The old files: one line, once.** When `~/.halo/teams`, `~/.halo/workflows`, `~/.halo/agents` (or this project's)
-  hold files, Halo says once that they are no longer read and where the new ones live: in the terminal at the first
-  start, as an Attention row until set aside, and in `halo doctor` while they are there. Nothing is deleted,
-  converted or rewritten.
+  hold files you wrote or changed, Halo says once that they are no longer read and where the new ones live: in the
+  terminal at the first start, as an Attention row until set aside, and in `halo doctor` while they are there. The
+  lineups and bios Halo itself copied there, unchanged, are not counted. A `team:` still set in config is named in
+  the same line, with what to do. Nothing is deleted, converted or rewritten.
 - **`halo agents`** (list / show / new [--from] / edit / try) and **`halo workflows`** (list / show / new [--from] /
   edit / try / run) work on the agents and workflows of `~/.halo/crew/`; **`halo maps edit`** joins `list / show /
   use`. `--edit agent:<n> | workflow:<n> | map:<n>` (the TUI's `/edit` too); the old `bio:` / `lineup:` / `team`
   say the old files' line and open the tab that replaced them.
 - **Setup's Team step is Map**: pick the map new sessions run on (`starter` is the default); Apply writes `crew.map`.
+  `halo setup map` opens it (`team` and `roles` still do), and `halo setup map --terminal` names the `halo maps`
+  commands and the map in use.
+- `halo agents edit` / `halo workflows edit` / `halo maps edit`: an editor that does not start is one plain line and
+  exit 1, and an editor path with spaces works; `halo agents try` / `halo workflows try` stop waiting after an hour,
+  on Ctrl+C or when the run's record is gone, and say why.
 - A pack's panel declared for Agents (or roles, orchestra, team) joins the Map's workspace; the palette's Show panel
   lines follow the tab on screen.
 - Fixes found on the way: a session on a map logged its `map_start` before the system node, so every print-mode

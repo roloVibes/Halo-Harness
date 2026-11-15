@@ -2,7 +2,8 @@
 // map new sessions run on -- every map, nearest first (yours, this project's, the starters), `starter` the default
 // while no `crew.map` is set; the highlighted row's preview is the map in words (GET setup/team/<name>/preview: main,
 // each box, each line's When). Apply writes `crew.map` (POST setup/team {map}, as `halo maps use`). Edit on the Map
-// opens it in Agents -> 3 · Map.
+// opens it in Agents -> 3 · Map. 3.6.0.0 R5 fix: the first row is One model for everything (`one-model`: roles off,
+// no map), the choice the Team step had; Apply on the default row unsets `crew.map`.
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { goSection } from "../../lib/store";
@@ -10,6 +11,8 @@ import { Button } from "../../lib/ui";
 import { openMap } from "../crew/map/mapStore";
 import { BlockFoot, useLoadState, Waiting } from "./BlockFoot";
 import { NONE, pick, shownOf, useSetup, type MapRow } from "./store";
+
+const ONE_MODEL = "one-model";
 
 function usePreview(name: string): string[] {
   const [lines, setLines] = useState<string[]>([]);
@@ -53,7 +56,7 @@ export function TeamDetail() {
     <div className="su-block su-team" data-testid="setup-team">
       <p className="su-lead muted">
         The map your sessions run on: who main hands work to, and when. starter (the default) gives main seven agents and lets it pick one per task;
-        ship-it hands work along plan, code and review.
+        ship-it hands work along plan, code and review. One model for everything runs every job on your model, with no map.
       </p>
       <div className="su-team-cols">
         <div className="su-lineups" role="radiogroup" aria-label="Map">
@@ -63,11 +66,13 @@ export function TeamDetail() {
         </div>
         <div className="su-preview">
           <div className="su-group-head mono">
-            PREVIEW · {shown}
-            <Button size="sm" variant="ghost" onClick={() => (goSection("agents", "map"), void openMap(shown))} title="Open this map in Agents, on 3 · Map"
-                    data-testid="setup-edit-map">
-              Edit on the Map
-            </Button>
+            PREVIEW · {shown === ONE_MODEL ? "One model for everything" : shown}
+            {shown !== ONE_MODEL && (
+              <Button size="sm" variant="ghost" onClick={() => (goSection("agents", "map"), void openMap(shown))} title="Open this map in Agents, on 3 · Map"
+                      data-testid="setup-edit-map">
+                Edit on the Map
+              </Button>
+            )}
           </div>
           <pre className="su-preview-lines mono" data-testid="setup-team-preview">
             {preview.join("\n")}
@@ -85,7 +90,7 @@ export function TeamGlance() {
   return (
     <div className="glance">
       <div className="glance-kicker mono">MAP</div>
-      <div className="glance-text">{active + (source === "default" ? " (default)" : "")}</div>
+      <div className="glance-text">{active === ONE_MODEL ? "One model for everything" : active + (source === "default" ? " (default)" : "")}</div>
       <div className="glance-hint">crew.map in config.json</div>
     </div>
   );

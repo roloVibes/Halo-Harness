@@ -6,6 +6,8 @@ instructions: 'You turn the goal you are given into numbered steps. For each ste
   how it is checked, and what it needs from the step before. Read what you need; change nothing. Hand back the steps
   only.'
 model: auto
+needs:
+- reasoning
 uses:
 - read
 careful: ask-changes

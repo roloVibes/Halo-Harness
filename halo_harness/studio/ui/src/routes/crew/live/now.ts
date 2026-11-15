@@ -1,5 +1,6 @@
 // Truth first (3.3.18.0 "The living canvas", the owner: "I always see like unused older version of orchestrations that
-// aren't even happening ... I'd love to see what is actually happening"): what Live draws as PRESENT. Pure, plus the
+// aren't even happening ... I'd love to see what is actually happening"): what is drawn as PRESENT (3.6.0.0 R5: the Map
+// and the rail's badge read it; Live's canvas is gone). Pure, plus the
 // small set of failed agents the owner dismissed.
 //
 //   live      queued, running, waiting, paused: drawn
@@ -20,12 +21,12 @@ import type { Harness } from "../../fleet/types";
 import type { LiveNode } from "./liveModel";
 import { createStore, useStore } from "../../../lib/store";
 
-export const LINGER_MS = DONE_MS; // how long a finished agent stays on Live
+export const LINGER_MS = DONE_MS; // how long a finished agent stays drawn
 export const LIVE_STATES = ["queued", "running", "waiting", "paused"];
 const DONE = ["done", "stopped"];
 const NO = new Set<string>();
 
-/** The failed agents the owner dismissed from Live (their key); in memory, as Cast's acknowledged glow. */
+/** The failed agents the owner dismissed (their key); in memory. */
 const dismissed = createStore<{ keys: string[] }>({ keys: [] });
 export const isDismissed = (key: string): boolean => dismissed.get().keys.includes(key);
 export const useDismissed = (): string[] => useStore(dismissed, (s) => s.keys);
@@ -48,7 +49,7 @@ export function presentSelf(n: LiveNode, doneAt: Record<string, number>, now: nu
   return false;
 }
 
-/** The nodes Live draws now: the present ones and the parents, sessions and machines that hold them. */
+/** The nodes drawn now: the present ones and the parents, sessions and machines that hold them. */
 export function present(nodes: LiveNode[], doneAt: Record<string, number>, now: number, gone: string[] = [], held: Set<string> = NO): LiveNode[] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const keep = new Set<string>();
@@ -74,7 +75,7 @@ export function useLiveCount(): number {
   return useMemo(() => liveCount(harnesses), [harnesses]);
 }
 
-/** The session Live opens on: the one asked for while it is listed, else the newest with an agent at work, else the newest. */
+/** The session a view opens on: the one asked for while it is listed, else the newest with an agent at work, else the newest. */
 export function pickSession(refs: { id: string; live: number }[], want: string): string {
   if (want && refs.some((r) => r.id === want)) return want;
   return (refs.find((r) => r.live > 0) || refs[0])?.id || "";

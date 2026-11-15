@@ -98,11 +98,11 @@ def post_use(req):
     on = bool((req.body or {}).get("on", True))
     if on and store.find("map", name, cwd=req.cwd, state_dir=req.state_dir) is None:
         return 404, {"error": f"no map named {name!r}"}
-    from halo_harness.crew.changes_map import config_path, config_text
+    from halo_harness.crew.changes_map import ONE_MODEL, config_path, config_text
     now = in_use(None, req.cwd)[0]
-    value = name if on else (None if now == name else now)
+    value = name if on else (None if now == name else (now or ONE_MODEL))  # off: no map in use stays no map
     undo_id = changes.write_all({config_path(): config_text(value)}, state_dir=req.state_dir)
-    return 200, {"undo_id": undo_id, "in_use": value}
+    return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0]}
 
 
 def delete_map(req):

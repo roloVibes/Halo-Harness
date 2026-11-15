@@ -58,7 +58,7 @@ export function SaveDialog({ r, lineup, onClose }: { r: LiveReplay; lineup: stri
   const [busy, setBusy] = useState(false);
   const go = async () => (setBusy(true), setDone(await save(r, lineup, plan?.id)), setBusy(false));
   const cost = plan && !done ? { does: r.kind === "run" ? `Saves the goal run "${r.title}" as one replay file: the lead and its lanes, each lane's states over time, the marks, the run's figures`
-                                    : `Saves "${r.title}" as one replay file: its agents, their states over time, the marks, the lineup's blocks`,
+                                    : `Saves "${r.title}" as one replay file: its agents, their states over time, the marks`,
                                   costs: "nothing: no model call", writes: `${plan.path} (about ${kb(plan.bytes)})` } : undefined;
   return (
     <Dialog open onClose={onClose} title="Save this run's replay" testid="replay-save-dialog" cost={cost}

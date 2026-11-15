@@ -1,12 +1,17 @@
 """tests.test_crew_compile -- Halo 3.6.0.0 R3: a map compiles to what a session already runs (halo_harness/crew/
 compile.py, map_control.py, map_session.py; docs/CREW-sessions.md).
 
-1. PARITY: a map that mirrors the old auto lineup (main + a "main decides per task" line to each pool member, each
-   agent file mirroring its auto bio, and the media workflow) gives a session whose main tools, main model and mode,
-   and -- for the same tasks -- the spawned child's model pick (models_auto, a seeded catalog) and permission mode
-   equal what the lineup gave (3.6.0.0 R5: RECORDED_*, the lineup is no longer on a session's path); the child's tools
-   are its `uses` (agent/1), every tool under the lineup: the one designed difference; with no map set a session runs
-   on the shipped `starter` map;
+0. THE DEFAULT SESSION IS A 3.5 PLAIN SESSION (3.6.0.0 R5 fix): the session a user with no map gets runs on the
+   starter map as a drawing -- its main tools (Workflow included), model, mode, the first request's system text, the
+   Agent / Workflow tools' words, delegation depth and parallelism, the child model picks (and the routing that named
+   the member), no money cap, every discovered agent spawnable and winning over a starter agent of its name, the
+   starter's coder in the user's own files, `halo roles point` reaching the child, and roles off = no map at all --
+   all equal what the 3.5 lineup gave (RECORDED_*, recorded on 4979de40 / fbc52502);
+1. PARITY of a chosen map: a map that mirrors the old auto lineup (main + a "main decides per task" line to each pool
+   member, each agent file mirroring its auto bio, and the media workflow) gives a session whose main tools, main model
+   and mode, and -- for the same tasks -- the spawned child's model pick (models_auto, a seeded catalog) and permission
+   mode equal what the lineup gave; the child's tools are its `uses` (agent/1), every tool under the lineup: the one
+   designed difference of a map you chose;
 2. the compile: main's config, the hand-off table, the chains, the specs (role = the agent's name), the cap;
 3. a map with a problem (a missing agent, a circle, a bad file) gives its problem lines and the starter map instead;
 4. a changed map compiles again at the next hand-off and says so once; with `crew.map` unset the starter map is used.
@@ -93,6 +98,121 @@ RECORDED_PICKS = {
     "deploy the staging build": ["ops", "or:v/cheap", "default"],
 }
 SHELL = {"PowerShell"}
+# 3.6.0.0 R5 fix: more of what a plain 3.5 session had (fbc52502, the same seeded home): the depth and parallelism of
+# its delegation, no money cap, nothing appended to the system prompt, and the closing words of its Agent tool.
+RECORDED_DELEGATION = (2, 4)
+RECORDED_BUDGET = {"band": "mid"}
+RECORDED_AGENT_TAIL = "The lineup is auto: a sub-agent's model is picked for its task; say `model:` to choose yourself."
+STARTER = {"media": "media-reader"}  # the lineup's alias -> the starter agent drawn for it
+
+
+def _system(session) -> str:
+    from halo_harness.agent.derive import derive_request
+    return derive_request(session.log)[0]
+
+
+@test
+def test_the_default_session_is_a_plain_session(ctx: Ctx):
+    from halo_harness.crew import map_run
+    from halo_harness.models_best_at import rebuild
+    from halo_harness.tools.base import ToolResult
+    with S.home("crew-default-") as (root, state):
+        env = S.seed(state)
+        rebuild(state, list(S.rows_by_ref(state, env).values()))
+        repo = root / "repo"
+        (repo / ".claude" / "agents").mkdir(parents=True)
+        (repo / ".claude" / "agents" / "my-helper.md").write_text(
+            "---\nname: my-helper\ndescription: a project's own helper\n---\nYou help.\n", encoding="utf-8")
+        s = _session(repo, {})
+        tc = s.team_control
+        ctx.check(f"no map set: the session draws the starter map, got {getattr(getattr(tc, 'map', None), 'name', None)}",
+                  getattr(tc, "is_map", False) and tc.map.name == "starter" and tc.map.source == "default")
+        have = sorted(set(s.tool_registry.names()) - SHELL)
+        ctx.check(f"main's tools are a plain session's (Workflow too), got only-recorded "
+                  f"{sorted(set(RECORDED_MAIN_TOOLS) - set(have))} only-now {sorted(set(have) - set(RECORDED_MAIN_TOOLS))}",
+                  have == sorted(RECORDED_MAIN_TOOLS))
+        ctx.check(f"main's model and mode, got {s.model_ref.raw}/{s.permission_engine.mode}",
+                  (s.model_ref.raw, s.permission_engine.mode) == RECORDED_MAIN)
+        plain_system = _system(s)
+        ctx.check("main's starter instructions are not in the system prompt",
+                  "You are main, the agent the person talks to" not in plain_system and "Your instructions (the map" not in plain_system)
+        agent_words, flow_words = s.tool_registry.get("Agent").description, s.tool_registry.get("Workflow").description
+        ctx.check("the Agent tool says what a plain session's said (no 'runs on the map', no 'only to these')",
+                  agent_words.endswith(RECORDED_AGENT_TAIL) and "runs on the map" not in agent_words)
+        ctx.check("the Workflow tool is a plain session's (not a map's)", "runs on the map" not in flow_words)
+        rt = s.agent_runtime
+        ctx.check(f"delegation as the lineup's, got depth {rt.max_depth} parallel {rt.max_concurrent}",
+                  (rt.max_depth, rt.max_concurrent) == RECORDED_DELEGATION)
+        tc.record_spend(1000.0)
+        ctx.check(f"no money cap, got budget {tc.budget} refusal {tc.budget_refusal()!r}",
+                  tc.budget == RECORDED_BUDGET and tc.budget_refusal() is None)
+        ctx.check("the starter's coder works in the user's own files", rt.agents["coder"].isolation is None)
+        calls = []
+
+        def inner(**kw):
+            calls.append(kw["tool_input"])
+            return [], ToolResult("ok")
+        wants = ["Explore", "my-helper", "reviewer", "coder", "general-purpose", ""]
+        for want in wants:
+            ti = {"subagent_type": want, "description": "look around", "prompt": "find the config loader"}
+            _e, tr = map_run.agent_call(inner, runtime=rt, tool_id="t1", tool_input=dict(ti), tool_name="Agent")
+            ctx.check(f"spawn {want!r}: runs as in a plain session (passed on unchanged, result unchanged), got "
+                      f"{tr.content!r}", not tr.is_error and tr.content == "ok" and calls and calls[-1] == ti)
+        for task, (alias, model, mode) in RECORDED_PICKS.items():
+            kind, routed = tc.route_call({"prompt": task}, task)
+            ctx.check(f"{task!r}: routed to {alias} as the lineup did, got {routed}", routed == alias)
+            got = _child(s, rt.agents[STARTER.get(alias, alias)], None, task)
+            ctx.check(f"{task!r}: the starter's {STARTER.get(alias, alias)} picks {model} as the lineup's {alias} did, got "
+                      f"{got['model']}", got["model"] == model and got["mode"] == mode)
+        s.close_runtimes()
+        from halo_harness.ollama_steward.dead_tag import cmd_point
+        cmd_point(["researcher", "dbx:databricks-gemini-x-pro"])
+        (root / ".claude" / "agents").mkdir(parents=True)
+        (root / ".claude" / "agents" / "reviewer.md").write_text(
+            "---\nname: reviewer\ndescription: my own reviewer\n---\nYou review my way.\n", encoding="utf-8")
+        s = _session(repo, {})
+        ctx.check(f"a user's agent wins over the starter's of its name, got {s.agent_runtime.agents['reviewer'].source}",
+                  s.agent_runtime.agents["reviewer"].source == "user")
+        got = _child(s, s.agent_runtime.agents["researcher"], None, "research how the cache invalidates")
+        ctx.check(f"halo roles point researcher <model> reaches the starter's researcher, got {got['model']}",
+                  got["model"] == "dbx:databricks-gemini-x-pro")
+        s.close_runtimes()
+        from halo_harness.roles import set_roles_enabled
+        set_roles_enabled(False)
+        s = _session(repo, {})
+        ctx.check(f"roles off (One model for everything): no map at all, got {getattr(s.team_control, 'name', None)}",
+                  s.team_control is None)
+        bare = ("- **Agent**", "- **Task**")  # roles on / off words in those two tools' lines, as on 3.5 (checked above)
+        ctx.check("the default map adds nothing to the system prompt: the same text as a session on no map at all",
+                  [x for x in _system(s).splitlines() if not x.startswith(bare)]
+                  == [x for x in plain_system.splitlines() if not x.startswith(bare)])
+        s.close_runtimes()
+
+
+@test
+def test_the_starter_carries_the_lineup_needs_and_no_cap(ctx: Ctx):
+    """The starter's agents say the needs the lineup's cards picked by (one source in a session: the lineup; this pins
+    the drawing to it), the starter has no cap, and a cap on a default map is never applied."""
+    from halo_harness.agents_yaml import resolve_agent_bio
+    from halo_harness.crew.compile import compile_map
+    from halo_harness.crew.map_control import MapControl, control_for, plain_lineup
+    with S.home("crew-starter-") as (root, _state):
+        c = compile_map("starter", cwd=root)
+        lineup = plain_lineup()
+        for alias, entry in lineup.aliases.items():
+            if alias == "main":
+                continue
+            bio = resolve_agent_bio(entry["agent"]) or {}
+            want = list((bio.get("models") or {}).get("needs") or [])
+            ctx.check(f"starter {STARTER.get(alias, alias)} needs {c.needs_of(STARTER.get(alias, alias))}, the lineup's {alias} {want}",
+                      c.needs_of(STARTER.get(alias, alias)) == want)
+        ctx.check("the starter has no cap", c.cap_usd is None)
+        capped = compile_map("ship-it", cwd=root)
+        capped.source = "default"
+        ctx.check("a default map's cap is never applied", MapControl(capped).budget_refusal() is None
+                  and "max_budget_usd" not in MapControl(capped).budget and capped.cap_usd == 20.0)
+        mc = control_for(c)
+        ctx.check("the starter as a chosen map is a map with rules", type(mc) is MapControl and not hasattr(mc, "lineup"))
 
 
 @test
@@ -158,7 +278,7 @@ def test_the_compile_main_handoffs_chains_specs_cap(ctx: Ctx):
         ctx.check("starter: seven agent targets, each spec's role its own name, modes from careful",
                   len(s.agent_targets()) == 7 and all(sp.role == n for n, sp in s.specs.items())
                   and s.specs["coder"].permission_mode == "acceptEdits" and s.specs["planner"].permission_mode == "default")
-        ctx.check("an agent's needs reach Auto in its words", s.needs_of("media-reader") == ["vision", "pdf"])
+        ctx.check("an agent's needs reach Auto in its words", s.needs_of("researcher") == ["long-context"])
 
 
 @test

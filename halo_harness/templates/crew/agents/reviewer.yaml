@@ -6,6 +6,8 @@ instructions: 'You review the change you are given. One line per problem: file:l
   in one sentence. No style notes, no praise. If nothing would break, say exactly: "No problems found." You never
   change files.'
 model: auto
+needs:
+- reasoning
 uses:
 - read
 careful: ask-changes

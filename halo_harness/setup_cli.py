@@ -5,7 +5,7 @@ On a real terminal `halo setup <page>` opens Halo Studio on that page of its Set
 studio/setup_door.py): providers, local, model, permissions, theme, team (`roles` is its older name), linux, check;
 bare `halo setup` the whole section. `--terminal`, no terminal, or a box where no browser can open (SSH, no
 DISPLAY, `HALO_NO_BROWSER`, after the URL and the port-forward line) prints the console way to do the same instead:
-the command that sets it (`CONSOLE` below; team and roles also print the current roles table). The terminal wizard's
+the command that sets it (`CONSOLE` below; the Map page -- map, team, roles -- also prints the map in use). The terminal wizard's
 screens left in 3.4.0.0. `/setup` (tui/slash.py `_handle_setup`) is the same from a live session. 3.3.11.0 R3: `halo
 setup <pack>` opens an enabled pack's own Setup blocks (`?block=pack:<id>:<block>`, the first one waiting), or lists
 them where no browser opens.
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sys
 
-USAGE = "usage: halo setup [providers|local|model|permissions|theme|team|linux|check|<pack>] [--terminal]"
+USAGE = "usage: halo setup [providers|local|model|permissions|theme|map|linux|check|<pack>] [--terminal]"
 #: The console way to do what each Setup page does (3.4.0.0 B2: what `--terminal` and a box with no browser print).
 CONSOLE = {
     "": "halo init --terminal: a provider and its key, the default model, the permission mode, doctor",
@@ -25,7 +25,8 @@ CONSOLE = {
     "model": "halo config set model <ref> (halo models lists them); halo init --terminal picks one from a short list",
     "permissions": "halo config set permission_mode <default|acceptEdits|plan|auto|bypassPermissions>",
     "theme": "halo config set theme <name> (/theme in a session lists the palettes)",
-    "team": "halo teams list; halo teams use <name>; halo teams show <name>",
+    "team": "halo maps list; halo maps show <name>; halo maps use <name> (--off: the default, --none: one model for "
+            "everything)",
     "linux": "halo doctor (its rg and ~/.local/bin lines end with the fix to run)",
     "check": "halo check (doctor, the catalog, a hello call; --all adds the rest)",
 }
@@ -38,9 +39,15 @@ def console_lines(page: str) -> "list[str]":
     return [f"Setup{(' -> ' + page) if page else ''} in a terminal: {CONSOLE[page]}"]
 
 
-def _print_roles_table() -> int:
-    from halo_harness.roles_cli import _cmd_table
-    return _cmd_table()
+def _print_map_in_use() -> int:
+    """3.6.0.0 R5 fix: the Map page's console line says what new sessions run on (the roles table it printed named the
+    lineup, which no session runs any more)."""
+    from pathlib import Path
+    from halo_harness.crew.compile import in_use
+    name, source = in_use(None, Path.cwd())
+    print("map: none (One model for everything: roles off)" if name is None else
+          f"map: {name} (the default: it draws what a session does)" if source == "default" else f"map: {name} ({source})")
+    return 0
 
 
 def _pack_setup(pack_id: str, terminal: bool) -> "int | None":
@@ -79,7 +86,7 @@ def cmd_setup(argv: list) -> int:
         if rc is not None:
             return rc
     if page not in CONSOLE or len(words) > 1:
-        print(f"halo setup: unknown page {' '.join(words)!r} (known: {', '.join(p for p in CONSOLE if p)}, roles = team, "
+        print(f"halo setup: unknown page {' '.join(words)!r} (known: {', '.join(p for p in CONSOLE if p)}, map = roles = team, "
               "an enabled pack's id; --terminal)", file=sys.stderr)
         return 2
     tty = sys.stdin.isatty() and sys.stdout.isatty()
@@ -88,4 +95,4 @@ def cmd_setup(argv: list) -> int:
         return 0
     for line in console_lines(page):
         print(line)
-    return _print_roles_table() if page == "team" else 0
+    return _print_map_in_use() if page == "team" else 0

@@ -36,7 +36,7 @@ from urllib.parse import urlsplit
 
 # The page's blocks by the word a door uses (each is a step's page, routes/setup/pages.ts stepOf); `roles` is the Team block's old name.
 BLOCKS = ("providers", "local", "model", "permissions", "theme", "team", "linux", "check")  # 3.5.0.0: no Machines
-ALIASES = {"roles": "team"}
+ALIASES = {"roles": "team", "map": "team"}  # 3.6.0.0 R5 fix: `map` is the page's name now, `team` its block id
 BLOCK_TITLES = {"providers": "Providers", "local": "Local models", "model": "Default model", "permissions": "Permissions",
                 "theme": "Theme", "team": "Team", "linux": "Linux fixes", "check": "Check"}
 

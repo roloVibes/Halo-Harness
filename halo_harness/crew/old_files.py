@@ -4,7 +4,8 @@ Halo no longer reads the old lineups, bios and workflow squares (`~/.halo/teams`
 and a project's `.halo/teams`, `.halo/workflows`, `.halo/agents`). They stay on disk exactly as they are: nothing here
 deletes, moves, converts or rewrites a file of yours.
 
-    found(cwd, state_dir) -> (folders, count)   the old folders that hold files, and how many files
+    found(cwd, state_dir) -> (folders, count)   the old folders that hold files of the user's, and how many (a file
+                                                Halo itself copied there, unchanged, is not counted: `stock`)
     line(cwd, state_dir) -> str                 the one line ("" when there is nothing old)
     once(cwd, state_dir) -> str                 the line the first time only (the terminal at the first start, the
                                                 Attention row's first showing); "" after, and when there is nothing
@@ -22,6 +23,8 @@ from typing import Optional
 KINDS = ("teams", "workflows", "agents")
 MARKS = {"terminal": ".old-files-said", "studio": ".old-files-set-aside"}
 FILES = ("*.yaml", "*.yml", "*.md", "*.json")
+SHIPPED = Path(__file__).resolve().parent.parent / "templates"
+_STOCK: dict = {}  # path -> (size, mtime_ns, is Halo's own copy): a file is read again only when it changed
 
 
 def _home(state_dir=None) -> Path:
@@ -31,11 +34,45 @@ def _home(state_dir=None) -> Path:
     return Path(default_state_dir())
 
 
-def _count(folder: Path) -> int:
+def _bytes(p: Path) -> bytes:
+    return p.read_bytes().replace(b"\r\n", b"\n")
+
+
+def stock(p: Path, kind: str) -> bool:
+    """3.6.0.0 R5 fix: a file Halo itself copied there (a shipped lineup, bio or square, unchanged: the same bytes as
+    the shipped file of its name, line ends aside) -- not the user's, so never named as theirs."""
     try:
-        return sum(1 for pat in FILES for p in folder.rglob(pat) if p.is_file())
+        st = p.stat()
+        key = (st.st_size, st.st_mtime_ns)
+        hit = _STOCK.get(str(p))
+        if hit is not None and hit[:2] == key:
+            return hit[2]
+        twin = SHIPPED / kind / p.name
+        same = twin.is_file() and _bytes(twin) == _bytes(p)
+        _STOCK[str(p)] = (*key, same)
+        return same
+    except OSError:
+        return False
+
+
+def _count(folder: Path, kind: str) -> int:
+    try:
+        return sum(1 for pat in FILES for p in folder.rglob(pat) if p.is_file() and not stock(p, kind))
     except OSError:
         return 0
+
+
+def team_line() -> str:
+    """A configured `team:` no session reads any more: named, and what to do, in one line ("" when none is set)."""
+    try:
+        from halo_harness.theme import get_config_value
+        team = get_config_value("team", default=None)
+    except Exception:
+        return ""
+    if not (isinstance(team, str) and team.strip()):
+        return ""
+    return (f"Your config sets team: {team.strip()}, which no session reads any more (lineups are gone): pick a map with "
+            "halo maps use <name>, and clear the old key with halo config set team null.")
 
 
 def found(cwd=None, state_dir=None) -> "tuple[list, int]":
@@ -47,7 +84,7 @@ def found(cwd=None, state_dir=None) -> "tuple[list, int]":
             places += [(proj / k, f".halo/{k}") for k in KINDS]
     folders, total = [], 0
     for path, label in places:
-        n = _count(path) if path.is_dir() else 0
+        n = _count(path, label.rsplit("/", 1)[-1]) if path.is_dir() else 0
         if n:
             folders.append(label)
             total += n
@@ -55,16 +92,18 @@ def found(cwd=None, state_dir=None) -> "tuple[list, int]":
 
 
 def line(cwd=None, state_dir=None) -> str:
+    """The files the user wrote or changed in the old folders, and a configured `team:` now ignored; "" for neither."""
     folders, n = found(cwd, state_dir)
+    team = team_line()
     if not folders:
-        return ""
+        return team
     mine = [f for f in folders if f.startswith("~")]
     proj = [f for f in folders if not f.startswith("~")]
     where = ", ".join(mine) + (" and this project's " + ", ".join(proj) if proj else "")
     if not mine:
         where = "this project's " + ", ".join(proj)
-    return (f"Halo no longer uses {where} ({n} file{'' if n == 1 else 's'}). They are still there; the new ones live in "
-            "~/.halo/crew/ (Studio: Agents -> 1 Agents, 2 Workflows, 3 Map).")
+    return (f"Halo no longer uses {where} ({n} file{'' if n == 1 else 's'} of yours). They are still there; the new ones "
+            "live in ~/.halo/crew/ (Studio: Agents -> 1 Agents, 2 Workflows, 3 Map)." + (f" {team}" if team else ""))
 
 
 def said(state_dir=None, who: str = "terminal") -> bool:

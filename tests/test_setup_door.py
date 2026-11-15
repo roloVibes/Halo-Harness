@@ -185,7 +185,7 @@ def test_slash_setup_opens_setup_and_terminal_prints_the_console_way(ctx: Ctx):
         asyncio.run(slash.handle_slash(app, "setup", "--terminal"))
         asyncio.run(slash.handle_slash(app, "setup", "kitchen"))
     ctx.check(f"/setup --terminal [team]: the console way, no screen, no Studio, got {app.notes} {rec}",
-              not app.pushed and not rec["launched"] and not rec["opened"] and "halo teams use <name>" in app.notes[0]
+              not app.pushed and not rec["launched"] and not rec["opened"] and "halo maps use <name>" in app.notes[0]
               and app.notes[1].startswith("Setup in a terminal: halo init --terminal"))
     ctx.check(f"an unknown word: the usage, got {app.notes}", app.notes and app.notes[-1].startswith("Usage: /setup [providers|"))
 

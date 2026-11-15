@@ -95,10 +95,11 @@ def test_change_copy_remove_and_a_question(ctx: Ctx):
                   len(copy["rows"]) == 1 and copy["rows"][0]["op"]["op"] == "copy")
         from halo_harness.crew import changes
         changes.apply(copy["rows"], [copy["rows"][0]["id"]], cwd=rig.proj, state_dir=rig.state)
-        ch = tools.run("agent_change", {"name": "my-reviewer", "fields": {"model": "or:mock/x", "uses": ["edit"]}}, ctxd)
+        # 3.6.0.0 R5 fix: the starter reviewer says its needs (reasoning); a fixed model goes with none
+        ch = tools.run("agent_change", {"name": "my-reviewer", "fields": {"model": "or:mock/x", "needs": [], "uses": ["edit"]}}, ctxd)
         kinds = sorted((c["summary"], c["widen"]) for c in ch["rows"])
-        ctx.check(f"model (not widening), edit added (widening), read dropped (not), got {kinds}",
-                  [w for _s, w in kinds].count(True) == 1 and len(kinds) == 3)
+        ctx.check(f"model and needs (not widening), edit added (widening), read dropped (not), got {kinds}",
+                  [w for _s, w in kinds].count(True) == 1 and len(kinds) == 4)
         wf = {"format": "workflow/1", "name": "ship", "for": "x", "steps": [{"name": "a", "agents": ["my-reviewer"]}]}
         store.write_text(store.path_for("workflow", "ship", state_dir=rig.state), store.dump(wf))
         rm = tools.run("agent_remove", {"name": "my-reviewer"}, ctxd)

@@ -7,9 +7,14 @@ The map is drawn on [Studio's Map tab](STUDIO-map.md) and kept as a `map/1` [cre
 ## Which map
 
 A session runs on a map when one is named: `halo --map <name>` for this one run, else config `crew.map` (Studio's
-**My sessions use this**, `halo maps use <name>`). With neither, a session runs exactly as before maps (its lineup,
-`docs/ROLES.md`). A map in use replaces the lineup for that session. Each session row (Studio's sessions, `GET fleet`)
-carries `map`: the map it started with.
+**My sessions use this**, `halo maps use <name>`). With neither, the session runs on the **default map**: it draws the
+shipped `starter` map so the Map tab shows what it does, but sets no rules (3.6.0.0 R5): it runs exactly as a 3.5
+session with no lineup set -- every agent it finds can be spawned (yours win over a starter agent of the same name),
+no money cap, delegation two deep and four at a time, each sub-agent's model picked as before, `halo roles point`
+honoured, the Workflow tool there, nothing added to the system prompt (`crew/compile.py` `is_default` is the one
+check; `crew/map_control.py` `PlainMap` answers from the shipped `auto` lineup). With roles off ("One model for
+everything", `halo maps use --none`) a session runs on no map at all. Everything below is what a map you pick or
+write does. Each session row (Studio's sessions, `GET fleet`) carries `map`: the map it started with.
 
 ## What compiles to what
 

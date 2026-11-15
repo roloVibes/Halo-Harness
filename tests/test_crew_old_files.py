@@ -5,7 +5,9 @@
 2. old lineups / bios / squares under ~/.halo and this project's .halo: one line naming them and how many files,
    said once in the terminal, an Attention row until it is set aside (then gone for good), doctor's row while the
    folders hold files -- and every file byte for byte as it was (nothing deleted, converted or rewritten);
-3. the old `--team <name>` says it is gone in one line and the session runs on the map in use (the starter).
+3. 3.6.0.0 R5 fix: Halo's own unchanged copies of its shipped lineups and bios are not named; a changed one is, and a
+   configured `team:` is named with what to do;
+4. the old `--team <name>` says it is gone in one line and the session runs on the map in use (the starter).
 Run: python -m tests.test_crew_old_files
 """
 from __future__ import annotations
@@ -56,7 +58,7 @@ def test_old_files_one_line_once_and_never_touched(ctx: Ctx):
         text = old_files.line(repo, state)
         ctx.check(f"one line naming the folders and the count, got {text!r}",
                   "~/.halo/teams" in text and "~/.halo/agents" in text and "this project's .halo/workflows" in text
-                  and "(3 files)" in text and "~/.halo/crew/" in text and "~/.halo/workflows" not in text)
+                  and "(3 files of yours)" in text and "~/.halo/crew/" in text and "~/.halo/workflows" not in text)
         out = io.StringIO()
         old_files.terminal_once(repo, state, out=out)
         old_files.terminal_once(repo, state, out=out)
@@ -70,6 +72,32 @@ def test_old_files_one_line_once_and_never_touched(ctx: Ctx):
         ctx.check(f"doctor repeats it while the folders hold files, got {_doctor(repo)}",
                   len(_doctor(repo)) == 1 and "Halo no longer uses" in _doctor(repo)[0])
         ctx.check("every old file is byte for byte as it was", all(p.read_bytes() == data for p, data in files.items()))
+
+
+@test
+def test_halos_own_copies_say_nothing_and_a_set_team_is_named(ctx: Ctx):
+    """3.6.0.0 R5 fix: the shipped lineups and bios Halo itself copied into ~/.halo (unchanged, line ends aside) are
+    not the user's: no line, no doctor row. One the user changed is named; a configured `team:` is named with what to
+    do, in one line, even with no old file at all."""
+    from halo_harness.crew import old_files
+    from halo_harness.theme import set_config_value
+    shipped = Path(old_files.__file__).resolve().parent.parent / "templates"
+    with S.home("crew-old-stock-") as (root, state):
+        for kind in ("teams", "agents"):
+            (state / kind).mkdir(parents=True)
+            for src in sorted((shipped / kind).glob("*.yaml")):
+                (state / kind / src.name).write_bytes(src.read_bytes().replace(b"\n", b"\r\n"))  # as Windows wrote them
+        ctx.check(f"Halo's own copies: no line, got {old_files.line(root, state)!r}", old_files.line(root, state) == "")
+        ctx.check("no doctor row", _doctor(root) == [])
+        auto = state / "teams" / "auto.yaml"
+        auto.write_bytes(auto.read_bytes() + b"# mine now\n")
+        text = old_files.line(root, state)
+        ctx.check(f"a copy the user changed is theirs: named, got {text!r}", "~/.halo/teams (1 file of yours)" in text)
+        auto.unlink()
+        set_config_value("team", "quality")
+        text = old_files.line(root, state)
+        ctx.check(f"a configured team: named with what to do, got {text!r}", "team: quality" in text
+                  and "halo maps use <name>" in text and "\n" not in text)
 
 
 @test

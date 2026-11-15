@@ -1394,17 +1394,21 @@ class Session:
         if agent_depth == 0 and not getattr(session_context, "bare", False):
             from halo_harness.teams_runtime import load_team_control
             if crew_map is not None:  # 3.6.0.0 R3: a session on a map holds it where a lineup was (crew/map_control.py)
-                from halo_harness.crew.map_control import MapControl
-                self.team_control = MapControl(crew_map, cwd=cwd, state_dir=state_dir, session=self)
+                from halo_harness.crew.map_control import control_for
+                self.team_control = control_for(crew_map, cwd=cwd, state_dir=state_dir, session=self)
             else:
                 self.team_control = load_team_control(team_name, cwd=cwd, state_dir=state_dir,
                                                       trusted=getattr(session_context, "trusted", None))
+            from halo_harness.crew.compile import is_default as _default_map
+            # 3.6.0.0 R5 fix: on the default map the tools describe themselves as a plain session's did (no map tail)
+            _held = (self.team_control if getattr(self.team_control, "is_map", False)
+                     and not _default_map(getattr(self.team_control, "map", None)) else None)
             # 3.1.9.0 R2: the Agent tool's description says when the lineup is `auto`
             for _tool_name in ("Agent", "Task", "Workflow"):  # 3.3.16.0 R3: Workflow lists the lineup's squares
                 _tool = self.tool_registry.get(_tool_name) if self.tool_registry is not None else None
                 if _tool is not None:
                     _tool.lineup = getattr(self.team_control, "name", None)
-                    _tool.map_control = self.team_control if getattr(self.team_control, "is_map", False) else None
+                    _tool.map_control = _held
             if self.team_control is not None:
                 self.agent_runtime.team_control = self.team_control
                 delegation = self.team_control.delegation

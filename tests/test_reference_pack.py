@@ -10,8 +10,8 @@ model call:
 2. its review workflow runs through the mock lead and stage workers to the
    typed review-report artifact and the report;
 3. Studio: its section and the "Last review report" artifact panel are in
-   the registry, the panel's route draws that run's report, its lineup is
-   under Roles; its capability is available here;
+   the registry, the panel's route draws that run's report; a plain session
+   finds its agent and may spawn it (3.6.0.0 R5); its capability is available here;
 4. its lint MCP server, started from its `.mcp.json` the way a session
    starts it (`${halo_python}`, R7), answers initialize, tools/list and check_links;
 5. 3.2.0.0 R7: an update from a newer copy keeps 1.0.0 as doc-review.previous;
@@ -114,7 +114,23 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
             time.sleep(0.2)
         ctx.check(f"the panel draws that run's report, got {status} {body.get('run')} {body.get('view')} {sorted(body)}", status == 200
                   and body.get("data") == GOOD_REPORT and body.get("run") == run.name and body.get("view") == "table")
-        # 3.6.0.0 R5: Studio's lineups route went with Cast (a pack's crew contributions are packs API 2.0's, next round)
+        # 3.6.0.0 R5: Studio's lineups route went with Cast (a pack's crew contributions are packs API 2.0's, next round).
+        # R5 fix, today's shape: a plain session (no map named) finds the pack's agent and may spawn it, as on 3.5
+        from halo_harness import headless
+        from halo_harness.crew import map_run
+        from halo_harness.tools.base import ToolResult
+        plain = headless.build_session(cwd=h.repo, model_ref_raw=ROW["ref"], print_mode=True, cli_flags={}).session
+        spawned = []
+
+        def inner(**kw):
+            spawned.append(kw["tool_input"].get("subagent_type"))
+            return [], ToolResult("ok")
+        _ev, tr = map_run.agent_call(inner, runtime=plain.agent_runtime, tool_id="t1", tool_name="Agent",
+                                     tool_input={"subagent_type": "doc-helper", "description": "the docs",
+                                                 "prompt": "what does guide.md link to"})
+        ctx.check(f"a plain session spawns the pack's doc-helper, got {tr.content!r} {spawned}",
+                  "doc-helper" in plain.agent_runtime.agents and not tr.is_error and spawned == ["doc-helper"])
+        plain.close_runtimes()
         from halo_harness.packs.contrib_views import contributes
         from halo_harness.packs.discover import find
         got = contributes(find("doc-review", cwd=h.repo), ["bash", "hooks", "mcp:lint"], running=True, cwd=h.repo, state_dir=h.state)

@@ -1,7 +1,8 @@
 """tests.helpers.studio_agents -- Agents, one section (Halo 3.3.16.0 R1) in headless Chrome on the driver base, over a
 scratch home and a temp git repo (tests/helpers/orchestra_fixtures.py) holding a live Orchestra run whose workers wait
 on a gate (tests/helpers/orchestra_studio_rig.py `fake_runner`): the lead split it into five lanes and each lane's
-`lane:<n>` placeholder holds its claims. tests/test_studio_agents.py runs it:
+`lane:<n>` placeholder holds its claims. 3.6.0.0 R5: tests/test_studio_agents.py went with Cast, Live and Board; the
+crew drivers (studio_crew.py, studio_flows.py, studio_map*.py) import its `key`, and its own run is a hand check:
 
     python -m tests.helpers.studio_agents agents   Alt+2 opens Agents on 1 · Agents (3.6.0.0 R1) with nothing else open; six section
                                                    tabs; the doors (?mode=roles, roles&view=live, orchestra,

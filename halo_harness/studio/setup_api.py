@@ -10,8 +10,9 @@ state (studio/setup_state.py) plus the lines saying what was written.
                                         against the rows the state lists, then `set_config_value`
                                         -> 200 {...state, lines}; 422 {error, problems} and nothing written
     POST setup/team {map}               3.6.0.0 R5, the Map step (the Team step before): new sessions run on that
-                                        map (config `crew.map`, as `halo maps use`) -> 200 {...state, lines}; a body
-                                        naming a lineup gets one line: lineups are gone
+                                        map (config `crew.map`, as `halo maps use`; `starter` = the default, the key
+                                        unset; `one-model` = One model for everything, roles off and no map)
+                                        -> 200 {...state, lines}; a body naming a lineup gets one line: lineups are gone
     GET  setup/team/<name>/preview      {name, lines}: the map in words (crew/tools_show.py, as `halo maps show`)
     POST setup/provider/<name>, setup/ollama-host[/remove], setup/hf, setup/model-dir, setup/runtime
                                         the Providers and Local models blocks (studio/setup_providers_api.py, R2)
@@ -105,15 +106,26 @@ def post_team(req):
         return _refused(["lineups are gone: pick a map (halo maps list names them)"])
     if not name:
         return _refused(["the body needs map: a map name (halo maps list names them)"])
-    if not _known(name, req):
+    from halo_harness.crew.changes_map import ONE_MODEL, config_path, config_text
+    if name != ONE_MODEL and not _known(name, req):
         return _refused([f"no map named {name!r} here (halo maps list names them)"])
     from halo_harness.crew.changes import write_all
-    from halo_harness.crew.changes_map import config_path, config_text
+    from halo_harness.crew.compile import DEFAULT_MAP
     write_all({config_path(): config_text(name)})
-    return 200, {**_state(req), "lines": [f"crew.map = {name}: new sessions run on the map {name}"]}
+    line = (ONE_MODEL_LINE if name == ONE_MODEL else
+            f"crew.map unset: new sessions draw the map {name} (the default)" if name == DEFAULT_MAP else
+            f"crew.map = {name}: new sessions run on the map {name}")
+    return 200, {**_state(req), "lines": [line]}
+
+
+ONE_MODEL_LINE = "One model for everything: roles.enabled = false, no map; main does every job on your model"
 
 
 def get_preview(req, name: str):
+    from halo_harness.crew.changes_map import ONE_MODEL
+    if name == ONE_MODEL:
+        return 200, {"name": name, "lines": ["One model for everything: no map. Main does every job on the session's model",
+                                             "and hands nothing to other agents (roles off, as Setup's choice before 3.6)."]}
     if not _known(name, req):
         return 404, {"error": f"no map named {name!r} here"}
     from halo_harness.crew.tools_show import studio_show

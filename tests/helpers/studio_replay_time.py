@@ -1,6 +1,8 @@
 """tests.helpers.studio_replay_time -- Agents -> Live's scrubber and the replay file (Halo 3.4.1.0 R1 "Time") in headless
 Chrome on the driver base, over a scratch home with one ended session (tests/helpers/replay_seed.py) and nothing live.
-tests/test_studio_replay_time.py reads it:
+3.6.0.0 R5: tests/test_studio_replay_time.py went with Live's canvas (the scrubber is tested under the Map by
+tests/test_studio_map_live.py); studio_replay_compare.py and studio_report_card.py import its page helpers, and its own
+run is a hand check:
 
     python -m tests.helpers.studio_replay_time
 

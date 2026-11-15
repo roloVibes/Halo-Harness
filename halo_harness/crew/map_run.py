@@ -24,6 +24,7 @@ from __future__ import annotations
 import re
 
 from halo_harness.crew import map_events, map_when
+from halo_harness.crew.compile import is_default
 
 HOP_TEXT = 4000
 
@@ -145,11 +146,34 @@ def _choose(mc, kind: str, name: str, task: str, files, runtime) -> "tuple[dict 
     return h, "main decided" if not map_when.rule(h["when"]) else "named by main", ""
 
 
+def _drawn(inner, runtime, mc, tool_id: str, tool_input: dict, tool_name: str, on_event, on_child):
+    """The default map (crew/compile.py is_default): the call runs exactly as a plain session's did -- nothing refused,
+    routed, capped or added to its result -- and the Map draws it: on main's line to a starter box when the starter's
+    own agent runs, else as an agent main started (beside main)."""
+    name = str(tool_input.get("subagent_type") or "").strip()
+    spec = (getattr(runtime, "agents", None) or {}).get(name) if name else None
+    h = mc.line_to("agent", name) if spec is not None and str(getattr(spec, "source", "")) == "crew:starter" else None
+    if h is None:
+        return inner(runtime=runtime, tool_id=tool_id, tool_input=tool_input, tool_name=tool_name, on_event=on_event,
+                     on_child=_tagger(runtime, mc, "main", "", on_child, made_up=True))
+    mc.fired.append({"line": h["line"], "name": h["name"], "why": "main decided"})
+    bg, seen = bool(tool_input.get("run_in_background")), {}
+    task = f"{tool_input.get('description') or ''}\n{tool_input.get('prompt') or ''}".strip()
+    t0 = map_events.hop(runtime, mc, h, "main decided", task, "start", background=bg)["t"]
+    events, tr = inner(runtime=runtime, tool_id=tool_id, tool_input=tool_input, tool_name=tool_name, on_event=on_event,
+                       on_child=_tagger(runtime, mc, h["box"], h["line"], on_child, got=seen))
+    if not bg:
+        map_events.hop(runtime, mc, h, "main decided", task, "end", t0=t0, agent_id=seen.get("aid"), error=bool(tr.is_error))
+    return events, tr
+
+
 def agent_call(inner, *, runtime, tool_id: str, tool_input: dict, tool_name: str, on_event=None, on_child=None):
     mc = _map(runtime)
     tool_input = tool_input if isinstance(tool_input, dict) else {}
     if mc is None or tool_input.get("task_id") or tool_input.get("count") is not None or tool_input.get("batch") is not None:
         return inner(runtime=runtime, tool_id=tool_id, tool_input=tool_input, tool_name=tool_name, on_event=on_event, on_child=on_child)
+    if is_default(mc.map):
+        return _drawn(inner, runtime, mc, tool_id, tool_input, tool_name, on_event, on_child)
     mc.refresh()
     notes = mc.take_notes()
     line = mc.budget_refusal()
@@ -190,7 +214,7 @@ def _made_up(inner, runtime, mc, tool_id: str, tool_input: dict, tool_name: str,
 
 def workflow_call(runtime, input: dict, ctx):
     mc = _map(runtime)
-    if mc is None:
+    if mc is None or is_default(mc.map):  # the default map: the Workflow tool runs as in a plain session
         return None
     from halo_harness.agent.subagent import run_agent_call as inner
     from halo_harness.tools.base import ToolResult

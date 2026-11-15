@@ -40,5 +40,4 @@ lines:
   when: main-decides
 main:
   agent: main
-caps:
-  session_usd: 20
+# No caps: with no map set, sessions run on this map as a drawing of what they already do (no money cap).

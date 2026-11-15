@@ -1419,14 +1419,21 @@ def build_session(
     # 3.1.8.0 R5: `tools.capabilities` of the lineup's main (or the --agent bio, or the run that started this
     # worker) narrows the registry before the model sees it; nothing declared, nothing changes (docs/ISOLATION.md).
     from halo_harness.isolation.capabilities import narrow_session
-    if _crew_map is not None:  # 3.6.0.0 R3: on a map, main's tools, agents and mode come from the map's main
+    from halo_harness.crew.compile import is_default as _default_map
+    from halo_harness.crew.map_control import PLAIN_LINEUP
+    if _default_map(_crew_map):
+        # 3.6.0.0 R5 fix: the default map is a drawing of a plain session -- its tools narrowed as a plain session's
+        # were (the default lineup, isolation/capabilities.py), every discovered agent kept, the session's own mode
+        discovered_agents, _map_targets = _map_session.agents(discovered_agents, _crew_map)
+        _opt_ins = narrow_session(frozen_registry, session_catalog, team=PLAIN_LINEUP, agent=agent, cwd=cwd) \
+            + [_map_session.line(_crew_map)]
+    elif _crew_map is not None:  # 3.6.0.0 R3: on a map, main's tools, agents and mode come from the map's main
         _map_session.narrow(frozen_registry, session_catalog, _crew_map)
         # 3.6.0.0 R5: main's own Agent calls are held to the map by crew/map_run.py (a named target needs a line from
         # main); the session-wide restriction would also stop the step runner's, a chain's and /review's own spawns
         discovered_agents, _map_targets = _map_session.agents(discovered_agents, _crew_map)
-        # 3.6.0.0 R5: a map you chose sets main's mode from its `careful`; the default starter keeps the session's own
-        # (settings, config), as the auto lineup it replaced did
-        if not permission_mode and not dangerously_skip_permissions and getattr(_crew_map, "source", "") != "default":
+        # 3.6.0.0 R5: a map you chose sets main's mode from its `careful`
+        if not permission_mode and not dangerously_skip_permissions:
             resolved_mode = _crew_map.main.get("mode") or resolved_mode
             permission_engine.mode = resolved_mode
         _opt_ins = [_map_session.line(_crew_map)]

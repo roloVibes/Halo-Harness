@@ -28,7 +28,8 @@ Map tab (Agents -> 3 · Map) or its builder box.
 halo maps list            # every map (yours, this project's in a trusted folder, the starters); * marks the one in use
 halo maps show ship-it    # main, each box, each line with its When in words, the cap, any problem
 halo maps use ship-it     # new sessions run on it (config crew.map); a running session keeps its own
-halo maps use --off       # back to the starter map (no map of yours set)
+halo maps use --off       # back to the default (the starter map drawn, no rules of its own)
+halo maps use --none      # One model for everything: no map, main does every job (roles off)
 halo maps edit my-map     # your $VISUAL / $EDITOR on your file; else Studio's Map on it
 ```
 
