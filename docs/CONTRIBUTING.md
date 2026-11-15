@@ -3,7 +3,7 @@
 Read this when you send a change to Halo: the house rules and which suite to run.
 
 A question first, or an idea you want to talk through before you write it? The Halo Harness Discord server is the
-place: <https://discord.gg/vuJvKjS9A>. A security problem goes through [SECURITY.md](../SECURITY.md), not a public channel.
+place: <https://discord.gg/NXWXdg7B6v>. A security problem goes through [SECURITY.md](../SECURITY.md), not a public channel.
 
 ## Running the suites
 
