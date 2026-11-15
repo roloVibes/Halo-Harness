@@ -10,6 +10,7 @@ import { Workspace } from "../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../lib/workspace/types";
 import { Explain, OpenAnyway, TryIt } from "../shared/StartBits";
 import { NewSession } from "./NewSession";
+import { useCatalog } from "../shared/catalog";
 import { useFleet } from "../fleet/store";
 import { setSessionView, startSession, useSessionStart } from "./store";
 import { useSupervise, watchSupervise } from "./supervise";
@@ -53,7 +54,10 @@ export function SessionView({ section, specs }: { section: string; specs: PanelS
   }, []);
   const loaded = useFleet((s) => s.loaded);
   const start = useSessionStart();
-  if (!loaded)
+  // 3.6.0.0 R5c: the Start view is drawn whole -- New session's MODEL lines with it -- so the catalog landing never
+  // moves New session's Start or Open the workspace anyway (16 px down) under a click
+  const catalog = useCatalog().loaded;
+  if (!loaded || (start && !catalog))
     return (
       <div className="fl-start">
         <div className="og-wait mono muted">reading this session...</div>

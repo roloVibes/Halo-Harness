@@ -22,7 +22,9 @@ import { Strip } from "./Strip";
 import { PickList, WhenCard } from "./WhenCard";
 import { Feed } from "./Feed";
 import { FEED_PANEL, MAP_SECTION } from "./feedOpen";
-import { MapHistory } from "./MapHistory";
+import { MapHistory, MapHistoryLoad } from "./MapHistory";
+import { loadMapHistory, useMapHist } from "./mapRuns";
+import { useFleet } from "../../fleet/store";
 import { LitCtx, useLit, useLitNow } from "./useLit";
 
 export { MAP_SECTION };
@@ -42,15 +44,30 @@ function FeedGlance() {
   return <div className="glance"><div className="glance-hint">{L.mode === "live" ? "What the agents think and say: expand it, or click a box." : "Nothing runs on this map now."}</div></div>;
 }
 
+/** 3.6.0.0 R5c: what sits above History has landed -- the map list and the open map (or why not), the agents, the
+ *  workflows, the sessions and History's own runs. Until then History is not drawn: drawn at once it moved 280 px down
+ *  and 670 px right as they landed, out from under a click (its "Goal runs, files, Compare" on a slow machine). */
+function useSettled(): boolean {
+  const map = useMap((s) => s.listed && (!!s.detail || !!s.error || !s.rows.length));
+  const agents = useCrew((s) => s.loaded);
+  const flows = useFlows((s) => s.loaded);
+  const sessions = useFleet((s) => s.loaded);
+  const runs = useMapHist((s) => s.loaded);
+  return map && agents && flows && sessions && runs;
+}
+
 function MapMain() {
   const locked = useMap((s) => s.locked);
   const L = useLitNow();
+  const settled = useSettled();
+  const runningKey = L.all.map((s) => s.sid).join(",");
+  useEffect(() => void loadMapHistory(new Set(runningKey ? runningKey.split(",") : [])), [runningKey]); // History's runs (MapHistory.tsx)
   return (
-    <div className="mp" data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined}>
+    <div className="mp" data-testid="map" data-locked={locked || undefined} data-lit={L.ov ? L.mode : undefined} data-settled={settled || undefined}>
       <MapBar />
       <MapCanvas />
       <Strip />
-      <MapHistory />
+      {settled ? <MapHistory /> : <MapHistoryLoad />}
       <WhenCard />
       <PickList />
     </div>

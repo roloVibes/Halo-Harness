@@ -14,6 +14,7 @@ import type { LineWhen, MapDetail, MapFile, MapLine, MapRow } from "./mapTypes";
 export type WhenAt = { from: string; to: string; fresh: boolean; before?: MapFile };
 export type MapState = {
   rows: MapRow[];
+  listed: boolean; // GET crew/maps answered (or failed): `rows` is what there is
   inUse: string | null;
   name: string;
   detail: MapDetail | null;
@@ -31,7 +32,7 @@ const LOCK = "halo.studio.map-lock";
 const LAST = "halo.studio.map-open";
 const read = (k: string) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 
-export const maps = createStore<MapState>({ rows: [], inUse: null, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
+export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
   pick: "", when: null, receipt: null, error: "", made: [] });
 export const useMap = <T,>(pick: (s: MapState) => T): T => useStore(maps, pick);
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -45,9 +46,9 @@ export async function loadMaps(): Promise<void> {
   }
   try {
     const r = await api.get<{ maps: MapRow[]; in_use: string | null }>("crew/maps");
-    maps.update(() => ({ rows: r.maps, inUse: r.in_use }));
+    maps.update(() => ({ rows: r.maps, inUse: r.in_use, listed: true }));
   } catch (e) {
-    maps.update(() => ({ error: msg(e) }));
+    maps.update(() => ({ error: msg(e), listed: true }));
   }
 }
 

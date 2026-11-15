@@ -55,6 +55,8 @@
 
 /* the drawer: what they think and say */
 .mpf { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-height: 0; min-width: 0; position: relative; }
+/* 3.6.0.0 R5c: Back keeps its height when the page under it grows (the goal form landing squeezed it 28 -> 15 px) */
+.mpf > button { flex-shrink: 0; }
 .mpf-pick { display: flex; gap: var(--s-2); align-items: center; }
 .mpf-pick > .cw-line { flex: 0 0 auto; white-space: nowrap; }
 .mpf-pick select { min-height: 32px; flex: 1 1 auto; min-width: 0; }

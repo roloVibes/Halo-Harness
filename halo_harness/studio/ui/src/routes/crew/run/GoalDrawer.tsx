@@ -6,6 +6,8 @@
 // Review the plan first, then what it will do, what it may cost and where it writes), "Run it across the fleet" while
 // another machine is paired, and "or run a pack's workflow" (its form takes the goal form's place).
 import { useEffect } from "react";
+import { useHelpAsked } from "../../../lib/fieldHelp";
+import { useCatalog } from "../../shared/catalog";
 import { Button } from "../../../lib/ui";
 import { GoalForm } from "../../orchestra/GoalForm";
 import { WorkflowForm } from "../../orchestra/WorkflowForm";
@@ -31,6 +33,10 @@ export function GoalDrawer() {
   const seed = useGoal((s) => s.seed);
   const form = useGoal((s) => s.form);
   const wf = useWfRun((s) => s.wf);
+  // 3.6.0.0 R5c: the form is drawn whole -- its help lines and the model catalog (the MODEL field's lines) landed --
+  // so nothing in it moves under a click when they land (Review the plan first moved 41 px, then 34 px more)
+  const help = useHelpAsked();
+  const catalog = useCatalog().loaded;
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && !(e.target as HTMLElement | null)?.closest?.("[role=listbox], [role=menu], [role=dialog], .mpk") && (e.stopPropagation(), closeGoal());
@@ -51,7 +57,7 @@ export function GoalDrawer() {
         <button className="icon-btn" onClick={closeGoal} aria-label="Close Run a goal" title="Close (Esc): nothing is run" data-testid="run-goal-close">×</button>
       </div>
       <div className="rg-body">
-        {wf ? <WorkflowForm onStarted={closeGoal} /> : (
+        {!help || !catalog ? <p className="cw-line mono muted" data-testid="run-goal-wait">Opening the form: reading the model catalog...</p> : wf ? <WorkflowForm onStarted={closeGoal} /> : (
           <>
             <GoalForm initial={form} seed={seed} onStarted={started} />
             <WorkflowPicker />

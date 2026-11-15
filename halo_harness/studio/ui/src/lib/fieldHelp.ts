@@ -14,7 +14,8 @@ export type HelpGroup = "identity" | "bio" | "lineup_sections" | "lineup_fields"
 type Lines = Record<HelpGroup, Record<string, string>>;
 
 const EMPTY: Lines = { identity: {}, bio: {}, lineup_sections: {}, lineup_fields: {}, assignment: {}, model_select: {}, lineup_defaults: {} };
-export const fieldHelp = createStore<{ lines: Lines; loaded: boolean }>({ lines: EMPTY, loaded: false });
+// `asked`: the answer landed or failed (3.6.0.0 R5c: a form whose help lines push its controls down waits for it)
+export const fieldHelp = createStore<{ lines: Lines; loaded: boolean; asked: boolean }>({ lines: EMPTY, loaded: false, asked: false });
 
 let loading = false;
 
@@ -28,7 +29,17 @@ export async function loadFieldHelp(): Promise<void> {
     /* an older Studio: the forms show no help lines */
   } finally {
     loading = false;
+    fieldHelp.update(() => ({ asked: true }));
   }
+}
+
+/** 3.6.0.0 R5c: the help lines have landed (or cannot): a form that shows them under its fields is drawn whole after
+ *  this, so a line landing never moves a control a person is about to click (the goal form's Review the plan first
+ *  moved 41 px down). */
+export function useHelpAsked(): boolean {
+  const asked = useStore(fieldHelp, (s) => s.asked);
+  useEffect(() => void loadFieldHelp(), []);
+  return asked;
 }
 
 /** The line for `key` in `group` ("bio", "models.preference"); "" when there is none. */
