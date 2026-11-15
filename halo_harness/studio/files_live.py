@@ -199,6 +199,9 @@ def watch(server) -> "Watcher | None":
         srv = ref()
         if srv is not None:
             bridge_for(srv).publish_local(frame)
+            if (frame.get("data") or {}).get("kind") == "config":  # 3.6.0.0 R13: `halo config set ollama.steward.job`
+                from halo_harness.studio.server import sync_steward
+                sync_steward(srv)
 
     try:
         server.files_watch = Watcher(server.cwd, server.state_dir, publish, alive=alive).start()

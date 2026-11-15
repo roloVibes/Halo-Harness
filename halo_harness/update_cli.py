@@ -11,6 +11,7 @@ update_stop.py's (3.2.2.0 R3).
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
@@ -69,6 +70,26 @@ def _print_report(build: dict, avail: dict, lines: list, count, cmd: Optional[st
         print(f"to apply: halo update  (it runs: {cmd or 'unknown -- could not determine how halo was installed'})")
 
 
+def older_release(build: dict, avail: dict, channel: Optional[str]) -> Optional[str]:
+    """3.6.0.0 R13: the stable release on offer is OLDER than this build (a main-line build ahead of the last tag),
+    or the same version from another line: the plain sentence that says so, else None. Versions are compared, never
+    commit counts between two lines that do not lead to each other (a laptop's `--check` said the older release was
+    "3 commit(s) ahead")."""
+    from halo_harness.update_plan import tag_version, version_key
+    if channel != "stable" or not avail.get("commit") or build.get("commit") == avail.get("commit"):
+        return None
+    offered = tag_version(avail.get("ref"))
+    mine, theirs = version_key(build.get("version")), version_key(offered)
+    if mine is None or theirs is None or theirs > mine:
+        return None
+    if theirs == mine and (build.get("requested_revision") or "") == avail.get("ref"):
+        return None  # a stable install of that very tag: the ordinary commit comparison stands
+    word = "OLDER than" if theirs < mine else "the same version as, but not the commit of,"
+    return (f"the newest release, {offered}, is {word} this build ({build.get('version')}, "
+            f"{build.get('commit') or '?'}); `halo update` would move you back. `halo update --channel main` follows "
+            f"the main line; `halo update --to {avail.get('ref')}` moves back on purpose")
+
+
 def _exit_code(build: dict, avail: dict) -> int:
     if not avail.get("commit") or not build.get("commit"):
         return 1
@@ -96,16 +117,39 @@ def _stop_or_refuse(keep_running: bool) -> "Optional[bool]":
     return supervisor
 
 
-def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running: bool = False) -> int:
-    """Runs the reinstall command LIVE (inherited stdio -- "output
-    visible"), then re-queries `halo --version` as a FRESH subprocess --
-    this process's own already-imported `halo_harness` module would
-    otherwise just keep reporting the OLD version forever, update or not.
+launch = None  # 3.6.0.0 R13: the seam a test replaces -- launch(plan) -> exit code (default update_plan.launch)
+
+
+def _launch(plan: dict) -> Optional[int]:
+    if launch is not None:
+        return launch(plan)
+    from halo_harness import update_plan as UP
+    return UP.launch(plan)
+
+
+def _held(force: bool) -> list:
+    """Windows: the other processes of this install still running after the stop (all of them with --force):
+    the updater waits for them and installs nothing while one still holds the files."""
+    if os.name != "nt":
+        return []
+    try:
+        return [{"pid": r["pid"], "what": r.get("what") or "halo"} for r in upd.other_halo_processes()]
+    except Exception:
+        return []
+
+
+def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running: bool = False,
+                 expect: Optional[dict] = None) -> int:
+    """3.6.0.0 R13: hands the install to the standalone updater (update_runner.py, started by update_plan.launch
+    with a Python outside this environment): it never runs from inside the environment it replaces, it checks that
+    `halo --version` answers the new version (`expect`, update_plan.expectation) and, when the install or that
+    check fails, puts back what was installed (update_plan.previous_install) and says so in one line.
     3.2.2.0 R3: first stops every other process of this install (Studio,
     background runs, schedule fires, the supervisor -- started again after
     the install -- and other halo sessions) and says what it stopped;
     `keep_running=True` refuses instead, naming each one; `force=True`
-    stops nothing and installs anyway (scripts)."""
+    stops nothing and installs anyway (scripts; on Windows the updater still waits for, and then refuses over,
+    a halo that holds the files)."""
     # Halo 2.0.3 fix pass C-1 (review finding 3): checked first -- an apply is a real, network-reaching reinstall,
     # never a background check, so offline mode answers an error instead of silently skipping.
     from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
@@ -137,26 +181,29 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     # there and the command runs from wherever, same as before.
     spec = kind.get("spec")
     cwd = spec if spec and Path(spec).is_dir() else None
-    print(f"halo update: installed {upd.format_version_line(before)}")
     from halo_harness import update_install as UI  # 3.3.16.0: the lock fetched by halo, --native-tls on a cert failure
+    from halo_harness import update_plan as UP
+    from halo_harness.update_stop import restart_supervisor
+    current_cmd = kind.get("reinstall_cmd")
     cmd, note = UI.pin_locally(cmd)  # 3.4.1.2 (PACKS-10): (None, the line) when the lock was not fetched
     if note:
         print(note, file=sys.stderr if cmd is None else sys.stdout)
     if cmd is None:  # nothing is installed; what was stopped for the install starts again
-        from halo_harness.update_stop import restart_supervisor
+        print(f"halo update: installed {upd.format_version_line(before)}")
         print(restart_supervisor()) if supervisor else None
         return 1
-    print(f"halo update: running: {cmd}  (the installer's output prints when it ends; a minute or two)")
-    returncode, _text = UI.run_install(cmd, cwd=cwd, run_fn=upd.run)
-    after = upd.run(["halo", "--version"], capture_output=True, text=True, timeout=15)
-    after_line = UI.last_line(after.stdout) or "(unknown -- could not run `halo --version` after the update)"
-    print(f"halo update: before {upd.format_version_line(before)}")
-    print(f"halo update: after  {after_line}")
-    if supervisor:
-        from halo_harness.update_stop import restart_supervisor
-        print(restart_supervisor())
-    from halo_harness.whatsnew_cli import after_update  # 3.3.16.2: the new version's summary comes last
-    return after_update(returncode, before, after_line, run_fn=upd.run)
+    # 3.6.0.0 R13: what is installed now, exactly, so the updater can put it back
+    lock = UP.freeze_lock(UP.run_dir() / UP.LOCK_NAME)
+    restore = UP.previous_install(kind, before, current_cmd, str(lock) if lock else None, direct_url=upd._direct_url())
+    windows = os.name == "nt"
+    plan = UP.build_plan(cmd=cmd, cwd=cwd, before=before, expect=expect or {"label": "the newest"}, restore=restore,
+                         wait_pids=[os.getpid(), *upd.halo_ancestors()] if windows else [],
+                         held=_held(force), restart_supervisor=bool(supervisor), windows=windows)
+    code = _launch(plan)
+    if code is None:  # the updater did not start: nothing was installed
+        print(restart_supervisor()) if supervisor else None
+        return 1
+    return code
 
 
 def cmd_update(argv: "list[str]") -> int:
@@ -182,6 +229,10 @@ def cmd_update(argv: "list[str]") -> int:
     parser.add_argument("--no-verify", dest="verify", action="store_false",
                         help="Skip the target tag's release-checksums check before installing")
     args = parser.parse_args(argv)
+    from halo_harness.update_plan import take_unseen_line
+    last = take_unseen_line()  # 3.6.0.0 R13: what the last updater did, said once (Windows runs it in its own window)
+    if last:
+        print(f"last update: {last.removeprefix('halo update: ')}")
     if args.channel:
         from halo_harness.theme import set_config_value
         set_config_value("update.channel", args.channel)
@@ -207,13 +258,19 @@ def cmd_update(argv: "list[str]") -> int:
     if new_ref and cmd and kind.get("spec"):
         cmd = _retarget_cmd(cmd, kind["spec"], new_ref)
     checkout = Path(build["checkout"]) if build.get("checkout") else None
-    lines, count = upd.commits_between(build.get("commit"), avail.get("commit"), checkout=checkout)
-    ordering = upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
-    code = _exit_code(build, avail)
+    older = None if args.to else older_release(build, avail, channel)  # 3.6.0.0 R13: versions, not commit counts
+    if older:
+        lines, count, ordering, code = [], None, None, 0
+    else:
+        lines, count = upd.commits_between(build.get("commit"), avail.get("commit"), checkout=checkout)
+        ordering = upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
+        code = _exit_code(build, avail)
     # The reinstall command is shown only when there is something to apply
     # (or a --to was asked for) and this is a --check: an apply prints "running: ..." itself,
     # and an up-to-date install has nothing to run.
     _print_report(build, avail, lines, count, cmd, ordering=ordering, show_cmd=bool(args.check and (code == 10 or args.to)))
+    if older:
+        print(older)
     if channel == "stable":
         # Review item 81: an install made from the release archive is
         # compared with that release's checksums.txt; a git or checkout
@@ -224,6 +281,9 @@ def cmd_update(argv: "list[str]") -> int:
             print(artifact_line)
     if args.check:
         return code
+    if older:
+        print(f"halo update: not moving back -- {older}", file=sys.stderr)
+        return 1
     if code == 0:
         where = f" ({avail.get('ref')})" if avail.get("ref") else ""
         print(f"halo update: already up to date -- {build.get('commit') or '?'} is the newest on {channel}{where}{cache_note(avail)}")
@@ -249,4 +309,6 @@ def cmd_update(argv: "list[str]") -> int:
                       f"checksums cannot be checked -- nothing installed; try again, or `halo update --no-verify` "
                       f"installs without the check", file=sys.stderr)
                 return 1
-    return apply_update(cmd=cmd, force=args.force, keep_running=args.keep_running)
+    from halo_harness.update_plan import expectation
+    return apply_update(cmd=cmd, force=args.force, keep_running=args.keep_running,
+                        expect=expectation(new_ref, channel, avail, build))

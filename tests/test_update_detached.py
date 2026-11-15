@@ -126,21 +126,24 @@ def test_spawn_waits_for_a_short_lived_parent_and_writes_the_log(ctx: Ctx):
 
 @test
 def test_run_after_exit_writes_the_script_starts_it_and_names_the_log(ctx: Ctx):
+    """3.6.0.0 R13: the shell script is the fallback when no Python outside halo's environment is found."""
     from halo_harness import update as upd
+    from halo_harness import update_plan as UP
     from halo_harness import update_stop
     state = Path(tempfile.mkdtemp(prefix="r3-after-exit-"))
     started = []
-    saved = (UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering)
+    saved = (UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering, UP.outside_python)
     UD.reinstall_cmd = lambda to=None: ("echo reinstall", {"kind": "uv_tool", "spec": "git+https://x"})
     UD.spawn = lambda path, **kw: started.append(Path(path)) or 4321
     upd.halo_ancestors = lambda **kw: [77]
     update_stop.lingering = lambda state_dir=None: [{"pid": 4242, "what": "studio", "cmd": ["halo", "studio"]}]
+    UP.outside_python = lambda: None
     out = io.StringIO()
     try:
         with contextlib.redirect_stdout(out):
             code = UD.run_after_exit(state_dir=state, resume_hint="halo --continue")
     finally:
-        UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering = saved
+        UD.reinstall_cmd, UD.spawn, upd.halo_ancestors, update_stop.lingering, UP.outside_python = saved
     text = out.getvalue()
     ctx.check(f"exit 0 and one updater started, got {code} {started}", code == 0 and len(started) == 1)
     script = started[0].read_text(encoding="utf-8")
@@ -150,6 +153,74 @@ def test_run_after_exit_writes_the_script_starts_it_and_names_the_log(ctx: Ctx):
               "the updater stops Studio (pid 4242): halo studio" in text
               and f"its log: {state / 'update.log'}" in text and "`halo --version` then" in text
               and "`halo --continue` picks the session up again" in text)
+
+
+@test
+def test_run_after_exit_hands_the_plan_to_the_python_updater(ctx: Ctx):
+    """3.6.0.0 R13: with a Python outside halo's environment, `/update` writes the same plan `halo update` does --
+    Windows waits for this process and its launcher, POSIX hands over in the foreground (so it never waits for
+    itself) -- the lingering Studio is stopped by the updater, and the previous install rides along."""
+    from halo_harness import update as upd
+    from halo_harness import update_plan as UP
+    from halo_harness import update_stop
+    got = []
+    saved = (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python, upd._direct_url)
+    UD.reinstall_cmd = lambda to=None: ("uv tool install --reinstall git+https://x/y@v2.0.3", {
+        "kind": "uv_tool", "spec": "git+https://x/y", "current_cmd": "uv tool install --reinstall git+https://x/y",
+        "expect": {"version": "2.0.3", "label": "2.0.3"}})
+    UD.launch = lambda plan, **kw: got.append((plan, kw)) or 0
+    upd.halo_ancestors = lambda **kw: [77]
+    update_stop.lingering = lambda state_dir=None: [{"pid": 4242, "what": "studio", "cmd": ["halo", "studio"]}]
+    UP.outside_python = lambda: ["/opt/py/python3", "-I"]
+    upd._direct_url = lambda: None
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            codes = [UD.run_after_exit(state_dir=Path(tempfile.mkdtemp(prefix="r13-ui-")), windows=w,
+                                       resume_hint="halo --continue") for w in (True, False)]
+    finally:
+        (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python,
+         upd._direct_url) = saved
+    ctx.check(f"both hand over, got {codes} {len(got)}", codes == [0, 0] and len(got) == 2)
+    win, nix = got[0][0], got[1][0]
+    ctx.check(f"Windows waits for this halo and its launcher; POSIX only for the launcher, got {win['wait_pids']} "
+              f"{nix['wait_pids']}", win["wait_pids"] == [os.getpid(), 77] and nix["wait_pids"] == [77])
+    ctx.check("the updater stops the lingering Studio", win["stop_pids"] == [4242])
+    ctx.check(f"the expected version and the way back ride along, got {win['expect']} {win['restore']}",
+              win["expect"]["version"] == "2.0.3" and (win["restore"] or {}).get("cmd", "").startswith(
+                  "uv tool install --reinstall") and got[0][1]["python"] == ["/opt/py/python3", "-I"])
+    ctx.check(f"the TUI's last lines name the stop and the resume, got {out.getvalue()!r}",
+              "the updater stops Studio (pid 4242)" in out.getvalue()
+              and "`halo --continue` picks the session up again" in out.getvalue())
+
+
+@test
+def test_the_fallback_scripts_put_back_what_was_installed(ctx: Ctx):
+    """3.6.0.0 R13: the shell fallback checks `halo --version` after the reinstall and runs the restore command when
+    the reinstall or that check failed -- as text for both platforms, and for real on this one."""
+    win = UD.windows_script(**_kw(restore_cmd="uv tool install --reinstall git+https://x/y@abc 50%"))
+    nix = UD.posix_script(**_kw(restore_cmd="uv tool install --reinstall git+https://x/y@abc"))
+    ctx.check("Windows: a failed check goes to :restore, the restore's % doubled",
+              'if "%RC%"=="0" goto verified' in win and "call :restore" in win and ":restore" in win
+              and "git+https://x/y@abc 50%%" in win and win.index("call :reinstall") < win.index("call :restore"))
+    ctx.check("POSIX: rc carries the reinstall and the check; the restore runs on a failure",
+              "halo --version || rc=1" in nix and 'if [ "$rc" -ne 0 ]; then' in nix
+              and "( uv tool install --reinstall git+https://x/y@abc )" in nix)
+    windows = os.name == "nt"
+    if not (shutil.which("cmd.exe") if windows else shutil.which("sh")):
+        raise SkipTest("no cmd.exe / sh here")
+    state = Path(tempfile.mkdtemp(prefix="r13-fallback-"))
+    log = UD.log_path(state)
+    make = UD.windows_script if windows else UD.posix_script
+    text = make(wait_pids=[], stop_pids=[], reinstall_cmd="cmd /c exit 3" if windows else "exit 3", log=str(log),
+                halo=sys.executable, restore_cmd="echo restored-ok")
+    path = UD.write_script(text, UD.script_path(state, windows=windows))
+    argv = [os.environ.get("COMSPEC") or "cmd.exe", "/c", str(path)] if windows else [shutil.which("sh"), str(path)]
+    subprocess.run(argv, cwd=str(state), stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+    got = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
+    ctx.check(f"the reinstall failed (3), the restore ran, the version was asked again, got {got!r}",
+              "reinstall exit code 3" in got and "putting back" in got and "restored-ok" in got
+              and got.count("Python ") >= 2 and got.rstrip().endswith("=== done"))
 
 
 if __name__ == "__main__":

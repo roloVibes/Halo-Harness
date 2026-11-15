@@ -117,14 +117,20 @@ refreshes the local install (plus any `--remote user@host` given on the
 command line). Run it with `--dry-run` first to see every step printed
 with nothing executed.
 
-Step 0 (`scripts/release_gate.py`) runs before anything is written (just
-after the read-only clean-tree check): the latest Linux suites run for
-HEAD's sha must have concluded `success`; then the script dispatches the
-Windows suites for that sha, waits for the run (up to 90 minutes) and goes
-on only when it concluded `success` too, printing both run ids. With a
-green Windows run for the sha already in hand (a dispatch of your own, a
-tag or nightly run of that sha), `--skip-windows` accepts it instead of
-dispatching another and prints the ids it accepted. The gate needs the
-`gh` CLI, logged in. `tests/test_release_ci_gate.py` drives the gate over a
+The main line is protected (3.6.0.0): nothing reaches master that has not
+passed the required checks on an `rc/**` branch. So the script makes the
+version commit on a branch `rc/<version>`, pushes it (every platform's
+suites run on it), and waits for that run (`scripts/release_gate.py`, up to
+90 minutes): every required job -- the four Linux shards, the four Windows
+shards and studio-ui, plus the four macOS shards and `realcheck` once
+`REQUIRE_MACOS` / `REQUIRE_REALCHECK` in the gate are flipped (or per run
+with `--require-macos` / `--require-realcheck`) -- must conclude `success`
+for that exact sha. A red run stops the release naming the failing jobs:
+nothing is tagged, master is untouched, the branch keeps the commit for a
+fix. Green, master is fast-forwarded to the commit, then the tag, the
+GitHub release (the tag's tar.gz and `checksums.txt`) and the install
+refresh follow. "driver retried once" lines in the run's log are printed
+as warnings. `--skip-windows` is gone: Windows is a required check like
+the others. The gate needs the `gh` CLI, logged in. `tests/test_release_ci_gate.py` drives the gate over a
 fake `gh`. `tests/test_release_script.py` drives it against a
 scratch git repo, never this one.

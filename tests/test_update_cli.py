@@ -44,8 +44,12 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
     wants the new "differs from" wording passes `ordering=False`."""
     orig = {name: getattr(upd, name) for name in
             ("installed_build", "latest_available", "install_kind", "commits_between",
-             "commit_is_ancestor", "other_halo_pids", "other_halo_processes", "run")}
+             "commit_is_ancestor", "other_halo_pids", "other_halo_processes", "run", "halo_ancestors")}
     orig["update_stop._stop"] = update_stop._stop
+    # 3.6.0.0 R13: the install runs in the standalone updater; here it runs in this process over the fakes below
+    from tests.helpers.update_inline import inline
+    orig["update_cli.launch"] = update_cli.launch
+    update_cli.launch = inline
     upd.installed_build = lambda **kw: {"version": "2.0.2", "commit": installed_commit,
                                          "requested_revision": None, "checkout": None,
                                          "branch": "master", "editable": False}
@@ -57,6 +61,7 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
     upd.commits_between = lambda *a, **kw: (["bbbbbbb fix: a thing"], 1)
     upd.commit_is_ancestor = lambda *a, **kw: ordering
     upd.other_halo_pids = lambda **kw: list(other_pids or [])
+    upd.halo_ancestors = lambda **kw: []  # 3.6.0.0 R13: the Windows updater waits for these; never a real process list
     # 3.2.2.0 R3: the scan's details and the stop itself are fakes too -- a
     # test never lists or ends a real process.
     upd.other_halo_processes = lambda **kw: [{"pid": p, "ppid": 1, "what": "halo", "cmd": "halo --continue"}
@@ -75,6 +80,7 @@ def _patch_all(*, installed_commit="aaaaaaa", available_commit="bbbbbbb", other_
 
 def _restore_all(orig: dict) -> None:
     update_stop._stop = orig.pop("update_stop._stop")
+    update_cli.launch = orig.pop("update_cli.launch", None)
     orig.pop("stopped", None)
     for name, value in orig.items():
         setattr(upd, name, value)
@@ -486,6 +492,80 @@ def test_up_to_date_prints_no_reinstall_command(ctx: Ctx):
         ctx.check(f"--check with an update pending names halo update as the thing to run, got {out!r}",
                   code == 10 and "to apply: halo update  (it runs: " in out and "update command:" not in out)
     finally:
+        _restore_all(orig)
+
+
+@test
+def test_an_older_release_is_called_older_and_never_installed_by_accident(ctx: Ctx):
+    """3.6.0.0 R13 (a laptop: `halo update --check` on a main-line build said the stable release was "3 commit(s)
+    ahead" when applying it would move the machine BACK): versions are compared; --check says OLDER in plain words;
+    a plain `halo update` asks for --to or --channel main; `--to <tag>` still moves back on purpose, its checksums
+    checked, and a release without them is refused in one line."""
+    from tests.helpers.update_inline import PLANS
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="ccccccc",
+                      after_version="halo 3.5.0.1 (ccccccc, v3.5.0.1)")
+    saved = (upd.default_channel, upd.tag_checksums)
+    upd.installed_build = lambda **kw: {"version": "3.6.0.0", "commit": "aaaaaaa", "requested_revision": None,
+                                         "checkout": None, "branch": "master", "editable": False}
+    upd.latest_available = lambda *a, **kw: {"channel": "stable", "commit": "ccccccc", "ref": "v3.5.0.1",
+                                              "reason": None, "source": "live"}
+    upd.default_channel = lambda build=None: "stable"
+    upd.commits_between = lambda *a, **kw: ([], 3)
+    upd.tag_checksums = lambda tag, **kw: [{"name": "checksums.txt"}]
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"--check: nothing newer (exit 0), said in plain words, no commit count, got {code} {out!r}",
+                  code == 0 and "the newest release, 3.5.0.1, is OLDER than this build (3.6.0.0, aaaaaaa); "
+                  "`halo update` would move you back" in out and "commit(s)" not in out)
+        before = len(PLANS)
+        code, out, err = _capture(update_cli.cmd_update, [])
+        ctx.check(f"a plain `halo update` does not move back; it names --to and --channel main, got {code} {err!r}",
+                  code == 1 and "not moving back" in err and "--to v3.5.0.1" in err and "--channel main" in err
+                  and len(PLANS) == before and "uv tool install" not in out)
+        code, out, err = _capture(update_cli.cmd_update, ["--to", "v3.5.0.1"])
+        ctx.check(f"--to v3.5.0.1 moves back on purpose and checks that version answers, got {code} {out[-300:]!r}",
+                  code == 0 and PLANS[-1]["expect"].get("version") == "3.5.0.1" and "@v3.5.0.1" in out)
+        upd.tag_checksums = lambda tag, **kw: [{"name": "source.tar.gz"}]
+        code, out, err = _capture(update_cli.cmd_update, ["--to", "v3.5.0.1"])
+        ctx.check(f"a release without checksums: refused in one line (--no-verify is the way round), got {err!r}",
+                  code == 1 and err.strip().count("\n") == 0 and "no checksums.txt" in err and "--no-verify" in err)
+        upd.latest_available = lambda *a, **kw: {"channel": "stable", "commit": "ccccccc", "ref": "v3.6.1.0",
+                                                  "reason": None, "source": "live"}
+        upd.tag_checksums = lambda tag, **kw: [{"name": "checksums.txt"}]
+        code, out, _err = _capture(update_cli.cmd_update, ["--check"])
+        ctx.check(f"a NEWER release is still an update (exit 10), got {code} {out!r}", code == 10 and "OLDER" not in out)
+    finally:
+        upd.default_channel, upd.tag_checksums = saved
+        _restore_all(orig)
+
+
+@test
+def test_a_failed_install_hands_back_the_previous_install(ctx: Ctx):
+    """3.6.0.0 R13: the plan carries what puts the install back -- the git commit installed now and a lock of
+    this environment -- and a failed install runs it (here inline, over the fakes; tests/test_update_runner.py runs
+    the real updater against a scratch tool environment)."""
+    from tests.helpers.update_inline import PLANS
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", run_returncode=1,
+                      after_version="halo 2.0.2 (aaaaaaa, master)")
+    ran = []
+
+    def fake_run(cmd, **kwargs):
+        if isinstance(cmd, list) and cmd[:1] == ["halo"]:
+            return _Proc(stdout="halo 2.0.2 (aaaaaaa, master)\n")
+        ran.append(cmd)
+        return _Proc(returncode=1 if len(ran) == 1 else 0)
+    upd.run = fake_run
+    saved_du, upd._direct_url = upd._direct_url, lambda: None  # this test environment's own metadata stays out
+    try:
+        code, out, _err = _capture(update_cli.cmd_update, [])
+        plan = PLANS[-1]
+        ctx.check(f"the plan names the previous spec at its commit and a lock file, got {plan.get('restore')}",
+                  (plan.get("restore") or {}).get("cmd", "").endswith("git+https://github.com/roloVibes/Halo-Harness@aaaaaaa"))
+        ctx.check(f"the install ran, failed, and the restore ran, got {ran}", len(ran) == 2 and ran[1].endswith("@aaaaaaa"))
+        ctx.check(f"one line says the old one is back, exit 1, got {code} {out[-400:]!r}",
+                  code == 1 and "halo 2.0.2 (aaaaaaa, master) was put back and answers again" in out)
+    finally:
+        upd._direct_url = saved_du
         _restore_all(orig)
 
 

@@ -7,15 +7,30 @@ checkout's own git tree, never on the installed harness.
 Run:
     python scripts/release.py <version> [--date YYYY-MM-DD]
                                [--remote user@host ...] [--identity key] [--no-install] [--dry-run]
-                               [--skip-windows]
+                               [--require-macos] [--require-realcheck]
 
-Step 0 (3.1.0.0 R1, scripts/release_gate.py): before anything is written,
-the latest Linux suites run for HEAD's sha must have concluded success, and
-the Windows suites are dispatched for that sha (`gh workflow run suites.yml
--f sha=<sha>`) and waited for (up to 90 min); both must conclude success.
-`--skip-windows` accepts an existing green Windows run for the sha instead
-of dispatching one. The read-only clean-tree check runs just before it, so a
-dirty tree stops in a second, not after a Windows run.
+3.6.0.0 R13 -- a release goes through a candidate branch. The main line is
+protected (nine required checks; nothing reaches master that has not passed
+them on an `rc/**` branch), so:
+
+1. the clean-tree check (read-only; a dirty tree stops in a second);
+2. `git switch -c rc/<version>`, then the version commit on it (__version__,
+   the CHANGELOG date, the README badge, the install one-liners, the shipped
+   pack's floor, the screenshots);
+3. `git push -u origin rc/<version>`: every platform's suites run on it;
+4. the gate (scripts/release_gate.py `candidate_gate`): the push run on the
+   branch for that exact sha, waited for (up to 90 min); every required job
+   (Linux x4, Windows x4, studio-ui; macOS x4 and realcheck behind their
+   flags) must conclude success, or the release stops naming the failing jobs
+   -- nothing is tagged and master is untouched; "driver retried once" lines
+   in the run's log are printed as warnings;
+5. master is fast-forwarded to the commit (`git switch master`, `git merge
+   --ff-only rc/<version>`, `git push origin master`);
+6. the annotated tag `v<version>` on it, pushed; the GitHub release with the
+   tag's tar.gz and checksums.txt; the install refresh.
+
+`--skip-windows` is gone: Windows runs on the candidate branch like every
+other required check.
 
     python scripts/release.py 2.0.4 --dry-run   # prints every step, runs nothing
 
@@ -356,9 +371,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-github-release", action="store_true",
                    help="skip publishing a GitHub release for the tag")
     p.add_argument("--dry-run", action="store_true", help="print every step; run and write nothing")
-    p.add_argument("--skip-windows", action="store_true",
-                   help="step 0: accept an existing green Windows suites run for the sha instead of dispatching one")
+    p.add_argument("--require-macos", action="store_true", default=None,
+                   help="the gate also requires the four macOS shards (release_gate.REQUIRE_MACOS sets the default)")
+    p.add_argument("--require-realcheck", action="store_true", default=None,
+                   help="the gate also requires the realcheck job (release_gate.REQUIRE_REALCHECK sets the default)")
     return p
+
+
+def candidate_branch(version: str) -> str:
+    """3.6.0.0 R13: the branch the version commit is made on and gated on."""
+    return f"rc/{version}"
 
 
 def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
@@ -374,22 +396,31 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
     these instead. The read-only `git status` dirty check always runs
     for real (local, hermetic, safe even in a test against a scratch
     repo); only the mutating/network-reaching calls go through `run_fn`.
-    Step 0's `gh` calls go through `run_fn` too (`gate_fn` replaces the
-    whole gate: `gate_fn(sha, repo_dir=, run_fn=, skip_windows=)` returns
-    the accepted-run lines or raises release_gate.GateError)."""
+    The gate's `gh` calls go through `run_fn` too (`gate_fn` replaces the
+    whole gate: `gate_fn(sha, branch=, repo_dir=, run_fn=, macos=, realcheck=)` returns
+    (accepted lines, warnings) or raises release_gate.GateError)."""
     if run_fn is None:
         run_fn = subprocess.run
     if pids_fn is None:
         from halo_harness.update import other_halo_pids as pids_fn  # noqa: F811 -- default seam, deferred import
+    if "--skip-windows" in (sys.argv[1:] if argv is None else argv):
+        print("release.py: --skip-windows is gone (3.6.0.0): Windows runs on the candidate branch rc/<version> "
+              "like every other required check", file=sys.stderr)
+        return 1
     args = build_arg_parser().parse_args(argv)
     version = args.version
     date_str = args.date or date.today().isoformat()
+    branch = candidate_branch(version)
     steps: "list[str]" = []
     gate = _gate_module()
     gate_lines: "list[str]" = []
+    warnings: "list[str]" = []
 
     def step(description: str) -> None:
         steps.append(description)
+
+    def git(*a: str) -> None:
+        run_fn(["git", *a], cwd=str(repo_dir), check=True)
 
     try:
         dirty = dirty_files(repo_dir)
@@ -397,15 +428,12 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             raise ReleaseError("refusing: the tree is dirty under halo_harness/, tests/, or docs/: "
                                 + ", ".join(dirty))
         step("tree is clean under halo_harness/, tests/, docs/")
+        unreleased_section_body(version, repo_dir)  # raises ReleaseError when missing, before anything is written
 
-        # Step 0 (3.1.0.0 R1): both platforms green on the exact sha, the
-        # Windows run dispatched for it here -- before anything is written.
-        sha = gate.head_sha(repo_dir)
-        if args.dry_run:
-            gate_lines.append(gate.describe(sha, args.skip_windows))
-        else:
-            gate_lines.extend((gate_fn or gate.ci_gate)(sha, repo_dir=repo_dir, run_fn=run_fn,
-                                                        skip_windows=args.skip_windows))
+        # 3.6.0.0 R13: the version commit is made on the candidate branch, never on master
+        step(f"git switch -c {branch} (the version commit goes on the candidate branch)")
+        if not args.dry_run:
+            git("switch", "-c", branch)
 
         current_version = read_version(repo_dir)
         if current_version == version:
@@ -419,7 +447,7 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
             if not args.dry_run:
                 write_shipped_pack_min(version, repo_dir)
 
-        section_body = unreleased_section_body(version, repo_dir)  # raises ReleaseError when missing
+        section_body = unreleased_section_body(version, repo_dir)
         step(f'CHANGELOG.md has a "## [{version}] - unreleased" section; set its date to {date_str}')
         if not args.dry_run:
             set_changelog_date(version, date_str, repo_dir)
@@ -448,10 +476,9 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         body_text = commit_message_body(section_body)
         commit_subject = f"release: Halo Harness {version}"
         full_message = commit_subject if not body_text else f"{commit_subject}\n\n{body_text}"
-        step(f"git commit -m {commit_subject!r} (+ {len(body_text.splitlines())} body line(s) from the CHANGELOG)")
-        step(f'git tag -a v{version} -m "Halo Harness {version}"')
-        step("git push origin master")
-        step(f"git push origin v{version}")
+        step(f"git commit -m {commit_subject!r} (+ {len(body_text.splitlines())} body line(s) from the CHANGELOG) "
+             f"on {branch}")
+        step(f"git push -u origin {branch} (every platform's suites run on it)")
         if not args.dry_run:
             to_add = ["halo_harness/__init__.py", "CHANGELOG.md", "README.md", "halo_harness/data/changelog.md"]
             if (repo_dir / "docs" / "INSTALL.md").exists():
@@ -460,16 +487,35 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
                 to_add.append(_SHIPPED_PACK.as_posix())
             if (repo_dir / "docs" / "screenshots").is_dir():
                 to_add.append("docs/screenshots")
-            run_fn(["git", "add", *to_add], cwd=str(repo_dir), check=True)
-            run_fn(["git", "commit", "-m", full_message], cwd=str(repo_dir), check=True)
-            run_fn(["git", "tag", "-a", f"v{version}", "-m", f"Halo Harness {version}"], cwd=str(repo_dir), check=True)
-            run_fn(["git", "push", "origin", "master"], cwd=str(repo_dir), check=True)
-            run_fn(["git", "push", "origin", f"v{version}"], cwd=str(repo_dir), check=True)
+            git("add", *to_add)
+            git("commit", "-m", full_message)
+            git("push", "-u", "origin", branch)
+
+        # The gate: the candidate branch's run for the version commit, every required job green
+        if args.dry_run:
+            gate_lines.append(gate.describe(branch, macos=args.require_macos, realcheck=args.require_realcheck))
+        else:
+            sha = gate.head_sha(repo_dir)
+            accepted, warnings = (gate_fn or gate.candidate_gate)(sha, branch=branch, repo_dir=repo_dir,
+                                                                  run_fn=run_fn, macos=args.require_macos,
+                                                                  realcheck=args.require_realcheck)
+            gate_lines.extend(accepted)
+
+        step(f"git switch master && git merge --ff-only {branch} (master moves to the green commit)")
+        step("git push origin master")
+        step(f'git tag -a v{version} -m "Halo Harness {version}"')
+        step(f"git push origin v{version}")
+        if not args.dry_run:
+            git("switch", "master")
+            git("merge", "--ff-only", branch)
+            git("push", "origin", "master")
+            git("tag", "-a", f"v{version}", "-m", f"Halo Harness {version}")
+            git("push", "origin", f"v{version}")
 
         if args.no_github_release:
             step("--no-github-release: skip publishing the GitHub release")
         else:
-            step(f"publish a GitHub release for v{version}, notes = the CHANGELOG section")
+            step(f"publish a GitHub release for v{version}, notes = the CHANGELOG section (+ the tar.gz and checksums.txt)")
             if not args.dry_run:
                 release_desc = publish_github_release(version, section_body, repo_dir=repo_dir, run_fn=run_fn,
                                                         gh_path_fn=gh_path_fn, token_fn=token_fn)
@@ -510,16 +556,20 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         print(f"release.py: {e}", file=sys.stderr)
         return 1
     except gate.GateError as e:
-        print(f"release.py: step 0 (CI gate): {e}", file=sys.stderr)
+        print(f"release.py: the gate on {branch}: {e}", file=sys.stderr)
+        print(f"release.py: nothing was tagged and master is untouched; the candidate branch {branch} keeps the "
+              f"version commit for a fix (you are on it)", file=sys.stderr)
         return 1
 
     label = f"Halo Harness {version} ({date_str})" + (" [DRY RUN -- nothing executed]" if args.dry_run else "")
     print("-" * min(72, max(len(label), 40)))
     print(label)
-    for s in gate_lines:
-        print(f"  0. {s}")
-    for i, s in enumerate(steps, 1):
-        print(f"  {i}. {s}")
+    for s_ in gate_lines:
+        print(f"  gate: {s_}")
+    for w in warnings:
+        print(f"  warning: {w}")
+    for i, s_ in enumerate(steps, 1):
+        print(f"  {i}. {s_}")
     print("-" * min(72, max(len(label), 40)))
     return 0
 

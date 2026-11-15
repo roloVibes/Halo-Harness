@@ -313,6 +313,18 @@ def start_local_tap(server: _Server) -> None:
         server.local_tap_stop = None
 
 
+def sync_steward(server) -> None:
+    """3.6.0.0 R13: `ollama.steward.job` applied at once -- Settings' switch and `halo config set` (seen by the
+    files watcher) start the job or stop it, its threads with it, without a restart."""
+    try:
+        from halo_harness.ollama_steward.job import sync
+        from halo_harness.studio.events import bridge_for
+        server.steward_job = sync(getattr(server, "steward_job", None), server.state_dir, where="studio",
+                                  publish=lambda frame: bridge_for(server).publish_local(frame))
+    except Exception:
+        pass
+
+
 def start_steward(server: _Server) -> None:
     """3.3.4.0 R4: the Ollama steward's job for this state dir (none when `ollama.steward.job` is false, background
     reads are off, or another process runs it); its `steward` frames reach the live feed."""

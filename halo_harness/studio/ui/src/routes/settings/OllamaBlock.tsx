@@ -1,7 +1,8 @@
 // Settings -> Ollama, the steward's block above the group's rows (3.3.4.0 R5): its status line (where the job
 // runs, since when, the model it uses and why), the model picker (automatic = the key unset, "none" = no notes,
 // or one of the local models this machine lists; writes ollama.steward.model), the mode (auto / review / off ->
-// ollama.steward.apply), the job switch (ollama.steward.job, next launch) and "Open Local -> Hosts" (3.3.16.0 R2). The
+// ollama.steward.apply), the job switch (ollama.steward.job; 3.6.0.0 R13: off unless turned on, applied at once,
+// with what it does and costs said beside it) and "Open Local -> Hosts" (3.3.16.0 R2). The
 // thresholds (every_s, note_every_s, slow_tok_s, ledger, fleet.ollama.share) stay generic rows below it.
 import { useEffect } from "react";
 import { Button } from "../../lib/ui";
@@ -28,7 +29,11 @@ export function OllamaBlock() {
   const current = model?.set && typeof model.value === "string" ? model.value : AUTO;
   const refs = [...new Set([...(st?.models || []), ...(current && current !== "none" ? [current] : [])])];
   const mode = apply?.set ? String(apply.value) : "auto";
-  const jobOn = job?.set ? job.value !== false : true;
+  const jobOn = job?.set ? job.value === true : false; // 3.6.0.0 R13: off unless a person turned it on
+  const saveJob = async (on: boolean) => {
+    await setValue("ollama.steward.job", on);
+    void loadSteward();
+  };
   const saveModel = async (v: string) => {
     if (v === AUTO) await resetValue("ollama.steward.model");
     else await setValue("ollama.steward.model", v);
@@ -78,11 +83,15 @@ export function OllamaBlock() {
       <div className="st-ollama-row">
         <span>Job</span>
         <button type="button" role="switch" aria-checked={jobOn} className={"st-toggle" + (jobOn ? " on" : "")} data-testid="settings-ollama-job"
-                disabled={busy === "ollama.steward.job"} onClick={() => void setValue("ollama.steward.job", !jobOn)}>
+                disabled={busy === "ollama.steward.job"} onClick={() => void saveJob(!jobOn)}>
           <span className="st-toggle-knob" aria-hidden="true" />
           <span className="st-toggle-word mono">{jobOn ? "on" : "off"}</span>
         </button>
-        <span className="muted">runs with Studio or the fleet hub; takes effect on the next launch</span>
+        <span className="muted" data-testid="settings-ollama-job-words">
+          {jobOn
+            ? "on: in the background of Studio and halo host it reads the local servers' logs every 2 s, samples GPU, memory and CPU every second and runs its rules every 5 minutes while calls flow -- that can keep a CPU core busy on a laptop. Turning it off stops it now."
+            : "off: nothing of it runs. On, it watches your local servers in the background (log reads every 2 s, a sampler every second, its rules every 5 minutes) at the cost of some CPU; it starts at once."}
+        </span>
       </div>
     </section>
   );

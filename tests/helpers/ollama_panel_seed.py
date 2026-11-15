@@ -22,7 +22,9 @@ BIG, CODER, SMALL, HF = "qwen3.8:27b", "qwen3-coder:30b", "qwen3.5:9b", "llama-3
 HOUR = {("pc", BIG): {"calls": 7, "trims": 1, "cuts": 1, "errors": 1}, ("pc", CODER): {"calls": 3, "trims": 0, "cuts": 0,
         "errors": 0}, ("sagan", SMALL): {"calls": 2, "trims": 0, "cuts": 0, "errors": 0},
         ("llama-box", HF): {"calls": 3, "trims": 0, "cuts": 1, "errors": 0}}
-CONFIG = {"ollama": {"hosts": [PC, sagan], "steward": {"apply": "review"}},
+# 3.6.0.0 R13: the job is off unless turned on; the panel's views are the ones a person who turned it on sees (the
+# tests' background-net switch still keeps any job from starting)
+CONFIG = {"ollama": {"hosts": [PC, sagan], "steward": {"apply": "review", "job": True}},
           "huggingface": {"local_servers": [LOCAL]}}
 
 

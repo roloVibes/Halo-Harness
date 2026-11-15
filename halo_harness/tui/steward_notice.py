@@ -109,6 +109,9 @@ def start_steward_poll(app) -> Optional[NoticeWatch]:
     state_dir = getattr(getattr(app, "controller", None), "state_dir", None)
     if state_dir is None:
         return None
+    from halo_harness.ollama_steward.job import enabled
+    if not enabled():  # 3.6.0.0 R13: the steward is off: no poll of its notes in the background either
+        return None
     watch = NoticeWatch(state_dir).start()
 
     def safe() -> None:

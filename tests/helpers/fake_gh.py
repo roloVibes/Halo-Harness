@@ -1,25 +1,26 @@
-"""tests.helpers.fake_gh -- a stand-in for the `gh` CLI as scripts/release.py's
-step 0 (scripts/release_gate.py) calls it through `run_fn` (Halo 3.1.0.0 R1).
-No process, no network: each call is answered from the scenario below.
+"""tests.helpers.fake_gh -- a stand-in for the `gh` CLI as scripts/release.py's gate (scripts/release_gate.py) calls
+it through `run_fn` (Halo 3.1.0.0 R1; 3.6.0.0 R13: the candidate branch). No process, no network: each call is
+answered from the scenario below.
 
-    FakeGh(linux="success", windows="success", windows_polls=2)
+    FakeGh(conclusions=None, polls=1, appear_after=0, retried=(), head_sha=None)
 
-* `gh run list --event push --commit <sha>` -> one push run (id 101) for that
-  sha whose run and Linux job concluded `linux` (None: no run at all);
-* `gh run view 101` -> that run with its jobs (the Windows job skipped);
-* `gh workflow run suites.yml -f sha=<sha>` -> records the dispatch;
-* `gh run list --event workflow_dispatch` -> the dispatched run (id 202,
-  titled with the sha) once dispatched, or `existing_windows` (a run that
-  was there before);
-* `gh run view 202` -> `in_progress` for the first `windows_polls - 1` views,
-  then completed with `windows` as the run's and the Windows job's conclusion.
-Every other command answers returncode 0 with empty output (git archive keeps
-the side effect test_release_script's own fake gives it).
+* `gh run list --workflow suites.yml --branch <b> --event push --commit <sha>` -> the push run (id 303) on that branch
+  for that sha, once it has been asked for `appear_after` times (a run takes a moment to show up); `appear_after`
+  None: it never appears;
+* `gh run view 303 --json ...` -> `in_progress` for the first `polls - 1` views, then completed with one job per
+  name in `jobs` (the required list by default, macOS and realcheck included) whose conclusion is `conclusions.get(
+  name, "success")` -- a name mapped to None is left out of the run;
+* `gh run view 303 --log` -> a log whose lines carry `retried` (each a (job, test) pair) the way tests/run_all.py
+  prints a driver retry;
+Every other command answers returncode 0 with empty output (`git archive -o <path>` writes the file it names, the
+side effect the release's checksums step reads).
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
+
+RUN_ID = 303
 
 
 class _R:
@@ -31,15 +32,21 @@ def _arg(cmd: list, flag: str):
     return cmd[cmd.index(flag) + 1] if flag in cmd and cmd.index(flag) + 1 < len(cmd) else None
 
 
+def all_jobs() -> list:
+    shards = [f"suites ({p}, py3.12, shard {i}/4)" for p in ("linux", "windows", "macos") for i in range(4)]
+    return shards + ["studio-ui (build + drift gate)", "realcheck"]
+
+
 class FakeGh:
-    def __init__(self, *, linux: "str | None" = "success", windows: str = "success", windows_polls: int = 1,
-                 existing_windows: "str | None" = None, created: str = "2999-01-01T00:00:00Z",
-                 title_has_sha: bool = True):
-        self.linux, self.windows, self.windows_polls = linux, windows, windows_polls
-        self.existing_windows, self.created, self.title_has_sha = existing_windows, created, title_has_sha
+    def __init__(self, *, conclusions: "dict | None" = None, polls: int = 1, appear_after: "int | None" = 0,
+                 retried=(), head_sha: "str | None" = None, jobs: "list | None" = None):
+        self.conclusions = dict(conclusions or {})
+        self.polls, self.appear_after, self.retried = polls, appear_after, list(retried)
+        self.head_sha, self.jobs = head_sha, list(jobs or all_jobs())
         self.calls: list = []
         self.sha: "str | None" = None
-        self.dispatched = False
+        self.branch: "str | None" = None
+        self._lists = 0
         self._views = 0
 
     def gh_calls(self) -> list:
@@ -60,52 +67,38 @@ class FakeGh:
         if cmd[0] != "gh":
             return _R()
         args = cmd[1:]
-        if args[:2] == ["workflow", "run"]:
-            self.dispatched = True
-            sha_arg = next((a for a in args if a.startswith("sha=")), "")
-            self.sha = sha_arg[4:] or self.sha
-            return _R()
         if args[:2] == ["run", "list"]:
-            return _R(json.dumps(self._list(_arg(args, "--event"), _arg(args, "--commit"))))
+            return _R(json.dumps(self._list(_arg(args, "--branch"), _arg(args, "--event"), _arg(args, "--commit"))))
+        if args[:2] == ["run", "view"] and "--log" in args:
+            return _R(self._log())
         if args[:2] == ["run", "view"]:
             return _R(json.dumps(self._view(args[2])))
         return _R()
 
-    def _windows_run(self, status: str, conclusion) -> dict:
-        title = f"suites windows leg for {self.sha}" if self.title_has_sha else "suites"
-        return {"databaseId": 202, "status": status, "conclusion": conclusion, "event": "workflow_dispatch",
-                "headSha": "f" * 40, "displayTitle": title, "createdAt": self.created}
-
-    def _list(self, event, commit) -> list:
-        if commit:
-            self.sha = commit
-        if event == "push":
-            if self.linux is None or not commit:
-                return []
-            return [{"databaseId": 101, "status": "completed", "conclusion": self.linux, "event": "push",
-                     "headSha": commit, "displayTitle": "a commit", "createdAt": "2026-10-18T08:00:00Z"}]
-        if event == "workflow_dispatch":
-            if self.dispatched:
-                return [self._windows_run("queued", None)]
-            if self.existing_windows is not None:
-                return [self._windows_run("completed", self.existing_windows)]
-        return []
+    def _list(self, branch, event, commit) -> list:
+        self.sha, self.branch = commit or self.sha, branch or self.branch
+        self._lists += 1
+        if event != "push" or not commit or self.appear_after is None or self._lists <= self.appear_after:
+            return []
+        return [{"databaseId": RUN_ID, "status": "queued", "conclusion": None, "event": "push",
+                 "headSha": commit, "headBranch": branch, "displayTitle": "release", "createdAt": "2026-11-15T08:00:00Z"}]
 
     def _view(self, run_id: str) -> dict:
-        if run_id == "101":
-            return {"databaseId": 101, "status": "completed", "conclusion": self.linux, "headSha": self.sha,
-                    "jobs": [{"name": "suites (linux, py3.12)", "conclusion": self.linux},
-                             {"name": "studio-ui (build + drift gate)", "conclusion": "success"},
-                             {"name": "suites (windows, py3.12)", "conclusion": "skipped"}]}
-        if run_id == "202":
-            if not self.dispatched:
-                conclusion = self.existing_windows
-                return {"databaseId": 202, "status": "completed", "conclusion": conclusion,
-                        "jobs": [{"name": "suites (windows, py3.12)", "conclusion": conclusion}]}
-            self._views += 1
-            if self._views < self.windows_polls:
-                return {"databaseId": 202, "status": "in_progress", "conclusion": None, "jobs": []}
-            return {"databaseId": 202, "status": "completed", "conclusion": self.windows,
-                    "jobs": [{"name": "suites (linux, py3.12)", "conclusion": "skipped"},
-                             {"name": "suites (windows, py3.12)", "conclusion": self.windows}]}
-        return {}
+        if str(run_id) != str(RUN_ID):
+            return {}
+        self._views += 1
+        sha = self.head_sha or self.sha
+        if self._views < self.polls:
+            return {"databaseId": RUN_ID, "status": "in_progress", "conclusion": None, "headSha": sha, "jobs": []}
+        jobs = [{"name": n, "conclusion": self.conclusions.get(n, "success")} for n in self.jobs
+                if not (n in self.conclusions and self.conclusions[n] is None)]
+        overall = "success" if all(j["conclusion"] == "success" for j in jobs) else "failure"
+        return {"databaseId": RUN_ID, "status": "completed", "conclusion": overall, "headSha": sha,
+                "headBranch": self.branch, "jobs": jobs}
+
+    def _log(self) -> str:
+        lines = ["suites (linux, py3.12, shard 0/4)\tSet up job\t2026-11-15T08:00:01.0000000Z Current runner version"]
+        for job, test in self.retried:
+            lines.append(f"{job}\ttests/run_all.py\t2026-11-15T08:10:00.0000000Z   [PASS] {test} (12.30s) "
+                         f"(driver retried once: Runtime.evaluate timed out)")
+        return "\n".join(lines) + "\n"

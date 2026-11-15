@@ -91,7 +91,7 @@ _SCALARS = {
 # signal (3.5.0.0: the keys that were `fleet.*`, config/renamed_keys.py); `host`: allow_control
 # `ollama`: profiles (a map "<host>|<model>" (3.3.7.0 R3: or "<host>|<model>|<role>", a lane's own) -> {num_ctx, num_predict, keep_alive, tools_max, host_for, compact_at, note, by, at}),
 # steward.apply auto|review|off, steward.slow_tok_s (3.3.4.0 R3, ollama_steward/profiles.py, steward.py)
-# steward.model (a model ref), steward.job (bool), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
+# steward.model (a model ref), steward.job (bool, default false since 3.6.0.0 R13), steward.every_s, steward.note_every_s (seconds) (3.3.4.0 R4,
 # ollama_steward/job.py, agent.py); steward.probe_new (bool: the battery on a new or changed model, 3.3.6.0 R1);
 # steward.chat_tokens (int: the steward's chat's context budget, 3.3.7.0 R5, ollama_steward/chat.py)
 # `host` (3.3.7.0 R1, host/state.py): port (7431), bind ("0.0.0.0"), enabled (true), tail_max (400)

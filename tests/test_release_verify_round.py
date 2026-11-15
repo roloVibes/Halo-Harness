@@ -25,7 +25,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
+from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
 
+ensure_scoped_state_dir_once()  # 3.6.0.0 R13: `halo update` reads the last updater's result from the state dir
 test, TESTS = new_registry()
 
 REPO_DIR = Path(__file__).resolve().parent.parent
@@ -89,7 +91,7 @@ def _fake_update_world(assets):
         update_cli.upd.commit_is_ancestor = lambda *a, **kw: None
         update_cli.upd.tag_checksums = lambda tag, **kw: assets
 
-        def _apply(*, cmd=None, force=False, keep_running=False):  # keep_running: 3.2.2.0 R3
+        def _apply(*, cmd=None, force=False, keep_running=False, expect=None):  # 3.2.2.0 R3; expect: 3.6.0.0 R13
             applied.append(cmd)
             return 0
         update_cli.apply_update = _apply

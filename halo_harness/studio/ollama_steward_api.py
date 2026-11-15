@@ -43,7 +43,10 @@ def get_steward(req):
     applied = {r.get("finding") for r in journal if r.get("kind") == "apply"}
     pending = [r for r in journal if r.get("kind") == "proposal" and r.get("id") not in quiet
                and r.get("id") not in applied]
-    return 200, {"status": st, "status_lines": job_state.format_status(st, last_note=last),
+    from halo_harness.ollama_steward.job import OFF_LINE, enabled
+    on = enabled() or bool(st.get("running"))  # 3.6.0.0 R13: the page shows the one off line instead of old notes
+    return 200, {"on": on, "off_line": None if on else OFF_LINE,
+                 "status": st, "status_lines": job_state.format_status(st, last_note=last),
                  "current": job.current(state), "notes": notes.read(state, since_s=86400.0)[-NOTES:],
                  "last_note": last, "hub_note": notes.hub_note(state), "mode": steward.mode(),
                  "models": [ref for ref, _size in local_models(state)], "changes": steward._in_place(journal)[-10:],

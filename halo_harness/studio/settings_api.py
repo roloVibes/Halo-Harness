@@ -122,7 +122,15 @@ def post_set(req):
         return _refused([f"{key}: {e}"])
     from halo_harness.studio.settings_values import walk
     got = walk(_data(), key) if not listy else value
+    _steward_switch(req, key)
     return 200, _answer(key, r, True, got)
+
+
+def _steward_switch(req, key: str) -> None:
+    """3.6.0.0 R13: the steward's switch starts or stops its job in this Studio at once."""
+    if key == "ollama.steward.job" and getattr(req, "server", None) is not None:
+        from halo_harness.studio.server import sync_steward
+        sync_steward(req.server)
 
 
 def post_unset(req):
@@ -147,6 +155,7 @@ def post_unset(req):
             T.unset_config_value(key)
     except T.CorruptConfigError as e:
         return _refused([f"{key}: {e}"])
+    _steward_switch(req, key)
     return 200, _answer(key, r, False)
 
 

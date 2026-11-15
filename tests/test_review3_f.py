@@ -134,6 +134,9 @@ def _stable_rig(spec_rev: str, checksums):
     FETCHED.clear()
     orig_fetch, UI.fetch_lock = UI.fetch_lock, lambda url: FETCHED.append(url) or b"textual==0.80.0"
     orig["__fetch__"] = orig_fetch
+    from halo_harness import update_cli as _cli  # 3.6.0.0 R13: the updater runs in this process (tests/helpers/update_inline)
+    from tests.helpers.update_inline import inline
+    orig["__launch__"], _cli.launch = _cli.launch, inline
     return orig, ran, asked
 
 
@@ -143,6 +146,8 @@ FETCHED: list = []
 def _restore(orig: dict) -> None:
     from halo_harness import update_install as UI
     UI.fetch_lock = orig.pop("__fetch__", UI.fetch_lock)
+    from halo_harness import update_cli as _cli
+    _cli.launch = orig.pop("__launch__", None)
     for n, v in orig.items():
         setattr(upd, n, v)
 

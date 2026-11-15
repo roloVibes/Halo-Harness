@@ -25,6 +25,11 @@ with Studio (studio/server.py), the fleet hub (fleet/hub.py) and `halo host` (ho
 foreground; `halo ollama steward status` reads job_state.py. 3.3.5.0 R1: while it runs it
 holds the resources sampler on (resources.want("job")): the fit planner sees the
 newest sample, and the Local tab's live strip has one the moment it opens.
+
+3.6.0.0 R13 (the owner's laptop sat near one full CPU core on these threads): `ollama.steward.job` is OFF unless a
+person turns it on -- a fresh install, and a config that never set the key, both mean off; only `true` turns it on.
+Off, nothing of it starts: no watch, no timer, no sampler. `sync(...)` applies the switch at once (Studio calls it
+when Settings or `halo config set` changes the key), and `stop()` waits for its threads to end.
 """
 
 from __future__ import annotations
@@ -49,9 +54,15 @@ def every_s() -> float:
     return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else EVERY_S
 
 
+OFF_LINE = ("the steward is off (ollama.steward.job is false): nothing of it runs; turn it on in Settings -> Ollama "
+            "or with `halo config set ollama.steward.job true`")
+STOP_WAIT_S = 3.0
+
+
 def enabled() -> bool:
+    """3.6.0.0 R13: on only when a person set `ollama.steward.job` to true."""
     from halo_harness.ollama_steward.agent import _cfg
-    return _cfg("ollama.steward.job", True) is not False
+    return _cfg("ollama.steward.job", False) is True
 
 
 class StewardJob:
@@ -224,6 +235,10 @@ class StewardJob:
         self.wake.set()
         from halo_harness.ollama_steward import resources
         resources.want(self.state_dir, "job", False)
+        deadline = time.monotonic() + STOP_WAIT_S  # 3.6.0.0 R13: off means its threads are gone, not "soon"
+        for t in list(self.threads):
+            if t is not threading.current_thread() and t.is_alive():
+                t.join(max(0.0, deadline - time.monotonic()))
         if _JOBS.get(str(self.state_dir)) is self:
             _JOBS.pop(str(self.state_dir), None)
         if self.lock is not None:
@@ -235,6 +250,17 @@ def current(state_dir) -> Optional[dict]:
     """The running job of this process for `state_dir`: {where, frames} (a page's catch-up), or None."""
     job = _JOBS.get(str(state_dir))
     return {"where": job.where, "frames": list(job.frames)} if job is not None else None
+
+
+def sync(job: Optional[StewardJob], state_dir, *, where: str, publish: Optional[Callable] = None
+         ) -> Optional[StewardJob]:
+    """3.6.0.0 R13: the switch, applied at once -- the running job when it should run (started when it was not),
+    None when it should not (stopped, its threads joined, when it ran)."""
+    if enabled():
+        return job if job is not None else start_for(state_dir, where=where, publish=publish)
+    if job is not None:
+        job.stop()
+    return None
 
 
 def start_for(state_dir, *, where: str, publish: Optional[Callable] = None) -> Optional[StewardJob]:

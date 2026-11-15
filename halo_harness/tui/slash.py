@@ -820,8 +820,11 @@ def _update_worker(app) -> None:
     avail = upd.latest_available(upd.default_channel(build), refresh=True)
     kind = upd.install_kind()
     checkout = Path(build["checkout"]) if build.get("checkout") else None
-    lines, _count = upd.commits_between(build.get("commit"), avail.get("commit"), checkout=checkout)
-    ordering = upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
+    from halo_harness.update_cli import older_release  # 3.6.0.0 R13: versions, not commit counts on two lines
+    older = older_release(build, avail, avail.get("channel") or upd.default_channel(build))
+    lines, _count = ([], None) if older else upd.commits_between(build.get("commit"), avail.get("commit"),
+                                                                 checkout=checkout)
+    ordering = None if older else upd.commit_is_ancestor(build.get("commit"), avail.get("commit"), checkout=checkout)
     up_to_date = bool(build.get("commit") and avail.get("commit") and build["commit"] == avail["commit"])
     installed_line = upd.format_version_line(build)[len("halo "):]
     if avail.get("commit"):
@@ -830,7 +833,7 @@ def _update_worker(app) -> None:
     else:
         available_line = f"unknown ({avail.get('reason') or 'no reason given'})"
     dialog = UpdateDialog(installed_line, available_line, lines, kind.get("reinstall_cmd"),
-                           up_to_date=up_to_date, ordering=ordering)
+                           up_to_date=up_to_date, ordering=ordering, older=older)
     app.call_from_thread(app.push_screen, dialog, lambda result: _on_update_dialog_result(app, result))
 
 
@@ -869,6 +872,9 @@ def update_check_startup_worker(app) -> None:
     avail = upd.latest_available(upd.default_channel(build), state_dir=state_dir)
     if not avail.get("commit") or not build.get("commit") or avail["commit"] == build["commit"]:
         return
+    from halo_harness.update_cli import older_release
+    if older_release(build, avail, avail.get("channel") or upd.default_channel(build)):
+        return  # 3.6.0.0 R13: an older release is not an update
     if not upd.note_due_today(state_dir):
         return
     new_version = avail["ref"][1:] if (avail.get("ref") or "").startswith("v") else build["version"]

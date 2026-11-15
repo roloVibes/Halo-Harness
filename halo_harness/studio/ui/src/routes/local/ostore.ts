@@ -33,7 +33,8 @@ export type ModelRow = {
 export type HostView = { name: string; url: string; served_here: boolean; card_lines: string[]; models: ModelRow[]; findings: Finding[]; plan: Plan | null; kind?: string };
 export type Hosts = { hosts: HostView[]; local_servers: HostView[]; mode: string; at: number };
 export type Status = { running?: boolean; where?: string; since?: number; machine?: string; model?: string | null; model_why?: string; last_run?: { at: number; mode: string; findings: number; applied: number; proposed: number } };
-export type Steward = { status: Status; status_lines: string[]; notes: Note[]; last_note: Note | null; hub_note: { hub?: string; line: string; at?: string } | null; mode: string; models: string[]; changes: Change[]; proposals: Change[] };
+// 3.6.0.0 R13: `on` false (ollama.steward.job is off, the default): the page shows `off_line` and nothing older
+export type Steward = { on?: boolean; off_line?: string | null; status: Status; status_lines: string[]; notes: Note[]; last_note: Note | null; hub_note: { hub?: string; line: string; at?: string } | null; mode: string; models: string[]; changes: Change[]; proposals: Change[] };
 export type Bucket = { t: number; calls: number; trims: number; cuts: number; errors: number; p95_prompt: number | null };
 
 type OllamaState = {

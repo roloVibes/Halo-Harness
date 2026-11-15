@@ -223,6 +223,8 @@ def want(state_dir, owner: str, on: bool, *, publish: Optional[Callable] = None,
         if on and running is None and start:
             s = _SAMPLER["one"] = Sampler(state_dir, publish=publish, **SAMPLER_SEAMS)
             s.start()
+        if not on and running is not None and not _WANT:  # 3.6.0.0 R13: nobody wants it: it stops now, not next tick
+            running.stop()
     return status()
 
 

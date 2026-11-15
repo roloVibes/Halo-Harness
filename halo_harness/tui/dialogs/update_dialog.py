@@ -30,13 +30,14 @@ class UpdateDialog(ModalScreen):
 
     def __init__(self, installed_line: str, available_line: str, commit_lines: "Optional[list]" = None,
                  command: "Optional[str]" = None, *, up_to_date: bool = False,
-                 ordering: "Optional[bool]" = None) -> None:
+                 ordering: "Optional[bool]" = None, older: "Optional[str]" = None) -> None:
         super().__init__()
         self.installed_line = installed_line
         self.available_line = available_line
         self.commit_lines = commit_lines or []
         self.command = command
-        self.up_to_date = up_to_date
+        self.up_to_date = up_to_date or bool(older)
+        self.older = older  # 3.6.0.0 R13: the release on offer is older than this build (update_cli.older_release)
         # Halo 2.0.2 round C: "'differs from <channel>' when the
         # ordering is unknown" -- `update.commit_is_ancestor`'s own
         # three-way answer; False (a real checkout confirms it is NOT a
@@ -58,7 +59,11 @@ class UpdateDialog(ModalScreen):
             yield Static("")
             yield Static(f"  command: {self.command or '(unknown)'}", markup=False)
             yield Static("")
-            if self.up_to_date:
+            if self.older:
+                yield Static(f"  {self.older}", markup=False)
+                yield Static("")
+                yield Static("  Nothing newer to install.  Esc: close")
+            elif self.up_to_date:
                 yield Static("  Already up to date.  Esc: close")
             else:
                 yield Static("  Enter: quit, then update (after halo exits)    Esc: not now")

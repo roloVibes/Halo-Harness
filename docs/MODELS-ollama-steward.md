@@ -188,8 +188,8 @@ R4, the steward's agent, selectable and cheap, and the job that runs it:
   in another process, a second `--watch`) does not start and names the holder
   (a lock file, `~/.halo/ollama/steward-job.lock`). `halo ollama steward
   status` says whether one runs, where (studio, hub, watch), since when,
-  the last run's counts, the model and the last note. `ollama.steward.job:
-  false` starts none with Studio or the hub; `ollama.steward.apply: off`
+  the last run's counts, the model and the last note. 3.6.0.0: `ollama.steward.job` is OFF unless `true`: off, nothing
+  of it starts (no watch, timer or sampler), the status says so in one line; the switch applies at once; `ollama.steward.apply: off`
   keeps the findings and the notes and applies nothing. 3.4.0.1: started with Studio or the hub, the job calls no
   model (no note, no probe) unless `ollama.steward.watch: true`; `--watch` always does; ask: its chat, `halo ollama explain`.
 - **The model**: `ollama.steward.model` (any model ref), else the
@@ -381,7 +381,7 @@ timer and a hand `run`) can no longer land the same change twice.
 **Settings -> Ollama.** Above the group's rows sits the steward's block: its status lines; the model that writes the
 notes (automatic: the key unset, none: no notes while the rules still run, or one of this machine's local models,
 `ollama.steward.model`); the mode, auto, review or off (`ollama.steward.apply`); the job switch (`ollama.steward.job`,
-the next launch); **Open the Ollama panel**. Settings -> Local lists the changes with their scopes and Revert.
+off by default, applied at once, with what it does and costs beside it); **Open the Ollama panel**. Settings -> Local lists the changes with their scopes and Revert.
 
 `every_s`, `note_every_s`, `slow_tok_s`, `ledger` and `ollama.share` stay ordinary rows.
 

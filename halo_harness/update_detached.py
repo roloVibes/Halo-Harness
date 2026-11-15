@@ -47,8 +47,9 @@ def _bat(text: str) -> str:
 
 def windows_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Optional[str] = None,
                    supervisor_stop_file: Optional[str] = None, restart_supervisor: bool = False,
-                   halo: str = "halo") -> str:
-    """The `update.cmd` text: wait, stop, reinstall, restart, `halo --version`, all into `log`."""
+                   halo: str = "halo", restore_cmd: Optional[str] = None, restore_cwd: Optional[str] = None) -> str:
+    """The `update.cmd` text: wait, stop, reinstall, `halo --version` (3.6.0.0 R13: when the reinstall or that
+    fails, `restore_cmd` puts back what was installed), restart, all into `log`."""
     out = ["@echo off", "rem Halo /update: runs after halo exits (written by halo_harness.update_detached).",
            f'set "LOG={_bat(log)}"', 'echo === halo update from /update %DATE% %TIME% >> "%LOG%" 2>&1']
     for pid in wait_pids:
@@ -61,20 +62,30 @@ def windows_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Option
         out += [f'echo stop> "{_bat(supervisor_stop_file)}"', "ping -n 6 127.0.0.1 >nul"]
     for pid in stop_pids:
         out += [f'echo stopping pid {pid} >> "%LOG%"', f'taskkill /PID {pid} /T /F >> "%LOG%" 2>&1']
-    out += ['echo running the reinstall >> "%LOG%"', 'call :reinstall >> "%LOG%" 2>&1',
-            'echo reinstall exit code %ERRORLEVEL% >> "%LOG%"']
+    out += ['echo running the reinstall >> "%LOG%"', 'call :reinstall >> "%LOG%" 2>&1', "set RC=%ERRORLEVEL%",
+            'echo reinstall exit code %RC% >> "%LOG%"', f'"{_bat(halo)}" --version >> "%LOG%" 2>&1',
+            "if errorlevel 1 set RC=1"]
+    if restore_cmd:
+        out += ['if "%RC%"=="0" goto verified',
+                'echo halo update: the update failed; putting back what was installed >> "%LOG%"',
+                'call :restore >> "%LOG%" 2>&1', f'"{_bat(halo)}" --version >> "%LOG%" 2>&1',
+                f'if errorlevel 1 echo halo update: halo does not answer; run by hand: {_bat(restore_cmd)} >> "%LOG%"',
+                ":verified"]
     if restart_supervisor:
         out += [f'"{_bat(halo)}" supervise --daemon >> "%LOG%" 2>&1']
-    out += [f'"{_bat(halo)}" --version >> "%LOG%" 2>&1', 'echo === done >> "%LOG%"', "goto :eof", "", ":reinstall"]
+    out += ['echo === done >> "%LOG%"', "goto :eof", "", ":reinstall"]
     if cwd:
         out.append(f'cd /d "{_bat(cwd)}"')
     out += [_bat(reinstall_cmd), "exit /b %ERRORLEVEL%", ""]
+    if restore_cmd:
+        out += [":restore"] + ([f'cd /d "{_bat(restore_cwd)}"'] if restore_cwd else [])
+        out += [_bat(restore_cmd), "exit /b %ERRORLEVEL%", ""]
     return "\r\n".join(out)
 
 
 def posix_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Optional[str] = None,
                  supervisor_stop_file: Optional[str] = None, restart_supervisor: bool = False,
-                 halo: str = "halo") -> str:
+                 halo: str = "halo", restore_cmd: Optional[str] = None, restore_cwd: Optional[str] = None) -> str:
     """The `update.sh` text, the same steps as `windows_script`."""
     q = shlex.quote
     out = ["#!/bin/sh", "# Halo /update: runs after halo exits (written by halo_harness.update_detached).",
@@ -88,10 +99,15 @@ def posix_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Optional
         pids = " ".join(str(p) for p in stop_pids)
         out += [f'echo "stopping pid(s) {pids}"', f"kill {pids} 2>/dev/null", "sleep 2", f"kill -9 {pids} 2>/dev/null"]
     out += ['echo "running the reinstall"', f"( {'cd ' + q(cwd) + ' && ' if cwd else ''}{reinstall_cmd} )",
-            'echo "reinstall exit code $?"']
+            "rc=$?", 'echo "reinstall exit code $rc"', f"{q(halo)} --version || rc=1"]
+    if restore_cmd:
+        out += ['if [ "$rc" -ne 0 ]; then', '  echo "halo update: the update failed; putting back what was installed"',
+                f"  ( {'cd ' + q(restore_cwd) + ' && ' if restore_cwd else ''}{restore_cmd} )",
+                f"  {q(halo)} --version || echo {q('halo update: halo does not answer; run by hand: ' + restore_cmd)}",
+                "fi"]
     if restart_supervisor:
         out.append(f"{q(halo)} supervise --daemon")
-    out += [f"{q(halo)} --version", 'echo "=== done"', ""]
+    out += ['echo "=== done"', ""]
     return "\n".join(out)
 
 
@@ -148,14 +164,25 @@ def reinstall_cmd(to: Optional[str] = None) -> "tuple[Optional[str], dict]":
     cmd = kind.get("reinstall_cmd")
     stable_tag = avail.get("ref") if channel == "stable" and upd._TAG_RE.match(avail.get("ref") or "") else None
     new_ref = to or stable_tag
+    from halo_harness.update_cli import older_release
+    from halo_harness.update_plan import expectation
+    kind = {**kind, "current_cmd": kind.get("reinstall_cmd"), "expect": expectation(new_ref, channel, avail, build),
+            "older": None if to else older_release(build, avail, channel)}
     if new_ref and cmd and kind.get("spec"):
         cmd = _retarget_cmd(cmd, kind["spec"], new_ref)
     return cmd, kind
 
 
+launch = None  # 3.6.0.0 R13: the seam a test replaces -- launch(plan, **kw) -> exit code or None (update_plan.launch)
+
+
 def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hint: str = "") -> int:
-    """`/update`'s hand-off once the TUI is gone: write the updater, start it, say where its log is."""
+    """`/update`'s hand-off once the TUI is gone. 3.6.0.0 R13: the standalone updater (update_runner.py, through
+    update_plan.launch) with the same plan `halo update` writes -- it waits for this halo, stops what the plan names,
+    installs, checks `halo --version` and puts back what was installed when that fails. Without a Python outside
+    halo's environment, the shell script below does the same steps (`restore_cmd` on a failed check)."""
     from halo_harness import update as upd
+    from halo_harness import update_plan as UP
     from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
     from halo_harness.update_stop import describe, lingering
     if offline_mode_enabled():
@@ -165,23 +192,52 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
     if not cmd:
         print("halo update: could not determine how halo was installed -- nothing to run", file=sys.stderr)
         return 1
+    if kind.get("older"):
+        print(f"halo update: not moving back -- {kind['older']}", file=sys.stderr)
+        return 1
     windows = os.name == "nt" if windows is None else windows
     rows = lingering(state_dir)
     supervisor = any(r.get("what") == "supervisor" for r in rows)
     from halo_harness.supervise.pulse import stop_path
     spec = kind.get("spec")
+    cwd = spec if spec and Path(spec).is_dir() else None
     log = log_path(state_dir)
+    from halo_harness import update_install as UI
+    cmd, note = UI.pin_locally(cmd)
+    if note:
+        print(note, file=sys.stderr if cmd is None else sys.stdout)
+    if cmd is None:
+        return 1
+    before = upd.installed_build()
+    lock = UP.freeze_lock(UP.run_dir(state_dir) / UP.LOCK_NAME)
+    restore = UP.previous_install(kind, before, kind.get("current_cmd"), str(lock) if lock else None,
+                                  direct_url=upd._direct_url())
+    stop_file = str(stop_path(_state(state_dir))) if supervisor else None
+    ancestors = upd.halo_ancestors()
+    py = UP.outside_python()
+    tail = (f"; `{resume_hint}` picks the session up again" if resume_hint else "")
+    if py:
+        plan = UP.build_plan(cmd=cmd, cwd=cwd, before=before, expect=kind.get("expect") or {"label": "the newest"},
+                             restore=restore, state_dir=state_dir,
+                             wait_pids=[os.getpid(), *ancestors] if windows else ancestors,
+                             stop_pids=[r["pid"] for r in rows], supervisor_stop_file=stop_file,
+                             restart_supervisor=supervisor, windows=windows)
+        for r in rows:
+            print(f"halo update: the updater stops {describe(r)}")
+        print(("halo update: the update runs in its own window after halo exits" if windows else
+               "halo update: the update runs here now") + f"; its log: {log}; `halo --version` then" + tail)
+        got = (launch or UP.launch)(plan, state_dir=state_dir, windows=windows, python=py, quiet=True)
+        return 1 if got is None else got
     make = windows_script if windows else posix_script
-    text = make(wait_pids=[os.getpid(), *upd.halo_ancestors()], stop_pids=[r["pid"] for r in rows],
-                reinstall_cmd=cmd, log=str(log), cwd=spec if spec and Path(spec).is_dir() else None,
-                supervisor_stop_file=str(stop_path(_state(state_dir))) if supervisor else None,
-                restart_supervisor=supervisor, halo=shutil.which("halo") or "halo")
+    text = make(wait_pids=[os.getpid(), *ancestors], stop_pids=[r["pid"] for r in rows],
+                reinstall_cmd=cmd, log=str(log), cwd=cwd, supervisor_stop_file=stop_file,
+                restart_supervisor=supervisor, halo=shutil.which("halo") or "halo",
+                restore_cmd=(restore or {}).get("cmd"), restore_cwd=(restore or {}).get("cwd"))
     path = write_script(text, script_path(state_dir, windows=windows))
     if spawn(path, windows=windows, cwd=_state(state_dir)) is None:
         print(f"halo update: could not start the updater ({path}); run `halo update` from a shell", file=sys.stderr)
         return 1
     for r in rows:
         print(f"halo update: the updater stops {describe(r)}")
-    print(f"halo update: the update runs after halo exits; its log: {log}; `halo --version` then"
-          + (f"; `{resume_hint}` picks the session up again" if resume_hint else ""))
+    print(f"halo update: the update runs after halo exits; its log: {log}; `halo --version` then" + tail)
     return 0

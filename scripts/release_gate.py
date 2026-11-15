@@ -1,46 +1,61 @@
-"""scripts/release_gate.py -- step 0 of scripts/release.py (Halo 3.1.0.0 round
-R1): a release needs BOTH platforms green on the exact sha it tags.
+"""scripts/release_gate.py -- the CI gate of scripts/release.py (Halo 3.1.0.0 R1; 3.6.0.0 R13: the candidate branch).
 
-Since 3.1.0.0 the suites workflow runs its Linux job on every push and its
-Windows job only on tags, nightly and `workflow_dispatch` (input `sha`), so
-release.py asks for the Windows run itself:
+The main line is protected: nine required checks, and no commit reaches master that has not passed them on an
+`rc/**` branch. A push to `rc/**` runs every platform's suites on that commit (suites.yml), so release.py pushes the
+version commit to `rc/<version>` and this gate waits for that run:
 
-1. the latest `push` run of suites.yml for the sha must have concluded
-   `success`, its Linux job included;
-2. `gh workflow run suites.yml -f sha=<sha>` dispatches the Windows job for
-   the sha; the run is found by its title (`run-name` carries the sha) and
-   polled with `gh run view` until it completes (up to 90 minutes);
-3. it must conclude `success`, its Windows job included.
+1. the `push` run of suites.yml on the branch for the EXACT sha is found (it may take a moment to appear) and polled
+   with `gh run view` until it completes (up to 90 minutes);
+2. every job in `required_jobs()` must be in it and conclude `success` -- the conclusion VALUE of each job is read,
+   never an exit code of a watch command, and a missing or skipped required job fails like a red one; the
+   failing jobs are named;
+3. the run's log is read once (`gh run view --log`) and every "driver retried once" line is returned as a warning
+   (a retry was the early sign of three real bugs in one week): it does not stop the release, it is printed.
 
-`--skip-windows` (an owner who already has a green dispatch for the sha)
-skips the dispatch and accepts the newest finished green Windows run for the
-sha. Either way the accepted run ids are printed. Every `gh` call goes
-through `run_fn` (tests pass a fake `gh`); the conclusion VALUE is read, never
-an exit code of a watch command.
+The required jobs are ONE list here: Linux x4 and Windows x4 (the shards) and studio-ui. macOS x4 and `realcheck`
+join it when `REQUIRE_MACOS` / `REQUIRE_REALCHECK` below are flipped to True (the coordinator flips them once those
+jobs are green), or per run with release.py's `--require-macos` / `--require-realcheck`.
+
+Every `gh` call goes through `run_fn` (tests pass a fake `gh`, tests/helpers/fake_gh.py).
 """
 from __future__ import annotations
 
 import json
 import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
 WORKFLOW = "suites.yml"
-LINUX_JOB = "suites (linux"
-WINDOWS_JOB = "suites (windows"
+SHARDS = 4
+REQUIRE_MACOS = False  # the coordinator flips this when the macOS shards are green
+REQUIRE_REALCHECK = False  # ... and this when the real-use check job is
+REALCHECK_JOB = "realcheck"
+RETRY_MARK = "driver retried once"
 WAIT_S = 90 * 60
 POLL_S = 30.0
-_FIELDS = "databaseId,status,conclusion,event,headSha,displayTitle,createdAt"
+FIND_WAIT_S = 300.0
+_FIELDS = "databaseId,status,conclusion,event,headSha,headBranch,displayTitle,createdAt"
 
 
 class GateError(Exception):
-    """A one-line reason the release stops at step 0."""
+    """A one-line reason the release stops at the gate."""
+
+
+def required_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = None) -> "list[str]":
+    """The job names that must conclude success, in the order they are reported."""
+    macos = REQUIRE_MACOS if macos is None else macos
+    realcheck = REQUIRE_REALCHECK if realcheck is None else realcheck
+    platforms = ["linux", "windows"] + (["macos"] if macos else [])
+    out = [f"suites ({p}, py3.12, shard {i}/{SHARDS})" for p in platforms for i in range(SHARDS)]
+    out.append("studio-ui (build + drift gate)")
+    if realcheck:
+        out.append(REALCHECK_JOB)
+    return out
 
 
 def head_sha(repo_dir: Path) -> str:
-    """The sha being released: HEAD of `repo_dir` (read-only, local)."""
+    """HEAD of `repo_dir` (read-only, local)."""
     r = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(repo_dir), capture_output=True, text=True)
     sha = (r.stdout or "").strip()
     if r.returncode != 0 or len(sha) < 40:
@@ -58,81 +73,53 @@ def _gh(run_fn: Callable, args: list, repo_dir: Path, want_json: bool = True):
     if getattr(r, "returncode", 0) != 0:
         raise GateError(f"`gh {' '.join(args[:3])}` exited {r.returncode}: {(getattr(r, 'stderr', '') or '').strip()[:200]}")
     if not want_json:
-        return None
+        return getattr(r, "stdout", "") or ""
     try:
         return json.loads(getattr(r, "stdout", "") or "null")
     except ValueError:
         raise GateError(f"`gh {' '.join(args[:3])}` printed no JSON")
 
 
-def _runs(run_fn, repo_dir, event: str, sha: "str | None" = None, limit: int = 20) -> list:
-    args = ["run", "list", "--workflow", WORKFLOW, "--event", event, "--json", _FIELDS, "--limit", str(limit)]
-    if sha:
-        args += ["--commit", sha]
-    got = _gh(run_fn, args, repo_dir)
-    return [r for r in (got or []) if isinstance(r, dict)]
+def branch_runs(sha: str, branch: str, run_fn, repo_dir) -> list:
+    """The push runs of suites.yml on `branch` for exactly `sha`, newest first."""
+    got = _gh(run_fn, ["run", "list", "--workflow", WORKFLOW, "--branch", branch, "--event", "push", "--commit", sha,
+                       "--json", _FIELDS, "--limit", "20"], repo_dir)
+    return [r for r in (got or []) if isinstance(r, dict) and r.get("headSha") == sha]
 
 
 def view(run_fn, repo_dir, run_id) -> dict:
-    got = _gh(run_fn, ["run", "view", str(run_id), "--json", "databaseId,status,conclusion,headSha,displayTitle,jobs"], repo_dir)
+    got = _gh(run_fn, ["run", "view", str(run_id), "--json", "databaseId,status,conclusion,headSha,headBranch,jobs"],
+              repo_dir)
     return got if isinstance(got, dict) else {}
 
 
-def job_conclusion(run_view: dict, prefix: str) -> "str | None":
-    for job in run_view.get("jobs") or []:
-        if isinstance(job, dict) and str(job.get("name", "")).startswith(prefix):
-            return job.get("conclusion")
-    return None
+def job_conclusions(run_view: dict) -> dict:
+    return {str(j.get("name", "")): j.get("conclusion") for j in run_view.get("jobs") or [] if isinstance(j, dict)}
 
 
-def _green(run_view: dict, prefix: str) -> bool:
-    return (run_view.get("status") == "completed" and run_view.get("conclusion") == "success"
-            and job_conclusion(run_view, prefix) == "success")
+def failing(run_view: dict, required: "list[str]") -> "list[str]":
+    """`<job>: <conclusion>` for every required job that is not a success (missing ones included)."""
+    got = job_conclusions(run_view)
+    return [f"{name}: {got.get(name) or 'missing'}" for name in required if got.get(name) != "success"]
 
 
-def linux_run(sha: str, run_fn, repo_dir) -> dict:
-    """The newest push run for `sha` whose Linux job ran (a tag push skips it); GateError unless that run and
-    its Linux job concluded success."""
-    runs = [r for r in _runs(run_fn, repo_dir, "push", sha) if r.get("headSha") == sha]
-    for r in runs:
-        v = view(run_fn, repo_dir, r["databaseId"])
-        if job_conclusion(v, LINUX_JOB) in (None, "skipped"):
-            continue
-        if not _green(v, LINUX_JOB):
-            raise GateError(f"the Linux suites run {r['databaseId']} for {sha[:12]} is {v.get('status')}/"
-                            f"{v.get('conclusion')} (Linux job: {job_conclusion(v, LINUX_JOB)}), not success")
-        return v
-    raise GateError(f"no Linux suites run (push) for {sha[:12]}: push the commit and let CI run first")
-
-
-def _created(run: dict) -> float:
+def retried_lines(run_fn, repo_dir, run_id, *, limit: int = 20) -> "list[str]":
+    """Each "driver retried once" line of the run's log, as `<job>: <the line>` (the log is read once)."""
     try:
-        return datetime.fromisoformat(str(run.get("createdAt", "")).replace("Z", "+00:00")).timestamp()
-    except ValueError:
-        return 0.0
-
-
-def dispatched_run(sha: str, run_fn, repo_dir, since: float) -> "dict | None":
-    """The Windows run this release dispatched: among the dispatch runs created after `since` (two minutes of
-    clock slack), the newest titled with the sha (`run-name`), else the newest one."""
-    recent = [r for r in _runs(run_fn, repo_dir, "workflow_dispatch") if _created(r) >= since - 120]
-    titled = [r for r in recent if sha in str(r.get("displayTitle", ""))]
-    return (titled or recent or [None])[0]
-
-
-def green_windows_run(sha: str, run_fn, repo_dir) -> "tuple[dict, dict] | None":
-    """`--skip-windows`: the newest finished run whose Windows job concluded success for `sha` -- a dispatch
-    titled with the sha, else a tag push or a nightly run of that exact sha. `(run, view)` or None."""
-    candidates = [r for r in _runs(run_fn, repo_dir, "workflow_dispatch") if sha in str(r.get("displayTitle", ""))]
-    for event in ("push", "schedule"):
-        candidates += [r for r in _runs(run_fn, repo_dir, event, sha) if r.get("headSha") == sha]
-    for r in candidates:
-        if r.get("status") != "completed":
+        text = _gh(run_fn, ["run", "view", str(run_id), "--log"], repo_dir, want_json=False)
+    except GateError:
+        return ["(the run's log could not be read, so its retries were not counted)"]
+    out = []
+    for line in (text or "").splitlines():
+        if RETRY_MARK not in line:
             continue
-        v = view(run_fn, repo_dir, r["databaseId"])
-        if _green(v, WINDOWS_JOB):
-            return r, v
-    return None
+        parts = line.split("\t")
+        job = parts[0].strip() if len(parts) >= 3 else "?"
+        tail = line[line.index(RETRY_MARK):].strip()
+        what = parts[-1].strip() if len(parts) >= 3 else line.strip()
+        test = what.split("[PASS]", 1)[-1].split("(", 1)[0].strip() if "[PASS]" in what else ""
+        out.append(f"{job}: {test + ' -- ' if test else ''}{tail}"[:300])
+    return out[:limit] + ([f"... and {len(out) - limit} more"] if len(out) > limit else [])
 
 
 def wait_for(run_id, run_fn, repo_dir, *, sleep_fn=time.sleep, clock_fn=time.monotonic,
@@ -144,48 +131,44 @@ def wait_for(run_id, run_fn, repo_dir, *, sleep_fn=time.sleep, clock_fn=time.mon
         if v.get("status") == "completed":
             return v
         if clock_fn() >= deadline:
-            raise GateError(f"the Windows run {run_id} did not finish within {wait_s / 60:.0f} min (still {v.get('status')})")
-        log(f"release.py: waiting for the Windows run {run_id} ({v.get('status')})")
+            raise GateError(f"the suites run {run_id} did not finish within {wait_s / 60:.0f} min (still {v.get('status')})")
+        log(f"release.py: waiting for the suites run {run_id} ({v.get('status')})")
         sleep_fn(poll_s)
 
 
-def ci_gate(sha: str, *, repo_dir: Path, run_fn: Callable, skip_windows: bool = False,
-            sleep_fn: Callable = time.sleep, clock_fn: Callable = time.monotonic, wall_fn: Callable = time.time,
-            wait_s: float = WAIT_S, poll_s: float = POLL_S, find_wait_s: float = 300.0,
-            log: Callable = print) -> "list[str]":
-    """Step 0. Returns the lines naming the runs it accepted; raises GateError otherwise."""
-    linux = linux_run(sha, run_fn, repo_dir)
-    accepted = [f"Linux run {linux.get('databaseId')} concluded success for {sha[:12]}"]
-    if skip_windows:
-        got = green_windows_run(sha, run_fn, repo_dir)
-        if got is None:
-            raise GateError(f"--skip-windows: no finished green Windows run for {sha[:12]} to accept "
-                            f"(run without --skip-windows to dispatch one)")
-        return accepted + [f"Windows run {got[0]['databaseId']} concluded success for {sha[:12]} "
-                           f"(--skip-windows: accepted, not dispatched)"]
-    since = wall_fn()
-    _gh(run_fn, ["workflow", "run", WORKFLOW, "-f", f"sha={sha}"], repo_dir, want_json=False)
-    log(f"release.py: dispatched the Windows suites for {sha[:12]}; waiting up to {wait_s / 60:.0f} min")
+def candidate_gate(sha: str, *, branch: str, repo_dir: Path, run_fn: Callable, macos: "bool | None" = None,
+                   realcheck: "bool | None" = None, sleep_fn: Callable = time.sleep,
+                   clock_fn: Callable = time.monotonic, wait_s: float = WAIT_S, poll_s: float = POLL_S,
+                   find_wait_s: float = FIND_WAIT_S, log: Callable = print) -> "tuple[list[str], list[str]]":
+    """The gate on the candidate branch's run for `sha`: (accepted lines, retry warnings), or GateError naming
+    the failing jobs."""
+    required = required_jobs(macos=macos, realcheck=realcheck)
+    log(f"release.py: waiting for the suites on {branch} at {sha[:12]} (up to {wait_s / 60:.0f} min)")
     found, find_deadline = None, clock_fn() + find_wait_s
     while found is None:
-        found = dispatched_run(sha, run_fn, repo_dir, since)
+        runs = branch_runs(sha, branch, run_fn, repo_dir)
+        found = runs[0] if runs else None
         if found is None:
             if clock_fn() >= find_deadline:
-                raise GateError(f"the dispatched Windows run for {sha[:12]} never appeared in `gh run list`")
+                raise GateError(f"no suites run (push) on {branch} for {sha[:12]} appeared in `gh run list`")
             sleep_fn(min(poll_s, 10.0))
-    v = wait_for(found["databaseId"], run_fn, repo_dir, sleep_fn=sleep_fn, clock_fn=clock_fn, wait_s=wait_s,
-                 poll_s=poll_s, log=log)
-    if not _green(v, WINDOWS_JOB):
-        raise GateError(f"the Windows run {found['databaseId']} for {sha[:12]} concluded {v.get('conclusion')} "
-                        f"(Windows job: {job_conclusion(v, WINDOWS_JOB)}), not success")
-    return accepted + [f"Windows run {found['databaseId']} concluded success for {sha[:12]} (dispatched by this release)"]
+    run_id = found["databaseId"]
+    v = wait_for(run_id, run_fn, repo_dir, sleep_fn=sleep_fn, clock_fn=clock_fn, wait_s=wait_s, poll_s=poll_s,
+                 log=log)
+    if v.get("headSha") and v.get("headSha") != sha:
+        raise GateError(f"the suites run {run_id} is for {str(v.get('headSha'))[:12]}, not {sha[:12]}")
+    bad = failing(v, required)
+    if bad:
+        raise GateError(f"the suites run {run_id} on {branch} for {sha[:12]} is not green -- failing jobs: "
+                        + "; ".join(bad))
+    warnings = retried_lines(run_fn, repo_dir, run_id)
+    return [f"suites run {run_id} on {branch}: all {len(required)} required jobs concluded success for {sha[:12]}"], \
+        warnings
 
 
-def describe(sha: str, skip_windows: bool) -> str:
-    """The step 0 line a dry run prints."""
-    if skip_windows:
-        return (f"CI gate for {sha[:12]}: the latest Linux suites run must be success; --skip-windows: accept the "
-                f"newest green Windows run for the sha instead of dispatching one")
-    return (f"CI gate for {sha[:12]}: the latest Linux suites run must be success; dispatch the Windows suites "
-            f"(gh workflow run {WORKFLOW} -f sha={sha[:12]}...), wait up to {WAIT_S // 60} min, it must conclude success")
-
+def describe(branch: str, *, macos: "bool | None" = None, realcheck: "bool | None" = None) -> str:
+    """The gate's line in a dry run."""
+    req = required_jobs(macos=macos, realcheck=realcheck)
+    return (f"wait for the suites run (push) on {branch} for the version commit, up to {WAIT_S // 60} min; all "
+            f"{len(req)} required jobs must conclude success ({', '.join(req)}); "
+            f'"{RETRY_MARK}" lines in its log are printed as warnings')

@@ -566,6 +566,43 @@ asked for it to keep running, and Halo names it on the way out with the command 
   purpose, from the one list cli.py runs commands from (halo_harness/cli_commands.py). `halo recall --help`,
   `halo audit --help` and `halo preflight --help` now print their usage and exit 0.
 - **`halo --version` prints one line**, `halo <version> (<commit>, <branch>)`, and no banner.
+### R13
+
+The three things that blocked the release: an update that could break the install, a steward that ran whether
+you wanted it or not, and a release script that pushed to a main line that no longer takes a direct push.
+
+- **`halo update` cannot leave a half install.** On Windows a `halo update` run from inside the tool environment it
+  was replacing died halfway and left that environment without the package. The install now runs in a small
+  standalone updater (`halo_harness/update_runner.py`, standard library only) that halo copies to `~/.halo/run/`,
+  outside the environment, and starts with a Python that is not that environment's: on Linux and macOS in the same
+  terminal (halo hands over to it), on Windows in its own window once halo has exited. It waits for the old halo
+  to be gone, stops what `halo update` already stopped before, installs, and checks that `halo --version` answers
+  the new version. When the install or that check fails it puts back what was there -- the exact commit that was
+  installed and a lock of the packages it had -- and says in one line what happened and the one command to run by
+  hand. On Windows a halo that still holds the files (`--force`) is named and nothing is installed. The outcome is
+  kept, and the next `halo update` says it once. `/update` in a session uses the same updater.
+- **An older release is called older.** `halo update --check` compares versions, not commit counts on two lines
+  that do not lead to each other: on a main-line build ahead of the last release it says "the newest release,
+  3.5.0.1, is OLDER than this build; `halo update` would move you back", and a plain `halo update` asks for `--to`
+  or `--channel main` instead of moving back. `/update` and the once-a-day startup note say the same. The release's
+  checksum check stays on (`--no-verify` is the only way round it) and its refusal is one line.
+- **The Ollama steward is off unless you turn it on.** Its background job (a log read every 2 s, a sampler every
+  second, a tick every 5 s) kept a laptop near one full CPU core. `ollama.steward.job` now defaults to off -- a
+  fresh install and a config that never set it both mean off; `true` stays on -- and off, nothing of it starts:
+  no thread, no timer, no sampler. One switch turns it on and off at once, no restart: Settings -> Ollama (which
+  says what it does and what it costs) or `halo config set ollama.steward.job true|false`. Off, its readers say
+  "the steward is off" in one line: Local -> Steward, the status lines, `halo doctor --local`'s server-log rows;
+  the TUI starts no poll of its notes.
+- **A release goes through a candidate branch.** `scripts/release.py <version>` makes the version commit on
+  `rc/<version>`, pushes it, waits for that branch's suites run on the exact sha, and only when every required job
+  concluded success (Linux x4, Windows x4, studio-ui; macOS x4 and `realcheck` behind a flag in
+  `scripts/release_gate.py`) fast-forwards master, tags and publishes the release with its tar.gz and
+  `checksums.txt`. A red run stops it naming the failing jobs, with nothing tagged. "driver retried once" lines in
+  the run's log are printed as warnings. `--skip-windows` is gone.
+- **Tests:** `test_update_runner` (the real updater against a scratch tool environment: an installer that fails
+  halfway, a wrong version, a failed restore, a halo that does not exit, held files), `test_update_cli`,
+  `test_update_detached`, `test_steward_off` (a Studio and a session with no steward thread and under 2 % of a core
+  over 20 s idle; the switch on and off), `test_release_ci_gate` and `test_release_script` over a fake `gh`.
 
 ## [3.5.0.0] - 2026-11-13
 

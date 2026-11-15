@@ -21,6 +21,11 @@ def server_steps(state_dir, *, servers: Optional[list] = None) -> list:
     except Exception:
         return []
     out = []
+    try:
+        from halo_harness.ollama_steward.job import enabled
+        off = "" if enabled() else " (the steward is off: nothing reads this log now)"  # 3.6.0.0 R13
+    except Exception:
+        off = ""
     for s in rows:
         try:
             st = status(state_dir, s)
@@ -29,7 +34,8 @@ def server_steps(state_dir, *, servers: Optional[list] = None) -> list:
             continue
         head = f"{s.name} ({s.runtime or 'a local server'})"
         if st["state"] in ("unreadable", "missing", "remote-no-ssh"):
-            out.append(_step(f"server log {s.name}", True, f"{head}: the steward cannot read its log -- {st['line']}", "WARN"))
+            out.append(_step(f"server log {s.name}", True, f"{head}: the steward cannot read its log -- {st['line']}{off}",
+                             "WARN"))
         else:
-            out.append(_step(f"server log {s.name}", True, f"{head}: server log {st['line']}"))
+            out.append(_step(f"server log {s.name}", True, f"{head}: server log {st['line']}{off}"))
     return out

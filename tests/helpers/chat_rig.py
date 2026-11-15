@@ -55,7 +55,7 @@ class ChatHome:
         self.state.mkdir(parents=True, exist_ok=True)
         for k, v in {"ollama.hosts": [{"name": "loop", "url": self.url}], "ollama.auto_calibrate": False,
                      "ollama.steward.model": f"ol:{STEWARD}@loop", "model": f"ol:{MAIN}@loop",
-                     "ollama.steward.probe_new": False}.items():
+                     "ollama.steward.probe_new": False, "ollama.steward.job": True}.items():  # 3.6.0.0 R13: on
             set_config_value(k, v)
         from halo_harness.studio import ollama_hosts_view as V
         self._readers = dict(V.READERS)

@@ -31,7 +31,31 @@ function StewardNow() {
   );
 }
 
+// 3.6.0.0 R13: a steward that is off says so in one line; its old findings, notes and chat are not shown as if
+// it were watching. Settings -> Ollama holds its one switch.
+function StewardOff({ line }: { line: string }) {
+  return (
+    <section className="lc-block" aria-label="The steward is off" data-testid="local-steward-off">
+      <div className="rail-label mono">THE STEWARD</div>
+      <div className="mono muted lc-status" data-testid="local-steward-status">
+        {line}
+      </div>
+    </section>
+  );
+}
+
 export function StewardPage() {
+  const off = useOllama((s) => (s.steward && s.steward.on === false ? s.steward.off_line || "the steward is off" : null));
+  useEffect(() => {
+    void loadSteward();
+  }, []);
+  if (off) {
+    return (
+      <div className="lc-steward" data-testid="local-steward-page">
+        <StewardOff line={off} />
+      </div>
+    );
+  }
   return (
     <div className="lc-steward" data-testid="local-steward-page">
       <StewardNow />

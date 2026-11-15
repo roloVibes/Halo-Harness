@@ -8,7 +8,9 @@ Part of [Halo Studio](STUDIO.md), which lists every part. The other Local pages 
 
 ## The Steward page (3.3.7.0 R5)
 
-Local's eighth page, built in 3.3.7.0 R5 from the frame it had since 3.3.5.0, holds four blocks (five since 3.3.8.0 R2):
+Local's eighth page, built in 3.3.7.0 R5 from the frame it had since 3.3.5.0, holds four blocks (five since 3.3.8.0 R2).
+3.6.0.0 R13: while the steward is off (`ollama.steward.job`, off unless turned on in Settings -> Ollama) the page is one
+line that says so and how to turn it on; none of the blocks below shows old findings or notes as if it were watching.
 
 - **The steward now**: the steward job's status line and its last note (the Ollama panel's steward block, read the
   same way: `GET ollama/steward`).
