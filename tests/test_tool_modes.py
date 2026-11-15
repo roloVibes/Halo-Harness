@@ -248,8 +248,8 @@ def test_plan_mode_refuses_an_orchestra_square(ctx: Ctx):
     from tests.helpers.workflow_fakes import FakeRuntime, run_tool
     from halo_harness.permissions import PermissionEngine
     with PacksHome() as h:
-        from halo_harness.workflows.registry import enable
-        enable("code", cwd=h.repo)
+        from halo_harness.theme import set_config_value  # the squares a session offers are config now (R5d)
+        set_config_value("workflows.enabled", ["media", "code"])
         ran: list = []
         for mode in ("plan", "default"):
             rt = FakeRuntime(h.repo)

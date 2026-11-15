@@ -19,6 +19,7 @@ Nothing here reads a file or opens a connection; a request costs two clock reads
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 from typing import Callable, Optional
