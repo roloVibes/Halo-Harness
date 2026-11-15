@@ -51,7 +51,7 @@ def text_sha(text: str) -> str:
 def session_folder(sid: str, cwd=None) -> Optional[Path]:
     """The session's folder from Studio's side: the log's own (`sessions/*/<sid>.jsonl`), else the registry
     entry's project (`cwd`); None for an id that is not a session id."""
-    from halo_harness.config.paths import bridge_home, project_slug
+    from halo_harness.config.paths import bridge_home, state_slug
     from halo_harness.safe_id import is_safe_session_id
     if not is_safe_session_id(sid):
         return None
@@ -59,7 +59,7 @@ def session_folder(sid: str, cwd=None) -> Optional[Path]:
     hits = sorted(root.glob(f"*/{sid}.jsonl")) if root.is_dir() else []
     if hits:
         return hits[0].parent / sid
-    return root / project_slug(cwd) / sid if cwd else None
+    return root / state_slug(cwd) / sid if cwd else None
 
 
 def allowed(cur: str, new: str) -> bool:

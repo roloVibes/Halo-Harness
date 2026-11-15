@@ -361,8 +361,8 @@ def _cmd_stats_telemetry(args) -> int:
     cwd = Path(args.cwd).resolve() if args.cwd else Path.cwd()
     slug = None
     if not args.all_projects:
-        from halo_harness.config.paths import project_slug
-        slug = project_slug(cwd)
+        from halo_harness.config.paths import state_slug
+        slug = state_slug(cwd)
     summaries = telemetry.scan(since=args.since, slug=slug, all_projects=args.all_projects,
                                 session_id=args.session)
     model_rows = telemetry.aggregate_by_model(summaries) if args.models else []

@@ -11,13 +11,13 @@ import time
 import uuid
 from typing import Optional
 
-from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.config.paths import bridge_home, state_slug
 
 
 class SessionStore:
     def __init__(self, cwd, session_id: Optional[str] = None):
         self.cwd = cwd
-        self.slug = project_slug(cwd)
+        self.slug = state_slug(cwd)
         self.session_id = session_id or uuid.uuid4().hex
         self.dir = bridge_home() / "sessions" / self.slug
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -62,7 +62,7 @@ class SessionStore:
     def latest_for_cwd(cls, cwd) -> "Optional[SessionStore]":
         """The most recently modified session file for this cwd's slug, or
         None if there isn't one yet -- backs a future `--continue`."""
-        slug = project_slug(cwd)
+        slug = state_slug(cwd)
         session_dir = bridge_home() / "sessions" / slug
         if not session_dir.is_dir():
             return None

@@ -25,7 +25,7 @@ import time
 import uuid
 from typing import Optional
 
-from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.config.paths import bridge_home, state_slug
 from halo_harness.privateio import private_mkdir, private_opener
 from halo_harness.safe_id import validate_session_id
 
@@ -59,7 +59,7 @@ class SessionLog:
 
     def __init__(self, cwd, session_id: Optional[str] = None):
         self.cwd = cwd
-        self.slug = project_slug(cwd)
+        self.slug = state_slug(cwd)
         # 2.0.10 finding 25: the id becomes a file name -- a caller-supplied
         # one with separators is rejected, not joined.
         self.session_id = validate_session_id(session_id) if session_id else uuid.uuid4().hex
@@ -386,7 +386,7 @@ class SessionLog:
 
     @classmethod
     def latest_for_cwd(cls, cwd) -> "Optional[SessionLog]":
-        slug = project_slug(cwd)
+        slug = state_slug(cwd)
         session_dir = bridge_home() / "sessions" / slug
         if not session_dir.is_dir():
             return None

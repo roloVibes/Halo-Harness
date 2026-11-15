@@ -1363,10 +1363,10 @@ async def _handle_stats(app, args: str) -> None:
 
 def _stats_models_worker(app, show_models: bool, show_tools: bool) -> None:
     from halo_harness import telemetry
-    from halo_harness.config.paths import project_slug
+    from halo_harness.config.paths import state_slug
 
     cwd = getattr(app.controller, "cwd", None) or "."
-    summaries = telemetry.scan(since="7d", slug=project_slug(cwd))
+    summaries = telemetry.scan(since="7d", slug=state_slug(cwd))
     # H10b defect 2: reflects whichever of --models/--tools was actually
     # asked for -- used to hardcode "--models" even for a bare --tools run.
     flags = " ".join(f for f, on in (("--models", show_models), ("--tools", show_tools)) if on)

@@ -523,6 +523,33 @@ def project_slug(cwd: str | Path) -> str:
     return f"{truncated}-{suffix}"
 
 
+# What sits under `<sessions>/<slug>`: `\<32 hex>\subagents\agent-<8>.evidence.json` (72 characters) plus room.
+_STATE_TAIL = 80
+
+
+def state_slug(cwd: str | Path, *, base: str | Path | None = None, windows: Optional[bool] = None) -> str:
+    """The folder name for Halo's OWN per-project state under `base` (default `~/.halo/sessions`). It is
+    `project_slug` everywhere except Windows, where a file path of 260 characters or more cannot be opened unless
+    long paths are switched on (they are off by default): a ~200-character project folder made the session log 261
+    characters and its sub-agent files up to 294, so the session was not saved. There the slug is cut so
+    `base\\slug` + `_STATE_TAIL` stays under 260; the hash of the whole folder keeps it unique. A folder already
+    saved under the full slug (a Windows with long paths on) keeps it. Claude Code's own folders (`~/.claude/
+    projects/<slug>`) keep `project_slug`. `base` and `windows` are a test's inputs."""
+    slug = project_slug(cwd)
+    if not ((os.name == "nt") if windows is None else windows):
+        return slug
+    base_str = str(bridge_home() / "sessions") if base is None else str(base)
+    cap = max(48, min(200, 259 - len(base_str) - 1 - _STATE_TAIL))
+    if len(slug) <= cap:
+        return slug
+    try:
+        if os.path.isdir(os.path.join(base_str, slug)):
+            return slug
+    except (OSError, ValueError):
+        pass
+    return f"{slug[:cap]}-{_base36(abs(_java_string_hash(folder_key(cwd))))}"
+
+
 _WIN_DRIVE_RE = re.compile(r"^([a-zA-Z]):[\\/](.*)$", re.DOTALL)
 
 

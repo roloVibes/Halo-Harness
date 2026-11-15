@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from halo_harness import events
-from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.config.paths import bridge_home, state_slug
 from halo_harness.textlines import split_lines
 from halo_harness.permissions import Decision, add_allow_rule
 
@@ -759,7 +759,7 @@ class Controller:
         only (~/.halo). Synchronous file I/O -- U5 must-do: callers on
         the UI thread (the `/resume` slash handler) run this on a worker,
         never inline (matches `_git_branch`'s own fix)."""
-        slug = project_slug(self.cwd)
+        slug = state_slug(self.cwd, base=self.state_dir / "sessions")
         directory = self.state_dir / "sessions" / slug
         out: list = []
         if not directory.is_dir():

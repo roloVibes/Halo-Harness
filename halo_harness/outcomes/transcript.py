@@ -127,9 +127,9 @@ def find_log(session_id, *, cwd=None, state_dir=None) -> Optional[Path]:
         state_dir = bridge_home()
     sessions = Path(state_dir) / "sessions"
     if cwd is not None:
-        from halo_harness.config.paths import project_slug
+        from halo_harness.config.paths import state_slug
         for where in (cwd, Path(cwd).resolve()):
-            path = sessions / project_slug(where) / f"{session_id}.jsonl"
+            path = sessions / state_slug(where, base=sessions) / f"{session_id}.jsonl"
             if path.is_file():
                 return path
     try:

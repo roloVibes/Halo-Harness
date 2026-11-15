@@ -517,8 +517,8 @@ def _build_child_session_inner(*, runtime: AgentRuntime, spec: AgentSpec, agent_
         if memory_scope == "project":
             memory_dir = Path(parent.cwd) / ".halo" / "agents" / spec.name
         elif memory_scope == "local":
-            from halo_harness.config.paths import project_slug
-            memory_dir = Path(parent.state_dir) / "agents-local" / project_slug(parent.cwd) / spec.name
+            from halo_harness.config.paths import state_slug
+            memory_dir = Path(parent.state_dir) / "agents-local" / state_slug(parent.cwd, base=Path(parent.state_dir) / "agents-local") / spec.name
             memory_extra_dir = memory_dir
         else:  # "user", or any other/unrecognized value -- the original, global default
             memory_dir = Path(parent.state_dir) / "agents" / spec.name

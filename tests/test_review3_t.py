@@ -159,13 +159,13 @@ def test_item73_a_raising_worker_reports_and_the_app_keeps_running(ctx: Ctx):
 
 @test
 def test_item73_list_sessions_skips_a_file_that_vanished(ctx: Ctx):
-    from halo_harness.controller import Controller, project_slug
+    from halo_harness.controller import Controller, state_slug
     import pathlib
 
     root = Path(tempfile.mkdtemp(prefix="r3t-sessions-"))
     cwd = root / "proj"
     cwd.mkdir()
-    sessions = root / "sessions" / project_slug(cwd)
+    sessions = root / "sessions" / state_slug(cwd)
     sessions.mkdir(parents=True)
     (sessions / "keep.jsonl").write_text('{"type": "user", "content": [{"type": "text", "text": "hi"}]}\n')
     gone = sessions / "gone.jsonl"

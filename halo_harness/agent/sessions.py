@@ -14,12 +14,12 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from halo_harness.config.paths import bridge_home, project_slug
+from halo_harness.config.paths import bridge_home, state_slug
 from halo_harness.textlines import split_lines
 
 
 def sessions_dir(cwd) -> Path:
-    return bridge_home() / "sessions" / project_slug(cwd)
+    return bridge_home() / "sessions" / state_slug(cwd)
 
 
 def is_valid_session_id(value: str) -> bool:

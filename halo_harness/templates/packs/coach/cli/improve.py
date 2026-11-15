@@ -50,7 +50,7 @@ def _draft(*, cwd: Path, since: str, all_projects: bool, max_candidates: int) ->
     to `apply_candidate` so the write still gets an `improve_applied` log
     node (a real, if short, session -- headless is still a real
     invocation, traceable like any other model call this harness makes)."""
-    project_slug = _core.get('config.paths', 'project_slug')
+    project_slug = _core.get('config.paths', 'state_slug')
     from ..improve import draft as draft_mod, evidence as evidence_mod
     from ..improve.config import load_improve_config
 
