@@ -142,6 +142,9 @@ def _prune(a: dict) -> int:
 
 
 def cmd_recall(argv: list) -> int:
+    if argv[:1] in (["-h"], ["--help"]):  # 3.6.0.0 R16: the usage, exit 0 (it used to search for "--help")
+        print(USAGE)
+        return 0
     a = _parse(argv)
     if a["rest"] == ["prune"] and not a["namespace"]:
         return _prune(a)

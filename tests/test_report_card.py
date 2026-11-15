@@ -161,8 +161,10 @@ def test_halo_report(ctx: Ctx):
         ctx.check("--json: the card's data; a goal run id of this repo", code == 0 and got["format"] == "halo-report-card" and got["kind"] == "run")
         code, text = _cli(["nope"], repo)
         ctx.check(f"an unknown run: one line, exit 2: {text!r}", code == 2 and text.startswith("halo report:"))
-        src = (Path(__file__).resolve().parent.parent / "halo_harness" / "cli.py").read_text(encoding="utf-8")
-        ctx.check("`halo report` is dispatched by halo's own CLI", '("replay", "report")' in src and "report_cli.cmd_report" in src)
+        from halo_harness.cli_commands import BY_NAME  # 3.6.0.0 R16: cli.py dispatches from the one registry
+        ctx.check("`halo report` is dispatched by halo's own CLI",
+                  BY_NAME["report"].target == "halo_harness.report_cli:cmd_report"
+                  and BY_NAME["replay"].target == "halo_harness.replay_cli:cmd_replay")
         ctx.check("nothing written", not (state / "replays").exists())
 
 

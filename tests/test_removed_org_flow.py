@@ -82,6 +82,8 @@ def test_no_org_command_no_flow_or_org_dispatch_and_no_section(ctx: Ctx):
     ctx.check("no builtin /org", "org" not in _BUILTIN_SPECS)
     cli = (PKG / "cli.py").read_text(encoding="utf-8")
     hits = re.findall(r'argv\[0\] == "(flow|postiz|org|paperclip|paperclip-run)"', cli)
+    from halo_harness.cli_commands import BY_NAME  # 3.6.0.0 R16: cli.py dispatches from the one registry
+    hits += sorted({"flow", "postiz", "org", "paperclip", "paperclip-run"} & set(BY_NAME))
     ctx.check(f"no cli dispatch of a removed command, got {hits}", not hits)
     ctx.check("no completion word for one", not {"org", "paperclip", "flow", "postiz"} & set(SUBCOMMANDS))
     ctx.check(f"no Studio mode org or flow, got {STUDIO_MODES}", not {"org", "flow"} & set(STUDIO_MODES)

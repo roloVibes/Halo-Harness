@@ -49,6 +49,10 @@ def _render_text(findings: "list[dict]", *, history: bool) -> str:
 
 
 def cmd_audit(argv: "list[str]") -> int:
+    if argv[:1] in (["-h"], ["--help"]):  # 3.6.0.0 R16: the usage, exit 0
+        print("usage: halo audit privacy [--history | --commits | --replays] [--json] [--since REV] [--cwd DIR]\n"
+              "(halo audit privacy --help for each flag)")
+        return 0
     if not argv or argv[0] != "privacy":
         print("usage: halo audit privacy [--history | --commits | --replays] [--json] [--since REV] [--cwd DIR]",
               file=sys.stderr)

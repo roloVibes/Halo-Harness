@@ -1276,6 +1276,18 @@ READ_TOOL_NAMES = frozenset({
     "LS", "BashOutput", "ToolSearch", "Skill", "knowledge_search", "recall",
     "ListMcpResourcesTool", "ReadMcpResourceTool", "TaskList",
 })
+# 3.6.0.0 R16: the tools that hand work to sub-agents. Never mode-table-gated in any mode or entry point (print mode,
+# the TUI, Studio, a sub-agent, headless): what each sub-agent then does is decided by its own engine, and depth-1 plus
+# the concurrency cap (agent/subagent.py) are the guardrails. An explicit deny/ask rule still governs each one.
+DELEGATE_TOOL_NAMES = frozenset({"Agent", "Task", "Workflow"})
+# Tools with no side effect a mode needs to gate: the session's own plan, board, claims and notes, a status line to the
+# person, the tool catalog. Allowed in every mode (an explicit deny/ask rule, checked first, still overrides).
+# (3.0.3.0: the Orchestra's claim tools write only the run's own claims/events logs; 3.6.0.0 R16: the shared task
+# board -- TaskCreate/TaskUpdate, the session's own tasks.json -- and SendUserMessage join; they only plan or speak.)
+UNGATED_TOOL_NAMES = frozenset({
+    "TodoWrite", "ToolSearch", "OrchestraClaim", "OrchestraRelease", "OrchestraClaims", "OrchestraNote",
+    "knowledge_add", "knowledge_search", "TaskCreate", "TaskUpdate", "SendUserMessage",
+})
 # The web reads: allowed in plan mode (research needs the web); every other
 # mode keeps what it decided before (default/acceptEdits ask, dontAsk refuses).
 WEB_READ_TOOL_NAMES = frozenset({"WebFetch", "WebSearch"})
@@ -2269,22 +2281,20 @@ class PermissionEngine:
             if self.mode == "dontAsk":
                 return Decision("deny", "AskUserQuestion errors on a tool call in dontAsk mode", source="mode")
             return Decision("allow", "AskUserQuestion is allowed in every mode except dontAsk", source="mode")
-        if tool_name in ("TodoWrite", "ToolSearch", "OrchestraClaim", "OrchestraRelease",
-                         "OrchestraClaims", "OrchestraNote", "knowledge_add", "knowledge_search"):  # 3.1.8.0 R4
-            # (3.0.3.0: the Orchestra's claim tools write only the run's own
-            # claims/events logs -- a worker is never prompted per claim.)
+        if tool_name in UNGATED_TOOL_NAMES:  # 3.1.8.0 R4; 3.6.0.0 R16: one named set
             # finding 12: permission-free tools -- no side effects a mode
             # table needs to gate, in EVERY mode (an explicit deny/ask rule,
             # already checked before this fallback is ever reached, still
             # overrides this).
             return Decision("allow", f"{tool_name} is always allowed (no side effects requiring permission)", source="mode")
-        if tool_name in ("Agent", "Task"):
+        if tool_name in DELEGATE_TOOL_NAMES:  # 3.6.0.0 R16: Workflow too (it spawns through the Agent path)
             # H6 scope B: spawning a sub-agent is never mode-table-gated --
             # depth-1 and the <=4-concurrent cap (agent/subagent.py) are the
             # real guardrails, matching "no cyber blocks" (an explicit
             # deny/ask rule for Agent/Task, already checked before this
             # fallback is ever reached, still overrides this).
-            return Decision("allow", "Agent/Task spawning is always allowed (depth/concurrency limits gate it instead)",
+            return Decision("allow", f"{tool_name} hands work to sub-agents and is always allowed "
+                                     "(each sub-agent's own permissions and the depth/concurrency limits gate it)",
                              source="mode")
         if tool_name == "EnterPlanMode" and self.print_mode:
             # H6 scope C / brief: "EnterPlanMode ... allowed in -p" -- only
@@ -2386,11 +2396,12 @@ class PermissionEngine:
     # allow rules (the mode table's plan-column deny was consulted too
     # late -- an allow rule for Edit let writes through in plan mode).
     # Deliberately excludes the no-side-effect tools the mode table itself
-    # always allows (Agent/Task/TodoWrite/ToolSearch/AskUserQuestion/
-    # EnterPlanMode) and Read/Glob/Grep (plan mode allows reads).
-    _PLAN_BAN_EXEMPT = frozenset({
-        "Agent", "Task", "TodoWrite", "ToolSearch", "AskUserQuestion", "EnterPlanMode",
-        "Read", "Glob", "Grep", "ExitPlanMode",
+    # always allows (the delegate tools, TodoWrite/ToolSearch, the task
+    # board, SendUserMessage, AskUserQuestion/EnterPlanMode) and
+    # Read/Glob/Grep (plan mode allows reads).
+    _PLAN_BAN_EXEMPT = DELEGATE_TOOL_NAMES | frozenset({
+        "TodoWrite", "ToolSearch", "AskUserQuestion", "EnterPlanMode",
+        "Read", "Glob", "Grep", "ExitPlanMode", "TaskCreate", "TaskUpdate", "SendUserMessage",
     })
 
     def _decide(self, tool_name: str, tool_input: dict, tool) -> Decision:

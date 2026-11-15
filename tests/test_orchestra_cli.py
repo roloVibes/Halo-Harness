@@ -156,9 +156,9 @@ def test_status_claims_log_and_runs_print(ctx: Ctx):
 
 @test
 def test_halo_orchestra_is_routed_from_the_main_cli(ctx: Ctx):
-    from halo_harness import cli
-    src = Path(cli.__file__).read_text(encoding="utf-8")
-    ctx.check("cli.py routes `orchestra`", 'argv[0] == "orchestra"' in src and "cmd_orchestra" in src)
+    from halo_harness.cli_commands import BY_NAME  # 3.6.0.0 R16: cli.py dispatches from the one registry
+    ctx.check("cli.py routes `orchestra`", BY_NAME["orchestra"].target == "halo_harness.orchestra_cli:cmd_orchestra"
+              and not BY_NAME["orchestra"].kind)
     rc, out, _ = _run([])
     ctx.check("bare `halo orchestra` prints help", rc == 0 and "new" in out and "status" in out)
 

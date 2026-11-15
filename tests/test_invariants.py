@@ -638,8 +638,10 @@ def test_invariant_i_the_round_surface_parity(ctx: Ctx):
         if probe not in doc:
             problems.append(f"COMMANDS.md does not mention {probe!r}")
     cli_src = (REPO_DIR / "halo_harness" / "cli.py").read_text(encoding="utf-8")
-    for m in _re.finditer(r'argv\[0\] == "([a-z-]+)"', cli_src):
-        name = m.group(1)
+    from halo_harness.cli_commands import COMMANDS  # 3.6.0.0 R16: cli.py dispatches from the one registry
+    names = [c.name for c in COMMANDS if c.kind != "retired"]
+    names += [m.group(1) for m in _re.finditer(r'argv\[0\] == "([a-z-]+)"', cli_src)]
+    for name in names:
         if name in ("main", "audit"):
             continue
         if not _re.search(rf"halo {name}", doc):

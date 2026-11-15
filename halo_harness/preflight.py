@@ -347,6 +347,10 @@ def _default_lane(state_dir) -> Optional[str]:
 def cmd_preflight(argv: list) -> int:
     """`halo preflight [--lanes a,b] [--json] [--skip-local] [--no-vision]
     [--timeout S]` -- exit 0 iff every check passed."""
+    if argv[:1] in (["-h"], ["--help"]):  # 3.6.0.0 R16: the usage, exit 0
+        print("usage: halo preflight [--lanes a,b] [--json] [--skip-local] [--no-vision] [--timeout S]\n"
+              "Verifies the local tools by effect and each lane's model with one call; exit 0 iff every check passed.")
+        return 0
     lanes = None
     as_json = False
     skip_local = False

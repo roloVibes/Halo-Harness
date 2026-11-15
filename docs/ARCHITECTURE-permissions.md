@@ -46,12 +46,17 @@ TaskList, and every MCP tool whose server marks it `readOnlyHint` in its
 `tools/list` annotations (`McpTool.read_only`, kept in the per-server tools
 cache too; a server that sends no annotations leaves its tools in
 "Everything else"). Read, Glob and Grep keep their own path-aware rows. A handful of tools are categorized outside
-this table entirely, in every mode: `TodoWrite`/`ToolSearch` (no side
-effects requiring permission), `AskUserQuestion` (allowed everywhere except
-`dontAsk`, where it errors instead of hanging), `Agent`/`Task` (spawning is
-never mode-gated -- the depth-1 and concurrency caps are the real
-guardrail), and `EnterPlanMode` in print mode (always allowed -- it only
-ever *narrows* what happens next). Plan mode additionally always allows
+this table entirely, in every mode: `TodoWrite`/`ToolSearch`, the task
+board's `TaskCreate`/`TaskUpdate` and `SendUserMessage` (no side effects
+requiring permission; `UNGATED_TOOL_NAMES`), `AskUserQuestion` (allowed
+everywhere except `dontAsk`, where it errors instead of hanging),
+`Agent`/`Task`/`Workflow` (`DELEGATE_TOOL_NAMES`: handing work to
+sub-agents is never mode-gated -- each sub-agent's own permissions, the
+depth-1 and the concurrency caps are the real guardrail; 3.6.0.0 R16 put
+Workflow here, so `halo -p` runs it in the default mode), and
+`EnterPlanMode` in print mode (always allowed -- it only ever *narrows*
+what happens next). tests/test_tool_modes.py pins every built-in tool's
+row by mode. Plan mode additionally always allows
 Write/Edit on exactly the one active plan file, regardless of the table
 above.
 

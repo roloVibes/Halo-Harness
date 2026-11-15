@@ -826,8 +826,8 @@ scripts/screenshots.py` drives the real TUI with Textual pilots over
 fixture data (fixed seed, frozen clock, `BRIDGE_TEST_HOME` scoped to a
 scratch dir) and writes one SVG per scene under `docs/screenshots/`;
 `tests/test_screenshots.py` re-runs it and fails if the committed SVGs
-are not byte-identical to a fresh render. The wordmark on `halo
---version`, in the launch intro, in the README's banner block and in the
+are not byte-identical to a fresh render. The wordmark in the launch
+intro, in the README's banner block and in the
 hero image comes from one module, `halo_harness/banner.py` (the block art
 on a UTF-8 stream, a plain-ASCII form on a stream that cannot encode
 block elements); `tests/test_intro_lines.py` and

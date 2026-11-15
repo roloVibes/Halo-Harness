@@ -1,7 +1,7 @@
 """halo_harness.banner -- the HALO wordmark (2.0.5 round 2d; the block art
 is 2.0.11 round A2).
 
-One place holds the art so `halo --version` (cli.py), the launch intro
+One place holds the art so the launch intro
 (tui/intro_lines.py, typed out row by row in a gradient), the README's
 banner block and the hero image (tools/hero_svg.py builds docs/media/hero.svg
 from these rows) all render the exact same thing; tests pin each copy
@@ -14,7 +14,8 @@ Two forms:
   under 48 columns. Rows 0-2 are the ring (`RING_ROWS`), the rest the
   letters; the intro paints the ring gold and the letters in a gradient.
 * `BANNER` -- the plain-ASCII figlet-style form, kept for consoles that
-  cannot encode the block elements (`halo --version` on a cp1252 stream)
+  cannot encode the block elements (a cp1252 stream; 3.6.0.0 R16: `halo
+  --version` prints one line and no banner)
   and for any text-only surface.
 
 Pure data + joins, no I/O. `banner_for_encoding` is the one chooser.
@@ -71,10 +72,3 @@ def banner_for_encoding(encoding: str | None) -> str:
     except (UnicodeEncodeError, LookupError):
         return BANNER
     return BANNER_ART
-
-
-def banner_with_version(version_line: str, encoding: str | None = "utf-8") -> str:
-    """The full `halo --version` output: the wordmark, then the version
-    line (`halo 2.0.5 (9f34d6d, master)` -- update.format_version_line's
-    own shape) on its own row underneath."""
-    return f"{banner_for_encoding(encoding)}\n{version_line}"

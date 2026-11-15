@@ -36,7 +36,7 @@ Studio, a page in your browser, is where you watch it and change it.
 </p>
 
 <details>
-<summary>The same wordmark as text (what <code>halo --version</code> prints)</summary>
+<summary>The same wordmark as text (what an interactive <code>halo</code> start shows)</summary>
 
 ```text
     ░▒▓▓▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▓▓▒░

@@ -97,7 +97,9 @@ def test_no_command_dispatch_provider_name_or_prefix_is_left(ctx: Ctx):
     from halo_harness.providers.enablement import LABELS, PREFIXES, PROVIDER_NAMES, canonical
     ctx.check("no builtin /subscriptions or /settings", not {"subscriptions", "settings"} & set(_BUILTIN_SPECS))
     cli = (PKG / "cli.py").read_text(encoding="utf-8")
-    ctx.check("no cli dispatch `subscriptions`", not re.findall(r'argv\[0\] == "subscriptions"', cli))
+    from halo_harness.cli_commands import BY_NAME  # 3.6.0.0 R16: cli.py dispatches from the one registry
+    ctx.check("no cli dispatch `subscriptions`", not re.findall(r'argv\[0\] == "subscriptions"', cli)
+              and "subscriptions" not in BY_NAME)
     gone = {"claude_subscription", "codex_subscription"}
     ctx.check(f"no enablement name for a removed route, got {PROVIDER_NAMES}",
               not gone & set(PROVIDER_NAMES) and not gone & set(LABELS) and not gone & set(PREFIXES))

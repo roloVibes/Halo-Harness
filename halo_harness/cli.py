@@ -30,14 +30,6 @@ from halo_harness.providers.routing import InvalidModelError
 _STDIN_CAP_BYTES = 10 * 1024 * 1024  # 10 MB, matches Claude Code's own -p stdin cap
 
 
-def _cmd_proxy(rest: list) -> int:
-    """`halo proxy ...` -- import bridge.py and hand it the
-    remaining argv verbatim, exactly as `python bridge.py ...` would."""
-    import bridge
-    result = bridge.main(rest)
-    return result if isinstance(result, int) else 0
-
-
 # =============================================================================
 # The flag table (flag-parity rule). Every entry: (flag strings, add_argument
 # kwargs incl. an explicit dest=). `_REAL_FLAGS` behave identically to
@@ -279,20 +271,30 @@ def _flag_was_set(value) -> bool:
     return value not in (None, False)
 
 
+class _HelpFormatter(argparse.HelpFormatter):
+    """3.6.0.0 R16: wraps the description as before; a text with its own line breaks (the commands block) keeps them."""
+
+    def _fill_text(self, text, width, indent):
+        if "\n" in text:
+            return "".join(indent + line for line in text.splitlines(keepends=True))
+        return super()._fill_text(text, width, indent)
+
+
+def _epilog() -> str:
+    """3.6.0.0 R16: every command from the one registry (cli_commands.py), grouped, each with its purpose."""
+    from halo_harness.cli_commands import help_text
+    return (help_text() + "\n\nThe GUI: `halo studio --mode agents` -- your agents, workflows and the map your sessions run"
+            "\non, lit while one runs; in the TUI, /studio. A fresh box: `halo init` opens Studio's Setup."
+            "\nDesign is a pack: halo pack install design.")
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo", add_help=True,
         description="halo - The multi-agent, multi-workflow harness you can watch: every model's thinking, hand-offs "
                     "and cost, live, and yours to steer. It starts an interactive session by default; use -p/--print "
                     "for non-interactive output",
-        epilog="Commands: init, explain, studio, media, orchestra, work, agents, workflows, maps, models, "
-               "local (local models, on this machine or another: ps, warm, unload, pull, measure), "
-               "host (the model-free monitor a machine that serves models runs), mcp, proxy, "
-               "config, doctor, update, stats, review, preflight, audit, export, session, pack, "
-               "completion, and an enabled pack's own (coach, improve, start) (run `halo <command> --help`; `halo init` "
-               "opens Studio's Setup to set up a fresh box; `halo init --terminal` is the plain console setup). "
-               "The GUI: `halo studio --mode agents` -- your agents, workflows and the map your sessions run on, lit while "
-               "one runs; in the TUI, /studio. Design is a pack: halo pack install design.",
+        epilog=_epilog(), formatter_class=_HelpFormatter,
     )
     try:
         parser._positionals.title = "Arguments"
@@ -308,6 +310,17 @@ def _build_parser() -> argparse.ArgumentParser:
     for flags, kwargs, _label, _reason in _NOT_APPLICABLE_FLAGS:
         parser.add_argument(*flags, **kwargs)
     return parser
+
+
+def version_line() -> str:
+    """`halo --version`'s one line: `halo 3.6.0.0 (1a2b3c4)`, or `halo 3.6.0.0` when the commit is not known."""
+    try:
+        from halo_harness.update import installed_build
+        build = installed_build()
+    except Exception:
+        build = {}
+    version, commit = build.get("version") or __version__, build.get("commit")
+    return f"halo {version} ({commit})" if commit else f"halo {version}"
 
 
 def _make_streams_utf8_safe() -> None:
@@ -442,18 +455,43 @@ GONE_VERBS = {
 }
 
 
+def _run_command(argv: list) -> Optional[int]:
+    """`halo <command> ...` from the registry (cli_commands.py): its exit code, or None when argv[0] is no command
+    (a pack's own verb, or a prompt). `roles point` is the one internal word; a retired verb says where to go."""
+    import importlib
+    from halo_harness.cli_commands import BY_NAME
+    if argv[:2] == ["roles", "point"]:  # the role write a steward or adviser line offers (until the next round moves it)
+        from halo_harness.roles_cli import cmd_roles
+        return cmd_roles(argv[1:])
+    if argv[0] in GONE_VERBS:  # 3.6.0.0 R5: lineups, bios and squares are gone; each old verb says where to go
+        print(f"halo {argv[0]}: {GONE_VERBS[argv[0]]}")
+        return 0
+    if argv[0] == "design":  # 3.3.13.0 R2: Design is the design pack's (studio/modes.py MOVED)
+        from halo_harness.studio.modes import moved_line
+        print(f"halo design: {moved_line('design')}", file=sys.stderr)
+        return 2
+    cmd = BY_NAME.get(argv[0])
+    if cmd is None or not cmd.target:
+        return None
+    module, func = cmd.target.split(":")
+    rc = getattr(importlib.import_module(module), func)(argv[1:])
+    return rc if isinstance(rc, int) else 0
+
+
 def main(argv: Optional[list] = None) -> int:
     """Entry point. A config.json that does not parse (`CorruptConfigError`
     from a config writer anywhere below) is reported as one `halo: ...`
     line and exit 2, never a traceback; library callers still get the
     exception from `theme.set_config_value` itself."""
-    from halo_harness.theme import CorruptConfigError
     if argv is None:  # 3.6.0.0 R10: the real process (console script, `python -m`): the closing procedure (closing.py)
         from halo_harness import closing
         closing.install()
     try:
         return _main(argv)
-    except CorruptConfigError as e:
+    except Exception as e:  # 3.6.0.0 R16: theme is imported only here, so `halo --help` stays light
+        from halo_harness.theme import CorruptConfigError
+        if not isinstance(e, CorruptConfigError):
+            raise
         print(f"halo: {e}", file=sys.stderr)
         return 2
 
@@ -476,182 +514,10 @@ def _main(argv: Optional[list] = None) -> int:
         pass
     argv = sys.argv[1:] if argv is None else list(argv)
 
-    if argv and argv[0] == "proxy":
-        return _cmd_proxy(argv[1:])
-    if argv and argv[0] == "models":
-        from halo_harness.catalog_cli import cmd_models
-        return cmd_models(argv[1:])
-    if argv and argv[0] == "mcp":
-        from halo_harness.mcp_cli import cmd_mcp
-        return cmd_mcp(argv[1:])
-    if argv and argv[0] == "rules":
-        from halo_harness.rules_cli import cmd_rules
-        return cmd_rules(argv[1:])
-    if argv and argv[0] == "config":
-        from halo_harness.config_cli import cmd_config
-        return cmd_config(argv[1:])
-    if argv and argv[0] == "doctor":
-        from halo_harness.doctor import cmd_doctor
-        return cmd_doctor(argv[1:])
-    if argv and argv[0] == "preflight":
-        from halo_harness.preflight import cmd_preflight
-        return cmd_preflight(argv[1:])
-    if argv and argv[0] == "recall":
-        from halo_harness.recall import cmd_recall
-        return cmd_recall(argv[1:])
-    if argv and argv[0] == "audit":
-        from halo_harness.audit_cli import cmd_audit
-        return cmd_audit(argv[1:])
-    if argv and argv[0] == "update":
-        from halo_harness.update_cli import cmd_update
-        return cmd_update(argv[1:])
-    if argv and argv[0] == "work-matrix":
-        from halo_harness.work_matrix import cmd_work_matrix
-        return cmd_work_matrix(argv[1:])
-    if argv and argv[0] == "work":  # 3.1.2.0 R1: the units of any run as one table (docs/WORK.md)
-        from halo_harness.work_cli import cmd_work
-        return cmd_work(argv[1:])
-    if argv and argv[0] == "supervise":  # 3.1.8.0 R1: the supervisor, a goal queue without a TUI
-        from halo_harness.supervise.cli import cmd_supervise
-        return cmd_supervise(argv[1:])
-    if argv and argv[0] == "host":  # 3.3.7.0 R1: halo host, the model-free monitor of this machine's servers
-        from halo_harness.host_cli import cmd_host
-        return cmd_host(argv[1:])
-    if argv and argv[0] == "pool":  # 3.3.8.0 R1: the pool -- members, the fit, the recommendation, the RPC scan
-        from halo_harness.pool_cli import cmd_pool
-        return cmd_pool(argv[1:])
-    if argv and argv[0] == "voice":  # 3.3.9.0 R1: the speech catalog, download, rm, serve (docs/VOICE.md)
-        from halo_harness.voice_cli import cmd_voice
-        return cmd_voice(argv[1:])
-    if argv and argv[0] == "copilot":  # 3.3.17.0 R1: your work's Copilot -- signin, signout, status, ask
-        from halo_harness.copilot_cli import cmd_copilot
-        return cmd_copilot(argv[1:])
-    if argv and argv[0] == "outcomes":  # 3.1.8.0 R3: every agent task's outcome (docs/OUTCOMES.md)
-        from halo_harness.outcomes.cli import cmd_outcomes
-        return cmd_outcomes(argv[1:])
-    if argv and argv[0] == "whatsnew":  # 3.3.16.2: what a version changed, from the shipped changelog
-        from halo_harness.whatsnew_cli import cmd_whatsnew
-        return cmd_whatsnew(argv[1:])
-    if argv and argv[0] == "knowledge":  # 3.1.8.0 R4: findings and decisions (docs/KNOWLEDGE.md)
-        from halo_harness.knowledge.cli import cmd_knowledge
-        return cmd_knowledge(argv[1:])
-    if argv and argv[0] == "goal":
-        # 3.1.8.0 R1: the supervisor's goal queue (halo goal add|list|show|...).
-        from halo_harness.supervise.goal_cli import cmd_goal
-        return cmd_goal(argv[1:])
-    if argv and argv[0] == "isolation":  # 3.1.8.0 R5: opt-in isolation for workers (docs/ISOLATION.md)
-        from halo_harness.isolation.cli import cmd_isolation
-        return cmd_isolation(argv[1:])
-    if argv and argv[0] == "secrets":  # 3.1.8.0 R5: the secret broker and each ref, names only
-        from halo_harness.isolation.secrets import cmd_secrets
-        return cmd_secrets(argv[1:])
-    if argv and argv[0] == "init":
-        from halo_harness.init_cli import cmd_init
-        return cmd_init(argv[1:])
-    if argv and argv[0] == "providers":
-        from halo_harness.providers_cli import cmd_providers
-        return cmd_providers(argv[1:])
-    if argv and argv[0] == "balances":
-        from halo_harness.balances_cli import cmd_balances
-        return cmd_balances(argv[1:])
-    if argv and argv[0] == "gov":
-        from halo_harness.gov_cli import cmd_gov
-        return cmd_gov(argv[1:])
-    if argv and argv[0] == "stats":
-        from halo_harness.stats_cli import cmd_stats
-        return cmd_stats(argv[1:])
-    if argv and argv[0] == "export":
-        from halo_harness.export_cli import cmd_export
-        return cmd_export(argv[1:])
-    if argv and argv[0] == "session":  # 3.3.0.0 R6: `halo session export <id>`, the Markdown trace
-        from halo_harness.session_trace_cli import cmd_session
-        return cmd_session(argv[1:])
-    if argv and argv[0] == "bugreport":
-        from halo_harness.bugreport import cmd_bugreport
-        return cmd_bugreport(argv[1:])
-    if argv and argv[0] == "timeline":
-        from halo_harness.bugreport_timeline_cli import cmd_timeline
-        return cmd_timeline(argv[1:])
-    if argv and argv[0] == "worktree":
-        from halo_harness.worktree_cli import cmd_worktree
-        return cmd_worktree(argv[1:])
-    if argv and argv[0] in ("ps", "stop"):  # 3.6.0.0 R10: every live process of Halo, and the way to end them
-        from halo_harness import ps_cli
-        return (ps_cli.cmd_ps if argv[0] == "ps" else ps_cli.cmd_stop)(argv[1:])
-    if argv and argv[0] == "bg":
-        from halo_harness.bg_cli import cmd_bg
-        return cmd_bg(argv[1:])
-    if argv[:2] == ["roles", "point"]:  # the role write a steward or adviser line offers (until the next round moves it)
-        from halo_harness.roles_cli import cmd_roles
-        return cmd_roles(argv[1:])
-    if argv and argv[0] in GONE_VERBS:  # 3.6.0.0 R5: lineups, bios and squares are gone; each old verb says where to go
-        print(f"halo {argv[0]}: {GONE_VERBS[argv[0]]}")
-        return 0
-    if argv and argv[0] == "agents":  # 3.6.0.0 R5: your agents (~/.halo/crew/agents)
-        from halo_harness.agents_cli import cmd_agents
-        return cmd_agents(argv[1:])
-    if argv and argv[0] == "maps":  # 3.6.0.0 R3: your maps (list / show / use); the Map tab edits them
-        from halo_harness.maps_cli import cmd_maps
-        return cmd_maps(argv[1:])
-    if argv and argv[0] == "pack":  # 3.2.0.0 R1: capability packs (docs/PACKS.md)
-        from halo_harness.packs.cli import cmd_pack
-        return cmd_pack(argv[1:])
-    if argv and argv[0] == "workflows":  # 3.6.0.0 R5: your workflows (~/.halo/crew/workflows)
-        from halo_harness.workflows_cli import cmd_workflows
-        return cmd_workflows(argv[1:])
-    if argv and argv[0] == "design":  # 3.3.13.0 R2: Design is the design pack's (studio/modes.py MOVED)
-        from halo_harness.studio.modes import moved_line
-        print(f"halo design: {moved_line('design')}", file=sys.stderr)
-        return 2
-    if argv and argv[0] == "media":
-        # 3.0.4.0: ComfyUI as the eighth craft app (init, doctor, serve, inspect, models, workflows).
-        from halo_harness.media.cli import cmd_media
-        return cmd_media(argv[1:])
-    if argv and argv[0] == "orchestra":
-        # 3.0.3.0: the Orchestra -- goal, workflow, claims, the timed run log.
-        from halo_harness.orchestra_cli import cmd_orchestra
-        return cmd_orchestra(argv[1:])
-    if argv and argv[0] == "studio":
-        # 2.1.0 round B3: the local web GUI for lineups and agent bios.
-        from halo_harness.studio import cmd_studio
-        return cmd_studio(argv[1:])
-    if argv and argv[0] == "ollama":
-        # the panel, discover, calibrate, tune (3.2.3.0 R3: a tuned twin), doctor
-        from halo_harness.ollama_cli import cmd_ollama
-        return cmd_ollama(argv[1:])
-    if argv and argv[0] == "gym":
-        from halo_harness.gym_cli import cmd_gym
-        return cmd_gym(argv[1:])
-    if argv and argv[0] in ("replay", "report"):  # 3.4.1.0 R3: `halo report` (report_cli.py), the run report card
-        from halo_harness import replay_cli, report_cli
-        return (replay_cli.cmd_replay if argv[0] == "replay" else report_cli.cmd_report)(argv[1:])
-    if argv and argv[0] == "local":
-        from halo_harness.local_cli import cmd_local
-        return cmd_local(argv[1:])
-    if argv and argv[0] == "setup":
-        from halo_harness.setup_cli import cmd_setup
-        return cmd_setup(argv[1:])
-    if argv and argv[0] == "settings":
-        # 3.3.3.0 R2: Studio's Settings section, every config.json key (halo_harness/settings_catalog.py).
-        from halo_harness.settings_cli import cmd_settings
-        return cmd_settings(argv[1:])
-    if argv and argv[0] == "check":
-        # 3.2.2.0 R2: the checks Halo offers after setup (halo_harness/checks/catalog.py).
-        from halo_harness.check_cli import cmd_check
-        return cmd_check(argv[1:])
-    if argv and argv[0] == "explain":
-        # 3.1.1.0 R1: one paragraph per word Halo uses (docs/GLOSSARY.md).
-        from halo_harness.explain_cli import cmd_explain
-        return cmd_explain(argv[1:])
-    if argv and argv[0] == "remote":
-        from halo_harness.remote.cli import cmd_remote
-        return cmd_remote(argv[1:])
-    if argv and argv[0] == "review":
-        from halo_harness.review.cli import cmd_review
-        return cmd_review(argv[1:])
-    if argv and argv[0] == "completion":
-        from halo_harness.completion_cli import cmd_completion
-        return cmd_completion(argv[1:])
+    if argv and not argv[0].startswith("-"):  # 3.6.0.0 R16: every command is one row of cli_commands.py
+        rc = _run_command(argv)
+        if rc is not None:
+            return rc
     if argv and not argv[0].startswith("-"):  # 3.4.0.0 B: a pack's own verb; a verb that left says where it went
         from halo_harness.packs.contrib_cli import dispatch
         rc = dispatch(argv)
@@ -670,17 +536,10 @@ def _main(argv: Optional[list] = None) -> int:
         args, _ = parser.parse_known_args(argv)
 
     if args.version:
-        # Halo 2.0.2 round 6: `(commit, branch)` once the install's own
-        # commit is known (PEP 610 direct_url.json, or git in a live
-        # checkout) -- see update.installed_build/format_version_line.
-        # 2.0.5 round 2d: the ASCII wordmark prints above the version
-        # line (multi-line output; banner.py is the one source for it).
-        from halo_harness.banner import banner_with_version
-        try:
-            from halo_harness.update import format_version_line, installed_build
-            print(banner_with_version(format_version_line(installed_build()), sys.stdout.encoding))
-        except Exception:
-            print(banner_with_version(f"halo {__version__}", sys.stdout.encoding))
+        # 3.6.0.0 R16: one line, `halo <version> (<commit>)`, nothing else -- a script reads it; the banner is the
+        # interactive start's (tui/intro_lines.py). The commit once the install's own is known (PEP 610
+        # direct_url.json, or git in a live checkout: update.installed_build); without it, `halo <version>`.
+        print(version_line())
         return 0
 
     for _flags, kwargs, label, milestone in _NOT_YET_FLAGS:

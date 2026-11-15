@@ -552,6 +552,16 @@ asked for it to keep running, and Halo names it on the way out with the command 
   halo_harness`, which put the current folder first: from a folder holding a `halo_harness/` checkout "Studio did not
   start", and a project's `json.py` would have run. Every helper now starts with `-P` (Python 3.11+) or a small
   bootstrap that drops that entry (3.10). "Studio did not start" says why: the exit code and the last line.
+### R16
+
+- **`halo -p` runs the Workflow tool in the default mode.** It hands work to sub-agents, so it now stands where the
+  Agent tool does in every mode and entry point (what each sub-agent then does is still decided by its own
+  permissions); it used to need a prompt nobody can answer in `-p`. TaskCreate / TaskUpdate (the session's task
+  board) and SendUserMessage join the tools that never ask. The table of every tool by mode is pinned by a test.
+- **`halo --help` names every command** (it named 26 of 53), grouped with the everyday ones first, each with its
+  purpose, from the one list cli.py runs commands from (halo_harness/cli_commands.py). `halo recall --help`,
+  `halo audit --help` and `halo preflight --help` now print their usage and exit 0.
+- **`halo --version` prints one line**, `halo <version> (<commit>)`, and no banner.
 
 ## [3.5.0.0] - 2026-11-13
 

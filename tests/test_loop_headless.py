@@ -255,28 +255,20 @@ def test_version_flag(ctx: Ctx):
                              capture_output=True, encoding="utf-8", errors="replace", timeout=15)
     ctx.check(f"exit 0, got {result.returncode}", result.returncode == 0)
     from halo_harness import __version__
-    # Halo 2.0.2 round 6: `(commit, branch)` is appended once the install's
-    # own commit is known -- this subprocess runs straight from the repo
-    # checkout (PYTHONPATH), which always has a real git commit/branch to
-    # report, so it's never just the bare "halo 2.0.2" -- see
-    # update.format_version_line/installed_build.
-    # 2.0.5 round 2d: the ASCII wordmark (banner.py) prints ABOVE the
-    # version line -- the version line itself is unchanged and is the
-    # LAST line of the multi-line output.
+    # Halo 2.0.2 round 6: `(commit)` is appended once the install's own
+    # commit is known -- this subprocess runs straight from the repo
+    # checkout (PYTHONPATH), which always has a real git commit to report,
+    # so it's never just the bare "halo 2.0.2" -- see
+    # update.installed_build and cli.version_line.
+    # 3.6.0.0 R16: one line and nothing else -- the banner is the
+    # interactive start's; a script reads this line.
     import re
-    from halo_harness.banner import BANNER, BANNER_ART
-    lines = result.stdout.strip("\n").split("\n")
-    # 2.0.11 round A2: the block art on a UTF-8 stream, the ASCII form on
-    # a stream that cannot encode it (cli.py reconfigures stdout to UTF-8
-    # when it can, so the art is the usual case).
-    art, ascii_ = BANNER_ART.split("\n"), BANNER.split("\n")
-    ctx.check(f"the banner block prints first, got {result.stdout!r}",
-              lines[:len(art)] == art or lines[:len(ascii_)] == ascii_)
+    lines = result.stdout.split("\n")
+    ctx.check(f"exactly one line, no banner, got {result.stdout!r}", len(lines) == 2 and lines[1] == "")
     # 3.2.1.0 R5: `git rev-parse --short` gives 7 hex digits in a small clone and more in a big one (git's auto
     # abbreviation grows with the object count): a full clone on WSL printed `(fc884ac8)`, CI's shallow one 7
-    ctx.check(f"last line prints halo {__version__}, optionally with (commit, branch), got {lines[-1]!r}",
-              re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}(, \S+)?\))?\s*$",
-                        lines[-1]) is not None)
+    ctx.check(f"the line is halo {__version__}, optionally with (commit), got {lines[0]!r}",
+              re.fullmatch(rf"halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}\))?", lines[0]) is not None)
 
 
 def _hermetic_child_env() -> dict:

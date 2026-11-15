@@ -67,24 +67,18 @@ def test_version_from_a_scratch_directory_outside_the_repo(ctx: Ctx):
     result = subprocess.run([sys.executable, "-m", "halo_harness", "--version"],
                              cwd=str(scratch), env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
     ctx.check(f"exit 0, got {result.returncode} (stderr: {result.stderr[-400:]!r})", result.returncode == 0)
-    # Halo 2.0.2 round 6: `(commit, branch)` is appended once known --
-    # this subprocess's cwd is the scratch dir, but PYTHONPATH still
-    # points at this real checkout, so update.installed_build's own
+    # Halo 2.0.2 round 6: `(commit)` is appended once known -- this
+    # subprocess's cwd is the scratch dir, but PYTHONPATH still points at
+    # this real checkout, so update.installed_build's own
     # PYTHONPATH-checkout fallback (keyed off __file__, never cwd) still
-    # finds a real commit/branch -- proof this stays cwd-independent too.
-    # 2.0.5 round 2d: the ASCII banner (banner.py) prints first; the
-    # version line is the LAST line of the multi-line output.
-    from halo_harness.banner import BANNER, BANNER_ART
-    lines = result.stdout.strip("\n").split("\n")
-    # 2.0.11 round A2: the block art on a UTF-8 stream, the ASCII form on
-    # a stream that cannot encode it.
-    art, ascii_ = BANNER_ART.split("\n"), BANNER.split("\n")
-    ctx.check(f"the banner block prints first, got {result.stdout!r}",
-              lines[:len(art)] == art or lines[:len(ascii_)] == ascii_)
+    # finds a real commit -- proof this stays cwd-independent too.
+    # 3.6.0.0 R16: one line and nothing else (the banner is the
+    # interactive start's; a script reads this line).
+    lines = result.stdout.split("\n")
+    ctx.check(f"exactly one line, no banner, got {result.stdout!r}", len(lines) == 2 and lines[1] == "")
     # 3.2.1.0 R5: 7 hex digits in a small clone, more in a big one (git's auto abbreviation): `(fc884ac8)` on WSL
-    ctx.check(f"last line prints 'halo {__version__}', optionally with (commit, branch), got {lines[-1]!r}",
-              re.match(rf"^halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}(, \S+)?\))?\s*$",
-                        lines[-1]) is not None)
+    ctx.check(f"the line is 'halo {__version__}', optionally with (commit), got {lines[0]!r}",
+              re.fullmatch(rf"halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}\))?", lines[0]) is not None)
 
 
 @test
