@@ -203,6 +203,9 @@ def test_done_writes_the_marker_publishes_the_frame_and_the_state_carries_it(ctx
                       and frames[0]["data"] == {"stage": "done", "at": got.get("done_at")})
             status, s = e.call("GET", "setup/state")
             ctx.check(f"the state carries done_at, got {s.get('done_at')!r}", s.get("done_at") == got.get("done_at") == setup_done_at(e.state_dir))
+            dstatus, d = e.call("GET", "setup/done-at")  # 3.6.0.0 R14: what `halo init` polls, the done_at alone
+            ctx.check(f"GET setup/done-at answers the same done_at and nothing else, got {dstatus} {d}",
+                      dstatus == 200 and d == {"done_at": got.get("done_at")})
             again = post()[1]
             ctx.check("a second Done writes over the first, not earlier", parse_at(again["done_at"]) >= parse_at(got["done_at"])
                       and json.loads(marker.read_text(encoding="utf-8"))["at"] == again["done_at"])

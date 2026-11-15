@@ -44,17 +44,33 @@ def pack_bios(manifest, root) -> "dict[str, str]":
     return out
 
 
+_SHIPPED: dict = {}  # 3.6.0.0 R14: the shipped bios' names by their folder's (mtime_ns, size): one listing per change
+
+
 def shipped_bios() -> "list[str]":
     folder = Path(__file__).resolve().parent.parent / "templates" / "agents"
-    return sorted(p.stem for p in folder.glob("*.yaml"))
+    try:
+        st = folder.stat()
+        stamp = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        stamp = None
+    hit = _SHIPPED.get(str(folder))
+    if stamp is not None and hit is not None and hit[0] == stamp:
+        return list(hit[1])
+    names = sorted(p.stem for p in folder.glob("*.yaml"))
+    if stamp is not None:
+        _SHIPPED[str(folder)] = (stamp, names)
+    return list(names)
 
 
-def role_bio(manifest, root, role) -> str:
-    """`<id>--<name>` for a pack bio (by name, qualified name or kind), the name of a shipped bio, else ''."""
+def role_bio(manifest, root, role, bios: "dict | None" = None) -> str:
+    """`<id>--<name>` for a pack bio (by name, qualified name or kind), the name of a shipped bio, else ''. `bios`
+    (3.6.0.0 R14): the pack's `pack_bios`, read once by a caller that asks for many roles (stage_lines: every stage
+    of a workflow), instead of every bio of the pack read again for every stage."""
     if not isinstance(role, str) or not role.strip():
         return ""
     role, pack_id = role.strip(), str((manifest or {}).get("id") or "")
-    bios = pack_bios(manifest, root)
+    bios = pack_bios(manifest, root) if bios is None else bios
     own, name = N.unqualify(role)
     if own == pack_id and name in bios:
         return role
@@ -129,12 +145,12 @@ def _when(L, sid: str, s: dict, data: dict, stages: dict, ups: set, gives: dict)
         L.add(key, f": say one of {', '.join(CONDITIONS)}", "when")
 
 
-def _rest(L, sid: str, s: dict, data: dict, manifest, root, own_names: set) -> None:
+def _rest(L, sid: str, s: dict, data: dict, manifest, root, own_names: set, bios: "dict | None" = None) -> None:
     from halo_harness.orchestra.goal import _outside
     from halo_harness.packs.workflow_rules import capabilities
     if not str(s.get("brief") or "").strip():
         L.add(f"stages.{sid}.brief", ": required (what the stage's worker does)", "id", sid)
-    if s.get("role") is not None and not role_bio(manifest, root, s.get("role")):
+    if s.get("role") is not None and not role_bio(manifest, root, s.get("role"), bios):
         L.add(f"stages.{sid}.role", f" {s.get('role')!r} is not a bio of the pack (by name or kind) "
               "nor a bio Halo ships", "role", s.get("role"))
     caps = set(capabilities(manifest))
@@ -186,10 +202,11 @@ def stage_lines(L, data: dict, manifest, root) -> dict:
             gives[sid][g.get("name")] = g.get("kind")
     deps = _deps(stages)
     outputs = set((data.get("outputs") or {}).keys()) if isinstance(data.get("outputs"), dict) else set()
+    bios = pack_bios(manifest, root) if any(s.get("role") is not None for s in stages.values()) else {}
     for sid, s in stages.items():
         _links(L, sid, s, stages, gives)
         if sid in reach(deps, sid):
             L.add(f"stages.{sid}.after", f": {sid} waits for itself (its after and takes go round in a circle)", "id", sid)
         _when(L, sid, s, data, stages, reach(deps, sid), gives)
-        _rest(L, sid, s, data, manifest, root, outputs | set(gives[sid]))
+        _rest(L, sid, s, data, manifest, root, outputs | set(gives[sid]), bios)
     return stages

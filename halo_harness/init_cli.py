@@ -967,6 +967,9 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="ask the essentials line by line here instead of opening Setup in Studio "
                               "(also what runs when no browser can open: SSH, no DISPLAY, HALO_NO_BROWSER)")
     # 3.3.3.0 R1: `halo init` waits for Setup's Done and starts halo; this returns.
+    parser.add_argument("--timings", action="store_true",
+                        help="print the wall and CPU time of each step: init's own, then the Studio it starts (each "
+                             "start phase, its first 40 requests, its CPU at 5, 10, 30 and 60 s)")
     parser.add_argument("--no-launch", action="store_true",
                          help="open Setup and return at once (no wait for its Done; HALO_INIT_NO_LAUNCH=1 does "
                               "the same)")
@@ -1044,8 +1047,22 @@ def _open_setup_in_studio(args, console: Console, cwd: Path) -> bool:
         return False
     from halo_harness import init_wait
     from halo_harness.studio.setup_door import SetupTarget, cli_door
+    say = lambda line: _say(console, line)  # noqa: E731
+    if getattr(args, "timings", False):  # 3.6.0.0 R14: init's own time to the door, then the Studio's lines
+        import time
+        from halo_harness.studio import timings as T
+        from halo_harness.studio.setup_door import _state_dir
+        t0, c0 = time.perf_counter(), time.process_time()
+        path = T.init_file(_state_dir())
+        if path:
+            T.tail(path, say)
+        opened = cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="setup", cwd=cwd,
+                          say=say, wait=init_wait.wanted(args))
+        say(f"timings: init: Studio's door in {time.perf_counter() - t0:.3f} s wall, {time.process_time() - c0:.3f} s cpu"
+            " (this process; a Studio already running prints no lines of its own)")
+        return opened
     return cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="setup", cwd=cwd,
-                    say=lambda line: _say(console, line), wait=init_wait.wanted(args))
+                    say=say, wait=init_wait.wanted(args))
 
 
 def _say(console: Console, line: str) -> None:

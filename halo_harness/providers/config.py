@@ -236,9 +236,9 @@ def load_settings_env_chain(cwd: Path, *, trusted: "bool | None" = None) -> dict
     databricks()`'s own bare-env steps 2/3) read as "not configured".
     """
     from halo_harness.config.paths import claude_config_dir, managed_settings_files
-    if trusted is None:
-        from halo_harness.config.claude_json import is_trusted, load_claude_json
-        trusted = is_trusted(cwd, load_claude_json())
+    if trusted is None:  # 3.6.0.0 R14: project_gate's answer, kept by the stamps of ~/.claude.json (not a parse per call)
+        from halo_harness.project_gate import trusted as _trusted
+        trusted = _trusted(cwd)
     merged = {}
     for managed_path in managed_settings_files():
         try:
@@ -314,13 +314,14 @@ def listing_effective_env(cwd: Optional[Path] = None, settings_flag: Optional[st
     `Path.cwd()`, no settings-flag override) for every caller that has
     neither to give."""
     try:
-        from halo_harness.config.claude_json import is_trusted, load_claude_json
         from halo_harness.config.settings import resolve_settings
+        from halo_harness.project_gate import trusted as _trusted
         where = cwd or Path.cwd()
         # Trust-aware like a real session: an untrusted folder's project/local
         # settings never show up as "picked up" credentials in a listing.
+        # 3.6.0.0 R14: project_gate's answer, kept by the stamps of ~/.claude.json.
         return resolve_settings(
-            where, settings_flag=settings_flag, trusted=is_trusted(where, load_claude_json()),
+            where, settings_flag=settings_flag, trusted=_trusted(where),
         ).effective_env
     except Exception:
         return dict(os.environ)

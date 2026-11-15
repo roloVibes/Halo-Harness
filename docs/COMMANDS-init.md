@@ -19,7 +19,7 @@ While it waits it keeps `~/.halo/setup-wait.json` (its pid), so the Summary's **
 starting in your terminal"; with no init waiting, Done opens a terminal running halo itself (Windows a console, macOS
 Terminal, Linux `$TERMINAL`, then qterminal, xfce4-terminal, gnome-terminal, ... with a display) or says "no terminal
 found to start halo in; run `halo` yourself" -- never silent. Done writes `~/.halo/setup-done.json`; the terminal sees
-it (that file, or `GET setup/state`'s `done_at` once a second), prints the Summary's four lines and starts halo as bare
+it (that file, or `GET setup/done-at` once a second -- 3.6.0.0 R14: it read the whole `setup/state` each second), prints the Summary's four lines and starts halo as bare
 `halo` does, in its directory, paired with the running Studio (same home: Session shows it). A busy Studio (a long check)
 is waited out; Ctrl+C: "Setup stays open in the browser; run `halo` when you are done there.", exit 0; Studio gone (its
 port silent 10 s, no marker): "Studio closed; run `halo` when you are ready.", exit 0. `--no-launch` (or
@@ -128,7 +128,7 @@ halo init --help
 usage: halo init [-h] [--provider {databricks,openrouter,anthropic}]
                  [--preset {home,work}] [--model REF] [--yes] [--no-live]
                  [--no-fixes] [--team PATH|URL] [--step STEP] [--terminal]
-                 [--no-launch]
+                 [--timings] [--no-launch]
 
 Set up halo. On a terminal it opens Halo Studio on its Setup section
 (providers, the default model, permissions, the terminal theme, the lineup,
@@ -161,6 +161,9 @@ options:
   --terminal            ask the essentials line by line here instead of opening
                         Setup in Studio (also what runs when no browser can
                         open: SSH, no DISPLAY, HALO_NO_BROWSER)
+  --timings             print the wall and CPU time of each step: init's own,
+                        then the Studio it starts (each start phase, its first
+                        40 requests, its CPU at 5, 10, 30 and 60 s)
   --no-launch           open Setup and return at once (no wait for its Done;
                         HALO_INIT_NO_LAUNCH=1 does the same)
 ```
@@ -176,6 +179,7 @@ options:
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |
 | `--step STEP` | opens Studio's Setup on that page, the same as `halo setup <step>` (3.4.0.0: the wizard's steps left; until then it jumped the terminal wizard to a step) | omitted -> the whole Setup |
 | `--terminal` | the console setup: the essentials line by line (3.4.0.0; the terminal wizard until then) instead of opening Setup in Studio (3.3.0.0 R4) | off: a bare `halo init` on a terminal opens Studio on Setup |
+| `--timings` | 3.6.0.0 R14: init's own time to Studio's door, then the `timings:` lines of the Studio it starts (`halo studio --timings`, through `~/.halo/studio-timings.log`): each start phase, its first 40 requests and its CPU at 5, 10, 30 and 60 s, wall and CPU each -- what to paste when Setup "keeps spinning". A Studio already running prints none | off |
 | `--no-launch` | opens Setup and returns at once: no wait for its Done (3.3.3.0 R1); `HALO_INIT_NO_LAUNCH=1` does the same | off: `halo init` waits for Done and starts halo |
 
 `--provider ... --yes` (or the deprecated `--preset ... --yes`) is fully

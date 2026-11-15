@@ -610,6 +610,41 @@ you wanted it or not, and a release script that pushed to a main line that no lo
   halfway, a wrong version, a failed restore, a halo that does not exit, held files), `test_update_cli`,
   `test_update_detached`, `test_steward_off` (a Studio and a session with no steward thread and under 2 % of a core
   over 20 s idle; the switch on and off), `test_release_ci_gate` and `test_release_script` over a fake `gh`.
+### R14
+
+Studio's first minute costs a second of CPU, not a minute. The owner ran `halo init` from his home folder: the page
+kept spinning while Studio sat at 110% of a core for about a minute. Reproduced in a scratch home of the same shape (the
+project is the home, two big packs at project scope, two Ollama hosts, a megabyte of `~/.claude.json`, past
+transcripts, a 30,000-file tree) with the Setup page's own requests and `halo init`'s wait beside them: 47 CPU-seconds
+in the first minute on Windows, 8.8 on Linux, never idle; Setup's first answer after 6.3 s on Windows.
+
+- **`halo init` no longer reads the whole Setup page once a second.** While it waited for Setup's Done it fetched
+  `setup/state` (every provider, model row, map and check) every second -- most of that minute. It now asks `GET
+  setup/done-at` (only the Done time) and reads `setup/state` once, after Done, for the Summary's lines.
+- **Each local model's "what fits" is worked out in a few steps, not hundreds.** The largest window that fits is
+  found by halving the list of windows (every part of a load grows with the window, so the answer is the same), and
+  the model's facts are looked up once per estimate; the estimate also reuses the host's one `/api/ps` read instead of
+  one read per model.
+- **One build for every request at once.** The pack list, an Ollama host's model catalog, the local models view and
+  the GPU reading are each built by one request while the others wait for its answer; the local models view behind
+  the model picker is kept 20 s and then answered at once while it is read again in the background (it waited 5.6 s
+  on Windows for every `GET /api/models`). Each Ollama host and each local server port is asked side by side.
+- **A pack's bios are read once per workflow check, not once per stage** (a pack of 58 bios and 48 stages read them
+  7,500 times per build), with libyaml's parser where PyYAML has it.
+- **Files are parsed once per change**: `~/.claude.json` for "is this folder trusted" (the file watcher parsed it
+  every 1.5 s) and `config.json` for every setting read (a model row read it several times), each kept by the file's
+  time, size and id, and read afresh when written in the last three seconds.
+- **Setup's first answer waits at most a second for the machine's detection** (Ollama hosts, local server ports,
+  the GPU); the page reads again while it is still detecting.
+- **`halo studio --timings`** and **`halo init --timings`** print the wall and CPU time of each start phase, of the
+  first 40 requests and of the process at 5, 10, 30 and 60 s; `GET /api/studio/timings` answers the same.
+
+After, same home and requests: 1.2 CPU-seconds in the first minute on Windows (0.7 to idle, at 1.8 s), 0.7 on
+Linux (0.5 to idle, at 0.5 s); Setup's first answer after 1.7 s on Windows, 0.5 s on Linux (1.2 s before); idle with
+the page open under 1% of a core.
+`tests/test_studio_first_minute.py` holds a real server to it: at most 5 CPU-seconds from launch to idle, the
+address within 2 CPU-seconds, Setup's first read within 2, under 2% of a core idle, and a 50,000-file project tree
+costing no more at start.
 
 ## [3.5.0.0] - 2026-11-13
 

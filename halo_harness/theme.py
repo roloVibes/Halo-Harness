@@ -88,16 +88,47 @@ def _config_path() -> Path:
     return bridge_home() / "config.json"
 
 
-def load_config() -> dict:
-    """Read `~/.halo/config.json` fresh every call; `{}` if missing/invalid (3.5.0.0: an old key's value under its new
-    name, config/renamed_keys.py). Never raises -- a test may write then immediately re-read it in the same process."""
+_CONFIG_READS: dict = {}  # 3.6.0.0 R14: path -> (stamp, parsed): one parse per change of config.json
+_CONFIG_SETTLED_NS = 3_000_000_000  # a file written in the last 3 s is read every time (agents_yaml's rule)
+
+
+def _config_shared() -> dict:
+    """The parsed config, shared -- never handed out as is (load_config copies it, get_config_value copies the value
+    it returns). Kept by the file's stamp (time, size, id, change time); a file written in the last three seconds is
+    read every time, so a write and an immediate read (a test, `halo config set`) see the new file. Studio's reads
+    asked for one key at a time -- every model row asked several -- and each read and parsed the whole file."""
     path = _config_path()
     try:
-        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        st = path.stat()
+    except OSError:
+        return {}
+    stamp = (st.st_mtime_ns, st.st_size, getattr(st, "st_ino", 0), getattr(st, "st_ctime_ns", 0))
+    key = str(path)
+    hit = _CONFIG_READS.get(key)
+    if hit is not None and hit[0] == stamp:
+        return hit[1]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
         from halo_harness.config.renamed_keys import migrate
-        return migrate(data) if isinstance(data, dict) else {}
+        data = migrate(data) if isinstance(data, dict) else {}
     except (OSError, ValueError):
         return {}
+    import time as _time
+    if abs(_time.time_ns() - st.st_mtime_ns) > _CONFIG_SETTLED_NS:
+        if len(_CONFIG_READS) > 64:
+            _CONFIG_READS.clear()
+        _CONFIG_READS[key] = (stamp, data)
+    else:
+        _CONFIG_READS.pop(key, None)
+    return data
+
+
+def load_config() -> dict:
+    """Read `~/.halo/config.json`; `{}` if missing/invalid (3.5.0.0: an old key's value under its new name,
+    config/renamed_keys.py). Never raises -- a test may write then immediately re-read it in the same process.
+    3.6.0.0 R14: parsed once per change of the file (`_config_shared`); each caller gets its own copy."""
+    import copy
+    return copy.deepcopy(_config_shared())
 
 
 def load_persisted_theme() -> Optional[str]:
@@ -233,14 +264,16 @@ def get_config_value(key: str, default=_MISSING):
     """The dotted-path read counterpart to `set_config_value` -- `key` may
     be `"improve.model"`; returns `default` (or raises `KeyError` if
     `default` is left unset) when any segment is missing."""
-    data = load_config()
-    cursor = data
+    cursor = _config_shared()  # 3.6.0.0 R14: the shared parse; the value found is copied when it is a dict or a list
     for part in key.split("."):
         if not isinstance(cursor, dict) or part not in cursor:
             if default is _MISSING:
                 raise KeyError(key)
             return default
         cursor = cursor[part]
+    if isinstance(cursor, (dict, list)):
+        import copy
+        return copy.deepcopy(cursor)
     return cursor
 
 

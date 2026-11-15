@@ -35,7 +35,7 @@ export type ProviderInfo = {
 };
 export type OllamaHost = { name: string; url: string; default: boolean; key_env: string };
 export type HfEntry = { name: string; url: string; token_env?: string; key_env?: string };
-export type LocalModels = { model_dirs: string[]; runtime: string; runtimes: ModeRow[]; detection: string[] };
+export type LocalModels = { model_dirs: string[]; runtime: string; runtimes: ModeRow[]; detection: string[]; detecting?: boolean };
 export type SetupData = {
   model: string;
   permission_mode: string;
@@ -153,6 +153,7 @@ export async function loadSetup(): Promise<void> {
       else {
         setup.update(() => ({ data, loaded: true, error: "" }));
         showStatus(data);
+        detectAgain(data);
       }
     } catch (e) {
       setup.update(() => ({ loaded: true, error: e instanceof Error ? e.message : String(e) }));
@@ -165,6 +166,20 @@ export async function loadSetup(): Promise<void> {
     }
   })();
   return loading;
+}
+
+let detectReads = 0;
+
+/** 3.6.0.0 R14: the first read no longer waits for the machine's detection (the probes of each Ollama host, the
+ *  local server ports and the GPU): while the answer says `detecting`, read again in 1.5 s (at most 40 times). */
+function detectAgain(data: SetupData): void {
+  if (!data.local_models?.detecting) {
+    detectReads = 0;
+    return;
+  }
+  if (detectReads >= 40) return;
+  detectReads += 1;
+  setTimeout(() => void loadSetup(), 1500);
 }
 
 /** Start once (the section's view or a panel): the first read and the files watcher. */

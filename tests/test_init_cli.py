@@ -941,7 +941,9 @@ def test_init_waits_for_done_then_starts_halo_here(ctx: Ctx):
     ctx.check(f"ONE door line: this terminal starts halo on Done (3.3.15.0 R6), got {text!r}", text.count(url) == 1
               and f"Setup is open in your browser: {url}. This terminal starts halo when you press Done there (Ctrl+C: stop "
               "here; `halo` later starts it)." in one and "runs the terminal setup instead" not in text)
-    ctx.check(f"polled GET setup/state until Done, a poll_s apart, got {gets} {slept}", gets[:3] == ["setup/state"] * 3 and slept == [1.0, 1.0])
+    ctx.check(f"polled GET setup/done-at (3.6.0.0 R14: not the whole setup/state) until Done, a poll_s apart, then read "
+              f"setup/state once for the Summary, got {gets} {slept}",
+              gets == ["setup/done-at"] * 3 + ["setup/state"] and slept == [1.0, 1.0])
     records = seen.get("records") or []
     ctx.check(f"while it waits, setup-wait.json names this process (Studio's Done reads it), got {records[:1]}",
               len(records) >= 3 and all(r and r.get("pid") == os.getpid() for r in records[:3]))

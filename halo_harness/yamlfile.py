@@ -12,6 +12,20 @@ from typing import Optional
 import yaml
 
 
+# 3.6.0.0 R14: libyaml's scanner and parser when PyYAML was built with it (every PyPI wheel is), PyYAML's own otherwise:
+# the same SafeConstructor and resolver either way, so the same mapping -- a pack's 50 bios parse in a tenth of the time
+_LOADER = getattr(yaml, "CSafeLoader", None) or yaml.SafeLoader
+_STOCK_SAFE_LOAD = yaml.safe_load
+
+
+def safe_load(text: str):
+    """`yaml.safe_load`, through libyaml when it is there (_LOADER). A `yaml.safe_load` replaced in this process (a
+    test that counts the parses) is called as it is."""
+    if yaml.safe_load is not _STOCK_SAFE_LOAD:
+        return yaml.safe_load(text)
+    return yaml.load(text, Loader=_LOADER)  # noqa: S506  (a safe loader: SafeConstructor)
+
+
 _YAML_READS: dict = {}  # the file's full path -> (stamp, parsed): one parse per file per change (3.5.0.1)
 _YAML_READS_MAX = 4096
 _YAML_SETTLED_NS = 3_000_000_000  # a file changed in the last 3 s is read every time, never kept
@@ -48,7 +62,7 @@ def _read_yaml_file(path: Path) -> "Optional[dict]":
     except OSError:
         return None
     try:
-        data = yaml.safe_load(text)
+        data = safe_load(text)
     except yaml.YAMLError:
         return None
     data = data if isinstance(data, dict) else (None if data is not None else {})

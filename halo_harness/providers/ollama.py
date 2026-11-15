@@ -1005,6 +1005,7 @@ def create_model(host: OllamaHost, name: str, *, files: Optional[dict] = None, o
 
 _CATALOG_LOCK = threading.Lock()
 _CATALOG_CACHE: dict = {}  # host.url -> (monotonic_ts, catalog_dict)
+_CATALOG_BUILDING: dict = {}  # 3.6.0.0 R14: host.url -> Event: one catalog read per host at a time
 
 
 def _build_catalog(host: OllamaHost) -> dict:
@@ -1043,23 +1044,46 @@ def get_catalog(host: OllamaHost, *, ttl_s: float = _CATALOG_TTL_S, force: bool 
     explicit refresh command). A host that's unreachable right now returns
     the LAST good cache entry if one exists (never worse than silently
     empty); refreshed again on the next call once `ttl_s` elapses."""
-    with _CATALOG_LOCK:
-        cached = _CATALOG_CACHE.get(host.url)
-    now = time.monotonic()
-    if cached is not None and not force and (now - cached[0]) < ttl_s:
-        return cached[1]
-    fresh = _build_catalog(host)
-    if not fresh["models"] and cached is not None:
-        return cached[1]
-    with _CATALOG_LOCK:
-        _CATALOG_CACHE[host.url] = (now, fresh)
-    return fresh
+    while True:
+        with _CATALOG_LOCK:
+            cached = _CATALOG_CACHE.get(host.url)
+            now = time.monotonic()
+            if cached is not None and not force and (now - cached[0]) < ttl_s:
+                return cached[1]
+            flight = _CATALOG_BUILDING.get(host.url)
+            if force or flight is None:
+                mine = not force
+                if mine:
+                    flight = _CATALOG_BUILDING[host.url] = threading.Event()
+                break
+        # 3.6.0.0 R14: another caller is reading this host's catalog right now (Studio's first page load asks from
+        # several requests at once): wait for its answer instead of a second /api/tags + one /api/show per model
+        flight.wait(_READ_TIMEOUT_S * 3)
+        with _CATALOG_LOCK:
+            cached = _CATALOG_CACHE.get(host.url)
+        if cached is not None:  # what that read answered (an unreachable host's last good entry included)
+            return cached[1]
+    try:
+        fresh = _build_catalog(host)
+        if not fresh["models"] and cached is not None:  # unreachable now: the last good entry, its age kept
+            return cached[1]
+        with _CATALOG_LOCK:
+            _CATALOG_CACHE[host.url] = (now, fresh)
+        return fresh
+    finally:
+        if mine:
+            with _CATALOG_LOCK:
+                _CATALOG_BUILDING.pop(host.url, None)
+            flight.set()
 
 
 def reset_catalog_cache() -> None:
-    """Test seam: force the next get_catalog() call on any host to re-fetch."""
+    """Test seam: force the next get_catalog() call on any host to re-fetch (3.6.0.0 R14: and the next shared local
+    view, providers/local_view_cache.py, to be built from it)."""
     with _CATALOG_LOCK:
         _CATALOG_CACHE.clear()
+    from halo_harness.providers.local_view_cache import forget
+    forget()
 
 
 def trained_context_for(catalog: dict, model: str) -> Optional[int]:

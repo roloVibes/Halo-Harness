@@ -65,7 +65,7 @@ def _row_of(host, model: str, cached: bool) -> Optional[dict]:
 
 
 def _fit(host, model: str, row: Optional[dict], main: Optional[str], state_dir,
-         cached: bool = False) -> "tuple[Optional[float], Optional[bool], str]":
+         cached: bool = False, memo: Optional[dict] = None) -> "tuple[Optional[float], Optional[bool], str]":
     from halo_harness.local_sched import facts as F
     from halo_harness.local_sched.reserve import claimed_bytes
     card = (_peek("card", host) or {}) if cached else F.card(host)
@@ -74,7 +74,14 @@ def _fit(host, model: str, row: Optional[dict], main: Optional[str], state_dir,
     gb = round(need / GIB, 1) if need else (round(row["size"] / GIB, 1) if row and isinstance(row.get("size"), int) else None)
     if not need or not b.get("budget"):
         return gb, None, "the card not read"
-    rows = (card.get("loaded") or []) if cached else F.loaded(host)
+    if cached:
+        rows = card.get("loaded") or []
+    elif memo is not None:  # 3.6.0.0 R14: one /api/ps per host for a whole candidates() pass, not one per model
+        if host.name not in memo:
+            memo[host.name] = F.loaded(host)
+        rows = memo[host.name]
+    else:
+        rows = F.loaded(host)
     room = F.usable(b, F.helper(host, rows)) - (0 if cached else claimed_bytes(host, state_dir=state_dir))
     if not main:
         ok = F.together(b, [{"row": row, "window": WINDOW}]) <= room
@@ -96,9 +103,10 @@ def _profile(state_dir, model: str, host_name: str) -> dict:
     return profile_for_ref(f"ol:{model}@{host_name}", state_dir) or {}
 
 
-def _row(host, model: str, state_dir, installed: bool, size: Optional[int] = None, cached: bool = False) -> dict:
+def _row(host, model: str, state_dir, installed: bool, size: Optional[int] = None, cached: bool = False,
+         memo: Optional[dict] = None) -> dict:
     row = _row_of(host, model, cached)
-    gb, fits, fit_words = _fit(host, model, row, _main(host.name), state_dir, cached)
+    gb, fits, fit_words = _fit(host, model, row, _main(host.name), state_dir, cached, memo)
     if gb is None and isinstance(size, int) and size > 0:
         gb = round(size / GIB, 1)  # the size on disk the local view lists
     p = _profile(state_dir, model, host.name)
@@ -145,7 +153,7 @@ def candidates(state_dir=None, host=None, *, local=None, cached: bool = False) -
     from halo_harness.local_sched.facts import host_named, split_ref
     from halo_harness.ollama_steward.agent import local_models
     rows = (roster(cached) or local_models(state_dir)) if local is None else list(local)
-    out, seen = [], set()
+    out, seen, memo = [], set(), {}
     for ref, size in rows:
         if not str(ref).startswith("ol:"):
             continue
@@ -154,12 +162,12 @@ def candidates(state_dir=None, host=None, *, local=None, cached: bool = False) -
         if h is None or (host and h.name.lower() != str(host).lower()):
             continue
         seen.add((h.name, model))
-        out.append({**_row(h, model, state_dir, True, size, cached), "ref": ref})
+        out.append({**_row(h, model, state_dir, True, size, cached, memo), "ref": ref})
     if not any(c["fits_beside_main"] is not False and c["tool_calls"] != "no" for c in out):
         h = host_named(host)
         for model in KNOWN_GOOD if h is not None else ():
             if (h.name, model) not in seen:
-                c = _row(h, model, state_dir, False, cached=cached)
+                c = _row(h, model, state_dir, False, cached=cached, memo=memo)
                 if c["fits_beside_main"] is not False:
                     out.append({**c, "ref": c["model"]})
     return sorted(out, key=_rank)

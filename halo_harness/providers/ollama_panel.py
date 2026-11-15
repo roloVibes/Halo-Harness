@@ -178,7 +178,7 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
         state_dir = bridge_home()
     from halo_harness.providers.ollama_tune_rows import twin_order
     catalog_fits = tuple(twin_order(
-        [_model_fit_info(host, catalog, row, state_dir=state_dir, remote=not local, hw_runner=hw_runner)
+        [_model_fit_info(host, catalog, row, state_dir=state_dir, remote=not local, hw_runner=hw_runner, ps=ps)
          for row in (catalog.get("models") or []) if isinstance(row, dict)],
         key=lambda f: f.name, twin_of=lambda f: f.twin_of, twin_first=False))  # R3: a twin under its original
     return HostAnalysis(host_name=host.name, host_url=host.url, is_local=local, reachable=reachable,
@@ -186,7 +186,7 @@ def analyze_host(host, *, hw_runner=None, force: bool = False, state_dir=None) -
                          catalog_fits=catalog_fits)
 
 
-def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, hw_runner=None) -> ModelFitInfo:
+def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, hw_runner=None, ps=None) -> ModelFitInfo:
     """One `ModelFitInfo` row (round 5b, brief item 3's "what fits"
     column + learned-cap + source phrase), reusing the EXACT SAME
     `resolve_num_ctx_and_source` precedence `agent/loop.py`'s real
@@ -199,7 +199,7 @@ def _model_fit_info(host, catalog: dict, row: dict, *, state_dir, remote: bool, 
     name = row.get("model") or row.get("name") or "?"
     trained = trained_context_for(catalog, name)
     learned_cap = lookup_learned_cap(state_dir, host_url=host.url, model=name, digest=row.get("digest"))
-    fit = estimate_fit_for_host(host, name, catalog, runner=hw_runner)
+    fit = estimate_fit_for_host(host, name, catalog, runner=hw_runner, ps=ps)  # 3.6.0.0 R14: analyze_host's one read
     what_fits, source = resolve_num_ctx_and_source(trained, host.max_ctx, fit, learned_cap=learned_cap,
                                                     remote=remote)
     throughput = get_last_turn_throughput(state_dir, host_url=host.url, model=name)

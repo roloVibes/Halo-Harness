@@ -33,7 +33,9 @@ this list against the tree.
   on it, or focus the Studio already running), `studio/focus_api.py`
   (`POST /api/focus`, the `focus` frame), `studio/field_help_api.py`
   (`GET /api/field-help`, `halo_harness/field_help.py`'s lines for the bio
-  form and the lineup inspector)
+  form and the lineup inspector); 3.6.0.0 R14: `studio/timings.py` (`halo studio --timings`: the start phases, the
+  first 40 requests and the process's CPU, wall and CPU each; `GET /api/studio/timings`) and, outside studio/,
+  `providers/local_view_cache.py` (the model picker's one shared local models view)
 - the model catalog (3.1.4.0 R4): `studio/catalog_env.py` (the env a session
   resolves providers with: the env file, the shell, the settings.json `env`
   chain), `studio/models_refresh.py` (Refresh: every provider at once,

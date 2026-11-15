@@ -47,7 +47,8 @@ def catalog_rows(state_dir=None, cwd=None, *, cached: bool = False) -> list:
     from halo_harness.studio.catalog_env import catalog_env
     state_dir = Path(state_dir or default_state_dir())
     routes_path = state_dir / "routes.json" if state_dir.exists() else None
-    return [row for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path), cached=cached)
+    return [row for row in build_model_rows(state_dir, env=catalog_env(cwd), routes=load_routes(routes_path), cached=cached,
+                                            shared=True)  # 3.6.0.0 R14: one local view for every read at once
             if row.get("ref") and row.get("provider") != "alias"]
 
 

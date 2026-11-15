@@ -20,7 +20,17 @@ says "left running: Studio (started on its own; halo studio --stop)").
 halo studio [--mode session|agents|local|packs|setup|settings|glance|<pack>--<section>] [--port N] [--no-open] [--cwd DIR]
 halo studio --edit bio:<name> | lineup:<name>[:<block>] | team [--no-open]
 halo studio --session [<id>] [--prompt] [--no-open]
+halo studio --timings
 ```
+
+### `--timings`
+
+3.6.0.0 R14: one `timings:` line per start phase (the command started, with the CPU its imports took; the server
+bound; the address printed), per request of the first 40 (method, path, status, wall time, its thread's CPU) and for
+the process at 5, 10, 30 and 60 s (CPU in all, since the last line, threads), as they happen -- so "Studio keeps
+spinning" is answered from your own terminal. `HALO_STUDIO_TIMINGS=<file>` writes the lines to that file instead
+(`halo init --timings` does that for the Studio it starts and prints them). `GET /api/studio/timings` answers the
+same record (`{up_s, cpu_s, threads, phases, requests}`) with or without the flag.
 
 ### `--session`
 

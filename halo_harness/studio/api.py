@@ -107,7 +107,8 @@ _PREFIXES = (("media", "halo_harness.studio.media_api", "dispatch_media"),
              ("setup", "halo_harness.studio.setup_api", "dispatch_setup"),  # 3.3.0.0 R1: the Setup section
              ("settings", "halo_harness.studio.settings_api", "dispatch_settings"),  # 3.3.3.0 R2: the Settings section
              ("ollama", "halo_harness.studio.ollama_steward_api", "dispatch_ollama"),  # 3.3.4.0 R5: the steward's panel
-             ("local", "halo_harness.studio.local_api", "dispatch_local"))  # 3.3.5.0 R1: the Local section
+             ("local", "halo_harness.studio.local_api", "dispatch_local"),  # 3.3.5.0 R1: the Local section
+             ("studio", "halo_harness.studio.timings", "dispatch_studio"))  # 3.6.0.0 R14: GET studio/timings
 
 
 def dispatch(req: Request):

@@ -50,7 +50,26 @@ WINDOW_MIN = 2048
 WINDOW_MAX = 2 ** 20
 
 
+class _Memo(dict):
+    """3.6.0.0 R14: a model_info whose `_num` / `_list` answers are kept once asked: fit_window asks the same dozen
+    suffixes, each a walk over every key, for every window it tries."""
+    __slots__ = ("seen",)
+
+    def __init__(self, src):
+        super().__init__(src or {})
+        self.seen = {}
+
+
 def _num(info: dict, suffix: str) -> Optional[float]:
+    if isinstance(info, _Memo):
+        k = ("n", suffix)
+        if k not in info.seen:
+            info.seen[k] = _num_walk(info, suffix)
+        return info.seen[k]
+    return _num_walk(info, suffix)
+
+
+def _num_walk(info: dict, suffix: str) -> Optional[float]:
     for key, value in (info or {}).items():
         if key.endswith(suffix) and isinstance(value, (int, float)) and not isinstance(value, bool):
             return float(value)
@@ -58,6 +77,16 @@ def _num(info: dict, suffix: str) -> Optional[float]:
 
 
 def _list(info: dict, suffix: str) -> Optional[list]:
+    if isinstance(info, _Memo):
+        k = ("l", suffix)
+        if k not in info.seen:
+            info.seen[k] = _list_walk(info, suffix)
+        got = info.seen[k]
+        return list(got) if got is not None else None
+    return _list_walk(info, suffix)
+
+
+def _list_walk(info: dict, suffix: str) -> Optional[list]:
     for key, value in (info or {}).items():
         if key.endswith(suffix) and isinstance(value, list) and value:
             if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in value):
@@ -215,16 +244,30 @@ def fit_window(model_info: dict, *, weight_bytes: int, free_bytes, bytes_per_ele
     from halo_harness.providers.ollama_fit import WEIGHTS_DO_NOT_FIT
     if not isinstance(free_bytes, (int, float)) or isinstance(free_bytes, bool) or free_bytes <= 0:
         return None
+    model_info = model_info if isinstance(model_info, _Memo) else _Memo(model_info)  # R14: each suffix walked once
     if load_parts(model_info, weight_bytes=weight_bytes, window=WINDOW_MIN, bytes_per_elem=bytes_per_elem) is None:
         return None
     budget = free_bytes - reserve_bytes(forced=forced, metal=metal, gpu_overhead=gpu_overhead,
                                         projector_bytes=projector_bytes) * max(1, cards)
-    for w in _windows(step, top):
-        parts = load_parts(model_info, weight_bytes=weight_bytes, window=w, bytes_per_elem=bytes_per_elem,
-                           parallel=parallel, projector_bytes=projector_bytes, draft=draft)
-        if parts["total"] <= budget:
-            return w
-    return WEIGHTS_DO_NOT_FIT
+
+    def fits(w: int) -> bool:
+        return load_parts(model_info, weight_bytes=weight_bytes, window=w, bytes_per_elem=bytes_per_elem,
+                          parallel=parallel, projector_bytes=projector_bytes, draft=draft)["total"] <= budget
+    # 3.6.0.0 R14: every part grows with the window (the KV cache, the draft's cache and the compute buffer are each
+    # linear in it, the rest is fixed), so the largest window that fits is found by halving the list -- 8 loads for
+    # the 4096 steps of a 1M window instead of up to 256, the same answer. Studio's model rows ran this for every model
+    # on every read (setup/state, which `halo init` reads each second while Setup is open, and the model picker).
+    ws = list(_windows(step, top))  # largest first
+    if not ws or not fits(ws[-1]):
+        return WEIGHTS_DO_NOT_FIT
+    lo, hi = 0, len(ws) - 1  # ws[hi] fits; find the first (largest) that does
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if fits(ws[mid]):
+            hi = mid
+        else:
+            lo = mid + 1
+    return ws[lo]
 
 
 def need_bytes(model_info: dict, *, weight_bytes: int, window: int, forced: bool = True, metal: bool = False,

@@ -69,6 +69,7 @@ class _Server(http.server.ThreadingHTTPServer):
         self.steward_job = None  # 3.3.4.0 R4: ollama_steward/job.py StewardJob, started by start_server
         self.steward_synced = threading.Event()  # 3.6.0.0 R13: set each time the steward's switch was applied
         self.steward_lines: list = []  # ... and what it said (a thread still alive after the bound)
+        self.timings = None  # 3.6.0.0 R14: studio/timings.py Timings (phases, first requests, CPU), set by start_server
         super().__init__(addr, handler)
 
     def server_close(self):
@@ -117,6 +118,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # -- plumbing ---------------------------------------------------------------
     def _send(self, status: int, body: bytes, ctype: str, extra: dict | None = None) -> None:
+        self._last_status = status  # 3.6.0.0 R14: the timings line's status
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
@@ -267,22 +269,27 @@ class Handler(http.server.BaseHTTPRequestHandler):
             from halo_harness.studio.packs_studio_api import serve_module
             serve_module(self)
         else:
-            self._api("GET") if self.path.startswith("/api/") else self._static()
+            from halo_harness.studio.timings import timed  # 3.6.0.0 R14: wall + CPU of the first requests
+            timed(self, self.command, lambda: self._api("GET") if self.path.startswith("/api/") else self._static())
 
     def do_HEAD(self):
         self.do_GET()
 
+    def _timed_api(self, method: str) -> None:
+        from halo_harness.studio.timings import timed
+        timed(self, method, lambda: self._api(method))
+
     def do_POST(self):
-        self._api("POST")
+        self._timed_api("POST")
 
     def do_PUT(self):
-        self._api("PUT")
+        self._timed_api("PUT")
 
     def do_PATCH(self):
-        self._api("PATCH")
+        self._timed_api("PATCH")
 
     def do_DELETE(self):
-        self._api("DELETE")
+        self._timed_api("DELETE")
 
 
 # -- the command ------------------------------------------------------------------
@@ -291,11 +298,15 @@ def studio_info_path(state_dir: Path) -> Path:
     return Path(state_dir) / "studio.json"
 
 
-def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None = None, slow_ms: Optional[int] = None) -> _Server:
-    """`slow_ms` (3.3.0.0 R7): the latency flag; None reads `HALO_STUDIO_SLOW_MS`."""
+def start_server(*, port: int = 0, cwd: Path, state_dir: Path, token: str | None = None, slow_ms: Optional[int] = None,
+                 timings=None) -> _Server:
+    """`slow_ms` (3.3.0.0 R7): the latency flag; None reads `HALO_STUDIO_SLOW_MS`. `timings` (3.6.0.0 R14): the
+    command's studio/timings.py Timings (`--timings`), else a quiet one (GET studio/timings still answers)."""
     token = token or secrets.token_urlsafe(24)
     server = _Server(("127.0.0.1", port), Handler, token=token, cwd=cwd, state_dir=state_dir,
                      slow_ms=slow_ms_from_env() if slow_ms is None else slow_ms)
+    from halo_harness.studio.timings import Timings
+    server.timings = timings if timings is not None else Timings(False)
     from halo_harness.studio.files_live import watch  # 3.2.2.0 R6: `files_changed` when a lineup, bio, config or layout moves
     watch(server)
     start_steward(server)
@@ -396,7 +407,11 @@ def cmd_studio(argv: list) -> int:
     parser.add_argument("--edit", default=None, metavar="TARGET", help="open Studio on agent:<name> (Agents -> 1 · Agents, its form), workflow:<name> (2 · Workflows), map:<name> (3 · Map), setup[:<block>], settings[:<group>] or local[:<page>]; the old bio:, lineup: and team open the tab that replaced them; a Studio already running for this home opens it in its open page")
     parser.add_argument("--session", nargs="?", const="", default=None, metavar="ID", help="open the Session dashboard on this harness's session ID (a prefix will do; omitted: the newest live one): its map, activity, attention, agent and cost")
     parser.add_argument("--prompt", action="store_true", help="with --session (or alone: the newest live session): open its Prompt panel with the keyboard in the box, to type into the session as in the terminal")
+    parser.add_argument("--timings", action="store_true", help="print, as they happen, the wall and CPU time of each start phase, of the first 40 requests and of the process at 5, 10, 30 and 60 s (`timings:` lines; HALO_STUDIO_TIMINGS=<file> writes them to a file)")
     args = parser.parse_args(argv)
+    from halo_harness.studio.timings import Timings  # 3.6.0.0 R14
+    timings = Timings(args.timings)
+    timings.phase("command started")
     if args.prompt and args.session is None:  # 3.3.11.0 R1: --prompt alone is --session --prompt
         args.session = ""
     edit = None
@@ -446,7 +461,8 @@ def cmd_studio(argv: list) -> int:
             _open(running)
         return 0
     try:
-        server = start_server(port=args.port, cwd=cwd, state_dir=state_dir)
+        server = start_server(port=args.port, cwd=cwd, state_dir=state_dir, timings=timings)
+        timings.phase("server bound")
     except OSError as e:
         print(f"halo studio: cannot bind 127.0.0.1:{args.port or 'auto'}: {e}", file=sys.stderr)
         return 1
@@ -465,6 +481,8 @@ def cmd_studio(argv: list) -> int:
     from halo_harness.studio.glance_door import over_ssh  # 3.4.1.0 R4: + the glance's phone line (studio/glance_door.py)
     print(f"Halo Studio is at {url}\n{over_ssh(server.server_address[1], args.mode)}", flush=True)  # 3.4.0.1 (1): at once
     print("Ctrl+C stops it (from another shell: halo studio --stop).", flush=True)
+    timings.phase("address printed")
+    timings.watch(lambda: server.socket.fileno() != -1)
     if not args.no_open:
         try:
             from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker

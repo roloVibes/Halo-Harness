@@ -19,10 +19,52 @@ from pathlib import Path
 NO_SHIPPED_NAME = ("workflows", "teams")
 
 
-def trusted(cwd=None) -> bool:
+_TRUSTED: dict = {}  # 3.6.0.0 R14: (folder, what the answer depends on) -> the answer
+_TRUSTED_MAX = 256
+_SETTLED_NS = 3_000_000_000  # a file written in the last 3 s is read again every time (agents_yaml's rule)
+
+
+def _stamp(path: Path):
     try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size, getattr(st, "st_ino", 0), getattr(st, "st_ctime_ns", 0))
+
+
+def _git_top(here: Path):
+    """The nearest folder at or above `here` holding `.git` (is_trusted's walk stops there), else None."""
+    cur = here
+    while True:
+        if (cur / ".git").exists():
+            return str(cur)
+        if cur.parent == cur:
+            return None
+        cur = cur.parent
+
+
+def trusted(cwd=None) -> bool:
+    """3.6.0.0 R14: the answer is kept by what it depends on -- the stamps of ~/.claude.json and ~/.halo/trust.json,
+    the folder's git top and CLAUDE_CODE_SANDBOXED -- so Studio's file watcher (every 1.5 s) and each request no longer
+    parse the whole ~/.claude.json (megabytes for a long-time Claude Code user) to learn the same thing. A file written
+    in the last three seconds is read again every time."""
+    try:
+        import os
+        import time
         from halo_harness.config.claude_json import is_trusted, load_claude_json
-        return bool(is_trusted(Path(cwd if cwd is not None else Path.cwd()), load_claude_json()))
+        from halo_harness.config.paths import bridge_home, claude_json_path
+        here = Path(cwd if cwd is not None else Path.cwd()).absolute()
+        stamps = (_stamp(claude_json_path()), _stamp(bridge_home() / "trust.json"))
+        key = (str(here), stamps, _git_top(here), os.environ.get("CLAUDE_CODE_SANDBOXED") or "")
+        settled = all(s is None or abs(time.time_ns() - s[0]) > _SETTLED_NS for s in stamps)
+        if settled and key in _TRUSTED:
+            return _TRUSTED[key]
+        got = bool(is_trusted(here, load_claude_json()))
+        if settled:
+            if len(_TRUSTED) >= _TRUSTED_MAX:
+                _TRUSTED.clear()
+            _TRUSTED[key] = got
+        return got
     except Exception:
         return False
 

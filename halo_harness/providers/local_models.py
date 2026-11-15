@@ -236,6 +236,27 @@ def _file_backed_row(group: str, name: str, path, fmt: str, size_bytes, *, state
                           reachable=(True if running is not None else None))
 
 
+def _each_host_rows(hosts: list, **kw) -> "list[LocalModelRow]":
+    """3.6.0.0 R14: every Ollama host read side by side (`_ollama_rows`: its version, catalog, loaded models and fits),
+    the rows in host order -- one slow or dead host costs its own timeout once, not added to every other host's."""
+    if len(hosts) <= 1:
+        return [r for h in hosts for r in _ollama_rows(h, **kw)]
+    import threading
+    got: dict = {}
+
+    def one(i, host):
+        try:
+            got[i] = _ollama_rows(host, **kw)
+        except Exception:
+            got[i] = []
+    threads = [threading.Thread(target=one, args=(i, h), name="halo-local-hosts", daemon=True) for i, h in enumerate(hosts)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return [r for i in range(len(hosts)) for r in got.get(i, [])]
+
+
 def build_local_view(*, refresh: bool = False, env: Optional[dict] = None, state_dir=None,
                       hw_runner=None, cached: bool = False) -> "list[LocalModelRow]":
     """The merged list -- see this module's own docstring for the fixed
@@ -256,11 +277,12 @@ def build_local_view(*, refresh: bool = False, env: Optional[dict] = None, state
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.providers import local_models_cached as cache
     from halo_harness.providers.ollama_guard import skip_default
-    for host in resolve_ollama_hosts(env):
-        if skip_default(host):  # 3.3.5.0 R3: under the test flag the made-up default host is never read
-            continue
-        rows.extend(cache.ollama_cached_rows(host, state_dir) if cached
-                    else _ollama_rows(host, refresh=refresh, hw_runner=hw_runner, state_dir=state_dir))
+    hosts = [h for h in resolve_ollama_hosts(env) if not skip_default(h)]  # 3.3.5.0 R3: the test flag's made-up host
+    if cached:
+        for host in hosts:
+            rows.extend(cache.ollama_cached_rows(host, state_dir))
+    else:
+        rows.extend(_each_host_rows(hosts, refresh=refresh, hw_runner=hw_runner, state_dir=state_dir))
     from halo_harness.providers.huggingface import resolve_huggingface_local_servers
     from halo_harness.providers.huggingface_local_probe import auto_detect_local_servers, probe_manual_server
     refresh = refresh and not cached

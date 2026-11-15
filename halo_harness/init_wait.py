@@ -5,7 +5,7 @@
 unless `--no-launch` or `HALO_INIT_NO_LAUNCH=1`, stays: the door's one line
 says "Press Done there and halo starts here", then `wait_for_done` watches
 for the Summary's Done (studio/setup_done.py) -- the marker file first, then
-`GET setup/state` on the running Studio with the token in `~/.halo/
+`GET setup/done-at` (3.6.0.0 R14; it was `setup/state`) on the running Studio with the token in `~/.halo/
 studio.json`, once per `POLL_S` (1.0 s; `HALO_INIT_POLL_S`), the marker file
 again whenever the GET fails. A marker from an earlier init does not count:
 only a `done_at` not earlier than the wait's start. The answer is one word:
@@ -36,6 +36,10 @@ from pathlib import Path
 from typing import Callable, Optional
 
 POLL_S = 1.0
+# 3.6.0.0 R14: the wait reads `GET setup/done-at` ({done_at}: the marker Studio's Done writes) -- it read the whole
+# `setup/state` each second, every provider, model row, map and check of the Setup page, a quarter to three quarters
+# of a core for as long as Setup stayed open; the Summary's lines still come from one `setup/state` read after Done
+POLL_PATH = "setup/done-at"
 GONE_S = 10.0
 NO_LAUNCH_ENV = "HALO_INIT_NO_LAUNCH"
 POLL_ENV = "HALO_INIT_POLL_S"
@@ -113,7 +117,7 @@ def _wait(state_dir, poll_s: float, sleep_fn: Callable[[float], None],
         while True:
             if later(setup_done_at(state_dir), since):
                 return "done", state
-            got = http_get(state_dir, "setup/state")
+            got = http_get(state_dir, POLL_PATH)
             if got is not None:
                 state, failed = got, 0.0
                 if later(got.get("done_at"), since):

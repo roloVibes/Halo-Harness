@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Optional
@@ -45,6 +46,7 @@ DEFAULT_LOCAL_PORTS: "tuple[int, ...]" = tuple(dict.fromkeys((8080, 8000, 1234) 
     d["default_port"] for d in _ENGINES.values())))
 
 _PROBE_TIMEOUT_S = 1.5
+_AUTO_DETECT_LOCK = threading.Lock()
 _PROPS_TIMEOUT_S = 1.0
 _CONTEXT_CACHE_TTL_S = 30.0  # matches providers.ollama._CATALOG_TTL_S
 
@@ -280,10 +282,10 @@ def auto_detect_local_servers(*, env: Optional[dict] = None, timeout: float = _P
     ONLY, for a real OpenAI-compatible `/v1/models` response. A no-op
     (empty list, no network at all) under `BRIDGE_TEST_NO_BACKGROUND_NET`
     -- the SAME background-probe test seam `providers.ollama.probe_hosts_
-    background` honours (round 5 brief item 2). Sequential, not threaded:
-    at most a handful of default ports, each bounded by `timeout` -- call
-    this itself from a worker thread (never the UI thread), same as every
-    other live probe in this codebase.
+    background` honours (round 5 brief item 2). 3.6.0.0 R14: the ports are
+    probed side by side (`_probe_ports`), each bounded by `timeout`, and one
+    detection runs at a time -- call this itself from a worker thread (never
+    the UI thread), same as every other live probe in this codebase.
 
     2.0.6 round 12 (the carried C-11 nuance): a short in-process TTL cache
     (60 s), same pattern as the Ollama catalog's own -- a picker paint
@@ -303,13 +305,33 @@ def auto_detect_local_servers(*, env: Optional[dict] = None, timeout: float = _P
             and _auto_detect_cache[1] == ports
             and (now - _auto_detect_cache[0]) < _AUTO_DETECT_TTL_S):
         return list(_auto_detect_cache[2])
-    out = []
-    for port in ports:
-        info = probe_models_endpoint(f"http://127.0.0.1:{port}/v1", name=f"auto:{port}", timeout=timeout)
-        if info is not None:
-            out.append(info)
-    _auto_detect_cache = (now, ports, tuple(out))
+    with _AUTO_DETECT_LOCK:  # 3.6.0.0 R14: one detection at a time; a caller that waited reads its answer
+        if (not force and _auto_detect_cache is not None and _auto_detect_cache[1] == ports
+                and (_time.monotonic() - _auto_detect_cache[0]) < _AUTO_DETECT_TTL_S):
+            return list(_auto_detect_cache[2])
+        out = _probe_ports(ports, timeout)
+        _auto_detect_cache = (now, ports, tuple(out))
     return out
+
+
+def _probe_ports(ports: tuple, timeout: float) -> list:
+    """3.6.0.0 R14: every port at once, in port order -- the whole detection costs one probe's time, not one per port
+    (a closed loopback port takes about a second to refuse on Windows: four ports were four seconds on Setup's and
+    the model picker's path)."""
+    import threading
+    got: dict = {}
+
+    def one(port):
+        try:
+            got[port] = probe_models_endpoint(f"http://127.0.0.1:{port}/v1", name=f"auto:{port}", timeout=timeout)
+        except Exception:
+            got[port] = None
+    threads = [threading.Thread(target=one, args=(p,), name="halo-local-probe", daemon=True) for p in ports]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout + _PROPS_TIMEOUT_S + 1.0)
+    return [got[p] for p in ports if got.get(p) is not None]
 
 
 def probe_manual_server(server, *, timeout: float = _PROBE_TIMEOUT_S) -> Optional[DetectedLocalServer]:

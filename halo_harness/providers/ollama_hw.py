@@ -334,6 +334,7 @@ def get_local_gpu_memory(*, ttl_s: float = _HW_CACHE_TTL_S, force: bool = False,
 
 
 _HW_CACHE_MULTI: "Optional[tuple]" = None  # (monotonic_ts, list[GpuMemory])
+_HW_PROBE_LOCK = threading.RLock()
 
 
 def get_local_gpu_memories(*, ttl_s: float = _HW_CACHE_TTL_S, force: bool = False, runner=None) -> list:
@@ -353,18 +354,19 @@ def get_local_gpu_memories(*, ttl_s: float = _HW_CACHE_TTL_S, force: bool = Fals
         from halo_harness.config.paths import background_net_disabled
         if background_net_disabled():
             return []
-    with _HW_LOCK:
-        cached = _HW_CACHE_MULTI
-    now = time.monotonic()
-    if cached is not None and not force and (now - cached[0]) < ttl_s:
-        return cached[1]
-    cards = _probe_nvidia(timeout=_GPU_PROBE_TIMEOUT_S, runner=runner, probe_all=True)
-    if not cards:
-        single = get_local_gpu_memory(ttl_s=ttl_s, force=force, runner=runner)
-        cards = [single] if single is not None else []
-    with _HW_LOCK:
-        _HW_CACHE_MULTI = (now, cards)
-    return cards
+    with _HW_PROBE_LOCK:  # 3.6.0.0 R14: one GPU probe at a time; a caller that waited reads its answer
+        with _HW_LOCK:
+            cached = _HW_CACHE_MULTI
+        now = time.monotonic()
+        if cached is not None and not force and (now - cached[0]) < ttl_s:
+            return cached[1]
+        cards = _probe_nvidia(timeout=_GPU_PROBE_TIMEOUT_S, runner=runner, probe_all=True)
+        if not cards:
+            single = get_local_gpu_memory(ttl_s=ttl_s, force=force, runner=runner)
+            cards = [single] if single is not None else []
+        with _HW_LOCK:
+            _HW_CACHE_MULTI = (now, cards)
+        return cards
 
 
 def reset_local_gpu_cache() -> None:
@@ -553,7 +555,10 @@ def last_known_offload_sizes(host_url: str, model: str) -> "Optional[tuple[int, 
     return (cached[1], cached[2]) if cached is not None else None
 
 
-def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=None):
+_PS_UNREAD = object()
+
+
+def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=None, ps=_PS_UNREAD):
     """Brief item 2's end-to-end fit estimate for `providers.ollama.
     compute_num_ctx`'s `fit_estimate` argument -- returns a positive int,
     `None` (unknown), or `providers.ollama_fit.WEIGHTS_DO_NOT_FIT` (known
@@ -576,7 +581,9 @@ def estimate_fit_for_host(host, model: str, catalog: Optional[dict], *, runner=N
     from halo_harness.providers.ollama import fetch_ps, ollama_names_match
     # 3.6.0.0 R8 fix pass F6: `fetch_ps` waits 3 s at most (a server that stopped answering costs seconds, not ten
     # a call); a read given up on is noted for the call's one line (ps_gave_up)
-    rows = ps_rows(fetch_ps(host))
+    # 3.6.0.0 R14: `ps`, the host's /api/ps a caller already read for this pass (analyze_host: one read for every
+    # model of the catalog, where each model's estimate read it again -- 30 models, 30 reads); None = a failed read
+    rows = ps_rows(fetch_ps(host) if ps is _PS_UNREAD else ps)
     ps_models = rows or []
     loaded_entry = None
     for entry in ps_models:

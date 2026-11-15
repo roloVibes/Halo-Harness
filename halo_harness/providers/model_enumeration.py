@@ -30,7 +30,7 @@ from typing import Callable, Optional
 
 def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Optional[dict]" = None,
                       current_ref: str = "", current_context_tokens=None, current_max_output_tokens=None,
-                      current_provider: "Optional[str]" = None, cached: bool = False) -> list:
+                      current_provider: "Optional[str]" = None, cached: bool = False, shared: bool = False) -> list:
     """`[{ref, context_tokens, max_output_tokens, price_in_per_m,
     price_out_per_m, provider, group, detail, dbu}, ...]` for the
     ModelPicker/init picker -- from the same models.json/dbx-endpoints.
@@ -416,7 +416,11 @@ def build_model_rows(state_dir, *, env: "Optional[dict]" = None, routes: "Option
     try:
         from halo_harness.providers.local_models import build_local_view
         from halo_harness.providers.ollama_tune_names import twin_note
-        local_rows = build_local_view(env=env, state_dir=state_dir, cached=cached)
+        if shared and not cached:  # 3.6.0.0 R14: Studio's reads share one view (providers/local_view_cache.py)
+            from halo_harness.providers.local_view_cache import view as shared_view
+            local_rows = shared_view(env, state_dir)
+        else:
+            local_rows = build_local_view(env=env, state_dir=state_dir, cached=cached)
     except Exception:
         local_rows = []
     for row in local_rows:
@@ -515,6 +519,8 @@ def _catalog_probe(provider: str, state_dir, env: dict) -> "Callable[[], str]":
 def _local_probe(state_dir, env: dict) -> str:
     from halo_harness.providers.local_models import build_local_view
     rows = build_local_view(refresh=True, env=env, state_dir=state_dir)
+    from halo_harness.providers.local_view_cache import forget  # 3.6.0.0 R14: the next picker read builds anew
+    forget()
     reachable = [r for r in rows if r.ref and not r.name.startswith("(")]
     return f"{len(reachable)} model(s) found" if reachable else "not reachable"
 

@@ -143,6 +143,9 @@ def dispatch_setup(req):
     if answered is not None:
         return answered
     from halo_harness.studio.setup_done import post_done  # 3.3.3.0 R1: the Summary's Done
+    if req.path == "setup/done-at" and req.method == "GET":  # 3.6.0.0 R14: what `halo init` polls each second
+        from halo_harness.studio.setup_done import setup_done_at
+        return 200, {"done_at": setup_done_at(req.state_dir)}
     routes = {"setup/state": ("GET", get_state), "setup/config": ("POST", post_config), "setup/team": ("POST", post_team),
               "setup/done": ("POST", post_done)}
     if req.path in routes:

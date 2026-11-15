@@ -12,7 +12,10 @@ it depends on (each packs folder, each pack.yaml, each `*.yaml` / `*.md` / `*.py
 in a pack's agents/, teams/, workflows/ (3.2.1.0 R1) and policy/ (3.3.10.0 R1), and state.json:
 mtime and size); every write Halo makes calls `invalidate()`, and an edit
 by hand inside an installed pack shows at the next lookup. A home with no
-packs folder costs two `stat` calls.
+packs folder costs two `stat` calls. 3.6.0.0 R14: one build per key at a time
+-- a caller that finds another thread building the same key waits for that
+build's answer (Studio's first page load asked for it from five requests at
+once, five builds behind one GIL).
 """
 
 from __future__ import annotations
@@ -23,6 +26,8 @@ from pathlib import Path
 
 _lock = threading.Lock()
 _cache: dict = {}
+_building: dict = {}  # 3.6.0.0 R14: key -> (Event, builder thread): one build per key at a time (Studio's parallel first reads)
+BUILD_WAIT_S = 120.0
 
 
 @dataclass
@@ -95,16 +100,33 @@ def snapshot(*, cwd=None, state_dir=None) -> Snapshot:
     if not D.project_packs_dir(cwd).is_dir() and not D.user_packs_dir(state_dir).is_dir() and not _shipped_ids():
         return Snapshot()
     key = _key(cwd, state_dir)
-    with _lock:
-        hit = _cache.get(key)
-    if hit is not None:
-        return hit
-    snap = _build(cwd, state_dir)
-    with _lock:
-        if len(_cache) > 32:
-            _cache.clear()
-        _cache[key] = snap
-    return snap
+    me = threading.get_ident()
+    while True:
+        with _lock:
+            hit = _cache.get(key)
+            if hit is not None:
+                return hit
+            flight = _building.get(key)
+            if flight is None or flight[1] == me:  # nobody builds it (or this thread does, one call down): build here
+                if flight is None:
+                    flight = _building[key] = (threading.Event(), me)
+                    mine = True
+                else:
+                    mine = False
+                break
+        flight[0].wait(BUILD_WAIT_S)  # another request builds this very key: its answer, not a second build
+    try:
+        snap = _build(cwd, state_dir)
+        with _lock:
+            if len(_cache) > 32:
+                _cache.clear()
+            _cache[key] = snap
+        return snap
+    finally:
+        if mine:
+            with _lock:
+                _building.pop(key, None)
+            flight[0].set()
 
 
 def active(*, cwd=None, state_dir=None) -> list:

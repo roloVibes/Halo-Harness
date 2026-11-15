@@ -126,7 +126,8 @@ def _read_yaml_file(path: Path) -> "Optional[dict]":
     except OSError:
         return None
     try:
-        data = yaml.safe_load(text)
+        from halo_harness.yamlfile import safe_load  # 3.6.0.0 R14: libyaml when there
+        data = safe_load(text)
     except yaml.YAMLError:
         return None
     data = data if isinstance(data, dict) else (None if data is not None else {})

@@ -202,9 +202,15 @@ def forget_detection() -> None:
         _DETECT.update(lines=None, at=0.0)
 
 
-def detection(wait: float = 4.0) -> list:
+STILL_DETECTING = "Still detecting what is on this machine: the lines show on the next read."
+DETECT_WAIT_S = 1.0  # 3.6.0.0 R14: was 4 s on Setup's first read; the page reads again while `detecting` (store.ts)
+
+
+def detection(wait: float = DETECT_WAIT_S) -> list:
     """The Local models step's detection lines (providers.local_models.detection_summary_lines), kept a minute;
-    a detection still running after `wait` seconds says so and lands on the next read."""
+    a detection still running after `wait` seconds says so and lands on the next read. 3.6.0.0 R14: a second, not
+    four -- the probes (each Ollama host, the local server ports, the GPU) answer in seconds where a refused or dead
+    address is slow, and Setup's first read waited for all of them; the page now reads again while `detecting`."""
     with _LOCK:
         fresh = _DETECT["lines"] is not None and time.monotonic() - _DETECT["at"] < _DETECT_TTL
         if fresh:
@@ -218,15 +224,17 @@ def detection(wait: float = 4.0) -> list:
     with _LOCK:
         if _DETECT["lines"] is not None and _DETECT["thread"] is None:
             return list(_DETECT["lines"])
-    return ["Still detecting what is on this machine: the lines show on the next read."]
+    return [STILL_DETECTING]
 
 
 def local_models_block() -> dict:
     from halo_harness.providers.local_model_dirs import resolve_model_dirs
     from halo_harness.theme import get_config_value
     runtime = get_config_value("huggingface.preferred_runtime", default="")
+    lines = detection()
     return {"model_dirs": [str(d) for d in resolve_model_dirs()], "runtime": runtime if isinstance(runtime, str) else "",
-            "runtimes": [{"id": i, "label": label, "note": note} for i, label, note in RUNTIMES], "detection": detection()}
+            "runtimes": [{"id": i, "label": label, "note": note} for i, label, note in RUNTIMES], "detection": lines,
+            "detecting": lines == [STILL_DETECTING]}
 
 
 def provider_blocks(cwd=None, state_dir=None) -> dict:
