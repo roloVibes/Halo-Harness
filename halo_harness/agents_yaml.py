@@ -128,7 +128,7 @@ def _read_yaml_file(path: Path) -> "Optional[dict]":
     try:
         from halo_harness.yamlfile import safe_load  # 3.6.0.0 R14: libyaml when there
         data = safe_load(text)
-    except yaml.YAMLError:
+    except (yaml.YAMLError, RecursionError):
         return None
     data = data if isinstance(data, dict) else (None if data is not None else {})
     settled = abs(time.time_ns() - st.st_mtime_ns) > _YAML_SETTLED_NS

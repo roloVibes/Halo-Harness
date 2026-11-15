@@ -18,9 +18,42 @@ _LOADER = getattr(yaml, "CSafeLoader", None) or yaml.SafeLoader
 _STOCK_SAFE_LOAD = yaml.safe_load
 
 
+MAX_DEPTH = 100  # nesting levels a file may have; Halo's own files use under ten
+
+
+def _depth_bound(text: str) -> int:
+    """A cheap upper bound on the nesting of `text`: every flow level needs a `[` or `{`; the block levels around a
+    node are at most two per column of its line's indentation (a sequence may sit at its key's column) plus one per
+    `-`, `?` or `:` on that line (compact nodes)."""
+    worst = 0
+    for line in text.splitlines():
+        rest = line.lstrip(" ")
+        n = 2 * (len(line) - len(rest) + 1) + rest.count("-") + rest.count("?") + rest.count(":")
+        worst = n if n > worst else worst
+    return text.count("[") + text.count("{") + worst + 1
+
+
+def _check_depth(text, loader) -> None:
+    """Raise a YAMLError for a document nested deeper than MAX_DEPTH. libyaml's composer recurses in C with no check:
+    a 6 KB file of brackets overflowed the stack and ended the process with no word (Windows 0xC00000FD), and
+    PyYAML's own composer raises RecursionError. The parser underneath both is iterative, so its events are counted
+    -- only for a file the cheap bound cannot clear."""
+    if not isinstance(text, str) or len(text) <= MAX_DEPTH or _depth_bound(text) <= MAX_DEPTH:
+        return
+    depth = 0
+    for event in yaml.parse(text, Loader=loader):
+        if isinstance(event, yaml.CollectionStartEvent):
+            depth += 1
+            if depth > MAX_DEPTH:
+                raise yaml.YAMLError(f"it is nested too deep (more than {MAX_DEPTH} levels)")
+        elif isinstance(event, yaml.CollectionEndEvent):
+            depth -= 1
+
+
 def safe_load(text: str):
     """`yaml.safe_load`, through libyaml when it is there (_LOADER). A `yaml.safe_load` replaced in this process (a
-    test that counts the parses) is called as it is."""
+    test that counts the parses) is called as it is. A document nested past MAX_DEPTH is a YAMLError."""
+    _check_depth(text, _LOADER)
     if yaml.safe_load is not _STOCK_SAFE_LOAD:
         return yaml.safe_load(text)
     return yaml.load(text, Loader=_LOADER)  # noqa: S506  (a safe loader: SafeConstructor)
@@ -63,7 +96,7 @@ def _read_yaml_file(path: Path) -> "Optional[dict]":
         return None
     try:
         data = safe_load(text)
-    except yaml.YAMLError:
+    except (yaml.YAMLError, RecursionError):
         return None
     data = data if isinstance(data, dict) else (None if data is not None else {})
     settled = abs(time.time_ns() - st.st_mtime_ns) > _YAML_SETTLED_NS

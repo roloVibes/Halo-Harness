@@ -66,8 +66,9 @@ def own_folder(kind: str, *, cwd=None, state_dir=None, project: bool = False) ->
 
 def read(path: Path) -> Optional[dict]:
     try:
-        data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError, UnicodeDecodeError):
+        from halo_harness.yamlfile import safe_load  # refuses a file nested past MAX_DEPTH
+        data = safe_load(Path(path).read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError, UnicodeDecodeError, RecursionError):
         return None
     return data if isinstance(data, dict) else None
 
