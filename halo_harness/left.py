@@ -12,7 +12,7 @@ from __future__ import annotations
 FLEET = "Fleet is not part of Halo Harness any more (it left in 3.5.0.0); it is a separate pack."
 LEFT = {
     "team": ("the team file left in 3.4.0.0; a map's agents and lines (Agents -> 3 · Map, halo maps) and a run's "
-             "lanes with their owns lines (a goal run on Agents -> Live, halo orchestra) do its job now"),
+             "lanes with their owns lines (a goal run on the Map, halo orchestra) do its job now"),
     "fleet": FLEET,  # 3.5.0.0
     "mission": FLEET,
 }
