@@ -8,6 +8,7 @@
   <img alt="python 3.10+" src="https://img.shields.io/badge/python-3.10%2B-3776ab">
   <img alt="Linux, macOS, Windows" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-2b2b2b">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/github/license/roloVibes/Halo-Harness?color=2e8b57"></a>
+  <a href="https://discord.gg/vuJvKjS9A"><img alt="Discord: join the Halo Harness server" src="https://img.shields.io/badge/Discord-join%20the%20server-5865F2?logo=discord&logoColor=white"></a>
 </p>
 
 [![M8ven Score](https://m8ven.ai/badge/mcp/rolovibes-halo-harness-b6hvi0?v=56463921c5e318696a7daa26849ddc55)](https://m8ven.ai/mcp/rolovibes-halo-harness-b6hvi0?s=readme)
@@ -30,7 +31,8 @@ Studio, a page in your browser, is where you watch it and change it.
   <a href="#start">Start</a> ·
   <a href="#install">Install</a> ·
   <a href="#everything-else-is-a-pack">Packs</a> ·
-  <a href="#links">Docs</a>
+  <a href="#links">Docs</a> ·
+  <a href="https://discord.gg/vuJvKjS9A">Discord</a>
 </p>
 
 <details>
@@ -175,6 +177,8 @@ template repo [halo-pack-template](https://github.com/roloVibes/halo-pack-templa
 
 ## Links
 
+- [Discord](https://discord.gg/vuJvKjS9A): the Halo Harness server. Ask a question, show what you built, talk to the author.
+  (A security problem goes through [SECURITY.md](SECURITY.md), not a public channel.)
 - [The docs map](docs/README.md): every doc, by what you want to do.
 - [CHANGELOG.md](CHANGELOG.md): every release, what changed and why.
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) and [SECURITY.md](SECURITY.md): sending a change, reporting a problem.
