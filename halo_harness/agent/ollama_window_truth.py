@@ -413,7 +413,8 @@ def cut_kind(*, count, num_ctx, num_predict=None, ceiling=None, prompt=None, raw
     """Fix pass F1: the signs that Ollama cut the prompt (it answers 200 and `done_reason: "stop"` either way; a reply
     that ran out is `"length"` and is not one of these). Measured on Ollama 0.40.16:
     - "half": one over-long message is cut by the runner to half the window, `prompt_eval_count` =
-      `num_ctx // 2 + 2` (a few tokens more with a larger keep), while the estimate says the prompt is that long;
+      `num_ctx // 2 + 2` (a few tokens more with a larger keep), whatever the estimate said (one far under that
+      half is a prompt the estimate undercounted, not a reason to trust the count);
     - "room": the count reaches into the room the call kept for the reply (`count > num_ctx - num_predict`; a chat
       that lost whole messages from the front lands a little under `num_ctx`), or the whole window -- below the
       largest window this call may use (at it, a full window is compaction's to fix);
@@ -425,7 +426,9 @@ def cut_kind(*, count, num_ctx, num_predict=None, ceiling=None, prompt=None, raw
     if not (_pos(count) and _pos(num_ctx)):
         return None
     half = num_ctx // 2 + 2
-    if half <= count <= half + HALF_CUT_BAND and _pos(prompt) and prompt >= 0.75 * half:
+    # no floor on the estimate (fix1): a prompt several times Halo's estimate is the case this sign exists for, and
+    # an honest count landing in this 9-token band is not a realistic false positive
+    if half <= count <= half + HALF_CUT_BAND and _pos(prompt):
         return "half"
     below_top = not _pos(ceiling) or num_ctx < ceiling
     if is_cut_at_window(count, num_ctx) or (below_top and _pos(num_predict) and count > num_ctx - num_predict):

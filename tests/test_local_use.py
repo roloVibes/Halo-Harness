@@ -349,6 +349,42 @@ def _asset_echo_lines(lines: list) -> list:
     return lines[1:-1]
 
 
+_CPU_RELEASE = {"tag_name": "b11400", "prerelease": True, "assets": [
+    {"name": f"llama-b11400-bin-{n}", "browser_download_url": f"https://x/{n}", "digest": "sha256:aaa", "size": 10}
+    for n in ("macos-arm64.tar.gz", "macos-x64.tar.gz", "ubuntu-x64.tar.gz", "ubuntu-vulkan-x64.tar.gz",
+              "win-cpu-x64.zip", "win-vulkan-x64.zip")]}
+
+
+@test
+def test_ensure_llama_server_binary_offers_the_build_for_this_cpu(ctx: Ctx):
+    """3.6.0.0 fix pass (models-ollama): an Intel Mac is offered the x64 build, never the arm64 one; an arm64 Linux
+    box whose release has no arm64 build is told so in one line, with the install hint, and never asked to download
+    the x64 build."""
+    from halo_harness.providers.local_use import ensure_llama_server_binary
+    asked = []
+
+    def confirm(q):
+        asked.append(q)
+        return False
+
+    binary, lines = ensure_llama_server_binary(state_dir=Path(tempfile.mkdtemp(prefix="ensure-intel-mac-")),
+                                                confirm=confirm, releases=[_CPU_RELEASE],
+                                                hw_runner=lambda argv, timeout: "", platform_name="darwin",
+                                                machine="x86_64")
+    echo = _asset_echo_lines(lines)
+    ctx.check(f"an Intel Mac is offered macos-x64, got {echo}",
+              binary is None and len(echo) == 1 and "macos-x64" in echo[0])
+    asked.clear()
+    binary, lines = ensure_llama_server_binary(state_dir=Path(tempfile.mkdtemp(prefix="ensure-arm-linux-")),
+                                                confirm=confirm, releases=[_CPU_RELEASE],
+                                                hw_runner=lambda argv, timeout: "", platform_name="linux",
+                                                machine="aarch64")
+    ctx.check(f"an arm64 Linux box is never asked to download an x64 build, got asked={asked} {lines}",
+              binary is None and not asked and not any("x64" in ln for ln in lines))
+    ctx.check(f"one line names the CPU and the install hint, got {lines}",
+              len(lines) == 1 and "arm64" in lines[0] and "install it yourself" in lines[0])
+
+
 @test
 def test_ensure_llama_server_binary_backend_override_bypasses_cuda_probe(ctx: Ctx):
     from halo_harness.providers.local_use import ensure_llama_server_binary

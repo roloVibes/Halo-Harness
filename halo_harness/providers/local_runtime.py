@@ -311,7 +311,8 @@ def find_runtime_binary(runtime: str, *, state_dir=None) -> "Optional[list]":
     independently confirmed this round."""
     if runtime == "mlx_lm":
         import importlib.util
-        return [sys.executable, "-m", "mlx_lm.server"] if importlib.util.find_spec("mlx_lm") is not None else None
+        from halo_harness.selfexec import python_argv  # never the project folder's own mlx_lm (it runs there)
+        return python_argv("mlx_lm.server") if importlib.util.find_spec("mlx_lm") is not None else None
     if runtime != "llama-server":
         return None
     import shutil

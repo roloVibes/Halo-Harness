@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from halo_harness.ext import host
 from halo_harness.ext import subprocess_safe as subprocess
 import sys
 import time
@@ -37,7 +38,7 @@ def enable_pack() -> None:
     """Link this folder into the scratch home (BRIDGE_TEST_HOME, set by seeded_home) and enable it with every grant."""
     env = dict(os.environ, PYTHONPATH=str(REPO))
     for argv in (["pack", "install", str(PACK), "--link"], ["pack", "enable", "design", "--grant-all"]):
-        subprocess.run([sys.executable, "-m", "halo_harness", *argv], env=env, check=True, capture_output=True, timeout=120)
+        subprocess.run([*host.halo_command(), *argv], env=env, check=True, capture_output=True, timeout=120)
 
 
 def shoot(out: str, url: str) -> int:

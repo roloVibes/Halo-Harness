@@ -104,6 +104,24 @@ def test_the_four_signs_of_a_cut_and_an_honest_call_that_shows_none(ctx: Ctx):
 
 
 @test
+def test_half_the_window_is_a_cut_even_when_the_estimate_is_far_under_that_half(ctx: Ctx):
+    # fix1 models-ollama: a prompt several times Halo's estimate (the case the sign exists for) is cut by the runner
+    # to num_ctx // 2 + 2 whatever the estimate said; an estimate under 75 % of that half used to hide the cut
+    from halo_harness.agent.ollama_window_truth import cut_kind
+    for est in (3000, 4250, 5000, 6100):
+        got = cut_kind(count=8194, num_ctx=16384, num_predict=4096, ceiling=49152, prompt=est, raw=est)
+        ctx.check(f"estimate {est}, the runner's half of 16,384 (8,194): 'half', got {got}", got == "half")
+    for window, est in ((2048, 300), (8192, 1500), (32768, 4000)):
+        got = cut_kind(count=window // 2 + 2, num_ctx=window, num_predict=window // 4, ceiling=65536, prompt=est,
+                       raw=est)
+        ctx.check(f"estimate {est} at {window}: 'half', got {got}", got == "half")
+    # an honest count just under or just over the band stays none of them
+    for count in (8193, 8203):
+        got = cut_kind(count=count, num_ctx=16384, num_predict=4096, ceiling=49152, prompt=5000, raw=5000)
+        ctx.check(f"count {count} beside the band, estimate 5,000: none, got {got}", got is None)
+
+
+@test
 def test_a_call_that_loaded_the_model_learns_no_ratio_from_a_cut_count(ctx: Ctx):
     import halo_harness.providers.ollama as O
     from halo_harness.agent import ollama_window_truth as W

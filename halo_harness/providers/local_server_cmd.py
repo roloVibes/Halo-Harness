@@ -44,7 +44,8 @@ def binary(runtime: str, *, state_dir=None) -> "tuple[Optional[list], str]":
         import importlib.util
         if importlib.util.find_spec("mlx_lm") is None:
             return None, 'mlx-lm is not installed: uv tool install "halo-harness[mlx]" (or pip install mlx-lm)'
-        return [sys.executable, "-m", "mlx_lm.server"], "python -m mlx_lm.server (mlx-lm in this Python)"
+        from halo_harness.selfexec import python_argv  # never the project folder's own mlx_lm (it runs there)
+        return python_argv("mlx_lm.server"), "python -m mlx_lm.server (mlx-lm in this Python)"
     conf = get_config_value("huggingface.llama_server_bin", default=None)
     if isinstance(conf, list) and conf and all(isinstance(x, str) for x in conf):
         return list(conf), "huggingface.llama_server_bin"

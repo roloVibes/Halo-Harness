@@ -386,9 +386,10 @@ def test_find_runtime_binary_searches_the_runtimes_dir(ctx: Ctx):
 @test
 def test_find_runtime_binary_mlx_lm_shape(ctx: Ctx):
     from halo_harness.providers.local_runtime import find_runtime_binary
+    from halo_harness.selfexec import python_argv  # fix1: the safe form, never the project folder's mlx_lm
     found = find_runtime_binary("mlx_lm")
-    ctx.check(f"either not found, or the documented python -m shape, got {found}",
-              found is None or found == [sys.executable, "-m", "mlx_lm.server"])
+    ctx.check(f"either not found, or the documented python -m shape (the safe form), got {found}",
+              found is None or found == python_argv("mlx_lm.server"))
 
 
 @test

@@ -152,6 +152,57 @@ def test_select_release_and_assets_searches_backward_past_a_partial_newer_tag(ct
               release_cpu["tag_name"] == "b11399")
 
 
+# ---- 3.6.0.0 fix pass (models-ollama): the build is the one for this machine's CPU ----------------------------------
+
+_ARM_RELEASE = {"tag_name": "b11400", "prerelease": True, "assets": [
+    _asset("llama-b11400-bin-win-cpu-x64.zip", 20.0),
+    _asset("llama-b11400-bin-win-cpu-arm64.zip", 19.0),
+    _asset("llama-b11400-bin-win-vulkan-x64.zip", 31.8),
+    _asset("llama-b11400-bin-macos-arm64.tar.gz", 30.0),
+    _asset("llama-b11400-bin-macos-x64.tar.gz", 28.0),
+    _asset("llama-b11400-bin-ubuntu-x64.tar.gz", 22.0),
+    _asset("llama-b11400-bin-ubuntu-vulkan-x64.tar.gz", 33.0),
+]}
+
+
+@test
+def test_backend_candidates_follow_the_cpu(ctx: Ctx):
+    from halo_harness.providers.local_runtime_fetch import backend_candidates
+    ctx.check("an Apple Silicon Mac: metal",
+              backend_candidates(platform_name="darwin", cuda_version=None, machine="arm64") == ["metal"])
+    ctx.check("an Intel Mac: the x64 cpu build, never the arm64 metal one",
+              backend_candidates(platform_name="darwin", cuda_version=None, machine="x86_64") == ["cpu"])
+    ctx.check("an arm64 Linux box (the GPU builds are x64 only): cpu",
+              backend_candidates(platform_name="linux", cuda_version="12.8", machine="aarch64") == ["cpu"])
+    ctx.check("an arm64 Windows box: cpu",
+              backend_candidates(platform_name="win32", cuda_version=None, machine="ARM64") == ["cpu"])
+    ctx.check("an x64 Windows box keeps its chain",
+              backend_candidates(platform_name="win32", cuda_version="13.2", machine="AMD64") == ["cuda", "vulkan"])
+
+
+@test
+def test_the_asset_is_the_one_for_this_cpu_or_none(ctx: Ctx):
+    from halo_harness.providers.local_runtime_fetch import select_release_and_assets as sel
+
+    def names(platform_name, backend, machine):
+        got = sel([_ARM_RELEASE], platform_name=platform_name, backend=backend, machine=machine)
+        return [a["name"] for a in got[1]] if got else None
+    ctx.check("an Intel Mac's cpu build is macos-x64",
+              names("darwin", "cpu", "x86_64") == ["llama-b11400-bin-macos-x64.tar.gz"])
+    ctx.check("an Apple Silicon Mac's metal build is macos-arm64",
+              names("darwin", "metal", "arm64") == ["llama-b11400-bin-macos-arm64.tar.gz"])
+    ctx.check(f"an Intel Mac asked for metal never gets the arm64 build, got {names('darwin', 'metal', 'x86_64')}",
+              "llama-b11400-bin-macos-arm64.tar.gz" not in (names("darwin", "metal", "x86_64") or []))
+    ctx.check(f"an arm64 Windows box's cpu build is win-cpu-arm64, got {names('win32', 'cpu', 'ARM64')}",
+              names("win32", "cpu", "ARM64") == ["llama-b11400-bin-win-cpu-arm64.zip"])
+    ctx.check(f"an arm64 Windows box asked for vulkan gets nothing (x64 only), got {names('win32', 'vulkan', 'ARM64')}",
+              names("win32", "vulkan", "ARM64") is None)
+    ctx.check(f"an arm64 Linux box: no ubuntu arm64 build in this release, nothing, got "
+              f"{names('linux', 'cpu', 'aarch64')}", names("linux", "cpu", "aarch64") is None)
+    ctx.check(f"an x64 Linux box still gets ubuntu-x64, got {names('linux', 'cpu', 'x86_64')}",
+              names("linux", "cpu", "x86_64") == ["llama-b11400-bin-ubuntu-x64.tar.gz"])
+
+
 @test
 def test_select_release_and_assets_none_when_nothing_matches(ctx: Ctx):
     from halo_harness.providers.local_runtime_fetch import select_release_and_assets

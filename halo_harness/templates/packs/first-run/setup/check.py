@@ -5,13 +5,14 @@ environment a pack hook gets (no provider key from Halo's own environment); the 
 file, as every halo run does.
 """
 
+from halo_harness.ext import host
 from halo_harness.ext import subprocess_safe as subprocess
 import sys
 
 
 def main() -> int:
-    proc = subprocess.run([sys.executable, "-m", "halo_harness", "start", "--yes", "--no-studio"],
-                          stdin=subprocess.DEVNULL)
+    # host.halo_command(): Halo's own Python that never imports from the working folder (a checkout of Halo there)
+    proc = subprocess.run([*host.halo_command(), "start", "--yes", "--no-studio"], stdin=subprocess.DEVNULL)
     return proc.returncode
 
 

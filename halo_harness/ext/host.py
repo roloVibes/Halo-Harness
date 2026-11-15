@@ -14,7 +14,8 @@ point the way Halo's own features do.
     host.child_env(env=None)                  the environment Halo gives a tool's process (its provider keys left out)
     host.fetch(url, timeout_s=20, limit=2_000_000)
                                               a page's text through Halo's one network door (offline mode says no)
-    host.halo_command()                       [python, "-m", "halo_harness"]: Halo as a child process
+    host.halo_command()                       [python, "-P", "-m", "halo_harness"] (3.10: a bootstrap): Halo as a
+                                              child process that never imports from the working folder
     host.comfy()                              the ComfyUI Halo is pointed at: queue(workflow, sets, source="", cwd=None)
                                               -> {prompt_id, source, label}, wait(pid, timeout_s, poll_s, on_progress),
                                               outputs(entry), view(filename, subfolder, type) -> bytes, url

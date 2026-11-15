@@ -55,7 +55,8 @@ def ensure_llama_server_binary(*, state_dir, confirm: "Callable[[str], bool]", f
                                 releases: "Optional[list]" = None, hw_runner=None,
                                 backend_override: Optional[str] = None,
                                 cuda_runtime_installed: Optional[bool] = None,
-                                platform_name: Optional[str] = None) -> "tuple[Optional[list], list]":
+                                platform_name: Optional[str] = None,
+                                machine: Optional[str] = None) -> "tuple[Optional[list], list]":
     """Finds `llama-server` on PATH/`~/.halo/runtimes/`, or offers to
     fetch+verify+unpack the pinned release (brief item 3) after printing
     the consent sentence and asking `confirm`. `releases`, when given,
@@ -73,7 +74,13 @@ def ensure_llama_server_binary(*, state_dir, confirm: "Callable[[str], bool]", f
     `sys.platform` itself produced the WRONG expectation on a different
     host, not a code bug; see `tests/test_local_use.py`'s own fix). Returns
     `(binary_argv_or_None, lines)` -- `lines` is always populated
-    (progress/decision text), `None` for the argv on any decline/failure."""
+    (progress/decision text), `None` for the argv on any decline/failure.
+    `machine`, when given, REPLACES `platform.machine()` (the CPU the
+    build is for: an Intel Mac gets the x64 build, an arm64 box an arm64
+    one or one line that the release has none; see
+    `local_runtime_fetch.cpu_arch`)."""
+    from halo_harness.providers.local_runtime_fetch import cpu_arch
+    arch = cpu_arch(machine, platform_name)
     platform_name = platform_name or sys.platform
     from halo_harness.providers.local_runtime import find_runtime_binary
     found = find_runtime_binary("llama-server", state_dir=state_dir)
@@ -93,16 +100,17 @@ def ensure_llama_server_binary(*, state_dir, confirm: "Callable[[str], bool]", f
     # forced: `backend_override` only skips the cuda-vs-vulkan FAMILY
     # decision, never the version-level pick WITHIN cuda (12.x vs 13.x).
     cuda_version = probe_nvidia_cuda_version(runner=hw_runner)
-    candidates = backend_candidates(platform_name=platform_name, cuda_version=cuda_version, override=backend_override)
+    candidates = backend_candidates(platform_name=platform_name, cuda_version=cuda_version, override=backend_override,
+                                    machine=arch)
     picked = None
     for backend in candidates:
         picked = select_release_and_assets(release_list, platform_name=platform_name, backend=backend,
-                                            cuda_version=cuda_version)
+                                            cuda_version=cuda_version, machine=arch)
         if picked is not None:
             break
     if picked is None:
-        lines.append(f"No matching llama.cpp release asset for {platform_name}/{candidates[0]}; install it "
-                      f"yourself: {install_hint()}")
+        lines.append(f"No matching llama.cpp release asset for {platform_name}/{candidates[0]} on {arch}; install "
+                      f"it yourself: {install_hint()}")
         return None, lines
     release, chosen = picked
     # `backend` still holds the loop variable's value at the `break` above
@@ -116,7 +124,7 @@ def ensure_llama_server_binary(*, state_dir, confirm: "Callable[[str], bool]", f
     dest_dir = Path(state_dir) / "runtimes" / version_tag
     vulkan_alt_size = None
     if backend == "cuda":
-        vk = select_release_and_assets(release_list, platform_name=platform_name, backend="vulkan")
+        vk = select_release_and_assets(release_list, platform_name=platform_name, backend="vulkan", machine=arch)
         if vk is not None:
             vulkan_alt_size = sum(a.get("size") or 0 for a in vk[1])
     lines.append(consent_sentence([a["name"] for a in chosen], total_size, dest_dir,
