@@ -51,16 +51,21 @@ concurrency:
 
 jobs:
   linux:
-    name: suites (linux, py3.12, shard ${{ matrix.shard }}/4)
+    # 3.6.0.0: the same job on macOS too (`os` in the matrix). The owner works on a Mac, and three bugs of one day
+    # showed only there. The macOS legs do not fail the run yet (continue-on-error below): they are new, their
+    # first failures are being burned down; the line goes when they are green, before the 3.6.0.0 release.
+    name: suites (${{ matrix.os }}, py3.12, shard ${{ matrix.shard }}/4)
     # every push to master and every pull request (not the tag, nightly or dispatch runs)
     if: (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) || github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
+    continue-on-error: ${{ matrix.os == 'macos' }}
     # 3.3.8.1: tests/run_all.py in four shards (`--shard i/4`: a module's index in the sorted list mod 4), one job
     # each; test_bridge.py and test_tui.py run once, in shard 0's job. The run's conclusion rolls the four up, so
     # scripts/release.py's wait and the orchestrator's poller read one value as before.
     strategy:
       fail-fast: false
       matrix:
+        os: [linux, macos]
         shard: [0, 1, 2, 3]
     timeout-minutes: 70
     env:
@@ -151,9 +156,9 @@ jobs:
         if: always()
         run: |
           {
-            echo "### suites (linux, py3.12, shard ${{ matrix.shard }}/4)"
+            echo "### suites (${{ matrix.os }}, py3.12, shard ${{ matrix.shard }}/4)"
             echo
-            echo "platform: **linux**, tier: **all (fast + full)**, shard: **${{ matrix.shard }}/4** (\`python tests/run_all.py --shard ${{ matrix.shard }}/4\`), event: ${{ github.event_name }}, sha: ${{ github.sha }}"
+            echo "platform: **${{ matrix.os }}**, tier: **all (fast + full)**, shard: **${{ matrix.shard }}/4** (\`python tests/run_all.py --shard ${{ matrix.shard }}/4\`), event: ${{ github.event_name }}, sha: ${{ github.sha }}"
             echo
             for entry in "test_bridge.py bridge ${{ steps.bridge.outcome }}" \
                          "tests/run_all.py run_all ${{ steps.run_all.outcome }}" \
@@ -175,7 +180,7 @@ jobs:
         if: (steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: suite-logs-linux-${{ matrix.shard }}
+          name: suite-logs-${{ matrix.os }}-${{ matrix.shard }}
           path: |
             ${{ runner.temp }}/bridge.log
             ${{ runner.temp }}/run_all.log
