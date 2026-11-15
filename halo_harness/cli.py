@@ -483,7 +483,9 @@ def main(argv: Optional[list] = None) -> int:
     from a config writer anywhere below) is reported as one `halo: ...`
     line and exit 2, never a traceback; library callers still get the
     exception from `theme.set_config_value` itself."""
-    if argv is None:  # 3.6.0.0 R10: the real process (console script, `python -m`): the closing procedure (closing.py)
+    # 3.6.0.0 R10: the real process (console script, `python -m`) installs the closing procedure (closing.py).
+    # A launch that only prints (`--help`, `--version`) starts nothing, so it skips it and stays light (R16).
+    if argv is None and sys.argv[1:] not in (["--help"], ["-h"], ["--version"]):
         from halo_harness import closing
         closing.install()
     try:
