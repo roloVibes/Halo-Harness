@@ -63,7 +63,12 @@ def emit_osc2(title: str, *, stream=None) -> None:
     Terminal, tmux, iTerm2, ...); a plain pipe or a legacy `conhost`
     window that never learned OSC 2 just ignores the bytes. Never
     raises: a closed/non-writable `stream` is exactly "no terminal is
-    watching," not an error worth surfacing."""
+    watching," not an error worth surfacing. 3.6.0.0 R12: nothing on a
+    terminal whose profile keeps the title its own (Apple Terminal:
+    term_profile.sets_title), so no BEL reaches it."""
+    from halo_harness import term_profile
+    if not term_profile.sets_title():
+        return
     if stream is None and _tui_driver is not None:
         try:
             _tui_driver.write(_OSC_TITLE_FMT.format(title))

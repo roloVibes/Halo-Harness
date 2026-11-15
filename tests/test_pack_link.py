@@ -34,14 +34,16 @@ def test_a_link_is_listed_inspected_and_drawn_in_place(ctx: Ctx):
     with PackStudio() as s:
         folder = _new(s, "live", "studio", "agents")
         code, out, err = s.cli("install", str(folder), "--link", "--project")
+        # the folder in either spelling of the same folder (R12: on macOS the temp folder resolves into /private)
         ctx.check(f"install --link --project: one line saying it is read in place, got {out} {err}", code == 0
-                  and out.startswith(f"linked live 0.1.0: {folder}") and "read in place" in out)
+                  and any(out.startswith(f"linked live 0.1.0: {f}") for f in (folder, folder.resolve()))
+                  and "read in place" in out)
         ctx.check("a link file in the repo's packs folder, nothing copied", (s.repo / ".halo" / "packs" / "live.link").is_file()
                   and not (s.repo / ".halo" / "packs" / "live").exists())
         code, out, _err = s.cli("list", "--json")
         row = next(p for p in json.loads(out)["packs"] if p["id"] == "live")
         ctx.check(f"list: the pack, project scope, its folder as the source, got {row}", row["scope"] == "project"
-                  and Path(row["source"]) == folder)
+                  and Path(row["source"]).resolve() == folder.resolve())
         code, out, _err = s.cli("inspect", "live")
         ctx.check(f"inspect by id reads the folder, got {out[-200:]}", code == 0 and "problems: none" in out)
         code, _out, err = s.cli("enable", "live", "--grant-all", "--yes")

@@ -539,6 +539,7 @@ def test_h9b_f24_bin_halo_harness_runs_via_a_real_symlink_from_outside_the_check
             "HOME": str(empty_home),  # no ~/.local/bin/halo console script to fast-path into
             "BRIDGE_TEST_HOME": str(fh["home"]), "BRIDGE_OPENROUTER_BASE_URL": mock.base_url,
             "OPENROUTER_API_KEY": "test-key",
+            "HALO_PYTHON": sys.executable,  # R12: this interpreter, never a Mac's 3.9 /usr/bin/python3
         })
         env.pop("PYTHONPATH", None)  # the fix itself must derive this, not inherit it from the test
         result = subprocess.run(
@@ -553,6 +554,27 @@ def test_h9b_f24_bin_halo_harness_runs_via_a_real_symlink_from_outside_the_check
         ctx.check(f"the real answer came through, got {result.stdout!r}", "ran via the symlink" in result.stdout)
     finally:
         mock.stop()
+
+
+@test
+def test_r12_bin_halo_with_only_an_old_python_says_so_in_one_line(ctx: Ctx):
+    """3.6.0.0 R12: on an Apple silicon Mac `bin/halo` ran /usr/bin/python3 (3.9) and died in a traceback at its first
+    import. It now takes the first python that is 3.10 or newer, and with none it says which it looked at."""
+    if sys.platform == "win32":
+        raise SkipTest("bin/halo is the POSIX launcher (bin/halo.cmd is Windows')")
+    stubs = Path(tempfile.mkdtemp(prefix="rc-r12-py-"))
+    for name in ("python3", "python", "python3.10", "python3.11", "python3.12", "python3.13", "python3.14"):
+        p = stubs / name
+        p.write_text("#!/bin/sh\n[ \"$1\" = --version ] && { echo 'Python 3.9.6'; exit 0; }\nexit 1\n",
+                     encoding="utf-8", newline="\n")
+        p.chmod(0o755)
+    env = {"PATH": f"{stubs}{os.pathsep}/usr/bin{os.pathsep}/bin", "HOME": str(stubs)}
+    result = subprocess.run([str(REPO_DIR / "bin" / "halo"), "--version"], env=env, capture_output=True, text=True,
+                            timeout=30)
+    err = result.stderr.strip()
+    ctx.check(f"exit 1 with one plain line naming what it looked at, got {result.returncode} {err!r}",
+              result.returncode == 1 and len(err.splitlines()) == 1 and "3.10 or newer" in err
+              and f"{stubs}/python3 (Python 3.9.6)" in err and "HALO_PYTHON" in err)
 
 
 # =============================================================================
@@ -591,6 +613,7 @@ def test_fixpass_f07_bin_rolo_claude_symlink_resolves_to_the_real_checkout(ctx: 
             "HOME": str(empty_home),  # no ~/.local/bin/halo console script to fast-path into
             "BRIDGE_TEST_HOME": str(fh["home"]), "BRIDGE_OPENROUTER_BASE_URL": mock.base_url,
             "OPENROUTER_API_KEY": "test-key",
+            "HALO_PYTHON": sys.executable,  # R12: this interpreter, never a Mac's 3.9 /usr/bin/python3
         })
         env.pop("PYTHONPATH", None)  # the fix itself must derive this, not inherit it from the test
         result = subprocess.run(

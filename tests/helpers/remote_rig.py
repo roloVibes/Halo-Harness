@@ -16,10 +16,11 @@ _VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_TEST_NO_BACKGROUND_NET"
 
 
 class Rig:
-    def __init__(self, *, serve: bool = True, start_controller: bool = True, sndbuf=None, session_id=None):
+    def __init__(self, *, serve: bool = True, start_controller: bool = True, sndbuf=None, session_id=None,
+                 home=None):
         self._saved = {k: os.environ.get(k) for k in _VARS}
         os.environ.pop("BRIDGE_STATE_DIR", None)
-        os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="remote-home-")
+        os.environ["BRIDGE_TEST_HOME"] = str(home) if home else tempfile.mkdtemp(prefix="remote-home-")
         os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = "1"
         self.cwd = Path(tempfile.mkdtemp(prefix="remote-cwd-"))
         self.session = FakeSession(session_id) if session_id else FakeSession()

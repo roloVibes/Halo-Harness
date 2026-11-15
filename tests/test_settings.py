@@ -129,7 +129,9 @@ def test_settings_flag_inline_json_base_dir_is_cwd(ctx: Ctx):
     ctx.check("inline JSON --settings wins (higher precedence than user/project/local)",
               settings.model == "flag-model")
     flag_layer = next(l for l in settings.layers if l.name == "flagSettings")
-    ctx.check(f"base_dir is cwd for inline JSON, got {flag_layer.base_dir}", Path(flag_layer.base_dir) == proj)
+    # the same folder, whichever spelling (macOS: /tmp and /var are symlinks into /private)
+    ctx.check(f"base_dir is cwd for inline JSON, got {flag_layer.base_dir}",
+              Path(flag_layer.base_dir).resolve() == proj.resolve())
 
 
 @test

@@ -9,6 +9,7 @@ stops a launch); `stop_one`, `stop_for` and `stop` (all of them, also at exit) a
 from __future__ import annotations
 
 import atexit
+import logging
 import threading
 import time
 from dataclasses import dataclass, field
@@ -21,7 +22,14 @@ _actives: list = []
 _reopeners: list = []  # (controller, opener) for sessions that went (or started) private
 _private_flag: Optional[bool] = None  # /private on|off in this process; None: --private / control.private decide
 _atexit_registered = False
+_last_error: Optional[str] = None  # R12: why the last open failed, one plain line (None after a success)
+log = logging.getLogger(__name__)
 control_enabled, remote_enabled = FI.control_enabled, FI.remote_enabled
+
+
+def last_error() -> Optional[str]:
+    """One plain line saying why this process's last control-socket open failed, or None."""
+    return _last_error
 
 
 @dataclass
@@ -64,7 +72,7 @@ def actives() -> list:
 
 
 def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -> Optional[Active]:
-    global _atexit_registered
+    global _atexit_registered, _last_error
     from halo_harness.remote import agent_frames, registry
     from halo_harness.remote.control_socket import ControlServer
     with _lock:
@@ -91,7 +99,12 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
             if not _atexit_registered:
                 atexit.register(stop)
                 _atexit_registered = True
-        except Exception:
+        except Exception as e:
+            from halo_harness.remote.control_socket import ControlSocketError
+            # R12: never a silent None -- one plain line, kept for the caller (last_error) and logged
+            _last_error = str(e) if isinstance(e, ControlSocketError) else \
+                f"the control socket did not open ({type(e).__name__}: {e})"
+            log.warning("%s", _last_error)
             try:
                 if server is not None:
                     server.close()
@@ -99,6 +112,7 @@ def _open(handle, controller=None, *, kind: Optional[str] = None, reopen=None) -
             except Exception:
                 pass
             return None
+        _last_error = None
     agent_frames.joined(act)
     return act
 

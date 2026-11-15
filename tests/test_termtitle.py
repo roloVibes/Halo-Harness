@@ -9,11 +9,31 @@ window this process happens to be running in.
 from __future__ import annotations
 
 import io
+import os
 import sys
 
 from tests.helpers.runner import new_registry
 
 test, TESTS = new_registry()
+
+# 3.6.0.0 R12: these pin the title bytes on an ordinary terminal. Apple Terminal gets no title at all
+# (term_profile.sets_title; pinned in tests/test_start_bytes.py), and a run started from Apple Terminal itself
+# must not turn these into checks of that profile.
+os.environ.pop("TERM_PROGRAM", None)
+
+
+@test
+def test_apple_terminal_gets_no_title_and_no_bel(ctx):
+    from halo_harness import termtitle
+    buf = io.StringIO()
+    os.environ["TERM_PROGRAM"] = "Apple_Terminal"
+    try:
+        termtitle.emit_osc2("halo", stream=buf)
+    finally:
+        os.environ.pop("TERM_PROGRAM", None)
+    ctx.check(f"nothing written under Apple Terminal, got {buf.getvalue()!r}", buf.getvalue() == "")
+    termtitle.emit_osc2("halo", stream=buf)
+    ctx.check("any other terminal still gets its title", buf.getvalue() == "\x1b]2;halo\x07")
 
 
 @test

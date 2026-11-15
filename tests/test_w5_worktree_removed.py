@@ -69,7 +69,7 @@ def test_cmd_worktree_rm_removes_a_real_worktree_and_fires_the_hook(ctx: Ctx):
     ctx.check(f"exit 0 on a successful removal, got {code}", code == 0)
     ctx.check("the worktree directory is actually gone", not wt_path.exists())
     ctx.check(f"WorktreeRemoved firing was invoked with the removed path, got {fired}",
-              len(fired) == 1 and fired[0][1] == wt_path)
+              len(fired) == 1 and Path(fired[0][1]).resolve() == wt_path.resolve())  # R12: either spelling
 
 
 @test

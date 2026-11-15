@@ -319,11 +319,23 @@ def _ancestors_root_to_leaf(cwd: Path) -> list:
     return chain[1:] if len(chain) > 1 else chain
 
 
+def _pattern_spellings(pat: str) -> "tuple[str, ...]":
+    """The pattern as written and, 3.6.0.0 R12, with its literal folder part spelled by `folder_key`: a file path
+    here is resolved (macOS: /var is /private/var), so a pattern written through the symlink matched nothing."""
+    cut = min([i for i in (pat.find(c) for c in "*?[") if i >= 0], default=len(pat))
+    head, sep, _ = pat[:cut].rpartition("/")
+    if not sep or not head:
+        return (pat,)
+    from halo_harness.config.paths import folder_key
+    resolved = folder_key(head).replace("\\", "/")
+    return (pat,) if resolved == head else (pat, resolved + pat[len(head):])
+
+
 def _excluded(path: Path, patterns: list) -> bool:
     if not patterns:
         return False
     norm = str(path.resolve()).replace("\\", "/")
-    return any(fnmatch.fnmatch(norm, pat) for pat in patterns)
+    return any(fnmatch.fnmatch(norm, p) for pat in patterns for p in _pattern_spellings(pat))
 
 
 def _split_paths_field(value) -> list:

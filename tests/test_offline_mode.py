@@ -450,11 +450,17 @@ def test_urlopen_tls_redirect_hop_is_re_gated_under_offline(ctx: Ctx):
             self.send_header("Content-Length", "0")
             self.end_headers()
 
-    target_srv = _FastHTTPServer(("127.0.0.2", 0), _TargetHandler)
-    port_holder["port"] = target_srv.server_port
+    try:
+        target_srv = _FastHTTPServer(("127.0.0.2", 0), _TargetHandler)
+        port_holder["port"] = target_srv.server_port
+    except OSError:
+        # R12: macOS has only 127.0.0.1 on lo0 (EADDRNOTAVAIL). The gate must refuse the hop before any connect, so
+        # the target needs no listener: a port nothing answers on; a gate that let it through fails on the connect.
+        target_srv, port_holder["port"] = None, 9
     redirect_srv = _FastHTTPServer(("127.0.0.1", 0), _RedirectHandler)
     for srv in (target_srv, redirect_srv):
-        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        if srv is not None:
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         from halo_harness.providers.http import OfflineBlocked, urlopen_tls
         url = f"http://127.0.0.1:{redirect_srv.server_port}/start"
@@ -464,10 +470,10 @@ def test_urlopen_tls_redirect_hop_is_re_gated_under_offline(ctx: Ctx):
         except OfflineBlocked as e:
             ctx.check(f"names the redirect target, got {e}", "127.0.0.2" in str(e))
     finally:
-        target_srv.shutdown()
-        redirect_srv.shutdown()
-        target_srv.server_close()
-        redirect_srv.server_close()
+        for srv in (target_srv, redirect_srv):
+            if srv is not None:
+                srv.shutdown()
+                srv.server_close()
 
 
 @test

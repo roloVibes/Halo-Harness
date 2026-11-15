@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.helpers.apple_platform import apple_silicon, no_mlx_runtime, pinned
 from tests.helpers.mock_openai import MockUpstream
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
@@ -36,8 +37,10 @@ _PROVIDER_ENV_VARS = ("HF_TOKEN", "OPENROUTER_API_KEY", "DATABRICKS_HOST", "DATA
 class _Env:
     def __enter__(self):
         self._saved = {k: os.environ.get(k) for k in
-                       (("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_ENV_FILE") + _PROVIDER_ENV_VARS)}
+                       (("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_ENV_FILE", "HF_HUB_CACHE")
+                        + _PROVIDER_ENV_VARS)}
         d = Path(tempfile.mkdtemp(prefix="doctor-local-mlx-"))
+        os.environ["HF_HUB_CACHE"] = str(d / "hub")  # never the real Hub cache under the person's home
         os.environ["BRIDGE_TEST_HOME"] = str(d)
         os.environ["BRIDGE_STATE_DIR"] = str(d / ".halo")
         os.environ["BRIDGE_ENV_FILE"] = str(d / "no-env-file")
@@ -57,14 +60,23 @@ class _Env:
 
 @test
 def test_doctor_local_hf_mlx_on_non_apple_box_fails_all_steps_with_sentence(ctx: Ctx):
+    """R12: asks the platform. The non-Apple refusal is pinned on every host (the platform pinned "not Apple"); on
+    a real Apple-silicon box the real path runs too, with the mlx_lm binary absent (never a server, never a
+    download): every step says what to install."""
     from halo_harness.doctor_local import run_local_acceptance_check
-    with _Env() as e:
+    with _Env() as e, pinned(False):
         steps, ok = run_local_acceptance_check("hf:mlx/mlx-community/does-not-matter", state_dir=e.state_dir)
         ctx.check("4 steps always returned", len(steps) == 4)
-        ctx.check("overall FAIL (this test box is never Apple Silicon)", ok is False)
+        ctx.check("overall FAIL off Apple Silicon", ok is False)
         ctx.check(f"every step shares the Apple-Silicon sentence as its reason, got {steps!r}",
                   all(s["reason"] == "MLX runs on Apple Silicon only." for s in steps))
         ctx.check("every step is marked FAIL, never a crash", all(s["ok"] is False for s in steps))
+    if apple_silicon():
+        with _Env() as e, no_mlx_runtime():
+            steps, ok = run_local_acceptance_check("hf:mlx/mlx-community/does-not-matter", state_dir=e.state_dir)
+            ctx.check(f"Apple Silicon without mlx_lm: 4 FAIL steps naming the extra, got {steps!r}",
+                      len(steps) == 4 and ok is False and all(s["ok"] is False for s in steps)
+                      and all("halo-harness[mlx]" in s["reason"] for s in steps))
 
 
 @test
@@ -124,9 +136,14 @@ def test_check_mlx_extra_omitted_on_this_non_apple_box(ctx: Ctx):
         # default, which could be a REAL local daemon on this build host)
         # so this stays a fast, hermetic, no-network call.
         os.environ["OLLAMA_HOST"] = "http://127.0.0.1:1"
-        ids = [cid for cid, _line in _check_entries()]
+        with pinned(False):
+            ids = [cid for cid, _line in _check_entries()]
         ctx.check(f"no mlx_extra entry on a non-Apple-Silicon box, got ids containing "
                   f"{[i for i in ids if 'mlx' in i]!r}", "mlx_extra" not in ids)
+        if apple_silicon():  # R12: asks the platform; on Apple Silicon the entry says whether mlx-lm is there
+            entries = dict(_check_entries())
+            ctx.check(f"Apple Silicon: one mlx_extra entry, got {entries.get('mlx_extra')!r}",
+                      "MLX (Apple Silicon)" in str(entries.get("mlx_extra") or ""))
 
 
 if __name__ == "__main__":

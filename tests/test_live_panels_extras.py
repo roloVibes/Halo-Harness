@@ -84,7 +84,8 @@ def test_hand_to_writes_the_markdown_then_stops(ctx: Ctx):
         path = Path(got.get("path") or "")
         md = path.read_text(encoding="utf-8") if path.is_file() else ""
         ctx.check(f"<repo>/.halo/handoffs/<id>.md, got {status} {got.get('path')}",
-                  status == 200 and path.parent == rig.proj / ".halo" / "handoffs" and path.suffix == ".md")
+                  status == 200 and path.parent.resolve() == (rig.proj / ".halo" / "handoffs").resolve()  # R12
+                  and path.suffix == ".md")
         ctx.check("the brief: the task, who to, the hand-back section, the files", "Implement: apply the discount" in md
                   and "Handed to **you@studio** by you@studio" in md and "## Its last hand-back" in md and "## Files it touched" in md)
         ctx.check(f"then the agent is stopped, got {got.get('stopped')}", got["stopped"]["status"] == 200)

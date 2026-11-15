@@ -12,6 +12,7 @@ import os
 import queue
 import socket
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -159,6 +160,79 @@ def test_posix_socket_file_modes(ctx: Ctx):
         server = rig.server
     ctx.check("socket file removed on close", not path.exists())
     del server
+
+
+def _deep_home() -> Path:
+    """A home far past the 104 bytes macOS allows a socket path (and Linux's 108), as a deep home or project is."""
+    deep = Path(tempfile.mkdtemp(prefix="remote-deep-")) / ("d" * 50) / ("e" * 50) / ("f" * 50)
+    deep.mkdir(parents=True)
+    return deep
+
+
+@test
+def test_a_deep_home_still_opens_its_control_socket(ctx: Ctx):
+    """3.6.0.0 R12: on an Apple silicon Mac a session under /var/folders/.../T/... got no control socket (AF_UNIX path
+    too long) and some sixty tests failed behind it. Every platform: a deep home still gives a session its socket."""
+    from halo_harness.remote import registry
+    with Rig(home=_deep_home()) as rig:
+        ctx.check("the socket opened", bool(rig.server.endpoint))
+        ctx.check("ping over it", rig.client().call("ping")["ok"])
+        if os.name == "nt":
+            return
+        from halo_harness.remote.control_socket import path_fits, pointer_target
+        named, bound = rig.server.socket_path, rig.server.bind_path
+        ctx.check("run/<id>.ctl is the long name", named.name == f"{rig.session.log.session_id}.ctl"
+                  and named.parent.name == "run" and not path_fits(named))
+        ctx.check(f"the socket itself sits at a short path, got {bound}", path_fits(bound) and bound != named)
+        ctx.check("the long name is a pointer to it", pointer_target(named) == bound)
+        ctx.check("the endpoint is the short socket", rig.server.endpoint == f"unix:{bound}")
+        ctx.check("socket and pointer are 0600", (bound.stat().st_mode & 0o777) == 0o600
+                  and (named.stat().st_mode & 0o777) == 0o600)
+        ctx.check("its folder is private", (bound.parent.stat().st_mode & 0o777) == 0o700)
+        registry.sweep_stale_ctl(named.parent, now=time.time() + 3600)
+        ctx.check("a sweep keeps a live session's pointer and socket", named.exists() and bound.exists())
+    ctx.check("both removed on close", not named.exists() and not bound.exists())
+
+
+@test
+def test_a_crashed_deep_sessions_pointer_and_socket_are_swept(ctx: Ctx):
+    if os.name == "nt" or not hasattr(socket, "AF_UNIX"):
+        raise SkipTest("Unix-socket half: needs AF_UNIX")
+    from halo_harness.remote import registry
+    from halo_harness.remote.control_socket import short_dir
+    deep = _deep_home() / "run"
+    deep.mkdir()
+    dead = short_dir() / f"r12-dead-{os.getpid()}.ctl"
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.bind(str(dead))
+    s.close()  # bound, never listening: what a crashed session leaves
+    pointer = deep / "crashed.ctl"
+    pointer.write_text(str(dead) + "\n", encoding="utf-8")
+    registry.sweep_stale_ctl(deep, now=time.time() + 3600)
+    ctx.check("the pointer and the socket it names are both gone", not pointer.exists() and not dead.exists())
+
+
+@test
+def test_a_socket_path_that_cannot_fit_is_one_plain_line(ctx: Ctx):
+    if os.name == "nt" or not hasattr(socket, "AF_UNIX"):
+        raise SkipTest("Unix-socket half: needs AF_UNIX")
+    from halo_harness.remote import control_socket, runtime
+    deep = _deep_home()
+    saved = control_socket.short_dir
+    control_socket.short_dir = lambda: deep  # a "short" folder that is not short
+    try:
+        with Rig(home=_deep_home(), serve=False) as rig:
+            try:
+                control_socket.ControlServer(rig.handle).start()
+                err = None
+            except control_socket.ControlSocketError as e:
+                err = str(e)
+            ctx.check(f"start raises one plain line, got {err!r}", bool(err) and "\n" not in err and "bytes" in err)
+            act = runtime._open(rig.handle, rig.controller)
+            ctx.check(f"the opener returns None with the same line, not a traceback, got {runtime.last_error()!r}",
+                      act is None and runtime.last_error() == err)
+    finally:
+        control_socket.short_dir = saved
 
 
 if __name__ == "__main__":

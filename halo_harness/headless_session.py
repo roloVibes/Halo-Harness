@@ -155,7 +155,9 @@ def run(args) -> int:
     act = runtime._open(handle, controller)  # noqa: SLF001  (start_for_controller with this handle and kind)
     if act is None:
         controller.quit()
-        print("halo: the control socket did not open, so this session would have no door; it ended", file=sys.stderr)
+        why = runtime.last_error()
+        print("halo: the control socket did not open" + (f" ({why})" if why else "")
+              + ", so this session would have no door; it ended", file=sys.stderr)
         return 1
     _watch_turns(handle, controller)
     for sig in (getattr(signal, "SIGTERM", None), getattr(signal, "SIGBREAK", None)):

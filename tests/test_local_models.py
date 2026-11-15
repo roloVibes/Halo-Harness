@@ -147,7 +147,12 @@ def test_refresh_probes_the_manual_entry_for_real(ctx: Ctx):
             ctx.check(f"bare: not probed, got {manual_bare}", manual_bare[0].reachable is None)
 
             fresh_rows = build_local_view(refresh=True, env=dict(os.environ), state_dir=e.state_dir)
-            manual_fresh = [r for r in fresh_rows if r.group == "Hugging Face (local: bench)"]
+            # R12: asks the platform -- a probed server with no llama-server /props is labelled MLX on a Mac
+            # (huggingface_local_probe._runtime_label_for), so its group carries ", MLX" there
+            group = "Hugging Face (local: bench, MLX)" if sys.platform == "darwin" else "Hugging Face (local: bench)"
+            manual_fresh = [r for r in fresh_rows if r.group == group]
+            ctx.check(f"refresh: the server's group is {group!r}, got {sorted({r.group for r in fresh_rows})}",
+                      bool(manual_fresh))
             ctx.check(f"refresh: now reachable with the real model id, got {manual_fresh}",
                       manual_fresh[0].reachable is True and manual_fresh[0].name == "my-model")
             ctx.check(f"refresh: the ref is addressable by name, got {manual_fresh[0].ref!r}",

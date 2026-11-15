@@ -72,7 +72,8 @@ def test_block_html_comment_stripped_but_fence_preserved(ctx: Ctx):
     os.environ["BRIDGE_TEST_HOME"] = str(fh["home"])  # finding 14: never walk the REAL ~/.claude ancestors
     os.environ["BRIDGE_TEST_ANCESTOR_ROOT"] = str(fh["root"])  # ...nor the real ancestors of the OS temp dir
     bundle = discover_instructions(fh["proj"], FakeSettings(), trusted=True)
-    proj_file = next(f for f in bundle.files if f.path == fh["proj"] / "CLAUDE.md")
+    # the file as discovery spells it: resolved (macOS: the temp folder is under /private)
+    proj_file = next(f for f in bundle.files if f.path == (fh["proj"] / "CLAUDE.md").resolve())
     ctx.check("block HTML comment removed", "that spans two lines" not in proj_file.text)
     ctx.check("text after the comment survives", "Text after the comment" in proj_file.text)
     ctx.check("fenced @not-an-import survives untouched (not import-expanded)",
@@ -96,8 +97,9 @@ def test_claude_md_excludes_glob(ctx: Ctx):
     pattern = str(fh["proj"] / "CLAUDE.md").replace("\\", "/")
     bundle = discover_instructions(fh["proj"], FakeSettings(excludes=[pattern]), trusted=True)
     joined_paths = [str(f.path) for f in bundle.files]
-    ctx.check("excluded file's own path never appears in the files list",
-              str(fh["proj"] / "CLAUDE.md") not in joined_paths)
+    ctx.check("excluded file's own path never appears in the files list (either spelling)",
+              str(fh["proj"] / "CLAUDE.md") not in joined_paths
+              and str((fh["proj"] / "CLAUDE.md").resolve()) not in joined_paths)
     ctx.check("a warning was recorded for the exclusion",
               any("excluded" in w for w in bundle.warnings))
 

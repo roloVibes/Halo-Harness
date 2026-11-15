@@ -243,7 +243,7 @@ class BridgeApp(App):
         # initial stylesheet) before returning -- `theme_name` must exist
         # on `self` BEFORE `super().__init__()` runs, not after.
         self.theme_name = theme_name or tui_theme.DEFAULT_THEME
-        super().__init__()
+        super().__init__()  # driver: get_driver_class below (R12: quiet on Apple Terminal)
         # 2.0.0 Launch intro: defaults OFF (never auto-detected here) so
         # every existing/future test that constructs a BridgeApp directly
         # without passing this is completely unaffected -- `tui/launch.py`'s
@@ -408,6 +408,20 @@ class BridgeApp(App):
         self._tip_rotator.advance()
         self._refresh_tip_placeholder()
 
+    # ---- what this terminal takes (3.6.0.0 R12: no beep on Apple Terminal) ----
+
+    def get_driver_class(self):
+        """Textual's driver for this platform, minus the DECRQM query a terminal that does not take one would
+        mishandle (term_profile.quiet_driver)."""
+        from halo_harness import term_profile
+        return term_profile.quiet_driver(super().get_driver_class())
+
+    def _set_pointer_shape(self, shape: str) -> None:
+        """Textual's OSC 22 pointer shape ends in a BEL; Apple Terminal has no OSC 22 and rang the bell at start."""
+        from halo_harness import term_profile
+        if term_profile.takes_pointer_shape():
+            super()._set_pointer_shape(shape)
+
     # ---- composition -------------------------------------------------
 
     def compose(self) -> ComposeResult:
@@ -568,9 +582,13 @@ class BridgeApp(App):
             # unless `control.enabled` is false or it is private (closed again by
             # Controller.quit()); a `shutdown` from Studio ends the app here.
             try:
-                from halo_harness.remote.runtime import start_for_controller
+                from halo_harness.remote.runtime import last_error, start_for_controller
                 self.controller.on_control_shutdown = lambda _text: self.call_from_thread(self._begin_quit)
-                start_for_controller(self.controller)
+                if start_for_controller(self.controller) is None and last_error():
+                    # R12: a socket that cannot open is one plain line in the transcript, never silent
+                    from halo_harness.events import Event
+                    self.controller.events.put(Event("system_note", {
+                        "text": f"Studio cannot reach this session: {last_error()}"}))
             except Exception:
                 pass
         else:

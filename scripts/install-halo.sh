@@ -92,17 +92,30 @@ confirm() {
 
 # 1. Python 3.10+ (detection only -- real either way, --dry-run still needs
 #    the real answer to decide whether it would even proceed).
+#    HALO_PYTHON names the one to use (a Mac's /usr/bin/python3 is often 3.9);
+#    the refusal says which pythons it looked at and what each one is.
 PY=""
-for c in python3 python; do
-  if have "$c" && "$c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
-    PY="$c"; break
+LOOKED=""
+if [ -n "${HALO_PYTHON:-}" ]; then set -- "$HALO_PYTHON"; else set -- python3 python; fi
+for c in "$@"; do
+  if have "$c"; then
+    LOOKED="${LOOKED}  $(command -v "$c"): $("$c" --version 2>&1 | head -n 1)
+"
+    if "$c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+      PY="$c"; break
+    fi
+  else
+    LOOKED="${LOOKED}  $c: not found
+"
   fi
 done
 if [ -z "$PY" ]; then
-  echo "Python 3.10 or newer is required (check: python3 --version)."
+  echo "Python 3.10 or newer is required. Looked at:"
+  printf '%s' "$LOOKED"
+  echo "Install a newer Python, or name one with HALO_PYTHON=/path/to/python3 and run this again."
   exit 1
 fi
-say "Python: $("$PY" --version)"
+say "Python: $(command -v "$PY") ($("$PY" --version 2>&1))"
 
 # 2. uv (isolated tool installs; sidesteps PEP 668 on Kali/Debian)
 if ! have uv; then

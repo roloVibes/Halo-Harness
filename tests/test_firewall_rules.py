@@ -102,7 +102,9 @@ def test_uvs_junction_to_the_real_python_is_this_python(ctx: Ctx):
     sys.executable, sys._base_executable = str(venv), str(link / "python.exe")
     try:
         mine = F.programs()
-        ctx.check(f"the resolved interpreter is one of this Halo's pythons, got {sorted(mine)}", F._norm(str(real / "python.exe")) in mine)
+        # R12: resolved all the way (on macOS the temp folder itself is a symlink into /private)
+        ctx.check(f"the resolved interpreter is one of this Halo's pythons, got {sorted(mine)}",
+                  F._norm(F._real(str(real / "python.exe"))) in mine)
         got = F.check(7430, run=_runner(_rule("python.exe", "Block", program=str(real / "python.exe"))
                                         + _rule("Halo fleet hub", "Allow", program="Any", port="7430")))
         ctx.check(f"its Block rule wins over the port's Allow rule and is said first, got {got}", got["state"] == "blocked")

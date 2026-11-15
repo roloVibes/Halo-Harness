@@ -275,7 +275,9 @@ def test_install_kind_dir_checkout_non_editable_local_install(ctx: Ctx):
     (checkout / ".git").mkdir()
     d = {"url": f"file://{checkout.as_posix()}", "dir_info": {}}
     run_fn = _fake_run({"uv tool list": _Proc("some-other-tool v1\n"), "pipx list": _Proc("nothing here\n")})
-    k = upd.install_kind(direct_url=d, run_fn=run_fn)
+    # R12: a scratch prefix, as the tests around it pass -- the running venv may itself be a uv tool (the owner's
+    # Mac runs the suite with Halo's own uv tool python, whose uv-receipt.toml made this a `uv tool` reinstall)
+    k = upd.install_kind(direct_url=d, prefix=str(_tmp()), run_fn=run_fn)
     ctx.check(f"kind is dir_checkout, got {k}", k["kind"] == "dir_checkout")
     ctx.check(f"spec is the checkout path, got {k['spec']!r}", Path(k["spec"]).resolve() == checkout.resolve())
     ctx.check(f"reinstall_cmd pulls first, then a NON-editable reinstall, got {k['reinstall_cmd']!r}",

@@ -39,7 +39,9 @@ def test_packs_10_the_installer_fails_closed_without_the_lock(ctx: Ctx):
             (stubs / name).write_text(STUB + tail, encoding="utf-8", newline="\n")
             (stubs / name).chmod(0o755)
         env = {**os.environ, "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", ""), "HOME": str(home),
-               "STUB_LOG": str(log), "HALO_NO_MODIFY_PATH": "1", "HALO_CLONE_DIR": str(home / "clone")}
+               "STUB_LOG": str(log), "HALO_NO_MODIFY_PATH": "1", "HALO_CLONE_DIR": str(home / "clone"),
+               # R12: the running interpreter, never whatever python3 is first on PATH (a Mac's is 3.9)
+               "HALO_PYTHON": "" if os.name == "nt" else sys.executable}
         sha = "0123456789abcdef0123456789abcdef01234567"
         r = subprocess.run([bash, str(REPO / "scripts" / "install-halo.sh"), "--no-clone", "--yes", "--ref", sha],
                            capture_output=True, text=True, timeout=60, env=env, stdin=subprocess.DEVNULL)

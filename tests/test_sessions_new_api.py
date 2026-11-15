@@ -54,7 +54,8 @@ def test_new_session_from_studio_then_end_it(ctx: Ctx):
         ctx.check(f"GET sessions lists it with its kind, got {mine}", len(mine) == 1 and mine[0].get("kind") == "headless")
         saved = json.loads((rig.state / "studio-sessions.json").read_text("utf-8"))["sessions"]
         ctx.check(f"studio-sessions.json keeps the pid and the id, got {saved}",
-                  any(r["session_id"] == sid and r["pid"] == pid and r["cwd"] == str(rig.proj) for r in saved))
+                  any(r["session_id"] == sid and r["pid"] == pid
+                      and Path(r["cwd"]).resolve() == rig.proj.resolve() for r in saved))  # R12: either spelling
 
         c = rig.client(entry)
         c.call("subscribe")

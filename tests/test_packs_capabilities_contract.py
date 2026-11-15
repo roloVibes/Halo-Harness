@@ -121,6 +121,11 @@ def test_every_meaning_is_a_line(ctx: Ctx):
 def test_inspect_lists_studio_and_capability_contributions_with_available_and_why(ctx: Ctx):
     with PacksHome() as h:
         h.catalog([TOOLS_ROW])
+        # R12: a known host (Linux, no GPU, 64 GB) as test_capability_check_core seeds it -- the real one (a Mac, a
+        # 7 GB CI runner) added reasons of its own to "no GPU here"
+        from halo_harness.peers.catalog import save
+        save({"hash": "test", "hardware": {"os": "linux", "gpu": [], "ram_gb": 64}, "clis": {}, "mcp": [],
+              "models": []}, h.state)
         h.install(h.source(), enable=True, grants=["bash"])
         h.install(h.source("caps-needs-gpu"), enable=True)
         code, out, _err = h.cli("inspect", "doc-review")

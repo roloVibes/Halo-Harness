@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import tests.helpers.mock_openai as mock_openai_mod
+from tests.helpers.apple_platform import apple_silicon, no_mlx_runtime, pinned
 from tests.helpers.mock_openai import MockUpstream, _finish
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
@@ -105,11 +106,12 @@ def _installed_scenario(name: str, fn):
 
 
 class _Env:
-    _KEYS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_ENV_FILE", "OLLAMA_HOST")
+    _KEYS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR", "BRIDGE_ENV_FILE", "OLLAMA_HOST", "HF_HUB_CACHE")
 
     def __enter__(self):
         self._saved = {k: os.environ.get(k) for k in self._KEYS}
         d = Path(tempfile.mkdtemp(prefix="gym-hf-5i-"))
+        os.environ["HF_HUB_CACHE"] = str(d / "hub")  # never the real Hub cache under the person's home
         os.environ["BRIDGE_TEST_HOME"] = str(d)
         os.environ["BRIDGE_STATE_DIR"] = str(d / ".halo")
         os.environ["BRIDGE_ENV_FILE"] = str(d / "no-env-file")
@@ -180,13 +182,18 @@ def test_hf_mlx_on_non_apple_box_is_a_clean_refusal(ctx: Ctx):
     local.py` already documents) -- on THIS box (never Apple Silicon)
     the refusal is the one deterministic, portable outcome to pin."""
     from halo_harness.gym_run import run_gym_for_model
-    with _Env() as env:
+    keys = ("tool_call_accuracy", "edit_success", "context_recall", "instruction_adherence")
+    with _Env() as env, pinned(False):  # R12: the non-Apple refusal, pinned on every host
         result = run_gym_for_model("hf:mlx/mlx-community/does-not-matter", quick=True, state_dir=env.state_dir)
         ctx.check(f"one plain error line, never a crash, got {result['errors']}",
                   len(result["errors"]) == 1 and "Apple Silicon" in result["errors"][0])
-        ctx.check("every score stayed None (never attempted)",
-                  all(result[k]["score"] is None for k in
-                      ("tool_call_accuracy", "edit_success", "context_recall", "instruction_adherence")))
+        ctx.check("every score stayed None (never attempted)", all(result[k]["score"] is None for k in keys))
+    if apple_silicon():  # R12: asks the platform; on Apple Silicon without mlx_lm, the line names the extra
+        with _Env() as env, no_mlx_runtime():
+            result = run_gym_for_model("hf:mlx/mlx-community/does-not-matter", quick=True, state_dir=env.state_dir)
+            ctx.check(f"Apple Silicon: one plain line naming the extra, got {result['errors']}",
+                      len(result["errors"]) == 1 and "halo-harness[mlx]" in result["errors"][0])
+            ctx.check("Apple Silicon: every score stayed None", all(result[k]["score"] is None for k in keys))
 
 
 @test

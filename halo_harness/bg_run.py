@@ -264,6 +264,8 @@ def pid_alive(pid: int) -> bool:
         return False
     # A zombie (exited, not yet reaped) still answers kill(pid, 0); Linux
     # exposes its state in /proc, and a zombie is not alive for our purposes.
+    if not os.path.isdir("/proc/self"):
+        return not _ps_zombie(pid)  # 3.6.0.0 R12: macOS has no /proc
     try:
         with open(f"/proc/{pid}/stat", "r", encoding="utf-8", errors="replace") as fh:
             state = fh.read().rsplit(")", 1)[-1].split()[0]
@@ -279,6 +281,17 @@ def pid_alive(pid: int) -> bool:
         return True
     except OSError:
         return False
+
+
+def _ps_zombie(pid: int) -> bool:
+    """3.6.0.0 R12: on a POSIX system without /proc (macOS, the BSDs) `ps` says whether `pid` is a zombie -- a
+    session that ended but whose parent has not reaped it read as alive there, so Studio waited on it for ever.
+    Unknown (no ps, a timeout) is not a zombie."""
+    try:
+        result = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return (result.stdout or "").strip().upper().startswith("Z")
 
 
 def kill_pid(pid: int) -> bool:

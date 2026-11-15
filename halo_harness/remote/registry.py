@@ -161,11 +161,19 @@ def endpoint_for(session_id: str) -> Optional[str]:
 CTL_GRACE_S = 10.0  # a socket this young may be bound but not listening yet
 
 
+def _is_socket(path: Path) -> bool:
+    import stat
+    try:
+        return stat.S_ISSOCK(os.lstat(path).st_mode)
+    except OSError:
+        return False
+
+
 def sweep_stale_ctl(directory: Optional[Path] = None, now: Optional[float] = None) -> None:
     """Delete `<id>.ctl` Unix sockets whose listener is gone (POSIX). A file
     younger than CTL_GRACE_S, or one whose session's registry entry has a
     live pid, is a sibling that is still starting (or running) and is kept."""
-    from halo_harness.remote.control_socket import run_dir
+    from halo_harness.remote.control_socket import pointer_target, run_dir
     d = directory or run_dir()
     try:
         files = list(d.glob("*.ctl"))
@@ -184,8 +192,11 @@ def sweep_stale_ctl(directory: Optional[Path] = None, now: Optional[float] = Non
         pid = owners.get(f.stem)
         if isinstance(pid, int) and pid_alive(pid):
             continue
-        if not client.probe(f"unix:{f}"):
-            try:
-                f.unlink()
-            except OSError:
-                pass
+        target = pointer_target(f)  # R12: run/<id>.ctl may name a socket in the short folder
+        if not client.probe(f"unix:{target or f}"):
+            for p in (f, target if target is not None and _is_socket(target) else None):
+                try:
+                    if p is not None:
+                        p.unlink()
+                except OSError:
+                    pass

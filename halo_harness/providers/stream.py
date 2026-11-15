@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import queue
 import socket
 import threading
@@ -343,6 +344,11 @@ def _force_close(sock) -> None:
         sock.shutdown(socket.SHUT_RDWR)
     except OSError:
         pass
+    if os.name != "nt":
+        # 3.6.0.0 R12: POSIX stops here -- the shutdown has woken the reader, and closing the raw fd under it let the
+        # number be reused at once by another call's new connection (two sub-agents cut together on an Apple silicon Mac:
+        # one resent, the other never did, its reader left on a descriptor that was no longer its own).
+        return
     try:
         fd = sock.detach()
     except OSError:

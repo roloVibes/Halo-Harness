@@ -44,6 +44,12 @@ def _bash() -> str:
     return b
 
 
+def _this_python() -> str:
+    """R12: the script checks the running interpreter, never whatever python3 is first on PATH (a Mac's is 3.9). On
+    Windows the bash found may be WSL's, which cannot run it: left to find its own python there."""
+    return "" if os.name == "nt" else sys.executable
+
+
 NL = chr(10)
 HALO_STUB = "#!/bin/sh" + NL + 'echo "halo $*" >> "%s"' + NL + 'echo "halo 0.0.0"' + NL + "exit 0" + NL
 
@@ -69,7 +75,8 @@ def _dry(*args) -> tuple:
     scratch = Path(tempfile.mkdtemp(prefix="sec5c-home-"))
     log = scratch / "calls.log"
     stubs = _stub_dir(log)
-    env = {"HOME": str(scratch), "HALO_CLONE_DIR": str(scratch / "clone"), "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", "")}
+    env = {"HOME": str(scratch), "HALO_CLONE_DIR": str(scratch / "clone"), "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", ""),
+           "HALO_PYTHON": _this_python()}
     res = subprocess.run([_bash(), str(SH), "--dry-run", *args], capture_output=True, text=True, timeout=60, env=env)
     return res, log
 
@@ -98,7 +105,8 @@ def test_f26_real_resolution_picks_the_highest_release_tag(ctx: Ctx):
     scratch = Path(tempfile.mkdtemp(prefix="sec5c-real-"))
     log = scratch / "calls.log"
     stubs = _stub_dir(log)
-    env = {"HOME": str(scratch), "HALO_CLONE_DIR": str(scratch / "clone"), "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", "")}
+    env = {"HOME": str(scratch), "HALO_CLONE_DIR": str(scratch / "clone"), "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", ""),
+           "HALO_PYTHON": _this_python()}
     (scratch / "clone").mkdir()  # 3.4.1.2 (PACKS-10): the checkout holds its lock, which the installer now checks for
     (scratch / "clone" / "requirements.lock").write_text("annotated-types==0.8.0", encoding="utf-8")
     res = subprocess.run([_bash(), str(SH), "--yes"], capture_output=True, text=True, timeout=90, env=env)

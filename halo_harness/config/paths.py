@@ -429,12 +429,29 @@ def _base36(n: int) -> str:
     return "".join(reversed(out))
 
 
+def folder_key(path: str | Path) -> str:
+    """3.6.0.0 R12: THE spelling of a folder for every per-folder store and lookup (sessions, memory, project
+    settings, exports, `~/.claude.json` project keys). On POSIX an absolute path is resolved through its symlinks,
+    because the process's own cwd always is (getcwd): on macOS /var is /private/var, so a project typed as
+    /var/folders/... and the same project as the process sees it were two keys, and its sessions and memory went
+    missing. Windows keeps the spelling as given (its cwd is not resolved, and resolving would turn a mapped drive
+    into a UNC path); a relative path is left alone."""
+    s = str(path)
+    if os.name == "nt" or not os.path.isabs(s):
+        return s
+    try:
+        return os.path.realpath(s)
+    except (OSError, ValueError):
+        return s
+
+
 def project_slug(cwd: str | Path) -> str:
     """Convert cwd to a filesystem-safe slug: every non-alphanumeric char ->
     '-'; slugs over 200 chars are truncated to 200 and get a base-36
     `abs(javaHash(originalPath))` suffix (over the UNTRUNCATED original
-    string, not the slug) [bin sec.12] -- NOT a sha1 hash."""
-    cwd_str = str(cwd)
+    string, not the slug) [bin sec.12] -- NOT a sha1 hash. The folder is
+    spelled by `folder_key` first (R12: one key through a symlink)."""
+    cwd_str = folder_key(cwd)
     slug = re.sub(r"[^a-zA-Z0-9]", "-", cwd_str)
     if len(slug) <= 200:
         return slug
@@ -466,7 +483,7 @@ def normalize_cwd(path: str | Path) -> str:
     p = Path(s)
     if not p.is_absolute():
         p = Path.cwd() / p
-    normalized = str(p)
+    normalized = folder_key(p)  # R12: resolved through symlinks on POSIX, as Claude Code's own cwd is
     if os.name == "nt":
         normalized = normalized.replace("\\", "/")
         if re.match(r"^[a-zA-Z]:/", normalized):

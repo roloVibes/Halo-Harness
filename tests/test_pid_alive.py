@@ -49,6 +49,27 @@ def test_a_tasklist_that_times_out_is_not_a_dead_pid(ctx: Ctx):
         process_alive.win_alive, subprocess.run = saved_win, saved_run
 
 
+@test
+def test_an_unreaped_child_is_not_alive(ctx: Ctx):
+    """3.6.0.0 R12: a session that ended but was not reaped yet is a zombie; kill(pid, 0) still answers for it.
+    Linux reads its state from /proc, macOS has none and asks ps: on an Apple silicon Mac a Studio waited on such a
+    session for ever ("the child ended" never came)."""
+    if os.name == "nt":
+        raise SkipTest("POSIX: Windows has no zombies (its exit code answers)")
+    import time
+    from halo_harness import bg_run
+    child = subprocess.Popen([sys.executable, "-c", "pass"])  # never polled until the end: nothing reaps it
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and bg_run.pid_alive(child.pid):
+        time.sleep(0.1)
+    try:
+        ctx.check(f"an exited, unreaped child (pid {child.pid}) reads as not alive",
+                  bg_run.pid_alive(child.pid) is False)
+        os.kill(child.pid, 0)  # and it really was unreaped: the pid still answers a signal-0 probe
+    finally:
+        child.wait(timeout=30)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

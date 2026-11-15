@@ -4,7 +4,10 @@
 Transport:
 
 * POSIX: a Unix socket `~/.halo/run/<session_id>.ctl`, mode 0600, run dir
-  0700 -- filesystem permissions are the auth.
+  0700 -- filesystem permissions are the auth. When that path is longer than
+  the system allows (104 bytes on macOS: a deep home or temp folder), the
+  socket is `<short per-user folder>/<hash>.ctl` and `run/<id>.ctl` is a
+  0600 file naming it (3.6.0.0 R12); the registry carries the real endpoint.
 * Windows: loopback TCP (127.0.0.1, an OS-assigned port) plus a random
   16-byte hex token; a connection's first line must be `{"token": "..."}`
   within 5 s or it is closed. Nothing ever listens on a non-loopback
@@ -25,12 +28,14 @@ clients. At most `MAX_SUBSCRIBERS` (16) connections hold a feed at once.
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import os
 import re
 import secrets
 import socket
+import sys
 import threading
 from pathlib import Path
 from typing import Optional
@@ -57,6 +62,65 @@ def run_dir() -> Path:
     except OSError:
         pass
     return d
+
+
+class ControlSocketError(OSError):
+    """The control socket cannot open; its message is one plain line for the person."""
+
+
+def sun_path_max() -> int:
+    """Bytes a Unix socket path may hold here, its NUL left out: sun_path is 108 bytes on Linux and 104 on macOS
+    and the BSDs."""
+    return 107 if sys.platform.startswith("linux") else 103
+
+
+def path_fits(path) -> bool:
+    return len(os.fsencode(str(path))) <= sun_path_max()
+
+
+def short_dir() -> Path:
+    """3.6.0.0 R12: a short per-user folder for a socket whose own path is too long (macOS keeps 104 bytes and its
+    temp folder alone is /var/folders/xx/yyyy/T/): `$XDG_RUNTIME_DIR/halo` when that is set, else
+    `/tmp/halo-<uid>`. Made 0700; refused (ControlSocketError) unless it is a real folder this user owns that no
+    one else can enter."""
+    xdg = os.environ.get("XDG_RUNTIME_DIR") or ""
+    base = Path(xdg) / "halo" if xdg and os.path.isabs(xdg) else Path("/tmp") / f"halo-{os.getuid()}"
+    try:
+        base.mkdir(mode=0o700, parents=False, exist_ok=True)
+        st = os.lstat(base)
+    except OSError as e:
+        raise ControlSocketError(f"the control socket's short folder {base} cannot be made ({e.strerror or e})") from e
+    import stat as _stat
+    if not _stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+        raise ControlSocketError(f"the control socket's short folder {base} is not a private folder of this user, "
+                                 "so the session opens no control socket (remove it and start again)")
+    return base
+
+
+def socket_paths(session_id: str) -> "tuple[Path, Optional[Path]]":
+    """`(bind path, pointer path or None)` for a session's Unix socket. `run/<id>.ctl` when it fits; else the
+    socket is `<short_dir>/<hash>.ctl` and `run/<id>.ctl` is a small file naming it (the pointer). A short path
+    that still does not fit is a ControlSocketError, one plain line."""
+    named = run_dir() / f"{session_id}.ctl"
+    if path_fits(named):
+        return named, None
+    digest = hashlib.sha256(os.fsencode(str(named))).hexdigest()[:20]
+    short = short_dir() / f"{digest}.ctl"
+    if not path_fits(short):
+        raise ControlSocketError(f"the control socket path {short} is longer than this system's "
+                                 f"{sun_path_max()} bytes, so the session opens no control socket")
+    return short, named
+
+
+def pointer_target(path: Path) -> Optional[Path]:
+    """The socket a pointer file `run/<id>.ctl` names, or None when `path` is not a pointer."""
+    try:
+        if not path.is_file() or path.stat().st_size > 4096:
+            return None
+        text = path.read_text(encoding="utf-8").strip()
+    except (OSError, ValueError):
+        return None
+    return Path(text) if text and os.path.isabs(text) else None
 
 
 def encode_line(obj: dict) -> bytes:
@@ -176,7 +240,8 @@ class ControlServer:
         self.closed = threading.Event()
         self.token: Optional[str] = None
         self.endpoint: Optional[str] = None
-        self.socket_path: Optional[Path] = None
+        self.socket_path: Optional[Path] = None  # run/<id>.ctl: the socket itself, or the pointer to bind_path
+        self.bind_path: Optional[Path] = None
         self.port: Optional[int] = None
         self._sock: Optional[socket.socket] = None
         self._thread: Optional[threading.Thread] = None
@@ -197,16 +262,28 @@ class ControlServer:
             d = run_dir()
             from halo_harness.remote.registry import sweep_stale_ctl
             sweep_stale_ctl(d)
-            self.socket_path = d / f"{self.session_id}.ctl"
-            try:
-                self.socket_path.unlink()
-            except OSError:
-                pass
+            bind_path, pointer = socket_paths(self.session_id)
+            self.socket_path, self.bind_path = pointer or bind_path, bind_path
+            for p in (bind_path, pointer):
+                try:
+                    if p is not None:
+                        p.unlink()
+                except OSError:
+                    pass
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.bind(str(self.socket_path))
-            sock.listen(8)  # at once: a bound socket that refuses connects reads as stale to a sibling's sweep
-            os.chmod(self.socket_path, 0o600)
-            self.endpoint = f"unix:{self.socket_path}"
+            try:
+                sock.bind(str(bind_path))
+                sock.listen(8)  # at once: a bound socket that refuses connects reads as stale to a sibling's sweep
+                os.chmod(bind_path, 0o600)
+                if pointer is not None:
+                    from halo_harness.privateio import write_private_atomic
+                    write_private_atomic(pointer, str(bind_path) + "\n")
+            except OSError as e:
+                sock.close()
+                if isinstance(e, ControlSocketError):
+                    raise
+                raise ControlSocketError(f"the control socket {bind_path} did not open ({e.strerror or e})") from e
+            self.endpoint = f"unix:{bind_path}"
         self._sock = sock
         self._thread = threading.Thread(target=self._accept_loop, name="halo-ctl-accept", daemon=True)
         self._thread.start()
@@ -269,8 +346,8 @@ class ControlServer:
             conns, self._conns = self._conns, []
         for c in conns:
             c.force_close()
-        if self.socket_path is not None:
+        for p in {self.socket_path, self.bind_path} - {None}:
             try:
-                self.socket_path.unlink()
+                p.unlink()
             except OSError:
                 pass

@@ -30,4 +30,17 @@ fi
 
 repo_root="$(dirname "$here")"
 export PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}"
-exec python3 -m halo_harness "$@"
+# 3.6.0.0 R12: the first python that is 3.10 or newer, never just `python3`
+# (a Mac's /usr/bin/python3 is 3.9, and Halo failed at its first import).
+# HALO_PYTHON names one; otherwise python3 and python first (an activated
+# environment's), then the versioned names.
+looked=""
+for py in ${HALO_PYTHON:+"$HALO_PYTHON"} python3 python python3.14 python3.13 python3.12 python3.11 python3.10; do
+    command -v "$py" >/dev/null 2>&1 || continue
+    if "$py" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
+        exec "$py" -m halo_harness "$@"
+    fi
+    looked="$looked $(command -v "$py") ($("$py" --version 2>&1))"
+done
+echo "halo: needs Python 3.10 or newer; looked at:${looked:- no python found} (name one with HALO_PYTHON=/path/to/python3)" >&2
+exit 1

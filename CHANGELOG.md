@@ -645,6 +645,38 @@ the page open under 1% of a core.
 `tests/test_studio_first_minute.py` holds a real server to it: at most 5 CPU-seconds from launch to idle, the
 address within 2 CPU-seconds, Setup's first read within 2, under 2% of a core idle, and a 50,000-file project tree
 costing no more at start.
+### R12
+
+Halo works on a Mac. Nobody had run the suite on one until this week: 123 tests failed on an Apple silicon Mac, 141 on
+the macOS CI runners, and his Mac beeped when a session started.
+
+- **No beep in Apple Terminal.** A session's start-up bytes, captured on the Mac with Apple Terminal's settings, held
+  `ESC ] 22 ; default BEL` (Textual's mouse-pointer shape: Apple Terminal has no such sequence, so its closing BEL
+  rang the bell), a `CSI ? 2048 $ p` query Apple Terminal prints a stray `p` for, and Halo's BEL-closed window title.
+  In Apple Terminal (`TERM_PROGRAM=Apple_Terminal`) none of the three is sent now (`term_profile.py`); every other
+  terminal gets what it got. `tests/test_start_bytes.py` starts a real session on a pseudo-terminal and finds no BEL.
+- **A session's control socket always opens.** macOS keeps 104 bytes for a socket path and its temp folder alone is
+  `/var/folders/xx/.../T/`; a deep home or project gave a session no control socket, so Studio could not see it. A
+  path too long now puts the socket in a short private folder (`$XDG_RUNTIME_DIR/halo` or `/tmp/halo-<uid>`, by a
+  hash) with `run/<id>.ctl` naming it; one that still cannot fit is one plain line (in the transcript, and for a
+  session with no terminal), never a silent nothing.
+- **A folder reached through a symlink is the same folder.** On macOS `/var` and `/tmp` are links into `/private`;
+  sessions, memory, `~/.claude.json` project entries and `claudeMdExcludes` patterns were kept under one spelling and
+  looked up under the other ("no sessions found for this directory"). One helper, `config.paths.folder_key`, spells
+  a folder for every store and lookup (resolved through its links on Linux and macOS; as typed on Windows).
+- **The launcher and the installer find a new enough Python.** `bin/halo` takes the first of `HALO_PYTHON`,
+  `python3`, `python`, `python3.14` ... `python3.10` that is 3.10 or newer (a Mac's `/usr/bin/python3` is 3.9), and
+  says in one line which it looked at when none is; `install-halo.sh` honours `HALO_PYTHON` and lists each python it
+  looked at with its version.
+- **A steer reaches every silent sub-agent on a Mac.** Cutting a call that had not answered yet closed its socket's
+  descriptor under the thread still reading it; on macOS the number went at once to the next call's connection, and
+  of two sub-agents cut together one never sent its call again. On Linux and macOS the cut now only shuts the socket
+  down (that wakes the reader); Windows keeps its close.
+- **An ended session is ended on a Mac.** A session that had exited but was not yet reaped still answered "alive" on
+  macOS (no `/proc` to say it is a zombie), so Studio waited on it; `ps` now says so there.
+- **Tests ask the platform.** The MLX checks ask whether this is Apple silicon instead of assuming it is not; tests
+  that compared a typed temp path with the resolved one compare the folder; a test that needs 127.0.0.2 works where
+  only 127.0.0.1 exists (macOS).
 
 ## [3.5.0.0] - 2026-11-13
 

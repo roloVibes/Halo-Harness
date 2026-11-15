@@ -358,7 +358,9 @@ def test_apply_update_runs_in_the_checkout_cwd_never_the_process_cwd(ctx: Ctx):
         code, _out, _err = _capture(update_cli.apply_update)
         ctx.check(f"exit 0, got {code}", code == 0)
         ctx.check(f"the reinstall ran with cwd == the checkout, got {seen_cwd}", seen_cwd == [str(checkout)])
-        ctx.check(f"this PROCESS's own cwd is untouched, got {os.getcwd()!r}", os.getcwd() == str(other_project))
+        # R12: getcwd() is the resolved spelling (macOS: the temp folder is under /private)
+        ctx.check(f"this PROCESS's own cwd is untouched, got {os.getcwd()!r}",
+                  Path(os.getcwd()).resolve() == other_project.resolve())
     finally:
         os.chdir(old_cwd)
         _restore_all(orig)
