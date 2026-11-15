@@ -1,0 +1,222 @@
+"""scripts/realcheck/steps_close.py -- steps 10 to 12: closing every way, nothing reused, the machine not held.
+
+10. Each thing a person starts -- a session (bare `halo`), `halo init`, `halo studio`, a one-shot mid-turn, a session
+    with a sub-agent mid-run, a session with an MCP server, a managed local model server -- is ended by Ctrl+C (the
+    key typed into its terminal; a full-screen session's "Quit Halo?" answered with Enter, as a person does), by its
+    terminal closing (the pty's master closed: SIGHUP; the pseudoconsole closed: CTRL_CLOSE_EVENT) and by a hard kill
+    of the top process. Five seconds later no process started under that launch's scratch home may be alive.
+11. After a `halo init` is ended, a second `halo init` must start its own Studio (a new pid, started after it).
+12. A Studio idle with its page open for 60 s: Halo's processes together under 5% of one core."""
+from __future__ import annotations
+
+import json
+import re
+import sys
+import time
+
+from realcheck import screen
+from realcheck.core import URL, Fail, Skip, excerpt
+
+HOW = ("Ctrl+C", "closed terminal", "hard kill")
+
+
+def _mcp_home(ctx, h) -> None:
+    """The scratch home's ~/.claude.json names one stdio MCP server (the suite's fake), as a person's would; loaded at
+    the start (`mcpLazy: false`; a lazy one starts only when a turn asks for its tools)."""
+    server = {"type": "stdio", "command": sys.executable, "args": ["-m", "tests.helpers.fake_mcp_server"],
+              "env": {"PYTHONPATH": str(ctx.repo)}, "mcpLazy": False}
+    (h.home / ".claude.json").write_text(json.dumps({"mcpServers": {"rc-fake": server}}), encoding="utf-8")
+
+
+def _gguf(ctx, h) -> str:
+    """A model file and the suite's fake llama-server as the server Halo runs for it (huggingface.llama_server_bin)."""
+    f = h.home / "models" / "rc-tiny-Q4_K_M.gguf"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_bytes(b"GGUF" + b"\0" * 2048)
+    fake = [sys.executable, str(ctx.repo / "tests" / "helpers" / "fake_llama_server.py")]
+    ctx.run(h, "config", "set", "huggingface.llama_server_bin", json.dumps(fake), timeout=30)
+    return str(f)
+
+
+def _has(ctx, h, word: str):
+    return lambda: any(word in p.cmdline for p in ctx.ours(h).values())
+
+
+def _served_beside(ctx, h, t) -> bool:
+    """Once the session is up: `halo local serve <file>` from another shell on the same home (it returns at once and
+    leaves the server running "until the last Halo process on this home exits"); up when the server runs."""
+    if not screen.READY.search(t.plain()):
+        return False
+    if not getattr(h, "served", False):
+        h.served = True
+        ctx.run(h, "local", "serve", _gguf(ctx, h), timeout=60)
+    return _has(ctx, h, "fake_llama_server")()
+
+
+# name: (how to prepare the home and the argv, when it is up)
+TARGETS = {
+    "session": (lambda ctx, h: (), lambda ctx, h, t: screen.READY.search(t.plain())),
+    "init": (lambda ctx, h: ("init",), lambda ctx, h, t: re.search(URL, t.plain())),
+    "studio": (lambda ctx, h: ("studio",), lambda ctx, h, t: re.search(URL, t.plain())),
+    "one-shot mid-turn": (lambda ctx, h: ("-p", "RC-SLOW hold the turn"), lambda ctx, h, t: "RC-SLOW" in ctx.provider.hung),
+    "sub-agent mid-run": (lambda ctx, h: ("-p", "RC-HANG spawn and wait"),
+                          lambda ctx, h, t: "RC-SUBHANG" in ctx.provider.hung),
+    "session + MCP server": (lambda ctx, h: _mcp_home(ctx, h) or (),
+                             lambda ctx, h, t: screen.READY.search(t.plain()) and _has(ctx, h, "fake_mcp_server")()),
+    "session + local model server": (lambda ctx, h: (), _served_beside),
+}
+
+
+def serve_alone(ctx) -> dict:
+    """`halo local serve <file>` returns at once; it says the server "stops when the last Halo process on this home
+    exits", and no other Halo process runs here: 5 s after it returned nothing may be left."""
+    h = ctx.home("close")
+    r = ctx.run(h, "local", "serve", _gguf(ctx, h), timeout=60)
+    row = {"target": "`halo local serve` with no session", "how": "it returned", "top_exit": r.code,
+           "said": excerpt(r.out, 160)}
+    row["left"] = [f"{p.short(110)} [{p.why}]" for p in ctx.left_after(h, 5.0)]
+    ctx.end_leftovers(h)
+    return row
+
+
+def _end(t, how: str, full_screen: bool) -> str:
+    if how == "closed terminal":
+        t.close_window()
+        return "terminal closed"
+    if how == "hard kill":
+        t.hard_kill()
+        return "top process killed"
+    if full_screen:
+        return screen.quit_with_ctrl_c(t, wait=0.5)
+    t.ctrl_c()
+    keys = "Ctrl+C"
+    if t.wait(2.0) is None:  # still up: a person presses it again
+        t.ctrl_c()
+        keys += " Ctrl+C"
+    return keys
+
+
+def one_close(ctx, target: str, how: str) -> dict:
+    prep, ready = TARGETS[target]
+    h = ctx.home("close")
+    ctx.provider.rearm()
+    args = prep(ctx, h)
+    t = ctx.terminal(h, *args)
+    row: dict = {"target": target, "how": how}
+    up = None
+    end = time.monotonic() + 45
+    while time.monotonic() < end and t.poll() is None:
+        try:
+            up = ready(ctx, h, t)
+        except Exception:
+            up = None
+        if up:
+            break
+        time.sleep(0.2)
+    row["ready_s"] = round(time.monotonic() - t.started_at, 1)
+    if not up:
+        row["not_started"] = excerpt(t.plain(), 240) or f"exit {t.poll()}"
+    else:
+        row["running"] = len(ctx.ours(h))
+        row["keys"] = _end(t, how, full_screen=target.startswith("session"))
+        left = ctx.left_after(h, 5.0)
+        row["top_exit"] = t.poll()
+        row["left"] = [f"{p.short(110)} [{p.why}]" for p in left]
+    ctx.provider.release()
+    t.cleanup()
+    ctx.end_leftovers(h)
+    return row
+
+
+def closing(ctx):
+    rows = [one_close(ctx, target, how) for target in TARGETS for how in HOW] + [serve_alone(ctx)]
+    left = [r for r in rows if r.get("left")]
+    unstarted = [r for r in rows if "not_started" in r]
+    ev = {"rows": rows}
+    bad = [f"{r['target']} / {r['how']}: {len(r['left'])} left ({r['left'][0][:90]})" for r in left]
+    bad += [f"{r['target']} did not come up to be closed ({r['not_started'][:100]})" for r in unstarted]
+    if bad:
+        raise Fail(f"{len(left)} of {len(rows)} ways out left processes running 5 s later: " + "; ".join(bad), ev,
+                   "R10" if left and not unstarted else "")
+    return f"all {len(rows)} ways out ({len(TARGETS)} launches x {len(HOW)}, + `halo local serve`) left nothing", ev
+
+
+def _studio_pid(h, timeout: float = 15.0) -> int:
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        try:
+            return int(json.loads((h.state / "studio.json").read_text(encoding="utf-8"))["pid"])
+        except (OSError, ValueError, KeyError, TypeError):
+            time.sleep(0.1)
+    return 0
+
+
+def no_reuse(ctx):
+    from realcheck import procs
+    h = ctx.home("no-reuse")
+    first = ctx.terminal(h, "init")
+    if not first.wait_for(lambda s: re.search(URL, s), 30):
+        raise Fail("the first `halo init` printed no address in 30 s: " + excerpt(first.plain(), 200))
+    a = _studio_pid(h)
+    screen.quit_with_ctrl_c(first)
+    first.cleanup()
+    a_alive = bool(a) and procs.alive(a)
+    launched = time.time()
+    second = ctx.terminal(h, "init")
+    second.wait_for(lambda s: re.search(URL, s), 30)
+    b = _studio_pid(h)
+    b_started = procs.started_at(b) if b else 0.0
+    ev = {"first_studio": a, "first_alive_after_ctrl_c": a_alive, "second_studio": b,
+          "second_started_after_launch_s": round(b_started - launched, 2) if b_started else None,
+          "second_screen": excerpt(second.plain(), 240)}
+    screen.quit_with_ctrl_c(second)
+    second.cleanup()
+    ctx.end_leftovers(h)
+    if not b:
+        raise Fail("the second `halo init` has no Studio (no studio.json)", ev)
+    if b == a or (b_started and b_started < launched - 1):
+        raise Fail(f"the second `halo init` attached to the Studio from before (pid {b}, started "
+                   f"{launched - b_started:.0f}s before the launch) instead of starting its own", ev, "R10")
+    return f"the second `halo init` started its own Studio (pid {b}, {b_started - launched:.1f}s after it)", ev
+
+
+def idle_cpu(ctx, seconds: float = 60.0):
+    from tests.helpers.chrome_driver import find_chrome, open_chrome
+    h = ctx.home("idle")
+    t = ctx.terminal(h, "studio")
+    if not t.wait_for(lambda s: re.search(URL, s), 30):
+        ctx.end_leftovers(h)
+        raise Fail("`halo studio` printed no address in 30 s: " + excerpt(t.plain(), 200))
+    url = re.search(URL, t.plain()).group(0)
+    c = open_chrome() if find_chrome() else None
+    try:
+        if c is not None:
+            c.go(url)
+            time.sleep(5)  # the page's first reads; then nobody touches it
+        before = {p.pid: p for p in ctx.ours(h).values()}
+        time.sleep(seconds)
+        after = {p.pid: p for p in ctx.ours(h).values()}
+    finally:
+        if c is not None:
+            c.close()
+        screen.quit_with_ctrl_c(t)
+        t.cleanup()
+        ctx.end_leftovers(h)
+    used, per = 0.0, {}
+    for pid, p in after.items():
+        if p.cpu < 0:
+            continue
+        d = p.cpu - (before[pid].cpu if pid in before and before[pid].cpu >= 0 else 0.0)
+        per[p.short(70)] = round(d, 2)
+        used += d
+    share = used / seconds
+    ev = {"page_open": c is not None, "cpu_seconds": round(used, 2), "share_of_one_core": round(share, 4),
+          "processes": per}
+    if not after:
+        raise Fail("no Halo process was found to measure (the scan saw none under the home)", ev)
+    if share >= 0.05:
+        raise Fail(f"an idle Studio{' with its page open' if c else ''} used {share:.1%} of one core over "
+                   f"{seconds:.0f}s (budget 5%)", ev, "R13")
+    if c is None:
+        raise Skip(f"no Chrome: measured with no page open: {share:.1%} of one core")
+    return f"{share:.1%} of one core over {seconds:.0f}s with the page open", ev

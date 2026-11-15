@@ -195,6 +195,51 @@ simply stop skipping on a box that has it), and a manual Playwright
 screenshot round trip. See `docs/harness/LIVE-CHECKS.md` for the full
 runbook (what to run, where, and what to expect back).
 
+## realcheck: Halo driven the way a person drives it (3.6.0.0 R11)
+
+Every bug the owner hit in one week of 3.5/3.6 (a launch that spins, a Studio left running overnight, a beep at
+start, a theme that did not apply, an update that broke the install, a helper burning a core) passed the unit suites.
+`scripts/realcheck.py` starts the real `halo` -- this checkout (`python -m halo_harness`), or with `--installed` the
+`halo` on PATH -- as separate processes, in a terminal of their own where a person has one (a pty on Linux and macOS,
+a pseudoconsole on Windows), in a scratch home and project, and judges what a person would see.
+
+```
+python scripts/realcheck.py                  # every step; exit 0 only when none failed
+python scripts/realcheck.py --list           # the steps and their budgets
+python scripts/realcheck.py --only closing no-reuse --json out.json
+python scripts/realcheck.py --real-local ol:qwen3:1.7b@http://<host>:11434   # step 8 on a real Ollama too
+```
+
+One line per step: name, PASS / FAIL / SKIP, seconds, and on FAIL what a person would have seen (`--json` keeps the
+evidence: times, bytes, excerpts, the process list). Each step has a time budget; over it is a FAIL. The steps:
+`starts` (--version / --help in 2 s, --help names every command cli.py runs), `first-run` (`halo init` in a fresh
+home: the address in 2 s, the page in 2 s more, Setup's first read in 5 s, no BEL, instrument in the terminal and the
+page), `theme` (`halo config set theme paper` is what the terminal's first frame and the page draw), `question`
+(`halo -p` in 5 s; the request's bytes against the day-one size + 10%, `REQUEST_BYTES` in steps_a.py), `turn` (Read,
+a sub-agent and the Workflow tool, from the session's own log), `studio` (headless Chrome through every section: drawn
+in 5 s, no failed /api call, no console error, `hold_still`, two early choices, one prompt from the Prompt panel;
+SKIP without Chrome), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
+fake Ollama named as another machine; one load for a one-shot, none for the next), `update` (`halo update --check`
+online, offline and on the stable channel, in plain words), `closing` (seven launches -- a session, `halo init`,
+`halo studio`, a one-shot mid-turn, a sub-agent mid-run, a session with an MCP server, a managed local model server
+-- each ended by Ctrl+C, by its terminal closing and by a hard kill: 5 s later nothing started under that launch's
+home may be alive), `no-reuse` (a second `halo init` starts its own Studio), `idle-cpu` (a Studio idle 60 s with its
+page open: under 5% of one core).
+
+How it stays off the machine's own Halo: each launch gets its own folder under one scratch root (HOME, USERPROFILE,
+APPDATA, XDG_*, TMP and BRIDGE_TEST_HOME all inside it); Halo's, the providers' and Claude Code's variables of the
+shell are not passed; model calls go to the suite's fake provider (`BRIDGE_OPENROUTER_BASE_URL`, a made-up key) and
+Ollama calls to a dead port or the suite's load-counting fake; the "browser" is a program in BROWSER that writes the
+URL down. The process scan (`scripts/realcheck/procs.py`: /proc, `ps -E`, or the Windows process list and each
+process's PEB) matches only a process whose command line or environment names that folder, one carrying a HALO_OWNER
+value one of those carries, or a child of one; only those are ever ended, by pid, after their start time is checked.
+No kill by name. Its own machinery is tested in `tests/test_realcheck.py` against stand-in commands.
+
+CI: the `realcheck (linux|macos|windows)` jobs in suites.yml run it on pushes to master and rc/** and on pull
+requests, the table in the job summary and the JSON as the `realcheck-<os>` artifact. They do not block yet
+(continue-on-error) while the rounds that fix today's expected failures land; a FAIL marked "expected until R10 /
+R12 / R13 lands" is one of those. Every other FAIL is a product bug: say what a person saw and how to reproduce it.
+
 ## The briefs/review/acceptance workflow
 
 `docs/harness/` is this project's own build history, not user
