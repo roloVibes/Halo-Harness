@@ -51,7 +51,8 @@ def cmd_rpc(argv: list) -> int:
     else:
         from halo_harness.host.routes_view import View
         addr = _addr(home)
-        got = R.turn_on(home, addr=addr, card_rows=View(home).card().get("hosts") or [], port=a.port, mem_mib=a.mem)
+        got = R.turn_on(home, addr=addr, card_rows=View(home).card().get("hosts") or [], port=a.port, mem_mib=a.mem,
+                        keep=True)  # this command returns at once: the rpc-server outlives it (a kept spawn)
         if got.get("ok") and not got.get("already"):
             got["notes"] = [R.lan_line(addr)]
     if a.json:

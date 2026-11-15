@@ -254,12 +254,14 @@ def launch(plan: dict, *, state_dir=None, windows: Optional[bool] = None, python
             return None
         return 0  # an exec that returned: only a test's fake
     run = popen or subprocess.Popen
+    from halo_harness import closing  # the updater and its window outlive this halo: kept, never in its Job
     detached = getattr(subprocess, "DETACHED_PROCESS", 0x08) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
     started = None
     for extra in (getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0x01000000), 0):
         try:
-            started = run(argv, creationflags=detached | extra, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                          stderr=subprocess.DEVNULL, cwd=str(run_dir(state_dir)), close_fds=True)
+            started = run(argv, **closing.kept_kwargs({
+                "creationflags": detached | extra, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL, "cwd": str(run_dir(state_dir)), "close_fds": True}))
             break
         except OSError:
             continue
@@ -267,10 +269,12 @@ def launch(plan: dict, *, state_dir=None, windows: Optional[bool] = None, python
         print(f"halo update: the updater did not start ({runner}); nothing was installed; run `halo update` again",
               file=sys.stderr)
         return None
+    closing.register_kept(started, "update", argv)
     window = getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
     try:  # the window is a viewer only: without it the update still runs, its log says how it went
         run([*py, str(runner), "--watch", str(plan_path), str(getattr(started, "pid", "") or "")],
-            creationflags=window, stdin=subprocess.DEVNULL, cwd=str(run_dir(state_dir)), close_fds=True)
+            **closing.kept_kwargs({"creationflags": window, "stdin": subprocess.DEVNULL,
+                                   "cwd": str(run_dir(state_dir)), "close_fds": True}))
     except OSError:
         pass
     if not quiet:

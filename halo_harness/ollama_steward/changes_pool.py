@@ -102,7 +102,7 @@ def warm(name: str, *, allow_wifi=None, window=None, keep: bool = False, state_d
         return {"ok": False, "lines": [f"{name!r} is not in the pool catalog ({', '.join(C.names())})"]}
     if not pf["ok"]:
         return {"ok": False, "lines": [pf["line"]], "preflight": pf}
-    got = launch.start(pf, state_dir=state_dir, home=home, by=by)
+    got = launch.start(pf, state_dir=state_dir, home=home, by=by, keep=keep)
     if not got["ok"]:
         return {**got, "preflight": pf}
     b = baseline(C.get(pf["model"]), state)

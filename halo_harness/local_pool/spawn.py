@@ -19,15 +19,18 @@ _PROCS: dict = {}
 POLL_S = 0.25
 
 
-def spawn(cmd: list, log: Path, shown: list) -> int:
+def spawn(cmd: list, log: Path, shown: list, keep: bool = False) -> int:
+    """`keep` (`halo local serve --pool <model> --keep`): the server outlives the command that started it -- a kept
+    spawn (closing.start_kept: out of its Job, its own marker, in the ledger as the pool, `halo pool stop`)."""
     from halo_harness.providers.config import tool_child_env
     log = Path(log)
     log.parent.mkdir(parents=True, exist_ok=True)
     with open(log, "ab") as out:
         out.write(f"--- halo starts: {' '.join(shown)}\n".encode("utf-8"))
         out.flush()
-        proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                env=tool_child_env(dict(os.environ)))
+        kw = {"stdout": out, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL,
+              "env": tool_child_env(dict(os.environ))}
+        proc = subprocess.start_kept(cmd, what="pool", shown=shown, **kw) if keep else subprocess.Popen(cmd, **kw)
     _PROCS[proc.pid] = proc
     return proc.pid
 

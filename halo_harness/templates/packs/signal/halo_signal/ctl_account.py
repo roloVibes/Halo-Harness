@@ -67,8 +67,9 @@ def link(args) -> int:
         kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | getattr(subprocess, "CREATE_NO_WINDOW", 0)
     else:
         kw["start_new_session"] = True
-    try:
-        subprocess.Popen(helper, **kw)
+    try:  # it waits for the phone after this command returns: a kept spawn (Halo 3.6.0.0; older: a plain Popen)
+        start_kept = getattr(subprocess, "start_kept", None)
+        start_kept(helper, what="pack", **kw) if start_kept else subprocess.Popen(helper, **kw)
     except OSError as e:
         print(f"The link helper did not start: {e}")
         return 1

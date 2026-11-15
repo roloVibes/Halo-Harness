@@ -147,7 +147,8 @@ class Popen(_sp.Popen):
     def __init__(self, args, *a, **kw):
         # 3.6.0.0 R10 (closing.py): the child carries this tree's HALO_OWNER marker even in an environment the caller
         # built, joins this process's Job object on Windows (unless a person asked to keep it), and a kept spawn that
-        # may not break away from an outer Job starts without the breakaway flag rather than not at all.
+        # may not break away from an outer Job starts from outside every Job (closing.start_outside_job); when even
+        # that cannot be done it starts inside that Job and Halo says so in one line (never a silent pretence).
         from halo_harness import closing, selfexec
         kw = closing.before_spawn(selfexec.fix_kw(args, kw))
         try:
@@ -156,15 +157,46 @@ class Popen(_sp.Popen):
             flags = int(kw.get("creationflags") or 0)
             if not (flags & closing._BREAKAWAY):
                 raise
-            kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
             # The failed attempt closed the DEVNULL handle it opened but left `_devnull` naming it; a retry on the
             # same object would hand the child that closed handle ([Errno 9] Bad file descriptor). Start clean.
             self.__dict__.pop("_devnull", None)
+            kept = closing.is_kept_env(kw.get("env"))
+            if kept and not a:  # an outer Job forbids leaving it: a kept spawn starts from outside every Job
+                pid = closing.start_outside_job(resolve(args, kw), kw)
+                if pid and self._stand_for(args, pid):
+                    return
+            kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
             super().__init__(resolve(args, kw), *a, **kw)
+            if kept:
+                closing.say_held_in_job(self.pid, args)
         try:
             closing.after_spawn(self, kw)
         except Exception:
             pass
+
+    def _stand_for(self, args, pid: int) -> bool:
+        """Windows: this Popen stands for process `pid`, started elsewhere (closing.start_outside_job): pid, poll,
+        wait, terminate and kill work on it through a handle opened now; it has no pipes."""
+        import _winapi
+        try:  # SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE
+            handle = _winapi.OpenProcess(0x00100000 | 0x1000 | 0x0001, False, int(pid))
+        except OSError:
+            return False
+        self.args, self.pid, self.returncode = args, int(pid), None
+        self.stdin = self.stdout = self.stderr = None
+        self.encoding = self.errors = None
+        self.text_mode, self.pipesize = False, -1
+        self._sigint_wait_secs, self._closed_child_pipe_fds = 0.25, True
+        self._input, self._communication_started = None, False
+        self._handle, self._child_created = _sp.Handle(handle), True
+        return True
+
+
+def start_kept(args, *, what: str, shown=None, **kw):
+    """Start a program a person asked to outlive this process, in the ledger as kept (closing.start_kept); a pack's
+    way to say so through `halo_harness.ext.subprocess_safe`."""
+    from halo_harness import closing
+    return closing.start_kept(args, what=what, shown=shown, **kw)
 
 
 def __getattr__(name: str):

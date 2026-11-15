@@ -7,7 +7,7 @@ host/ops_rpc.py is the op; docs/HOST.md "rpc_server").
         `halo local serve` fetched: llama.cpp's release archives carry both). Under BRIDGE_TEST_NO_BACKGROUND_NET only a
         configured pool.rpc_server_bin or the SEAMS runner is used: a real rpc-server never starts in a test.
     argv(prefix, *, bind, port, mem_mib) -> [... "-H", bind, "-p", port, "--mem", mem_mib]
-    start(argv, log) -> pid       stop(pid) -> how it ended       alive(pid) -> bool
+    start(argv, log, keep=False) -> pid       stop(pid) -> how it ended       alive(pid) -> bool
     proto_from_log(log) -> "3.0.0" | None   rpc-server's "Starting RPC server v3.0.0" line
 
 SEAMS (the tests' runner): "start": fn(argv, log_path) -> pid, "stop": fn(pid) -> str, "alive": fn(pid) -> bool. The
@@ -63,7 +63,10 @@ def argv(prefix: list, *, bind: str, port: int, mem_mib: Optional[int]) -> list:
     return out + ["--mem", str(int(mem_mib))] if isinstance(mem_mib, int) and mem_mib > 0 else out
 
 
-def start(cmd: list, log: Path) -> int:
+def start(cmd: list, log: Path, keep: bool = False) -> int:
+    """`keep` (`halo host rpc on`, a command that returns at once): the rpc-server outlives it -- a kept spawn
+    (closing.start_kept: out of its Job, its own marker, in the ledger, `halo host rpc off`). The host service's own
+    start is its child."""
     if "start" in SEAMS:
         return int(SEAMS["start"](list(cmd), Path(log)))
     from halo_harness.providers.config import tool_child_env
@@ -76,8 +79,9 @@ def start(cmd: list, log: Path) -> int:
     with open(log, "ab") as out:
         out.write(f"--- halo host starts: {' '.join(cmd)}\n".encode("utf-8"))
         out.flush()
-        proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                env=tool_child_env(dict(os.environ)), **flags)
+        kw = dict(stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=tool_child_env(dict(os.environ)),
+                  **flags)
+        proc = subprocess.start_kept(cmd, what="rpc", **kw) if keep else subprocess.Popen(cmd, **kw)
     return proc.pid
 
 

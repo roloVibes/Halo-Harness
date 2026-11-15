@@ -155,7 +155,8 @@ def _oom(log: Path, pf: dict, shares: dict) -> str:
             "GB; no CPU fallback (-ngl 999)")
 
 
-def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user", wait_s: Optional[float] = None) -> dict:
+def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user", wait_s: Optional[float] = None,
+          keep: bool = False) -> dict:
     from halo_harness.local_pool import catalog as C, claims, entry
     from halo_harness.providers import local_runtime as R
     from halo_harness.providers.local_server_cmd import binary, get
@@ -182,7 +183,7 @@ def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user
     cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key_file=write_key(key, state_dir), addr_=a)
     log = Path(_state(state_dir)) / "local" / "servers" / f"pool-{port}.log"
     from halo_harness.local_pool.spawn import spawn, wait_ready
-    pid = spawn(cmd, log, redact(cmd))
+    pid = spawn(cmd, log, redact(cmd), keep=keep)  # --keep: it outlives this command (local_pool/spawn.py)
     url = f"http://{a}:{port}"
     r = {"model": pf["model"], "display": pf["display"], "pid": pid, "port": port, "addr": a, "url": f"{url}/v1",
          "log": str(log), "argv": redact(cmd), "ctx": pf["ctx"], "cache": pf["cache"], "placed": placed,
@@ -194,7 +195,7 @@ def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user
         key_path(state_dir).unlink(missing_ok=True)
         cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key=key, addr_=a)
         lines.append(KEY_ARGV_LINE)
-        r.update(pid=spawn(cmd, log, redact(cmd)), argv=redact(cmd), key_file=False)
+        r.update(pid=spawn(cmd, log, redact(cmd), keep=keep), argv=redact(cmd), key_file=False)
         _save(r, state_dir)
         ready, said = wait_ready(r["pid"], url, get, wait_s if wait_s is not None else 120.0)
     if ready:  # the cold load: from the spawn to /health answering (the pool's speed card reads it)

@@ -12,7 +12,7 @@ registry; docs/HOST.md "rpc_server"; docs/POOL.md "The workers").
 
     free_mib(home, card_rows) -> (MiB | None, line)    usable with the helper - resident - claims (the pool's own claim
                                                        left out: it is the room rpc-server serves)
-    turn_on(home, *, addr, card_rows, port=None, mem_mib=None, by) / turn_off(home, *, by) / status(home)
+    turn_on(home, *, addr, card_rows, port=None, mem_mib=None, by, keep=False) / turn_off(home, *, by) / status(home)
     refused(home, status, out) -> out   the refusal of an rpc_server request as one line (routes_act calls it)
 Starting and stopping the rpc-server this host launched is the op's stated action; nothing else on the machine changes.
 """
@@ -109,7 +109,8 @@ def plan(home, *, addr: str, card_rows: list, port=None, mem_mib=None) -> dict:
             "port": p, "bind": addr, "mem_mib": mem, "mem_why": mem_why}
 
 
-def turn_on(home, *, addr: str, card_rows: list, port=None, mem_mib=None, by: str = "owner") -> dict:
+def turn_on(home, *, addr: str, card_rows: list, port=None, mem_mib=None, by: str = "owner",
+            keep: bool = False) -> dict:
     from halo_harness.host import rpc_runner as R
     from halo_harness.local_pool.versions import read as version, word
     now = status(home)
@@ -121,7 +122,7 @@ def turn_on(home, *, addr: str, card_rows: list, port=None, mem_mib=None, by: st
     v = version(pl["prefix"])
     log = _path(home).with_name(LOG)
     try:
-        pid = R.start(pl["argv"], log)
+        pid = R.start(pl["argv"], log, keep=keep)
     except OSError as e:
         return {"ok": False, "say": f"rpc-server did not start: {e}"}
     st = {**read(home), "pid": pid, "port": pl["port"], "bind": addr, "mem_mib": pl["mem_mib"], "binary": pl["binary"],

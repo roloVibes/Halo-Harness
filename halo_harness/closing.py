@@ -22,7 +22,9 @@ How the children notice a dead owner on their own (a hard kill runs no Python at
   each Halo process marks what it starts with its OWN id, so a `halo` run from a session's shell tool, or a sub-agent,
   ends only its own and never its parent's (two sessions of one home never touch each other's either);
 * Windows: every child subprocess_safe.Popen starts goes into this process's Job object with KILL_ON_JOB_CLOSE, so
-  the kernel ends them when the last handle (this process) goes; a kept spawn breaks away;
+  the kernel ends them when the last handle (this process) goes; a kept spawn breaks away (the Job allows it); when
+  an OUTER Job (a terminal's, a service's) forbids breakaway, a kept spawn starts from outside every Job through WMI
+  (start_outside_job), and when that cannot be done either Halo says so in one line (say_held_in_job);
 * a Halo child (`python -m halo_harness ...`: the Studio server first of all) gets `HALO_OWNER_WATCH=<pid>:<start>`
   and its install() watches that process (the parent pid on POSIX, a process handle on Windows) and closes within
   two seconds of it going;
@@ -247,6 +249,118 @@ def register_kept(proc, what: str, argv, **extra) -> None:
         children.register(proc.pid, what, argv, keep=True, **extra)
 
 
+def start_kept(args, *, what: str, shown=None, **kw):
+    """Start a thing a person asked to outlive this process (a `--keep` server, the updater, a helper that waits after
+    its command returns): kept_kwargs, then a ledger row marked kept (`shown`: the argv to record, a key redacted).
+    Returns the Popen. Windows: out of every Job; see subprocess_safe.Popen for an outer Job that forbids that."""
+    from halo_harness import subprocess_safe as sp
+    proc = sp.Popen(args, **kept_kwargs(kw))
+    register_kept(proc, what, list(shown if shown is not None else args))
+    return proc
+
+
+_OUTSIDE_RUNNER = r'''
+import json, os, subprocess, sys
+spec_path = sys.argv[1]
+with open(spec_path, encoding="utf-8") as fh:
+    s = json.load(fh)
+os.remove(spec_path)
+def sink(p):
+    return open(p, "ab") if p else subprocess.DEVNULL
+r = {}
+try:
+    out = sink(s["stdout"])
+    err = subprocess.STDOUT if s["stderr"] == "=stdout" else sink(s["stderr"])
+    kw = dict(env=s["env"], cwd=s["cwd"], stdin=subprocess.DEVNULL, stdout=out, stderr=err, close_fds=True)
+    try:
+        p = subprocess.Popen(s["argv"], creationflags=s["flags"], **kw)
+    except PermissionError:
+        p = subprocess.Popen(s["argv"], creationflags=s["flags"] & ~0x01000000, **kw)
+    r = {"pid": p.pid}
+except OSError as e:
+    r = {"error": str(e)}
+with open(s["result"] + ".tmp", "w", encoding="utf-8") as fh:
+    json.dump(r, fh)
+os.replace(s["result"] + ".tmp", s["result"])
+'''
+
+_WMI_CREATE = (
+    "$ErrorActionPreference = 'Stop'; "
+    "$s = New-CimInstance -CimClass (Get-CimClass -ClassName Win32_ProcessStartup) -ClientOnly "
+    "-Property @{ShowWindow = [uint16]0; CreateFlags = [uint32]8}; "
+    "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments "
+    "@{CommandLine = $env:HALO_KEPT_CMDLINE; CurrentDirectory = $env:HALO_KEPT_CWD; ProcessStartupInformation = $s}; "
+    "[Console]::Out.Write([string]$r.ReturnValue)")
+
+
+def _stdio_path(value) -> "tuple[bool, Optional[str]]":
+    """(can be carried, the file path or None for nothing): DEVNULL / None, or a file opened on a real path."""
+    import subprocess as _sp
+    if value is None or value == _sp.DEVNULL:
+        return True, None
+    name = getattr(value, "name", None)
+    if isinstance(name, str) and os.path.isabs(name) and os.path.isfile(name):
+        return True, name
+    return False, None
+
+
+def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
+    """Windows: start `args` from outside every Job object -- a kept spawn whose outer Job (a terminal's, a service's)
+    forbids breakaway. WMI creates a tiny Python runner as nobody's child (no Job of this tree reaches it), and that
+    runner starts the program with this spawn's environment, folder, flags and output files, then leaves. The pid,
+    or None when it cannot be done (no WMI, a pipe to read, the runner gave no pid in `wait_s`)."""
+    if os.name != "nt" or not isinstance(args, (list, tuple)) or kw.get("shell") or kw.get("executable"):
+        return None
+    if kw.get("stdin") not in (None, -3):  # DEVNULL
+        return None
+    ok_out, out = _stdio_path(kw.get("stdout"))
+    import subprocess as _sp
+    err_val = kw.get("stderr")
+    ok_err, err = (True, "=stdout") if err_val == _sp.STDOUT else _stdio_path(err_val)
+    if not (ok_out and ok_err):
+        return None
+    import json
+    import shutil
+    import tempfile
+    folder = Path(tempfile.mkdtemp(prefix="halo-kept-"))
+    try:
+        runner, spec, result = folder / "runner.py", folder / "spec.json", folder / "result.json"
+        runner.write_text(_OUTSIDE_RUNNER, encoding="utf-8")
+        env = kw.get("env") if isinstance(kw.get("env"), dict) else dict(os.environ)
+        cwd = str(kw.get("cwd") or os.getcwd())  # the runner's folder too: never this temp one (it is removed)
+        spec.write_text(json.dumps({"argv": [str(a) for a in args], "env": {str(k): str(v) for k, v in env.items()},
+                                    "cwd": cwd,
+                                    "flags": int(kw.get("creationflags") or 0), "stdout": out, "stderr": err,
+                                    "result": str(result)}), encoding="utf-8")
+        cmdline = _sp.list2cmdline([sys.executable, "-I", "-S", str(runner), str(spec)])
+        ps = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "WindowsPowerShell", "v1.0",
+                          "powershell.exe")
+        r = _sp.run([ps, "-NoProfile", "-NonInteractive", "-Command", _WMI_CREATE], capture_output=True, text=True,
+                    timeout=wait_s, env={**os.environ, "HALO_KEPT_CMDLINE": cmdline, "HALO_KEPT_CWD": cwd},
+                    stdin=_sp.DEVNULL, creationflags=0x08000000)  # CREATE_NO_WINDOW
+        if (r.stdout or "").strip() != "0":
+            return None
+        deadline = time.monotonic() + wait_s
+        while time.monotonic() < deadline:
+            try:
+                got = json.loads(result.read_text(encoding="utf-8"))
+                return int(got["pid"]) if isinstance(got.get("pid"), int) else None
+            except (OSError, ValueError):
+                time.sleep(0.05)
+        return None
+    except Exception:
+        return None
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def say_held_in_job(pid, args) -> None:
+    """The one line when a kept spawn could not leave an outer Job object: it ends when that Job's holder does."""
+    name = os.path.basename(str(args[0] if isinstance(args, (list, tuple)) and args else args))
+    _say(f"halo: {name} (pid {pid}) was asked to keep running, but the program that started halo holds it in a Job "
+         "object it may not leave, so it ends when that program closes")
+
+
 def keep_kw(keep: bool, env: dict) -> dict:
     """`env=` (and on Windows the breakaway flag) for a spawn that may or may not have been asked to stay."""
     return kept_kwargs(env=env) if keep else {"env": env}
@@ -420,7 +534,8 @@ def _stop_line(entry: dict) -> str:
     if entry.get("source") == "local-servers":
         return f"halo local stop {entry.get('model') or entry.get('pid')}"
     own = {"supervisor": "halo supervise stop", "host": "halo host stop", "steward": "halo host steward off",
-           "update": "it ends by itself", "terminal": "close that window"}
+           "update": "it ends by itself", "terminal": "close that window", "pool": "halo pool stop",
+           "rpc": "halo host rpc off", "pack": "it ends by itself"}
     if what in own:
         return own[what]
     try:

@@ -30,7 +30,8 @@ LABELS = {"studio": ("Studio", "Studios"), "bg": ("background run", "background 
           "update": ("updater", "updaters"), "terminal": ("terminal window", "terminal windows"),
           "schedule": ("schedule fire", "schedule fires"), "supervisor": ("supervisor", "supervisors"),
           "mlx": ("local model server", "local model servers"), "llama": ("local model server", "local model servers"),
-          "halo": ("halo", "halo processes")}
+          "halo": ("halo", "halo processes"), "pool": ("pool server", "pool servers"),
+          "rpc": ("rpc-server", "rpc-servers"), "pack": ("pack helper", "pack helpers")}
 
 
 def _state(state_dir=None) -> Path:
