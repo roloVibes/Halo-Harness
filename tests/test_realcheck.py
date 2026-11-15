@@ -348,6 +348,198 @@ def test_no_step_calls_a_failure_expected_until_a_round_that_is_in_this_tree(ctx
     ctx.check(f"no landed round named, got {tagged}", not tagged)
 
 
+class _Term:
+    """A terminal with nothing on it (the first-run step's `halo init` stand-in)."""
+    started_at = 0.0
+
+    def plain(self) -> str:
+        return ""
+
+    def raw(self) -> bytes:
+        return b""
+
+    def poll(self):
+        return 0
+
+    def cleanup(self) -> None:
+        pass
+
+
+class _FirstRunCtx(_StepCtx):
+    """The first-run step's ctx: a home whose stand-in browser file is `opened`, a terminal that prints nothing."""
+
+    def __init__(self, root: Path) -> None:
+        super().__init__(REPO, "")
+        self.root = root
+
+    def home(self, name: str):
+        d = self.root / name
+        d.mkdir(parents=True, exist_ok=True)
+        return core.Home(name, d, d, d, d, "", d / "browser-opened.txt")
+
+    def terminal(self, h, *args, **kw):
+        return _Term()
+
+    def env(self, h, **kw) -> dict:
+        return {}
+
+
+def _first_run(root: Path, opened: list, address: str = "http://127.0.0.1:4321/?mode=setup&first=1#t=abc"):
+    """steps_a.first_run against stand-ins: `halo init` printed `address` and its browser was asked to open `opened`
+    (written into the home's stand-in file before the step looks); everything else a person would see is right."""
+    from realcheck import steps_a
+    ctx = _FirstRunCtx(root)
+    h = ctx.home("first-run")
+    if opened:
+        h.opened.write_text("".join(f"1.0 {u}\n" for u in opened), encoding="utf-8")
+    frame = {"ready_s": 1.0, "theme": "instrument", "top_bg": [], "beeps": {"bare": 0}, "traceback": False}
+    saved = (steps_a.wait_address, steps_a.http_get, steps_a.tui_first_frame, screen.quit_with_ctrl_c,
+             steps_a.BROWSER_WAIT_S if hasattr(steps_a, "BROWSER_WAIT_S") else None)
+    steps_a.wait_address = lambda c, hh, t, limit=60: (address, 0.3, [])
+    steps_a.http_get = lambda url, token="", timeout=10: (200, b'<html data-theme="instrument">', 0.05)
+    steps_a.tui_first_frame = lambda c, hh, env=None: dict(frame, theme="instrument-ansi" if env is not None else "instrument")
+    screen.quit_with_ctrl_c = lambda t, wait=0.0: "Ctrl+C"
+    steps_a.BROWSER_WAIT_S = 0.5
+    try:
+        return steps_a.first_run(ctx)
+    except core.Fail as e:
+        return e
+    finally:
+        steps_a.wait_address, steps_a.http_get, steps_a.tui_first_frame, screen.quit_with_ctrl_c, wait = saved
+        if wait is None:
+            del steps_a.BROWSER_WAIT_S
+        else:
+            steps_a.BROWSER_WAIT_S = wait
+
+
+@test
+def test_the_first_run_step_fails_when_init_never_asked_the_browser_to_open_its_page(ctx: Ctx):
+    """CI's Windows realcheck: `browser_opened: []` and first-run PASS -- Halo had opened the system's own browser (a
+    real one on the runner's desktop) and the step only wrote the empty list down. A step that never looks at what it
+    records passes while checking nothing."""
+    root = Path(tempfile.mkdtemp(prefix="rc-first-"))
+    got = _first_run(root / "a", [])
+    ctx.check(f"no page opened in the browser Halo was given: FAIL naming it, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, core.Fail) and "BROWSER" in got.detail and got.evidence.get("browser_opened") == [])
+    got = _first_run(root / "b", ["http://127.0.0.1:9999/?mode=setup&first=1#t=abc"])
+    ctx.check(f"a page of another address is not this Studio's: FAIL, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, core.Fail) and "BROWSER" in got.detail)
+    got = _first_run(root / "c", ["http://127.0.0.1:4321/?mode=setup&first=1#t=abc"])
+    ctx.check(f"the printed address opened in the given browser: PASS, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, tuple) and got[1]["browser_opened"] == ["http://127.0.0.1:4321/?mode=setup&first=1#t=abc"])
+
+
+class _UpdateCtx(_StepCtx):
+    """The update step's ctx: `halo update --check` prints `check`; the repo is a git checkout of two commits."""
+
+    def __init__(self, repo: Path, check: str) -> None:
+        super().__init__(repo, "")
+        self.check = check
+
+    def run(self, h, *args, timeout: float = 60, env=None, **kw):
+        if args[:1] == ("update",):
+            return core.Ran(0, self.check, "", 0.2)
+        return core.Ran(0, "", "", 0.1)  # `halo config get update.channel`: unset
+
+    def env(self, h, **kw) -> dict:
+        return {}
+
+
+def _two_commits() -> "tuple[Path, str, str]":
+    """A git checkout whose second commit (the candidate) is a day after its first (the channel's head)."""
+    repo = Path(tempfile.mkdtemp(prefix="rc-git-"))
+    shas = []
+    for n, when in ((1, "2026-11-01T10:00:00+00:00"), (2, "2026-11-02T10:00:00+00:00")):
+        (repo / "f.txt").write_text(str(n), encoding="utf-8")
+        env = dict(os.environ, GIT_AUTHOR_DATE=when, GIT_COMMITTER_DATE=when, GIT_AUTHOR_NAME="rc",
+                   GIT_AUTHOR_EMAIL="rc@example.invalid", GIT_COMMITTER_NAME="rc", GIT_COMMITTER_EMAIL="rc@example.invalid")
+        for cmd in ((["init", "-q"] if n == 1 else []), ["add", "f.txt"], ["commit", "-q", "-m", f"c{n}"]):
+            if cmd:
+                subprocess.run(["git", "-C", str(repo), *cmd], env=env, check=True, capture_output=True, timeout=30)
+        shas.append(subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True,
+                                   timeout=30).stdout.strip())
+    return repo, shas[0], shas[1]
+
+
+def _update_step(repo: Path, check: str):
+    from realcheck import steps_c
+    try:
+        return steps_c.update(_UpdateCtx(repo, check))
+    except (core.Fail, core.Skip) as e:
+        return e
+
+
+@test
+def test_the_update_step_on_a_candidate_ahead_of_its_channel_judges_what_the_check_says(ctx: Ctx):
+    """CI's realcheck on rc/3.6.0.0-cand, all three platforms: "update FAIL `halo update --check` (online) offers
+    master, older than this build, and does not say so" -- the check said "differs from (main)", Halo's own words
+    (update_cli: git confirmed the installed commit is NOT behind the offer). The step is red on every candidate
+    commit, the only commits the release gate reads; an offer older than the build announced as "available" stays a
+    FAIL."""
+    repo, main_head, cand = _two_commits()
+    said = (f"installed: halo 3.6.0.0 ({cand[:7]}, rc/3.6.0.0-cand)\n"
+            f"differs from (main): {main_head[:7]}, master\n"
+            "to apply: halo update  (it runs: git -C /x pull --ff-only origin main)\n")
+    got = _update_step(repo, said)
+    ctx.check(f"a candidate ahead of main, told \"differs from\": not a FAIL, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, tuple) and got[1]["online"]["offer_is_older"])
+    wrong = said.replace("differs from (main)", "available (main)")
+    got = _update_step(repo, wrong)
+    ctx.check(f"the older commit offered as \"available\": FAIL, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, core.Fail) and "older than this build" in got.detail)
+    newer = (f"installed: halo 3.6.0.0 ({main_head[:7]}, main)\navailable (main): {cand[:7]}, master\n"
+             "to apply: halo update  (it runs: git -C /x pull --ff-only origin main)\n")
+    got = _update_step(repo, newer)
+    ctx.check(f"a newer commit offered as available: PASS, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, tuple) and not got[1]["online"]["offer_is_older"])
+
+
+class _Chrome:
+    """A page whose Prompt panel never shows the reply: every wait for it times out; the page reads say what is on it."""
+
+    def __init__(self) -> None:
+        self.typed = ""
+
+    def go(self, url: str) -> None:
+        pass
+
+    def call(self, method: str, **params):
+        return {}
+
+    def click_on(self, expr: str, *a) -> None:
+        pass
+
+    def type_text(self, text: str) -> None:
+        self.typed += text
+
+    def wait(self, expr: str, timeout: float = 20):
+        if "RC-ANSWER-42" in expr:
+            raise TimeoutError(f"waited {timeout:.0f}s for: {expr}")
+        return "sess-1" if "dataset.session" in expr else "form"
+
+    def js(self, expr: str):
+        if "prompt-text" in expr:
+            return "RC-ASK from the Studio prompt"
+        if "prompt-detail" in expr:
+            return "Prompt sess-1 thinking..."
+        return ""
+
+
+@test
+def test_a_studio_prompt_with_no_reply_says_what_the_panel_showed_and_whether_the_model_was_asked(ctx: Ctx):
+    """CI's Linux realcheck: "a prompt from Studio's Prompt panel: TimeoutError: waited 60s" and nothing else -- not
+    what the panel showed, not whether the question reached the model; four runs on a Linux VM answered in 0.1-0.3 s,
+    so the next red one must carry its own evidence."""
+    from realcheck import steps_b
+    ev, bad = {}, []
+    steps_b._prompt(_Chrome(), lambda q: q, ev, bad, asked=lambda: 0)
+    p = ev.get("prompt") or {}
+    ctx.check(f"a FAIL line, got {bad}", len(bad) == 1 and "TimeoutError" in bad[0])
+    ctx.check(f"the panel's text and the model calls are in the evidence, got {p}",
+              "RC-ASK from the Studio prompt" in str(p.get("page")) and p.get("model_calls") == 0)
+    ctx.check(f"the line says the question never reached the model, got {bad}", "never reached the model" in bad[0])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -7,12 +7,14 @@ import time
 from pathlib import Path
 
 from realcheck import fakes, screen
-from realcheck.core import Fail, excerpt, http_get, split_url, wait_address
+from realcheck.core import Fail, excerpt, http_get, split_url, wait_address, wait_until
 
 # 3.6.0.0 R11, measured on the day (bd984ce6): the bytes of the one request `halo -p "<one line>"` sends in a fresh
 # home (Windows carries the PowerShell tool). The budget is that + 10%; a change that makes a one-line ask cost more
 # fails here and says by how much. macOS was not measured: it takes the Linux number until a run says otherwise.
 REQUEST_BYTES = {"win32": 49847, "linux": 48565, "darwin": 48565}
+# how long `halo init` has, after its address, to hand the page to the browser it was given (BROWSER)
+BROWSER_WAIT_S = 10.0
 
 
 def _no_leftovers(ctx, h, what: str) -> None:
@@ -112,8 +114,14 @@ def first_run(ctx):
         raise Fail(f"`halo init` printed no Studio address in {at:.0f} s: " + excerpt(t.plain(), 200), ev)
     if at > 2.0:
         bad.append(f"the Studio address took {at:.1f}s to appear (budget 2 s)")
-    ev["browser_opened"] = fakes.opened_urls(h.opened)
     base, token = split_url(url)
+    # the page must reach the browser Halo was given: an empty list here once passed while a real browser opened
+    ours = lambda: [u for u in fakes.opened_urls(h.opened) if split_url(u)[0] == base]  # noqa: E731
+    wait_until(ours, BROWSER_WAIT_S)
+    ev["browser_opened"] = fakes.opened_urls(h.opened)
+    if not ours():
+        bad.append(f"`halo init` did not open its page ({base}) in the browser it was given (BROWSER) within "
+                   f"{BROWSER_WAIT_S:.0f} s; that browser was asked to open {ev['browser_opened'] or 'nothing'}")
     status, page, s = http_get(base + "/", timeout=10)
     ev.update(page_status=status, page_s=round(s, 2), page_theme=screen.page_theme(page))
     if status != 200 or s > 2.0:

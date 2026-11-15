@@ -65,7 +65,7 @@ def studio(ctx):
     try:
         _sections(c, page, ev, bad)
         _hold(c, page, ev, bad)
-        _prompt(c, page, ev, bad)
+        _prompt(c, page, ev, bad, asked=lambda: len(ctx.provider.requests_with(PROMPT)))
     finally:
         c.close()
         from realcheck.screen import quit_with_ctrl_c
@@ -138,7 +138,12 @@ INPUT = "document.querySelector('[data-testid=\"prompt-input\"]')"
 TEXTS = "[...document.querySelectorAll('[data-testid=\"prompt-text\"]')].map((x) => x.textContent).join(' ')"
 
 
-def _prompt(c, page, ev: dict, bad: list) -> None:
+PROMPT = "RC-ASK from the Studio prompt"
+
+
+def _prompt(c, page, ev: dict, bad: list, asked=None) -> None:
+    """`asked()`: how many model calls carried the prompt (the fake provider's count): a timeout says whether the
+    question reached the model and what the panel showed, so a red run carries its own evidence."""
     start = "document.querySelector('[data-testid=\"session-new-start\"]')"
     try:
         c.go("about:blank")
@@ -148,7 +153,7 @@ def _prompt(c, page, ev: dict, bad: list) -> None:
         sid = c.wait(f"{P}?.dataset.session", 60)
         t0 = time.monotonic()
         c.click_on(INPUT)
-        c.type_text("RC-ASK from the Studio prompt")
+        c.type_text(PROMPT)
         for kind in ("rawKeyDown", "keyUp"):
             c.call("Input.dispatchKeyEvent", type=kind, key="Enter", code="Enter", windowsVirtualKeyCode=13, modifiers=0)
         c.wait(f"{TEXTS}.includes({fakes.ANSWER!r}) && 'reply'", 60)
@@ -157,4 +162,15 @@ def _prompt(c, page, ev: dict, bad: list) -> None:
         c.click_on("document.querySelector('[data-testid=\"prompt-end-yes\"]')")
     except Exception as e:
         ev["prompt"] = {"error": f"{type(e).__name__}: {e}"[:300]}
-        bad.append(f"a prompt from Studio's Prompt panel: {type(e).__name__}: {str(e)[:160]}")
+        try:
+            ev["prompt"]["page"] = {"texts": str(c.js(TEXTS))[-300:], "panel": str(c.js(f"{P}?.innerText || ''"))[-400:]}
+        except Exception as e2:
+            ev["prompt"]["page"] = f"unreadable: {type(e2).__name__}"
+        calls = None
+        try:
+            calls = ev["prompt"]["model_calls"] = asked() if asked else None
+        except Exception:
+            pass
+        said = ("" if calls is None else "; the question never reached the model" if not calls
+                else f"; the model was asked {calls} time(s), the answer never showed")
+        bad.append(f"a prompt from Studio's Prompt panel: {type(e).__name__}: {str(e)[:160]}{said}")

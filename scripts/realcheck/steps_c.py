@@ -136,7 +136,10 @@ def update(ctx):
     for tag in ("online", "stable"):
         older = _offer_is_older(ctx, ev[tag]["out"])
         ev[tag]["offer_is_older"] = older
-        if older and not re.search(r"\b(older|behind|back to|earlier|downgrade)\b", ev[tag]["out"], re.I):
+        # "differs from (<channel>)" is Halo's own label when git confirmed this build is NOT behind the offer
+        # (update_cli._print_report): a release candidate ahead of its channel is told so; "available" is the lie
+        if older and not re.search(r"\b(older|behind|back to|earlier|downgrade|ahead of)\b|\bdiffers from \(\w+\):",
+                                   ev[tag]["out"], re.I):
             bad.append(f"`halo update --check` ({tag}) offers {older}, older than this build, and does not say so: "
                        f"{ev[tag]['out'][:220]!r}")
     _no_leftovers(ctx, h, "`halo update --check`")
@@ -150,7 +153,7 @@ def update(ctx):
 
 def _offer_is_older(ctx, text: str) -> str:
     """'<ref> (<date>)' when the release the check offers was made before the build it says is installed (by the
-    commits' dates in this checkout's git), else ''."""
+    commits' dates in this checkout's git, or the offer is an ancestor of the build), else ''."""
     import subprocess
     have = re.search(r"installed: halo \S+ \(([0-9a-f]{7,40})", text)
     offer = re.search(r"(?:available|differs from) \((\w+)\): ([0-9a-f]{7,40}), (\S+)", text)
@@ -164,7 +167,13 @@ def _offer_is_older(ctx, text: str) -> str:
             return int(out) if out.isdigit() else 0
         except (OSError, subprocess.SubprocessError):
             return 0
+    def ancestor(old: str, new: str) -> bool:
+        try:
+            return subprocess.run(["git", "-C", str(ctx.repo), "merge-base", "--is-ancestor", old, new],
+                                  capture_output=True, timeout=20).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
     a, b = when(have.group(1)), when(offer.group(2))
-    if a and b and b < a:
+    if a and b and (b < a or (have.group(1) != offer.group(2) and ancestor(offer.group(2), have.group(1)))):
         return f"{offer.group(3)} ({time.strftime('%Y-%m-%d %H:%M', time.gmtime(b))} UTC)"
     return ""

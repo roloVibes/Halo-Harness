@@ -1366,8 +1366,8 @@ class Ctx:
     def require_bridge(self) -> None:
         if not BRIDGE_EXISTS:
             raise SkipTest(f"bridge.py not found at {BRIDGE_PY}")
-        if self.bridge is None:
-            raise SkipTest(f"shared bridge fixture unavailable: {self.bridge_start_error}")
+        if self.bridge is None:  # the proxy is unchecked: a FAIL, never a SKIP that changes no exit code
+            raise AssertionError(f"shared bridge fixture did not start: {self.bridge_start_error}")
 
     def require_bridge_file_only(self) -> None:
         """For tests (e.g. the launcher group) that spin up their own
@@ -1379,7 +1379,7 @@ class Ctx:
         if not BRIDGE_EXISTS:
             raise SkipTest(f"bridge.py not found at {BRIDGE_PY}")
         if self.dbx_bridge is None:
-            raise SkipTest(f"shared Databricks-mock bridge fixture unavailable: {self.dbx_bridge_start_error}")
+            raise AssertionError(f"shared Databricks-mock bridge fixture did not start: {self.dbx_bridge_start_error}")
 
     def dbx_call(self, path: str, body=None, method: str = "POST", headers: dict | None = None,
                  token: str | None = "__default__", timeout: float = 10.0,
@@ -1440,6 +1440,26 @@ def run_all(ctx: Ctx):
             results.append((name, "FAIL", detail, time.monotonic() - t0))
             failed += 1
     return results, passed, failed, skipped
+
+
+@test
+def test_a_shared_fixture_that_did_not_start_fails_the_tests_that_need_it(ctx: Ctx):
+    """3.6.0.0 fix (test rig): on CI's macOS leg the shared bridge never became healthy and 78 of this module's 101
+    tests printed SKIP; a skip changes no exit code, so the proxy went unchecked there and nothing said so."""
+    if not BRIDGE_EXISTS:
+        raise SkipTest(f"bridge.py not found at {BRIDGE_PY}")
+    c = Ctx()
+    c.bridge_start_error = c.dbx_bridge_start_error = "BridgeStartError: bridge --serve never became healthy on port 1"
+    for name in ("require_bridge", "require_dbx_bridge"):
+        try:
+            getattr(c, name)()
+            got = "nothing"
+        except SkipTest as e:
+            got = f"SKIP {e}"
+        except AssertionError as e:
+            got = f"FAIL {e}"
+        ctx.check(f"{name}: a FAIL that names why the fixture did not start, got {got!r}",
+                  got.startswith("FAIL") and "never became healthy" in got)
 
 
 # ---- Group A: HTTP / auth / basic endpoints -------------------------------
@@ -4108,7 +4128,7 @@ def main() -> int:
     if not BRIDGE_EXISTS:
         print(f"NOTE: bridge.py not found at {BRIDGE_PY} -- all bridge-dependent tests were skipped, not failed.")
     elif ctx.bridge is None:
-        print(f"NOTE: bridge.py exists but the shared server fixture could not start: {ctx.bridge_start_error}")
+        print(f"NOTE: bridge.py exists but the shared server fixture could not start (its tests FAIL): {ctx.bridge_start_error}")
 
     removed = cleanup_tracked_temp_dirs()
     print(f"[cleanup] removed {removed} tracked temp dir(s)")
