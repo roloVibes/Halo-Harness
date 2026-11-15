@@ -312,8 +312,8 @@ parser fails one test and the list falls back to the snapshot, saying why. See [
 
 Before anything downloads, pick what you need and what you have; Halo returns a short, ranked, explained list
 (`models_library/search.py`). Start from a **preset** (Coder, Reasoner / planner, Bulk worker, Compactor, Verifier,
-Security / pentest, Multimodal, Embeddings, Offline-only: `halo models browse --preset coder`), a **lineup role**
-(`--for-role verify`: the role's preset) or a **sentence** (`--ask "a local coder that can use tools"` -> Coder + tools
+Security / pentest, Multimodal, Embeddings, Offline-only: `halo models browse --preset coder`), a **role** of the model
+table (`--for-role reviewer`: the role's preset) or a **sentence** (`--ask "a local coder that can use tools"` -> Coder + tools
 verified or declared). Each capability is held at a truth floor (`--need tools=verified`; [MODELS-cards.md](MODELS-cards.md)
 has the three truths). The order: passes the role's gates (verified first, declared second, expected last), fits at the
 window, measured speed, download size, licence. Every row states its cost (the download and its time, VRAM at the
@@ -324,9 +324,9 @@ A model with a crash fingerprint on this host says so (`--exclude-crashed` greys
 `runs here` keeps MLX for a Mac, a GGUF anywhere Ollama runs (CUDA on NVIDIA, ROCm / Vulkan on AMD, Metal); `this
 Ollama loads it` reads the architecture against the host's Ollama version (a table of architectures each seen loading
 on a release; one it does not know, or a new one, "may not load on 0.40.6"). **Download and verify** (Studio) pulls
-it, runs the battery, writes the profile and offers the role; `--save-template` keeps a preset as the lineup
-`local-<preset>`. A gap in a lineup links here: Roles -> Problems' **Find a model** and `halo teams show`'s `(gap)`
-line ([ROLES.md](ROLES.md)).
+it, runs the battery, writes the profile and offers the role; **Save as role template** keeps a preset as the agent
+`local-<preset>` on the picked model (3.6.0.0: an agent file, no longer a lineup); **Assign** writes `roles.<role>`
+([ROLES.md](ROLES.md)).
 
 ## Pulling, deleting, twins from Studio and the CLI (3.3.5.0)
 
@@ -339,7 +339,7 @@ Every Ollama host Halo knows is controlled from Studio's **Local** tab and from 
   `{"error": ...}` line. Halo sums the layers into one percent, a speed and a time left. A cancel closes the connection;
   Ollama keeps the layers it has, and the next pull of that name starts from them. A Hugging Face GGUF pulls the same
   way as `hf.co/<repo>:<quant>`. In Studio a pull is a job that outlives the page (Local -> Library, the Jobs list).
-- **Delete** (`DELETE /api/delete`): after the uses card -- lineups, `roles`, `model`, `compactionModel`,
+- **Delete** (`DELETE /api/delete`): after the uses card -- agent files, `roles`, `model`, `compactionModel`,
   `ollama.profiles`, live sessions. Delete anyway works whenever no session is on the model.
 - **Show** (`POST /api/show`): the template, parameters, licence, capabilities, details and `model_info`, beside the
   model card.

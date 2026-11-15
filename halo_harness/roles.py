@@ -1059,28 +1059,4 @@ def auto_fill_options(*, default_model: Optional[str] = None, state_dir=None) ->
         out.append({"key": "gym-proposed", "label": "From `halo gym propose`",
                     "description": "Proposed from this machine's own gym scores.",
                     "roles": roles_dict, "lines": sentences or ["(no usable gym data for any role yet)"]})
-    # Halo 2.0.4 round 4 (deliverables 6-7, the agent-bio/team-template
-    # layer): any INSTALLED team template also fills the role table,
-    # through its own agent-bio assignments (`teams_yaml.resolve_role_
-    # table`) -- additive to the three presets above, never replacing
-    # them (a team template is a SEPARATE, user-editable YAML lineup;
-    # see docs/AGENTS.md). `ensure_builtin_team_templates` copies the
-    # shipped starters in on first use, the SAME "copy once, never
-    # overwrite" rule the three presets above already follow.
-    try:
-        from halo_harness import teams_yaml
-        teams_yaml.ensure_builtin_team_templates(state_dir=resolved_dir)
-        for name in teams_yaml.list_team_templates(state_dir=resolved_dir, include_templates=False):
-            template = teams_yaml.resolve_team_template(name, state_dir=resolved_dir)
-            if template is None:
-                continue
-            role_table, notes = teams_yaml.resolve_role_table(template, state_dir=resolved_dir)
-            lines = [f"{k}: {v if isinstance(v, str) else v.get('model')}" for k, v in sorted(role_table.items())]
-            lines.extend(notes)
-            out.append({"key": f"team:{name}", "label": f"Team: {name}",
-                        "description": template.get("description") or "", "roles": role_table,
-                        "lines": lines or ["(no role resolved a model yet -- edit the agent bios' own "
-                                           "models.preference)"]})
-    except Exception:
-        pass
     return out

@@ -100,30 +100,6 @@ def test_50_resume_of_an_oddly_named_transcript_imports_under_a_valid_id(ctx: Ct
 # ---- 51: cron dow ranges ending in 7 ------------------------------------------
 
 
-@test
-def test_51_cron_dow_ranges_ending_in_seven_fire(ctx: Ctx):
-    from halo_harness.agents_schedule import cron_next
-    now = datetime.datetime(2026, 10, 13, 10, 0)   # a Tuesday
-    cases = {
-        "0 9 * * 5-7": (2026, 10, 16),   # Friday
-        "0 9 * * 1-7": (2026, 10, 14),   # Wednesday (every day)
-        "0 9 * * 6-7": (2026, 10, 17),   # Saturday
-        "0 9 * * 7": (2026, 10, 18),     # Sunday
-        "0 9 * * 0": (2026, 10, 18),     # Sunday
-        "0 9 * * */2": (2026, 10, 15),   # Sun/Tue/Thu/Sat -> Thursday
-        "0 9 * * 5,6,7": (2026, 10, 16),
-    }
-    for expr, ymd in cases.items():
-        t0 = time.monotonic()
-        got = cron_next(expr, now)
-        took = time.monotonic() - t0
-        ctx.check(f"{expr!r} -> {ymd}, got {got} in {took:.3f}s",
-                  got == datetime.datetime(*ymd, 9, 0) and took < 0.3)
-    sunday_hits = cron_next("30 8 * * 5-7", datetime.datetime(2026, 10, 17, 9, 0))
-    ctx.check(f"5-7 also fires on the Sunday, got {sunday_hits}",
-              sunday_hits == datetime.datetime(2026, 10, 18, 8, 30))
-
-
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

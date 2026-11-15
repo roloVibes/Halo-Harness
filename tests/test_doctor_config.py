@@ -1,11 +1,9 @@
 """tests.test_doctor_config -- `halo doctor --config` (Halo 3.1.1.0 R2): each
 finding from one seeded file (an unknown key with its closest known key, a
-wrong type, a lineup naming a bio that is not there, a team naming a
-lineup that is not there, config.json's `team:` naming a missing lineup, a
-repo config.json nothing reads, two files giving one key different values
-and which wins, an env-file name the environment overrides); a clean home
-(the shipped lineups copied in) reports nothing; the CLI's text, JSON and
-exit codes; Studio's `GET /api/doctor/config` with and without `?lineup=`.
+wrong type, a repo config.json nothing reads, two files giving one key
+different values and which wins, an env-file name the environment overrides);
+a clean home reports nothing; the CLI's text, JSON and exit codes; Studio's
+`GET /api/doctor/config` (3.6.0.0 R5d: the lineup and bio checks went with them).
 """
 
 from __future__ import annotations
@@ -39,27 +37,10 @@ def _one(findings, check, file, key=None):
 
 @test
 def test_a_clean_home_reports_nothing(ctx: Ctx):
-    from halo_harness.teams_yaml import ensure_builtin_team_templates
     with ConfigHome() as h:
         ctx.check(f"an empty home and repo: no findings, got {_findings(h)}", _findings(h) == [])
-        ensure_builtin_team_templates(state_dir=h.state)
-        h.config({"team": "standard", "theme": "claude-light", "intro": False})
-        ctx.check(f"the shipped lineups copied in and a valid config.json: none, got {_findings(h)}", _findings(h) == [])
-
-
-@test
-def test_the_shipped_files_pass_their_schemas(ctx: Ctx):
-    """The schema set is built from the loaders' own key lists; every file
-    Halo ships must pass it (doctor --config skips shipped rows on this basis)."""
-    import yaml
-    from halo_harness.schemas import check_file_shape
-    root = Path(__file__).resolve().parent.parent / "halo_harness" / "templates"
-    for kind, pattern in (("lineup", "teams/*.yaml"), ("bio", "agents/*.yaml")):  # 3.4.0.0 B: no team file
-        files = sorted(root.glob(pattern))
-        ctx.check(f"some shipped {kind} files", files)
-        for path in files:
-            found = check_file_shape(kind, yaml.safe_load(path.read_text(encoding="utf-8")))
-            ctx.check(f"{path.name} passes the {kind} schema, got {found}", found == [])
+        h.config({"theme": "claude-light", "intro": False})
+        ctx.check(f"a valid config.json: none, got {_findings(h)}", _findings(h) == [])
 
 
 @test
@@ -80,7 +61,7 @@ def test_every_config_key_the_code_reads_is_in_the_schema(ctx: Ctx):
 
 
 @test
-def test_config_json_unknown_key_wrong_type_and_missing_lineup(ctx: Ctx):
+def test_config_json_unknown_key_and_wrong_type(ctx: Ctx):
     with ConfigHome() as h:
         h.config({"modle": "or:a/b", "intro": "yes", "team": "nowhere"})
         found = _findings(h)
@@ -89,8 +70,8 @@ def test_config_json_unknown_key_wrong_type_and_missing_lineup(ctx: Ctx):
                   and unknown["severity"] == "warns" and unknown["fix"] == "rename it to model")
         wrong = _one(found, "wrong-type", "~/.halo/config.json", "intro")
         ctx.check(f"intro: a wrong type that blocks, got {wrong}", wrong and wrong["severity"] == "blocks")
-        team = _one(found, "missing-lineup", "~/.halo/config.json", "team")
-        ctx.check(f"team: names a lineup that is not there, got {team}", team and team["lineups"] == ["nowhere"])
+        ctx.check("3.6.0.0 R5d: team: is not checked (no lineup is read)",
+                  not _one(found, "missing-lineup", "~/.halo/config.json", "team"))
         h.write(".halo/config.json", "{not json", base=h.repo)
         h.write(".halo/config.json", "{not json")
         ctx.check("a config.json that does not parse blocks", _one(_findings(h), "unreadable", "~/.halo/config.json"))
@@ -103,23 +84,6 @@ def test_a_repo_config_json_is_reported_as_not_read(ctx: Ctx):
         hit = _one(_findings(h), "unread-file", "./.halo/config.json")
         ctx.check(f"the repo config.json is a warning naming the home one, got {hit}",
                   hit and hit["severity"] == "warns" and "~/.halo/config.json" in hit["text"])
-
-
-@test
-def test_lineup_and_bio_files(ctx: Ctx):
-    with ConfigHome() as h:
-        h.write(".halo/teams/mine.yaml", "roles: {main: ghost-bio}\ndelegaton: {mode: manual}\nbudget: 3\n")
-        h.write(".halo/agents/odd.yaml", "kind: wizard\nmodels: fast\n")
-        found = _findings(h)
-        bio = _one(found, "missing-bio", "~/.halo/teams/mine.yaml")
-        ctx.check(f"a lineup naming a bio that is not there, got {bio}", bio and "ghost-bio" in bio["text"]
-                  and bio["lineups"] == ["mine"] and bio["severity"] == "blocks")
-        typo = _one(found, "unknown-key", "~/.halo/teams/mine.yaml", "delegaton")
-        ctx.check(f"a lineup's unknown key with its closest, got {typo}", typo and "'delegation'" in typo["text"])
-        ctx.check("a lineup section of the wrong type", _one(found, "wrong-type", "~/.halo/teams/mine.yaml", "budget"))
-        bad = [f for f in found if f["file"] == "~/.halo/agents/odd.yaml"]
-        ctx.check(f"the bio validator's lines for a bad bio, got {[f['text'] for f in bad]}",
-                  any("kind" in f["text"] for f in bad) and any('"models" must be a mapping' in f["text"] for f in bad))
 
 
 @test
@@ -145,15 +109,8 @@ def test_a_key_two_files_set_differently_names_the_winner(ctx: Ctx):
         ctx.check(f"3.5.0.1: config.json's theme (picked in Halo) is not reported as losing to settings.json, got {texts.get('~/.halo/config.json|theme')!r}",
                   "~/.halo/config.json|theme" not in texts)
         ctx.check("MCP server fs in two files: .mcp.json wins", "./.mcp.json wins" in texts.get("~/.claude.json|fs", ""))
-        ctx.check("lineup standard in the repo and the home folder with different contents",
-                  not any(k.startswith("<halo>") for k in texts))
         ctx.check("the env file's key the process environment overrides",
                   "process environment wins" in texts.get("~/.config/halo/env|OPENROUTER_API_KEY", ""))
-        h.write(".halo/teams/standard.yaml", "description: mine\nroles: {main: coder}\n")
-        texts = {f["file"] + "|" + f["key"]: f["text"] for f in _findings(h) if f["check"] == "conflict"}
-        # 3.4.1.2 (ENGINE-1): the untrusted repo's lineup is not read, so the home's wins over it
-        ctx.check(f"the same lineup in the home and repo folders: the home's wins (the repo's is not read), got {texts}",
-                  "~/.halo/teams/standard.yaml wins" in texts.get("./.halo/teams|standard", ""))
         ctx.check("every conflict is a warning", all(f["severity"] == "warns" for f in found))
 
 
@@ -186,9 +143,6 @@ def test_studio_route_answers_the_same_rows(ctx: Ctx):
     from halo_harness.doctor_config import config_findings
     from halo_harness.studio.server import start_server
     with ConfigHome() as h:
-        h.write(".halo/teams/mine.yaml", "extends: base\nroles: {main: coder}\n")
-        h.write(".halo/teams/base.yaml", "roles: {main: ghost-bio}\n")
-        h.write(".halo/teams/other.yaml", "roles: {main: ghost2}\n")
         h.config({"modle": 1, "team": "mine"})
         srv = start_server(port=0, cwd=h.repo, state_dir=h.state)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -201,11 +155,7 @@ def test_studio_route_answers_the_same_rows(ctx: Ctx):
             status, body = get("doctor/config")
             ctx.check("GET doctor/config answers 200 with every finding",
                       status == 200 and body["findings"] == config_findings(h.repo, state_dir=h.state)
-                      and body["lineup"] is None)
-            status, body = get("doctor/config?lineup=mine")
-            files = sorted({f["file"] for f in body["findings"]})
-            ctx.check(f"?lineup=mine: the lineup and the one it extends, not other's or config's key, got {files}",
-                      status == 200 and files == ["~/.halo/teams/base.yaml"] and body["lineup"] == "mine")
+                      and "lineup" not in body)
         finally:
             srv.shutdown()
             srv.server_close()

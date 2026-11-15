@@ -97,26 +97,6 @@ def resolver(*, runtime, role_name: Optional[str], task_text: str, holder: dict,
     return _pick
 
 
-def pool_words(template: dict, entry: dict, *, cwd=None, state_dir=None) -> str:
-    """`halo teams show`: " -- model picked at spawn (needs: reasoning; band
-    mid)" for a card whose model is `auto`, else ""."""
-    from halo_harness.agents_yaml import resolve_agent_bio
-    from halo_harness.teams_yaml import member_model
-    from halo_harness.models_auto import is_auto, is_measured
-    value = member_model(template, entry, cwd=cwd, state_dir=state_dir)[0]
-    if not is_auto(value):
-        return ""
-    bio = resolve_agent_bio(str(entry.get("agent") or ""), cwd=cwd, state_dir=state_dir) or {}
-    over = entry.get("models") if isinstance(entry.get("models"), dict) else {}
-    needs = over.get("needs") if isinstance(over.get("needs"), list) else (bio.get("models") or {}).get("needs")
-    band = ((template.get("budget") or {}) if isinstance(template.get("budget"), dict) else {}).get("band")
-    what = ", ".join(str(n) for n in needs) if needs else (
-        "the task's modality, vision when it names none" if bio.get("kind") == "media" or entry.get("as") == "media"
-        else "none of its own, so cheap and fast")
-    how = "by measured success at its kind, else as auto; " if is_measured(value) else ""  # 3.1.8.0 R3
-    return f" -- model picked at spawn ({how}needs: {what}; band {band if band in BANDS else DEFAULT_BAND})"
-
-
 def record(child, chosen: Optional[Pick], ran_on: Optional[str] = None) -> Optional[str]:
     """The child carries the pick's reason; its transcript opens with the
     pick's line. `ran_on`: the model the child was built on -- when it is not

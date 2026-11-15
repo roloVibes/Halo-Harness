@@ -154,42 +154,6 @@ def test_f92_history_append_is_private_whole_lines_and_recovers_a_torn_line(ctx:
 # ---- sweep: findings 26 and 31 were still open after round 9 ----------------
 
 @test
-def test_f26_fired_jobs_carry_the_marker_and_do_not_arm_schedules(ctx: Ctx):
-    from halo_harness import agents_schedule
-    from halo_harness.agent.loop import Session
-    seen = {}
-
-    class _Registry:
-        def start_background(self, command, **kw):
-            seen.update(kw)
-            return SimpleRecord(), None
-
-    class SimpleRecord:
-        job_id = "j1"
-    session = type("S", (), {"job_registry": _Registry(), "cwd": "."})()
-    agents_schedule._default_fire(session, {"name": "n", "prompt": "p", "team": "t"})
-    ctx.check(f"the fired job's environment is marked, got {seen.get('env')}",
-              seen.get("env", {}).get("HALO_SCHEDULED_FIRE") == "1")
-
-    armed = []
-    real_arm = agents_schedule.arm_session
-    agents_schedule.arm_session = lambda *a, **kw: armed.append(1)
-    holder = type("H", (), {"_team_scheduler": None, "agent_depth": 0, "team_control": object()})()
-    saved = os.environ.get("HALO_SCHEDULED_FIRE")
-    try:
-        os.environ["HALO_SCHEDULED_FIRE"] = "1"
-        Session._arm_team_scheduler_once(holder)
-        ctx.check("a fired job arms nothing", armed == [])
-        os.environ.pop("HALO_SCHEDULED_FIRE")
-        Session._arm_team_scheduler_once(holder)
-        ctx.check("3.6.0.0 R5b: an ordinary session arms nothing either (a map has no schedules)", armed == [])
-    finally:
-        agents_schedule.arm_session = real_arm
-        if saved is not None:
-            os.environ["HALO_SCHEDULED_FIRE"] = saved
-
-
-@test
 def test_f18_rejected_an_https_url_never_retries_as_http(ctx: Ctx):
     """Finding 18 describes an https->http downgrade. WebFetch only ever
     returns to plain http when the caller TYPED an http URL (it tries https

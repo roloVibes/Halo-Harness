@@ -53,18 +53,7 @@ def test_every_row_over_a_seeded_home_and_repo(ctx: Ctx):
             ctx.check(f"settings layer {f} is a row", by(rows, "settings", f)["exists"])
         ctx.check("the repo .mcp.json lists its server", by(rows, "mcp", "./.mcp.json")["sets"] == ["fs"])
         ctx.check("~/.claude.json lists the user servers", by(rows, "mcp", "~/.claude.json")["sets"] == ["fs", "web"])
-        active = [r for r in rows if r["kind"] == "lineup"]
-        # 3.4.1.2 (ENGINE-1): the untrusted repo's standard.yaml is not read (and never takes a shipped name)
-        ctx.check(f"the active lineup, then the lineup it extends, got {[r['file'] for r in active]}",
-                  [r["file"] for r in active] == ["~/.halo/teams/mine.yaml", "<halo>/templates/teams/standard.yaml"])
-        ctx.check("the active lineup's row names its sections", set(active[0]["sets"]) == {"delegation", "roles"})
-        folders = [r for r in rows if r["kind"] == "lineups"]
-        ctx.check(f"three lineup folders, repo first, got {[(r['file'], r['scope']) for r in folders]}",
-                  [r["scope"] for r in folders] == ["repo", "home", "shipped"] and folders[2]["file"] == "<halo>/templates/teams"
-                  and "not read: this folder is not trusted" in folders[0]["note"])
-        bios = by(rows, "bios", "~/.halo/agents")
-        ctx.check(f"the home bio folder counts its bios, got {bios['sets']} / {bios['note']}",
-                  bios["sets"] == ["coder"] and bios["note"].startswith("1 file"))
+        ctx.check("no lineup or bio rows (3.6.0.0 R5d: neither is read)", not [r for r in rows if r["kind"] in ("lineup", "lineups", "bios")])
         ctx.check("no team file rows (3.4.0.0 B: the team file left the core)", not [r for r in rows if r["kind"] == "team"])
         ctx.check("the Databricks preset rows are listed (missing here)",
                   not by(rows, "team-preset", "./.halo/team.json")["exists"])
@@ -78,11 +67,6 @@ def test_the_precedence_column_follows_the_resolvers(ctx: Ctx):
     with ConfigHome() as h:
         rows = _rows(seed(h))
         loses = lambda r: {e["key"]: e["to"] for e in r["loses"]}  # noqa: E731
-        ctx.check("the repo's standard lineup does not win over the shipped one (3.4.1.2, ENGINE-1)",
-                  "standard" not in by(rows, "lineups", "./.halo/teams")["wins"]
-                  and "standard" not in loses(by(rows, "lineups", "<halo>/templates/teams")))
-        ctx.check("my coder bio wins over the shipped coder",
-                  loses(by(rows, "bios", "<halo>/templates/agents"))["coder"] == "~/.halo/agents/coder.yaml")
         ctx.check("settings.local.json's model wins over settings.json's",
                   loses(by(rows, "settings", "./.claude/settings.json"))["model"] == "./.claude/settings.local.json"
                   and "model" in by(rows, "settings", "./.claude/settings.local.json")["wins"])
@@ -92,15 +76,8 @@ def test_the_precedence_column_follows_the_resolvers(ctx: Ctx):
         ctx.check(f"config.json's model loses to routes.json's default, got {cfg}", cfg.get("model") == "routes.json default")
         ctx.check(f"3.5.0.1: config.json's theme (picked in Halo) no longer loses to settings.json's theme, got {cfg.get('theme')!r}",
                   cfg.get("theme") is None)
-        ctx.check("the active lineup's own roles win over its parent's",
-                  "roles" in by(rows, "lineup", "~/.halo/teams/mine.yaml")["wins"])
-        (h.repo / ".halo" / "teams" / "standard.yaml").unlink()
         (h.repo / ".claude" / "settings.local.json").unlink()
         rows = _rows(h)
-        ctx.check("with the repo's standard gone, the active lineup extends the shipped one",
-                  [r["file"] for r in rows if r["kind"] == "lineup"][1] == "<halo>/templates/teams/standard.yaml")
-        ctx.check("and no folder clashes over standard any more",
-                  not by(rows, "lineups", "<halo>/templates/teams")["loses"])
         ctx.check("with settings.local.json gone, nothing decides model over settings.json",
                   not by(rows, "settings", "./.claude/settings.json")["loses"])
 
@@ -117,8 +94,8 @@ def test_json_is_the_same_rows(ctx: Ctx):
                   Path(data["cwd"]) == h.repo.resolve() and data["rows"] == _rows(h))
         code, text = _capture(cmd_config, ["where", "--cwd", str(h.repo)])
         ctx.check("the text table has every group heading",
-                  code == 0 and all(t in text for t in ("Halo's config", "Env files", "settings.json", "MCP servers",
-                                                        "Active lineup", "Lineup folders", "Bio folders"))
+                  code == 0 and all(t in text for t in ("Halo's config", "Env files", "settings.json", "MCP servers"))
+                  and "Active lineup" not in text and "Bio folders" not in text
                   and "Flows" not in text and "Team file" not in text)  # 3.4.0.0 B: the team file left
         ctx.check("the text table prints the precedence lines", "model: loses to ./.claude/settings.local.json" in text)
         _code, usage = _capture(cmd_config, ["--help"])

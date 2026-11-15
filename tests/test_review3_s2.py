@@ -2,9 +2,8 @@
 S-subagents-teams (part 2): review items 54, 123, 125 (item 124 pinned the
 cc:/cx: scrub, removed in 3.1.5.0).
 
-  * 54   a team bundle's bios are validated before anything is written, a
-         bio named like a shipped one is reported as shadowing it, and a
-         hand-edited bio with a non-mapping section never crashes a lineup
+  * 54   a hand-edited bio with a non-mapping section never crashes a lineup
+         (the bundle half went with teams_bundle in 3.6.0.0 R5d)
   * 123  a failed task_id resume leaves the original run's outcome alone
   * 125  a role-table value no spawn can resolve runs on the session model
          (the same answer /roles gives) and assign_role refuses to write it
@@ -42,68 +41,6 @@ def _bundle(root: Path, team: dict, bios: dict) -> Path:
 
 
 # ---- 54: bundle_import validates bios and reports shadowed shipped ones --------
-
-
-@test
-def test_54_an_invalid_bio_refuses_the_whole_import(ctx: Ctx):
-    from halo_harness.teams_bundle import bundle_import
-    with scoped_home() as home:
-        team = {"name": "bt", "agents": [{"agent": "reviewer", "role": "reviewer"}]}
-        d = _bundle(home / "src", team, {
-            "reviewer": {"name": "reviewer", "models": "not-a-mapping", "hooks": {"bogus_event": []}},
-            "bad-bio": {"name": "bad-bio", "kind": "nonsense"},
-            "stray": "- just\n- a list\n",
-            "orphan": {"name": "orphan", "extends": "does-not-exist"},
-        })
-        ok, lines = bundle_import(d)
-        text = "\n".join(lines)
-        ctx.check(f"the import is refused, got {lines}", ok is False)
-        for needle in ("bio reviewer", "bio bad-bio", "bio stray", "bio orphan"):
-            ctx.check(f"the problems name {needle!r}", needle in text)
-        agents = home / ".halo" / "agents"
-        ctx.check("nothing was written to user scope", not agents.exists() or not list(agents.glob("*.yaml")))
-        ctx.check("the team was not saved", not (home / ".halo" / "teams" / "bt.yaml").exists())
-
-
-@test
-def test_54_a_bundle_bio_named_like_a_shipped_one_is_reported(ctx: Ctx):
-    from halo_harness.agents_yaml import find_agent_bio_path
-    from halo_harness.teams_bundle import bundle_import
-    with scoped_home() as home:
-        team = {"name": "bt2", "agents": [{"agent": "orchestrator", "role": "main"},
-                                          {"agent": "reviewer", "role": "reviewer"},
-                                          {"agent": "child-bio", "role": "subagent"}]}
-        d = _bundle(home / "src", team, {
-            "reviewer": {"name": "reviewer", "description": "the bundle's reviewer", "kind": "reviewer",
-                         "models": {"preference": "or:vendor/r"}, "_source": "x"},
-            "child-bio": {"name": "child-bio", "extends": "parent-bio"},
-            "parent-bio": {"name": "parent-bio", "models": {"preference": "or:vendor/p"}},
-        })
-        ok, lines = bundle_import(d)
-        ctx.check(f"the import succeeds (bios that extend each other are fine), got {lines}", ok is True)
-        ctx.check(f"a shadows-shipped line names reviewer, got {lines}",
-                  any("shadows shipped" in l and "reviewer" in l for l in lines))
-        found = find_agent_bio_path("reviewer")
-        ctx.check(f"the bundle's reviewer is the one that resolves now, got {found}",
-                  found is not None and found[1] == "user")
-        import yaml
-        written = yaml.safe_load(found[0].read_text(encoding="utf-8"))
-        ctx.check(f"internal _ keys are dropped, got {sorted(written)}", "_source" not in written)
-
-
-@test
-def test_54_a_failed_team_save_restores_a_bio_force_overwrote(ctx: Ctx):
-    from halo_harness.teams_bundle import bundle_import
-    with scoped_home() as home:
-        agents = home / ".halo" / "agents"
-        agents.mkdir(parents=True)
-        (agents / "mine.yaml").write_bytes(b"name: mine\ndescription: the LOCAL one\n")
-        team = {"name": "bt3", "agents": "not-a-list"}
-        d = _bundle(home / "src", team, {"mine": {"name": "mine", "description": "bundle one"}})
-        ok, lines = bundle_import(d, force=True)
-        ctx.check(f"a bad team refuses the import, got {lines}", ok is False)
-        ctx.check("the overwritten bio got its previous bytes back",
-                  (agents / "mine.yaml").read_bytes() == b"name: mine\ndescription: the LOCAL one\n")
 
 
 @test

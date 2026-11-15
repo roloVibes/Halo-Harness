@@ -107,23 +107,6 @@ def test_f59_resolve_role_ref_inherit(ctx: Ctx):
 # ---- f63: cron Sunday and dom/dow OR ----
 
 
-@test
-def test_f63_cron_sunday_and_day_or(ctx: Ctx):
-    from halo_harness.agents_schedule import cron_next
-    base = datetime.datetime(2026, 10, 8, 12, 0)  # a Thursday
-    ctx.check("dow 7 == Sunday (same as 0)",
-              cron_next("0 9 * * 7", now=base) == cron_next("0 9 * * 0", now=base)
-              == datetime.datetime(2026, 10, 11, 9, 0))
-    ctx.check("dom OR dow when both restricted",
-              cron_next("0 0 1 * 1", now=datetime.datetime(2026, 10, 2, 0, 0))
-              == datetime.datetime(2026, 10, 5, 0, 0))
-    ctx.check("plain fields unchanged",
-              cron_next("30 4 * * *", now=base) == datetime.datetime(2026, 10, 9, 4, 30))
-    ctx.check("dom-only still restricts",
-              cron_next("0 0 1 * *", now=datetime.datetime(2026, 10, 2, 0, 0))
-              == datetime.datetime(2026, 11, 1, 0, 0))
-
-
 # ---- f81: preflight lane identification ----
 
 

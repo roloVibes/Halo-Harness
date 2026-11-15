@@ -112,7 +112,6 @@ def _notes(transcript: str) -> list:
 
 def _mock():
     from tests.helpers.mock_openai import SCENARIOS, MockUpstream, _finish
-    from tests.test_teams_runtime import _text
     for name, said in (("auto-eyes", "EYES SAW IT"), ("auto-cheap", "CHEAP DONE"), ("auto-main", "MAIN RAN"),
                        ("auto-override", "OVERRIDE RAN"), ("auto-tier", "TIER RAN"), ("plain-worker", "PLAIN RAN")):
         SCENARIOS[name] = (lambda text: lambda h, b: _finish(h, _text(text)))(said)
@@ -170,6 +169,15 @@ def test_a_pick_that_does_not_resolve_runs_on_mains_model(ctx: Ctx):
         os.environ.update(saved)
         mock.stop()
 
+
+
+def _text(text: str):
+    """A plain text reply as the mock upstream's chunks (moved here from tests/test_teams_runtime.py, 3.6.0.0 R5d)."""
+    return [
+        {"choices": [{"index": 0, "delta": {"role": "assistant"}}]},
+        {"choices": [{"index": 0, "delta": {"content": text}}]},
+        {"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
+    ]
 
 if __name__ == "__main__":
     ctx = Ctx()

@@ -1,9 +1,8 @@
-"""halo_harness.workflows.doctor_rows -- which squares are on for the lineup, and from where (Halo 3.3.16.2):
-`halo doctor`'s line under the lineup and the header `halo workflows list` adds.
+"""halo_harness.workflows.doctor_rows -- which squares a session enables, and from where (Halo 3.3.16.2; 3.6.0.0 R5d:
+config's set only, lineups are gone): `halo doctor`'s line under the map in use.
 
-    squares_line(lineup=None, cwd=None) -> "Squares for lineup mine: media (config workflows.enabled: the
-                                            lineup sets no `workflows:`)"
-    rows(cwd)                           -> doctor's ("lineup", ...) and ("lineup_squares", ...) entries
+    squares_line(lineup=None, cwd=None) -> "Squares a session enables: media (config workflows.enabled)"
+    rows(cwd)                           -> doctor's ("lineup", ...) (the Map row) and ("lineup_squares", ...) entries
 """
 
 from __future__ import annotations
@@ -11,13 +10,9 @@ from __future__ import annotations
 from typing import Optional
 
 
-def where_words(where: str, lineup: str) -> str:
-    from halo_harness.workflows.registry import CONFIG_KEY, uses_config
-    if where == "lineup":
-        return "the lineup's own `workflows:`"
-    if uses_config(lineup):
-        return f"config {CONFIG_KEY}"
-    return f"config {CONFIG_KEY}: the lineup sets no `workflows:`"
+def where_words(where: str = "config", lineup: str = "") -> str:
+    from halo_harness.workflows.registry import CONFIG_KEY
+    return f"config {CONFIG_KEY}"
 
 
 def rules_of(lineup: str, cwd=None) -> dict:
@@ -45,12 +40,11 @@ def squares_line(lineup: Optional[str] = None, *, cwd=None) -> str:
     rules = rules_of(name, cwd)
     on = [_named(w, rules) for w in registry.enabled_squares(name, cwd=cwd)]
     src = where_words(where, name)
-    # 3.6.0.0 R5c (the judge's S-f): a session reads no lineup, so the session's set is config's -- named as that
-    head = "Squares a session enables" if name == registry.active_lineup() else f"Squares for lineup {name}"
+    head = "Squares a session enables"  # 3.6.0.0 R5c/R5d: a session reads no lineup, so the set is config's
     if not on:
         missing = f" ({', '.join(refs)} not found)" if refs else ""
         return (f"{head}: none{missing} ({src}), so the Workflow tool is not offered; "
-                f"`halo workflows enable media` turns one on")
+                f"`halo config set workflows.enabled media` turns one on")
     return f"{head}: {', '.join(on)} ({src})"
 
 

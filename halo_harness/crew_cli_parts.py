@@ -1,5 +1,5 @@
 """halo_harness.crew_cli_parts -- what `halo agents` and `halo workflows` share (Halo 3.6.0.0 R5): list a kind's files
-nearest first, show one, make one of yours from a starter (or a blank one), open one to edit (your $VISUAL / $EDITOR on
+nearest first, show one, make one of yours from a starter (or a blank one), copy one to edit (3.6.0.0 R5d), open one to edit (your $VISUAL / $EDITOR on
 your file, else Studio's tab on it), and wait for a Try it run to end.
 
 Every file is in ~/.halo/crew/<kind>s/ (yours) or a trusted project's .halo/crew/<kind>s/; the starters ship read-only
@@ -72,6 +72,18 @@ def new(kind: str, name: str, start: "str | None", cwd: Path, blank: dict) -> in
     return 0
 
 
+def copy(kind: str, name: str, as_name: "str | None", cwd: Path) -> int:
+    """`halo <kind>s copy <name> [--as <new>]` (3.6.0.0 R5d): your own copy to edit (crew/store.py own_copy)."""
+    from halo_harness.crew import store
+    try:
+        path, new = store.own_copy(kind, name, as_name=as_name, cwd=cwd)
+    except ValueError as e:
+        print(f"halo {kind}s copy: {e}", file=sys.stderr)
+        return 1
+    print(f"wrote {path} (a copy of {name}); halo {kind}s edit {new} opens it")
+    return 0
+
+
 def edit(kind: str, name: str, cwd: Path) -> int:
     from halo_harness.crew import store
     found = store.find(kind, name, cwd=cwd)
@@ -88,7 +100,7 @@ def edit(kind: str, name: str, cwd: Path) -> int:
                   f"to one that runs, or open it in Studio: halo studio --edit {kind}:{name}", file=sys.stderr)
             return 1
     if scope == "starter":
-        print(f"{name} is a starter (read-only): halo {kind}s new my-{name} --from {name} makes yours")
+        print(f"{name} is a starter (read-only): halo {kind}s copy {name} makes yours (my-{name})")
     print(f"opening Studio on it: halo studio --edit {kind}:{name} (Agents -> {TABS[kind]})")
     from halo_harness.studio_edit_cli import open_in_studio
     return open_in_studio(kind, name, no_open=False, prog=f"halo {kind}s edit")

@@ -16,6 +16,7 @@ map (`halo maps`, Agents -> 3 · Map).
 halo workflows list                                  # yours, this project's, then the starters
 halo workflows show review                           # its file, and the maps it is on
 halo workflows new my-review --from review           # one of yours: a copy (or, without --from, a blank one-step one)
+halo workflows copy review                         # your own copy (my-review), to edit; --as names it (3.6.0.0 R5d)
 halo workflows edit my-review                        # your $VISUAL / $EDITOR on your file; else Studio on it
 halo workflows try my-review "review the login change"   # on a throwaway copy of this repo, step by step, with its cost
 halo workflows run my-review "review the login change"   # here, for real, on the step runner (each step's agents as

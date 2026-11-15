@@ -81,39 +81,6 @@ def test_a_disabled_pack_is_refused_with_one_line(ctx: Ctx):
 
 
 @test
-def test_a_bios_trigger_on_a_pack_event_fires_it_once(ctx: Ctx):
-    from halo_harness.agents_schedule import TeamScheduler
-    from halo_harness.agents_yaml import validate_trigger_section
-    from halo_harness.ext import publish_event
-    ctx.check("the short form validates", validate_trigger_section([{"event": "doc-review:review.done"}]) == [])
-    ctx.check("so does the long one", validate_trigger_section([{"on": "event", "name": "doc-review:review.done"}]) == [])
-    with PacksHome() as h:
-        h.install(h.source(), enable=True)
-        fired = []
-        sched = TeamScheduler(SimpleNamespace(state_dir=None), SimpleNamespace(name="review"),
-                              fire_fn=lambda s, e: fired.append(e["on_value"]) or "fired", tick_s=0.05)
-        armed = sched.arm_bio({"name": "doc-review--writer", "triggers": [{"event": "doc-review:review.done", "prompt": "Summarise it"},
-                                                                         {"on": "event", "name": "doc-review:other.kind"}]}, "main")
-        ctx.check(f"two triggers armed, got {armed}", len(armed) == 2)
-        sched._poll_pack_events()
-        ctx.check("nothing before the event", fired == [])
-        time.sleep(0.02)
-        publish_event("doc-review", "review.done", {"file": "README.md", "findings": 1})
-        sched._poll_pack_events()
-        sched._poll_pack_events()
-        publish_event("doc-review", "review.done", {"file": "README.md", "findings": 1})
-        sched._poll_pack_events()
-        ctx.check(f"fired once, for its kind only, got {fired}", fired == ["doc-review:review.done"])
-        sched.start()
-        publish_event("doc-review", "other.kind", {})
-        deadline = time.time() + 5
-        while time.time() < deadline and len(fired) < 2:
-            time.sleep(0.05)
-        sched.stop()
-        ctx.check(f"the scheduler's own tick fires the other, got {fired}", fired == ["doc-review:review.done", "doc-review:other.kind"])
-
-
-@test
 def test_the_registry_carries_a_kinds_view(ctx: Ctx):
     from halo_harness.packs.studio_registry import registry
     with PacksHome() as h:

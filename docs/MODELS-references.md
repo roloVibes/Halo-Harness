@@ -187,9 +187,9 @@ halo models --measured --json    # the same rows
 
 `halo models analyze` lists the same table last (its `--json` adds
 `measured`). A bio with `models.preference: measured` routes by these rates
-([ROLES.md](ROLES.md#measured-a-bio-that-routes-by-what-succeeded-halo-3180)).
+([ROLES.md](ROLES.md#measured)).
 
-Halo 3.1.9.0 R3 ([Auto learns](ROLES.md#auto-learns-halo-3190)): a model
+Halo 3.1.9.0 R3 ([Auto learns](ROLES.md#auto)): a model
 whose rate for a kind over the last 30 days is under 34% (from 3 checked
 tasks) is **dropped** for that kind. `halo models --measured` ends its row
 with the mark (`--json`: a `dropped` field, "" when not), `halo models

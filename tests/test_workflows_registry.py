@@ -1,9 +1,8 @@
 """tests.test_workflows_registry -- where squares come from and which are enabled (Halo 3.3.16.0 R3,
 workflows/registry.py, workflows/spec.py): four places in precedence (yours > project > shipped for a bare
 name; a pack's by `<pack>/<name>`), yours read from the state dir (a test never writes the real ~/.halo),
-the library's three groups in order; the enabled sets: the auto lineup reads config `workflows.enabled`
-(default media), a lineup of yours its `workflows:` list (written there), a shipped lineup says to copy it;
-a workflow without `gives` is never enabled. No model call.
+the library's three groups in order; the enabled set is config `workflows.enabled` (default media; 3.6.0.0 R5d:
+lineups are gone); a workflow without `gives` is never a square on. No model call.
 
 Run: python -m tests.test_workflows_registry
 """
@@ -74,44 +73,22 @@ def test_the_library_groups_and_a_packs_squares(ctx: Ctx):
         refs = [w.ref for w in got]
         ctx.check(f"a pack's by <pack>/<name>, got {refs}", "doc-review/review" in refs and "mine" in refs)
         ctx.check("every shipped square listed", {"media", "plan", "code", "review", "research"} <= set(refs))
-        ok, line = registry.enable("doc-review/review", cwd=h.repo)
-        ctx.check(f"a workflow without gives is never enabled, got {line!r}", not ok and "not a square" in line)
+        from halo_harness.theme import set_config_value  # 3.6.0.0 R5d: the set is config's
+        set_config_value("workflows.enabled", ["doc-review/review", "media"])
+        ctx.check("a workflow without gives is never a square on",
+                  [w.ref for w in registry.enabled_squares(cwd=h.repo)] == ["media"])
 
 
 @test
-def test_the_auto_lineup_reads_config_and_writes_it(ctx: Ctx):
-    import json
+def test_the_set_is_configs(ctx: Ctx):
+    from halo_harness.theme import set_config_value
     from halo_harness.workflows import registry
     with PacksHome() as h:
         ctx.check(f"default: media, got {registry.enabled_refs(cwd=h.repo)}", registry.enabled_refs(cwd=h.repo) == ["media"])
-        ok, line = registry.enable("plan", cwd=h.repo)
-        ctx.check(f"one line saying what changed, got {line!r}", ok and line == "plan enabled for the auto lineup (wrote config workflows.enabled)")
-        cfg = json.loads((h.state / "config.json").read_text(encoding="utf-8"))
-        ctx.check(f"config holds both, got {cfg}", cfg.get("workflows", {}).get("enabled") == ["media", "plan"])
-        ok, line = registry.enable("plan", cwd=h.repo)
-        ctx.check(f"twice says so, got {line!r}", ok and "already on" in line)
-        ok, line = registry.disable("media", cwd=h.repo)
-        ctx.check(f"disable, got {registry.enabled_refs(cwd=h.repo)}", ok and registry.enabled_refs(cwd=h.repo) == ["plan"])
+        set_config_value("workflows.enabled", ["plan"])
+        ctx.check(f"config's set, got {registry.enabled_refs(cwd=h.repo)}", registry.enabled_refs(cwd=h.repo) == ["plan"])
         ctx.check("enabled_squares resolves them", [w.ref for w in registry.enabled_squares(cwd=h.repo)] == ["plan"])
-
-
-@test
-def test_a_lineup_of_yours_holds_its_list_and_a_shipped_one_is_read_only(ctx: Ctx):
-    from halo_harness.workflows import registry
-    with PacksHome() as h:
-        h.write(".halo/teams/mine.yaml", "name: mine\nagents:\n  - {agent: default-model, role: main}\nworkflows: [review]\n")
-        ctx.check(f"its list, got {registry.enabled_refs('mine', cwd=h.repo)}", registry.enabled_refs("mine", cwd=h.repo) == ["review"])
-        ok, line = registry.enable("media", "mine", cwd=h.repo)
-        ctx.check(f"written to the lineup's file, got {line!r}", ok and "for lineup mine" in line and "mine.yaml" in line)
-        text = (h.state / "teams" / "mine.yaml").read_text(encoding="utf-8")
-        ctx.check(f"the file lists both, got {text!r}", "review" in text and "media" in text)
-        # 3.3.16.2: a lineup with no `workflows:` key (the shipped quality) inherits config's set (media), so
-        # enabling media there is already on; a square outside that set still needs a copy of the lineup
-        ok, line = registry.enable("media", "quality", cwd=h.repo)
-        ctx.check(f"inherited from config, got {line!r}", ok and "already on for lineup quality" in line
-                  and "config workflows.enabled" in line)
-        ok, line = registry.enable("review", "quality", cwd=h.repo)
-        ctx.check(f"a shipped lineup says to copy it, got {line!r}", not ok and "read-only" in line and "halo teams new" in line)
+        ctx.check("a name given changes nothing (lineups are gone)", registry.enabled_refs("quality", cwd=h.repo) == ["plan"])
 
 
 if __name__ == "__main__":

@@ -187,10 +187,6 @@ def test_the_bio_and_lineup_declarations_are_validated(ctx: Ctx):
         ok = validate_agent_bio({"secrets": {"broker": "env"}, "environment": {"secrets": [{"env": "A", "ref": "ENV:B"}],
                                                                               "pass_to_tools": ["A"]}})
         ctx.check(f"a bio with all three is valid, got {ok}", not ok)
-        from halo_harness.schemas.check import check
-        from halo_harness.schemas.yaml_files import bio
-        ctx.check("the bio schema knows isolation and secrets", not check({"isolation": "container",
-                                                                            "secrets": {"broker": "env"}}, bio()))
 
 
 if __name__ == "__main__":

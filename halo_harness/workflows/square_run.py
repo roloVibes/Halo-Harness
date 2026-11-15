@@ -58,11 +58,11 @@ def lead_model(wf, task: str, files: list, gaps: list, *, main_ref: str = "", st
 def brief(wf, task: str, files: list, *, cwd=None, state_dir=None) -> str:
     bio, _model = wf.contract.lead()
     prompt = ""
-    if bio:
-        from halo_harness.agents_yaml import resolve_agent_bio
-        data = resolve_agent_bio(bio, cwd=cwd, state_dir=state_dir) or {}
-        ctx = data.get("context") if isinstance(data.get("context"), dict) else {}
-        prompt = str(ctx.get("system_prompt") or "").strip()
+    if bio:  # 3.6.0.0 R5d: a shipped square's lead names an `auto-*` bio, whose prompt is a plain session's card's now
+        from halo_harness.crew.plain import load
+        plain = load()
+        card = next((c for c in (plain.cards.values() if plain else []) if c.get("agent") == bio), None)
+        prompt = str((card or {}).get("prompt") or "").strip()
     lines = [prompt] if prompt else []
     lines += [f"You are the square {wf.ref}: {wf.contract.does}", f"Task: {task}"]
     lines += [f"Files: {', '.join(files)}"] if files else []

@@ -174,7 +174,7 @@ weighs -- those measured for the bio's kind here from 3 checked tasks are
 ranked by their rate; a tie goes by the band's own rule. With nothing
 measured for that kind yet, the pick is the `auto` pick, its reason saying
 so. The Roles canvas shows the source word `measured`. The shipped `auto`
-lineup's bios stay `auto`. See [ROLES.md](ROLES.md#measured-a-bio-that-routes-by-what-succeeded-halo-3180).
+lineup's bios stay `auto`. See [ROLES.md](ROLES.md#measured).
 
 ## What was learned
 
@@ -183,7 +183,7 @@ numbers for the member's task kind -- the checked tasks of the last 30 days,
 from 3 of them, a weight of `0.5 + 0.5 x rate` on each candidate's score --
 and the model roster drops a model whose rate for a kind is under 34%, with
 one line naming it and its numbers. The rule, the drop line and the switch
-are in [ROLES.md](ROLES.md#auto-learns-halo-3190); these two commands show
+are in [ROLES.md](ROLES.md#auto); these two commands show
 and reset what it learned:
 
 ```

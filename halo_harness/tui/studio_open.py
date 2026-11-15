@@ -18,15 +18,11 @@ line: focused (a Studio page already open took it), opened, started, or the URL.
 section, that block in view (studio/setup_door.py); `/setup --terminal` keeps
 the terminal screen.
 
-`new_bio` / `new_lineup` write a starter file (what "New" in a terminal list
-does now) so that Studio has something to open.
-
 `OPENER` is the one call that reaches Studio; tests replace it.
 """
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -127,25 +123,3 @@ def open_setup(host, word: str = "", *, cwd=None, state_dir=None, on_line: Optio
     cli = "halo setup" + (f" {word.strip().lower()}" if word.strip() else "")
     _open_on_worker(host, SetupTarget(block=block), cwd=cwd, state_dir=state_dir, say=_said, cli=cli)
     return True
-
-
-def new_bio(*, cwd=None, state_dir=None, extends: Optional[str] = None, name: Optional[str] = None,
-            preference: str = "") -> "tuple[str, list[str]]":
-    """A starter bio (`agent-<hex>`, or `<extends>-child` extending that bio; `preference`: its model
-    to start from): `(name, problems)`."""
-    from halo_harness.agents_yaml import find_agent_bio_path, save_agent_bio
-    name = name or (f"{extends}-child" if extends else f"agent-{uuid.uuid4().hex[:6]}")
-    if extends and find_agent_bio_path(name, cwd=cwd, state_dir=state_dir):
-        name = f"{extends}-child-{uuid.uuid4().hex[:4]}"
-    data = {"description": "", **({"extends": extends} if extends else {}),
-            **({"models": {"preference": preference}} if preference else {})}
-    ok, problems = save_agent_bio(name, data, cwd=cwd, state_dir=state_dir)
-    return (name, []) if ok else ("", problems)
-
-
-def new_lineup(*, cwd=None, state_dir=None, name: Optional[str] = None) -> "tuple[str, list[str]]":
-    """A starter lineup (`lineup-<hex>`): `(name, problems)`."""
-    from halo_harness.teams_yaml import new_team_template_from_template
-    name = name or f"lineup-{uuid.uuid4().hex[:6]}"
-    ok, problems = new_team_template_from_template(name, None, cwd=cwd, state_dir=state_dir)
-    return (name, []) if ok else ("", problems)

@@ -127,8 +127,8 @@ def test_the_cast_hover_row_carries_the_tenants_price_words(ctx: Ctx):
 
 
 @test
-def test_a_square_or_template_on_cp_work_costs_tenant_credits(ctx: Ctx):
-    from halo_harness.workflows import blocks as B
+def test_a_square_on_cp_work_costs_tenant_credits(ctx: Ctx):
+    """(3.6.0.0 R5d: the square templates went with workflows/blocks.py; the contract's costs stay.)"""
     from halo_harness.workflows.contract import read
     lead = {"bio": "auto-reviewer", "model": "cp:work"}
     sq = {"gives": ["text"], "budget": {"band": "mid", "cap_usd": 1.5}, "lineup": {"lead": lead}}
@@ -140,14 +140,6 @@ def test_a_square_or_template_on_cp_work_costs_tenant_credits(ctx: Ctx):
               c.costs() == "band mid · cap $1.50 · + tenant credits" and c.to_json()["tenant"] == "some")
     c = read({**sq, "lineup": {"lead": {"bio": "auto-reviewer", "model": "auto"}}})
     ctx.check(f"none on it: as before, got {c.costs()!r}", c.costs() == "band mid · cap $1.50" and c.to_json()["tenant"] == "")
-    from tests.helpers.packs_home import PacksHome
-    with PacksHome() as h:
-        t = dict(B.load("review-panel")[0])
-        t["square"] = dict(t["square"], lineup={"lead": lead})
-        ctx.check(f"a template may name a bio on cp:work, got {B.problems(t, cwd=h.repo)}", B.problems(t, cwd=h.repo) == [])
-        ctx.check(f"its summary costs tenant credits, got {B.summary(t)['costs']!r}", B.summary(t)["costs"] == "tenant credits")
-        t["square"] = dict(t["square"], lineup={"lead": {"bio": "auto-reviewer", "model": "or:vendor/x"}})
-        ctx.check("a paid model is still a problem", any("names a model" in p for p in B.problems(t, cwd=h.repo)))
 
 
 if __name__ == "__main__":

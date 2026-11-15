@@ -139,7 +139,7 @@ def test_the_steward_flags_a_switch_without_fit(ctx: Ctx):
 
 
 @test
-def test_history_on_the_anthropic_dialect_and_the_lineup_answer(ctx: Ctx):
+def test_history_on_the_anthropic_dialect(ctx: Ctx):
     from halo_harness.agent.model_switch_history import convert
     msgs = [{"role": "user", "content": [{"type": "text", "text": "go"}]},
             {"role": "assistant", "content": [{"type": "thinking", "thinking": "from another model"},
@@ -154,13 +154,6 @@ def test_history_on_the_anthropic_dialect_and_the_lineup_answer(ctx: Ctx):
     out, _ = convert(only_tools, {"vision": True, "thinking": True, "tools": False, "dialect": "ollama"})
     ctx.check("a flattened history always holds a user turn with text", any(m["role"] == "user" for m in out)
               and "[result of a tool: x]" in json.dumps(out))
-    from halo_harness.teams_apply_answer import apply_answer
-    notes = [f"{r}: agent '{r}-bio' has no models.preference/fallback of its own -- left out of the role table "
-             f"(falls through to the session model)" for r in ("main", "small", "researcher", "judge")]
-    line, details = apply_answer("local-first", notes)
-    ctx.check(f"the lineup answer is one line, got {line!r}", line == "lineup 'local-first' applied; main, small, researcher "
-              "and judge run on the session model (their agents name none)" and details == notes)
-    from halo_harness.commands.builtins import _cmd_teams  # noqa: F401  (the /teams apply path prints the same line)
 
 
 @test

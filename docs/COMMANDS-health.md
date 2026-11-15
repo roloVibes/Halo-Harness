@@ -73,7 +73,7 @@ for each task; change it with `halo config set team <name>` or Studio Roles
 (roles off: one model for everything)". `halo init` prints it with its
 checks, the wizard's Summary names the lineup with the same "change it with"
 words, and `/status` prints the running session's own lineup the same way. `--agents` runs an `auto` bio's acceptance on your default
-model ([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)).
+model ([ROLES.md](ROLES.md#auto)).
 
 `halo doctor --local [--model ol:x]` (round 5d; round 5f extends `--model`
 to `hf:local/*`/`hf:mlx/*`) is the 60-second "works out of the box" proof

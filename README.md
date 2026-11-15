@@ -82,12 +82,12 @@ agent you pin), and run a goal (several agents writing the same files, each in i
 <a href="docs/media/studio-agents-tab.png"><img alt="Studio's Agents section on 1 · Agents: your agents and the starters to copy, an agent's form with how careful it is, Try it run once on a throwaway copy with what it cost, and the builder box under it" src="docs/media/studio-agents-tab.png" width="100%"></a>
 
 One job, many models: each agent runs on its own model, across OpenRouter, Databricks, Anthropic, OpenAI,
-Ollama, Hugging Face, your work's Microsoft 365 Copilot or any OpenAI-compatible server. The `auto` lineup picks a model
-for each task and learns from what succeeded here. `/model` swaps the model mid-session; the history, tools and rules
+Ollama, Hugging Face, your work's Microsoft 365 Copilot or any OpenAI-compatible server. An agent on `model: auto` gets
+a model picked for each task, which learns from what succeeded here. `/model` swaps the model mid-session; the history, tools and rules
 come along.
 
 **How:** Agents -> 1 · Agents, an agent's model picker; `halo agents`; `/model` in a session.
-[Models](docs/MODELS.md) · [the auto lineup](docs/ROLES.md#the-auto-lineup-halo-3190) · [providers](docs/MODELS-references.md)
+[Models](docs/MODELS.md) · [Auto and the model table](docs/ROLES.md#auto) · [providers](docs/MODELS-references.md)
 
 ## Local
 
@@ -104,7 +104,7 @@ Hugging Face models.
 
 ## Start
 
-<a href="docs/media/studio-setup.png"><img alt="Studio's Setup section as halo init opens it: the step rail across the top, the line saying set up this box, OpenRouter set from the env file with its last four characters, the default model, the lineup and the permission mode; the first page, Providers, one card per provider" src="docs/media/studio-setup.png" width="100%"></a>
+<a href="docs/media/studio-setup.png"><img alt="Studio's Setup section as halo init opens it: the step rail across the top, the line saying set up this box, OpenRouter set from the env file with its last four characters, the default model and the permission mode; the first page, Providers, one card per provider" src="docs/media/studio-setup.png" width="100%"></a>
 
 Setup is a page in Studio: one step at a time, Back and Next, a Summary last. If you already use Claude Code, Halo
 reads that setup where it is (settings, CLAUDE.md, skills, agents, commands, MCP servers) and Setup never writes to it.
@@ -165,7 +165,7 @@ The core is what the five above need. The rest ships as packs, off until you tur
 
 | Pack | What it adds |
 |---|---|
-| `first-run` | The guided first run: `halo start`, one real goal run that rehearses your lineup on a sample repo |
+| `first-run` | The guided first run: `halo start`, one real goal run on a sample repo |
 | `coach` | The post-run coach: suggestions from a finished run, Apply after one confirm, `halo improve` |
 | `design` | Prototypes, pages, decks and logos on artboards in Studio, made by a Halo turn |
 | `signal` | Halo on your phone as a chat: a text message starts or continues a session (it runs signal-cli) |
@@ -181,5 +181,6 @@ template repo [halo-pack-template](https://github.com/roloVibes/halo-pack-templa
   (A security problem goes through [SECURITY.md](SECURITY.md), not a public channel.)
 - [The docs map](docs/README.md): every doc, by what you want to do.
 - [CHANGELOG.md](CHANGELOG.md): every release, what changed and why.
+- [Moving from 3.5](docs/MOVING-from-3.5.md): lineups, bios and blocks are gone in 3.6; what to use instead.
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) and [SECURITY.md](SECURITY.md): sending a change, reporting a problem.
 - Licence: MIT, see [LICENSE](LICENSE).

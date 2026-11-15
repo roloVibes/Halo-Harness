@@ -147,7 +147,7 @@ halo outcomes --model or:vendor/model --json
 ### `halo outcomes learned`
 
 Halo 3.1.9.0 R3. What the `auto` pick learned from those rows
-([ROLES.md](ROLES.md#auto-learns-halo-3190)): per model and task kind, over
+([ROLES.md](ROLES.md#auto)): per model and task kind, over
 the window (`models.learn.window_days`, 30 days), the checked tasks, the
 first-time passes and the rate, the pick's weight (`0.5 + 0.5 x rate` from
 3 tasks, else 1.0), how many were the model's own pick (`picked: auto` or

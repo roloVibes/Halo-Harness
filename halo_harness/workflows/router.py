@@ -132,9 +132,9 @@ def route(task: str, files=(), *, name: str = "", need: str = "", model_ref: str
         enabled = {wf.ref: wf for wf in squares}
         wf = enabled.get(name.strip())
         if wf is None or mode(wf) == "off":
-            r.refused, r.why = True, (f"{name} is not connected: main never uses it (Studio: draw its line, or halo "
-                                      f"workflows enable {name} --when auto)" if wf is not None else
-                                      f"{name} is not enabled for this lineup: halo workflows enable {name} "
+            r.refused, r.why = True, (f"{name} is not connected: main never uses it (its rule in config workflows.when.{name} "
+                                      "says off)" if wf is not None else
+                                      f"{name} is not enabled for this session: add it to config workflows.enabled "
                                       "(or Studio: Agents -> Workflows)")
             return r
         r.square, r.gaps = wf, gaps(task, files, need=need, takes=takes)
@@ -163,7 +163,7 @@ def route(task: str, files=(), *, name: str = "", need: str = "", model_ref: str
                 what, names = ", ".join(_THE.get(g, g) for g in r.gaps), ", ".join(files) or "the task's media"
                 r.refused, r.why = True, (nothing_reads(r.gaps, files) or
                                           f"no enabled square covers {what} (your model takes {_takes_text(takes)}): "
-                                          f"could not read {names}; halo workflows enable media")
+                                          f"could not read {names}; add media to config workflows.enabled")
                 return r
             lead = next((g for g in r.gaps if g in covers(r.square)), r.gaps[0])
             if r.square.ref in rules and rules[r.square.ref].needs:

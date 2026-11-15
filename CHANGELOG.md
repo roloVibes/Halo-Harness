@@ -470,6 +470,39 @@ Changed:
   `ext.reads_as_1x` says a 1.x pack loads anyway. The doc-review pack ships its crew in 2.0 files.
   docs/EXTENSION_API.md "A pack's crew"; docs/MOVING-from-3.5.md.
 
+### R5d
+
+Most of what is left of lineups, bios, blocks and the squares' lineup half is deleted. A session behaves exactly as
+before (its first request is the same, byte for byte); what went had no reader left. The lineup and bio readers that
+the two shipped packs first-run and coach still drive stay until those packs are re-made on agents and maps.
+
+Removed (and what to do instead):
+
+- **The squares' lineup half**: a lineup's `workflows:` list and per-square rules are not read, and `halo workflows
+  enable | disable | when` (already unreachable) is deleted. A session's squares are config `workflows.enabled` and
+  `workflows.when.<square>`; set them with `halo config set` or Studio's Settings. The Workflow tool's lines now name
+  that key, not the gone verb.
+- **The role table turned into a lineup** at session start and in `halo init`'s console setup: nothing is migrated
+  any more; `roles.*` is the model table sessions read as it is.
+- **`halo config where`'s lineup and bio rows, and `halo doctor --config`'s lineup and bio checks** (and Studio's
+  `GET doctor/config?lineup=`): those files are not read, so they are not checked; the old-files line still names
+  them once.
+- **The block templates** (`templates/blocks`, `halo blocks add`): start a workflow from a starter,
+  `halo workflows new <name> --from <starter>`.
+- **The /model picker's Agents source** lists your agent files (`~/.halo/crew/agents`, the project's, the starters,
+  an enabled pack's) instead of bios; its "New bio..." row is gone.
+- Modules with no reader left: lineup schedules and triggers, the lineup runtime, team bundles, the lineup answer,
+  the lineup choice, the Roles problems panel, the pack bio and lineup rows for Cast, a pack's Clone, the block
+  templates and the squares CLI.
+
+Added: **your own copy to edit** (`own_copy`): `halo agents | workflows | maps copy <name> [--as <new>]` writes a
+starter's (or a pack's, or the project's) file to `~/.halo/crew/<kind>s/my-<name>.yaml` and never over a file of yours;
+`edit` on a starter names it. Studio's button for it comes in the next round. A workflow's `own_copy: true` field still
+changes nothing (it does not move a workflow onto the run engine yet).
+
+Docs: AGENTS.md and ROLES.md rewritten short for agents and the model table; WORKFLOWS-squares.md says config holds
+the squares; MOVING-from-3.5.md lists what R5d removed and what is not moved yet, and the README links it.
+
 ### R8
 
 A model on another machine answers as fast as that machine can. A one-word answer from a model on another machine

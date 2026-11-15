@@ -77,12 +77,12 @@ def test_no_square_is_one_line_and_the_model_goes_on(ctx: Ctx):
     with PacksHome() as h:
         r = router.route("summarize report.pdf", ["docs/report.pdf"], squares=squares(h, "plan"), takes=["text"])
         ctx.check(f"refused, one line naming the file, got {r.why!r}", r.refused and r.square is None
-                  and r.why == "no role or square reads PDFs here (could not read docs/report.pdf): `halo workflows enable "
-                  "media`, or give a role a model that takes PDFs")  # 3.3.16.2: says what would read it
+                  and r.why == "no role or square reads PDFs here (could not read docs/report.pdf): add media to config workflows.enabled"
+                  ", or give a role a model that takes PDFs")  # 3.3.16.2: says what would read it
         r = router.route("tidy this up", (), squares=squares(h, "media"), takes=["text"])
         ctx.check(f"nothing to hand off, got {r.why!r}", r.refused and r.why.startswith("no hand-off: nothing in the task needs more"))
         r = router.route("x", (), name="plan", squares=squares(h, "media"), takes=["text"])
-        ctx.check(f"a named square must be enabled, got {r.why!r}", r.refused and "plan is not enabled for this lineup" in r.why)
+        ctx.check(f"a named square must be enabled, got {r.why!r}", r.refused and "plan is not enabled for this session" in r.why)
         r = router.route("x", (), need="smell", squares=squares(h, "media"), takes=["text"])
         ctx.check(f"an unknown need, got {r.why!r}", r.refused and "is not a need a square covers" in r.why)
 

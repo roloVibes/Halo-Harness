@@ -192,7 +192,6 @@ def test_a_lineups_workflows_and_acceptance(ctx: Ctx):
 def test_a_file_of_yours_named_like_a_pack_bio_wins_and_the_pack_is_shadowed(ctx: Ctx):
     from halo_harness import agents_yaml as A
     from halo_harness.packs.roles import list_lines, shadow_of
-    from halo_harness.teams_cli_views import agent_group_lines
     with PacksHome() as h:
         h.install(h.source(), enable=True)
         mine = h.write(".halo/agents/doc-review--reviewer.yaml",
@@ -203,8 +202,6 @@ def test_a_file_of_yours_named_like_a_pack_bio_wins_and_the_pack_is_shadowed(ctx
         ctx.check(f"halo agents list: the pack's group says it is shadowed, got {lines[-3:]}",
                   "  doc-review--reviewer  shadowed by ~/.halo/agents/doc-review--reviewer.yaml" in lines
                   and "pack doc-review:" in lines and "doc-review--reviewer" in lines)
-        grouped = agent_group_lines(cwd=h.repo)
-        ctx.check("halo agents: the pack group too", any("doc-review--reviewer -- shadowed by ~/.halo/agents/" in ln for ln in grouped))
         ctx.check("the row knows whose name it shadows", shadow_of("bios", "doc-review--reviewer", "user", cwd=h.repo) == "doc-review")
         from halo_harness.packs.doctor import problems
         ctx.check("doctor names it (yours is used)", any("yours is used" in p["text"] for p in problems(cwd=h.repo)))
@@ -215,13 +212,11 @@ def test_a_disabled_pack_adds_no_group(ctx: Ctx):
     from halo_harness import agents_yaml as A
     from halo_harness import teams_yaml as T
     from halo_harness.packs.roles import list_lines, pack_groups
-    from halo_harness.studio.packs_roles_api import active_packs
     with PacksHome() as h:
         h.install(h.source())
         names = A.list_agent_bios(cwd=h.repo)
         ctx.check("no group, no pack name", pack_groups("bios", cwd=h.repo) == [] and list_lines("bios", names, cwd=h.repo) == names
                   and not any(n.startswith("doc-review--") for n in names + T.list_team_templates(cwd=h.repo)))
-        ctx.check("Studio's Roles groups by no pack", active_packs(h.repo, h.state) == [])
         h.cli("enable", "doc-review")
         ctx.check("enabled: its group", [g[0] for g in pack_groups("lineups", cwd=h.repo)] == ["doc-review"])
 

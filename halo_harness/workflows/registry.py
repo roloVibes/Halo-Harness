@@ -1,5 +1,5 @@
-"""halo_harness.workflows.registry -- every square and where it came from, and which ones a lineup
-has enabled (Halo 3.3.16.0 R3, docs/WORKFLOWS-squares.md "The registry").
+"""halo_harness.workflows.registry -- every square and where it came from, and which ones a session has enabled
+(Halo 3.3.16.0 R3, docs/WORKFLOWS-squares.md "The registry").
 
 Four places, in this precedence:
 
@@ -11,18 +11,14 @@ Four places, in this precedence:
 A bare `<name>` resolves yours > project > shipped; `<pack>/<name>` names a pack's. A workflow is a square
 when its contract says what it gives (contract.py); the others list and run as before.
 
-Enabled per lineup: a lineup's `workflows:` list (any ref; `workflows: []` is none, on purpose); the auto
-lineup, no lineup and (3.3.16.2) a lineup with no `workflows:` key read `workflows.enabled` in config
-(default: the shipped `media` square). `enabled_from` says which of the two answered. 3.6.0.0 R5c: a session reads
-no lineup, so the set in force is config's (`active_lineup` is the plain session's name, read from crew/plain.py);
-a lineup file is read only when one is named.
+Enabled: config `workflows.enabled` (default: the shipped `media` square). 3.6.0.0 R5d: lineups are gone, so a
+lineup's `workflows:` list is not read; you change the set with `halo config set workflows.enabled ...`.
 
     squares(cwd=, state_dir=)          -> [Workflow] (one per bare name, its nearest place; every pack's)
     find_bare(name, cwd=, state_dir=)  -> (Workflow, "") | (None, why)
     group_of(wf)                       -> "yours" | "packs" | "shipped" (the library's three groups)
     check(wf, cwd=, state_dir=)        -> [problem lines] (a pack's ran with its manifest already)
     enabled_refs(lineup=None, ...)     -> [ref]
-    enable(ref, lineup=None, ...) / disable(...)  -> (ok, one line saying what changed)
 """
 
 from __future__ import annotations
@@ -122,26 +118,13 @@ def check(wf, *, cwd=None, state_dir=None) -> "list[str]":
     return check_one({}, Path(wf.path).parent.parent, wf.name, Path(wf.path))
 
 
-# -- the enabled sets ---------------------------------------------------------------------------------------------
+# -- the enabled set -----------------------------------------------------------------------------------------------
 
 def active_lineup() -> Optional[str]:
-    """3.6.0.0 R5c: the plain session's name (crew/plain.py): no session reads a lineup since 3.6 (config `team:` is read
-    by nobody), and a map runs exactly main's workflows (crew/map_run.workflow_call), so the set is config's."""
+    """3.6.0.0 R5c: the plain session's name (crew/plain.py): no session reads a lineup since 3.6, and a map runs exactly
+    main's workflows (crew/map_run.workflow_call), so the set is config's."""
     from halo_harness.crew.plain import NAME
     return NAME
-
-
-def uses_config(lineup) -> bool:
-    """config `workflows.enabled` answers: no name, the plain session's, the starter map's, or any map's name."""
-    from halo_harness.crew.compile import DEFAULT_MAP
-    from halo_harness.crew.plain import NAME
-    if not lineup or lineup in (NAME, DEFAULT_MAP) or str(lineup).startswith("map:"):  # map:<name>: a map session's
-        return True
-    try:
-        from halo_harness.crew import store
-        return store.find("map", str(lineup)) is not None
-    except Exception:
-        return False
 
 
 def _config_refs() -> "list[str]":
@@ -153,84 +136,14 @@ def _config_refs() -> "list[str]":
     return [str(x) for x in got if isinstance(x, str) and x.strip()] if isinstance(got, list) else list(DEFAULT_ENABLED)
 
 
-def _lineup_refs(raw: dict) -> "list[str]":
-    from halo_harness.workflows.spec import split_ref
-    own = str(raw.get("_pack") or "") or str(raw.get("from_pack") or "").partition("@")[0].strip()
-    out = []
-    from halo_harness.workflows.when import item_ref  # 3.3.16.3: an item may be {ref, when}
-    for item in raw.get("workflows") or [] if isinstance(raw.get("workflows"), list) else []:
-        if item_ref(item):
-            pack_id, name = split_ref(item_ref(item))
-            out.append(f"{pack_id}/{name}" if pack_id else (f"{own}/{item_ref(item)}" if own else item_ref(item)))
-    return list(dict.fromkeys(out))
-
-
 def enabled_from(lineup=None, *, cwd=None, state_dir=None) -> "tuple[list, str]":
-    """(refs, where): `where` is "lineup" (its own `workflows:` list, `[]` = none on purpose) or "config"
-    (`workflows.enabled`: the auto lineup, no lineup, and since 3.3.16.2 a lineup with no `workflows:` key)."""
-    lineup = lineup if lineup is not None else active_lineup()
-    if uses_config(lineup):
-        return _config_refs(), "config"
-    from halo_harness.teams_yaml import load_team_template_raw
-    raw = load_team_template_raw(str(lineup), cwd=cwd, state_dir=state_dir) or {}
-    if "workflows" not in raw:  # 3.3.16.2: no key inherits config's set, exactly like the auto lineup
-        return _config_refs(), "config"
-    return _lineup_refs(raw), "lineup"
+    """(refs, "config"): config `workflows.enabled` (default: the shipped `media` square). 3.6.0.0 R5d: a lineup's
+    own `workflows:` list is not read any more (lineups are gone); `lineup` changes nothing."""
+    return _config_refs(), "config"
 
 
 def enabled_refs(lineup=None, *, cwd=None, state_dir=None) -> "list[str]":
     return enabled_from(lineup, cwd=cwd, state_dir=state_dir)[0]
-
-
-def _write_lineup(lineup: str, ref: str, on: bool, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
-    """3.3.16.3: the lineup's items change in place, so a `{ref, when}` item keeps its rule (when_store.py)."""
-    from halo_harness.workflows.when import item_ref
-    from halo_harness.workflows.when_store import edit_lineup
-
-    def flip(items: list) -> None:
-        if on:
-            items.append(ref)
-        else:
-            items[:] = [i for i in items if item_ref(i) != ref and not (item_ref(i) == ref.partition("/")[2] and "/" in ref)]
-    return edit_lineup(lineup, flip, cwd=cwd, state_dir=state_dir)
-
-
-def _set(ref: str, on: bool, lineup=None, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
-    from halo_harness.workflows.spec import find
-    lineup = lineup if lineup is not None else active_lineup()
-    wf, why = find(ref, cwd=cwd, state_dir=state_dir)
-    if on and wf is None:
-        return False, why
-    ref = wf.ref if wf is not None else str(ref).strip()
-    if on and not wf.contract.square:
-        return False, f"{ref} is not a square: its file says no `gives` (halo workflows show {ref})"
-    refs, source = enabled_from(lineup, cwd=cwd, state_dir=state_dir)
-    where = "the auto lineup" if uses_config(lineup) else f"lineup {lineup}"
-    if (ref in refs) == on:
-        inherited = " (from config workflows.enabled: the lineup sets no `workflows:`)" \
-            if source == "config" and not uses_config(lineup) else ""
-        return True, f"{ref} is already {'on' if on else 'off'} for {where}{inherited}"
-    refs = refs + [ref] if on else [r for r in refs if r != ref]
-    if uses_config(lineup):
-        from halo_harness.theme import set_config_value
-        set_config_value(CONFIG_KEY, refs)
-        ok, wrote = True, f"config {CONFIG_KEY}"
-        if not on:
-            from halo_harness.workflows.when_store import drop_config_rule
-            drop_config_rule(ref)
-    else:
-        ok, wrote = _write_lineup(str(lineup), ref, on, cwd=cwd, state_dir=state_dir)
-        if not ok:
-            return False, wrote
-    return True, f"{ref} {'enabled' if on else 'disabled'} for {where} (wrote {wrote})"
-
-
-def enable(ref: str, lineup=None, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
-    return _set(ref, True, lineup, cwd=cwd, state_dir=state_dir)
-
-
-def disable(ref: str, lineup=None, *, cwd=None, state_dir=None) -> "tuple[bool, str]":
-    return _set(ref, False, lineup, cwd=cwd, state_dir=state_dir)
 
 
 def enabled_squares(lineup=None, *, cwd=None, state_dir=None) -> "list[Workflow]":

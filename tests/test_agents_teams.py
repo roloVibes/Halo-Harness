@@ -140,38 +140,6 @@ def test_thinking_off_normalizes_from_yaml_bool_to_the_string(ctx: Ctx):
 # agents_md_bridge.py: import/export to/from `.claude/agents/*.md`.
 # ---------------------------------------------------------------------------
 
-@test
-def test_frontmatter_export_then_import_round_trips_the_mapped_fields(ctx: Ctx):
-    from halo_harness.agents_md_bridge import export_agent_bio, import_agent_bio
-    with _Env() as e:
-        bio = {"name": "exported", "description": "An exported bio.",
-               "models": {"preference": "or:vendor/model", "effort": "high"},
-               "tools": {"allow": ["Read", "Bash"], "deny": ["Edit"], "permission_mode": "auto"},
-               "context": {"skills": ["foo"], "system_prompt": "You are a careful reviewer."},
-               "limits": {"max_iterations": 7}}
-        ok, path = export_agent_bio("exported", bio, cwd=e.cwd)
-        ctx.check(f"export reported ok, got path={path}", ok and Path(path).is_file())
-        imported, problems = import_agent_bio("exported", cwd=e.cwd)
-        ctx.check(f"import found it, got problems={problems}", imported is not None and not problems)
-        ctx.check(f"model preference round-tripped, got {imported['models']}",
-                  imported["models"].get("preference") == "or:vendor/model")
-        ctx.check(f"effort round-tripped, got {imported['models']}", imported["models"].get("effort") == "high")
-        ctx.check(f"tools.allow round-tripped, got {imported['tools']}",
-                  imported["tools"].get("allow") == ["Read", "Bash"])
-        ctx.check(f"tools.deny round-tripped, got {imported['tools']}", imported["tools"].get("deny") == ["Edit"])
-        ctx.check(f"the markdown body became context.system_prompt, got {imported['context']}",
-                  imported["context"].get("system_prompt") == "You are a careful reviewer.")
-
-
-@test
-def test_frontmatter_import_of_unknown_name_reports_a_problem(ctx: Ctx):
-    from halo_harness.agents_md_bridge import import_agent_bio
-    with _Env() as e:
-        bio, problems = import_agent_bio("does-not-exist", cwd=e.cwd)
-        ctx.check(f"bio is None, got {bio}", bio is None)
-        ctx.check(f"one plain-sentence problem, got {problems}", len(problems) == 1 and "does-not-exist" in problems[0])
-
-
 # ---------------------------------------------------------------------------
 # teams_yaml.py: team templates ("lineups") -- shorthand expansion, round
 # trip, validation, resolution to a role table.
@@ -459,35 +427,6 @@ def test_shipped_templates_still_validate_and_dev_cycle_gains_enforcement_lines(
                       ("delegation", "routing", "budget", "escalation", "context", "permissions",
                        "pipeline")) and "org:" not in text)
         ctx.check("acceptance carries the doctor marker", "acceptance: checked by doctor" in text)
-
-
-@test
-def test_doctor_teams_exercises_one_required_gate(ctx: Ctx):
-    from halo_harness.agents_doctor import check_team_gates
-    with _Env() as e:
-        from halo_harness.agents_yaml import save_agent_bio
-        from halo_harness.teams_yaml import save_team_template
-        save_agent_bio("gate-bio", {"description": "g", "models": {"preference": "or:vendor/g"},
-                                     "acceptance": {"prompt": "say READY", "expect": "READY"}},
-                       state_dir=e.state_dir)
-        ok, problems = save_team_template("gate-team", {
-            "description": "g",
-            "agents": [{"agent": "gate-bio", "role": "main"},
-                       {"agent": "gate-bio", "role": "subagent", "as": "worker"}],
-            "pipeline": {"stages": [{"name": "implement", "role": "worker", "gate": "required"}]}},
-                           state_dir=e.state_dir)
-        ctx.check(f"the fixture saves, got {problems}", ok)
-        team_name, results = check_team_gates("gate-team", cwd=e.cwd, state_dir=e.state_dir,
-                                              call_fn=lambda role, prompt: "READY")
-        ctx.check(f"the gate team resolves, got {team_name}", team_name == "gate-team")
-        ctx.check(f"the required gate exercised ok, got {results}", results and results[0][1] is True)
-        team_name2, results2 = check_team_gates("gate-team", cwd=e.cwd, state_dir=e.state_dir,
-                                                call_fn=lambda role, prompt: "nope")
-        ctx.check(f"a failing acceptance fails the gate exercise, got {results2}",
-                  results2 and results2[0][1] is False)
-        team_name3, results3 = check_team_gates("no-such-team", cwd=e.cwd, state_dir=e.state_dir)
-        ctx.check("an unknown team resolves to None with problem lines",
-                  team_name3 is None and results3 and not results3[0][1])
 
 
 @test

@@ -43,30 +43,11 @@ def find_session_log(sid: str) -> "tuple[Optional[Path], str]":
     return max(hits, key=lambda p: p.stat().st_mtime), ""
 
 
-def _tiers(lineup: Optional[str], cwd: Optional[str]) -> dict:
-    """{agent name: tier name} of the lineup, best effort ({} when it does not load)."""
-    if not lineup:
-        return {}
-    try:
-        from halo_harness.teams_tiers import effective_tiers, main_key
-        from halo_harness.teams_yaml import load_team_template_raw
-        template = load_team_template_raw(lineup, cwd=cwd) or {}
-        out = {m: t["name"] for t in effective_tiers(template) for m in t["members"]}
-        lead = main_key(template.get("agents"))
-        if lead and lead in out:
-            out["main"] = out[lead]
-        return out
-    except Exception:
-        return {}
-
-
 def trace_for_path(path: Path) -> str:
-    """The trace of the log at `path`, its tiers resolved from the session's own cwd and lineup."""
-    from halo_harness.session_trace import _agents, _read, trace_markdown
-    nodes = _read(path)
-    cwd = next((n.get("cwd") for n in nodes if n.get("type") == "meta" and n.get("cwd")), None)
+    """The trace of the log at `path` (3.6.0.0 R5d: no lineup tiers; lineups are gone)."""
+    from halo_harness.session_trace import _agents, trace_markdown
     lineup = next((i["lineup"] for i, _ in _agents(path) if i.get("lineup")), None)
-    return trace_markdown(path, lineup=lineup, tiers=_tiers(lineup, cwd))
+    return trace_markdown(path, lineup=lineup)
 
 
 def trace_name(sid: str, now: Optional[float] = None) -> str:

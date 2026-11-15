@@ -3,8 +3,7 @@
 packs/bio_rules.py): a pack's lineup keeps its bare names and resolves
 `workflow_refs` beside them; a lineup of yours may name `<pack>/<name>` (or
 `<pack>--<name>`), and a ref no running pack holds is one `halo teams
-validate` line; a clone's bare name resolves inside the pack it came from;
-`halo teams show` prints the refs; a pack's lineup may name its own
+validate` line (3.6.0.0 R5d: the clone test went with packs/clone.py); `halo teams show` prints the refs; a pack's lineup may name its own
 `<id>/<name>` (the compile still finds it), never another pack's. No model
 call.
 
@@ -28,21 +27,6 @@ agents:
   - {agent: doc-review--writer, role: main}
 workflows: [doc-review/review, doc-review--review, other-pack/flow, loose]
 """
-
-
-@test
-def test_a_clones_bare_name_resolves_inside_its_pack(ctx: Ctx):
-    from halo_harness import teams_yaml as T
-    from halo_harness.packs.clone import clone
-    with PacksHome() as h:
-        h.install(h.source(), enable=True, grants=["bash"])
-        done = clone("lineup", "doc-review--review", as_name="my-review", cwd=h.repo, state_dir=h.state)
-        ctx.check(f"cloned, got {done}", done.get("ok") is True)
-        got = T.resolve_team_template("my-review", cwd=h.repo)
-        ctx.check(f"from_pack doc-review: review is doc-review/review, got {got.get('workflow_refs')}",
-                  got.get("workflows") == ["review"] and got.get("workflow_refs") == ["doc-review/review"])
-        raw = T.load_team_template_raw("my-review", cwd=h.repo)
-        ctx.check("it validates", T.validate_team_template(raw, name="my-review", cwd=h.repo) == [])
 
 
 @test

@@ -65,7 +65,7 @@ def test_1_a_name_beats_a_when_and_a_role(ctx: Ctx):
         r = route(h, *PDF, name="media", cards=MEDIA_ROLE, rules=rules(media={"mode": "off"}))
         ctx.check(f"off by name: the line says not connected and how, got {r.why!r}", r.refused and r.square is None
                   and r.why.startswith("media is not connected: main never uses it")
-                  and "halo workflows enable media --when auto" in r.why)
+                  and "config workflows.when.media" in r.why)
 
 
 @test
@@ -121,7 +121,8 @@ def test_5_nothing_covers_it_says_what_would(ctx: Ctx):
 @test
 def test_the_tool_end_to_end_receipts(ctx: Ctx):
     with PacksHome() as h:
-        h.write(".halo/teams/mine.yaml", LINEUP.format(name="mine") + "workflows:\n  - {ref: media, when: {needs: [pdf]}}\n")
+        from halo_harness.theme import set_config_value  # 3.6.0.0 R5d: the rule is config's (lineups are gone)
+        set_config_value("workflows.when", {"media": {"needs": ["pdf"]}})
         rt = FakeRuntime(h.repo, team=team(MEDIA_ROLE))
         seen: list = []
 
@@ -136,50 +137,32 @@ def test_the_tool_end_to_end_receipts(ctx: Ctx):
         rec = rt.parent.log.receipts()[-1]
         ctx.check(f"the square, its rule on the receipt, got {got.content.splitlines()[0]!r}",
                   got.content.startswith("square media ·") and rec["rule"] == "when main needs pdf" and rec["role"] == "")
-        h.write(".halo/teams/mine.yaml", LINEUP.format(name="mine") + "workflows: [media]\n")
+        set_config_value("workflows.when", {})
         got = run_tool(rt, {"task": "summarize", "files": ["report.pdf"]}, spawn=spawn, takes=["text"])
         ctx.check(f"a plain ref: the role, got {got.content.splitlines()[0]!r}", got.content.startswith("role media ·")
                   and "your media role" in got.content and rt.parent.log.receipts()[-1]["role"] == "media")
 
 
 @test
-def test_the_offer_the_doctor_line_the_list_and_an_inherited_edit(ctx: Ctx):
-    from halo_harness.agents_yaml import _read_yaml_file
+def test_the_offer_and_the_doctor_line(ctx: Ctx):
+    """3.6.0.0 R5d: config's set and rules (the lineup half went with the lineups)."""
+    from halo_harness.theme import set_config_value
     from halo_harness.tools.registry import ToolRegistry, default_tools
-    from halo_harness.workflows import registry
     from halo_harness.workflows.doctor_rows import squares_line
     from halo_harness.workflows.offer import drop_unless_enabled
-    from halo_harness.workflows.when_store import set_rule
     with PacksHome() as h:
-        h.write(".halo/teams/alloff.yaml", LINEUP.format(name="alloff") + "workflows:\n  - {ref: media, when: {mode: off}}\n")
-        h.write(".halo/teams/one.yaml", LINEUP.format(name="one") + "workflows:\n  - {ref: media, when: {mode: off}}\n  - plan\n")
-        h.write(".halo/teams/rule.yaml", LINEUP.format(name="rule") + "workflows:\n  - {ref: media, when: {needs: [pdf]}}\n  - plan\n")
+        set_config_value("workflows.enabled", ["media"])
+        set_config_value("workflows.when", {"media": {"mode": "off"}})
         reg = ToolRegistry(default_tools())
-        ctx.check("every square off: the tool is not offered", drop_unless_enabled(reg, None, team="alloff", cwd=h.repo)
+        ctx.check("every square off: the tool is not offered", drop_unless_enabled(reg, None, cwd=h.repo)
                   and reg.get("Workflow") is None)
+        set_config_value("workflows.enabled", ["media", "plan"])
         reg = ToolRegistry(default_tools())
-        ctx.check("one connected square keeps it", not drop_unless_enabled(reg, None, team="one", cwd=h.repo))
-        line = squares_line("rule", cwd=h.repo)
-        ctx.check(f"doctor names the when, got {line!r}", line.startswith("Squares for lineup rule: media (when needs pdf), plan ("))
-        ctx.check(f"and off, got {squares_line('one', cwd=h.repo)!r}", "media (not connected), plan" in squares_line("one", cwd=h.repo))
-        from halo_harness.theme import set_config_value
-        from halo_harness.workflows.squares_cli import cmd_workflows
-        # 3.6.0.0 R5c: the list marks the set a session runs with -- config's (no session reads config `team:` since
-        # R5a; the list was its last reader), so the rule is config's own `workflows.when`
+        ctx.check("one connected square keeps it", not drop_unless_enabled(reg, None, cwd=h.repo))
+        ctx.check(f"and off, got {squares_line(cwd=h.repo)!r}", "media (not connected), plan" in squares_line(cwd=h.repo))
         set_config_value("workflows.when", {"media": {"needs": ["pdf"]}})
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            cmd_workflows(["list", "--repo", str(h.repo)])
-        media = next((ln for ln in buf.getvalue().splitlines() if "] media" in ln), "")
-        ctx.check(f"list: the mark and the when column, got {media!r}", "-- on for a session" in media and "when: needs pdf" in media)
-        for name in ("nokey", "nokey2"):
-            h.write(f".halo/teams/{name}.yaml", LINEUP.format(name=name))
-        ok, _ = registry.enable("review", "nokey", cwd=h.repo)
-        got = _read_yaml_file(h.state / "teams" / "nokey.yaml").get("workflows")
-        ctx.check(f"enable on a lineup with no key keeps the inherited media, got {got}", ok and got == ["media", "review"])
-        ok, _ = set_rule("media", {"needs": ["pdf"]}, "nokey2", cwd=h.repo)
-        got = _read_yaml_file(h.state / "teams" / "nokey2.yaml").get("workflows")
-        ctx.check(f"a when on an inherited square writes it, got {got}", ok and got == [{"ref": "media", "when": {"needs": ["pdf"]}}])
+        line = squares_line(cwd=h.repo)
+        ctx.check(f"doctor names the when, got {line!r}", line.startswith("Squares a session enables: media (when needs pdf), plan ("))
 
 
 if __name__ == "__main__":

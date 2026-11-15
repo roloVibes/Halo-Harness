@@ -57,28 +57,6 @@ def test_f61_agent_file_tools_restriction_reaches_the_child(ctx: Ctx):
 
 # ---- f62: export writes the keys the loader reads -----------------------------
 
-@test
-def test_f62_export_round_trips_permission_mode_mcp_servers_and_max_turns(ctx: Ctx):
-    from halo_harness.agents_md_bridge import bio_from_agent_spec, frontmatter_text_from_bio
-    from halo_harness.config.agents_md import load_spec_from_file
-    tmp = Path(tempfile.mkdtemp(prefix="r8-f62-"))
-    src = tmp / "src.md"
-    src.write_text("---\nname: rt\ndescription: round trip\npermissionMode: acceptEdits\nmaxTurns: 7\n"
-                   "mcpServers:\n  - docs\n---\n\nBody text.\n", encoding="utf-8")
-    spec = load_spec_from_file(src, source="user")
-    bio = bio_from_agent_spec(spec)
-    text = frontmatter_text_from_bio(bio)
-    for key in ("permissionMode:", "maxTurns:", "mcpServers:"):
-        ctx.check(f"the export carries {key}", key in text)
-    for bad in ("permission_mode", "max_turns", "mcp_servers"):
-        ctx.check(f"the export carries no {bad}", bad not in text)
-    out = tmp / "out.md"
-    out.write_text(text, encoding="utf-8")
-    back = load_spec_from_file(out, source="user")
-    ctx.check(f"the loader reads them back, got {(back.permission_mode, back.max_turns, back.mcp_servers)}",
-              (back.permission_mode, back.max_turns, back.mcp_servers) == ("acceptEdits", 7, ["docs"]))
-
-
 # ---- f64: leaks ----------------------------------------------------------------
 
 def _git_repo(path: Path) -> None:

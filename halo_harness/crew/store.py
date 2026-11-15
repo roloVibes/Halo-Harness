@@ -260,3 +260,24 @@ def write_text(path: Path, text: Optional[str]) -> None:
 
 def path_for(kind: str, name: str, *, cwd=None, state_dir=None, project: bool = False) -> Path:
     return own_folder(kind, cwd=cwd, state_dir=state_dir, project=project) / f"{name}.yaml"
+
+
+def own_copy(kind: str, name: str, *, as_name: Optional[str] = None, cwd=None, state_dir=None) -> "tuple[Path, str]":
+    """3.6.0.0 R5d: your own copy of the agent, workflow or map `name` (a starter, an enabled pack's, the project's or
+    one of yours), to edit: the file as Halo reads it, named `as_name` (default `my-<name>`, a pack's `<pack>--` left
+    off), written to ~/.halo/crew/<kind>s/. Never writes over a file of yours. `(path, new name)`; ValueError with
+    the one line when it cannot."""
+    from halo_harness.crew.formats import name_problem
+    got = load(kind, name, cwd=cwd, state_dir=state_dir)
+    if got is None:
+        raise ValueError(f"no {kind} named {name!r} to copy (halo {kind}s list)")
+    new = (as_name or f"my-{str(got.get('name') or name).split('--')[-1]}").strip()
+    bad = name_problem(new)
+    if bad:
+        raise ValueError(bad)
+    path = path_for(kind, new, cwd=cwd, state_dir=state_dir)
+    if path.exists():
+        raise ValueError(f"you have a {kind} named {new} already ({path}): name the copy with --as")
+    raw = {**clean(got), "name": new}
+    write_text(path, dump(raw))
+    return path, new

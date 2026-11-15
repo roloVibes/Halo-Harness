@@ -3,16 +3,14 @@ config where` lists, checked against the schema set (halo_harness/schemas/)
 for shape and against the existing validators for meaning.
 
 Reported: a file that does not parse; an unknown key (with the closest known
-key); a wrong type; a lineup naming a bio that does not exist and every other
-`validate_team_template` line; every `validate_agent_bio` line; `team:` in config.json naming a
-lineup that is not there; a leftover section of a removed feature (in
+key); a wrong type; a leftover section of a removed feature (in
 config.json `orgs`, `paperclip`: one line each, "removed in 3.1.4.0, the
-section is ignored"; in a lineup `org`: "org: removed in 3.1.4.0, ignored",
-a warning, never a block); a leftover game-theme key or a saved game theme
+section is ignored", a warning, never a block); a leftover game-theme key or a saved game theme
 (3.1.5.0, one warning line each); a repo `.halo/config.json` (Halo reads only the
 home one); and the same key set in two files with different values, with
 the file that wins (doctor_config_conflicts.py). Shipped templates are not
-re-checked (the suite checks them).
+re-checked (the suite checks them). 3.6.0.0 R5d: lineups and bios are not read
+any more, so their files are not checked (crew/old_files.py says so in one line).
 
 A finding: `{"id", "check", "severity": "blocks" | "warns", "kind", "file",
 "path", "key", "text", "fix", "lineups": [names it concerns]}`.
@@ -46,21 +44,6 @@ def _shape(kind: str, data, row: dict, *, lineups=()) -> list:
     return out
 
 
-def _yaml(path: Path):
-    import yaml
-    try:
-        return yaml.safe_load(path.read_text(encoding="utf-8")), ""
-    except OSError as e:
-        return None, f"cannot read it: {e}"
-    except yaml.YAMLError as e:
-        return None, f"is not valid YAML: {str(e).splitlines()[0]}"
-
-
-def _file_row(row: dict, path: Path) -> dict:
-    from halo_harness.where.rows import display
-    return {**row, "file": display(path), "path": str(path)}
-
-
 def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
     path = Path(row["path"])
     if not path.is_file():
@@ -89,13 +72,6 @@ def _config_json(row: dict, state_dir: Path, cwd: Path) -> list:
     out = _removed_theme_findings(out, data, row)
     from halo_harness.providers.ollama_key_migrate import key_findings  # 3.3.13.1: a host api_key held as a value
     out += key_findings(data, row, finding) if path.name == "config.json" else []
-    team = data.get("team") if isinstance(data, dict) else None
-    if isinstance(team, str) and team.strip():
-        from halo_harness import teams_yaml as T
-        if T.find_team_template_path(team.strip(), cwd=cwd, state_dir=state_dir) is None:
-            known = ", ".join(T.list_team_templates(cwd=cwd, state_dir=state_dir)) or "none"
-            out.append(finding("missing-lineup", "blocks", row, f"team: {team!r} names a lineup that is not there "
-                               f"(known: {known})", key="team", fix="halo teams use <name>", lineups=[team.strip()]))
     return out
 
 
@@ -119,40 +95,6 @@ def _removed_theme_findings(found: list, data, row: dict) -> list:
     return out
 
 
-def _lineup_or_bio(kind: str, row: dict, cwd: Path, state_dir: Path) -> list:
-    from halo_harness.agents_yaml import validate_agent_bio
-    from halo_harness.teams_yaml import validate_team_template
-    out = []
-    for f in row["files"]:
-        path = Path(f)
-        name = path.stem
-        frow = _file_row(row, path)
-        tags = [name] if kind == "lineup" else []
-        data, problem = _yaml(path)
-        if problem:
-            out.append(finding("unreadable", "blocks", frow, f"{frow['file']} {problem}", fix="fix the YAML", lineups=tags))
-            continue
-        if kind == "lineup":  # 3.1.4.0: a removed section is its own one line, not an unknown key
-            from halo_harness.teams_yaml import REMOVED_SECTIONS, removed_section_warnings
-            out += [f for f in _shape(kind, data, frow, lineups=tags) if f["key"] not in REMOVED_SECTIONS]
-            out += [finding("removed-section", "warns", frow, line[len("warning: "):], key=line[len("warning: "):].split(":")[0],
-                            lineups=tags) for line in removed_section_warnings(data)]
-        else:
-            out += _shape(kind, data, frow, lineups=tags)
-        validate = validate_team_template if kind == "lineup" else validate_agent_bio
-        for line in validate(data if data is not None else {}, name=name, cwd=cwd, state_dir=state_dir):
-            missing = "no such agent bio" in line or "agent bio that does not exist" in line
-            out.append(finding("missing-bio" if missing else "invalid", "blocks", frow, line, lineups=tags,
-                               fix="halo agents new <name>, or name a bio halo agents lists" if missing else ""))
-    return out
-
-
-def _active(state_dir: Path) -> list:
-    from halo_harness.config_where import _active_lineup
-    name = _active_lineup(state_dir)
-    return [name] if name else []
-
-
 def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) -> list:
     """Every finding for the files `config where` lists here (an empty list: all clean)."""
     from halo_harness.config.paths import bridge_home
@@ -163,14 +105,9 @@ def config_findings(cwd=None, *, state_dir=None, settings_flag=None, rows=None) 
     rows = rows if rows is not None else where_rows(cwd, state_dir=state, settings_flag=settings_flag)
     out: list = []
     for row in rows:
-        kind, editable = row["kind"], row["scope"] not in ("shipped", "pack")  # a pack's files: the packs group
+        kind = row["kind"]
         if kind == "config":
             out += _config_json(row, state, cwd)
-        elif kind == "lineup" and not row["exists"] and row["rank"] > 1:
-            out.append(finding("missing-lineup", "blocks", row, row["note"], key="extends",
-                               fix="name a lineup halo teams lists", lineups=list(row["sets"]) + _active(state)))
-        elif kind in ("lineups", "bios") and editable:
-            out += _lineup_or_bio("lineup" if kind == "lineups" else "bio", row, cwd, state)
     from halo_harness.packs.doctor import config_findings as pack_findings  # 3.2.0.0 R1: the packs group
     return out + conflict_findings(rows, cwd=cwd) + pack_findings(cwd=cwd, state_dir=state)
 
@@ -199,7 +136,7 @@ def cmd_doctor_config(*, cwd=None, settings_flag=None, as_json: bool = False) ->
         return 1 if real else 0
     print("halo doctor --config")
     print("  Every file `halo config where` lists, against Halo's schemas (unknown keys, wrong types) and its "
-          "validators (missing bios and lineups), plus keys two files set to different values.")
+          "validators, plus keys two files set to different values.")
     for line in _prefilled_lines(cwd):  # 3.3.5.0 R0 (g): where a prefilled provider value came from
         print(f"  {line}")
     for f in findings:

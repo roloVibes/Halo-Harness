@@ -6,8 +6,8 @@
    (Studio's Setup) and the start line.
 2. The no-browser fallback: on a terminal where no browser opens, `halo init` prints the URL with the port-forward
    line, then runs the same console setup (no Textual screen) and ends on "at the address above".
-3. The legacy role table still becomes the "migrated" lineup: at session start (tui/launch.py) and in the console
-   setup, once (legacy_roles.migrate_on_start).
+3. 3.6.0.0 R5d: a `roles` table in config.json is the model table sessions read; nothing turns it into a lineup any
+   more (legacy_roles went with the lineups): no line, no file written.
 Run: python -m tests.test_init_console
 """
 
@@ -117,20 +117,17 @@ def test_no_browser_prints_the_url_then_runs_the_console_setup(ctx: Ctx):
 
 
 @test
-def test_the_legacy_role_table_still_migrates_once(ctx: Ctx):
+def test_the_role_table_is_read_as_it_is_and_nothing_is_migrated(ctx: Ctx):
     home, state = _home()
     (state / "config.json").write_text(json.dumps({"model": "or:vendor/alpha", "roles": {"coder": "or:vendor/alpha", "reviewer": "or:vendor/beta"}}),
                                        encoding="utf-8")
     script = "\n".join(["2", KEY, "n", "", "n", "1"]) + "\n"
     r = _init(home, ["--terminal", "--no-live", "--no-fixes"], script)
     out = r.stdout + r.stderr
-    ctx.check(f"the console setup says it once, got {out[:500]!r}", "is now the lineup 'migrated'" in out)
-    lineups = list(state.rglob("migrated*.y*ml"))
-    ctx.check(f"the lineup file is written, got {lineups}", bool(lineups))
-    r2 = _init(home, ["--terminal", "--no-live", "--no-fixes"], script)
-    ctx.check("a second run is a no-op", "is now the lineup" not in (r2.stdout + r2.stderr))
+    ctx.check(f"no migration line, got {out[:500]!r}", "is now the lineup" not in out)
+    ctx.check("no lineup or bio written", not list(state.rglob("migrated*.y*ml")) and not (state / "teams").exists())
     src = (REPO / "halo_harness" / "tui" / "launch.py").read_text(encoding="utf-8")
-    ctx.check("an interactive session start runs it too (tui/launch.py)", "migrate_on_start(cwd)" in src)
+    ctx.check("an interactive session start migrates nothing either", "migrate_on_start" not in src)
 
 
 if __name__ == "__main__":

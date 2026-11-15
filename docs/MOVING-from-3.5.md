@@ -1,6 +1,6 @@
 # Moving from 3.5 (Halo 3.6.0.0)
 
-Read this when you used lineups, bios, squares or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files.
+Read this when you used lineups, bios, squares, blocks or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files.
 
 ## What you see first
 
@@ -28,6 +28,10 @@ once, in the terminal and in Studio's Attention: they are no longer read, and wh
 | `halo local warm <lineup>`, `halo local place <lineup>` | the same verbs take a map (the one in use when none is named) |
 | a goal's lineup (`halo supervise`, Orchestra) | the goal's map: its job's session runs `--map <name>`; a lineup's acceptance test is no longer taken |
 | `halo roles point <role> <model>`, `/role`, `roles.*` | kept: the model table; on a session with no map it reaches the agent of that name |
+| the squares a lineup enabled (`workflows:` in a lineup), `halo workflows enable / disable / when` | config `workflows.enabled` and `workflows.when.<square>` (`halo config set`, Studio's Settings); the `Workflow` tool reads only these |
+| a `roles` table in config.json turned into the lineup `migrated` at session start | nothing is migrated: `roles.*` is the model table a session reads as it is |
+| `halo config where`'s Active lineup, Lineup folders and Bio folders rows; `halo doctor --config`'s lineup and bio checks | gone with the files they listed (the old-files line still names your old files) |
+| the block templates (`halo blocks add`, Studio's "Blocks you can start from") | the workflow starters: `halo workflows new <name> --from <starter>` |
 
 Old addresses still land somewhere sensible: `?view=cast|live|roles|team|orchestra` open the Map, `?view=workflows`
 the Workflows tab, `--edit bio:<n>` / `lineup:<n>` the Agents tab with the old files' line.
@@ -50,3 +54,9 @@ bios are read as agents, its lineups as maps and its plain workflows as workflow
 
 A session running on another of your machines is listed (on the Map's picker and in History) and opened on that
 machine; Studio here does not light it.
+
+## Not yet moved (3.6.0.0)
+
+Two shipped packs still read 3.5 files: the **first-run** pack (`halo start`) rehearses a lineup of yours, and the
+**coach** pack's Apply writes bio and lineup fields. They keep the lineup and bio readers they need until they are
+re-made on agents and maps. A session never reads those files.

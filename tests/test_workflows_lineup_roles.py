@@ -36,42 +36,41 @@ def team(cards: dict, bios: dict = None):
 
 
 @test
-def test_a_lineup_with_no_key_inherits_config_and_an_empty_list_is_none(ctx: Ctx):
+def test_the_set_is_configs_and_an_empty_list_is_none(ctx: Ctx):
+    """3.6.0.0 R5d: a session's squares are config's `workflows.enabled` (lineups are gone)."""
     from halo_harness.theme import set_config_value
     from halo_harness.workflows import registry
     with PacksHome() as h:
-        h.write(".halo/teams/nokey.yaml", "name: nokey\nagents:\n  - {agent: default-model, role: main}\n")
-        h.write(".halo/teams/none.yaml", "name: none\nagents:\n  - {agent: default-model, role: main}\nworkflows: []\n")
-        got = registry.enabled_from("nokey", cwd=h.repo)
-        ctx.check(f"no key: config's default, got {got}", got == (["media"], "config"))
-        ctx.check(f"workflows: []: none, from the lineup, got {registry.enabled_from('none', cwd=h.repo)}",
-                  registry.enabled_from("none", cwd=h.repo) == ([], "lineup"))
+        got = registry.enabled_from(cwd=h.repo)
+        ctx.check(f"nothing set: config's default, got {got}", got == (["media"], "config"))
+        set_config_value("workflows.enabled", [])
+        ctx.check(f"workflows.enabled: []: none, got {registry.enabled_from(cwd=h.repo)}",
+                  registry.enabled_from(cwd=h.repo) == ([], "config"))
         set_config_value("workflows.enabled", ["plan"])
-        ctx.check("config moves, the lineup with no key follows",
-                  [w.ref for w in registry.enabled_squares("nokey", cwd=h.repo)] == ["plan"])
+        ctx.check("config moves, the set follows", [w.ref for w in registry.enabled_squares(cwd=h.repo)] == ["plan"])
 
 
 @test
 def test_the_tool_is_offered_only_when_a_square_is_on(ctx: Ctx):
+    from halo_harness.theme import set_config_value
     from halo_harness.tools.registry import ToolRegistry, default_tools
     from halo_harness.workflows.offer import drop_unless_enabled
     with PacksHome() as h:
-        h.write(".halo/teams/none.yaml", "name: none\nagents:\n  - {agent: default-model, role: main}\nworkflows: []\n")
-        h.write(".halo/teams/nokey.yaml", "name: nokey\nagents:\n  - {agent: default-model, role: main}\n")
+        set_config_value("workflows.enabled", [])
         reg = ToolRegistry(default_tools())
         catalog = SimpleNamespace(registry=reg, names=reg.names(), deferred={"Workflow": object()})
-        ctx.check("a lineup with no square: the tool goes", drop_unless_enabled(reg, catalog, team="none", cwd=h.repo))
+        ctx.check("no square on: the tool goes", drop_unless_enabled(reg, catalog, cwd=h.repo))
         ctx.check("from the registry, the wire names and the deferred pool",
                   reg.get("Workflow") is None and "Workflow" not in catalog.names and "Workflow" not in catalog.deferred)
         ctx.check("the tool list says nothing about squares", not any("square" in str(d.get("description", "")).lower()
                                                                       for d in reg.definitions()))
-        reg2 = ToolRegistry(default_tools())
-        ctx.check("a lineup inheriting media keeps it", not drop_unless_enabled(reg2, None, team="nokey", cwd=h.repo)
-                  and reg2.get("Workflow") is not None)
         from halo_harness.isolation.capabilities import narrow_session
         reg3 = ToolRegistry(default_tools())
-        narrow_session(reg3, None, team="none", agent=None, cwd=h.repo)
+        narrow_session(reg3, None, team="auto", agent=None, cwd=h.repo)
         ctx.check("the session builder's narrowing applies it", reg3.get("Workflow") is None)
+        set_config_value("workflows.enabled", ["media"])
+        reg2 = ToolRegistry(default_tools())
+        ctx.check("media on keeps it", not drop_unless_enabled(reg2, None, cwd=h.repo) and reg2.get("Workflow") is not None)
 
 
 def spawner(rt, seen: list, text: str = "page 1: revenue up"):
@@ -126,36 +125,24 @@ def test_nothing_covers_it_says_what_would(ctx: Ctx):
                          team=team({"coder": {"agent": "c", "role": "coder"}}))
         ctx.check(f"one line, what would read it, got {r.why!r}", r.refused and r.role == "" and r.why ==
                   "no role or square reads images or audio here (could not read talk.mp3, shot.png): "
-                  "`halo workflows enable media`, or give a role a model that takes images or audio")
+                  "add media to config workflows.enabled, or give a role a model that takes images or audio")
 
 
 @test
-def test_doctor_and_the_list_say_which_squares_are_on(ctx: Ctx):
+def test_doctor_says_which_squares_are_on(ctx: Ctx):
     from halo_harness.theme import set_config_value
     from halo_harness.workflows.doctor_rows import rows, squares_line
     with PacksHome() as h:
-        h.write(".halo/teams/nokey.yaml", "name: nokey\nagents:\n  - {agent: default-model, role: main}\n")
-        h.write(".halo/teams/none.yaml", "name: none\nagents:\n  - {agent: default-model, role: main}\nworkflows: []\n")
-        h.write(".halo/teams/own.yaml", "name: own\nagents:\n  - {agent: default-model, role: main}\nworkflows: [plan]\n")
-        ctx.check(f"inherited, got {squares_line('nokey', cwd=h.repo)!r}", squares_line("nokey", cwd=h.repo) ==
-                  "Squares for lineup nokey: media (config workflows.enabled: the lineup sets no `workflows:`)")
-        ctx.check(f"its own, got {squares_line('own', cwd=h.repo)!r}",
-                  squares_line("own", cwd=h.repo) == "Squares for lineup own: plan (the lineup's own `workflows:`)")
-        ctx.check(f"none, got {squares_line('none', cwd=h.repo)!r}", squares_line("none", cwd=h.repo).startswith(
-            "Squares for lineup none: none (the lineup's own `workflows:`), so the Workflow tool is not offered"))
+        ctx.check(f"config's default, got {squares_line(cwd=h.repo)!r}",
+                  squares_line(cwd=h.repo) == "Squares a session enables: media (config workflows.enabled)")
+        set_config_value("workflows.enabled", ["plan"])
+        ctx.check(f"config's own, got {squares_line(cwd=h.repo)!r}",
+                  squares_line(cwd=h.repo) == "Squares a session enables: plan (config workflows.enabled)")
+        set_config_value("workflows.enabled", [])
+        ctx.check(f"none, got {squares_line(cwd=h.repo)!r}", squares_line(cwd=h.repo).startswith(
+            "Squares a session enables: none (config workflows.enabled), so the Workflow tool is not offered"))
         keys = [k for k, _line in rows(h.repo)]
-        ctx.check(f"doctor: the lineup, then its squares, got {keys}", keys == ["lineup", "lineup_squares"])
-        set_config_value("workflows.enabled", ["plan"])  # 3.6.0.0 R5c: the session's set is config's (no `team:`)
-        import contextlib
-        import io
-        from halo_harness.workflows.squares_cli import cmd_workflows
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = cmd_workflows(["list", "--repo", str(h.repo)])
-        out = buf.getvalue()
-        ctx.check(f"list: on for the session's set, off for the rest, got {out[:400]!r}", code == 0
-                  and "plan" in out and "-- on for a session" in out and "-- off" in out  # 3.6.0.0 R5c (S-f)
-                  and "Squares a session enables: plan (config workflows.enabled)" in out and "lineup auto" not in out)
+        ctx.check(f"doctor: the map row, then the squares, got {keys}", keys == ["lineup", "lineup_squares"])
 
 
 if __name__ == "__main__":

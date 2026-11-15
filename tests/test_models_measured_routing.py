@@ -79,36 +79,14 @@ def test_nothing_measured_falls_back_to_the_auto_pick(ctx: Ctx):
 
 
 @test
-def test_teams_yaml_reads_measured_like_auto(ctx: Ctx):
-    import os
-    import tempfile
-    from halo_harness.agents_yaml import save_agent_bio
+def test_measured_is_a_word_like_auto(ctx: Ctx):
+    """3.6.0.0 R5d: the lineup half (teams_yaml's card model, `halo teams show`'s words) went with the lineups."""
     from halo_harness.models_auto import is_auto, is_measured, spawn_word
-    from halo_harness.models_auto_spawn import pool_words
-    from halo_harness.teams_yaml import bio_pinned_model, member_model
-    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
-    d = Path(tempfile.mkdtemp(prefix="measured-teams-"))
-    os.environ["BRIDGE_TEST_HOME"], os.environ["BRIDGE_STATE_DIR"] = str(d), str(d / ".halo")
-    try:
-        state = d / ".halo"
-        save_agent_bio("measured-coder", {"description": "routes by what succeeded", "kind": "coder",
-                                          "models": {"preference": "measured", "needs": ["tools"]}}, state_dir=state)
-        template = {"agents": [{"agent": "default-model", "role": "main"}, {"agent": "measured-coder", "role": "coder"}]}
-        entry = template["agents"][1]
-        got = member_model(template, entry, state_dir=state)
-        ctx.check(f"the card's model is `measured`, its source word `measured`, got {got}", got == ("measured", "", "measured"))
-        ctx.check("a tier's model still comes first (the bio pins nothing)", bio_pinned_model("measured-coder", state_dir=state) is None)
-        ctx.check("the literals", is_auto("measured") and is_auto("auto") and is_measured("Measured") and not is_measured("auto")
-                  and spawn_word("measured") == "measured" and spawn_word("auto") == "auto")
-        words = pool_words(template, entry, state_dir=state)
-        ctx.check(f"`halo teams show` says how it is picked, got {words!r}",
-                  words == " -- model picked at spawn (by measured success at its kind, else as auto; needs: tools; band mid)")
-        from halo_harness.crew.plain import load  # 3.6.0.0 R5b: the auto lineup is a plain session's cards now
-        prefs = {n: c.get("model") or "auto" for n, c in (load().cards if load() else {}).items() if n != "main"}
-        ctx.check(f"a plain session's cards stay auto, got {prefs}", len(prefs) == 7 and set(prefs.values()) == {"auto"})
-    finally:
-        for k, v in saved.items():
-            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+    ctx.check("the literals", is_auto("measured") and is_auto("auto") and is_measured("Measured") and not is_measured("auto")
+              and spawn_word("measured") == "measured" and spawn_word("auto") == "auto")
+    from halo_harness.crew.plain import load  # 3.6.0.0 R5b: the auto lineup is a plain session's cards now
+    prefs = {n: c.get("model") or "auto" for n, c in (load().cards if load() else {}).items() if n != "main"}
+    ctx.check(f"a plain session's cards stay auto, got {prefs}", len(prefs) == 7 and set(prefs.values()) == {"auto"})
 
 
 @test

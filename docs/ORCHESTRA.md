@@ -199,7 +199,7 @@ judge, the goal's `worker` for the workers, else the default model.
 **Preflight** (Halo 3.0.7.0). Before the split, and before a `--dry-run`, the
 run-start preflight (`lineup_preflight.py`) checks the lineup the run uses
 (the goal's `lineup`, else the active team) for what would make the lanes
-come back empty: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](ROLES.md#tiers-halo-3070)). Each
+come back empty: a model id its provider's catalog does not know (requests for it 404 and the member comes back empty), an assignment naming a bio that does not exist, a bio whose `tools.allow` is an empty list (it may call no tool), and a `tiers` problem ([ROLES.md](MOVING-from-3.5.md#what-is-gone-and-what-to-use)). Each
 blocking problem prints with its fix and the run stops before anything is
 claimed (exit 2); `--force` runs anyway. Studio's `POST /api/orchestra/run`
 answers 422 `{error, problems, preflight: true}` (each problem `{id,

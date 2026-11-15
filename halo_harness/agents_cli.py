@@ -3,6 +3,7 @@
     halo agents list                      yours, this project's (a trusted folder), then the starters to copy
     halo agents show <name>               its file (agent/1), and the workflows and maps that use it
     halo agents new <name> [--from <a>]   one of yours: a copy of a starter or another agent, else a blank one
+    halo agents copy <name> [--as <new>]  your own copy of one (a starter, a pack's, the project's), to edit
     halo agents edit <name>               your $VISUAL / $EDITOR on your file; else Studio, Agents -> 1 · Agents, on it
     halo agents try <name> "<request>"    runs it on a throwaway copy of this repo; what it said, used and cost
 
@@ -29,6 +30,9 @@ def _parser() -> argparse.ArgumentParser:
     new = sub.add_parser("new", help="an agent of yours")
     new.add_argument("name")
     new.add_argument("--from", dest="start", default=None, metavar="AGENT", help="copy this one (a starter or another)")
+    cp = sub.add_parser("copy", help="your own copy of one (a starter, a pack's, the project's), to edit")
+    cp.add_argument("name")
+    cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     edit = sub.add_parser("edit", help="open it in your editor, or in Studio")
     edit.add_argument("name")
     tr = sub.add_parser("try", help="run it once on a throwaway copy of this repo")
@@ -50,6 +54,9 @@ def cmd_agents(argv) -> int:
         return P.show("agent", args.name, cwd)
     if args.cmd == "new":
         return P.new("agent", args.name, args.start, cwd, BLANK)
+    if args.cmd == "copy":  # 3.6.0.0 R5d: own_copy
+        from halo_harness.crew_cli_parts import copy
+        return copy("agent", args.name, args.as_name, cwd)
     if args.cmd == "edit":
         return P.edit("agent", args.name, cwd)
     from halo_harness.crew import store, trial

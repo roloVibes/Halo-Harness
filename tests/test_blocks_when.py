@@ -90,61 +90,6 @@ def test_words_named_always_off(ctx: Ctx):
         ctx.check(f"off by name says not connected, got {r.why!r}", r.refused and "not connected" in r.why)
 
 
-def cli(*argv) -> "tuple[int, str]":
-    from halo_harness.workflows.squares_cli import cmd_workflows
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
-        code = cmd_workflows(list(argv))
-    return code, buf.getvalue()
-
-
-@test
-def test_the_auto_lineup_keeps_rules_in_config(ctx: Ctx):
-    from halo_harness.workflows.when_store import rules_for
-    with PacksHome() as h:
-        code, out = cli("enable", "media", "--when", "needs=pdf,audio", "--repo", str(h.repo))
-        ctx.check(f"enable --when, got {code} {out!r}", code == 0 and "media on the auto lineup: when needs pdf, audio" in out)
-        conf = json.loads((h.state / "config.json").read_text(encoding="utf-8"))
-        ctx.check(f"config workflows.when, got {conf.get('workflows')}", conf["workflows"]["when"] == {"media": {"needs": ["pdf", "audio"]}})
-        code, out = cli("when", "media", "--repo", str(h.repo))
-        ctx.check(f"halo workflows when, got {out!r}", code == 0 and "main hands media work when it needs a PDF or audio" in out)
-        code, out = cli("list", "--repo", str(h.repo))
-        ctx.check(f"list has the when column, got {out!r}", "when: needs pdf, audio" in out)
-        ctx.check("rules_for reads it", rules_for(None, cwd=h.repo)["media"].needs == ["pdf", "audio"])
-        code, out = cli("disable", "media", "--repo", str(h.repo))
-        conf = json.loads((h.state / "config.json").read_text(encoding="utf-8"))
-        ctx.check(f"disable forgets the rule, got {conf['workflows']}", conf["workflows"].get("when") == {})
-        code, out = cli("enable", "media", "--when", "needs=smell", "--repo", str(h.repo))
-        ctx.check(f"a bad rule is exit 2, got {code} {out!r}", code == 2 and "smell" in out)
-
-
-@test
-def test_a_lineup_of_yours_keeps_rules_in_its_items(ctx: Ctx):
-    from halo_harness.agents_yaml import _read_yaml_file
-    from halo_harness.teams_yaml import validate_team_template
-    from halo_harness.workflows import registry
-    from halo_harness.workflows.when_store import set_rule
-    with PacksHome() as h:
-        h.write(".halo/teams/mine.yaml", "name: mine\nagents:\n  - {agent: default-model, role: main}\nworkflows: [media]\n")
-        ok, line = set_rule("media", {"words": ["scan"]}, "mine", cwd=h.repo)
-        ok2, _ = registry.enable("review", "mine", cwd=h.repo)
-        raw = _read_yaml_file(h.state / "teams" / "mine.yaml")
-        ctx.check(f"the rule in the item, a plain one stays plain, got {raw.get('workflows')}",
-                  ok and ok2 and raw["workflows"] == [{"ref": "media", "when": {"words": ["scan"]}}, "review"])
-        ctx.check("enabled_refs reads both", registry.enabled_refs("mine", cwd=h.repo) == ["media", "review"])
-        ctx.check(f"the lineup validates, got {validate_team_template(raw, cwd=h.repo)}", not [p for p in validate_team_template(raw, cwd=h.repo) if "workflows" in p])
-        registry.disable("review", "mine", cwd=h.repo)
-        raw = _read_yaml_file(h.state / "teams" / "mine.yaml")
-        ctx.check(f"disabling another keeps the rule, got {raw['workflows']}", raw["workflows"] == [{"ref": "media", "when": {"words": ["scan"]}}])
-        ok, _ = set_rule("media", {}, "mine", cwd=h.repo)
-        raw = _read_yaml_file(h.state / "teams" / "mine.yaml")
-        ctx.check(f"the plain rule writes a plain ref back, got {raw['workflows']}", raw["workflows"] == ["media"])
-        bad = validate_team_template({**raw, "workflows": [{"ref": "media", "when": {"mode": "often"}}]}, cwd=h.repo)
-        ctx.check(f"a bad rule is a problem line, got {bad}", any("when.mode" in p for p in bad))
-        ok, line = set_rule("plan", {"mode": "named"}, "mine", cwd=h.repo)
-        ctx.check(f"a square not on the board says enable it first, got {line!r}", not ok and "enable it first" in line)
-
-
 @test
 def test_the_tool_description_says_each_rule(ctx: Ctx):
     from halo_harness.workflows.when_tool import has_reach, squares_tail

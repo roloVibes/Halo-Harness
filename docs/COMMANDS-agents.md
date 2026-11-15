@@ -14,6 +14,7 @@ is the full editor ([CREW-FORMATS.md](CREW-FORMATS.md)).
 halo agents list                       # yours, this project's, then the starters; a file with a problem says it
 halo agents show coder                 # its file, and the workflows and maps that use it
 halo agents new my-coder --from coder  # one of yours: a copy (or, without --from, a blank one)
+halo agents copy reviewer --as my-reviewer  # your own copy of a starter, a pack's or the project's, to edit (3.6.0.0 R5d)
 halo agents edit my-coder              # your $VISUAL / $EDITOR on your file; else Studio on it (a starter: how to copy it)
 halo agents try my-coder "fix the retry in client.py"   # on a throwaway copy of this repo: its reply, what it used, cost
 ```
@@ -30,6 +31,7 @@ halo maps show ship-it    # main, each box, each line with its When in words, th
 halo maps use ship-it     # new sessions run on it (config crew.map); a running session keeps its own
 halo maps use --off       # back to the default (the starter map drawn, no rules of its own)
 halo maps use --none      # One model for everything: no map, main does every job (roles off)
+halo maps copy ship-it    # your own copy (my-ship-it), to edit; --as names it (3.6.0.0 R5d)
 halo maps edit my-map     # your $VISUAL / $EDITOR on your file; else Studio's Map on it
 ```
 

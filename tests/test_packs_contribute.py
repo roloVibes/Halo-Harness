@@ -47,36 +47,6 @@ def _everything(h) -> dict:
 
 
 @test
-def test_an_enabled_packs_bio_and_lineup_are_listed_under_its_name(ctx: Ctx):
-    from halo_harness import agents_yaml as A
-    from halo_harness import teams_yaml as T
-    with PacksHome() as h:
-        h.install(h.source(), enable=True)
-        found = A.find_agent_bio_path("doc-review--writer", cwd=h.repo)
-        ctx.check(f"read in place from the pack's folder, got {found}",
-                  found and found[1] == "pack:doc-review" and found[0] == h.packs / "doc-review" / "agents" / "writer.yaml")
-        bio = A.resolve_agent_bio("doc-review--writer", cwd=h.repo)
-        ctx.check(f"_pack and _name attached, extends qualified, got {bio.get('_pack')} {bio.get('extends')}",
-                  bio["_pack"] == "doc-review" and bio["_name"] == "writer" and bio["extends"] == "doc-review--reviewer"
-                  and bio["tools"]["allow"] == ["Read", "Edit", "Write"] and bio["models"]["effort"] == "medium")
-        lineup = T.resolve_team_template("doc-review--review", cwd=h.repo)
-        ctx.check(f"the lineup names the pack's own bios, got {lineup['agents']}",
-                  [e["agent"] for e in lineup["agents"]] == ["doc-review--writer", "doc-review--reviewer"])
-        ctx.check(f"it validates, got {T.validate_team_template(lineup, name='doc-review--review', cwd=h.repo)}",
-                  T.validate_team_template(lineup, name="doc-review--review", cwd=h.repo) == [])
-        ctx.check("a bare name does not reach a pack file", A.find_agent_bio_path("writer", cwd=h.repo) is None)
-        ctx.check("the qualified name meets the name rule", A.is_valid_agent_name("doc-review--writer"))
-        ctx.check("not counted as yours", "doc-review--writer" not in A.list_agent_bios(cwd=h.repo, include_templates=False))
-        from halo_harness.teams_cli_views import agent_group_lines, lineup_rows
-        lines = agent_group_lines(cwd=h.repo)
-        ctx.check(f"halo agents groups them under the pack, got {lines[:3]}", "Pack doc-review agents:" in lines
-                  and any(ln.startswith("  doc-review--reviewer (reviewer)") for ln in lines))
-        rows = {r["name"]: r["scope"] for r in lineup_rows(cwd=h.repo)}
-        ctx.check(f"halo teams lists the lineup as the pack's, got {rows.get('doc-review--review')}",
-                  rows.get("doc-review--review") == "pack doc-review")
-
-
-@test
 def test_skills_commands_agents_and_grants(ctx: Ctx):
     with PacksHome() as h:
         h.install(h.source(), enable=True)
@@ -104,8 +74,6 @@ def test_a_disabled_pack_contributes_nothing(ctx: Ctx):
         ctx.check("enabled: something", _everything(h)["bios"] != [])
         h.cli("disable", "doc-review")
         ctx.check(f"disabled again: nothing, got {_everything(h)}", _everything(h) == empty)
-        from halo_harness.where.yaml_files import bio_folder_rows
-        ctx.check("config where shows no pack folder for it", all(r["scope"] != "pack" for r in bio_folder_rows(h.repo, h.state)))
 
 
 @test

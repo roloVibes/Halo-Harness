@@ -1121,10 +1121,6 @@ def cmd_init(argv: list) -> int:
             return _wait_for_setup_done(args, console, cwd)  # 3.3.3.0 R1: its Done starts halo here
         door_printed = not args.terminal and not args.team and not args.no_live
         args.terminal = True  # 3.4.0.0 B2: the fallback is the console setup, the same as --terminal
-    from halo_harness.legacy_roles import migrate_on_start  # 3.4.0.0 B2: the wizard's lineup step did this
-    migrated = migrate_on_start(cwd)
-    if migrated:
-        _say(console, migrated)
 
     if interactive_loop:
         while True:

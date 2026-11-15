@@ -2,11 +2,11 @@
 round 8, resume / team / role table (findings 56-58, 60):
 
   * f56  a task_id resume dropped the original role=, model=, effort
-  * f57  a team's delegation.max_parallel was reset by every Agent batch
+  * f57  (a team's delegation.max_parallel: went with the lineups, 3.6.0.0 R5)
   * f58  the live role table was never recomputed (/roles off, /model
         provider switch) and the cost-aware default beat an explicit
         CLAUDE_CODE_SUBAGENT_MODEL
-  * f60  team-defined role names were rejected as "Unknown role"
+  * f60  (team-defined role names: went with the lineups)
 """
 from __future__ import annotations
 
@@ -86,34 +86,6 @@ def test_f56_resume_keeps_role_model_and_effort(ctx: Ctx):
         mock.stop()
         _restore_home()
         SCENARIOS.pop("r8-f56-child", None)
-
-
-# ---- f57 / f60: team delegation and team role names ---------------------------
-
-def test_f57_team_max_parallel_survives_an_agent_batch_and_f60_team_roles_validate(ctx: Ctx):
-    from halo_harness.agent.subagent import _invalid_role_error, effective_max_concurrent
-    from tests.test_teams_runtime import _Env, _fixture, _make_team_session
-    from halo_harness.theme import set_config_value
-    mock = MockUpstream().start()
-    try:
-        SCENARIOS["team-main"] = lambda h, b: _finish(h, _text_chunk("MAIN"))
-        with _Env() as e:
-            _fixture(e)
-            set_config_value("team", "fixture-team")
-            session = _make_team_session(e, mock, "team-main", None)
-            rt = session.agent_runtime
-            ctx.check(f"the runtime's own cap is the team's max_parallel, got {effective_max_concurrent(rt)}",
-                      effective_max_concurrent(rt) == 2)
-            with rt.concurrency_semaphore.pool(max_workers=1, limit=effective_max_concurrent(rt)):
-                pass
-            ctx.check(f"an Agent batch no longer resets the gate to agents.max_concurrent, got "
-                      f"{rt.concurrency_semaphore.limit}", rt.concurrency_semaphore.limit == 2)
-            ctx.check("a team alias is a valid Agent(role=...)", _invalid_role_error("review", rt) is None)
-            ctx.check("without the runtime the same name is still unknown (the old behaviour)",
-                      _invalid_role_error("review") is not None)
-            ctx.check("a made-up name is still rejected under the team", _invalid_role_error("zzz_nope", rt) is not None)
-    finally:
-        mock.stop()
 
 
 # ---- f58: the live role table follows /roles off and provider switches --------

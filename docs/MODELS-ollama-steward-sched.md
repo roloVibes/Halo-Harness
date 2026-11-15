@@ -37,7 +37,7 @@ evicting the residents used furthest ahead and keeping back any that still fit b
 
 `halo local warm [<lineup>]` loads the warm set at session start ([COMMANDS-local.md](COMMANDS-local.md)): one row
 per model (loaded in N s at its window, already warm, or pivots later with its load time), then the total. A lineup
-may declare its warm set (`warm: [coder, qwen2.5:1.5b]`, [AGENTS.md](AGENTS.md#team-template-lineup-fields)); `halo teams use` says when it cannot
+may declare its warm set (`warm: [coder, qwen2.5:1.5b]`, [AGENTS.md](MOVING-from-3.5.md#what-is-gone-and-what-to-use)); `halo teams use` says when it cannot
 co-reside. Studio: the Roles lineup tab's Local models block has Warm; each Local -> Hosts card has the active
 lineup's warm-set line.
 

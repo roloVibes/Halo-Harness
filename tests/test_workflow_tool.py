@@ -79,7 +79,7 @@ def test_a_refused_hand_off_is_a_receipt_and_never_an_error(ctx: Ctx):
         called = []
         got = run_tool(rt, {"task": "plan the move", "name": "plan"}, spawn=lambda **k: called.append(k), takes=["text"])
         ctx.check(f"one line, no spawn, got {got.content!r}", not called and not got.is_error
-                  and got.content == "square - did not start -- plan is not enabled for this lineup: halo workflows enable plan "
+                  and got.content == "square - did not start -- plan is not enabled for this session: add it to config workflows.enabled "
                   "(or Studio: Agents -> Workflows)")
         ctx.check("the receipt says not-started", rt.parent.log.receipts()[0]["status"] == "not-started")
         rt.parent._square_hops = 0
@@ -113,8 +113,8 @@ def test_the_cap_stops_a_child_that_spends_past_it(ctx: Ctx):
 def test_an_orchestra_square_its_node_its_cost_and_the_run_report(ctx: Ctx):
     with PacksHome() as h:
         rt = FakeRuntime(h.repo)
-        from halo_harness.workflows.registry import enable
-        enable("code", cwd=h.repo)
+        from halo_harness.theme import set_config_value  # 3.6.0.0 R5d: the session's set is config's
+        set_config_value("workflows.enabled", ["media", "code"])
 
         def runner(run_dir):
             (Path(run_dir) / "report.json").write_text(json.dumps({"status": "finished", "cost_usd": 0.5, "finished": True}), encoding="utf-8")

@@ -77,7 +77,7 @@ def nothing_reads(gaps: list, files=()) -> str:
         return ""
     what = " or ".join(dict.fromkeys(_PLURAL[g] for g in reads))
     named = f" (could not read {', '.join(files)})" if files else ""
-    return (f"no role or square reads {what} here{named}: `halo workflows enable media`, or give a role a model "
+    return (f"no role or square reads {what} here{named}: add media to config workflows.enabled, or give a role a model "
             f"that takes {what}")
 
 

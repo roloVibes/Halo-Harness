@@ -26,8 +26,8 @@ def _one(wf, rule) -> str:
 def squares_tail(squares: list, rules: dict) -> str:
     live = [wf for wf in squares if not (wf.ref in rules and rules[wf.ref].mode == "off")]
     if not live:
-        return (" No square is connected for this lineup (Studio: draw its line)." if squares
-                else " No square is enabled for this lineup yet (halo workflows enable media).")
+        return (" No square is connected for this session (config workflows.when says off)." if squares
+                else " No square is enabled for this session yet (config workflows.enabled).")
     return " Enabled squares: " + "; ".join(_one(wf, rules.get(wf.ref)) for wf in live) + "."
 
 

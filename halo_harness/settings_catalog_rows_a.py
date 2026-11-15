@@ -13,7 +13,7 @@ _EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
 ROWS = [
     Row("model", "general", "Default model", "model", None, (), "The model a new session starts on; unset, the built-in default applies.", "next session"),
-    Row("team", "general", "Active lineup", "string", None, (), "The lineup a session runs; unset, the shipped auto lineup runs.", "next session"),
+    Row("team", "general", "Active lineup (not read)", "string", None, (), "Not read since 3.6.0.0: lineups are gone; the map a session runs on is crew.map (halo maps use <name>).", "next session"),
     Row("crew.map", "general", "Map sessions run on", "string", None, (), "The map new sessions run on (Agents -> 3 · Map, My sessions use this); unset, sessions run on their lineup as before.", "next session"),  # 3.6.0.0 R3
     Row("permission_mode", "general", "Permission mode", "enum", None, _MODES, "The permission mode new sessions start in; auto allows everything except your own deny and ask rules.", "next session"),
     Row("effort", "general", "Effort", "enum", None, _EFFORTS, "The reasoning effort a session starts with when no flag and no last-used effort says otherwise.", "next session"),
@@ -33,8 +33,8 @@ ROWS = [
     Row("studio.builder.cap_usd", "studio", "Builder cap", "float", 1.0, (), "What the builder may spend in a day, in dollars; past it a request answers with one line and the builder waits until tomorrow. 0: it makes no call.", "now"),
     Row("agents.max_concurrent", "agents", "Agents at once", "int", 4, (), "How many sub-agents may run at the same time.", "next session"),
     Row("agents.max_depth", "agents", "Agent depth", "int", 1, (), "How deep sub-agents may spawn sub-agents of their own (1 to 3).", "next session"),
-    Row("workflows.enabled", "agents", "Workflow squares", "list", ["media"], (), "The squares the auto lineup may hand work to (the Workflow tool); another lineup lists its own under workflows:.", "next session"),
-    Row("workflows.when.<square>", "agents", "When main uses a square", "keyed", {}, (), "On the auto lineup, one square's rule for when main hands it work: needs (pdf, vision, audio, video, code, plan, research, review, work-data), words, mode (auto, named, always, off); unset, its covers.", "next session"),
+    Row("workflows.enabled", "agents", "Workflow squares", "list", ["media"], (), "The squares a session may hand work to (the Workflow tool).", "next session"),
+    Row("workflows.when.<square>", "agents", "When main uses a square", "keyed", {}, (), "One square's rule for when main hands it work: needs (pdf, vision, audio, video, code, plan, research, review, work-data), words, mode (auto, named, always, off); unset, its covers.", "next session"),
     Row("roles.enabled", "agents", "Roles on", "bool", True, (), "Sessions route work by role (planner, coder, reviewer ...); off, one model does everything.", "next session"),
     Row("roles.editor", "agents", "Roles editor", "enum", None, ("external",), "external opens /roles edit in your $EDITOR instead of the form.", "now"),
     Row("roles.<role>", "agents", "Role model", "keyed", None, (), "The model one role runs on (a model ref, or a mapping with model and effort); the lineup's own wins over it.", "next session"),

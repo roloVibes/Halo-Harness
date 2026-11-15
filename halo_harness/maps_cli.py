@@ -5,6 +5,7 @@
                               the cap, the problems (studio_show's own text)
     halo maps use <name>      new sessions run on it (config `crew.map`); `--off` goes back to the default (the starter
                               map drawn, no rules of its own); `--none` is One model for everything (roles off, no map)
+    halo maps copy <name> [--as <new>]  your own copy of one (a starter, a pack's, the project's), to edit
     halo maps edit <name>     your $VISUAL / $EDITOR on your map's file; else Studio, Agents -> 3 · Map, on it
 
 Editing a map is Studio's Map tab (`halo studio`, Agents -> 3 · Map) or its builder box; `--map <name>` runs one session
@@ -24,6 +25,9 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("list", help="every map, the one in use marked")
     show = sub.add_parser("show", help="one map in words")
     show.add_argument("name")
+    cp = sub.add_parser("copy", help="your own copy of one (a starter, a pack's, the project's), to edit")
+    cp.add_argument("name")
+    cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     use = sub.add_parser("use", help="new sessions run on this map (config crew.map)")
     use.add_argument("name", nargs="?")
     use.add_argument("--off", action="store_true", help="stop using a map of your choice: new sessions run as by default")
@@ -54,6 +58,9 @@ def cmd_maps(argv) -> int:
             print(f"{mark} {r['name']:<20} {r['_scope']:<8} {len(r.get('boxes') or [])} boxes, {len(r.get('lines') or [])} lines{bad}")
         print(f"in use: {used} ({source})" if used else "in use: none (One model for everything: roles off)")
         return 0
+    if args.cmd == "copy":  # 3.6.0.0 R5d: own_copy
+        from halo_harness.crew_cli_parts import copy
+        return copy("map", args.name, args.as_name, cwd)
     if args.cmd == "edit":  # 3.6.0.0 R5
         from halo_harness.crew_cli_parts import edit
         return edit("map", args.name, cwd)

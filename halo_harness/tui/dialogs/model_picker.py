@@ -188,36 +188,26 @@ def autocomplete_suggestions(models: "list[dict]", query: str, *, limit: int = 6
 
 
 def _agent_picker_rows(cwd=None, state_dir=None) -> "list[dict]":
-    """Halo 2.0.5 round 2 (deliverable 2): one row per reachable agent
-    bio -- `{"name", "description", "preferred_model", "tools_summary"}`
-    -- local-file-only (`agents_yaml.list_agent_bios`/`resolve_agent_bio`,
-    the SAME loader `halo agents show` uses), never a network call, so
-    it's safe to build synchronously the moment the Agents source is
-    toggled (never re-run the live model enumeration; this is a wholly
-    separate, cheap local read). Deliberately duplicated here rather than
-    imported from `agents_step.py` (which this dialog must never depend
-    on -- the house's own "duplicate the small shared bit, share only the
-    Textual-free behavior" convention, see `init_wizard.py`'s own
-    docstring on `ProvidersStep` vs. `InitTabsApp`)."""
+    """One row per agent file a session can name (crew/store.py: yours, the project's, the starters, an enabled
+    pack's): `{"name", "description", "preferred_model", "tools_summary"}`, read from disk, never a network call
+    (3.6.0.0 R5d: the agent files; the bios before)."""
     try:
-        from halo_harness.agents_yaml import list_agent_bios, resolve_agent_bio
+        from halo_harness.crew.store import rows as crew_rows
+        found = crew_rows("agents", cwd=cwd, state_dir=state_dir)
     except Exception:
         return []
     rows: "list[dict]" = []
-    for name in list_agent_bios(cwd=cwd, state_dir=state_dir):
-        try:
-            bio = resolve_agent_bio(name, cwd=cwd, state_dir=state_dir)
-        except Exception:
-            bio = None
-        if bio is None:
+    seen: set = set()
+    for r in found:
+        name = str(r.get("name") or "")
+        if not name or name in seen:
             continue
-        tools = bio.get("tools") or {}
-        allow_n, mcp_n = len(tools.get("allow") or []), len(tools.get("mcp_servers") or [])
-        tools_summary = f"{allow_n} tool(s), {mcp_n} mcp" if (allow_n or mcp_n) else ""
-        models = bio.get("models") or {}
-        rows.append({"name": name, "description": bio.get("description") or "",
-                     "preferred_model": models.get("preference") or models.get("fallback") or "",
-                     "tools_summary": tools_summary})
+        seen.add(name)
+        model = str(r.get("model") or "")
+        uses = r.get("uses") if isinstance(r.get("uses"), list) else []
+        rows.append({"name": name, "description": str(r.get("does") or ""),
+                     "preferred_model": "" if model in ("", "auto") else model,
+                     "tools_summary": ", ".join(str(u) for u in uses)})
     return rows
 
 
@@ -476,11 +466,6 @@ class ModelPicker(ModalScreen):
         self._filtered_agent_rows = rows
         option_list = self.query_one("#model-list", OptionList)
         option_list.clear_options()
-        # "'New bio...' at the top of the Agents source opens the editor
-        # and returns with the new bio selected" -- the CALLER (the
-        # picker's own dismiss contract) opens the editor; this dialog
-        # only hands back the sentinel.
-        option_list.add_option(Option(Text("New bio...", style="bold italic"), id="__new_bio__"))
         for r in rows:
             line = f"{r['name']:<24} {r['description']}"
             tags = [t for t in (f"model={r['preferred_model']}" if r["preferred_model"] else "",
@@ -525,9 +510,6 @@ class ModelPicker(ModalScreen):
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if self._source == "agents":
             oid = str(event.option_id)
-            if oid == "__new_bio__":
-                self.dismiss({"new_bio": True})
-                return
             row = next((r for r in self._agent_rows_cached() if r["name"] == oid), None)
             self.dismiss({"agent": oid, "model": (row or {}).get("preferred_model") or ""})
             return

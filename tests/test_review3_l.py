@@ -90,50 +90,6 @@ def _result_text(node) -> str:
 
 # ---- item 8 -------------------------------------------------------------------
 
-@test
-def test_item8_a_fired_job_inherits_the_session_environment(ctx: Ctx):
-    from halo_harness import agents_schedule
-    seen = {}
-
-    class _Record:
-        job_id = "j1"
-
-    class _Registry:
-        def start_background(self, command, **kw):
-            seen.update(kw)
-            return _Record(), None
-
-    os.environ["R3L_PARENT_ONLY"] = "parent-value"
-    try:
-        session = type("S", (), {"job_registry": _Registry(), "cwd": ".",
-                                 "tool_env": {"R3L_FROM_SETTINGS": "settings-value"}})()
-        agents_schedule._default_fire(session, {"name": "n", "prompt": "p", "team": "t"})
-        env = seen.get("env") or {}
-        ctx.check("the fire marker is still there", env.get("HALO_SCHEDULED_FIRE") == "1")
-        ctx.check("PATH reaches the fired job", env.get("PATH") == os.environ.get("PATH") and env.get("PATH"))
-        home_key = "HOME" if "HOME" in os.environ else "USERPROFILE"
-        ctx.check(f"{home_key} reaches the fired job", env.get(home_key) == os.environ.get(home_key))
-        ctx.check("a variable exported in the parent reaches it", env.get("R3L_PARENT_ONLY") == "parent-value")
-        ctx.check("the provider key the fired harness needs reaches it",
-                  env.get("OPENROUTER_API_KEY") == os.environ.get("OPENROUTER_API_KEY"))
-        ctx.check("the session's settings env overlay reaches it", env.get("R3L_FROM_SETTINGS") == "settings-value")
-
-        captured = {}
-        real_popen = subprocess.Popen
-        subprocess.Popen = lambda argv, **kw: captured.update(kw)
-        try:
-            bare = type("S", (), {"cwd": ".", "tool_env": {"R3L_FROM_SETTINGS": "settings-value"}})()
-            agents_schedule._default_fire(bare, {"name": "n", "prompt": "p"})
-        finally:
-            subprocess.Popen = real_popen
-        denv = captured.get("env") or {}
-        ctx.check("the detached path builds the same environment",
-                  denv.get("R3L_PARENT_ONLY") == "parent-value" and denv.get("R3L_FROM_SETTINGS") == "settings-value"
-                  and denv.get("HALO_SCHEDULED_FIRE") == "1")
-    finally:
-        os.environ.pop("R3L_PARENT_ONLY", None)
-
-
 # ---- items 45 + 119 -----------------------------------------------------------
 
 def _scn_plan(h, body):

@@ -75,7 +75,7 @@ one as usual, on the target. `--no-open` only prints the URL. A target that
 is not one of the three shapes: exit 2 with the reason. `halo agents edit`,
 `halo teams edit`, the TUI's `/edit` and `e` in the terminal's bio and
 lineup views run the same thing (see
-[AGENTS.md](AGENTS.md#editing-bios-and-lineups-studio-is-the-editor-halo-3110)).
+[AGENTS.md](AGENTS.md#making-and-changing-an-agent)).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
 into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one; 3.4.0.0 D: Runs, the run console, went; 3.6.0.0 R5: three tabs, 1 · Agents, 2 · Workflows and 3 · Map, where what runs now lights up the map), and `--mode roles`,

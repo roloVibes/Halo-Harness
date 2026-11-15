@@ -2,9 +2,8 @@
 B-trust (part 1): review items 4, 5 and 18.
 
   * item 4   a sub-agent's mode: plan is sticky, dontAsk ranks below
-             default, and the team template's mode is clamped like any
-             other request; a project team template in an untrusted folder
-             keeps its deny/ask rules but loses its mode and allow rules
+             default (the lineup half of item 4 went with the lineups in
+             3.6.0.0 R5d)
   * item 5   connector__<slug>: `tool` must be one tool name of that
              connector, and the session's whole-tool denies reach the
              inner claude's --disallowedTools
@@ -55,18 +54,16 @@ class _Env:
 
 # ---- item 4: sub-agent mode clamp ---------------------------------------------
 
-def _child(parent_mode: str, *, spec_mode=None, source="user", team_perms=None):
+def _child(parent_mode: str, *, spec_mode=None, source="user"):
     from halo_harness.agent.subagent import _build_child_session
     from halo_harness.config.agents_md import AgentSpec
     from halo_harness.permissions import PermissionEngine
-    from halo_harness.teams_runtime import TeamControl
     fh = build_fake_home()
     mock = MockUpstream().start()
     try:
         session = _session(fh, mock)
         session.permission_engine = PermissionEngine(mode=parent_mode, cwd=fh["proj"])
         rt = session.agent_runtime
-        rt.team_control = TeamControl(name="t", template={"permissions": team_perms}) if team_perms else None
         spec = AgentSpec(name="x", description="d", permission_mode=spec_mode, source=source)
         child, _ = _build_child_session(runtime=rt, spec=spec, agent_id="r3b4" + parent_mode[:3],
                                         model_override=None, parent_tool_use_id="t")
@@ -85,19 +82,6 @@ def test_item4_plan_parent_keeps_an_accept_edits_agent_in_plan(ctx: Ctx):
 
 
 @test
-def test_item4_team_mode_is_clamped_to_the_parent(ctx: Ctx):
-    child, _ = _child("default", team_perms={"mode": "bypassPermissions", "rules": {"allow": ["Bash(*)"]}})
-    ctx.check(f"default parent + team bypass -> default, got {child.permission_engine.mode!r}",
-              child.permission_engine.mode == "default")
-    child, _ = _child("plan", team_perms={"mode": "acceptEdits"})
-    ctx.check(f"plan parent + team acceptEdits -> plan, got {child.permission_engine.mode!r}",
-              child.permission_engine.mode == "plan")
-    child, _ = _child("auto", team_perms={"mode": "default"})
-    ctx.check(f"lowering still works: auto parent + team default -> default, got {child.permission_engine.mode!r}",
-              child.permission_engine.mode == "default")
-
-
-@test
 def test_item4_dont_ask_parent_is_not_escaped(ctx: Ctx):
     child, _ = _child("dontAsk", spec_mode="acceptEdits")
     ctx.check(f"dontAsk parent + acceptEdits agent -> dontAsk, got {child.permission_engine.mode!r}",
@@ -105,52 +89,6 @@ def test_item4_dont_ask_parent_is_not_escaped(ctx: Ctx):
     child, _ = _child("bypassPermissions", spec_mode="acceptEdits")
     ctx.check(f"an owner agent may still lower itself, got {child.permission_engine.mode!r}",
               child.permission_engine.mode == "acceptEdits")
-
-
-def _write_team(cwd: Path, name: str, data: dict) -> None:
-    d = cwd / ".halo" / "teams"
-    d.mkdir(parents=True, exist_ok=True)
-    (d / f"{name}.yaml").write_text(json.dumps(data), encoding="utf-8")
-
-
-@test
-def test_item4_untrusted_project_template_loses_mode_and_allow(ctx: Ctx):
-    from halo_harness.teams_runtime import load_team_control
-    from halo_harness.teams_yaml import resolve_team_template
-    with _Env() as e:
-        cwd = e.home / "repo"
-        perms = {"mode": "bypassPermissions", "rules": {"allow": ["Bash(*)"], "deny": ["Bash(rm:*)"],
-                                                         "ask": ["Write"]}}
-        _write_team(cwd, "base", {"agents": [], "permissions": perms})
-        _write_team(cwd, "dev", {"extends": "base", "agents": []})
-        # 3.4.1.2 (ENGINE-1): an untrusted folder's lineups are not read at all; the trusted=False filter below is the
-        # layer split that still applies to a project-sourced layer read with trusted=False
-        ctx.check("an untrusted folder's lineup is not read",
-                  resolve_team_template("dev", cwd=cwd, state_dir=e.home / ".halo", trusted=False) is None)
-        from tests.helpers.trust_dir import trust
-        trust(cwd)
-        untrusted = resolve_team_template("dev", cwd=cwd, state_dir=e.home / ".halo", trusted=False)
-        got = untrusted["permissions"]
-        ctx.check(f"mode dropped through extends, got {got!r}", "mode" not in got)
-        ctx.check("allow dropped", "allow" not in got.get("rules", {}))
-        ctx.check("deny and ask kept", got["rules"].get("deny") == ["Bash(rm:*)"] and got["rules"].get("ask") == ["Write"])
-        trusted = resolve_team_template("dev", cwd=cwd, state_dir=e.home / ".halo", trusted=True)
-        ctx.check("a trusted folder keeps them", trusted["permissions"].get("mode") == "bypassPermissions")
-        control = load_team_control("dev", cwd=cwd, state_dir=e.home / ".halo", trusted=False)
-        member = control.member_permissions()
-        ctx.check(f"the team control sees no mode/allow, got {member!r}",
-                  member["mode"] is None and member["allow"] == [] and member["deny"] == ["Bash(rm:*)"])
-
-
-@test
-def test_item4_user_template_is_not_filtered(ctx: Ctx):
-    from halo_harness.teams_yaml import resolve_team_template, save_team_template
-    with _Env() as e:
-        ok, problems = save_team_template("mine", {"agents": [], "permissions": {"mode": "auto"}},
-                                          state_dir=e.home / ".halo")
-        ctx.check(f"saved, got {problems}", ok)
-        got = resolve_team_template("mine", cwd=e.home / "elsewhere", state_dir=e.home / ".halo", trusted=False)
-        ctx.check("the owner's own template keeps its mode", got["permissions"].get("mode") == "auto")
 
 
 # ---- item 5: connector tool name ----------------------------------------------

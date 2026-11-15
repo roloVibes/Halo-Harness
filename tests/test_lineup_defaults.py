@@ -46,12 +46,6 @@ def test_the_numbers_are_the_codes(ctx: Ctx):
     ctx.check("delegation: the spawn cap and the depth cap", f"up to {MAX_CONCURRENT_AGENTS} run at once" in d["delegation"]
               and f"agents.max_depth {MAX_DEPTH}" in d["delegation"])
     ctx.check("budget: the auto pick's band", f"band {DEFAULT_BAND}" in d["budget"])
-    from halo_harness.teams_runtime import TeamControl
-    tc = TeamControl(name="t", template={})
-    ctx.check("no escalation: no switch", tc.escalation_decision(tool_failures=True, context_overflow=True) is None)
-    ctx.check("no budget: never stops", tc.budget_refusal() is None)
-    ctx.check("no pipeline: no gate", tc.stage_for("x", "y") is None and tc.gate_block(None) is None)
-    ctx.check("no tiers: no tier gate", tc.tier_gate("a", "b") is None)
 
 
 if __name__ == "__main__":

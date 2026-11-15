@@ -212,9 +212,6 @@ def test_the_declaration_is_validated(ctx: Ctx):
         ok = validate_team_template({"agents": [{"agent": "coder", "role": "main"}], "isolation": "container"})
         bad = validate_team_template({"agents": [{"agent": "coder", "role": "main"}], "isolation": "vm"})
         ctx.check(f"a lineup's isolation is checked, got {ok} / {bad}", not ok and any("isolation" in p for p in bad))
-        from halo_harness.schemas.check import check
-        from halo_harness.schemas.yaml_files import lineup
-        ctx.check("the lineup schema takes the one word", not check({"isolation": "container"}, lineup()))
 
 
 if __name__ == "__main__":

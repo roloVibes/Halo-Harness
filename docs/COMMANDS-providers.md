@@ -246,7 +246,7 @@ Halo 3.1.8.0: `--measured` prints what this Halo measured about each model's age
 per model and task kind with the checked tasks, the first-time passes, the rate and the mean cost
 (`--json` for the rows); see [OUTCOMES.md](OUTCOMES.md#measured-success). Halo 3.1.9.0 R3: a row
 whose model is dropped for the kind ends with "dropped for code (1/4 in the last 30 days)" (`--json`:
-`dropped`); `halo outcomes learned` shows the weights ([ROLES.md](ROLES.md#auto-learns-halo-3190)).
+`dropped`); `halo outcomes learned` shows the weights ([ROLES.md](ROLES.md#auto)).
 Halo 3.3.15.0 R2: the bare table's rows (OpenRouter's and the Databricks endpoints') end with a `takes` column -- what
 the model reads (`text`, `vision`, `audio`, `video`, `pdf`), `image` when it makes images, `tools` and `think` when
 stated or measured, the same words as the `/model` picker's `takes=` column -- and `?` when the catalog states no

@@ -97,7 +97,7 @@ still opens the full picker).
 "(default)" while no `team:` is set; Next on it writes nothing), "One model
 for everything" clears `team:` instead of writing `team: standard`, and the
 Summary (and `halo init`'s printed checks) say the lineup in use and how to
-change it ([ROLES.md](ROLES.md#the-auto-lineup-halo-3190)).
+change it ([ROLES.md](ROLES.md#auto)).
 
 **Halo 3.1.1.0**: bios and lineups are edited in Studio. The Team step
 gains **Edit in Studio** (Ctrl+E: Studio's inspector on the highlighted

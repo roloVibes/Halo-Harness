@@ -5,6 +5,7 @@ of squares before).
     halo workflows show <name>                  its file (workflow/1) and the maps it is on
     halo workflows new <name> [--from <start>]  one of yours: a copy of a starter (code, plan, review, research, media)
                                                 or another workflow, else a blank one-step one
+    halo workflows copy <name> [--as <new>]     your own copy of one (a starter, a pack's, the project's), to edit
     halo workflows edit <name>                  your $VISUAL / $EDITOR on your file; else Studio, Agents -> 2 · Workflows
     halo workflows try <name> "<request>"       runs it on a throwaway copy of this repo, step by step
     halo workflows run <name> "<request>"       runs it here, for real, on the step runner (each step's agents as
@@ -33,6 +34,9 @@ def _parser() -> argparse.ArgumentParser:
     new = sub.add_parser("new", help="a workflow of yours")
     new.add_argument("name")
     new.add_argument("--from", dest="start", default=None, metavar="WORKFLOW", help="copy this one (a starter or another)")
+    cp = sub.add_parser("copy", help="your own copy of one (a starter, a pack's, the project's), to edit")
+    cp.add_argument("name")
+    cp.add_argument("--as", dest="as_name", default=None, metavar="NAME", help="the copy's name (default my-<name>)")
     edit = sub.add_parser("edit", help="open it in your editor, or in Studio")
     edit.add_argument("name")
     for verb, what in (("try", "once on a throwaway copy of this repo"), ("run", "here, for real, on the step runner")):
@@ -87,6 +91,9 @@ def cmd_workflows(argv) -> int:
         return P.show("workflow", args.name, cwd)
     if args.cmd == "new":
         return P.new("workflow", args.name, args.start, cwd, BLANK)
+    if args.cmd == "copy":  # 3.6.0.0 R5d: own_copy
+        from halo_harness.crew_cli_parts import copy
+        return copy("workflow", args.name, args.as_name, cwd)
     if args.cmd == "edit":
         return P.edit("workflow", args.name, cwd)
     wf, agents = _load(args.name, cwd, args.cmd)
