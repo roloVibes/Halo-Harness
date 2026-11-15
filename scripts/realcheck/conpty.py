@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ctypes
 import subprocess
+import sys
 import threading
 from ctypes import wintypes
 
@@ -97,8 +98,9 @@ class ConPtyTerminal(_Base):
         pi = PROCESS_INFORMATION()
         # "Ctrl+C is ignored" is inherited by a child: a launcher (a CI runner, an msys shell) may have set it on this
         # process, and a person's terminal never does, so it is cleared here before the child starts
-        k32.SetConsoleCtrlHandler(None, False)
-        cmd =ctypes.create_unicode_buffer(subprocess.list2cmdline([str(a) for a in argv]))
+        from realcheck import winproc
+        self.cleared_how = winproc.clear_own_ignore_ctrl_c()[1]
+        cmd = ctypes.create_unicode_buffer(subprocess.list2cmdline([str(a) for a in argv]))
         block = _env_block(env)
         if not k32.CreateProcessW(None, cmd, None, None, False, EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
                                   block, str(cwd), ctypes.byref(si), ctypes.byref(pi)):
@@ -110,6 +112,8 @@ class ConPtyTerminal(_Base):
         k32.CloseHandle(out_w)
         self._proc, self.pid = pi.hProcess, int(pi.dwProcessId)
         self._closed = False
+        flags = winproc.console_flags(self.pid)
+        self.child_ignores_ctrl_c = bool(flags is not None and flags & winproc.IGNORE_CTRL_C)
         threading.Thread(target=self._pump, daemon=True).start()
 
     def _pump(self) -> None:
@@ -132,6 +136,24 @@ class ConPtyTerminal(_Base):
         t = threading.Thread(target=k32.ClosePseudoConsole, args=(self._hpc,), daemon=True)
         t.start()
         t.join(10)
+
+    def console_event(self, event: int) -> bool:
+        """CTRL_C_EVENT (0) or CTRL_BREAK_EVENT (1) to every program in this pseudoconsole, the way the console
+        raises it: a helper with no console of its own attaches to the child's and calls GenerateConsoleCtrlEvent.
+        Ctrl+Break is the one a program cannot switch off."""
+        helper = ("import ctypes, sys\nk = ctypes.windll.kernel32\nk.FreeConsole()\n"
+                  f"ok = k.AttachConsole({self.pid}) and (k.SetConsoleCtrlHandler(None, True) or True) "
+                  f"and k.GenerateConsoleCtrlEvent({int(event)}, 0)\nsys.exit(0 if ok else 1)\n")
+        try:
+            r = subprocess.run([sys.executable, "-c", helper], timeout=20, stdin=subprocess.DEVNULL,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               creationflags=0x00000008)  # DETACHED_PROCESS: free to attach to the child's console
+            return r.returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+
+    def ctrl_break(self) -> bool:
+        return self.console_event(1)
 
     def hard_kill(self) -> None:
         k32.TerminateProcess(self._proc, 1)

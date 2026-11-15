@@ -136,12 +136,23 @@ CHILD = ("import sys, time\nprint('tty', sys.stdin.isatty(), sys.stdout.isatty()
 
 @test
 def test_the_terminal_gives_a_tty_and_ends_a_child_three_ways(ctx: Ctx):
-    from realcheck.term import Terminal
-    for how in ("ctrl_c", "close_window", "hard_kill"):
+    from realcheck.term import Terminal, ctrl_c_probe
+    probe = ctrl_c_probe(tempfile.gettempdir())
+    ctx.check(f"the probe's child had a terminal, got {probe}", probe.get("tty") is True)
+    if probe["delivered"]:
+        ctx.check(f"a typed Ctrl+C or the console's event reached it, got {probe}", probe["via"] in ("typed", "console event"))
+    else:  # an honest outcome: only where a launcher switched Ctrl+C off for its children, and with the reason and Break
+        ctx.check(f"not deliverable is a Windows host's answer and says why, got {probe}",
+                  sys.platform == "win32" and "ignore Ctrl+C" in probe["why"] and probe["break_works"] is not None)
+    ways = ("ctrl_c" if probe["delivered"] else "ctrl_break", "close_window", "hard_kill")
+    for how in ways:
         t = Terminal([sys.executable, "-c", CHILD], env=dict(os.environ), cwd=tempfile.gettempdir())
         try:
             up = t.wait_for(lambda s: "tty True True" in s, 30)
-            getattr(t, how)()
+            if how == "ctrl_c" and probe["via"] == "console event":
+                t.console_event(0)
+            else:
+                getattr(t, how)()
             code = t.wait(15)
             ctx.check(f"{how}: a terminal on stdin and stdout, then the child ended (exit {code})", up and code is not None)
             if how == "ctrl_c":

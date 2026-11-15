@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 from realcheck import fakes, screen
-from realcheck.core import URL, Fail, excerpt, http_get, split_url
+from realcheck.core import Fail, excerpt, http_get, split_url, wait_address
 
 # 3.6.0.0 R11, measured on the day (bd984ce6): the bytes of the one request `halo -p "<one line>"` sends in a fresh
 # home (Windows carries the PowerShell tool). The budget is that + 10%; a change that makes a one-line ask cost more
@@ -80,14 +80,13 @@ def tui_first_frame(ctx, h, env=None) -> dict:
 def first_run(ctx):
     h = ctx.home("first-run")
     t = ctx.terminal(h, "init")
-    url = t.wait_for(lambda s: re.search(URL, s), 20) and re.search(URL, t.plain()).group(0)
-    at = time.monotonic() - t.started_at
-    ev: dict = {"address_s": round(at, 2)}
+    url, at, meanwhile = wait_address(ctx, h, t, 60)
+    ev: dict = {"address_s": round(at, 2), "while_waiting": meanwhile}
     bad: list = []
     if not url:
         ev["screen"] = excerpt(t.plain(), 500)
         ctx.end_leftovers(h)
-        raise Fail("`halo init` printed no Studio address in 20 s: " + excerpt(t.plain(), 200), ev)
+        raise Fail(f"`halo init` printed no Studio address in {at:.0f} s: " + excerpt(t.plain(), 200), ev)
     if at > 2.0:
         bad.append(f"the Studio address took {at:.1f}s to appear (budget 2 s)")
     ev["browser_opened"] = fakes.opened_urls(h.opened)
@@ -147,9 +146,10 @@ def theme_pick(ctx):
         raise Fail(f"`halo config set theme paper` exit {r.code}: {excerpt(r.out + r.err, 200)}")
     tui = tui_first_frame(ctx, h)
     t = ctx.terminal(h, "studio")
-    url = t.wait_for(lambda s: re.search(URL, s), 20) and re.search(URL, t.plain()).group(0)
+    url, at, meanwhile = wait_address(ctx, h, t, 60)
     page = http_get(split_url(url)[0] + "/", timeout=10)[1] if url else b""
-    ev = {"tui": tui, "page_theme": screen.page_theme(page), "studio_url": bool(url)}
+    ev = {"tui": tui, "page_theme": screen.page_theme(page), "studio_address_s": round(at, 1),
+          "while_waiting": meanwhile}
     screen.quit_with_ctrl_c(t)
     t.cleanup()
     ctx.end_leftovers(h)
@@ -158,7 +158,8 @@ def theme_pick(ctx):
         bad.append(f"after `halo config set theme paper` the terminal draws {tui['theme'] or 'no known palette'} "
                    f"(backgrounds {tui['top_bg']})")
     if ev["page_theme"] != "paper":
-        bad.append(f"and Studio's page draws {ev['page_theme'] or 'nothing (no page)'}")
+        bad.append(f"Studio's page draws {ev['page_theme'] or 'nothing'}"
+                   + ("" if url else f" (`halo studio` printed no address in {at:.0f} s)"))
     if bad:
         raise Fail("; ".join(bad), ev)
     return "paper in the terminal's first frame and in the page", ev

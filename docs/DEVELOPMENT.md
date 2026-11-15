@@ -235,6 +235,12 @@ process's PEB) matches only a process whose command line or environment names th
 value one of those carries, or a child of one; only those are ever ended, by pid, after their start time is checked.
 No kill by name. Its own machinery is tested in `tests/test_realcheck.py` against stand-in commands.
 
+Ctrl+C on Windows: a process started with CREATE_NEW_PROCESS_GROUP (how a CI runner starts a step) carries "ignore
+Ctrl+C" and passes it to every child, which a person's terminal never does. The script clears it on itself before a
+launch (`winproc.clear_own_ignore_ctrl_c`) and first asks the host (`term.ctrl_c_probe`): a typed Ctrl+C, else the
+console's CTRL_C_EVENT; when neither reaches a test child, the closing table says "Ctrl+C is not deliverable on this
+host" and those rows send Ctrl+Break instead, never passing that off as a Ctrl+C result.
+
 CI: the `realcheck (linux|macos|windows)` jobs in suites.yml run it on pushes to master and rc/** and on pull
 requests, the table in the job summary and the JSON as the `realcheck-<os>` artifact. They do not block yet
 (continue-on-error) while the rounds that fix today's expected failures land; a FAIL marked "expected until R10 /

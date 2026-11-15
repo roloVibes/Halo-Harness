@@ -15,7 +15,7 @@ import sys
 import time
 
 from realcheck import screen
-from realcheck.core import URL, Fail, Skip, excerpt
+from realcheck.core import URL, Fail, Skip, excerpt, wait_address
 
 HOW = ("Ctrl+C", "closed terminal", "hard kill")
 
@@ -79,20 +79,26 @@ def serve_alone(ctx) -> dict:
     return row
 
 
-def _end(t, how: str, full_screen: bool) -> str:
+def _end(ctx, t, how: str, full_screen: bool) -> str:
     if how == "closed terminal":
         t.close_window()
         return "terminal closed"
     if how == "hard kill":
         t.hard_kill()
         return "top process killed"
-    if full_screen:
+    if full_screen:  # a full-screen session reads Ctrl+C as a key, typed like any other
         return screen.quit_with_ctrl_c(t, wait=0.5)
-    t.ctrl_c()
-    keys = "Ctrl+C"
+    probe = ctx.ctrl_c()
+    if not probe["delivered"]:  # said, never passed off as a Ctrl+C
+        t.ctrl_break()
+        return "Ctrl+Break (Ctrl+C is not deliverable on this host)"
+    press = (lambda: t.console_event(0)) if probe["via"] == "console event" else t.ctrl_c
+    label = "Ctrl+C" + (" (as the console's event)" if probe["via"] == "console event" else "")
+    press()
+    keys = label
     if t.wait(2.0) is None:  # still up: a person presses it again
-        t.ctrl_c()
-        keys += " Ctrl+C"
+        press()
+        keys += " " + label
     return keys
 
 
@@ -118,10 +124,16 @@ def one_close(ctx, target: str, how: str) -> dict:
         row["not_started"] = excerpt(t.plain(), 240) or f"exit {t.poll()}"
     else:
         row["running"] = len(ctx.ours(h))
-        row["keys"] = _end(t, how, full_screen=target.startswith("session"))
+        row["keys"] = _end(ctx, t, how, full_screen=target.startswith("session"))
+        if row["keys"].startswith("Ctrl+Break"):
+            row["how"] = "Ctrl+Break (Ctrl+C not deliverable on this host)"
         left = ctx.left_after(h, 5.0)
         row["top_exit"] = t.poll()
         row["left"] = [f"{p.short(110)} [{p.why}]" for p in left]
+        if left:  # slow, or never? what was left at 5 s is followed to 30 s
+            later = ctx.left_after(h, 25.0)
+            row["gone_after_s"] = None if later else "between 5 and 30 s"
+            row["still_running_at_30_s"] = [p.short(90) for p in later]
     ctx.provider.release()
     t.cleanup()
     ctx.end_leftovers(h)
@@ -132,11 +144,14 @@ def closing(ctx):
     rows = [one_close(ctx, target, how) for target in TARGETS for how in HOW] + [serve_alone(ctx)]
     left = [r for r in rows if r.get("left")]
     unstarted = [r for r in rows if "not_started" in r]
-    ev = {"rows": rows}
+    probe = ctx.ctrl_c()
+    ev = {"rows": rows, "ctrl_c_on_this_host": probe}
     bad = [f"{r['target']} / {r['how']}: {len(r['left'])} left ({r['left'][0][:90]})" for r in left]
     bad += [f"{r['target']} did not come up to be closed ({r['not_started'][:100]})" for r in unstarted]
+    note = ("" if probe["delivered"] else f"Ctrl+C is not deliverable on this host ({probe['why']}); the one-shot, init "
+            f"and studio rows sent Ctrl+Break instead (it {'ended' if probe['break_works'] else 'did not reach'} a test child). ")
     if bad:
-        raise Fail(f"{len(left)} of {len(rows)} ways out left processes running 5 s later: " + "; ".join(bad), ev,
+        raise Fail(note + f"{len(left)} of {len(rows)} ways out left processes running 5 s later: " + "; ".join(bad), ev,
                    "R10" if left and not unstarted else "")
     return f"all {len(rows)} ways out ({len(TARGETS)} launches x {len(HOW)}, + `halo local serve`) left nothing", ev
 
@@ -155,15 +170,18 @@ def no_reuse(ctx):
     from realcheck import procs
     h = ctx.home("no-reuse")
     first = ctx.terminal(h, "init")
-    if not first.wait_for(lambda s: re.search(URL, s), 30):
-        raise Fail("the first `halo init` printed no address in 30 s: " + excerpt(first.plain(), 200))
+    url, at, meanwhile = wait_address(ctx, h, first, 60)
+    if not url:
+        ctx.end_leftovers(h)
+        raise Fail(f"the first `halo init` printed no address in {at:.0f} s: " + excerpt(first.plain(), 200),
+                   {"while_waiting": meanwhile})
     a = _studio_pid(h)
     screen.quit_with_ctrl_c(first)
     first.cleanup()
     a_alive = bool(a) and procs.alive(a)
     launched = time.time()
     second = ctx.terminal(h, "init")
-    second.wait_for(lambda s: re.search(URL, s), 30)
+    wait_address(ctx, h, second, 60)
     b = _studio_pid(h)
     b_started = procs.started_at(b) if b else 0.0
     ev = {"first_studio": a, "first_alive_after_ctrl_c": a_alive, "second_studio": b,
@@ -184,10 +202,11 @@ def idle_cpu(ctx, seconds: float = 60.0):
     from tests.helpers.chrome_driver import find_chrome, open_chrome
     h = ctx.home("idle")
     t = ctx.terminal(h, "studio")
-    if not t.wait_for(lambda s: re.search(URL, s), 30):
+    url, at, meanwhile = wait_address(ctx, h, t, 60)
+    if not url:
         ctx.end_leftovers(h)
-        raise Fail("`halo studio` printed no address in 30 s: " + excerpt(t.plain(), 200))
-    url = re.search(URL, t.plain()).group(0)
+        raise Fail(f"`halo studio` printed no address in {at:.0f} s: " + excerpt(t.plain(), 200),
+                   {"while_waiting": meanwhile})
     c = open_chrome() if find_chrome() else None
     try:
         if c is not None:
@@ -210,7 +229,7 @@ def idle_cpu(ctx, seconds: float = 60.0):
         per[p.short(70)] = round(d, 2)
         used += d
     share = used / seconds
-    ev = {"page_open": c is not None, "cpu_seconds": round(used, 2), "share_of_one_core": round(share, 4),
+    ev = {"address_s": round(at, 1), "while_waiting": meanwhile, "page_open": c is not None, "cpu_seconds": round(used, 2), "share_of_one_core": round(share, 4),
           "processes": per}
     if not after:
         raise Fail("no Halo process was found to measure (the scan saw none under the home)", ev)

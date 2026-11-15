@@ -8,11 +8,12 @@ choices must survive their data landing (hold_still.survives). Last, one prompt 
 session started from Studio, and its answer on the page. SKIP when the machine has no Chrome."""
 from __future__ import annotations
 
-import re
 import time
 
 from realcheck import fakes
-from realcheck.core import URL, Fail, Skip, excerpt, split_url
+from realcheck.core import Fail, Skip, excerpt, split_url, wait_address
+
+STUDIO_START_S = 10.0  # `halo studio` to its printed address
 
 WATCH = r"""(() => { if (window.__rc) return; const rc = window.__rc = {failed: [], errors: [], slow: []};
   const f = window.fetch.bind(window); const short = (s) => s.replace(/^.*?\/api\//, '').replace(/[?#].*$/, '');
@@ -48,16 +49,18 @@ def studio(ctx):
         raise Skip("no Chrome or Chromium on this machine (HALO_CHROME names one)")
     h = ctx.home("studio")
     t = ctx.terminal(h, "studio")
-    got = t.wait_for(lambda s: re.search(URL, s), 30)
-    if not got:
+    url, at, meanwhile = wait_address(ctx, h, t, 60)
+    if not url:
         ctx.end_leftovers(h)
-        raise Fail("`halo studio` printed no address in 30 s: " + excerpt(t.plain(), 200))
-    base, token = split_url(re.search(URL, t.plain()).group(0))
+        raise Fail(f"`halo studio` printed no address in {at:.0f} s: " + excerpt(t.plain(), 200),
+                   {"while_waiting": meanwhile})
+    base, token = split_url(url)
 
     def page(query: str) -> str:
         return f"{base}/?{query}&tour=off#t={token}"
-    ev: dict = {"sections": {}, "hold_still": {}, "choices": {}}
-    bad: list = []
+    ev: dict = {"address_s": round(at, 1), "while_waiting": meanwhile, "sections": {}, "hold_still": {}, "choices": {}}
+    bad: list = [] if at <= STUDIO_START_S else [f"`halo studio` printed its address after {at:.0f} s (budget "
+                                                 f"{STUDIO_START_S:.0f} s)"]
     c = open_chrome()
     try:
         _sections(c, page, ev, bad)

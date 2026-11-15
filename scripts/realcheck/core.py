@@ -145,6 +145,8 @@ class Ctx:
     # -- what is still running -----------------------------------------------------------------------------------------
     def ours(self, h: "Home | None" = None) -> dict:
         """{pid: Proc} still running under `h` (or under the whole scratch root)."""
+        for t in self.terms:  # reap what has ended (POSIX: an unreaped child is a zombie, listed but gone)
+            t.poll()
         needles = h.needles() if h is not None else procs.needles_for(self.root)
         return procs.belonging(procs.snapshot(), needles, roots=h.pids if h is not None else self.started)
 
@@ -172,6 +174,13 @@ class Ctx:
                     said.append(f"{p.short(120)} [{p.why}]")
             time.sleep(0.5)
         return said
+
+    def ctrl_c(self) -> dict:
+        """Whether a typed Ctrl+C reaches a program in a terminal on this host (term.ctrl_c_probe), read once."""
+        if "ctrl_c" not in self.notes:
+            from realcheck.term import ctrl_c_probe
+            self.notes["ctrl_c"] = ctrl_c_probe(self.root)
+        return self.notes["ctrl_c"]
 
     def close(self) -> None:
         for t in self.terms:
@@ -222,6 +231,29 @@ def wait_until(fn, timeout: float, step: float = 0.05):
         if got or time.monotonic() >= end:
             return got
         time.sleep(step)
+
+
+def wait_address(ctx, h, t, limit: float = 60.0) -> "tuple[str, float, list]":
+    """(the Studio address the terminal printed or '', seconds after launch, what ran meanwhile). A slow start is
+    measured to `limit` rather than cut at a step's budget, and the processes seen under the home every 2 s while
+    waiting are kept (the evidence of what it waited on)."""
+    import re
+    seen: list = []
+    next_sample = 0.0
+    while True:
+        m = re.search(URL, t.plain())
+        el = time.monotonic() - t.started_at
+        if m:
+            return m.group(0), el, seen
+        if el >= limit or t.poll() is not None:
+            return "", el, seen
+        if el >= next_sample:
+            next_sample = el + 2.0
+            for p in ctx.ours(h).values():
+                line = f"{el:.0f}s {p.name}: {' '.join(p.cmdline.split())[:110]}"
+                if p.pid not in h.pids and not any(line.split(" ", 1)[1] == s.split(" ", 1)[1] for s in seen):
+                    seen.append(line)
+        time.sleep(0.1)
 
 
 def excerpt(text: str, n: int = 300) -> str:

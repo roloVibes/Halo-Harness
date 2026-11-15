@@ -67,6 +67,11 @@ class _Base:
     def ctrl_c(self) -> None:
         self.write(b"\x03")
 
+    def ctrl_break(self) -> bool:
+        """POSIX: Ctrl+backslash (SIGQUIT), the terminal's other interrupt key; Windows overrides it (CTRL_BREAK_EVENT)."""
+        self.write(b"\x1c")
+        return True
+
     def type(self, text: str) -> None:
         self.write(text.encode("utf-8"))
 
@@ -143,6 +148,45 @@ class PosixTerminal(_Base):
 
     def cleanup(self) -> None:
         self.close_window()
+
+
+PROBE = ("import signal, sys, time\n"
+         "signal.signal(signal.SIGINT, lambda *a: print('GOT-INT', flush=True))\n"
+         "if hasattr(signal, 'SIGBREAK'):\n    signal.signal(signal.SIGBREAK, lambda *a: print('GOT-BREAK', flush=True))\n"
+         "print('tty', sys.stdin.isatty(), sys.stdout.isatty(), flush=True)\n"
+         "end = time.time() + 60\nwhile time.time() < end:\n    time.sleep(0.05)\n")
+
+
+def ctrl_c_probe(cwd, env=None) -> dict:
+    """Can this host deliver a person's Ctrl+C to a program in a terminal? A small Python child that says what it
+    received gets the byte 0x03 typed; on Windows, when that does not arrive, the console's own CTRL_C_EVENT; and when
+    neither does, Ctrl+Break (which a program cannot switch off). {"delivered": bool, "via": "typed" | "console event"
+    | "", "why": the reason when not, "break_works": bool | None, "tty": bool}."""
+    import sys as _sys
+    t = Terminal([_sys.executable, "-c", PROBE], env=dict(env or os.environ), cwd=str(cwd))
+    out: dict = {"delivered": False, "via": "", "why": "", "break_works": None}
+    try:
+        out["tty"] = bool(t.wait_for(lambda s: "tty True True" in s, 30))
+        out["this_process"] = getattr(t, "cleared_how", "")  # Windows: how "ignore Ctrl+C" was kept off its children
+        t.ctrl_c()
+        if t.wait_for(lambda s: "GOT-INT" in s, 3):
+            out.update(delivered=True, via="typed")
+            return out
+        if hasattr(t, "console_event"):
+            t.console_event(0)
+            if t.wait_for(lambda s: "GOT-INT" in s, 3):
+                out.update(delivered=True, via="console event")
+                return out
+            out["why"] = (f"the child started with 'ignore Ctrl+C' set: {getattr(t, 'child_ignores_ctrl_c', '?')}; "
+                          f"this process: {getattr(t, 'cleared_how', '?')}")
+            t.ctrl_break()
+            out["break_works"] = bool(t.wait_for(lambda s: "GOT-BREAK" in s, 3))
+        else:
+            out["why"] = "the typed 0x03 raised no SIGINT in the child"
+        return out
+    finally:
+        t.hard_kill()
+        t.cleanup()
 
 
 def Terminal(argv, *, env, cwd, cols: int = 120, rows: int = 40):

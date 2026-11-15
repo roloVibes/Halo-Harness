@@ -67,6 +67,58 @@ def _ptr(h, addr: int) -> int:
     return struct.unpack("<Q", raw)[0] if raw else 0
 
 
+def _params(h) -> int:
+    """The address of the process's RTL_USER_PROCESS_PARAMETERS (0 when it cannot be read)."""
+    if not WIDE:
+        return 0
+    pbi = PBI()
+    if ntdll.NtQueryInformationProcess(h, 0, ctypes.byref(pbi), ctypes.sizeof(pbi), None) != 0 or not pbi.PebBaseAddress:
+        return 0
+    return _ptr(h, pbi.PebBaseAddress + 0x20)
+
+
+CONSOLE_FLAGS = 0x18      # RTL_USER_PROCESS_PARAMETERS.ConsoleFlags (x64)
+IGNORE_CTRL_C = 0x1       # its bit 0: "this process ignores Ctrl+C" (SetConsoleCtrlHandler(NULL, TRUE), inherited)
+
+
+def console_flags(pid: int):
+    """The process's ConsoleFlags (bit 0: it ignores Ctrl+C), or None when it cannot be read."""
+    h = k32.OpenProcess(QUERY_LIMITED | VM_READ, False, int(pid))
+    if not h:
+        return None
+    try:
+        params = _params(h)
+        raw = _read(h, params + CONSOLE_FLAGS, 4) if params else None
+        return struct.unpack("<I", raw)[0] if raw else None
+    finally:
+        k32.CloseHandle(h)
+
+
+def clear_own_ignore_ctrl_c() -> "tuple[bool, str]":
+    """Make sure this process does not pass "ignore Ctrl+C" to the children it creates (a launcher that started it
+    with CREATE_NEW_PROCESS_GROUP -- a CI runner -- sets it; a person's terminal never does). (cleared, how)."""
+    k32.SetConsoleCtrlHandler.argtypes = [ctypes.c_void_p, wintypes.BOOL]
+    api_ok = bool(k32.SetConsoleCtrlHandler(None, False))
+    flags = console_flags(_own_pid())
+    if flags is not None and flags & IGNORE_CTRL_C and WIDE:  # the call did not take (no console): the flag itself
+        h = k32.GetCurrentProcess()
+        params = _params(h)
+        if params:
+            cell = ctypes.c_uint32.from_address(params + CONSOLE_FLAGS)
+            cell.value &= ~IGNORE_CTRL_C
+            return True, "flag cleared in this process's parameters"
+        return False, "the flag is set and could not be cleared"
+    return True, ("SetConsoleCtrlHandler(NULL, FALSE)" if api_ok else "the flag was not set")
+
+
+def _own_pid() -> int:
+    import os
+    return os.getpid()
+
+
+k32.GetCurrentProcess.restype = HANDLE
+
+
 def _peb_strings(h) -> "tuple[str, dict]":
     """(command line, environment) from the process's PEB; ('', {}) when it cannot be read."""
     if not WIDE:

@@ -101,16 +101,18 @@ def _cpu_text(t: str) -> float:
 def _mac() -> dict:
     """`ps -E` appends the environment to the command (own processes only: the rest are not ours anyway)."""
     try:
-        text = subprocess.run(["ps", "-axwwE", "-o", "pid=,ppid=,time=,command="], capture_output=True, text=True,
+        text = subprocess.run(["ps", "-axwwE", "-o", "pid=,ppid=,stat=,time=,command="], capture_output=True, text=True,
                               errors="replace", timeout=20).stdout
     except (OSError, subprocess.SubprocessError):
         return {}
     out = {}
     for line in text.splitlines():
-        parts = line.split(None, 3)
-        if len(parts) < 4 or not parts[0].isdigit():
+        parts = line.split(None, 4)
+        if len(parts) < 5 or not parts[0].isdigit():
             continue
-        pid, ppid, cpu, rest = int(parts[0]), int(parts[1]), parts[2], parts[3]
+        if parts[2].startswith("Z") or parts[4].startswith("<defunct>"):
+            continue  # a zombie is gone; its parent has not read its status yet
+        pid, ppid, cpu, rest = int(parts[0]), int(parts[1]), parts[3], parts[4]
         env = {}
         for tok in rest.split(" "):  # the env words come last as KEY=VALUE; a value with spaces stays in `cmdline`
             k, eq, v = tok.partition("=")
