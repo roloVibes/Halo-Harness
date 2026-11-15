@@ -558,10 +558,14 @@ asked for it to keep running, and Halo names it on the way out with the command 
   Agent tool does in every mode and entry point (what each sub-agent then does is still decided by its own
   permissions); it used to need a prompt nobody can answer in `-p`. TaskCreate / TaskUpdate (the session's task
   board) and SendUserMessage join the tools that never ask. The table of every tool by mode is pinned by a test.
+  A deny or ask rule written for `Agent` (bare, `Task`, or `Agent(<type>)`) decides a Workflow call the same way, a
+  bare `Agent` deny or `--disallowedTools Agent` takes Workflow out of the tool list, and an agent that may not
+  delegate gets no Workflow. In plan mode a workflow that runs on the Orchestra (a run folder, worktrees, paid lanes,
+  its test) is refused in one line, before anything is written or started.
 - **`halo --help` names every command** (it named 26 of 53), grouped with the everyday ones first, each with its
   purpose, from the one list cli.py runs commands from (halo_harness/cli_commands.py). `halo recall --help`,
   `halo audit --help` and `halo preflight --help` now print their usage and exit 0.
-- **`halo --version` prints one line**, `halo <version> (<commit>)`, and no banner.
+- **`halo --version` prints one line**, `halo <version> (<commit>, <branch>)`, and no banner.
 
 ## [3.5.0.0] - 2026-11-13
 

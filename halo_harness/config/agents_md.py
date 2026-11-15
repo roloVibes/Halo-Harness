@@ -125,6 +125,8 @@ class AgentSpec:
                 names.append("Workflow")  # 3.3.16.0 R3: a bio allowed to delegate may hand off to a square
         if self.disallowed_tools:
             deny = {t.split("(", 1)[0].strip() for t in self.disallowed_tools}
+            if deny & {"Agent", "Task"}:  # 3.6.0.0 R16: an agent that may not delegate may not through a workflow
+                deny |= {"Agent", "Task", "Workflow"}
             names = [n for n in names if n not in deny]
         return names
 

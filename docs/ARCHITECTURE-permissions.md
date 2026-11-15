@@ -53,7 +53,11 @@ everywhere except `dontAsk`, where it errors instead of hanging),
 `Agent`/`Task`/`Workflow` (`DELEGATE_TOOL_NAMES`: handing work to
 sub-agents is never mode-gated -- each sub-agent's own permissions, the
 depth-1 and the concurrency caps are the real guardrail; 3.6.0.0 R16 put
-Workflow here, so `halo -p` runs it in the default mode), and
+Workflow here, so `halo -p` runs it in the default mode; a deny or ask rule
+written for `Agent` -- bare, `Task` or `Agent(<type>)` -- decides a Workflow
+call the same way, and a bare `Agent` deny removes Workflow from the
+catalog too; in plan mode a workflow on the Orchestra engine is refused by
+the tool itself), and
 `EnterPlanMode` in print mode (always allowed -- it only ever *narrows*
 what happens next). tests/test_tool_modes.py pins every built-in tool's
 row by mode. Plan mode additionally always allows

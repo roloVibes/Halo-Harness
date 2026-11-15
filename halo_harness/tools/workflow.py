@@ -72,6 +72,12 @@ def _talk(session, node: str, ref: str, text: str, back: bool = False, re: Optio
         return None
 
 
+def _mode(ctx, session) -> str:
+    """The permission mode this call runs in: the call's own engine, else the session's (3.6.0.0 R16)."""
+    engine = getattr(ctx, "permission_engine", None) or getattr(session, "permission_engine", None)
+    return str(getattr(engine, "mode", "") or "")
+
+
 def session_band(runtime) -> str:
     tc = getattr(runtime, "team_control", None)
     band = (getattr(tc, "budget", None) or {}).get("band") if tc is not None else None
@@ -160,6 +166,10 @@ class WorkflowTool(Tool):
             out = square_run.run_session(wf, task, files, runtime=runtime, tool_id=ctx.tool_use_id or "", model=model,
                                          cap=r.cap_usd, hops=r.hops, spawn=SPAWN,
                                          on_child=lambda child: receipts.mark_child(session, child, wf.ref, engine, does=wf.contract.does))
+        elif _mode(ctx, session) == "plan":  # 3.6.0.0 R16: an orchestra square writes a run, worktrees, lanes, a test
+            return ToolResult(f"{wf.ref} did not start: it runs on the Orchestra, which changes the repo (a run folder, "
+                              "worktrees, paid lanes, the workflow's test), and plan mode changes nothing. Leave plan "
+                              "mode first (ExitPlanMode with the plan), then run it.", is_error=True)
         else:
             key = receipts.node(session, wf.ref, engine, state="running", does=wf.contract.does)
             said = _talk(session, key, wf.ref, task)  # 3.3.16.2: the hand-off and what came back are talk (fleet/talk.py)

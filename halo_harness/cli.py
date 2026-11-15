@@ -313,14 +313,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def version_line() -> str:
-    """`halo --version`'s one line: `halo 3.6.0.0 (1a2b3c4)`, or `halo 3.6.0.0` when the commit is not known."""
+    """`halo --version`'s one line, update.format_version_line's shape (`halo update` prints its before and after lines
+    the same way): `halo 3.6.0.0 (1a2b3c4, master)`, `halo 3.6.0.0 (1a2b3c4)` with no branch known, `halo 3.6.0.0`
+    when the commit is not known either."""
     try:
-        from halo_harness.update import installed_build
-        build = installed_build()
+        from halo_harness.update import format_version_line, installed_build
+        return format_version_line(installed_build())
     except Exception:
-        build = {}
-    version, commit = build.get("version") or __version__, build.get("commit")
-    return f"halo {version} ({commit})" if commit else f"halo {version}"
+        return f"halo {__version__}"
 
 
 def _make_streams_utf8_safe() -> None:
@@ -536,7 +536,7 @@ def _main(argv: Optional[list] = None) -> int:
         args, _ = parser.parse_known_args(argv)
 
     if args.version:
-        # 3.6.0.0 R16: one line, `halo <version> (<commit>)`, nothing else -- a script reads it; the banner is the
+        # 3.6.0.0 R16: one line, `halo <version> (<commit>, <branch>)`, nothing else -- a script reads it; the banner is the
         # interactive start's (tui/intro_lines.py). The commit once the install's own is known (PEP 610
         # direct_url.json, or git in a live checkout: update.installed_build); without it, `halo <version>`.
         print(version_line())

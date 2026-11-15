@@ -5,7 +5,7 @@
    command `halo --help` lists is one the registry runs. Before R16 the help was a hand-kept line naming 26 of 53.
 2. Every listed command's own `halo <command> --help` exits 0 (a scratch home, no network).
 3. `halo --help` imports no command's module (it stays fast; the time is printed).
-4. `halo --version` prints one line, `halo <version> (<commit>)`, nothing else, exit 0 -- no banner.
+4. `halo --version` prints one line, `halo <version> (<commit>, <branch>)`, nothing else, exit 0 -- no banner.
 
 Run: python -m tests.test_cli_commands
 """
@@ -137,13 +137,16 @@ def test_version_is_one_line(ctx: Ctx):
         r = _halo([flag], env)
         lines = r.stdout.splitlines()
         ctx.check(f"{flag}: exit 0, got {r.returncode} {r.stderr[-300:]!r}", r.returncode == 0)
-        ctx.check(f"{flag}: exactly one line, `halo {__version__} (<commit>)`, got {r.stdout!r}",
-                  len(lines) == 1 and re.fullmatch(rf"halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}\))?",
+        ctx.check(f"{flag}: exactly one line, `halo {__version__} (<commit>, <branch>)`, got {r.stdout!r}",
+                  len(lines) == 1 and re.fullmatch(rf"halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}(, \S+)?\))?",
                                                    lines[0]) is not None)
         ctx.check(f"{flag}: nothing on stderr, got {r.stderr!r}", r.stderr == "")
     from halo_harness.cli import version_line
-    ctx.check("a live checkout names its commit", re.fullmatch(r"halo \S+ \([0-9a-f]{7,40}\)", version_line()) is not None
-              or not (REPO / ".git").exists())
+    from halo_harness.update import format_version_line, installed_build
+    ctx.check(f"the line is update.format_version_line's, the branch kept (halo update's before and after lines match), "
+              f"got {version_line()!r}", version_line() == format_version_line(installed_build()))
+    ctx.check("a live checkout names its commit", re.fullmatch(r"halo \S+ \([0-9a-f]{7,40}(, \S+)?\)", version_line())
+              is not None or not (REPO / ".git").exists())
 
 
 if __name__ == "__main__":

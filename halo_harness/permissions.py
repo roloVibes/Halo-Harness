@@ -1315,6 +1315,16 @@ _MODE_TABLE = {
 }
 
 
+def _agent_rule(rules: list) -> "Optional[Rule]":
+    """3.6.0.0 R16: the first rule written for Agent / Task, bare (`Agent`) or typed (`Agent(general-purpose)`). A
+    workflow spawns sub-agents of types the call cannot name up front (every spawn goes through run_agent_call
+    without a second decision), so a deny or ask for any of them holds the whole Workflow call back, naming the rule."""
+    for r in rules:
+        if r.tool in ("Agent", "Task") and r.kind != "invalid":
+            return r
+    return None
+
+
 def bare_deny_tool_names(deny_rules: list) -> set:
     """Bare tool names (kind == "bare") among DENY rules / --disallowedTools
     -- these remove the tool from the session's catalog entirely, for the
@@ -1325,7 +1335,7 @@ def bare_deny_tool_names(deny_rules: list) -> set:
     alias used to survive the removal entirely)."""
     names = {r.tool for r in deny_rules if r.kind == "bare"}
     if "Agent" in names or "Task" in names:  # review item 92: both directions
-        names |= {"Agent", "Task"}
+        names |= {"Agent", "Task", "Workflow"}  # 3.6.0.0 R16: no sub-agents means none through a workflow either
     return names
 
 
@@ -2422,6 +2432,9 @@ class PermissionEngine:
             hit = self._match_any(self.deny_rules, tool_name, tool_input, tool, action="deny")
         if hit is not None:
             return Decision("deny", f"denied by rule {hit.raw!r}", source=hit.source, matched_rule=hit)
+        if tool_name == "Workflow" and (hit := _agent_rule(self.deny_rules)) is not None:
+            return Decision("deny", f"denied by rule {hit.raw!r} (a workflow spawns sub-agents)", source=hit.source,
+                            matched_rule=hit)
 
         if self.mode != "bypassPermissions":
             hit = self._path_rule_hit(self.ask_rules, tool_name, tool_input, tool, action="ask")
@@ -2429,6 +2442,8 @@ class PermissionEngine:
                 hit = self._match_any(self.ask_rules, tool_name, tool_input, tool, action="ask")
             if hit is None:  # 3.3.13.1 (PERMS-2): a network path no rule can be matched to is asked
                 hit = self._dir_read_ask_hit(tool_name, tool_input) or unc_ask(self, tool_name, tool_input, tool)
+            if hit is None and tool_name == "Workflow":  # 3.6.0.0 R16: an ask written for Agent asks for a workflow
+                hit = _agent_rule(self.ask_rules)
             if hit is not None:
                 return self._resolve_ask(tool_name, tool_input, tool, hit)
 
@@ -2699,7 +2714,7 @@ def freeze_tool_registry(registry, *, tools_flag: Optional[str] = None,
         if "(" not in raw:
             bare.add(raw.strip())
     if "Agent" in bare or "Task" in bare:  # review item 92: one tool, two names
-        bare |= {"Agent", "Task"}
+        bare |= {"Agent", "Task", "Workflow"}  # 3.6.0.0 R16: a workflow spawns sub-agents
     bare |= mcp_deny_tool_names(deny_rules, registry.names())
     if bare:
         registry = registry.without(bare)

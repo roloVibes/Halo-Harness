@@ -267,8 +267,8 @@ def test_version_flag(ctx: Ctx):
     ctx.check(f"exactly one line, no banner, got {result.stdout!r}", len(lines) == 2 and lines[1] == "")
     # 3.2.1.0 R5: `git rev-parse --short` gives 7 hex digits in a small clone and more in a big one (git's auto
     # abbreviation grows with the object count): a full clone on WSL printed `(fc884ac8)`, CI's shallow one 7
-    ctx.check(f"the line is halo {__version__}, optionally with (commit), got {lines[0]!r}",
-              re.fullmatch(rf"halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}\))?", lines[0]) is not None)
+    ctx.check(f"the line is halo {__version__}, optionally with (commit, branch), got {lines[0]!r}",
+              re.fullmatch(rf"halo {re.escape(__version__)}( \([0-9a-f]{{7,40}}(, \S+)?\))?", lines[0]) is not None)
 
 
 def _hermetic_child_env() -> dict:

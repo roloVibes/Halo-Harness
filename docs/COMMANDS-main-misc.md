@@ -32,8 +32,8 @@ What: repeats the demo script's own synthetic load N times (a throughput/UI
 smoke test, not a real benchmark).
 
 #### `-v`, `--version`
-What: prints one line, `halo <version> (<commit>)` -- the commit once the
-install's own is known, else `halo <version>` -- and nothing else, and
+What: prints one line, `halo <version> (<commit>, <branch>)` -- the commit
+and branch once the install's own are known, else less -- and nothing else, and
 exits 0, before any config is read (3.6.0.0 R16: a script reads it; the
 wordmark is the interactive start's).
 
