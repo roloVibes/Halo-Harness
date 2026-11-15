@@ -876,6 +876,38 @@ def test_a_one_shot_with_calls_in_flight_ends_when_told(ctx: Ctx):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+_STRICT_JOB = r'''
+import ctypes, sys
+from ctypes import wintypes
+k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+k32.CreateJobObjectW.restype = wintypes.HANDLE
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+k32.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
+job = k32.CreateJobObjectW(None, None)  # no BREAKAWAY_OK: what a CI runner's Job may be
+assert job and k32.AssignProcessToJobObject(job, k32.GetCurrentProcess())
+sys.path.insert(0, sys.argv[1])
+from halo_harness import closing
+from halo_harness import subprocess_safe as sp
+p = sp.Popen([sys.executable, "-c", "print('started')"], stdout=sp.PIPE, text=True,
+             **closing.kept_kwargs({"stdin": sp.DEVNULL, "stderr": sp.DEVNULL}))
+print(p.communicate(timeout=60)[0].strip())
+'''
+
+
+@test
+def test_a_kept_spawn_starts_inside_a_job_that_forbids_breakaway(ctx: Ctx):
+    """Windows: inside a Job that does not allow breakaway (a CI runner's), a kept or home-tied spawn is retried
+    without the breakaway flag -- and the retry must not hand the child the DEVNULL handle the failed attempt closed
+    ([Errno 9] Bad file descriptor: every managed engine failed to start on the CI Windows runner)."""
+    if not WIN:
+        ctx.check("POSIX has no Job objects: nothing to break away from", True)
+        return
+    r = subprocess.run([sys.executable, "-c", _STRICT_JOB, str(REPO)], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=120, env=_env(Path(tempfile.mkdtemp())))
+    ctx.check(f"it started, got {r.returncode} {r.stdout[-200:]!r} {r.stderr[-300:]!r}",
+              r.returncode == 0 and r.stdout.strip().endswith("started"))
+
+
 @test
 def test_the_sweep_at_start_costs_milliseconds(ctx: Ctx):
     """A normal launch's sweep (a ledger of live children with living owners, or none) is a few milliseconds."""

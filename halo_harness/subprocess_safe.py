@@ -126,6 +126,9 @@ class Popen(_sp.Popen):
             if not (flags & closing._BREAKAWAY):
                 raise
             kw = dict(kw, creationflags=flags & ~closing._BREAKAWAY)
+            # The failed attempt closed the DEVNULL handle it opened but left `_devnull` naming it; a retry on the
+            # same object would hand the child that closed handle ([Errno 9] Bad file descriptor). Start clean.
+            self.__dict__.pop("_devnull", None)
             super().__init__(resolve(args, kw), *a, **kw)
         try:
             closing.after_spawn(self, kw)
