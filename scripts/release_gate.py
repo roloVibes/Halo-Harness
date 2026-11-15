@@ -30,7 +30,7 @@ WORKFLOW = "suites.yml"
 SHARDS = 4
 REQUIRE_MACOS = False  # the coordinator flips this when the macOS shards are green
 REQUIRE_REALCHECK = False  # ... and this when the real-use check job is
-REALCHECK_JOB = "realcheck"
+REALCHECK_JOB = "realcheck ({})"  # suites.yml: `realcheck (${{ matrix.os }})`, one job per OS
 RETRY_MARK = "driver retried once"
 WAIT_S = 90 * 60
 POLL_S = 30.0
@@ -50,7 +50,7 @@ def required_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = Non
     out = [f"suites ({p}, py3.12, shard {i}/{SHARDS})" for p in platforms for i in range(SHARDS)]
     out.append("studio-ui (build + drift gate)")
     if realcheck:
-        out.append(REALCHECK_JOB)
+        out += [REALCHECK_JOB.format(p) for p in platforms]
     return out
 
 

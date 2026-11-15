@@ -759,6 +759,21 @@ def _halo_sub(args: "list[str]") -> str:
     return "halo"
 
 
+# selfexec.BOOT's call, whole: `python [-u] -c <BOOT> <args>` is how R10 starts Halo's children on Python 3.10 (no
+# `-P`) and how `persisted_argv` writes them on every Python. Windows shows BOOT as one quoted token, `ps` as words.
+_BOOT_CALL = re.compile(r"""runpy\.run_module\((['"])(halo_harness(?:\._bg_wrapper)?)\1, run_name='__main__', """
+                        r"""alter_sys=True\)""")
+
+
+def _halo_boot(rest: "list[str]") -> Optional[str]:
+    """`-c <code> <args>`: halo when the code is selfexec's bootstrap of halo_harness (or its bg wrapper)."""
+    text = " ".join(rest)
+    m = _BOOT_CALL.search(text)
+    if not m or not text.startswith("import sys;"):
+        return None
+    return "bg" if m.group(2).endswith("_bg_wrapper") else _halo_sub(text[m.end():].split())
+
+
 def halo_what(cmdline: str, *, prefix: Optional[str] = None) -> Optional[str]:
     """What a process IS when it is a process of this halo install, by
     position, else None: "studio" (`halo studio`, `python -u -m halo_harness
@@ -779,8 +794,10 @@ def halo_what(cmdline: str, *, prefix: Optional[str] = None) -> Optional[str]:
     if not first.startswith(("python", "pythonw")):
         return None
     rest = toks[1:]
-    while rest and rest[0].startswith("-") and rest[0] != "-m":
+    while rest and rest[0].startswith("-") and rest[0] not in ("-m", "-c"):
         rest = rest[1:]
+    if rest and rest[0] == "-c":
+        return _halo_boot(rest[1:])
     if rest and rest[0] == "-m":
         module = rest[1] if len(rest) > 1 else ""
         if module == "halo_harness":

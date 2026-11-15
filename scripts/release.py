@@ -429,7 +429,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--require-macos", action="store_true", default=None,
                    help="the gate also requires the four macOS shards (release_gate.REQUIRE_MACOS sets the default)")
     p.add_argument("--require-realcheck", action="store_true", default=None,
-                   help="the gate also requires the realcheck job (release_gate.REQUIRE_REALCHECK sets the default)")
+                   help="the gate also requires the realcheck jobs, `realcheck (<os>)`, macOS's behind --require-macos "
+                        "(release_gate.REQUIRE_REALCHECK sets the default)")
     return p
 
 
