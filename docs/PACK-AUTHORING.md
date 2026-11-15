@@ -24,11 +24,11 @@ GitHub template repository ("Use this template", then `python rename.py <id>`; i
 from the manifest, `HALO-PACK.md`, `CHANGELOG.md`, `tests/pack_test.py`, and (by default) the GitHub files. Change the
 examples into your own; delete the ones you do not need, and take them out of `contributes` too.
 
-**Point a Halo session at it.** From inside the folder, `halo --team pack-author` runs the lineup Halo ships for this:
-the `pack-author` bio carries the one-page contract and the loop below and reads `HALO-PACK.md` first; a
-`pack-researcher` finds and evaluates open-source tools to wrap; a `pack-reviewer` reads the pack against the checklist
-at the end of this page. Several sessions can work on several pack folders at once: each has its own folder, its own
-link and its own `halo pack test`.
+**Point a Halo session at it.** Start `halo` inside the folder and ask it to follow `HALO-PACK.md`: that page carries
+the one-page contract and the loop below, and the checklist at the end of this page is what to have it read the pack
+against. (3.6.0.0: lineups are gone, so the `pack-author` lineup of 3.5 is not read and `--team` only says so;
+[MOVING-from-3.5.md](MOVING-from-3.5.md).) Several sessions can work on several pack folders at once: each has its own
+folder, its own link and its own `halo pack test`.
 
 ## The kinds and when to use each
 
@@ -55,7 +55,7 @@ link and its own `halo pack test`.
 ## Expansion packs
 
 A pack is to a session what an expansion is to a card game: it adds cards without changing the rules. Its agents are
-new bios (`<id>--lead`), its lineup a new way to combine them (`halo --team <id>--crew`), its workflows new jobs a session
+new bios (`<id>--lead`), its lineup a new way to combine them (read as the map `<id>--crew` since 3.6.0.0: `halo --map <id>--crew`), its workflows new jobs a session
 or the Orchestra can be asked to run (`halo orchestra new --workflow <id>/flow`), its skills new know-how a bio or a workflow
 stage cites (`<id>:brief`), its commands new slash commands. Roles, Team and Orchestra show them as the pack's: Roles
 lists the bios and the lineup under "pack <id>", Team offers the lineup like any other, Orchestra runs the workflow with

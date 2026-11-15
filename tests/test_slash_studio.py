@@ -144,10 +144,11 @@ def test_the_old_section_words_are_doors_to_agents(ctx: Ctx):
         ctx.check(f"/studio {word}: the {word} door, Agents ({view}), the new door once, got {app.lines}",
                   targets and targets[0].mode == word and len(doors) == 1
                   and any(line.startswith(f"Opened Agents ({view}) in the Studio page") and f"?mode={word}#t=" in line for line in app.lines))
-    from halo_harness.commands.builtins import LINEUPS_GONE, _cmd_roles, _cmd_teams
+    from halo_harness.commands.builtins import LINEUPS_GONE, ROLES_TABLE, _cmd_roles, _cmd_teams
     from halo_harness.tui import slash
-    ctx.check("bare /roles and /teams are the one line", _cmd_roles("", None) == LINEUPS_GONE == _cmd_teams("apply x", None)
-              and "lineups are gone" in LINEUPS_GONE)
+    ctx.check("bare /teams is the one line", LINEUPS_GONE == _cmd_teams("apply x", None) and "lineups are gone" in LINEUPS_GONE)
+    ctx.check("bare /roles names the model table first, then the same line (3.6.0.0 fix words-docs)",
+              _cmd_roles("", None) == f"{ROLES_TABLE}; {LINEUPS_GONE}" and "halo config get roles" in ROLES_TABLE)
     src = Path(slash.__file__).read_text(encoding="utf-8")
     ctx.check("/orchestra keeps its terminal panel", '"orchestra": _handle_orchestra' in src and "OrchestraPanel" in src)
 

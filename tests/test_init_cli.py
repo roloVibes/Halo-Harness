@@ -992,7 +992,7 @@ def test_init_no_launch_returns_at_once(ctx: Ctx):
                   and not launched and "`halo init --terminal` runs the terminal setup instead." in text and "Press Done" not in text)
     from halo_harness.init_cli import _build_parser
     help_text = " ".join(_build_parser().format_help().split())
-    ctx.check(f"--no-launch is in halo init --help, got {help_text[-400:]!r}", "--no-launch open Setup and return at once" in help_text)
+    ctx.check(f"--no-launch is in halo init --help, got {help_text[-400:]!r}", "--no-launch open Setup and serve it from here, but start no halo after its Done" in help_text)
 
 
 @test

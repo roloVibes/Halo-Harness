@@ -1,6 +1,6 @@
 # Moving from 3.5 (Halo 3.6.0.0)
 
-Read this when you used lineups, bios, squares, blocks or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files.
+Read this when you used lineups, bios, squares, blocks or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files, and for the other changes a 3.5 user meets on the first day.
 
 ## Updating: From 3.5.0.1, once
 
@@ -42,6 +42,9 @@ once, in the terminal and in Studio's Attention: they are no longer read, and wh
 | `halo local warm <lineup>`, `halo local place <lineup>` | the same verbs take a map (the one in use when none is named) |
 | a goal's lineup (`halo supervise`, Orchestra) | the goal's map: its job's session runs `--map <name>`; a lineup's acceptance test is no longer taken |
 | `halo roles point <role> <model>`, `/role`, `roles.*` | kept: the model table; on a session with no map it reaches the agent of that name |
+| bare `halo roles` (the table), `/roles` | `halo config get roles` shows the table; `halo roles` and `/roles` print where it is |
+| `halo roles on` / `halo roles off` | `halo maps use --none` is One model for everything (roles off); `halo maps use --off` (or any map) turns roles back on |
+| `halo roles template list / show / save / load / ...`, the `/roles` templates | gone: `halo roles point <role> <model>` sets one role, `halo config set roles.<role> <model>` too; `halo gym propose --apply` writes its proposed table straight into `roles.*` (the template file is still kept under `~/.halo/roles/`) |
 | the squares a lineup enabled (`workflows:` in a lineup), `halo workflows enable / disable / when` | config `workflows.enabled` and `workflows.when.<square>` (`halo config set`, Studio's Settings); the `Workflow` tool reads only these |
 | a `roles` table in config.json turned into the lineup `migrated` at session start | nothing is migrated: `roles.*` is the model table a session reads as it is |
 | `halo config where`'s Active lineup, Lineup folders and Bio folders rows; `halo doctor --config`'s lineup and bio checks | gone with the files they listed (the old-files line still names your old files); `halo config where` lists the agent, workflow and map folders in their place |
@@ -68,6 +71,16 @@ bios are read as agents, its lineups as maps and its plain workflows as workflow
 
 A session running on another of your machines is listed (on the Map's picker and in History) and opened on that
 machine; Studio here does not light it.
+
+## Also new in 3.6
+
+| On 3.5 | On 3.6 |
+|---|---|
+| a Studio started by `halo init` or by a shell command stayed up on its own until `halo studio --stop` | a Studio belongs to the launch that started it and closes with it; `halo setup ...`, `halo studio --edit ...` and `halo init --no-launch` hold their terminal while the Studio they started serves (Ctrl+C there ends both); a page whose Studio has gone says "Studio has stopped" ([PROCESSES.md](PROCESSES.md#studio-belongs-to-the-launch-that-started-it), [TROUBLESHOOTING.md](TROUBLESHOOTING.md#studio-has-stopped)) |
+| the Ollama steward's background job ran by default | off unless `ollama.steward.job` is true: `halo config set ollama.steward.job true` or the switch in Settings -> Ollama turns it on at once ([MODELS-ollama-steward.md](MODELS-ollama-steward.md)) |
+| `halo --version` printed a banner | one line, `halo <version> (<commit>, <branch>)`, nothing else: a script that read the banner changes |
+| a process an earlier Halo left could keep running | every `halo` launch first stops what an earlier Halo left with no living owner (one line says what); `halo ps` lists every process of Halo for this home and who owns it, `halo stop <pid\|kind>` / `halo stop --orphans` stop them ([PROCESSES.md](PROCESSES.md), [COMMANDS-health.md](COMMANDS-health.md#halo-ps-and-halo-stop)) |
+| `halo update` installed from inside the running halo | a small standalone updater does the install once halo has handed over (on Windows in its own window after halo exits), checks that `halo --version` answers the new version and puts the old one back when it does not ([COMMANDS-health.md](COMMANDS-health.md#halo-update)) |
 
 ## Not yet moved (3.6.0.0)
 

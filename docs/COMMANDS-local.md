@@ -62,11 +62,7 @@ tokens-per-second term normalizes within the chosen pool, never a cloud
 model against a local GPU's ceiling).
 `main` is never proposed; `--main REF` only changes which model the VRAM
 rule compares candidates against (the configured default model otherwise).
-`--apply` saves the proposal as a role template through the existing `halo
-roles template import` path (`gym-proposed` by default, `--name` to
-change) -- `halo roles template load <name>` (or the picker) is the
-separate step that makes it the live table. See [ROLES.md](ROLES.md)'s
-"Data-driven roles" section.
+`--apply` writes the proposal into your role table (`roles.<role>` in config.json; `halo config get roles` shows it, `halo roles point <role> <model>` changes one) and keeps it as the role template `gym-proposed` (`--name` to change). 3.6.0.0: it no longer stops at the template, since `halo roles template load` is gone; it does not switch roles on (with roles off, `halo maps use --none`, a session reads the table once a map is in use). See [ROLES.md](ROLES.md)'s "Data-driven roles" section.
 
 ## `halo local`
 

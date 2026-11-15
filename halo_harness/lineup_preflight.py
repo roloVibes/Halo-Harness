@@ -49,7 +49,7 @@ def lineup_problems(team_or_lineup_name: "Optional[str]" = None, *, cwd=None, st
         return _lineup_problems(team_or_lineup_name, cwd=cwd, state_dir=state_dir)
     except Exception as e:  # a preflight never takes a run start down
         return [_finding("preflight-error", "warns", f"the preflight could not finish: {type(e).__name__}: {e}",
-                         "run `halo teams validate` on the lineup")]
+                         "read the lineup file by hand: no command checks a lineup since 3.6 (docs/MOVING-from-3.5.md)")]
 
 
 def _lineup_problems(name, *, cwd, state_dir) -> "list[dict]":
@@ -58,7 +58,8 @@ def _lineup_problems(name, *, cwd, state_dir) -> "list[dict]":
         return []
     if template is None:
         return [_finding("lineup-missing", "blocks", f"lineup `{lineup}` does not resolve (no such file, or its "
-                         f"`extends` chain is broken)", "`halo teams` lists the lineups; name one that exists")]
+                         f"`extends` chain is broken)",
+                         "lineups are gone: name a map instead (`halo maps list` lists them; docs/MOVING-from-3.5.md)")]
     out = template_problems(template, cwd=cwd, state_dir=state_dir)
     if not any(f["id"].startswith("removed:") for f in out):  # the resolved lineup drops it; the file may hold it
         from halo_harness.teams_yaml import load_team_template_raw

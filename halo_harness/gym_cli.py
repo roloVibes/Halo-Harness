@@ -115,8 +115,8 @@ def _cmd_propose(argv: list) -> int:
                     "supporting role, from the --candidates pool) -- one sentence per choice naming "
                     "the score behind it.")
     parser.add_argument("--apply", action="store_true",
-                         help="save the proposal as a role template via the existing `halo roles template "
-                             "import` path (`halo roles template load NAME` then applies it)")
+                         help="write the proposal into your role table (roles.* in config.json; `halo config get "
+                             "roles` shows it) and keep it as the role template --name")
     parser.add_argument("--name", default="gym-proposed", metavar="NAME",
                          help="template name for --apply (default: gym-proposed)")
     parser.add_argument("--roles", default=None, metavar="ROLE,ROLE,...",
@@ -155,8 +155,17 @@ def _cmd_propose(argv: list) -> int:
         if not ok:
             print(f"halo gym propose --apply: {'; '.join(problems)}", file=sys.stderr)
             return 1
-        print(f"\nSaved as role template {args.name!r} -- `halo roles template load {args.name}` (or the "
-              f"picker) applies it to your session.")
+        # 3.6.0.0: `halo roles template load` is no command any more (only `roles point` is let through), so --apply
+        # writes the table itself -- as that load did, without switching roles on (that is `halo maps use`'s choice)
+        from halo_harness.roles import load_role_template, roles_mode_enabled
+        from halo_harness.theme import set_config_value
+        for role_name, value in ((load_role_template(args.name) or {}).get("roles") or roles_dict).items():
+            set_config_value(f"roles.{role_name}", value)
+        print(f"\nWritten into your role table and kept as role template {args.name!r}: `halo config get roles` "
+              f"shows it; `halo roles point <role> <model>` changes one.")
+        if not roles_mode_enabled():
+            print("Roles are off (One model for everything): a session reads the table once a map is in use "
+                  "(`halo maps use --off`).")
     return 0
 
 

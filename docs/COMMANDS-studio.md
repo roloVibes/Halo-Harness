@@ -6,14 +6,16 @@ Part of [Commands](COMMANDS.md), which lists every part.
 
 ## `halo studio`
 
-3.0.2.0: `halo studio --stop` ends a Studio running in the background (the
-wizard's Open Studio buttons start one, detached); a second `halo studio`
-while one runs reuses it (prints the URL, opens the browser) unless
-`--port` asks for another. 3.2.2.0: the last halo session to quit ends the
-Studio as well, and `halo update` stops it before installing. 3.4.1.1: only a
-Studio a session started for itself; one you start on your own (`halo studio`)
-is never stopped by a session's quit (the quit line
-says "left running: Studio (started on its own; halo studio --stop)").
+3.6.0.0 R10: a Studio belongs to the launch that started it and closes with it
+([PROCESSES.md](PROCESSES.md#studio-belongs-to-the-launch-that-started-it)):
+`halo studio` serves while it runs (Ctrl+C ends it), a session's Studio ends
+with that session, and a shell command that starts one (`halo setup ...`,
+`halo studio --edit ...`, `halo init --no-launch`) holds its terminal while it
+serves. `halo studio --stop` ends the Studio running for this home, whoever
+started it. A second `halo studio` while one runs reuses it (prints the URL,
+opens the browser) unless `--port` asks for another; `halo update` stops it
+before installing. A page whose Studio has gone says "Studio has stopped"
+([TROUBLESHOOTING.md](TROUBLESHOOTING.md#studio-has-stopped)).
 
 
 ```sh

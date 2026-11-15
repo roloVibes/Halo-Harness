@@ -268,7 +268,7 @@ loaded model's `tools_max`.
 **Roles**: a local `ol:` model defaults to a SUPPORTING role (the model
 picker's `u` action pre-selects `small`, never `orchestrator`/main) when
 assigning it a role -- `roles.<name>` is the exact same config-table
-mechanism `/roles`/`halo roles` already read, no second one. Choosing a
+mechanism `halo config get roles` shows and `halo roles point` writes, no second one. Choosing a
 local model as the session's main model anyway is never blocked; when
 its catalog row doesn't declare tool-calling support, the plain
 consequence sentence prints ("... can answer questions as the main

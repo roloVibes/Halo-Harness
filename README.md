@@ -93,8 +93,8 @@ come along.
 
 <a href="docs/media/studio-local.png"><img alt="Studio's Local section on Resources: two machines' VRAM, GPU, RAM, CPU and temperature live, and every call to a local server as it happens, with its model, tokens in and out, window and result" src="docs/media/studio-local.png" width="100%"></a>
 
-Your own models are first-class. The steward, a small model you pick, watches every local server, explains a failed
-call and plans what fits the card. Each model carries a fit badge per host, and benchmarks measure what it does there.
+Your own models are first-class. The steward, a small model you pick, watches every local server once you turn it on
+(Settings -> Ollama; off by default since 3.6), explains a failed call and plans what fits the card. Each model carries a fit badge per host, and benchmarks measure what it does there.
 `halo host serve` lets every harness on your network read a machine's models and log, the pool runs one model across
 the GPUs of several machines, Halo finds the Ollama servers on your network, and it starts local servers for
 Hugging Face models.
@@ -193,6 +193,6 @@ template repo [halo-pack-template](https://github.com/roloVibes/halo-pack-templa
   (A security problem goes through [SECURITY.md](SECURITY.md), not a public channel.)
 - [The docs map](docs/README.md): every doc, by what you want to do.
 - [CHANGELOG.md](CHANGELOG.md): every release, what changed and why.
-- [Moving from 3.5](docs/MOVING-from-3.5.md): lineups, bios and blocks are gone in 3.6; what to use instead.
+- [Moving from 3.5: lineups, bios and blocks are gone, Studio closes with its command, the steward is off until you turn it on](docs/MOVING-from-3.5.md): what to use instead and what else changes in 3.6.
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) and [SECURITY.md](SECURITY.md): sending a change, reporting a problem.
 - Licence: MIT, see [LICENSE](LICENSE).

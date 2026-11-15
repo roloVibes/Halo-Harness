@@ -400,7 +400,7 @@ A pack palette (3.3.12.0 R2) is a palette a pack ships under `contributes.themes
 
 ## pack kit
 
-The pack kit (3.3.12.0) is what you start a pack from and check it with: `halo pack new <id> --kinds ...` writes a complete pack folder with one working example of each part you ask for (bios, a lineup, a workflow, skills, commands, a hook, an MCP server, Studio panels, a policy, Setup blocks, a bundle, a wrapped open-source tool), its entry command, a README written from the manifest and `HALO-PACK.md`, the page a Halo session follows when pointed at the folder; `halo pack test` runs every check against fakes in a scratch home, one line per failure; `halo pack install . --link` makes the installed pack the folder itself. The `pack-author` lineup is the session that builds with it (docs/PACK-AUTHORING.md).
+The pack kit (3.3.12.0) is what you start a pack from and check it with: `halo pack new <id> --kinds ...` writes a complete pack folder with one working example of each part you ask for (bios, a lineup, a workflow, skills, commands, a hook, an MCP server, Studio panels, a policy, Setup blocks, a bundle, a wrapped open-source tool), its entry command, a README written from the manifest and `HALO-PACK.md`, the page a Halo session follows when pointed at the folder; `halo pack test` runs every check against fakes in a scratch home, one line per failure; `halo pack install . --link` makes the installed pack the folder itself. A session builds with it when you start `halo` in the folder and ask it to follow `HALO-PACK.md` (docs/PACK-AUTHORING.md).
 
 ## requirement
 

@@ -22,7 +22,8 @@ first-run and coach packs are built on; 3.5.0.0 made it 1.4: [Pack capabilities]
 **Start here** (3.3.12.0 R4): to write a pack, start from the pack kit, not a blank folder. `halo pack new <id> --kinds
 ...` writes a pack that installs, passes `halo pack test` and that `halo pack doctor` finds nothing wrong with; `halo
 pack test .` checks every part against fakes; `halo pack install . --link` makes the installed pack your folder. The
-guide, for a person and for a Halo session (`halo --team pack-author`), is [PACK-AUTHORING.md](PACK-AUTHORING.md).
+guide, for a person and for a Halo session (start `halo` in the pack's folder and ask it to follow `HALO-PACK.md`), is
+[PACK-AUTHORING.md](PACK-AUTHORING.md).
 
 ## Status of each part
 

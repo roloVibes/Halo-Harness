@@ -950,8 +950,12 @@ def _cmd_teams(args: str, facade: HeadlessFacade) -> str:
     return LINEUPS_GONE
 
 
+#: 3.6.0.0: /roles is asked for the model table, which stays: say where it is before where lineups went
+ROLES_TABLE = "the model table: halo config get roles shows it, /role <name> <model> sets one for this session"
+
+
 def _cmd_roles(args: str, facade: HeadlessFacade) -> str:
-    return LINEUPS_GONE
+    return f"{ROLES_TABLE}; {LINEUPS_GONE}"
 
 
 def _cmd_map(args: str, facade: HeadlessFacade) -> str:
@@ -1621,7 +1625,7 @@ _BUILTIN_SPECS = {
     "agents": ("core", "List available sub-agents and your agent files; `live`: this session's running agents",
                "[live|schedule]", _cmd_agents),
     "teams": ("core", "Lineups are gone: one line saying where to go (the map)", None, _cmd_teams),
-    "roles": ("core", "Lineups are gone: one line saying where to go (the map)", None, _cmd_roles),
+    "roles": ("core", "Where the model table is, and where lineups went (the map)", None, _cmd_roles),
     "map": ("core", "The map this session runs on: main, its boxes and lines (read-only; Studio changes it)", None, _cmd_map),
     "role": ("core", "Set one role's model/effort for this session", "<name> <model> [effort]", _cmd_role),
     "review": ("core", "Review a diff, branch, PR or files: parallel dimension reviewers, a judge, ranked findings",

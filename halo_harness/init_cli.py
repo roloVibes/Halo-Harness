@@ -938,11 +938,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="halo init", add_help=True,
         description="Set up halo. On a terminal it opens Halo Studio on its Setup section (providers, the "
-                     "default model, permissions, the terminal theme, the lineup, the checks) and waits: press Done on "
-                     "Setup's Summary and halo starts in this terminal (Ctrl+C stops waiting; --no-launch returns at "
-                     "once). --terminal asks the essentials line by line here instead (a provider and its key, the "
-                     "default model, the permission mode, doctor), and so does a box where no browser can open (SSH, "
-                     "no DISPLAY, HALO_NO_BROWSER); it ends on the Studio address for the rest. --provider/--yes set a "
+                     "default model, permissions, the terminal theme, the map, the checks) and waits: press Done on "
+                     "Setup's Summary and halo starts in this terminal (Ctrl+C stops waiting and closes Studio; "
+                     "--no-launch serves Setup and starts nothing). --terminal asks the essentials line by line here "
+                     "instead (a provider and its key, the default model, the permission mode, doctor), and so does a "
+                     "box where no browser can open (SSH, no DISPLAY, HALO_NO_BROWSER); it ends on the Studio address for the rest. --provider/--yes set a "
                      "provider up without asking: its credentials, a default model, doctor, a live pong and the Linux "
                      "setup fixes.",
     )
@@ -971,8 +971,9 @@ def _build_parser() -> argparse.ArgumentParser:
                         help="print the wall and CPU time of each step: init's own, then the Studio it starts (each "
                              "start phase, its first 40 requests, its CPU at 5, 10, 30 and 60 s)")
     parser.add_argument("--no-launch", action="store_true",
-                         help="open Setup and return at once (no wait for its Done; HALO_INIT_NO_LAUNCH=1 does "
-                              "the same)")
+                         help="open Setup and serve it from here, but start no halo after its Done (Ctrl+C here "
+                              "closes Studio; a Studio already running for this home is used and this returns; "
+                              "HALO_INIT_NO_LAUNCH=1 does the same)")
     return parser
 
 

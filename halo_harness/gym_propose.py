@@ -177,10 +177,9 @@ def apply_proposal(roles_dict: dict, *, template_name: str = "gym-proposed",
     parameter here for the same reason `cmd_roles` itself has none; a
     hermetic test scopes `BRIDGE_TEST_HOME`/`BRIDGE_STATE_DIR` first, same
     as every other test of this exact CLI path. The result lands at
-    `~/.halo/roles/<template_name>.json`; `halo roles template load
-    <template_name>` (or the picker) is the separate, explicit step that
-    makes it the live table -- consistent with every other saved
-    template."""
+    `~/.halo/roles/<template_name>.json`; 3.6.0.0: `halo gym propose
+    --apply` then writes it into the live table itself (gym_cli.py), since
+    `halo roles template load` is no command any more."""
     import json
     import tempfile
     from pathlib import Path

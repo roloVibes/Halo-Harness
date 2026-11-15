@@ -487,7 +487,8 @@ def launch_bare(cwd=None) -> int:
 #: 3.6.0.0 R5: the verbs of the lineups, bios and squares, and the one line each prints (help, then exit 0)
 GONE_VERBS = {
     "teams": "lineups are gone: halo maps use <name> picks the map your sessions run on (halo maps list)",
-    "roles": "lineups are gone: halo maps use <name> picks the map your sessions run on (halo maps list)",
+    "roles": ("the model table: halo config get roles shows it, halo roles point <role> <model> sets one; one model "
+              "for everything: halo maps use --none; lineups are gone: halo maps use <name> (halo maps list)"),
     "blocks": "starters: halo workflows new <name> --from <starter> (halo workflows list)",
     "workflow": "use halo workflows (list / show / new / edit / try / run)",
 }

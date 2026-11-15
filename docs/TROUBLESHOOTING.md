@@ -683,6 +683,16 @@ a guess when there is truly no existing value yet.
   same session in Windows Terminal if you specifically want the OSC 52
   path (works over SSH/tmux too).
 
+## Studio has stopped
+
+The Studio page shows **Studio has stopped** and asks nothing more when its Studio has gone: the Halo that started it
+closed (Studio closes with the launch that started it, 3.6.0.0 R10:
+[PROCESSES.md](PROCESSES.md#studio-belongs-to-the-launch-that-started-it)), `halo studio --stop` ended it, or nothing
+has answered on its port for 120 s (it was ended hard). A shorter silence (an SSH forward re-made, a paused machine) is
+waited out: the page reconnects by itself. To go on, start Studio again (`halo studio`, or `halo` and `/studio`) and open
+the address it prints; **Try this address again** reloads the page once a Studio serves there. If a Studio you did not
+close keeps going away, `halo ps` lists what runs for this home and who owns it.
+
 ## `halo start` failed: read the log
 
 `halo start` (the first-run pack, 3.4.0.0) ends a step that hit an unexpected error with one line and the path of a log

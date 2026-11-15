@@ -30,7 +30,7 @@ def cmd_replay(argv: Optional[list] = None) -> int:
                     "and compare the outcomes side by side.",
         epilog="Also: halo replay list | save <session> | open <file> | clip <file> -- the replay file (docs/REPLAY.md).")
     parser.add_argument("session_id", help="the recorded session to replay (a session id; "
-                                           "`halo sessions`/`/resume` lists them)")
+                                           "`halo --resume` or `/resume` lists them)")
     parser.add_argument("--model", required=True,
                         help="the swapped model to replay against (any route/ref form)")
     parser.add_argument("--turn", type=int, default=None,

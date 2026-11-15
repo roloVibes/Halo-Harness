@@ -80,5 +80,5 @@ def new(pack_id: str, *, kinds=(), all_kinds: bool = False, folder=None, github:
     lines += [f"entry command: /{pack_id} (commands/{pack_id}.md), once the pack is enabled",
               f"next: cd {shown} && halo pack test .",
               "then: halo pack install . --link --project, and halo pack enable " + pack_id + " --grant-all",
-              "HALO-PACK.md is what a Halo session follows in that folder (halo --team pack-author)"]
+              "HALO-PACK.md is what a Halo session follows in that folder: start `halo` there and ask it to follow HALO-PACK.md"]
     return True, lines

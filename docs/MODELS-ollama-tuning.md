@@ -278,7 +278,7 @@ is the measurement, `roles.vram_aware_override` the redirection; unknown
 (no GPU read, main not loaded, candidate not in the catalog, different
 hosts) always means "leave it alone," never a guess. `/local <question>`
 applies the SAME redirection at call time to whatever `roles.small`
-resolved to. `halo roles`/`/roles` and the model picker's `u` action show
+resolved to. `halo config get roles` and the model picker's `u` action show
 `(same as main: fits beside it: no)` as the reason when this fired.
 
 **The model gym (`halo gym`, round 5d; `hf:local/*`/`hf:mlx/*` added round
@@ -371,11 +371,7 @@ propose never writes an `orchestrator` entry at all; `--main REF` only
 supplies the reference point the VRAM rule compares candidates against,
 same reason. One plain sentence per role names the composite score and the
 measurements behind it, or says plainly that no local model has a usable
-score for that role yet. `--apply` saves the proposal as an ordinary role
-template through the EXISTING `halo roles template import` path
-(`~/.halo/roles/gym-proposed.json` by default) -- `halo roles template
-load gym-proposed` (or the picker) is the separate, explicit step that
-makes it the live table. The `/model` picker shows a model's gym score
+score for that role yet. `--apply` writes the proposal into your role table (`roles.<role>` in config.json; `halo config get roles` shows it, `halo roles point <role> <model>` changes one) and keeps it as the role template `gym-proposed` (`--name` to change). 3.6.0.0: it no longer stops at the template, since `halo roles template load` is gone; it does not switch roles on (with roles off, `halo maps use --none`, a session reads the table once a map is in use). The `/model` picker shows a model's gym score
 (and tok/s) beside it, read straight from the saved file, whenever one
 exists.
 

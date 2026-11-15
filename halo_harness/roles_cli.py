@@ -281,7 +281,7 @@ def _cmd_table() -> int:
     names = known_role_names(table)
     w = max(len(n) for n in names)
     read = read_roles()
-    print("Configured roles (model / effort / where it came from; `halo roles template ...` manages saved tables):")
+    print("Configured roles (model / effort / where it came from; `halo roles point <role> <model>` sets one):")
     for name in names:
         model, effort = role_value_parts(table.get(name))
         fires = ROLE_WHEN_IT_FIRES.get(name)

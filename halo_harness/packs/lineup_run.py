@@ -114,7 +114,7 @@ def workflow_lines(lineup: dict) -> "list[str]":
     names = {r.partition("/")[2] for r in refs}
     from halo_harness.workflows.when import item_ref
     loose = [f for f in (item_ref(i) for i in lineup.get("workflows") or []) if f and not _ref(f)[0] and f not in names]
-    out = [f"  workflows: {', '.join(refs)} (halo workflow run {refs[0]})"] if refs else []
+    out = [f"  workflows: {', '.join(refs)} (halo orchestra new --workflow {refs[0]})"] if refs else []
     out += [f"  workflows: {f} names no pack: a lineup of yours names <pack>/{f}" for f in loose]
     from halo_harness.workflows.blocks_show import block_lines  # 3.3.16.3: each square block with its when line
     return out + block_lines(lineup)

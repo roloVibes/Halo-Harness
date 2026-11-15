@@ -41,8 +41,12 @@ Studio run, and the session shows in Studio's Session section (3.3.15.0). The
 wait outlasts a busy Studio (a long check); Done answers "halo is starting in
 your terminal" while an init waits, and with none waiting opens a terminal
 running halo itself or says "no terminal found to start halo in; run `halo`
-yourself". Ctrl+C stops the wait and starts nothing; `halo init --no-launch`
-(or `HALO_INIT_NO_LAUNCH=1`) opens Setup and returns at once, for scripts.
+yourself". Ctrl+C stops the wait, starts nothing and closes the Studio init
+started (3.6.0.0 R10: "Stopped here: Studio closes with this command; `halo
+init` opens Setup again."); `halo init --no-launch` (or `HALO_INIT_NO_LAUNCH=1`)
+opens Setup and starts no halo after Done: the Studio it started runs while the
+command does (Ctrl+C there closes it), and a Studio already running for this
+home is used and the command returns.
 The terminal wizard's Finish starts halo the same way (after the ticked
 checks, and after `halo start` when that row was ticked and it succeeded); a
 quit, a failed live pong or `--no-launch` starts nothing, and the paths that
@@ -52,7 +56,7 @@ beside it ...".
 | You run | What opens |
 |---|---|
 | `halo init` (a terminal, no `--provider` / `--yes`) | Studio on Setup (`?mode=setup&first=1`: nothing pops up, the rail's line says "set up this box"); a running Studio is reused; the terminal waits for the Summary's Done, then starts halo (3.3.3.0) |
-| `halo init --no-launch` | Studio on Setup, and the command returns at once (no wait, no halo after the terminal wizard either) |
+| `halo init --no-launch` | Studio on Setup, served from this terminal until Ctrl+C (a Studio already running for this home is used and the command returns); no halo after Done, nor after the terminal wizard |
 | `halo init --terminal` | the terminal wizard, as below |
 | `halo init --step <key>`, `--team`, `--no-live` | the terminal wizard (they are its flags) |
 | `halo init` with no browser (`HALO_NO_BROWSER`, `SSH_CONNECTION`, Linux with no `DISPLAY` / `WAYLAND_DISPLAY`, or a browser that does not take the URL) | the URL and the port-forward line `halo studio` prints, then the terminal wizard |
@@ -75,7 +79,8 @@ Four words, in this order: **bio -> lineup -> role -> session**.
   and you can write your own. (`halo teams`.)
 - A **role** is one job slot the session fills: main, planner, coder,
   reviewer, researcher and so on. A lineup gives every role an agent and a
-  model. (`halo roles`.)
+  model. (`halo config get roles` shows the table; `halo roles point <role>
+  <model>` sets one.)
 - Your **session** runs each job on the model its role names, and the
   sub-agents Halo spawns do the same. Until you pick a lineup the **auto**
   lineup runs (3.1.9.0: a pool whose models are picked for each task); with
@@ -90,8 +95,10 @@ and `roles.enabled`):
    `halo init --step team`. The first row, "One model for everything", is
    the off state; every other row previews its `role -> agent -> model`
    tree with prices before you apply it.
-2. **The command line** -- `halo teams use <name>` points the active
-   lineup at one; `halo roles on|off` flips the switch.
+2. **The command line** -- 3.6.0.0: `halo maps use <name>` picks the map
+   sessions run on (lineups are gone; `halo teams` only says so); `halo maps
+   use --none` is One model for everything (roles off) and `halo maps use
+   --off` the default again (roles on).
 3. **Studio** -- coming in 2.1.0.
 
 Everything below is the field-by-field reference; nothing in it changed.
@@ -200,10 +207,11 @@ includes it). Top to bottom:
   page to it, else one starts in the background and opens your browser; the
   line under the buttons says which, with the URL (over SSH that URL is the
   way in). Open Studio (Roles) opens the Roles canvas the same way. Studio
-  keeps running after setup until `halo studio --stop`, or until the halo
-  session that started it quits (3.2.2.0; 3.4.1.1: one a shell command such
-  as `halo init` started is no session's, and stays; `halo studio` starts it
-  again). Editing lineups and
+  closes with the launch that started it (3.6.0.0 R10: a session, `halo
+  init`, `halo studio`; a shell command that starts one holds its terminal
+  while it serves) or with `halo studio --stop`
+  ([PROCESSES.md](PROCESSES.md#studio-belongs-to-the-launch-that-started-it)).
+  Editing lineups and
   bios happens there; the terminal shows them: Enter on a row opens the
   read-only lineup view (its `e` opens Studio too, `t` tests a row's
   model), Ctrl+N writes a new lineup and opens it in Studio, Ctrl+A lists

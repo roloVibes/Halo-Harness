@@ -347,9 +347,9 @@ carry a fixed default role, a custom `.claude/agents/*.md` sets one with a
 `/role NAME MODEL [EFFORT]` override one for a single run/call/session. Any
 OTHER syntactically-valid name (`[a-z][a-z0-9_]*`) a team.json or a loaded
 template actually defines is an equally valid role name everywhere above.
-`/roles` shows the resolved table (model, effort, endpoint/path type, price)
-per role and manages templates (`templates`/`save`/`load`/`new`/`edit`/
-`show`); `halo roles template ...` is the CLI equivalent; `halo stats
+`halo config get roles` shows the table and `halo roles point <role> <model>` sets one (3.6.0.0: `/roles` and its
+templates, `halo roles template ...` and `halo roles on|off` are gone; `halo gym propose --apply` writes a proposed
+table straight in); `halo stats
 --roles` sums sub-agent spend per role; `halo completion bash|zsh|
 powershell` completes role names and cached model refs too. A switch,
 `roles.enabled` (default on), turns the whole table off (every role
