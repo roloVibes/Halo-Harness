@@ -282,6 +282,52 @@ def test_the_terminal_a_done_opens(ctx: Ctx):
     ctx.check(f"no display: not spawned, the line, got {ok} {line}", not ok and line == H.NO_TERMINAL and len(spawned) == 1)
 
 
+_CONSOLE_PROBE = (  # writes whether its stdin is a console it can read keys from (what Textual's Windows driver needs)
+    "import ctypes, sys\n"
+    "k = ctypes.WinDLL('kernel32'); k.GetStdHandle.restype = ctypes.c_void_p\n"
+    "h = k.GetStdHandle(-10); mode = ctypes.c_ulong()\n"
+    "ok = k.GetConsoleMode(ctypes.c_void_p(h), ctypes.byref(mode))\n"
+    "open(sys.argv[1], 'w').write('console' if ok else 'not a console')\n")
+
+
+@test
+def test_the_windows_console_window_is_the_sessions_keyboard(ctx: Ctx):
+    """fx studio batch 1 (1): Setup's Done on Windows opens halo in a new console window; it must read keys from that
+    console. A standard handle given to Popen (stdin=DEVNULL) made Python pass all three, so halo's stdin was NUL
+    (a character device: `isatty()` true, no key ever read) and its output went to Studio's own streams."""
+    from halo_harness.studio import halo_terminal as H
+    spawned: list = []
+    ok, _line = H.open_halo("C:/w", env={}, platform="win32", which=lambda n: None,
+                            spawn=lambda argv, **kw: spawned.append((argv, kw)))
+    kw = spawned[0][1] if spawned else {}
+    ctx.check(f"Windows: no standard handle handed over (the console's own are used), got {sorted(kw)}",
+              ok and not {"stdin", "stdout", "stderr"} & set(kw) and kw.get("cwd") == "C:/w"
+              and kw.get("creationflags", 0) & 0x10)
+    spawned.clear()
+    H.open_halo("/w", env={"DISPLAY": ":0"}, platform="linux", which=lambda n: f"/usr/bin/{n}" if n == "xterm" else None,
+                spawn=lambda argv, **kw: spawned.append((argv, kw)))
+    kw = spawned[0][1] if spawned else {}
+    ctx.check(f"POSIX launchers keep their own streams quiet (the terminal program, not halo), got {sorted(kw)}",
+              kw.get("stdin") is not None and kw.get("start_new_session") is True)
+    if sys.platform != "win32":
+        return
+    import subprocess as sp
+    import tempfile
+    out = Path(tempfile.mkdtemp(prefix="halo-console-")) / "probe.txt"
+    si = sp.STARTUPINFO()
+    si.dwFlags |= sp.STARTF_USESHOWWINDOW
+    si.wShowWindow = 0  # SW_HIDE: the probe's console never shows on the desktop
+    spawned.clear()
+    H.open_halo(str(out.parent), env={}, platform="win32", which=lambda n: None,
+                spawn=lambda argv, **kw: spawned.append((argv, kw)))
+    kw = dict(spawned[0][1])
+    proc = sp.Popen([sys.executable, "-c", _CONSOLE_PROBE, str(out)], startupinfo=si, **kw)
+    proc.wait(30)
+    got = out.read_text() if out.exists() else "(no answer)"
+    ctx.check(f"Windows, a real process started with open_halo's arguments: its stdin is its console, got {got!r}",
+              got == "console")
+
+
 @test
 def test_a_card_says_where_each_value_came_from(ctx: Ctx):
     """3.3.5.0 R0 (g): `field_sources` -- a host discovered in Claude Code's settings.json (a fake one, the

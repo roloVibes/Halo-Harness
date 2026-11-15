@@ -6,12 +6,15 @@ guard as every Studio route.
                               rows: studio/model.py model_rows, cached, so a read opens no connection)
     POST sessions/new {model?, cwd?} -> 202 {session_id, pid, cwd, model, log, resume}
                              `halo --headless --session-for studio` (halo_harness/headless_session.py) as a child
-                             detached the way studio/launch.py detaches Studio (no console, its own process group /
-                             session), so closing the tab or stopping Studio never ends it; the session id is chosen
-                             here (`--session-id`), so the page opens Session on it before it registers. 422: a cwd
-                             that is not a folder; 502: the child could not start.
+                             with no console (its own process group / session), so closing the tab never ends it;
+                             it is Studio's child all the same (3.6.0.0 R10, closing.py): when the Studio process
+                             stops (Ctrl+C on `halo studio`, the session that owns Studio quitting) each gets its own
+                             `shutdown` first (`end_started`) and the terminal reads one line naming them with
+                             `halo --resume <id>`. The session id is chosen here (`--session-id`), so the page opens
+                             Session on it before it registers. 422: a cwd that is not a folder; 502: the child
+                             could not start.
     GET  sessions/started    {sessions: [{session_id, pid, cwd, model, started, log, live}]} -- the children this
-                             home's Studio started that still run (a restarted Studio finds them here)
+                             home's Studio started that still run
 
 "End session" is `POST sessions/<sid>/command {cmd: shutdown}` (studio/sessions_api.py): the child ends its turn
 at the next tool boundary, closes its socket and leaves the registry. The children are kept in
@@ -37,6 +40,7 @@ FILENAME = "studio-sessions.json"
 LOG_DIR = ("run", "headless")
 MAX_ROWS = 50
 _procs: dict = {}  # pid -> Popen: polled on every read, so a child that ended is never a zombie that looks alive
+_rows: dict = {}   # pid -> its row, for the sessions this process started (`end_started`)
 
 
 def sessions_file(state_dir) -> Path:
@@ -64,6 +68,7 @@ def started(state_dir) -> list:
     for proc in list(_procs.values()):
         if proc.poll() is not None:
             _procs.pop(proc.pid, None)
+            _rows.pop(proc.pid, None)
     path = sessions_file(state_dir)
     if not path.exists():
         return []
@@ -148,13 +153,45 @@ def post_new(req):
         proc = spawn(argv_for(sid, cwd, model), log, cwd)
     except OSError as e:
         return 502, {"error": f"the session could not start: {e}"}
-    _procs[proc.pid] = proc
     row = {"session_id": sid, "pid": proc.pid, "cwd": str(cwd), "model": model or _default_model(),
            "started": time.time(), "log": str(log)}
+    note_started(proc, row)
     remember(req.state_dir, row)
     if getattr(req, "server", None) is not None:
         threading.Thread(target=_nudge_bridge, args=(req.server, sid), name=f"halo-studio-nudge-{sid[:8]}", daemon=True).start()
     return 202, {**row, "resume": f"halo --cwd \"{cwd}\" --resume {sid}"}
+
+
+def note_started(proc, row: dict) -> None:
+    _procs[proc.pid] = proc
+    _rows[proc.pid] = row
+
+
+def end_started(wait_s: float = 2.0) -> list:
+    """Studio is closing: the sessions THIS process started end with it (closing.py: nothing outlives the Halo that
+    started it). Each gets its own `shutdown` first, so its turn ends at a tool boundary and its log is whole; the
+    closing procedure ends whatever is still there after. Returns their rows (`ended_line` says them)."""
+    live = [(proc, _rows[pid]) for pid, proc in list(_procs.items()) if pid in _rows and proc.poll() is None]
+    if not live:
+        return []
+    from halo_harness.studio import live_agents_api as L
+    fields = {**L.caller(), "reason": "Studio is stopping"}
+    for _proc, row in live:
+        threading.Thread(target=L.forward, args=(row["session_id"], "shutdown", fields), daemon=True,
+                         name=f"halo-studio-end-{row['session_id'][:8]}").start()
+    end = time.monotonic() + wait_s
+    while time.monotonic() < end and any(proc.poll() is None for proc, _row in live):
+        time.sleep(0.1)
+    return [row for _proc, row in live]
+
+
+def ended_line(rows: list) -> str:
+    """One line for the terminal: the sessions Studio ended on its way out, and how to reopen each."""
+    if not rows:
+        return ""
+    again = "; ".join(f"halo --cwd \"{r.get('cwd')}\" --resume {r.get('session_id')}" for r in rows)
+    n = len(rows)
+    return f"halo studio: ended {n} session{'' if n == 1 else 's'} started here (they close with Studio); reopen: {again}"
 
 
 def _nudge_bridge(server, sid: str, timeout_s: float = 60.0) -> None:

@@ -103,6 +103,8 @@ def _ollama(host):
             get_catalog(host, force=True)  # the list GET models reads, fresh now
         except Exception:
             pass
+        from halo_harness.providers.local_view_cache import forget  # fx studio: and the shared local view built anew
+        forget()  # from it (R14 kept the old one 20 s, then answered it once more), a late answer included
         return True, n, ""
     return job
 

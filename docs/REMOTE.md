@@ -235,11 +235,14 @@ controller's events in the TUI's place, so the feed and the session log are the 
   this process started (a background run, a schedule fire), never the Studio above it.
 * **Studio starts it** (`POST /api/sessions/new {model, cwd}`, `studio/sessions_new_api.py`): the child is detached
   the way `studio/launch.py` detaches Studio (no console; its own process group on Windows, its own session on POSIX),
-  so closing the tab or stopping Studio never ends it; its output goes to `~/.halo/run/headless/<session id>.log`. The
+  so closing the tab never ends it; it is still Studio's child (3.6.0.0): when the Studio process stops (Ctrl+C on
+  `halo studio`, the session that owns Studio quitting) each such session gets its own `shutdown` first and the
+  terminal reads one line naming them with `halo --resume <id>`; its output goes to
+  `~/.halo/run/headless/<session id>.log`. The
   session id is chosen by Studio (`--session-id`), so the page opens Session on it before it registers. The children
   are kept in `~/.halo/studio-sessions.json` (`{version, sessions: [{session_id, pid, cwd, model, started, log}]}`,
   private, written under the file lock; a row whose pid is gone is dropped the next read), and `GET
-  /api/sessions/started` lists the ones still running with `live` (registered now), so a restarted Studio finds them.
+  /api/sessions/started` lists the ones still running with `live` (registered now).
 
 ## Transports
 

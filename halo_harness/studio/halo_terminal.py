@@ -80,11 +80,11 @@ def open_halo(cwd, *, env=None, platform: Optional[str] = None, which: Callable 
     name, argv = terminal_argv(cwd, env=env, platform=platform, which=which)
     if not argv:
         return False, NO_TERMINAL
-    kwargs: dict = {"cwd": str(cwd), "stdin": subprocess.DEVNULL}
-    if platform.startswith("win"):
-        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+    kwargs: dict = {"cwd": str(cwd)}
+    if platform.startswith("win"):  # no standard handle at all: one given makes Popen pass all three, and halo's stdin
+        kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)  # is NUL, not its console's keys
     else:
-        kwargs.update(start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        kwargs.update(start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if spawn is None:  # 3.6.0.0 R10: a terminal window the person opened is its own session, never Studio's child
         from halo_harness.closing import kept_kwargs
         kwargs = kept_kwargs(kwargs)

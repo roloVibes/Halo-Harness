@@ -12,6 +12,7 @@ Run: python -m tests.test_setup_door
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -58,6 +59,110 @@ def test_the_no_browser_rule(ctx: Ctx):
     ctx.check("SSH_CONNECTION", why({"SSH_CONNECTION": "192.0.2.10 5 192.0.2.20 22"}, "win32") == "this is an SSH session")
     ctx.check("Linux with no display", why({}, "linux") == "no DISPLAY or WAYLAND_DISPLAY" and why({"DISPLAY": ":0"}, "linux") == ""
               and why({"WAYLAND_DISPLAY": "wayland-0"}, "linux") == "")
+
+
+def _fake_webbrowser(order: list, opened: list, *, registry: dict):
+    """A stand-in for the `webbrowser` module: Python's own launcher classes, a try order, `get`, an `open` per
+    browser that records instead of running anything."""
+    import webbrowser as W
+
+    def get(name=None):
+        if name is None:
+            if not order:
+                raise W.Error("could not locate runnable browser")
+            name = order[0]
+        return registry[name]
+    for name, b in registry.items():
+        b.open = (lambda n: (lambda url, *a, **k: opened.append((n, url)) or True))(name)
+    return SimpleNamespace(Error=W.Error, GenericBrowser=W.GenericBrowser, BackgroundBrowser=W.BackgroundBrowser,
+                           Elinks=getattr(W, "Elinks", ()), _tryorder=list(order), get=get)
+
+
+@test
+def test_a_text_browser_never_takes_the_terminal(ctx: Ctx):
+    """fx studio batch 1 (2): Python's webbrowser registers lynx, w3m, links, elinks and www-browser whenever TERM is
+    set and runs them in the FOREGROUND, on the terminal the session draws on. Every door (closing.open_url) skips
+    them, keeps the no-browser rule (SSH, no display, HALO_NO_BROWSER), and still uses the person's own BROWSER."""
+    import webbrowser as W
+    from halo_harness.studio import setup_door as D
+    opened: list = []
+    reg = {"xdg-open": W.BackgroundBrowser("xdg-open"), "www-browser": W.GenericBrowser("www-browser"),
+           "lynx": W.GenericBrowser("lynx"), "w3m": W.GenericBrowser("w3m")}
+    if getattr(W, "Elinks", None):
+        reg["elinks"] = W.Elinks("elinks")
+    text_only = [n for n in reg if n != "xdg-open"]
+    url = "http://127.0.0.1:9/#t=x"
+    fake = _fake_webbrowser(text_only, opened, registry=reg)
+    ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "TERM": "xterm"}, platform="linux", wb=fake)
+    ctx.check(f"a display but only text browsers (WSLg, a bare X box): none started, False, got {ok} {opened}",
+              ok is False and opened == [])
+    fake = _fake_webbrowser(["xdg-open"] + text_only, opened, registry=reg)
+    ok = D.open_in_a_window(url, env={"SSH_CONNECTION": "a 1 b 22", "TERM": "xterm"}, platform="linux", wb=fake)
+    ctx.check(f"over SSH: nothing at all, got {ok} {opened}", ok is False and opened == [])
+    ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "HALO_NO_BROWSER": "1"}, platform="linux", wb=fake)
+    ctx.check(f"HALO_NO_BROWSER: nothing, got {ok} {opened}", ok is False and opened == [])
+    ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "TERM": "xterm"}, platform="linux", wb=fake)
+    ctx.check(f"a desktop: the window browser takes it, got {ok} {opened}", ok is True and opened == [("xdg-open", url)])
+    opened.clear()
+    fake = _fake_webbrowser(["lynx", "xdg-open"], opened, registry=reg)
+    ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "BROWSER": "lynx"}, platform="linux", wb=fake)
+    ctx.check(f"a text browser the person named in BROWSER is theirs to use, got {ok} {opened}",
+              ok is True and opened == [("lynx", url)])
+    from halo_harness import closing
+    calls: list = []
+    real = (D.open_in_a_window, D.no_browser_reason)
+    try:  # the one place every door goes through asks the same two questions
+        D.no_browser_reason = lambda *a, **k: "this is an SSH session"
+        D.open_in_a_window = lambda u, **k: calls.append(u) or True
+        ctx.check("closing.open_url: no browser over SSH", closing.open_url(url) is False and calls == [])
+        D.no_browser_reason = lambda *a, **k: ""
+        if os.name != "nt" or not closing._in_a_job():
+            ctx.check(f"closing.open_url opens through open_in_a_window, got {calls}", closing.open_url(url) is True and calls == [url])
+    finally:
+        D.open_in_a_window, D.no_browser_reason = real
+
+
+@test
+def test_a_text_browser_on_the_path_is_never_run(ctx: Ctx):
+    """fx studio batch 1 (2), Linux, the real webbrowser module in a child: lynx on PATH, TERM set. Over SSH and with
+    a display but no window browser, `closing.open_url` answers False at once and lynx never runs; with xdg-open on
+    PATH that is what runs."""
+    if not sys.platform.startswith("linux"):
+        ctx.check("Linux only (macOS and Windows register no text browser first)", True)
+        return
+    import subprocess as sp
+    import tempfile
+    import time
+    root = Path(tempfile.mkdtemp(prefix="halo-textbrowser-"))
+    bindir, log = root / "bin", root / "ran.txt"
+    bindir.mkdir()
+    for name in ("lynx", "w3m", "www-browser", "xdg-open"):
+        (bindir / name).write_text(f"#!/bin/sh\necho {name} >> '{log}'\nexec /bin/sleep 3\n")
+        (bindir / name).chmod(0o755)
+    code = ("import sys, time; sys.path.insert(0, sys.argv[1]); from halo_harness.closing import open_url;"
+            "t = time.monotonic(); ok = open_url('http://127.0.0.1:9/#t=x'); print(ok, round(time.monotonic() - t, 1))")
+    tree = str(Path(__file__).resolve().parent.parent)
+
+    def run(env_extra: dict, keep: tuple) -> "tuple[str, str]":
+        if log.exists():
+            log.unlink()
+        for name in ("lynx", "w3m", "www-browser", "xdg-open"):
+            (bindir / name).chmod(0o755 if name in keep else 0o644)
+        env = {k: v for k, v in os.environ.items() if k not in ("DISPLAY", "WAYLAND_DISPLAY", "SSH_CONNECTION", "SSH_TTY",
+                                                                "BROWSER", "HALO_NO_BROWSER")}
+        env.update(PATH=str(bindir), TERM="xterm-256color", **env_extra)
+        try:
+            out = sp.run([sys.executable, "-c", code, tree], env=env, capture_output=True, text=True, timeout=15).stdout.strip()
+        except sp.TimeoutExpired:
+            out = "timed out (a text browser held the terminal)"
+        time.sleep(0.3)
+        return out, (log.read_text() if log.exists() else "")
+    out, ran = run({"SSH_CONNECTION": "a 1 b 22"}, ("lynx", "w3m", "www-browser"))
+    ctx.check(f"over SSH: False at once, no text browser, got {out!r} ran {ran!r}", out.startswith("False") and ran == "")
+    out, ran = run({"DISPLAY": ":0"}, ("lynx", "w3m", "www-browser"))
+    ctx.check(f"a display, only text browsers: False, none ran, got {out!r} ran {ran!r}", out.startswith("False") and ran == "")
+    out, ran = run({"DISPLAY": ":0"}, ("lynx", "xdg-open"))
+    ctx.check(f"a display and xdg-open: True, xdg-open ran, got {out!r} ran {ran!r}", out.startswith("True") and ran.split() == ["xdg-open"])
 
 
 @test

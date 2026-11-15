@@ -121,8 +121,10 @@ says `kind: headless` and `parent: <WHO>:<pid>` (`--session-for` names who start
 a plan, an approval) waits until an `answer` comes through the socket -- Studio's Prompt panel; with no Studio page
 open, the Attention row says "waiting on you in Studio". `/quit` through the socket's `slash`, the socket's
 `shutdown` (Studio's **End session**) or SIGTERM end it; it never stops the Studio that started it. Studio's **New
-session** runs `halo --headless --session-for studio --session-id <id> --cwd <folder> [--model <ref>]` detached
-([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)). With `-p`, `--private` or `control.enabled:
+session** runs `halo --headless --session-for studio --session-id <id> --cwd <folder> [--model <ref>]` with no
+console ([REMOTE.md](REMOTE.md#a-session-without-a-terminal-33110-r2)); such a session closes with that Studio (Ctrl+C
+on `halo studio` sends it its own `shutdown` first and prints the `halo --resume <id>` line that reopens it).
+With `-p`, `--private` or `control.enabled:
 false` it exits 2 and says why (each would leave it with no door). After End session, `halo --resume <id>` opens that session in a
 terminal like any other (the Prompt panel's **Open in terminal** copies that line).
 ```sh

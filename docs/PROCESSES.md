@@ -44,9 +44,11 @@ session it starts in the same terminal. A launch never adopts a leftover: the sw
 Studio whose owner is gone. A Studio of this home whose owner is alive (another terminal's session, or a `halo
 studio` you run yourself) is used as it is: `halo init` opens Setup in it and says whose it is, the doors (`halo setup
 ...`, `halo studio --edit ...`) open their page in it, and it stays with the launch that started it -- leaving does
-not stop it. When none runs, `halo setup ...`, `halo studio --edit ...` and `halo replay open` start one and stay in
-the foreground while it serves: Ctrl+C there ends both. A browser page whose Studio has gone says "Studio has
-stopped" and stops asking.
+not stop it. A session Studio's **New session** started belongs to that Studio: when the Studio stops, the session
+gets its own `shutdown` first (its turn ends at a tool boundary) and the terminal reads one line naming it with the
+`halo --resume <id>` that reopens it. When none runs, `halo setup ...`, `halo studio --edit ...` and
+`halo replay open` start one and stay in the foreground while it serves: Ctrl+C there ends both. A browser page
+whose Studio has gone says "Studio has stopped" and stops asking.
 
 ## Seeing and stopping
 

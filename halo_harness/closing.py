@@ -150,6 +150,9 @@ def open_url(url: str) -> bool:
     True when a browser took it. A replaced `webbrowser.open` (a test's) is called as it is."""
     import webbrowser
     stubbed = getattr(webbrowser.open, "__module__", "webbrowser") != "webbrowser"
+    from halo_harness.studio import setup_door  # fx studio: never over SSH / with no display / HALO_NO_BROWSER, never lynx
+    if not stubbed and setup_door.no_browser_reason():
+        return False
     if os.name == "nt" and not stubbed and _in_a_job():
         from halo_harness import subprocess_safe as sp
         chosen = _chosen_browsers(str(url))  # the person's BROWSER, as webbrowser honours it; the system's only when unset
@@ -164,7 +167,7 @@ def open_url(url: str) -> bool:
             return False
     try:
         with without_marker():
-            return bool(webbrowser.open(url))
+            return bool(webbrowser.open(url) if stubbed else setup_door.open_in_a_window(url))
     except Exception:
         return False
 

@@ -117,6 +117,38 @@ def no_browser_reason(env: "Optional[dict]" = None, platform: Optional[str] = No
     return ""
 
 
+def _in_the_terminal(browser, wb) -> bool:
+    """lynx, w3m, links, www-browser (GenericBrowser) and elinks run in the foreground on this very terminal."""
+    elinks = getattr(wb, "Elinks", None)
+    return type(browser) is wb.GenericBrowser or (isinstance(elinks, type) and isinstance(browser, elinks))
+
+
+def open_in_a_window(url: str, *, env: "Optional[dict]" = None, platform: Optional[str] = None, wb=None) -> bool:
+    """Every door's browser (closing.open_url): nothing when `no_browser_reason` says so; else Python's browsers in
+    their order, never one that would take this terminal (Python registers text browsers whenever TERM is set and
+    runs them in the foreground, over a full-screen session) unless the person named it in BROWSER. True when one
+    took the URL; False and the caller prints the address."""
+    if no_browser_reason(env, platform):
+        return False
+    import webbrowser
+    wb = webbrowser if wb is None else wb
+    env = os.environ if env is None else env
+    try:
+        wb.get()  # registers the standard browsers once
+    except wb.Error:
+        return False
+    named = {c.strip().lower() for c in (env.get("BROWSER") or "").split(os.pathsep) if c.strip()}
+    order = getattr(wb, "_tryorder", None)  # Python's own try order (webbrowser.open walks it the same way)
+    for name in (list(order) if isinstance(order, list) else [None]):
+        try:
+            browser = wb.get(name)
+            if (str(name).lower() in named or not _in_the_terminal(browser, wb)) and browser.open(url):
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _state_dir() -> Path:
     from halo_harness.providers.config import default_state_dir
     return Path(default_state_dir())

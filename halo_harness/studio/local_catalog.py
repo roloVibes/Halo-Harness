@@ -67,6 +67,9 @@ def catalog_for(host, *, tags: Optional[Callable] = None, build: Optional[Callab
             hit["tags_at"] = now  # unchanged (or the server did not answer): the catalog in hand stays
         return hit["catalog"]
     catalog = dict((build or _build)(host) or {"models": []})
+    if hit is not None:  # fx studio: the model list changed (a pull in a terminal): the picker's shared view too
+        from halo_harness.providers.local_view_cache import forget
+        forget()
     catalog["signature"] = list(sig[:1]) if sig else None
     with _LOCK:
         _CACHE[url] = {"sig": sig, "catalog": catalog, "tags_at": now}

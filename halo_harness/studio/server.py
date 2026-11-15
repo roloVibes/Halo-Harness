@@ -390,7 +390,7 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
         threading.Thread(target=srv.serve_forever, name="halo-studio", daemon=True).start()
         _BACKGROUND["server"] = srv
         from halo_harness.closing import on_close  # 3.6.0.0 R10: the session's Studio says goodbye as it closes
-        on_close(lambda: say_goodbye(srv))
+        on_close(lambda: (say_goodbye(srv), end_sessions_here()))
     url = url_for(srv, mode)
     if open_browser:
         from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
@@ -487,7 +487,9 @@ def cmd_studio(argv: list) -> int:
     if not args.no_open:
         try:
             from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
-            threading.Timer(0.3, lambda: _open(url)).start()
+            opener = threading.Timer(0.3, lambda: _open(url))
+            opener.daemon = True  # fx studio: a browser still starting never holds Ctrl+C's exit up
+            opener.start()
         except Exception:
             pass
     def _on_term(*_a):
@@ -502,6 +504,7 @@ def cmd_studio(argv: list) -> int:
         print("\nstudio stopped")
     finally:
         say_goodbye(server)
+        end_sessions_here()
         server.server_close()
         _clear_own_info(state_dir)
     return 0
@@ -515,6 +518,17 @@ def say_goodbye(server) -> None:
         from halo_harness.studio.events import bridge_for
         bridge_for(server).publish_local({"session_id": "studio", "event": "studio_stopped", "ts": _t.time(), "data": {}})
         _t.sleep(0.3)  # the frame reaches the open streams before the sockets close
+    except Exception:
+        pass
+
+
+def end_sessions_here() -> None:
+    """fx studio: the sessions this Studio's New session started close with it: their own shutdown first, one line."""
+    try:
+        from halo_harness.studio.sessions_new_api import end_started, ended_line
+        line = ended_line(end_started())
+        if line:
+            print(line, file=sys.stderr, flush=True)
     except Exception:
         pass
 

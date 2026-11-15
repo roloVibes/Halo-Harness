@@ -83,6 +83,54 @@ def test_new_session_from_studio_then_end_it(ctx: Ctx):
     ctx.check(f"no headless child survives, got {rig.survivors()}", rig.survivors() == [])
 
 
+@test
+def test_ctrl_c_on_halo_studio_ends_its_sessions_politely_and_says_so(ctx: Ctx):
+    """fx studio batch 1 (5): a session Studio's New session started ends with that Studio (closing.py: nothing
+    outlives its starter). Ctrl+C on `halo studio` sends each its own `shutdown` first (the turn ends at a tool
+    boundary, the log is whole) and prints one line naming them with the command that reopens each; before, the
+    person read only "studio stopped". The session here is a stand-in child that ends when its shutdown arrives."""
+    import contextlib
+    import io
+    import signal
+    import subprocess as sp
+    import time
+    from halo_harness.studio import live_agents_api as L, server as S, sessions_new_api as N
+    child = sp.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    sid = "f" * 32
+    row = {"session_id": sid, "pid": child.pid, "cwd": str(Path.cwd()), "model": "", "started": time.time(), "log": ""}
+    sent: list = []
+
+    def forward(s, cmd, fields):  # the session obeys its shutdown
+        sent.append((s, cmd, fields.get("reason")))
+        child.terminate()
+        return 200, {}
+    real = (L.forward, S.start_server, signal.getsignal(signal.SIGTERM))
+
+    def start_server(**kw):
+        srv = real[1](**kw)
+        srv.serve_forever = lambda *a, **k: (_ for _ in ()).throw(KeyboardInterrupt())  # Ctrl+C at once
+        return srv
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        N.note_started(child, row)
+        L.forward, S.start_server = forward, start_server
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = S.cmd_studio(["--no-open"])
+        child.wait(10)
+    finally:
+        L.forward, S.start_server = real[0], real[1]
+        signal.signal(signal.SIGTERM, real[2])
+        if child.poll() is None:
+            child.kill()
+            child.wait(10)
+        N._procs.pop(child.pid, None)
+    text = out.getvalue() + err.getvalue()
+    ctx.check(f"its own shutdown was sent first, got {sent}", rc == 0 and sent == [(sid, "shutdown", "Studio is stopping")])
+    ctx.check(f"one line names the session and how to reopen it, got {text!r}",
+              "ended 1 session started here" in text and f"--resume {sid}" in text)
+    ctx.check("the session ended", child.poll() is not None)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
