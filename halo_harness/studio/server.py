@@ -402,11 +402,13 @@ def cmd_studio(argv: list) -> int:
         ok, note = stop(state_dir)
         print(f"halo studio: {note}")
         return 0 if ok else 1
-    if edit is not None and not args.port and existing_url(state_dir, args.mode):
+    from halo_harness.closing import owner
+    started_for = owner()[0]  # 3.6.0.0 R10: a Studio a launch started serves that launch, never another's Studio
+    if edit is not None and not args.port and not started_for and existing_url(state_dir, args.mode):
         from halo_harness.studio.edit_open import describe, open_edit
         print(describe(open_edit(edit, cwd=cwd, state_dir=state_dir, open_browser=not args.no_open)))
         return 0
-    running = existing_url(state_dir, args.mode)
+    running = "" if started_for else existing_url(state_dir, args.mode)
     if running and not args.port:  # 3.0.2.0: one Studio per machine -- reuse it
         from halo_harness.studio.glance_door import note  # 3.4.1.0 R4: `--mode glance` says how a phone reaches it
         print(f"Halo Studio is already running at {running}\nhalo studio --stop stops it.{note(running, args.mode)}")

@@ -237,6 +237,13 @@ for what each WARN/MISSING line means)
 `doctor --work` and `doctor --work --probe-all` are Databricks-specific --
 see `docs/DATABRICKS.md`.
 
+## `halo ps` and `halo stop`
+
+Every live process of Halo for this home, and the way to end it (3.6.0.0 R10): `halo ps` lists kind, pid, age,
+owner (alive / gone / none) and whether it was kept on purpose, plus any stray a scan finds by its `HALO_OWNER`
+marker; `halo stop` takes pids or kinds, or `--orphans` (what has no living owner and was not kept) or `--all`. What
+runs, what stops it and why: [What runs, and what stops it](PROCESSES.md).
+
 ## `halo audit`
 
 Finds exactly the things that must never reach a public repo, before

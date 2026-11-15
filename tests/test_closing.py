@@ -70,11 +70,12 @@ def _end_tree_we_started(pid: int, start) -> None:
         pass
 
 
-def _owner(kind: str, tmp: Path, cwd: "Path | None" = None):
+def _owner(kind: str, tmp: Path, cwd: "Path | None" = None, home: "Path | None" = None, extra_env: "dict | None" = None):
     out = tmp / "out"
     out.mkdir(parents=True, exist_ok=True)
+    env = dict(_env(home or tmp / "home"), **(extra_env or {}))
     kw: dict = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE, "stdin": subprocess.DEVNULL, "text": True,
-                "encoding": "utf-8", "errors": "replace", "env": _env(tmp / "home"), "cwd": str(cwd or tmp)}
+                "encoding": "utf-8", "errors": "replace", "env": env, "cwd": str(cwd or tmp)}
     if WIN:
         kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
     proc = subprocess.Popen([sys.executable, str(OWNER), kind, str(out)], **kw)
@@ -342,6 +343,123 @@ def test_halos_own_python_never_imports_from_the_working_folder(ctx: Ctx):
             _end_tree_we_started(kid["pid"], kid["start"])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _gone_within(kids: list, seconds: float = BOUND_S) -> list:
+    t0 = time.monotonic()
+    while time.monotonic() - t0 < seconds and any(_same(k["pid"], k["start"]) for k in kids):
+        time.sleep(0.05)
+    alive = [k["pid"] for k in kids if _same(k["pid"], k["start"])]
+    if alive:
+        time.sleep(0.3)
+        alive = [k["pid"] for k in kids if _same(k["pid"], k["start"])]
+    return alive
+
+
+def _quit(proc, out: Path) -> str:
+    (out / "quit").write_text("", encoding="utf-8")
+    try:
+        return proc.communicate(timeout=30)[1]
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return proc.communicate(timeout=10)[1]
+
+
+@test
+def test_two_sessions_of_one_home_never_touch_each_others_things(ctx: Ctx):
+    """Two halos in two terminals, one home: when the first ends (a normal exit, a hard kill), its closing procedure
+    and a later launch's sweep leave the second one's Studio running."""
+    for way in ("normal", "kill"):
+        tmp = Path(tempfile.mkdtemp(prefix=f"halo-r10-two-{way}-"))
+        home = tmp / "home"
+        kids: list = []
+        b = None
+        try:
+            a_proc, a_out, a = _owner("studio", tmp / "a", home=home)
+            kids += a["kids"]
+            b_proc, b_out, b = _owner("studio", tmp / "b", home=home)
+            kids += b["kids"]
+            ctx.check(f"{way}: the second launch started its own Studio, got {a['kids'][0]['pid']} / {b['kids'][0]['pid']}",
+                      a["kids"][0]["pid"] != b["kids"][0]["pid"])
+            _end(a_proc, a_out, way)
+            a_proc.communicate(timeout=30)
+            ctx.check(f"{way}: the first one's Studio is gone", not _gone_within(a["kids"]))
+            bk = b["kids"][0]
+            ctx.check(f"{way}: the second one's Studio still runs", _same(bk["pid"], bk["start"]))
+            r = subprocess.run([sys.executable, "-c", "from halo_harness import closing; closing.install()"],
+                               env=_env(home), capture_output=True, text=True, encoding="utf-8", errors="replace",
+                               timeout=120, cwd=str(tmp))
+            ctx.check(f"{way}: a later launch's sweep leaves it running, got {r.stderr[-300:]!r}",
+                      _same(bk["pid"], bk["start"]) and "stopped" not in r.stderr)
+            _quit(b_proc, b_out)
+            ctx.check(f"{way}: and it ends with its own launch", not _gone_within(b["kids"]))
+        finally:
+            for k in kids:
+                _end_tree_we_started(k["pid"], k["start"])
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_a_halo_run_from_a_sessions_shell_ends_only_its_own(ctx: Ctx):
+    """A `halo` run from a session's own shell tool (or a sub-agent that runs halo) inherits the session's HALO_OWNER
+    and HALO_OWNER_WATCH. Ended (normally, or hard), it ends what IT started and never the session's things; it runs
+    no sweep; what it starts carries its own id, not the session's."""
+    for way in ("normal", "kill"):
+        tmp = Path(tempfile.mkdtemp(prefix=f"halo-r10-nested-{way}-"))
+        home = tmp / "home"
+        kids: list = []
+        try:
+            p_proc, p_out, p = _owner("ledger", tmp / "p", home=home)
+            kids += p["kids"]
+            inherited = {"HALO_OWNER": p["marker"], "HALO_OWNER_WATCH": f"{p['owner']}:{_start_time(p['owner']) or ''}"}
+            n_proc, n_out, n = _owner("tool", tmp / "n", home=home, extra_env=inherited)
+            kids += n["kids"]
+            ctx.check(f"{way}: the nested halo marks its own children with its own id, got {n['kids'][0]['marker']!r}",
+                      n["kids"][0]["marker"] == n["marker"] and n["marker"] != p["marker"])
+            _end(n_proc, n_out, way)
+            n_proc.communicate(timeout=30)
+            ctx.check(f"{way}: what the nested halo started is gone", not _gone_within(n["kids"]))
+            pk = p["kids"][0]
+            ctx.check(f"{way}: the session's own child still runs", _same(pk["pid"], pk["start"]))
+            ctx.check(f"{way}: and the session itself", p_proc.poll() is None)
+            _quit(p_proc, p_out)
+            ctx.check(f"{way}: the session's child ends with the session", not _gone_within(p["kids"]))
+        finally:
+            for k in kids:
+                _end_tree_we_started(k["pid"], k["start"])
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_the_sweep_at_start_costs_milliseconds(ctx: Ctx):
+    """A normal launch's sweep (a ledger of live children with living owners, or none) is a few milliseconds."""
+    from halo_harness import children as C
+    from halo_harness import closing
+    state = Path(tempfile.mkdtemp(prefix="halo-r10-cost-")) / ".halo"
+    state.mkdir(parents=True)
+    empty = []
+    for _ in range(5):
+        t = time.perf_counter()
+        closing.sweep(state, say=lambda _l: None)
+        empty.append(time.perf_counter() - t)
+    procs = [subprocess.Popen([sys.executable, str(SLEEPER), str(state / f"c{i}.json")], stdin=subprocess.DEVNULL)
+             for i in range(5)]
+    try:
+        for p in procs:
+            C.register(p.pid, "schedule", ["sleeper"], state_dir=state)
+        full = []
+        for _ in range(5):
+            t = time.perf_counter()
+            closing.sweep(state, say=lambda _l: None)
+            full.append(time.perf_counter() - t)
+        e_ms, f_ms = sorted(empty)[2] * 1000, sorted(full)[2] * 1000
+        ctx.check(f"no ledger: {e_ms:.1f} ms (median of 5), under 50 ms", e_ms < 50)
+        ctx.check(f"five live children of a living owner: {f_ms:.1f} ms (median of 5), under 250 ms", f_ms < 250)
+        ctx.check("and nothing was stopped", all(p.poll() is None for p in procs))
+    finally:
+        for p in procs:
+            _end_tree_we_started(p.pid, _start_time(p.pid))
+            p.wait(timeout=10)
 
 
 @test

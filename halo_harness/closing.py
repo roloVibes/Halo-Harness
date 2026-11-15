@@ -17,8 +17,10 @@ thing to keep running and Halo said so on the way out. docs/PROCESSES.md is the 
 
 How the children notice a dead owner on their own (a hard kill runs no Python at all):
 
-* every child carries `HALO_OWNER=<id of the root Halo>` in its environment (subprocess_safe.Popen adds it when a
-  caller built its own environment), so a scan finds strays the ledger lost (`halo ps`, the reaper, close());
+* every child carries `HALO_OWNER=<id of the Halo that started it>` in its environment (subprocess_safe.Popen adds it
+  when a caller built its own environment), so a scan finds strays the ledger lost (`halo ps`, the reaper, close());
+  each Halo process marks what it starts with its OWN id, so a `halo` run from a session's shell tool, or a sub-agent,
+  ends only its own and never its parent's (two sessions of one home never touch each other's either);
 * Windows: every child subprocess_safe.Popen starts goes into this process's Job object with KILL_ON_JOB_CLOSE, so
   the kernel ends them when the last handle (this process) goes; a kept spawn breaks away;
 * a Halo child (`python -m halo_harness ...`: the Studio server first of all) gets `HALO_OWNER_WATCH=<pid>:<start>`
@@ -44,7 +46,7 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
-MARKER = "HALO_OWNER"            # the root Halo's id, inherited by everything below it
+MARKER = "HALO_OWNER"            # the id of the Halo that started this process (a Halo child sets its own for its own)
 WATCH = "HALO_OWNER_WATCH"       # "<pid>:<start>" of the Halo that started this process (a Halo child watches it)
 KEPT_PREFIX = "kept-"            # a marker that starts so: asked to outlive its starter, never stopped by a close
 POLITE_S, HARD_S = 3.0, 2.0
@@ -84,7 +86,7 @@ def my_ident() -> str:
 
 
 def marker() -> str:
-    """This tree's marker: the one in the environment (a root sets its own at install), else this process's id."""
+    """The marker this process gives its children: its own id once installed."""
     return os.environ.get(MARKER) or my_ident()
 
 
@@ -530,7 +532,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
                  for e in rows if kept(e)]
     except Exception:
         pass
-    if os.name != "nt" and _STATE["spawned"] and is_root():
+    if os.name != "nt" and _STATE["spawned"] and os.environ.get(MARKER) == my_ident():
         left = max(0.5, polite_s + hard_s - (time.monotonic() - t0))
         reaper = _STATE.get("reaper")
         kill_marked(marker(), exclude=(reaper.pid,) if reaper else (), bound_s=min(left, 2.0))
@@ -557,8 +559,8 @@ def _say(line: str) -> None:
 
 
 def is_root() -> bool:
-    """This process set the tree's marker itself (nothing Halo started it, or it was started to be kept)."""
-    return os.environ.get(MARKER) == my_ident()
+    """Nothing Halo runs is watching this process (it was started by a person, or to be kept)."""
+    return owner() == (None, None)
 
 
 # -- the sweep at start --------------------------------------------------------------------------------------------
@@ -702,9 +704,7 @@ def install(*, sweep_at_start: bool = True) -> None:
     watch = os.environ.get(WATCH, "")
     owner_pid, owner_start = parse_watch(watch)
     _STATE["owner"] = (owner_pid, owner_start) if owner_pid and owner_pid != os.getpid() else (None, None)
-    current = os.environ.get(MARKER, "")
-    if not current or current.startswith(KEPT_PREFIX):
-        os.environ[MARKER] = my_ident()       # a root: its own tree
+    os.environ[MARKER] = my_ident()  # what THIS process starts carries its id: a nested halo marks its own, never its parent's
     pid, start = me()
     os.environ[WATCH] = f"{pid}:{start or ''}"  # what this process starts watches it
     atexit.register(close)
