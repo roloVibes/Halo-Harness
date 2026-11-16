@@ -12,8 +12,9 @@ version.
 
 Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; what you already do works as before. The few
 new things come with the fixes: one flag, `halo ps --forget <pid>`, worker containers in the `halo ps` list, and a
-question from the Builder before a map switch that lets your sessions do more. One button is gone from Studio's
-header. The limits that remain are at the end of this section.
+question from the Builder before a map switch or a line from main that lets your sessions do more. "Open" on an
+ask in Studio now takes you to it, and one button is gone from Studio's header. The limits that remain are at the
+end of this section.
 
 ### Studio
 
@@ -23,6 +24,17 @@ header. The limits that remain are at the end of this section.
   and "Density: comfortable" commands and the compact sizes are removed: Studio has one size, the one it already used
   by default. If you had picked compact, Studio opens at the normal size; there is nothing to do. Nothing else in the
   header moved.
+- **"Open" on something that waits on you takes you to it.** When an alert said a session was waiting on you and you
+  clicked it, or pressed **O** on an Attention row, Studio could look like it did nothing: from Session it only
+  opened the Agent side panel (which closed Attention), from Agents it stayed on the Map, and the alert's click
+  opened Attention but left Session on whichever session it showed. Now every open of an ask (the browser alert's
+  click, **O** on an Attention row in Session or in Agents, **O** on the ask card in the Live column) does the same
+  from any section: Studio goes to **Session**, selects the session that asks, points the Live column at the agent
+  that asks and opens **Attention** on that row, so A / R / S answer it there. If that session ended a moment
+  before, one line says "That session has ended; its ask is gone."; if Studio could not read the sessions just
+  then, "Studio could not read the sessions just now. Try Open again." It is never silent. Rows that are not a
+  session's ask keep their places (the Ollama steward's note opens Local -> Hosts, a spend cap Agents -> Map), and
+  an ask from another harness on your network still opens its agent on Agents -> Map.
 
 ### Windows and local model servers
 
@@ -30,38 +42,53 @@ header. The limits that remain are at the end of this section.
   2 seconds to report a closed port on this computer, and Halo asked more than once while reading the model lists,
   so with Ollama stopped Session took several seconds to appear, and the terminal's start, `halo -p` and
   `halo doctor` waited too. On Windows a connection to this computer (127.x.x.x, ::1, `localhost`) now gets at most
-  half a second per address; a server that runs answers in milliseconds. Measured on Windows with Ollama stopped:
-  reading Session's model lists 2.6 s before, 1.2 s after. A remote host and an https connection keep their normal
-  limit, and Linux and macOS, which report a closed port at once, behave exactly as in 3.6.0.0.
+  half a second per address; a server that runs answers in milliseconds. A model request that gets no answer in that
+  half second tries once more with its full time, so a server that runs but is busy for a moment (several agents
+  starting at once) still connects; against a stopped server such a request says so about half a second later than
+  in 3.6.0.0 (about a second for `localhost`). A quick check, such as the version probe, gets the one short try.
+  Measured on Windows with Ollama stopped: reading Session's model lists 2.6 s before, 1.3 s after. A remote host
+  and an https connection keep their normal limit, and Linux and macOS, which report a closed port at once, behave
+  exactly as in 3.6.0.0.
 - **When nothing runs on that port, the message says so**: "nothing is listening there (connection refused); is the
   model server running there? (Ollama: `ollama serve`)", not advice to check the machine's network, DNS or VPN.
+  On Windows, when a server takes no connection even in a request's full time, the message says the connect "timed
+  out after N s connecting on this computer (the server took no connection in that time: too busy, or hung)".
 - **Windows: an Ollama set up as `http://localhost:11434` is found again.** Windows tries ::1 first for `localhost`,
   and Ollama listens on 127.0.0.1 only, so Halo's quick check gave up and showed the host as "(unreachable)" while it
   ran. For `localhost` Halo now tries 127.0.0.1 first and ::1 second (only when every address the name gives is on
   this computer; a remote name is never reordered), so each connection is made at once.
 - **A listen address typed into Studio's Setup works.** `0.0.0.0:11434` (or `[::]:11434`) is the address Ollama
   listens on, not one to connect to, and Windows refuses it. Setup now saves `http://127.0.0.1:11434`, as the
-  terminal setup already did, and says so in one line under the card. A host 3.6.0.0 saved as `0.0.0.0` works without
-  saving it again.
+  terminal setup already did, and says so in one line under the card. On Windows a host 3.6.0.0 saved as `0.0.0.0`
+  works without saving it again. On Linux and macOS, where such an address always connected, a saved one is read as
+  in 3.6.0.0, so the context windows and speeds Halo learned under it are kept.
 
 ### Permissions
 
 - **The Builder asks before a map switch that lets your sessions do more.** Asking the Builder for "my sessions use
   the map X" compared only the agents in the map's boxes and workflow steps, never the map's main agent, so a switch
   to a map whose main is `careful: own` put every next session in auto mode with no question, and "Apply them"
-  applied it. That row now compares main by the same rule a session uses to pick its mode and its tools. When the new
-  map gives main more (a less careful start mode, or a tool such as Run commands), the row starts unticked with its
-  own question, No first, and "Apply them" leaves it out; its text says what widens, for example "new sessions start
-  in auto mode, as its main says (until now default)". A switch to a map as careful or more, with no more tools, is a
-  plain row as before. In a folder you have not trusted, the mode it starts from ignores the project's own
-  `defaultMode`, as a session does.
+  applied it. That row now compares main by the same rule a session uses to pick its mode and its tools. The map you
+  pick is used in every folder, so the row is judged twice, for the folder you have open and for a session outside
+  any project, and more in either one counts. When the new map gives main more (a less careful start mode, or a tool
+  such as Run commands), the row starts unticked with its own question, No first, and "Apply them" leaves it out;
+  its text says what widens and where, for example "new sessions start in auto mode, as its main says (until now
+  default)" or "new sessions outside this project start in acceptEdits mode, as its main says (until now default)".
+  A switch to a map as careful or more, with no more tools, is a plain row as before. In a folder you have not
+  trusted, the mode it starts from ignores the project's own `defaultMode`, as a session does.
+- **A line from main on the map you use asks first when it gives main more.** A new line, or a line whose When
+  widens from "only when I ask", that gives main the Agent or Task tool, or lets main hand work on its own to an
+  agent that may do more than main and its agents, is now such a row too (unticked, its own question), like the
+  same change made by a map switch. A line on a map you do not use, or to an agent that does no more, stays plain.
 - **Studio's "My sessions use this" and `halo maps use` say when the start mode changes.** You press these yourself,
   so they still ask nothing, but when the switch changes the mode new sessions start in, the receipt says so. Studio:
   "New sessions run on X; a running session keeps its own; they start in auto mode (until now default)".
   `halo maps use` adds the same words to its first line, or, when the map's own main raises your mode, prints main's
-  line instead ("the map X's main runs in auto ...; your own mode was default"), so it is said once. When the mode
-  does not change, the receipt is as before. `halo maps use` now reads your settings' default mode as well as config
-  `permission_mode`, in the order a session reads them.
+  line instead ("the map X's main runs in auto ...; your own mode was default"), so it is said once. Both also say
+  when the mode outside this project changes ("...; outside this project they start in acceptEdits mode (until now
+  default)"); a change that is the same in both places is said once. When the mode does not change, the receipt is
+  as before. `halo maps use` now reads your settings' default mode as well as config `permission_mode`, in the
+  order a session reads them.
 
 ### `halo ps` and `halo update`
 
@@ -77,9 +104,15 @@ header. The limits that remain are at the end of this section.
   process runs and is proven Halo's own is refused, with `halo stop <pid>` named instead. A forgotten process is no
   longer ended when Halo closes (`halo ps --forget` says so), and `halo stop <pid>` names `halo ps --forget <pid>`
   when it answers "still running" for a record it cannot prove.
-- **The Windows `/update` refusal never tells you to `taskkill` a process Halo cannot prove is its own.** It still
-  refuses while such a process may run, and now names `halo ps --forget <pid>` for a record of Halo's list, or the
-  Halo command that stops that kind (for example `halo studio --stop`) where there is one.
+- **`/update` and `halo update` never tell you to `taskkill` or `kill` a process Halo cannot prove is its own.** The
+  Windows `/update` refusal still refuses while such a process may run, and now names `halo ps --forget <pid>` for a
+  record of Halo's list, or the Halo command that stops that kind (for example `halo studio --stop`) where there is
+  one. `halo update --keep-running` gives such a record the same words instead of "stop it with: taskkill /PID N"
+  (or `kill N`); a record with a known start time keeps its stop command. On Windows, when processes still hold the
+  install's files at the end, `halo update` names each one (a Studio it cannot prove is its own as "Studio (pid N,
+  not proven to be Halo's own)"), tells you to close them yourself and run `halo update` again, and no longer sends
+  a plain run back to "run it without --force": that hint follows only a run that used `--force`, and promises only
+  that a plain run stops each one it can prove is Halo's own.
 - **`halo update` says plainly what it will not stop.** When a Studio or the supervisor opened the halo you update
   from and Halo cannot confirm it is still the same process, the first line now says the updater does not stop it and
   you close it yourself; before, it said "the updater stops it once this halo has exited" and then did not. On
@@ -91,8 +124,11 @@ header. The limits that remain are at the end of this section.
   the updater cannot take that program's start time as proof and end it. When the second look cannot be read, nothing
   that still runs is dropped: it is named and never ended by its number.
 - **`halo ps` lists the worker containers Halo has recorded**, one line each: `container`, the name, the engine,
-  since when, and either "its Halo is running: removed when it closes" or "its Halo has gone: removed at the next
-  start, or now with: docker rm -f <name>". `halo ps` does not call the engine for this.
+  since when, and its state: "its Halo is running: removed when it closes", "its Halo has gone: removed at the next
+  start, or now with: docker rm -f <name>", "its Halo could not be checked: kept while it may run; if it has ended:
+  docker rm -f <name>", or, when the engine did not remove it, when a start tries again and the command that
+  removes it now. The listing makes no engine call; like every `halo` start, `halo ps` first runs the start
+  clean-up, which may call the engine once for a container whose Halo is provably gone.
 
 ### Closing
 
@@ -105,14 +141,23 @@ header. The limits that remain are at the end of this section.
   "halo: removed a worker container left from <when> (<name>)". Before, nothing knew the container, and its worker
   kept running, and spending, until it ended. A lane that runs past its time now has its container removed too, not
   only the `docker run` client. The start sweep removes only containers recorded in this home whose Halo is provably
-  gone, never one found only by its label; with no record a start makes no engine call.
+  gone (its process has ended, or its start time was read and belongs to another program), never one found only by
+  its label; a Halo whose start time cannot be read for a moment (a busy Mac while a large model loads) keeps its
+  container. With no record a start makes no engine call.
 - **A stopped Docker does not slow every start.** When a container is left to remove and the engine does not answer,
   a start tries once for at most 3 seconds and the starts of the next 10 minutes leave it alone. A close in a lane's
-  first moments keeps the record unless `rm -f` really removed the container, so one the engine creates a moment later
-  is still removed at the next start.
+  first moments keeps the record unless `rm -f` really removed the container (Docker 23 and newer answer "No such
+  container" with success for one it has not created yet; that is not counted as removed), so one the engine creates
+  a moment later is still removed at the next start, and `halo ps` lists it until then. A container is said removed
+  only when the engine answered so: when the engine program recorded for it is missing, the record stays, a start
+  10 minutes later tries again, and `halo ps` says the engine did not remove it.
 - **Windows: what Halo runs and waits for ends with Halo, also when Halo is ended from Task Manager.** A pack's check,
   a git clone and a container lane's `docker run` client now join Halo's Job object, as the other programs it starts
-  always did. The editor Halo opens for you and anything you asked to keep are never tied to Halo.
+  always did. The editor Halo opens for you and anything you asked to keep are never tied to Halo. What Halo runs
+  this way gets the same input and argument checks as in plain Python: `check_output` with `input=None` gives the
+  program an empty input instead of your keyboard, so a program that reads its input no longer waits forever, and
+  the combinations Python refuses are refused. No Halo command used them; a pack that calls
+  `halo_harness.ext.subprocess_safe` could.
 - **macOS: a Halo that starts no program starts no reaper.** Every Halo on a Mac, even `halo ps` or a `halo stop`
   with nothing to stop, started the closing reaper at once and scanned every process on the machine when it closed,
   because Halo's own `ps` read of a start time counted as starting a program. The reaper now starts with the first
@@ -125,10 +170,14 @@ header. The limits that remain are at the end of this section.
   (provider, permission mode, default model, "Which Ollama?", the model list) stopped the setup with a Python error,
   and a full-width (２) or Arabic-Indic (٢) digit was quietly read as 2. Now only 0-9 count; anything else is no
   answer, and the setup asks again or says "no server picked" / "no model picked". The same holds wherever you type a
-  number: `halo stop <pid>`, `/intro <n>`, `/why <turn>`, `turn N` in the terminal UI, `halo review #N`, `halo local`
+  number: `halo stop <pid>`, `halo ps --forget <pid>` (`halo ps --forget ２` forgot pid 2; now it is a usage error
+  and forgets nothing), `/intro <n>`, `/why <turn>`, `turn N` in the terminal UI, `halo review #N`, `halo local`
   by port, a pool member's `host:port`, `--keep-alive`, a cron step in an agent file, the accessible mode's numbered
   answers, Studio's pool, voice and settings number fields and its live-agents list (an answer that says what is
   wrong, not a server error), and the Signal pack's phone pick (Signal pack 1.0.2).
+- **A very long number is no number.** A paste of thousands of digits at a numbered pick stopped the setup with a
+  Python error, and Studio's number queries failed the same way. Now a number of more than 18 digits (leading zeros
+  do not count) is read like any other answer that is not a number: the setup asks again and Studio refuses it.
 - **The setup's last line names no lineup**: "The rest (local models, theme, Linux fixes, checks, machines) is in
   Studio's Setup ...".
 
@@ -137,12 +186,17 @@ header. The limits that remain are at the end of this section.
 - **Replays and exports keep ordinary words when your account has a common name.** With an account named `user`,
   `admin`, `test`, `home`, `runner`, `ubuntu` and the like, `halo replay`, `halo export`, the bug report, the session
   trace and the report card rewrote ordinary text: "the user asked" became "the <user> asked", `tests/test_a.py`
-  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced only where it is
-  a home folder (the Linux, macOS and Windows home folders in either slash, Git Bash, WSL), also when the path ends at
-  a full stop, a colon or a comma. Any other account name is replaced as a whole word: a digit, `_`, `.`, `@` or a
+  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced only where it
+  stands for your account: in a home folder (the Linux, macOS and Windows home folders in either slash, Git Bash,
+  WSL, `~name`, a `${HOME:-...}` default, whatever character ends the name) and in a login: `name@machine` (a prompt,
+  an ssh, scp or git target, a web address with a password, a database account), this computer's `machine\name`
+  (`whoami`, `runas`, an `icacls` owner), a network share named after the account, the account of `ssh -l`,
+  `sudo -u`, `su`, `chown` and the other commands docs/REPLAY.md lists, and a `user=` or `owner=` value. Where else
+  it stays is under Known limits. Any other account name is replaced as a whole word: a digit, `_`, `.`, `@` or a
   quote beside it still counts as a boundary, but it is never replaced inside a longer word. Common machine names
   (`localhost`, `desktop` ...) follow the same rule.
-- **`halo audit privacy --replays` uses the same rules**, so it no longer reports `<user>` as a leaked user name.
+- **`halo audit privacy --replays` uses the same rules**, so it no longer reports `<user>` as a leaked user name,
+  and in a replay that was not scrubbed it reports a home folder or a login that still holds the name.
 - **`halo replay clip` and Studio's Export a clip with a `HALO_CHROME` that names no browser** now stop with
   "HALO_CHROME names a browser that does not exist: <value> (fix or unset it)" instead of filming in your installed
   Chrome. A bare command name (`HALO_CHROME=chromium`) still resolves through PATH.
@@ -164,11 +218,20 @@ header. The limits that remain are at the end of this section.
 ### For people who build Halo
 
 - **The test runner fails a module that leaves a process running.** After each module `tests/run_all.py` looks for
-  processes the module started that still run, prints `[LEFTOVER] <module>: pid <pid> <command line> -- ended by
-  pid`, ends each one by its pid once its start time matches again, and counts a failure, so one leak no longer piles
-  up on your machine or upsets the modules after it. Nothing that ran before the module began is touched, and nothing
-  is ended by name. The two test-side leaks it found are fixed (the kept-marker test's sleeper on the macOS path, the
-  quick-exit test's reaper), and the closing tests' sleeper helper ends itself after 15 minutes.
+  processes the module started that still run and counts a failure, so one leak no longer piles up on your machine
+  or upsets the modules after it. It ends, by pid and once its start time matches again, only what the run provably
+  started (a child of the run, or a process with the run's own marker; on Windows also a process the WMI host
+  started that names a folder of the run), and prints
+  `[LEFTOVER] <module>: pid <pid> <command line> -- ended by pid`. A process found only because its command line
+  names a folder of the run, such as a `tail -f` you started yourself, is named "NOT ENDED" and keeps running. A
+  line shows the program and its arguments only, cut to 200 characters, never an environment (on a Mac they are read
+  again without the environment). Before it calls a process left behind, the check waits out Halo's own closing
+  time and a margin (8 seconds), and only while something is still there, so a Halo closing normally on a slow
+  machine is not counted. Nothing that ran before the module began is touched, and nothing is ended by name. The
+  test-side leaks it found are fixed (the kept-marker test's sleeper on the macOS path, the quick-exit test's
+  reaper, the Bash tool test's `sleep 5 &`, the reference pack's lint MCP server, the clipboard test's stand-in
+  daemon, and a pack's policy program, which a test home now ends when it closes), and the closing tests' sleeper
+  helper ends itself after 15 minutes.
 - **The tests never write into your real Claude configuration.** With `CLAUDE_CONFIG_DIR` (or `GOVERNOR_STATE_DIR`)
   set in your shell, a test could write a `.claude.json`, settings, agents or skills into your own Claude Code folder.
   The test rig removes both variables when a test module loads, `run_all` removes them again before each module, and
@@ -194,7 +257,16 @@ header. The limits that remain are at the end of this section.
   `daemon()` fork of a program under /usr/bin) can still outlive Halo, and `halo ps` does not list it: macOS shows no
   environment for its own binaries. Start such a program with `HALO_OWNER=kept-<name>` if you mean to keep it, or end
   it by hand; docs/PROCESSES.md ("What Halo cannot end on macOS").
-- **`halo ps --json` does not list containers**, and `halo stop` does not stop one; `docker rm -f <name>` does.
+- **macOS: a program Apple ships can outlive a Halo stopped with Ctrl+C or a closed terminal.** Found on a real Mac
+  with System Integrity Protection on, present in 3.6.0.0 too and not fixed here: a program such as `sleep`, `ssh`,
+  `tail` or a shell that a tool command leaves in the background, or that Halo starts itself, can keep running after
+  Halo has gone, because macOS hides such a program's environment and Halo finds strays by a marker there. The
+  real-use check (`scripts/realcheck.py`) cannot see them either, so its PASS on a Mac does not cover them.
+  Meanwhile, after Halo has gone, look with `ps -ax` and end yours by pid (`kill <pid>`). Fixing it is the next
+  release's work.
+- **`halo ps --json` does not list containers**, and `halo stop` does not stop one; `docker rm -f <name>` does. With
+  no process of Halo running, `halo ps` prints "no process of Halo is running for this home" above its container
+  lines.
 - **Windows: the MCP HTTP client still waits about 2 seconds** for an MCP server on this computer that is not
   running; the half-second bound covers model servers only.
 - **Windows: a model server named `localhost` that listens on ::1 only** is reached after half a second per new
@@ -213,19 +285,55 @@ header. The limits that remain are at the end of this section.
 - **The container lane was run against a real Docker on Linux only** (a normal way out, a hard kill, a hard kill
   with no reaper left, a lane past its time: the container and its record were gone each time); on Windows and
   macOS and with podman it was tested with a stand-in engine, and podman's own message for a missing container was
-  not checked against a real podman.
+  not checked against a real podman. The last fixes to it (a Halo provably gone, "No such container" with success,
+  a missing engine program) came after that run and were tested with a stand-in engine that answers as Docker 23
+  does.
+- **Windows: a container engine reached through a `.cmd` or `.bat` shim whose daemon hangs** can hold a start or a
+  close longer than its 3 seconds; Docker Desktop's `docker.exe` and `podman.exe` are single programs and are not
+  affected.
 - **Some 3.5 words remain**: `halo init`'s Summary after Done still prints "Lineup: <name>" (so do the lineup default
   line and the terminal UI's team preview), Studio's Orchestra workflow form still says `halo workflow run`,
   `halo isolation check` still lists 3.5 lineup and bio files, the first-run pack still rehearses a 3.5 lineup, and
   the lineup and bio prose of other docs pages (ORCHESTRA.md, GLOSSARY.md, STUDIO-sections.md, COMMANDS-init.md,
   OUTCOMES.md, PACK-AUTHORING.md and others) waits for a later release; only their command lines were fixed.
+  docs/ISOLATION.md repeats its notice about the 3.5 files several times.
 - **Studio's Export a clip form still says "No Chrome found on this machine: install Chrome or set HALO_CHROME"**
   when `HALO_CHROME` names nothing; starting the export gives the exact line.
-- **Not run by hand on a Mac.** The macOS changes (the reaper, the records' start times, the test runner's look) were
-  checked by the automated runs on macOS and on Linux taking the macOS path. Studio's header was checked in a browser
-  on Linux only; the update and `/update` changes were driven with stand-in process lists, not by a real update.
-- **For people who build Halo, Windows:** a kept program Halo starts through WMI is found by the leftover check only
-  when a scratch folder is in its command line.
+- **A shared replay keeps a common-word account name outside home folders and logins.** For an account named
+  `admin`, `user`, `dev` and the like, the word stays in an `ls -l` owner column, a process list, an `/etc/passwd`
+  line, an ssh config `User` line, a role value, a path or web route word, prose, the account of a command not on
+  the list (`crontab -u`, `getent passwd`, `net user`) and a domain account (`CORP\name`): there it cannot be told
+  from the ordinary word, and a generic word identifies nobody. Search the replay for it before you share it if you
+  want it gone everywhere. A name that is not a common word is removed everywhere, as in 3.6.0.0.
+- **A replay excerpt cut one or two letters into your account or machine name keeps those letters** before its
+  `...`; a cut of three letters or more is removed.
+- **A listen address `[::]` typed into either setup is saved as `127.0.0.1`** (on Windows a saved one is also read
+  so), so a server that listens on IPv6 only, which Ollama does not, is not reached there; save
+  `http://[::1]:<port>` for it.
+- **The terminal setup's last line does not mention maps**: pick one with `halo setup map` or on the Map page of
+  Studio's Setup.
+- **The Builder's map-switch question looks at the folder you have open and at a folder outside any project**, not
+  at each of your other trusted projects: one whose own settings or agents give main more can change with no
+  question.
+- **A click on the browser's alert brings Studio's window forward only when the browser allows it**; Studio is on
+  the ask when you get to it.
+- **`halo local stop` on a model server Halo cannot prove** says its record is kept and `halo ps` lists it, without
+  naming `halo ps --forget <pid>`, which removes the record.
+- **Windows `/update`, for a record it cannot prove of a pack, shell or schedule process**, names
+  `halo ps --forget <pid>` but no way to stop it if it is Halo's; end it where it runs.
+- **Windows and macOS: when the clock steps back more than 2 seconds** just as Halo records a process whose start
+  time it could not read, the record is dropped and Halo does not end that process when it closes. It takes both at
+  once, so it is rare.
+- **macOS: when `ps` itself is stuck** (a very heavy load), recording a process can wait out several of its
+  5-second limits, so one tool call can stall for tens of seconds (3.6.0.0: about 10 seconds).
+- **Checked on a real Mac only in part.** An earlier build of this release ran the real-use check and the closing
+  tests on a real Mac, which found the macOS limit above; the macOS changes (the reaper, the records' start times,
+  the test runner's look) were otherwise checked by the automated runs on macOS and on Linux taking the macOS path.
+  Studio's header and "Open" on an ask were checked in a browser on Linux only; the update and `/update` changes
+  were driven with stand-in process lists, not by a real update.
+- **For people who build Halo:** on Windows a kept program Halo starts through WMI is found by the leftover check
+  only when a scratch folder is in its command line, and a program a Bash command leaves running with `cmd &` is not
+  seen by the check; on a Mac the check is blind to the programs of the macOS limit above, as the real-use check is.
 
 ## [3.6.0.0] - 2026-11-16
 
