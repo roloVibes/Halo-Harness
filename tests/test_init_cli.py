@@ -1009,6 +1009,12 @@ def test_scripted_provider_loop_sets_up_two_then_done_then_cross_provider_pick(c
     init_cli._step_select_provider = _fake_select
     init_cli._confirm = _fake_confirm
     init_cli._run_entry_picker = _fake_run_entry_picker
+    import io
+    old_stdin = sys.stdin
+    # fx jb15: the permission mode is read off stdin, so the test sends it (Enter = the default). It read this
+    # runner's own stdin, and an ENDED input there (NUL on Windows reads as a terminal) now stops the setup.
+    sys.stdin = io.StringIO("\n")
+    sys.stdin.isatty = lambda: True  # type: ignore[method-assign]
     try:
         rc = init_cli.cmd_init(["--no-live"])
         ctx.check(f"exit 0, got {rc}", rc == 0)
@@ -1020,6 +1026,7 @@ def test_scripted_provider_loop_sets_up_two_then_done_then_cross_provider_pick(c
         ctx.check(f"the cross-provider pick (an OpenRouter entry) won, got {cfg}",
                   isinstance(cfg.get("model"), str) and cfg["model"].startswith("or:"))
     finally:
+        sys.stdin = old_stdin
         init_cli._step_select_provider = real_select
         init_cli._confirm = real_confirm
         init_cli._run_entry_picker = real_run_entry_picker

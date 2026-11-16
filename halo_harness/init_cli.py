@@ -56,6 +56,43 @@ def _non_interactive(args) -> bool:
     return bool(args.yes) or not (sys.stdin.isatty() or getattr(args, "terminal", False))  # 3.4.0.0 B2: --terminal asks
 
 
+class InputEnded(Exception):
+    """fx jb15: the input ended at a prompt of the setup that asks (Ctrl+D, a closed terminal, a pipe that ran out).
+    cmd_init stops there like Ctrl+C; it is never "the default answer" (a closed terminal walked through every step and
+    wrote a configuration nobody chose)."""
+
+
+class SetupQuit(Exception):
+    """fx jb15: 'q' typed at a numbered pick: stop the setup."""
+
+
+INPUT_ENDED_LINE = "halo init: setup stopped: the input ended; nothing more was written."
+_ASKING: list = []  # fx jb15: the running cmd_init's args (an ended input stops the setup only where it asks)
+
+
+def _ended() -> str:
+    """What a prompt does when its input ended: in the setup that asks (a terminal, or --terminal, without --yes) it
+    stops the setup; in a run that does not ask (--yes, a pipe without --terminal) it is no value, as it always was."""
+    if _ASKING and not _non_interactive(_ASKING[-1]):
+        raise InputEnded()
+    return ""
+
+
+def _ask_number(label: str, count: int, default: int, console: Console) -> int:
+    """fx jb15: a numbered pick. Enter (an empty line the person sent) is `default`; a number from 1 to `count` is that
+    row; 'q' stops the setup; anything else is no answer: one line says what can be typed and it asks again."""
+    while True:
+        raw = (_prompt_plain(label) or "").strip()
+        if not raw:
+            return default
+        if raw.isdigit() and 1 <= int(raw) <= count:
+            return int(raw)
+        if raw.lower() in ("q", "quit"):
+            raise SetupQuit()
+        console.print(f"   type a number from 1 to {count}, Enter for the default ({default}), q or Ctrl+C to stop",
+                      markup=False, highlight=False)
+
+
 def _prompt_secret(label: str) -> str:
     """Hidden input via `getpass` on a real terminal; a single line read
     directly off stdin otherwise -- `getpass.getpass()` targets the
@@ -67,10 +104,10 @@ def _prompt_secret(label: str) -> str:
         import getpass
         try:
             return pasted_value(getpass.getpass(f"{label}: "))
-        except EOFError:  # Ctrl+C is cmd_init's: it stops init (fx studio pass 2)
-            return ""
+        except EOFError:  # Ctrl+C is cmd_init's: it stops init (fx studio pass 2); Ctrl+D too (fx jb15)
+            return _ended()
     line = sys.stdin.readline()
-    return pasted_value(line)
+    return pasted_value(line) if line else _ended()  # fx jb15: "" is an ended input; Enter reads "\n"
 
 
 _PASTED_NAME = re.compile(r"^(?:export\s+)?[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\s*=\s*")
@@ -96,9 +133,9 @@ def _prompt_plain(label: str) -> str:
         try:
             return input(f"{label}: ").strip()
         except EOFError:
-            return ""
+            return _ended()
     line = sys.stdin.readline()
-    return (line or "").strip()
+    return line.strip() if line else _ended()
 
 
 def _confirm(args, console: Console, question: str, *, default: bool) -> bool:
@@ -106,8 +143,8 @@ def _confirm(args, console: Console, question: str, *, default: bool) -> bool:
         return default
     try:
         return Confirm.ask(question, default=default)
-    except EOFError:  # Ctrl+C is cmd_init's: it stops init, never "the default answer" (fx studio pass 2)
-        return default
+    except EOFError:  # Ctrl+C is cmd_init's: it stops init, never "the default answer" (fx studio pass 2); so does
+        raise InputEnded() from None  # an ended input (fx jb15)
 
 
 def _env_file_path() -> Path:
@@ -208,15 +245,8 @@ def _step_select_provider(args, console: Console, *, header: str) -> Optional[st
     for i, (ref, label) in enumerate(rows, 1):
         console.print(f"   {i}. {label}")
     default_idx = [r for r, _l in rows].index(default_provider) + 1
-    raw = _prompt_plain(f"   choose [1-{len(rows)}], default {default_idx}")
-    raw = (raw or "").strip()
-    if not raw:
-        return default_provider
-    try:
-        idx = int(raw)
-    except ValueError:
-        return default_provider
-    return rows[idx - 1][0] if 1 <= idx <= len(rows) else default_provider
+    idx = _ask_number(f"   choose [1-{len(rows)}], default {default_idx}", len(rows), default_idx, console)  # fx jb15
+    return rows[idx - 1][0]
 
 
 # ---------------------------------------------------------------------------
@@ -562,7 +592,8 @@ def _step_checks(args, console: Console, cwd: Path, *, provider: str = "", model
 def _run_entry_picker(args, console: Console, entries: "list[dict]") -> "Optional[str]":
     """The model pick for ANY `model_display`-shaped entries list (the per-provider default and the final
     cross-provider one): a short numbered list read off one line (3.4.0.0 B2: the full-screen picker left with the
-    terminal wizard). `--yes` is checked by the caller; an EOF or an empty line keeps the default, never blocks."""
+    terminal wizard). `--yes` is checked by the caller; an empty line keeps the default, never blocks (fx jb15: an
+    ended input stops the setup that asks)."""
     return _numbered_model_pick(entries, console)
 
 
@@ -616,7 +647,8 @@ PICK_ROWS = 15
 def _numbered_model_pick(entries: "list[dict]", console: Console) -> "Optional[str]":
     """The no-TTY fallback: a plain numbered list, one stdin line read for
     the choice -- `None` (keep whatever default is already chosen) on
-    empty/invalid input or EOF, never blocks, never raises."""
+    an empty line (fx jb15: anything else that is no answer asks again; an
+    ended input stops the setup that asks and is `None` in a run that does not)."""
     from halo_harness.model_display import ROW_HEADER, format_model_row
     shown = entries[:PICK_ROWS]  # 3.4.0.0 B2: a short list; any other model is typed as its ref
     console.print("   Pick a default model: a number, or type a model ref (Enter keeps the current default):")
@@ -625,17 +657,18 @@ def _numbered_model_pick(entries: "list[dict]", console: Console) -> "Optional[s
         console.print(f"     {i}. {format_model_row(e)}")
     if len(entries) > len(shown):
         console.print(f"     ... and {len(entries) - len(shown)} more: type one's ref (halo models lists them)")
-    raw = _prompt_plain("   choice")
-    raw = (raw or "").strip()
-    if not raw:
-        return None
-    if ":" in raw:
-        return raw
-    try:
-        idx = int(raw)
-    except ValueError:
-        return None
-    return shown[idx - 1]["ref"] if 1 <= idx <= len(shown) else None
+    while True:
+        raw = (_prompt_plain("   choice") or "").strip()  # fx jb15: an ended input stops the setup that asks
+        if not raw:
+            return None
+        if ":" in raw:
+            return raw
+        if raw.isdigit() and 1 <= int(raw) <= len(shown):
+            return shown[int(raw) - 1]["ref"]
+        if raw.lower() in ("q", "quit"):
+            raise SetupQuit()
+        console.print(f"   type a number from 1 to {len(shown)}, a model ref (with its prefix, like or:), Enter to keep "
+                      "the current default, q or Ctrl+C to stop", markup=False, highlight=False)
 
 
 def _step_pick_model(args, console: Console, provider: str, model_ref_raw: str, *, write: bool = True) -> str:
@@ -766,15 +799,8 @@ def _step_pick_permission_mode(args, console: Console) -> str:
     else:
         for i, (ref, label) in enumerate(_PERMISSION_MODE_ROWS, 1):
             console.print(f"   {i}. {label}")
-        raw = _prompt_plain(f"   choose [1-{len(_PERMISSION_MODE_ROWS)}], default 1 (auto)")
-        raw = (raw or "").strip()
-        idx = 1
-        if raw:
-            try:
-                idx = int(raw)
-            except ValueError:
-                idx = 1
-        idx = idx if 1 <= idx <= len(_PERMISSION_MODE_ROWS) else 1
+        idx = _ask_number(f"   choose [1-{len(_PERMISSION_MODE_ROWS)}], default 1 (auto)", len(_PERMISSION_MODE_ROWS),
+                          1, console)  # fx jb15: Enter is the default; letters are not
         chosen = _PERMISSION_MODE_ROWS[idx - 1][0]
     set_config_value("permission_mode", chosen)
     console.print(f"   Default permission mode: {chosen} -- wrote {bridge_home() / 'config.json'}")
@@ -897,8 +923,24 @@ def _check_windows_launcher(console: Console) -> None:
                    "Scripts\\ dir), or run `python -m halo_harness` from this checkout instead.")
 
 
+def _check_macos(console: Console) -> None:
+    """fx jb15: macOS gets none of the Linux offers (a static rg download from GitHub, a PATH line in ~/.profile, a
+    file the Mac's zsh does not read): it says what a Mac user does, offers nothing and writes nothing."""
+    rg = shutil.which("rg")
+    if rg:
+        _say(console, f"   [OK] rg (ripgrep): {rg}")
+    else:
+        _say(console, "   rg (ripgrep) is not installed: `brew install ripgrep` installs it.")
+    local_bin = os.path.normcase(str(Path.home() / ".local" / "bin"))
+    on_path = [os.path.normcase(p.rstrip("/")) for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+    if local_bin not in on_path:
+        _say(console, "   ~/.local/bin (where `uv tool install` puts halo) is not on PATH: add the line "
+                      "export PATH=\"$HOME/.local/bin:$PATH\" to ~/.zprofile (the file zsh reads), then open a new "
+                      "terminal.")
+
+
 def _step_linux_fixes(args, console: Console) -> list:
-    console.print("Windows PATH:" if sys.platform == "win32" else "Linux fixes:")
+    console.print({"win32": "Windows PATH:", "darwin": "macOS checks:"}.get(sys.platform, "Linux fixes:"))
     if args.no_fixes:
         console.print("   skipped (--no-fixes)")
         return []
@@ -906,12 +948,15 @@ def _step_linux_fixes(args, console: Console) -> list:
         _check_windows_launcher(console)
         return []
     written = []
-    rg_path = _fix_ripgrep(args, console)
-    if rg_path:
-        written.append(rg_path)
-    rc_path = _fix_local_bin_path(args, console)
-    if rc_path:
-        written.append(rc_path)
+    if sys.platform == "darwin":  # fx jb15: no Linux offer on a Mac
+        _check_macos(console)
+    else:
+        rg_path = _fix_ripgrep(args, console)
+        if rg_path:
+            written.append(rg_path)
+        rc_path = _fix_local_bin_path(args, console)
+        if rc_path:
+            written.append(rc_path)
     if not (os.environ.get("VISUAL") or os.environ.get("EDITOR")):
         console.print("   $VISUAL/$EDITOR is not set -- add e.g. `export EDITOR=nano` to your shell rc "
                        "if you want Ctrl+E (edit the prompt draft) to work.")
@@ -1129,10 +1174,19 @@ def cmd_init(argv: list) -> int:
     except KeyboardInterrupt:
         print(f"\n{STOPPED_LINE}", file=sys.stderr, flush=True)
         return 130
+    except InputEnded:  # fx jb15: Ctrl+D, a closed terminal, a pipe that ran out: a stop, never the defaults
+        print(f"\n{INPUT_ENDED_LINE}", file=sys.stderr, flush=True)
+        return 1
+    except SetupQuit:  # fx jb15: 'q' at a numbered pick
+        print(STOPPED_LINE, file=sys.stderr, flush=True)
+        return 1
+    finally:
+        _ASKING.clear()
 
 
 def _cmd_init(argv: list) -> int:
     args = _build_parser().parse_args(argv)
+    _ASKING[:] = [args]  # fx jb15: read by _ended (args.terminal may still be set below)
     console = Console()
     if args.step:  # 3.4.0.0 B2: `halo init --step X` is `halo setup X`
         from halo_harness.setup_cli import cmd_setup
