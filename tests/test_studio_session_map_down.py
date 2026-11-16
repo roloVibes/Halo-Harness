@@ -749,6 +749,14 @@ def test_off_map_hand_off_stands_out(ctx: Ctx):
     ctx.check(f"R17: and not counted, got {st.get('status')!r}", "outside the map" not in (st.get("status") or "x outside the map"))
 
 
+@test
+def test_off_map_row_is_drawn_from_its_senders_box(ctx: Ctx):
+    s = _ranrun(ctx, "sender")
+    ctx.check(f"R17: the reviewer coder started (no line) is a row in code's box, marked off, got {s}", s.get("in") == "code" and s.get("off") == "1")
+    ctx.check(f"R17: its hover names the box that started it, got {s.get('title')!r}", s.get("title") == "Not on the map: code started this itself")
+    ctx.check(f"R17: review, which started nothing, stays calm and holds no row, got {s}", s.get("review") == "idle" and s.get("reviewRows") == 0)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

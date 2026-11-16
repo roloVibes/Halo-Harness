@@ -148,8 +148,18 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number,
   const groups = new Map<string, OvRow[]>();
   const helpers: Helper[] = [], strangers: Stranger[] = [];
   const kids: Record<string, Kid[]> = {}, flows = new Set(m.boxes.filter((b) => b.workflow).map((b) => b.id));
+  const byId = new Map(rows.map((r) => [r.agent_id, r])), drawn = new Map<string, Place>();
+  // R17: a tagged child no line brought is drawn from its parent's box (where the parent is drawn, at any depth),
+  // never in the box it names: that box started nothing and stays calm, and the row's sender is the box holding it
+  const at = (r: OvRow, depth = 0): Place => {
+    const p = where.get(r.agent_id)!, up = r.parent ? byId.get(r.parent) : undefined;
+    if (drawn.has(r.agent_id) || opts.plain || !r.crew || r.crew.line || !p.box || p.workflow || !up || depth > 24) return drawn.get(r.agent_id) || p;
+    const ub = at(up, depth + 1).box;
+    drawn.set(r.agent_id, ub ? { ...p, box: ub } : p);
+    return drawn.get(r.agent_id)!;
+  };
   for (const r of rows) {
-    const p = where.get(r.agent_id)!;
+    const p = at(r);
     const st = stateOf([r]);
     const isMain = r.agent_id === "main" || (!r.parent && str(r.kind) === "main");
     if (p.box && !isMain && !p.workflow && !flows.has(p.box) && !r.square) { // R15: a named row inside its box

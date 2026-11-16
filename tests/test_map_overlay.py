@@ -246,6 +246,56 @@ console.log(JSON.stringify({his: {off: his.off, n: his.offCount, lines: his.line
 
 
 @test
+def test_off_row_drawn_from_its_parents_box(ctx: Ctx):
+    """R17: a child no line brought is drawn from its PARENT's box (where the parent is drawn, at any depth), so the
+    hover's sender (the box that holds the row) is the box that started it; the box it names stays calm."""
+    m = {"boxes": [{"id": "code", "agent": "coder"}, {"id": "review", "agent": "reviewer"}], "lines": [{"from": "main", "to": "code"}]}
+    rows = [{"agent_id": "main", "parent": None, "name": "main", "state": "running", "kind": "main"},
+            row("c1", "coder", "running", crew={"map": "N", "box": "code", "line": "main -> code", "agent": "coder", "saved": True}),
+            row("r1", "reviewer", "running", parent="c1", crew={"map": "N", "box": "review", "agent": "reviewer", "saved": True}),
+            row("r2", "reviewer", "running", parent="r1", crew={"map": "N", "box": "review", "agent": "reviewer", "saved": True})]
+    js = """const m = await import(%s);
+const map = %s, rows = %s, evs = %s, now = %s;
+const o = m.overlay(map, rows, evs, now, {plain: false});
+const ids = (b) => (o.kids[b] || []).map((k) => k.aid + (k.off ? '*' : ''));
+console.log(JSON.stringify({code: ids('code'), review: ids('review'), rs: o.boxes.review.state, ra: o.boxes.review.agents,
+  ca: o.boxes.code.agents, n: o.offCount}));"""
+    got = _node(js, TS.resolve().as_uri(), m, rows, [], T0 + 4)
+    ctx.check(f"R17: r1 and r2 (no line) are rows inside code, the box that started them, got {got.get('code')}",
+              got.get("code") == ["c1", "r1*", "r2*"])
+    ctx.check(f"R17: review holds no row, got {got.get('review')}", got.get("review") == [])
+    ctx.check(f"R17: review, which started nothing, stays idle with no agent, got {got.get('rs')} {got.get('ra')}",
+              got.get("rs") == "idle" and got.get("ra") == [])
+    ctx.check(f"R17: code holds c1, r1 and r2, got {got.get('ca')}", sorted(got.get("ca") or []) == ["c1", "r1", "r2"])
+    ctx.check(f"R17: two rows off the map, got {got.get('n')}", got.get("n") == 2)
+
+
+@test
+def test_frames_flush_while_the_tab_is_hidden(ctx: Ctx):
+    """R49: frames are merged once per animation frame, but an animation-frame callback waits while the tab is hidden:
+    a timer flushes too, so a Studio tab left in the background never piles frames up."""
+    js = """const m = await import(%s);
+const rafs = [], timers = [], got = [];
+let hidden = false;
+const push = m.batcher((xs) => got.push(xs), {raf: (f) => rafs.push(f), timer: (f) => timers.push(f), hidden: () => hidden});
+push(1); push(2); hidden = true; push(3);
+const before = {rafs: rafs.length, timers: timers.length};
+timers.shift()();
+const one = got.slice();
+rafs.shift()();
+push(4);
+const hid = {rafs: rafs.length, timers: timers.length};
+for (const t of timers.splice(0)) t();
+console.log(JSON.stringify({before, one, hid, got}));"""
+    got = _node(js, (TS.parent / "frameBatch.ts").resolve().as_uri())
+    ctx.check(f"one animation frame and one timer for three frames, got {got.get('before')}", got.get("before") == {"rafs": 1, "timers": 1})
+    ctx.check(f"the timer flushes all three though the animation frame never ran (tab hidden), got {got.get('one')}",
+              got.get("one") == [[1, 2, 3]])
+    ctx.check(f"hidden: a timer only, got {got.get('hid')}", got.get("hid") == {"rafs": 0, "timers": 1})
+    ctx.check(f"every frame applied once, in order, got {got.get('got')}", got.get("got") == [[1, 2, 3], [4]])
+
+
+@test
 def test_trace_totals_survive_the_window(ctx: Ctx):
     js = """const m = await import(%s);
 const T0 = %s, f = [];

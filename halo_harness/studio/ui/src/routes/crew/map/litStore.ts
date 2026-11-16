@@ -13,6 +13,7 @@ import type { SessionRow } from "../../fleet/types";
 import { openOrder } from "../../session/pick";
 import type { Change } from "../types";
 import type { OvEvent } from "./overlay";
+import { batcher } from "./frameBatch";
 import { foldHop, NO_TOTALS, type Totals } from "./overlayHops";
 
 export const MAX_EVENTS = 600; // the replay window; the trace's totals (overlayHops.ts) are kept apart, exact (R49)
@@ -38,16 +39,15 @@ function take(f: FeedFrame): void {
     });
     return;
   }
-  queue.push({ sid, ev: { event: f.event, data: { ...d, seen: Date.now() / 1000 } } });
-  if (queue.length === 1) (typeof requestAnimationFrame === "function" && !document.hidden ? requestAnimationFrame(flush) : setTimeout(flush, 50));
+  push({ sid, ev: { event: f.event, data: { ...d, seen: Date.now() / 1000 } } });
 }
 
-// R49: the frames that arrive within one animation frame are merged in one update (one draw, not one per frame)
-let queue: { sid: string; ev: OvEvent }[] = [];
-function flush(): void {
-  const got = queue;
-  queue = [];
-  if (!got.length) return;
+// R49: the frames that arrive within one animation frame are merged in one update (one draw, not one per frame); a
+// timer flushes too, so a hidden tab (no animation frames) never piles them up (frameBatch.ts)
+const push = batcher(apply, {
+  raf: typeof requestAnimationFrame === "function" ? (f) => requestAnimationFrame(f) : undefined,
+  timer: (f, ms) => setTimeout(f, ms), hidden: () => typeof document !== "undefined" && document.hidden });
+function apply(got: { sid: string; ev: OvEvent }[]): void {
   lit.update((s) => {
     const events = { ...s.events }, totals = { ...s.totals };
     for (const { sid, ev } of got) {

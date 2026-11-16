@@ -10,6 +10,8 @@ through GET live, tests/helpers/studio_session_map_down.py `Rows`) and the map f
             took stays calm; a workflow's steps light in order
     off     A on `offmap` (a map of his) with a made-up child of main no line brought: the row dashed in --off-map, its
             hover, the status line's count; the same on starter: plain dashed, not counted
+    sender  A on `offmap`: coder (on its line) starts a reviewer no line brought: the row is in code's box, its hover
+            names code, review stays calm
 
     python -m tests.helpers.studio_session_run [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -33,8 +35,8 @@ HOPS = {"format": "map/1", "name": "hops", "main": {"agent": "main"},
         "boxes": [{"id": "code", "agent": "coder"}, {"id": "review", "agent": "reviewer"}, {"id": "docs", "agent": "writer"}],
         "lines": [{"from": "main", "to": "code", "when": "always"}, {"from": "code", "to": "review", "when": "always"},
                   {"from": "main", "to": "docs", "when": "main-decides"}]}
-OFFMAP = {"format": "map/1", "name": "offmap", "main": {"agent": "main"}, "boxes": [{"id": "code", "agent": "coder"}],
-          "lines": [{"from": "main", "to": "code", "when": "always"}]}
+OFFMAP = {"format": "map/1", "name": "offmap", "main": {"agent": "main"}, "boxes": [{"id": "code", "agent": "coder"}, {"id": "review", "agent": "reviewer"}],
+          "lines": [{"from": "main", "to": "code", "when": "always"}, {"from": "main", "to": "review", "when": "named"}]}
 SIX = ["plan", "code", "test", "review", "fix", "ship"]
 AGENTS = ("planner", "coder", "tester", "reviewer")
 TASK = "fix the retry in client.py so it backs off"
@@ -171,6 +173,19 @@ def off(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"off": out}
 
 
+def sender(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """R17: coder (on its line) starts a reviewer no line brought: the row is drawn in code's box, its hover names code,
+    and review (the box the row names, which started nothing) stays calm."""
+    c1 = _kid("c1", "coder", "running", crew={"map": "offmap", "box": "code", "line": "main -> code", "agent": "coder", "saved": True})
+    r1 = {**_kid("r1", "reviewer", "running", crew={"map": "offmap", "box": "review", "agent": "reviewer", "saved": True}), "parent": "c1"}
+    _open(c, rig, rows, a, b, "offmap", False, [_main(rows, a), c1, r1])
+    c.wait(f"!!{M}.querySelector('[data-row=r1]')", 20)
+    return {"sender": c.js(f"""(() => {{ const m = {M}, r = m.querySelector('[data-row=r1]');
+  const box = (id) => m.querySelector(`[data-testid=session-lit-box][data-box="${{id}}"]`);
+  return {{ in: r.closest('[data-box]')?.dataset.box || '', title: r.title, off: r.dataset.off || '',
+           review: box('review')?.dataset.state || '', reviewRows: box('review')?.querySelectorAll('[data-testid=session-map-row]').length ?? -1 }}; }})()""")}
+
+
 class RunDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -184,7 +199,7 @@ class RunDriver(MapDownDriver):
             rows = Rows(rig)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (block, hops, off) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (block, hops, off, sender) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 
