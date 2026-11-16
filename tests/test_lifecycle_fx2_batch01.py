@@ -95,9 +95,14 @@ def test_a_shell_command_is_in_the_ledger_while_it_runs_and_leaves_it_after(ctx:
     home, env = _scratch_home()
     try:
         with env:
-            ledger = children.registry_path()
-            out, code, _t, _a = run_streamed([str(shell), "-lc", f"cat '{to_posix(str(ledger))}'"], cwd=home,
-                                             env=dict(os.environ), timeout_s=60)
+            ledger = to_posix(str(children.registry_path()))
+            # fx jb7: the row is written just after the spawn (its start time is one `ps` call on macOS and under
+            # HALO_TEST_NO_PROC=1), so a shell whose first act is to read the ledger can be faster than the row:
+            # it waits for the row (bounded), as `halo ps` run by a person a moment later finds it
+            wait = (f"for i in $(seq 1 100); do grep -q '\"shell\"' '{ledger}' 2>/dev/null && break; sleep 0.1; "
+                    f"done; cat '{ledger}'")
+            out, code, _t, _a = run_streamed([str(shell), "-lc", wait], cwd=home, env=dict(os.environ),
+                                             timeout_s=60)
             rows = json.loads(out[out.index("{"):]).get("children") if "{" in out else []
             mine = [r for r in rows or [] if r.get("what") == "shell"]
             ctx.check(f"the running shell reads itself in the ledger as `shell` with a start time and this owner: {rows}",

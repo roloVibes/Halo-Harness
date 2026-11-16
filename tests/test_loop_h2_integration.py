@@ -233,38 +233,52 @@ def test_read_only_pool_runs_concurrently_and_preserves_call_order(ctx: Ctx):
     _dispatch_tools): consecutive read-only calls run on the 4-thread pool
     (real wall-clock concurrency, not just "doesn't crash"), and results
     come back in ORIGINAL call order even though the FASTEST call actually
-    finishes first."""
+    finishes first.
+
+    3.6.0.0 fx jb7: proved by what happened, not by a wall-clock margin (a loaded macOS runner stretched the old
+    0.3/0.05/0.15 s sleeps past its 0.45 s bound once). The three calls meet at a barrier that only opens while all
+    three are inside their call at the same moment (a sequential pool never opens it: each call gives up after its
+    timeout), and each then finishes in a forced order -- b, then c, then a -- so the results' call order is checked
+    against a completion order that is certainly different."""
     import threading
-    import time as time_mod
     from halo_harness.tools.base import Tool, ToolContext
     from halo_harness.tools.base import ToolResult as TR
     from halo_harness.tools.registry import ToolRegistry, run_read_only_batch
 
     completion_order = []
     lock = threading.Lock()
+    all_inside = threading.Barrier(3, timeout=10)
+    finished = {k: threading.Event() for k in "abc"}
+    after = {"a": "c", "c": "b", "b": None}  # b finishes first, then c, then a
 
     class _SlowReadOnlyTool(Tool):
         name = "SlowRO"
         is_read_only = True
 
         def run(self, input, ctx):
-            time_mod.sleep(input.get("delay", 0))
+            me = input.get("id")
+            try:
+                all_inside.wait()
+            except threading.BrokenBarrierError:
+                return TR(f"alone-{me}", is_error=True)
+            if after[me] and not finished[after[me]].wait(10):
+                return TR(f"stuck-{me}", is_error=True)
             with lock:
-                completion_order.append(input.get("id"))
-            return TR(f"done-{input.get('id')}")
+                completion_order.append(me)
+            finished[me].set()
+            return TR(f"done-{me}")
 
     reg = ToolRegistry(tools=[_SlowReadOnlyTool()])
-    calls = [("SlowRO", {"id": "a", "delay": 0.3}), ("SlowRO", {"id": "b", "delay": 0.05}),
-             ("SlowRO", {"id": "c", "delay": 0.15})]
-    t0 = time_mod.monotonic()
+    calls = [("SlowRO", {"id": "a"}), ("SlowRO", {"id": "b"}), ("SlowRO", {"id": "c"})]
     results = run_read_only_batch(reg, calls, ToolContext(cwd=Path(".")))
-    elapsed = time_mod.monotonic() - t0
 
-    ctx.check(f"ran concurrently (well under the 0.5s sequential sum), got {elapsed:.2f}s", elapsed < 0.45)
-    ctx.check(f"results in ORIGINAL call order regardless of completion order, got {[r.content for r in results]}",
-               [r.content for r in results] == ["done-a", "done-b", "done-c"])
-    ctx.check(f"actual completion order proves real concurrency (b,c,a not a,b,c), got {completion_order}",
-               completion_order == ["b", "c", "a"])
+    got = [r.content for r in results]
+    ctx.check(f"all three calls were inside at the same moment (the barrier opened), got {got}",
+              not any(str(c).startswith(("alone-", "stuck-")) for c in got))
+    ctx.check(f"results in ORIGINAL call order regardless of completion order, got {got}",
+              got == ["done-a", "done-b", "done-c"])
+    ctx.check(f"the calls finished in another order than they were made (b,c,a), got {completion_order}",
+              completion_order == ["b", "c", "a"])
 
 
 @test

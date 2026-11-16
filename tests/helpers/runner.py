@@ -165,6 +165,7 @@ def run_all(tests: list, ctx: Ctx):
     passed = failed = skipped = 0
     for name, fn in tests:
         t0 = time.monotonic()
+        homes = {k: os.environ.get(k) for k in _HOME_VARS}
         try:
             fn(ctx)
             retried = str(getattr(ctx, "retried", "") or "")  # 3.3.8.1: tests/helpers/driver_got.py sets it
@@ -192,7 +193,25 @@ def run_all(tests: list, ctx: Ctx):
             detail = f"{type(e).__name__}: {e}\n{traceback.format_exc(limit=6)}"
             results.append((name, "FAIL", detail, time.monotonic() - t0))
             failed += 1
+        finally:
+            _keep_a_home(homes)
     return results, passed, failed, skipped
+
+
+_HOME_VARS = ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")
+
+
+def _keep_a_home(before: dict) -> None:
+    """3.6.0.0 fx jb7: a test that ends with NO state-dir variable set (its teardown popped the BRIDGE_TEST_HOME it
+    had set over the module's own) gets back the one it found, so the module's later tests never run on the real
+    `~/.halo` (CI's shard 3 created it: test_w6a_release_fixes' `_end` popped the home, and a later test's
+    run_streamed wrote the shell ledger, run/children.json, under the real home). A test that leaves any home set
+    is left alone."""
+    if any(k in os.environ for k in _HOME_VARS):
+        return
+    for k, v in before.items():
+        if v is not None:
+            os.environ[k] = v
 
 
 def print_results(results, passed: int, failed: int, skipped: int, *, label: str = "tests") -> int:
