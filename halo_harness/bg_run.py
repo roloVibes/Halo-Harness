@@ -245,6 +245,8 @@ def pid_alive(pid: int) -> bool:
     (one slower than its timeout is unknown, never dead); POSIX, a signal-0 probe."""
     if not isinstance(pid, int) or pid <= 0:
         return False
+    if pid == os.getpid():  # 3.6.0.0 fx: this process is alive; macOS paid a `ps` to learn it
+        return True
     if os.name == "nt":
         from halo_harness.process_alive import win_alive
         if (got := win_alive(pid)) is not None:

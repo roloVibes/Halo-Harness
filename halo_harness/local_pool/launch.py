@@ -183,10 +183,11 @@ def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user
     cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key_file=write_key(key, state_dir), addr_=a)
     log = Path(_state(state_dir)) / "local" / "servers" / f"pool-{port}.log"
     from halo_harness.local_pool.spawn import spawn, wait_ready
+    from halo_harness.children import start_time  # 3.6.0.0 fx: `halo pool stop` proves the pid by it
     pid = spawn(cmd, log, redact(cmd), keep=keep)  # --keep: it outlives this command (local_pool/spawn.py)
     url = f"http://{a}:{port}"
     r = {"model": pf["model"], "display": pf["display"], "pid": pid, "port": port, "addr": a, "url": f"{url}/v1",
-         "log": str(log), "argv": redact(cmd), "ctx": pf["ctx"], "cache": pf["cache"], "placed": placed,
+         "start_time": start_time(pid), "log": str(log), "argv": redact(cmd), "ctx": pf["ctx"], "cache": pf["cache"], "placed": placed,
          "rpc_started": started, "members": pf["used"], "rpc": pf["rpc"], "split": pf["split"], "order": pf["order"],
          "started": round(time.time(), 3), "by": by, "binary": why, "key_file": True}
     _save(r, state_dir)
@@ -196,6 +197,7 @@ def start(pf: dict, *, port: int = 0, state_dir=None, home=None, by: str = "user
         cmd = argv(prefix, pf, gguf=pf["gguf"]["path"], port=port, key=key, addr_=a)
         lines.append(KEY_ARGV_LINE)
         r.update(pid=spawn(cmd, log, redact(cmd), keep=keep), argv=redact(cmd), key_file=False)
+        r["start_time"] = start_time(r["pid"])
         _save(r, state_dir)
         ready, said = wait_ready(r["pid"], url, get, wait_s if wait_s is not None else 120.0)
     if ready:  # the cold load: from the spawn to /health answering (the pool's speed card reads it)
@@ -230,7 +232,10 @@ def stop(*, state_dir=None, home=None, why: str = "") -> dict:
     lines = []
     if alive(r):
         from halo_harness.local_pool.spawn import halt
-        lines.append(f"stopped the pool's llama-server (pid {r['pid']}): {halt(r['pid'])}")
+        from halo_harness.providers.local_server_cmd import NOT_PROVEN
+        how = halt(r["pid"], start=r.get("start_time"))
+        lines.append(f"the pool's llama-server (pid {r['pid']}) was not running: {how}" if how == NOT_PROVEN
+                     else f"stopped the pool's llama-server (pid {r['pid']}): {how}")
     else:
         lines.append(f"the pool's llama-server (pid {r.get('pid')}) had already exited")
     if entry.remove():

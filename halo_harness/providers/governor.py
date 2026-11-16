@@ -188,6 +188,26 @@ def retry_after_seconds(headers: "Optional[Dict[str, str]]", *, cap: float = 120
     return None
 
 
+_ALIVE_SEEN: Dict[Any, Tuple[float, bool, Any]] = {}  # pid -> (when, alive, the check used)
+_ALIVE_EVERY_S = 1.0
+
+
+def _alive_now(pid: Any, now: float) -> bool:
+    """3.6.0.0 fx: `_reap` runs on every pass of a waiter's loop under the cross-process lock, and on macOS a
+    liveness check is a `ps` -- so this process's own pid is alive without a check and another pid is checked at most
+    once a second (a dead caller's permit is freed a second later at most)."""
+    if pid == os.getpid():
+        return True
+    seen = _ALIVE_SEEN.get(pid)
+    if seen is not None and seen[2] is pid_alive and 0 <= now - seen[0] < _ALIVE_EVERY_S:
+        return seen[1]
+    alive = bool(pid_alive(pid))
+    if len(_ALIVE_SEEN) > 256:
+        _ALIVE_SEEN.clear()
+    _ALIVE_SEEN[pid] = (now, alive, pid_alive)
+    return alive
+
+
 def _reap(st: Dict[str, Any], now: float) -> None:
     """Self-healing: a killed caller cannot leak a permit. A LIVE
     process is only reaped at _ABANDONED_CALL_SECS (reaping it earlier
@@ -195,7 +215,7 @@ def _reap(st: Dict[str, Any], now: float) -> None:
     for cid in list(st["inflight"].keys()):
         e = st["inflight"][cid]
         age = now - e.get("ts", now)
-        if not pid_alive(e.get("pid")):
+        if not _alive_now(e.get("pid"), now):
             del st["inflight"][cid]
         elif age > _ABANDONED_CALL_SECS:
             import warnings
@@ -204,7 +224,7 @@ def _reap(st: Dict[str, Any], now: float) -> None:
             del st["inflight"][cid]
     for tk in list(st["waiters"].keys()):
         w = st["waiters"][tk]
-        if not pid_alive(w.get("pid")) or (now - w.get("hb", w.get("ts", now))) > _WAITER_STALE:
+        if not _alive_now(w.get("pid"), now) or (now - w.get("hb", w.get("ts", now))) > _WAITER_STALE:
             del st["waiters"][tk]
 
 

@@ -109,8 +109,11 @@ def owner_alive(entry: dict) -> bool:
 
 
 def spawned(proc) -> bool:
-    """`proc` is a real `subprocess.Popen` (a test's stand-in never joins the registry)."""
-    return type(proc).__module__ == "subprocess" and isinstance(getattr(proc, "pid", None), int)
+    """`proc` is a real `subprocess.Popen`, the standard one or subprocess_safe's subclass of it (a test's stand-in
+    never joins the registry). 3.6.0.0 fx: the subclass is what Halo's own spawns use (`halo --bg` was never listed)."""
+    from halo_harness.subprocess_safe import STDLIB_POPEN
+    return (isinstance(proc, STDLIB_POPEN) and type(proc).__module__ in ("subprocess", "halo_harness.subprocess_safe")
+            and isinstance(getattr(proc, "pid", None), int))
 
 
 def _short_cmd(cmd) -> list:

@@ -199,6 +199,9 @@ def cmd_status(argv: list) -> int:
     return 0
 
 
+STOP_WAIT_S = 10.0  # how long `halo host stop` waits for the host to stop itself before it signals
+
+
 def cmd_stop(argv: list) -> int:
     from halo_harness.host import state as S
     a, rc = C.parse(_parser("stop", "Stop the halo host this machine runs."), argv)
@@ -207,17 +210,30 @@ def cmd_stop(argv: list) -> int:
     home = identity.home()
     info = S.read_info(home)
     if not info:
+        stale = S.read_info(home, check_pid=False)  # a record whose process is gone, or is another program now
+        if stale:
+            S.drop_info(home, stale.get("pid"), stale.get("port"))
         if a.json:
             C.emit_json({"ok": True, "was_running": False})
         else:
             print("halo host was not running.")
         return 0
     S.request_stop(home)
-    deadline = time.time() + 10.0
+    deadline = time.time() + STOP_WAIT_S
     while time.time() < deadline and S.read_info(home) is not None:
         time.sleep(0.2)
     pid = info.get("pid")
     if S.read_info(home) is not None and isinstance(pid, int) and pid != os.getpid():
+        from halo_harness import children
+        if not children.provably_same(pid, info.get("start_time")):  # 3.6.0.0 fx: never a pid read from a file alone
+            S.drop_info(home, pid, info.get("port"))
+            msg = (f"halo host was not running: serve.json named pid {pid}, which is not provably the host "
+                   "(another program has that pid now, or the record has no start time); cleared it, signalled nothing")
+            if a.json:
+                C.emit_json({"ok": True, "was_running": False, "pid": pid, "line": msg})
+            else:
+                print(msg)
+            return 0
         import signal
         try:
             os.kill(pid, signal.SIGTERM)

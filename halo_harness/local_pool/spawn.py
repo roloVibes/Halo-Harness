@@ -14,6 +14,7 @@ import os
 from halo_harness import subprocess_safe as subprocess
 import time
 from pathlib import Path
+from typing import Optional
 
 _PROCS: dict = {}
 POLL_S = 0.25
@@ -56,7 +57,9 @@ def wait_ready(pid: int, url: str, get, cap_s: float) -> "tuple[bool, str]":
         time.sleep(POLL_S)
 
 
-def halt(pid: int) -> str:
+def halt(pid: int, start: Optional[str] = None) -> str:
+    """`start`: the start time in the pool's run record; a pid this process did not spawn is signalled only when it
+    matches (3.6.0.0 fx, providers/local_server_cmd.halt)."""
     proc = _PROCS.pop(pid, None)
     if proc is not None:
         if proc.poll() is not None:
@@ -70,4 +73,4 @@ def halt(pid: int) -> str:
             proc.wait(timeout=5)
             return "killed after 10 s"
     from halo_harness.providers.local_server_cmd import halt as halt_pid
-    return halt_pid(int(pid))
+    return halt_pid(int(pid), start=start)

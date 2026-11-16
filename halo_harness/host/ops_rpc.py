@@ -125,7 +125,8 @@ def turn_on(home, *, addr: str, card_rows: list, port=None, mem_mib=None, by: st
         pid = R.start(pl["argv"], log, keep=keep)
     except OSError as e:
         return {"ok": False, "say": f"rpc-server did not start: {e}"}
-    st = {**read(home), "pid": pid, "port": pl["port"], "bind": addr, "mem_mib": pl["mem_mib"], "binary": pl["binary"],
+    from halo_harness.children import start_time
+    st = {**read(home), "pid": pid, "start_time": start_time(pid), "port": pl["port"], "bind": addr, "mem_mib": pl["mem_mib"], "binary": pl["binary"],
           "argv": pl["argv"], "version": {k: v.get(k) for k in ("build", "commit", "rpc_proto", "line")},
           "started": round(time.time(), 3), "by": by, "log": str(log), "mem_why": pl["mem_why"]}
     _write(home, st)
@@ -138,8 +139,12 @@ def turn_off(home, *, by: str = "owner") -> dict:
     st = read(home)
     if not st.get("pid") or not R.alive(st.get("pid")):
         return {"ok": True, "say": "rpc-server was not running: nothing to stop", "rpc": status(home)}
-    how = R.stop(st["pid"])
+    how = R.stop(st["pid"], start=st.get("start_time"))
     _write(home, {**st, "pid": None, "stopped": round(time.time(), 3), "stopped_by": by})
+    from halo_harness.providers.local_server_cmd import NOT_PROVEN
+    if how == NOT_PROVEN:
+        return {"ok": True, "say": f"rpc-server was not running: its record named pid {st['pid']}; {how}; cleared it",
+                "rpc": status(home)}
     return {"ok": True, "say": f"stopped rpc-server on {st.get('bind')}:{st.get('port')} (pid {st['pid']}): {how}",
             "rpc": status(home)}
 

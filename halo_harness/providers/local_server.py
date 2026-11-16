@@ -159,7 +159,7 @@ def stop(key, *, state_dir) -> dict:
     if is_engine(e.get("kind")):  # 3.3.13.0 R1: the descriptor's stop, the entry and its key file (engines/adapter.py)
         from halo_harness.engines.adapter import stop_row
         return stop_row(e, state_dir=state_dir)
-    how = C.halt(e["pid"]) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
+    how = C.halt(e["pid"], start=e.get("proc_start")) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
     R.drop_registry_entries(state_dir, [(e.get("model"), e.get("pid"))])
     from halo_harness.voice import is_voice_runtime
     if is_voice_runtime(e.get("kind")):  # 3.3.9.0 R1: a speech server's `stt` / `tts` entry goes with it

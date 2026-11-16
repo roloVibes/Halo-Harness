@@ -55,6 +55,8 @@ def terminate(pid, *, timeout: float = 5.0, recorded: Optional[str] = None) -> b
         return False
     if not C.same_process(pid, recorded):
         return True
+    if not C.provably_same(pid, recorded):  # 3.6.0.0 fx: an unknown start time on either side is no proof
+        return False
     if os.name == "nt":
         try:
             soft = subprocess.run(["taskkill", "/PID", str(pid), "/T"], capture_output=True, text=True, timeout=10)
@@ -114,7 +116,8 @@ def stop_entry(entry: dict, *, state_dir=None, timeout: float = 5.0) -> dict:
             ok = _stop_studio(entry, state, timeout)
         elif what == "bg":
             from halo_harness.bg_run import kill_pid
-            ok = kill_pid(pid) or terminate(pid, timeout=timeout, recorded=entry.get("start_time"))
+            ok = ((C.provably_same(pid, entry.get("start_time")) and kill_pid(pid))
+                  or terminate(pid, timeout=timeout, recorded=entry.get("start_time")))
         elif what == "supervisor":
             ok = _stop_supervisor(entry, state, timeout)
         elif entry.get("source") == "local-servers" and entry.get("model"):

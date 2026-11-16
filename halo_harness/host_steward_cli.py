@@ -44,6 +44,9 @@ def every_s(home) -> float:
     return v if v > 0 else EVERY_S
 
 
+STOP_WAIT_S = 10.0  # how long `steward off` waits for the steward to stop itself before it signals
+
+
 def _stop_path(home):
     from halo_harness.host.state import host_dir
     return host_dir(home) / STOP_FILE
@@ -136,6 +139,7 @@ def cmd_on(argv: list) -> int:
 
 def cmd_off(argv: list) -> int:
     from halo_harness.host import duty
+    from halo_harness import children
     from halo_harness.theme import set_config_value
     a, rc = C.parse(_parser("off", "Stop the duty steward and drop its peer record."), argv)
     if a is None:
@@ -145,13 +149,13 @@ def cmd_off(argv: list) -> int:
     set_config_value("host.steward.enabled", False)
     identity.forget_cache()
     pid = st.get("pid")
-    if _alive(pid) and pid != os.getpid():
+    if _alive(pid) and pid != os.getpid() and children.same_process(pid, st.get("start_time")):
         _stop_path(home).parent.mkdir(parents=True, exist_ok=True)
         _stop_path(home).write_text(str(time.time()), encoding="utf-8")
-        end = time.time() + 10.0
-        while time.time() < end and _alive(pid):
+        end = time.time() + STOP_WAIT_S
+        while time.time() < end and children.same_process(pid, st.get("start_time")):
             time.sleep(0.2)
-        if _alive(pid):
+        if children.provably_same(pid, st.get("start_time")):  # 3.6.0.0 fx: never a pid read from a file alone
             import signal
             try:
                 os.kill(pid, signal.SIGTERM)
@@ -160,6 +164,8 @@ def cmd_off(argv: list) -> int:
     duty.drop_identity(home)
     duty.drop_state(home)
     line = "the duty steward is off: no process, no peer record; the host is a monitor plus the grants you gave"
+    if isinstance(pid, int) and pid != os.getpid() and not st.get("start_time") and _alive(pid):
+        line += f"; pid {pid} was not signalled: its record has no start time, so nothing proves it is the steward"
     if a.json:
         C.emit_json({"ok": True, "was_running": _alive(pid) or bool(pid), "line": line})
     else:

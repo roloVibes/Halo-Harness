@@ -92,13 +92,14 @@ def alive(pid) -> bool:
     return isinstance(pid, int) and bool(pid_alive(pid))
 
 
-def stop(pid) -> str:
+def stop(pid, start=None) -> str:
+    """`start`: the start time recorded with the pid; without a match nothing is signalled (3.6.0.0 fx)."""
     if "stop" in SEAMS:
         return str(SEAMS["stop"](pid))
     if not alive(pid):
         return "already gone"
     from halo_harness.providers.local_server_cmd import halt
-    return halt(int(pid), grace=5.0)
+    return halt(int(pid), grace=5.0, start=start)
 
 
 def proto_from_log(log) -> Optional[str]:

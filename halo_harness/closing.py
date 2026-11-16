@@ -620,7 +620,9 @@ def _polite(entry: dict, state_dir) -> None:
         if what == "studio":
             from halo_harness.studio import launch
             info = launch.read_info(Path(state_dir) if state_dir else _home())
-            if info and info.get("pid") == entry.get("pid"):
+            # 3.6.0.0 fx: or it is this halo's own although its pid differs (Windows: a venv's python.exe is a
+            # launcher, the ledger can hold its pid while studio.json holds the Studio's)
+            if info and (info.get("pid") == entry.get("pid") or launch.owned_by_me(info)):
                 threading.Thread(target=launch._ask_shutdown, args=(info,), daemon=True).start()
                 return
         elif entry.get("source") == "local-servers" and entry.get("model"):
@@ -722,6 +724,33 @@ def marker_pids(mark: Optional[str] = None, *, prefix: bool = False) -> "dict[in
     return out
 
 
+def prog_name(pid: int) -> str:
+    """The program's short name (Linux /proc/<pid>/comm, macOS `ps -o comm=`), for the line that names it."""
+    try:
+        with open(f"/proc/{pid}/comm", encoding="utf-8", errors="replace") as fh:
+            return fh.read().strip() or "a program"
+    except OSError:
+        pass
+    try:
+        import subprocess as _sp
+        r = _sp.run(["/bin/ps", "-o", "comm=", "-p", str(pid)], capture_output=True, text=True, timeout=3)
+        return os.path.basename((r.stdout or "").strip()) or "a program"
+    except Exception:
+        return "a program"
+
+
+def ended_line(ended: dict) -> str:
+    """3.6.0.0 fx: one line naming what the marker scan ended on the way out (a daemon a tool command started -- a tmux
+    server, an ssh ControlMaster, a dev server -- ends with the Halo that started it, and is said), with how to keep
+    one. '' when nothing was ended."""
+    if not ended:
+        return ""
+    names = [f"{name} (pid {pid})" for pid, name in sorted(ended.items())]
+    shown = ", ".join(names[:8]) + (f" and {len(names) - 8} more" if len(names) > 8 else "")
+    return (f"halo: ended {shown}, left running by a tool command; to keep one past Halo, the command starts it "
+            "with HALO_OWNER=kept-<name> (docs/PROCESSES.md)")
+
+
 def kill_marked(mark: str, *, exclude=(), bound_s: float = 2.0) -> list:
     """SIGTERM, then SIGKILL after half the bound, every process that carries this tree's marker (POSIX)."""
     if os.name == "nt" or not mark or mark.startswith((KEPT_PREFIX, "home-")):
@@ -733,8 +762,10 @@ def kill_marked(mark: str, *, exclude=(), bound_s: float = 2.0) -> list:
     from halo_harness import children as C
     for pid in found:
         if C.provably_same(pid, found[pid]):
+            name = prog_name(pid)
             try:
                 os.kill(pid, signal.SIGTERM)
+                _STATE.setdefault("ended", {})[pid] = name
             except OSError:
                 pass
     deadline = time.monotonic() + bound_s / 2
@@ -798,7 +829,8 @@ def on_close(fn: Callable[[], None]) -> None:
 def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[Callable[[str], None]] = None,
           state_dir=None) -> list:
     """THE closing procedure, idempotent; every way out runs it. Returns the lines it printed (one per thing left
-    running on purpose, with the command that stops it); nothing when all is well."""
+    running on purpose, with the command that stops it, and one naming what the marker scan ended); nothing when
+    all is well."""
     with _LOCK:
         if _STATE["closed"]:
             return []
@@ -821,6 +853,9 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         left = max(0.5, polite_s + hard_s - (time.monotonic() - t0))
         reaper = _STATE.get("reaper")
         kill_marked(marker(), exclude=(reaper.pid,) if reaper else (), bound_s=min(left, 2.0))
+        line = ended_line(_STATE.pop("ended", None) or {})
+        if line:
+            lines.append(line)
     _stop_reaper()
     out = say if say is not None else _say
     for line in lines:

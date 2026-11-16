@@ -92,6 +92,9 @@ class HostPairing(HubPairing):
 def write_info(home, info: dict) -> None:
     from halo_harness.privateio import write_private_atomic
     host_dir(home).mkdir(parents=True, exist_ok=True)
+    if isinstance(info.get("pid"), int) and not info.get("start_time"):  # 3.6.0.0 fx: a stop proves the pid by it
+        from halo_harness.children import start_time
+        info = dict(info, start_time=start_time(info["pid"]))
     write_private_atomic(host_dir(home) / SERVE_FILE, json.dumps(info, indent=2))
 
 
@@ -107,6 +110,10 @@ def read_info(home=None, *, check_pid: bool = True) -> Optional[dict]:
         from halo_harness.bg_run import pid_alive
         if info.get("pid") != os.getpid() and not pid_alive(info.get("pid")):
             return None
+        if info.get("pid") != os.getpid() and info.get("start_time"):  # 3.6.0.0 fx: the pid is another program now
+            from halo_harness.children import same_process
+            if not same_process(info.get("pid"), info["start_time"]):
+                return None
     return info
 
 

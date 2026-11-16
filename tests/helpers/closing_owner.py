@@ -8,6 +8,7 @@ kinds: studio  -- studio/launch.launch_detached, the way `halo init` starts Stud
        tool    -- someone else's binary through subprocess_safe.Popen, in no ledger (a tool command, an MCP server)
        ledger  -- the same, recorded in children.json as this owner's (a schedule fire, a model server)
        kept    -- a spawn a person asked to keep (kept_kwargs, keep=True), like `halo --bg`
+       keptmark -- a tool command's daemon started with HALO_OWNER=kept-<name> (a close leaves it running)
        grandchild -- a tool command that starts its own child with the plain standard library
        mcp     -- an MCP stdio server through mcp/stdio.connect (the MCP SDK's own spawn)
        sub     -- its own child AND a sub-agent: a second owner (kind tool) it starts itself, which installs the
@@ -66,6 +67,8 @@ def main() -> int:
         kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
         if kind == "kept":
             kw = closing.kept_kwargs(kw)
+        elif kind == "keptmark":  # a tool command that starts its daemon with HALO_OWNER=kept-<name> (docs/PROCESSES.md)
+            kw["env"] = dict(os.environ, HALO_OWNER="kept-daemon")
         extra = [str(out / "grandchild.json")] if kind == "grandchild" else []
         proc = subprocess.Popen(sleeper + [str(target)] + extra, **kw)
         got = _wait_file(target, 30)

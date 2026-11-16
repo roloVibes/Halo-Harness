@@ -43,7 +43,7 @@ def halos_alive(state: str, launcher: "tuple[int, str]") -> bool:
     if _alive(studio.get("pid"), studio.get("pstart")):
         return True
     host = _read(os.path.join(state, "host", "serve.json")) or {}
-    return _alive(host.get("pid"))
+    return _alive(host.get("pid"), host.get("start_time"))  # 3.6.0.0 fx: serve.json records it now
 
 
 def _end_server(pid: int, start: str) -> None:

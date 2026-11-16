@@ -212,11 +212,20 @@ def _gone(pid) -> bool:
     return not pid_alive(pid) or (sys.platform != "win32" and _posix_proc_state(pid) == "Z")
 
 
-def halt(pid: int, grace: float = STOP_GRACE_S) -> str:
-    """Terminate, then kill after `grace` seconds; how it ended."""
+NOT_PROVEN = ("nothing signalled: that pid is not provably the server (another program has it now, or its record "
+              "has no start time)")
+
+
+def halt(pid: int, grace: float = STOP_GRACE_S, *, start: Optional[str]) -> str:
+    """Terminate, then kill after `grace` seconds; how it ended. `start` is the start time recorded with the pid
+    (3.6.0.0 fx): a pid this process did not spawn is signalled only while its start time is read now and matches,
+    so a record left by a reboot or a hard kill never ends another program (NOT_PROVEN)."""
     import signal
+    from halo_harness.children import provably_same
     from halo_harness.providers.local_runtime import _forget_popen
     proc = _forget_popen(pid)
+    if proc is None and not _gone(pid) and not provably_same(pid, start):
+        return NOT_PROVEN
     if proc is not None:
         proc.terminate()
         try:
@@ -235,6 +244,8 @@ def halt(pid: int, grace: float = STOP_GRACE_S) -> str:
         if _gone(pid):
             return "terminated"
         time.sleep(0.2)
+    if not provably_same(pid, start):
+        return "terminated"
     try:
         os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
     except OSError:

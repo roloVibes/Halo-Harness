@@ -153,8 +153,11 @@ def _stop_unstarted(proc, state_dir: Path) -> None:
 def _ledger_names_the_studio(proc, argv: list, state_dir: Path) -> None:
     """3.6.0.0 fx: an installed Halo's python can be a launcher (the Windows venv's python.exe) that runs the real
     interpreter as its child, so Popen's pid is not the Studio's. The ledger row takes the pid studio.json names (the
-    launcher's stays as `launcher_pid`), so a close asks Studio's own shutdown route and `halo ps` shows one row."""
+    launcher's stays as `launcher_pid`), so a close asks Studio's own shutdown route and `halo ps` shows one row.
+    A test's stand-in for Popen never joins the ledger (children.spawned)."""
     from halo_harness import children
+    if not children.spawned(proc):
+        return
     info: Optional[dict] = None
     for _ in range(10):  # the URL may come from stdout a moment before studio.json lands
         info = read_info(Path(state_dir))
@@ -206,7 +209,7 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
         LAST_FAILURE["why"] = f"{type(e).__name__}: {e}"
         return ""
     from halo_harness import children
-    if children.spawned(proc) or isinstance(proc, subprocess.STDLIB_POPEN):  # 3.6.0.0 R10: always this process's
+    if children.spawned(proc):  # 3.6.0.0 R10: always this process's (children.spawned takes the safe Popen too)
         children.register(proc.pid, "studio", argv, state_dir=state_dir)
     found: dict = {}
     tail: list = []

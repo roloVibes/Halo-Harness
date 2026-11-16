@@ -45,6 +45,9 @@ def read_state(home) -> dict:
 def write_state(home, data: dict) -> None:
     from halo_harness.privateio import write_private_atomic
     S.host_dir(home).mkdir(parents=True, exist_ok=True)
+    if isinstance(data.get("pid"), int) and not data.get("start_time"):  # 3.6.0.0 fx: `steward off` proves the pid
+        from halo_harness.children import start_time
+        data = dict(data, start_time=start_time(data["pid"]))
     write_private_atomic(S.host_dir(home) / STATE_FILE, json.dumps(data, indent=2))
 
 

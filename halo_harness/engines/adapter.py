@@ -222,7 +222,7 @@ def stop_row(e: dict, *, state_dir) -> dict:
         else:
             how = f"nothing {get(engine)['label']} runs serves port {e.get('port')} any more"
     else:
-        how = C.halt(e["pid"]) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
+        how = C.halt(e["pid"], start=e.get("proc_start")) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
     R.drop_registry_entries(state_dir, [(e.get("model"), e.get("pid"))])
     forget(engine, state_dir)
     return {"ok": True, "id": e.get("id"), "say": f"stopped {engine} {e.get('id')} ({e.get('model')} on port "

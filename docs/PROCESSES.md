@@ -32,6 +32,17 @@ Nothing else: not Studio, not the Ollama steward, not the host's duty steward (`
 the host's child, ending with the host, or in the foreground when no host runs), not a sub-agent, not an MCP server.
 Each kept thing is in the ledger marked so: `halo ps` lists it and the Halo that started it names it on the way out.
 
+**A daemon a tool command starts ends with Halo too**: a tmux server, an ssh ControlMaster, gpg-agent, a dev server
+started in the background. On Linux and macOS Halo names each one it ends on the way out ("halo: ended tmux (pid
+N), left running by a tool command ..."). A tmux server started that way also ends the sessions you opened in it
+later. To keep one past Halo, the command starts it with a kept marker, for example
+`HALO_OWNER=kept-tmux tmux new-session -d -s work`; `halo ps` then lists it as kept and you stop it yourself. On
+Windows such a daemon is in Halo's Job object and ends with it.
+
+A stop that reads a pid from a file (`halo host stop`, `halo host steward off`, `halo host rpc off`, `halo pool stop`,
+the ledger) signals it only when the start time recorded with it matches the process that has that pid now. A record
+left by a reboot or a hard kill is cleared and said, never signalled.
+
 ## How a closing works
 
 1. **The closing procedure** (halo_harness/closing.py) runs on every way out that runs any code at all: a quit,
