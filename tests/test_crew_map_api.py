@@ -79,6 +79,8 @@ def test_get_reads_the_given_scope_and_path(ctx: Ctx):
         theirs.parent.mkdir(parents=True)
         theirs.write_text(store.dump(_map_body("shop", 2)), encoding="utf-8")
         trust(other)
+        from halo_harness.history import append_history_entry  # a project Studio knows (P2 batch 8 repair)
+        append_history_entry("work there", str(other))
         st, m = rig.api("GET", f"crew/map/shop?scope=project&path={_q(theirs)}")
         ctx.check(f"the project's file in another folder: its two boxes, its path, got {st} {sorted(m.get('boxes') or {})} {m.get('path')}",
                   st == 200 and sorted(m["boxes"]) == ["b0", "b1"] and m["path"] == str(theirs) and m["scope"] == "project")
@@ -98,6 +100,7 @@ def test_get_reads_the_given_scope_and_path(ctx: Ctx):
         untrusted = rig.root / "untrusted" / ".halo" / "crew" / "maps" / "shop.yaml"
         untrusted.parent.mkdir(parents=True)
         untrusted.write_text(store.dump(_map_body("shop", 3)), encoding="utf-8")
+        append_history_entry("work there", str(rig.root / "untrusted"))  # known, still not trusted: never read
         for why, scope, p in (("a file outside crew/maps", "project", stray), ("another name's file", "project", cousin),
                               ("a project that is not trusted", "project", untrusted), ("the project's file as yours", "yours", theirs)):
             st, m = rig.api("GET", f"crew/map/shop?scope={scope}&path={_q(p)}")
@@ -194,6 +197,41 @@ def test_soft_read_is_no_file_oracle(ctx: Ctx):
         mine.unlink()
         ctx.check("yours, removed: 200 {removed}",
                   rig.api("GET", f"crew/map/kept?scope=yours&path={_q(mine)}&soft=1")[1].get("removed") is True)
+
+
+@test
+def test_soft_read_asks_nothing_of_an_unknown_project(ctx: Ctx):
+    """3.6.0.2 R50 (P2 batch 8 repair): a path shaped `<x>/.halo/crew/maps/<f>` is looked at only when `<x>` is a
+    project Studio knows (its own folder, a live session's, a history line's). Before, Studio asked whether `<x>` is
+    trusted, and that walks `<x>` and every folder above it for `.git`: under a trusted folder the answer told a page
+    whether `.git` exists there. Now every such folder gets the one answer {unreadable} and nothing under it is looked at."""
+    from halo_harness.crew import store
+    from halo_harness.history import append_history_entry
+    from tests.helpers.trust_dir import trust
+    with CrewRig() as rig:
+        rig.studio()
+        top = rig.root / "probe-trusted"  # trusted, and no git repo
+        (top / "secret-repo" / ".git").mkdir(parents=True)
+        (top / "plain-folder").mkdir()
+        trust(top)
+        for sub in ("secret-repo", "plain-folder", "no-such-folder"):
+            p = top / sub / ".halo" / "crew" / "maps" / "x.yaml"
+            with _Touches(top / sub) as seen:
+                got = rig.api("GET", f"crew/map/x?scope=project&path={_q(p)}&soft=1")
+            ctx.check(f"{sub}: nothing at or under it is looked at, got {seen.seen}", seen.seen == [])
+            ctx.check(f"{sub}: the one answer 200 {{unreadable}}, got {got}",
+                      got[0] == 200 and got[1] == {"unreadable": True, "map": "x", "scope": "project", "path": str(p)})
+        known = top / "plain-folder"  # once a session worked there, its map is read, and a removed one says so
+        append_history_entry("work there", str(known))
+        trust(known)
+        p = known / ".halo" / "crew" / "maps" / "x.yaml"
+        p.parent.mkdir(parents=True)
+        p.write_text(store.dump(_map_body("x", 1)), encoding="utf-8")
+        st, m = rig.api("GET", f"crew/map/x?scope=project&path={_q(p)}&soft=1")
+        ctx.check(f"a known trusted project's map: read, got {st} {sorted(m)}", st == 200 and "boxes" in m)
+        p.unlink()
+        st, m = rig.api("GET", f"crew/map/x?scope=project&path={_q(p)}&soft=1")
+        ctx.check(f"a known trusted project's map removed: 200 {{removed}}, got {st} {m}", st == 200 and m.get("removed") is True)
 
 
 @test

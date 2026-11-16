@@ -20,8 +20,9 @@ A spawned agent's row carries `crew: {map, box, line?, agent, saved, workflow?, 
 agent_registry.py FIELDS; 3.6.0.2 R13): the box it runs for (a workflow's step: its caller's box, the workflow and the
 step), the agent it runs and whether that is a saved agent; `made_up` only for `general-purpose` or a name no spec
 knows. Every frame goes to the TOP session's feed and log, and none once the session is closed (`close`, called by
-agent/loop.py Session.close_runtimes). The log also gets one `map_start` node
-(the map, its file -- scope, path, content hash, R50 -- and when) so a finished session's replay knows the map it ran on. Nothing here calls a model, and a failure
+agent/loop.py Session.close_runtimes). The log also gets a `map_start` node at each start, and one more at each
+`--resume` (the map, its file -- scope, path, content hash, R50 -- and when) so a finished session's replay knows the
+map it ran on (the last one's). Nothing here calls a model, and a failure
 to publish never stops a hand-off.
 """
 
@@ -279,8 +280,8 @@ def recorded(path) -> dict:
         if not isinstance(node, dict) or node.get("type") != "receipt" or node.get("kind") != "map":
             continue
         data = node.get("data") if isinstance(node.get("data"), dict) else {}
-        if node.get("event") == "map_start":
-            out["map"] = out["map"] or data.get("map")
+        if node.get("event") == "map_start":  # a resume logs another: the session runs on the LAST one's map
+            out["map"] = data.get("map") or out["map"]
         elif node.get("event") in ("map_hop", "map_step"):
             out["events"].append({"event": node["event"], "data": data})
             out["map"] = out["map"] or data.get("map")

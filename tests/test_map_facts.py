@@ -945,6 +945,14 @@ def test_resumed_session_has_map_since(ctx: Ctx):
                   and starts[-1][1].get("data", {}).get("map") == "shop")
         two = _notes(rig.turn("Which map?"))
         ctx.check(f"the resumed session's first turn carries no note (nothing changed), got {two}", two == [])
+        from halo_harness.crew import map_events  # batch 8 repair: a resume onto another map -- the replay names it
+        two_starts = rig.home / "two-starts.jsonl"
+        two_starts.write_text("".join(json.dumps({"type": "receipt", "kind": "map", "event": e, "data": d}) + "\n" for e, d in (
+            ("map_start", {"map": "shop", "t": 1.0}), ("map_hop", {"map": "shop", "to": "coder"}),
+            ("map_start", {"map": "ship-it", "t": 2.0}))), encoding="utf-8")
+        got = map_events.recorded(two_starts)
+        ctx.check(f"a log with two map_starts replays on the last one's map, got {got.get('map')}",
+                  got.get("map") == "ship-it" and len(got.get("events") or []) == 1)
     with _NoteRig(crew_map=False) as rig:
         rig.turn("Say hello.")
         s = rig.resume()

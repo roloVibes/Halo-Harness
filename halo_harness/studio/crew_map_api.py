@@ -102,8 +102,9 @@ def _key(p) -> str:
 
 def _in_maps_folder(req, path: str) -> bool:
     """3.6.0.2 R50 (P2 batch 8): `path` names a file in a folder maps live in -- yours, the starters', an enabled pack's,
-    a trusted project's `.halo/crew/maps`. Decided from the text of `path` alone (no file-system call names it), so a
-    page holding Studio's token cannot ask through the soft read whether an arbitrary file exists."""
+    the `.halo/crew/maps` of a project Studio knows (whose trust `_at_path` then asks). Decided from the text of `path`
+    alone (no file-system call names it or a folder above it), so a page holding Studio's token cannot ask through the
+    soft read whether an arbitrary file or folder exists."""
     if not path or not os.path.isabs(path):
         return False
     folder = _key(os.path.dirname(os.path.normpath(path)))
@@ -115,8 +116,13 @@ def _in_maps_folder(req, path: str) -> bool:
     up = Path(os.path.normpath(path)).parents
     if len(up) < 4 or [x.name for x in up[:3]] != ["maps", "crew", ".halo"]:
         return False
-    from halo_harness.project_gate import trusted
-    return trusted(up[3])
+    # batch 8 repair: a project's folder only when Studio knows that project -- its own folder, a live session's, a
+    # history line's. Asking whether any named folder is trusted walks it and its parents for `.git`, an oracle again.
+    from halo_harness.peers.projects import _history_roots, _registry_roots
+    home = store.state_dir_of(req.state_dir)
+    roots = [str(req.cwd)] + _registry_roots(home) + _history_roots(home)
+    homes = {k for r in roots for t in (Path(r), store.repo_of(r)) for k in (_key(t), _key(os.path.realpath(str(t))))}
+    return _key(up[3]) in homes
 
 
 def _at_path(req, name: str, scope: str, path: str):
