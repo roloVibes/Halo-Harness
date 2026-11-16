@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -63,13 +64,29 @@ def test_f67_copy_argv_sends_stdout_to_devnull_and_stderr_to_a_file(ctx: Ctx):
 @test
 def test_f67_a_daemon_holding_stdout_does_not_stall_a_successful_copy(ctx: Ctx):
     import halo_harness.tui.clipboard as clip
+    # 3.6.0.1: the stand-in daemon writes its pid down, so the test ends it (by pid) instead of leaving it to run out
+    pid_file = Path(tempfile.mkdtemp(prefix="r9-daemon-")) / "pid"
     code = ("import subprocess, sys; "
-            "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(4)']); sys.stdin.read()")
+            "p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(4)']); "
+            f"open({str(pid_file)!r}, 'w').write(str(p.pid)); sys.stdin.read()")
     started = time.monotonic()
-    ok = clip._copy_argv([sys.executable, "-c", code], "hello", timeout_s=3.0)
-    elapsed = time.monotonic() - started
-    ctx.check("the copy is reported as a success", ok is True)
-    ctx.check(f"it returned without waiting out the timeout, took {elapsed:.2f}s", elapsed < 2.0)
+    try:
+        ok = clip._copy_argv([sys.executable, "-c", code], "hello", timeout_s=3.0)
+        elapsed = time.monotonic() - started
+        ctx.check("the copy is reported as a success", ok is True)
+        ctx.check(f"it returned without waiting out the timeout, took {elapsed:.2f}s", elapsed < 2.0)
+    finally:
+        try:
+            daemon = int(pid_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            daemon = 0
+        if daemon:
+            import signal
+            try:
+                os.kill(daemon, signal.SIGTERM)  # Windows: TerminateProcess
+            except OSError:
+                pass  # it had already ended
+        shutil.rmtree(pid_file.parent, ignore_errors=True)
 
 
 @test

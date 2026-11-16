@@ -202,12 +202,21 @@ def test_new_6_backgrounded_command_returns_promptly(ctx: Ctx):
     for the full timeout."""
     d = _tmpdir("bash-bg-")
     t0 = time.monotonic()
-    result = BashTool().run({"command": "sleep 5 & echo started", "timeout": 60_000},
+    result = BashTool().run({"command": "sleep 5 & echo started $!", "timeout": 60_000},
                              ToolContext(cwd=d, bash_state={"cwd": d}))
     elapsed = time.monotonic() - t0
-    ctx.check(f"returns promptly despite the backgrounded sleep, got {elapsed:.2f}s", elapsed < 3.0)
-    ctx.check("no error", result.is_error is False)
-    ctx.check(f"the foreground output is captured, got {result.content!r}", "started" in result.content)
+    try:
+        ctx.check(f"returns promptly despite the backgrounded sleep, got {elapsed:.2f}s", elapsed < 3.0)
+        ctx.check("no error", result.is_error is False)
+        ctx.check(f"the foreground output is captured, got {result.content!r}", "started" in result.content)
+    finally:
+        # 3.6.0.1: `cmd &` is left running on purpose (it ends with Halo, not with the command), so the test ends the
+        # sleeper it asked for, by the pid its shell printed (`kill` in the same shell: Git Bash's pids on Windows).
+        import re as _re
+        got = _re.search(r"started (\d+)", result.content or "")
+        if got:
+            BashTool().run({"command": f"kill {got.group(1)} 2>/dev/null; true", "timeout": 30_000},
+                           ToolContext(cwd=d, bash_state={"cwd": d}))
 
 
 @test

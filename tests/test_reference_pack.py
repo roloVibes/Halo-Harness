@@ -119,18 +119,25 @@ def test_the_reference_pack_end_to_end(ctx: Ctx):
         from halo_harness import headless
         from halo_harness.crew import map_run
         from halo_harness.tools.base import ToolResult
-        plain = headless.build_session(cwd=h.repo, model_ref_raw=ROW["ref"], print_mode=True, cli_flags={}).session
+        built = headless.build_session(cwd=h.repo, model_ref_raw=ROW["ref"], print_mode=True, cli_flags={})
+        plain = built.session
         spawned = []
 
         def inner(**kw):
             spawned.append(kw["tool_input"].get("subagent_type"))
             return [], ToolResult("ok")
-        _ev, tr = map_run.agent_call(inner, runtime=plain.agent_runtime, tool_id="t1", tool_name="Agent",
-                                     tool_input={"subagent_type": "doc-helper", "description": "the docs",
-                                                 "prompt": "what does guide.md link to"})
-        ctx.check(f"a plain session spawns the pack's doc-helper, got {tr.content!r} {spawned}",
-                  "doc-helper" in plain.agent_runtime.agents and not tr.is_error and spawned == ["doc-helper"])
-        plain.close_runtimes()
+        try:
+            _ev, tr = map_run.agent_call(inner, runtime=plain.agent_runtime, tool_id="t1", tool_name="Agent",
+                                         tool_input={"subagent_type": "doc-helper", "description": "the docs",
+                                                     "prompt": "what does guide.md link to"})
+            ctx.check(f"a plain session spawns the pack's doc-helper, got {tr.content!r} {spawned}",
+                      "doc-helper" in plain.agent_runtime.agents and not tr.is_error and spawned == ["doc-helper"])
+        finally:
+            # 3.6.0.1: the session started the pack's lint MCP server; a real `halo -p` closes it in its own finally
+            # (headless.run_print_mode: mcp_manager.close_all()), so the test does the same instead of leaving it.
+            plain.close_runtimes()
+            if built.mcp_manager is not None:
+                built.mcp_manager.close_all()
         from halo_harness.packs.contrib_views import contributes
         from halo_harness.packs.discover import find
         got = contributes(find("doc-review", cwd=h.repo), ["bash", "hooks", "mcp:lint"], running=True, cwd=h.repo, state_dir=h.state)
