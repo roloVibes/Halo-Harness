@@ -66,7 +66,7 @@ def _entry(state_dir, key) -> Optional[dict]:
 def start(model_path, *, runtime: str, port: int = 0, window: int, ngl: int, parallel: int = 1, kv_type=None,
           flash_attn: bool = False, log_dir=None, num_predict=None, model: str = "", keep: bool = False, state_dir=None,
           wait_s: Optional[float] = None, sources: Optional[dict] = None, prefix: Optional[list] = None) -> ServerInfo:
-    from halo_harness.bg_run import process_start_time
+    from halo_harness.children import read_start  # 3.6.0.1: read again while unreadable
     from halo_harness.providers import local_runtime as R
     from halo_harness.providers import local_server_cmd as C
     if state_dir is None:
@@ -109,7 +109,7 @@ def start(model_path, *, runtime: str, port: int = 0, window: int, ngl: int, par
     owner_pid, owner_start = server_owner(proc, bool(keep), state_dir)
     entry = {"model": model, "runtime": FMT.get(runtime, runtime), "pid": proc.pid, "port": port,
              "base_url": f"{info.url}/v1", "started": datetime.now(timezone.utc).isoformat(), "keep": bool(keep),
-             "owner_pid": owner_pid, "owner_start": owner_start, "proc_start": process_start_time(proc.pid),
+             "owner_pid": owner_pid, "owner_start": owner_start, "proc_start": read_start(proc.pid),
              "cmdline": list(info.argv), "ready": False, "id": sid, "kind": runtime, "model_path": str(path),
              "flags": flags, "sources": info.sources, "log": str(log), "halo": True,
              "launcher_pid": os.getpid(), "home_tied": owner_pid != os.getpid()}  # 3.6.0.0 R10: its home watch owns it

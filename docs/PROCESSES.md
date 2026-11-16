@@ -87,6 +87,7 @@ whose Studio has gone says "Studio has stopped" and stops asking.
                             kept on purpose or not; the sessions running on this home (kind `session`: listed,
                             never stopped -- a session ends from its own terminal); and any stray a scan finds by
                             its HALO_OWNER marker
+    halo ps --forget <pid>  remove the ledger record of a process Halo cannot prove is its own; nothing is signalled
     halo stop <pid|kind>    stop those
     halo stop --orphans     stop what has no living owner and was not asked to stay
     halo stop --all         stop everything listed for this home, kept things too
@@ -94,6 +95,15 @@ whose Studio has gone says "Studio has stopped" and stops asking.
 `halo doctor` has one row when something has no living owner: "N processes of Halo have no living owner", with
 `halo stop --orphans`. The stray scan reads `/proc` on Linux and `ps -E` on macOS; on Windows it lists no strays
 (Windows does not let one process read another's environment cheaply), and the Job object is what ends them.
+
+Halo sends a signal only to a process it can prove is its own: its pid AND the start time recorded when Halo started
+it. A record whose start time could not be read then is never signalled: `halo stop` answers "still running" for it,
+and on Windows `/update` does not install while it may still run. Halo drops such a record by itself once the pid
+provably runs a program that started after the record was written (Windows and macOS; on Linux, for records written
+by 3.6.0.1 or later). For one it cannot decide, look at the pid in Task Manager or `ps`: if it is another program,
+`halo ps --forget <pid>` removes the record and signals nothing; if it is Halo's, stop it where it runs. A record whose
+process runs and is proven Halo's is refused (`halo stop <pid>` ends that one). A forgotten process, if it was Halo's
+after all, is no longer ended when Halo closes.
 
 ## What Halo cannot end on macOS
 

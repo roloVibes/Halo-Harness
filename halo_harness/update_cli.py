@@ -184,6 +184,7 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     from halo_harness.children import start_time
     for o in openers:  # jb10: identity as seen in the process table now; the updater ends one only while it holds
         o.setdefault("start_time", start_time(o["pid"]))
+    openers = upd.confirm_rows(openers, upd.halo_openers)  # 3.6.0.1: still that program after the read
     for o in openers:
         print(f"halo update: {'Studio' if o['what'] == 'studio' else 'the supervisor'} (pid {o['pid']}) opened this "
               f"halo; the updater stops it once this halo has exited")

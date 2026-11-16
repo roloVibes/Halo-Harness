@@ -113,8 +113,64 @@ def provably_same(pid, recorded: Optional[str], *, tries: int = 1) -> bool:
     return False
 
 
+def read_start(pid, tries: int = 3) -> Optional[str]:
+    """3.6.0.1: `start_time(pid)`, read again (0.3 s apart) while the pid runs and the read is None (a `ps` past its
+    time limit while a large model loads). None at once for a pid that is not running."""
+    for attempt in range(max(1, tries)):
+        if attempt:
+            time.sleep(0.3)
+        got = start_time(pid)
+        if got is not None or not pid_running(pid):
+            return got
+    return None
+
+
+def boot_clock() -> Optional[float]:
+    """Seconds since boot, suspend included, on the clock Linux's /proc starttime counts in (CLOCK_BOOTTIME, also
+    inside a time namespace); None where start times are not /proc ticks (Windows, macOS, HALO_TEST_NO_PROC)."""
+    from halo_harness.bg_run import no_proc
+    if os.name == "nt" or no_proc() or not hasattr(time, "CLOCK_BOOTTIME"):
+        return None
+    try:
+        return round(time.clock_gettime(time.CLOCK_BOOTTIME), 3)
+    except OSError:
+        return None
+
+
+NEWER_MARGIN_S = 2.0
+
+
+def newer_than_row(entry: dict) -> bool:
+    """3.6.0.1: a row with no recorded start time whose pid now runs a process that provably started AFTER the row
+    was written -- another program the OS gave that pid to. `since` is written only once the process exists, so the
+    recorded process started at or before it; a live start more than NEWER_MARGIN_S later cannot be it. Windows (the
+    creation FILETIME) and macOS (`ps` lstart in UTC) keep the start as wall time; Linux compares /proc ticks with
+    the row's CLOCK_BOOTTIME `since_boot` (a wall-clock step moves /proc/stat's btime), and a Linux row without it
+    is not provable. Anything unreadable is not provable (False): the row stays (`halo ps --forget` clears it)."""
+    if entry.get("start_time"):
+        return False
+    pid = entry.get("pid")
+    live = start_time(pid)
+    if not live:
+        return False
+    from halo_harness.bg_run import no_proc, start_epoch
+    if os.name != "nt" and not no_proc() and not live.startswith("ps:"):  # Linux /proc: ticks since boot
+        mark = entry.get("since_boot")
+        if not isinstance(mark, (int, float)) or isinstance(mark, bool) or not live.isdigit():
+            return False
+        try:
+            return int(live) / os.sysconf("SC_CLK_TCK") > mark + NEWER_MARGIN_S
+        except (ValueError, OSError, ZeroDivisionError):
+            return False
+    since, epoch = entry.get("since"), start_epoch(live)
+    return (epoch is not None and isinstance(since, (int, float)) and not isinstance(since, bool)
+            and epoch > since + NEWER_MARGIN_S)
+
+
 def alive(entry: dict) -> bool:
-    return same_process(entry.get("pid"), entry.get("start_time"))
+    """The row's process still runs: its pid, its recorded start time; a row with none is dropped once the pid
+    provably runs another program (`newer_than_row`)."""
+    return same_process(entry.get("pid"), entry.get("start_time")) and not newer_than_row(entry)
 
 
 def owner_alive(entry: dict) -> bool:
@@ -161,15 +217,27 @@ def in_session() -> bool:
 
 
 def register(pid, what: str, cmd, *, owner_pid: Optional[int] = None, launched: bool = False, state_dir=None,
-             **extra) -> Optional[dict]:
+             start: Optional[str] = None, owner_start: Optional[str] = None, **extra) -> Optional[dict]:
     """Add (or replace) the entry for `pid`. The owner is this process, or
     `owner_pid`; `launched=True` (a short-lived launcher) takes
-    `launcher_owner()`. Never raises: a registry problem never stops a spawn."""
+    `launcher_owner()`. Never raises: a registry problem never stops a spawn.
+    3.6.0.1: `start` / `owner_start`: a start time the caller already holds (studio.json's `pstart`); otherwise it
+    is read, again while unreadable (`read_start`). A pid that no longer runs is not written (None): its row is the
+    one that comes back to life once the OS gives the pid to another program."""
     if not isinstance(pid, int) or pid <= 0:
         return None
+    if not start:
+        start = read_start(pid)
+        if start is None and not pid_running(pid):
+            return None
     owner = launcher_owner() if launched else (os.getpid() if owner_pid is None else owner_pid)
-    entry = {"pid": pid, "start_time": start_time(pid), "what": str(what), "cmd": _short_cmd(cmd),
-             "owner_pid": owner, "owner_start": start_time(owner) if owner else None, "since": round(time.time(), 3)}
+    if owner and not owner_start:
+        owner_start = read_start(owner)
+    entry = {"pid": pid, "start_time": start, "what": str(what), "cmd": _short_cmd(cmd),
+             "owner_pid": owner, "owner_start": owner_start if owner else None, "since": round(time.time(), 3)}
+    boot = boot_clock()
+    if boot is not None:
+        entry["since_boot"] = boot
     entry.update({k: v for k, v in extra.items() if v is not None})
     try:
         from halo_harness.filelock import file_lock
@@ -253,5 +321,14 @@ def local_servers(state_dir=None, *, venv_only: bool = False) -> list:
         what = "mlx" if (r.get("runtime") or "").startswith("mlx") else "llama"
         out.append({"pid": r["pid"], "start_time": r.get("proc_start"), "what": what, "cmd": cmd,
                     "owner_pid": r.get("owner_pid"), "owner_start": r.get("owner_start"), "model": r.get("model"),
-                    "keep": bool(r.get("keep")), "source": "local-servers"})
+                    "keep": bool(r.get("keep")), "source": "local-servers", "since": _epoch(r.get("started"))})
     return out
+
+
+def _epoch(iso) -> Optional[float]:
+    """A local-servers row's `started` (ISO text, written once the server process exists) as `since`."""
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(str(iso)).timestamp() if iso else None
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None

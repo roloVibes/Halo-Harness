@@ -124,7 +124,7 @@ def cmd_on(argv: list) -> int:
     except OSError as e:
         return C.fail(a.json, "not_started", f"halo host steward on: could not start it: {e}")
     if isinstance(hpid, int) and isinstance(proc, subprocess.STDLIB_POPEN):
-        children.register(proc.pid, "steward", argv_, owner_pid=hpid)
+        children.register(proc.pid, "steward", argv_, owner_pid=hpid, owner_start=hstart)
     duty.write_state(home, {"peer": peer, "pid": getattr(proc, "pid", None), "model": a.model, "grant": a.grant,
                             "started": time.time(), "every_s": every_s(home)})
     line = (f"the duty steward runs (pid {getattr(proc, 'pid', '?')}) on {a.model}: a separate process with its own "

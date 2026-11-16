@@ -119,7 +119,7 @@ def serve(engine: str, model: str, *, port: Optional[int] = None, keep: bool = F
 
 
 def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state_dir, wait_s):
-    from halo_harness.bg_run import process_start_time
+    from halo_harness.children import read_start  # 3.6.0.1: read again while unreadable
     from halo_harness.engines.launch_env import child_env, write_key
     from halo_harness.providers import local_runtime as R
     from halo_harness.providers import local_server_cmd as C
@@ -156,7 +156,7 @@ def _start(d: dict, prefix: list, src: str, v, fields: dict, *, keep, lan, state
     reg = {"id": engine, "kind": engine, "runtime": engine, "model": fields["name"], "set": fields["model"],
            "model_path": fields["path"], "pid": proc.pid, "port": port, "base_url": f"{url}{d['base_path']}",
            "started": datetime.now(timezone.utc).isoformat(), "keep": bool(keep) or sup, "owner_pid": owner_pid,
-           "owner_start": owner_start, "proc_start": process_start_time(proc.pid), "cmdline": list(cmd),
+           "owner_start": owner_start, "proc_start": read_start(proc.pid), "cmdline": list(cmd),
            "ready": False, "log": str(log), "launch_log": str(log),
            "flags": {"lan": bool(lan), "window": fields["window"], "parallel": fields.get("parallel")}, "halo": True}
     with R._registry_lock(state_dir):

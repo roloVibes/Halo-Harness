@@ -17,6 +17,7 @@ tmux-missing fallback are the parts worth pinning directly.
 from __future__ import annotations
 
 from halo_harness.selfexec import python_argv  # 3.6.0.0 R10: never the working folder's copy
+import calendar
 import json
 import os
 from halo_harness import subprocess_safe as subprocess
@@ -101,16 +102,17 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
         if stdin_fh is not None:
             stdin_fh.close()
 
+    from halo_harness import children
     meta = {"id": run_id, "pid": proc.pid, "command": real_command, "cwd": str(cwd or Path.cwd()),
             "started": time.time(), "log_path": str(log_path), "status_path": str(status_path),
-            "start_time": process_start_time(proc.pid)}
+            "start_time": children.read_start(proc.pid)}
     try:
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
     except OSError:
         pass
-    from halo_harness import children
     if children.spawned(proc):  # 3.2.2.0 R3: a quit / `halo update` finds it (children.py)
-        children.register(proc.pid, "bg", real_command, launched=launched, bg_id=run_id, keep=True)
+        children.register(proc.pid, "bg", real_command, launched=launched, bg_id=run_id, keep=True,
+                          start=meta["start_time"])
     return {"id": run_id, "log_path": str(log_path), "pid": proc.pid, "meta_path": str(meta_path)}
 
 
@@ -141,6 +143,28 @@ def process_start_time(pid: int) -> Optional[str]:
         return after[19]
     except (OSError, IndexError, ValueError):
         return None
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def start_epoch(text, *, windows: Optional[bool] = None) -> Optional[float]:
+    """3.6.0.1: the wall-clock second a start time of `process_start_time` names, where the text carries one: the
+    creation FILETIME on Windows (100 ns since 1601), a `ps:` lstart read in UTC. None for anything else (Linux's
+    /proc ticks count from boot: children.py compares those with CLOCK_BOOTTIME instead) or a text it cannot read."""
+    if not text:
+        return None
+    text = str(text)
+    if text.startswith("ps:"):
+        parts = text[3:].split()  # "Mon Oct  5 10:00:00 2026" (C locale, read with TZ=UTC0)
+        try:
+            h, m, s = (int(x) for x in parts[3].split(":"))
+            return float(calendar.timegm((int(parts[4]), _MONTHS.index(parts[1][:3]) + 1, int(parts[2]), h, m, s)))
+        except (IndexError, ValueError):
+            return None
+    if (os.name == "nt" if windows is None else windows) and text.isdigit():
+        return int(text) / 1e7 - 11644473600
+    return None
 
 
 def no_proc() -> bool:

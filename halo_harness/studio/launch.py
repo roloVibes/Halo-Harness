@@ -167,7 +167,8 @@ def _ledger_names_the_studio(proc, argv: list, state_dir: Path) -> None:
     pid = (info or {}).get("pid")
     if not isinstance(pid, int) or pid == proc.pid or not owned_by_me(info):
         return
-    if children.register(pid, "studio", argv, state_dir=state_dir, launcher_pid=proc.pid) is not None:
+    if children.register(pid, "studio", argv, state_dir=state_dir, launcher_pid=proc.pid,
+                          start=info.get("pstart")) is not None:
         children.unregister(proc.pid, state_dir=state_dir)
 
 

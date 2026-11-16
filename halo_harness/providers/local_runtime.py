@@ -482,12 +482,12 @@ def start_managed_server(*, model: str, runtime: str, binary_argv: list, model_p
     # (see `_terminate_pid`'s own docstring) instead of leaving a zombie.
     _register_popen(proc)
     base_url = f"http://127.0.0.1:{port}/v1"
-    from halo_harness.bg_run import process_start_time
+    from halo_harness.children import read_start  # 3.6.0.1: read again while unreadable
     owner_pid, owner_start = _owner_fingerprint()
     entry = ManagedServer(model=model, runtime=runtime, pid=proc.pid, port=port, base_url=base_url,
                            started=datetime.now(timezone.utc).isoformat(), keep=bool(keep),
                            owner_pid=owner_pid, owner_start=owner_start,
-                           proc_start=process_start_time(proc.pid), cmdline=list(argv), ready=False)
+                           proc_start=read_start(proc.pid), cmdline=list(argv), ready=False)
     # Recorded before the (possibly multi-minute) readiness wait: a halo that
     # dies while the model loads still leaves a row `halo local stop` and the
     # next sweep can act on, instead of an invisible orphan on a loopback port.

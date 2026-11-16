@@ -111,7 +111,7 @@ def serve(kind: str, model: str, *, device: Optional[str] = None, port: Optional
 
 
 def _start(kind, row, path: Path, dev: dict, prefix: list, *, port, keep, state_dir, wait_s):
-    from halo_harness.bg_run import process_start_time
+    from halo_harness.children import read_start  # 3.6.0.1: read again while unreadable
     from halo_harness.providers import local_runtime as R
     from halo_harness.providers import local_server_cmd as C
     from halo_harness.providers.local_server import servers_dir
@@ -139,7 +139,7 @@ def _start(kind, row, path: Path, dev: dict, prefix: list, *, port, keep, state_
     rt = runtime_for(kind)
     reg = {"id": kind, "kind": rt, "runtime": rt, "model": row.name, "model_path": str(path), "pid": proc.pid,
            "port": port, "base_url": f"{url}/v1", "started": datetime.now(timezone.utc).isoformat(), "keep": bool(keep),
-           "owner_pid": owner_pid, "owner_start": owner_start, "proc_start": process_start_time(proc.pid),
+           "owner_pid": owner_pid, "owner_start": owner_start, "proc_start": read_start(proc.pid),
            "cmdline": list(argv), "ready": False, "flags": {"device": dev["device"]}, "sources": {"device": dev["line"]},
            "log": str(log), "halo": True, "device": dev["device"]}
     with R._registry_lock(state_dir):

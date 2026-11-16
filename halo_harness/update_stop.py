@@ -52,8 +52,26 @@ def _supervisor_entry(state_dir=None) -> Optional[dict]:
     pid = row.get("pid")
     if not row.get("running") or not isinstance(pid, int) or pid == os.getpid():
         return None
-    return {"pid": pid, "start_time": C.start_time(pid), "what": "supervisor", "cmd": ["halo", "supervise"],
-            "source": "pulse"}
+    # 3.6.0.1: the start time is the one that proves the pid is still the process that wrote the pulse (`pstart`),
+    # read once; a pid that vanished or now runs another program is dropped, never given that program's start time
+    try:
+        from halo_harness.bg_run import start_matches
+        from halo_harness.remote.proc_ident import start_token
+        want = (pulse.read_row(C._state(state_dir)) or {}).get("pstart")
+        have = start_token(pid)
+    except Exception:
+        return None
+    if have is None:
+        if not C.pid_running(pid):
+            return None
+        start = None  # runs, unreadable: named (`halo supervise stop`), never ended by number
+    elif want and start_matches(pid, want, have):
+        start = have.split(":")[-1] if have.startswith(("win:", "linux:")) else have  # process_start_time's text
+    elif want:
+        return None
+    else:
+        start = None  # a pulse with no pstart cannot prove the pid is still the supervisor
+    return {"pid": pid, "start_time": start, "what": "supervisor", "cmd": ["halo", "supervise"], "source": "pulse"}
 
 
 def registered(state_dir=None) -> list:
@@ -74,7 +92,12 @@ def scanned(known=()) -> list:
     if not pids:
         return []
     rows = {r["pid"]: r for r in upd.other_halo_processes()}
-    found = [rows.get(p) or {"pid": p, "ppid": None, "what": "halo", "cmd": ""} for p in pids]
+    # 3.6.0.1: a pid the second list no longer shows as Halo's vanished or was reused: dropped. The start times are
+    # read now, then one more look keeps only the pids still running the command listed (upd.confirm_rows)
+    found = [dict(rows[p]) for p in pids if p in rows]
+    for r in found:
+        r["start_time"] = C.start_time(r["pid"])
+    found = upd.confirm_rows(found, upd.other_halo_processes)
     skip = set(known)
     changed = True
     while changed:
@@ -83,7 +106,7 @@ def scanned(known=()) -> list:
             if r["pid"] not in skip and r.get("ppid") in skip:
                 skip.add(r["pid"])
                 changed = True
-    return [{"pid": r["pid"], "start_time": C.start_time(r["pid"]), "what": r.get("what") or "halo",
+    return [{"pid": r["pid"], "start_time": r["start_time"], "what": r.get("what") or "halo",
              "cmd": str(r.get("cmd") or "").split(), "source": "scan"} for r in found if r["pid"] not in skip]
 
 
@@ -131,6 +154,21 @@ def stop_command(entry: dict) -> str:
     if what == "halo":
         return f"/quit in that session (or end pid {pid})"
     return f"taskkill /PID {pid}" if sys.platform == "win32" else f"kill {pid}"
+
+
+def unproven_line(entry: dict) -> str:
+    """3.6.0.1: what to do about a process Halo cannot prove is its own (no start time recorded): never a signal by
+    pid number. A ledger row (children.json, the model servers' registry) can be forgotten by `halo ps --forget`; a
+    Halo command that stops its kind is named; a bare `taskkill` / `kill` is not."""
+    pid = entry.get("pid")
+    cmd = stop_command(entry)
+    own = None if cmd.startswith(("taskkill ", "kill ")) else cmd.split(" (or end pid")[0]
+    text = f"{describe(entry)} may still run and cannot be proven to be Halo's own (its start time was not recorded)"
+    if entry.get("source") in (None, "local-servers"):
+        text += (f"; if it is not Halo's (Task Manager or ps shows another program), `halo ps --forget {pid}` removes "
+                 f"its record")
+        return text + (f"; if it is Halo's, stop it with: {own}" if own else "")
+    return text + (f"; if it is Halo's, stop it with: {own}" if own else "; if it is Halo's, end it where it runs")
 
 
 def refusal_lines(state_dir=None) -> list:

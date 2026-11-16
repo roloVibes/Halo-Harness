@@ -235,7 +235,8 @@ see `docs/DATABRICKS.md`.
 
 ## `halo ps` and `halo stop`
 
-Every live process of Halo for this home, and the way to end it: see
+Every live process of Halo for this home, and the way to end it (`halo ps [--json]`, `halo ps --forget <pid>` for
+a record Halo cannot prove is its own, `halo stop <pid|kind>`, `--orphans`, `--all`): see
 [What runs, and what stops it](PROCESSES.md).
 
 ## `halo audit`

@@ -212,7 +212,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
     from halo_harness import update as upd
     from halo_harness import update_plan as UP
     from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
-    from halo_harness.update_stop import describe, lingering, stop_command
+    from halo_harness.update_stop import describe, lingering, unproven_line
     if offline_mode_enabled():
         print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
         return 1
@@ -230,20 +230,23 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
             print(why, file=sys.stderr)
             return 1
     openers = upd.halo_openers()  # a Studio that opened this halo: stopped by the updater, never waited on
-    rows = lingering(state_dir)
     from halo_harness.children import start_time
+    for o in openers:  # seen in the process table just now; 3.6.0.1: then one more look (upd.confirm_rows)
+        o["start_time"] = start_time(o["pid"])
+    openers = upd.confirm_rows(openers, upd.halo_openers)
+    rows = lingering(state_dir)
     rows += [{"pid": o["pid"], "what": o["what"], "cmd": str(o.get("cmd") or "").split(),
-              "start_time": start_time(o["pid"])} for o in openers  # seen in the process table just now
+              "start_time": o["start_time"], "source": "opener"} for o in openers
              if all(r["pid"] != o["pid"] for r in rows)]
     # jb10: a row with no recorded start time is never ended by number (its pid may be another program's now)
     unrecorded = [r for r in rows if not r.get("start_time")]
     rows = [r for r in rows if r.get("start_time")]
     for r in unrecorded:
-        print(f"halo update: {describe(r)} is not stopped by the updater: its start time was not recorded, so it "
-              f"cannot be proven to be Halo's own; if `halo ps` lists it, end it with: {stop_command(r)}",
+        print(f"halo update: not stopped by the updater: {unproven_line(r)}",
               file=sys.stderr if windows else sys.stdout)
     if unrecorded and windows:  # files are never replaced under a Halo that may still run
-        print("halo update: not installing while it may still run; end it and run /update again", file=sys.stderr)
+        print("halo update: not installing while it may still run; once that is dealt with as above, run /update "
+              "again", file=sys.stderr)
         return 1
     starts = {r["pid"]: r["start_time"] for r in rows}
     supervisor = any(r.get("what") == "supervisor" for r in rows)

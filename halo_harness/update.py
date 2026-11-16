@@ -939,6 +939,29 @@ def halo_openers(*, run_fn=None) -> "list[dict]":
     return launch_lineage(run_fn=run_fn)[1]
 
 
+def confirm_rows(rows: list, again: Callable) -> list:
+    """3.6.0.1: one more look after the start times of `rows` ({pid, cmd, ppid?} from a process list) were read: keep
+    a row only while `again()` -- a fresh look by the same reader -- still shows its pid running the same command (under
+    the same parent, where both name one). A pid that vanished or now runs another program is dropped, so a start time
+    read in between never becomes another program's identity; one reused after this look has another start time,
+    which every stop (update_runner.proven, children.provably_same) refuses."""
+    if not rows:
+        return []
+    try:
+        fresh = {r["pid"]: r for r in (again() or []) if isinstance(r, dict) and "pid" in r}
+    except Exception:
+        return []
+    out = []
+    for r in rows:
+        f = fresh.get(r.get("pid"))
+        if f is None or str(f.get("cmd") or "") != str(r.get("cmd") or ""):
+            continue
+        if r.get("ppid") is not None and f.get("ppid") is not None and f["ppid"] != r["ppid"]:
+            continue
+        out.append(r)
+    return out
+
+
 def other_halo_pids(*, run_fn=None) -> "list[int]":
     """The pids of `other_halo_processes` -- `scripts/release.py`'s check and
     the older callers."""

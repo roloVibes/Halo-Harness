@@ -645,6 +645,24 @@ def test_a_studio_that_opened_this_halo_is_left_to_the_updater(ctx: Ctx):
 
 
 @test
+def test_an_opener_whose_pid_is_gone_on_a_second_look_is_not_in_the_plan(ctx: Ctx):
+    """3.6.0.1: the opener's start time is read after the process list; one more look keeps it only while its pid
+    still runs the same command, so a pid reused in between never lends another program's start time to the plan."""
+    from tests.helpers.update_inline import PLANS
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    looks = []
+    upd.halo_openers = lambda **kw: looks.append(1) or ([{"pid": 400, "what": "studio", "cmd": "halo studio"}]
+                                                         if len(looks) == 1 else [])
+    try:
+        code, out, _err = _capture(update_cli.apply_update)
+        ctx.check(f"not named, not in the plan, got {code} {out!r} {PLANS[-1].get('stop_pids')}",
+                  code == 0 and "pid 400" not in out and 400 not in (PLANS[-1].get("stop_pids") or [])
+                  and len(looks) == 2)
+    finally:
+        _restore_all(orig)
+
+
+@test
 def test_an_archive_install_of_the_current_tag_is_not_called_older(ctx: Ctx):
     """Judge should-fix: a build whose commit is unknown is "unknown", never "older"."""
     got = update_cli.older_release({"version": "3.5.0.1", "commit": None, "requested_revision": None},

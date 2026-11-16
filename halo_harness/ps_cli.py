@@ -6,6 +6,10 @@ them (Halo 3.6.0.0 R10, closing.py; docs/PROCESSES.md).
                                            never stopped) and the processes a scan finds with Halo's
                                            HALO_OWNER marker that the ledger lost: kind, pid, age, owner (alive /
                                            gone / none), kept on purpose or not
+    halo ps --forget <pid> ... [--json]    remove the ledger record of a process Halo cannot prove is its own (no
+                                           start time was recorded; the pid may be another program's now): the
+                                           record only, nothing is signalled; a running process proven Halo's is
+                                           refused (halo stop ends it)
     halo stop <pid>|<kind> ... [--json]    stop those (a kind: studio, bg, schedule, supervisor, host, llama, mlx, stray)
     halo stop --orphans                    stop what has no living owner and was not asked to stay (the sweep a launch
                                            runs at start)
@@ -150,11 +154,56 @@ def _print(table: list) -> None:
         print(f"{r['kind']:<11}{r['pid']:>8}  {r['age']:>5}  {r['owner']:<6} {'yes ' if r['kept'] else 'no  '}  {r['cmd']}")
 
 
+def forget(pids: list, state_dir=None) -> "tuple[list, list]":
+    """3.6.0.1: `halo ps --forget` -- remove the ledger record of each pid, never signal it. (forgot, refused): lists
+    of {pid, kind, line}. Refused: a pid with no record in the ledger (children.json, the model servers' registry),
+    a session, and a record whose process runs and is proven Halo's own (`halo stop <pid>` ends that)."""
+    from halo_harness import children as C
+    home = C._state(state_dir)
+    ledger = {e["pid"]: e for e in C.load(state_dir)}
+    servers = {e["pid"]: e for e in C.local_servers(state_dir)}
+    sessions = {s["pid"] for s in _sessions(home)}
+    forgot, refused = [], []
+    for pid in pids:
+        row = ledger.get(pid) or servers.get(pid)
+        if row is None:
+            why = (f"pid {pid} is a session: it ends from its own terminal (/quit), it has no record to forget"
+                   if pid in sessions else f"nothing of Halo here is pid {pid} in the ledger (halo ps lists them)")
+            refused.append({"pid": pid, "kind": "session" if pid in sessions else None, "line": f"halo ps: {why}"})
+            continue
+        kind = C.label(row.get("what") or "halo")
+        if C.provably_same(pid, row.get("start_time"), tries=3):
+            refused.append({"pid": pid, "kind": row.get("what"), "line": f"halo ps: {kind} (pid {pid}) runs and is "
+                            f"Halo's own; its record stays -- `halo stop {pid}` ends it"})
+            continue
+        if pid in ledger:
+            C.unregister(pid, state_dir=state_dir)
+        if pid in servers:
+            from halo_harness.providers.local_runtime import drop_registry_entries
+            drop_registry_entries(home, [(servers[pid].get("model"), pid)])
+        forgot.append({"pid": pid, "kind": row.get("what"), "line": f"forgot: {kind} (pid {pid}): its record only; "
+                       f"nothing was signalled (if it was Halo's after all, Halo no longer ends it when it closes)"})
+    return forgot, refused
+
+
 def cmd_ps(argv: list) -> int:
     p = argparse.ArgumentParser(prog="halo ps", description="Every live process of Halo for this home: the ledger, "
                                 "and any stray a scan finds by Halo's HALO_OWNER marker.")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--forget", nargs="+", type=int, metavar="PID",
+                   help="remove the ledger record of a process Halo cannot prove is its own; signals nothing "
+                        "(a running process proven Halo's is refused: halo stop ends it)")
     a = p.parse_args(argv)
+    if a.forget:
+        forgot, refused = forget(a.forget)
+        if a.json:
+            print(json.dumps({"forgot": forgot, "refused": refused}, indent=2))
+        else:
+            for f in forgot:
+                print(f["line"])
+            for r in refused:
+                print(r["line"], file=sys.stderr)
+        return 1 if refused else 0
     table = rows()
     if a.json:
         print(json.dumps({"processes": table}, indent=2))
@@ -224,7 +273,10 @@ def cmd_stop(argv: list) -> int:
                           "unknown": unknown}, indent=2))
     else:
         for d in done:
-            print(f"{'stopped' if d['stopped'] else 'still running'}: {d['kind']} (pid {d['pid']})")
+            print(f"{'stopped' if d['stopped'] else 'still running'}: {d['kind']} (pid {d['pid']})"
+                  + ("" if d["stopped"] or d.get("start_time") or d["source"] not in ("children.json", "local-servers")
+                     else f" -- its start time was not recorded, so Halo cannot prove it is its own and sends it no "
+                          f"signal; if it is another program, `halo ps --forget {d['pid']}` removes the record"))
         for w in unknown:
             print(f"halo stop: nothing of Halo here is {w!r} (halo ps lists them)", file=sys.stderr)
         if not done and not unknown:
