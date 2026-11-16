@@ -107,8 +107,8 @@ across the mount are not guaranteed.
 (`halo_harness/isolation/Dockerfile`: `python:3.12-slim`, git and ripgrep,
 then `pip install "git+https://github.com/roloVibes/Halo-Harness.git@v<version>"`).
 `halo isolation build [--image NAME] [--dry-run]` builds it at this harness's
-version; `halo isolation check` prints the two doctor rows and what your
-lineups and bios declare ([COMMANDS-supervise.md](COMMANDS-supervise.md#halo-isolation)).
+version; `halo isolation check` prints the two doctor rows and what lineup and
+bio files of the older 3.5 format still declare; agent files do not declare isolation yet ([COMMANDS-supervise.md](COMMANDS-supervise.md#halo-isolation)).
 
 ## `isolation: user`
 

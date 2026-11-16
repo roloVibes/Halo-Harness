@@ -285,11 +285,38 @@ def test_help_texts_and_the_system_prompt_describe_what_36_has(ctx: Ctx):
     ctx.check(f"`halo studio --help` names nothing gone, got {STALE_WORDS.findall(said)}", not STALE_WORDS.search(said))
     said = _help(iso.cmd_isolation, ["--help"])
     src = (REPO / "halo_harness" / "isolation" / "cli.py").read_text(encoding="utf-8")
+    # batch 2: `check` still reads the older files and says so; that phrase is the only lineup/bio word excused
+    said, src = (re.sub(r"lineups and bios of the older 3\.5 format", "", re.sub(r"\s+", " ", t)) for t in (said, src))
     ctx.check(f"`halo isolation`'s help names nothing gone, got {STALE_WORDS.findall(said + src)}",
               not STALE_WORDS.search(said + src))
     for rel in ("halo_harness/agent/prompt.py", "halo_harness/agent/prompt_lean_system.py"):
         hits = [f"{line}: {STALE_WORDS.findall(text)}" for line, text in _strings(REPO / rel) if STALE_WORDS.search(text)]
         ctx.check(f"{rel}: the prompt names nothing gone, got {hits}", not hits)
+
+
+@test
+def test_isolation_checks_help_names_what_it_reports(ctx: Ctx):
+    """3.6.0.1 setup-words batch 2: `halo isolation check`'s help said it reports 'which of your agents declare a mode',
+    but the command reads the older (3.5) lineup and bio files and prints 'lineup X' / 'bio X'. The help names the
+    kinds of thing the command prints, says they are the older format, and that agent files declare none yet."""
+    _home()
+    from halo_harness.isolation import cli as iso
+    kinds = re.findall(r'f"(\w+) \{name\}"', (REPO / "halo_harness" / "isolation" / "declared.py").read_text(encoding="utf-8"))
+    ctx.check(f"declared.py's labels were read, got {kinds}", sorted(kinds) == ["bio", "lineup"])
+    import os
+    saved = os.environ.get("COLUMNS")
+    os.environ["COLUMNS"] = "400"  # one help row per command, so the check reads the whole phrase
+    try:
+        said = re.sub(r"\s+", " ", _help(iso.cmd_isolation, ["--help"]))
+    finally:
+        os.environ.pop("COLUMNS", None) if saved is None else os.environ.__setitem__("COLUMNS", saved)
+    row = re.search(r"check (.*)", said)
+    row = row.group(1) if row else ""
+    for kind in kinds:
+        ctx.check(f"the check's help names the {kind}s it prints, got {row!r}", re.search(rf"\b{kind}s?\b", row))
+    ctx.check(f"the help says they are the older 3.5 format, got {row!r}", "3.5" in row)
+    ctx.check(f"the help says agent files declare none yet, got {row!r}", "agent files" in row)
+    ctx.check(f"the help does not say it reports your agents, got {row!r}", "your agents declare" not in row)
 
 
 if __name__ == "__main__":

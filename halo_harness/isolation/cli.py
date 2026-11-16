@@ -3,7 +3,8 @@
     halo isolation image            the default image name and the Dockerfile Halo ships
     halo isolation build [--image NAME] [--dry-run]
                                     build that image with docker (or podman) at this harness's version
-    halo isolation check            which modes this host can run, and which of your agents declare a mode
+    halo isolation check            which modes this host can run, and which lineups and bios of the older
+                                    3.5 format declare one (agent files do not declare isolation yet)
 
 Exit codes: 0 done, 1 could not (the reason on stderr), 2 usage.
 """
@@ -23,7 +24,8 @@ def _parser() -> argparse.ArgumentParser:
     b = sub.add_parser("build", help="build the default image with docker (or podman)")
     b.add_argument("--image", default=None, help="the tag to build (default: halo-harness-worker:<version>)")
     b.add_argument("--dry-run", action="store_true", help="print the build command, run nothing")
-    sub.add_parser("check", help="which modes this host can run, and which of your agents declare a mode")
+    sub.add_parser("check", help="which modes this host can run, and which lineups and bios of the older 3.5 format "
+                                 "declare one (agent files do not declare isolation yet)")
     return p
 
 

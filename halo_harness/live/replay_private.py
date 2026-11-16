@@ -124,7 +124,10 @@ def _machines() -> list:
 #: a home folder's prefix right before the account name: /home/, /Users/, C:\Users\ (either slash, a JSON-doubled
 #: backslash), /c/Users/ (Git Bash), /mnt/c/Users/ (WSL), \\?\C:\Users\; group 1 is kept
 _SEGMENT_LEAD = r"((?<=[\\/])(?:home|users)(?:\\\\|\\|/))"
-_SEGMENT_END = r"(?=[\\/\"'`]|\s|$)"
+#: where the name's segment ends: a slash, a quote, whitespace, the end, a character no account name may hold on any
+#: of the three systems (`,` `:` `;` `|` `<` `>` `[` `]` `=` `+` `*` `?`), or a `.` / `)` that does not run on into
+#: more name (`/home/user.` ends a sentence; `/home/user.name`, `/home/user-2` are other, longer names)
+_SEGMENT_END = r"(?=[\\/\"'`,:;|<>\[\]=+*?]|\s|$|[.)](?![\w-]))"
 
 
 def _name_patterns(names: list, *, segments: bool = True) -> list:

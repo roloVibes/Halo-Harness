@@ -249,7 +249,7 @@ this host can run. Exit codes: 0 done, 1 could not (the reason on stderr),
 halo isolation image             # the default image name and the Dockerfile Halo ships
 halo isolation build             # docker (or podman) build of that image at this harness's version
 halo isolation build --image my-halo-worker:1 --dry-run   # print the build command, run nothing
-halo isolation check             # the doctor's isolation and secrets rows, and what your lineups and bios declare
+halo isolation check             # the doctor's isolation and secrets rows, and what 3.5-format lineup and bio files declare
 ```
 
 ### `halo isolation build` flags

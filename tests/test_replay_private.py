@@ -234,6 +234,30 @@ def test_a_common_word_account_name_is_scrubbed_only_as_a_name(ctx: Ctx):
 
 
 @test
+def test_a_home_path_before_closing_punctuation_is_scrubbed(ctx: Ctx):
+    """3.6.0.1 setup-words batch 2: the home-folder rule ended a name only at a slash, a quote, whitespace or the end,
+    so '/home/user.' at the end of a sentence and '/home/user:' in a PATH-like list kept a common-word account name.
+    Punctuation no account name can hold ends it; a '.', '-' or ')' that runs on into more name does not."""
+    from halo_harness.live.replay_private import scrub
+    bs = chr(92)
+    for name in ("user", "zedtester"):
+        def run(text):
+            return scrub({"t": text}, None, homes=[], users=[name], machines=[])["t"]
+        line = f"see /home/{name}, then /home/{name}. and (/home/{name}) and /home/{name}: and /home/{name}/x"
+        want = "see /home/<user>, then /home/<user>. and (/home/<user>) and /home/<user>: and /home/<user>/x"
+        ctx.check(f"[{name}] every home path in the line goes, got {run(line)!r}", run(line) == want)
+        for tail in (".", ":", ";", ",", ")", "]", ">", "...", ".)", ":/usr/bin", ";C:" + bs + "x", "'", "|"):
+            for lead in ("/home/", "/Users/", f"C:{bs}Users{bs}", "C:/Users/"):
+                text = f"at {lead}{name}{tail}"
+                ctx.check(f"[{name}] {text!r} -> the name goes, got {run(text)!r}",
+                          run(text) == f"at {lead}<user>{tail}")
+    for text in ("/home/user.name/x", "/home/username", "/home/user-2", "/home/user_x", f"C:{bs}Users{bs}user.name{bs}x",
+                 "/home/user.2/x"):
+        out = scrub({"t": text}, None, homes=[], users=["user"], machines=[])["t"]
+        ctx.check(f"another, longer account name is not 'user': {text!r} kept, got {out!r}", out == text)
+
+
+@test
 def test_audit_finds_no_leak_in_a_scrubbed_replay_of_a_common_word_account(ctx: Ctx):
     """3.6.0.1 setup-words: `halo audit privacy --replays` matched its own placeholder ('<user>' holds 'user') and the
     ordinary words a common-word account name shares; it uses the scrub's own name rules now."""
