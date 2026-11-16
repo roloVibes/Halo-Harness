@@ -22,7 +22,9 @@ How the children notice a dead owner on their own (a hard kill runs no Python at
   each Halo process marks what it starts with its OWN id, so a `halo` run from a session's shell tool, or a sub-agent,
   ends only its own and never its parent's (two sessions of one home never touch each other's either);
 * Windows: every child subprocess_safe.Popen starts goes into this process's Job object with KILL_ON_JOB_CLOSE, so
-  the kernel ends them when the last handle (this process) goes; a kept spawn breaks away (the Job allows it); when
+  the kernel ends them when the last handle (this process) goes; a Halo child's kept spawn breaks away (Halo's own
+  children join the Job that allows it; every other child joins one that forbids it, so a Git Bash program's own
+  children, which break away whenever they may, stay in); when
   an OUTER Job (a terminal's, a service's) forbids breakaway, a kept spawn starts from outside every Job through WMI
   (start_outside_job), and when that cannot be done either Halo says so in one line (say_held_in_job);
 * a Halo child (`python -m halo_harness ...`: the Studio server first of all) gets `HALO_OWNER_WATCH=<pid>:<start>`
@@ -57,7 +59,7 @@ WATCH_POLL_S = 0.25
 KEPT_KINDS = ("bg", "supervisor", "host", "update", "terminal")
 _BREAKAWAY = 0x01000000          # CREATE_BREAKAWAY_FROM_JOB
 _STATE: dict = {"installed": False, "closed": False, "spawned": False, "reaper": None, "job": None,
-                "callbacks": [], "owner_gone": False}
+                "strict_job": None, "callbacks": [], "owner_gone": False}
 _LOCK = threading.RLock()
 
 
@@ -212,6 +214,39 @@ def _in_a_job() -> bool:
         return bool(k32.IsProcessInJob(k32.GetCurrentProcess(), None, ctypes.byref(got))) and bool(got.value)
     except Exception:
         return False
+
+
+def breakaway_frees() -> bool:
+    """Windows: a spawn asking to break away (CREATE_BREAKAWAY_FROM_JOB) leaves every Job this process is in. Not so
+    when a Job lets it go silently (a venv's or a console script's launcher) inside one that does not (the strict Job
+    of the Halo whose shell ran this `halo`): the spawn would end with that one, and nothing would say so. A probe,
+    created suspended and never run, tells; once per process."""
+    if os.name != "nt":
+        return True
+    if _STATE.get("frees") is None:
+        free = True
+        if _in_a_job():
+            try:
+                import ctypes
+                import subprocess as _sp
+                from ctypes import wintypes
+                exe = os.path.join(os.environ.get("SystemRoot") or r"C:\Windows", "System32", "cmd.exe")
+                p = _sp.Popen([exe, "/c", "exit"], stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+                              creationflags=0x4 | _BREAKAWAY | 0x08000000)  # SUSPENDED | BREAKAWAY | NO_WINDOW
+                try:
+                    k32 = ctypes.WinDLL("kernel32")
+                    k32.IsProcessInJob.argtypes = (wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL))
+                    held = wintypes.BOOL(False)
+                    free = not (k32.IsProcessInJob(int(p._handle), None, ctypes.byref(held)) and held.value)
+                finally:
+                    p.kill()
+                    p.wait(timeout=5)
+            except PermissionError:  # a Job that forbids leaving it outright
+                free = False
+            except Exception:
+                free = True  # not known: try the breakaway as before
+        _STATE["frees"] = free
+    return _STATE["frees"]
 
 
 class Unmarked(dict):
@@ -514,56 +549,87 @@ def _k32():
     k32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
     k32.WaitForSingleObject.restype = wintypes.DWORD
     k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    k32.TerminateJobObject.argtypes = (wintypes.HANDLE, wintypes.UINT)
     return k32
 
 
-def _job():
-    """This process's Job object: KILL_ON_JOB_CLOSE (the kernel ends every member when this process's handle goes,
-    a hard kill included) and BREAKAWAY_OK (a kept spawn leaves it). Never inherited: no child holds it open."""
-    if _STATE["job"] is not None:
-        return _STATE["job"] or None
-    with _LOCK:
-        if _STATE["job"] is not None:
-            return _STATE["job"] or None
-        try:
-            import ctypes
-            from ctypes import wintypes
+def set_job_limits(job, flags: int) -> bool:
+    """Windows: a Job object's basic limit flags (KILL_ON_JOB_CLOSE 0x2000, BREAKAWAY_OK 0x800; 0 clears them)."""
+    try:
+        import ctypes
+        from ctypes import wintypes
 
-            class _Basic(ctypes.Structure):
-                _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
-                            ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
-                            ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
-                            ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
-                            ("SchedulingClass", wintypes.DWORD)]
+        class _Basic(ctypes.Structure):
+            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64), ("PerJobUserTimeLimit", ctypes.c_int64),
+                        ("LimitFlags", wintypes.DWORD), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                        ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", wintypes.DWORD),
+                        ("Affinity", ctypes.c_size_t), ("PriorityClass", wintypes.DWORD),
+                        ("SchedulingClass", wintypes.DWORD)]
 
-            class _Io(ctypes.Structure):
-                _fields_ = [(n, ctypes.c_ulonglong) for n in ("Read", "Write", "Other", "ReadB", "WriteB", "OtherB")]
+        class _Io(ctypes.Structure):
+            _fields_ = [(n, ctypes.c_ulonglong) for n in ("Read", "Write", "Other", "ReadB", "WriteB", "OtherB")]
 
-            class _Extended(ctypes.Structure):
-                _fields_ = [("Basic", _Basic), ("Io", _Io), ("ProcessMemoryLimit", ctypes.c_size_t),
-                            ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
-                            ("PeakJobMemoryUsed", ctypes.c_size_t)]
+        class _Extended(ctypes.Structure):
+            _fields_ = [("Basic", _Basic), ("Io", _Io), ("ProcessMemoryLimit", ctypes.c_size_t),
+                        ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                        ("PeakJobMemoryUsed", ctypes.c_size_t)]
 
-            k32 = _k32()
-            job = k32.CreateJobObjectW(None, None)
-            info = _Extended()
-            info.Basic.LimitFlags = 0x2000 | 0x800  # KILL_ON_JOB_CLOSE | BREAKAWAY_OK
-            if not job or not k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)):
-                _STATE["job"] = 0
-                return None
-            _STATE["job"] = job
+        info = _Extended()
+        info.Basic.LimitFlags = flags
+        return bool(_k32().SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info)))
+    except Exception:
+        return False
+
+
+def new_job(flags: int):
+    """Windows: a new Job object with these limit flags, or None."""
+    try:
+        k32 = _k32()
+        job = k32.CreateJobObjectW(None, None)
+        if job and set_job_limits(job, flags):
             return job
-        except Exception:
-            _STATE["job"] = 0
-            return None
+        if job:
+            k32.CloseHandle(job)
+    except Exception:
+        pass
+    return None
+
+
+def may_break_away(args) -> bool:
+    """A child that is Halo itself (its own Python child, its console script): it may start a kept thing, so it joins
+    the Job that lets a kept spawn leave. Every other child joins the Job that forbids breakaway (3.6.0.0 fx): a Git
+    Bash (MSYS) program starts its own children with CREATE_BREAKAWAY_FROM_JOB whenever its Job allows breakaway, and
+    a shell command's programs (sleep, make, git) then outlived Halo."""
+    from halo_harness.selfexec import is_self
+    if not isinstance(args, (list, tuple)) or not args:
+        return False
+    if is_self(args):
+        return True
+    return str(args[0]).replace("\\", "/").rsplit("/", 1)[-1].lower() in ("halo", "halo.exe")
+
+
+def _job(strict: bool = False):
+    """This process's Job objects: KILL_ON_JOB_CLOSE (the kernel ends every member when this process's handle goes,
+    a hard kill included). The plain one also has BREAKAWAY_OK (a kept spawn of a Halo child leaves it); the strict
+    one does not (an ordinary child and everything it starts stay in it). Never inherited: no child holds one open."""
+    key = "strict_job" if strict else "job"
+    if _STATE[key] is not None:
+        return _STATE[key] or None
+    with _LOCK:
+        if _STATE[key] is not None:
+            return _STATE[key] or None
+        job = new_job(0x2000 | (0 if strict else 0x800))  # KILL_ON_JOB_CLOSE | BREAKAWAY_OK
+        _STATE[key] = job or 0
+        return job
 
 
 def adopt(proc) -> bool:
-    """Put a just-started child into this process's Job object (Windows). False when it could not be."""
+    """Put a just-started child into one of this process's Job objects (Windows): Halo's own child into the one that
+    lets its kept spawns leave, any other into the strict one. False when it could not be."""
     if os.name != "nt":
         return False
     handle = getattr(proc, "_handle", None)
-    job = _job()
+    job = _job(strict=not may_break_away(getattr(proc, "args", None)))
     if not job or handle is None:
         return False
     try:
@@ -657,7 +723,16 @@ def _polite(entry: dict, state_dir) -> None:
             return
     except Exception:
         pass
-    _signal_tree(entry["pid"], hard=False)
+    if what == "shell":  # 3.6.0.0 fx: a tool's shell has no polite stop; this process's own goes with all it started
+        try:
+            from halo_harness.tools._proc import end_shell
+            if end_shell(entry["pid"]):
+                return
+        except Exception:
+            pass
+    # Windows has no polite stop for a console program (taskkill without /F cannot end one): a shell's tree goes at
+    # once, so a close never waits out the polite bound on it
+    _signal_tree(entry["pid"], hard=(os.name == "nt" and what == "shell"))
 
 
 def _home() -> Path:

@@ -157,6 +157,9 @@ class Popen(_sp.Popen):
         from halo_harness import closing, selfexec
         kw = closing.before_spawn(selfexec.fix_kw(args, kw))
         try:
+            if (os.name == "nt" and int(kw.get("creationflags") or 0) & closing._BREAKAWAY
+                    and not closing.breakaway_frees()):  # 3.6.0.0 fx: a Job would hold it silently: as if refused
+                raise PermissionError("a Job object this process is in holds what it starts")
             super().__init__(resolve(args, kw), *a, **kw)
         except PermissionError:
             flags = int(kw.get("creationflags") or 0)

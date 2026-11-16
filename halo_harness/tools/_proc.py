@@ -215,8 +215,22 @@ def _close_stream_async(stream) -> None:
     threading.Thread(target=_do_close, daemon=True, name="halo-stream-close").start()
 
 
+_SHELLS: dict = {}  # pid -> Popen: the shells this process started that still run (shell_started)
+_SHELL_LOCK = threading.Lock()  # a shell's Job handle is never closed while it is being used
+
+
 def _kill_process_group(proc: "subprocess.Popen") -> None:
     if os.name == "nt":
+        job = getattr(proc, "_halo_job", None)
+        if job:  # 3.6.0.0 fx: the shell's own Job holds every program it started (Git Bash's included): all at once
+            try:
+                from halo_harness import closing
+                with _SHELL_LOCK:
+                    done = getattr(proc, "_halo_job", None) == job and closing._k32().TerminateJobObject(job, 1)
+                if done:
+                    return
+            except Exception:
+                pass
         try:
             _kill_process_tree_windows(proc.pid)
             return
@@ -240,6 +254,58 @@ def _kill_process_group(proc: "subprocess.Popen") -> None:
         pass
 
 
+def shell_started(proc, argv: list, shown: Optional[str] = None) -> None:
+    """3.6.0.0 fx: a shell command a tool started is in the ledger (children.json, as `shell`) while it runs, so the
+    closing procedure, the reaper, `halo ps` and `halo stop` reach it by pid and start time and end its whole group --
+    on macOS `ps -E` hides an Apple binary's environment (bash, sleep, make, git), so the HALO_OWNER marker scan never
+    finds one. Never raises: a ledger problem never stops a command."""
+    try:
+        from halo_harness import children
+        if not children.spawned(proc):
+            return
+        if os.name == "nt":  # its own Job, nested in Halo's: a stop ends everything it started at once
+            from halo_harness import closing
+            job = closing.new_job(0)
+            if job and closing._k32().AssignProcessToJobObject(job, int(proc._handle)):
+                proc._halo_job = job
+            elif job:
+                closing._k32().CloseHandle(job)
+        _SHELLS[proc.pid] = proc
+        text = shown if shown is not None else str(argv[-1] if argv else "")
+        line = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
+        children.register(proc.pid, "shell", [str(a) for a in argv[:-1]] + [line[:120]])
+    except Exception:
+        pass
+
+
+def shell_ended(proc) -> None:
+    """The shell `shell_started` recorded has ended (or was killed): out of the ledger, its own Job let go (what it
+    left running on purpose, `cmd &`, stays in Halo's Job and ends with Halo)."""
+    try:
+        from halo_harness import children
+        if not children.spawned(proc):
+            return
+        _SHELLS.pop(proc.pid, None)
+        with _SHELL_LOCK:
+            job = proc.__dict__.pop("_halo_job", None)
+            if job:
+                from halo_harness import closing
+                closing._k32().CloseHandle(job)
+        children.unregister(proc.pid)
+    except Exception:
+        pass
+
+
+def end_shell(pid) -> bool:
+    """Stop a shell this process started, with everything it started (its group; Windows: its Job). False when this
+    process has no live shell of that pid (another Halo's: the caller signals it by pid instead)."""
+    proc = _SHELLS.get(pid)
+    if proc is None or proc.poll() is not None:
+        return False
+    _kill_process_group(proc)
+    return True
+
+
 def run_streamed(
     argv: list, *, cwd, env: dict, timeout_s: float, abort=None,
     progress_cb: Optional[Callable[[str], None]] = None, poll_interval: float = POLL_INTERVAL_S,
@@ -247,6 +313,7 @@ def run_streamed(
     steer_cut: Optional["threading.Event"] = None,
     on_steer_handoff: Optional[Callable[["subprocess.Popen", "queue.Queue", "_CappedCollector"], None]] = None,
     on_spill: Optional[Callable[[Path], None]] = None, creationflags: int = 0,
+    shown: Optional[str] = None,
 ) -> "tuple[str, Optional[int], bool, bool]":
     """Run `argv`, return (merged_output, exit_code, timed_out, aborted).
     `exit_code` is None only when the process itself could never be
@@ -299,6 +366,7 @@ def run_streamed(
         )
     except OSError as e:
         return f"Error launching process: {e}", None, False, False
+    shell_started(proc, argv, shown)  # out of the ledger when it ends here; a handoff's new owner takes that over
 
     q: "queue.Queue" = queue.Queue()
 
@@ -402,6 +470,8 @@ def run_streamed(
             proc.wait(timeout=_WAIT_BOUND_S)
         except Exception:
             pass
+    if proc.poll() is not None:  # one that would not die stays listed (the ledger's prune drops it once it has)
+        shell_ended(proc)
 
     # NEW (H9 post-acceptance): `proc.stdout` (a real TextIOWrapper --
     # `text=True` above) is never closed anywhere on this, the ordinary

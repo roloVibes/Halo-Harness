@@ -55,7 +55,10 @@ left by a reboot or a hard kill is cleared and said, never signalled.
    the way it stops itself (Studio's stop route, a model server's stop), then signalled as a process group or tree,
    then ended hard -- within 3 s + 2 s. When all is well it prints nothing.
 2. **A hard kill** runs no code in Halo, so the children notice on their own:
-   - Windows: every child is in Halo's Job object, which Windows ends together with Halo;
+   - Windows: every child is in Halo's Job object, which Windows ends together with Halo (a tool's shell command
+     too, with every program it started: Git Bash's own children no longer leave it);
+   - a shell command a tool started is in the ledger as `shell` while it runs (`halo ps` lists it), so the closing
+     procedure and the reaper end its whole group even where its environment cannot be read (macOS);
    - every Halo child (Studio's server first) watches the Halo that started it and closes within two seconds;
    - Linux and macOS: a tiny reaper process waits for Halo and, if it dies without a word, ends what it started
      (a program Halo waits on, such as an orchestra worker's `sudo` or a git clone, included);

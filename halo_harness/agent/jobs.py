@@ -158,6 +158,8 @@ class JobRegistry:
             )
         except OSError as e:
             return None, f"Error launching background process: {e}"
+        from halo_harness.tools._proc import shell_started
+        shell_started(proc, [shell_path, "-lc", command], description or command)  # 3.6.0.0 fx: in the ledger
 
         job_id = self._new_id()
         record = JobRecord(job_id=job_id, command=command, description=description, cwd=str(cwd),
@@ -282,6 +284,9 @@ class JobRegistry:
             record.proc.wait(timeout=2.0 if kill_deadline is not None else 10.0)
         except Exception:
             pass
+        if record.proc.poll() is not None:  # 3.6.0.0 fx: its shell leaves the ledger (run_streamed's or ours)
+            from halo_harness.tools._proc import shell_ended
+            shell_ended(record.proc)
         # NEW (H9 post-acceptance): same fix as tools/_proc.py's own
         # run_streamed -- `proc.stdout` is a real TextIOWrapper that
         # subprocess.Popen never closes on its own just because the child

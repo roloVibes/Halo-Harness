@@ -386,6 +386,7 @@ class BashTool(Tool):
             on_steer_handoff=(_on_timeout if job_registry is not None else None),
             # a foreground command's capped-output spill file is deleted at session end
             on_spill=(job_registry.track_spill if job_registry is not None else track_orphan_spill),
+            shown=command,  # what `halo ps` shows for it (the ledger's `shell` row), not the wrapper's first line
         )
 
         if exit_code is None and not timed_out and not aborted:

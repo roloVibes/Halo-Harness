@@ -54,6 +54,8 @@ def main() -> int:
     kids = []
     if kind == "mcp":
         return _mcp(out, home)
+    if kind in ("bashfg", "bashjob"):
+        return _bash(kind, out)
     if kind == "studio":
         from halo_harness.studio import launch
         url = launch.launch_detached("setup", cwd=out, state_dir=home, open_browser=False, timeout=60)
@@ -100,6 +102,60 @@ def main() -> int:
     except KeyboardInterrupt:
         print("owner: interrupted", file=sys.stderr, flush=True)
         return 130
+    return 0
+
+
+def _bash(kind: str, out: Path) -> int:
+    """A shell command through the Bash tool's own code: `bashfg` mid-run in tools/_proc.run_streamed (a foreground
+    call), `bashjob` a background job (agent/jobs.JobRegistry). The shell starts `sleep 300` and waits on it; the
+    sleep's own pid (Windows: its Windows pid, Git Bash's /proc/<pid>/winpid) is written to sleep.pid. Ctrl+C does
+    what a real halo's quit does (the job registry's kill_all), then the closing procedure runs at exit."""
+    import threading
+    from halo_harness import children, closing
+    from halo_harness.config.paths import git_bash, to_posix
+    from halo_harness.tools._proc import run_streamed
+    pidfile = out / "sleep.pid"
+    cmd = (f"sleep 300 & p=$!; {{ cat /proc/$p/winpid 2>/dev/null || echo $p; }} > '{to_posix(str(pidfile))}'; "
+           f"wait $p")
+    shell = str(git_bash())
+    env = dict(os.environ)
+    registry = None
+    if kind == "bashfg":
+        threading.Thread(target=run_streamed, args=([shell, "-lc", cmd],),
+                         kwargs={"cwd": out, "env": env, "timeout_s": 600}, daemon=True).start()
+    else:
+        from halo_harness.agent.jobs import JobRegistry
+        registry = JobRegistry(None)
+        _rec, err = registry.start_background(cmd, description="sleep", cwd=out, env=env, shell_path=shell)
+        if err:
+            print(err, file=sys.stderr)
+            return 3
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        try:
+            spid = int(pidfile.read_text(encoding="utf-8").split()[0])
+            break
+        except (OSError, ValueError, IndexError):
+            time.sleep(0.05)
+    else:
+        print("the shell never wrote sleep.pid", file=sys.stderr)
+        return 3
+    rows = [r for r in children.load() if r.get("what") == "shell"]
+    kids = [{"pid": spid, "start": children.start_time(spid), "what": "sleep"}]
+    kids += [{"pid": r["pid"], "start": r.get("start_time"), "what": "shell"} for r in rows]
+    ready = {"owner": os.getpid(), "marker": os.environ.get("HALO_OWNER"), "kids": kids, "ledger": rows,
+             "reaper": None}
+    (out / "ready.json").write_text(json.dumps(ready), encoding="utf-8")
+    try:
+        while not (out / "quit").exists():
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        if registry is not None:
+            registry.kill_all()
+        print("owner: interrupted", file=sys.stderr, flush=True)
+        return 130
+    if registry is not None:
+        registry.kill_all()
     return 0
 
 
