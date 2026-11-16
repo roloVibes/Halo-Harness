@@ -604,7 +604,7 @@ def project_key_candidates(cwd: str | Path) -> list[str]:
 
 def key_fold(key: str) -> str:
     """A folder key in the form two keys are compared in: Windows folders are case-insensitive, so a key stored
-    as `C:/users/me/proj` (typed in another case, or by an older Halo) is the folder `C:/Users/me/proj`."""
+    as `d:/work/proj` (typed in another case, or by an older Halo) is the folder `D:/Work/proj`."""
     return key.casefold() if os.name == "nt" else key
 
 
