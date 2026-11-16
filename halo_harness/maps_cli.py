@@ -91,19 +91,20 @@ def cmd_maps(argv) -> int:
     except CorruptConfigError as e:  # 3.6.0.0 fx: a config.json that does not parse is never rewritten as {crew}
         print(f"halo maps use: {e}", file=sys.stderr)
         return 2
+    from halo_harness.crew.map_session import configured_mode, start, start_said
+    kw = {"cwd": cwd, "resolved": configured_mode(cwd)}
+    before = start(None, **kw)[0]
     undo_id = write_all({config_path(): text})
     said = ("One model for everything: no map, main does every job on your model (roles off)." if args.none else
             f"New sessions run as by default (the {DEFAULT_MAP} map draws what they do; no map of yours is set)."
             if choice in (None, DEFAULT_MAP) else f"New sessions run on the map {args.name}; a running session keeps its own.")
+    moved = start_said(before, start(None, **kw)[0])  # 3.6.0.1: said when the mode new sessions start in changes
+    said = f"{said[:-1]}; {moved}." if moved else said
     print(said + f" (undo id {undo_id}: Studio's builder Undo puts it back)")
     if choice not in (None, DEFAULT_MAP, ONE_MODEL):  # batch01 #2: what its main does to your permission mode
         from halo_harness.crew.compile import compile_map
         from halo_harness.crew.map_session import main_mode
-        from halo_harness.permissions import normalize_permission_mode
-        from halo_harness.theme import get_config_value
-        mode = get_config_value("permission_mode", default=None)
-        mode = normalize_permission_mode(mode) if isinstance(mode, str) and mode else "default"
-        _m, line = main_mode(compile_map(args.name, cwd=cwd), mode)
+        _m, line = main_mode(compile_map(args.name, cwd=cwd), kw["resolved"])
         if line:
             print(line[len("halo: "):] if line.startswith("halo: ") else line)
     return 0

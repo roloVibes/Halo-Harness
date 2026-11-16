@@ -127,6 +127,47 @@ def main_mode(c, resolved: str) -> "tuple[str, str]":
                       f"yours never raises your permission mode, so it stays {resolved}")
 
 
+def configured_mode(cwd=None) -> str:
+    """The mode a new session with no flag resolves before its map, in headless.build_session's order: config
+    `permission_mode`, else the settings' `defaultMode`, else "default"."""
+    from halo_harness.permissions import normalize_permission_mode
+    from halo_harness.theme import get_config_value
+    mode = get_config_value("permission_mode", default=None)
+    if not (isinstance(mode, str) and mode):
+        try:
+            from pathlib import Path
+            from halo_harness.config.settings import resolve_settings
+            mode = resolve_settings(cwd or Path.cwd(), trusted=True).permissions_default_mode
+        except Exception:
+            mode = None
+    return normalize_permission_mode(mode) if isinstance(mode, str) and mode else "default"
+
+
+_ALL = tuple(n for tools in KINDS.values() for n in tools) + ("Agent", "Task", "Workflow")
+
+
+def start(name=None, *, cwd=None, state_dir=None, resolved: str = "default") -> "tuple[str, set]":
+    """(the mode a new session with no flag starts in, the tools main keeps) on the map `name` once it is config
+    `crew.map` -- None: the map in use now -- through the session's own path (crew/compile.for_session, main_mode,
+    removed_names), so the Builder's check and a real session can never disagree. The starter map is the default
+    (config_text takes the key out); a map with a problem runs as the starter does."""
+    from halo_harness.crew.compile import DEFAULT_MAP, compile_map, for_session
+    if name == DEFAULT_MAP:
+        c = compile_map(DEFAULT_MAP, cwd=cwd, state_dir=state_dir)
+        c.source = "default"
+        c = None if c.problems else c
+    else:
+        c = for_session(name, cwd=cwd, state_dir=state_dir)[0]
+    if c is None:
+        return resolved, set(_ALL)
+    return main_mode(c, resolved)[0], set(_ALL) - (set() if is_default(c) else set(removed_names(_ALL, c)))
+
+
+def start_said(before: str, after: str) -> str:
+    """The receipt's few words when switching maps changes the mode new sessions start in ("" when it does not)."""
+    return "" if before == after else f"they start in {after} mode (until now {before})"
+
+
 def line(c) -> str:
     """The one line `/status` and the session's row say: the map in use."""
     return f"Map: {c.name} ({len(c.handoffs)} line{'' if len(c.handoffs) == 1 else 's'} from main)" if c is not None else ""

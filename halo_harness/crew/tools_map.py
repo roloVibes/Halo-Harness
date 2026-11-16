@@ -11,7 +11,8 @@
 starter, the project's) is copied as yours first: one create line, then the change lines. A line that would make a
 circle is refused in one sentence (the file format refuses it too: crew/formats.py). When in words: always,
 {needs: [pdf]}, {says: [words]}, ask (only when I ask), main-decides. A map line widens nothing by itself (what an agent
-may do is in its own file); `map_use` on a map whose agents may do more than the map in use says so, amber, unticked.
+may do is in its own file); `map_use` on a map whose agents may do more than the map in use says so, amber, unticked --
+and so does one whose MAIN gives the next sessions more (a less careful start mode, more tools: 3.6.0.1).
 """
 
 from __future__ import annotations
@@ -196,9 +197,25 @@ def map_use(args: dict, ctx) -> dict:
     top = max([r for _u, r in had.values()], default=0)
     more = [n for n, (u, r) in _powers(name, ctx).items() if (u - have_all) or r > top] if now else []
     extra = f" -- its agents may do more than the map {now}'s ({', '.join(more)})" if more else ""
+    main_more = _main_more(name, ctx)  # 3.6.0.1: main too -- the mode next sessions start in, the tools main keeps
     return {"text": f"preview: new sessions run on {name}", "rows": [row("change", USE_TARGET,
-            f"My sessions use the map {name} (config crew.map; a running session keeps its own){extra}",
-            {"op": "use", "value": name}, bool(more))]}
+            f"My sessions use the map {name} (config crew.map; a running session keeps its own){extra}{main_more}",
+            {"op": "use", "value": name}, bool(more or main_more))]}
+
+
+def _main_more(name: str, ctx) -> str:
+    """What the map `name` gives main beyond the map in use, in words ("" when nothing): the mode a new session starts
+    in and the tools main keeps, both through crew/map_session.start (the session's own rule, never re-derived)."""
+    from halo_harness.crew.changes import use_word
+    from halo_harness.crew.map_session import KINDS, RANK, configured_mode, start
+    kw = {"cwd": ctx.get("cwd"), "state_dir": ctx.get("state_dir"), "resolved": configured_mode(ctx.get("cwd"))}
+    (m0, t0), (m1, t1) = start(None, **kw), start(name, **kw)
+    gained = t1 - t0
+    words = [use_word(k) for k, tools in KINDS.items() if gained & set(tools)]
+    words += ["Hand work to agents"] * bool(gained & {"Agent", "Task"}) + ["Run workflows"] * ("Workflow" in gained)
+    bits = ([f"new sessions start in {m1} mode, as its main says (until now {m0})"] if RANK.get(m1, 99) > RANK.get(m0, 99) else [])
+    bits += [f"its main may use {', '.join(words)}"] if words else []
+    return f" -- {'; '.join(bits)}" if bits else ""
 
 
 TOOLS = {

@@ -106,8 +106,14 @@ def post_use(req):
         text = config_text(value)
     except CorruptConfigError as e:  # 3.6.0.0 fx: never {} written over a config.json that does not parse
         return 422, {"error": str(e)}
+    from halo_harness.crew.map_session import configured_mode, start, start_said
+    kw = {"cwd": req.cwd, "state_dir": req.state_dir, "resolved": configured_mode(req.cwd)}
+    before = start(None, **kw)[0]
     undo_id = changes.write_all({config_path(): text}, state_dir=req.state_dir)
-    return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0]}
+    # 3.6.0.1: the person's own switch asks nothing, but its receipt says when the mode new sessions start in changes
+    moved = start_said(before, start(None, **kw)[0])
+    said = (f"New sessions run on {name}; a running session keeps its own" if on else "New sessions run on no map (as before maps)")
+    return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0], "said": f"{said}{'; ' + moved if moved else ''}."}
 
 
 def delete_map(req):

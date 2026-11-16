@@ -106,6 +106,67 @@ def test_a_circle_is_refused_and_map_use_says_more_power(ctx: Ctx):
         ctx.check("Apply of nothing ticked writes no config", _files(rig)["config.json"] == before)
 
 
+def _boss_map(rig, name: str, careful: str, uses=("read",)) -> None:
+    """A map of yours whose main is an agent of yours (`<name>-boss`) with `careful` and `uses`: no boxes, no lines."""
+    from halo_harness.crew import store
+    boss = f"{name}-boss"
+    store.write_text(store.path_for("agent", boss, state_dir=rig.state), store.dump(
+        {"format": "agent/1", "name": boss, "does": "Runs the session.", "model": "auto", "uses": list(uses), "careful": careful}))
+    store.write_text(store.path_for("map", name, state_dir=rig.state), store.dump(
+        {"format": "map/1", "name": name, "boxes": [], "lines": [], "main": {"agent": boss}}))
+
+
+def _use_rows(rig, name: str) -> list:
+    from halo_harness.crew.tools_map import map_use
+    return map_use({"map": name}, {"cwd": rig.proj, "state_dir": rig.state})["rows"]
+
+
+@test
+def test_map_use_compares_main_mode_and_tools(ctx: Ctx):
+    """3.6.0.1: `map_use` compares MAIN too -- a map of yours whose main of yours is `careful: own` raises every next
+    session to auto, so its row is a widening row (unticked, its own No-first question) that names the mode."""
+    with CrewRig() as rig:
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_session import main_mode, own_map
+        from halo_harness.crew.session_tool import NO, card, chosen
+        from halo_harness.theme import set_config_value
+        _boss_map(rig, "mine", "own", ("read", "edit", "bash"))
+        _boss_map(rig, "mine-too", "own", ("read", "edit", "bash"))
+        _boss_map(rig, "calm", "ask-changes")
+        _boss_map(rig, "calm-cmds", "ask-changes", ("read", "bash"))
+        c = compile_map("mine", cwd=rig.proj, state_dir=rig.state)
+        ctx.check(f"the probe's shape: mine is yours, main yours, auto from default, got {c.problems} {own_map(c)}",
+                  not c.problems and own_map(c) and main_mode(c, "default")[0] == "auto")
+        rows = _use_rows(rig, "mine")  # the map in use: the default (starter, drawn)
+        ctx.check(f"from the default map: map_use mine is ONE widening row, unticked, saying auto mode, got "
+                  f"{[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "start in auto mode" in rows[0]["summary"])
+        qs = card(rows)["questions"]
+        ctx.check(f"its question is its own, No first, naming the mode; Apply of the plain lines leaves it out, got {qs}",
+                  len(qs) == 1 and qs[0]["options"][0]["label"] == NO and "start in auto mode" in qs[0]["question"]
+                  and chosen(rows, "Apply them") == [])
+        set_config_value("crew.map", "calm")
+        rows = _use_rows(rig, "mine")
+        ctx.check(f"from calm (main asks before changes, reads only): widening, the mode and main's tools named, got "
+                  f"{[r['summary'] for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "start in auto mode" in rows[0]["summary"]
+                  and "Run commands" in rows[0]["summary"])
+        rows = _use_rows(rig, "calm-cmds")
+        ctx.check(f"from calm to calm-cmds: main may run commands -> widening, no mode words, got {[r['summary'] for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and "Run commands" in rows[0]["summary"] and "mode" not in rows[0]["summary"])
+        set_config_value("crew.map", "mine")
+        for target in ("calm", "mine-too"):
+            rows = _use_rows(rig, target)
+            ctx.check(f"from mine to {target} (main as careful or more, no more tools): a plain row, ticked, got "
+                      f"{[(r['summary'], r['widen']) for r in rows]}",
+                      len(rows) == 1 and not rows[0]["widen"] and rows[0]["ticked"] and "mode" not in rows[0]["summary"])
+        rows = _use_rows(rig, "starter")
+        ctx.check(f"from mine to the starter: its agents and main's web / hand-offs widen, the mode does not rise, got "
+                  f"{[r['summary'] for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and "may do more than the map mine's" in rows[0]["summary"]
+                  and "Hand work to agents" in rows[0]["summary"] and "mode" not in rows[0]["summary"])
+
+
 @test
 def test_questions_answer_from_studio_show_with_no_change(ctx: Ctx):
     with CrewRig() as rig:

@@ -101,6 +101,48 @@ def test_use_the_owner_and_the_cli(ctx: Ctx):
 
 
 @test
+def test_use_receipt_says_when_the_start_mode_changes(ctx: Ctx):
+    """3.6.0.1: the person's own doors ask nothing new, but their receipt says so when the switch changes the mode new
+    sessions start in (a map of yours whose main of yours is `careful: own`: auto)."""
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import store
+        for name, careful in (("mine", "own"), ("calm", "ask-changes")):
+            boss = f"{name}-boss"
+            store.write_text(store.path_for("agent", boss, state_dir=rig.state), store.dump(
+                {"format": "agent/1", "name": boss, "does": "Runs the session.", "model": "auto", "uses": ["read"], "careful": careful}))
+            store.write_text(store.path_for("map", name, state_dir=rig.state), store.dump(
+                {"format": "map/1", "name": name, "boxes": [], "lines": [], "main": {"agent": boss}}))
+        st, r = rig.api("POST", "crew/map/mine/use", {"on": True})
+        ctx.check(f"Studio's switch to mine: the receipt says they start in auto mode, got {st} {r.get('said')!r}",
+                  st == 200 and r["in_use"] == "mine" and "New sessions run on mine; a running session keeps its own" in str(r.get("said"))
+                  and "start in auto mode" in str(r.get("said")))
+        st, r = rig.api("POST", "crew/map/calm/use", {"on": True})
+        ctx.check(f"from mine to calm: back to default mode, said, got {r.get('said')!r}", st == 200 and "start in default mode" in str(r.get("said")))
+        st, r = rig.api("POST", "crew/map/ship-it/use", {"on": True})
+        ctx.check(f"from calm to ship-it (no mode change): the receipt as before, got {r.get('said')!r}",
+                  st == 200 and r.get("said") == "New sessions run on ship-it; a running session keeps its own.")
+        from halo_harness.maps_cli import cmd_maps
+        import os
+        cwd = os.getcwd()
+        os.chdir(rig.proj)
+        try:
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code = cmd_maps(["use", "mine"])
+            first = out.getvalue()
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code += cmd_maps(["use", "starter"])
+            back = out.getvalue()
+        finally:
+            os.chdir(cwd)
+        ctx.check(f"halo maps use mine says they start in auto mode, got {first!r}", code == 0 and "start in auto mode" in first)
+        ctx.check(f"halo maps use starter (from mine) says they start in default mode again, got {back!r}",
+                  "New sessions run as by default" in back and "start in default mode" in back)
+
+
+@test
 def test_from_live_builds_an_unsaved_agent_and_a_replay_knows_its_map(ctx: Ctx):
     """R4: POST crew/from-live {session, agent_id} -> an unsaved agent/1 body (main's uses and careful), nothing written,
     owner-only; GET live/replay?session= says the map the session ran on and its hops (from its log)."""

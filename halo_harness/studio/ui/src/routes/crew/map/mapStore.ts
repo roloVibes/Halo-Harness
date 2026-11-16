@@ -167,9 +167,9 @@ export async function newMap(name: string): Promise<boolean> {
 export async function setUse(on: boolean): Promise<void> {
   const s = maps.get();
   try {
-    const r = await api.post<{ undo_id: string; in_use: string | null }>(`crew/map/${s.name}/use`, { on });
-    maps.update(() => ({ inUse: r.in_use, receipt: { line: on ? `New sessions run on ${s.name}; a running session keeps its own.`
-      : "New sessions run on no map (as before maps).", undo: r.undo_id } }));
+    const r = await api.post<{ undo_id: string; in_use: string | null; said?: string }>(`crew/map/${s.name}/use`, { on });
+    maps.update(() => ({ inUse: r.in_use, receipt: { line: r.said || (on ? `New sessions run on ${s.name}; a running session keeps its own.`
+      : "New sessions run on no map (as before maps)."), undo: r.undo_id } }));
     await loadMaps();
   } catch (e) {
     maps.update(() => ({ error: msg(e) }));
