@@ -180,24 +180,39 @@ def _card(t, ev: dict, bad: list) -> float:
     """Type the request, read the card the terminal shows, press Enter (Apply is its first option). The moment of the
     press, or 0 when no card showed."""
     mark = _say(t, fakes.BUILD_PROMPT)
-    shown = t.wait_for(lambda s: "Applythese" in _flat(s[mark:]), 30)
+    shown = t.wait_for(lambda s: card_seen(s[mark:])["shown"], 30)
     seen = t.plain()[mark:]
-    flat = _flat(seen)
-    want = {"R37 row": R37_ROW, "create row": CREATE_ROW, "use row": USE_ROW}
-    missing = [k for k, v in want.items() if _flat(v) not in flat]
-    i0, iu = flat.find("Applythese"), flat.find(_flat(USE_ROW))
-    ticked = (0 <= i0 < iu and not re.search(r"Line\d", flat[i0:iu])
-              and "notticked" not in flat[iu + len(_flat(USE_ROW)):iu + len(_flat(USE_ROW)) + 40])
+    got = card_seen(seen)
+    missing, ticked = got["missing"], got["ticked"]
     ev["card"] = {"screen": seen[-1500:], "missing": missing, "ticked": ticked, "shown": shown}
     if not shown:
         bad.append("(1) no Builder card in 30 s: " + excerpt(seen, 160))
         return 0.0
     if missing or not ticked:
+        h = CARD_HEAD_TEXT.search(seen)
         bad.append(f"(1) the card lacks {', '.join(missing) or 'nothing'}"
                    + ("" if ticked else "; the use row is not ticked inside the Apply question")
-                   + ": " + excerpt(seen[seen.find("Apply these"):] if "Apply these" in seen else seen, 160))
+                   + ": " + excerpt(seen[h.start():] if h else seen, 160))
     t.write(b"\r")
     return time.monotonic()
+
+
+# the card's question, in _flat text: section 4 "Builder: apply these {n} changes?" (the base: "Apply these N ...")
+CARD_HEAD = re.compile("applythese", re.I)
+CARD_HEAD_TEXT = re.compile(r"apply\s+these", re.I)
+
+
+def card_seen(seen: str) -> dict:
+    """What the terminal shows of the Builder card: its question (shown), the rows it lacks (missing), and whether the
+    use row is ticked (it lies inside the question: no "Line <k>" question before it, no "not ticked" after it)."""
+    flat = _flat(seen)
+    want = {"R37 row": R37_ROW, "create row": CREATE_ROW, "use row": USE_ROW}
+    missing = [k for k, v in want.items() if _flat(v) not in flat]
+    h, use = CARD_HEAD.search(flat), _flat(USE_ROW)
+    i0, iu = (h.start() if h else -1), flat.find(use)
+    ticked = (0 <= i0 < iu and not re.search(r"Line\d", flat[i0:iu], re.I)
+              and not re.search("notticked", flat[iu + len(use):iu + len(use) + 40], re.I))
+    return {"shown": h is not None, "missing": missing, "ticked": ticked}
 
 
 # -- (2) the word new --------------------------------------------------------------------------------------------------
@@ -412,10 +427,13 @@ def _note(ctx, t, ev: dict, bad: list) -> None:
         says.append("the RC-MAPASK request carries no [Halo] note naming both maps")
     if build_note:
         says.append("the RC-MAPBUILD request carried a note")
-    if not result or not all(w in result for w in ("review-flow", "starter (the default)", S13)) \
-            or re.search("restart", result, re.I):
-        says.append("the Builder result names no map" if "starter" not in result
-                    else "the Builder result does not say S13 or offers a restart")
+    lacks = [k for k, w in (("review-flow", "review-flow"), ("starter (the default)", "starter (the default)"),
+                            ("S13", S13)) if w not in result]
+    if lacks:
+        says.append("the Builder result names neither " + " nor ".join(lacks) if len(lacks) > 1
+                    else f"the Builder result lacks {lacks[0]}")
+    if re.search("restart", result, re.I):
+        says.append("the Builder result offers a restart")
     if says:
         bad.append("(5) " + "; ".join(says))
 
@@ -445,6 +463,10 @@ def _turns(ctx, t, c, ev: dict, bad: list) -> None:
         ev["turns"].append(s)
         return s
     ev["turns"] = []
+    if not c.js(f"!!{Q}('.stage-drawer[data-panel-in=session-map]')"):  # (4) went to Agents and back: open it again
+        c.click_on(BTN)
+        _wait(c, f"!!{Q}('.stage-drawer[data-panel-in=session-map]')", 5)
+        ev["turns_reopened"] = True
     s0 = sample("before")
     first_bad = None if s0.get("map") and s0.get("truth") is not None else s0
     for n, words in ((2, "RC-ASK turn two"), (3, "RC-ASK turn three")):

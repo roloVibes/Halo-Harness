@@ -954,6 +954,26 @@ def test_session_map_step_is_a_skip_with_browser_none_before_any_halo(ctx: Ctx):
 
 
 @test
+def test_session_map_reads_the_card_by_section_4_words_in_either_case(ctx: Ctx):
+    """3.6.0.2 section 4: the card's question is "Builder: apply these {n} changes?" (the base says "Apply these N
+    changes? ..."). The step finds the card by either, reads its three rows through a wrap, and calls the use row
+    ticked only inside that question (not under a "Line <k>" question, not "not ticked")."""
+    from realcheck import steps_map as M
+    rows = f"  1. {M.R37_ROW}\n  2. {M.CREATE_ROW} (main, then the boxes below)\n"
+    use = M.USE_ROW[:60] + "\n   " + M.USE_ROW[60:]  # the terminal wraps it
+    for head in ("Builder: apply these 3 changes?", "Apply these 3 changes? (none lets an agent do more)"):
+        got = M.card_seen(f"> RC-MAPBUILD\n{head}\n{rows}  3. [x] {use}\n  1. Apply  2. Cancel\n")
+        ctx.check(f"{head!r}: shown, no row missing, the use row ticked, got {got}",
+                  got == {"shown": True, "missing": [], "ticked": True})
+    got = M.card_seen(f"builder: apply these 2 changes?\n{rows}Line 3 of 3: {M.USE_ROW} (not ticked)\n")
+    ctx.check(f"a use row under its own Line question is not ticked, got {got}",
+              got["shown"] and not got["ticked"] and got["missing"] == [])
+    got = M.card_seen("Thinking... RC-ANSWER-42")
+    ctx.check(f"no card: not shown, every row missing, got {got}",
+              got == {"shown": False, "missing": ["R37 row", "create row", "use row"], "ticked": False})
+
+
+@test
 def test_browser_names_the_browser_the_steps_use_and_one_that_names_nothing_fails_them(ctx: Ctx):
     """--browser <path or command name>: that browser (HALO_CHROME for the run, put back after); one that names no
     browser is a FAIL of each browser step that says so, never the person's own installed Chrome."""
