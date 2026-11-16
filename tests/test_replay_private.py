@@ -258,6 +258,70 @@ def test_a_home_path_before_closing_punctuation_is_scrubbed(ctx: Ctx):
         ctx.check(f"another, longer account name is not 'user': {text!r} kept, got {out!r}", out == text)
 
 
+def _home_shapes(name: str, lead: str) -> list:
+    """jf-words: (text, the scrubbed text) for the home-folder shapes 3.6.0.0 scrubbed for any account name."""
+    return [(f"${{HOME:-{lead}{name}}}", f"${{HOME:-{lead}<user>}}"), (f"{lead}{name}#frag", f"{lead}<user>#frag"),
+            (f"?p={lead}{name}&x=1", f"?p={lead}<user>&x=1"), (f"{lead}{name}!", f"{lead}<user>!"),
+            (f"{lead}{name}~", f"{lead}<user>~"), (f"{lead}{name}{{x}}", f"{lead}<user>{{x}}"),
+            (f"{lead}{name}@x", f"{lead}<user>@x"), (f"{lead}{name}$", f"{lead}<user>$")]
+
+
+@test
+def test_a_common_word_account_never_keeps_a_home_folder_3600_scrubbed(ctx: Ctx):
+    """3.6.0.1 jf-words: the home-folder rule ended a name only at a closed list of characters and knew no `~name`, so
+    a common-word account (admin, dev, build, user) kept its name in `${HOME:-/home/admin}`, `/home/admin#frag`,
+    `?p=/home/admin&x=1`, `/home/admin!`, `/home/admin~`, `/home/admin{x}` and `~admin/notes`: 3.6.0.0 removed
+    them all. The name now ends at anything that is not more name, and `~name` is a home folder too."""
+    from halo_harness.live.replay_private import scrub
+    bs = chr(92)
+    for name in ("admin", "dev", "build", "user", "zedtester"):
+        def run(text):
+            return scrub({"t": text}, None, homes=[], users=[name], machines=[])["t"]
+        for lead in ("/" + "home/", "/" + "Users/", f"C:{bs}Users{bs}", "C:/Users/"):
+            for text, want in _home_shapes(name, lead):
+                ctx.check(f"[{name}] {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
+        for text, want in ((f"~{name}/notes", "~<user>/notes"), (f"~{name}", "~<user>"),
+                           (f"cd ~{name} && ls", "cd ~<user> && ls"), (f"(~{name}/x)", "(~<user>/x)")):
+            ctx.check(f"[{name}] the ~name form {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
+    # the decided limits stay: a common word in prose, a longer name, a letter glued to the name
+    home = "/" + "home" + "/"
+    for text in ("the admin panel", "admin~1 is a short name", f"x~admin/notes", f"~~admin", f"{home}admin-2/x",
+                 f"{home}admin.name/x", f"{home}adminx/x", f"{home}admin_x", "~administrators/x"):
+        out = scrub({"t": text}, None, homes=[], users=["admin"], machines=[])["t"]
+        ctx.check(f"not the account 'admin' as a home folder: {text!r} kept, got {out!r}", out == text)
+
+
+@test
+def test_audit_finds_a_common_word_account_in_every_home_shape(ctx: Ctx):
+    """3.6.0.1 jf-words: `halo audit privacy --replays` shares the scrub's patterns, so the shapes the scrub missed
+    were not findings either: an unscrubbed `${HOME:-/home/admin}` replay was called clean."""
+    from halo_harness.live.replay_private import audit
+    name = "admin"
+    env = dict(ENV, USERNAME=name, USER=name, LOGNAME=name)
+    saved = {k: os.environ.get(k) for k in env}
+    try:
+        with _home() as state:
+            os.environ.update(env)
+            folder = state / "replays"
+            folder.mkdir(parents=True, exist_ok=True)
+            texts = [t for t, _w in _home_shapes(name, "/" + "home/")] + [f"~{name}/notes"]
+            for i, t in enumerate(texts):
+                rid = f"raw{i}-20261116-000000"
+                (folder / f"{rid}.halo-replay").write_text(json.dumps({
+                    "format": "halo-replay", "version": 1, "id": rid, "title": "t", "marks": [{"text": t}]}),
+                    encoding="utf-8")
+            rows = [r for r in audit(state) if r["kind"] == "user-name"]
+            found = {r["path"] for r in rows}
+            for i, t in enumerate(texts):
+                ctx.check(f"the audit finds the name in {t!r}, rows {sorted(found)}",
+                          f"replays/raw{i}-20261116-000000.halo-replay" in found)
+            ctx.check(f"no excerpt shows the name, got {[r['excerpt'] for r in rows]}",
+                      all(name not in r["excerpt"].replace("<user>", "") for r in rows))
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
 @test
 def test_audit_finds_no_leak_in_a_scrubbed_replay_of_a_common_word_account(ctx: Ctx):
     """3.6.0.1 setup-words: `halo audit privacy --replays` matched its own placeholder ('<user>' holds 'user') and the

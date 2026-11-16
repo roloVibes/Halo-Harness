@@ -54,6 +54,67 @@ def test_whole_number_takes_ascii_digits_only(ctx: Ctx):
 
 
 @test
+def test_a_very_long_number_is_none_not_a_traceback(ctx: Ctx):
+    """3.6.0.1 jf-words: Python 3.11+ refuses int() of a string over 4,300 digits (ValueError), so a long paste at a
+    numbered pick or a Studio `?n=` raised. More than 18 digits (leading zeros aside) is no number a person meant."""
+    from halo_harness.numbered import pick, whole_number
+    for s in ("9" * 5000, "9" * 19, "-" + "9" * 5000):
+        for signed in (False, True):
+            got, err = _calls(whole_number, s, signed=signed)
+            ctx.check(f"whole_number({len(s)} chars, signed={signed}): None, no exception, got {err or got}",
+                      err is None and got is None)
+    got, err = _calls(pick, "9" * 5000, 3)
+    ctx.check(f"pick(5000 digits): None, got {err or got}", err is None and got is None)
+    ctx.check("18 digits still read", whole_number("9" * 18) == int("9" * 18))
+    ctx.check("leading zeros do not count", whole_number("0" * 40 + "7") == 7)
+    ctx.check("signed 18 digits", whole_number("-" + "9" * 18, signed=True) == -int("9" * 18))
+    _scratch_home()
+    from rich.console import Console
+    from halo_harness import init_cli
+    real = init_cli._prompt_plain
+    try:
+        feed = ["9" * 5000, "1"]
+        init_cli._prompt_plain = lambda _label: feed.pop(0)
+        got, err = _calls(init_cli._ask_number, "x", 3, 2, Console(file=StringIO(), width=200))
+        ctx.check(f"_ask_number(5000 digits, then 1): asks again, got {err or got}", err is None and got == 1)
+    finally:
+        init_cli._prompt_plain = real
+    from halo_harness.studio import live_agents_api as L
+    got, err = _calls(L.get_tail, _Req({"n": "9" * 5000}))
+    ctx.check(f"get_tail(n=5000 digits): 422, got {err or got}"[:200], err is None and got and got[0] == 422)
+
+
+@test
+def test_halo_ps_forget_reads_ascii_pids_only(ctx: Ctx):
+    """3.6.0.1 jf-words: `halo ps --forget ２` read pid 2 (argparse's int() takes full-width digits); only ASCII digits
+    are a pid, as everywhere else. A word that is not one gets argparse's usage error and nothing is forgotten."""
+    import contextlib
+    from halo_harness import ps_cli
+    seen = []
+    real = ps_cli.forget
+    try:
+        ps_cli.forget = lambda pids, state_dir=None: (seen.append(list(pids)), ([], []))[1]
+        for word in ("２", "٢", "²", "+2", "-2", "2.", "9" * 5000):
+            seen.clear()
+            err = StringIO()
+            code = None
+            with contextlib.redirect_stderr(err), contextlib.redirect_stdout(StringIO()):
+                try:
+                    code = ps_cli.cmd_ps(["--forget", word])
+                except SystemExit as e:
+                    code = e.code
+            ctx.check(f"--forget {word[:8]!a}: a usage error, nothing forgotten, got {code} {seen}",
+                      code == 2 and not seen)
+            ctx.check(f"--forget {word[:8]!a}: no traceback", "Traceback" not in err.getvalue())
+        seen.clear()
+        with contextlib.redirect_stdout(StringIO()), contextlib.redirect_stderr(StringIO()):
+            ps_cli.cmd_ps(["--forget", "2", "31"])
+        ctx.check(f"--forget 2 31 forgets pids 2 and 31, got {seen}", seen == [[2, 31]])
+    finally:
+        ps_cli.forget = real
+
+
+@test
 def test_the_terminal_setup_picks_never_raise_and_ask_again(ctx: Ctx):
     _scratch_home()
     from rich.console import Console

@@ -190,7 +190,8 @@ def cmd_ps(argv: list) -> int:
     p = argparse.ArgumentParser(prog="halo ps", description="Every live process of Halo for this home: the ledger, "
                                 "and any stray a scan finds by Halo's HALO_OWNER marker.")
     p.add_argument("--json", action="store_true")
-    p.add_argument("--forget", nargs="+", type=int, metavar="PID",
+    from halo_harness.numbered import whole_number_arg  # jf-words: ASCII digits only, as `halo stop` reads them
+    p.add_argument("--forget", nargs="+", type=whole_number_arg, metavar="PID",
                    help="remove the ledger record of a process Halo cannot prove is its own; signals nothing "
                         "(a running process proven Halo's is refused: halo stop ends it)")
     a = p.parse_args(argv)

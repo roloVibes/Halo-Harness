@@ -122,12 +122,13 @@ def _machines() -> list:
 
 
 #: a home folder's prefix right before the account name: /home/, /Users/, C:\Users\ (either slash, a JSON-doubled
-#: backslash), /c/Users/ (Git Bash), /mnt/c/Users/ (WSL), \\?\C:\Users\; group 1 is kept
-_SEGMENT_LEAD = r"((?<=[\\/])(?:home|users)(?:\\\\|\\|/))"
-#: where the name's segment ends: a slash, a quote, whitespace, the end, a character no account name may hold on any
-#: of the three systems (`,` `:` `;` `|` `<` `>` `[` `]` `=` `+` `*` `?`), or a `.` / `)` that does not run on into
-#: more name (after the home prefix, `user.` ends a sentence; `user.name` and `user-2` are other, longer names)
-_SEGMENT_END = r"(?=[\\/\"'`,:;|<>\[\]=+*?]|\s|$|[.)](?![\w-]))"
+#: backslash), /c/Users/ (Git Bash), /mnt/c/Users/ (WSL), \\?\C:\Users\; or the shell's `~name` (not glued to a word
+#: or another `~`); group 1 is kept
+_SEGMENT_LEAD = r"((?<=[\\/])(?:home|users)(?:\\\\|\\|/)|(?<![\w~])~)"
+#: where the name's segment ends: anything that does not run on into more name, as the path rule's _TAIL ends a home
+#: (`}` `#` `&` `!` `~` `,` `:` a slash, a quote, whitespace, the end ...; after the home prefix, `user.` ends a
+#: sentence; `user.name`, `user-2` and `user_x` are other, longer names)
+_SEGMENT_END = r"(?![\w-]|\.[\w-])"
 
 
 def _name_patterns(names: list, *, segments: bool = True) -> list:
