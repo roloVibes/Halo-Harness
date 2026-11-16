@@ -103,8 +103,26 @@ question round trip, shown in the terminal and in Studio's ask card:
 - one question for the lines that let no agent do more ("Apply them" / "Leave them");
 - one question per widening line, its own choice, "No (leave this line out)" first.
 
+In a session the map a change goes to is the one the session runs on (3.6.0.2): a change with no `map` goes there,
+and each of its lines says "this session takes it at its next hand-off"; a box whose agent may do more than the
+session's main is asked on its own, "No" first. On the default map (starter) a change with no `map` gets no lines,
+only: "Name the map: this session runs on starter (the default), where main chooses who works. Pass a new name in
+args.map to make a map that routes." A new name makes the map: "Make a new map review-flow (main, then the boxes
+below)", then "Add box review (workflow review)" and "Add line main -> review (When: always)". A map made in the card
+comes with a ticked line "New sessions run on review-flow. This session keeps running on starter (the default), as it
+started. Start a new session to run on review-flow." (in the terminal it adds "In the terminal: quit and run halo
+again; /clear keeps starter (the default)."), unless the new map lets agents do more than the map new sessions use:
+then it is its own question, "No" first. Editing a map new sessions do not use asks, unticked: "New sessions do not run
+on ship-it; they run on shop. Run new sessions on it instead?" The session's own map never gets that line. That check
+runs on the map as the card leaves it (agents made in the same card included), and again at Apply if the map's file
+changed since the card was shown (then the line is left out and the result says why). "Build me a review workflow: a
+coder then a reviewer" is one card that opens with "Your review workflow: the workflow review (coder, then reviewer),
+run from a box on the new map review-flow." and lists "Make the workflow review: 1 coder, 2 reviewer".
+
 Only what the person picks is written (the format checked first, the before-image kept); the result names the files and
-the undo id; Studio follows the files. Dismissed: nothing is written. With no one to answer (print mode), the tool
+the undo id, and ends "Written: the map review-flow (new); the agent my-reviewer (new). Undo: <id>. Tell the person,
+word for word: " and the sentence above ("This session runs on starter (the default), as it started at 14:02. New
+sessions will too." when nothing differs). Dismissed: nothing is written. With no one to answer (print mode), the tool
 previews and writes nothing. `studio_show` answers at once. The permission engine lets the tool through in every mode
 but dontAsk (it asks on its own card). Tests: `tests/test_builder_session_parity.py` (the same request through main's
 tool and through `/api/builder` writes byte-identical files; the widening line never ticked for them).

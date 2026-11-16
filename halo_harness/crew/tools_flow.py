@@ -47,6 +47,11 @@ def when_words(when) -> str:
     return str(when)
 
 
+def step_who(s: dict) -> str:
+    """A step in a few words: who does it (its agents), else its name."""
+    return " + ".join(s.get("agents") or []) or str(s.get("name") or "")
+
+
 def step_line(s: dict) -> str:
     rep = s.get("repeat") if isinstance(s.get("repeat"), dict) else None
     bits = [f"{s.get('name')} ({' + '.join(s.get('agents') or []) or 'no agent'})", when_words(s.get("when"))]
@@ -98,7 +103,9 @@ def workflow_make(args: dict, ctx) -> dict:
         body["own_copy"] = args["own_copy"]
     if isinstance(args.get("max_usd"), (int, float)) and not isinstance(args.get("max_usd"), bool) and args["max_usd"] > 0:
         body["max_usd"] = args["max_usd"]
-    rows = [row("create", _t(name), f"Create the workflow {name}: {str(body['for'])[:90]}", {"op": "create", "body": body})]
+    from halo_harness.crew.map_facts import ROW_WORKFLOW  # 3.6.0.2 section 4: "Make the workflow {W}: 1 {a}, 2 {b}"
+    said = ", ".join(f"{i} {step_who(s)}" for i, s in enumerate(steps, 1)) or str(body["for"])[:90]
+    rows = [row("create", _t(name), ROW_WORKFLOW.format(W=name, steps=said), {"op": "create", "body": body})]
     for i, s in enumerate(steps, 1):
         rows.append(row("change", _t(name), f"{name}, step {i}: {step_line(s)}", {"op": "step_add", "step": step_clean(s), "index": None}))
     return {"text": _note_missing(f"preview: the workflow {name} with {len(steps)} step(s)", steps, ctx), "rows": rows}

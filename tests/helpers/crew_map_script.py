@@ -15,17 +15,19 @@ REVIEWER = {"name": "my-reviewer", "does": "Reviews a change; one line per probl
             "careful": "ask-changes"}
 
 
-def reviewer_calls(map_name: str = "starter") -> list:
-    """The three calls of "make me a reviewer agent and hand reviews to it" (the session parity test sends the same)."""
+def reviewer_calls(map_name: "str | None" = "starter") -> list:
+    """The three calls of "make me a reviewer agent and hand reviews to it" (the session parity test sends the same);
+    `map_name` None: no `map` (the map open on the tab, in Studio's builder box)."""
+    on = {"map": map_name} if map_name else {}
     return [{"tool": "agent_make", "args": dict(REVIEWER)},
-            {"tool": "map_box_add", "args": {"map": map_name, "kind": "agent", "ref": "my-reviewer"}},
-            {"tool": "map_line_add", "args": {"map": map_name, "from": "main", "to": "my-reviewer", "when": {"says": ["review"]}}}]
+            {"tool": "map_box_add", "args": {**on, "kind": "agent", "ref": "my-reviewer"}},
+            {"tool": "map_line_add", "args": {**on, "from": "main", "to": "my-reviewer", "when": {"says": ["review"]}}}]
 
 
 PLANS = {
     "send anything touching auth": [{"tool": "map_box_add", "args": {"kind": "agent", "ref": "my-reviewer"}},
                                     {"tool": "map_line_add", "args": {"from": "code", "to": "my-reviewer", "when": {"says": ["auth"]}}}],
-    "make me a reviewer agent": reviewer_calls(),
+    "make me a reviewer agent": reviewer_calls(None),  # the tab's map (3.6.0.2: parity-map in the parity test)
     "what is my map": [{"tool": "studio_show", "args": {"what": "map"}}],
     "show me my workflows": [{"tool": "studio_show", "args": {"what": "lists"}}],
     "why did reviewer run": [{"tool": "studio_show", "args": {"what": "run", "name": "reviewer"}}],

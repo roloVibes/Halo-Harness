@@ -27,6 +27,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 MODEL = "or:mock/builder-session"
+MAP = "parity-map"  # 3.6.0.2 R36: a new map named in the card (made by it, its use row ticked)
 
 
 def _crew(state: Path) -> dict:
@@ -44,9 +45,10 @@ def _session(home: Path, mock):
     from halo_harness.tools.registry import ToolRegistry, default_tools
     cwd = home / "proj"
     cwd.mkdir(exist_ok=True)
+    from halo_harness.crew.map_session import prepare
     reg = ToolRegistry(default_tools() + [BuilderTool()])
     s = Session(cwd=cwd, model_ref=parse_model_ref(MODEL), model_profile=ModelProfile(), creds=ProviderCreds(base_url=mock.base_url, api_key="k"),
-                state_dir=home / "sess-state", model_label=MODEL,
+                state_dir=home / "sess-state", model_label=MODEL, crew_map=prepare(None, cwd)[0],  # the default map, as a session gets it
                 session_context=SessionContext(cwd=cwd, model_label=MODEL, tool_registry=reg), max_turns=6,
                 permission_engine=PermissionEngine(mode="default", cwd=cwd))
     s.interactive = True
@@ -63,7 +65,7 @@ def through_main(answer_fn, calls=None) -> "tuple[dict, list, str]":
     os.environ["BRIDGE_TEST_HOME"] = str(home)
     mock = MockUpstream().start()
     os.environ["BRIDGE_OPENROUTER_BASE_URL"] = mock.base_url
-    SCENARIOS["builder-session"] = ScriptedTurns([tool_step(("Builder", {"changes": calls or reviewer_calls()}, "call_b")),
+    SCENARIOS["builder-session"] = ScriptedTurns([tool_step(("Builder", {"changes": calls or reviewer_calls(MAP)}, "call_b")),
                                                   text_step("Done.")])
     events: list = []
     try:
@@ -102,18 +104,19 @@ def approve_all(qs: list):
 @test
 def test_the_same_request_writes_the_same_files(ctx: Ctx):
     main_files, qs, result = through_main(approve_all)
-    ctx.check(f"the card: one question for the plain lines, one per widening line with No first, got {[q['question'][:50] for q in qs]}",
-              len(qs) == 2 and qs[0]["question"].startswith("Apply these 4 changes") and qs[1]["options"][0]["label"].startswith("No")
-              and "Run commands" in qs[1]["question"])
-    ctx.check(f"the tool result says what was written and the undo id, got {result[:200]!r}", "Applied 5 line(s)" in result and "Undo id" in result)
+    ctx.check(f"the card: one question for the plain lines (the agent, the new map, its box and line, the use row), one per "
+              f"widening line with No first, got {[q['question'][:50] for q in qs]}",
+              len(qs) == 2 and qs[0]["question"].startswith("Apply these 5 changes") and qs[1]["options"][0]["label"].startswith("No")
+              and "Run commands" in qs[1]["question"] and f"New sessions run on {MAP}. " in qs[0]["question"])
+    ctx.check(f"the tool result says what was written and the undo id, got {result[:200]!r}", "Applied 6 line(s)" in result and "Undo id" in result)
     with CrewRig() as rig:
         rig.studio()
         st, r = rig.api("POST", "builder/ask", {"tab": "map", "text": "make me a reviewer agent and hand reviews to it",
-                                                "conversation_id": "p1", "selection": {"map": "starter"}})
+                                                "conversation_id": "p1", "selection": {"map": MAP}})
         st, a = rig.api("POST", "builder/apply", {"conversation_id": "p1", "change_ids": [c["id"] for c in r["changes"]]})
         studio_files = _crew(rig.state)
     ctx.check(f"byte-identical agent and map files, got {sorted(main_files)} vs {sorted(studio_files)}",
-              main_files and main_files == studio_files and set(main_files) == {"crew/agents/my-reviewer.yaml", "crew/maps/starter.yaml"})
+              main_files and main_files == studio_files and set(main_files) == {"crew/agents/my-reviewer.yaml", f"crew/maps/{MAP}.yaml"})
 
 
 @test
@@ -125,6 +128,10 @@ def test_the_widening_line_is_never_ticked_for_them(ctx: Ctx):
     ctx.check(f"dismissed: nothing written, got {sorted(files)} {result[-60:]!r}", files == {} and "nothing was written" in result)
     files, qs, result = through_main(lambda qs: None, calls=[{"tool": "studio_show", "args": {"what": "map", "name": "starter"}}])
     ctx.check(f"studio_show: no card, the answer at once, got {result[:80]!r}", qs == [] and "MAP starter" in result and files == {})
+    files, qs, result = through_main(lambda qs: None, calls=[{"tool": "map_box_add", "args": {"kind": "agent", "ref": "reviewer"}}])
+    ctx.check(f"a nameless map change in a plain session: refused in the R36 sentence, no card, nothing written, got {result[:160]!r}",
+              qs == [] and files == {} and "Name the map: this session runs on starter (the default), where main chooses who "
+              "works. Pass a new name in args.map to make a map that routes." in result)
 
 
 @test
@@ -133,7 +140,7 @@ def test_print_mode_previews_and_writes_nothing(ctx: Ctx):
     from halo_harness.tools.base import ToolContext
     from halo_harness.tools.builder_tool import BuilderTool
     with ConfigHome() as home:
-        got = BuilderTool().run({"changes": reviewer_calls()}, ToolContext(cwd=home.home))
+        got = BuilderTool().run({"changes": reviewer_calls(MAP)}, ToolContext(cwd=home.home))
         ctx.check(f"previewed, not applied, said so, got {got.content[-160:]!r}", "Not applied" in got.content and _crew(home.state) == {})
 
 

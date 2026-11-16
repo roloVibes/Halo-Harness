@@ -15,6 +15,13 @@ the map in use says so, amber, unticked -- and so does one whose MAIN gives the 
 mode, more tools: 3.6.0.1), compared in this folder and outside any project (crew.map is global: jf-mapuse). On a map
 not in use a line widens nothing by itself (what an agent may do is in its own file); on the map IN USE a line (or a
 When off `ask`) that gives main Agent / Task or an agent doing more is a widening row too (jf-mapuse).
+
+3.6.0.2 R36 R37 R54 -- in a session (ctx `session`): a nameless change goes to the map the session runs on (each row
+says it takes it at its next hand-off; a box whose agent may do more than the session's main is a widening row); on the
+default map it gets no rows, only map_facts.NAME_THE_MAP. A new name makes the map (one create row). After all of a
+card's calls, `card_use_rows` adds "new sessions run on it" for each map created (ticked unless it widens) or edited
+(its own question, unticked); every widening check of a use row runs on the map as the card leaves it (`_final`,
+compiled with the card's agents and workflows), and `use_recheck` checks it again at Apply when the file changed.
 """
 
 from __future__ import annotations
@@ -22,7 +29,8 @@ from __future__ import annotations
 from halo_harness.crew import map_when, store
 from halo_harness.crew.changes import row
 from halo_harness.crew.changes_map import USE_TARGET, apply_map
-from halo_harness.crew.formats import LINE_WHEN, circle, name_problem, when_problem
+from halo_harness.crew.formats import LINE_WHEN, MAP, circle, name_problem, when_problem
+from halo_harness.crew.map_facts import NEXT_HANDOFF, ROW_BOX, ROW_LINE, ROW_NEW_MAP
 from halo_harness.crew.spec import MODES
 
 
@@ -30,16 +38,43 @@ def _t(name: str) -> str:
     return f"map:{name}"
 
 
+def _tc(ctx):
+    """The team control of the session this card is in (None outside a session or with no map)."""
+    tc = getattr(ctx.get("session"), "team_control", None)
+    return tc if getattr(tc, "is_map", False) else None
+
+
+def _plain(tc) -> bool:
+    from halo_harness.crew.compile import is_default
+    return is_default(getattr(tc, "map", None))
+
+
 def map_name(args: dict, ctx) -> str:
+    """The map a change goes to: `map`, else (3.6.0.2 R36, in a session) the map the session runs on -- "" on the
+    default map, which a change must name -- else the map open on the tab, else the map in use, else the starter."""
     got = str(args.get("map") or (ctx.get("selection") or {}).get("map") or "").strip()
     if got:
         return got
+    tc = _tc(ctx)
+    if tc is not None:
+        return "" if _plain(tc) else str(getattr(tc, "map_name", "") or "")
     from halo_harness.crew.compile import in_use
     return in_use(None, ctx.get("cwd"))[0] or "starter"
 
 
-def _view(name: str, ctx) -> "tuple[dict | None, list]":
-    """(the map as it would be after this turn's rows so far, the rows a not-yours map needs first)."""
+def _unnamed(ctx) -> str:
+    from halo_harness.crew.map_facts import name_the_map
+    return name_the_map(ctx.get("session"))
+
+
+def _new(name: str, ctx, first=()) -> bool:
+    """The map `name` is made in this card (its create row is in it), not edited."""
+    return any(r.get("target") == _t(name) and r["op"].get("op") == "create" for r in [*(ctx.get("made") or []), *first])
+
+
+def _view(name: str, ctx, create: bool = False) -> "tuple[dict | None, list]":
+    """(the map as it would be after this turn's rows so far, the rows a not-yours map needs first). `create`: a name
+    that is no map yet starts one (3.6.0.2 R36: its create row, main then the boxes)."""
     mine = store.load("map", name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"), scope="yours")
     body = store.clean(mine) if mine else None
     first: list = []
@@ -47,7 +82,10 @@ def _view(name: str, ctx) -> "tuple[dict | None, list]":
     if body is None and not any(r["op"].get("op") in ("create", "copy") for r in made):
         there = store.load("map", name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"))
         if there is None:
-            return None, []
+            if not create or name_problem(name):
+                return None, []
+            body = {"format": MAP, "name": name, "main": {"agent": "main"}, "boxes": [], "lines": []}
+            return body, [row("create", _t(name), ROW_NEW_MAP.format(B=name), {"op": "create", "body": body})]
         body = store.clean(there)
         first = [row("create", _t(name), f"Copy the {there['_scope']} map {name} as yours (the changes below go into your copy)",
                      {"op": "copy", "body": body})]
@@ -90,12 +128,14 @@ def _box_line(body: dict, bid: str) -> str:
 
 def map_box_add(args: dict, ctx) -> dict:
     name, kind, ref = map_name(args, ctx), str(args.get("kind") or "agent"), str(args.get("ref") or "").strip()
+    if not name:
+        return {"text": _unnamed(ctx), "rows": []}
     if kind not in ("agent", "workflow") or name_problem(ref):
         return {"text": "kind: agent or workflow, and ref: its name", "rows": []}
     made = any(r.get("target") == f"{kind}:{ref}" and r["op"].get("op") in ("create", "copy") for r in ctx.get("made") or [])
     if not made and store.load(kind, ref, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir")) is None:
         return {"text": f"no {kind} named {ref}: make it first ({kind}_make)", "rows": []}
-    body, first = _view(name, ctx)
+    body, first = _view(name, ctx, create=True)
     if body is None:
         return {"text": f"no map named {name}", "rows": []}
     if _box_of(body, ref):
@@ -103,12 +143,16 @@ def map_box_add(args: dict, ctx) -> dict:
     ids = {b.get("id") for b in body.get("boxes") or [] if isinstance(b, dict)} | {"main"}
     bid = ref if ref not in ids else next(f"{ref}-{i}" for i in range(2, 99) if f"{ref}-{i}" not in ids)
     op = {"op": "map_box_add", "box": {"id": bid, kind: ref}}
-    rows = first + [row("change", _t(name), f"On the map {name}: a box for the {kind} {ref} (not connected yet)", op)]
+    said = (ROW_BOX.format(x=bid, kind=kind, ref=ref) if _new(name, ctx, first)
+            else f"On the map {name}: a box for the {kind} {ref} (not connected yet)")
+    rows = first + [row("change", _t(name), said, op)]
     return {"text": f"preview: box {bid} on {name}; connect it with map_line_add", "rows": rows}
 
 
 def map_box_remove(args: dict, ctx) -> dict:
     name = map_name(args, ctx)
+    if not name:
+        return {"text": _unnamed(ctx), "rows": []}
     body, first = _view(name, ctx)
     bid = _box_of(body or {}, str(args.get("box") or args.get("ref") or ""))
     if body is None or not bid or bid == "main":
@@ -121,6 +165,8 @@ def map_box_remove(args: dict, ctx) -> dict:
 
 def _line_args(args: dict, ctx):
     name = map_name(args, ctx)
+    if not name:
+        return name, None, [], "", "", _unnamed(ctx)
     body, first = _view(name, ctx)
     if body is None:
         return name, None, first, "", "", f"no map named {name}"
@@ -144,8 +190,9 @@ def map_line_add(args: dict, ctx) -> dict:
     op = {"op": "map_line_add", "line": {"from": a, "to": b, "when": when}}
     who = "main" if a == "main" else _box_line(body, a)
     more = _line_more(name, body, op, ctx)  # jf-mapuse: on the map in use, a line may widen as map_use does
-    return {"text": f"preview: the line {a} -> {b}", "rows": first + [row("change", _t(name),
-            f"On the map {name}: {who} hands work to {_box_line(body, b)}, {map_when.words(when)}{more}", op, bool(more))]}
+    said = (ROW_LINE.format(a=who, x=_box_line(body, b), words=map_when.words(when)) if _new(name, ctx, first)
+            else f"On the map {name}: {who} hands work to {_box_line(body, b)}, {map_when.words(when)}")
+    return {"text": f"preview: the line {a} -> {b}", "rows": first + [row("change", _t(name), said + more, op, bool(more))]}
 
 
 def map_line_change(args: dict, ctx) -> dict:
@@ -173,53 +220,126 @@ def map_line_remove(args: dict, ctx) -> dict:
             {"op": "map_line_remove", "from": a, "to": b})]}
 
 
-def _powers(name: str, ctx) -> dict:
-    """agent -> (its tool kinds, its mode rank) for every agent main can reach on the map `name`."""
-    from halo_harness.crew.compile import compile_map
-    c = compile_map(name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"))
-    ranks = {"default": 0, "acceptEdits": 1, "auto": 2}
+_RANKS = {"default": 0, "acceptEdits": 1, "auto": 2}
+
+
+def card_body(kind: str, name: str, ctx) -> "dict | None":
+    """`kind:name` as the card's rows so far would leave it (EVERY row, ticked or not: the most it may become), else the
+    file the store reads; None when neither (3.6.0.2 R54)."""
+    from halo_harness.crew.changes import _apply_op
+    rows = [r for r in ctx.get("made") or [] if r.get("target") == f"{kind}:{name}" and r["op"].get("op") != "fill"]
+    got = None if any(r["op"].get("op") in ("create", "copy") for r in rows) else \
+        store.load(kind, name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"))
+    body = store.clean(got) if got else None
+    for r in rows:
+        body = _apply_op(body, r["op"])
+    return body
+
+
+def _overlay(ctx) -> dict:
+    """{(kind, name): body} for every agent and workflow the card makes or changes, as it would leave them (yours)."""
+    out: dict = {}
+    for r in ctx.get("made") or []:
+        kind, _, name = str(r.get("target") or "").partition(":")
+        if kind in ("agent", "workflow") and (kind, name) not in out:
+            got = card_body(kind, name, ctx)
+            if got is not None:
+                out[(kind, name)] = {**got, "_scope": "yours"}
+    return out
+
+
+def _touched(name: str, ctx) -> bool:
+    return any(r.get("target") == _t(name) for r in ctx.get("made") or [])
+
+
+def _compiled(name: str, ctx, cwd):
+    """The map `name` compiled as this card would leave it, seen from `cwd`: by name when the card does not touch it
+    (crew/compile.compile_map, the file new sessions read), else its body after the card's rows -- yours -- with the
+    card's agents and workflows (R54: one check, on a body)."""
+    from halo_harness.crew.compile import compile_map, compile_raw
+    sd = ctx.get("state_dir")
+    if not _touched(name, ctx):
+        return compile_map(name, cwd=cwd, state_dir=sd)
+    body = _view(name, {**ctx, "cwd": cwd})[0] or {}
+    c = compile_raw(body, name=name, cwd=cwd, state_dir=sd, extra=_overlay({**ctx, "cwd": cwd}))
+    c.scope, c.source = "yours", "config"
+    return c
+
+
+def _powers_of(c, ctx) -> dict:
+    """agent -> (its tool kinds, its mode rank) for every agent main can reach on the compiled map `c`."""
     agents = dict(c.agents)
+    extra = _overlay(ctx)
     for wf in c.workflows.values():  # a workflow box's agents work for the session too
         for s in wf.get("steps") or []:
             for n in (s.get("agents") or []) if isinstance(s, dict) else []:
-                got = agents.get(n) or store.load("agent", n, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"))
+                got = agents.get(n) or extra.get(("agent", n)) or store.load("agent", n, cwd=ctx.get("cwd"),
+                                                                              state_dir=ctx.get("state_dir"))
                 if got:
                     agents[n] = got
-    return {n: (set(a.get("uses") or []), ranks.get(MODES.get(a.get("careful"), "default"), 0)) for n, a in agents.items()}
+    return {n: (set(a.get("uses") or []), _RANKS.get(MODES.get(a.get("careful"), "default"), 0)) for n, a in agents.items()}
 
 
-def map_use(args: dict, ctx) -> dict:
+def _powers(name: str, ctx) -> dict:
+    """`_powers_of` the map `name` as the card would leave it (by name when untouched)."""
+    return _powers_of(_compiled(name, ctx, ctx.get("cwd")), ctx)
+
+
+def _use_words(name: str, ctx) -> str:
+    """What new sessions on the map `name` (as this card leaves it) may do beyond the map in use, in words ("" when
+    nothing): its agents (here, and outside this project) and its main (the mode, the tools)."""
     from halo_harness.crew.compile import in_use
-    name = str(args.get("map") or "").strip()
-    if not name or store.find("map", name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir")) is None:
-        return {"text": f"no map named {name!r}", "rows": []}
     now, _src = in_use(None, ctx.get("cwd"))
-    if now == name:
-        return {"text": f"new sessions run on {name} already", "rows": []}
     more: list = []
     for cwd in dict.fromkeys([ctx.get("cwd"), None]) if now else []:  # jf-mapuse: here, and where no project shadows
         here = {**ctx, "cwd": cwd}
         if cwd is None and store.find("map", now, cwd=None, state_dir=ctx.get("state_dir")) is None:
             continue  # the map in use is this project's only: outside, sessions run as the starter does
-        had = _powers(now, here)
+        had = _powers(now, {**here, "made": []})
         have_all = set().union(*[u for u, _r in had.values()]) if had else set()
         top = max([r for _u, r in had.values()], default=0)
         more += [n for n, (u, r) in _powers(name, here).items() if ((u - have_all) or r > top) and n not in more]
     extra = f" -- its agents may do more than the map {now}'s ({', '.join(more)})" if more else ""
-    main_more = _main_more(name, ctx)  # 3.6.0.1: main too -- the mode next sessions start in, the tools main keeps
+    return extra + _main_more(name, ctx)  # 3.6.0.1: main too -- the mode next sessions start in, the tools main keeps
+
+
+def _file_mark(name: str, ctx) -> dict:
+    """R54: the file new sessions would read for `name` and the sha256 of its bytes now (None for a map made in the
+    card), so Apply can tell whether it changed since the card was shown."""
+    import hashlib
+    got = store.find("map", name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir"))
+    path = str(got[0]) if got else None
+    try:
+        with open(path, "rb") as fh:
+            return {"file": path, "sha": hashlib.sha256(fh.read()).hexdigest()}
+    except (OSError, TypeError):
+        return {"file": None, "sha": None}
+
+
+def map_use(args: dict, ctx) -> dict:
+    from halo_harness.crew.compile import in_use
+    name = str(args.get("map") or "").strip()
+    if not name or (store.find("map", name, cwd=ctx.get("cwd"), state_dir=ctx.get("state_dir")) is None
+                    and not _new(name, ctx)):
+        return {"text": f"no map named {name!r}", "rows": []}
+    now, _src = in_use(None, ctx.get("cwd"))
+    if now == name:
+        return {"text": f"new sessions run on {name} already", "rows": []}
+    words = _use_words(name, ctx)
     return {"text": f"preview: new sessions run on {name}", "rows": [row("change", USE_TARGET,
-            f"My sessions use the map {name} (config crew.map; a running session keeps its own){extra}{main_more}",
-            {"op": "use", "value": name}, bool(more or main_more))]}
+            f"My sessions use the map {name} (config crew.map; a running session keeps its own){words}",
+            {"op": "use", "value": name, **_file_mark(name, ctx)}, bool(words))]}
 
 
 def _main_more(name: str, ctx) -> str:
     """What the map `name` gives main beyond the map in use, in words ("" when nothing): the mode a new session starts
     in and the tools main keeps, both through crew/map_session.start (the session's own rule, never re-derived)."""
-    from halo_harness.crew.map_session import RANK, bases, start
+    from halo_harness.crew.map_session import RANK, bases, start, start_on
     gained, bits, seen = set(), [], set()
     for cwd, resolved, where in bases(ctx.get("cwd")):  # jf-mapuse: crew.map is global -- this folder AND outside
         kw = {"cwd": cwd, "state_dir": ctx.get("state_dir"), "resolved": resolved}
-        (m0, t0), (m1, t1) = start(None, **kw), start(name, **kw)
+        m0, t0 = start(None, **kw)
+        m1, t1 = start_on(_compiled(name, ctx, cwd), body=True, **kw) if _touched(name, ctx) else start(name, **kw)
         gained |= t1 - t0
         if RANK.get(m1, 99) > RANK.get(m0, 99) and (m0, m1) not in seen:
             bits.append(f"new sessions{where} start in {m1} mode, as its main says (until now {m0})")
@@ -297,12 +417,149 @@ def _line_more(name: str, body: dict, op: dict, ctx) -> str:
     return f" -- {'; '.join(bits)}" if bits else ""
 
 
+# ---- 3.6.0.2 R36 R37 R54: the Builder in a session ------------------------------------------------------------------
+def _box_agents(op: dict, body: dict, ctx) -> list:
+    """The agents a box row (or a line row to a box) puts to work: the box's agent(s), or its workflow's step agents."""
+    o = op.get("op")
+    if o == "map_box_add":
+        box = op.get("box") or {}
+    elif o == "map_line_add":
+        to = (op.get("line") or {}).get("to")
+        box = next((b for b in body.get("boxes") or [] if isinstance(b, dict) and b.get("id") == to), {})
+    else:
+        return []
+    if box.get("workflow"):
+        wf = card_body("workflow", str(box["workflow"]), ctx) or {}
+        return [n for s in wf.get("steps") or [] if isinstance(s, dict) for n in s.get("agents") or []]
+    ref = box.get("agent")
+    return [str(n) for n in (ref if isinstance(ref, list) else [ref]) if n]
+
+
+def _beyond(names: list, c, mode: str, ctx) -> bool:
+    """An agent of `names` may use a tool kind the session's main (on its map `c`) does not keep, or works less
+    carefully than the session's mode (the session's ceiling, as crew/map_session.start reads main)."""
+    from halo_harness.crew.map_session import _ALL, KINDS, RANK, removed_names
+    keeps = set(_ALL) - set(removed_names(_ALL, c))
+    for n in names:
+        a = card_body("agent", n, ctx) or {}
+        if any(set(KINDS[u]) - keeps for u in a.get("uses") or [] if u in KINDS):
+            return True
+        if RANK.get(MODES.get(a.get("careful"), "default"), 0) > RANK.get(mode, 1):
+            return True
+    return False
+
+
+def _on_running_map(got: dict, ctx) -> dict:
+    """R36: a change to the map this session runs on (its own file, yours: crew/map_control.refresh follows it) says
+    the session takes it at its next hand-off; a box (or a line to a box) whose agent may do more than the session's
+    main is a widening row."""
+    tc = _tc(ctx)
+    rows = got.get("rows") or []
+    if tc is None or _plain(tc) or not rows:
+        return got
+    run = str(getattr(tc, "map_name", "") or "")
+    mine = [r for r in rows if r.get("target") == _t(run)]
+    if not mine or getattr(tc.map, "scope", "") != "yours" or any(r["op"].get("op") in ("create", "copy") for r in mine):
+        return got
+    here = {**ctx, "made": [*(ctx.get("made") or []), *rows]}
+    body = _view(run, here)[0] or {}
+    mode = str(getattr(getattr(ctx.get("session"), "permission_engine", None), "mode", None) or "default")
+    for r in mine:
+        r["summary"] += f" -- {NEXT_HANDOFF}"
+        if not r["widen"] and _beyond(_box_agents(r["op"], body, here), tc.map, mode, here):
+            r["widen"], r["ticked"] = True, False
+    return got
+
+
+def _in_session(fn):
+    def run(args: dict, ctx) -> dict:
+        return _on_running_map(fn(args, ctx), ctx)
+    run.__name__ = fn.__name__
+    return run
+
+
+def card_use_rows(rows: list, ctx) -> list:
+    """After all of a session card's calls (crew/session_tool.preview): the use row of each map CREATED in the card
+    ("New sessions run on {B}. " + S13, ticked unless it widens) and of each map EDITED that new sessions do not use
+    (its own question, unticked) -- never for the session's own map, none when the card has a map_use row of its own
+    (that row is checked again on the card's final body). Every check runs on the map as the card leaves it (R54)."""
+    from halo_harness.crew import map_facts
+    from halo_harness.crew.compile import DEFAULT_MAP
+    session = ctx.get("session")
+    if session is None:
+        return []
+    final = {**ctx, "made": list(rows)}
+    asked = [r for r in rows if (r.get("op") or {}).get("op") == "use"]
+    for r in asked:
+        v = r["op"].get("value")
+        words = _use_words(v, final) if v and not r["widen"] else ""
+        if words:
+            r["summary"] += words
+            r["widen"], r["ticked"] = True, False
+    if asked:
+        return []
+    tc = _tc(ctx)
+    own = str(getattr(tc, "map_name", "") or "") if tc is not None else ""
+    nxt = map_facts.next_map()[0] or DEFAULT_MAP
+    out: list = []
+    for b in dict.fromkeys(r["target"][4:] for r in rows if str(r.get("target") or "").startswith("map:")):
+        new = _new(b, final)
+        if b == own or (b == nxt and not new):
+            continue
+        words = _use_words(b, final)
+        said = (map_facts.use_new(session, b) if new else map_facts.use_edited(b)) + words
+        r = row("change", USE_TARGET, said, {"op": "use", "value": b, **_file_mark(b, ctx)}, bool(words))
+        if not new:
+            r["ask"], r["ticked"] = True, False  # section 4: an edited map's question, unticked, No first
+        out.append(r)
+    return out
+
+
+def use_recheck(rows: list, ids, ctx) -> list:
+    """R54 at Apply: the ids of the picked use rows whose map file changed since the card was shown and that, checked
+    again on the file as it is now with the card's picked rows, let agents do more (they are left out)."""
+    import hashlib
+    picked = [r for r in rows if r["id"] in set(ids)]
+    out = []
+    for r in picked:
+        op = r.get("op") or {}
+        if op.get("op") != "use" or not op.get("file"):
+            continue
+        try:
+            with open(op["file"], "rb") as fh:
+                sha = hashlib.sha256(fh.read()).hexdigest()
+        except OSError:
+            sha = None
+        if sha == op.get("sha"):
+            continue
+        if _use_words(op["value"], {**ctx, "made": [x for x in picked if (x.get("op") or {}).get("op") != "use"]}):
+            out.append(r["id"])
+    return out
+
+
+def first_line(rows: list, ctx) -> str:
+    """R37: "Your {words} workflow: ..." when the card makes a workflow AND a new map with a box running it (a line,
+    not a change: no id, nothing written)."""
+    from halo_harness.crew.map_facts import FIRST_WORKFLOW
+    from halo_harness.crew.tools_flow import step_who
+    made = {r["target"][9:] for r in rows if str(r.get("target")).startswith("workflow:") and r["op"].get("op") == "create"}
+    final = {**ctx, "made": list(rows)}
+    for r in rows:
+        box = (r["op"].get("box") or {}) if r["op"].get("op") == "map_box_add" else {}
+        m = str(r.get("target"))[4:]
+        if box.get("workflow") in made and _new(m, final):
+            w = str(box["workflow"])
+            steps = [s for s in (card_body("workflow", w, final) or {}).get("steps") or [] if isinstance(s, dict)]
+            return FIRST_WORKFLOW.format(words=w, W=w, steps=", then ".join(step_who(s) for s in steps), M=m)
+    return ""
+
+
 TOOLS = {
-    "map_box_add": (map_box_add, '{"map"?, "kind": agent|workflow, "ref"}  (a box, not connected yet)'),
-    "map_box_remove": (map_box_remove, '{"map"?, "box"}  (the box and its lines)'),
-    "map_line_add": (map_line_add, '{"map"?, "from" (main or a box / name), "to", "when"?: always|ask|main-decides|'
-                     '{"needs": [pdf|images|audio|video|code|review]}|{"says": [words]}}  (a circle is refused)'),
-    "map_line_change": (map_line_change, '{"map"?, "from", "to", "when"}'),
-    "map_line_remove": (map_line_remove, '{"map"?, "from", "to"}'),
+    "map_box_add": (_in_session(map_box_add), '{"map"?, "kind": agent|workflow, "ref"}  (a box, not connected yet)'),
+    "map_box_remove": (_in_session(map_box_remove), '{"map"?, "box"}  (the box and its lines)'),
+    "map_line_add": (_in_session(map_line_add), '{"map"?, "from" (main or a box / name), "to", "when"?: always|ask|'
+                     'main-decides|{"needs": [pdf|images|audio|video|code|review]}|{"says": [words]}}  (a circle is refused)'),
+    "map_line_change": (_in_session(map_line_change), '{"map"?, "from", "to", "when"}'),
+    "map_line_remove": (_in_session(map_line_remove), '{"map"?, "from", "to"}'),
     "map_use": (map_use, '{"map"}  (what new sessions run on: config crew.map)'),
 }

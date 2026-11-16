@@ -119,5 +119,9 @@ new session)" -- and main carries on itself. It is a budget the person set, noth
 The terminal and Studio's sessions also offer main the builder's own tools (the `Builder` tool, one implementation:
 `crew/tools.py`): "make me a reviewer agent and hand reviews to it" goes through the same preview as Studio's builder,
 as one approval card -- the lines that let no agent do more in one question, each widening line its own question with
-No first. Only what the person picks is written; the result names the undo id; Studio follows the files. Print mode has
+No first. A change with no map named goes to the map this session runs on (on the default map it must name one; a new
+name makes the map), and a map made in the card comes with "New sessions run on it", ticked unless it lets agents do
+more. Only what the person picks is written; the result names the undo id and ends with the sentence main repeats word
+for word ("This session keeps running on starter (the default), as it started. Start a new session to run on
+review-flow."). Print mode has
 no one to answer, so it previews and writes nothing ([STUDIO-builder.md](STUDIO-builder.md#in-a-session)).

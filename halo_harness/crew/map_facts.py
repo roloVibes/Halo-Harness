@@ -209,6 +209,90 @@ def compacted(session) -> None:
         session._map_retell = True
 
 
+# ---- R36 R37 R21: the Builder's card and result in a session (section 4, letter for letter) --------------------------
+NAME_THE_MAP = ("Name the map: this session runs on {A}, where main chooses who works. Pass a new name in args.map to "
+                "make a map that routes.")
+NEXT_HANDOFF = "this session takes it at its next hand-off"
+ROW_NEW_MAP = "Make a new map {B} (main, then the boxes below)"
+ROW_WORKFLOW = "Make the workflow {W}: {steps}"  # steps: "1 {a}, 2 {b}"
+ROW_BOX = "Add box {x} ({kind} {ref})"
+ROW_LINE = "Add line {a} -> {x} (When: {words})"
+USE_NEW = "New sessions run on {B}. "  # + S13 (+ " " + the terminal tail)
+USE_EDITED = "New sessions do not run on {B}; they run on {F4}. Run new sessions on it instead?"
+FIRST_WORKFLOW = "Your {words} workflow: the workflow {W} ({steps}), run from a box on the new map {M}."
+T1 = "This session runs on {A}, as it started at {t}. New sessions will too."
+RESULT_TAIL = "Written: {written}. Undo: {u}. Tell the person, word for word: "
+USE_LEFT = "Left out: new sessions still run on {F4}: {B} changed after the card was shown and now lets agents do more."
+
+
+def in_terminal(session) -> bool:
+    """The person reads this session in a terminal (the TUI), not only in Studio: its control handle's kind is `tui`;
+    a session no handle names (a private one) answers in its own terminal when it is interactive."""
+    try:
+        from halo_harness.remote import runtime
+        for act in runtime.actives():
+            if getattr(getattr(act, "handle", None), "session", None) is session:
+                return getattr(act.handle, "kind", "") == "tui"
+    except Exception:
+        pass
+    return bool(getattr(session, "interactive", False))
+
+
+def _words_here(f: dict) -> str:
+    return f["words"] or words_of(None)
+
+
+def name_the_map(session) -> str:
+    """R36: a nameless map change in a session on the default map."""
+    return NAME_THE_MAP.format(A=_words_here(facts(session)))
+
+
+def use_new(session, b: str) -> str:
+    """R36: the use row of a map created in the card: "New sessions run on {B}. " + S13 (+ the terminal tail)."""
+    a = _words_here(facts(session))
+    return USE_NEW.format(B=b) + s13(a, b) + (" " + terminal_tail(a) if in_terminal(session) else "")
+
+
+def use_edited(b: str) -> str:
+    """R36: an edited map new sessions do not use (F4 unset: the default's words)."""
+    nxt = next_map()[0]
+    return USE_EDITED.format(B=b, F4=words_of(nxt, nxt is None))
+
+
+def use_left(b: str) -> str:
+    """R54: a use row left out at Apply because its map changed since the card and now widens."""
+    nxt = next_map()[0]
+    return USE_LEFT.format(B=b, F4=words_of(nxt, nxt is None))
+
+
+def tell(session) -> str:
+    """What main repeats word for word after a card (R21): S13 (+ the terminal tail) when this session's map and the
+    map new sessions use differ, else T1."""
+    from halo_harness.crew.compile import DEFAULT_MAP
+    f = facts(session)
+    a = _words_here(f)
+    if (f["map"] or DEFAULT_MAP) == (f["next"] or DEFAULT_MAP):
+        return _runs(T1, a, f["since"])
+    return s13(a, f["next_words"]) + (" " + terminal_tail(a) if in_terminal(session) else "")
+
+
+def written(wrote) -> str:
+    """"the map {B} (new); the agents {x}, {y} (new)" for the `builder_done` items written (R25's `wrote`)."""
+    groups: dict = {}
+    for w in wrote or []:
+        tag = " (new)" if w.get("added") else " (removed)" if w.get("removed") else ""
+        groups.setdefault(w.get("kind"), []).append(f"{w.get('name')}{tag}")
+    parts = [f"the {k}{'s' if len(groups[k]) > 1 else ''} {', '.join(groups[k])}" for k in ("map", "agent", "workflow")
+             if groups.get(k)]
+    return "; ".join(parts)
+
+
+def result_tail(session, wrote, undo, use_written: bool = False) -> str:
+    """The Builder's result tail (section 4; replaces "Studio follows the files.")."""
+    said = written(wrote) or ("config.json" if use_written else "nothing")
+    return RESULT_TAIL.format(written=said, u=undo) + tell(session)
+
+
 def row(session) -> dict:
     """The status row's map facts (R40): map_since, map_plain, map_next, map_next_since, built, asked. Never raises."""
     try:

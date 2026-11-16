@@ -7,6 +7,12 @@ nothing written), and the person answers ONE approval card:
 
     question 1   "Apply these N changes? ..." (the lines that let no agent do more)      Apply them / Leave them
     one more per widening line, each its own choice, "No" first                          No / Yes, this line too
+    (3.6.0.2 R36: an edited map's "Run new sessions on it instead?" is its own question too, unticked, No first)
+
+3.6.0.2 R36 R37 R54 R21: after the calls, crew/tools_map.card_use_rows adds the "new sessions run on it" row of each
+map the card makes (ticked unless it widens) or edits; a card that makes a workflow and a new map running it opens
+with R37's line; at Apply a use row whose map file changed is checked again (tools_map.use_recheck); the result ends
+with what was written and the sentence main repeats word for word (crew/map_facts.result_tail: S13, or T1).
 
 In the terminal it is the question card (the AskUserQuestion round trip, agent/loop.py); in Studio the same lines show
 in the session's ask card. Only what the person picked is written (crew/changes.py apply: the format checked first,
@@ -50,23 +56,36 @@ def preview(session, input: dict) -> dict:
         got = tools.run(call.get("tool"), call.get("args"), _ctx(session, rows))
         rows += got.get("rows") or []
         texts.append(f"{call.get('tool')}: {got.get('text')}")
-    out = {"rows": rows, "text": "\n".join(texts)}
+    first = ""
     if rows:
-        out["card"] = card(rows)
+        from halo_harness.crew import tools_map
+        try:  # a bug here is a card without these lines, never a crash of the turn
+            rows += tools_map.card_use_rows(rows, _ctx(session, rows))
+            first = tools_map.first_line(rows, _ctx(session, rows))
+        except Exception:
+            first = ""
+    out = {"rows": rows, "text": "\n".join(([first] if first else []) + texts)}
+    if rows:
+        out["card"] = card(rows, first)
     return out
 
 
-def card(rows: list) -> dict:
-    plain = [r for r in rows if not r["widen"]]
-    wide = [r for r in rows if r["widen"]]
+def _own(r: dict) -> bool:
+    """A line asked on its own, "No" first: a widening line, or an edited map's use row (3.6.0.2 R36)."""
+    return bool(r["widen"] or r.get("ask"))
+
+
+def card(rows: list, first: str = "") -> dict:
+    plain = [r for r in rows if not _own(r)]
+    wide = [r for r in rows if _own(r)]
     qs = []
     if plain:
-        body = "\n".join(f"  {i}. {r['summary']}" for i, r in enumerate(plain, 1))
+        body = "\n".join(([first] if first else []) + [f"  {i}. {r['summary']}" for i, r in enumerate(plain, 1)])
         qs.append({"question": f"Apply these {len(plain)} change{'s' if len(plain) > 1 else ''}? (none lets an agent do more)\n{body}",
                    "header": "Builder", "options": [{"label": APPLY}, {"label": LEAVE}]})
     for k, r in enumerate(wide, len(plain) + 1):
-        qs.append({"question": f"{k}. {r['summary']} -- this lets the agent do more; not ticked for you",
-                   "header": f"Line {k}", "options": [{"label": NO}, {"label": YES}]})
+        more = " -- this lets the agent do more; not ticked for you" if r["widen"] else ""
+        qs.append({"question": f"{k}. {r['summary']}{more}", "header": f"Line {k}", "options": [{"label": NO}, {"label": YES}]})
     return {"questions": qs}
 
 
@@ -87,8 +106,8 @@ def _said(answer) -> list:
 def chosen(rows: list, answer) -> list:
     """The ids the person picked: the plain lines when they said Apply, a widening line only when its own answer says
     Yes (in plain words: "yes 3" / "line 3")."""
-    plain = [r for r in rows if not r["widen"]]
-    wide = {k: r for k, r in enumerate([r for r in rows if r["widen"]], len(plain) + 1)}
+    plain = [r for r in rows if not _own(r)]
+    wide = {k: r for k, r in enumerate([r for r in rows if _own(r)], len(plain) + 1)}
     ids: list = []
     for q, a in _said(answer):
         low = a.strip().lower()
@@ -149,9 +168,18 @@ def finish(pv: dict, answer, session) -> str:
             pv["outcome"] = _outcome("applied", _items(got.get("restored")))
         return f"Undone: {len(got.get('restored') or [])} file(s) put back." if got.get("ok") else str(got.get("error"))
     ids = chosen(pv["rows"], answer)
+    from halo_harness.crew import map_facts
+    try:  # 3.6.0.2 R54: a use row whose map changed since the card and now widens is left out
+        from halo_harness.crew.tools_map import use_recheck
+        dropped = set(use_recheck(pv["rows"], ids, _ctx(session, [])))
+    except Exception:
+        dropped = set()
+    ids = [i for i in ids if i not in dropped]
+    left_out = "".join("\n" + map_facts.use_left(r["op"].get("value"))
+                       for r in pv["rows"] if r["id"] in dropped)
     if not ids:
         pv["outcome"] = _outcome("left")
-        return pv["text"] + "\nThe person left every line: nothing was written."
+        return pv["text"] + left_out + "\nThe person left every line: nothing was written."
     cwd = getattr(session, "cwd", None)
     had = _had(pv["rows"], set(ids), cwd)
     import time
@@ -169,9 +197,14 @@ def finish(pv: dict, answer, session) -> str:
     pv["outcome"] = _outcome("applied" if got["wrote"] or got["removed"] else "left",
                              _items(got["wrote"], had) + _items(got["removed"], had, removed=True), got["undo_id"])
     left = len(pv["rows"]) - len(ids)
+    try:  # 3.6.0.2 R21 + section 4: what was written and the sentence main repeats (S13, or T1)
+        used = any(r["id"] in ids and (r.get("op") or {}).get("op") == "use" for r in pv["rows"])
+        tail = map_facts.result_tail(session, pv["outcome"]["wrote"], got["undo_id"], used)
+    except Exception:
+        tail = ""
     return (pv["text"] + f"\nApplied {len(ids)} line(s){f', left {left}' if left else ''}: wrote "
             f"{', '.join(got['wrote'] + got['removed']) or 'nothing'}. Undo id {got['undo_id']} (Builder {{\"undo\": \"{got['undo_id']}\"}}, "
-            "or Undo in Studio). Studio follows the files." + ("".join(f"\nskipped: {s}" for s in got["skipped"])))
+            f"or Undo in Studio). {tail}" + left_out + ("".join(f"\nskipped: {s}" for s in got["skipped"])))
 
 
 def no_one_to_ask(pv: dict) -> str:

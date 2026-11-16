@@ -164,6 +164,17 @@ def start(name=None, *, cwd=None, state_dir=None, resolved: str = "default") -> 
         c = None if c.problems else c
     else:
         c = for_session(name, cwd=cwd, state_dir=state_dir)[0]
+    return start_on(c, resolved=resolved)
+
+
+def start_on(c, *, cwd=None, state_dir=None, resolved: str = "default", body: bool = False) -> "tuple[str, set]":
+    """`start` on a compiled map (3.6.0.2 R54: the one path; by name wraps it). `body`: `c` is a body compiled as a
+    Builder card would leave it -- with a problem it runs as the starter does, as for_session would run it."""
+    from halo_harness.crew.compile import DEFAULT_MAP, compile_map
+    if body and c is not None and c.problems:
+        c = compile_map(DEFAULT_MAP, cwd=cwd, state_dir=state_dir)
+        c.source = "default"
+        c = None if c.problems else c
     if c is None:
         return resolved, set(_ALL)
     return main_mode(c, resolved)[0], set(_ALL) - (set() if is_default(c) else set(removed_names(_ALL, c)))

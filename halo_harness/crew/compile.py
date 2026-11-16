@@ -108,9 +108,15 @@ def _entry(line: dict, box: dict, name: str) -> dict:
             "name": name, "when": line.get("when")}
 
 
-def _main(raw: dict, problems: list, cwd, state_dir) -> dict:
+def _load(kind: str, name: str, cwd, state_dir, extra):
+    """A file as the store reads it, or as a Builder card would leave it (`extra` {(kind, name): body}: 3.6.0.2 R54)."""
+    got = (extra or {}).get((kind, name))
+    return got if got is not None else store.load(kind, name, cwd=cwd, state_dir=state_dir)
+
+
+def _main(raw: dict, problems: list, cwd, state_dir, extra=None) -> dict:
     who = str(((raw.get("main") or {}) if isinstance(raw.get("main"), dict) else {}).get("agent") or "main")
-    body = store.load("agent", who, cwd=cwd, state_dir=state_dir)
+    body = _load("agent", who, cwd, state_dir, extra)
     if body is None:
         problems.append(f"main: no agent named {who} (yours, this project's or a starter)")
         return {"agent": who}
@@ -124,11 +130,12 @@ def _main(raw: dict, problems: list, cwd, state_dir) -> dict:
             "effort": (clean.get("more") or {}).get("effort"), "scope": body.get("_scope")}
 
 
-def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None) -> Compiled:
-    """The map body `raw` compiled (nothing read but the agent and workflow files it names)."""
+def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None, extra=None) -> Compiled:
+    """The map body `raw` compiled (nothing read but the agent and workflow files it names; `extra` holds the bodies a
+    Builder card makes, read before the store's: 3.6.0.2 R54)."""
     out = Compiled(name=name or str(raw.get("name") or ""))
     out.problems = list(PROBLEMS["map"](raw, name=out.name))
-    out.main = _main(raw, out.problems, cwd, state_dir)
+    out.main = _main(raw, out.problems, cwd, state_dir, extra)
     for b in raw.get("boxes") or []:
         if not isinstance(b, dict) or not isinstance(b.get("id"), str):
             continue
@@ -141,7 +148,7 @@ def compile_raw(raw: dict, *, name: str = "", cwd=None, state_dir=None) -> Compi
     for bid, box in out.boxes.items():
         for n in box["names"]:
             kind = box["kind"]
-            got = store.load(kind, n, cwd=cwd, state_dir=state_dir)
+            got = _load(kind, n, cwd, state_dir, extra)
             if got is None:
                 out.problems.append(f"box {bid}: no {kind} named {n} (yours, this project's or a starter)")
                 continue
