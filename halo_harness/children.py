@@ -87,16 +87,22 @@ def same_process(pid, recorded: Optional[str]) -> bool:
     if not recorded:
         return True
     current = start_time(pid)
-    return current is None or current == recorded
+    from halo_harness.bg_run import start_matches
+    return current is None or start_matches(pid, recorded, current)
 
 
 def provably_same(pid, recorded: Optional[str]) -> bool:
     """3.6.0.0 R10: the proof a signal needs -- `pid` runs AND its start time is read now AND equals the one recorded.
-    An unreadable start time on either side is not a match: Halo never signals on a pid alone."""
-    if not recorded or not pid_running(pid):
+    An unreadable start time on either side is not a match: Halo never signals on a pid alone. Where `ps` is read
+    (macOS) the read is a fresh one, never the look kept for the watchers."""
+    if not recorded:
+        return False
+    from halo_harness.bg_run import ps_forget, start_matches
+    ps_forget(pid)
+    if not pid_running(pid):
         return False
     current = start_time(pid)
-    return current is not None and current == recorded
+    return current is not None and start_matches(pid, recorded, current)
 
 
 def alive(entry: dict) -> bool:

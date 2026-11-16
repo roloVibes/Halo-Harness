@@ -236,7 +236,7 @@ that one.
 | OS | File | Enable |
 |---|---|---|
 | Linux | `halo-host.service` (a systemd user unit) | `systemctl --user link <file> && systemctl --user enable --now halo-host.service` |
-| macOS | `com.halo.host.plist` (a launchd agent) | `launchctl bootstrap gui/$(id -u) <file>` |
+| macOS | `com.halo.host.plist` (a launchd agent) | `mkdir -p ~/Library/LaunchAgents && cp <file> ~/Library/LaunchAgents/com.halo.host.plist && launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.halo.host.plist` (launchd loads an agent at login only from that folder) |
 | Windows | `halo-host-task.xml` (Task Scheduler, at logon) | `schtasks /Create /TN "Halo Host" /XML "<file>"` |
 
 The service runs `python -m halo_harness.cli host serve --foreground` (with `--port` / `--bind` when given).

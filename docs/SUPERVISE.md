@@ -300,7 +300,9 @@ notes for its goals (`supervisor`) and the Ollama steward's attention notes (`st
 Scheduler XML (`halo_harness/logon_units.py`, 3.3.13.0: renamed from the Signal
 bridge's `remote/daemon_units.py`) -- and prints the single command that enables
 it. Halo never enables it; you run that one command to start the supervisor,
-and with it the packs' services, at login. `JAVA_TOOL_OPTIONS` (the proxied-VM
+and with it the packs' services, at login. On macOS that command copies the plist
+into `~/Library/LaunchAgents/` first: launchd loads an agent at login only from
+there (one bootstrapped from anywhere else runs for this login only). `JAVA_TOOL_OPTIONS` (the proxied-VM
 recipe of the signal pack's signal-cli) is carried into the systemd unit and the
 launchd plist when it is set; the Windows task does not carry it -- set it for
 your user (System Properties -> Environment Variables) so the task's process

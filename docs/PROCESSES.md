@@ -77,7 +77,9 @@ whose Studio has gone says "Studio has stopped" and stops asking.
 ## Seeing and stopping
 
     halo ps                 every live process of Halo for this home: kind, pid, age, owner (alive / gone / none),
-                            kept on purpose or not; and any stray a scan finds by its HALO_OWNER marker
+                            kept on purpose or not; the sessions running on this home (kind `session`: listed,
+                            never stopped -- a session ends from its own terminal); and any stray a scan finds by
+                            its HALO_OWNER marker
     halo stop <pid|kind>    stop those
     halo stop --orphans     stop what has no living owner and was not asked to stay
     halo stop --all         stop everything listed for this home, kept things too

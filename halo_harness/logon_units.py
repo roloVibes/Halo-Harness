@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from halo_harness.selfexec import persisted_argv  # 3.6.0.0 R10: never the working folder's copy, on any Python
 import os
+import shlex
 import shutil
 import sys
 from pathlib import Path
@@ -101,9 +102,21 @@ def render_task_xml(argv: list, desc: str = SUPERVISOR["desc"]) -> str:
 def enable_command(os_n: str, path: Path, task: str = SUPERVISOR["task"]) -> str:
     if os_n == "linux":
         return f"systemctl --user link {path} && systemctl --user enable --now {path.name}"
-    if os_n == "macos":
-        return f"launchctl bootstrap gui/$(id -u) {path}"
+    if os_n == "macos":  # 3.6.0.0 fx: launchd loads an agent at login only from ~/Library/LaunchAgents
+        agent = launch_agent(path.name)
+        return (f"mkdir -p ~/Library/LaunchAgents && cp {shlex.quote(str(path))} {agent} && "
+                f"launchctl bootstrap gui/$(id -u) {agent}")
     return f'schtasks /Create /TN "{task}" /XML "{path}"'
+
+
+def launch_agent(name: str) -> str:
+    """Where a launchd agent must be for launchd to load it at every login (a plist bootstrapped from anywhere else
+    runs for this login only), as a shell word."""
+    return f"~/Library/LaunchAgents/{shlex.quote(name)}"
+
+
+def disable_launchd(label: str, name: str) -> str:
+    return f"launchctl bootout gui/$(id -u)/{label} ; rm -f {launch_agent(name)}"
 
 
 def write_unit(os_n: Optional[str] = None, argv: Optional[list] = None, env: Optional[dict] = None,

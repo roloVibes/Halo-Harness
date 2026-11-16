@@ -22,8 +22,12 @@ middle of a Halo session.
      (`GenerateConsoleCtrlEvent`) cannot end the session either.
 `Guard.restore()` puts the saved mode back, removes the handler and the
 SIGINT disposition; the launcher calls it from a `finally`, and an
-`atexit` hook covers a crash that skips it. CTRL_BREAK, close and logoff
-events are untouched. On POSIX `install()` returns an inert guard: SIGINT
+`atexit` hook covers a crash that skips it. A CTRL_BREAK still ends the
+process (the default handler runs after this one), but first the handler
+writes off what the full-screen session switched on -- the alternate
+screen, mouse reporting, bracketed paste, the hidden cursor -- and puts the
+saved input mode back: the session's own exit, which normally does that,
+never runs (3.6.0.0 fx). Close and logoff events are untouched. On POSIX `install()` returns an inert guard: SIGINT
 keeps the behaviour Textual already gives the app. Print mode (`halo -p`)
 never calls this, so SIGINT = exit 130 there is unchanged.
 
@@ -35,12 +39,22 @@ from __future__ import annotations
 
 import atexit
 import ctypes
+import os
 import sys
 from typing import Any, Optional
 
 ENABLE_PROCESSED_INPUT = 0x0001
 STD_INPUT_HANDLE = -10
 CTRL_C_EVENT = 0
+CTRL_BREAK_EVENT = 1
+# What a full-screen session turns on and its own exit turns off again (mouse reporting in all its modes, bracketed
+# paste, the cursor, the alternate screen last so the shell's prompt comes back on the main screen).
+TERMINAL_RESET = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l\x1b[?2004l\x1b[?25h\x1b[?1049l"
+
+
+def _write_terminal(text: str) -> None:
+    out = getattr(sys, "__stdout__", None)
+    os.write(out.fileno() if out is not None else 1, text.encode("ascii"))
 
 
 def _real_kernel32() -> Any:
@@ -72,7 +86,8 @@ class Guard:
     on POSIX or when no console is attached."""
 
     def __init__(self, k32: Any = None, handle: Any = None, saved_mode: Optional[int] = None,
-                 handler: Any = None, signal_module: Any = None, saved_sigint: Any = None) -> None:
+                 handler: Any = None, signal_module: Any = None, saved_sigint: Any = None,
+                 write: Any = None) -> None:
         self._k32 = k32
         self._handle = handle
         self._saved_mode = saved_mode
@@ -81,6 +96,7 @@ class Guard:
         self._saved_sigint = saved_sigint
         self.active = k32 is not None
         self._restored = False
+        self._write = write  # the terminal's writer (a real run only; a fake console never writes to the tests' own)
 
     def _mode(self) -> Optional[int]:
         if self._k32 is None or self._handle is None:
@@ -102,6 +118,19 @@ class Guard:
         self._k32.SetConsoleMode(self._handle, mode & ~ENABLE_PROCESSED_INPUT)
         return True
 
+    def on_break(self) -> None:
+        """A Ctrl+Break is about to end the process: leave the terminal as the session found it."""
+        steps = []
+        if self._write is not None:
+            steps.append(lambda: self._write(TERMINAL_RESET))
+        if self._saved_mode is not None and self._handle is not None:
+            steps.append(lambda: self._k32.SetConsoleMode(self._handle, self._saved_mode))
+        for step in steps:
+            try:
+                step()
+            except Exception:
+                pass
+
     def restore(self) -> None:
         if not self.active or self._restored:
             return
@@ -121,7 +150,7 @@ class Guard:
 
 
 def install(*, kernel32: Any = None, platform: Optional[str] = None,
-            signal_module: Any = None) -> Guard:
+            signal_module: Any = None, write: Any = None) -> Guard:
     """Harden the console for the TUI's lifetime; see the module docstring.
     A no-op (inert Guard) off Windows. Never raises."""
     if (platform or sys.platform) != "win32":
@@ -130,13 +159,17 @@ def install(*, kernel32: Any = None, platform: Optional[str] = None,
     try:
         k32 = kernel32 if kernel32 is not None else _real_kernel32()
         handle = k32.GetStdHandle(STD_INPUT_HANDLE)
-        guard = Guard(k32=k32, handle=handle)
+        guard = Guard(k32=k32, handle=handle, write=write if write is not None or kernel32 is not None
+                      else _write_terminal)
         saved = guard._mode()
         guard._saved_mode = saved
         if saved is not None and saved & ENABLE_PROCESSED_INPUT:
             k32.SetConsoleMode(handle, saved & ~ENABLE_PROCESSED_INPUT)
 
         def _on_ctrl(ctrl_type: int) -> bool:
+            if ctrl_type == CTRL_BREAK_EVENT:  # it still ends the process; the terminal is put back first
+                guard.on_break()
+                return False
             return ctrl_type == CTRL_C_EVENT  # True = handled, nobody else sees it
 
         guard._handler = _handler_type()(_on_ctrl)

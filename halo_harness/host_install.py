@@ -31,7 +31,8 @@ def disable_command(os_n: str, path) -> str:
     if os_n == "linux":
         return f"systemctl --user disable --now {path.name}"
     if os_n == "macos":
-        return f"launchctl bootout gui/$(id -u)/{UNIT['label']}"
+        from halo_harness.logon_units import disable_launchd
+        return disable_launchd(UNIT["label"], path.name)
     return f'schtasks /Delete /TN "{UNIT["task"]}" /F'
 
 

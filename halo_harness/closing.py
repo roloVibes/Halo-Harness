@@ -111,7 +111,11 @@ def marker_owner_alive(mark: str) -> Optional[bool]:
     from halo_harness import children as C
     if not C.pid_running(int(pid)):
         return False
-    return ident(int(pid), _start(int(pid))) == mark or not digest
+    if ident(int(pid), _start(int(pid))) == mark or not digest:
+        return True
+    from halo_harness.bg_run import _ps_process_start_time  # a 3.5 Halo's marker: its `ps` start in its own zone
+    return os.name != "nt" and not os.path.isdir("/proc/self") and ident(int(pid), _ps_process_start_time(
+        int(pid), local=True)) == mark
 
 
 def owner() -> "tuple[Optional[int], Optional[str]]":

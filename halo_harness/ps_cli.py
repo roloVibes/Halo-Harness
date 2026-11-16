@@ -2,7 +2,8 @@
 them (Halo 3.6.0.0 R10, closing.py; docs/PROCESSES.md).
 
     halo ps [--json]                       the ledger of this home (children.json, the model servers' registry, the
-                                           Studio of studio.json) and the processes a scan finds with Halo's
+                                           Studio of studio.json, the live sessions of run/sessions.json -- listed,
+                                           never stopped) and the processes a scan finds with Halo's
                                            HALO_OWNER marker that the ledger lost: kind, pid, age, owner (alive /
                                            gone / none), kept on purpose or not
     halo stop <pid>|<kind> ... [--json]    stop those (a kind: studio, bg, schedule, supervisor, host, llama, mlx, stray)
@@ -75,6 +76,29 @@ def _of_home(pid: int, home: str) -> bool:
     return bool(mine) and norm(mine) == norm(home)
 
 
+def _written(home) -> "Optional[float]":
+    """When studio.json was written (the Studio writes it once, as it starts): its row's age."""
+    try:
+        return os.path.getmtime(os.path.join(str(home), "studio.json"))
+    except OSError:
+        return None
+
+
+def _sessions(home) -> list:
+    """The live sessions of this home (run/sessions.json: the pid runs AND its control endpoint answers), as rows.
+    A session is listed, never a stop target: it ends from its own terminal."""
+    from pathlib import Path
+    try:
+        from halo_harness.remote import registry
+        live = [r for r in registry._load(Path(str(home)) / "run" / registry.FILENAME)
+                if isinstance(r.get("pid"), int) and r["pid"] != os.getpid() and registry._entry_alive(r)]
+    except Exception:
+        return []
+    return [{"kind": "session", "pid": r["pid"], "start_time": None, "age": _age(r.get("started")), "owner": "none",
+             "owner_pid": None, "kept": False, "source": "sessions.json",
+             "cmd": f"halo ({r.get('kind') or 'tui'}) in {r.get('cwd') or '?'}"[:120]} for r in live]
+
+
 def rows(state_dir=None) -> list:
     """Every live process of Halo for this home: dicts {kind, pid, start_time, age, owner, kept, source, cmd}."""
     from halo_harness import children as C
@@ -92,7 +116,7 @@ def rows(state_dir=None) -> list:
             info = read_info(home) or {}
         except Exception:
             pass
-        st = dict(st, owner_pid=info.get("owner_pid"), owner_start=info.get("owner_start"))
+        st = dict(st, owner_pid=info.get("owner_pid"), owner_start=info.get("owner_start"), since=_written(home))
         entries.append(st)
     for e in entries:
         if e.get("pid") == os.getpid() or not C.alive(e):
@@ -102,6 +126,11 @@ def rows(state_dir=None) -> list:
                     "age": _age(e.get("since")), "owner": _owner_word(e), "owner_pid": e.get("owner_pid"),
                     "kept": closing.kept(e), "source": e.get("source") or "children.json",
                     "cmd": " ".join(e.get("cmd") or [])[:120]})
+    for s in _sessions(home):  # 3.6.0.0 fx: the sessions themselves (on Windows their tools are in their Job)
+        if s["pid"] in seen:
+            continue
+        seen.add(s["pid"])
+        out.append(s)
     for pid, mark in sorted(closing.marker_pids().items()):
         if pid in seen or pid == os.getpid() or not _of_home(pid, str(home)):
             continue
@@ -160,7 +189,8 @@ def _stop_rows(targets: list, state_dir=None) -> list:
 
 
 def pick(table: list, words: list, *, orphans: bool = False, every: bool = False) -> "tuple[list, list]":
-    """(targets, unknown words)."""
+    """(targets, unknown words). A session is never a target (it ends from its own terminal)."""
+    table = [r for r in table if r.get("source") != "sessions.json"]
     if every:
         return list(table), []
     if orphans:

@@ -61,12 +61,10 @@ def _windows_token(pid: int) -> Optional[str]:
 
 
 def _ps_token(pid: int) -> Optional[str]:
-    try:
-        out = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.SubprocessError):
-        return None
-    text = " ".join((out.stdout or "").split())
-    return f"ps:{text}" if out.returncode == 0 and text else None
+    """3.6.0.0 fx: the one `ps` reader (bg_run): C locale and UTC, so a pulse written under another time zone or
+    locale still names the same process."""
+    from halo_harness.bg_run import _ps_process_start_time
+    return _ps_process_start_time(pid)
 
 
 def start_token(pid) -> Optional[str]:
@@ -120,7 +118,8 @@ def pulse_alive(row: dict) -> bool:
     if want:
         have = start_token(pid)
         if have is not None:
-            return have == want
+            from halo_harness.bg_run import start_matches
+            return start_matches(pid, want, have)
     started, boot = row.get("started"), boot_time()
     if isinstance(started, (int, float)) and boot is not None and started < boot - BOOT_SLACK_S:
         return False  # written before this boot: the PID now belongs to something else

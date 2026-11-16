@@ -75,7 +75,7 @@ def main(argv: list) -> int:
             except (OSError, ValueError):
                 pass
     misses = 0
-    while C.provably_same(spid, sstart):
+    while sstart and C.same_process(spid, sstart):  # a kept look (macOS: one `ps` per PS_TTL_S); _end_server proves afresh
         misses = 0 if halos_alive(state, (lpid, lstart)) else misses + 1
         if misses >= 2:
             _end_server(spid, sstart)

@@ -143,18 +143,60 @@ def process_start_time(pid: int) -> Optional[str]:
         return None
 
 
-def _ps_process_start_time(pid: int) -> Optional[str]:
+PS_TTL_S = 1.5  # how long one `ps` look at a pid answers for it (macOS, the BSDs)
+_PS_SEEN: dict = {}  # pid -> (monotonic time, stat, lstart text)
+
+
+def ps_forget(pid) -> None:
+    """The next look at `pid` runs `ps` again (the proof before a signal is always a fresh read)."""
+    _PS_SEEN.pop(pid, None)
+
+
+def _ps_look(pid: int, *, local: bool = False) -> "tuple[Optional[str], Optional[str]]":
+    """(state, start time text) of `pid` from ONE `ps` where there is no /proc, kept for PS_TTL_S: the closing
+    procedure's watchers look several times a second and every look started a `ps` (3.6.0.0 fx). The start time is
+    read in UTC (`local`: in this process's own zone, how a 3.5 Halo recorded it): `lstart` is local-time text, so a
+    zone that differs between two reads (a laptop that travels, TZ set in one shell) made a live process read as
+    another. (None, None): unknown; ("", None): no such process."""
+    now = time.monotonic()
+    if not local and (hit := _PS_SEEN.get(pid)) and now - hit[0] < PS_TTL_S:
+        return hit[1], hit[2]
+    env = {**os.environ, "LC_ALL": "C", "LANG": "C"}
+    if not local:
+        env["TZ"] = "UTC0"
+    try:
+        result = subprocess.run(["ps", "-o", "stat=", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True,
+                                timeout=5, env=env)
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+    parts = (result.stdout or "").split()
+    if result.returncode != 0 or not parts:
+        _PS_SEEN.pop(pid, None)
+        return "", None
+    stat, start = parts[0], (" ".join(parts[1:]) or None)
+    if not local:
+        if len(_PS_SEEN) > 256:
+            _PS_SEEN.clear()
+        _PS_SEEN[pid] = (now, stat, start)
+    return stat, start
+
+
+def _ps_process_start_time(pid: int, *, local: bool = False) -> Optional[str]:
     """review finding 87: the start time from `ps -o lstart=` where there
     is no /proc (macOS). Without it `process_start_time` was always None
     there, so the PID-reuse guard in `is_our_process` could never refuse
     anything and `halo bg stop` could kill an unrelated process group."""
-    try:
-        result = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True,
-                                timeout=5, env={**os.environ, "LC_ALL": "C", "LANG": "C"})
-    except (OSError, subprocess.SubprocessError):
-        return None
-    text = " ".join((result.stdout or "").split())
-    return f"ps:{text}" if result.returncode == 0 and text else None
+    text = _ps_look(pid, local=local)[1]
+    return f"ps:{text}" if text else None
+
+
+def start_matches(pid, recorded: Optional[str], current: Optional[str]) -> bool:
+    """`current` (read now) is the start time `recorded`: equal, or -- a `ps:` text a 3.5 Halo recorded in its own
+    time zone -- equal to this pid's start read in this process's zone."""
+    if current == recorded:
+        return True
+    return (bool(recorded) and str(recorded).startswith("ps:") and current is not None and isinstance(pid, int)
+            and _ps_process_start_time(pid, local=True) == recorded)
 
 
 def _windows_process_start_time(pid: int) -> Optional[str]:
@@ -200,7 +242,7 @@ def is_our_process(meta: dict) -> bool:
     if not expected:
         return True
     current = process_start_time(pid)
-    return current is None or current == expected
+    return current is None or start_matches(pid, expected, current)
 
 
 def list_runs() -> "list[dict]":
@@ -261,6 +303,7 @@ def pid_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
+        _PS_SEEN.pop(pid, None)  # gone: a later process given this pid is looked at afresh
         return False
     except PermissionError:
         return True  # exists, just owned by someone else -- still alive
@@ -290,12 +333,8 @@ def pid_alive(pid: int) -> bool:
 def _ps_zombie(pid: int) -> bool:
     """3.6.0.0 R12: on a POSIX system without /proc (macOS, the BSDs) `ps` says whether `pid` is a zombie -- a
     session that ended but whose parent has not reaped it read as alive there, so Studio waited on it for ever.
-    Unknown (no ps, a timeout) is not a zombie."""
-    try:
-        result = subprocess.run(["ps", "-o", "stat=", "-p", str(pid)], capture_output=True, text=True, timeout=3)
-    except (OSError, subprocess.SubprocessError):
-        return False
-    return (result.stdout or "").strip().upper().startswith("Z")
+    Unknown (no ps, a timeout) is not a zombie. One `ps` look answers for PS_TTL_S (it also holds the start time)."""
+    return (_ps_look(pid)[0] or "").upper().startswith("Z")
 
 
 def kill_pid(pid: int) -> bool:

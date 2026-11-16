@@ -76,7 +76,10 @@ def test_the_three_service_files_for_the_hosts_argv(ctx: Ctx):
         plist = mac.read_text(encoding="utf-8")
         ctx.check(f"macos: com.halo.host.plist with its own label and the argv, got {mac.name}", mac.name == "com.halo.host.plist"
                   and "<string>com.halo.host</string>" in plist and "halo_harness.cli" in plist
-                  and "<string>--foreground</string>" in plist and rows["macos"]["enable"].startswith("launchctl bootstrap"))
+                  and "<string>--foreground</string>" in plist
+                  and "cp " in rows["macos"]["enable"]
+                  and rows["macos"]["enable"].endswith("launchctl bootstrap gui/$(id -u) "
+                                                       "~/Library/LaunchAgents/com.halo.host.plist"))
         win = Path(rows["windows"]["unit"])
         xml = win.read_bytes().decode("utf-16")
         ctx.check(f"windows: halo-host-task.xml at logon, the argv, Task Scheduler's name, got {win.name}",
@@ -116,7 +119,7 @@ def test_uninstall_removes_what_it_wrote(ctx: Ctx):
     with HostRig(host_home=None, seed=False) as rig, _NoServiceManager() as nsm:
         rig.set_peer(**{"ollama.hosts": [LOCAL]})
         for os_n, off in (("linux", "systemctl --user disable --now halo-host.service"),
-                          ("macos", "launchctl bootout gui/$(id -u)/com.halo.host"),
+                          ("macos", "launchctl bootout gui/$(id -u)/com.halo.host ; rm -f ~/Library/LaunchAgents/com.halo.host.plist"),
                           ("windows", 'schtasks /Delete /TN "Halo Host" /F')):
             rc, text = _cli("install", "--os", os_n, "--json")
             unit = Path(json.loads(text)["unit"])
