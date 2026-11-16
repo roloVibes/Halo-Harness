@@ -185,9 +185,11 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     for o in openers:  # jb10: identity as seen in the process table now; the updater ends one only while it holds
         o.setdefault("start_time", start_time(o["pid"]))
     openers = upd.confirm_rows(openers, upd.halo_openers)  # 3.6.0.1: still that program after the read
-    for o in openers:
+    from halo_harness.update_runner import unproven_stop_words
+    for o in openers:  # 3.6.0.1: worded from the fact the updater acts on (no start time: never ended by number)
         print(f"halo update: {'Studio' if o['what'] == 'studio' else 'the supervisor'} (pid {o['pid']}) opened this "
-              f"halo; the updater stops it once this halo has exited")
+              f"halo; " + ("the updater stops it once this halo has exited" if o.get("start_time")
+                           else unproven_stop_words(o["pid"], os.name == "nt")))
     supervisor = False
     if not force:
         supervisor = _stop_or_refuse(keep_running, skip=[o["pid"] for o in openers])

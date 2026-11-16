@@ -192,6 +192,15 @@ def test_the_updater_ends_a_pid_only_when_its_identity_is_proven(ctx: Ctx):
     ctx.check(f"start time unknown when first seen and now: not ended, got {killed}", killed == [])
     ctx.check(f"a plain line names it and how to find it, got {said}",
               any("400" in s and "not stopped" in s and "halo ps" in s for s in said))
+    # 3.6.0.1 (ledger-update batch 2): the same words `halo update` prints up front for an unconfirmed opener
+    from halo_harness import update_runner as R
+    for windows in (True, False):
+        run, killed, said = _runner(lambda p: None)
+        run.plan = {"windows": windows}
+        run.note([400])
+        run.stop(400)
+        ctx.check(f"windows={windows}: the runner's line is the shared one, got {said}",
+                  said == [f"halo update: {R.unproven_stop_words(400, windows)}"])
     looks = {"n": 0}
 
     def known_then_unreadable(pid):

@@ -44,6 +44,18 @@ import time
 
 WAIT_S = 300.0
 HELD_WAIT_S = 60.0
+
+
+def unproven_stop_words(pid: int, windows: bool) -> str:
+    """3.6.0.1: what happens to a pid in the plan with no recorded start time (`_Run.stop` refuses to end it by
+    number). One text for the line `halo update` prints up front and the updater's own line when it reaches that
+    pid, so the two never disagree. Windows: the install waits for it and is not made while it runs (run_plan's
+    held check); elsewhere the install goes on."""
+    then = ("the install waits for it to close and is not made while it runs" if windows
+            else "the install goes on while it runs")
+    return (f"pid {pid} is not stopped by the updater: its start time was not recorded or cannot be read, so it "
+            f"cannot be proven to be the Halo process listed; `halo ps` names Halo's own, close it yourself if it is "
+            f"one ({then})")
 INSTALL_TIMEOUT_S = 1800.0
 VERSION_TIMEOUT_S = 60.0
 _CERT_RE = re.compile(r"invalid peer certificate|UnknownIssuer|CERTIFICATE_VERIFY_FAILED|certificate verify failed"
@@ -257,9 +269,7 @@ class _Run:
             self.say(f"halo update: pid {pid} is gone (or is another program now): not stopped")
             return False
         if not self.proven(pid):
-            self.say(f"halo update: pid {pid} was not stopped: its start time was not recorded or cannot be read, so "
-                     f"it cannot be proven to be the Halo process listed; `halo ps` names Halo's own, end it by hand "
-                     f"if it is one")
+            self.say(f"halo update: {unproven_stop_words(pid, self.plan.get('windows', os.name == 'nt'))}")
             return True
         self.say(f"halo update: stopping pid {pid}")
         try:

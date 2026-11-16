@@ -633,6 +633,9 @@ def test_a_studio_that_opened_this_halo_is_left_to_the_updater(ctx: Ctx):
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242, 400])
     stopped = orig["stopped"]
     upd.halo_openers = lambda **kw: [{"pid": 400, "what": "studio", "cmd": "halo studio"}]
+    from halo_harness import children
+    saved = children.start_time  # 3.6.0.1: a confirmed opener has a start time (never whatever pid 400 is here)
+    children.start_time = lambda pid: "T400" if pid == 400 else saved(pid)
     try:
         code, out, _err = _capture(update_cli.apply_update)
         ctx.check(f"named up front, got {out!r}", "Studio (pid 400) opened this halo; the updater stops it" in out)
@@ -641,6 +644,7 @@ def test_a_studio_that_opened_this_halo_is_left_to_the_updater(ctx: Ctx):
         ctx.check(f"the opener is in the updater's stop list, got {PLANS[-1].get('stop_pids')}",
                   code == 0 and PLANS[-1].get("stop_pids") == [400] and 400 not in PLANS[-1].get("wait_pids", []))
     finally:
+        children.start_time = saved
         _restore_all(orig)
 
 
@@ -670,9 +674,13 @@ def test_an_opener_whose_pid_is_gone_on_a_second_look_is_not_in_the_plan(ctx: Ct
 def test_an_opener_still_running_when_the_second_look_reads_nothing_is_never_stopped_from_inside(ctx: Ctx):
     """Checker (batch 1): a second look that cannot be read dropped the opener, so `skip` lost it and this halo
     could stop the Studio that opened it from inside its own tree. Kept, with no start time (never ended by
-    number): named, left to the updater, which holds the install while it may still run."""
+    number): named, left to the updater, which holds the install while it may still run.
+    3.6.0.1 (ledger-update batch 2): the up-front line said "the updater stops it once this halo has exited" about
+    that opener, while the updater refuses to end a pid with no recorded start time. The line now says it will NOT
+    be stopped and what the person does, in the very words the updater uses when it reaches that pid."""
     from tests.helpers.update_inline import PLANS
     from halo_harness import children
+    from halo_harness import update_runner as R
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242, 400])
     stopped = orig["stopped"]
     looks = []
@@ -683,6 +691,9 @@ def test_an_opener_still_running_when_the_second_look_reads_nothing_is_never_sto
     try:
         code, out, _err = _capture(update_cli.apply_update)
         ctx.check(f"named up front, got {out!r}", "Studio (pid 400) opened this halo" in out)
+        ctx.check(f"never promised a stop that will not happen, got {out!r}", "the updater stops it" not in out)
+        ctx.check(f"says it is not stopped, in the updater's own words, got {out!r}",
+                  R.unproven_stop_words(400, os.name == "nt") in out)
         ctx.check(f"never stopped from inside, got {[e['pid'] for e in stopped]}",
                   [e["pid"] for e in stopped] == [4242])
         ctx.check(f"left to the updater with no start time, got {PLANS[-1:]}",
