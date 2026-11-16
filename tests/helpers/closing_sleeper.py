@@ -1,5 +1,7 @@
 """A stand-in for someone else's long-lived binary (an MCP server, a model server, a tool command): it records its
-pid and the HALO_OWNER marker it was given, then sleeps until something ends it. It watches nothing.
+pid and the HALO_OWNER marker it was given, then sleeps until something ends it. It watches nothing. A safety net
+(3.6.0.1): it ends itself after LIFETIME_S, so a kept one whose test process was killed before its finally ran (an
+outer `timeout`, Ctrl+C) cannot live forever; every check of it happens within seconds.
 
     python closing_sleeper.py <out.json> [<grandchild out.json>]
 
@@ -20,5 +22,7 @@ if len(sys.argv) > 2:
 with open(sys.argv[1] + ".tmp", "w", encoding="utf-8") as fh:
     json.dump(info, fh)
 os.replace(sys.argv[1] + ".tmp", sys.argv[1])
-while True:
+LIFETIME_S = 900
+deadline = time.monotonic() + LIFETIME_S
+while time.monotonic() < deadline:
     time.sleep(1)

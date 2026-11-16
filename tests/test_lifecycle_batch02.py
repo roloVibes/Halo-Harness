@@ -265,15 +265,19 @@ def test_the_pools_run_record_carries_its_start_time(ctx: Ctx):
 
 # ---- 2. what the marker scan ends is named; a kept- marker keeps it (POSIX) ---------------------------------------
 
-def _owner_run(kind: str, tmp: Path):
+def _owner_run(kind: str, tmp: Path, started: list):
+    """Start the owner; it goes into `started` at once, so the caller's finally ends it (and what it started) even
+    when it never gets ready. HALO_TEST_NO_PROC is kept, as tests/test_closing.py keeps it: the owner and this test
+    must read start times the same way (/proc or `ps`), or a live child reads as gone and is never ended."""
     out = tmp / "out"
     out.mkdir(parents=True, exist_ok=True)
-    env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUB)}
+    env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUB) or k == "HALO_TEST_NO_PROC"}
     env.update(BRIDGE_TEST_HOME=str(tmp / "home"), PYTHONPATH=str(REPO), PYTHONIOENCODING="utf-8",
                HALO_NO_BROWSER="1", OLLAMA_HOST="http://127.0.0.1:9", HALO_NO_UPDATER="1")
     proc = subprocess.Popen([sys.executable, str(REPO / "tests" / "helpers" / "closing_owner.py"), kind, str(out)],
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             env=env, cwd=str(tmp))
+    started.append(proc)
     deadline = time.time() + 30
     while time.time() < deadline:
         try:
@@ -282,42 +286,98 @@ def _owner_run(kind: str, tmp: Path):
             if proc.poll() is not None:
                 break
             time.sleep(0.1)
-    proc.kill()
-    raise AssertionError(f"the owner never got ready: {proc.communicate(timeout=10)[1][-600:]}")
+    raise AssertionError("the owner never got ready")
+
+
+def _end_owner_run(started: list, mine: list, out: Path) -> None:
+    """End what one owner run started: the owner (its Popen), each kid by pid and the start time THIS process read
+    at ready time, and a child the owner started but never listed (it died before ready.json) by its pid when its
+    command line names this run's own folder."""
+    from halo_harness.children import provably_same
+    from tests.helpers import leftovers
+    for proc in started:
+        if proc.poll() is None:
+            proc.kill()
+        with contextlib.suppress(Exception):
+            proc.communicate(timeout=10)
+    for pid, start in mine:
+        if start is not None and provably_same(pid, start):
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+    listed = {pid for pid, _s in mine}
+    for f in out.glob("*.json") if out.is_dir() else ():
+        try:
+            pid = int(json.loads(f.read_text(encoding="utf-8")).get("pid") or 0)
+        except (OSError, ValueError, AttributeError):
+            continue
+        if pid and pid not in listed:
+            row = leftovers.scan(lambda p, _s: p == pid).get(pid)
+            if row is not None and str(out) in row.cmd:
+                leftovers.end_one(row)
+
+
+def _marker_scan_case(ctx: Ctx, kind: str, mine: list) -> None:
+    """One owner run of `kind` ("tool" or "keptmark"); `mine` gets (pid, start time read by this process) per kid."""
+    from halo_harness.children import same_process
+    tmp = Path(tempfile.mkdtemp(prefix=f"lc-b2-{kind}-"))
+    started: list = []
+    try:
+        proc, out, ready = _owner_run(kind, tmp, started)
+        kids = ready["kids"]
+        mine.extend((k["pid"], _start(k["pid"])) for k in kids)
+        (out / "quit").write_text("", encoding="utf-8")
+        _o, err = proc.communicate(timeout=20)
+        time.sleep(1.0)
+        kid = kids[0]
+        alive = same_process(kid["pid"], kid["start"])
+        if kind == "tool":
+            ctx.check(f"tool: the leftover is ended (alive {alive})", not alive)
+            ctx.check(f"tool: the way out names what it ended, got {err[-400:]!r}",
+                      "halo: ended" in err and str(kid["pid"]) in err)
+        else:
+            ctx.check(f"kept marker: the child started with HALO_OWNER=kept-... survives (alive {alive})", alive)
+            ctx.check(f"kept marker: its marker is a kept one, got {kid.get('marker')!r}",
+                      str(kid.get("marker") or "").startswith("kept-"))
+    finally:
+        _end_owner_run(started, mine, tmp / "out")
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 @test
 def test_what_the_marker_scan_ends_is_named_and_a_kept_marker_keeps_it(ctx: Ctx):
     if WIN:
         raise SkipTest("POSIX: the marker scan does not run on Windows (the Job object ends a tool's daemon)")
-    from halo_harness.children import same_process
     for kind in ("tool", "keptmark"):
-        tmp = Path(tempfile.mkdtemp(prefix=f"lc-b2-{kind}-"))
-        kids: list = []
+        _marker_scan_case(ctx, kind, [])
+
+
+@test
+def test_the_kept_marker_case_ends_its_kept_child_on_the_macos_identity_path(ctx: Ctx):
+    """3.6.0.1: with HALO_TEST_NO_PROC=1 (Linux reading start times from `ps`, as macOS does) the case above went red
+    AND left its kept sleeper running forever: the owner (its env scrubbed of the variable) recorded a /proc start
+    time, this process compared it with a `ps` one, so the kept child read as gone and the finally skipped it."""
+    if WIN:
+        raise SkipTest("POSIX: the marker scan does not run on Windows (the Job object ends a tool's daemon)")
+    from unittest import mock
+    from halo_harness.children import provably_same
+    mine: list = []
+    with mock.patch.dict(os.environ, {"HALO_TEST_NO_PROC": "1"}):
+        inner, failed = Ctx(), ""
         try:
-            proc, out, ready = _owner_run(kind, tmp)
-            kids = ready["kids"]
-            (out / "quit").write_text("", encoding="utf-8")
-            _o, err = proc.communicate(timeout=20)
-            time.sleep(1.0)
-            kid = kids[0]
-            alive = same_process(kid["pid"], kid["start"])
-            if kind == "tool":
-                ctx.check(f"tool: the leftover is ended (alive {alive})", not alive)
-                ctx.check(f"tool: the way out names what it ended, got {err[-400:]!r}",
-                          "halo: ended" in err and str(kid["pid"]) in err)
-            else:
-                ctx.check(f"kept marker: the child started with HALO_OWNER=kept-... survives (alive {alive})", alive)
-                ctx.check(f"kept marker: its marker is a kept one, got {kid.get('marker')!r}",
-                          str(kid.get("marker") or "").startswith("kept-"))
+            try:
+                _marker_scan_case(inner, "keptmark", mine)
+            except AssertionError as e:
+                failed = str(e)
+            ctx.check(f"the kept-marker case passes on the macOS identity path, failed with {failed!r}", not failed)
+            ctx.check(f"the case named its kept child, got {mine}", bool(mine) and all(s for _p, s in mine))
+            time.sleep(3.0)
+            alive = [pid for pid, start in mine if start is not None and provably_same(pid, start)]
+            ctx.check(f"nothing the case started still runs 3 s after it, alive {alive}", not alive)
         finally:
-            for k in kids:
-                if same_process(k["pid"], k["start"]):
-                    try:
-                        os.kill(k["pid"], signal.SIGKILL)
-                    except OSError:
-                        pass
-            shutil.rmtree(tmp, ignore_errors=True)
+            for pid, start in mine:
+                if start is not None and provably_same(pid, start):
+                    with contextlib.suppress(OSError):
+                        os.kill(pid, signal.SIGKILL)
 
 
 @test

@@ -16,6 +16,7 @@ Run: python -m tests.test_jb8_quick_exit
 """
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import sys
@@ -38,6 +39,19 @@ def _scratch():
     env = mock.patch.dict(os.environ, {"BRIDGE_TEST_HOME": str(home), "OLLAMA_HOST": "http://127.0.0.1:9",
                                        "HALO_NO_UPDATER": "1"})
     return home, env
+
+
+@contextlib.contextmanager
+def _ends_its_reaper(closing):
+    """3.6.0.1: with closing "installed" the first long-lived spawn starts the reaper, bound to THIS process (the test
+    run): it outlived the module (run_all's leftover check). The reaper started inside is ended here, before the
+    patched closing state is put back; one that was there before is left alone."""
+    before = closing._STATE.get("reaper")
+    try:
+        yield
+    finally:
+        if closing._STATE.get("reaper") and closing._STATE.get("reaper") is not before:
+            closing._stop_reaper()
 
 
 class _StuckTurnSession:
@@ -74,7 +88,7 @@ def test_a_quit_ends_a_background_job_at_once_and_returns_within_the_deadline_wh
     home, env = _scratch()
     procs = []
     try:
-        with env, mock.patch.dict(closing._STATE, {"installed": True, "deadline": None}):
+        with env, mock.patch.dict(closing._STATE, {"installed": True, "deadline": None}), _ends_its_reaper(closing):
             reg, rec, spid, sstart = _sleeping_job(home, shell)
             procs = [(spid, sstart)]
             session = _StuckTurnSession(reg, hold_s=8.0)

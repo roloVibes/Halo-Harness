@@ -35,6 +35,7 @@ if str(REPO_DIR) not in sys.path:
 
 from tests.helpers.runner import Ctx, cleanup_tracked_temp_dirs, install_temp_dir_tracking, run_all
 from tests.helpers import run_all_support as support
+from tests.helpers import leftovers
 
 
 def discover_test_modules() -> list:
@@ -340,10 +341,18 @@ def _main(tier: "str | None", shard: "tuple | None" = None) -> int:
         # 3.1.0.0 R1: the module's own fresh home, set before its import;
         # removed (and the state-dir caches reset) in the finally below.
         module_home = support.enter_module(run_root, mod_name)
+        # 3.6.0.1: a module that leaves a process running is red; what it left is named and ended by pid (after
+        # its start time is read again) before the next module runs (tests/helpers/leftovers.py).
+        try:
+            watch = leftovers.begin(mod_name, (module_home, run_root))
+        except Exception as e:  # noqa: BLE001 -- the check must never end the run
+            print(f"[LEFTOVER CHECK] {mod_name}: could not look at the processes: {type(e).__name__}: {e}")
+            watch = None
         totals: dict = {}
         try:
             _run_one_module(mod_name, env_before_module, totals)
         finally:
+            _end_leftovers(mod_name, watch, totals)
             support.leave_module(module_home)
             _restore_guarded_env(env_before_module)
         total_passed += totals.get("passed", 0)
@@ -361,6 +370,24 @@ def _print_summary_head(tier, passed: int, failed: int, skipped: int, n_modules:
     print(f"RESULT: {total} tests across {n_modules} modules -- "
           f"{passed} passed, {failed} failed, {skipped} skipped")
     print(f"[tier] ran: {support.tier_label(tier)}" + (f", shard {shard[0]}/{shard[1]}" if shard else ""))
+
+
+def _end_leftovers(mod_name: str, watch: dict, totals: dict) -> None:
+    """The leftover check after a module: each process it left is printed and ended by pid; the module counts one
+    more failure. A look that could not be taken is said, not counted (it proves no leak)."""
+    if watch is None:
+        return
+    try:
+        got = leftovers.end(watch)
+    except Exception as e:  # noqa: BLE001 -- the check must never end the run
+        print(f"[LEFTOVER CHECK] {mod_name}: could not look at the processes: {type(e).__name__}: {e}")
+        return
+    if got["left"]:
+        for line in leftovers.report_lines(mod_name, got):
+            print(line)
+        print(f"  [FAIL] leftover processes: {len(got['left'])} process(es) this module started were still "
+              f"running after it (named above)")
+        totals["failed"] = totals.get("failed", 0) + 1
 
 
 def _run_one_module(mod_name: str, env_before_module: dict, totals: dict) -> None:
