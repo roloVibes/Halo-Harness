@@ -248,9 +248,9 @@ def _entry_process_matches(entry: dict) -> bool:
     recorded = entry.get("proc_start")
     if not recorded:
         return True
-    from halo_harness.bg_run import process_start_time
+    from halo_harness.bg_run import process_start_time, start_matches
     current = process_start_time(entry.get("pid"))
-    return current is None or current == recorded
+    return current is None or start_matches(entry.get("pid"), recorded, current)
 
 
 def find_free_port() -> int:

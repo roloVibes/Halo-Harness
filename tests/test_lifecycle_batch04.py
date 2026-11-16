@@ -269,6 +269,25 @@ def test_macos_a_start_time_read_in_another_zone_names_the_same_process(ctx: Ctx
 
 
 @test
+def test_macos_a_model_server_a_35_halo_started_can_still_be_stopped(ctx: Ctx):
+    # The gate before `halo local stop` / the engines adapter signals a kept server (local_runtime) must accept the
+    # 3.5 record (ps lstart in the system's zone) as the same process, and still refuse another process's start.
+    from halo_harness import bg_run
+    from halo_harness.providers import local_runtime as R
+    pid = 4343
+    ps, clock = _Ps(pid, system_zone="JST-9"), _Clock()
+    getattr(bg_run, "_PS_SEEN", {}).clear()
+    with _Patched(_mac(ps, clock)):
+        legacy = R._entry_process_matches({"pid": pid, "proc_start": "ps:" + _Ps.ZONES["JST-9"]})
+        clock.t += 10
+        fresh = R._entry_process_matches({"pid": pid, "proc_start": bg_run.process_start_time(pid)})
+        clock.t += 10
+        other = R._entry_process_matches({"pid": pid, "proc_start": "ps:Mon Nov  9 08:00:00 2026"})
+    ctx.check(f"a 3.5 record matches: {legacy}; a 3.6 record matches: {fresh}", legacy and fresh)
+    ctx.check(f"another process's start is refused: {not other}", not other)
+
+
+@test
 def test_posix_one_ps_look_reads_state_and_utc_start(ctx: Ctx):
     """A real `ps` (Linux procps and macOS): the one look gives the state and a start time that does not move with TZ."""
     if WIN or not shutil.which("ps"):

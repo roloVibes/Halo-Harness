@@ -9,7 +9,7 @@ them (Halo 3.6.0.0 R10, closing.py; docs/PROCESSES.md).
     halo stop <pid>|<kind> ... [--json]    stop those (a kind: studio, bg, schedule, supervisor, host, llama, mlx, stray)
     halo stop --orphans                    stop what has no living owner and was not asked to stay (the sweep a launch
                                            runs at start)
-    halo stop --all                        stop every one listed for this home, kept ones too
+    halo stop --all                        stop every one listed for this home, kept ones too (a session is never stopped)
 
 Never this process, never a pid Halo did not start: a ledger entry is checked by pid and start time, a stray by its
 marker and start time, before every signal. The scan reads /proc on Linux and `ps -E` on macOS; Windows lists no
