@@ -56,6 +56,24 @@ def opened(c, rig) -> dict:
     return {"opened": True, "focused": focused, "panel_to": c.js("document.querySelector('[data-testid=\"prompt-to\"]')?.textContent")}
 
 
+def keeps_the_keyboard(c, rig) -> dict:
+    """fx jb4: the Prompt opened again while a person types in its box (a new session's own late openPrompt, once the
+    event bridge listens; Alt+Enter) leaves the keyboard in the box: the panel took it, so a typed turn or its Enter
+    went nowhere (realcheck studio, Windows installed leg, run 43788371968: the question never reached the model)."""
+    import time
+    c.click_on(INPUT)
+    c.js(f"(() => {{ window.__ppLost = 0; {INPUT}.addEventListener('focusout', () => {{ window.__ppLost++; }}); return 1; }})()")
+    press(c, "Enter", "Enter", 13, 1)  # Alt+Enter: openPrompt, the call NewSession.focusWhenListed makes
+    c.type_text("kept")
+    time.sleep(1.2)  # past the composer's own refocus timers (0..1000 ms)
+    out = {"lost_focus": c.js("window.__ppLost"), "kept_text": c.js(f"{INPUT}.value"),
+           "still_in_box": c.js(f"document.activeElement === {INPUT}")}
+    press(c, "a", "KeyA", 65, 2)  # Ctrl+A, Backspace: the box empty again for the next step
+    press(c, "Backspace", "Backspace", 8)
+    out["emptied"] = c.wait(f"{INPUT}.value === '' && 'empty'", 5)
+    return out
+
+
 def a_turn(c, rig) -> dict:
     typed(c, "hello from the panel")
     enter(c)
@@ -128,7 +146,7 @@ class PromptDriver(Driver):
     def session(self, c):
         from tests.helpers.prompt_rig import PromptRig
         with PromptRig() as rig:
-            yield ((opened, (c, rig)), (a_turn, (c, rig)), (a_slash, (c, rig)), (an_ask, (c, rig)), (busy_then_queue, (c, rig)))
+            yield ((opened, (c, rig)), (keeps_the_keyboard, (c, rig)), (a_turn, (c, rig)), (a_slash, (c, rig)), (an_ask, (c, rig)), (busy_then_queue, (c, rig)))
 
 
 if __name__ == "__main__":

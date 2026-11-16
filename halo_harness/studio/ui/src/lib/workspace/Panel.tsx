@@ -79,7 +79,9 @@ export function Panel({ spec, p, style, width, bar }: { spec: PanelSpec; p: Pane
 
   useEffect(() => {
     if (focus === spec.id && ref.current && !p.collapsed) {
-      ref.current.focus({ preventScroll: true });
+      // fx jb4: the keyboard already inside this panel (a person typing in its box) stays there; taking it to the
+      // panel lost a Prompt turn's Enter when the new session's late openPrompt landed mid-typing
+      if (!ref.current.contains(document.activeElement)) ref.current.focus({ preventScroll: true });
       ref.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
       layoutStore(ws.section).update(() => ({ focus: "" }));
     }

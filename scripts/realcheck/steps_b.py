@@ -150,6 +150,7 @@ def _prompt(c, page, ev: dict, bad: list, asked=None) -> None:
     """`asked()`: how many model calls carried the prompt (the fake provider's count): a timeout says whether the
     question reached the model and what the panel showed, so a red run carries its own evidence."""
     start = "document.querySelector('[data-testid=\"session-new-start\"]')"
+    sid = None
     try:
         c.go("about:blank")
         c.go(page("mode=session"))
@@ -166,9 +167,13 @@ def _prompt(c, page, ev: dict, bad: list, asked=None) -> None:
         c.click_on("document.querySelector('[data-testid=\"prompt-end\"]')")
         c.click_on("document.querySelector('[data-testid=\"prompt-end-yes\"]')")
     except Exception as e:
-        ev["prompt"] = {"error": f"{type(e).__name__}: {e}"[:300]}
-        try:
-            ev["prompt"]["page"] = {"texts": str(c.js(TEXTS))[-300:], "panel": str(c.js(f"{P}?.innerText || ''"))[-400:]}
+        ev["prompt"] = {"error": f"{type(e).__name__}: {e}"[:300], "session": sid}
+        try:  # what names the cause: the text still in the box (never sent), where the keyboard is, what was toasted
+            ev["prompt"]["page"] = {"texts": str(c.js(TEXTS))[-300:], "panel": str(c.js(f"{P}?.innerText || ''"))[-400:],
+                                    "box": str(c.js(f"{INPUT}?.value ?? 'no box'"))[-200:],
+                                    "keyboard": str(c.js("(() => { const a = document.activeElement; return a ? "
+                                                         "(a.dataset?.testid || a.className || a.tagName) : 'none'; })()"))[:120],
+                                    "toasts": str(c.js("[...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ')"))[-300:]}
         except Exception as e2:
             ev["prompt"]["page"] = f"unreadable: {type(e2).__name__}"
         calls = None
@@ -178,4 +183,8 @@ def _prompt(c, page, ev: dict, bad: list, asked=None) -> None:
             pass
         said = ("" if calls is None else "; the question never reached the model" if not calls
                 else f"; the model was asked {calls} time(s), the answer never showed")
+        page_seen = ev["prompt"].get("page") if isinstance(ev["prompt"].get("page"), dict) else {}
+        if not calls and page_seen:
+            said += ("; the text is still in the box (Enter never sent it)" if PROMPT in page_seen.get("box", "")
+                     else f"; the box is empty, the keyboard on {page_seen.get('keyboard')!r}")
         bad.append(f"a prompt from Studio's Prompt panel: {type(e).__name__}: {str(e)[:160]}{said}")

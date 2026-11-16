@@ -88,17 +88,20 @@ def _gpus(spawn: bool) -> list:
     return out
 
 
-def hardware(home: Path, *, spawn: bool) -> dict:
+def hardware(home: Path, *, spawn: bool, link: bool = True) -> dict:
+    """This host's hardware; `link=False` leaves out the network link (on Windows reading it starts PowerShell, about
+    a second each time, and no pack capability check reads it)."""
     try:
         free = round(shutil.disk_usage(str(home)).free / 1e9, 1)
     except OSError:
         free = None
-    from halo_harness.local_pool.link import UNKNOWN, read as read_link  # 3.3.8.0 R1: wired or Wi-Fi, and its speed
-    link = {k: v for k, v in (read_link() if spawn else {**UNKNOWN, "source": "not read"}).items()
-            if k in ("type", "speed_mbps")}
-    return {"os": (platform.system() or os.name).lower(), "distro": _distro(), "release": platform.release(),
-            "cpu": _cpu(), "cores": os.cpu_count(), "ram_gb": _ram_gb(), "gpu": _gpus(spawn), "disk_free_gb": free,
-            "link": link}
+    out = {"os": (platform.system() or os.name).lower(), "distro": _distro(), "release": platform.release(),
+           "cpu": _cpu(), "cores": os.cpu_count(), "ram_gb": _ram_gb(), "gpu": _gpus(spawn), "disk_free_gb": free}
+    if link:
+        from halo_harness.local_pool.link import UNKNOWN, read as read_link  # 3.3.8.0 R1: wired or Wi-Fi, and its speed
+        out["link"] = {k: v for k, v in (read_link() if spawn else {**UNKNOWN, "source": "not read"}).items()
+                       if k in ("type", "speed_mbps")}
+    return out
 
 
 # ---- command-line tools --------------------------------------------------------------------------

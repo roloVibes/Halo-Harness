@@ -133,6 +133,12 @@ def row(pack, snap, *, listed: "dict | None" = None, health=(), cwd=None, state_
 
 
 def payload(*, cwd=None, state_dir=None) -> dict:
+    from halo_harness.packs.capability_check import one_request
+    with one_request():  # 3.6.0.0: every row and doctor row reads this host once per request, not once per pack
+        return _payload(cwd=cwd, state_dir=state_dir)
+
+
+def _payload(*, cwd=None, state_dir=None) -> dict:
     from halo_harness import __version__
     from halo_harness.ext import API_VERSION
     from halo_harness.packs import cli_views as CV

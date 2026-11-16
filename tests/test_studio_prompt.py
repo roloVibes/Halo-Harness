@@ -4,6 +4,7 @@ behind the real Controller (tests/helpers/prompt_rig.py); no model call:
 1. `?prompt=1` opens Session with the keyboard in the Prompt box;
 2. a turn typed there runs once, shows "from Studio" and the reply, and its receipt's four marks reach replied;
 3. `/eff` + Tab completes from the slash list; `/effort high` prints the session's lines and is no turn;
+   (fx jb4) opening the Prompt again while the box holds the keyboard leaves it there;
 4. a permission ask shows the TUI card's buttons; Allow answers it through the socket and the turn ends;
 5. a send while busy is refused with one line and keeps the text; Queue it holds it (no steer), and when the
    running turn ends it runs as the next turn, its marks reaching replied; every receipt ends replied, the
@@ -36,6 +37,16 @@ def test_prompt_1_opens_the_panel_with_the_keyboard_in_it(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"Session on the session, the box focused, got {got.get('opened')} {got.get('focused')}",
               got.get("opened") is True and got.get("focused") == "focused")
+
+
+@test
+def test_opening_the_prompt_again_leaves_the_keyboard_in_the_box(ctx: Ctx):
+    """fx jb4: openPrompt while the box holds the keyboard (the new session's late open, Alt+Enter) never moves it to
+    the panel: what is typed right after lands in the box (a lost Enter left a Studio prompt unsent)."""
+    got = _got(ctx)
+    ctx.check(f"the box never lost the keyboard and kept the text, got {got.get('lost_focus')} {got.get('kept_text')!r} "
+              f"{got.get('still_in_box')}", got.get("lost_focus") == 0 and got.get("kept_text") == "kept" and got.get("still_in_box") is True)
+    ctx.check(f"the box emptied for the next step, got {got.get('emptied')}", got.get("emptied") == "empty")
 
 
 @test

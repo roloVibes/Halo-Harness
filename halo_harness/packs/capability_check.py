@@ -21,6 +21,8 @@ scrubbed afterwards.
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import shutil
 from pathlib import Path
 
@@ -185,16 +187,33 @@ def refusal(needs, *, cwd=None, state_dir=None) -> str:
     return ""
 
 
+_ONE_REQUEST: "contextvars.ContextVar[dict | None]" = contextvars.ContextVar("halo_pack_host_catalog", default=None)
+
+
+@contextlib.contextmanager
+def one_request():
+    """Within it, host_catalog reads this host once per (home, cwd) and hands the same view to every later call: one
+    request (GET pack/manager: a row and doctor rows per pack) probes the host once. Nothing outlives the block."""
+    token = _ONE_REQUEST.set({})
+    try:
+        yield
+    finally:
+        _ONE_REQUEST.reset(token)
+
+
 def host_catalog(state_dir=None, cwd=None) -> dict:
     """The cached capabilities catalog (any age), else this host's hardware, PATH tools and repos now."""
     from halo_harness.config.paths import background_net_disabled, bridge_home
     from halo_harness.peers import capabilities_host as host
     from halo_harness.peers.catalog import load
     from halo_harness.peers.projects import projects
+    home = Path(state_dir or bridge_home())
+    memo, key = _ONE_REQUEST.get(), (str(home), str(cwd or Path.cwd()))
+    if memo is not None and key in memo:
+        return memo[key]
     cat = load(state_dir)
     if cat:
         return cat
-    home = Path(state_dir or bridge_home())
 
     def section(fn, default):
         try:
@@ -202,7 +221,10 @@ def host_catalog(state_dir=None, cwd=None) -> dict:
             return default if got is None else got
         except Exception:
             return default
-    out = {"hardware": section(lambda: host.hardware(home, spawn=not background_net_disabled()), {}),
+    # the checks read os, distro, GPU and RAM: never the network link (PowerShell on Windows, about a second a read)
+    out = {"hardware": section(lambda: host.hardware(home, spawn=not background_net_disabled(), link=False), {}),
            "clis": section(lambda: host.clis(spawn=False), {}), "mcp": [], "models": []}
     out["projects"] = section(lambda: projects(home, Path(cwd or Path.cwd())), [])
+    if memo is not None:
+        memo[key] = out
     return out
