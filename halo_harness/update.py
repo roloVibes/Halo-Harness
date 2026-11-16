@@ -756,28 +756,42 @@ def _halo_sub(args: "list[str]") -> str:
         return "studio"
     if first == "supervise":
         return "supervisor"
+    if args[:2] == ["host", "serve"]:
+        return "host"
     return "halo"
 
 
+def _halo_module(module: str, args: "list[str]") -> Optional[str]:
+    """`-m <module> <args>` (or its bootstrap): halo_harness and its `cli` by their first word, the bg wrapper "bg",
+    any other module of the package (the media server, ...) "halo"; None outside the package."""
+    if module in ("halo_harness", "halo_harness.cli"):
+        return _halo_sub(args)
+    if module == "halo_harness._bg_wrapper":
+        return "bg"
+    return "halo" if module.startswith("halo_harness.") else None
+
+
 # selfexec.BOOT's call, whole: `python [-u] -c <BOOT> <args>` is how R10 starts Halo's children on Python 3.10 (no
-# `-P`) and how `persisted_argv` writes them on every Python. Windows shows BOOT as one quoted token, `ps` as words.
-_BOOT_CALL = re.compile(r"""runpy\.run_module\((['"])(halo_harness(?:\._bg_wrapper)?)\1, run_name='__main__', """
+# `-P`) and how `persisted_argv` writes them on every Python (the host's unit: `halo_harness.cli`). Windows shows BOOT
+# as one quoted token, `ps` as words.
+_BOOT_CALL = re.compile(r"""runpy\.run_module\((['"])(halo_harness(?:\.\w+)*)\1, run_name='__main__', """
                         r"""alter_sys=True\)""")
+_PKG_DIR = os.path.dirname(os.path.abspath(__file__))  # a script of this install run by path (closing_home_watch.py)
 
 
 def _halo_boot(rest: "list[str]") -> Optional[str]:
-    """`-c <code> <args>`: halo when the code is selfexec's bootstrap of halo_harness (or its bg wrapper)."""
+    """`-c <code> <args>`: halo when the code is selfexec's bootstrap of a halo_harness module."""
     text = " ".join(rest)
     m = _BOOT_CALL.search(text)
     if not m or not text.startswith("import sys;"):
         return None
-    return "bg" if m.group(2).endswith("_bg_wrapper") else _halo_sub(text[m.end():].split())
+    return _halo_module(m.group(2), text[m.end():].split())
 
 
 def halo_what(cmdline: str, *, prefix: Optional[str] = None) -> Optional[str]:
     """What a process IS when it is a process of this halo install, by
     position, else None: "studio" (`halo studio`, `python -u -m halo_harness
-    studio`), "supervisor" (`... supervise`), "bg" (`python -m
+    studio`), "supervisor" (`... supervise`), "host" (`... host serve`), "bg" (`python -m
     halo_harness._bg_wrapper`), "mlx"/"llama" (this install's own
     interpreter, under `prefix` = sys.prefix, running `mlx_lm.server`, or a
     `llama-server` under it), else "halo". A later token never counts, so
@@ -800,15 +814,13 @@ def halo_what(cmdline: str, *, prefix: Optional[str] = None) -> Optional[str]:
         return _halo_boot(rest[1:])
     if rest and rest[0] == "-m":
         module = rest[1] if len(rest) > 1 else ""
-        if module == "halo_harness":
-            return _halo_sub(rest[2:])
-        if module == "halo_harness._bg_wrapper":
-            return "bg"
         if module in ("mlx_lm.server", "mlx_lm") and _under_prefix(toks[0], prefix):
             return "mlx" if module == "mlx_lm.server" or rest[2:3] == ["server"] else None
-        return None
+        return _halo_module(module, rest[2:])
     if rest and _base(rest[0]) in ("halo", "halo.exe"):
         return _halo_sub(rest[1:])
+    if rest and rest[0].lower().endswith(".py") and _under_prefix(rest[0], _PKG_DIR):
+        return "halo"
     return None
 
 

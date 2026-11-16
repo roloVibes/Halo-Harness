@@ -2,6 +2,20 @@
 
 Read this when you used lineups, bios, squares, blocks or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files.
 
+## Updating: From 3.5.0.1, once
+
+On Windows, do not run `halo update` in a shell to leave 3.5.0.1: its updater runs the reinstall from inside the
+running halo, which holds the files it replaces, and can leave the install half replaced. Type `/update` in a session
+instead (it installs after that halo has exited), or close every Halo window, run `halo studio --stop`, and run the
+repair line (the Windows installer does the same, and stops while a halo still runs):
+
+```powershell
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.6.0.0/requirements.lock "git+https://github.com/roloVibes/Halo-Harness@v3.6.0.0"
+```
+
+On every platform, if you turned on `halo host install`, run `halo host stop` before the update: 3.5.0.1's updater
+does not see the LAN host. From 3.6.0.0 on, `halo update` sees and stops it itself.
+
 ## What you see first
 
 Nothing changes in a session you start the way you always did. A session that names no map runs exactly as a 3.5

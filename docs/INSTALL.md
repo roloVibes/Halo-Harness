@@ -215,6 +215,22 @@ Append `@v<version>` to pin a release. Running the installer one-liner again doe
 [Troubleshooting](TROUBLESHOOTING.md#halo-update-stops-at-invalid-peer-certificate-unknownissuer)
 has the entry by its error text.
 
+**From 3.5.0.1, once.** On Windows, do not run `halo update` in a shell to leave 3.5.0.1: its updater
+runs the reinstall from inside the running halo, which holds the files it replaces, and can leave the
+tool environment without the package. Type `/update` in a session instead: it hands the install to a
+script that runs after that halo has exited. Or close every Halo window, run `halo studio --stop`
+(3.5 leaves a Studio running on its own), and run the repair line; the Windows installer does the same
+and stops, naming the process, while a halo still runs from the environment it replaces:
+
+```powershell
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.6.0.0/requirements.lock "git+https://github.com/roloVibes/Halo-Harness@v3.6.0.0"
+```
+
+On every platform, if you turned on `halo host install`, run `halo host stop` before the update:
+3.5.0.1's updater does not see the LAN host, so on Windows it holds the files and on macOS and Linux it
+keeps running the old code. The unit starts it again at your next login (or `halo host serve`). From
+3.6.0.0 on, `halo update` sees the host, a Studio and every other halo process, and stops them itself.
+
 **Windows note:** the install can't be replaced while any halo process
 still has it open. `halo update` stops them before it installs (3.2.2.0):
 the Studio, background runs, schedule fires, other halo sessions and the

@@ -114,6 +114,23 @@ if (-not (Have "uv")) {
     Say "uv: $(uv --version)"
 }
 
+# 2b. A halo running from the tool environment this install replaces (a session, a Studio, the LAN host) holds its
+#     python.exe, and the reinstall stops halfway (3.5.0.1 left a Studio running on its own). Read-only check; it
+#     stops here before anything changes, and -DryRun says it would.
+if ((Have "uv") -and ($env:OS -eq "Windows_NT")) {
+    $ToolEnv = (Join-Path (uv tool dir 2>$null | Select-Object -First 1) "halo-harness").ToLower() + "\"
+    $HaloExe = (Join-Path (uv tool dir --bin 2>$null | Select-Object -First 1) "halo.exe").ToLower()
+    $Running = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.ProcessId -ne $PID -and (("$($_.ExecutablePath)".ToLower() -eq $HaloExe) -or
+            "$($_.ExecutablePath)".ToLower().StartsWith($ToolEnv) -or "$($_.CommandLine)".ToLower().Contains($ToolEnv)) })
+    if ($Running.Count -gt 0) {
+        $Pids = ($Running | ForEach-Object { "pid $($_.ProcessId)" }) -join ", "
+        $Msg = "Halo is running from the environment this install replaces ($Pids): close every Halo window, run " +
+               "``halo studio --stop`` (and ``halo host stop`` if this machine runs the LAN host), then run this again."
+        if ($DryRun) { Write-Host "DRY RUN: would stop here: $Msg" } else { Write-Host $Msg; exit 1 }
+    }
+}
+
 # 3. Remove the old pre-2.0 tool so it can never run by mistake.
 #    (halo migrates the old state directory to ~/.halo by itself on first
 #    run.)

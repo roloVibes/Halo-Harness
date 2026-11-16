@@ -26,7 +26,21 @@ from halo_harness import children as C
 from halo_harness import children_stop as CS
 from halo_harness import update as upd
 
-_stop = CS.stop_entry  # the seam a test replaces
+def _stop_entry(entry: dict, *, state_dir=None, timeout: float = 5.0) -> dict:
+    """CS.stop_entry, but the LAN host is first asked through its own stop file: a clean exit, which its service unit
+    (Restart=on-failure, KeepAlive SuccessfulExit=false, RestartOnFailure) does not start again mid-install. A host
+    of another home, or one that does not answer, is then ended as before."""
+    if entry.get("what") == "host" and C.same_process(entry.get("pid"), entry.get("start_time")):
+        try:
+            from halo_harness.host import state as HS
+            HS.request_stop(C._state(state_dir))
+            CS._wait_gone(entry["pid"], timeout, entry.get("start_time"))
+        except Exception:
+            pass
+    return CS.stop_entry(entry, state_dir=state_dir, timeout=timeout)
+
+
+_stop = _stop_entry  # the seam a test replaces
 
 
 def _supervisor_entry(state_dir=None) -> Optional[dict]:
@@ -107,6 +121,8 @@ def stop_command(entry: dict) -> str:
         return "halo studio --stop"
     if what == "supervisor":
         return "halo supervise stop"
+    if what == "host":
+        return "halo host stop"
     if what == "bg":
         run_id = entry.get("bg_id") or _bg_id(pid)
         return f"halo bg stop {run_id}" if run_id else "halo bg list, then halo bg stop <id>"

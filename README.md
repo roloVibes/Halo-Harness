@@ -152,6 +152,18 @@ once (`$env:UV_SYSTEM_CERTS='1'; $env:UV_NATIVE_TLS='1'; uv tool install ...` in
 UV_SYSTEM_CERTS=1 UV_NATIVE_TLS=1 uv tool install --reinstall git+https://github.com/roloVibes/Halo-Harness
 ```
 
+**From 3.5.0.1, once:** on Windows, do not run `halo update` in a shell: 3.5.0.1's own updater reinstalls from inside
+the running halo and can leave the install half replaced. Type `/update` in a session instead (it installs after that
+halo has exited), or close every Halo window, run `halo studio --stop`, and run the repair line (the installer does the
+same, and stops while a halo still runs):
+
+```powershell
+uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.6.0.0/requirements.lock "git+https://github.com/roloVibes/Halo-Harness@v3.6.0.0"
+```
+
+On every platform, if you turned on `halo host install`, run `halo host stop` first: 3.5.0.1's updater does not see the
+LAN host. From 3.6.0.0 on, `halo update` sees and stops both itself.
+
 **Your first run:**
 
 1. `halo init` opens Studio on Setup: paste a provider key, pick a default model and a permission mode.
