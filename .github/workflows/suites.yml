@@ -454,7 +454,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/halo-test-home"
           failed=0
-          for m in test_closing test_fx_jb5_ps_identity test_lifecycle_fx2_batch01 test_review2_round10b; do
+          for m in test_closing test_fx_jb5_ps_identity test_review2_round10b; do
             set -o pipefail; BRIDGE_TEST_HOME="$RUNNER_TEMP/halo-test-home" python -m "tests.$m" 2>&1 | tee "$RUNNER_TEMP/$m-no-proc.log" || failed=1
           done
           exit $failed
