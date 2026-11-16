@@ -140,7 +140,7 @@ _LOGIN_AT = r"(?=(?::[^\s@/\\]{0,256})?@(?:<machine>|[^\W_]|\[[\da-f:]))"
 
 #: jf-words batch 3: the commands that take an account after a flag of theirs, and those flags (case matters: `ssh -L`
 #: forwards a port). Not scp / sftp / rsync: their `-l` is a bandwidth limit or links, rsync's `-u` is "update".
-_ACCOUNT_FLAGS = (("ssh", "-l"), ("sudo", "-u"), ("docker", "-u|--user"), ("psql", "-U|--username"),
+_ACCOUNT_FLAGS = (("ssh", "-l"), ("sudo", "-u|--user"), ("docker", "-u|--user"), ("psql", "-U|--username"),
                   ("mysql", "-u|--user"), ("runas", "(?i:/user:)"), ("net", "(?i:/user:)"))
 #: the commands whose argument is an account (`su - name`, `chown -R name:staff`, `id name` ...)
 _ACCOUNT_COMMANDS = r"(?:su(?:[^\S\n]+-l?)?|chown(?:[^\S\n]+-\w+)*|id|passwd|finger|groups|useradd|userdel|adduser|deluser)"

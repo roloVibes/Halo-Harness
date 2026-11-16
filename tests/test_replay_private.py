@@ -560,6 +560,7 @@ def test_a_common_word_is_an_account_only_in_a_command_s_account_slot(ctx: Ctx):
             ctx.check(f"[{name}] not an account slot: {text!r} kept, got {run(text)!r}", run(text) == text)
         gone = ((f"$ groups {name}", "$ groups <user>"), (f"groups {name}", "groups <user>"),
                 (f"sudo -u {name} ls", "sudo -u <user> ls"), (f"sudo -E -u {name} ls", "sudo -E -u <user> ls"),
+                (f"sudo --user={name} ls", "sudo --user=<user> ls"), (f"sudo --user {name} ls", "sudo --user <user> ls"),
                 (f"ssh -p 22 -l {name} gpu-box", "ssh -p 22 -l <user> <machine>"),
                 (f"docker exec -it -u {name} c sh", "docker exec -it -u <user> c sh"),
                 (f"docker exec --user={name} c sh", "docker exec --user=<user> c sh"),
