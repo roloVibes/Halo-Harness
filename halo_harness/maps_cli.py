@@ -99,12 +99,15 @@ def cmd_maps(argv) -> int:
             f"New sessions run as by default (the {DEFAULT_MAP} map draws what they do; no map of yours is set)."
             if choice in (None, DEFAULT_MAP) else f"New sessions run on the map {args.name}; a running session keeps its own.")
     moved = start_said(before, start(None, **kw)[0])  # 3.6.0.1: said when the mode new sessions start in changes
-    said = f"{said[:-1]}; {moved}." if moved else said
-    print(said + f" (undo id {undo_id}: Studio's builder Undo puts it back)")
+    line = ""
     if choice not in (None, DEFAULT_MAP, ONE_MODEL):  # batch01 #2: what its main does to your permission mode
         from halo_harness.crew.compile import compile_map
         from halo_harness.crew.map_session import main_mode
         _m, line = main_mode(compile_map(args.name, cwd=cwd), kw["resolved"])
-        if line:
-            print(line[len("halo: "):] if line.startswith("halo: ") else line)
+        if line and _m != kw["resolved"] and before == kw["resolved"]:
+            moved = ""  # main's line below already says the new mode and the old one ("your own mode was ...")
+    said = f"{said[:-1]}; {moved}." if moved else said
+    print(said + f" (undo id {undo_id}: Studio's builder Undo puts it back)")
+    if line:
+        print(line[len("halo: "):] if line.startswith("halo: ") else line)
     return 0

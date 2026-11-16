@@ -137,7 +137,10 @@ def test_use_receipt_says_when_the_start_mode_changes(ctx: Ctx):
             back = out.getvalue()
         finally:
             os.chdir(cwd)
-        ctx.check(f"halo maps use mine says they start in auto mode, got {first!r}", code == 0 and "start in auto mode" in first)
+        ctx.check(f"halo maps use mine says main runs in auto, from default, once (main's own line, no second "
+                  f"receipt clause), got {first!r}",
+                  code == 0 and "main runs in auto (careful: own)" in first and "your own mode was default" in first
+                  and "start in auto mode" not in first and first.count("auto") == 1)
         ctx.check(f"halo maps use starter (from mine) says they start in default mode again, got {back!r}",
                   "New sessions run as by default" in back and "start in default mode" in back)
 

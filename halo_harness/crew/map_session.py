@@ -129,15 +129,18 @@ def main_mode(c, resolved: str) -> "tuple[str, str]":
 
 def configured_mode(cwd=None) -> str:
     """The mode a new session with no flag resolves before its map, in headless.build_session's order: config
-    `permission_mode`, else the settings' `defaultMode`, else "default"."""
+    `permission_mode`, else the settings' `defaultMode` (read with the folder's own trust, as the session reads it:
+    an untrusted project's `defaultMode` is dropped), else "default"."""
     from halo_harness.permissions import normalize_permission_mode
     from halo_harness.theme import get_config_value
     mode = get_config_value("permission_mode", default=None)
     if not (isinstance(mode, str) and mode):
         try:
             from pathlib import Path
+            from halo_harness.config.claude_json import is_trusted, load_claude_json
             from halo_harness.config.settings import resolve_settings
-            mode = resolve_settings(cwd or Path.cwd(), trusted=True).permissions_default_mode
+            where = cwd or Path.cwd()
+            mode = resolve_settings(where, trusted=is_trusted(where, load_claude_json())).permissions_default_mode
         except Exception:
             mode = None
     return normalize_permission_mode(mode) if isinstance(mode, str) and mode else "default"

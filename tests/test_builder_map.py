@@ -168,6 +168,41 @@ def test_map_use_compares_main_mode_and_tools(ctx: Ctx):
 
 
 @test
+def test_map_use_base_mode_follows_project_trust(ctx: Ctx):
+    """3.6.0.1 repair: the base mode the Builder compares from is the session's own, trust included. An UNTRUSTED
+    project's settings `defaultMode` is dropped by a real session (headless.build_session), so a map whose main
+    asks only before commands (acceptEdits) still RAISES its sessions from default: a widening row. Once the
+    project is trusted, the settings already start sessions in acceptEdits: the same map is a plain row."""
+    import json
+    from pathlib import Path
+    with CrewRig() as rig:
+        from halo_harness.config.claude_json import is_trusted, load_claude_json
+        from halo_harness.config.paths import claude_json_path
+        from halo_harness.crew.map_session import configured_mode
+        _boss_map(rig, "mine", "ask-commands", ("read",))
+        d = Path(rig.proj) / ".claude"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "settings.json").write_text(json.dumps({"permissions": {"defaultMode": "acceptEdits"}}), encoding="utf-8")
+        ctx.check("the project starts untrusted", not is_trusted(rig.proj, load_claude_json()))
+        ctx.check(f"untrusted: the base mode is default (the session drops defaultMode), got {configured_mode(rig.proj)}",
+                  configured_mode(rig.proj) == "default")
+        rows = _use_rows(rig, "mine")
+        ctx.check(f"untrusted: map_use mine raises default to acceptEdits -> a widening row, unticked, got "
+                  f"{[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "acceptEdits" in rows[0]["summary"])
+        cj = claude_json_path()
+        cj.parent.mkdir(parents=True, exist_ok=True)
+        key = str(Path(rig.proj).absolute()).replace("\\", "/")
+        cj.write_text(json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8")
+        ctx.check("the project is now trusted", is_trusted(rig.proj, load_claude_json()))
+        ctx.check(f"trusted: the base mode is the settings' acceptEdits, got {configured_mode(rig.proj)}",
+                  configured_mode(rig.proj) == "acceptEdits")
+        rows = _use_rows(rig, "mine")
+        ctx.check(f"trusted: the mode does not rise -> a plain row, ticked, got {[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and not rows[0]["widen"] and rows[0]["ticked"])
+
+
+@test
 def test_questions_answer_from_studio_show_with_no_change(ctx: Ctx):
     with CrewRig() as rig:
         rig.studio()
