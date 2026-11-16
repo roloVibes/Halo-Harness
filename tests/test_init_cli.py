@@ -648,8 +648,8 @@ def test_the_final_pick_lists_the_ollama_models_beside_the_key_providers(ctx: Ct
     real_pick, real_listed = init_cli._run_entry_picker, list(getattr(init_ollama, "_LISTED", []))
     try:
         os.environ["BRIDGE_TEST_HOME"] = str(home)
-        os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-final-pick-key-0123456789abcdef"
-        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-final-pick-key-0123456789"
+        os.environ["OPENROUTER_API_KEY"] = "sk-or-fake-pick"
+        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-fake-pick"
         init_ollama._LISTED = [("ol:qwen3:30b@gpu-box", "30B"), ("ol:gpt-oss:20b@gpu-box", "")]  # what the pick saw
         init_cli._run_entry_picker = lambda args, console, entries: seen.extend(entries) or "ol:qwen3:30b@gpu-box"
         got = init_cli._step_finalize_default_model(
