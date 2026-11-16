@@ -265,6 +265,28 @@ def _row(pid, ppid, start, cmd="", mark="", **extra):
 
 
 @test
+def test_a_browsers_own_helpers_are_not_the_runs_but_a_browser_left_running_is(ctx: Ctx):
+    """The first CI run with the check on, macOS legs: two browser modules were counted red for Chrome's own crash
+    handler and for the machine's Google updater (`GoogleUpdater --wake-all`, started by any Chrome), and the check
+    ended them. They are the browser's: not counted, not ended. A browser a test leaves running is still found."""
+    me = os.getpid()
+    app = "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/1/Helpers"
+    procs = {
+        me: _row(me, 1, 10),
+        701: _row(701, me, 20, f"{app}/chrome_crashpad_handler --monitor-self-annotation=ptype=crashpad-handler"),
+        702: _row(702, me, 20, "/Library/Application Support/Google/GoogleUpdater/1.0/GoogleUpdater.app/Contents/MacOS/"
+                               "GoogleUpdater --wake-all"),
+        703: _row(703, me, 20, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --x"),
+        704: _row(704, me, 20, "/opt/google/chrome/chrome_crashpad_handler --monitor-self --database=/tmp/x"),
+        705: _row(705, me, 20, "python sleeper.py --note GoogleUpdater"),  # an ordinary child that only names one
+    }
+    with _patched(scan=lambda want=None: dict(procs)):
+        found = sorted(p.pid for p in leftovers.find(_token()))
+    ctx.check(f"the crash handlers and the updater are not counted; the browser and the sleeper are, got {found}",
+              found == [703, 705])
+
+
+@test
 def test_a_process_found_only_by_a_folder_name_is_named_but_never_ended(ctx: Ctx):
     folder = os.path.join(tempfile.gettempdir(), "run-folder-probe")
     me = os.getpid()
@@ -283,7 +305,8 @@ def test_a_process_found_only_by_a_folder_name_is_named_but_never_ended(ctx: Ctx
         ended.append(p.pid)
         return True
 
-    with _patched(scan=lambda want=None: dict(procs), end_one=fake_end, time=clock):
+    # _fill_args is stubbed: on macOS it reads each found pid's argv again with a real `ps`, and these pids are made up
+    with _patched(scan=lambda want=None: dict(procs), end_one=fake_end, time=clock, _fill_args=lambda found: None):
         got = leftovers.end(token)
     left = {p.pid: ok for p, ok in got["left"]}
     want_ended = [501, 502] + ([504] if leftovers.WIN else [])
@@ -370,7 +393,7 @@ def test_a_process_that_ends_inside_halos_way_out_budget_is_not_a_leftover(ctx: 
     gone_at = clock.now + QUIT_BUDGET_S + 0.5
     p = _row(601, os.getpid(), 20, "halo", why="child")
     ended: list = []
-    with _patched(find=lambda token: [p] if clock.now < gone_at else [], time=clock,
+    with _patched(find=lambda token: [p] if clock.now < gone_at else [], time=clock, _fill_args=lambda found: None,
                   end_one=lambda q, wait_s=5.0: ended.append(q.pid) or True):
         got = leftovers.end(_token())
     ctx.check(f"a process gone {QUIT_BUDGET_S + 0.5}s after the module is no leftover, got {got['left']}",
@@ -384,7 +407,8 @@ def test_a_process_alive_after_the_whole_grace_is_a_leftover(ctx: Ctx):
     t0 = clock.now
     p = _row(602, os.getpid(), 20, "sleeper", why="child")
     ended: list = []
-    with _patched(find=lambda token: [p], time=clock, end_one=lambda q, wait_s=5.0: ended.append(q.pid) or True):
+    with _patched(find=lambda token: [p], time=clock, _fill_args=lambda found: None,
+                  end_one=lambda q, wait_s=5.0: ended.append(q.pid) or True):
         got = leftovers.end(_token())
     waited = clock.now - t0
     ctx.check(f"the grace is Halo's way-out budget plus a margin, at least 8 s, got {waited:.2f}s",

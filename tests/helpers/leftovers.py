@@ -385,6 +385,19 @@ def begin(module: str, folders=()) -> dict:
     return token
 
 
+#: 3.6.0.1 (the first CI run with the check on, macOS legs): a browser's own helpers are the browser's, not the run's
+#: and not Halo's. Its crash handler outlives it for a moment; its updater is the machine's own service, woken by any
+#: start of that browser. They are neither counted nor ended. A browser a test leaves running still is counted.
+BROWSER_HELPERS = ("chrome_crashpad_handler", "crashpad_handler", "googleupdater", "googlesoftwareupdate", "ksfetch",
+                   "microsoftedgeupdate")
+
+
+def _browser_helper(p: Proc) -> bool:
+    """Whether `p`'s program (its path up to the first ` --` option, by its last segment) is one of BROWSER_HELPERS."""
+    head = (p.cmd or "").split(" --", 1)[0].replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
+    return any(head.startswith(h) for h in BROWSER_HELPERS)
+
+
 def find(token: dict) -> list:
     """The processes this module started that still run (see the module's docstring)."""
     known, me = token["known"], os.getpid()
@@ -407,7 +420,7 @@ def find(token: dict) -> list:
 
     found = []
     for pid, p in procs.items():
-        if pid == me or (pid, p.start) in known:
+        if pid == me or (pid, p.start) in known or _browser_helper(p):
             continue
         if descends(p):
             p.why = "child"

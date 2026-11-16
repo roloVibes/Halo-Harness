@@ -216,8 +216,9 @@ def test_gym_propose_apply_writes_the_role_table_and_names_what_shows_it(ctx: Ct
             gym_cli.cmd_gym(["propose", "--help"])
         except SystemExit:
             pass
-    ctx.check(f"--apply's help says what it does, got {helptext.getvalue()!r}",
-              "roles template load" not in helptext.getvalue() and "role table" in helptext.getvalue())
+    said = re.sub(r"\s+", " ", helptext.getvalue())  # one line: argparse wraps by the terminal's width
+    ctx.check(f"--apply's help says what it does, got {said!r}",
+              "roles template load" not in said and "role table" in said)
 
 
 @test
@@ -280,7 +281,9 @@ def test_help_texts_and_the_system_prompt_describe_what_36_has(ctx: Ctx):
     _home()
     from halo_harness.studio.server import cmd_studio
     from halo_harness.isolation import cli as iso
-    said = re.sub(r"the old [^;)]*", "", _help(cmd_studio, ["--help"]))  # a word named as old is fine (--edit's)
+    # a word named as old is fine (--edit's); the help is read as one line first: argparse wraps it by the terminal's
+    # width, and on a narrow one "the" and "old" fell on two lines (CI's Windows leg, 3.6.0.1)
+    said = re.sub(r"the old [^;)]*", "", re.sub(r"\s+", " ", _help(cmd_studio, ["--help"])))
     ctx.check(f"`halo studio --help` printed its usage, got {said[:200]!r}", "--mode" in said)
     ctx.check(f"`halo studio --help` names nothing gone, got {STALE_WORDS.findall(said)}", not STALE_WORDS.search(said))
     said = _help(iso.cmd_isolation, ["--help"])
