@@ -10,10 +10,240 @@ version.
 
 ## [3.6.0.0] - unreleased
 
-Studio has room: one main thing per view, drawers and tabs instead of tiles, no sideways scrollbars, nothing smaller
-than 12 px. The owner, 2026-11-12: "I agree the panel is cramped. We need to fix that for all of studio parts."
+Agents are agents, workflows and maps now: lineups, bios and squares are no longer read, and `--team` only says so
+(what to use instead: docs/MOVING-from-3.5.md). Studio closes with the command that started it, everything Halo starts
+ends with it unless you asked it to keep running, `halo update` installs through a separate updater, and the Ollama
+steward's background job is off until you turn it on. The rounds that built this are below the fixes; the limits
+that remain are at the end of this section.
+
+### Coming from 3.5.0.1
+
+- **Windows: leave 3.5.0.1 with `/update` in a session, not `halo update` in a shell.** 3.5.0.1's own `halo update`
+  reinstalls from inside the running halo, which holds the files it replaces, so it can leave the install half
+  replaced, and nothing in 3.6.0.0 can change that old updater. `/update` in a 3.5.0.1 session hands the install to a
+  script that runs after that halo has exited. Or close every Halo window, run `halo studio --stop`, and run the
+  repair line:
+  `uv tool install --reinstall --constraints https://raw.githubusercontent.com/roloVibes/Halo-Harness/v3.6.0.0/requirements.lock "git+https://github.com/roloVibes/Halo-Harness@v3.6.0.0"`.
+- **With the LAN host turned on (`halo host install`), any system: run `halo host stop` first.** 3.5.0.1's updater
+  does not see the host its unit starts: on Windows the host holds the files, on macOS and Linux it keeps running the
+  old code. The unit starts it again at your next login (or run `halo host serve`).
+- **The Windows installer waits for you.** `install-halo.ps1` (also the way to repair a 3.5.0.1 install) names each
+  halo still running from the environment it would replace, by pid, says to close Halo, run `halo studio --stop`
+  (and `halo host stop`) and run it again, and installs nothing until then. `-DryRun` says it would stop.
+
+### Closing: nothing Halo started is left behind
+
+- **A shell command ends with Halo.** What a Bash tool command started (`sleep`, `make`, `git`, a dev server) ends on
+  every way out: Ctrl+C, a closed terminal, a normal exit and a hard kill, also when the command ran in the
+  background. While it runs `halo ps` lists it as a "shell command".
+- **Quitting is quick and has one time limit.** A background shell job and everything it started stop the moment you
+  confirm the quit; the whole way out (waiting for a running turn, stopping what the session started, the final
+  clean-up) shares one limit of about 4 seconds, and what the session started is stopped together, not one after
+  another.
+- **`halo ps` lists what runs.** It now shows the sessions on this home (listed, never stopped: `halo stop --all`,
+  `--orphans` and a session's pid leave it alone; it ends from its own terminal), `halo --bg` runs (`halo stop bg`
+  and `halo stop --all` stop them) and the updater while it runs. The Studio row has an age.
+- **What a tool command left running is named.** On Linux and macOS a daemon a tool command started (a tmux server,
+  an ssh ControlMaster, a dev server) still ends with Halo, now with one line: "halo: ended tmux (pid N), left running
+  by a tool command; ...". To keep one past Halo, start it with `HALO_OWNER=kept-<name>`, for example
+  `HALO_OWNER=kept-tmux tmux new-session -d -s work`.
+- **The editor Halo opens for you is yours.** Ctrl+E (`/editor`), `/mcp`'s edit and `halo agents|workflows|maps edit`
+  start your `$VISUAL` / `$EDITOR` without Halo's marker, so a GUI editor that stays open (`code --wait`, `gedit`) is
+  no longer ended, unsaved buffers and all, when the session quits. The tmux server `halo --tmux` starts stays too.
+- **A program Halo runs and waits for ends with it.** An Orchestra worker's `sudo` / `docker` wrapper, a pack's check
+  or a git clone survived a hard kill of the Halo that ran it; it is now covered by the closing procedure. A worker
+  run with `isolation: user` ends itself when the lead is gone.
+- **Halo never ends a process it cannot prove is its own.** `halo host stop`, `halo host steward off`,
+  `halo host rpc off`, `halo pool stop`, `halo local stop`, a quit, `halo studio --stop` and the updater signal a pid
+  only when the start time written down for it matches the process that has that pid now (after a reboot a pid can
+  belong to another program, and that program was ended). A record that does not match is cleared and said ("...
+  signalled nothing"); a model server that still runs but cannot be proven keeps its record, and the command names
+  its pid and `halo ps` and fails. The updater says "pid N was not stopped: its start time cannot be read ..." and
+  never replaces files under a halo that may still run.
+- **`halo studio` names the sessions it ends.** A session started from Studio's New session closes with that Studio;
+  Ctrl+C on `halo studio` asks each one to finish at a safe point and prints one line naming them, with the
+  `halo --resume <id>` that reopens each.
+- **`HALO_CLOSE_TRACE=<file>`** (new, off when unset): one line per step of the way out (the keys read, the quit card
+  and its answer, each background job stopped, the closing procedure), and the stack of every thread when a close
+  still runs 4 seconds after it started.
+
+### Updating and installing
+
+- **Installing on Python 3.10 works again.** The dependency lock pinned a package that needs Python 3.11, so the
+  installers, the README's one-line install and `halo update` stopped with "No solution found" on a stock Ubuntu
+  22.04 (and its WSL image).
+- **`halo update` works on a pipx or pip install.** pip refused the hash-locked dependency file, so every update of
+  such an install was rolled back; pip and pipx now get the same versions without hashes, taken from the release
+  being installed. uv installs are unchanged.
+- **The lines Halo prints to add voice, MLX, replay clips or TLS work.** They named `halo-harness[voice]` and
+  friends, which no package index has; each line is now built for your install (your installer, release or clone,
+  and the extras you have), as `halo doctor --voice` prints it. `halo update` keeps the extras a uv or pipx install
+  was made with.
+- **`halo update --check` on a build ahead of the line it follows says so:** "this build ... is ahead of ...: the
+  offer is older, nothing to apply", exit 0, nothing installed. `/update` and the once-a-day note agree.
+- **`halo update` sees every halo it has to stop.** On Windows a single process anywhere with a letter such as an
+  umlaut in its command line emptied the list; on Python 3.10 Studio, the supervisor, Studio's sessions and
+  background runs were not counted; the LAN host (in every form Halo writes it) and a model server's watcher were not
+  counted either. They are named and stopped now; the host is shown as "LAN host" and stopped through its own stop
+  file, which its service does not restart in the middle of the install.
+- **Windows: `halo update` works on a Python from the Microsoft Store.** It stopped with "no Python outside halo's own
+  environment was found to run the updater" on a machine without `uv` and the `py` launcher.
+- **`install-halo.sh` installs on the Python it names.** It reported the Python it chose (yours, or `HALO_PYTHON`)
+  but let uv pick another; both install lines now pass `--python`. It looks at the same names `halo` does
+  (`python3`, `python`, `python3.14` down to `python3.10`), so a stock Mac with Homebrew's `python3.13` is found, and
+  with no Python 3.10 or newer it lets uv bring Python 3.12 instead of stopping.
+
+### Local models and Ollama
+
+- **A model server that is not running is not called a network problem.** A refused connection now reads "... nothing
+  is listening there (connection refused); is the model server running there? (Ollama: `ollama serve`)", with the
+  port; a public host gets "is the server running, and is the port right?". Setup's "Add host & test" shows the same.
+- **`halo local serve` downloads the llama.cpp build for your CPU.** An Intel Mac got the Apple Silicon build and an
+  arm64 Linux or Windows machine the x64 one; now an Intel Mac gets x64, an Apple Silicon Mac (also under Rosetta)
+  the Metal build, arm64 the arm64 CUDA or Vulkan build. On Windows a CUDA download brings its CUDA runtime. With no
+  build for your CPU, one line says how to install llama.cpp yourself.
+- **Local MLX servers and the first-run pack's Setup check never import code from your project folder** (they now
+  start Python the safe way, as every other Halo child does).
+- **The model picker shows what is there.** One Refresh shows a model you just pulled; a pull, delete, copy or rename,
+  a load or unload in Local, and a change made from another machine refresh the list; after a long idle the first
+  read builds a fresh list instead of showing an old one.
+
+### Setup and the first run
+
+- **Local models only, from start to finish.** `halo init --provider ollama` sets up an Ollama server with no key
+  (`--model <name>` or `ol:<name>@<host>` picks the model; without one and no terminal it names the server's models
+  and writes nothing). `halo init --terminal` (also the setup over SSH) has an `ollama` row: pick a server, see its
+  models, pick the default. Beside a key provider use `--model ol:<name>`; the last "Default model" pick lists the
+  Ollama models next to the key providers'.
+- **Setup's Done never starts a halo that cannot run.** With no provider, or an Ollama host and no model, the Summary
+  says what is missing and offers the page that fixes it; the step rail ticks Providers and Default model only when a
+  session could use them.
+- **A first run with nothing set up says what to do**, not a bare "OpenRouter not configured": `halo -p` and the
+  first screen of a session name the variable to set or `halo init`; with no default model they say so and how to set
+  one; a Copilot (`cp:work`) session not signed in says `halo copilot signin`.
+- **Ctrl+C stops `halo init`** at any prompt: "halo init: stopped; nothing more was written.", exit 130 (it was taken
+  as "no key" or the default answer, and printed a traceback at the provider list).
+- **A key pasted with its name or quotes is stored as the key** (`OPENROUTER_API_KEY="sk-or-..."` was stored whole and
+  every call failed with HTTP 401), in `halo init` and in Setup's provider pages.
+- **`halo init --provider <name> --replace-key`** asks for the key (or Databricks token) again; a refused live test
+  after setup names it.
+- **`halo init` sees Done** when the clock jumped back during Setup (a VM restored from a snapshot, a laptop waking),
+  and its summary after Done reads your provider and model from your home, not "not set".
+- **`halo init`, `halo setup` and `halo studio --edit` wait up to 45 s for Studio** (was 15 s) on a slow first start,
+  and stop a Studio they give up on instead of leaving it running.
+- **`halo init --no-launch` says what it does**: it serves Setup from your terminal and Ctrl+C there closes Studio.
+- **Windows: the window Setup's Done opens takes your typing** when you finished Setup from `halo studio`.
+- **macOS: Done tells the truth when Terminal cannot open** (macOS refused Studio control of Terminal in Privacy &
+  Security > Automation): it says so with macOS's reason and that you can run `halo` yourself.
+
+### Studio
+
+- **Studio and every server Halo starts listen at once.** They asked the network for the name of the address they
+  had just bound before listening; where that is slow (VPN, managed DNS) `halo studio` was silent for the wait and
+  `halo init` fell back to the terminal setup. `halo mcp login` cancelled in the browser wait prints no traceback.
+- **A config.json with one typo is no longer wiped.** `halo maps use`, Setup's Map page and Studio's map switch
+  rewrote a file that did not parse with only the map in it; they now refuse with the line and column and leave the
+  file as it was. `halo config get` (exit 2), `halo doctor`, Setup and a starting session say the file is not in
+  effect, instead of reading it as empty.
+- **The model picker never picks a model you cannot see**: a row the mouse wheel scrolls away loses its highlight.
+- **A prompt typed into the Prompt panel shows its answer**, also a new session's first one and one typed the moment
+  the session is ready.
+- **The Packs page draws in a fraction of a second on Windows** (it waited about 7 s).
+- **Local > Voice > Talk** says "recording" only once the microphone gives sound ("Opening..." until then), and a
+  second press while it opens no longer opens a second microphone.
+- **Setup > Check** keeps its result line after Run instead of flipping back to "running...".
+- **`/status` and `/config` name the theme you picked in Halo**, not one left in Claude Code's settings.
+
+### Sessions, settings and messages
+
+- **A mistyped command does not start a session.** `halo docter` prints "halo: no command 'docter' -- did you mean
+  `halo doctor`? (to send it as a prompt: halo -- "docter")" and exits 2; only a word one slip from a command is
+  caught.
+- **`halo config set` refuses what nothing would read**: a misspelled key (with "did you mean"), a value outside a
+  setting's choices, a model that does not parse; exit 2, nothing saved. **`halo config unset <key>`** is new
+  (Studio's Themes page and the docs named it).
+- **Flags that name a missing file or bad JSON stop the run**: `--settings`, `--mcp-config`, `--agents` and `--cwd`,
+  with one line and exit 2. A bad saved model says where it came from ("from config.json's model").
+- **A session that cannot be saved says so** ("this session's log could not be written ...; it cannot be resumed"),
+  and `--continue` / `--resume` skip the empty file a full disk leaves.
+- **A Halo folder that cannot be used gives one line**, not a traceback: "halo: cannot use <folder> (<reason>) --
+  check the owner and permissions of <folder>", exit 2 (with the `sudo chown` fix on Linux and macOS). `halo doctor`'s
+  first row says whether that folder can be read and written, and a check that cannot read its file is one row.
+- **A home on a filesystem without file locks no longer stalls** (a one-word `halo -p` took about a minute and a
+  half).
+- **A pack, agent, workflow or map file nested more than 100 levels deep** is refused as unreadable YAML; it ended
+  `halo pack list` and Studio with no message.
+- **`halo --tmux` runs the session with this shell's environment** (keys, `HALO_OFFLINE`, `HALO_PRIVATE`) even when a
+  tmux server already runs.
+
+### Trust and permissions
+
+- **Your deny and ask rules for one agent hold on a map.** A chain's hop, a routed hand-off and a helper main makes
+  up are decided as `Agent(<name>)`; a deny refuses the hop in one line naming the rule.
+- **A map no longer raises the permission mode you set.** A map's main only narrows your mode (plan stays plan); only
+  a map and main agent that are both yours may raise it, said in one line.
+- **A trust record for a symlink no longer follows the link** (Linux, macOS): pointing `~/current` at a fresh clone no
+  longer makes that clone trusted. Each lookup checks only the folder you are in.
+- **A `~/.claude.json` record keyed with backslashes** no longer counts for a Linux or macOS folder.
+- **Windows: a file in your project named like a tool is never run in its place** (`rg.cmd`, `gh.cmd`, `halo.bat`
+  in a cloned repository ran on the first Grep): programs are looked up on PATH only.
+- **Windows: a hook written for sh is never run by PowerShell.** With no Git Bash, a `PreToolUse` hook blocks the call
+  and says why; a hook on another event is skipped as failed. `"shell": "powershell"` hooks run as before.
+- **Linux: the browser Halo starts no longer shows your Studio key** to other accounts: it gets a one-time link (a
+  Studio from an older version still running does not understand it: restart it).
+
+### Windows
+
+- **No blank terminal windows** from `halo local serve`, `halo --bg`, `halo host serve`, `halo supervise --daemon`
+  or the duty steward, and closing the launching terminal still does not end them.
+- **Quitting a session no longer hangs 5 to 30 seconds** on a machine with few cores.
+- **Ctrl+Break in a full-screen session leaves the terminal as it found it.**
+- **TaskStop, Esc or a timeout ends everything a shell command started at once**, not only `bash.exe`.
+- **A thing you asked to keep survives a terminal that holds its programs in a Job object**, also a `halo update` run
+  from another Halo's Bash tool; when it cannot, one line says so.
+- **Git Bash is found wherever Git for Windows is installed** (per user, another drive, scoop, only on PATH).
+- **The PowerShell tool and PowerShell hooks keep non-English text**, and a command may start with `using namespace`.
+- **Sessions in a deep project folder are saved again** with long paths off: Halo's own session folders use a
+  shorter name when the full one would not fit.
+- **A folder typed in another letter case is the same folder** (sessions, memory, trust); a junction or subst drive
+  keeps memory and sessions together, and `claudeMdExcludes` patterns written through one work.
+- **Halo opens pages in the browser `BROWSER` names**, also inside a Job object; `halo init` prints the Studio
+  address at once there.
+- **Quitting a session that owns a Studio is quick on an installed Halo**, and the page hears goodbye.
+- **`halo doctor` passes on a machine without Claude Code** (all systems), and names your Windows release.
+
+### macOS
+
+- **A time-zone change no longer makes Halo lose its own processes**; a record a 3.5 Halo wrote still matches.
+- **Far fewer `ps` processes**: a liveness check reads the kernel's record instead.
+- **A served local model is stopped with the home's last Halo even when one `ps` is slow.**
+- **A hard kill of a nested Halo** (a sub-agent, an Orchestra worker, a tmux pane) ends exactly what that Halo
+  started.
+- **`halo host install` and `halo supervise --service` print a line that survives a restart** (the plist is copied
+  into `~/Library/LaunchAgents/`).
+- **No bell over ssh or sudo**, and none when you copy in Apple Terminal (Halo uses `pbcopy` there).
+- **A program named in `BROWSER` is used alone**, in its own session; the Chrome that films a clip never asks the
+  login keychain.
+
+### Linux
+
+- **`nohup halo ... &` survives the hangup.**
+- **Halo never opens a text browser on your terminal, and never a browser over SSH**, without a display or with
+  `HALO_NO_BROWSER` set: the address is printed. A text browser you name in `BROWSER` is still used.
+
+### Words and docs
+
+- **Every `halo ...` command Halo tells you to run exists** (a test checks every printed line); `halo gym propose
+  --apply` writes the role table again; `halo roles` and `/roles` say where the model table is.
+- **`halo explain` knows agent, workflow, map and starter**; bio, tier and block say they are 3.5 words.
+- **SECURITY.md says what listens on your network** (`halo host serve`, `halo host rpc on`,
+  `halo local serve --lan`) instead of the gone fleet hub.
+- **MOVING-from-3.5.md covers the rest**, and no page says a Studio outlives the command that started it.
 
 ### R0a
+
+Studio has room: one main thing per view, drawers and tabs instead of tiles, no sideways scrollbars, nothing smaller
+than 12 px. The owner, 2026-11-12: "I agree the panel is cramped. We need to fix that for all of studio parts."
 
 - **The stage.** The 24-column grid of tiles is gone (`lib/workspace/grid.ts`, `quiet.ts`, `room.ts`, the strips,
   Arrange, floating panels, moving a panel). Each view has one main thing (Session's Live, Agents' Canvas, Packs'
@@ -83,7 +313,7 @@ to build custom agents, their model, what they do ... each of these sections nee
   used yet`, then ten starters to copy) and the agent's form: name, what it does, the instructions it gets, the model
   (the shared picker, Auto first), what it may use (a switch per kind of tool, each saying what it can and cannot do),
   how careful, Try it, More, and Save / Discard changes / Copy / Delete (asked on the page). Nothing is written until
-  Save. Cast, Live and Workflows are still in the same switch; a link that names one still opens it.
+  Save. (Cast, Live and the old Workflows board stayed in the same switch until R5a removed them.)
 - **The builder**, a box docked under the form: say what you want; it answers with a **preview**, one line per change
   with a tick. A line that lets an agent do more (change files, run commands, the web, a skill, a connected tool, a
   less careful mode, a higher money cap) is amber and never ticked for you. **Apply** writes the ticked lines, **Undo**
@@ -96,7 +326,8 @@ to build custom agents, their model, what they do ... each of these sections nee
 - **The formats** (docs/CREW-FORMATS.md): `agent/1`, `workflow/1`, `map/1`, one YAML file each in `~/.halo/crew/`
   (or a trusted project's `.halo/crew/`), checked line by line (a map whose lines make a circle is named as one);
   the starters re-made in them (`halo_harness/templates/crew/`: 10 agents, the code / plan / review / research /
-  media workflows, the maps `starter` and `ship-it`). The old lineups, bios and squares are untouched and still read.
+  media workflows, the maps `starter` and `ship-it`). The old lineups, bios and squares were left alone in this
+  round; R5a and R5d retire them.
 - **Routes** (docs/STUDIO-builder.md): `GET crew/agents`, `GET/POST/PUT/DELETE crew/agent/<name>`, `GET crew/workflows`,
   `GET crew/maps`, `GET crew/estimate`, `POST crew/try`, `GET crew/try/<id>`, `POST crew/try/<id>/stop|seen`,
   `GET builder`, `POST builder/ask|apply|undo`; every write owner-only. Config: `studio.builder.model`,
@@ -110,9 +341,8 @@ to build custom agents, their model, what they do ... each of these sections nee
 Make a workflow -- your agents in steps, in order -- try it, save it, or describe it and let the builder draft it. The
 owner, 2026-11-12: "We should do the same kind of thing for work flows, we can group created agents in work flows".
 
-- **Agents -> 2 · Workflows** (the `2` key): the switch reads 1 · Agents | 2 · Workflows | Cast | Live | Board (the old
-  Workflows board, still there as Board). The list on the left (yours and this project's, tagged `on the map` / `not
-  on the map` -- nothing is on a map until the Map tab, and a line says so -- then the five starters to copy) and the
+- **Agents -> 2 · Workflows** (the `2` key; the old Workflows board stayed as Board until R5a). The list on the left
+  (yours and this project's, tagged `on the map` / `not on the map` -- nothing is on a map until the Map tab, and a line says so -- then the five starters to copy) and the
   form: name and where it is used; what it is for, with **Write it for me**; **the steps, in order** (a row per step:
   its name, up / down, take it out, its agents as chips that work at the same time, Gets, Hands on, When it runs,
   Repeat until at most N times; **+ Add a step** picks one of your agents or makes one -- the agent form opens filled
@@ -154,7 +384,7 @@ Connect your agents and workflows on a map, and let your sessions run on it. The
 where we can drag and drop workflows and agents and connect them together and make a big mapping connecting workflows
 and agents".
 
-- **Agents -> 3 · Map** (the `3` key): the switch reads 1 · Agents | 2 · Workflows | 3 · Map | Cast | Live | Board.
+- **Agents -> 3 · Map** (the `3` key): the switch reads 1 · Agents | 2 · Workflows | 3 · Map (since R5a).
   main at the left, a box per agent or workflow, one kind of line ("hands work to") with its **When** in words in a
   label lane between the columns, never over a box; hovering a box lifts its lines and dims the rest; a box grows with
   its text. Zoom the house way; Fit never under 75 %, past that the map pans from main; a hand zoom survives the drawer.
@@ -176,8 +406,9 @@ and agents".
   Undo. "what is my map?", "show me my workflows", "why did reviewer run?" are answered from `studio_show` with no
   change lines.
 - **Sessions run on the map you switched on** (or `halo --map <name>` for one run; each session row carries `map`): main
-  takes its model, instructions, tools and careful mode from the map's main; the Agent tool spawns exactly the agents
-  main has a line to, the Workflow tool runs exactly its workflows; a When routes a hand-off that names no target the
+  takes its model, instructions and tools from the map's main, whose careful mode may narrow your permission mode but
+  never raise it (only a map and main agent that are both yours may, said in one line); the Agent tool spawns
+  exactly the agents main has a line to, the Workflow tool runs exactly its workflows; a When routes a hand-off that names no target the
   way the router does; when a target finishes, the runtime follows its box's chain lines itself (an `always` line, a
   `needs` / `says` / `ask` line checked against the task and its files), never a model call; each receipt names the
   line that fired ("map ship-it · line plan -> code (always) · code"). `caps.session_usd` is the session's money cap
@@ -354,7 +585,7 @@ Changed:
   nothing is added to the system prompt and the Agent and Workflow tools say what they said. These values are read
   from one shipped file (R5b, below). A test compares the default session with values
   recorded on 3.5. A map you pick or write keeps its rules: main held to its lines, its cap, its instructions, main's
-  mode from its `careful`. A map with a problem says its lines and the session runs on the default. The step
+  `careful` narrowing your mode. A map with a problem says its lines and the session runs on the default. The step
   runner's, a chain's and `/review`'s own spawns are not held to a map.
 - **One model for everything is still there**: `roles.enabled: false` with no map set means no map at all, as on 3.5
   (one model, no hand-offs). Setup's Map step lists it first; `halo maps use --none` sets it, `halo maps use --off`
@@ -512,8 +743,9 @@ says in one line when a list-typed key holds one plain value. `halo config where
 agent, workflow and map folders where the lineup and bio folders were: the project's, yours, the starters and each
 enabled pack's (read-only), with which file wins a name two of them hold. The scheduler leftovers in the session loop and the
 `templates/blocks` package data are gone. The map's caps (`max_parallel`) and its agents as `Agent(role=...)` names
-keep their tests (tests/test_review2_round8c.py). Docs and help text no longer send anyone to `halo workflow run`,
-`halo teams` or `halo workflows enable`.
+keep their tests (tests/test_review2_round8c.py). The terminal's help text no longer sends anyone to
+`halo workflow run`, `halo teams` or `halo workflows enable`; a few docs pages and Studio's Orchestra workflow form
+still name them (see Known limits).
 
 Docs: AGENTS.md and ROLES.md rewritten short for agents and the model table; WORKFLOWS-squares.md says config holds
 the squares; MOVING-from-3.5.md lists what R5d removed and what is not moved yet, and the README links it.
@@ -576,24 +808,28 @@ took 33-39 s through Halo on first use (0.2 s straight from Ollama): Halo measur
 When Halo closes, everything it started closes. A Studio that `halo init` started was found still running fourteen
 hours later with no parent, and the next `halo init` used it. Now no process Halo started is alive five seconds after
 the Halo that started it is gone -- a normal exit, Ctrl+C, SIGTERM, a closed terminal or a hard kill -- unless you
-asked for it to keep running, and Halo names it on the way out with the command that stops it.
+asked for it to keep running, and Halo names it on the way out with the command that stops it. (What this does not
+reach yet is under Known limits.)
 
 - **One closing procedure, on every way out** (halo_harness/closing.py): what this Halo started, newest first, is
   asked to stop the way it stops itself (Studio's stop route, a model server's stop), then signalled as a group or a
-  tree, then ended hard, within 3 s + 2 s. Nothing is printed when all is well; one line for each thing left
-  running on purpose.
-- **A hard kill still takes the children down.** On Windows every child Halo starts is in Halo's Job object, which
-  the system ends with Halo. Every Halo child (the Studio server first) watches the Halo that started it and closes
-  within two seconds of it going. On Linux and macOS a tiny reaper waits for Halo and ends what it started when it
-  dies without a word. Every child carries `HALO_OWNER=<id>` in its environment, so a stray is always findable.
+  tree, then ended hard, all inside one deadline of about 4 s for the whole way out. Nothing is printed when all is
+  well; one line for each thing left running on purpose.
+- **A hard kill still takes the children down.** On Windows every child Halo starts is in a Job object of Halo's,
+  which the system ends with Halo (a shell command's programs cannot break away from theirs). Every Halo child (the
+  Studio server first) watches the Halo that started it and closes within two seconds of it going. On Linux and
+  macOS a tiny reaper waits for Halo and ends what it started when it dies without a word. Every child carries
+  `HALO_OWNER=<id>` in its environment (an editor Halo opens for you does not: it is yours), so a stray is findable.
 - **There is no detached Studio.** A Studio belongs to the launch that started it (`halo init` hands it to the
   session it starts in the same terminal). A launch never adopts a leftover; a Studio whose owner is alive (another
   terminal's session, your own `halo studio`) is used as it is, named in one line, and left to its owner. `halo
   setup`, `halo studio --edit` and `halo replay open` stay in the foreground while a Studio they started serves
   (Ctrl+C ends both). A page whose Studio has gone says "Studio has stopped" and stops asking.
 - **What may keep running, because you asked:** `halo --bg`, `halo host serve`, `halo supervise --daemon`, a model
-  server started with `--keep`, and the updater -- each in the ledger, listed by `halo ps` and named on the way out.
-  Nothing else: the host's duty steward is the host's child and ends with it.
+  server started with `--keep` (also `halo local serve --pool <model> --keep`, which `halo pool stop` stops), the
+  rpc-server of `halo host rpc on` (`halo host rpc off`), the Signal pack's `/signal link` helper while it waits for
+  the phone, and the updater -- each in the ledger, listed by `halo ps` and named on the way out; and the editor Halo
+  opens for you. Nothing else: the host's duty steward is the host's child and ends with it.
 - **The sweep at start:** a halo launch first stops what an earlier Halo left behind with no living owner (one line:
   "stopped a Studio server left from <when>").
 - **Halo's own Python never imports from your project folder.** Halo started its helpers as `python -m
@@ -619,12 +855,13 @@ asked for it to keep running, and Halo names it on the way out with the command 
 The three things that blocked the release: an update that could break the install, a steward that ran whether
 you wanted it or not, and a release script that pushed to a main line that no longer takes a direct push.
 
-- **`halo update` cannot leave a half install.** On Windows a `halo update` run from inside the tool environment it
-  was replacing died halfway and left that environment without the package. The install now runs in a small
-  standalone updater (`halo_harness/update_runner.py`, standard library only) that halo copies to `~/.halo/run/`,
-  outside the environment, and starts with a Python that is not that environment's: on Linux and macOS in the same
-  terminal (halo hands over to it), on Windows in its own window once halo has exited. It waits for the old halo
-  to be gone, stops what `halo update` already stopped before, installs, and checks that `halo --version` answers
+- **Once 3.6 is installed, `halo update` cannot leave a half install** (the way up from 3.5.0.1 is at the top of
+  this section). On Windows a `halo update` run from inside the tool environment it was replacing died halfway and
+  left that environment without the package. The install now runs in a small standalone updater
+  (`halo_harness/update_runner.py`, standard library only) that halo copies to `~/.halo/run/`, outside the
+  environment, and starts with a Python that is not that environment's: on Linux and macOS in the same terminal
+  (halo hands over to it), on Windows in the background once halo has exited, with a window that shows it. It waits
+  for the old halo to be gone, stops what `halo update` already stopped before, installs, and checks that `halo --version` answers
   the new version. When the install or that check fails it puts back what was there -- the exact commit that was
   installed and a lock of the packages it had -- and says in one line what happened and the one command to run by
   hand. On Windows a halo that still holds the files (`--force`) is named and nothing is installed. The outcome is
@@ -643,16 +880,16 @@ you wanted it or not, and a release script that pushed to a main line that no lo
   the TUI starts no poll of its notes.
 - **A release goes through a candidate branch.** `scripts/release.py <version>` makes the version commit on
   `rc/<version>`, pushes it, waits for that branch's suites run on the exact sha, and only when every required job
-  concluded success (Linux x4, Windows x4, studio-ui; macOS x4 and `realcheck` behind a flag in
-  `scripts/release_gate.py`) fast-forwards master, tags and publishes the release with its tar.gz and
-  `checksums.txt`. A red run stops it naming the failing jobs, with nothing tagged. "driver retried once" lines in
+  concluded success (Linux x4, Windows x4, studio-ui; macOS x4 behind `--require-macos`, and every system's
+  real-use check jobs, checkout and installed, behind `--require-realcheck`) fast-forwards master, tags and
+  publishes the release with its tar.gz and `checksums.txt`. A red run stops it naming the failing jobs, with nothing tagged. "driver retried once" lines in
   the run's log are printed as warnings. `--skip-windows` is gone. It starts only from origin/master as GitHub has it,
   and a plain re-run after a red gate or a refused push resumes from `rc/<version>` (no second commit); a failed git
   step says what is done and what is left, never a traceback.
 - **The updater cannot be stopped halfway.** The installer runs in its own process group and its output streams as
   it comes; a Ctrl+C or a closed terminal during the install still gets the old version put back, and the outcome
-  is always written. On Windows the updater runs without a console and its window only shows it (it stays open on
-  any outcome but a success). A Studio that opened the halo being updated is stopped by the updater, never waited
+  is always written. On Windows the updater runs in a console of its own with no window, and its window only shows
+  it (it stays open on any outcome but a success). A Studio that opened the halo being updated is stopped by the updater, never waited
   on; nothing is stopped before the updater is known to start; `halo update --check` writes nothing.
 - **Tests:** `test_update_runner` (the real updater against a scratch tool environment: an installer that fails
   halfway, a wrong version, a failed restore, a halo that does not exit, held files), `test_update_cli`,
@@ -676,7 +913,8 @@ in the first minute on Windows, 8.8 on Linux, never idle; Setup's first answer a
 - **One build for every request at once.** The pack list, an Ollama host's model catalog, the local models view and
   the GPU reading are each built by one request while the others wait for its answer; the local models view behind
   the model picker is kept 20 s and then answered at once while it is read again in the background (it waited 5.6 s
-  on Windows for every `GET /api/models`). Each Ollama host and each local server port is asked side by side.
+  on Windows for every `GET /api/models`); past 40 s the next read waits for a fresh look instead of showing a list
+  that may name models that are gone. Each Ollama host and each local server port is asked side by side.
 - **A pack's bios are read once per workflow check, not once per stage** (a pack of 58 bios and 48 stages read them
   7,500 times per build), with libyaml's parser where PyYAML has it.
 - **Files are parsed once per change**: `~/.claude.json` for "is this folder trusted" (the file watcher parsed it
@@ -702,7 +940,8 @@ the macOS CI runners, and his Mac beeped when a session started.
   `ESC ] 22 ; default BEL` (Textual's mouse-pointer shape: Apple Terminal has no such sequence, so its closing BEL
   rang the bell), a `CSI ? 2048 $ p` query Apple Terminal prints a stray `p` for, and Halo's BEL-closed window title.
   In Apple Terminal (`TERM_PROGRAM=Apple_Terminal`) none of the three is sent now (`term_profile.py`); every other
-  terminal gets what it got. `tests/test_start_bytes.py` starts a real session on a pseudo-terminal and finds no BEL.
+  local terminal gets what it got (over ssh or sudo the pointer shape and the mode query go only to kitty, foot,
+  Ghostty and WezTerm). `tests/test_start_bytes.py` starts a real session on a pseudo-terminal and finds no BEL.
 - **A session's control socket always opens.** macOS keeps 104 bytes for a socket path and its temp folder alone is
   `/var/folders/xx/.../T/`; a deep home or project gave a session no control socket, so Studio could not see it. A
   path too long now puts the socket in a short private folder (`$XDG_RUNTIME_DIR/halo` or `/tmp/halo-<uid>`, by a
@@ -711,7 +950,8 @@ the macOS CI runners, and his Mac beeped when a session started.
 - **A folder reached through a symlink is the same folder.** On macOS `/var` and `/tmp` are links into `/private`;
   sessions, memory, `~/.claude.json` project entries and `claudeMdExcludes` patterns were kept under one spelling and
   looked up under the other ("no sessions found for this directory"). One helper, `config.paths.folder_key`, spells
-  a folder for every store and lookup (resolved through its links on Linux and macOS; as typed on Windows).
+  a folder for every store and lookup (the folder you are in resolved through its links on Linux and macOS, while a
+  stored `~/.claude.json` key is compared as written; on Windows as the disk spells it, never through a junction).
 - **The launcher and the installer find a new enough Python.** `bin/halo` takes the first of `HALO_PYTHON`,
   `python3`, `python`, `python3.14` ... `python3.10` that is 3.10 or newer (a Mac's `/usr/bin/python3` is 3.9), and
   says in one line which it looked at when none is; `install-halo.sh` honours `HALO_PYTHON` and lists each python it
@@ -721,10 +961,40 @@ the macOS CI runners, and his Mac beeped when a session started.
   of two sub-agents cut together one never sent its call again. On Linux and macOS the cut now only shuts the socket
   down (that wakes the reader); Windows keeps its close.
 - **An ended session is ended on a Mac.** A session that had exited but was not yet reaped still answered "alive" on
-  macOS (no `/proc` to say it is a zombie), so Studio waited on it; `ps` now says so there.
+  macOS (no `/proc` to say it is a zombie), so Studio waited on it; the kernel's record of the process now says so
+  there (`ps` when that record cannot be read).
 - **Tests ask the platform.** The MLX checks ask whether this is Apple silicon instead of assuming it is not; tests
   that compared a typed temp path with the resolved one compare the folder; a test that needs 127.0.0.2 works where
   only 127.0.0.1 exists (macOS).
+
+### Known limits
+
+- **macOS was checked by the automated test runs only.** The closing procedure, the Terminal and Apple Terminal
+  handling, the launchd lines, the installer script and the `ps` and time-zone handling were not run by hand on a
+  real Mac for this release.
+- **macOS: a program a tool command detaches from its shell** (`cmd &`, then the shell exits) **that is an Apple
+  system binary cannot be found at close** (macOS hides its environment from Halo), so it keeps running. Linux ends
+  it. A shell command's own entry in `halo ps` also appears a few milliseconds after it starts; a hard kill of Halo
+  inside that moment leaves it out.
+- **A quit can take up to about a second longer than its 4-second deadline** in the worst case.
+- **Windows: `halo stop <pid>` on a session's shell from another terminal ends `bash.exe` only**; the programs it
+  started end when the Halo that started them exits.
+- **`halo update` treats any program named `halo` / `halo.exe`, and any `python -m halo_harness` of another install
+  or home, as a halo to stop.** It also notes the start times of the halos it stops a few seconds after it decided to
+  stop them, so a pid reused inside those seconds is not caught.
+- **The way up from 3.5.0.1** (the block at the top) is covered by an automated job on each system, not by a run by
+  hand on a real install.
+- **An Orchestra lane with `isolation: container`** is not given Halo's owner variables, and a lane past its time or
+  a lead killed hard leaves its container running.
+- **Windows with long paths off:** a sub-agent started by a sub-agent goes one folder deeper than the shortened
+  session folder allows for, and a home folder longer than about 130 characters still cannot hold every file.
+- **The `ps` look is kept for 1.5 s on macOS**, so a read-only listing in a long-lived process (`halo bg list`) can
+  name a reused pid as the old process for that long; every path that signals reads afresh.
+- **`halo studio --timings`' CPU figures do not count child processes.**
+- **The line for a model server that does not answer can show twice in `halo -p` output.**
+- **Some docs still describe lineups and `halo teams`**: WIZARD.md, PACKS.md, MODELS-ollama-steward-sched.md;
+  `halo studio --help` still says "lineups and agent bios"; Studio's Orchestra workflow form says `halo workflow
+  run`; the first-run pack still rehearses a 3.5 lineup (MOVING-from-3.5.md, "Not yet moved").
 
 ## [3.5.0.0] - 2026-11-13
 
