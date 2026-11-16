@@ -242,7 +242,10 @@ console's CTRL_C_EVENT; when neither reaches a test child, the closing table say
 host" and those rows send Ctrl+Break instead, never passing that off as a Ctrl+C result.
 
 CI: the `realcheck (linux|macos|windows)` jobs in suites.yml run it on pushes to master and rc/** and on pull
-requests, the table in the job summary and the JSON as the `realcheck-<os>` artifact. They do not block yet
+requests, the table in the job summary and the JSON as the `realcheck-<os>-<checkout|installed>` artifact. The
+`realcheck (<os>, installed)` legs build the wheel, install it into a fresh virtualenv and drive that `halo`
+(`--installed`), so a fault only an installed launcher shows can fail them; on Windows that leg also runs
+`tests/test_closing.py` with the virtualenv's python (a launcher, unlike setup-python's interpreter). They do not block yet
 (continue-on-error). The 3.6.0.0 rounds that a FAIL was once "expected until" (R10, R12, R13) are all in, so no step
 carries that tag any more (`tests/test_realcheck.py` checks it): every FAIL is a product bug, say what a person saw and
 how to reproduce it. A closing row names every distinct program that was left, not only the first.

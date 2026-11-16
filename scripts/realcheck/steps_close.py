@@ -1,7 +1,8 @@
 """scripts/realcheck/steps_close.py -- steps 10 to 12: closing every way, nothing reused, the machine not held.
 
 10. Each thing a person starts -- a session (bare `halo`), `halo init`, `halo studio`, a one-shot mid-turn, a session
-    with a sub-agent mid-run, a session with an MCP server, a managed local model server -- is ended by Ctrl+C (the
+    with a sub-agent mid-run, a session with an MCP server, a managed local model server, a one-shot whose Bash tool
+    is mid-run, a session with a background Bash job (the shells and their `sleep`s) -- is ended by Ctrl+C (the
     key typed into its terminal; a full-screen session's "Quit Halo?" answered with Enter, as a person does), by its
     terminal closing (the pty's master closed: SIGHUP; the pseudoconsole closed: CTRL_CLOSE_EVENT) and by a hard kill
     of the top process. Five seconds later no process started under that launch's scratch home may be alive.
@@ -42,6 +43,37 @@ def _has(ctx, h, word: str):
     return lambda: any(word in p.cmdline for p in ctx.ours(h).values())
 
 
+def _allow_sleep(ctx, h) -> None:
+    """The scratch home's Claude Code settings allow the shell command the provider asks for, as a person's would: the
+    Bash tool then runs it with no question (fakes: RC-BASH / RC-BGBASH run `sleep`)."""
+    (h.home / ".claude").mkdir(parents=True, exist_ok=True)
+    (h.home / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"allow": ["Bash(sleep:*)"]}}),
+                                                      encoding="utf-8")
+
+
+def _is_shell(p) -> bool:
+    """A `sleep` the Bash tool's shell started (sleep, /bin/sleep, Git Bash's sleep.exe): the most common child of a
+    real session, and on macOS one the closing procedure's marker does not reach."""
+    return p.name.lower().rsplit("/", 1)[-1].split(".")[0] == "sleep"
+
+
+def _shell_up(ctx, h) -> bool:
+    return any(_is_shell(p) for p in ctx.ours(h).values())
+
+
+def _typed_bg_job(ctx, h, t) -> bool:
+    """Once the session is up: the prompt RC-BGBASH typed and sent (a Bash call run in the background); up when its
+    shell runs."""
+    if not screen.READY.search(t.plain()):
+        return False
+    if not getattr(h, "typed", False):
+        h.typed = True
+        t.type("RC-BGBASH start the job")
+        time.sleep(0.3)
+        t.write(b"\r")
+    return _shell_up(ctx, h)
+
+
 def _served_beside(ctx, h, t) -> bool:
     """Once the session is up: `halo local serve <file>` from another shell on the same home (it returns at once and
     leaves the server running "until the last Halo process on this home exits"); up when the server runs."""
@@ -64,6 +96,9 @@ TARGETS = {
     "session + MCP server": (lambda ctx, h: _mcp_home(ctx, h) or (),
                              lambda ctx, h, t: screen.READY.search(t.plain()) and _has(ctx, h, "fake_mcp_server")()),
     "session + local model server": (lambda ctx, h: (), _served_beside),
+    "one-shot, Bash tool mid-run": (lambda ctx, h: _allow_sleep(ctx, h) or ("-p", "RC-BASH run the shell"),
+                                    lambda ctx, h, t: _shell_up(ctx, h)),
+    "session, background Bash job": (lambda ctx, h: _allow_sleep(ctx, h) or (), _typed_bg_job),
 }
 
 

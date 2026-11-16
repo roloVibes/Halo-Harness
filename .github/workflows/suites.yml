@@ -361,8 +361,12 @@ jobs:
   # NOT BLOCKING YET (continue-on-error): some steps fail today on purpose (the closing procedure, Studio left
   # running, idle CPU) until the rounds that fix them land; the coordinator makes `realcheck (<os>)` a required check
   # once it is green. No secrets, no keys; no BRIDGE_TEST_NO_BACKGROUND_NET at the job level (a person's launch has none).
+  # Two legs per system: `checkout` drives this checkout (`python -m halo_harness`); `installed` builds the wheel,
+  # installs it into a fresh virtualenv (the `halo` launcher a person's install makes; on Windows a venv's python.exe
+  # is a launcher too, so a child has two pids, unlike setup-python's interpreter) and drives that `halo`. On Windows
+  # the installed leg also runs tests/test_closing.py with the venv's python.
   realcheck:
-    name: realcheck (${{ matrix.os }})
+    name: realcheck (${{ matrix.os }}${{ matrix.install == 'installed' && ', installed' || '' }})
     if: (github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/rc/'))) || github.event_name == 'pull_request'
     runs-on: ${{ matrix.os == 'macos' && 'macos-latest' || matrix.os == 'windows' && 'windows-latest' || 'ubuntu-latest' }}
     continue-on-error: true
@@ -370,6 +374,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [linux, macos, windows]
+        install: [checkout, installed]
     timeout-minutes: 45
     env:
       PYTHONUTF8: "1"
@@ -402,18 +407,53 @@ jobs:
           echo "TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
 
+      - name: Install halo-harness from its wheel into a fresh virtualenv (installed leg)
+        if: matrix.install == 'installed'
+        run: |
+          set -e
+          python -m pip wheel --no-deps --no-build-isolation -w "$RUNNER_TEMP/wheel" .
+          python -m venv "$RUNNER_TEMP/halo-venv"
+          if [ "${{ matrix.os }}" = windows ]; then
+            py="$RUNNER_TEMP/halo-venv/Scripts/python.exe"; bin="$(cygpath -w "$RUNNER_TEMP/halo-venv/Scripts")"
+          else
+            py="$RUNNER_TEMP/halo-venv/bin/python"; bin="$RUNNER_TEMP/halo-venv/bin"
+          fi
+          "$py" -m pip install --require-hashes --no-deps -r requirements.lock
+          "$py" -m pip install --require-hashes --no-deps -r requirements-ci.lock
+          whl="$(ls "$RUNNER_TEMP"/wheel/*.whl)"  # this build's own wheel, pinned by its hash like everything else
+          echo "$whl --hash=sha256:$(python -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' "$whl")" > "$RUNNER_TEMP/wheel.req"
+          "$py" -m pip install --require-hashes --no-deps -r "$RUNNER_TEMP/wheel.req"
+          echo "$bin" >> "$GITHUB_PATH"
+          echo "HALO_VENV_PY=$py" >> "$GITHUB_ENV"
+
+      - name: Which halo (installed leg)
+        if: matrix.install == 'installed'
+        run: |
+          command -v halo
+          case "$(command -v halo)" in *halo-venv*) ;; *) echo "::error::halo on PATH is not the installed one"; exit 1;; esac
+          halo --version
+
       - name: realcheck
         timeout-minutes: 40
-        run: set -o pipefail; python scripts/realcheck.py --json "$RUNNER_TEMP/realcheck.json" --summary "$GITHUB_STEP_SUMMARY" 2>&1 | tee "$RUNNER_TEMP/realcheck.log"
+        run: set -o pipefail; python scripts/realcheck.py ${{ matrix.install == 'installed' && '--installed' || '' }} --json "$RUNNER_TEMP/realcheck.json" --summary "$GITHUB_STEP_SUMMARY" 2>&1 | tee "$RUNNER_TEMP/realcheck.log"
+
+      - name: The closing tests with the venv's python (Windows, installed leg)
+        if: always() && matrix.os == 'windows' && matrix.install == 'installed' && env.HALO_VENV_PY != ''
+        timeout-minutes: 15
+        run: |
+          mkdir -p "$RUNNER_TEMP/halo-test-home"
+          set -o pipefail; BRIDGE_TEST_HOME="$RUNNER_TEMP/halo-test-home" "$HALO_VENV_PY" -m tests.test_closing 2>&1 | tee "$RUNNER_TEMP/test_closing-venv.log"
 
       - name: Upload the run
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: realcheck-${{ matrix.os }}
+          name: realcheck-${{ matrix.os }}-${{ matrix.install }}
+          if-no-files-found: ignore
           path: |
             ${{ runner.temp }}/realcheck.json
             ${{ runner.temp }}/realcheck.log
+            ${{ runner.temp }}/test_closing-venv.log
 
   # 3.0.3.0: Halo Studio's React shell (halo_harness/studio/ui). The built
   # bundle is committed under halo_harness/studio/static/dist so an install

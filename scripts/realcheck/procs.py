@@ -6,7 +6,7 @@ process of that home carries (Halo's own marker, 3.6.0.0 R10), or when its paren
 else is ever matched: the owner's own Halo on the same machine, another worker's tests, a browser. `kill()` refuses a
 pid whose start time is not the one the scan saw.
 
-Linux reads /proc, macOS `ps -E`, Windows the process list and each process's PEB (command line, environment) with
+Linux reads /proc, macOS `ps` (and `ps -E` for the environments), Windows the process list and each process's PEB (command line, environment) with
 ctypes. No psutil. A process this user cannot read is skipped (it is not ours)."""
 from __future__ import annotations
 
@@ -99,30 +99,53 @@ def _cpu_text(t: str) -> float:
 
 
 def _mac() -> dict:
-    """`ps -E` appends the environment to the command (own processes only: the rest are not ours anyway)."""
+    """Two lists: the plain one gives each command alone; `ps -E` appends the environment to the command (own
+    processes only: the rest are not ours anyway), and what follows the plain command there is the environment."""
     try:
-        text = subprocess.run(["ps", "-axwwE", "-o", "pid=,ppid=,stat=,time=,command="], capture_output=True, text=True,
-                              errors="replace", timeout=20).stdout
+        run = lambda *a: subprocess.run(["ps", *a], capture_output=True, text=True, errors="replace",  # noqa: E731
+                                        timeout=20).stdout
+        plain = run("-axww", "-o", "pid=,ppid=,stat=,time=,command=")
+        with_env = run("-axwwE", "-o", "pid=,command=")
     except (OSError, subprocess.SubprocessError):
         return {}
+    return _mac_parse(plain, with_env)
+
+
+def _env_words(text: str) -> dict:
+    """`KEY=VALUE KEY=VALUE ...` as `ps -E` prints it: a word that is not KEY=... continues the value before it (a
+    value with a space in it, a home under "Application Support")."""
+    env: dict = {}
+    key = ""
+    for tok in text.split(" "):
+        k, eq, v = tok.partition("=")
+        if eq and k.isidentifier():
+            key, env[k] = k, v
+        elif key:
+            env[key] += " " + tok
+    return env
+
+
+def _mac_parse(plain: str, with_env: str) -> dict:
+    envs = {}
+    for line in with_env.splitlines():
+        pid, _, rest = line.strip().partition(" ")
+        if pid.isdigit():
+            envs[int(pid)] = rest.lstrip()
     out = {}
-    for line in text.splitlines():
+    for line in plain.splitlines():
         parts = line.split(None, 4)
         if len(parts) < 5 or not parts[0].isdigit():
             continue
         if parts[2].startswith("Z") or parts[4].startswith("<defunct>"):
             continue  # a zombie is gone; its parent has not read its status yet
-        pid, ppid, cpu, rest = int(parts[0]), int(parts[1]), parts[3], parts[4]
-        env = {}
-        for tok in rest.split(" "):  # the env words come last as KEY=VALUE; a value with spaces stays in `cmdline`
-            k, eq, v = tok.partition("=")
-            if eq and k.isidentifier() and k.upper() == k:
-                env[k] = v
+        pid, ppid, cpu, cmd = int(parts[0]), int(parts[1]), parts[3], parts[4].strip()
+        full = envs.get(pid, "")
+        env = _env_words(full[len(cmd):].strip()) if full.startswith(cmd) else {}
         try:
             cpu_s = _cpu_text(cpu)
         except ValueError:
             cpu_s = -1.0
-        out[pid] = Proc(pid, ppid, rest.split(" ", 1)[0].rsplit("/", 1)[-1], rest, env, 0.0, cpu_s)
+        out[pid] = Proc(pid, ppid, cmd.split(" ", 1)[0].rsplit("/", 1)[-1], cmd, env, 0.0, cpu_s)
     return out
 
 

@@ -9,6 +9,8 @@ never by model name, so a sub-agent or a workflow step on another model is answe
   RC-PACK agent=A        an Agent spawn to the agent named A (RC-SUB), then PACK_DONE
   RC-HANG                an Agent spawn whose sub-agent's model call never answers until `release()` (mid-run)
   RC-SLOW                the main model call itself never answers until `release()`
+  RC-BASH                a Bash call `SHELL_HOLD` (a job in the background and one in front: the turn holds in the shell)
+  RC-BGBASH              a Bash call `SHELL_BACKGROUND` with run_in_background, then ANSWER (the job outlives the turn)
   RC-SUB / anything else  SUB_DONE / ANSWER
 
 Every request is kept (`requests`, with its size in bytes). `Ollama` is tests/helpers/mock_ollama_loads.
@@ -26,6 +28,7 @@ import time
 from pathlib import Path
 
 ANSWER, SUB_DONE, WORK_DONE, PACK_DONE = "RC-ANSWER-42", "RC-SUB-DONE", "RC-WORK-DONE", "RC-PACK-DONE"
+SHELL_HOLD, SHELL_BACKGROUND = "sleep 6011 & sleep 6011", "sleep 6012"
 
 
 def _text(content) -> str:
@@ -134,6 +137,12 @@ class Provider:
         if "RC-SLOW" in last:
             self._hold("RC-SLOW")
             return _finish(h, text_step(ANSWER))
+        for marker, args in (("RC-BGBASH", {"command": SHELL_BACKGROUND, "run_in_background": True}),
+                             ("RC-BASH", {"command": SHELL_HOLD})):
+            if marker in last:
+                if done == 0:
+                    return _finish(h, tool_step(("Bash", dict(args, description="rc shell"), "call_rc_shell")))
+                return _finish(h, text_step(ANSWER))
         if "RC-HANG" in last:
             if done == 0:
                 return _finish(h, tool_step(("Agent", {"description": "rc hang", "prompt": "RC-SUBHANG: wait",

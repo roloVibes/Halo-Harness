@@ -110,6 +110,7 @@ def test_the_scan_finds_a_scratch_homes_processes_and_nothing_else(ctx: Ctx):
     c = subprocess.Popen([sys.executable, "-c", SLEEP], env=dict(bare, BRIDGE_TEST_HOME=str(other)))
     d = subprocess.Popen([sys.executable, "-c", SLEEP], env=dict(bare, HALO_OWNER="rc-owner-7"))
     e = subprocess.Popen([sys.executable, "-c", SLEEP], env=dict(bare, HALO_OWNER="rc-owner-8"))
+    found: dict = {}
     try:
         time.sleep(1.5)
         found = procs.belonging(procs.snapshot(), procs.needles_for(scratch), owners={"rc-owner-7"})
@@ -128,6 +129,9 @@ def test_the_scan_finds_a_scratch_homes_processes_and_nothing_else(ctx: Ctx):
     finally:
         for p in (a, b, c, d, e):
             _gone(p)
+        for p in found.values():  # a's grandchild too: a failed check must not leave it sleeping for 60 s
+            if procs.alive(p.pid):
+                procs.kill(p)
 
 
 CHILD = ("import sys, time\nprint('tty', sys.stdin.isatty(), sys.stdout.isatty(), flush=True)\n"
@@ -632,6 +636,116 @@ def test_the_theme_step_fails_when_a_theme_in_claude_codes_settings_beats_the_on
     got, _seen = _theme_step(root / "blank", beats_pick=False, ansi_draws="")
     ctx.check(f"no palette read on the terminal without truecolor: FAIL, got {getattr(got, 'detail', got)!r}",
               isinstance(got, core.Fail) and "without truecolor" in got.detail)
+
+
+# `ps -axww -o pid=,ppid=,stat=,time=,command=` and `ps -axwwE -o pid=,command=` on a Mac (a home with a space in it)
+MAC_PLAIN = ("  101     1 S      0:00.10 /usr/bin/python3 -m halo_harness studio\n"
+             "  102   101 S      0:00.00 /bin/sleep 600\n"
+             "  103     1 Z      0:00.00 <defunct>\n"
+             "  104     1 S      0:01.50 /Applications/Other.app/Contents/MacOS/Other --flag\n")
+MAC_WITH_ENV = ("  101 /usr/bin/python3 -m halo_harness studio USER=dev BRIDGE_TEST_HOME=/tmp/rc home/h PATH=/usr/bin "
+                "HALO_OWNER=o-1\n"
+                "  102 /bin/sleep 600 HOME=/tmp/rc home/h\n"
+                "  104 /Applications/Other.app/Contents/MacOS/Other --flag LANG=C\n")
+
+
+@test
+def test_the_mac_scan_keeps_the_command_apart_from_its_environment(ctx: Ctx):
+    snap = procs._mac_parse(MAC_PLAIN, MAC_WITH_ENV)
+    ctx.check(f"every live process, the zombie left out, got {sorted(snap)}", sorted(snap) == [101, 102, 104])
+    s = snap[101]
+    ctx.check(f"the command is the command alone, got {s.cmdline!r}", s.cmdline == "/usr/bin/python3 -m halo_harness studio")
+    ctx.check(f"the environment is read from what follows it (a value with a space kept whole), got {s.env}",
+              s.env == {"USER": "dev", "BRIDGE_TEST_HOME": "/tmp/rc home/h", "PATH": "/usr/bin", "HALO_OWNER": "o-1"})
+    ctx.check(f"no environment word in an evidence line, got {s.short()!r}", "USER=" not in s.short() and "PATH=" not in s.short())
+    ctx.check(f"names and cpu, got {[(p.name, p.cpu) for p in snap.values()]}",
+              (s.name, snap[102].name, snap[104].name, s.cpu, snap[104].cpu) == ("python3", "sleep", "Other", 0.1, 1.5))
+    ctx.check(f"a process -E did not list keeps its command and no environment, got {snap[104].env}",
+              snap[104].env == {"LANG": "C"} and procs._mac_parse(MAC_PLAIN, "")[101].env == {})
+    found = procs.belonging(dict(snap), procs.needles_for("/tmp/rc home/h"))
+    whys = {pid: p.why for pid, p in found.items()}
+    ctx.check(f"matched by its environment, not said to be by its command line, got {whys}",
+              whys.get(101) == "scratch path in its environment" and whys.get(102) == "scratch path in its environment"
+              and 104 not in whys)
+
+
+def _shell_of(text: str) -> dict:
+    for line in text.splitlines():
+        if '"tool_calls"' in line:
+            data = json.loads(line[len("data: "):] if line.startswith("data: ") else line)
+            call = data["choices"][0]["delta"]["tool_calls"][0]["function"]
+            return {"name": call["name"], **json.loads(call["arguments"])}
+    return {}
+
+
+@test
+def test_the_closing_step_ends_shells_the_bash_tool_started_mid_turn_and_in_the_background(ctx: Ctx):
+    from realcheck import steps_close
+    from tests.helpers.mock_openai import SCENARIOS
+    before = {k: SCENARIOS.get(k) for k in ("model", "realcheck")}
+    p = fakes.Provider().start()
+    try:
+        calls = {}
+        for marker in ("RC-BASH", "RC-BGBASH"):
+            ask = {"model": "any/thing", "stream": True, "messages": [{"role": "user", "content": f"{marker} go"}]}
+            calls[marker] = _shell_of(_post(p.base_url, ask))
+            ask["messages"] += [{"role": "assistant", "content": None}, {"role": "tool", "content": "started"}]
+            calls[marker + " then"] = _post(p.base_url, ask)
+        fg, bg = calls["RC-BASH"], calls["RC-BGBASH"]
+        ctx.check(f"RC-BASH: a Bash call holding the turn in a shell with a job in the background, got {fg}",
+                  fg.get("name") == "Bash" and "sleep" in fg.get("command", "") and " & " in fg.get("command", "")
+                  and not fg.get("run_in_background"))
+        ctx.check(f"RC-BGBASH: a Bash call run in the background, got {bg}",
+                  bg.get("name") == "Bash" and "sleep" in bg.get("command", "") and bg.get("run_in_background") is True)
+        ctx.check("each turn ends once its tool answered", fakes.ANSWER in calls["RC-BASH then"]
+                  and fakes.ANSWER in calls["RC-BGBASH then"])
+    finally:
+        p.stop()
+    names = list(steps_close.TARGETS)
+    ctx.check(f"a one-shot with the Bash tool mid-run and a session with a background Bash job are closed, got {names}",
+              "one-shot, Bash tool mid-run" in names and "session, background Bash job" in names)
+    h = type("H", (), {})()
+    h.home = Path(tempfile.mkdtemp(prefix="rc-bash-"))
+    args = steps_close.TARGETS["one-shot, Bash tool mid-run"][0](None, h)
+    rules = json.loads((h.home / ".claude" / "settings.json").read_text(encoding="utf-8"))["permissions"]["allow"]
+    ctx.check(f"the one-shot asks for RC-BASH; the home allows the command as a person would, got {args} {rules}",
+              args[0] == "-p" and "RC-BASH" in args[1] and rules == ["Bash(sleep:*)"])
+    shell = procs.Proc(1, 0, "sleep.exe" if sys.platform == "win32" else "sleep", "sleep 6011")
+    ctx.check("up once a sleep runs under the home", steps_close._is_shell(shell)
+              and not steps_close._is_shell(procs.Proc(2, 0, "python", "python -m halo_harness -p RC-BASH")))
+    ctx.check("the provider put back what it borrowed", all(SCENARIOS.get(k) is v for k, v in before.items()))
+
+
+def _installed_leg_problems(text: str) -> list:
+    """What the realcheck CI job lacks to drive an INSTALLED halo on each system (empty: nothing)."""
+    import yaml
+    job = yaml.safe_load(text)["jobs"]["realcheck"]
+    bad = []
+    matrix = job["strategy"]["matrix"]
+    if set(matrix.get("os") or []) != {"linux", "macos", "windows"} or "installed" not in (matrix.get("install") or []):
+        bad.append(f"no installed leg per system: {matrix}")
+    runs = [(s.get("if", ""), s.get("run", "")) for s in job["steps"]]
+    inst = [r for cond, r in runs if "installed" in cond and "pip wheel" in r and "venv" in r]
+    if not inst or "pip install -e" in inst[0] or "GITHUB_PATH" not in inst[0]:
+        bad.append("no step builds the wheel, installs it into a fresh venv and puts its halo first on PATH")
+    rc = [r for _c, r in runs if "scripts/realcheck.py" in r]
+    if not rc or "--installed" not in rc[0]:
+        bad.append("realcheck is never run with --installed")
+    if not any("windows" in c and "installed" in c and "HALO_VENV_PY" in r and "tests.test_closing" in r
+               for c, r in runs):
+        bad.append("Windows never runs tests/test_closing.py with the venv's python")
+    if "matrix.install" not in str(job["steps"][-1].get("with", {}).get("name", "")):
+        bad.append("the two legs of one system upload under the same artifact name")
+    return bad
+
+
+@test
+def test_ci_drives_an_installed_halo_on_every_system(ctx: Ctx):
+    text = (REPO / ".github" / "workflows" / "suites.yml").read_text(encoding="utf-8")
+    bad = _installed_leg_problems(text)
+    ctx.check(f"a realcheck leg per system against the wheel in a fresh venv, got {bad}", bad == [])
+    checkout = text.replace("        install: [checkout, installed]\n", "")
+    ctx.check("the check sees a job without that leg", _installed_leg_problems(checkout) != [])
 
 
 if __name__ == "__main__":
