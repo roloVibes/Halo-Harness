@@ -14,6 +14,7 @@ the Linux VM this suite ultimately runs on).
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Optional
@@ -107,6 +108,12 @@ def build_fake_home(root: Optional[Path] = None) -> dict:
     """Build the fixture under `root` (a fresh tempdir if not given) and
     return a dict of useful paths: home, claude_dir, proj, sub, memory_dir."""
     root = Path(root) if root else Path(tempfile.mkdtemp(prefix="halo-fakehome-"))
+    if os.name != "nt":
+        # join batch 1: key the project the way the product spells a POSIX folder (folder_key: resolved through
+        # links, as a child's getcwd reads it). macOS's temp folder is /var/..., a link to /private/var/..., and a
+        # stored key is never followed through a link, so a key spelled through it left the project untrusted.
+        # Windows keeps the spelling as given (its cwd is not resolved through a junction either).
+        root = Path(os.path.realpath(root))
     home = root / "home"
     claude_dir = home / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)

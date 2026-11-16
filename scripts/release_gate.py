@@ -12,8 +12,8 @@ version commit to `rc/<version>` and this gate waits for that run:
 3. the run's log is read once (`gh run view --log`) and every "driver retried once" line is returned as a warning
    (a retry was the early sign of three real bugs in one week): it does not stop the release, it is printed.
 
-The required jobs are ONE list here: Linux x4 and Windows x4 (the shards) and studio-ui. macOS x4 and `realcheck`
-join it when `REQUIRE_MACOS` / `REQUIRE_REALCHECK` below are flipped to True (the coordinator flips them once those
+The required jobs are ONE list here: Linux x4 and Windows x4 (the shards) and studio-ui. macOS x4 and the `realcheck` legs
+(checkout and installed, per OS) join it when `REQUIRE_MACOS` / `REQUIRE_REALCHECK` below are flipped to True (the coordinator flips them once those
 jobs are green), or per run with release.py's `--require-macos` / `--require-realcheck`.
 
 Every `gh` call goes through `run_fn` (tests pass a fake `gh`, tests/helpers/fake_gh.py).
@@ -30,7 +30,9 @@ WORKFLOW = "suites.yml"
 SHARDS = 4
 REQUIRE_MACOS = False  # the coordinator flips this when the macOS shards are green
 REQUIRE_REALCHECK = False  # ... and this when the real-use check job is
-REALCHECK_JOB = "realcheck ({})"  # suites.yml: `realcheck (${{ matrix.os }})`, one job per OS
+# suites.yml: `realcheck (${{ matrix.os }}${{ matrix.install == 'installed' && ', installed' || '' }})`, two legs per OS:
+# the checkout and the installed wheel (join batch 1: the gate named only the first, so the second went unread)
+REALCHECK_JOBS = ("realcheck ({})", "realcheck ({}, installed)")
 RETRY_MARK = "driver retried once"
 WAIT_S = 90 * 60
 POLL_S = 30.0
@@ -50,7 +52,7 @@ def required_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = Non
     out = [f"suites ({p}, py3.12, shard {i}/{SHARDS})" for p in platforms for i in range(SHARDS)]
     out.append("studio-ui (build + drift gate)")
     if realcheck:
-        out += [REALCHECK_JOB.format(p) for p in platforms]
+        out += [form.format(p) for p in platforms for form in REALCHECK_JOBS]
     return out
 
 

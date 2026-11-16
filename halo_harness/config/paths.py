@@ -593,10 +593,13 @@ def normalize_cwd(path: str | Path, *, resolve: bool = True) -> str:
 
 def project_key_candidates(cwd: str | Path) -> list[str]:
     """Return the key forms Claude Code's projects map might use for this cwd: the cwd as given and as
-    `folder_key` spells it (resolved on POSIX), each with '/' and with '\\' (on POSIX the second is identical)."""
+    `folder_key` spells it (resolved on POSIX), each with '/' and, for a Windows folder, with '\\'. A POSIX folder
+    gets no '\\' form: there a backslash is an ordinary filename character, so `\\tmp\\proj` is another (relative)
+    name and a record stored under it must never match `/tmp/proj`."""
     candidates: list[str] = []
     for normalized in (normalize_cwd(cwd), normalize_cwd(cwd, resolve=False)):
-        for form in (normalized, normalized.replace("/", "\\")):
+        windows_shaped = os.name == "nt" or _WIN_DRIVE_RE.match(normalized) is not None
+        for form in ((normalized, normalized.replace("/", "\\")) if windows_shaped else (normalized,)):
             if form not in candidates:
                 candidates.append(form)
     return candidates

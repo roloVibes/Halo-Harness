@@ -680,15 +680,24 @@ def test_p2_mcp_cli_disable_updates_every_matching_project_key(ctx: Ctx):
 
         mcp_cli.set_server_disabled_in_config("srv-x", cwd=cwd, disabled=True)
         data = json.loads(claude_json_path().read_text(encoding="utf-8"))
-        ctx.check(f"disabling updates BOTH existing key forms, got {data['projects']}",
-                  "srv-x" in data["projects"][key_fwd]["disabledMcpServers"]
-                  and "srv-x" in data["projects"][key_back]["disabledMcpServers"])
-
         mcp_cli.set_server_disabled_in_config("already-disabled", cwd=cwd, disabled=False)
         data2 = json.loads(claude_json_path().read_text(encoding="utf-8"))
-        ctx.check(f"re-enabling clears it from BOTH forms (never a silent no-op), got {data2['projects']}",
-                  "already-disabled" not in data2["projects"][key_fwd]["disabledMcpServers"]
-                  and "already-disabled" not in data2["projects"][key_back]["disabledMcpServers"])
+        if os.name == "nt":
+            ctx.check(f"disabling updates BOTH existing key forms, got {data['projects']}",
+                      "srv-x" in data["projects"][key_fwd]["disabledMcpServers"]
+                      and "srv-x" in data["projects"][key_back]["disabledMcpServers"])
+            ctx.check(f"re-enabling clears it from BOTH forms (never a silent no-op), got {data2['projects']}",
+                      "already-disabled" not in data2["projects"][key_fwd]["disabledMcpServers"]
+                      and "already-disabled" not in data2["projects"][key_back]["disabledMcpServers"])
+        else:
+            # join batch 1: on POSIX the backslash spelling is another folder's name (a backslash is a filename
+            # character there), so only the real folder's record changes and the other is left as it was.
+            ctx.check(f"POSIX: disabling updates the folder's own key, got {data['projects']}",
+                      "srv-x" in data["projects"][key_fwd]["disabledMcpServers"])
+            ctx.check(f"POSIX: re-enabling clears it from the folder's own key, got {data2['projects']}",
+                      "already-disabled" not in data2["projects"][key_fwd]["disabledMcpServers"])
+            ctx.check(f"POSIX: the backslash-spelled record is not touched, got {data2['projects']}",
+                      data2["projects"][key_back]["disabledMcpServers"] == ["already-disabled"])
     finally:
         if saved_home is None:
             os.environ.pop("BRIDGE_TEST_HOME", None)

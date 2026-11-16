@@ -269,9 +269,8 @@ def set_server_disabled_in_config(name: str, *, cwd: Path, disabled: bool) -> st
     projects = data.setdefault("projects", {})
     key = normalize_cwd(cwd)
     candidates = set(project_key_candidates(cwd))
-    # A key whose RAW text is already one of the candidate forms matches too:
-    # on POSIX `normalize_cwd` leaves a backslash-shaped key (copied from a
-    # Windows install) unrecognisable, so the normalized compare alone missed it.
+    # A key whose RAW text is already one of the candidate forms matches too
+    # (on Windows the '\\' form; a POSIX folder has no '\\' form, see project_key_candidates).
     touched = [k for k, v in projects.items() if isinstance(v, dict) and stored_key_matches(k, candidates)]
     if not touched:
         projects.setdefault(key, {})

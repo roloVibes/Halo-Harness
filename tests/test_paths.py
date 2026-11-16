@@ -61,6 +61,27 @@ def test_project_key_candidates_both_forms(ctx: Ctx):
 
 
 @test
+def test_a_posix_folder_has_no_backslash_key_form(ctx: Ctx):
+    """join batch 1: on POSIX a backslash is a filename character, so a record keyed `\\tmp\\x\\proj` names
+    another folder and must never merge into `/tmp/x/proj` (an untrusted record's servers came in that way).
+    On Windows both spellings are the same folder and both still match."""
+    with tempfile.TemporaryDirectory() as td:
+        proj = Path(td) / "proj"
+        proj.mkdir()
+        fwd = p.normalize_cwd(proj)
+        back = fwd.replace("/", "\\")
+        candidates = p.project_key_candidates(proj)
+        cj = {"projects": {back: {"mcpServers": {"local-only": {"command": "x"}}}}}
+        merged = p.lookup_project(cj, proj)
+        if os.name == "nt":
+            ctx.check(f"Windows: the '\\\\' form is a candidate, got {candidates}", back in candidates)
+            ctx.check(f"Windows: the '\\\\'-keyed record merges, got {merged}", "local-only" in (merged.get("mcpServers") or {}))
+        else:
+            ctx.check(f"POSIX: no candidate holds a backslash, got {candidates}", not any("\\" in c for c in candidates))
+            ctx.check(f"POSIX: the backslash-keyed record does not merge, got {merged}", merged == {})
+
+
+@test
 def test_lookup_project_merges_both_key_forms(ctx: Ctx):
     cj = {
         "projects": {

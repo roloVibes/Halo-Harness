@@ -84,18 +84,37 @@ def test_stream_json_sink_resets_prompt_suggestion_and_duration_per_turn(ctx: Ct
     `_start_monotonic` (so `duration_ms`, meant to be per-turn, kept
     accumulating across every turn of this multi-turn stream-json loop)."""
     import io
+    from halo_harness import output as output_mod
     from halo_harness.output import StreamJsonSink
 
-    stream = io.StringIO()
-    sink = StreamJsonSink(session_id="s1", cwd="/tmp", model="m", permission_mode="default", stream=stream)
-    sink.emit_init()
+    # join batch 1: the sink is fed a clock instead of two real sleeps under a fixed 220 ms limit (a loaded
+    # runner overshot it): turn 1 lasts 5 s, turn 2 lasts 2 s, so turn 2's duration_ms is exactly 2000 and any
+    # carry-over of turn 1's time shows as 7000, whatever the machine's load.
+    now = [1000.0]
 
-    sink.add_prompt_suggestion("do X next")
-    time.sleep(0.12)
-    sink.consume(iter(()), finish=True)
+    class _Clock:
+        def __getattr__(self, name):
+            return getattr(time, name)
 
-    time.sleep(0.12)  # turn 2 never calls add_prompt_suggestion at all
-    sink.consume(iter(()), finish=True)
+        @staticmethod
+        def monotonic():
+            return now[0]
+
+    real_time = output_mod.time
+    output_mod.time = _Clock()
+    try:
+        stream = io.StringIO()
+        sink = StreamJsonSink(session_id="s1", cwd="/tmp", model="m", permission_mode="default", stream=stream)
+        sink.emit_init()
+
+        sink.add_prompt_suggestion("do X next")
+        now[0] += 5.0
+        sink.consume(iter(()), finish=True)
+
+        now[0] += 2.0  # turn 2 never calls add_prompt_suggestion at all
+        sink.consume(iter(()), finish=True)
+    finally:
+        output_mod.time = real_time
 
     lines = [json.loads(L) for L in stream.getvalue().splitlines() if L.strip()]
     results = [L for L in lines if L.get("type") == "result"]
@@ -104,8 +123,9 @@ def test_stream_json_sink_resets_prompt_suggestion_and_duration_per_turn(ctx: Ct
               results[0].get("prompt_suggestion") == "do X next")
     ctx.check(f"turn 2 does NOT repeat it, got {results[1].get('prompt_suggestion')!r}",
               results[1].get("prompt_suggestion") is None)
-    ctx.check(f"turn 2's own duration_ms measures only its own ~120ms wait, not the "
-              f"accumulated ~240ms, got {results[1]['duration_ms']}", results[1]["duration_ms"] < 220)
+    ctx.check(f"turn 1's duration_ms is its own 5 s, got {results[0]['duration_ms']}", results[0]["duration_ms"] == 5000)
+    ctx.check(f"turn 2's own duration_ms measures only its own 2 s, not the accumulated 7 s, "
+              f"got {results[1]['duration_ms']}", results[1]["duration_ms"] == 2000)
 
 
 # ============================================================================

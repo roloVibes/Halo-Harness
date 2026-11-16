@@ -311,6 +311,37 @@ def test_item3_build_fake_home_both_key_forms_resolve_and_merge(ctx: Ctx):
 
 
 @test
+def test_a_fake_home_under_a_linked_temp_root_finds_its_project(ctx: Ctx):
+    """join batch 1: on macOS the temp folder is /var/..., a link to /private/var/..., and a child's cwd reads
+    back resolved. build_fake_home keyed its project by the link spelling, and a stored key is never followed
+    through a link, so the project went untrusted (its defaultMode dropped). Here the root is a link made on
+    purpose (a symlink on POSIX, a junction on Windows), and the project must be found from the cwd a child
+    process really sees. Windows does not resolve a cwd through a junction, so there it holds either way."""
+    from halo_harness.config.paths import lookup_project
+    base = Path(tempfile.mkdtemp(prefix="halo-linkroot-"))
+    try:
+        real = base / "real"
+        real.mkdir()
+        link = base / "link"
+        if os.name == "nt":
+            import _winapi
+            _winapi.CreateJunction(str(real), str(link))
+        else:
+            os.symlink(real, link)
+        fh = build_fake_home(link)
+        seen = subprocess.run([sys.executable, "-c", "import os; print(os.getcwd())"], cwd=str(fh["proj"]),
+                              capture_output=True, text=True, timeout=60).stdout.strip()
+        claude_json = json.loads((fh["home"] / ".claude.json").read_text(encoding="utf-8"))
+        rec = lookup_project(claude_json, seen)
+        ctx.check(f"the project's trusted record is found from the child's cwd {seen!r}, keys "
+                  f"{list(claude_json['projects'])}, got {rec}", rec.get("hasTrustDialogAccepted") is True)
+    finally:
+        if os.name == "nt" and (base / "link").exists():
+            os.rmdir(base / "link")  # removes the junction only, never the folder it points at
+        shutil.rmtree(base, ignore_errors=True)
+
+
+@test
 def test_item3_both_key_forms_live_connect_through_current_project_lookup(ctx: Ctx):
     """Same both-key-forms pattern as build_fake_home(), but with a REAL
     connectable command under one of the two keys -- proves halo

@@ -34,7 +34,8 @@ def _arg(cmd: list, flag: str):
 
 def all_jobs() -> list:
     shards = [f"suites ({p}, py3.12, shard {i}/4)" for p in ("linux", "windows", "macos") for i in range(4)]
-    return shards + ["studio-ui (build + drift gate)"] + [f"realcheck ({p})" for p in ("linux", "windows", "macos")]
+    return shards + ["studio-ui (build + drift gate)"] + [f"realcheck ({p}{f}" for p in ("linux", "windows", "macos")
+                                                         for f in (")", ", installed)")]
 
 
 class FakeGh:

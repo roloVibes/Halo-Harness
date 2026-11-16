@@ -99,6 +99,25 @@ register_plan(test, _json_of, _chrome)  # 3.0.9.0 R2: the plan canvas, tests/hel
 register_order(test, _json_of, _chrome)  # 3.1.6.0 R6: the tab order and the keys, tests/helpers/studio_ui_order.py
 
 
+@test
+def test_the_order_test_expects_the_key_labels_the_page_draws(ctx: Ctx):
+    """join batch 1: Kbd.tsx draws Alt as the option sign (and Mod as the command sign) when the PAGE's
+    navigator.platform is a Mac's; the tab-order test expected 'Alt 1' everywhere and went red on macOS. Its
+    expectation now comes from the page's platform, the way Kbd.tsx decides, never from the test's own OS."""
+    from tests.helpers import studio_ui_order as O
+    src = (REPO / "halo_harness" / "studio" / "ui" / "src" / "lib" / "ui" / "Kbd.tsx").read_text(encoding="utf-8")
+    ctx.check("Kbd.tsx still decides by navigator.platform matching Mac|iPhone|iPad (else this mirror is stale)",
+              "/Mac|iPhone|iPad/.test(navigator.platform" in src)
+    for plat in ("Win32", "Linux x86_64", ""):
+        ctx.check(f"{plat!r}: Alt 1 .. Alt 6, got {O.expected_goto(plat)}", O.expected_goto(plat) == O.ORDER)
+        ctx.check(f"{plat!r}: Mod+K reads Ctrl K", O.kbd_aria("Mod+K", plat) == "Ctrl K")
+    for plat in ("MacIntel", "iPad"):
+        ctx.check(f"{plat!r}: the option sign, got {O.expected_goto(plat)}",
+                  O.expected_goto(plat)[0] == ("Session", "⌥ 1") and O.expected_goto(plat)[-1] == ("Settings", "⌥ 6"))
+        ctx.check(f"{plat!r}: Mod+Shift+K reads with the command and shift signs",
+                  O.kbd_aria("Mod+Shift+K", plat) == "⌘ ⇧ K")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -17,6 +17,8 @@ The last stdout line is the JSON of what it saw (exit 2: no Chrome). No model is
 from __future__ import annotations
 
 import json
+import os
+import re
 import sys
 from contextlib import contextmanager
 from pathlib import Path
@@ -36,6 +38,32 @@ TABS = ("[...document.querySelectorAll('[data-testid=\"section-tab\"]')].map((t)
         "[t.querySelector('.tab-label')?.textContent || '', t.title, t.querySelectorAll('.kbd').length])")
 ORDER = [("Session", "Alt 1"), ("Agents", "Alt 2"), ("Local", "Alt 3"), ("Packs", "Alt 4"), ("Setup", "Alt 5"),
          ("Settings", "Alt 6")]  # 3.3.13.0 R2: Design is the design pack's; 3.3.16.0 R1: Agents took in Team, Roles, Orchestra; R2: and Fleet
+# join batch 1: a test-only knob that makes the PAGE report another navigator.platform (e.g. MacIntel), so the Mac
+# key labels can be checked on a Linux or Windows machine; unset, the page reports its own platform
+PAGE_PLATFORM_ENV = "HALO_TEST_PAGE_PLATFORM"
+
+
+def key_label(key: str, platform: str) -> str:
+    """The label Studio's Kbd draws for one key (ui/src/lib/ui/Kbd.tsx keyLabel). The PAGE's navigator.platform
+    decides, never the OS of the process running the test (a Mac page shows the option sign for Alt)."""
+    mac = re.search(r"Mac|iPhone|iPad", platform or "") is not None
+    if key == "Mod":
+        return "⌘" if mac else "Ctrl"
+    if key == "Alt" and mac:
+        return "⌥"
+    if key == "Shift" and mac:
+        return "⇧"
+    return key
+
+
+def kbd_aria(keys: str, platform: str) -> str:
+    """A Kbd group's aria-label for `keys` like "Alt+1" (the labels joined by a space, as Kbd.tsx does)."""
+    return " ".join(key_label(k.strip(), platform) for k in keys.split("+"))
+
+
+def expected_goto(platform: str) -> list:
+    """ORDER as the palette's Go to shows it on a page reporting `platform`."""
+    return [(t, kbd_aria(k.replace(" ", "+"), platform)) for t, k in ORDER]
 
 
 def maybe(c, expr: str, timeout: float):
@@ -55,12 +83,15 @@ def alt(c, n: int) -> None:
 def landing(c, url: str) -> dict:
     from halo_harness.theme import set_config_value
     set_config_value("model", "ol:ui-order:1b")  # 3.3.0.0 R3: a provider-less home opens on Setup instead
+    forced = os.environ.get(PAGE_PLATFORM_ENV, "")
+    if forced:  # before the first load: Kbd.tsx reads navigator.platform once, when its module loads
+        c.call("Emulation.setUserAgentOverride", userAgent=c.js("navigator.userAgent"), platform=forced)
     c.go(url)
     c.wait("document.querySelectorAll('[data-testid=\"section-tab\"]').length === 6", 40)  # 3.3.3.0 R2: + Settings; 3.3.5.0 R1: + Local; 3.3.16.0 R2: - Fleet
     if maybe(c, "!!document.querySelector('[data-testid=\"start-here-dismiss\"]')", 8):  # a fresh home's Start here overlay
         c.click_on("document.querySelector('[data-testid=\"start-here-dismiss\"]')")
         c.wait("!document.querySelector('[data-testid=\"start-here\"]')", 10)
-    return {"landing": c.js(SEL), "landing_live": c.js("document.documentElement.dataset.liveSession || ''"),
+    return {"page_platform": c.js("navigator.platform || ''"), "landing": c.js(SEL), "landing_live": c.js("document.documentElement.dataset.liveSession || ''"),
             "landing_view": maybe(c, "document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'crew' && !!document.querySelector('[data-testid=\"crew-empty\"]') && 'crew'", 20) or ""}  # 3.6.0.0 R1: nothing runs: the Agents tab
 
 
@@ -148,15 +179,18 @@ def register(test, json_of, chrome) -> None:
                   got.get("landing") == "Agents" and got.get("landing_live") == "" and got.get("landing_view") == "crew")
         ctx.check(f"3.3.2.0 R1: the rail's rows, in order, titled, no printed key, got {got.get('tabs')}",
                   [tuple(t) for t in got.get("tabs") or []] == [(t, t, 0) for t, _ in ORDER])
-        ctx.check(f"the keys in the palette's Go to: Session / Alt+1 first ... Settings / Alt+6 last, got {got.get('palette_goto_keys')}",
-                  [tuple(t) for t in got.get("palette_goto_keys") or []][:6] == ORDER)
+        plat = got.get("page_platform") or ""  # join batch 1: the page's platform decides the key labels (Kbd.tsx)
+        a1, a6 = kbd_aria("Alt+1", plat), kbd_aria("Alt+6", plat)
+        ctx.check(f"the keys in the palette's Go to: Session / Alt+1 first ... Settings / Alt+6 last (page platform {plat!r}), "
+                  f"got {got.get('palette_goto_keys')}",
+                  [tuple(t) for t in got.get("palette_goto_keys") or []][:6] == expected_goto(plat))
         want = [[n, ORDER[n - 1][0]] for n in (2, 3, 4, 5, 6, 1)]
         ctx.check(f"Alt+2 .. Alt+6 then Alt+1 select their tabs, got {got.get('pressed')}", got.get("pressed") == want)
         ctx.check(f"Alt+1 with nothing live: the Session Start view, got {got.get('session_start')}", got.get("session_start") == 1)
         ctx.check(f"How Session works: Alt+1 Session is its first key, got {got.get('help_first_key')} {got.get('help_is_session')}",
-                  got.get("help_first_key") == ["Alt 1", "Session"] and got.get("help_is_session") is True)
+                  got.get("help_first_key") == [a1, "Session"] and got.get("help_is_session") is True)
         hk = got.get("hint_keys") or []
-        ctx.check(f"the status bar's hint: Alt+1 to Alt+6 (3.3.16.0 R2: Settings last), got {hk}", "Alt 1" in hk and "Alt 6" in hk and hk.index("Alt 1") < hk.index("Alt 6"))
+        ctx.check(f"the status bar's hint: Alt+1 to Alt+6 (3.3.16.0 R2: Settings last), got {hk}", a1 in hk and a6 in hk and hk.index(a1) < hk.index(a6))
         groups = got.get("palette_groups") or []
         sections = [g for g in groups if g in {t for t, _ in ORDER}]
         # 3.3.16.0 R2: Session, Agents and Local always have a group (Fleet's went with its section); Settings' group

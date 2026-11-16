@@ -87,12 +87,14 @@ def test_the_required_jobs_are_one_list_with_macos_and_realcheck_behind_flags(ct
               and sum(n.startswith("suites (windows, py3.12, shard ") for n in base) == 4
               and "studio-ui (build + drift gate)" in base)
     both = gate.required_jobs(macos=True, realcheck=True)
-    ctx.check(f"the flags add macOS x4 and realcheck x3, got {both}", len(both) == 16
+    # join batch 1: realcheck runs two legs per OS (checkout and installed): x6, not x3
+    ctx.check(f"the flags add macOS x4 and realcheck x6, got {both}", len(both) == 19
               and sum(n.startswith("suites (macos, ") for n in both) == 4
-              and {"realcheck (linux)", "realcheck (windows)", "realcheck (macos)"} <= set(both))
+              and {f"realcheck ({p}{f}" for p in ("linux", "windows", "macos") for f in (")", ", installed)")} <= set(both))
     no_mac = gate.required_jobs(macos=False, realcheck=True)
-    ctx.check(f"realcheck's macOS leg stays behind the macOS flag, got {no_mac[9:]}",
-              no_mac[9:] == ["realcheck (linux)", "realcheck (windows)"])
+    ctx.check(f"realcheck's macOS legs stay behind the macOS flag, got {no_mac[9:]}",
+              no_mac[9:] == ["realcheck (linux)", "realcheck (linux, installed)", "realcheck (windows)",
+                             "realcheck (windows, installed)"])
     ctx.check("the defaults are the module's flags (off until the coordinator flips them)",
               gate.required_jobs() == gate.required_jobs(macos=gate.REQUIRE_MACOS, realcheck=gate.REQUIRE_REALCHECK)
               and gate.REQUIRE_MACOS is False and gate.REQUIRE_REALCHECK is False)
@@ -114,32 +116,38 @@ def test_a_red_skipped_or_missing_required_job_stops_the_gate_naming_each(ctx: C
     _refused(ctx, FakeGh(conclusions={mac: "failure"}), [f"{mac}: failure"], "macOS once required", macos=True)
     _refused(ctx, FakeGh(conclusions={"realcheck (windows)": None}), ["realcheck (windows): missing"],
              "realcheck once required", realcheck=True)
+    _refused(ctx, FakeGh(conclusions={"realcheck (linux, installed)": "failure"}),
+             ["realcheck (linux, installed): failure"], "the installed leg once realcheck is required", realcheck=True)
     (accepted, _w), _l, _c = _gate(FakeGh(), realcheck=True)
     ctx.check("every realcheck leg green: --require-realcheck accepts the run", bool(accepted))
 
 
 def _workflow_job_names() -> "set[str]":
     """Every job name .github/workflows/suites.yml produces, each `${{ matrix.<key> }}` expanded from its job's
-    matrix (a plain reader of this file's shape: a job at two spaces, `name:` at four, matrix lists `key: [a, b]`)."""
+    matrix (a plain reader of this file's shape: a job at two spaces, `name:` at four, matrix lists `key: [a, b]`).
+    join batch 1: also the `${{ matrix.<key> == '<v>' && '<a>' || '<b>' }}` form (realcheck's installed legs); a
+    name with any other expression left in it is kept as written, so a test sees it rather than a guess."""
     import itertools
     import re
     text = (REPO_DIR / ".github" / "workflows" / "suites.yml").read_text(encoding="utf-8")
     jobs_part = text.split("\njobs:\n", 1)[1]
     names: set = set()
+    plain = r"\$\{\{\s*matrix\.(\w+)\s*\}\}"
+    cond = r"\$\{\{\s*matrix\.(\w+)\s*==\s*'([^']*)'\s*&&\s*'([^']*)'\s*\|\|\s*'([^']*)'\s*\}\}"
     for block in re.split(r"\n(?=  [A-Za-z0-9_-]+:\s*\n)", jobs_part):
         m = re.search(r"^    name:\s*(.+?)\s*$", block, re.M)
         if not m:
             continue
         template = m.group(1).strip("'\"")
-        keys = re.findall(r"\$\{\{\s*matrix\.(\w+)\s*\}\}", template)
+        keys = list(dict.fromkeys(re.findall(plain, template) + [c[0] for c in re.findall(cond, template)]))
         values = {}
         for k in keys:
             mm = re.search(rf"^\s+{k}:\s*\[([^\]]*)\]", block, re.M)
             values[k] = [v.strip().strip("'\"") for v in mm.group(1).split(",")] if mm else []
         for combo in itertools.product(*(values[k] for k in keys)):
-            name = template
-            for k, v in zip(keys, combo):
-                name = re.sub(rf"\$\{{\{{\s*matrix\.{k}\s*\}}\}}", v, name)
+            row = dict(zip(keys, combo))
+            name = re.sub(cond, lambda c: c.group(3) if row.get(c.group(1)) == c.group(2) else c.group(4), template)
+            name = re.sub(plain, lambda c: row.get(c.group(1), c.group(0)), name)
             names.add(name)
     return names
 
@@ -149,11 +157,21 @@ def test_every_required_job_name_is_one_the_workflow_runs(ctx: Ctx):
     """3.6.0.0 fix: --require-realcheck asked for a job named `realcheck`; the workflow's are `realcheck (<os>)`,
     so the switch could never pass. Every name the gate can require is read against suites.yml itself."""
     produced = _workflow_job_names()
-    ctx.check(f"the workflow reader finds the realcheck legs, got {sorted(n for n in produced if 'realcheck' in n)}",
-              {"realcheck (linux)", "realcheck (macos)", "realcheck (windows)"} <= produced)
+    legs = sorted(n for n in produced if n.startswith("realcheck"))
+    ctx.check(f"the workflow reader finds the realcheck legs, both forms, got {legs}",
+              legs == sorted(f"realcheck ({p}{f}" for p in ("linux", "macos", "windows") for f in (")", ", installed)")))
     want = gate.required_jobs(macos=True, realcheck=True)
     ctx.check(f"each required name is a job of suites.yml; not: {[n for n in want if n not in produced]}",
               all(n in produced for n in want))
+    # join batch 1: the gate saw only the checkout legs; the installed legs (the wheel a user installs) went unread
+    ctx.check(f"with both flags on, every realcheck leg of the workflow is required; not: "
+              f"{[n for n in legs if n not in want]}", all(n in want for n in legs))
+    ctx.check(f"with both flags on, every macOS suites leg of the workflow is required; not: "
+              f"{[n for n in produced if n.startswith('suites (macos') and n not in want]}",
+              all(n in want for n in produced if n.startswith("suites (macos")))
+    no_mac = gate.required_jobs(macos=False, realcheck=True)
+    ctx.check(f"realcheck without the macOS flag: every Linux and Windows leg, both forms, no macOS one, got {no_mac[9:]}",
+              sorted(no_mac[9:]) == sorted(n for n in legs if "macos" not in n))
     from tests.helpers.fake_gh import all_jobs
     ctx.check(f"the fake gh's jobs are the workflow's; not: {[n for n in all_jobs() if n not in produced]}",
               all(n in produced for n in all_jobs()))

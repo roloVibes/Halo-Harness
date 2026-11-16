@@ -24,6 +24,54 @@ KEYS = {"?": ("Slash", 191, 8), "Escape": ("Escape", 27, 0), "o": ("KeyO", 79, 0
         # 3.4.1.3: the model picker's keys and a canvas's zoom keys
         "ArrowDown": ("ArrowDown", 40, 0), "ArrowUp": ("ArrowUp", 38, 0), "+": ("Equal", 187, 8), "-": ("Minus", 189, 0), "0": ("Digit0", 48, 0)}
 
+# join batch 1: a macOS leg's first page load timed out twice at 60 s and nothing said which step was slow. Each
+# start-up step and the first navigate are timed; a step over SLOW_STEP_S, or one that fails, prints one line to
+# stderr (a driver's test shows its stderr), so the next red leg names the step: Chrome's start, its DevTools
+# target list, the websocket, the first navigate, and the local server's own answer to a plain GET. Timing only:
+# no retry, no longer wait, nothing else changes.
+SLOW_STEP_S = 5.0
+_clock = time.monotonic  # test seam
+
+
+def timing_line(step: str, seconds: float, error: "BaseException | None" = None) -> "str | None":
+    """The stderr line for one timed step, or None for a quick step that did not fail."""
+    if error is None and seconds <= SLOW_STEP_S:
+        return None
+    tail = f" and failed: {type(error).__name__}: {error}"[:300] if error is not None else ""
+    return f"cdp timing: {step} took {seconds:.1f}s{tail}"
+
+
+def _report(step: str, t0: float, error: "BaseException | None" = None) -> None:
+    line = timing_line(step, _clock() - t0, error)
+    if line:
+        import sys
+        print(line, file=sys.stderr, flush=True)
+
+
+def _probe_local(url: str) -> None:
+    """After a slow or failed first navigate to a loopback URL: how long the server takes to answer a plain GET on
+    its own (quick: the time went to Chrome; slow or none: to the server)."""
+    import urllib.parse
+    u = urllib.parse.urlsplit(url)
+    if u.scheme != "http" or u.hostname not in ("127.0.0.1", "localhost", "::1"):
+        return
+    import urllib.error
+    t0 = _clock()
+    try:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            with opener.open(urllib.parse.urlunsplit((u.scheme, u.netloc, u.path or "/", u.query, "")), timeout=10) as r:
+                status = r.status
+        except urllib.error.HTTPError as he:  # an error status is still an answer
+            status = he.code
+        import sys
+        print(f"cdp timing: the local server answered a plain GET in {_clock() - t0:.1f}s (HTTP {status})",
+              file=sys.stderr, flush=True)
+    except Exception as e:  # noqa: BLE001 -- diagnosis only
+        import sys
+        print(f"cdp timing: the local server's answer to a plain GET: none after {_clock() - t0:.1f}s "
+              f"({type(e).__name__}: {e})"[:300], file=sys.stderr, flush=True)
+
 
 class Chrome:
     """One headless Chrome over the DevTools protocol. 3.1.0.0 R1: it holds the
@@ -46,6 +94,8 @@ class Chrome:
         self.buf = b""
         self.seq = 0
         self.down = False
+        self._navigated = False
+        step, t0 = "browser start (until its DevTools port opens)", _clock()
         try:
             from tests.helpers.chrome_driver import headless_flags  # + --no-sandbox only as root (3.2.1.0 R5)
             self.proc = subprocess.Popen([exe, *headless_flags(), "--no-first-run",
@@ -53,11 +103,17 @@ class Chrome:
                                           f"--window-size={width},{height}", "about:blank"],
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             port = self._port()
+            _report(step, t0)
+            step, t0 = "DevTools target list", _clock()
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
             targets = json.loads(opener.open(f"http://127.0.0.1:{port}/json/list", timeout=10).read())
             page = next(t for t in targets if t.get("type") == "page")
+            _report(step, t0)
+            step, t0 = "websocket ready", _clock()
             self._connect(page["webSocketDebuggerUrl"])
-        except Exception:
+            _report(step, t0)
+        except Exception as e:
+            _report(step, t0, e)
             self.close()
             raise
 
@@ -142,7 +198,21 @@ class Chrome:
 
     # -- what a test does ------------------------------------------------------------
     def go(self, url: str) -> None:
-        self.call("Page.navigate", url=url)
+        first = not getattr(self, "_navigated", True) and url != "about:blank"
+        if not first:
+            self.call("Page.navigate", url=url)
+            return
+        self._navigated = True
+        t0 = _clock()
+        try:
+            self.call("Page.navigate", url=url)
+        except Exception as e:
+            _report("first navigate (Page.navigate until the page's answer)", t0, e)
+            _probe_local(url)
+            raise
+        if _clock() - t0 > SLOW_STEP_S:
+            _report("first navigate (Page.navigate until the page's answer)", t0)
+            _probe_local(url)
 
     def js(self, expr: str):
         r = self.call("Runtime.evaluate", expression=expr, returnByValue=True, awaitPromise=True)

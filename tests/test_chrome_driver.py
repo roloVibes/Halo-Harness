@@ -217,6 +217,72 @@ def test_a_driver_with_bridge_scrubbed_leaves_the_real_home_untouched(ctx: Ctx):
     ctx.check(f"the scratch home the driver made is gone (after {time.time() - t0:.1f}s)", not scratch.exists())
 
 
+@test
+def test_a_slow_or_failed_first_page_load_names_its_step_and_the_local_servers_own_answer(ctx: Ctx):
+    """join batch 1: a macOS leg's first page load timed out at 60 s twice with nothing to say which step was slow.
+    The driver now times each start-up step and the first navigate and prints a line for a slow (over 5 s) or failed
+    one, and after a slow or failed first navigate to a loopback URL it times the server's own answer to a plain GET.
+    Diagnosis only: the failure is still raised as it was, nothing retried, no wait made longer. No Chrome needed."""
+    import http.server
+    from tests.helpers import cdp
+    ctx.check("quick steps print nothing", cdp.timing_line("websocket ready", 0.4) is None
+              and cdp.timing_line("websocket ready", cdp.SLOW_STEP_S) is None)
+    ctx.check(f"a slow step names itself and its seconds, got {cdp.timing_line('browser start', 7.25)!r}",
+              cdp.timing_line("browser start", 7.25) == "cdp timing: browser start took 7.2s")
+    failed = cdp.timing_line("DevTools target list", 0.1, TimeoutError("timed out"))
+    ctx.check(f"a failed step prints even when quick, got {failed!r}",
+              failed == "cdp timing: DevTools target list took 0.1s and failed: TimeoutError: timed out")
+
+    class _Ok(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Ok)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    now = [100.0]
+    saved_clock = cdp._clock
+    cdp._clock = lambda: now[0]
+    try:
+        c = cdp.Chrome.__new__(cdp.Chrome)  # no browser: only go() and its timing are under test
+        c._navigated = False
+        calls: list = []
+
+        def _call(method, **params):
+            calls.append(params.get("url"))
+            if len(calls) == 1:
+                now[0] += 60.0
+                raise TimeoutError("timed out")
+            return {}
+
+        c.call = _call
+        url = f"http://127.0.0.1:{srv.server_address[1]}/?tour=off#t=secret"
+        err = io.StringIO()
+        raised = None
+        with contextlib.redirect_stderr(err):
+            try:
+                c.go(url)
+            except TimeoutError as e:
+                raised = e
+            c.go(url)  # a later navigate is not timed
+        lines = err.getvalue().splitlines()
+        ctx.check(f"the first navigate's failure is raised as it was, got {raised!r}", isinstance(raised, TimeoutError))
+        ctx.check(f"one Page.navigate each, nothing retried, got {calls}", calls == [url, url])
+        ctx.check(f"the step and its 60 s are named, got {lines}",
+                  any(L.startswith("cdp timing: first navigate") and "took 60.0s and failed: TimeoutError" in L for L in lines))
+        ctx.check(f"the local server's own answer is timed, got {lines}",
+                  any("the local server answered a plain GET in" in L and "HTTP 200" in L for L in lines))
+        ctx.check(f"the later navigate printed nothing, got {lines}", len(lines) == 2)
+    finally:
+        cdp._clock = saved_clock
+        srv.shutdown()
+        srv.server_close()
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
