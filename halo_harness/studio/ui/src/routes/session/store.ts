@@ -8,6 +8,9 @@
 // `?mode=session&session=<id>`, a `focus` frame) opens Session on a session
 // or an agent with `openSession`. Entering with nothing of this harness
 // selected selects the newest working agent of the chosen (else any) session.
+// 3.6.0.2 R1: the chosen session is ONE function (`chosenSession`, routes/session/pick.ts) that Cost, Prompt, the Feed
+// and the Live drawer read; with no pick it is the newest open session (never a Studio one with no message yet while
+// another is open), written into the scope at once and kept until he picks another; one that ends stays picked (T8).
 // 3.2.2.0 R6: config.json moving on disk (`halo teams apply`, `halo config set
 // model`: `files_changed`) reads GET fleet again: the sessions' lineup and model.
 import { createStore, goSection, studio, useStore } from "../../lib/store";
@@ -16,6 +19,7 @@ import { findAgent, fleet, isLive, keyOf, localId, parseKey, useFleet, type Flee
 import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
+import { lastRow, livePick, noteRows } from "./pick";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
@@ -96,12 +100,10 @@ export function pickAgent(s: FleetState, sid = ""): AgentKey {
   return keyOf(h, ss.session_id, main?.agent_id || "main");
 }
 
-/** The session the Cost panel and the log speak of: the chosen one, else the newest live one here. */
+/** R1: the session Cost, Prompt, the Feed and the Live drawer speak of: the picked one while it is open (null once it
+ *  ended: T8), else the newest open one here (pick.ts `livePick`). */
 export function chosenSession(s: FleetState): SessionRow | null {
-  const all = localSessions(s);
-  const sid = s.scope.session;
-  if (sid) return all.find((x) => x.session_id === sid) || null;
-  return [...all].sort((x, y) => (Number(y.started) || 0) - (Number(x.started) || 0))[0] || null;
+  return livePick(localSessions(s), s.scope.session || sess.get().chosen);
 }
 
 function setScope(next: Scope): void {
@@ -122,6 +124,8 @@ function onChange(): void {
   busy = true;
   try {
     const section = studio.get().section;
+    const f = fleet.get();
+    if (f.loaded && !f.error) noteRows(localSessions(f), Date.now() / 1000); // R4: a session gone from the rows ended
     if (section !== "session") {
       if (lastSection === "session") {
         sess.update(() => ({ chosen: fleet.get().scope.session || "" }));
@@ -144,10 +148,10 @@ function onChange(): void {
       if (key && findAgent(s, key)) select(key);
     } else if (s.loaded && needPick) {
       needPick = false;
+      session = livePick(localSessions(s), session)?.session_id || (lastRow(session) ? session : ""); // R1: the kept one
       const p = parseKey(s.selected);
-      if (!s.selected || p.h !== harness || !findAgent(s, s.selected)) {
-        const known = localSessions(s).some((x) => x.session_id === session);
-        const key = pickAgent(s, known ? session : "");
+      if (session && (!s.selected || p.h !== harness || !findAgent(s, s.selected))) {
+        const key = pickAgent(s, session); // an agent OF the kept session only
         if (key && findAgent(s, key)) select(key);
       }
     }
@@ -157,6 +161,8 @@ function onChange(): void {
       const p = parseKey(sel);
       if (sel && p.h === harness) session = p.s;
     }
+    if (s.loaded && !session) session = livePick(localSessions(s), "")?.session_id || ""; // R1: once drawn, written down
+    if (session && sess.get().chosen !== session) sess.update(() => ({ chosen: session }));
     setScope({ harness: harness || "?", session });
   } finally {
     busy = false;

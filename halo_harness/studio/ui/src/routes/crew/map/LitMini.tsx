@@ -28,7 +28,8 @@ const FIT_TEXT = 16; // 12 px on screen at 75 %: the Map's floor
 const NO_MAP = { map: { format: "map/1", name: "", boxes: [], lines: [] }, scope: "starter", writable: false, in_use: false,
   problems: [], boxes: {}, main: { agent: "main" } } as unknown as MapDetail;
 
-export function LitMini({ s }: { s: LitSession }) {
+/** `line`: the truth sentence over the drawing (3.6.0.2 R2: it depends on the session's map, never on busy). */
+export function LitMini({ s, line, state }: { s: LitSession; line: string; state: string }) {
   useEffect(() => startLit(), []);
   const [detail, setDetail] = useState<MapDetail | null>(() => (s.map ? files.get(s.map) || null : NO_MAP));
   useEffect(() => {
@@ -67,7 +68,7 @@ export function LitMini({ s }: { s: LitSession }) {
   return (
     <div className="mp-mini" data-testid="session-lit-map" data-map={s.map || ""} data-sid={s.sid}>
       <div className="mp-mini-head">
-        <span className="cw-line">{s.map ? `A session is running on the map ${s.map}.` : "A session is running, not on a map: main and the helpers it started."}</span>
+        <span className="cw-line" data-testid="session-lit-line" data-state={state} data-sid={s.sid}>{line}</span>
         <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
         <ZoomButtons zoom={k} zoomAt={nav.zoomAt} fit={nav.fit} />
       </div>

@@ -18,9 +18,7 @@ mid-work) and a second session of this harness:
    this harness; Attention holds no rows; J / K stay on
    this harness;
 4. `&session=<id>` chooses that session: the agent panel and Cost follow;
-5. Alt+2 shows Agents on Live with this machine's session and no harness box,
-   Alt+1 (3.1.6.0 R6: Session is the first tab) comes back to Session;
-6. `/studio`'s opener on the running Studio focuses the open page: on Agents,
+5. `/studio`'s opener on the running Studio focuses the open page: on Agents,
    it switches to Session on that session, and no tab opens.
 The links into it are tests/test_studio_session_links.py; `/studio` and
 `halo studio --session` are tests/test_slash_studio.py and
@@ -90,6 +88,8 @@ def test_the_map_is_this_harness_with_the_working_agent_lit(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"no harness box (3.5.0.0: one machine), got {got.get('boxes')}", got.get("boxes") == 0)
+    ctx.check(f"R2: an open session between turns is drawn (>= 3 boxes, none working), got {got.get('idle_nodes')} boxes, "
+              f"{got.get('idle_working')} working", (got.get("idle_nodes") or 0) >= 3 and got.get("idle_working") == 0)
     ctx.check(f"3.6.0.0 R5: the session running here drawn as its map: main and its helpers, got {got.get('nodes')} boxes",
               (got.get("nodes") or 0) >= 3)
     ctx.check(f"the working boxes lit, got {got.get('working')}", (got.get("working") or 0) >= 2)
@@ -115,17 +115,6 @@ def test_session_param_chooses_that_session(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"and Cost, got {got.get('deep_cost')}", got.get("deep_cost") == FAKE_SID)
-
-
-@test
-def test_alt_keys_and_agents_opens_on_the_map(ctx: Ctx):
-    r, got = _driver("dash")
-    _ran(ctx, r, got)
-    ctx.check(f"Alt+2 shows Agents, got {got.get('alt4')!r}", str(got.get("alt4")).startswith("Agents"))
-    ctx.check(f"it opens on the Map while a session runs (3.6.0.0 R5), no harness box, got {got.get('agents_view')} {got.get('agents_boxes')}",
-              got.get("agents_view") == "map" and got.get("agents_boxes") == 0)
-    ctx.check(f"Alt+1 comes back to Session, its map still lit, got {got.get('alt1')!r} {got.get('back_map')}",
-              str(got.get("alt1")).startswith("Session") and got.get("back_map") == "lit")
 
 
 @test

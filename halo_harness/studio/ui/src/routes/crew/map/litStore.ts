@@ -3,11 +3,14 @@
 // (lib/events.ts). A session is "running" while any of its agents is live (GET fleet's rows). The map lit is the one
 // the session started with (its row's `map`); one session is lit at a time: the one picked in the top line, else the
 // newest one running on the map open here, else the newest running on any map. A session that did not start on a map
-// is lit only when picked (the map he built is never covered by a session that is not on it).
+// is lit only when picked (the map he built is never covered by a session that is not on it). 3.6.0.2 R2: an OPEN session
+// is shown (`open`, `openList`), busy only lights its boxes; `running` / `useRunning` stay for Agents -> Map (P4).
 import { useMemo } from "react";
 import { onEvent, type FeedFrame } from "../../../lib/events";
 import { createStore, useStore } from "../../../lib/store";
 import { localId, useFleet, type FleetState } from "../../fleet/store";
+import type { SessionRow } from "../../fleet/types";
+import { openOrder } from "../../session/pick";
 import type { Change } from "../types";
 import type { OvEvent } from "./overlay";
 
@@ -45,19 +48,30 @@ export function startLit(): void {
   onEvent("map_card", take);
 }
 
+/** A session row as the lit drawing takes it: `live` (its agents at work, + 1 while busy) only lights boxes. */
+export function toLit(s: SessionRow): LitSession {
+  const live = (s.agents || []).filter((a) => LIVE.includes(String(a.state || ""))).length + (s.busy ? 1 : 0);
+  const map = typeof s.map === "string" && s.map ? s.map : null;
+  return { sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live };
+}
+
+const here_ = (st: Pick<FleetState, "harnesses">, here: string): SessionRow[] =>
+  st.harnesses.filter((h) => h.id === here || h.local).flatMap((h) => h.sessions || []);
+const newestFirst = (a: LitSession, b: LitSession) => b.started - a.started || (a.sid < b.sid ? -1 : 1);
+
 /** This harness's sessions with an agent at work (newest first). */
 export function running(st: Pick<FleetState, "harnesses">, here: string): LitSession[] {
-  const out: LitSession[] = [];
-  for (const h of st.harnesses) {
-    if (h.id !== here && !h.local) continue;
-    for (const s of h.sessions || []) {
-      const live = (s.agents || []).filter((a) => LIVE.includes(String(a.state || ""))).length + (s.busy ? 1 : 0);
-      if (!live) continue;
-      const map = typeof s.map === "string" && s.map ? s.map : null;
-      out.push({ sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live });
-    }
-  }
-  return out.sort((a, b) => b.started - a.started || (a.sid < b.sid ? -1 : 1));
+  return here_(st, here).map(toLit).filter((s) => s.live).sort(newestFirst);
+}
+
+/** 3.6.0.2 R2: open = shown: every alive row of this harness (newest first), busy or not. */
+export function open(st: Pick<FleetState, "harnesses">, here: string): LitSession[] {
+  return here_(st, here).map(toLit).sort(newestFirst);
+}
+
+/** R2, R5: Live's picker: the open rows newest first, every Studio-started one with no message yet (T10) last. */
+export function openList(st: Pick<FleetState, "harnesses">, here: string): LitSession[] {
+  return openOrder(here_(st, here)).map(toLit);
 }
 
 /** The session lit for the map `shown`: the picked one while it runs, else on `shown`, else on any map. */
@@ -77,6 +91,28 @@ export function awayRunning(st: Pick<FleetState, "harnesses">, here: string): Aw
         out.push({ sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), machine: String(h.name || h.id.slice(0, 8)) });
   }
   return out;
+}
+
+/** R3: another machine's open sessions (every alive row, busy or not), for Agents -> Live's picker. */
+export function openAway(st: Pick<FleetState, "harnesses">, here: string): AwaySession[] {
+  const out: AwaySession[] = [];
+  for (const h of st.harnesses) {
+    if (h.id === here || h.local) continue;
+    for (const s of h.sessions || []) out.push({ sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), machine: String(h.name || h.id.slice(0, 8)) });
+  }
+  return out;
+}
+
+export function useOpenAway(): AwaySession[] {
+  const harnesses = useFleet((s) => s.harnesses);
+  const here = useFleet((s) => localId(s));
+  return useMemo(() => openAway({ harnesses }, here), [harnesses, here]);
+}
+
+export function useOpen(): LitSession[] {
+  const harnesses = useFleet((s) => s.harnesses);
+  const here = useFleet((s) => localId(s));
+  return useMemo(() => open({ harnesses }, here), [harnesses, here]);
 }
 
 export function useAway(): AwaySession[] {

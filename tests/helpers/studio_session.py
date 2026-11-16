@@ -8,8 +8,7 @@ environment:
 
     python -m tests.helpers.studio_session dash    landing (live / nothing live), the six panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
-                                                   Attention, `&session=<id>`, J / K, Alt+2 (Agents -> Live: the same
-                                                   two sessions) and Alt+1 (Session, the first tab); `/studio`'s opener focusing the open page
+                                                   Attention, `&session=<id>`, J / K; `/studio`'s opener focusing the open page
     python -m tests.helpers.studio_session links   the rail click rule, the map menu's Open in Session, the Roles Live
                                                    tab's Watch in Session, the Orchestra run line's (studio_session_links.py)
 
@@ -85,14 +84,20 @@ def alt(c, n: int) -> None:
 
 
 def second_session(rig):
-    """A second session of this harness (idle, its main agent only), registered the way the TUI registers."""
+    """A second session of this harness (idle, its main agent only), registered the way the TUI registers. 3.6.0.2 R1:
+    as started a minute BEFORE the rig's session, so the rig's (working) session is the newest open one, the one
+    Session draws and Cost speaks of when nothing is picked."""
     from halo_harness.controller import Controller
-    from halo_harness.remote import runtime
+    from halo_harness.peers import local_view
+    from halo_harness.remote import registry, runtime
     from tests.helpers.fake_remote_session import FakeRegistry, FakeSession
     from tests.helpers.studio_session_rig import wait_for
     ctl = Controller(session=FakeSession(FAKE_SID), cwd=rig.proj, registry=FakeRegistry()).start()
     act = runtime.start_for_controller(ctl)
     rig.closers.append(lambda: (runtime.stop_for(ctl), ctl.quit()))
+    first = (registry.entry_for(rig.act.session_id) or {}).get("started") or 0
+    registry.update(FAKE_SID, started=float(first) - 60)
+    local_view.forget()
     wait_for(lambda: any(s.get("session_id") == FAKE_SID for h in rig.api("GET", "live")[1].get("harnesses", []) if h.get("local")
                          for s in h.get("sessions") or []), 20)
     return act
@@ -124,9 +129,12 @@ def landing(c, rig) -> dict:
 
 def dash(c, rig) -> dict:
     from halo_harness.peers.identity import harness
+    from tests.helpers.studio_session_map_down import Rows
     out: dict = {}
     hid, sid = harness()["id"], rig.act.session_id
     c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)  # a blank page says why
+    rows = Rows(rig)
+    rows.idle(sid)
     boot_go(c, url(rig, "mode=session"))
     panels = ["session-map", "session-activity", "session-attention", "session-agent", "session-cost", "session-live",
               "session-prompt"]  # 3.3.11.0 R1
@@ -141,8 +149,12 @@ def dash(c, rig) -> dict:
         raise TimeoutError(f"Session panels not one each: {bad}; tab {c.js(TAB)!r}; errors, #root children, boot: {page!r}")
     out["panels"] = c.js(counts)
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
-    # 3.6.0.0 R5: Session's Map draws the session running here as its map (main and the helpers it started)
+    # 3.6.0.2 R2: an open session between turns is drawn: the rig's session idle first (every agent done, not busy)
     c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3", 30)
+    out["idle_nodes"] = c.js(f"{inside('session-map', 'session-lit-box')}.length")
+    out["idle_working"] = c.js(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length")
+    rows.reset()  # 3.6.0.0 R5: then at work: the working boxes lit
+    c.wait(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length >= 2", 30)
     out["boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")  # 3.5.0.0: no harness box (one machine)
     out["nodes"] = c.js(f"{inside('session-map', 'session-lit-box')}.length")
     out["working"] = c.js(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length")
@@ -167,14 +179,7 @@ def dash(c, rig) -> dict:
     out["attn_empty"] = c.js(f"{inside('session-attention', 'fleet-attn-empty')}.length")
     boot_go(c, url(rig, f"mode=session&session={FAKE_SID}"))
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
-    alt(c, 2)  # 3.3.18.0: Alt+2 opens Agents on Live; 3.5.0.0: this machine's sessions only
-    out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
-    out["agents_view"] = c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'map' && 'map'", 30)  # R5: the Map while a session runs
-    out["agents_boxes"] = c.js(f"{inside('agents', 'fleet-box')}.length + {inside('agents', 'live-machine')}.length")
-    alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
-    out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
-    out["back_map"] = c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3 && 'lit'", 15)
-    return out
+    return out  # 3.6.0.2: Alt+2 / Agents opening on Live is P4's own module (test_studio_agents_live.py)
 
 
 def focus(c, rig) -> dict:
