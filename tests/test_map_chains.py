@@ -174,7 +174,7 @@ def test_every_hand_off_and_step_is_a_frame_and_in_the_log(ctx: Ctx):
                   and steps[-1] == "end" and all(d["box"] == "plan" for k, _a, d in rt.frames if k == "map_step"))
         from halo_harness.agent.agent_registry import tree_for
         crew = tree_for(rt.parent).row(calls[1]["aid"]).get("crew")
-        ctx.check(f"coder's row says its box and line, got {crew}", crew == {"map": "chain", "box": "code", "line": "plan -> code"})
+        ctx.check(f"coder's row says its box and line, got {crew}", crew == {"map": "chain", "box": "code", "line": "plan -> code", "agent": "coder", "saved": True})
         logged = [n["event"] for n in rt.parent.log.receipts() if n.get("kind") == "map"]
         ctx.check(f"the log holds the same events (a replay reads them), got {len(logged)} of {len(hops) + len(steps)}",
                   len(logged) == len(hops) + len(steps))
@@ -190,7 +190,7 @@ def test_a_call_no_line_claims_is_a_made_up_helper(ctx: Ctx):
                   not got.is_error and calls[-1]["who"] == "general-purpose" and "a helper main made up for this task" in got.content)
         from halo_harness.agent.agent_registry import tree_for
         crew = tree_for(rt.parent).row(calls[-1]["aid"]).get("crew")
-        ctx.check(f"its row hangs off main, made up, got {crew}", crew == {"map": "chain", "box": "main", "made_up": True})
+        ctx.check(f"its row hangs off main, made up, got {crew}", crew == {"map": "chain", "box": "main", "agent": "general-purpose", "saved": False, "made_up": True})
         got = call(rt, spawning(calls, rt), subagent_type="general-purpose", description="look around", prompt="again")
         ctx.check("general-purpose named is the same as naming none", not got.is_error and "made up" in got.content)
         got = call(rt, spawning(calls, rt), subagent_type="coder", description="fix it", prompt="fix it")

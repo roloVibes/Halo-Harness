@@ -26,10 +26,11 @@ WATCH_S = 0.5
 
 
 class SessionBackend:
-    def __init__(self, runtime, tool_id: str, workflow: str, does: str = "", spawn=None, node: str = "") -> None:
+    def __init__(self, runtime, tool_id: str, workflow: str, does: str = "", spawn=None, node: str = "", crew=None) -> None:
         self.runtime, self.tool_id, self.workflow, self.does = runtime, tool_id or "crew", workflow, does
         self.parent = getattr(runtime, "parent", None)
         self.node = node
+        self.crew = crew  # (the map control, the caller's box) on a map: each step's child is tagged (R13); None: no map
         self._spawn = spawn
         self._n = 0
         self._lock = threading.Lock()
@@ -74,6 +75,9 @@ class SessionBackend:
             box["row"] = (lambda: (tree_for(self.parent).row(aid) or {})) if aid and self.parent is not None else (lambda: {})
             from halo_harness.workflows.receipts import mark_child
             mark_child(self.parent, child, self.workflow, "steps", does=self.does)
+            if self.crew is not None:  # R13: the workflow's step under its caller's box, a saved agent
+                from halo_harness.crew.map_events import tag
+                tag(self.runtime, child, self.crew[0], self.crew[1], agent=name, saved=True, workflow=self.workflow, step=step)
 
         watch = threading.Thread(target=_watch, args=(box, done, limit_usd, stop), daemon=True, name="crew-watch")
         watch.start()
@@ -122,9 +126,10 @@ def _talk(session, node: str, ref: str, text: str, back: bool = False, re: Optio
         return None
 
 
-def run_workflow(runtime, wf: dict, request: str, *, cwd, tool_id: str = "", files=(), spawn=None, emit=None):
+def run_workflow(runtime, wf: dict, request: str, *, cwd, tool_id: str = "", files=(), spawn=None, emit=None, crew=None):
     """Run a crew workflow in this session: the workflow's node under the caller, the hand-off and the result as talk,
-    each agent a child. (Result, the receipt's text). `emit` hears the runner's events (R4: a map box's `map_step`)."""
+    each agent a child. (Result, the receipt's text). `emit` hears the runner's events (R4: a map box's `map_step`);
+    `crew` = (map control, the caller's box) tags each step's child (3.6.0.2 R13), None on no map."""
     from halo_harness.crew import runner, store
     from halo_harness.workflows import receipts
     session = getattr(runtime, "parent", None)
@@ -132,7 +137,7 @@ def run_workflow(runtime, wf: dict, request: str, *, cwd, tool_id: str = "", fil
     does = str(wf.get("for") or "")
     key = receipts.node(session, name, "steps", state="running", does=does)
     said = _talk(session, key, name, request)
-    backend = SessionBackend(runtime, tool_id, name, does, spawn=spawn, node=key)
+    backend = SessionBackend(runtime, tool_id, name, does, spawn=spawn, node=key, crew=crew)
 
     def resolve(agent: str):
         return store.load("agent", agent, cwd=cwd)

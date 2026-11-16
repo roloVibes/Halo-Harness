@@ -5,15 +5,20 @@ Three frames on the session's feed (the agent tree's listeners: remote/agent_fra
 every session for them, studio/feed_kinds.py), each also one `receipt` node in the session's log (kind "map") so
 History replays the very same events (`recorded`, read by studio/live_recording_api.py):
 
-    map_hop    a hand-off on a line the person drew: {map, line, from, to, name, kind, when, why, task, state, t,
-               agent_id?, t1?, error?, background?, chain?}; state start | end | skipped (a chain's line not taken)
+    map_hop    a hand-off: {map, line?, from, to, name, kind, when, why, task, state, off, t, agent_id?, aid?, workflow?,
+               t0?, error?, background?, chain?}; state start | end | skipped (a chain's line not taken). 3.6.0.2 R48:
+               `from` is the REAL caller's box (`caller_box`); `to` a box, `workflow:{W}` (the Workflow tool's door,
+               crew/flow_door.py) or `made-up:{aid}` (a call on no line); `off` only off the default map with no line
     map_step   a workflow box's step runner, in a session: {map, box, workflow, kind, t, ...} -- kind start | step |
                agent | check | end with crew/runner.py's own fields (the Try it record reads the same)
     map_card   a Builder card main parked for the person: {id, changes} (crew/changes.py `public` rows: the ghosts the
                Map draws); {id, done: true} once it is answered or dismissed
 
-A spawned agent's row carries `crew: {map, box, line?, made_up?}` (agent/agent_registry.py FIELDS): the box it runs
-for, or, for a helper main made up for the task, the box that started it. The log also gets one `map_start` node
+A spawned agent's row carries `crew: {map, box, line?, agent, saved, workflow?, step?, made_up?}` (agent/
+agent_registry.py FIELDS; 3.6.0.2 R13): the box it runs for (a workflow's step: its caller's box, the workflow and the
+step), the agent it runs and whether that is a saved agent; `made_up` only for `general-purpose` or a name no spec
+knows. Every frame goes to the TOP session's feed and log, and none once the session is closed (`close`, called by
+agent/loop.py Session.close_runtimes). The log also gets one `map_start` node
 (the map and when) so a finished session's replay knows the map it ran on. Nothing here calls a model, and a failure
 to publish never stops a hand-off.
 """
@@ -40,16 +45,67 @@ def _log(session, event: str, data: dict) -> None:
         pass
 
 
+def closed(session) -> bool:
+    return bool(getattr(session, "_map_closed", False))
+
+
+def close(session) -> None:
+    """The session ended (Session.close_runtimes): no frame from it reaches the page or its log any more (R48)."""
+    try:
+        session._map_closed = True
+    except Exception:
+        pass
+
+
+def _top(session):
+    """The session whose feed and log the page reads: the root of the tree `session` is in."""
+    if session is None:
+        return None
+    try:
+        from halo_harness.agent.agent_registry import tree_for
+        tree = tree_for(session)
+        return tree.session_of(tree.root_id) or session
+    except Exception:
+        return session
+
+
 def publish(session, event: str, data: dict, *, log: bool = True) -> dict:
-    """One frame on the session's feed (as main's) and, by default, the same in its log."""
+    """One frame on the top session's feed (as main's) and, by default, the same in its log; nothing once closed."""
+    top = _top(session)
+    if closed(session) or closed(top):
+        return data
     try:
         from halo_harness.agent.agent_registry import agent_key, tree_for
-        tree_for(session)._emit(event, agent_key(session), data)
+        tree_for(top)._emit(event, agent_key(top), data)
     except Exception:
         pass
     if log:
-        _log(session, event, data)
+        _log(top, event, data)
     return data
+
+
+def caller_box(runtime) -> str:
+    """R48: the REAL caller's box -- the calling session's row's `crew.box`, else the nearest parent row's, else main."""
+    session = getattr(runtime, "parent", None)
+    try:
+        from halo_harness.agent.agent_registry import agent_key, tree_for
+        tree, aid = tree_for(session), agent_key(session)
+        for _ in range(32):
+            r = tree.row(aid) if aid else None
+            if not r:
+                break
+            if (r.get("crew") or {}).get("box"):
+                return str(r["crew"]["box"])
+            aid = r.get("parent")
+    except Exception:
+        pass
+    return "main"
+
+
+def _off(mc, line: str) -> bool:
+    """R48: a hand-off off the lines -- not the default map, and no line followed (decided here only)."""
+    from halo_harness.crew.compile import is_default
+    return not line and not is_default(getattr(mc, "map", None))
 
 
 def started(session, mc) -> None:
@@ -59,9 +115,10 @@ def started(session, mc) -> None:
 
 def hop(runtime, mc, h: dict, why: str, task: str, state: str, **extra) -> dict:
     line = str(h.get("line") or "")
-    data = {"map": mc.map_name, "line": line, "from": line.split(" -> ")[0] if " -> " in line else "main", "to": h.get("box"),
-            "name": h.get("name"), "kind": h.get("kind"), "when": _when(h.get("when")), "why": why, "task": _first(task),
-            "state": state, "t": round(time.time(), 3)}
+    data = {"map": mc.map_name, **({"line": line} if line else {}),
+            "from": line.split(" -> ")[0] if " -> " in line else caller_box(runtime), "to": h.get("box"),
+            "name": h.get("name"), "kind": h.get("kind"), "when": _when(h.get("when")) if h.get("when") else "", "why": why,
+            "task": _first(task), "state": state, "off": _off(mc, line), "t": round(time.time(), 3)}
     data.update({k: v for k, v in extra.items() if v not in (None, "", False)})
     return publish(getattr(runtime, "parent", None), "map_hop", data)
 
@@ -74,14 +131,24 @@ def _when(w) -> str:
         return str(w or "")
 
 
-def tag(runtime, child, mc, box: str, *, line: str = "", made_up: bool = False) -> str:
-    """The child's row says the box it runs for (a made-up helper: the box that started it). Its agent id."""
+def tag(runtime, child, mc, box: str, *, line: str = "", made_up: bool = False, agent: str = "", saved=None,
+        workflow: str = "", step=None) -> str:
+    """The child's row says the box it runs for (a made-up helper: the box that started it), the agent it runs and
+    whether that is a saved agent, a workflow's step its workflow and step (R13). Its agent id."""
     aid = str(getattr(child, "agent_id", "") or "")
     if not aid:
         return ""
     crew = {"map": mc.map_name, "box": box}
     if line:
         crew["line"] = line
+    if agent:
+        crew["agent"] = agent
+    if saved is not None:
+        crew["saved"] = bool(saved)
+    if workflow:
+        crew["workflow"] = workflow
+    if step is not None:
+        crew["step"] = step
     if made_up:
         crew["made_up"] = True
     try:

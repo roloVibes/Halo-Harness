@@ -32,8 +32,9 @@ export type AgentRow = {
   square?: { name: string; engine: string; does?: string } | null;
   /** 3.3.16.3: the parent's step that started it (agent_hooks.spawn_of): Live boxes the agents of one step. */
   spawn?: { step: string; description?: string; lead?: string } | null;
-  /** 3.6.0.0 R4: the map box it runs for (crew/map_events.py tag); `made_up`: a helper main made up, under `box`. */
-  crew?: { map?: string; box?: string; line?: string; made_up?: boolean } | null;
+  /** 3.6.0.0 R4: the map box it runs for (crew/map_events.py tag); `made_up`: a helper main made up, under `box`.
+   *  3.6.0.2 R13: the agent it runs, `saved` (a saved agent), a workflow step's `workflow` and `step` (under its caller's box). */
+  crew?: { map?: string; box?: string; line?: string; agent?: string; saved?: boolean; workflow?: string; step?: number; made_up?: boolean } | null;
 };
 
 export type Pending = Partial<Record<"permission" | "question" | "plan" | "approval", string[]>> | null;

@@ -94,12 +94,28 @@ def listing(cwd=None, lineup=None, state_dir=None) -> list:
 
 
 def run(runtime, name: str, task: str, *, cwd, tool_id: str = "", files=(), spawn=None) -> "Optional[tuple]":
-    """(text, is_error) when `name` is a crew workflow, else None (the squares take it)."""
+    """(text, is_error) when `name` is a crew workflow, else None (the squares take it). On a map (any depth: frames
+    only, never routing) the run is one hand-off from the REAL caller's box to `workflow:{W}`, its steps' `map_step`
+    frames keyed to it and each step's child tagged; its end is sent in a finally (3.6.0.2 R48, R13)."""
     wf = named(name, cwd)
     if wf is None:
         return None
+    from halo_harness.crew import map_events
+    from halo_harness.crew.map_run import control
     from halo_harness.crew.runner_session import run_workflow
     said = pack_line(name, wf)  # 3.6.0.0 R5c: a pack's workflow named bare, said once (from the file named() found)
     body = {k: v for k, v in wf.items() if not str(k).startswith("_")}
-    res, text = run_workflow(runtime, body, task, cwd=cwd, tool_id=tool_id, files=files, spawn=spawn)
-    return (f"{said}\n{text}" if said else text), res.state in ("failed",)
+    mc = control(runtime)
+    if mc is None:
+        res, text = run_workflow(runtime, body, task, cwd=cwd, tool_id=tool_id, files=files, spawn=spawn)
+        return (f"{said}\n{text}" if said else text), res.state in ("failed",)
+    w, by = str(body.get("name") or name), map_events.caller_box(runtime)
+    h, why, bad = {"box": "workflow:" + w, "name": w, "kind": "workflow"}, f"named by {by}", True
+    t0 = map_events.hop(runtime, mc, h, why, task, "start", workflow=w)["t"]
+    try:
+        res, text = run_workflow(runtime, body, task, cwd=cwd, tool_id=tool_id, files=files, spawn=spawn,
+                                 emit=map_events.step_emit(runtime, mc, h["box"], w), crew=(mc, by))
+        bad = res.state in ("failed",)
+        return (f"{said}\n{text}" if said else text), bad
+    finally:
+        map_events.hop(runtime, mc, h, why, task, "end", t0=t0, workflow=w, error=bad)

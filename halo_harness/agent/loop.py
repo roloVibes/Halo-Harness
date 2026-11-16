@@ -2449,6 +2449,8 @@ class Session:
         headless.py's own atexit/finally cleanup, a finished sub-agent and
         SIGTERM/SIGHUP (via the same paths that already call
         job_registry.kill_all())."""
+        from halo_harness.crew.map_events import close as _map_closed  # 3.6.0.2 R48: no map frame after the end
+        _map_closed(self)
 
     def clear(self) -> None:
         """U5 must-do: `/clear` starts a genuinely NEW session log --
