@@ -26,8 +26,15 @@ export type MapDetail = {
 /** A box as the page draws it: on the map or under "Not connected yet"; `ghost` = the builder's preview. */
 export type DrawBox = { id: string; kind: "agent" | "workflow"; name: string; names: string[]; ghost?: boolean; isNew?: boolean; main?: boolean;
   /** 3.6.0.0 R4: a helper the running session made up (dashed, beside the box that started it), its agent id */
-  helper?: string };
-export type DrawLine = MapLine & { ghost?: boolean; helper?: boolean };
+  helper?: string;
+  /** 3.6.0.2 R14: a saved workflow drawn as itself, every step a row; `under` = the box that called it when it is on no box */
+  block?: Block };
+/** 3.6.0.2 R17: `off` = a hand-off outside the map's lines */
+export type DrawLine = MapLine & { ghost?: boolean; helper?: boolean; off?: boolean };
+
+/** 3.6.0.2 R14: one step of a workflow's block, and the block (a box of the map, or on a full-width row under `under`). */
+export type StepRow = { n: number; step: string; agent: string; model: string; state: "done" | "working" | "next" | "failed" };
+export type Block = { workflow: string; steps: StepRow[]; running?: number; under?: string };
 
 export const NEEDS: [string, string][] = [["pdf", "a PDF"], ["images", "an image"], ["audio", "audio"], ["video", "video"], ["code", "code"], ["review", "a review"]];
 
