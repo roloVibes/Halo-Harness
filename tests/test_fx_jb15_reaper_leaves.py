@@ -30,7 +30,7 @@ def _time_the_reaper(ctx: Ctx, kind: str, bound_s: float) -> None:
     from tests.test_closing import _end_tree_we_started, _owner, _same
     tmp = Path(tempfile.mkdtemp(prefix=f"halo-jb15-reaper-{kind}-"))
     kids: list = []
-    reaper = None
+    reaper = proc = None
     try:
         proc, _out, ready = _owner(kind, tmp)
         kids = ready["kids"]
@@ -55,6 +55,9 @@ def _time_the_reaper(ctx: Ctx, kind: str, bound_s: float) -> None:
             ctx.check(f"{kind}: what it had to end is gone, ended {ended} of {[k['pid'] for k in kids]}",
                       len(ended) == len(kids))
     finally:
+        if proc is not None and proc.poll() is None:  # a skip or a failed check before the kill: end the owner too
+            proc.kill()
+            proc.communicate(timeout=15)
         for k in kids + ([reaper] if reaper else []):
             _end_tree_we_started(k["pid"], k["start"])
         shutil.rmtree(tmp, ignore_errors=True)
