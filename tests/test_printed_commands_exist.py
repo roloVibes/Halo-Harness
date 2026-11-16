@@ -45,7 +45,9 @@ def test_config_unset_puts_a_key_back_to_its_default(ctx: Ctx):
     ctx.check(f"get says unset, got {out!r}", rc == 0 and "unset" in out)
     rc, out, err = _run(["unset", "theme"])
     ctx.check(f"unset again: 1, one line, got {rc} {err!r}", rc == 1 and "'theme' is not set" in err)
-    _run(["set", "fxtest.extra.port", "5"])
+    # written straight to config.json: `halo config set` refuses a key nothing reads (sessions-storage), and this
+    # check is about unset taking a dotted leaf and the sections it leaves empty
+    T.set_config_value("fxtest.extra.port", 5)
     rc, _, _ = _run(["unset", "fxtest.extra.port"])
     cfg = json.loads((Path(T._config_path())).read_text(encoding="utf-8"))
     ctx.check(f"a dotted key: the leaf and its empty sections go, got {rc} {cfg}", rc == 0 and "fxtest" not in cfg)
