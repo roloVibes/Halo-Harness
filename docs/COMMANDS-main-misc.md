@@ -221,7 +221,10 @@ turn off yet.
 What: when the `tmux` binary exists and this isn't already running inside
 one (`$TMUX` unset), re-execs the interactive launch inside a new tmux
 window. Tmux-only (no iTerm2 native-pane backend); missing tmux is a
-notice, never an error.
+notice, never an error. The session runs with this shell's environment (keys and
+`HALO_*` switches exported here), even when a tmux server already runs; it is
+handed over in a private file the session deletes as it reads it, never in
+the command line.
 
 #### `-w`, `--worktree [NAME]`
 What: creates a new git worktree (on a fresh branch) under

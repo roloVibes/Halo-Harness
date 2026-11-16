@@ -71,14 +71,17 @@ def test_list_runs_and_load_run_read_real_meta_files(ctx: Ctx):
 
 
 @test
-def test_start_background_run_windows_sets_detached_process_flag(ctx: Ctx):
+def test_start_background_run_windows_gets_a_console_of_its_own(ctx: Ctx):
     """Release review finding 37: `CREATE_NEW_PROCESS_GROUP` alone still
     leaves the detached child attached to the launching console --
     Windows sends CTRL_CLOSE_EVENT to every process attached to a
     closing console, killing this child the moment that terminal window
     closes (the POSIX path's `start_new_session` is a real new session,
     survives the launching terminal closing by construction).
-    `DETACHED_PROCESS` is what actually detaches it on Windows."""
+    A console of its own detaches it on Windows: CREATE_NO_WINDOW (3.6.0.0 fx),
+    never DETACHED_PROCESS -- with a venv's python.exe (a launcher) that made
+    the interpreter open a new, visible terminal window, and it cancels
+    CREATE_NO_WINDOW."""
     if os.name != "nt":
         raise SkipTest("Windows-only creationflags")
     from halo_harness.bg_run import start_background_run
@@ -97,8 +100,10 @@ def test_start_background_run_windows_sets_detached_process_flag(ctx: Ctx):
         flags = captured.get("creationflags", 0)
         ctx.check(f"CREATE_NEW_PROCESS_GROUP is set, got {flags!r}",
                   bool(flags & subprocess.CREATE_NEW_PROCESS_GROUP))
-        ctx.check(f"DETACHED_PROCESS is ALSO set, got {flags!r}",
-                  bool(flags & subprocess.DETACHED_PROCESS))
+        ctx.check(f"CREATE_NO_WINDOW is ALSO set (a console of its own), got {flags!r}",
+                  bool(flags & subprocess.CREATE_NO_WINDOW))
+        ctx.check(f"DETACHED_PROCESS is not set (it opens a window through a venv launcher), got {flags!r}",
+                  not flags & subprocess.DETACHED_PROCESS)
         ctx.check("start_new_session is False on Windows (creationflags is the win32 mechanism instead)",
                   captured.get("start_new_session") is False)
 

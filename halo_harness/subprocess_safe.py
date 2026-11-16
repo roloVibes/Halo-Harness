@@ -115,8 +115,13 @@ def _call(name: str, args, kw: dict):
     fn = getattr(_sp, name)
     if fn is not _ORIG[name]:  # a test replaced the standard function: it gets the call as written
         return fn(args, **kw)
+    from halo_harness import closing
     from halo_harness.selfexec import fix_kw  # 3.6.0.0 R10: Halo's own Python child imports this installation
-    kw = fix_kw(args, kw)
+    # 3.6.0.0 fx: inside the closing procedure like a Popen: the child carries this tree's marker even in an
+    # environment the caller built, and it counts as spawned (POSIX: the reaper starts, a close runs the marker scan)
+    kw = closing.before_spawn(fix_kw(args, kw))
+    if not closing.is_kept_env(kw.get("env")):
+        closing.note_spawn()
     return fn(resolve(args, kw), **kw)
 
 

@@ -604,8 +604,9 @@ def _main(argv: Optional[list] = None) -> int:
     # run's background job kept running (seen on WSL). No SIGHUP on Windows
     # (AttributeError, caught as above); a real `sys.exit()` unwinds every
     # `finally: job_registry.kill_all()` / `mcp_manager.close_all()`.
-    try:
-        signal.signal(signal.SIGHUP, signal_exit(129))
+    try:  # 3.6.0.0 fx: an ignored SIGHUP (`nohup halo ... &`) stays ignored, as every nohup-aware program does
+        if signal.getsignal(signal.SIGHUP) is not signal.SIG_IGN:
+            signal.signal(signal.SIGHUP, signal_exit(129))
     except (ValueError, AttributeError, OSError):
         pass
     argv = sys.argv[1:] if argv is None else list(argv)

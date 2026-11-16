@@ -76,22 +76,24 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
         (run_dir / "stdin.bin").write_bytes(stdin_data)
         stdin_fh = open(run_dir / "stdin.bin", "rb")
     from halo_harness.closing import kept_kwargs  # 3.6.0.0 R10: a `--bg` run was asked to outlive its starter
+    kept = kept_kwargs({"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {}, env=env)
     try:
         proc = popen(
             command, cwd=str(cwd or Path.cwd()), stdout=log_fh, stderr=subprocess.STDOUT,
             stdin=stdin_fh if stdin_fh is not None else subprocess.DEVNULL,
-            env=kept_kwargs(env=env)["env"],
+            env=kept["env"],
             # review finding 37: CREATE_NEW_PROCESS_GROUP alone still
             # leaves this child attached to the launching console --
             # Windows sends CTRL_CLOSE_EVENT to every process attached to
             # a closing console, killing it the moment that terminal
             # window closes, unlike the POSIX path's `start_new_session`
             # (a real new session, survives the launching terminal
-            # closing by construction). DETACHED_PROCESS is what actually
-            # detaches it from the console, same intent as `start_new_
-            # session` on POSIX.
-            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS | 0x01000000
-                           if os.name == "nt" else 0),  # 3.6.0.0 R10: + CREATE_BREAKAWAY_FROM_JOB (closing.py)
+            # closing by construction). A console of its own detaches it
+            # from the launching one, same intent as `start_new_session` on
+            # POSIX: closing.kept_kwargs gives CREATE_NO_WINDOW (3.6.0.0 fx:
+            # DETACHED_PROCESS made a venv launcher's interpreter open a
+            # visible terminal window) + CREATE_BREAKAWAY_FROM_JOB.
+            creationflags=kept.get("creationflags", 0) if os.name == "nt" else 0,
             start_new_session=(os.name != "nt"),
         )
     finally:
@@ -351,8 +353,54 @@ def run_in_tmux(argv: list, *, which=None, call=subprocess.call) -> Optional[int
     tmux_path = which("tmux")
     if not tmux_path:
         return None
-    command = [tmux_path, "new-session", *python_argv(), *argv]
     # 3.6.0.0 R10 (judge item 4): a tmux server this starts keeps the environment it was given for every later pane;
     # Halo's owner variables must not be in it (a later `halo` in a pane would watch a halo that is long gone).
     from halo_harness.closing import scrubbed_env
-    return call(command, env=scrubbed_env())
+    import tempfile
+    env = scrubbed_env()
+    # 3.6.0.0 fx: a tmux server already running starts the session with ITS environment, not this shell's (keys and
+    # HALO_* switches exported here were not seen). The session takes this shell's from a private file (never a value
+    # in argv), deleted as it is read (take_tmux_env); the pane's own TMUX / TERM stay tmux's.
+    fd, path = tempfile.mkstemp(prefix="halo-tmux-env-", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump({k: v for k, v in env.items() if k not in _PANE_KEYS}, fh)
+        command = [tmux_path, "new-session", "env", f"{TMUX_ENV}={path}", *python_argv(), *argv]
+        return call(command, env=env)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+TMUX_ENV = "HALO_TMUX_ENV"
+_PANE_KEYS = ("TMUX", "TMUX_PANE", "TERM", "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "COLORTERM")
+
+
+def take_tmux_env() -> bool:
+    """In a session `halo --tmux` started: this process's environment becomes the one of the shell that ran it (the
+    file run_in_tmux wrote, deleted here), keeping the pane's own TMUX / TERM. True when it did."""
+    path = os.environ.pop(TMUX_ENV, None)
+    if not path or "TMUX" not in os.environ:
+        return False
+    try:
+        st = os.lstat(path)
+        if os.name != "nt" and (st.st_uid != os.getuid() or st.st_mode & 0o077):
+            return False  # only this user's own private file
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    if not isinstance(data, dict):
+        return False
+    pane = {k: os.environ[k] for k in _PANE_KEYS if k in os.environ}
+    os.environ.clear()
+    os.environ.update({str(k): str(v) for k, v in data.items()})
+    os.environ.update(pane)
+    return True

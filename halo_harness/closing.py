@@ -140,7 +140,10 @@ def kept_kwargs(kwargs: Optional[dict] = None, *, env: Optional[dict] = None) ->
     kw["env"] = base
     if os.name == "nt":  # out of the Job object, and off this console (a closed window or Ctrl+Break never reaches it)
         flags = int(kw.get("creationflags") or 0) | _BREAKAWAY | 0x00000200  # | CREATE_NEW_PROCESS_GROUP
-        kw["creationflags"] = flags if flags & 0x00000010 else flags | 0x00000008  # NEW_CONSOLE, else DETACHED_PROCESS
+        # NEW_CONSOLE (a window asked for) as it is; else a console of its own that has no window (CREATE_NO_WINDOW).
+        # Never DETACHED_PROCESS (3.6.0.0 fx): a venv's python.exe is a launcher, and the interpreter it starts from
+        # a console-less launcher got a new, visible terminal window; DETACHED_PROCESS also cancels CREATE_NO_WINDOW.
+        kw["creationflags"] = flags if flags & 0x00000010 else (flags & ~0x00000008) | 0x08000000
     else:
         kw["start_new_session"] = True  # off this terminal: its SIGHUP and Ctrl+C never reach it
     return kw

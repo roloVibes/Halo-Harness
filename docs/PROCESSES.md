@@ -46,13 +46,16 @@ left by a reboot or a hard kill is cleared and said, never signalled.
 ## How a closing works
 
 1. **The closing procedure** (halo_harness/closing.py) runs on every way out that runs any code at all: a quit,
-   Ctrl+C, SIGTERM, SIGHUP, an error, a closed console window on Windows. What this Halo started is asked to stop
+   Ctrl+C, SIGTERM, SIGHUP (unless it was started ignoring it: `nohup halo ... &` survives the hangup), an error,
+   a closed console window on Windows. What this Halo started is asked to stop
    the way it stops itself (Studio's stop route, a model server's stop), then signalled as a process group or tree,
    then ended hard -- within 3 s + 2 s. When all is well it prints nothing.
 2. **A hard kill** runs no code in Halo, so the children notice on their own:
    - Windows: every child is in Halo's Job object, which Windows ends together with Halo;
    - every Halo child (Studio's server first) watches the Halo that started it and closes within two seconds;
-   - Linux and macOS: a tiny reaper process waits for Halo and, if it dies without a word, ends what it started.
+   - Linux and macOS: a tiny reaper process waits for Halo and, if it dies without a word, ends what it started
+     (a program Halo waits on, such as an orchestra worker's `sudo` or a git clone, included);
+   - an `isolation: user` worker carries the lead's owner variables through sudo and ends itself with the lead.
 3. **The sweep at start**: every `halo` launch first stops what an earlier Halo left with no living owner, with one
    line: "halo: stopped a Studio server left from 2026-11-14 22:10".
 

@@ -81,5 +81,11 @@ def wrap(argv: list, cwd, env: dict, spec: dict, *, run_dir, lane_n: int, keys=(
         share(paths[1:], group_of(user, str(spec.get("group") or "")), skip=[Path(run_dir) / "wt"])
     out_env = dict(env)
     out_env["BRIDGE_STATE_DIR"] = str(state_dir_for(run_dir, lane_n).resolve())
-    names = sorted({*BASE_KEYS, *CONTROL_KEYS, *(spec.get("env") or []), *keys} & set(out_env))
+    # 3.6.0.0 fx: the worker watches the lead through sudo (the lead cannot signal or scan another user's process):
+    # it ends itself when the lead is gone, however the lead went
+    from halo_harness.closing import MARKER, WATCH
+    for name in (MARKER, WATCH):
+        if name not in out_env and os.environ.get(name):
+            out_env[name] = os.environ[name]
+    names = sorted({*BASE_KEYS, MARKER, WATCH, *CONTROL_KEYS, *(spec.get("env") or []), *keys} & set(out_env))
     return [sudo, "-n", "-u", user, f"--preserve-env={','.join(names)}", "--", *argv], out_env

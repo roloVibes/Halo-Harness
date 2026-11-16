@@ -48,8 +48,8 @@ detached updater does the same.
 
 ### `halo supervise` flags
 
-- `--daemon`: detach the supervisor (Windows `DETACHED_PROCESS`, POSIX a new
-  session) and return once its pulse is live.
+- `--daemon`: detach the supervisor (Windows a console of its own with no window, POSIX a
+  new session) and return once its pulse is live.
 - `--service`: write the service-manager file for this OS under
   `~/.halo/supervise/` (a systemd user unit, a launchd plist or a Task
   Scheduler XML) and print the single command that enables it. Halo never
