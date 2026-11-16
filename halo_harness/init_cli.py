@@ -962,7 +962,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # 3.4.0.0 B2: `--step` is `halo setup <step>`: Studio's Setup on that page (the console line where no browser opens)
     parser.add_argument("--step", default=None, metavar="STEP",
                          help="open Studio's Setup on one page (providers, local, model, permissions, theme, team, "
-                              "linux, check, machines): the same as `halo setup <step>`")
+                              "linux, check): the same as `halo setup <step>`")
     parser.add_argument("--terminal", action="store_true",
                          help="ask the essentials line by line here instead of opening Setup in Studio "
                               "(also what runs when no browser can open: SSH, no DISPLAY, HALO_NO_BROWSER)")

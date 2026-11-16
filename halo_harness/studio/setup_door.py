@@ -133,6 +133,9 @@ def open_in_a_window(url: str, *, env: "Optional[dict]" = None, platform: Option
     import webbrowser
     wb = webbrowser if wb is None else wb
     env = os.environ if env is None else env
+    if (sys.platform if platform is None else platform) not in ("win32", "darwin"):
+        from halo_harness.studio.open_link import once_link  # fx studio batch 2: no key on a readable command line
+        url = once_link(url)
     try:
         wb.get()  # registers the standard browsers once
     except wb.Error:

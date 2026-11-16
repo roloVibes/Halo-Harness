@@ -91,7 +91,7 @@ def test_a_text_browser_never_takes_the_terminal(ctx: Ctx):
     if getattr(W, "Elinks", None):
         reg["elinks"] = W.Elinks("elinks")
     text_only = [n for n in reg if n != "xdg-open"]
-    url = "http://127.0.0.1:9/#t=x"
+    url = "http://127.0.0.1:9/?mode=setup"  # no key: which browser, not what it is given (tests/test_open_link_token.py)
     fake = _fake_webbrowser(text_only, opened, registry=reg)
     ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "TERM": "xterm"}, platform="linux", wb=fake)
     ctx.check(f"a display but only text browsers (WSLg, a bare X box): none started, False, got {ok} {opened}",

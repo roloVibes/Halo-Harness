@@ -42,7 +42,7 @@ rest is (Studio's Setup: local models, theme, lineup, Linux fixes, checks, machi
 port-forward line when a Studio runs) and the start line. `--team <path|url>` (a team.json preset: the
 Databricks host, the gateway preference, the roles, the default model) is applied there, as `--provider` /
 `--yes` and a run with no terminal always did. `halo init --step <page>` is `halo setup <page>`: Studio's Setup on
-that page (providers, local, model, permissions, theme, team, linux, check, machines), or the console way to do
+that page (providers, local, model, permissions, theme, team, linux, check), or the console way to do
 the same with `--terminal` or no browser. A role table from before lineups becomes the lineup `migrated` once,
 at the next interactive session or `halo init`. The sections below describe the terminal wizard as it was until
 3.4.0.0.
@@ -159,7 +159,7 @@ options:
                         preference/DBU price -- never a token); overrides
                         .halo/team.json / ~/.halo/team.json
   --step STEP           open Studio's Setup on one page (providers, local, model,
-                        permissions, theme, team, linux, check, machines): the
+                        permissions, theme, team, linux, check): the
                         same as `halo setup <step>`
   --terminal            ask the essentials line by line here instead of opening
                         Setup in Studio (also what runs when no browser can

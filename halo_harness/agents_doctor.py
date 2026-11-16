@@ -263,7 +263,7 @@ def check_roles_hygiene(*, cwd=None, state_dir=None) -> "list[str]":
     top_model = get_config_value("model", default=None)
     if _pref_for("main") is None and not (isinstance(top_model, str) and top_model):
         problems.append("no main model -- neither roles.main nor the top-level `model` is set "
-                        "(`halo setup roles` or the wizard's roles step fixes this).")
+                        "(`halo setup model` or `halo config set model <ref>` fixes this).")
     # 2. judge in the same family as coder (self-preference bias)
     coder_pref, judge_pref = _pref_for("coder"), _pref_for("judge")
     if coder_pref and judge_pref:

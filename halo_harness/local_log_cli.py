@@ -59,7 +59,7 @@ def _show(lines: list, kind: str) -> None:
 
 def _unknown(name: str, prog: str) -> int:
     print(f"{prog}: no local server named {name!r}: halo local servers lists the ones Halo started, "
-          "huggingface.local_servers names the others (halo config show huggingface.local_servers)", file=sys.stderr)
+          "huggingface.local_servers names the others (halo config get huggingface.local_servers)", file=sys.stderr)
     return 1
 
 

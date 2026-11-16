@@ -282,6 +282,44 @@ def test_the_terminal_a_done_opens(ctx: Ctx):
     ctx.check(f"no display: not spawned, the line, got {ok} {line}", not ok and line == H.NO_TERMINAL and len(spawned) == 1)
 
 
+class _Osascript:
+    def __init__(self, code: int, err: bytes = b"", hang: bool = False):
+        self.returncode, self.err, self.hang, self.pid = code, err, hang, 0
+
+    def communicate(self, timeout=None):
+        if self.hang:
+            import subprocess as sp
+            raise sp.TimeoutExpired("osascript", timeout)
+        return b"", self.err
+
+    def poll(self):
+        return self.returncode
+
+
+@test
+def test_macos_done_reads_osascripts_answer_and_carries_studios_home(ctx: Ctx):
+    """fx studio batch 2 (4), macOS by its inputs: Done said "halo is starting in a new terminal window (Terminal)"
+    without reading osascript's exit; macOS refusing the Apple event (-1743, Automation not allowed) opened nothing.
+    And Terminal's `do script` starts a fresh login shell: Studio's home (BRIDGE_STATE_DIR) and HALO_* were lost."""
+    from halo_harness.studio import halo_terminal as H
+    which = lambda n: f"/usr/bin/{n}" if n in ("osascript", "halo") else None
+    denied = b"36:80: execution error: Not authorized to send Apple events to Terminal. (-1743)\n"
+    got = H.open_halo("/w", env={}, platform="darwin", which=which, spawn=lambda argv, **kw: _Osascript(1, denied))
+    ctx.check(f"refused: not opened, the reason and the way round, got {got}", got[0] is False
+              and "Not authorized to send Apple events to Terminal" in got[1] and "run `halo` yourself" in got[1])
+    got = H.open_halo("/w", env={}, platform="darwin", which=which, spawn=lambda argv, **kw: _Osascript(0))
+    ctx.check(f"osascript said yes: opened, got {got}", got == (True, "halo is starting in a new terminal window (Terminal)"))
+    got = H.open_halo("/w", env={}, platform="darwin", which=which, spawn=lambda argv, **kw: _Osascript(None, hang=True))
+    ctx.check(f"still asking the person (the consent prompt): opened, got {got}", got[0] is True)
+    env = {"BRIDGE_STATE_DIR": "/Users/someone/my home", "HALO_NO_UPDATER": "1", "HALO_OWNER": "x1", "PATH": "/bin",
+           "HALO_DBX_TOKEN": "dapi-secret"}
+    _name, argv = H.terminal_argv("/w", env=env, platform="darwin", which=which)
+    script = argv[-1] if argv else ""
+    ctx.check(f"the new halo gets Studio's home and HALO_*, never the owner marker, got {script!r}",
+              "export BRIDGE_STATE_DIR='/Users/someone/my home'" in script and "HALO_NO_UPDATER=1" in script
+              and "HALO_OWNER" not in script and "PATH=" not in script and "dapi-secret" not in script and script.rstrip('"').endswith("/usr/bin/halo"))
+
+
 _CONSOLE_PROBE = (  # writes whether its stdin is a console it can read keys from (what Textual's Windows driver needs)
     "import ctypes, sys\n"
     "k = ctypes.WinDLL('kernel32'); k.GetStdHandle.restype = ctypes.c_void_p\n"

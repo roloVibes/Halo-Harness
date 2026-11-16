@@ -232,6 +232,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         one line saying how to build the UI."""
         if not self._local_only():
             return
+        if "o" in parse_qs(urlsplit(self.path).query):  # fx studio batch 2: a browser's one-time link (open_link.py)
+            from halo_harness.studio.open_link import answer
+            return answer(self)
         rel = unquote(urlsplit(self.path).path).lstrip("/") or "index.html"
         frame = {"X-Frame-Options": "SAMEORIGIN", "Cross-Origin-Opener-Policy": "noopener-allow-popups"}  # #32; 3.4.1.2
         if not (DIST / "index.html").is_file():

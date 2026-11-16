@@ -53,7 +53,9 @@ def terminal_argv(cwd, *, env=None, platform: Optional[str] = None, which: Calla
     if platform == "darwin":
         if not which("osascript"):
             return "", []
-        script = f"cd {shlex.quote(str(cwd))} && {' '.join(shlex.quote(p) for p in halo)}"
+        # fx studio batch 2: `do script` types into a fresh login shell, so Studio's home and HALO_* go in by name
+        exports = "".join(f"export {k}={shlex.quote(v)}; " for k, v in sorted(_carried(env).items()))
+        script = f"{exports}cd {shlex.quote(str(cwd))} && {' '.join(shlex.quote(p) for p in halo)}"
         return "Terminal", ["osascript", "-e", f'tell application "Terminal" to do script {_applescript(script)}']
     if not (env.get("DISPLAY") or env.get("WAYLAND_DISPLAY")) or env.get("SSH_CONNECTION") or env.get("SSH_TTY"):
         return "", []
@@ -64,6 +66,28 @@ def terminal_argv(cwd, *, env=None, platform: Optional[str] = None, which: Calla
         if which(name):
             return name, [name] + flag + halo
     return "", []
+
+
+def _carried(env) -> dict:
+    """The variables a halo started by Terminal.app needs from Studio: its home and HALO_*, never the owner markers
+    and never a secret (they ride on osascript's command line)."""
+    from halo_harness.closing import scrubbed_env
+    return {k: v for k, v in scrubbed_env(dict(env)).items()
+            if (k == "BRIDGE_STATE_DIR" or k.startswith("HALO_")) and k.replace("_", "").isalnum()
+            and not any(w in k for w in ("TOKEN", "KEY", "SECRET", "PASS"))}
+
+
+def _osascript_answer(proc) -> str:
+    """'' when Terminal took the script (or macOS is still asking the person about it); else osascript's last line
+    (-1743: Automation for Terminal not allowed)."""
+    try:
+        _out, err = proc.communicate(timeout=10)
+    except subprocess.TimeoutExpired:
+        return ""
+    if not proc.returncode:
+        return ""
+    lines = (err or b"").decode("utf-8", "replace").strip().splitlines()
+    return (lines[-1] if lines else f"osascript exited {proc.returncode}").strip()
 
 
 def _applescript(text: str) -> str:
@@ -84,7 +108,8 @@ def open_halo(cwd, *, env=None, platform: Optional[str] = None, which: Callable 
     if platform.startswith("win"):  # no standard handle at all: one given makes Popen pass all three, and halo's stdin
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)  # is NUL, not its console's keys
     else:
-        kwargs.update(start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        kwargs.update(start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                      stderr=subprocess.PIPE if platform == "darwin" else subprocess.DEVNULL)
     if spawn is None:  # 3.6.0.0 R10: a terminal window the person opened is its own session, never Studio's child
         from halo_harness.closing import kept_kwargs
         kwargs = kept_kwargs(kwargs)
@@ -94,4 +119,8 @@ def open_halo(cwd, *, env=None, platform: Optional[str] = None, which: Callable 
         register_kept(proc, "terminal", argv)
     except (OSError, ValueError):
         return False, NO_TERMINAL
+    if platform == "darwin":  # fx studio batch 2: osascript says whether macOS let it reach Terminal
+        refused = _osascript_answer(proc)
+        if refused:
+            return False, f"Terminal did not open ({refused}); run `halo` yourself"
     return True, OPENED_LINE.format(name=name)

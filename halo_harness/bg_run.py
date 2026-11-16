@@ -51,7 +51,7 @@ def start_background_run(argv: list, *, popen=subprocess.Popen, stdin_data: Opti
     mistaken for this run still being alive. 3.1.8.0 R1: `cwd` (default
     this process's folder) is the folder the run starts in (a supervised
     job goal's repo). 3.2.2.0 R3: the run joins children.json; `launched`
-    (the `halo --bg` / `halo agents schedule run` launchers, which exit at
+    (the `halo --bg` launcher, which exits at
     once) records the halo session whose tool ran them as its owner, or
     none for a plain shell (children.launcher_owner)."""
     run_id = uuid.uuid4().hex[:8]

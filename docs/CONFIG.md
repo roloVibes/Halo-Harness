@@ -200,7 +200,6 @@ the files above.
 | `~/.halo/packs/<id>/` (`.halo/packs/<id>/` project) | an installed PACK, read in place and never written by Halo: `pack.yaml` plus a Claude-plugin layout and its bios (`agents/*.yaml`, listed as `<id>--<name>`) and lineups (`teams/*.yaml`); see [PACKS.md](PACKS.md) |
 | `~/.halo/packs/state.json`, `~/.halo/packs/journal.jsonl` | which packs are installed, from where, enabled and granted (0600); every file a pack's install, update or remove wrote or deleted, with its hash -- see [EXTENSION_API.md](EXTENSION_API.md) |
 | `~/.halo/packs/.data/<id>/` | a pack's own place to write (`halo_harness.ext.write_private`) |
-| `<state_dir>/agents-schedules.json` | what schedule/trigger set is ARMED right now (written by live sessions' team schedulers; `halo agents schedule list` reads it) -- see [AGENTS.md](AGENTS.md) |
 
 ### `~/.halo/config.json` keys
 

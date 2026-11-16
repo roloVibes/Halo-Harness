@@ -178,6 +178,27 @@ class EventBridge:
         for entry in new:
             self._attach(entry)
 
+    def ensure_attached(self, entry: dict, timeout_s: float = 3.0) -> bool:
+        """fx studio batch 2: True once this bridge is subscribed to `entry`'s session (attached now when the scan has
+        not reached it yet). A turn sent from Studio waits for it, so a fast first answer is never streamed to nobody."""
+        sid = entry.get("session_id")
+        if not sid or self._stop.is_set():
+            return False
+        with self._lock:
+            if sid in self._attached:
+                return True
+            cooling = self._cooldown.get(sid, 0) > time.monotonic()
+        if cooling:
+            return False
+        self._attach(entry)
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end:
+            time.sleep(0.02)
+            with self._lock:
+                if sid in self._attached:
+                    return True
+        return False
+
     def _attach(self, entry: dict) -> None:
         sid = entry["session_id"]
         stop = threading.Event()

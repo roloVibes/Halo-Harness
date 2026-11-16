@@ -158,6 +158,12 @@ def post_command(req):
     answered, pending = P.before(sid, entry, cmd, req.body, fields)
     if answered is not None:
         return answered
+    bridge = getattr(getattr(req, "server", None), "events", None)
+    if cmd in ("submit", "steer") and bridge is not None:  # fx studio batch 2: Studio listens before the turn can answer
+        try:
+            bridge.ensure_attached(entry)
+        except Exception:
+            pass
     client = None
     try:
         client = _client(entry, COMMAND_TIMEOUT_S)

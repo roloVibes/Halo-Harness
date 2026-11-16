@@ -50,8 +50,8 @@ The root `takes` and `gives` are the square's contract. A stage's `takes`
 hand-offs between its stages. A hand-off written at the root gets one line
 saying it belongs on a stage. A workflow without `gives` is not a square: it
 lists and runs as before, and the router never picks it. Once a file says any
-other contract key, `gives` is required (`halo workflows test` and a pack's
-manifest check say so in one line).
+other contract key, `gives` is required (a pack's manifest check says so in one
+line).
 
 ## Where squares come from
 

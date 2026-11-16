@@ -194,6 +194,24 @@ def _set_problem(key: str, value) -> str:
     return ""
 
 
+def _cmd_unset(rest: list) -> int:
+    """fx studio batch 2: `halo config unset <key>` -- the key leaves config.json and its default applies again (what
+    Studio's Themes page and the docs offer for `theme`); a dotted key takes its leaf and any section left empty."""
+    parser = argparse.ArgumentParser(prog="halo config unset", add_help=True)
+    parser.add_argument("key")
+    args = parser.parse_args(rest)
+    try:
+        gone = theme_mod.unset_config_value(args.key)
+    except theme_mod.CorruptConfigError as e:
+        print(f"halo config: {e}", file=sys.stderr)
+        return 2
+    if not gone:
+        print(f"halo config: {args.key!r} is not set", file=sys.stderr)
+        return 1
+    print(f"{args.key} unset" + (f" (the default: {theme_mod.DEFAULT_THEME})" if args.key == "theme" else ""))
+    return 0
+
+
 def _main_model_lines(ref: str) -> None:
     """The main-model line when `ref` cannot orchestrate here, with the lineup command (nothing is asked)."""
     try:
@@ -209,8 +227,10 @@ def cmd_config(argv: list) -> int:
     if not argv or argv[0] == "list":
         return _print_all()
     if argv[0] in ("-h", "--help"):
-        print("Usage: halo config [list|get <key>|set <key> <value>|where [--json] [--cwd DIR]]")
+        print("Usage: halo config [list|get <key>|set <key> <value>|unset <key>|where [--json] [--cwd DIR]]")
         return 0
+    if argv[0] == "unset":
+        return _cmd_unset(argv[1:])
     if argv[0] == "where":
         from halo_harness.config_where import cmd_config_where
         return cmd_config_where(argv[1:])
