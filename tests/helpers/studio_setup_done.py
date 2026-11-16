@@ -24,9 +24,37 @@ FIRST = "!!document.querySelector('[data-testid=setup-strip-first]')"
 
 
 def done(c, url, ctx) -> dict:
-    from tests.helpers.studio_setup_pages import _load, click, goto
+    import os
+
+    from tests.helpers.studio_setup_pages import STEP, _load, click, goto
     _load(c, ctx, "mode=setup&first=1&tour=off")
     out = {"done_first_before": c.wait(FIRST, 15)}
+    # Local models only (fix): this home has no model a session can call, so the Summary offers no Done: one line
+    # saying what is missing and one button to the page that fixes it (no dialog)
+    goto(c, "summary")
+    fix = q("[data-testid=setup-done-fix]")
+    c.wait(f"!!{fix}", 20)
+    out["missing_line"] = c.js(f"{q('[data-testid=setup-done-missing]')}?.textContent || ''")
+    out["missing_done"] = c.js(f"!!{q('[data-testid=setup-done]')}")
+    out["missing_dialogs"] = c.js("document.querySelectorAll('[role=dialog]').length")
+    out["missing_fix"] = [c.js(f"{fix}.dataset.step"), c.js(f"{fix}.textContent")]
+    click(c, fix, f"{STEP} !== 'summary'")
+    out["missing_went"] = c.js(STEP)
+    key = "OPENROUTER_API_KEY"  # a key (never sent: nothing calls a model here) makes the built-in default resolve
+    saved = os.environ.get(key)
+    os.environ[key] = "sk-or-v1-setup-done-pages-0123456789abcdef"
+    try:
+        return _done_pressed(c, ctx, out)
+    finally:
+        if saved is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = saved
+
+
+def _done_pressed(c, ctx, out: dict) -> dict:
+    from tests.helpers.studio_setup_pages import _load, click, goto
+    _load(c, ctx, "mode=setup&first=1&tour=off")  # the state read again: a model now resolves
     goto(c, "summary")
     btn = q("[data-testid=setup-done]")
     c.wait(f"!!{btn}", 20)

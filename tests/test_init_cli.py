@@ -468,7 +468,82 @@ def test_a_home_with_no_default_model_says_so_instead_of_naming_openrouter(ctx: 
               got.returncode != 0 and "no default model is set" in err and "halo config set model" in err and "ol:<name>" in err)
 
 
+def _ollama_config(home: Path, hosts: list) -> None:
+    (home / ".halo").mkdir(parents=True, exist_ok=True)
+    (home / ".halo" / "config.json").write_text(json.dumps({"ollama": {"hosts": hosts}}), encoding="utf-8")
+
+
+def _config(home: Path) -> dict:
+    p = home / ".halo" / "config.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+_TERMINAL = ["init", "--terminal", "--no-fixes"]
+
+
+@test
+def test_the_terminal_setup_offers_ollama_and_saves_a_picked_model_with_no_key(ctx: Ctx):
+    """Local models only: the terminal setup listed only Databricks, OpenRouter and Anthropic. It now has an ollama
+    row: pick the server (a host already in ollama.hosts here, from a numbered list), pick one of the models it lists,
+    and it is the default model, written as Setup's Model page writes it; no key is asked."""
+    from tests.helpers.mock_ollama import MockUpstream as MockOllama
+    with MockOllama() as fake:
+        home = _fresh_home()
+        _ollama_config(home, [{"name": "gpu-box", "url": fake.base_url, "default": True}])
+        # 4 = ollama; host 2 = gpu-box (1 is this computer); model 2 = gpt-oss:20b; no other provider; default mode
+        got = _run(_TERMINAL, home, stdin="4\n2\n2\nn\n\n", extra_env={"OLLAMA_HOST": "http://127.0.0.1:9"})
+    out = " ".join((got.stdout + got.stderr).split())  # the console wraps at 80 columns
+    ctx.check(f"the provider list has an ollama row, got {got.stdout[:600]!r}", "ollama" in got.stdout.split("Done")[0])
+    ctx.check(f"it lists the server's models to pick, got {out[-1500:]!r}", "1. qwen3:30b" in out and "2. gpt-oss:20b" in out)
+    ctx.check(f"the pick is the default model, got {_config(home).get('model')!r} rc={got.returncode}",
+              _config(home).get("model") == "ol:gpt-oss:20b@gpu-box" and got.returncode == 0)
+    asked = out.split("Which Ollama?", 1)[-1].split("Set up another provider?", 1)[0]
+    ctx.check(f"no key is asked and nothing goes to the env file, got {asked!r}",
+              "Which Ollama?" in out and "key" not in asked.lower() and not _env_file(home).exists())
+    ctx.check(f"no traceback, got {out[-800:]!r}", "Traceback" not in out)
+
+
+@test
+def test_the_terminal_setup_adds_this_computers_ollama_when_it_is_picked(ctx: Ctx):
+    """'this computer' (OLLAMA_HOST, else 127.0.0.1:11434) joins ollama.hosts the way Setup's Ollama tab adds it."""
+    from tests.helpers.mock_ollama import MockUpstream as MockOllama
+    with MockOllama() as fake:
+        home = _fresh_home()
+        url = fake.base_url
+        got = _run(_TERMINAL, home, stdin="4\n1\n1\nn\n\n", extra_env={"OLLAMA_HOST": url})
+    cfg = _config(home)
+    hosts = (cfg.get("ollama") or {}).get("hosts") or []
+    ctx.check(f"the model and the host are written, got {cfg!r} {got.stdout[-800:]!r}",
+              cfg.get("model") == "ol:qwen3:30b@default"
+              and [(h.get("name"), h.get("url")) for h in hosts] == [("default", url)])
+
+
+@test
+def test_an_ollama_that_does_not_answer_is_one_line_and_the_provider_list_again(ctx: Ctx):
+    home = _fresh_home()
+    # 4 = ollama, 1 = this computer (a dead port), then 5 = Done at the provider list again
+    got = _run(_TERMINAL, home, stdin="4\n1\n5\n\n", extra_env={"OLLAMA_HOST": "http://127.0.0.1:9"}, timeout=60)
+    out = " ".join((got.stdout + got.stderr).split())
+    ctx.check(f"one line says nothing answers and what to do, got {out[-1500:]!r}",
+              "did not answer: nothing is listening there (connection refused)" in out and "ollama serve" in out
+              and "https://ollama.com" in out)
+    ctx.check(f"back to the provider list, no traceback, no model written, got rc={got.returncode} {out[-600:]!r}",
+              out.count("Select a provider to set up:") == 2 and "Traceback" not in out and "model" not in _config(home))
+
+
+@test
+def test_an_ollama_with_no_models_names_the_pull_command(ctx: Ctx):
+    from tests.helpers.mock_ollama import MockUpstream as MockOllama
+    with MockOllama(tags_response={"models": []}) as fake:
+        home = _fresh_home()
+        got = _run(_TERMINAL, home, stdin="4\n1\n5\n\n", extra_env={"OLLAMA_HOST": fake.base_url})
+    out = " ".join((got.stdout + got.stderr).split())
+    ctx.check(f"it says there is no model and names `halo local pull`, got {out[-1200:]!r}",
+              "has no models yet" in out and "halo local pull" in out and "model" not in _config(home))
+
+
 _CTRL_C = """
+
 import sys, getpass, rich.prompt
 class Tty:
     def isatty(self): return True

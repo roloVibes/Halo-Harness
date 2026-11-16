@@ -191,6 +191,8 @@ def _step_select_provider(args, console: Console, *, header: str) -> Optional[st
     "set up another provider?") shows updated tags."""
     default_provider = detect_default_provider()
     rows = [(p, _provider_row_label(p, mark_default=(p == default_provider))) for p in PROVIDERS]
+    from halo_harness.init_ollama import ROW_LABEL as _OLLAMA_ROW  # fix: a person with local models only
+    rows.append(("ollama", _OLLAMA_ROW))
     rows.append(("done", "Done -- finish init"))
     if _non_interactive(args):
         console.print(f"{header} {default_provider} (detected; pass --provider to choose explicitly)")
@@ -667,6 +669,8 @@ def _step_finalize_default_model(args, console: Console, configured_this_run: "l
     all_configured = configured_providers()
     if len(all_configured) <= 1:
         only = all_configured[0] if all_configured else (configured_this_run[-1] if configured_this_run else None)
+        if configured_this_run and configured_this_run[-1] == "ollama":  # fix: the Ollama pick was written last
+            only = "ollama"
         return picked_per_provider.get(only, "") if only else ""
     from halo_harness.config.paths import bridge_home
     state_dir = bridge_home()
@@ -1170,7 +1174,11 @@ def _cmd_init(argv: list) -> int:
             # configured so far this IS the real default; if a second one
             # gets configured later, `_step_finalize_default_model` below
             # overwrites config.json with its own single cross-provider pick.
-            result = _run_provider_setup(choice, args, console, cwd, write_model=True)
+            if choice == "ollama":  # fix: Ollama, no key: server, then one of its models (init_ollama.py)
+                from halo_harness.init_ollama import run_ollama_setup
+                result = run_ollama_setup(args, console)
+            else:
+                result = _run_provider_setup(choice, args, console, cwd, write_model=True)
             if result is None:
                 continue  # error already printed -- back to the picker
             model_ref_raw, prov_written, prov_doctor, prov_pong_ok = result

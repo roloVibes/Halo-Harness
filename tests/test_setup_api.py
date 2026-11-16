@@ -230,6 +230,7 @@ def test_done_says_who_starts_halo(ctx: Ctx):
     events.bridge_for = lambda _server: SimpleNamespace(publish_local=lambda _f: None)
     try:
         with _Env() as e:
+            os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-setup-done-key-0123456789abcdef"  # Done needs a model a session can call
             post = lambda: dispatch(Request(method="POST", path="setup/done", query={}, body={}, cwd=e.cwd, state_dir=e.state_dir, server=object()))
             halo_terminal.open_halo = lambda cwd, **_k: opened.append(cwd) or (True, halo_terminal.OPENED_LINE.format(name="xterm"))
             init_waiting.mark(e.state_dir, e.cwd)  # what a waiting `halo init` writes (this process stands in for it)
@@ -252,6 +253,46 @@ def test_done_says_who_starts_halo(ctx: Ctx):
             stale.write_text(json.dumps({"pid": 999999991, "since": "x", "cwd": str(e.cwd)}), encoding="utf-8")
             ctx.check("a record whose init is gone does not count and is removed", init_waiting.waiting(e.state_dir) is None
                       and not stale.exists())
+    finally:
+        events.bridge_for, halo_terminal.open_halo = real
+
+
+@test
+def test_done_refuses_a_setup_that_cannot_run_a_session(ctx: Ctx):
+    """Local models only: a Setup that added only an Ollama host (down) and picked no model marked Providers done, and
+    its Done started halo, which failed on 'OpenRouter not configured'. The state's `ready` says, from the resolver a
+    session uses, what is missing and which page fixes it; a Done sent anyway gets the same line and writes nothing.
+    With a model that resolves, Done is as before."""
+    from halo_harness.studio import events, halo_terminal
+    from halo_harness.studio.api import Request, dispatch
+    from halo_harness.studio.setup_done import NO_MODEL, NO_PROVIDER
+    real = (events.bridge_for, halo_terminal.open_halo)
+    events.bridge_for = lambda _server: SimpleNamespace(publish_local=lambda _f: None)
+    halo_terminal.open_halo = lambda cwd, **_k: (True, halo_terminal.OPENED_LINE.format(name="xterm"))
+    try:
+        with _Env() as e:
+            post = lambda: dispatch(Request(method="POST", path="setup/done", query={}, body={}, cwd=e.cwd, state_dir=e.state_dir, server=object()))
+            marker = e.state_dir / "setup-done.json"
+            _s, s = e.call("GET", "setup/state")
+            ctx.check(f"nothing set up: not ready, the Providers page, got {s.get('ready')}",
+                      s.get("ready") == {"ok": False, "line": NO_PROVIDER, "page": "providers"})
+            status, got = post()
+            ctx.check(f"a Done sent anyway: 409 with the same line, no marker, got {status} {got}",
+                      status == 409 and got.get("error") == NO_PROVIDER and not marker.exists())
+            e.call("POST", "setup/ollama-host", {"url": "http://127.0.0.1:9"})  # as in the finding: a host, down
+            _s, s = e.call("GET", "setup/state")
+            ctx.check(f"an Ollama host and no model: not ready, the Default model page, got {s.get('ready')} "
+                      f"{s['providers']['ollama'].get('set')}",
+                      s["providers"]["ollama"].get("set") is True and s.get("ready") == {"ok": False, "line": NO_MODEL, "page": "model"})
+            status, got = post()
+            ctx.check(f"Done refused with that line, got {status} {got}", status == 409 and got.get("error") == NO_MODEL
+                      and not marker.exists())
+            from halo_harness.theme import set_config_value
+            set_config_value("model", "ol:qwen3:30b@default")  # what the Default model page saves for an Ollama model
+            _s, s = e.call("GET", "setup/state")
+            status, got = post()
+            ctx.check(f"a model that resolves: ready, Done as before, got {s.get('ready')} {status} {got}",
+                      s.get("ready", {}).get("ok") is True and status == 200 and got.get("ok") is True and marker.exists())
     finally:
         events.bridge_for, halo_terminal.open_halo = real
 

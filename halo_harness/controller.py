@@ -121,6 +121,17 @@ def _not_configured_message(ref) -> str:
     return not_configured_message("OpenRouter")
 
 
+def no_default_model_hint(session) -> "str | None":
+    """The one-shot path's sentence (model.no_default_model_line) for a session with no credentials that runs on the
+    built-in default only because no model is set: it says what is missing instead of 'OpenRouter not configured',
+    a provider never chosen (a home where Setup added only an Ollama host). None otherwise."""
+    if session is None or getattr(session, "creds", True) is not None:
+        return None
+    from halo_harness.model import no_default_model_line
+    raw = getattr(getattr(session, "model_ref", None), "raw", None) or ""
+    return no_default_model_line(raw, getattr(session, "routes", None))
+
+
 def setup_hint_line(session) -> "str | None":
     """fix pass 2 (sessions-storage batch 2): the line a session's first screen shows when its model has no
     credentials (a first run with nothing set up), so the first prompt is not where a person learns it; None
@@ -130,6 +141,9 @@ def setup_hint_line(session) -> "str | None":
     ref = getattr(session, "model_ref", None)
     if ref is None:
         return None
+    no_model = no_default_model_hint(session)
+    if no_model:
+        return no_model
     return f"No provider is set up for {getattr(ref, 'raw', None) or ref.model}: {_not_configured_message(ref)}"
 
 

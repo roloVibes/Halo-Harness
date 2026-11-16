@@ -76,6 +76,24 @@ function DonePart() {
   const note = waiting
     ? "halo starts in the terminal that ran halo init, paired with this Studio; Studio opens Session"
     : "no halo init is waiting: Studio opens a terminal running halo (or says to run halo yourself); Studio opens Session";
+  // fix (local models only): no model a session can call -> no Done; one line and the page that fixes it
+  const missing = useSetup((s) => (s.data?.ready && !s.data.ready.ok ? JSON.stringify(s.data.ready) : ""));
+  if (missing) {
+    const r = JSON.parse(missing) as { line: string; page: "providers" | "model" };
+    const to: StepId = r.page === "providers" ? "providers" : "model";
+    const label = to === "providers" ? "The Providers page" : "The Default model page";
+    return (
+      <section className="su-sum-part su-sum-done" data-testid="setup-summary-done" aria-label="Done">
+        <p className="su-note" data-testid="setup-done-missing" data-page={to}>{r.line}</p>
+        <div className="su-foot-row">
+          <Button variant="primary" onClick={() => goto(to)} data-testid="setup-done-fix" data-step={to}
+                  title={`Open the ${label.slice(4)}; Done comes back here once a model is set`}>
+            {label}
+          </Button>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="su-sum-part su-sum-done" data-testid="setup-summary-done" aria-label="Done">
       <div className="su-foot-row">

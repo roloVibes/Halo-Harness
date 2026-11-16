@@ -98,7 +98,53 @@ def starts_halo(state_dir, cwd) -> "tuple[str, str]":
     return ("terminal" if opened else "none"), line
 
 
+NO_PROVIDER = ("No provider is set up yet, and halo cannot start a session without one: set one up on the Providers "
+               "page, then pick a default model.")
+NO_MODEL = "No default model is picked yet, and halo cannot start a session without one: pick one on the Default model page."
+
+
+def _any_provider(cwd) -> bool:
+    from halo_harness.init_providers import TAB_PROVIDERS, tab_credential_state
+    for name in TAB_PROVIDERS:
+        try:
+            if tab_credential_state(name, cwd=cwd).get("configured"):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def ready(cwd=None, state_dir=None) -> dict:
+    """Local models only (fix): `{ok, line, page}`, whether a session started now has a model it can call, decided by
+    the resolver a session uses (resolve_default_model_raw -> parse_model_ref -> the session's credentials; no server
+    is asked). Not ok: `line` says what is missing and `page` is the Setup page that fixes it (providers | model).
+    A Setup that added only an Ollama host and picked no model ended in 'OpenRouter not configured'."""
+    from types import SimpleNamespace
+
+    from halo_harness.headless import _resolve_creds
+    from halo_harness.model import no_default_model_line, parse_model_ref, resolve_default_model_raw
+    from halo_harness.providers.config import listing_effective_env, load_routes
+    env = listing_effective_env(Path(cwd) if cwd else None)
+    routes = load_routes(_dir(state_dir) / "routes.json")
+    raw = resolve_default_model_raw(routes, env=env)
+    try:
+        creds = _resolve_creds(parse_model_ref(raw, routes), SimpleNamespace(effective_env=env))
+    except Exception as e:  # a ref the resolver refuses (a disabled provider, a name it does not know)
+        return {"ok": False, "line": f"The default model {raw} cannot be used ({e}): pick another on the Default model "
+                                     "page.", "page": "model"}
+    if creds is not None:
+        return {"ok": True, "line": "", "page": ""}
+    if no_default_model_line(raw, routes):
+        return {"ok": False, "line": NO_MODEL, "page": "model"} if _any_provider(cwd) else \
+            {"ok": False, "line": NO_PROVIDER, "page": "providers"}
+    return {"ok": False, "line": f"The default model {raw} has no provider set up here: set one up on the Providers "
+                                 "page, or pick another model on the Default model page.", "page": "providers"}
+
+
 def post_done(req):
+    why = ready(req.cwd, req.state_dir)  # the page offers no Done then; a Done sent anyway gets the same line
+    if not why["ok"]:
+        return 409, {"error": why["line"], "ready": why}
     try:
         at = write_done(req.state_dir)
     except OSError as e:

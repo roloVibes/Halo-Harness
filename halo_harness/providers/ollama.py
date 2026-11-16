@@ -702,7 +702,7 @@ def request_json(host: OllamaHost, path: str, *, timeout: float = _READ_TIMEOUT_
             return JsonReply(failure="unreadable", status=200, error=text)
     except UpstreamConnectError as e:
         log.debug("ollama: %s %s unreachable: %s", method, full_path, e)
-        return JsonReply(failure="unreachable")
+        return JsonReply(failure="unreachable", error=str(e))  # its words (a refused connection says so)
     except (TimeoutError, socket.timeout) as e:
         log.debug("ollama: %s %s timed out after %ss: %s", method, full_path, timeout, e)
         return JsonReply(failure="timeout")

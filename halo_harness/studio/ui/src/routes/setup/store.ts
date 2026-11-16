@@ -68,6 +68,9 @@ export type SetupData = {
   packs?: PackSetup[];
   /** 3.6.0.0 fx: why config.json is not in effect (it does not parse or cannot be read); "" when it is. */
   config_error?: string;
+  /** fix (local models only): whether Done can start a session (studio/setup_done.py ready): no model resolves -> the
+   * line saying what is missing and the page that fixes it. */
+  ready?: { ok: boolean; line: string; page: "providers" | "model" | "" };
 };
 export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
 export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };

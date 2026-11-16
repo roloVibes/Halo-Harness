@@ -144,6 +144,14 @@ def test_done_starts_halo_and_leaves_for_session(ctx: Ctx):
     in the seeded home, a reload (and a later ?first=1) stays put."""
     got = _got(ctx)
     ctx.check(f"?first=1: the rail's line before Done, got {got.get('done_first_before')!r}", got.get("done_first_before") is True)
+    from halo_harness.studio.setup_done import NO_MODEL, NO_PROVIDER
+    page = {NO_PROVIDER: "providers", NO_MODEL: "model"}.get(got.get("missing_line"))
+    ctx.check(f"local models only (fix): no model a session can call -> no Done, one line saying what is missing, got "
+              f"{got.get('missing_line')!r} done={got.get('missing_done')} dialogs={got.get('missing_dialogs')}",
+              page is not None and got.get("missing_done") is False and got.get("missing_dialogs") == 0)
+    ctx.check(f"one button to the page that fixes it, and it goes there, got {got.get('missing_fix')} -> {got.get('missing_went')!r}",
+              got.get("missing_fix") == [page, "The Providers page" if page == "providers" else "The Default model page"]
+              and got.get("missing_went") == page)
     ctx.check(f"the primary Done: start halo with its title, got {got.get('done_label')!r} {got.get('done_title')!r} {got.get('done_primary')!r}",
               got.get("done_label") == "Done: start halo" and "primary" in str(got.get("done_primary"))
               and got.get("done_title") == "Marks this box set up; the terminal that ran `halo init` starts halo; Studio opens Session")

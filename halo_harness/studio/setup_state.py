@@ -132,7 +132,16 @@ def setup_state(cwd=None, state_dir=None) -> dict:  # noqa: F811  (the state abo
     from halo_harness.studio.init_waiting import waiting  # 3.3.15.0 R6: a `halo init` terminal waits for Done
     return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block(), "home": home_id(state_dir),
             "done_at": setup_done_at(state_dir), "packs": pack_blocks(cwd, state_dir), "init_waiting": bool(waiting(state_dir)),
-            "config_error": _config_error()}
+            "config_error": _config_error(), "ready": _ready(cwd, state_dir)}
+
+
+def _ready(cwd, state_dir) -> dict:
+    """fix (local models only): whether Done can start a session (setup_done.ready); the Summary reads it."""
+    from halo_harness.studio.setup_done import ready
+    try:
+        return ready(cwd, state_dir)
+    except Exception as e:  # never a state that does not load
+        return {"ok": True, "line": "", "page": "", "error": f"{type(e).__name__}"}
 
 
 def _config_error() -> str:

@@ -631,6 +631,9 @@ async def _apply_event_inner(app, event) -> None:
         await app.transcript.finish_open_streams(agent_id=agent_id)
     elif kind == "error":
         message = data.get("message", "")
+        if not agent_id and data.get("err_type") == "not_configured":  # no default model: say so, not "OpenRouter"
+            from halo_harness.controller import no_default_model_hint
+            message = no_default_model_hint(getattr(app.controller, "session", None)) or message
         prefix = f"[sub-agent {agent_id}] " if agent_id else ""
         await app.transcript.add_note(f"✗ Error: {prefix}{message}", kind="error")
         app.notify(f"{prefix}{message}", severity="error", title="Error")

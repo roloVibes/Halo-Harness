@@ -162,6 +162,38 @@ def test_the_tui_shows_the_setup_line_on_its_first_screen(ctx: Ctx):
     ctx.check(f"the first screen names the setup, got {log[-400:]!r}",
               "No provider is set up for or:m" in log and "halo init" in log)
 
+@test
+def test_the_tui_with_no_default_model_does_not_name_openrouter(ctx: Ctx):
+    """Local models only: a home with no default model (Setup added an Ollama host, picked no model) ran on the
+    built-in OpenRouter default, and the TUI's first screen and first prompt said 'OpenRouter not configured', a
+    provider this person never chose. Both now say no default model is set (the one-shot path's sentence)."""
+    import asyncio
+    from halo_harness.model import DEFAULT_MODEL_REF
+    from halo_harness.events import error
+    from halo_harness.testing.fake_controller import FakeController
+    from halo_harness.tui.app import BridgeApp
+    from halo_harness.tui.dispatch import apply_event
+    with _scratch_home():
+        fake = FakeController()
+        fake.session = types.SimpleNamespace(creds=None, model_ref=types.SimpleNamespace(
+            provider="openrouter", model=DEFAULT_MODEL_REF.split(":", 1)[1], raw=DEFAULT_MODEL_REF))
+        app = BridgeApp(fake, cwd=str(Path(_tmp("first-run-tui-"))))
+        got: dict = {}
+
+        async def body():
+            async with app.run_test(size=(120, 30)) as pilot:
+                await pilot.pause(0.5)
+                got["first"] = "\n".join(app.transcript.plain_log)
+                await apply_event(app, error("OpenRouter not configured -- set OPENROUTER_API_KEY, or run `halo init` "
+                                             "to set up a provider", turn=1, err_type="not_configured"))
+                await pilot.pause(0.2)
+                got["prompt"] = "\n".join(app.transcript.plain_log)[len(got["first"]):]
+        asyncio.run(body())
+    for where in ("first", "prompt"):
+        log = " ".join(got.get(where, "").split())
+        ctx.check(f"{where}: no default model is set, not 'OpenRouter not configured', got {log[-500:]!r}",
+                  "no default model is set" in log and "OpenRouter not configured" not in log)
+
 
 # ---- halo config set ---------------------------------------------------------------------------------------------
 
