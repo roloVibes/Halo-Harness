@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.isolation_rig import IsoEnv, Recorder, run_with_lane
-from tests.helpers.runner import Ctx, new_registry, print_results, run_all
+from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
 _TOKEN_VALUE = "made-up-github-value-0042"
@@ -243,7 +243,6 @@ def _dead_pid() -> int:
 @test
 def test_container_lane_has_a_name_and_the_owner_label(ctx: Ctx):
     from halo_harness import closing
-    from halo_harness.isolation.container import name_of
     with IsoEnv() as e:
         _repo, run_dir, lane = _boxed(e)
         rec = Recorder()
@@ -254,6 +253,9 @@ def test_container_lane_has_a_name_and_the_owner_label(ctx: Ctx):
         ctx.check(f"the container is named for this Halo and the lane, got {name}",
                   bool(name) and name.startswith(f"halo-{mark}-2-"))
         ctx.check(f"and labelled with its owner, got {label}", label == f"halo.owner={mark}")
+        # the helper is imported only after the argv checks: on a base without it this test fails on the name and
+        # the label, not on an ImportError (3.6.0.1 reaper batch 3)
+        from halo_harness.isolation.container import name_of
         ctx.check("name_of reads it back", name_of(argv) == name)
         ctx.check("name_of of a plain worker argv is None", name_of([sys.executable, "-m", "halo_harness", "-p", "x"]) is None)
         ctx.check(f"a lane that ended by itself leaves no record, got {_records(e)}", _records(e) == [])
@@ -363,6 +365,139 @@ def test_the_reaper_removes_its_owners_container(ctx: Ctx):
         ctx.check(f"it removed its owner's container only, got {e.engine_calls()}",
                   e.engine_calls() == [["rm", "-f", "halo-mine-2-cccccc"]])
         ctx.check(f"and that record only, got {_records(e)}", _records(e) == ["halo-other-2-dddddd"])
+
+
+# ---- 3.6.0.1 (reaper batch 3): a stopped or hung engine costs a start little; a close before the container exists ------
+
+@test
+def test_a_start_with_the_engine_down_tries_once_then_waits_10_minutes(ctx: Ctx):
+    """A gone owner's record while the engine's daemon is down: the first start tries (bounded at 3 s) and notes
+    the try; the starts after it make no engine call until 10 minutes have passed (an injected clock)."""
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        (e.bin / "engine_fail").write_text("", encoding="utf-8")
+        container.write_record("halo-gone-1-eeeeee", engine, closing.ident(_dead_pid(), "x"), state_dir=e.state)
+        bounds: list = []
+        real_remove = container.remove
+
+        def remove(exe, names, timeout, **kw):
+            bounds.append(timeout)
+            return real_remove(exe, names, timeout, **kw)
+
+        container.remove = remove
+        real_now = getattr(container, "_now", None)
+        try:
+            closing.sweep(state_dir=e.state, say=lambda s: None)
+            closing.sweep(state_dir=e.state, say=lambda s: None)
+            ctx.check(f"two starts within a minute call the engine once, got {e.engine_calls()}",
+                      e.engine_calls() == [["rm", "-f", "halo-gone-1-eeeeee"]])
+            ctx.check(f"a try is bounded at 3 s, got {bounds}", bool(bounds) and all(b <= 3.0 for b in bounds))
+            ctx.check(f"the record stays for later, got {_records(e)}", _records(e) == ["halo-gone-1-eeeeee"])
+            start = __import__("time").time()
+            container._now = lambda: start + 601
+            closing.sweep(state_dir=e.state, say=lambda s: None)
+            ctx.check(f"after 10 minutes it is tried again, got {len(e.engine_calls())} calls",
+                      len(e.engine_calls()) == 2)
+            (e.bin / "engine_fail").unlink()
+            container._now = lambda: start + 1300
+            said: list = []
+            closing.sweep(state_dir=e.state, say=said.append)
+            ctx.check(f"the engine back: removed and said, got {_records(e)} / {said}",
+                      _records(e) == [] and len(said) == 1 and "halo-gone-1-eeeeee" in said[0])
+        finally:
+            container.remove = real_remove
+            if real_now is not None:
+                container._now = real_now
+            elif hasattr(container, "_now"):
+                del container._now
+
+
+@test
+def test_a_hung_engine_holds_a_start_for_a_few_seconds_at_most(ctx: Ctx):
+    """A daemon that never answers: the start sweep's one try ends at its 3 s bound (it was 10 s). POSIX: the fake
+    engine is one process there (sh execs python), so the timeout's kill ends it; Windows checks the bound by the
+    injected recorder of the test above."""
+    import time
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    if os.name == "nt":
+        raise SkipTest("Windows: the .cmd fake engine's python would outlive the kill; the bound is checked above")
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        (e.bin / "engine_sleep").write_text("", encoding="utf-8")
+        container.write_record("halo-gone-1-ffffff", engine, closing.ident(_dead_pid(), "x"), state_dir=e.state)
+        t0 = time.monotonic()
+        closing.sweep(state_dir=e.state, say=lambda s: None)
+        took = time.monotonic() - t0
+        ctx.check(f"the start waited {took:.1f} s for a hung engine (bound 3 s, the old bound was 10 s)", took < 8.0)
+        ctx.check(f"the record stays, got {_records(e)}", _records(e) == ["halo-gone-1-ffffff"])
+
+
+@test
+def test_a_close_before_the_container_exists_keeps_its_record(ctx: Ctx):
+    """A close in the lane's first moments: `rm -f` answers 'no such container' (the engine has not created it yet),
+    so the record stays; the next start's sweep (its owner gone) asks once more and drops it on the same answer."""
+    import subprocess
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    closing.reset_for_tests()
+    try:
+        with IsoEnv() as e:
+            _repo, run_dir, lane = _boxed(e)
+            (e.bin / "engine_nosuch").write_text("", encoding="utf-8")
+            seen: dict = {}
+
+            def runner(argv, **kw):
+                seen["argv"] = list(argv)
+                closing.close(polite_s=0.2, hard_s=0.1, say=lambda s: None, state_dir=e.state)
+                return subprocess.CompletedProcess(argv, -9, "", "")
+
+            _spawn(run_dir, lane, runner)
+            name = _flag(seen["argv"], "--name")
+            ctx.check(f"the close asked the engine, got {e.engine_calls()}", ["rm", "-f", name] in e.engine_calls())
+            ctx.check(f"'no such container' at close keeps the record, got {_records(e)}", _records(e) == [name])
+            path = e.state / "containers" / f"{name}.json"
+            rec = json.loads(path.read_text(encoding="utf-8"))
+            rec["owner"] = closing.ident(_dead_pid(), "x")  # the next start: this Halo has gone
+            path.write_text(json.dumps(rec), encoding="utf-8")
+            n = len(e.engine_calls())
+            closing.sweep(state_dir=e.state, say=lambda s: None)
+            ctx.check(f"the next start asks once more, got {e.engine_calls()[n:]}",
+                      e.engine_calls()[n:] == [["rm", "-f", name]])
+            ctx.check(f"and drops the record on 'no such container', got {_records(e)}", _records(e) == [])
+    finally:
+        closing.reset_for_tests()
+
+
+@test
+def test_halo_ps_lists_this_homes_recorded_containers(ctx: Ctx):
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    from halo_harness.ps_cli import cmd_ps
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_ps([])
+        ctx.check(f"no record: no container line, got {buf.getvalue()!r}", "container" not in buf.getvalue())
+        container.write_record("halo-gone-3-abcdef", engine, closing.ident(_dead_pid(), "x"), state_dir=e.state)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_ps([])
+        lines = [ln for ln in buf.getvalue().splitlines() if ln.startswith("container")]
+        ctx.check(f"one line for the record, got {buf.getvalue()!r}", len(lines) == 1)
+        line = lines[0] if lines else ""
+        ctx.check(f"its name, engine, since and the way to remove it now, got {line!r}",
+                  "halo-gone-3-abcdef" in line and " docker " in line and "since " in line
+                  and "its Halo has gone: removed at the next start, or now with: docker rm -f halo-gone-3-abcdef"
+                  in line)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_ps(["--json"])
+        ctx.check("--json stays JSON", isinstance(json.loads(buf.getvalue()), dict))
+        ctx.check(f"halo ps calls no engine, got {e.engine_calls()}", e.engine_calls() == [])
 
 
 if __name__ == "__main__":

@@ -79,6 +79,12 @@ reaper), and otherwise at the next `halo` start (the start sweep removes a
 recorded container whose Halo is gone; never one of another home, never one
 found only by its label). On Windows a hard kill ends the client at once (it
 is in Halo's Job object) and the container is removed at the next start.
+At a close a record goes only when `rm -f` removed something: a close in the
+lane's first moments (the engine has not created the container yet) leaves it
+to the next start. When the engine's daemon is stopped or hangs, a start tries
+once (3 s at most), notes the try, and the starts of the next 10 minutes leave
+that record alone. `halo ps` lists this home's recorded containers (without
+calling the engine) and the command that removes one now;
 `docker ps --filter label=halo.owner` lists the ones running. The worker in the
 container gets no `HALO_OWNER` watch: it runs in another pid namespace, where
 the owner's pid means nothing.

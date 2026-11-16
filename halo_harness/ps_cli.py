@@ -209,6 +209,7 @@ def cmd_ps(argv: list) -> int:
         print(json.dumps({"processes": table}, indent=2))
     else:
         _print(table)
+        _print_containers()  # 3.6.0.1: this home's recorded worker containers (read-only; no engine call)
     return 0
 
 
@@ -295,3 +296,18 @@ def doctor_line(state_dir=None) -> Optional[str]:
         return None
     n = len(lost)
     return f"{n} process{'es' if n != 1 else ''} of Halo {'have' if n != 1 else 'has'} no living owner"
+
+
+def _print_containers(state_dir=None) -> None:
+    """3.6.0.1: one line per worker container this home has recorded (isolation/container.py) -- after a hard kill on
+    Windows, or while the engine is down, it waits for the next start's sweep. Read-only: the engine is not called."""
+    from pathlib import Path
+    from halo_harness import closing
+    from halo_harness.isolation.container import records
+    for rec in records(state_dir):
+        engine, name = Path(rec["engine"]).stem, rec["name"]
+        alive = closing.marker_owner_alive(rec["owner"])
+        state = ("its Halo is running: removed when it closes" if alive else
+                 f"its Halo {'has' if alive is False else 'may have'} gone: removed at the next start, or now with: "
+                 f"{engine} rm -f {name}")
+        print(f"{'container':<11}{name}  {engine}  since {closing._when(rec)}  {state}")

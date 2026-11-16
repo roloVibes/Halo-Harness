@@ -9,6 +9,8 @@ kinds: studio  -- studio/launch.launch_detached, the way `halo init` starts Stud
        ledger  -- the same, recorded in children.json as this owner's (a schedule fire, a model server)
        kept    -- a spawn a person asked to keep (kept_kwargs, keep=True), like `halo --bg`
        keptmark -- a tool command's daemon started with HALO_OWNER=kept-<name> (a close leaves it running)
+       keptmix -- a short non-kept child first (so a reaper starts), then the keptmark daemon (3.6.0.1: the
+                  reaper's sweep and the close-time marker scan run NEXT TO a kept daemon)
        shortchild -- a non-kept child that exits before the owner is ready (the reaper starts, nothing to end)
        grandchild -- a tool command that starts its own child with the plain standard library
        mcp     -- an MCP stdio server through mcp/stdio.connect (the MCP SDK's own spawn)
@@ -71,9 +73,11 @@ def main() -> int:
     else:
         target = out / f"{kind}-child.json"
         kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if kind == "keptmix":  # one short non-kept child first: the reaper starts and runs beside the kept daemon
+            subprocess.Popen([sys.executable, "-c", "pass"], **kw).wait(timeout=30)
         if kind == "kept":
             kw = closing.kept_kwargs(kw)
-        elif kind == "keptmark":  # a tool command that starts its daemon with HALO_OWNER=kept-<name> (docs/PROCESSES.md)
+        elif kind in ("keptmark", "keptmix"):  # a tool command's daemon with HALO_OWNER=kept-<name> (docs/PROCESSES.md)
             kw["env"] = dict(os.environ, HALO_OWNER="kept-daemon")
         extra = [str(out / "grandchild.json")] if kind == "grandchild" else []
         proc = subprocess.Popen(sleeper + [str(target)] + extra, **kw)

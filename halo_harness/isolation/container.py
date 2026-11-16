@@ -162,9 +162,11 @@ def records(state_dir=None) -> list:
     return out
 
 
-def remove(exe: str, names: list, timeout: float) -> list:
+def remove(exe: str, names: list, timeout: float, *, strict: bool = False) -> list:
     """`<engine> rm -f <names...>` (docker and podman alike): the names now known gone (removed, or there was no
-    such container, or the engine program is missing). A failed or timed-out call answers none of them."""
+    such container, or the engine program is missing). A failed or timed-out call answers none of them. `strict`
+    (a close): only an exit 0 counts -- a close in a lane's first moments meets 'no such container' before the
+    engine has created it, and that container would then start with no record (3.6.0.1)."""
     import subprocess
     names = [str(n) for n in names]
     if not names:
@@ -173,18 +175,21 @@ def remove(exe: str, names: list, timeout: float) -> list:
         proc = subprocess.run([exe, "rm", "-f", *names], stdin=subprocess.DEVNULL, capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=max(0.5, float(timeout)))
     except FileNotFoundError:
-        return names
+        return [] if strict else names
     except (OSError, subprocess.SubprocessError, ValueError):
         return []
     if proc.returncode == 0:
         return names
+    if strict:
+        return []
     lines = [ln.lower() for ln in (proc.stderr or "").splitlines() if "no such container" in ln.lower()]
     return [n for n in names if any(n.lower() in ln for ln in lines)]
 
 
-def remove_where(keep, state_dir=None, timeout: float = 10.0) -> list:
+def remove_where(keep, state_dir=None, timeout: float = 10.0, failed=None) -> list:
     """Remove every recorded container whose record `keep(record)` says False, one engine call per engine; their
-    records go when the engine says they are gone. Answers the records removed. No records: no engine call."""
+    records go when the engine says they are gone. Answers the records removed. No records: no engine call.
+    `failed(record)` is called for each one tried and not known gone."""
     by_engine: dict = {}
     for rec in records(state_dir):
         if not keep(rec):
@@ -196,15 +201,44 @@ def remove_where(keep, state_dir=None, timeout: float = 10.0) -> list:
             if r["name"] in gone:
                 drop_record(r["name"], state_dir)
                 done.append(r)
+            elif failed is not None:
+                failed(r)
     return done
 
 
+RETRY_S = 600.0  # 3.6.0.1: a record the engine could not remove is tried again by a start after 10 minutes, not each
+TRY_S = 3.0      # and one try holds a start this long at most (a stopped or hung daemon)
+
+
+def _now() -> float:
+    import time
+    return time.time()
+
+
+def _tried_lately(rec: dict, now: float) -> bool:
+    tried = rec.get("tried")
+    return isinstance(tried, (int, float)) and 0 <= now - float(tried) < RETRY_S
+
+
+def _note_tried(rec: dict, now: float, state_dir=None) -> None:
+    import json
+    try:
+        (records_dir(state_dir) / f"{rec['name']}.json").write_text(json.dumps(dict(rec, tried=now)),
+                                                                     encoding="utf-8")
+    except OSError:
+        pass
+
+
 def sweep_records(state_dir=None, say=None) -> list:
-    """The start sweep's part (closing.sweep): containers whose owner is provably gone, one line each."""
+    """The start sweep's part (closing.sweep): containers whose owner is provably gone, one line each. A record the
+    engine could not remove (its daemon stopped or hung) notes the try, and the starts of the next 10 minutes leave
+    it alone: a stopped Docker costs one bounded call per 10 minutes, never one per start."""
     from halo_harness import closing
     if not records(state_dir):
         return []
-    done = remove_where(lambda r: closing.marker_owner_alive(r["owner"]) is not False, state_dir, timeout=10.0)
+    now = _now()
+    done = remove_where(lambda r: closing.marker_owner_alive(r["owner"]) is not False or _tried_lately(r, now),
+                        state_dir, timeout=TRY_S, failed=lambda r: _note_tried(r, now, state_dir))
     lines = [f"halo: removed a worker container left from {closing._when(r)} ({r['name']})" for r in done]
     for line in lines:
         try:
@@ -235,12 +269,15 @@ def finished(name: str, *, ended_by_itself: bool, timeout: float = 30.0) -> None
     if item is None:  # this process's close removed it already
         return
     exe, state_dir = item
-    if ended_by_itself or remove(exe, [name], timeout):
+    from halo_harness import closing
+    if ended_by_itself or remove(exe, [name], timeout, strict=closing.stop_asked()):
         drop_record(name, state_dir)
 
 
 def _remove_live() -> None:
-    """closing.close(): every container this process's lanes still run, in one `rm -f` per engine."""
+    """closing.close(): every container this process's lanes still run, in one `rm -f` per engine. A record goes
+    only on an exit 0 (strict): 'no such container' at close may be one the engine is still creating, and the next
+    start's sweep finishes it (one call, then the record goes)."""
     from halo_harness import closing
     with _LIVE_LOCK:
         live = dict(_LIVE)
@@ -249,7 +286,7 @@ def _remove_live() -> None:
     for name, (exe, state_dir) in live.items():
         by_engine.setdefault((exe, state_dir), []).append(name)
     for (exe, state_dir), names in by_engine.items():
-        for name in remove(exe, names, closing.time_left(10.0)):
+        for name in remove(exe, names, closing.time_left(10.0), strict=True):
             drop_record(name, state_dir)
 
 
