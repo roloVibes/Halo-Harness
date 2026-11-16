@@ -120,9 +120,48 @@ def _call(name: str, args, kw: dict):
     # 3.6.0.0 fx: inside the closing procedure like a Popen: the child carries this tree's marker even in an
     # environment the caller built, and it counts as spawned (POSIX: the reaper starts, a close runs the marker scan)
     kw = closing.before_spawn(fix_kw(args, kw))
-    if not closing.is_kept_env(kw.get("env")):
+    env = kw.get("env")
+    if not closing.is_kept_env(env):
         closing.note_spawn()
+    # 3.6.0.1: on Windows through Popen (below), so the child joins this process's Job as a Popen child does and a
+    # hard kill of this Halo ends it too. Never the person's editor (a scrubbed env) or a kept one: the strict Job
+    # forbids leaving it, so they would end with Halo.
+    if os.name == "nt" and not isinstance(env, closing.Unmarked) and not closing.is_kept_env(env):
+        return _WIN[name](args, **kw)
     return fn(resolve(args, kw), **kw)
+
+
+def _win_run(args, *, input=None, capture_output=False, timeout=None, check=False, **kw):
+    """CPython's subprocess.run, with the child started by this module's Popen (Windows only)."""
+    if input is not None:
+        kw["stdin"] = _sp.PIPE
+    if capture_output:
+        kw["stdout"] = kw["stderr"] = _sp.PIPE
+    with Popen(args, **kw) as p:
+        try:
+            out, err = p.communicate(input, timeout=timeout)
+        except _sp.TimeoutExpired as exc:
+            p.kill()
+            exc.stdout, exc.stderr = p.communicate()
+            raise
+        except BaseException:
+            p.kill()
+            raise
+        code = p.poll()
+    if check and code:
+        raise _sp.CalledProcessError(code, p.args, output=out, stderr=err)
+    return _sp.CompletedProcess(p.args, code, out, err)
+
+
+def _win_check_call(args, **kw):
+    code = _win_run(args, **kw).returncode
+    if code:
+        raise _sp.CalledProcessError(code, args)
+    return 0
+
+
+_WIN = {"run": _win_run, "call": lambda args, **kw: _win_run(args, **kw).returncode, "check_call": _win_check_call,
+        "check_output": lambda args, **kw: _win_run(args, stdout=_sp.PIPE, check=True, **kw).stdout}
 
 
 def run(args, **kw):

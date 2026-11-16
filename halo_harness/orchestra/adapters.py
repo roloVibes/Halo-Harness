@@ -116,7 +116,8 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
     """`spawn(lane)`: a fresh `halo -p` in the lane's worktree. 3.1.6.0 R2 (the coach's probe runs,
     orchestra/probe_overlay.py): `team` adds `--map <name>` (3.6.0.0 R5b: a map, where it was a lineup); `cwd_overlay(lane)` writes an overlay into
     the worktree before the worker starts and answers extra worker flags. Both None: the argv as before."""
-    from halo_harness.isolation import Stop
+    from halo_harness import closing
+    from halo_harness.isolation import Stop, container
     from halo_harness.isolation.lane import prepare
     from halo_harness.isolation.secrets import scrub
     from halo_harness.orchestra.workers import child_env
@@ -128,21 +129,30 @@ def spawn_worker(model: Optional[str], role: str = "subagent", *, run_dir, runne
         env.setdefault("PYTHONIOENCODING", "utf-8")
         env.update(parent_env_of())
         values: tuple = ()
+        box, by_itself = None, False  # 3.6.0.1: a container lane's name (isolation/container.py), how it ended
         try:
             job = lane.job  # 3.0.9.0 R2: a reviewed plan may give the lane its own bio and model
             argv = worker_argv(lane.prompt, getattr(job, "model", "") or ref, getattr(job, "bio", "") or None,
                                mode=mode, rules=rules)
             argv += (["--map", team] if team else []) + (list(cwd_overlay(lane) or []) if cwd_overlay else [])
             argv, env, values = prepare(lane, argv, env, run_dir=run_dir, team=team)  # 3.1.8.0 R5 (docs/ISOLATION.md)
+            box = container.name_of(argv)
+            if box:  # recorded before it starts: a close, the reaper or the next start can remove it
+                container.started(box, argv[0])
             proc = runner(argv, cwd=str(lane.worktree), env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=limit,
                           stdin=subprocess.DEVNULL)
+            by_itself = not closing.stop_asked()  # a close kills the client: the container may still run
         except Stop as e:  # 3.1.8.0 R5: the lane cannot run as declared -- its one line, like a dead harness
             return {"ok": False, "error": str(e)}
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired:  # the client is killed; the container is removed below (finally)
             return {"ok": False, "error": f"the worker ran past {limit}s"}
         except OSError as e:
             return {"ok": False, "error": f"could not start the worker: {e}"}
+        finally:
+            if box:
+                container.finished(box, ended_by_itself=by_itself,
+                                   timeout=closing.time_left(10.0) if closing.stop_asked() else 30.0)
         obj = _last_json(proc.stdout)
         if obj is None:
             tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]

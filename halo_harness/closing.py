@@ -1169,9 +1169,14 @@ def _when(entry: dict) -> str:
 
 def sweep(state_dir=None, say: Optional[Callable[[str], None]] = None) -> list:
     """Stop every orphan (above), one line each: "halo: stopped a Studio server left from 2026-11-14 22:10"."""
+    try:  # 3.6.0.1: a worker container whose Halo is gone (isolation/container.py); no record = no engine call
+        from halo_harness.isolation.container import sweep_records
+        early = sweep_records(state_dir, say)
+    except Exception:
+        early = []
     found = orphans(state_dir)
     if not found:
-        return []
+        return early
     gone = {e["pid"] for e in stop_entries(found, state_dir=state_dir)}
     lines = []
     for e in found:
@@ -1181,7 +1186,7 @@ def sweep(state_dir=None, say: Optional[Callable[[str], None]] = None) -> list:
     out = say if say is not None else _say
     for line in lines:
         out(line)
-    return lines
+    return early + lines
 
 
 # -- the owner watch (a Halo child) --------------------------------------------------------------------------------

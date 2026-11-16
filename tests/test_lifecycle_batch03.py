@@ -365,6 +365,106 @@ def test_posix_what_run_starts_ends_with_its_starter(ctx: Ctx):
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---- 4b. Windows (3.6.0.1): what subprocess_safe.run starts is in the starter's Job ------------------------------------
+
+WIN_RUN_STARTER = r'''
+import os, sys, threading, time
+from halo_harness import closing, subprocess_safe
+closing.install(sweep_at_start=False)
+pidfile = sys.argv[1]
+code = "import os, time; open(%r, 'w').write(str(os.getpid())); time.sleep(60)" % pidfile
+def go():
+    try:
+        subprocess_safe.run([sys.executable, "-c", code], capture_output=True, timeout=600)
+    except Exception:
+        pass
+threading.Thread(target=go, daemon=True).start()
+deadline = time.time() + 60
+while time.time() < deadline and not (os.path.exists(pidfile) and open(pidfile).read().strip()):
+    time.sleep(0.05)
+print("READY", flush=True)
+time.sleep(600)
+'''
+
+
+@test
+def test_windows_a_run_child_ends_with_a_hard_killed_starter(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows: POSIX has the marker scan and the reaper (test above)")
+    from halo_harness.children import pid_running, start_time
+    tmp = Path(tempfile.mkdtemp(prefix="lc-b3-winrun-"))
+    child, cstart = None, None
+    try:
+        (tmp / "starter.py").write_text(WIN_RUN_STARTER, encoding="utf-8")
+        (tmp / "home" / ".halo").mkdir(parents=True)
+        pidfile = tmp / "child.pid"
+        starter = subprocess.Popen([sys.executable, str(tmp / "starter.py"), str(pidfile)], env=_env(tmp / "home"),
+                                   cwd=str(tmp), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                                   creationflags=0x00004000)  # BELOW_NORMAL_PRIORITY_CLASS
+        try:
+            line = starter.stdout.readline().strip()
+            ctx.check(f"the starter is up, got {line!r}", line == "READY")
+            child = int(pidfile.read_text().strip())
+            cstart = start_time(child)
+            starter.kill()  # TerminateProcess: no Python code of the starter runs
+            starter.wait(timeout=20)
+            deadline = time.time() + 30
+            while time.time() < deadline and pid_running(child):
+                time.sleep(0.1)
+            ctx.check(f"the run() child (pid {child}) ended with its hard-killed starter", not pid_running(child))
+        finally:
+            if starter.poll() is None:
+                starter.kill()
+                starter.wait(timeout=10)
+            if starter.stdout:
+                starter.stdout.close()
+    finally:
+        if child and cstart and pid_running(child) and start_time(child) == cstart:
+            os.kill(child, signal.SIGTERM)  # Windows: TerminateProcess of the one child this test made
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@test
+def test_windows_run_joins_the_job_like_popen_but_never_an_editor_or_a_kept_env(ctx: Ctx):
+    if not WIN:
+        raise SkipTest("Windows: the Job object")
+    from halo_harness import closing, subprocess_safe
+    calls: list = []
+    saved = closing.adopt
+    closing.adopt = lambda proc: calls.append(proc.pid) or True
+    try:
+        quick = [sys.executable, "-c", "pass"]
+        subprocess_safe.run(quick, env=closing.scrubbed_env(), timeout=60)
+        ctx.check(f"the person's editor (a scrubbed env) is never adopted, got {calls}", calls == [])
+        kept = dict(os.environ, **{closing.MARKER: closing.KEPT_PREFIX + "1-x"})
+        subprocess_safe.run(quick, env=kept, timeout=60)
+        ctx.check(f"a kept env is never adopted, got {calls}", calls == [])
+        proc = subprocess_safe.run(quick, env=dict(os.environ), capture_output=True, text=True, timeout=60)
+        ctx.check(f"an ordinary run() child is adopted once, got {calls}", len(calls) == 1)
+        ctx.check(f"and run() answers as before, got {proc!r}",
+                  isinstance(proc, subprocess.CompletedProcess) and proc.returncode == 0 and proc.stdout == "")
+        out = subprocess_safe.check_output([sys.executable, "-c", "print(41 + 1)"], text=True, timeout=60)
+        ctx.check(f"check_output too, got {out!r} / {calls}", out.strip() == "42" and len(calls) == 2)
+        code = subprocess_safe.call([sys.executable, "-c", "import sys; sys.exit(3)"], timeout=60)
+        ctx.check(f"call answers the exit code, got {code}", code == 3 and len(calls) == 3)
+        try:
+            subprocess_safe.check_call([sys.executable, "-c", "import sys; sys.exit(4)"], timeout=60)
+            ctx.check("check_call raises on a failure", False)
+        except subprocess.CalledProcessError as exc:
+            ctx.check(f"check_call raises on a failure, got {exc.returncode}", exc.returncode == 4)
+        try:
+            subprocess_safe.run([sys.executable, "-c", "import time; time.sleep(30)"], capture_output=True,
+                                timeout=2)
+            ctx.check("a timeout raises TimeoutExpired", False)
+        except subprocess.TimeoutExpired:
+            ctx.check("a timeout raises TimeoutExpired (the child is killed)", True)
+        done = subprocess_safe.run([sys.executable, "-c", "import sys; print(sys.stdin.read().upper())"],
+                                   input="abc", capture_output=True, text=True, timeout=60)
+        ctx.check(f"input reaches the child, got {done.stdout!r}", done.stdout.strip() == "ABC")
+    finally:
+        closing.adopt = saved
+
+
 @test
 def test_a_scoped_user_worker_carries_the_owner_variables(ctx: Ctx):
     from halo_harness import closing

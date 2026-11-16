@@ -52,12 +52,38 @@ class IsoEnv:
         import shutil
         return shutil.which(name, path=str(self.bin))
 
-    def tool(self, name: str) -> Path:
-        """An empty stand-in for `name` that `which` finds (never run: the worker's runner is a recorder)."""
+    def tool(self, name: str, record: bool = False) -> Path:
+        """An empty stand-in for `name` that `which` finds (never run: the worker's runner is a recorder).
+        3.6.0.1: `record` makes it a fake engine instead: each call appends its argv to `engine_calls.jsonl` and
+        exits 0, or 1 with an engine error while `engine_fail` exists in the bin folder (`engine_calls()`)."""
+        if record:
+            return self._fake_engine(name)
         path = self.bin / (name + (".cmd" if os.name == "nt" else ""))
         path.write_text("@echo off\r\nexit 9\r\n" if os.name == "nt" else "#!/bin/sh\nexit 9\n", encoding="utf-8")
         path.chmod(0o755)
         return path
+
+    def _fake_engine(self, name: str) -> Path:
+        script = self.bin / "fake_engine.py"
+        script.write_text(
+            "import json, sys, pathlib\n"
+            "here = pathlib.Path(__file__).resolve().parent\n"
+            "with open(here / 'engine_calls.jsonl', 'a', encoding='utf-8') as f:\n"
+            "    f.write(json.dumps(sys.argv[1:]) + chr(10))\n"
+            "if (here / 'engine_fail').exists():\n"
+            "    sys.stderr.write('Cannot connect to the engine daemon' + chr(10)); sys.exit(1)\n", encoding="utf-8")
+        if os.name == "nt":
+            path = self.bin / f"{name}.cmd"
+            path.write_text(f'@"{sys.executable}" "{script}" %*\r\n', encoding="utf-8")
+        else:
+            path = self.bin / name
+            path.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{script}" "$@"\n', encoding="utf-8")
+            path.chmod(0o755)
+        return path
+
+    def engine_calls(self) -> list:
+        log = self.bin / "engine_calls.jsonl"
+        return [json.loads(ln) for ln in log.read_text(encoding="utf-8").splitlines()] if log.is_file() else []
 
     def fake_op(self, values: dict) -> Path:
         """A fake `op`: `op read <ref> [--account A]` prints values[ref], else exits 1. It logs its argv."""

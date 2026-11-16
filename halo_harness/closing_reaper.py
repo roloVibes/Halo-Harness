@@ -5,7 +5,7 @@
 closing.ensure_reaper starts it (its own session, so a closed terminal or Ctrl+C never reaches it) at the owner's
 first long-lived spawn. It waits for the owner -- its parent pid changes the moment the owner is gone, however it
 went -- then stops the owner's ledger children that were not asked to stay and every process that carries the
-owner's `HALO_OWNER` marker, and exits. The owner's own closing procedure kills it first on every way out that runs
+owner's `HALO_OWNER` marker, removes the owner's recorded worker containers (3.6.0.1), and exits. The owner's own closing procedure kills it first on every way out that runs
 Python, so it only ever acts after a hard kill. Never a pid that is not the owner's: a ledger entry is checked by
 pid and start time, a marker match by its start time again before the kill.
 """
@@ -41,6 +41,11 @@ def main(argv: list) -> int:
     except Exception:
         pass
     closing.kill_marked(mark, bound_s=1.0)
+    try:  # 3.6.0.1: the owner's worker containers live in the engine's daemon: removed through the engine
+        from halo_harness.isolation.container import remove_where
+        remove_where(lambda rec: rec.get("owner") != mark, state_dir, timeout=20.0)
+    except Exception:
+        pass
     return 0
 
 

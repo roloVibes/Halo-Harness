@@ -51,6 +51,7 @@ The worker's `halo -p` argv becomes (`isolation/container.py` `wrap`):
 
 ```sh
 docker run --rm --network host \
+  --name halo-<owner>-<n>-<6 hex> --label halo.owner=<owner> \
   -v <run>/wt/worker-<n>:/work -w /work -v <run>:/run -v <run>/state-<n>:/root/.halo \
   [-v <repo>/.git:<repo>/.git]       # a POSIX host: git works in /work
   [-v <each mount>] \
@@ -63,6 +64,20 @@ docker run --rm --network host \
 docker takes the value from its own environment, so no value is ever in an
 argv. The container sees only those names: the isolation's `env`, the
 broker's keys and the run's own variables.
+
+The container belongs to the engine, not to the `docker run` client, so ending
+the client does not end it. 3.6.0.1: each lane's container is named for the
+Halo that started it (`<owner>` is that Halo's marker id, the `HALO_OWNER`
+value its children carry) and recorded under `~/.halo/containers/<name>.json`
+while it runs. `<engine> rm -f <name>` removes it when the lane runs past its
+time, when that Halo closes, after a hard kill of it (macOS and Linux: its
+reaper), and otherwise at the next `halo` start (the start sweep removes a
+recorded container whose Halo is gone; never one of another home, never one
+found only by its label). On Windows a hard kill ends the client at once (it
+is in Halo's Job object) and the container is removed at the next start.
+`docker ps --filter label=halo.owner` lists the ones running. The worker in the
+container gets no `HALO_OWNER` watch: it runs in another pid namespace, where
+the owner's pid means nothing.
 
 The host's `~/.halo` is never mounted. The worker gets a scoped state dir,
 `<run>/state-<n>/` (`isolation/seed.py`), seeded with the host config's
@@ -246,7 +261,8 @@ environment:
 run`: lane 2's worker (the goal's `subagent` role, so bio `coder`) runs as
 
 ```sh
-docker run --rm --network host -v <run>/wt/worker-2:/work -w /work -v <run>:/run \
+docker run --rm --network host --name halo-<owner>-2-<6 hex> --label halo.owner=<owner> \
+  -v <run>/wt/worker-2:/work -w /work -v <run>:/run \
   -v <run>/state-2:/root/.halo -e HALO_ORCHESTRA_RUN=/run -e HALO_ORCHESTRA_LANE=2 -e PYTHONIOENCODING=utf-8 \
   -e GITHUB_TOKEN -e HALO_OPT_INS -e HALO_SECRET_KEYS -e HALO_TOOLS_CAPS -e HALO_TOOLS_CAPS_BY -e OPENROUTER_API_KEY \
   halo-harness-worker:<version> halo -p "<prompt>" --output-format json --permission-mode auto

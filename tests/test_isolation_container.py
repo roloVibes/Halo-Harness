@@ -214,6 +214,157 @@ def test_the_declaration_is_validated(ctx: Ctx):
         ctx.check(f"a lineup's isolation is checked, got {ok} / {bad}", not ok and any("isolation" in p for p in bad))
 
 
+# ---- 3.6.0.1 (reaper batch 1): a container lane has a name, a record, and ends with its Halo --------------------------
+
+def _boxed(e):
+    """A recording fake docker on the rig's PATH and a lane whose lineup asks for a container."""
+    e.tool("docker", record=True)
+    e.lineup("boxed", {"agents": [{"agent": "coder", "role": "main"}], "isolation": "container"})
+    e.bio("coder", {})
+    return run_with_lane(lineup="boxed")
+
+
+def _flag(argv, flag):
+    return argv[argv.index(flag) + 1] if flag in argv else None
+
+
+def _records(e) -> list:
+    d = e.state / "containers"
+    return sorted(p.stem for p in d.glob("*.json")) if d.is_dir() else []
+
+
+def _dead_pid() -> int:
+    import subprocess
+    p = subprocess.Popen([sys.executable, "-c", "pass"])
+    p.wait(timeout=60)
+    return p.pid
+
+
+@test
+def test_container_lane_has_a_name_and_the_owner_label(ctx: Ctx):
+    from halo_harness import closing
+    from halo_harness.isolation.container import name_of
+    with IsoEnv() as e:
+        _repo, run_dir, lane = _boxed(e)
+        rec = Recorder()
+        result = _spawn(run_dir, lane, rec)
+        argv = rec.calls[0]["argv"]
+        name, label = _flag(argv, "--name"), _flag(argv, "--label")
+        mark = closing.my_ident()
+        ctx.check(f"the container is named for this Halo and the lane, got {name}",
+                  bool(name) and name.startswith(f"halo-{mark}-2-"))
+        ctx.check(f"and labelled with its owner, got {label}", label == f"halo.owner={mark}")
+        ctx.check("name_of reads it back", name_of(argv) == name)
+        ctx.check("name_of of a plain worker argv is None", name_of([sys.executable, "-m", "halo_harness", "-p", "x"]) is None)
+        ctx.check(f"a lane that ended by itself leaves no record, got {_records(e)}", _records(e) == [])
+        ctx.check("and no engine call", e.engine_calls() == [])
+        ctx.check("the result comes back", result.get("ok") is True)
+
+
+@test
+def test_a_close_while_a_container_lane_runs_removes_it(ctx: Ctx):
+    import subprocess
+    from halo_harness import closing
+    closing.reset_for_tests()
+    try:
+        with IsoEnv() as e:
+            _repo, run_dir, lane = _boxed(e)
+            seen: dict = {}
+
+            def runner(argv, **kw):
+                seen["argv"], seen["records"] = list(argv), _records(e)
+                closing.close(polite_s=0.2, hard_s=0.1, say=lambda s: None, state_dir=e.state)
+                out = json.dumps({"type": "result", "is_error": False, "result": "done", "total_cost_usd": 0})
+                return subprocess.CompletedProcess(argv, 0, out + "\n", "")
+
+            _spawn(run_dir, lane, runner)
+            name = _flag(seen["argv"], "--name")
+            ctx.check(f"while it runs, its record is there, got {seen['records']}", seen["records"] == [name])
+            ctx.check(f"the close removed the container through the engine, got {e.engine_calls()}",
+                      ["rm", "-f", name] in e.engine_calls())
+            ctx.check(f"and its record, got {_records(e)}", _records(e) == [])
+    finally:
+        closing.reset_for_tests()
+
+
+@test
+def test_a_container_lane_past_its_time_removes_its_container(ctx: Ctx):
+    import subprocess
+    from halo_harness.orchestra.adapters import spawn_worker
+    with IsoEnv() as e:
+        _repo, run_dir, lane = _boxed(e)
+        seen: dict = {}
+
+        def runner(argv, **kw):
+            seen["argv"] = list(argv)
+            raise subprocess.TimeoutExpired(argv, 5)
+
+        result = spawn_worker("or:cheap/model", run_dir=run_dir, runner=runner, timeout_s=5)(lane)
+        name = _flag(seen["argv"], "--name")
+        ctx.check(f"the same one line, got {result}", result == {"ok": False, "error": "the worker ran past 5s"})
+        ctx.check(f"the container is removed, got {e.engine_calls()}", e.engine_calls() == [["rm", "-f", name]])
+        ctx.check(f"and its record, got {_records(e)}", _records(e) == [])
+
+
+@test
+def test_a_failed_rm_keeps_the_record_for_the_next_start(ctx: Ctx):
+    import subprocess
+    with IsoEnv() as e:
+        _repo, run_dir, lane = _boxed(e)
+        (e.bin / "engine_fail").write_text("", encoding="utf-8")
+        seen: dict = {}
+
+        def runner(argv, **kw):
+            seen["argv"] = list(argv)
+            raise subprocess.TimeoutExpired(argv, 5)
+
+        _spawn(run_dir, lane, runner)
+        name = _flag(seen["argv"], "--name")
+        ctx.check(f"the rm was tried, got {e.engine_calls()}", e.engine_calls() == [["rm", "-f", name]])
+        ctx.check(f"it failed, so the record stays, got {_records(e)}", _records(e) == [name])
+
+
+@test
+def test_the_start_sweep_removes_a_container_whose_owner_is_gone(ctx: Ctx):
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        lines = closing.sweep(state_dir=e.state, say=lambda s: None)
+        ctx.check(f"no record: no engine call at start, got {e.engine_calls()} / {lines}",
+                  e.engine_calls() == [] and lines == [])
+        gone = closing.ident(_dead_pid(), "x")
+        container.write_record("halo-gone-1-aaaaaa", engine, gone, state_dir=e.state)
+        container.write_record("halo-live-1-bbbbbb", engine, closing.my_ident(), state_dir=e.state)
+        said: list = []
+        lines = closing.sweep(state_dir=e.state, say=said.append)
+        ctx.check(f"the gone owner's container is removed, got {e.engine_calls()}",
+                  e.engine_calls() == [["rm", "-f", "halo-gone-1-aaaaaa"]])
+        ctx.check(f"its record goes, the live owner's stays, got {_records(e)}", _records(e) == ["halo-live-1-bbbbbb"])
+        ctx.check(f"one line, got {said}", len(said) == 1 and "halo-gone-1-aaaaaa" in said[0]
+                  and said[0].startswith("halo: removed a worker container left from ") and lines == said)
+
+
+@test
+def test_the_reaper_removes_its_owners_container(ctx: Ctx):
+    from halo_harness import closing, subprocess_safe
+    from halo_harness.isolation import container
+    tree = Path(__file__).resolve().parent.parent
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        dead = _dead_pid()
+        mark = closing.ident(dead, "x")
+        container.write_record("halo-mine-2-cccccc", engine, mark, state_dir=e.state)
+        container.write_record("halo-other-2-dddddd", engine, closing.my_ident(), state_dir=e.state)
+        proc = subprocess_safe.run([sys.executable, "-I", "-S", str(tree / "halo_harness" / "closing_reaper.py"),
+                                    str(dead), "", mark, str(e.state), str(tree)],
+                                   capture_output=True, text=True, timeout=60)
+        ctx.check(f"the reaper exits 0, got {proc.returncode} {proc.stderr[-300:]!r}", proc.returncode == 0)
+        ctx.check(f"it removed its owner's container only, got {e.engine_calls()}",
+                  e.engine_calls() == [["rm", "-f", "halo-mine-2-cccccc"]])
+        ctx.check(f"and that record only, got {_records(e)}", _records(e) == ["halo-other-2-dddddd"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
