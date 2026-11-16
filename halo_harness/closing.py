@@ -63,6 +63,7 @@ _STATE: dict = {"installed": False, "closed": False, "spawned": False, "reaper":
 _LOCK = threading.RLock()
 QUIT_BUDGET_S = 4.0              # fx jb8: the whole way out of a halo (quit's waits, close()'s waits) shares this
 _BROWSERS: list = []             # fx jb8: browser starts handed to a thread (open_url); close() waits for them
+_OPENING = threading.local()     # join: this thread's last open_url went to such a thread (True said "handed on")
 
 
 # -- who this process is -------------------------------------------------------------------------------------------
@@ -164,8 +165,10 @@ def kept_kwargs(kwargs: Optional[dict] = None, *, env: Optional[dict] = None) ->
 def open_url(url: str) -> bool:
     """Open the person's browser on `url`, never as Halo's child: without Halo's marker or owner, and on Windows from a
     launcher that breaks away from any Job object this process is in (a browser that starts now outlives Halo).
-    True when a browser took it. A replaced `webbrowser.open` (a test's) is called as it is."""
+    True when a browser took it -- or, on the threaded Windows path, when its start was handed on and Halo cannot know
+    yet (open_unsure() says which, for the caller's words). A replaced `webbrowser.open` (a test's) is called as it is."""
     import webbrowser
+    _OPENING.unsure = False
     if stop_asked():  # fx jb3: no browser starts once this process is closing
         return False
     stubbed = getattr(webbrowser.open, "__module__", "webbrowser") != "webbrowser"
@@ -199,8 +202,14 @@ def open_url(url: str) -> bool:
                 atexit.register(_browsers_at_exit)  # a process with no closing procedure waits for them too
             _BROWSERS.append(th)
         th.start()
+        _OPENING.unsure = True
         return True
     return _python_browser(url, stubbed, setup_door)
+
+
+def open_unsure() -> bool:
+    """True when this thread's last open_url handed the browser start to a thread: "opening", never "opened"."""
+    return bool(getattr(_OPENING, "unsure", False))
 
 
 def _python_browser(url: str, stubbed: bool, setup_door) -> bool:

@@ -73,6 +73,8 @@ def open_edit(target, *, cwd, state_dir, open_browser: bool = True, timeout: flo
             out["how"] = "focused"
         else:
             out["how"] = "opened" if launch._open(url) else "printed"
+            from halo_harness import closing
+            out["unsure"] = out["how"] == "opened" and closing.open_unsure()  # join: handed on, not seen to open
         return out
     url = launch.launch_detached(target.mode, cwd=cwd, state_dir=state_dir, open_browser=open_browser,
                                  timeout=timeout, edit=target.text)
@@ -96,6 +98,8 @@ def _describe(url: str, how, target: str, result: dict) -> str:
         n = result.get("pages") or 1
         return f"Opened {target} in the Studio page{'s' if n > 1 else ''} already open ({url})."
     if how == "opened":
+        if result.get("unsure"):
+            return f"Opening {target} in Studio in your browser; if nothing opens, open it yourself: {url}"
         return f"Opened {target} in Studio in your browser: {url}"
     if how == "started":
         return f"Started Studio and opened {target} in your browser: {url}  (halo studio --stop ends it)"

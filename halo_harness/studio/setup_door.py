@@ -220,7 +220,9 @@ def open_setup(target: SetupTarget, *, cwd=None, state_dir=None, why: Optional[s
         url = launch.launch_detached(target.mode, cwd=cwd, state_dir=state_dir, open_browser=False, timeout=timeout,
                                      edit=target.text)
         how = "failed" if not url else ("printed" if why else ("started" if launch._open(url) else "printed"))
-        out = {"url": url, "how": how, "pages": 0, "target": target.display}
+        from halo_harness import closing
+        out = {"url": url, "how": how, "pages": 0, "target": target.display,
+               "unsure": how == "started" and closing.open_unsure()}  # join: handed on, not seen to open
         if how == "failed":  # 3.6.0.0 R10: the child's exit code and its last line, every time
             out["why"] = launch.failure_line() or "it gave no address and no reason"
             out["target"] = target.display
@@ -259,11 +261,14 @@ def cli_door(target: SetupTarget, *, terminal_cli: str, fallback: str, say: Call
         say(f"Using the Studio already running for this home, {out['whose']}: it stays with that launch.")
     if how in ("focused", "opened", "started") and url:
         where = "in the Studio page already open" if how == "focused" else "in your browser"
+        head = f"{target.display} is open {where}"
+        if how != "focused" and out.get("unsure"):  # join: the browser start was handed on; Halo cannot know yet
+            head = f"{target.display} is opening {where}; if nothing opens, open it yourself"
         if wait:  # 3.3.15.0 R6: the terminal stays and becomes the session (halo_harness/init_wait.py)
             from halo_harness.init_wait import WAIT_LINE
-            say(WAIT_LINE.format(where=f"{target.display} is open {where}", url=url))
+            say(WAIT_LINE.format(where=head, url=url))
         else:
-            say(f"{target.display} is open {where}: {url}. `{terminal_cli}` runs the terminal {fallback} instead.")
+            say(f"{head}: {url}. `{terminal_cli}` runs the terminal {fallback} instead.")
         if how == "started" and not wait:  # 3.6.0.0 R10: no detached Studio -- it runs while this command does
             from halo_harness.studio.launch import hold
             hold(state_dir if state_dir is not None else _state_dir(), say)

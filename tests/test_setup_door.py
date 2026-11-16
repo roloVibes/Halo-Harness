@@ -309,6 +309,18 @@ def test_cli_door_lines(ctx: Ctx):
     url = rec["opened"][0] if rec["opened"] else "?"
     ctx.check(f"opened: the brief's line, got {lines}", ok is True and lines[0] ==
               f"Setup is open in your browser: {url}. `halo init --terminal` runs the terminal wizard instead.")
+    from halo_harness import closing
+    lines, saved_unsure = [], closing.open_unsure
+    closing.open_unsure = lambda: True  # join: the threaded Windows start, handed on and not seen to open
+    try:
+        with door_stubs() as rec:
+            ok = cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="wizard", say=lines.append)
+    finally:
+        closing.open_unsure = saved_unsure
+    url = rec["opened"][0] if rec["opened"] else "?"
+    ctx.check(f"handed on: Opening, never Opened, got {lines}", ok is True and lines[0] ==
+              f"Setup is opening in your browser; if nothing opens, open it yourself: {url}. "
+              "`halo init --terminal` runs the terminal wizard instead.")
     lines = []
     with door_stubs(env={"HALO_NO_BROWSER": "1"}) as rec:
         ok = cli_door(SetupTarget(first=True), terminal_cli="halo init --terminal", fallback="wizard", say=lines.append)

@@ -52,6 +52,18 @@ def _open(url: str) -> bool:
     return open_url(url)
 
 
+def _open_unsure() -> bool:
+    from halo_harness.closing import open_unsure
+    return open_unsure()
+
+
+def signin_line(opened: bool, unsure: bool, wait_s: float) -> str:
+    """join: on the threaded Windows path the start is only handed on, so the line says "Opening", never "Opened"."""
+    head = ("Opening the Microsoft sign-in page in your browser; if nothing opens, open the page below yourself."
+            if unsure else "Opened the Microsoft sign-in page in your browser." if opened else "Open this page to sign in:")
+    return head + f" Waiting up to {wait_s / 60:.0f} minutes for the sign-in to finish there."
+
+
 class Loopback:
     """A one-request listener on 127.0.0.1: the redirect's `code`, `state` and `error` once it has been hit."""
 
@@ -147,8 +159,7 @@ def signin_browser(cfg: CopilotConfig, api: Optional[str] = None, *, say: Callab
         if on_url is not None:
             on_url(url)
         opened = _open(url)
-        say(("Opened the Microsoft sign-in page in your browser." if opened else "Open this page to sign in:")
-            + f" Waiting up to {wait_s / 60:.0f} minutes for the sign-in to finish there.")
+        say(signin_line(opened, opened and OPEN_BROWSER is None and _open_unsure(), wait_s))
         say(f"  {url}")
         if not loop.wait(wait_s, abort):
             raise CopilotError("Copilot: the sign-in did not finish in the browser in time -- run `halo copilot "

@@ -149,6 +149,43 @@ def test_a_halo_in_a_job_opens_the_page_in_the_browser_stand_in(ctx: Ctx):
     ctx.check(f"the stand-in got the whole URL, got {fakes.opened_urls(out)}", fakes.opened_urls(out) == [URL])
 
 
+@test
+def test_a_start_handed_to_a_thread_is_worded_opening_never_opened(ctx: Ctx):
+    """join: on the threaded Windows path open_url returns True before anything opened; the words say "Opening"."""
+    from halo_harness import closing, subprocess_safe
+    from halo_harness.providers.copilot_auth import signin_line
+    from halo_harness.studio.edit_open import _describe
+    if WIN:
+        saved = (subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees, os.environ.get("BROWSER"))
+        _Recorder.seen, _Recorder.fail = [], set()
+        subprocess_safe.Popen, closing._in_a_job = _Recorder, (lambda: True)
+        os.environ["BROWSER"] = str(Path(tempfile.gettempdir()) / "no-such-browser.exe")
+        try:
+            got = {}
+            for frees in (False, True):
+                closing.breakaway_frees = lambda f=frees: f
+                got[frees] = (closing.open_url(URL), closing.open_unsure())
+                with closing._LOCK:
+                    ths, closing._BROWSERS[:] = list(closing._BROWSERS), []
+                for th in ths:
+                    th.join(10)
+        finally:
+            subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees, b = saved
+            os.environ.pop("BROWSER", None) if b is None else os.environ.__setitem__("BROWSER", b)
+            closing._OPENING.unsure = False
+        ctx.check(f"held by a Job: True and unsure; started in place: True and sure, got {got}",
+                  got == {False: (True, True), True: (True, False)} and len(_Recorder.seen) == 2)
+    ctx.check("copilot: unsure says Opening and to open the page below",
+              signin_line(True, True, 300).startswith("Opening the Microsoft sign-in page in your browser; if nothing "
+                                                      "opens, open the page below yourself. Waiting up to 5 minutes"))
+    ctx.check("copilot: sure says Opened", signin_line(True, False, 300).startswith("Opened the Microsoft sign-in page"))
+    ctx.check("copilot: nothing took it", signin_line(False, False, 300).startswith("Open this page to sign in:"))
+    ctx.check("studio --edit: unsure says Opening with the address",
+              _describe(URL, "opened", "agent:x", {"unsure": True}) ==
+              f"Opening agent:x in Studio in your browser; if nothing opens, open it yourself: {URL}")
+    ctx.check("studio --edit: sure says Opened", _describe(URL, "opened", "agent:x", {}).startswith("Opened agent:x"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
