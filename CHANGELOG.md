@@ -187,8 +187,9 @@ header. The limits that remain are at the end of this section.
 ### Known limits
 
 - **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
-  which removes it; Windows has no reaper. Its `docker run` client ends with Halo at once. To end it sooner:
-  `halo ps` names it, `docker ps --filter label=halo.owner` lists it, and `docker rm -f <name>` removes it.
+  which removes it and says so; Windows has no reaper. Its `docker run` client ends with Halo at once. Any `halo`
+  command is such a start (`halo ps` too); without Halo, `docker ps --filter label=halo.owner` lists it and
+  `docker rm -f <name>` removes it.
 - **macOS: a program a tool command detaches with an Apple system binary** (`ssh -fN host`, `ssh -f -M`, a
   `daemon()` fork of a program under /usr/bin) can still outlive Halo, and `halo ps` does not list it: macOS shows no
   environment for its own binaries. Start such a program with `HALO_OWNER=kept-<name>` if you mean to keep it, or end
@@ -209,8 +210,10 @@ header. The limits that remain are at the end of this section.
 - **An Orchestra lane with `isolation: user` did not get the container lane's changes**: past its time only its `sudo`
   client is ended; the worker keeps running, and spending, until the Halo that started it is gone, and then ends
   itself.
-- **The container lane was tested with a stand-in engine**; podman's own message for a missing container was not
-  checked against a real podman.
+- **The container lane was run against a real Docker on Linux only** (a normal way out, a hard kill, a hard kill
+  with no reaper left, a lane past its time: the container and its record were gone each time); on Windows and
+  macOS and with podman it was tested with a stand-in engine, and podman's own message for a missing container was
+  not checked against a real podman.
 - **Some 3.5 words remain**: `halo init`'s Summary after Done still prints "Lineup: <name>" (so do the lineup default
   line and the terminal UI's team preview), Studio's Orchestra workflow form still says `halo workflow run`,
   `halo isolation check` still lists 3.5 lineup and bio files, the first-run pack still rehearses a 3.5 lineup, and
