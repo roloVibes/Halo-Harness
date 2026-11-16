@@ -2524,6 +2524,12 @@ class Session:
                 "calling them:\n" + "\n".join(deferred_names)
             )
             self.log.append_snapshot([{"type": "text", "text": reminder}], kind="deferred_tools")
+        _map_facts.cleared(self)  # 3.6.0.2 R38: the new conversation's first turn is a first turn (no note)
+        if getattr(getattr(self, "team_control", None), "is_map", False) and self.agent_depth == 0:
+            # 3.6.0.2 R51: /clear keeps the map and the new log says so (after its system node, as at construction);
+            # `started` also sets F1's time and the note's baseline to now
+            from halo_harness.crew.map_events import started as _map_started
+            _map_started(self, self.team_control)
         self._fire_session_start("clear")
 
     def _call_model_for_hook(self, prompt_text: str, timeout_s: float) -> str:

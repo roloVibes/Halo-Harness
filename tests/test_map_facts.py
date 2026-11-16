@@ -507,7 +507,11 @@ def _fresh(msgs: list) -> list:
 
 
 class _NoteRig:
-    """A real Session on the default map (Builder offered) talking to a mock upstream, in a scratch home."""
+    """A real Session on the default map (Builder offered) talking to a mock upstream, in a scratch home. `flags`: the
+    session's map flags (`{"map": "shop"}` runs it on yours `shop`); `crew_map=False` builds it with no map at all."""
+
+    def __init__(self, flags: "dict | None" = None, crew_map: bool = True) -> None:
+        self.flags, self.with_map = flags, crew_map
 
     def __enter__(self):
         from halo_harness.agent.assemble import SessionContext
@@ -538,7 +542,8 @@ class _NoteRig:
         reg = ToolRegistry(default_tools(platform="linux") + [BuilderTool()])
         self.s = Session(cwd=self.cwd, model_ref=parse_model_ref(NOTE_MODEL), model_profile=ModelProfile(),
                          creds=ProviderCreds(base_url=self.mock.base_url, api_key="k"), state_dir=self.home / "sess-state",
-                         model_label=NOTE_MODEL, max_turns=6, crew_map=prepare(None, self.cwd)[0],
+                         model_label=NOTE_MODEL, max_turns=6,
+                         crew_map=prepare(self.flags, self.cwd)[0] if self.with_map else None,
                          session_context=SessionContext(cwd=self.cwd, model_label=NOTE_MODEL, tool_registry=reg),
                          permission_engine=PermissionEngine(mode="default", cwd=self.cwd))
         self.s.interactive = True
@@ -750,6 +755,111 @@ def test_builder_description_says_workflow_on_a_map(ctx: Ctx):
     tools_at = d.find("The tools:")
     ctx.check("R37's sentence, before the tool list", 0 <= d.find(r37) < tools_at)
     ctx.check("R39's sentence, before the tool list", 0 <= d.find(r39) < tools_at)
+
+
+# ---- 3.6.0.2 P2 batch 7 (R51, with R38 R40): /clear keeps the map and says so ---------------------------------------
+
+
+def _map_starts(log) -> list:
+    return [(i, n) for i, n in enumerate(log.nodes())
+            if n.get("type") == "receipt" and n.get("kind") == "map" and n.get("event") == "map_start"]
+
+
+class _Transcript:
+    def __init__(self) -> None:
+        self.calls: list = []
+
+    async def clear_view(self) -> None:
+        self.calls.append(("clear_view",))
+
+    async def add_note(self, text: str, kind: str = "note") -> None:
+        self.calls.append(("note", text, kind))
+
+
+def _clear_notes(session, error=None) -> list:
+    """`/clear` in the terminal (tui/slash.py `_handle_clear`) on a fake app whose controller holds `session`."""
+    import asyncio
+    from types import SimpleNamespace
+    from halo_harness.tui import slash
+    app = SimpleNamespace(transcript=_Transcript(), _turn_done_count=3,
+                          controller=SimpleNamespace(session=session, clear_session=lambda: error))
+    asyncio.run(slash._handle_clear(app, ""))
+    return [c[1:] for c in app.transcript.calls if c[0] == "note"]
+
+
+@test
+def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
+    """R51: `/clear` starts a new log that begins (after its system node) with the map the session still runs on --
+    name, scope, path, hash, t -- so a replay keeps drawing it there; the terminal says "This session still runs on
+    {A}." after its line. With R38 R40: the status row's start time is the re-logged one, the new conversation's first
+    turn carries no note, a later switch is told again. A session with no map: nothing of it."""
+    import hashlib
+    from halo_harness.crew import map_events, store
+    from halo_harness.theme import set_config_value
+    cleared = "Conversation cleared -- starting a new session context."
+    # part 1 + 2: on yours `shop`
+    with _NoteRig({"map": "shop"}) as rig:
+        s = rig.s
+        rig.turn("Say hello.")
+        old_id = s.log.session_id
+        s.clear()
+        starts = _map_starts(s.log)
+        system_at = next((i for i, n in enumerate(s.log.nodes()) if n.get("type") == "system"), None)
+        ctx.check(f"a new log (new session id), got {s.log.session_id != old_id}", s.log.session_id != old_id)
+        ctx.check(f"exactly one map_start on it, after the system node, got {[i for i, _ in starts]} (system {system_at})",
+                  len(starts) == 1 and system_at is not None and starts[0][0] > system_at)
+        data = starts[0][1].get("data", {}) if starts else {}
+        path = store.path_for("map", "shop")
+        ctx.check(f"it names shop, yours, its path, its hash and t, got {data}",
+                  data.get("map") == "shop" and data.get("scope") == "yours" and data.get("path") == str(path)
+                  and data.get("hash") == hashlib.sha256(path.read_bytes()).hexdigest()
+                  and isinstance(data.get("t"), float))
+        ctx.check("a replay of the new log reads shop", map_events.recorded(s.log.path)["map"] == "shop")
+        notes = _clear_notes(s)
+        ctx.check(f"the terminal: its line, then 'This session still runs on shop.', got {notes}",
+                  notes == [(cleared, "note"), ("This session still runs on shop.", "note")])
+        ctx.check("a failed clear: only its error",
+                  _clear_notes(s, error="Cannot clear while a turn is running.")
+                  == [("Cannot clear while a turn is running.", "error")])
+    # part 3 (+ 1 + 2 on the default map): the facts follow the new conversation
+    with _NoteRig() as rig:
+        s = rig.s
+        rig.turn("Say hello.")
+        set_config_value("crew.map", "review-flow")
+        two = _notes(rig.turn("Which map?"))
+        ctx.check(f"before /clear: turn 2 carries the note, got {two}", len(two) == 1 and _match(two[0], "review-flow", TIMED))
+        before = s._map_started_at
+        set_config_value("crew.map", "shop")  # a switch the old conversation was never told of
+        s.clear()
+        starts = _map_starts(s.log)
+        ctx.check(f"default map: one map_start naming starter, got {[n.get('data', {}).get('map') for _, n in starts]}",
+                  len(starts) == 1 and starts[0][1]["data"].get("map") == "starter")
+        st = _status(s, rig.cwd)
+        t = starts[0][1]["data"].get("t") if starts else None
+        ctx.check(f"the status row's map_since is the re-logged map_start's t, got {st.get('map_since')} vs {t} (was {before})",
+                  t is not None and st.get("map_since") == t)
+        ctx.check(f"the status row still reads asked (the session keeps its map, not T10), got {st.get('asked')}",
+                  st.get("asked") is True)
+        notes = _clear_notes(s)
+        ctx.check(f"the terminal names the default, got {notes}",
+                  notes == [(cleared, "note"), ("This session still runs on starter (the default).", "note")])
+        first = rig.turn("Start over.")
+        ctx.check("the first turn after /clear went out and carries no note",
+                  first is not None and NOTE not in json.dumps(first))
+        ctx.check("and nothing of the old conversation", "Which map?" not in json.dumps(first))
+        same = _notes(rig.turn("And now?"))
+        ctx.check(f"nothing changed since /clear: no note, got {same}", same == [])
+        set_config_value("crew.map", "review-flow")
+        again = _notes(rig.turn("Which map now?"))
+        ctx.check(f"a switch after /clear is told at the next turn, got {again}",
+                  len(again) == 1 and _match(again[0], "review-flow", TIMED))
+    # a session with no map: no map_start, no second line
+    with _NoteRig(crew_map=False) as rig:
+        s = rig.s
+        ctx.check("roles off: no map", not getattr(getattr(s, "team_control", None), "is_map", False))
+        s.clear()
+        ctx.check("no map: no map_start after /clear", _map_starts(s.log) == [])
+        ctx.check("no map: only the terminal's own line", _clear_notes(s) == [(cleared, "note")])
 
 
 if __name__ == "__main__":

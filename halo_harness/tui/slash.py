@@ -1102,6 +1102,13 @@ async def _handle_clear(app, _args: str) -> None:
     # after-first-turn auto-title, so the first-turn counter starts over.
     app._turn_done_count = 0
     await app.transcript.add_note("Conversation cleared -- starting a new session context.", kind="note")
+    try:  # 3.6.0.2 R51: /clear keeps the map; say which
+        from halo_harness.crew.map_facts import clear_line
+        keeps = clear_line(getattr(app.controller, "session", None))
+    except Exception:
+        keeps = None
+    if keeps:
+        await app.transcript.add_note(keeps, kind="note")
 
 
 async def _handle_intro(app, args: str) -> None:

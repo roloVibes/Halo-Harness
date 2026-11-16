@@ -202,6 +202,24 @@ def sent(session) -> None:
         session._map_note_sent = True
 
 
+def cleared(session) -> None:
+    """`/clear` (agent/loop.py `Session.clear`) started a new conversation: the facts note starts over -- the next turn
+    is a first turn again (no note; its baseline is what `map_events.started` keeps on the re-logged `map_start`)."""
+    session._map_told = None
+    session._map_note_pending = None
+    session._map_note_sent = False
+    session._map_retell = False
+
+
+CLEAR_KEEPS = "This session still runs on {A}."  # R51: the terminal's line after /clear's own
+
+
+def clear_line(session) -> "str | None":
+    """R51: what `/clear` says after its own line (tui/slash.py), or None for a session not on a map."""
+    f = facts(session)
+    return CLEAR_KEEPS.format(A=f["words"]) if f["map"] else None
+
+
 def compacted(session) -> None:
     """A compaction folded the log: a note sent before, or one still pending (its node is folded away), is logged
     again at the next turn's start."""
