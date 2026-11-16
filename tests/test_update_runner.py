@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 from tests.helpers.provider_env_defaults import ensure_scoped_state_dir_once
+from tests.helpers.spawn_shown import env_values_hidden, kw_shown, spawns_shown
 
 ensure_scoped_state_dir_once()
 
@@ -207,7 +208,7 @@ def test_the_plan_differs_per_platform_and_keeps_the_previous_install(ctx: Ctx):
                         wait_pids=[11, 12], windows=True)
     nix = UP.build_plan(cmd="uv tool install --reinstall git+https://x/y@v3.6.0.0", cwd=None, before=before,
                         expect={}, restore=None, windows=False)
-    ctx.check(f"Windows: waits for this halo and its launcher, keeps its window a moment, got {win}",
+    ctx.check(f"Windows: waits for this halo and its launcher, keeps its window a moment, got {env_values_hidden(win)}",
               win["wait_pids"] == [11, 12] and win["pause_s"] > 0 and nix["pause_s"] == 0)
     ctx.check(f"the tag's version is what must answer, got {win['expect']}", win["expect"]["version"] == "3.6.0.0")
     ctx.check("the certificate retry rides along for uv", win["cert_env"].get("UV_SYSTEM_CERTS") == "1"
@@ -259,7 +260,7 @@ def test_launch_uses_an_outside_python_and_never_runs_in_a_test_home(ctx: Ctx):
     # group, so a closed window, Ctrl+C or Ctrl+Break here never reaches it. Proved for real on Windows by
     # test_windows_a_kept_updater_outlives_its_starters_console below.
     ctx.check(f"Windows: the updater shares no console with this halo (a closed window or Ctrl+C never stops it), "
-              f"no window, its own process group, got {got} {popens}", got == 0 and len(popens) == 2
+              f"no window, its own process group, got {got} {spawns_shown(popens)}", got == 0 and len(popens) == 2
               and run_flags & (0x08 | 0x08000000) and not run_flags & 0x10 and run_flags & 0x200
               and popens[0][0][0] == "C:/py/python.exe" and "--watch" not in popens[0][0])
     ctx.check("its window is the viewer (`--watch` with the updater's pid), a console of its own",
@@ -431,7 +432,7 @@ def test_a_ctrl_c_during_the_install_still_puts_the_old_one_back(ctx: Ctx):
     ctx.check("while it installs, a Ctrl+C is ignored by the updater (protect=True)", ignored == [True])
     ctx.check("and the handler is back afterwards", signal.getsignal(signal.SIGINT) is not signal.SIG_IGN)
     kw = R._own_group_kw()
-    ctx.check(f"the installer runs in its own process group / session, got {kw}",
+    ctx.check(f"the installer runs in its own process group / session, got {kw_shown(kw)}",
               kw.get("start_new_session") is True if os.name != "nt" else bool(kw.get("creationflags", 0) & 0x200))
 
 

@@ -32,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run_all  # noqa: E402
+from tests.helpers.spawn_shown import kw_shown  # noqa: E402
 
 test, TESTS = new_registry()
 REPO = Path(__file__).resolve().parent.parent
@@ -162,9 +163,9 @@ def test_the_updater_and_its_window_are_started_kept(ctx: Ctx):
     got = UP.launch(plan, state_dir=state, windows=True, python=[sys.executable, "-I"], quiet=True,
                     popen=lambda argv, **kw: popens.append((argv, kw)) or _P())
     ctx.check(f"launch started the updater and its window, got {got} {len(popens)}", got == 0 and len(popens) == 2)
-    ctx.check(f"the updater is a kept spawn (its own marker, never this halo's Job), got {popens[0][1]}",
+    ctx.check(f"the updater is a kept spawn (its own marker, never this halo's Job), got {kw_shown(popens[0][1])}",
               _kept(popens[0][1]))
-    ctx.check(f"its window (`--watch`) is a kept spawn too, got {popens[1][1]}",
+    ctx.check(f"its window (`--watch`) is a kept spawn too, got {kw_shown(popens[1][1])}",
               "--watch" in popens[1][0] and _kept(popens[1][1]) and popens[1][1]["creationflags"] & 0x10)
 
 
@@ -177,7 +178,7 @@ def test_the_pools_keep_server_is_started_kept_and_named(ctx: Ctx):
         S.spawn(["llama-server", "--api-key", "secret"], log, ["llama-server", "--api-key", "***"], keep=True)
         S.spawn(["llama-server"], log, ["llama-server"])
     S._PROCS.clear()
-    ctx.check(f"--keep: the pool's server is a kept spawn, got {rec.calls[0][1].get('env', {}).get(closing.MARKER)}",
+    ctx.check(f"--keep: the pool's server is a kept spawn, got {[kw_shown(kw) for _a, kw in rec.calls[:1]]}",
               len(rec.calls) == 2 and _kept(rec.calls[0][1]))
     ctx.check("without --keep it stays this command's child", not _kept(rec.calls[1][1]))
     from halo_harness.local_pool import launch
@@ -192,7 +193,7 @@ def test_the_pools_keep_server_is_started_kept_and_named(ctx: Ctx):
         changes_pool.warm("qwen", keep=True, state_dir=state, home=state)
     finally:
         launch.start, P.preflight = saved
-    ctx.check(f"`halo local serve --pool <model> --keep` hands --keep to the launch, got {seen}",
+    ctx.check(f"`halo local serve --pool <model> --keep` hands --keep to the launch, got {[kw_shown(kw) for kw in seen]}",
               seen and seen[0].get("keep") is True)
     ctx.check("the way out names how to stop it",
               closing._stop_line({"what": "pool", "pid": 1}) == "halo pool stop")
@@ -227,7 +228,7 @@ def test_the_rpc_server_halo_host_rpc_on_starts_is_kept_and_named(ctx: Ctx):
             host_rpc_cli.cmd_rpc(["on"])
     finally:
         ops_rpc.turn_on, routes_view.View, host_rpc_cli._addr = saved
-    ctx.check(f"`halo host rpc on` (a command that returns) asks for a kept rpc-server, got {seen}",
+    ctx.check(f"`halo host rpc on` (a command that returns) asks for a kept rpc-server, got {[kw_shown(kw) for kw in seen]}",
               seen and seen[0].get("keep") is True)
     ctx.check("the way out names how to stop it",
               closing._stop_line({"what": "rpc", "pid": 1}) == "halo host rpc off")

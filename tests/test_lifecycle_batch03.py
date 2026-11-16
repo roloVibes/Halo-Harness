@@ -295,7 +295,8 @@ def test_posix_real_tmux_with_a_server_running_gets_this_shells_environment(ctx:
             os.environ.update(snap)
         got = json.loads(out.read_text()) if out.exists() and out.stat().st_size else {}
         ctx.check(f"the session ran, argv {seen.get('argv')}", bool(got))
-        ctx.check(f"the session sees the key exported in this shell, got {got.get('OPENROUTER_API_KEY')!r}",
+        ctx.check(f"the session sees the key exported in this shell (set: {'OPENROUTER_API_KEY' in got}, "
+                  f"the exported value: {got.get('OPENROUTER_API_KEY') == 'exported-in-this-shell'})",
                   got.get("OPENROUTER_API_KEY") == "exported-in-this-shell")
         ctx.check("the session sees a variable exported only in this shell", got.get("LC_B3_EXPORTED") == "1")
         ctx.check("the session is inside tmux", bool(got.get("TMUX")))
