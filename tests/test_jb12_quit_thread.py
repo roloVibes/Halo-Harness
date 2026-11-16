@@ -239,6 +239,79 @@ def test_a_close_still_running_later_leaves_every_threads_stack_in_the_trace(ctx
               and text.count("most recent call first") >= 2 and "time.sleep" not in text.split("quit asked")[0])
 
 
+def _child(code: str, d: Path, timeout: float = 120) -> "tuple[subprocess.CompletedProcess, str]":
+    """`code` in a child Python (this module's fakes importable), HALO_CLOSE_TRACE at d/trace.txt and a scratch home:
+    whatever it arms ends with it, never with the test runner. Returns the run and the trace file's text."""
+    f = d / "trace.txt"
+    env = dict(os.environ, PYTHONPATH=str(REPO), HALO_CLOSE_TRACE=str(f), BRIDGE_TEST_HOME=str(d / "home"),
+               OLLAMA_HOST="http://127.0.0.1:9", HALO_NO_UPDATER="1")
+    r = subprocess.run([sys.executable, "-c", code], env=env, cwd=str(d), capture_output=True, text=True,
+                       timeout=timeout)
+    return r, (f.read_text(encoding="utf-8", errors="replace") if f.exists() else "")
+
+
+@test
+def test_a_close_that_finished_cancels_its_stack_dump(ctx: Ctx):
+    """fx jb14: CI's Linux shard 3 died without a RESULT line about 4 s after this module's controller quit: the quit
+    armed a dump of every thread's stack TRACE_STACKS_S later and nothing cancelled it when the quit ended, so it fired
+    in the middle of a later module. A finished quit (and a finished close) leaves nothing armed."""
+    d = Path(tempfile.mkdtemp(prefix="halo-jb14-"))
+    code = ("import time\n"
+            "from pathlib import Path\n"
+            "from halo_harness import closing\n"
+            "closing.TRACE_STACKS_S = 0.5\n"
+            "from halo_harness.controller import Controller\n"
+            "from tests.test_jb12_quit_thread import _Registry, _Session\n"
+            "d = Path.cwd()\n"
+            "Controller(session=_Session(_Registry()), cwd=d, state_dir=d / '.halo').start().quit()\n"
+            "closing.trace('quit asked', stacks=True)\n"
+            "closing.close(polite_s=0.2, hard_s=0.2, say=lambda _l: None)\n"
+            "time.sleep(1.5)\n")
+    r, text = _child(code, d)
+    ctx.check(f"the child ran (exit {r.returncode}, {r.stderr[-300:]!r})", r.returncode == 0)
+    ctx.check(f"the quit and the close traced their ends, got {text[-400:]!r}", "quit: end" in text
+              and "close: end" in text)
+    ctx.check(f"no stack dump 1.5 s after a quit and a close that both finished, got {text[-600:]!r}",
+              "most recent call first" not in text)
+
+
+@test
+def test_the_stack_dump_never_crashes_a_process_whose_threads_come_and_go(ctx: Ctx):
+    """fx jb14: faulthandler's later dump walks every thread's frames from its own thread without the GIL; on Linux
+    (CPython 3.12) a thread ending under it ends the whole process with SIGSEGV and not a line of output (the Linux VM:
+    3 of 3 runs, exit 139). The dump is a plain thread that holds the GIL: the stacks are written, the process lives."""
+    d = Path(tempfile.mkdtemp(prefix="halo-jb14-"))
+    code = ("import threading, time\n"
+            "from halo_harness import closing\n"
+            "closing.TRACE_STACKS_S = 0.002\n"
+            "def work():\n"
+            "    def deep(n):\n"
+            "        return deep(n - 1) if n else sum(range(50))\n"
+            "    deep(30)\n"
+            "for _ in range(1500):\n"
+            "    closing.trace('quit asked', stacks=True)\n"
+            "    ts = [threading.Thread(target=work) for _ in range(16)]\n"
+            "    [t.start() for t in ts]\n"
+            "    [t.join() for t in ts]\n"
+            "time.sleep(0.3)\n"
+            "print('alive')\n")
+    r, text = _child(code, d, timeout=300)
+    ctx.check(f"the child lived through 1500 armed dumps while threads came and went (exit {r.returncode}, "
+              f"{r.stdout[-100:]!r} {r.stderr[-300:]!r})", r.returncode == 0 and "alive" in r.stdout)
+    ctx.check("the stacks were still written", "most recent call first" in text)
+
+
+@test
+def test_the_test_run_names_a_hard_exit_of_its_own_process(ctx: Ctx):
+    """fx jb14: the dead shard left no line at all; tests/run_all.py now makes a hard exit of its process say so (and
+    on POSIX a native crash print every thread's stack)."""
+    d = Path(tempfile.mkdtemp(prefix="halo-jb14-"))
+    r, _ = _child("from tests import run_all\nrun_all._say_when_the_run_dies()\nrun_all._say_when_the_run_dies()\n"
+                  "import os\nos._exit(3)\n", d)
+    ctx.check(f"exit 3 and one [HARD EXIT] line naming the caller, got {r.returncode} {r.stderr[-400:]!r}",
+              r.returncode == 3 and r.stderr.count("[HARD EXIT] os._exit(3)") == 1 and "<module>" in r.stderr)
+
+
 class _Term:
     started_at = 0.0
     pid = 0

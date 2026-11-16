@@ -1009,14 +1009,17 @@ def time_left(cap: float) -> float:
 
 TRACE = "HALO_CLOSE_TRACE"  # fx jb12: a file the way out writes its phases to (off when unset)
 TRACE_STACKS_S = 4.0
-_TRACE_FH: list = []
+_TRACE_DUMP: list = []  # fx jb14: the armed stack dump's cancel event (at most one)
 
 
-def trace(what: str, *, stacks: bool = False) -> None:
+def trace(what: str, *, stacks: bool = False, done: bool = False) -> None:
     """fx jb12, evidence for a slow way out: with HALO_CLOSE_TRACE naming a file, one line per phase (the wall time,
     the monotonic time, the pid and the thread). `stacks` (re)arms a dump of every thread's stack into the same file
-    TRACE_STACKS_S from now (faulthandler; nothing is written when the process has left by then). Unset: nothing at
-    all. Never raises and changes nothing else."""
+    TRACE_STACKS_S from now (nothing is written when the process has left by then); `done` (the end of a quit or a
+    close) cancels it. Unset: nothing at all. Never raises and changes nothing else.
+    fx jb14: the dump is a plain daemon thread holding the GIL, never faulthandler's later dump: that one walks every
+    thread's frames without the GIL and a thread ending under it killed the process with SIGSEGV (Linux, CPython
+    3.12); and a finished quit left it armed, so it fired seconds later in whatever the process did next."""
     path = os.environ.get(TRACE, "")
     if not path:
         return
@@ -1024,11 +1027,31 @@ def trace(what: str, *, stacks: bool = False) -> None:
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(f"{time.time():.3f} mono={time.monotonic():.3f} pid={os.getpid()} "
                      f"[{threading.current_thread().name}] {what}\n")
+        if stacks or done:
+            while _TRACE_DUMP:
+                _TRACE_DUMP.pop().set()
         if stacks:
-            import faulthandler
-            if not _TRACE_FH:
-                _TRACE_FH.append(open(path, "a", encoding="utf-8"))
-            faulthandler.dump_traceback_later(TRACE_STACKS_S, repeat=False, file=_TRACE_FH[0])
+            stop = threading.Event()
+            _TRACE_DUMP.append(stop)
+            threading.Thread(target=_dump_stacks_later, args=(path, stop, TRACE_STACKS_S), name="halo-close-trace",
+                             daemon=True).start()
+    except Exception:
+        pass
+
+
+def _dump_stacks_later(path: str, stop: threading.Event, after_s: float) -> None:
+    if stop.wait(after_s):
+        return
+    try:
+        import traceback
+        names = {t.ident: t.name for t in threading.enumerate()}
+        out = [f"every thread's stack, {after_s} s after the last phase that armed it:\n"]  # no " mono=": not a phase
+        for ident, frame in sys._current_frames().items():
+            out.append(f"Thread {ident:#x} [{names.get(ident, '?')}] (most recent call first):\n")
+            out.extend(f'  File "{fs.filename}", line {fs.lineno} in {fs.name}\n'
+                       for fs in reversed(traceback.extract_stack(frame)))
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("".join(out))
     except Exception:
         pass
 
@@ -1076,7 +1099,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
     trace(f"close: stops done after {time.monotonic() - t0:.2f} s")
     wait_for_browsers(time_left(QUIT_BUDGET_S))
     _stop_reaper()
-    trace(f"close: end after {time.monotonic() - t0:.2f} s")
+    trace(f"close: end after {time.monotonic() - t0:.2f} s", done=True)
     out = say if say is not None else _say
     for line in lines:
         try:

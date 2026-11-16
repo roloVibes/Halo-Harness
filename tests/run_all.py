@@ -270,6 +270,31 @@ def main(argv: "list | None" = None) -> int:
         _MAIN_DEPTH -= 1
 
 
+def _say_when_the_run_dies() -> None:
+    """fx jb14: CI's Linux shard 3 once ended mid-run with no RESULT line, no traceback and no guard line (a native
+    crash, SIGSEGV). A crash of this process now prints every thread's stack (faulthandler; POSIX only: on Windows it
+    also reports exceptions that are then handled), and a hard exit (os._exit) of this process names its thread and
+    its caller first. Forked children (their own pid) exit as before, silently."""
+    if os.name != "nt":
+        import faulthandler
+        faulthandler.enable(file=sys.__stderr__, all_threads=True)
+    real_exit, run_pid = os._exit, os.getpid()
+    if getattr(real_exit, "announced", False):
+        return
+
+    def announced_exit(code):
+        try:
+            if os.getpid() == run_pid:
+                import threading
+                sys.__stderr__.write(f"[HARD EXIT] os._exit({code}) in the test run's process, thread "
+                                     f"{threading.current_thread().name}:\n{''.join(traceback.format_stack(limit=8))}")
+                sys.__stderr__.flush()
+        finally:
+            real_exit(code)
+    announced_exit.announced = True
+    os._exit = announced_exit
+
+
 def _main(tier: "str | None", shard: "tuple | None" = None) -> int:
     # Line-buffered output even when redirected to a file: a run that is
     # killed mid-way must leave its last real line on disk, not a stale
@@ -279,6 +304,7 @@ def _main(tier: "str | None", shard: "tuple | None" = None) -> int:
         sys.stderr.reconfigure(line_buffering=True)
     except (AttributeError, ValueError):
         pass
+    _say_when_the_run_dies()
     # NEW (post-H9 acceptance): see runner.py's own docstring on this pair
     # -- every tempfile.mkdtemp() call for the rest of this process (every
     # test module this run imports/executes) is tracked and swept up once,

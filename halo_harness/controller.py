@@ -332,7 +332,7 @@ class Controller:
                 pass
             if self.mcp_manager is not None:
                 self.mcp_manager.close_all()
-            closing.trace(f"quit: end after {time.monotonic() - t0:.2f} s")
+            closing.trace(f"quit: end after {time.monotonic() - t0:.2f} s", done=True)  # fx jb14: nothing outlives it
         return self.exit_code
 
     # ---- UI -> loop (non-blocking) ---------------------------------------

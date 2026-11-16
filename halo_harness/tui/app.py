@@ -2678,7 +2678,7 @@ class BridgeApp(App):
         code = quit_fn() if callable(quit_fn) else 0
         message = self._exit_message()
         from halo_harness import closing
-        closing.trace(f"app exit asked (code {code})")
+        closing.trace(f"app exit asked (code {code})", stacks=True)  # fx jb14: the quit's end cancelled its dump
         self.call_from_thread(self.exit, return_code=code, message=message)
 
     def _exit_message(self) -> Optional[str]:

@@ -108,7 +108,7 @@ def run_tui(args) -> int:
         line = getattr(controller, "stopped_line", "") or ""
         if line and not getattr(controller, "stopped_line_shown", False):
             print(line)
-        closing.trace("app.run's finally done")
+        closing.trace("app.run's finally done", done=True)  # fx jb14: the app's way out ended, nothing outlives it
     return app.return_code if app.return_code is not None else 0
 
 
