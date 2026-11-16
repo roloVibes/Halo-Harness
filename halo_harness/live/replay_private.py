@@ -138,21 +138,36 @@ _SEGMENT_LEAD = (r"((?<=[\\/])(?:home|users)(?:\\+|/)"
 _LOGIN_AT = r"(?=(?::[^\s@/\\]{0,256})?@(?:<machine>|[^\W_]|\[[\da-f:]))"
 
 
+#: jf-words batch 3: the commands that take an account after a flag of theirs, and those flags (case matters: `ssh -L`
+#: forwards a port). Not scp / sftp / rsync: their `-l` is a bandwidth limit or links, rsync's `-u` is "update".
+_ACCOUNT_FLAGS = (("ssh", "-l"), ("sudo", "-u"), ("docker", "-u|--user"), ("psql", "-U|--username"),
+                  ("mysql", "-u|--user"), ("runas", "(?i:/user:)"), ("net", "(?i:/user:)"))
+#: the commands whose argument is an account (`su - name`, `chown -R name:staff`, `id name` ...)
+_ACCOUNT_COMMANDS = r"(?:su(?:[^\S\n]+-l?)?|chown(?:[^\S\n]+-\w+)*|id|passwd|finger|groups|useradd|userdel|adduser|deluser)"
+#: a command position: a line's start (a JSON text's `\n` too), a quote's or `(`'s start, after `;` `&` `|`, after a
+#: prompt mark and a space (`$ `, `# `, `% `, `> `); then `sudo` and its flags may come first
+_CMD_AT = (r"(?:(?<![^\n\"'`(;&|])|(?<=\\n)|(?<=[$#%>] ))[^\S\n]*"
+           r"(?:sudo(?:[^\S\n]+-[\w-]+)*[^\S\n]+)?")
+#: a command's other arguments before its account flag: a few, each bounded (linear time from every position)
+_ARGS = r"(?:[^\S\n]+[^\s;&|]{1,256}){0,16}?[^\S\n]+"
+
+
 def _account_slots(names: list) -> list:
     """jf-words: where a word stands as an account, read over the whole text (the scrub splits text at quotes,
     whitespace and `=`; the audit reads whole texts anyway), group 1 kept: a database account `'name'@'host'` (any
-    quote), a login flag (`ssh -l name`, `mysql -u name`, `--user name`, `--username=name`, `--login name`,
-    `runas /user:name`), a command whose argument is an account (`su - name`, `chown -R name:staff`, `id name`,
-    `passwd name` ...) and a key (`user=name`, `USER=name`, `DB_USER: name`, `"username": "name"`, `owner=name`,
+    quote), a login flag of a command that takes an account there (`ssh -l name`, `mysql -u name`, `docker exec
+    --user=name`, `psql --username=name`, `runas /user:name`; `pip install -U build` is no account), a command at a
+    command position whose argument is an account (`su - name`, `chown -R name:staff`, `id name`, `passwd name`; not
+    "the id build number") and a key (`user=name`, `USER=name`, `DB_USER: name`, `"username": "name"`, `owner=name`,
     JSON-escaped too)."""
     names = sorted((str(n) for n in names if n), key=len, reverse=True)
     if not names:
         return []
     either = "(" + "|".join(map(re.escape, names)) + ")"
+    flags = "|".join(re.escape(cmd) + _ARGS + r"(?-i:" + fl + r")(?:(?<=:)|[^\S\n]+|=)" for cmd, fl in _ACCOUNT_FLAGS)
     return [re.compile(r"(?i)([\"'`])" + either + r"(?=\1@)"),
-            re.compile(r"(?i)((?<![\w-])(?:(?:-l|-u|--user(?:name)?|--login)(?:\s+|=)|/user:)"
-                       r"|(?<![\w-])(?:su(?:\s+-l?)?|chown(?:\s+-\w+)*|id|passwd|finger|groups|useradd|userdel|adduser"
-                       r"|deluser)\s+)" + either + _SEGMENT_END),
+            re.compile(r"(?i)(" + _CMD_AT + r"(?:(?:" + flags + r")|" + _ACCOUNT_COMMANDS + r"[^\S\n]+))"
+                       + either + _SEGMENT_END),
             re.compile(r"(?i)((?<![\w-])\w*?(?:user(?:_?name)?|login|logname|owner)\\*[\"'`]?\s*[=:]\s*\\*[\"'`]?)"
                        + either + _SEGMENT_END)]
 #: where the name's segment ends: anything that does not run on into more name, as the path rule's _TAIL ends a home
@@ -161,9 +176,10 @@ def _account_slots(names: list) -> list:
 _SEGMENT_END = r"(?![\w-]|\.[\w-])"
 
 
-def _name_patterns(names: list, *, segments: bool = True) -> list:
+def _name_patterns(names: list, *, segments: bool = True, machines: Iterable[str] = ()) -> list:
     """3.6.0.1 (setup-words): the patterns that find a name, shared by `scrub` and `audit`. Every name where it stands as
-    a home folder's segment (`segments`; any length, group 1 the prefix kept); a name of 3+ characters that is not a
+    a home folder's segment (`segments`; any length, group 1 the prefix kept), a login (`name@host`, jf-words batch 3:
+    `machine\\name` after one of `machines` or `<machine>`) or an account slot; a name of 3+ characters that is not a
     common word (replay_cut.COMMON_NAMES: `user`, `admin`, `runner` ...) as a whole word: not glued to a LETTER (a
     digit, `_`, `.`, `-`, `@` or a quote is a boundary: `1jsmith`, `jsmith_notes`, `jsmith@box` go; `jsmithx`,
     `xjsmith` stay); a name of 7+ letters also as its 8.3 short form (`JSMITH~1`)."""
@@ -176,6 +192,10 @@ def _name_patterns(names: list, *, segments: bool = True) -> list:
         either = "(" + "|".join(map(re.escape, ordered)) + ")"
         out.append(re.compile(r"(?i)" + _SEGMENT_LEAD + either + _SEGMENT_END))
         out.append(re.compile(r"(?i)()(?<![\w.-])" + either + _LOGIN_AT))  # jf-words: the login form, group 1 empty
+        # jf-words batch 3: Windows' `machine\name` (whoami, runas / net use `/user:`, an ACL's owner), one backslash
+        # or JSON-doubled; not after a slash or backslash (a UNC share is the segment rule's), nor glued to a word
+        hosts = "|".join(["<machine>"] + [re.escape(str(m)) for m in machines if m])
+        out.append(re.compile(r"(?i)((?:(?<![\w.\\/-])|(?<=\\[nrt]))(?:" + hosts + r")\\+)" + either + _SEGMENT_END))
         out += _account_slots(ordered)
     alts = [re.escape(n) for n in ordered if len(n) >= 3 and n.lower() not in COMMON_NAMES]
     alts += [re.escape(re.sub(r"[\s.]", "", n)[:6]) + r"~\d+" for n in names if len(re.sub(r"[\s.]", "", n)) > 6]
@@ -184,8 +204,8 @@ def _name_patterns(names: list, *, segments: bool = True) -> list:
     return out
 
 
-def _name_rule(names: list, word: str, *, segments: bool = True):
-    pats = _name_patterns(names, segments=segments)
+def _name_rule(names: list, word: str, *, segments: bool = True, machines: Iterable[str] = ()):
+    pats = _name_patterns(names, segments=segments, machines=machines)
     if not pats:
         return None
 
@@ -236,7 +256,8 @@ def scrub(payload, root=None, *, homes=None, users=None, machines=None):
                   + [_rule(h, "~", "~/") for h in sorted(homes, key=len, reverse=True)] if r]
     users = list(users) if users is not None else _users(homes)
     machines = list(machines) if machines is not None else _machines()
-    names = [r for r in (_name_rule(users, "<user>"), _name_rule(machines, "<machine>", segments=False)) if r]
+    names = [r for r in (_name_rule(users, "<user>", machines=machines), _name_rule(machines, "<machine>", segments=False))
+             if r]
     names += [cut_name_rule(users, "<user>"), cut_name_rule(machines, "<machine>")]
     path_rules.append(cut_path_rule(homes, root))
     slots = _account_slots(users)
@@ -286,7 +307,7 @@ def audit(state_dir) -> list:
     homes = _homes()
     own = [(re.compile(_LEAD + src), "home-path") for src in filter(None, map(_prefix, homes))]
     # 3.6.0.1: the scrub's own name rules (a common-word name only as a home segment; never inside '<user>')
-    own += [(pat, "user-name") for pat in _name_patterns(_users(homes))]
+    own += [(pat, "user-name") for pat in _name_patterns(_users(homes), machines=_machines())]
     own += [(pat, "machine-name") for pat in _name_patterns(_machines(), segments=False)]
     folder = replays_dir(state_dir)
     out: list = []

@@ -456,12 +456,135 @@ def test_the_name_patterns_stay_linear_on_a_long_run_of_name_colons(ctx: Ctx):
     180 KB of it is a few milliseconds when linear; the budget is set for a slow CI runner."""
     import time
     from halo_harness.live.replay_private import _name_patterns
-    text = "admin:" * 30000
-    for pat in _name_patterns(["admin"]):
-        t0 = time.perf_counter()
-        pat.sub("", text)
-        took = time.perf_counter() - t0
-        ctx.check(f"{pat.pattern[:60]!r} took {took:.2f} s on 180 KB", took < 8.0)
+    # batch 3: the `machine\name` login and the command-position slots get runs of their own lead too
+    texts = ("admin:" * 30000, "gpu-box" + chr(92) + "gpu-box" * 22000, "ssh -x " * 26000, "; sudo " * 26000)
+    for text in texts:
+        for pat in _name_patterns(["admin"], machines=["gpu-box"]):
+            t0 = time.perf_counter()
+            pat.sub("", text)
+            took = time.perf_counter() - t0
+            ctx.check(f"{pat.pattern[:60]!r} took {took:.2f} s on {text[:12]!r}...", took < 8.0)
+
+
+def _machine_login_shapes(name: str) -> list:
+    """jf-words batch 3: (text, the scrubbed text) for a Windows account written `machine\\name` (whoami, runas, net
+    use, an ACL's owner column), single and JSON-doubled backslash, after the machine already became `<machine>`.
+    Made-up host only, built from parts."""
+    bs, host = chr(92), "gpu-box"
+    return [(f"{host}{bs}{name}", f"<machine>{bs}<user>"), (f"{host}{bs * 2}{name}", f"<machine>{bs * 2}<user>"),
+            (f"<machine>{bs}{name}", f"<machine>{bs}<user>"), (f"$ whoami\n{host}{bs}{name}\n", f"$ whoami\n<machine>{bs}<user>\n"),
+            (f"runas /user:{host}{bs}{name} cmd", f"runas /user:<machine>{bs}<user> cmd"),
+            (f"net use {bs * 2}{host}{bs}x /user:{host}{bs}{name}", f"net use {bs * 2}<machine>{bs}x /user:<machine>{bs}<user>"),
+            (f"f.txt GPU-BOX{bs}{name}:(OI)(CI)(F)", f"f.txt <machine>{bs}<user>:(OI)(CI)(F)"),
+            (f"Owner  : GPU-BOX{bs}{name}", f"Owner  : <machine>{bs}<user>"),
+            (f'{{"owner": "{host}{bs * 2}{name}"}}', f'{{"owner": "<machine>{bs * 2}<user>"}}'),
+            (f"{host}{bs}{name}{bs}x", f"<machine>{bs}<user>{bs}x")]
+
+
+@test
+def test_a_common_word_account_never_keeps_a_windows_machine_login_3600_scrubbed(ctx: Ctx):
+    """3.6.0.1 jf-words batch 3: the Windows counterpart of `name@machine` is `machine\\name` (`whoami`, `runas
+    /user:`, `net use /user:`, the owner of `icacls` / `Get-Acl`): a common-word name kept it, 3.6.0.0 removed it. The
+    name right after a machine of the scrub's list (or `<machine>`) and a backslash is the account; a folder named
+    like the word under another folder is a path word and stays, and a UNC share is batch 2's rule (no double match)."""
+    from halo_harness.live.replay_private import scrub
+    bs = chr(92)
+    for name in ("admin", "user", "dev", "build", "zedtester"):
+        def run(text):
+            return scrub({"t": text}, None, homes=[], users=[name], machines=["gpu-box"])["t"]
+        for text, want in _machine_login_shapes(name):
+            ctx.check(f"[{name}] {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
+    for name in ("admin", "build"):
+        for text in (f"tools{bs}{name}{bs}x", f"see tools{bs}{name}", f"C:{bs}tools{bs}{name}{bs}x", f"the {name} said"):
+            out = scrub({"t": text}, None, homes=[], users=[name], machines=["gpu-box"])["t"]
+            ctx.check(f"[{name}] a path word or prose stays: {text!r}, got {out!r}", out == text)
+        unc = f"{bs * 2}gpu-box{bs}{name}{bs}share"
+        out = scrub({"t": unc}, None, homes=[], users=[name], machines=["gpu-box"])["t"]
+        ctx.check(f"[{name}] a UNC share is replaced once, got {out!r}", out == f"{bs * 2}<machine>{bs}<user>{bs}share")
+
+
+@test
+def test_audit_finds_a_common_word_account_in_a_windows_machine_login(ctx: Ctx):
+    """3.6.0.1 jf-words batch 3: the audit shares the scrub's patterns, so an unscrubbed `gpu-box\\admin` replay was
+    called clean; a scrubbed one stays clean."""
+    from halo_harness.live.replay_private import audit, scrub
+    name = "admin"
+    env = dict(ENV, USERNAME=name, USER=name, LOGNAME=name, COMPUTERNAME="gpu-box")
+    saved = {k: os.environ.get(k) for k in env}
+    try:
+        with _home() as state:
+            os.environ.update(env)
+            folder = state / "replays"
+            folder.mkdir(parents=True, exist_ok=True)
+            texts = [t for t, _w in _machine_login_shapes(name)]
+            for i, t in enumerate(texts):
+                rid = f"raw{i}-20261116-000000"
+                (folder / f"{rid}.halo-replay").write_text(json.dumps({
+                    "format": "halo-replay", "version": 1, "id": rid, "title": "t", "marks": [{"text": t}]}),
+                    encoding="utf-8")
+            rows = [r for r in audit(state) if r["kind"] == "user-name"]
+            found = {r["path"] for r in rows}
+            for i, t in enumerate(texts):
+                ctx.check(f"the audit finds the name in {t!r}, rows {sorted(found)}",
+                          f"replays/raw{i}-20261116-000000.halo-replay" in found)
+            ctx.check(f"no excerpt shows the name, got {[r['excerpt'] for r in rows]}",
+                      all(name not in r["excerpt"].replace("<user>", "") for r in rows))
+            for p in folder.glob("raw*"):
+                p.unlink()
+            clean = scrub({"marks": [{"text": t} for t in texts]}, None, homes=[], users=[name], machines=["gpu-box"])
+            (folder / "clean-20261116-000000.halo-replay").write_text(json.dumps(dict(
+                clean, format="halo-replay", version=1, id="clean-20261116-000000", title="t")), encoding="utf-8")
+            rows = [r for r in audit(state) if r["kind"] == "user-name"]
+            ctx.check(f"a scrubbed replay of these shapes holds no user name, got {rows}", not rows)
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
+@test
+def test_a_common_word_is_an_account_only_in_a_command_s_account_slot(ctx: Ctx):
+    """3.6.0.1 jf-words batch 3: batch 2 took `-u` / `-U` / `-l` / `--user` after ANY command and `id`, `groups`,
+    `passwd`, `finger`, `su` anywhere in a sentence as an account slot, so `pip install -U build` lost `build`. A
+    command word counts only at a command position (a line's start, a quote's start, after a prompt mark, `sudo`, `;`,
+    `&&`, `||`, `|`, `(`), and an account flag only after a command that takes an account there."""
+    from halo_harness.live.replay_private import scrub
+    for name in ("build", "dev"):
+        def run(text):
+            return scrub({"t": text}, None, homes=[], users=[name], machines=["gpu-box"])["t"]
+        keep = (f"pip install -U {name}", f"pip install --user {name}", f"python -m {name}", f"python -u {name}",
+                f"the id {name} number", f"su {name}-essential", f"npm run {name}", f"git checkout {name}",
+                f"two groups {name} and qa", f"the passwd {name} database", f"a finger {name} pointing",
+                f"rsync -u {name}/ out/", f"docker run -l {name}=x img", f"git push -u origin {name}",
+                f"sort -u {name}.txt")
+        for text in keep:
+            ctx.check(f"[{name}] not an account slot: {text!r} kept, got {run(text)!r}", run(text) == text)
+        gone = ((f"$ groups {name}", "$ groups <user>"), (f"groups {name}", "groups <user>"),
+                (f"sudo -u {name} ls", "sudo -u <user> ls"), (f"sudo -E -u {name} ls", "sudo -E -u <user> ls"),
+                (f"ssh -p 22 -l {name} gpu-box", "ssh -p 22 -l <user> <machine>"),
+                (f"docker exec -it -u {name} c sh", "docker exec -it -u <user> c sh"),
+                (f"docker exec --user={name} c sh", "docker exec --user=<user> c sh"),
+                (f"psql -U {name} -d x", "psql -U <user> -d x"), (f"cd x && id {name}", "cd x && id <user>"),
+                (f"x; sudo passwd {name}", "x; sudo passwd <user>"), (f"ls | finger {name}", "ls | finger <user>"),
+                (f"out=$(id {name})", "out=$(id <user>)"), (f"run 'su - {name}' now", "run 'su - <user>' now"),
+                (f"PS C:/x> runas /user:{name} cmd", "PS C:/x> runas /user:<user> cmd"))
+        for text, want in gone:
+            ctx.check(f"[{name}] an account slot: {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
+
+
+@test
+def test_a_generic_word_outside_home_folders_and_logins_is_the_documented_limit(ctx: Ctx):
+    """3.6.0.1 jf-words batch 3, the coordinator's ruling (docs/REPLAY.md): for an account named by a common word the
+    scrub removes the name in home folders and logins only; in an `ls -l` owner column, a process list, an ssh config
+    `User` line or a `role:` value it cannot be told from the ordinary word and stays. An uncommon name goes there as
+    in 3.6.0.0. Pinned so the limit is not 'fixed' by accident."""
+    from halo_harness.live.replay_private import scrub
+    lines = ("-rw-r--r--  1 {n} staff  0 Nov 16 a.txt", "role: {n}", "{n}      4242  0.0  0.1 python x.py",
+             "Host gpu-box\n  User {n}")
+    for line in lines:
+        out = scrub({"t": line.format(n="admin")}, None, homes=[], users=["admin"], machines=[])["t"]
+        ctx.check(f"a common word stays: {line!r}, got {out!r}", out == line.format(n="admin"))
+        out = scrub({"t": line.format(n="zedtester")}, None, homes=[], users=["zedtester"], machines=[])["t"]
+        ctx.check(f"an uncommon name goes: {line!r}, got {out!r}", out == line.format(n="<user>"))
 
 
 if __name__ == "__main__":

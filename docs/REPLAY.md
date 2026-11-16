@@ -80,6 +80,17 @@ lineup's names, and a path inside the project. Nothing changes in the format: a 
 `halo audit privacy --replays` checks every file in `<state>/replays/` with the audit's rules plus this machine's home
 path, user name and machine name (`tests/test_replay_private.py` seeds them, Windows-style and POSIX, with a key).
 
+**An account named by a common word (3.6.0.1).** When your account name is a generic word (`admin`, `user`, `dev`,
+`build`, `runner` ...), a shared replay removes it in home folders and in logins only: `name@machine`,
+`machine\name`, a share `\\machine\name`, and an account slot of `ssh -l`, `sudo -u`, `docker -u`, `psql -U`,
+`mysql -u`, `runas` / `net use /user:`, `su`, `chown`, `id`, `passwd`, `groups`, `finger`, `useradd` and kin, and
+keys such as `user=` or `owner=`. Anywhere else (an `ls -l` owner column, a process list, an `/etc/passwd` line, an
+ssh config `User` line, a role value, a path or route word, ordinary prose) the word stays, because there it cannot be
+told from the ordinary word, and a generic word identifies nobody. `halo audit privacy --replays` uses these same
+rules: it reports a home folder or login that still holds the name (a replay saved by an older Halo, say), but not the
+word in those other places, so if you want every occurrence gone, search the replay file for the word yourself before
+you share it.
+
 **One redaction for everything that leaves (3.4.1.2).** A saved replay, `halo export --sanitize`, `/export --sanitize`,
 `halo session export`, the report card's Markdown and `halo bugreport` all pass `halo_harness/privacy_redact.py`:
 the key shapes (now also Groq, xAI and Perplexity keys, JWTs, a token in a URL such as Studio's `#t=` or a pack's
