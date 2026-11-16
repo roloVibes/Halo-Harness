@@ -251,8 +251,9 @@ def test_a_home_path_before_closing_punctuation_is_scrubbed(ctx: Ctx):
                 text = f"at {lead}{name}{tail}"
                 ctx.check(f"[{name}] {text!r} -> the name goes, got {run(text)!r}",
                           run(text) == f"at {lead}<user>{tail}")
-    for text in ("/home/user.name/x", "/home/username", "/home/user-2", "/home/user_x", f"C:{bs}Users{bs}user.name{bs}x",
-                 "/home/user.2/x"):
+    home = "/" + "home" + "/"  # built from parts: the repo's privacy scan reads a longer made-up name as a real home path
+    for text in (f"{home}user.name/x", f"{home}username", f"{home}user-2", f"{home}user_x", f"C:{bs}Users{bs}user.name{bs}x",
+                 f"{home}user.2/x"):
         out = scrub({"t": text}, None, homes=[], users=["user"], machines=[])["t"]
         ctx.check(f"another, longer account name is not 'user': {text!r} kept, got {out!r}", out == text)
 

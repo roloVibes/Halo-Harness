@@ -75,7 +75,8 @@ header. The limits that remain are at the end of this section.
 - **New: `halo ps --forget <pid>`.** For a record Halo still cannot decide on, look at the pid in Task Manager or
   `ps`; if it is another program, `halo ps --forget <pid>` removes the record and signals nothing. A record whose
   process runs and is proven Halo's own is refused, with `halo stop <pid>` named instead. A forgotten process is no
-  longer ended when Halo closes, and `halo stop <pid>` says so when it answers "still running" for such a record.
+  longer ended when Halo closes (`halo ps --forget` says so), and `halo stop <pid>` names `halo ps --forget <pid>`
+  when it answers "still running" for a record it cannot prove.
 - **The Windows `/update` refusal never tells you to `taskkill` a process Halo cannot prove is its own.** It still
   refuses while such a process may run, and now names `halo ps --forget <pid>` for a record of Halo's list, or the
   Halo command that stops that kind (for example `halo studio --stop`) where there is one.
@@ -202,9 +203,9 @@ header. The limits that remain are at the end of this section.
   within about 2 seconds of its record being written is not caught either.
 - **Windows: `/update` can ask you to run it again in one rare case**: when, between its two looks, the only other
   Halo ends and another program takes its pid, that pid is named as one that may still run.
-- **With the container engine stopped, the first `halo` start after a container was left still waits up to
-  3 seconds once**, and a close that removes some of several containers but not all leaves every record to the next
-  start.
+- **With the container engine stopped, a `halo` start after a container was left waits up to 3 seconds, at most
+  once every 10 minutes for as long as the engine stays stopped**, and a close that removes some of several
+  containers but not all leaves every record to the next start.
 - **An Orchestra lane with `isolation: user` did not get the container lane's changes**: past its time only its `sudo`
   client is ended; the worker keeps running, and spending, until the Halo that started it is gone, and then ends
   itself.

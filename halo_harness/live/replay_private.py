@@ -126,7 +126,7 @@ def _machines() -> list:
 _SEGMENT_LEAD = r"((?<=[\\/])(?:home|users)(?:\\\\|\\|/))"
 #: where the name's segment ends: a slash, a quote, whitespace, the end, a character no account name may hold on any
 #: of the three systems (`,` `:` `;` `|` `<` `>` `[` `]` `=` `+` `*` `?`), or a `.` / `)` that does not run on into
-#: more name (`/home/user.` ends a sentence; `/home/user.name`, `/home/user-2` are other, longer names)
+#: more name (after the home prefix, `user.` ends a sentence; `user.name` and `user-2` are other, longer names)
 _SEGMENT_END = r"(?=[\\/\"'`,:;|<>\[\]=+*?]|\s|$|[.)](?![\w-]))"
 
 
