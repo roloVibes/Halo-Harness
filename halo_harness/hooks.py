@@ -512,11 +512,26 @@ def _shell_argv(hook: HookDef, command_text: str) -> list:
         bash = git_bash()
         if bash is not None:
             return [str(bash), "-c", command_text]
-        log.warning("hook: no Git Bash found on PATH -- falling back to PowerShell")
-        return powershell_argv(command_text)
+        return None  # 3.6.0.0: sh text is never handed to PowerShell (a guard's `exit 2` would not block there)
     if hook.shell == "bash":
         return ["/bin/bash", "-c", command_text]
     return ["/bin/sh", "-c", command_text]  # default (no explicit `shell`) on POSIX [D-CFG]
+
+
+_NO_GIT_BASH_WARNED: set = set()
+
+
+def _no_git_bash_result(payload: dict) -> HookResult:
+    """Windows with no Git Bash: a hook written for sh cannot run as written. A PreToolUse hook is a guard, so it
+    fails closed (exit 2 blocks the call, with the way out in the reason); any other event fails non-blocking.
+    The log says it once per event in a process."""
+    event = str((payload or {}).get("hook_event_name") or "")
+    reason = ("hook not run: it is written for sh and no Git Bash was found -- install Git for Windows, "
+              "set CLAUDE_CODE_GIT_BASH_PATH, or give the hook \"shell\": \"powershell\"")
+    if event not in _NO_GIT_BASH_WARNED:
+        _NO_GIT_BASH_WARNED.add(event)
+        log.warning("%s %s", event or "hook", reason)
+    return HookResult(2 if event == "PreToolUse" else 1, "", reason)
 
 
 def _private_console(argv: list) -> int:
@@ -547,6 +562,8 @@ def run_command_hook(hook: HookDef, payload: dict, *, cwd, env: dict, abort=None
     stdin_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     try:
         argv = [str(a) for a in hook.args] if hook.args else _shell_argv(hook, hook.command or "")
+        if argv is None:
+            return _no_git_bash_result(payload)
         proc = subprocess.Popen(
             argv, cwd=str(cwd), env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

@@ -468,6 +468,47 @@ def test_h5b_f14_shell_bash_runs_real_bash_never_sh(ctx: Ctx):
 
 
 @test
+def test_win_no_git_bash_sh_hook_never_runs_in_powershell(ctx: Ctx):
+    """3.6.0.0 fix pass (windows-shell): on Windows with no Git Bash, a `command` hook written for sh used to be
+    handed to PowerShell, which cannot parse it (exit 1 = a non-blocking failure), so a PreToolUse guard that
+    exits 2 let the tool call through. Now the sh text is never run by PowerShell: a PreToolUse hook blocks
+    (exit 2, the reason names Git Bash), any other event fails as a non-blocking error; an explicit
+    `shell: "powershell"` hook still runs. Runs everywhere (the platform and the Git Bash lookup are faked)."""
+    import halo_harness.config.paths as P
+    spawned: list = []
+    real_popen, real_git_bash, real_platform = H.subprocess.Popen, P.git_bash, sys.platform
+
+    def fake_popen(argv, *a, **kw):
+        spawned.append(list(argv))
+        raise OSError("no spawn in this test")
+
+    H.subprocess.Popen, P.git_bash = fake_popen, (lambda: None)
+    sys.platform = "win32"
+    try:
+        guard = H.HookDef(type="command", command='if grep -q "rm -rf"; then echo blocked >&2; exit 2; fi')
+        pre = H.run_command_hook(guard, {"hook_event_name": "PreToolUse", "tool_name": "Bash"}, cwd=".", env={})
+        post = H.run_command_hook(guard, {"hook_event_name": "PostToolUse", "tool_name": "Bash"}, cwd=".", env={})
+        explicit_bash = H.run_command_hook(H.HookDef(type="command", command="exit 0", shell="bash"),
+                                           {"hook_event_name": "PreToolUse"}, cwd=".", env={})
+        sh_spawns = list(spawned)
+        H.run_command_hook(H.HookDef(type="command", command="exit 0", shell="powershell"),
+                           {"hook_event_name": "PreToolUse"}, cwd=".", env={})
+    finally:
+        H.subprocess.Popen, P.git_bash = real_popen, real_git_bash
+        sys.platform = real_platform
+    ctx.check(f"no sh hook text was spawned (in PowerShell or anything else), got {sh_spawns}", sh_spawns == [])
+    ctx.check(f"PreToolUse sh hook with no Git Bash blocks (exit 2), got {pre.exit_code}", pre.exit_code == 2)
+    ctx.check(f"the reason names Git Bash and the way out, got {pre.stderr!r}",
+              "Git Bash" in pre.stderr and "powershell" in pre.stderr)
+    ctx.check(f"interpreted as a block", H.interpret_hook_result("PreToolUse", pre).blocked)
+    ctx.check(f"explicit shell: bash with no Git Bash blocks a PreToolUse too, got {explicit_bash.exit_code}",
+              explicit_bash.exit_code == 2)
+    ctx.check(f"a PostToolUse sh hook fails non-blocking (exit 1), got {post.exit_code}", post.exit_code == 1)
+    ctx.check(f"explicit shell: powershell still runs PowerShell, got {spawned[len(sh_spawns):]}",
+              len(spawned) == len(sh_spawns) + 1 and "powershell" in str(spawned[-1][0]).lower())
+
+
+@test
 def test_h5b_f14_session_end_budget_ignores_implicit_type_defaults(ctx: Ctx):
     """finding 14, point 4: only EXPLICIT `timeout` values count towards
     the SessionEnd budget -- a hook with none must contribute its type's
