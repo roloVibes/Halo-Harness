@@ -451,8 +451,9 @@ class McpStatus(ModalScreen):
             enter()
         try:
             from halo_harness import subprocess_safe as sp
+            from halo_harness.closing import scrubbed_env  # the person's editor: never ended with Halo
             with app.suspend():
-                sp.run(_editor_command(editor, path, line), shell=True)
+                sp.run(_editor_command(editor, path, line), shell=True, env=scrubbed_env())
         finally:
             if callable(leave):
                 leave()

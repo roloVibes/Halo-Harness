@@ -1594,7 +1594,8 @@ class BridgeApp(App):
             self._enter_suspend_for_editor()
             try:
                 with self.suspend():
-                    sp.run(f'{editor} "{tmp_path}"', shell=True)
+                    from halo_harness.closing import scrubbed_env  # the person's editor: never ended with Halo
+                    sp.run(f'{editor} "{tmp_path}"', shell=True, env=scrubbed_env())
             finally:
                 self._exit_suspend_for_editor()
             new_text = tmp_path.read_text(encoding="utf-8", errors="replace").rstrip("\n")

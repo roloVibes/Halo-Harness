@@ -74,7 +74,11 @@ def _start(pid: int) -> Optional[str]:
 def me() -> "tuple[int, Optional[str]]":
     pid = os.getpid()
     if _STATE.get("me_pid") != pid:
-        _STATE["me_pid"], _STATE["me_start"] = pid, _start(pid)
+        start = _start(pid)
+        if start is None:  # 3.6.0.0 fx: kept for life (the marker id is made from it): one failed look is read again
+            time.sleep(0.2)
+            start = _start(pid)
+        _STATE["me_pid"], _STATE["me_start"] = pid, start
     return pid, _STATE["me_start"]
 
 
@@ -203,10 +207,14 @@ def _in_a_job() -> bool:
         return False
 
 
+class Unmarked(dict):
+    """An environment built without Halo's owner variables on purpose: before_spawn leaves it so (3.6.0.0 fx)."""
+
+
 def scrubbed_env(env: Optional[dict] = None) -> dict:
     """An environment without Halo's owner variables: for a long-lived program of the person's own that keeps it and
-    hands it on (a tmux server, a terminal, a browser, an editor)."""
-    return {k: v for k, v in (os.environ if env is None else env).items() if k not in (MARKER, WATCH, ADOPTED)}
+    hands it on (a tmux server, a terminal, a browser, an editor). It stays without them through subprocess_safe."""
+    return Unmarked({k: v for k, v in (os.environ if env is None else env).items() if k not in (MARKER, WATCH, ADOPTED)})
 
 
 def home_tied(keep: bool) -> bool:
@@ -235,6 +243,9 @@ def start_home_watch(proc, state_dir) -> "tuple[Optional[int], Optional[str]]":
     registry -- or (None, None) when it could not start (the server is then ended at once: nothing would stop it)."""
     from halo_harness import subprocess_safe as sp
     pid, start = getattr(proc, "pid", None), _start(getattr(proc, "pid", 0) or 0)
+    if start is None and isinstance(pid, int) and pid > 0:  # 3.6.0.0 fx: a watch given no start time watches nothing
+        time.sleep(0.2)
+        start = _start(pid)
     lp, ls = me()
     argv = [sys.executable, "-I", str(Path(__file__).with_name("closing_home_watch.py")), str(state_dir), str(pid),
             start or "", str(lp), ls or "", str(Path(__file__).resolve().parent.parent)]
@@ -454,7 +465,7 @@ class without_marker:
 def before_spawn(kw: dict) -> dict:
     """A caller that built its own environment still passes this tree's marker (and owner) on."""
     env = kw.get("env")
-    if isinstance(env, dict) and MARKER not in env and os.environ.get(MARKER):
+    if isinstance(env, dict) and not isinstance(env, Unmarked) and MARKER not in env and os.environ.get(MARKER):
         env = dict(env)
         env[MARKER] = os.environ[MARKER]
         if os.environ.get(WATCH) and WATCH not in env:

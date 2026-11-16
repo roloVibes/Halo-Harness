@@ -182,7 +182,7 @@ def test_roles_template_edit_with_a_multi_word_editor_does_not_crash(ctx: Ctx):
 
     class _FakeSubprocess:
         @staticmethod
-        def call(argv):
+        def call(argv, **kw):  # 3.6.0.0 fx: the editor is started with env= (no owner marker)
             captured["argv"] = argv
             return 0
     real_subprocess = roles_cli_mod.subprocess

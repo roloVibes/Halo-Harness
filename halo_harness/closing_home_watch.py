@@ -49,13 +49,15 @@ def halos_alive(state: str, launcher: "tuple[int, str]") -> bool:
 def _end_server(pid: int, start: str) -> None:
     from halo_harness import children as C
     from halo_harness import closing
-    if not C.provably_same(pid, start):
+    # 3.6.0.0 fx: one unreadable start time (macOS: a `ps` past its limit) is read again, never taken as "gone": the
+    # watch returns after this, so giving up here left the server running with no owner
+    if not C.provably_same(pid, start, tries=5):
         return
     closing._signal_tree(pid, hard=False)
     deadline = time.monotonic() + 2.0
-    while time.monotonic() < deadline and C.provably_same(pid, start):
+    while time.monotonic() < deadline and C.same_process(pid, start):
         time.sleep(0.1)
-    if C.provably_same(pid, start):
+    if C.provably_same(pid, start, tries=5):
         closing._signal_tree(pid, hard=True)
 
 

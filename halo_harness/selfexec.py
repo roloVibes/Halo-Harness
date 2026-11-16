@@ -18,6 +18,7 @@ and the bootstrap act on this one interpreter only.
 
 from __future__ import annotations
 
+import copy
 import os
 import sys
 from pathlib import Path
@@ -82,7 +83,7 @@ def fix_kw(args, kw: dict) -> dict:
     pp = (env if env is not None else os.environ).get("PYTHONPATH", "")
     if root in _site_dirs() or (pp.split(os.pathsep)[:1] and _norm(pp.split(os.pathsep)[0]) == root):
         return kw
-    env = dict(env if env is not None else os.environ)
+    env = copy.copy(env) if env is not None else dict(os.environ)  # copy keeps its kind (closing.Unmarked)
     env["PYTHONPATH"] = root + (os.pathsep + pp if pp else "")
     return dict(kw, env=env)
 

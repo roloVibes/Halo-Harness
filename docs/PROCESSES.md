@@ -39,6 +39,10 @@ later. To keep one past Halo, the command starts it with a kept marker, for exam
 `HALO_OWNER=kept-tmux tmux new-session -d -s work`; `halo ps` then lists it as kept and you stop it yourself. On
 Windows such a daemon is in Halo's Job object and ends with it.
 
+**An editor Halo opens for you is yours**: Ctrl+E (`/editor`), `/mcp` e, `halo agents|workflows|maps edit` and
+`halo roles template edit` start your `$VISUAL` / `$EDITOR` without Halo's marker, as `halo --tmux` starts tmux, so a
+GUI editor that stays open (`code --wait`, `gedit`) is never ended when Halo quits.
+
 A stop that reads a pid from a file (`halo host stop`, `halo host steward off`, `halo host rpc off`, `halo pool stop`,
 the ledger) signals it only when the start time recorded with it matches the process that has that pid now. A record
 left by a reboot or a hard kill is cleared and said, never signalled.
