@@ -210,6 +210,21 @@ class MapDownDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1440, 900
 
+    def run(self, steps, emit: bool = True) -> dict:
+        """Every step runs even after one before it failed (each resets the rows and loads its own page), so each test
+        shows its own red, not the first failed step's; `failed` names every step that raised."""
+        errs = []
+        for step in steps:
+            super().run([step], emit=False)
+            if "failed" in self.out:
+                errs.append(self.out.pop("failed"))
+        if errs:
+            self.out["failed"] = " | ".join(errs)[:1600]
+        if emit:
+            import json
+            print(json.dumps(self.out))
+        return self.out
+
     @contextmanager
     def session(self, c):
         from tests.helpers.studio_session import ERRS_JS, second_session

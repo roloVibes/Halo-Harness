@@ -148,6 +148,27 @@ def test_studio_unasked_session_named_never_chosen(ctx: Ctx):
         raise SkipTest(f"(b) passed; (a) {node_skip}")
 
 
+UNLISTED_JS = """const m = await import(%s);
+const T = {session_id: 'TERM', parent: null, turns: 4, started: 100};
+const N = {session_id: 'NEW', parent: 'studio:1', turns: 0, started: 300};
+console.log(JSON.stringify({
+  before: m.livePick([T], 'NEW')?.session_id ?? null, listed: m.livePick([T, N], 'NEW')?.session_id ?? null,
+  stale: m.livePick([T], 'GONE-LONG-AGO')?.session_id ?? null, unpicked: m.livePick([T], '')?.session_id ?? null,
+}));"""
+
+
+@test
+def test_a_pick_not_listed_yet_is_never_another_session(ctx: Ctx):
+    # New session: openSession({session: id}) picks an id that registers a moment later. Until it is listed, Prompt, Cost
+    # and the Live drawer (all chosenSession = livePick) must speak of no session, never send to the terminal one.
+    from tests.helpers import node_ts
+    p = node_ts.run(UNLISTED_JS % json.dumps(PICK.resolve().as_uri()))
+    ctx.check(f"R1: a pick not listed yet is no session (not the open terminal one), got {p.get('before')!r}", p.get("before") is None)
+    ctx.check(f"R1: once it registers it is the one, got {p.get('listed')!r}", p.get("listed") == "NEW")
+    ctx.check(f"R1: a pick this page never saw is still never another session, got {p.get('stale')!r}", p.get("stale") is None)
+    ctx.check(f"R1: with no pick the newest open one is the default, got {p.get('unpicked')!r}", p.get("unpicked") == "TERM")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

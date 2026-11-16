@@ -19,7 +19,7 @@ import { findAgent, fleet, isLive, keyOf, localId, parseKey, useFleet, type Flee
 import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
-import { lastRow, livePick, noteRows } from "./pick";
+import { livePick, noteRows } from "./pick";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
@@ -148,7 +148,7 @@ function onChange(): void {
       if (key && findAgent(s, key)) select(key);
     } else if (s.loaded && needPick) {
       needPick = false;
-      session = livePick(localSessions(s), session)?.session_id || (lastRow(session) ? session : ""); // R1: the kept one
+      // R1: the kept pick stays the pick (open, ended: T8, or not listed yet); with none, the default below
       const p = parseKey(s.selected);
       if (session && (!s.selected || p.h !== harness || !findAgent(s, s.selected))) {
         const key = pickAgent(s, session); // an agent OF the kept session only

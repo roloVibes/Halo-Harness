@@ -33,14 +33,11 @@ export function lastRow(sid: string): { row: SessionRow; ended: number } | null 
   return row && t ? { row, ended: t } : null;
 }
 
-/** R1: the picked row while it is open; a picked one that ended stays the pick (null here, T8 in the drawer); else the
- *  newest open row that is not T10; else (only T10 rows are open) the newest of those. */
+/** R1: the picked row while it is open; a pick is never another session: one that ended (null here, T8 in the drawer)
+ *  or one not listed yet (New session registers a moment later) is null; with no pick the newest open row that is not
+ *  T10, else (only T10 rows are open) the newest of those. */
 export function livePick<R extends SessionRow>(rows: R[], pick: string): R | null {
-  if (pick) {
-    const r = rows.find((x) => x.session_id === pick);
-    if (r) return r;
-    if (lastRow(pick)) return null;
-  }
+  if (pick) return rows.find((x) => x.session_id === pick) || null;
   return openOrder(rows)[0] || null;
 }
 
