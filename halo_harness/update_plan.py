@@ -257,14 +257,14 @@ def launch(plan: dict, *, state_dir=None, windows: Optional[bool] = None, python
     from halo_harness import closing  # the updater and its window outlive this halo: kept, never in its Job
     detached = getattr(subprocess, "DETACHED_PROCESS", 0x08) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
     started = None
-    for extra in (getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0x01000000), 0):
-        try:
-            started = run(argv, **closing.kept_kwargs({
-                "creationflags": detached | extra, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
-                "stderr": subprocess.DEVNULL, "cwd": str(run_dir(state_dir)), "close_fds": True}))
-            break
-        except OSError:
-            continue
+    # One start path: kept_kwargs asks to leave Halo's Job, and subprocess_safe.Popen itself falls back (an outer Job
+    # that forbids leaving: start_outside_job, else inside it with a line saying so). A retry here would repeat it.
+    try:
+        started = run(argv, **closing.kept_kwargs({
+            "creationflags": detached, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL, "cwd": str(run_dir(state_dir)), "close_fds": True}))
+    except OSError:
+        started = None
     if started is None:
         print(f"halo update: the updater did not start ({runner}); nothing was installed; run `halo update` again",
               file=sys.stderr)
