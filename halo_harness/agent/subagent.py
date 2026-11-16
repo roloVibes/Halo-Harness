@@ -389,6 +389,8 @@ def _child_credential_message(ref) -> str:
         return "OpenAI API not configured -- set OPENAI_API_KEY"
     if ref.provider == "experiential":
         return "Experiential Labs not configured -- set EXPLABS_API_KEY"
+    if ref.provider == "copilot":  # repair: never send a Copilot child to an OpenRouter key
+        return "Copilot not signed in -- run `halo copilot signin`"
     from halo_harness.providers.stream import not_configured_message  # fix pass 2: the sentence names its fix
     if ref.provider == "ollama":
         return not_configured_message("Ollama host")

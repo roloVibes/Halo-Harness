@@ -21,10 +21,23 @@ from tests.helpers.runner import Ctx, SkipTest, new_registry, print_results, run
 
 test, TESTS = new_registry()
 
+_TEMP_DIRS: list = []
+
+
+def _tmp(prefix: str) -> str:
+    """A scratch folder removed when the module ends (rmtree never enters a junction or symlink)."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    if not _TEMP_DIRS:
+        import atexit
+        import shutil
+        atexit.register(lambda: [shutil.rmtree(p, ignore_errors=True) for p in _TEMP_DIRS])
+    _TEMP_DIRS.append(d)
+    return d
+
 
 def _linked_project() -> "tuple[Path, Path]":
     """(real folder, a second spelling of it): a symlink on POSIX, a junction on Windows."""
-    root = Path(tempfile.mkdtemp(prefix="folder-key-"))
+    root = Path(_tmp(prefix="folder-key-"))
     real = root / "real-project"
     real.mkdir()
     link = root / "linked-project"
@@ -61,7 +74,7 @@ def test_a_session_stored_through_the_link_is_found_from_the_real_folder(ctx: Ct
     if os.name == "nt":
         raise SkipTest("Windows: a junction keeps its spelling (its cwd is not resolved), so no second key exists")
     saved = os.environ.get("BRIDGE_TEST_HOME")
-    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="folder-key-home-")
+    os.environ["BRIDGE_TEST_HOME"] = _tmp(prefix="folder-key-home-")
     try:
         from halo_harness.agent.sessions import resolve_continue, sessions_dir
         real, link = _linked_project()
@@ -98,7 +111,7 @@ def test_a_trust_record_for_a_symlink_never_follows_where_the_link_points_today(
     if os.name == "nt":
         raise SkipTest("Windows: folder_key keeps a spelling as given, no key is followed (the POSIX legs run this)")
     from halo_harness.config.claude_json import is_trusted
-    root = Path(tempfile.mkdtemp(prefix="folder-key-trust-"))
+    root = Path(_tmp(prefix="folder-key-trust-"))
     repo, clone, current = root / "my-repo", root / "downloaded-clone", root / "current"
     repo.mkdir()
     clone.mkdir()
@@ -120,7 +133,7 @@ def test_a_lookup_resolves_the_cwd_once_and_never_a_stored_key(ctx: Ctx):
         raise SkipTest("Windows: folder_key never resolves, so no key is ever stat'ed there")
     from unittest import mock
     from halo_harness.config import paths
-    root = Path(tempfile.mkdtemp(prefix="folder-key-many-"))
+    root = Path(_tmp(prefix="folder-key-many-"))
     cj = {"projects": {f"/net/gpu-box/share/proj{i}": {"allowedTools": ["Read"]} for i in range(400)}}
     cj["projects"][os.path.realpath(root)] = {"allowedTools": ["Grep"]}
     real = os.path.realpath
@@ -141,7 +154,7 @@ def test_memory_and_sessions_use_one_slug_through_a_link(ctx: Ctx):
     """fix pass 2: on Windows memory_dir resolve()d a junction or subst drive while sessions kept the spelling,
     so one folder had its sessions under one project slug and its memory under another."""
     saved = os.environ.get("BRIDGE_TEST_HOME")
-    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="folder-key-home-")
+    os.environ["BRIDGE_TEST_HOME"] = _tmp(prefix="folder-key-home-")
     try:
         from halo_harness.agent.sessions import sessions_dir
         from halo_harness.config.paths import memory_dir, project_slug
@@ -180,14 +193,15 @@ def test_windows_one_key_for_a_folder_typed_in_another_case(ctx: Ctx):
     gives `C:\\users\\me\\proj`), so the same folder had two session/memory slugs and its ~/.claude.json and
     trust.json records were not found. Windows folders are case-insensitive: one key whatever the case typed."""
     if os.name != "nt":
-        raise SkipTest("Windows only: POSIX folders are case-sensitive (two cases are two folders)")
+        raise SkipTest("Windows only: Linux folders are case-sensitive; macOS (APFS, usually case-insensitive) is "
+                       "not folded and not covered here (its keys come from getcwd, which carries the disk's case)")
     saved = os.environ.get("BRIDGE_TEST_HOME")
-    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="folder-key-home-")
+    os.environ["BRIDGE_TEST_HOME"] = _tmp(prefix="folder-key-home-")
     try:
         from halo_harness.agent.sessions import resolve_continue, sessions_dir
         from halo_harness.config.claude_json import is_trusted
         from halo_harness.config.paths import folder_key, lookup_project, memory_dir, normalize_cwd, project_slug
-        root = Path(tempfile.mkdtemp(prefix="folder-key-case-"))
+        root = Path(_tmp(prefix="folder-key-case-"))
         real = root / "CaseProject"
         real.mkdir()
         real = Path(folder_key(real))
@@ -213,6 +227,32 @@ def test_windows_one_key_for_a_folder_typed_in_another_case(ctx: Ctx):
             os.environ.pop("BRIDGE_TEST_HOME", None)
         else:
             os.environ["BRIDGE_TEST_HOME"] = saved
+
+
+@test
+def test_windows_a_folder_renamed_only_in_case_gets_its_new_spelling_in_a_long_lived_process(ctx: Ctx):
+    """fix pass 2 batch 2 repair (sessions-storage): the disk-case cache lived for the whole process, so a Studio or
+    TUI that ran on kept the old spelling of a folder renamed only in letter case until it restarted."""
+    if os.name != "nt":
+        raise SkipTest("Windows only: the disk-case lookup runs on Windows")
+    from halo_harness.config import paths
+    root = Path(_tmp(prefix="folder-key-rename-"))
+    old = root / "RenameMe"
+    old.mkdir()
+    before = paths.folder_key(old)
+    ctx.check(f"the folder's own case first, got {before!r}", before.endswith("RenameMe"))
+    os.rename(old, root / "renameme")
+    saved_clock = getattr(paths, "_case_clock", None)
+    t = __import__("time").monotonic() + 3600.0
+    paths._case_clock = lambda: t  # an hour later in the same process
+    try:
+        after = paths.folder_key(old)  # the same spelling as before: the one the cache holds
+    finally:
+        if saved_clock is None:
+            del paths._case_clock
+        else:
+            paths._case_clock = saved_clock
+    ctx.check(f"later, the same typed spelling gives the disk's new case, got {after!r}", after.endswith("renameme"))
 
 
 if __name__ == "__main__":

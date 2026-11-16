@@ -181,7 +181,9 @@ def _set_problem(key: str, value) -> str:
         choices += ("dontAsk", "bypassPermissions", "manual")
     if choices and value not in choices:
         return f"{key} is one of {', '.join(map(str, choices))}; {value!r} is not"
-    if row is not None and row.kind == "model" and isinstance(value, str):
+    # only the settings read as a routed model ref; embeddings.model, ollama.steward.model and host.steward.model
+    # take an Ollama model's own name (or "none"), which parse_model_ref would wrongly refuse
+    if key in ("model", "compactionModel", "studio.builder.model") and isinstance(value, str):
         from halo_harness.config.paths import bridge_home
         from halo_harness.model import parse_model_ref
         from halo_harness.providers.config import load_routes

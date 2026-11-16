@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import sys
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -449,7 +450,9 @@ def folder_key(path: str | Path) -> str:
         return s
 
 
-_WIN_CASE_CACHE: dict[str, str] = {}
+_WIN_CASE_CACHE: dict[str, "tuple[float, str]"] = {}
+_WIN_CASE_TTL_S = 5.0  # a folder renamed only in letter case is seen within seconds, not at the next restart
+_case_clock = time.monotonic
 
 
 def _win_entry_name(full: str) -> str | None:
@@ -473,8 +476,9 @@ def _win_disk_case(s: str) -> str:
     """`s` with each existing component in its on-disk case; the drive letter upper case; the separators, a UNC
     share and any component that does not exist (or cannot be read) kept as typed."""
     hit = _WIN_CASE_CACHE.get(s)
-    if hit is not None:
-        return hit
+    now = _case_clock()
+    if hit is not None and now - hit[0] < _WIN_CASE_TTL_S:
+        return hit[1]
     drive, rest = os.path.splitdrive(s)
     if len(drive) == 2 and drive[1] == ":":
         drive = drive.upper()
@@ -500,7 +504,7 @@ def _win_disk_case(s: str) -> str:
     if complete:  # cache only what the disk answered, so a folder made later in another case is seen
         if len(_WIN_CASE_CACHE) > 512:
             _WIN_CASE_CACHE.clear()
-        _WIN_CASE_CACHE[s] = result
+        _WIN_CASE_CACHE[s] = (now, result)
     return result
 
 

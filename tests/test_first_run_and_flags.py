@@ -25,6 +25,19 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all
 
 test, TESTS = new_registry()
 
+_TEMP_DIRS: list = []
+
+
+def _tmp(prefix: str) -> str:
+    """A scratch folder removed when the module ends."""
+    d = tempfile.mkdtemp(prefix=prefix)
+    if not _TEMP_DIRS:
+        import atexit
+        import shutil
+        atexit.register(lambda: [shutil.rmtree(p, ignore_errors=True) for p in _TEMP_DIRS])
+    _TEMP_DIRS.append(d)
+    return d
+
 _KEY_VARS = ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "EXPLABS_API_KEY", "HF_TOKEN",
              "DATABRICKS_HOST", "DATABRICKS_TOKEN", "DATABRICKS_CONFIG_PROFILE", "HALO_MODEL", "ANTHROPIC_MODEL")
 
@@ -46,7 +59,7 @@ def _run_halo(home: Path, *args: str, keys: "dict | None" = None) -> "tuple[int,
 @contextlib.contextmanager
 def _scratch_home():
     saved = os.environ.get("BRIDGE_TEST_HOME")
-    home = Path(tempfile.mkdtemp(prefix="first-run-home-"))
+    home = Path(_tmp("first-run-home-"))
     os.environ["BRIDGE_TEST_HOME"] = str(home)
     try:
         yield home
@@ -61,7 +74,7 @@ def _scratch_home():
 
 @test
 def test_a_first_prompt_with_no_provider_says_what_to_set(ctx: Ctx):
-    home = Path(tempfile.mkdtemp(prefix="first-run-p-"))
+    home = Path(_tmp("first-run-p-"))
     rc, out = _run_halo(home, "-p", "hello")
     ctx.check(f"the run fails (rc 1), got {rc}", rc == 1)
     ctx.check(f"the line names the key to set, got {out!r}", "OPENROUTER_API_KEY" in out)
@@ -74,11 +87,15 @@ def test_every_not_configured_sentence_names_its_fix(ctx: Ctx):
     from halo_harness.controller import _not_configured_message
     from halo_harness.providers.stream import not_configured_message
     for provider, word in (("openrouter", "OPENROUTER_API_KEY"), ("anthropic", "ANTHROPIC_API_KEY"),
-                           ("databricks", "halo init --provider databricks"), ("ollama", "OLLAMA_HOST")):
+                           ("databricks", "halo init --provider databricks"), ("ollama", "OLLAMA_HOST"),
+                           ("copilot", "halo copilot signin")):
         ref = types.SimpleNamespace(provider=provider, model="x")
         for name, fn in (("controller", _not_configured_message), ("sub-agent", _child_credential_message)):
             line = fn(ref)
             ctx.check(f"{name} {provider}: names {word!r}, got {line!r}", word in line)
+            if provider != "openrouter":
+                ctx.check(f"{name} {provider}: never sends the person to OpenRouter, got {line!r}",
+                          "OPENROUTER" not in line and "OpenRouter" not in line)
     ctx.check("the phase-1 sentence is the same one",
               not_configured_message("OpenRouter") == _not_configured_message(types.SimpleNamespace(provider="openrouter")))
 
@@ -117,6 +134,33 @@ def test_the_session_start_says_when_no_provider_is_set_up(ctx: Ctx):
     ready = types.SimpleNamespace(creds=object(), model_ref=types.SimpleNamespace(provider="openrouter", model="m"))
     ctx.check("a session that has its credentials gets no line", setup_hint_line(ready) is None)
     ctx.check("no session, no line", setup_hint_line(None) is None)
+    cp = types.SimpleNamespace(creds=None, model_ref=types.SimpleNamespace(provider="copilot", model="work",
+                                                                           raw="cp:work"))
+    line = setup_hint_line(cp) or ""
+    ctx.check(f"a Copilot session not signed in is told to sign in, not to set an OpenRouter key, got {line!r}",
+              "halo copilot signin" in line and "OPENROUTER" not in line)
+
+
+@test
+def test_the_tui_shows_the_setup_line_on_its_first_screen(ctx: Ctx):
+    import asyncio
+    from halo_harness.testing.fake_controller import FakeController
+    from halo_harness.tui.app import BridgeApp
+    with _scratch_home():
+        fake = FakeController()
+        fake.session = types.SimpleNamespace(creds=None,
+                                             model_ref=types.SimpleNamespace(provider="openrouter", model="m", raw="or:m"))
+        app = BridgeApp(fake, cwd=str(Path(_tmp("first-run-tui-"))))
+        got: dict = {}
+
+        async def body():
+            async with app.run_test(size=(120, 30)) as pilot:
+                await pilot.pause(0.5)
+                got["log"] = "\n".join(app.transcript.plain_log)
+        asyncio.run(body())
+    log = got.get("log", "")
+    ctx.check(f"the first screen names the setup, got {log[-400:]!r}",
+              "No provider is set up for or:m" in log and "halo init" in log)
 
 
 # ---- halo config set ---------------------------------------------------------------------------------------------
@@ -142,11 +186,23 @@ def test_config_set_refuses_an_unknown_key_and_a_value_outside_its_choices(ctx: 
             with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
                 rc = cmd_config(argv)
             ctx.check(f"{argv}: a valid key and value still saves (rc 0), got {rc}", rc == 0)
+        # repair: model settings that take an Ollama model's own name (or "none"), not a routed ref, still save
+        # (docs/CONFIG.md tells people to run the first one)
+        from halo_harness.config_cli import _set_problem
+        for key, value in (("embeddings.model", "nomic-embed-text"), ("ollama.steward.model", "none"),
+                           ("ollama.steward.model", "qwen3:4b"), ("host.steward.model", "qwen3:4b")):
+            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+                rc = cmd_config(["set", key, value])
+            ctx.check(f"{key} {value}: saved (rc 0), got {rc}: {_set_problem(key, value)!r}", rc == 0)
+            saved = json.loads(cfg.read_text(encoding="utf-8"))
+            for part in key.split("."):
+                saved = saved.get(part) if isinstance(saved, dict) else None
+            ctx.check(f"{key}: stored as typed, got {saved!r}", saved == value)
 
 
 @test
 def test_a_bad_saved_model_is_not_blamed_on_a_model_flag(ctx: Ctx):
-    home = Path(tempfile.mkdtemp(prefix="first-run-model-"))
+    home = Path(_tmp("first-run-model-"))
     (home / ".halo").mkdir()
     (home / ".halo" / "config.json").write_text(json.dumps({"model": "nosuch:model"}), encoding="utf-8")
     rc, out = _run_halo(home, "-p", "hello")
@@ -159,7 +215,7 @@ def test_a_bad_saved_model_is_not_blamed_on_a_model_flag(ctx: Ctx):
 
 @test
 def test_a_flag_naming_a_missing_file_or_bad_json_stops_the_run(ctx: Ctx):
-    home = Path(tempfile.mkdtemp(prefix="first-run-flags-"))
+    home = Path(_tmp("first-run-flags-"))
     missing_dir = str(home / "nosuch" / "dir")
     for flag, value in (("--settings", "nosuch.json"), ("--mcp-config", "nosuch.json"), ("--mcp-config", "{bad json"),
                         ("--agents", "{bad json"), ("--agents", "nosuch-agents.json"), ("--cwd", missing_dir)):
