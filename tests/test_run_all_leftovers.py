@@ -265,25 +265,52 @@ def _row(pid, ppid, start, cmd="", mark="", **extra):
 
 
 @test
-def test_a_browsers_own_helpers_are_not_the_runs_but_a_browser_left_running_is(ctx: Ctx):
-    """The first CI run with the check on, macOS legs: two browser modules were counted red for Chrome's own crash
-    handler and for the machine's Google updater (`GoogleUpdater --wake-all`, started by any Chrome), and the check
-    ended them. They are the browser's: not counted, not ended. A browser a test leaves running is still found."""
+def test_only_the_helpers_of_the_rigs_own_browser_are_left_out(ctx: Ctx):
+    """The first CI run with the check on, macOS legs: two browser modules were counted red for the crash handler of
+    the rig's own driver Chrome and for the machine's Google updater (`GoogleUpdater --wake-all`, started by any
+    Chrome), and the check ended them. Left out now, with what they start: but ONLY under the marker the rig's driver
+    gives its browser (rig_browser_env). The reviewers' case: a crash handler left by the Chrome HALO starts (replay
+    clips) carries the plain marker and is still counted and ended. A name alone leaves nothing out."""
     me = os.getpid()
+    token = _token()  # before the scan is patched: run_id() reads this process once
+    plain, rig = token["value"], token["value"] + leftovers.RIG_BROWSER
     app = "/Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/1/Helpers"
+    updater = "/Library/Application Support/Google/GoogleUpdater/1.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater"
     procs = {
         me: _row(me, 1, 10),
-        701: _row(701, me, 20, f"{app}/chrome_crashpad_handler --monitor-self-annotation=ptype=crashpad-handler"),
-        702: _row(702, me, 20, "/Library/Application Support/Google/GoogleUpdater/1.0/GoogleUpdater.app/Contents/MacOS/"
-                               "GoogleUpdater --wake-all"),
-        703: _row(703, me, 20, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --x"),
-        704: _row(704, me, 20, "/opt/google/chrome/chrome_crashpad_handler --monitor-self --database=/tmp/x"),
-        705: _row(705, me, 20, "python sleeper.py --note GoogleUpdater"),  # an ordinary child that only names one
+        701: _row(701, 1, 20, f"{app}/chrome_crashpad_handler --monitor-self-annotation=ptype=crashpad-handler", rig),
+        702: _row(702, 1, 20, f"{updater} --wake-all", rig),
+        703: _row(703, me, 20, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --x", rig),
+        704: _row(704, 1, 20, "/opt/google/chrome/chrome_crashpad_handler --monitor-self --database=/tmp/x", rig),
+        705: _row(705, me, 20, "python sleeper.py --note GoogleUpdater", plain),  # an ordinary child that names one
+        706: _row(706, 1, 20, f"{app}/chrome_crashpad_handler --monitor-self-annotation=ptype=crashpad-handler", plain),
+        707: _row(707, 702, 21, "/bin/sh /tmp/ksinstall-step.sh", rig),          # what the rig browser's updater starts
+        708: _row(708, 1, 20, "sleep 600 /tmp/googleupdater", plain),            # a helper's name as an argument
+        709: _row(709, 1, 20, "/opt/x/chrome_crashpad_handler_more --monitor-self", rig),  # not the name itself
+        710: _row(710, 1, 20, "C:/Program Files/X/crashpad_handler.exe --database=C:/t", rig),
     }
     with _patched(scan=lambda want=None: dict(procs)):
-        found = sorted(p.pid for p in leftovers.find(_token()))
-    ctx.check(f"the crash handlers and the updater are not counted; the browser and the sleeper are, got {found}",
-              found == [703, 705])
+        found = {p.pid: p for p in leftovers.find(token)}
+    ctx.check(f"left out: the rig browser's crash handlers (701, 704, 710), its updater (702) and what that starts "
+              f"(707); counted: everything else, got {sorted(found)}", sorted(found) == [703, 705, 706, 708, 709])
+    ctx.check(f"the crash handler of the Chrome Halo started is found by the marker and may be ended, got "
+              f"{getattr(found.get(706), 'why', None)!r}",
+              706 in found and found[706].why == "marker" and leftovers._may_end(found[706]))
+    saved = os.environ.get(leftovers.MARK)
+    try:
+        os.environ[leftovers.MARK] = plain
+        env = leftovers.rig_browser_env()
+        again = leftovers.rig_browser_env()
+        ctx.check(f"the rig's browser gets the marker with its ending, once, and this process keeps its own, got "
+                  f"{env.get(leftovers.MARK)!r}", env[leftovers.MARK] == rig and again[leftovers.MARK] == rig
+                  and os.environ[leftovers.MARK] == plain)
+        del os.environ[leftovers.MARK]
+        ctx.check("with no check on, the browser's environment gets no marker", leftovers.MARK not in leftovers.rig_browser_env())
+    finally:
+        if saved is None:
+            os.environ.pop(leftovers.MARK, None)
+        else:
+            os.environ[leftovers.MARK] = saved
 
 
 @test

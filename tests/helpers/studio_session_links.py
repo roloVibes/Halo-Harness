@@ -27,7 +27,9 @@ def live_run(rig):
 
 def _why(c, rig, run_dir, sid: str, took: dict) -> str:
     """What the server and the page say when the button never came (3.6.0.1: red twice on one CI runner with only
-    'waited 30s'): the two things the button needs, each from the server and from the page. Yes/no and counts only."""
+    'waited 30s'): the two things the button needs, each from the server and from the page. It prints the seconds
+    each step took, yes/no and counts, the run read's HTTP status, and the first 160 characters of the page's run
+    inspector (in this test: the rig's made-up goal run). Never a session id, a path or a token."""
     said: list = [f"seconds {took}"]
     try:
         local = [h for h in rig.api("GET", "live")[1].get("harnesses", []) if h.get("local")]

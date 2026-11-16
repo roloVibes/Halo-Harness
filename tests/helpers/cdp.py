@@ -98,10 +98,11 @@ class Chrome:
         step, t0 = "browser start (until its DevTools port opens)", _clock()
         try:
             from tests.helpers.chrome_driver import headless_flags  # + --no-sandbox only as root (3.2.1.0 R5)
+            from tests.helpers.leftovers import rig_browser_env  # 3.6.0.1: this browser's helpers are the rig's
             self.proc = subprocess.Popen([exe, *headless_flags(), "--no-first-run",
                                           "--no-default-browser-check", f"--user-data-dir={self.profile}", "--remote-debugging-port=0",
                                           f"--window-size={width},{height}", "about:blank"],
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=rig_browser_env())
             port = self._port()
             _report(step, t0)
             step, t0 = "DevTools target list", _clock()

@@ -17,6 +17,9 @@ terminal looks the same), except on Windows when its parent is WmiPrvSE: a progr
 parent and no inherited environment, so only (c) finds it. Nothing is ever ended by name, and nothing that existed
 before the module began is touched. A report line shows the argv only, cut to 200 characters, never an environment
 (macOS `ps -E` puts the environment after the command; the argv is read again without it).
+One thing is left out, neither counted nor ended: the helpers (crash handler, updater) of a browser the rig's OWN
+driver started, known by that browser's marker (rig_browser_env) and their program's name. A helper of the Chrome
+Halo starts is not left out.
 """
 from __future__ import annotations
 
@@ -385,17 +388,45 @@ def begin(module: str, folders=()) -> dict:
     return token
 
 
-#: 3.6.0.1 (the first CI run with the check on, macOS legs): a browser's own helpers are the browser's, not the run's
-#: and not Halo's. Its crash handler outlives it for a moment; its updater is the machine's own service, woken by any
-#: start of that browser. They are neither counted nor ended. A browser a test leaves running still is counted.
-BROWSER_HELPERS = ("chrome_crashpad_handler", "crashpad_handler", "googleupdater", "googlesoftwareupdate", "ksfetch",
-                   "microsoftedgeupdate")
+#: 3.6.0.1 (the first CI run with the check on, macOS legs): the helpers of a browser THE RIG'S OWN DRIVER started are
+#: that browser's: its crash handler outlives it for a moment, and its updater is the machine's own service, woken by
+#: any start of that browser. They, and what they start, are neither counted nor ended. Only the rig's driver marks
+#: its browser (rig_browser_env): the Chrome HALO starts (replay clips) carries the plain marker, so a helper it
+#: leaves is counted and ended like any other process of Halo's. A browser a test leaves running is always counted.
+#: The names are the ones seen on macOS and Linux (on Windows Chrome's crash handler is `chrome.exe` itself and its
+#: updater is `updater.exe`: neither is left out there).
+BROWSER_HELPERS = ("chrome_crashpad_handler", "crashpad_handler", "googleupdater")
+RIG_BROWSER = "#rig-browser"
+
+
+def rig_browser_env() -> dict:
+    """The environment the rig's own driver gives the browser it starts (tests/helpers/cdp.py, chrome_driver.one_shot):
+    this process's, its marker ended by RIG_BROWSER. Unchanged when no check is on (the marker is not set)."""
+    env = dict(os.environ)
+    if env.get(MARK) and not env[MARK].endswith(RIG_BROWSER):
+        env[MARK] += RIG_BROWSER
+    return env
 
 
 def _browser_helper(p: Proc) -> bool:
-    """Whether `p`'s program (its path up to the first ` --` option, by its last segment) is one of BROWSER_HELPERS."""
+    """Whether `p` is a helper of a browser the rig's driver started: it carries that browser's marker, and its
+    program (the text before the first ` --` option, its last path segment, `.exe` dropped) IS one of BROWSER_HELPERS."""
+    if not p.mark.endswith(RIG_BROWSER):
+        return False
     head = (p.cmd or "").split(" --", 1)[0].replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
-    return any(head.startswith(h) for h in BROWSER_HELPERS)
+    return (head[:-4] if head.endswith(".exe") else head) in BROWSER_HELPERS
+
+
+def _of_a_browser_helper(p: Proc, procs: dict, helpers: set) -> bool:
+    """`p` is one of `helpers` or was started by one (the parent chain, a parent never younger than its child)."""
+    seen, cur = set(), p
+    while cur is not None and cur.pid not in seen:
+        if cur.pid in helpers:
+            return True
+        seen.add(cur.pid)
+        parent = procs.get(cur.ppid)
+        cur = parent if parent is not None and parent.start <= cur.start else None
+    return False
 
 
 def find(token: dict) -> list:
@@ -418,9 +449,10 @@ def find(token: dict) -> list:
             cur = parent
         return False
 
+    helpers = {pid for pid, p in procs.items() if pid != me and _browser_helper(p)}
     found = []
     for pid, p in procs.items():
-        if pid == me or (pid, p.start) in known or _browser_helper(p):
+        if pid == me or (pid, p.start) in known or (helpers and _of_a_browser_helper(p, procs, helpers)):
             continue
         if descends(p):
             p.why = "child"

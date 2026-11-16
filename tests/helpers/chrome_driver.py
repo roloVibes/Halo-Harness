@@ -154,7 +154,9 @@ def one_shot(args: list, timeout: int = 90) -> "subprocess.CompletedProcess | No
         profile = tempfile.mkdtemp(prefix="halo-chrome-")
         cmd = [exe, *headless_flags(), f"--user-data-dir={profile}", "--virtual-time-budget=6000", *args]
         try:
-            return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
+            from tests.helpers.leftovers import rig_browser_env  # 3.6.0.1: this browser's helpers are the rig's
+            return subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout,
+                                  env=rig_browser_env())
         finally:
             shutil.rmtree(profile, ignore_errors=True)
 
