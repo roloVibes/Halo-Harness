@@ -78,6 +78,19 @@ def test_a_link_is_answered_once_with_the_page_and_its_key(ctx: Ctx):
 
 
 @test
+def test_a_windows_browser_through_wsls_relay_still_opens_studio(ctx: Ctx):
+    """fx studio batch 2 repair: on WSL2 (NAT networking) a Windows browser reaches a Studio inside WSL through WSL's
+    localhost relay, whose Linux end is owned by root (uid 0). Root reads every account's files and processes, the
+    key included, so refusing it protects nothing; it only left `halo studio` on a 403 page on WSL."""
+    from halo_harness.studio.open_link import once_link, redeem
+    link = once_link(f"http://127.0.0.1:43123/?mode=setup#t={KEY}", now=1000.0)[len("http://127.0.0.1:43123"):]
+    got = redeem(link, KEY, now=1001.0, peer_uid=0, own_uid=1000)
+    ctx.check(f"the relay's root-owned connection: the page, got {got!r}", got == f"/?mode=setup#t={KEY}")
+    other = once_link(f"http://127.0.0.1:43123/#t={KEY}", now=1000.0)[len("http://127.0.0.1:43123"):]
+    ctx.check("another ordinary account: still refused", redeem(other, KEY, now=1001.0, peer_uid=1001, own_uid=1000) is None)
+
+
+@test
 def test_the_account_of_a_loopback_connection_is_read_from_proc_net_tcp(ctx: Ctx):
     from halo_harness.studio.open_link import peer_uid
     table = ("  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"

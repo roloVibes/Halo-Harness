@@ -45,7 +45,9 @@ def redeem(path_query: str, key: str, *, now: Optional[float] = None, peer_uid: 
     if len(bits) != 3 or not bits[0].isdigit() or not hmac.compare_digest(bits[2], _mac(key, bits[0], bits[1])):
         return None
     age = (time.time() if now is None else now) - int(bits[0])
-    if not (-5 <= age <= TTL) or (peer_uid is not None and own_uid is not None and peer_uid != own_uid):
+    # Root (uid 0) is let through: it reads every account's files and processes, the key included, so refusing it
+    # guards nothing, and WSL2's localhost relay (a Windows browser opening a Studio inside WSL) connects as root.
+    if not (-5 <= age <= TTL) or (peer_uid is not None and own_uid is not None and peer_uid not in (own_uid, 0)):
         return None
     with _LOCK:
         if once[0] in _USED:

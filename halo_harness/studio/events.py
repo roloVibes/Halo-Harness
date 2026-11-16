@@ -197,6 +197,8 @@ class EventBridge:
             with self._lock:
                 if sid in self._attached:
                     return True
+                if sid not in self._stops:  # the pump has ended (the subscribe failed): no point waiting longer
+                    return False
         return False
 
     def _attach(self, entry: dict) -> None:

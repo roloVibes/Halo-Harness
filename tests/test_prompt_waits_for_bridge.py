@@ -54,6 +54,25 @@ def test_the_bridge_attaches_a_session_on_demand_and_says_when_it_listens(ctx: C
 
 
 @test
+def test_a_subscribe_that_fails_does_not_hold_the_turn_for_the_whole_bound(ctx: Ctx):
+    """fx studio batch 2 repair: when the session refuses the subscribe, the pump ends at once (and cools down); the
+    wait ends with it instead of holding the first submit or steer for the full timeout."""
+    from halo_harness.studio.events import EventBridge
+    bridge = EventBridge(list_live=lambda: [])
+
+    def refused_pump(entry, stop):  # the subscribe answers not-ok: the real pump's finally block, nothing attached
+        time.sleep(0.05)
+        with bridge._lock:
+            bridge._stops.pop(entry["session_id"], None)
+            bridge._cooldown[entry["session_id"]] = time.monotonic() + 30
+    bridge._pump = refused_pump
+    t = time.monotonic()
+    ok = bridge.ensure_attached(dict(ENTRY), timeout_s=3.0)
+    took = time.monotonic() - t
+    ctx.check(f"False as soon as the pump has ended, got {ok} in {took:.2f}s", ok is False and took < 1.0)
+
+
+@test
 def test_a_submit_waits_for_the_bridge_before_the_session_hears_it(ctx: Ctx):
     from halo_harness.studio import sessions_api as S
     from halo_harness.studio.api import Request, dispatch
