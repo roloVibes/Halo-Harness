@@ -160,10 +160,42 @@ def enter_module(run_root: Path, mod_name: str) -> Path:
     home.mkdir(parents=True, exist_ok=True)
     os.environ.pop("BRIDGE_STATE_DIR", None)
     os.environ["BRIDGE_TEST_HOME"] = str(home)
+    from tests.helpers.runner import scrub_real_home_movers
+    scrub_real_home_movers()  # 3.6.0.1: never CLAUDE_CONFIG_DIR/GOVERNOR_STATE_DIR from the shell or an earlier module
     reset_state_caches()
     from tests.helpers import provider_env_defaults
     provider_env_defaults.begin_module(mod_name, home)
     return home
+
+
+REAL_CLAUDE_FILES = (".claude.json", "settings.json", ".config.json")
+
+
+def real_claude_config_look() -> dict:
+    """3.6.0.1: one stat per watched file under the CLAUDE_CONFIG_DIR the developer's shell had set before the rig
+    removed it (tests.helpers.runner.REAL_HOME_MOVERS_AT_START): {path: (mtime_ns, size) | None}. Empty when the
+    variable was not set (then Claude's config resolves under the scratch home and there is nothing real to watch)."""
+    from tests.helpers.runner import REAL_HOME_MOVERS_AT_START
+    real = REAL_HOME_MOVERS_AT_START.get("CLAUDE_CONFIG_DIR") or ""
+    if not real or not os.path.isabs(real):
+        return {}
+    out: dict = {}
+    for name in REAL_CLAUDE_FILES:
+        p = os.path.join(real, name)
+        try:
+            st = os.stat(p)
+            out[p] = (st.st_mtime_ns, st.st_size)
+        except OSError:
+            out[p] = None
+    return out
+
+
+def real_claude_config_changes(before: dict, after: dict) -> "tuple[list[str], list[str]]":
+    """(appeared_or_removed, changed): a watched file that a module made or removed is the module's doing (red); one
+    that only changed may be the developer's own Claude Code writing its profile during the run (a warning)."""
+    flipped = [p for p in before if (before[p] is None) != (after.get(p) is None)]
+    changed = [p for p in before if p not in flipped and before[p] != after.get(p)]
+    return flipped, changed
 
 
 def leave_module(home: Path) -> bool:

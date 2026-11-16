@@ -40,6 +40,28 @@ import time
 import traceback
 from typing import Callable
 
+# 3.6.0.1 (test-rig batch 2): variables that move Claude's or Halo's config/state OUT of the scratch home
+# (`claude_config_dir()`/`claude_json_path()` follow CLAUDE_CONFIG_DIR over home(); the governor follows
+# GOVERNOR_STATE_DIR over bridge_home()). A developer who keeps several Claude profiles has CLAUDE_CONFIG_DIR set in
+# the shell, and a test that writes `.claude.json`, settings, agents or skills would write into that REAL folder.
+# They are removed from this process's environment the moment the rig is imported (every test module imports it), so
+# every child a test starts inherits the clean environment; tests/run_all.py removes them again before each module
+# (a module that set one and did not restore it cannot hand it to the next). A test that needs one sets it itself, to
+# a folder under its own scratch home. What was set before the scrub is kept here for run_all's real-folder watch.
+REAL_HOME_MOVERS = ("CLAUDE_CONFIG_DIR", "GOVERNOR_STATE_DIR")
+REAL_HOME_MOVERS_AT_START = {k: os.environ[k] for k in REAL_HOME_MOVERS if k in os.environ}
+
+
+def scrub_real_home_movers() -> "list[str]":
+    """Remove every REAL_HOME_MOVERS variable from os.environ; returns the names that were set."""
+    gone = [k for k in REAL_HOME_MOVERS if k in os.environ]
+    for k in gone:
+        os.environ.pop(k, None)
+    return gone
+
+
+scrub_real_home_movers()
+
 # NEW (post-H9 acceptance): a real Linux run of this suite left thousands
 # of /tmp/addrule-*, /tmp/rolo*, /tmp/tmp* directories behind -- the
 # overwhelmingly common `Path(tempfile.mkdtemp(prefix=...))` pattern used

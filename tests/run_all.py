@@ -348,11 +348,13 @@ def _main(tier: "str | None", shard: "tuple | None" = None) -> int:
         except Exception as e:  # noqa: BLE001 -- the check must never end the run
             print(f"[LEFTOVER CHECK] {mod_name}: could not look at the processes: {type(e).__name__}: {e}")
             watch = None
+        real_claude_before = support.real_claude_config_look()  # 3.6.0.1: the shell's own CLAUDE_CONFIG_DIR, watched
         totals: dict = {}
         try:
             _run_one_module(mod_name, env_before_module, totals)
         finally:
             _end_leftovers(mod_name, watch, totals)
+            _check_real_claude_config(mod_name, real_claude_before, totals)
             support.leave_module(module_home)
             _restore_guarded_env(env_before_module)
         total_passed += totals.get("passed", 0)
@@ -387,6 +389,24 @@ def _end_leftovers(mod_name: str, watch: dict, totals: dict) -> None:
             print(line)
         print(f"  [FAIL] leftover processes: {len(got['left'])} process(es) this module started were still "
               f"running after it (named above)")
+        totals["failed"] = totals.get("failed", 0) + 1
+
+
+def _check_real_claude_config(mod_name: str, before: dict, totals: dict) -> None:
+    """3.6.0.1: the rig removes CLAUDE_CONFIG_DIR before any test runs (tests/helpers/runner.py), so no test should
+    reach the developer's real Claude folder. A watched file there that a module made or removed fails the module; one
+    that only changed is said (the developer's own Claude Code may write its profile while the run goes on)."""
+    if not before:
+        return
+    flipped, changed = support.real_claude_config_changes(before, support.real_claude_config_look())
+    for p in flipped:
+        print(f"[REAL CLAUDE CONFIG] {mod_name}: {p} was {'made' if before[p] is None else 'removed'} during this "
+              f"module -- a test reached the CLAUDE_CONFIG_DIR of the shell")
+    for p in changed:
+        print(f"[REAL CLAUDE CONFIG] {mod_name}: {p} changed during this module (a warning: the developer's own "
+              f"Claude Code may have written it; if none ran, a test did)")
+    if flipped:
+        print(f"  [FAIL] real Claude config: {len(flipped)} file(s) made or removed in the shell's CLAUDE_CONFIG_DIR")
         totals["failed"] = totals.get("failed", 0) + 1
 
 
