@@ -212,14 +212,14 @@ python scripts/realcheck.py                  # every step; exit 0 only when none
 python scripts/realcheck.py --list           # the steps and their budgets
 python scripts/realcheck.py --only closing no-reuse --json out.json
 python scripts/realcheck.py --real-local ol:qwen3:1.7b@http://<host>:11434   # step 8 on a real Ollama too
-python scripts/realcheck.py --browser none   # on your own machine: the two browser steps SKIP, by name
+python scripts/realcheck.py --browser none   # on your own machine: the three browser steps SKIP, by name
 python scripts/realcheck.py --browser chromium   # or a path: a separate browser for the Studio steps
 ```
 
-The two steps that open a browser (`studio`, `idle-cpu`) drive it headless with a throw-away profile
+The three steps that open a browser (`studio`, `session-map`, `idle-cpu`) drive it headless with a throw-away profile
 (`tests/helpers/cdp.py`): never your own Chrome profile, never a window on the desktop. By default they use
 `HALO_CHROME`, else an installed Chrome. `--browser` (or the `REALCHECK_BROWSER` environment variable) changes that:
-a path or a command name on PATH is the browser they use, and one that names nothing FAILs both steps saying so;
+a path or a command name on PATH is the browser they use, and one that names nothing FAILs each of them saying so;
 `none` makes each of them a SKIP that names the switch, before any `halo` starts (counted in the skipped total).
 
 One line per step: name, PASS / FAIL / SKIP, seconds, and on FAIL what a person would have seen (`--json` keeps the
@@ -230,7 +230,10 @@ page), `theme` (`halo config set theme paper` is what the terminal's first frame
 (`halo -p` in 5 s; the request's bytes against the day-one size + 10%, `REQUEST_BYTES` in steps_a.py), `turn` (Read,
 a sub-agent and the Workflow tool, from the session's own log), `studio` (headless Chrome through every section: drawn
 in 5 s, no failed /api call, no console error, `hold_still`, two early choices, one prompt from the Prompt panel;
-SKIP without Chrome), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
+SKIP without Chrome), `session-map` (the owner's sentence, 3.6.0.2: a workflow asked for in a terminal session
+gives one Builder card that says what it builds, Studio's Live button shows `new` within 5 s without opening
+anything, the drawer draws the new map down and marked, Agents opens on Live, the next question's request carries
+the facts note, two more turns leave the drawer as it was; each of its six asserts is reported alone), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a
 fake Ollama named as another machine; one load for a one-shot, none for the next), `update` (`halo update --check`
 online, offline and on the stable channel, in plain words), `closing` (seven launches -- a session, `halo init`,
 `halo studio`, a one-shot mid-turn, a sub-agent mid-run, a session with an MCP server, a managed local model server

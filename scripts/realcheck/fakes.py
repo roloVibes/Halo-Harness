@@ -11,7 +11,13 @@ never by model name, so a sub-agent or a workflow step on another model is answe
   RC-SLOW                the main model call itself never answers until `release()`
   RC-BASH                a Bash call `SHELL_HOLD` (a job in the background and one in front: the turn holds in the shell)
   RC-BGBASH              a Bash call `SHELL_BACKGROUND` with run_in_background, then ANSWER (the job outlives the turn)
+  RC-MAPBUILD            one Builder call: the workflow review (coder, then reviewer) in a box on the new map review-flow,
+                         then MAPBUILD_DONE + the sentence the result says to repeat
+  RC-MAPASK              MAPASK_DONE
   RC-SUB / anything else  SUB_DONE / ANSWER
+
+RC-MAPBUILD and RC-MAPASK are read from the current turn's own user nodes only (`_this_turn`): a note Halo puts at a
+turn's start, before or after the typed line, and an earlier turn's Builder result never change what they answer.
 
 Every request is kept (`requests`, with its size in bytes). `Ollama` is tests/helpers/mock_ollama_loads.
 LoadCountingOllama (its load / unload counters are what step 8 reads). `browser_command(root)` makes the program a
@@ -29,6 +35,17 @@ from pathlib import Path
 
 ANSWER, SUB_DONE, WORK_DONE, PACK_DONE = "RC-ANSWER-42", "RC-SUB-DONE", "RC-WORK-DONE", "RC-PACK-DONE"
 SHELL_HOLD, SHELL_BACKGROUND = "sleep 6011 & sleep 6011", "sleep 6012"
+MAPBUILD_DONE, MAPASK_DONE = "RC-MAPBUILD-DONE", "RC-MAPASK-DONE"
+BUILD_PROMPT = "RC-MAPBUILD: build me a review workflow: a coder then a reviewer"
+ASK_PROMPT = "RC-MAPASK: which workflow are you using?"
+# the one Builder card RC-MAPBUILD asks for (3.6.0.2 section 11): coder and reviewer are shipped agents, so no agent
+# is made; the map review-flow is made by the card itself (R36 gives it its use row), so no map_use is sent
+BUILD_CHANGES = [
+    {"tool": "workflow_make", "args": {"name": "review", "for": "review", "steps": [
+        {"name": "code", "agents": ["coder"]}, {"name": "review", "agents": ["reviewer"]}]}},
+    {"tool": "map_box_add", "args": {"map": "review-flow", "kind": "workflow", "ref": "review"}},
+    {"tool": "map_line_add", "args": {"map": "review-flow", "from": "main", "to": "review", "when": "always"}},
+]
 
 
 def _text(content) -> str:
@@ -42,6 +59,22 @@ def _last_user(body: dict) -> str:
         if isinstance(m, dict) and m.get("role") == "user":
             return _text(m.get("content"))
     return ""
+
+
+def _this_turn(body: dict) -> "tuple[str, int, str]":
+    """(this turn's own user text, the tool results since it began, the last of those results' text). The turn begins
+    after the last assistant message that called no tool (the previous turn's answer); its user nodes (the typed line
+    and any note Halo put at the turn's start, in either order) are joined with a newline."""
+    msgs = [m for m in (body or {}).get("messages") or [] if isinstance(m, dict)]
+    start = 0
+    for i, m in enumerate(msgs):
+        if m.get("role") == "assistant" and not m.get("tool_calls"):
+            start = i + 1
+    turn = msgs[start:]
+    users = [_text(m.get("content")) for m in turn if m.get("role") == "user"]
+    first = next((i for i, m in enumerate(turn) if m.get("role") == "user"), len(turn))
+    tools = [_text(m.get("content")) for m in turn[first:] if m.get("role") == "tool"]
+    return "\n".join(users), len(tools), (tools[-1] if tools else "")
 
 
 def text_step(text: str) -> list:
@@ -129,6 +162,14 @@ class Provider:
         last, done = _last_user(body), _tool_results(body)
         with self._lock:
             self.calls.append((last[:40], len(json.dumps(body or {}))))
+        turn, done_here, result = _this_turn(body)
+        if "RC-MAPASK" in turn:
+            return _finish(h, text_step(MAPASK_DONE))
+        if "RC-MAPBUILD" in turn:
+            if done_here == 0:
+                return _finish(h, tool_step(("Builder", {"changes": BUILD_CHANGES}, "call_rc_build")))
+            tail = result.split("word for word: ", 1)[1].strip() if "word for word: " in result else ""
+            return _finish(h, text_step((MAPBUILD_DONE + " " + tail).strip()))
         if "RC-SUBHANG" in last:
             self._hold("RC-SUBHANG")
             return _finish(h, text_step(SUB_DONE))

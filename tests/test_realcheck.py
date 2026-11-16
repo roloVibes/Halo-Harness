@@ -51,10 +51,14 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
     out = io.StringIO()
     with redirect_stdout(out):
         rc = m.main(["--list"])
-    names = [line.split()[0] for line in out.getvalue().splitlines()]
-    ctx.check(f"the twelve steps in order, got {names}", rc == 0 and names == [
-        "starts", "first-run", "theme", "question", "turn", "studio", "packs", "local", "update", "closing",
-        "no-reuse", "idle-cpu"])
+    lines = out.getvalue().splitlines()
+    names = [line.split()[0] for line in lines]
+    ctx.check(f"the thirteen steps in order, got {names}", rc == 0 and names == [
+        "starts", "first-run", "theme", "question", "turn", "studio", "session-map", "packs", "local", "update",
+        "closing", "no-reuse", "idle-cpu"])
+    budget = next((line.split()[1] for line in lines if line.split()[0] == "session-map"), "")
+    want = "180s" if sys.platform == "win32" else "120s"
+    ctx.check(f"session-map's budget is {want} here (180 s on Windows, 120 s elsewhere), got {budget!r}", budget == want)
     ctx.check("an unknown step: exit 2", m.main(["--only", "no-such-step"]) == 2)
 
 
@@ -239,6 +243,90 @@ def _fake_provider_turn(ctx: Ctx) -> None:
         ctx.check("any other model call is answered", fakes.ANSWER in _post(p.base_url, {"model": "x", "messages": [
             {"role": "user", "content": "hello"}]}))
         ctx.check("the calls are kept, found by their text", len(p.requests_with("RC-WORK file=/x/n.txt")) == 4)
+    finally:
+        p.stop()
+
+
+def _stream(text: str) -> "tuple[str, list]":
+    """(the streamed answer's text, its tool calls as [(name, arguments parsed)]) from the fake's SSE body."""
+    said, calls = [], {}
+    for line in text.splitlines():
+        if not line.startswith("data: ") or line[6:].strip() == "[DONE]":
+            continue
+        for ch in json.loads(line[6:]).get("choices") or []:
+            d = ch.get("delta") or {}
+            said.append(d.get("content") or "")
+            for tc in d.get("tool_calls") or []:
+                got = calls.setdefault(tc.get("index", 0), ["", ""])
+                fn = tc.get("function") or {}
+                got[0] += fn.get("name") or ""
+                got[1] += fn.get("arguments") or ""
+    return "".join(said), [(n, json.loads(a or "{}")) for n, a in calls.values()]
+
+
+@test
+def test_the_fake_provider_plays_the_map_build_and_the_question(ctx: Ctx):
+    """3.6.0.2 section 11: RC-MAPBUILD is ONE Builder call (the workflow review: coder, then reviewer, in a box on the
+    new map review-flow, the line main -> review), then a line ending in the sentence the result says to repeat;
+    RC-MAPASK is one plain line. Both read the current turn only: a facts note at the turn's start, before or after the
+    typed line, or the first turn's Builder result in the history never confuses them."""
+    from tests.helpers.mock_openai import SCENARIOS
+    before = {k: SCENARIOS.get(k) for k in ("model", "realcheck")}
+    try:
+        _map_build_and_ask(ctx)
+    finally:
+        ctx.check("stopped, the table holds what it held before",
+                  all(SCENARIOS.get(k) is v for k, v in before.items()))
+
+
+S13 = ("This session keeps running on starter (the default), as it started. Start a new session to run on "
+       "review-flow.")
+NOTE = ("[Halo] This session runs on starter (the default), as it started at 10:24. New sessions will run on "
+        "review-flow (switched on at 10:25, by this session).")
+BUILD, ASK = "RC-MAPBUILD: build me a review workflow: a coder then a reviewer", "RC-MAPASK: which workflow are you using?"
+BUILD_DONE, ASK_DONE = "RC-MAPBUILD-DONE", "RC-MAPASK-DONE"
+
+
+def _map_build_and_ask(ctx: Ctx) -> None:
+    p = fakes.Provider().start()
+    try:
+        msgs = [{"role": "user", "content": BUILD}]
+        said, calls = _stream(_post(p.base_url, {"model": "any/thing", "stream": True, "messages": msgs}))
+        want = [{"tool": "workflow_make", "args": {"name": "review", "for": "review", "steps": [
+                    {"name": "code", "agents": ["coder"]}, {"name": "review", "agents": ["reviewer"]}]}},
+                {"tool": "map_box_add", "args": {"map": "review-flow", "kind": "workflow", "ref": "review"}},
+                {"tool": "map_line_add", "args": {"map": "review-flow", "from": "main", "to": "review", "when": "always"}}]
+        ctx.check(f"(a) RC-MAPBUILD: one Builder call with the three changes, got {said!r} {calls}",
+                  len(calls) == 1 and calls[0][0] == "Builder" and calls[0][1] == {"changes": want}
+                  and getattr(fakes, "BUILD_CHANGES", None) == want)
+        msgs += [{"role": "assistant", "content": None, "tool_calls": [
+                     {"id": "call_rc_build", "type": "function",
+                      "function": {"name": "Builder", "arguments": json.dumps({"changes": want})}}]},
+                 {"role": "tool", "tool_call_id": "call_rc_build",
+                  "content": "Written: the map review-flow (new). Undo: u1. Tell the person, word for word: " + S13}]
+        said, calls = _stream(_post(p.base_url, {"model": "any/thing", "stream": True, "messages": msgs}))
+        ctx.check(f"(b) after the result: MAPBUILD_DONE ending in the sentence, got {said!r} {calls}",
+                  not calls and BUILD_DONE in said and said.endswith(S13))
+        msgs.append({"role": "assistant", "content": said})
+        for order in ((NOTE, ASK), (ASK, NOTE)):
+            turn = msgs + [{"role": "user", "content": u} for u in order]
+            said, calls = _stream(_post(p.base_url, {"model": "any/thing", "stream": True, "messages": turn}))
+            ctx.check(f"(c) RC-MAPASK with the note {'first' if order[0] == NOTE else 'last'}: one plain line, "
+                      f"got {said!r} {calls}", not calls and ASK_DONE in said)
+        msgs += [{"role": "user", "content": NOTE}, {"role": "user", "content": ASK},
+                 {"role": "assistant", "content": ASK_DONE}, {"role": "user", "content": "RC-ASK turn two"}]
+        said, calls = _stream(_post(p.base_url, {"model": "any/thing", "stream": True, "messages": msgs}))
+        ctx.check(f"(d) a later turn is answered by its own words, not the history's RC-MAPBUILD, got {said!r} {calls}",
+                  not calls and said == fakes.ANSWER)
+        without = [{"role": "user", "content": BUILD},
+                   {"role": "assistant", "content": None, "tool_calls": [
+                       {"id": "call_rc_build", "type": "function", "function": {"name": "Builder", "arguments": "{}"}}]},
+                   {"role": "tool", "tool_call_id": "call_rc_build", "content": "Applied 1 line(s)."}]
+        said, calls = _stream(_post(p.base_url, {"model": "any/thing", "stream": True, "messages": without}))
+        ctx.check(f"a result with no words to repeat: MAPBUILD_DONE alone, got {said!r}",
+                  not calls and said.strip() == BUILD_DONE)
+        ctx.check("the step and this test read the same words", [getattr(fakes, n, None) for n in (
+            "BUILD_PROMPT", "ASK_PROMPT", "MAPBUILD_DONE", "MAPASK_DONE")] == [BUILD, ASK, BUILD_DONE, ASK_DONE])
     finally:
         p.stop()
 
@@ -835,6 +923,34 @@ def test_browser_none_skips_each_browser_step_by_name_before_any_halo_or_chrome_
         rc = m.main(["--only", "studio", "idle-cpu", "--browser", "none"])
     ctx.check(f"main takes --browser and counts the steps as skipped, got rc {rc}, {seen}, {out.getvalue()!r}",
               rc == 0 and seen.get("browser") == "none" and "0 passed, 0 failed, 2 skipped" in out.getvalue())
+
+
+@test
+def test_session_map_step_is_a_skip_with_browser_none_before_any_halo(ctx: Ctx):
+    """3.6.0.2 section 11: the step session-map opens a browser, so --browser none makes it a counted SKIP naming the
+    switch, and no `halo` and no Chrome is started or looked for first."""
+    from unittest import mock
+    from tests.helpers import chrome_driver
+    m = _main_module()
+    chosen = [s for s in m._steps() if s[0] == "session-map"]
+    ctx.check(f"realcheck has the step session-map, got {[s[0] for s in m._steps()]}", len(chosen) == 1)
+    if len(chosen) != 1:
+        return
+    calls: list = []
+
+    def no_terminal(self, *a, **k):
+        calls.append("terminal")
+        raise RuntimeError("a halo was started")
+    with mock.patch.object(core.Ctx, "terminal", no_terminal), \
+            mock.patch.object(chrome_driver, "find_chrome", lambda *a, **k: calls.append("find") or "chrome"), \
+            mock.patch.object(chrome_driver, "open_chrome", lambda *a, **k: calls.append("open")), \
+            mock.patch.dict(os.environ, {"REALCHECK_BROWSER": ""}):
+        results, _v = m.run(chosen, root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                            say=lambda s: None, browser="none")
+    got = [(r.name, r.status, r.detail) for r in results]
+    ctx.check(f"one SKIP naming the switch, got {got}",
+              got == [("session-map", "SKIP", "no browser may be used here (--browser none)")])
+    ctx.check(f"no halo and no Chrome was started or looked for, got {calls}", calls == [])
 
 
 @test

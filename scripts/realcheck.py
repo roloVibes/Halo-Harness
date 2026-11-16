@@ -40,7 +40,7 @@ from realcheck.report import FAIL, PASS, SKIP, Result, markdown, run_info, to_js
 
 def _steps() -> list:
     """(name, budget seconds, what it checks, the function)."""
-    from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z
+    from realcheck import steps_a as A, steps_b as B, steps_c as C, steps_close as Z, steps_map as M
     return [
         ("starts", 20, "`halo --version` and `--help` answer in 2 s; --help names every command", A.starts),
         ("first-run", 120, "`halo init` in a fresh home: address, page, Setup's read, no beep, instrument", A.first_run),
@@ -48,6 +48,8 @@ def _steps() -> list:
         ("question", 30, "`halo -p` gets the answer in 5 s; the request's size is in budget", A.question),
         ("turn", 120, "a real turn: Read, a sub-agent and the Workflow tool, from the session's own log", A.real_turn),
         ("studio", 300, "Studio walked through in headless Chrome: each section loads, holds still, a prompt", B.studio),
+        ("session-map", 180 if sys.platform == "win32" else 120, "the owner's sentence: a workflow built in a terminal "
+         "session shows at once in Studio's Live drawer, down, marked; Agents opens on Live", M.session_map),
         ("packs", 120, "the shipped doc-review pack installs, is listed, and its agent takes work by name", C.packs),
         ("local", 120, "`halo local ps|warm|unload` on another machine's Ollama; one load per one-shot", C.local),
         ("update", 90, "`halo update --check` online and offline, in plain words", C.update),
