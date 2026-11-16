@@ -434,6 +434,187 @@ def test_step_retries_a_post_connect_failure_through_the_normal_ladder(ctx: Ctx)
         mock.stop()
 
 
+# ---------------------------------------------------------------------------
+# 3.6.0.1 (win-local-connect): the connect bound for a loopback host. A refused
+# connect to a closed loopback port takes ~2 s on Windows (the SYN is retried
+# after the RST), and `localhost` tries ::1 first: each address gets at most
+# LOOPBACK_CONNECT_S, a remote host / TLS / a smaller caller bound keep theirs.
+# ---------------------------------------------------------------------------
+
+_PROXY_VARS = ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy")
+
+
+class _FakeCreateConnection:
+    """Replaces `socket.create_connection` (http.client copies it into each new
+    connection, so it is patched before `open_upstream` builds one); records the
+    per-address timeout each call was given, then runs `behave`."""
+
+    def __init__(self, behave):
+        self.behave = behave
+        self.timeouts: list = []
+        self._real = socket.create_connection
+        self._proxies: dict = {}
+
+    def __call__(self, address, timeout=None, source_address=None, *a, **kw):
+        self.timeouts.append(timeout)
+        return self.behave(address, timeout, self._real)
+
+    def __enter__(self):
+        self._proxies = {k: os.environ.pop(k) for k in _PROXY_VARS if k in os.environ}
+        socket.create_connection = self
+        return self
+
+    def __exit__(self, *exc):
+        socket.create_connection = self._real
+        os.environ.update(self._proxies)
+
+
+def _refuse_at_once(address, timeout, real):
+    raise ConnectionRefusedError(10061, "refused (fake)")
+
+
+def _time_out_at_once(address, timeout, real):
+    raise TimeoutError("timed out")
+
+
+@test
+def test_open_upstream_bounds_a_loopback_connect_per_address(ctx: Ctx):
+    from halo_harness.providers import http as http_mod
+    bound = getattr(http_mod, "LOOPBACK_CONNECT_S", None)
+    ctx.check(f"http.LOOPBACK_CONNECT_S exists and is 0.5, got {bound!r}", bound == 0.5)
+    bound = bound or 0.5
+    for host in ("127.0.0.1", "localhost", "::1", "127.0.0.2"):
+        with _FakeCreateConnection(_refuse_at_once) as fake:
+            try:
+                http_mod.open_upstream(host, 9, False, connect_timeout=8)
+                raised = False
+            except http_mod.UpstreamConnectError:
+                raised = True
+        ctx.check(f"{host}: UpstreamConnectError, each address bounded at {bound} s, got {fake.timeouts}",
+                  raised and fake.timeouts and all(t is not None and t <= bound for t in fake.timeouts))
+    for host, tls, caller, want in (("gpu-box", False, 8, 8), ("127.0.0.1", True, 8, 8), ("127.0.0.1", False, 0.2, 0.2)):
+        with _FakeCreateConnection(_refuse_at_once) as fake:
+            try:
+                http_mod.open_upstream(host, 9, tls, connect_timeout=caller)
+            except http_mod.UpstreamConnectError:
+                pass
+        ctx.check(f"{host} tls={tls} caller={caller}: keeps the caller's bound {want}, got {fake.timeouts}",
+                  fake.timeouts == [want])
+
+
+@test
+def test_a_loopback_connect_that_times_out_is_worded_as_nothing_listening(ctx: Ctx):
+    from halo_harness.providers import http as http_mod
+    with _FakeCreateConnection(_time_out_at_once):
+        try:
+            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+            msg = ""
+        except http_mod.UpstreamConnectError as e:
+            msg = str(e)
+    ctx.check(f"loopback timeout: refused wording naming 127.0.0.1:9, not DNS/VPN, got {msg!r}",
+              "nothing is listening" in msg and "127.0.0.1:9" in msg and "connection refused" in msg
+              and "DNS or VPN" not in msg and http_mod.is_connect_failure_message(msg))
+    with _FakeCreateConnection(_time_out_at_once):
+        try:
+            http_mod.open_upstream("gpu-box", 9, False, connect_timeout=8)
+            msg = ""
+        except http_mod.UpstreamConnectError as e:
+            msg = str(e)
+    ctx.check(f"a remote host's timeout keeps the network/DNS/VPN wording, got {msg!r}",
+              "DNS or VPN" in msg and "nothing is listening" not in msg)
+
+
+@test
+def test_localhost_reaches_a_127_listener_when_ipv6_is_slow_to_refuse(ctx: Ctx):
+    """Simulates Windows: `localhost` tries ::1 first and its refusal takes ~2 s; the
+    per-address bound gives it up and 127.0.0.1 answers inside the caller's 1.5 s."""
+    from halo_harness.providers import http as http_mod
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(4)
+    port = srv.getsockname()[1]
+
+    def _windows_localhost(address, timeout, real):
+        if address[0] == "localhost":
+            time.sleep(min(timeout if timeout is not None else 2.0, 2.0))  # the ::1 attempt
+            return real(("127.0.0.1", address[1]), timeout)
+        return real(address, timeout)
+
+    conn = None
+    try:
+        with _FakeCreateConnection(_windows_localhost):
+            try:
+                conn = http_mod.open_upstream("localhost", port, False, connect_timeout=1.5)
+                err = None
+            except http_mod.UpstreamConnectError as e:
+                err = str(e)
+        ctx.check(f"localhost connected inside the 1.5 s bound, got error {err!r}", conn is not None and err is None)
+    finally:
+        if conn is not None:
+            conn.close()
+        srv.close()
+
+
+@test
+def test_a_dead_loopback_port_is_given_up_inside_the_probe_bounds(ctx: Ctx):
+    """Real sockets. Red on Windows only (a refused loopback connect costs ~2 s
+    there); Linux and macOS refuse at once. The large caller bound makes the
+    gap a full second either side of the 1.5 s threshold."""
+    from halo_harness.providers import huggingface_local_probe as hf
+    from halo_harness.providers.ollama import OllamaHost, probe_version
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    t0 = time.monotonic()
+    got = probe_version(OllamaHost(name="t", url=f"http://127.0.0.1:{port}"), timeout=10)
+    took = time.monotonic() - t0
+    ctx.check(f"probe_version on a dead loopback port: None in under 1.5 s, got {got!r} after {took:.2f}s",
+              got is None and took < 1.5)
+    saved = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
+    try:
+        t0 = time.monotonic()
+        found = hf.auto_detect_local_servers(env={"HF_LOCAL_PROBE_PORTS": str(port)}, timeout=10, force=True)
+        took = time.monotonic() - t0
+    finally:
+        if saved is not None:
+            os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved
+    ctx.check(f"auto_detect_local_servers on a dead port: [] in under 1.5 s, got {found!r} after {took:.2f}s",
+              found == [] and took < 1.5)
+
+
+@test
+def test_probe_version_reaches_a_127_only_server_named_localhost(ctx: Ctx):
+    """Real sockets. Red on Windows only (::1 refused after ~2 s, past the 1.5 s probe bound)."""
+    import json as _json
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from halo_harness.providers.ollama import OllamaHost, probe_version
+
+    class _H(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            body = _json.dumps({"version": "0.9.0"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _H)
+    th = threading.Thread(target=srv.serve_forever, daemon=True)
+    th.start()
+    try:
+        got = probe_version(OllamaHost(name="t", url=f"http://localhost:{srv.server_address[1]}"))
+        ctx.check(f"probe_version(localhost) answers from the 127.0.0.1 server, got {got!r}",
+                  isinstance(got, dict) and got.get("version") == "0.9.0")
+    finally:
+        srv.shutdown()
+        srv.server_close()
+        th.join(5)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

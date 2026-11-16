@@ -132,6 +132,24 @@ def _is_loopback_host(host: "str | None") -> bool:
     return (host or "").strip().lower().rstrip(".") in _LOOPBACK_HOSTS
 
 
+# 3.6.0.1: the per-address connect bound for a loopback host. A refused connect to a closed loopback port takes
+# ~2 s on Windows (the system retries the SYN after the RST), and `localhost` resolves to ::1 first there; a
+# LISTENING loopback port is accepted by the kernel in milliseconds, so half a second loses nothing.
+LOOPBACK_CONNECT_S = 0.5
+
+
+def _is_loopback_connect_host(host: "str | None") -> bool:
+    """`localhost`, ::1 or any 127.0.0.0/8 literal: the hosts `open_upstream` bounds at LOOPBACK_CONNECT_S per
+    address (never 0.0.0.0, a listen address that `providers.ollama.connectable_url` turns into 127.0.0.1)."""
+    h = (host or "").strip().lower().rstrip(".").strip("[]")
+    if h == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(h).is_loopback
+    except ValueError:
+        return False
+
+
 def _is_private_ip_literal(host: "str | None") -> bool:
     """True only when `host` is already written as a literal IP address
     inside a private/loopback/link-local/ULA range -- NEVER a DNS lookup
@@ -481,7 +499,7 @@ def is_post_connect_failure_message(message) -> bool:
             and " was interrupted (" in message)
 
 
-def _bounded_connect(conn, timeout_s: float, host: str) -> None:
+def _bounded_connect(conn, timeout_s: float, host: str, loopback: bool = False) -> None:
     """Runs `conn.connect()` (which performs `getaddrinfo` THEN the TCP/TLS
     handshake) on a background thread and waits at most `timeout_s`
     wall-clock seconds for it. A per-socket `timeout=` (what `conn` was
@@ -524,16 +542,25 @@ def _bounded_connect(conn, timeout_s: float, host: str) -> None:
 
     t = threading.Thread(target=_target, daemon=True, name="rolo-connect")
     t.start()
+    # the port is the target's only on a direct connection (through a proxy tunnel it is the proxy's)
+    port = None if getattr(conn, "_tunnel_host", None) else getattr(conn, "port", None)
     if not done.wait(timeout_s):
         abandoned.set()
+        if loopback:  # 3.6.0.1: no DNS is involved on this computer; nothing answered on the port
+            raise UpstreamConnectError(format_connect_error(
+                host, ConnectionRefusedError(f"no answer within {timeout_s:g} s on this computer"), port=port), host=host)
         raise UpstreamConnectError(
             format_connect_error(host, f"timed out after {timeout_s:.0f}s connecting -- "
                                         f"likely a DNS lookup that never returned"),
             host=host)
     if outcome:
         e = outcome[0]
-        # the port is the target's only on a direct connection (through a proxy tunnel it is the proxy's)
-        port = None if getattr(conn, "_tunnel_host", None) else getattr(conn, "port", None)
+        if loopback and isinstance(e, (TimeoutError, socket.timeout)):
+            # 3.6.0.1: the short loopback bound fired before Windows' ~2 s refusal: it IS the refusal
+            bound = getattr(conn, "timeout", None) or timeout_s
+            raise UpstreamConnectError(format_connect_error(
+                host, ConnectionRefusedError(f"no answer within {bound:g} s on this computer"), port=port),
+                host=host) from e
         raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
 
 
@@ -692,19 +719,26 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
             conn = _ProxiedPlainHTTPConnection(proxy_host, proxy_port, timeout=connect_timeout,
                                                target_host=host, target_port=port,
                                                proxy_auth_header=proxy_auth_header)
-    else:
+    loopback = False
+    if not proxy_url:
         # Direct connection
         if tls:
             conn = http.client.HTTPSConnection(
                 host, port, timeout=connect_timeout, context=ssl_context
             )
         else:
-            conn = http.client.HTTPConnection(host, port, timeout=connect_timeout)
-    
+            # 3.6.0.1: a plain loopback connect gets at most LOOPBACK_CONNECT_S per address (socket.create_connection
+            # applies the timeout to each address in turn: `localhost` gives up ::1, then tries 127.0.0.1); the wall
+            # bound below stays the caller's.
+            loopback = _is_loopback_connect_host(host)
+            per_address = min(connect_timeout, LOOPBACK_CONNECT_S) if loopback else connect_timeout
+            conn = http.client.HTTPConnection(host, port, timeout=per_address)
+
     # Connect with timeout, then set idle timeout. Bounded (hotfix 2): a
     # hung/black-holed DNS resolution is capped at connect_timeout wall-clock
     # seconds, never the OS resolver's own (much longer) retry policy.
-    _bounded_connect(conn, connect_timeout, host)
+    _bounded_connect(conn, connect_timeout, host, loopback=loopback)
+    conn.timeout = connect_timeout  # a later automatic reconnect of this conn keeps the caller's bound, as before
     if conn.sock:
         conn.sock.settimeout(300)  # 5 minutes idle timeout
     if on_connect is not None:

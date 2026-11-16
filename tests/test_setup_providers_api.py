@@ -87,6 +87,30 @@ def test_refusals_and_databricks(ctx: Ctx):
 
 
 @test
+def test_an_ollama_listen_address_is_saved_as_loopback(ctx: Ctx):
+    """3.6.0.1: 0.0.0.0 / [::] is where Ollama LISTENS; Studio's Setup saves the address to CONNECT to (the same
+    port on 127.0.0.1, as the terminal setup does) and says so in one line."""
+    for url in ("0.0.0.0:11434", "[::]:11434"):
+        with _Env() as e:
+            status, s = e.call("POST", "setup/ollama-host", {"name": "box", "url": url})
+            saved = [h["url"] for h in e.config()["ollama"]["hosts"]]
+            said = [ln for ln in s.get("lines", []) if url in ln and "http://127.0.0.1:11434" in ln]
+            ctx.check(f"{url}: saved as http://127.0.0.1:11434 with one line naming both, got {status} {saved} {s.get('lines')}",
+                      status == 200 and saved == ["http://127.0.0.1:11434"] and len(said) == 1)
+    with _Env() as e:
+        status, s = e.call("POST", "setup/provider/ollama", {"fields": {"url": "http://0.0.0.0:11434"}})
+        saved = [h["url"] for h in e.config()["ollama"]["hosts"]]
+        ctx.check(f"the provider form: saved as loopback too, got {status} {saved} {s.get('lines')}",
+                  status == 200 and saved == ["http://127.0.0.1:11434"]
+                  and any("http://0.0.0.0:11434" in ln and "http://127.0.0.1:11434" in ln for ln in s["lines"]))
+    with _Env() as e:
+        status, s = e.call("POST", "setup/ollama-host", {"name": "lan", "url": "gpu-box:11434"})
+        ctx.check(f"a named host is saved as typed, no extra line, got {s.get('lines')}",
+                  status == 200 and e.config()["ollama"]["hosts"][0]["url"] == "http://gpu-box:11434"
+                  and not any("listens on" in ln for ln in s["lines"]))
+
+
+@test
 def test_ollama_hosts_follow_the_merge_rule(ctx: Ctx):
     with _Env() as e:  # documentation addresses only (192.0.2.x): nothing here is a real host
         status, s = e.call("POST", "setup/ollama-host", {})

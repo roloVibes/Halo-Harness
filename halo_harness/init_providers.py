@@ -505,7 +505,7 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
         url = (values.get("url") or "").strip()
         name = (values.get("name") or "").strip()
         api_key = (values.get("api_key") or "").strip()
-        from halo_harness.providers.ollama import DEFAULT_OLLAMA_URL, _normalize_host_url
+        from halo_harness.providers.ollama import DEFAULT_OLLAMA_URL, _normalize_host_url, connectable_url
         from halo_harness.theme import get_config_value, set_config_value
         hosts = get_config_value("ollama.hosts", default=None)
         hosts = [h for h in hosts if isinstance(h, dict)] if isinstance(hosts, list) else []
@@ -523,7 +523,9 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
             set_config_value("ollama.hosts", [{"name": "default", "url": DEFAULT_OLLAMA_URL, "default": True}])
             return True, f"registered the local Ollama daemon ({DEFAULT_OLLAMA_URL}) in ollama.hosts"
         name = name or "default"
-        normalized = _normalize_host_url(url) if url else DEFAULT_OLLAMA_URL
+        typed = _normalize_host_url(url) if url else DEFAULT_OLLAMA_URL
+        # 3.6.0.1: 0.0.0.0 / [::] is where Ollama LISTENS; save the address to CONNECT to (the terminal setup's rule)
+        normalized = connectable_url(typed)
         existing = next((h for h in hosts if h.get("name") == name), None)
         # C-2 finding 15: MERGE into a same-name entry's own existing
         # fields (`default`/`max_ctx`/`kv_cache_type`/`ssh`/`keep_alive`)
@@ -549,7 +551,10 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
         hosts = [h for h in hosts if h.get("name") != name] + [entry]
         set_config_value("ollama.hosts", hosts)
         verb = "updated" if existing else "added"
-        return True, f"{verb} Ollama host {name!r} ({normalized}) in ollama.hosts"
+        saved = f"{verb} Ollama host {name!r} ({normalized}) in ollama.hosts"
+        if normalized != typed:
+            saved += f"\n{typed} is the address Ollama listens on; Halo connects to {normalized}"
+        return True, saved
     if provider == "huggingface":
         from halo_harness.theme import get_config_value, set_config_value
         wrote = []

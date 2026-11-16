@@ -232,8 +232,8 @@ def _host_from_dict(d: dict) -> Optional[OllamaHost]:
         return None
     max_ctx = d.get("max_ctx")
     num_parallel_hint = d.get("num_parallel_hint")
-    return OllamaHost(
-        name=name, url=_normalize_host_url(url), default=bool(d.get("default", False)),
+    return OllamaHost(  # 3.6.0.1: a listen address saved as the url (0.0.0.0 / [::]) is read as 127.0.0.1
+        name=name, url=connectable_url(url), default=bool(d.get("default", False)),
         keep_alive=d.get("keep_alive") if isinstance(d.get("keep_alive"), str) else None,
         max_ctx=int(max_ctx) if isinstance(max_ctx, (int, float)) and not isinstance(max_ctx, bool) else None,
         num_parallel_hint=(int(num_parallel_hint)
