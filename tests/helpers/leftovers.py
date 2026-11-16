@@ -8,10 +8,15 @@ exist at `begin` and are this run's by any of:
       parent, so a parent pid the OS reused breaks the chain);
   (b) this run's marker in its environment (Linux /proc/<pid>/environ, macOS `ps -E`, Windows the process's PEB);
   (c) a command line naming a folder of this module (its home, the run root, any tempfile.mkdtemp made while it ran).
-A zombie or an exited process is not counted (it cannot run and cannot be signalled). What is still there after a short
-grace is ended by pid, the newest first (children before their parents), each only after its start time was read
-again and matched. Nothing is ever ended by name, and nothing that existed before the module began is touched.
-Windows: a program Halo starts through WMI has WmiPrvSE as its parent and no inherited environment; only (c) finds it.
+A zombie or an exited process is not counted (it cannot run and cannot be signalled). The check waits while something
+is still there, up to GRACE_S (Halo's own way-out budget plus a margin: a Halo that is closing correctly is not a
+leftover), then names every process still there (the module is red) and ends by pid, the newest first (children
+before their parents), each only after its start time was read again and matched, ONLY those the run provably started:
+(a) and (b). One found by (c) alone is named, never ended (a developer's `tail -f <run folder>/x.log` from another
+terminal looks the same), except on Windows when its parent is WmiPrvSE: a program Halo starts through WMI has that
+parent and no inherited environment, so only (c) finds it. Nothing is ever ended by name, and nothing that existed
+before the module began is touched. A report line shows the argv only, cut to 200 characters, never an environment
+(macOS `ps -E` puts the environment after the command; the argv is read again without it).
 """
 from __future__ import annotations
 
@@ -33,8 +38,11 @@ class Proc:
     pid: int
     ppid: int
     start: int  # comparable on one system: Linux clock ticks since boot, Windows FILETIME, macOS UTC epoch seconds
-    cmd: str = ""
+    cmd: str = ""   # what the folder rule reads (macOS: argv followed by the environment)
     mark: str = ""
+    args: str = ""  # the argv alone, the only text a report line shows ("" until known)
+    why: str = ""   # how find() knew it: "child", "marker" or "folder"
+    parent_exe: str = ""  # Windows: the parent's program name from the snapshot ("" when the parent is younger)
 
 
 # ---- one look at every process ------------------------------------------------------------------------------------
@@ -57,7 +65,7 @@ def _scan_linux(want) -> dict:
         if want(pid, start):
             try:
                 with open(f"/proc/{pid}/cmdline", "rb") as fh:
-                    p.cmd = fh.read().replace(b"\0", b" ").decode("utf-8", "replace").strip()
+                    p.cmd = p.args = fh.read().replace(b"\0", b" ").decode("utf-8", "replace").strip()
             except OSError:
                 pass
             try:
@@ -74,9 +82,10 @@ def _scan_linux(want) -> dict:
 PS_ARGS = ["ps", "-A", "-ww", "-E", "-o", "pid=", "-o", "ppid=", "-o", "stat=", "-o", "lstart=", "-o", "command="]
 
 
-def parse_ps(text: str, skip_pid: int = -1) -> dict:
+def parse_ps(text: str, skip_pid: int = -1, with_env: bool = True) -> dict:
     """Rows of `ps -A -ww -E -o pid= -o ppid= -o stat= -o lstart= -o command=` read with TZ=UTC0 LC_ALL=C (macOS:
-    `-E` appends the environment of this user's processes to the command). A zombie (stat Z) is left out."""
+    `-E` appends the environment of this user's processes to the command). A zombie (stat Z) is left out.
+    `with_env=False`: rows read without -E, whose command is the argv alone (Proc.args)."""
     out = {}
     for line in text.splitlines():
         parts = line.split(None, 8)  # pid ppid stat + lstart's five fields + the command (and its environment)
@@ -94,7 +103,7 @@ def parse_ps(text: str, skip_pid: int = -1) -> dict:
         at = cmd.find(f" {MARK}=")
         if at >= 0:
             mark = cmd[at + len(MARK) + 2:].split(" ", 1)[0]
-        out[pid] = Proc(pid, ppid, start, cmd, mark)
+        out[pid] = Proc(pid, ppid, start, cmd, mark, args="" if with_env else cmd)
     return out
 
 
@@ -208,12 +217,13 @@ if WIN:
             e.dwSize = ctypes.sizeof(e)
             ok = _k32.Process32FirstW(snap, ctypes.byref(e))
             while ok:
-                rows.append((int(e.th32ProcessID), int(e.th32ParentProcessID)))
+                rows.append((int(e.th32ProcessID), int(e.th32ParentProcessID), e.szExeFile))
                 ok = _k32.Process32NextW(snap, ctypes.byref(e))
         finally:
             _k32.CloseHandle(snap)
+        names = {pid: exe for pid, _ppid, exe in rows}
         out = {}
-        for pid, ppid in rows:
+        for pid, ppid, _exe in rows:
             if pid in (0, 4):
                 continue
             h = _k32.OpenProcess(_QUERY_LIMITED, False, pid)
@@ -225,17 +235,22 @@ if WIN:
                 _k32.CloseHandle(h)
             if start is None:
                 continue
-            p = Proc(pid, ppid, start)
+            p = Proc(pid, ppid, start, parent_exe=names.get(ppid, ""))
             if want(pid, start):
                 h = _k32.OpenProcess(_QUERY_LIMITED | _VM_READ, False, pid)
                 if h:
                     try:
                         p.cmd, p.mark = _peb(h)
+                        p.args = p.cmd
                     except OSError:
                         pass
                     finally:
                         _k32.CloseHandle(h)
             out[pid] = p
+        for p in out.values():  # a parent pid now naming a younger process is not this one's parent
+            parent = out.get(p.ppid)
+            if parent is not None and parent.start > p.start:
+                p.parent_exe = ""
         return out
 
 
@@ -252,19 +267,35 @@ def scan(want=None) -> dict:
 
 # ---- ending one process by pid ------------------------------------------------------------------------------------
 
-def _start_now(pid: int) -> "int | None":
-    """`pid`'s start time read now on POSIX (None: gone, a zombie, or unreadable)."""
+def _row_now(pid: int) -> "Proc | None":
+    """`pid` read now on POSIX (None: gone, a zombie, or unreadable); without `ps -E`, so its command is the argv."""
     if HAVE_PROC:
-        row = _scan_one_linux(pid)
-        return row.start if row else None
+        return _scan_one_linux(pid)
     env = {**os.environ, "LC_ALL": "C", "LANG": "C", "TZ": "UTC0"}
     try:
-        got = subprocess.run(["ps", "-o", "pid=", "-o", "ppid=", "-o", "stat=", "-o", "lstart=", "-o", "command=",
-                              "-p", str(pid)], capture_output=True, text=True, timeout=10, env=env)
+        got = subprocess.run(["ps", "-ww", "-o", "pid=", "-o", "ppid=", "-o", "stat=", "-o", "lstart=", "-o",
+                              "command=", "-p", str(pid)], capture_output=True, text=True, timeout=10, env=env)
     except (OSError, subprocess.SubprocessError):
         return None
-    row = parse_ps(got.stdout or "").get(pid)
+    return parse_ps(got.stdout or "", with_env=False).get(pid)
+
+
+def _start_now(pid: int) -> "int | None":
+    """`pid`'s start time read now on POSIX (None: gone, a zombie, or unreadable)."""
+    row = _row_now(pid)
     return row.start if row else None
+
+
+def _fill_args(procs) -> None:
+    """macOS: the scan's `ps -E` command holds the environment after the argv; the argv alone is read again, without
+    -E, for each process the report names, and kept only when the pid still has the same start time."""
+    if WIN or HAVE_PROC:
+        return  # the argv was read alone already (PEB command line, /proc/<pid>/cmdline)
+    for p in procs:
+        if not p.args:
+            row = _row_now(p.pid)
+            if row is not None and row.start == p.start:
+                p.args = row.cmd
 
 
 def _scan_one_linux(pid: int) -> "Proc | None":
@@ -378,21 +409,50 @@ def find(token: dict) -> list:
     for pid, p in procs.items():
         if pid == me or (pid, p.start) in known:
             continue
-        if descends(p) or p.mark.startswith(ours_mark) or any(f in _norm(p.cmd) for f in folders):
-            found.append(p)
+        if descends(p):
+            p.why = "child"
+        elif p.mark.startswith(ours_mark):
+            p.why = "marker"
+        elif any(f in _norm(p.cmd) for f in folders):
+            p.why = "folder"
+        else:
+            continue
+        found.append(p)
     return found
 
 
-def end(token: dict, grace_s: float = 3.0) -> dict:
-    """{"left": [(Proc, ended)], "seconds": the check's cost}. Puts this process's marker back as it was."""
+def _may_end(p: Proc, win: bool = WIN) -> bool:
+    """Only what the run provably started is ended: a child of it or a carrier of its marker. A command line naming a
+    run folder proves nothing (anyone may open that folder), except on Windows under WmiPrvSE, how Halo starts its kept
+    programs there (they inherit neither the parent chain nor the environment)."""
+    if p.why in ("child", "marker"):
+        return True
+    return win and p.why == "folder" and p.parent_exe.lower() == "wmiprvse.exe"
+
+
+def _grace_s() -> float:
+    """How long a module's processes may take to go: Halo's own way-out budget plus a margin, at least 8 s."""
+    try:
+        from halo_harness.closing import QUIT_BUDGET_S
+    except Exception:  # noqa: BLE001 -- the rig must run even when the product does not import
+        QUIT_BUDGET_S = 4.0
+    return max(8.0, float(QUIT_BUDGET_S) + 4.0)
+
+
+def end(token: dict, grace_s: "float | None" = None) -> dict:
+    """{"left": [(Proc, True ended / False could not be / None not ended: not proven the run's)], "seconds": the
+    check's cost}. Waits only while something is still there. Puts this process's marker back as it was."""
     t0 = time.monotonic()
     try:
         found = find(token)
-        deadline = time.monotonic() + grace_s
-        while found and time.monotonic() < deadline:
-            time.sleep(0.25)
-            found = find(token)
-        left = [(p, end_one(p)) for p in sorted(found, key=lambda p: p.start, reverse=True)]
+        if found:
+            deadline = time.monotonic() + (_grace_s() if grace_s is None else grace_s)
+            while found and time.monotonic() < deadline:
+                time.sleep(0.25)
+                found = find(token)
+        _fill_args(found)
+        left = [(p, end_one(p) if _may_end(p) else None)
+                for p in sorted(found, key=lambda p: p.start, reverse=True)]
     finally:
         if token["prev"] is None:
             os.environ.pop(MARK, None)
@@ -402,8 +462,14 @@ def end(token: dict, grace_s: float = 3.0) -> dict:
 
 
 def report_lines(module: str, result: dict) -> list:
-    return [f"[LEFTOVER] {module}: pid {p.pid} {p.cmd[:400] or '(command line unreadable)'} -- "
-            + ("ended by pid" if ok else "COULD NOT BE ENDED") for p, ok in result["left"]]
+    """One line per process left: its pid and its argv only (never `cmd`, which on macOS carries the environment)."""
+    def how(ok) -> str:
+        if ok is None:
+            return ("NOT ENDED: found only because its command line names a folder of this run, which does not prove "
+                    "the run started it; end it yourself if it is the test's")
+        return "ended by pid" if ok else "COULD NOT BE ENDED"
+    return [f"[LEFTOVER] {module}: pid {p.pid} {(p.args or '').strip()[:200] or '(command line unreadable)'} -- "
+            + how(ok) for p, ok in result["left"]]
 
 
 if __name__ == "__main__":  # a manual cost look: python -m tests.helpers.leftovers

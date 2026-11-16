@@ -375,8 +375,8 @@ def _print_summary_head(tier, passed: int, failed: int, skipped: int, n_modules:
 
 
 def _end_leftovers(mod_name: str, watch: dict, totals: dict) -> None:
-    """The leftover check after a module: each process it left is printed and ended by pid; the module counts one
-    more failure. A look that could not be taken is said, not counted (it proves no leak)."""
+    """The leftover check after a module: each process it left is printed and, when the run provably started it,
+    ended by pid; the module counts one more failure. A look that could not be taken is said, not counted (it proves no leak)."""
     if watch is None:
         return
     try:
@@ -387,7 +387,7 @@ def _end_leftovers(mod_name: str, watch: dict, totals: dict) -> None:
     if got["left"]:
         for line in leftovers.report_lines(mod_name, got):
             print(line)
-        print(f"  [FAIL] leftover processes: {len(got['left'])} process(es) this module started were still "
+        print(f"  [FAIL] leftover processes: {len(got['left'])} process(es) of this module were still "
               f"running after it (named above)")
         totals["failed"] = totals.get("failed", 0) + 1
 
