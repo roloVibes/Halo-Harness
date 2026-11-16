@@ -153,11 +153,7 @@ end of this section.
   10 minutes later tries again, and `halo ps` says the engine did not remove it.
 - **Windows: what Halo runs and waits for ends with Halo, also when Halo is ended from Task Manager.** A pack's check,
   a git clone and a container lane's `docker run` client now join Halo's Job object, as the other programs it starts
-  always did. The editor Halo opens for you and anything you asked to keep are never tied to Halo. What Halo runs
-  this way gets the same input and argument checks as in plain Python: `check_output` with `input=None` gives the
-  program an empty input instead of your keyboard, so a program that reads its input no longer waits forever, and
-  the combinations Python refuses are refused. No Halo command used them; a pack that calls
-  `halo_harness.ext.subprocess_safe` could.
+  always did. The editor Halo opens for you and anything you asked to keep are never tied to Halo.
 - **macOS: a Halo that starts no program starts no reaper.** Every Halo on a Mac, even `halo ps` or a `halo stop`
   with nothing to stop, started the closing reaper at once and scanned every process on the machine when it closed,
   because Halo's own `ps` read of a start time counted as starting a program. The reaper now starts with the first
@@ -172,8 +168,9 @@ end of this section.
   answer, and the setup asks again or says "no server picked" / "no model picked". The same holds wherever you type a
   number: `halo stop <pid>`, `halo ps --forget <pid>`, `/intro <n>`, `/why <turn>`, `turn N` in the terminal UI,
   `halo review #N`, `halo local` by port, a pool member's `host:port`, `--keep-alive`, a cron step in an agent
-  file, the accessible mode's numbered answers, Studio's pool, voice and settings number fields and its live-agents list (an answer that says what is
-  wrong, not a server error), and the Signal pack's phone pick (Signal pack 1.0.2).
+  file, the accessible mode's numbered answers, Studio's pool, voice and settings number fields and its
+  live-agents list (an answer that says what is wrong, not a server error), and the Signal pack's phone pick
+  (Signal pack 1.0.2).
 - **A very long number is no number.** A paste of thousands of digits at a numbered pick stopped the setup with a
   Python error, and Studio's number queries failed the same way. Now a number of more than 18 digits (leading zeros
   do not count) is read like any other answer that is not a number: the setup asks again and Studio refuses it.
@@ -185,15 +182,19 @@ end of this section.
 - **Replays and exports keep ordinary words when your account has a common name.** With an account named `user`,
   `admin`, `test`, `home`, `runner`, `ubuntu` and the like, `halo replay`, `halo export`, the bug report, the session
   trace and the report card rewrote ordinary text: "the user asked" became "the <user> asked", `tests/test_a.py`
-  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced only in a home
+  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced in a home
   folder (the Linux, macOS and Windows home folders in either slash, Git Bash, WSL, `~name`, a `${HOME:-...}`
-  default, whatever character ends the name). Everywhere else, logins included, it stays; see Known limits. Any
-  other account or machine name is replaced as a whole word: a digit, `_`, `.`, `@` or a quote beside it still
-  counts as a boundary, but it is never replaced inside a longer word. A machine name that is a common word
-  (`localhost`, `desktop`, `laptop` and the like) is no longer replaced at all.
+  default, whatever character ends the name) and in a login: `name@machine`, `machine\name` for this computer's
+  own name, a share `\\machine\name`, the account of `ssh -l`, `sudo -u`, `docker -u`, `psql -U`, `mysql -u`,
+  `runas` and `net use /user:`, of `su`, `chown`, `id`, `passwd`, `groups`, `finger`, `useradd` and kin at the
+  start of a command, and keys such as `user=` or `owner=`. Everywhere else it stays; docs/REPLAY.md has the
+  rule, and Known limits says what that leaves. Any other account or machine name is replaced as a whole word: a
+  digit, `_`, `.`, `@` or a quote beside it still counts as a boundary, but it is never replaced inside a longer
+  word. A machine name that is a common word (`localhost`, `desktop`, `laptop` and the like) is no longer
+  replaced at all.
 - **`halo audit privacy --replays` uses the same rules**, so it no longer reports `<user>` as a leaked user name,
-  and in a replay that was not scrubbed it reports a common-word account name only in a home folder, and any other
-  account or machine name wherever it stands as a word.
+  and in a replay that was not scrubbed it reports a common-word account name in a home folder or a login (the
+  places above), and any other account or machine name wherever it stands as a word.
 - **`halo replay clip` and Studio's Export a clip with a `HALO_CHROME` that names no browser** now stop with
   "HALO_CHROME names a browser that does not exist: <value> (fix or unset it)" instead of filming in your installed
   Chrome. A bare command name (`HALO_CHROME=chromium`) still resolves through PATH.
@@ -298,14 +299,14 @@ end of this section.
   docs/ISOLATION.md repeats its notice about the 3.5 files several times.
 - **Studio's Export a clip form still says "No Chrome found on this machine: install Chrome or set HALO_CHROME"**
   when `HALO_CHROME` names nothing; starting the export gives the exact line.
-- **A shared replay keeps a common-word account name everywhere but in home folders.** For an account named
-  `admin`, `user`, `dev` and the like, the word stays in a login (`name@machine`, an ssh, scp or git target,
-  `machine\name`, a domain account `CORP\name`, a network share named after it), the account of a command
-  (`ssh -l`, `sudo -u`, `su`, `chown`, `crontab -u`), a `user=` or `owner=` value, an `ls -l` owner column, a process
-  list, an `/etc/passwd` line, an ssh config `User` line, a role value, a path or web route word and prose. A
-  machine named with a common word (`localhost`, `desktop`, `laptop` ...) stays everywhere; 3.6.0.0 replaced it.
-  Search the replay for the word before you share it if you want it gone. A name that is not a common word is
-  removed wherever it stands as a word.
+- **A shared replay keeps a common-word account name outside home folders and logins.** For an account named
+  `admin`, `user`, `dev` and the like, the word stays in an `ls -l` owner column, a process list, an `/etc/passwd`
+  line, an ssh config `User` line, a role value, a path or web route word, prose, a domain account `CORP\name`,
+  the account of a command that is not on the list in docs/REPLAY.md (`crontab -u`, `getent passwd`, `net user`)
+  and of a listed command behind a wrapper (`nohup su name`, `timeout 5 id name`). 3.6.0.0 replaced the word in
+  all of these, and in ordinary text with them. A machine named with a common word (`localhost`, `desktop`,
+  `laptop` ...) stays everywhere; 3.6.0.0 replaced it. Search the replay for the word before you share it if you
+  want it gone. A name that is not a common word is removed wherever it stands as a word.
 - **A replay excerpt cut one or two letters into your account or machine name keeps those letters** before its
   `...`; a cut of three letters or more is removed.
 - **A listen address `[::]` typed into either setup is saved as `127.0.0.1`** (on Windows a saved one is also read
