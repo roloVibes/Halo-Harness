@@ -64,14 +64,15 @@ def setup_done_at(state_dir=None) -> Optional[str]:
     return at if parse_at(at) is not None else None
 
 
-def later(at, since) -> bool:
-    """True when `at` is a time not before `since` (both ISO texts; `since` None: any time counts). Not before,
-    rather than after: a Windows clock can read the same microsecond twice in a row."""
+def is_new(at, before) -> bool:
+    """True when `at` is a Done written since the wait began: it parses and is not `before`, the marker's `at` when
+    the wait began (None: there was none). Not "later than the wait's start": a wall clock stepped back during Setup
+    (NTP after a VM restore or a wake) gave a fresh Done an earlier time, and init waited for ever (fx studio)."""
     a = parse_at(at)
     if a is None:
         return False
-    s = parse_at(since) if since is not None else None
-    return s is None or a >= s
+    b = parse_at(before) if before is not None else None
+    return b is None or a != b
 
 
 def write_done(state_dir=None) -> str:

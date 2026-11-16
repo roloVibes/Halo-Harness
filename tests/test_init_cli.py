@@ -1143,6 +1143,32 @@ def test_init_wait_ignores_a_stale_marker_and_reads_a_fresh_one(ctx: Ctx):
 
 
 @test
+def test_init_wait_sees_done_after_the_clock_steps_back(ctx: Ctx):
+    """fx studio pass 2: a Done counts because it is new since the wait began, not because its time is later. The
+    wall clock stepped back during Setup (NTP after a VM restore or a wake) gave the Done an earlier `at` than the
+    wait's start; init waited for ever while the person thought Setup had finished."""
+    from datetime import datetime, timedelta, timezone
+    from halo_harness.studio import setup_done
+    back = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat(timespec="microseconds")
+    rc, text, rec, launched, gets, slept = _wait_init([], lambda i: dict(_DONE_STATE, done_at=back) if i < 15 else None)
+    ctx.check(f"a done_at 30 s before the wait began, new since it began: launched, got {rc} {launched} {gets}",
+              launched == [Path.cwd()] and rc == 7 and gets.count("setup/done-at") == 1)
+
+    def marker_back(i):
+        if i == 3:
+            real_now = setup_done.now_iso
+            setup_done.now_iso = lambda: back
+            try:
+                setup_done.write_done()
+            finally:
+                setup_done.now_iso = real_now
+        return None  # the GET fails: the marker file is the fallback
+    rc, text, rec, launched, gets, slept = _wait_init([], marker_back)
+    ctx.check(f"a marker written with the stepped-back clock counts too: launched, got {rc} {launched} {len(gets)}",
+              launched == [Path.cwd()] and rc == 7)
+
+
+@test
 def test_launch_bare_is_what_bare_halo_runs(ctx: Ctx):
     from halo_harness import cli
     from halo_harness.tui import launch as tui_launch

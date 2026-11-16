@@ -8,7 +8,8 @@ for the Summary's Done (studio/setup_done.py) -- the marker file first, then
 `GET setup/done-at` (3.6.0.0 R14; it was `setup/state`) on the running Studio with the token in `~/.halo/
 studio.json`, once per `POLL_S` (1.0 s; `HALO_INIT_POLL_S`), the marker file
 again whenever the GET fails. A marker from an earlier init does not count:
-only a `done_at` not earlier than the wait's start. The answer is one word:
+only a `done_at` other than the marker's `at` when the wait began (never a clock
+comparison: a clock stepped back during Setup still sees Done). The answer is one word:
 
     done          Done was pressed: the Summary's four lines are printed and
                   `launch_halo(cwd, studio)` starts the TUI exactly as bare `halo` does
@@ -109,25 +110,25 @@ def poll_seconds(env: Optional[dict] = None) -> float:
 
 
 def _wait(state_dir, poll_s: float, sleep_fn: Callable[[float], None],
-          deadline: Optional[float], since: str) -> "tuple[str, Optional[dict]]":
-    from halo_harness.studio.setup_done import later, setup_done_at
+          deadline: Optional[float], before: Optional[str]) -> "tuple[str, Optional[dict]]":
+    from halo_harness.studio.setup_done import is_new, setup_done_at
     failed = waited = 0.0
     state: Optional[dict] = None
     try:
         while True:
-            if later(setup_done_at(state_dir), since):
+            if is_new(setup_done_at(state_dir), before):
                 return "done", state
             got = http_get(state_dir, POLL_PATH)
             if got is not None:
                 state, failed = got, 0.0
-                if later(got.get("done_at"), since):
+                if is_new(got.get("done_at"), before):
                     return "done", state
             elif studio_answers(state_dir):  # 3.3.15.0 R6: busy, not gone (a long check holds the answer up)
                 failed = 0.0
             else:
                 failed += max(poll_s, 0.001)
                 if failed >= GONE_S:
-                    return ("done", state) if later(setup_done_at(state_dir), since) else ("gone", state)
+                    return ("done", state) if is_new(setup_done_at(state_dir), before) else ("gone", state)
             if deadline is not None and waited >= deadline:
                 return "gone", state
             sleep_fn(poll_s)
@@ -137,13 +138,13 @@ def _wait(state_dir, poll_s: float, sleep_fn: Callable[[float], None],
 
 
 def wait_for_done(state_dir, poll_s: float = POLL_S, sleep: Optional[Callable] = None,
-                  deadline: Optional[float] = None, since: Optional[str] = None) -> str:
+                  deadline: Optional[float] = None) -> str:
     """"done" | "gone" | "interrupted" (above). The Studio is the one `<state_dir>/studio.json` names, read again
     on every poll. `sleep` None: this module's `sleep`; `deadline`: seconds of polling (counted in poll_s steps,
-    never the clock) after which the answer is "gone"; `since`: the wait's start (default now), a `done_at` must
-    not be earlier."""
-    from halo_harness.studio.setup_done import now_iso
-    word, _state = _wait(state_dir, poll_s, sleep or globals()["sleep"], deadline, since or now_iso())
+    never the clock) after which the answer is "gone". A `done_at` counts when it differs from the marker's `at`
+    as the wait begins."""
+    from halo_harness.studio.setup_done import setup_done_at
+    word, _state = _wait(state_dir, poll_s, sleep or globals()["sleep"], deadline, setup_done_at(state_dir))
     return word
 
 
@@ -192,14 +193,14 @@ def run(say: Callable[[str], None], *, cwd, state_dir, poll_s: Optional[float] =
     """`halo init`'s wait after the door: Done -> the four lines and bare halo (its exit code); Ctrl+C or Studio
     gone -> one line and 0."""
     from halo_harness.studio import init_waiting
-    from halo_harness.studio.setup_done import now_iso
-    since = now_iso()
+    from halo_harness.studio.setup_done import setup_done_at
+    before = setup_done_at(state_dir)  # an earlier init's Done; a new one is any other (fx studio: no clock compare)
     try:
         init_waiting.mark(state_dir, cwd)  # 3.3.15.0 R6: Studio's Done knows this terminal starts halo
     except OSError:
         pass
     try:
-        word, state = _wait(state_dir, poll_seconds() if poll_s is None else poll_s, globals()["sleep"], deadline, since)
+        word, state = _wait(state_dir, poll_seconds() if poll_s is None else poll_s, globals()["sleep"], deadline, before)
     finally:
         init_waiting.clear(state_dir)
     if word == "interrupted":
