@@ -8,7 +8,6 @@
 import { goSection, openHelp, studio, toast, toggleFocus, toggleRail } from "../lib/store";
 import { themeCommands } from "./themeCommands"; // 3.3.12.0 R1
 import { openGlossary } from "../lib/glossary";
-import { setDensity } from "../lib/density";
 import { layoutStore, resetLayout, showPanel, whenLaidOut } from "../lib/workspace/persist";
 import type { PanelSpec } from "../lib/workspace/types";
 import { sectionDef, sections, type SectionDef } from "../routes";
@@ -74,8 +73,6 @@ export function commands(): Command[] {
   out.push(
     { id: "help-glossary", group: "Help", label: "Help: glossary", hint: "every word Halo uses, one paragraph each", run: () => openGlossary() },
     ...themeCommands(), // 3.3.12.0 R1: follow the system, then one per palette
-    { id: "density-compact", group: "View", label: "Density: compact", hint: "tighter spacing, a smaller type scale; the header's rows button", run: () => setDensity("compact") },
-    { id: "density-comfortable", group: "View", label: "Density: comfortable", hint: "the default spacing and type scale", run: () => setDensity("comfortable") },
     { id: "rail", group: "View", label: "Expand or collapse the rail", hint: "the section icons, or the icons with their titles", run: toggleRail },
     { id: "glance", group: "View", label: "Open the glance", hint: GLANCE_HINT, run: openGlanceDoor }, // 3.4.1.0 R4
     { id: "focus", group: "View", label: "Focus", hint: "hide the rail, the inspector and the status bar; again brings them back", kbd: "F", run: toggleFocus },

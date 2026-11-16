@@ -5,7 +5,7 @@ for all of studio parts"): one type scale, 12 (data, captions), 13 (body), 15 (t
 1. no sheet of the shell (ui/src/styles) or of a shipped pack's page (templates/packs/*/studio) sets a font size under
    12 px: a `font-size`, the size inside a `font:` shorthand, or a `--t-*` / `--fs*` token;
 2. tokens.css names the scale (--ts-data 12, --ts-body 13, --ts-title 15, --ts-page 18) and the spacing scale
-   (4 / 8 / 12 / 16 / 24), and the compact density set stays at 12 px or more;
+   (4 / 8 / 12 / 16 / 24), and its one token set (3.6.0.1: no compact density set) stays at 12 px or more;
 3. no component sets a font size inline (`fontSize` in a .tsx): sizes live in the sheets, where this lint reads them.
 The computed sizes of the drawn page are measured by the room test (tests/test_studio_room.py).
 Run: python -m tests.test_studio_type_scale
@@ -72,8 +72,11 @@ def test_the_scale_is_tokens(ctx: Ctx):
         ctx.check(f"{name}: {px}px", f"{name}: {px}px;" in css)
     for name, px in (("--s-1", 4), ("--s-2", 8), ("--s-3", 12), ("--s-4", 16), ("--s-5", 24)):
         ctx.check(f"spacing {name}: {px}px", f"{name}: {px}px;" in css)
-    m = re.search(r':root\[data-density="compact"\] \{(.*?)\}', css, re.S)
-    ctx.check("the compact set keeps 12 px text", bool(m) and not small_sizes(m.group(1)) and "--fs: 12px;" in m.group(1))
+    # 3.6.0.1: the compact density set is gone (the header's three-lines button went with it); one token set, 13 px body
+    ctx.check("no compact density set: one token set", 'data-density="compact"' not in css)
+    m = re.search(r"^:root \{(.*?)^\}", css, re.S | re.M)
+    ctx.check("the one set keeps 12 px text at the least (--fs 13, --fs-sm 12)",
+              bool(m) and not small_sizes(m.group(1)) and "--fs: 13px;" in m.group(1) and "--fs-sm: 12px;" in m.group(1))
 
 
 @test

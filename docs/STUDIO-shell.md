@@ -98,11 +98,11 @@ The classic plain-JS page (`/legacy/`) is gone since 3.0.7.0 R2: every section i
   status bar; the stage takes the whole window. `F` again brings them back as
   they were. Where a section's own `f` follows an agent or the Log (Session,
   an agent watched on Agents) or fits a canvas, `Shift+F` is Focus (on the Map it switches the scope). Remembered per browser (`halo.studio.focus`).
-- **Density** (3.3.2.0): the header's rows button (or the palette's **Density: compact** / **comfortable**) switches
-  two token sets in `ui/src/styles/tokens.css`: compact is tighter (a 32 px title line, 9 px inside a panel, 10 px
-  between panels, a 42 px header; comfortable since 3.3.15.0: 40, 12, 12, 48), its text 12 px (never smaller);
-  the colours stay. Remembered per browser (`halo.studio.density`), `data-density` on `<html>`. **The rules
-  (comfortable, 3.3.16.0 R1b):** no control bar (a panel's title bar, Tabs, a section's bar, a form's button row)
+- **Density**: one set of spacing and type tokens in `ui/src/styles/tokens.css` (a 40 px title line, 12 px inside
+  a panel, 12 px between panels, a 48 px header, 13 px text). There is no density setting: the comfortable /
+  compact toggle of 3.3.2.0 (the header's three-lines button and the palette's **Density:** commands) was removed
+  in 3.6.0.1, since compact changed only a few pixels; a `halo.studio.density` a browser saved is no longer read.
+  **The rules (3.3.16.0 R1b):** no control bar (a panel's title bar, Tabs, a section's bar, a form's button row)
   under 36 px (`--ctl-h`), no row that is a target (a page rail's item, an inspector Edit row) under 40 px
   (`--row-h`), 12 px inside every panel body and 12 px between panels, one thing open per section on load. The
   primitives mark themselves (`data-density="bar|row|body"`) and `tests/test_studio_density.py` measures every

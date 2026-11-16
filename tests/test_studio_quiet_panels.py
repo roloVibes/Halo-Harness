@@ -1,5 +1,5 @@
 """tests.test_studio_quiet_panels -- Halo 3.3.2.0 "Quiet Studio" round R3: quieter panels, one thing per section,
-a density setting (rolo, 2026-10-27: "the visuals in studio are too cluttered"). Headless Chrome at 1280 x 800
+(a density setting, removed in 3.6.0.1) (the owner, 2026-10-27: "the visuals in studio are too cluttered"). Headless Chrome at 1280 x 800
 through tests/helpers/studio_quiet_panels.py (skipped without one), over a seeded scratch home; no provider
 request, no model call:
 
@@ -12,9 +12,11 @@ request, no model call:
 3. (on Agents -> 3 · Map, the drawer of what they think and say; 3.6.0.0 R5) a drawer opens on the main panel's right (the main panel gives up that
    width, as tall as before, one 12 px gap between them) and gives it back when closed; the drawer is kept across a
    reload with no "custom layout" badge, Reset layout returns to the default;
-4. density: the header toggle sets `data-density="compact"` and the measured tokens (`--pad`, the stage's gap, the
-   title line, the body text), remembered across a reload; the palette's "Density: comfortable" switches it back.
-Plus source pins: no about line in the panel frame, the compact token set changes no colour.
+4. no density setting (3.6.0.1: the header's three-lines button changed a few pixels and read as broken; it went
+   with its setting): the header has no density button and no hole where it was, at 1280 and at 700 px wide; a
+   browser that saved `halo.studio.density = compact` under 3.6.0.0 opens with the default tokens (`--pad`, the
+   stage's gap, the title line, the body text) and no `data-density` on <html>; the palette has no Density command.
+Plus source pins: no about line in the panel frame, no compact token set and no density store.
 Run: python -m tests.test_studio_quiet_panels
 """
 from __future__ import annotations
@@ -50,14 +52,11 @@ def test_the_source_is_quiet(ctx: Ctx):
     ctx.check("the panel frame draws no about line", "panel-about" not in panel and "{spec.about}</" not in panel)
     ctx.check("the brackets and the data line only on the focused panel",
               '{focused && <span className="hud-brackets"' in panel and "{focused && (" in panel and 'data-testid="panel-help-btn"' in panel)
+    # 3.6.0.1: the density setting is gone (the header's three-lines button changed a few pixels); one token set, no
+    # store (tests/test_studio_no_density_setting.py pins the rest of the removal)
     css = (UI / "styles" / "tokens.css").read_text(encoding="utf-8")
-    m = re.search(r':root\[data-density="compact"\] \{(.*?)\}', css, re.S)
-    ctx.check("tokens.css has the compact set", bool(m))
-    body = m.group(1) if m else ""
-    ctx.check("the compact set changes no colour", not re.search(r"#[0-9a-fA-F]{3,8}\b|rgba?\(", body) and "--pad:" in body and "--fs:" in body)
-    store = (UI / "lib" / "density.ts").read_text(encoding="utf-8")
-    ctx.check("density is remembered per browser under halo.studio.density, every read and write in try/catch",
-              'DENSITY_KEY = "halo.studio.density"' in store and store.count("try {") >= 3)
+    ctx.check("tokens.css has no compact set", 'data-density="compact"' not in css)
+    ctx.check("no density store (nothing reads halo.studio.density)", not (UI / "lib" / "density.ts").exists())
     specs = {sid: pid for sid, pid in PRIMARY.items()}
     src = "\n".join(p.read_text(encoding="utf-8") for p in (UI / "routes").rglob("*.tsx"))
     for sid, pid in specs.items():
@@ -106,16 +105,20 @@ def test_a_drawer_opens_beside_the_main_panel_and_is_kept(ctx: Ctx):
 
 
 @test
-def test_density(ctx: Ctx):
+def test_no_density_setting(ctx: Ctx):
+    """3.6.0.1 (rewritten from 3.3.2.0's test_density, which drove the toggle this release removes)."""
     got = _got(ctx)
-    comf, comp = got.get("comfortable") or [], got.get("compact") or []
-    ctx.check(f"comfortable by default (3.3.15.0 L1, the Instrument scale): --pad 12px, a 12 px stage gap, a 40 px title line, 13 px text, got {comf}", comf == ["comfortable", "12px", "12px", 40, "13px"])
-    # 3.3.15.0 R3 (owner feedback 2026-11-09, panels breathe): a title line is 36 px at the least, compact's 32 grows
-    ctx.check(f"the toggle: compact, --pad 9px, a 10 px stage gap, a 36 px title line, 12 px text, got {comp} {got.get('toggle_title')!r}",
-              comp == ["compact", "9px", "10px", 36, "12px"] and got.get("toggle_title") == "Density: comfortable (press for compact)")
-    ctx.check(f"remembered across a reload, got {got.get('saved')} {got.get('reload')}", got.get("saved") == "compact" and got.get("reload") == comp)
-    ctx.check(f"the palette's Density: comfortable, got {got.get('palette')} {got.get('saved_after')}",
-              got.get("palette") == comf and got.get("saved_after") == "comfortable")
+    fresh = got.get("fresh") or []
+    ctx.check(f"the Instrument scale (3.3.15.0 L1): --pad 12px, a 12 px stage gap, a 40 px title line, 13 px text, no data-density on <html>, got {fresh}",
+              fresh == ["", "12px", "12px", 40, "13px"])
+    for key, width in (("header", 1280), ("header_narrow", 700)):
+        h = got.get(key) or [None] * 5
+        ctx.check(f"at {width} px: no density button, the palette door and the theme menu one header gap apart, the theme menu "
+                  f"last and flush with the header's padding (no hole where the button was), got {h}",
+                  h[0] == 0 and h[1] == h[2] and h[2] > 0 and abs(h[3]) <= 1 and h[4] is True)
+    ctx.check(f"a browser that saved halo.studio.density = compact under 3.6.0.0 opens with the default tokens, got {got.get('saved_compact')} {got.get('html_attr')}",
+              got.get("saved_compact") == fresh and got.get("html_attr") is False)
+    ctx.check(f"the palette offers no Density command, got {got.get('palette')}", got.get("palette") == [])
 
 
 if __name__ == "__main__":

@@ -3,14 +3,14 @@
 // ("How this works" for the section and, from 3.1.1.0 R1, the Glossary),
 // its "..." menu (Reset layout, How panels open; 3.6.0.0 R0a: the "+" menu, Arrange and the "custom layout" badge
 // went -- every panel is a button in the view's bar, lib/workspace/ViewBar.tsx; shell/SectionMore.tsx), the Focus button (3.3.2.0 R1: hides
-// the rail, the inspector and the status bar; F), the command palette button,
-// 3.3.2.0 R3's density toggle (comfortable / compact, lib/density.ts) and the
+// the rail, the inspector and the status bar; F), the command palette button and the
 // theme menu (3.3.12.0 R1: shell/ThemeMenu.tsx, the palettes of the registry). 3.3.15.0 L1: restyled to the
 // Instrument look (styles/shell.css): the title in mono caps, a / and the blurb, the palette door a 300 px field.
+// 3.6.0.1: 3.3.2.0 R3's density toggle (the three-lines button beside the theme) is gone with its setting: its
+// compact set changed a few pixels and read as a broken button.
 import { Button, Icon, Kbd } from "../lib/ui";
 import { openHelp, studio, toggleFocus, toggleRail, useStore, type SectionId } from "../lib/store";
 import { openGlossary } from "../lib/glossary";
-import { toggleDensity, useDensity } from "../lib/density";
 import { sectionDef } from "../routes";
 import { SectionMore } from "./SectionMore";
 import { ThemeMenu } from "./ThemeMenu"; // 3.3.12.0 R1: the ten palettes, one `theme` key
@@ -46,18 +46,6 @@ function HelpMenu({ section }: { section: SectionId }) {
         </div>
       )}
     </div>
-  );
-}
-
-/** 3.3.2.0 R3: comfortable / compact, beside the theme choice; remembered per browser (halo.studio.density). */
-function DensityToggle() {
-  const d = useDensity();
-  const next = d === "compact" ? "comfortable" : "compact";
-  return (
-    <button className="icon-btn icon-btn-lg" onClick={toggleDensity} aria-pressed={d === "compact"} aria-label={`Density: ${d}`}
-            title={`Density: ${d} (press for ${next})`} data-testid="density-toggle" data-density={d}>
-      <Icon name={d === "compact" ? "density-compact" : "density"} />
-    </button>
   );
 }
 
@@ -98,7 +86,6 @@ export function Header() {
         <span className="palette-btn-text">search or run a command</span>
         <Kbd keys="Mod+K" />
       </Button>
-      <DensityToggle />
       <ThemeMenu />
     </header>
   );
