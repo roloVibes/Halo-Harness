@@ -156,6 +156,21 @@ def _normalize_host_url(raw: str) -> str:
     return raw.rstrip("/")
 
 
+def connectable_url(raw: str) -> str:
+    """jb10: the address to CONNECT to for an address a server LISTENS on. `OLLAMA_HOST=0.0.0.0:11434` (or `[::]`)
+    tells Ollama to serve every address; a client connecting to it fails on Windows (WinError 10049), so it is the
+    same port on 127.0.0.1. Anything else is `_normalize_host_url` unchanged."""
+    url = _normalize_host_url(raw)
+    parsed = urllib.parse.urlparse(url)
+    if parsed.hostname not in ("0.0.0.0", "::"):
+        return url
+    try:
+        port = parsed.port
+    except ValueError:
+        return url
+    return f"{parsed.scheme}://127.0.0.1" + (f":{port}" if port else "") + parsed.path.rstrip("/")
+
+
 def normalize_ollama_model_name(name: Optional[str]) -> Optional[str]:
     """Halo 2.0.3 round 5c FIX PASS (live run): Ollama's own tag
     convention -- a name with no explicit `:<tag>` means `:latest`.
@@ -267,7 +282,7 @@ def resolve_ollama_hosts(env: Optional[dict] = None) -> "list[OllamaHost]":
                               entry.get("name") if isinstance(entry, dict) else None)
     if hosts:
         return hosts
-    url = _normalize_host_url(env.get("OLLAMA_HOST") or DEFAULT_OLLAMA_URL)
+    url = connectable_url(env.get("OLLAMA_HOST") or DEFAULT_OLLAMA_URL)
     api_key = env.get("OLLAMA_API_KEY") or None
     return [OllamaHost(name="default", url=url, default=True, api_key=api_key, synthesized=True)]
 

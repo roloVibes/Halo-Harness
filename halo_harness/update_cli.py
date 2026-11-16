@@ -181,6 +181,9 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     # a Studio or supervisor that opened this halo: never stopped from inside its own tree (that ends this halo
     # too) and never waited on as this halo's launcher; named now, stopped by the updater once this halo exited
     openers = upd.halo_openers()
+    from halo_harness.children import start_time
+    for o in openers:  # jb10: identity as seen in the process table now; the updater ends one only while it holds
+        o.setdefault("start_time", start_time(o["pid"]))
     for o in openers:
         print(f"halo update: {'Studio' if o['what'] == 'studio' else 'the supervisor'} (pid {o['pid']}) opened this "
               f"halo; the updater stops it once this halo has exited")
@@ -226,7 +229,8 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
     plan = UP.build_plan(cmd=cmd, cwd=cwd, before=before, expect=expect or {"label": "the newest"}, restore=restore,
                          wait_pids=[os.getpid(), *upd.halo_ancestors()] if windows else [],
                          stop_pids=[o["pid"] for o in openers],
-                         held=_held(force), restart_supervisor=bool(supervisor), windows=windows)
+                         held=_held(force), restart_supervisor=bool(supervisor), windows=windows,
+                         stop_starts={o["pid"]: o.get("start_time") for o in openers})
     code = _launch(plan)
     if code is None:  # the updater did not start: nothing was installed
         print(restart_supervisor()) if supervisor else None

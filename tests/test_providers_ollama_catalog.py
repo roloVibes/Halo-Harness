@@ -55,7 +55,9 @@ def test_ollama_host_env_seeds_the_default_host(ctx: Ctx):
     _fresh_state_dir("ol-hosts-env-")
     try:
         hosts = resolve_ollama_hosts(env={"OLLAMA_HOST": "0.0.0.0:11434"})
-        ctx.check(f"normalized to a full URL, got {hosts[0].url}", hosts[0].url == "http://0.0.0.0:11434")
+        # jb10: 0.0.0.0 is where Ollama LISTENS; a client connects to the same port on 127.0.0.1 (Windows refuses
+        # a connect to 0.0.0.0)
+        ctx.check(f"normalized to a full, connectable URL, got {hosts[0].url}", hosts[0].url == "http://127.0.0.1:11434")
         hosts2 = resolve_ollama_hosts(env={"OLLAMA_HOST": "https://ollama.com", "OLLAMA_API_KEY": "k-123"})
         ctx.check("a scheme already present is kept as-is", hosts2[0].url == "https://ollama.com")
         ctx.check("OLLAMA_API_KEY seeds the one synthesized host's api_key", hosts2[0].api_key == "k-123")

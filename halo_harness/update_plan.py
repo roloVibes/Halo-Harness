@@ -153,7 +153,10 @@ def halo_argv() -> list:
 
 def build_plan(*, cmd: str, cwd: Optional[str], before: dict, expect: dict, restore: Optional[dict],
                state_dir=None, wait_pids=(), stop_pids=(), held=(), supervisor_stop_file: Optional[str] = None,
-               restart_supervisor: bool = False, windows: Optional[bool] = None) -> dict:
+               restart_supervisor: bool = False, windows: Optional[bool] = None, stop_starts=None) -> dict:
+    """`stop_starts` (jb10): pid -> the start time RECORDED for it (the ledger's, or the one read when the scan saw it
+    as a Halo process); the runner ends a stop pid only when its live start time equals it. A pid without one is not
+    ended by number."""
     from halo_harness import update_install as UI
     from halo_harness.update import format_version_line
     windows = os.name == "nt" if windows is None else windows
@@ -162,6 +165,8 @@ def build_plan(*, cmd: str, cwd: Optional[str], before: dict, expect: dict, rest
     return {"version": 1, "log": str(_state(state_dir) / LOG_NAME), "result": str(rd / RESULT_NAME),
             "run_log": str(rd / RUN_LOG_NAME), "run_id": secrets.token_hex(8),
             "wait_pids": [int(p) for p in wait_pids], "stop_pids": [int(p) for p in stop_pids],
+            "stop_starts": {str(int(p)): str(t) for p, t in (stop_starts or {}).items()
+                            if t is not None and int(p) in {int(x) for x in stop_pids}}, "windows": bool(windows),
             "held": [{"pid": int(h["pid"]), "what": h.get("what") or "halo"} for h in held if h.get("pid")],
             "supervisor_stop_file": supervisor_stop_file, "restart_supervisor": bool(restart_supervisor),
             "install": {"cmd": cmd, "cwd": cwd}, "cert_env": dict(UI.SYSTEM_CERTS_ENV),

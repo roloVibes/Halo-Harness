@@ -47,9 +47,11 @@ def _bat(text: str) -> str:
 
 def windows_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Optional[str] = None,
                    supervisor_stop_file: Optional[str] = None, restart_supervisor: bool = False,
-                   halo: str = "halo", restore_cmd: Optional[str] = None, restore_cwd: Optional[str] = None) -> str:
+                   halo: str = "halo", restore_cmd: Optional[str] = None, restore_cwd: Optional[str] = None,
+                   stop_starts=None) -> str:
     """The `update.cmd` text: wait, stop, reinstall, `halo --version` (3.6.0.0 R13: when the reinstall or that
-    fails, `restore_cmd` puts back what was installed), restart, all into `log`."""
+    fails, `restore_cmd` puts back what was installed), restart, all into `log`. jb10: a stop pid is ended only when
+    `stop_starts` records its start time and the live one (read just before) equals it."""
     out = ["@echo off", "rem Halo /update: runs after halo exits (written by halo_harness.update_detached).",
            f'set "LOG={_bat(log)}"', 'echo === halo update from /update %DATE% %TIME% >> "%LOG%" 2>&1']
     for pid in wait_pids:
@@ -61,7 +63,16 @@ def windows_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Option
     if supervisor_stop_file:
         out += [f'echo stop> "{_bat(supervisor_stop_file)}"', "ping -n 6 127.0.0.1 >nul"]
     for pid in stop_pids:
-        out += [f'echo stopping pid {pid} >> "%LOG%"', f'taskkill /PID {pid} /T /F >> "%LOG%" 2>&1']
+        start = str((stop_starts or {}).get(pid) or "")
+        if not start.isdigit():  # Halo's Windows start time is the creation FILETIME, digits only
+            out += [f'echo pid {pid} was not stopped: its start time was not recorded >> "%LOG%"']
+            continue
+        out += [f'powershell -NoProfile -NonInteractive -Command "$p = Get-Process -Id {pid} -ErrorAction Stop; '
+                f'if ($p.StartTime.ToFileTimeUtc() -eq {start}) {{ exit 0 }} else {{ exit 1 }}" >nul 2>&1',
+                f"if errorlevel 1 goto keep_{pid}",
+                f'echo stopping pid {pid} >> "%LOG%"', f'taskkill /PID {pid} /T /F >> "%LOG%" 2>&1',
+                f"goto stopped_{pid}", f":keep_{pid}",
+                f'echo pid {pid} was not stopped: it is gone or another program now >> "%LOG%"', f":stopped_{pid}"]
     out += ['echo running the reinstall >> "%LOG%"', 'call :reinstall >> "%LOG%" 2>&1', "set RC=%ERRORLEVEL%",
             'echo reinstall exit code %RC% >> "%LOG%"', f'"{_bat(halo)}" --version >> "%LOG%" 2>&1',
             "if errorlevel 1 set RC=1"]
@@ -85,7 +96,8 @@ def windows_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Option
 
 def posix_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Optional[str] = None,
                  supervisor_stop_file: Optional[str] = None, restart_supervisor: bool = False,
-                 halo: str = "halo", restore_cmd: Optional[str] = None, restore_cwd: Optional[str] = None) -> str:
+                 halo: str = "halo", restore_cmd: Optional[str] = None, restore_cwd: Optional[str] = None,
+                 stop_starts=None) -> str:
     """The `update.sh` text, the same steps as `windows_script`."""
     q = shlex.quote
     out = ["#!/bin/sh", "# Halo /update: runs after halo exits (written by halo_harness.update_detached).",
@@ -95,9 +107,22 @@ def posix_script(*, wait_pids, stop_pids, reinstall_cmd: str, log, cwd: Optional
                 f'echo "halo (pid {pid}) has exited"']
     if supervisor_stop_file:
         out += [f"echo stop > {q(supervisor_stop_file)}", "sleep 5"]
-    if stop_pids:
-        pids = " ".join(str(p) for p in stop_pids)
-        out += [f'echo "stopping pid(s) {pids}"', f"kill {pids} 2>/dev/null", "sleep 2", f"kill -9 {pids} 2>/dev/null"]
+    guards = []
+    for pid in stop_pids:
+        start = str((stop_starts or {}).get(pid) or "")
+        if not start:
+            out.append(f'echo "pid {pid} was not stopped: its start time was not recorded"')
+        elif start.startswith("ps:"):  # where there is no /proc: `lstart` in UTC, the C locale, one space apart
+            guards.append((pid, f'[ "$(LC_ALL=C LANG=C TZ=UTC0 ps -o lstart= -p {pid} 2>/dev/null | tr -s \' \' '
+                                f'| sed \'s/^ //;s/ $//\')" = {q(start[3:])} ]'))
+        else:  # /proc/<pid>/stat field 22, after the command name in parentheses
+            guards.append((pid, f'[ "$(sed \'s/.*) //\' /proc/{pid}/stat 2>/dev/null | cut -d\' \' -f20)" = {q(start)} ]'))
+    for pid, same in guards:  # jb10: ended only while the live start time is the recorded one
+        out.append(f'if {same}; then echo "stopping pid {pid}"; kill {pid} 2>/dev/null; '
+                   f'else echo "pid {pid} was not stopped: it is gone or another program now"; fi')
+    if guards:
+        out.append("sleep 2")
+        out += [f"if {same}; then kill -9 {pid} 2>/dev/null; fi" for pid, same in guards]
     out += ['echo "running the reinstall"', f"( {'cd ' + q(cwd) + ' && ' if cwd else ''}{reinstall_cmd} )",
             "rc=$?", 'echo "reinstall exit code $rc"', f"{q(halo)} --version || rc=1"]
     if restore_cmd:
@@ -187,7 +212,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
     from halo_harness import update as upd
     from halo_harness import update_plan as UP
     from halo_harness.providers.http import format_offline_refusal, offline_mode_enabled
-    from halo_harness.update_stop import describe, lingering
+    from halo_harness.update_stop import describe, lingering, stop_command
     if offline_mode_enabled():
         print(f"halo update: {format_offline_refusal('the update server')}", file=sys.stderr)
         return 1
@@ -206,8 +231,21 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
             return 1
     openers = upd.halo_openers()  # a Studio that opened this halo: stopped by the updater, never waited on
     rows = lingering(state_dir)
-    rows += [{"pid": o["pid"], "what": o["what"], "cmd": str(o.get("cmd") or "").split()} for o in openers
+    from halo_harness.children import start_time
+    rows += [{"pid": o["pid"], "what": o["what"], "cmd": str(o.get("cmd") or "").split(),
+              "start_time": start_time(o["pid"])} for o in openers  # seen in the process table just now
              if all(r["pid"] != o["pid"] for r in rows)]
+    # jb10: a row with no recorded start time is never ended by number (its pid may be another program's now)
+    unrecorded = [r for r in rows if not r.get("start_time")]
+    rows = [r for r in rows if r.get("start_time")]
+    for r in unrecorded:
+        print(f"halo update: {describe(r)} is not stopped by the updater: its start time was not recorded, so it "
+              f"cannot be proven to be Halo's own; if `halo ps` lists it, end it with: {stop_command(r)}",
+              file=sys.stderr if windows else sys.stdout)
+    if unrecorded and windows:  # files are never replaced under a Halo that may still run
+        print("halo update: not installing while it may still run; end it and run /update again", file=sys.stderr)
+        return 1
+    starts = {r["pid"]: r["start_time"] for r in rows}
     supervisor = any(r.get("what") == "supervisor" for r in rows)
     from halo_harness.supervise.pulse import stop_path
     spec = kind.get("spec")
@@ -232,7 +270,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
                              restore=restore, state_dir=state_dir,
                              wait_pids=[os.getpid(), *ancestors] if windows else [],  # POSIX: exec, no wait
                              stop_pids=[r["pid"] for r in rows], supervisor_stop_file=stop_file,
-                             restart_supervisor=supervisor, windows=windows)
+                             restart_supervisor=supervisor, windows=windows, stop_starts=starts)
         for r in rows:
             print(f"halo update: the updater stops {describe(r)}")
         print(("halo update: the update runs in its own window after halo exits" if windows else
@@ -240,7 +278,7 @@ def run_after_exit(*, state_dir=None, windows: Optional[bool] = None, resume_hin
         got = (launch or UP.launch)(plan, state_dir=state_dir, windows=windows, python=py, quiet=True)
         return 1 if got is None else got
     make = windows_script if windows else posix_script
-    text = make(wait_pids=[os.getpid(), *ancestors], stop_pids=[r["pid"] for r in rows],
+    text = make(wait_pids=[os.getpid(), *ancestors], stop_pids=[r["pid"] for r in rows], stop_starts=starts,
                 reinstall_cmd=cmd, log=str(log), cwd=cwd, supervisor_stop_file=stop_file,
                 restart_supervisor=supervisor, halo=shutil.which("halo") or "halo",
                 restore_cmd=(restore or {}).get("cmd"), restore_cwd=(restore or {}).get("cwd"))

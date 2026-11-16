@@ -125,6 +125,39 @@ def _not_ready(line: str, page: str, cwd) -> dict:
     return {"ok": False, "line": line, "page": page, "usable": any(p != "ollama" for p in _set_providers(cwd))}
 
 
+def _local_ready(ref, raw: str, state_dir, cwd) -> dict:
+    """jb10: a model on a local server, decided from configuration with no connect (the session's resolver probes
+    ports): ready when a server is set up for it (`huggingface.local_servers`, a paired host by that name) or Halo has
+    served it (the managed-server record) -- whether that server runs right now is for the session to start or say.
+    An MLX model is ready on Apple silicon (the session starts its server)."""
+    if getattr(ref, "mlx", False):
+        from halo_harness.providers.huggingface_mlx import is_apple_silicon, mlx_unsupported_sentence
+        if is_apple_silicon():
+            return {"ok": True, "line": "", "page": "", "usable": True}
+        return _not_ready(f"The default model {raw}: {mlx_unsupported_sentence()} Pick another on the Default model "
+                          "page.", "model", cwd)
+    from halo_harness.providers.huggingface import resolve_huggingface_local_servers
+    names = {s.name.lower() for s in resolve_huggingface_local_servers()
+             if not str(s.runtime or "").startswith("voice-")}
+    if ref.host:
+        try:  # a paired host's pool or engine server (engines/peer, local_pool/peer): its name, `pool` or an engine id
+            from halo_harness.engines.descriptors import TABLE
+            from halo_harness.peers import store
+            peers = {str(h.get("name") or "").lower() for h in store.hosts() if h.get("state", "joined") == "joined"}
+            peers |= ({"pool"} | {str(k).lower() for k in TABLE}) if peers else set()
+        except Exception:
+            peers = set()
+        if ref.host.lower() in names or ref.host.lower() in peers:
+            return {"ok": True, "line": "", "page": "", "usable": True}
+        return _not_ready(f"The default model {raw} names the local server {ref.host!r}, which is not set up here: "
+                          "add it on the Local page, or pick another model on the Default model page.", "model", cwd)
+    from halo_harness.providers.local_runtime import load_registry
+    if names or any(e.get("model") == ref.model for e in load_registry(_dir(state_dir))):
+        return {"ok": True, "line": "", "page": "", "usable": True}
+    return _not_ready(f"The server for the default model {raw} is not running and none is set up for it: start it on "
+                      "the Local page (Serve), or pick another model on the Default model page.", "model", cwd)
+
+
 def ready(cwd=None, state_dir=None) -> dict:
     """Local models only (fix): `{ok, line, page}`, whether a session started now has a model it can call, decided by
     the resolver a session uses (resolve_default_model_raw -> parse_model_ref -> the session's credentials; no server
@@ -139,7 +172,10 @@ def ready(cwd=None, state_dir=None) -> dict:
     routes = load_routes(_dir(state_dir) / "routes.json")
     raw = resolve_default_model_raw(routes, env=env)
     try:
-        creds = _resolve_creds(parse_model_ref(raw, routes), SimpleNamespace(effective_env=env))
+        ref = parse_model_ref(raw, routes)
+        if ref.provider == "huggingface" and (getattr(ref, "mlx", False) or ref.local):
+            return _local_ready(ref, raw, state_dir, cwd)  # jb10: from configuration; the resolver probes ports
+        creds = _resolve_creds(ref, SimpleNamespace(effective_env=env))
     except Exception as e:  # a ref the resolver refuses (a disabled provider, a name it does not know)
         return _not_ready(f"The default model {raw} cannot be used ({e}): pick another on the Default model page.",
                           "model", cwd)

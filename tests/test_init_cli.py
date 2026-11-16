@@ -519,6 +519,33 @@ def test_the_terminal_setup_adds_this_computers_ollama_when_it_is_picked(ctx: Ct
 
 
 @test
+def test_this_computers_ollama_listening_on_every_address_is_reached_on_loopback(ctx: Ctx):
+    """jb10 batch 2: OLLAMA_HOST=0.0.0.0:<port> (how Ollama is told to serve the network) is a LISTEN address; on
+    Windows a connect to it fails (WinError 10049). 'this computer' connects to, shows and saves 127.0.0.1:<port>."""
+    from halo_harness.providers.ollama import connectable_url, resolve_ollama_hosts
+    from tests.helpers.mock_ollama import MockUpstream as MockOllama
+    for raw, want in (("0.0.0.0", "http://127.0.0.1"), ("0.0.0.0:11434", "http://127.0.0.1:11434"),
+                      ("http://0.0.0.0:8080/", "http://127.0.0.1:8080"), ("[::]:11434", "http://127.0.0.1:11434"),
+                      ("https://gpu-box:443", "https://gpu-box:443"), ("127.0.0.1:9", "http://127.0.0.1:9")):
+        ctx.check(f"connectable_url({raw!r}) == {want!r}, got {connectable_url(raw)!r}", connectable_url(raw) == want)
+    synth = resolve_ollama_hosts(env={"OLLAMA_HOST": "0.0.0.0:11434"})  # this test process's home has no hosts
+    ctx.check(f"the host a session uses when no host is configured is the loopback one, got {synth}",
+              [h.url for h in synth] == ["http://127.0.0.1:11434"])
+    with MockOllama() as fake:
+        home = _fresh_home()
+        url = fake.base_url
+        listen = url.replace("127.0.0.1", "0.0.0.0")
+        got = _run(_TERMINAL, home, stdin="4\n1\n1\nn\n\n", extra_env={"OLLAMA_HOST": listen})
+    out = " ".join((got.stdout + got.stderr).split())
+    cfg = _config(home)
+    hosts = (cfg.get("ollama") or {}).get("hosts") or []
+    ctx.check(f"the server's models are listed, got {out[-1200:]!r}", "1. qwen3:30b" in out and "did not answer" not in out)
+    ctx.check(f"the row shows, and the host saved is, the address that connects, got {hosts} {out[:1500]!r}",
+              f"this computer ({url})" in out and [(h.get("name"), h.get("url")) for h in hosts] == [("default", url)]
+              and cfg.get("model") == "ol:qwen3:30b@default")
+
+
+@test
 def test_an_ollama_that_does_not_answer_is_one_line_and_the_provider_list_again(ctx: Ctx):
     home = _fresh_home()
     # 4 = ollama, 1 = this computer (a dead port), then 5 = Done at the provider list again

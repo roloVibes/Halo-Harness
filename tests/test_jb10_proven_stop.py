@@ -211,6 +211,93 @@ def test_the_updater_ends_a_pid_only_when_its_identity_is_proven(ctx: Ctx):
               run.wait_gone([400], 3.0) == [400])
 
 
+def _detached_plan(rows, *, windows: bool):
+    """`/update`'s hand-off (update_detached.run_after_exit) with `rows` as what still runs; (exit code, plan or
+    None, printed text). Nothing is installed or launched: the plan is captured."""
+    import contextlib
+    import io
+    from halo_harness import update as upd
+    from halo_harness import update_detached as UD
+    from halo_harness import update_plan as UP
+    from halo_harness import update_stop
+    got = []
+    saved = (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python,
+             upd._direct_url, upd.halo_openers)
+    upd.halo_openers = lambda **kw: []
+    UD.reinstall_cmd = lambda to=None: ("uv tool install --reinstall git+https://x/y@v9", {
+        "kind": "uv_tool", "spec": "git+https://x/y", "current_cmd": "uv tool install --reinstall git+https://x/y",
+        "expect": {"version": "9.0.0", "label": "9.0.0"}})
+    UD.launch = lambda plan, **kw: got.append(plan) or 0
+    upd.halo_ancestors = lambda **kw: []
+    update_stop.lingering = lambda state_dir=None: [dict(r) for r in rows]
+    UP.outside_python = lambda: ["/opt/py/python3", "-I"]
+    upd._direct_url = lambda: None
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            code = UD.run_after_exit(state_dir=Path(tempfile.mkdtemp(prefix="jb10-detached-")), windows=windows)
+    finally:
+        (UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.lingering, UP.outside_python,
+         upd._direct_url, upd.halo_openers) = saved
+    return code, (got[0] if got else None), out.getvalue()
+
+
+def _run_stop_phase(plan: dict):
+    """The runner's whole plan with the install faked and every signal recorded (never sent); the start times are
+    read for real, so the plan's recorded ones must be in the format the runner reads."""
+    from halo_harness import update_runner as R
+
+    class _P:
+        def __init__(self, out):
+            self.returncode, self.stdout, self.stderr = 0, out, ""
+    killed, said = [], []
+    plan = {**plan, "install": {"cmd": "INSTALL"}, "halo": ["halo"], "expect": {"version": "9.0.0", "label": "9.0.0"},
+            "before": {"line": "halo 8.0.0 (a, v8)", "version": "8.0.0"}, "wait_pids": [], "held_wait_s": 0.5}
+    code, _res = R.run_plan(plan, run_fn=lambda c, **k: _P("halo 9.0.0 (b, v9)"), alive_fn=R._alive,
+                            kill_fn=killed.append, sleep_fn=lambda s: None, out=said.append, start_fn=R._start_time)
+    return code, killed, said
+
+
+@test
+def test_the_detached_updater_ends_only_a_pid_whose_recorded_start_time_is_proven(ctx: Ctx):
+    """batch 2, item 1: a ledger row with no recorded start time is never ended by number (the runner used to take
+    the start time it read itself as the proof); a row whose recorded start time differs from the live one (the pid
+    belongs to another program now) is not ended; an old plan with no start times ends nothing by number."""
+    from halo_harness import children as C
+    loose, own = _sleeper(), _sleeper()
+    try:
+        deadline = time.time() + 10
+        while time.time() < deadline and C.start_time(own.pid) is None:
+            time.sleep(0.1)
+        rows = [{"pid": loose.pid, "start_time": None, "what": "bg", "cmd": ["halo", "-p", "x"], "source": "registry"},
+                {"pid": own.pid, "start_time": C.start_time(own.pid), "what": "bg", "cmd": ["halo", "-p", "y"],
+                 "source": "registry"}]
+        code, plan, text = _detached_plan(rows, windows=False)
+        ctx.check(f"POSIX: the hand-off goes on, got {code} {plan is not None}", code == 0 and plan is not None)
+        ctx.check(f"the row with no recorded start time is named as left, with its pid and how to end it, got {text!r}",
+                  f"pid {loose.pid}" in text and "not recorded" in text and "halo bg" in text)
+        code, killed, said = _run_stop_phase(plan or {})
+        ctx.check(f"the runner ends the proven row and never the unrecorded one, got {killed} {said}",
+                  killed == [own.pid])
+        code, plan_w, text_w = _detached_plan(rows, windows=True)
+        ctx.check(f"Windows: refused before anything starts, the row named, got {code} {plan_w} {text_w!r}",
+                  code == 1 and plan_w is None and f"pid {loose.pid}" in text_w and "not recorded" in text_w)
+        reused = [{"pid": loose.pid, "start_time": "999", "what": "bg", "cmd": ["halo", "-p", "x"],
+                   "source": "registry"}]
+        code, plan, _text = _detached_plan(reused, windows=False)
+        code, killed, said = _run_stop_phase(plan or {})
+        ctx.check(f"a recorded start time that differs from the live one: not ended, got {killed} {said}",
+                  killed == [] and any(str(loose.pid) in s and "not stopped" in s for s in said))
+        code, killed, said = _run_stop_phase({"stop_pids": [own.pid]})
+        ctx.check(f"an old plan with no start times ends nothing by number, got {killed}", killed == [])
+        code, killed, said = _run_stop_phase({"stop_pids": [own.pid], "windows": True})
+        ctx.check(f"Windows: a stop pid left running unproven holds the install back, got {code} {said[-1:]}",
+                  code == 1 and killed == [] and any("not installing" in s and str(own.pid) in s for s in said))
+    finally:
+        _end(loose)
+        _end(own)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

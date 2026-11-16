@@ -486,14 +486,15 @@ def test_a_studio_that_opened_this_halo_is_stopped_not_waited_on(ctx: Ctx):
               chain == [500] and [o["pid"] for o in openers] == [400, 300] and openers[0]["what"] == "studio")
     clock, killed = [0.0], []
     code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [me, *chain], "stop_pids": [400],
-                                                                 "wait_s": 300},
+                                                                 "stop_starts": {"400": "t1"}, "wait_s": 300},
                     alive_fn=lambda p: p in (300, 400) and p not in killed, kill_fn=killed.append,
                     start_fn=lambda p: "t1",  # jb10: a stop needs a proven identity (a known, equal start time)
                     sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
     ctx.check(f"installed at once, Studio stopped, no 300 s wait, got {code} {res['outcome']} {clock} {killed}",
               code == 0 and res["outcome"] == "updated" and clock[0] < 10 and killed == [400])
     clock[0], killed[:] = 0.0, []
-    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [400], "stop_pids": [400], "wait_s": 300},
+    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [400], "stop_pids": [400], "wait_s": 300,
+                                                                 "stop_starts": {"400": "t1"}},
                     alive_fn=lambda p: p == 400 and p not in killed, kill_fn=killed.append, start_fn=lambda p: "t1",
                     sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
     ctx.check(f"a pid both to stop and to wait for is stopped first, got {code} {clock} {killed}",
@@ -507,7 +508,8 @@ def test_a_reused_pid_is_neither_waited_on_nor_ended(ctx: Ctx):
     def start_later(pid):  # each pid's first look sees "t1"; every later look sees another program on that pid
         looks[pid] = looks.get(pid, 0) + 1
         return "t1" if looks[pid] == 1 else "t2"
-    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [700], "stop_pids": [400]},
+    code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [700], "stop_pids": [400],
+                                                                 "stop_starts": {"400": "t0"}},  # jb10: as recorded
                     alive_fn=lambda p: p in (400, 700), kill_fn=killed.append, start_fn=start_later,
                     sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
     ctx.check(f"pid 700 now runs another program: not waited on (no 300 s), got {clock}", clock[0] < 10)

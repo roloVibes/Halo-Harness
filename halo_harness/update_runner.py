@@ -121,22 +121,28 @@ def _start_time(pid: int):
                 c, e, k, u = (wintypes.FILETIME() for _ in range(4))
                 if not k32.GetProcessTimes(handle, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)):
                     return None
-                return (c.dwHighDateTime << 32) | c.dwLowDateTime
+                return str((c.dwHighDateTime << 32) | c.dwLowDateTime)
             finally:
                 k32.CloseHandle(handle)
         except Exception:  # noqa: BLE001
             return None
-    try:
-        with open(f"/proc/{int(pid)}/stat", encoding="utf-8", errors="replace") as fh:
-            return fh.read().rsplit(")", 1)[-1].split()[19]
-    except (OSError, IndexError):
-        pass
+    # jb10: the same text Halo's ledger records (bg_run.process_start_time), so a plan's recorded start time is
+    # compared like for like: /proc's field 22, or where there is no /proc (macOS; HALO_TEST_NO_PROC=1 in tests)
+    # "ps:" + `lstart` read in UTC with the C locale, its fields joined by one space.
+    if os.environ.get("HALO_TEST_NO_PROC") != "1" and os.path.exists("/proc/self/stat"):
+        try:
+            with open(f"/proc/{int(pid)}/stat", encoding="utf-8", errors="replace") as fh:
+                return fh.read().rsplit(")", 1)[-1].split()[19]
+        except (OSError, IndexError):
+            return None
     ps = shutil.which("ps")
     if not ps:
         return None
     try:
-        r = subprocess.run([ps, "-o", "lstart=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5)
-        return r.stdout.strip() or None
+        r = subprocess.run([ps, "-o", "lstart=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5,
+                           env={**os.environ, "LC_ALL": "C", "LANG": "C", "TZ": "UTC0"})
+        parts = (r.stdout or "").split()
+        return "ps:" + " ".join(parts[-5:]) if r.returncode == 0 and len(parts) >= 5 else None
     except (OSError, subprocess.SubprocessError):
         return None
 
@@ -245,19 +251,22 @@ class _Run:
         then = self.started.get(pid)
         return then is not None and self.alive_fn(pid) and self.start_fn(pid) == then
 
-    def stop(self, pid: int) -> None:
+    def stop(self, pid: int) -> bool:
+        """True when the pid was left running unproven (Windows counts it as a Halo that may hold the files)."""
         if not self.same(pid):
             self.say(f"halo update: pid {pid} is gone (or is another program now): not stopped")
-            return
+            return False
         if not self.proven(pid):
-            self.say(f"halo update: pid {pid} was not stopped: its start time cannot be read, so it cannot be proven "
-                     f"to be the Halo process listed; `halo ps` names Halo's own, end it by hand if it is one")
-            return
+            self.say(f"halo update: pid {pid} was not stopped: its start time was not recorded or cannot be read, so "
+                     f"it cannot be proven to be the Halo process listed; `halo ps` names Halo's own, end it by hand "
+                     f"if it is one")
+            return True
         self.say(f"halo update: stopping pid {pid}")
         try:
             self.kill_fn(int(pid))
         except Exception as e:  # noqa: BLE001 -- one that will not stop is named by the held check
             self.say(f"halo update: pid {pid} did not stop ({e})")
+        return False
 
     def shell(self, cmd: str, cwd, env_extra=None) -> "tuple[int, str]":
         env = {**os.environ, **env_extra} if env_extra else None
@@ -397,11 +406,18 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
     cmd = install.get("cmd") or ""
     wait_pids = [int(p) for p in plan.get("wait_pids") or []]
     stop_pids = [int(p) for p in plan.get("stop_pids") or []]
-    r.note(wait_pids + stop_pids)  # who they are now: a pid reused later is neither waited on nor ended
+    # jb10: a stop pid's identity is the start time the PLAN recorded for it (the ledger's), never one read here: a
+    # pid with none (an old plan, a row with no start time) is not ended by number
+    starts = plan.get("stop_starts") if isinstance(plan.get("stop_starts"), dict) else {}
+    for pid in stop_pids:
+        r.started[pid] = starts.get(str(pid)) or None
+    r.note(wait_pids)  # who they are now: a pid reused later is neither waited on nor ended
     r.say(f"halo update: installed {before_line}")
     both = [p for p in stop_pids if p in wait_pids]
+    unproven = []
     for pid in both:  # one that must be stopped is stopped first, never waited on for minutes (judge item 3)
-        r.stop(pid)
+        if r.stop(pid):
+            unproven.append(pid)
     left = r.wait_gone(wait_pids, float(plan.get("wait_s") or WAIT_S))
     if left:
         line = (f"halo update: halo (pid {', '.join(map(str, left))}) did not exit, so nothing was installed and "
@@ -416,9 +432,11 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
         except OSError:
             pass
     for pid in stop_pids:
-        if pid not in both:
-            r.stop(pid)
+        if pid not in both and r.stop(pid):
+            unproven.append(pid)
     held = [h for h in plan.get("held") or [] if isinstance(h, dict) and h.get("pid")]
+    if plan.get("windows", os.name == "nt"):  # jb10: files are never replaced under a Halo that may still run
+        held += [{"pid": p, "what": "halo"} for p in unproven if all(int(h["pid"]) != p for h in held)]
     if held:
         still = set(r.wait_gone([int(h["pid"]) for h in held], float(plan.get("held_wait_s") or HELD_WAIT_S)))
         named = [f"{h.get('what') or 'halo'} (pid {h['pid']})" for h in held if int(h["pid"]) in still]

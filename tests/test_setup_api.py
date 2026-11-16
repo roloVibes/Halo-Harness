@@ -320,6 +320,54 @@ def test_the_rail_ticks_providers_only_when_a_provider_is_usable(ctx: Ctx):
 
 
 @test
+def test_ready_decides_a_local_server_model_from_configuration_and_never_connects(ctx: Ctx):
+    """jb10 batch 2: ready() went through the session's resolver, which probes local ports (1.1 s on every Setup
+    load), and a default model whose Halo-served server was simply not running read 'has no provider set up here'.
+    It now decides from configuration only: a registered or configured server is ready, with zero connects."""
+    import json
+    import socket
+    from halo_harness.providers.huggingface_mlx import is_apple_silicon
+    from halo_harness.providers.local_runtime import registry_path
+    from halo_harness.studio.setup_done import ready
+    from halo_harness.studio.setup_state import setup_state
+    from halo_harness.theme import set_config_value
+    connects = []
+    real = (socket.socket.connect, socket.socket.connect_ex)
+    socket.socket.connect = lambda self, addr: connects.append(addr) or real[0](self, addr)
+    socket.socket.connect_ex = lambda self, addr: connects.append(addr) or real[1](self, addr)
+    os.environ["HF_LOCAL_PROBE_PORTS"] = "9"
+    try:
+        with _Env(rows=[]) as e:
+            path = registry_path(e.state_dir)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps([{"model": "qwen-7b", "runtime": "llama-server", "pid": 999999, "port": 9,
+                                         "base_url": "http://127.0.0.1:9/v1"}]), encoding="utf-8")
+            set_config_value("model", "hf:local/qwen-7b")
+            got = ready(e.cwd, e.state_dir)
+            ctx.check(f"a Halo-served model whose server is not running now: Done stays, no connect, got {got} "
+                      f"{connects}", got["ok"] is True and connects == [])
+            setup_state(e.cwd, e.state_dir)
+            ctx.check(f"one Setup state read connects nowhere, got {connects}", connects == [])
+            set_config_value("model", "hf:local/never-served")
+            got = ready(e.cwd, e.state_dir)
+            ctx.check(f"a model no server serves or is set up for: refused, the line says to start one, not 'no "
+                      f"provider', got {got} {connects}", got["ok"] is False and "no provider" not in got["line"]
+                      and "not running" in got["line"] and connects == [])
+            set_config_value("huggingface.local_servers", [{"name": "box", "url": "http://127.0.0.1:9/v1"}])
+            for ref, ok in (("hf:local/never-served@box", True), ("hf:local/never-served@nobody", False)):
+                set_config_value("model", ref)
+                got = ready(e.cwd, e.state_dir)
+                ctx.check(f"{ref}: ok {ok}, no connect, got {got} {connects}", got["ok"] is ok and connects == [])
+            set_config_value("model", "hf:mlx/mlx-community/qwen-7b-4bit")
+            got = ready(e.cwd, e.state_dir)
+            ctx.check(f"an MLX model: ready only on Apple silicon (the session starts its server), got {got}",
+                      got["ok"] is is_apple_silicon() and connects == [])
+    finally:
+        socket.socket.connect, socket.socket.connect_ex = real
+        os.environ.pop("HF_LOCAL_PROBE_PORTS", None)
+
+
+@test
 def test_the_terminal_a_done_opens(ctx: Ctx):
     """3.3.15.0 R6 (studio/halo_terminal.py): which terminal opens halo per platform, and none without a display."""
     from halo_harness.studio import halo_terminal as H

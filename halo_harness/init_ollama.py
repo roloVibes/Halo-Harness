@@ -16,9 +16,10 @@ READ_TIMEOUT_S = 5.0  # a short read: a server that does not answer never holds 
 
 
 def _local_url() -> str:
-    """The Ollama on this computer: `OLLAMA_HOST` when set (as every Ollama client reads it), else 127.0.0.1:11434."""
-    from halo_harness.providers.ollama import DEFAULT_OLLAMA_URL, _normalize_host_url
-    return _normalize_host_url(os.environ.get("OLLAMA_HOST") or DEFAULT_OLLAMA_URL)
+    """The Ollama on this computer: `OLLAMA_HOST` when set (as every Ollama client reads it), else 127.0.0.1:11434.
+    jb10: a listen address (0.0.0.0, [::]) is connected to, shown and saved as 127.0.0.1 on its port."""
+    from halo_harness.providers.ollama import DEFAULT_OLLAMA_URL, connectable_url
+    return connectable_url(os.environ.get("OLLAMA_HOST") or DEFAULT_OLLAMA_URL)
 
 
 def _free_name(names: "set[str]") -> str:
@@ -66,7 +67,7 @@ def _model_arg(args) -> "tuple[str, str]":
 
 def _pick_host(console, ask):
     """(OllamaHost, is_new) or None: a numbered list, never a typed address unless "another address" is chosen."""
-    from halo_harness.providers.ollama import OllamaHost, _normalize_host_url
+    from halo_harness.providers.ollama import OllamaHost, connectable_url
     rows = _host_rows()
     names = {h.name for h, new, _l in rows if not new}
     console.print("   Which Ollama?")
@@ -86,7 +87,7 @@ def _pick_host(console, ask):
     if why:
         console.print(f"   {why}; back to the provider list")
         return None
-    url = _normalize_host_url(url)
+    url = connectable_url(url)
     from urllib.parse import urlparse
     guess = (urlparse(url).hostname or "lan").replace(".", "-")
     name = ask(f"   a short name for it (Enter: {guess})") or guess

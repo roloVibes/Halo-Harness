@@ -31,7 +31,7 @@ test, TESTS = new_registry()
 
 
 def _kw(**over):
-    kw = {"wait_pids": [111, 112], "stop_pids": [222], "reinstall_cmd": "uv tool install --reinstall git+https://x/y@v1 && echo 50%",
+    kw = {"wait_pids": [111, 112], "stop_pids": [222], "stop_starts": {222: "133000000000000000"}, "reinstall_cmd": "uv tool install --reinstall git+https://x/y@v1 && echo 50%",
           "log": "/home/u/.halo/update.log", "cwd": None, "supervisor_stop_file": None, "restart_supervisor": False,
           "halo": "halo"}
     kw.update(over)
@@ -98,10 +98,19 @@ def test_spawn_waits_for_a_short_lived_parent_and_writes_the_log(ctx: Ctx):
     parent = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1.5)"])
     victim = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # jb10: a pid whose live start time is not the recorded one (another program now) is never ended
+    other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    from halo_harness.children import start_time
+    deadline = time.time() + 10
+    while time.time() < deadline and start_time(victim.pid) is None:
+        time.sleep(0.1)
     log = UD.log_path(state)
     try:
         make = UD.windows_script if windows else UD.posix_script
-        text = make(wait_pids=[parent.pid], stop_pids=[victim.pid], reinstall_cmd="echo reinstalled-ok",
+        text = make(wait_pids=[parent.pid], stop_pids=[victim.pid, other.pid], reinstall_cmd="echo reinstalled-ok",
+                    stop_starts={victim.pid: start_time(victim.pid), other.pid: "ps:Mon Jan 1 00:00:00 2001"
+                                 if (start_time(other.pid) or "").startswith("ps:") else "12345"},
                     log=str(log), halo=sys.executable)
         path = UD.write_script(text, UD.script_path(state, windows=windows))
         pid = UD.spawn(path, windows=windows, cwd=state)
@@ -117,8 +126,10 @@ def test_spawn_waits_for_a_short_lived_parent_and_writes_the_log(ctx: Ctx):
         except subprocess.TimeoutExpired:
             pass
         ctx.check("the listed pid was stopped", victim.poll() is not None)
+        ctx.check(f"a listed pid whose start time is not the recorded one runs on, got {got!r}",
+                  other.poll() is None and f"pid {other.pid} was not stopped" in got)
     finally:
-        for p in (parent, victim):
+        for p in (parent, victim, other):
             if p.poll() is None:
                 p.kill()
             p.wait(timeout=10)
@@ -139,7 +150,8 @@ def test_run_after_exit_writes_the_script_starts_it_and_names_the_log(ctx: Ctx):
     UD.reinstall_cmd = lambda to=None: ("echo reinstall", {"kind": "uv_tool", "spec": "git+https://x"})
     UD.spawn = lambda path, **kw: started.append(Path(path)) or 4321
     upd.halo_ancestors = lambda **kw: [77]
-    update_stop.lingering = lambda state_dir=None: [{"pid": 4242, "what": "studio", "cmd": ["halo", "studio"]}]
+    update_stop.lingering = lambda state_dir=None: [{"pid": 4242, "what": "studio", "cmd": ["halo", "studio"],
+                                                         "start_time": "133000000000000000"}]
     UP.outside_python = lambda: None
     out = io.StringIO()
     try:
@@ -176,7 +188,8 @@ def test_run_after_exit_hands_the_plan_to_the_python_updater(ctx: Ctx):
         "expect": {"version": "2.0.3", "label": "2.0.3"}})
     UD.launch = lambda plan, **kw: got.append((plan, kw)) or 0
     upd.halo_ancestors = lambda **kw: [77]
-    update_stop.lingering = lambda state_dir=None: [{"pid": 4242, "what": "studio", "cmd": ["halo", "studio"]}]
+    update_stop.lingering = lambda state_dir=None: [{"pid": 4242, "what": "studio", "cmd": ["halo", "studio"],
+                                                         "start_time": "133000000000000000"}]
     UP.outside_python = lambda: ["/opt/py/python3", "-I"]
     upd._direct_url = lambda: None
     out = io.StringIO()

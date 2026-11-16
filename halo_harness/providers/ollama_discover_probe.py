@@ -67,10 +67,9 @@ def _local_jobs(ports: tuple, env, test_mode: bool) -> list:
     jobs: list = []
     raw = (env.get("OLLAMA_HOST") or "").strip() if not test_mode else ""
     if raw:
-        from halo_harness.providers.ollama import _normalize_host_url
-        parsed = urllib.parse.urlparse(_normalize_host_url(raw))
+        from halo_harness.providers.ollama import connectable_url  # jb10: 0.0.0.0 / [::] -> 127.0.0.1, one helper
+        parsed = urllib.parse.urlparse(connectable_url(raw))
         host = parsed.hostname or "127.0.0.1"
-        host = "127.0.0.1" if host == "0.0.0.0" else host
         try:
             port = parsed.port or 11434
         except ValueError:
