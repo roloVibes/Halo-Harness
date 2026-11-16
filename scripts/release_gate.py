@@ -1,6 +1,6 @@
 """scripts/release_gate.py -- the CI gate of scripts/release.py (Halo 3.1.0.0 R1; 3.6.0.0 R13: the candidate branch).
 
-The main line is protected: nine required checks, and no commit reaches master that has not passed them on an
+The main line is protected: its required checks are the jobs below, and no commit reaches master that has not passed them on an
 `rc/**` branch. A push to `rc/**` runs every platform's suites on that commit (suites.yml), so release.py pushes the
 version commit to `rc/<version>` and this gate waits for that run:
 
@@ -12,9 +12,11 @@ version commit to `rc/<version>` and this gate waits for that run:
 3. the run's log is read once (`gh run view --log`) and every "driver retried once" line is returned as a warning
    (a retry was the early sign of three real bugs in one week): it does not stop the release, it is printed.
 
-The required jobs are ONE list here: Linux x4 and Windows x4 (the shards) and studio-ui. macOS x4 and the `realcheck` legs
-(checkout and installed, per OS) join it when `REQUIRE_MACOS` / `REQUIRE_REALCHECK` below are flipped to True (the coordinator flips them once those
-jobs are green), or per run with release.py's `--require-macos` / `--require-realcheck`.
+The required jobs are ONE list here: Linux x4, Windows x4 and macOS x4 (the shards), studio-ui, and the six `realcheck`
+legs (checkout and installed, per OS): nineteen. Since 3.6.0.0 macOS and the real-use check are required by default
+(`REQUIRE_MACOS` / `REQUIRE_REALCHECK` below). Only an emergency leaves one out, per run, with release.py's
+`--emergency-skip-macos-gate` (the four macOS shards and the two macOS realcheck legs) or
+`--emergency-skip-realcheck-gate` (the six realcheck legs); the run then names the switch and every leg it left out.
 
 Every `gh` call goes through `run_fn` (tests pass a fake `gh`, tests/helpers/fake_gh.py).
 """
@@ -28,8 +30,8 @@ from typing import Callable
 
 WORKFLOW = "suites.yml"
 SHARDS = 4
-REQUIRE_MACOS = False  # the coordinator flips this when the macOS shards are green
-REQUIRE_REALCHECK = False  # ... and this when the real-use check job is
+REQUIRE_MACOS = True  # 3.6.0.0: the owner's bar is Windows, macOS and Linux
+REQUIRE_REALCHECK = True  # ... driven the way a person drives Halo (scripts/realcheck.py)
 # suites.yml: `realcheck (${{ matrix.os }}${{ matrix.install == 'installed' && ', installed' || '' }})`, two legs per OS:
 # the checkout and the installed wheel (join batch 1: the gate named only the first, so the second went unread)
 REALCHECK_JOBS = ("realcheck ({})", "realcheck ({}, installed)")
@@ -54,6 +56,12 @@ def required_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = Non
     if realcheck:
         out += [form.format(p) for p in platforms for form in REALCHECK_JOBS]
     return out
+
+
+def skipped_jobs(*, macos: "bool | None" = None, realcheck: "bool | None" = None) -> "list[str]":
+    """The jobs of the full list that these switches leave out (empty by default), in the order they are reported."""
+    kept = set(required_jobs(macos=macos, realcheck=realcheck))
+    return [n for n in required_jobs(macos=True, realcheck=True) if n not in kept]
 
 
 def head_sha(repo_dir: Path) -> str:
@@ -172,5 +180,5 @@ def describe(branch: str, *, macos: "bool | None" = None, realcheck: "bool | Non
     """The gate's line in a dry run."""
     req = required_jobs(macos=macos, realcheck=realcheck)
     return (f"wait for the suites run (push) on {branch} for the version commit, up to {WAIT_S // 60} min; all "
-            f"{len(req)} required jobs must conclude success ({', '.join(req)}); "
+            f"{len(req)} required jobs must conclude success, each red or missing one named ({', '.join(req)}); "
             f'"{RETRY_MARK}" lines in its log are printed as warnings')

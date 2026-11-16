@@ -19,8 +19,8 @@
 #
 # Halo 3.6.0.0 (branch first): work is pushed to a candidate branch `rc/<name>` before it reaches master. A push
 # to `rc/**` runs every platform, Windows included, on that commit; master is protected and is only ever
-# fast-forwarded to a commit whose jobs are green (the required checks are the Linux, Windows and studio-ui job
-# names below: renaming a job means changing the branch protection too). There is no paths filter on a push any
+# fast-forwarded to a commit whose jobs are green (the required checks are the Linux, Windows, macOS, studio-ui
+# and realcheck job names below: renaming a job means changing the branch protection too). There is no paths filter on a push any
 # more: a required check that never runs would block its commit for ever.
 name: suites
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('suites windows leg for {0}', inputs.sha || github.sha) || github.event_name == 'schedule' && 'suites nightly windows leg' || github.event.pull_request.title || github.event.head_commit.message || github.ref_name }}
@@ -54,13 +54,12 @@ concurrency:
 jobs:
   linux:
     # 3.6.0.0: the same job on macOS too (`os` in the matrix). The owner works on a Mac, and three bugs of one day
-    # showed only there. The macOS legs do not fail the run yet (continue-on-error below): they are new, their
-    # first failures are being burned down; the line goes when they are green, before the 3.6.0.0 release.
+    # showed only there. Since 3.6.0.0 a red macOS leg fails the run like a red Linux one, and a release requires
+    # all four (scripts/release_gate.py).
     name: suites (${{ matrix.os }}, py3.12, shard ${{ matrix.shard }}/4)
     # every push to master or a candidate branch and every pull request (not the tag, nightly or dispatch runs)
     if: (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) || github.event_name == 'pull_request'
     runs-on: ${{ matrix.os == 'macos' && 'macos-latest' || 'ubuntu-latest' }}
-    continue-on-error: ${{ matrix.os == 'macos' }}
     # 3.3.8.1: tests/run_all.py in four shards (`--shard i/4`: a module's index in the sorted list mod 4), one job
     # each; test_bridge.py and test_tui.py run once, in shard 0's job. The run's conclusion rolls the four up, so
     # scripts/release.py's wait and the orchestrator's poller read one value as before.
@@ -358,9 +357,8 @@ jobs:
   # the real `halo` started as separate processes in terminals of their own, in a scratch home, against a fake
   # provider and a fake Ollama on loopback; one row per step in the job summary, the JSON as an artifact. It runs on
   # Linux, macOS and Windows for pushes to master and rc/** and for pull requests.
-  # NOT BLOCKING YET (continue-on-error): some steps fail today on purpose (the closing procedure, Studio left
-  # running, idle CPU) until the rounds that fix them land; the coordinator makes `realcheck (<os>)` a required check
-  # once it is green. No secrets, no keys; no BRIDGE_TEST_NO_BACKGROUND_NET at the job level (a person's launch has none).
+  # BLOCKING since 3.6.0.0: a red leg fails the run, and a release requires all six (scripts/release_gate.py), as
+  # branch protection does. No secrets, no keys; no BRIDGE_TEST_NO_BACKGROUND_NET at the job level (a person's launch has none).
   # Two legs per system: `checkout` drives this checkout (`python -m halo_harness`); `installed` builds the wheel,
   # installs it into a fresh virtualenv (the `halo` launcher a person's install makes; on Windows a venv's python.exe
   # is a launcher too, so a child has two pids, unlike setup-python's interpreter) and drives that `halo`. On Windows
@@ -369,7 +367,6 @@ jobs:
     name: realcheck (${{ matrix.os }}${{ matrix.install == 'installed' && ', installed' || '' }})
     if: (github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/rc/'))) || github.event_name == 'pull_request'
     runs-on: ${{ matrix.os == 'macos' && 'macos-latest' || matrix.os == 'windows' && 'windows-latest' || 'ubuntu-latest' }}
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:

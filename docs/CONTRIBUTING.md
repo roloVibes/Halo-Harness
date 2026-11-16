@@ -122,10 +122,15 @@ passed the required checks on an `rc/**` branch. So the script makes the
 version commit on a branch `rc/<version>`, pushes it (every platform's
 suites run on it), and waits for that run (`scripts/release_gate.py`, up to
 90 minutes): every required job -- the four Linux shards, the four Windows
-shards and studio-ui, plus the four macOS shards and `realcheck` once
-`REQUIRE_MACOS` / `REQUIRE_REALCHECK` in the gate are flipped (or per run
-with `--require-macos` / `--require-realcheck`) -- must conclude `success`
-for that exact sha. A red run stops the release naming the failing jobs:
+shards, the four macOS shards, studio-ui, and the six `realcheck` legs
+(checkout and installed, on Linux, macOS and Windows) -- must conclude
+`success` for that exact sha. These nineteen are also the main line's
+required checks, and none of them is allowed to fail in suites.yml (only
+`upgrade from 3.5.0.1` informs without blocking). For an emergency only (a
+runner kind down at GitHub), `--emergency-skip-macos-gate` leaves out the
+macOS shards and the macOS realcheck legs, `--emergency-skip-realcheck-gate`
+the six realcheck legs; the run then prints which legs it did not require.
+A red or missing job stops the release naming each one:
 nothing is tagged, master is untouched, the branch keeps the commit for a
 fix. Green, master is fast-forwarded to the commit, then the tag, the
 GitHub release (the tag's tar.gz and `checksums.txt`) and the install

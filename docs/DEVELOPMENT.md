@@ -245,8 +245,9 @@ CI: the `realcheck (linux|macos|windows)` jobs in suites.yml run it on pushes to
 requests, the table in the job summary and the JSON as the `realcheck-<os>-<checkout|installed>` artifact. The
 `realcheck (<os>, installed)` legs build the wheel, install it into a fresh virtualenv and drive that `halo`
 (`--installed`), so a fault only an installed launcher shows can fail them; on Windows that leg also runs
-`tests/test_closing.py` with the virtualenv's python (a launcher, unlike setup-python's interpreter). They do not block yet
-(continue-on-error). The 3.6.0.0 rounds that a FAIL was once "expected until" (R10, R12, R13) are all in, so no step
+`tests/test_closing.py` with the virtualenv's python (a launcher, unlike setup-python's interpreter). Since 3.6.0.0 all six
+legs block: a red one fails the run, and `scripts/release.py` refuses a release unless every leg is green on the exact
+commit (only `--emergency-skip-realcheck-gate` leaves them out, and says so). The 3.6.0.0 rounds that a FAIL was once "expected until" (R10, R12, R13) are all in, so no step
 carries that tag any more (`tests/test_realcheck.py` checks it): every FAIL is a product bug, say what a person saw and
 how to reproduce it. A closing row names every distinct program that was left, not only the first.
 

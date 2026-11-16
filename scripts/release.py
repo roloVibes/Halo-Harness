@@ -7,11 +7,11 @@ checkout's own git tree, never on the installed harness.
 Run:
     python scripts/release.py <version> [--date YYYY-MM-DD]
                                [--remote user@host ...] [--identity key] [--no-install] [--dry-run]
-                               [--require-macos] [--require-realcheck]
+                               [--emergency-skip-macos-gate] [--emergency-skip-realcheck-gate]
 
 3.6.0.0 R13 -- a release goes through a candidate branch. The main line is
-protected (nine required checks; nothing reaches master that has not passed
-them on an `rc/**` branch), so:
+protected (its required checks are the gate's jobs; nothing reaches master
+that has not passed them on an `rc/**` branch), so:
 
 1. the clean-tree check (read-only; a dirty tree stops in a second);
 2. `git switch -c rc/<version>`, then the version commit on it (__version__,
@@ -20,8 +20,10 @@ them on an `rc/**` branch), so:
 3. `git push -u origin rc/<version>`: every platform's suites run on it;
 4. the gate (scripts/release_gate.py `candidate_gate`): the push run on the
    branch for that exact sha, waited for (up to 90 min); every required job
-   (Linux x4, Windows x4, studio-ui; macOS x4 and realcheck behind their
-   flags) must conclude success, or the release stops naming the failing jobs
+   (Linux x4, Windows x4, macOS x4, studio-ui and realcheck x6: checkout and
+   installed per system) must conclude success, or the release stops naming
+   each red or missing job; only an emergency switch leaves macOS or realcheck
+   out, and the run then names the switch and every leg it left out
    -- nothing is tagged and master is untouched; "driver retried once" lines
    in the run's log are printed as warnings;
 5. master is fast-forwarded to the commit (`git switch master`, `git merge
@@ -426,11 +428,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-github-release", action="store_true",
                    help="skip publishing a GitHub release for the tag")
     p.add_argument("--dry-run", action="store_true", help="print every step; run and write nothing")
-    p.add_argument("--require-macos", action="store_true", default=None,
-                   help="the gate also requires the four macOS shards (release_gate.REQUIRE_MACOS sets the default)")
-    p.add_argument("--require-realcheck", action="store_true", default=None,
-                   help="the gate also requires the realcheck jobs, `realcheck (<os>)`, macOS's behind --require-macos "
-                        "(release_gate.REQUIRE_REALCHECK sets the default)")
+    # 3.6.0.0: macOS and realcheck are required by default; these two exist for an emergency only (a GitHub
+    # outage of one runner kind), are named so nobody passes them by accident, and the run names what they left out
+    p.add_argument("--emergency-skip-macos-gate", action="store_true",
+                   help="EMERGENCY ONLY: do not require the four macOS shards and the two macOS realcheck legs")
+    p.add_argument("--emergency-skip-realcheck-gate", action="store_true",
+                   help="EMERGENCY ONLY: do not require the six realcheck legs (checkout and installed, per system)")
     return p
 
 
@@ -463,6 +466,11 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
         print("release.py: --skip-windows is gone (3.6.0.0): Windows runs on the candidate branch rc/<version> "
               "like every other required check", file=sys.stderr)
         return 1
+    for old in ("--require-macos", "--require-realcheck"):
+        if old in (sys.argv[1:] if argv is None else argv):
+            print(f"release.py: {old} is the default now (3.6.0.0): the gate requires macOS and every realcheck leg "
+                  "without a flag; drop it", file=sys.stderr)
+            return 1
     args = build_arg_parser().parse_args(argv)
     version = args.version
     date_str = args.date or date.today().isoformat()
@@ -471,6 +479,16 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
     gate = _gate_module()
     gate_lines: "list[str]" = []
     warnings: "list[str]" = []
+    # None = the gate's default (required); False only through an emergency switch, which is said out loud
+    gate_macos = False if args.emergency_skip_macos_gate else None
+    gate_realcheck = False if args.emergency_skip_realcheck_gate else None
+    used = [f for f, on in (("--emergency-skip-macos-gate", args.emergency_skip_macos_gate),
+                            ("--emergency-skip-realcheck-gate", args.emergency_skip_realcheck_gate)) if on]
+    if used:
+        left_out = gate.skipped_jobs(macos=gate_macos, realcheck=gate_realcheck)
+        emergency = f"EMERGENCY {' '.join(used)}: NOT required for this release: {', '.join(left_out)}"
+        print(f"release.py: {emergency}", file=sys.stderr)
+        gate_lines.append(emergency)
 
     def step(description: str) -> None:
         steps.append(description)
@@ -577,12 +595,12 @@ def main(argv: "Optional[list]" = None, *, repo_dir: Path = REPO_DIR,
 
         # The gate: the candidate branch's run for the version commit, every required job green
         if args.dry_run:
-            gate_lines.append(gate.describe(branch, macos=args.require_macos, realcheck=args.require_realcheck))
+            gate_lines.append(gate.describe(branch, macos=gate_macos, realcheck=gate_realcheck))
         else:
             sha = _rev(repo_dir, f"refs/heads/{branch}") or gate.head_sha(repo_dir)
             accepted, warnings = (gate_fn or gate.candidate_gate)(sha, branch=branch, repo_dir=repo_dir,
-                                                                  run_fn=run_fn, macos=args.require_macos,
-                                                                  realcheck=args.require_realcheck)
+                                                                  run_fn=run_fn, macos=gate_macos,
+                                                                  realcheck=gate_realcheck)
             gate_lines.extend(accepted)
 
         step(f"git switch master && git merge --ff-only {branch} (master moves to the green commit)")

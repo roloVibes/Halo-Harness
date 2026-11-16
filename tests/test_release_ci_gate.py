@@ -4,9 +4,10 @@ real sleep). The main()-level flow (rc branch, fast-forward, tag) is in tests/te
 
 1. The push run on the candidate branch for the exact sha is found (after it appears) and polled until it
    completes; every required job green: the accepted line comes back.
-2. The required jobs are one list: Linux x4, Windows x4, studio-ui; macOS x4 and realcheck behind their flags.
-3. A red, skipped or missing required job stops the gate and names every failing job; a red macOS shard does not
-   while macOS is not required, and does once it is.
+2. The required jobs are one list: Linux x4, Windows x4, macOS x4, studio-ui and the six realcheck legs (3.6.0.0:
+   macOS and realcheck required by default; only an explicit emergency switch leaves either out).
+3. A red, skipped or missing required job stops the gate and names every failing job: a red macOS shard, a red or
+   missing realcheck leg (checkout or installed, any system) included; with the emergency switch off they do not.
 4. A run that never finishes, or never appears, stops the gate; a run for another sha is refused; no `gh` is one line.
 5. "driver retried once" lines in the run's log come back as warnings naming the job and the test.
 Run: python -m tests.test_release_ci_gate
@@ -68,7 +69,7 @@ def test_the_branch_run_is_found_polled_and_accepted(ctx: Ctx):
     gh = FakeGh(polls=4, appear_after=2)
     (accepted, warnings), lines, clock = _gate(gh)
     ctx.check(f"accepted, naming the run, the branch and the job count, got {accepted}",
-              accepted == [f"suites run 303 on {BRANCH}: all 9 required jobs concluded success for {SHA[:12]}"])
+              accepted == [f"suites run 303 on {BRANCH}: all 19 required jobs concluded success for {SHA[:12]}"])
     ctx.check(f"no retries, no warnings, got {warnings}", warnings == [])
     ctx.check(f"two looks for the run (10 s), three polls (30 s), got {clock.sleeps}",
               clock.sleeps == [10.0, 10.0, 30.0, 30.0, 30.0])
@@ -80,7 +81,7 @@ def test_the_branch_run_is_found_polled_and_accepted(ctx: Ctx):
 
 
 @test
-def test_the_required_jobs_are_one_list_with_macos_and_realcheck_behind_flags(ctx: Ctx):
+def test_the_required_jobs_are_one_list_macos_and_realcheck_included_by_default(ctx: Ctx):
     base = gate.required_jobs(macos=False, realcheck=False)
     ctx.check(f"Linux x4, Windows x4, studio-ui, got {base}", len(base) == 9
               and sum(n.startswith("suites (linux, py3.12, shard ") for n in base) == 4
@@ -92,13 +93,26 @@ def test_the_required_jobs_are_one_list_with_macos_and_realcheck_behind_flags(ct
               and sum(n.startswith("suites (macos, ") for n in both) == 4
               and {f"realcheck ({p}{f}" for p in ("linux", "windows", "macos") for f in (")", ", installed)")} <= set(both))
     no_mac = gate.required_jobs(macos=False, realcheck=True)
-    ctx.check(f"realcheck's macOS legs stay behind the macOS flag, got {no_mac[9:]}",
+    ctx.check(f"skipping macOS (the emergency switch) leaves out realcheck's macOS legs too, got {no_mac[9:]}",
               no_mac[9:] == ["realcheck (linux)", "realcheck (linux, installed)", "realcheck (windows)",
                              "realcheck (windows, installed)"])
-    ctx.check("the defaults are the module's flags (off until the coordinator flips them)",
+    # 3.6.0.0: the owner's bar is Windows, macOS and Linux; macOS and the real-use check are required by default
+    ctx.check("the defaults are the module's flags, both on",
               gate.required_jobs() == gate.required_jobs(macos=gate.REQUIRE_MACOS, realcheck=gate.REQUIRE_REALCHECK)
-              and gate.REQUIRE_MACOS is False and gate.REQUIRE_REALCHECK is False)
+              and gate.REQUIRE_MACOS is True and gate.REQUIRE_REALCHECK is True)
+    ctx.check(f"by default all 19 are required, got {len(gate.required_jobs())}", gate.required_jobs() == both)
+    ctx.check("nothing is skipped by default", gate.skipped_jobs() == [])
+    skipped = gate.skipped_jobs(macos=False)
+    ctx.check(f"skipping macOS names its six legs, got {skipped}",
+              skipped == [f"suites (macos, py3.12, shard {i}/4)" for i in range(4)]
+              + ["realcheck (macos)", "realcheck (macos, installed)"])
+    ctx.check(f"skipping realcheck names its six legs, got {gate.skipped_jobs(realcheck=False)}",
+              gate.skipped_jobs(realcheck=False) == [n for n in both if n.startswith("realcheck")]
+              and len(gate.skipped_jobs(realcheck=False)) == 6)
     ctx.check("the dry run's line names them", "suites (windows, py3.12, shard 3/4)" in gate.describe(BRANCH)
+              and "suites (macos, py3.12, shard 3/4)" in gate.describe(BRANCH)
+              and "realcheck (macos, installed)" in gate.describe(BRANCH)
+              and "all 19 required jobs" in gate.describe(BRANCH)
               and "90 min" in gate.describe(BRANCH) and "driver retried once" in gate.describe(BRANCH))
 
 
@@ -110,16 +124,35 @@ def test_a_red_skipped_or_missing_required_job_stops_the_gate_naming_each(ctx: C
     _refused(ctx, FakeGh(conclusions={"studio-ui (build + drift gate)": "skipped"}),
              ["studio-ui (build + drift gate): skipped"], "a skipped required job")
     _refused(ctx, FakeGh(conclusions={win2: None}), [f"{win2}: missing"], "a required job not in the run")
+    # 3.6.0.0: macOS and realcheck are required by default (no flag)
     mac = "suites (macos, py3.12, shard 1/4)"
-    (accepted, _w), _l, _c = _gate(FakeGh(conclusions={mac: "failure", "realcheck (linux)": "failure"}))
-    ctx.check("a red macOS shard and realcheck do not stop it while not required", bool(accepted))
-    _refused(ctx, FakeGh(conclusions={mac: "failure"}), [f"{mac}: failure"], "macOS once required", macos=True)
-    _refused(ctx, FakeGh(conclusions={"realcheck (windows)": None}), ["realcheck (windows): missing"],
-             "realcheck once required", realcheck=True)
-    _refused(ctx, FakeGh(conclusions={"realcheck (linux, installed)": "failure"}),
-             ["realcheck (linux, installed): failure"], "the installed leg once realcheck is required", realcheck=True)
-    (accepted, _w), _l, _c = _gate(FakeGh(), realcheck=True)
-    ctx.check("every realcheck leg green: --require-realcheck accepts the run", bool(accepted))
+    err = _refused(ctx, FakeGh(conclusions={mac: "failure"}), [f"{mac}: failure"], "a red macOS shard by default")
+    ctx.check(f"the refusal is one line: the run, the branch, the sha and the red leg, got {err!r}",
+              err == f"the suites run 303 on {BRANCH} for {SHA[:12]} is not green -- failing jobs: {mac}: failure")
+    _refused(ctx, FakeGh(conclusions={"suites (macos, py3.12, shard 3/4)": None}),
+             ["suites (macos, py3.12, shard 3/4): missing"], "a missing macOS shard by default")
+    for leg in [f"realcheck ({p}{f}" for p in ("linux", "windows", "macos") for f in (")", ", installed)")]:
+        _refused(ctx, FakeGh(conclusions={leg: None}), [f"{leg}: missing"], f"{leg} missing by default")
+        _refused(ctx, FakeGh(conclusions={leg: "failure"}), [f"{leg}: failure"], f"{leg} red by default")
+    err = _refused(ctx, FakeGh(conclusions={"realcheck (windows, installed)": None}), [], "a missing realcheck leg")
+    ctx.check(f"a missing leg's refusal names it as missing, got {err!r}",
+              err == f"the suites run 303 on {BRANCH} for {SHA[:12]} is not green -- failing jobs: "
+                     "realcheck (windows, installed): missing")
+    (accepted, _w), _l, _c = _gate(FakeGh())
+    ctx.check(f"every leg green: the default gate accepts the run, got {accepted}",
+              accepted == [f"suites run 303 on {BRANCH}: all 19 required jobs concluded success for {SHA[:12]}"])
+    # the emergency switches (release.py --emergency-skip-macos-gate / --emergency-skip-realcheck-gate)
+    (accepted, _w), _l, _c = _gate(FakeGh(conclusions={mac: "failure", "realcheck (macos, installed)": None}),
+                                   macos=False)
+    ctx.check(f"macOS switched off: its red shard and missing realcheck leg do not stop it, got {accepted}",
+              accepted and "all 13 required jobs" in accepted[0])
+    _refused(ctx, FakeGh(conclusions={mac: "failure", "realcheck (linux)": "failure"}), ["realcheck (linux): failure"],
+             "macOS switched off, a red Linux realcheck leg still stops it", macos=False)
+    (accepted, _w), _l, _c = _gate(FakeGh(conclusions={"realcheck (linux)": "failure"}), realcheck=False)
+    ctx.check(f"realcheck switched off: a red leg does not stop it, got {accepted}",
+              accepted and "all 13 required jobs" in accepted[0])
+    _refused(ctx, FakeGh(conclusions={mac: "failure", "realcheck (linux)": "failure"}), [f"{mac}: failure"],
+             "realcheck switched off, a red macOS shard still stops it", realcheck=False)
 
 
 def _workflow_job_names() -> "set[str]":
@@ -175,6 +208,23 @@ def test_every_required_job_name_is_one_the_workflow_runs(ctx: Ctx):
     from tests.helpers.fake_gh import all_jobs
     ctx.check(f"the fake gh's jobs are the workflow's; not: {[n for n in all_jobs() if n not in produced]}",
               all(n in produced for n in all_jobs()))
+
+
+@test
+def test_every_required_leg_fails_the_run_when_red(ctx: Ctx):
+    """3.6.0.0: the macOS suite legs and the realcheck legs lost their job-level `continue-on-error`, so a red one
+    makes the run red (and blocks the branch); `upgrade from 3.5.0.1` alone stays informative."""
+    import yaml
+    jobs = yaml.safe_load((REPO_DIR / ".github" / "workflows" / "suites.yml").read_text(encoding="utf-8"))["jobs"]
+    lax = sorted(key for key, j in jobs.items() if "continue-on-error" in j and key != "upgrade-from-3501")
+    ctx.check(f"no job but the upgrade check has a job-level continue-on-error, got {lax}", lax == [])
+    ctx.check("the macOS suites legs run in the `linux` job (os in its matrix), which never forgives a red leg",
+              "macos" in jobs["linux"]["strategy"]["matrix"]["os"] and "continue-on-error" not in jobs["linux"])
+    ctx.check("the realcheck job runs on every system and never forgives a red leg",
+              jobs["realcheck"]["strategy"]["matrix"]["os"] == ["linux", "macos", "windows"]
+              and "continue-on-error" not in jobs["realcheck"])
+    ctx.check("the upgrade check stays non-blocking (it informs)",
+              jobs["upgrade-from-3501"].get("continue-on-error") is True)
 
 
 @test

@@ -905,8 +905,10 @@ you wanted it or not, and a release script that pushed to a main line that no lo
   the TUI starts no poll of its notes.
 - **A release goes through a candidate branch.** `scripts/release.py <version>` makes the version commit on
   `rc/<version>`, pushes it, waits for that branch's suites run on the exact sha, and only when every required job
-  concluded success (Linux x4, Windows x4, studio-ui; macOS x4 behind `--require-macos`, and every system's
-  real-use check jobs, checkout and installed, behind `--require-realcheck`) fast-forwards master, tags and
+  concluded success (Linux x4, Windows x4, macOS x4, studio-ui, and every system's real-use check jobs, checkout
+  and installed: nineteen, all required by default and none allowed to fail in CI; an emergency alone leaves macOS
+  or the real-use check out, with `--emergency-skip-macos-gate` / `--emergency-skip-realcheck-gate`, and the run
+  names every leg it left out) fast-forwards master, tags and
   publishes the release with its tar.gz and `checksums.txt`. A red run stops it naming the failing jobs, with nothing tagged. "driver retried once" lines in
   the run's log are printed as warnings. `--skip-windows` is gone. It starts only from origin/master as GitHub has it,
   and a plain re-run after a red gate or a refused push resumes from `rc/<version>` (no second commit); a failed git

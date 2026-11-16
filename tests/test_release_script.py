@@ -519,7 +519,8 @@ def test_a_green_candidate_branch_moves_master_then_tags(ctx: Ctx):
     ctx.check(f"the gate asked for the branch's run of the exact sha, got {listed[:1]}",
               listed and "rc/9.9.9" in listed[0] and _head(repo) in listed[0])
     ctx.check(f"the summary names the accepted run, got {out}",
-              "gate: suites run 303 on rc/9.9.9: all 9 required jobs concluded success" in out)
+              "gate: suites run 303 on rc/9.9.9: all 19 required jobs concluded success" in out)
+    ctx.check(f"no emergency line when no switch is given, got {out} {err}", "EMERGENCY" not in out + err)
 
 
 @test
@@ -528,7 +529,10 @@ def test_a_red_candidate_branch_stops_the_release_naming_the_jobs_and_tags_nothi
     win, mac = "suites (windows, py3.12, shard 2/4)", "suites (macos, py3.12, shard 0/4)"
     for gh, argv, want in ((FakeGh(conclusions={win: "failure"}), [], win),
                            (FakeGh(conclusions={"studio-ui (build + drift gate)": None}), [], "studio-ui"),
-                           (FakeGh(conclusions={mac: "failure"}), ["--require-macos"], mac)):
+                           (FakeGh(conclusions={mac: "failure"}), [], mac),
+                           (FakeGh(conclusions={"realcheck (macos, installed)": None}), [],
+                            "realcheck (macos, installed): missing"),
+                           (FakeGh(conclusions={"realcheck (linux)": "failure"}), [], "realcheck (linux): failure")):
         repo = _scratch_repo("9.9.9")
         rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install", *argv], repo, gh)
         git = _git(calls)
@@ -537,10 +541,43 @@ def test_a_red_candidate_branch_stops_the_release_naming_the_jobs_and_tags_nothi
         ctx.check(f"{want}: the candidate branch was pushed, then nothing else, got {git}",
                   ["push", "-u", "origin", "rc/9.9.9"] in git and not any(c[:1] == ["tag"] for c in git)
                   and ["push", "origin", "master"] not in git and not any(c[:1] == ["merge"] for c in git))
-    repo = _scratch_repo("9.9.9")
-    rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install"], repo,
-                                    FakeGh(conclusions={mac: "failure"}))
-    ctx.check(f"a red macOS shard does not stop it while macOS is not required, got {rc} {err!r}", rc == 0)
+
+
+@test
+def test_the_emergency_switches_leave_out_macos_or_realcheck_and_say_so(ctx: Ctx):
+    """3.6.0.0: macOS and the real-use check are required by default; each can be left out only by a switch named
+    so nobody passes it by accident, and the run says loudly which legs it did not require."""
+    from tests.helpers.fake_gh import FakeGh
+    mac = "suites (macos, py3.12, shard 0/4)"
+    rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install", "--emergency-skip-macos-gate"],
+                                    _scratch_repo("9.9.9"),
+                                    FakeGh(conclusions={mac: "failure", "realcheck (macos)": None}))
+    ctx.check(f"--emergency-skip-macos-gate: a red macOS shard and a missing macOS realcheck leg pass, got {rc} {err!r}",
+              rc == 0 and "all 13 required jobs concluded success" in out)
+    ctx.check(f"it names the switch and the six legs it left out, on stderr and in the summary, got {out!r} {err!r}",
+              all("EMERGENCY --emergency-skip-macos-gate" in s and mac in s and "realcheck (macos, installed)" in s
+                  for s in (out, err)))
+    rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install",
+                                     "--emergency-skip-realcheck-gate"], _scratch_repo("9.9.9"),
+                                    FakeGh(conclusions={"realcheck (windows, installed)": "failure"}))
+    ctx.check(f"--emergency-skip-realcheck-gate: a red realcheck leg passes and the switch is named, got {rc} {out!r}",
+              rc == 0 and "all 13 required jobs concluded success" in out
+              and "EMERGENCY --emergency-skip-realcheck-gate" in out and "realcheck (windows, installed)" in out)
+    rc, out, err, calls = _main_out(["9.9.9", "--no-github-release", "--no-install", "--emergency-skip-realcheck-gate"],
+                                    _scratch_repo("9.9.9"), FakeGh(conclusions={mac: "failure"}))
+    ctx.check(f"the realcheck switch does not let a red macOS shard through, got {rc} {err!r}",
+              rc == 1 and f"{mac}: failure" in err)
+    rc, out, err, calls = _main_out(["9.9.9", "--dry-run", "--emergency-skip-macos-gate",
+                                     "--emergency-skip-realcheck-gate"], _scratch_repo("9.9.9"), FakeGh())
+    ctx.check(f"a dry run names both switches and requires the nine others, got {out!r}",
+              rc == 0 and "--emergency-skip-macos-gate --emergency-skip-realcheck-gate" in out
+              and "all 9 required jobs" in out)
+    for old in ("--require-macos", "--require-realcheck"):
+        gh = FakeGh()
+        rc, out, err, calls = _main_out(["9.9.9", old, "--no-github-release", "--no-install"], _scratch_repo("9.9.9"), gh)
+        ctx.check(f"{old} refuses in one line (it is the default now) and runs nothing, got {rc} {err!r}",
+                  rc == 1 and "is the default now" in err and err.strip().count("\n") == 0 and calls == [] and gh.calls == [])
+        ctx.check(f"{old} is not an option any more", old not in release.build_arg_parser().format_help())
 
 
 @test
