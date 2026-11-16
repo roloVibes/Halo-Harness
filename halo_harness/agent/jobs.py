@@ -438,7 +438,11 @@ class JobRegistry:
             # just-forked grandchild that raced its own OS registration --
             # see that function's docstring for the exact failure mode this
             # closes (a kill requested moments after the job started).
+            t0 = time.monotonic()
             _kill_process_group(proc)
+            from halo_harness import closing
+            closing.trace(f"background job {job_id} (pid {proc.pid}) stop sent in {time.monotonic() - t0:.2f} s, "
+                          f"its Job: {bool(getattr(proc, '_halo_job', None))}, exit now: {proc.poll()}")
         return True, f"Stopped background job {job_id}."
 
     def kill_all(self) -> None:

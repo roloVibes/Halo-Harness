@@ -30,6 +30,7 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Callable, Optional
@@ -266,17 +267,22 @@ class Controller:
         self.session._stopping.set()
         self.session.abort.set()
         from halo_harness import closing
+        t0 = time.monotonic()
+        closing.trace("quit: start", stacks=True)  # fx jb12: HALO_CLOSE_TRACE's phases (nothing when unset)
         if self.quit_stops_children:  # fx jb8: this halo is leaving -- one deadline for the whole way out
             closing.arm_close_deadline()
         try:  # fx jb8: the background jobs stop now, never after a wait for a turn that has not read the abort
             self.session.job_registry.kill_all()
         except Exception:
             pass
+        closing.trace(f"quit: background jobs stopped after {time.monotonic() - t0:.2f} s")
         self.commands.put(None)
         try:
             if self._worker is not None:  # the stops after this join keep QUIT_RESERVE_S of the deadline
                 self._worker.join(max(0.0, closing.time_left(QUIT_DEADLINE_S + QUIT_RESERVE_S) - QUIT_RESERVE_S))
         finally:
+            closing.trace(f"quit: worker joined after {time.monotonic() - t0:.2f} s (alive: "
+                          f"{self._worker is not None and self._worker.is_alive()})")
             self._stopped.set()
             # Halo 2.0.9 round 2: the control socket and its registry entry
             # go away first, on every quit path (all of them call here).
@@ -326,6 +332,7 @@ class Controller:
                 pass
             if self.mcp_manager is not None:
                 self.mcp_manager.close_all()
+            closing.trace(f"quit: end after {time.monotonic() - t0:.2f} s")
         return self.exit_code
 
     # ---- UI -> loop (non-blocking) ---------------------------------------

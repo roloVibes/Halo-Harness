@@ -114,7 +114,42 @@ def serve_alone(ctx) -> dict:
     return row
 
 
-def _end(ctx, t, how: str, full_screen: bool) -> str:
+TRACE_LINES = 200  # of a row's close trace kept in its evidence (the phases and a stack dump of every thread)
+
+
+def _noter(path):
+    """Writes the check's own keys into the row's close trace, on the same clock as Halo's lines."""
+    def note(line: str) -> None:
+        try:
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(f"{time.time():.3f} {line}\n")
+        except OSError:
+            pass
+    return note
+
+
+def leftover_evidence(trace_path, shown: str) -> dict:
+    """fx jb12: what a row that left something running carries, so a CI run names the cause: the close trace Halo
+    wrote under HALO_CLOSE_TRACE (its phases, the check's keys, the keys its console read under HALO_INPUT_TRACE, and
+    every thread's stack when the close was still running 4 s on) and the last screen of its terminal (the final 600
+    characters, control sequences stripped). No trace line at all says Halo never saw a key of the way out."""
+    try:
+        lines = [ln for ln in open(trace_path, encoding="utf-8", errors="replace").read().splitlines() if ln.strip()]
+    except OSError:
+        lines = []
+    return {"close_trace": lines[-TRACE_LINES:], "last_screen": excerpt(shown, 600)}
+
+
+def _detail(row: dict) -> str:
+    """The row's one-line detail: its last trace line and the end of its last screen (a row that left nothing: '')."""
+    if "last_screen" not in row:
+        return ""
+    phases = [ln for ln in row.get("close_trace") or [] if " mono=" in ln]  # Halo's own lines, not keys or stacks
+    last = phases[-1][:160] if phases else "no line: Halo wrote no phase"
+    return f" [trace: {last}; screen: {row['last_screen'][-160:]}]"
+
+
+def _end(ctx, t, how: str, full_screen: bool, note=None) -> str:
     if how == "closed terminal":
         t.close_window()
         return "terminal closed"
@@ -122,7 +157,7 @@ def _end(ctx, t, how: str, full_screen: bool) -> str:
         t.hard_kill()
         return "top process killed"
     if full_screen:  # a full-screen session reads Ctrl+C as a key, typed like any other
-        return screen.quit_with_ctrl_c(t, wait=0.5)
+        return screen.quit_with_ctrl_c(t, wait=0.5, note=note)
     probe = ctx.ctrl_c()
     if not probe["delivered"]:  # said, never passed off as a Ctrl+C
         t.ctrl_break()
@@ -142,7 +177,8 @@ def one_close(ctx, target: str, how: str) -> dict:
     h = ctx.home("close")
     ctx.provider.rearm()
     args = prep(ctx, h)
-    t = ctx.terminal(h, *args)
+    trace = h.dir / "close-trace.txt"  # fx jb12: Halo's way out, step by step, for a row that leaves something
+    t = ctx.terminal(h, *args, env=ctx.env(h, HALO_CLOSE_TRACE=str(trace), HALO_INPUT_TRACE=str(trace)))
     row: dict = {"target": target, "how": how}
     up = None
     end = time.monotonic() + 45
@@ -159,7 +195,7 @@ def one_close(ctx, target: str, how: str) -> dict:
         row["not_started"] = excerpt(t.plain(), 240) or f"exit {t.poll()}"
     else:
         row["running"] = len(ctx.ours(h))
-        row["keys"] = _end(ctx, t, how, full_screen=target.startswith("session"))
+        row["keys"] = _end(ctx, t, how, full_screen=target.startswith("session"), note=_noter(trace))
         if row["keys"].startswith("Ctrl+Break"):
             row["how"] = "Ctrl+Break (Ctrl+C not deliverable on this host)"
         left = ctx.left_after(h, 5.0)
@@ -169,6 +205,7 @@ def one_close(ctx, target: str, how: str) -> dict:
             later = ctx.left_after(h, 25.0)
             row["gone_after_s"] = None if later else "between 5 and 30 s"
             row["still_running_at_30_s"] = [p.short(90) for p in later]
+            row.update(leftover_evidence(trace, t.plain()))
     ctx.provider.release()
     t.cleanup()
     ctx.end_leftovers(h)
@@ -192,7 +229,8 @@ def closing(ctx):
     unstarted = [r for r in rows if "not_started" in r]
     probe = ctx.ctrl_c()
     ev = {"rows": rows, "ctrl_c_on_this_host": probe}
-    bad = [f"{r['target']} / {r['how']}: {len(r['left'])} left, {_programs(r['left'])} ({r['left'][0][:90]})" for r in left]
+    bad = [f"{r['target']} / {r['how']}: {len(r['left'])} left, {_programs(r['left'])} ({r['left'][0][:90]})"
+           f"{_detail(r)}" for r in left]
     bad += [f"{r['target']} did not come up to be closed ({r['not_started'][:100]})" for r in unstarted]
     note = ("" if probe["delivered"] else f"Ctrl+C is not deliverable on this host ({probe['why']}); the one-shot, init "
             f"and studio rows sent Ctrl+Break instead (it {'ended' if probe['break_works'] else 'did not reach'} a test child). ")

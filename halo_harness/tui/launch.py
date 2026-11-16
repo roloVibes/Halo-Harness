@@ -88,6 +88,8 @@ def run_tui(args) -> int:
     try:
         app.run()
     finally:
+        from halo_harness import closing
+        closing.trace("app.run returned")  # fx jb12: HALO_CLOSE_TRACE (nothing when unset)
         console_guard.restore()
         # review finding 5: `app.run()` returning (or raising) via any
         # path OTHER than the app's own `_quit_worker` (an uncaught
@@ -106,6 +108,7 @@ def run_tui(args) -> int:
         line = getattr(controller, "stopped_line", "") or ""
         if line and not getattr(controller, "stopped_line_shown", False):
             print(line)
+        closing.trace("app.run's finally done")
     return app.return_code if app.return_code is not None else 0
 
 

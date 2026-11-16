@@ -986,6 +986,32 @@ def time_left(cap: float) -> float:
     return cap if deadline is None else max(0.0, min(cap, deadline - time.monotonic()))
 
 
+TRACE = "HALO_CLOSE_TRACE"  # fx jb12: a file the way out writes its phases to (off when unset)
+TRACE_STACKS_S = 4.0
+_TRACE_FH: list = []
+
+
+def trace(what: str, *, stacks: bool = False) -> None:
+    """fx jb12, evidence for a slow way out: with HALO_CLOSE_TRACE naming a file, one line per phase (the wall time,
+    the monotonic time, the pid and the thread). `stacks` (re)arms a dump of every thread's stack into the same file
+    TRACE_STACKS_S from now (faulthandler; nothing is written when the process has left by then). Unset: nothing at
+    all. Never raises and changes nothing else."""
+    path = os.environ.get(TRACE, "")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(f"{time.time():.3f} mono={time.monotonic():.3f} pid={os.getpid()} "
+                     f"[{threading.current_thread().name}] {what}\n")
+        if stacks:
+            import faulthandler
+            if not _TRACE_FH:
+                _TRACE_FH.append(open(path, "a", encoding="utf-8"))
+            faulthandler.dump_traceback_later(TRACE_STACKS_S, repeat=False, file=_TRACE_FH[0])
+    except Exception:
+        pass
+
+
 def on_close(fn: Callable[[], None]) -> None:
     """Run `fn` first when this process closes (an MCP manager's close, a job registry's kill)."""
     _STATE["callbacks"].append(fn)
@@ -1000,6 +1026,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         if _STATE["closed"]:
             return []
         _STATE["closed"] = True
+    trace("close: start", stacks=True)
     t0 = time.monotonic()
     arm_close_deadline()  # fx jb8: one deadline for the whole way out; a quit that came first set it already
     total = time_left(polite_s + hard_s)
@@ -1025,8 +1052,10 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         line = ended_line(_STATE.pop("ended", None) or {})
         if line:
             lines.append(line)
+    trace(f"close: stops done after {time.monotonic() - t0:.2f} s")
     wait_for_browsers(time_left(QUIT_BUDGET_S))
     _stop_reaper()
+    trace(f"close: end after {time.monotonic() - t0:.2f} s")
     out = say if say is not None else _say
     for line in lines:
         try:
@@ -1189,8 +1218,11 @@ def hard_exit(code: int, grace_s: float = EXIT_GRACE_S) -> None:
         return
     _STATE["hard_exit"] = code
 
+    trace(f"hard exit armed: code {code}, {grace_s} s")
+
     def later() -> None:
         time.sleep(max(0.0, grace_s))
+        trace("hard exit: grace over")
         close(polite_s=1.0, hard_s=0.8, say=lambda _l: None)
         try:
             atexit._run_exitfuncs()
@@ -1228,6 +1260,7 @@ def _windows_console_close() -> None:
         handler_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
 
         def handler(event: int) -> bool:
+            trace(f"console event {event}")
             if event in (2, 5, 6):
                 close(polite_s=1.5, hard_s=1.0, say=lambda _l: None)
             elif event in (0, 1) and _STATE.get("second_ctrl_c"):  # CTRL_C / CTRL_BREAK

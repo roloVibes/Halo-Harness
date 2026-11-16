@@ -87,6 +87,11 @@ HANG_DUMP_MIN_INTERVAL_S = 60.0
 # past process's runs (pruned once, at startup).
 MAX_HANG_DUMPS_PER_PROCESS = 5
 MAX_HANG_DUMP_FILES_KEPT = 10
+# fx jb12: the threads of the app loop's default pool (asyncio's own default is cpus + 4: 8 on a four-core machine).
+# On Windows every Textual timer sleeps on a thread of that pool and cancelling one needs a free thread of it too
+# (textual/_win_sleep.py): with every thread asleep, thread workers and the shutdown's timer cancels waited for a
+# timer to wake (8.4 s from the quit to the end of app.run on a four-core runner). Threads start only when needed.
+APP_POOL_THREADS = 128
 _DEBUG_LOG = logging.getLogger("halo_harness.tui")
 
 # 1.0.1 part 2 fixpass finding 17: `--debug`'s own per-keystroke trace
@@ -1037,6 +1042,16 @@ class BridgeApp(App):
         lazy %-formatting, same convention `clamp_effort`'s own `log.debug`
         already uses), real lines in bridge.log once `--debug` turns it on."""
         _DEBUG_LOG.debug(msg, *args)
+
+    async def run_async(self, *args, **kwargs):
+        """fx jb12: the loop's default thread pool is APP_POOL_THREADS before anything runs on it (see there)."""
+        from concurrent.futures import ThreadPoolExecutor
+        try:
+            asyncio.get_running_loop().set_default_executor(
+                ThreadPoolExecutor(max_workers=APP_POOL_THREADS, thread_name_prefix="asyncio"))
+        except Exception:
+            pass
+        return await super().run_async(*args, **kwargs)
 
     # ---- H15 Part B: Textual's own worker/focus lifecycle events, traced
     # under --debug only (see _debug_trace) ------------------------------
@@ -2504,7 +2519,10 @@ class BridgeApp(App):
         `quit_on_double_ctrl_c: false` every press just copies. A copy of
         an explicit SELECTION never arms the window (copying the same
         selection twice is not a request to quit)."""
+        from halo_harness import closing
         from halo_harness.tui.dialogs.quit_confirm import QuitConfirmScreen
+        closing.trace(f"Ctrl+C key (screen {type(self.screen).__name__}, turn running: {self._turn_running})",
+                      stacks=True)  # fx jb12: HALO_CLOSE_TRACE (nothing when unset)
         if isinstance(self.screen, QuitConfirmScreen):
             return  # the card owns Enter/Esc; a further Ctrl+C changes nothing
         focused = self.screen.focused
@@ -2524,11 +2542,14 @@ class BridgeApp(App):
         if quit_on_double and self._ctrl_c_deadline is not None and now < self._ctrl_c_deadline:
             self._ctrl_c_deadline = None
             self.push_screen(QuitConfirmScreen(), self._after_quit_card)
+            closing.trace("quit card opened")
             return
         self._ctrl_c_deadline = now + DOUBLE_CTRL_C_WINDOW_S if quit_on_double else None
         self._copy_last_reply_for_ctrl_c()
 
     def _after_quit_card(self, answer: "Optional[bool]") -> None:
+        from halo_harness import closing
+        closing.trace(f"quit card answered: {answer}")
         self._ctrl_c_deadline = None
         if answer:
             self._begin_quit()
@@ -2633,13 +2654,31 @@ class BridgeApp(App):
         if self._quitting:
             return
         self._quitting = True
-        # A raise while quitting still ends the app (exit_on_error=True).
-        self.run_worker(self._quit_worker, thread=True, exclusive=True, name="quit", exit_on_error=True)
+        from halo_harness import closing
+        closing.trace("quit asked", stacks=True)
+        self.workers.cancel_group(self, "default")  # what the old exclusive worker did
+        # fx jb12: a thread of its own, never a thread worker: on Windows every Textual timer sleeps on a thread of
+        # asyncio's default executor (textual/_win_sleep.py), the pool thread workers share (cpus + 4 threads: 8 on a
+        # four-core CI runner). With that many timers asleep the quit waited in the pool's queue (8 s, CI: 5-30 s)
+        # while Halo, a background job's bash and its sleep all ran.
+        threading.Thread(target=self._quit_thread, name="halo-quit", daemon=True).start()
+
+    def _quit_thread(self) -> None:
+        try:
+            self._quit_worker()
+        except Exception:  # a raise while quitting still ends the app (the old worker's exit_on_error)
+            logging.getLogger("bridge").exception("the quit raised")
+            try:
+                self.call_from_thread(self.exit, return_code=1)
+            except Exception:
+                pass
 
     def _quit_worker(self) -> None:
         quit_fn = getattr(self.controller, "quit", None)
         code = quit_fn() if callable(quit_fn) else 0
         message = self._exit_message()
+        from halo_harness import closing
+        closing.trace(f"app exit asked (code {code})")
         self.call_from_thread(self.exit, return_code=code, message=message)
 
     def _exit_message(self) -> Optional[str]:
@@ -2674,8 +2713,8 @@ class BridgeApp(App):
         if self._force_quitting:
             return
         self._force_quitting = True
-        self.run_worker(self._force_quit_worker, thread=True, exclusive=True, name="force-quit",
-                         group="force-quit")
+        # fx jb12: its own thread, never the executor Textual's Windows timers can fill (see _begin_quit)
+        threading.Thread(target=self._force_quit_worker, name="halo-force-quit", daemon=True).start()
 
     def _force_quit_worker(self) -> None:
         import threading

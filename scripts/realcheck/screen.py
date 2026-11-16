@@ -132,21 +132,24 @@ def tui_ready(t, timeout: float) -> float:
     return 0.0
 
 
-def quit_with_ctrl_c(t, wait: float = 5.0) -> str:
+def quit_with_ctrl_c(t, wait: float = 5.0, note=None) -> str:
     """What a person does to leave with Ctrl+C: press it twice (the session asks on the second within 3 s); when Halo
     asks "Quit Halo?", press Enter; once more if it is still up. A program that ends on the first Ctrl+C ends there.
-    Returns the keys pressed."""
+    Returns the keys pressed. `note(line)`, when given, is told each key as it is sent (the row's close trace)."""
     from realcheck.term import strip_ansi
     keys = []
+    note = note or (lambda _line: None)
     for _ in range(2):  # the session asks on a second Ctrl+C within 3 s ("quit_on_double_ctrl_c"): a double tap
         if t.poll() is not None:
             break
         mark = len(t.raw())
         t.ctrl_c()
         keys.append("Ctrl+C")
+        note("realcheck: sent Ctrl+C")
         if t.wait(0.4) is None:
             t.ctrl_c()
             keys.append("Ctrl+C")
+            note("realcheck: sent Ctrl+C")
         end = time.monotonic() + 4.0
         asked = False
         while time.monotonic() < end and t.poll() is None:
@@ -159,6 +162,7 @@ def quit_with_ctrl_c(t, wait: float = 5.0) -> str:
             time.sleep(0.3)
             t.write(b"\r")
             keys.append("Enter")
+            note("realcheck: saw Quit Halo?, sent Enter")
             t.wait(wait)
             break
         t.wait(1.0)
