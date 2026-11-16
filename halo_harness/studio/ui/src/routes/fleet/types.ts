@@ -72,6 +72,10 @@ export type SessionRow = {
   built?: { id?: string; outcome: "applied" | "left" | "failed"; wrote?: { kind: string; name: string; added?: boolean; removed?: boolean }[];
     undo?: string | null; next?: string | null; this_session?: string | null; t?: number } | null;
   asked?: boolean;
+  /** 3.6.0.2 R50: the map FILE it follows now (`map_start` and the status row): read it by scope and path, never by name. */
+  map_scope?: string | null;
+  map_path?: string | null;
+  map_hash?: string | null;
   pending?: Pending;
   model?: string | null;
   /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */

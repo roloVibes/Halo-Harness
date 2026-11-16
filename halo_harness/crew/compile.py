@@ -43,6 +43,7 @@ class Compiled:
     path: str = ""
     scope: str = ""
     mtime: float = 0.0
+    hash: str = ""                                 # 3.6.0.2 R50: sha256 hex of the file's bytes, taken at compile
     main: dict = field(default_factory=dict)
     boxes: dict = field(default_factory=dict)      # box id -> {kind, names[]}
     handoffs: list = field(default_factory=list)   # the lines from main
@@ -189,6 +190,12 @@ def compile_map(name: str, *, cwd=None, state_dir=None) -> Compiled:
         out.mtime = os.path.getmtime(path)
     except OSError:
         out.mtime = 0.0
+    try:  # 3.6.0.2 R50: the very file this session follows (map_start and the status row carry it)
+        import hashlib
+        with open(path, "rb") as fh:
+            out.hash = hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        out.hash = ""
     return out
 
 

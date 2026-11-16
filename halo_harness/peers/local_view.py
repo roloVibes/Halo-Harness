@@ -91,6 +91,8 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                map_next_since=_num(data.get("map_next_since")),
                built=data.get("built") if isinstance(data.get("built"), dict) else None,
                asked=data.get("asked") is True)
+    # 3.6.0.2 R50: the map FILE it follows (scope, path, content hash); Studio reads that file, never one by name
+    row.update({k: data.get(k) if isinstance(data.get(k), str) else None for k in ("map_scope", "map_path", "map_hash")})
     return row
 
 

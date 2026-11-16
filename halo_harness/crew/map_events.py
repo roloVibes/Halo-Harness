@@ -21,7 +21,7 @@ agent_registry.py FIELDS; 3.6.0.2 R13): the box it runs for (a workflow's step: 
 step), the agent it runs and whether that is a saved agent; `made_up` only for `general-purpose` or a name no spec
 knows. Every frame goes to the TOP session's feed and log, and none once the session is closed (`close`, called by
 agent/loop.py Session.close_runtimes). The log also gets one `map_start` node
-(the map and when) so a finished session's replay knows the map it ran on. Nothing here calls a model, and a failure
+(the map, its file -- scope, path, content hash, R50 -- and when) so a finished session's replay knows the map it ran on. Nothing here calls a model, and a failure
 to publish never stops a hand-off.
 """
 
@@ -111,15 +111,23 @@ def _off(mc, line: str) -> bool:
     return not line and not is_default(getattr(mc, "map", None))
 
 
+def identity(mc) -> dict:
+    """3.6.0.2 R50: the FILE the control follows now -- {scope, path, hash} of the version it holds (taken when it was
+    compiled, crew/compile.py; a refresh brings the new file's); all None when not on a map. Reads no file."""
+    c = getattr(mc, "map", None) if getattr(mc, "is_map", False) else None
+    return {k: (getattr(c, k, "") or None) if isinstance(getattr(c, k, None), str) else None
+            for k in ("scope", "path", "hash")}
+
+
 def started(session, mc) -> None:
     """The map this session runs on, once, in its log (a replay reads it); its `t` stays on the session (3.6.0.2 R40:
-    F1, the status row's `map_since`, crew/map_facts.py)."""
+    F1, the status row's `map_since`, crew/map_facts.py) and its file: scope, path, content hash (R50)."""
     t = round(time.time(), 3)
     try:
         session._map_started_at = t
     except Exception:
         pass
-    _log(session, "map_start", {"map": getattr(mc, "map_name", ""), "t": t})
+    _log(session, "map_start", {"map": getattr(mc, "map_name", ""), **identity(mc), "t": t})
 
 
 def hop(runtime, mc, h: dict, why: str, task: str, state: str, **extra) -> dict:

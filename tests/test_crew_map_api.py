@@ -48,6 +48,97 @@ def test_read_the_maps_and_one_map(ctx: Ctx):
         ctx.check("starter: an agent box's model and what it does", m["boxes"]["coder"]["facts"][0]["model"] == "auto"
                   and "change" in m["boxes"]["coder"]["facts"][0]["does"])
         ctx.check("no such map: 404", rig.api("GET", "crew/map/nope")[0] == 404)
+        st, r = rig.api("GET", "crew/maps")
+        ctx.check(f"3.6.0.2 R50: a fresh home sets no map for new sessions: next is None, got {r.get('next', 'absent')}",
+                  "next" in r and r["next"] is None)
+
+
+def _map_body(name: str, boxes: int) -> dict:
+    return {"format": "map/1", "name": name, "main": {"agent": "main"},
+            "boxes": [{"id": f"b{i}", "agent": "coder"} for i in range(boxes)],
+            "lines": [{"from": "main", "to": f"b{i}", "when": "always"} for i in range(boxes)]}
+
+
+def _q(path) -> str:
+    from urllib.parse import quote
+    return quote(str(path), safe="")
+
+
+@test
+def test_get_reads_the_given_scope_and_path(ctx: Ctx):
+    """3.6.0.2 R50: Studio reads THE file a session follows (its scope and path), never another file of that name."""
+    from tests.helpers.trust_dir import trust
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import store
+        mine = store.path_for("map", "shop", state_dir=rig.state)
+        store.write_text(mine, store.dump(_map_body("shop", 1)))
+        other = rig.root / "elsewhere"
+        theirs = other / ".halo" / "crew" / "maps" / "shop.yaml"
+        theirs.parent.mkdir(parents=True)
+        theirs.write_text(store.dump(_map_body("shop", 2)), encoding="utf-8")
+        trust(other)
+        st, m = rig.api("GET", f"crew/map/shop?scope=project&path={_q(theirs)}")
+        ctx.check(f"the project's file in another folder: its two boxes, its path, got {st} {sorted(m.get('boxes') or {})} {m.get('path')}",
+                  st == 200 and sorted(m["boxes"]) == ["b0", "b1"] and m["path"] == str(theirs) and m["scope"] == "project")
+        st, m = rig.api("GET", "crew/map/shop")
+        ctx.check(f"no path: as today (yours, one box), got {st} {sorted(m.get('boxes') or {})}",
+                  st == 200 and sorted(m["boxes"]) == ["b0"] and m["scope"] == "yours")
+        st, m = rig.api("GET", f"crew/map/shop?scope=yours&path={_q(mine)}")
+        ctx.check(f"yours by its path, got {st} {m.get('path')}", st == 200 and m["path"] == str(mine) and sorted(m["boxes"]) == ["b0"])
+        shipped = store.SHIPPED / "maps" / "starter.yaml"
+        st, m = rig.api("GET", f"crew/map/starter?scope=starter&path={_q(shipped)}")
+        ctx.check(f"a starter by its path, got {st} {m.get('scope')}", st == 200 and m["scope"] == "starter" and "coder" in m["boxes"])
+        stray = rig.root / "stray" / "shop.yaml"  # a shop.yaml outside any crew/maps folder
+        stray.parent.mkdir()
+        stray.write_text(store.dump(_map_body("shop", 3)), encoding="utf-8")
+        cousin = other / ".halo" / "crew" / "maps" / "cousin.yaml"  # another name's file
+        cousin.write_text(store.dump(_map_body("cousin", 3)), encoding="utf-8")
+        untrusted = rig.root / "untrusted" / ".halo" / "crew" / "maps" / "shop.yaml"
+        untrusted.parent.mkdir(parents=True)
+        untrusted.write_text(store.dump(_map_body("shop", 3)), encoding="utf-8")
+        for why, scope, p in (("a file outside crew/maps", "project", stray), ("another name's file", "project", cousin),
+                              ("a project that is not trusted", "project", untrusted), ("the project's file as yours", "yours", theirs)):
+            st, m = rig.api("GET", f"crew/map/shop?scope={scope}&path={_q(p)}")
+            ctx.check(f"{why}: never read, 404 (never the other shop), got {st} {sorted(m.get('boxes') or {})}",
+                      st == 404 and "boxes" not in m)
+            st, m = rig.api("GET", f"crew/map/shop?scope={scope}&path={_q(p)}&soft=1")
+            ctx.check(f"{why}, soft: 200 and not drawn (T12, Studio cannot read it here), got {st} {m}",
+                      st == 200 and m.get("unreadable") is True and "boxes" not in m and m.get("path") == str(p))
+
+
+@test
+def test_soft_missing_answers_200_removed(ctx: Ctx):
+    """3.6.0.2 R50 + R28: a page that asks softly for a map file that was removed gets 200 {removed}; the editor's 404 stays."""
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import store
+        gone = store.path_for("map", "gone", state_dir=rig.state)
+        store.write_text(gone, store.dump(_map_body("gone", 1)))
+        ctx.check("while it is there it reads", rig.api("GET", f"crew/map/gone?scope=yours&path={_q(gone)}&soft=1")[0] == 200)
+        gone.unlink()
+        st, m = rig.api("GET", f"crew/map/gone?scope=yours&path={_q(gone)}&soft=1")
+        ctx.check(f"removed, soft: 200 {{removed, map, scope, path}}, got {st} {m}",
+                  st == 200 and m == {"removed": True, "map": "gone", "scope": "yours", "path": str(gone)})
+        ctx.check("removed, not soft: 404 (the editor's)", rig.api("GET", f"crew/map/gone?scope=yours&path={_q(gone)}")[0] == 404)
+        ctx.check("no such map, no path: 404 still", rig.api("GET", "crew/map/nope")[0] == 404)
+
+
+@test
+def test_next_is_null_when_unset(ctx: Ctx):
+    """3.6.0.2 R50 (F4): `next` is config crew.map, null when unset -- `in_use` says `starter` either way."""
+    with CrewRig() as rig:
+        rig.studio()
+        st, r = rig.api("GET", "crew/maps")
+        ctx.check(f"fresh: next None, in_use starter, got {r.get('next', 'absent')} {r.get('in_use')}",
+                  st == 200 and "next" in r and r["next"] is None and r["in_use"] == "starter")
+        st, m = rig.api("GET", "crew/map/starter")
+        ctx.check(f"one map: next None, got {m.get('next', 'absent')}", "next" in m and m["next"] is None)
+        rig.api("POST", "crew/map/ship-it/use", {"on": True})
+        _st, r = rig.api("GET", "crew/maps")
+        _st, m = rig.api("GET", "crew/map/starter")
+        ctx.check(f"after use ship-it: next ship-it in both, got {r.get('next')} {m.get('next')}",
+                  r.get("next") == "ship-it" and m.get("next") == "ship-it")
 
 
 @test

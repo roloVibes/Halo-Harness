@@ -432,6 +432,52 @@ def test_status_row_has_no_switch_field(ctx: Ctx):
                   not any(k in st or k in row for k in ("set_map", "map_switch")))
 
 
+@test
+def test_map_start_carries_scope_and_path(ctx: Ctx):
+    """R50: the map a session follows is a FILE -- `map_start` and the status row carry its scope, path and the sha256
+    of its bytes; after the file changes and the control refreshes, the row's hash is the new file's. No map: nulls."""
+    import hashlib
+    import time
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.crew import map_events, store
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.peers.local_view import session_row
+        path = store.path_for("map", "shop")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        body = store.read(store.SHIPPED / "maps" / "ship-it.yaml")
+        path.write_text(store.dump({**body, "name": "shop"}), encoding="utf-8")
+        mc = control_for(compile_map("shop", cwd=env.repo), cwd=env.repo)
+        s = _Sess(mc)
+        map_events.started(s, mc)
+        got = next((n["data"] for n in s.log.nodes() if n.get("event") == "map_start"), {})
+        want = hashlib.sha256(path.read_bytes()).hexdigest()
+        ctx.check(f"map_start: shop, yours, its path, its hash, t; got {got}",
+                  got.get("map") == "shop" and got.get("scope") == "yours" and got.get("path") == str(path)
+                  and got.get("hash") == want and isinstance(got.get("t"), float))
+        st = _status(s, env.repo)
+        ctx.check(f"the status row: the same scope, path and hash, got {[st.get(k) for k in ('map_scope', 'map_path', 'map_hash')]}",
+                  st.get("map") == "shop" and st.get("map_scope") == "yours" and st.get("map_path") == str(path)
+                  and st.get("map_hash") == want)
+        row = session_row({"session_id": "s-file", "cwd": str(env.repo)}, st, [])
+        ctx.check("session_row forwards them",
+                  [row.get(k) for k in ("map_scope", "map_path", "map_hash")] == ["yours", str(path), want])
+        path.write_text(path.read_text(encoding="utf-8") + "# changed by hand\n", encoding="utf-8")
+        later = time.time() + 5
+        os.utime(path, (later, later))
+        mc.refresh()
+        new = hashlib.sha256(path.read_bytes()).hexdigest()
+        st = _status(s, env.repo)
+        ctx.check(f"after a change and refresh, the row's hash is the new file's, got {st.get('map_hash')}",
+                  new != want and st.get("map_hash") == new)
+        plain = _status(_Sess(None), env.repo)
+        ctx.check(f"no map: all null, got {[plain.get(k) for k in ('map_scope', 'map_path', 'map_hash')]}",
+                  [plain.get(k, "absent") for k in ("map_scope", "map_path", "map_hash")] == [None, None, None])
+        bad = session_row({"session_id": "s-bad", "cwd": str(env.repo)}, {"map_scope": 3, "map_path": [], "map_hash": {}}, [])
+        ctx.check("a wrong type is dropped to null", [bad.get(k, "absent") for k in ("map_scope", "map_path", "map_hash")] == [None, None, None])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
