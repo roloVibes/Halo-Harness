@@ -67,6 +67,16 @@ def raising(calls: list, rt, after_child: bool = True):
     return boom
 
 
+def raising_for(calls: list, rt, who: str):
+    """A spawn that runs every agent as `spawning` does, except `who`: its child is made and then the call raises."""
+    inner, boom = spawning(calls, rt), raising(calls, rt)
+
+    def pick(*, runtime, tool_id, tool_input, tool_name, on_event=None, on_child=None):
+        f = boom if tool_input.get("subagent_type") == who else inner
+        return f(runtime=runtime, tool_id=tool_id, tool_input=tool_input, tool_name=tool_name, on_child=on_child)
+    return pick
+
+
 def stopping(calls: list, rt):
     """A spawn whose child is stopped (Esc / Stop): the session's abort is set and the call returns an error."""
     from halo_harness.tools.base import ToolResult
@@ -224,6 +234,14 @@ def test_hop_end_sent_on_error_and_stop(ctx: Ctx):
         except RuntimeError:
             pass
         out.append(("map box raises", [(d.get("line"), d.get("state"), d.get("error")) for d in hops(rt) if d.get("state") != "skipped"]))
+        # a chain hop (plan -> code, run by _hop outside any step runner) whose spawn raises: the raise leaves _hop itself
+        rt, calls = map_runtime(h), []
+        raised = False
+        try:
+            flow(rt, raising_for(calls, rt, "coder"), "fix the retry in client.py")
+        except RuntimeError:
+            raised = True
+        out.append(("chain hop raises", raised, [(d.get("state"), d.get("error")) for d in hops(rt) if d.get("line") == "plan -> code"]))
         # a named agent on a line whose spawn raises
         rt, calls = map_runtime(h), []
         rt.parent.messages = [{"role": "user", "content": "have the tester run the suite"}]
@@ -263,6 +281,7 @@ def test_hop_end_sent_on_error_and_stop(ctx: Ctx):
         out.append(("drawn unlined", [(d.get("state"), d.get("error")) for d in hops(rt)]))
         ctx.check(f"every start has its end, with error, got {out}", out == [
             ("map box raises", [("main -> plan", "start", None), ("main -> plan", "end", True)]),
+            ("chain hop raises", True, [("start", None), ("end", True)]),
             ("named raises", True, [("start", None), ("end", True)]),
             ("named stopped", [("start", None), ("end", True)]),
             ("door", [("start", None), ("end", True)]),
