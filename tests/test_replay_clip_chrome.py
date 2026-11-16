@@ -49,6 +49,8 @@ def test_servers_5_the_clip_chrome_never_opens_a_debugging_port_where_pipes_work
     else:
         ctx.check(f"Windows: the port, only because pipes cannot be handed over there, got {argv}",
                   "--remote-debugging-port=0" in argv and not clip_chrome.pipe_ok())
+    ctx.check(f"fx jb3: its throwaway profile never reaches the person's keychain (macOS: the mock keychain; Linux: "
+              f"the basic password store), got {argv}", "--use-mock-keychain" in argv and "--password-store=basic" in argv)
 
 
 @test

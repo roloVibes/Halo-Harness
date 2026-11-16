@@ -52,7 +52,10 @@ CHROME_CANDIDATES = (
 )
 CHROME_NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
 # 3.3.12.0 R1: a dark system on every runner (preferredColorScheme 0): an unset `theme` draws holo, as before
-HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars", "--blink-settings=preferredColorScheme=0", "--password-store=basic")
+# fx jb3: no keychain is ever asked (a scratch HOME on macOS has none and Chrome blocked at its first page load):
+# --use-mock-keychain acts on macOS, --password-store=basic on Linux; each is ignored elsewhere
+HEADLESS = ("--headless=new", "--disable-gpu", "--hide-scrollbars", "--blink-settings=preferredColorScheme=0", "--password-store=basic",
+            "--use-mock-keychain")
 
 
 EXTRA_FLAGS: list = []  # 3.3.9.0 R3: a driver's own flags (the voice driver's fake microphone), set in its process only

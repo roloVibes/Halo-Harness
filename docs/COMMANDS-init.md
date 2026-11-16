@@ -129,8 +129,9 @@ halo init --help
 ```
 ```
 usage: halo init [-h] [--provider {databricks,openrouter,anthropic}]
-                 [--preset {home,work}] [--model REF] [--yes] [--no-live]
-                 [--no-fixes] [--team PATH|URL] [--step STEP] [--terminal]
+                 [--preset {home,work}] [--model REF] [--yes] [--replace-key]
+                 [--no-live] [--no-fixes] [--team PATH|URL] [--step STEP]
+                 [--terminal]
                  [--timings] [--no-launch]
 
 Set up halo. On a terminal it opens Halo Studio on its Setup section
@@ -153,6 +154,8 @@ options:
                         work=databricks
   --model REF           override the provider's own default model
   --yes                 accept every default without prompting
+  --replace-key         ask for the provider's key (or token) again even when one
+                        is set: replaces a key the provider refuses
   --no-live             skip the catalog refresh and the live pong
   --no-fixes            skip the Linux rg/PATH fixes step
   --team PATH|URL       a team.json preset (host/default model/gateway
@@ -179,6 +182,7 @@ options:
 | `--preset {home,work}` | **deprecated**: a one-line-noticed alias for `--provider openrouter\|databricks` respectively -- kept so existing scripts/docs using it verbatim keep working | -- |
 | `--model REF` | writes `~/.halo/config.json`'s `model` key, skipping that provider's own model picker entirely | the provider's own default (`or:deepseek/deepseek-v4.1-flash` / `dbx:databricks-deepseek-v4-1-flash` / `ant:sonnet`) |
 | `--yes` | -- | off (interactive prompts; also skips every provider's own model picker) |
+| `--replace-key` | asks for the provider's key again (the OpenRouter key, the Databricks token, the Anthropic key) and writes the new one to the env file, even when one is already set; without it a key already set is kept and the line says `not changed (--replace-key asks for a new one)`. When the live pong is refused (HTTP 401/403), init's last line names `halo init --provider <name> --replace-key` | off: a key already set is kept |
 | `--no-live` | skips `models --refresh` and the live pong | off |
 | `--no-fixes` | skips the `rg`/PATH steps (Linux) | off |
 | `--team PATH\|URL` | reads a `team.json`-shaped file/URL (see `docs/DATABRICKS.md`); Databricks only | `.halo/team.json`, then `~/.halo/team.json` |

@@ -85,6 +85,10 @@ def test_headless_flags_hold_no_sandbox_only_for_root(ctx: Ctx):
     ctx.check(f"a normal user: HEADLESS as it is, got {got_user}", got_user == HEADLESS and "--no-sandbox" not in got_user)
     ctx.check(f"no geteuid (Windows): HEADLESS as it is, got {got_windows}", got_windows == HEADLESS)
     ctx.check("HEADLESS itself never holds it", "--no-sandbox" not in HEADLESS)
+    # fx jb3 (macOS CI: the one Chrome test with a scratch HOME timed out at its first page load, twice): a home with no
+    # login keychain blocks Chrome's cookie encryption on macOS; --password-store=basic only acts on Linux
+    ctx.check(f"macOS: the mock keychain; Linux: the basic password store (each ignored elsewhere), got {HEADLESS}",
+              "--use-mock-keychain" in HEADLESS and "--password-store=basic" in HEADLESS)
 
 
 @test

@@ -162,6 +162,8 @@ def open_url(url: str) -> bool:
     launcher that breaks away from any Job object this process is in (a browser that starts now outlives Halo).
     True when a browser took it. A replaced `webbrowser.open` (a test's) is called as it is."""
     import webbrowser
+    if stop_asked():  # fx jb3: no browser starts once this process is closing
+        return False
     stubbed = getattr(webbrowser.open, "__module__", "webbrowser") != "webbrowser"
     from halo_harness.studio import setup_door  # fx studio: never over SSH / with no display / HALO_NO_BROWSER, never lynx
     if not stubbed and setup_door.no_browser_reason():
@@ -183,6 +185,11 @@ def open_url(url: str) -> bool:
             return bool(webbrowser.open(url) if stubbed else setup_door.open_in_a_window(url))
     except Exception:
         return False
+
+
+def stop_asked() -> bool:
+    """fx jb3: this process is closing (the procedure ran, its owner went, or a bounded exit is under way)."""
+    return bool(_STATE.get("closed") or _STATE.get("owner_gone") or _STATE.get("hard_exit") is not None)
 
 
 def _chosen_browsers(url: str, value: Optional[str] = None) -> list:
@@ -1202,4 +1209,4 @@ def install(*, sweep_at_start: bool = True) -> None:
 
 
 def reset_for_tests() -> None:
-    _STATE.update(installed=False, closed=False, spawned=False, callbacks=[], owner_gone=False)
+    _STATE.update(installed=False, closed=False, spawned=False, callbacks=[], owner_gone=False, hard_exit=None)

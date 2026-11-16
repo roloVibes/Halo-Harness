@@ -140,16 +140,52 @@ def open_in_a_window(url: str, *, env: "Optional[dict]" = None, platform: Option
         wb.get()  # registers the standard browsers once
     except wb.Error:
         return False
-    named = {c.strip().lower() for c in (env.get("BROWSER") or "").split(os.pathsep) if c.strip()}
+    entries = [c.strip() for c in (env.get("BROWSER") or "").split(os.pathsep) if c.strip()]
+    named = {c.lower() for c in entries}
     order = getattr(wb, "_tryorder", None)  # Python's own try order (webbrowser.open walks it the same way)
-    for name in (list(order) if isinstance(order, list) else [None]):
+    names = list(order) if isinstance(order, list) else [None]
+    if named:  # fx jb3: BROWSER named programs: only those, never another browser in their place (closing.open_url)
+        names = [n for n in names if str(n).lower() in named] or entries
+    posix = (sys.platform if platform is None else platform) != "win32"
+    from halo_harness import closing
+    for name in names:
+        if closing.stop_asked():  # fx jb3: Studio closed before its browser opened: no browser after a stop
+            return False
         try:
-            browser = wb.get(name)
-            if (str(name).lower() in named or not _in_the_terminal(browser, wb)) and browser.open(url):
+            try:
+                browser = wb.get(name)
+            except wb.Error:
+                if not named:
+                    raise
+                browser = wb.GenericBrowser(name)  # a named program webbrowser never registered (BROWSER set late)
+            if not (named or not _in_the_terminal(browser, wb)):
+                continue
+            if posix and type(browser) is wb.GenericBrowser and not _a_text_browser(browser):
+                if _own_session(browser, url):
+                    return True
+            elif browser.open(url):
                 return True
         except Exception:
             continue
     return False
+
+
+_TEXT_BROWSERS = ("lynx", "w3m", "links", "elinks", "www-browser")
+
+
+def _a_text_browser(browser) -> bool:
+    return os.path.basename(str(getattr(browser, "name", ""))).lower() in _TEXT_BROWSERS
+
+
+def _own_session(browser, url: str) -> bool:
+    """fx jb3: a program BROWSER names, run as Python's GenericBrowser runs it (its args, %s the URL, True when it
+    exits 0) but in its own session: the terminal's Ctrl+C never reaches it, and it carries no Halo marker."""
+    from halo_harness import closing
+    from halo_harness import subprocess_safe as sp
+    cmd = [browser.name] + [str(a).replace("%s", url) for a in (getattr(browser, "args", None) or ["%s"])]
+    with closing.without_marker():
+        proc = sp.Popen(cmd, close_fds=True, start_new_session=True, env=closing.scrubbed_env())
+    return proc.wait() == 0
 
 
 def _state_dir() -> Path:

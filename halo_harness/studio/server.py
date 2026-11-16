@@ -487,6 +487,7 @@ def cmd_studio(argv: list) -> int:
     print("Ctrl+C stops it (from another shell: halo studio --stop).", flush=True)
     timings.phase("address printed")
     timings.watch(lambda: server.socket.fileno() != -1)
+    opener = None
     if not args.no_open:
         try:
             from halo_harness.studio.launch import _open  # 3.6.0.0 R10: the browser carries no Halo marker
@@ -506,6 +507,8 @@ def cmd_studio(argv: list) -> int:
     except KeyboardInterrupt:
         print("\nstudio stopped")
     finally:
+        if opener is not None:  # fx jb3: a Ctrl+C before the browser opened: it never opens
+            opener.cancel()
         say_goodbye(server)
         end_sessions_here()
         server.server_close()

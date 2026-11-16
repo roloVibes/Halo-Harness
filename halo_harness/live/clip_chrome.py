@@ -56,6 +56,7 @@ class Chrome:
         use_pipe = pipe_ok() if pipe is None else pipe
         self.argv = ([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
                       "--no-default-browser-check", f"--user-data-dir={self.profile}",
+                      "--use-mock-keychain", "--password-store=basic",  # fx jb3: a throwaway profile, never the keychain
                       "--remote-debugging-pipe" if use_pipe else "--remote-debugging-port=0",
                       f"--window-size={width},{height}", "about:blank"] + (["--no-sandbox"] if root else []))
         try:

@@ -17,7 +17,9 @@ this list against the tree.
 - the server and the shell: `studio/server.py` (the loopback server, the
   token, the CSP), `studio/api.py` (the JSON routes and their dispatch),
   `studio/raw_body.py` (a route that answers with bytes), `studio/launch.py`
-  (start, find and stop Studio's own process), `studio/model.py` (what Studio
+  (start, find and stop Studio's own process), `studio/open_link.py` (the
+  one-time link a browser Halo starts on Linux is given in place of the Studio
+  key, and Studio's single answer to it), `studio/model.py` (what Studio
   shows, built from the wizard's and the CLI's functions)
 - the live feed: `studio/events.py` (the registry watcher), `studio/events_sse.py`
   (`GET /api/events`), `studio/feed_kinds.py` (the frame kinds it asks for)

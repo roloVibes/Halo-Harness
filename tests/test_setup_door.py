@@ -123,6 +123,105 @@ def test_a_text_browser_never_takes_the_terminal(ctx: Ctx):
 
 
 @test
+def test_a_browser_named_in_BROWSER_is_never_replaced(ctx: Ctx):
+    """fx jb3 (realcheck, macOS installed, studio / Ctrl+C: Safari and 16 helpers left running): BROWSER names a
+    program and it does not take the address (it exits non-zero, or a Ctrl+C killed it): Halo answers False and
+    never walks on to the system's browser in its place (closing.open_url's Windows rule, now on every system)."""
+    import webbrowser as W
+    from halo_harness.studio import setup_door as D
+    opened: list = []
+    reg = {"standin": W.GenericBrowser("standin"), "MacOSX": W.BackgroundBrowser("open"),
+           "xdg-open": W.BackgroundBrowser("xdg-open")}
+    url = "http://127.0.0.1:9/?mode=setup"
+    real = D._own_session
+    try:
+        D._own_session = lambda b, u: opened.append((b.name, u)) and False  # the named program fails
+        for plat, system in (("darwin", "MacOSX"), ("linux", "xdg-open")):
+            opened.clear()
+            fake = _fake_webbrowser(["standin", system], opened, registry=reg)
+            ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "BROWSER": "standin"}, platform=plat, wb=fake)
+            ctx.check(f"{plat}: the named program failed: False, the system's browser never asked, got {ok} {opened}",
+                      ok is False and [n for n, _u in opened] == ["standin"])
+            opened.clear()
+            fake = _fake_webbrowser([system], opened, registry=reg)  # BROWSER not in the try order (read before it was set)
+            ok = D.open_in_a_window(url, env={"DISPLAY": ":0", "BROWSER": "standin"}, platform=plat, wb=fake)
+            ctx.check(f"{plat}: a named program webbrowser never registered is still the only one, got {ok} {opened}",
+                      ok is False and system not in [n for n, _u in opened])
+        D._own_session = lambda b, u: opened.append((b.name, u)) or True
+        opened.clear()
+        fake = _fake_webbrowser(["standin", "MacOSX"], opened, registry=reg)
+        ok = D.open_in_a_window(url, env={"BROWSER": "standin"}, platform="darwin", wb=fake)
+        ctx.check(f"the named program took it: True, nothing else, got {ok} {opened}", ok is True and opened == [("standin", url)])
+        opened.clear()
+        fake = _fake_webbrowser(["MacOSX"], opened, registry=reg)
+        ok = D.open_in_a_window(url, env={}, platform="darwin", wb=fake)
+        ctx.check(f"no BROWSER: the system's browser as before, got {ok} {opened}", ok is True and opened == [("MacOSX", url)])
+    finally:
+        D._own_session = real
+
+
+@test
+def test_no_browser_opens_once_a_stop_was_asked(ctx: Ctx):
+    """fx jb3: Studio's browser opens 0.3 s after its address prints; a Ctrl+C (or SIGTERM, an owner gone) in between
+    closes Studio, and nothing may start a browser after that."""
+    import webbrowser as W
+    from halo_harness import closing
+    from halo_harness.studio import setup_door as D
+    opened: list = []
+    reg = {"xdg-open": W.BackgroundBrowser("xdg-open")}
+    url = "http://127.0.0.1:9/?mode=setup"
+    saved = {k: closing._STATE.get(k) for k in ("closed", "owner_gone", "hard_exit")}
+    try:
+        for key, value in (("closed", True), ("owner_gone", True), ("hard_exit", 0)):
+            closing._STATE.update(closed=False, owner_gone=False, hard_exit=None)
+            closing._STATE[key] = value
+            fake = _fake_webbrowser(["xdg-open"], opened, registry=reg)
+            ok = D.open_in_a_window(url, env={"DISPLAY": ":0"}, platform="linux", wb=fake)
+            ctx.check(f"{key}: no browser, False, got {ok} {opened}", ok is False and opened == [])
+            ctx.check(f"{key}: closing.open_url answers False", closing.open_url(url) is False)
+        closing._STATE.update(closed=False, owner_gone=False, hard_exit=None)
+        fake = _fake_webbrowser(["xdg-open"], opened, registry=reg)
+        ok = D.open_in_a_window(url, env={"DISPLAY": ":0"}, platform="linux", wb=fake)
+        ctx.check(f"no stop asked: the browser opens, got {ok} {opened}", ok is True and len(opened) == 1)
+    finally:
+        closing._STATE.update(saved)
+    src = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "server.py").read_text(encoding="utf-8")
+    ctx.check("halo studio's finally cancels the browser timer that has not fired yet", "opener.cancel()" in src)
+
+
+@test
+def test_a_browser_named_in_BROWSER_runs_in_its_own_session(ctx: Ctx):
+    """fx jb3, Linux and macOS, the real webbrowser module in a child: BROWSER names a program (Python runs it as a
+    GenericBrowser, in the caller's process group, where the terminal's Ctrl+C reaches it); Halo starts it in its own
+    session instead, with the address, and no Halo marker."""
+    if os.name == "nt":
+        ctx.check("POSIX only (Windows starts BROWSER through closing.open_url's own branch)", True)
+        return
+    import subprocess as sp
+    import tempfile
+    root = Path(tempfile.mkdtemp(prefix="halo-browser-session-"))
+    log, standin = root / "standin.txt", root / "standin"
+    standin.write_text(f"#!{sys.executable}\nimport os, sys\nopen({str(log)!r}, 'w').write("
+                       f"f'{{os.getsid(0)}} {{os.getpgid(0)}} {{os.environ.get(\"HALO_OWNER\", \"\")}} {{sys.argv[1]}}')\n")
+    standin.chmod(0o755)
+    code = ("import os, sys; sys.path.insert(0, sys.argv[1]); from halo_harness.closing import open_url;"
+            "ok = open_url('http://127.0.0.1:9/?mode=setup'); print(ok, os.getsid(0), os.getpgid(0))")
+    tree = str(Path(__file__).resolve().parent.parent)
+    env = {k: v for k, v in os.environ.items() if k not in ("SSH_CONNECTION", "SSH_TTY", "HALO_NO_BROWSER")}
+    env.update(PATH=str(root), BROWSER=str(standin), DISPLAY=":0", HALO_OWNER="test-marker")
+    try:
+        out = sp.run([sys.executable, "-c", code, tree], env=env, capture_output=True, text=True, timeout=30).stdout.split()
+    except sp.TimeoutExpired:
+        out = []
+    got = log.read_text().split() if log.exists() else []
+    ctx.check(f"the named program took the address, got {out} {got}", out[:1] == ["True"] and len(got) >= 3
+              and got[-1].startswith("http://127.0.0.1:9/"))
+    ctx.check(f"its own session and process group (not the caller's), got caller {out[1:]} browser {got[:2]}",
+              len(out) == 3 and len(got) >= 3 and got[0] != out[1] and got[1] != out[2])
+    ctx.check(f"it carries no Halo marker, got {got}", len(got) == 3)
+
+
+@test
 def test_a_text_browser_on_the_path_is_never_run(ctx: Ctx):
     """fx studio batch 1 (2), Linux, the real webbrowser module in a child: lynx on PATH, TERM set. Over SSH and with
     a display but no window browser, `closing.open_url` answers False at once and lynx never runs; with xdg-open on
