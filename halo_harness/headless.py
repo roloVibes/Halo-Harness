@@ -1026,6 +1026,10 @@ def build_session(
                     model_raw = last_model_raw
     if model_raw is None:
         model_raw = resolve_default_model_raw(routes, env=settings.effective_env)
+        from halo_harness.model import no_default_model_line  # fx studio pass 2: say what is missing, not "OpenRouter"
+        _no_model = no_default_model_line(model_raw, routes)
+        if _no_model and _resolve_creds(parse_model_ref(model_raw, routes), settings) is None:
+            print(_no_model, file=sys.stderr)
     model_ref = parse_model_ref(model_raw, routes)
     if model_ref.provider == "databricks":
         # Halo 2.0.2 round 5 (Qwen-at-work brief, item 1): a decision-only/

@@ -66,11 +66,27 @@ def _prompt_secret(label: str) -> str:
     if sys.stdin.isatty():
         import getpass
         try:
-            return getpass.getpass(f"{label}: ")
-        except (EOFError, KeyboardInterrupt):
+            return pasted_value(getpass.getpass(f"{label}: "))
+        except EOFError:  # Ctrl+C is cmd_init's: it stops init (fx studio pass 2)
             return ""
     line = sys.stdin.readline()
-    return (line or "").rstrip("\r\n")
+    return pasted_value(line)
+
+
+_PASTED_NAME = re.compile(r"^(?:export\s+)?[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\s*=\s*")
+
+
+def pasted_value(value) -> str:
+    """A secret as pasted: the whitespace, a leading `NAME=` / `export NAME=` (a line copied from an env file or a
+    shell) and the quotes around it come off, so `OPENROUTER_API_KEY="sk-..."` stores `sk-...` (fx studio pass 2: it
+    was stored whole and every call failed with 401). A value is never cut to nothing."""
+    v = (value or "").strip()
+    m = _PASTED_NAME.match(v)
+    if m and v[m.end():].strip():
+        v = v[m.end():].strip()
+    if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+        v = v[1:-1].strip()
+    return v
 
 
 def _prompt_plain(label: str) -> str:
@@ -90,7 +106,7 @@ def _confirm(args, console: Console, question: str, *, default: bool) -> bool:
         return default
     try:
         return Confirm.ask(question, default=default)
-    except (EOFError, KeyboardInterrupt):
+    except EOFError:  # Ctrl+C is cmd_init's: it stops init, never "the default answer" (fx studio pass 2)
         return default
 
 
@@ -201,8 +217,9 @@ def _step_select_provider(args, console: Console, *, header: str) -> Optional[st
 def _ensure_openrouter_key(args, console: Console) -> Optional[Path]:
     from halo_harness.providers.config import redact, resolve_openrouter
     existing = resolve_openrouter()
-    if existing is not None:
-        console.print(f"   [OK] OpenRouter key: already configured ({redact(existing.api_key)}) -- not changed.")
+    if existing is not None and not getattr(args, "replace_key", False):
+        console.print(f"   [OK] OpenRouter key: already configured ({redact(existing.api_key)}) -- not changed "
+                      f"(--replace-key asks for a new one).")
         return None
     if args.yes and sys.stdin.isatty():
         console.print("   [WARN] OpenRouter key not found, and --yes skips the prompt -- "
@@ -270,10 +287,10 @@ def _load_team_config(args, console: Console) -> Optional[dict]:
 def _ensure_databricks_creds(args, console: Console) -> Optional[Path]:
     from halo_harness.providers.config import databricks_work_env_active, redact, resolve_databricks
     existing = resolve_databricks()
-    if existing is not None:
+    if existing is not None and not getattr(args, "replace_key", False):
         source = "Claude Code's settings" if databricks_work_env_active() else "existing config"
         console.print(f"   [OK] Databricks: already configured via {source} (host={existing.host}, "
-                       f"token={redact(existing.token)}) -- not changed.")
+                       f"token={redact(existing.token)}) -- not changed (--replace-key asks for a new token).")
         return None
 
     # H14 scope I: "the team just inserts their databricks token and
@@ -335,7 +352,7 @@ def _ensure_databricks_creds(args, console: Console) -> Optional[Path]:
         return None
     console.print("   Databricks host/token not found (checked env, team.json, ~/.databrickscfg, "
                    "ucode-settings.json).")
-    host = _prompt_plain("   DATABRICKS_HOST (e.g. https://your-workspace.cloud.databricks.com)")
+    host = pasted_value(_prompt_plain("   DATABRICKS_HOST (e.g. https://your-workspace.cloud.databricks.com)"))
     if not host:
         console.print("   [WARN] no host entered -- Databricks will not be configured yet.")
         return None
@@ -358,8 +375,9 @@ def _ensure_anthropic_key(args, console: Console) -> Optional[Path]:
     `init` at all (the old home/work/claude presets had no slot for it)."""
     from halo_harness.providers.config import redact, resolve_anthropic
     existing = resolve_anthropic()
-    if existing is not None:
-        console.print(f"   [OK] Anthropic API key: already configured ({redact(existing.api_key)}) -- not changed.")
+    if existing is not None and not getattr(args, "replace_key", False):
+        console.print(f"   [OK] Anthropic API key: already configured ({redact(existing.api_key)}) -- not changed "
+                      f"(--replace-key asks for a new one).")
         return None
     if args.yes and sys.stdin.isatty():
         console.print("   [WARN] ANTHROPIC_API_KEY not found, and --yes skips the prompt -- "
@@ -806,11 +824,13 @@ def _run_live_pong(model_raw: str, cwd: Path) -> "tuple[bool, str]":
     return True, line
 
 
-def _step_live_pong(model_raw: str, cwd: Path, console: Console) -> bool:
+def _step_live_pong(model_raw: str, cwd: Path, console: Console, provider: str = "") -> bool:
     console.print(f"Live pong ({model_raw}):")
     ok, line = _run_live_pong(model_raw, cwd)
     console.print(f"   {'[OK]' if ok else '[WARN]'} {line}")
-    if not ok:
+    if not ok and provider and re.search(r"HTTP 40[13]\b|credentials", line, re.I):  # fx studio pass 2: a key refused
+        console.print(f"   Next: `halo init --provider {provider} --replace-key` asks for the key again.")
+    elif not ok:
         console.print("   Next: `halo doctor` explains what's missing.")
     return ok
 
@@ -954,6 +974,9 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="deprecated alias for --provider: home=openrouter, work=databricks")
     parser.add_argument("--model", default=None, metavar="REF", help="override the provider's own default model")
     parser.add_argument("--yes", action="store_true", help="accept every default without prompting")
+    parser.add_argument("--replace-key", action="store_true",
+                        help="ask for the provider's key (or token) again even when one is set: replaces a key the "
+                             "provider refuses")
     parser.add_argument("--no-live", action="store_true", help="skip the catalog refresh and the live pong")
     parser.add_argument("--no-fixes", action="store_true", help="skip the Linux rg/PATH fixes step")
     parser.add_argument("--team", default=None, metavar="PATH|URL",
@@ -1016,7 +1039,7 @@ def _run_provider_setup(provider: str, args, console: Console, cwd: Path,
     if args.no_live:
         console.print("Live pong: skipped (--no-live)")
     else:
-        pong_ok = _step_live_pong(model_ref_raw, cwd, console)
+        pong_ok = _step_live_pong(model_ref_raw, cwd, console, provider)
     return model_ref_raw, written, doctor_lines, pong_ok
 
 
@@ -1081,7 +1104,20 @@ def _wait_for_setup_done(args, console: Console, cwd: Path) -> int:
     return init_wait.run(lambda line: _say(console, line), cwd=cwd, state_dir=_state_dir())
 
 
+STOPPED_LINE = "halo init: stopped; nothing more was written."
+
+
 def cmd_init(argv: list) -> int:
+    """`halo init`. Ctrl+C at any of its prompts stops it here: one line, exit 130 (fx studio pass 2: a prompt read it
+    as "no key" or as the default answer and init went on writing config.json and running doctor)."""
+    try:
+        return _cmd_init(argv)
+    except KeyboardInterrupt:
+        print(f"\n{STOPPED_LINE}", file=sys.stderr, flush=True)
+        return 130
+
+
+def _cmd_init(argv: list) -> int:
     args = _build_parser().parse_args(argv)
     console = Console()
     if args.step:  # 3.4.0.0 B2: `halo init --step X` is `halo setup X`

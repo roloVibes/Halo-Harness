@@ -403,6 +403,109 @@ def test_no_live_skips_pong_and_catalog_refresh(ctx: Ctx):
     ctx.check("catalog refresh explicitly skipped", "catalog refresh skipped" in result.stdout)
 
 
+@test
+def test_a_key_pasted_with_its_name_and_quotes_is_stored_bare(ctx: Ctx):
+    """fx studio pass 2: `OPENROUTER_API_KEY="sk-or-..."` (a line copied from an env file) was stored verbatim, as
+    `OPENROUTER_API_KEY=OPENROUTER_API_KEY="sk-or-...`, and every call failed with 401. Studio's provider save too."""
+    home = _fresh_home()
+    result = _run(["init", "--provider", "openrouter", "--yes", "--no-live"], home, stdin='OPENROUTER_API_KEY="sk-or-v1-pasted"\n')
+    content = _env_file(home).read_text(encoding="utf-8") if _env_file(home).exists() else ""
+    ctx.check(f"init: the bare key, got rc {result.returncode} {content!r}", result.returncode == 0
+              and content.splitlines() == ["OPENROUTER_API_KEY=sk-or-v1-pasted"])
+    home = _fresh_home()
+    result = _run(["init", "--provider", "anthropic", "--yes", "--no-live"], home, stdin="export ANTHROPIC_API_KEY='sk-ant-pasted' \n")
+    content = _env_file(home).read_text(encoding="utf-8") if _env_file(home).exists() else ""
+    ctx.check(f"init: `export NAME='...'` too, got {content!r}", content.splitlines() == ["ANTHROPIC_API_KEY=sk-ant-pasted"])
+    home = _fresh_home()
+    code = ("from halo_harness.init_providers import save_tab_credentials as s; "
+            "print(s('openrouter', {'key': 'OPENROUTER_API_KEY=\"sk-or-v1-studio\"'})[0])")
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("BRIDGE_", "OPENROUTER_", "HALO_"))}
+    env.update({"BRIDGE_TEST_HOME": str(home), "PYTHONPATH": str(REPO_DIR)})
+    got = subprocess.run([sys.executable, "-c", code], env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=40)
+    content = _env_file(home).read_text(encoding="utf-8") if _env_file(home).exists() else ""
+    ctx.check(f"Studio's save: the bare key, got {got.stdout!r} {got.stderr[-300:]!r} {content!r}",
+              content.splitlines() == ["OPENROUTER_API_KEY=sk-or-v1-studio"])
+    from halo_harness.init_cli import pasted_value
+    ctx.check("a key is never cut to nothing, and a plain key is untouched",
+              pasted_value("ABC_DEF=") == "ABC_DEF=" and pasted_value("  sk-or-v1-x\n") == "sk-or-v1-x"
+              and pasted_value("dapi0123=") == "dapi0123=")
+
+
+@test
+def test_a_bad_key_can_be_replaced_from_the_terminal(ctx: Ctx):
+    """fx studio pass 2: a key that answers 401 stayed: re-running `halo init` said 'already configured -- not changed',
+    and the hint named `/providers` (a TUI command). `--replace-key` asks again and the 401 names it."""
+    home = _fresh_home()
+    mock = MockUpstream().start()
+    try:
+        bad = _run(["init", "--provider", "openrouter", "--yes", "--model", "or:mock/error-401"], home, stdin="sk-or-bad\n",
+                   extra_env={"BRIDGE_OPENROUTER_BASE_URL": mock.base_url})
+    finally:
+        mock.stop()
+    one = " ".join(bad.stdout.split())
+    ctx.check(f"the 401 names the way out, got {bad.returncode} {one[-500:]!r}", bad.returncode != 0
+              and "halo init --provider openrouter --replace-key" in one)
+    again = _run(["init", "--provider", "openrouter", "--yes", "--no-live"], home, stdin="sk-or-good\n")
+    ctx.check(f"without it: not changed, and it says how, got {again.stdout[-400:]!r}", "--replace-key" in again.stdout
+              and "OPENROUTER_API_KEY=sk-or-bad" in _env_file(home).read_text(encoding="utf-8"))
+    new = _run(["init", "--provider", "openrouter", "--yes", "--no-live", "--replace-key"], home, stdin="sk-or-good\n")
+    content = _env_file(home).read_text(encoding="utf-8")
+    ctx.check(f"--replace-key: the new key, once, got {new.returncode} {content!r} {new.stdout[-300:]!r}", new.returncode == 0
+              and content.splitlines() == ["OPENROUTER_API_KEY=sk-or-good"] and "sk-or-good" not in new.stdout)
+
+
+@test
+def test_a_home_with_no_default_model_says_so_instead_of_naming_openrouter(ctx: Ctx):
+    """fx studio pass 2: Setup with only an Ollama host (no model picked) ends in a home with no `model`; `halo -p`
+    then failed with 'OpenRouter not configured', a provider this person never chose. It now says what is missing."""
+    home = _fresh_home()
+    (home / ".halo").mkdir(parents=True)
+    (home / ".halo" / "config.json").write_text(json.dumps({"ollama": {"hosts": [{"name": "default", "url": "http://127.0.0.1:9",
+                                                                                  "default": True}]}}), encoding="utf-8")
+    got = _run(["-p", "hello"], home, extra_env={"OLLAMA_HOST": "http://127.0.0.1:9", "HALO_NO_UPDATER": "1"}, timeout=60)
+    err = " ".join(got.stderr.split())
+    ctx.check(f"it names the missing default model and the command that sets one, got {got.returncode} {err[-500:]!r}",
+              got.returncode != 0 and "no default model is set" in err and "halo config set model" in err and "ol:<name>" in err)
+
+
+_CTRL_C = """
+import sys, getpass, rich.prompt
+class Tty:
+    def isatty(self): return True
+    def readline(self): return sys.__stdin__.readline()
+    def __getattr__(self, name): return getattr(sys.__stdin__, name)
+sys.stdin = Tty()
+def stop(*_a, **_k): raise KeyboardInterrupt
+where = sys.argv[1]
+getpass.getpass = stop if where == "key" else (lambda *_a, **_k: "sk-or-v1-typed")
+if where == "confirm":
+    rich.prompt.Confirm.ask = classmethod(lambda cls, *_a, **_k: stop())
+from halo_harness.init_cli import cmd_init
+sys.exit(cmd_init(["--terminal", "--no-live", "--no-fixes", "--provider", "openrouter"]))
+"""
+
+
+@test
+def test_ctrl_c_at_a_terminal_prompt_stops_init(ctx: Ctx):
+    """fx studio pass 2: Ctrl+C at the key prompt was read as 'no key' and init went on to write config.json; at a
+    yes/no prompt it was read as the default answer (doctor ran). Ctrl+C now stops init: one line, exit 130."""
+    for where in ("key", "confirm"):
+        home = _fresh_home()
+        env = {k: v for k, v in os.environ.items() if not k.startswith(("BRIDGE_", "OPENROUTER_", "DATABRICKS_", "ANTHROPIC_", "HALO_"))}
+        env.update({"BRIDGE_TEST_HOME": str(home), "PYTHONPATH": str(REPO_DIR), "BRIDGE_TEST_CC_AUTH_STATUS": _NOT_LOGGED_IN})
+        got = subprocess.run([sys.executable, "-c", _CTRL_C, where], env=env, cwd=str(REPO_DIR), capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", input="", timeout=60)
+        out = got.stdout + got.stderr
+        ctx.check(f"{where}: exit 130 and the one line, no traceback, got {got.returncode} {out[-600:]!r}", got.returncode == 130
+                  and "halo init: stopped" in out and "Traceback" not in out)
+        if where == "key":
+            ctx.check(f"key: nothing written after it, got {list((home / '.halo').glob('*')) if (home / '.halo').exists() else []}",
+                      not (home / ".halo" / "config.json").exists() and not _env_file(home).exists())
+        else:
+            ctx.check(f"confirm: stopped at doctor's question, nothing after it ran, got {got.stdout[-400:]!r}",
+                      "Checks:" in got.stdout and "Summary:" not in got.stdout and "permission mode" not in got.stdout)
+
+
 # ---------------------------------------------------------------------------
 # Part A: wired into cli.py's help
 # ---------------------------------------------------------------------------
@@ -982,6 +1085,29 @@ def test_init_wait_ctrl_c_and_studio_gone_launch_nothing(ctx: Ctx):
               and len(gets) == 10 and "Studio closed; run `halo` when you are ready." in text)
     rc, text, rec, launched, gets, slept = _wait_init([], lambda _i: None, env={"HALO_INIT_POLL_S": "0.5"})
     ctx.check(f"HALO_INIT_POLL_S: 0.5 s polls, gone after 20, got {len(gets)} {slept[:2]}", len(gets) == 20 and slept[:2] == [0.5, 0.5])
+
+
+@test
+def test_init_summary_reads_this_home_when_setup_state_does_not_answer(ctx: Ctx):
+    """fx studio pass 2: the done-at poll's answer ({done_at} alone, 3.6.0.0 R14) is not the setup state. When the one
+    setup/state read after Done fails (a slow Studio, a Studio closing), the Summary reads this home's own state; it
+    said 'Provider: not set / Default model: not set' with a provider and a model set."""
+    from halo_harness import init_wait as W
+    from halo_harness.studio.setup_done import now_iso
+    saved = (W.http_get, W.sleep, W.launch_halo, W.studio_info, W._local_state)
+    said: list = []
+    W.http_get = lambda _sd, path, timeout=5.0: {"done_at": now_iso()} if path == "setup/done-at" else None
+    W.sleep = lambda _s: None
+    W.launch_halo = lambda _cwd, _studio=None: 0
+    W.studio_info = lambda _sd: None
+    W._local_state = lambda _cwd, _sd: dict(_DONE_STATE)
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            rc = W.run(said.append, cwd=Path(d), state_dir=Path(d), poll_s=0.0, deadline=5)
+    finally:
+        W.http_get, W.sleep, W.launch_halo, W.studio_info, W._local_state = saved
+    ctx.check(f"the Summary is this home's state, got {rc} {said}", rc == 0 and "Provider: openrouter" in said
+              and "Default model: or:mock/alpha" in said and "Lineup: auto (default)" in said)
 
 
 @test

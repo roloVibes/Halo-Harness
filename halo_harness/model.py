@@ -167,6 +167,24 @@ def resolve_default_model_raw(routes: Optional[dict] = None, env: Optional[dict]
     return DEFAULT_MODEL_REF
 
 
+NO_DEFAULT_MODEL_LINE = ("halo: no default model is set, and the built-in default {ref} needs an OpenRouter key. Pick "
+                         "one in Studio's Setup (Default model) or with `halo config set model <ref>` (a model on an "
+                         "Ollama host is ol:<name>), or set OPENROUTER_API_KEY.")
+
+
+def no_default_model_line(model_raw: str, routes: Optional[dict] = None) -> Optional[str]:
+    """fx studio pass 2: the line above when `model_raw` is the built-in default only because nothing names a model
+    (no HALO_MODEL, no routes.json default, no config.json `model`); the caller says it when that default cannot run
+    here. A Setup with only an Ollama host ended in 'OpenRouter not configured', a provider never chosen."""
+    if model_raw != DEFAULT_MODEL_REF:
+        return None
+    from halo_harness.config.paths import env_compat
+    from halo_harness.theme import get_config_value
+    if env_compat("MODEL") or (routes or {}).get("default") or get_config_value("model", default=None):
+        return None
+    return NO_DEFAULT_MODEL_LINE.format(ref=DEFAULT_MODEL_REF)
+
+
 def _cached_dbx_endpoint_names() -> "list[str]":
     """Every endpoint name in `~/.halo/dbx-endpoints.json` (best
     effort -- `[]` on any error, e.g. no cache yet, so a name-resolution

@@ -88,6 +88,16 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
   useEffect(() => {
     list.current?.querySelector("[data-hot]")?.scrollIntoView({ block: "nearest" });
   }, [hot]);
+  // the wheel scrolling the highlighted row out of the list's view takes the highlight away: Enter never picks a row the
+  // person cannot see (the keyboard's own scroll keeps its row in view, so it never ends here)
+  const onScroll = () => {
+    const el = list.current;
+    const row = el?.querySelector<HTMLElement>("[data-hot]");
+    if (!el || !row) return;
+    const b = el.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    if (r.bottom <= b.top || r.top >= b.bottom) setHot(null);
+  };
   const hotRef = hot !== null && flat.includes(hot) ? hot : undefined;
   const shown = models.find((m) => m.ref === hotRef) || models.find((m) => m.ref === value);
   const onKey = (e: KeyboardEvent) => {
@@ -135,7 +145,7 @@ export function ModelPicker({ value, onPick, forMain, needs = [], only, onlyWhat
       ) : (
         <>
           <div className="muted mono rm-count" data-testid={`${tid}-count`}>{q.trim() ? `${count} of ${models.length} models` : `${models.length} models`}</div>
-          <div ref={list} className="rm-table" role="listbox" aria-label="Models">
+          <div ref={list} className="rm-table" role="listbox" aria-label="Models" onScroll={onScroll}>
             <div className="rm-row rm-head mono" aria-hidden="true"><span>model</span><span className="rm-price">in / out</span><span className="rm-ctx">ctx</span><span>takes</span><span className="rm-gym">gym</span></div>
             {inherit && (
               <button type="button" className="rm-row mpk-special" role="option" aria-selected={!value} data-hot={hotRef === "" || undefined} tabIndex={-1}

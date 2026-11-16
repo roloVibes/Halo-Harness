@@ -477,7 +477,9 @@ def save_tab_credentials(provider: str, values: dict, *, team_cfg: Optional[dict
     a `gateway_preference`/`roles` map is applied here too, same as the
     sequential `init` flow's own `_ensure_databricks_creds`."""
     import os
-    from halo_harness.init_cli import _env_file_path, _write_env_var
+    from halo_harness.init_cli import _env_file_path, _write_env_var, pasted_value
+    # fx studio pass 2: a value pasted as `NAME="..."` (a line from an env file) is stored bare, as `halo init` does
+    values = {k: pasted_value(v) if isinstance(v, str) else v for k, v in (values or {}).items()}
     if provider == "databricks":
         from halo_harness.init_cli import _known_databricks_host
         host = (values.get("host") or "").strip() or _known_databricks_host() or _safe_team_host(team_cfg)

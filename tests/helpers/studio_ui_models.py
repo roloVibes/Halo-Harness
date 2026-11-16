@@ -132,6 +132,19 @@ def resting_pointer(c, url: str, state: Path) -> dict:
     out["rest_last"] = last
     out["rest_walked"] = walked
     out["rest_detail"] = c.js(f"{DETAIL}?.dataset.ref")
+    # fx studio pass 2: the wheel scrolls the list back up under the resting pointer, off the highlighted last row.
+    # Enter picked that row out of sight while the row under the pointer was painted like the highlight.
+    px, py = c.pointer
+    c.call("Input.dispatchMouseEvent", type="mouseWheel", x=px, y=py, deltaX=0, deltaY=-4000)
+    c.js("new Promise((r) => setTimeout(() => requestAnimationFrame(() => r(1)), 700))")
+    out["wheel"] = c.js(f"""(() => {{
+      const list = {Q}('[data-testid=\"model-select-dialog\"] [role=listbox]'), hot = {HOT}, at = document.elementFromPoint({px}, {py})?.closest('.rm-row');
+      const box = list.getBoundingClientRect(), r = hot?.getBoundingClientRect();
+      const bg = (e) => e ? getComputedStyle(e).backgroundColor : null;
+      return {{scrolled: list.scrollTop, hot: hot?.dataset.ref || null, hot_seen: !!r && r.bottom > box.top && r.top < box.bottom,
+               under: at?.dataset.ref || null, under_hot: !!at?.hasAttribute('data-hot'), under_chosen: at?.getAttribute('aria-selected') === 'true',
+               under_bg: bg(at), plain_bg: bg({ROWS}.find((e) => !e.hasAttribute('data-hot') && e.getAttribute('aria-selected') !== 'true' && e !== at))}};
+    }})()""")
     return out
 
 

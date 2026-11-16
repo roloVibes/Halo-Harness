@@ -83,6 +83,19 @@ def test_the_keyboard_walks_the_rows_under_a_resting_pointer(ctx: Ctx):
 
 
 @test
+def test_after_a_wheel_nothing_out_of_sight_is_highlighted(ctx: Ctx):
+    """fx studio pass 2 (R15 follow-up): the keyboard on the last row, then the wheel scrolls the list back up under the
+    resting pointer. Enter picked the last row, out of sight, while the row under the pointer had the highlight's fill.
+    Now a highlighted row that leaves the list's view is no longer highlighted (Enter picks nothing), and only the
+    highlighted row has the highlight's fill."""
+    w = _got(ctx).get("wheel") or {}
+    ctx.check(f"the wheel scrolled the list up, got {w}", w.get("scrolled") is not None and w.get("scrolled") < 50)
+    ctx.check(f"no highlighted row out of sight, got {w}", w.get("hot") is None or w.get("hot_seen") is True)
+    ctx.check(f"the row under the pointer is not painted as highlighted unless it is, got {w}", bool(w.get("under"))
+              and (w.get("under_hot") or w.get("under_chosen") or w.get("under_bg") == w.get("plain_bg")))
+
+
+@test
 def test_a_choice_made_early_in_the_picker_survives(ctx: Ctx):
     """3.6.0.0 R5e: a row focused, Best pressed or a filter typed while the catalog, the providers' state, the best-at
     kinds and the gym are still on their way (tests/helpers/hold_still.survives) still stands once they have all landed,

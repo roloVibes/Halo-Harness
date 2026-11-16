@@ -16,6 +16,9 @@
 .mpk[data-embedded] .rm-table { max-height: min(56vh, 520px); }
 .mpk .rm-row { min-width: 0; grid-template-columns: minmax(0, 1fr) 104px 84px minmax(0, 236px) 70px; }
 .mpk .rm-row[data-hot] { background: var(--accent-soft); outline: 1px solid var(--accent); outline-offset: -1px; }
+/* only the highlighted row looks chosen: a resting pointer's row is not painted like it (a moving pointer makes its row
+   the highlighted one) */
+.mpk .rm-row:not([data-hot]):not(.rm-head):not([aria-selected="true"]):hover { background: none; }
 .mpk .rm-row[data-dim] { opacity: .55; }
 .mpk .rm-row.mpk-special { grid-template-columns: minmax(0, 1fr) auto; }
 .mpk .rm-warn { font-size: 12px; }

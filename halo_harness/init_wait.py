@@ -209,7 +209,9 @@ def run(say: Callable[[str], None], *, cwd, state_dir, poll_s: Optional[float] =
         say(GONE_LINE)
         return 0
     fresh = http_get(state_dir, "setup/state")
-    for line in summary_lines(fresh or state or _local_state(cwd, state_dir)):
+    # a done-at poll's answer ({done_at} alone, 3.6.0.0 R14) is not the state: only a whole state stands in for it
+    polled = state if isinstance(state, dict) and "providers" in state else None
+    for line in summary_lines(fresh or polled or _local_state(cwd, state_dir)):
         say(line)
     studio = studio_info(state_dir)
     say(STARTING_LINE.format(at=f" at http://127.0.0.1:{studio['port']}/" if studio else ""))
