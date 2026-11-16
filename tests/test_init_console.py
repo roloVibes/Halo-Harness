@@ -98,9 +98,9 @@ def test_no_browser_prints_the_url_then_runs_the_console_setup(ctx: Ctx):
     os.environ.update(BRIDGE_TEST_HOME=str(home), HALO_ENV_FILE=str(home / "env"), HALO_INIT_NO_LAUNCH="1")
     os.environ.pop("OPENROUTER_API_KEY", None)
     old_stdin = sys.stdin
-    try:  # no provider this time (4: Done), so nothing reaches the network; then the permission mode (1)
+    try:  # no provider this time (5: Done; 4 is the ollama row), so nothing reaches the network; then the permission mode (1)
         with door_stubs(env={"HALO_NO_BROWSER": "1"}) as rec, fake_tty() as out, contextlib.redirect_stderr(io.StringIO()):
-            sys.stdin = io.StringIO("4\n1\n")
+            sys.stdin = io.StringIO("5\n1\n")
             sys.stdin.isatty = lambda: True  # type: ignore[method-assign]
             rc = cmd_init(["--no-fixes"])
     finally:

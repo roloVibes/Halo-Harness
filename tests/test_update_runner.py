@@ -254,9 +254,14 @@ def test_launch_uses_an_outside_python_and_never_runs_in_a_test_home(ctx: Ctx):
     got = UP.launch(plan, state_dir=state, windows=True, python=["C:/py/python.exe", "-I"],
                     popen=lambda argv, **kw: popens.append((argv, kw)) or _P())
     run_flags = popens[0][1]["creationflags"] if popens else 0
-    ctx.check(f"Windows: the updater runs with NO console (a closed window or Ctrl+C never stops it), detached from "
-              f"this halo, got {got} {popens}", got == 0 and len(popens) == 2 and run_flags & 0x08
-              and not run_flags & 0x10 and popens[0][0][0] == "C:/py/python.exe" and "--watch" not in popens[0][0])
+    # The truth: the updater shares no console with this halo (DETACHED_PROCESS, or since lifecycle's kept spawns a
+    # console of its own with no window, CREATE_NO_WINDOW), opens no window (no NEW_CONSOLE) and has its own process
+    # group, so a closed window, Ctrl+C or Ctrl+Break here never reaches it. Proved for real on Windows by
+    # test_windows_a_kept_updater_outlives_its_starters_console below.
+    ctx.check(f"Windows: the updater shares no console with this halo (a closed window or Ctrl+C never stops it), "
+              f"no window, its own process group, got {got} {popens}", got == 0 and len(popens) == 2
+              and run_flags & (0x08 | 0x08000000) and not run_flags & 0x10 and run_flags & 0x200
+              and popens[0][0][0] == "C:/py/python.exe" and "--watch" not in popens[0][0])
     ctx.check("its window is the viewer (`--watch` with the updater's pid), a console of its own",
               len(popens) == 2 and popens[1][0][-3:-1] == ["--watch", popens[0][0][-1]] and popens[1][0][-1] == "4321"
               and popens[1][1]["creationflags"] & 0x10)
@@ -271,6 +276,78 @@ def test_launch_uses_an_outside_python_and_never_runs_in_a_test_home(ctx: Ctx):
     in_venv = sys.prefix != sys.base_prefix
     ctx.check(f"the outside python is not under this environment, got {py}",
               py is None or not in_venv or not os.path.abspath(py[0]).lower().startswith(os.path.abspath(sys.prefix).lower() + os.sep))
+
+
+_STARTER = r'''
+import ctypes, json, os, subprocess, sys, time
+sys.path.insert(0, sys.argv[1])
+from halo_harness import closing
+from halo_harness import subprocess_safe as sp
+# update_plan.launch's own request, through the same kept_kwargs
+detached = getattr(subprocess, "DETACHED_PROCESS", 0x08) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200)
+kw = closing.kept_kwargs({"creationflags": detached, "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+                          "stderr": subprocess.DEVNULL})
+child = sp.Popen([sys.executable, "-c", "import time; time.sleep(40)"], **kw)
+k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+arr = (ctypes.c_uint32 * 256)()
+n = k32.GetConsoleProcessList(arr, 256)
+with open(sys.argv[2], "w", encoding="utf-8") as f:
+    json.dump({"child": child.pid, "flags": kw["creationflags"], "console": list(arr[:min(n, 256)]),
+               "me": os.getpid()}, f)
+try:  # Ctrl+C, then Ctrl+Break, to every process on this (windowless) console of the starter's
+    k32.GenerateConsoleCtrlEvent(0, 0)
+    time.sleep(3)
+except KeyboardInterrupt:
+    pass
+k32.GenerateConsoleCtrlEvent(1, 0)
+time.sleep(20)
+'''
+
+
+@test
+def test_windows_a_kept_updater_outlives_its_starters_console(ctx: Ctx):
+    """lifecycle's kept spawn gives the updater a console of its own with no window (CREATE_NO_WINDOW), no longer
+    DETACHED_PROCESS. The truth the flag guarded: nothing that happens to the console of the halo that started it
+    (Ctrl+C, Ctrl+Break, the window closing) reaches the updater. A stand-in starter with a console of its own starts
+    a stand-in updater through update_plan's kept_kwargs, sends Ctrl+C and Ctrl+Break to its whole console and ends;
+    the updater is not on that console and is still running."""
+    if os.name != "nt":
+        ctx.check("Windows only (POSIX: start_new_session, tested by the closing suites)", True)
+        return
+    from halo_harness.bg_run import pid_alive
+    folder = Path(tempfile.mkdtemp(prefix="r13-kept-"))
+    script, out = folder / "starter.py", folder / "starter.json"
+    script.write_text(_STARTER, encoding="utf-8")
+    repo = str(Path(__file__).resolve().parent.parent)
+    starter = subprocess.Popen([sys.executable, str(script), repo, str(out)], creationflags=0x08000000,
+                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    info = {}
+    try:
+        try:
+            starter.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            pass
+        ended = starter.poll() is not None
+        try:
+            info = json.loads(out.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            info = {}
+        child = int(info.get("child") or 0)
+        ctx.check(f"the starter wrote what it saw, got {info}", child > 0)
+        ctx.check(f"the starter's own Ctrl+C / Ctrl+Break ended it (the events were delivered), got ended={ended}", ended)
+        ctx.check(f"the updater is on no console of the starter's, got {info}",
+                  child > 0 and child not in info.get("console", []) and info.get("me") in info.get("console", []))
+        ctx.check(f"no window and its own process group, got flags {info.get('flags')}",
+                  not int(info.get("flags") or 0) & 0x10 and int(info.get("flags") or 0) & 0x200)
+        time.sleep(1)
+        ctx.check("the updater is still running after its starter's console got Ctrl+C, Ctrl+Break and closed",
+                  child > 0 and pid_alive(child))
+    finally:
+        if starter.poll() is None:
+            starter.kill()
+        child = int(info.get("child") or 0)
+        if child > 0 and pid_alive(child):  # the stand-in this test started: by its pid, with its tree
+            subprocess.run(["taskkill", "/PID", str(child), "/T", "/F"], capture_output=True, timeout=15)
 
 
 @test
