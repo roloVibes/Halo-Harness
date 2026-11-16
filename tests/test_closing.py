@@ -483,6 +483,19 @@ def test_a_grandchild_ends_with_its_owner(ctx: Ctx):
     _run_ways(ctx, "grandchild")
 
 
+def _studio_we_started(info: dict, popen_pid: int, parent_of) -> bool:
+    """studio.json names the Studio this test started: its pid is Popen's, or Popen's pid is its parent (fx jb13: a
+    Windows virtual environment's python.exe is a launcher that runs the base interpreter as its child, so the Studio
+    that writes studio.json is the launcher's child, never the pid Popen returned)."""
+    pid = info.get("pid")
+    return isinstance(pid, int) and (pid == popen_pid or parent_of(pid) == popen_pid)
+
+
+def _parent_of(pid: int):
+    from halo_harness import closing
+    return closing._parent(pid, {})
+
+
 def _root_studio(home: Path, extra_env: "dict | None" = None):
     from halo_harness.selfexec import python_argv
     env = dict(_env(home), **(extra_env or {}))
@@ -495,22 +508,51 @@ def _root_studio(home: Path, extra_env: "dict | None" = None):
     while time.time() < deadline:
         try:
             info = json.loads(info_path.read_text(encoding="utf-8"))
-            if info.get("pid") == proc.pid:
+            if _studio_we_started(info, proc.pid, _parent_of):
                 return proc, info
         except (OSError, ValueError):
             pass
         if proc.poll() is not None:
             break
         time.sleep(0.1)
+    _stop_popen_tree(proc)  # fx jb13: a Studio that never matched is not left running behind the failure
     raise AssertionError(f"halo studio did not write studio.json (exit {proc.poll()})")
 
 
-def _stop_root_studio(proc, info: dict) -> None:
-    _end_tree_we_started(proc.pid, info.get("pstart"))
+def _stop_popen_tree(proc) -> None:
+    """The process this test's Popen started and its children (a venv launcher's interpreter): Popen still holds its
+    handle, so the pid cannot have been reused."""
+    if proc.poll() is None:
+        try:
+            if WIN:
+                subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, timeout=15)
+            else:
+                proc.kill()
+        except (OSError, subprocess.SubprocessError):
+            pass
     try:
         proc.wait(timeout=15)
     except Exception:
         pass
+
+
+def _stop_root_studio(proc, info: dict) -> None:
+    _end_tree_we_started(info.get("pid"), info.get("pstart"))  # the Studio itself (a venv launcher's child, fx jb13)
+    _stop_popen_tree(proc)
+
+
+@test
+def test_a_studio_behind_a_venv_launcher_is_found_by_its_parent(ctx: Ctx):
+    """fx jb13 (CI, Windows, the venv's python): four tests waited 90 s for studio.json to name Popen's pid, while the
+    Studio that wrote it was the launcher's child. Fed a launcher/child pair, studio.json is the one this test
+    started; a Studio of someone else (another parent) is not; a direct start (no launcher) still matches."""
+    parents = {5002: 5001, 6002: 6001}
+    ctx.check("through a launcher: studio.json's pid is Popen's child",
+              _studio_we_started({"pid": 5002}, 5001, parents.get))
+    ctx.check("no launcher: studio.json's pid is Popen's", _studio_we_started({"pid": 5001}, 5001, parents.get))
+    ctx.check("another launcher's Studio is not ours", not _studio_we_started({"pid": 6002}, 5001, parents.get))
+    ctx.check("no pid recorded is not ours", not _studio_we_started({}, 5001, parents.get))
+    ctx.check("this process's own parent is found", _parent_of(os.getpid()) == os.getppid())
 
 
 @test

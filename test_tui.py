@@ -2155,22 +2155,42 @@ def test_force_quit_uses_its_own_flag_independent_of_quitting(ctx: Ctx):
         fake = FakeController()
         app = await _mounted(fake)
         async with app.run_test(size=(100, 40)) as pilot:
-            worker_calls = []
-            app.run_worker = lambda fn, **kw: worker_calls.append(kw.get("name"))
+            import threading as threading_mod
+            # fx jb13: the force quit runs on a thread of its own (fx jb12), not a pool worker, so this
+            # pins what happens: its body runs, off the event loop, and the app exits. The real
+            # `_force_quit_worker` is stood in for (its os._exit timer must never fire in this process).
+            ran: list = []
+            ran_event = threading_mod.Event()
+            loop_thread = threading_mod.current_thread()
+
+            def _stand_in() -> None:
+                ran.append(threading_mod.current_thread())
+                app.call_from_thread(app.exit, return_code=0)
+                ran_event.set()
+
+            app._force_quit_worker = _stand_in
             # Simulate double-Ctrl+C already having started (and being
             # stuck in) the ordinary quit path -- exactly the moment Ctrl+Q
             # exists to rescue.
             app._quitting = True
             ctx.check("_force_quitting starts False", app._force_quitting is False)
             app.action_force_quit()
-            ctx.check(f"a SEPARATE force-quit worker was scheduled despite _quitting already being True "
-                      f"(the old shared flag made this a no-op), got {worker_calls}",
-                      worker_calls == ["force-quit"])
             ctx.check("its own flag is now set", app._force_quitting is True)
-            worker_calls.clear()
-            app.action_force_quit()
-            ctx.check("a SECOND Ctrl+Q while already force-quitting is a no-op (its OWN flag guards it)",
-                      worker_calls == [])
+            app.action_force_quit()  # a SECOND Ctrl+Q while already force-quitting
+            for _ in range(50):
+                if ran_event.is_set():
+                    break
+                await pilot.pause(0.05)
+            ctx.check(f"the force quit ran despite _quitting already being True "
+                      f"(the old shared flag made this a no-op), and only once: {len(ran)} run(s)",
+                      len(ran) == 1)
+            ctx.check(f"it ran on a thread of its own, not the app's loop, got {ran}",
+                      bool(ran) and ran[0] is not loop_thread)
+            for _ in range(50):
+                if not app.is_running:
+                    break
+                await pilot.pause(0.05)
+        ctx.check(f"the app exited with return_code 0, got {app.return_code}", app.return_code == 0)
     asyncio.run(body())
 
 
