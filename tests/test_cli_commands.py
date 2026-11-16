@@ -166,6 +166,10 @@ def test_a_mistyped_command_says_did_you_mean_and_starts_no_session(ctx: Ctx):
     from halo_harness import cli
     ctx.check("a word close to no command is left alone (a prompt)", cli._near_miss_command(["hello"]) is None)
     ctx.check("a sentence prompt is left alone", cli._near_miss_command(["fix the docter page"]) is None)
+    # Batch-1 check: an ordinary word two edits off a command, or one that starts with another letter, is a prompt
+    # (`lint` is not `init`, `port` is not `report`, `post` is not `host`, `start`/`stash` are not `stats`).
+    for word in ("lint", "port", "post", "start", "stash", "hello"):
+        ctx.check(f"`halo {word}` is left alone (a prompt)", cli._near_miss_command([word]) is None)
 
 
 if __name__ == "__main__":

@@ -481,8 +481,19 @@ def _run_command(argv: list) -> Optional[int]:
 NEAR_MISS_HINTS = {"theme": "halo config set theme <name>"}
 
 
+def _one_slip(a: str, b: str) -> bool:
+    """True when `a` differs from `b` by one letter changed, added or dropped, or two neighbours swapped."""
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    i = 0
+    while i < min(len(a), len(b)) and a[i] == b[i]:
+        i += 1
+    return (a[i + 1:] == b[i + 1:] or a[i + 1:] == b[i:] or a[i:] == b[i + 1:]
+            or (a[i + 2:] == b[i + 2:] and a[i:i + 2] == b[i:i + 2][::-1]))
+
+
 def _near_miss_command(argv: list) -> Optional[int]:
-    """A first word that is no command but is one letter or two off a listed one (`docter`, `initt`, `map`), or a
+    """A first word that is no command but is one slip of the keys off a listed one (`docter`, `initt`, `map`), or a
     word with a known home (`theme`): say so and exit 2 instead of sending it to the model as a prompt. A prompt of
     several words in one argument, or a word near no command, is left alone (None)."""
     import difflib
@@ -493,7 +504,10 @@ def _near_miss_command(argv: list) -> Optional[int]:
         return None
     hint = NEAR_MISS_HINTS.get(word)
     if hint is None:
-        close = difflib.get_close_matches(word, [c.name for c in COMMANDS if not c.kind], n=1, cutoff=0.75)
+        # One slip of the keys (a letter wrong, missing, extra or two swapped) and the same first letter: `lint` is
+        # not `init`, `port` is not `report`, `start` is not `stats`. Those stay prompts.
+        names = [c.name for c in COMMANDS if not c.kind and c.name[:1] == word[0] and _one_slip(word, c.name)]
+        close = difflib.get_close_matches(word, names, n=1, cutoff=0)
         if not close:
             return None
         hint = f"halo {close[0]}"

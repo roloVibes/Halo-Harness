@@ -50,26 +50,29 @@ class _Stub:
 
 def _with_stub(fn):
     from halo_harness.providers import local_models, local_view_cache as C
-    saved_build, saved_fresh = local_models.build_local_view, C.FRESH_S
+    saved_build, saved_fresh, saved_time = local_models.build_local_view, C.FRESH_S, C.time
     stub = _Stub()
     local_models.build_local_view = stub
+    clock = [1000.0]  # the module's own clock, moved by the test: no sleep windows a loaded runner can overshoot
+    C.time = SimpleNamespace(monotonic=lambda: clock[0])
     C.forget()
     try:
-        return fn(C, stub)
+        return fn(C, stub, clock)
     finally:
         stub.gate.set()
         local_models.build_local_view = saved_build
         C.FRESH_S = saved_fresh
+        C.time = saved_time
         C.forget()
 
 
 @test
 def test_forget_wins_over_a_rebuild_already_in_flight(ctx: Ctx):
-    def body(C, stub):
+    def body(C, stub, clock):
         state = tempfile.mkdtemp(prefix="lvc-")
-        C.FRESH_S = 0.2
+        C.FRESH_S = 20.0
         ctx.check("the first read builds", C.view({}, state) == ["old-model"])
-        time.sleep(0.3)
+        clock[0] += 30.0  # stale, under 2 x FRESH_S
         stub.block_next = True
         ctx.check("a stale read answers the last view at once", C.view({}, state) == ["old-model"])
         ctx.check("and starts the background rebuild", stub.started.wait(3))
@@ -83,7 +86,6 @@ def test_forget_wins_over_a_rebuild_already_in_flight(ctx: Ctx):
         stub.gate.set()
         for th in [t for t in threading.enumerate() if t.name == "halo-local-view"]:
             th.join(5)
-        C.FRESH_S = 20.0
         got = C.view({}, state)
         ctx.check(f"the old build did not write its answer back, got {got}", got == ["new-model"])
     _with_stub(body)
@@ -91,12 +93,12 @@ def test_forget_wins_over_a_rebuild_already_in_flight(ctx: Ctx):
 
 @test
 def test_an_old_stale_view_is_built_again_before_it_is_shown(ctx: Ctx):
-    def body(C, stub):
+    def body(C, stub, clock):
         state = tempfile.mkdtemp(prefix="lvc-")
-        C.FRESH_S = 0.1
+        C.FRESH_S = 20.0
         ctx.check("the first read builds", C.view({}, state) == ["old-model"])
         stub.hosts = ["new-model"]
-        time.sleep(0.1 * 2 + 0.25)  # older than 2 x FRESH_S
+        clock[0] += 20.0 * 2 + 1  # older than 2 x FRESH_S
         got = C.view({}, state)
         ctx.check(f"a view older than 2 x FRESH_S is not served, got {got}", got == ["new-model"])
     _with_stub(body)
@@ -104,12 +106,12 @@ def test_an_old_stale_view_is_built_again_before_it_is_shown(ctx: Ctx):
 
 @test
 def test_a_young_stale_view_is_still_served_at_once(ctx: Ctx):
-    def body(C, stub):
+    def body(C, stub, clock):
         state = tempfile.mkdtemp(prefix="lvc-")
-        C.FRESH_S = 0.5
+        C.FRESH_S = 20.0
         C.view({}, state)
         stub.hosts = ["new-model"]
-        time.sleep(0.6)  # stale, but under 2 x FRESH_S
+        clock[0] += 30.0  # stale, but under 2 x FRESH_S
         ctx.check("a young stale view is the answer at once (the rebuild runs behind it)",
                   C.view({}, state) == ["old-model"])
         for th in [t for t in threading.enumerate() if t.name == "halo-local-view"]:

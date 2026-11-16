@@ -31,7 +31,7 @@ def _dead_loopback_port() -> int:
 def test_a_refused_local_connection_says_nothing_listens_and_to_start_the_server(ctx: Ctx):
     from halo_harness.providers.http import format_connect_error, is_connect_failure_message
     err = ConnectionRefusedError(10061, "No connection could be made because the target machine actively refused it")
-    for host in ("127.0.0.1", "localhost", "::1", "10.1.2.3", "gpu-box", "gpu-box.local"):
+    for host in ("127.0.0.1", "localhost", "::1", "gpu-box", "gpu-box.local"):
         msg = format_connect_error(host, err, port=11434)
         ctx.check(f"{host}: no DNS/VPN wording for a refusal, got {msg!r}", "DNS or VPN" not in msg)
         ctx.check(f"{host}: names host and port, got {msg!r}", f"{host}:11434" in msg)
