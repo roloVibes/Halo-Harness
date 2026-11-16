@@ -275,7 +275,7 @@ def test_done_refuses_a_setup_that_cannot_run_a_session(ctx: Ctx):
             marker = e.state_dir / "setup-done.json"
             _s, s = e.call("GET", "setup/state")
             ctx.check(f"nothing set up: not ready, the Providers page, got {s.get('ready')}",
-                      s.get("ready") == {"ok": False, "line": NO_PROVIDER, "page": "providers"})
+                      s.get("ready") == {"ok": False, "line": NO_PROVIDER, "page": "providers", "usable": False})
             status, got = post()
             ctx.check(f"a Done sent anyway: 409 with the same line, no marker, got {status} {got}",
                       status == 409 and got.get("error") == NO_PROVIDER and not marker.exists())
@@ -283,7 +283,8 @@ def test_done_refuses_a_setup_that_cannot_run_a_session(ctx: Ctx):
             _s, s = e.call("GET", "setup/state")
             ctx.check(f"an Ollama host and no model: not ready, the Default model page, got {s.get('ready')} "
                       f"{s['providers']['ollama'].get('set')}",
-                      s["providers"]["ollama"].get("set") is True and s.get("ready") == {"ok": False, "line": NO_MODEL, "page": "model"})
+                      s["providers"]["ollama"].get("set") is True and s.get("ready") == {"ok": False, "line": NO_MODEL, "page": "model",
+                                                                                         "usable": False})
             status, got = post()
             ctx.check(f"Done refused with that line, got {status} {got}", status == 409 and got.get("error") == NO_MODEL
                       and not marker.exists())
@@ -295,6 +296,27 @@ def test_done_refuses_a_setup_that_cannot_run_a_session(ctx: Ctx):
                       s.get("ready", {}).get("ok") is True and status == 200 and got.get("ok") is True and marker.exists())
     finally:
         events.bridge_for, halo_terminal.open_halo = real
+
+
+@test
+def test_the_rail_ticks_providers_only_when_a_provider_is_usable(ctx: Ctx):
+    """jb10 (local models only): the rail ticked Providers when only an Ollama host was set and no model could run, and
+    the Summary then refused Done. The state's `ready.usable` says whether a provider a session can call is set up (a
+    key or a login; an Ollama host only once one of its models is the default). The rail reads it (pages.ts isDone)."""
+    with _Env() as e:
+        e.call("POST", "setup/ollama-host", {"url": "http://127.0.0.1:9"})
+        _s, s = e.call("GET", "setup/state")
+        ctx.check(f"an Ollama host alone, no model: no usable provider, got {s.get('ready')}",
+                  s["providers"]["ollama"].get("set") is True and s["ready"].get("usable") is False
+                  and s["ready"].get("ok") is False)
+        os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-setup-usable-key-0123456789abcdef"
+        _s, s = e.call("GET", "setup/state")
+        ctx.check(f"a key-based provider set: usable, got {s.get('ready')}", s["ready"].get("usable") is True)
+        from halo_harness.theme import set_config_value
+        set_config_value("model", "ol:qwen3:30b@default")
+        _s, s = e.call("GET", "setup/state")
+        ctx.check(f"a model that resolves: ready and usable, got {s.get('ready')}",
+                  s["ready"].get("ok") is True and s["ready"].get("usable") is True)
 
 
 @test

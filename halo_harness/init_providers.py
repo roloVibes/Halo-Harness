@@ -171,6 +171,9 @@ def model_entries_for_provider(provider: str, state_dir: Path) -> "list[dict]":
         return _openrouter_entries(state_dir)
     if provider == "anthropic":
         return _ant_entries()
+    if provider == "ollama":  # jb10: the models the server picked in this init listed (no catalog to read)
+        from halo_harness.init_ollama import listed_entries
+        return listed_entries()
     if provider == "huggingface":
         # Round 5 fix: this branch never existed before (`huggingface` was
         # never a `model_entries_for_provider` caller until now, since it

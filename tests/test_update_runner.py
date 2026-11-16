@@ -488,12 +488,13 @@ def test_a_studio_that_opened_this_halo_is_stopped_not_waited_on(ctx: Ctx):
     code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [me, *chain], "stop_pids": [400],
                                                                  "wait_s": 300},
                     alive_fn=lambda p: p in (300, 400) and p not in killed, kill_fn=killed.append,
+                    start_fn=lambda p: "t1",  # jb10: a stop needs a proven identity (a known, equal start time)
                     sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
     ctx.check(f"installed at once, Studio stopped, no 300 s wait, got {code} {res['outcome']} {clock} {killed}",
               code == 0 and res["outcome"] == "updated" and clock[0] < 10 and killed == [400])
     clock[0], killed[:] = 0.0, []
     code, res = _go(lambda c, **k: _P(0, "halo 3.6.0.0"), plan={"wait_pids": [400], "stop_pids": [400], "wait_s": 300},
-                    alive_fn=lambda p: p == 400 and p not in killed, kill_fn=killed.append,
+                    alive_fn=lambda p: p == 400 and p not in killed, kill_fn=killed.append, start_fn=lambda p: "t1",
                     sleep_fn=lambda s: clock.__setitem__(0, clock[0] + s), clock=lambda: clock[0])
     ctx.check(f"a pid both to stop and to wait for is stopped first, got {code} {clock} {killed}",
               code == 0 and killed == [400] and clock[0] < 10)

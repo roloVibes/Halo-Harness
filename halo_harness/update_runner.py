@@ -239,9 +239,19 @@ class _Run:
             left = [p for p in left if self.same(p)]
         return left
 
+    def proven(self, pid: int) -> bool:
+        """The pid runs AND its start time, known when first seen, is read again now and equals it. Unknown on either
+        side is no proof (jb10): a signal is never sent on a pid number alone."""
+        then = self.started.get(pid)
+        return then is not None and self.alive_fn(pid) and self.start_fn(pid) == then
+
     def stop(self, pid: int) -> None:
         if not self.same(pid):
             self.say(f"halo update: pid {pid} is gone (or is another program now): not stopped")
+            return
+        if not self.proven(pid):
+            self.say(f"halo update: pid {pid} was not stopped: its start time cannot be read, so it cannot be proven "
+                     f"to be the Halo process listed; `halo ps` names Halo's own, end it by hand if it is one")
             return
         self.say(f"halo update: stopping pid {pid}")
         try:

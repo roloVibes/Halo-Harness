@@ -152,6 +152,8 @@ def test_done_starts_halo_and_leaves_for_session(ctx: Ctx):
     ctx.check(f"one button to the page that fixes it, and it goes there, got {got.get('missing_fix')} -> {got.get('missing_went')!r}",
               got.get("missing_fix") == [page, "The Providers page" if page == "providers" else "The Default model page"]
               and got.get("missing_went") == page)
+    ctx.check(f"jb10: an Ollama host alone and no model: the rail ticks neither Providers nor Default model, got "
+              f"{got.get('ollama_only_rail')}", got.get("ollama_only_rail") == ["todo", "todo"])
     ctx.check(f"the primary Done: start halo with its title, got {got.get('done_label')!r} {got.get('done_title')!r} {got.get('done_primary')!r}",
               got.get("done_label") == "Done: start halo" and "primary" in str(got.get("done_primary"))
               and got.get("done_title") == "Marks this box set up; the terminal that ran `halo init` starts halo; Studio opens Session")

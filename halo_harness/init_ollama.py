@@ -31,16 +31,39 @@ def _free_name(names: "set[str]") -> str:
     return name
 
 
-def _pick_host(console, ask):
-    """(OllamaHost, is_new) or None: a numbered list, never a typed address unless "another address" is chosen."""
-    from halo_harness.providers.ollama import OllamaHost, _normalize_host_url, resolve_ollama_hosts
+_LISTED: list = []  # jb10: (ref, size) of every model the server picked this run listed; the final pick offers them
+
+
+def listed_entries() -> "list[dict]":
+    """The Ollama models this run's pick saw, as model_display entries (init_providers.model_entries_for_provider)."""
+    return [{"ref": ref, "group": "ollama", **({"detail": size} if size else {})} for ref, size in _LISTED]
+
+
+def _host_rows():
+    """[(OllamaHost, is_new, label)]: this computer first unless it is a host already, then the hosts in config."""
+    from halo_harness.providers.ollama import OllamaHost, resolve_ollama_hosts
     hosts = [h for h in resolve_ollama_hosts() if not h.synthesized]
     names = {h.name for h in hosts}
     local = _local_url()
     rows = []
     if not any(h.url.rstrip("/") == local.rstrip("/") for h in hosts):
         rows.append((OllamaHost(name=_free_name(names), url=local), True, f"this computer ({local})"))
-    rows += [(h, False, f"{h.name} ({h.url})") for h in hosts]
+    return rows + [(h, False, f"{h.name} ({h.url})") for h in hosts]
+
+
+def _model_arg(args) -> "tuple[str, str]":
+    """`--model` for the ollama row: (model name, host name or ''); `ol:` and `@<host>` are both optional."""
+    raw = str(getattr(args, "model", None) or "").strip()
+    raw = raw[3:] if raw.startswith("ol:") else raw
+    name, at, host = raw.rpartition("@")
+    return (name, host) if at else (raw, "")
+
+
+def _pick_host(console, ask):
+    """(OllamaHost, is_new) or None: a numbered list, never a typed address unless "another address" is chosen."""
+    from halo_harness.providers.ollama import OllamaHost, _normalize_host_url
+    rows = _host_rows()
+    names = {h.name for h, new, _l in rows if not new}
     console.print("   Which Ollama?")
     for i, (_h, _new, label) in enumerate(rows, 1):
         console.print(f"     {i}. {label}")
@@ -86,14 +109,27 @@ def _not_answered(reply, url: str) -> str:
 def run_ollama_setup(args, console) -> "Optional[tuple]":
     """`_run_provider_setup`'s shape for the ollama row: `(model_ref_raw, written, doctor_lines, pong_ok)` or None
     (one line already printed; back to the provider list)."""
-    from halo_harness.init_cli import _prompt_plain
+    from halo_harness.init_cli import _non_interactive, _prompt_plain
     from halo_harness.providers.ollama import request_json
     from halo_harness.providers.ollama_guard import control_blocked
     console.print("[bold]Ollama[/bold] (no API key)")
-    picked = _pick_host(console, _prompt_plain)
-    if picked is None:
-        return None
-    host, is_new = picked
+    want, want_host = _model_arg(args)  # jb10: `--provider ollama --model <name>[@<host>]`
+    quiet = _non_interactive(args)
+    if want_host:
+        found = [(h, new) for h, new, _l in _host_rows() if h.name == want_host]
+        if not found:
+            known = ", ".join(h.name for h, new, _l in _host_rows() if not new) or "none yet"
+            console.print(f"   there is no Ollama host named {want_host!r} in ollama.hosts (known: {known}); "
+                          "nothing was written")
+            return None
+        host, is_new = found[0]
+    elif quiet:  # no terminal to ask on: the picker's default, row 1
+        host, is_new = _host_rows()[0][:2]
+    else:
+        picked = _pick_host(console, _prompt_plain)
+        if picked is None:
+            return None
+        host, is_new = picked
     blocked = control_blocked(host)
     if blocked:
         console.print(f"   Ollama at {host.url}: {blocked}; back to the provider list")
@@ -109,15 +145,27 @@ def run_ollama_setup(args, console) -> "Optional[tuple]":
         console.print(f"   Ollama at {host.url} has no models yet. Pull one with `halo local pull <model>` "
                       "(ollama.com/library lists them), then pick ollama again.")
         return None
-    console.print(f"   Models on {host.name} ({host.url}):")
-    for i, (name, m) in enumerate(zip(names, rows), 1):
+    sizes = []
+    for m in rows:
         details = m.get("details") if isinstance(m.get("details"), dict) else {}
-        size = " ".join(str(details[k]) for k in ("parameter_size", "quantization_level") if details.get(k))
-        console.print(f"     {i}. {name}" + (f"   {size}" if size else ""))
-    raw = _prompt_plain(f"   pick the default model [1-{len(names)}]")
-    if not (raw.isdigit() and 1 <= int(raw) <= len(names)):
-        console.print("   no model picked; back to the provider list")
+        sizes.append(" ".join(str(details[k]) for k in ("parameter_size", "quantization_level") if details.get(k)))
+    if want:
+        if want not in names:
+            console.print(f"   {want} is not on Ollama at {host.url}; it has: {', '.join(names)}")
+            return None
+        raw = str(names.index(want) + 1)
+    elif quiet:
+        console.print(f"   Ollama at {host.url} has: {', '.join(names)}. Nothing was written: pass one with --model, "
+                      f"for example `halo init --provider ollama --model {names[0]}`")
         return None
+    else:
+        console.print(f"   Models on {host.name} ({host.url}):")
+        for i, (name, size) in enumerate(zip(names, sizes), 1):
+            console.print(f"     {i}. {name}" + (f"   {size}" if size else ""))
+        raw = _prompt_plain(f"   pick the default model [1-{len(names)}]")
+        if not (raw.isdigit() and 1 <= int(raw) <= len(names)):
+            console.print("   no model picked; back to the provider list")
+            return None
     written = []
     if is_new:  # the server joins ollama.hosts the way Setup's Ollama tab adds one
         from halo_harness.init_providers import save_tab_credentials
@@ -132,4 +180,5 @@ def run_ollama_setup(args, console) -> "Optional[tuple]":
     path = set_config_value("model", ref)  # what Setup's Model page writes (setup_api.post_config)
     console.print(f"   Default model: {ref} -- wrote {path}")
     written.append(str(path))
+    _LISTED[:] = [(f"ol:{n}@{host.name}", s) for n, s in zip(names, sizes)]
     return ref, written, [], True

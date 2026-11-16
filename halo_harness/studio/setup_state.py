@@ -141,7 +141,7 @@ def _ready(cwd, state_dir) -> dict:
     try:
         return ready(cwd, state_dir)
     except Exception as e:  # never a state that does not load
-        return {"ok": True, "line": "", "page": "", "error": f"{type(e).__name__}"}
+        return {"ok": True, "line": "", "page": "", "usable": True, "error": f"{type(e).__name__}"}
 
 
 def _config_error() -> str:

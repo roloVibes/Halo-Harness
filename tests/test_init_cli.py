@@ -542,6 +542,83 @@ def test_an_ollama_with_no_models_names_the_pull_command(ctx: Ctx):
               "has no models yet" in out and "halo local pull" in out and "model" not in _config(home))
 
 
+@test
+def test_the_provider_flag_takes_ollama_with_a_model(ctx: Ctx):
+    """jb10 (a): `halo init --provider ollama` answered 'invalid choice'. It runs the picker's Ollama steps; --model
+    takes the pick (this computer's Ollama, OLLAMA_HOST, joins ollama.hosts as the picker adds it)."""
+    from tests.helpers.mock_ollama import MockUpstream as MockOllama
+    with MockOllama() as fake:
+        home = _fresh_home()
+        got = _run(["init", "--provider", "ollama", "--model", "gpt-oss:20b", "--yes", "--no-fixes"], home,
+                   extra_env={"OLLAMA_HOST": fake.base_url})
+        url = fake.base_url
+    cfg = _config(home)
+    hosts = (cfg.get("ollama") or {}).get("hosts") or []
+    out = " ".join((got.stdout + got.stderr).split())
+    ctx.check(f"rc 0 and the model written, got rc={got.returncode} {cfg!r} {out[-800:]!r}",
+              got.returncode == 0 and cfg.get("model") == "ol:gpt-oss:20b@default")
+    ctx.check(f"the server joins ollama.hosts, got {hosts}", [(h.get("name"), h.get("url")) for h in hosts]
+              == [("default", url)])
+    ctx.check("no key asked, nothing in the env file, no traceback",
+              not _env_file(home).exists() and "Traceback" not in out and "invalid choice" not in out)
+
+
+@test
+def test_the_provider_flag_without_a_model_names_the_servers_models_and_writes_nothing(ctx: Ctx):
+    """jb10 (a): no terminal and no --model: one plain line with the server's models and how to pass one, rc 2."""
+    from tests.helpers.mock_ollama import MockUpstream as MockOllama
+    with MockOllama() as fake:
+        home = _fresh_home()
+        got = _run(["init", "--provider", "ollama", "--no-fixes"], home, extra_env={"OLLAMA_HOST": fake.base_url})
+        missing = _run(["init", "--provider", "ollama", "--model", "nope:1b", "--no-fixes"], home,
+                       extra_env={"OLLAMA_HOST": fake.base_url})
+    out = " ".join((got.stdout + got.stderr).split())
+    ctx.check(f"rc 2, the models named and --model said, got rc={got.returncode} {out[-800:]!r}",
+              got.returncode == 2 and "qwen3:30b" in out and "gpt-oss:20b" in out and "--model" in out)
+    ctx.check(f"nothing half-written, got {_config(home)!r}", "model" not in _config(home)
+              and not (_config(home).get("ollama") or {}).get("hosts"))
+    out2 = " ".join((missing.stdout + missing.stderr).split())
+    ctx.check(f"a model the server does not have: rc 2 and its list, got rc={missing.returncode} {out2[-600:]!r}",
+              missing.returncode == 2 and "nope:1b is not on Ollama" in out2 and "model" not in _config(home))
+
+
+@test
+def test_the_final_pick_lists_the_ollama_models_beside_the_key_providers(ctx: Ctx):
+    """jb10 (b): one run set up two key providers and Ollama; the last cross-provider pick listed only the key
+    providers' models. The Ollama models the run saw are listed too (first), through the same list builder."""
+    import io
+    from types import SimpleNamespace
+    from rich.console import Console
+    from halo_harness import init_cli, init_ollama
+    saved = {k: os.environ.get(k) for k in ("BRIDGE_TEST_HOME", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY")}
+    home = _fresh_home()
+    seen: list = []
+    real_pick, real_listed = init_cli._run_entry_picker, list(getattr(init_ollama, "_LISTED", []))
+    try:
+        os.environ["BRIDGE_TEST_HOME"] = str(home)
+        os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-final-pick-key-0123456789abcdef"
+        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-final-pick-key-0123456789"
+        init_ollama._LISTED = [("ol:qwen3:30b@gpu-box", "30B"), ("ol:gpt-oss:20b@gpu-box", "")]  # what the pick saw
+        init_cli._run_entry_picker = lambda args, console, entries: seen.extend(entries) or "ol:qwen3:30b@gpu-box"
+        got = init_cli._step_finalize_default_model(
+            SimpleNamespace(yes=False, model=None, team=None), Console(file=io.StringIO()),
+            ["openrouter", "anthropic", "ollama"], {"openrouter": "or:x", "anthropic": "ant:opus",
+                                                     "ollama": "ol:gpt-oss:20b@gpu-box"})
+    finally:
+        init_cli._run_entry_picker = real_pick
+        init_ollama._LISTED = real_listed
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    refs = [e.get("ref") for e in seen]
+    ctx.check(f"the Ollama models are offered, first, beside the others, got {refs[:6]} ({len(refs)})",
+              refs[:2] == ["ol:qwen3:30b@gpu-box", "ol:gpt-oss:20b@gpu-box"]
+              and any(str(r).startswith("ant:") for r in refs))
+    ctx.check(f"an Ollama pick there is the default, got {got!r}", got == "ol:qwen3:30b@gpu-box")
+
+
 _CTRL_C = """
 
 import sys, getpass, rich.prompt

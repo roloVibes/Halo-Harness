@@ -70,7 +70,7 @@ export type SetupData = {
   config_error?: string;
   /** fix (local models only): whether Done can start a session (studio/setup_done.py ready): no model resolves -> the
    * line saying what is missing and the page that fixes it. */
-  ready?: { ok: boolean; line: string; page: "providers" | "model" | "" };
+  ready?: { ok: boolean; line: string; page: "providers" | "model" | ""; usable?: boolean };
 };
 export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
 export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };

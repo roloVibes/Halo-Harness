@@ -121,6 +121,8 @@ def stop_entry(entry: dict, *, state_dir=None, timeout: float = 5.0) -> dict:
         elif what == "supervisor":
             ok = _stop_supervisor(entry, state, timeout)
         elif entry.get("source") == "local-servers" and entry.get("model"):
+            if not C.provably_same(pid, entry.get("start_time")):  # jb10: its stop signals by pid: proof first
+                return {"what": what, "pid": pid, "ok": False, "cmd": entry.get("cmd") or []}
             from halo_harness.providers.local_runtime import stop_managed_server
             stop_managed_server(entry["model"], state_dir=state)
             ok = _wait_gone(pid, timeout, entry.get("start_time"))

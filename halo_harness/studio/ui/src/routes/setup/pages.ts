@@ -81,12 +81,14 @@ export function isDone(d: SetupData | null, s: StepId): boolean {
     return !!f && blockDone(f.block);
   }
   switch (s as CoreStep) {
+    // jb10: a tick means the step leaves nothing to do -- Providers once a provider a session can call is set up (an
+    // Ollama host alone is not, until one of its models is the default), Default model once that model can run
     case "providers":
-      return providersSet(d).length > 0;
+      return providersSet(d).length > 0 && d.ready?.usable !== false && !(d.ready?.ok === false && d.ready.page === "providers");
     case "local":
       return true;
     case "model":
-      return !!d.model;
+      return !!d.model && d.ready?.ok !== false;
     case "permissions":
       return !!d.permission_mode;
     case "theme":

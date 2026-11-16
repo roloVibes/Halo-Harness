@@ -239,18 +239,26 @@ def _entry_owned_by_this_process(entry: dict) -> bool:
 
 
 def _entry_process_matches(entry: dict) -> bool:
-    """Best-effort "is `entry['pid']` still the SAME OS process that was
-    recorded" check, run right before signalling it -- review fix pass
-    finding 2: "a stale entry gets its pid killed whatever process now
-    owns it". `recorded`/`current` both unknown or equal can't disprove
-    a match (same tolerant default as `_entry_owned_by_this_process`);
-    only a confirmed MISMATCH says "do not signal this pid"."""
+    """"Is `entry['pid']` still the SAME OS process that was recorded", run
+    right before signalling it. 3.6.0.0 fx (jb10): only a proof counts --
+    this process holds the server's Popen handle, or the start time recorded
+    is read again now and equals it (children.provably_same). An unknown
+    start time on either side is NOT a match: Halo never signals on a pid
+    alone (a pid number is reused after a reboot or a long day)."""
+    pid = entry.get("pid")
     recorded = entry.get("proc_start")
-    if not recorded:
+    from halo_harness.children import provably_same
+    if provably_same(pid, recorded):
         return True
+    with _POPEN_LOCK:
+        held = pid in _POPEN_HANDLES
+    if not held:
+        return False
+    # a server this process started and still holds: its handle is the proof, unless a start time read now
+    # contradicts the one recorded
     from halo_harness.bg_run import process_start_time, start_matches
-    current = process_start_time(entry.get("pid"))
-    return current is None or start_matches(entry.get("pid"), recorded, current)
+    current = process_start_time(pid) if recorded else None
+    return current is None or start_matches(pid, recorded, current)
 
 
 def find_free_port() -> int:
@@ -645,7 +653,7 @@ def stop_managed_server(model: str, *, state_dir=None) -> "tuple[bool, str]":
         save_registry(state_dir, [e for e in entries if e.get("model") != model])
     if not _entry_process_matches(match):
         return True, (f"removed a stale record for {model!r} (pid {match.get('pid')} on port "
-                       f"{match.get('port')} now belongs to a different process; nothing was signalled)")
+                       f"{match.get('port')} cannot be proven to be that server any more; nothing was signalled)")
     _terminate_pid(match.get("pid"))
     return True, f"stopped {match.get('runtime')} on port {match.get('port')}"
 

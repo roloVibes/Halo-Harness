@@ -40,6 +40,7 @@ def done(c, url, ctx) -> dict:
     out["missing_fix"] = [c.js(f"{fix}.dataset.step"), c.js(f"{fix}.textContent")]
     click(c, fix, f"{STEP} !== 'summary'")
     out["missing_went"] = c.js(STEP)
+    out.update(_ollama_host_only_rail(c, ctx))
     key = "OPENROUTER_API_KEY"  # a key (never sent: nothing calls a model here) makes the built-in default resolve
     saved = os.environ.get(key)
     os.environ[key] = "sk-or-v1-setup-done-pages-0123456789abcdef"
@@ -50,6 +51,26 @@ def done(c, url, ctx) -> dict:
             os.environ.pop(key, None)
         else:
             os.environ[key] = saved
+
+
+def _ollama_host_only_rail(c, ctx) -> dict:
+    """jb10 (local models only): an Ollama host (a dead port here, never a real Ollama) and no model: the rail ticks
+    neither Providers nor Default model (the Summary refuses Done); the home's config.json is put back after."""
+    from tests.helpers.studio_setup_pages import _load
+    cfg = ctx["state"] / "config.json"
+    before = cfg.read_text(encoding="utf-8") if cfg.is_file() else None
+    data = json.loads(before) if before else {}
+    data["ollama"] = {"hosts": [{"name": "default", "url": "http://127.0.0.1:9", "default": True}]}
+    cfg.write_text(json.dumps(data), encoding="utf-8")
+    try:
+        _load(c, ctx, "mode=setup&block=check&tour=off")  # the page open is Check: the two steps read as ticked or not
+        step ="[data-testid=setup-rail-step][data-step={}]"
+        return {"ollama_only_rail": [c.js(f"{q(step.format(s))}?.dataset.state || ''") for s in ("providers", "model")]}
+    finally:
+        if before is None:
+            cfg.unlink()
+        else:
+            cfg.write_text(before, encoding="utf-8")
 
 
 def _done_pressed(c, ctx, out: dict) -> dict:

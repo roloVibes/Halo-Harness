@@ -103,15 +103,26 @@ NO_PROVIDER = ("No provider is set up yet, and halo cannot start a session witho
 NO_MODEL = "No default model is picked yet, and halo cannot start a session without one: pick one on the Default model page."
 
 
-def _any_provider(cwd) -> bool:
+def _set_providers(cwd) -> "list[str]":
     from halo_harness.init_providers import TAB_PROVIDERS, tab_credential_state
+    out = []
     for name in TAB_PROVIDERS:
         try:
             if tab_credential_state(name, cwd=cwd).get("configured"):
-                return True
+                out.append(name)
         except Exception:
             continue
-    return False
+    return out
+
+
+def _any_provider(cwd) -> bool:
+    return bool(_set_providers(cwd))
+
+
+def _not_ready(line: str, page: str, cwd) -> dict:
+    """jb10: `usable` -- a provider a session can call is set up (the rail ticks Providers only then): one with a
+    key or a login. An Ollama host alone is not: it is usable once one of its models is the default (then `ok`)."""
+    return {"ok": False, "line": line, "page": page, "usable": any(p != "ollama" for p in _set_providers(cwd))}
 
 
 def ready(cwd=None, state_dir=None) -> dict:
@@ -130,15 +141,14 @@ def ready(cwd=None, state_dir=None) -> dict:
     try:
         creds = _resolve_creds(parse_model_ref(raw, routes), SimpleNamespace(effective_env=env))
     except Exception as e:  # a ref the resolver refuses (a disabled provider, a name it does not know)
-        return {"ok": False, "line": f"The default model {raw} cannot be used ({e}): pick another on the Default model "
-                                     "page.", "page": "model"}
+        return _not_ready(f"The default model {raw} cannot be used ({e}): pick another on the Default model page.",
+                          "model", cwd)
     if creds is not None:
-        return {"ok": True, "line": "", "page": ""}
+        return {"ok": True, "line": "", "page": "", "usable": True}
     if no_default_model_line(raw, routes):
-        return {"ok": False, "line": NO_MODEL, "page": "model"} if _any_provider(cwd) else \
-            {"ok": False, "line": NO_PROVIDER, "page": "providers"}
-    return {"ok": False, "line": f"The default model {raw} has no provider set up here: set one up on the Providers "
-                                 "page, or pick another model on the Default model page.", "page": "providers"}
+        return _not_ready(NO_MODEL, "model", cwd) if _any_provider(cwd) else _not_ready(NO_PROVIDER, "providers", cwd)
+    return _not_ready(f"The default model {raw} has no provider set up here: set one up on the Providers page, or pick "
+                      "another model on the Default model page.", "providers", cwd)
 
 
 def post_done(req):

@@ -62,10 +62,14 @@ def test_g2_136_sweep_signals_children_without_holding_the_lock(ctx: Ctx):
             lr._upsert_registry_entry(sd, _entry("other.gguf", 333, owner_pid=-5, owner_start="elsewhere"))
 
     lr._terminate_pid = slow_terminate
+    # jb10: a pid is signalled only when proven; these two are this process's own, held by a handle (a stand-in)
+    lr._POPEN_HANDLES.update({111: object(), 222: object()})
     try:
         lr.stop_all_managed_servers_except_kept(state_dir=sd)
     finally:
         lr._terminate_pid = real
+        lr._POPEN_HANDLES.pop(111, None)
+        lr._POPEN_HANDLES.pop(222, None)
     ctx.check(f"both owned pids were signalled, got {seen['terminated']}", sorted(seen["terminated"]) == [111, 222])
     ctx.check(f"the lock file was absent while signalling, got {seen['lock_while_signalling']}",
               seen["lock_while_signalling"] == [False, False])
