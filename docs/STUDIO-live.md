@@ -66,10 +66,18 @@ the one row (one alert); your next message, or **A** set aside, takes it away. T
 | Choice | What it does |
 |---|---|
 | **None** (the default) | nothing is sent |
-| **This browser's notification** | the click asks THIS browser for permission, once (never on load, never on its own); then each Studio page or glance open in a browser that allowed it shows one notification per new ask; a click on it opens the ask (in Studio: Session's Attention on that row; on the glance: the row, lit) |
+| **This browser's notification** | the click asks THIS browser for permission, once (never on load, never on its own); then each Studio page or glance open in a browser that allowed it shows one notification per new ask; a click on it opens the ask (in Studio: Session on that ask's session, its Live column on the asking agent, Attention open on that row; on the glance: the row, lit) |
 
 The line under the choices says what this browser will do: it allows it; it has not been asked (press the choice and it
 asks); it blocked notifications for this page (allow them in its site settings); or it has none here (a page off
 127.0.0.1 or localhost has none). Two pages in one browser show one notification (each carries the row's tag).
 A second channel is one more entry of `CHANNELS` in `lib/alerts.ts`; the owner has not chosen one yet, so nothing else is
 built (the signal pack's phones already get the queue's new rows as `asks` notes, [REMOTE.md](REMOTE.md#transports)).
+
+**Open** on an ask (3.6.0.1) -- the alert's click, an Attention row's **O** (in Session or in Agents' Attention), the
+Live ask card's **O** -- is one door wherever you are: Studio goes to **Session**, selects the ask's session, points the
+Live column at the agent that asks (its agent pick), and opens **Attention** with that row selected, so A / R / S answer
+it. A row of no session keeps its own home (the Ollama steward's note: Local -> Hosts; a Try it run: its tab; a goal's
+plan: its panel; a spend cap: Agents -> Map); an ask of another harness on your network opens its agent on Agents ->
+Map. When the ask's session has ended a moment ago, one line says so ("That session has ended; its ask is gone.");
+Open is never silent.
