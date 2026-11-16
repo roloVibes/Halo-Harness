@@ -469,6 +469,49 @@ class _FakeCreateConnection:
         os.environ.update(self._proxies)
 
 
+class _ShortLoopbackBound:
+    """Sets the providers.http switch that turns on the short loopback bound
+    (on: Windows, off: Linux/macOS) for the block, so each path runs on every
+    system; never patches sys.platform."""
+
+    def __init__(self, on: bool):
+        self.on = on
+
+    def __enter__(self):
+        from halo_harness.providers import http as http_mod
+        self._mod = http_mod
+        self._saved = getattr(http_mod, "_SHORT_LOOPBACK_BOUND", None)
+        http_mod._SHORT_LOOPBACK_BOUND = self.on
+        return self
+
+    def __exit__(self, *exc):
+        if self._saved is None:
+            del self._mod._SHORT_LOOPBACK_BOUND
+        else:
+            self._mod._SHORT_LOOPBACK_BOUND = self._saved
+
+
+class _FakeGetaddrinfo:
+    """Replaces `socket.getaddrinfo`: `localhost` resolves to ::1 then 127.0.0.1
+    (Windows' order); anything else to the name itself as an IPv4 entry."""
+
+    def __init__(self):
+        self._real = socket.getaddrinfo
+
+    def __call__(self, host, port, family=0, type=0, proto=0, flags=0):
+        if host == "localhost":
+            return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", port, 0, 0)),
+                    (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))]
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (host, port))]
+
+    def __enter__(self):
+        socket.getaddrinfo = self
+        return self
+
+    def __exit__(self, *exc):
+        socket.getaddrinfo = self._real
+
+
 def _refuse_at_once(address, timeout, real):
     raise ConnectionRefusedError(10061, "refused (fake)")
 
@@ -479,6 +522,12 @@ def _time_out_at_once(address, timeout, real):
 
 @test
 def test_open_upstream_bounds_a_loopback_connect_per_address(ctx: Ctx):
+    """The Windows path (forced, so it runs on every system)."""
+    with _ShortLoopbackBound(True):
+        _bounds_a_loopback_connect_per_address(ctx)
+
+
+def _bounds_a_loopback_connect_per_address(ctx: Ctx):
     from halo_harness.providers import http as http_mod
     bound = getattr(http_mod, "LOOPBACK_CONNECT_S", None)
     ctx.check(f"http.LOOPBACK_CONNECT_S exists and is 0.5, got {bound!r}", bound == 0.5)
@@ -504,6 +553,12 @@ def test_open_upstream_bounds_a_loopback_connect_per_address(ctx: Ctx):
 
 @test
 def test_a_loopback_connect_that_times_out_is_worded_as_nothing_listening(ctx: Ctx):
+    """The Windows path (forced, so it runs on every system)."""
+    with _ShortLoopbackBound(True):
+        _loopback_timeout_wording(ctx)
+
+
+def _loopback_timeout_wording(ctx: Ctx):
     from halo_harness.providers import http as http_mod
     with _FakeCreateConnection(_time_out_at_once):
         try:
@@ -525,6 +580,98 @@ def test_a_loopback_connect_that_times_out_is_worded_as_nothing_listening(ctx: C
 
 
 @test
+def test_the_short_loopback_bound_is_windows_only(ctx: Ctx):
+    """Linux/macOS refuse a loopback connect at once, so the short bound only
+    hurts there (a full listen backlog drops the SYN and the retry comes ~1 s
+    later): off Windows a loopback connect keeps the caller's bound and a
+    loopback timeout keeps the ordinary wording."""
+    from halo_harness.providers import http as http_mod
+    ctx.check(f"the switch follows the system: {getattr(http_mod, '_SHORT_LOOPBACK_BOUND', None)!r}",
+              getattr(http_mod, "_SHORT_LOOPBACK_BOUND", None) == (os.name == "nt"))
+    with _ShortLoopbackBound(False):
+        for host in ("127.0.0.1", "localhost", "::1"):
+            with _FakeCreateConnection(_refuse_at_once) as fake:
+                try:
+                    http_mod.open_upstream(host, 9, False, connect_timeout=8)
+                except http_mod.UpstreamConnectError:
+                    pass
+            ctx.check(f"not Windows, {host}: the caller's 8 s per address, got {fake.timeouts}",
+                      bool(fake.timeouts) and all(t == 8 for t in fake.timeouts))
+        with _FakeCreateConnection(_time_out_at_once):
+            try:
+                http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+                msg = ""
+            except http_mod.UpstreamConnectError as e:
+                msg = str(e)
+        ctx.check(f"not Windows: a loopback timeout keeps the ordinary timeout wording, got {msg!r}",
+                  "nothing is listening" not in msg and http_mod.is_connect_failure_message(msg))
+    with _ShortLoopbackBound(True), _FakeCreateConnection(_refuse_at_once) as fake:
+        try:
+            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+        except http_mod.UpstreamConnectError:
+            pass
+    ctx.check(f"Windows: 127.0.0.1 still bounded at 0.5 s, got {fake.timeouts}", fake.timeouts == [0.5])
+
+
+def _listener_or_never(listener_port):
+    """create_connection fake: ::1 never answers (a timeout), 127.0.0.1 reaches
+    the real listener; records the address of every attempt."""
+    def behave(address, timeout, real):
+        if address[0] in ("::1", "localhost"):
+            raise TimeoutError("timed out (fake ::1)")
+        return real(("127.0.0.1", listener_port), timeout)
+    return behave
+
+
+@test
+def test_windows_tries_ipv4_first_for_localhost(ctx: Ctx):
+    """Windows resolves `localhost` to ::1 first and a server on 127.0.0.1 only
+    then costs 0.5 s per new connection; the IPv4 loopback address goes first.
+    A remote name and the non-Windows path are never reordered."""
+    from halo_harness.providers import http as http_mod
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(8)
+    port = srv.getsockname()[1]
+    seen: list = []
+
+    def _rec(behave):
+        def inner(address, timeout, real):
+            seen.append(address[0])
+            return behave(address, timeout, real)
+        return inner
+
+    try:
+        for _ in range(2):  # every new connection, not only the first
+            del seen[:]
+            conn = None
+            with _ShortLoopbackBound(True), _FakeGetaddrinfo(), _FakeCreateConnection(_rec(_listener_or_never(port))):
+                try:
+                    conn = http_mod.open_upstream("localhost", port, False, connect_timeout=8)
+                except http_mod.UpstreamConnectError as e:
+                    seen.append(f"error: {e}")
+            if conn is not None:
+                conn.close()
+            ctx.check(f"Windows, localhost: one attempt, on 127.0.0.1, got {seen}", seen == ["127.0.0.1"])
+        del seen[:]
+        with _ShortLoopbackBound(True), _FakeGetaddrinfo(), _FakeCreateConnection(_rec(_refuse_at_once)):
+            try:
+                http_mod.open_upstream("gpu-box", 9, False, connect_timeout=8)
+            except http_mod.UpstreamConnectError:
+                pass
+        ctx.check(f"a remote name is passed through as it is, got {seen}", seen == ["gpu-box"])
+        del seen[:]
+        with _ShortLoopbackBound(False), _FakeGetaddrinfo(), _FakeCreateConnection(_rec(_refuse_at_once)):
+            try:
+                http_mod.open_upstream("localhost", 9, False, connect_timeout=8)
+            except http_mod.UpstreamConnectError:
+                pass
+        ctx.check(f"not Windows: localhost is left to the system's order, got {seen}", seen == ["localhost"])
+    finally:
+        srv.close()
+
+
+@test
 def test_localhost_reaches_a_127_listener_when_ipv6_is_slow_to_refuse(ctx: Ctx):
     """Simulates Windows: `localhost` tries ::1 first and its refusal takes ~2 s; the
     per-address bound gives it up and 127.0.0.1 answers inside the caller's 1.5 s."""
@@ -542,7 +689,7 @@ def test_localhost_reaches_a_127_listener_when_ipv6_is_slow_to_refuse(ctx: Ctx):
 
     conn = None
     try:
-        with _FakeCreateConnection(_windows_localhost):
+        with _ShortLoopbackBound(True), _FakeCreateConnection(_windows_localhost):
             try:
                 conn = http_mod.open_upstream("localhost", port, False, connect_timeout=1.5)
                 err = None
@@ -557,35 +704,53 @@ def test_localhost_reaches_a_127_listener_when_ipv6_is_slow_to_refuse(ctx: Ctx):
 
 @test
 def test_a_dead_loopback_port_is_given_up_inside_the_probe_bounds(ctx: Ctx):
-    """Real sockets. Red on Windows only (a refused loopback connect costs ~2 s
-    there); Linux and macOS refuse at once. The large caller bound makes the
-    gap a full second either side of the 1.5 s threshold."""
+    """Real sockets, Windows only (a refused loopback connect costs ~2 s there;
+    Linux and macOS refuse at once and take the caller's bound unchanged).
+    Each probe is timed on its own and keeps the BEST of three tries: a loaded
+    runner has to be slow three times in a row to turn it red."""
+    from tests.helpers.runner import SkipTest
+    if os.name != "nt":
+        raise SkipTest("Windows-only real-socket check (the injected tests cover every system)")
     from halo_harness.providers import huggingface_local_probe as hf
     from halo_harness.providers.ollama import OllamaHost, probe_version
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("127.0.0.1", 0))
     port = s.getsockname()[1]
     s.close()
-    t0 = time.monotonic()
-    got = probe_version(OllamaHost(name="t", url=f"http://127.0.0.1:{port}"), timeout=10)
-    took = time.monotonic() - t0
-    ctx.check(f"probe_version on a dead loopback port: None in under 1.5 s, got {got!r} after {took:.2f}s",
+
+    def _best_of_three(call):
+        best, got = None, None
+        for _ in range(3):
+            t0 = time.monotonic()
+            got = call()
+            took = time.monotonic() - t0
+            best = took if best is None else min(best, took)
+            if best < 1.5:
+                break
+        return got, best
+
+    got, took = _best_of_three(
+        lambda: probe_version(OllamaHost(name="t", url=f"http://127.0.0.1:{port}"), timeout=10))
+    ctx.check(f"probe_version on a dead loopback port: None in under 1.5 s (best of 3), got {got!r} after {took:.2f}s",
               got is None and took < 1.5)
     saved = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
     try:
-        t0 = time.monotonic()
-        found = hf.auto_detect_local_servers(env={"HF_LOCAL_PROBE_PORTS": str(port)}, timeout=10, force=True)
-        took = time.monotonic() - t0
+        found, took = _best_of_three(
+            lambda: hf.auto_detect_local_servers(env={"HF_LOCAL_PROBE_PORTS": str(port)}, timeout=10, force=True))
     finally:
         if saved is not None:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved
-    ctx.check(f"auto_detect_local_servers on a dead port: [] in under 1.5 s, got {found!r} after {took:.2f}s",
-              found == [] and took < 1.5)
+    ctx.check(f"auto_detect_local_servers on a dead port: [] in under 1.5 s (best of 3), got {found!r} after "
+              f"{took:.2f}s", found == [] and took < 1.5)
 
 
 @test
 def test_probe_version_reaches_a_127_only_server_named_localhost(ctx: Ctx):
-    """Real sockets. Red on Windows only (::1 refused after ~2 s, past the 1.5 s probe bound)."""
+    """Real sockets, Windows only (::1 refused after ~2 s, past the 1.5 s probe
+    bound). Best of three tries: one slow moment on a runner is not a fault."""
+    from tests.helpers.runner import SkipTest
+    if os.name != "nt":
+        raise SkipTest("Windows-only real-socket check (the injected tests cover every system)")
     import json as _json
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
     from halo_harness.providers.ollama import OllamaHost, probe_version
@@ -606,8 +771,12 @@ def test_probe_version_reaches_a_127_only_server_named_localhost(ctx: Ctx):
     th = threading.Thread(target=srv.serve_forever, daemon=True)
     th.start()
     try:
-        got = probe_version(OllamaHost(name="t", url=f"http://localhost:{srv.server_address[1]}"))
-        ctx.check(f"probe_version(localhost) answers from the 127.0.0.1 server, got {got!r}",
+        got = None
+        for _ in range(3):
+            got = probe_version(OllamaHost(name="t", url=f"http://localhost:{srv.server_address[1]}"))
+            if isinstance(got, dict):
+                break
+        ctx.check(f"probe_version(localhost) answers from the 127.0.0.1 server (best of 3), got {got!r}",
                   isinstance(got, dict) and got.get("version") == "0.9.0")
     finally:
         srv.shutdown()

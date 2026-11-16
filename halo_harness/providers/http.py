@@ -136,6 +136,42 @@ def _is_loopback_host(host: "str | None") -> bool:
 # ~2 s on Windows (the system retries the SYN after the RST), and `localhost` resolves to ::1 first there; a
 # LISTENING loopback port is accepted by the kernel in milliseconds, so half a second loses nothing.
 LOOPBACK_CONNECT_S = 0.5
+# Windows only: Linux and macOS refuse a closed loopback port at once, so the short bound gives nothing there and
+# can only hurt (a busy server whose listen backlog is full drops the SYN; the client's retry comes ~1 s later).
+_SHORT_LOOPBACK_BOUND = os.name == "nt"
+
+
+def _short_loopback_bound() -> bool:
+    """The one place that decides whether the short loopback bound (and its "nothing is listening" wording for a
+    loopback connect timeout, and IPv4-first for `localhost`) applies: on Windows only. Tests set the constant."""
+    return bool(_SHORT_LOOPBACK_BOUND)
+
+
+def _ipv4_loopback_first(create, host: str):
+    """Wraps a connection's `_create_connection` for a loopback NAME (`localhost`) on Windows, which resolves it to
+    ::1 first: a server listening on 127.0.0.1 only (Ollama's default) would cost LOOPBACK_CONNECT_S on every new
+    connection. When every resolved address is a loopback one, IPv4 is tried first, then IPv6; anything else (a
+    resolver error, a non-loopback answer) goes to `create` unchanged."""
+    def _create(address, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None, *a, **kw):
+        try:
+            infos = socket.getaddrinfo(host, address[1], 0, socket.SOCK_STREAM)
+        except OSError:
+            infos = []
+        addrs: list = []
+        for info in infos:
+            ip = str(info[4][0])
+            if ip not in addrs:
+                addrs.append(ip)
+        if not addrs or not all(_is_loopback_connect_host(ip) for ip in addrs):
+            return create(address, timeout, source_address, *a, **kw)
+        last: "OSError | None" = None
+        for ip in sorted(addrs, key=lambda ip: ":" in ip):  # stable: IPv4 first, the system's order otherwise
+            try:
+                return create((ip, address[1]), timeout, source_address, *a, **kw)
+            except OSError as e:
+                last = e
+        raise last  # type: ignore[misc]
+    return _create
 
 
 def _is_loopback_connect_host(host: "str | None") -> bool:
@@ -729,10 +765,12 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
         else:
             # 3.6.0.1: a plain loopback connect gets at most LOOPBACK_CONNECT_S per address (socket.create_connection
             # applies the timeout to each address in turn: `localhost` gives up ::1, then tries 127.0.0.1); the wall
-            # bound below stays the caller's.
-            loopback = _is_loopback_connect_host(host)
+            # bound below stays the caller's. Windows only (`_short_loopback_bound`).
+            loopback = _short_loopback_bound() and _is_loopback_connect_host(host)
             per_address = min(connect_timeout, LOOPBACK_CONNECT_S) if loopback else connect_timeout
             conn = http.client.HTTPConnection(host, port, timeout=per_address)
+            if loopback and host.strip().lower().rstrip(".") == "localhost":  # a name; a literal has one address
+                conn._create_connection = _ipv4_loopback_first(conn._create_connection, host)
 
     # Connect with timeout, then set idle timeout. Bounded (hotfix 2): a
     # hung/black-holed DNS resolution is capped at connect_timeout wall-clock
