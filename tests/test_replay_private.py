@@ -351,6 +351,90 @@ def test_audit_finds_no_leak_in_a_scrubbed_replay_of_a_common_word_account(ctx: 
                 os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
 
 
+def _login_and_share_shapes(name: str) -> list:
+    """jf-words batch 2: (text, the scrubbed text) for the login form `name@host` and the UNC share segment, the shapes
+    3.6.0.0 scrubbed for any account name (made-up hosts only, built from parts: no address of any kind)."""
+    bs, host = chr(92), "gpu-box"
+    unc = bs * 2
+    return [(f"{name}@{host}", "<user>@<machine>"), (f"{name}@{host}:~/x", "<user>@<machine>:~/x"),
+            (f"ssh {name}@{host}", "ssh <user>@<machine>"), (f"{name}@{host}:~$ ls", "<user>@<machine>:~$ ls"),
+            (f"scp a.txt {name}@nas-01.example:/srv", "scp a.txt <user>@nas-01.example:/srv"),
+            (f"git clone ssh://{name}@{host}/srv/repo.git", "git clone ssh://<user>@<machine>/srv/repo.git"),
+            (f"[{name}@{host} ~]$", "[<user>@<machine> ~]$"), (f"{name}@<machine>:~$", "<user>@<machine>:~$"),
+            (f"https://{name}:pw@{host}/", "https://<user>:pw@<machine>/"),
+            (f"'{name}'@'{host}'", "'<user>'@'<machine>'"), (f"GRANT ALL TO `{name}`@`%`;", "GRANT ALL TO `<user>`@`%`;"),
+            (f"{unc}{host}{bs}{name}{bs}share", f"{unc}<machine>{bs}<user>{bs}share"),
+            (f"{unc}<machine>{bs}{name}{bs}x", f"{unc}<machine>{bs}<user>{bs}x"),
+            (f"{unc}{host}{bs}{name}", f"{unc}<machine>{bs}<user>"),
+            (f"{unc}{host}{bs}{name}$", f"{unc}<machine>{bs}<user>$"),
+            (f"{bs * 4}{host}{bs * 2}{name}{bs * 2}x", f"{bs * 4}<machine>{bs * 2}<user>{bs * 2}x"),
+            (f"//{host}/{name}/x", "//<machine>/<user>/x"),
+            (f"{unc}?{bs}UNC{bs}{host}{bs}{name}{bs}x", f"{unc}?{bs}UNC{bs}<machine>{bs}<user>{bs}x"),
+            (f"{unc}{host}{bs}Users{bs}{name}{bs}x", f"{unc}<machine>{bs}Users{bs}<user>{bs}x"),
+            (f"{unc}{host}{bs}home{bs}{name}", f"{unc}<machine>{bs}home{bs}<user>")]
+
+
+@test
+def test_a_common_word_account_never_keeps_a_login_or_a_share_3600_scrubbed(ctx: Ctx):
+    """3.6.0.1 jf-words batch 2: a common-word account name (admin, user, dev, build) was replaced only as a home
+    folder's segment, so `admin@gpu-box:~$` (a prompt), `ssh admin@gpu-box` (an ssh, scp or git target) and the
+    account's share `\\\\gpu-box\\admin\\share` kept it: 3.6.0.0 removed them all. The name right before `@` and a
+    host, and the share right after a UNC server, are the account name again; a longer name and prose are kept."""
+    from halo_harness.live.replay_private import scrub
+    for name in ("admin", "user", "dev", "build", "zedtester"):
+        def run(text):
+            return scrub({"t": text}, None, homes=[], users=[name], machines=["gpu-box"])["t"]
+        for text, want in _login_and_share_shapes(name):
+            ctx.check(f"[{name}] {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
+    keep = ("the admin said hi", "user input", "a dev build", "open the admin panel", "sysadmin@<machine>",
+            "x.admin@<machine>", "my-admin@<machine>", "admin_x@<machine>", "ping @admin please", "admin @ noon",
+            "https://<machine>/admin/login", "admin@", "<user>@<machine>")
+    for name in ("admin", "user"):
+        for text in keep:
+            text = text.replace("admin", name) if "<user>" not in text else text
+            out = scrub({"t": text.replace("<machine>", "gpu-box")}, None, homes=[], users=[name],
+                        machines=["gpu-box"])["t"]
+            ctx.check(f"[{name}] not the account as a login or a share: {text!r} kept, got {out!r}", out == text)
+
+
+@test
+def test_audit_finds_a_common_word_account_in_a_login_or_a_share(ctx: Ctx):
+    """3.6.0.1 jf-words batch 2: the audit shares the scrub's patterns; an unscrubbed `admin@gpu-box:~$` or
+    `\\\\gpu-box\\admin\\share` replay was called clean, and a scrubbed one must stay clean."""
+    from halo_harness.live.replay_private import audit, scrub
+    name = "admin"
+    env = dict(ENV, USERNAME=name, USER=name, LOGNAME=name)
+    saved = {k: os.environ.get(k) for k in env}
+    try:
+        with _home() as state:
+            os.environ.update(env)
+            folder = state / "replays"
+            folder.mkdir(parents=True, exist_ok=True)
+            texts = [t for t, _w in _login_and_share_shapes(name)]
+            for i, t in enumerate(texts):
+                rid = f"raw{i}-20261116-000000"
+                (folder / f"{rid}.halo-replay").write_text(json.dumps({
+                    "format": "halo-replay", "version": 1, "id": rid, "title": "t", "marks": [{"text": t}]}),
+                    encoding="utf-8")
+            rows = [r for r in audit(state) if r["kind"] == "user-name"]
+            found = {r["path"] for r in rows}
+            for i, t in enumerate(texts):
+                ctx.check(f"the audit finds the name in {t!r}, rows {sorted(found)}",
+                          f"replays/raw{i}-20261116-000000.halo-replay" in found)
+            ctx.check(f"no excerpt shows the name, got {[r['excerpt'] for r in rows]}",
+                      all(name not in r["excerpt"].replace("<user>", "") for r in rows))
+            for p in folder.glob("raw*"):
+                p.unlink()
+            clean = scrub({"marks": [{"text": t} for t in texts]}, None, homes=[], users=[name], machines=["gpu-box"])
+            (folder / "clean-20261116-000000.halo-replay").write_text(json.dumps(dict(
+                clean, format="halo-replay", version=1, id="clean-20261116-000000", title="t")), encoding="utf-8")
+            rows = [r for r in audit(state) if r["kind"] == "user-name"]
+            ctx.check(f"a scrubbed replay of these shapes holds no user name, got {rows}", not rows)
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

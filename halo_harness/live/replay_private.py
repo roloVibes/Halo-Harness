@@ -123,8 +123,24 @@ def _machines() -> list:
 
 #: a home folder's prefix right before the account name: /home/, /Users/, C:\Users\ (either slash, a JSON-doubled
 #: backslash), /c/Users/ (Git Bash), /mnt/c/Users/ (WSL), \\?\C:\Users\; or the shell's `~name` (not glued to a word
-#: or another `~`); group 1 is kept
-_SEGMENT_LEAD = r"((?<=[\\/])(?:home|users)(?:\\\\|\\|/)|(?<![\w~])~)"
+#: or another `~`); or a UNC server, the account's share right after it (`\\server\name`, `\\<machine>\name`, JSON-
+#: doubled (twice over in the audit's JSON text), `//server/name` but not a URL's `://`, `\\?\UNC\server\name`); group
+#: 1 is kept
+_SEGMENT_LEAD = (r"((?<=[\\/])(?:home|users)(?:\\+|/)"
+                 r"|(?<![\w:/\\])(?:\\{2,}|//)(?:\?\\+UNC\\+)?(?:<machine>|[^\W_][\w.-]*)(?:\\+|/)"
+                 r"|(?<![\w~])~)")
+#: a login right after the name (`name@host`, `name@<machine>`: a prompt, an ssh / scp / git target; a URL's
+#: `name:secret@host`); a letter, digit, `_`, `.` or `-` before the name makes it another, longer name (`sysadmin@box`)
+_LOGIN_AT = r"(?=(?::[^\s@/\\]*)?@(?:<machine>|[^\W_]))"
+
+
+def _quoted_login(names: list):
+    """jf-words: a database account `'name'@'host'` (any quote, group 1): the scrub splits text at quotes, so it runs
+    this one over the whole text; the audit reads whole texts anyway."""
+    names = sorted((str(n) for n in names if n), key=len, reverse=True)
+    if not names:
+        return None
+    return re.compile(r"(?i)([\"'`])(" + "|".join(map(re.escape, names)) + r")(?=\1@)")
 #: where the name's segment ends: anything that does not run on into more name, as the path rule's _TAIL ends a home
 #: (`}` `#` `&` `!` `~` `,` `:` a slash, a quote, whitespace, the end ...; after the home prefix, `user.` ends a
 #: sentence; `user.name`, `user-2` and `user_x` are other, longer names)
@@ -143,7 +159,10 @@ def _name_patterns(names: list, *, segments: bool = True) -> list:
     ordered = sorted(names, key=len, reverse=True)
     out = []
     if segments:
-        out.append(re.compile(r"(?i)" + _SEGMENT_LEAD + "(" + "|".join(map(re.escape, ordered)) + ")" + _SEGMENT_END))
+        either = "(" + "|".join(map(re.escape, ordered)) + ")"
+        out.append(re.compile(r"(?i)" + _SEGMENT_LEAD + either + _SEGMENT_END))
+        out.append(re.compile(r"(?i)()(?<![\w.-])" + either + _LOGIN_AT))  # jf-words: the login form, group 1 empty
+        out.append(_quoted_login(ordered))
     alts = [re.escape(n) for n in ordered if len(n) >= 3 and n.lower() not in COMMON_NAMES]
     alts += [re.escape(re.sub(r"[\s.]", "", n)[:6]) + r"~\d+" for n in names if len(re.sub(r"[\s.]", "", n)) > 6]
     if alts:
@@ -206,11 +225,14 @@ def scrub(payload, root=None, *, homes=None, users=None, machines=None):
     names = [r for r in (_name_rule(users, "<user>"), _name_rule(machines, "<machine>", segments=False)) if r]
     names += [cut_name_rule(users, "<user>"), cut_name_rule(machines, "<machine>")]
     path_rules.append(cut_path_rule(homes, root))
+    quoted = _quoted_login(users)
 
     def rules(s: str, owner: bool) -> str:
         for rule in path_rules:
             s = rule(s)
         if not owner and names:
+            if quoted:  # jf-words: `'name'@'host'` spans tokens
+                s = quoted.sub(lambda m: m.group(1) + "<user>", s)
             out = []
             for tok in _TOKEN.split(s):
                 if tok and _MARK not in tok:  # 3.4.1.2 (SERVERS-6): only a path the root rule made keeps its words
