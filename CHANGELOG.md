@@ -92,6 +92,11 @@ that remain are at the end of this section.
   but let uv pick another; both install lines now pass `--python`. It looks at the same names `halo` does
   (`python3`, `python`, `python3.14` down to `python3.10`), so a stock Mac with Homebrew's `python3.13` is found, and
   with no Python 3.10 or newer it lets uv bring Python 3.12 instead of stopping.
+- **`/update` ends only what it can prove is Halo's own.** The updater that runs after Halo exits ends a pid only while
+  its start time equals the one Halo recorded for it (`halo update` records a Studio that opened it as it finds it).
+  A process with no recorded start time is named with the command that ends it; on Windows the update then stops
+  before anything is installed ("end it and run /update again"), on macOS and Linux it goes on and leaves it running.
+  The fallback scripts, used where no Python outside Halo's own is found, check the start time before each kill too.
 
 ### Local models and Ollama
 
@@ -107,6 +112,12 @@ that remain are at the end of this section.
 - **The model picker shows what is there.** One Refresh shows a model you just pulled; a pull, delete, copy or rename,
   a load or unload in Local, and a change made from another machine refresh the list; after a long idle the first
   read builds a fresh list instead of showing an old one.
+- **`OLLAMA_HOST=0.0.0.0:11434` works for this computer's Ollama.** It is the value Halo's Ollama panel suggests for
+  serving the network, an address Ollama listens on but a client cannot reach on Windows, so the terminal setup's
+  "this computer" row said "did not answer". The setup, a session with no Ollama host set and server discovery now
+  connect to 127.0.0.1 on that port and show and save that address (`[::]` too).
+- **Local's server list shows a running server whose start time cannot be read right now** (a slow `ps` on a Mac
+  while a large model loads); it hides one only when the start time read now contradicts the record.
 
 ### Setup and the first run
 
@@ -118,6 +129,14 @@ that remain are at the end of this section.
 - **Setup's Done never starts a halo that cannot run.** With no provider, or an Ollama host and no model, the Summary
   says what is missing and offers the page that fixes it; the step rail ticks Providers and Default model only when a
   session could use them.
+- **Setup decides Done for a local-server model from your configuration, without connecting** (each load of Setup
+  probed local ports for about a second). A model Halo has served, or one a configured local server serves, is ready
+  while its server is stopped (starting halo starts it or says why); an MLX model is ready on Apple silicon only; a
+  model no server serves gets "the server for ... is not running and none is set up for it: start it on the Local
+  page (Serve), or pick another model".
+- **A `routes.json` that holds a list, a string or a number no longer breaks Done.** Setup showed Done as ready and
+  pressing it gave an error; such a file now reads as having no routes (one line in Halo's log), so the Summary and
+  Done agree. `halo doctor` already flags it.
 - **A first run with nothing set up says what to do**, not a bare "OpenRouter not configured": `halo -p` and the
   first screen of a session name the variable to set or `halo init`; with no default model they say so and how to set
   one; a Copilot (`cp:work`) session not signed in says `halo copilot signin`.
@@ -210,6 +229,9 @@ that remain are at the end of this section.
 - **Halo opens pages in the browser `BROWSER` names**, also inside a Job object; `halo init` prints the Studio
   address at once there.
 - **Quitting a session that owns a Studio is quick on an installed Halo**, and the page hears goodbye.
+- **A quit in the first seconds no longer opens a browser on a stopped Studio** when the program that started Halo
+  holds it in a Job object (some terminals, CI runners): a browser start not yet begun is dropped, one on its way out
+  of the Job is taken back, and the quit does not wait for either.
 - **`halo doctor` passes on a machine without Claude Code** (all systems), and names your Windows release.
 
 ### macOS
@@ -239,6 +261,9 @@ that remain are at the end of this section.
 - **SECURITY.md says what listens on your network** (`halo host serve`, `halo host rpc on`,
   `halo local serve --lan`) instead of the gone fleet hub.
 - **MOVING-from-3.5.md covers the rest**, and no page says a Studio outlives the command that started it.
+- **docs/PROCESSES.md says what Halo cannot end on macOS** (a system program a tool command detached, the moment
+  before a shell command's entry is written) and what to do: start it with `HALO_OWNER=kept-<name>` to keep it, or
+  end it by hand.
 
 ### R0a
 
@@ -975,13 +1000,18 @@ the macOS CI runners, and his Mac beeped when a session started.
 - **macOS: a program a tool command detaches from its shell** (`cmd &`, then the shell exits) **that is an Apple
   system binary cannot be found at close** (macOS hides its environment from Halo), so it keeps running. Linux ends
   it. A shell command's own entry in `halo ps` also appears a few milliseconds after it starts; a hard kill of Halo
-  inside that moment leaves it out.
+  inside that moment leaves it out. docs/PROCESSES.md ("What Halo cannot end on macOS") says what to do.
 - **A quit can take up to about a second longer than its 4-second deadline** in the worst case.
 - **Windows: `halo stop <pid>` on a session's shell from another terminal ends `bash.exe` only**; the programs it
   started end when the Halo that started them exits.
 - **`halo update` treats any program named `halo` / `halo.exe`, and any `python -m halo_harness` of another install
-  or home, as a halo to stop.** It also notes the start times of the halos it stops a few seconds after it decided to
-  stop them, so a pid reused inside those seconds is not caught.
+  or home, as a halo to stop.** For a halo found that way, and for a Studio that opened this halo, the start time it
+  goes by is read just after the process list is taken, so a pid reused in that moment is not caught; from then on a
+  pid is ended only while its start time still equals that one.
+- **Windows: `/update` refuses while Halo's records hold a process with no start time**, and when that pid now
+  belongs to another program the refusal does not go away by itself (rare: Halo records a start time when it starts
+  a process). If Task Manager shows that pid is not a Halo program, close the session and run `halo update` in a
+  terminal: it signals nothing it cannot prove and removes that record.
 - **The way up from 3.5.0.1** (the block at the top) is covered by an automated job on each system, not by a run by
   hand on a real install.
 - **An Orchestra lane with `isolation: container`** is not given Halo's owner variables, and a lane past its time or
