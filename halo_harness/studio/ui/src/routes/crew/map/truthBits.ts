@@ -1,0 +1,79 @@
+// The other lines the new drawings show (3.6.0.2 section 4: "Other strings are in their rules"), letter for letter, one
+// function per rule's line: R4 the Start view, R14 a workflow's block, R15 the rows in a box, R16 a trace's hover, R17 an
+// off-map line's hover, R18 the step-in card, R24 Agents -> Map's picker, R28 a removed map, R29 the tag, R30 the pair, R31
+// the Just built heads, R43 the hover card, R45 the unreached band, R47 the Workflows head. Re-exported by truth.ts; the
+// Session and Agents builders read them from there. Every {t} through clock(), every word Live / Map through WORDS. Pure.
+import { clock, nextName, WORDS, type Line } from "./truthWords";
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** R4 the Start view (no session row): the first sentence; the last build seen from a since-ended session, its second
+ *  sentence only when that map is the one new sessions use; [New session] on the last line. */
+export function startLines(b: string | null, last: { map: string; t: number } | null): Line[] {
+  const out: Line[] = [{ text: `No session is open here. New sessions will run on ${nextName(b)}.` }];
+  if (last) out.push({ text: `Your last session built the map ${last.map} at ${clock(last.t)}.${b === last.map ? " New sessions run on it." : ""}` });
+  out[out.length - 1] = { ...out[out.length - 1], act: "new-session", label: "New session" };
+  return out;
+}
+
+/** R14 a saved workflow's block: its head (with the step while it runs) and one row per step, every step. */
+export const blockHead = (workflow: string, step?: number, of?: number): string =>
+  step && of ? `workflow ${workflow} · step ${step} of ${of}` : `workflow ${workflow}`;
+export const stepRow = (i: number, step: string, agent: string, model: string, state: "done" | "working" | "next" | "failed" | string): string =>
+  `${i} ${step} · ${agent} · ${model} · ${state}`;
+
+/** R15 the other children inside their box: a saved agent, one made up for a task (its first 40 characters), the rest. */
+export const agentRow = (agent: string, model: string, state: string): string => `${agent} · ${model} · ${state}`;
+export const madeUpRow = (task: string, state: string): string => `made up: ${task.slice(0, 40)} · ${state}`;
+export const moreRows = (n: number): string => `+${n} more`;
+
+/** R16 a trace's hover: the hand-offs it carried, the last one's time and few words. */
+export const traceHover = (n: number, t: number, words: string): string =>
+  `Carried ${plural(n, "hand-off", "hand-offs")}; last at ${clock(t)}: ${words}`;
+
+/** R17 an off-map line's hover. */
+export const offHover = (sender: string): string => `Not on the map: ${sender} started this itself`;
+
+/** R18 the step-in card: an ended agent, an off-map line's link, the link every card has. */
+export const endedAt = (t: number): string => `ended at ${clock(t)}`;
+export const openMapAt = (sender: string): string => `Open the map at ${sender}`;
+export const openInAgents = (): Line => ({ text: "", act: "open-agents-live", label: `Open in Agents -> ${WORDS.live}` });
+
+/** R24 Agents -> Map's picker: the sessions running a map (F2), the map new sessions use (F4); the switch. */
+export function pickerSuffix(running: string[], next = false): string {
+  const run = running.length === 1 ? ` · running in ${running[0]}` : running.length > 1 ? ` · running in ${running.length} sessions` : "";
+  return run + (next ? " · new sessions" : "");
+}
+export const switchLabel = (): string => "New sessions run on this";
+
+/** R28 a just-built map that is gone. */
+export const removedAt = (t: number): string => `This map was removed at ${clock(t)}.`;
+
+/** R29 the tag on boxes and block rows this build wrote. */
+export const newTag = (t: number): string => `new ${clock(t)}`;
+
+/** R30 the two maps in the drawer. */
+export const pair = (running: string, built: string): [string, string] => [`Running: ${running}`, `Just built: ${built}`];
+
+/** R31 the Just built heads: a workflow on no map, a change to the running map, any other map. */
+export function justBuilt(kind: "workflow" | "running" | "other", o: { workflow?: string; t?: number }): Line {
+  if (kind === "workflow")
+    return { text: `Just built: the workflow ${o.workflow}. It is on no map, so no session runs it yet.`, act: "open-workflows", label: "Open in Workflows" };
+  if (kind === "running") return { text: `Changed in this session at ${clock(o.t || 0)}; this session takes it at its next hand-off.` };
+  return { text: `Just built in this session at ${clock(o.t || 0)}. This session does not run on it.` };
+}
+
+/** R43 the hover card on a Session box (hover = summary; a click opens R18's card). */
+export function hoverLines(h: { name: string; workflow: string | null; model: string; state: string; when: string; source: string;
+  children: string[]; built: number | null }): string[] {
+  const out = [h.name, h.workflow ? `workflow ${h.workflow}` : "agent", h.model, h.state, `Starts when: ${h.when} (from ${h.source})`, ...h.children];
+  if (h.built) out.push(`Built ${clock(h.built)} in this session`);
+  return out;
+}
+
+/** R45 the heading over the boxes no line from main reaches. */
+export const unreachedHead = (): string => "Not connected yet: no line from main reaches these, so this session never runs them.";
+
+/** R47 what the Workflows head adds. */
+export const workflowsHead = (): string =>
+  `Workflows are fixed lists of steps. A session runs a map, and a box on a map can run a workflow: see ${WORDS.map}.`;
