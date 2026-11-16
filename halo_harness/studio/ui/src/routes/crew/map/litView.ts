@@ -5,7 +5,7 @@
 // 3.6.0.0 R4b: one level only -- a helper a helper started is counted on it ("+N under it"), listed in the drawer.
 import type { Change } from "../types";
 import { firstLevel, type Overlay } from "./overlay";
-import type { DrawBox, DrawLine, MapFile } from "./mapTypes";
+import type { DrawBox, DrawLine, MapDetail, MapFile, StepRow } from "./mapTypes";
 import type { MapView } from "./view";
 
 /** The file the lit map draws: the map itself, or (`bare`) main alone. */
@@ -19,6 +19,36 @@ export function withCard(pending: Change[], card: Change[]): Change[] {
 }
 
 export const helperId = (aid: string) => `made-up:${aid}`;
+export const flowId = (w: string) => `workflow:${w}`;
+
+/** 3.6.0.2 R14 R15 R17, the drawing of a run (Session's Live drawer, Agents' Live view): no box per child -- a box carries
+ *  its children as rows (the overlay's `kids`, drawn by RunRows.tsx); a workflow box of the map is its block, calm (every
+ *  step "next", from the map's facts) until it runs; a workflow the session runs that is no box is a block on a full-width
+ *  row under its caller, reached by a dashed line (off the map on a map of his when the hop that started it was). Steps'
+ *  states are read from the overlay when drawn; here they only size the block. */
+export function withRun(v: MapView, ov: Overlay | null, detail: MapDetail | null, plain: boolean): MapView {
+  const models = new Map<string, string>();
+  for (const f of Object.values(detail?.boxes || {})) for (const x of f.facts || []) if (x.model && !models.has(x.name)) models.set(x.name, x.model);
+  const calm = (id: string): StepRow[] => (detail?.boxes[id]?.facts?.[0]?.steps || []).map((s, i) => {
+    const agent = (s.agents || []).join(" + ");
+    return { n: i + 1, step: s.name, agent, model: models.get(s.agents?.[0] || "") || "", state: "next" as const };
+  });
+  const blocks = ov?.blocks || {};
+  const boxes: DrawBox[] = v.boxes.map((b) => {
+    if (b.kind !== "workflow" || b.main) return b;
+    const w = b.names[0] || b.name, lit = blocks[w];
+    return { ...b, block: { workflow: w, steps: lit?.steps.length ? lit.steps : calm(b.id) } };
+  });
+  const lines: DrawLine[] = [...v.lines];
+  const on = new Set(["main", ...v.boxes.map((b) => b.id)]);
+  for (const [w, blk] of Object.entries(blocks)) {
+    if (blk.box && on.has(blk.box)) continue;
+    const under = on.has(blk.caller) ? blk.caller : "main";
+    boxes.push({ id: flowId(w), kind: "workflow", name: w, names: [w], block: { workflow: w, steps: blk.steps, under } });
+    lines.push({ from: under, to: flowId(w), helper: true, off: !plain && blk.off !== false });
+  }
+  return { ...v, boxes, lines };
+}
 
 export function withLit(v: MapView, ov: Overlay | null): MapView {
   if (!ov || !ov.helpers.length) return v;

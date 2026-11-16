@@ -5,17 +5,25 @@
 // the hand-off moving along the line the runtime's receipt named; an opened workflow box's steps; the helpers the
 // session made up, under the box that started them; and every row that matches nothing, shown in the strip (never
 // dropped). Live and replay call the same function, so a replay lights the map as the run did. No runtime imports
-// (tests/test_map_overlay.py runs it in node).
+// but its pure sibling overlayBlocks.ts (tests/test_map_overlay.py runs both in node).
+//
+// 3.6.0.2 R14: a row tagged with a workflow (`crew.workflow`) is a step row of that workflow's block (overlayBlocks.ts),
+// whatever its name, before anything else; R15: every other child is a named row inside its box (`kids`); R17: on a map of
+// his a child with no `crew.line` is off the map (`offCount`; on the default map every hand-off is main's pick, never
+// counted); R48: a hand-off on no line of the map is kept (`off`), never taken for a removed box.
 //
 // Matching a row to a box: its `crew.box` (the runtime tagged the spawn: crew/map_run.py), else a workflow box whose
 // workflow its `square` names (a step's agent, the workflow's node), else an agent box that has its name; a row none of
 // those claim is a helper made up for the task, under the box its parent row belongs to; a row whose parent belongs to
 // no box (or a tag naming a box the map no longer has) is a stranger: the strip shows it, tagged.
 
+import { blocksOf, type BlockLit } from "./overlayBlocks";
+
 export type OvRow = {
   agent_id: string; parent?: string | null; name?: string | null; role?: string | null; state?: string | null; cost_usd?: number | null;
   current?: string | null; task?: string | null; model?: string | null; kind?: string | null;
-  crew?: { map?: string; box?: string; line?: string; made_up?: boolean } | null; square?: { name?: string } | null;
+  crew?: { map?: string; box?: string; line?: string; made_up?: boolean; workflow?: string; step?: number; agent?: string; saved?: boolean } | null;
+  square?: { name?: string } | null;
 };
 export type OvEvent = { event: string; data: Record<string, unknown> };
 export type OvMap = { boxes: { id: string; agent?: string | string[]; workflow?: string }[]; lines: { from: string; to: string }[] };
@@ -28,16 +36,25 @@ export type Helper = { aid: string; box: string; name: string; task: string; sta
 export type Stranger = { aid: string; name: string; why: string; state: BoxState };
 export type StepLit = { n: number; name: string; state: string; agents: string[]; rounds: number; checks: number; said: string };
 export type Steps = { state: string; steps: StepLit[] };
+/** R15: a child drawn as a row inside its box: saved (`made` false) or made up; `unlined` = no line brought it; `off` = and
+ *  on a map of his (R17). */
+export type Kid = { aid: string; made: boolean; agent: string; model: string; task: string; state: BoxState; unlined: boolean; off: boolean };
+/** R48: hand-offs on no line of the map, by `from>to`: how many, the last one's words and time, still in flight. */
+export type OffHop = { from: string; to: string; n: number; sender: string; task: string; t: number; running: boolean; off: boolean };
 export type Overlay = {
   boxes: Record<string, OvBox>; lines: Record<string, LineLit>; pulses: Pulse[]; helpers: Helper[]; strangers: Stranger[];
   steps: Record<string, Steps>; waiting: string[]; gone: string[];
+  blocks: Record<string, BlockLit>; kids: Record<string, Kid[]>; off: OffHop[]; offCount: number;
   facts: { working: number; waiting: number; cost: number; models: string[]; hops: number };
 };
 
 export const PULSE_S = 4; // the line's label shows the task this long after a hand-off, then its When again
 const LIVE = ["queued", "running", "paused"];
+const ANY = ["", "general-purpose"]; // the spec of a child made up for its task (R13)
+type Place = { box: string; helper: boolean; why: string; workflow?: string };
 const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
 const str = (v: unknown): string => (v == null ? "" : String(v));
+export { blocksOf, type BlockLit };
 export const lineKey = (from: string, to: string) => `${from}>${to}`;
 
 export function stateOf(rows: OvRow[]): BoxState {
@@ -70,16 +87,17 @@ function boxOf(m: OvMap): { byName: Map<string, string>; byFlow: Map<string, str
 }
 
 /** Each row's place: a box id (`box`), a helper under a box (`helper`), or nothing (`stranger`, with why). */
-export function place(m: OvMap, rows: OvRow[]): Map<string, { box: string; helper: boolean; why: string }> {
+export function place(m: OvMap, rows: OvRow[]): Map<string, Place> {
   const { byName, byFlow, ids } = boxOf(m);
   const byId = new Map(rows.map((r) => [r.agent_id, r]));
-  const out = new Map<string, { box: string; helper: boolean; why: string }>();
-  const resolve = (r: OvRow, depth = 0): { box: string; helper: boolean; why: string } => {
+  const out = new Map<string, Place>();
+  const resolve = (r: OvRow, depth = 0): Place => {
     const got = out.get(r.agent_id);
     if (got) return got;
-    let p: { box: string; helper: boolean; why: string };
+    let p: Place;
     const tag = r.crew || null;
     if (r.agent_id === "main" || (!r.parent && str(r.kind) === "main")) p = { box: "main", helper: false, why: "" };
+    else if (tag?.workflow) p = { box: byFlow.get(tag.workflow) || "", helper: false, why: "", workflow: tag.workflow }; // R14: first
     else if (tag?.box) p = ids.has(tag.box) ? { box: tag.box, helper: !!tag.made_up, why: "" } : { box: "", helper: false, why: `its box ${tag.box} is not on this map (removed since)` };
     else if (r.square?.name && byFlow.has(str(r.square.name))) p = { box: byFlow.get(str(r.square.name))!, helper: false, why: "" };
     else if (byName.has(str(r.name))) p = { box: byName.get(str(r.name))!, helper: false, why: "" };
@@ -124,14 +142,23 @@ function stepsOf(evs: OvEvent[]): Record<string, Steps> {
   return out;
 }
 
-/** The overlay of one session on the map `m`, at `now` (epoch seconds). */
-export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number): Overlay {
+/** The overlay of one session on the map `m`, at `now` (epoch seconds); `plain`: the default map (R17: nothing counted). */
+export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number, opts: { plain?: boolean } = {}): Overlay {
   const where = place(m, rows);
   const groups = new Map<string, OvRow[]>();
   const helpers: Helper[] = [], strangers: Stranger[] = [];
+  const kids: Record<string, Kid[]> = {}, flows = new Set(m.boxes.filter((b) => b.workflow).map((b) => b.id));
   for (const r of rows) {
     const p = where.get(r.agent_id)!;
     const st = stateOf([r]);
+    const isMain = r.agent_id === "main" || (!r.parent && str(r.kind) === "main");
+    if (p.box && !isMain && !p.workflow && !flows.has(p.box) && !r.square) { // R15: a named row inside its box
+      const unlined = !r.crew?.line;
+      // made up: as tagged (R13); untagged (no map, an old run): only a general-purpose or nameless one
+      (kids[p.box] = kids[p.box] || []).push({ aid: r.agent_id, made: r.crew ? !!r.crew.made_up : ANY.includes(str(r.name)), agent: str(r.crew?.agent || r.name || r.agent_id),
+        model: str(r.model), task: str(r.task), state: st, unlined, off: unlined && !opts.plain });
+    }
+    if (p.workflow && !p.box) continue; // R14: a step of a workflow on no box: its block's row only
     if (!p.box) strangers.push({ aid: r.agent_id, name: str(r.name || r.role || r.agent_id), why: p.why, state: st });
     else if (p.helper) helpers.push({ aid: r.agent_id, box: p.box, name: str(r.name || r.agent_id), task: str(r.task), state: st, cost: num(r.cost_usd), model: str(r.model),
                                     parent: str(r.parent) });
@@ -146,12 +173,18 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number)
                   models: [...new Set(rs.map((r) => str(r.model)).filter(Boolean))] };
   }
   const lines: Record<string, LineLit> = {};
-  const pulses: Pulse[] = [], gone = new Set<string>();
+  const pulses: Pulse[] = [], gone = new Set<string>(), off = new Map<string, OffHop>();
   const on = new Set(m.lines.map((l) => lineKey(l.from, l.to)));
   let hops = 0;
   for (const { event, data: d } of events) {
     if (event !== "map_hop") continue;
     const from = str(d.from), to = str(d.to), k = lineKey(from, to), t = num(d.t);
+    if (!on.has(k) && (d.off || to.startsWith("workflow:") || to.startsWith("made-up:"))) { // R48: kept, never "removed"
+      const was = off.get(k) || { from, to, n: 0, sender: from, task: "", t: 0, running: false, off: false };
+      if (d.state === "start") off.set(k, { ...was, n: was.n + 1, task: str(d.task), t, running: true, off: !!d.off });
+      else if (d.state === "end") off.set(k, { ...was, running: false });
+      continue;
+    }
     if (!on.has(k)) {
       gone.add(to);
       continue;
@@ -169,7 +202,13 @@ export function overlay(m: OvMap, rows: OvRow[], events: OvEvent[], now: number)
     } else if (d.state === "end") lines[k] = { ...was, running: false };
   }
   const all = Object.values(boxes);
+  const blocks = blocksOf(m, rows, events, (aid) => where.get(aid)?.box || "");
+  // R17: counted by ROWS: each unlined child once, a workflow's steps once for the block (the verdict of the hop that
+  // started it; with no hop seen, a workflow on no box of the map is off it)
+  const offCount = opts.plain ? 0 : Object.values(kids).flat().filter((k) => k.off).length +
+    Object.values(blocks).filter((b) => (b.off == null ? !b.box : b.off)).length;
   return {
+    blocks, kids, off: [...off.values()], offCount,
     boxes, lines, pulses, helpers, strangers, steps: stepsOf(events),
     waiting: Object.entries(boxes).filter(([, b]) => b.state === "waiting").map(([id]) => id).concat(helpers.filter((h) => h.state === "waiting").map((h) => h.box)),
     gone: [...gone].filter((id) => !m.boxes.some((b) => b.id === id)),

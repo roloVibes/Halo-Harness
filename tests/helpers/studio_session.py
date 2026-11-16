@@ -157,14 +157,16 @@ def dash(c, rig) -> dict:
       return [p, { text: (t?.textContent || '').trim(), title: t?.getAttribute('title') || '',
                    bar: b?.querySelector('.viewbar-name')?.textContent || '', barTitle: b?.getAttribute('title') || '' }]; }))""")
     # 3.6.0.2 R2: an open session between turns is drawn: the rig's session idle first (every agent done, not busy)
-    c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3", 30)
-    out["idle_nodes"] = c.js(f"{inside('session-map', 'session-lit-box')}.length")
-    out["idle_working"] = c.js(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length")
+    # 3.6.0.2 R15: its agents are the drawing's boxes and the rows inside them (a child is a row in its box, no box of its own)
+    drawn = f"[...{inside('session-map', 'session-lit-box')}, ...{inside('session-map', 'session-map-row')}]"
+    c.wait(f"{drawn}.length >= 3", 30)
+    out["idle_nodes"] = c.js(f"{drawn}.length")
+    out["idle_working"] = c.js(f"{drawn}.filter((n) => n.dataset.state === 'working').length")
     rows.reset()  # 3.6.0.0 R5: then at work: the working boxes lit
-    c.wait(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length >= 2", 30)
+    c.wait(f"{drawn}.filter((n) => n.dataset.state === 'working').length >= 2", 30)
     out["boxes"] = c.js(f"{inside('session-map', 'fleet-box')}.length")  # 3.5.0.0: no harness box (one machine)
-    out["nodes"] = c.js(f"{inside('session-map', 'session-lit-box')}.length")
-    out["working"] = c.js(f"[...{inside('session-map', 'session-lit-box')}].filter((n) => n.dataset.state === 'working').length")
+    out["nodes"] = c.js(f"{drawn}.length")
+    out["working"] = c.js(f"{drawn}.filter((n) => n.dataset.state === 'working').length")
     out["sid"], out["hid"] = sid, hid
     out["cost_session"] = c.wait(f"{COST}?.dataset.session", 15)
     out["cost_model"] = c.js("document.querySelector('[data-testid=\"session-cost-model\"]')?.textContent")
@@ -189,14 +191,14 @@ def dash(c, rig) -> dict:
     # 3.6.0.2 R1: Session draws the session chosen in it, so the Alt keys start from the rig's session chosen (the
     # `&session=` page above draws the second session, main alone; "its map still lit" speaks of the rig's)
     boot_go(c, url(rig, f"mode=session&session={sid}"))
-    c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3", 30)
+    c.wait(f"{drawn}.length >= 3", 30)  # 3.6.0.2 R15: its boxes and the rows in them
     alt(c, 2)  # 3.3.18.0: Alt+2 opens Agents on Live; 3.5.0.0: this machine's sessions only
     out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
     out["agents_view"] = c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'map' && 'map'", 30)  # R5: the Map while a session runs
     out["agents_boxes"] = c.js(f"{inside('agents', 'fleet-box')}.length + {inside('agents', 'live-machine')}.length")
     alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
     out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
-    out["back_map"] = c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3 && 'lit'", 15)
+    out["back_map"] = c.wait(f"{drawn}.length >= 3 && 'lit'", 15)
     return out
 
 

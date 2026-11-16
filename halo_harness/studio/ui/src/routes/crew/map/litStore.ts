@@ -13,12 +13,15 @@ import type { SessionRow } from "../../fleet/types";
 import { openOrder } from "../../session/pick";
 import type { Change } from "../types";
 import type { OvEvent } from "./overlay";
+import { foldHop, NO_TOTALS, type Totals } from "./overlayHops";
 
-export const MAX_EVENTS = 600;
-export type LitSession = { sid: string; title: string; map: string | null; started: number; live: number };
-type State = { events: Record<string, OvEvent[]>; cards: Record<string, { id: string; changes: Change[] }>; pick: string; feed: string; feedFor: string };
+export const MAX_EVENTS = 600; // the replay window; the trace's totals (overlayHops.ts) are kept apart, exact (R49)
+/** `plain`: the session runs on the default map (R17); `busy`: its row says a turn runs (R16: no hand-off live once not). */
+export type LitSession = { sid: string; title: string; map: string | null; started: number; live: number; plain?: boolean; busy?: boolean };
+type State = { events: Record<string, OvEvent[]>; totals: Record<string, Totals>; cards: Record<string, { id: string; changes: Change[] }>;
+  pick: string; feed: string; feedFor: string };
 
-export const lit = createStore<State>({ events: {}, cards: {}, pick: "", feed: "", feedFor: "" });
+export const lit = createStore<State>({ events: {}, totals: {}, cards: {}, pick: "", feed: "", feedFor: "" });
 export const useLitStore = <T,>(f: (s: State) => T): T => useStore(lit, f);
 const LIVE = ["queued", "running", "waiting", "paused"];
 
@@ -35,7 +38,25 @@ function take(f: FeedFrame): void {
     });
     return;
   }
-  lit.update((s) => ({ events: { ...s.events, [sid]: [...(s.events[sid] || []), { event: f.event, data: { ...d, seen: Date.now() / 1000 } }].slice(-MAX_EVENTS) } }));
+  queue.push({ sid, ev: { event: f.event, data: { ...d, seen: Date.now() / 1000 } } });
+  if (queue.length === 1) (typeof requestAnimationFrame === "function" && !document.hidden ? requestAnimationFrame(flush) : setTimeout(flush, 50));
+}
+
+// R49: the frames that arrive within one animation frame are merged in one update (one draw, not one per frame)
+let queue: { sid: string; ev: OvEvent }[] = [];
+function flush(): void {
+  const got = queue;
+  queue = [];
+  if (!got.length) return;
+  lit.update((s) => {
+    const events = { ...s.events }, totals = { ...s.totals };
+    for (const { sid, ev } of got) {
+      events[sid] = [...(events[sid] || []), ev];
+      if (ev.event === "map_hop") totals[sid] = foldHop(totals[sid] || NO_TOTALS, ev);
+    }
+    for (const sid of new Set(got.map((x) => x.sid))) if (events[sid].length > MAX_EVENTS) events[sid] = events[sid].slice(-MAX_EVENTS);
+    return { events, totals };
+  });
 }
 
 let bound = false;
@@ -52,7 +73,8 @@ export function startLit(): void {
 export function toLit(s: SessionRow): LitSession {
   const live = (s.agents || []).filter((a) => LIVE.includes(String(a.state || ""))).length + (s.busy ? 1 : 0);
   const map = typeof s.map === "string" && s.map ? s.map : null;
-  return { sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live };
+  return { sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live,
+           plain: !map || !!s.map_plain, busy: !!s.busy };
 }
 
 const here_ = (st: Pick<FleetState, "harnesses">, here: string): SessionRow[] =>

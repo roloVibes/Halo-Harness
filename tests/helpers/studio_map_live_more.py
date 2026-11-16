@@ -114,7 +114,8 @@ def panel(c, rig, lv, sent) -> dict:
     c.go(rig.url("session"))
     mini = "document.querySelector('[data-testid=\"session-map\"] [data-testid=\"session-lit-map\"]')"
     out = {"panel": c.wait(f"!!{mini} && {mini}.querySelectorAll('[data-testid=session-lit-box]').length >= 6 && [{mini}.dataset.map,"
-                           f" {mini}.querySelectorAll('[data-testid=session-lit-box][data-helper]').length > 0,"
+                           # 3.6.0.2 R15: the helper is a made-up row inside the box that started it, no box of its own
+                           f" {mini}.querySelectorAll('[data-testid=session-map-row][data-helper]').length > 0,"
                            f" {mini}.querySelectorAll('.mp-dot, [data-testid=map-label]').length]", 40)}
     press(c, f"{mini}.querySelector('[data-testid=session-lit-open]')")
     out["to_tab"] = c.wait(f"{VIEW} === 'map' && document.querySelector('[data-part=map] [data-testid=map-switcher]')?.value === 'shop' && 'shop'", 20)

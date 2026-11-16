@@ -366,12 +366,12 @@ def test_nothing_moves_under_the_pointer(ctx: Ctx):
     under = h.get("under") or []
     moved = [(i, k) for i, s in enumerate(under) for k in set(rest) | set(s) if not _same(rest.get(k), s.get(k))]
     ctx.check(f"R12: the drawing at rest before the pointer came, got {sorted(rest)}", len(rest) >= 7)
-    ctx.check(f"R12: 3 s under the pointer with a new box and new words: nothing moved, nothing arrived, got {moved[:6]}",
+    ctx.check(f"R12: 3 s under the pointer with a new row in main's box and new words: nothing moved, nothing grew, got {moved[:6]}",
               len(under) == 12 and not moved)
-    ctx.check(f"R12: the pointer left: the new box drawn within 2 s, got {h.get('arrived_s')}", h.get("arrived_s") is not None)
+    ctx.check(f"R12 R15: the pointer left: the new row drawn in main's box within 2 s, got {h.get('arrived_s')}", h.get("arrived_s") is not None)
     s, k = h.get("scrolled") or {}, h.get("kept") or {}
     ctx.check(f"R12: scrolled by hand so a row under main's is first, got {s}", s.get("first") not in (None, "main") and (s.get("st") or 0) > 0)
-    ctx.check(f"R12: a box arriving above keeps the first box seen in its place, got {s} -> {k}",
+    ctx.check(f"R12: main's box growing above (a row arriving) keeps the first box seen in its place, got {s} -> {k}",
               k.get("top") is not None and s.get("top") is not None and abs(k["top"] - s["top"]) <= 1)
 
 
@@ -598,11 +598,14 @@ def test_status_line_reserved_two_lines(ctx: Ctx):
     except SkipTest as e:
         raise SkipTest(f"(a) {'passed' if not node_skip else node_skip}; (b) {e}")
     first, busy, done = (got + [{}, {}, {}])[:3]
+    # batch 4 (R17): the session runs on shop, a map of his, and W is no box of it: its steps came by no line of the map,
+    # so the status line counts that one block as a hand-off outside the map (rewritten to the truth: it ended at $2.42)
+    off1 = " · 1 hand-off outside the map"
     ctx.check(f"first paint, no rows yet, got {first.get('status')!r}", first.get("status") == "Waiting for you · $0.00")
-    ctx.check(f"the workflow's step at work, got {busy.get('status')!r}", busy.get("status") == want)
+    ctx.check(f"the workflow's step at work, got {busy.get('status')!r}", busy.get("status") == want + off1)
     ctx.check(f"no 'delegating', 'helpers', 'models', got {busy.get('status')!r}",
               not any(w in (busy.get("status") or "") for w in ("delegating", "helpers", "models")))
-    ctx.check(f"all done, got {done.get('status')!r}", done.get("status") == "Done · $2.42")
+    ctx.check(f"all done, got {done.get('status')!r}", done.get("status") == "Done · $2.42" + off1)
     # R23 under the block, R20 the block changes only with a fact (PA's check compares its innerText across a busy turn)
     ctx.check(f"the status line is under the truth block, not in it, got {[(s.get('inside'), s.get('below')) for s in (first, busy, done)]}",
               all(s.get("inside") is False and s.get("below") is True for s in (first, busy, done)))
@@ -643,6 +646,107 @@ def test_start_view_names_the_last_build(ctx: Ctx):
               got.get("empty_fresh") == "No session is open here. New sessions will run on review-flow.")
     ctx.check(f"(e) and the switch, got {got.get('empty_switched')!r}",
               got.get("empty_switched") == "No session is open here. New sessions will run on shop.")
+
+
+# -- 3.6.0.2 batch 4 (P3d): the run drawn as it is (R14 R15 R16 R17) ----------------------------------------------------
+_RUNS: dict = {}
+
+
+def _runs() -> dict:
+    """tests/helpers/studio_session_run.py, run once for the tests below."""
+    from tests.helpers.chrome_driver import driver_env, find_chrome
+    if not find_chrome():
+        raise SkipTest("no Chrome found (the Live drawer needs headless Chrome)")
+    if not _RUNS:
+        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_session_run"], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=400, env=driver_env(REPO), cwd=str(REPO))
+        try:
+            info = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            info = {}
+        _RUNS.update(r=r, got=info)
+    if _RUNS["got"].get("skip"):
+        raise SkipTest(_RUNS["got"]["skip"])
+    return _RUNS["got"]
+
+
+def _ranrun(ctx: Ctx, key: str) -> dict:
+    got = _runs()
+    r = _RUNS["r"]
+    ctx.check(f"the driver reached {key}, got {r.returncode} {got.get('failed')!r} {r.stderr[-600:]!r}", got.get(key) is not None)
+    return got.get(key) or {}
+
+
+@test
+def test_workflow_block_names_steps_agents_models(ctx: Ctx):
+    import re
+    d = _ranrun(ctx, "block")
+    blk, boxes = d.get("block") or [0, 0, 0, 0], d.get("boxes") or []
+    side = [b for b in boxes if b[0] != "main"]
+    left = min((b[1] for b in side), default=None)
+    right = max((b[1] + b[3] for b in side), default=None)
+    bottom = max((b[2] + b[4] for b in boxes), default=None)
+    ctx.check(f"R14: the block W on a full-width row under the last rank, got block {blk} row {left}..{right} last bottom {bottom}",
+              left is not None and abs(blk[0] - left) <= 1 and abs(blk[2] - (right - left)) <= 1 and blk[1] >= bottom - 0.5)
+    ctx.check(f"R14: its head while it runs, got {d.get('head')!r}", d.get("head") == "workflow W · step 3 of 6")
+    want = ["1 plan · planner · or:v/planner · done", "2 code · coder · or:v/coder · done", "3 test · tester · or:v/tester · working",
+            "4 review · reviewer · or:v/reviewer · next", "5 fix · next", "6 ship · next"]
+    ctx.check(f"R14: every step a row, in order, by agent and model, got {d.get('steps')}",
+              [s[0] for s in d.get("steps") or []] == want and [s[1] for s in d.get("steps") or []] == ["done", "done", "working", "next", "next", "next"])
+    rows = d.get("mainRows") or []
+    ctx.check(f"R15: main's box holds the made-up row with Save as an agent, got {rows}",
+              rows == [["made up: list the repo · working", True, "g1"]] and d.get("saves") == 1)
+    text = d.get("text") or ""
+    ctx.check(f"R15: no 'helper', no 'made up for this task' in the drawer, got {re.findall(r'(?i)helper|made up for this task', text)}",
+              not re.search(r"(?i)helper|made up for this task", text))
+    calm = {b[0]: (b[5], b[6]) for b in boxes if b[0] in ("planner", "coder", "reviewer")}
+    ctx.check(f"R14: starter's planner, coder, reviewer stay calm (not used yet), got {calm}",
+              len(calm) == 3 and all(st == "idle" and "not used yet" in tx for st, tx in calm.values()))
+    ln = d.get("line") or {}
+    ctx.check(f"R16 R17: main -> W is a dashed line, lit, plain on starter (not off the map), got {ln}",
+              ln.get("lit") == "live" and ln.get("dash") not in ("", "none") and "off-map" not in str(ln))
+
+
+@test
+def test_hops_light_their_line_and_leave_a_trace(ctx: Ctx):
+    import re
+    d = _ranrun(ctx, "hops")
+    calm, docs0 = (d.get("calm") or [{}, {}])
+    live, live8 = d.get("live") or {}, d.get("live8") or {}
+    t1, t2, t3 = d.get("t1") or {}, d.get("t2") or {}, d.get("t3") or {}
+    cw = calm.get("w") or 0
+    ctx.check(f"R16: calm before any hand-off, got {calm}", calm.get("lit") == "" and cw > 0)
+    ctx.check(f"R16: a hand-off lights its line, heavier than calm, got {live}", live.get("lit") == "live" and (live.get("w") or 0) > cw)
+    ctx.check(f"R16: still live 8 s later with no end while a row carries it (no 4 s timeout), got {live8}", live8.get("lit") == "live")
+    ctx.check(f"R16: its end leaves a trace of 1, marked last, lighter than live, heavier than calm, got {t1}",
+              t1.get("lit") == "trace" and t1.get("hops") == "1" and t1.get("last") and cw < (t1.get("w") or 0) < (live.get("w") or 0))
+    ctx.check(f"R16: the trace weighs more at 2 and 3 hand-offs, got {t1.get('w')} {t2.get('w')} {t3.get('w')}",
+              t3.get("hops") == "3" and (t1.get("w") or 0) < (t2.get("w") or 0) < (t3.get("w") or 0))
+    ctx.check(f"R16: only the newest hand-off's line is marked, got {d.get('lasts')}", d.get("lasts") == ["main>code"])
+    ctx.check(f"R16: its hover, got {t3.get('hover')!r}",
+              re.fullmatch(r"Carried 3 hand-offs; last at \d{1,2}:\d\d\D{0,4}: fix the retry in client\.py so it backs", t3.get("hover") or "") is not None)
+    docs = d.get("docs") or {}
+    ctx.check(f"R16: a line no hand-off took is never lit, got {docs}", docs.get("lit") == "" and abs((docs.get("w") or 0) - (docs0.get("w") or -1)) < 0.01)
+    ctx.check(f"R16: a workflow's steps light in order, got {d.get('steps1')} -> {d.get('steps2')}",
+              d.get("steps1") == ["working", "next"] and d.get("steps2") == ["done", "working"])
+
+
+@test
+def test_off_map_hand_off_stands_out(ctx: Ctx):
+    d = _ranrun(ctx, "off")
+    his, st = d.get("offmap") or {}, d.get("starter") or {}
+    r = his.get("row") or {}
+    ctx.check(f"R17: on a map of his the child no line brought is marked off the map, got {r}", r.get("off") == "1" and his.get("offs") == 1)
+    ctx.check(f"R17: dashed in --off-map, not amber, not the accent, got {r.get('color')} {r.get('style')} off-map {his.get('offMap')} "
+              f"warn {his.get('warn')}", r.get("style") == "dashed" and r.get("color") == his.get("offMap")
+              and his.get("offMap") not in (his.get("warn"), his.get("accent")))
+    ctx.check(f"R17: its hover, got {r.get('title')!r}", r.get("title") == "Not on the map: main started this itself")
+    ctx.check(f"R17: the status line counts it, got {his.get('status')!r}", (his.get("status") or "").endswith("· 1 hand-off outside the map"))
+    s = st.get("row") or {}
+    ctx.check(f"R17: on starter it is main's pick: plain dashed, not --off-map, got {s} off-map {st.get('offMap')}",
+              s.get("unlined") == "1" and not s.get("off") and s.get("style") == "dashed" and s.get("color") != st.get("offMap")
+              and st.get("offs") == 0)
+    ctx.check(f"R17: and not counted, got {st.get('status')!r}", "outside the map" not in (st.get("status") or "x outside the map"))
 
 
 if __name__ == "__main__":

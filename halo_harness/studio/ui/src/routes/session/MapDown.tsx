@@ -17,6 +17,7 @@ import { setAgentsView } from "../agents/store";
 import { useHold } from "../crew/map/hold";
 import { STATE_WORDS } from "../crew/map/LitBits";
 import { LitFace, litState, useLit } from "../crew/map/LitMini";
+import { RunLine } from "../crew/map/RunLine";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { openMap } from "../crew/map/mapStore";
@@ -45,7 +46,8 @@ function useSize(ref: RefObject<HTMLElement | null>, on: boolean): { w: number; 
 
 /** `f`: the session's facts for the truth block over the drawing (R2, R20: its map, never busy). */
 export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
-  const { detail, ov, v } = useLit(s);
+  const L = useLit(s);
+  const { detail, ov, v } = L;
   const drawn = !!detail;
   const root = useRef<HTMLDivElement>(null), roomEl = useRef<HTMLDivElement>(null);
   const scroll = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null);
@@ -125,7 +127,7 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
     <div className="mp-mini mp-down" ref={root} data-testid="session-lit-map" data-dir="down" data-map={s.map || ""} data-sid={s.sid}
          data-held={held ? "1" : undefined}>
       <div className="mp-mini-head mp-down-head">
-        <TruthBlock f={f} sid={s.sid} />
+        <TruthBlock f={f} sid={s.sid} off={ov?.offCount || 0} />
         <div className="mp-down-tools">
           <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
@@ -137,16 +139,17 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
           <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>
             <div className="mp-mini-world" ref={world} data-zoom={k.toFixed(3)} style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
-                {g.lines.map((l) => <path key={l.key} d={l.d} className="mp-line" data-helper={l.helper || undefined}
-                                          data-pulse={ov?.pulses.some((p) => p.from === l.from && p.to === l.to) ? "1" : undefined} />)}
+                {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} />)}
               </svg>
               {g.boxes.map((b) => {
                 const { st, helper } = litState(b, ov);
+                const loose = !!b.block?.under; // R14: a workflow on no box of the map: its block on a full-width row
                 return (
-                  <div key={b.id} className="mp-box" data-lit="live" data-state={st} data-helper={helper} data-kind={b.kind} data-new={b.isNew ? "" : undefined}
-                       data-testid="session-lit-box" data-box={b.id} title={`${b.name}: ${STATE_WORDS[st]}`}
+                  <div key={b.id} className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit="live" data-state={st} data-helper={helper} data-kind={b.kind}
+                       data-new={b.isNew ? "" : undefined} data-workflow={b.block?.workflow}
+                       data-testid={loose ? "session-map-block" : "session-lit-box"} data-box={b.id} title={b.block ? undefined : `${b.name}: ${STATE_WORDS[st]}`}
                        style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }}>
-                    <LitFace b={b} ov={ov} />
+                    <LitFace b={b} ov={ov} sid={s.sid} />
                   </div>
                 );
               })}

@@ -41,6 +41,8 @@
   --soft-user: color-mix(in srgb, var(--user) 8%, transparent);
   /* 3.3.16.2: a model's thinking (inner voice: the user hue, muted) and agents talking (between accent and user) */
   --think: color-mix(in srgb, var(--user) 60%, var(--muted)); --talk: color-mix(in srgb, var(--accent) 50%, var(--user));
+  /* 3.6.0.2 R17: work that went where his map has no line (between the bad and the user hue: never amber, never accent) */
+  --off-map: color-mix(in srgb, var(--bad) 55%, var(--user));
   --shadow-0: none;
   /* the static dot grid, on map canvases only */
   --grid-dot: var(--grid-line); --grid-size: 16px;

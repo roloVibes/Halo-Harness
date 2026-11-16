@@ -43,7 +43,7 @@ LONG = ("reviewer_" * 8)[:70]
 CMD = "x" * 80
 LONGMAP = {"format": "map/1", "name": "longname", "main": {"agent": "main"}, "boxes": [{"id": "long", "agent": LONG}],
            "lines": [{"from": "main", "to": "long", "when": "always"}]}
-SCOUT = "made-up:scout01"
+SCOUT = "scout01"  # 3.6.0.2 R15: a child is a row inside its box (`data-row`), no longer a box of its own
 MORE = "↓ %d more below"  # R11, section 4 (truthWords.ts moreBelow)
 
 M = "document.querySelector('[data-testid=\"session-lit-map\"]')"
@@ -158,14 +158,14 @@ def hold(c, rig, rows, a) -> dict:
     c.mouse("mouseMoved", w - 1, h - 1)
     t0 = time.time()
     try:
-        c.wait(f"!!{M}.querySelector('[data-box=\"{SCOUT}\"]')", 2)
+        c.wait(f"!!{M}.querySelector('[data-row=\"{SCOUT}\"]')", 2)
         out["arrived_s"] = round(time.time() - t0, 2)
     except TimeoutError:
         out["arrived_s"] = None
-    # after a hand scroll the first box he sees keeps its place when a box arrives above it
+    # after a hand scroll the first box he sees keeps its place when main's box grows above it (a row arriving in it)
     rows.set(a, agents=_agents(rows, a))
     _reload(c, rows)
-    c.wait(f"!{M}.querySelector('[data-box=\"{SCOUT}\"]')", 15)
+    c.wait(f"!{M}.querySelector('[data-row=\"{SCOUT}\"]')", 15)
     for _ in range(2):
         c.js(f"{M}.querySelector('[data-testid=canvas-zoom-in]').click(); 1")
         time.sleep(0.3)
@@ -180,7 +180,7 @@ def hold(c, rig, rows, a) -> dict:
                        "top": seen[0][0] if seen else None}
     rows.set(a, agents=_agents(rows, a, extra=(("scout01", "scout", "running", "Read: notes"),)))
     _reload(c, rows)
-    c.wait(f"!!{M}.querySelector('[data-box=\"{SCOUT}\"]')", 15)
+    c.wait(f"!!{M}.querySelector('[data-row=\"{SCOUT}\"]')", 15)
     time.sleep(0.6)
     after = c.js(READ) or {}
     f = out["scrolled"]["first"]

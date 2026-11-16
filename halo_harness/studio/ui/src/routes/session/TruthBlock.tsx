@@ -50,8 +50,9 @@ function Lines({ lines, onNew }: { lines: Line[]; onNew?: () => void }) {
 }
 
 /** `f`: the session's facts (pick.ts factsOf), or `{ none: true, b }` for Empty; `sid`: the session ("" for Empty);
- *  `held`: Empty while {B} is not read yet (its room is kept, no words: never a {B} that may be false). */
-export function TruthBlock({ f: given, sid, held }: { f: TruthFacts; sid: string; held?: boolean }) {
+ *  `held`: Empty while {B} is not read yet (its room is kept, no words: never a {B} that may be false); `off`: the hand-offs
+ *  outside the map (R17, the overlay's count by rows; 0 on the default map). */
+export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; sid: string; held?: boolean; off?: number }) {
   useEffect(() => startLit(), []);
   const rec = useSessionRecord(sid);
   const rows = (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }));
@@ -93,7 +94,7 @@ export function TruthBlock({ f: given, sid, held }: { f: TruthFacts; sid: string
           <div className="cw-line mp-truth-said mp-truth-twin" ref={twin} aria-hidden="true"><Lines lines={room} /></div>
         </div>
       </div>
-      {sid && st !== "T8" && <p className="mp-status mono" data-testid="session-status">{statusLine(statusOf(rows, events, busy))}</p>}
+      {sid && st !== "T8" && <p className="mp-status mono" data-testid="session-status">{statusLine(statusOf(rows, events, busy, off))}</p>}
       {form && (
         <div className="mp-truth-form" data-testid="session-truth-form">
           <NewSession compact />

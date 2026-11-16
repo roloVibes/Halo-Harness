@@ -97,11 +97,11 @@ def test_the_map_is_this_harness_with_the_working_agent_lit(ctx: Ctx):
     r, got = _driver("dash")
     _ran(ctx, r, got)
     ctx.check(f"no harness box (3.5.0.0: one machine), got {got.get('boxes')}", got.get("boxes") == 0)
-    ctx.check(f"R2: an open session between turns is drawn (>= 3 boxes, none working), got {got.get('idle_nodes')} boxes, "
+    ctx.check(f"R2 R15: an open session between turns is drawn (>= 3 boxes and rows, none working), got {got.get('idle_nodes')}, "
               f"{got.get('idle_working')} working", (got.get("idle_nodes") or 0) >= 3 and got.get("idle_working") == 0)
-    ctx.check(f"3.6.0.0 R5: the session running here drawn as its map: main and its helpers, got {got.get('nodes')} boxes",
+    ctx.check(f"3.6.0.0 R5, 3.6.0.2 R15: the session running here drawn as its map: main, its children rows in it, got {got.get('nodes')}",
               (got.get("nodes") or 0) >= 3)
-    ctx.check(f"the working boxes lit, got {got.get('working')}", (got.get("working") or 0) >= 2)
+    ctx.check(f"the working boxes and rows lit, got {got.get('working')}", (got.get("working") or 0) >= 2)
 
 
 @test

@@ -20,7 +20,7 @@ export function startLines(b: string | null, last: { map: string; t: number } | 
 export const blockHead = (workflow: string, step?: number, of?: number): string =>
   step && of ? `workflow ${workflow} · step ${step} of ${of}` : `workflow ${workflow}`;
 export const stepRow = (i: number, step: string, agent: string, model: string, state: "done" | "working" | "next" | "failed" | string): string =>
-  `${i} ${step} · ${agent} · ${model} · ${state}`;
+  [`${i} ${step}`, agent, model, state].filter(Boolean).join(" · "); // a model (or agent) not known yet is left out, never "· ·"
 
 /** R15 the other children inside their box: a saved agent, one made up for a task (its first 40 characters), the rest. */
 export const agentRow = (agent: string, model: string, state: string): string => `${agent} · ${model} · ${state}`;

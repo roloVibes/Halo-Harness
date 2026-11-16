@@ -17,7 +17,7 @@ STRIP = f"{COL}.querySelector('[data-testid=\"session-live-timeline\"]')"
 
 def opened(c, rig) -> dict:
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"session-lit-box\"]').length >= 3", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] :is([data-testid=\"session-lit-box\"], [data-testid=\"session-map-row\"])').length >= 3", 40)  # 3.6.0.2 R15: boxes and the rows in them
     time.sleep(0.8)
     return {"opened": True}
 
@@ -71,7 +71,7 @@ def done_box(c, lv) -> dict:
     out: dict = {}
     docs = lv.key("docs")
     lv.state("docs", state="done", last_text="CHANGES.md: the discount applies before tax")
-    c.wait(f"document.querySelector('[data-testid=\"session-lit-box\"][data-helper=\"{docs.split('|')[-1]}\"]')?.dataset.state === 'done'", 10)  # R5: the lit map
+    c.wait(f"document.querySelector('[data-testid=\"session-map-row\"][data-row=\"{docs.split('|')[-1]}\"]')?.dataset.state === 'done'", 10)  # R5: the lit map (3.6.0.2 R15: its row in main's box)
     pick(c, AGENT_PICK, docs)
     c.wait(f"{BOX}.dataset.key === '{docs}'", 5)
     out["done_box"] = box(c)

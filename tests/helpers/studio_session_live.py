@@ -55,7 +55,7 @@ def live(c, rig) -> dict:
     lv = Live(rig)
     out: dict = {}
     c.go(rig.url("session"))
-    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"session-lit-box\"]').length >= 3", 40)
+    c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] :is([data-testid=\"session-lit-box\"], [data-testid=\"session-map-row\"])').length >= 3", 40)  # 3.6.0.2 R15: boxes and the rows in them
     time.sleep(0.8)
     out["arrangement"] = arrangement(c)
     out["titles"] = c.js("Object.fromEntries(['session-map', 'session-live'].map((p) => [p, (document.querySelector("

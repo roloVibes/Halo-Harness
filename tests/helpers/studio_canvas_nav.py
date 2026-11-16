@@ -83,7 +83,11 @@ def wheels(c, scroller: str, world: str, target: str) -> dict:
 
 def session_map(c, rig) -> dict:
     from tests.helpers.studio_live_rig import Live
+    from tests.helpers.studio_session_map_down import Rows
     lv = rig.canvas_live = Live(rig, extra=())
+    # 3.6.0.2 R15: the session's children are rows inside main's box, no boxes of their own: the session runs on starter
+    # (main + seven boxes, 380 px), the drawing these zooms and wheels need
+    Rows(rig).set(rig.act.session_id, map="starter", map_plain=True)
     for aid, name, role, model, task in SPAWNED:
         lv.spawn(aid, name, role, model, task)
         lv.state(name, lineup="auto", bio=role, kind="member")
@@ -114,8 +118,9 @@ def session_map(c, rig) -> dict:
                               f"return parseFloat(getComputedStyle(n).fontSize) * +{world}.dataset.zoom; }})()")
     out["map_buttons"] = c.js(f"!!{sm}.querySelector('[data-testid=\"canvas-zoom\"]') && !!{sm}.querySelector('[data-testid=\"canvas-fit\"]')")
     out["map"] = wheels(c, f"{sm}.querySelector('.mp-mini-scroll')", world, node)
-    x, y, bw, bh = c.rect(f"{sm}.querySelector('.mp-mini-scroll')")  # R9: a zoom out by hand stops at 75 %
-    for _ in range(14):
+    for _ in range(14):  # R9: a zoom out by hand stops at 75 %
+        # 3.6.0.2 R11: the scroll box ends under its last whole row, so its height follows the zoom: aim at it each time
+        x, y, bw, bh = c.rect(f"{sm}.querySelector('.mp-mini-scroll')")
         _wheel(c, x + bw / 2, y + bh / 2, 120, 2)
         time.sleep(0.1)
     out["map_floor"] = c.js(f"+{world}.dataset.zoom")

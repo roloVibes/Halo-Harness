@@ -38,3 +38,26 @@
 .mp-truth-form { position: absolute; top: 100%; right: 0; z-index: 5; width: min(380px, 100%); padding: var(--s-2);
   display: flex; flex-direction: column; gap: var(--s-2); background: var(--surface); border: 1px solid var(--line-strong);
   box-shadow: var(--glow); }
+/* R14 a workflow's block: its head as the name, then every step a 12 px row (18 px each: a six-step block is 146 px);
+   a block on no box sits on a full-width row; the working step in the accent, a failed one in the bad hue */
+.mp-down .mp-block .mp-step { display: block; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; color: var(--muted); }
+.mp-down .mp-block .mp-step[data-state=working] { color: var(--accent); }
+.mp-down .mp-block .mp-step[data-state=done] { color: var(--text); }
+.mp-down .mp-block .mp-step[data-state=failed] { color: var(--bad); }
+/* R15 the children inside their box: a row each; a child no line brought is dashed (R17): plain on the default map, in
+   --off-map on a map of his */
+.mp-down .mp-kids { display: flex; flex-direction: column; margin-top: 2px; }
+.mp-down .mp-kid { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); padding-left: 6px; border-left: 2px solid var(--line-strong); }
+.mp-down .mp-kid[hidden] { display: none; }
+.mp-down .mp-kid[data-unlined] { border-left-style: dashed; }
+.mp-down .mp-kid[data-off] { border-left-color: var(--off-map); }
+.mp-down .mp-kid .mp-link { font-size: 12px; line-height: 17px; }
+/* R16 the lines: calm (map.css), a trace by weight (1 < 2 < 3+), the newest marked, live heaviest; a dashed line no line of
+   the map drew: plain, or in --off-map on a map of his (R17) */
+.mp-down .mp-line[data-helper] { stroke: var(--line-strong); stroke-dasharray: 4 4; }
+.mp-down .mp-line[data-lit=trace] { stroke: var(--accent); stroke-opacity: 0.6; stroke-width: 2; }
+.mp-down .mp-line[data-lit=trace][data-hops="2"] { stroke-width: 2.5; }
+.mp-down .mp-line[data-lit=trace][data-hops="3"] { stroke-width: 3; }
+.mp-down .mp-line[data-lit=trace][data-last] { stroke-opacity: 0.9; }
+.mp-down .mp-line[data-lit=live] { stroke: var(--accent); stroke-opacity: 1; stroke-width: 4; }
+.mp-down .mp-line[data-off] { stroke: var(--off-map); stroke-dasharray: 4 4; }
