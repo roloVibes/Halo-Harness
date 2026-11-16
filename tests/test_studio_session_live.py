@@ -73,9 +73,12 @@ def test_the_default_arrangement_gives_live_the_right_side(ctx: Ctx):
     _ran(ctx, r, got)
     a = got.get("arrangement") or {}
     live = a.get("session-live") or ["", 0]
-    ctx.check(f"Live is the main thing and the widest panel, got {a}", live[0] == "main" and all(live[1] > v[1] for k, v in a.items() if k != "session-live"))
-    ctx.check(f"Map in the left drawer, Cost in the right one, got {a.get('session-map')} {a.get('session-cost')}",
+    ctx.check(f"Feed is the main thing and the widest panel, got {a}", live[0] == "main" and all(live[1] > v[1] for k, v in a.items() if k != "session-live"))
+    ctx.check(f"Live (the drawing) in the left drawer, Cost in the right one, got {a.get('session-map')} {a.get('session-cost')}",
               (a.get("session-map") or [""])[0] == "left" and (a.get("session-cost") or [""])[0] == "right")
+    t = got.get("titles") or {}
+    ctx.check(f"3.6.0.2 R35: the main panel reads Feed, the left drawer Live (ids unchanged), got {t}",
+              t.get("session-live") == "Feed" and t.get("session-map") == "Live")
     closed = [a.get(k) for k in ("session-agent", "session-activity", "session-attention")]
     ctx.check(f"Agent, Activity, Attention: closed, buttons in the view bar, got {closed}", all(s and s[0] == "closed" for s in closed))
     ctx.check("Follow is on by default", got.get("follow_default") is True)

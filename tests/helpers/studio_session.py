@@ -150,6 +150,12 @@ def dash(c, rig) -> dict:
         raise TimeoutError(f"Session panels not one each: {bad}; tab {c.js(TAB)!r}; errors, #root children, boot: {page!r}")
     out["panels"] = c.js(counts)
     out["abouts"] = c.js("document.querySelectorAll('[data-section=\"session\"] [data-testid=\"panel-title\"][title]:not([title=\"\"])').length")  # 3.3.2.0 R3: the title's tooltip
+    # 3.6.0.2 R35: the drawer is Live (hover: was Map), the line-by-line panel Feed (hover: was Live); ids unchanged
+    out["titles"] = c.js("""Object.fromEntries(['session-map', 'session-live'].map((p) => {
+      const t = document.querySelector(`[data-testid="${p}"] [data-testid="panel-title"]`);
+      const b = document.querySelector(`[data-testid="viewbar-btn"][data-panel="${p}"]`);
+      return [p, { text: (t?.textContent || '').trim(), title: t?.getAttribute('title') || '',
+                   bar: b?.querySelector('.viewbar-name')?.textContent || '', barTitle: b?.getAttribute('title') || '' }]; }))""")
     # 3.6.0.2 R2: an open session between turns is drawn: the rig's session idle first (every agent done, not busy)
     c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3", 30)
     out["idle_nodes"] = c.js(f"{inside('session-map', 'session-lit-box')}.length")

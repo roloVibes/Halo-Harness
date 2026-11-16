@@ -73,32 +73,45 @@ stops there and the pill counts what arrives. Following again (the pill,
 | `A` / `R` / `S` / `O` | the column | answer the newest ask card (`s` on a focused row steers instead) |
 | `Esc` | the column | show every agent again after a pin |
 
-## The Map: zoom and the readable opening (3.4.1.3)
+## Live: the session drawn, top to bottom (3.6.0.2)
 
-Session's **Map** (`session-map`, the lit map of the session, smaller) zooms like every drawing in Studio: **Ctrl + wheel** (Cmd
-on a Mac) or a pinch around the pointer, `+` / `-` / `0` on the focused map, a drag on the background pans, a
-double-click there fits, and the **- / % / + / Fit** buttons in its corner for a mouse with no wheel. It opens fitted to
-its panel but never smaller than the zoom where its text is 12 px on screen (3.6.0.0; 75% before): a tree too big for
-that opens on the picked agent (else the main one) and pans inside its box, with "more than fits at a readable size:
-drag to pan, Ctrl + wheel to zoom out" on the line under it, beside the buttons. Its drawer is the widest (560 px, less
-where Live needs its 60 %). When the drawer's box changes (opened, dragged, the window crossing a breakpoint) it fits
-again, unless you zoomed or panned it by hand: then your view stays until Fit gives it back to the automatic fit
-(docs/STUDIO-shell.md, the one rule for every drawing).
+Two of Session's panels changed names in 3.6.0.2 (their hovers say so this release): the left drawer that draws the run
+is **Live** (it was Map), and the main panel that shows what the agents say and do, line by line, is the **Feed** (it
+was Live). **Map** is always the plan you build in Agents -> 3 · Map. The panels' ids (`session-map`, `session-live`)
+and `?open=session-map` are unchanged.
 
-**While a session of this Studio runs on a map** (3.6.0.0 R4), the Map panel shows that map lit instead of the tree:
-the same drawing as Agents -> 3 · Map, compact and read-only -- each box's state and what it does now, the hand-off
-lighting its line, the helpers the session made up beside the box that started them -- fitted to the panel's width,
-with **Open it on the Map tab** ([STUDIO-map.md](STUDIO-map.md#while-a-session-runs)). Steering, stopping and the
-words are on the Map tab's drawer and in Live here. A session that did not start on a map keeps the tree above until
-every session runs on a map.
+**The truth block.** On top of Live, one block says which map the chosen session runs on and since when, in plain
+sentences: "This session runs on shop, as it started at 2:26 PM. New sessions will too." When new sessions will run on
+another map it says so, with a **New session** button that opens the New session form in the drawer's corner: "This
+session keeps running on starter (the default), as it started. Start a new session to run on review-flow." and "It
+started at 2:25 PM, before review-flow was switched on at 2:31 PM." A session running a workflow that is a box on that
+map reads "This session is running the workflow review from review-flow." first; when its own map was changed it adds
+"shop changed at 2:40 PM; this session takes it at its next hand-off." The block keeps the same height from the first
+draw (room for the longest of these sentences is held), so the drawing below never moves when a fact changes, and it is
+never amber.
 
-**The Map bigger than Live, or either alone** (3.6.0.0 R4b, the owner: "I should be able to adjust the sizes of each
-box with that line in the middle"). The line between the Map and Live drags both ways until Live is 360 px wide, so the
-Map can be the bigger view (`Alt+Left` / `Alt+Right` on the Map: 40 px a press); its width is kept across a reload, and
-the drawing re-fits once when the drag ends (never under a zoom made by hand). **Only this** in the Map's title line
-shows the Map alone, with the whole stage -- Live stays open behind it and keeps following -- and **Only this** on Live
-puts the Map aside; **Show both** (or the Map's button in the view bar) brings both back. The view bar says "Map
-only", "Live only" or "Map and Live", and Session remembers it. The lit Map and the tree obey it alike.
+**The status line.** Under the block, one line, two lines tall from the first draw: who works on what, what it waits
+for and the cost -- "tester working on the workflow review, step 3 of 6 · waiting for a model reply · $2.42", "Waiting
+for you · $0.40" between turns, "Done · $1.10" when every agent finished.
+
+**When no session is open.** Session's Start view says "No session is open here. New sessions will run on review-flow."
+and, when this page saw a session build a map before it ended, "Your last session built the map review-flow at 2:40
+PM. New sessions run on it." with **New session**, which takes you to the New session form. A session you were watching
+that ends reads "This session ended at 2:41 PM. It ran on shop." until you pick another.
+
+**The drawing.** Below, the session's map drawn top to bottom: main alone on the first row, its boxes two a row (one a
+row when the drawer is narrower than 400 px), every word whole -- a box grows to hold a long name. It opens at 100 %;
+**Ctrl + wheel** (Cmd on a Mac) or a pinch zooms from 75 % to 200 %, `+` / `-` / `0` on the focused drawing, and the
+**- / % / + / Fit** buttons beside **Open it on the Map tab**. No box is ever cut by the drawer's edge: the drawing ends
+under its last whole row and "↓ 1 more below" scrolls one row. While the pointer is on the drawing it holds still; a
+box arriving waits until the pointer leaves.
+
+**Live bigger than the Feed, or either alone** (3.6.0.0 R4b, the owner: "I should be able to adjust the sizes of each
+box with that line in the middle"). The line between Live and the Feed drags both ways until the Feed is 360 px wide
+(`Alt+Left` / `Alt+Right` on the drawing: 40 px a press); its width is kept across a reload. **Only this** in Live's
+title line shows Live alone, with the whole stage -- the Feed stays open behind it and keeps following -- and **Only
+this** on the Feed puts Live aside; **Show both** (or Live's button in the view bar) brings both back. The view bar says
+"Live only", "Feed only" or "Live and Feed", and Session remembers it.
 
 ## Export: the session as a trace file
 

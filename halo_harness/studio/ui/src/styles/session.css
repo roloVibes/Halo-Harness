@@ -7,6 +7,8 @@
 /* -- the Start view ------------------------------------------------------------------- */
 .ss-start .fl-start-inner { width: min(760px, 100%); }
 .ss-start .ss-start-form { display: grid; gap: 16px; padding: 20px; justify-items: start; }
+/* 3.6.0.2 R4: the Start view's sentences; two lines held from the first draw, so the map's name arriving moves nothing */
+.ss-start .ss-start-said { display: grid; gap: 6px; font-size: 15px; line-height: 1.5; min-height: calc(3em + 6px); align-content: start; }
 .ss-start .ss-start-form .fl-explain { width: 100%; }
 
 /* -- the chosen session's card on the map (data-chosen, under Session's scope) ---------- */

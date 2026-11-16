@@ -83,6 +83,13 @@ def test_mode_session_mounts_the_seven_panels(ctx: Ctx):
     _ran(ctx, r, got)
     ctx.check(f"the seven panels once each (3.3.11.0 R1: Prompt), got {got.get('panels')}", got.get("panels") == [1] * 7)
     ctx.check(f"each with its about line, got {got.get('abouts')}", got.get("abouts") == 7)
+    t = got.get("titles") or {}
+    m, f = t.get("session-map") or {}, t.get("session-live") or {}
+    ctx.check(f"3.6.0.2 R35: the left drawer (session-map) is titled Live, its hover says (was Map), got {m}",
+              m.get("text") == "Live" and "(was Map)" in m.get("title", "") and (not m.get("bar") or m.get("bar") == "Live")
+              and (not m.get("barTitle") or "(was Map)" in m.get("barTitle", "")))
+    ctx.check(f"3.6.0.2 R35: the main panel (session-live) is titled Feed, its hover says (was Live), got {f}",
+              f.get("text") == "Feed" and "(was Live)" in f.get("title", "") and (not f.get("bar") or f.get("bar") == "Feed"))
 
 
 @test

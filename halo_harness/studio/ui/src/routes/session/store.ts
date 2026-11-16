@@ -20,7 +20,8 @@ import { findAgent, fleet, isLive, keyOf, localId, parseKey, useFleet, type Flee
 import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
-import { livePick, noteRows, staleRead } from "./pick";
+import { onEvent } from "../../lib/events";
+import { livePick, noteBuild, noteRows, staleRead } from "./pick";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
@@ -185,6 +186,7 @@ export function startSession(): void {
   onFilesChanged("config", () => void loadFleet());
   studio.subscribe(onChange);
   fleet.subscribe(onChange);
+  onEvent("builder_done", (f) => noteBuild(f.session_id || "", (f.data || {}) as Record<string, unknown>, Date.now() / 1000)); // R4
   onChange();
 }
 

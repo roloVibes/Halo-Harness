@@ -1,5 +1,5 @@
 /* Session's Live drawer, drawn top to bottom (3.6.0.2 R7 R9-R12; routes/session/MapDown.tsx). Every rule is scoped under
-   .mp-down: Agents' boxes (map.css) and its Map are untouched. */
+   .mp-down or .mp-truth (Session's own): Agents' boxes (map.css) and its Map are untouched. */
 .mp-down { gap: var(--s-2); }
 /* R12: the head never wraps its buttons; the truth line has its own row above them */
 .mp-down-head { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
@@ -23,3 +23,16 @@
 .mp-down .mp-name, .mp-down .mp-lit-row { display: block; white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
 .mp-down .mp-name { font-size: 13.5px; line-height: 19px; }
 .mp-down .mp-lit-row { font-size: 12px; line-height: 17px; }
+/* R20 R23 the truth block over the drawing (routes/session/TruthBlock.tsx; also alone for T8, T10 and Empty): its lines'
+   height is the hidden twin's (the longest state, measured), never clamped and never amber; the status line under it
+   has two lines reserved; [New session] opens the New session form over the drawer's corner (nothing moves) */
+.mp-truth { position: relative; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.mp-truth-lines { position: relative; min-width: 0; }
+.mp-truth-said { display: block; overflow: visible; }
+.mp-truth-line { margin: 0; }
+.mp-truth-twin { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+.mp-truth-new { white-space: nowrap; }
+.mp-status { margin: 0; font-size: 12px; line-height: 17px; min-height: 34px; overflow-wrap: anywhere; color: var(--text); }
+.mp-truth-form { position: absolute; top: 100%; right: 0; z-index: 5; width: min(380px, 100%); padding: var(--s-2);
+  display: flex; flex-direction: column; gap: var(--s-2); background: var(--surface); border: 1px solid var(--line-strong);
+  box-shadow: var(--glow); }

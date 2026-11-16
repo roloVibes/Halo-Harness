@@ -7,12 +7,16 @@
 // and filters, and the Steer box at its foot at all times).
 import type { Help } from "./help-orchestra";
 import { NAV_HELP } from "../lib/canvasNav"; // 3.4.1.3: zoom and pan, the same on every drawing
+import { WAS, WORDS } from "./crew/map/truthWords";
+
+// 3.6.0.2 R35: the two panels swapped names this release: the drawer that draws the run is Live (it was Map), the
+// line-by-line panel is Feed (it was Live). The "(was ...)" hovers go next release.
 
 const lines = (...l: string[]) => l.join("\n");
 
 export const SESSION_HELP: Record<string, Help> = {
   "session-live": {
-    about: "Every agent here at once, live: what it types, each tool call and its result, what it hands back, what it asks you.",
+    about: `Every agent here at once, line by line: what it types, each tool call and its result, what it hands back, what it asks you. ${WAS.feed}`,
     help: lines(
       "Lines land in the order they happen, in Fleet's columns: the time, the kind (TOOL, TEXT, THINK, TALK, STATE, ASK, YOU...) and the agent's tag (its colour, its name and its state: cyan works, amber waits, green done, red failed).",
       "THINK is a model's reasoning as it comes, one row per thought: four lines, show all for the rest, then how long it thought (and its tokens when the provider says). Its chip says what it led to; why? on that row opens the thought under it. Thinking beside Follow shows only the thoughts and what each led to. A model with no thinking shows none.",
@@ -33,7 +37,7 @@ export const SESSION_HELP: Record<string, Help> = {
       "/ opens the slash list, the terminal's own commands and the session's custom ones, filtered as you type: Tab completes, Esc closes; a / line runs in the session and its output lands here.",
       "While a turn runs, a send asks first: Queue it starts it when that turn ends (one at a time), Steer puts it into the running turn. A pasted image or a dropped file rides along.",
       "Beside each of your turns, four marks: sent (Studio stored it), delivered (the session took it), read (it is in the model's input), replied (that turn ended); red when it failed, the reason in its title.",
-      "The conversation reads like the terminal: replies, one line per tool call, the asks with their buttons. Live stays the stream for steering.",
+      "The conversation reads like the terminal: replies, one line per tool call, the asks with their buttons. The ${WORDS.feed} stays the stream for steering.",
     ),
   },
   "session-conversations": { // 3.3.16.2
@@ -41,23 +45,24 @@ export const SESSION_HELP: Record<string, Help> = {
     help: lines(
       "Left: every pair of agents that has talked, the newest first, with how many messages and the last line.",
       "Right: the chosen pair's thread. Each message sits on its speaker's side, with why it was said (TASK, HAND-BACK, STEER, SQUARE, HAND-OVER) and when; a reply sits under what it answers.",
-      "Click a message to see it in Live; show in Live narrows Live to this pair (the chip in Live's header shows everything again).",
-      "Its button in the bar counts the threads and the messages. Live's TALK rows are the same messages, as they happen.",
+      `Click a message to see it in the ${WORDS.feed}; show in the ${WORDS.feed} narrows the ${WORDS.feed} to this pair (the chip in the ${WORDS.feed}'s header shows everything again).`,
+      `Its button in the bar counts the threads and the messages. The ${WORDS.feed}'s TALK rows are the same messages, as they happen.`,
     ),
   },
   "session-map": {
-    about: "The map this session runs on, lit: its boxes light up as the agents on them work (3.6.0.0: every session runs on a map).",
+    about: `What the chosen session is doing now, drawn top to bottom on the map it runs on. ${WAS.live}`,
     help: lines(
-      "Each box is an agent on the map; a lit box works now, and a helper it started shows under it.",
-      "A cyan pulse works, amber waits on you, green just finished, red failed.",
-      "Open it on the Map tab (Agents -> 3 · Map) for the whole map, what they think and say, and History under it.",
-      `${NAV_HELP} The map opens fitted to the panel, never smaller than its text reads; Fit (or 0) shows it all.`,
+      "On top, one true block: which map this session runs on and since when; when new sessions run on another map, the sentence that says so and a New session button. Under it, one status line: who works on what, what it waits for, the cost.",
+      "Below, the session drawn: main on the first row, then its boxes two a row; a lit box works now. Nothing is cut: \"↓ n more below\" scrolls one row.",
+      "A cyan pulse works, amber waits on you, green just finished, red failed. While the pointer is on the drawing it holds still.",
+      `Open it on the ${WORDS.map} tab (Agents -> 3 · ${WORDS.map}) for the plan itself, what they think and say, and History under it.`,
+      `${NAV_HELP} It opens at 100 %, never smaller than its text reads; Fit (or 0) goes back to the top.`,
     ),
   },
   "session-agent": {
     about: "The selected agent: what it thinks, what it runs, what it hands back; steer it.",
     help: lines(
-      "A drawer beside Live: its button in the bar opens it (double-click an agent on the map opens it too).",
+      `A drawer beside the ${WORDS.feed}: its button in the bar opens it (double-click an agent on the map opens it too).`,
       "Thinking is its text as it types it, Working one row per tool call, Output its hand-back.",
       "Steer: a nudge it reads before its next step, or redirect to give it a new task. Pause holds it at its next step; Stop asks first (K here does the same).",
       "F follows, Space pins a mini stream that stays on screen in every section.",
@@ -74,7 +79,7 @@ export const SESSION_HELP: Record<string, Help> = {
   "session-attention": {
     about: "What waits on you in this harness's sessions, oldest first, one key each.",
     help: lines(
-      "Cards (permission, question, plan, approval), gates, paused agents and spend caps of this harness; each also lands in Live as it arrives.",
+      `Cards (permission, question, plan, approval), gates, paused agents and spend caps of this harness; each also lands in the ${WORDS.feed} as it arrives.`,
       "A accepts or allows, R denies or redoes with your text, S stops, O opens the panel it belongs to.",
       "J / K (or the arrows) move between rows while this panel has the focus.",
     ),

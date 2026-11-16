@@ -19,11 +19,47 @@ export function openOrder<R extends SessionRow>(rows: R[]): R[] {
 const seen = new Map<string, SessionRow>(); // the last row of each session this page saw
 const gone = new Map<string, number>(); // when a seen session's row went (it ended), epoch seconds
 
-/** Note the open rows (each fleet change): a session seen before and now without a row has ended at `now`. */
+const hashes = new Map<string, { hash: string; t: number | null }>(); // R20 T5: when a session's map content changed
+let next: { b: string | null } | null = null; // R4: the map new sessions use, as this page last heard it
+
+/** Note the open rows (each fleet change): a session seen before and now without a row has ended at `now`; a row whose
+ *  `map_hash` differs from the one this page first saw took a changed map at `now` (T5). */
 export function noteRows(rows: SessionRow[], now: number): void {
   const here = new Set(rows.map((r) => r.session_id));
   for (const r of rows) (seen.set(r.session_id, r), gone.delete(r.session_id));
   for (const sid of seen.keys()) if (!here.has(sid) && !gone.has(sid)) gone.set(sid, now);
+  for (const r of rows) noteHash(r, now);
+  const top = openOrder(rows.filter((r) => "map_next" in r))[0];
+  if (top) next = { b: top.map_next || null };
+}
+
+/** T5: the first `map_hash` seen of a session, then when a different one was first seen (whoever reads the row first). */
+function noteHash(r: SessionRow, now: number): { hash: string; t: number | null } | undefined {
+  const h = r.map_hash ? String(r.map_hash) : "", k = hashes.get(r.session_id);
+  if (h && !k) hashes.set(r.session_id, { hash: h, t: null });
+  else if (h && k && k.hash !== h) hashes.set(r.session_id, { hash: h, t: now });
+  return hashes.get(r.session_id);
+}
+
+/** R4: a Builder card applied in a session (`builder_done`): the map it wrote and the map new sessions use after it. */
+type Build = { sid: string; map: string; t: number };
+let build: Build | null = null;
+export function noteBuild(sid: string, d: Record<string, unknown>, now: number): void {
+  if (!sid || d.outcome !== "applied") return;
+  const wrote = (Array.isArray(d.wrote) ? d.wrote : []) as { kind?: string; name?: string }[];
+  const m = wrote.find((w) => w && w.kind === "map" && w.name);
+  if ("next" in d) next = { b: typeof d.next === "string" && d.next ? d.next : null };
+  if (m) build = { sid, map: String(m.name), t: Number(d.t) || now };
+}
+
+/** R4's Start view: the last build this page heard from a session that is not open any more (it ended), else null. */
+export function lastBuild(rows: SessionRow[]): { map: string; t: number } | null {
+  return build && !rows.some((r) => r.session_id === build!.sid) ? { map: build.map, t: build.t } : null;
+}
+
+/** {B} as this page last heard it (the newest row's `map_next`, a build's `next`); undefined when it heard neither. */
+export function knownNext(): { b: string | null } | undefined {
+  return next || undefined;
 }
 
 /** R4: the picked session that ended: its last row and when it went (T8), else null. */
@@ -61,13 +97,15 @@ export function livePick<R extends SessionRow>(rows: R[], pick: string): R | nul
 }
 
 /** What the truth sentence knows of an open row (P2's status row fields); never `busy` for the words. */
-export function factsOf(row: SessionRow, ended: number | null = null): TruthFacts {
+export function factsOf(row: SessionRow, ended: number | null = null, now = Date.now() / 1000): TruthFacts {
   const asked = !!row.asked || !!Number(row.turns);
+  const hash = ended ? hashes.get(row.session_id) : noteHash(row, now); // a render may read the row before noteRows
   return {
     title: String(row.title || row.session_id.slice(0, 8)), a: typeof row.map === "string" && row.map ? row.map : null,
     plain: !!row.map_plain, b: row.map_next || null, bSince: row.map_next_since ?? null,
     started: Number(row.map_since || row.started) || 0, turns: asked ? Math.max(1, Number(row.turns) || 0) : 0,
-    studio: String(row.parent || "").startsWith("studio:"), ended, machine: null, unreadable: null, changed: null,
+    studio: String(row.parent || "").startsWith("studio:"), ended, machine: null, unreadable: null,
+    changed: hash?.t ? { t: hash.t } : null,
     workflow: null, busy: !!row.busy,
   };
 }

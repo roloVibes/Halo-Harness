@@ -1,5 +1,5 @@
 // Session's Live drawer: the session's map drawn top to bottom (3.6.0.2 R7 R9 R10 R11 R12), from layoutDown.ts (width in,
-// boxes and lines out; R8's routing is its own). The frame is this file's: the head (the truth line, the link, the zoom),
+// boxes and lines out; R8's routing is its own). The frame is this file's: the head (the truth block, TruthBlock.tsx; the link, the zoom),
 // the scroll box, the boxes as measured, the "↓ {n} more below" slot. Each box's face and the lit data are LitMini.tsx's.
 // - R7: the width laid out is the scroll box's clientWidth (`scrollbar-gutter: stable`), re-read on resize: two 184 px boxes
 //   a row from 400 px, one under it; main alone on row 0; nothing sideways.
@@ -20,8 +20,9 @@ import { LitFace, litState, useLit } from "../crew/map/LitMini";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { openMap } from "../crew/map/mapStore";
-import { moreBelow } from "../crew/map/truth";
+import { moreBelow, type TruthFacts } from "../crew/map/truth";
 import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight } from "./downFit";
+import { TruthBlock } from "./TruthBlock";
 
 const NAV_ID = "session-lit-map";
 const READ_PX = 12; // R9: the rows' size on screen at 100 %: fitted with it the floor is 1.0, so it always opens at 100 %
@@ -42,8 +43,8 @@ function useSize(ref: RefObject<HTMLElement | null>, on: boolean): { w: number; 
   return s;
 }
 
-/** `line`: the truth sentence over the drawing (R2: it depends on the session's map, never on busy). */
-export function MapDown({ s, line, state }: { s: LitSession; line: string; state: string }) {
+/** `f`: the session's facts for the truth block over the drawing (R2, R20: its map, never busy). */
+export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
   const { detail, ov, v } = useLit(s);
   const drawn = !!detail;
   const root = useRef<HTMLDivElement>(null), roomEl = useRef<HTMLDivElement>(null);
@@ -124,7 +125,7 @@ export function MapDown({ s, line, state }: { s: LitSession; line: string; state
     <div className="mp-mini mp-down" ref={root} data-testid="session-lit-map" data-dir="down" data-map={s.map || ""} data-sid={s.sid}
          data-held={held ? "1" : undefined}>
       <div className="mp-mini-head mp-down-head">
-        <span className="cw-line" data-testid="session-lit-line" data-state={state} data-sid={s.sid}>{line}</span>
+        <TruthBlock f={f} sid={s.sid} />
         <div className="mp-down-tools">
           <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />

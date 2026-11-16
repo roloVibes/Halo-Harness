@@ -31,6 +31,7 @@ import { LiveDetail, LiveGlance, useLiveMotion } from "./Live";
 import { PromptDetail, PromptGlance, usePromptMotion } from "./Prompt";
 import { registerPromptPanel, startPrompt } from "./promptStore";
 import { WhySettings } from "./Why";
+import { WORDS } from "../crew/map/truth";
 import { startSession } from "./store";
 
 function started(hook: () => MotionState): () => MotionState {
@@ -56,9 +57,10 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
 // panel is a button in the view bar, closed on load. The list order is the bar's and the palette's.
 export const sessionPanels: PanelSpec[] = [
   // 3.6.0.0 R8: a map needs the widest drawer; R4b: it holds a drawing, so its line drags until Live is 360 px wide
-  panel("session-map", { title: "Map", side: "left", contentW: 560, drawing: true,
+  // 3.6.0.2 R35: the drawer that draws the run is Live, the line-by-line panel Feed (WORDS, the one place; ids unchanged)
+  panel("session-map", { title: WORDS.live, side: "left", contentW: 560, drawing: true,
           face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
-  panel("session-live", { title: "Live", primary: true, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
+  panel("session-live", { title: WORDS.feed, primary: true, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
   panel("session-cost", { title: "Cost", contentW: 360, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
   panel("session-agent", { title: "Agent", contentW: 400, face: "detail", collapsed: true, glance: AgentGlance, detail: AgentDetail, settings: AgentSettings, useMotion: started(useAgentMotion) }),
   panel("session-activity", { title: "Activity", role: "tab", face: "detail", collapsed: true, glance: ActivityGlance, detail: ActivityDetail, useMotion: started(useActivityMotion) }),

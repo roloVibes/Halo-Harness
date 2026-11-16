@@ -8,7 +8,7 @@ the room driver (tests/helpers/studio_room.py), over the same Session rig, at 12
 * the drawing while the line moves: it does not re-fit during the drag (its zoom and its count of re-fits stay); when
   the drag ends it re-fits once, to what Fit makes of the new box (a drawing nobody zoomed); a drawing zoomed by hand
   keeps its zoom throughout and is not re-fitted;
-* the three arrangements -- Map and Live, Map only (Live mounted, hidden), Live only -- measured with the room measure
+* the three arrangements -- Live and Feed, Live only (the Feed mounted, hidden), Feed only (3.6.0.2 R35's words) -- measured with the room measure
   (studio_room_js.MEASURE + DRAWINGS), each kept across a reload, in the view bar's words, and Show both back;
 * the floating drawer under 1100 px drags too.
 
@@ -132,22 +132,22 @@ def at(c, rig, load, measure, w: int, h: int) -> dict:
     fit_now(c)
     # the three arrangements, each kept across a reload
     only(c, "session-map")
-    c.wait(f"{WORDS} === 'Map only'", 10)
+    c.wait(f"{WORDS} === 'Live only'", 10)
     out["mounted"] = c.js(f"[!!document.querySelector('{V} .stage-main[data-away] [data-testid=session-live] .panel-body'), {width(MAP)}]")
     arrangement(c, measure, f"session@{w}x{h}=map-only", out)
     load(c, rig.url("session", f"&split={w}&again=2"), "session")
-    c.wait(f"{WORDS} === 'Map only'", 20)
+    c.wait(f"{WORDS} === 'Live only'", 20)
     out["map_only_kept"] = c.js(f"[{WORDS}, !!document.querySelector('{V} .stage-drawer[data-alone][data-panel-in=session-map]')]")
     only(c, "session-map")  # Show both
-    c.wait(f"{WORDS} === 'Map and Live'", 10)
+    c.wait(f"{WORDS} === 'Live and Feed'", 10)
     only(c, "session-live")
-    c.wait(f"{WORDS} === 'Live only'", 10)
+    c.wait(f"{WORDS} === 'Feed only'", 10)
     out["live_only"] = c.js(f"[!!document.querySelector('{MAP}'), {btn('session-map')}.getAttribute('aria-pressed')]")
     arrangement(c, measure, f"session@{w}x{h}=live-only", out)
     load(c, rig.url("session", f"&split={w}&again=3"), "session")
-    c.wait(f"{WORDS} === 'Live only'", 20)
+    c.wait(f"{WORDS} === 'Feed only'", 20)
     c.js(f"{btn('session-map')}.click(); 1")  # the Map's button brings both back
-    c.wait(f"{WORDS} === 'Map and Live' && {drawn('session-map')}", 10)
+    c.wait(f"{WORDS} === 'Live and Feed' && {drawn('session-map')}", 10)
     out["both_again"] = c.js(WORDS)
     return out
 

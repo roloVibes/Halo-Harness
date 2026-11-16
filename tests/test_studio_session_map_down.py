@@ -428,6 +428,189 @@ def test_rest_height_counts_whole_rows(ctx: Ctx):
               p.get("seen") == {"id": "a", "off": -4} and p.get("kept") == 172)
 
 
+# -- 3.6.0.2 batch 3: the truth block (R20 R22), the status line (R23), the Start view (R4) --------------------------
+SESSION_DIR = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "session"
+TRUTH_TS = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map" / "truth.ts"
+TIME = r"\d{1,2}[:.]\d{2}(\s?[AaPp]\.?\s?[Mm]\.?)?"
+_TRUTH: dict = {}
+
+
+def _truth() -> dict:
+    """tests/helpers/studio_session_truth.py, run once for the tests below."""
+    from tests.helpers.chrome_driver import driver_env, find_chrome
+    if not find_chrome():
+        raise SkipTest("no Chrome found (the Live drawer needs headless Chrome)")
+    if not _TRUTH:
+        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_session_truth"], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=500, env=driver_env(REPO), cwd=str(REPO))
+        try:
+            info = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            info = {}
+        _TRUTH.update(r=r, got=info)
+    if _TRUTH["got"].get("skip"):
+        raise SkipTest(_TRUTH["got"]["skip"])
+    return _TRUTH["got"]
+
+
+def _saw(ctx: Ctx, key: str):
+    got = _truth()
+    r = _TRUTH["r"]
+    ctx.check(f"the driver reached {key}, got {r.returncode} {got.get('failed')!r} {r.stderr[-600:]!r}", key in got)
+    return got.get(key)
+
+
+def _untimed(s: str) -> str:
+    import re
+    return re.sub(TIME, "{t}", s or "")
+
+
+TRUTH_JS = """const T = await import(%s);
+const D = %s;
+const base = { title: 's', a: 'shop', plain: false, b: 'shop', bSince: D.t0 - 3600, started: D.t0, turns: 1, studio: false,
+  ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false };
+const t2 = { ...base, b: 'review-flow', bSince: D.t2 }, t5 = { ...t2, changed: { t: D.t2 + 30 } }, t7 = { ...t5, workflow: 'W' };
+const L = (f) => T.truthLines(f).map((l) => l.text);
+console.log(JSON.stringify({ T1: L(base), T2: L(t2), T5: L(t5), T7: L(t7), states: [base, t2, t5, t7].map((f) => T.truthState(f)) }));"""
+
+PICK_TRUTH_JS = """const m = await import(%s);
+const A = {session_id: 'A', parent: null, turns: 1, started: 100, map: 'shop', map_hash: 'h1', map_next: 'shop'};
+m.noteRows([A], 10); const before = m.factsOf(A).changed;
+m.noteRows([{...A, map_hash: 'h1'}], 20); const same = m.factsOf(A).changed;
+m.noteRows([{...A, map_hash: 'h2'}], 30); const after = m.factsOf({...A, map_hash: 'h2'}).changed;
+const next1 = m.knownNext();
+m.noteBuild('A', {outcome: 'failed', wrote: [{kind: 'map', name: 'x'}]}, 40); const failed = m.lastBuild([]);
+m.noteBuild('A', {outcome: 'applied', wrote: [{kind: 'workflow', name: 'review'}, {kind: 'map', name: 'review-flow', added: true}], next: 'review-flow', t: 50}, 41);
+console.log(JSON.stringify({before, same, after, next1, failed, open: m.lastBuild([A]), ended: m.lastBuild([]), next2: m.knownNext()}));"""
+
+
+@test
+def test_truth_block_height_fixed(ctx: Ctx):
+    # R20 R22: the truth block's words are truth.ts's for the session's facts, its height is held from the first draw and
+    # the drawing under it never moves across T1 -> T2 -> T5 -> T7; never amber. (a) pick.ts's facts in node; (b) the page.
+    from tests.helpers import node_ts
+    try:
+        p = node_ts.run(PICK_TRUTH_JS % json.dumps(PICK.resolve().as_uri()))
+    except SkipTest as e:
+        p, node_skip = None, str(e)
+    if p is not None:
+        node_skip = ""
+        ctx.check(f"T5 (a): no change while the map's hash stays, then changed at the read that saw a new one, got {p}",
+                  p.get("before") is None and p.get("same") is None and p.get("after") == {"t": 30})
+        ctx.check(f"R4 (a): {{B}} heard from the newest row, then from an applied build, got {p.get('next1')} {p.get('next2')}",
+                  p.get("next1") == {"b": "shop"} and p.get("next2") == {"b": "review-flow"})
+        ctx.check(f"R4 (a): a failed card is no build; an applied one counts once its session is not open, got {p}",
+                  p.get("failed") is None and p.get("open") is None and p.get("ended") == {"map": "review-flow", "t": 50})
+    try:
+        snaps = _saw(ctx, "truth") or []
+    except SkipTest as e:
+        raise SkipTest(f"(a) {'passed' if not node_skip else node_skip}; (b) {e}")
+    facts = (_TRUTH["got"].get("truth_facts") or {})
+    try:  # the words truth.ts gives for the same facts (in node; where node cannot run a .ts, the rest is still checked)
+        want = node_ts.run(TRUTH_JS % (json.dumps(TRUTH_TS.resolve().as_uri()), json.dumps(facts))) if facts else {}
+    except SkipTest as e:
+        want, node_skip = None, node_skip or str(e)
+    ctx.check(f"the page went through T1, T2, T2 (+T5), T2 (+T7), got {[s.get('state') for s in snaps]}",
+              [s.get("state") for s in snaps] == ["T1", "T2", "T2", "T2"] and (want is None or want.get("states") == ["T1", "T2", "T2", "T2"]))
+    for name, s in zip(("T1", "T2", "T5", "T7"), snaps):
+        if want is not None:
+            ctx.check(f"{name}: the lines are truth.ts's for the same facts (times by pattern), got {s.get('lines')} want {want.get(name)}",
+                      [_untimed(x) for x in s.get("lines") or []] == [_untimed(x) for x in want.get(name) or []])
+        import re
+        ctx.check(f"{name}: every time reads as a time, got {s.get('lines')}",
+                  all(re.search(TIME, x) for x in s.get("lines") or [] if " at " in x))
+        ctx.check(f"{name}: never amber (block {s.get('color')!r}, line {s.get('lineColor')!r}, --warn {s.get('warn')!r})",
+                  s.get("color") != s.get("warn") and s.get("lineColor") != s.get("warn") and not s.get("amber"))
+    first = snaps[0] if snaps else {}
+    ctx.check(f"T2 holds [New session] after S13, got {snaps[1].get('buttons') if len(snaps) > 1 else None}",
+              len(snaps) > 1 and snaps[1].get("buttons") == ["New session"])
+    ctx.check(f"T7 is the first line, got {snaps[-1].get('lines')[:1] if snaps else None}",
+              len(snaps) == 4 and (snaps[3].get("lines") or [""])[0] == "This session is running the workflow W from review-flow.")
+    ctx.check(f"R20: the block's height never changes, got {[s.get('h') for s in snaps]}",
+              bool(first.get("h")) and all(abs((s.get("h") or 0) - first["h"]) <= 0.5 for s in snaps))
+    ctx.check(f"R20: the drawing's top never moves, got {[s.get('top') for s in snaps]}",
+              first.get("top") is not None and all(s.get("top") is not None and abs(s["top"] - first["top"]) <= 0.5 for s in snaps))
+    if node_skip:
+        raise SkipTest(f"(b) passed; (a) {node_skip}")
+
+
+STATUS_JS = """const S = await import(%s); const T = await import(%s);
+const kid = (id, name, state, step, cost, current) => ({agent_id: id, name, parent: 'main', state, current: current || '', cost_usd: cost,
+  crew: {workflow: 'W', step}});
+const main = (state, current) => ({agent_id: 'main', name: 'main', parent: null, state, current, cost_usd: 1.0});
+const kids = [kid('w1', 'planner', 'done', 1, 0.5), kid('w2', 'coder', 'done', 2, 0.42), kid('w3', 'tester', 'running', 3, 0.3, 'thinking'),
+  kid('w4', 'reviewer', 'queued', 4, 0.2)];
+const start = [{event: 'map_step', data: {kind: 'start', workflow: 'W', box: 'workflow:W', steps: ['a', 'b', 'c', 'd', 'e', 'f']}}];
+const line = (rows, ev, busy) => T.statusLine(S.statusOf(rows, ev, busy));
+console.log(JSON.stringify({
+  none: line([], [], false), busy: line([main('running', 'Workflow: W'), ...kids], start, true),
+  nostart: line([main('running', 'Workflow: W'), ...kids], [], true),
+  done: line([main('done', ''), ...kids.map((k) => ({...k, state: 'done'}))], start, false),
+  tool: line([main('running', 'Bash: pytest -q')], [], true), you: line([main('waiting', '')], [], true),
+  two: line([main('running', 'Read: a.py'), {...kids[2], current: 'Edit: b.py'}], [], true),
+}));"""
+
+
+@test
+def test_status_line_reserved_two_lines(ctx: Ctx):
+    # R23: one status line under the truth block: who works (running rows only; main waiting on its workflow is not),
+    # on what, waiting for whom, the cost; two lines reserved from the first draw. (a) statusOf.ts in node; (b) the page.
+    from tests.helpers import node_ts
+    want = "tester working on the workflow W, step 3 of 6 · waiting for a model reply · $2.42"
+    try:
+        p = node_ts.run(STATUS_JS % (json.dumps((SESSION_DIR / "statusOf.ts").resolve().as_uri()), json.dumps(TRUTH_TS.resolve().as_uri())))
+    except SkipTest as e:
+        p, node_skip = None, str(e)
+    if p is not None:
+        node_skip = ""
+        ctx.check(f"(a) no rows: 'Waiting for you · $0.00', got {p.get('none')!r}", p.get("none") == "Waiting for you · $0.00")
+        ctx.check(f"(a) a workflow's step at work, got {p.get('busy')!r}", p.get("busy") == want)
+        ctx.check(f"(a) with no start frame the step count is the highest step known, got {p.get('nostart')!r}",
+                  p.get("nostart") == want.replace("of 6", "of 4"))
+        ctx.check(f"(a) all done, got {p.get('done')!r}", p.get("done") == "Done · $2.42")
+        ctx.check(f"(a) a tool's few words; two at work, got {p.get('tool')!r} {p.get('two')!r}",
+                  p.get("tool") == "main working on Bash pytest -q · $1.00" and p.get("two") == "2 agents working on Read a.py · $1.30")
+        ctx.check(f"(a) a row waiting on him: 'waiting for you', got {p.get('you')!r}", p.get("you") == "main working · waiting for you · $1.00")
+    try:
+        got = _saw(ctx, "status") or []
+    except SkipTest as e:
+        raise SkipTest(f"(a) {'passed' if not node_skip else node_skip}; (b) {e}")
+    first, busy, done = (got + [{}, {}, {}])[:3]
+    ctx.check(f"first paint, no rows yet, got {first.get('status')!r}", first.get("status") == "Waiting for you · $0.00")
+    ctx.check(f"the workflow's step at work, got {busy.get('status')!r}", busy.get("status") == want)
+    ctx.check(f"no 'delegating', 'helpers', 'models', got {busy.get('status')!r}",
+              not any(w in (busy.get("status") or "") for w in ("delegating", "helpers", "models")))
+    ctx.check(f"all done, got {done.get('status')!r}", done.get("status") == "Done · $2.42")
+    h = [s.get("sh") for s in (first, busy, done)]
+    lh = first.get("slh") or 0
+    ctx.check(f"two lines reserved from the first paint: heights {h}, line-height {lh}",
+              bool(lh) and all(x is not None and abs(x - 2 * lh) <= 1 for x in h))
+    if node_skip:
+        raise SkipTest(f"(b) passed; (a) {node_skip}")
+
+
+@test
+def test_start_view_names_the_last_build(ctx: Ctx):
+    # R4: the chosen session that ends reads T8; with no session the Start view says which map new sessions use and,
+    # after a build this page saw from a since-ended session, that build; [New session] takes him to the form.
+    import re
+    ended = _saw(ctx, "start_ended") or {}
+    view = _TRUTH["got"].get("start_view") or {}
+    fresh = _TRUTH["got"].get("start_fresh") or {}
+    ctx.check(f"(a) T8 while another session is open, got {ended.get('state')!r} {ended.get('lines')}",
+              ended.get("state") == "T8" and len(ended.get("lines") or []) == 1
+              and re.fullmatch(f"This session ended at {TIME}\\. It ran on starter \\(the default\\)\\.", (ended.get("lines") or [""])[0]))
+    ctx.check(f"(b) the Start view's first sentence, got {view.get('map')!r}",
+              view.get("map") == "No session is open here. New sessions will run on review-flow.")
+    ctx.check(f"(b) the last build, got {view.get('built')!r}",
+              bool(re.fullmatch(f"Your last session built the map review-flow at {TIME}\\. New sessions run on it\\.", view.get("built") or "")))
+    ctx.check(f"(b) [New session] on the last line, focusing the New session form, got {view.get('button')!r} {_TRUTH['got'].get('start_focus')!r}",
+              view.get("button") == "New session" and _TRUTH["got"].get("start_focus") == "session-new-cwd")
+    ctx.check(f"(c) a fresh page with no build seen: the first sentence only, got {fresh}",
+              fresh.get("map") == "No session is open here. New sessions will run on review-flow." and fresh.get("built") is False
+              and fresh.get("button") == "New session")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

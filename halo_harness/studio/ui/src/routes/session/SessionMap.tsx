@@ -1,24 +1,25 @@
-// session-map (3.1.4.0 R2; 3.6.0.0 R4 the lit map; 3.6.0.0 R5: every session runs on a map, the old tree went): the
+// session-map, Session's Live drawer (3.6.0.2 R35: titled Live; 3.1.4.0 R2; 3.6.0.0 R4 the lit map; 3.6.0.0 R5: every session runs on a map, the old tree went): the
 // session drawn as its map, top to bottom and read-only (MapDown.tsx, 3.6.0.2 R7-R12) -- its boxes, what each does now, the
 // helpers it made up -- with a link to Agents -> 3 · Map, where the same map is lit full size. 3.6.0.2 R1: the session
 // drawn is `chosenSession` (the one Prompt, Cost and the Feed speak of), held while it is open, never "the first on a
 // map"; R2: open = drawn, busy only lights boxes; R4: one that ended reads T8 until another is picked; R5: a Studio
-// session with no message yet reads T10 (no drawing, no fetch). Its head line is the truth sentence (truth.ts).
+// session with no message yet reads T10 (no drawing, no fetch); no session at all reads Empty. Its head is the truth
+// block (TruthBlock.tsx, R20-R23: truth.ts's sentences, the status line).
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { useScopedCounts } from "../fleet/scope";
 import { useFleet } from "../fleet/store";
 import { toLit } from "../crew/map/litStore";
-import { truthLines, truthState } from "../crew/map/truth";
-import { factsOf, lastRow } from "./pick";
+import { truthState, WORDS, type TruthFacts } from "../crew/map/truth";
+import { factsOf, knownNext, lastRow } from "./pick";
 import { MapDown } from "./MapDown";
 import { chosenSession } from "./store";
+import { TruthBlock } from "./TruthBlock";
 
-/** The drawer's one line when it draws nothing (T8, T10): the truth sentence, its state and session. */
-function Said({ sid, state, text }: { sid: string; state: string; text: string }) {
-  return <p className="cw-line" data-testid="session-lit-line" data-state={state} data-sid={sid}>{text}</p>;
-}
+/** R4: no session row: the Start view's Empty sentence ({B} as this page last heard it) with [New session]. */
+export const noneFacts = (b: string | null): TruthFacts => ({ none: true, title: "", a: null, plain: false, b, bSince: null, started: 0,
+  turns: 0, studio: false, ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false });
 
 export function MapDetail() {
   const loaded = useFleet((s) => s.loaded);
@@ -29,15 +30,11 @@ export function MapDetail() {
   if (!loaded) return null; // the section's own wait says it while it reads
   if (error && !any) return <Empty title="Studio could not read the sessions" body={error} />;
   const ended = !row && pick ? lastRow(pick) : null;
-  if (ended) {
-    const f = factsOf(ended.row, ended.ended);
-    return <Said sid={pick} state={truthState(f)} text={truthLines(f).map((l) => l.text).join(" ")} />;
-  }
-  if (!row) return <Empty title="No session is running here" body="Start one (Session's prompt, or halo in a terminal): it is drawn here as its map." />;
+  if (ended) return <TruthBlock key={pick} f={factsOf(ended.row, ended.ended)} sid={pick} />; // R4: T8 until another is picked
+  if (!row) return <TruthBlock key="none" f={noneFacts(knownNext()?.b ?? null)} sid="" />; // R4: Empty
   const f = factsOf(row);
-  const line = truthLines(f).map((l) => l.text).join(" ");
-  if (truthState(f) === "T10") return <Said sid={row.session_id} state="T10" text={line} />;
-  return <MapDown key={row.session_id} s={toLit(row)} line={line} state={truthState(f)} />;
+  if (truthState(f) === "T10") return <TruthBlock key={row.session_id} f={f} sid={row.session_id} />;
+  return <MapDown key={row.session_id} s={toLit(row)} f={f} />;
 }
 
 export function MapGlance() {
@@ -49,7 +46,7 @@ export function MapGlance() {
         <Metric value={c.live} label="agents live" tone="accent" />
         <Metric value={c.attention} label="need you" tone={c.attention ? "warn" : undefined} />
       </div>
-      <div className="glance-hint">Expand for the map: the session running here, its boxes and helpers.</div>
+      <div className="glance-hint">Expand for {WORDS.live}: the session running here, drawn on the map it runs on.</div>
     </div>
   );
 }

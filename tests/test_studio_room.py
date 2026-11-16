@@ -250,11 +250,12 @@ def test_r4b_either_view_alone(ctx: Ctx):
         s = sp.get(size) or {}
         ctx.check(f"{size}: Map only keeps Live mounted, hidden, the Map with the whole stage, got {s.get('mounted')}",
                   (s.get("mounted") or [False])[0] is True and (s.get("mounted") or [0, 0])[1] > 1100)
-        ctx.check(f"{size}: Map only is kept across a reload, got {s.get('map_only_kept')}", s.get("map_only_kept") == ["Map only", True])
+        ctx.check(f"{size}: Map only is kept across a reload, got {s.get('map_only_kept')}", s.get("map_only_kept") == ["Live only", True])
         ctx.check(f"{size}: Live only: no Map drawer, its button not pressed, got {s.get('live_only')}", s.get("live_only") == [False, "false"])
-        ctx.check(f"{size}: Live only kept, then the Map's button shows both, got {s.get('both_again')}", s.get("both_again") == "Map and Live")
+        ctx.check(f"{size}: Live only kept, then the Map's button shows both, got {s.get('both_again')}", s.get("both_again") == "Live and Feed")
         arr = s.get("arr") or {}
-        want = {"map-and-live": "Map and Live", "map-only": "Map only", "live-only": "Live only"}
+        # 3.6.0.2 R35: the drawer is titled Live and the main panel Feed, so the bar says Live and Feed / Live only / Feed only
+        want = {"map-and-live": "Live and Feed", "map-only": "Live only", "live-only": "Feed only"}
         for name, words in want.items():
             m = arr.get(f"session@{size}={name}") or {}
             ctx.check(f"{size} {name}: measured, the view bar says {words!r}, got {m.get('words')!r}", m.get("words") == words and m.get("regions"))

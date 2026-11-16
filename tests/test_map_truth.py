@@ -32,7 +32,7 @@ DEF = "starter (the default)"
 BASE = dict(title="fix-login", a="starter", plain=True, b=None, bSince=None, started="@10:24", turns=2, studio=False,
             ended=None, machine=None, unreadable=None, changed=None, workflow=None, busy=False)
 STATES = {
-    "T1": dict(BASE, a="shop", plain=False),
+    "T1": dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07"),
     "T1 b=a": dict(BASE, a="review-flow", plain=False, b="review-flow", bSince="@11:30"),
     "T2": dict(BASE, a="shop", plain=False, b="review-flow", bSince="@11:30"),
     "T3": dict(BASE),
@@ -286,13 +286,38 @@ def test_open_not_busy_decides(ctx: Ctx):
                    && T.truthState(t1) === T.truthState(t3) && JSON.stringify(T.truthLines(t1)) === JSON.stringify(T.truthLines(t3))];
       }));
       const term = (o) => T.truthState({ ...D.states.T3, ...o });
-      out.term = [term({ turns: 0 }), term({ turns: 0, b: 'review-flow', bSince: at('11:30') }), term({ turns: 0, plain: false, a: 'shop' })];
-      out.studio = [term({ studio: true, turns: 0 }), term({ studio: true, turns: 1 }), term({ studio: true, turns: 1, plain: false, a: 'shop' })];""")
+      out.term = [term({ turns: 0 }), term({ turns: 0, b: 'review-flow', bSince: at('11:30') }), term({ turns: 0, plain: false, a: 'shop', b: 'shop' })];
+      out.studio = [term({ studio: true, turns: 0 }), term({ studio: true, turns: 1 }), term({ studio: true, turns: 1, plain: false, a: 'shop', b: 'shop' })];""")
     for k, same in out["same"].items():
         ctx.check(f"{k}: busy or not, turn 1 or 3: the same state and byte-equal lines", same)
     ctx.check(f"an open terminal session with no turn yet is drawn (T3, T2, T1), got {out['term']}", out["term"] == ["T3", "T2", "T1"])
     ctx.check(f"a Studio session: T10 before its first message, then T3 / T1, got {out['studio']}",
               out["studio"] == ["T10", "T3", "T1"])
+
+
+@test
+def test_own_map_while_none_is_set_is_not_t1(ctx: Ctx):
+    """P1 batch 2's checker: a session started on its own map (`--map mine`) while no map is set for new sessions is NOT
+    T1 ("New sessions will too." is false: they run on starter). The two maps are compared by identity (unset = starter),
+    and it reads S13 with {B} = "starter (the default)"."""
+    own = dict(BASE, a="mine", plain=False, b=None, bSince=None)
+    clk, out = ts("""out.none = T.truthLines(D.own); out.st = T.truthState(D.own);
+      out.unset = T.truthLines({ ...D.own, bSince: at('11:30') }); out.unsetSt = T.truthState({ ...D.own, bSince: at('11:30') });
+      out.before = T.truthLines({ ...D.own, b: 'review-flow', bSince: at('09:07') });
+      out.starter = T.truthState({ ...D.own, a: 'starter' }); out.plain = T.truthState({ ...D.own, a: 'starter', plain: true });
+      out.res = T.reserve(D.own, 408).lines;""", dict(own=own))
+    ctx.check(f"own map, none set: not T1, got {out['st']}", out["st"] != "T1" and out["st"] == "T2")
+    ctx.check(f"own map, none set: S13 with the default, then when it started (no false 'switched on'), got {texts(out['none'])}",
+              texts(out["none"]) == [S13.format("mine", DEF), X(clk, "It started at {10:24}.")]
+              and out["none"][0].get("act") == "new-session")
+    ctx.check(f"own map, the default switched back on at 11:30 through Halo: T2 with that time, got {out['unsetSt']} {texts(out['unset'])}",
+              out["unsetSt"] == "T2" and texts(out["unset"]) == [S13.format("mine", DEF),
+                                                                X(clk, "It started at {10:24}, before starter (the default) was switched on at {11:30}.")])
+    ctx.check(f"B switched on before this session started: no false 'before', got {texts(out['before'])}",
+              texts(out["before"]) == [S13.format("mine", "review-flow"), X(clk, "It started at {10:24}.")])
+    ctx.check(f"started on starter by name, none set: the same map (T1); taken by default: T3, got {out['starter']} {out['plain']}",
+              out["starter"] == "T1" and out["plain"] == "T3")
+    ctx.check(f"the reserve holds S13 for the default too, got {texts(out['res'])}", S13.format("mine", DEF) in texts(out["res"]))
 
 
 @test

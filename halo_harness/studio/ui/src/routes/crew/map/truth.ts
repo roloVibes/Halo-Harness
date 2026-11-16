@@ -36,7 +36,11 @@ export function s13(old: string, next: string, terminal = false): string {
   return terminal ? `${s} In the terminal: quit and run halo again; /clear keeps ${old}.` : s;
 }
 
-/** Which state the truth block is in: read from whether the session is open and its maps, never from `busy`. */
+/** The map new sessions use, by identity: none set is the default, starter (R19, R20: T1 only when it IS {A}). */
+export const nextMap = (b: string | null): string => b || "starter";
+
+/** Which state the truth block is in: read from whether the session is open and its maps, never from `busy`. A session
+ *  on its own map while new sessions use another (none set: starter) is T2, or T11 when a set {B}'s time is not known. */
 export function truthState(f: TruthFacts): TruthState {
   if (f.none) return "Empty";
   if (f.machine) return "T9";
@@ -44,7 +48,7 @@ export function truthState(f: TruthFacts): TruthState {
   if (f.studio && !f.turns) return "T10";
   if (f.unreadable) return "T12";
   if (!f.a) return "T4";
-  if (f.b && f.b !== f.a) return f.bSince ? "T2" : "T11";
+  if (f.a !== nextMap(f.b)) return f.bSince || !f.b ? "T2" : "T11";
   return f.plain ? "T3" : "T1";
 }
 
@@ -67,8 +71,10 @@ export function truthLines(f: TruthFacts): Line[] {
   if (f.workflow) out.push({ text: `This session is running the workflow ${f.workflow} from ${B}.` });
   if (st === "T2" || st === "T11") {
     out.push({ text: s13(A, B), ...NEW });
-    out.push({ text: st === "T2" ? `It started at ${t}, before ${B} was switched on at ${clock(f.bSince || 0)}.`
-                                 : `It started at ${t}. ${B} was set outside Halo, so when it was switched on is not known.` });
+    // T2's "before {B} was switched on" only when it was (none set and never switched: just when it started)
+    const before = !!f.bSince && f.bSince > f.started;
+    out.push({ text: st === "T11" ? `It started at ${t}. ${B} was set outside Halo, so when it was switched on is not known.`
+                                  : before ? `It started at ${t}, before ${B} was switched on at ${clock(f.bSince || 0)}.` : `It started at ${t}.` });
   } else if (st === "T3") {
     out.push({ text: `This session runs on ${DEFAULT_MAP}, as it started at ${t}. On starter main chooses who to hand work to; the dashed lines show what it chose.` });
   } else {
@@ -87,15 +93,22 @@ export function est(lines: Line[], width: number): number {
   return lines.reduce((n, l) => n + Math.ceil(((l.text.length + (l.label ? l.label.length + 4 : 0)) * 7) / w), 0);
 }
 
-/** R20's worst case: of the states this session can reach with its own {A}, {B}, {W} (T1 / T3, T2 and T11 when B is set,
+/** Stand-ins the reserve measures while {B} is still {A} or no workflow runs yet (R20: the drawing's top holds across T1 ->
+ *  T2 -> T5 -> T7, so the room for a {B} and a {W} to come is held from the first draw). Only the hidden twin shows them. */
+const SOME_B = "the-map-new-sessions-use", SOME_W = "a-workflow-of-yours";
+
+/** R20's worst case: of the states this session can reach with its own {A}, {B}, {W} (T1 / T3, T2 and T11 when B differs,
  *  each with and without T7 and T5, then T8, then the state it is in now), the lines that take the most room at `width`.
- *  Ties go to the longer text, then to the first. T6's problem is not known in advance: the block grows for it (R12). */
+ *  While {B} is {A} a {B} to come is counted, and with no {W} a {W} to come. Ties go to the longer text, then to the
+ *  first. T6's problem is not known in advance: the block grows for it (R12). */
 export function reserve(f: TruthFacts, width: number): { lines: Line[]; est: number } {
   const open: TruthFacts = { ...f, none: false, machine: null, ended: null, unreadable: null, studio: false, turns: Math.max(1, f.turns) };
+  const after = (f.bSince && f.bSince > f.started ? f.bSince : f.started + 60) || 60;
   const bs: Partial<TruthFacts>[] = [{ b: f.a }];
-  if (f.b && f.b !== f.a) bs.push({ b: f.b, bSince: f.bSince || f.started }, { b: f.b, bSince: null });
+  if (f.a && f.a !== nextMap(f.b)) bs.push({ b: f.b, bSince: after }, ...(f.b ? [{ b: f.b, bSince: null }] : []));
+  else if (f.a) bs.push({ b: SOME_B, bSince: after });
   const cands: Line[][] = [];
-  for (const b of bs) for (const workflow of f.workflow ? [f.workflow, null] : [null])
+  for (const b of bs) for (const workflow of [f.workflow || SOME_W, null])
     for (const changed of [{ t: f.changed?.t || f.started }, null]) cands.push(truthLines({ ...open, ...b, workflow, changed }));
   cands.push(truthLines({ ...open, ended: f.ended || f.started }), truthLines(f));
   const size = (ls: Line[]) => ls.reduce((n, l) => n + l.text.length + (l.label || "").length, 0);

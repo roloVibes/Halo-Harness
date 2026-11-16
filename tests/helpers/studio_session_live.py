@@ -58,6 +58,8 @@ def live(c, rig) -> dict:
     c.wait(f"!!{COL} && document.querySelectorAll('[data-testid=\"session-map\"] [data-testid=\"session-lit-box\"]').length >= 3", 40)
     time.sleep(0.8)
     out["arrangement"] = arrangement(c)
+    out["titles"] = c.js("Object.fromEntries(['session-map', 'session-live'].map((p) => [p, (document.querySelector("
+                         "`[data-testid=\"${p}\"] [data-testid=\"panel-title\"]`)?.textContent || '').trim()]))")  # 3.6.0.2 R35
     out["follow_default"] = c.js(f"{COL}.dataset.follow === 'true'")
     impl, res = lv.key("implementer"), lv.key("researcher")
     out["res_key"] = res
