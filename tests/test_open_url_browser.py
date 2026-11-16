@@ -20,6 +20,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
@@ -184,6 +185,131 @@ def test_a_start_handed_to_a_thread_is_worded_opening_never_opened(ctx: Ctx):
               _describe(URL, "opened", "agent:x", {"unsure": True}) ==
               f"Opening agent:x in Studio in your browser; if nothing opens, open it yourself: {URL}")
     ctx.check("studio --edit: sure says Opened", _describe(URL, "opened", "agent:x", {}).startswith("Opened agent:x"))
+
+
+@test
+def test_a_threaded_browser_start_sees_a_stop_and_a_close_does_not_wait_for_it(ctx: Ctx):
+    """jb10 batch 3 (Windows, an outer Job that forbids breakaway): open_url checked the stop only on entry; the
+    thread it handed the start to still opened the browser after Ctrl+C or a quit in the first 1-2 s, and close()
+    waited for it. Now the thread checks the stop before each command, close() does not wait for a thread that has
+    not started its command, and start_outside_job takes its spec back on a stop. Never a real browser."""
+    import subprocess as real_sp
+    import threading
+    import time
+    from halo_harness import closing, subprocess_safe
+    if not WIN:
+        ctx.check("the threaded start is the Windows path only", True)
+        return
+    saved = (subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees, os.environ.get("BROWSER"),
+             closing.stop_asked, dict(closing._STATE), real_sp.run)
+    real_stop = closing.stop_asked
+    gate, entered = threading.Event(), threading.Event()
+
+    def gated_stop() -> bool:  # the browser thread's first stop check waits here, as a slow scheduler would
+        if threading.current_thread().name == "halo-browser-start" and not entered.is_set():
+            entered.set()
+            gate.wait(10)
+        return real_stop()
+
+    def take() -> list:
+        with closing._LOCK:
+            ths, closing._BROWSERS[:] = list(closing._BROWSERS), []
+        return ths
+
+    try:
+        subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees = _Recorder, (lambda: True), (lambda: False)
+        tmp = Path(tempfile.gettempdir())
+        # 1. the stop arrives before the thread's first command: no command, and the close does not wait
+        _Recorder.seen, _Recorder.fail = [], set()
+        os.environ["BROWSER"] = str(tmp / "no-such-browser-a.exe")
+        closing.stop_asked = gated_stop
+        ctx.check("handed to a thread", closing.open_url(URL) is True and closing.open_unsure())
+        entered.wait(5)
+        closing._STATE["owner_gone"] = True
+        t0 = time.monotonic()
+        with closing._LOCK:
+            ths = list(closing._BROWSERS)
+        closing.wait_for_browsers(2.0)
+        waited = time.monotonic() - t0
+        gate.set()
+        for th in ths:
+            th.join(5)
+        ctx.check(f"no browser command after the stop, and the close did not wait, got "
+                  f"{[s[0] for s in _Recorder.seen]} {waited:.2f}s",
+                  _Recorder.seen == [] and waited < 1.0)
+        # 2. the stop arrives while the first browser program is being tried: the second is never started
+        closing._STATE.clear()
+        closing._STATE.update(saved[5])
+        closing.stop_asked = real_stop
+        _Recorder.seen, _Recorder.fail = [], {"slow-first"}
+        held, release = threading.Event(), threading.Event()
+        rec_init = _Recorder.__init__
+
+        def slow_init(self, args, *a, **kw):
+            if "slow-first" in str(args[0]):
+                held.set()
+                release.wait(10)
+            rec_init(self, args, *a, **kw)
+
+        _Recorder.__init__ = slow_init
+        try:
+            os.environ["BROWSER"] = os.pathsep.join([str(tmp / "slow-first.exe"), str(tmp / "second.exe")])
+            closing.open_url(URL)
+            held.wait(5)
+            closing._STATE["owner_gone"] = True
+            release.set()
+            for th in take():
+                th.join(5)
+        finally:
+            _Recorder.__init__ = rec_init
+        ctx.check(f"only the program that was already starting, never the next, got {[s[0] for s in _Recorder.seen]}",
+                  [str(s[0][0]) for s in _Recorder.seen] == [str(tmp / "slow-first.exe")])
+        # 3. start_outside_job in the browser thread: a stop during the WMI start takes the spec back, starts
+        # nothing in the Job either (it raises, so Popen does not fall back to a start inside the Job)
+        closing._STATE.clear()
+        closing._STATE.update(saved[5])
+        calls: list = []
+
+        def fake_run(*a, **k):
+            calls.append(a)
+            closing._STATE["owner_gone"] = True
+            return SimpleNamespace(stdout="0\n", stderr="", returncode=0)
+
+        real_sp.run = fake_run
+        closing._OPENING.cancel_on_stop = True
+        before = set(tmp.glob("halo-kept-*"))
+        try:
+            closing.start_outside_job([str(tmp / "b.exe"), URL], {"stdin": real_sp.DEVNULL, "stdout": real_sp.DEVNULL,
+                                                                  "stderr": real_sp.DEVNULL}, wait_s=1.0)
+            outcome = "returned"
+        except closing.StartCancelled:
+            outcome = "cancelled"
+        finally:
+            closing._OPENING.cancel_on_stop = False
+        left = set(tmp.glob("halo-kept-*")) - before
+        ctx.check(f"a stop during the outside start: cancelled, one WMI call, no folder left, got {outcome} "
+                  f"{len(calls)} {left}", outcome == "cancelled" and len(calls) == 1 and not left)
+        calls.clear()
+        closing._OPENING.cancel_on_stop = True
+        try:
+            closing.start_outside_job([str(tmp / "b.exe"), URL], {"stdin": real_sp.DEVNULL}, wait_s=1.0)
+            outcome = "returned"
+        except closing.StartCancelled:
+            outcome = "cancelled"
+        finally:
+            closing._OPENING.cancel_on_stop = False
+        ctx.check(f"a stop before the outside start: no WMI call at all, got {outcome} {len(calls)}",
+                  outcome == "cancelled" and calls == [])
+    finally:
+        gate.set()
+        for th in take():
+            th.join(5)
+        (subprocess_safe.Popen, closing._in_a_job, closing.breakaway_frees, b, closing.stop_asked, st,
+         real_sp.run) = saved
+        closing._STATE.clear()
+        closing._STATE.update(st)
+        os.environ.pop("BROWSER", None) if b is None else os.environ.__setitem__("BROWSER", b)
+        closing._OPENING.unsure = False
 
 
 if __name__ == "__main__":

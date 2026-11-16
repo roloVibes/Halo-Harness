@@ -93,6 +93,18 @@ def test_studio_stop_help_is_the_r10_rule(ctx: Ctx):
 
 
 @test
+def test_processes_says_what_halo_cannot_end_on_macos(ctx: Ctx):
+    """jb10 batch 3: a program a tool command detaches from Halo's process group that is also an Apple system binary
+    (`ssh -fN`) is found by nothing on macOS (`ps -E` hides its environment): the page says so and what to do."""
+    text = (DOCS / "PROCESSES.md").read_text(encoding="utf-8")
+    m = re.search(r"^## What Halo cannot end on macOS\n(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
+    ctx.check("a section 'What Halo cannot end on macOS'", m is not None)
+    body = m.group(1) if m else ""
+    for need in ("ssh -fN", "ps -E", "HALO_OWNER=kept-", "halo ps", "setsid"):
+        ctx.check(f"it names {need!r}", need in body)
+
+
+@test
 def test_troubleshooting_has_studio_has_stopped(ctx: Ctx):
     text = (DOCS / "TROUBLESHOOTING.md").read_text(encoding="utf-8")
     ctx.check("a heading names the page's \"Studio has stopped\"",

@@ -1039,9 +1039,20 @@ def load_routes(path: Path | None) -> dict:
         return {}
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except (json.JSONDecodeError, OSError):
         return {}
+    if isinstance(data, dict):
+        return data
+    # jb10: a list/string/number is not a routes file; every reader does .get(), so answer {} and say so once
+    if str(path) not in _ROUTES_NOT_A_MAPPING:
+        _ROUTES_NOT_A_MAPPING.add(str(path))
+        logging.getLogger("bridge").warning("%s is not a JSON object (%s); its routes are ignored", path,
+                                            type(data).__name__)
+    return {}
+
+
+_ROUTES_NOT_A_MAPPING: set = set()
 
 
 def redact(s: str | None) -> str:

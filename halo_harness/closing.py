@@ -181,6 +181,9 @@ def open_url(url: str) -> bool:
 
         def start() -> bool:
             for cmd in chosen or [["rundll32", "url.dll,FileProtocolHandler", str(url)]]:
+                if stop_asked():  # jb10: a stop after the hand-off starts no browser (checked before each command)
+                    return False
+                threading.current_thread().halo_in_command = True  # wait_for_browsers waits only for these
                 try:
                     sp.Popen(cmd, **kept_kwargs({"stdin": sp.DEVNULL, "stdout": sp.DEVNULL, "stderr": sp.DEVNULL},
                                                 env=scrubbed_env()))
@@ -195,7 +198,11 @@ def open_url(url: str) -> bool:
         # fx jb8: an outer Job holds what this process starts, so the browser leaves through start_outside_job (a
         # PowerShell start: about 2 s on a CI runner) -- beside the caller, which prints the address meanwhile;
         # close() waits for it within the deadline
-        th = threading.Thread(target=start, name="halo-browser-start", daemon=True)
+        def threaded() -> bool:
+            _OPENING.cancel_on_stop = True  # jb10: this thread's start_outside_job takes its spec back on a stop
+            return start()
+
+        th = threading.Thread(target=threaded, name="halo-browser-start", daemon=True)
         with _LOCK:
             if not _BROWSERS and not _STATE.get("browsers_at_exit"):
                 _STATE["browsers_at_exit"] = True
@@ -231,6 +238,8 @@ def wait_for_browsers(seconds: float) -> None:
     end = time.monotonic() + max(0.0, seconds)
     while _BROWSERS:
         th = _BROWSERS.pop(0)
+        if stop_asked() and not getattr(th, "halo_in_command", False):
+            continue  # jb10: not at its command yet: it sees the stop at its next check and starts nothing
         th.join(max(0.0, end - time.monotonic()))
 
 
@@ -430,6 +439,14 @@ def _outside_answer(result: Path, wait_s: float) -> "tuple[bool, Optional[int]]"
     return False, None
 
 
+class StartCancelled(RuntimeError):
+    """jb10: start_outside_job in open_url's browser thread after a stop: nothing was started anywhere."""
+
+
+def _start_cancelled() -> bool:
+    return bool(getattr(_OPENING, "cancel_on_stop", False)) and stop_asked()
+
+
 def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
     """Windows: start `args` from outside every Job object -- a kept spawn whose outer Job (a terminal's, a service's)
     forbids breakaway. WMI creates a tiny Python runner as nobody's child (no Job of this tree reaches it), and that
@@ -443,6 +460,8 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
         return None
     if kw.get("stdin") not in (None, -3):  # DEVNULL
         return None
+    if _start_cancelled():
+        raise StartCancelled("this process is closing")
     ok_out, out = _stdio_path(kw.get("stdout"))
     import subprocess as _sp
     err_val = kw.get("stderr")
@@ -478,7 +497,7 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
                         text=True, timeout=wait_s, env={**os.environ, "HALO_KEPT_CMDLINE": cmdline,
                                                         "HALO_KEPT_CWD": cwd},
                         stdin=_sp.DEVNULL, creationflags=0x08000000)  # CREATE_NO_WINDOW
-            if (r.stdout or "").strip() == "0":
+            if (r.stdout or "").strip() == "0" and not _start_cancelled():
                 answered, pid = _outside_answer(result, wait_s)
                 if answered:
                     return pid
@@ -488,6 +507,8 @@ def start_outside_job(args, kw: dict, *, wait_s: float = 20.0) -> Optional[int]:
             return None
         try:  # take the spec back: then no runner, however late, starts the program
             spec.rename(folder / "spec.void")
+            if _start_cancelled():  # jb10: nothing started and this process is closing: no start in the Job either
+                raise StartCancelled("this process is closing")
             return None
         except OSError:
             pass  # the runner took it: the program is started or starting, never start it a second time

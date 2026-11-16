@@ -368,6 +368,39 @@ def test_ready_decides_a_local_server_model_from_configuration_and_never_connect
 
 
 @test
+def test_a_routes_file_that_is_not_a_mapping_reads_as_empty_and_done_agrees_with_the_state(ctx: Ctx):
+    """jb10 batch 3: routes.json holding a JSON list made ready() raise AttributeError; the state read caught it and
+    showed Done, the Done route did not and answered 500. The loader now answers {} for anything not a mapping, so the
+    state and Done agree (both from the same ready())."""
+    from halo_harness.providers.config import load_routes
+    from halo_harness.studio import events, halo_terminal
+    from halo_harness.studio.api import Request, dispatch
+    real = (events.bridge_for, halo_terminal.open_halo)
+    events.bridge_for = lambda _server: SimpleNamespace(publish_local=lambda _f: None)
+    halo_terminal.open_halo = lambda cwd, **_k: (True, halo_terminal.OPENED_LINE.format(name="xterm"))
+    try:
+        with _Env() as e:
+            os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-setup-done-key-0123456789abcdef"
+            (e.state_dir / "config.json").write_text(json.dumps({"model": "or:mock/alpha"}), encoding="utf-8")
+            for bad in ("[1, 2]", '"text"', "3"):
+                (e.state_dir / "routes.json").write_text(bad, encoding="utf-8")
+                ctx.check(f"{bad}: the loader answers an empty mapping, got {load_routes(e.state_dir / 'routes.json')!r}",
+                          load_routes(e.state_dir / "routes.json") == {})
+            (e.state_dir / "routes.json").write_text("[1, 2]", encoding="utf-8")
+            _s, s = e.call("GET", "setup/state")
+            try:
+                status, got = dispatch(Request(method="POST", path="setup/done", query={}, body={}, cwd=e.cwd,
+                                               state_dir=e.state_dir, server=object()))
+            except Exception as ex:  # what the server turns into a 500
+                status, got = 500, {"error": repr(ex)}
+            ctx.check(f"the state's ready and Done agree and neither fails, got {s.get('ready')} {status} {got}",
+                      status == 200 and got.get("ok") is True and s["ready"].get("ok") is True
+                      and "error" not in s["ready"])
+    finally:
+        events.bridge_for, halo_terminal.open_halo = real
+
+
+@test
 def test_the_terminal_a_done_opens(ctx: Ctx):
     """3.3.15.0 R6 (studio/halo_terminal.py): which terminal opens halo per platform, and none without a display."""
     from halo_harness.studio import halo_terminal as H

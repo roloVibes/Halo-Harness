@@ -95,6 +95,27 @@ whose Studio has gone says "Studio has stopped" and stops asking.
 `halo stop --orphans`. The stray scan reads `/proc` on Linux and `ps -E` on macOS; on Windows it lists no strays
 (Windows does not let one process read another's environment cheaply), and the Job object is what ends them.
 
+## What Halo cannot end on macOS
+
+One case is not covered on a Mac. A program that a tool command starts and that leaves Halo's process group (it
+calls `setsid` or `daemon()`, as `ssh -fN`, `ssh -f -M` or a `nohup setsid ...` line do) is no longer reached through
+the shell command's group. Halo then finds it only by the `HALO_OWNER` marker in its environment, read with `ps -E`.
+macOS shows no environment for its own system programs (`/usr/bin/ssh`, `/bin/sleep` and the like), so such a
+program is not found: Halo does not end it on the way out, `halo ps` does not list it, and `halo stop --orphans`
+does not reach it. A program from Homebrew or your own build is found as on Linux.
+
+The same holds, for a few milliseconds, for a shell command whose ledger row is not written yet when Halo is killed
+hard.
+
+What to do:
+
+- If it is meant to stay (an ssh tunnel you use after Halo), start it with a kept marker, for example
+  `HALO_OWNER=kept-tunnel ssh -fN gpu-box`, so it is plainly yours.
+- If it is not, end it yourself when you are done: `ssh -O exit gpu-box` for a ControlMaster, or `ps -ax` to find its
+  pid and `kill <pid>`.
+
+On Linux the same program is found (`/proc` shows its environment), and on Windows Halo's Job object ends it.
+
 ## Halo's own Python never imports from your folder
 
 Halo starts its helpers with `python -P -m halo_harness ...` (Python 3.11 and later; on 3.10 a two-line bootstrap
