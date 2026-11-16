@@ -163,10 +163,11 @@ def records(state_dir=None) -> list:
 
 
 def remove(exe: str, names: list, timeout: float, *, strict: bool = False) -> list:
-    """`<engine> rm -f <names...>` (docker and podman alike): the names now known gone (removed, or there was no
-    such container, or the engine program is missing). A failed or timed-out call answers none of them. `strict`
-    (a close): only an exit 0 counts -- a close in a lane's first moments meets 'no such container' before the
-    engine has created it, and that container would then start with no record (3.6.0.1)."""
+    """`<engine> rm -f <names...>` (docker and podman alike): the names the engine answered gone (removed, or there
+    was no such container). A failed or timed-out call answers none of them, and so does a missing engine program
+    (nothing was asked: the container may still run in the engine's daemon). `strict` (a close): 'no such container'
+    is not gone -- a close in a lane's first moments meets it before the engine has created the container, which
+    would then start with no record (3.6.0.1). Docker 23 and newer exit 0 on that answer, podman and older Docker 1."""
     import subprocess
     names = [str(n) for n in names]
     if not names:
@@ -174,16 +175,13 @@ def remove(exe: str, names: list, timeout: float, *, strict: bool = False) -> li
     try:
         proc = subprocess.run([exe, "rm", "-f", *names], stdin=subprocess.DEVNULL, capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=max(0.5, float(timeout)))
-    except FileNotFoundError:
-        return [] if strict else names
     except (OSError, subprocess.SubprocessError, ValueError):
         return []
-    if proc.returncode == 0:
-        return names
-    if strict:
-        return []
     lines = [ln.lower() for ln in (proc.stderr or "").splitlines() if "no such container" in ln.lower()]
-    return [n for n in names if any(n.lower() in ln for ln in lines)]
+    nosuch = [n for n in names if any(n.lower() in ln for ln in lines)]
+    if strict:
+        return [n for n in names if n not in nosuch] if proc.returncode == 0 else []
+    return names if proc.returncode == 0 else nosuch
 
 
 def remove_where(keep, state_dir=None, timeout: float = 10.0, failed=None) -> list:
@@ -230,14 +228,15 @@ def _note_tried(rec: dict, now: float, state_dir=None) -> None:
 
 
 def sweep_records(state_dir=None, say=None) -> list:
-    """The start sweep's part (closing.sweep): containers whose owner is provably gone, one line each. A record the
-    engine could not remove (its daemon stopped or hung) notes the try, and the starts of the next 10 minutes leave
+    """The start sweep's part (closing.sweep): containers whose owner is provably gone (closing.owner_provably_gone:
+    an owner whose start time cannot be read is never gone), one line each. A record the engine could not remove
+    (its daemon stopped or hung, its program missing) notes the try, and the starts of the next 10 minutes leave
     it alone: a stopped Docker costs one bounded call per 10 minutes, never one per start."""
     from halo_harness import closing
     if not records(state_dir):
         return []
     now = _now()
-    done = remove_where(lambda r: closing.marker_owner_alive(r["owner"]) is not False or _tried_lately(r, now),
+    done = remove_where(lambda r: not closing.owner_provably_gone(r["owner"]) or _tried_lately(r, now),
                         state_dir, timeout=TRY_S, failed=lambda r: _note_tried(r, now, state_dir))
     lines = [f"halo: removed a worker container left from {closing._when(r)} ({r['name']})" for r in done]
     for line in lines:
@@ -276,7 +275,8 @@ def finished(name: str, *, ended_by_itself: bool, timeout: float = 30.0) -> None
 
 def _remove_live() -> None:
     """closing.close(): every container this process's lanes still run, in one `rm -f` per engine. A record goes
-    only on an exit 0 (strict): 'no such container' at close may be one the engine is still creating, and the next
+    only when the engine removed it (strict): 'no such container' at close, on exit 0 (Docker 23+) or 1, may be one
+    the engine is still creating, and the next
     start's sweep finishes it (one call, then the record goes)."""
     from halo_harness import closing
     with _LIVE_LOCK:

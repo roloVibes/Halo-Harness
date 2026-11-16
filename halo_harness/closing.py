@@ -127,6 +127,25 @@ def marker_owner_alive(mark: str) -> Optional[bool]:
         int(pid), local=True)) == mark
 
 
+def owner_provably_gone(mark: str) -> bool:
+    """3.6.0.1, strict (what may remove something): True only when the root a marker names is known gone -- its pid
+    no longer runs, or its start time was READ and differs. An unreadable start (a `ps` past its limit while a large
+    model loads), a marker made from an unreadable start, or a marker of another shape is never proof."""
+    if not mark or mark.startswith((KEPT_PREFIX, "home-")):
+        return False
+    pid, _sep, digest = mark.partition("-")
+    if not pid.isdigit():
+        return False
+    from halo_harness import children as C
+    if not C.pid_running(int(pid)):
+        return True
+    if not digest or mark == ident(int(pid), None):
+        return False
+    from halo_harness.bg_run import _ps_process_start_time, no_proc
+    starts = [_start(int(pid))] + ([_ps_process_start_time(int(pid), local=True)] if no_proc() else [])
+    return all(s is not None and ident(int(pid), s) != mark for s in starts)
+
+
 def owner() -> "tuple[Optional[int], Optional[str]]":
     """The Halo that started this process and that it watches: (pid, start), or (None, None) for a root."""
     if _STATE.get("owner"):

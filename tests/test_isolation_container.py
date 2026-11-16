@@ -497,7 +497,166 @@ def test_halo_ps_lists_this_homes_recorded_containers(ctx: Ctx):
         with contextlib.redirect_stdout(buf):
             cmd_ps(["--json"])
         ctx.check("--json stays JSON", isinstance(json.loads(buf.getvalue()), dict))
-        ctx.check(f"halo ps calls no engine, got {e.engine_calls()}", e.engine_calls() == [])
+        ctx.check(f"the listing itself calls no engine (the start sweep before it may), got {e.engine_calls()}",
+                  e.engine_calls() == [])
+
+
+# ---- 3.6.0.1 (jf-closing): "gone" only when proven; a real Docker's exit 0 on 'no such container'; a missing engine -
+
+@contextlib.contextmanager
+def _start_unreadable(pid: int):
+    """The start time of `pid` cannot be read (a `ps` past its limit while a large model loads): both readers."""
+    from halo_harness import bg_run, closing
+    real_start, real_ps = closing._start, bg_run._ps_process_start_time
+    closing._start = lambda p: None if int(p) == pid else real_start(p)
+    bg_run._ps_process_start_time = lambda p, **kw: None if int(p) == pid else real_ps(p, **kw)
+    try:
+        yield
+    finally:
+        closing._start, bg_run._ps_process_start_time = real_start, real_ps
+
+
+@test
+def test_owner_provably_gone_is_strict(ctx: Ctx):
+    from halo_harness import closing
+    me = closing.my_ident()
+    ctx.check("a dead owner is gone", closing.owner_provably_gone(closing.ident(_dead_pid(), "x")) is True)
+    ctx.check("a live owner is not", closing.owner_provably_gone(me) is False)
+    ctx.check("a live pid whose start was read and differs is gone (a reused pid)",
+              closing.owner_provably_gone(closing.ident(os.getpid(), "another start")) is True)
+    with _start_unreadable(os.getpid()):
+        ctx.check("a live owner whose start cannot be read is NOT gone",
+                  closing.owner_provably_gone(me) is False)
+        ctx.check("nor a live pid with another marker while its start cannot be read",
+                  closing.owner_provably_gone(closing.ident(os.getpid(), "another start")) is False)
+    ctx.check("a marker made from an unreadable start proves nothing while its pid runs",
+              closing.owner_provably_gone(closing.ident(os.getpid(), None)) is False)
+    for mark in ("", "kept-tmux", "home-abc", "x-1", f"{os.getpid()}"):
+        ctx.check(f"{mark!r} is not a gone owner", closing.owner_provably_gone(mark) is False)
+
+
+@test
+def test_the_start_sweep_keeps_a_live_owners_container_whose_start_cannot_be_read(ctx: Ctx):
+    """Two Halos on one home: B's start sweep must not remove A's container while A runs and A's start time cannot
+    be read for a moment; `halo ps` must not call that Halo gone."""
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    from halo_harness.ps_cli import cmd_ps
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        container.write_record("halo-live-1-abcdef", engine, closing.my_ident(), state_dir=e.state)
+        with _start_unreadable(os.getpid()):
+            said: list = []
+            closing.sweep(state_dir=e.state, say=said.append)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                cmd_ps([])
+        ctx.check(f"no engine call for a live owner, got {e.engine_calls()} / {said}",
+                  e.engine_calls() == [] and not any("halo-live-1-abcdef" in s for s in said))
+        ctx.check(f"its record stays, got {_records(e)}", _records(e) == ["halo-live-1-abcdef"])
+        line = next((ln for ln in buf.getvalue().splitlines() if ln.startswith("container")), "")
+        ctx.check(f"halo ps does not call it gone, got {line!r}",
+                  "halo-live-1-abcdef" in line and "has gone" not in line and "next start" not in line)
+
+
+@test
+def test_remove_never_counts_no_such_container_on_a_docker_that_exits_0_when_strict(ctx: Ctx):
+    from halo_harness.isolation import container
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        (e.bin / "engine_nosuch0").write_text("", encoding="utf-8")
+        ctx.check("strict: 'no such container' with exit 0 is not removed",
+                  container.remove(engine, ["halo-x-1-aaaaaa"], 5, strict=True) == [])
+        ctx.check("not strict: it is gone", container.remove(engine, ["halo-x-1-aaaaaa"], 5) == ["halo-x-1-aaaaaa"])
+        (e.bin / "engine_nosuch0").unlink()
+        ctx.check("strict: a plain exit 0 is removed",
+                  container.remove(engine, ["halo-x-1-aaaaaa"], 5, strict=True) == ["halo-x-1-aaaaaa"])
+
+
+@test
+def test_a_close_before_the_container_exists_keeps_its_record_on_a_docker_that_exits_0(ctx: Ctx):
+    """As the test above it, with the answer a real Docker 23+ gives: 'No such container' on stderr and exit 0."""
+    import subprocess
+    from halo_harness import closing
+    closing.reset_for_tests()
+    try:
+        with IsoEnv() as e:
+            _repo, run_dir, lane = _boxed(e)
+            (e.bin / "engine_nosuch0").write_text("", encoding="utf-8")
+            seen: dict = {}
+
+            def runner(argv, **kw):
+                seen["argv"] = list(argv)
+                closing.close(polite_s=0.2, hard_s=0.1, say=lambda s: None, state_dir=e.state)
+                return subprocess.CompletedProcess(argv, -9, "", "")
+
+            _spawn(run_dir, lane, runner)
+            name = _flag(seen["argv"], "--name")
+            ctx.check(f"the close asked the engine, got {e.engine_calls()}", ["rm", "-f", name] in e.engine_calls())
+            ctx.check(f"'no such container' with exit 0 at close keeps the record, got {_records(e)}",
+                      _records(e) == [name])
+            path = e.state / "containers" / f"{name}.json"
+            rec = json.loads(path.read_text(encoding="utf-8"))
+            rec["owner"] = closing.ident(_dead_pid(), "x")
+            path.write_text(json.dumps(rec), encoding="utf-8")
+            n = len(e.engine_calls())
+            closing.sweep(state_dir=e.state, say=lambda s: None)
+            ctx.check(f"the next start asks once more, got {e.engine_calls()[n:]}",
+                      e.engine_calls()[n:] == [["rm", "-f", name]])
+            ctx.check(f"and drops the record, got {_records(e)}", _records(e) == [])
+    finally:
+        closing.reset_for_tests()
+
+
+@test
+def test_a_missing_engine_program_is_never_said_removed(ctx: Ctx):
+    """The recorded engine path no longer exists (the CLI reinstalled elsewhere, its daemon still runs the
+    container): nothing was asked, so the record stays, nothing says 'removed', and the try is noted."""
+    from halo_harness import closing
+    from halo_harness.isolation import container
+    from halo_harness.ps_cli import cmd_ps
+    with IsoEnv() as e:
+        missing = str(e.root / "nowhere" / ("docker.exe" if os.name == "nt" else "docker"))
+        container.write_record("halo-gone-1-abcdef", missing, closing.ident(_dead_pid(), "x"), state_dir=e.state)
+        said: list = []
+        closing.sweep(state_dir=e.state, say=said.append)
+        ctx.check(f"nothing said removed, got {said}", said == [])
+        ctx.check(f"the record stays, got {_records(e)}", _records(e) == ["halo-gone-1-abcdef"])
+        ctx.check("strict or not, a missing program removed nothing",
+                  container.remove(missing, ["halo-gone-1-abcdef"], 5) == []
+                  and container.remove(missing, ["halo-gone-1-abcdef"], 5, strict=True) == [])
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_ps([])
+        line = next((ln for ln in buf.getvalue().splitlines() if ln.startswith("container")), "")
+        ctx.check(f"halo ps lists it with the try and the way to remove it now, got {line!r}",
+                  "halo-gone-1-abcdef" in line and "did not remove it" in line
+                  and "docker rm -f halo-gone-1-abcdef" in line)
+
+
+@test
+def test_every_halo_start_halo_ps_too_runs_the_start_sweep(ctx: Ctx):
+    """The truth docs/ISOLATION.md tells: `halo ps` through the CLI runs the start sweep (one `rm -f` for a record
+    whose Halo is provably gone) before it lists; the listing itself adds no engine call."""
+    from halo_harness import closing, subprocess_safe
+    from halo_harness.isolation import container
+    tree = Path(__file__).resolve().parent.parent
+    with IsoEnv() as e:
+        engine = str(e.tool("docker", record=True))
+        container.write_record("halo-gone-4-abcdef", engine, closing.ident(_dead_pid(), "x"), state_dir=e.state)
+        env = dict(os.environ, OLLAMA_HOST="http://127.0.0.1:9", HALO_NO_UPDATER="1",
+                   PYTHONPATH=str(tree) + os.pathsep + os.environ.get("PYTHONPATH", ""))
+        proc = subprocess_safe.run([sys.executable, "-m", "halo_harness", "ps"], cwd=str(e.root), env=env,
+                                   stdin=subprocess_safe.DEVNULL, capture_output=True, text=True, timeout=120)
+        out = (proc.stdout or "") + (proc.stderr or "")
+        ctx.check(f"halo ps exits 0, got {proc.returncode} {out[-300:]!r}", proc.returncode == 0)
+        ctx.check(f"the start sweep called the engine once, got {e.engine_calls()}",
+                  e.engine_calls() == [["rm", "-f", "halo-gone-4-abcdef"]])
+        ctx.check(f"and said so, got {out[-400:]!r}", "removed a worker container" in out)
+        ctx.check(f"the record is gone, got {_records(e)}", _records(e) == [])
+    doc = (tree / "docs" / "ISOLATION.md").read_text(encoding="utf-8")
+    ctx.check("docs/ISOLATION.md no longer says halo ps runs without calling the engine",
+              "without\ncalling the engine" not in doc and "without calling the engine" not in doc)
 
 
 if __name__ == "__main__":

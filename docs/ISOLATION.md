@@ -77,14 +77,20 @@ while it runs. `<engine> rm -f <name>` removes it when the lane runs past its
 time, when that Halo closes, after a hard kill of it (macOS and Linux: its
 reaper), and otherwise at the next `halo` start (the start sweep removes a
 recorded container whose Halo is gone; never one of another home, never one
-found only by its label). On Windows a hard kill ends the client at once (it
+found only by its label). A Halo is gone only when that is proven: its process
+has ended, or its start time was read and is another's. One whose start time
+cannot be read for a moment (a busy Mac while a large model loads) keeps its
+container. On Windows a hard kill ends the client at once (it
 is in Halo's Job object) and the container is removed at the next start.
 At a close a record goes only when `rm -f` removed something: a close in the
-lane's first moments (the engine has not created the container yet) leaves it
-to the next start. When the engine's daemon is stopped or hangs, a start tries
+lane's first moments (the engine has not created the container yet; Docker 23
+and newer answer "No such container" with exit 0) leaves it to the next start.
+A record is said removed only when the engine answered so: when the daemon is
+stopped or hangs, or the recorded engine program is missing, a start tries
 once (3 s at most), notes the try, and the starts of the next 10 minutes leave
-that record alone. `halo ps` lists this home's recorded containers (without
-calling the engine) and the command that removes one now;
+that record alone. Every `halo` start, `halo ps` too, runs that start sweep
+first, so it may call the engine once; the listing of `halo ps` adds no engine
+call. It shows this home's recorded containers and the command that removes one now;
 `docker ps --filter label=halo.owner` lists the ones running. The worker in the
 container gets no `HALO_OWNER` watch: it runs in another pid namespace, where
 the owner's pid means nothing.

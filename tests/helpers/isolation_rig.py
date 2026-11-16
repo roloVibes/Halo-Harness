@@ -56,7 +56,8 @@ class IsoEnv:
         """An empty stand-in for `name` that `which` finds (never run: the worker's runner is a recorder).
         3.6.0.1: `record` makes it a fake engine instead: each call appends its argv to `engine_calls.jsonl` and
         exits 0, or 1 with an engine error while `engine_fail` exists in the bin folder (`engine_calls()`), or 1
-        with "No such container: <name>" for each name while `engine_nosuch` exists, or sleeps 60 s while
+        with "No such container: <name>" for each name while `engine_nosuch` exists (podman, Docker before 23), or
+        0 with the same lines while `engine_nosuch0` exists (Docker 23 and newer), or sleeps 60 s while
         `engine_sleep` exists (a hung daemon)."""
         if record:
             return self._fake_engine(name)
@@ -74,10 +75,11 @@ class IsoEnv:
             "    f.write(json.dumps(sys.argv[1:]) + chr(10))\n"
             "if (here / 'engine_fail').exists():\n"
             "    sys.stderr.write('Cannot connect to the engine daemon' + chr(10)); sys.exit(1)\n"
-            "if (here / 'engine_nosuch').exists():\n"
-            "    for n in sys.argv[3:]:\n"
-            "        sys.stderr.write('Error response from daemon: No such container: ' + n + chr(10))\n"
-            "    sys.exit(1)\n"
+            "for flag, code in (('engine_nosuch', 1), ('engine_nosuch0', 0)):\n"
+            "    if (here / flag).exists():\n"
+            "        for n in sys.argv[3:]:\n"
+            "            sys.stderr.write('Error response from daemon: No such container: ' + n + chr(10))\n"
+            "        sys.exit(code)\n"
             "if (here / 'engine_sleep').exists():\n"
             "    import time; time.sleep(60)\n", encoding="utf-8")
         if os.name == "nt":

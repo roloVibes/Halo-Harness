@@ -140,10 +140,15 @@ def _call(name: str, args, kw: dict):
 
 
 def _win_run(args, *, input=None, capture_output=False, timeout=None, check=False, **kw):
-    """CPython's subprocess.run, with the child started by this module's Popen (Windows only)."""
+    """CPython's subprocess.run, with the child started by this module's Popen (Windows only). Every argument case
+    answers as CPython's does, its ValueErrors included (3.6.0.1)."""
     if input is not None:
+        if kw.get("stdin") is not None:
+            raise ValueError("stdin and input arguments may not both be used.")
         kw["stdin"] = _sp.PIPE
     if capture_output:
+        if kw.get("stdout") is not None or kw.get("stderr") is not None:
+            raise ValueError("stdout and stderr arguments may not be used with capture_output.")
         kw["stdout"] = kw["stderr"] = _sp.PIPE
     with Popen(args, **kw) as p:
         try:
@@ -161,15 +166,36 @@ def _win_run(args, *, input=None, capture_output=False, timeout=None, check=Fals
     return _sp.CompletedProcess(p.args, code, out, err)
 
 
+def _win_call(args, *, timeout=None, **kw):
+    """CPython's subprocess.call: Popen and wait (no pipes read; `input`, `check` are Popen's TypeError there too)."""
+    with Popen(args, **kw) as p:
+        try:
+            return p.wait(timeout=timeout)
+        except BaseException:
+            p.kill()
+            raise
+
+
 def _win_check_call(args, **kw):
-    code = _win_run(args, **kw).returncode
+    code = _win_call(args, **kw)
     if code:
         raise _sp.CalledProcessError(code, args)
     return 0
 
 
-_WIN = {"run": _win_run, "call": lambda args, **kw: _win_run(args, **kw).returncode, "check_call": _win_check_call,
-        "check_output": lambda args, **kw: _win_run(args, stdout=_sp.PIPE, check=True, **kw).stdout}
+def _win_check_output(args, *, timeout=None, **kw):
+    """CPython's subprocess.check_output: an explicit input=None is an empty input (a closed pipe, never the
+    terminal's own stdin), and stdout= / check= are refused."""
+    for name in ("stdout", "check"):
+        if name in kw:
+            raise ValueError(f"{name} argument not allowed, it will be overridden.")
+    if "input" in kw and kw["input"] is None:
+        text = kw.get("universal_newlines") or kw.get("text") or kw.get("encoding") or kw.get("errors")
+        kw["input"] = "" if text else b""
+    return _win_run(args, stdout=_sp.PIPE, timeout=timeout, check=True, **kw).stdout
+
+
+_WIN = {"run": _win_run, "call": _win_call, "check_call": _win_check_call, "check_output": _win_check_output}
 
 
 def run(args, **kw):

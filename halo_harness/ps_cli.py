@@ -300,14 +300,22 @@ def doctor_line(state_dir=None) -> Optional[str]:
 
 def _print_containers(state_dir=None) -> None:
     """3.6.0.1: one line per worker container this home has recorded (isolation/container.py) -- after a hard kill on
-    Windows, or while the engine is down, it waits for the next start's sweep. Read-only: the engine is not called."""
+    Windows, or while the engine is down, it waits for the next start's sweep. The listing itself calls no engine
+    (the start sweep that every `halo` start runs, `halo ps` too, may have called it once just before). "Gone" is
+    said only when it is proven (closing.owner_provably_gone), as the sweep removes only then."""
     from pathlib import Path
     from halo_harness import closing
     from halo_harness.isolation.container import records
     for rec in records(state_dir):
         engine, name = Path(rec["engine"]).stem, rec["name"]
-        alive = closing.marker_owner_alive(rec["owner"])
-        state = ("its Halo is running: removed when it closes" if alive else
-                 f"its Halo {'has' if alive is False else 'may have'} gone: removed at the next start, or now with: "
-                 f"{engine} rm -f {name}")
+        now = f"{engine} rm -f {name}"
+        if closing.owner_provably_gone(rec["owner"]):
+            tried = rec.get("tried")
+            state = (f"its Halo has gone; the engine did not remove it ({closing._when({'since': tried})}): a start "
+                     f"10 minutes later tries again, or now with: {now}" if isinstance(tried, (int, float)) else
+                     f"its Halo has gone: removed at the next start, or now with: {now}")
+        elif closing.marker_owner_alive(rec["owner"]):
+            state = "its Halo is running: removed when it closes"
+        else:
+            state = f"its Halo could not be checked: kept while it may run; if it has ended: {now}"
         print(f"{'container':<11}{name}  {engine}  since {closing._when(rec)}  {state}")
