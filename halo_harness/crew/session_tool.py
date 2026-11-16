@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 APPLY, LEAVE, NO, YES = "Apply them", "Leave them", "No (leave this line out)", "Yes, this line too"
 
@@ -104,19 +105,60 @@ def chosen(rows: list, answer) -> list:
     return list(dict.fromkeys(ids))
 
 
+def _outcome(outcome: str, wrote=(), undo=None) -> dict:
+    return {"outcome": outcome, "wrote": list(wrote), "undo": undo or None}
+
+
+def _items(paths, had=frozenset(), removed: bool = False) -> list:
+    """3.6.0.2 R25: `[{kind, name, added}]` for the crew files written (config.json, map_use's, is no crew file)."""
+    from halo_harness.crew.store import KINDS
+    kinds = {v: k for k, v in KINDS.items()}
+    out = []
+    for p in paths or []:
+        p = Path(p)
+        if p.parent.name in kinds:
+            out.append({"kind": kinds[p.parent.name], "name": p.stem, "added": str(p) not in had and not removed,
+                        **({"removed": True} if removed else {})})
+    return out
+
+
+def _had(rows: list, ids, cwd) -> set:
+    """The ticked rows' crew files that are there before the write (what is changed, not added)."""
+    from halo_harness.crew.store import KINDS, path_for
+    out = set()
+    for r in rows:
+        kind, _, name = str(r.get("target") or "").partition(":")
+        if r["id"] in ids and kind in KINDS and name:
+            path = path_for(kind, name, cwd=cwd)
+            if path.is_file():
+                out.add(str(path))
+    return out
+
+
 def finish(pv: dict, answer, session) -> str:
+    """The card's answer -> what is written, as text; the outcome (`applied | left | failed`, what was written, the
+    undo id) is left on `pv["outcome"]` for the `builder_done` frame (3.6.0.2 R25). A raise leaves `failed`."""
     from halo_harness.crew import changes
+    pv["outcome"] = _outcome("failed")
     if pv.get("undo"):
         if not any(a.strip().lower().startswith(("apply", "yes")) for _q, a in _said(answer)):
+            pv["outcome"] = _outcome("left")
             return f"Left as it is: the change {pv['undo']} was not undone."
         got = changes.undo(pv["undo"])
+        if got.get("ok"):
+            pv["outcome"] = _outcome("applied", _items(got.get("restored")))
         return f"Undone: {len(got.get('restored') or [])} file(s) put back." if got.get("ok") else str(got.get("error"))
     ids = chosen(pv["rows"], answer)
     if not ids:
+        pv["outcome"] = _outcome("left")
         return pv["text"] + "\nThe person left every line: nothing was written."
-    got = changes.apply(pv["rows"], ids, cwd=getattr(session, "cwd", None))
+    cwd = getattr(session, "cwd", None)
+    had = _had(pv["rows"], set(ids), cwd)
+    got = changes.apply(pv["rows"], ids, cwd=cwd)
     if not got["ok"]:
         return pv["text"] + "\nNothing was written: " + "; ".join(got["problems"])
+    pv["outcome"] = _outcome("applied" if got["wrote"] or got["removed"] else "left",
+                             _items(got["wrote"], had) + _items(got["removed"], had, removed=True), got["undo_id"])
     left = len(pv["rows"]) - len(ids)
     return (pv["text"] + f"\nApplied {len(ids)} line(s){f', left {left}' if left else ''}: wrote "
             f"{', '.join(got['wrote'] + got['removed']) or 'nothing'}. Undo id {got['undo_id']} (Builder {{\"undo\": \"{got['undo_id']}\"}}, "

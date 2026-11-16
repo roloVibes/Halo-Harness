@@ -17,6 +17,7 @@ DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "
                  "orchestra_state", "orchestra_claim", "orchestra_merge", "orchestra_gate", "orchestra_report",
                  "turn_marker", "thinking_chunk", "agent_talk",
                  "map_hop", "map_step", "map_card",  # 3.6.0.0 R4: the lit Map (crew/map_events.py)
+                 "builder_done",  # 3.6.0.2 R25
                  "agent_state", "agent_event", "registry", "live")  # 3.3.13.0 R2: design_turn and media_render: the design pack's
 PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid", "harness", "project", "parent")
 

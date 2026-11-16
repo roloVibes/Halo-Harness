@@ -7835,11 +7835,14 @@ class Session:
                 answer = self._await_reply(self._question_waiters, q_request_id)
                 item.pop("pending_question", None)
                 if item.get("builder_preview") is not None:  # 3.6.0.0 R3: the Builder card's answer -> what is written
-                    from halo_harness.crew.map_events import card_done as _map_card_done
+                    from halo_harness.crew.map_events import builder_done as _builder_done, card_done as _map_card_done
                     from halo_harness.crew.session_tool import finish as _builder_finish
                     _map_card_done(self, q_request_id)
-                    item["result"] = ToolResult(_builder_finish(item["builder_preview"], answer, self) if answer is not None
-                                                else item["builder_preview"]["text"] + "\nThe card was dismissed: nothing was written.")
+                    try:
+                        item["result"] = ToolResult(_builder_finish(item["builder_preview"], answer, self) if answer is not None
+                                                    else item["builder_preview"]["text"] + "\nThe card was dismissed: nothing was written.")
+                    finally:  # 3.6.0.2 R25: after the write, for every card (dismissed: left; a raise: failed)
+                        _builder_done(self, q_request_id, item["builder_preview"].get("outcome"))
                     item["ready"] = True
                 elif answer is None:
                     item["text"] = "The user did not answer (the question was dismissed or the turn interrupted)."

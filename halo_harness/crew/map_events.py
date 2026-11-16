@@ -1,7 +1,7 @@
 """halo_harness.crew.map_events -- what a session on a map says as it runs, for the lit Map (Halo 3.6.0.0 R4;
 docs/STUDIO-map.md "While a session runs").
 
-Three frames on the session's feed (the agent tree's listeners: remote/agent_frames.py publishes them; Studio asks
+Frames on the session's feed (the agent tree's listeners: remote/agent_frames.py publishes them; Studio asks
 every session for them, studio/feed_kinds.py), each also one `receipt` node in the session's log (kind "map") so
 History replays the very same events (`recorded`, read by studio/live_recording_api.py):
 
@@ -13,6 +13,8 @@ History replays the very same events (`recorded`, read by studio/live_recording_
                agent | check | end with crew/runner.py's own fields (the Try it record reads the same)
     map_card   a Builder card main parked for the person: {id, changes} (crew/changes.py `public` rows: the ghosts the
                Map draws); {id, done: true} once it is answered or dismissed
+    builder_done  3.6.0.2 R25: every Builder card, AFTER its files are written (or not): {id, outcome, wrote, undo,
+               next, this_session, maps, t} (`builder_done`); its receipt in the log is the same without `maps`
 
 A spawned agent's row carries `crew: {map, box, line?, agent, saved, workflow?, step?, made_up?}` (agent/
 agent_registry.py FIELDS; 3.6.0.2 R13): the box it runs for (a workflow's step: its caller's box, the workflow and the
@@ -25,6 +27,7 @@ to publish never stops a hand-off.
 
 from __future__ import annotations
 
+import json
 import time
 
 TASK = 120
@@ -185,6 +188,71 @@ def card(session, request_id: str, preview: dict) -> None:
 
 def card_done(session, request_id: str) -> None:
     publish(session, "map_card", {"id": request_id, "done": True, "t": round(time.time(), 3)}, log=False)
+
+
+MAP_BODY_MAX = 65536  # 3.6.0.2 R25/R28: a bigger map's body is left out of the frame; the page fetches it
+
+
+def _next_map():
+    """F4: the map new sessions use (config `crew.map`), None when unset."""
+    try:
+        from halo_harness.theme import get_config_value
+        name = get_config_value("crew.map", default=None)
+    except Exception:
+        return None
+    return name.strip() if isinstance(name, str) and name.strip() else None
+
+
+def _this_map(session):
+    """F2: the map this session runs on (its `team_control.map_name` when it is a map), else None."""
+    for s in (_top(session), session):
+        tc = getattr(s, "team_control", None)
+        if tc is not None and getattr(tc, "is_map", False):
+            return getattr(tc, "map_name", None) or None
+    return None
+
+
+def _bodies(session, wrote: list) -> dict:
+    """`{name: body}` of each map the card wrote, as `GET crew/map/<name>` gives it; one over 64 KB is left out."""
+    from halo_harness.crew import store
+    out = {}
+    for w in wrote:
+        if w.get("kind") != "map" or w.get("removed"):
+            continue
+        try:
+            body = store.read(store.path_for("map", w["name"], cwd=getattr(session, "cwd", None)))
+            if body is None:
+                continue
+            body = store.clean(body)
+            if len(json.dumps(body, ensure_ascii=False, default=str).encode("utf-8")) <= MAP_BODY_MAX:
+                out[w["name"]] = body
+        except Exception:
+            continue
+    return out
+
+
+def builder_done(session, request_id: str, outcome) -> dict:
+    """3.6.0.2 R25: a Builder card was answered and its files are written (or not): `{id, outcome: applied | left |
+    failed, wrote: [{kind, name, added}], undo, next, this_session, maps, t}` on the feed; the same without `maps` as
+    a receipt in the log and on the session (`_builder_built`, the status row's "built"). Never raises."""
+    try:
+        got = outcome if isinstance(outcome, dict) else {}
+        wrote = [dict(w) for w in got.get("wrote") or []]
+        receipt = {"id": request_id, "outcome": got.get("outcome") or "left", "wrote": wrote,
+                   "undo": got.get("undo") or None, "next": _next_map(), "this_session": _this_map(session),
+                   "t": round(time.time(), 3)}
+        try:
+            session._builder_built = receipt
+        except Exception:
+            pass
+        data = {**receipt, "maps": _bodies(session, wrote)}
+        publish(session, "builder_done", data, log=False)
+        top = _top(session)
+        if not (closed(session) or closed(top)):
+            _log(top, "builder_done", receipt)
+        return data
+    except Exception:
+        return {}
 
 
 def recorded(path) -> dict:
