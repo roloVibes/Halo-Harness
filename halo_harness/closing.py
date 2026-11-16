@@ -59,8 +59,10 @@ WATCH_POLL_S = 0.25
 KEPT_KINDS = ("bg", "supervisor", "host", "update", "terminal")
 _BREAKAWAY = 0x01000000          # CREATE_BREAKAWAY_FROM_JOB
 _STATE: dict = {"installed": False, "closed": False, "spawned": False, "reaper": None, "job": None,
-                "strict_job": None, "callbacks": [], "owner_gone": False}
+                "strict_job": None, "callbacks": [], "owner_gone": False, "deadline": None}
 _LOCK = threading.RLock()
+QUIT_BUDGET_S = 4.0              # fx jb8: the whole way out of a halo (quit's waits, close()'s waits) shares this
+_BROWSERS: list = []             # fx jb8: browser starts handed to a thread (open_url); close() waits for them
 
 
 # -- who this process is -------------------------------------------------------------------------------------------
@@ -173,20 +175,54 @@ def open_url(url: str) -> bool:
     if os.name == "nt" and not stubbed and _in_a_job():
         from halo_harness import subprocess_safe as sp
         chosen = _chosen_browsers(str(url))  # the person's BROWSER, as webbrowser honours it; the system's only when unset
-        for cmd in chosen or [["rundll32", "url.dll,FileProtocolHandler", str(url)]]:
-            try:
-                sp.Popen(cmd, **kept_kwargs({"stdin": sp.DEVNULL, "stdout": sp.DEVNULL, "stderr": sp.DEVNULL},
-                                            env=scrubbed_env()))
-                return True
-            except Exception:
-                continue
-        if chosen:  # BROWSER named programs and none started: never another browser in their place
-            return False
+
+        def start() -> bool:
+            for cmd in chosen or [["rundll32", "url.dll,FileProtocolHandler", str(url)]]:
+                try:
+                    sp.Popen(cmd, **kept_kwargs({"stdin": sp.DEVNULL, "stdout": sp.DEVNULL, "stderr": sp.DEVNULL},
+                                                env=scrubbed_env()))
+                    return True
+                except Exception:
+                    continue
+            # BROWSER named programs and none started: never another browser in their place
+            return False if chosen else _python_browser(url, stubbed, setup_door)
+
+        if breakaway_frees():
+            return start()
+        # fx jb8: an outer Job holds what this process starts, so the browser leaves through start_outside_job (a
+        # PowerShell start: about 2 s on a CI runner) -- beside the caller, which prints the address meanwhile;
+        # close() waits for it within the deadline
+        th = threading.Thread(target=start, name="halo-browser-start", daemon=True)
+        with _LOCK:
+            if not _BROWSERS and not _STATE.get("browsers_at_exit"):
+                _STATE["browsers_at_exit"] = True
+                atexit.register(_browsers_at_exit)  # a process with no closing procedure waits for them too
+            _BROWSERS.append(th)
+        th.start()
+        return True
+    return _python_browser(url, stubbed, setup_door)
+
+
+def _python_browser(url: str, stubbed: bool, setup_door) -> bool:
+    import webbrowser
     try:
         with without_marker():
             return bool(webbrowser.open(url) if stubbed else setup_door.open_in_a_window(url))
     except Exception:
         return False
+
+
+def _browsers_at_exit() -> None:
+    arm_close_deadline()
+    wait_for_browsers(time_left(QUIT_BUDGET_S))
+
+
+def wait_for_browsers(seconds: float) -> None:
+    """fx jb8: the browser starts open_url handed to a thread finish (at most `seconds` in all)."""
+    end = time.monotonic() + max(0.0, seconds)
+    while _BROWSERS:
+        th = _BROWSERS.pop(0)
+        th.join(max(0.0, end - time.monotonic()))
 
 
 def stop_asked() -> bool:
@@ -926,6 +962,21 @@ def _stop_reaper() -> None:
 
 # -- the closing procedure -----------------------------------------------------------------------------------------
 
+def arm_close_deadline() -> None:
+    """fx jb8: this halo is on its way out (a session's quit, or close()): every wait from here to the end of close()
+    shares one deadline, QUIT_BUDGET_S from now. Only in a real halo (install() ran): a test, or a Studio quitting a
+    session it hosts, is not leaving."""
+    with _LOCK:
+        if _STATE["installed"] and _STATE.get("deadline") is None:
+            _STATE["deadline"] = time.monotonic() + QUIT_BUDGET_S
+
+
+def time_left(cap: float) -> float:
+    """fx jb8: how long a wait on the way out may still take: `cap`, never past the armed deadline."""
+    deadline = _STATE.get("deadline")
+    return cap if deadline is None else max(0.0, min(cap, deadline - time.monotonic()))
+
+
 def on_close(fn: Callable[[], None]) -> None:
     """Run `fn` first when this process closes (an MCP manager's close, a job registry's kill)."""
     _STATE["callbacks"].append(fn)
@@ -941,6 +992,10 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
             return []
         _STATE["closed"] = True
     t0 = time.monotonic()
+    arm_close_deadline()  # fx jb8: one deadline for the whole way out; a quit that came first set it already
+    total = time_left(polite_s + hard_s)
+    hard_s = min(hard_s, total / 3)  # a hard stop is at once: its wait is only for the end to show
+    polite_s = total - hard_s
     for fn in reversed(_STATE["callbacks"]):
         try:
             fn()
@@ -961,6 +1016,7 @@ def close(*, polite_s: float = POLITE_S, hard_s: float = HARD_S, say: Optional[C
         line = ended_line(_STATE.pop("ended", None) or {})
         if line:
             lines.append(line)
+    wait_for_browsers(time_left(QUIT_BUDGET_S))
     _stop_reaper()
     out = say if say is not None else _say
     for line in lines:
@@ -1289,4 +1345,5 @@ def install(*, sweep_at_start: bool = True) -> None:
 
 
 def reset_for_tests() -> None:
-    _STATE.update(installed=False, closed=False, spawned=False, callbacks=[], owner_gone=False, hard_exit=None)
+    _STATE.update(installed=False, closed=False, spawned=False, callbacks=[], owner_gone=False, hard_exit=None,
+                  deadline=None)

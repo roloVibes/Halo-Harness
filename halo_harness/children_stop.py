@@ -231,11 +231,34 @@ def quit_targets(state_dir=None) -> list:
     return out
 
 
+def _stop_together(targets: list, state_dir, timeout: float) -> list:
+    """fx jb8: every target told to stop at the same moment, each on its own thread, all inside one bound (`timeout`,
+    never past a leaving halo's deadline): a polite stop waited out on one never holds up the next. A stop still
+    under way at the bound is reported by its entry as still running."""
+    import threading
+    from halo_harness.closing import time_left
+    bound = time_left(timeout)
+    results: list = [None] * len(targets)
+
+    def one(i: int, entry: dict) -> None:
+        results[i] = stop_entry(entry, state_dir=state_dir, timeout=bound)
+
+    threads = [threading.Thread(target=one, args=(i, e), name="halo-quit-stop", daemon=True)
+               for i, e in enumerate(targets)]
+    for th in threads:
+        th.start()
+    end = time.monotonic() + bound + 1.0  # a stop's own wait is `bound`; its last look gets a moment more
+    for th in threads:
+        th.join(max(0.0, end - time.monotonic()))
+    return [r if r is not None else {"what": e.get("what") or "halo", "pid": e.get("pid"), "ok": not C.alive(e),
+                                     "cmd": e.get("cmd") or []} for r, e in zip(results, targets)]
+
+
 def stop_for_quit(state_dir=None, timeout: float = 5.0) -> str:
     """The exit path's stop: one line -- what it stopped, then what it left
     running of this home (children_left.py) -- or '' when neither. Never raises."""
     try:
-        stopped = summary([stop_entry(e, state_dir=state_dir, timeout=timeout) for e in quit_targets(state_dir)])
+        stopped = summary(_stop_together(quit_targets(state_dir), state_dir, timeout))
     except Exception:
         stopped = ""
     from halo_harness.children_left import quit_line

@@ -40,6 +40,7 @@ from halo_harness.textlines import split_lines
 from halo_harness.permissions import Decision, add_allow_rule
 
 QUIT_DEADLINE_S = 5.0
+QUIT_RESERVE_S = 1.0  # fx jb8: what a leaving halo keeps of closing.QUIT_BUDGET_S for the stops after the worker join
 
 
 def _stop_children_for_quit(state_dir) -> str:
@@ -264,10 +265,17 @@ class Controller:
         # queue) is drained without starting a whole new turn.
         self.session._stopping.set()
         self.session.abort.set()
+        from halo_harness import closing
+        if self.quit_stops_children:  # fx jb8: this halo is leaving -- one deadline for the whole way out
+            closing.arm_close_deadline()
+        try:  # fx jb8: the background jobs stop now, never after a wait for a turn that has not read the abort
+            self.session.job_registry.kill_all()
+        except Exception:
+            pass
         self.commands.put(None)
         try:
-            if self._worker is not None:
-                self._worker.join(QUIT_DEADLINE_S)
+            if self._worker is not None:  # the stops after this join keep QUIT_RESERVE_S of the deadline
+                self._worker.join(max(0.0, closing.time_left(QUIT_DEADLINE_S + QUIT_RESERVE_S) - QUIT_RESERVE_S))
         finally:
             self._stopped.set()
             # Halo 2.0.9 round 2: the control socket and its registry entry

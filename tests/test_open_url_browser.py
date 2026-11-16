@@ -50,9 +50,11 @@ class _Recorder:
 def _open_recorded(browser, fail=()) -> "tuple[bool, list]":
     from halo_harness import closing
     saved_popen, saved_job, saved_env = subprocess.Popen, closing._in_a_job, os.environ.get("BROWSER")
+    saved_frees = closing.breakaway_frees
     _Recorder.seen, _Recorder.fail = [], set(fail)
     subprocess.Popen = _Recorder
     closing._in_a_job = lambda: True
+    closing.breakaway_frees = lambda: True  # fx jb8: open_url asks it first (a breakaway that frees starts in place)
     if browser is None:
         os.environ.pop("BROWSER", None)
     else:
@@ -60,7 +62,7 @@ def _open_recorded(browser, fail=()) -> "tuple[bool, list]":
     try:
         return closing.open_url(URL), list(_Recorder.seen)
     finally:
-        subprocess.Popen, closing._in_a_job = saved_popen, saved_job
+        subprocess.Popen, closing._in_a_job, closing.breakaway_frees = saved_popen, saved_job, saved_frees
         os.environ.pop("BROWSER", None) if saved_env is None else os.environ.__setitem__("BROWSER", saved_env)
 
 
