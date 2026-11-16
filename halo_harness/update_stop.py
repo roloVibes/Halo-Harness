@@ -91,13 +91,16 @@ def scanned(known=()) -> list:
     pids = [p for p in upd.other_halo_pids() if p != os.getpid()]
     if not pids:
         return []
+    # 3.6.0.1: the start times are read BETWEEN the two looks, so the second one confirms them (two lists, as before):
+    # a pid it no longer shows as Halo's vanished or was reused: dropped. A second look that reads nothing never
+    # fails open: a pid that still runs is kept with no start time (named, never ended by number)
+    starts = {p: C.start_time(p) for p in pids}
     rows = {r["pid"]: r for r in upd.other_halo_processes()}
-    # 3.6.0.1: a pid the second list no longer shows as Halo's vanished or was reused: dropped. The start times are
-    # read now, then one more look keeps only the pids still running the command listed (upd.confirm_rows)
-    found = [dict(rows[p]) for p in pids if p in rows]
-    for r in found:
-        r["start_time"] = C.start_time(r["pid"])
-    found = upd.confirm_rows(found, upd.other_halo_processes)
+    if rows:
+        found = [dict(rows[p], start_time=starts[p]) for p in pids if p in rows]
+    else:
+        found = [{"pid": p, "ppid": None, "what": "halo", "cmd": "", "start_time": None} for p in pids
+                 if C.pid_running(p)]
     skip = set(known)
     changed = True
     while changed:

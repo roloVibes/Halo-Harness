@@ -944,13 +944,19 @@ def confirm_rows(rows: list, again: Callable) -> list:
     a row only while `again()` -- a fresh look by the same reader -- still shows its pid running the same command (under
     the same parent, where both name one). A pid that vanished or now runs another program is dropped, so a start time
     read in between never becomes another program's identity; one reused after this look has another start time,
-    which every stop (update_runner.proven, children.provably_same) refuses."""
+    which every stop (update_runner.proven, children.provably_same) refuses.
+    A look that reads nothing (a list that cannot be read, or none of the rows left) never fails open: a row whose
+    pid still runs is kept with start_time None (named, never ended by number; Windows /update refuses while it may
+    run, and an opener stays out of reach of this halo's own stop); only a pid that no longer runs is dropped."""
     if not rows:
         return []
     try:
         fresh = {r["pid"]: r for r in (again() or []) if isinstance(r, dict) and "pid" in r}
     except Exception:
-        return []
+        fresh = {}
+    if not fresh:
+        from halo_harness import children
+        return [dict(r, start_time=None) for r in rows if children.pid_running(r.get("pid"))]
     out = []
     for r in rows:
         f = fresh.get(r.get("pid"))

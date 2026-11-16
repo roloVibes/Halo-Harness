@@ -13,10 +13,12 @@ Every process here is a stand-in this file starts (`python -c "import time; time
 """
 from __future__ import annotations
 
+import atexit
 import contextlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -43,8 +45,12 @@ test, TESTS = new_registry()
 HOUR = 3600.0
 
 
+_ROOT = Path(tempfile.mkdtemp(prefix="v3601-ledger-"))  # every state folder of this run, removed at exit
+atexit.register(shutil.rmtree, _ROOT, ignore_errors=True)
+
+
 def _state() -> Path:
-    return Path(tempfile.mkdtemp(prefix="v3601-ledger-"))
+    return Path(tempfile.mkdtemp(dir=_ROOT))
 
 
 def _sleeper() -> subprocess.Popen:
@@ -266,30 +272,84 @@ def test_the_studio_row_takes_the_start_time_studio_json_carries(ctx: Ctx):
         _cleanup(launcher, studio)
 
 
-def _scripted_list(first: str, later: str):
+def _scripted_list(*looks):
+    """A fake `upd.list_processes`: the n-th call returns looks[n-1] (the last one from then on); `[]` is a list
+    that could not be read (what `list_processes` gives on a PowerShell timeout)."""
     calls = []
 
     def fake(*, run_fn=None, windows=None):
         calls.append(1)
-        return [(4242, 1, first if len(calls) == 1 else later)]
+        return list(looks[min(len(calls), len(looks)) - 1])
     return fake, calls
+
+
+HALO_SUP = (4242, 1, "/usr/bin/python3 -m halo_harness supervise")
+HALO_STUDIO = (4343, 1, "/usr/bin/python3 -m halo_harness studio")
 
 
 @test
 def test_a_scanned_pid_reused_before_its_start_time_is_read_is_dropped(ctx: Ctx):
-    saved = (upd.list_processes, C.start_time)
+    """The start time is read between the two looks; the second look confirms it. A pid the second (readable) list
+    shows running another program is dropped; two lists, as before 3.6.0.1 (no extra PowerShell call)."""
+    saved = (upd.list_processes, C.start_time, C.pid_running)
     try:
-        C.start_time = lambda pid: "NEW-PROGRAM"
-        upd.list_processes, calls = _scripted_list("/usr/bin/python3 -m halo_harness supervise", "notepad.exe")
+        C.start_time = lambda pid: "READ-START"
+        C.pid_running = lambda pid: True
+        upd.list_processes, calls = _scripted_list([HALO_SUP], [(4242, 1, "notepad.exe"), HALO_STUDIO])
         got = update_stop.scanned()
         ctx.check(f"the reused pid is not returned at all, got {got}", all(r["pid"] != 4242 for r in got))
-        same = "/usr/bin/python3 -m halo_harness supervise"
-        upd.list_processes, calls = _scripted_list(same, same)
+        ctx.check(f"two process lists, got {len(calls)}", len(calls) == 2)
+        upd.list_processes, calls = _scripted_list([HALO_SUP], [HALO_SUP])
         got = update_stop.scanned()
         ctx.check(f"a pid still running the listed command is kept with its start time, got {got}",
-                  [(r["pid"], r["start_time"]) for r in got] == [(4242, "NEW-PROGRAM")])
+                  [(r["pid"], r["start_time"]) for r in got] == [(4242, "READ-START")] and len(calls) == 2)
     finally:
-        upd.list_processes, C.start_time = saved
+        upd.list_processes, C.start_time, C.pid_running = saved
+
+
+@test
+def test_a_scanned_pid_is_never_dropped_when_the_second_look_reads_nothing(ctx: Ctx):
+    """Checker (batch 1): a second list that cannot be read (or shows no Halo at all) dropped every scanned Halo,
+    so the update went ahead as if none ran. Fail closed: a pid that still runs is kept with no start time (named,
+    never ended by number; Windows /update refuses while it may run); only a pid that no longer runs is dropped."""
+    saved = (upd.list_processes, C.start_time, C.pid_running)
+    try:
+        C.start_time = lambda pid: "READ-START"
+        C.pid_running = lambda pid: pid == 4242
+        for second in ([], [(4242, 1, "notepad.exe")]):
+            upd.list_processes, calls = _scripted_list([HALO_SUP], second)
+            got = update_stop.scanned()
+            ctx.check(f"second look {second}: kept, unconfirmed, got {got}",
+                      [(r["pid"], r["start_time"]) for r in got] == [(4242, None)])
+        C.pid_running = lambda pid: False
+        upd.list_processes, calls = _scripted_list([HALO_SUP], [])
+        got = update_stop.scanned()
+        ctx.check(f"a pid that no longer runs needs nothing, got {got}", got == [])
+    finally:
+        upd.list_processes, C.start_time, C.pid_running = saved
+
+
+@test
+def test_an_opener_is_kept_out_of_reach_when_the_confirming_look_reads_nothing(ctx: Ctx):
+    """Checker (batch 1): `confirm_rows(openers, halo_openers)` returned [] when the second list failed, so the
+    Studio that opened this halo left `skip` and could be stopped from inside its own tree. Now an opener that still
+    runs is kept (start time None: never ended by number); one whose pid no longer runs is dropped."""
+    opener = {"pid": 4242, "what": "studio", "cmd": "halo studio", "start_time": "READ-START"}
+    saved = C.pid_running
+    try:
+        C.pid_running = lambda pid: True
+        for again in (lambda: [], lambda: 1 / 0):
+            got = upd.confirm_rows([dict(opener)], again)
+            ctx.check(f"kept with no start time, got {got}",
+                      [(r["pid"], r["start_time"]) for r in got] == [(4242, None)])
+        got = upd.confirm_rows([dict(opener)], lambda: [{"pid": 4242, "what": "studio", "cmd": "halo studio"}])
+        ctx.check(f"confirmed: kept with its start time, got {got}", got == [opener])
+        got = upd.confirm_rows([dict(opener)], lambda: [{"pid": 4242, "what": "studio", "cmd": "notepad.exe"}])
+        ctx.check(f"another program now (a readable look): dropped, got {got}", got == [])
+        C.pid_running = lambda pid: False
+        ctx.check("an opener whose pid no longer runs: dropped", upd.confirm_rows([dict(opener)], lambda: []) == [])
+    finally:
+        C.pid_running = saved
 
 
 @test
@@ -298,15 +358,19 @@ def test_an_opener_reused_before_its_start_time_is_read_never_reaches_the_plan(c
     me = os.getpid()
     calls = []
 
+    later = [[(me, 4242, "python -m halo_harness"), (4242, 1, "notepad.exe")]]
+
     def fake(*, run_fn=None, windows=None):
         calls.append(1)
-        top = "/usr/bin/python3 -m halo_harness studio" if len(calls) == 1 else "notepad.exe"
-        return [(me, 4242, "python -m halo_harness"), (4242, 1, top)]
+        if len(calls) == 1:
+            return [(me, 4242, "python -m halo_harness"), (4242, 1, "/usr/bin/python3 -m halo_harness studio")]
+        return list(later[0])
     saved = (upd.list_processes, C.start_time, UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.scanned,
-             UP.outside_python, upd._direct_url)
+             UP.outside_python, upd._direct_url, C.pid_running)
     plans = []
     try:
         upd.list_processes = fake
+        C.pid_running = lambda pid: False  # the opener's pid is gone by the second look
         C.start_time = lambda pid: "NEW-PROGRAM" if pid == 4242 else None
         UD.reinstall_cmd = lambda to=None: ("echo x", {"kind": "uv_tool", "spec": "git+https://x"})
         UD.launch = lambda plan, **kw: plans.append(plan) or 0
@@ -320,9 +384,21 @@ def test_an_opener_reused_before_its_start_time_is_read_never_reaches_the_plan(c
         ctx.check(f"no line names 4242 and the plan has no 4242, got {code} {out.getvalue()!r} {plans}",
                   code == 0 and "4242" not in out.getvalue() and plans and 4242 not in plans[0]["stop_pids"]
                   and 4242 not in plans[0].get("stop_starts", {}))
+        # checker (batch 1): the confirming list cannot be read while the opener still runs -- never dropped (that
+        # would let it be stopped from inside this halo's tree); kept unproven, so Windows /update refuses
+        calls.clear()
+        plans.clear()
+        later[0] = []
+        C.pid_running = lambda pid: pid == 4242
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            code = UD.run_after_exit(state_dir=state, windows=True)
+        ctx.check(f"named as not stopped, refused, no plan, got {code} {out.getvalue()!r} {plans}",
+                  code == 1 and "4242" in out.getvalue() and "not installing" in out.getvalue() and not plans
+                  and "NEW-PROGRAM" not in out.getvalue())
     finally:
         (upd.list_processes, C.start_time, UD.reinstall_cmd, UD.launch, upd.halo_ancestors, update_stop.scanned,
-         UP.outside_python, upd._direct_url) = saved
+         UP.outside_python, upd._direct_url, C.pid_running) = saved
 
 
 @test

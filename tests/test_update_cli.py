@@ -650,15 +650,46 @@ def test_an_opener_whose_pid_is_gone_on_a_second_look_is_not_in_the_plan(ctx: Ct
     still runs the same command, so a pid reused in between never lends another program's start time to the plan."""
     from tests.helpers.update_inline import PLANS
     orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242])
+    from halo_harness import children
     looks = []
     upd.halo_openers = lambda **kw: looks.append(1) or ([{"pid": 400, "what": "studio", "cmd": "halo studio"}]
                                                          if len(looks) == 1 else [])
+    saved = children.pid_running
+    children.pid_running = lambda pid: pid != 400  # the opener's pid no longer runs
     try:
         code, out, _err = _capture(update_cli.apply_update)
         ctx.check(f"not named, not in the plan, got {code} {out!r} {PLANS[-1].get('stop_pids')}",
                   code == 0 and "pid 400" not in out and 400 not in (PLANS[-1].get("stop_pids") or [])
                   and len(looks) == 2)
     finally:
+        children.pid_running = saved
+        _restore_all(orig)
+
+
+@test
+def test_an_opener_still_running_when_the_second_look_reads_nothing_is_never_stopped_from_inside(ctx: Ctx):
+    """Checker (batch 1): a second look that cannot be read dropped the opener, so `skip` lost it and this halo
+    could stop the Studio that opened it from inside its own tree. Kept, with no start time (never ended by
+    number): named, left to the updater, which holds the install while it may still run."""
+    from tests.helpers.update_inline import PLANS
+    from halo_harness import children
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[4242, 400])
+    stopped = orig["stopped"]
+    looks = []
+    upd.halo_openers = lambda **kw: looks.append(1) or ([{"pid": 400, "what": "studio", "cmd": "halo studio"}]
+                                                         if len(looks) == 1 else [])
+    saved = children.pid_running
+    children.pid_running = lambda pid: True
+    try:
+        code, out, _err = _capture(update_cli.apply_update)
+        ctx.check(f"named up front, got {out!r}", "Studio (pid 400) opened this halo" in out)
+        ctx.check(f"never stopped from inside, got {[e['pid'] for e in stopped]}",
+                  [e["pid"] for e in stopped] == [4242])
+        ctx.check(f"left to the updater with no start time, got {PLANS[-1:]}",
+                  PLANS and PLANS[-1].get("stop_pids") == [400]
+                  and all((PLANS[-1].get("stop_starts") or {}).get(k) is None for k in (400, "400")))
+    finally:
+        children.pid_running = saved
         _restore_all(orig)
 
 
