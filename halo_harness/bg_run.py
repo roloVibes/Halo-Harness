@@ -191,7 +191,7 @@ def _ps_look(pid: int, *, local: bool = False) -> "tuple[Optional[str], Optional
     now = time.monotonic()
     if not local and (hit := _PS_SEEN.get(pid)) and now - hit[0] < PS_TTL_S:
         return hit[1], hit[2]
-    env = {**os.environ, "LC_ALL": "C", "LANG": "C"}
+    env = subprocess.Probe({**os.environ, "LC_ALL": "C", "LANG": "C"})  # Halo's own look: not a spawn (3.6.0.1)
     if not local:
         env["TZ"] = "UTC0"
     try:

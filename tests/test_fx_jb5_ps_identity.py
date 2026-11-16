@@ -28,8 +28,10 @@ test, TESTS = new_registry()
 
 _CHILD = r'''
 import json, os, sys
-from halo_harness import closing
+from halo_harness import closing, subprocess_safe
 closing.install(sweep_at_start=False)
+# 3.6.0.1: the `ps` identity look is no spawn, so install() alone starts no reaper; one real child starts it
+subprocess_safe.run([sys.executable, "-c", "pass"], capture_output=True, timeout=30)
 proc = closing._STATE.get("reaper")
 argv = list(proc.args) if proc else []
 out = {"me": closing.my_ident(), "env_marker": os.environ.get("HALO_OWNER"), "reaper_argv": argv}
@@ -48,8 +50,8 @@ def _posix_env(home: Path, **extra) -> dict:
 @test
 def test_a_reaper_carries_this_halos_own_id_never_an_inherited_one(ctx: Ctx):
     """A halo that inherited another's HALO_OWNER (a nested halo, a sub-agent, a tmux pane) starts its reaper with
-    ITS OWN id, in argv and in the reaper's environment, even when the reaper starts inside install() (macOS: the
-    first `ps` look counts as a spawn). Red before the fix: the reaper got the inherited marker."""
+    ITS OWN id, in argv and in the reaper's environment (the first real child after install() starts it; until
+    3.6.0.1 macOS's first `ps` look inside install() did). Red before the fix: the reaper got the inherited marker."""
     if os.name == "nt":
         raise SkipTest("the reaper is POSIX only (Windows: the Job object)")
     import tempfile

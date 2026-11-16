@@ -60,8 +60,9 @@ left by a reboot or a hard kill is cleared and said, never signalled.
    - a shell command a tool started is in the ledger as `shell` while it runs (`halo ps` lists it), so the closing
      procedure and the reaper end its whole group even where its environment cannot be read (macOS);
    - every Halo child (Studio's server first) watches the Halo that started it and closes within two seconds;
-   - Linux and macOS: a tiny reaper process waits for Halo and, if it dies without a word, ends what it started
-     (a program Halo waits on, such as an orchestra worker's `sudo` or a git clone, included);
+   - Linux and macOS: from Halo's first child on, a tiny reaper process waits for Halo and, if it dies without a
+     word, ends what it started (a program Halo waits on, such as an orchestra worker's `sudo` or a git clone,
+     included); a Halo that starts no child (`halo ps`, a `halo stop` with nothing to stop) starts no reaper;
    - an `isolation: user` worker carries the lead's owner variables through sudo and ends itself with the lead.
 3. **The sweep at start**: every `halo` launch first stops what an earlier Halo left with no living owner, with one
    line: "halo: stopped a Studio server left from 2026-11-14 22:10".

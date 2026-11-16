@@ -111,10 +111,18 @@ def resolve(args, kw: dict):
     return args if first == args[0] else type(args)([first, *args[1:]])
 
 
+class Probe(dict):
+    """An environment for a bounded, read-only look Halo makes for itself (the `ps` identity look where there is no
+    /proc): never a spawn of the closing procedure, so it starts no reaper and marks nothing spawned (3.6.0.1). Never
+    for a run that executes the person's programs (a login shell, a tool)."""
+
+
 def _call(name: str, args, kw: dict):
     fn = getattr(_sp, name)
     if fn is not _ORIG[name]:  # a test replaced the standard function: it gets the call as written
         return fn(args, **kw)
+    if isinstance(kw.get("env"), Probe):
+        return fn(resolve(args, kw), **kw)
     from halo_harness import closing
     from halo_harness.selfexec import fix_kw  # 3.6.0.0 R10: Halo's own Python child imports this installation
     # 3.6.0.0 fx: inside the closing procedure like a Popen: the child carries this tree's marker even in an

@@ -9,6 +9,7 @@ kinds: studio  -- studio/launch.launch_detached, the way `halo init` starts Stud
        ledger  -- the same, recorded in children.json as this owner's (a schedule fire, a model server)
        kept    -- a spawn a person asked to keep (kept_kwargs, keep=True), like `halo --bg`
        keptmark -- a tool command's daemon started with HALO_OWNER=kept-<name> (a close leaves it running)
+       shortchild -- a non-kept child that exits before the owner is ready (the reaper starts, nothing to end)
        grandchild -- a tool command that starts its own child with the plain standard library
        mcp     -- an MCP stdio server through mcp/stdio.connect (the MCP SDK's own spawn)
        sub     -- its own child AND a sub-agent: a second owner (kind tool) it starts itself, which installs the
@@ -64,6 +65,9 @@ def main() -> int:
             return 3
         info = launch.read_info(home)
         kids.append({"pid": info["pid"], "start": info.get("pstart"), "what": "studio", "studio_json": info})
+    elif kind == "shortchild":  # a non-kept child that exits at once: the reaper starts and has nothing left to end
+        subprocess.Popen([sys.executable, "-c", "pass"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL).wait(timeout=30)
     else:
         target = out / f"{kind}-child.json"
         kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}

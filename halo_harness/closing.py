@@ -963,9 +963,10 @@ def ensure_reaper() -> None:
         _STATE["reaper"] = 0
         pid, start = me()
         import subprocess as _sp
-        # This process's OWN id, never marker(): on macOS install()'s first `ps` look (a spawn) starts the reaper
-        # before install has put that id in the environment, and a reaper given the inherited marker ended the
-        # parent's things and left this one's running (3.6.0.0 fx); its environment carries the same id.
+        # This process's OWN id, never marker(): a reaper given an inherited marker (os.environ before install put
+        # this one's id there) ended the parent's things and left this one's running (3.6.0.0 fx); its environment
+        # carries the same id. (The `ps` identity look is a subprocess_safe.Probe since 3.6.0.1: not a spawn, so the
+        # reaper no longer starts inside install(); the first real child starts it.)
         mark = ident(pid, start)
         argv = [sys.executable, "-I", "-S", str(Path(__file__).with_name("closing_reaper.py")), str(pid), start or "",
                 mark, str(_home()), str(Path(__file__).resolve().parent.parent)]
