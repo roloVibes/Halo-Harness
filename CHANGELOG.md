@@ -8,6 +8,213 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
+## [3.6.0.1] - unreleased
+
+Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; there is nothing new to learn. One button is gone
+from Studio's header, `halo ps` can forget a record and lists worker containers, and the Builder asks before a map
+switch that lets your sessions do more. The limits that remain are at the end of this section.
+
+### Studio
+
+- **The three-lines button beside the theme button is gone, with the density setting behind it.** It switched
+  between "comfortable" and "compact", and compact only made the spacing and the text a few pixels smaller, so
+  pressing it looked like nothing happened and the button seemed broken. The button, the palette's "Density: compact"
+  and "Density: comfortable" commands and the compact sizes are removed: Studio has one size, the one it already used
+  by default. If you had picked compact, Studio opens at the normal size; there is nothing to do. Nothing else in the
+  header moved.
+
+### Windows and local model servers
+
+- **Windows: Session no longer waits seconds for a local model server that is not running.** Windows takes about
+  2 seconds to report a closed port on this computer, and Halo asked more than once while reading the model lists,
+  so with Ollama stopped Session took several seconds to appear, and the terminal's start, `halo -p` and
+  `halo doctor` waited too. On Windows a connection to this computer (127.x.x.x, ::1, `localhost`) now gets at most
+  half a second per address; a server that runs answers in milliseconds. Measured on Windows with Ollama stopped:
+  reading Session's model lists 2.6 s before, 1.2 s after. A remote host and an https connection keep their normal
+  limit, and Linux and macOS, which report a closed port at once, behave exactly as in 3.6.0.0.
+- **When nothing runs on that port, the message says so**: "nothing is listening there (connection refused); is the
+  model server running there? (Ollama: `ollama serve`)", not advice to check the machine's network, DNS or VPN.
+- **Windows: an Ollama set up as `http://localhost:11434` is found again.** Windows tries ::1 first for `localhost`,
+  and Ollama listens on 127.0.0.1 only, so Halo's quick check gave up and showed the host as "(unreachable)" while it
+  ran. For `localhost` Halo now tries 127.0.0.1 first and ::1 second (only when every address the name gives is on
+  this computer; a remote name is never reordered), so each connection is made at once.
+- **A listen address typed into Studio's Setup works.** `0.0.0.0:11434` (or `[::]:11434`) is the address Ollama
+  listens on, not one to connect to, and Windows refuses it. Setup now saves `http://127.0.0.1:11434`, as the
+  terminal setup already did, and says so in one line under the card. A host 3.6.0.0 saved as `0.0.0.0` works without
+  saving it again.
+
+### Permissions
+
+- **The Builder asks before a map switch that lets your sessions do more.** Asking the Builder for "my sessions use
+  the map X" compared only the agents in the map's boxes and workflow steps, never the map's main agent, so a switch
+  to a map whose main is `careful: own` put every next session in auto mode with no question, and "Apply them"
+  applied it. That row now compares main by the same rule a session uses to pick its mode and its tools. When the new
+  map gives main more (a less careful start mode, or a tool such as Run commands), the row starts unticked with its
+  own question, No first, and "Apply them" leaves it out; its text says what widens, for example "new sessions start
+  in auto mode, as its main says (until now default)". A switch to a map as careful or more, with no more tools, is a
+  plain row as before. In a folder you have not trusted, the mode it starts from ignores the project's own
+  `defaultMode`, as a session does.
+- **Studio's "My sessions use this" and `halo maps use` say when the start mode changes.** You press these yourself,
+  so they still ask nothing, but when the switch changes the mode new sessions start in, the receipt line says so:
+  "New sessions run on X; a running session keeps its own; they start in auto mode (until now default)". When the
+  mode does not change, the receipt is as before. `halo maps use` now reads your settings' default mode as well as
+  config `permission_mode`, in the order a session reads them.
+
+### `halo ps` and `halo update`
+
+- **A record Halo cannot prove no longer blocks `/update` on Windows or lists another program as Halo's.** Halo
+  keeps a list of the processes it starts. A record whose start time could not be read when it was written stayed as
+  long as any program held that process number, so `halo ps` showed that program as Halo's and `/update` on Windows
+  refused every time. Halo now drops such a record by itself once the number provably belongs to a program started
+  after the record was written (Windows and macOS always; Linux for records written by 3.6.0.1 or later). Nothing is
+  signalled on the way. Halo also stops writing such records: a process that already exited is not recorded, and a
+  start time that cannot be read at once is read again.
+- **New: `halo ps --forget <pid>`.** For a record Halo still cannot decide on, look at the pid in Task Manager or
+  `ps`; if it is another program, `halo ps --forget <pid>` removes the record and signals nothing. A record whose
+  process runs and is proven Halo's own is refused, with `halo stop <pid>` named instead. A forgotten process is no
+  longer ended when Halo closes, and `halo stop <pid>` says so when it answers "still running" for such a record.
+- **The Windows `/update` refusal never tells you to `taskkill` a process Halo cannot prove is its own.** It still
+  refuses while such a process may run, and now names `halo ps --forget <pid>` for a record of Halo's list, or the
+  Halo command that stops that kind (for example `halo studio --stop`) where there is one.
+- **`halo update` says plainly what it will not stop.** When a Studio or the supervisor opened the halo you update
+  from and Halo cannot confirm it is still the same process, the first line now says the updater does not stop it and
+  you close it yourself; before, it said "the updater stops it once this halo has exited" and then did not. On
+  Windows the install waits until it is closed; on macOS and Linux the install goes on while it runs. One that Halo
+  did confirm is stopped by the updater, as before.
+- **`halo update` and `/update` look twice before trusting a start time.** The other Halo processes the scan finds,
+  a Studio or supervisor that opened this halo, and the supervisor named in its pulse file are kept only while their
+  pid still runs the same command, so a pid that exited and went to another program in that moment is dropped and
+  the updater cannot take that program's start time as proof and end it. When the second look cannot be read, nothing
+  that still runs is dropped: it is named and never ended by its number.
+- **`halo ps` lists the worker containers Halo has recorded**, one line each: `container`, the name, the engine,
+  since when, and either "its Halo is running: removed when it closes" or "its Halo has gone: removed at the next
+  start, or now with: docker rm -f <name>". `halo ps` does not call the engine for this.
+
+### Closing
+
+- **A worker container no longer outlives the Halo that started it.** An Orchestra lane with `isolation: container`
+  now names its container (`halo-<owner>-<lane>-<6 hex>`), labels it `halo.owner=<owner>` and records it under
+  `~/.halo/containers/` while it runs. `docker rm -f` (or `podman rm -f`) removes it when that Halo closes, after a
+  hard kill of that Halo (macOS and Linux: the reaper does it), or at the next `halo` start, with one line:
+  "halo: removed a worker container left from <when> (<name>)". Before, nothing knew the container, and its worker
+  kept running, and spending, until it ended. A lane that runs past its time now has its container removed too, not
+  only the `docker run` client. The start sweep removes only containers recorded in this home whose Halo is provably
+  gone, never one found only by its label; with no record a start makes no engine call.
+- **A stopped Docker does not slow every start.** When a container is left to remove and the engine does not answer,
+  a start tries once for at most 3 seconds and the starts of the next 10 minutes leave it alone. A close in a lane's
+  first moments keeps the record unless `rm -f` really removed the container, so one the engine creates a moment later
+  is still removed at the next start.
+- **Windows: what Halo runs and waits for ends with Halo, also when Halo is ended from Task Manager.** A pack's check,
+  a git clone and a container lane's `docker run` client now join Halo's Job object, as the other programs it starts
+  always did. The editor Halo opens for you and anything you asked to keep are never tied to Halo.
+- **macOS: a Halo that starts no program starts no reaper.** Every Halo on a Mac, even `halo ps` or a `halo stop`
+  with nothing to stop, started the closing reaper at once and scanned every process on the machine when it closed,
+  because Halo's own `ps` read of a start time counted as starting a program. The reaper now starts with the first
+  real program Halo starts, as on Linux. `halo doctor` (and so the installer's last check) still starts one for a
+  moment: it runs your login shell once to read your PATH, and what your profile starts must end with Halo.
+
+### The terminal setup and typed numbers
+
+- **Numbered picks take only 0-9.** A superscript digit (²) typed at a numbered pick of `halo init --terminal`
+  (provider, permission mode, default model, "Which Ollama?", the model list) stopped the setup with a Python error,
+  and a full-width (２) or Arabic-Indic (٢) digit was quietly read as 2. Now only 0-9 count; anything else is no
+  answer, and the setup asks again or says "no server picked" / "no model picked". The same holds wherever you type a
+  number: `halo stop <pid>`, `/intro <n>`, `/why <turn>`, `turn N` in the terminal UI, `halo review #N`, `halo local`
+  by port, a pool member's `host:port`, `--keep-alive`, a cron step in an agent file, the accessible mode's numbered
+  answers, Studio's pool, voice and settings number fields and its live-agents list (an answer that says what is
+  wrong, not a server error), and the Signal pack's phone pick (Signal pack 1.0.2).
+- **The setup's last line names no lineup**: "The rest (local models, theme, Linux fixes, checks, machines) is in
+  Studio's Setup ...".
+
+### `halo replay` and the privacy audit
+
+- **Replays and exports keep ordinary words when your account has a common name.** With an account named `user`,
+  `admin`, `test`, `home`, `runner`, `ubuntu` and the like, `halo replay`, `halo export`, the bug report, the session
+  trace and the report card rewrote ordinary text: "the user asked" became "the <user> asked", `tests/test_a.py`
+  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced only where it is
+  a home folder (the Linux, macOS and Windows home folders in either slash, Git Bash, WSL), also when the path ends at
+  a full stop, a colon or a comma. Any other account name is replaced as a whole word: a digit, `_`, `.`, `@` or a
+  quote beside it still counts as a boundary, but it is never replaced inside a longer word. Common machine names
+  (`localhost`, `desktop` ...) follow the same rule.
+- **`halo audit privacy --replays` uses the same rules**, so it no longer reports `<user>` as a leaked user name.
+- **`halo replay clip` and Studio's Export a clip with a `HALO_CHROME` that names no browser** now stop with
+  "HALO_CHROME names a browser that does not exist: <value> (fix or unset it)" instead of filming in your installed
+  Chrome. A bare command name (`HALO_CHROME=chromium`) still resolves through PATH.
+
+### Docs and help
+
+- **The docs send you only to commands that exist.** Lines that named `halo teams ...`, `halo team`,
+  `halo workflow ...`, `halo blocks`, a bare `halo roles` or `halo --config` now name the 3.6 command
+  (`halo maps use|list|edit`, `halo workflows`, `halo orchestra new --workflow ... --input ...` then
+  `halo orchestra run`, `halo goal add --workflow`, `halo config get roles`) or say the command is gone.
+  docs/README.md, WIZARD.md, PACKS.md, ISOLATION.md and MODELS-ollama-steward-sched.md now teach agent, workflow, map;
+  a section that still describes a 3.5 lineup or bio file, or a 1.x pack's format, says so under its heading.
+- **Help texts and the model's own instructions describe 3.6.** `halo studio --help` says "your agents, workflows
+  and maps" and that the old `--mode` words (roles, orchestra, team) open Agents on its Map. `halo isolation check`'s
+  help says what it reads: lineups and bios of the older 3.5 format (agent files do not declare isolation yet). The
+  system prompt no longer sends the model to lineups, bios, the Cast canvas or Fleet.
+
+### For people who build Halo
+
+- **The test runner fails a module that leaves a process running.** After each module `tests/run_all.py` looks for
+  processes the module started that still run, prints `[LEFTOVER] <module>: pid <pid> <command line> -- ended by
+  pid`, ends each one by its pid once its start time matches again, and counts a failure, so one leak no longer piles
+  up on your machine or upsets the modules after it. Nothing that ran before the module began is touched, and nothing
+  is ended by name. The two test-side leaks it found are fixed (the kept-marker test's sleeper on the macOS path, the
+  quick-exit test's reaper), and the closing tests' sleeper helper ends itself after 15 minutes.
+- **The tests never write into your real Claude configuration.** With `CLAUDE_CONFIG_DIR` (or `GOVERNOR_STATE_DIR`)
+  set in your shell, a test could write a `.claude.json`, settings, agents or skills into your own Claude Code folder.
+  The test rig removes both variables when a test module loads, `run_all` removes them again before each module, and
+  `run_all` checks `.claude.json`, `settings.json` and `.config.json` in that folder after every module: a module that
+  creates or removes one fails with a `[REAL CLAUDE CONFIG]` line.
+- **`scripts/realcheck.py --browser <path or command>|none`** (or `REALCHECK_BROWSER`): `none` turns the two browser
+  steps (`studio`, `idle-cpu`) into a counted, named SKIP and starts no Studio or browser for them; a path or a
+  command name picks the browser, and one that names nothing fails those steps. With no switch nothing changes: an
+  installed Chrome, headless, with a throw-away profile. The tests' Chrome drivers stop on a `HALO_CHROME` that names
+  nothing, the same as `halo replay clip`.
+- **Windows: the two outer-Job tests of `tests.test_kept_outlives_starter` pass with a Python whose site-packages
+  holds old backports** (Anaconda, for one). The test put site-packages ahead of the standard library; it now sets
+  `PYTHONPATH` to the repo only, and inside a virtualenv adds the venv's site-packages after the standard library.
+  Halo was never at fault.
+
+### Known limits
+
+- **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
+  which removes it; Windows has no reaper. Its `docker run` client ends with Halo at once.
+- **macOS: a program a tool command detaches with an Apple system binary** (`ssh -fN host`, `ssh -f -M`, a
+  `daemon()` fork of a program under /usr/bin) can still outlive Halo, and `halo ps` does not list it: macOS shows no
+  environment for its own binaries. Start such a program with `HALO_OWNER=kept-<name>` if you mean to keep it, or end
+  it by hand; docs/PROCESSES.md ("What Halo cannot end on macOS").
+- **`halo ps --json` does not list containers**, and `halo stop` does not stop one; `docker rm -f <name>` does.
+- **Windows: the MCP HTTP client still waits about 2 seconds** for an MCP server on this computer that is not
+  running; the half-second bound covers model servers only.
+- **Windows: a model server named `localhost` that listens on ::1 only** is reached after half a second per new
+  connection.
+- **Linux: a record written by 3.6.0.0, and a local model server's record, carry no boot-clock time**, so Halo cannot
+  drop it by itself when its pid goes to another program; `halo ps --forget <pid>` removes it. On Linux a pid reused
+  within about 2 seconds of its record being written is not caught either.
+- **Windows: `/update` can ask you to run it again in one rare case**: when, between its two looks, the only other
+  Halo ends and another program takes its pid, that pid is named as one that may still run.
+- **With the container engine stopped, the first `halo` start after a container was left still waits up to
+  3 seconds once**, and a close that removes some of several containers but not all leaves every record to the next
+  start.
+- **An Orchestra lane with `isolation: user` did not get the container lane's changes**: past its time, its `sudo`
+  client is ended and the worker ends itself when the Halo that started it is gone.
+- **The container lane was tested with a stand-in engine**; podman's own message for a missing container was not
+  checked against a real podman.
+- **Some 3.5 words remain**: `halo init`'s Summary after Done still prints "Lineup: <name>" (so do the lineup default
+  line and the terminal UI's team preview), Studio's Orchestra workflow form still says `halo workflow run`,
+  `halo isolation check` still lists 3.5 lineup and bio files, the first-run pack still rehearses a 3.5 lineup, and
+  the lineup and bio prose of other docs pages (ORCHESTRA.md, GLOSSARY.md, STUDIO-sections.md, COMMANDS-init.md,
+  OUTCOMES.md, PACK-AUTHORING.md and others) waits for a later release; only their command lines were fixed.
+- **Studio's Export a clip form still says "No Chrome found on this machine: install Chrome or set HALO_CHROME"**
+  when `HALO_CHROME` names nothing; starting the export gives the exact line.
+- **Not run by hand on a Mac.** The macOS changes (the reaper, the records' start times, the test runner's look) were
+  checked by the automated runs on macOS and on Linux taking the macOS path. Studio's header was checked in a browser
+  on Linux only; the update and `/update` changes were driven with stand-in process lists, not by a real update.
+- **For people who build Halo, Windows:** a kept program Halo starts through WMI is found by the leftover check only
+  when a scratch folder is in its command line.
+
 ## [3.6.0.0] - 2026-11-16
 
 Agents are agents, workflows and maps now: lineups, bios and squares are no longer read, and `--team` only says so
@@ -1033,6 +1240,25 @@ the macOS CI runners, and his Mac beeped when a session started.
 - **Some docs still describe lineups and `halo teams`**: WIZARD.md, PACKS.md, MODELS-ollama-steward-sched.md;
   `halo studio --help` still says "lineups and agent bios"; Studio's Orchestra workflow form says `halo workflow
   run`; the first-run pack still rehearses a 3.5 lineup (MOVING-from-3.5.md, "Not yet moved").
+
+## [3.5.0.1] - 2026-11-14
+
+A hotfix on the 3.5 line: Halo with a large pack enabled was slow to do anything, and the theme picked in Setup did
+not apply. 3.6.0.0 was built beside this release, not on it, but it carries both fixes (its "Fixed along the way"), so
+on 3.6 both are in place. To move from 3.5.0.1 to 3.6, read "Coming from 3.5.0.1" under 3.6.0.0.
+
+- **Every command and every Studio read took seconds with a large pack enabled** (Setup stuck on "reading setup").
+  When Halo checked a pack it read every agent file of the pack again for every stage of every workflow: a pack with
+  48 agents and 58 workflow stages was about 2,500 YAML parses each time the pack list was built, which every command
+  and Studio's Setup page do. A YAML file is now parsed once per change of the file (its time, size, file id and
+  change time; a file changed in the last three seconds is always read again, so a same-size rewrite is never
+  answered from the old copy; each caller gets its own copy). Measured with that pack in a clean home:
+  `halo pack list` 7.7 s before, 0.7 s after. On 3.6: the same rule, checked by 200 same-size rewrites read back at
+  once.
+- **The theme picked in Halo wins.** The theme chosen in Setup, in Settings or with `/theme` now comes before a
+  `theme` left in Claude Code's settings files; before, that older setting beat the pick, so Setup saved the theme and
+  nothing changed. A `--theme` flag and the `HALO_THEME` variable still come first. With nothing picked anywhere the
+  theme is `instrument`, as before. On 3.6: the same order, and `halo doctor --config` no longer says that Claude Code's setting beats the pick.
 
 ## [3.5.0.0] - 2026-11-13
 
