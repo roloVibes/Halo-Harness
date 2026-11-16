@@ -134,6 +134,14 @@ def test_r7_controls(ctx: Ctx):
                 ctx.check(f"R7 {where}: 8 px between neighbours, got {r['close']} {r.get('near')}", r["close"] == 0)
 
 
+def _fits(d: dict) -> bool:
+    """3.6.0.0 R8: no node cut, or (past the 12 px floor) it says 'more' with the lead node whole. 3.6.0.2 R11: Session's
+    Live drawer (`session-map`) never cuts a box at rest, with no 'more' exemption: a box wholly below it waits there."""
+    if d.get("id") == "session-map":
+        return d.get("crossed") == 0
+    return d["cut"] == 0 or (d["more"] and d["lead"])
+
+
 @test
 def test_r8_a_drawing_fits_its_box(ctx: Ctx):
     """3.6.0.0 R8: after a drawer opens (or closes) each drawing on Session and Agents fits its new box -- no node box
@@ -146,7 +154,7 @@ def test_r8_a_drawing_fits_its_box(ctx: Ctx):
         for d in (m or {}).get("drawings") or []:
             seen += 1
             ctx.check(f"R8 {key} {d['id']}: every node whole in the drawing's box, or (12 px floor) the lead one, got {d}",
-                      d["nodes"] > 0 and (d["cut"] == 0 or (d["more"] and d["lead"])))
+                      d["nodes"] > 0 and _fits(d))
     ctx.check(f"R8: the drawings measured (Cast with each Agents drawer, the Map drawer), got {seen}", seen >= 12)
     h = _got(ctx).get("hand") or {}
     ctx.check(f"R8 a zoom by hand survives a drawer opening, got {h}", h.get("hand") and h.get("after_drawer") == h.get("hand") != h.get("auto"))
@@ -239,7 +247,7 @@ def test_r4b_either_view_alone(ctx: Ctx):
                           f"none on another {r['over']}, 8 px apart {r.get('near')}",
                           not r["hscroll"] and r["small"] == 0 and r["low"] == 0 and r["overlap"] == 0 and r["close"] == 0)
             for d in m.get("drawings") or []:
-                ctx.check(f"{size} {name} {d.get('id')}: the drawing fits or pans from main, got {d}", d["nodes"] > 0 and (d["cut"] == 0 or (d["more"] and d["lead"])))
+                ctx.check(f"{size} {name} {d.get('id')}: the drawing fits or pans from main, got {d}", d["nodes"] > 0 and _fits(d))
 
 
 if __name__ == "__main__":

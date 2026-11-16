@@ -44,7 +44,8 @@ def test_one_module_wires_every_drawing(ctx: Ctx):
     for bit in ("e.ctrlKey || e.metaKey", "e.preventDefault(); // the page's own zoom", "deltaMode", "e.shiftKey", '"dblclick"',
                 '"pointerdown"', 'e.key === "0"', "keepZoom", "READABLE"):
         ctx.check(f"canvasNav.ts has {bit}", bit in nav)
-    for p in (UI / "routes" / "crew" / "map" / "LitMini.tsx", UI / "routes" / "crew" / "map" / "MapCanvas.tsx", DESIGN / "Artboards.tsx"):  # R5
+    # R5; 3.6.0.2 R7: Session's drawing is routes/session/MapDown.tsx (LitMini.tsx keeps the lit data and a box's face)
+    for p in (UI / "routes" / "session" / "MapDown.tsx", UI / "routes" / "crew" / "map" / "MapCanvas.tsx", DESIGN / "Artboards.tsx"):
         ctx.check(f"{p.name} wires useCanvasNav", "useCanvasNav(scroll" in p.read_text(encoding="utf-8"))
     wheel = [str(p.relative_to(UI)) for p in UI.rglob("*.ts*") if re.search(r"addEventListener\(\"wheel\"|onWheel=", p.read_text(encoding="utf-8"))]
     wheel = sorted(w.replace("\\", "/") for w in wheel)
@@ -91,10 +92,18 @@ def _kind(ctx: Ctx, got: dict, name: str) -> None:
 def test_session_map_opens_readable_and_zooms(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"seven agents, got {got.get('map_nodes')}", (got.get("map_nodes") or 0) >= 7)
-    ctx.check(f"it opens with text at or above 9 px, got {got.get('map_text_px')} at {got.get('map_open_zoom')}",
-              (got.get("map_text_px") or 0) >= 9 - 1e-6 and float(got.get("map_open_zoom") or 0) >= 0.75 - 1e-6)
+    # 3.6.0.2 R9: opened at 100 %, a name 13.5 px and its rows 12 px on screen at 1280, 1440 and 1920
+    sizes = got.get("sizes") or {}
+    ctx.check(f"R9: read at the three sizes, got {sorted(sizes)}", sorted(sizes) == ["1280x800", "1440x900", "1920x1080"])
+    for size, (z, name_px, row_px) in ((k, (v or [0, 0, 0])) for k, v in sizes.items()):
+        ctx.check(f"R9 {size}: opens at 100 % (got {z}), name >= 13.5 px (got {name_px}), rows >= 12 px (got {row_px})",
+                  abs(z - 1.0) <= 1e-3 and name_px >= 13.5 - 0.01 and row_px >= 12 - 0.01)
+    ctx.check(f"R9: it opens at 100 % with its name 13.5 px, got {got.get('map_text_px')} at {got.get('map_open_zoom')}",
+              abs(float(got.get("map_open_zoom") or 0) - 1.0) <= 1e-3 and (got.get("map_text_px") or 0) >= 13.5 - 0.01)
     ctx.check("its zoom buttons and Fit", got.get("map_buttons") is True)
     _kind(ctx, got, "map")
+    ctx.check(f"R9: a zoom out by hand stops at 75 %, never lower, got {got.get('map_floor')}",
+              abs(float(got.get("map_floor") or 0) - 0.75) <= 1e-3)
 
 
 if __name__ == "__main__":

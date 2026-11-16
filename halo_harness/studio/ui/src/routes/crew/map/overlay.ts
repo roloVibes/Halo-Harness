@@ -57,7 +57,7 @@ export function doingOf(rows: OvRow[], state: BoxState): string {
   const r = rows.find((x) => LIVE.includes(str(x.state)) && str(x.current)) || rows.find((x) => LIVE.includes(str(x.state)));
   const cur = str(r?.current).replace(/^([A-Za-z_]+):\s*/, "$1 ").trim();
   const words = cur && cur !== "thinking" ? cur : "thinking";
-  return words.length > 44 ? words.slice(0, 41) + "..." : words;
+  return words; // 3.6.0.2 R10: whole; the box grows to hold it
 }
 
 function boxOf(m: OvMap): { byName: Map<string, string>; byFlow: Map<string, string>; ids: Set<string> } {

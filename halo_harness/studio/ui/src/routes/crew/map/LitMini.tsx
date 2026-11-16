@@ -1,35 +1,28 @@
-// Session's Map panel, lit (3.6.0.0 R4, the brief's point 11): the same lit map as Agents -> 3 · Map, compact and
-// read-only -- the map the running session started with, its boxes and lines laid out as on the tab (layout.ts), each
-// box's state and what it does now from the same overlay (overlay.ts), the helpers it made up beside their box -- with
-// a link to the Map tab. No dot, no label card, nothing to drag. 3.6.0.0 R5 (the old tree went): a session that did not
-// start on a map (a bare one, `--agent`) is drawn as main and the helpers it started, with no lines; it zooms and pans
-// the house way (lib/canvasNav.ts: Ctrl / Cmd + wheel, a pinch, - % + Fit), fitted to its box until zoomed by hand.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { fitScale, NAV_HELP, recallZoom, useCanvasNav, useZoomPoint } from "../../../lib/canvasNav";
-import { ZoomButtons } from "../../../lib/ui/ZoomButtons";
+// A session's map, lit (3.6.0.0 R4; 3.6.0.2 R7 R10): what Session's Live drawer (routes/session/MapDown.tsx) and Agents'
+// Live view share -- the map the session runs on (read once per name), each box's state and what it does now from the
+// overlay (overlay.ts), the helpers it made up beside their box (litView.ts) -- and a box's face: its name, then
+// "kind · state", whole (no cap, no ellipsis: the box grows to hold it, R10). The frame (scroll, zoom, rows, the "↓" slot)
+// is the drawing's own. 3.6.0.0 R5: a session that did not start on a map is drawn as main and the helpers it started.
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../../../lib/api";
 import { useStore } from "../../../lib/store";
 import { useSessionRecord } from "../../../lib/work/record";
-import { setAgentsView } from "../../agents/store";
-import { goSection } from "../../../lib/store";
 import { useNow } from "../../fleet/store";
 import { STATE_WORDS } from "./LitBits";
 import { lit, startLit, type LitSession } from "./litStore";
 import { withLit } from "./litView";
-import { BOX_W, estimate, layout } from "./layout";
-import { openMap } from "./mapStore";
-import type { MapDetail } from "./mapTypes";
-import { overlay, type OvRow } from "./overlay";
-import { view } from "./view";
+import type { DrawBox, MapDetail } from "./mapTypes";
+import { overlay, type BoxState, type Overlay, type OvRow } from "./overlay";
+import { view, type MapView } from "./view";
 
 const files = new Map<string, MapDetail>();
-const NAV_ID = "session-lit-map";
-const FIT_TEXT = 16; // 12 px on screen at 75 %: the Map's floor
 const NO_MAP = { map: { format: "map/1", name: "", boxes: [], lines: [] }, scope: "starter", writable: false, in_use: false,
   problems: [], boxes: {}, main: { agent: "main" } } as unknown as MapDetail;
 
-/** `line`: the truth sentence over the drawing (3.6.0.2 R2: it depends on the session's map, never on busy). */
-export function LitMini({ s, line, state }: { s: LitSession; line: string; state: string }) {
+export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView };
+
+/** The session's map (null while it is read), its overlay and the lit view (boxes, strip, lines). */
+export function useLit(s: LitSession): Lit {
   useEffect(() => startLit(), []);
   const [detail, setDetail] = useState<MapDetail | null>(() => (s.map ? files.get(s.map) || null : NO_MAP));
   useEffect(() => {
@@ -42,60 +35,25 @@ export function LitMini({ s, line, state }: { s: LitSession; line: string; state
   const ov = useMemo(() => (detail ? overlay(detail.map, (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }) as OvRow), events || [], now) : null),
     [detail, rec, events, now]);
   const v = useMemo(() => withLit(view(detail?.map || null, [], []), ov), [detail, ov]);
-  const g = layout(v.boxes, v.lines, (b) => estimate(b, false, 0) + 20);
-  const scroll = useRef<HTMLDivElement>(null);
-  const [k, setK] = useState(() => recallZoom(NAV_ID) ?? 1);
-  const [floor, setFloor] = useState(false); // the last fit stopped at the readable floor
-  const zoomPt = useZoomPoint(scroll, k, setK);
-  const fit = () => { // fitted to the panel, never under the readable size (the Map's 75 %): past that it pans
-    const el = scroll.current;
-    if (!el || !g.w) return;
-    const f = fitScale(el.clientWidth, el.clientHeight, g.w, g.h, { max: 1, textPx: FIT_TEXT, pad: 4 });
-    setK(f.zoom);
-    setFloor(f.more);
-    el.scrollLeft = 0;
-  };
-  const nav = useCanvasNav(scroll, { zoom: k, zoomAt: zoomPt, fit, id: NAV_ID, min: 0.5, max: 2, background: ".mp-mini-world, .mp-mini-size, .mp-lines" });
-  const drawn = !!detail;
-  const n = g.boxes.length;
-  useLayoutEffect(() => { // the first drawing, and a box more (a helper), fit their box unless zoomed by hand
-    if (drawn && !nav.byHand()) fit();
-  }, [drawn, n]); // eslint-disable-line react-hooks/exhaustive-deps
-  const el = scroll.current; // past the readable floor the drawing pans: say so, as the Map does (MapCanvas.tsx)
-  const more = drawn && (floor || (!!el && (g.w * k > el.clientWidth + 2 || g.h * k > el.clientHeight + 2)));
-  const open = () => { setAgentsView("map"); goSection("agents", "map"); void openMap(s.map || ""); };
-  if (!detail) return <p className="cw-line" data-testid="session-lit-map-reading">Reading the map {s.map}...</p>;
+  return { detail, ov, v };
+}
+
+/** A box's state and, for a made-up helper, its agent id. */
+export function litState(b: DrawBox, ov: Overlay | null): { st: BoxState; helper?: string } {
+  const h = b.helper ? ov?.helpers.find((x) => x.aid === b.helper) : undefined;
+  return { st: h?.state || ov?.boxes[b.id]?.state || "idle", helper: h?.aid };
+}
+
+/** A box's face: the name (13.5 px), then "kind · state" (12 px) and, while it works, what it does now -- every word. */
+export function LitFace({ b, ov }: { b: DrawBox; ov: Overlay | null }) {
+  const { st, helper } = litState(b, ov);
+  const kind = b.main ? "main" : helper ? "helper" : b.kind;
+  const doing = !helper && st === "working" ? ov?.boxes[b.id]?.doing : "";
   return (
-    <div className="mp-mini" data-testid="session-lit-map" data-map={s.map || ""} data-sid={s.sid}>
-      <div className="mp-mini-head">
-        <span className="cw-line" data-testid="session-lit-line" data-state={state} data-sid={s.sid}>{line}</span>
-        <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
-        <ZoomButtons zoom={k} zoomAt={nav.zoomAt} fit={nav.fit} />
-      </div>
-      {more && <span className="cw-line mp-more" data-testid="map-more" title={NAV_HELP}>more than fits at a readable size: scroll or drag the background, or Ctrl + wheel to zoom</span>}
-      <div className="mp-mini-scroll rc-scroll" ref={scroll} tabIndex={0} data-pan="1" title={NAV_HELP} aria-label="The session's map">
-        <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>
-        <div className="mp-mini-world" data-zoom={k.toFixed(3)} style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
-          <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
-            {g.lines.map((l) => <path key={l.key} d={l.d} className="mp-line" data-helper={l.helper || undefined}
-                                      data-pulse={ov?.pulses.some((p) => p.from === l.from && p.to === l.to) ? "1" : undefined} />)}
-          </svg>
-          {g.boxes.map((b) => {
-            const h = b.helper ? ov?.helpers.find((x) => x.aid === b.helper) : undefined;
-            const st = h?.state || ov?.boxes[b.id]?.state || "idle";
-            return (
-              <div key={b.id} className="mp-box" data-lit="live" data-state={st} data-helper={h ? h.aid : undefined} data-testid="session-lit-box" data-box={b.id}
-                   style={{ position: "absolute", left: b.x, top: b.y, width: BOX_W, minHeight: b.h }} title={`${b.name}: ${STATE_WORDS[st]}`}>
-                <span className="mp-kind mono">{b.main ? "main" : h ? "helper" : b.kind}</span>
-                <b className="mp-name">{b.name}</b>
-                <span className="mp-lit-row mono" data-state={st}>{STATE_WORDS[st]}{!h && ov?.boxes[b.id] && st === "working" ? ` · ${ov.boxes[b.id].doing}` : ""}</span>
-                {h && <span className="mp-tag mp-made">made up for this task</span>}
-              </div>
-            );
-          })}
-        </div>
-        </div>
-      </div>
-    </div>
+    <span className="mp-inner">
+      <b className="mp-name">{b.name}</b>
+      <span className="mp-lit-row mono" data-state={st}>{kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
+      {helper && <span className="mp-lit-row mp-made">made up for this task</span>}
+    </span>
   );
 }

@@ -56,7 +56,7 @@ export function HelperRows({ h, sid, all }: { h: Helper; sid: string; all: Helpe
   return (
     <span className="mp-lit" data-testid="map-helper-rows">
       <span className="mp-tag mp-made" data-testid="map-made-up">made up for this task</span>
-      {h.task && <span className="mp-lit-row" data-testid="map-helper-task">{h.task.length > 140 ? h.task.slice(0, 137) + "..." : h.task}</span>}
+      {h.task && <span className="mp-lit-row" data-testid="map-helper-task">{h.task}</span>}
       <span className="mp-lit-row mono" data-state={h.state}>{STATE_WORDS[h.state]}{h.cost > 0 ? ` · ${money(h.cost)}` : ""}</span>
       {below.length > 0 && ( // R4b (R4's gap 2): the helpers it started, listed in the drawer, not drawn
         <button type="button" className="mp-link" data-testid="map-helper-under" data-n={below.length} title="List them in the drawer: who started whom"

@@ -86,8 +86,10 @@ DRAWINGS = r"""(() => {
     const lead = nodes.find((n) => n.dataset.selected) || nodes[0];
     const box = s.closest('.rlm, .rc, .fd, .mp-canvas, .mp-mini');
     const pct = box && box.querySelector('[data-testid=canvas-zoom-level], .rc-zoom button:nth-child(2), [data-testid=roles-live-zoom]');
+    // 3.6.0.2 R11: `crossed` = boxes the scroller's edge cuts (one wholly out of its view is not cut, it waits below)
+    const crossed = (e) => { const r = e.getBoundingClientRect(); return !inside(e) && r.bottom > S.top + 1 && r.top < S.bottom - 1; };
     return {id: (s.closest('[data-panel-in]') || s.closest('[data-panel]'))?.dataset.panelIn || box?.dataset.testid || 'canvas', nodes: nodes.length,
-            cut: nodes.filter((n) => !inside(n)).length, more: !!(box && box.querySelector('[data-testid=map-more]')), lead: !!lead && inside(lead),
+            cut: nodes.filter((n) => !inside(n)).length, crossed: nodes.filter(crossed).length, more: !!(box && box.querySelector('[data-testid=map-more]')), lead: !!lead && inside(lead),
             zoom: s.querySelector('[data-zoom]')?.dataset.zoom || (pct ? pct.textContent : '')};
   }) : [];
 })()"""

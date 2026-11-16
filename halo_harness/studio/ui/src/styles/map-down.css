@@ -1,0 +1,25 @@
+/* Session's Live drawer, drawn top to bottom (3.6.0.2 R7 R9-R12; routes/session/MapDown.tsx). Every rule is scoped under
+   .mp-down: Agents' boxes (map.css) and its Map are untouched. */
+.mp-down { gap: var(--s-2); }
+/* R12: the head never wraps its buttons; the truth line has its own row above them */
+.mp-down-head { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+.mp-down-tools { display: flex; flex-wrap: nowrap; gap: var(--s-2); align-items: center; justify-content: space-between; min-width: 0; }
+.mp-down-tools > .mp-link { flex: 0 0 auto; white-space: nowrap; }
+.mp-down .cz-zoom { flex: 0 0 auto; }
+/* R12: fixed widths, so a percent of another length or Fit coming back moves nothing beside it */
+.mp-down .cz-zoom button { flex: 0 0 auto; padding: 0; }
+.mp-down [data-testid=canvas-zoom-out], .mp-down [data-testid=canvas-zoom-in] { width: 32px; }
+.mp-down [data-testid=canvas-zoom-level] { width: 56px; }
+.mp-down [data-testid=canvas-fit] { width: 44px; }
+/* R11: the room the drawing may take; the scroll box inside it ends under its last whole row (its height is set) */
+.mp-down-room { flex: 1 1 0; min-height: 0; overflow: hidden; }
+.mp-down .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
+/* R11 R12: the "↓ {n} more below" slot, at a fixed height at the drawer's bottom, there whether it says something or not */
+.mp-down-below { flex: 0 0 32px; height: 32px; display: flex; align-items: center; min-width: 0; }
+/* R7 R9 R10: a box is 184 px wide, 56 px for a name and "kind · state" (9 + 19 + 17 + 9 + borders), and grows with its
+   words: no cap, no ellipsis, long words break anywhere */
+.mp-down .mp-box { padding: 9px 10px; overflow: visible; }
+.mp-down .mp-inner { flex: none; gap: 0; }
+.mp-down .mp-name, .mp-down .mp-lit-row { display: block; white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
+.mp-down .mp-name { font-size: 13.5px; line-height: 19px; }
+.mp-down .mp-lit-row { font-size: 12px; line-height: 17px; }

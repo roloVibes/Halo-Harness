@@ -12,6 +12,7 @@ double-click there (it fits). The last stdout line is the JSON of what it saw (e
 from __future__ import annotations
 
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -86,17 +87,39 @@ def session_map(c, rig) -> dict:
     for aid, name, role, model, task in SPAWNED:
         lv.spawn(aid, name, role, model, task)
         lv.state(name, lineup="auto", bio=role, kind="member")
-    c.go(rig.url("session"))
-    sm = "document.querySelector('[data-testid=\"session-map\"]')"  # 3.6.0.0 R5: the session drawn as its map (LitMini)
-    c.wait(f"{sm}?.querySelectorAll('[data-testid=\"session-lit-box\"]').length >= 7", 40)
+    sm = "document.querySelector('[data-testid=\"session-map\"]')"  # 3.6.0.0 R5: the session drawn as its map (MapDown)
     world = f"{sm}.querySelector('.mp-mini-world')"
     node = f"{sm}.querySelector('[data-testid=\"session-lit-box\"][data-box=\"main\"]')"
-    out = {"map_nodes": c.js(f"{sm}.querySelectorAll('[data-testid=\"session-lit-box\"]').length")}
+    # 3.6.0.2 R9: opened at 1280, 1440 and 1920: zoom 1.0, a name 13.5 px and its rows 12 px on screen
+    text = (f"(() => {{ const b = {node} || {sm}.querySelector('[data-testid=\"session-lit-box\"]'), z = +{world}.dataset.zoom;"
+            f" const px = (s) => {{ const e = b.querySelector(s); return e ? parseFloat(getComputedStyle(e).fontSize) * z : 0; }};"
+            f" return [z, px('.mp-name'), px('.mp-lit-row') || px('.mp-kind')]; }})()")
+    out: dict = {"sizes": {}}
+    for w, h in ((1280, 800), (1440, 900), (1920, 1080)):
+        c.call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=False)
+        c.go("about:blank")
+        c.go(rig.url("session", "&open=session-map"))  # the Live drawer alone open, as at a start
+        c.wait(f"{sm}?.querySelectorAll('[data-testid=\"session-lit-box\"]').length >= 7 && !!{world}", 40)
+        time.sleep(0.4)  # the first draw's measure and fit; the values below are read, not timed
+        out["sizes"][f"{w}x{h}"] = c.js(text)
+    # the wheels on a drawing taller than its room (3.6.0.2 R11: the scroll box ends under its last whole row), so a point
+    # can stay put both ways after a zoom of a step or two
+    c.call("Emulation.setDeviceMetricsOverride", width=1500, height=640, deviceScaleFactor=1, mobile=False)
+    c.go("about:blank")
+    c.go(rig.url("session", "&open=session-map"))
+    c.wait(f"{sm}?.querySelectorAll('[data-testid=\"session-lit-box\"]').length >= 7", 40)
+    out["map_nodes"] = c.js(f"{sm}.querySelectorAll('[data-testid=\"session-lit-box\"]').length")
     out["map_open_zoom"] = c.wait(f"+{world}.dataset.zoom", 10)
     out["map_text_px"] = c.js(f"(() => {{ const n = ({node} || {sm}.querySelector('[data-testid=\"session-lit-box\"]')).querySelector('.mp-name'); "
                               f"return parseFloat(getComputedStyle(n).fontSize) * +{world}.dataset.zoom; }})()")
     out["map_buttons"] = c.js(f"!!{sm}.querySelector('[data-testid=\"canvas-zoom\"]') && !!{sm}.querySelector('[data-testid=\"canvas-fit\"]')")
     out["map"] = wheels(c, f"{sm}.querySelector('.mp-mini-scroll')", world, node)
+    x, y, bw, bh = c.rect(f"{sm}.querySelector('.mp-mini-scroll')")  # R9: a zoom out by hand stops at 75 %
+    for _ in range(14):
+        _wheel(c, x + bw / 2, y + bh / 2, 120, 2)
+        time.sleep(0.1)
+    out["map_floor"] = c.js(f"+{world}.dataset.zoom")
+    c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
     return out
 
 

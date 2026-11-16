@@ -1,5 +1,5 @@
 // session-map (3.1.4.0 R2; 3.6.0.0 R4 the lit map; 3.6.0.0 R5: every session runs on a map, the old tree went): the
-// session drawn as its map, compact and read-only (routes/crew/map/LitMini.tsx) -- its boxes, what each does now, the
+// session drawn as its map, top to bottom and read-only (MapDown.tsx, 3.6.0.2 R7-R12) -- its boxes, what each does now, the
 // helpers it made up -- with a link to Agents -> 3 · Map, where the same map is lit full size. 3.6.0.2 R1: the session
 // drawn is `chosenSession` (the one Prompt, Cost and the Feed speak of), held while it is open, never "the first on a
 // map"; R2: open = drawn, busy only lights boxes; R4: one that ended reads T8 until another is picked; R5: a Studio
@@ -9,10 +9,10 @@ import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { useScopedCounts } from "../fleet/scope";
 import { useFleet } from "../fleet/store";
-import { LitMini } from "../crew/map/LitMini";
 import { toLit } from "../crew/map/litStore";
 import { truthLines, truthState } from "../crew/map/truth";
 import { factsOf, lastRow } from "./pick";
+import { MapDown } from "./MapDown";
 import { chosenSession } from "./store";
 
 /** The drawer's one line when it draws nothing (T8, T10): the truth sentence, its state and session. */
@@ -37,7 +37,7 @@ export function MapDetail() {
   const f = factsOf(row);
   const line = truthLines(f).map((l) => l.text).join(" ");
   if (truthState(f) === "T10") return <Said sid={row.session_id} state="T10" text={line} />;
-  return <LitMini key={row.session_id} s={toLit(row)} line={line} state={truthState(f)} />;
+  return <MapDown key={row.session_id} s={toLit(row)} line={line} state={truthState(f)} />;
 }
 
 export function MapGlance() {
