@@ -53,7 +53,7 @@ from halo_harness.providers.config import (
 )
 from halo_harness.providers.profiles import model_family
 from halo_harness.providers.stream import ProviderCreds
-from halo_harness.theme import load_config as load_rolo_config, resolve_theme
+from halo_harness.theme import load_config as load_rolo_config, load_persisted_theme, resolve_theme
 from halo_harness.tools.registry import ToolRegistry
 
 _SLASH_RE = re.compile(r"^/(\S+)(?:\s+(.*))?$", re.DOTALL)
@@ -1627,7 +1627,7 @@ def build_session(
         cwd=cwd, settings=settings, claude_json=claude_json, model_ref=model_ref.raw,
         permission_mode=resolved_mode, tool_registry=frozen_registry, registry=command_registry,
         memory_store=ctx.memory_store, instructions=ctx.instructions, session_id=session_log.session_id,
-        effort=effort, theme=resolve_theme(settings_theme=settings.theme),
+        effort=effort, theme=resolve_theme(settings_theme=settings.theme, persisted_theme=load_persisted_theme()),
         context_limit=model_profile.context_tokens,
         mcp_servers={h.config.name: {"type": h.config.type, "command": h.config.command, "args": h.config.args,
                                       "url": h.config.url} for h in (mcp_manager.handles.values() if mcp_manager else [])},

@@ -397,7 +397,8 @@ def _first_run(root: Path, opened: list, address: str = "http://127.0.0.1:4321/?
              steps_a.BROWSER_WAIT_S if hasattr(steps_a, "BROWSER_WAIT_S") else None)
     steps_a.wait_address = lambda c, hh, t, limit=60: (address, 0.3, [])
     steps_a.http_get = lambda url, token="", timeout=10: (200, b'<html data-theme="instrument">', 0.05)
-    steps_a.tui_first_frame = lambda c, hh, env=None: dict(frame, theme="instrument-ansi" if env is not None else "instrument")
+    steps_a.tui_first_frame = lambda c, hh, env=None: dict(frame, theme=(n := "instrument-ansi" if env is not None
+                                                                         else "instrument"), themes=[n])
     screen.quit_with_ctrl_c = lambda t, wait=0.0: "Ctrl+C"
     steps_a.BROWSER_WAIT_S = 0.5
     try:
@@ -538,6 +539,99 @@ def test_a_studio_prompt_with_no_reply_says_what_the_panel_showed_and_whether_th
     ctx.check(f"the panel's text and the model calls are in the evidence, got {p}",
               "RC-ASK from the Studio prompt" in str(p.get("page")) and p.get("model_calls") == 0)
     ctx.check(f"the line says the question never reached the model, got {bad}", "never reached the model" in bad[0])
+
+
+def _frame256(bg: list, fg: list) -> bytes:
+    """A first frame on a 256-colour terminal: each (number, uses) as 48;5 backgrounds and 38;5 text."""
+    return (b"".join(b"\x1b[48;5;%dm." % n * k for n, k in bg) + b"".join(b"\x1b[38;5;%dm." % n * k for n, k in fg))
+
+
+@test
+def test_the_palette_reader_names_a_256_colour_frame_and_tells_a_palette_from_its_ansi_sibling(ctx: Ctx):
+    """CI's Linux realcheck: `tui_ansi = {"truecolor": false, "top_bg": [], "theme": ""}` and the step passed. The
+    reader read 24-bit colours only, so on a terminal without truecolor (Apple Terminal) any palette, or none, passed.
+    The frames are bare `halo`'s first frames on the Linux VM with TERM=xterm-256color and no COLORTERM."""
+    fresh = screen.palette_of(_frame256([(16, 333), (59, 140), (253, 2)], [(71, 40), (231, 20), (247, 18), (226, 15),
+                                                                           (244, 10), (51, 5), (80, 3), (115, 3)]))
+    ctx.check(f"a fresh home's frame reads as instrument-ansi, not instrument, got {fresh}",
+              not fresh["truecolor"] and "instrument-ansi" in fresh["themes"] and "instrument" not in fresh["themes"])
+    forced = screen.palette_of(_frame256([(16, 337), (59, 138), (253, 2)], [(71, 40), (247, 30), (195, 20), (214, 15),
+                                                                            (45, 5), (80, 3), (115, 3), (208, 2)]))
+    ctx.check(f"instrument's own colours downgraded read as instrument (same background 16), got {forced}",
+              forced["themes"] == ["instrument"])
+    paper = screen.palette_of(_frame256([(230, 278), (59, 56), (188, 33), (224, 16)], [(241, 21), (71, 19), (94, 15),
+                                                                                       (58, 6), (24, 5), (244, 4)]))
+    ctx.check(f"a picked paper drawn on 256 colours reads as paper, got {paper}", paper["themes"] == ["paper"])
+    cc = screen.palette_of(_frame256([(16, 289), (59, 173), (17, 14)], [(71, 40), (109, 21), (189, 20), (223, 15),
+                                                                        (245, 8), (111, 5)]))
+    ctx.check(f"claude-dark drawn on 256 colours reads as claude-dark, got {cc}", cc["themes"] == ["claude-dark"])
+    ctx.check(f"a frame with no colour names nothing, got {screen.palette_of(b'plain')}",
+              screen.palette_of(b"plain")["themes"] == [] and screen.palette_of(b"plain")["theme"] == "")
+    win = screen.palette_of(b"\x1b[48;2;0;0;0mx" * 5 + b"\x1b[38;2;255;255;255my\x1b[38;2;0;255;255mz")
+    ctx.check(f"the 16 colours drawn as 24-bit ones (a Windows console) read as the dark -ansi set, got {win}",
+              win["truecolor"] and win["theme"] == "instrument-ansi" and "instrument" not in win["themes"]
+              and "paper-ansi" not in win["themes"])
+
+
+class _ThemeCtx(_FirstRunCtx):
+    """The theme step's ctx over a stand-in Halo: `halo config set theme X` records X; the terminal and the page
+    draw what `draws` says for the home (a terminal without truecolor is the call with an env)."""
+
+    def __init__(self, root: Path, beats_pick: bool) -> None:
+        super().__init__(root)
+        self.beats_pick, self.picked = beats_pick, ""
+
+    def run(self, h, *args, timeout: float = 60, **kw):
+        if args[:3] == ("config", "set", "theme"):
+            self.picked = args[3]
+        return core.Ran(0, "", "", 0.1)
+
+    def draws(self, h) -> str:
+        """Halo's theme order: the pick beats a theme in Claude Code's settings, unless `beats_pick` (3.5.0's bug)."""
+        f = h.home / ".claude" / "settings.json"
+        cc = json.loads(f.read_text(encoding="utf-8")).get("theme") if f.is_file() else None
+        return cc if (cc and self.beats_pick) or not self.picked else self.picked
+
+
+def _theme_step(root: Path, beats_pick: bool, ansi_draws=None):
+    from realcheck import steps_a
+    c = _ThemeCtx(root, beats_pick)
+    seen = {}
+
+    def frame(cc, h, env=None):
+        name = c.draws(h) if env is None or ansi_draws is None else ansi_draws
+        seen.setdefault("frames", []).append("ansi" if env is not None else "truecolor")
+        return {"ready_s": 1.0, "theme": name, "themes": [name] if name else [], "top_bg": [], "beeps": {"bare": 0},
+                "traceback": False}
+    saved = (steps_a.wait_address, steps_a.http_get, steps_a.tui_first_frame, screen.quit_with_ctrl_c)
+    steps_a.wait_address = lambda cc, hh, t, limit=60: ("http://127.0.0.1:4321/#t=abc", 0.3, [])
+    steps_a.http_get = lambda url, token="", timeout=10: (200, f'<html data-theme="{c.draws(c.home("theme"))}">'.encode(), 0.05)
+    steps_a.tui_first_frame = frame
+    screen.quit_with_ctrl_c = lambda t, wait=0.0: "Ctrl+C"
+    try:
+        got = steps_a.theme_pick(c)
+    except core.Fail as e:
+        got = e
+    finally:
+        steps_a.wait_address, steps_a.http_get, steps_a.tui_first_frame, screen.quit_with_ctrl_c = saved
+    return got, seen
+
+
+@test
+def test_the_theme_step_fails_when_a_theme_in_claude_codes_settings_beats_the_one_picked_in_halo(ctx: Ctx):
+    """3.5.0.1's bug: a `theme` left in Claude Code's settings files beat the one picked in Halo. The step used a fresh
+    home with no Claude Code settings, so it passed with that bug back; its terminal was a truecolor one only."""
+    root = Path(tempfile.mkdtemp(prefix="rc-theme-"))
+    got, seen = _theme_step(root / "bug", beats_pick=True)
+    ctx.check(f"Claude Code's theme drawn over the pick: FAIL naming it, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, core.Fail) and "claude-dark" in got.detail)
+    got, seen = _theme_step(root / "ok", beats_pick=False)
+    ctx.check(f"the pick drawn in the terminal and the page: PASS, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, tuple))
+    ctx.check(f"the terminal without truecolor is looked at too, got {seen}", seen.get("frames") == ["truecolor", "ansi"])
+    got, _seen = _theme_step(root / "blank", beats_pick=False, ansi_draws="")
+    ctx.check(f"no palette read on the terminal without truecolor: FAIL, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, core.Fail) and "without truecolor" in got.detail)
 
 
 if __name__ == "__main__":

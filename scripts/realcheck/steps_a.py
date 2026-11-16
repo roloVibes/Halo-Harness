@@ -2,6 +2,7 @@
 turn of work. Each returns (one line, evidence) or raises Fail / Skip."""
 from __future__ import annotations
 
+import json
 import re
 import time
 from pathlib import Path
@@ -151,8 +152,11 @@ def first_run(ctx):
     elif tui["theme"] != "instrument":
         bad.append(f"bare `halo` in a fresh home draws {tui['theme'] or 'no known palette'} "
                    f"(backgrounds {tui['top_bg']}), not instrument")
-    if ansi["ready_s"] and ansi["theme"] == "instrument":  # Windows consoles draw the 16 colours as 24-bit ones
-        bad.append(f"on a terminal without truecolor a fresh home draws instrument's 24-bit palette "
+    if not ansi["ready_s"]:
+        bad.append("bare `halo` on a terminal without truecolor showed no status line in 30 s: "
+                   + ansi.get("screen", "")[:160])
+    elif "instrument-ansi" not in ansi["themes"]:  # 256-colour numbers, or (Windows consoles) the 16 colours as 24-bit
+        bad.append(f"on a terminal without truecolor a fresh home draws {ansi['theme'] or 'no known palette'} "
                    f"(backgrounds {ansi['top_bg']}), not instrument-ansi")
     rings = [(w, d["beeps"]["bare"] if "beeps" in d else d["bare"]) for w, d in
              (("halo init", ev["init_beeps"]), ("halo", tui), ("halo (no truecolor)", ansi))]
@@ -168,30 +172,45 @@ def first_run(ctx):
             f"no beep"), ev
 
 
+CLAUDE_CODE_THEME = "claude-dark"  # a theme left in Claude Code's settings: the pick made in Halo must beat it
+
+
 def theme_pick(ctx):
     h = ctx.home("theme")
+    # 3.5.0.1: a `theme` in Claude Code's settings beat the one picked in Halo. A home without such a theme cannot
+    # show that, so this one has one, of the other posture than the pick (paper is light, claude-dark is dark).
+    cc = h.home / ".claude" / "settings.json"
+    cc.parent.mkdir(parents=True, exist_ok=True)
+    cc.write_text(json.dumps({"theme": CLAUDE_CODE_THEME}), encoding="utf-8")
     r = ctx.run(h, "config", "set", "theme", "paper", timeout=30)
     if r.code != 0:
         raise Fail(f"`halo config set theme paper` exit {r.code}: {excerpt(r.out + r.err, 200)}")
     tui = tui_first_frame(ctx, h)
+    # a pick is drawn as picked on a terminal without truecolor too (the terminal downgrades its colours; only an
+    # unset theme falls back to the -ansi sibling)
+    ansi = tui_first_frame(ctx, h, env=ctx.env(h, COLORTERM=None))
     t = ctx.terminal(h, "studio")
     url, at, meanwhile = wait_address(ctx, h, t, 60)
     page = http_get(split_url(url)[0] + "/", timeout=10)[1] if url else b""
-    ev = {"tui": tui, "page_theme": screen.page_theme(page), "studio_address_s": round(at, 1),
-          "while_waiting": meanwhile}
+    ev = {"claude_code_theme": CLAUDE_CODE_THEME, "tui": tui, "tui_ansi": ansi, "page_theme": screen.page_theme(page),
+          "studio_address_s": round(at, 1), "while_waiting": meanwhile}
     screen.quit_with_ctrl_c(t)
     t.cleanup()
     ctx.end_leftovers(h)
     bad = []
-    if tui["theme"] != "paper":
-        bad.append(f"after `halo config set theme paper` the terminal draws {tui['theme'] or 'no known palette'} "
-                   f"(backgrounds {tui['top_bg']})")
+    for where, d in (("the terminal", tui), ("the terminal without truecolor", ansi)):
+        if not d["ready_s"]:
+            bad.append(f"{where} showed no status line in 30 s: " + d.get("screen", "")[:160])
+        elif "paper" not in d["themes"]:
+            bad.append(f"after `halo config set theme paper` (Claude Code's settings say {CLAUDE_CODE_THEME}) {where} "
+                       f"draws {', '.join(d['themes']) or 'no known palette'} (backgrounds {d['top_bg']})")
     if ev["page_theme"] != "paper":
-        bad.append(f"Studio's page draws {ev['page_theme'] or 'nothing'}"
+        bad.append(f"Studio's page draws {ev['page_theme'] or 'nothing'}, not the picked paper"
                    + ("" if url else f" (`halo studio` printed no address in {at:.0f} s)"))
     if bad:
         raise Fail("; ".join(bad), ev)
-    return "paper in the terminal's first frame and in the page", ev
+    return (f"paper (picked; Claude Code's settings say {CLAUDE_CODE_THEME}) in the terminal's first frame, "
+            "with and without truecolor, and in the page"), ev
 
 
 def question(ctx):
