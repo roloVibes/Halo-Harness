@@ -119,6 +119,32 @@ def test_the_measured_fits(ctx: Ctx):
 
 
 @test
+def test_the_largest_window_is_found_by_halving_not_by_walking_every_step(ctx: Ctx):
+    """3.6.0.0 R14: Studio's model rows ran the fit for every model on every read; in 4k steps up to a 1M window the
+    walk from the top cost up to 256 loads a model, halving costs about 8. The answer is the walk's answer; Studio's
+    first-minute test cannot see the cost (its fits stop at the model's power-of-two windows), so it is counted here."""
+    import halo_harness.providers.ollama_fit_parts as F
+    calls = []
+    real = F.load_parts
+
+    def counted(*a, **kw):
+        calls.append(kw.get("window"))
+        return real(*a, **kw)
+    p30 = dict(weight_bytes=W30, free_bytes=FREE, bytes_per_elem=Q8, forced=False, step=4096)
+    F.load_parts = counted
+    try:
+        got = F.fit_window(C30, **p30)
+    finally:
+        F.load_parts = real
+    windows = list(F._windows(4096, F.WINDOW_MAX))
+    walked = next((w for w in windows if real(C30, weight_bytes=W30, window=w, bytes_per_elem=Q8)["total"]
+                   <= FREE - F.reserve_bytes(forced=False)), None)
+    ctx.check(f"the walk's answer ({walked}), got {got}", got == walked and isinstance(got, int))
+    ctx.check(f"{len(windows)} windows in 4k steps, at most 16 loads to find it, got {len(calls)}",
+              len(windows) >= 128 and len(calls) <= 16)
+
+
+@test
 def test_parallel_slots_multiply_the_cache(ctx: Ctx):
     from halo_harness.providers.ollama_fit_parts import fit_window, load_parts
     one = load_parts(C30, weight_bytes=W30, window=32768, bytes_per_elem=Q8)["kv"]

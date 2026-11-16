@@ -13,7 +13,10 @@ to the budgets:
    record); setup/state's answer (the Setup page's first read) at most 2 s of its thread's CPU; idle for 30 s with
    the page open (event stream, the 6 s polls, init's wait): under 2% of a core;
 2. a project tree of 50,000 files in 2,000 folders planted in the home: the start costs at most 25% + 0.5 CPU-s more
-   than the same home without it (nothing at start walks the project tree).
+   than the same home without it (nothing at start walks the project tree);
+3. the same home with two hosts that DO answer (a fake Ollama on loopback: 30 models of a real shape each, one loaded, a
+   GPU card on POSIX), the model picker's reads beside Setup's and Setup's `detecting` re-reads: the same budgets, and
+   /api/ps once a pass per host, never once a model.
 
 The fixture is one pack of the owner's two (doc-review grown to 51 bios and 9 workflows with 54 stage roles: the
 shape that cost seconds -- every bio read again for every stage), so the budgets are the brief's own, unscaled: the
@@ -124,12 +127,12 @@ def _plant_tree(home: Path) -> None:
 
 # ---- the server and the page ----------------------------------------------------------------------------------
 class Studio:
-    def __init__(self, home: Path) -> None:
+    def __init__(self, home: Path, extra_env: "dict | None" = None) -> None:
         self.home = home
         env = {k: v for k, v in os.environ.items() if not k.startswith(("BRIDGE_", "HALO_", "OLLAMA_", "HF_", "CLAUDE_"))}
         env.update({"BRIDGE_TEST_HOME": str(home), "HOME": str(home), "USERPROFILE": str(home),
                     "OLLAMA_HOST": "http://127.0.0.1:9", "HF_HOME": str(home / ".cache" / "huggingface"),
-                    "PYTHONPATH": str(REPO), "PYTHONIOENCODING": "utf-8"})
+                    "PYTHONPATH": str(REPO), "PYTHONIOENCODING": "utf-8", **(extra_env or {})})
         self.proc = subprocess.Popen([sys.executable, "-u", "-m", "halo_harness", "studio", "--cwd", str(home), "--edit",
                                       "setup:first", "--no-open"], cwd=str(home), env=env, stdin=subprocess.DEVNULL,
                                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8",
@@ -165,14 +168,26 @@ class Studio:
         status, body = self.get("studio/timings")
         return json.loads(body) if status == 200 else {}
 
-    def page(self) -> None:
+    def page(self, first: "list | None" = None) -> None:
         """The Setup page's load as a browser sends it, then its polls and init's wait (threads, until close)."""
         c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=120)
         c.request("GET", "/?" + self.query)
         c.getresponse().read()
         q: "queue.Queue" = queue.Queue()
-        for p in FIRST:
+        for p in first or FIRST:
             q.put(p)
+        self.detect_reads = 0
+
+        def detect() -> None:  # store.ts detectAgain: while setup/state says `detecting`, read it again in 1.5 s (<= 40)
+            while self.detect_reads < 40 and not self.stop_flag.wait(1.5):
+                status, body = self.get("setup/state")
+                try:
+                    detecting = status == 200 and bool((json.loads(body).get("local_models") or {}).get("detecting"))
+                except ValueError:
+                    detecting = False
+                if not detecting:
+                    return
+                self.detect_reads += 1
 
         def worker() -> None:
             conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=120)
@@ -219,6 +234,7 @@ class Studio:
             w.join(180)
         threading.Thread(target=polls, daemon=True).start()
         threading.Thread(target=init_wait, daemon=True).start()
+        threading.Thread(target=detect, daemon=True).start()
 
     def idle(self, limit_s: float = 120.0) -> dict:
         """The timings record once the server is idle: a 5 s span that cost under 0.1 CPU-s (or `limit_s`)."""
@@ -244,10 +260,54 @@ class Studio:
                 pass
 
 
-def _start_cost(home: Path) -> "tuple[dict, Studio]":
-    s = Studio(home)
-    s.page()
+def _start_cost(home: Path, extra_env: "dict | None" = None, first: "list | None" = None) -> "tuple[dict, Studio]":
+    s = Studio(home, extra_env)
+    s.page(first)
     return s.idle(), s
+
+
+# ---- live hosts with many models (the owner's case: R14's fixes only run when a host answers) ---------------------
+MODELS_PER_HOST = 30
+MODEL_READS = ["models", "models/best-for", "models/fallback"]  # the model picker's first read (crew/models/sync.ts)
+# Measured on a Linux VM (the whole run: the load, the detect re-reads, 30 s idle): 4-6 /api/ps per host and two
+# catalog reads (each model's /api/show once each); with each model row reading /api/ps itself it was 65-96.
+PS_PER_HOST_MAX = 12
+SHOWS_PER_MODEL_MAX = 2
+
+
+def _catalog(tag: str) -> "tuple[dict, dict, dict]":
+    """`MODELS_PER_HOST` models with a real shape (a 40-layer GQA model, 4-18 GB) for /api/tags and /api/show, one of
+    them loaded (/api/ps)."""
+    info = {"general.architecture": "llama", "llama.block_count": 40, "llama.attention.head_count": 32,
+            "llama.attention.head_count_kv": 8, "llama.attention.key_length": 128, "llama.attention.value_length": 128,
+            "llama.embedding_length": 5120, "llama.context_length": 131072}
+    tags, show = [], {}
+    for i in range(MODELS_PER_HOST):
+        name = f"{tag}-m{i:02d}:latest"
+        size = (4 + (i % 15)) * 1024 ** 3
+        tags.append({"name": name, "model": name, "modified_at": "2026-10-01T00:00:00Z", "size": size,
+                     "digest": f"sha256:{tag}{i:04d}", "details": {"family": "llama", "families": ["llama"],
+                     "parameter_size": f"{4 + i % 15}B", "quantization_level": "Q4_K_M", "format": "gguf"}})
+        show[name] = {"modelfile": "", "parameters": "", "template": "", "capabilities": ["completion", "tools"],
+                      "details": {"family": "llama", "quantization_level": "Q4_K_M"}, "model_info": dict(info)}
+    first = tags[0]
+    ps = {"models": [{"name": first["name"], "model": first["name"], "size": first["size"],
+                      "size_vram": first["size"], "context_length": 8192, "digest": first["digest"],
+                      "details": first["details"], "expires_at": "2099-01-01T00:00:00Z"}]}
+    return {"models": tags}, show, ps
+
+
+def _fake_gpu(root: Path) -> dict:
+    """A 24 GB card through `nvidia-smi` on PATH (the reading the fit search needs). A shell script, so POSIX only: on
+    Windows `subprocess.run(["nvidia-smi", ...])` finds only an .exe, and no card is read there."""
+    if os.name == "nt":
+        return {}
+    bin_dir = root / "bin"
+    bin_dir.mkdir()
+    tool = bin_dir / "nvidia-smi"
+    tool.write_text("#!/bin/sh\necho '24576, 1024, 23552, Test Card 24GB'\n", encoding="utf-8")
+    tool.chmod(0o755)
+    return {"PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "")}
 
 
 # ---- the tests -------------------------------------------------------------------------------------------------
@@ -306,6 +366,62 @@ def test_a_big_project_tree_does_not_grow_the_start_cost(ctx: Ctx):
     finally:
         if s is not None:
             s.close()
+        shutil.rmtree(root, ignore_errors=True)
+
+
+@test
+def test_live_hosts_with_many_models_stay_in_budget_and_read_each_host_once_a_pass(ctx: Ctx):
+    """The owner's case the dead-host home never reaches: two Ollama hosts that answer, each with 30 models of a real
+    shape and one loaded, a GPU card to fit them on, the model picker's reads beside Setup's, and Setup's `detecting`
+    re-reads. R14's fixes (the fit search by halving, the memoised shape, one /api/ps per host per pass, one local view
+    for every reader) are what keep this in the same budgets; without them each model row costs a host read."""
+    from tests.helpers.mock_ollama import MockUpstream
+    root = Path(tempfile.mkdtemp(prefix="studio-first-minute-live-"))
+    s = None
+    mocks = []
+    try:
+        home = _home(root)
+        for tag in ("lan", "box"):
+            tags, show, ps = _catalog(tag)
+            mocks.append(MockUpstream(tags_response=tags, show_responses=show, ps_response=ps).start())
+        cfg = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))
+        cfg["ollama"]["hosts"] = [{"name": "lan", "url": mocks[0].base_url}, {"name": "local", "url": mocks[1].base_url}]
+        (home / ".halo" / "config.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+        rec, s = _start_cost(home, _fake_gpu(root), FIRST + MODEL_READS)
+        ctx.check(f"every page request answered 200, got {[d for d in s.done if d[1] != 200]}",
+                  len(s.done) == len(FIRST) + len(MODEL_READS) + len(SECOND) and all(st == 200 for _p, st in s.done))
+        status, body = s.get("models")
+        rows = json.loads(body) if status == 200 else []
+        ours = [r for r in rows if isinstance(r, dict) and "-m" in str(r.get("id") or r.get("name") or r.get("ref"))]
+        ctx.check(f"the picker lists the hosts' models ({2 * MODELS_PER_HOST}), got {len(ours)} of {len(rows)} rows",
+                  len(ours) >= 2 * MODELS_PER_HOST)
+        cpu = rec.get("cpu_s")
+        ctx.check(f"launch to idle costs at most {CPU_TO_IDLE_S} CPU-s with live hosts, got {cpu}",
+                  isinstance(cpu, (int, float)) and cpu <= CPU_TO_IDLE_S)
+        for path in ("/api/setup/state", "/api/models"):
+            first = next((r for r in rec.get("requests") or [] if r["path"] == path), None)
+            ctx.check(f"{path} takes at most {FIRST_READ_CPU_S} s of its thread's CPU, got {first}",
+                      first is not None and first["cpu_s"] <= FIRST_READ_CPU_S and first["status"] == 200)
+        a = s.timings()
+        time.sleep(IDLE_WINDOW_S)
+        b = s.timings()
+        share = (b["cpu_s"] - a["cpu_s"]) / max(1e-6, b["up_s"] - a["up_s"])
+        ctx.check(f"idle for {IDLE_WINDOW_S:.0f} s with live hosts costs under {IDLE_SHARE:.0%} of a core, got "
+                  f"{share:.2%}", share < IDLE_SHARE)
+        for m, name in zip(mocks, ("lan", "local")):
+            reqs = list(m.requests)
+            ps = sum(1 for r in reqs if r["method"] == "GET" and r["path"].rstrip("/") == "/api/ps")
+            shows = sum(1 for r in reqs if r["method"] == "POST" and r["path"].rstrip("/") == "/api/show")
+            ctx.check(f"{name}: each model's shape is asked once a catalog read ({MODELS_PER_HOST} models, at most "
+                      f"{SHOWS_PER_MODEL_MAX} reads), got {shows} /api/show",
+                      0 < shows <= SHOWS_PER_MODEL_MAX * MODELS_PER_HOST)
+            ctx.check(f"{name}: /api/ps once a pass, never once a model ({MODELS_PER_HOST} models), got {ps} in "
+                      f"{b['up_s']:.0f} s", 0 < ps <= PS_PER_HOST_MAX)
+    finally:
+        if s is not None:
+            s.close()
+        for m in mocks:
+            m.stop()
         shutil.rmtree(root, ignore_errors=True)
 
 

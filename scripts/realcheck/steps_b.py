@@ -28,16 +28,21 @@ WATCH = r"""(() => { if (window.__rc) return; const rc = window.__rc = {failed: 
   addEventListener('error', (e) => rc.errors.push('error: ' + (e.message || e.type)));
   addEventListener('unhandledrejection', (e) => rc.errors.push('unhandled: ' + String(e.reason).slice(0, 200))); })();"""
 
-ANY = "!!document.querySelector('.section-view')"
+def _shown(*testids: str) -> str:
+    """Drawn when one of these is on the page: each is content a section draws once its own read has answered, never
+    the shell around it (`.section-view`, a view bar, a section's wrapper is there on the first render)."""
+    return "!!document.querySelector('" + ", ".join(f'[data-testid="{t}"]' for t in testids) + "')"
+
+
 SECTIONS = (  # what a person opens: (name, query, drawn when)
-    ("Session", "mode=session", "!!document.querySelector('[data-testid=\"session-start\"], [data-testid=\"viewbar\"]')"),
-    ("Agents: Agents", "mode=agents&view=crew", f"{ANY} && !!document.querySelector('[data-testid=\"viewbar\"]')"),
-    ("Agents: Workflows", "mode=agents&view=workflows", "!!document.querySelector('[data-testid=\"agents\"]')"),
-    ("Agents: Map", "mode=agents&view=map", "!!document.querySelector('[data-testid=\"map-bar\"]')"),
-    ("Local", "mode=local", ANY),
-    ("Settings", "mode=settings", "!!document.querySelector('[data-testid=\"settings-search\"]')"),
-    ("Setup", "mode=setup", ANY),
-    ("Packs", "mode=packs", ANY),
+    ("Session", "mode=session", _shown("session-start", "viewbar")),
+    ("Agents: Agents", "mode=agents&view=crew", _shown("crew-item", "crew-none")),       # the list, read
+    ("Agents: Workflows", "mode=agents&view=workflows", _shown("flow-item", "flow-none")),
+    ("Agents: Map", "mode=agents&view=map", _shown("map-bar")),
+    ("Local", "mode=local", _shown("local-resources-host")),                              # the first sample
+    ("Settings", "mode=settings", _shown("settings-search")),
+    ("Setup", "mode=setup", f"{_shown('setup-rail-step')} && {_shown('setup-back')}"),   # the steps, the page read
+    ("Packs", "mode=packs", _shown("pm-installed-body")),                                 # the installed list, read
 )
 HOLD = ("session", "crew", "workflows", "map", "local", "setup", "settings")  # tests/helpers/studio_hold_still.VIEWS
 CHOOSE = ("settings_search", "library_search")                              # ... and its CHOICES

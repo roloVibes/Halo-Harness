@@ -545,6 +545,26 @@ def test_a_studio_prompt_with_no_reply_says_what_the_panel_showed_and_whether_th
     ctx.check(f"the line says the question never reached the model, got {bad}", "never reached the model" in bad[0])
 
 
+@test
+def test_a_section_counts_as_drawn_only_when_its_content_is_there_not_its_wrapper(ctx: Ctx):
+    """Local, Setup and Packs were "drawn" as soon as `.section-view` existed (App.tsx draws it on the first render,
+    before any of the section's reads answer), so their 5 s budget measured the shell: a Local or Setup whose content
+    came after 30 s passed. Each section's ready test must name content the section draws once read, never a wrapper,
+    and every name must be one Studio's source draws."""
+    import re
+    from realcheck import steps_b
+    ui = REPO / "halo_harness" / "studio" / "ui" / "src"
+    source = "\n".join(p.read_text(encoding="utf-8") for p in ui.rglob("*.tsx"))
+    wrappers = {"agents", "flows", "crew-list", "flow-list", "local-room", "local-page", "local-resources", "setup-page",
+                "setup-step-page", "pm-installed"}  # drawn before the section's own read answers
+    for name, _query, ready in steps_b.SECTIONS:
+        ids = re.findall(r'data-testid="([^"]+)"', ready)
+        ctx.check(f"{name}: ready names content by data-testid, not the wrapper, got {ready!r}",
+                  bool(ids) and ".section-view" not in ready and not set(ids) & wrappers)
+        missing = [t for t in ids if f'data-testid="{t}"' not in source and f'testid="{t}"' not in source]
+        ctx.check(f"{name}: every name is drawn by Studio's source, missing {missing}", not missing)
+
+
 def _frame256(bg: list, fg: list) -> bytes:
     """A first frame on a 256-colour terminal: each (number, uses) as 48;5 backgrounds and 38;5 text."""
     return (b"".join(b"\x1b[48;5;%dm." % n * k for n, k in bg) + b"".join(b"\x1b[38;5;%dm." % n * k for n, k in fg))
