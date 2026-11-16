@@ -101,7 +101,12 @@ def post_use(req):
     from halo_harness.crew.changes_map import ONE_MODEL, config_path, config_text
     now = in_use(None, req.cwd)[0]
     value = name if on else (None if now == name else (now or ONE_MODEL))  # off: no map in use stays no map
-    undo_id = changes.write_all({config_path(): config_text(value)}, state_dir=req.state_dir)
+    from halo_harness.theme import CorruptConfigError
+    try:
+        text = config_text(value)
+    except CorruptConfigError as e:  # 3.6.0.0 fx: never {} written over a config.json that does not parse
+        return 422, {"error": str(e)}
+    undo_id = changes.write_all({config_path(): text}, state_dir=req.state_dir)
     return 200, {"undo_id": undo_id, "in_use": in_use(None, req.cwd)[0]}
 
 

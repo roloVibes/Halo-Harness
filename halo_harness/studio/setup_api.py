@@ -111,7 +111,12 @@ def post_team(req):
         return _refused([f"no map named {name!r} here (halo maps list names them)"])
     from halo_harness.crew.changes import write_all
     from halo_harness.crew.compile import DEFAULT_MAP
-    write_all({config_path(): config_text(name)})
+    from halo_harness.theme import CorruptConfigError
+    try:
+        text = config_text(name)
+    except CorruptConfigError as e:  # 3.6.0.0 fx: never {} written over a config.json that does not parse
+        return _refused([str(e)])
+    write_all({config_path(): text})
     line = (ONE_MODEL_LINE if name == ONE_MODEL else
             f"crew.map unset: new sessions draw the map {name} (the default)" if name == DEFAULT_MAP else
             f"crew.map = {name}: new sessions run on the map {name}")

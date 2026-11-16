@@ -131,7 +131,14 @@ def setup_state(cwd=None, state_dir=None) -> dict:  # noqa: F811  (the state abo
     from halo_harness.studio.setup_packs_api import pack_blocks  # 3.3.11.0 R3: the enabled packs' own Setup blocks
     from halo_harness.studio.init_waiting import waiting  # 3.3.15.0 R6: a `halo init` terminal waits for Done
     return {**_setup_state_before_r5(cwd, state_dir), "ollama_discover": discover_block(), "home": home_id(state_dir),
-            "done_at": setup_done_at(state_dir), "packs": pack_blocks(cwd, state_dir), "init_waiting": bool(waiting(state_dir))}
+            "done_at": setup_done_at(state_dir), "packs": pack_blocks(cwd, state_dir), "init_waiting": bool(waiting(state_dir)),
+            "config_error": _config_error()}
+
+
+def _config_error() -> str:
+    """3.6.0.0 fx: why config.json is not in effect ('' when it is): Setup says it instead of showing a fresh home."""
+    from halo_harness.theme import config_problem
+    return config_problem()
 
 
 def home_id(state_dir=None) -> str:

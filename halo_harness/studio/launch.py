@@ -132,8 +132,44 @@ def failure_line() -> str:
     return str(LAST_FAILURE.get("why") or "")
 
 
+START_S = 45.0  # 3.6.0.0 fx: on the macOS CI runner a fresh Studio printed its address after ~35 s
+
+
+def _stop_unstarted(proc, state_dir: Path) -> None:
+    """3.6.0.0 fx: a Studio that gave no address in time is stopped (it and its ledger row), not left starting behind
+    the terminal setup that runs instead."""
+    from halo_harness import children, children_stop
+    try:
+        entry = next((e for e in children.load(state_dir) if e.get("pid") == proc.pid), None)
+        if entry is not None:
+            children_stop.stop_entry(entry, state_dir=state_dir, timeout=2.0)
+        elif proc.poll() is None:
+            children_stop.terminate(proc.pid, timeout=2.0, recorded=children.start_time(proc.pid))
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+
+
+def _ledger_names_the_studio(proc, argv: list, state_dir: Path) -> None:
+    """3.6.0.0 fx: an installed Halo's python can be a launcher (the Windows venv's python.exe) that runs the real
+    interpreter as its child, so Popen's pid is not the Studio's. The ledger row takes the pid studio.json names (the
+    launcher's stays as `launcher_pid`), so a close asks Studio's own shutdown route and `halo ps` shows one row."""
+    from halo_harness import children
+    info: Optional[dict] = None
+    for _ in range(10):  # the URL may come from stdout a moment before studio.json lands
+        info = read_info(Path(state_dir))
+        if info:
+            break
+        time.sleep(0.1)
+    pid = (info or {}).get("pid")
+    if not isinstance(pid, int) or pid == proc.pid or not owned_by_me(info):
+        return
+    if children.register(pid, "studio", argv, state_dir=state_dir, launcher_pid=proc.pid) is not None:
+        children.unregister(proc.pid, state_dir=state_dir)
+
+
 def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_browser: bool = True,
-                    timeout: float = 15.0, edit: Optional[str] = None) -> str:
+                    timeout: float = START_S, edit: Optional[str] = None) -> str:
     """Reuse the Studio THIS process started, else spawn `halo studio --mode <mode>` (or `--edit <target>`, 3.1.1.0
     R3) and return the URL it prints ('' on failure; `failure_line()` says why). 3.6.0.0 R10: the Studio belongs to
     this process -- it is in the ledger with this process as its owner, it watches this process and ends within two
@@ -201,7 +237,9 @@ def launch_detached(mode: Optional[str], *, cwd: Path, state_dir: Path, open_bro
     url = url or found.get("url", "")
     if not url:
         LAST_FAILURE["why"] = f"it gave no address within {int(timeout)} s" + (f" (last line: {tail[-1]})" if tail else "")
+        _stop_unstarted(proc, state_dir)
         return ""
+    _ledger_names_the_studio(proc, argv, state_dir)
     if open_browser:
         _open(url)
     return url

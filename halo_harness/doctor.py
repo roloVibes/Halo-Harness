@@ -1807,6 +1807,12 @@ def _check_entries(cwd: Optional[Path] = None, settings_flag: Optional[str] = No
     entries.append(("mcp_connectors", _row("mcp_connectors", _check_mcp_connectors)))
     entries.extend(_rows("ollama_hosts", _check_ollama_hosts))
     entries.append(("mlx_extra", _row("mlx_extra", _check_mlx_extra)))
+    from halo_harness.theme import config_problem  # 3.6.0.0 fx: a config.json that does not parse is not "OK"
+
+    def _config_file_row():
+        bad_config = config_problem()
+        return _fix(f"{WARN} config.json: {bad_config}", see="docs/CONFIG.md") if bad_config else None
+    entries.append(("config_file", _row("config_file", _config_file_row)))
     entries.append(("default_model", _row("default_model", _check_default_model, cwd, settings_flag)))
     entries.append(("permission_rules", _row("permission_rules", _check_permission_rules, cwd)))
     entries.append(("state_modes", _row("state_modes", _check_state_modes)))

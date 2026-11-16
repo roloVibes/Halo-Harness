@@ -85,7 +85,13 @@ def cmd_maps(argv) -> int:
     from halo_harness.crew.changes_map import ONE_MODEL, config_path, config_text
     from halo_harness.crew.compile import DEFAULT_MAP
     choice = ONE_MODEL if args.none else None if args.off else args.name
-    undo_id = write_all({config_path(): config_text(choice)})
+    from halo_harness.theme import CorruptConfigError
+    try:
+        text = config_text(choice)
+    except CorruptConfigError as e:  # 3.6.0.0 fx: a config.json that does not parse is never rewritten as {crew}
+        print(f"halo maps use: {e}", file=sys.stderr)
+        return 2
+    undo_id = write_all({config_path(): text})
     said = ("One model for everything: no map, main does every job on your model (roles off)." if args.none else
             f"New sessions run as by default (the {DEFAULT_MAP} map draws what they do; no map of yours is set)."
             if choice in (None, DEFAULT_MAP) else f"New sessions run on the map {args.name}; a running session keeps its own.")

@@ -66,6 +66,8 @@ export type SetupData = {
   done_at?: string | null;
   /** 3.3.11.0 R3: the enabled packs' own Setup blocks (studio/setup_packs_api.py); [] when none adds one. */
   packs?: PackSetup[];
+  /** 3.6.0.0 fx: why config.json is not in effect (it does not parse or cannot be read); "" when it is. */
+  config_error?: string;
 };
 export type CheckRow = { key: string; title: string; what: string; cost: string; time: string; writes: string; default_on: boolean };
 export type CheckResult = { key: string; title: string; ok: boolean; lines: string[] };

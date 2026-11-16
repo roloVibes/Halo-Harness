@@ -798,6 +798,8 @@ def build_session(
     `--tools Read,Bash`-style TUI launch used to leave the whole deferred
     MCP pool unreachable while the prompt still said "call ToolSearch"."""
     from halo_harness import debug_timeline
+    from halo_harness.theme import warn_config_problem
+    warn_config_problem()  # 3.6.0.0 fx: a config.json that does not parse is said once, not silently read as {}
     cli_flags = dict(cli_flags or {})
     # W5 (carried from W4a): `--plugin-dir`/`--plugin-url` roots, resolved
     # ONCE here (before `build_manager`/`build_hook_runner`/`Registry.

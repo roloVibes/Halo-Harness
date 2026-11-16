@@ -20,6 +20,7 @@ import { startSetup, useSetup } from "./store";
 /** The section's view: the rail over the open page. */
 export function SetupView() {
   const home = useSetup((s) => s.data?.home || "");
+  const configError = useSetup((s) => s.data?.config_error || "");
   useEffect(() => {
     startSetup();
     startDoneFeed();
@@ -27,6 +28,11 @@ export function SetupView() {
   useEffect(() => adoptRemembered(home), [home]);
   return (
     <div className="su-page" data-testid="setup-page">
+      {configError && (
+        <p className="su-error" role="alert" data-testid="setup-config-error">
+          config.json: {configError}
+        </p>
+      )}
       <SetupRail />
       <div className="su-scroll">
         <SetupPage />

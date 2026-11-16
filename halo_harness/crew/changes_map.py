@@ -68,12 +68,8 @@ def config_text(value) -> str:
     everything") takes it out and sets `roles.enabled` false (no map at all); any other choice turns roles back on
     when they were off."""
     from halo_harness.crew.compile import DEFAULT_MAP, _roles_on
-    path = config_path()
-    try:
-        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-    except (OSError, ValueError):
-        data = {}
-    data = data if isinstance(data, dict) else {}
+    from halo_harness.theme import _load_config_for_write
+    data = _load_config_for_write(config_path())  # 3.6.0.0 fx: CorruptConfigError, never {} written over the file
     crew = data.get("crew") if isinstance(data.get("crew"), dict) else {}
     crew = {k: v for k, v in crew.items() if k != "map"}
     if value and value not in (DEFAULT_MAP, ONE_MODEL):

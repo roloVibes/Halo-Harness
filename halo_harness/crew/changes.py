@@ -125,7 +125,12 @@ def plan(rows: list, ids, *, cwd=None, state_dir=None) -> "tuple[dict, list, lis
             continue
         if r["op"].get("op") == "use":  # 3.6.0.0 R3: map_use writes config.json's crew.map (crew/changes_map.py)
             from halo_harness.crew.changes_map import config_path, config_text
-            out_use = (config_path(), config_text(r["op"].get("value")))
+            from halo_harness.theme import CorruptConfigError
+            try:
+                out_use = (config_path(), config_text(r["op"].get("value")))
+            except CorruptConfigError as e:  # 3.6.0.0 fx: a problem, never {} written over the file
+                problems.append(str(e))
+                continue
             targets[out_use[0]] = ["config", "crew.map", out_use[1], True]
             continue
         kind, name = r["target"].split(":", 1)

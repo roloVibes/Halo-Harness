@@ -175,6 +175,30 @@ def _load_config_for_write(path: Path) -> dict:
     return data
 
 
+def config_problem() -> str:
+    """3.6.0.0 fx: '' when config.json is missing, empty or a JSON object; else why it is not in effect (it does not
+    parse, is not an object, or cannot be read). Every reader treats such a file as {}: the person's model, mode,
+    theme and providers vanish without a word unless a caller says this line (doctor, `config get`, Setup, a session)."""
+    try:
+        _load_config_for_write(_config_path())
+    except CorruptConfigError as e:
+        return str(e).split("; refusing", 1)[0] + " -- the settings in it are not in effect; fix it or move it away"
+    return ""
+
+
+_PROBLEM_SAID: dict = {}
+
+
+def warn_config_problem(stream=None) -> str:
+    """Print `config_problem()` once per process on stderr (a session, `halo -p`); returns the line ('' when none)."""
+    line = config_problem()
+    if line and not _PROBLEM_SAID.get(line):
+        _PROBLEM_SAID[line] = True
+        import sys as _sys
+        print(f"halo: {line}", file=stream or _sys.stderr)
+    return line
+
+
 def set_config_value(key: str, value) -> Path:
     """Write `data[key] = value` into `~/.halo/config.json` (tmp +
     `os.replace`, preserving every other key already there) -- the generic

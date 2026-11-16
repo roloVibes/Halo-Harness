@@ -50,7 +50,7 @@ def _focus_in_process(target, publish: bool) -> "tuple[str, int] | None":
     return S.url_for(srv, target.mode, target.text), pages
 
 
-def open_edit(target, *, cwd, state_dir, open_browser: bool = True, timeout: float = 15.0) -> dict:
+def open_edit(target, *, cwd, state_dir, open_browser: bool = True, timeout: float = 45.0) -> dict:  # launch.START_S
     """`{"url", "how": focused|opened|printed|started|failed, "pages": n, "target"}`."""
     from halo_harness.studio import launch
     state_dir, cwd = Path(state_dir), Path(cwd)

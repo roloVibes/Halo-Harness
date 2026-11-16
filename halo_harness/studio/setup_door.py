@@ -158,7 +158,7 @@ def _state_dir() -> Path:
 
 
 def open_setup(target: SetupTarget, *, cwd=None, state_dir=None, why: Optional[str] = None,
-               timeout: float = 15.0, own: bool = False) -> dict:
+               timeout: float = 45.0, own: bool = False) -> dict:  # launch.START_S
     """`{"url", "how": focused|opened|started|printed|failed, "pages", "target", "why"}`: Studio on Setup.
 
     A Studio already running for this home is reused (its open pages take the `focus` frame, else the browser

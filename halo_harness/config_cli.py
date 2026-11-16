@@ -65,6 +65,10 @@ def _cmd_get(rest: list) -> int:
     from halo_harness.schemas.config_json import MOVED_KEYS, moved_key_line
     if args.key in MOVED_KEYS:  # 3.3.13.0 R3: an old key of a feature that is a pack now: its new home
         print(f"halo config: {moved_key_line(args.key)}", file=sys.stderr)
+    bad = theme_mod.config_problem() if value is theme_mod._MISSING else ""
+    if bad:  # 3.6.0.0 fx: "not set" was a lie when config.json cannot be read
+        print(f"halo config: {args.key!r} is unknown: config.json cannot be read: {bad}", file=sys.stderr)
+        return 2
     if value is theme_mod._MISSING and args.key == "theme":  # 3.3.15.0 R4: unset has a value everywhere
         print(f"(unset: {theme_mod.DEFAULT_THEME})")
         return 0
