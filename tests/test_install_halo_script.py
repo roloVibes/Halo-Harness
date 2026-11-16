@@ -115,6 +115,76 @@ def test_install_halo_sh_says_which_python_it_looked_at(ctx: Ctx):
               result.returncode == 1 and f"{old}: Python 3.9.6" in result.stdout)
 
 
+def _uv_lines(out: str) -> list:
+    return [ln for ln in out.splitlines() if "uv tool install --reinstall" in ln and ln.startswith("DRY RUN")]
+
+
+def _stub_bash() -> str:
+    """The stub-python tests need a real bash that runs extensionless `#!/bin/sh` files (not WSL's stub)."""
+    bash = _require_bash()
+    if os.name == "nt" and "git" not in bash.lower():
+        raise SkipTest(f"bash here is not Git Bash ({bash})")
+    return bash
+
+
+def _old_python(path: Path) -> None:
+    path.write_text("#!/bin/sh\n[ \"$1\" = --version ] && { echo 'Python 3.9.6'; exit 0; }\nexit 1\n", encoding="utf-8")
+    path.chmod(0o755)
+
+
+@test
+def test_install_halo_sh_hands_uv_the_python_it_chose(ctx: Ctx):
+    """Pass 2: the script chose (and printed) a python, then let `uv tool install` pick an interpreter of its own, so
+    HALO_PYTHON only changed what was reported. Both install lines (straight from GitHub and from the clone) now carry
+    `--python <the one chosen>`."""
+    bash = _require_bash()
+    scratch = Path(tempfile.mkdtemp(prefix="install-halo-uvpy-"))
+    for args, env in ((["--no-clone", "--dry-run"], _env()),
+                      (["--dry-run"], {**_env(), "HALO_CLONE_DIR": str(scratch / "clone"), "HOME": str(scratch)})):
+        result = subprocess.run([bash, str(SCRIPT), *args], capture_output=True, text=True, timeout=30, env=env)
+        lines = _uv_lines(result.stdout)
+        ctx.check(f"{args}: exits 0 with one uv install line, got {result.returncode} {lines!r} {result.stdout[-300:]!r}",
+                  result.returncode == 0 and len(lines) == 1)
+        ctx.check(f"{args}: the uv line names the python, got {lines!r}", bool(lines) and " --python " in lines[0])
+        if os.name != "nt" and lines:
+            ctx.check(f"{args}: it is HALO_PYTHON itself, got {lines[0]!r}", lines[0].endswith(f"--python {sys.executable}")
+                      or f"--python {sys.executable}" in lines[0])
+
+
+@test
+def test_install_halo_sh_lets_uv_bring_a_python_when_none_here_is_new_enough(ctx: Ctx):
+    """Pass 2: a stock Mac (python3 = 3.9, no other) was refused with 'Python 3.10 or newer is required' although uv
+    downloads a Python itself. With no HALO_PYTHON named, the script now goes on and asks uv for Python 3.12; and it
+    looks at the versioned names bin/halo looks at (python3.14 .. python3.10), so a Homebrew python3.13 with no
+    `python3` link is found."""
+    bash = _stub_bash()
+    scratch = Path(tempfile.mkdtemp(prefix="install-halo-nopy-"))
+    stubs = scratch / "bin"
+    stubs.mkdir()
+    names = ("python3", "python", "python3.14", "python3.13", "python3.12", "python3.11", "python3.10")
+    for name in names:
+        _old_python(stubs / name)
+    env = {**os.environ, "PATH": str(stubs) + os.pathsep + os.environ.get("PATH", ""), "HALO_PYTHON": ""}
+    result = subprocess.run([bash, str(SCRIPT), "--no-clone", "--dry-run"], capture_output=True, text=True,
+                            timeout=30, env=env)
+    out = result.stdout
+    lines = _uv_lines(out)
+    ctx.check(f"no 3.10+ python: goes on (exit 0), got {result.returncode} {out[-500:]!r}", result.returncode == 0)
+    ctx.check(f"says what it looked at and that uv brings 3.12, got {out[:600]!r}",
+              "Python 3.9.6" in out and "uv" in out and "3.12" in out)
+    ctx.check(f"the uv line asks for Python 3.12, got {lines!r}", bool(lines) and lines[0].endswith("--python 3.12"))
+    if os.name == "nt":
+        return
+    real = stubs / "python3.13"
+    real.write_text(f"#!/bin/sh\nexec '{sys.executable}' \"$@\"\n", encoding="utf-8")
+    real.chmod(0o755)
+    result = subprocess.run([bash, str(SCRIPT), "--no-clone", "--dry-run"], capture_output=True, text=True,
+                            timeout=30, env=env)
+    lines = _uv_lines(result.stdout)
+    ctx.check(f"a python3.13 with no python3 link is chosen and handed to uv, got {result.returncode} {lines!r}",
+              result.returncode == 0 and bool(lines) and lines[0].endswith(f"--python {real}"))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

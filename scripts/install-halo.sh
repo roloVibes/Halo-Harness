@@ -93,10 +93,14 @@ confirm() {
 # 1. Python 3.10+ (detection only -- real either way, --dry-run still needs
 #    the real answer to decide whether it would even proceed).
 #    HALO_PYTHON names the one to use (a Mac's /usr/bin/python3 is often 3.9);
-#    the refusal says which pythons it looked at and what each one is.
+#    otherwise the names bin/halo tries, in its order. The one chosen is the
+#    one uv builds Halo's environment from (`--python`). With none new enough
+#    and none named, uv downloads Python 3.12 itself. A named one that is too
+#    old is refused; the refusal says which pythons it looked at and what each is.
 PY=""
 LOOKED=""
-if [ -n "${HALO_PYTHON:-}" ]; then set -- "$HALO_PYTHON"; else set -- python3 python; fi
+if [ -n "${HALO_PYTHON:-}" ]; then set -- "$HALO_PYTHON"
+else set -- python3 python python3.14 python3.13 python3.12 python3.11 python3.10; fi
 for c in "$@"; do
   if have "$c"; then
     LOOKED="${LOOKED}  $(command -v "$c"): $("$c" --version 2>&1 | head -n 1)
@@ -104,18 +108,27 @@ for c in "$@"; do
     if "$c" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' 2>/dev/null; then
       PY="$c"; break
     fi
-  else
+  elif [ -n "${HALO_PYTHON:-}" ]; then
     LOOKED="${LOOKED}  $c: not found
 "
   fi
 done
-if [ -z "$PY" ]; then
+if [ -n "$PY" ]; then
+  UV_PY="$(command -v "$PY")"
+  case "$UV_PY" in /*) ;; */*) UV_PY="$PWD/$UV_PY" ;; esac
+  say "Python: $UV_PY ($("$PY" --version 2>&1))"
+elif [ -n "${HALO_PYTHON:-}" ]; then
   echo "Python 3.10 or newer is required. Looked at:"
   printf '%s' "$LOOKED"
-  echo "Install a newer Python, or name one with HALO_PYTHON=/path/to/python3 and run this again."
+  echo "Name a Python 3.10 or newer with HALO_PYTHON=/path/to/python3, or unset HALO_PYTHON to let uv download one, and run this again."
   exit 1
+else
+  UV_PY="3.12"
+  say "No Python 3.10 or newer found. Looked at:"
+  printf '%s' "${LOOKED:-  python3, python, python3.14 .. python3.10: none found
+}"
+  echo "uv will download Python ${UV_PY} for Halo's own environment (or name one with HALO_PYTHON=/path/to/python3)."
 fi
-say "Python: $(command -v "$PY") ($("$PY" --version 2>&1))"
 
 # 2. uv (isolated tool installs; sidesteps PEP 668 on Kali/Debian)
 if ! have uv; then
@@ -142,7 +155,7 @@ if have pipx && pipx list 2>/dev/null | grep -q "package ${OLD_TOOL}"; then
   say "Old pre-2.0 pipx install found"
   if confirm "Uninstall it (recommended)?"; then run pipx uninstall "$OLD_TOOL"; fi
 fi
-if "$PY" -m pip show "$OLD_TOOL" >/dev/null 2>&1; then
+if [ -n "$PY" ] && "$PY" -m pip show "$OLD_TOOL" >/dev/null 2>&1; then
   say "Old pre-2.0 pip install found"
   if confirm "Uninstall it (recommended)?"; then run "$PY" -m pip uninstall -y "$OLD_TOOL"; fi
 fi
@@ -180,14 +193,14 @@ resolve_ref
 # 4. Install halo (2.0.1+ ships exactly one executable: halo)
 if [ "$NO_CLONE" = 1 ]; then
   say "Installing halo straight from GitHub at $REF"
-  if [ "$DRY_RUN" = 1 ]; then run uv tool install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}"
+  if [ "$DRY_RUN" = 1 ]; then run uv tool install --reinstall --constraints "${RAW_URL}/${REF}/requirements.lock" "git+${REPO_URL%.git}@${REF}" --python "$UV_PY"
   else  # 3.4.1.2 (PACKS-10): the lock is fetched first and checked; without it nothing is installed (fails closed)
     LOCK="$(mktemp -d)/requirements.lock"
     if ! curl -fsSL "${RAW_URL}/${REF}/requirements.lock" -o "$LOCK" || ! grep -q -- '--hash=sha256:' "$LOCK"; then
       echo "Could not fetch requirements.lock for ${REF} (${RAW_URL}/${REF}/requirements.lock), so nothing was installed. Try again, install from a clone (drop --no-clone), or install without the pin on purpose: uv tool install --reinstall git+${REPO_URL%.git}@${REF}"
       exit 1
     fi
-    uv_install --reinstall --constraints "$LOCK" "git+${REPO_URL%.git}@${REF}"; fi
+    uv_install --reinstall --constraints "$LOCK" "git+${REPO_URL%.git}@${REF}" --python "$UV_PY"; fi
 else
   if [ -d "$CLONE_DIR/.git" ]; then
     say "Updating the clone at $CLONE_DIR"
@@ -207,9 +220,9 @@ else
     say "Checked out $REF at commit $(git -C "$CLONE_DIR" rev-parse HEAD)"
   fi
   say "Installing halo from the clone (dependencies pinned by requirements.lock)"
-  if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: (cd %s && uv tool install --reinstall --constraints requirements.lock .)\n' "$CLONE_DIR"
+  if [ "$DRY_RUN" = 1 ]; then printf 'DRY RUN: (cd %s && uv tool install --reinstall --constraints requirements.lock . --python %s)\n' "$CLONE_DIR" "$UV_PY"
   else [ -f "$CLONE_DIR/requirements.lock" ] || { echo "No requirements.lock in $CLONE_DIR at ${REF}, so nothing was installed (pick a newer --ref)."; exit 1; }
-    (cd "$CLONE_DIR" && uv_install --reinstall --constraints requirements.lock .); fi
+    (cd "$CLONE_DIR" && uv_install --reinstall --constraints requirements.lock . --python "$UV_PY"); fi
 fi
 
 # 5. PATH for the uv tools directory. `uv tool update-shell` edits a shell
