@@ -28,7 +28,7 @@ APPLY, LEAVE, NO, YES = "Apply them", "Leave them", "No (leave this line out)", 
 
 def _ctx(session, made: list) -> dict:
     return {"cwd": getattr(session, "cwd", None), "state_dir": None, "selection": {}, "made": made, "publish": None,
-            "draft": lambda name, does: ("", 0.0)}
+            "draft": lambda name, does: ("", 0.0), "session": session}  # session: studio_show's facts line (R39)
 
 
 def preview(session, input: dict) -> dict:
@@ -154,9 +154,18 @@ def finish(pv: dict, answer, session) -> str:
         return pv["text"] + "\nThe person left every line: nothing was written."
     cwd = getattr(session, "cwd", None)
     had = _had(pv["rows"], set(ids), cwd)
+    import time
+    before = time.time() - 0.001  # crew.map_since's `at` is rounded to 3 decimals
     got = changes.apply(pv["rows"], ids, cwd=cwd)
     if not got["ok"]:
         return pv["text"] + "\nNothing was written: " + "; ".join(got["problems"])
+    for r in pv["rows"]:  # 3.6.0.2 R38: the facts note says ", by this session" for a switch this card wrote
+        if r["id"] in ids and (r.get("op") or {}).get("op") == "use":
+            try:
+                session._map_switched_by_me = {"map": (r["op"].get("value") or None), "from": before,
+                                               "to": time.time() + 0.001}
+            except Exception:
+                pass
     pv["outcome"] = _outcome("applied" if got["wrote"] or got["removed"] else "left",
                              _items(got["wrote"], had) + _items(got["removed"], had, removed=True), got["undo_id"])
     left = len(pv["rows"]) - len(ids)

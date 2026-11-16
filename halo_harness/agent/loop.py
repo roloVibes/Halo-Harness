@@ -46,6 +46,7 @@ from halo_harness.agent.jobs import JobRegistry
 from halo_harness.agent import agent_inbox as _inbox_gate
 from halo_harness.agent import agent_hooks as _agent_tree
 from halo_harness.agent import mode_notice as _mode_notice
+from halo_harness.crew import map_facts as _map_facts  # 3.6.0.2 R38: the facts note
 from halo_harness.agent import turn_marker as _turn_marker
 from halo_harness.agent import bg_pickup as _bg_pickup  # 3.4.1.3: finished background work while idle
 from halo_harness.agent import policy_gate as _policy_gate  # 3.3.10.0 R2: a pack's verdict on each tool call
@@ -3574,6 +3575,7 @@ class Session:
                 watcher = threading.Thread(target=_watch_for_silent_steer, daemon=True)
                 watcher.start()
             call_abort = _EitherAbort(self.abort, steer_restart_event) if watcher is not None else self.abort
+            _map_facts.sent(self)  # 3.6.0.2 R38: only a note in a request handed to the provider counts as told
             gen = self._stream(req, abort=call_abort)
             from halo_harness.providers.dialect_apply import guard_for as _guard_for  # 3.3.6.0 R4: the loop guard
             loop_guard, loop_cut = _guard_for(self), False
@@ -5434,6 +5436,7 @@ class Session:
 
         self.log.append_compacted(trigger=trigger, custom_instructions=custom_instructions)
         self.log.append_user([{"type": "text", "text": wrapped}], kind="compaction_summary")
+        _map_facts.compacted(self)  # 3.6.0.2 R38: a note sent before goes again at the next turn
 
         # finding 18: re-inject EVERY session-start snapshot kind, not just
         # CLAUDE.md/memory/files-read -- environment and the deferred-tool-
@@ -5719,6 +5722,7 @@ class Session:
             else:
                 _receipt_seams.mark_read(self, _rmeta, turn_no, self.log.append_user(blocks, **_receipt_seams.tag(_rmeta)))
             _mode_notice.sync(self, turn_start=True)  # 3.2.2.0 R4: the mode in one line (and the plan-mode note)
+            _map_facts.turn_note(self)  # 3.6.0.2 R38: the maps, when they changed since the agent was told
             turn_images = images if vision_ok else None
             if not _bg:
                 yield _receipt_seams.stamp(events.user_message(text, turn=turn_no, images=turn_images), _rmeta)

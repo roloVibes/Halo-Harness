@@ -99,7 +99,11 @@ def studio_show(args: dict, ctx) -> dict:
         return {"text": ("THE LAST HAND-OFFS (records, data):\n" + "\n".join(got)) if got else
                 "No session has handed work on a map in this project yet.", "rows": []}
     from halo_harness.crew.tools_map import map_name
-    return {"text": _map_text(name or map_name({}, ctx), ctx), "rows": []}
+    text = _map_text(name or map_name({}, ctx), ctx)
+    if ctx.get("session") is not None:  # 3.6.0.2 R39: asked from a session, line 1 is which map each runs on
+        from halo_harness.crew.map_facts import show_line
+        text = show_line(ctx["session"]) + "\n" + text
+    return {"text": text, "rows": []}
 
 
 TOOLS = {"studio_show": (studio_show, '{"what": map|lists|connections|run, "name"?}  (read-only: no preview, nothing written)')}

@@ -103,6 +103,105 @@ def facts(session) -> dict:
             "asked": bool(getattr(session, "_map_asked", False) or getattr(session, "turn_count", 0))}
 
 
+# ---- R38 R39: the facts given to the agent (section 6, letter for letter) ---------------------------------------------
+NOTE_PREFIX = "[Halo] "
+NOTE_RUNS = "This session runs on {A}, as it started at {t}."
+NOTE_NEXT = "New sessions will run on {B} (switched on at {t2}{by})."
+NOTE_NEXT_UNTIMED = "New sessions will run on {B}."  # the switch time is not known (T11: set outside Halo)
+NOTE_BY = ", by this session"
+NOTE_REST = ("This session keeps running on {A} until a new session starts; nothing needs restarting, Studio included. "
+             "Asked which map or workflow you use, answer from this note.")
+SHOW_RUNS = "THIS SESSION runs on {A}, as it started at {t}."
+SHOW_NEXT = "NEW SESSIONS run on {B} (switched on at {t2})."
+SHOW_NEXT_UNTIMED = "NEW SESSIONS run on {B}."
+
+
+def _runs(template: str, words: str, since) -> str:
+    """"... runs on {A}, as it started at {t}." -- with no start time known, the clause ends at "as it started."."""
+    if since is None:
+        return template.replace(" at {t}", "").format(A=words)
+    return template.format(A=words, t=hhmm(since))
+
+
+def _by_this_session(session, f: dict) -> bool:
+    """This session's own Builder card wrote the switch to `next` (crew/session_tool.py `finish` keeps
+    `_map_switched_by_me = {map, from, to}` around its write: `crew.map_since.at` falls inside it only when that card
+    wrote the switch -- a re-choice keeps an older `at`, a later switch elsewhere writes a newer one)."""
+    mine = getattr(session, "_map_switched_by_me", None)
+    if not isinstance(mine, dict) or _name(mine.get("map")) != f["next"] or f["next_since"] is None:
+        return False
+    lo, hi = _num(mine.get("from")), _num(mine.get("to"))
+    return lo is not None and hi is not None and lo <= f["next_since"] <= hi
+
+
+def _key(f: dict) -> tuple:
+    return (f["map"], f["next"])
+
+
+def note_text(session, f: "dict | None" = None) -> str:
+    """The facts note (R38), `[Halo] ` and section 6's words."""
+    f = f if f is not None else facts(session)
+    a = f["words"] or words_of(None)
+    if f["next_since"] is None:
+        nxt = NOTE_NEXT_UNTIMED.format(B=f["next_words"])
+    else:
+        nxt = NOTE_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"]),
+                               by=NOTE_BY if _by_this_session(session, f) else "")
+    return NOTE_PREFIX + " ".join((_runs(NOTE_RUNS, a, f["since"]), nxt, NOTE_REST.format(A=a)))
+
+
+def show_line(session) -> str:
+    """`studio_show {what: map}`'s first line from a session (R39)."""
+    f = facts(session)
+    a = f["words"] or words_of(None)
+    nxt = (SHOW_NEXT_UNTIMED.format(B=f["next_words"]) if f["next_since"] is None
+           else SHOW_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"])))
+    return _runs(SHOW_RUNS, a, f["since"]) + " " + nxt
+
+
+def turn_note(session) -> "str | None":
+    """At a turn's start (agent/loop.py, after the user node and the mode line): log the facts note when F2 or F4
+    changed since the agent was last told (R38). The first turn only records what the agent starts from; a note
+    logged but not yet in a request sent stays pending (`sent` makes it told), so an interrupted turn's note is
+    logged again next turn; after a compaction (`compacted`) a note sent before is sent again. Only a top-level
+    session on a map. Never raises; returns the text logged or None."""
+    try:
+        tc = getattr(session, "team_control", None)
+        if not getattr(tc, "is_map", False) or getattr(session, "agent_depth", 0):
+            return None
+        f = facts(session)
+        key = _key(f)
+        told = getattr(session, "_map_told", None)
+        if told is None and not getattr(session, "_map_note_sent", False):
+            session._map_told = key  # the first turn: the baseline, nothing sent (decision 7)
+            return None
+        pending = getattr(session, "_map_note_pending", None)
+        if key == told and pending is None and not getattr(session, "_map_retell", False):
+            return None
+        text = note_text(session, f)
+        session.log.append_snapshot([{"type": "text", "text": text}], kind="map_facts")
+        session._map_note_pending = key
+        session._map_retell = False
+        return text
+    except Exception:
+        return None
+
+
+def sent(session) -> None:
+    """A request was handed to the provider: a pending note is told (R38: only a SENT note counts)."""
+    pending = getattr(session, "_map_note_pending", None)
+    if pending is not None:
+        session._map_told = pending
+        session._map_note_pending = None
+        session._map_note_sent = True
+
+
+def compacted(session) -> None:
+    """A compaction folded the log: a note sent before is sent again at the next turn's start."""
+    if getattr(session, "_map_note_sent", False):
+        session._map_retell = True
+
+
 def row(session) -> dict:
     """The status row's map facts (R40): map_since, map_plain, map_next, map_next_since, built, asked. Never raises."""
     try:

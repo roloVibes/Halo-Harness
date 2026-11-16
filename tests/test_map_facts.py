@@ -478,6 +478,267 @@ def test_map_start_carries_scope_and_path(ctx: Ctx):
         ctx.check("a wrong type is dropped to null", [bad.get(k, "absent") for k in ("map_scope", "map_path", "map_hash")] == [None, None, None])
 
 
+# ---- 3.6.0.2 P2 batch 5 (R37 R38 R39): the agent knows ---------------------------------------------------------------
+
+NOTE = "[Halo] This session runs on "
+NOTE_RE = (r"\[Halo\] This session runs on starter \(the default\), as it started at \d\d:\d\d\. New sessions will run on "
+           r"{B}{when}\. This session keeps running on starter \(the default\) until a new session starts; nothing needs "
+           r"restarting, Studio included\. Asked which map or workflow you use, answer from this note\.")
+NOTE_MODEL = "or:mock/map-facts-note"
+
+
+def _note_scenario(handler, body) -> None:
+    """A tool result back: "Done."; this turn's words say "please build": a Builder call (map_use review-flow); else "ok."."""
+    from tests.helpers.mock_openai import _finish
+    from tests.helpers.session_rig import text_step, tool_step
+    msgs = [m for m in (body or {}).get("messages") or [] if isinstance(m, dict)]
+    if msgs and msgs[-1].get("role") == "tool":
+        _finish(handler, text_step("Done."))
+    elif "please build" in json.dumps(_fresh(msgs)):
+        _finish(handler, tool_step(("Builder", {"tool": "map_use", "args": {"map": "review-flow"}}, "call_b")))
+    else:
+        _finish(handler, text_step("ok."))
+
+
+def _fresh(msgs: list) -> list:
+    """The messages after the last assistant message: what this turn added."""
+    last = max((i for i, m in enumerate(msgs) if m.get("role") == "assistant"), default=-1)
+    return msgs[last + 1:]
+
+
+class _NoteRig:
+    """A real Session on the default map (Builder offered) talking to a mock upstream, in a scratch home."""
+
+    def __enter__(self):
+        from halo_harness.agent.assemble import SessionContext
+        from halo_harness.agent.loop import Session
+        from halo_harness.crew import store
+        from halo_harness.crew.map_session import prepare
+        from halo_harness.model import ModelProfile, parse_model_ref
+        from halo_harness.permissions import PermissionEngine
+        from halo_harness.providers.stream import ProviderCreds
+        from halo_harness.tools.builder_tool import BuilderTool
+        from halo_harness.tools.registry import ToolRegistry, default_tools
+        from tests.helpers.mock_openai import SCENARIOS, MockUpstream
+        self.saved = {k: os.environ.get(k) for k in _ENV}
+        self.home = Path(tempfile.mkdtemp(prefix="map-note-"))
+        self.cwd = self.home / "proj"
+        self.cwd.mkdir()
+        for k in ("BRIDGE_STATE_DIR", "HALO_SESSION_PARENT"):
+            os.environ.pop(k, None)
+        os.environ.update({"BRIDGE_TEST_HOME": str(self.home), "BRIDGE_TEST_NO_BACKGROUND_NET": "1",
+                           "OLLAMA_HOST": "http://127.0.0.1:9", "HALO_NO_UPDATER": "1", "HALO_MODELS_ROSTER": "0"})
+        self.mock = MockUpstream().start()
+        os.environ["BRIDGE_OPENROUTER_BASE_URL"] = self.mock.base_url
+        SCENARIOS["map-facts-note"] = _note_scenario
+        for name in ("review-flow", "shop"):
+            p = store.path_for("map", name)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            store.write_text(p, store.dump({"format": "map/1", "name": name, "main": {"agent": "main"}, "boxes": [], "lines": []}))
+        reg = ToolRegistry(default_tools(platform="linux") + [BuilderTool()])
+        self.s = Session(cwd=self.cwd, model_ref=parse_model_ref(NOTE_MODEL), model_profile=ModelProfile(),
+                         creds=ProviderCreds(base_url=self.mock.base_url, api_key="k"), state_dir=self.home / "sess-state",
+                         model_label=NOTE_MODEL, max_turns=6, crew_map=prepare(None, self.cwd)[0],
+                         session_context=SessionContext(cwd=self.cwd, model_label=NOTE_MODEL, tool_registry=reg),
+                         permission_engine=PermissionEngine(mode="default", cwd=self.cwd))
+        self.s.interactive = True
+        return self
+
+    def __exit__(self, *exc):
+        from tests.helpers.mock_openai import SCENARIOS
+        try:
+            self.s.close_runtimes()
+        except Exception:
+            pass
+        self.mock.stop()
+        SCENARIOS.pop("map-facts-note", None)
+        for k, v in self.saved.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+        shutil.rmtree(self.home, ignore_errors=True)
+
+    def bodies(self) -> list:
+        return [r["body"] for r in self.mock.requests
+                if r.get("method") == "POST" and str(r.get("path")).endswith("/chat/completions")]
+
+    def turn(self, text: str) -> "dict | None":
+        """One turn (a Builder card answered: every line applied); the turn's FIRST request body, or None if none went."""
+        import time
+        before = len(self.bodies())
+        events: list = []
+        done = threading.Event()
+
+        def drive():
+            try:
+                for e in self.s.turn(text):
+                    events.append(e)
+            finally:
+                done.set()
+        t = threading.Thread(target=drive, daemon=True, name="map-note-turn")
+        t.start()
+        end = time.monotonic() + 30
+        answered = set()
+        while time.monotonic() < end and not done.is_set():
+            for q in [e for e in list(events) if e.kind == "question" and e.data.get("id") not in answered]:
+                qs = (q.data.get("input") or {}).get("questions") or []
+                answered.add(q.data["id"])
+                self.s.resolve_question(q.data["id"], {x["question"]: (x["options"][0]["label"] if x["question"].startswith("Apply")
+                                                                       else x["options"][-1]["label"]) for x in qs})
+            done.wait(0.02)
+        t.join(5)
+        got = self.bodies()
+        return got[before] if len(got) > before else None
+
+
+def _notes(body) -> list:
+    """The facts notes this turn added to the request (the text of each)."""
+    import re
+    if body is None:
+        return []
+    text = json.dumps(_fresh([m for m in body.get("messages") or [] if isinstance(m, dict)]), ensure_ascii=False)
+    return re.findall(r"\[Halo\] This session runs on .*?answer from this note\.", text)
+
+
+def _match(note: str, b: str, when: str) -> bool:
+    import re
+    return re.fullmatch(NOTE_RE.format(B=b, when=when), note) is not None
+
+
+TIMED = r" \(switched on at \d{2}:\d{2}\)"
+TIMED_BY_ME = r" \(switched on at \d{2}:\d{2}, by this session\)"
+
+
+@test
+def test_note_never_on_the_first_turn(ctx: Ctx):
+    """R38 (decision 7): the map new sessions use changed after the session was built and before its first turn: the
+    first request carries no note."""
+    from halo_harness.theme import set_config_value
+    with _NoteRig() as rig:
+        set_config_value("crew.map", "review-flow")
+        first = rig.turn("Say hello.")
+        ctx.check(f"the first request went out, got {first is not None}", first is not None)
+        ctx.check("no facts note on the first turn", NOTE not in json.dumps(first or {}))
+
+
+@test
+def test_note_after_a_build_and_after_compact(ctx: Ctx):
+    """R38: turn 1's Builder card switches new sessions to review-flow; turn 2's request carries exactly one note naming
+    starter (the default) and review-flow, by this session; turn 3 none; after a compaction turn 4 carries it again."""
+    with _NoteRig() as rig:
+        rig.turn("please build: new sessions on review-flow")
+        from halo_harness.crew.map_facts import next_map
+        ctx.check(f"the card switched new sessions to review-flow, got {next_map()}", next_map()[0] == "review-flow")
+        two = _notes(rig.turn("Which workflow are you using?"))
+        ctx.check(f"turn 2: exactly one note, review-flow, by this session, got {two}",
+                  len(two) == 1 and _match(two[0], "review-flow", TIMED_BY_ME))
+        three = _notes(rig.turn("Thanks."))
+        ctx.check(f"turn 3 (nothing changed): no new note, got {three}", three == [])
+        list(rig.s._run_compaction(rig.s.turn_count, trigger="manual"))
+        four = _notes(rig.turn("And now?"))
+        ctx.check(f"turn 4 (after a compaction, a note was sent before): the note again, got {four}",
+                  len(four) == 1 and _match(four[0], "review-flow", TIMED_BY_ME))
+
+
+@test
+def test_note_after_each_switch_path(ctx: Ctx):
+    """R38: whatever switched the map new sessions use, the next turn carries one note naming the new {B}, the turn
+    after none: the Builder's use row, Studio's switch, `halo config set`, the main-model check, a hand edit."""
+    from types import SimpleNamespace
+    from halo_harness import theme
+    from halo_harness.config_cli import cmd_config
+    from halo_harness.studio import crew_map_api
+    with _NoteRig() as rig:
+        rig.turn("Say hello.")
+
+        def check(label: str, b: str, when: str) -> None:
+            got = _notes(rig.turn(f"after {label}: which map?"))
+            ctx.check(f"{label}: one note naming {b}, got {got}", len(got) == 1 and _match(got[0], b, when))
+            again = _notes(rig.turn(f"after {label}: thanks."))
+            ctx.check(f"{label}: the turn after has none, got {again}", again == [])
+
+        rig.turn("please build: new sessions on review-flow")
+        check("the Builder's use row", "review-flow", TIMED_BY_ME)
+        code, _a = crew_map_api.post_use(SimpleNamespace(params={"name": "shop"}, body={"on": True}, cwd=rig.cwd, state_dir=None))
+        ctx.check(f"Studio's switch answered 200, got {code}", code == 200)
+        check("Studio's switch", "shop", TIMED)
+        cmd_config(["set", "crew.map", "review-flow"])
+        check("halo config set", "review-flow", TIMED)
+        theme.set_config_value("crew.map", None)  # as agent/main_model_check.py clears it
+        check("the main-model check", r"starter \(the default\)", TIMED)
+        path = _config_path()
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+        cfg.setdefault("crew", {})["map"] = "shop"  # by hand: crew.map_since still names none (T11)
+        path.write_text(json.dumps(cfg), encoding="utf-8")
+        check("a hand edit", "shop", "")
+
+
+@test
+def test_only_a_sent_note_counts_as_told(ctx: Ctx):
+    """R38: a turn interrupted after its note was logged and before its request went out leaves the note untold: the
+    next turn carries it; a turn whose request carried it is told: the turn after has none."""
+    from halo_harness.crew import map_facts
+    from halo_harness.theme import set_config_value
+    with _NoteRig() as rig:
+        rig.turn("Say hello.")
+        set_config_value("crew.map", "review-flow")
+        real = map_facts.turn_note
+
+        def interrupted(session):
+            got = real(session)
+            session.abort.set()
+            return got
+        map_facts.turn_note = interrupted
+        try:
+            two = rig.turn("Which map?")
+        finally:
+            map_facts.turn_note = real
+        ctx.check(f"turn 2 interrupted before its request: none went out, got {two is not None}", two is None)
+        three = _notes(rig.turn("Which map now?"))
+        ctx.check(f"turn 3 carries the note (review-flow), got {three}",
+                  len(three) >= 1 and all(_match(n, "review-flow", TIMED) for n in three))
+        four = _notes(rig.turn("Thanks."))
+        ctx.check(f"turn 3's request carried it, so turn 4 has none, got {four}", four == [])
+
+
+@test
+def test_studio_show_first_line_names_both(ctx: Ctx):
+    """R39: `studio_show {what: map}` from a session: line 1 says which map this session runs on and since when, and which
+    map new sessions run on and since when; the MAP lines follow unchanged. From Studio's builder box (no session):
+    exactly today's text."""
+    import re
+    import time
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.crew import session_tool, tools_show
+        from halo_harness.theme import set_config_value
+        set_config_value("crew.map", "review-flow")
+        s = _Sess(_default_control(env.repo))
+        s.cwd = env.repo
+        s._map_started_at = time.time()
+        text = session_tool.preview(s, {"tool": "studio_show", "args": {"what": "map"}})["text"]
+        lines = text.split("\n")
+        first = lines[0][len("studio_show: "):] if lines[0].startswith("studio_show: ") else lines[0]
+        ctx.check(f"line 1 names both maps and both times, got {first!r}", re.fullmatch(
+            r"THIS SESSION runs on starter \(the default\), as it started at \d{2}:\d{2}\. NEW SESSIONS run on review-flow "
+            r"\(switched on at \d{2}:\d{2}\)\.", first) is not None)
+        bare = tools_show.studio_show({"what": "map"}, {"cwd": env.repo, "state_dir": None, "selection": {}})["text"]
+        ctx.check(f"the MAP lines follow unchanged, got {lines[1:3]!r}", "\n".join(lines[1:]) == bare and bare.startswith("MAP "))
+        lists = session_tool.preview(s, {"tool": "studio_show", "args": {"what": "lists"}})["text"]
+        ctx.check(f"`lists` is untouched, got {lists[:60]!r}", "THIS SESSION" not in lists)
+
+
+@test
+def test_builder_description_says_workflow_on_a_map(ctx: Ctx):
+    """R37 R39: the Builder tool's description says both sentences, letter for letter, before the tool list."""
+    from halo_harness.tools.builder_tool import BuilderTool
+    d = BuilderTool().description
+    r37 = "A workflow the person wants run is a saved workflow in a box on a map, made and named in the same card."
+    r39 = ("Asked which map or workflow this session uses, answer from the [Halo] note or call studio_show (what: map); "
+           "never search the disk; nothing needs a restart.")
+    tools_at = d.find("The tools:")
+    ctx.check("R37's sentence, before the tool list", 0 <= d.find(r37) < tools_at)
+    ctx.check("R39's sentence, before the tool list", 0 <= d.find(r39) < tools_at)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
