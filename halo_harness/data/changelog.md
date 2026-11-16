@@ -1043,7 +1043,8 @@ on 3.6 both are in place. To move from 3.5.0.1 to 3.6, read "Coming from 3.5.0.1
 - **The theme picked in Halo wins.** The theme chosen in Setup, in Settings or with `/theme` now comes before a
   `theme` left in Claude Code's settings files; before, that older setting beat the pick, so Setup saved the theme and
   nothing changed. A `--theme` flag and the `HALO_THEME` variable still come first. With nothing picked anywhere the
-  theme is `instrument`, as before. On 3.6: the same order, and `halo doctor --config` no longer says that Claude Code's setting beats the pick.
+  theme is `instrument`, as before, and `halo doctor --config` no longer says that Claude Code's setting beats the
+  pick. On 3.6: the same order and the same `halo doctor --config` line.
 
 ## [3.5.0.0] - 2026-11-13
 

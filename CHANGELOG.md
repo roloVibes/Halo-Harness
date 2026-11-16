@@ -10,9 +10,10 @@ version.
 
 ## [3.6.0.1] - unreleased
 
-Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; there is nothing new to learn. One button is gone
-from Studio's header, `halo ps` can forget a record and lists worker containers, and the Builder asks before a map
-switch that lets your sessions do more. The limits that remain are at the end of this section.
+Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; what you already do works as before. The few
+new things come with the fixes: one flag, `halo ps --forget <pid>`, worker containers in the `halo ps` list, and a
+question from the Builder before a map switch that lets your sessions do more. One button is gone from Studio's
+header. The limits that remain are at the end of this section.
 
 ### Studio
 
@@ -55,10 +56,12 @@ switch that lets your sessions do more. The limits that remain are at the end of
   plain row as before. In a folder you have not trusted, the mode it starts from ignores the project's own
   `defaultMode`, as a session does.
 - **Studio's "My sessions use this" and `halo maps use` say when the start mode changes.** You press these yourself,
-  so they still ask nothing, but when the switch changes the mode new sessions start in, the receipt line says so:
-  "New sessions run on X; a running session keeps its own; they start in auto mode (until now default)". When the
-  mode does not change, the receipt is as before. `halo maps use` now reads your settings' default mode as well as
-  config `permission_mode`, in the order a session reads them.
+  so they still ask nothing, but when the switch changes the mode new sessions start in, the receipt says so. Studio:
+  "New sessions run on X; a running session keeps its own; they start in auto mode (until now default)".
+  `halo maps use` adds the same words to its first line, or, when the map's own main raises your mode, prints main's
+  line instead ("the map X's main runs in auto ...; your own mode was default"), so it is said once. When the mode
+  does not change, the receipt is as before. `halo maps use` now reads your settings' default mode as well as config
+  `permission_mode`, in the order a session reads them.
 
 ### `halo ps` and `halo update`
 
@@ -93,9 +96,11 @@ switch that lets your sessions do more. The limits that remain are at the end of
 ### Closing
 
 - **A worker container no longer outlives the Halo that started it.** An Orchestra lane with `isolation: container`
-  now names its container (`halo-<owner>-<lane>-<6 hex>`), labels it `halo.owner=<owner>` and records it under
-  `~/.halo/containers/` while it runs. `docker rm -f` (or `podman rm -f`) removes it when that Halo closes, after a
-  hard kill of that Halo (macOS and Linux: the reaper does it), or at the next `halo` start, with one line:
+  now names its container (`halo-<owner>-<lane>-<6 hex>`, where `<owner>` is the id of the Halo that started it),
+  labels it `halo.owner=<owner>` and records it under `~/.halo/containers/` while it runs;
+  `docker ps --filter label=halo.owner` lists the ones running. `docker rm -f` (or `podman rm -f`) removes it when
+  that Halo closes, after a hard kill of that Halo (macOS and Linux: the reaper does it), or at the next `halo` start,
+  with one line:
   "halo: removed a worker container left from <when> (<name>)". Before, nothing knew the container, and its worker
   kept running, and spending, until it ended. A lane that runs past its time now has its container removed too, not
   only the `docker run` client. The start sweep removes only containers recorded in this home whose Halo is provably
@@ -143,7 +148,8 @@ switch that lets your sessions do more. The limits that remain are at the end of
 
 ### Docs and help
 
-- **The docs send you only to commands that exist.** Lines that named `halo teams ...`, `halo team`,
+- **The how-to pages send you only to commands that exist** (the dated research notes under docs/harness and
+  docs/design are left as written, and some still name old commands). Lines that named `halo teams ...`, `halo team`,
   `halo workflow ...`, `halo blocks`, a bare `halo roles` or `halo --config` now name the 3.6 command
   (`halo maps use|list|edit`, `halo workflows`, `halo orchestra new --workflow ... --input ...` then
   `halo orchestra run`, `halo goal add --workflow`, `halo config get roles`) or say the command is gone.
@@ -180,7 +186,8 @@ switch that lets your sessions do more. The limits that remain are at the end of
 ### Known limits
 
 - **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
-  which removes it; Windows has no reaper. Its `docker run` client ends with Halo at once.
+  which removes it; Windows has no reaper. Its `docker run` client ends with Halo at once. To end it sooner:
+  `halo ps` names it, `docker ps --filter label=halo.owner` lists it, and `docker rm -f <name>` removes it.
 - **macOS: a program a tool command detaches with an Apple system binary** (`ssh -fN host`, `ssh -f -M`, a
   `daemon()` fork of a program under /usr/bin) can still outlive Halo, and `halo ps` does not list it: macOS shows no
   environment for its own binaries. Start such a program with `HALO_OWNER=kept-<name>` if you mean to keep it, or end
@@ -198,8 +205,9 @@ switch that lets your sessions do more. The limits that remain are at the end of
 - **With the container engine stopped, the first `halo` start after a container was left still waits up to
   3 seconds once**, and a close that removes some of several containers but not all leaves every record to the next
   start.
-- **An Orchestra lane with `isolation: user` did not get the container lane's changes**: past its time, its `sudo`
-  client is ended and the worker ends itself when the Halo that started it is gone.
+- **An Orchestra lane with `isolation: user` did not get the container lane's changes**: past its time only its `sudo`
+  client is ended; the worker keeps running, and spending, until the Halo that started it is gone, and then ends
+  itself.
 - **The container lane was tested with a stand-in engine**; podman's own message for a missing container was not
   checked against a real podman.
 - **Some 3.5 words remain**: `halo init`'s Summary after Done still prints "Lineup: <name>" (so do the lineup default
@@ -1258,7 +1266,8 @@ on 3.6 both are in place. To move from 3.5.0.1 to 3.6, read "Coming from 3.5.0.1
 - **The theme picked in Halo wins.** The theme chosen in Setup, in Settings or with `/theme` now comes before a
   `theme` left in Claude Code's settings files; before, that older setting beat the pick, so Setup saved the theme and
   nothing changed. A `--theme` flag and the `HALO_THEME` variable still come first. With nothing picked anywhere the
-  theme is `instrument`, as before. On 3.6: the same order, and `halo doctor --config` no longer says that Claude Code's setting beats the pick.
+  theme is `instrument`, as before, and `halo doctor --config` no longer says that Claude Code's setting beats the
+  pick. On 3.6: the same order and the same `halo doctor --config` line.
 
 ## [3.5.0.0] - 2026-11-13
 
