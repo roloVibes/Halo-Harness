@@ -169,6 +169,69 @@ def test_a_pick_not_listed_yet_is_never_another_session(ctx: Ctx):
     ctx.check(f"R1: with no pick the newest open one is the default, got {p.get('unpicked')!r}", p.get("unpicked") == "TERM")
 
 
+# -- 3.6.0.2 batch 7: the default pick selects an agent again; a stale pick is given up; the drawing's timer is cleared --
+STALE_JS = """const m = await import(%s);
+const T = {session_id: 'TERM', parent: null, turns: 4, started: 100};
+m.noteRows([T], 1);
+const gone = [m.staleRead([T], 'GONE'), m.staleRead([T], 'GONE')];
+m.startedHere('NEW');
+const mine = [1, 2, 3, 4].map(() => m.staleRead([T], 'NEW'));
+m.noteRows([T, {session_id: 'END', turns: 1, started: 50}], 2); m.noteRows([T], 3);
+const ended = [1, 2, 3].map(() => m.staleRead([T], 'END'));
+const late = [m.staleRead([T], 'LATE'), m.staleRead([T, {session_id: 'LATE', turns: 1, started: 400}], 'LATE'), m.staleRead([T], 'LATE')];
+console.log(JSON.stringify({gone, mine, ended, late, held: m.livePick([T], 'NEW')?.session_id ?? null, none: m.staleRead([T], '')}));"""
+_STALE: dict = {}
+
+
+def _stale_node(ctx: Ctx) -> "dict | None":
+    """pick.ts `staleRead` / `startedHere` in node (None where node cannot run a .ts: the browser half still runs)."""
+    from tests.helpers import node_ts
+    if "p" not in _STALE:
+        try:
+            _STALE["p"] = node_ts.run(STALE_JS % json.dumps(PICK.resolve().as_uri()))
+        except SkipTest as e:
+            _STALE["p"], _STALE["skip"] = None, str(e)
+    return _STALE["p"]
+
+
+@test
+def test_no_pick_selects_the_newest_working_agent(ctx: Ctx):
+    # batch 7 (the repair of batch 1 took the default pick away): Session opened with no pick selects the newest working
+    # agent of the session it shows (R1's newest open one), as 3.6.0.1 did; a pick this page started (New session) and
+    # not listed yet is still never replaced by another session.
+    p = _stale_node(ctx)
+    if p is not None:
+        ctx.check(f"R1: a New session's pick not listed yet is held through every read, got {p.get('mine')} {p.get('held')!r}",
+                  p.get("mine") == [False] * 4 and p.get("held") is None)
+    got = _driver()
+    d = _ran(ctx, got, "default")
+    a = got.get("rig_sid") or ""
+    ctx.check(f"R1: with no pick the Agent panel shows an agent, not 'Pick an agent', got {d}", d.get("key") and not d.get("empty"))
+    ctx.check(f"R1: the newest working agent of the session shown (the rig's, the newest open), got {d} (rig {a})",
+              d.get("key", "").split("|")[1:2] == [a] and d.get("state") == "running")
+    if p is None:
+        raise SkipTest(f"browser half passed; node half: {_STALE.get('skip')}")
+
+
+@test
+def test_a_pick_never_listed_is_given_up_after_two_reads(ctx: Ctx):
+    # batch 7: a `?session=` link (or 'Watch in Session') to a session that ended before the page loaded is given up once
+    # two reads of the rows do not list it, and Session shows what it would with no pick; one seen and then gone keeps T8.
+    p = _stale_node(ctx)
+    if p is not None:
+        ctx.check(f"R1: a pick never listed: kept at the first read, given up at the second, got {p.get('gone')}", p.get("gone") == [False, True])
+        ctx.check(f"R4: a pick seen and then gone (T8) is never given up, got {p.get('ended')}", p.get("ended") == [False] * 3)
+        ctx.check(f"R1: a pick listed late is not given up, got {p.get('late')}; no pick is no give-up, got {p.get('none')}",
+                  p.get("late") == [False] * 3 and p.get("none") is False)
+    got = _driver()
+    s = _ran(ctx, got, "stale")
+    a = got.get("rig_sid") or ""
+    ctx.check(f"R1: after the reads Session draws and costs the newest open session, not 'No session is running here', got {s}",
+              s.get("sid") == a and s.get("cost") == a and s.get("boxes"))
+    if p is None:
+        raise SkipTest(f"browser half passed; node half: {_STALE.get('skip')}")
+
+
 
 # -- 3.6.0.2 batch 2: the drawing top to bottom, readable, never cut, held still (R7 R10 R11 R12) ------------------------
 FIT = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "session" / "downFit.ts"
@@ -325,6 +388,15 @@ def test_button_and_card_hold_still(ctx: Ctx):
     ctx.check(f"R12: the link, -, %, + and Fit keep their rects, got (frame, button) {bad[:6]}", not bad and len(head) == 5 and all(head))
     ctx.check(f"R12: the slot keeps its rect, got {[f.get('slot') for f in frames if not _same(f.get('slot'), first.get('slot'))][:3]}",
               all(_same(f.get("slot"), first.get("slot")) for f in frames))
+
+
+@test
+def test_live_drawing_clears_its_timer_when_it_goes(ctx: Ctx):
+    # batch 7: a hand scroll arms the drawing's 200 ms settle timer (MapDown.tsx); the drawer closed at once unmounts it.
+    # Its observers and listeners are lib/canvasNav.ts's and hold.ts's (each cleared on unmount); the timer was not.
+    g = _drew(ctx, "gone")
+    ctx.check(f"the scroll armed the drawing's timer and the drawer closed, got {g}", g.get("made", 0) >= 1 and g.get("closer") and g.get("drawn") is False)
+    ctx.check(f"nothing of the drawing fires once it is gone, got {g}", g.get("firedGone") == 0 and g.get("fired") == 0)
 
 
 FIT_JS = """const m = await import(%s);

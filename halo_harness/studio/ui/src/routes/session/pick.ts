@@ -33,6 +33,25 @@ export function lastRow(sid: string): { row: SessionRow; ended: number } | null 
   return row && t ? { row, ended: t } : null;
 }
 
+const mine = new Set<string>(); // sessions this page started (New session): their pick waits for them to register
+const misses = new Map<string, number>(); // reads in a row that did not list a pick this page never saw
+
+/** New session: this page asked for `sid`, so a pick of it is held until it registers (never given up). */
+export function startedHere(sid: string): void {
+  if (sid) mine.add(sid);
+}
+
+/** R1, one read of the open rows (GET live, a sessions frame): true once a pick this page never saw listed and did not
+ *  start is missing from two reads in a row (a `?session=` link or a "Watch in Session" link to a session that ended
+ *  before the page loaded): the pick is given up and Session shows what it would with no pick. */
+export function staleRead(rows: SessionRow[], pick: string): boolean {
+  if (!pick || seen.has(pick) || mine.has(pick) || rows.some((r) => r.session_id === pick)) return (misses.delete(pick), false);
+  const n = (misses.get(pick) || 0) + 1;
+  if (n < 2) return (misses.set(pick, n), false);
+  misses.delete(pick);
+  return true;
+}
+
 /** R1: the picked row while it is open; a pick is never another session: one that ended (null here, T8 in the drawer)
  *  or one not listed yet (New session registers a moment later) is null; with no pick the newest open row that is not
  *  T10, else (only T10 rows are open) the newest of those. */

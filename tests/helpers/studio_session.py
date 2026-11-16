@@ -8,7 +8,8 @@ environment:
 
     python -m tests.helpers.studio_session dash    landing (live / nothing live), the six panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
-                                                   Attention, `&session=<id>`, J / K; `/studio`'s opener focusing the open page
+                                                   Attention, `&session=<id>`, J / K, Alt+2 (Agents -> Live: the same
+                                                   two sessions) and Alt+1 (Session, the first tab); `/studio`'s opener focusing the open page
     python -m tests.helpers.studio_session links   the rail click rule, the map menu's Open in Session, the Roles Live
                                                    tab's Watch in Session, the Orchestra run line's (studio_session_links.py)
 
@@ -179,7 +180,18 @@ def dash(c, rig) -> dict:
     out["attn_empty"] = c.js(f"{inside('session-attention', 'fleet-attn-empty')}.length")
     boot_go(c, url(rig, f"mode=session&session={FAKE_SID}"))
     out["deep_cost"] = c.wait(f"{COST}?.dataset.session === '{FAKE_SID}' && {COST}.dataset.session", 15)
-    return out  # 3.6.0.2: Alt+2 / Agents opening on Live is P4's own module (test_studio_agents_live.py)
+    # 3.6.0.2 R1: Session draws the session chosen in it, so the Alt keys start from the rig's session chosen (the
+    # `&session=` page above draws the second session, main alone; "its map still lit" speaks of the rig's)
+    boot_go(c, url(rig, f"mode=session&session={sid}"))
+    c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3", 30)
+    alt(c, 2)  # 3.3.18.0: Alt+2 opens Agents on Live; 3.5.0.0: this machine's sessions only
+    out["alt4"] = c.wait(f"{TAB}.startsWith('Agents') && {TAB}", 10)
+    out["agents_view"] = c.wait("document.querySelector('[data-testid=\"agents\"]')?.dataset.view === 'map' && 'map'", 30)  # R5: the Map while a session runs
+    out["agents_boxes"] = c.js(f"{inside('agents', 'fleet-box')}.length + {inside('agents', 'live-machine')}.length")
+    alt(c, 1)  # 3.1.6.0 R6: Session is the first tab
+    out["alt1"] = c.wait(f"{TAB}.startsWith('Session') && {TAB}", 10)
+    out["back_map"] = c.wait(f"{inside('session-map', 'session-lit-box')}.length >= 3 && 'lit'", 15)
+    return out
 
 
 def focus(c, rig) -> dict:

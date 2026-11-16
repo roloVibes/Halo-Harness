@@ -15,6 +15,7 @@ import { ModelSelect } from "../shared/ModelSelect";
 import type { TakesFields } from "../shared/ModelTakes";
 import { load as loadFleet } from "../fleet/sync";
 import type { SessionRow } from "../fleet/types";
+import { startedHere } from "./pick";
 import { openPrompt } from "./promptStore";
 import { localSessions, openSession } from "./store";
 
@@ -65,6 +66,7 @@ export async function startNew(model: string, cwd: string): Promise<Started> {
     throw e;
   }
   window.setTimeout(offSeen, 125_000);
+  startedHere(r.session_id); // R1: its pick waits for it to register, never given up as a stale link's is
   openSession({ session: r.session_id });
   openPrompt();
   focusWhenListed(r.session_id, () => seen.has(r.session_id));

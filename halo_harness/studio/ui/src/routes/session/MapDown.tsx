@@ -9,7 +9,7 @@
 //   many boxes wait below and scrolls one row a press.
 // - R12: while the pointer is on it the drawing keeps its geometry (hold.ts) and text changes in place; after a hand scroll
 //   the first box he sees keeps its place; Fit (100 %, top) only on the first draw and on a different map.
-import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { goSection } from "../../lib/store";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -66,6 +66,7 @@ export function MapDown({ s, line, state }: { s: LitSession; line: string; state
   const pending = useRef<{ t: number; tries: number } | null>(null);
   const seen = useRef<{ id: string; off: number } | null>(null);
   const settle = useRef(0);
+  useEffect(() => () => window.clearTimeout(settle.current), []); // the hand scroll's settle never fires once it is gone
   const rows = useMemo(() => rowsOf(g.boxes), [g]);
   const H = viewHeight(rows, k, restTop, room);
   const go = (t: number) => ((pending.current = { t, tries: 0 }), setRestTop(t));

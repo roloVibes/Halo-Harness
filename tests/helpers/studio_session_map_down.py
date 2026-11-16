@@ -10,6 +10,8 @@ started, parent, turns, its agents' states, or hidden as if it ended). No model 
     noturn    a terminal session with no turn yet is drawn (R2)
     studio    an idle Studio-started session is never picked while another is open; once A ends A reads T8; alone the
               Studio one reads T10, draws no box and fetches no map (R4, R5)
+    default   no pick: the Agent panel shows the newest working agent of the session shown (batch 7)
+    stale     `&session=` of a session never listed: given up after two reads, Session as with no pick (batch 7)
 
     python -m tests.helpers.studio_session_map_down
 The last stdout line is a JSON object of what it saw.
@@ -206,6 +208,38 @@ def studio(c, rig, rows: Rows, a: str, b: str) -> dict:
     return out
 
 
+AGENT = "document.querySelector('[data-testid=\"fleet-agent-detail\"]')"
+
+
+def default(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """No pick: the Agent panel shows the newest working agent of the session Session shows (batch 7)."""
+    rows.reset()  # A at work, as the rig runs it
+    rows.idle(b)
+    _page(c, rig, "mode=session&open=session-agent")
+    try:
+        c.wait(f"!!{AGENT}", 20)
+    except TimeoutError:
+        pass  # the read says what was there
+    d = c.js(f"(() => ({{ key: {AGENT}?.dataset.key || '', state: {AGENT}?.dataset.state || '', cost: {COST}?.dataset.session || '',"
+             f" empty: !!document.querySelector('[data-testid=\"fleet-agent-empty\"]') }}))()") or {}
+    return {"default": d, "rig_sid": a}
+
+
+def stale(c, rig, rows: Rows, a: str, b: str) -> dict:
+    """A link to a session that ended before the page loaded: given up after two reads without it (batch 7)."""
+    rows.reset()
+    rows.set(a, map="shop")
+    rows.idle(b)
+    _page(c, rig, "mode=session&session=0e0e0e0e-ended-before-the-page")
+    c.wait(f"{FLEET_READS} >= 1", 30)
+    _reload(c, rows, 3)
+    try:
+        c.wait(f"{DRAWN}?.dataset.sid === '{a}' && {COST}?.dataset.session === '{a}'", 15)
+    except TimeoutError:
+        pass
+    return {"stale": _read(c), "rig_sid": a}
+
+
 class MapDownDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1440, 900
@@ -236,7 +270,7 @@ class MapDownDriver(Driver):
             from tests.helpers.studio_session import FAKE_SID
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            yield tuple((fn, args) for fn in (follows, kept, turns, noturn, studio))
+            yield tuple((fn, args) for fn in (follows, kept, turns, noturn, studio, default, stale))
 
 
 if __name__ == "__main__":

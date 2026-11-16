@@ -136,10 +136,28 @@ def test_r7_controls(ctx: Ctx):
 
 def _fits(d: dict) -> bool:
     """3.6.0.0 R8: no node cut, or (past the 12 px floor) it says 'more' with the lead node whole. 3.6.0.2 R11: Session's
-    Live drawer (`session-map`) never cuts a box at rest, with no 'more' exemption: a box wholly below it waits there."""
+    Live drawer (`session-map`) never cuts a box at rest, with no 'more' exemption: a box wholly below it waits there, and
+    then (batch 7: checked in full again) the lead, main, is whole and the slot says '↓ {n} more below' with n the boxes
+    wholly below; a drawing that fits says nothing."""
     if d.get("id") == "session-map":
-        return d.get("crossed") == 0
+        n = d.get("below")
+        said = d.get("below_text") == (f"↓ {n} more below" if n else "")
+        return d.get("crossed") == 0 and bool(d.get("main")) and isinstance(n, int) and said
     return d["cut"] == 0 or (d["more"] and d["lead"])
+
+
+@test
+def test_r11_session_drawing_room_rule_in_full(ctx: Ctx):
+    """batch 7: the room rule for Session's Live drawer (`_fits`, read by R8 and R4b below) fails a drawing whose boxes
+    wait below unannounced, with a wrong count, with words when nothing is below, with main cut, or with a box cut;
+    no browser: the measured dicts are fed to it."""
+    ok = {"id": "session-map", "nodes": 8, "crossed": 0, "main": True, "below": 1, "below_text": "↓ 1 more below"}
+    bad = {"unannounced": {"below_text": ""}, "wrong n": {"below": 2}, "words, none below": {"below": 0},
+           "main cut": {"main": False}, "a box cut": {"crossed": 1}, "not measured": {"below": None}}
+    ctx.check("R11: one box below, said with its number, fits", _fits(ok))
+    ctx.check("R11: a drawing that fits says nothing", _fits({**ok, "below": 0, "below_text": ""}))
+    wrong = [k for k, v in bad.items() if _fits({**ok, **v})]
+    ctx.check(f"R11: each of these fails the rule, passed instead: {wrong}", not wrong)
 
 
 @test

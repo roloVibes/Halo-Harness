@@ -10,6 +10,7 @@ No model is called.
     hold    the pointer on main: a new box and new words move nothing; it leaves: the box is drawn; after a hand scroll
             the first box seen keeps its place when a box arrives above it (R12)
     still   the head's buttons and the slot keep their rects across 20 frames of new words and zoom percents (R12)
+    gone    a hand scroll, then the drawer closed at once: no timer of the drawing fires once it is gone (batch 7)
 
     python -m tests.helpers.studio_session_map_down_draw
 The last stdout line is a JSON object of what it saw.
@@ -204,6 +205,32 @@ def still(c, rig, rows, a) -> dict:
     return {"still": {"first": {"head": first.get("head"), "slot": first.get("slot"), "fit": first.get("fit")}, "frames": frames}}
 
 
+# batch 7: every timeout the drawing sets from its own scroll handler is tagged; once the drawing is gone none may fire
+GONE = f"""(() => {{ const m = {M}, sc = m && m.querySelector('.mp-mini-scroll'); if (!sc) return null;
+  const T = window.__gone = {{made: 0, fired: 0, firedGone: 0}}, set = window.setTimeout;
+  window.setTimeout = function (fn, ms, ...rest) {{
+    const e = window.event, mine = e && e.type === 'scroll' && e.target && e.target.closest && e.target.closest('[data-testid=session-lit-map]');
+    if (!mine) return set.call(window, fn, ms, ...rest);
+    T.made++;
+    return set.call(window, function () {{ T.fired++; if (!document.querySelector('[data-testid=session-lit-map]')) T.firedGone++;
+      return typeof fn === 'function' ? fn.apply(this, arguments) : undefined; }}, ms, ...rest);
+  }};
+  sc.dispatchEvent(new Event('scroll'));
+  const x = document.querySelector('.ws-cell[data-panel="session-map"] [data-testid=panel-collapse]')
+         || document.querySelector('.section-view:not([hidden]) [data-testid="viewbar-btn"][data-panel="session-map"]');
+  if (x) x.click();
+  return {{made: T.made, closer: !!x}}; }})()"""
+
+
+def gone(c, rig, rows, a) -> dict:
+    """A hand scroll starts the drawing's settle timer; the drawer closes at once: nothing of the drawing fires after."""
+    _open(c, rig, rows, a, "seven", 1280, 640, 8)
+    start = c.js(GONE) or {}
+    c.wait(f"!{M}", 10)
+    time.sleep(0.8)  # the settle timer is 200 ms: well past it
+    return {"gone": {**start, **(c.js("window.__gone || {}") or {}), "drawn": c.js(f"!!{M}")}}
+
+
 class DrawDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -216,7 +243,7 @@ class DrawDriver(MapDownDriver):
             rows = Rows(rig)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id)
-            steps = [s for s in (pair, long, cut, hold, still) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (pair, long, cut, hold, still, gone) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

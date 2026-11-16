@@ -88,8 +88,13 @@ DRAWINGS = r"""(() => {
     const pct = box && box.querySelector('[data-testid=canvas-zoom-level], .rc-zoom button:nth-child(2), [data-testid=roles-live-zoom]');
     // 3.6.0.2 R11: `crossed` = boxes the scroller's edge cuts (one wholly out of its view is not cut, it waits below)
     const crossed = (e) => { const r = e.getBoundingClientRect(); return !inside(e) && r.bottom > S.top + 1 && r.top < S.bottom - 1; };
+    // batch 7 (R11 whole): the boxes wholly below the view, the slot's words, and main whole in view
+    const down = s.closest('[data-testid=session-lit-map]'), main = nodes.find((n) => n.dataset.box === 'main');
+    const slot = down && down.querySelector('[data-testid=map-more-below]');
     return {id: (s.closest('[data-panel-in]') || s.closest('[data-panel]'))?.dataset.panelIn || box?.dataset.testid || 'canvas', nodes: nodes.length,
             cut: nodes.filter((n) => !inside(n)).length, crossed: nodes.filter(crossed).length, more: !!(box && box.querySelector('[data-testid=map-more]')), lead: !!lead && inside(lead),
+            below: nodes.filter((n) => n.getBoundingClientRect().top >= S.bottom - 1).length, below_text: slot && vis(slot) ? slot.textContent : '',
+            main: !!main && inside(main),
             zoom: s.querySelector('[data-zoom]')?.dataset.zoom || (pct ? pct.textContent : '')};
   }) : [];
 })()"""

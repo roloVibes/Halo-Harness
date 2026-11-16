@@ -10,7 +10,8 @@
 // selected selects the newest working agent of the chosen (else any) session.
 // 3.6.0.2 R1: the chosen session is ONE function (`chosenSession`, routes/session/pick.ts) that Cost, Prompt, the Feed
 // and the Live drawer read; with no pick it is the newest open session (never a Studio one with no message yet while
-// another is open), written into the scope at once and kept until he picks another; one that ends stays picked (T8).
+// another is open), written into the scope at once and kept until he picks another; one that ends stays picked (T8). A
+// pick this page never saw listed is given up after two reads without it (a stale link), unless this page started it.
 // 3.2.2.0 R6: config.json moving on disk (`halo teams apply`, `halo config set
 // model`: `files_changed`) reads GET fleet again: the sessions' lineup and model.
 import { createStore, goSection, studio, useStore } from "../../lib/store";
@@ -19,7 +20,7 @@ import { findAgent, fleet, isLive, keyOf, localId, parseKey, useFleet, type Flee
 import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
-import { livePick, noteRows } from "./pick";
+import { livePick, noteRows, staleRead } from "./pick";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
@@ -117,6 +118,7 @@ let busy = false;
 let lastSection = "";
 let lastSel = "";
 let needPick = false;
+let lastRead: unknown = null;
 
 /** Every studio or fleet change: the scope in and out of the section, the pick on enter, the session following the selection. */
 function onChange(): void {
@@ -140,6 +142,10 @@ function onChange(): void {
     const harness = localId(s);
     let session = s.scope.harness ? s.scope.session || "" : sess.get().chosen;
     const want = sess.get().want;
+    const read = s.loaded && !s.error && s.harnesses !== lastRead; // the rows read again (GET live, a frame)
+    if (read) lastRead = s.harnesses;
+    const gaveUp = read && !!session && !want && staleRead(localSessions(s), session);
+    if (gaveUp) (session = "", (needPick = true)); // R1: a pick never listed in two reads: Session as with no pick
     if (s.loaded && want) {
       sess.update(() => ({ want: null }));
       needPick = false;
@@ -148,9 +154,11 @@ function onChange(): void {
       if (key && findAgent(s, key)) select(key);
     } else if (s.loaded && needPick) {
       needPick = false;
-      // R1: the kept pick stays the pick (open, ended: T8, or not listed yet); with none, the default below
+      // R1: the kept pick stays the pick (open, ended: T8, or not listed yet); with none, the newest open session, whose
+      // newest working agent is selected (as before 3.6.0.2)
+      if (!session) session = livePick(localSessions(s), "")?.session_id || "";
       const p = parseKey(s.selected);
-      if (session && (!s.selected || p.h !== harness || !findAgent(s, s.selected))) {
+      if (session && (gaveUp || !s.selected || p.h !== harness || !findAgent(s, s.selected))) {
         const key = pickAgent(s, session); // an agent OF the kept session only
         if (key && findAgent(s, key)) select(key);
       }
