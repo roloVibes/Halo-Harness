@@ -31,10 +31,14 @@ class BenchRig:
         self.state = self.home.state
         self.card = gpu_card(24.0, self.kv)
         self.card["server"]["version"] = self.version
-        from halo_harness.providers.ollama import resolve_ollama_host
+        from halo_harness.providers.ollama import reset_ollama_version_cache, resolve_ollama_host
         from halo_harness.studio import ollama_hosts_view as V
         self.host = resolve_ollama_host("fake")
         V.reset_cache()
+        # 3.6.0.1 (CI, one Linux shard): a whole shard is ONE process, and Halo remembers each host's Ollama version
+        # by its address for the rest of the process. The fake listens on a port the system picks, so a fake of an
+        # earlier module that had the same port and another version made a fresh speed card read "measured on ..."
+        reset_ollama_version_cache()
         V.READERS.update(card=lambda _h: self.card, catalog=lambda _h: self.catalog())
         return self
 
@@ -44,9 +48,11 @@ class BenchRig:
 
     def __exit__(self, *exc):
         from halo_harness.providers.local_bench_runs import _INDEX
+        from halo_harness.providers.ollama import reset_ollama_version_cache
         from halo_harness.studio import ollama_hosts_view as V
         V.READERS.clear()
         V.reset_cache()
+        reset_ollama_version_cache()  # this fake's version never reaches the next module on the same port
         _INDEX.clear()
         self.home.__exit__(*exc)
         self.mock.stop()

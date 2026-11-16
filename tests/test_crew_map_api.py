@@ -166,8 +166,12 @@ def test_use_receipt_says_the_mode_outside_a_trusted_project(ctx: Ctx):
         (d / "settings.json").write_text(json.dumps({"permissions": {"defaultMode": "acceptEdits"}}), encoding="utf-8")
         cj = claude_json_path()
         cj.parent.mkdir(parents=True, exist_ok=True)
-        cj.write_text(json.dumps({"projects": {str(Path(rig.proj).absolute()).replace("\\", "/"): {"hasTrustDialogAccepted": True}}}),
-                      encoding="utf-8")
+        # the folder under both of its spellings: as the rig names it (what Studio's server was given) and as a
+        # process inside it reads its own folder (`halo maps use` below; on macOS the temp folder is reached through
+        # a link, so the two differ, and trust is looked up by the spelling, as Claude Code's own file keeps it)
+        import os
+        keys = {str(Path(rig.proj).absolute()).replace("\\", "/"), os.path.realpath(rig.proj).replace("\\", "/")}
+        cj.write_text(json.dumps({"projects": {k: {"hasTrustDialogAccepted": True} for k in sorted(keys)}}), encoding="utf-8")
         st, r = rig.api("POST", "crew/map/mine/use", {"on": True})
         said = str(r.get("said"))
         ctx.check(f"Studio's switch to mine: the receipt says sessions outside this project start in acceptEdits, got {st} {said!r}",
