@@ -499,6 +499,27 @@ def test_the_update_step_on_a_candidate_ahead_of_its_channel_judges_what_the_che
               isinstance(got, tuple) and not got[1]["online"]["offer_is_older"])
 
 
+@test
+def test_the_update_step_takes_the_same_version_sentence_as_saying_so(ctx: Ctx):
+    """CI's realcheck on rc/3.6.0.1-join, the three checkout legs: "update FAIL `halo update --check` (stable) offers
+    v3.6.0.0 ..., older than this build, and does not say so". The first candidate after a release still carries that
+    release's version, and Halo's own sentence for it (update_cli.older_release) is "the newest release, 3.6.0.0, is
+    the same version as, but not the commit of, this build ...; `halo update` would move you back": that says so. The
+    same offer with no such sentence stays a FAIL."""
+    repo, main_head, cand = _two_commits()
+    head = (f"installed: halo 3.6.0.0 ({cand[:7]}, rc/3.6.0.1-join)\n"
+            f"available (stable): {main_head[:7]}, v3.6.0.0\n")
+    said = head + (f"the newest release, 3.6.0.0, is the same version as, but not the commit of, this build (3.6.0.0, "
+                   f"{cand[:7]}); `halo update` would move you back. `halo update --channel main` follows the main "
+                   "line; `halo update --to v3.6.0.0` moves back on purpose\n")
+    got = _update_step(repo, said)
+    ctx.check(f"the same version on an older commit, told it would move you back: not a FAIL, got "
+              f"{getattr(got, 'detail', got)!r}", isinstance(got, tuple) and got[1]["stable"]["offer_is_older"])
+    got = _update_step(repo, head + "to apply: halo update  (it runs: git -C /x pull --ff-only origin main)\n")
+    ctx.check(f"the same offer with no word about it: FAIL, got {getattr(got, 'detail', got)!r}",
+              isinstance(got, core.Fail) and "older than this build" in got.detail)
+
+
 class _Chrome:
     """A page whose Prompt panel never shows the reply: every wait for it times out; the page reads say what is on it."""
 

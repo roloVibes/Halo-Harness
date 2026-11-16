@@ -137,9 +137,11 @@ def update(ctx):
         older = _offer_is_older(ctx, ev[tag]["out"])
         ev[tag]["offer_is_older"] = older
         # "differs from (<channel>)" is Halo's own label when git confirmed this build is NOT behind the offer
-        # (update_cli._print_report): a release candidate ahead of its channel is told so; "available" is the lie
-        if older and not re.search(r"\b(older|behind|back to|earlier|downgrade|ahead of)\b|\bdiffers from \(\w+\):",
-                                   ev[tag]["out"], re.I):
+        # (update_cli._print_report): a release candidate ahead of its channel is told so; "available" is the lie.
+        # 3.6.0.1: "would move you back" is update_cli.older_release's sentence for a release of the SAME version on
+        # another commit (the first candidate after a release still carries that release's version)
+        if older and not re.search(r"\b(older|behind|back to|move you back|earlier|downgrade|ahead of)\b"
+                                   r"|\bdiffers from \(\w+\):", ev[tag]["out"], re.I):
             bad.append(f"`halo update --check` ({tag}) offers {older}, older than this build, and does not say so: "
                        f"{ev[tag]['out'][:220]!r}")
     _no_leftovers(ctx, h, "`halo update --check`")
