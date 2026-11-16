@@ -125,6 +125,8 @@ def started(session, mc) -> None:
     t = round(time.time(), 3)
     try:
         session._map_started_at = t
+        from halo_harness.crew.map_facts import next_map
+        session._map_next_at_start = (next_map()[0],)  # R38: what the agent starts from (crew/map_facts.py turn_note)
     except Exception:
         pass
     _log(session, "map_start", {"map": getattr(mc, "map_name", ""), **identity(mc), "t": t})

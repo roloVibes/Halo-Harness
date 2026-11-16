@@ -173,11 +173,15 @@ def turn_note(session) -> "str | None":
         key = _key(f)
         told = getattr(session, "_map_told", None)
         if told is None and not getattr(session, "_map_note_sent", False):
-            session._map_told = key  # the first turn: the baseline, nothing sent (decision 7)
+            # the first turn: nothing sent (decision 7); the baseline is what the session started under (map_events
+            # `started` keeps F4 then), so a switch between its start and this turn is told at the next turn
+            start = getattr(session, "_map_next_at_start", None)
+            session._map_told = (f["map"], start[0]) if isinstance(start, tuple) else key
             return None
         pending = getattr(session, "_map_note_pending", None)
-        if key == told and pending is None and not getattr(session, "_map_retell", False):
-            return None
+        retell = getattr(session, "_map_retell", False)
+        if not retell and (key == pending or (key == told and pending is None)):
+            return None  # told, or an unsent note saying this is still in the log and rides the next request
         text = note_text(session, f)
         session.log.append_snapshot([{"type": "text", "text": text}], kind="map_facts")
         session._map_note_pending = key
@@ -188,7 +192,9 @@ def turn_note(session) -> "str | None":
 
 
 def sent(session) -> None:
-    """A request was handed to the provider: a pending note is told (R38: only a SENT note counts)."""
+    """The provider answered a request (agent/loop.py `_step`, at its first event): a pending note is told (R38: only
+    a SENT note counts). A turn stopped before that leaves it pending; its node stays in the log and goes with the
+    next request, so it is not logged twice."""
     pending = getattr(session, "_map_note_pending", None)
     if pending is not None:
         session._map_told = pending
@@ -197,8 +203,9 @@ def sent(session) -> None:
 
 
 def compacted(session) -> None:
-    """A compaction folded the log: a note sent before is sent again at the next turn's start."""
-    if getattr(session, "_map_note_sent", False):
+    """A compaction folded the log: a note sent before, or one still pending (its node is folded away), is logged
+    again at the next turn's start."""
+    if getattr(session, "_map_note_sent", False) or getattr(session, "_map_note_pending", None) is not None:
         session._map_retell = True
 
 

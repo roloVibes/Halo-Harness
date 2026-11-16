@@ -3575,7 +3575,6 @@ class Session:
                 watcher = threading.Thread(target=_watch_for_silent_steer, daemon=True)
                 watcher.start()
             call_abort = _EitherAbort(self.abort, steer_restart_event) if watcher is not None else self.abort
-            _map_facts.sent(self)  # 3.6.0.2 R38: only a note in a request handed to the provider counts as told
             gen = self._stream(req, abort=call_abort)
             from halo_harness.providers.dialect_apply import guard_for as _guard_for  # 3.3.6.0 R4: the loop guard
             loop_guard, loop_cut = _guard_for(self), False
@@ -3612,6 +3611,7 @@ class Session:
                         # the real wire `message_start`, sent essentially
                         # immediately. Either way this is "headers arrived".
                         ttfb_ms = round((time.monotonic() - call_t0) * 1000, 1)
+                        _map_facts.sent(self)  # 3.6.0.2 R38: the provider answered this request: its note is told
                         yield events.phase(state="headers", turn=turn_no, ttfb_ms=ttfb_ms)
                     elif kind == "reasoning_started":
                         # Halo 2.0.1: oai_stream.py's own real-time marker --

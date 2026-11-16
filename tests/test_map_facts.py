@@ -610,13 +610,19 @@ TIMED_BY_ME = r" \(switched on at \d{2}:\d{2}, by this session\)"
 @test
 def test_note_never_on_the_first_turn(ctx: Ctx):
     """R38 (decision 7): the map new sessions use changed after the session was built and before its first turn: the
-    first request carries no note."""
+    first request carries no note; the agent was never told, so the second turn carries it (the baseline is what the
+    session started under, not what its first turn found), the third none."""
     from halo_harness.theme import set_config_value
     with _NoteRig() as rig:
         set_config_value("crew.map", "review-flow")
         first = rig.turn("Say hello.")
         ctx.check(f"the first request went out, got {first is not None}", first is not None)
         ctx.check("no facts note on the first turn", NOTE not in json.dumps(first or {}))
+        two = _notes(rig.turn("Which map?"))
+        ctx.check(f"turn 2: exactly one note naming review-flow, got {two}",
+                  len(two) == 1 and _match(two[0], "review-flow", TIMED))
+        three = _notes(rig.turn("Thanks."))
+        ctx.check(f"turn 3 (nothing changed): no new note, got {three}", three == [])
 
 
 @test
@@ -692,9 +698,16 @@ def test_only_a_sent_note_counts_as_told(ctx: Ctx):
         finally:
             map_facts.turn_note = real
         ctx.check(f"turn 2 interrupted before its request: none went out, got {two is not None}", two is None)
+        told = (rig.s.team_control.map_name, "review-flow")
+        # the log keeps the unsent node, so what the model reads is the same either way; what R38 forbids is counting
+        # it as told before a request carrying it reached the provider: the session must still hold it pending
+        ctx.check(f"after turn 2 the note is pending, not told, got told={rig.s._map_told} "
+                  f"pending={rig.s._map_note_pending}", rig.s._map_told != told and rig.s._map_note_pending == told)
         three = _notes(rig.turn("Which map now?"))
-        ctx.check(f"turn 3 carries the note (review-flow), got {three}",
-                  len(three) >= 1 and all(_match(n, "review-flow", TIMED) for n in three))
+        ctx.check(f"turn 3 carries the note (review-flow) exactly once, got {three}",
+                  len(three) == 1 and _match(three[0], "review-flow", TIMED))
+        ctx.check(f"turn 3's request reached the provider: told, got told={rig.s._map_told} "
+                  f"pending={rig.s._map_note_pending}", rig.s._map_told == told and rig.s._map_note_pending is None)
         four = _notes(rig.turn("Thanks."))
         ctx.check(f"turn 3's request carried it, so turn 4 has none, got {four}", four == [])
 
