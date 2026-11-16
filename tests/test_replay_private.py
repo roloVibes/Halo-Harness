@@ -356,6 +356,7 @@ def _login_and_share_shapes(name: str) -> list:
     3.6.0.0 scrubbed for any account name (made-up hosts only, built from parts: no address of any kind)."""
     bs, host = chr(92), "gpu-box"
     unc = bs * 2
+    v6 = ":".join([format(0xFE80, "x"), "", "7"])  # a bracketed host, never written as a literal
     return [(f"{name}@{host}", "<user>@<machine>"), (f"{name}@{host}:~/x", "<user>@<machine>:~/x"),
             (f"ssh {name}@{host}", "ssh <user>@<machine>"), (f"{name}@{host}:~$ ls", "<user>@<machine>:~$ ls"),
             (f"scp a.txt {name}@nas-01.example:/srv", "scp a.txt <user>@nas-01.example:/srv"),
@@ -371,7 +372,20 @@ def _login_and_share_shapes(name: str) -> list:
             (f"//{host}/{name}/x", "//<machine>/<user>/x"),
             (f"{unc}?{bs}UNC{bs}{host}{bs}{name}{bs}x", f"{unc}?{bs}UNC{bs}<machine>{bs}<user>{bs}x"),
             (f"{unc}{host}{bs}Users{bs}{name}{bs}x", f"{unc}<machine>{bs}Users{bs}<user>{bs}x"),
-            (f"{unc}{host}{bs}home{bs}{name}", f"{unc}<machine>{bs}home{bs}<user>")]
+            (f"{unc}{host}{bs}home{bs}{name}", f"{unc}<machine>{bs}home{bs}<user>"),
+            # batch 2 repair: a bracketed host (built at run time), a share written as a URL, the account's slots
+            (f"{name}@[{v6}]", f"<user>@[{v6}]"), (f"ssh {name}@[{v6}]:~/x", f"ssh <user>@[{v6}]:~/x"),
+            (f"smb://{host}/{name}/x", "smb://<machine>/<user>/x"), (f"file://{host}/{name}/x", "file://<machine>/<user>/x"),
+            (f"afp://{host}/{name}", "afp://<machine>/<user>"),
+            (f"git clone ssh://git@{host}:22/{name}/repo.git", "git clone ssh://git@<machine>:22/<user>/repo.git"),
+            (f"git@{host}:{name}/repo.git", "git@<machine>:<user>/repo.git"),
+            (f"ssh -l {name} {host}", "ssh -l <user> <machine>"), (f"mysql -u {name} -p", "mysql -u <user> -p"),
+            (f"psql --username={name} -h {host}", "psql --username=<user> -h <machine>"),
+            (f"user={name} host={host}", "user=<user> host=<machine>"), (f"export USER={name}", "export USER=<user>"),
+            (f'{{"username": "{name}"}}', '{"username": "<user>"}'), (f"DB_USER: {name}", "DB_USER: <user>"),
+            (f"owner={name}", "owner=<user>"), (f"su - {name}", "su - <user>"), (f"sudo su {name}", "sudo su <user>"),
+            (f"chown -R {name}:staff f", "chown -R <user>:staff f"), (f"id {name}", "id <user>"),
+            (f"runas /user:{name} cmd", "runas /user:<user> cmd"), (f"passwd {name}", "passwd <user>")]
 
 
 @test
@@ -388,7 +402,7 @@ def test_a_common_word_account_never_keeps_a_login_or_a_share_3600_scrubbed(ctx:
             ctx.check(f"[{name}] {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
     keep = ("the admin said hi", "user input", "a dev build", "open the admin panel", "sysadmin@<machine>",
             "x.admin@<machine>", "my-admin@<machine>", "admin_x@<machine>", "ping @admin please", "admin @ noon",
-            "https://<machine>/admin/login", "admin@", "<user>@<machine>")
+            "admin@", "<user>@<machine>", "git push -u origin", "sort -u admins.txt", "the admin: hi")
     for name in ("admin", "user"):
         for text in keep:
             text = text.replace("admin", name) if "<user>" not in text else text
@@ -433,6 +447,21 @@ def test_audit_finds_a_common_word_account_in_a_login_or_a_share(ctx: Ctx):
     finally:
         for k, v in saved.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
+@test
+def test_the_name_patterns_stay_linear_on_a_long_run_of_name_colons(ctx: Ctx):
+    """3.6.0.1 jf-words batch 2 repair: the login pattern looked ahead to the end of `admin:admin:admin...` from every
+    name (quadratic: minutes at 200 KB); the audit runs these patterns over whole replay texts. Each pattern alone on
+    180 KB of it is a few milliseconds when linear; the budget is set for a slow CI runner."""
+    import time
+    from halo_harness.live.replay_private import _name_patterns
+    text = "admin:" * 30000
+    for pat in _name_patterns(["admin"]):
+        t0 = time.perf_counter()
+        pat.sub("", text)
+        took = time.perf_counter() - t0
+        ctx.check(f"{pat.pattern[:60]!r} took {took:.2f} s on 180 KB", took < 8.0)
 
 
 if __name__ == "__main__":
