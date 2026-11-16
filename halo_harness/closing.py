@@ -119,8 +119,8 @@ def marker_owner_alive(mark: str) -> Optional[bool]:
         return False
     if ident(int(pid), _start(int(pid))) == mark or not digest:
         return True
-    from halo_harness.bg_run import _ps_process_start_time  # a 3.5 Halo's marker: its `ps` start in its own zone
-    return os.name != "nt" and not os.path.isdir("/proc/self") and ident(int(pid), _ps_process_start_time(
+    from halo_harness.bg_run import _ps_process_start_time, no_proc  # a 3.5 Halo's marker: its `ps` start in its zone
+    return no_proc() and ident(int(pid), _ps_process_start_time(
         int(pid), local=True)) == mark
 
 
@@ -897,9 +897,14 @@ def ensure_reaper() -> None:
         _STATE["reaper"] = 0
         pid, start = me()
         import subprocess as _sp
+        # This process's OWN id, never marker(): on macOS install()'s first `ps` look (a spawn) starts the reaper
+        # before install has put that id in the environment, and a reaper given the inherited marker ended the
+        # parent's things and left this one's running (3.6.0.0 fx); its environment carries the same id.
+        mark = ident(pid, start)
         argv = [sys.executable, "-I", "-S", str(Path(__file__).with_name("closing_reaper.py")), str(pid), start or "",
-                marker(), str(_home()), str(Path(__file__).resolve().parent.parent)]
+                mark, str(_home()), str(Path(__file__).resolve().parent.parent)]
         env = {k: v for k, v in os.environ.items() if k != WATCH}
+        env[MARKER] = mark
         try:
             proc = _sp.Popen(argv, stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, env=env,
                              start_new_session=True, close_fds=True)

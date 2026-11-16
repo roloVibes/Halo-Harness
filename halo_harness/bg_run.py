@@ -128,7 +128,7 @@ def process_start_time(pid: int) -> Optional[str]:
         return None
     if os.name == "nt":
         return _windows_process_start_time(pid)
-    if not os.path.exists("/proc/self/stat"):
+    if no_proc():
         return _ps_process_start_time(pid)  # macOS and the BSDs have no /proc
     try:
         with open(f"/proc/{pid}/stat", "r", encoding="utf-8", errors="replace") as fh:
@@ -141,6 +141,12 @@ def process_start_time(pid: int) -> Optional[str]:
         return after[19]
     except (OSError, IndexError, ValueError):
         return None
+
+
+def no_proc() -> bool:
+    """POSIX with no /proc (macOS, the BSDs): process identity and liveness are read from `ps`. HALO_TEST_NO_PROC=1
+    (tests only, read here alone) makes a Linux box take the same path, so the macOS closing procedure runs there."""
+    return os.name != "nt" and (os.environ.get("HALO_TEST_NO_PROC") == "1" or not os.path.exists("/proc/self/stat"))
 
 
 PS_TTL_S = 1.5  # how long one `ps` look at a pid answers for it (macOS, the BSDs)
@@ -173,7 +179,8 @@ def _ps_look(pid: int, *, local: bool = False) -> "tuple[Optional[str], Optional
     if result.returncode != 0 or not parts:
         _PS_SEEN.pop(pid, None)
         return "", None
-    stat, start = parts[0], (" ".join(parts[1:]) or None)
+    # `lstart` is always five fields ("Mon Oct  5 10:00:00 2026", the day padded on macOS); the state is what is before
+    stat, start = " ".join(parts[:-5]), " ".join(parts[-5:])
     if not local:
         if len(_PS_SEEN) > 256:
             _PS_SEEN.clear()
@@ -311,7 +318,7 @@ def pid_alive(pid: int) -> bool:
         return False
     # A zombie (exited, not yet reaped) still answers kill(pid, 0); Linux
     # exposes its state in /proc, and a zombie is not alive for our purposes.
-    if not os.path.isdir("/proc/self"):
+    if no_proc():
         return not _ps_zombie(pid)  # 3.6.0.0 R12: macOS has no /proc
     try:
         with open(f"/proc/{pid}/stat", "r", encoding="utf-8", errors="replace") as fh:

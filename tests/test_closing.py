@@ -41,7 +41,7 @@ BOUND_S = 5.0
 
 
 def _env(home: Path) -> dict:
-    env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUB)}
+    env = {k: v for k, v in os.environ.items() if not k.startswith(SCRUB) or k == "HALO_TEST_NO_PROC"}  # macOS's path
     env.update(BRIDGE_TEST_HOME=str(home), BRIDGE_TEST_NO_BACKGROUND_NET="1", PYTHONPATH=str(REPO),
                PYTHONIOENCODING="utf-8", HALO_NO_BROWSER="1", OLLAMA_HOST="http://127.0.0.1:9")
     return env

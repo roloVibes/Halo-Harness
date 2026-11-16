@@ -72,7 +72,8 @@ def start_token(pid) -> Optional[str]:
         return None
     if os.name == "nt":
         return _windows_token(pid)
-    if os.path.isdir("/proc/self") and os.path.exists(f"/proc/{os.getpid()}/stat"):
+    from halo_harness.bg_run import no_proc
+    if not no_proc() and os.path.exists(f"/proc/{os.getpid()}/stat"):
         return _linux_token(pid)
     return _ps_token(pid)
 
