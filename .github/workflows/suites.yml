@@ -168,7 +168,7 @@ jobs:
               set -- $entry
               name="$1"; key="$2"; outcome="$3"
               [ "$outcome" = "skipped" ] && { echo "- \`$name\` -- runs in shard 0's job"; continue; }
-              line=$(grep -E '^RESULT:|^exit=' "$RUNNER_TEMP/${key}.log" 2>/dev/null | tail -2 | tr '\n' ' ')
+              line=$(grep -E '^RESULT:|^exit=' "$RUNNER_TEMP/${key}.log" 2>/dev/null | tail -2 | tr '\n' ' ' || true)
               mark="PASS"; [ "$outcome" = "success" ] || mark="FAIL"
               echo "- **$mark** \`$name\` -- ${line:-no RESULT line captured}"
             done
@@ -192,7 +192,7 @@ jobs:
             "$RUNNER_TEMP/run_all.log" 2>/dev/null || true
 
       - name: Upload logs on failure
-        if: (steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped')
+        if: always() && ((steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped'))
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: suite-logs-${{ matrix.os }}-${{ matrix.shard }}
@@ -315,7 +315,7 @@ jobs:
               set -- $entry
               name="$1"; key="$2"; outcome="$3"
               [ "$outcome" = "skipped" ] && { echo "- \`$name\` -- runs in shard 0's job"; continue; }
-              line=$(grep -E '^RESULT:|^exit=' "$RUNNER_TEMP/${key}.log" 2>/dev/null | tail -2 | tr '\n' ' ')
+              line=$(grep -E '^RESULT:|^exit=' "$RUNNER_TEMP/${key}.log" 2>/dev/null | tail -2 | tr '\n' ' ' || true)
               mark="PASS"; [ "$outcome" = "success" ] || mark="FAIL"
               echo "- **$mark** \`$name\` -- ${line:-no RESULT line captured}"
             done
@@ -336,7 +336,7 @@ jobs:
             "$RUNNER_TEMP/run_all.log" 2>/dev/null || true
 
       - name: Upload logs on failure
-        if: (steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped')
+        if: always() && ((steps.bridge.outcome != 'success' && steps.bridge.outcome != 'skipped') || steps.run_all.outcome != 'success' || (steps.tui.outcome != 'success' && steps.tui.outcome != 'skipped'))
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: suite-logs-windows-${{ matrix.shard }}
