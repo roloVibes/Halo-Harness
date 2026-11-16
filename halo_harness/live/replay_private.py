@@ -145,9 +145,15 @@ _ACCOUNT_FLAGS = (("ssh", "-l"), ("sudo", "-u"), ("docker", "-u|--user"), ("psql
 #: the commands whose argument is an account (`su - name`, `chown -R name:staff`, `id name` ...)
 _ACCOUNT_COMMANDS = r"(?:su(?:[^\S\n]+-l?)?|chown(?:[^\S\n]+-\w+)*|id|passwd|finger|groups|useradd|userdel|adduser|deluser)"
 #: a command position: a line's start (a JSON text's `\n` too), a quote's or `(`'s start, after `;` `&` `|`, after a
-#: prompt mark and a space (`$ `, `# `, `% `, `> `); then `sudo` and its flags may come first
-_CMD_AT = (r"(?:(?<![^\n\"'`(;&|])|(?<=\\n)|(?<=[$#%>] ))[^\S\n]*"
-           r"(?:sudo(?:[^\S\n]+-[\w-]+)*[^\S\n]+)?")
+#: prompt mark and a space (`$ `, `# `, `% `, `> `); then a `set -x` trace's `+`, `env` and `VAR=value`s, `sudo` and
+#: its options (`-u root`), a folder (`/usr/bin/`) may come first (each bounded: linear time from every position)
+_CMD_AT = (r"(?:(?<![^\n\"'`(;&|])|(?<=\\n)|(?<=[$#%>] ))[^\S\n]*(?:\++[^\S\n]+)?"
+           r"(?:(?:env[^\S\n]+)?(?:\w{1,64}=[^\s;&|]{0,256}[^\S\n]+){1,8})?"
+           r"(?:sudo(?:[^\S\n]+-(?:[ughCpU]|-user|-group)[^\S\n]+[^\s;&|-][^\s;&|]{0,255}|[^\S\n]+-[\w-]+){0,8}"
+           r"[^\S\n]+)?(?:[^\s;&|\"'`]{0,256}[/\\])?")
+#: a command of the flag list stands as a whole word anywhere on a line (`timeout 5 ssh`, `PGPASSWORD=x psql`, `sudo
+#: -u postgres psql`), a folder before it, `.exe` after it
+_CMD_WORD = r"(?:(?<![\w.-])|(?<=\\[nrt]))"
 #: a command's other arguments before its account flag: a few, each bounded (linear time from every position)
 _ARGS = r"(?:[^\S\n]+[^\s;&|]{1,256}){0,16}?[^\S\n]+"
 
@@ -164,10 +170,11 @@ def _account_slots(names: list) -> list:
     if not names:
         return []
     either = "(" + "|".join(map(re.escape, names)) + ")"
-    flags = "|".join(re.escape(cmd) + _ARGS + r"(?-i:" + fl + r")(?:(?<=:)|[^\S\n]+|=)" for cmd, fl in _ACCOUNT_FLAGS)
+    flags = "|".join(re.escape(cmd) + r"(?:\.exe)?" + _ARGS + r"(?-i:" + fl + r")(?:(?<=:)|[^\S\n]+|=)"
+                     for cmd, fl in _ACCOUNT_FLAGS)
     return [re.compile(r"(?i)([\"'`])" + either + r"(?=\1@)"),
-            re.compile(r"(?i)(" + _CMD_AT + r"(?:(?:" + flags + r")|" + _ACCOUNT_COMMANDS + r"[^\S\n]+))"
-                       + either + _SEGMENT_END),
+            re.compile(r"(?i)((?:" + _CMD_WORD + r"(?:" + flags + r")|" + _CMD_AT + _ACCOUNT_COMMANDS
+                       + r"[^\S\n]+))" + either + _SEGMENT_END),
             re.compile(r"(?i)((?<![\w-])\w*?(?:user(?:_?name)?|login|logname|owner)\\*[\"'`]?\s*[=:]\s*\\*[\"'`]?)"
                        + either + _SEGMENT_END)]
 #: where the name's segment ends: anything that does not run on into more name, as the path rule's _TAIL ends a home
@@ -195,7 +202,8 @@ def _name_patterns(names: list, *, segments: bool = True, machines: Iterable[str
         # jf-words batch 3: Windows' `machine\name` (whoami, runas / net use `/user:`, an ACL's owner), one backslash
         # or JSON-doubled; not after a slash or backslash (a UNC share is the segment rule's), nor glued to a word
         hosts = "|".join(["<machine>"] + [re.escape(str(m)) for m in machines if m])
-        out.append(re.compile(r"(?i)((?:(?<![\w.\\/-])|(?<=\\[nrt]))(?:" + hosts + r")\\+)" + either + _SEGMENT_END))
+        out.append(re.compile(r"(?i)((?:(?<![\w.\\/-])|(?<=\\[nrt]))(?:" + hosts + r")(?:\.[\w-]{1,64}){0,8}\\+)"
+                              + either + _SEGMENT_END))  # repair: this machine's full name too (`gpu-box.local\name`)
         out += _account_slots(ordered)
     alts = [re.escape(n) for n in ordered if len(n) >= 3 and n.lower() not in COMMON_NAMES]
     alts += [re.escape(re.sub(r"[\s.]", "", n)[:6]) + r"~\d+" for n in names if len(re.sub(r"[\s.]", "", n)) > 6]
@@ -208,6 +216,9 @@ def _name_rule(names: list, word: str, *, segments: bool = True, machines: Itera
     pats = _name_patterns(names, segments=segments, machines=machines)
     if not pats:
         return None
+    if segments:  # jf-words batch 3 repair: the name's own group right after it (`chown name:name`, `--user name:name`)
+        pats.append(re.compile(r"(?i)(" + re.escape(word) + r":)(" + "|".join(
+            re.escape(str(n)) for n in sorted(names, key=len, reverse=True) if n) + r")" + _SEGMENT_END))
 
     def rule(s: str) -> str:
         for pat in pats:

@@ -572,6 +572,43 @@ def test_a_common_word_is_an_account_only_in_a_command_s_account_slot(ctx: Ctx):
 
 
 @test
+def test_a_listed_account_slot_counts_behind_a_path_a_prefix_or_a_trace(ctx: Ctx):
+    """3.6.0.1 jf-words batch 3 repair: batch 3 took an account flag only when its command stood at a command line's
+    very start, so `ssh.exe -l name`, `/usr/bin/ssh -l name`, `PGPASSWORD=x psql -U name`, `sudo -u postgres psql -U
+    name`, `env X=1 sudo -u name ls`, `timeout 5 ssh -l name` and a `set -x` trace (`+ ssh -l name`) kept the name
+    (3.6.0.0 removed it). A command of the flag list counts wherever it stands as a whole word (a path before it, `.exe`
+    after it); a command of the word list (`id`, `chown` ...) after a trace mark, `VAR=value` / `env`, `sudo` and its
+    options, or a folder. The group of `name:name` (`chown`, `--user`) goes with the name. The audit shares this."""
+    from halo_harness.live.replay_private import _name_patterns, scrub
+    win = "C:\\Windows\\System32\\OpenSSH\\ssh.exe"
+    for name in ("admin", "build"):
+        def run(text):
+            return scrub({"t": text}, None, homes=[], users=[name], machines=["gpu-box"])["t"]
+        gone = ((f"ssh.exe -l {name} gpu-box", "ssh.exe -l <user> <machine>"),
+                (f"{win} -l {name} gpu-box", f"{win} -l <user> <machine>"),
+                (f"/usr/bin/ssh -l {name} gpu-box", "/usr/bin/ssh -l <user> <machine>"),
+                (f"PGPASSWORD=x psql -U {name} -d db", "PGPASSWORD=x psql -U <user> -d db"),
+                (f"sudo -u postgres psql -U {name}", "sudo -u postgres psql -U <user>"),
+                (f"env X=1 sudo -u {name} ls", "env X=1 sudo -u <user> ls"),
+                (f"timeout 5 ssh -l {name} gpu-box", "timeout 5 ssh -l <user> <machine>"),
+                (f"+ ssh -l {name} gpu-box", "+ ssh -l <user> <machine>"),
+                (f"++ id {name}", "++ id <user>"), (f"env LANG=C id {name}", "env LANG=C id <user>"),
+                (f"/usr/bin/id {name}", "/usr/bin/id <user>"), (f"sudo -u root chown {name} f", "sudo -u root chown <user> f"),
+                (f"docker run --user {name}:{name} img", "docker run --user <user>:<user> img"),
+                (f"chown -R {name}:{name} f", "chown -R <user>:<user> f"),
+                (f"gpu-box.local\\{name}", "<machine>.local\\<user>"))
+        for text, want in gone:
+            ctx.check(f"[{name}] an account slot: {text!r} -> {want!r}, got {run(text)!r}", run(text) == want)
+            pats = _name_patterns([name], machines=["gpu-box"])
+            ctx.check(f"[{name}] the audit finds {text!r}", any(p.search(text) for p in pats))
+        keep = (f"sudo pip install -U {name}", f"env X=1 python -m {name}", f"+ git push -u origin {name}",
+                f"/usr/bin/sort -u {name}.txt", f"the ssh {name} key", f"x=1 git checkout {name}",
+                f"chown -R root:{name} f")
+        for text in keep:
+            ctx.check(f"[{name}] not an account slot: {text!r} kept, got {run(text)!r}", run(text) == text)
+
+
+@test
 def test_a_generic_word_outside_home_folders_and_logins_is_the_documented_limit(ctx: Ctx):
     """3.6.0.1 jf-words batch 3, the coordinator's ruling (docs/REPLAY.md): for an account named by a common word the
     scrub removes the name in home folders and logins only; in an `ls -l` owner column, a process list, an ssh config

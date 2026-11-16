@@ -82,10 +82,13 @@ path, user name and machine name (`tests/test_replay_private.py` seeds them, Win
 
 **An account named by a common word (3.6.0.1).** When your account name is a generic word (`admin`, `user`, `dev`,
 `build`, `runner` ...), a shared replay removes it in home folders and in logins only: `name@machine`,
-`machine\name`, a share `\\machine\name`, and an account slot of `ssh -l`, `sudo -u`, `docker -u`, `psql -U`,
-`mysql -u`, `runas` / `net use /user:`, `su`, `chown`, `id`, `passwd`, `groups`, `finger`, `useradd` and kin, and
-keys such as `user=` or `owner=`. Anywhere else (an `ls -l` owner column, a process list, an `/etc/passwd` line, an
-ssh config `User` line, a role value, a path or route word, ordinary prose) the word stays, because there it cannot be
+`machine\name` where `machine` is this computer's own name (a domain account such as `CORP\name` keeps the word), a
+share `\\machine\name`, an account slot of `ssh -l`, `sudo -u`, `docker -u`, `psql -U`, `mysql -u`, `runas` /
+`net use /user:` (wherever the command stands on the line), of `su`, `chown`, `id`, `passwd`, `groups`, `finger`,
+`useradd` and kin (at the start of a command), and keys such as `user=` or `owner=`. Other commands that take an
+account (`crontab -u`, `getent passwd`, `net user`) are not on that list. Anywhere else (an `ls -l` owner column, a
+process list, an `/etc/passwd` line, an ssh config `User` line, a role value, a path or route word, ordinary prose)
+the word stays, because there it cannot be
 told from the ordinary word, and a generic word identifies nobody. `halo audit privacy --replays` uses these same
 rules: it reports a home folder or login that still holds the name (a replay saved by an older Halo, say), but not the
 word in those other places, so if you want every occurrence gone, search the replay file for the word yourself before
