@@ -108,6 +108,28 @@ def test_any_other_terminal_still_gets_its_title(ctx: Ctx):
     ctx.check("Halo's own title is on the wire, so the capture sees what Halo writes", b"\x1b]2;halo\x07" in out)
 
 
+@test
+def test_a_terminal_that_cannot_be_named_over_ssh_or_sudo_gets_no_osc22_and_no_mode_query(ctx: Ctx):
+    """fix pass 2 batch 2 (sessions-storage): from Apple Terminal over ssh (or through sudo) TERM_PROGRAM does not
+    arrive (ssh forwards only TERM and LANG/LC_*; sudo resets the environment), so the R12 check saw "not Apple
+    Terminal" and sent the BEL-closed OSC 22 again. Where the terminal cannot be named, only one known to take
+    OSC 22 gets it. A local terminal keeps what it had."""
+    from halo_harness import term_profile as tp
+    ssh_from_apple = {"TERM": "xterm-256color", "SSH_CONNECTION": "a 1 b 22", "SSH_TTY": "/dev/pts/3", "LANG": "en_US.UTF-8"}
+    sudo_local = {"TERM": "xterm-256color", "SUDO_USER": "someone"}
+    ctx.check("ssh from Apple Terminal: no OSC 22", not tp.takes_pointer_shape(ssh_from_apple))
+    ctx.check("ssh from Apple Terminal: no DECRQM query", not tp.takes_mode_queries(ssh_from_apple))
+    ctx.check("sudo without TERM_PROGRAM: no OSC 22", not tp.takes_pointer_shape(sudo_local))
+    ctx.check("ssh from kitty (TERM=xterm-kitty) keeps OSC 22",
+              tp.takes_pointer_shape({"TERM": "xterm-kitty", "SSH_CONNECTION": "a 1 b 22"}))
+    ctx.check("ssh with a forwarded TERM_PROGRAM of a terminal that has it keeps OSC 22",
+              tp.takes_pointer_shape({"TERM": "xterm-256color", "TERM_PROGRAM": "WezTerm", "SSH_TTY": "/dev/pts/1"}))
+    ctx.check("a local terminal keeps OSC 22 and its queries",
+              tp.takes_pointer_shape({"TERM": "xterm-256color"}) and tp.takes_mode_queries({"TERM": "xterm-256color"}))
+    ctx.check("Apple Terminal itself still gets none", not tp.takes_pointer_shape({"TERM_PROGRAM": "Apple_Terminal"}))
+    ctx.check("the window title is unchanged over ssh", tp.sets_title(ssh_from_apple))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

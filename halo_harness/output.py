@@ -152,6 +152,14 @@ def _escalation_dicts(decisions: Optional[list]) -> list:
     return out
 
 
+def _one_terminal(stream) -> bool:
+    """Whether `stream` and stderr are both a terminal (one screen), where a line written to each reads twice."""
+    try:
+        return bool(stream.isatty() and sys.stderr.isatty())
+    except (AttributeError, ValueError, OSError):
+        return False
+
+
 class PrintModeSink:
     """Drains a Session.turn(...) event iterator and either prints plain
     text (the FINAL assistant message only, non-verbose; every message
@@ -397,7 +405,9 @@ class PrintModeSink:
                     if not self._error_message.endswith("\n"):
                         self.stream.write("\n")
                     self.stream.flush()
-                print(f"\nerror: {self._error_message}", file=sys.stderr)
+                # fix pass 2: stdout and stderr on one terminal showed the sentence twice; a pipe still gets both
+                if not (self._error_message and _one_terminal(self.stream)):
+                    print(f"\nerror: {self._error_message}", file=sys.stderr)
             elif self._final_text:
                 self.stream.write(self._final_text)
                 if not self._final_text.endswith("\n"):

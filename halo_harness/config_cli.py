@@ -136,6 +136,10 @@ def _cmd_set(rest: list) -> int:
     if pack_row is not None and value_problem(pack_row, value):
         print(f"halo config: {value_problem(pack_row, value)}", file=sys.stderr)
         return 2
+    problem = _set_problem(args.key, value)
+    if problem:
+        print(f"halo config: {problem}", file=sys.stderr)
+        return 2
     try:
         if args.key == "theme":  # 3.3.12.0 R2: through persist_theme, which keeps a pack palette's restore record
             theme_mod.persist_theme(value)
@@ -153,6 +157,39 @@ def _cmd_set(rest: list) -> int:
     if args.key == "model" and isinstance(value, str) and value.strip():
         _main_model_lines(value.strip())  # 3.3.5.0 R0b (d)
     return 0
+
+
+def _set_problem(key: str, value) -> str:
+    """fix pass 2 (sessions-storage batch 2): '' when `halo config set key value` may be saved, else the one line it
+    prints. A top-level key nothing reads (a typo) is refused with the nearest known key; a value outside its
+    setting's choices (settings catalog) is refused; a model that does not parse is refused before it is saved
+    (every later run would fail on it). Unset (null or "") is always allowed."""
+    if value is None or value == "":
+        return ""
+    from halo_harness.schemas.check import closest_key
+    from halo_harness.schemas.config_json import MOVED_IN, PACKED_SECTIONS, known_keys
+    top = key.split(".", 1)[0]
+    known = known_keys()
+    if top not in known and top not in MOVED_IN and top not in PACKED_SECTIONS:
+        near = closest_key(top, known)
+        hint = f" (did you mean {near!r}?)" if near else ""
+        return f"unknown key {key!r}{hint}; nothing reads it, so it was not saved"
+    from halo_harness import settings_catalog
+    row = settings_catalog.row(key)
+    choices = tuple(row.choices) if row is not None and row.kind == "enum" and key != "theme" else ()
+    if key == "permission_mode":  # every mode --permission-mode takes is read from config.json too
+        choices += ("dontAsk", "bypassPermissions", "manual")
+    if choices and value not in choices:
+        return f"{key} is one of {', '.join(map(str, choices))}; {value!r} is not"
+    if row is not None and row.kind == "model" and isinstance(value, str):
+        from halo_harness.config.paths import bridge_home
+        from halo_harness.model import parse_model_ref
+        from halo_harness.providers.config import load_routes
+        try:
+            parse_model_ref(value.strip(), load_routes(bridge_home() / "routes.json"))
+        except Exception as e:
+            return f"{key}: {e}"
+    return ""
 
 
 def _main_model_lines(ref: str) -> None:

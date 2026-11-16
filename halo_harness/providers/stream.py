@@ -230,6 +230,22 @@ class ProviderNotConfigured(Exception):
     configured" 502 wording exactly."""
 
 
+# fix pass 2 (sessions-storage batch 2): a first run with no provider ended on a bare "OpenRouter not configured";
+# each sentence now says what to set or run (the controller's and a sub-agent's refusals use this one table too)
+_NOT_CONFIGURED_FIX = {
+    "OpenRouter": "set OPENROUTER_API_KEY, or run `halo init` to set up a provider",
+    "Anthropic": "set ANTHROPIC_API_KEY, or run `halo init` to set up a provider",
+    "Databricks": "run `halo init --provider databricks`",
+    "Ollama host": "set OLLAMA_HOST, or run `halo init` to set up a provider",
+}
+
+
+def not_configured_message(label: str) -> str:
+    """`<label> not configured -- <what to set or run>` (the label alone for a provider with no table entry)."""
+    fix = _NOT_CONFIGURED_FIX.get(label)
+    return f"{label} not configured -- {fix}" if fix else f"{label} not configured"
+
+
 def _upstream_error_from_mapping(status: int, jbody: dict, hdrs: dict, *,
                                   upstream_status: "int | None" = None) -> UpstreamError:
     err = jbody.get("error") or {}
@@ -428,7 +444,7 @@ def _run_phase1(req: CompletionRequest, abort: "threading.Event | None" = None):
             # "OpenRouter not configured".
             raise ProviderNotConfigured("Experiential Labs not configured -- set EXPLABS_API_KEY")
         provider_label = "Databricks" if req.route.provider == "databricks" else "OpenRouter"
-        raise ProviderNotConfigured(f"{provider_label} not configured")
+        raise ProviderNotConfigured(not_configured_message(provider_label))
 
     sock_box: list = [None]
 
@@ -799,7 +815,7 @@ def _run_phase1_anthropic(req: CompletionRequest, abort: "threading.Event | None
             # instead of the generic "Anthropic" label below.
             raise ProviderNotConfigured("Experiential Labs not configured -- set EXPLABS_API_KEY")
         provider_label = "Databricks" if req.route.provider == "databricks" else "Anthropic"
-        raise ProviderNotConfigured(f"{provider_label} not configured")
+        raise ProviderNotConfigured(not_configured_message(provider_label))
 
     sock_box: list = [None]
 
@@ -1107,7 +1123,7 @@ def _run_phase1_ollama_attempt(req: CompletionRequest, body: dict, abort: "threa
     if abort is not None and abort.is_set():
         raise _Aborted()
     if req.creds is None:
-        raise ProviderNotConfigured("Ollama host not configured")
+        raise ProviderNotConfigured(not_configured_message("Ollama host"))
 
     sock_box: list = [None]
 

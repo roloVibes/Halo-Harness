@@ -109,13 +109,26 @@ def _not_configured_message(ref) -> str:
         return "OpenAI API not configured -- set OPENAI_API_KEY"
     if ref.provider == "experiential":
         return "Experiential Labs not configured -- set EXPLABS_API_KEY"
+    from halo_harness.providers.stream import not_configured_message
     if ref.provider == "ollama":
-        return "Ollama host not configured"
+        return not_configured_message("Ollama host")
     if ref.provider == "anthropic":
-        return "Anthropic not configured"
+        return not_configured_message("Anthropic")
     if ref.provider == "databricks":
-        return "Databricks not configured"
-    return "OpenRouter not configured"
+        return not_configured_message("Databricks")
+    return not_configured_message("OpenRouter")
+
+
+def setup_hint_line(session) -> "str | None":
+    """fix pass 2 (sessions-storage batch 2): the line a session's first screen shows when its model has no
+    credentials (a first run with nothing set up), so the first prompt is not where a person learns it; None
+    otherwise."""
+    if session is None or getattr(session, "creds", True) is not None:
+        return None
+    ref = getattr(session, "model_ref", None)
+    if ref is None:
+        return None
+    return f"No provider is set up for {getattr(ref, 'raw', None) or ref.model}: {_not_configured_message(ref)}"
 
 
 class Controller:

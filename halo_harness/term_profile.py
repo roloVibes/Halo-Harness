@@ -30,14 +30,30 @@ def sets_title(env: Optional[dict] = None) -> bool:
     return not is_apple_terminal(env)
 
 
+# Terminals known to take OSC 22 (the kitty pointer-shape protocol), by TERM or TERM_PROGRAM.
+_OSC22_TERMS = ("xterm-kitty", "foot", "foot-extra", "xterm-ghostty", "wezterm")
+_OSC22_PROGRAMS = ("kitty", "ghostty", "WezTerm")
+
+
+def _terminal_unnamed(env) -> bool:
+    """fix pass 2: over ssh TERM_PROGRAM does not arrive (ssh forwards TERM and LANG/LC_* only) and sudo resets the
+    environment, so an Apple Terminal there looked like any other terminal and got the BEL-closed OSC 22 again.
+    True when the session runs over ssh or sudo and the terminal is not one known to take OSC 22."""
+    if not (env.get("SSH_CONNECTION") or env.get("SSH_TTY") or env.get("SSH_CLIENT") or env.get("SUDO_USER")):
+        return False
+    return (env.get("TERM") or "") not in _OSC22_TERMS and (env.get("TERM_PROGRAM") or "") not in _OSC22_PROGRAMS
+
+
 def takes_pointer_shape(env: Optional[dict] = None) -> bool:
     """Whether Textual's OSC 22 pointer-shape request may be sent."""
-    return not is_apple_terminal(env)
+    env = os.environ if env is None else env
+    return not is_apple_terminal(env) and not _terminal_unnamed(env)
 
 
 def takes_mode_queries(env: Optional[dict] = None) -> bool:
     """Whether a DECRQM `CSI ? Pn $ p` mode query may be sent."""
-    return not is_apple_terminal(env)
+    env = os.environ if env is None else env
+    return not is_apple_terminal(env) and not _terminal_unnamed(env)
 
 
 def quiet_driver(driver_class):

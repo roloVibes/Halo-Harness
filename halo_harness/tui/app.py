@@ -538,6 +538,13 @@ class BridgeApp(App):
             styles = banner_row_styles(self.get_css_variables()) if is_banner_intro(text) else None
             self.intro_line = IntroLine(text, row_styles=styles)
             await self.transcript._mount_tracked(self.intro_line)
+        try:  # fix pass 2: a first run with no provider learns it here, not from its first prompt's error
+            from halo_harness.controller import setup_hint_line
+            hint = setup_hint_line(getattr(self.controller, "session", None))
+            if hint:
+                await self.transcript.add_note(hint, kind="note")
+        except Exception:
+            pass
         # U5/review "must-do": git ran INLINE here even though the 5s
         # periodic refresh below was already threaded -- this first call
         # is now the same worker path, so startup never blocks on a

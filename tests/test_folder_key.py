@@ -44,7 +44,11 @@ def test_one_key_for_a_folder_and_its_symlink(ctx: Ctx):
     from halo_harness.config.paths import folder_key, normalize_cwd, project_slug
     real, link = _linked_project()
     if os.name == "nt":
-        ctx.check("Windows keeps a junction's spelling, as its own cwd does", folder_key(link) == str(link))
+        # fix pass 2: each component is spelled as the disk spells it (an 8.3 TEMP like RUNNER~1 made long), but
+        # the junction itself is never followed
+        ctx.check("Windows keeps a junction's spelling, as its own cwd does",
+                  folder_key(link).endswith("linked-project") and folder_key(link) != folder_key(real)
+                  and os.path.samefile(folder_key(link), link))
         return
     ctx.check("folder_key resolves the symlink", folder_key(link) == folder_key(real) == os.path.realpath(real))
     ctx.check("project_slug is one slug for both spellings", project_slug(link) == project_slug(real))
@@ -168,6 +172,47 @@ def test_a_claude_md_exclude_written_through_a_link_matches(ctx: Ctx):
     ctx.check("and the file reached directly", _excluded(md, [via_link]))
     ctx.check("a pattern on the real folder still works", _excluded(link / "sub" / "CLAUDE.md", [via_real]))
     ctx.check("an unrelated pattern does not", not _excluded(md, [str(real.parent).replace("\\", "/") + "/other/*"]))
+
+
+@test
+def test_windows_one_key_for_a_folder_typed_in_another_case(ctx: Ctx):
+    """fix pass 2 batch 2 (sessions-storage): PowerShell keeps the typed case in the cwd (`cd c:\\users\\me\\proj`
+    gives `C:\\users\\me\\proj`), so the same folder had two session/memory slugs and its ~/.claude.json and
+    trust.json records were not found. Windows folders are case-insensitive: one key whatever the case typed."""
+    if os.name != "nt":
+        raise SkipTest("Windows only: POSIX folders are case-sensitive (two cases are two folders)")
+    saved = os.environ.get("BRIDGE_TEST_HOME")
+    os.environ["BRIDGE_TEST_HOME"] = tempfile.mkdtemp(prefix="folder-key-home-")
+    try:
+        from halo_harness.agent.sessions import resolve_continue, sessions_dir
+        from halo_harness.config.claude_json import is_trusted
+        from halo_harness.config.paths import folder_key, lookup_project, memory_dir, normalize_cwd, project_slug
+        root = Path(tempfile.mkdtemp(prefix="folder-key-case-"))
+        real = root / "CaseProject"
+        real.mkdir()
+        real = Path(folder_key(real))
+        typed = Path(str(real).lower())
+        ctx.check("the typed case and the folder's own case give one slug", project_slug(typed) == project_slug(real))
+        ctx.check("one memory folder", memory_dir(typed) == memory_dir(real))
+        ctx.check("one ~/.claude.json key", normalize_cwd(typed) == normalize_cwd(real))
+        ctx.check("folder_key spells the folder as the disk does", folder_key(typed) == str(real))
+        sid = uuid.uuid4().hex
+        d = sessions_dir(real)
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{sid}.jsonl").write_text('{"type":"user"}\n', encoding="utf-8")
+        ctx.check("a session made from the real case is continued from the typed case", resolve_continue(typed) == sid)
+        cj = {"projects": {normalize_cwd(real, resolve=False).lower(): {"allowedTools": ["Read"]}}}
+        ctx.check("a project record stored in another case is found",
+                  lookup_project(cj, real).get("allowedTools") == ["Read"])
+        trust = {normalize_cwd(real, resolve=False).lower(): True}
+        ctx.check("a trust.json record stored in another case is found", is_trusted(real, {}, trust))
+        ctx.check("a path that does not exist is left as typed",
+                  folder_key(str(root / "no-such" / "MiXeD")) == str(root / "no-such" / "MiXeD"))
+    finally:
+        if saved is None:
+            os.environ.pop("BRIDGE_TEST_HOME", None)
+        else:
+            os.environ["BRIDGE_TEST_HOME"] = saved
 
 
 if __name__ == "__main__":

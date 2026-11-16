@@ -271,6 +271,44 @@ def _flag_was_set(value) -> bool:
     return value not in (None, False)
 
 
+def _json_or_file_problem(flag: str, spec, base: Path) -> str:
+    """'' when `spec` (a flag's JSON-or-path value) is inline JSON that parses or a file that exists and parses;
+    else the one line naming the flag. A relative path is read from `base`, as the flag's own loader reads it."""
+    import json
+    text = str(spec)
+    if not text.lstrip().startswith("{"):
+        path = Path(text) if Path(text).is_absolute() else base / text
+        try:
+            if not path.is_file():
+                return f"{flag}: {text}: no such file"
+            text = path.read_text(encoding="utf-8-sig")
+        except (OSError, ValueError) as e:
+            return f"{flag}: {spec}: could not read ({e})"
+    try:
+        json.loads(text)
+    except ValueError as e:
+        return f"{flag}: {spec if len(str(spec)) <= 60 else str(spec)[:57] + '...'}: not valid JSON ({e})"
+    return ""
+
+
+def _flag_file_problem(args) -> str:
+    """fix pass 2 (sessions-storage batch 2): `--cwd`, `--settings`, `--mcp-config` and `--agents` naming a folder or
+    file that is not there, or JSON that does not parse, were ignored and the run went ahead without them."""
+    cwd_flag = getattr(args, "cwd", None)
+    if cwd_flag and not Path(cwd_flag).is_dir():
+        return f"--cwd: {cwd_flag}: no such folder"
+    base = Path(cwd_flag).resolve() if cwd_flag else Path.cwd()
+    checks = [("--settings", getattr(args, "settings", None), base)]
+    checks += [("--mcp-config", spec, base) for spec in (getattr(args, "mcp_config", None) or [])]
+    checks.append(("--agents", getattr(args, "agents", None), Path.cwd()))  # parse_agents_json reads from the process cwd
+    for flag, spec, where in checks:
+        if spec is not None and str(spec) != "":
+            problem = _json_or_file_problem(flag, spec, where)
+            if problem:
+                return problem
+    return ""
+
+
 class _HelpFormatter(argparse.HelpFormatter):
     """3.6.0.0 R16: wraps the description as before; a text with its own line breaks (the commands block) keeps them."""
 
@@ -645,6 +683,11 @@ def _main(argv: Optional[list] = None) -> int:
             print(f"halo: {e}", file=sys.stderr)
             return 2
 
+    flag_problem = _flag_file_problem(args)  # fix pass 2: a flag naming a missing file or bad JSON stops the run
+    if flag_problem:
+        print(f"halo: {flag_problem}", file=sys.stderr)
+        return 2
+
     if args.demo and args.print_mode:
         from halo_harness.testing.fake_controller import run_demo
         demo_format = args.output_format if args.output_format in ("text", "json") else "text"
@@ -803,7 +846,15 @@ def _main(argv: Optional[list] = None) -> int:
         # a bad --model/alias must be a clean config error (exit 2), not an
         # uncaught traceback (exit 1 is reserved for a request that ran and
         # failed, not a bad invocation).
-        print(f"halo: invalid --model: {e}", file=sys.stderr)
+        if args.model:
+            print(f"halo: invalid --model: {e}", file=sys.stderr)
+        else:  # fix pass 2: no --model was given; name where the model came from instead
+            try:
+                from halo_harness.doctor import _effective_default_model
+                origin = _effective_default_model(Path(args.cwd) if args.cwd else None, args.settings)[1]
+            except Exception:
+                origin = "your saved settings"
+            print(f"halo: invalid model (from {origin}): {e}", file=sys.stderr)
         if args.model:
             from halo_harness.catalog_cli import near_miss_slug
             from halo_harness.config.paths import bridge_home

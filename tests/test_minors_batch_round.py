@@ -54,15 +54,17 @@ def test_config_set_echo_masks_secret_shaped_values(ctx: Ctx):
     env = {k: v for k, v in os.environ.items()
            if k not in ("BRIDGE_TEST_HOME", "BRIDGE_STATE_DIR")}
     env.update({"BRIDGE_TEST_HOME": str(home), "PYTHONPATH": str(REPO_DIR)})
+    # fix pass 2 (sessions-storage batch 2): `config set` refuses a top-level key nothing reads, so the secret
+    # goes under a section (sections are free mappings); the echo's mask is what this test pins
     r = subprocess.run([sys.executable, "-m", "halo_harness", "config", "set",
-                        "api_key", "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop"],
+                        "openai.api_key", "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop"],
                        env=env, cwd=str(REPO_DIR), capture_output=True, text=True, timeout=60)
     ctx.check(f"exit 0, got {r.returncode} err={r.stderr[-150:]!r}", r.returncode == 0)
     ctx.check(f"the echo is masked, got {r.stdout!r}",
-              "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop" not in r.stdout and "api_key=" in r.stdout)
+              "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop" not in r.stdout and "openai.api_key=" in r.stdout)
     # the VALUE is still stored unmasked (the mask is display-only)
     stored = json.loads((home / ".halo" / "config.json").read_text(encoding="utf-8"))
-    ctx.check("the stored value itself is untouched", stored.get("api_key") == "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop")
+    ctx.check("the stored value itself is untouched", (stored.get("openai") or {}).get("api_key") == "sk-" + "ant-" + "0123456789" + "abcdefghijklmnop")
 
 
 @test

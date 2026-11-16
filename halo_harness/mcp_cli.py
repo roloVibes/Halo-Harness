@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from halo_harness.config.paths import claude_json_path, normalize_cwd, project_key_candidates
+from halo_harness.config.paths import claude_json_path, normalize_cwd, project_key_candidates, stored_key_matches
 from halo_harness.not_yet import print_not_yet
 
 # Halo 2.0.1 W4b: every subcommand real `claude mcp` has is now implemented
@@ -272,8 +272,7 @@ def set_server_disabled_in_config(name: str, *, cwd: Path, disabled: bool) -> st
     # A key whose RAW text is already one of the candidate forms matches too:
     # on POSIX `normalize_cwd` leaves a backslash-shaped key (copied from a
     # Windows install) unrecognisable, so the normalized compare alone missed it.
-    touched = [k for k, v in projects.items()
-               if isinstance(v, dict) and (k in candidates or normalize_cwd(k, resolve=False) in candidates)]
+    touched = [k for k, v in projects.items() if isinstance(v, dict) and stored_key_matches(k, candidates)]
     if not touched:
         projects.setdefault(key, {})
         touched = [key]
@@ -811,7 +810,7 @@ def _cmd_remove(rest: list) -> int:
                 projects = data.get("projects")
                 if isinstance(projects, dict):
                     for pkey, prec in projects.items():
-                        if isinstance(prec, dict) and normalize_cwd(pkey, resolve=False) in key_forms:
+                        if isinstance(prec, dict) and stored_key_matches(pkey, key_forms):
                             servers = prec.get("mcpServers")
                             if isinstance(servers, dict) and args.name in servers:
                                 del servers[args.name]

@@ -437,12 +437,71 @@ def folder_key(path: str | Path) -> str:
     missing. Windows keeps the spelling as given (its cwd is not resolved, and resolving would turn a mapped drive
     into a UNC path); a relative path is left alone."""
     s = str(path)
-    if os.name == "nt" or not os.path.isabs(s):
+    if not os.path.isabs(s):
         return s
+    if os.name == "nt":
+        # fix pass 2: Windows folders are case-insensitive and a cwd keeps the case typed (`cd c:\users\me\proj`),
+        # so each component is spelled as the disk spells it -- one key for one folder, no link followed
+        return _win_disk_case(s)
     try:
         return os.path.realpath(s)
     except (OSError, ValueError):
         return s
+
+
+_WIN_CASE_CACHE: dict[str, str] = {}
+
+
+def _win_entry_name(full: str) -> str | None:
+    """The directory entry's own name for `full` (its disk case, an 8.3 name made long), via FindFirstFileW: it
+    reads the entry itself and never follows a junction or symlink. None when there is no such entry."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.FindFirstFileW.restype = wintypes.HANDLE
+    k32.FindFirstFileW.argtypes = (wintypes.LPCWSTR, ctypes.POINTER(wintypes.WIN32_FIND_DATAW))
+    k32.FindClose.argtypes = (wintypes.HANDLE,)
+    data = wintypes.WIN32_FIND_DATAW()
+    h = k32.FindFirstFileW(full, ctypes.byref(data))
+    if h is None or h == ctypes.c_void_p(-1).value:
+        return None
+    k32.FindClose(h)
+    return data.cFileName or None
+
+
+def _win_disk_case(s: str) -> str:
+    """`s` with each existing component in its on-disk case; the drive letter upper case; the separators, a UNC
+    share and any component that does not exist (or cannot be read) kept as typed."""
+    hit = _WIN_CASE_CACHE.get(s)
+    if hit is not None:
+        return hit
+    drive, rest = os.path.splitdrive(s)
+    if len(drive) == 2 and drive[1] == ":":
+        drive = drive.upper()
+    pieces = re.split(r"([\\/]+)", rest)
+    out = [drive]
+    complete = True
+    for piece in pieces:
+        if not piece or piece[0] in "\\/" or not complete:
+            out.append(piece)
+            continue
+        name = None
+        if piece not in (".", "..") and not any(c in piece for c in "*?"):
+            try:
+                name = _win_entry_name("".join(out) + piece)
+            except (OSError, ValueError, AttributeError):
+                name = None
+        if name and (name.casefold() == piece.casefold() or "~" in piece):  # same name, or an 8.3 short name
+            out.append(name)
+        else:
+            complete = False  # a missing component: it and the rest stay as typed
+            out.append(piece)
+    result = "".join(out)
+    if complete:  # cache only what the disk answered, so a folder made later in another case is seen
+        if len(_WIN_CASE_CACHE) > 512:
+            _WIN_CASE_CACHE.clear()
+        _WIN_CASE_CACHE[s] = result
+    return result
 
 
 def project_slug(cwd: str | Path) -> str:
@@ -480,6 +539,8 @@ def normalize_cwd(path: str | Path, *, resolve: bool = True) -> str:
     filesystem call): a stored key is never followed through a symlink, or a
     trust record for a link would follow wherever the link points today."""
     s = str(path)
+    if resolve and os.name == "nt":
+        s = folder_key(s)  # fix pass 2: the disk's letter case (a drive-shaped path returns below, before folder_key)
     m = _WIN_DRIVE_RE.match(s)
     if m:
         drive, rest = m.groups()
@@ -507,6 +568,19 @@ def project_key_candidates(cwd: str | Path) -> list[str]:
     return candidates
 
 
+def key_fold(key: str) -> str:
+    """A folder key in the form two keys are compared in: Windows folders are case-insensitive, so a key stored
+    as `C:/users/me/proj` (typed in another case, or by an older Halo) is the folder `C:/Users/me/proj`."""
+    return key.casefold() if os.name == "nt" else key
+
+
+def stored_key_matches(key: str, candidates: "list[str] | set[str]") -> bool:
+    """True when a stored `~/.claude.json` / trust.json key names one of `candidates` (project_key_candidates),
+    compared by the key's own spelling (never followed through a link) and, on Windows, ignoring case."""
+    forms = {key_fold(c) for c in candidates}
+    return key_fold(key) in forms or key_fold(normalize_cwd(key, resolve=False)) in forms
+
+
 def lookup_project(claude_json: dict, cwd: str | Path) -> dict:
     """Merge every projects[key] record matching project_key_candidates(cwd). Only the cwd is resolved, once; a
     stored key is compared by its own spelling (no filesystem call per key): a key that is a symlink trusts the
@@ -523,8 +597,7 @@ def lookup_project(claude_json: dict, cwd: str | Path) -> dict:
     for key, value in projects.items():
         if not isinstance(key, str) or not isinstance(value, dict):
             continue
-        normalized_key = normalize_cwd(key, resolve=False)
-        if normalized_key in candidates:
+        if stored_key_matches(key, candidates):
             matching_records.append(value)
     if not matching_records:
         return {}

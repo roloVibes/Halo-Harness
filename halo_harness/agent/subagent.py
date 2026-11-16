@@ -389,13 +389,14 @@ def _child_credential_message(ref) -> str:
         return "OpenAI API not configured -- set OPENAI_API_KEY"
     if ref.provider == "experiential":
         return "Experiential Labs not configured -- set EXPLABS_API_KEY"
+    from halo_harness.providers.stream import not_configured_message  # fix pass 2: the sentence names its fix
     if ref.provider == "ollama":
-        return "Ollama host not configured"
+        return not_configured_message("Ollama host")
     if ref.provider == "anthropic":
-        return "Anthropic not configured"
+        return not_configured_message("Anthropic")
     if ref.provider == "databricks":
-        return "Databricks not configured"
-    return "OpenRouter not configured"
+        return not_configured_message("Databricks")
+    return not_configured_message("OpenRouter")
 
 
 def _build_child_session(*, runtime: AgentRuntime, spec: AgentSpec, agent_id: str,

@@ -7,6 +7,8 @@ from halo_harness.config.paths import (
     claude_json_path,
     normalize_cwd,
     lookup_project,
+    project_key_candidates,
+    stored_key_matches,
 )
 
 
@@ -100,6 +102,10 @@ def is_trusted(cwd: str | Path, claude_json: dict,
     norm_cwd = normalize_cwd(cwd)
     if trust_dict.get(norm_cwd):
         return True
+    if os.name == "nt":  # fix pass 2: a key stored in another letter case is the same Windows folder
+        forms = project_key_candidates(cwd)
+        if any(v and isinstance(k, str) and stored_key_matches(k, forms) for k, v in trust_dict.items()):
+            return True
 
     return False
 
