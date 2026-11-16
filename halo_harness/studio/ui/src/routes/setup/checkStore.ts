@@ -60,7 +60,14 @@ function adopt(job: Job | null): void {
   if (!job) return;
   const frames: Record<string, CheckFrame> = {};
   for (const f of job.checks || []) frames[f.key] = f;
-  check.update(() => ({ job: job.job, keys: job.keys || [], frames, summary: job.summary, running: job.running }));
+  check.update((s) => {
+    // fx jb9: the live feed can bring this job's frames and its summary before the POST that started it answers (a
+    // slow machine); that answer's older snapshot never takes the end back (the summary turned back to "running...")
+    const ended = s.job === job.job && s.summary ? s : null;
+    const summary = ended ? ended.summary : job.summary;
+    return { job: job.job, keys: job.keys || [], frames: ended ? { ...frames, ...ended.frames } : frames, summary,
+             running: !summary && job.running };
+  });
 }
 
 let fed = false;
@@ -73,7 +80,7 @@ function feed(): void {
     const d = (f.data || {}) as Record<string, unknown>;
     if (d.job && check.get().job && d.job !== check.get().job) return; // another job's late frame
     if (d.key === "summary") {
-      check.update(() => ({ summary: d as unknown as CheckSummary, running: false }));
+      check.update((s) => ({ job: String(d.job || s.job), summary: d as unknown as CheckSummary, running: false }));
       void loadSetup(); // the strip's Last check
       return;
     }
@@ -121,7 +128,7 @@ export async function runChecks(): Promise<void> {
   try {
     const r = await api.post<{ job: Job }>("setup/check", { checks: keys, ...(keys.includes("gym") ? { models } : {}) });
     adopt(r.job);
-    check.update(() => ({ running: true }));
+    check.update((s) => ({ running: !s.summary })); // fx jb9: an end the feed already brought stays
     poll();
   } catch (e) {
     const text = e instanceof ApiError && e.problems.length ? e.problems.join("; ") : e instanceof Error ? e.message : String(e);

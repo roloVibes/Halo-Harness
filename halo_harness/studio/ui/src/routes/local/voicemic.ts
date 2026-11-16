@@ -12,6 +12,10 @@ export function micReady(): boolean {
   return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
 }
 
+/** Resolves once the microphone gives its first sound (fx jb9: Talk says "recording" only then, so a person's first
+ *  words are not lost while a slow machine opens it), or after FIRST_SOUND_MS whatever came. */
+export const FIRST_SOUND_MS = 3000;
+
 export async function startMic(): Promise<void> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true } });
   const ctx = new AudioContext();
@@ -19,12 +23,16 @@ export async function startMic(): Promise<void> {
   const src = ctx.createMediaStreamSource(stream);
   const node = ctx.createScriptProcessor(4096, 1, 1);
   const parts: Float32Array[] = [];
+  let heard: () => void = () => {};
+  const first = new Promise<void>((resolve) => { heard = resolve; window.setTimeout(resolve, FIRST_SOUND_MS); });
   node.onaudioprocess = (ev) => {
     parts.push(new Float32Array(ev.inputBuffer.getChannelData(0)));
+    heard();
   };
   src.connect(node);
   node.connect(ctx.destination);
   rec = { ctx, stream, node, parts, started: performance.now() };
+  await first;
 }
 
 export function recording(): boolean {

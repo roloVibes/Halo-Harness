@@ -50,6 +50,16 @@ def test_opening_the_prompt_again_leaves_the_keyboard_in_the_box(ctx: Ctx):
 
 
 @test
+def test_the_box_empties_where_ctrl_a_is_no_select_all(ctx: Ctx):
+    """fx jb9: the helper empties the box the same way on every system (macOS CI: Ctrl+A is no select-all there, the
+    box kept its text and six tests failed); the keyboard stays in the box."""
+    got = _got(ctx)
+    ctx.check(f"the box emptied with the select-all chord doing nothing, got {got.get('any_keyboard_emptied')} "
+              f"{got.get('any_keyboard_left')!r}", got.get("any_keyboard_emptied") == "empty")
+    ctx.check(f"the keyboard stayed in the box, got {got.get('any_keyboard_in_box')}", got.get("any_keyboard_in_box") is True)
+
+
+@test
 def test_a_turn_from_studio_with_its_receipt(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the turn says from Studio, got {got.get('turn_via')} {got.get('turn_chip')}",

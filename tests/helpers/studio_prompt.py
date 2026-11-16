@@ -29,10 +29,12 @@ TURNS = "[...document.querySelectorAll('[data-testid=\"prompt-turn\"]')]"
 ASKS = "[...document.querySelectorAll('[data-testid=\"prompt-ask\"]')]"
 
 
-def press(c, key: str, code: str, vk: int, mods: int = 0) -> None:
-    """One key with modifiers (1 Alt, 2 Ctrl, 8 Shift), as the keyboard sends it."""
+def press(c, key: str, code: str, vk: int, mods: int = 0, commands: "list | None" = None) -> None:
+    """One key with modifiers (1 Alt, 2 Ctrl, 8 Shift), as the keyboard sends it; `commands`: the editing commands the
+    key down carries (what macOS's key bindings would add)."""
     for kind in ("rawKeyDown", "keyUp"):
-        c.call("Input.dispatchKeyEvent", type=kind, key=key, code=code, windowsVirtualKeyCode=vk, modifiers=mods)
+        extra = {"commands": commands} if commands and kind == "rawKeyDown" else {}
+        c.call("Input.dispatchKeyEvent", type=kind, key=key, code=code, windowsVirtualKeyCode=vk, modifiers=mods, **extra)
 
 
 def enter(c) -> None:
@@ -50,10 +52,16 @@ def turn_of(text: str) -> str:
 
 
 def opened(c, rig) -> dict:
+    import os
+
+    from tests.helpers.studio_ui_order import PAGE_PLATFORM_ENV
+    if os.environ.get(PAGE_PLATFORM_ENV):  # fx jb9: the page believes it runs on that system (e.g. MacIntel)
+        c.call("Emulation.setUserAgentOverride", userAgent=c.js("navigator.userAgent"), platform=os.environ[PAGE_PLATFORM_ENV])
     c.go(rig.url(f"&session={rig.sid}&prompt=1"))
     c.wait(f"!!{P} && {P}.dataset.session === {rig.sid!r} && 'ok'", 40)
     focused = c.wait(f"document.activeElement === {INPUT} && 'focused'", 10)
-    return {"opened": True, "focused": focused, "panel_to": c.js("document.querySelector('[data-testid=\"prompt-to\"]')?.textContent")}
+    return {"opened": True, "focused": focused, "panel_to": c.js("document.querySelector('[data-testid=\"prompt-to\"]')?.textContent"),
+            "page_platform": c.js("navigator.platform || ''")}
 
 
 def keeps_the_keyboard(c, rig) -> dict:
@@ -68,9 +76,44 @@ def keeps_the_keyboard(c, rig) -> dict:
     time.sleep(1.2)  # past the composer's own refocus timers (0..1000 ms)
     out = {"lost_focus": c.js("window.__ppLost"), "kept_text": c.js(f"{INPUT}.value"),
            "still_in_box": c.js(f"document.activeElement === {INPUT}")}
-    press(c, "a", "KeyA", 65, 2)  # Ctrl+A, Backspace: the box empty again for the next step
-    press(c, "Backspace", "Backspace", 8)
+    empty_box(c)  # the box empty again for the next step
     out["emptied"] = c.wait(f"{INPUT}.value === '' && 'empty'", 5)
+    return out
+
+
+def empty_box(c) -> None:
+    """fx jb9: the box's text selected through the DOM, then Backspace with its editing command (macOS's Chrome runs
+    no editing for a synthetic key without one): the same on Windows, macOS and Linux. Ctrl+A is select-all only on
+    Windows and Linux."""
+    c.js(f"{INPUT}.select(); 1")
+    press(c, "Backspace", "Backspace", 8, commands=["deleteBackward"])
+
+
+NO_SELECT_ALL = ("(() => { window.__noSelectAll = (e) => { if ((e.ctrlKey || e.metaKey) && (e.key || '').toLowerCase() === 'a') "
+                 "e.preventDefault(); }; window.addEventListener('keydown', window.__noSelectAll, true); return 1; })()")
+
+
+def empties_on_any_keyboard(c, rig) -> dict:
+    """fx jb9: the box empties where Ctrl+A is no select-all (macOS: Ctrl+A moves the caret to the line's start, and a
+    synthetic Cmd+A carries no editing command), so the step after never starts on a box that still holds text (macOS
+    CI run 43802574156: 'waited 5s for ... value === ""'). The chord's default is stopped here, as a Mac's Chrome
+    never runs it."""
+    c.click_on(INPUT)
+    c.type_text("on a mac")
+    c.js(NO_SELECT_ALL)
+    try:
+        empty_box(c)
+        try:
+            emptied = c.wait(f"{INPUT}.value === '' && 'empty'", 5)
+        except TimeoutError:
+            emptied = None
+        out = {"any_keyboard_emptied": emptied, "any_keyboard_left": c.js(f"{INPUT}.value"),
+               "any_keyboard_in_box": c.js(f"document.activeElement === {INPUT}")}
+    finally:
+        c.js("window.removeEventListener('keydown', window.__noSelectAll, true); 1")
+    if out["any_keyboard_emptied"] is None:  # the next steps start on an empty box either way
+        c.js(f"{INPUT}.select(); 1")
+        press(c, "Delete", "Delete", 46)
     return out
 
 
@@ -146,7 +189,7 @@ class PromptDriver(Driver):
     def session(self, c):
         from tests.helpers.prompt_rig import PromptRig
         with PromptRig() as rig:
-            yield ((opened, (c, rig)), (keeps_the_keyboard, (c, rig)), (a_turn, (c, rig)), (a_slash, (c, rig)), (an_ask, (c, rig)), (busy_then_queue, (c, rig)))
+            yield ((opened, (c, rig)), (keeps_the_keyboard, (c, rig)), (empties_on_any_keyboard, (c, rig)), (a_turn, (c, rig)), (a_slash, (c, rig)), (an_ask, (c, rig)), (busy_then_queue, (c, rig)))
 
 
 if __name__ == "__main__":

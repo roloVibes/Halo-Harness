@@ -64,6 +64,8 @@ def test_one_talk_turn_end_to_end(ctx: Ctx):
     ctx.check(f"the confirm text first, got {got.get('confirm')!r}", got.get("confirm") == got.get("talk_title"))
     ctx.check(f"the fake microphone recorded, got {got.get('seconds')}", isinstance(got.get("seconds"), (int, float))
               and got["seconds"] >= 0.5)
+    ctx.check(f"Talk says recording only once the (slow, 1.2 s) microphone gives sound, got {got.get('before_mic')!r} "
+              f"while it opened", got.get("before_mic") == "opening")
     ctx.check(f"the transcript shows, got {got.get('transcript')!r}", got.get("transcript") == "you said: what is in the readme")
     ctx.check(f"the reply, got {got.get('reply')!r}", got.get("reply") == "The readme says hello. That is all.")
     ctx.check(f"the sink received both sentences' audio (2 x 500 ms at 24 kHz), got {got.get('sink')}",

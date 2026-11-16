@@ -24,7 +24,7 @@ export type VoiceView = {
   stats: { turns: number; lines: string[] }; talk: { confirm: string; starts: string[]; max_s: number; rate: number };
   findings: Finding[]; cli: string;
 };
-export type TalkState = "idle" | "confirm" | "recording" | "sending" | "working" | "done" | "error";
+export type TalkState = "idle" | "confirm" | "opening" | "recording" | "sending" | "working" | "done" | "error";
 export type Talk = { state: TalkState; job: string; transcript: string; reply: string; line: string; notes: string[];
   bytes: number; rate: number; error: string; seconds: number };
 type Said = { ok: boolean; text: string };

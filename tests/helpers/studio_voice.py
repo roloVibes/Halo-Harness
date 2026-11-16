@@ -63,10 +63,20 @@ def servers(c, url, ctx) -> dict:
     return out
 
 
+# fx jb9: the microphone opens 1.2 s after it is asked for, as on a slow machine (macOS CI run 43802574156 recorded
+# 0.34 s of a 1.5 s utterance: Talk said "recording" before the microphone gave anything, so a person's first words
+# were lost)
+SLOW_MIC = ("(() => { const md = navigator.mediaDevices; const real = md.getUserMedia.bind(md); "
+            "md.getUserMedia = (cs) => new Promise((r) => setTimeout(r, 1200)).then(() => real(cs)); return 1; })()")
+
+
 def talk(c, url, ctx) -> dict:
     press(c, TALK, f"!!{q('[data-testid=voice-talk-confirm]')}")
     out = {"confirm": c.wait(f"{q('[data-testid=voice-talk-confirm]')}?.textContent", 15)}
-    press(c, q("[data-testid=voice-talk-go]"), f"{TALK}?.dataset.state === 'recording'")
+    c.js(SLOW_MIC)
+    press(c, q("[data-testid=voice-talk-go]"), f"['opening', 'recording'].includes({TALK}?.dataset.state)")
+    out["before_mic"] = c.js(f"{TALK}?.dataset.state")  # inside the microphone's 1.2 s: not "recording" yet
+    c.wait(f"{TALK}?.dataset.state === 'recording'", 15)
     time.sleep(1.5)  # the fake microphone plays its WAV into the recorder
     press(c, TALK, f"{TALK}?.dataset.state !== 'recording'")
     out["transcript"] = c.wait(f"{q('[data-testid=voice-talk-transcript]')}?.textContent", 40)

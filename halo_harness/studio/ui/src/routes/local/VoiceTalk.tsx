@@ -65,19 +65,33 @@ function Sink() {
   return <audio ref={ref} controls className="vc-sink" data-testid="voice-talk-sink" data-bytes={sunk} />;
 }
 
+// fx jb9: a press while the microphone opens or closes is that same press (a double click never opens a second one)
+let pending = false;
+
 async function press(): Promise<void> {
+  if (pending) return;
   const s = voice.get();
   if (recording()) {
-    const got = await stopMic();
+    pending = true;
+    let got;
+    try {
+      got = await stopMic();
+    } finally {
+      pending = false;
+    }
     if (got.seconds < 0.1) return resetTalk();
     return sendTalk(got.b64, got.rate, got.seconds);
   }
   if (!s.asked) return setTalk({ state: "confirm" });
+  pending = true;
   try {
-    resetTalk("recording");
+    resetTalk("opening");
     await startMic();
+    setTalk({ state: "recording" }); // fx jb9: only once the microphone gives sound: a person speaks when told to
   } catch (e) {
     setTalk({ state: "error", error: `the microphone did not open: ${String(e)}` });
+  } finally {
+    pending = false;
   }
 }
 
@@ -86,7 +100,7 @@ export function VoiceTalk() {
   const says = useVoice((v) => v.view?.talk?.confirm || "");
   const sid = useVoice((v) => target(v));
   const busy = talk.state === "sending" || talk.state === "working";
-  const label = talk.state === "recording" ? "Send" : busy ? "Working..." : "Talk";
+  const label = talk.state === "recording" ? "Send" : talk.state === "opening" ? "Opening..." : busy ? "Working..." : "Talk";
   return (
     <section className="pool-block" aria-label="Talk" data-testid="voice-talk-block">
       <div className="rail-label mono">TALK · THIS BROWSER'S MICROPHONE</div>
@@ -96,6 +110,7 @@ export function VoiceTalk() {
                 data-state={talk.state} data-seconds={talk.seconds || undefined} title={says}>{label}</Button>
         <span className="mono muted" data-testid="voice-talk-hint">
           {talk.state === "recording" ? "recording: press Send when you have said it (up to 30 s)" :
+            talk.state === "opening" ? "opening the microphone: speak when it says recording" :
             !micReady() ? "this browser gives no microphone here (a page on 127.0.0.1 or localhost does)" : "press, speak, press again"}
         </span>
       </div>

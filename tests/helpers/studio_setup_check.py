@@ -114,6 +114,33 @@ def landing(c, url, ctx) -> dict:
         _fresh(False)
 
 
+SUMMARY_SEEN = ("(() => { window.__sumSeen = []; const rec = () => { const s = document.querySelector('[data-testid=setup-check-summary]'); "
+                "const t = s ? s.textContent : ''; if (window.__sumSeen[window.__sumSeen.length - 1] !== t) window.__sumSeen.push(t); }; "
+                "new MutationObserver(rec).observe(document.body, {subtree: true, childList: true, characterData: true}); rec(); return 1; })()")
+
+
+@contextmanager
+def late_answer(delay: float = 1.0):
+    """fx jb9: POST setup/check answers `delay` s after its job started, as on a slow machine (macOS CI run
+    43802574156), while the job's frames and its summary already reach the page on the live feed. Yields an Event
+    set once the answer has gone."""
+    import threading
+
+    from halo_harness.studio import setup_check_job as J
+    real, answered = J.start, threading.Event()
+
+    def start(*a, **k):
+        job = real(*a, **k)
+        time.sleep(delay)
+        answered.set()
+        return job
+    J.start = start
+    try:
+        yield answered
+    finally:
+        J.start = real
+
+
 def _row(key: str, inner: str = "") -> str:
     return f"{ROW}[data-key={key}] {inner}".strip()
 
@@ -134,8 +161,13 @@ def check_block(c, url, ctx) -> dict:
     out["gym_by"] = click(c, gym, f"!!{q('[data-testid=setup-check-gym-models]')} || !!{q('[data-testid=setup-check-gym-none]')}")
     out["gym_models"] = c.js(f"{qa('[data-testid=setup-check-gym-model]')}.map((m) => m.dataset.ref)")
     summary = _text("[data-testid=setup-check-summary]")
-    out["run_by"] = click(c, "[data-testid=setup-check-run]", f"{summary}.includes('failed')")
-    out["summary"] = c.js(summary)
+    c.js(SUMMARY_SEEN)
+    with late_answer() as answered:
+        out["run_by"] = click(c, "[data-testid=setup-check-run]", f"{summary}.includes('failed')")
+        answered.wait(20)
+        time.sleep(0.5)  # the page has taken the POST's answer in
+        out["summary"] = c.wait(f"{summary}.includes('failed') && {summary}", 20)
+    out["summary_seen"] = c.js("window.__sumSeen")
     glyphs = f"{qa('[data-testid=setup-check-glyph]')}.map((g) => g.textContent)"  # five rows ran: the summary's frame
     out["glyphs"] = c.wait(f"{glyphs}.filter((g) => g).length >= 5 && {glyphs}", 20)  # can land before the rows' (Windows 41348318605)
     out["logs"] = c.js(f"{qa('[data-testid=setup-check-log]')}.map((l) => [l.dataset.key, l.textContent])")

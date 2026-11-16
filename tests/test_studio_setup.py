@@ -111,6 +111,10 @@ def test_the_check_block(ctx: Ctx):
               all(w in str(got.get("check_detail")) for w in ("Cost: ", "Time: ", "Writes: ")))
     ctx.check(f"ticking the gym lists its models, got {got.get('gym_models')}", "or:mock/beta" in (got.get("gym_models") or []))
     ctx.check(f"Run: the summary, got {got.get('summary')!r}", got.get("summary") == "1 failed: hello")
+    seen = got.get("summary_seen") or []  # fx jb9: the POST's answer came 1 s after the job's own frames (a slow machine)
+    after = seen[next((i for i, t in enumerate(seen) if t == "1 failed: hello"), len(seen)):]
+    ctx.check(f"the summary, once it showed the result, never went back to running... (the POST's late answer), got {seen}",
+              bool(after) and "running..." not in after)
     ctx.check(f"each row's glyph, got {got.get('glyphs')}", got.get("glyphs") == ["ok", "ok", "!!", "ok", "ok"])
     logs = dict(got.get("logs") or [])
     ctx.check(f"each row's log, got {logs}", logs.get("doctor") == "doctor stub: config ok" and logs.get("hello") == "no pong (stub)")
