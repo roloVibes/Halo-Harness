@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.1] - unreleased
+## [3.6.0.1] - 2026-11-16
 
 Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; what you already do works as before. The few
 new things come with the fixes: `halo ps --forget <pid>`, worker containers in the `halo ps` list, and a question
