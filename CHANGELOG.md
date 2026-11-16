@@ -8,7 +8,7 @@ across the 0.3.x line -- each 0.3.0 milestone below was a working
 checkpoint toward the single 0.3.0 release, not a separate published
 version.
 
-## [3.6.0.0] - unreleased
+## [3.6.0.0] - 2026-11-16
 
 Agents are agents, workflows and maps now: lineups, bios and squares are no longer read, and `--team` only says so
 (what to use instead: docs/MOVING-from-3.5.md). Studio closes with the command that started it, everything Halo starts
