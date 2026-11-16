@@ -65,6 +65,14 @@ def test_a_very_long_number_is_none_not_a_traceback(ctx: Ctx):
                       err is None and got is None)
     got, err = _calls(pick, "9" * 5000, 3)
     ctx.check(f"pick(5000 digits): None, got {err or got}", err is None and got is None)
+    # a paste of zeros: int() counts every character against the limit, leading zeros too
+    for s, signed, want in (("0" * 5000 + "7", False, 7), ("0" * 5000, False, 0), (" " + "0" * 4400 + "1 ", False, 1),
+                            ("-" + "0" * 5000 + "7", True, -7)):
+        got, err = _calls(whole_number, s, signed=signed)
+        ctx.check(f"whole_number({len(s)} chars of zeros, signed={signed}): {want}, no exception, got {err or got}",
+                  err is None and got == want)
+    got, err = _calls(pick, "0" * 5000 + "2", 3)
+    ctx.check(f"pick(5000 zeros + 2): 2, no exception, got {err or got}", err is None and got == 2)
     ctx.check("18 digits still read", whole_number("9" * 18) == int("9" * 18))
     ctx.check("leading zeros do not count", whole_number("0" * 40 + "7") == 7)
     ctx.check("signed 18 digits", whole_number("-" + "9" * 18, signed=True) == -int("9" * 18))

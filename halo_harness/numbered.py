@@ -17,9 +17,12 @@ def whole_number(text, *, signed: bool = False) -> Optional[int]:
     t = text.strip()
     neg = signed and t.startswith("-")
     digits = t[1:] if neg else t
-    if not (digits and digits.isascii() and digits.isdigit()) or len(digits.lstrip("0")) > MAX_DIGITS:
+    if not (digits and digits.isascii() and digits.isdigit()):
         return None
-    return -int(digits) if neg else int(digits)
+    significant = digits.lstrip("0") or "0"  # int() counts leading zeros against its 4,300-digit limit too
+    if len(significant) > MAX_DIGITS:
+        return None
+    return -int(significant) if neg else int(significant)
 
 
 #: jf-words: more digits than this (leading zeros aside) is no number a person meant, and Python 3.11+ raises on an
