@@ -27,6 +27,9 @@ test, TESTS = new_registry()
 def test_orchestra_run_line_watches_its_session(ctx: Ctx):
     r, got = _driver("links")
     _ran(ctx, r, got)
+    if (got.get("open_clicks") or 1) > 1 or got.get("settled") is False:  # said on a green run too (the driver's note)
+        print(f"    (the Map's Open took {got.get('open_clicks')} click(s) before its drawer showed the run; "
+              f"the Map had settled first: {got.get('settled')})")
     ctx.check(f"a live run's line has the button, got {got.get('watch_orchestra')!r}", got.get("watch_orchestra") == "Watch in Session")
     ctx.check(f"it opens Session with the run's session chosen, got {got.get('orchestra_tab')!r} {got.get('orchestra_session')}",
               str(got.get("orchestra_tab")).startswith("Session") and got.get("orchestra_session") == got.get("sid"))
