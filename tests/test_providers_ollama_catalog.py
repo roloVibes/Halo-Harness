@@ -65,20 +65,74 @@ def test_ollama_host_env_seeds_the_default_host(ctx: Ctx):
         _clear_state_dir_env()
 
 
+class _HealAtRead:
+    """Sets providers.ollama's switch for reading a saved listen-address url as loopback (on: Windows, off:
+    Linux/macOS) for the block, so each path runs on every system; never patches sys.platform."""
+
+    def __init__(self, on: bool):
+        self.on = on
+
+    def __enter__(self):
+        from halo_harness.providers import ollama as ollama_mod
+        self._mod = ollama_mod
+        self._had = hasattr(ollama_mod, "_HEAL_LISTEN_URL_AT_READ")
+        self._saved = getattr(ollama_mod, "_HEAL_LISTEN_URL_AT_READ", None)
+        ollama_mod._HEAL_LISTEN_URL_AT_READ = self.on
+        return self
+
+    def __exit__(self, *exc):
+        if self._had:
+            self._mod._HEAL_LISTEN_URL_AT_READ = self._saved
+        else:
+            del self._mod._HEAL_LISTEN_URL_AT_READ
+
+
+_LISTEN_ADDR_HOSTS = [{"name": "box", "url": "http://0.0.0.0:11434", "default": True},
+                      {"name": "six", "url": "[::]:11500"},
+                      {"name": "lan", "url": "http://gpu-box:11434"}]
+
+
 @test
 def test_a_saved_listen_address_host_is_read_as_loopback(ctx: Ctx):
-    """3.6.0.1: a host saved as 0.0.0.0 / [::] (by 3.6.0.0's Studio Setup, or by hand) connects without a
-    re-save: it is read through connectable_url (Windows refuses a connect to 0.0.0.0, WinError 10049)."""
+    """3.6.0.1, the Windows path (forced, so it runs on every system): a host saved as 0.0.0.0 / [::] (by
+    3.6.0.0's Studio Setup, or by hand) connects without a re-save: it is read through connectable_url (Windows
+    refuses a connect to 0.0.0.0, WinError 10049, so no calibration can exist under that url there)."""
     from halo_harness.providers.ollama import resolve_ollama_hosts
     from halo_harness.theme import set_config_value
     _fresh_state_dir("ol-hosts-listen-addr-")
     try:
-        set_config_value("ollama.hosts", [{"name": "box", "url": "http://0.0.0.0:11434", "default": True},
-                                          {"name": "six", "url": "[::]:11500"},
-                                          {"name": "lan", "url": "http://gpu-box:11434"}])
-        urls = {h.name: h.url for h in resolve_ollama_hosts(env={})}
+        set_config_value("ollama.hosts", _LISTEN_ADDR_HOSTS)
+        with _HealAtRead(True):
+            urls = {h.name: h.url for h in resolve_ollama_hosts(env={})}
         ctx.check(f"0.0.0.0 and [::] read as 127.0.0.1, a named host unchanged, got {urls}",
                   urls == {"box": "http://127.0.0.1:11434", "six": "http://127.0.0.1:11500", "lan": "http://gpu-box:11434"})
+    finally:
+        _clear_state_dir_env()
+
+
+@test
+def test_off_windows_a_saved_listen_address_host_is_read_as_it_is_and_keeps_its_calibration(ctx: Ctx):
+    """jf-connect: on Linux and macOS a connect to 0.0.0.0 reaches the local server, so a host saved that way
+    worked in 3.6.0.0 and its calibrations are stored under the saved url. There it is read as it is (3.6.0.0's
+    behaviour): a calibration recorded under it is still found. The switch follows the system."""
+    from halo_harness.providers import ollama as ollama_mod
+    from halo_harness.providers.ollama import resolve_ollama_hosts
+    from halo_harness.providers.ollama_calibrate import lookup_learned_cap, record_calibration
+    from halo_harness.theme import set_config_value
+    ctx.check(f"the switch follows the system: {getattr(ollama_mod, '_HEAL_LISTEN_URL_AT_READ', None)!r}",
+              getattr(ollama_mod, "_HEAL_LISTEN_URL_AT_READ", None) == (os.name == "nt"))
+    state = _fresh_state_dir("ol-hosts-listen-addr-posix-")
+    try:
+        set_config_value("ollama.hosts", _LISTEN_ADDR_HOSTS)
+        record_calibration(state, host_url="http://0.0.0.0:11434", model="qwen3:8b", digest=None,
+                           max_full_gpu_ctx=40960, ollama_version=None)
+        with _HealAtRead(False):
+            hosts = {h.name: h for h in resolve_ollama_hosts(env={})}
+        urls = {n: h.url for n, h in hosts.items()}
+        ctx.check(f"not Windows: read as saved (normalized), got {urls}",
+                  urls == {"box": "http://0.0.0.0:11434", "six": "http://[::]:11500", "lan": "http://gpu-box:11434"})
+        cap = lookup_learned_cap(state, host_url=hosts["box"].url, model="qwen3:8b")
+        ctx.check(f"not Windows: the calibration recorded under the saved url is found, got {cap!r}", cap == 40960)
     finally:
         _clear_state_dir_env()
 

@@ -26,6 +26,7 @@ from __future__ import annotations
 import http.client
 import json
 import logging
+import os
 import socket
 import threading
 import time
@@ -220,6 +221,13 @@ def _resolve_secret_field(d: dict, *, plain_key: str, env_key: str) -> Optional[
     return plain if isinstance(plain, str) and plain else None
 
 
+# jf-connect: a saved 0.0.0.0 / [::] host url is read as 127.0.0.1 on Windows only. There a connect to it never
+# worked (WinError 10049), so nothing was ever recorded under it. On Linux and macOS it reaches the local server,
+# so 3.6.0.0 used it and keyed its calibrations (learned window, prompt speed) by that exact url: it is read as
+# saved there, as in 3.6.0.0. Tests set the constant.
+_HEAL_LISTEN_URL_AT_READ = os.name == "nt"
+
+
 def _host_from_dict(d: dict) -> Optional[OllamaHost]:
     url = d.get("url")
     if not isinstance(url, str) or not url:
@@ -232,8 +240,9 @@ def _host_from_dict(d: dict) -> Optional[OllamaHost]:
         return None
     max_ctx = d.get("max_ctx")
     num_parallel_hint = d.get("num_parallel_hint")
-    return OllamaHost(  # 3.6.0.1: a listen address saved as the url (0.0.0.0 / [::]) is read as 127.0.0.1
-        name=name, url=connectable_url(url), default=bool(d.get("default", False)),
+    return OllamaHost(  # 3.6.0.1: on Windows a listen address saved as the url (0.0.0.0 / [::]) is read as 127.0.0.1
+        name=name, url=connectable_url(url) if _HEAL_LISTEN_URL_AT_READ else _normalize_host_url(url),
+        default=bool(d.get("default", False)),
         keep_alive=d.get("keep_alive") if isinstance(d.get("keep_alive"), str) else None,
         max_ctx=int(max_ctx) if isinstance(max_ctx, (int, float)) and not isinstance(max_ctx, bool) else None,
         num_parallel_hint=(int(num_parallel_hint)

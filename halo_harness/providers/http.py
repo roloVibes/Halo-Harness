@@ -139,6 +139,10 @@ LOOPBACK_CONNECT_S = 0.5
 # Windows only: Linux and macOS refuse a closed loopback port at once, so the short bound gives nothing there and
 # can only hurt (a busy server whose listen backlog is full drops the SYN; the client's retry comes ~1 s later).
 _SHORT_LOOPBACK_BOUND = os.name == "nt"
+# jf-connect: a caller whose own connect bound is this or more is a real request, not a probe. Its short-bound
+# TIMEOUT (never a refusal) is tried once more with the caller's bound: a local server that is briefly busy (its
+# accept queue full) answers only after about a second, and then connects as in 3.6.0.0.
+LOOPBACK_RETRY_FROM_S = 5
 
 
 def _short_loopback_bound() -> bool:
@@ -520,6 +524,20 @@ def format_post_connect_error(host: "str | None", detail) -> str:
     return f"upstream connection to {named} was interrupted ({detail})"
 
 
+class _ShortLoopbackTimeout(UpstreamConnectError):
+    """jf-connect: the short loopback bound fired (a timeout, not a refusal); `open_upstream` tries a real
+    request once more with the caller's bound. A probe sees it as the plain UpstreamConnectError it is."""
+
+
+def _format_loopback_timeout(host: "str | None", port: "int | None", seconds: float) -> str:
+    """jf-connect: a loopback connect whose retry with the caller's whole bound also timed out: nothing refused
+    it, so it is not "nothing is listening"; the server took no connection in that time (busy or hung)."""
+    named = host or "the upstream host"
+    where = f"{named}:{port}" if port else named
+    return (f"{CONNECT_FAILURE_MARKER} {where} -- timed out after {seconds:g} s connecting on this computer "
+            f"(the server took no connection in that time: too busy, or hung)")
+
+
 def is_post_connect_failure_message(message) -> bool:
     """True for the exact wording `format_post_connect_error` bakes in --
     a failure AFTER the connection was established (a dropped keep-alive,
@@ -535,7 +553,7 @@ def is_post_connect_failure_message(message) -> bool:
             and " was interrupted (" in message)
 
 
-def _bounded_connect(conn, timeout_s: float, host: str, loopback: bool = False) -> None:
+def _bounded_connect(conn, timeout_s: float, host: str, loopback: bool = False, retried: bool = False) -> None:
     """Runs `conn.connect()` (which performs `getaddrinfo` THEN the TCP/TLS
     handshake) on a background thread and waits at most `timeout_s`
     wall-clock seconds for it. A per-socket `timeout=` (what `conn` was
@@ -582,6 +600,8 @@ def _bounded_connect(conn, timeout_s: float, host: str, loopback: bool = False) 
     port = None if getattr(conn, "_tunnel_host", None) else getattr(conn, "port", None)
     if not done.wait(timeout_s):
         abandoned.set()
+        if loopback and retried:  # jf-connect: the second try timed out too; nothing refused it
+            raise UpstreamConnectError(_format_loopback_timeout(host, port, timeout_s), host=host)
         if loopback:  # 3.6.0.1: no DNS is involved on this computer; nothing answered on the port
             raise UpstreamConnectError(format_connect_error(
                 host, ConnectionRefusedError(f"no answer within {timeout_s:g} s on this computer"), port=port), host=host)
@@ -594,7 +614,9 @@ def _bounded_connect(conn, timeout_s: float, host: str, loopback: bool = False) 
         if loopback and isinstance(e, (TimeoutError, socket.timeout)):
             # 3.6.0.1: the short loopback bound fired before Windows' ~2 s refusal: it IS the refusal
             bound = getattr(conn, "timeout", None) or timeout_s
-            raise UpstreamConnectError(format_connect_error(
+            if retried:  # jf-connect: the try with the caller's bound timed out too; nothing refused it
+                raise UpstreamConnectError(_format_loopback_timeout(host, port, bound), host=host) from e
+            raise _ShortLoopbackTimeout(format_connect_error(
                 host, ConnectionRefusedError(f"no answer within {bound:g} s on this computer"), port=port),
                 host=host) from e
         raise UpstreamConnectError(format_connect_error(host, e, port=port), host=host) from e
@@ -691,6 +713,15 @@ class _ProxiedPlainHTTPConnection(http.client.HTTPConnection):
         return super().request(method, url, body, headers, encode_chunked=encode_chunked)
 
 
+def _plain_connection(host: str, port: int, per_address: float, loopback: bool) -> http.client.HTTPConnection:
+    """A direct plain-HTTP connection whose socket connect is bounded at `per_address` for each address; on the
+    short loopback path a `localhost` name tries IPv4 first (a literal has one address)."""
+    conn = http.client.HTTPConnection(host, port, timeout=per_address)
+    if loopback and host.strip().lower().rstrip(".") == "localhost":
+        conn._create_connection = _ipv4_loopback_first(conn._create_connection, host)
+    return conn
+
+
 def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAULT_CONNECT_TIMEOUT_S,
                    on_connect=None) -> http.client.HTTPConnection | http.client.HTTPSConnection:
     """Open HTTP(S) connection to upstream, respecting proxy and TLS
@@ -768,14 +799,20 @@ def open_upstream(host: str, port: int, tls: bool, connect_timeout: int = DEFAUL
             # bound below stays the caller's. Windows only (`_short_loopback_bound`).
             loopback = _short_loopback_bound() and _is_loopback_connect_host(host)
             per_address = min(connect_timeout, LOOPBACK_CONNECT_S) if loopback else connect_timeout
-            conn = http.client.HTTPConnection(host, port, timeout=per_address)
-            if loopback and host.strip().lower().rstrip(".") == "localhost":  # a name; a literal has one address
-                conn._create_connection = _ipv4_loopback_first(conn._create_connection, host)
+            conn = _plain_connection(host, port, per_address, loopback)
 
     # Connect with timeout, then set idle timeout. Bounded (hotfix 2): a
     # hung/black-holed DNS resolution is capped at connect_timeout wall-clock
     # seconds, never the OS resolver's own (much longer) retry policy.
-    _bounded_connect(conn, connect_timeout, host, loopback=loopback)
+    try:
+        _bounded_connect(conn, connect_timeout, host, loopback=loopback)
+    except _ShortLoopbackTimeout:
+        if connect_timeout < LOOPBACK_RETRY_FROM_S:  # a probe: one short try, fast
+            raise
+        # jf-connect: a real request; the short bound timed out (Windows had not refused yet): once more with the
+        # caller's own bound, so a briefly busy local server connects and a dead port is refused (~2 s there)
+        conn = _plain_connection(host, port, connect_timeout, loopback)
+        _bounded_connect(conn, connect_timeout, host, loopback=loopback, retried=True)
     conn.timeout = connect_timeout  # a later automatic reconnect of this conn keeps the caller's bound, as before
     if conn.sock:
         conn.sock.settimeout(300)  # 5 minutes idle timeout

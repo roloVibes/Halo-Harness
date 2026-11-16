@@ -552,21 +552,24 @@ def _bounds_a_loopback_connect_per_address(ctx: Ctx):
 
 
 @test
-def test_a_loopback_connect_that_times_out_is_worded_as_nothing_listening(ctx: Ctx):
-    """The Windows path (forced, so it runs on every system)."""
+def test_a_probe_s_loopback_connect_that_times_out_is_worded_as_nothing_listening(ctx: Ctx):
+    """The Windows path (forced, so it runs on every system). A probe (a caller
+    bound under LOOPBACK_RETRY_FROM_S) gets one short try; its timeout is the
+    refusal Windows has not reported yet."""
     with _ShortLoopbackBound(True):
         _loopback_timeout_wording(ctx)
 
 
 def _loopback_timeout_wording(ctx: Ctx):
     from halo_harness.providers import http as http_mod
-    with _FakeCreateConnection(_time_out_at_once):
+    with _FakeCreateConnection(_time_out_at_once) as fake:
         try:
-            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=1.5)
             msg = ""
         except http_mod.UpstreamConnectError as e:
             msg = str(e)
-    ctx.check(f"loopback timeout: refused wording naming 127.0.0.1:9, not DNS/VPN, got {msg!r}",
+    ctx.check(f"a probe's loopback timeout: one short try, got {fake.timeouts}", fake.timeouts == [0.5])
+    ctx.check(f"a probe's loopback timeout: refused wording naming 127.0.0.1:9, not DNS/VPN, got {msg!r}",
               "nothing is listening" in msg and "127.0.0.1:9" in msg and "connection refused" in msg
               and "DNS or VPN" not in msg and http_mod.is_connect_failure_message(msg))
     with _FakeCreateConnection(_time_out_at_once):
@@ -611,6 +614,115 @@ def test_the_short_loopback_bound_is_windows_only(ctx: Ctx):
         except http_mod.UpstreamConnectError:
             pass
     ctx.check(f"Windows: 127.0.0.1 still bounded at 0.5 s, got {fake.timeouts}", fake.timeouts == [0.5])
+
+
+# 3.6.0.1 (jf-connect): a local server that is briefly busy (its accept queue full) answers a connect only
+# after about a second. The fake below is that server, with no clock: a try whose per-address bound is under
+# _BUSY_ACCEPTS_AFTER_S times out, a longer one reaches a real loopback listener.
+_BUSY_ACCEPTS_AFTER_S = 1.0
+
+
+def _busy_server(listener_port):
+    def behave(address, timeout, real):
+        if timeout is not None and timeout < _BUSY_ACCEPTS_AFTER_S:
+            raise TimeoutError("timed out (fake: the accept queue is full)")
+        return real(("127.0.0.1", listener_port), timeout)
+    return behave
+
+
+def _time_out_then_refuse():
+    calls: list = []
+
+    def behave(address, timeout, real):
+        calls.append(timeout)
+        if len(calls) == 1:
+            raise TimeoutError("timed out")
+        raise ConnectionRefusedError(10061, "refused (fake)")
+    return behave
+
+
+@test
+def test_windows_a_real_request_reaches_a_briefly_busy_local_server(ctx: Ctx):
+    """The judge's scenario, the Windows path forced: a real request (the default 8 s bound) to a loopback
+    server that accepts only after ~1 s connects, as in 3.6.0.0: the short try times out, ONE more try with the
+    caller's own bound connects. A probe (a bound under 5 s) keeps one short try. Off Windows nothing changes."""
+    from halo_harness.providers import http as http_mod
+    ctx.check(f"http.LOOPBACK_RETRY_FROM_S is 5, got {getattr(http_mod, 'LOOPBACK_RETRY_FROM_S', None)!r}",
+              getattr(http_mod, "LOOPBACK_RETRY_FROM_S", None) == 5)
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(8)
+    port = srv.getsockname()[1]
+    try:
+        for host, caller in (("127.0.0.1", 8), ("127.0.0.1", 5), ("localhost", 8)):
+            conn, err = None, None
+            with _ShortLoopbackBound(True), _FakeGetaddrinfo(), _FakeCreateConnection(_busy_server(port)) as fake:
+                try:
+                    conn = http_mod.open_upstream(host, port, False, connect_timeout=caller)
+                except http_mod.UpstreamConnectError as e:
+                    err = str(e)
+            if conn is not None:
+                conn.close()
+            ctx.check(f"Windows, {host}, caller {caller} s: connects (short try(s), then one try at {caller} s), "
+                      f"got error {err!r}, tries {fake.timeouts}",
+                      conn is not None and err is None and fake.timeouts[-1] == caller
+                      and all(t <= 0.5 for t in fake.timeouts[:-1]) and len(fake.timeouts) >= 2)
+        conn, err = None, None
+        with _ShortLoopbackBound(True), _FakeCreateConnection(_busy_server(port)) as fake:
+            try:
+                conn = http_mod.open_upstream("127.0.0.1", port, False, connect_timeout=1.5)
+            except http_mod.UpstreamConnectError as e:
+                err = str(e)
+        if conn is not None:
+            conn.close()
+        ctx.check(f"Windows, a probe (1.5 s): one short try and no retry, got tries {fake.timeouts}",
+                  conn is None and err is not None and fake.timeouts == [0.5])
+        conn = None
+        with _ShortLoopbackBound(False), _FakeCreateConnection(_busy_server(port)) as fake:
+            try:
+                conn = http_mod.open_upstream("127.0.0.1", port, False, connect_timeout=8)
+            except http_mod.UpstreamConnectError:
+                pass
+        if conn is not None:
+            conn.close()
+        ctx.check(f"not Windows: one try at the caller's 8 s, as 3.6.0.0, got {fake.timeouts}",
+                  conn is not None and fake.timeouts == [8])
+    finally:
+        srv.close()
+
+
+@test
+def test_windows_a_real_request_s_retry_words_what_the_last_try_saw(ctx: Ctx):
+    """The Windows path forced. The retry that also times out says it timed out after the caller's seconds (it
+    was NOT refused); a retry that is refused says nothing is listening. A refusal on the first try is final."""
+    from halo_harness.providers import http as http_mod
+    msg = ""
+    with _ShortLoopbackBound(True), _FakeCreateConnection(_time_out_at_once) as fake:
+        try:
+            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+        except http_mod.UpstreamConnectError as e:
+            msg = str(e)
+    ctx.check(f"timed out twice: tries [0.5, 8], got {fake.timeouts}", fake.timeouts == [0.5, 8])
+    ctx.check(f"timed out twice: says it timed out after 8 s on this computer, names 127.0.0.1:9, no refusal, "
+              f"no DNS/VPN, got {msg!r}",
+              "timed out after 8 s" in msg and "127.0.0.1:9" in msg and "nothing is listening" not in msg
+              and "connection refused" not in msg and "DNS or VPN" not in msg
+              and http_mod.is_connect_failure_message(msg))
+    msg = ""
+    with _ShortLoopbackBound(True), _FakeCreateConnection(_time_out_then_refuse()) as fake:
+        try:
+            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+        except http_mod.UpstreamConnectError as e:
+            msg = str(e)
+    ctx.check(f"timed out, then refused: tries [0.5, 8], got {fake.timeouts}", fake.timeouts == [0.5, 8])
+    ctx.check(f"timed out, then refused: nothing is listening, got {msg!r}",
+              "nothing is listening" in msg and "127.0.0.1:9" in msg and http_mod.is_connect_failure_message(msg))
+    with _ShortLoopbackBound(True), _FakeCreateConnection(_refuse_at_once) as fake:
+        try:
+            http_mod.open_upstream("127.0.0.1", 9, False, connect_timeout=8)
+        except http_mod.UpstreamConnectError:
+            pass
+    ctx.check(f"refused at once: one try, no retry, got {fake.timeouts}", fake.timeouts == [0.5])
 
 
 def _listener_or_never(listener_port):
@@ -729,14 +841,16 @@ def test_a_dead_loopback_port_is_given_up_inside_the_probe_bounds(ctx: Ctx):
                 break
         return got, best
 
+    # The probes' own bounds (1.5 s): a probe gets one short try. A caller bound of 5 s or more is a real
+    # request, which tries a short-bound timeout once more (jf-connect) and so waits for Windows' ~2 s refusal.
     got, took = _best_of_three(
-        lambda: probe_version(OllamaHost(name="t", url=f"http://127.0.0.1:{port}"), timeout=10))
+        lambda: probe_version(OllamaHost(name="t", url=f"http://127.0.0.1:{port}")))
     ctx.check(f"probe_version on a dead loopback port: None in under 1.5 s (best of 3), got {got!r} after {took:.2f}s",
               got is None and took < 1.5)
     saved = os.environ.pop("BRIDGE_TEST_NO_BACKGROUND_NET", None)
     try:
         found, took = _best_of_three(
-            lambda: hf.auto_detect_local_servers(env={"HF_LOCAL_PROBE_PORTS": str(port)}, timeout=10, force=True))
+            lambda: hf.auto_detect_local_servers(env={"HF_LOCAL_PROBE_PORTS": str(port)}, force=True))
     finally:
         if saved is not None:
             os.environ["BRIDGE_TEST_NO_BACKGROUND_NET"] = saved
