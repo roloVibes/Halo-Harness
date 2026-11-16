@@ -11,9 +11,9 @@ version.
 ## [3.6.0.1] - unreleased
 
 Fixes for what using 3.6.0.0 turned up on Windows, macOS and Linux; what you already do works as before. The few
-new things come with the fixes: one flag, `halo ps --forget <pid>`, worker containers in the `halo ps` list, and a
-question from the Builder before a map switch or a line from main that lets your sessions do more. "Open" on an
-ask in Studio now takes you to it, and one button is gone from Studio's header. The limits that remain are at the
+new things come with the fixes: `halo ps --forget <pid>`, worker containers in the `halo ps` list, and a question
+from the Builder before a map switch or a line from main that lets your sessions do more. "Open" on an ask in
+Studio now takes you to it, and one button is gone from Studio's header. The limits that remain are at the
 end of this section.
 
 ### Studio
@@ -170,10 +170,9 @@ end of this section.
   (provider, permission mode, default model, "Which Ollama?", the model list) stopped the setup with a Python error,
   and a full-width (２) or Arabic-Indic (٢) digit was quietly read as 2. Now only 0-9 count; anything else is no
   answer, and the setup asks again or says "no server picked" / "no model picked". The same holds wherever you type a
-  number: `halo stop <pid>`, `halo ps --forget <pid>` (`halo ps --forget ２` forgot pid 2; now it is a usage error
-  and forgets nothing), `/intro <n>`, `/why <turn>`, `turn N` in the terminal UI, `halo review #N`, `halo local`
-  by port, a pool member's `host:port`, `--keep-alive`, a cron step in an agent file, the accessible mode's numbered
-  answers, Studio's pool, voice and settings number fields and its live-agents list (an answer that says what is
+  number: `halo stop <pid>`, `halo ps --forget <pid>`, `/intro <n>`, `/why <turn>`, `turn N` in the terminal UI,
+  `halo review #N`, `halo local` by port, a pool member's `host:port`, `--keep-alive`, a cron step in an agent
+  file, the accessible mode's numbered answers, Studio's pool, voice and settings number fields and its live-agents list (an answer that says what is
   wrong, not a server error), and the Signal pack's phone pick (Signal pack 1.0.2).
 - **A very long number is no number.** A paste of thousands of digits at a numbered pick stopped the setup with a
   Python error, and Studio's number queries failed the same way. Now a number of more than 18 digits (leading zeros
@@ -186,17 +185,15 @@ end of this section.
 - **Replays and exports keep ordinary words when your account has a common name.** With an account named `user`,
   `admin`, `test`, `home`, `runner`, `ubuntu` and the like, `halo replay`, `halo export`, the bug report, the session
   trace and the report card rewrote ordinary text: "the user asked" became "the <user> asked", `tests/test_a.py`
-  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced only where it
-  stands for your account: in a home folder (the Linux, macOS and Windows home folders in either slash, Git Bash,
-  WSL, `~name`, a `${HOME:-...}` default, whatever character ends the name) and in a login: `name@machine` (a prompt,
-  an ssh, scp or git target, a web address with a password, a database account), this computer's `machine\name`
-  (`whoami`, `runas`, an `icacls` owner), a network share named after the account, the account of `ssh -l`,
-  `sudo -u`, `su`, `chown` and the other commands docs/REPLAY.md lists, and a `user=` or `owner=` value. Where else
-  it stays is under Known limits. Any other account name is replaced as a whole word: a digit, `_`, `.`, `@` or a
-  quote beside it still counts as a boundary, but it is never replaced inside a longer word. Common machine names
-  (`localhost`, `desktop` ...) follow the same rule.
+  became `tests/<user>_a.py` and `ubuntu-latest` became `<user>-latest`. Such a name is now replaced only in a home
+  folder (the Linux, macOS and Windows home folders in either slash, Git Bash, WSL, `~name`, a `${HOME:-...}`
+  default, whatever character ends the name). Everywhere else, logins included, it stays; see Known limits. Any
+  other account or machine name is replaced as a whole word: a digit, `_`, `.`, `@` or a quote beside it still
+  counts as a boundary, but it is never replaced inside a longer word. A machine name that is a common word
+  (`localhost`, `desktop`, `laptop` and the like) is no longer replaced at all.
 - **`halo audit privacy --replays` uses the same rules**, so it no longer reports `<user>` as a leaked user name,
-  and in a replay that was not scrubbed it reports a home folder or a login that still holds the name.
+  and in a replay that was not scrubbed it reports a common-word account name only in a home folder, and any other
+  account or machine name wherever it stands as a word.
 - **`halo replay clip` and Studio's Export a clip with a `HALO_CHROME` that names no browser** now stop with
   "HALO_CHROME names a browser that does not exist: <value> (fix or unset it)" instead of filming in your installed
   Chrome. A bare command name (`HALO_CHROME=chromium`) still resolves through PATH.
@@ -257,13 +254,15 @@ end of this section.
   `daemon()` fork of a program under /usr/bin) can still outlive Halo, and `halo ps` does not list it: macOS shows no
   environment for its own binaries. Start such a program with `HALO_OWNER=kept-<name>` if you mean to keep it, or end
   it by hand; docs/PROCESSES.md ("What Halo cannot end on macOS").
-- **macOS: a program Apple ships can outlive a Halo stopped with Ctrl+C or a closed terminal.** Found on a real Mac
-  with System Integrity Protection on, present in 3.6.0.0 too and not fixed here: a program such as `sleep`, `ssh`,
-  `tail` or a shell that a tool command leaves in the background, or that Halo starts itself, can keep running after
-  Halo has gone, because macOS hides such a program's environment and Halo finds strays by a marker there. The
-  real-use check (`scripts/realcheck.py`) cannot see them either, so its PASS on a Mac does not cover them.
-  Meanwhile, after Halo has gone, look with `ps -ax` and end yours by pid (`kill <pid>`). Fixing it is the next
-  release's work.
+- **macOS: a program Apple ships can outlive Halo.** Found on a real Mac with System Integrity Protection on,
+  present in 3.6.0.0 too and not fixed here: macOS hides the environment of a program it ships (`sleep`, `ssh`,
+  `tail`, a shell), and Halo finds strays by a marker there. Measured: such a program that a tool command leaves in
+  the background outlives a Halo stopped with Ctrl+C or a closed terminal (a hard kill ended it); one that Halo
+  starts itself, as a pack can, outlives a Halo ended with `kill` and a hard kill too. A background job left by a
+  tool command that finished normally can outlive every way out; that and the other ways out were not measured.
+  The real-use check (`scripts/realcheck.py`) cannot see them either, so its PASS on a Mac does not cover them, and
+  docs/PROCESSES.md does not describe this yet. After Halo has gone, however it ended, look with `ps -ax` and end
+  yours by pid (`kill <pid>`).
 - **`halo ps --json` does not list containers**, and `halo stop` does not stop one; `docker rm -f <name>` does. With
   no process of Halo running, `halo ps` prints "no process of Halo is running for this home" above its container
   lines.
@@ -299,12 +298,14 @@ end of this section.
   docs/ISOLATION.md repeats its notice about the 3.5 files several times.
 - **Studio's Export a clip form still says "No Chrome found on this machine: install Chrome or set HALO_CHROME"**
   when `HALO_CHROME` names nothing; starting the export gives the exact line.
-- **A shared replay keeps a common-word account name outside home folders and logins.** For an account named
-  `admin`, `user`, `dev` and the like, the word stays in an `ls -l` owner column, a process list, an `/etc/passwd`
-  line, an ssh config `User` line, a role value, a path or web route word, prose, the account of a command not on
-  the list (`crontab -u`, `getent passwd`, `net user`) and a domain account (`CORP\name`): there it cannot be told
-  from the ordinary word, and a generic word identifies nobody. Search the replay for it before you share it if you
-  want it gone everywhere. A name that is not a common word is removed everywhere, as in 3.6.0.0.
+- **A shared replay keeps a common-word account name everywhere but in home folders.** For an account named
+  `admin`, `user`, `dev` and the like, the word stays in a login (`name@machine`, an ssh, scp or git target,
+  `machine\name`, a domain account `CORP\name`, a network share named after it), the account of a command
+  (`ssh -l`, `sudo -u`, `su`, `chown`, `crontab -u`), a `user=` or `owner=` value, an `ls -l` owner column, a process
+  list, an `/etc/passwd` line, an ssh config `User` line, a role value, a path or web route word and prose. A
+  machine named with a common word (`localhost`, `desktop`, `laptop` ...) stays everywhere; 3.6.0.0 replaced it.
+  Search the replay for the word before you share it if you want it gone. A name that is not a common word is
+  removed wherever it stands as a word.
 - **A replay excerpt cut one or two letters into your account or machine name keeps those letters** before its
   `...`; a cut of three letters or more is removed.
 - **A listen address `[::]` typed into either setup is saved as `127.0.0.1`** (on Windows a saved one is also read
@@ -319,8 +320,9 @@ end of this section.
   the ask when you get to it.
 - **`halo local stop` on a model server Halo cannot prove** says its record is kept and `halo ps` lists it, without
   naming `halo ps --forget <pid>`, which removes the record.
-- **Windows `/update`, for a record it cannot prove of a pack, shell or schedule process**, names
-  `halo ps --forget <pid>` but no way to stop it if it is Halo's; end it where it runs.
+- **`/update` on Windows and `halo update --keep-running` on every system, for a record they cannot prove of a pack,
+  shell or schedule process**, name `halo ps --forget <pid>` but no way to stop it if it is Halo's; end it where it
+  runs.
 - **Windows and macOS: when the clock steps back more than 2 seconds** just as Halo records a process whose start
   time it could not read, the record is dropped and Halo does not end that process when it closes. It takes both at
   once, so it is rare.
