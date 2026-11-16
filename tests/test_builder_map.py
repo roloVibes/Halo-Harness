@@ -172,12 +172,13 @@ def test_map_use_base_mode_follows_project_trust(ctx: Ctx):
     """3.6.0.1 repair: the base mode the Builder compares from is the session's own, trust included. An UNTRUSTED
     project's settings `defaultMode` is dropped by a real session (headless.build_session), so a map whose main
     asks only before commands (acceptEdits) still RAISES its sessions from default: a widening row. Once the
-    project is trusted, the settings already start sessions in acceptEdits: the same map is a plain row."""
+    project is trusted, the settings already start sessions in acceptEdits IN THIS PROJECT -- but config `crew.map` is
+    global (jf-mapuse), and a session in any other folder starts from default, so the same map still raises those: a
+    widening row that says so ("outside this project")."""
     import json
     from pathlib import Path
     with CrewRig() as rig:
         from halo_harness.config.claude_json import is_trusted, load_claude_json
-        from halo_harness.config.paths import claude_json_path
         from halo_harness.crew.map_session import configured_mode
         _boss_map(rig, "mine", "ask-commands", ("read",))
         d = Path(rig.proj) / ".claude"
@@ -190,15 +191,126 @@ def test_map_use_base_mode_follows_project_trust(ctx: Ctx):
         ctx.check(f"untrusted: map_use mine raises default to acceptEdits -> a widening row, unticked, got "
                   f"{[(r['summary'], r['widen']) for r in rows]}",
                   len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "acceptEdits" in rows[0]["summary"])
-        cj = claude_json_path()
-        cj.parent.mkdir(parents=True, exist_ok=True)
-        key = str(Path(rig.proj).absolute()).replace("\\", "/")
-        cj.write_text(json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8")
+        _trust(rig)
         ctx.check("the project is now trusted", is_trusted(rig.proj, load_claude_json()))
         ctx.check(f"trusted: the base mode is the settings' acceptEdits, got {configured_mode(rig.proj)}",
                   configured_mode(rig.proj) == "acceptEdits")
+        ctx.check(f"outside any project the base stays default, got {configured_mode(rig.proj, project=False)}",
+                  configured_mode(rig.proj, project=False) == "default")
         rows = _use_rows(rig, "mine")
-        ctx.check(f"trusted: the mode does not rise -> a plain row, ticked, got {[(r['summary'], r['widen']) for r in rows]}",
+        ctx.check(f"trusted: the mode does not rise HERE, but sessions in other folders rise default -> acceptEdits: a "
+                  f"widening row, unticked, saying so, got {[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"]
+                  and "new sessions outside this project start in acceptEdits mode" in rows[0]["summary"])
+
+
+def _trust(rig) -> None:
+    import json
+    from halo_harness.config.paths import claude_json_path
+    cj = claude_json_path()
+    cj.parent.mkdir(parents=True, exist_ok=True)
+    key = str(Path(rig.proj).absolute()).replace("\\", "/")
+    cj.write_text(json.dumps({"projects": {key: {"hasTrustDialogAccepted": True}}}), encoding="utf-8")
+
+
+@test
+def test_map_use_widening_seen_outside_a_project_that_shadows_main(ctx: Ctx):
+    """jf-mapuse (case B): a trusted project ships its own `lead` (asks before changes), which hides your `lead`
+    (works on its own) only inside that project. Your map `mine` (main: lead) raises nothing here, but every session in
+    another folder would start in auto -- `crew.map` is global -- so map_use mine is a widening row."""
+    with CrewRig() as rig:
+        from halo_harness.crew import store
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.crew.map_session import own_map
+        store.write_text(store.path_for("agent", "lead", state_dir=rig.state), store.dump(
+            {"format": "agent/1", "name": "lead", "does": "Runs the session.", "model": "auto", "uses": ["read"], "careful": "own"}))
+        store.write_text(store.path_for("map", "mine", state_dir=rig.state), store.dump(
+            {"format": "map/1", "name": "mine", "boxes": [], "lines": [], "main": {"agent": "lead"}}))
+        d = Path(rig.proj) / ".halo" / "crew" / "agents"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "lead.yaml").write_text(store.dump({"format": "agent/1", "name": "lead", "does": "Runs the session.",
+                                                 "model": "auto", "uses": ["read"], "careful": "ask-changes"}), encoding="utf-8")
+        _trust(rig)
+        here = compile_map("mine", cwd=rig.proj, state_dir=rig.state)
+        out = compile_map("mine", cwd=None, state_dir=rig.state)
+        ctx.check(f"the shape: inside the project main is the project's lead, outside it is yours (own), got "
+                  f"{here.main.get('scope')} {out.main.get('careful')}",
+                  here.main.get("scope") == "project" and not own_map(here) and own_map(out) and out.main.get("careful") == "own")
+        rows = _use_rows(rig, "mine")
+        ctx.check(f"map_use mine from the project: a widening row, unticked, naming auto outside this project, got "
+                  f"{[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"]
+                  and "new sessions outside this project start in auto mode" in rows[0]["summary"])
+        # the agents' side too: the project's `helper` reads only; yours runs commands on its own
+        from halo_harness.theme import set_config_value
+        _agent(rig, "looker", ("read",), "ask-changes")
+        _agent(rig, "helper", ("read", "bash"), "own")
+        (d / "helper.yaml").write_text(store.dump({"format": "agent/1", "name": "helper", "does": "Helps.", "model": "auto",
+                                                   "uses": ["read"], "careful": "ask-changes"}), encoding="utf-8")
+        for mp, who in (("calm", "looker"), ("calm-helped", "helper")):
+            store.write_text(store.path_for("map", mp, state_dir=rig.state), store.dump(
+                {"format": "map/1", "name": mp, "main": {"agent": "mine-boss"}, "boxes": [{"id": who, "agent": who}],
+                 "lines": [{"from": "main", "to": who, "when": "main-decides"}]}))
+        _agent(rig, "mine-boss", ("read",), "ask-changes")
+        set_config_value("crew.map", "calm")
+        rows = _use_rows(rig, "calm-helped")
+        ctx.check(f"from calm to calm-helped: helper does no more here, but yours does outside -> widening naming helper, "
+                  f"got {[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and "may do more than the map calm's (helper)" in rows[0]["summary"])
+
+
+def _agent(rig, name: str, uses, careful: str) -> None:
+    from halo_harness.crew import store
+    store.write_text(store.path_for("agent", name, state_dir=rig.state), store.dump(
+        {"format": "agent/1", "name": name, "does": "Does the work.", "model": "auto", "uses": list(uses), "careful": careful}))
+
+
+@test
+def test_a_line_from_main_on_the_map_in_use_widens_like_map_use(ctx: Ctx):
+    """jf-mapuse: on the map IN USE, a line from main that gives main Agent / Task and an agent that may do more (or a
+    line's When changed from `ask` so main hands work to it on its own) is a widening row, as map_use's is; on a map
+    not in use, or a line to an agent that does no more, a plain row."""
+    with CrewRig() as rig:
+        from halo_harness.crew import store
+        from halo_harness.crew.tools_map import map_box_add, map_line_add, map_line_change
+        from halo_harness.theme import set_config_value
+        _boss_map(rig, "mine", "ask-changes", ("read",))
+        _boss_map(rig, "other", "ask-changes", ("read",))
+        _agent(rig, "runner2", ("read", "edit", "bash"), "own")
+        _agent(rig, "looker", ("read",), "ask-changes")
+        set_config_value("crew.map", "mine")
+        base = {"cwd": rig.proj, "state_dir": rig.state}
+
+        def line_rows(mp: str, to: str, when=None):
+            box = map_box_add({"map": mp, "kind": "agent", "ref": to}, base)["rows"]
+            args = {"map": mp, "from": "main", "to": to} | ({"when": when} if when else {})
+            return box, map_line_add(args, {**base, "made": box})["rows"]
+
+        box, rows = line_rows("mine", "runner2")
+        ctx.check(f"the box alone is plain, ticked, got {[(r['summary'], r['widen']) for r in box]}",
+                  len(box) == 1 and not box[0]["widen"] and box[0]["ticked"])
+        ctx.check(f"main -> runner2 on the map in use: a widening row, unticked, naming runner2 and Hand work to agents, "
+                  f"got {[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "runner2" in rows[0]["summary"]
+                  and "Hand work to agents" in rows[0]["summary"])
+        _b, rows = line_rows("other", "runner2")
+        ctx.check(f"the same line on a map not in use: plain, got {[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and not rows[0]["widen"] and rows[0]["ticked"])
+        # a map in use whose main already hands work to looker (reads only): a line to another reader adds no power
+        store.write_text(store.path_for("map", "mine", state_dir=rig.state), store.dump(
+            {"format": "map/1", "name": "mine", "main": {"agent": "mine-boss"},
+             "boxes": [{"id": "looker", "agent": "looker"}, {"id": "runner2", "agent": "runner2"}],
+             "lines": [{"from": "main", "to": "looker", "when": "main-decides"}, {"from": "main", "to": "runner2", "when": "ask"}]}))
+        _agent(rig, "looker2", ("read",), "ask-changes")
+        _b, rows = line_rows("mine", "looker2")
+        ctx.check(f"a line to a reader when main hands to one already: plain, got {[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and not rows[0]["widen"] and rows[0]["ticked"])
+        rows = map_line_change({"map": "mine", "from": "main", "to": "runner2", "when": "main-decides"}, base)["rows"]
+        ctx.check(f"runner2's line from ask to main decides (main hands it work on its own): widening, got "
+                  f"{[(r['summary'], r['widen']) for r in rows]}",
+                  len(rows) == 1 and rows[0]["widen"] and not rows[0]["ticked"] and "runner2" in rows[0]["summary"])
+        rows = map_line_change({"map": "mine", "from": "main", "to": "looker", "when": "ask"}, base)["rows"]
+        ctx.check(f"a line narrowed to ask: plain, got {[(r['summary'], r['widen']) for r in rows]}",
                   len(rows) == 1 and not rows[0]["widen"] and rows[0]["ticked"])
 
 

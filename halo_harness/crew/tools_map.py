@@ -10,9 +10,11 @@
 `map` defaults to the map open on the Map tab, else the map in use, else `starter`. A map that is not yours yet (a
 starter, the project's) is copied as yours first: one create line, then the change lines. A line that would make a
 circle is refused in one sentence (the file format refuses it too: crew/formats.py). When in words: always,
-{needs: [pdf]}, {says: [words]}, ask (only when I ask), main-decides. A map line widens nothing by itself (what an agent
-may do is in its own file); `map_use` on a map whose agents may do more than the map in use says so, amber, unticked --
-and so does one whose MAIN gives the next sessions more (a less careful start mode, more tools: 3.6.0.1).
+{needs: [pdf]}, {says: [words]}, ask (only when I ask), main-decides. `map_use` on a map whose agents may do more than
+the map in use says so, amber, unticked -- and so does one whose MAIN gives the next sessions more (a less careful start
+mode, more tools: 3.6.0.1), compared in this folder and outside any project (crew.map is global: jf-mapuse). On a map
+not in use a line widens nothing by itself (what an agent may do is in its own file); on the map IN USE a line (or a
+When off `ask`) that gives main Agent / Task or an agent doing more is a widening row too (jf-mapuse).
 """
 
 from __future__ import annotations
@@ -141,8 +143,9 @@ def map_line_add(args: dict, ctx) -> dict:
         return {"text": f"Refused: {a} -> {b} would make a circle ({' -> '.join(loop)}); a loop lives inside a workflow as repeat until.", "rows": []}
     op = {"op": "map_line_add", "line": {"from": a, "to": b, "when": when}}
     who = "main" if a == "main" else _box_line(body, a)
+    more = _line_more(name, body, op, ctx)  # jf-mapuse: on the map in use, a line may widen as map_use does
     return {"text": f"preview: the line {a} -> {b}", "rows": first + [row("change", _t(name),
-            f"On the map {name}: {who} hands work to {_box_line(body, b)}, {map_when.words(when)}", op)]}
+            f"On the map {name}: {who} hands work to {_box_line(body, b)}, {map_when.words(when)}{more}", op, bool(more))]}
 
 
 def map_line_change(args: dict, ctx) -> dict:
@@ -154,8 +157,9 @@ def map_line_change(args: dict, ctx) -> dict:
     if bad:
         return {"text": bad, "rows": []}
     op = {"op": "map_line_set", "from": a, "to": b, "when": when}
+    more = _line_more(name, body, op, ctx)  # jf-mapuse: `ask` -> main decides lets main hand it work on its own
     return {"text": "preview: the line's When", "rows": first + [row("change", _t(name),
-            f"On the map {name}: {a} -> {_box_line(body, b)} now {map_when.words(when)}", op)]}
+            f"On the map {name}: {a} -> {_box_line(body, b)} now {map_when.words(when)}{more}", op, bool(more))]}
 
 
 def map_line_remove(args: dict, ctx) -> dict:
@@ -192,10 +196,15 @@ def map_use(args: dict, ctx) -> dict:
     now, _src = in_use(None, ctx.get("cwd"))
     if now == name:
         return {"text": f"new sessions run on {name} already", "rows": []}
-    had = _powers(now, ctx) if now else {}
-    have_all = set().union(*[u for u, _r in had.values()]) if had else set()
-    top = max([r for _u, r in had.values()], default=0)
-    more = [n for n, (u, r) in _powers(name, ctx).items() if (u - have_all) or r > top] if now else []
+    more: list = []
+    for cwd in dict.fromkeys([ctx.get("cwd"), None]) if now else []:  # jf-mapuse: here, and where no project shadows
+        here = {**ctx, "cwd": cwd}
+        if cwd is None and store.find("map", now, cwd=None, state_dir=ctx.get("state_dir")) is None:
+            continue  # the map in use is this project's only: outside, sessions run as the starter does
+        had = _powers(now, here)
+        have_all = set().union(*[u for u, _r in had.values()]) if had else set()
+        top = max([r for _u, r in had.values()], default=0)
+        more += [n for n, (u, r) in _powers(name, here).items() if ((u - have_all) or r > top) and n not in more]
     extra = f" -- its agents may do more than the map {now}'s ({', '.join(more)})" if more else ""
     main_more = _main_more(name, ctx)  # 3.6.0.1: main too -- the mode next sessions start in, the tools main keeps
     return {"text": f"preview: new sessions run on {name}", "rows": [row("change", USE_TARGET,
@@ -206,15 +215,85 @@ def map_use(args: dict, ctx) -> dict:
 def _main_more(name: str, ctx) -> str:
     """What the map `name` gives main beyond the map in use, in words ("" when nothing): the mode a new session starts
     in and the tools main keeps, both through crew/map_session.start (the session's own rule, never re-derived)."""
-    from halo_harness.crew.changes import use_word
-    from halo_harness.crew.map_session import KINDS, RANK, configured_mode, start
-    kw = {"cwd": ctx.get("cwd"), "state_dir": ctx.get("state_dir"), "resolved": configured_mode(ctx.get("cwd"))}
-    (m0, t0), (m1, t1) = start(None, **kw), start(name, **kw)
-    gained = t1 - t0
-    words = [use_word(k) for k, tools in KINDS.items() if gained & set(tools)]
-    words += ["Hand work to agents"] * bool(gained & {"Agent", "Task"}) + ["Run workflows"] * ("Workflow" in gained)
-    bits = ([f"new sessions start in {m1} mode, as its main says (until now {m0})"] if RANK.get(m1, 99) > RANK.get(m0, 99) else [])
+    from halo_harness.crew.map_session import RANK, bases, start
+    gained, bits, seen = set(), [], set()
+    for cwd, resolved, where in bases(ctx.get("cwd")):  # jf-mapuse: crew.map is global -- this folder AND outside
+        kw = {"cwd": cwd, "state_dir": ctx.get("state_dir"), "resolved": resolved}
+        (m0, t0), (m1, t1) = start(None, **kw), start(name, **kw)
+        gained |= t1 - t0
+        if RANK.get(m1, 99) > RANK.get(m0, 99) and (m0, m1) not in seen:
+            bits.append(f"new sessions{where} start in {m1} mode, as its main says (until now {m0})")
+        seen.add((m0, m1))
+    words = _tool_words(gained)
     bits += [f"its main may use {', '.join(words)}"] if words else []
+    return f" -- {'; '.join(bits)}" if bits else ""
+
+
+def _tool_words(gained: set) -> list:
+    from halo_harness.crew.changes import use_word
+    from halo_harness.crew.map_session import KINDS
+    words = [use_word(k) for k, tools in KINDS.items() if gained & set(tools)]
+    return words + ["Hand work to agents"] * bool(gained & {"Agent", "Task"}) + ["Run workflows"] * ("Workflow" in gained)
+
+
+def _reach(c, cwd, state_dir) -> dict:
+    """agent -> its file, for every agent the session on `c` hands work to on main's own say: main's lines that are
+    not `ask` (only when the person asks), a workflow's step agents, and the chains on from there (crew/map_run)."""
+    from halo_harness.crew.compile import is_default
+    if c is None or is_default(c):
+        return {}
+    out, todo, done = {}, [h for h in c.handoffs if h.get("when") != "ask"], set()
+    while todo:
+        h = todo.pop()
+        if (h["box"], h["name"]) in done:
+            continue
+        done.add((h["box"], h["name"]))
+        if h["kind"] == "agent":
+            names = [h["name"]]
+        else:
+            steps = (c.workflows.get(h["name"]) or {}).get("steps") or []
+            names = [n for s in steps if isinstance(s, dict) for n in s.get("agents") or []]
+        for n in names:
+            got = c.agents.get(n) or store.load("agent", n, cwd=cwd, state_dir=state_dir)
+            if got:
+                out[n] = got
+        todo += [e for e in c.chains.get(h["box"]) or [] if e.get("when") != "ask"]
+    return out
+
+
+def _line_more(name: str, body: dict, op: dict, ctx) -> str:
+    """jf-mapuse: what a line row gives the sessions on the map IN USE, in words ("" when nothing, or the map is not
+    the one in use): the tools main gains (Agent / Task once it has an agent to hand to) and the agents main now hands
+    work to on its own that may do more than main and the agents it reached before. Compared from the map as a session
+    runs it now, here and outside this project (bases), so each row is judged as if applied alone."""
+    from halo_harness.crew.compile import compile_raw, for_session, in_use, is_default
+    from halo_harness.crew.map_session import _ALL, bases, removed_names
+    if in_use(None, ctx.get("cwd"))[0] != name:
+        return ""
+    after = apply_map(body, op)
+    ranks = {"default": 0, "acceptEdits": 1, "auto": 2}
+
+    def power(a: dict) -> tuple:
+        return set(a.get("uses") or []), ranks.get(MODES.get(a.get("careful"), "default"), 0)
+
+    gained, more = set(), []
+    for cwd, _r, _w in bases(ctx.get("cwd")):
+        c0 = for_session(None, cwd=cwd, state_dir=ctx.get("state_dir"))[0]
+        if c0 is None or c0.name != name:
+            continue  # a map with a problem runs as the starter; this edit does not reach that session's map
+        c1 = compile_raw(after, name=name, cwd=cwd, state_dir=ctx.get("state_dir"))
+        c1.source, c1.scope = c0.source, "yours"
+        if c1.problems:
+            continue
+        keeps = [set(_ALL) - (set() if is_default(c) else set(removed_names(_ALL, c))) for c in (c0, c1)]  # as start()
+        gained |= keeps[1] - keeps[0]
+        had = [power(c0.main or {})] + [power(a) for a in _reach(c0, cwd, ctx.get("state_dir")).values()]
+        have_all, top = set().union(*[u for u, _r in had]), max(r for _u, r in had)
+        more += [n for n, a in _reach(c1, cwd, ctx.get("state_dir")).items()
+                 if n not in more and ((power(a)[0] - have_all) or power(a)[1] > top)]
+    words = _tool_words(gained)
+    bits = ([f"main may now hand work to agents that may do more ({', '.join(more)})"] if more else [])
+    bits += [f"main may use {', '.join(words)}"] if words else []
     return f" -- {'; '.join(bits)}" if bits else ""
 
 

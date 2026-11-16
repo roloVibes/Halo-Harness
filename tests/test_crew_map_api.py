@@ -146,6 +146,53 @@ def test_use_receipt_says_when_the_start_mode_changes(ctx: Ctx):
 
 
 @test
+def test_use_receipt_says_the_mode_outside_a_trusted_project(ctx: Ctx):
+    """jf-mapuse: config `crew.map` is global. In a trusted project whose settings start sessions in acceptEdits, a map
+    whose main asks only before commands changes nothing HERE, but sessions in every other folder rise default ->
+    acceptEdits: Studio's switch and `halo maps use` say so in their receipt (no new question)."""
+    import json
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.config.paths import claude_json_path
+        from halo_harness.crew import store
+        for name, careful in (("mine", "ask-commands"), ("calm", "ask-changes")):
+            boss = f"{name}-boss"
+            store.write_text(store.path_for("agent", boss, state_dir=rig.state), store.dump(
+                {"format": "agent/1", "name": boss, "does": "Runs the session.", "model": "auto", "uses": ["read"], "careful": careful}))
+            store.write_text(store.path_for("map", name, state_dir=rig.state), store.dump(
+                {"format": "map/1", "name": name, "boxes": [], "lines": [], "main": {"agent": boss}}))
+        d = Path(rig.proj) / ".claude"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "settings.json").write_text(json.dumps({"permissions": {"defaultMode": "acceptEdits"}}), encoding="utf-8")
+        cj = claude_json_path()
+        cj.parent.mkdir(parents=True, exist_ok=True)
+        cj.write_text(json.dumps({"projects": {str(Path(rig.proj).absolute()).replace("\\", "/"): {"hasTrustDialogAccepted": True}}}),
+                      encoding="utf-8")
+        st, r = rig.api("POST", "crew/map/mine/use", {"on": True})
+        said = str(r.get("said"))
+        ctx.check(f"Studio's switch to mine: the receipt says sessions outside this project start in acceptEdits, got {st} {said!r}",
+                  st == 200 and "outside this project they start in acceptEdits mode (until now default)" in said)
+        st, r = rig.api("POST", "crew/map/calm/use", {"on": True})
+        said = str(r.get("said"))
+        ctx.check(f"back to calm (main asks before changes): here and outside alike they start in default, said once, got {said!r}",
+                  st == 200 and "they start in default mode (until now acceptEdits)" in said and "outside" not in said)
+        from halo_harness.maps_cli import cmd_maps
+        import os
+        cwd = os.getcwd()
+        os.chdir(rig.proj)
+        try:
+            with redirect_stdout(io.StringIO()):
+                code = cmd_maps(["use", "starter"])  # from calm both places move alike; from the starter only outside does
+            out = io.StringIO()
+            with redirect_stdout(out):
+                code += cmd_maps(["use", "mine"])
+        finally:
+            os.chdir(cwd)
+        ctx.check(f"halo maps use mine in the project (from the starter) says the same, got {out.getvalue()!r}",
+                  code == 0 and "outside this project they start in acceptEdits mode (until now default)" in out.getvalue())
+
+
+@test
 def test_from_live_builds_an_unsaved_agent_and_a_replay_knows_its_map(ctx: Ctx):
     """R4: POST crew/from-live {session, agent_id} -> an unsaved agent/1 body (main's uses and careful), nothing written,
     owner-only; GET live/replay?session= says the map the session ran on and its hops (from its log)."""

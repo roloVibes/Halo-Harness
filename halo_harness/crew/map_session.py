@@ -127,10 +127,12 @@ def main_mode(c, resolved: str) -> "tuple[str, str]":
                       f"yours never raises your permission mode, so it stays {resolved}")
 
 
-def configured_mode(cwd=None) -> str:
+def configured_mode(cwd=None, project: bool = True) -> str:
     """The mode a new session with no flag resolves before its map, in headless.build_session's order: config
     `permission_mode`, else the settings' `defaultMode` (read with the folder's own trust, as the session reads it:
-    an untrusted project's `defaultMode` is dropped), else "default"."""
+    an untrusted project's `defaultMode` is dropped), else "default". `project=False`: the base of a session in a
+    folder that is no trusted project (jf-mapuse) -- the folder's project and local settings are read as untrusted,
+    so only the user's (and a policy's) `defaultMode` counts."""
     from halo_harness.permissions import normalize_permission_mode
     from halo_harness.theme import get_config_value
     mode = get_config_value("permission_mode", default=None)
@@ -140,7 +142,8 @@ def configured_mode(cwd=None) -> str:
             from halo_harness.config.claude_json import is_trusted, load_claude_json
             from halo_harness.config.settings import resolve_settings
             where = cwd or Path.cwd()
-            mode = resolve_settings(where, trusted=is_trusted(where, load_claude_json())).permissions_default_mode
+            trusted = project and is_trusted(where, load_claude_json())
+            mode = resolve_settings(where, trusted=trusted).permissions_default_mode
         except Exception:
             mode = None
     return normalize_permission_mode(mode) if isinstance(mode, str) and mode else "default"
@@ -169,6 +172,37 @@ def start(name=None, *, cwd=None, state_dir=None, resolved: str = "default") -> 
 def start_said(before: str, after: str) -> str:
     """The receipt's few words when switching maps changes the mode new sessions start in ("" when it does not)."""
     return "" if before == after else f"they start in {after} mode (until now {before})"
+
+
+OUTSIDE = " outside this project"
+
+
+def bases(cwd=None) -> list:
+    """[(cwd, the mode resolved before the map, where words)] for the places a new session can start once config
+    `crew.map` -- global -- names a map (jf-mapuse): in `cwd` (its own trust: its settings' `defaultMode`, its trusted
+    project's agents over yours) and, when a folder is given, in a folder that is no trusted project (no project
+    agents: store.folders with no cwd; no project `defaultMode`). A third trusted project of its own is not walked."""
+    out = [(cwd, configured_mode(cwd), "")]
+    if cwd is not None:
+        out.append((None, configured_mode(cwd, project=False), OUTSIDE))
+    return out
+
+
+def start_modes(cwd=None, state_dir=None) -> list:
+    """[(where words, the mode a new session with no flag starts in)] for each of `bases(cwd)`, on the map in use now."""
+    return [(where, start(None, cwd=c, state_dir=state_dir, resolved=r)[0]) for c, r, where in bases(cwd)]
+
+
+def starts_said(before: list, after: list, here: bool = True) -> str:
+    """start_said for each base of start_modes; a base that moves as the one before it is said once; `here=False`
+    leaves out this folder's (a line said elsewhere covers it)."""
+    bits, seen = [], set()
+    for (where, b), (_w, a) in zip(before, after):
+        said = start_said(b, a)
+        if said and (b, a) not in seen and (here or where):
+            bits.append(f"{where.strip()} {said}".strip())
+        seen.add((b, a))
+    return "; ".join(bits)
 
 
 def line(c) -> str:
