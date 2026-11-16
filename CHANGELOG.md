@@ -154,6 +154,10 @@ that remain are at the end of this section.
 - **Windows: the window Setup's Done opens takes your typing** when you finished Setup from `halo studio`.
 - **macOS: Done tells the truth when Terminal cannot open** (macOS refused Studio control of Terminal in Privacy &
   Security > Automation): it says so with macOS's reason and that you can run `halo` yourself.
+- **The terminal setup stops when its input ends.** Ctrl+D, a closed terminal or a pipe that ends used to be read
+  as "the default" at every question, so `halo init --terminal` walked on and wrote a provider, a model and a
+  permission mode nobody chose. It now stops with one line and writes nothing more, as Ctrl+C does. A default is
+  taken only for Enter; a letter that is no answer is asked again, and `q` at the provider list stops the setup.
 
 ### Studio
 
@@ -246,6 +250,8 @@ that remain are at the end of this section.
 - **No bell over ssh or sudo**, and none when you copy in Apple Terminal (Halo uses `pbcopy` there).
 - **A program named in `BROWSER` is used alone**, in its own session; the Chrome that films a clip never asks the
   login keychain.
+- **The terminal setup no longer runs its Linux step on a Mac** (it offered to download a static `rg` and to add a
+  PATH line to `~/.profile`, a file zsh does not read). That step is for Linux only; Windows never gets it either.
 
 ### Linux
 
