@@ -515,10 +515,14 @@ jobs:
           echo "TMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
 
       - name: The commands (dry run)
-        run: python scripts/upgrade_from_3501.py --dry-run --sha "${{ github.event.pull_request.head.sha || github.sha }}"
+        env:
+          UPGRADE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python scripts/upgrade_from_3501.py --dry-run --sha "$UPGRADE_SHA"
 
       - name: Up from 3.5.0.1, each way the docs name
-        run: python scripts/upgrade_from_3501.py --sha "${{ github.event.pull_request.head.sha || github.sha }}" --work "$RUNNER_TEMP/upgrade-from-3501"
+        env:
+          UPGRADE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python scripts/upgrade_from_3501.py --sha "$UPGRADE_SHA" --work "$RUNNER_TEMP/upgrade-from-3501"
 
   # 3.0.3.0: Halo Studio's React shell (halo_harness/studio/ui). The built
   # bundle is committed under halo_harness/studio/static/dist so an install
