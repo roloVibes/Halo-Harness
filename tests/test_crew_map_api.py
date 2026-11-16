@@ -14,6 +14,7 @@ Run: python -m tests.test_crew_map_api
 from __future__ import annotations
 
 import io
+import json
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -122,6 +123,77 @@ def test_soft_missing_answers_200_removed(ctx: Ctx):
                   st == 200 and m == {"removed": True, "map": "gone", "scope": "yours", "path": str(gone)})
         ctx.check("removed, not soft: 404 (the editor's)", rig.api("GET", f"crew/map/gone?scope=yours&path={_q(gone)}")[0] == 404)
         ctx.check("no such map, no path: 404 still", rig.api("GET", "crew/map/nope")[0] == 404)
+
+
+class _Touches:
+    """Records every file-system look (stat, lstat, exists, lexists, realpath) whose path names `probe`."""
+
+    def __init__(self, probe) -> None:
+        import os
+        self.probe, self.seen, self.os = os.path.normcase(str(probe)), [], os
+        self.real = {"stat": os.stat, "lstat": os.lstat, "exists": os.path.exists, "lexists": os.path.lexists,
+                     "realpath": os.path.realpath}
+
+    def _wrap(self, name, fn):
+        def look(p, *a, **k):
+            try:
+                if self.probe in self.os.path.normcase(self.os.fspath(p)):
+                    self.seen.append(name)
+            except TypeError:
+                pass
+            return fn(p, *a, **k)
+        return look
+
+    def __enter__(self):
+        o = self.os
+        o.stat, o.lstat = self._wrap("stat", self.real["stat"]), self._wrap("lstat", self.real["lstat"])
+        o.path.exists, o.path.lexists = self._wrap("exists", self.real["exists"]), self._wrap("lexists", self.real["lexists"])
+        o.path.realpath = self._wrap("realpath", self.real["realpath"])
+        return self
+
+    def __exit__(self, *exc):
+        o = self.os
+        o.stat, o.lstat, o.path.exists, o.path.lexists, o.path.realpath = (
+            self.real["stat"], self.real["lstat"], self.real["exists"], self.real["lexists"], self.real["realpath"])
+        return False
+
+
+@test
+def test_soft_read_is_no_file_oracle(ctx: Ctx):
+    """3.6.0.2 R50 (P2 batch 8): the soft read touches the file system only for a path inside a folder maps live in
+    (yours, a trusted project's, a pack's, the starters). Any other path -- there or not -- gets the one answer
+    {unreadable} without a look at it, so a page holding Studio's token cannot learn whether a file exists."""
+    from halo_harness.crew import store
+    with CrewRig() as rig:
+        rig.studio()
+        cases = (("a file outside any maps folder", "", rig.root / "probe-stray" / "shop.yaml"),
+                 ("a file that is no map at all", "yours", rig.root / "probe-secret" / "id.txt"),
+                 ("an untrusted project's map", "project", rig.root / "probe-untrusted" / ".halo" / "crew" / "maps" / "shop.yaml"),
+                 ("a folder named like yours elsewhere", "yours", rig.root / "probe-other" / "crew" / "maps" / "shop.yaml"))
+        for why, scope, p in cases:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(store.dump(_map_body("shop", 1)), encoding="utf-8")
+            url = f"crew/map/shop?scope={scope}&path={_q(p)}&soft=1"
+            with _Touches(p) as seen:
+                there = rig.api("GET", url)
+            p.unlink()
+            with _Touches(p) as seen_gone:
+                gone = rig.api("GET", url)
+            ctx.check(f"{why}: the path itself is never looked at, got {seen.seen + seen_gone.seen}",
+                      seen.seen == [] and seen_gone.seen == [])
+            ctx.check(f"{why}: there and not there answer the same, got {there} vs {gone}",
+                      there == gone and json.dumps(there[1]) == json.dumps(gone[1]))
+            ctx.check(f"{why}: the one answer is 200 {{unreadable}}, got {gone}",
+                      gone[0] == 200 and gone[1] == {"unreadable": True, "map": "shop", "scope": scope, "path": str(p)})
+            ctx.check(f"{why}: not soft, 404 either way", rig.api("GET", f"crew/map/shop?scope={scope}&path={_q(p)}")[0] == 404)
+        # inside a maps folder the calm answers stay: removed when nothing is there, the map when it is
+        mine = store.path_for("map", "kept", state_dir=rig.state)
+        store.write_text(mine, store.dump(_map_body("kept", 1)))
+        ctx.check("yours, there: read", rig.api("GET", f"crew/map/kept?scope=yours&path={_q(mine)}&soft=1")[0] == 200
+                  and "boxes" in rig.api("GET", f"crew/map/kept?scope=yours&path={_q(mine)}&soft=1")[1])
+        mine.unlink()
+        ctx.check("yours, removed: 200 {removed}",
+                  rig.api("GET", f"crew/map/kept?scope=yours&path={_q(mine)}&soft=1")[1].get("removed") is True)
 
 
 @test

@@ -164,8 +164,10 @@ def finish(pv: dict, answer, session) -> str:
             pv["outcome"] = _outcome("left")
             return f"Left as it is: the change {pv['undo']} was not undone."
         got = changes.undo(pv["undo"])
-        if got.get("ok"):
-            pv["outcome"] = _outcome("applied", _items(got.get("restored")))
+        if got.get("ok"):  # R25: nothing an undo touches is new -- a body put back, or a file the card made removed
+            gone = set(got.get("removed") or [])
+            back = [p for p in got.get("restored") or [] if p not in gone]
+            pv["outcome"] = _outcome("applied", _items(back, set(back)) + _items(sorted(gone), removed=True))
         return f"Undone: {len(got.get('restored') or [])} file(s) put back." if got.get("ok") else str(got.get("error"))
     ids = chosen(pv["rows"], answer)
     from halo_harness.crew import map_facts

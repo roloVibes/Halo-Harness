@@ -319,6 +319,48 @@ def test_since_written_with_crew_map_in_one_write(ctx: Ctx):
 
 
 @test
+def test_since_written_when_one_model_switches(ctx: Ctx):
+    """R40 (P2 batch 8): the default map <-> "One model for everything" (or roles on/off) changes what new sessions use
+    though `crew.map` stays unset, so `crew.map_since` gets a new `at` in the same write -- the Builder's / Studio's
+    config_text, set_config_value('roles.enabled') (`halo roles on|off`) and unset_config_value('roles.enabled').
+    With `crew.map` set, roles on/off changes nothing new sessions use: the time is kept."""
+    import time
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome():
+        from halo_harness import theme
+        from halo_harness.crew.changes_map import ONE_MODEL, config_text, write_config
+        p = _config_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        old = {"map": None, "at": 1000.0}
+
+        def seed(roles_on: bool, crew_map=None) -> None:
+            crew = {"map_since": dict(old, map=crew_map), **({"map": crew_map} if crew_map else {})}
+            p.write_text(json.dumps({"crew": crew, "roles": {"enabled": roles_on}}), encoding="utf-8")
+
+        def at() -> "float | None":
+            return ((_config().get("crew") or {}).get("map_since") or {}).get("at")
+
+        def now(v) -> bool:
+            return isinstance(v, float) and abs(v - time.time()) < 5
+        for label, start, do in (
+                ("the default -> One model (config_text)", True, lambda: write_config(config_text(ONE_MODEL))),
+                ("One model -> the default (config_text)", False, lambda: write_config(config_text(None))),
+                ("halo roles off", True, lambda: theme.set_config_value("roles.enabled", False)),
+                ("halo roles on", False, lambda: theme.set_config_value("roles.enabled", True)),
+                ("roles.enabled unset (back to on)", False, lambda: theme.unset_config_value("roles.enabled"))):
+            seed(start)
+            do()
+            since = (_config().get("crew") or {}).get("map_since") or {}
+            ctx.check(f"{label}: map_since {{map None, at now}}, got {since}", since.get("map", "x") is None and now(since.get("at")))
+        seed(True)
+        theme.set_config_value("roles.enabled", True)
+        ctx.check(f"roles on again (no change): the time kept, got {at()}", at() == 1000.0)
+        seed(True, "shop")
+        theme.set_config_value("roles.enabled", False)
+        ctx.check(f"crew.map shop, roles off: new sessions still run on shop, the time kept, got {at()}", at() == 1000.0)
+
+
+@test
 def test_since_dropped_when_config_set_elsewhere(ctx: Ctx):
     from tests.helpers.config_seed import ConfigHome
     with ConfigHome() as env:
@@ -540,14 +582,32 @@ class _NoteRig:
             p.parent.mkdir(parents=True, exist_ok=True)
             store.write_text(p, store.dump({"format": "map/1", "name": name, "main": {"agent": "main"}, "boxes": [], "lines": []}))
         reg = ToolRegistry(default_tools(platform="linux") + [BuilderTool()])
-        self.s = Session(cwd=self.cwd, model_ref=parse_model_ref(NOTE_MODEL), model_profile=ModelProfile(),
-                         creds=ProviderCreds(base_url=self.mock.base_url, api_key="k"), state_dir=self.home / "sess-state",
-                         model_label=NOTE_MODEL, max_turns=6,
-                         crew_map=prepare(self.flags, self.cwd)[0] if self.with_map else None,
-                         session_context=SessionContext(cwd=self.cwd, model_label=NOTE_MODEL, tool_registry=reg),
-                         permission_engine=PermissionEngine(mode="default", cwd=self.cwd))
+
+        def make(session_log=None):  # session_log: an existing log -- the session resumed (`halo --resume`)
+            return Session(cwd=self.cwd, model_ref=parse_model_ref(NOTE_MODEL), model_profile=ModelProfile(),
+                           creds=ProviderCreds(base_url=self.mock.base_url, api_key="k"), state_dir=self.home / "sess-state",
+                           model_label=NOTE_MODEL, max_turns=6, session_log=session_log,
+                           crew_map=prepare(self.flags, self.cwd)[0] if self.with_map else None,
+                           session_context=SessionContext(cwd=self.cwd, model_label=NOTE_MODEL, tool_registry=reg),
+                           permission_engine=PermissionEngine(mode="default", cwd=self.cwd))
+        self.make = make
+        self.s = make()
         self.s.interactive = True
         return self
+
+    def resume(self):
+        """Close this session and open its log again as `halo --resume` does: a new Session on the same log."""
+        from halo_harness.agent.log import SessionLog
+        sid = self.s.log.session_id
+        try:
+            self.s.close_runtimes()
+        except Exception:
+            pass
+        log = SessionLog(self.cwd, session_id=sid)
+        log._nodes = log.read_all()  # as headless.py and agent/session_switch.py open a log to resume
+        self.s = self.make(log)
+        self.s.interactive = True
+        return self.s
 
     def __exit__(self, *exc):
         from tests.helpers.mock_openai import SCENARIOS
@@ -860,6 +920,36 @@ def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
         s.clear()
         ctx.check("no map: no map_start after /clear", _map_starts(s.log) == [])
         ctx.check("no map: only the terminal's own line", _clear_notes(s) == [(cleared, "note")])
+
+
+@test
+def test_resumed_session_has_map_since(ctx: Ctx):
+    """R40 F1 (P2 batch 8): a session reopened with `halo --resume` (or from Studio) was compiled on its map again then,
+    so the status row's map_since is the time of the resume -- taken where a first start takes it (map_events.started:
+    the log gets that map_start, after the nodes already there) -- never null. A session with no map: nothing of it."""
+    import time
+    from halo_harness.crew import map_facts
+    with _NoteRig({"map": "shop"}) as rig:
+        rig.turn("Say hello.")
+        first = map_facts.row(rig.s).get("map_since")
+        before = round(time.time(), 3)
+        s = rig.resume()
+        since = map_facts.row(s).get("map_since")
+        ctx.check(f"the resumed session runs on shop, got {getattr(s.team_control, 'map_name', None)}",
+                  getattr(s.team_control, "map_name", None) == "shop")
+        ctx.check(f"map_since is the resume's time (>= {before}, after the first start {first}), got {since}",
+                  isinstance(since, float) and since >= before and isinstance(first, float) and since > first)
+        starts = _map_starts(s.log)
+        ctx.check(f"the log has the first start and the resume's, the last one's t is map_since, got {[d.get('data', {}).get('t') for _i, d in starts]}",
+                  len(starts) == 2 and starts[-1][1].get("data", {}).get("t") == since
+                  and starts[-1][1].get("data", {}).get("map") == "shop")
+        two = _notes(rig.turn("Which map?"))
+        ctx.check(f"the resumed session's first turn carries no note (nothing changed), got {two}", two == [])
+    with _NoteRig(crew_map=False) as rig:
+        rig.turn("Say hello.")
+        s = rig.resume()
+        ctx.check("no map: no map_start on resume, map_since None",
+                  _map_starts(s.log) == [] and map_facts.row(s).get("map_since") is None)
 
 
 if __name__ == "__main__":

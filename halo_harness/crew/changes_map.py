@@ -74,8 +74,8 @@ def config_text(value) -> str:
     crew = {k: v for k, v in before.items() if k != "map"}
     if value and value not in (DEFAULT_MAP, ONE_MODEL):
         crew["map"] = value
-    from halo_harness.crew.map_facts import since_for  # 3.6.0.2 R40: when it was switched, in the same text
-    crew["map_since"] = since_for(before, crew.get("map"))
+    from halo_harness.crew.map_facts import roles_flip, since_for  # 3.6.0.2 R40: when it was switched, in the same text
+    crew["map_since"] = since_for(before, crew.get("map"), switched=roles_flip(data, value != ONE_MODEL))
     if crew:
         data["crew"] = crew
     else:

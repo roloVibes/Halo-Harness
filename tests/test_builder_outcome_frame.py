@@ -259,6 +259,45 @@ def test_undo_card_outcomes(ctx: Ctx):
 
 
 @test
+def test_change_and_applied_undo_say_what_each_file_was(ctx: Ctx):
+    """R25 (P2 batch 8): `added` is true only for a file that was not there before the card's write. A card that changes
+    your existing map says added:false for it (and added:true for the agent it makes); an applied Undo of that card says
+    added:false for the map it puts back and added:false, removed:true for the agent file it takes away."""
+    from halo_harness.crew import store
+    from halo_harness.crew.session_tool import finish
+
+    def before(state):  # yours `starter` already there: the card's box and line CHANGE it
+        mine = state / "crew" / "maps" / "starter.yaml"
+        mine.parent.mkdir(parents=True, exist_ok=True)
+        mine.write_bytes((store.SHIPPED / "maps" / "starter.yaml").read_bytes())
+
+    def inspect(s, state):
+        text = str(next((n.get("content") for n in s.log.nodes() if n.get("type") == "tool_result"), ""))
+        undo = text.split("Undo id ", 1)[-1].split(" ", 1)[0] if "Undo id " in text else ""
+        pv = {"undo": undo, "rows": [], "text": ""}
+        said = finish(pv, {"Undo it?": "Yes"}, s)
+        return {"undo": undo, "outcome": pv.get("outcome"), "said": said,
+                "agent_gone": not (state / "crew" / "agents" / "my-reviewer.yaml").is_file()}
+    out = _run(approve_all, before=before, inspect=inspect)
+    got = _done(out)
+    ctx.check(f"one builder_done for the card, got {len(got)}", len(got) == 1)
+    wrote = (got[0][0].get("wrote") or []) if got else []
+    ctx.check(f"the card: your map starter changed (added false), the agent new (added true), got {wrote}",
+              {"kind": "map", "name": "starter", "added": False} in wrote
+              and {"kind": "agent", "name": "my-reviewer", "added": True} in wrote)
+    u = out["inspect"] or {}
+    o = u.get("outcome") or {}
+    ctx.check(f"the undo was applied and took the agent away, got {o} {u.get('said')!r}",
+              o.get("outcome") == "applied" and u.get("agent_gone") is True)
+    ctx.check(f"the undo: the map put back (added false, not removed), got {o.get('wrote')}",
+              {"kind": "map", "name": "starter", "added": False} in (o.get("wrote") or []))
+    ctx.check(f"the undo: the agent removed (added false, removed true), got {o.get('wrote')}",
+              {"kind": "agent", "name": "my-reviewer", "added": False, "removed": True} in (o.get("wrote") or []))
+    ctx.check(f"nothing in an undo is marked added, got {o.get('wrote')}",
+              bool(o.get("wrote")) and not any(w.get("added") for w in o.get("wrote") or []))
+
+
+@test
 def test_builder_done_in_both_kind_lists(ctx: Ctx):
     from halo_harness.studio.feed_kinds import DEFAULT_KINDS
     ctx.check("Studio asks every session for builder_done frames", "builder_done" in DEFAULT_KINDS)

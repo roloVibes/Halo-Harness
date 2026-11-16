@@ -1625,6 +1625,10 @@ class Session:
             resumed_on_another_model(self, existing_nodes)
             self._fire_session_start("resume")
             self._fire_directory_added_at_start()
+            if getattr(getattr(self, "team_control", None), "is_map", False) and agent_depth == 0:
+                # 3.6.0.2 R40 F1: compiled on its map again now -- map_since is the resume's (as at a first start)
+                from halo_harness.crew.map_events import started as _map_started
+                _map_started(self, self.team_control)
 
     def _run_hook(self, event: str, payload: dict, **kwargs):
         """W3b item 11: every `self.hook_runner.run(...)` call site in this

@@ -46,12 +46,21 @@ def _name(v):
     return v.strip() if isinstance(v, str) and v.strip() else None
 
 
-def since_for(crew_before, value) -> dict:
+def roles_flip(data: dict, roles_on: bool) -> bool:
+    """P2 batch 8: config `data` (as read for a write) going to `roles.enabled` = roles_on changes what new sessions use:
+    with `crew.map` unset, roles on draws the default map and roles off ("One model for everything") draws none."""
+    roles = data.get("roles") if isinstance(data.get("roles"), dict) else {}
+    crew = data.get("crew") if isinstance(data.get("crew"), dict) else {}
+    return bool(roles.get("enabled", True)) != bool(roles_on) and _name(crew.get("map")) is None
+
+
+def since_for(crew_before, value, switched: bool = False) -> dict:
     """The `crew.map_since` to write with `crew.map` = value: the one already there when it names the same map and the
-    map does not change (choosing the map in use again is no switch), else `{map: value, at: now}`."""
+    map does not change (choosing the map in use again is no switch), else `{map: value, at: now}`. `switched`: what
+    new sessions use changes though `crew.map` does not (the default map <-> One model for everything, `roles_flip`)."""
     crew_before = crew_before if isinstance(crew_before, dict) else {}
     old = crew_before.get("map_since")
-    if (_name(crew_before.get("map")) == _name(value) and isinstance(old, dict)
+    if (not switched and _name(crew_before.get("map")) == _name(value) and isinstance(old, dict)
             and _name(old.get("map")) == _name(value) and _num(old.get("at")) is not None):
         return dict(old)
     return {"map": _name(value), "at": round(time.time(), 3)}

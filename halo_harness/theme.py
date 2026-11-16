@@ -222,6 +222,11 @@ def set_config_value(key: str, value) -> Path:
         from halo_harness.crew.map_facts import since_for
         crew = data.get("crew") if isinstance(data.get("crew"), dict) else {}
         data["crew"] = {**crew, "map_since": since_for(crew, value)}
+    if key == "roles.enabled":  # P2 batch 8: roles on/off with no crew.map switches new sessions' map too
+        from halo_harness.crew.map_facts import roles_flip, since_for
+        if roles_flip(data, bool(value)):
+            crew = data.get("crew") if isinstance(data.get("crew"), dict) else {}
+            data["crew"] = {**crew, "map_since": since_for(crew, None, switched=True)}
     if "." in key:
         parts = key.split(".")
         cursor = data
@@ -276,10 +281,18 @@ def unset_config_value(key: str) -> bool:
         cursor = nxt
     if not isinstance(cursor, dict) or parts[-1] not in cursor:
         return False
+    flip = False
+    if key == "roles.enabled":  # P2 batch 8: back to the default (on) with no crew.map switches new sessions' map
+        from halo_harness.crew.map_facts import roles_flip
+        flip = roles_flip(data, True)
     cursor.pop(parts[-1])
     if key == "crew.map":  # 3.6.0.2 R40: taken out (new sessions draw the default) is a switch too
         from halo_harness.crew.map_facts import since_for
         cursor["map_since"] = since_for({}, None)
+    if flip:
+        from halo_harness.crew.map_facts import since_for
+        crew = data.get("crew") if isinstance(data.get("crew"), dict) else {}
+        data["crew"] = {**crew, "map_since": since_for(crew, None, switched=True)}
     if key == "theme":  # 3.3.12.0 R2: no pack palette is chosen now, so no restore record stays
         from halo_harness.themes.restore import note_choice
         note_choice(None, None)

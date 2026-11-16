@@ -209,7 +209,8 @@ def _undoable(path: Path, crew: Path) -> bool:
 
 
 def undo(undo_id: str, *, state_dir=None) -> dict:
-    """Every file the apply touched, back as it was (a file it made is removed). {ok, restored [path]} or {ok: False, error}."""
+    """Every file the apply touched, back as it was (a file it made is removed). {ok, restored [path], removed [path]}
+    (`removed`: those of `restored` the apply had made, now gone) or {ok: False, error}."""
     if not undo_id or not all(c.isalnum() or c == "-" for c in undo_id):
         return {"ok": False, "error": "no such change to undo"}
     rec_path = _undo_dir(state_dir) / f"{undo_id}.json"
@@ -218,12 +219,14 @@ def undo(undo_id: str, *, state_dir=None) -> dict:
     except (OSError, ValueError):
         return {"ok": False, "error": f"no change {undo_id} to undo (the last {KEEP} are kept)"}
     crew = (store.state_dir_of(state_dir) / "crew").resolve()
-    restored = []
+    restored, removed = [], []
     for f in rec.get("files") or []:
         path = Path(f["path"])
         if not _undoable(path, crew):
             continue
         _write(path, f.get("before"))
         restored.append(str(path))
+        if f.get("before") is None:
+            removed.append(str(path))
     store.write_text(rec_path, None)
-    return {"ok": True, "restored": restored}
+    return {"ok": True, "restored": restored, "removed": removed}
