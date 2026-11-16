@@ -18,6 +18,7 @@ import { openSession, sess, setSessionView, showsSessionStart } from "../session
 export type AskRef = Pick<AttnRow, "harness" | "session_id" | "agent_id"> & { id?: string };
 
 export const GONE = "That session has ended; its ask is gone.";
+export const UNREAD = "Studio could not read the sessions just now. Try Open again.";
 
 /** Session's Attention drawer open (added first when the saved view has no such panel) and given the focus. */
 function openAttention(): void {
@@ -58,5 +59,5 @@ export function openAsk(row: AskRef, elsewhere?: () => void): void {
   };
   if (!sid || here()) return go();
   // a session Studio has not read yet (its first ask came before the fleet's next read), or one that has ended
-  void load().then(() => (here() ? go() : toast(GONE, "info", 5000)), () => toast(GONE, "info", 5000));
+  void load().then(() => (here() ? go() : toast(GONE, "info", 5000)), () => toast(UNREAD, "error", 5000));
 }
