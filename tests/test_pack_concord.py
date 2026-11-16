@@ -136,6 +136,30 @@ def test_the_claimed_files_policy_with_a_fake_concord(ctx: Ctx):
 
 
 @test
+def test_arming_in_a_process_that_ran_a_session_leaves_no_policy_running(ctx: Ctx):
+    """3.6.0.1 jf-concord: in a process where a session ran before (the gate's warm() did; run_all runs every module
+    of a shard in one process), `halo pack mode concord coordinating on` starts the armed policy's kept process at
+    once (mode_state -> gate.on_armed). Leaving the home must end it: the run_all leftover check found
+    `policy/claimed_files.py` still running after this module when an earlier module of its shard had run a session."""
+    from halo_harness.agent import policy_gate as G
+    from halo_harness.packs import policy as P
+    saved, procs = dict(G._seen), []
+    try:
+        G._seen["session"] = True  # what an earlier session in this process left
+        with PacksHome() as h:
+            _on(h, ctx)
+            procs = [p.proc for k, p in P._procs.items() if k[0] == "concord" and p.alive]
+            ctx.check(f"arming started the kept process, got {[x.pid for x in procs]}", len(procs) == 1)
+        left = [k for k, p in P._procs.items() if k[0] == "concord" and p.alive]
+        ctx.check(f"leaving the home ends it, got {left} {[(x.pid, x.poll()) for x in procs]}",
+                  left == [] and all(x.poll() is not None for x in procs))
+    finally:
+        G._seen.clear()
+        G._seen.update(saved)
+        P.stop("concord")  # by the runner's own handle (its pid): nothing of this test outlives it
+
+
+@test
 def test_doctor_says_concord_mcp_is_not_on_path(ctx: Ctx):
     with PacksHome() as h:
         _on(h, ctx)

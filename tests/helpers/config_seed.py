@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -40,6 +41,13 @@ class ConfigHome:
         return self
 
     def __exit__(self, *exc):
+        # 3.6.0.1 jf-concord: a policy process the in-process runner keeps for a pack of this home (a session warmed
+        # the gate earlier in this process, then a mode switch armed it) ends with the home; Halo's own exit ends it
+        # at atexit, but run_all runs a shard's modules in one process that lives on
+        live = sys.modules.get("halo_harness.packs.policy")
+        if live is not None:
+            for key in [k for k in list(live._procs) if Path(k[2]).is_relative_to(self.home)]:
+                live.stop(key[0], key[1])
         for k in list(os.environ):
             if k.startswith(PREFIXES):
                 os.environ.pop(k)
