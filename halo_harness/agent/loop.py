@@ -5574,6 +5574,7 @@ class Session:
         MODEL CALLS -- finding 9, see `_turn_body`). Always ends by
         yielding a `turn_done` event."""
         self.turn_count += 1
+        self._map_asked = True  # 3.6.0.2 R40: the status row's `asked` (T10); /clear's count reset does not undo it
         turn_no = self.turn_count
         # W4a `--fallback-model`: "re-tries the primary at the start of each
         # user turn" -- reset here so a fallback used (if ever) by a PRIOR

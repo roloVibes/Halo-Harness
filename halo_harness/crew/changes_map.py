@@ -70,10 +70,12 @@ def config_text(value) -> str:
     from halo_harness.crew.compile import DEFAULT_MAP, _roles_on
     from halo_harness.theme import _load_config_for_write
     data = _load_config_for_write(config_path())  # 3.6.0.0 fx: CorruptConfigError, never {} written over the file
-    crew = data.get("crew") if isinstance(data.get("crew"), dict) else {}
-    crew = {k: v for k, v in crew.items() if k != "map"}
+    before = data.get("crew") if isinstance(data.get("crew"), dict) else {}
+    crew = {k: v for k, v in before.items() if k != "map"}
     if value and value not in (DEFAULT_MAP, ONE_MODEL):
         crew["map"] = value
+    from halo_harness.crew.map_facts import since_for  # 3.6.0.2 R40: when it was switched, in the same text
+    crew["map_since"] = since_for(before, crew.get("map"))
     if crew:
         data["crew"] = crew
     else:

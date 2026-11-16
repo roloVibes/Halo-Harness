@@ -112,8 +112,14 @@ def _off(mc, line: str) -> bool:
 
 
 def started(session, mc) -> None:
-    """The map this session runs on, once, in its log (a replay reads it)."""
-    _log(session, "map_start", {"map": getattr(mc, "map_name", ""), "t": round(time.time(), 3)})
+    """The map this session runs on, once, in its log (a replay reads it); its `t` stays on the session (3.6.0.2 R40:
+    F1, the status row's `map_since`, crew/map_facts.py)."""
+    t = round(time.time(), 3)
+    try:
+        session._map_started_at = t
+    except Exception:
+        pass
+    _log(session, "map_start", {"map": getattr(mc, "map_name", ""), "t": t})
 
 
 def hop(runtime, mc, h: dict, why: str, task: str, state: str, **extra) -> dict:

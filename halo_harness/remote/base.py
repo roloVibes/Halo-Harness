@@ -140,6 +140,8 @@ class _BaseHandle:
                     bg_done=getattr(self.session, "_bg_done", None))  # 3.4.1.3: {since, at, count, line, mode}
         tc = getattr(self.session, "team_control", None)  # 3.6.0.0 R3: the map this session started with
         data["map"] = getattr(tc, "map_name", None) if getattr(tc, "is_map", False) else None
+        from halo_harness.crew.map_facts import row as _map_row  # 3.6.0.2 R40: the truth sentence's facts (no switch: R46)
+        data.update(_map_row(self.session))
         return data
 
     def tail(self, n: int = 20) -> str:

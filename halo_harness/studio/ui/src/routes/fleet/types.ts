@@ -63,6 +63,15 @@ export type SessionRow = {
   busy?: boolean;
   /** 3.6.0.0 R3: the map the session started with (its control status `map`); none: not on a map. */
   map?: string | null;
+  /** 3.6.0.2 R40 (crew/map_facts.py): when it started on its map, on the default, new sessions' map and since when
+   *  (null: set outside Halo, T11), the last build's outcome (no map bodies), whether it has had a turn (T10). */
+  map_since?: number | null;
+  map_plain?: boolean;
+  map_next?: string | null;
+  map_next_since?: number | null;
+  built?: { id?: string; outcome: "applied" | "left" | "failed"; wrote?: { kind: string; name: string; added?: boolean; removed?: boolean }[];
+    undo?: string | null; next?: string | null; this_session?: string | null; t?: number } | null;
+  asked?: boolean;
   pending?: Pending;
   model?: string | null;
   /** 3.3.5.0 R0 (e): what the effort level does on its model (`think on`, `effort n/a`, or the level). */

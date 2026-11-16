@@ -85,6 +85,12 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
                parked=data.get("parked") if isinstance(data.get("parked"), list) else None,  # 3.3.11.0 R2: no terminal
                bg_done=data.get("bg_done") if isinstance(data.get("bg_done"), dict) else None,  # 3.4.1.3
                map=data.get("map") if isinstance(data.get("map"), str) else None)  # 3.6.0.0 R3: the map it started with
+    # 3.6.0.2 R40: the map facts the truth sentence reads (crew/map_facts.py row); never a `switch` (R46)
+    row.update(map_since=_num(data.get("map_since")), map_plain=data.get("map_plain") is True,
+               map_next=data.get("map_next") if isinstance(data.get("map_next"), str) else None,
+               map_next_since=_num(data.get("map_next_since")),
+               built=data.get("built") if isinstance(data.get("built"), dict) else None,
+               asked=data.get("asked") is True)
     return row
 
 
