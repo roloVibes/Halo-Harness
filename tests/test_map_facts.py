@@ -805,6 +805,56 @@ def test_studio_show_first_line_names_both(ctx: Ctx):
 
 
 @test
+def test_studio_show_with_no_map_says_t4(ctx: Ctx):
+    """R39 with T4: a session with no map (roles off, "One model for everything": compile.in_use is (None, "none")) is
+    told T4's words, "This session runs with no map, as it started at {t}: main does the work and starts its own
+    agents.", never "starter (the default)"; new sessions with no map are said to run with no map; with crew.map set, they
+    run on it."""
+    import re
+    import time
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.crew import session_tool
+        from halo_harness.theme import set_config_value
+        set_config_value("roles.enabled", False)
+        s = _Sess(None)
+        s.cwd = env.repo
+        s._map_started_at = time.time()
+
+        def first() -> str:
+            line = session_tool.preview(s, {"tool": "studio_show", "args": {"what": "map"}})["text"].split("\n")[0]
+            return line[len("studio_show: "):] if line.startswith("studio_show: ") else line
+        t4 = r"This session runs with no map, as it started at \d{2}:\d{2}: main does the work and starts its own agents\. "
+        got = first()
+        ctx.check(f"no map, new sessions none: T4 + new sessions with no map, got {got!r}",
+                  re.fullmatch(t4 + r"NEW SESSIONS run with no map\.", got) is not None and "starter" not in got)
+        set_config_value("crew.map", "review-flow")
+        got = first()
+        ctx.check(f"no map, crew.map review-flow: T4 + NEW SESSIONS run on review-flow, got {got!r}",
+                  re.fullmatch(t4 + r"NEW SESSIONS run on review-flow \(switched on at \d{2}:\d{2}\)\.", got) is not None)
+
+
+@test
+def test_compaction_sends_the_note_once(ctx: Ctx):
+    """R38: "again after a compact if sent before" -- the request after a compaction carries the facts note ONCE in all of
+    its messages (a note the compaction kept and a retold one would be two)."""
+    with _NoteRig() as rig:
+        rig.turn("please build: new sessions on review-flow")
+        rig.turn("Which workflow are you using?")
+        rig.turn("Thanks.")
+        list(rig.s._run_compaction(rig.s.turn_count, trigger="manual"))
+        body = rig.turn("And now?")
+        import re
+        whole = json.dumps([m for m in (body or {}).get("messages") or [] if isinstance(m, dict)], ensure_ascii=False)
+        got = re.findall(r"\[Halo\] This session runs on .*?answer from this note\.", whole)
+        ctx.check(f"the request after the compaction carries the note once, got {len(got)}", len(got) == 1)
+        body = rig.turn("Thanks again.")
+        whole = json.dumps([m for m in (body or {}).get("messages") or [] if isinstance(m, dict)], ensure_ascii=False)
+        got = re.findall(r"\[Halo\] This session runs on .*?answer from this note\.", whole)
+        ctx.check(f"the turn after carries it once (the log's own), got {len(got)}", len(got) == 1)
+
+
+@test
 def test_builder_description_says_workflow_on_a_map(ctx: Ctx):
     """R37 R39: the Builder tool's description says both sentences, letter for letter, before the tool list."""
     from halo_harness.tools.builder_tool import BuilderTool
@@ -852,7 +902,10 @@ def test_clear_relogs_map_start_and_says_the_map(ctx: Ctx):
     """R51: `/clear` starts a new log that begins (after its system node) with the map the session still runs on --
     name, scope, path, hash, t -- so a replay keeps drawing it there; the terminal says "This session still runs on
     {A}." after its line. With R38 R40: the status row's start time is the re-logged one, the new conversation's first
-    turn carries no note, a later switch is told again. A session with no map: nothing of it."""
+    turn carries no note, a later switch is told again. A session with no map: nothing of it.
+    The status row's `asked` stays True after /clear, by R5: "A row whose `parent` is `studio:<pid>` ... and no turn reads
+    T10" ("New session from Studio, no message yet.") -- a cleared session has had its turns and keeps its map (R51:
+    "`/clear` keeps the map and says so"), so it never reads T10 again."""
     import hashlib
     from halo_harness.crew import map_events, store
     from halo_harness.theme import set_config_value

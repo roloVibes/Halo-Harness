@@ -22,6 +22,8 @@ default map it gets no rows, only map_facts.NAME_THE_MAP. A new name makes the m
 card's calls, `card_use_rows` adds "new sessions run on it" for each map created (ticked unless it widens) or edited
 (its own question, unticked); every widening check of a use row runs on the map as the card leaves it (`_final`,
 compiled with the card's agents and workflows), and `use_recheck` checks it again at Apply when the file changed.
+`apply_check` is that Apply-time check for both doors (the session's card and Studio's builder box); it fails closed:
+a use row it cannot decide is left out (P2 batch 9).
 """
 
 from __future__ import annotations
@@ -452,22 +454,38 @@ def _beyond(names: list, c, mode: str, ctx) -> bool:
 def _on_running_map(got: dict, ctx) -> dict:
     """R36: a change to the map this session runs on (its own file, yours: crew/map_control.refresh follows it) says
     the session takes it at its next hand-off; a box (or a line to a box) whose agent may do more than the session's
-    main is a widening row."""
+    main is a widening row. A running map that is not yours (a project's, a starter) gets a copy made yours, which the
+    session does not follow (no hand-off words) but new sessions may read: the box check runs all the same, and when
+    new sessions run on that name, the copy is checked as map_use is (R54, P2 batch 9) -- widening, it is its own
+    question, unticked."""
     tc = _tc(ctx)
     rows = got.get("rows") or []
     if tc is None or _plain(tc) or not rows:
         return got
     run = str(getattr(tc, "map_name", "") or "")
     mine = [r for r in rows if r.get("target") == _t(run)]
-    if not mine or getattr(tc.map, "scope", "") != "yours" or any(r["op"].get("op") in ("create", "copy") for r in mine):
+    if not mine:
         return got
+    made = [r for r in [*(ctx.get("made") or []), *rows]  # the copy row, from this call or an earlier one of the card
+            if r.get("target") == _t(run) and r["op"].get("op") in ("create", "copy")]
+    follows = getattr(tc.map, "scope", "") == "yours" and not made
     here = {**ctx, "made": [*(ctx.get("made") or []), *rows]}
     body = _view(run, here)[0] or {}
     mode = str(getattr(getattr(ctx.get("session"), "permission_engine", None), "mode", None) or "default")
     for r in mine:
-        r["summary"] += f" -- {NEXT_HANDOFF}"
+        if r in made:
+            continue
+        if follows:
+            r["summary"] += f" -- {NEXT_HANDOFF}"
         if not r["widen"] and _beyond(_box_agents(r["op"], body, here), tc.map, mode, here):
             r["widen"], r["ticked"] = True, False
+    from halo_harness.crew.compile import in_use
+    if made and in_use(None, ctx.get("cwd"))[0] == run:
+        words = _use_words(run, here)
+        for r in made:
+            if words and not r["widen"]:
+                r["summary"] += words
+                r["widen"], r["ticked"] = True, False
     return got
 
 
@@ -515,26 +533,55 @@ def card_use_rows(rows: list, ctx) -> list:
     return out
 
 
-def use_recheck(rows: list, ids, ctx) -> list:
-    """R54 at Apply: the ids of the picked use rows whose map file changed since the card was shown and that, checked
-    again on the file as it is now with the card's picked rows, let agents do more (they are left out)."""
+def use_recheck(rows: list, ids, ctx) -> dict:
+    """R54 at Apply: {id: the line saying why} for each picked use row to leave out -- its map file changed since the
+    card was shown and, checked again on the file as it is now with the card's picked rows, lets agents do more; or the
+    check cannot decide (fails CLOSED): the file cannot be read, a map with no file that the card does not make, or the
+    check raises."""
     import hashlib
+    from halo_harness.crew import map_facts
     picked = [r for r in rows if r["id"] in set(ids)]
-    out = []
+    made = [x for x in picked if (x.get("op") or {}).get("op") != "use"]
+    out: dict = {}
     for r in picked:
         op = r.get("op") or {}
-        if op.get("op") != "use" or not op.get("file"):
+        if op.get("op") != "use":
+            continue
+        b = str(op.get("value") or "")
+        if not op.get("file"):  # a map made in the card: written by this same Apply, checked on the card's body
+            if b and not _new(b, {"made": made}):
+                out[r["id"]] = map_facts.use_unchecked(b, map_facts.UNCHECKED_UNREAD)
             continue
         try:
             with open(op["file"], "rb") as fh:
                 sha = hashlib.sha256(fh.read()).hexdigest()
         except OSError:
-            sha = None
+            out[r["id"]] = map_facts.use_unchecked(b, map_facts.UNCHECKED_UNREAD)
+            continue
         if sha == op.get("sha"):
             continue
-        if _use_words(op["value"], {**ctx, "made": [x for x in picked if (x.get("op") or {}).get("op") != "use"]}):
-            out.append(r["id"])
+        try:
+            wide = _use_words(b, {**ctx, "made": made})
+        except Exception:
+            out[r["id"]] = map_facts.use_unchecked(b, map_facts.UNCHECKED_RAISED)
+            continue
+        if wide:
+            out[r["id"]] = map_facts.use_left(b)
     return out
+
+
+def apply_check(rows: list, ids, ctx) -> "tuple[list, list]":
+    """R54 at Apply, the ONE path of both doors (crew/session_tool.finish, studio/builder_api.post_apply): (the ids to
+    write, the lines saying which use rows were left out and why). Fails closed: if the recheck itself breaks, every
+    picked use row is left out -- a map the agent wrote grants nothing the person did not tick."""
+    from halo_harness.crew import map_facts
+    ids = list(ids)
+    try:
+        left = use_recheck(rows, ids, ctx)
+    except Exception:
+        left = {r["id"]: map_facts.use_unchecked(str((r.get("op") or {}).get("value") or ""), map_facts.UNCHECKED_RAISED)
+                for r in rows if r["id"] in set(ids) and (r.get("op") or {}).get("op") == "use"}
+    return [i for i in ids if i not in left], [left[r["id"]] for r in rows if r["id"] in left]
 
 
 def first_line(rows: list, ctx) -> str:

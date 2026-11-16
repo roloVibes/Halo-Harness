@@ -50,6 +50,7 @@ def strip_reinjected(log, tail: list) -> list:
     summary merges it); a user message left empty is dropped when that keeps
     the turns alternating, else it keeps one line."""
     from halo_harness.agent.prompt_composition import SUMMARY_MARK, is_memory_block
+    from halo_harness.crew.map_facts import is_note  # 3.6.0.2 R38: map_facts.compacted retells it once, after
     texts = _reinjected_texts(log)
     out: list = []
     tail = list(tail or [])
@@ -59,7 +60,8 @@ def strip_reinjected(log, tail: list) -> list:
             out.append(msg)
             continue
         keep = [b for b in content if not (isinstance(b, dict) and b.get("type") == "text" and (
-            b.get("text") in texts or is_memory_block(b.get("text")) or SUMMARY_MARK in (b.get("text") or "")))]
+            b.get("text") in texts or is_memory_block(b.get("text")) or SUMMARY_MARK in (b.get("text") or "")
+            or is_note(b.get("text"))))]
         if keep:
             out.append({**msg, "content": keep} if len(keep) != len(content) else msg)
         elif out and out[-1].get("role") == "assistant" and i + 1 < len(tail):

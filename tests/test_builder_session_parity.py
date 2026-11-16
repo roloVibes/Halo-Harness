@@ -135,6 +135,62 @@ def test_the_widening_line_is_never_ticked_for_them(ctx: Ctx):
 
 
 @test
+def test_both_doors_recheck_the_use_row_at_apply(ctx: Ctx):
+    """R54 at Apply, one path for both doors: a `map_use` row whose map file changed since the preview and now lets
+    agents do more, or whose recheck raises, is left out by the session's card (crew/session_tool.finish) AND by Studio's
+    builder box (POST builder/apply), through the same function (crew/tools_map.apply_check); the rest is written."""
+    from tests.test_builder_map import _S, _agent, _map_of, _uses
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import builder, session_tool, store, tools, tools_map
+        from halo_harness.theme import get_config_value, set_config_value
+        _agent(rig, "looker", ("read",), "ask-changes")
+        _agent(rig, "runner", ("read", "bash"), "own")
+        _map_of(rig, "shop", ("read",), ["looker"])
+        set_config_value("crew.map", "shop")
+        real = tools_map._use_words
+
+        def widen(mp: str) -> None:
+            path = store.path_for("map", mp, state_dir=rig.state)
+            body = store.read(path)
+            body["boxes"].append({"id": "runner", "agent": "runner"})
+            body["lines"].append({"from": "main", "to": "runner", "when": "main-decides"})
+            store.write_text(path, store.dump(body))
+
+        def boom(*_a, **_k):
+            raise RuntimeError("the check broke")
+        for n, (door, case) in enumerate((("session", "widens"), ("session", "raises"), ("studio", "widens"),
+                                          ("studio", "raises"))):
+            mp = f"calm{n}"
+            _map_of(rig, mp, ("read",))
+            if door == "session":
+                pv = session_tool.preview(_S(rig), {"tool": "map_use", "args": {"map": mp}})
+                rows = pv["rows"]
+            else:
+                rows = tools.run("map_use", {"map": mp}, {"cwd": rig.proj, "state_dir": rig.state, "selection": {}})["rows"]
+                with builder._LOCK:
+                    builder.PENDING[(str(store.state_dir_of(rig.state)), f"r{n}")] = rows
+            ctx.check(f"{door}/{case}: the use row came ticked, got {[(r['summary'], r['widen']) for r in rows]}",
+                      len(_uses(rows)) == 1 and _uses(rows)[0]["ticked"])
+            widen(mp)
+            if case == "raises":
+                tools_map._use_words = boom
+            try:
+                if door == "session":
+                    out = session_tool.finish(pv, "Apply them", _S(rig))
+                else:
+                    st, a = rig.api("POST", "builder/apply", {"conversation_id": f"r{n}", "change_ids": [r["id"] for r in rows]})
+                    out = f"{st} {a}"
+            finally:
+                tools_map._use_words = real
+            ctx.check(f"{door}/{case}: crew.map stays shop and the result says it was left out, got "
+                      f"{get_config_value('crew.map')} {out[-240:]!r}",
+                      get_config_value("crew.map") == "shop" and "Left out: new sessions still run on shop: " in out
+                      and ((f"{mp} changed after the card was shown" in out) if case == "widens"
+                           else (f"whether {mp} lets agents do more could not be checked again" in out)))
+
+
+@test
 def test_print_mode_previews_and_writes_nothing(ctx: Ctx):
     from tests.helpers.config_seed import ConfigHome
     from halo_harness.tools.base import ToolContext

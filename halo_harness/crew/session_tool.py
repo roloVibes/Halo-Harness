@@ -171,14 +171,11 @@ def finish(pv: dict, answer, session) -> str:
         return f"Undone: {len(got.get('restored') or [])} file(s) put back." if got.get("ok") else str(got.get("error"))
     ids = chosen(pv["rows"], answer)
     from halo_harness.crew import map_facts
-    try:  # 3.6.0.2 R54: a use row whose map changed since the card and now widens is left out
-        from halo_harness.crew.tools_map import use_recheck
-        dropped = set(use_recheck(pv["rows"], ids, _ctx(session, [])))
-    except Exception:
-        dropped = set()
-    ids = [i for i in ids if i not in dropped]
-    left_out = "".join("\n" + map_facts.use_left(r["op"].get("value"))
-                       for r in pv["rows"] if r["id"] in dropped)
+    # 3.6.0.2 R54: a use row whose map changed since the card and now widens -- or whose recheck cannot decide -- is
+    # left out (fails closed; the same function as Studio's builder/apply)
+    from halo_harness.crew.tools_map import apply_check
+    ids, lines = apply_check(pv["rows"], ids, _ctx(session, []))
+    left_out = "".join("\n" + line for line in lines)
     if not ids:
         pv["outcome"] = _outcome("left")
         return pv["text"] + left_out + "\nThe person left every line: nothing was written."

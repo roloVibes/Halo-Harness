@@ -123,6 +123,8 @@ NOTE_REST = ("This session keeps running on {A} until a new session starts; noth
 SHOW_RUNS = "THIS SESSION runs on {A}, as it started at {t}."
 SHOW_NEXT = "NEW SESSIONS run on {B} (switched on at {t2})."
 SHOW_NEXT_UNTIMED = "NEW SESSIONS run on {B}."
+SHOW_NEXT_NONE = "NEW SESSIONS run with no map."  # roles off and no crew.map (section 4 has no words: P2 batch 9)
+T4 = "This session runs with no map, as it started at {t}: main does the work and starts its own agents."
 
 
 def _runs(template: str, words: str, since) -> str:
@@ -159,13 +161,32 @@ def note_text(session, f: "dict | None" = None) -> str:
     return NOTE_PREFIX + " ".join((_runs(NOTE_RUNS, a, f["since"]), nxt, NOTE_REST.format(A=a)))
 
 
+def is_note(text) -> bool:
+    """A text block is the facts note (a compaction leaves it out of the tail it keeps: `compacted` retells it once)."""
+    return isinstance(text, str) and text.startswith(NOTE_PREFIX + NOTE_RUNS.split("{", 1)[0]) \
+        and text.endswith(NOTE_REST.rsplit(". ", 1)[-1])
+
+
+def _none_next() -> bool:
+    """New sessions run with no map: `crew.map` unset and roles off ("One model for everything": compile.in_use)."""
+    try:
+        from halo_harness.crew.compile import in_use
+        return in_use(None, None)[1] == "none"
+    except Exception:
+        return False
+
+
 def show_line(session) -> str:
-    """`studio_show {what: map}`'s first line from a session (R39)."""
+    """`studio_show {what: map}`'s first line from a session (R39); a session with no map says T4, and new sessions
+    with no map say so (P2 batch 9: never "starter (the default)" for either)."""
     f = facts(session)
     a = f["words"] or words_of(None)
-    nxt = (SHOW_NEXT_UNTIMED.format(B=f["next_words"]) if f["next_since"] is None
-           else SHOW_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"])))
-    return _runs(SHOW_RUNS, a, f["since"]) + " " + nxt
+    if f["next"] is None and _none_next():
+        nxt = SHOW_NEXT_NONE
+    else:
+        nxt = (SHOW_NEXT_UNTIMED.format(B=f["next_words"]) if f["next_since"] is None
+               else SHOW_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"])))
+    return _runs(SHOW_RUNS if f["map"] else T4, a, f["since"]) + " " + nxt
 
 
 def turn_note(session) -> "str | None":
@@ -250,6 +271,10 @@ FIRST_WORKFLOW = "Your {words} workflow: the workflow {W} ({steps}), run from a 
 T1 = "This session runs on {A}, as it started at {t}. New sessions will too."
 RESULT_TAIL = "Written: {written}. Undo: {u}. Tell the person, word for word: "
 USE_LEFT = "Left out: new sessions still run on {F4}: {B} changed after the card was shown and now lets agents do more."
+USE_UNCHECKED = ("Left out: new sessions still run on {F4}: whether {B} lets agents do more could not be checked again "
+                 "({why}).")  # R54 fails closed (P2 batch 9; section 4 has no words for it)
+UNCHECKED_UNREAD = "its file cannot be read"
+UNCHECKED_RAISED = "the check failed"
 
 
 def in_terminal(session) -> bool:
@@ -290,6 +315,12 @@ def use_left(b: str) -> str:
     """R54: a use row left out at Apply because its map changed since the card and now widens."""
     nxt = next_map()[0]
     return USE_LEFT.format(B=b, F4=words_of(nxt, nxt is None))
+
+
+def use_unchecked(b: str, why: str) -> str:
+    """R54 fails closed: a use row left out at Apply because its recheck could not decide (`why`)."""
+    nxt = next_map()[0]
+    return USE_UNCHECKED.format(B=b, F4=words_of(nxt, nxt is None), why=why)
 
 
 def tell(session) -> str:

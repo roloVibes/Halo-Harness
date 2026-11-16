@@ -6,7 +6,9 @@
                                         cost_usd, meta}; 429 with the one line when today's cap is reached
     POST builder/apply {conversation_id, change_ids}
                                        {undo_id, wrote, removed, skipped, filled}: only the ids sent are written -- a
-                                       widening line is written only when the person ticked it in this request
+                                       widening line is written only when the person ticked it in this request;
+                                       `left`: the lines of the map_use rows the Apply-time recheck left out (3.6.0.2
+                                       R54, crew/tools_map.apply_check, fails closed)
     POST builder/undo {undo_id}        {restored}: every file the apply touched, as it was before
 
 All three writes are owner-only; the cap is checked here, before the model is called.
@@ -57,11 +59,13 @@ def post_apply(req):
     unknown = [i for i in ids if i not in known]
     if unknown:
         return 422, {"error": f"not in this preview: {', '.join(map(str, unknown[:5]))}"}
+    from halo_harness.crew.tools_map import apply_check  # 3.6.0.2 R54: the session card's recheck, the same function
+    ids, left = apply_check(rows, ids, {"cwd": req.cwd, "state_dir": req.state_dir, "selection": {}})
     got = changes.apply(rows, ids, cwd=req.cwd, state_dir=req.state_dir)
     if not got["ok"]:
         return 422, {"error": got["problems"][0], **got}
     builder.forget(req.state_dir, cid)
-    return 200, got
+    return 200, {**got, "left": left} if left else got
 
 
 def post_undo(req):

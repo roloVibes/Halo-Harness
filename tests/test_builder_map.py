@@ -595,6 +595,88 @@ def test_use_row_rechecked_at_apply_when_file_changed(ctx: Ctx):
 
 
 @test
+def test_apply_recheck_fails_closed(ctx: Ctx):
+    """R54 at Apply fails CLOSED: when the recheck cannot decide -- the check raises, or the map's file cannot be read --
+    the use row is left out (crew.map unchanged), the rest of the card is written, and the result says in one line that
+    new sessions were not switched and why. A map the agent wrote grants nothing the person did not tick."""
+    with CrewRig() as rig:
+        from halo_harness.crew import session_tool, store, tools_map
+        from halo_harness.crew.compile import compile_map
+        from halo_harness.theme import get_config_value, set_config_value
+        _agent(rig, "looker", ("read",), "ask-changes")
+        _map_of(rig, "shop", ("read",), ["looker"])
+        _map_of(rig, "calm", ("read",))
+        set_config_value("crew.map", "shop")
+        s = _S(rig)
+        real = tools_map._use_words
+        for who, case in (("looker2", "raises"), ("looker3", "unreadable")):
+            _agent(rig, who, ("read",), "ask-changes")
+            pv = session_tool.preview(s, {"changes": [_box("calm", who), {"tool": "map_use", "args": {"map": "calm"}}]})
+            use = _uses(pv["rows"])
+            ctx.check(f"{case}: the use row came ticked, got {[(u['summary'], u['widen']) for u in use]}",
+                      len(use) == 1 and use[0]["ticked"])
+            if case == "raises":  # the file changed since the card (a box with no line: no more power), the check raises
+                path = store.path_for("map", "calm", state_dir=rig.state)
+                body = store.read(path)
+                body["boxes"].append({"id": "looker", "agent": "looker"})
+                store.write_text(path, store.dump(body))
+
+                def boom(*_a, **_k):
+                    raise RuntimeError("the check broke")
+                tools_map._use_words = boom
+            else:
+                use[0]["op"]["file"] = str(Path(rig.root) / "no-such-dir" / "calm.yaml")
+            try:
+                out = session_tool.finish(pv, "Apply them", s)
+            finally:
+                tools_map._use_words = real
+            boxes = set(compile_map("calm", cwd=rig.proj, state_dir=rig.state).boxes)
+            ctx.check(f"{case}: crew.map stays shop, the box is written, got {get_config_value('crew.map')} {boxes}",
+                      get_config_value("crew.map") == "shop" and who in boxes)
+            ctx.check(f"{case}: one line says new sessions still run on shop and why, got {out[-260:]!r}",
+                      "Left out: new sessions still run on shop: whether calm lets agents do more could not be checked "
+                      "again" in out and "Applied 1 line(s), left 1" in out)
+
+
+@test
+def test_copy_of_running_project_map_is_checked_like_map_use(ctx: Ctx):
+    """R36 + R54: a session runs on a project's map that new sessions use too; a nameless change copies it as yours, and
+    that copy is what new sessions read where no project shadows it -- a switch. When the copy would let main hand work
+    to an agent that may do more, the copy row is its own question, unticked, No first, and a box whose agent may do
+    more than the session's main is too; answering only Apply writes no copy and leaves crew.map."""
+    with CrewRig() as rig:
+        from halo_harness.crew import session_tool, store
+        from halo_harness.theme import get_config_value, set_config_value
+        _agent(rig, "proj-boss", ("read",), "ask-changes")
+        _agent(rig, "runner", ("read", "bash"), "own")
+        d = Path(rig.proj) / ".halo" / "crew" / "maps"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "proj-flow.yaml").write_text(store.dump({"format": "map/1", "name": "proj-flow", "main": {"agent": "proj-boss"},
+                                                      "boxes": [], "lines": []}), encoding="utf-8")
+        _trust(rig)
+        set_config_value("crew.map", "proj-flow")
+        s = _S(rig, "proj-flow")
+        ctx.check(f"the session runs on the project's map, got {getattr(s.team_control.map, 'scope', '')}",
+                  getattr(s.team_control.map, "scope", "") == "project")
+        pv = session_tool.preview(s, {"changes": [_box(None, "runner"), _line(None, "runner")]})
+        rows = pv["rows"]
+        copy = [r for r in rows if r["op"].get("op") == "copy"]
+        box = [r for r in rows if r["op"].get("op") == "map_box_add"]
+        ctx.check(f"the copy row widens, unticked, got {[(r['summary'], r['widen'], r['ticked']) for r in rows]}",
+                  len(copy) == 1 and copy[0]["widen"] and not copy[0]["ticked"] and "runner" in copy[0]["summary"])
+        ctx.check(f"the box row (runner runs commands, main reads only) widens too, got {[(r['summary'], r['widen']) for r in box]}",
+                  len(box) == 1 and box[0]["widen"] and not box[0]["ticked"])
+        qs = pv["card"]["questions"]
+        ask = [q for q in qs if "Copy the project map proj-flow as yours" in q["question"]]
+        ctx.check(f"the copy is its own question, No first, got {[q['question'][:70] for q in qs]}",
+                  len(ask) == 1 and ask[0]["options"][0]["label"] == session_tool.NO)
+        session_tool.finish(pv, {q["question"]: session_tool.APPLY for q in qs if q["question"].startswith("Apply")}, s)
+        ctx.check("only Apply: no copy of yours written, crew.map unchanged",
+                  not store.path_for("map", "proj-flow", state_dir=rig.state).is_file()
+                  and get_config_value("crew.map") == "proj-flow")
+
+
+@test
 def test_card_row_and_tail_say_s13_golden(ctx: Ctx):
     """R21 + section 4: the use row and the result tail say S13 (+ the terminal tail); the result keeps Applied and the
     undo id, and no longer says "Studio follows the files."; an agent-only card ends with T1."""
