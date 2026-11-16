@@ -344,8 +344,8 @@ for its lineup), `workflows/lineup_roles.py` (a lineup role that covers the read
 header). Halo 3.3.16.3 "Blocks": `workflows/when.py` (a block's when: the rule, its label and sentence),
 `workflows/when_store.py` (where the rules live: config `workflows.when`), `workflows/when_route.py` (always, then
 words, then needs: an explicit when comes before a covering role, a plain ref after it), `workflows/when_tool.py` (the
-Workflow tool's words for each rule), `workflows/blocks_show.py` (the squares on, in lines); `halo blocks`, `halo
-teams`, the `halo workflows` square verbs and the composing routes went in 3.6.0.0 R5 (their one line: cli.py
+Workflow tool's words for each rule), `workflows/blocks_show.py` (the squares on, in lines); gone in 3.6.0.0 R5: `halo blocks`, `halo
+teams`, the `halo workflows` square verbs and the composing routes (their one line: cli.py
 `GONE_VERBS`).
 
 The map goes on in [Architecture: the module map, part two](ARCHITECTURE-modules-two.md): the Ollama

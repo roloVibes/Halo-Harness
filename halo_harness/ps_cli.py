@@ -247,7 +247,7 @@ def pick(table: list, words: list, *, orphans: bool = False, every: bool = False
                 (r["kind"] == "studio" and r["owner"] == "none"))], []
     targets, unknown = [], []
     for w in words:
-        hit = [r for r in table if (w.isdigit() and r["pid"] == int(w)) or r["kind"] == w]
+        hit = [r for r in table if (w.isascii() and w.isdigit() and r["pid"] == int(w)) or r["kind"] == w]
         if not hit:
             unknown.append(w)
         targets += [r for r in hit if r not in targets]

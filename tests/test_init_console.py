@@ -130,6 +130,29 @@ def test_the_role_table_is_read_as_it_is_and_nothing_is_migrated(ctx: Ctx):
     ctx.check("an interactive session start migrates nothing either", "migrate_on_start" not in src)
 
 
+@test
+def test_the_last_line_names_no_lineup(ctx: Ctx):
+    """3.6.0.1 setup-words: lineups left in 3.6.0.0 (Setup refuses one); the setup's last line must not send a person
+    to Studio's Setup for a lineup, in any of its three forms."""
+    from io import StringIO
+    from rich.console import Console
+    from halo_harness import init_cli
+    from halo_harness.studio import launch
+    real = launch.existing_url
+    try:
+        for printed, url in ((True, ""), (False, ""), (False, "http://127.0.0.1:1/")):
+            launch.existing_url = lambda *_a, _u=url, **_k: _u
+            buf = StringIO()
+            init_cli._studio_line(Console(file=buf, width=300), printed=printed)
+            text = buf.getvalue()
+            ctx.check(f"printed={printed} url={url!r}: says Studio's Setup, got {text!r}", "Studio's Setup" in text)
+            ctx.check(f"printed={printed} url={url!r}: no lineup or bio, got {text!r}",
+                      "lineup" not in text.lower() and "bio" not in text.lower())
+    finally:
+        launch.existing_url = real
+    ctx.check("the docstring says no lineup either", "lineup" not in (init_cli._studio_line.__doc__ or ""))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

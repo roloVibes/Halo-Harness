@@ -617,7 +617,7 @@ never on a cloud-model session, and never onto a target `network.offline`/
 with one plain notice naming the trigger, when the two conflict -- never a
 silent switch onto a model every later request would then also be refused
 for. A role-table entry's own `"escalation": false` turns it off for every
-sub-agent built under that role (`halo roles`/`docs/ROLES.md`), regardless
+sub-agent built under that role (`halo config get roles`, `docs/ROLES.md`), regardless
 of this top-level setting. An auto-switch (`ask: false`) leaves a real
 trace, not just a 5-second toast: a permanent transcript line, an
 immediate status-bar model update, and -- in print mode -- an

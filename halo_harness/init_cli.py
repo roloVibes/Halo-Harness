@@ -85,8 +85,9 @@ def _ask_number(label: str, count: int, default: int, console: Console) -> int:
         raw = (_prompt_plain(label) or "").strip()
         if not raw:
             return default
-        if raw.isdigit() and 1 <= int(raw) <= count:
-            return int(raw)
+        from halo_harness.numbered import pick
+        if pick(raw, count) is not None:
+            return pick(raw, count)
         if raw.lower() in ("q", "quit"):
             raise SetupQuit()
         console.print(f"   type a number from 1 to {count}, Enter for the default ({default}), q or Ctrl+C to stop",
@@ -663,8 +664,9 @@ def _numbered_model_pick(entries: "list[dict]", console: Console) -> "Optional[s
             return None
         if ":" in raw:
             return raw
-        if raw.isdigit() and 1 <= int(raw) <= len(shown):
-            return shown[int(raw) - 1]["ref"]
+        from halo_harness.numbered import pick
+        if pick(raw, len(shown)) is not None:
+            return shown[pick(raw, len(shown)) - 1]["ref"]
         if raw.lower() in ("q", "quit"):
             raise SetupQuit()
         console.print(f"   type a number from 1 to {len(shown)}, a model ref (with its prefix, like or:), Enter to keep "
@@ -1103,21 +1105,21 @@ def _run_provider_setup(provider: str, args, console: Console, cwd: Path,
 
 
 def _studio_line(console: Console, *, printed: bool) -> None:
-    """3.4.0.0 B2: the console setup ends on where the rest is: Studio's Setup (local models, the theme, the lineup,
+    """3.4.0.0 B2: the console setup ends on where the rest is: Studio's Setup (local models, the theme,
     the Linux fixes, the checks, the machines). A Studio already running for this home gives its address and the
     port-forward line; none: how to start one (it prints both). `printed`: the door already printed the address."""
     from halo_harness.studio import launch
     from halo_harness.studio.setup_door import _state_dir, forward_hint
     url = "" if printed else (launch.existing_url(_state_dir(), "setup", "setup") or "")
     if url:
-        _say(console, f"The rest (local models, theme, lineup, Linux fixes, checks, machines) is in Studio's Setup: {url}")
+        _say(console, f"The rest (local models, theme, Linux fixes, checks, machines) is in Studio's Setup: {url}")
         if forward_hint(url):
             _say(console, forward_hint(url))
     elif not printed:
-        _say(console, "The rest (local models, theme, lineup, Linux fixes, checks, machines) is in Studio's Setup: "
+        _say(console, "The rest (local models, theme, Linux fixes, checks, machines) is in Studio's Setup: "
                       "halo studio --mode setup starts it and prints its address (over SSH, with the port-forward line).")
     else:
-        _say(console, "The rest (local models, theme, lineup, Linux fixes, checks, machines) is in Studio's Setup "
+        _say(console, "The rest (local models, theme, Linux fixes, checks, machines) is in Studio's Setup "
                       "at the address above.")
 
 

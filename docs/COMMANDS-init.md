@@ -38,7 +38,7 @@ the fallback when no browser opens here (`HALO_NO_BROWSER`, `SSH_CONNECTION` / `
 a provider from a numbered list and its key (stored by the variable's NAME in Halo's env file, the writer Setup
 uses; a key never goes to config.json), the default model from a short numbered list of the catalog or typed as a
 ref, another provider or not, the permission mode, and whether to run `halo doctor` now. It ends on where the
-rest is (Studio's Setup: local models, theme, lineup, Linux fixes, checks, machines; its address and the
+rest is (Studio's Setup: local models, theme, Linux fixes, checks, machines; its address and the
 port-forward line when a Studio runs) and the start line. `--team <path|url>` (a team.json preset: the
 Databricks host, the gateway preference, the roles, the default model) is applied there, as `--provider` /
 `--yes` and a run with no terminal always did. `halo init --step <page>` is `halo setup <page>`: Studio's Setup on

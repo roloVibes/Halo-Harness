@@ -800,7 +800,7 @@ improve.model or:deepseek/deepseek-v4-flash`.
   below, security posture unchanged from `claude-bridge`'s.)
 - Credentials come from the environment, the settings chain, or
   `~/.databrickscfg`/`ucode-settings.json`; they're never written to the
-  repo, a command line, or committed config. `halo --config`-style
+  repo, a command line, or committed config. `halo config get`-style
   output and logs redact keys/tokens/auth headers.
 - The permission engine is pure grammar (see Permissions above) -- no
   hidden allow-list, no "trusted command" special-casing beyond what a

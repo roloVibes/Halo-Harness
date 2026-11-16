@@ -314,7 +314,7 @@ when. Log: every claim, merge, gate decision and note, with its time.
 
 Moved: Team's board went in 3.3.16.0 R1. Who owns what is a goal run's detail on Agents -> **Map** (each
 lane's OWNS row, its Claims page; 3.4.0.0 D); `?mode=team` lands there. The team file and
-`halo team` left in 3.4.0.0.
+`halo team` is gone since 3.4.0.0.
 
 ### Local
 

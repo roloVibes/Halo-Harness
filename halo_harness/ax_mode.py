@@ -76,8 +76,9 @@ def _ask_question(controller, data: dict) -> None:
         # A bare number picks that option's label (closer to what a sighted
         # user clicking the card would send); anything else is free text --
         # `resolve_question`'s own contract explicitly allows a plain string.
-        if reply.isdigit() and 1 <= int(reply) <= len(options):
-            opt = options[int(reply) - 1]
+        from halo_harness.numbered import pick
+        if pick(reply, len(options)) is not None:
+            opt = options[pick(reply, len(options)) - 1]
             reply = opt.get("label") if isinstance(opt, dict) else str(opt)
         answers[question_text] = reply
     final_answer = next(iter(answers.values())) if len(answers) == 1 else answers

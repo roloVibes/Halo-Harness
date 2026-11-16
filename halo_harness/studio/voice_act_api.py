@@ -191,7 +191,7 @@ def post_talk(req):
         raw = base64.b64decode(str(b.get("pcm_b64") or ""), validate=True)
     except ValueError:
         return 400, {"error": "pcm_b64 is not base64: Talk sends the utterance as 16-bit mono PCM"}
-    rate = int(b["rate"]) if str(b.get("rate") or "").isdigit() else 16000
+    rate = int(b["rate"]) if str(b.get("rate") or "").isascii() and str(b.get("rate") or "").isdigit() else 16000
     try:
         pcm, secs = T.pcm_of(raw, f"audio/pcm;rate={rate}")
         row = T.pick(T.sessions(req.state_dir), str(b.get("session") or ""))

@@ -232,8 +232,8 @@ parks `goal gate`, as before.
 
 ### A workflow run keeps its stage set
 
-Halo 3.2.1.0 R2. A goal compiled from a pack's workflow (`halo workflow run
-... --as goal`, `halo goal add --workflow`; the goal row's `workflow`, its
+Halo 3.2.1.0 R2. A goal compiled from a pack's workflow (`halo goal add
+--workflow`; the goal row's `workflow`, its
 goal.json's `workflow` block, or split.json's `workflow.pinned`) is never
 paused for a replan: `replan.allowed` answers first, "a workflow run keeps
 its stage set (its plan is pinned by doc-review/review)", and neither the

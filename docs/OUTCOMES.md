@@ -1,6 +1,6 @@
 # Verified outcomes and measured routing
 
-Read this when you want to know what an agent's work showed (its tests, sources, commands, files), how each outcome is recorded per bio and model, and how a bio can route to the model that succeeded most here.
+Read this when you want to know what an agent's work showed (its tests, sources, commands, files), how each outcome is recorded per agent and model, and how an agent can route to the model that succeeded most here.
 
 Halo 3.1.8.0 R3. Every agent task -- an Orchestra lane, a session's
 sub-agent -- ends with **evidence** of its kind, read out of its transcript:

@@ -194,9 +194,9 @@ def resolve_target(tokens: "list[str]", cwd: Path) -> ReviewTarget:
     if len(tokens) > 1:
         return _paths_target(cwd, tokens)
     tok = tokens[0]
-    if tok.startswith("#") and tok[1:].isdigit():
+    if tok.startswith("#") and tok[1:].isascii() and tok[1:].isdigit():
         return _pr_target(cwd, tok[1:])
-    if tok.isdigit():
+    if tok.isascii() and tok.isdigit():
         return _pr_target(cwd, tok)
     full = tok if os.path.isabs(tok) else str(cwd / tok)
     is_file, exists = os.path.isfile(full), os.path.exists(full)

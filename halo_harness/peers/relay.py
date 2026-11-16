@@ -52,7 +52,7 @@ def parse_url(text: str) -> "tuple[Optional[str], str, int]":
         host, _, port_s = raw.rpartition(":") if raw.count(":") == 1 else (raw, "", "")
     if not host:
         raise ValueError(f"no host in {text!r}")
-    if port_s and not port_s.isdigit():
+    if port_s and not (port_s.isascii() and port_s.isdigit()):
         raise ValueError(f"bad port in {text!r}")
     return scheme, host, int(port_s) if port_s else identity.DEFAULT_PORT
 

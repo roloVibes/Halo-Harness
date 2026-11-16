@@ -1,10 +1,10 @@
 # Halo Studio
 
-Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, and designs.
+Read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your agents, workflows and maps and their runs in Agents, and designs.
 
-`halo studio` opens Studio in your browser: where you see every agent of a session live (what it thinks, says, runs and costs), shape the work (lineups and blocks on a canvas, workflows, goal runs) and steer it. Its editors write the same files the CLI edits: a lineup is `~/.halo/teams/<name>.yaml` (or `.halo/teams/` in a project), a bio is `~/.halo/agents/<name>.yaml`, and Studio reads and writes them through the exact functions `halo teams` and `halo agents` use. Nothing is a second source of truth.
+`halo studio` opens Studio in your browser: where you see every agent of a session live (what it thinks, says, runs and costs), shape the work (agents, workflows and the map, goal runs) and steer it. Its editors write the same files the CLI edits: an agent is `~/.halo/crew/agents/<name>.yaml`, a workflow `~/.halo/crew/workflows/<name>.yaml`, a map `~/.halo/crew/maps/<name>.yaml` (or `.halo/crew/` in a project), and Studio reads and writes them through the exact functions `halo agents`, `halo workflows` and `halo maps` use. Nothing is a second source of truth.
 
-**What Studio shows is what is on disk, as it changes (3.2.2.0):** a lineup your session edits, `halo teams apply`, a bio saved from the terminal appear within two seconds, no refresh (the server watches the lineup, bio, config and layout files and sends `files_changed`). A form you are editing keeps your draft and offers **Reload** or **Keep mine**; a file deleted on disk leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
+**What Studio shows is what is on disk, as it changes (3.2.2.0):** a map your session edits, `halo maps use`, an agent saved from the terminal appear within two seconds, no refresh (the server watches the crew folders, the config and layout files and sends `files_changed`). A form you are editing keeps your draft and offers **Reload** or **Keep mine**; a file deleted on disk leaves the list. How: [The live feed](STUDIO-feed.md#the-live-feed).
 
 ```sh
 halo studio                 # starts a local server, opens the browser in the mode you used last

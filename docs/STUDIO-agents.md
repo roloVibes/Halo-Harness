@@ -42,8 +42,8 @@ Every old door still opens, on the tab that replaced it; each terminal answer na
 
 ### What Team's board became
 
-The board (members as columns, stages as boxes, blocks underneath) went in 3.3.16.0, the team file and `halo team` in
-3.4.0.0. Who hands work to whom is the Map now.
+The board (members as columns, stages as boxes, blocks underneath) is gone since 3.3.16.0, the team file and `halo team`
+since 3.4.0.0. Who hands work to whom is the Map now.
 
 ### Who owns what: the owns line
 

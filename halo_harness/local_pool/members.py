@@ -89,10 +89,10 @@ def parse_target(target: str) -> "tuple[str, Optional[int]]":
     if t.startswith("["):
         host, _, rest = t[1:].partition("]")
         port = rest[1:] if rest.startswith(":") else ""
-        return host, int(port) if port.isdigit() else (None if not port else -1)
+        return host, int(port) if port.isascii() and port.isdigit() else (None if not port else -1)
     if t.count(":") == 1:
         host, port = t.split(":")
-        return host, int(port) if port.isdigit() else -1
+        return host, int(port) if port.isascii() and port.isdigit() else -1
     return t, None
 
 

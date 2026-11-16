@@ -1,6 +1,6 @@
 # Studio: the shell
 
-Read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the team's door.
+Read this when you find your way around Studio's header, sections, panels and Start views, or open it on an agent, a workflow or a map.
 
 Part of [Halo Studio](STUDIO.md), which lists every part.
 
@@ -223,7 +223,7 @@ sent once per kind as `{"session_id": "studio", "event": "files_changed",
 "data": {"kind": "lineups" | "bios" | "config" | "layouts", "names": [...],
 "removed": [...]}}`, to every browser (a one-session feed too). Nothing that
 writes the files publishes anything: the watcher sees every writer, a
-session's Edit tool, `halo teams apply`, `halo agents`, `halo config set`,
+session's Edit tool, `halo maps use`, `halo agents`, `halo config set`,
 another Studio. The pages subscribe through `lib/filesLive.ts`
 (`onFilesChanged`, 300 ms merge) and re-read: Roles (the lineup list, the
 open lineup, the Bios panel, the bio form, the card positions, the active
@@ -298,7 +298,7 @@ A page opened on `?edit=` goes straight to it (`shell/edit.ts`): `bio:` opened A
 that bio's form, `lineup:` that lineup with the Inspector on its Lineup tab's summary (`lineup:<name>:<block>`, 3.3.16.0
 R1b: that block's page), `team` Agents on Live (3.4.0.0 D); since 3.6.0.0 R5 Cast and Live are gone and all three land on the Map. Start here stays shut on such a page.
 
-`halo studio --edit <target>` (and `halo agents edit`, `halo teams edit`,
+`halo studio --edit <target>` (and `halo agents edit`, `halo maps edit`,
 the TUI's `/edit`, `e` in the terminal's bio and lineup views, the wizard's
 **Edit in Studio**) finds the Studio running for this home
 (`~/.halo/studio.json`) and sends `POST /api/focus {edit}`. Studio puts a

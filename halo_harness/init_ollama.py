@@ -75,7 +75,8 @@ def _pick_host(console, ask):
         console.print(f"     {i}. {label}")
     console.print(f"     {len(rows) + 1}. another address (you type it)")
     raw = ask(f"   choose [1-{len(rows) + 1}], default 1") or "1"
-    idx = int(raw) if raw.isdigit() else 0
+    from halo_harness.numbered import whole_number
+    idx = whole_number(raw) or 0  # 3.6.0.1: ASCII digits only ('²' raised, '２' read as 2)
     if 1 <= idx <= len(rows):
         return rows[idx - 1][0], rows[idx - 1][1]
     if idx != len(rows) + 1:
@@ -169,9 +170,11 @@ def run_ollama_setup(args, console) -> "Optional[tuple]":
         for i, (name, size) in enumerate(zip(names, sizes), 1):
             console.print(f"     {i}. {name}" + (f"   {size}" if size else ""))
         raw = _prompt_plain(f"   pick the default model [1-{len(names)}]")
-        if not (raw.isdigit() and 1 <= int(raw) <= len(names)):
+        from halo_harness.numbered import pick
+        if pick(raw, len(names)) is None:
             console.print("   no model picked; back to the provider list")
             return None
+        raw = str(pick(raw, len(names)))
     written = []
     if is_new:  # the server joins ollama.hosts the way Setup's Ollama tab adds one
         from halo_harness.init_providers import save_tab_credentials

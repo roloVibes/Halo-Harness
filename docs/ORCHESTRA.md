@@ -193,7 +193,7 @@ run folder; the latest run when omitted. Every subcommand takes
 finished, 1 when it stopped. `--dry-run` asks the lead for the split and
 prints the jobs; nothing is claimed and no worktree is made. `--model REF`
 is the model every part uses; without it each part takes its role's model
-from the role table (`halo roles`): the goal's `lead` for the split and the
+from the role table (`halo config get roles`): the goal's `lead` for the split and the
 judge, the goal's `worker` for the workers, else the default model.
 
 **Preflight** (Halo 3.0.7.0). Before the split, and before a `--dry-run`, the

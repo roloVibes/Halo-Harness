@@ -90,7 +90,7 @@ workflows/flow.yaml line 4: inputs.docs.default is a path (a string relative to 
 
 ## The compile
 
-`halo workflow check doc-review/review --input docs=docs` compiles without
+`halo orchestra new --workflow doc-review/review --input docs=docs` compiles without
 running (`halo_harness/workflows/compile.py`):
 
 ```
@@ -121,10 +121,9 @@ doc-review/review compiles: 4 job(s), plan review, budget $2.00
 
 ## The run
 
-`halo workflow run doc-review/review --input docs=docs` compiles and runs it
-now as an Orchestra run (`halo orchestra run`: the lineup preflight, a line
-per step, the report). `halo orchestra new --workflow doc-review/review
---input docs=docs` only makes the run; `halo workflow run ... --as goal`
+`halo orchestra new --workflow doc-review/review --input docs=docs` makes the
+run and `halo orchestra run` runs it now (a line per step, the report);
+`halo goal add --workflow doc-review/review --input docs=docs`
 queues it for the supervisor (`halo supervise`, 3.1.8.0), which runs it and
 resumes it from its checkpoint (a build without the supervisor says so in
 one line). In Studio, the Pack Manager's Run <workflow> and Orchestra's own

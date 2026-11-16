@@ -25,7 +25,7 @@ import re
 from pathlib import Path
 from typing import Iterable, Optional
 
-from halo_harness.live.replay_cut import cut_name_rule, cut_path_rule
+from halo_harness.live.replay_cut import COMMON_NAMES, cut_name_rule, cut_path_rule
 
 SEP = r"[\\/]+"
 _LEAD = r"(?<![\w.~-])"  # a POSIX path starts here: not inside a word or another path
@@ -121,20 +121,42 @@ def _machines() -> list:
     return [n for n in dict.fromkeys(names) if len(n) >= 3]
 
 
-def _name_rule(names: list, word: str):
-    """3.4.1.2 (PACKS-5): a name of 6+ characters is replaced wherever it stands, even glued to a word (`1jsmith`,
-    `jsmith_notes`); a shorter one only between non-letters; a name of 7+ letters also as its 8.3 short form
-    (`JSMITH~1`)."""
+#: a home folder's prefix right before the account name: /home/, /Users/, C:\Users\ (either slash, a JSON-doubled
+#: backslash), /c/Users/ (Git Bash), /mnt/c/Users/ (WSL), \\?\C:\Users\; group 1 is kept
+_SEGMENT_LEAD = r"((?<=[\\/])(?:home|users)(?:\\\\|\\|/))"
+_SEGMENT_END = r"(?=[\\/\"'`]|\s|$)"
+
+
+def _name_patterns(names: list, *, segments: bool = True) -> list:
+    """3.6.0.1 (setup-words): the patterns that find a name, shared by `scrub` and `audit`. Every name where it stands as
+    a home folder's segment (`segments`; any length, group 1 the prefix kept); a name of 3+ characters that is not a
+    common word (replay_cut.COMMON_NAMES: `user`, `admin`, `runner` ...) as a whole word: not glued to a LETTER (a
+    digit, `_`, `.`, `-`, `@` or a quote is a boundary: `1jsmith`, `jsmith_notes`, `jsmith@box` go; `jsmithx`,
+    `xjsmith` stay); a name of 7+ letters also as its 8.3 short form (`JSMITH~1`)."""
+    names = [str(n) for n in names if n]
     if not names:
-        return None
+        return []
     ordered = sorted(names, key=len, reverse=True)
-    glued = [re.escape(n) for n in ordered if len(n) >= 6]
-    alts = [re.escape(n) for n in ordered if len(n) < 6]
+    out = []
+    if segments:
+        out.append(re.compile(r"(?i)" + _SEGMENT_LEAD + "(" + "|".join(map(re.escape, ordered)) + ")" + _SEGMENT_END))
+    alts = [re.escape(n) for n in ordered if len(n) >= 3 and n.lower() not in COMMON_NAMES]
     alts += [re.escape(re.sub(r"[\s.]", "", n)[:6]) + r"~\d+" for n in names if len(re.sub(r"[\s.]", "", n)) > 6]
-    parts = (["(?:" + "|".join(glued) + ")"] if glued else []) + \
-        ([r"(?<![^\W_])(?:" + "|".join(alts) + r")(?![^\W_])"] if alts else [])  # a letter or digit is no boundary
-    pat = re.compile(r"(?i)" + "|".join(parts))
-    return lambda s: pat.sub(word, s)
+    if alts:
+        out.append(re.compile(r"(?i)(?<![^\W\d_])(?:" + "|".join(alts) + r")(?![^\W\d_])"))  # a letter is no boundary
+    return out
+
+
+def _name_rule(names: list, word: str, *, segments: bool = True):
+    pats = _name_patterns(names, segments=segments)
+    if not pats:
+        return None
+
+    def rule(s: str) -> str:
+        for pat in pats:
+            s = pat.sub((lambda m: m.group(1) + word) if pat.groups else word, s)
+        return s
+    return rule
 
 
 def _json_unescape(s: str) -> str:
@@ -177,7 +199,7 @@ def scrub(payload, root=None, *, homes=None, users=None, machines=None):
                   + [_rule(h, "~", "~/") for h in sorted(homes, key=len, reverse=True)] if r]
     users = list(users) if users is not None else _users(homes)
     machines = list(machines) if machines is not None else _machines()
-    names = [r for r in (_name_rule(users, "<user>"), _name_rule(machines, "<machine>")) if r]
+    names = [r for r in (_name_rule(users, "<user>"), _name_rule(machines, "<machine>", segments=False)) if r]
     names += [cut_name_rule(users, "<user>"), cut_name_rule(machines, "<machine>")]
     path_rules.append(cut_path_rule(homes, root))
 
@@ -223,8 +245,9 @@ def audit(state_dir) -> list:
     from halo_harness.privacy_scan import _masked_excerpt, scan_text_content
     homes = _homes()
     own = [(re.compile(_LEAD + src), "home-path") for src in filter(None, map(_prefix, homes))]
-    own += [(re.compile(r"(?i)(?<![\w.-])" + re.escape(n) + r"(?![\w-])"), kind)
-            for names, kind in ((_users(homes), "user-name"), (_machines(), "machine-name")) for n in names]
+    # 3.6.0.1: the scrub's own name rules (a common-word name only as a home segment; never inside '<user>')
+    own += [(pat, "user-name") for pat in _name_patterns(_users(homes))]
+    own += [(pat, "machine-name") for pat in _name_patterns(_machines(), segments=False)]
     folder = replays_dir(state_dir)
     out: list = []
     for path in sorted(folder.glob(f"*{SUFFIX}")) if folder.is_dir() else []:

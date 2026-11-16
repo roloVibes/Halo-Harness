@@ -34,7 +34,7 @@ os.environ.setdefault("BRIDGE_TEST_NO_BACKGROUND_NET", "1")
 from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # noqa: E402
 
 test, TESTS = new_registry()
-CLOUD_HASH = "2f98df99f9ccafa086317a6b9d82c569796e9ad9da9d7c3e88b048ee6ef4ed8b"
+CLOUD_HASH = "1041e557d192ef0a140fdb5d77d98f3c1600a53e1c3fa3ca578b8d79c5440758"  # 3.6.0.1: Studio's paragraph names agents, workflows, the Map
 
 
 def _every_builtin() -> list:
@@ -183,7 +183,7 @@ def test_a_cloud_model_with_a_large_window_gets_todays_bytes(ctx: Ctx):
     tools = [{"name": "Bash", "description": "Runs a command."}, {"name": "Read", "description": "Reads a file."},
              {"name": "Write", "description": "Writes a file."}]
     fixed = build_system_prompt(model_label="ant:claude-opus-5-5", cwd="/work", tool_definitions=tools, family="claude")
-    ctx.check("the assembled prompt's bytes are 3.3.16.0's (a hash pin)",
+    ctx.check("the assembled prompt's bytes are 3.6.0.1's (a hash pin)",
               hashlib.sha256(fixed.encode("utf-8")).hexdigest() == CLOUD_HASH)
     text, defs, (out_text, _m, out_tools) = _cloud_and_lean("ant:claude-opus-5-5", 200000)
     ctx.check("the wire copy is the logged text, byte for byte, and every tool as it was",

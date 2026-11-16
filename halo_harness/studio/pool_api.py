@@ -62,7 +62,8 @@ def get_verdict(req):
 def post_scan(req):
     from halo_harness.local_pool.scan import scan
     b = _body(req)
-    port = int(b["port"]) if str(b.get("port") or "").isdigit() else None
+    from halo_harness.numbered import whole_number
+    port = whole_number(str(b.get("port") or ""))
     subnets = [str(s) for s in b["subnets"]] if isinstance(b.get("subnets"), list) else None
     got = scan(port=port, subnets=subnets, own_subnet=b.get("own_subnet") is not False, state_dir=req.state_dir)
     cli = " ".join(["halo pool scan"] + ([f"--port {port}"] if port else []) + [f"--subnet {s}" for s in subnets or []])
@@ -78,7 +79,8 @@ def post_members(req):
         cli = f"halo pool remove {name}"
     elif op == "add":
         host = str(b.get("host") or "").strip()
-        port = int(b["port"]) if str(b.get("port") or "").isdigit() else None
+        from halo_harness.numbered import whole_number
+        port = whole_number(str(b.get("port") or ""))
         weight, vram = _num(b.get("weight")), _num(b.get("vram_gb"))
         ok, lines, rows = M.add(name, host, weight=weight, vram_gb=vram, port=port, state_dir=req.state_dir)
         door = host if port is None else (f"[{host}]:{port}" if ":" in host else f"{host}:{port}")

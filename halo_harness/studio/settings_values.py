@@ -120,8 +120,9 @@ def coerce(kind: str, choices, value, key: str, secret: bool = False) -> "tuple[
             return value, []
         if isinstance(value, float) and value.is_integer():
             return int(value), []
-        if isinstance(value, str) and value.strip().lstrip("-").isdigit():
-            return int(value.strip()), []
+        from halo_harness.numbered import whole_number
+        if isinstance(value, str) and whole_number(value, signed=True) is not None:
+            return whole_number(value, signed=True), []
         return None, [f"{key}: {shown} is not a whole number"]
     if kind == "float":
         if isinstance(value, (int, float)) and not isinstance(value, bool):

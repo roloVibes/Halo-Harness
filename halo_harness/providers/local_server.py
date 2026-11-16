@@ -60,7 +60,7 @@ def _entry(state_dir, key) -> Optional[dict]:
     k = str(key).strip()
     rows = load_registry(state_dir)
     return next((e for e in rows if e.get("id") == k), None) or next(
-        (e for e in rows if k.isdigit() and int(k) == e.get("port")), None) or next((e for e in rows if e.get("model") == k), None)
+        (e for e in rows if k.isascii() and k.isdigit() and int(k) == e.get("port")), None) or next((e for e in rows if e.get("model") == k), None)
 
 
 def start(model_path, *, runtime: str, port: int = 0, window: int, ngl: int, parallel: int = 1, kv_type=None,

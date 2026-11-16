@@ -402,8 +402,8 @@ def ensure_background(*, cwd: Path, state_dir: Path, open_browser: bool = True, 
 
 
 def cmd_studio(argv: list) -> int:
-    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, lineups and agent bios as a graph, every harness, the local models, packs, Setup and Settings.")
-    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section>; glance: the phone-width page (default: the mode you used last; roles opens Agents on Cast, orchestra and team on Live)")
+    parser = argparse.ArgumentParser(prog="halo studio", description="Open Halo Studio, the browser GUI: this session live, your agents, workflows and maps, every harness, the local models, packs, Setup and Settings.")
+    parser.add_argument("--mode", default=None, metavar="SECTION", help="open straight into session, agents, local, packs, setup, settings, or a pack's section <pack id>--<section>; glance: the phone-width page (default: the mode you used last; the old words roles, orchestra and team open Agents on its Map)")
     parser.add_argument("--port", type=int, default=0, help="port to listen on (default: a free one)")
     parser.add_argument("--no-open", action="store_true", help="print the URL, do not open a browser")
     parser.add_argument("--cwd", default=None, help="the project directory for project-scope files (default: the current directory)")

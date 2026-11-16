@@ -22,7 +22,7 @@ def parse_endpoint(endpoint: str) -> tuple:
         return ("unix", endpoint[5:])
     if isinstance(endpoint, str) and endpoint.startswith("tcp:"):
         host, _, port = endpoint[4:].rpartition(":")
-        if host and port.isdigit():
+        if host and port.isascii() and port.isdigit():
             return ("tcp", host, int(port))
     raise ValueError(f"unrecognised control endpoint: {endpoint!r}")
 

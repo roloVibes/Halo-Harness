@@ -156,6 +156,35 @@ def test_moving_from_35_names_the_other_changes(ctx: Ctx):
               m is not None and "Studio" in m.group(1))
 
 
+#: the pages a 3.6 user reads first (3.6.0.1 setup-words): they teach agents, workflows and maps
+FIRST_PAGES = ("README.md", "WIZARD.md", "PACKS.md", "ISOLATION.md", "MODELS-ollama-steward-sched.md")
+OLD_WORD = re.compile(r"(?i)\blineups?\b|\bbios?\b")
+SAYS_OLD = re.compile(r"(?i)\bgone\b|\b3\.5\b|no longer|\b1\.x\b|MOVING-from-3\.5")
+
+
+@test
+def test_first_pages_teach_agents_workflows_maps(ctx: Ctx):
+    """3.6.0.1 setup-words: docs/README.md, WIZARD.md, PACKS.md, ISOLATION.md and MODELS-ollama-steward-sched.md still
+    taught lineups and bios as the way Halo works; 3.6.0.0 reads neither. A line may name the old words only as old:
+    the line itself says so, or its section does (its heading, or a `>` note among the section's first two lines: a
+    section about the 3.5 files or a 1.x pack)."""
+    left = []
+    for name in FIRST_PAGES:
+        old, probe, code = False, 0, False
+        for n, line in enumerate((DOCS / name).read_text(encoding="utf-8").splitlines(), 1):
+            if line.startswith("```"):
+                code = not code
+            elif line.startswith("#") and not code:
+                old, probe = bool(SAYS_OLD.search(line)), 2
+                continue
+            elif line.strip() and probe:
+                probe -= 1
+                old = old or (line.startswith(">") and bool(SAYS_OLD.search(line)))
+            if OLD_WORD.search(line) and not SAYS_OLD.search(line) and not old:
+                left.append(f"{name}:{n}: {line.strip()[:110]}")
+    ctx.check(f"the first pages speak of lineups and bios only as old ({len(left)}):\n  " + "\n  ".join(left), not left)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

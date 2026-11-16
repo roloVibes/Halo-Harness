@@ -26,7 +26,7 @@ halo workflows run my-review "review the login change"   # here, for real, on th
 `enable`, `disable` and `when` went with the board of squares (3.6.0.0 R5): the map says when main hands a workflow
 work.
 
-## `halo workflow`, `halo blocks`
+## `halo workflow`, `halo blocks` (gone in 3.6.0.0)
 
 (3.6.0.0 R5) Each prints one line and exits 0: `halo workflow` -- "use halo workflows"; `halo blocks` -- "starters:
 halo workflows new <name> --from <starter>". A pack's Orchestra workflow still compiles to a goal run:

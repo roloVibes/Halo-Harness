@@ -438,11 +438,12 @@ def valid_cron_field(field: str) -> bool:
         if not part:
             return False
         base, slash, step = part.partition("/")
-        if slash and (not step.isdigit() or int(step) == 0):
+        from halo_harness.numbered import whole_number
+        if slash and not whole_number(step):  # 3.6.0.1: ASCII digits only; '*/²' raised, '*/２' passed
             return False
         if base == "*":
             continue
-        if not _re.fullmatch(r"\d+(-\d+)?", base):
+        if not _re.fullmatch(r"[0-9]+(-[0-9]+)?", base):
             return False
     return True
 

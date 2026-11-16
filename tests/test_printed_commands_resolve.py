@@ -228,6 +228,70 @@ def test_halo_roles_names_the_model_table_and_one_model_for_everything(ctx: Ctx)
         ctx.check(f"`halo roles` names {want!r}, got {line!r}", want in line)
 
 
+#: folders of docs/ that are dated research, briefs or design history, not instructions for a person
+DOC_NOTES = {"docs/harness/": "dated research notes and build briefs of past versions",
+             "docs/design/": "design history of Studio's look"}
+#: the page whose job is to name the 3.5 verbs and where each went
+DOC_OLD_VERBS = "docs/MOVING-from-3.5.md"
+#: a line that itself says the command it names is gone is right
+SAYS_GONE = re.compile(r"(?i)\bgone\b|retired|only says so|prints one line|no longer|\b3\.5\b|\bthere is no\b")
+
+
+@test
+def test_every_doc_names_only_commands_that_exist(ctx: Ctx):
+    """3.6.0.1 setup-words: the docs still sent people to `halo teams`, `halo team`, `halo workflow`, `halo blocks` and
+    other commands that do not run; the walk above reads only the product's strings. Every page under docs/ (but the
+    folders of notes in DOC_NOTES and the 3.5 verbs page) is read line by line with the same rule."""
+    kw = dict(pack_verbs=_pack_verbs(), internal=_internal_sub_verbs(), flags=_top_flags())
+    bad, pages = [], 0
+    for path in sorted((REPO / "docs").rglob("*.md")):
+        rel = path.relative_to(REPO).as_posix()
+        if rel == DOC_OLD_VERBS or rel.startswith(tuple(DOC_NOTES)):
+            continue
+        pages += 1
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if SAYS_GONE.search(line):
+                continue
+            bad += [f"{rel}:{n}: {why}" for why in unresolved(line, **kw)]
+    ctx.check(f"the walk read the docs, got {pages} pages", pages > 80)
+    ctx.check(f"every `halo ...` the docs send a person to exists ({len(bad)}):\n  " + "\n  ".join(bad), not bad)
+    svg = (REPO / "docs" / "media" / "diagrams" / "agents-model.svg")
+    ctx.check("the agents diagram draws no `halo teams`",
+              not svg.exists() or "halo teams" not in svg.read_text(encoding="utf-8"))
+
+
+STALE_WORDS = re.compile(r"(?i)\blineups?\b|\bbios\b|\bCast\b|\bFleet\b|\bteams\b")
+
+
+def _help(fn, argv) -> str:
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        try:
+            fn(argv)
+        except SystemExit:
+            pass
+    return buf.getvalue()
+
+
+@test
+def test_help_texts_and_the_system_prompt_describe_what_36_has(ctx: Ctx):
+    """3.6.0.1 setup-words: `halo studio --help`, `halo isolation check`'s help and the model's own system prompt
+    (full and lean) still sent people to lineups, bios, the Cast canvas, Fleet and teams, all gone in 3.6."""
+    _home()
+    from halo_harness.studio.server import cmd_studio
+    from halo_harness.isolation import cli as iso
+    said = re.sub(r"the old [^;)]*", "", _help(cmd_studio, ["--help"]))  # a word named as old is fine (--edit's)
+    ctx.check(f"`halo studio --help` printed its usage, got {said[:200]!r}", "--mode" in said)
+    ctx.check(f"`halo studio --help` names nothing gone, got {STALE_WORDS.findall(said)}", not STALE_WORDS.search(said))
+    said = _help(iso.cmd_isolation, ["--help"])
+    src = (REPO / "halo_harness" / "isolation" / "cli.py").read_text(encoding="utf-8")
+    ctx.check(f"`halo isolation`'s help names nothing gone, got {STALE_WORDS.findall(said + src)}",
+              not STALE_WORDS.search(said + src))
+    for rel in ("halo_harness/agent/prompt.py", "halo_harness/agent/prompt_lean_system.py"):
+        hits = [f"{line}: {STALE_WORDS.findall(text)}" for line, text in _strings(REPO / rel) if STALE_WORDS.search(text)]
+        ctx.check(f"{rel}: the prompt names nothing gone, got {hits}", not hits)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -81,13 +81,13 @@ action outright. You cannot see or bypass a hook -- its effect (a rewritten inpu
 block with a reason) is simply what actually happened, not a suggestion.
 - **Permission modes and plan mode** -- govern what you may do without asking; plan mode means \
 propose first, act only after approval.
-- **Halo Studio** -- this harness's own browser GUI: Session (live), Agents (lineups and bios as a \
-graph, their runs, what runs now), Fleet and more, plus each pack's sections (the design pack's Design: artboards). For the GUI \
-or to see roles, lineups, agents or teams, run `halo studio --mode agents` (TUI: `/studio` or `/roles`); \
+- **Halo Studio** -- this harness's own browser GUI: Session (live), Agents (your agents, \
+workflows and the Map: what runs now and what ran), Local, Packs and more, plus each pack's sections (the design pack's Design: artboards). For the GUI \
+or to see your agents, workflows or the map, run `halo studio --mode agents` (TUI: `/studio` or `/roles`); \
 Design is `--mode design--design` (`/design`); it is the GUI, never another program's page.
 - **Sub-agents** -- the Agent tool spawns one (or a batch, in parallel) with its own prompt, tools \
 and model. With custom roles OFF (the default) every sub-agent runs the session model unless the \
-call passes `model:`; with roles ON the lineup's role table picks it (`role:`). Delegation is \
+call passes `model:`; with roles ON the model table (`roles.*`) picks it (`role:`). Delegation is \
 expected on big jobs, not optional: surveys, searches, test runs and mechanical edits go to a \
 cheaper model (`model:` with a lower-priced row from the user's catalog, `halo models`), judgement, \
 design and the final review stay with you, independent pieces run in parallel, and your own \

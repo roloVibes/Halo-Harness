@@ -40,7 +40,7 @@ def _pairing() -> Pairing:
 
 def _pick(pairing: Pairing, arg: str) -> "tuple[str | None, str]":
     rows = sorted(pairing.peers().items(), key=lambda kv: kv[1].get("paired_at") or 0)
-    if arg.isdigit() and 1 <= int(arg) <= len(rows):
+    if arg.isascii() and arg.isdigit() and 1 <= int(arg) <= len(rows):  # 3.6.0.1: '²' raised, '２' picked row 2
         return rows[int(arg) - 1][0], ""
     hits = [aci for aci, _ in rows if arg and aci.startswith(arg)]
     return (hits[0], "") if len(hits) == 1 else (None, f"no paired phone {arg!r} (/signal phones lists them)")

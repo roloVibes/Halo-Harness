@@ -21,7 +21,7 @@ MORE = "halo whatsnew for the rest"
 
 
 def _vkey(version: str) -> tuple:
-    return tuple(int(p) if p.isdigit() else 0 for p in str(version).split("."))
+    return tuple(int(p) if p.isascii() and p.isdigit() else 0 for p in str(version).split("."))
 
 
 def _brief(e: W.Entry) -> "list[str]":

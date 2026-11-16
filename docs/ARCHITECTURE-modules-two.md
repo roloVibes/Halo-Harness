@@ -195,7 +195,7 @@ and a pinned plan), `workflows/bounds.py` (the compiled block in goal.json),
 `workflows/runtime.py` (a lane's stage each time its worker starts),
 `workflows/gate.py` (the quality gate widened with typed outputs and evidence),
 `workflows/outputs.py` (a run's outputs and its part of the report),
-`workflows/cli.py` (`halo workflow`) and `workflows/goal.py` (a workflow run as a
+`workflows/cli.py` (it was `halo workflow`, gone in 3.6.0.0) and `workflows/goal.py` (a workflow run as a
 goal of the supervisor, `halo goal add --workflow`). 3.2.0.0 R6, the Pack Manager
 and the reference pack: `packs/sources.py` (where a bare id is looked for:
 `packs.sources`, then the packs Halo ships under `templates/packs/`; `halo pack

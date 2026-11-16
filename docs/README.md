@@ -10,7 +10,7 @@ including your own.
   ([STUDIO-sections.md](STUDIO-sections.md#session), [STUDIO-live.md](STUDIO-live.md)).
 - **Shape** the work: agents, workflows and the map that connects them with `when` lines, steering, goal runs
   ([STUDIO-agents.md](STUDIO-agents.md), [STUDIO-map.md](STUDIO-map.md), [ORCHESTRA.md](ORCHESTRA.md)).
-- **Mix** models: a model per role across providers, the `auto` lineup, `/model` mid-session
+- **Mix** models: a model per role across providers (the model table), `/model` mid-session
   ([MODELS.md](MODELS.md), [ROLES.md](ROLES.md)).
 - **Local** models first-class: the steward, fit badges, benchmarks, `halo host`, the pool
   ([STUDIO-local.md](STUDIO-local.md), [MODELS-ollama-steward.md](MODELS-ollama-steward.md)).
@@ -37,19 +37,19 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 - [VOICE-glasses.md](VOICE-glasses.md) (Voice through Meta's glasses: the phone-app contract): read this when you want to build the phone app that carries Meta's Ray-Ban or Oakley glasses into a Halo session -- what the app has to do step by step, the host's voice door it talks to with a worked example, the latency budget, and the honest limits of the glasses.
 - [VOICE-cpu.md](VOICE-cpu.md) (Voice on a box with no GPU): read this when you want the voice loop on a machine with no GPU (a Kali VM, a laptop, a small server): which speech models to run on the CPU, how to point the loop at another halo's GPU instead, and how to read what it measures.
 - [DATABRICKS.md](DATABRICKS.md) (Databricks): read this when you run Halo against Databricks model serving, at work or with a team preset.
-- [PROVIDERS-copilot.md](PROVIDERS-copilot.md) (Copilot at work): read this when you want Halo to use your work's Microsoft 365 Copilot: register the app, sign in, ask it from a terminal, put it in a lineup or give agents the `copilot_ask` tool, and read what each error line means.
+- [PROVIDERS-copilot.md](PROVIDERS-copilot.md) (Copilot at work): read this when you want Halo to use your work's Microsoft 365 Copilot: register the app, sign in, ask it from a terminal, give an agent its model or give agents the `copilot_ask` tool, and read what each error line means.
 - [MODELS.md](MODELS.md) (Models): read this when you need the exact behaviour of a model route: how a model name resolves, what each provider sends, the catalogs and the prices.
   - [MODELS-references.md](MODELS-references.md) (Models: references, picks and provider enablement): read this when you type a model name or prefix (`or:`, `dbx:`, `ant:`, `oai:`, `ol:`, `hf:` ...), choose a model for a job, or turn a provider on or off.
   - [MODELS-ollama.md](MODELS-ollama.md) (Models: Ollama hosts, requests and the catalog): read this when you point Halo at an Ollama host and want to know what it sends, how context is sized and how the host is checked.
   - [MODELS-ollama-tuning.md](MODELS-ollama-tuning.md) (Models: Ollama fit, calibration and the gym): read this when a local model does not fit, calls tools badly, or you want `halo gym` scores and role defaults for your GPU.
-  - [MODELS-switching.md](MODELS-switching.md) (Models: switching models and effort on a local model): read this when you move a session from one model to another (`/model`, a lineup's per-task pick, a resumed session, a compaction model) or wonder what the effort level does on a local model.
+  - [MODELS-switching.md](MODELS-switching.md) (Models: switching models and effort on a local model): read this when you move a session from one model to another (`/model`, an agent's own model, a resumed session, a compaction model) or wonder what the effort level does on a local model.
   - [MODELS-prompt-budget.md](MODELS-prompt-budget.md) (Models: what Halo sends a local model): read this when a local model answers as if it never saw the task, you want to know what a request to a model is made of in tokens, or a request is larger than the model's window.
   - [MODELS-prompt-diet.md](MODELS-prompt-diet.md) (Models: the local prompt diet): read this when you want to know what Halo's own first turn costs a local model before you use it, why a tool is not in a local model's list, or why the reply's room is smaller than 16,384.
   - [MODELS-vision.md](MODELS-vision.md) (Models: which models can see): read this when you want to share a screenshot or an image with a model and need to know which models can see, how Halo knows, and what happens when the model in use cannot.
   - [MODELS-cards.md](MODELS-cards.md) (Models: what a local model can do): read this when you pick a local model and want to know what it is (thinking, tools, vision, coding or embedding), how Halo will call it, whether it fits this machine, and what to do when it cannot run the main agent.
   - [MODELS-ollama-steward.md](MODELS-ollama-steward.md) (Models: the Ollama steward): read this when you want to know what the Ollama steward knows, records, finds and changes across your halos and model servers.
   - [MODELS-ollama-steward-host.md](MODELS-ollama-steward-host.md) (Models: the steward and the host): read this when the model you tune is served by a `halo host` and you want to know where the steward runs, how its fixes land on that host and what comes back.
-  - [MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md) (Models: scheduling the local models): read this when a lineup runs several local models on one card (or across machines) and you want to know what stays loaded, when a model is swapped in, what each swap costs and where each lane should run.
+  - [MODELS-ollama-steward-sched.md](MODELS-ollama-steward-sched.md) (Models: scheduling the local models): read this when a map runs several local models on one card (or across machines) and you want to know what stays loaded, when a model is swapped in, what each swap costs and where each lane should run.
   - [MODELS-ollama-steward-guards.md](MODELS-ollama-steward-guards.md) (Models: guards and the off-hours refresh): read this when you want to know how Halo keeps the record of your local models true with no effort: who else is using a card, when the battery and the bench re-run on their own, and what happens when a tag changes or is deleted.
   - [MODELS-steward-servers.md](MODELS-steward-servers.md) (Models: the steward and the local servers): read this when you run llama-server, LM Studio, mlx_lm.server or another local engine and want to know what the steward reads in each one's log, what each log can and cannot say, what the steward changes on Halo's side and which server-side line it states.
   - [MODELS-engines.md](MODELS-engines.md) (Models: other local engines): read this when you run (or want to run) a local engine beyond llama-server and mlx_lm.server -- FreeToken, Strata or TensorFold -- and need to know what Halo does with it, how to install it, whether a model fits your box, what the steward reads in its log, or how to add another engine.
@@ -67,7 +67,7 @@ Install Halo, connect your models and providers, and fix what goes wrong.
 
 ## I want to run agents
 
-Work in the TUI and on the command line, and give agents bios, lineups, roles and jobs.
+Work in the TUI and on the command line, and make agents, workflows and maps.
 
 - [CREW-FORMATS.md](CREW-FORMATS.md) (Crew files: agents, workflows and maps): read this when you write or read an agent, a workflow or a map file by hand, want to know where Halo keeps them, or want to know what an agent file becomes when a session spawns it.
 - [MOVING-from-3.5.md](MOVING-from-3.5.md) (Moving from 3.5): read this when you used lineups, bios, squares, blocks or the old Agents canvas on Halo 3.5 and want to know what is gone, what to use instead, and what happens to your old files, and for the other changes a 3.5 user meets on the first day.
@@ -109,14 +109,14 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 - [GLOSSARY.md](GLOSSARY.md) (Glossary): read this when a word in Halo is new to you.
 - [AGENTS.md](AGENTS.md) (Agents): read this when you want to know what an agent is in Halo, where its file lives and how a session reaches it.
 - [ROLES.md](ROLES.md) (Roles: the model table): read this when you want a job of your sessions (planning, coding, review, research ...) to run on a model you chose.
-- [PACKS.md](PACKS.md) (Packs): read this when you add a pack of bios, lineups, skills, commands, hooks and MCP servers to Halo, or take one out again.
+- [PACKS.md](PACKS.md) (Packs): read this when you add a pack of agents, workflows, maps, skills, commands, hooks and MCP servers to Halo, or take one out again.
 - [WORKFLOWS.md](WORKFLOWS.md) (Workflows): read this when you write or run a pack's workflow: its stages compiled to an Orchestra run, its typed artifacts, events and memory.
 - [WORKFLOWS-squares.md](WORKFLOWS-squares.md) (Workflow squares): read this when you want the main agent to hand a task to a saved workflow (a square): the contract, where squares come from, how the router picks one and the receipts.
 - [ORCHESTRA.md](ORCHESTRA.md) (The Orchestra): read this when several agents should write the same files at once: the Orchestra and its plan, lanes and judge.
 - [WORK.md](WORK.md) (One unit of work): read this when you want the one model under an Orchestra lane and a supervisor goal.
 - [SUPERVISE.md](SUPERVISE.md) (The supervisor): read this when you want to give Halo a goal at night and open Studio in the morning to see what finished, what waits on you and what it cost.
-- [OUTCOMES.md](OUTCOMES.md) (Verified outcomes and measured routing): read this when you want to know what an agent's work showed (its tests, sources, commands, files), how each outcome is recorded per bio and model, and how a bio can route to the model that succeeded most here.
-- [ISOLATION.md](ISOLATION.md) (Isolation): read this when a lineup's workers should run in a container or as another OS user, get their keys from a secret broker, or see only some of the tools.
+- [OUTCOMES.md](OUTCOMES.md) (Verified outcomes and measured routing): read this when you want to know what an agent's work showed (its tests, sources, commands, files), how each outcome is recorded per agent and model, and how an agent can route to the model that succeeded most here.
+- [ISOLATION.md](ISOLATION.md) (Isolation): read this when an Orchestra worker should run in a container or as another OS user, get its keys from a secret broker, or see only some of the tools (what a 3.5 lineup or bio file declares; a map does not carry it).
 - [KNOWLEDGE.md](KNOWLEDGE.md) (Knowledge: findings and decisions): read this when you want what Halo verified or decided to outlive the session that found it: findings and decisions, who writes them, the files, the agents' tools and citing what was reused.
 - [RECALL.md](RECALL.md) (Recall): read this when you search what Halo remembers -- memory topics, past sessions, the coach library, findings, decisions and your own notes (an Obsidian vault) -- or point it at a folder of your notes.
 - [COMFYUI.md](COMFYUI.md) (ComfyUI in Halo): read this when you want Halo to render images or video with ComfyUI on your own GPU.
@@ -126,10 +126,10 @@ Work in the TUI and on the command line, and give agents bios, lineups, roles an
 
 ## I want to use Studio
 
-The browser console: every agent of your session live, your lineups and their runs (Agents), and designs.
+The browser console: every agent of your session live, your agents, workflows and maps and their runs (Agents), and designs.
 
-- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your lineups and their runs in Agents, and designs.
-  - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on a bio, a lineup or the team's door.
+- [STUDIO.md](STUDIO.md) (Halo Studio): read this when you use Halo Studio, the browser console where you watch every agent work: the Session dashboard, your agents, workflows and maps and their runs in Agents, and designs.
+  - [STUDIO-shell.md](STUDIO-shell.md) (Studio: the shell): read this when you find your way around Studio's header, sections, panels and Start views, or open it on an agent, a workflow or a map.
   - [STUDIO-session.md](STUDIO-session.md) (Studio: steering and exporting a session): read this when you steer an agent from Session's Live column and want to know which agent and which call it reaches, or save a session as one Markdown trace file, or ask why an answer came out as it did, or type a turn into the session from Studio with the Prompt panel, or run a session from Studio with no terminal at all.
   - [STUDIO-sections.md](STUDIO-sections.md) (Studio: how each section works): read this when you want the one-screen story of a section (Session, Agents, Local, Packs, Setup, Settings).
   - [STUDIO-builder.md](STUDIO-builder.md) (Studio: Agents -> 1 · Agents and the builder): read this when you make or change an agent in Studio's Agents tab, ask the builder box to do it for you, try an agent once before you use it, or want to know what the builder can and cannot change, what it costs and how Undo works.

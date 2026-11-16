@@ -1,13 +1,13 @@
 # Models: scheduling the local models
 
-Read this when a lineup runs several local models on one card (or across machines) and you want to know what stays loaded, when a model is swapped in, what each swap costs and where each lane should run.
+Read this when a map runs several local models on one card (or across machines) and you want to know what stays loaded, when a model is swapped in, what each swap costs and where each lane should run.
 
 Part of [Models](MODELS.md), which lists every part.
 
 ## The scheduler (3.3.7.0 R3)
 
 Every piece of a local-model orchestra was there before -- the window truth, the fit plan, the switch step, the
-degradation ladder, the measured cards, a halo host's `route` answer -- and nothing scheduled them: a lineup of five
+degradation ladder, the measured cards, a halo host's `route` answer -- and nothing scheduled them: a map of five
 lanes on one 24 GB card swapped blindly and paid the load time invisibly. `halo_harness/local_sched/` schedules
 them. It is arithmetic over what Halo already reads (the hardware card, the catalog rows, `/api/ps`, the traffic
 ledger, the speed cards, the hosts' `route` answers); no model is called to decide anything, every line it prints
@@ -17,11 +17,11 @@ the Ollama API, or through a paired halo host's typed operations when a host ser
 
 ## The warm set
 
-Per card, the models of a lineup that co-reside. `local_sched/warm_set.pack` takes the lineup's `ol:` lanes on
+Per card, the models of a map that co-reside. `local_sched/warm_set.pack` takes the map's `ol:` lanes on
 that host (main first: the session comes back to it after every hand-off), gives each model the largest window
 its lanes ask (the lane's own profile, `<host>|<model>|<role>`, then `<host>|<model>`, then the host's `max_ctx`,
 else 32,768, held to the most it fits alone), and packs them: main's model first, then the models more lanes use,
-then the lineup's order -- a lineup's own `warm:` list goes first, in its order. A model joins the set when the set
+then the map's order -- a 1.x lineup file's own `warm:` list goes first, in its order. A model joins the set when the set
 with it fits the card: its weights (the catalog row from `/api/show`, else the packaged library snapshot) plus the
 KV at its window, with the per-card reserve, against the card's budget (its total minus what other programs hold)
 minus the duty steward's helper while that model is resident (the host's invariant, [HOST.md](HOST.md)).
@@ -31,15 +31,14 @@ minus the duty steward's helper while that model is resident (the host's invaria
 
 A model that does not fit is a pivot ("does not fit beside qwen3-coder:30b, qwen2.5:1.5b (20.8 + 18.4 of 21.5
 GB)", or "does not fit the card at 32,768 even alone"); one with no catalog row or no card read is "not judged" --
-nothing is guessed. The swaps a pass: one pass of the lineup is main, then each lane and back to main; the count is
+nothing is guessed. The swaps a pass: one pass of the map is main, then each lane and back to main; the count is
 the loads that pass needs in the steady state (two passes from the warm set, the second counted), each load
 evicting the residents used furthest ahead and keeping back any that still fit beside it.
 
-`halo local warm [<lineup>]` loads the warm set at session start ([COMMANDS-local.md](COMMANDS-local.md)): one row
-per model (loaded in N s at its window, already warm, or pivots later with its load time), then the total. A lineup
-may declare its warm set (`warm: [coder, qwen2.5:1.5b]`, [AGENTS.md](MOVING-from-3.5.md#what-is-gone-and-what-to-use)); `halo teams use` says when it cannot
-co-reside. Studio: the Roles lineup tab's Local models block has Warm; each Local -> Hosts card has the active
-lineup's warm-set line.
+`halo local warm [<map>]` loads the warm set at session start ([COMMANDS-local.md](COMMANDS-local.md)): one row
+per model (loaded in N s at its window, already warm, or pivots later with its load time), then the total. A 1.x
+lineup file could declare its warm set (`warm: [coder, qwen2.5:1.5b]`, [MOVING-from-3.5.md](MOVING-from-3.5.md#what-is-gone-and-what-to-use)).
+Studio: each Local -> Hosts card has Warm and the warm-set line of the map in use.
 
 ## The pivot
 
@@ -65,11 +64,11 @@ ledger (the median of the newest five calls of that model on that host whose `lo
 from the weights"). `model_switch.plan` carries it (`load_s`, `load_source`) and the switch line says it ("· ~25 s to
 load when cold (the ledger)").
 
-`halo teams use <lineup>` prints the swap preview under the roles, and the Roles lineup tab shows the same lines:
+A map's swap preview (`local_sched/preview.py`, which Studio reads at `GET local/sched`) reads like this:
 
-    Local models (the swap preview, one pass of the lineup):
+    Local models (the swap preview, one pass of the map):
       warm on pc: qwen2.5:1.5b (main), qwen3-coder:30b (worker) -- 20.8 of 21.5 GB; qwen3.8:27b (verify) pivots; ...
-      this lineup swaps 2x on one card ~ 50 s of loading a pass
+      this map swaps 2x on one card ~ 50 s of loading a pass
       [!] verify (qwen3.8:27b) and worker (qwen3-coder:30b) run on different weights that do not co-reside on pc:
           each hand-off between them is a swap (~26 s); one model for both lanes makes it 0
       [!] verify (qwen3.8:27b) never fits beside main (qwen2.5:1.5b) on pc: ...; every hand-off to it is a pivot
@@ -117,11 +116,11 @@ to load", "does not fit beside main: needs a swap, 25 s").
 Cloud cost is dollars; local cost is seconds of loading. `local_sched/loads.tally` counts a session's loads -- its
 ledger calls that paid a load (over 2 s) plus the scheduler's own pivots and warms -- and their seconds, per model:
 "loading: 7 loads, 3 m 02 s (qwen3.8:27b 4, qwen3-coder:30b 3)". It is on `/cost` beside "Saved vs cloud", on the
-session's Cost panel (LOADING) and in `halo session show <id>`; a lineup's per-pass cost is in its swap preview.
+session's Cost panel (LOADING) and in `halo session show <id>`; a map's per-pass cost is in its swap preview.
 
 ## Placement across machines
 
-`halo local place [<lineup>]` (`local_sched/place.py`) says where each lane's model should run. Every configured
+`halo local place [<map>]` (`local_sched/place.py`) says where each lane's model should run. Every configured
 Ollama host is a candidate: one a paired halo host serves answers with its `route` (the helper's footprint counted:
 `usable_with_helper_gb`), any other -- this machine's own included, with no `halo host` running -- from the local
 reads. Lane by lane (main stays on its host), a host where the profile says the model cannot call tools, or where it
@@ -139,5 +138,5 @@ and nothing loads until the lane asks. Studio: Local -> Hosts' Place block (Plac
 Before a model was ever loaded on a host, its footprint is the weights from `/api/show` (or the library snapshot)
 plus the KV the fit arithmetic computes for its shape at the window; the projector and Ollama's own graph overhead
 are estimates, so a set that packs at 95 % may still spill. The load time of a model never loaded there is the
-weights at a typical disk rate until the ledger or a bench measures it. The warm set is per lineup; another
+weights at a typical disk rate until the ledger or a bench measures it. The warm set is per map; another
 program (a ComfyUI that starts) changes the budget between two reads.

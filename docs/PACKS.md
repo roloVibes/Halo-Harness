@@ -1,9 +1,9 @@
 # Packs
 
-Read this when you add a pack of bios, lineups, skills, commands, hooks and MCP servers to Halo, or take one out again.
+Read this when you add a pack of agents, workflows, maps, skills, commands, hooks and MCP servers to Halo, or take one out again.
 
 Halo 3.2.0.0. One harness, one Studio, and packs: folders someone else
-maintains that add bios, lineups, skills, commands, hooks and MCP servers to
+maintains that add agents, workflows, maps, skills, commands, hooks and MCP servers to
 your Halo without changing Halo itself. A pack is installed disabled; you
 enable it and grant what it asks for; disabling it changes nothing else;
 removing it takes away its own files and never yours. The commands are in
@@ -13,15 +13,18 @@ against is [EXTENSION_API.md](EXTENSION_API.md).
 ## What a pack is
 
 A folder named by the pack's id with a `pack.yaml` at its root. The rest is
-a Claude-plugin layout plus Halo's own bio and lineup files:
+a Claude-plugin layout plus Halo's own crew files (agents, workflows and maps):
 
 ```
 doc-review/
   pack.yaml                 # id, name, version, the API versions it works with, what it offers, what it requests
   .claude-plugin/plugin.json
-  agents/reviewer.yaml      # a Halo bio        -> doc-review--reviewer
+  crew/agents/reviewer.yaml # a Halo agent      -> doc-review--reviewer
+  crew/workflows/review-docs.yaml  # a workflow -> doc-review--review-docs
+  crew/maps/review.yaml     # a Halo map        -> doc-review--review
+  agents/reviewer.yaml      # a 1.x bio (a 1.x pack's bios are read as agents)
   agents/helper.md          # a Claude-plugin agent
-  teams/review.yaml         # a Halo lineup     -> doc-review--review
+  teams/review.yaml         # a 1.x lineup (a 1.x pack's lineups are read as maps)
   skills/check-links/SKILL.md                   -> /doc-review:check-links
   commands/review.md                            -> /doc-review:review
   hooks/hooks.json          # loads once you grant hooks
@@ -29,18 +32,20 @@ doc-review/
 ```
 
 Every name a pack offers carries its id, so two packs never take the same
-name and a pack never takes one of yours: bios and lineups are `<id>--<name>`
-(`halo agents` and `halo teams` list them under the pack, Studio's Roles
-shows them read-only), skills and commands `<id>:<name>`, MCP servers
+name and a pack never takes one of yours: agents, workflows and maps are `<id>--<name>`
+(`halo agents list` and `halo maps list` list them under the pack, Studio's
+Agents shows them read-only), skills and commands `<id>:<name>`, MCP servers
 `plugin_<id>_<server>`.
 
-The bio and lineup names are `<id>--<name>`, not `<pack>/<name>` (3.2.0.0
-R2 decision): a `/` breaks the bio and lineup name rule
+The crew names are `<id>--<name>`, not `<pack>/<name>` (3.2.0.0
+R2 decision): a `/` breaks the name rule
 (`^[A-Za-z0-9][A-Za-z0-9_-]*$`), so a slash name could not be a file name, a
 route target, a memory folder or a `tools.mcp_servers` entry. An id holds no
 `--` and does not end in `-`, so `doc-review--reviewer` splits one way only.
 
 ## A pack's bios
+
+> 1.x packs: a 1.x pack's bio is read as an agent named `<id>--<name>` ([MOVING-from-3.5.md](MOVING-from-3.5.md)); a 2.0 pack ships `crew/agents/` instead.
 
 A pack's `agents/<name>.yaml` is a bio in the same schema as yours
 ([AGENTS.md](AGENTS.md)): the sections `models`, `tools`, `context`,
@@ -106,6 +111,8 @@ Sonnet with them.
 
 ## A pack's lineups
 
+> 1.x packs: a 1.x pack's lineup is read as a map named `<id>--<name>` ([MOVING-from-3.5.md](MOVING-from-3.5.md)); a 2.0 pack ships `crew/maps/` instead.
+
 A pack's `teams/<name>.yaml` is a lineup in the same schema as yours
 ([ROLES.md](ROLES.md)): `delegation`, `routing`, `budget`, `escalation`,
 `context`, `permissions`, `pipeline`, `tiers` as written. Members name the
@@ -142,6 +149,8 @@ workflows: [review]
 
 ### A pack's squares
 
+> 1.x packs: squares and the lineups that enabled them are 3.5 words; a 2.0 pack ships `crew/workflows/`.
+
 Halo 3.3.16.0 R3. A pack's workflow is a **square** when its file says what it
 `gives` at its root ([WORKFLOWS-squares.md](WORKFLOWS-squares.md)): the main
 agent's `Workflow` tool can hand it a task once a lineup enables
@@ -154,6 +163,8 @@ value naming the key and its line (`workflows/review.yaml line 9: covers
 
 ### A lineup's workflows
 
+> 1.x packs: how a 3.5 lineup named pack workflows; lineups are gone ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
+
 A lineup's `workflows:` names workflows by `<pack>/<name>` (3.3.16.0 R3: or a bare
 square name of yours, the project's or shipped; the list is the lineup's enabled
 squares), the ref `halo
@@ -163,28 +174,19 @@ workflow run` takes (`<pack>--<name>` reads the same). The rule (3.2.1.0 R2,
 - a bare name resolves inside its own pack: a pack's lineup's own, or the pack
   a clone of yours came from (`from_pack: doc-review@1.0.0`, which Studio's
   Clone writes);
-- a lineup of yours may name any pack's workflow as `<pack>/<name>`; a ref no
-  running pack holds is one `halo teams validate` line, in `halo workflow
-  run`'s own words:
-
-```
-"workflows" 'other-pack/flow': pack other-pack is not installed here (halo pack list)
-```
-
-- the resolved lineup keeps `workflows` as written and carries
-  `workflow_refs` beside it (`["doc-review/review"]`); `halo teams show`
-  prints them, `workflows: doc-review/review (halo workflow run
-  doc-review/review)`, and names a bare name of yours with no pack ("names no
-  pack: a lineup of yours names <pack>/<name>").
+- a pack's workflow is named `<pack>--<name>` like the rest of its crew (`halo workflows list` shows it), and a
+  pack's Orchestra workflow still compiles into a run as `<pack>/<name>`: `halo orchestra new --workflow
+  doc-review/review --input docs=docs`. (In 3.5 a lineup named pack workflows; lineups are gone:
+  [MOVING-from-3.5.md](MOVING-from-3.5.md).)
 
 ## Yours first
 
-A bio or lineup of yours (`~/.halo/agents/`, `~/.halo/teams/` or the repo's
-`.halo/`) never loses to a pack's. The names cannot collide unless a file of
+An agent, workflow or map of yours (`~/.halo/crew/` or the repo's
+`.halo/crew/`) never loses to a pack's. The names cannot collide unless a file of
 yours is named `<id>--<name>`: then yours is the one used everywhere (also as
-the parent of a pack bio that `extends` it), `halo agents list` / `halo teams
+the parent of a pack agent that `extends` it), `halo agents list` / `halo maps
 list` print the pack's under its group as "shadowed by
-~/.halo/agents/<id>--<name>.yaml", Studio's row says "shadows pack <id>", and
+~/.halo/crew/agents/<id>--<name>.yaml", Studio's row says "shadows pack <id>", and
 `halo pack doctor` names it.
 
 Yours first holds for a pack you write too: start it with the pack kit (3.3.12.0 R4), not a copy of a shipped pack.
@@ -193,6 +195,8 @@ install . --link` makes the installed pack your folder, so an edit shows at once
 [COMMANDS-packs-kit.md](COMMANDS-packs-kit.md)).
 
 ## In Studio's Roles
+
+> 3.5: Studio's Roles section and its Lineups and Bios panels are gone; Studio's Agents shows a pack's agents, workflows and maps read-only.
 
 The Lineups and Bios panels group by where each one lives: **yours**,
 **project**, one **pack <id>** box per pack that runs here, **shipped**,
@@ -276,7 +280,7 @@ A pack may ship workflows, `workflows/<name>.yaml` named in
 [EXTENSION_API.md](EXTENSION_API.md#workflow-contracts) the contract). A
 workflow names its prerequisites, typed inputs and outputs, and stages
 (sequential with `after`, parallel without, one job per file with
-`for_each`), each with its role (a bio of the pack), its conditions, gate,
+`for_each`), each with its role (one of the pack's agents; a 1.x pack's bio), its conditions, gate,
 retries, timeout, budget and checks. Halo compiles it to an Orchestra run:
 
 ```sh
@@ -320,7 +324,7 @@ A typed output (`artifact:<schema>`) is checked against the pack's
 pack's section (a panel of kind `artifact`) and in Orchestra's Report panel.
 A pack's event kinds may carry a schema (`events/<kind>.json`): a
 mismatching event goes out with its problems, a disabled pack's is refused,
-and a bio's trigger or a stage's `after_event` can wait for one. Its memory
+and a stage's `after_event` (or a 3.5 bio's trigger) can wait for one. Its memory
 notes carry their provenance (`ext.memory.write`; recall reads a namespace
 and what other packs share with it). A bad workflow file is one manifest
 line naming the key and its line, so the pack does not run until it is
@@ -331,15 +335,15 @@ schemas in its "contributes:" block.
 
 - `~/.halo/packs/<id>/`: yours, for every repo (`halo pack install <path|git url>`).
 - `<repo>/.halo/packs/<id>/`: this repo's (`--project`). A repo's pack is the
-  untrusted layer: its lineups lose `permissions.mode` and allow rules, the
-  way a repo's own lineup does in a folder you have not trusted. A repo's
+  untrusted layer: its maps (a 1.x pack's lineups) lose `permissions.mode` and allow rules, the
+  way a repo's own map does in a folder you have not trusted. A repo's
   pack with the same id as one of yours is the one used (doctor says so).
 - `~/.halo/packs/state.json`: which packs are installed, from where, enabled
   or not and what you granted (private, 0600). What Halo reads of the packs
-  is kept until a pack.yaml, a `*.yaml` / `*.md` in a pack's `agents/`,
+  is kept until a pack.yaml, a `*.yaml` / `*.md` in a pack's `crew/`, `agents/`,
   `teams/` or `workflows/`, or state.json changes (3.2.1.0 R1): an edit you
-  make by hand inside an installed pack's bios shows at the next lookup
-  (a bio that now names a provider takes the pack out, and `halo pack
+  make by hand inside an installed pack's agents shows at the next lookup
+  (a 1.x bio that now names a provider takes the pack out, and `halo pack
   doctor` names the line). A pack is enabled for the
   folder you enabled it in, so a same-id pack in another repo stays off.
 - `~/.halo/packs/journal.jsonl`: every file an install, update, rollback or
@@ -531,10 +535,10 @@ runs and shows the lines it prints, and every open Studio redraws on the
   the doctor's words), each permission with a Grant toggle (an enabled pack:
   `halo pack grant <id> <name> [--off]` at once; a disabled one: picked for its
   Enable), what it contributes (`halo pack inspect`'s block) with links to its
-  section, its lineup in Roles and its workflows, and its health.
+  section, its map and workflows in Agents, and its health.
 - **Settings**: the pack's settings form, for a disabled pack too.
-- **Templates**: its lineups and bios with Preview, Clone, Customize and Apply
-  (Roles' own actions), and Run <workflow>: Orchestra's new-run form filled
+- **Templates**: its maps and agents with Preview, Clone, Customize and Apply
+  (the 3.5 Roles actions), and Run <workflow>: Orchestra's new-run form filled
   in with the workflow and its inputs; Run compiles it as `halo orchestra new --workflow` does.
   Orchestra's Start view offers the same workflows in its own picker (3.2.1.0 R2).
 - **Bundles** (3.3.7.0 R5, under Installed): every bundle here and the nine Halo ships, each a tick with its
@@ -605,15 +609,15 @@ Halo ships six packs: **Documentation Review**, below, **Concord** ([The concord
 ([The signal pack](#the-signal-pack)), **Design** ([The design pack](#the-design-pack)) and (3.4.0.0) **First run**
 ([The first-run pack](#the-first-run-pack)) and **Coach** ([The coach pack](#the-coach-pack)).
 **Documentation Review** (`doc-review`,
-`halo_harness/templates/packs/doc-review/`): a reviewer and a writer bio, the
-review lineup, the review workflow (read each Markdown file, judge the
+`halo_harness/templates/packs/doc-review/`): a reviewer and a writer agent, the
+review map (and their 1.x bio and lineup files), the review workflow (read each Markdown file, judge the
 findings, write one typed `review-report`), a Studio section with the last
 review report, the `docs.review` capability, and a skill, a command, a
 hook and a lint MCP server. `halo pack list --available` shows it; `halo pack
 install doc-review` installs it (3.4.1.2: a bare id Halo ships is always the
 shipped pack; a pack of yours with that id installs with `--from <source>` or
-by its folder, `./doc-review`); `halo pack enable doc-review --grant bash` turns it on; `halo workflow
-run doc-review/review --input docs=docs` runs its review. Its `README.md` is
+by its folder, `./doc-review`); `halo pack enable doc-review --grant bash` turns it on; `halo orchestra
+new --workflow doc-review/review --input docs=docs` then `halo orchestra run` runs its review. Its `README.md` is
 the guide to making your own pack from it: every file in one line, the API
 version, installing from a folder or a git url, checking it with `halo pack
 doctor`. `tests/test_reference_pack.py` installs it in a fresh home, runs its
@@ -621,6 +625,8 @@ workflow, finds it in Studio and Roles with its capability, removes it and
 finds nothing of it left.
 
 ## The first-run pack
+
+> Not yet moved to agents and maps: it still rehearses a 3.5 lineup ([MOVING-from-3.5.md](MOVING-from-3.5.md), "Not yet moved").
 
 **First run** (`first-run`, `halo_harness/templates/packs/first-run/`, 3.4.0.0) is the guided first run, out of Halo's
 core: `halo start` (one real Orchestra run that rehearses your lineup on a sample repo, its card first) and `/start`,
@@ -713,7 +719,7 @@ signal-cli, never a Signal message).
 
 A pack asks for what its contributions need: `mcp:<server>` for each MCP
 server (and `network` for one reached by a url), `hooks` for its hooks,
-`bash`, `network` and `home-write` for its own code and its bios' `tools.needs`, `hooks` for a policy hook
+`bash`, `network` and `home-write` for its own code and its agents' `tools.needs` (a 1.x pack's bios'), `hooks` for a policy hook
 (3.3.10.0 R1), and `services` for a program the supervisor keeps running (3.3.13.0 R3). Nothing it asks for runs
 until you grant it: an ungranted MCP server does not start, ungranted hooks
 do not load, and doctor names each one with the command that grants it.
@@ -736,10 +742,10 @@ yes: `--grant NAME` names it; `--grant-all` prints each line and asks once in a 
 wrote and that still hold what was written. It keeps, and lists:
 
 - a file in the pack's folder you changed or added (the folder stays with them);
-- your bios and lineups named `<id>--*` (a duplicate you made in Studio);
-- your lineups that name the pack's bios;
-- the lineups' memory and layout folders (`~/.halo/teams/<id>--*/`);
-- your settings under `packs.settings.<id>` and a `team:` naming its lineup.
+- your 3.5 bios and lineups named `<id>--*` (a duplicate you made in Studio);
+- your 3.5 lineups that name the pack's bios;
+- the 3.5 lineups' memory and layout folders (`~/.halo/teams/<id>--*/`);
+- your settings under `packs.settings.<id>` and a 3.5 `team:` naming its lineup.
 
 `--keep-config` also keeps the pack's record and grants, so installing it
 again later starts where you left off. The version the last update kept

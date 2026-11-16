@@ -1399,7 +1399,7 @@ async def _handle_rewind(app, args: str) -> None:
     # last step of the previous one, or the session's start).
     if step_id.lower().startswith("turn"):
         num = step_id[4:].strip().lstrip("#")
-        if not num.isdigit():
+        if not (num.isascii() and num.isdigit()):  # 3.6.0.1: int() below refuses '²'
             cps_fn = getattr(app.controller, "turn_checkpoints", None)
             cps = cps_fn() if callable(cps_fn) else []
             if not cps:

@@ -1,6 +1,6 @@
 # Models: switching models and effort on a local model
 
-Read this when you move a session from one model to another (`/model`, a lineup's per-task pick, a resumed session, a compaction model) or wonder what the effort level does on a local model.
+Read this when you move a session from one model to another (`/model`, an agent's own model, a resumed session, a compaction model) or wonder what the effort level does on a local model.
 
 Part of [Models](MODELS.md), which lists every part.
 

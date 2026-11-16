@@ -269,9 +269,9 @@ The kind verb `halo orchestra coach` takes the same `--model`, `--refresh`,
 that cannot be made or a refused undo, 2 usage. `/coach` in the TUI runs the
 same command.
 
-## `halo team` (left in 3.4.0.0)
+## `halo team` (gone since 3.4.0.0)
 
-The team file (`.halo/team.yaml`) and `halo team` left the core in 3.4.0.0; `halo team` answers one line
+The team file (`.halo/team.yaml`) and `halo team` are gone from the core since 3.4.0.0; `halo team` answers one line
 saying so. A map's boxes and lines (Agents -> Map, `halo maps`) and a run's lanes with their owns lines
 (a goal run's pages in the Map's drawer, `halo orchestra`) do its job.
 

@@ -6,7 +6,7 @@ on the lean profile (`prompt_wire.shape` -> `prompt_lean.lean_system`; docs/MODE
 The logged system prompt (`agent/prompt.py`'s `build_system_prompt`, byte-stable per session) is cut, on
 the wire copy only, to what a local model needs to act: who it is and how to work (the identity, the
 persona, the narration rule), the rules as one list (native tool calls, CLAUDE.md binds, read before edit,
-verify, plan mode, memory, hooks, delegation -- the lineup's `role:` when roles are on), the MCP servers
+verify, plan mode, memory, hooks, delegation -- the model table's `role:` when roles are on), the MCP servers
 when any are configured, the family notation, the working directory and the user's appended prompt. Out:
 the per-tool guidance list (every tool on the wire carries its own description) and the reference prose
 that explains rather than instructs (what Claude Code's files are, Studio, skills, slash commands). A
@@ -64,10 +64,10 @@ def rules(session, harness: str) -> str:
             if has_write else "- You cannot save memory in this build: never say you did."),
            "- A hook may rewrite a call, add context or block it: the result is what happened."]
     if _has(session, "Agent"):
-        pick = "`role:` picks the lineup's model" if _roles_on() else "`model:` names a cheaper model"
+        pick = "`role:` picks the model table's model" if _roles_on() else "`model:` names a cheaper model"
         out.append(f"- On a big job delegate surveys, searches, test runs and mechanical edits with the Agent tool "
                    f"({pick}), independent pieces in parallel; keep judgement and the final review yourself.")
-    out.append("- Halo's GUI (roles, lineups, agents) is `halo studio --mode agents`, never another program's page.")
+    out.append("- Halo's GUI (agents, workflows, the map) is `halo studio --mode agents`, never another program's page.")
     return "\n".join(out + _mcp_lines(harness))
 
 

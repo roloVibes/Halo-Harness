@@ -122,7 +122,7 @@ halo init
 
 ```sh
 cd ~                 # or /tmp, or any other project directory at all
-halo init            # one time: opens Studio on Setup -- providers, local models, model, permission mode, theme, lineup, checks
+halo init            # one time: opens Studio on Setup -- providers, local models, model, permission mode, theme, checks
 halo                 # full-screen TUI -- reads THIS directory's CLAUDE.md, rules, settings, .mcp.json
 ```
 

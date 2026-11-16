@@ -1,6 +1,8 @@
 # Isolation
 
-Read this when a lineup's workers should run in a container or as another OS user, get their keys from a secret broker, or see only some of the tools.
+Read this when an Orchestra worker should run in a container or as another OS user, get its keys from a secret broker, or see only some of the tools (what a 3.5 lineup or bio file declares; a map does not carry it).
+
+> **3.6:** lineups and bios are gone ([MOVING-from-3.5.md](MOVING-from-3.5.md)). This page describes the opt-ins as a 3.5 lineup or bio file declares them; a map's agents do not carry isolation or secrets.
 
 Halo 3.1.8.0 R5. Nothing changes by default. A lineup or a bio may declare
 three opt-ins; each is a rule you set, shown as a `halo doctor` row and as
@@ -36,6 +38,8 @@ Not the same key: the older `isolation: worktree` of a `.claude/agents/*.md`
 file ([SUBAGENTS.md](SUBAGENTS.md)) is for in-process sub-agents.
 
 ## `isolation: container`
+
+> 3.5 files: this is what a 3.5 lineup or bio file declares. Lineups and bios are gone in 3.6 and a map's agents do not carry isolation or secrets ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
 
 ```yaml
 isolation: container                 # alone: the defaults below
@@ -96,6 +100,8 @@ across the mount are not guaranteed.
 
 ### The image
 
+> 3.5 files: this is what a 3.5 lineup or bio file declares. Lineups and bios are gone in 3.6 and a map's agents do not carry isolation or secrets ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
+
 `halo isolation image` prints the default image name
 (`halo-harness-worker:<version>`) and the Dockerfile Halo ships
 (`halo_harness/isolation/Dockerfile`: `python:3.12-slim`, git and ripgrep,
@@ -133,6 +139,8 @@ Windows has no scoped user in this round: the lane stops with
 
 ## `secrets: broker`
 
+> 3.5 files: this is what a 3.5 lineup or bio file declares. Lineups and bios are gone in 3.6 and a map's agents do not carry isolation or secrets ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
+
 ```yaml
 secrets: {broker: 1password, account: my-team}   # on the lineup or the bio
 environment:                                      # the bio's
@@ -167,6 +175,8 @@ row in `brokers.MODULES` (`1password` lives in `onepassword.py`: a module
 name cannot start with a digit).
 
 ## `tools.capabilities`
+
+> 3.5 files: this is the list a 3.5 lineup or bio file declares; a 3.6 agent file names its own tools ([AGENTS.md](AGENTS.md)).
 
 ```yaml
 tools: {capabilities: [read, edit, bash]}          # a lineup (every member) or a bio
@@ -211,6 +221,8 @@ and what narrowed them ("tools: read, edit, bash (by lineup ci)" or
 
 ## Where it shows
 
+> 3.5 files: these rows show what a 3.5 lineup or bio file still on disk declares (`halo isolation check` reads them).
+
 | Where | What |
 |---|---|
 | `halo doctor` | `isolation`: the modes this host can run (docker or podman on PATH; sudo on a POSIX host, and `sudo -n` as each user a lineup or bio names) and who declares one; `secrets`: the broker found or not. A declared mode or broker this host lacks is a `[WARN]` line |
@@ -236,6 +248,8 @@ The lines: `isolation: container (<image>)` or `isolation: user (<name>)`,
 | `secrets: <n> ref(s) in environment.secrets, no secrets.broker set` | refs without a broker |
 
 ## A worked example
+
+> 3.5 files: this is what a 3.5 lineup or bio file declares. Lineups and bios are gone in 3.6 and a map's agents do not carry isolation or secrets ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
 
 ```yaml
 # ~/.halo/teams/ci.yaml

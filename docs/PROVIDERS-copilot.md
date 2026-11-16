@@ -1,6 +1,6 @@
 # Copilot at work
 
-Read this when you want Halo to use your work's Microsoft 365 Copilot: register the app, sign in, ask it from a terminal, put it in a lineup or give agents the `copilot_ask` tool, and read what each error line means.
+Read this when you want Halo to use your work's Microsoft 365 Copilot: register the app, sign in, ask it from a terminal, give an agent its model or give agents the `copilot_ask` tool, and read what each error line means.
 
 Halo 3.3.17.0. The commands are in [COMMANDS-copilot.md](COMMANDS-copilot.md); the settings in
 [CONFIG.md](CONFIG.md) (`copilot.*`).

@@ -12,7 +12,7 @@ Halo 2.0.5 round 2c (`plans/ROADMAP.md` "ADDED 2026-10-06 ~10:05": "the
 wizard stops being clunky"). Ten rules, followed by every wizard screen --
 `halo init`, `halo setup`, `/setup`, `/agents`, `/teams`, every editor
 (`OrgEditor`, `RolesEditor`) and every view (`AgentBioView`, `LineupView`)
-they open. 3.1.1.0: bios and lineups are edited in Studio; the terminal shows
+they open. 3.1.1.0: bios and lineups (3.5 words, gone in 3.6) were edited in Studio; the terminal showed
 them read-only and `e` opens Studio on them (see "The Team step" below).
 Verified against `halo_harness/tui/dialogs/init_wizard.py`, `wizard_ux.py`,
 `step_rail.py`, `autocomplete.py`, `setup_mode.py`, and `team_step.py`.
@@ -34,7 +34,7 @@ Since 3.3.3.0 Setup ends in a running halo. The Summary's last button is
 Session, and the terminal that ran `halo init` -- which has waited with one
 line on screen, "Setup is open in your browser: <url>. This terminal starts
 halo when you press Done there (Ctrl+C: stop here; `halo` later starts it)."
--- prints the Summary's four lines (provider, default model, lineup, last
+-- prints the Summary's four lines (provider, default model, lineup -- the 3.5 word it still prints --, last
 check) and starts halo as bare `halo` does, in the directory `halo init` ran
 from, paired with the running Studio: after init both the terminal halo and
 Studio run, and the session shows in Studio's Session section (3.3.15.0). The
@@ -69,41 +69,34 @@ The rules below are the terminal screens' rules; they hold for every screen
 
 ## The 90-second version
 
-Four words, in this order: **bio -> lineup -> role -> session**.
+Three words, in this order: **agent -> workflow -> map** ([AGENTS.md](AGENTS.md)).
 
-- A **bio** says what an agent IS: its name, its model, its tools, its
-  limits. `coder` is a bio; so is `local-small`. (`halo agents`.)
-- A **lineup** hands bios to jobs: "planning goes to this bio, coding to that
-  one". Eight ship with Halo -- `auto` (the default), `standard`,
-  `balanced`, `quality`, `local-first`, `code-review`, `halo-dev-cycle`, `pack-author` --
-  and you can write your own. (`halo teams`.)
-- A **role** is one job slot the session fills: main, planner, coder,
-  reviewer, researcher and so on. A lineup gives every role an agent and a
-  model. (`halo config get roles` shows the table; `halo roles point <role>
-  <model>` sets one.)
-- Your **session** runs each job on the model its role names, and the
-  sub-agents Halo spawns do the same. Until you pick a lineup the **auto**
-  lineup runs (3.1.9.0: a pool whose models are picked for each task); with
-  roles off, **one model for everything**, the default model you picked.
+- An **agent** is one file saying what it does, which model it runs on and which tools it may use. `coder`,
+  `planner`, `reviewer`, `researcher`, `tester`, `writer` and others ship with Halo. (`halo agents`.)
+- A **workflow** is steps of agents: `code`, `plan`, `research`, `review` and `media` ship. (`halo workflows`.)
+- A **map** connects the agents and workflows main may hand work to: `starter` and `ship-it` ship, and you can copy
+  one and make it yours. (`halo maps`.)
+- The **model table** names a model per role: `halo config get roles` shows it; `halo roles point <role>
+  <model>` sets one.
+- Your **session** runs on the map in use; with roles off, **one model for everything**, the default model you
+  picked.
 
-![How bios, lineups and roles fit together](media/diagrams/agents-model.svg)
+Three ways to pick a map:
 
-Three ways to pick a lineup, all writing the same two config keys (`team`
-and `roles.enabled`):
+1. **Setup** -- `halo init`, or `halo setup map` for that one page.
+2. **The command line** -- `halo maps use <name>` picks the map sessions run on; `halo maps use --none` is One
+   model for everything (roles off) and `halo maps use --off` the default again (roles on).
+3. **Studio** -- Agents -> 3 · Map.
 
-1. **The wizard** -- `halo init` (Quick setup includes the Team step) or
-   `halo init --step team`. The first row, "One model for everything", is
-   the off state; every other row previews its `role -> agent -> model`
-   tree with prices before you apply it.
-2. **The command line** -- 3.6.0.0: `halo maps use <name>` picks the map
-   sessions run on (lineups are gone; `halo teams` only says so); `halo maps
-   use --none` is One model for everything (roles off) and `halo maps use
-   --off` the default again (roles on).
-3. **Studio** -- coming in 2.1.0.
+Bios and lineups were the 3.5 words for these; they are gone, and
+[MOVING-from-3.5.md](MOVING-from-3.5.md) says what to use instead. Where a section below still names them, it
+describes the 3.5 screens.
 
 Everything below is the field-by-field reference; nothing in it changed.
 
 ## The ten rules
+
+> 3.5: where this section names a bio, a lineup or the Team step it describes the 3.5 screens; bios and lineups are gone ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
 
 1. **Highlight is selection** for a one-of choice (default model,
    permission mode, theme, a lineup): the highlighted row IS the chosen
@@ -156,6 +149,8 @@ this reason).
 
 ## Quick setup vs. Full setup
 
+> 3.5: where this section names a bio, a lineup or the Team step it describes the 3.5 screens; bios and lineups are gone ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
+
 The very first screen of a genuine `halo init` (never a `--step .../
 /setup .../halo setup ...` entry, which already knows where it's going):
 
@@ -169,6 +164,8 @@ team` (or `halo setup`/`/setup`) reaches Full setup's own steps any time
 afterward.
 
 ## The Team step (rule 11)
+
+> 3.5: this is the 3.5 Team step (a list of lineups); lineups are gone. In 3.6 Setup's page is Map (`halo setup map`) and it picks a map ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
 
 One screen, titled "Team" (Halo 2.1.0 round B1 rebuilt it; Quick setup now
 includes it). Top to bottom:
@@ -262,6 +259,8 @@ added"). With `--no-live` the offer is not made.
 
 ## The Summary's checks (3.2.2.0)
 
+> 3.5: the rows that name a lineup describe the 3.5 Team step and the first-run pack, which is not yet moved to maps ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
+
 Under the lineup lines, the Summary lists the checks Halo offers after
 setup, one row each: its title, then in muted text what it does, what it
 costs, how long it takes and what it writes. The rows and their defaults:
@@ -282,6 +281,8 @@ terminal unless `--no-launch` was given. A `/setup` Summary has the first four r
 list from a shell (`docs/COMMANDS-init.md`).
 
 ## Autocomplete field sites (rule 3)
+
+> 3.5: where this section names a bio, a lineup or the Team step it describes the 3.5 screens; bios and lineups are gone ([MOVING-from-3.5.md](MOVING-from-3.5.md)).
 
 | Site | Field | Suggests |
 |---|---|---|
@@ -313,7 +314,7 @@ implemented per screen.
 - `docs/HANDBOOK.md`'s 10-minute walkthrough for the step-by-step flow in
   prose.
 - `docs/COMMANDS.md`'s `halo init`/`halo setup` sections for every flag.
-- `docs/AGENTS.md`'s "Editing bios and lineups" section for Studio's bio form
-  and lineup inspector, field by field, and the terminal's views.
-- `docs/ROLES.md` for `roles.enabled`, the `standard` lineup, and the
-  role-table resolution chain the Team step's "off" state relies on.
+- `docs/AGENTS.md` for agents, workflows and maps, and `docs/MOVING-from-3.5.md` for where bios and
+  lineups went (gone in 3.6).
+- `docs/ROLES.md` for `roles.enabled` and the role-table resolution chain the "One model for everything"
+  state relies on.

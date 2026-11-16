@@ -47,9 +47,10 @@ def intro_text(version: str, index: int | None = None, rng: random.Random | None
 def parse_intro_index(args: str) -> int | None:
     """`/intro 2` -> 1 (lines are numbered from 1 for people); anything
     else, including an empty argument, -> None (random pick)."""
-    text = (args or "").strip()
-    if text.isdigit() and int(text) >= 1:
-        return int(text) - 1
+    from halo_harness.numbered import whole_number
+    n = whole_number(args or "")
+    if n is not None and n >= 1:
+        return n - 1
     return None
 
 

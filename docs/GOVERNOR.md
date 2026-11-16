@@ -63,8 +63,8 @@ replay, for instance) keeps the loop's ladder.
 
 Two accounts on one host share a bucket **on purpose** -- the gateway
 throttles per machine. Which is also why a fallback model on the same
-host as the primary cannot help: `halo roles` warns when
-`roles.<name>.fallbacks` configures one.
+host as the primary cannot help: keep such a model out of
+`roles.<name>.fallbacks` (`halo config get roles` shows them).
 
 ## Failover
 

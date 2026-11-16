@@ -3,6 +3,11 @@
 Each release of the pack, newest first: the version (pack.yaml's `version`), the date, what changed for the person
 who runs it. A change they must act on also gets a `migrations` entry in pack.yaml.
 
+## 1.0.2 - unreleased (ships with Halo 3.6.0.1)
+
+- A phone number picked with a digit that is not 0-9 (a superscript, a full-width or another script's digit) no
+  longer stops the command with an error or picks the second phone: only 0-9 picks a row.
+
 ## 1.0.1 - unreleased (ships with Halo 3.5.0.0)
 
 - `/fleet` is `/live` (this harness's sessions and what waits on you), over `ext.remote.live_lines`.

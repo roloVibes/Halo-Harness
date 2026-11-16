@@ -12,7 +12,7 @@ scope (or the project, with the user / project toggle in Lineups). A shipped
 lineup or bio is never edited in place: saving it writes a copy under the
 same name into your scope, which then shadows the shipped one -- exactly
 what the wizard's Duplicate does. **Apply** shows the role table it will
-write and, on confirm, does what `halo teams use <name>` does: `roles.*`
+write and, on confirm, did what 3.5's `halo teams use <name>` did (`halo maps use <name>` in 3.6): `roles.*`
 and `team:` in `~/.halo/config.json`, with custom roles switched on.
 
 Errors are the validator's own lines, listed in the Inspector and in

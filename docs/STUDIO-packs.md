@@ -142,7 +142,7 @@ The section reads and acts through `/api/pack/...`
 | `POST pack/<id>/rollback` | `halo pack rollback <id>` (3.2.0.0 R7) |
 | `POST pack/<id>/remove {keep_config}` | `halo pack remove <id> [--keep-config]` |
 | `GET\|POST pack/<id>/settings` | the settings form of any pack installed here |
-| `POST orchestra/run {workflow, inputs}` | `halo workflow run <pack>/<name> --input k=v ...` (Run <workflow>) |
+| `POST orchestra/run {workflow, inputs}` | `halo orchestra new --workflow <pack>/<name> --input k=v ...`, then `halo orchestra run` (Run <workflow>) |
 | `GET pack/bundles` | 3.3.7.0 R5: every bundle with its verdict (`halo pack list --bundles`) |
 | `POST pack/bundle/<id>/on`, `POST pack/bundle/<id>/off` | `halo pack on\|off <id>` (the tick; held by this Studio: undone when unticked or when it exits) |
 

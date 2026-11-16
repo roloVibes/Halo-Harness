@@ -263,7 +263,8 @@ def _cmd_why(args: str, facade: HeadlessFacade) -> str:
     from halo_harness.agent.postmortem import postmortem
     session = getattr(facade, "session", None)
     sid = getattr(getattr(session, "log", None), "session_id", None) or getattr(facade, "session_id", "")
-    turn = int(args.strip()) if args.strip().isdigit() else None
+    from halo_harness.numbered import whole_number
+    turn = whole_number(args)
     nodes = session.log.nodes() if session is not None and getattr(session, "log", None) is not None else None
     got = postmortem(getattr(session, "state_dir", None) or _state_dir(), sid, turn=turn, nodes=nodes)
     head = f"turn {got.get('turn')}: {got['line']}" if got.get("turn") is not None else got["line"]

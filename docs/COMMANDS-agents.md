@@ -38,7 +38,7 @@ halo maps edit my-map     # your $VISUAL / $EDITOR on your file; else Studio's M
 `use` writes `crew.map` through the builder's undo store, so Studio's Undo puts it back. `halo --map <name>` runs one
 session on a map without changing config; the old `--team <name>` prints one line and runs on the map in use.
 
-## `halo teams`, `halo roles`
+## `halo teams`, `halo roles` (gone in 3.6.0.0)
 
 (3.6.0.0 R5) Lineups are gone. Each prints one line -- "lineups are gone: halo maps use <name> picks the map your
 sessions run on" -- and exits 0. Your old files under `~/.halo/teams` and `~/.halo/agents` stay where they are, unread

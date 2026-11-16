@@ -19,9 +19,16 @@ import re
 _CUT_WORD = re.compile(r"([^\W_]{3,})(\.\.\.|…)$")
 _CUT_RUN = re.compile(r"(\S{2,})(\.\.\.|…)$")
 
+#: 3.6.0.1: account and machine names that are also ordinary words (and the accounts of CI runners and cloud images):
+#: such a name is replaced only where it stands as a home folder's segment, never as a word in a text
+COMMON_NAMES = frozenset({
+    "user", "users", "admin", "administrator", "root", "home", "test", "tester", "guest", "owner", "default", "public",
+    "dev", "developer", "ubuntu", "debian", "runner", "vagrant", "docker", "pi", "ec2-user", "server", "desktop",
+    "laptop", "localhost", "build", "builder", "jenkins", "app", "www", "data", "local", "work"})
+
 
 def cut_name_rule(names: list, word: str):
-    low = [str(n).lower() for n in names if n]
+    low = [str(n).lower() for n in names if n and str(n).lower() not in COMMON_NAMES]
 
     def rule(s: str) -> str:
         m = _CUT_WORD.search(s)

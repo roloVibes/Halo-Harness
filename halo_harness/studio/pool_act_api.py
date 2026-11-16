@@ -29,7 +29,8 @@ def _body(req) -> dict:
 
 
 def _int(v):
-    return int(v) if str(v or "").strip().isdigit() else None
+    from halo_harness.numbered import whole_number
+    return whole_number(str(v or ""))
 
 
 def _adopt(state_dir) -> None:

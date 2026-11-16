@@ -180,6 +180,8 @@ def cmd_models_control(verb: str, argv: list) -> int:
         return _say((C.rename if verb == "rename" else C.copy)(host, args.src, args.dst), args.json)
     if verb == "load":
         keep = args.keep_alive
-        keep = int(keep) if isinstance(keep, str) and keep.lstrip("-").isdigit() else keep  # -1 / 3600 go out as numbers
+        from halo_harness.numbered import whole_number
+        n = whole_number(keep, signed=True)
+        keep = n if n is not None else keep  # -1 / 3600 go out as numbers
         return _say(load(host, args.name, num_ctx=args.num_ctx, keep_alive=keep), args.json)
     return _say(unload(host, args.name), args.json)

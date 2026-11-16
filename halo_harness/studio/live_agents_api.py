@@ -63,10 +63,12 @@ def get_agents(req):
 
 
 def get_tail(req):
+    from halo_harness.numbered import pick
     raw = str(req.query.get("n") or "100")
-    if not raw.isdigit() or not 1 <= int(raw) <= 500:
+    n = pick(raw, 500)
+    if n is None:
         return 422, {"error": f"n is a whole number from 1 to 500, got {raw!r}", "problems": []}
-    fields = {"agent_id": req.params["aid"], "n": int(raw)}
+    fields = {"agent_id": req.params["aid"], "n": n}
     kinds = [k.strip() for k in str(req.query.get("kinds") or "").split(",") if k.strip()]
     if kinds:
         fields["kinds"] = kinds
@@ -171,11 +173,12 @@ def history(state_dir, *, role: str = "", bio: str = "", n: int = 20) -> list:
 def get_history(req):
     role, bio = str(req.query.get("role") or "").strip(), str(req.query.get("bio") or "").strip()
     raw = str(req.query.get("n") or "20")
-    if not raw.isdigit() or not 1 <= int(raw) <= 50:
+    from halo_harness.numbered import pick
+    if pick(raw, 50) is None:
         return 422, {"error": f"n is a whole number from 1 to 50, got {raw!r}", "problems": []}
     if not role and not bio:
         return 422, {"error": "name a role or a bio (?role=reviewer, ?bio=implementer)", "problems": []}
-    runs = history(req.state_dir, role=role, bio=bio, n=int(raw))
+    runs = history(req.state_dir, role=role, bio=bio, n=pick(raw, 50))
     if role == "main":  # 3.4.0.1 (defect 22): a goal run's or a mission's own sessions name their owner (History folds them)
         from halo_harness.live.history_owner import owners
         own = owners(req.cwd, req.state_dir, [r.get("session_id") for r in runs])  # 3.4.1.0 R5: + each session's repo

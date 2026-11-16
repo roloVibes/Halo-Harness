@@ -199,6 +199,69 @@ def test_audit_privacy_knows_the_replay_folder(ctx: Ctx):
                                                  for f in got["findings"]))
 
 
+PROSE = ("the user asked for a list; open the admin panel; run the test suite; tests/test_a.py passed; go home; "
+         "Ubuntu 24.04 is the CI image on ubuntu-latest; the test runner failed twice, as runners do; /usr/local/bin")
+
+
+@test
+def test_a_common_word_account_name_is_scrubbed_only_as_a_name(ctx: Ctx):
+    """3.6.0.1 setup-words: with an account called `user`, `admin`, `test`, `home`, `ubuntu` or `runner` the scrub
+    rewrote ordinary words ('the <user> asked', 'tests/<user>_a.py', '<user>-latest') and JSON keys. A common word is
+    the name only where it stands as a home folder's segment; an uncommon name is replaced as a whole word anywhere
+    (a digit, '_', '.', '@' or a quote beside it is a boundary; a letter is not)."""
+    from halo_harness.live.replay_private import scrub
+    bs = chr(92)
+    for name in ("user", "admin", "test", "home", "ubuntu", "runner"):
+        got = scrub({"t": PROSE, "k": {name: 1, "role": "user"}}, None, homes=[], users=[name], machines=[])
+        ctx.check(f"[{name}] the prose is kept exactly, got {got['t']!r}", got["t"] == PROSE)
+        ctx.check(f"[{name}] the dict keys and the role value are kept, got {got['k']!r}",
+                  got["k"] == {name: 1, "role": "user"})
+        for shape in ("/home/{n}/x", "/Users/{n}/x", "C:{b}Users{b}{n}{b}x", "C:/Users/{n}/x",
+                      "c:{b}{b}users{b}{b}{n}{b}{b}x", "/mnt/c/Users/{n}/x", "/c/Users/{n}", "{b}{b}?{b}C:{b}Users{b}{n}"):
+            path, want = shape.format(n=name, b=bs), "see " + shape.format(n="<user>", b=bs)
+            out = scrub({"t": f"see {path}"}, None, homes=[], users=[name], machines=[])["t"]
+            ctx.check(f"[{name}] the name as a home segment goes: {path!r} -> {want!r}, got {out!r}", out == want)
+    word = "zedtester"
+    for text, want in (("zedtester@box", "<user>@box"), ("zedtester_notes", "<user>_notes"), ("see zedtester.", "see <user>."),
+                       ("1zedtester", "1<user>"), ("zedtester2", "<user>2"), ("zedtesterx", "zedtesterx"),
+                       ("xzedtester", "xzedtester"), ("zedtesters", "zedtesters"), ('{"by": "zedtester"}', '{"by": "<user>"}')):
+        out = scrub({"t": text}, None, homes=[], users=[word], machines=[])["t"]
+        ctx.check(f"[{word}] {text!r} -> {want!r}, got {out!r}", out == want)
+    out = scrub({"t": "open the admin..."}, None, homes=[], users=["administrator"], machines=[])["t"]
+    ctx.check(f"a cut excerpt that begins a common name is kept, got {out!r}", out == "open the admin...")
+    out = scrub({"t": "served on localhost and the desktop app"}, None, homes=[], users=[], machines=["localhost", "desktop"])["t"]
+    ctx.check(f"a common machine name is no machine name in prose, got {out!r}", out == "served on localhost and the desktop app")
+
+
+@test
+def test_audit_finds_no_leak_in_a_scrubbed_replay_of_a_common_word_account(ctx: Ctx):
+    """3.6.0.1 setup-words: `halo audit privacy --replays` matched its own placeholder ('<user>' holds 'user') and the
+    ordinary words a common-word account name shares; it uses the scrub's own name rules now."""
+    from halo_harness.live.replay_private import audit, scrub
+    for name in ("user", "admin"):
+        env = dict(ENV, USERNAME=name, USER=name, LOGNAME=name)
+        saved = {k: os.environ.get(k) for k in env}
+        try:
+            with _home() as state:
+                os.environ.update(env)
+                folder = state / "replays"
+                folder.mkdir(parents=True, exist_ok=True)
+                clean = scrub({"marks": [{"text": f"the {name} panel; the user asked; /home/{name}/x"}]}, None,
+                              homes=[], users=[name], machines=[])
+                (folder / "clean-20261116-000000.halo-replay").write_text(json.dumps(dict(
+                    clean, format="halo-replay", version=1, id="clean-20261116-000000", title="t")), encoding="utf-8")
+                rows = [r for r in audit(state) if r["kind"] == "user-name"]
+                ctx.check(f"[{name}] a scrubbed replay holds no user name, got {rows}", not rows)
+                (folder / "raw-20261116-000000.halo-replay").write_text(json.dumps({
+                    "format": "halo-replay", "version": 1, "id": "raw-20261116-000000", "title": "t",
+                    "marks": [{"text": f"/home/{name}/x"}]}), encoding="utf-8")
+                rows = [r for r in audit(state) if r["kind"] in ("user-name", "home-path")]
+                ctx.check(f"[{name}] an unscrubbed home path still is a finding, got {rows}", len(rows) >= 1)
+        finally:
+            for k, v in saved.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
