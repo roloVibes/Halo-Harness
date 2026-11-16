@@ -13,20 +13,21 @@ import { lit, startLit } from "../crew/map/litStore";
 import type { MapDetail } from "../crew/map/mapTypes";
 import { nextMap, reserve, statusLine, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
 import { NewSession } from "./NewSession";
+import { mapBody, noteBody, type MapBody } from "./pick";
 import { statusOf } from "./statusOf";
 
 const LIVE = ["queued", "running", "paused", "waiting"];
-const bodies = new Map<string, MapDetail | false>(); // {B}'s map, read once a page, only when a workflow runs (R22, R28)
 
-/** {B}'s map body, once a workflow runs (after the first draw: never a fetch before it), else null. */
-function useBody(name: string, want: boolean): MapDetail | null {
+/** {B}'s map body once a workflow runs: a builder_done frame's (pick.ts noteBuild), else the one read of it after the
+ *  first draw (never a fetch before it; R22, R28); a read that failed is forgotten, so the next run reads again. */
+function useBody(name: string, want: boolean): MapBody | null {
   const [, setN] = useState(0);
   useEffect(() => {
-    if (!want || !name || bodies.has(name)) return;
-    bodies.set(name, false);
-    void api.get<MapDetail>(`crew/map/${name}`).then((d) => (bodies.set(name, d), setN((n) => n + 1)), () => undefined);
+    if (!want || !name || mapBody(name) !== undefined) return;
+    noteBody(name, false);
+    void api.get<MapDetail>(`crew/map/${name}`).then((d) => (noteBody(name, d.map), setN((n) => n + 1)), () => noteBody(name, null));
   }, [name, want]);
-  return (want && bodies.get(name)) || null;
+  return (want && mapBody(name)) || null;
 }
 
 function Lines({ lines, onNew }: { lines: Line[]; onNew?: () => void }) {
@@ -48,8 +49,9 @@ function Lines({ lines, onNew }: { lines: Line[]; onNew?: () => void }) {
   );
 }
 
-/** `f`: the session's facts (pick.ts factsOf), or `{ none: true, b }` for Empty; `sid`: the session ("" for Empty). */
-export function TruthBlock({ f: given, sid }: { f: TruthFacts; sid: string }) {
+/** `f`: the session's facts (pick.ts factsOf), or `{ none: true, b }` for Empty; `sid`: the session ("" for Empty);
+ *  `held`: Empty while {B} is not read yet (its room is kept, no words: never a {B} that may be false). */
+export function TruthBlock({ f: given, sid, held }: { f: TruthFacts; sid: string; held?: boolean }) {
   useEffect(() => startLit(), []);
   const rec = useSessionRecord(sid);
   const rows = (rec?.agents || []).map((a) => ({ ...a.row, agent_id: a.id }));
@@ -57,7 +59,7 @@ export function TruthBlock({ f: given, sid }: { f: TruthFacts; sid: string }) {
   const flow = rows.find((r) => LIVE.includes(String(r.state || "")) && r.crew?.workflow)?.crew?.workflow || "";
   const B = nextMap(given.b);
   const body = useBody(B, !!flow && !given.none);
-  const runs = !!flow && !!body && (body.map.boxes || []).some((b) => (b as { workflow?: string }).workflow === flow);
+  const runs = !!flow && !!body && (body.boxes || []).some((b) => b?.workflow === flow);
   const f: TruthFacts = { ...given, workflow: runs ? flow : null }; // R22: T7 only once B's body says W is a box on it
   const lines = truthLines(f);
   const root = useRef<HTMLDivElement>(null), twin = useRef<HTMLDivElement>(null);
@@ -81,13 +83,15 @@ export function TruthBlock({ f: given, sid }: { f: TruthFacts; sid: string }) {
   const [form, setForm] = useState(false);
   const st = truthState(f);
   const busy = !!given.busy;
-  return (
-    <div className="mp-truth" ref={root} data-testid="session-truth" data-state={st}>
-      <div className="mp-truth-lines" style={{ minHeight: minH || undefined }}>
-        <div className="cw-line mp-truth-said" data-testid="session-lit-line" data-state={st} data-sid={sid}>
-          <Lines lines={lines} onNew={() => setForm(true)} />
+  return ( // R23: the status line sits UNDER the block, outside it: the block's words change only with a fact (R20)
+    <div className="mp-truth-box">
+      <div className="mp-truth" ref={root} data-testid="session-truth" data-state={st}>
+        <div className="mp-truth-lines" style={{ minHeight: minH || undefined }}>
+          <div className={`cw-line mp-truth-said${held ? " mp-truth-held" : ""}`} data-testid="session-lit-line" data-state={st} data-sid={sid}>
+            {!held && <Lines lines={lines} onNew={() => setForm(true)} />}
+          </div>
+          <div className="cw-line mp-truth-said mp-truth-twin" ref={twin} aria-hidden="true"><Lines lines={room} /></div>
         </div>
-        <div className="cw-line mp-truth-said mp-truth-twin" ref={twin} aria-hidden="true"><Lines lines={room} /></div>
       </div>
       {sid && st !== "T8" && <p className="mp-status mono" data-testid="session-status">{statusLine(statusOf(rows, events, busy))}</p>}
       {form && (

@@ -7,7 +7,8 @@ harness's real session A) and a second local session B; every fact reaches the p
             a box on review-flow, runs): each step's lines, the block's height, the drawing's top, the block's colour
     status  the status line: no rows yet, a workflow's step 3 of 6 at work waiting on its model, then all done
     start   A builds review-flow and ends: T8 while B is open; with no session the Start view's two sentences and its
-            [New session]; a fresh page with no build seen: the first sentence only
+            [New session]; the map switched on the same page (config crew.map) shows at once; a fresh page with no
+            build seen: the first sentence only; the drawer's Empty on a fresh page names the server's {B}, then a switch
 
     python -m tests.helpers.studio_session_truth [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -44,7 +45,9 @@ READ = f"""(() => {{ const t = {TRUTH}, s = {STATUS}, sc = document.querySelecto
     h: r(t?.querySelector('.mp-truth-lines')), top: sc ? Math.round(sc.getBoundingClientRect().top * 2) / 2 : null,
     color: said ? getComputedStyle(said).color : '', lineColor: said?.querySelector('.mp-truth-line') ? getComputedStyle(said.querySelector('.mp-truth-line')).color : '',
     warn, status: s?.textContent || '', sh: s ? s.getBoundingClientRect().height : null, slh: s ? parseFloat(getComputedStyle(s).lineHeight) : null,
-    amber: !!t?.querySelector('.mp-amber, [data-tone=warn]') }}; }})()"""
+    amber: !!t?.querySelector('.mp-amber, [data-tone=warn]'), itext: t?.innerText || '',
+    inside: !!t?.querySelector('[data-testid=session-status]'),
+    below: t && s ? s.getBoundingClientRect().top >= t.getBoundingClientRect().bottom - 0.5 : null }}; }})()"""
 
 
 def _size(c, w: int, h: int) -> None:
@@ -159,6 +162,9 @@ def start(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["start_view"] = c.js(f"""(() => ({{ map: document.querySelector('{said}')?.firstChild?.nodeValue || '',
       built: document.querySelector('[data-testid=session-start-built]')?.firstChild?.nodeValue || null,
       button: document.querySelector('[data-testid=session-start-new]')?.textContent || '' }}))()""") or {}
+    # R4: {B} is the server's now: the map new sessions use switched on the same page (Agents -> Map, a terminal) shows
+    out["start_switched"] = _said_after(c, said, "shop", lambda: set_config_value("crew.map", "shop"))
+    _said_after(c, said, "review-flow", lambda: set_config_value("crew.map", "review-flow"))
     c.js("document.querySelector('[data-testid=session-start-new]')?.click(); 1")
     time.sleep(0.3)
     out["start_focus"] = c.js("document.activeElement?.closest('[data-testid=session-new]') ? document.activeElement.dataset.testid : ''")
@@ -170,7 +176,33 @@ def start(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["start_fresh"] = c.js(f"""(() => ({{ map: document.querySelector('{said}')?.firstChild?.nodeValue || '',
       built: !!document.querySelector('[data-testid=session-start-built]'),
       button: document.querySelector('[data-testid=session-start-new]')?.textContent || '' }}))()""") or {}
+    # R4: the drawer's Empty on a fresh page ("Open the workspace anyway") reads {B} from the server too, and again on a switch
+    _open(c, rig, "mode=session&open=session-map")
+    empty = f"{TRUTH}?.dataset.state === 'Empty' ? {SAID}.querySelector('.mp-truth-line')?.firstChild?.nodeValue || '' : ''"
+    try:
+        c.wait("!!document.querySelector('[data-testid=session-open-workspace]')", 30)
+        c.js("document.querySelector('[data-testid=session-open-workspace]').click(); 1")
+        c.wait(f"({empty}).includes('review-flow')", 15)
+    except TimeoutError:
+        pass
+    out["empty_fresh"] = c.js(empty)
+    set_config_value("crew.map", "shop")
+    try:
+        c.wait(f"({empty}).includes('on shop.')", 15)
+    except TimeoutError:
+        pass
+    out["empty_switched"] = c.js(empty)
     return out
+
+
+def _said_after(c, said: str, name: str, act) -> str:
+    """The Start view's first sentence once it names `name` after `act` (else what it says 15 s later)."""
+    act()
+    try:
+        c.wait(f"(document.querySelector('{said}')?.firstChild?.nodeValue || '').includes('on {name}.')", 15)
+    except TimeoutError:
+        pass
+    return c.js(f"document.querySelector('{said}')?.firstChild?.nodeValue || ''") or ""
 
 
 class TruthDriver(MapDownDriver):

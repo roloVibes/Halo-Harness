@@ -26,7 +26,9 @@
 /* R20 R23 the truth block over the drawing (routes/session/TruthBlock.tsx; also alone for T8, T10 and Empty): its lines'
    height is the hidden twin's (the longest state, measured), never clamped and never amber; the status line under it
    has two lines reserved; [New session] opens the New session form over the drawer's corner (nothing moves) */
-.mp-truth { position: relative; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.mp-truth-box { position: relative; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+.mp-truth { display: flex; flex-direction: column; min-width: 0; }
+.mp-truth-held { visibility: hidden; }
 .mp-truth-lines { position: relative; min-width: 0; }
 .mp-truth-said { display: block; overflow: visible; }
 .mp-truth-line { margin: 0; }

@@ -12,7 +12,8 @@ import { useScopedCounts } from "../fleet/scope";
 import { useFleet } from "../fleet/store";
 import { toLit } from "../crew/map/litStore";
 import { truthState, WORDS, type TruthFacts } from "../crew/map/truth";
-import { factsOf, knownNext, lastRow } from "./pick";
+import { useNextB } from "./nextB";
+import { factsOf, lastRow } from "./pick";
 import { MapDown } from "./MapDown";
 import { chosenSession } from "./store";
 import { TruthBlock } from "./TruthBlock";
@@ -20,6 +21,13 @@ import { TruthBlock } from "./TruthBlock";
 /** R4: no session row: the Start view's Empty sentence ({B} as this page last heard it) with [New session]. */
 export const noneFacts = (b: string | null): TruthFacts => ({ none: true, title: "", a: null, plain: false, b, bSince: null, started: 0,
   turns: 0, studio: false, ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false });
+
+/** R4: Empty's {B} is the server's (nextB.ts: read after the first draw and on a map or config change), never a row's
+ *  that ended; until read the block holds its room with no words. */
+function EmptyTruth() {
+  const b = useNextB();
+  return <TruthBlock key="none" f={noneFacts(b ?? null)} sid="" held={b === undefined} />;
+}
 
 export function MapDetail() {
   const loaded = useFleet((s) => s.loaded);
@@ -31,7 +39,7 @@ export function MapDetail() {
   if (error && !any) return <Empty title="Studio could not read the sessions" body={error} />;
   const ended = !row && pick ? lastRow(pick) : null;
   if (ended) return <TruthBlock key={pick} f={factsOf(ended.row, ended.ended)} sid={pick} />; // R4: T8 until another is picked
-  if (!row) return <TruthBlock key="none" f={noneFacts(knownNext()?.b ?? null)} sid="" />; // R4: Empty
+  if (!row) return <EmptyTruth />; // R4: Empty
   const f = factsOf(row);
   if (truthState(f) === "T10") return <TruthBlock key={row.session_id} f={f} sid={row.session_id} />;
   return <MapDown key={row.session_id} s={toLit(row)} f={f} />;

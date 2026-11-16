@@ -50,6 +50,19 @@ export function noteBuild(sid: string, d: Record<string, unknown>, now: number):
   const m = wrote.find((w) => w && w.kind === "map" && w.name);
   if ("next" in d) next = { b: typeof d.next === "string" && d.next ? d.next : null };
   if (m) build = { sid, map: String(m.name), t: Number(d.t) || now };
+  const maps = d.maps && typeof d.maps === "object" ? (d.maps as Record<string, unknown>) : {};
+  for (const [n, b] of Object.entries(maps)) if (b && typeof b === "object") bodies.set(n, b as MapBody); // T7: the newest body
+}
+
+/** R22 T7: a map's body as this page last had it (a builder_done frame's `maps`, else the one read; false while that
+ *  read is out); undefined when it has none. */
+export type MapBody = { boxes?: { workflow?: string }[] };
+const bodies = new Map<string, MapBody | false>();
+export const mapBody = (name: string): MapBody | false | undefined => bodies.get(name);
+/** The read of a body: asked (false), answered (the body), failed (null: forgotten, so it is read again next time). */
+export function noteBody(name: string, body: MapBody | false | null): void {
+  if (body === null) bodies.delete(name);
+  else bodies.set(name, body);
 }
 
 /** R4's Start view: the last build this page heard from a session that is not open any more (it ended), else null. */

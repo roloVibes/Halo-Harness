@@ -484,6 +484,28 @@ m.noteBuild('A', {outcome: 'applied', wrote: [{kind: 'workflow', name: 'review'}
 console.log(JSON.stringify({before, same, after, next1, failed, open: m.lastBuild([A]), ended: m.lastBuild([]), next2: m.knownNext()}));"""
 
 
+BODY_JS = """const m = await import(%s);
+const flow = {format: 'map/1', name: 'review-flow', boxes: [{id: 'check', workflow: 'W'}], lines: []};
+m.noteBody('review-flow', {format: 'map/1', name: 'review-flow', boxes: [], lines: []}); const read = m.mapBody('review-flow');
+m.noteBuild('A', {outcome: 'applied', wrote: [{kind: 'map', name: 'review-flow'}], maps: {'review-flow': flow}, next: 'review-flow', t: 5}, 6);
+const built = m.mapBody('review-flow');
+m.noteBuild('A', {outcome: 'failed', maps: {'review-flow': {boxes: []}}}, 7); const failed = m.mapBody('review-flow');
+m.noteBody('x', false); m.noteBody('x', null);
+console.log(JSON.stringify({read, built, failed, forgot: m.mapBody('x') === undefined}));"""
+
+
+@test
+def test_t7_reads_the_body_a_build_brought(ctx: Ctx):
+    # R22 T7: {B}'s body comes from the builder_done frame's `maps` (a card that adds W's box to B shows T7 the next time
+    # W runs, no reload), else the one read; a read that failed is not kept (pick.ts mapBody, TruthBlock's useBody).
+    from tests.helpers import node_ts
+    p = node_ts.run(BODY_JS % json.dumps(PICK.resolve().as_uri()))
+    ctx.check(f"a read body, then the build's body replaces it, got {p}",
+              p.get("read", {}).get("boxes") == [] and (p.get("built") or {}).get("boxes") == [{"id": "check", "workflow": "W"}])
+    ctx.check(f"a failed card brings no body, got {p.get('failed')}", (p.get("failed") or {}).get("boxes") == [{"id": "check", "workflow": "W"}])
+    ctx.check(f"a read that failed is forgotten (read again next time), got {p.get('forgot')}", p.get("forgot") is True)
+
+
 @test
 def test_truth_block_height_fixed(ctx: Ctx):
     # R20 R22: the truth block's words are truth.ts's for the session's facts, its height is held from the first draw and
@@ -581,6 +603,11 @@ def test_status_line_reserved_two_lines(ctx: Ctx):
     ctx.check(f"no 'delegating', 'helpers', 'models', got {busy.get('status')!r}",
               not any(w in (busy.get("status") or "") for w in ("delegating", "helpers", "models")))
     ctx.check(f"all done, got {done.get('status')!r}", done.get("status") == "Done · $2.42")
+    # R23 under the block, R20 the block changes only with a fact (PA's check compares its innerText across a busy turn)
+    ctx.check(f"the status line is under the truth block, not in it, got {[(s.get('inside'), s.get('below')) for s in (first, busy, done)]}",
+              all(s.get("inside") is False and s.get("below") is True for s in (first, busy, done)))
+    ctx.check(f"the truth block's text is the same idle, busy and done, got {[s.get('itext') for s in (first, busy, done)]}",
+              bool(first.get("itext")) and busy.get("itext") == first.get("itext") == done.get("itext"))
     h = [s.get("sh") for s in (first, busy, done)]
     lh = first.get("slh") or 0
     ctx.check(f"two lines reserved from the first paint: heights {h}, line-height {lh}",
@@ -609,6 +636,13 @@ def test_start_view_names_the_last_build(ctx: Ctx):
     ctx.check(f"(c) a fresh page with no build seen: the first sentence only, got {fresh}",
               fresh.get("map") == "No session is open here. New sessions will run on review-flow." and fresh.get("built") is False
               and fresh.get("button") == "New session")
+    got = _TRUTH["got"]
+    ctx.check(f"(d) the map new sessions use, switched on the same page, shows at once, got {got.get('start_switched')!r}",
+              got.get("start_switched") == "No session is open here. New sessions will run on shop.")
+    ctx.check(f"(e) the drawer's Empty on a fresh page names the server's map, got {got.get('empty_fresh')!r}",
+              got.get("empty_fresh") == "No session is open here. New sessions will run on review-flow.")
+    ctx.check(f"(e) and the switch, got {got.get('empty_switched')!r}",
+              got.get("empty_switched") == "No session is open here. New sessions will run on shop.")
 
 
 if __name__ == "__main__":
