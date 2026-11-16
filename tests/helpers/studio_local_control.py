@@ -75,7 +75,9 @@ def pull(c, url, ctx) -> dict:
     press(c, q("[data-testid=local-pull-go]"), f"{job}?.dataset.state === 'running'")
     press(c, q('[data-testid=local-jobs] [data-testid=local-job][data-name="llama3.2:3b"] [data-testid=local-pull-cancel]'),
           f"{job}?.dataset.state === 'cancelled'")
-    out["cancelled"] = [c.js(f"{job}.dataset.state"), c.js(f"{job}.querySelector('[data-testid=local-pull-said]').textContent")]
+    # The row's own line is drawn a render after its state flips (macOS shard 1 on ff71c00d read it one render early).
+    said = c.wait(f"{job}?.dataset.state === 'cancelled' && {job}.querySelector('[data-testid=local-pull-said]')?.textContent", 10)
+    out["cancelled"] = [c.js(f"{job}.dataset.state"), said]
     end = time.time() + 10  # the fake sees the hang-up a moment after the row says cancelled (Linux shard 0 on 7a5de868)
     while not mock.pull_cancelled and time.time() < end:
         time.sleep(0.1)
