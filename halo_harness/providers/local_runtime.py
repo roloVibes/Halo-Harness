@@ -261,6 +261,21 @@ def _entry_process_matches(entry: dict) -> bool:
     return current is None or start_matches(pid, recorded, current)
 
 
+def entry_identity(entry: dict) -> str:
+    """'proven' (signal it), 'unproven' (the pid runs and nothing read contradicts the record, but its identity cannot
+    be proven: signal nothing and KEEP its row, or Halo forgets a process that may be its own), or 'other' (the pid is
+    gone or its start time contradicts the record: the row is stale)."""
+    if _entry_process_matches(entry):
+        return "proven"
+    from halo_harness.children import same_process
+    return "unproven" if same_process(entry.get("pid"), entry.get("proc_start")) else "other"
+
+
+def unproven_line(entry: dict) -> str:
+    return (f"pid {entry.get('pid')} on port {entry.get('port')} still runs but cannot be proven to be that server "
+            f"(its start time is unknown): nothing was signalled and its record is kept; `halo ps` lists it")
+
+
 def find_free_port() -> int:
     """Bind to port 0 for an OS-assigned free port, then release it -- the
     same small-TOCTOU-race-accepted pattern `tests/helpers/mock_openai.
@@ -641,7 +656,9 @@ def stop_managed_server(model: str, *, state_dir=None) -> "tuple[bool, str]":
     regardless of which process started it -- but, same as the at-exit
     sweep, it still refuses to SIGNAL a pid whose recorded start time no
     longer matches (a stale entry the OS has since reused for something
-    unrelated); the stale record is still removed, just never signalled."""
+    unrelated); the stale record is still removed, just never signalled. A pid
+    that still runs but cannot be proven (its start time unknown) is neither
+    signalled nor forgotten: its record stays (fx jb10 repair)."""
     if state_dir is None:
         from halo_harness.config.paths import bridge_home
         state_dir = bridge_home()
@@ -650,10 +667,13 @@ def stop_managed_server(model: str, *, state_dir=None) -> "tuple[bool, str]":
         match = next((e for e in entries if e.get("model") == model), None)
         if match is None:
             return False, f"no managed server recorded for {model!r}"
-        save_registry(state_dir, [e for e in entries if e.get("model") != model])
-    if not _entry_process_matches(match):
+    who = entry_identity(match)
+    if who == "unproven":  # fx jb10 repair: a live server Halo cannot prove keeps its record (never forgotten)
+        return False, f"did not stop {model!r}: {unproven_line(match)}"
+    drop_registry_entries(state_dir, [(model, match.get("pid"))])
+    if who != "proven":
         return True, (f"removed a stale record for {model!r} (pid {match.get('pid')} on port "
-                       f"{match.get('port')} cannot be proven to be that server any more; nothing was signalled)")
+                       f"{match.get('port')} is gone or is another process now; nothing was signalled)")
     _terminate_pid(match.get("pid"))
     return True, f"stopped {match.get('runtime')} on port {match.get('port')}"
 
@@ -691,12 +711,15 @@ def stop_all_managed_servers_except_kept(state_dir=None) -> None:
         with _registry_lock(state_dir):
             mine = [e for e in load_registry(state_dir)
                     if not e.get("keep") and _entry_owned_by_this_process(e)]
+        done = []
         for e in mine:
-            if _entry_process_matches(e):
+            who = entry_identity(e)
+            if who == "proven":
                 _terminate_pid(e.get("pid"))
-            # else: pid was reused by an unrelated process -- the stale
-            # entry is dropped below without signalling it.
-        drop_registry_entries(state_dir, [(e.get("model"), e.get("pid")) for e in mine])
+            if who != "unproven":  # fx jb10 repair: an unproven live server keeps its row (halo ps still lists it)
+                done.append(e)
+            # 'other': pid gone or reused by an unrelated process -- the stale entry is dropped without a signal.
+        drop_registry_entries(state_dir, [(e.get("model"), e.get("pid")) for e in done])
     except Exception:
         pass
     # 3.3.5.0 R5: the servers Local -> Hugging Face starts (providers/local_server.py, rows with `halo: true`) stop

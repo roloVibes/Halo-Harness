@@ -161,6 +161,13 @@ def _write_env_var(path: Path, key: str, value: str) -> None:
 # Step 1: provider selection (1.0.1 hotfix 13)
 # ---------------------------------------------------------------------------
 
+def _args_for(provider: str, args):
+    """jb10 repair: the args a key provider's step sees -- an `ol:` --model is the Ollama step's, never this one's."""
+    if provider != "ollama" and str(getattr(args, "model", None) or "").startswith("ol:"):
+        return argparse.Namespace(**{**vars(args), "model": None})
+    return args
+
+
 def _requested_providers(args, console: Console) -> "Optional[list[str]]":
     """`None` means "run the fully interactive picker loop"; otherwise the
     exact, ordered list of providers to walk through non-interactively (no
@@ -976,7 +983,7 @@ def _build_parser() -> argparse.ArgumentParser:
                          metavar="{databricks,openrouter,anthropic,ollama}",
                          help="set up this provider non-interactively (repeatable, first-listed first); "
                               "omit for the interactive provider picker. ollama: no key; --model <name>[@<host>] "
-                              "picks one of the server's models")
+                              "picks one of the server's models (beside another provider: --model ol:<name>)")
     parser.add_argument("--preset", choices=["home", "work"], default=None,
                          help="deprecated alias for --provider: home=openrouter, work=databricks")
     parser.add_argument("--model", default=None, metavar="REF", help="override the provider's own default model")
@@ -1181,7 +1188,7 @@ def _cmd_init(argv: list) -> int:
                 from halo_harness.init_ollama import run_ollama_setup
                 result = run_ollama_setup(args, console)
             else:
-                result = _run_provider_setup(choice, args, console, cwd, write_model=True)
+                result = _run_provider_setup(choice, _args_for(choice, args), console, cwd, write_model=True)
             if result is None:
                 continue  # error already printed -- back to the picker
             model_ref_raw, prov_written, prov_doctor, prov_pong_ok = result
@@ -1200,7 +1207,7 @@ def _cmd_init(argv: list) -> int:
                 from halo_harness.init_ollama import run_ollama_setup
                 result = run_ollama_setup(args, console)
             else:
-                result = _run_provider_setup(choice, args, console, cwd, write_model=True)
+                result = _run_provider_setup(choice, _args_for(choice, args), console, cwd, write_model=True)
             if result is None:
                 return 2
             model_ref_raw, prov_written, prov_doctor, prov_pong_ok = result

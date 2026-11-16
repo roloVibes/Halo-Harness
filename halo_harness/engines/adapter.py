@@ -123,9 +123,11 @@ def health(url: str, timeout: float = 1.0) -> dict:
 
 def alive(e: dict) -> bool:
     from halo_harness.bg_run import pid_alive
-    from halo_harness.providers.local_runtime import _entry_process_matches
+    from halo_harness.children import same_process
     if isinstance(e.get("pid"), int) and pid_alive(e["pid"]):
-        return _entry_process_matches(e)  # 3.3.14.0 R2 (REVIEW #21): a reused pid is another process: the row is gone
+        # 3.3.14.0 R2 (REVIEW #21): a reused pid is another process: the row is gone. fx jb10 repair: liveness is
+        # the tolerant test (an unknown start time is not 'gone'); the strict proof is only for a signal (stop_row).
+        return same_process(e["pid"], e.get("proc_start"))
     return bool(e.get("port")) and health(f"http://127.0.0.1:{int(e['port'])}", timeout=0.5)["ok"]
 
 
@@ -222,7 +224,11 @@ def stop_row(e: dict, *, state_dir) -> dict:
         else:
             how = f"nothing {get(engine)['label']} runs serves port {e.get('port')} any more"
     else:
-        how = C.halt(e["pid"], start=e.get("proc_start")) if R._entry_process_matches(e) else "its pid belongs to another process now: nothing signalled"
+        who = R.entry_identity(e)
+        if who == "unproven":  # fx jb10 repair: neither signalled nor forgotten
+            return {"ok": False, "id": e.get("id"), "say": f"did not stop {engine} {e.get('id')} ({e.get('model')}): "
+                                                           f"{R.unproven_line(e)}"}
+        how = C.halt(e["pid"], start=e.get("proc_start")) if who == "proven" else "its pid has ended or belongs to another process now: nothing signalled"
     R.drop_registry_entries(state_dir, [(e.get("model"), e.get("pid"))])
     forget(engine, state_dir)
     return {"ok": True, "id": e.get("id"), "say": f"stopped {engine} {e.get('id')} ({e.get('model')} on port "

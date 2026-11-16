@@ -52,9 +52,14 @@ def _host_rows():
 
 
 def _model_arg(args) -> "tuple[str, str]":
-    """`--model` for the ollama row: (model name, host name or ''); `ol:` and `@<host>` are both optional."""
+    """`--model` for the ollama row: (model name, host name or ''); `@<host>` is optional. It is Ollama's when it is an
+    `ol:` ref, or when ollama is the only `--provider` (a plain `--model` beside a key provider, or in the picker, is
+    not forced on this step)."""
     raw = str(getattr(args, "model", None) or "").strip()
-    raw = raw[3:] if raw.startswith("ol:") else raw
+    if raw.startswith("ol:"):
+        raw = raw[3:]
+    elif list(dict.fromkeys(getattr(args, "provider", None) or [])) != ["ollama"]:
+        return "", ""
     name, at, host = raw.rpartition("@")
     return (name, host) if at else (raw, "")
 

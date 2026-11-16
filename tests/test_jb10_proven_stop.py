@@ -111,6 +111,71 @@ def test_the_exit_sweep_signals_its_own_server_only_by_handle_or_proof(ctx: Ctx)
         shutil.rmtree(state, ignore_errors=True)
 
 
+@test
+def test_a_running_server_that_cannot_be_proven_keeps_its_record(ctx: Ctx):
+    """Batch 1 repair (checker item 1): `halo local stop <model>`, Local's stop and the exit sweep used to drop the
+    registry row before the proof check, so a live server whose start time could not be read was neither signalled
+    nor remembered. An unproven-but-running server keeps its row (nothing signalled, a line naming `halo ps`); a pid
+    that is gone or whose start time contradicts the record loses its row; a proven one is stopped."""
+    from halo_harness import bg_run
+    from halo_harness.engines import adapter
+    from halo_harness.providers import local_runtime as lr
+    from halo_harness.providers import local_server
+    state = Path(tempfile.mkdtemp(prefix="jb10-keep-"))
+    proc = _sleeper()
+    try:
+        time.sleep(0.3)
+        rec = bg_run.process_start_time(proc.pid)
+        ctx.check(f"the sleeper's start time is readable for the setup, got {rec!r}", rec is not None)
+        # halo local stop <model>: recorded start, unreadable live one
+        lr.save_registry(state, [_server_row("m.gguf", proc.pid, rec)])
+        with mock.patch.object(bg_run, "process_start_time", lambda pid: None):
+            ok, msg = lr.stop_managed_server("m.gguf", state_dir=state)
+        time.sleep(0.3)
+        ctx.check("unreadable start time: not signalled", proc.poll() is None)
+        ctx.check(f"and the call says it did not stop it, got ok={ok}", ok is False)
+        ctx.check(f"the line names the pid and `halo ps`, got {msg!r}", str(proc.pid) in msg and "halo ps" in msg)
+        rows = lr.load_registry(state)
+        ctx.check(f"the record is kept, got {[r.get('model') for r in rows]}", [r.get("model") for r in rows] == ["m.gguf"])
+        # no start time recorded at all: same
+        lr.save_registry(state, [_server_row("m.gguf", proc.pid, None)])
+        ok, msg = lr.stop_managed_server("m.gguf", state_dir=state)
+        ctx.check(f"no recorded start time: not signalled, row kept (ok={ok})",
+                  proc.poll() is None and ok is False and len(lr.load_registry(state)) == 1)
+        # Local's listing still sees it as alive (unproven is not 'gone')
+        ctx.check("Local's liveness test counts an unproven running server as alive",
+                  adapter.alive({"pid": proc.pid, "proc_start": None, "port": 1}) is True)
+        # Local's stop (local_server.stop): kept and not signalled
+        lr.save_registry(state, [_server_row("m.gguf", proc.pid, None, id="s1", halo=True, kind="llama-server")])
+        res = local_server.stop("s1", state_dir=state)
+        ctx.check(f"Local's stop: not signalled, not ok, row kept (said {res.get('say')!r})",
+                  proc.poll() is None and res["ok"] is False and len(lr.load_registry(state)) == 1
+                  and "halo ps" in res["say"])
+        # contradicted: the row goes, nothing signalled
+        lr.save_registry(state, [_server_row("m.gguf", proc.pid, "not-its-start")])
+        ok, msg = lr.stop_managed_server("m.gguf", state_dir=state)
+        ctx.check(f"a contradicted start time: the stale row is dropped, nothing signalled ({msg!r})",
+                  proc.poll() is None and ok is True and lr.load_registry(state) == [])
+        # the exit sweep keeps an own unproven running entry's row
+        lr.save_registry(state, [_server_row("m.gguf", proc.pid, None)])
+        with mock.patch("halo_harness.providers.local_server.exit_sweep", lambda sd: None):
+            lr.stop_all_managed_servers_except_kept(state_dir=state)
+        ctx.check("the exit sweep: an own unproven running entry is not signalled and its row stays",
+                  proc.poll() is None and len(lr.load_registry(state)) == 1)
+        # proven: stopped, row gone
+        lr.save_registry(state, [_server_row("m.gguf", proc.pid, rec)])
+        ok, msg = lr.stop_managed_server("m.gguf", state_dir=state)
+        try:
+            proc.wait(5)
+        except subprocess.TimeoutExpired:
+            pass
+        ctx.check(f"proven: stopped and the row gone (ok={ok}, exit {proc.poll()})",
+                  ok is True and proc.poll() is not None and lr.load_registry(state) == [])
+    finally:
+        _end(proc)
+        shutil.rmtree(state, ignore_errors=True)
+
+
 def _runner(start_fn, alive=(400,)):
     from halo_harness import update_runner as R
     killed, said, clock = [], [], [0.0]

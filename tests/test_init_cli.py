@@ -564,6 +564,31 @@ def test_the_provider_flag_takes_ollama_with_a_model(ctx: Ctx):
 
 
 @test
+def test_one_model_flag_goes_to_the_provider_it_names(ctx: Ctx):
+    """jb10 repair (checker item 3): `--provider ollama --provider openrouter --model X` gave X to both steps, so the
+    Ollama step failed with 'X is not on Ollama'. The Ollama step takes --model when it is an `ol:` ref or when ollama
+    is the only --provider; a key provider's step leaves an `ol:` ref alone."""
+    import argparse
+    from halo_harness.init_cli import _args_for
+    from halo_harness.init_ollama import _model_arg
+
+    def ns(model, providers):
+        return argparse.Namespace(model=model, provider=providers)
+    ctx.check("ollama alone: a plain name is Ollama's",
+              _model_arg(ns("gpt-oss:20b@gpu-box", ["ollama"])) == ("gpt-oss:20b", "gpu-box"))
+    ctx.check("combined: a plain name is the key provider's, not Ollama's",
+              _model_arg(ns("anthropic/claude-sonnet-4", ["ollama", "openrouter"])) == ("", ""))
+    ctx.check("combined: an ol: ref is Ollama's", _model_arg(ns("ol:qwen3:30b", ["ollama", "openrouter"]))
+              == ("qwen3:30b", ""))
+    ctx.check("the interactive picker: a plain name is not forced on the Ollama step",
+              _model_arg(ns("gpt-oss:20b", None)) == ("", ""))
+    ctx.check("a key provider's step does not get an ol: ref",
+              _args_for("openrouter", ns("ol:qwen3:30b", ["ollama", "openrouter"])).model is None)
+    ctx.check("a key provider's step keeps its own ref",
+              _args_for("openrouter", ns("x/y", ["openrouter"])).model == "x/y")
+
+
+@test
 def test_the_provider_flag_without_a_model_names_the_servers_models_and_writes_nothing(ctx: Ctx):
     """jb10 (a): no terminal and no --model: one plain line with the server's models and how to pass one, rc 2."""
     from tests.helpers.mock_ollama import MockUpstream as MockOllama
