@@ -128,6 +128,30 @@ def test_servers_5_a_real_chrome_answers_over_the_pipe(ctx: Ctx):
             c.close()
 
 
+@test
+def test_a_halo_chrome_that_names_nothing_never_films_in_the_installed_chrome(ctx: Ctx):
+    """3.6.0.1: `halo replay clip` / Studio's Export a clip with a HALO_CHROME that names no browser fell through to
+    the person's own installed Chrome. Now it finds none, and the error names the variable and its value."""
+    import tempfile
+    from unittest import mock
+    from halo_harness.live import clip_chrome as cc
+    tmp = Path(tempfile.mkdtemp(prefix="clip-find-"))
+    installed = tmp / "installed-chrome"
+    installed.write_text("", encoding="utf-8")
+    missing = str(tmp / "no-such-chrome")
+    with mock.patch.object(cc, "CANDIDATES", (str(installed),)), \
+            mock.patch("shutil.which", lambda name, *a, **k: str(installed)):
+        with mock.patch.dict(os.environ, {"HALO_CHROME": missing}):
+            ctx.check(f"never the installed Chrome, got {cc.find_chrome()!r}", cc.find_chrome() is None)
+            why = getattr(cc, "none_found", lambda: "")()
+            ctx.check(f"the error names HALO_CHROME and its value, got {why!r}", "HALO_CHROME" in why and missing in why)
+        with mock.patch.dict(os.environ, {"HALO_CHROME": ""}):
+            ctx.check("an unset HALO_CHROME still finds the installed Chrome", cc.find_chrome() == str(installed))
+    with mock.patch.dict(os.environ, {"HALO_CHROME": "my-chromium"}), \
+            mock.patch("shutil.which", lambda name, *a, **k: "/opt/bin/my-chromium" if name == "my-chromium" else None):
+        ctx.check("a bare command name resolves through PATH", cc.find_chrome() == "/opt/bin/my-chromium")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

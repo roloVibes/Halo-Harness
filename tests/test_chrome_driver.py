@@ -283,6 +283,53 @@ def test_a_slow_or_failed_first_page_load_names_its_step_and_the_local_servers_o
         srv.server_close()
 
 
+@contextmanager
+def _a_chrome_everywhere():
+    """An installed "Chrome" (a stand-in file) at every install path and every name on PATH, so a find that falls
+    through to them returns it; no real browser on the machine is ever found."""
+    from unittest import mock
+    from tests.helpers import chrome_driver as cd
+    tmp = Path(tempfile.mkdtemp(prefix="chrome-find-"))
+    installed = tmp / "installed-chrome"
+    installed.write_text("", encoding="utf-8")
+    with mock.patch.object(cd, "CHROME_CANDIDATES", (str(installed),)), \
+            mock.patch("shutil.which", lambda name, *a, **k: str(installed)):
+        yield cd, tmp, str(installed)
+
+
+@test
+def test_a_halo_chrome_that_names_nothing_is_an_error_never_the_installed_chrome(ctx: Ctx):
+    """3.6.0.1: a HALO_CHROME (or an explicit path) that names no browser used to fall through to the person's own
+    installed Chrome, the opposite of what naming one asked for. Now it is an error naming the variable and value."""
+    from unittest import mock
+    with _a_chrome_everywhere() as (cd, tmp, installed):
+        missing = str(tmp / "no-such-chrome")
+        with mock.patch.dict(os.environ, {"HALO_CHROME": missing}):
+            try:
+                got, err = cd.find_chrome(), ""
+            except cd.ChromeNotFound as e:
+                got, err = None, str(e)
+        ctx.check(f"never the installed Chrome, got {got!r}", got != installed)
+        ctx.check(f"the error names HALO_CHROME and its value, got {err!r}", "HALO_CHROME" in err and missing in err)
+        with mock.patch.dict(os.environ, {"HALO_CHROME": ""}):
+            try:
+                got, err = cd.find_chrome(missing), ""
+            except cd.ChromeNotFound as e:
+                got, err = None, str(e)
+        ctx.check(f"an explicit path that names nothing: an error naming it, got {got!r} / {err!r}",
+                  got is None and missing in err)
+        named = tmp / "my-chromium"
+        named.write_text("", encoding="utf-8")
+        with mock.patch.dict(os.environ, {"HALO_CHROME": str(named)}):
+            ctx.check("a HALO_CHROME that exists is used", cd.find_chrome() == str(named))
+        with mock.patch.dict(os.environ, {"HALO_CHROME": ""}):
+            ctx.check("an unset HALO_CHROME still finds the installed Chrome", cd.find_chrome() == installed)
+    with mock.patch.dict(os.environ, {"HALO_CHROME": "my-chromium"}), \
+            mock.patch("shutil.which", lambda name, *a, **k: "/opt/bin/my-chromium" if name == "my-chromium" else None):
+        from tests.helpers import chrome_driver as cd
+        ctx.check("a bare command name resolves through PATH", cd.find_chrome() == "/opt/bin/my-chromium")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

@@ -140,7 +140,11 @@ byte-diffed -- box-drawing/font metrics legitimately differ by terminal).
 
 `find_chrome()` (`tests/helpers/chrome_driver.py`) takes `HALO_CHROME`
 first, then `google-chrome`, `google-chrome-stable`, `chromium`,
-`chromium-browser` or `chrome` on PATH. `tests/run_all.py` clears every
+`chromium-browser` or `chrome` on PATH. A `HALO_CHROME` that is set is used
+or nothing: a path, or a bare command name found on PATH (`chromium`); one
+that names no browser is an error naming the variable and its value, never
+a fall-back to the installed Chrome (3.6.0.1; `halo replay clip` follows the
+same rule). `tests/run_all.py` clears every
 `HALO_*` variable before the run except `HALO_CHROME` (3.2.1.0 R5), so on
 a box whose Chromium is not on PATH you name it there:
 
@@ -208,7 +212,15 @@ python scripts/realcheck.py                  # every step; exit 0 only when none
 python scripts/realcheck.py --list           # the steps and their budgets
 python scripts/realcheck.py --only closing no-reuse --json out.json
 python scripts/realcheck.py --real-local ol:qwen3:1.7b@http://<host>:11434   # step 8 on a real Ollama too
+python scripts/realcheck.py --browser none   # on your own machine: the two browser steps SKIP, by name
+python scripts/realcheck.py --browser chromium   # or a path: a separate browser for the Studio steps
 ```
+
+The two steps that open a browser (`studio`, `idle-cpu`) drive it headless with a throw-away profile
+(`tests/helpers/cdp.py`): never your own Chrome profile, never a window on the desktop. By default they use
+`HALO_CHROME`, else an installed Chrome. `--browser` (or the `REALCHECK_BROWSER` environment variable) changes that:
+a path or a command name on PATH is the browser they use, and one that names nothing FAILs both steps saying so;
+`none` makes each of them a SKIP that names the switch, before any `halo` starts (counted in the skipped total).
 
 One line per step: name, PASS / FAIL / SKIP, seconds, and on FAIL what a person would have seen (`--json` keeps the
 evidence: times, bytes, excerpts, the process list). Each step has a time budget; over it is a FAIL. The steps:

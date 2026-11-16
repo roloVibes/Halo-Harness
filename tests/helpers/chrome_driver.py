@@ -7,7 +7,8 @@ tools/capture_*.py renders.
   never reaches the real `~/.halo`; a scratch home the driver made itself is
   removed when it ends.
 * `find_chrome()`: `HALO_CHROME` (or an explicit path) first, then the usual
-  install paths and names on PATH.
+  install paths and names on PATH; a named browser that does not exist raises
+  ChromeNotFound (3.6.0.1: never the person's own installed Chrome instead).
 * `headless_flags()`: the launch flags every Chrome here starts with (cdp.Chrome,
   `one_shot`, tools/capture_screens.py); `--no-sandbox` only as root (3.2.1.0 R5).
 * exactly one headless Chrome at a time: `cdp.Chrome` and `one_shot` hold
@@ -67,12 +68,24 @@ def headless_flags() -> tuple:
     return HEADLESS + tuple(EXTRA_FLAGS) + (("--no-sandbox",) if getattr(os, "geteuid", lambda: -1)() == 0 else ())
 
 
+class ChromeNotFound(RuntimeError):
+    """A browser was named (`explicit` or HALO_CHROME) and it names nothing (3.6.0.1)."""
+
+
 def find_chrome(explicit: str = "") -> "str | None":
-    """A Chrome/Chromium binary: `explicit`, then `HALO_CHROME`, then the
-    install paths, then PATH. None when there is none."""
-    for cand in (explicit, os.environ.get("HALO_CHROME", "")):
-        if cand and Path(cand).exists():
-            return cand
+    """A Chrome/Chromium binary: `explicit`, else `HALO_CHROME`, else the
+    install paths, then PATH. None when there is none. A browser that was
+    named (a path, or a bare command name on PATH) is used or nothing:
+    naming one that does not exist raises ChromeNotFound, never a silent
+    fall-back to the person's own installed Chrome (3.6.0.1)."""
+    from halo_harness.live.clip_chrome import named_browser
+    for label, cand in (("the browser given", explicit), ("HALO_CHROME names a browser that",
+                                                           os.environ.get("HALO_CHROME", ""))):
+        if cand:
+            found = named_browser(cand)
+            if not found:
+                raise ChromeNotFound(f"{label} does not exist: {cand} (fix or unset it)")
+            return found
     for cand in CHROME_CANDIDATES:
         if Path(cand).exists():
             return cand

@@ -70,6 +70,7 @@ class Ctx:
         self.popens: list = []
         self._provider = None
         self.notes: dict = {}
+        self.chrome, self.chrome_from = "", "--browser"  # 3.6.0.1: the browser the steps may use (see browser())
 
     # -- the fakes -------------------------------------------------------------------------------------------------
     @property
@@ -195,6 +196,28 @@ class Ctx:
 
 
 URL = r"http://127\.0\.0\.1:\d+/[^\s'\"]*"
+
+
+def browser(ctx) -> "str | None":
+    """The browser a step that opens one uses: its FIRST act, before any `halo` starts (3.6.0.1). `--browser none`
+    (or REALCHECK_BROWSER=none): Skip naming the switch. A browser named there (a path, or a command name on PATH):
+    that one, or a Fail saying it names nothing. Not set: tests/helpers/chrome_driver.find_chrome (HALO_CHROME, else
+    an installed Chrome; None when there is none). Whichever: headless, with a throw-away profile (tests/helpers/cdp.py),
+    never the person's own Chrome profile and never a window on the desktop."""
+    from halo_harness.live.clip_chrome import named_browser
+    from tests.helpers.chrome_driver import ChromeNotFound, find_chrome
+    sep = "=" if ctx.chrome_from.startswith("REALCHECK") else " "
+    if ctx.chrome == "none":
+        raise Skip(f"no browser may be used here ({ctx.chrome_from}{sep}none)")
+    if ctx.chrome:
+        found = named_browser(ctx.chrome)
+        if not found:
+            raise Fail(f"the browser named by {ctx.chrome_from} does not exist: {ctx.chrome}")
+        return found
+    try:
+        return find_chrome()
+    except ChromeNotFound as e:
+        raise Fail(str(e)) from None
 
 
 def split_url(url: str) -> "tuple[str, str]":

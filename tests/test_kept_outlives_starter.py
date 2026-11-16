@@ -430,6 +430,15 @@ time.sleep(120)
 '''
 
 
+def _base_starter_code(code: str) -> str:
+    """The outer-Job starters run the BASE interpreter. Inside a venv its site-packages is added AFTER the standard
+    library (site.addsitedir appends): on PYTHONPATH it would rank first, and an old backport there (Anaconda's
+    `pathlib`) shadows the standard library. Outside a venv the base interpreter already has its own."""
+    if sys.prefix == sys.base_prefix:
+        return code
+    return f"import site; site.addsitedir({sysconfig.get_paths()['purelib']!r})\n" + code
+
+
 def _no_breakaway_job():
     """A Job object of this test's: kill-on-close, breakaway forbidden (what some terminals and services hold)."""
     import ctypes
@@ -464,9 +473,8 @@ def test_a_kept_spawn_survives_an_outer_job_that_forbids_breakaway_or_halo_says_
     base = getattr(sys, "_base_executable", None) or sys.executable
     for no_way in (False, True):
         tmp = Path(tempfile.mkdtemp(prefix="fx-kept-outer-"))
-        env = _env(tmp / "home")
-        env["PYTHONPATH"] = os.pathsep.join([str(REPO), sysconfig.get_paths()["purelib"]])
-        code = _OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=no_way)
+        env = _env(tmp / "home")  # PYTHONPATH = the repo only
+        code = _base_starter_code(_OUTER.format(tmp=str(tmp), sleeper=str(SLEEPER), no_way=no_way))
         k32, job = _no_breakaway_job()
         proc = _starter(tmp, code, env, python=base, flags=0x4)  # CREATE_SUSPENDED: in the Job before it runs
         kept = (None, None)
@@ -521,10 +529,9 @@ def test_a_kept_program_that_ends_at_once_inside_an_outer_job_runs_once_and_noth
     base = getattr(sys, "_base_executable", None) or sys.executable
     tmp = Path(tempfile.mkdtemp(prefix="fx-kept-once-"))
     tally = tmp / "tally.txt"
-    env = _env(tmp / "home")
-    env["PYTHONPATH"] = os.pathsep.join([str(REPO), sysconfig.get_paths()["purelib"]])
+    env = _env(tmp / "home")  # PYTHONPATH = the repo only
     k32, job = _no_breakaway_job()
-    proc = _starter(tmp, _OUTER_SHORT.format(tally=tally.as_posix()), env, python=base, flags=0x4)
+    proc = _starter(tmp, _base_starter_code(_OUTER_SHORT.format(tally=tally.as_posix())), env, python=base, flags=0x4)
     try:
         ctx.check("the starter is in the test's Job", k32.AssignProcessToJobObject(job, int(proc._handle)))
         ctypes.WinDLL("ntdll").NtResumeProcess(ctypes.c_void_p(int(proc._handle)))
@@ -540,6 +547,30 @@ def test_a_kept_program_that_ends_at_once_inside_an_outer_job_runs_once_and_noth
         k32.CloseHandle(job)
         if proc.poll() is None:
             proc.kill()
+
+
+@test
+def test_the_outer_job_starters_never_put_a_site_packages_folder_ahead_of_the_standard_library(ctx: Ctx):
+    """A site-packages folder holding an old backport (Anaconda's `pathlib`) must not shadow the standard library in
+    the outer-Job starters: they put it on PYTHONPATH, which ranks it first, and the starter died at its first import
+    on such a PC. Here purelib is a folder whose `pathlib.py` fails (a .pth in it still leads to the real one)."""
+    if not WIN:
+        raise SkipTest("Windows only: the two outer-Job tests are")
+    from unittest import mock
+    shadow = Path(tempfile.mkdtemp(prefix="fx-kept-shadow-"))
+    (shadow / "pathlib.py").write_text("raise ImportError('shadowed')\n", encoding="utf-8")
+    real = sysconfig.get_paths()
+    (shadow / "real.pth").write_text(real["purelib"] + "\n", encoding="utf-8")
+    shadowed = dict(real, purelib=str(shadow))
+    for fn in (test_a_kept_spawn_survives_an_outer_job_that_forbids_breakaway_or_halo_says_so,
+               test_a_kept_program_that_ends_at_once_inside_an_outer_job_runs_once_and_nothing_false_is_said):
+        err = ""
+        with mock.patch.object(sysconfig, "get_paths", lambda *a, **k: dict(shadowed)):
+            try:
+                fn(Ctx())
+            except AssertionError as e:
+                err = str(e)
+        ctx.check(f"{fn.__name__} passes with a shadowing site-packages, got {err!r}", not err)
 
 
 def _fake_wmi(take: bool, seen: list):

@@ -1,7 +1,7 @@
 """scripts/realcheck.py -- Halo driven the way a person drives it (3.6.0.0 R11).
 
     python scripts/realcheck.py [--only STEP ...] [--list] [--json FILE] [--summary FILE] [--real-local REF]
-                                [--keep] [--installed]
+                                [--keep] [--installed] [--browser PATH|NAME|none]
 
 Every bug the owner hit in one week (a launch that spins, a Studio left running overnight, a beep at start, a theme
 that did not apply, an update that broke the install, a helper burning a core) passed thousands of unit tests. This
@@ -66,6 +66,9 @@ def main(argv=None) -> int:
     ap.add_argument("--real-local", metavar="REF", default="", help="ol:<model>@<http://host:port>: a real Ollama for step 8")
     ap.add_argument("--keep", action="store_true", help="keep the scratch folder (its processes are still ended)")
     ap.add_argument("--installed", action="store_true", help="the `halo` on PATH instead of this checkout")
+    ap.add_argument("--browser", metavar="PATH|NAME|none", default=None,
+                    help="the browser the Studio steps use (headless, a throw-away profile), or `none`: those steps "
+                         "SKIP (default: REALCHECK_BROWSER, else HALO_CHROME, else an installed Chrome)")
     args = ap.parse_args(argv)
     steps = _steps()
     if args.list:
@@ -78,7 +81,8 @@ def main(argv=None) -> int:
         print(f"realcheck: no step {', '.join(unknown)} (the steps: {', '.join(names)})", file=sys.stderr)
         return 2
     chosen = [s for s in steps if not args.only or s[0] in args.only]
-    results, version = run(chosen, installed=args.installed, real_local=args.real_local, keep=args.keep)
+    results, version = run(chosen, installed=args.installed, real_local=args.real_local, keep=args.keep,
+                           browser=args.browser)
     info = run_info(version, "installed" if args.installed else "checkout")
     if args.json:
         Path(args.json).write_text(to_json(results, info), encoding="utf-8")
@@ -92,11 +96,19 @@ def main(argv=None) -> int:
 
 
 def run(chosen: list, *, installed: bool = False, real_local: str = "", keep: bool = False, root=None,
-        repo: Path = REPO, probe_version: bool = True, say=print) -> "tuple[list, str]":
-    """Each step in turn: (its Results, the `halo --version` line of what ran)."""
+        repo: Path = REPO, probe_version: bool = True, say=print, browser=None) -> "tuple[list, str]":
+    """Each step in turn: (its Results, the `halo --version` line of what ran). `browser` (None: REALCHECK_BROWSER):
+    a path or command name the browser steps use (HALO_CHROME for the run), `none` (they SKIP), or '' (as before)."""
+    from halo_harness.live.clip_chrome import named_browser
     from realcheck.core import Ctx, Fail, Skip
     root = Path(root) if root else Path(tempfile.mkdtemp(prefix="halo-realcheck-"))
     ctx = Ctx(repo, root, installed=installed, real_local=real_local)
+    if browser is None:
+        browser, ctx.chrome_from = os.environ.get("REALCHECK_BROWSER", "").strip(), "REALCHECK_BROWSER"
+    ctx.chrome = "none" if browser.lower() == "none" else browser
+    had_chrome = os.environ.get("HALO_CHROME")
+    if ctx.chrome not in ("", "none") and named_browser(ctx.chrome):
+        os.environ["HALO_CHROME"] = named_browser(ctx.chrome)  # anything deeper that looks for Chrome finds this one
     results, version = [], "?"
     try:
         if probe_version:
@@ -127,6 +139,10 @@ def run(chosen: list, *, installed: bool = False, real_local: str = "", keep: bo
             say(res.line())
             sys.stdout.flush()
     finally:
+        if had_chrome is None:
+            os.environ.pop("HALO_CHROME", None)
+        else:
+            os.environ["HALO_CHROME"] = had_chrome
         ctx.close()
         if not keep:
             shutil.rmtree(root, ignore_errors=True)

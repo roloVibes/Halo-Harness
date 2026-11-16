@@ -16,7 +16,7 @@ import sys
 import time
 
 from realcheck import screen
-from realcheck.core import URL, Fail, Skip, excerpt, wait_address
+from realcheck.core import URL, Fail, Skip, browser, excerpt, wait_address
 
 HOW = ("Ctrl+C", "closed terminal", "hard kill")
 
@@ -282,7 +282,8 @@ def no_reuse(ctx):
 
 
 def idle_cpu(ctx, seconds: float = 60.0):
-    from tests.helpers.chrome_driver import find_chrome, open_chrome
+    from tests.helpers.chrome_driver import open_chrome
+    exe = browser(ctx)  # first: --browser none is a SKIP before any halo starts
     h = ctx.home("idle")
     t = ctx.terminal(h, "studio")
     url, at, meanwhile = wait_address(ctx, h, t, 60)
@@ -290,7 +291,7 @@ def idle_cpu(ctx, seconds: float = 60.0):
         ctx.end_leftovers(h)
         raise Fail(f"`halo studio` printed no address in {at:.0f} s: " + excerpt(t.plain(), 200),
                    {"while_waiting": meanwhile})
-    c = open_chrome() if find_chrome() else None
+    c = open_chrome(exe=exe) if exe else None
     try:
         if c is not None:
             c.go(url)

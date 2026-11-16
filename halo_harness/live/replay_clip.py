@@ -183,9 +183,10 @@ def clip(state_dir, rid: str, frm=None, to=None, speed=None, *, cwd=".", frames:
     if frames is not None:
         pngs = frames(p["times"])
     else:
-        exe = __import__("halo_harness.live.clip_chrome", fromlist=["find_chrome"]).find_chrome()
+        cc = __import__("halo_harness.live.clip_chrome", fromlist=["find_chrome"])
+        exe = cc.find_chrome()
         if not exe:
-            raise ClipError("a clip is filmed in Chrome and none was found: install Chrome or set HALO_CHROME")
+            raise ClipError(cc.none_found())
         base, token, stop = _studio(state_dir, cwd)
         try:
             pngs = film(base, token, rid, p["times"], exe)

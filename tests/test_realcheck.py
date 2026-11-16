@@ -768,6 +768,85 @@ def test_ci_drives_an_installed_halo_on_every_system(ctx: Ctx):
     ctx.check("the check sees a job without that leg", _installed_leg_problems(checkout) != [])
 
 
+def _browser_steps(m) -> list:
+    """realcheck's own steps that open a browser (studio, idle-cpu), as main() would choose them."""
+    return [s for s in m._steps() if s[0] in ("studio", "idle-cpu")]
+
+
+@test
+def test_browser_none_skips_each_browser_step_by_name_before_any_halo_or_chrome_starts(ctx: Ctx):
+    """3.6.0.1: a person running realcheck on their own machine can say no browser may be used here (--browser none,
+    or REALCHECK_BROWSER=none): each step that opens one is a counted SKIP that names the switch, and neither a
+    `halo studio` nor a Chrome is started for it."""
+    from unittest import mock
+    from tests.helpers import chrome_driver
+    m = _main_module()
+    calls: list = []
+
+    def no_terminal(self, *a, **k):
+        calls.append("terminal")
+        raise RuntimeError("a halo was started")
+    with mock.patch.object(core.Ctx, "terminal", no_terminal), \
+            mock.patch.object(chrome_driver, "find_chrome", lambda *a, **k: calls.append("find") or "chrome"), \
+            mock.patch.object(chrome_driver, "open_chrome", lambda *a, **k: calls.append("open")), \
+            mock.patch.dict(os.environ, {"REALCHECK_BROWSER": ""}):
+        results, _v = m.run(_browser_steps(m), root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                            say=lambda s: None, browser="none")
+        got = [(r.name, r.status, r.detail) for r in results]
+        ctx.check(f"both browser steps are a SKIP naming the switch, got {got}",
+                  [(n, s) for n, s, _d in got] == [("studio", "SKIP"), ("idle-cpu", "SKIP")]
+                  and all(d == "no browser may be used here (--browser none)" for _n, _s, d in got))
+        ctx.check(f"no halo and no Chrome was started or looked for, got {calls}", calls == [])
+        with mock.patch.dict(os.environ, {"REALCHECK_BROWSER": "none"}):
+            results, _v = m.run(_browser_steps(m), root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                                say=lambda s: None)
+        got = [(r.status, r.detail) for r in results]
+        ctx.check(f"REALCHECK_BROWSER=none does the same, got {got}",
+                  got == [("SKIP", "no browser may be used here (REALCHECK_BROWSER=none)")] * 2 and calls == [])
+    seen: dict = {}
+
+    def fake_run(chosen, **kw):
+        seen.update(kw, names=[s[0] for s in chosen])
+        return [report.Result(s[0], report.SKIP, 0.0, s[1], "no browser may be used here (--browser none)")
+                for s in chosen], "halo 0"
+    out = io.StringIO()
+    with mock.patch.object(m, "run", fake_run), redirect_stdout(out):
+        rc = m.main(["--only", "studio", "idle-cpu", "--browser", "none"])
+    ctx.check(f"main takes --browser and counts the steps as skipped, got rc {rc}, {seen}, {out.getvalue()!r}",
+              rc == 0 and seen.get("browser") == "none" and "0 passed, 0 failed, 2 skipped" in out.getvalue())
+
+
+@test
+def test_browser_names_the_browser_the_steps_use_and_one_that_names_nothing_fails_them(ctx: Ctx):
+    """--browser <path or command name>: that browser (HALO_CHROME for the run, put back after); one that names no
+    browser is a FAIL of each browser step that says so, never the person's own installed Chrome."""
+    from unittest import mock
+    m = _main_module()
+    tmp = Path(tempfile.mkdtemp(prefix="rc-browser-"))
+    mine = tmp / "my-chromium"
+    mine.write_text("", encoding="utf-8")
+    missing = str(tmp / "no-such-chromium")
+    used: list = []
+
+    def step(c):
+        used.append((core.browser(c), os.environ.get("HALO_CHROME")))
+        return "ok", {}
+    before = os.environ.get("HALO_CHROME")
+    with mock.patch.dict(os.environ, {"REALCHECK_BROWSER": ""}):
+        results, _v = m.run([("studio", 10, "", step)], root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                            say=lambda s: None, browser=str(mine))
+        ctx.check(f"the named browser is the one used, got {used}",
+                  results[0].status == "PASS" and used == [(str(mine), str(mine))])
+        ctx.check("HALO_CHROME is put back after the run", os.environ.get("HALO_CHROME") == before)
+        with mock.patch("shutil.which", lambda name, *a, **k: str(tmp / "installed-chrome")), \
+                mock.patch.object(core.Ctx, "terminal", lambda *a, **k: used.append("terminal") or 1 / 0):
+            results, _v = m.run(_browser_steps(m), root=tempfile.mkdtemp(prefix="rc-test-"), probe_version=False,
+                                say=lambda s: None, browser=missing)
+    got = [(r.status, r.detail) for r in results]
+    ctx.check(f"a browser that names nothing fails each browser step, saying so, got {got}",
+              got == [("FAIL", f"the browser named by --browser does not exist: {missing}")] * 2)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

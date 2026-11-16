@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 
 from realcheck import fakes
-from realcheck.core import Fail, Skip, excerpt, split_url, wait_address
+from realcheck.core import Fail, Skip, browser, excerpt, split_url, wait_address
 
 STUDIO_START_S = 10.0  # `halo studio` to its printed address
 
@@ -49,9 +49,10 @@ CHOOSE = ("settings_search", "library_search")                              # ..
 
 
 def studio(ctx):
-    from tests.helpers.chrome_driver import find_chrome, open_chrome
-    if not find_chrome():
-        raise Skip("no Chrome or Chromium on this machine (HALO_CHROME names one)")
+    from tests.helpers.chrome_driver import open_chrome
+    exe = browser(ctx)  # first: --browser none is a SKIP before any halo starts
+    if not exe:
+        raise Skip("no Chrome or Chromium on this machine (HALO_CHROME or --browser names one)")
     h = ctx.home("studio")
     t = ctx.terminal(h, "studio")
     url, at, meanwhile = wait_address(ctx, h, t, 60)
@@ -66,7 +67,7 @@ def studio(ctx):
     ev: dict = {"address_s": round(at, 1), "while_waiting": meanwhile, "sections": {}, "hold_still": {}, "choices": {}}
     bad: list = [] if at <= STUDIO_START_S else [f"`halo studio` printed its address after {at:.0f} s (budget "
                                                  f"{STUDIO_START_S:.0f} s)"]
-    c = open_chrome()
+    c = open_chrome(exe=exe)
     try:
         _sections(c, page, ev, bad)
         _hold(c, page, ev, bad)

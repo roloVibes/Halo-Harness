@@ -32,15 +32,34 @@ CANDIDATES = ("C:/Program Files/Google/Chrome/Application/chrome.exe",
 NAMES = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "chrome")
 
 
+def named_browser(value: str) -> Optional[str]:
+    """The browser a person named: a path that exists, or a bare command name found on PATH; None when it names
+    nothing. (3.6.0.1: shared with tests/helpers/chrome_driver.py and scripts/realcheck's --browser.)"""
+    if Path(value).exists():
+        return value
+    if "/" not in value and os.sep not in value:
+        return shutil.which(value)
+    return None
+
+
 def find_chrome() -> Optional[str]:
-    """`HALO_CHROME`, then the usual install paths, then PATH; None when there is none."""
+    """`HALO_CHROME` when it is set (that one alone: a value that names nothing gives None, never the person's own
+    installed Chrome; 3.6.0.1), else the usual install paths, then PATH; None when there is none."""
     env = os.environ.get("HALO_CHROME", "")
-    if env and Path(env).exists():
-        return env
+    if env:
+        return named_browser(env)
     for cand in CANDIDATES:
         if Path(cand).exists():
             return cand
     return next((shutil.which(n) for n in NAMES if shutil.which(n)), None)
+
+
+def none_found() -> str:
+    """The one line said when find_chrome() found nothing: it names HALO_CHROME and its value when that was set."""
+    env = os.environ.get("HALO_CHROME", "")
+    if env:
+        return f"HALO_CHROME names a browser that does not exist: {env} (fix or unset it)"
+    return "a clip is filmed in Chrome and none was found: install Chrome or set HALO_CHROME"
 
 
 def pipe_ok() -> bool:
