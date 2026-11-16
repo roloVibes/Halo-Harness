@@ -36,7 +36,9 @@ class _FakeOs:
 
 
 def _ps_result(stdout, code=0):
-    return lambda *a, **kw: SimpleNamespace(stdout=stdout, returncode=code)
+    def run(argv, *a, **kw):  # 3.6.0.0 fx: one `ps` look reads the state (`stat=`) and the start (`lstart=`) together
+        return SimpleNamespace(stdout=("S " + stdout) if stdout and "stat=" in argv else stdout, returncode=code)
+    return run
 
 
 # ---- f87 ----------------------------------------------------------------------
@@ -50,6 +52,7 @@ def test_f87_start_time_comes_from_ps_when_there_is_no_proc(ctx: Ctx):
         bg_run.subprocess.run = _ps_result("Mon Oct  5 10:00:00 2026\n")
         first = bg_run.process_start_time(4242)
         ctx.check(f"a ps-based fingerprint, got {first!r}", first == "ps:Mon Oct 5 10:00:00 2026")
+        bg_run.ps_forget(4242)  # 3.6.0.0 fx: one look answers for PS_TTL_S; a new ps answer is a fresh look
         bg_run.subprocess.run = _ps_result("", code=1)
         ctx.check("a pid ps cannot find has no fingerprint", bg_run.process_start_time(4242) is None)
 
@@ -58,6 +61,7 @@ def test_f87_start_time_comes_from_ps_when_there_is_no_proc(ctx: Ctx):
         bg_run.subprocess.run = boom
         ctx.check("a missing ps is None, not a crash", bg_run.process_start_time(4242) is None)
         # the guard now refuses a pid that started at a different time
+        bg_run.ps_forget(4242)
         bg_run.subprocess.run = _ps_result("Tue Oct  6 11:11:11 2026\n")
         bg_run.pid_alive = lambda pid: True
         meta = {"pid": 4242, "start_time": "ps:Mon Oct 5 10:00:00 2026"}

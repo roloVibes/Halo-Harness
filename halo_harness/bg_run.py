@@ -333,8 +333,54 @@ def pid_alive(pid: int) -> bool:
 def _ps_zombie(pid: int) -> bool:
     """3.6.0.0 R12: on a POSIX system without /proc (macOS, the BSDs) `ps` says whether `pid` is a zombie -- a
     session that ended but whose parent has not reaped it read as alive there, so Studio waited on it for ever.
-    Unknown (no ps, a timeout) is not a zombie. One `ps` look answers for PS_TTL_S (it also holds the start time)."""
+    Unknown (no ps, a timeout) is not a zombie. One `ps` look answers for PS_TTL_S (it also holds the start time).
+    3.6.0.0 fx: macOS reads the kernel's record first (no `ps` started); `ps` only when that cannot be read."""
+    if (zombie := _kinfo_zombie(pid)) is not None:
+        return zombie
     return (_ps_look(pid)[0] or "").upper().startswith("Z")
+
+
+_LIBC = None
+
+
+def _darwin_kinfo(pid: int) -> Optional[bytes]:
+    """macOS: the kernel's record of `pid` (sysctl CTL_KERN.KERN_PROC.KERN_PROC_PID, a struct kinfo_proc) with no
+    process started. b"": no such process; None: not readable."""
+    global _LIBC
+    try:
+        import ctypes
+        import ctypes.util
+        if _LIBC is None:
+            lib = ctypes.CDLL(ctypes.util.find_library("c") or "libc.dylib", use_errno=True)
+            lib.sysctl.argtypes = [ctypes.POINTER(ctypes.c_int), ctypes.c_uint, ctypes.c_void_p,
+                                   ctypes.POINTER(ctypes.c_size_t), ctypes.c_void_p, ctypes.c_size_t]
+            lib.sysctl.restype = ctypes.c_int
+            _LIBC = lib
+        mib = (ctypes.c_int * 4)(1, 14, 1, int(pid))
+        buf = ctypes.create_string_buffer(2048)
+        size = ctypes.c_size_t(len(buf))
+        if _LIBC.sysctl(mib, 4, buf, ctypes.byref(size), None, 0) != 0:
+            return None
+        return buf.raw[:size.value]
+    except Exception:
+        return None
+
+
+_KINFO_READ = _darwin_kinfo if sys.platform == "darwin" else None
+
+
+def _kinfo_zombie(pid: int) -> Optional[bool]:
+    """Whether `pid` is a zombie by the kernel's record (kp_proc.p_stat at 36 == SZOMB 5, checked by kp_proc.p_pid at
+    40); None when there is no reader or the record is not one this reader knows (then `ps` answers)."""
+    read = _KINFO_READ
+    raw = read(pid) if read is not None else None
+    if raw is None:
+        return None
+    if not raw:
+        return False  # gone since kill(pid, 0): no zombie either
+    if len(raw) < 44 or int.from_bytes(raw[40:44], sys.byteorder, signed=True) != pid:
+        return None
+    return raw[36] == 5
 
 
 def kill_pid(pid: int) -> bool:
