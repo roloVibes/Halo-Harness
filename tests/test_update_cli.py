@@ -705,6 +705,54 @@ def test_an_opener_still_running_when_the_second_look_reads_nothing_is_never_sto
 
 
 @test
+def test_the_plan_names_each_opener_and_says_whether_the_run_was_forced(ctx: Ctx):
+    """3.6.0.1 (jf-update): the updater's final refusal names an opener it could not prove by what it is (a Studio
+    was called "halo") and adds the --force clause only after a forced run; the plan carries both facts."""
+    from tests.helpers.update_inline import PLANS
+    from halo_harness import children
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[])
+    upd.halo_openers = lambda **kw: [{"pid": 400, "what": "studio", "cmd": "halo studio"}]
+    saved = children.pid_running
+    children.pid_running = lambda pid: True
+    try:
+        got = {}
+        for force in (False, True):
+            _capture(lambda: update_cli.apply_update(force=force))
+            got[force] = dict(PLANS[-1]) if PLANS else {}
+        ctx.check(f"the opener is named as a Studio, got {got[False].get('stop_what')!r}",
+                  got[False].get("stop_what") == {"400": "Studio"})
+        ctx.check(f"forced or not, said, got {got[False].get('force')!r} {got[True].get('force')!r}",
+                  got[False].get("force") is False and got[True].get("force") is True)
+    finally:
+        children.pid_running = saved
+        _restore_all(orig)
+
+
+@test
+def test_keep_running_never_advises_ending_by_number_a_row_halo_cannot_prove(ctx: Ctx):
+    """3.6.0.1 (jf-update): `--keep-running` listed a ledger row with no recorded start time (its pid may be another
+    program's now) as "stop it with: taskkill /PID N" (or "kill N"). Such a row gets the words /update uses
+    (update_stop.unproven_line: `halo ps --forget N` for its record); a row with a start time keeps its command."""
+    orig = _patch_all(installed_commit="aaaaaaa", available_commit="bbbbbbb", other_pids=[])
+    stopped = orig["stopped"]
+    rows = [{"pid": 4321, "what": "pack", "cmd": ["node", "helper.js"], "start_time": None},
+            {"pid": 4322, "what": "pack", "cmd": ["node", "other.js"], "start_time": "t1"}]
+    saved = update_stop.lingering
+    update_stop.lingering = lambda state_dir=None, **kw: [dict(r) for r in rows]
+    try:
+        code, out, err = _capture(lambda: update_cli.apply_update(keep_running=True))
+        ctx.check(f"refuses, exit 1, stops nothing, got {code} {stopped}", code == 1 and not stopped)
+        ctx.check(f"no taskkill / kill advice for the unproven row, got {err!r}",
+                  "taskkill /PID 4321" not in err and "kill 4321" not in err)
+        ctx.check(f"its record can be forgotten, got {err!r}", "halo ps --forget 4321" in err)
+        ctx.check(f"the row with a start time keeps its stop command, got {err!r}",
+                  f"stop it with: {update_stop.stop_command(rows[1])}" in err)
+    finally:
+        update_stop.lingering = saved
+        _restore_all(orig)
+
+
+@test
 def test_an_archive_install_of_the_current_tag_is_not_called_older(ctx: Ctx):
     """Judge should-fix: a build whose commit is unknown is "unknown", never "older"."""
     got = update_cli.older_release({"version": "3.5.0.1", "commit": None, "requested_revision": None},

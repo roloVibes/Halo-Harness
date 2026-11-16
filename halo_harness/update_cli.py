@@ -233,7 +233,9 @@ def apply_update(*, cmd: Optional[str] = None, force: bool = False, keep_running
                          wait_pids=[os.getpid(), *upd.halo_ancestors()] if windows else [],
                          stop_pids=[o["pid"] for o in openers],
                          held=_held(force), restart_supervisor=bool(supervisor), windows=windows,
-                         stop_starts={o["pid"]: o.get("start_time") for o in openers})
+                         stop_starts={o["pid"]: o.get("start_time") for o in openers},
+                         stop_what={o["pid"]: "Studio" if o["what"] == "studio" else "the supervisor" for o in openers},
+                         force=force)
     code = _launch(plan)
     if code is None:  # the updater did not start: nothing was installed
         print(restart_supervisor()) if supervisor else None

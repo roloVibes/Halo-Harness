@@ -189,7 +189,8 @@ def test_the_updater_waits_for_the_old_halo_and_installs_nothing_while_it_stays(
                   and "running:" not in out and str(stays.pid) in (result.get("line") or ""))
         env3 = _Env()
         code, out, result = env3.run(env3.plan(env3.cmd("install", NEW), restore=None, expect={"version": "2.0.3"},
-                                               held=[{"pid": stays.pid, "what": "Studio"}], held_wait_s=1.5))
+                                               held=[{"pid": stays.pid, "what": "Studio"}], held_wait_s=1.5,
+                                               force=True))  # jf-update: the --force clause follows a forced run
         ctx.check(f"Windows' held files: a halo that still runs is named and nothing installs, got {result}",
                   result.get("outcome") == "not_started" and f"Studio (pid {stays.pid})" in (result.get("line") or "")
                   and "without --force" in (result.get("line") or "") and env3.answers() == OLD)
@@ -517,6 +518,56 @@ def test_a_reused_pid_is_neither_waited_on_nor_ended(ctx: Ctx):
               killed == [] and res["outcome"] == "updated")
     ctx.check("the real start time of this very process is known and stable", R._start_time(os.getpid()) is not None
               and R._start_time(os.getpid()) == R._start_time(os.getpid()))
+
+def _fake_time():
+    t = [0.0]
+    return (lambda: t[0]), (lambda s: t.__setitem__(0, t[0] + s))
+
+
+def _no_install(*a, **k):
+    raise AssertionError("nothing may install while a halo holds the files")
+
+
+@test
+def test_an_unproven_pid_left_holding_the_files_is_never_sent_back_to_force(ctx: Ctx):
+    """3.6.0.1 (jf-update): on Windows an opener with no recorded start time is not stopped (the up-front line says
+    so) and then holds the install. The final refusal said "Close them (or run `halo update` without --force, which
+    stops them)" to a run that was already without --force, about a pid nothing will stop, and called a Studio
+    "halo". It now names what the plan says it is and tells the person to close it themselves."""
+    clock, sleep = _fake_time()
+    lines, killed = [], []
+    code, result = R.run_plan(_judge_plan(windows=True, wait_pids=[], stop_pids=[4242], stop_starts={},
+                                          stop_what={"4242": "Studio"}, held=[]),
+                              run_fn=_no_install, alive_fn=lambda p: p == 4242, kill_fn=killed.append,
+                              sleep_fn=sleep, clock=clock, out=lines.append, start_fn=lambda p: "t1")
+    line = result.get("line") or ""
+    ctx.check(f"nothing ended, nothing installed, got {code} {result} {killed}",
+              code == 1 and result.get("outcome") == "not_started" and not killed)
+    ctx.check(f"named as what the plan says it is, got {line!r}",
+              "Studio (pid 4242, not proven to be Halo's own)" in line and "halo (pid 4242" not in line)
+    ctx.check(f"never sent back to --force (nothing will stop it), got {line!r}", "--force" not in line)
+    ctx.check(f"the person closes it and runs the update again, got {line!r}",
+              "close them yourself" in line.lower() and "run `halo update` again" in line)
+
+
+@test
+def test_the_force_clause_of_the_held_refusal_is_only_said_after_a_forced_run(ctx: Ctx):
+    """3.6.0.1 (jf-update): a Halo still holding the files after a run WITHOUT --force (one that would not stop, or
+    one Halo cannot prove is its own) was told "run `halo update` without --force, which stops them". After a forced
+    run the clause stays, and promises only what the plain run does: it stops what it can prove is Halo's own."""
+    said = {}
+    for force in (False, True):
+        clock, sleep = _fake_time()
+        code, result = R.run_plan(_judge_plan(windows=True, held=[{"pid": 777, "what": "Studio"}], force=force),
+                                  run_fn=_no_install, alive_fn=lambda p: p == 777, kill_fn=lambda p: None,
+                                  sleep_fn=sleep, clock=clock, out=lambda s: None, start_fn=lambda p: "t1")
+        said[force] = (code, result.get("line") or "")
+    ctx.check(f"both refuse, got {said}", said[False][0] == 1 and said[True][0] == 1)
+    ctx.check(f"without --force: no --force clause, got {said[False][1]!r}",
+              "--force" not in said[False][1] and "Studio (pid 777)" in said[False][1])
+    ctx.check(f"after --force: the clause, worded to what a plain run proves, got {said[True][1]!r}",
+              "without --force" in said[True][1] and "can prove" in said[True][1])
+
 
 if __name__ == "__main__":
     ctx = Ctx()

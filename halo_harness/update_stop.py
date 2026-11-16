@@ -175,8 +175,10 @@ def unproven_line(entry: dict) -> str:
 
 
 def refusal_lines(state_dir=None) -> list:
-    """`--keep-running`: one line per process with the command that stops it; [] when none run."""
-    return [f"  {describe(e)} -- stop it with: {stop_command(e)}" for e in lingering(state_dir)]
+    """`--keep-running`: one line per process with the command that stops it; [] when none run. 3.6.0.1 (jf-update):
+    a row with no recorded start time gets `unproven_line` (as /update does), never a `taskkill` / `kill` by number."""
+    return [f"  {describe(e)} -- stop it with: {stop_command(e)}" if e.get("start_time") else f"  {unproven_line(e)}"
+            for e in lingering(state_dir)]
 
 
 def _stop_line(entry: dict, timeout: float, state_dir) -> str:

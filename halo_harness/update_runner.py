@@ -445,15 +445,23 @@ def run_plan(plan: dict, *, run_fn=None, alive_fn=None, kill_fn=None, sleep_fn=N
         if pid not in both and r.stop(pid):
             unproven.append(pid)
     held = [h for h in plan.get("held") or [] if isinstance(h, dict) and h.get("pid")]
+    what = plan.get("stop_what") if isinstance(plan.get("stop_what"), dict) else {}
     if plan.get("windows", os.name == "nt"):  # jb10: files are never replaced under a Halo that may still run
-        held += [{"pid": p, "what": "halo"} for p in unproven if all(int(h["pid"]) != p for h in held)]
+        held = [dict(h, unproven=int(h["pid"]) in unproven) for h in held]
+        held += [{"pid": p, "what": what.get(str(p)) or "halo", "unproven": True} for p in unproven
+                 if all(int(h["pid"]) != p for h in held)]
     if held:
         still = set(r.wait_gone([int(h["pid"]) for h in held], float(plan.get("held_wait_s") or HELD_WAIT_S)))
-        named = [f"{h.get('what') or 'halo'} (pid {h['pid']})" for h in held if int(h["pid"]) in still]
-        if named:
-            line = (f"halo update: not installing -- these halo processes still run and hold the install's files: "
-                    f"{', '.join(named)}; {before_line} is unchanged. Close them (or run `halo update` without "
-                    f"--force, which stops them) and try again")
+        left = [h for h in held if int(h["pid"]) in still]
+        if left:
+            # 3.6.0.1 (jf-update): never "run without --force, which stops them" to a run that was not forced, nor
+            # about a pid the updater cannot prove is Halo's (nothing stops that one: the person closes it)
+            named = [f"{h.get('what') or 'halo'} (pid {h['pid']}" + (", not proven to be Halo's own)"
+                                                                      if h.get("unproven") else ")") for h in left]
+            line = (f"halo update: not installing -- these processes still run and may hold the install's files: "
+                    f"{', '.join(named)}; {before_line} is unchanged. Close them yourself and run `halo update` again"
+                    + (" (or run it without --force: it stops each one it can prove is Halo's own)"
+                       if plan.get("force") and not all(h.get("unproven") for h in left) else ""))
             r.say(line)
             return 1, _result("not_started", line, before=before_line)
     with _Shield(protect):
