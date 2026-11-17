@@ -1153,6 +1153,37 @@ def test_session_map_waits_for_studio_to_follow_the_session_it_started(ctx: Ctx)
 
 
 @test
+def test_prompt_check_4_looks_for_an_identity_not_a_word(ctx: Ctx):
+    """The step `prompt`'s check (4) on a machine whose account is an ordinary word (the CI runners' `runner`): the
+    word in a sentence ("still runs on the step runner") is no finding; the login, `by <user>`, a home path of the
+    account and the host name are, each named. An account that is no common word is found as a word, as before."""
+    from unittest import mock
+    from realcheck import steps_prompt as sp
+
+    def check(user: str, log: str, shown: str = "") -> list:
+        with mock.patch("getpass.getuser", lambda: user), mock.patch("socket.gethostname", lambda: "box-7"):
+            return sp._check_private(log, shown)[0]
+    sentence = '{"text": "the tool still runs on the step runner, then the Runner reads it"}'
+    got = check("runner", sentence, "the step runner is done")
+    ctx.check(f"`runner` in running text, the log and the screen, is no finding, got {got}", got == [])
+    for log, shape in (('{"by": "runner@box-7"}', "<user>@<host>"), ('{"by": "runner"}', '"by": "<user>"'),
+                       ("the turn was steered by runner from Studio", "by <user>"),
+                       ('{"cwd": "/home/runner/work/x"}', "/home/<user>/"),
+                       ('{"cwd": "/Users/runner/x"}', "/Users/<user>/"),
+                       ('{"cwd": "D:\\\\Users\\\\runner\\\\x"}', "Users\\\\<user>"),
+                       ("asked on box-7 at noon", "on <host> at")):
+        got = check("runner", sentence + "\n" + log)
+        ctx.check(f"{log!r} is a finding that shows {shape!r}, got {got}",
+                  len(got) == 1 and got[0].startswith("(4) the machine's ") and shape in got[0])
+    got = check("runner", "", "steered by runner")
+    ctx.check(f"the screen is read the same way, got {got}", len(got) == 1 and "session's screen" in got[0])
+    got = check("jqzorbel", "a line that names jqzorbel in passing")
+    ctx.check(f"an account that is no common word is found as a word, as before, got {got}",
+              len(got) == 1 and "user name" in got[0] and "names <user> in" in got[0])
+    ctx.check("and a text without it passes", check("jqzorbel", sentence, "the step runner") == [])
+
+
+@test
 def test_browser_names_the_browser_the_steps_use_and_one_that_names_nothing_fails_them(ctx: Ctx):
     """--browser <path or command name>: that browser (HALO_CHROME for the run, put back after); one that names no
     browser is a FAIL of each browser step that says so, never the person's own installed Chrome."""

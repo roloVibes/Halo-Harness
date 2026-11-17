@@ -15,7 +15,8 @@ private studio.json: studio/launch.api_call). No browser. Each assert alone, as 
       then the answer is drawn (never the screen alone, an earlier answer is repainted after the mark) (that the card stays
       until that key is P5's tests/test_prompt_one_terminal.py: a stream of bytes shows what was drawn, not what stays)
   (4) neither the session's log nor the screen holds the machine's user name or host name (the rig's own paths taken
-      out first)
+      out first) as an identity: a login, a home path, an account or `by` slot, the host as a word; an account named by
+      a common word (the CI runners' `runner`) in running text is no finding
   (5) the session's row carries `first_words` after the first prompt, and after `/clear` in the terminal the new row's
       `follows` names the old id
 Everything it starts ends in its own finally, by pid (the rig's scan finds nothing of the run left)."""
@@ -197,21 +198,53 @@ def _without_paths(text: str, ctx, h) -> str:
     return text
 
 
+def _identities(text: str) -> list:
+    """(4) where `text` holds this machine's identity as Halo could WRITE it, not a word: [(user|host, start, end)].
+    The account in a home path, a login (`<user>@<host>`, `<machine>\\<user>`) or an account slot (`user=`, `ssh -l`
+    ...): the release's own matcher, live/replay_private._name_patterns; in a `by` field or `by <user>`; as a bare word
+    only when it is no common word (replay_cut.COMMON_NAMES: the CI runners' `runner` is a word of "the step runner").
+    The host name, whole and its first label, as a whole word."""
+    from halo_harness.live.replay_private import _SEGMENT_END, _name_patterns
+    user, host = getpass.getuser(), socket.gethostname()
+    hosts = sorted({n for n in (host, host.split(".")[0]) if n and len(n) >= 3}, key=len, reverse=True)
+    pats = []
+    if user and len(user) >= 3:
+        pats += [("user", p) for p in _name_patterns([user], machines=hosts)]
+        pats.append(("user", re.compile(r"(?i)(?<![\w-])by(?:\\*[\"'`]\s*[:=]\s*\\*[\"'`]?|[^\S\n]+)" + re.escape(user)
+                                        + _SEGMENT_END)))
+    pats += [("host", re.compile(r"(?i)(?<![\w.-])" + re.escape(n) + r"(?![\w-])")) for n in hosts]
+    return [(which, m.start(), m.end()) for which, p in pats for m in [p.search(text)] if m]
+
+
+def _check_private(log: str, shown: str) -> "tuple[list, list]":
+    """(4) on texts the rig's own paths are already out of: the findings (one per text, its first identity, named:
+    the user's or the host's, and the words around it with the names masked) and where they were."""
+    host = socket.gethostname()
+    masks = [(n, "<host>") for n in sorted({host, host.split(".")[0]}, key=len, reverse=True) if len(n) >= 3]
+    masks += [(getpass.getuser(), "<user>")]
+    bad, where = [], []
+    for name, text in (("log", log), ("screen", shown)):
+        found = sorted(_identities(text), key=lambda x: x[1])
+        if not found:
+            continue
+        which, a, b = found[0]
+        near = text[max(0, a - 80):b + 40]
+        for n, mask in masks:
+            near = re.sub(re.escape(n), mask, near, flags=re.IGNORECASE) if n else near
+        where.append(name)
+        bad.append(f"(4) the machine's {which} name is in the session's {name}: " + excerpt(near, 140))
+    return bad, where
+
+
 def _private(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
     logs = sorted(h.home.rglob(f"{sid}.jsonl"))
     log = "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in logs)
     shown = re.sub(r"[A-Za-z]:\\\S*|(?<![\w.])/\S+|~\S*", " ", _without_paths(t.plain(), ctx, h))  # paths: the rig's own
-    names = _names()
-    hits = [(n, where) for n in names for where, text in (("log", _without_paths(log, ctx, h)), ("screen", shown))
-            if re.search(re.escape(n), text, re.IGNORECASE)]
-    ev["private"] = {"logs": len(logs), "log_bytes": len(log), "names": len(names), "hits": [w for _n, w in hits]}
+    found, where = _check_private(_without_paths(log, ctx, h), shown)
+    ev["private"] = {"logs": len(logs), "log_bytes": len(log), "names": len(_names()), "hits": where}
     if not logs:
         bad.append("(4) the session's log was not found under the home")
-    for n, where in hits[:2]:
-        text = _without_paths(log, ctx, h) if where == "log" else shown
-        at = re.search(re.escape(n), text, re.IGNORECASE).start()
-        bad.append(f"(4) the machine's {'user' if n == getpass.getuser() else 'host'} name is in the session's {where}: "
-                   + excerpt(text[max(0, at - 80):at + 40].replace(n, "<name>"), 140))
+    bad += found
 
 
 # -- (5) first words, then follows after /clear -----------------------------------------------------------------------
