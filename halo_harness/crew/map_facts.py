@@ -92,7 +92,9 @@ def next_map() -> "tuple":
 
 
 def facts(session) -> dict:
-    """F1, F2, F4, F5 of `session`: {map, words, plain, since, next, next_words, next_since, built, asked}."""
+    """F1, F2, F4, F5 of `session`: {map, words, plain, since, next, next_words, next_since, next_none, built, asked}.
+    `next_none`: new sessions start with no map (crew.map unset and roles off, compile.in_use); `next_words` then still
+    names the default and is not to be said (`next_sentence`)."""
     tc = getattr(session, "team_control", None)
     on_map = bool(getattr(tc, "is_map", False))
     name = (getattr(tc, "map_name", None) or None) if on_map else None
@@ -108,7 +110,8 @@ def facts(session) -> dict:
     built = {k: v for k, v in built.items() if k != "maps"} if isinstance(built, dict) else None
     return {"map": name, "words": words_of(name, plain) if name else None, "plain": plain,
             "since": _num(getattr(session, "_map_started_at", None)), "next": nxt,
-            "next_words": words_of(nxt, nxt is None), "next_since": nxt_at, "built": built,
+            "next_words": words_of(nxt, nxt is None), "next_since": nxt_at,
+            "next_none": nxt is None and _none_next(), "built": built,
             "asked": bool(getattr(session, "_map_asked", False) or getattr(session, "turn_count", 0))}
 
 
@@ -117,6 +120,7 @@ NOTE_PREFIX = "[Halo] "
 NOTE_RUNS = "This session runs on {A}, as it started at {t}."
 NOTE_NEXT = "New sessions will run on {B} (switched on at {t2}{by})."
 NOTE_NEXT_UNTIMED = "New sessions will run on {B}."  # the switch time is not known (T11: set outside Halo)
+NOTE_NEXT_NONE = "New sessions will run with no map."  # roles off and no crew.map (section 6 has no words: P2 batch 10)
 NOTE_BY = ", by this session"
 NOTE_REST = ("This session keeps running on {A} until a new session starts; nothing needs restarting, Studio included. "
              "Asked which map or workflow you use, answer from this note.")
@@ -153,12 +157,20 @@ def note_text(session, f: "dict | None" = None) -> str:
     """The facts note (R38), `[Halo] ` and section 6's words."""
     f = f if f is not None else facts(session)
     a = f["words"] or words_of(None)
-    if f["next_since"] is None:
-        nxt = NOTE_NEXT_UNTIMED.format(B=f["next_words"])
-    else:
-        nxt = NOTE_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"]),
-                               by=NOTE_BY if _by_this_session(session, f) else "")
+    nxt = next_sentence(session, f, show=False)
     return NOTE_PREFIX + " ".join((_runs(NOTE_RUNS, a, f["since"]), nxt, NOTE_REST.format(A=a)))
+
+
+def next_sentence(session, f: dict, show: bool) -> str:
+    """The ONE place the facts note (R38) and `studio_show`'s line 1 (R39) say what new sessions run on, from the same
+    facts: with no map (`next_none`), on {B} untimed (T11), or on {B} since {t2} (the note adds ", by this session")."""
+    if f["next_none"]:
+        return SHOW_NEXT_NONE if show else NOTE_NEXT_NONE
+    if f["next_since"] is None:
+        return (SHOW_NEXT_UNTIMED if show else NOTE_NEXT_UNTIMED).format(B=f["next_words"])
+    if show:
+        return SHOW_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"]))
+    return NOTE_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"]), by=NOTE_BY if _by_this_session(session, f) else "")
 
 
 def is_note(text) -> bool:
@@ -177,16 +189,11 @@ def _none_next() -> bool:
 
 
 def show_line(session) -> str:
-    """`studio_show {what: map}`'s first line from a session (R39); a session with no map says T4, and new sessions
-    with no map say so (P2 batch 9: never "starter (the default)" for either)."""
+    """`studio_show {what: map}`'s first line from a session (R39): the same facts and the same new-sessions sentence as
+    the note (`next_sentence`); a session with no map says T4 (P2 batch 9: never "starter (the default)" for either)."""
     f = facts(session)
     a = f["words"] or words_of(None)
-    if f["next"] is None and _none_next():
-        nxt = SHOW_NEXT_NONE
-    else:
-        nxt = (SHOW_NEXT_UNTIMED.format(B=f["next_words"]) if f["next_since"] is None
-               else SHOW_NEXT.format(B=f["next_words"], t2=hhmm(f["next_since"])))
-    return _runs(SHOW_RUNS if f["map"] else T4, a, f["since"]) + " " + nxt
+    return _runs(SHOW_RUNS if f["map"] else T4, a, f["since"]) + " " + next_sentence(session, f, show=True)
 
 
 def turn_note(session) -> "str | None":

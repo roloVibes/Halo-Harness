@@ -835,6 +835,46 @@ def test_studio_show_with_no_map_says_t4(ctx: Ctx):
 
 
 @test
+def test_show_line_and_note_agree_on_new_sessions(ctx: Ctx):
+    """R39 ("the same facts") with R38: a session started on a map by flag (`--map starter`) while roles are off and no
+    map is set for new sessions. `studio_show`'s line 1 and the facts note come from ONE source (map_facts.facts) and
+    say the same about new sessions: what a new session really starts on there (map_session.prepare with no flag, as
+    headless and the TUI call it), here no map; never "starter (the default)". With crew.map set, both name it."""
+    import re
+    import time
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.crew import map_facts
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.crew.map_session import prepare
+        from halo_harness.theme import set_config_value
+        set_config_value("roles.enabled", False)
+        compiled = prepare({"map": "starter"}, env.repo)[0]
+        s = _Sess(control_for(compiled, cwd=env.repo))
+        s.cwd = env.repo
+        s._map_started_at = time.time()
+        fresh = prepare({}, env.repo)[0]
+        ctx.check(f"a new session here starts with no map, got {getattr(fresh, 'name', None)!r}", fresh is None)
+
+        def nxt(show: str, note: str) -> tuple:
+            a = re.search(r"NEW SESSIONS run (.*?)\.(?: |$)", show)
+            b = re.search(r"New sessions will run (.*?)\.(?: |$)", note)
+            return (a.group(1) if a else None), (b.group(1) if b else None)
+        show, note = map_facts.show_line(s), map_facts.note_text(s)
+        ctx.check(f"this session runs on starter (both), got {show!r} / {note!r}",
+                  show.startswith("THIS SESSION runs on starter, as it started at ")
+                  and note.startswith("[Halo] This session runs on starter, as it started at "))
+        a, b = nxt(show, note)
+        ctx.check(f"both say new sessions run with no map, word for word, got {a!r} / {b!r}",
+                  a == b == "with no map" and "(the default)" not in show + note)
+        set_config_value("crew.map", "review-flow")
+        show, note = map_facts.show_line(s), map_facts.note_text(s)
+        a, b = nxt(show, note)
+        ctx.check(f"crew.map set: both name review-flow and its time, got {a!r} / {b!r}",
+                  a == b and re.fullmatch(r"on review-flow \(switched on at \d{2}:\d{2}\)", a or "") is not None)
+
+
+@test
 def test_compaction_sends_the_note_once(ctx: Ctx):
     """R38: "again after a compact if sent before" -- the request after a compaction carries the facts note ONCE in all of
     its messages (a note the compaction kept and a retold one would be two)."""
