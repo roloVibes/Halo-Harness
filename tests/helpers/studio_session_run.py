@@ -89,7 +89,9 @@ def _open(c, rig, rows: Rows, a: str, b: str, mp: str, plain: bool, agents: list
     c.mouse("mouseMoved", 1279, 799)  # the pointer out of the drawer (it is on the left)
 
 
-def block(c, rig, rows: Rows, a: str, b: str) -> dict:
+def case2(c, rig, rows: Rows, a: str, b: str) -> str:
+    """The case-2 rig: A on starter running the workflow W (on no box; steps 1-4 tagged rows w1-w4, tester w3 running
+    step 3) and main's made-up child g1. Returns the block's selector once its six rows are drawn."""
     flow = lambda i: {"map": "starter", "workflow": "W", "step": i, "agent": AGENTS[i - 1], "saved": True}  # noqa: E731
     kids = [_kid(f"w{i}", AGENTS[i - 1], st, crew=flow(i), model=f"or:v/{AGENTS[i - 1]}")
             for i, st in enumerate(("done", "done", "running", "queued"), start=1)]
@@ -101,6 +103,11 @@ def block(c, rig, rows: Rows, a: str, b: str) -> dict:
     blk = f"{M}.querySelector('[data-testid=session-map-block][data-workflow=W]')"
     c.wait(f"!!{blk} && {blk}.querySelectorAll('[data-testid=session-map-step]').length === 6", 20)
     time.sleep(0.8)
+    return blk
+
+
+def block(c, rig, rows: Rows, a: str, b: str) -> dict:
+    blk = case2(c, rig, rows, a, b)
     return {"block": c.js(f"""(() => {{ const m = {M}, k = {blk}, R = (e) => {{ const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; }};
       const boxes = [...m.querySelectorAll('[data-testid=session-lit-box]')];
       const main = m.querySelector('[data-box=main]');

@@ -63,10 +63,15 @@ export function justBuilt(kind: "workflow" | "running" | "other", o: { workflow?
   return { text: `Just built in this session at ${clock(o.t || 0)}. This session does not run on it.` };
 }
 
-/** R43 the hover card on a Session box (hover = summary; a click opens R18's card). */
+/** R43 one line that feeds a box (a box fed by several lines has one row per line); R18's state of a calm line. */
+export const startsWhen = (when: string, source: string): string => `Starts when: ${when} (from ${source})`;
+
+/** R43 the hover card on a Session box (hover = summary; a click opens R18's card). `more`: the other lines feeding it,
+ *  [when, source] each; main (fed by no line) has no "Starts when" row. */
 export function hoverLines(h: { name: string; workflow: string | null; model: string; state: string; when: string; source: string;
-  children: string[]; built: number | null }): string[] {
-  const out = [h.name, h.workflow ? `workflow ${h.workflow}` : "agent", h.model, h.state, `Starts when: ${h.when} (from ${h.source})`, ...h.children];
+  children: string[]; built: number | null; more?: [string, string][] }): string[] {
+  const starts = h.source ? [[h.when, h.source], ...(h.more || [])].map(([w, s]) => startsWhen(w, s)) : [];
+  const out = [h.name, h.workflow ? `workflow ${h.workflow}` : "agent", h.model, h.state, ...starts, ...h.children].filter((x) => x !== "");
   if (h.built) out.push(`Built ${clock(h.built)} in this session`);
   return out;
 }

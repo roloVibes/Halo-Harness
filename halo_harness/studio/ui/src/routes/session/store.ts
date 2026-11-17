@@ -196,6 +196,14 @@ export function enterSession(): void {
   if (showsSessionStart(fleet.get(), sess.get().view)) setSessionView("workspace");
 }
 
+/** 3.6.0.2 R18 R34: a step-in card's [Open in Agents -> Live]: Agents opens with `sess.chosen` = this session (the session
+ *  Agents -> Live opens on). Until Agents has its Live view this is Agents' own door; P4 points this one function there. */
+export function openInLive(sid: string): void {
+  if (sid) sess.update(() => ({ chosen: sid }));
+  if (sid && studio.get().section === "session") setScope({ harness: localId(fleet.get()) || "?", session: sid }); // kept on leaving
+  goSection("agents");
+}
+
 /** Open Session on a session or an agent (the links into it); with neither, on the newest working agent. */
 export function openSession(t: { key?: AgentKey; session?: string } = {}): void {
   const session = t.session || (t.key ? parseKey(t.key).s : "");

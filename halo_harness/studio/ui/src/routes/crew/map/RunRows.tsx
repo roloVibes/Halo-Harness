@@ -29,7 +29,7 @@ export function BlockFace({ block, ov }: { block: Block; ov: Overlay | null }) {
   );
 }
 
-const kidText = (k: Kid): string => (k.made ? madeUpRow(k.task || k.agent, STATE_WORDS[k.state]) : agentRow(k.agent, k.model, STATE_WORDS[k.state]));
+export const kidText = (k: Kid): string => (k.made ? madeUpRow(k.task || k.agent, STATE_WORDS[k.state]) : agentRow(k.agent, k.model, STATE_WORDS[k.state]));
 
 export function KidRows({ kids, sid, sender }: { kids: Kid[]; sid: string; sender: string }) {
   if (!kids.length) return null;

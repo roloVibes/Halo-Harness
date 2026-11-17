@@ -61,3 +61,29 @@
 .mp-down .mp-line[data-lit=trace][data-last] { stroke-opacity: 0.9; }
 .mp-down .mp-line[data-lit=live] { stroke: var(--accent); stroke-opacity: 1; stroke-width: 4; }
 .mp-down .mp-line[data-off] { stroke: var(--off-map); stroke-dasharray: 4 4; }
+/* R18 R43 a click steps in, a rest gives the summary: a box and its step rows take the click; a line's hit twin is a 12 px
+   transparent stroke (the hit area >= 10 px) */
+.mp-down .mp-box { cursor: pointer; }
+.mp-down .mp-lines .mp-hit { fill: none; stroke: transparent; stroke-width: 12px; pointer-events: stroke; cursor: pointer; }
+.mp-hover .mp-hover-line { font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
+/* R18 R12 the step-in card: one fixed corner of the drawer (over the drawing, above the "↓" slot), one fixed size, buttons
+   of fixed widths, so neither a word changing nor another target moves anything */
+.mp-down { position: relative; }
+.mp-step-in { position: absolute; left: var(--s-2); right: var(--s-2); bottom: 40px; height: 264px; z-index: 6; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2); background: var(--surface);
+  border: 1px solid var(--line-strong); box-shadow: var(--glow); }
+.mp-step-in-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); min-width: 0; }
+.mp-step-in-title { font-size: 13.5px; line-height: 19px; overflow-wrap: anywhere; }
+.mp-step-in-x { flex: 0 0 24px; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.mp-step-in-state { margin: 0; font-size: 12px; line-height: 17px; overflow-wrap: anywhere; color: var(--muted); }
+.mp-step-in-row { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.mp-step-in-row[data-chosen] .mp-step-in-who { color: var(--accent); }
+.mp-step-in-who { flex: 1 1 auto; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); text-align: left;
+  font-size: 12px; line-height: 17px; overflow-wrap: anywhere; cursor: pointer; }
+.mp-step-in-acts { flex: 0 0 auto; display: flex; gap: var(--s-1); }
+.mp-step-in-acts > * { flex: 0 0 auto; justify-content: center; }
+.mp-step-in [data-testid=map-step-in-pause] { width: 76px; }
+.mp-step-in [data-testid=map-step-in-stop] { width: 60px; }
+.mp-step-in-ended { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
+.mp-step-in-foot { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin-top: auto; }
+.mp-step-in-foot > .mp-link { white-space: nowrap; }

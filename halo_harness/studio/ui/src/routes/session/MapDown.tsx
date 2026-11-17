@@ -7,22 +7,27 @@
 // - R10: no cap, no ellipsis: a box is estimated (estimateDown), then measured once drawn and it grows to hold its words.
 // - R11: at rest no box is cut: the scroll box ends under the last whole row (downFit.ts); a slot at a fixed bottom says how
 //   many boxes wait below and scrolls one row a press.
-// - R12: while the pointer is on it the drawing keeps its geometry (hold.ts) and text changes in place; after a hand scroll
-//   the first box he sees keeps its place; Fit (100 %, top) only on the first draw and on a different map.
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+// - R12: while the pointer is on it or a card is open the drawing keeps its geometry (hold.ts) and text changes in place;
+//   after a hand scroll the first box he sees keeps its place; Fit (100 %, top) only on the first draw and on a different map.
+// - R18: a click on a box, a step row or a line opens the step-in card (crew/map/StepIn.tsx) in the drawer's fixed corner,
+//   for the agent the session's rows name at that moment (stepInTarget.ts); R43: a box's hover (DownBox.tsx).
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { goSection } from "../../lib/store";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { setAgentsView } from "../agents/store";
 import { useHold } from "../crew/map/hold";
-import { STATE_WORDS } from "../crew/map/LitBits";
-import { LitFace, litState, useLit } from "../crew/map/LitMini";
-import { RunLine } from "../crew/map/RunLine";
+import { useLit } from "../crew/map/LitMini";
+import { RunLine, type LinePick } from "../crew/map/RunLine";
+import { StepIn } from "../crew/map/StepIn";
+import { stepIn, type Hit, type Target } from "../crew/map/stepInTarget";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { openMap } from "../crew/map/mapStore";
 import { moreBelow, type TruthFacts } from "../crew/map/truth";
 import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight } from "./downFit";
+import { DownBox } from "./DownBox";
+import { openInLive } from "./store";
 import { TruthBlock } from "./TruthBlock";
 
 const NAV_ID = "session-lit-map";
@@ -55,7 +60,17 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
   const [heights, setHeights] = useState<Record<string, number>>({});
   // the boxes no line reaches wait for R44's heading (a later batch): today, as before, the drawing is the reached map
   const live = useMemo(() => layoutDown({ ...v, strip: [] }, (b) => heights[b.id] ?? estimateDown(b), cw), [v, heights, cw]);
-  const { held } = useHold(root);
+  const [card, setCard] = useState<Target | null>(null);
+  const { held } = useHold(root, !!card);
+  const rowsNow = useRef(L);
+  rowsNow.current = L;
+  const pick = useCallback((h: Hit) => setCard((c) => { // R18: from the rows at the click; the same thing again closes it
+    const t = stepIn(h, rowsNow.current.agents, rowsNow.current.ov);
+    return c && c.id === t.id ? null : t;
+  }), []);
+  const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
+  const closeCard = useCallback(() => setCard(null), []);
+  useEffect(() => setCard(null), [s.sid, s.map]);
   const kept = useRef<{ map: string; cw: number; g: Down; ready: boolean } | null>(null);
   let was = kept.current;
   if (!held || !was || !was.ready || was.map !== (s.map || "") || was.cw !== cw) {
@@ -139,24 +154,14 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
           <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>
             <div className="mp-mini-world" ref={world} data-zoom={k.toFixed(3)} style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
-                {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} />)}
+                {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} />)}
               </svg>
-              {g.boxes.map((b) => {
-                const { st, helper } = litState(b, ov);
-                const loose = !!b.block?.under; // R14: a workflow on no box of the map: its block on a full-width row
-                return (
-                  <div key={b.id} className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit="live" data-state={st} data-helper={helper} data-kind={b.kind}
-                       data-new={b.isNew ? "" : undefined} data-workflow={b.block?.workflow}
-                       data-testid={loose ? "session-map-block" : "session-lit-box"} data-box={b.id} title={b.block ? undefined : `${b.name}: ${STATE_WORDS[st]}`}
-                       style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }}>
-                    <LitFace b={b} ov={ov} sid={s.sid} />
-                  </div>
-                );
-              })}
+              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} />)}
             </div>
           </div>
         </div>
       </div>
+      {card && <StepIn t={card} map={s.map || ""} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below">
         {n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}
       </div>

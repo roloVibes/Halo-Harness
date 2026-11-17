@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../../lib/api";
 import { useStore } from "../../../lib/store";
-import { useSessionRecord } from "../../../lib/work/record";
+import { useSessionRecord, type RecordAgent } from "../../../lib/work/record";
 import { useNow } from "../../fleet/store";
 import { STATE_WORDS } from "./LitBits";
 import { lit, startLit, type LitSession } from "./litStore";
@@ -19,11 +19,12 @@ import { BlockFace, KidRows } from "./RunRows";
 import { view, type MapView } from "./view";
 
 const files = new Map<string, MapDetail>();
+const NO_AGENTS: RecordAgent[] = [];
 const NO_MAP = { map: { format: "map/1", name: "", boxes: [], lines: [] }, scope: "starter", writable: false, in_use: false,
   problems: [], boxes: {}, main: { agent: "main" } } as unknown as MapDetail;
 
 /** `totals`: the session's hand-offs counted (R49); `live`: the lines with a hand-off in flight now (R16). */
-export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView; totals: Totals; live: Set<string> };
+export type Lit = { detail: MapDetail | null; ov: Overlay | null; v: MapView; totals: Totals; live: Set<string>; agents: RecordAgent[] };
 
 /** R49: what the drawing's layout depends on -- the blocks (workflow, caller, step count) and which box holds which
  *  rows -- never a frame's state or time, so the layout is computed again only when that changes. */
@@ -52,7 +53,7 @@ export function useLit(s: LitSession): Lit {
   ovNow.current = ov;
   const v = useMemo(() => withRun(view(detail?.map || null, [], []), ovNow.current, detail, plain), [detail, shape, plain]); // eslint-disable-line react-hooks/exhaustive-deps
   const live = useMemo(() => inFlight(totals, rows, !!s.busy), [totals, rows, s.busy]);
-  return { detail, ov, v, totals, live };
+  return { detail, ov, v, totals, live, agents: rec?.agents || NO_AGENTS };
 }
 
 /** A box's state and, for a made-up helper, its agent id. */

@@ -42,6 +42,7 @@ export function whenWords(w?: LineWhen): string {
   if (!w || w === "main-decides") return "main decides per task";
   if (w === "always") return "always";
   if (w === "ask") return "only when I ask";
+  if (typeof w !== "object") return String(w); // a word this Studio does not know (a hand-edited file): as written, never a throw
   if ("needs" in w) return `needs ${w.needs.map((n) => (NEEDS.find(([k]) => k === n) || [n, n])[1]).join(", ")}`;
   return `says ${w.says.join(", ")}`;
 }

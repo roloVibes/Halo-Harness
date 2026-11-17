@@ -388,6 +388,15 @@ def test_button_and_card_hold_still(ctx: Ctx):
     ctx.check(f"R12: the link, -, %, + and Fit keep their rects, got (frame, button) {bad[:6]}", not bad and len(head) == 5 and all(head))
     ctx.check(f"R12: the slot keeps its rect, got {[f.get('slot') for f in frames if not _same(f.get('slot'), first.get('slot'))][:3]}",
               all(_same(f.get("slot"), first.get("slot")) for f in frames))
+    # 3.6.0.2 batch 5 (R12 R18): the step-in card's buttons keep their rects over 20 frames of Pause <-> Resume
+    d = _stepin(ctx, "card")
+    cf = d.get("frames") or []
+    c0 = cf[0] if cf else {}
+    parts = ("rect", "pause", "stop", "steer", "live")
+    moved = [(i, p) for i, f in enumerate(cf) for p in parts if not _same(f.get(p), c0.get(p))]
+    ctx.check(f"R12: the card and its buttons keep their rects through Pause <-> Resume, got (frame, part) {moved[:6]}",
+              len(cf) == 20 and all(c0.get(p) for p in parts) and not moved
+              and {f.get("pauseText") for f in cf} == {"Pause", "Resume"})
 
 
 @test
@@ -755,6 +764,110 @@ def test_off_map_row_is_drawn_from_its_senders_box(ctx: Ctx):
     ctx.check(f"R17: the reviewer coder started (no line) is a row in code's box, marked off, got {s}", s.get("in") == "code" and s.get("off") == "1")
     ctx.check(f"R17: its hover names the box that started it, got {s.get('title')!r}", s.get("title") == "Not on the map: code started this itself")
     ctx.check(f"R17: review, which started nothing, stays calm and holds no row, got {s}", s.get("review") == "idle" and s.get("reviewRows") == 0)
+
+
+# -- 3.6.0.2 batch 5 (P3e): stepping in from a box, and its hover (R18 R43 R44) ---------------------------------------
+_STEPS: dict = {}
+
+
+def _stepin(ctx: Ctx, key: str) -> dict:
+    """tests/helpers/studio_session_step_in.py, run once for the tests below."""
+    from tests.helpers.chrome_driver import driver_env, find_chrome
+    if not find_chrome():
+        raise SkipTest("no Chrome found (the Live drawer needs headless Chrome)")
+    if not _STEPS:
+        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_session_step_in"], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=500, env=driver_env(REPO), cwd=str(REPO))
+        try:
+            info = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            info = {}
+        _STEPS.update(r=r, got=info)
+    got, r = _STEPS["got"], _STEPS["r"]
+    if got.get("skip"):
+        raise SkipTest(got["skip"])
+    ctx.check(f"the driver reached {key}, got {r.returncode} {got.get('failed')!r} {r.stderr[-600:]!r}", got.get(key) is not None)
+    return got.get(key) or {}
+
+
+_ENDED = r"ended at \d{1,2}:\d\d\D{0,4}"
+
+
+@test
+def test_step_in_card_pauses_and_steers_inline(ctx: Ctx):
+    d = _stepin(ctx, "card")
+    t, m, key = d.get("tester") or {}, d.get("main") or {}, d.get("key")
+    ctx.check(f"R18: tester's step row opens the card inside the drawer, named tester, got {t.get('title')!r} {t.get('rows')}",
+              t.get("inDrawer") is True and "tester" in (t.get("title") or "") and [r.get("key") for r in t.get("rows") or []] == [key])
+    ctx.check(f"R18: Pause, Stop and the steer field there, aimed at tester ({key}), got {t.get('n')} steer at {t.get('steerKey')!r}",
+              (t.get("n") or {}).get("pause") == 1 and (t.get("n") or {}).get("stop") == 1 and (t.get("n") or {}).get("steer") == 1
+              and t.get("steerKey") == key and t.get("pauseText") == "Pause")
+    ctx.check(f"R18: the card sits in the drawer's fixed corner, the same rect from main's box, got {t.get('rect')} {m.get('rect')}",
+              _same(t.get("rect"), m.get("rect")) and m.get("inDrawer") is True)
+    ctx.check(f"R18: Pause reached the session for tester, got {d.get('paused')}", len(d.get("paused") or []) == 1)
+    ctx.check(f"R18: the button reads Resume once tester is paused, got {(d.get('resume') or {}).get('pauseText')!r}",
+              (d.get("resume") or {}).get("pauseText") == "Resume")
+    ctx.check(f"R18: a steer typed in the card reached the session for tester, got {d.get('steered')}",
+              [x.get("text") for x in d.get("steered") or []] == ["use the fast suite"])
+    b4, af = d.get("before") or {}, d.get("after") or {}
+    ctx.check(f"R18: no section change and no panel opened, got {b4} -> {af}",
+              af.get("tab") == b4.get("tab") and af.get("panels") == b4.get("panels") and af.get("card") is True)
+
+
+@test
+def test_step_in_target_from_rows_rechecked_at_confirm(ctx: Ctx):
+    import re
+    d = _stepin(ctx, "recheck")
+    k = d.get("keys") or {}
+    two = (d.get("two") or {}).get("rows") or []
+    ctx.check(f"R18 (a): a box with two live children lists two rows, each its own Pause and Stop, got {two}",
+              sorted(r.get("key") for r in two) == sorted([k.get("c1"), k.get("c2")]) and all(r.get("pause") and r.get("stop") for r in two))
+    ctx.check(f"R18: a line's hit area is at least 10 px, got {d.get('hitWidth')}", (d.get("hitWidth") or 0) >= 10)
+    ctx.check(f"R18 (b): the line main -> code opens c1's card, got {(d.get('line') or {}).get('rows')}",
+              [r.get("key") for r in (d.get("line") or {}).get("rows") or []] == [k.get("c1")])
+    ended = [r.get("ended") for r in (d.get("ended") or {}).get("rows") or []]
+    ctx.check(f"R18 (b): ended before the confirm: nothing is sent, got {d.get('endedLog')}", d.get("endedLog") == [])
+    ctx.check(f"R18 (b): the card reads 'ended at {{t}}', got {ended}", len(ended) == 1 and re.fullmatch(_ENDED, ended[0] or "") is not None)
+    ctx.check(f"R18 (c): confirmed while it runs: one agent stop for c1, got {d.get('stops')}",
+              [x.get("agent_id") for x in d.get("stops") or []] == ["c1"])
+    ctx.check(f"R18 (c): never a session command (no shutdown), got {d.get('sessionCmds')}", d.get("sessionCmds") == 0)
+    off = d.get("off") or {}
+    ctx.check(f"R18 (d): an off-map line's card offers the map at its sender, got {off.get('map')!r} rows {off.get('rows')}",
+              off.get("map") == "Open the map at main" and [r.get("key") for r in off.get("rows") or []] == [k.get("w1")])
+    ctx.check(f"R18 (d): pressing it opens Agents on the map, got {d.get('offTab')!r}", "Agents" in (d.get("offTab") or ""))
+    ctx.check(f"R18 (e): every card has 'Open in Agents -> Live', got {(d.get('line') or {}).get('liveText')!r} {off.get('liveText')!r}",
+              (d.get("line") or {}).get("liveText") == "Open in Agents -> Live" and off.get("liveText") == "Open in Agents -> Live")
+    ctx.check(f"R18 (e): it opens Agents and Session keeps this session, got {d.get('liveTab')!r} back {d.get('back')}",
+              "Agents" in (d.get("liveTab") or "") and (d.get("back") or {}).get("sid") == k.get("c1", "||").split("|")[1])
+
+
+@test
+def test_done_step_card_has_no_stop(ctx: Ctx):
+    d = _stepin(ctx, "done")
+    want = {"step1": "1 plan · planner · or:v/planner · done", "step4": "4 review · reviewer · or:v/reviewer · next"}
+    for name in ("step1", "step4", "calm"):
+        s = d.get(name) or {}
+        ctx.check(f"R18: {name}'s card shows the state only: no Stop, Pause or steer field, got {s.get('n')} rows {s.get('rows')}",
+                  s.get("n") == {"pause": 0, "stop": 0, "steer": 0, "live": 1} and not s.get("rows") and s.get("inDrawer") is True)
+        if name in want:
+            ctx.check(f"R18: {name}'s card reads the row's own words, got {s.get('state')!r}", s.get("state") == want[name])
+    calm = d.get("calm") or {}
+    ctx.check(f"R18: a calm line's state, got {calm.get('state')!r}", calm.get("state") == "Starts when: main decides per task (from main)")
+
+
+@test
+def test_hover_card_rows(ctx: Ctx):
+    d = _stepin(ctx, "hover")
+    code = d.get("code") or {}
+    ctx.check(f"R43: the hover card on code: name, agent, model, state, Starts when, its child, got {code}",
+              code.get("kind") == "map" and code.get("lines") == ["coder", "agent", "or:v/coder", "working", "Starts when: always (from main)",
+                                                                 "coder · or:v/coder · working"])
+    blk = (d.get("block") or {}).get("lines") or []
+    ctx.check(f"R43: on a workflow's block it says 'workflow W' and the workflow's state, got {blk}",
+              blk[:5] == ["W", "workflow W", "working", "Starts when: main decides per task (from main)", "1 step 1 · coder · working"])
+    ctx.check(f"R44: no When label and no connect dot on Session's drawing, got {d.get('labels')} labels {d.get('dots')} dots",
+              d.get("labels") == 0 and d.get("dots") == 0)
+    ctx.check(f"R43: a click opens the step-in card, not the hover, got {d.get('click')}", d.get("click") == {"card": True, "hover": False})
 
 
 if __name__ == "__main__":

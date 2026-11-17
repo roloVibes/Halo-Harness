@@ -128,6 +128,10 @@ export async function confirmed(): Promise<void> {
   fleet.update(() => ({ confirm: null }));
   if (!c) return;
   if (c.what === "stop") {
+    // 3.6.0.2 R18: re-checked at the confirm by its full key (hid|sid|aid); an agent that ended meanwhile is sent nothing
+    // (the card that asked says "ended at {t}")
+    const ref = findAgent(fleet.get(), c.key);
+    if (!ref || !isLive(ref.a)) return;
     const r = await agentCommand(c.key, "stop", { reason: "stopped from Studio" });
     if (r.ok && !r.asked) toast(`${c.label}: stopping at its next step`, "done");
   } else {
