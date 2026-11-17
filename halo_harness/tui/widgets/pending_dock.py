@@ -19,8 +19,18 @@ from textual.binding import Binding
 from textual.containers import VerticalScroll
 
 
+DOCK_MIN_LINES = 12
+
+
+def dock_room(screen_rows: int) -> int:
+    """3.6.0.2 P8: the dock's cap, half the screen and never under DOCK_MIN_LINES. A fixed 12 scrolled a Builder card's
+    seventh row (the use row) out of sight even at 200x50 (a text is never cut); half the screen still leaves the
+    transcript, the box and the status line their rows, and a 24-row terminal keeps its 12."""
+    return max(DOCK_MIN_LINES, int(screen_rows or 0) // 2)
+
+
 class PendingDock(VerticalScroll):
-    """Capped at 12 lines with its own internal scroll (a long diff/
+    """Capped at 12 lines (half the screen on a tall terminal: dock_room) with its own internal scroll (a long diff/
     question list scrolls INSIDE the dock rather than pushing the prompt
     row off-screen); `o` opens the current card's full content in the same
     `PagerScreen` a `ToolCard`'s own `o` already uses -- reached via
@@ -54,6 +64,7 @@ class PendingDock(VerticalScroll):
         has already been cleared, so there should never actually be one,
         but a stray leftover must never silently stack two cards in here."""
         await self.remove_children()
+        self.styles.max_height = dock_room(self.app.size.height)
         self.card = card
         await self.mount(card)
         self.display = True

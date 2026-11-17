@@ -214,11 +214,19 @@ def test_p7_the_brief_names_its_target_by_a_set_name_only(ctx: Ctx):
               got == "another harness, in the folder shop-app" and "pat" not in got and "gpu-box" not in got)
     # P8 batch 2 (judge C / P7's checker): a project folder that IS a home folder is named `~`, never its last part
     # (the account name). Red on fc214582: "another harness, in the folder pat".
-    for root in (home, home + "/", "C:\\" + "\\".join(("Users", "pat")), "/".join(("", "Users", "pat")), "/root"):
+    # P8 batch 2 repair (its checker): a home seen under a prefix -- the Windows home from WSL, Fedora Atomic's
+    # /var/home -- is a home too (red on bf2ed077: "pat")
+    for root in (home, home + "/", "C:\\" + "\\".join(("Users", "pat")), "/".join(("", "Users", "pat")), "/root",
+                 "/".join(("", "mnt", "c", "Users", "pat")), "/".join(("", "var", "home", "pat"))):
         at_home = dict(unset, sessions=[{"project": {"root": root}}])
         got = words(at_home)
         ctx.check(f"a project in the home folder {root!r} reads '~', got {got!r}",
                   got == "another harness, in the folder ~")
+    for root, last in (("/".join(("", "srv", "home", "shop-app")), "shop-app"),
+                       ("/".join(("", "mnt", "c", "Users")), "Users")):
+        got = words(dict(unset, sessions=[{"project": {"root": root}}]))
+        ctx.check(f"a folder that is no home keeps its last part {last!r}, got {got!r}",
+                  got == f"another harness, in the folder {last}")
     hub = {"id": "0123456789abcdef", "name": "01234567", "sessions": []}
     ctx.check(f"no name set (the hub's id stand-in), no folder known: 'another harness', got {words(hub)!r}",
               words(hub) == "another harness")

@@ -991,10 +991,13 @@ def test_session_map_answers_a_waiting_card_with_tab_then_its_key(ctx: Ctx):
         return
 
     class Term:
-        def __init__(self, screen: str) -> None:
+        def __init__(self, screen: str, late: str = "", late_s: float = 0.0) -> None:
             self.screen, self.keys, self.t0 = screen, [], _t.monotonic()
+            self.late, self.late_s = late, late_s
 
         def plain(self) -> str:
+            if self.late and _t.monotonic() - self.t0 >= self.late_s:
+                self.screen, self.late = self.screen + self.late, ""
             return self.screen
 
         def write(self, data: bytes) -> None:
@@ -1017,11 +1020,102 @@ def test_session_map_answers_a_waiting_card_with_tab_then_its_key(ctx: Ctx):
         keys = [k for k, _at in t.keys]
         ctx.check(f"{name} on screen: Tab, then Enter, after the card's first moments; said so, got {keys} {how!r}",
                   keys == [b"\t", b"\r"] and t.keys[0][1] > CARD_FRESH_S and how.startswith("Tab, then Enter"))
-    t = Term(card)
+    # P8 batch 2 repair (its checker): on a runner 5-10x slower than the PC the wait line is drawn late; a line that
+    # shows 2.5 s after the card is still a waiting card (red on bf2ed077: Enter after 1.8 s, Apply never happened)
+    t = Term(card, WAIT_LINE.format(kind="Question") + "\n", 2.5)
     how = answer(t, 0)
+    keys = [k for k, _at in t.keys]
+    ctx.check(f"a wait line drawn 2.5 s late: Tab, then Enter, after it showed; got {keys} {how!r}",
+              keys == [b"\t", b"\r"] and t.keys[0][1] >= 2.5 and how.startswith("Tab, then Enter"))
+    sign = getattr(M, "CARD_SIGN_S", 0)
+    ctx.check(f"the step looks for the wait line a slow runner's while (at least 8 s), got {sign}", sign >= 8)
+    before = getattr(M, "CARD_SIGN_S", None)
+    M.CARD_SIGN_S = 1.0  # the focus case waits out the whole look: shortened here only
+    try:
+        t = Term(card)
+        how = answer(t, 0)
+    finally:
+        if before is not None:
+            M.CARD_SIGN_S = before
     keys = [k for k, _at in t.keys]
     ctx.check(f"the card has the focus: Enter alone, after its first moments; said so, got {keys} {how!r}",
               keys == [b"\r"] and t.keys[0][1] > CARD_FRESH_S and how.startswith("Enter: the card had the focus"))
+
+
+@test
+def test_session_map_reads_the_truth_block_once_it_says_s13(ctx: Ctx):
+    """P8 batch 2 repair (seen on the Linux VM once the card and the word were right): the truth block reads the
+    status row (R28), which reaches the page about 0.3 s after the `builder_done` frame; (3) read the drawer 0.07 s
+    after Live was pressed and found the sentence before it. (3) now waits (WORD_S at most) for the truth block to say
+    S13 before it reads the drawer, and records how long that took. Red on bf2ed077: no wait on the truth block."""
+    from realcheck import steps_map as M
+    calls: list = []
+
+    class Page:
+        def click_on(self, sel) -> None:
+            calls.append("click")
+
+        def call(self, *a, **k) -> None:
+            pass
+
+        def wait(self, expr: str, timeout: float):
+            calls.append(("wait", expr, timeout))
+            return True
+
+        def js(self, expr: str):
+            calls.append("js")
+            return {"map": "review-flow", "truth": M.S13 + " New session", "new_session": True, "boxes": [],
+                    "zoom": 1, "small_px": [], "ellipsis": []}
+    ev, bad = {}, []
+    M._drawn(Page(), ev, bad)
+    waits = [i for i, x in enumerate(calls) if isinstance(x, tuple) and "session-truth" in x[1]
+             and "keeps running on starter" in x[1] and x[2] >= M.WORD_S]
+    first_js = calls.index("js") if "js" in calls else -1
+    ctx.check(f"(3) waits for the truth block to say S13 before it reads the drawer, got {calls}",
+              bool(waits) and 0 <= waits[0] < first_js)
+    ctx.check(f"how long it took is evidence, got {ev.get('drawn', {}).get('truth_s', 'none')!r}",
+              "truth_s" in (ev.get("drawn") or {}))
+
+
+@test
+def test_session_map_types_once_studio_follows_the_session(ctx: Ctx):
+    """P8 batch 2 repair (its checker's must 1; seen on the Linux VM): Studio's feed attaches a new session on its
+    2-s scan, and the rig typed and applied the card within about 2.5 s of the page's load, so the `builder_done`
+    frame was sent before Studio followed the session and never reached the page (the word `new` never showed). A
+    person's Studio follows the session long before he has typed a request: the step waits for Studio's feed to list
+    the session (its `sessions` frame, read by the hook) before it types, and says how long that took. The hook also
+    raises the resource-timing buffer, so (6)'s count of fleet reads never stops at the browser's 250 entries."""
+    import inspect
+
+    from realcheck import steps_map as M
+    hook = M.HOOK
+    ctx.check("the hook reads the feed's `sessions` frames into window.__rcb.followed",
+              "addEventListener('sessions'" in hook and "followed" in hook)
+    ctx.check("the hook raises the resource-timing buffer before the page's first request",
+              "setResourceTimingBufferSize(100000)" in hook)
+    followed = getattr(M, "_followed", None)
+    ctx.check("steps_map has _followed (the wait for Studio to follow the session)", callable(followed))
+    if not callable(followed):
+        return
+    src = inspect.getsource(M.session_map)
+    ctx.check("session_map waits for _followed before (1) types the request",
+              0 <= src.find("_followed(") < src.find("_card,"))
+
+    class Page:
+        def __init__(self, ok: bool) -> None:
+            self.ok, self.asked = ok, []
+
+        def wait(self, expr: str, timeout: float):
+            self.asked.append((expr, timeout))
+            if not self.ok:
+                raise TimeoutError(expr)
+            return True
+    for ok in (True, False):
+        page, ev, bad = Page(ok), {}, []
+        got = followed(page, ev, bad)
+        ctx.check(f"followed={ok}: returns {ok}, says how long, a fault only when Studio never followed; got {got} "
+                  f"{ev} {bad}", got is ok and ("followed_s" in ev) and (bool(bad) is (not ok))
+                  and all("followed" in e and t >= 20 for e, t in page.asked))
 
 
 @test

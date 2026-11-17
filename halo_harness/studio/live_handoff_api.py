@@ -65,11 +65,15 @@ def target_words(target: dict) -> str:
 
 def _folder_word(root: str) -> str:
     """A project folder by its LAST part only; a home folder (`/home/<name>`, `/Users/<name>`, `C:\\Users\\<name>`,
-    `/root`) reads `~`: its last part is an account name (P8 batch 2)."""
+    `/root`, and the same seen under `/mnt/<drive>` from WSL or under `/var` on Fedora Atomic) reads `~`: its last part
+    is an account name (P8 batch 2 and its repair)."""
     parts = [p for p in root.replace("\\", "/").split("/") if p]
     if parts and re.fullmatch(r"[A-Za-z]:", parts[0]):
         parts = parts[1:]
-    if parts == ["root"] or (len(parts) == 2 and parts[0].lower() in ("home", "users")):
+    low = [p.lower() for p in parts]
+    under = low[:-2]  # what is above `home|Users/<name>`: nothing, `mnt/<drive>` (WSL) or `var` (Fedora Atomic)
+    if low == ["root"] or (len(low) >= 2 and low[-2] in ("home", "users")
+                           and (not under or under == ["var"] or (len(under) == 2 and under[0] == "mnt"))):
         return "~"
     return PurePath("/".join(parts)).name if parts else ""
 

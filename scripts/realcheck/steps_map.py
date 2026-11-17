@@ -21,6 +21,7 @@ The selectors read here are this check's contract with the packages that build t
 of the package PA. SKIP when no browser may be used or the machine has none (the first thing it does)."""
 from __future__ import annotations
 
+import json
 import re
 import sys
 import time
@@ -45,7 +46,8 @@ OFF = (1279, 799)  # where the pointer rests while a drawing is read (R12 holds 
 
 # the Builder's outcome as the page receives it (a `builder_done` frame on the feed, or a status row whose `built`
 # says applied), the moment the word `new` shows, and what popped up: installed before the first load, beside WATCH
-HOOK = r"""(() => { if (window.__rcb) return; const b = window.__rcb = {frame: 0, row: 0, word: 0, pops: []};
+HOOK = r"""(() => { if (window.__rcb) return; const b = window.__rcb = {frame: 0, row: 0, word: 0, pops: [], followed: []};
+  try { performance.setResourceTimingBufferSize(100000); } catch (e) {}  // (6) counts fleet reads past 250 entries
   const now = () => performance.now();
   const applied = (v, d) => { if (!v || typeof v !== 'object' || d > 8) return false;
     if (v.built && typeof v.built === 'object' && v.built.outcome === 'applied') return true;
@@ -54,6 +56,8 @@ HOOK = r"""(() => { if (window.__rcb) return; const b = window.__rcb = {frame: 0
   const ES = window.EventSource;
   if (ES) { const W = function (u, o) { const es = new ES(u, o);
       es.addEventListener('builder_done', () => { b.frame = b.frame || now(); });
+      es.addEventListener('sessions', (ev) => { try { const f = JSON.parse(ev.data);
+        b.followed = (((f || {}).data || {}).sessions || []).map((r) => r.session_id); } catch (e) {} });
       for (const k of ['live', 'registry']) es.addEventListener(k, (ev) => seen(ev.data));
       return es; };
     W.prototype = ES.prototype; W.CONNECTING = 0; W.OPEN = 1; W.CLOSED = 2; window.EventSource = W; }
@@ -141,6 +145,7 @@ def session_map(ctx):
                        + excerpt(t.plain(), 200))
         else:
             ev["row_seen"] = bool(_wait(c, ROW, 30))
+            _followed(c, ev, bad)
             before = c.js(BEFORE) or {}
             ev["before"] = before
             applied = _alone(1, bad, _card, t, ev, bad) or 0.0
@@ -176,6 +181,23 @@ def session_map(ctx):
             "on Live, the note, three turns held still"), ev
 
 
+FOLLOWED = "window.__rcb && window.__rcb.followed && window.__rcb.followed.length > 0"
+FOLLOW_S = 30.0
+
+
+def _followed(c, ev: dict, bad: list) -> bool:
+    """Studio follows the session before he types (its feed's `sessions` frame lists it). Studio's feed attaches a new
+    session on its 2-s scan; a person has not typed a request by then, but this rig types at once, and what the
+    session sent before the attach (the `builder_done` frame) never reached the page. How long it took is evidence."""
+    t0 = time.monotonic()
+    ok = bool(_wait(c, FOLLOWED, FOLLOW_S))
+    ev["followed_s"] = round(time.monotonic() - t0, 1) if ok else None
+    if not ok:
+        bad.append(f"(2) Studio never followed the session in {FOLLOW_S:.0f} s (no `sessions` frame on its feed "
+                   "listed it)")
+    return ok
+
+
 # -- (1) the card ------------------------------------------------------------------------------------------------------
 def _card(t, ev: dict, bad: list) -> float:
     """Type the request, read the card the terminal shows, press Enter (Apply is its first option). The moment of the
@@ -201,6 +223,7 @@ def _card(t, ev: dict, bad: list) -> float:
 # the line above the box while a card waits (tui/widgets/cards.py WAIT_LINE / WAIT_LINE_SHORT, and the held box's
 # placeholder HELD_PLACEHOLDER): "⏸ Question waits ... Tab goes to it", "Tab: go to the waiting card"
 CARD_WAITS = re.compile(r"⏸\w+waits|Tab:gotothewaitingcard")  # read in _flat text: a redraw splits only spaces
+CARD_SIGN_S = 10.0  # how long the step looks for the wait line: a runner 5-10x slower than the PC redraws late
 
 
 def _answer(t, mark: int) -> str:
@@ -210,10 +233,10 @@ def _answer(t, mark: int) -> str:
     in its first CARD_FRESH_S on screen, so the key comes after that. Which way it went is returned for the evidence."""
     from halo_harness.tui.keys import CARD_FRESH_S
     seen_at = time.monotonic()
-    # the focus is decided right after the card shows (card_focus.decide, through call_later): its wait line is drawn
-    # in the next redraw, well inside the card's first moments plus a second even on a slow runner
-    waited = t.wait_for(lambda s: CARD_WAITS.search(_flat(s[mark:])) is not None
-                        and time.monotonic() - seen_at > CARD_FRESH_S + 0.2, CARD_FRESH_S + 1.2)
+    # the focus is decided right after the card shows (card_focus.decide, through call_later) and its wait line is
+    # drawn in a later redraw: looked for a slow runner's while; a card that took the focus shows no sign in plain
+    # text, so Enter goes only once the look is over (CARD_SIGN_S: the rare path pays the time, never a lost Apply)
+    waited = t.wait_for(lambda s: CARD_WAITS.search(_flat(s[mark:])) is not None, CARD_SIGN_S)
     rest = CARD_FRESH_S + 0.2 - (time.monotonic() - seen_at)
     if rest > 0:  # the card's first moments (a rule's time, not a redraw): a key now would answer nothing
         time.sleep(rest)
@@ -333,11 +356,19 @@ DRAWN = """(() => { const q = (s, r) => (r || document).querySelector(s), qa = (
           new_session: truth ? qa('button', truth).some((x) => x.textContent.trim() === 'New session') : false}; })()"""
 
 
+TRUTH_SAYS_S13 = (f"(({Q}('[data-testid=session-truth]') || {{}}).innerText || '').replace(/\\s+/g, ' ')"
+                  f".includes({json.dumps(S13)})")
+
+
 def _drawn(c, ev: dict, bad: list) -> None:
     c.click_on(BTN)
     _off(c)
     _wait(c, f"!!{Q}('[data-testid=session-lit-map][data-map=review-flow]')", 10)
     _off(c)
+    # the truth block reads the status row (R28), which reaches the page a moment after the frame (0.3 s on the VM)
+    t0 = time.monotonic()
+    said = _wait(c, TRUTH_SAYS_S13, WORD_S)
+    truth_s = round(time.monotonic() - t0, 2) if said else None
     d = c.js(DRAWN) or {}
     boxes, sc = d.get("boxes") or [], d.get("scroll")
     main = next((b for b in boxes if b["box"] == "main"), None)
@@ -356,6 +387,7 @@ def _drawn(c, ev: dict, bad: list) -> None:
     review = next((b for b in boxes if b["box"] == "review"), {})
     ev["drawn"] = {k: d.get(k) for k in ("pair", "built_pressed", "map", "dir", "zoom", "small_px", "ellipsis",
                                          "more_below", "truth", "new_session", "drawer")}
+    ev["drawn"].update(truth_s=truth_s)
     ev["drawn"].update(boxes=[{k: v for k, v in b.items() if k != "all"} for b in boxes], cut=cut, below=below,
                        rows_per_line=max((len(v) for v in rows.values()), default=0))
     if d.get("map") != "review-flow":

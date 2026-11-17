@@ -1130,6 +1130,48 @@ def test_p7_a_halo_a_test_starts_runs_with_the_real_card_times(ctx: Ctx):
     ctx.check(f"a child whose test asks for the switch has them off, got {asked!r}", asked == "(0.0, 0.0)")
 
 
+BUILDER_USE_ROW = ("New sessions run on review-flow. This session keeps running on starter (the default), as it started. "
+                   "Start a new session to run on review-flow. In the terminal: quit, then run halo; /clear keeps "
+                   "starter (the default).")
+
+
+def _builder_card_event():
+    """The Builder card of the real-use check's step session-map (scripts/realcheck/steps_map.py): its first row and
+    seven rows, the use row last (crew/session_tool.card)."""
+    from halo_harness.crew.session_tool import card
+    said = ["Make the workflow review: 1 coder, 2 reviewer", "review, step 1: code (coder) · always",
+            "review, step 2: review (reviewer) · always", "Make a new map review-flow (main, then the boxes below)",
+            "Add box review (workflow review)", "Add line main -> review (When: always)", BUILDER_USE_ROW]
+    rows = [{"summary": s, "widen": False, "ticked": True} for s in said]
+    first = ("Your review workflow: the workflow review (coder, then reviewer), run from a box on the new map "
+             "review-flow.")
+    return ev.Event("question", {"id": "q-builder", "name": "Builder", "input": card(rows, first)}, turn=1)
+
+
+@test
+def test_a_builder_card_of_seven_rows_is_whole_in_a_tall_terminal(ctx: Ctx):
+    """P8 batch 2 repair (the real-use check's session-map step, red on bf2ed077): the dock was capped at 12 lines
+    whatever the terminal's height, so at 200x50 the Builder card's row 7 (the use row, with S13 and the terminal's
+    line) was scrolled out of sight under row 6. The dock now takes up to half the screen (never under 12 lines): the
+    whole card shows at 200x50, and an 80x24 terminal keeps its 12-line dock with the box below it."""
+    for size, whole in (((200, 50), True), ((80, 24), False)):
+        async def walk(fake, app, pilot, clock, size=size, whole=whole):
+            await _ask(app, pilot, _builder_card_event())
+            await pilot.pause(0.2)
+            dock = app.pending_dock
+            ctx.check(f"{size}: the Builder card is in the dock, got {type(dock.card).__name__}",
+                      type(dock.card).__name__ == "QuestionCard")
+            if whole:
+                ctx.check(f"{size}: nothing of the card is scrolled out of the dock (max_scroll_y "
+                          f"{dock.max_scroll_y}, dock {dock.outer_size.height} lines)", dock.max_scroll_y == 0)
+            ctx.check(f"{size}: the dock leaves the box and the status line on screen ({dock.outer_size.height} of "
+                      f"{size[1]} lines)", dock.outer_size.height <= max(12, size[1] // 2))
+            box = app.prompt_input.region
+            ctx.check(f"{size}: the box is on screen below the dock, got {box}",
+                      box.height > 0 and box.y + box.height <= size[1] and box.y >= dock.region.y + dock.region.height)
+        _run(walk, size=size)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
