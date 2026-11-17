@@ -20,7 +20,8 @@ DEFAULT_KINDS = ("user_message", "message_start", "message_end", "text_chunk", "
                  "builder_done",  # 3.6.0.2 R25
                  "steer_queued", "steer_applied", "ask_answered",  # 3.6.0.2 P22, P23 (the Prompt panel)
                  "agent_state", "agent_event", "registry", "live")  # 3.3.13.0 R2: design_turn and media_render: the design pack's
-PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid", "harness", "project", "parent")
+PUBLIC_FIELDS = ("session_id", "title", "mode", "kind", "cwd", "started", "pid", "harness", "project", "parent",
+                 "follows", "first_words")  # 3.6.0.2 P31: the id it took over from; P27: its first words
 
 
 def local_harness_id():

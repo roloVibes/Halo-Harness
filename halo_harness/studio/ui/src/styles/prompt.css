@@ -8,10 +8,28 @@
 /* 3.3.15.0 R3: the feed takes what it holds (it scrolls past the free height), the foot the rest: a short feed leaves
    its room to the box (TextBox `fill`), never a wall of empty space over a one-line box */
 .spp { height: 100%; display: grid; grid-template-rows: auto minmax(0, max-content) minmax(auto, 1fr); min-height: 0; }
-.spp-head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--surface-glass); min-width: 0; }
-.spp-to { color: var(--accent); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.spp-state { font-size: 12px; margin-left: auto; white-space: nowrap; }
-.spp[data-busy] .spp-state { color: var(--warn); }
+.spp-head { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 4px 12px 6px; border-bottom: 1px solid var(--line); background: var(--surface-glass); min-width: 0; }
+.spp-head-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* 3.6.0.2 P27-P29: the session's words always take two lines' height (a long title wraps into the second, never cut),
+   so the box under the header never moves; P29's line stands in the same place, amber */
+.spp-words { min-width: 0; font-size: 12px; line-height: 16px; min-height: 32px; display: flex; align-items: center;
+  white-space: normal; overflow-wrap: anywhere; color: var(--text); }
+.spp-words-in, .spp-moved { display: block; min-width: 0; }
+.spp-folder { color: var(--text); }
+.spp-dot-sep { color: var(--faint); }
+.spp-term { color: var(--accent); }
+.spp-moved { color: var(--warn); }
+.spp-state { font-size: 12px; margin-left: auto; white-space: nowrap; } /* the feed's state rows (it was also the header's) */
+.spp-head-state { font-size: 12px; white-space: nowrap; min-width: 17ch; text-align: right; flex: none; margin-left: auto; }
+.spp[data-busy] .spp-state, .spp[data-busy] .spp-head-state { color: var(--warn); }
+/* P28: Change session's list, over the feed (nothing under it moves) */
+.spp-pick { position: absolute; right: 8px; top: calc(100% + 2px); z-index: 20; list-style: none; margin: 0; padding: 4px; width: min(560px, calc(100% - 16px));
+  max-height: 280px; overflow: auto; border-radius: var(--radius-sm); border: 1px solid var(--line-strong); background: var(--surface); box-shadow: var(--glow); }
+.spp-pick-item { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 6px; align-items: baseline; padding: 4px 8px; border-radius: 4px;
+  cursor: pointer; font-size: 12px; line-height: 16px; }
+.spp-pick-item:hover, .spp-pick-item[data-on] { background: var(--accent-soft); }
+.spp-pick-mark { color: var(--accent); }
+.spp-pick-words { overflow-wrap: anywhere; }
 .spp-body { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); background-color: var(--bg-2);
   /* 3.3.15.0 L1: no grid here (the dot grid is the map canvases' only) */ }
 .spp-feed { overflow: auto; min-height: 0; padding: 8px 10px 10px; display: grid; align-content: start; gap: 4px; }
@@ -70,5 +88,9 @@
 .spp-slash-name { color: var(--accent); }
 .spp-slash-args { font-size: 12px; }
 .spp-slash-help { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* P32: the picked session ended with text in the box: the line and Copy over the read-only box */
+.spp-ended { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong); background: var(--surface); }
+.spp-ended-line { flex: 1 1 220px; color: var(--text); font-size: var(--fs-sm); }
 .spp-chip { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .spp-chip[data-error] { color: var(--bad); }

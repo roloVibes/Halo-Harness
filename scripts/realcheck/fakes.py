@@ -14,6 +14,7 @@ never by model name, so a sub-agent or a workflow step on another model is answe
   RC-MAPBUILD            one Builder call: the workflow review (coder, then reviewer) in a box on the new map review-flow,
                          then MAPBUILD_DONE + the sentence the result says to repeat
   RC-MAPASK              MAPASK_DONE
+  RC-PERM                a Bash call `PERM_CMD` (a write: the default mode asks permission first), then ANSWER
   RC-SUB / anything else  SUB_DONE / ANSWER
 
 RC-MAPBUILD and RC-MAPASK are read from the current turn's own user nodes only (`_this_turn`): a note Halo puts at a
@@ -36,6 +37,7 @@ from pathlib import Path
 ANSWER, SUB_DONE, WORK_DONE, PACK_DONE = "RC-ANSWER-42", "RC-SUB-DONE", "RC-WORK-DONE", "RC-PACK-DONE"
 SHELL_HOLD, SHELL_BACKGROUND = "sleep 6011 & sleep 6011", "sleep 6012"
 MAPBUILD_DONE, MAPASK_DONE = "RC-MAPBUILD-DONE", "RC-MAPASK-DONE"
+PERM_CMD = "mkdir rc-perm-dir"  # 3.6.0.2 P6: the step `prompt` answers its permission card from Studio
 BUILD_PROMPT = "RC-MAPBUILD: build me a review workflow: a coder then a reviewer"
 ASK_PROMPT = "RC-MAPASK: which workflow are you using?"
 # the one Builder card RC-MAPBUILD asks for (3.6.0.2 section 11): coder and reviewer are shipped agents, so no agent
@@ -170,6 +172,10 @@ class Provider:
                 return _finish(h, tool_step(("Builder", {"changes": BUILD_CHANGES}, "call_rc_build")))
             tail = result.split("word for word: ", 1)[1].strip() if "word for word: " in result else ""
             return _finish(h, text_step((MAPBUILD_DONE + " " + tail).strip()))
+        if "RC-PERM" in turn:
+            if done_here == 0:
+                return _finish(h, tool_step(("Bash", {"command": PERM_CMD, "description": "rc perm"}, "call_rc_perm")))
+            return _finish(h, text_step(ANSWER))
         if "RC-SUBHANG" in last:
             self._hold("RC-SUBHANG")
             return _finish(h, text_step(SUB_DONE))

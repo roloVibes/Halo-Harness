@@ -59,6 +59,9 @@ export type SessionRow = {
   harness?: { id?: string; name?: string } | null;
   project?: Project | null;
   parent?: string | null;
+  /** 3.6.0.2 P31: the session this row took over from (/clear, a fork, /resume in its terminal); P27: its first words. */
+  follows?: string | null;
+  first_words?: string | null;
   status?: string | null;
   busy?: boolean;
   /** 3.6.0.0 R3: the map the session started with (its control status `map`); none: not on a map. */

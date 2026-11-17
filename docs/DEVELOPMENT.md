@@ -230,7 +230,11 @@ page), `theme` (`halo config set theme paper` is what the terminal's first frame
 (`halo -p` in 5 s; the request's bytes against the day-one size + 10%, `REQUEST_BYTES` in steps_a.py), `turn` (Read,
 a sub-agent and the Workflow tool, from the session's own log), `studio` (headless Chrome through every section: drawn
 in 5 s, no failed /api call, no console error, `hold_still`, two early choices, one prompt from the Prompt panel;
-SKIP without Chrome), `session-map` (the owner's sentence, 3.6.0.2: a workflow asked for in a terminal session
+SKIP without Chrome), `prompt` (3.6.0.2, one prompt in two views: its own Studio and a session in a terminal; a
+prompt sent the way Studio's Prompt sends it shows once in the terminal, `/model` sent from Studio switches the model,
+a permission ask answered from Studio reads `Answered in Studio: Allow` and the key that closes the card sends nothing,
+no user or host name in the session's log or on the screen, and after `/clear` the new row's `follows` names the old
+id; each of its five asserts is reported alone), `session-map` (the owner's sentence, 3.6.0.2: a workflow asked for in a terminal session
 gives one Builder card that says what it builds, Studio's Live button shows `new` within 5 s without opening
 anything, the drawer draws the new map down and marked, Agents opens on Live, the next question's request carries
 the facts note, two more turns leave the drawer as it was; each of its six asserts is reported alone), `packs` (the shipped doc-review pack from the tree), `local` (`halo local ps|warm|unload` on a

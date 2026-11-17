@@ -53,9 +53,9 @@ def test_list_names_every_step_and_an_unknown_step_is_a_usage_error(ctx: Ctx):
         rc = m.main(["--list"])
     lines = out.getvalue().splitlines()
     names = [line.split()[0] for line in lines]
-    ctx.check(f"the thirteen steps in order, got {names}", rc == 0 and names == [
-        "starts", "first-run", "theme", "question", "turn", "studio", "session-map", "packs", "local", "update",
-        "closing", "no-reuse", "idle-cpu"])
+    ctx.check(f"the fourteen steps in order, got {names}", rc == 0 and names == [
+        "starts", "first-run", "theme", "question", "turn", "studio", "prompt", "session-map", "packs", "local", "update",
+        "closing", "no-reuse", "idle-cpu"])  # 3.6.0.2 P6: `prompt` (one prompt in two views) after `studio`
     budget = next((line.split()[1] for line in lines if line.split()[0] == "session-map"), "")
     want = "180s" if sys.platform == "win32" else "120s"
     ctx.check(f"session-map's budget is {want} here (180 s on Windows, 120 s elsewhere), got {budget!r}", budget == want)

@@ -128,6 +128,29 @@ export function livePick<R extends SessionRow>(rows: R[], pick: string): R | nul
   return openOrder(rows)[0] || null;
 }
 
+const heirs = new Map<string, string>(); // 3.6.0.2 P31: a pick moved by `follows`: the new id -> the old pick
+
+/** 3.6.0.2 P31: the open row that took over from `pick` once `pick` left the list (its `follows` names the pick, or
+ *  names a row that did: /clear twice, read through the rows this page saw), else null (`pick` still listed, or nothing
+ *  follows it: P32). A move found here is remembered for `followedFrom` (the header's line). */
+export function followerOf<R extends SessionRow>(rows: R[], pick: string): R | null {
+  if (!pick || rows.some((r) => r.session_id === pick)) return null;
+  const known = [...rows, ...seen.values()];
+  const walked = new Set<string>();
+  for (let at = pick; at && !walked.has(at); ) {
+    walked.add(at);
+    const next = known.find((r) => r.follows === at && !walked.has(r.session_id));
+    if (!next) return null;
+    const open = rows.find((r) => r.session_id === next.session_id);
+    if (open) return (heirs.set(open.session_id, pick), open);
+    at = next.session_id;
+  }
+  return null;
+}
+
+/** P31: the pick `sid` took over from by `follows` ("" when it was picked any other way). */
+export const followedFrom = (sid: string): string => heirs.get(sid) || "";
+
 /** What the truth sentence knows of an open row (P2's status row fields); never `busy` for the words. */
 export function factsOf(row: SessionRow, ended: number | null = null, now = Date.now() / 1000): TruthFacts {
   const asked = !!row.asked || !!Number(row.turns);

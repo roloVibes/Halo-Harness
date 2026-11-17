@@ -10,6 +10,10 @@ behind the real Controller (tests/helpers/prompt_rig.py); no model call:
 5. a send while busy is refused with one line and keeps the text; Queue it holds it (no steer), and when the
    running turn ends it runs as the next turn, its marks reaching replied; every receipt ends replied, the
    refused one failed.
+3.6.0.2 P6 (tests/helpers/studio_prompt_one.py, tests/helpers/studio_prompt_pick.py): the answer to a send never
+wipes what was typed after Enter, a steer's one row, `Interrupted.`, an ask answered elsewhere; the header names the
+session in words on two lines, `Change session`, `Now typing into ...`, the pick following /clear, an ended session's
+text kept read-only with Copy.
 Run: python -m tests.test_studio_prompt
 """
 from __future__ import annotations
@@ -180,6 +184,106 @@ def test_ask_answered_in_terminal_closes_studio_card(ctx: Ctx):
               e.get("terminal") == {"lines": ["Answered in the terminal: Allow"], "buttons": 0})
     ctx.check(f"answered from a phone: 'Answered remotely', got {e.get('remote')}",
               e.get("remote") == {"lines": ["Answered remotely: Allow"], "buttons": 0})
+
+
+# -- 3.6.0.2 P6 P27-P29, P31, P32: tests/helpers/studio_prompt_pick.py, which session the box types into -------------
+def _pick(ctx: Ctx) -> dict:
+    return driver_got(ctx, "tests.helpers.studio_prompt_pick", why="the Prompt panel needs headless Chrome", cache=_RUN,
+                      key="pick", args=("pick",), timeout=300)
+
+
+def _held(ctx: Ctx, what: str, a: dict, b: dict) -> None:
+    ctx.check(f"{what}: the header's height and the box's top unchanged, got {a and (a.get('head'), a.get('top'))} -> "
+              f"{b and (b.get('head'), b.get('top'))}", bool(a) and bool(b) and a.get("head") == b.get("head") and a.get("top") == b.get("top"))
+
+
+@test
+def test_header_names_the_session_in_two_lines(ctx: Ctx):
+    """P27: `<folder> · <title> · started <HH:MM> · in a terminal`, never an id; a one-line and a two-line title give
+    the header the same height and are never clipped."""
+    got = _pick(ctx)
+    ctx.check(f"the driver ran to its end, failed: {got.get('failed')!r}", not got.get("failed"))
+    h = got.get("header") or {}
+    first, one, two = h.get("first") or {}, h.get("one") or {}, h.get("two") or {}
+    ctx.check(f"the folder, then the words, never the id, got {first.get('text')!r}",
+              str(first.get("text", "")).startswith(f"{h.get('folder')} · ") and " · started " in first.get("text", "")
+              and first.get("text", "").endswith(" · in a terminal") and h.get("sid", "")[:8] not in first.get("text", ""))
+    ctx.check(f"a title: the words name it, got {one.get('text')!r}", " · Fix the parser · started " in str(one.get("text")))
+    ctx.check(f"the long title takes two lines, got {h.get('two_lines')}", h.get("two_lines") == 2)
+    for name, g in (("one line", one), ("two lines", two)):
+        ctx.check(f"{name}: not clipped (scrollWidth {g.get('sw')} == clientWidth {g.get('cw')}, scrollHeight {g.get('sh')} "
+                  f"<= clientHeight {g.get('ch')})", g.get("sw") == g.get("cw") and (g.get("sh") or 0) <= (g.get("ch") or 0))
+    _held(ctx, "one line -> two lines", one, two)
+    _held(ctx, "no title -> one line", first, one)
+
+
+@test
+def test_change_session_list_and_moved_line(ctx: Ctx):
+    """P28, P29: the list in the header's words, newest first, the current marked; choosing shows no line; `/studio`
+    shows `Now typing into ...` in the header's place for 6 s and nothing moves; a long title gives the short line."""
+    got = _pick(ctx)
+    ch = got.get("change") or {}
+    listed = ch.get("listed") or []
+    ctx.check(f"two sessions, newest first, the current one marked, got {listed}",
+              [x.get("sid") for x in listed] == [ch.get("sid2"), (got.get("header") or {}).get("sid")]
+              and [x.get("on") for x in listed] == [False, True])
+    ctx.check(f"each in the header's words, got {[x.get('words') for x in listed]}",
+              len(listed) == 2 and listed[1].get("words") == ch.get("head_words")
+              and str(listed[0].get("words")).startswith(f"{ch.get('other')} · Second session · started "))
+    ctx.check(f"choosing one sets the pick, shows no line and closes the list, got {ch.get('chosen')} "
+              f"{ch.get('line_after_list')!r} {ch.get('list_closed')}",
+              ch.get("chosen") is True and not ch.get("line_after_list") and ch.get("list_closed") is True)
+    folder = (got.get("header") or {}).get("folder")
+    ctx.check(f"`/studio` moved the pick with the line, got {ch.get('focus_status')} {ch.get('moved')!r}",
+              ch.get("focus_status") == 200 and ch.get("moved") == f"Now typing into {folder} · Fix the parser."
+              and ch.get("pick_after_focus") == (got.get("header") or {}).get("sid"))
+    ctx.check(f"the line shows about 6 s, got {ch.get('shown_s')} s", ch.get("gone") == "gone" and 4.5 <= (ch.get("shown_s") or 0) <= 8.0)
+    _held(ctx, "before -> during the line", ch.get("before") or {}, ch.get("during") or {})
+    _held(ctx, "during -> after the line", ch.get("during") or {}, ch.get("after") or {})
+    lg = ch.get("long") or {}
+    ctx.check(f"a title past two lines: the short line, got {lg.get('line')!r}", lg.get("line") == f"Now typing into {folder}.")
+    # (before is another session's header, its own title's height: the line keeps the height of the session it names)
+    _held(ctx, "long title: during -> after", lg.get("during") or {}, lg.get("after") or {})
+
+
+@test
+def test_clear_in_the_terminal_never_shows_ended(ctx: Ctx):
+    """P16, P31: /clear in the terminal moves the pick to the row that follows the old one; the header names it, the
+    `Same terminal, new conversation` line shows, the box keeps its text and stays editable; never the ended line."""
+    got = _pick(ctx)
+    p = got.get("pick") or {}
+    other = (got.get("change") or {}).get("other")
+    ctx.check(f"the pick followed to the new row, got {p.get('followed')}", p.get("followed") is True)
+    ctx.check(f"the line, got {p.get('line')!r}", p.get("line") == f"Same terminal, new conversation: {other}.")
+    ctx.check(f"then the header names the new row, got {p.get('head_after')!r}",
+              str(p.get("head_after") or "").startswith(f"{other} · no messages yet · started "))
+    ctx.check(f"the box's text the same and editable, got {p.get('box_before')!r} -> {p.get('box_after')!r} {p.get('editable')}",
+              p.get("box_before") == "a draft he keeps" == p.get("box_after") and p.get("editable") is True)
+    ctx.check(f"the ended line never showed, got {p.get('ended_seen')}", p.get("ended_seen") == 0)
+    f = p.get("from_ended") or {}
+    ctx.check(f"from the ended state a later follower takes the pick, editable, the same text, got {f}",
+              f.get("followed") is True and f.get("line") == f"Same terminal, new conversation: {other}."
+              and f.get("box") == "a draft he keeps" and f.get("editable") is True and f.get("ended_gone") is True)
+
+
+@test
+def test_ended_session_keeps_text_read_only(ctx: Ctx):
+    """P32: the picked session ends, nothing follows: read-only with its text, the line, Copy -> `Copied.` for 2 s with
+    the text on the clipboard; picking another session makes the box editable with the same text."""
+    got = _pick(ctx)
+    p = got.get("pick") or {}
+    e = p.get("ended") or {}
+    ctx.check(f"the line, got {e.get('shown')!r}", e.get("shown") == "This session has ended. What you typed is still here.")
+    ctx.check(f"the box read-only with its text, Send off, got {e.get('box')!r} {e.get('read_only')} {e.get('send_off')}",
+              e.get("box") == "a draft he keeps" and e.get("read_only") is True and e.get("send_off") is True)
+    ctx.check(f"the header still names the ended session, got {e.get('head')!r}", " · started " in str(e.get("head") or ""))
+    ctx.check(f"Copy -> Copied. with the text on the clipboard, back to Copy, got {e.get('copy_word')!r} "
+              f"{e.get('copied_word')!r} {e.get('clipboard')!r} {e.get('back_to_copy')!r} {e.get('copied_s')}",
+              e.get("copy_word") == "Copy" and e.get("copied_word") == "Copied." and e.get("clipboard") == "a draft he keeps"
+              and e.get("back_to_copy") == "Copy" and 1.0 <= (e.get("copied_s") or 0) <= 4.0)
+    o = p.get("other_pick") or {}
+    ctx.check(f"another session picked: editable with the same text, got {o}",
+              o.get("picked") is True and o.get("box") == "a draft he keeps" and o.get("editable") is True and o.get("ended_gone") is True)
 
 
 if __name__ == "__main__":

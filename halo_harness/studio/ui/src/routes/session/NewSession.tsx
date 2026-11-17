@@ -121,7 +121,7 @@ export function NewSession({ compact }: { compact?: boolean }) {
 }
 
 /** The Prompt header's line for a session with no terminal: the chip, Open in terminal, End session (asks first). */
-export function NoTerminal({ ss }: { ss: SessionRow }) {
+export function NoTerminal({ ss, chip = true }: { ss: SessionRow; chip?: boolean }) {
   const [sure, setSure] = useState(false);
   const [ending, setEnding] = useState(false);
   useEffect(() => setSure(false), [ss.session_id]);
@@ -144,7 +144,7 @@ export function NoTerminal({ ss }: { ss: SessionRow }) {
   };
   return (
     <span className="spp-noterm" data-testid="prompt-noterm">
-      <span className="og-chip mono" title="Started from Studio: it has no terminal; this panel is its prompt">no terminal</span>
+      {chip && <span className="og-chip mono" title="Started from Studio: it has no terminal; this panel is its prompt">no terminal</span>}
       <button className="og-link mono" onClick={copy} title={resumeLine(ss)} data-testid="prompt-open-terminal">Open in terminal</button>
       {sure ? (
         <Button size="sm" variant="danger" disabled={ending} onClick={() => void end()} data-testid="prompt-end-yes">End it</Button>

@@ -16,6 +16,7 @@ import { ModelPicker } from "../shared/picker/ModelPicker";
 import { resolveBusy, send } from "./promptSend";
 import { editStart } from "./promptWords";
 import { imageFile, kb, readImage } from "./steerImage";
+import { PromptEnded } from "./PromptEnded";
 
 const BARE_MODEL = /^\s*\/model\s*$/; // 3.6.0.2 P69: Enter on a bare `/model` opens the model picker
 const firstLine = (el: HTMLTextAreaElement) => !el.value.slice(0, el.selectionStart).includes("\n");
@@ -27,7 +28,8 @@ function droppedPath(dt: DataTransfer | null): string {
   return (dt?.getData("text/plain") || uri).trim();
 }
 
-export function PromptComposer({ sid, off }: { sid: string; off: string }) {
+/** `ended`: 3.6.0.2 P32, the picked session ended with text in the box: read-only, the line and Copy over it. */
+export function PromptComposer({ sid, off, ended = false }: { sid: string; off: string; ended?: boolean }) {
   const draft = usePrompt((s) => s.draft);
   const busy = usePrompt((s) => s.busy);
   const sending = usePrompt((s) => s.sending);
@@ -96,6 +98,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
   };
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const el = e.currentTarget;
+    if (ended) return; // P32: read-only, nothing is sent or recalled
     if (matches.length && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault();
       setPick((at + (e.key === "ArrowDown" ? 1 : matches.length - 1)) % matches.length);
@@ -113,6 +116,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
     else if (e.key === "ArrowDown" && !e.shiftKey && lastLine(el) && hist >= 0) walk(1, e);
   };
   const take = async (e: ClipboardEvent<HTMLDivElement> | DragEvent<HTMLDivElement>, from: "paste" | "drop") => {
+    if (ended) return void e.preventDefault(); // P32: nothing lands in a read-only box
     const dt = "clipboardData" in e ? e.clipboardData : e.dataTransfer;
     const f = imageFile(dt);
     if (f) {
@@ -129,6 +133,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
   return (
     <div className="spp-composer" data-testid="prompt-composer" data-disabled={!!off || undefined} onPaste={(e) => void take(e, "paste")}
          onDrop={(e) => void take(e, "drop")} onDragOver={(e) => e.dataTransfer?.types?.length && e.preventDefault()}>
+      {ended && <PromptEnded text={draft} />}
       {busy && busy.sid === sid && (
         <div className="spp-busy" data-testid="prompt-busy" role="status">
           <span className="spp-busy-line">{busy.line}</span>
@@ -157,9 +162,9 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
       )}
       <div className="spp-row-in">
         <span className="spp-caret mono" aria-hidden="true">›</span>
-        <TextBox ref={box} fill mono className="spp-input" value={draft} disabled={!!off} placeholder={off || "Type a turn, or / for a command"}
+        <TextBox ref={box} fill mono className="spp-input" value={draft} disabled={!!off} readOnly={ended} placeholder={off || "Type a turn, or / for a command"}
                  onChange={(e) => (edited(e.target.value), setPick(0))} onKeyDown={onKey} aria-label="Type into this session" data-testid="prompt-input" />
-        <Button size="sm" variant="primary" icon={<Icon name="send" />} disabled={!!off || sending || (!draft.trim() && !img)} onClick={go} data-testid="prompt-send">
+        <Button size="sm" variant="primary" icon={<Icon name="send" />} disabled={!!off || ended || sending || (!draft.trim() && !img)} onClick={go} data-testid="prompt-send">
           Send
         </Button>
       </div>

@@ -7,7 +7,8 @@ No browser and no real session: a fake registry row, a fake socket client record
    note) carries `via: "Studio"` and no `by`, user or host;
 3. an answer carries `via: studio` by the Prompt panel's route and by the Attention alert's (`live_answer._card`);
 4. a hand-off made from Studio writes "Studio" into the brief it leaves in the project folder, never a user or host;
-5. `steer_queued`, `steer_applied` and `ask_answered` reach the page (DEFAULT_KINDS, KNOWN_KINDS).
+5. `steer_queued`, `steer_applied` and `ask_answered` reach the page (DEFAULT_KINDS, KNOWN_KINDS);
+6. an attached session's row carries `follows` and `first_words` (PUBLIC_FIELDS: P27's words, P31's follow).
 Run: python -m tests.test_studio_prompt_one
 """
 from __future__ import annotations
@@ -199,6 +200,47 @@ def test_steer_and_ask_kinds_in_default_kinds(ctx: Ctx):
     events_ts = (Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "lib" / "events.ts")
     src = events_ts.read_text(encoding="utf-8")
     ctx.check("the page binds them (KNOWN_KINDS)", all(f'"{k}"' in src for k in want))
+
+
+@test
+def test_rows_carry_follows_and_first_words(ctx: Ctx):
+    """P27, P31: an ATTACHED session's row (studio/events.py `_pump` through PUBLIC_FIELDS, the `sessions` frame the
+    page reads) carries `follows` and `first_words`, as GET sessions' rows do (registry.public_entry)."""
+    import halo_harness.remote.client as rc
+    from halo_harness.remote.registry import public_entry
+    from halo_harness.studio.events import EventBridge
+
+    class OneEvent:  # attaches, then the socket closes: the bridge publishes `attached`, then `detached`
+        def __init__(self, *a, **k):
+            pass
+
+        def call(self, *a, **k):
+            return {"ok": True}
+
+        def next_event(self, timeout):
+            raise ConnectionResetError("closed")
+
+        def close(self):
+            pass
+
+    entry = dict(ENTRY, follows="fx6old00000000000000000000000000", first_words="fix the parser in the", kind="tui")
+    bridge, frames = EventBridge(kinds=["status"], harness_id="h1"), []
+    bridge.publish = frames.append
+    saved = rc.ControlClient, rc.default_token_for
+    rc.ControlClient, rc.default_token_for = OneEvent, (lambda e: "")
+    try:
+        bridge._pump(entry, __import__("threading").Event())
+    finally:
+        rc.ControlClient, rc.default_token_for = saved
+    attached = next((f for f in frames if (f.get("data") or {}).get("attached") == SID), None)
+    rows = ((attached or {}).get("data") or {}).get("sessions") or []
+    row = rows[0] if rows else {}
+    ctx.check(f"the attached row carries follows, got {row.get('follows')!r}", row.get("follows") == entry["follows"])
+    ctx.check(f"the attached row carries first_words, got {row.get('first_words')!r}",
+              row.get("first_words") == entry["first_words"])
+    listed = public_entry(entry)
+    ctx.check("GET sessions' row carries them too", listed.get("follows") == entry["follows"]
+              and listed.get("first_words") == entry["first_words"])
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 import { onEvent } from "../../lib/events";
-import { livePick, noteBuild, noteRows, staleList } from "./pick";
+import { followerOf, livePick, noteBuild, noteRows, staleList } from "./pick";
 import { keepOpen } from "../crew/map/built";
 import { startLit } from "../crew/map/litStore";
 import { livePickAway, setAgentsView } from "../agents/store";
@@ -149,6 +149,13 @@ function onChange(): void {
     // the session LIST read again (GET live, a sessions frame: listReads), never an agent frame of another session
     const gaveUp = s.loaded && !s.error && staleList(s.listReads, localSessions(s), want ? "" : session);
     if (gaveUp) (session = "", (needPick = true)); // R1: a pick never listed in two reads: Session as with no pick
+    // 3.6.0.2 P31: a pick that left the list moves to the row that follows it (/clear, a fork, /resume in its terminal)
+    const heir = s.loaded && !s.error && !want ? followerOf(localSessions(s), session) : null;
+    if (heir) {
+      session = heir.session_id;
+      const key = pickAgent(s, session); // its main agent, as a pick on entering selects one
+      if (key && findAgent(s, key)) select(key);
+    }
     if (s.loaded && want) {
       sess.update(() => ({ want: null }));
       needPick = false;
