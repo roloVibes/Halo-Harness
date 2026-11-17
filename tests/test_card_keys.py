@@ -1056,6 +1056,80 @@ def test_n15_text_that_lands_through_ctrl_v_counts_as_a_key_into_the_box(ctx: Ct
         shutil.rmtree(folder, ignore_errors=True)
 
 
+@test
+@real_card_timing
+def test_p7_the_kept_line_and_a_waiting_cards_line_both_show(ctx: Ctx):
+    """cardkeys-decisions.md "After the build": the slot above the box shows the kept line AND a waiting card's line
+    (two lines, the kept line above), so a waiting card is never unsaid, not even for the kept line's 10 s: whole at 80
+    columns, short at 60; when the kept line's time ends only the wait line stays; the box keeps its place and size.
+    Red on 4a150bf9 (the kept line took the slot alone)."""
+    async def walk(fake, app, pilot, clock):
+        from halo_harness.tui.dispatch import apply_event
+        box = app.prompt_input
+        await _type(pilot, clock, "draft ")
+        await _ask(app, pilot, _perm("req-1"))
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.press("4")
+        await pilot.pause(0.1)
+        await _type(pilot, clock, "why")
+        await apply_event(app, ev.ask_answered("req-1", "permission", "Allow", "studio"))
+        await pilot.pause(0.1)
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"the kept line alone first, got {_line(app)!r}", _line(app) == KEPT)
+        at = (box.region.y, box.region.height)
+        line = app.card_wait_line
+        gap = box.region.y - line.region.bottom  # the box's own top edge (its border) under the slot
+        clock.step(5.0)
+        await _ask(app, pilot, _perm("req-2"))
+        await pilot.pause(0.2)
+        ctx.check(f"a card waits while the kept line shows: both lines, the kept line above, got {_line(app)!r}",
+                  _line(app) == f"{KEPT}\n{WAIT_PERMISSION}")
+        ctx.check(f"two rows, right above the box, got {line.region} box {box.region}",
+                  line.region.height == 2 and box.region.y - line.region.bottom == gap <= 1)
+        ctx.check(f"the box keeps its size and place, got {at} -> {(box.region.y, box.region.height)}",
+                  (box.region.y, box.region.height) == at)
+        await pilot.resize_terminal(60, 24)
+        await pilot.pause(0.2)
+        ctx.check(f"at 60 columns both short forms, got {_line(app)!r}", _line(app) == f"{KEPT_SHORT}\n{WAIT_PERMISSION_SHORT}")
+        await pilot.resize_terminal(80, 24)
+        await pilot.pause(0.2)
+        at = (box.region.y, box.region.height)
+        line.clear_kept()  # what the kept line's 10 s timer calls
+        await pilot.pause(0.2)
+        ctx.check(f"the kept line's time ended: the wait line alone, got {_line(app)!r}", _line(app) == WAIT_PERMISSION)
+        ctx.check(f"one row, right above the box, which has not moved, got {line.region} box {box.region} (was {at})",
+                  line.region.height == 1 and box.region.y - line.region.bottom == gap and (box.region.y, box.region.height) == at)
+    _run(walk)
+
+
+_CHILD_TIMES = "from halo_harness.tui.keys import card_times; print(card_times())"
+
+
+def _child_times(env: dict) -> str:
+    import subprocess
+    r = subprocess.run([sys.executable, "-c", _CHILD_TIMES], cwd=str(REPO_DIR), env=env, capture_output=True,
+                       text=True, timeout=120)
+    return (r.stdout or r.stderr).strip()
+
+
+@test
+def test_p7_a_halo_a_test_starts_runs_with_the_real_card_times(ctx: Ctx):
+    """cardkeys-decisions.md "After the build": the runner's switch for the two card times reaches this process only; a
+    halo process an unmarked test starts runs with the REAL times unless the test asks for the switch. Red on 4a150bf9
+    (the switch was an environment variable every child inherited)."""
+    import os
+    from halo_harness.tui.keys import CARD_FRESH_S, CARD_WAIT_S, card_times
+    ctx.check(f"this (unmarked) test's own process has the times off, got {card_times()}", card_times() == (0.0, 0.0))
+    env = {**os.environ, "PYTHONPATH": str(REPO_DIR)}
+    real = _child_times(env)
+    ctx.check(f"a child started with the test's environment has the real times, got {real!r}",
+              real == str((CARD_WAIT_S, CARD_FRESH_S)))
+    asked = _child_times({**env, "HALO_TEST_CARD_TIMES_OFF": "1"})
+    ctx.check(f"a child whose test asks for the switch has them off, got {asked!r}", asked == "(0.0, 0.0)")
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

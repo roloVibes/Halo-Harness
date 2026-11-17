@@ -18,6 +18,8 @@ export type MapState = {
   inUse: string | null;
   /** 3.6.0.2 R24 (F4): the map new sessions use -- the API's `next` (config crew.map), null when unset */
   next: string | null;
+  /** P7: new sessions start with NO map (roles off, crew.map unset) -- the API's `next_none`, the truth block's field */
+  nextNone: boolean;
   name: string;
   detail: MapDetail | null;
   locked: boolean;
@@ -34,7 +36,7 @@ const LOCK = "halo.studio.map-lock";
 export const LAST = "halo.studio.map-open";
 const read = (k: string) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
 
-export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
+export const maps = createStore<MapState>({ rows: [], listed: false, inUse: null, next: null, nextNone: false, name: "", detail: null, locked: read(LOCK) === "1", open: {}, hover: "",
   pick: "", when: null, receipt: null, error: "", made: [] });
 export const useMap = <T,>(pick: (s: MapState) => T): T => useStore(maps, pick);
 export const msg = (e: unknown) => (e instanceof ApiError ? e.message : String(e));
@@ -47,8 +49,8 @@ export async function loadMaps(): Promise<void> {
     onFilesChanged(["maps", "config"], () => void loadMaps());
   }
   try {
-    const r = await api.get<{ maps: MapRow[]; in_use: string | null; next?: string | null }>("crew/maps");
-    maps.update(() => ({ rows: r.maps, inUse: r.in_use, next: r.next || null, listed: true }));
+    const r = await api.get<{ maps: MapRow[]; in_use: string | null; next?: string | null; next_none?: boolean }>("crew/maps");
+    maps.update(() => ({ rows: r.maps, inUse: r.in_use, next: r.next || null, nextNone: !r.next && r.next_none === true, listed: true }));
   } catch (e) {
     maps.update(() => ({ error: msg(e), listed: true }));
   }

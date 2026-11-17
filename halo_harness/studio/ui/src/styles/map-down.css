@@ -20,8 +20,13 @@
 .mp-down-below { flex: 0 0 32px; height: 32px; display: flex; align-items: center; min-width: 0; }
 /* batch 13's repair: the wait link sits in a fixed slot (Session: after "more below", at the right; Live: at the left of
    the tools row), one line: it never moves a control or the drawing; its whole words are its title */
-:is(.mp-down-below, .ag-run-tools) .mp-wait-link { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mp-down-below .mp-wait-link { margin-left: auto; }
+.ag-run-tools .mp-wait-link { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* P7: in Session's slot "↓ n more below" never shrinks or wraps (its own width, one line); the wait link takes the room
+   that is left and wraps there, inside the slot's reserved 32 px (two 14 px lines at 12 px): nothing moves when it comes */
+.mp-down-below > [data-testid=map-more-below] { flex: 0 0 auto; white-space: nowrap; }
+.mp-down-below .mp-wait-link { flex: 0 1 auto; min-width: 0; min-height: 0; max-height: 28px; margin-left: auto; align-self: center;
+  overflow: hidden; font-size: 12px; line-height: 14px; text-align: right; white-space: normal; overflow-wrap: anywhere; }
+.mp-down-below .mp-wait-words { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .ag-run-tools .mp-wait-link { margin-right: auto; }
 /* R7 R9 R10: a box is 184 px wide, 56 px for a name and "kind · state" (9 + 19 + 17 + 9 + borders), and grows with its
    words: no cap, no ellipsis, long words break anywhere */

@@ -116,5 +116,6 @@ export const followLine = (row: HeadRow): string => `Same terminal, new conversa
 /** P72: the box once the answer to a send arrives while its record stands: `null` leaves the box as it is. */
 export function afterAnswer(box: string, sent: string): string | null {
   if (!box.startsWith(sent)) return null;
+  if (!sent) return box; // P7: an image-only send sent no text: what he typed after it stays exactly
   return box.slice(sent.length).replace(/^\s+/, "");
 }

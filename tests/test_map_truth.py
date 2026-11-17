@@ -479,6 +479,29 @@ def test_words_in_one_place(ctx: Ctx):
     ctx.check(f"no output of the copy says Live, Feed or Map any more, got {old}", not old)
 
 
+@test
+def test_p7_the_wait_words_have_one_mapping(ctx: Ctx):
+    """P7 (the checker of P4 batch 13, the coordinator's ruling): the clock's words for a wait (runParts.tsx) were a second
+    copy of the status line's mapping (truth.ts). ONE mapping, truth.ts `waitWhat`, read by both. Red on 4a150bf9."""
+    truth = (MAPDIR / "truth.ts").read_text(encoding="utf-8")
+    parts = (MAPDIR / "runParts.tsx").read_text(encoding="utf-8")
+    ctx.check("truth.ts exports waitWhat, the one mapping", "export const waitWhat" in truth)
+    ctx.check("the status line reads it", "waiting for ${waitWhat(s.waiting)}" in truth)
+    ctx.check("'a model reply' is written once, in truth.ts", truth.count('"a model reply"') == 1 and "a model reply" not in parts)
+    ctx.check("the clock imports waitWhat and has no mapping of its own", "waitWhat" in parts and "WAIT_WHAT" not in parts)
+
+
+@test
+def test_p7_the_canvas_room_is_set_up_once(ctx: Ctx):
+    """P7 (the checker of P4 batch 12): MapView.tsx useCanvasRoom's layout effect had no dependency array, so it tore down
+    and rebuilt its ResizeObserver on every render. It is set up once ([root]); a part coming or going is seen by a
+    MutationObserver. (History in sight at rest is the browser tests' part, test_studio_agents_live.) Red on 4a150bf9."""
+    src = (MAPDIR / "MapView.tsx").read_text(encoding="utf-8")
+    body = src[src.index("function useCanvasRoom"):src.index("function MapMain")]
+    ctx.check("the effect ends with a dependency array", "}, [root]);" in body)
+    ctx.check("a part coming or going is observed", "new MutationObserver(" in body and "childList: true" in body)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

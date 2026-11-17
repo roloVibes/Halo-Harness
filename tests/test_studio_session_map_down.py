@@ -622,8 +622,10 @@ def test_truth_block_height_moves_only_with_a_name(ctx: Ctx):
         node_skip = ""
         ctx.check(f"T5 (a): no change while the map's hash stays, then changed at the read that saw a new one, got {p}",
                   p.get("before") is None and p.get("same") is None and p.get("after") == {"t": 30})
+        # P7: rewritten to the truth -- pick.ts's {B} carries `none` since P4 batch 10 (new sessions with no map are never
+        # "the default"); this half had never run where node strips TypeScript, so its old shape was never seen red
         ctx.check(f"R4 (a): {{B}} heard from the newest row, then from an applied build, got {p.get('next1')} {p.get('next2')}",
-                  p.get("next1") == {"b": "shop"} and p.get("next2") == {"b": "review-flow"})
+                  p.get("next1") == {"b": "shop", "none": False} and p.get("next2") == {"b": "review-flow", "none": False})
         ctx.check(f"R4 (a): a failed card is no build; an applied one counts once its session is not open, got {p}",
                   p.get("failed") is None and p.get("open") is None and p.get("ended") == {"map": "review-flow", "t": 50})
     try:

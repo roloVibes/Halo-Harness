@@ -137,6 +137,13 @@ def replay(c, rig, lv, sent) -> dict:
         raise TimeoutError(f"no Replay the last session: the top line says {c.js(t('map-topline') + '?.textContent')!r}")
     press(c, last)
     out["replaying"] = c.wait(f"{t('map-topline')}?.dataset.lit === 'replay' && 'replay'", 30)
+    # P7 (the coordinator's ruling): Replay is his press, so the Map's drawer opens on History's page with that replay's
+    # rows, at once (no click on the drawer's button first)
+    shown = ("[data-part=map] [data-testid=map-drawer][data-page=history] [data-testid=map-drawer-replay]")
+    try:
+        out["opened"] = c.wait(f"!!document.querySelector('{shown}')?.offsetParent && 'history'", 10)
+    except TimeoutError:
+        out["opened"] = c.js("document.querySelector('[data-part=map] [data-testid=map-drawer]')?.dataset.page || null")
     click_box(c, "main")  # R57: the Map has no feed, so a replay's click opens no drawer of words; its scrubber moves it
     scrub = q("[data-testid=replay-scrub]")
     c.wait(f"!!{scrub}", 15)
@@ -154,4 +161,40 @@ def replay(c, rig, lv, sent) -> dict:
                                     f" return r.length ? r.map((e) => [e.dataset.kind, e.getBoundingClientRect().height]) : null; }})()", 15)
     except TimeoutError:
         out["drawer_rows"] = f"none: drawer {c.js('document.querySelector(`[data-part=map] [data-testid=map-drawer]`)?.dataset.page || null')}"
+    out.update(replay_rows_follow(c, rows, scrub))
+    return out
+
+
+def replay_rows_follow(c, rows: str, scrub: str) -> dict:
+    """P7: the rows follow the scrubber (fewer at its start than at its end), the newest is at the foot and in sight, and
+    History's "Back to now" is in sight and pressable (nothing covers it) at 1500 x 900 and at 1280 x 800."""
+    import time
+    count = f"document.querySelectorAll('{rows}').length"
+
+    def to(v: str) -> int:
+        c.js(f"(() => {{ const s = {scrub}; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;"
+             f" set.call(s, {v}); s.dispatchEvent(new Event('input', {{bubbles: true}})); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+        last = c.js(count)
+        for _ in range(10):  # settled: two reads 200 ms apart alike
+            time.sleep(0.2)
+            now = c.js(count)
+            if now == last:
+                break
+            last = now
+        return last
+    out = {"scrub": [to("s.min"), to("(+s.min + +s.max) / 2"), to("s.max")]}
+    out["foot"] = c.js(f"""(() => {{ const r = [...document.querySelectorAll('{rows}')]; if (!r.length) return null;
+      const box = r[0].parentElement, B = box.getBoundingClientRect(), L = r[r.length - 1].getBoundingClientRect();
+      const secs = r.map((e) => e.querySelector('.mono')?.textContent.trim().split(':').reduce((a, x) => a * 60 + (+x), 0));
+      return [secs.every((s, i) => i === 0 || s >= secs[i - 1]), L.bottom <= B.bottom + 1 && L.top >= B.top - 1]; }})()""")
+    hit = ("(() => { const b = document.querySelector('[data-part=map] [data-testid=map-history-now]'); if (!b) return 'none';"
+           " const r = b.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;"
+           " const at = document.elementFromPoint(x, y); return y > 0 && y < innerHeight && x > 0 && x < innerWidth && !!at && b.contains(at); })()")
+    out["now"] = {"1500": c.js(hit)}
+    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
+    try:
+        time.sleep(0.5)
+        out["now"]["1280"] = c.js(hit)
+    finally:
+        c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
     return out

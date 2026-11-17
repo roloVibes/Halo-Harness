@@ -60,6 +60,6 @@ export function WaitLink({ world }: { world: RefObject<HTMLElement | null> }) {
   };
   return (
     <button type="button" className="mp-link mp-wait-link" onClick={show} data-testid="run-wait" data-leaf={w.leaf}
-            title={`${w.link}\nBring the box it waits on into view, and open it`}>{w.link}</button>
+            title={`${w.link}\nBring the box it waits on into view, and open it`}><span className="mp-wait-words">{w.link}</span></button>
   );
 }

@@ -17,6 +17,8 @@ Chrome over tests/helpers/studio_session_rig.py and tests/helpers/studio_live_ri
              carries the 3.6.0.0 outline (`data-waited`), the drawing's wait link says "waiting on: ... -> Bash ..." and
              a press picks that box (selected, its card open)
     waited   a drawn helper asks and waits on him: its row says "waiting for you · {n} s", the seconds grow, no box moves
+    below    (P7, Session only) at 1280 x 800, before and while the wait link shows: "↓ n more below" keeps its rect and
+             one line, the slot its 32 px, the wait link sits inside the slot with its words whole
 
     python -m tests.helpers.studio_run_parts
 """
@@ -127,6 +129,62 @@ def wait_link(c, lv, where: str) -> dict:
     return out
 
 
+# P7: Session's bottom slot -- "↓ n more below" (its rect, how many lines its words take), the slot's height and width, and
+# whether the wait link (when shown) lies inside the slot with its words whole
+BELOW = """(() => { const s = document.querySelector('[data-testid=session-map-below]'); if (!s) return null;
+  const m = s.querySelector('[data-testid=map-more-below]'), w = s.querySelector('[data-testid=run-wait]'), S = s.getBoundingClientRect();
+  const lines = (el) => { const g = document.createRange(); g.selectNodeContents(el); return new Set([...g.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top))).size; };
+  const r = m && m.getBoundingClientRect(), W = w && w.getBoundingClientRect(), t = w && (w.querySelector('.mp-wait-words') || w);
+  let nat = 0; if (m) { const k = m.cloneNode(true); k.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;'; s.appendChild(k); nat = k.getBoundingClientRect().width; k.remove(); }
+  return { more: r ? [r.left, r.top, r.width, r.height].map(Math.round) : null, lines: m ? lines(m) : 0, natural: !!r && Math.abs(r.width - nat) < 0.5,
+    slot: [Math.round(S.width), Math.round(S.height)], wait: !!w,
+    inside: !W || (W.top >= S.top - 0.5 && W.bottom <= S.bottom + 0.5 && W.left >= S.left - 0.5 && W.right <= S.right + 0.5),
+    whole: !t || (t.scrollWidth <= t.clientWidth + 1 && t.scrollHeight <= t.clientHeight + 1) }; })()"""
+
+
+def settled(c, expr: str, tries: int = 12):
+    """`expr`'s value once two reads 300 ms apart are alike (the drawing re-fitted after a resize), else its last value."""
+    last = c.js(expr)
+    for _ in range(tries):
+        time.sleep(0.3)
+        now = c.js(expr)
+        if now == last:
+            return now
+        last = now
+    return last
+
+
+def below(c, lv, where: str) -> dict:
+    """At 1280 x 800, before and while a long wait link shows: "↓ n more below" keeps its rect, its own (natural) width and
+    one line; the slot keeps its 32 px; the wait link lies inside the slot, its words whole."""
+    out: dict = {}
+    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
+    try:
+        # the drawer at its least width: its splitter dragged as far in as it goes (the drawer stops at its least width)
+        sp = c.js("""(() => { const d = document.querySelector('[data-testid=session-map-below]')?.closest('[data-testid=stage-drawer]');
+          const s = d?.querySelector(':scope > [data-testid=stage-splitter]'); if (!s) return null; const r = s.getBoundingClientRect();
+          return [r.left + r.width / 2, r.top + r.height / 2, d.dataset.side]; })()""")
+        if sp:
+            c.drag(sp[0], sp[1], sp[0] + (-600 if sp[2] == "left" else 600), sp[1])
+            c.mouse("mouseMoved", 2, 790)
+        out["drawer"] = settled(c, "Math.round(document.querySelector('[data-testid=session-map-below]')?.closest('[data-testid=stage-drawer]')?.getBoundingClientRect().width || 0)")
+        out["before"] = settled(c, BELOW)
+        lv.tool("main", "Agent", "call-below-agent")
+        lv.tool("implementer", "Bash", "call-below-bash", current="pytest -q tests/test_a_rather_long_module_name_for_the_slot.py")
+        link = "document.querySelector('[data-testid=session-map-below] [data-testid=run-wait]')?.textContent"
+        try:
+            c.wait(f"{link}?.includes('rather_long')", 15)
+        except TimeoutError:
+            out["link"] = c.js(f"{link} || null")
+        out["after"] = settled(c, BELOW)
+    finally:
+        lv.result("main", "call-below-agent", "done", tool="Agent")
+        lv.result("implementer", "call-below-bash", "ok")
+        lv.state("implementer", current="thinking")
+        c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
+    return out
+
+
 def waited(c, lv, where: str) -> dict:
     """A drawn helper asks and waits on him: its row says what it waits for and for how long, and the seconds grow while
     no box moves."""
@@ -221,7 +279,10 @@ def drawing(c, rig, lv, where: str) -> dict:
                      ("timers", lambda: (open_where(c, rig, lv, where), clock(c, lv, where, 2), timers(c, where))[2]),
                      ("under", lambda: (open_where(c, rig, lv, where), under(c, where))[1]),
                      ("wait", lambda: (open_where(c, rig, lv, where), wait_link(c, lv, where))[1]),
+                     ("below", lambda: (open_where(c, rig, lv, where), below(c, lv, where))[1]),
                      ("waited", lambda: (open_where(c, rig, lv, where), waited(c, lv, where))[1])):
+        if name == "below" and where != "session":
+            continue  # the bottom slot is Session's drawer's
         try:
             if name == "clock":
                 open_where(c, rig, lv, where)

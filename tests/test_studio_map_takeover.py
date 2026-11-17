@@ -98,6 +98,16 @@ def test_6_7_9_goal_replay_keys(ctx: Ctx):
     ctx.check(f"P4 batch 12 (rewritten to the truth): a replay opens no Feed and DOES list its rows (spawns, hand-offs, asks, "
               f"finishes up to the scrubber) in the Map's own drawer on History's page, one line each, got {rows!r}",
               isinstance(rows, list) and len(rows) >= 1 and all(h < 30 for _, h in rows))
+    # P7 (the coordinator's ruling): Replay is his own press, so it opens the Map's drawer on that replay's page at once;
+    # the rows follow the scrubber, the newest at the foot, and History's "Back to now" is never covered
+    ctx.check(f"P7: pressing Replay opens the Map's drawer on History's page with the replay's rows, got {g.get('opened')!r}",
+              g.get("opened") == "history")
+    sc = g.get("scrub") or [0, 0, 0]
+    ctx.check(f"P7: the rows are listed up to the scrubber (start <= middle <= end, fewer at the start), got {sc}",
+              len(sc) == 3 and sc[0] <= sc[1] <= sc[2] and sc[0] < sc[2])
+    ctx.check(f"P7: oldest first, the newest at the foot and in sight, got {g.get('foot')}", g.get("foot") == [True, True])
+    ctx.check(f"P7: History's 'Back to now' is in sight and nothing covers it, at 1500 x 900 and 1280 x 800, got {g.get('now')}",
+              g.get("now") == {"1500": True, "1280": True})
 
 
 @test

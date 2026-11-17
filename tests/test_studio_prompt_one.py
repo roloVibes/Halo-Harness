@@ -193,6 +193,38 @@ def test_handoff_brief_names_studio_not_a_user_or_host(ctx: Ctx):
 
 
 @test
+def test_p7_the_brief_names_its_target_by_a_set_name_only(ctx: Ctx):
+    """P7 (the checker of P6 batch 1): 'Handed to **<name>**' named the TARGET harness by its harness name, which is
+    user@host when no name is set. The brief names its target by the name a person set for it; with none it says
+    'another harness' and the folder it works in (the folder's own name, never a path through a home folder).
+    Red on 4a150bf9."""
+    import inspect
+
+    from halo_harness.studio import live_handoff_api as H
+    words = getattr(H, "target_words", None)
+    ctx.check("live_handoff_api has target_words (the one place the brief's target is named)", callable(words))
+    if not callable(words):
+        return
+    unset = {"id": "0123456789abcdef", "name": "pat@gpu-box", "user": "pat", "host": "gpu-box",
+             "sessions": [{"project": {"root": "/home/pat/work/shop-app"}}]}
+    got = words(unset)
+    ctx.check(f"no name set (user@host): 'another harness' and its folder, no user or host, got {got!r}",
+              got == "another harness, in the folder shop-app" and "pat" not in got and "gpu-box" not in got)
+    hub = {"id": "0123456789abcdef", "name": "01234567", "sessions": []}
+    ctx.check(f"no name set (the hub's id stand-in), no folder known: 'another harness', got {words(hub)!r}",
+              words(hub) == "another harness")
+    shaped = {"id": "fedcba9876543210", "name": "pat@gpu-box", "sessions": []}
+    ctx.check(f"a user@host-shaped name with no user/host fields is no set name, got {words(shaped)!r}",
+              words(shaped) == "another harness")
+    named = {"id": "fedcba9876543210", "name": "build-box", "user": "pat", "host": "gpu-box", "sessions": []}
+    ctx.check(f"a set name is used, got {words(named)!r}", words(named) == "build-box")
+    typed = {"id": "you@studio", "name": "you@studio", "typed": True}
+    ctx.check(f"a target not in the view is named by the words he typed, got {words(typed)!r}", words(typed) == "you@studio")
+    src = inspect.getsource(H.post_handoff)
+    ctx.check("post_handoff names the brief's target through target_words", "to=target_words(target)" in src)
+
+
+@test
 def test_steer_and_ask_kinds_in_default_kinds(ctx: Ctx):
     from halo_harness.studio.feed_kinds import DEFAULT_KINDS
     want = ("steer_queued", "steer_applied", "ask_answered")

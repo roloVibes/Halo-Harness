@@ -158,7 +158,8 @@ def new_registry():
 # 3.6.0.2 P5 batch 4 (the decisions' F-D): the two card times of tui/keys.py (a card shown within 1.5 s of a key into
 # the box waits; a card answers no key in its first 0.6 s) are turned OFF for every test by this one variable, which
 # only tui/keys.card_times reads -- the older modules answer cards right after showing them. A test marked
-# `@real_card_timing` (tests/test_card_keys.py) runs with the product's real times.
+# `@real_card_timing` (tests/test_card_keys.py) runs with the product's real times. P7: the variable holds the runner's
+# own pid, so a halo process a test starts runs with the REAL times unless that test sets the variable to "1" for it.
 CARD_TIMES_OFF_ENV = "HALO_TEST_CARD_TIMES_OFF"
 
 
@@ -204,7 +205,7 @@ def run_all(tests: list, ctx: Ctx):
         if getattr(fn, "real_card_timing", False):
             os.environ.pop(CARD_TIMES_OFF_ENV, None)
         else:
-            os.environ[CARD_TIMES_OFF_ENV] = "1"
+            os.environ[CARD_TIMES_OFF_ENV] = str(os.getpid())  # P7: this process only; a child it starts has the real times
         try:
             fn(ctx)
             retried = str(getattr(ctx, "retried", "") or "")  # 3.3.8.1: tests/helpers/driver_got.py sets it

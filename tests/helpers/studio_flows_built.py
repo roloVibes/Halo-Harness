@@ -82,7 +82,9 @@ def built(c, rig) -> dict:
     _leave(c)
     _frame(c, rig, [{"kind": "workflow", "name": "my-review", "added": False}])
     _back(c)
-    time.sleep(1.5)  # an open would have read the workflow by now; what is read is the form, not a time
+    # P7: waited on the event, not a time -- the list re-read on his return marks the built one; an open would have come
+    # with that same read
+    c.wait(f"!!{q('[data-testid=flow-item][data-name=my-review]')}?.dataset.built", 20)
     out["dirty"] = c.js(f"[{FORM}?.dataset.name, {t('flow-for')}?.value, "
                         f"{q('[data-testid=flow-item][data-name=my-review]')}?.dataset.built || '']")
     click(c, "flow-discard")
@@ -90,10 +92,11 @@ def built(c, rig) -> dict:
     # back at the server): it is kept, and open in the form once the read lands
     import threading
     from halo_harness.studio import api as A
-    gate, orig = threading.Event(), A.dispatch
+    gate, asked, orig = threading.Event(), threading.Event(), A.dispatch
 
     def held(req):
         if req.method == "GET" and str(req.path) == "crew/workflows":
+            asked.set()
             gate.wait(30)
         return orig(req)
     A.dispatch = held
@@ -102,7 +105,7 @@ def built(c, rig) -> dict:
         _leave(c)
         out["new_heard"] = _frame(c, rig, [{"kind": "workflow", "name": "brand-new", "added": True}])
         _back(c)
-        time.sleep(1.5)  # his arrival is handled while the read is held (what is read is the form after it, not a time)
+        out["read_asked"] = asked.wait(20)  # P7: his arrival asked for the list (the read is held now): an event, not a time
         out["new_listed_before"] = c.js(f"!!{q('[data-testid=flow-item][data-name=brand-new]')}")
         gate.set()
         try:

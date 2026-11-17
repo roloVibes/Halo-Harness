@@ -140,7 +140,7 @@ def test_built_workflow_opens_next_visit(ctx: Ctx):
     ctx.check(f"a mounted tab, left and come back to: the built one open, got {got.get('mounted')!r}", got.get("mounted") == "my-review")
     ctx.check(f"P4 batch 12: a NEW one built while away, back before the list was read (the read held): not listed yet "
               f"{got.get('new_listed_before')!r}, open after the read, got {got.get('new_after_read')!r}",
-              got.get("new_heard") == "brand-new" and got.get("new_listed_before") is False and got.get("new_after_read") == "brand-new")
+              got.get("new_heard") == "brand-new" and got.get("read_asked") is True and got.get("new_listed_before") is False and got.get("new_after_read") == "brand-new")
     ctx.check(f"an unsaved edit: the form keeps it, the list marks the built one, got {got.get('dirty')}",
               got.get("dirty") == ["other", "edited here", "1"])
     ctx.check(f"a fresh page on Session heard it and stayed there, got {got.get('fresh_heard')!r} {got.get('fresh_section')!r}",

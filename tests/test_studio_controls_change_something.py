@@ -77,6 +77,12 @@ def test_every_control_changes_something(ctx: Ctx):
               len(sight) == 4 and all(isinstance(v, list) and v[0] is True and v[1] is True and v[4] == 0 for v in sight.values()))
     ctx.check(f"P4 batch 12: on the default map with no map set, no switch, the plain sentence, got {got.get('default_uses')}",
               got.get("default_uses") == [False, "New sessions run on starter (the default)."])
+    nu = got.get("none_uses") or {}
+    ctx.check(f"P7: roles off and no map set, the default map says the words file's 'no map' sentence beside a switch (off), "
+              f"got {nu}", nu.get("api") is True and nu.get("off") == [True, "false", "New sessions will run with no map.", ""])
+    ctx.check(f"P7: ... and the switch's press changes what the bar says (new sessions on the default map), got {nu.get('pressed')} "
+              f"next_none {nu.get('api_after')}", nu.get("pressed") == [False, "", "", "New sessions run on starter (the default)."]
+              and nu.get("api_after") is False)
     ctx.check(f"3 · Map: the run overlay's old controls are gone (R55), got {got.get('gone')}", got.get("gone") == 0)
     _group(ctx, got, "live", LIVE)
     ctx.check(f"4 · Live: no editing handle (R34: no dot, no When label to press), got {got.get('handles')}", got.get("handles") == [0, 0])

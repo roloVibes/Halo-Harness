@@ -982,14 +982,17 @@ class CardWaitLine(Widget):
         self.card = None
         self.box_has_text = False
         # 3.6.0.2 P5 batch 5: the same slot says his text is set aside for a borrow (K9) and, for KEPT_LINE_S, that
-        # the words a lost answer left are kept (K11). Kept first, then set aside, then a waiting card.
+        # the words a lost answer left are kept (K11). P7: the kept line on its own row ABOVE the set-aside line or a
+        # waiting card's line (two rows while both are said).
         self.aside = False
         self.kept = False
         self._kept_timer = None
 
     def _sync(self) -> None:
-        self.display = self.kept or self.aside or self.card is not None
-        self.refresh()
+        rows = int(self.kept) + int(self.aside or self.card is not None)
+        self.display = rows > 0
+        self.styles.height = max(rows, 1)  # P7: the kept line AND a waiting card's line, two rows (the box stays put)
+        self.refresh(layout=True)
 
     def show_for(self, card, box_has_text: bool) -> None:
         self.card = card
@@ -1025,13 +1028,15 @@ class CardWaitLine(Widget):
 
     @property
     def text(self) -> str:
-        if self.kept:
-            return self._notice(KEPT_LINE, KEPT_LINE_SHORT)
+        """The kept line (its 10 s) above the set-aside line or a waiting card's line: a waiting card is never unsaid
+        (cardkeys-decisions.md, "After the build"); one line each, picked from the width."""
+        under = ""
         if self.aside:
-            return self._notice(SET_ASIDE_LINE, SET_ASIDE_LINE_SHORT)
-        if self.card is None:
-            return ""
-        return wait_line_text(self.card, self.size.width or 80, self.box_has_text)
+            under = self._notice(SET_ASIDE_LINE, SET_ASIDE_LINE_SHORT)
+        elif self.card is not None:
+            under = wait_line_text(self.card, self.size.width or 80, self.box_has_text)
+        kept = self._notice(KEPT_LINE, KEPT_LINE_SHORT) if self.kept else ""
+        return "\n".join(x for x in (kept, under) if x)
 
     def render(self):
         from rich.text import Text

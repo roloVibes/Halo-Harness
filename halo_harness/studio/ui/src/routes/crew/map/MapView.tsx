@@ -72,12 +72,20 @@ function useCanvasRoom(root: RefObject<HTMLDivElement | null>): number {
       const h = Math.max(120, Math.floor(body!.clientHeight - top - others - gap * Math.max(0, kids.length - 1) - 2));
       setRoom((r) => (Math.abs(r - h) > 0.5 ? h : r));
     };
+    // P7: set up once (a dependency array); a part coming or going above or under the canvas is seen by the
+    // MutationObserver, which observes the new set of parts and measures again
     const ro = new ResizeObserver(measure);
-    ro.observe(body);
-    for (const k of [...el.children]) if (!k.classList.contains("mp-canvas")) ro.observe(k);
-    measure();
-    return () => ro.disconnect();
-  });
+    const watch = () => {
+      ro.disconnect();
+      ro.observe(body!);
+      for (const k of [...el.children]) if (!k.classList.contains("mp-canvas")) ro.observe(k);
+      measure();
+    };
+    const mo = new MutationObserver(watch);
+    mo.observe(el, { childList: true });
+    watch();
+    return () => (ro.disconnect(), mo.disconnect());
+  }, [root]);
   return room;
 }
 

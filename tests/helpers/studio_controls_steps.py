@@ -241,8 +241,35 @@ def map_view(c, rig, lv, rows) -> dict:
         use(rig, None)
         to_map(c, rig, "starter")
         out["default_uses"] = [c.js(f"!!{t('map-uses')}"), c.js(f"{t('map-uses-default')}?.textContent || ''")]
+        # P7: roles off and no map set, new sessions run on NO map (`next_none`): the default map says the words file's
+        # sentence for that, beside a switch (off); its press puts new sessions on the default map, and the bar says so
+        out["none_uses"] = none_uses(c, rig, t)
     finally:
         rig.full = full
+        _roles(True)
         use(rig, None)
     out["map"] = recs
+    return out
+
+
+def _roles(on: bool) -> None:
+    from halo_harness.roles import set_roles_enabled
+    set_roles_enabled(on)
+
+
+def none_uses(c, rig, t) -> dict:
+    """Roles off, crew.map unset, on the default map: [switch drawn, its aria-checked, map-uses-none's words, the plain
+    sentence's]; then its press: the same four once the bar has re-read the maps, and the API's `next_none`."""
+    from tests.helpers.studio_map_quiet import to_map
+    from tests.helpers.studio_run_parts import until
+    read = (f"[!!{t('map-uses')}, {t('map-uses')}?.getAttribute('aria-checked') || '', {t('map-uses-none')}?.textContent || '', "
+            f"{t('map-uses-default')}?.textContent || '']")
+    _roles(False)
+    out = {"api": rig.api("GET", "crew/maps")[1].get("next_none")}
+    to_map(c, rig, "starter")
+    out["off"] = c.js(read)
+    if out["off"][0]:
+        c.js(f"{t('map-uses')}.click(); 1")
+        out["pressed"] = until(c, read, [False, "", "", "New sessions run on starter (the default)."], 20)
+        out["api_after"] = rig.api("GET", "crew/maps")[1].get("next_none")
     return out

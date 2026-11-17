@@ -9,6 +9,7 @@ import { createStore, toast, useStore } from "../../../lib/store";
 import { backToNow, openLiveReplay, replayOnMapWith } from "../live/replay";
 import type { OvEvent } from "./overlay";
 import { maps, openMap } from "./mapStore";
+import { openMapDrawer } from "./feedOpen";
 
 export type RunRow = { sid: string; what: string; when: number; cost: number | null };
 export type OpenRun = { sid: string; title: string; map: string | null; events: OvEvent[]; removed: string[] };
@@ -57,6 +58,7 @@ export async function replayRun(sid = mapHist.get().pick): Promise<boolean> {
     mapHist.update(() => ({ open: { sid, title: row?.what || sid, map: ran, events, removed } }));
     const ok = await openLiveReplay("session", sid, row?.what || `session ${sid.slice(0, 8)}`);
     if (!ok) mapHist.update(() => ({ open: null }));
+    else openMapDrawer("history"); // P7 (the coordinator's ruling): Replay is his press -- its rows show at once, on History's page
     return ok;
   } catch (e) {
     toast(`No replay: ${e instanceof ApiError ? e.message : String(e)}`, "error", 5000);

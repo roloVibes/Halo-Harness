@@ -10,7 +10,8 @@ tests/helpers/studio_run_parts.py; skipped without Chrome; the Linux VM and CI o
 5. no interval the drawing started is left once it is hidden (Session: another section; Live: 3 · Map);
 6. (batch 13's repair) the box the session waits on (the end of the waiting path: here a helper in a Bash call that main
    handed work to) carries the 3.6.0.0 outline, and the drawing's wait link names it and picks it;
-7. a waiting row says what it waits for and for how long, ticking while nothing moves.
+7. a waiting row says what it waits for and for how long, ticking while nothing moves;
+8. (P7) in Session's bottom slot the wait link never squeezes or wraps "↓ n more below", and sits inside the slot whole.
 Run: python -m tests.test_studio_run_parts
 """
 from __future__ import annotations
@@ -119,6 +120,22 @@ def test_a_waiting_row_says_how_long_it_has_waited(ctx: Ctx):
                   x.get("kind") == "you" and all(str(r).startswith("waiting for you · ") for r in reads))
         ctx.check(f"{w}: its seconds grow (the second read waits for it, up to 15 s), got {secs}", secs[0] >= 0 and secs[1] > secs[0])
         ctx.check(f"{w}: no box of the drawing moved while it ticked, got {x.get('moved')}", x.get("moved") == [])
+
+
+@test
+def test_the_wait_link_never_squeezes_more_below(ctx: Ctx):
+    """P7: in Session's bottom slot the wait link takes only the room "↓ n more below" leaves; that control keeps its rect
+    and its one line when the link appears (a control never moves after the first draw), the slot keeps its 32 px."""
+    x = _of(_got(ctx), "session", "below")
+    b, a = x.get("before") or {}, x.get("after") or {}
+    ctx.check(f"the drawer at its least width (360 px), got {x.get('drawer')} ({x.get('error')})", x.get("drawer") == 360)
+    ctx.check(f"at 1280 x 800 '↓ n more below' is shown, its own width, one line, got {b} ({x.get('error')})",
+              bool(b.get("more")) and b.get("lines") == 1 and b.get("natural") is True)
+    ctx.check(f"a long wait link shows inside the 32 px slot, its words whole, got {a}",
+              a.get("wait") is True and a.get("inside") is True and a.get("whole") is True and (a.get("slot") or [0, 0])[1] == 32)
+    ctx.check(f"'↓ n more below' keeps its rect, its own width and its one line beside it, got {b.get('more')} -> {a.get('more')} "
+              f"lines {a.get('lines')} natural {a.get('natural')}",
+              bool(b.get("more")) and a.get("more") == b.get("more") and a.get("lines") == 1 and a.get("natural") is True)
 
 
 if __name__ == "__main__":

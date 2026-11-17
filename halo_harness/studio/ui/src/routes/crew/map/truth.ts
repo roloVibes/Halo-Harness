@@ -146,6 +146,10 @@ export function mapLine(m: MapLineFacts): Line[] {
   }
 }
 
+/** P7: what a wait is for, in words -- `model`: a model reply; `you` or an agent's name as it is. ONE mapping: the status
+ *  line and the clock of a waiting box or row (runParts.tsx) both read it. */
+export const waitWhat = (w: string): string => (w === "model" ? "a model reply" : w);
+
 /** What the status line is told: `rows` are the session's agents (main included) with their state. */
 export type Status = {
   state: "working" | "idle" | "done";
@@ -166,7 +170,7 @@ export function statusLine(s: Status): string {
   const work = s.rows.filter((r) => r.state === "working");
   const who = work.length > 1 ? `${work.length} agents` : work.length ? work[0].name : "main";
   const what = s.workflow ? `the workflow ${s.workflow.name}, step ${s.workflow.step} of ${s.workflow.of}` : s.what;
-  const wait = s.waiting ? ` · waiting for ${s.waiting === "model" ? "a model reply" : s.waiting}` : "";
+  const wait = s.waiting ? ` · waiting for ${waitWhat(s.waiting)}` : "";
   return `${who} working${what ? ` on ${what}` : ""}${wait} · ${cost}${off}`;
 }
 

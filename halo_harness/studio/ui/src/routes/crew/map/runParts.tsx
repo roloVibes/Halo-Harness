@@ -22,6 +22,7 @@ import { secsWords, type Wait } from "../live/waits";
 import { lineKey, type Overlay } from "./overlay";
 import { talkPulses, type TalkPulse } from "./talkPulse";
 import { toolClock, waitClock } from "./truthBits";
+import { waitWhat } from "./truth";
 
 /** The run's wait (runWait.tsx): `waits` by agent id; `leaf`: the agent the session waits on; `box`: the drawn box
  *  holding it; `link`: 3.6.0.0's words for it. */
@@ -46,7 +47,6 @@ export function useRunParts(agents: { id: string; key: string }[], now: number, 
   return useMemo(() => ({ keys, now, under, wait }), [keys, now, wait]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-const WAIT_WHAT = (w: Wait): string => (w.kind === "you" ? "you" : w.kind === "model" ? "a model reply" : w.what);
 
 /** The tool clock of the agents `aids` while `on` (the box or row works or waits): its row is kept while it does, the
  *  tool and its seconds when one is open, else what it waits for and since when (runWait.tsx; 3.6.0.0's clock ran for a
@@ -58,7 +58,7 @@ export function ToolClock({ aids, on }: { aids: string[]; on: boolean }) {
   const t = aids.map((id) => open[P.keys.get(id) || ""]).find(Boolean);
   const w = t ? undefined : aids.map((id) => P.wait.waits.get(id)).find((x) => !!x?.since && x.kind !== "nothing");
   const secs = t ? secsWords(t.t0, P.now * 1000) : w ? secsWords(w.since, P.now * 1000) : "";
-  const say = (s: string) => (t ? toolClock(t.tool, s) : w ? waitClock(WAIT_WHAT(w), s) : "");
+  const say = (s: string) => (t ? toolClock(t.tool, s) : w ? waitClock(waitWhat(w.kind === "you" || w.kind === "model" ? w.kind : w.what), s) : "");
   return (
     <span className="mp-lit-row mono mp-clock" data-testid="run-clock" data-tool={t?.tool || undefined} data-wait={w?.kind}
           title={t || w ? say(secs) : undefined}>

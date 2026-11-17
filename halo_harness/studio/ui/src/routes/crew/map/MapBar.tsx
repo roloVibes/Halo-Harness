@@ -13,7 +13,7 @@ import { useLitNow } from "./useLit";
 import { setDrafting, setUse } from "./mapSwitch";
 import { QuietCtx, useQuiet } from "./mapQuiet";
 import { NoticeRow } from "./NoticeRow";
-import { newSessionsRunOn, nextMap, nextName, pickerSuffix, switchLabel } from "./truth";
+import { NEXT_NONE, newSessionsRunOn, nextMap, nextName, pickerSuffix, switchLabel } from "./truth";
 
 const NONE: never[] = []; // a selector never builds a new array (a new one each read loops React)
 
@@ -124,6 +124,7 @@ export function MapBar() {
   const listed = useMap((s) => s.listed);
   const name = useMap((s) => s.name);
   const next = useMap((s) => s.next);
+  const nextNone = useMap((s) => s.nextNone);
   const problems = useMap((s) => s.detail?.problems) || NONE;
   const receipt = useMap((s) => s.receipt);
   const error = useMap((s) => s.error);
@@ -136,9 +137,12 @@ export function MapBar() {
         {/* P4 batch 12: on the map new sessions use by default (none set) the switch could change nothing: the plain sentence;
             neither is drawn before the maps are read (which one it is is not known yet; Run a goal and Lock sit after the
             spacer, so the slot filling moves nothing) */}
-        <span className="mp-uses-slot">{!listed || !name ? null : !next && nextMap(next) === name ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
-          : <Switch on={!!name && nextMap(next) === name} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextMap(next) !== name)}
-                    title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />}</span>
+        {/* P7: roles off and none set, new sessions run on NO map (`next_none`, the field the truth block reads): the
+            default map says the words file's sentence for that, beside a switch (off) whose press puts new sessions on it */}
+        <span className="mp-uses-slot">{!listed || !name ? null : !next && !nextNone && nextMap(next) === name ? <span className="cw-line mp-uses-default" data-testid="map-uses-default" title={newSessionsRunOn(nextName(null))}>{newSessionsRunOn(nextName(null))}</span>
+          : <><Switch on={!nextNone && nextMap(next) === name} label={switchLabel()} testid="map-uses" onFlip={() => void setUse(nextNone || nextMap(next) !== name)}
+                    title="New sessions run on this map (config crew.map); a running session keeps the one it started with" />
+            {nextNone && nextMap(next) === name && <span className="cw-line mp-uses-default" data-testid="map-uses-none" title={NEXT_NONE}>{NEXT_NONE}</span>}</>}</span>
         <span className="spacer" />
         <Button size="sm" onClick={() => (openGoalHere(), openMapDrawer("goal"))} data-testid="map-run-goal"
                 title="Run a goal: several agents, one goal, one set of files -- the goal form opens in the drawer">Run a goal</Button>

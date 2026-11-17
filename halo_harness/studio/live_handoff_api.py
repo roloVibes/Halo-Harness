@@ -19,7 +19,8 @@ live_recording_api.py.
 
 from __future__ import annotations
 
-from pathlib import Path
+import re
+from pathlib import Path, PurePath
 
 from halo_harness.live import journal
 from halo_harness.studio import live_watch_sources as sources
@@ -41,6 +42,25 @@ def _tail(req, h: dict, sid: str, aid: str) -> list:
                                  {"agent_id": aid, "n": TAIL_N}, 8.0)
     res = (got or {}).get("result") if status == 200 else None
     return [e for e in (res or {}).get("events") or [] if isinstance(e, dict)]
+
+
+def target_words(target: dict) -> str:
+    """P7: how the brief (a file in the project folder, which can be committed) names the harness it is handed to: the
+    name a person set for it; with none set (its name is the user@host stand-in, or the hub's id stand-in) "another
+    harness" and the folder it works in -- the folder's own name, never a path through a home folder. A target not in
+    the view (`typed`) is named by the words he typed."""
+    name = str(target.get("name") or "").strip()
+    if target.get("typed"):
+        return name
+    user, host, hid = str(target.get("user") or ""), str(target.get("host") or ""), str(target.get("id") or "")
+    stand_in = (not name or name == hid[:8] or name == hid or (user and host and name == f"{user}@{host}")
+                or (not (user and host) and re.fullmatch(r"[^@\s]+@[^@\s]+", name) is not None))
+    if not stand_in:
+        return name
+    roots = [str((s.get("project") or {}).get("root") or "") for s in target.get("sessions") or [] if isinstance(s, dict)
+             and isinstance(s.get("project"), dict)]
+    folder = next((PurePath(r.replace("\\", "/")).name for r in roots if r), "")
+    return f"another harness, in the folder {folder}" if folder else "another harness"
 
 
 def post_handoff(req):
@@ -76,7 +96,7 @@ def post_handoff(req):
         journal.append(req.state_dir, "handoff", action="take_over", text=text[:300], **note)
         return 200, {"ok": True, "mode": mode, "result": got}
     target = next((x for x in view.get("harnesses") or [] if to in (str(x.get("id")), x.get("name"))), None)
-    target = target or {"id": to, "name": to}
+    target = target or {"id": to, "name": to, "typed": True}
     entries = _tail(req, h, sid, aid)
     files = []
     w = getattr(req.server, "live_watch", None)
@@ -85,7 +105,7 @@ def post_handoff(req):
             files.append(f)
     # P18: the brief reads "From **Studio**" and "by Studio", never harness.name (user@host when no name is set)
     title, md = handoff.brief(harness={**h, "name": by}, session=s, agent=agent, handback=handoff.handback_of(entries, agent),
-                              files=files, by=by, to=str(target.get("name")) + (f" ({text})" if text else ""))
+                              files=files, by=by, to=target_words(target) + (f" ({text})" if text else ""))
     out = {"ok": True, "mode": mode, "to": target.get("name"), "title": title, "note": ""}
     proj = s.get("project") if isinstance(s.get("project"), dict) else {}
     root = proj.get("root") if local and proj.get("root") and Path(str(proj["root"])).is_dir() else req.state_dir

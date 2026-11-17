@@ -83,7 +83,9 @@ _CARD_TIMES_OFF_ENV = "HALO_TEST_CARD_TIMES_OFF"
 def card_times() -> "tuple[float, float]":
     """(wait, fresh) in seconds, read when used (so the runner's switch and a test's clock both reach the app)."""
     import os
-    if os.environ.get(_CARD_TIMES_OFF_ENV) == "1":
+    # P7 (cardkeys-decisions.md, "After the build"): "1" turns them off in any process (a test that asks for it in a
+    # halo it starts); the runner writes its OWN pid, so a halo a test starts inherits the variable but not the switch
+    if os.environ.get(_CARD_TIMES_OFF_ENV) in ("1", str(os.getpid())):
         return 0.0, 0.0
     return CARD_WAIT_S, CARD_FRESH_S
 

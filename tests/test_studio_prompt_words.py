@@ -63,6 +63,9 @@ CASES = {
     "a new line, then more: only the more": ("hello", "hello", [("hello\n", "insertLineBreak", 5, 6),
                                                                  ("hello\nnext", "insertText", 6, 10)], "next"),
     "leading spaces were sent with it": ("  hello", "  hello", [("  hello x", "insertText", 7, 9)], "x"),
+    # P7 (the checker of P6 batch 1): an image-only send sent no text: what he typed after Enter stays exactly
+    "an image-only send: two spaces and a line break typed after it stay": ("", "", [("  ", "insertText", 0, 2),
+                                                                                  ("  \nnext", "insertLineBreak", 2, 3)], "  \nnext"),
     "Up recalls the line just sent: left": ("hello", "hello", [("hello", "", None, 5)], "hello"),
     "the box replaced by a longer text beginning with it: left whole": ("hello", "hello", [("hello world", "insertText", 0, 11)], "hello world"),
     "a Backspace into the sent text: left": ("hello", "hello", [("hell", "deleteContentBackward", 5, 4)], "hell"),
