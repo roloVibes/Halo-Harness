@@ -13,6 +13,8 @@ them). No model is called.
               Alt+2 opens on Workflows
     never_flips  R56: the session between turns; a recorder of `[data-testid=agents]`'s `data-view` from its first draw;
               Alt+2, then busy, idle, busy (three `sessions` frames, each read by the page); 2 s more: one value, `live`
+    follows, holds, t9   R34 R12 R3: the drawing (tests/helpers/studio_agents_live_draw.py: the map `shop` is seeded in
+              the rig's home; the reviewer is the workflow review's step, in the box `check`)
 
     python -m tests.helpers.studio_agents_live
 """
@@ -153,13 +155,19 @@ class AgentsLiveDriver(Driver):
     def session(self, c):
         from tests.helpers.studio_live_rig import Live
         from tests.helpers.studio_session_rig import StudioSessionRig
+        from tests.helpers import studio_agents_live_draw as D
+        from tests.helpers.studio_map_live import MAP
         with StudioSessionRig() as rig:
+            from halo_harness.crew import store
+            store.write_text(store.path_for("map", "shop", state_dir=rig.state), MAP)  # the map the session's row names
             lv = Live(rig)
+            lv.rows["r3v1e2w0"]["square"] = {"name": "review", "engine": "steps"}  # the workflow review's step: box check
             lv.refresh(map="shop", map_next="shop")
             from tests.helpers.studio_session_map_down import Rows
             rows = Rows(rig)  # over GET live's rows: the session's turns, parent, busy and its agents' states (R56)
             try:
-                yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)))
+                yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)),
+                       (D.follows, (c, rig, lv, rows)), (D.holds, (c, rig, lv, rows)), (D.t9, (c, rig, lv, rows)))
             finally:
                 lv.close()
 

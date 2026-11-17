@@ -1,5 +1,6 @@
-"""tests.helpers.studio_map_live_steps -- the first steps of the lit Map's driver (tests/helpers/studio_map_live.py):
-lit, hop, steps, helper, feed. Each waits for the value it reads; no fixed sleep is a pass condition."""
+"""tests.helpers.studio_map_live_steps -- the first steps of the lit run's driver (tests/helpers/studio_map_live.py):
+lit, hop, steps, helper on Agents -> 4 · Live (3.6.0.2 R34: the run is drawn there; the Map is the plan), feed on the
+Map's drawer (P4 batch 4 moves the Feed to Live). Each waits for the value it reads; no fixed sleep is a pass condition."""
 from __future__ import annotations
 
 import base64
@@ -48,43 +49,60 @@ def hop(c, lv, line: str, task: str, **kw) -> None:
                                  "why": "always", **kw})
 
 
-STATES = f"Object.fromEntries({qa('[data-testid=map-world] [data-map-box]')}.map((b) => [b.dataset.mapBox, b.dataset.state || '']))"
-CUT = f"{qa('[data-testid=map-world] [data-map-box]')}.filter((b) => b.querySelector('.mp-inner').scrollHeight > b.clientHeight + 1).length"
+LP = '[data-part="live"] '  # 3.6.0.2 R34: the run is drawn in Agents -> 4 · Live (the Map is the plan)
+LWORLD = "[data-testid=live-world]"
+
+
+def lq(sel: str) -> str:
+    return f"document.querySelector('{LP}{sel}')"
+
+
+def lqa(sel: str) -> str:
+    return f"[...document.querySelectorAll('{LP}{sel}')]"
+
+
+def lbox(bid: str) -> str:
+    return lq(f'{LWORLD} [data-map-box="{bid}"]')
+
+
+L_STATES = f"Object.fromEntries({lqa(LWORLD + ' [data-map-box]')}.map((b) => [b.dataset.mapBox, b.dataset.state || '']))"
+L_CUT = f"{lqa(LWORLD + ' [data-map-box]')}.filter((b) => b.querySelector('.mp-inner').scrollHeight > b.clientHeight + 1).length"
+FACE = ".mp-lit-row[data-state]"  # a box's own row (LitFace): "{kind} · {state}[ · what it does now]"
 
 
 def lit(c, rig, lv, sent) -> dict:
     emulate_motion(c, "no-preference")
     lv.state("reviewer", cost_usd=0.0123)
-    c.go(rig.url("agents", "&view=map&map=shop"))
-    c.wait(f"{VIEW} === 'map'", 40)
-    out = {"head": c.wait(f"{t('map-lit-head')}?.textContent.startsWith('A session is running on this map') && {t('map-lit-head')}.textContent", 40)}
-    out["sentence"] = c.wait(f"{t('map-lit-sentence')}?.textContent", 20)
-    out["when"] = c.js(f"{t('map-lit-when')}?.textContent")
-    tab = "document.querySelector('[data-part=map] [data-testid=agents-view-live]')"  # 3.6.0.2 R52: the dot is Live's
-    mtab = "document.querySelector('[data-part=map] [data-testid=agents-view-map]')"
+    c.go(rig.url("agents", "&view=live"))
+    c.wait(f"{VIEW} === 'live'", 40)
+    tr = lq("[data-testid=live-truth]")
+    out = {"head": c.wait(f"/^T[12]$/.test({tr}?.dataset.state || '') && [{tr}.dataset.state, {tr}.textContent]", 40)}
+    out["sentence"] = c.wait(f"{lq('[data-testid=live-status]')}?.textContent.includes('working') && {lq('[data-testid=live-status]')}.textContent", 20)
+    tab = "document.querySelector('[data-part=live] [data-testid=agents-view-live]')"  # 3.6.0.2 R52: the dot is Live's
+    mtab = "document.querySelector('[data-part=live] [data-testid=agents-view-map]')"
     out["dot"] = c.js(f"[{tab}?.dataset.running, {tab}?.innerText, {mtab}?.dataset.running || '']")
-    out["states"] = c.wait(f"(() => {{ const s = {STATES}; return s.code === 'working' && s.check === 'working' && s.notes === 'idle' && s; }})()", 30)
-    out["check_rows"] = c.js(f"[...{box('check')}.querySelectorAll('.mp-lit-row')].map((r) => r.textContent)")
-    out["notes_rows"] = c.js(f"[...{box('notes')}.querySelectorAll('.mp-lit-row')].map((r) => r.textContent)")
-    out["cut"] = c.js(CUT)
-    out["stranger"] = c.wait(f"{qa('[data-testid=map-stranger]')}.map((s) => [s.dataset.agent, s.querySelector('.mp-tag').textContent])", 10)
+    out["states"] = c.wait(f"(() => {{ const s = {L_STATES}; return s.code === 'working' && s.check === 'working' && s.notes === 'idle' && s; }})()", 30)
+    out["code_face"] = c.js(f"{lbox('code')}.querySelector('{FACE}')?.textContent")
+    out["notes_face"] = c.js(f"[...{lbox('notes')}.querySelectorAll('{FACE}')].map((r) => r.textContent)")
+    out["cut"] = c.js(L_CUT)
     return out
 
 
 def hop_step(c, rig, lv, sent) -> dict:
-    label = q('[data-testid="map-label"][data-from="main"][data-to="code"]')
+    label = lq('[data-testid="live-label"][data-from="main"][data-to="code"]')
+    line = lq(f'{LWORLD} .mp-line[data-from=main][data-to=code]')
     hop(c, lv, "main -> code", "apply the discount before tax")
     out = {"pulse": c.wait(f"{label}?.dataset.pulse === '1' && {label}.textContent", 10)}
-    out["travel"] = c.js(f"[!!{q('[data-testid=map-pulse]')}, {q('[data-testid=map-line][data-from=main][data-to=code]')}?.dataset.pulse]")
-    shot(c, "studio-map-lit.png")
+    out["travel"] = c.wait(f"!!{line}?.dataset.lit && [{line}.dataset.lit, {line}.dataset.hops]", 10)
+    shot(c, "studio-live-lit.png")
     out["back"] = c.wait(f"!{label}.dataset.pulse && {label}.textContent", 12)
-    chain = q('[data-testid="map-label"][data-from="code"][data-to="check"]')
+    chain = lq('[data-testid="live-label"][data-from="code"][data-to="check"]')
     hop(c, lv, "code -> check", "check the basket diff", chain=True)
     out["chain"] = c.wait(f"{chain}?.dataset.pulse === '1' && {chain}.textContent", 10)
     emulate_motion(c, "reduce")
     hop(c, lv, "main -> research", "read the pricing notes")
-    line = q('[data-testid=map-line][data-from=main][data-to=research]')
-    out["reduced"] = c.wait(f"{line}?.dataset.pulse === '1' && [...document.querySelectorAll('[data-testid=map-pulse]')].every((d) => getComputedStyle(d).display === 'none')", 10)
+    rl = lq(f'{LWORLD} .mp-line[data-from=main][data-to=research]')
+    out["reduced"] = c.wait(f"!!{rl}?.dataset.lit && !document.querySelector('{LP}[data-testid=map-pulse]')", 10)
     emulate_motion(c, "no-preference")
     return out
 
@@ -99,21 +117,27 @@ def steps(c, rig, lv, sent) -> dict:
     st("check", n=2, round=1, yes=False)
     st("agent", n=2, round=2, name="tester", state="running")
     st("check", n=2, round=2, yes=False)
-    click_box(c, "check")
-    got = f"{qa('[data-map-box=check] [data-testid=map-lit-step]')}"
-    out = {"steps": c.wait(f"{got}.length === 2 && {got}[1].textContent.includes('2 checks') && {got}.map((s) => s.textContent)", 10)}
-    out["open_drawer"] = c.wait("document.querySelector('[data-testid=map-feed]')?.dataset.filter", 10)
+    got = f"{lbox('check')}.querySelectorAll('[data-testid=session-map-step]')"
+    out = {"steps": c.wait(f"{got}.length === 2 && {got}[1].textContent.endsWith('working') && [{lbox('check')}.querySelector('[data-testid=session-map-block-head]')?.textContent,"
+                           f" ...[...{got}].map((s) => s.textContent)]", 10)}
+    head = f"{lbox('check')}.querySelector('[data-testid=session-map-block-head]')"
+    c.js(f"{head}.scrollIntoView({{block: 'nearest', inline: 'nearest'}}); 1")
+    c.click_on(head)  # R18: a block's head opens the step-in card for its running step
+    out["open_drawer"] = c.wait(f"{lq('[data-testid=map-step-in]')}?.dataset.target", 10)
+    c.click_on(lq("[data-testid=map-step-in-close]"))
+    c.wait(f"!{lq('[data-testid=map-step-in]')}", 10)
     return out
 
 
 def helper(c, rig, lv, sent) -> dict:
-    h = q('[data-testid="map-world"] [data-helper="h3lp3r01"]')
-    c.wait(f"!!{h}", 15)
-    out = {"helper": c.js(f"[{h}.querySelector('[data-testid=map-made-up]')?.textContent, getComputedStyle({h}).borderTopStyle,"
-                          f" {h}.getBoundingClientRect().left > {box('main')}.getBoundingClientRect().right]")}
-    c.js(f"{h}.scrollIntoView({{block: 'center', inline: 'nearest'}}); 1")  # the picture shows it
-    shot(c, "studio-map-helper.png")
-    btn = f"{h}.querySelector('[data-testid=map-save-agent]')"
+    row = lq(f'{LWORLD} [data-row="h3lp3r01"]')
+    c.wait(f"!!{row}", 15)
+    saved = f"{lqa(LWORLD + ' [data-testid=session-map-row]:not([data-helper])')}"
+    out = {"helper": c.js(f"[{row}.querySelector('[data-testid=session-map-row-text]')?.textContent, !!{row}.querySelector('[data-testid=map-save-agent]'),"
+                          f" {row}.closest('[data-map-box]')?.dataset.mapBox, {saved}.length > 0 && {saved}.every((r) => !r.querySelector('[data-testid=map-save-agent]'))]")}
+    c.js(f"{row}.scrollIntoView({{block: 'center', inline: 'nearest'}}); 1")  # the picture shows it
+    shot(c, "studio-live-helper.png")
+    btn = f"{row}.querySelector('[data-testid=map-save-agent]')"
     c.js(f"{btn}.scrollIntoView({{block: 'nearest'}}); 1")
     c.click_on(btn)
     out["view"] = c.wait(f"{VIEW} === 'crew' && {VIEW}", 15)
@@ -122,8 +146,12 @@ def helper(c, rig, lv, sent) -> dict:
     folder = Path(rig.state) / "crew" / "agents"
     out["written"] = sorted(p.name for p in folder.glob("*.yaml")) if folder.is_dir() else []
     c.js("document.activeElement?.blur(); 1")
-    key(c, "3")
-    c.wait(f"{VIEW} === 'map' && !!{t('map-lit-head')}", 20)
+    key(c, "3")  # the Feed is still the Map's drawer (P4 batch 4 moves it to Live): the next step reads it there, on shop
+    sw = t("map-switcher")
+    c.wait(f"{VIEW} === 'map' && [...({sw}?.options || [])].some((o) => o.value === 'shop')", 20)
+    c.js(f"(() => {{ const s = {sw}; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;"
+         f" set.call(s, 'shop'); s.dispatchEvent(new Event('change', {{bubbles: true}})); }})(); 1")
+    c.wait(f"{sw}.value === 'shop' && !!{t('map-lit-head')}", 20)
     return out
 
 

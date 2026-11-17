@@ -12,7 +12,11 @@ tests/test_agents_door.py, run in node everywhere.
    whatever the tab used last, and Agents' help says so; a Studio-started session with no message yet (T10) does not
    count: Agents opens on the tab used last (2 · Workflows); this is decision 4's rewrite of
    tests/test_studio_session.py's `test_alt_keys_and_agents_opens_on_the_map` (there now `..._opens_on_live`);
-3. R56: once Agents has drawn its opening tab it never moves by itself: busy, idle, busy frames leave it on Live.
+3. R56: once Agents has drawn its opening tab it never moves by itself: busy, idle, busy frames leave it on Live;
+4. R34: Live draws the map the chosen session follows (shop), left to right, lit, read-only, never amber, whatever map
+   3 · Map has open;
+5. R12: nothing in Live moves under the pointer while rows and a hand-off arrive; the change is drawn when it leaves;
+6. R3: the picker lists other machines' sessions; one picked says T9 and nothing is fetched.
 Run: python -m tests.test_studio_agents_live
 """
 from __future__ import annotations
@@ -81,6 +85,54 @@ def test_opening_tab_never_flips_once_drawn(ctx: Ctx):
     ctx.check(f"the three frames each read by the page, got {d.get('flip_reads')!r}", (d.get("flip_reads") or 0) >= 3)
     ctx.check(f"R56: busy, idle, busy never move the opening tab: one value, Live, got {d.get('flips')!r}", d.get("flips") == ["live"])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_live_view_follows_the_session_never_amber(ctx: Ctx):
+    d = _got(ctx)
+    ctx.check(f"3 · Map shows starter, got {d.get('map_shows')!r}", d.get("map_shows") == "starter")
+    ctx.check(f"Live draws the session's map shop, >= 6 boxes, got {d.get('drawn')}", (d.get("drawn") or ["", 0])[0] == "shop" and d["drawn"][1] >= 6)
+    lefts = d.get("lefts") or [None, []]
+    ctx.check(f"left to right: main's box leftmost, two or more columns, got {lefts}",
+              lefts[0] is not None and len(lefts[1]) >= 2 and round(lefts[0]) == lefts[1][0])
+    ctx.check(f"no connect dot, no label that is a button, got {d.get('dots')} {d.get('label_buttons')}", d.get("dots") == 0 and d.get("label_buttons") == 0)
+    ctx.check(f"a label is words (its When), got {d.get('label')!r}", str(d.get("label")).startswith("SPAN:"))
+    ctx.check(f"a label's click opens the step-in card for its line, never a When card, got {d.get('card')!r} {d.get('when_cards')}",
+              d.get("card") == "line:main>code" and d.get("when_cards") == 0)
+    ctx.check(f"nothing amber in Live, got {d.get('amber')}", d.get("amber") == 0)
+    tc = d.get("truth_color") or ["", ""]
+    ctx.check(f"the truth line is not in --warn, got {tc}", tc[0] and tc[0] != tc[1])
+    ctx.check(f"code's box lit and working, got {d.get('code')}", d.get("code") == ["live", "working"])
+    ctx.check(f"3 · Map's picker changed afterwards: Live stays on shop, got {d.get('after_map_pick')!r}", d.get("after_map_pick") == "shop")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_live_holds_still_under_the_pointer(ctx: Ctx):
+    d = _got(ctx)
+    ctx.check(f"the new rows reached the drawing, got {d.get('rows_in')!r}", d.get("rows_in") is True)
+    ctx.check(f"the hand-off lights its line in place, got {d.get('lit')!r}", d.get("lit") in ("live", "trace"))
+    ctx.check(f"R12: no box moved under the pointer, got {d.get('moved')}", d.get("moved") == [])
+    sc = d.get("scroll") or [0, 1]
+    ctx.check(f"the scroll stayed, got {sc}", sc[0] == sc[1])
+    ctx.check(f"the pointer left: code's box grew to hold its new row, got {d.get('released')!r}", bool(d.get("released")))
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_live_picker_other_machine_t9_no_fetch(ctx: Ctx):
+    d = _got(ctx)
+    opts = d.get("options") or []
+    texts = [o[1] for o in opts]
+    ctx.check(f"the picker: this machine's session on shop, then nightly · tiers, none disabled, got {opts}",
+              any(o[0] != "away-1" and str(o[1]).endswith(" · shop") for o in opts) and ["away-1", "nightly · tiers", False] in opts
+              and not any(o[2] for o in opts) and texts.index("nightly · tiers") == len(texts) - 1)
+    ctx.check(f"its name, got {d.get('pick_label')!r}", d.get("pick_label") == "Which session")
+    ctx.check(f"T9 in section 4's words, got {d.get('t9')}", d.get("t9") == ["T9", "nightly runs on tiers on gpu-box. Its drawing is in that machine's Studio."])
+    ctx.check(f"no drawing, got {d.get('boxes')}", d.get("boxes") == 0)
+    ctx.check(f"nothing fetched for it, got {d.get('gets')}", d.get("gets") == [])
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
 
 if __name__ == "__main__":
     ctx = Ctx()

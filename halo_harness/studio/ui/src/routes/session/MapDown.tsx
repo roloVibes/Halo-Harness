@@ -18,9 +18,7 @@
 //   (no overlay); the boxes a build in this session wrote carry "new {t}" (built.ts tagOf).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
-import { goSection } from "../../lib/store";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
-import { setAgentsView } from "../agents/store";
 import { holding, tagOf, useBuilt } from "../crew/map/built";
 import { useHold } from "../crew/map/hold";
 import { useLit } from "../crew/map/LitMini";
@@ -29,8 +27,7 @@ import { StepIn } from "../crew/map/StepIn";
 import { stepIn, type Hit, type Target } from "../crew/map/stepInTarget";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
-import { openMap } from "../crew/map/mapStore";
-import { moreBelow, removedAt, type TruthFacts } from "../crew/map/truth";
+import { moreBelow, openInAgents, removedAt, type TruthFacts } from "../crew/map/truth";
 import { BuiltBar } from "./BuiltBar";
 import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight } from "./downFit";
 import { DownBox } from "./DownBox";
@@ -151,7 +148,6 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
     if (t != null) go(t);
   };
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
-  const open = () => { setAgentsView("map"); goSection("agents", "map"); void openMap(shown); };
   const gone = got && "removed" in got ? got.removed : 0;
   return ( // R28: the head first, from the row; the drawing once its map is read (`session-lit-map` only then)
     <div className="mp-mini mp-down" ref={root} data-testid={drawn ? "session-lit-map" : "session-lit-map-wait"} data-dir="down" data-map={shown}
@@ -159,7 +155,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       <div className="mp-mini-head mp-down-head">
         <TruthBlock f={f} sid={s.sid} off={L.unlit ? 0 : ov?.offCount || 0} />
         <div className="mp-down-tools">
-          <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
+          <button type="button" className="mp-link" onClick={() => openInLive(s.sid)} data-testid="session-lit-open">{openInAgents().label}</button>
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
         </div>
       </div>

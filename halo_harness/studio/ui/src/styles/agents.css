@@ -9,8 +9,14 @@
 .ag-part[hidden] { display: none; }
 /* 3.6.0.2 R52: Agents -> 4 · Live, its shell -- the truth line, the status line, the frame the drawing takes (reserved) */
 .ag-live { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; padding: 10px 12px; }
-.ag-live .mp-status { min-height: 1.4em; margin: 0; }
+.ag-live .mp-status { margin: 0; } /* two lines reserved (map-down.css .mp-status: 34 px) */
 .ag-live-frame { flex: 1 1 auto; min-height: 240px; }
+.ag-live-pick { flex: none; align-self: flex-start; min-height: 32px; width: 360px; max-width: 100%; }
+/* R34: the run's drawing, left to right (LiveDraw.tsx): the zoom row, then the scroll box filling the frame */
+.ag-run { display: flex; flex-direction: column; gap: 4px; min-height: 240px; min-width: 0; }
+.ag-run-tools { flex: 0 0 32px; display: flex; align-items: center; justify-content: flex-end; }
+.ag-run .mp-scroll { flex: 1 1 0; min-height: 0; }
+.ag-run .mp-label { cursor: pointer; }
 .ag-note {
   display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 2px 4px 2px 10px; font-size: 12px;
   color: var(--accent); border: 1px solid var(--accent); border-radius: var(--r-control); background: var(--soft-accent);

@@ -5,26 +5,26 @@
 .mp-down-head { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
 .mp-down-tools { display: flex; flex-wrap: nowrap; gap: var(--s-2); align-items: center; justify-content: space-between; min-width: 0; }
 .mp-down-tools > .mp-link { flex: 0 0 auto; white-space: nowrap; }
-.mp-down .cz-zoom { flex: 0 0 auto; }
+:is(.mp-down, .ag-run) .cz-zoom { flex: 0 0 auto; }
 /* R12: fixed widths, so a percent of another length or Fit coming back moves nothing beside it */
-.mp-down .cz-zoom button { flex: 0 0 auto; padding: 0; }
-.mp-down [data-testid=canvas-zoom-out], .mp-down [data-testid=canvas-zoom-in] { width: 32px; }
-.mp-down [data-testid=canvas-zoom-level] { width: 56px; }
-.mp-down [data-testid=canvas-fit] { width: 44px; }
+:is(.mp-down, .ag-run) .cz-zoom button { flex: 0 0 auto; padding: 0; }
+:is(.mp-down, .ag-run) [data-testid=canvas-zoom-out], :is(.mp-down, .ag-run) [data-testid=canvas-zoom-in] { width: 32px; }
+:is(.mp-down, .ag-run) [data-testid=canvas-zoom-level] { width: 56px; }
+:is(.mp-down, .ag-run) [data-testid=canvas-fit] { width: 44px; }
 /* R11: the room the drawing may take (R30 R31: the pair and the head of a build, once one lands, at its top: the drawing
    moves down once, no control moves); the scroll box inside it ends under its last whole row (its height is set) */
 .mp-down-room { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: var(--s-1); }
 .mp-down-fill { flex: 1 1 0; min-height: 0; overflow: hidden; }
-.mp-down .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
+:is(.mp-down, .ag-run) .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
 /* R11 R12: the "↓ {n} more below" slot, at a fixed height at the drawer's bottom, there whether it says something or not */
 .mp-down-below { flex: 0 0 32px; height: 32px; display: flex; align-items: center; min-width: 0; }
 /* R7 R9 R10: a box is 184 px wide, 56 px for a name and "kind · state" (9 + 19 + 17 + 9 + borders), and grows with its
    words: no cap, no ellipsis, long words break anywhere */
-.mp-down .mp-box { padding: 9px 10px; overflow: visible; }
-.mp-down .mp-inner { flex: none; gap: 0; }
-.mp-down .mp-name, .mp-down .mp-lit-row { display: block; white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
-.mp-down .mp-name { font-size: 13.5px; line-height: 19px; }
-.mp-down .mp-lit-row { font-size: 12px; line-height: 17px; }
+:is(.mp-down, .ag-run) .mp-box { padding: 9px 10px; overflow: visible; }
+:is(.mp-down, .ag-run) .mp-inner { flex: none; gap: 0; }
+:is(.mp-down, .ag-run) .mp-name, :is(.mp-down, .ag-run) .mp-lit-row { display: block; white-space: normal; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
+:is(.mp-down, .ag-run) .mp-name { font-size: 13.5px; line-height: 19px; }
+:is(.mp-down, .ag-run) .mp-lit-row { font-size: 12px; line-height: 17px; }
 /* R20 R23 the truth block over the drawing (routes/session/TruthBlock.tsx; also alone for T8, T10 and Empty): its lines'
    height is the hidden twin's (the longest state, measured), never clamped and never amber; the status line under it
    has two lines reserved; [New session] opens the New session form over the drawer's corner (nothing moves) */
@@ -45,35 +45,35 @@
   box-shadow: var(--glow); }
 /* R14 a workflow's block: its head as the name, then every step a 12 px row (18 px each: a six-step block is 146 px);
    a block on no box sits on a full-width row; the working step in the accent, a failed one in the bad hue */
-.mp-down .mp-block .mp-step { display: block; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; color: var(--muted); }
-.mp-down .mp-block .mp-step[data-state=working] { color: var(--accent); }
-.mp-down .mp-block .mp-step[data-state=done] { color: var(--text); }
-.mp-down .mp-block .mp-step[data-state=failed] { color: var(--bad); }
+:is(.mp-down, .ag-run) .mp-block .mp-step { display: block; font-size: 12px; line-height: 18px; overflow-wrap: anywhere; color: var(--muted); }
+:is(.mp-down, .ag-run) .mp-block .mp-step[data-state=working] { color: var(--accent); }
+:is(.mp-down, .ag-run) .mp-block .mp-step[data-state=done] { color: var(--text); }
+:is(.mp-down, .ag-run) .mp-block .mp-step[data-state=failed] { color: var(--bad); }
 /* R15 the children inside their box: a row each; a child no line brought is dashed (R17): plain on the default map, in
    --off-map on a map of his */
-.mp-down .mp-kids { display: flex; flex-direction: column; margin-top: 2px; }
-.mp-down .mp-kid { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); padding-left: 6px; border-left: 2px solid var(--line-strong); }
-.mp-down .mp-kid[hidden] { display: none; }
-.mp-down .mp-kid[data-unlined] { border-left-style: dashed; }
-.mp-down .mp-kid[data-off] { border-left-color: var(--off-map); }
-.mp-down .mp-kid .mp-link { font-size: 12px; line-height: 17px; }
+:is(.mp-down, .ag-run) .mp-kids { display: flex; flex-direction: column; margin-top: 2px; }
+:is(.mp-down, .ag-run) .mp-kid { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-2); padding-left: 6px; border-left: 2px solid var(--line-strong); }
+:is(.mp-down, .ag-run) .mp-kid[hidden] { display: none; }
+:is(.mp-down, .ag-run) .mp-kid[data-unlined] { border-left-style: dashed; }
+:is(.mp-down, .ag-run) .mp-kid[data-off] { border-left-color: var(--off-map); }
+:is(.mp-down, .ag-run) .mp-kid .mp-link { font-size: 12px; line-height: 17px; }
 /* R16 the lines: calm (map.css), a trace by weight (1 < 2 < 3+), the newest marked, live heaviest; a dashed line no line of
    the map drew: plain, or in --off-map on a map of his (R17) */
-.mp-down .mp-line[data-helper] { stroke: var(--line-strong); stroke-dasharray: 4 4; }
-.mp-down .mp-line[data-lit=trace] { stroke: var(--accent); stroke-opacity: 0.6; stroke-width: 2; }
-.mp-down .mp-line[data-lit=trace][data-hops="2"] { stroke-width: 2.5; }
-.mp-down .mp-line[data-lit=trace][data-hops="3"] { stroke-width: 3; }
-.mp-down .mp-line[data-lit=trace][data-last] { stroke-opacity: 0.9; }
-.mp-down .mp-line[data-lit=live] { stroke: var(--accent); stroke-opacity: 1; stroke-width: 4; }
-.mp-down .mp-line[data-off] { stroke: var(--off-map); stroke-dasharray: 4 4; }
+:is(.mp-down, .ag-run) .mp-line[data-helper] { stroke: var(--line-strong); stroke-dasharray: 4 4; }
+:is(.mp-down, .ag-run) .mp-line[data-lit=trace] { stroke: var(--accent); stroke-opacity: 0.6; stroke-width: 2; }
+:is(.mp-down, .ag-run) .mp-line[data-lit=trace][data-hops="2"] { stroke-width: 2.5; }
+:is(.mp-down, .ag-run) .mp-line[data-lit=trace][data-hops="3"] { stroke-width: 3; }
+:is(.mp-down, .ag-run) .mp-line[data-lit=trace][data-last] { stroke-opacity: 0.9; }
+:is(.mp-down, .ag-run) .mp-line[data-lit=live] { stroke: var(--accent); stroke-opacity: 1; stroke-width: 4; }
+:is(.mp-down, .ag-run) .mp-line[data-off] { stroke: var(--off-map); stroke-dasharray: 4 4; }
 /* R18 R43 a click steps in, a rest gives the summary: a box and its step rows take the click; a line's hit twin is a 12 px
    transparent stroke (the hit area >= 10 px) */
-.mp-down .mp-box { cursor: pointer; }
-.mp-down .mp-lines .mp-hit { fill: none; stroke: transparent; stroke-width: 12px; pointer-events: stroke; cursor: pointer; }
+:is(.mp-down, .ag-run) .mp-box { cursor: pointer; }
+:is(.mp-down, .ag-run) .mp-lines .mp-hit { fill: none; stroke: transparent; stroke-width: 12px; pointer-events: stroke; cursor: pointer; }
 .mp-hover .mp-hover-line { font-size: 12px; line-height: 17px; overflow-wrap: anywhere; }
 /* R18 R12 the step-in card: one fixed corner of the drawer (over the drawing, above the "↓" slot), one fixed size, buttons
    of fixed widths, so neither a word changing nor another target moves anything */
-.mp-down { position: relative; }
+.mp-down, .ag-run { position: relative; }
 .mp-step-in { position: absolute; left: var(--s-2); right: var(--s-2); bottom: 40px; height: 264px; z-index: 6; overflow-y: auto;
   display: flex; flex-direction: column; gap: var(--s-1); padding: var(--s-2); background: var(--surface);
   border: 1px solid var(--line-strong); box-shadow: var(--glow); }

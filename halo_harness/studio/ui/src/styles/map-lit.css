@@ -12,7 +12,7 @@
 .mp-topwrap .mp-topline { flex: 0 0 auto; } /* in the column a flex-basis would be a height */
 .mp-lit-line { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mp-lit-line .cw-line, .mp-topline .cw-line { overflow-wrap: anywhere; }
-.mp-amber, .mp-topline.mp-amber { color: var(--warn); }
+/* 3.6.0.2 point 19: no line is amber about "another map" (the Map is the plan; a run is drawn in 4 · Live) */
 .mp-lit-pick { min-height: 28px; max-width: 280px; margin-left: 8px; }
 .mp-fresh { min-height: 28px; }
 

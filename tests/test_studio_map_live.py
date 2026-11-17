@@ -1,19 +1,20 @@
-"""tests.test_studio_map_live -- Halo 3.6.0.0 R4: Agents -> 3 · Map lit while a session runs, and History replayed on
-it, in headless Chrome as a first-time user (driver tests/helpers/studio_map_live.py over the session rig and the live
-rig: a real session with the row's `map`, extra agent rows and the map frames a session on a map sends; skipped
-without Chrome). The overlay's own rules are tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
+"""tests.test_studio_map_live -- a session's run drawn while it works (3.6.0.0 R4; 3.6.0.2 R34: in Agents -> 4 · Live, the
+Map is the plan), and History replayed on 3 · Map, in headless Chrome as a first-time user (driver
+tests/helpers/studio_map_live.py over the session rig and the live rig: a real session with the row's `map`, extra agent
+rows and the map frames a session on a map sends; skipped without Chrome). The overlay's own rules are
+tests/test_map_overlay.py's; the frames' source is tests/test_map_chains.py.
 
-1. the top line: the session running on this map, when it started, the one sentence, when an edit takes effect; the
-   tab dot, on 4 · Live (3.6.0.2 R52);
-2. each box's state, what it does, its cost, a row per fact, nothing cut; a stray agent in the strip, tagged;
-3. a hand-off moves on the line its frame names (the label: the task, then its When again); a chain; reduced motion;
-4. an opened workflow box: its steps lit, a step's agent, the repeat's rounds and checks;
-5. a made-up helper beside main, dashed, tagged; Save as an agent opens the form with its body, nothing written;
-6. the drawer: filtered by the clicked box, THINK / SAY / TALK rows, an ask's answers and its box waiting on you, the
-   keyboard; Steer and Stop reach the session's command route;
-8. another map shown: amber, Show the running map;  9. a session that did not start on a map;
-10. History: the picker, Replay it on the map (quiet colours, a removed box), the scrubber, the report card;
-the room at 1280 / 1500 / 1920 and a zoom step while frames arrive; 11. Session's Map panel lit, with its link.
+1. 4 · Live's head: the session's T-state (it runs on shop) and its status line (who works, dollars); the tab dot on 4 · Live;
+2. each box's state, its face ("{kind} · {state}"), nothing cut;
+3. a hand-off lights the line its frame names (the label: the task, then its When again); a chain; reduced motion;
+4. a workflow box is its block: the head and a row per step, its agent; a click on the head opens the step-in card;
+5. a made-up child is a row "made up: {task} · {state}" in main's box with Save as an agent, a saved row has none; Save
+   opens the form with its body, nothing written;
+6. the Map's drawer (P4 batch 4 moves the Feed to Live): filtered by the clicked box, THINK / SAY / TALK rows, an ask's
+   answers and its box waiting on you, the keyboard; Steer and Stop reach the session's command route;
+8. another map open on 3 · Map: 4 · Live still draws shop, lit, nothing amber;  9. a session with no map: T4 in Live;
+10. History (on the Map, R55): the picker, Replay it on the map (quiet colours, a removed box), the scrubber, the card;
+the room in Live at 1280 / 1500 / 1920 and a zoom step while frames arrive; 11. Session's Live drawer, its link to Live.
 Run: python -m tests.test_studio_map_live
 """
 from __future__ import annotations
@@ -31,6 +32,8 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 
 test, TESTS = new_registry()
 _RUN: dict = {}
+# R14: the block of the workflow review in the box check, its head then a row per step (EVERY step)
+STEPS = ["workflow review · step 2 of 2", "1 Review · reviewer · done", "2 Test · tester · working"]  # no model: the frames name none
 
 
 def _got(ctx: Ctx) -> dict:
@@ -41,11 +44,10 @@ def _got(ctx: Ctx) -> dict:
 @test
 def test_the_top_line_and_the_tab_dot(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"the top line, got {got.get('head')!r}", str(got.get("head")).startswith("A session is running on this map (started "))
-    ctx.check(f"the one sentence: who works, the models, dollars, got {got.get('sentence')!r}",
-              "agent" in str(got.get("sentence")) and "model" in str(got.get("sentence")) and "$" in str(got.get("sentence")))
-    ctx.check(f"when an edit takes effect, got {got.get('when')!r}", "at the next hand-off" in str(got.get("when"))
-              and "the next time that agent starts" in str(got.get("when")) and "with the next session" in str(got.get("when")))
+    head = got.get("head") or ["", ""]  # 3.6.0.2 R34: Live's head is the T-state (shop is not the map new sessions use: T2)
+    ctx.check(f"Live's T-state line: it runs on shop, got {head}", head[0] in ("T1", "T2") and "on shop, as it started" in str(head[1]))
+    ctx.check(f"the status line: who works, dollars, got {got.get('sentence')!r}",
+              "agents working" in str(got.get("sentence")) and "$" in str(got.get("sentence")))
     ctx.check(f"the tab's dot on 4 · Live (3.6.0.2 R52: a run is Live's), none on 3 · Map, got {got.get('dot')}",
               got.get("dot") == ["1", "4 · Live", ""])
 
@@ -56,35 +58,35 @@ def test_each_box_says_its_state_and_nothing_is_cut(ctx: Ctx):
     s = got.get("states") or {}
     ctx.check(f"working / not used yet per box, got {s}", s.get("code") == "working" and s.get("check") == "working" and s.get("notes") == "idle"
               and s.get("main") == "working")
-    ctx.check(f"a row per fact: state, what it does, its cost, got {got.get('check_rows')}",
-              (got.get("check_rows") or [""])[0] == "working" and len(got.get("check_rows") or []) == 3 and "so far" in got["check_rows"][2])
-    ctx.check(f"not used yet, got {got.get('notes_rows')}", got.get("notes_rows") == ["not used yet"])
+    ctx.check(f"code's face: agent, working, got {got.get('code_face')!r}", str(got.get("code_face")).startswith("agent · working"))
+    ctx.check(f"not used yet, got {got.get('notes_face')}", got.get("notes_face") == ["agent · not used yet"])
     ctx.check(f"nothing cut, got {got.get('cut')}", got.get("cut") == 0)
-    ctx.check(f"an agent no box claims: in the strip, tagged, got {got.get('stranger')}", got.get("stranger") == [["x0rph4n1", "not on this map"]])
 
 
 @test
 def test_a_hand_off_moves_along_the_line_it_named(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"the label shows the task, got {got.get('pulse')!r}", got.get("pulse") == "apply the discount before tax")
-    ctx.check(f"the line lit and a dot travels it, got {got.get('travel')}", got.get("travel") == [True, "1"])
+    ctx.check(f"the line lit, its trace counts one hand-off, got {got.get('travel')}",
+              (got.get("travel") or [""])[0] in ("live", "trace") and got["travel"][1] == "1")
     ctx.check(f"then its When again, got {got.get('back')!r}", got.get("back") == "always")
     ctx.check(f"a chain: the next line's label, got {got.get('chain')!r}", got.get("chain") == "check the basket diff")
-    ctx.check("reduced motion: the line lit, no travel", got.get("reduced") is True)
+    ctx.check("reduced motion: the line lit, nothing travels", got.get("reduced") is True)
 
 
 @test
 def test_an_opened_workflow_box_lights_its_steps(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"its steps, a step's agent, the repeat, got {got.get('steps')}",
-              got.get("steps") == ["1 · Review: done (reviewer)", "2 · Test: running (tester) · repeat: round 2, 2 checks"])
-    ctx.check(f"the click opened the drawer on it, got {got.get('open_drawer')!r}", got.get("open_drawer") == "check")
+    ctx.check(f"R14: its block, the head and a row per step with its agent, got {got.get('steps')}", got.get("steps") == STEPS)
+    ctx.check(f"a click on the head opens the step-in card for it, got {got.get('open_drawer')!r}", got.get("open_drawer") == "head:review")
 
 
 @test
 def test_a_made_up_helper_and_save_as_an_agent(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"beside main, dashed, tagged, got {got.get('helper')}", got.get("helper") == ["made up for this task", "dashed", True])
+    h = got.get("helper") or ["", False, "", False]  # 3.6.0.2 R15: a made-up row in main's box with Save; saved rows have none
+    ctx.check(f"a made-up row in main's box with Save as an agent; a saved row has none, got {h}",
+              h[0] == "made up: List what the shop repo holds for the re · working" and h[1] is True and h[2] == "main" and h[3] is True)
     ctx.check(f"Save as an agent: the Agents form with its body, not saved, got {got.get('view')!r} {got.get('form')}",
               got.get("view") == "crew" and (got.get("form") or ["", False])[0] == "list-what-shop" and got["form"][1] is True)
     ctx.check(f"nothing written, got {got.get('written')}", got.get("written") == [])
@@ -103,16 +105,15 @@ def test_the_drawer_steer_stop_and_an_ask(ctx: Ctx):
 
 
 @test
-def test_another_map_and_a_session_with_no_map(ctx: Ctx):
+def test_another_map_open_on_map_live_unchanged_and_a_session_with_no_map(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"another map shown: amber, not lit, got {got.get('amber')} {got.get('unlit')}",
-              (got.get("amber") or [False])[0] is True and got.get("unlit") == 0)
-    ctx.check(f"Show the running map opens it, lit again, got {got.get('shown_running')!r}", got.get("shown_running") == "shop")
-    ctx.check(f"no map: offered, then main and every agent as a made-up helper, no lines, got {got.get('boxes')} {got.get('labels')}",
-              got.get("offer") is True and (got.get("boxes") or [0, []])[1] == ["main"] and got["boxes"][0] >= 4 and got.get("labels") == 0)
-    ctx.check(f"the top line says it did not start on a map, got {got.get('nomap_head')!r}",
-              str(got.get("nomap_head")).startswith("This session did not start on a map"))
-    ctx.check(f"the map again, its lines, got {got.get('again')}", got.get("again") == 5)
+    ctx.check(f"3 · Map on starter: 4 · Live still draws shop, nothing amber, got {got.get('amber')}", got.get("amber") == ["shop", 0])
+    ctx.check(f"and lit, got {got.get('unlit')}", (got.get("unlit") or 0) >= 1)
+    head = str(got.get("nomap_head"))
+    ctx.check(f"no map: T4 in section 4's words, got {head!r}",
+              head.startswith("This session runs with no map, as it started at ") and head.endswith(": main does the work and starts its own agents."))
+    ctx.check(f"no drawing and no Show it, got {got.get('boxes')}", got.get("boxes") == [0, False])
+    ctx.check(f"the map again, its lines' labels, got {got.get('again')}", got.get("again") == 5)
 
 
 @test
@@ -132,8 +133,8 @@ def test_the_room_and_a_zoom_while_frames_arrive(ctx: Ctx):
     got = _got(ctx)
     for w in (1280, 1500, 1920):
         r = got.get(f"room_{w}") or {}
-        ctx.check(f"{w}: no sideways scroll, nothing under 12 px, controls >= 28 px, nothing cut, the drawer open, got {r}",
-                  r == {"small": 0, "ctl": 0, "side": 0, "cut": 0, "feed": True})
+        ctx.check(f"{w}: in Live no sideways scroll, nothing under 12 px, controls >= 28 px, nothing cut, got {r}",
+                  r == {"small": 0, "ctl": 0, "side": 0, "cut": 0})
     z = got.get("zoom") or ["", "x"]
     ctx.check(f"his zoom holds while a helper and a hand-off arrive, got {z}", z[0] and z[0] == z[1])
 
@@ -141,8 +142,10 @@ def test_the_room_and_a_zoom_while_frames_arrive(ctx: Ctx):
 @test
 def test_sessions_map_panel_is_the_lit_map(ctx: Ctx):
     got = _got(ctx)
-    ctx.check(f"compact, read-only (no dot, no label card), its helper, got {got.get('panel')}", got.get("panel") == ["shop", True, 0])
-    ctx.check(f"its link opens the Map tab on that map, got {got.get('to_tab')!r}", got.get("to_tab") == "shop")
+    p = got.get("panel") or ["", 0, False, 9, 1, False]  # 3.6.0.2 R7 R15: drawn down, children as named rows
+    ctx.check(f"Session's Live drawer: shop, >= 6 boxes, every box under main, <= 2 a row, no dot or label, a named row, got {p}",
+              p[0] == "shop" and p[1] >= 6 and p[2] is True and p[3] <= 2 and p[4] == 0 and p[5] is True)
+    ctx.check(f"its link opens Agents -> 4 · Live on this session, got {got.get('to_tab')!r}", got.get("to_tab") == "shop")
     ctx.check(f"the driver ran every step, got {got.get('failed')!r}", not got.get("failed"))
 
 
