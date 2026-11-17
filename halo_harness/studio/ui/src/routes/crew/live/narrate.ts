@@ -37,12 +37,23 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
 
 export type Narration = { text: string; head: string; waitText: string; tail: string; rows: [string, string][] };
 
+/** The wait in words: what waits on him first ("waiting on you: ..."), else the end of the waiting path when it waits on a
+ *  tool or a model ("waiting on: {agent} -> ..."). The sentence bounds the words (a tool's at 36 characters, a question at
+ *  48); `whole` (P8 batch 3: the wait link on the run drawings, the owner's rule a text is never cut) never cuts them. */
+export function waitWords(nodes: LiveNode[], waits: Map<string, Wait>, path: WaitPath, whole = false): string {
+  const cut = (t: string, n: number) => (whole ? t.replace(/\s+/g, " ").trim() : short(t, n));
+  const asks = nodes.filter((n) => waits.get(n.id)?.kind === "you");
+  if (asks.length) return `waiting on you: ${cut(waits.get(asks[0].id)!.what, 48)}${asks.length > 1 ? ` (and ${asks.length - 1} more)` : ""}`;
+  return path.leaf && path.wait && (path.wait.kind === "tool" || path.wait.kind === "model") ? `waiting on: ${path.leaf.role && path.leaf.role !== path.leaf.name ? path.leaf.role : path.leaf.name} -> ${cut(path.wait.what, 36)}` : "";
+}
+
 /** The sentence for the drawn agents. `where`: an agent's block or group title ("" for none). */
 export function narrate(nodes: LiveNode[], waits: Map<string, Wait>, path: WaitPath, where: (n: LiveNode) => string): Narration {
   const agents = nodes.filter((n) => waits.has(n.id));
   if (!agents.length) return { text: "", head: "", waitText: "", tail: "", rows: [] };
   const asks = agents.filter((n) => waits.get(n.id)!.kind === "you");
-  const ask = asks.length ? `waiting on you: ${short(waits.get(asks[0].id)!.what, 48)}${asks.length > 1 ? ` (and ${asks.length - 1} more)` : ""}` : "";
+  const said = waitWords(agents, waits, path);
+  const ask = asks.length ? said : "";
   const buckets = new Map<string, number>();
   const rows = new Map<string, LiveNode[]>();
   for (const n of agents) {
@@ -54,7 +65,7 @@ export function narrate(nodes: LiveNode[], waits: Map<string, Wait>, path: WaitP
     buckets.set(k, (buckets.get(k) || 0) + 1);
   }
   const parts = [...buckets].sort((a, b) => b[1] - a[1]).map(([k, c]) => { const [what, at] = k.split("|"); return `${plural(c, "agent")} ${what}${at ? ` in ${short(at, 24)}` : ""}`; });
-  const lw = !ask && path.leaf && path.wait && (path.wait.kind === "tool" || path.wait.kind === "model") ? `waiting on: ${path.leaf.role && path.leaf.role !== path.leaf.name ? path.leaf.role : path.leaf.name} -> ${short(path.wait.what, 36)}` : "";
+  const lw = ask ? "" : said;
   const models = new Set(agents.map((n) => shortModel(n.model)).filter(Boolean)).size;
   const spend = spendWords(nodes); // 3.4.1.0 R5 (defect 33): the agents (liveSpend), not their session and machine nodes again; 3.4.1.1 (44, 60)
   const tail = `${models ? ` · on ${plural(models, "model")}` : ""} · ${spend}`;

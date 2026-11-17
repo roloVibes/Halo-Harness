@@ -115,6 +115,22 @@ def test_the_box_waited_on_is_outlined_and_the_wait_link_picks_it(ctx: Ctx):
 
 
 @test
+def test_a_wait_on_a_tool_of_wide_words_is_whole_and_its_row_holds_after_its_first_draw(ctx: Ctx):
+    """P8 batch 3 (red on dc72c152: narrate.ts cut a tool's words at 36 characters with '…'): a helper waits on a tool
+    whose words are 90 wide letters; the link shows every word, and its row's height at the link's first draw equals its
+    height five frames later (its room is the real words', taken when the wait appears)."""
+    from tests.helpers.studio_run_parts import WIDE
+    d = _got(ctx)
+    for w in BOTH:
+        x = _of(d, w, "wide")
+        link, rows = str(x.get("link")), x.get("rows") or [None, None]
+        ctx.check(f"{w}: the link says the tool's 90 wide letters whole, no '…', got {link!r} ({x.get('error')})",
+                  WIDE in link and "…" not in link and x.get("whole") is True)
+        ctx.check(f"{w}: the row's height at the link's first draw is its height five frames later, got {rows}",
+                  bool(rows[0]) and rows[0] == rows[1])
+
+
+@test
 def test_a_waiting_row_says_how_long_it_has_waited(ctx: Ctx):
     d = _got(ctx)
     for w in BOTH:

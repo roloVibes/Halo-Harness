@@ -37,7 +37,12 @@ export function Extras({ sid }: { sid: string }) {
  *  batch 9). P8 (the owner's rule: a text is never cut): the goal's whole words wrap beside Open, its own item that never
  *  shrinks, on the top line's own row. P8 repair (nothing moves after the first draw): the Map's canvas is drawn once the
  *  runs are listed (MapCanvas.tsx), so a run going is in the first draw; the row keeps the tallest room it has had, so a
- *  run ending moves nothing; a run started later (Run a goal) grows it once. */
+ *  run ending moves nothing; a run started later (Run a goal) grows it once.
+ *  P8 batch 3 (the coordinator's ruling): the run's room is there from the Map's FIRST draw, one line high, empty and
+ *  not announced while no goal run exists: the last item of the top line's one row of controls (MapBar.tsx TopLine), the
+ *  row's free width beside Replay -- a line of its own under the controls took 28 px of a drawing 180 px tall at 1500 x
+ *  813, and two boxes of test_studio_map no longer fitted it together. A goal that fits that line moves nothing when it
+ *  starts; a longer one grows the row once (its words are never cut). */
 export function RunRow() {
   const run = useOrch((s) => s.runs.find((r) => isLiveRun(r.state)));
   const box = useRef<HTMLDivElement>(null);
@@ -46,16 +51,19 @@ export function RunRow() {
     const h = box.current?.offsetHeight || 0;
     if (h > kept + 0.5) setKept(h);
   });
-  return !run && !kept ? null : (
-    <div className="cw-line mp-run-row" data-testid="map-lit-run-row" ref={box} style={kept ? { minHeight: kept } : undefined}>
-      {run && <span className="mp-extras-run" data-testid="map-lit-run" data-run={run.run_id}>
-        <span className="mp-extras-goal" data-testid="map-lit-run-goal">A goal run is going: {run.goal_what}</span>
+  return (
+    <div className="cw-line mp-run-row" data-testid="map-lit-run-row" ref={box} style={kept ? { minHeight: kept } : undefined}
+         aria-hidden={run ? undefined : "true"}>
+      {run ? <span className="mp-extras-run" data-testid="map-lit-run" data-run={run.run_id}>
+        <span className="mp-extras-goal" data-testid="map-lit-run-goal">{GOING}{run.goal_what}</span>
         <Button size="sm" onClick={() => (openMapDrawer(`run:${run.run_id}`), void openOrchRun(run.run_id))} data-testid="map-lit-run-open"
                 title="Its pages (lanes, the gate, the merge, its report) in the drawer">Open</Button>
-      </span>}
+      </span> : null}
     </div>
   );
 }
+
+const GOING = "A goal run is going: ";
 
 /** A replay of History's run on the Map (R55: a replay stays on the Map), with Back to now. */
 export function ReplayLine() {

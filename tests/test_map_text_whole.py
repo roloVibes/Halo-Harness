@@ -80,6 +80,32 @@ def test_the_wait_link_has_its_own_reserved_row(ctx: Ctx):
 
 
 @test
+def test_the_wait_link_says_its_words_whole(ctx: Ctx):
+    """P8 batch 3 (red on dc72c152: the link was narrate()'s head, which cuts a tool's words at 36 characters and a
+    question at 48 with '…'): narrate.ts `waitWords(nodes, waits, path, true)` gives the link's words whole, and the
+    one-line sentence (narrate's head, Glance's line) keeps its bound."""
+    from tests.helpers import node_ts
+    nar = (UI / "routes" / "crew" / "live" / "narrate.ts").resolve().as_uri()
+    wide = ("MWMWMWMWM " * 9).strip() + "W"
+    ask = "Which of the two basket rules should win when a coupon and a loyalty card meet at the till?"
+    got = node_ts.run(
+        f"const N = await import({json.dumps(nar)});\n"
+        "const main = {id: 'main', name: 'main', role: 'main', model: ''}, coder = {id: 'c1', name: 'coder', role: 'coder', model: ''};\n"
+        f"const tool = {{kind: 'tool', what: 'Bash ' + {json.dumps(wide)}, since: 0, who: 'c1'}};\n"
+        f"const you = {{kind: 'you', what: {json.dumps(ask)}, since: 0, who: 'c1'}};\n"
+        "const w1 = new Map([['c1', tool]]), w2 = new Map([['c1', you]]);\n"
+        "const p1 = {ids: ['main', 'c1'], leaf: coder, wait: tool}, p2 = {ids: ['main', 'c1'], leaf: coder, wait: you};\n"
+        "const f = typeof N.waitWords === 'function' ? N.waitWords : null;\n"
+        "console.log(JSON.stringify([f && f([main, coder], w1, p1, true), f && f([main, coder], w2, p2, true),\n"
+        "  N.narrate([main, coder], w1, p1, () => '').head]));")
+    link_tool, link_ask, head = got
+    ctx.check(f"a tool's words whole in the link, got {link_tool!r}", link_tool == f"waiting on: coder -> Bash {wide}")
+    ctx.check(f"a question whole in the link, got {link_ask!r}", link_ask == f"waiting on you: {ask}")
+    ctx.check(f"the one-line sentence keeps its bound (36 characters, '…'), got {head!r}",
+              "…" in str(head) and wide not in str(head))
+
+
+@test
 def test_the_words_are_true(ctx: Ctx):
     from tests.helpers import node_ts
     words = (MAP / "truthWords.ts").resolve().as_uri()

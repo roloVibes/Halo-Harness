@@ -150,13 +150,14 @@ export function mapLine(m: MapLineFacts): Line[] {
  *  line and the clock of a waiting box or row (runParts.tsx) both read it. */
 export const waitWhat = (w: string): string => (w === "model" ? "a model reply" : w);
 
-const WORD = "e"; // a letter of a common width: the twin is the room a real link takes, a wider one grows the row (never cut)
+const WORD = "e"; // a letter of a common width: a usual link's room (a longer or wider one takes its room as its real words, never cut)
 
-/** P8: the longest wait links (runWait.tsx WaitRow's twins) a run whose agents are named `names` can show, as 3.6.0.0's
- *  narrate.ts bounds them: "waiting on: {agent} -> {a tool's words, at most 36}", "waiting on you: {at most 48} (and n more)". */
+/** P8: a usual wait link (runWait.tsx WaitRow's twins, from the first draw) of a run whose agents are named `names`:
+ *  "waiting on: {agent} -> {a tool's words, 36}", "waiting on you: {48} (and n more)" (3.6.0.0's sentence bounds). P8
+ *  batch 3: the link's words are whole (narrate.ts waitWords), so a longer link takes its room when it appears, never cut. */
 export function waitRoom(names: string[]): string[] {
   const who = names.reduce((a, b) => (b.length > a.length ? b : a), "main");
-  return [`waiting on: ${who} -> ${WORD.repeat(35)}…`, `waiting on you: ${WORD.repeat(47)}… (and 9 more)`];
+  return [`waiting on: ${who} -> ${WORD.repeat(36)}`, `waiting on you: ${WORD.repeat(48)} (and 9 more)`];
 }
 
 /** What the status line is told: `rows` are the session's agents (main included) with their state. */

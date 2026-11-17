@@ -1172,6 +1172,42 @@ def test_a_builder_card_of_seven_rows_is_whole_in_a_tall_terminal(ctx: Ctx):
         _run(walk, size=size)
 
 
+@test
+def test_a_waiting_builder_card_is_fitted_again_when_the_terminal_is_resized(ctx: Ctx):
+    """P8 batch 3 (red on dc72c152): the dock's room was set only when a card was shown, so a card shown at 200x50 kept a
+    25-line dock after the terminal went to 24 rows: the dock overflowed the screen and the card's last rows lay under the
+    box and the status line. The room is computed again on every resize (the function a shown card uses): at 24 rows the
+    dock is 12 lines, every row of the card is on screen or reachable by the dock's own scroll, the card's answers (its
+    options) are in sight, and the box and the status line are whole; back at 50 rows the card is whole again."""
+    async def walk(fake, app, pilot, clock):
+        await _ask(app, pilot, _builder_card_event())
+        await pilot.pause(0.2)
+        dock = app.pending_dock
+        tall = dock.outer_size.height
+        ctx.check(f"200x50: the card is whole in its dock ({tall} lines, max_scroll_y {dock.max_scroll_y})",
+                  dock.max_scroll_y == 0 and tall > 12)
+        await pilot.resize_terminal(200, 24)
+        await pilot.pause(0.3)
+        d, box, bar = dock.region, app.prompt_input.region, app.status_bar.region
+        ctx.check(f"200x24: the dock is fitted again (12 lines), got {dock.outer_size.height}", dock.outer_size.height <= 12)
+        ctx.check(f"200x24: the box and the status line are whole, on screen and below the dock, got dock {d} box {box} "
+                  f"status {bar}", box.height > 0 and bar.height > 0 and box.y >= d.y + d.height
+                  and bar.y + bar.height <= 24 and box.y + box.height <= 24)
+        card = dock.card
+        ctx.check(f"200x24: every row of the card is in the dock's reach (card {card.outer_size.height} lines, shown "
+                  f"{dock.scrollable_content_region.height} + scroll {dock.max_scroll_y})",
+                  card.outer_size.height <= dock.scrollable_content_region.height + dock.max_scroll_y)
+        opts = card.first_unanswered_list()
+        o = opts.region if opts is not None else None
+        ctx.check(f"200x24: the card's answers are in sight inside the dock, got {o} in {dock.scrollable_content_region}",
+                  o is not None and o.height > 0 and dock.scrollable_content_region.contains_region(o))
+        await pilot.resize_terminal(200, 50)
+        await pilot.pause(0.3)
+        ctx.check(f"back at 200x50: the card is whole again ({dock.outer_size.height} lines, max_scroll_y "
+                  f"{dock.max_scroll_y})", dock.max_scroll_y == 0 and dock.outer_size.height == tall)
+    _run(walk, size=(200, 50))
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

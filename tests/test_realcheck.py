@@ -1119,6 +1119,40 @@ def test_session_map_types_once_studio_follows_the_session(ctx: Ctx):
 
 
 @test
+def test_session_map_waits_for_studio_to_follow_the_session_it_started(ctx: Ctx):
+    """P8 batch 3 (the batch 2 checker's should; red on dc72c152): `_followed` waited for ANY session in the feed's
+    `sessions` frame. The step now reads the id of the terminal session it started (Studio's session list, the one tui
+    row of its scratch home) and waits for THAT id in the frame; another session listed is not a follow."""
+    import inspect
+
+    from realcheck import steps_map as M
+    followed = getattr(M, "_followed", None)
+    params = inspect.signature(followed).parameters if callable(followed) else {}
+    ctx.check(f"_followed takes the session id the step started, got {list(params)}", "sid" in params)
+    if "sid" not in params:
+        return
+    src = inspect.getsource(M.session_map)
+    ctx.check("session_map passes the terminal session's id to _followed", "_followed(c, ev, bad, sid)" in src)
+
+    class Page:
+        def __init__(self, listed: list) -> None:
+            self.listed, self.asked = listed, []
+
+        def wait(self, expr: str, timeout: float):
+            self.asked.append(expr)
+            import json as _j
+            want = _j.loads(expr.split("includes(", 1)[1].split(")", 1)[0]) if "includes(" in expr else None
+            if want is None or want not in self.listed:
+                raise TimeoutError(expr)
+            return True
+    for listed, ok in ((["s-other", "s-mine"], True), (["s-other"], False)):
+        page, ev, bad = Page(listed), {}, []
+        got = followed(page, ev, bad, "s-mine")
+        ctx.check(f"listed {listed}: followed is {ok} (only the step's own session counts), got {got} {bad} {page.asked}",
+                  got is ok and bool(bad) is (not ok) and all("s-mine" in e for e in page.asked))
+
+
+@test
 def test_browser_names_the_browser_the_steps_use_and_one_that_names_nothing_fails_them(ctx: Ctx):
     """--browser <path or command name>: that browser (HALO_CHROME for the run, put back after); one that names no
     browser is a FAIL of each browser step that says so, never the person's own installed Chrome."""

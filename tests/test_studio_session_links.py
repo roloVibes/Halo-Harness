@@ -31,6 +31,22 @@ def test_orchestra_run_line_watches_its_session(ctx: Ctx):
         print(f"    (the Map's Open took {got.get('open_clicks')} click(s) before its drawer showed the run; "
               f"the Map had settled first: {got.get('settled')})")
     ctx.check(f"a live run's line has the button, got {got.get('watch_orchestra')!r}", got.get("watch_orchestra") == "Watch in Session")
+    # P8 batch 3 (the coordinator's ruling; red on dc72c152, the drawing went 38 px down): the run's row is there from the
+    # Map's first draw, one line high, empty and hidden from a screen reader; a goal run of 40 characters starting moves
+    # nothing; one of 200 characters grows the row once, whole, and nothing moves after that
+    s = got.get("starts") or {}
+    none, short, long_, later = (s.get(k) or {} for k in ("no_run", "short", "long", "long_later"))
+    row = s.get("empty_row") or [0, None, "?"]
+    ctx.check(f"P8 batch 3: with no goal run the run's row is drawn, one line high, empty, aria-hidden, got {row}",
+              row[0] >= 20 and row[1] == "true" and row[2] == "")
+    ctx.check(f"P8 batch 3: a 40-character goal run starting moves nothing on the Map, got {none} -> {short} "
+              f"(the row's parts [left, top, width, height]: {s.get('short_parts')})",
+              bool(none.get("drawing")) and short == none)
+    lw = s.get("long_whole") or {}
+    ctx.check(f"P8 batch 3: a 200-character goal is whole on screen, got {lw}",
+              "the shop staff" in str(lw.get("text")) and lw.get("fits") is True and lw.get("cut") is False)
+    ctx.check(f"P8 batch 3: after the row grew once for it, nothing moves, got {long_} -> {later}",
+              bool(long_.get("drawing")) and later == long_)
     # P4 batch 9 (the Map's top line draws its buttons in one parent): Open is pressed once, the same node before and after
     w = got.get("whole") or {}
     ctx.check(f"P8: the goal's 120 characters whole on the top line, wrapped, nothing cut, got {w}",

@@ -145,7 +145,8 @@ def session_map(ctx):
                        + excerpt(t.plain(), 200))
         else:
             ev["row_seen"] = bool(_wait(c, ROW, 30))
-            _followed(c, ev, bad)
+            sid = _started(h)
+            _followed(c, ev, bad, sid)
             before = c.js(BEFORE) or {}
             ev["before"] = before
             applied = _alone(1, bad, _card, t, ev, bad) or 0.0
@@ -185,16 +186,25 @@ FOLLOWED = "window.__rcb && window.__rcb.followed && window.__rcb.followed.lengt
 FOLLOW_S = 30.0
 
 
-def _followed(c, ev: dict, bad: list) -> bool:
+def _started(h) -> str:
+    """P8 batch 3: the id of the terminal session this step started -- the one tui row of Studio's session list in the
+    step's own scratch home ("" when none is listed in 30 s)."""
+    from realcheck.core import wait_until
+    from realcheck.steps_prompt import _rows
+    return wait_until(lambda: next((r.get("session_id") for r in _rows(h) if r.get("kind") == "tui"), ""), 30, 0.25) or ""
+
+
+def _followed(c, ev: dict, bad: list, sid: str = "") -> bool:
     """Studio follows the session before he types (its feed's `sessions` frame lists it). Studio's feed attaches a new
     session on its 2-s scan; a person has not typed a request by then, but this rig types at once, and what the
-    session sent before the attach (the `builder_done` frame) never reached the page. How long it took is evidence."""
+    session sent before the attach (the `builder_done` frame) never reached the page. How long it took is evidence.
+    P8 batch 3: with `sid` (the session this step started) only THAT session listed is a follow."""
     t0 = time.monotonic()
-    ok = bool(_wait(c, FOLLOWED, FOLLOW_S))
+    ok = bool(_wait(c, FOLLOWED + (f" && window.__rcb.followed.includes({json.dumps(sid)})" if sid else ""), FOLLOW_S))
     ev["followed_s"] = round(time.monotonic() - t0, 1) if ok else None
     if not ok:
         bad.append(f"(2) Studio never followed the session in {FOLLOW_S:.0f} s (no `sessions` frame on its feed "
-                   "listed it)")
+                   + ("listed the session this step started)" if sid else "listed it)"))
     return ok
 
 

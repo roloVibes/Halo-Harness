@@ -91,11 +91,11 @@ def held_run(c, page: str) -> dict:
     return out
 
 
-def live_run(rig):
+def live_run(rig, what: str = GOAL):
     """A run of the rig's repo led by this harness's session, live as Studio's own run is."""
     from halo_harness.orchestra.goal import Goal, new_run
     from halo_harness.studio import orchestra_live as L
-    goal = Goal(what=GOAL, done_when="the tests pass", stop_when="two returns", workers=2,
+    goal = Goal(what=what, done_when="the tests pass", stop_when="two returns", workers=2,
                 return_cap=1, test="python -c pass", files=["basket.py"], test_timeout_s=30)
     run_dir = new_run(rig.proj, goal, lead_holder=f"{rig.act.session_id}/main")
     stop = threading.Event()
@@ -105,6 +105,67 @@ def live_run(rig):
         L._live.update(thread=keeper, run_id=run_dir.name)
     rig.closers.append(stop.set)
     return run_dir
+
+
+# P8 batch 3: a goal of 40 characters (one line beside Open) and one of 200 (several lines, whole)
+SHORT_GOAL = "Fix the basket discount for loyal people"
+LONG_GOAL = ("Ship the basket discount fix for every customer who has a coupon and a loyalty card together, keep the "
+             "receipts as they print today, write the change note for the shop staff, then make the tests pass")
+STILL = {"drawing": _PART.format("map-scroll"), "top line": _PART.format("map-topline"), "zoom": _PART.format("canvas-zoom")}
+
+
+def _tops(c) -> dict:
+    """The tops of the drawing, the zoom row and the top line (and the top line's height)."""
+    m = _measure(c, STILL)
+    return {k: (v[1] if k != "top line" else [v[1], v[3]]) if v else None for k, v in m.items()}
+
+
+def starts(c, rig) -> dict:
+    """P8 batch 3 (the coordinator's ruling): the Map open with no goal run, settled; a goal run of 40 characters starts
+    (its run folder, live, and the feed's `orchestra_state` frame, as a run Studio drives says it): the run's row was in
+    the first draw, one line, empty, so nothing moves; then a run of 200 characters starts: its whole goal grows the row
+    ONCE, and nothing moves after that. The run's room is the free width of the top line's row of controls beside Replay
+    (LitLine.tsx RunRow): at 1920 x 1000 it holds a 40-character goal on one line; in this rig's Map at 1500 x 900
+    it is 319 px (measured) and the same goal takes two lines (it grows the row once, a real change, never cut)."""
+    import time
+    out: dict = {}
+    c.call("Emulation.setDeviceMetricsOverride", width=1920, height=1000, deviceScaleFactor=1, mobile=False)
+    try:
+        return _starts(c, rig, out)
+    finally:
+        c.call("Emulation.clearDeviceMetricsOverride")
+
+
+def _starts(c, rig, out: dict) -> dict:
+    import time
+    run_row = "document.querySelector('[data-part=map] [data-testid=map-lit-run-row]')"
+    goal = "document.querySelector('[data-part=map] [data-testid=map-lit-run-goal]')?.textContent || ''"
+
+    def start(what: str) -> None:
+        run_dir = live_run(rig, what)
+        rig.server.events.publish_local({"session_id": f"orchestra:{run_dir.name}", "event": "orchestra_state",
+                                         "data": {"run": run_dir.name, "kind": "state", "text": "running"}})
+    c.go(url(rig, "mode=agents&view=map&plan=off"))
+    c.wait("!!document.querySelector('[data-testid=\"map\"][data-settled]')", 30)
+    time.sleep(1.0)
+    out["no_run"] = _tops(c)
+    out["empty_row"] = c.js(f"(() => {{ const r = {run_row}; if (!r) return null; const h = r.getBoundingClientRect().height;"
+                            f" return [Math.round(h), r.getAttribute('aria-hidden'), (r.innerText || '').trim()]; }})()")
+    start(SHORT_GOAL)
+    c.wait(f"({goal}).includes({SHORT_GOAL!r}) && 'shown'", 30)
+    time.sleep(0.5)
+    out["short"] = _tops(c)
+    out["short_parts"] = _measure(c, {k: _PART.format(v) for k, v in (("acts", "map-topline-acts"), ("plan", "map-lit-extras"),
+                                                                       ("run", "map-lit-run-row"), ("goal", "map-lit-run-goal"))})
+    start(LONG_GOAL)
+    c.wait(f"({goal}).includes('the shop staff') && 'shown'", 30)
+    time.sleep(0.5)
+    out["long"] = _tops(c)
+    out["long_whole"] = c.js(WHOLE)
+    time.sleep(1.5)
+    out["long_later"] = _tops(c)
+    c.go("about:blank")  # the flow after it loads the same address afresh (a same-address go would keep this page)
+    return out
 
 
 def _why(c, rig, run_dir, sid: str, took: dict) -> str:
@@ -147,6 +208,7 @@ def links(c, rig) -> dict:
     out: dict = {}
     sid = rig.act.session_id
     t0 = time.monotonic()
+    out["starts"] = starts(c, rig)  # P8 batch 3: before the flow below (its own runs are not live after it)
     run_dir = live_run(rig)
     opener = "document.querySelector('[data-testid=\"map-lit-run-open\"]')"
     c.go(url(rig, "mode=agents&view=map&plan=off"))  # 3.6.0.0 R5: the Map's line names the run; Open shows its pages

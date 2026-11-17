@@ -56,6 +56,40 @@ class PendingDock(VerticalScroll):
         super().__init__(**kwargs)
         self.card = None
         self.display = False
+        self._refit = False
+
+    def fit(self, screen_rows: int, *, resized: bool = False) -> None:
+        """3.6.0.2 P8 batch 3: the dock's room (dock_room) from the screen's rows -- when a card is shown and again on
+        every resize of the terminal (BridgeApp.on_resize), so a card shown on a tall terminal never keeps a room the
+        screen no longer has (it overflowed under the box and the status line). After a resize, a card taller than the
+        dock keeps its answers in sight (`_keep_answers`, once the dock has its new size)."""
+        self.styles.max_height = dock_room(screen_rows)
+        self._refit = resized and self.card is not None
+        if self._refit:
+            self.call_after_refresh(self._keep_answers)
+
+    def on_resize(self, _event) -> None:
+        if self._refit:
+            self.call_after_refresh(self._keep_answers)
+
+    def _keep_answers(self) -> None:
+        """The card's answers in sight when it is taller than the dock: a question card's first unanswered list of
+        options, else the card's last line (a permission card's keys line `[1] Yes ... [4] No`)."""
+        card = self.card
+        if not self._refit or card is None or self.max_scroll_y <= 0:
+            return
+        self._refit = False  # once per resize: the screen regions read below are stale until the next paint
+        lists = getattr(card, "_lists", None) or []
+        at = getattr(card, "active_index", 0)
+        target = lists[at] if 0 <= at < len(lists) else None
+        if target is None:
+            self.scroll_end(animate=False, immediate=True)
+            return
+        # where the answers end, in the dock's own scrolled space (screen rows, read after the dock's new layout)
+        view = self.scrollable_content_region
+        end = target.region.y - view.y + int(self.scroll_y) + target.outer_size.height
+        if end > int(self.scroll_y) + view.height:
+            self.scroll_to(y=min(self.max_scroll_y, end - view.height), animate=False, immediate=True)
 
     async def show_card(self, card) -> None:
         """Mounts `card` as this dock's one and only child and makes the
@@ -64,7 +98,7 @@ class PendingDock(VerticalScroll):
         has already been cleared, so there should never actually be one,
         but a stray leftover must never silently stack two cards in here."""
         await self.remove_children()
-        self.styles.max_height = dock_room(self.app.size.height)
+        self.fit(self.app.size.height)
         self.card = card
         await self.mount(card)
         self.display = True
@@ -72,6 +106,7 @@ class PendingDock(VerticalScroll):
     async def clear(self) -> None:
         await self.remove_children()
         self.card = None
+        self._refit = False
         self.display = False
 
     def action_open_pager(self) -> None:

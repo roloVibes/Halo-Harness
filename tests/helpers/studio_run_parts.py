@@ -132,6 +132,35 @@ def wait_link(c, lv, where: str) -> dict:
     return out
 
 
+# P8 batch 3: a tool's words of 90 wide letters -- the link shows them whole, and the row's height at the link's first
+# draw (a frame watcher in the page) equals its height five frames later
+WIDE = ("MWMWMWMWM " * 9).strip() + "W"
+FRAMES = """(() => { const w = window.__wide = {first: null, later: null}; let n = -1;
+  const tick = () => { const r = document.querySelector('$ROOT [data-testid=run-wait-row]'), l = document.querySelector('$ROOT [data-testid=run-wait]');
+    if (n < 0 && l && (l.textContent || '').includes('MWMWMWMWM MWM')) { n = 0; w.first = Math.round(r.getBoundingClientRect().height); }
+    else if (n >= 0 && ++n === 5) { w.later = Math.round(r.getBoundingClientRect().height); return; }
+    requestAnimationFrame(tick); }; requestAnimationFrame(tick); return 1; })()"""
+
+
+def wide_wait(c, lv, where: str) -> dict:
+    """A helper waits on a tool whose words are 90 wide letters: the link's words whole (no '…' they do not have), its
+    row's height at the link's first draw equal to its height five frames later."""
+    link = f"document.querySelector('{ROOT[where]} [data-testid=run-wait]')"
+    out: dict = {}
+    c.js(FRAMES.replace("$ROOT", ROOT[where]))
+    try:
+        lv.tool("main", "Agent", f"call-{where}-wide-agent")
+        lv.tool("implementer", "Bash", f"call-{where}-wide", current=WIDE)
+        c.wait("window.__wide && window.__wide.later !== null", 15)
+        out.update({"link": c.js(f"{link}?.textContent || null"), "rows": [c.js("window.__wide.first"), c.js("window.__wide.later")],
+                    "whole": c.js(WHOLE.replace("$LINK", link))})
+    finally:
+        lv.result("main", f"call-{where}-wide-agent", "done", tool="Agent")
+        lv.result("implementer", f"call-{where}-wide", "ok")
+        lv.state("implementer", current="thinking")
+    return out
+
+
 # P8: an element's words whole: nothing overflows it and no ellipsis, nowrap or line clamp is on it or its row
 WHOLE = """(() => { const e = $LINK; if (!e) return null; const cut = (x) => { const s = getComputedStyle(x);
   return s.textOverflow === 'ellipsis' || s.whiteSpace === 'nowrap' || s.webkitLineClamp !== 'none'; };
@@ -290,6 +319,7 @@ def drawing(c, rig, lv, where: str) -> dict:
                      ("timers", lambda: (open_where(c, rig, lv, where), clock(c, lv, where, 2), timers(c, where))[2]),
                      ("under", lambda: (open_where(c, rig, lv, where), under(c, where))[1]),
                      ("wait", lambda: (open_where(c, rig, lv, where), wait_link(c, lv, where))[1]),
+                     ("wide", lambda: (open_where(c, rig, lv, where), wide_wait(c, lv, where))[1]),
                      ("below", lambda: (open_where(c, rig, lv, where), below(c, lv, where))[1]),
                      ("waited", lambda: (open_where(c, rig, lv, where), waited(c, lv, where))[1])):
         if name == "below" and where != "session":

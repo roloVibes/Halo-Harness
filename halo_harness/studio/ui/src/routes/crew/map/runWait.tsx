@@ -6,16 +6,18 @@
 //   waits on a tool, a model reply or a helper, not only one waiting on you -- carries `data-waited` (DownBox.tsx);
 // - the wait link: 3.6.0.0's words for it ("waiting on: tester -> Bash pytest -q", "waiting on you: ...") on its own row
 //   (WaitRow; Session: beside "more below" in the bottom slot; Live: the tools row, left of the zoom), its words whole and
-//   wrapped (P8, the owner's rule: a text is never cut), in room reserved from the first draw by hidden twins of the
-//   longest links this run can show (narrate's bounds: an agent's name, a tool's words of at most 36 characters, a
-//   question of at most 48 and "(and n more)"), so a wait coming or going moves nothing; a longer agent name arriving is a
-//   real change and the room grows once; a press brings that box into view and picks it as a click does (its card opens);
+//   wrapped (P8, the owner's rule: a text is never cut; P8 batch 3: narrate.ts waitWords whole, the one-line sentence
+//   keeps its bound), in room reserved from the first draw by hidden twins of a usual link of this run (an agent's name,
+//   a tool's words of 36 characters, a question of 48 and "(and n more)"), so a usual wait coming or going moves
+//   nothing; a longer link takes its room when the wait appears, as a hidden twin of its REAL words that stays until the
+//   wait's words really change (a wait going moves nothing); a press brings that box into view and picks it as a click
+//   does (its card opens);
 // - the clock of a waiting box or row (runParts.tsx ToolClock): what it waits for and for how long.
-import { useContext, useMemo, type RefObject } from "react";
+import { useContext, useMemo, useRef, type RefObject } from "react";
 import { useSessionRecord } from "../../../lib/work/record";
 import { fleet } from "../../fleet/store";
 import { liveNodes, type LiveNode } from "../live/liveModel";
-import { narrate } from "../live/narrate";
+import { waitWords } from "../live/narrate";
 import { useWaits } from "../live/useWaits";
 import type { Overlay } from "./overlay";
 import { NO_WAIT, RunCtx, type RunWait } from "./runParts";
@@ -23,14 +25,6 @@ import { boxOfAgent } from "./talkPulse";
 import { waitRoom } from "./truth";
 
 const NO_NODES: LiveNode[] = [];
-
-/** 3.6.0.0's wait in the sentence: from "waiting on" to the next ";" ("" when the sentence names none). */
-export function waitPart(head: string): string {
-  const at = head.indexOf("waiting on");
-  if (at < 0) return "";
-  const end = head.indexOf(";", at);
-  return head.slice(at, end < 0 ? undefined : end);
-}
 
 /** The run's wait for session `sid` drawn as `ov`, at `now` (seconds), computed only while `on` (the drawing is shown). */
 export function useRunWait(sid: string, ov: Overlay | null, now: number, on: boolean): RunWait {
@@ -42,16 +36,20 @@ export function useRunWait(sid: string, ov: Overlay | null, now: number, on: boo
     const room = waitRoom(nodes.map((n) => (n.role && n.role !== n.name ? n.role : n.name)));
     if (!on || !leaf || !ov) return on ? { ...NO_WAIT, waits, room } : NO_WAIT;
     const box = boxOfAgent(ov, true).get(leaf) || "";
-    return { waits, leaf, box, link: waitPart(narrate(nodes, waits, path, () => "").head), room };
+    return { waits, leaf, box, link: waitWords(nodes, waits, path, true), room };
   }, [waits, path, nodes, ov, on]);
 }
 
-/** The wait link's own row: its room is the longest of the twins (and the link, should it ever be longer), never cut. */
+/** The wait link's own row: its room is the tallest of the twins -- a usual link's, from the first draw, and the last
+ *  wait's REAL words, from the draw its link first shows in (P8 batch 3) -- so the link wraps whole inside it, never cut. */
 export function WaitRow({ world }: { world: RefObject<HTMLElement | null> }) {
-  const room = useContext(RunCtx)?.wait.room;
+  const w = useContext(RunCtx)?.wait;
+  const last = useRef("");
+  if (w?.link) last.current = w.link; // kept when the wait goes: only new words change the room
+  const twins = [...(w?.room?.length ? w.room : waitRoom([])), ...(last.current ? [last.current] : [])];
   return (
     <div className="mp-wait-row" data-testid="run-wait-row">
-      {(room?.length ? room : waitRoom([])).map((t) => <span key={t} className="mp-wait-twin" aria-hidden="true">{t}</span>)}
+      {twins.map((t, i) => <span key={i} className="mp-wait-twin" aria-hidden="true">{t}</span>)}
       <WaitLink world={world} />
     </div>
   );

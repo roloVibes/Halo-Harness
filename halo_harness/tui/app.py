@@ -487,6 +487,12 @@ class BridgeApp(App):
             return False
         return True
 
+    def on_resize(self, event) -> None:
+        """3.6.0.2 P8 batch 3: a waiting card's dock is fitted again to the terminal's new height (PendingDock.fit)."""
+        dock = getattr(self, "pending_dock", None)
+        if dock is not None:
+            dock.fit(event.size.height, resized=True)
+
     async def on_mount(self) -> None:
         # 2.0.1 launch-hang investigation: scheduled FIRST (before any of
         # this method's own work below), so it fires right after the
