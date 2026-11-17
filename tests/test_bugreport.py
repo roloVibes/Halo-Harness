@@ -119,7 +119,35 @@ def test_bugreport_redacts_a_planted_fake_key_in_every_source(ctx: Ctx):
         ctx.check("a <redacted> marker appears where the key would have been", "<redacted>" in text)
 
 
-_FAKE_HF_KEY = "hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE"
+@test
+def test_the_strict_pass_keeps_a_path_under_the_home_whole(ctx: Ctx):
+    """3.6.0.2 P9 batch 3 (CI, the macOS leg): the test above failed there with no code changed. A macOS temp folder is
+    /var/folders/<2>/<about 28 letters and digits>/T/; when that segment has no `_`, `/var/folders/.../T/bugreport` is
+    one run of 40+ base64 letters, and the report's strict pass replaced it with <redacted> before the home could be
+    written as ~, so the settings path was gone from the report. The strict pass now leaves the home's own spelling
+    alone (it is no secret; the path pass writes it as ~ right after). Runs everywhere: the home need not exist.
+    Red on 521e2e53."""
+    from halo_harness.privacy_redact import redact
+    from halo_harness.redact import redact_for_bugreport
+    secret = "Zm9vYmFyYmF6cXV4/QUJDREVGR0hJSktMTU5PUFFS3x7Y9w"  # a made-up 46-letter base64 run with a slash
+    old = os.environ.get("BRIDGE_TEST_HOME")
+    try:
+        for seg in ("7y0d3s2x1n5k2k9q8gv6s6v40000gn", "7y0d3s2x1n5_2k9q8gv6s6v40000gn"):
+            home = f"/var/folders/k7/{seg}/T/bugreport-ab12cd34"
+            os.environ["BRIDGE_TEST_HOME"] = home
+            path = f"{home}/proj/.claude/settings.json"
+            got = redact_for_bugreport(f"  {path}\n  token {secret}\n")
+            ctx.check(f"a home with segment {seg}: the path is shown as the plain pass writes it ({redact(path)}), got {got!r}",
+                      redact(path) in got and "<redacted>-" not in got)
+            ctx.check(f"the made-up secret is still cut, got {got!r}", secret not in got and "<redacted>" in got)
+    finally:
+        if old is None:
+            os.environ.pop("BRIDGE_TEST_HOME", None)
+        else:
+            os.environ["BRIDGE_TEST_HOME"] = old
+
+
+_FAKE_HF_KEY ="hf_FAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE"
 _FAKE_XPL_KEY = "xpl_deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
 
 

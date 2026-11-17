@@ -201,12 +201,28 @@ def below(c, lv, where: str) -> dict:
     c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
     try:
         # the drawer at its least width: its splitter dragged as far in as it goes (the drawer stops at its least width)
-        sp = c.js("""(() => { const d = document.querySelector('[data-testid=session-map-below]')?.closest('[data-testid=stage-drawer]');
-          const s = d?.querySelector(':scope > [data-testid=stage-splitter]'); if (!s) return null; const r = s.getBoundingClientRect();
-          return [r.left + r.width / 2, r.top + r.height / 2, d.dataset.side]; })()""")
-        if sp:
+        # P9 batch 3 (CI, Windows and macOS: "got 455"): the step before left the page at 1500 px. On a slow runner the
+        # splitter was read while the stage still had its 1500 px layout (the drawer 536 px, 0.37 of a 1448 px stage), so
+        # the press missed the splitter once the drawer took its 1280 px width (455 px, 0.37 of 1228) and nothing was
+        # dragged. Now the page has laid out 1280 px before the splitter is read, and the splitter is read again before
+        # each drag until the drawer is at the least width the page itself states (aria-valuemin), three drags at most.
+        drawer = "document.querySelector('[data-testid=session-map-below]')?.closest('[data-testid=stage-drawer]')"
+        try:
+            c.wait(f"innerWidth === 1280 && document.querySelector('[data-testid=stage]')?.clientWidth < 1280", 15)
+        except TimeoutError:
+            out["error"] = "the page did not take 1280 px"
+        settled(c, f"(() => {{ const d = {drawer}, s = d?.querySelector(':scope > [data-testid=stage-splitter]');"
+                   f" return [document.querySelector('[data-testid=stage]')?.clientWidth, d?.getBoundingClientRect().width, d?.dataset.max,"
+                   f" s?.getBoundingClientRect().left, s?.getAttribute('aria-valuenow')]; }})()")
+        for _ in range(3):
+            sp = c.js(f"""(() => {{ const d = {drawer};
+              const s = d?.querySelector(':scope > [data-testid=stage-splitter]'); if (!s) return null; const r = s.getBoundingClientRect();
+              return [r.left + r.width / 2, r.top + r.height / 2, d.dataset.side, +s.getAttribute('aria-valuemin'), Math.round(d.getBoundingClientRect().width)]; }})()""")
+            if not sp or sp[4] <= sp[3]:
+                break
             c.drag(sp[0], sp[1], sp[0] + (-600 if sp[2] == "left" else 600), sp[1])
             c.mouse("mouseMoved", 2, 790)
+            settled(c, f"Math.round({drawer}?.getBoundingClientRect().width || 0)")
         out["drawer"] = settled(c, "Math.round(document.querySelector('[data-testid=session-map-below]')?.closest('[data-testid=stage-drawer]')?.getBoundingClientRect().width || 0)")
         out["before"] = settled(c, BELOW)
         lv.tool("main", "Agent", "call-below-agent")

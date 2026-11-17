@@ -1154,6 +1154,8 @@ def test_just_built_workflow_on_no_map_and_box_on_the_running_map(ctx: Ctx):
         st = (d.get(k) or {}).get("still") or {}
         ctx.check(f"Controls hold still ({k}): a head landing moves no control; the drawing moves down once, inside its own "
                   f"box, got moved {st.get('moved')} top +{st.get('top')}", st.get("moved") == {} and (st.get("top") or 0) > 0)
+    ctx.check(f"the switch of the map new sessions use reached the truth block before the heads after it were compared (P9 "
+              f"batch 3: R20 measures the block again for a name it did not have), got {on.get('named')}", on.get("named") is True)
     for k in ("other", "other_next", "long"):
         st = (d.get(k) or {}).get("still") or {}
         ctx.check(f"Controls hold still ({k}): no control moved, got {st.get('moved')}", st.get("moved") == {})

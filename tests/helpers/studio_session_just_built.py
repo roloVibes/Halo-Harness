@@ -343,17 +343,26 @@ def heads(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["other"] = {**_pair(c), "still": _still(c, still)}
     # (c) another map the build also made the one new sessions run on (R36's use row was ticked and applied)
     rows.set(a, map_next="fourth", map_next_since=time.time())  # the row as P2 sends it once the use row was applied
+    # P9 batch 3 (CI, Windows): the switch of {B} is a fact of its own, read from the row: the truth block names fourth and
+    # measures its twin again, once (R20, P4 batch 11: nothing is held for a name it does not have; R12 lets the block grow
+    # while the pointer is outside). With Windows' font that takes one more line than starter's did; on Linux it happened
+    # to take the same. So the heads below are compared with the drawer once the switch has reached the block: a head
+    # landing still moves no control. (Before, other_next was read before the row reached the block, on every system.)
+    named = _wait(c, f"({Q}('[data-testid=session-truth]')?.textContent || '').includes('run on fourth')", 15)
+    time.sleep(0.5)
+    switched = c.js(CTRLS) or {}
     _frame(rig, a, [{"kind": "map", "name": "fourth", "added": True}],
            {"fourth": _body(rig, "fourth", THIRD.replace("name: third", "name: fourth"))}, undo="h4", this="shop", next_="fourth")
     _wait(c, f"{HEAD}?.textContent.includes('fourth') && {Q}('[data-testid=session-truth]')?.dataset.state === 'T2'", 10)
     time.sleep(0.3)
-    out["other_next"] = {**_pair(c), "still": _still(c, still), "truth": c.js(f"{Q}('[data-testid=session-truth]')?.dataset.state || ''"),
-                         "s13": c.js("(document.querySelector('.mp-down')?.innerText.match(/keeps running on/g) || []).length")}
+    out["other_next"] = {**_pair(c), "still": _still(c, switched), "truth": c.js(f"{Q}('[data-testid=session-truth]')?.dataset.state || ''"),
+                         "s13": c.js("(document.querySelector('.mp-down')?.innerText.match(/keeps running on/g) || []).length"),
+                         "named": named, "switch": _still(c, still)["moved"]}
     # (e) a workflow whose name needs a third line at this width: every word on screen, the button on its own row
     _frame(rig, a, [{"kind": "workflow", "name": LONG, "added": True}], {}, undo="h5", this="shop")
     _wait(c, f"{HEAD}?.textContent.includes('{LONG}') && {DRAWN}?.dataset.map === 'shop'", 10)
     time.sleep(0.3)
-    out["long"] = {**_pair(c), "still": _still(c, still)}
+    out["long"] = {**_pair(c), "still": _still(c, switched)}
     c.js("(() => { const m = document.querySelector('.mp-down'); m.style.width = '412px'; m.style.flex = 'none'; return 1; })()")
     time.sleep(0.5)
     out["long412"] = c.js(WHOLE)

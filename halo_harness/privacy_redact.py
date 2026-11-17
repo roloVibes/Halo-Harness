@@ -57,6 +57,24 @@ def env_secret_values(extra: Optional[Iterable[str]] = None) -> tuple:
     return tuple(sorted({v for v in vals if len(v) >= 4}, key=len, reverse=True))
 
 
+def _strict_runs(s: str) -> str:
+    """The strict pass's hex and base64 runs, never across the home's own spelling (3.6.0.2 P9 batch 3): a macOS temp
+    home (/var/folders/<2>/<28 letters and digits>/T/...) is one 40+ base64 run when its segment has no `_`, and was cut
+    before the path pass could write it as ~. The home is no secret; the path pass rewrites it right after."""
+    from halo_harness.live.replay_private import _homes
+    held = {}
+    for h in sorted(_homes(), key=len, reverse=True):
+        for spelled in dict.fromkeys((h, h.replace("\\", "/"))):
+            if spelled in s:
+                mark = f"\x00{len(held)}\x00"  # NUL is in no run's letters, so a run stops at it
+                held[mark] = spelled
+                s = s.replace(spelled, mark)
+    s = _B64_RUN.sub(RED, _HEX_RUN.sub(RED, s))
+    for mark, spelled in held.items():
+        s = s.replace(mark, spelled)
+    return s
+
+
 def _spellings(value: str) -> list:
     out = [value, json.dumps(value)[1:-1], json.dumps(value, ensure_ascii=False)[1:-1], quote(value, safe=""),
            quote(value)]
@@ -71,7 +89,7 @@ def secrets_text(s: str, *, strict: bool = False, known: tuple = ()) -> str:
     s = _URL_KEY.sub(lambda m: m.group(1) + RED, s)
     s = _BARE.sub(lambda m: RED if _random(m.group(0)) else m.group(0), s)
     if strict:
-        s = _B64_RUN.sub(RED, _HEX_RUN.sub(RED, s))
+        s = _strict_runs(s)
     for value in known:
         for spelled in _spellings(value):
             s = re.sub(re.escape(spelled), RED, s, flags=re.IGNORECASE)

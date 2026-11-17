@@ -102,6 +102,18 @@ async def _ask(app, pilot, event) -> None:
     await pilot.pause(0.05)
 
 
+async def _resize(pilot, app, width: int, height: int) -> None:
+    """3.6.0.2 P9 batch 3: resize, then wait (the driver's own pause until idle, never a sleep) until the layout has
+    given the box the new width, so a read is never earlier than the app's handling of the resize (CI's Windows
+    runner is several times slower than a PC)."""
+    await pilot.resize_terminal(width, height)
+    for _ in range(200):
+        box = app.prompt_input.size.width
+        if app.size.width == width and app.screen.size.width == width and 0 < box <= width:
+            break
+        await pilot.pause()
+
+
 def _nothing_answered(fake) -> bool:
     return (not fake.permission_replies and not fake.question_replies and not fake.plan_replies
             and not fake.approval_replies and not fake.added_rules)
@@ -161,7 +173,7 @@ def test_n1_an_ask_that_lands_while_he_types_never_takes_a_letter(ctx: Ctx):
         ctx.check(f"the bell rang, got {len(bells)}", len(bells) >= 1)
         ctx.check(f"needs you 1, got {app.status_bar.needs_you_count}", app.status_bar.needs_you_count == 1)
         ctx.check(f"the permission tag says it waits, got {_status(app)!r}", TAG_WAITING in _status(app))
-        await pilot.resize_terminal(60, 24)
+        await _resize(pilot, app, 60, 24)
         await pilot.pause(0.2)
         ctx.check(f"the short wait line at 60 columns, got {_line(app)!r}", _line(app) == WAIT_PERMISSION_SHORT)
     _run(walk)
@@ -192,11 +204,11 @@ def test_n20_the_box_placeholder_never_asks_for_words_and_follows_the_card(ctx: 
         app._refresh_tip_placeholder()
         ctx.check(f"a tip refresh keeps the held one, got {app.prompt_input.placeholder!r}",
                   app.prompt_input.placeholder == HELD_PLACEHOLDER)
-        await pilot.resize_terminal(48, 24)
+        await _resize(pilot, app, 48, 24)
         await pilot.pause(0.2)
         ctx.check(f"narrower: the short form, got {app.prompt_input.placeholder!r}",
                   app.prompt_input.placeholder == HELD_PLACEHOLDER_SHORT)
-        await pilot.resize_terminal(80, 24)
+        await _resize(pilot, app, 80, 24)
         await pilot.pause(0.2)
         ctx.check(f"wide again: the long form, got {app.prompt_input.placeholder!r}",
                   app.prompt_input.placeholder == HELD_PLACEHOLDER)
@@ -814,7 +826,7 @@ def test_n5_a_borrow_sets_his_draft_aside_and_gives_it_back(ctx: Ctx):
         await pilot.pause(0.1)
         ctx.check(f"a taken card left and come back to: set aside too, got {box.text!r} {_line(app)!r}",
                   box.text == "" and _line(app) == SET_ASIDE)
-        await pilot.resize_terminal(60, 24)
+        await _resize(pilot, app, 60, 24)
         await pilot.pause(0.2)
         ctx.check(f"the short set-aside line at 60 columns, got {_line(app)!r}", _line(app) == SET_ASIDE_SHORT)
         await pilot.press("escape")
@@ -864,7 +876,7 @@ def test_n5_n8_answered_elsewhere_during_a_borrow_keeps_draft_and_words(ctx: Ctx
         ctx.check(f"Enter again: nothing sent, got {fake.submitted}", fake.submitted == [] and _nothing_answered(fake))
         ctx.check(f"Enter again: the bell, got {len(bells) - rang}", len(bells) > rang)
         ctx.check(f"Enter again: the kept line, got {_line(app)!r}", _line(app) == KEPT)
-        await pilot.resize_terminal(60, 24)
+        await _resize(pilot, app, 60, 24)
         await pilot.pause(0.2)
         ctx.check(f"the short kept line at 60 columns, got {_line(app)!r}", _line(app) == KEPT_SHORT)
         await pilot.press("end")
@@ -1090,10 +1102,10 @@ def test_p7_the_kept_line_and_a_waiting_cards_line_both_show(ctx: Ctx):
                   line.region.height == 2 and box.region.y - line.region.bottom == gap <= 1)
         ctx.check(f"the box keeps its size and place, got {at} -> {(box.region.y, box.region.height)}",
                   (box.region.y, box.region.height) == at)
-        await pilot.resize_terminal(60, 24)
+        await _resize(pilot, app, 60, 24)
         await pilot.pause(0.2)
         ctx.check(f"at 60 columns both short forms, got {_line(app)!r}", _line(app) == f"{KEPT_SHORT}\n{WAIT_PERMISSION_SHORT}")
-        await pilot.resize_terminal(80, 24)
+        await _resize(pilot, app, 80, 24)
         await pilot.pause(0.2)
         at = (box.region.y, box.region.height)
         line.clear_kept()  # what the kept line's 10 s timer calls
@@ -1104,7 +1116,41 @@ def test_p7_the_kept_line_and_a_waiting_cards_line_both_show(ctx: Ctx):
     _run(walk)
 
 
-_CHILD_TIMES = "from halo_harness.tui.keys import card_times; print(card_times())"
+@test
+def test_p7_the_two_lines_pick_their_form_from_one_width(ctx: Ctx):
+    """3.6.0.2 P9 batch 3 (CI, the Windows runner): right after a resize the terminal is 60 columns while the slot's
+    own layout is still 80 wide; the kept line took its form from the terminal and the wait line from the slot, so the
+    slot read one short line and one long one. Both lines take their form from ONE width read at the same moment (the
+    narrower of the two), so a person never sees one short and one long. Pure, no pilot: runs everywhere.
+    Red on 521e2e53 (kept short, wait line long)."""
+    from types import SimpleNamespace
+    from textual.geometry import Size
+    from halo_harness.tui.widgets.cards import CardWaitLine, PermissionCard
+
+    def slot(term: int, own: int):
+        class _Slot(CardWaitLine):
+            app = property(lambda self: SimpleNamespace(size=Size(term, 24)))
+            size = property(lambda self: Size(own, 2))
+        line = _Slot()
+        line.card = PermissionCard(request_id="req-2", summary="Bash(rm x)", reason="", suggested_rule=None,
+                                   on_decide=lambda d: None)
+        line.kept = True
+        return line
+
+    for term, own in ((60, 80), (80, 60), (60, 60)):
+        got = slot(term, own).text
+        ctx.check(f"terminal {term}, slot {own}: both short forms, got {got!r}",
+                  got == f"{KEPT_SHORT}\n{WAIT_PERMISSION_SHORT}")
+    got = slot(80, 80).text
+    ctx.check(f"terminal 80, slot 80: both whole, got {got!r}", got == f"{KEPT}\n{WAIT_PERMISSION}")
+    line = slot(60, 80)
+    line.kept, line.card, line.aside = True, None, True
+    got = line.text
+    ctx.check(f"the kept line above the set-aside line: both short at 60, got {got!r}",
+              got == f"{KEPT_SHORT}\n{SET_ASIDE_SHORT}")
+
+
+_CHILD_TIMES ="from halo_harness.tui.keys import card_times; print(card_times())"
 
 
 def _child_times(env: dict) -> str:
@@ -1186,7 +1232,7 @@ def test_a_waiting_builder_card_is_fitted_again_when_the_terminal_is_resized(ctx
         tall = dock.outer_size.height
         ctx.check(f"200x50: the card is whole in its dock ({tall} lines, max_scroll_y {dock.max_scroll_y})",
                   dock.max_scroll_y == 0 and tall > 12)
-        await pilot.resize_terminal(200, 24)
+        await _resize(pilot, app, 200, 24)
         await pilot.pause(0.3)
         d, box, bar = dock.region, app.prompt_input.region, app.status_bar.region
         ctx.check(f"200x24: the dock is fitted again (12 lines), got {dock.outer_size.height}", dock.outer_size.height <= 12)
@@ -1201,7 +1247,7 @@ def test_a_waiting_builder_card_is_fitted_again_when_the_terminal_is_resized(ctx
         o = opts.region if opts is not None else None
         ctx.check(f"200x24: the card's answers are in sight inside the dock, got {o} in {dock.scrollable_content_region}",
                   o is not None and o.height > 0 and dock.scrollable_content_region.contains_region(o))
-        await pilot.resize_terminal(200, 50)
+        await _resize(pilot, app, 200, 50)
         await pilot.pause(0.3)
         ctx.check(f"back at 200x50: the card is whole again ({dock.outer_size.height} lines, max_scroll_y "
                   f"{dock.max_scroll_y})", dock.max_scroll_y == 0 and dock.outer_size.height == tall)

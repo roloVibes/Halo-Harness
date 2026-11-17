@@ -1022,20 +1022,25 @@ class CardWaitLine(Widget):
             self.kept = False
             self._sync()
 
-    def _notice(self, whole: str, short: str) -> str:
-        wide = (self.app.size.width or 80) >= 80 and _fit(whole, self.size.width or 80)
+    def _notice(self, whole: str, short: str, width: int) -> str:
+        wide = (self.app.size.width or 80) >= 80 and _fit(whole, width)
         return whole if wide else short
 
     @property
     def text(self) -> str:
         """The kept line (its 10 s) above the set-aside line or a waiting card's line: a waiting card is never unsaid
-        (cardkeys-decisions.md, "After the build"); one line each, picked from the width."""
+        (cardkeys-decisions.md, "After the build"); one line each, picked from the width.
+        3.6.0.2 P9 batch 3: both lines take their form from ONE width read once here: the narrower of the terminal's
+        and the slot's own (right after a resize the terminal has its new width before the layout gives the slot
+        its own), so the two lines never show one short and one long."""
+        term = self.app.size.width or 80
+        width = min(term, self.size.width or term)
         under = ""
         if self.aside:
-            under = self._notice(SET_ASIDE_LINE, SET_ASIDE_LINE_SHORT)
+            under = self._notice(SET_ASIDE_LINE, SET_ASIDE_LINE_SHORT, width)
         elif self.card is not None:
-            under = wait_line_text(self.card, self.size.width or 80, self.box_has_text)
-        kept = self._notice(KEPT_LINE, KEPT_LINE_SHORT) if self.kept else ""
+            under = wait_line_text(self.card, width, self.box_has_text)
+        kept = self._notice(KEPT_LINE, KEPT_LINE_SHORT, width) if self.kept else ""
         return "\n".join(x for x in (kept, under) if x)
 
     def render(self):
