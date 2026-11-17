@@ -268,6 +268,51 @@ def test_stale_pick_counts_only_list_reads(ctx: Ctx):
               "staleList(s.listReads," in src and "s.harnesses !== lastRead" not in src)
 
 
+SYNC = PICK.parent.parent / "fleet" / "sync.ts"
+# sync.ts's neighbours stood in for: the feed's handlers are kept in __on, the fleet is two harnesses (this one, gpu-box)
+SYNC_STUB = r"""export const onEvent = (k, f) => { (globalThis.__on[k] ||= []).push(f); };
+export const onFeedState = () => {}; export class ApiError extends Error {};
+export const api = { get: () => new Promise(() => {}), post: () => new Promise(() => {}) };
+export const studio = { get: () => ({ feed: { status: 'open' } }) }; export const toast = () => {}; export const startPanels = () => {};
+export const FIGURE_KINDS = [], agentWith = (a) => a, figuresOf = () => null, ownFrame = () => false, withFigures = (x) => x;
+export const keepFresh = (x) => x, noteFigures = () => {}, noteFrame = () => {}, noteMode = () => {}, append = () => {}, rawEntry = () => null;
+let s = { started: false, listReads: 0, streams: {}, doneAt: {},
+  harnesses: [{ id: 'here', local: true, sessions: [] }, { id: 'gpu-box', local: false, sessions: [] }] };
+export const fleet = { get: () => s, update: (fn) => { s = { ...s, ...fn(s) }; } };
+export const keyOf = (h, sid) => `${h}/${sid}`, localId = (st = s) => st.harnesses.find((h) => h.local)?.id || '';"""
+SYNC_HOOK = r"""const STUB = %s;
+export async function resolve(spec, ctx, next) {
+  const r = await next(spec, ctx);
+  if (/\/(lib\/(api|events|store)|fleet\/(pload|figures|fresh|streams|store))\.(ts|mjs)$/.test(r.url)) return { url: STUB, shortCircuit: true };
+  return r; }"""
+SYNC_JS = """import { register } from 'node:module';
+register('data:text/javascript,' + encodeURIComponent(%s));
+globalThis.__on = {};
+globalThis.window = { setInterval: () => 0, setTimeout: () => 0, clearTimeout: () => {}, clearInterval: () => {} };
+globalThis.document = { hidden: false, addEventListener: () => {} };
+const m = await import(%s), st = await import(%s);
+m.startFleet();
+const fire = (h) => (globalThis.__on.registry || []).forEach((f) => f({ harness: h, session_id: null, event: 'registry',
+  data: { action: 'sessions', sessions: [] } }));
+const r0 = st.fleet.get().listReads; fire('gpu-box'); const r1 = st.fleet.get().listReads; fire('here'); const r2 = st.fleet.get().listReads;
+console.log(JSON.stringify({ r0, r1, r2, bound: (globalThis.__on.registry || []).length }));
+process.exit(0);"""
+
+
+@test
+def test_list_reads_count_only_this_harness_sessions_frames(ctx: Ctx):
+    # P3 batch 8 repair (its checker): staleList judges THIS harness's rows (localSessions), so only a sessions frame of this
+    # harness is a fresh read of that list; another harness's frame (through the hub) counts nothing. Driven through
+    # sync.ts's own `registry` handler, its neighbours stood in for.
+    from urllib.parse import quote
+    from tests.helpers import node_ts
+    stub = "data:text/javascript," + quote(SYNC_STUB)
+    p = node_ts.run(SYNC_JS % (json.dumps(SYNC_HOOK % json.dumps(stub)), json.dumps(SYNC.resolve().as_uri()), json.dumps(stub)))
+    ctx.check(f"R1: sync.ts listens for sessions frames, got {p}", (p or {}).get("bound") == 1)
+    ctx.check(f"R1: another harness's sessions frame is no read of this harness's list; this harness's is one, got {p}",
+              (p or {}).get("r0") == 0 and p.get("r1") == 0 and p.get("r2") == 1)
+
+
 @test
 def test_next_b_keeps_the_newest_read(ctx: Ctx):
     # P3 batch 8 (the checker of batch 3): the map new sessions use is read again on every maps/config change; reads may be
@@ -612,13 +657,13 @@ def test_truth_block_height_fixed(ctx: Ctx):
 
 
 @test
-def test_truth_block_reserve_holds_a_40_character_name(ctx: Ctx):
+def test_truth_block_reserve_holds_a_48_character_name(ctx: Ctx):
     # R20, the coordinator's ruling (P3 batch 8): the reserve is taken for the longest name the store allows before {B} or
-    # {W} is known, so a real 40-character {B} and then a 40-character {W} after the first draw never grow the block (nor
-    # move what is under it). The status line's own two reserved lines (R23) are not the block's: a long {W} there is
+    # {W} is known, so a real 48-character {B} and then a 48-character {W} after the first draw never grow the block (nor
+    # move what is under it). Red on the tree before batch 8 (9d8b6e20, the Linux VM): 136 -> 154 -> 172 px. The status line's own two reserved lines (R23) are not the block's: a long {W} there is
     # another matter (P3 batch 8's notes), so the drawing's top is not asserted here.
     snaps = _saw(ctx, "long") or []
-    ctx.check(f"the page went T1, T2 (a 40-character B), T2 + T7 (a 40-character W), got {[s.get('state') for s in snaps]}",
+    ctx.check(f"the page went T1, T2 (a 48-character B), T2 + T7 (a 48-character W), got {[s.get('state') for s in snaps]}",
               [s.get("state") for s in snaps] == ["T1", "T2", "T2"] and "running the workflow" in ((snaps[-1].get("lines") or [""])[0] if snaps else ""))
     first = snaps[0] if snaps else {}
     ctx.check(f"R20: the block's height never changed, got {[s.get('h') for s in snaps]}",
@@ -1073,6 +1118,10 @@ def test_no_fetch_before_the_first_draw(ctx: Ctx):
     ctx.check(f"R28: the truth block (naming shop) and the status line are painted with every crew/map answer held, and with one "
               f"map no pair row (P3 batch 8), got {p}",
               "shop" in (p.get("truth") or "") and bool(p.get("status")) and p.get("pair") == "" and p.get("done") == 0)
+    # the driver opens the page only once Studio's watcher has told of its own write of shop's file: a files_changed naming
+    # the running map while its read is held is a new version, and a second read of it is right (mapFiles.ts)
+    ctx.check(f"R28: no map file changed while the first read was held (the step's own writes told before the page opened), "
+              f"got {p.get('told')}", p.get("told") == [])
     asked = p.get("asked") or []
     ctx.check(f"R28 R50: then one read of the running map, by scope and path, soft, got {asked}",
               len(asked) == 1 and asked[0].startswith("crew/map/shop?") and all(k in asked[0] for k in ("scope=yours", "path=", "soft=1")))

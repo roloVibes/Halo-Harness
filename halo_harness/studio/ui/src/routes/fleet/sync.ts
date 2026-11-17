@@ -150,7 +150,9 @@ function onSessions(f: FeedFrame): void {
   const s = fleet.get();
   if (d.action === "attention") return; // the watcher's count (session_id null): the panels' store reads it (pload.ts)
   if (d.action === "sessions" && Array.isArray(d.sessions) && f.harness && s.harnesses.some((h) => h.id === f.harness)) {
-    fleet.update((st) => ({ harnesses: st.harnesses.map((h) => (h.id === f.harness ? { ...h, sessions: d.sessions! } : h)), lastFrame: Date.now(), listReads: st.listReads + 1 }));
+    // listReads: a fresh read of THIS harness's list only (staleList judges its rows); another harness's frame is not one
+    fleet.update((st) => ({ harnesses: st.harnesses.map((h) => (h.id === f.harness ? { ...h, sessions: d.sessions! } : h)), lastFrame: Date.now(),
+      listReads: st.listReads + (f.harness === localId(st) ? 1 : 0) }));
     return;
   }
   if (d.action === "command" && (d.state === "refused" || d.state === "error")) toast(`${d.cmd || "command"}: ${d.error || d.state}`, "error", 5000);

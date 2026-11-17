@@ -5,7 +5,7 @@ harness's real session A) and a second local session B; every fact reaches the p
 
     truth   A on `shop`: T1 -> T2 (new sessions on review-flow) -> T5 (its map changed) -> T7 (a step of the workflow W,
             a box on review-flow, runs): each step's lines, the block's height, the drawing's top, the block's colour
-    long    A on `shop`, T1, then new sessions switched to a map of a 40-character name and a workflow of a 40-character
+    long    A on `shop`, T1, then new sessions switched to a map of a 48-character name and a workflow of a 48-character
             name runs: the block's height and the drawing's top never change (the reserve is for the longest name the
             store allows, P3 batch 8)
     status  the status line: no rows yet, a workflow's step 3 of 6 at work waiting on its model, then all done
@@ -117,13 +117,13 @@ def truth(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"truth": snaps, "truth_facts": {"t0": t0, "t2": t0 + 60}}
 
 
-LONG40 = "code-review-and-tests-for-every-change-m"  # 40 characters
+LONG48 = "code-review-and-tests-for-every-change-made-here"  # 48 characters: the longest name the store allows (crew/formats.py NAME)
 
 
 def long(c, rig, rows: Rows, a: str, b: str) -> dict:
     from halo_harness.crew import store
-    flow = {**FLOW, "name": LONG40, "boxes": [{"id": "check", "workflow": LONG40[:-1] + "w"}]}
-    store.write_text(store.path_for("map", LONG40, state_dir=rig.state), json.dumps(flow))
+    flow = {**FLOW, "name": LONG48, "boxes": [{"id": "check", "workflow": LONG48[:-1] + "w"}]}
+    store.write_text(store.path_for("map", LONG48, state_dir=rig.state), json.dumps(flow))
     t0 = time.time() - 600
     facts = {"map": "shop", "map_plain": False, "map_since": t0, "map_next": "shop", "map_next_since": t0 - 3600, "map_hash": "h1"}
     rows.reset()
@@ -131,8 +131,8 @@ def long(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.set(a, busy=False, status="idle", agents=[_main(rows, a, state="done")], **facts)
     _open(c, rig, f"mode=session&session={a}&open=session-map")
     snaps = [_settle(c, f"!!{TRUTH} && {TRUTH}.dataset.state === 'T1' && !!document.querySelector('.mp-mini-scroll')")]
-    rows.set(a, map_next=LONG40, map_next_since=t0 + 60)
-    snaps.append(_settle(c, f"{TRUTH}?.dataset.state === 'T2' && {SAID}?.textContent.includes('{LONG40}')"))
+    rows.set(a, map_next=LONG48, map_next_since=t0 + 60)
+    snaps.append(_settle(c, f"{TRUTH}?.dataset.state === 'T2' && {SAID}?.textContent.includes('{LONG48}')"))
     rows.set(a, agents=[_main(rows, a, state="running", current=f"Workflow: {flow['boxes'][0]['workflow']}"),
                         _kid("w1", "tester", "running", "thinking", crew={"workflow": flow["boxes"][0]["workflow"], "step": 1,
                                                                          "agent": "tester", "saved": True})])

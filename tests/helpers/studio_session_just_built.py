@@ -58,10 +58,14 @@ lines:
 """
 FLOW_REVIEW = {"format": "workflow/1", "name": "review", "for": "review",
                "steps": [{"name": "code", "agents": ["coder"]}, {"name": "review", "agents": ["reviewer"]}]}
-# the page's event feed opened (a frame sent before it is lost); every /api request with its answer's status
-HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0, reqs: [], held: [], hold: false };
+# the page's event feed opened (a frame sent before it is lost); the maps each `files_changed` frame named; every /api
+# request with its answer's status
+HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0, reqs: [], held: [], hold: false, fc: [] };
   const ES = window.EventSource; if (ES) { const W = function (u, o) { const es = new ES(u, o);
-    es.addEventListener('open', () => { jb.open += 1; }); return es; }; W.prototype = ES.prototype; window.EventSource = W; }
+    es.addEventListener('open', () => { jb.open += 1; });
+    es.addEventListener('files_changed', (e) => { try { const d = JSON.parse(e.data).data || {};
+      if (d.kind === 'maps') jb.fc.push([...(d.names || []), ...(d.removed || [])]); } catch (x) { jb.fc.push(['?']); } });
+    return es; }; W.prototype = ES.prototype; window.EventSource = W; }
   const f = window.fetch.bind(window);
   window.fetch = (u, o) => { const s = String(u && u.url || u); if (!/\/api\//.test(s)) return f(u, o);
     const r = { url: s.replace(/^.*?\/api\//, ''), status: 0, t: performance.now() }; jb.reqs.push(r);
@@ -121,6 +125,28 @@ def _body(rig, name: str, text: str) -> dict:
     p = store.path_for("map", name, state_dir=rig.state)
     store.write_text(p, text)
     return store.read(p) or {}
+
+
+def _told(rig, name: str, write, timeout: float = 15) -> None:
+    """`write()` a map's file, then wait until Studio's watcher has published a `files_changed` naming `name`. The watcher
+    reports a write up to ~1.8 s later (POLL_S 1.5 + DEBOUNCE_S 0.3): a page opened inside that window hears it as a new
+    version and rightly reads the map again (mapFiles.ts), so a step that counts reads opens its page only after this."""
+    import threading
+    from halo_harness.studio.events import bridge_for
+    seen = threading.Event()
+
+    def tap(f: dict) -> None:
+        d = f.get("data") or {}
+        if f.get("event") == "files_changed" and d.get("kind") == "maps" and name in [*(d.get("names") or []), *(d.get("removed") or [])]:
+            seen.set()
+    taps = bridge_for(rig.server).taps
+    taps.append(tap)
+    try:
+        write()
+        if not seen.wait(timeout):
+            raise TimeoutError(f"Studio's watcher never told of {name}'s file in {timeout} s")
+    finally:
+        taps.remove(tap)
 
 
 def _parse(rig, text: str) -> dict:
@@ -359,9 +385,9 @@ def fetch(c, rig, rows: Rows, a: str, b: str) -> dict:
     from halo_harness.crew import store
     from tests.helpers.studio_map_live import MAP
     out: dict = {}
-    _body(rig, "shop", MAP)
+    _told(rig, "shop", lambda: _body(rig, "shop", MAP))  # with every earlier step's map writes (one watcher scan)
     _on_shop(rig, rows, a, b)
-    hold = c.call("Page.addScriptToEvaluateOnNewDocument", source="window.__jb && (window.__jb.hold = true);")["identifier"]
+    hold =c.call("Page.addScriptToEvaluateOnNewDocument", source="window.__jb && (window.__jb.hold = true);")["identifier"]
     try:
         _open(c, rig, f"mode=session&session={a}&open=session-map")
     finally:
@@ -370,7 +396,8 @@ def fetch(c, rig, rows: Rows, a: str, b: str) -> dict:
     time.sleep(0.5)
     out["painted"] = c.js(f"""(() => ({{ truth: {Q}('[data-testid=session-lit-line] .mp-truth-line')?.firstChild?.nodeValue || '',
       status: {Q}('[data-testid=session-status]')?.textContent || '', pair: {PAIR}?.textContent || '',
-      done: {MAPREQS}.filter((r) => r.status).length, asked: {MAPREQS}.map((r) => r.url), held: window.__jb.held.length }}))()""")
+      done: {MAPREQS}.filter((r) => r.status).length, asked: {MAPREQS}.map((r) => r.url), held: window.__jb.held.length,
+      told: window.__jb.fc }}))()""")
     c.js("window.__jb.hold = false; window.__jb.held.splice(0).forEach((go) => go()); 1")
     _wait(c, f"!!{DRAWN} && {BOXES}.length > 1", 15)
     mark = lambda: c.js(f"{MAPREQS}.length")  # noqa: E731
