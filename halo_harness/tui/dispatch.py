@@ -235,6 +235,17 @@ def _to_latest(app) -> None:
         to_end()
 
 
+def _answered_elsewhere(app, card) -> bool:
+    """3.6.0.2 P5/P7: his act on a card whose ask was already answered over the socket (`answered_line`, set by
+    `app.mark_answered_elsewhere`) closes it and sends NOTHING -- not even to the controller, whose plan answer
+    would land on whatever plan waits now. The caller returns at once when this is True."""
+    if not getattr(card, "answered_line", None):
+        return False
+    card.claim_lost = True
+    app.clear_pending_card()
+    return True
+
+
 def _card_answered(app, card, ok, kind: str, fields: dict) -> None:
     """3.6.0.2 P6/P73: a card's own key answered. When the claim won, the ONE `ask_answered` event (where
     "terminal") goes out through the session's event sink (Studio's feed sees it); when it lost (the ask was
@@ -267,6 +278,8 @@ async def _show_permission_card(app, data: dict, *, agent_id: "str | None" = Non
         summary = f"[sub-agent {agent_id}] {summary}"
 
     def on_decide(decision: dict) -> None:
+        if _answered_elsewhere(app, card):
+            return
         ok = app.resolve_permission_decision(request_id, decision, suggested_rule=suggested)
         _card_answered(app, card, ok, "permission", decision)
 
@@ -303,6 +316,8 @@ async def _show_question_card(app, data: dict, *, agent_id: "str | None" = None)
     input_data = _tag_question_input(data.get("input") or {}, agent_id)
 
     def on_answer(answer) -> None:
+        if _answered_elsewhere(app, card):
+            return
         ok = app.controller.answer_question(request_id, answer)
         _card_answered(app, card, ok, "question", {"answer": answer})
 
@@ -320,6 +335,8 @@ async def _show_plan_card(app, data: dict, *, agent_id: "str | None" = None) -> 
         card_data = {**data, "plan": f"[sub-agent {agent_id}]\n{data.get('plan', '')}"}
 
     def on_reply(decision: dict) -> None:
+        if _answered_elsewhere(app, card):
+            return
         ok = app.controller.answer_plan(decision["approved"], feedback=decision.get("feedback", ""),
                                          mode_after=decision.get("mode_after"))
         _card_answered(app, card, ok, "plan", decision)
@@ -340,6 +357,8 @@ async def _show_approval_card(app, data: dict, *, agent_id: "str | None" = None)
     position = data.get("position") or "?"
 
     def on_decide(decision: dict) -> None:
+        if _answered_elsewhere(app, card):
+            return
         ok = app.controller.answer_approval(request_id, decision)
         _card_answered(app, card, ok, "approval", decision)
 
@@ -845,11 +864,12 @@ async def _apply_event_inner(app, event) -> None:
         from halo_harness.tui.voice_view import apply as _voice
         await _voice(app, data)
     elif kind == "ask_answered":
-        # 3.6.0.2 P4/P5: answered over the control socket -- the card for it closes with one muted line
+        # 3.6.0.2 P5 (P4 is out): answered over the control socket -- the card's marker reads the one muted line;
+        # no card closes, none comes forward, the focus stays (his own next act closes it)
         if data.get("where") in ("studio", "remote"):
             from halo_harness import events as _events
-            app.close_answered_card(data.get("request_id", ""), data.get("kind", ""),
-                                    _events.answered_line(data["where"], data.get("label", "")))
+            app.mark_answered_elsewhere(data.get("request_id", ""),
+                                        _events.answered_line(data["where"], data.get("label", "")))
     elif kind == "system_note":
         # W5b: an async, out-of-band transcript line (background connector
         # discovery finishing is the first user) -- a real transcript note,

@@ -118,9 +118,8 @@ def _debug_key_repr(key: str) -> str:
 
 
 def _ask_key(card) -> str:
-    """3.6.0.2 P4: which ask a card answers -- its request id; a plan card is "plan" (one open plan at a time)."""
-    from halo_harness.tui.widgets.cards import PlanCard
-    return "plan" if isinstance(card, PlanCard) else str(getattr(card, "request_id", "") or "")
+    """3.6.0.2 P5/P73: which ask a card answers -- its request id, a plan card's too (never the bare key "plan")."""
+    return str(getattr(card, "request_id", "") or "")
 
 
 def _expand_pasted(text: str, pasted: Optional[dict]) -> str:
@@ -2087,7 +2086,7 @@ class BridgeApp(App):
         card is tracked here but not yet a live widget anywhere."""
         marker = await self.transcript.add_note(marker_text, kind="pending-marker")
         self._pending_markers[id(card)] = marker
-        # 3.6.0.2 P4/P73: a new ask under the same key (a plan) means the old one stopped waiting; a marker its
+        # 3.6.0.2 P73: a new ask under the same request id means the old one stopped waiting; a marker its
         # lost key left for a winner's event that never came must not take this ask's answer.
         self._lost_markers.pop(_ask_key(card), None)
         # Finding 71: every card goes through the queue and ONE serialized
@@ -2147,7 +2146,10 @@ class BridgeApp(App):
         # "⏸ ... see below" widget, now showing what was actually decided.
         finished = self.pending_card
         marker = self._pending_markers.pop(id(finished), None) if finished is not None else None
-        if marker is not None and getattr(finished, "claim_lost", False):
+        if marker is not None and getattr(finished, "answered_line", None):
+            # 3.6.0.2 P5: answered elsewhere before his act closed it -- the marker keeps the winner's words.
+            marker.set_text(finished.answered_line)
+        elif marker is not None and getattr(finished, "claim_lost", False):
             # 3.6.0.2 P73: this card's answer lost its claim -- it never writes
             # its own decision; the winner's `ask_answered` names it here.
             self._lost_markers[_ask_key(finished)] = marker
@@ -2192,40 +2194,30 @@ class BridgeApp(App):
                 self.call_later(self._clear_dock_if_idle)
             self._refresh_needs_you_tag()
 
-    def close_answered_card(self, request_id: str, kind: str, line: str) -> None:
-        """3.6.0.2 P4/P5: an ask answered over the control socket (Studio, the
-        phone). Its card closes at once -- the shown one, one waiting behind it
-        (it leaves the waiting list), or one whose own key lost the claim -- and
-        its marker becomes the ONE muted line (`Answered in Studio: <label>`).
-        A card borrowing the box (a deny reason, a question's Other, plan
-        feedback, an approval edit) ends the borrow and brings the placeholder
-        back; what he typed stays in the box, unsent (the HARD GATE)."""
-        key = "plan" if kind == "plan" else request_id
-        marker = self._lost_markers.pop(key, None)
+    def mark_answered_elsewhere(self, request_id: str, line: str) -> None:
+        """3.6.0.2 P5 (P4 is OUT, the coordinator's gate): an ask answered over
+        the control socket (Studio, the phone) closes NO card, brings no card
+        forward and moves no focus -- a card that took the focus while he typed
+        sent his keys or words to the wrong ask. Only text changes: the card's
+        marker reads the ONE muted line (`Answered in Studio: <label>`) and the
+        card remembers it (`answered_line`); his own next act on it (a key, or
+        Enter in the box it borrows) closes it, sends nothing (dispatch's
+        `_answered_elsewhere`) and leaves his words in the box. A card whose
+        own key already lost the claim gets the line on its marker. Matched by
+        request id, a plan's too (never by the bare key "plan")."""
+        if not request_id:
+            return
+        marker = self._lost_markers.pop(request_id, None)
         if marker is not None:
             marker.set_text(line)
             return
-
-        def _is_it(card) -> bool:
-            return card is not None and _ask_key(card) == key
-        card = self.pending_card
-        if _is_it(card):
-            card.done = True  # its keys (and a late Enter) answer nothing now
-            card.decision_line = line
-            if self._borrowing_card is card:
-                self._borrowing_card = None  # the box keeps its text; clear_pending_card puts the placeholder back
-                if self.prompt_input.text.strip():
-                    self._kept_text = self.prompt_input.text
-            self.clear_pending_card()
-            return
-        for queued in list(self._pending_queue):
-            if _is_it(queued):
-                queued.done = True
-                self._pending_queue.remove(queued)
-                waiting = self._pending_markers.pop(id(queued), None)
+        cards = ([self.pending_card] if self.pending_card is not None else []) + list(self._pending_queue)
+        for card in cards:
+            if _ask_key(card) == request_id:
+                card.answered_line = line
+                waiting = self._pending_markers.get(id(card))
                 if waiting is not None:
                     waiting.set_text(line)
-                self._refresh_needs_you_tag()
                 return
 
     def borrow_input(self, card, *, placeholder: str) -> None:

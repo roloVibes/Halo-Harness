@@ -13,7 +13,7 @@ code path:
     {"kind": "spawn",       "id", "name", "task"}  an Agent/Task call (a sub-agent of its own)
     {"kind": "tool_result", "id", "name"?, "text", "is_error", "policy"?}   policy: the packs' verdict line (3.3.10.0)
     {"kind": "handback",    "text"}               its final answer (a finished agent's last text)
-    {"kind": "control",     "cmd", "by", ...}     a command recorded from Studio or the CLI
+    {"kind": "control",     "cmd", "via", ...}    a command recorded from Studio or the CLI (3.6.0.2: no user name)
     {"kind": "note",        "text"}               a one-line notice (a child steered, stopped, paused)
     {"kind": "ask",         "what", "name"?}      a permission card, question or plan review opened
     {"kind": "error",       "text"} / {"kind": "done", "reason"}

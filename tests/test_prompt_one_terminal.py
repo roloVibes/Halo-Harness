@@ -4,10 +4,11 @@ promptF-design.md F1a): what a session's terminal does with what Studio sends ov
 P1  a socket prompt or steer adds no grey note (the `❯` row is the one copy); a held turn starts with no note;
     Studio's interrupt draws no `(remote) interrupt` (other clients keep it).
 P2  a socket `user_message` / `steer_queued` brings the transcript to the bottom, as Enter does.
-P4  an ask answered over the socket closes the terminal's card for it (and one waiting behind it); a card that
-    borrows the box ends the borrow and leaves what he typed there, unsent (the HARD GATE).
-P5  that close is ONE muted line, the card's marker: `Answered in Studio: <label>` / `Answered remotely: <label>`,
-    the label from `events.ask_label`, the one table; the answer's via reaches the handle.
+P4  OUT (batch 3, the coordinator's gate): an ask answered over the socket closes no card, brings no card forward
+    and moves no focus; his own next act (a key, or Enter in the box a card borrows) closes the stale card, sends
+    nothing and leaves what he typed in the box, unsent.
+P5  the card's marker is ONE muted line: `Answered in Studio: <label>` / `Answered remotely: <label>`, the label
+    from `events.ask_label`, the one table; the answer's via reaches the handle. Matched by request id.
 P6  one `ask_answered` event per answer, from either side, only when the claim won.
 P73 two answers that cross: one wins, the other gets False; one decision, one line, one event.
 P7  plain-text Enter on a card that no longer waits sends the text as an ordinary prompt, no toast.
@@ -201,9 +202,145 @@ def test_socket_turn_scrolls_to_bottom(ctx: Ctx):
     asyncio.run(body())
 
 
-# ---- P4 -----------------------------------------------------------------------------------------------------------
+# ---- P4 (out: the coordinator's gate, batch 3) --------------------------------------------------------------------
+def _nothing_sent(fake) -> bool:
+    return (fake.submitted == [] and not fake.permission_replies and not fake.question_replies
+            and not fake.plan_replies and not fake.approval_replies)
+
+
+def _terminal_events(sink) -> list:
+    return [e for e in sink.put_events if getattr(e, "kind", "") == "ask_answered"]
+
+
+@test
+def test_socket_answer_leaves_the_card_until_he_touches_it(ctx: Ctx):
+    """P4 is OUT: an ask answered over the socket closes no card, brings no card forward and moves no focus. Two
+    permission cards, one shown and one behind; he presses 4 on the shown one and types; Studio answers it. The
+    card stays, the one behind stays behind, the focus and his words stay. His own next act (Enter in the box, or a
+    key on the card) closes the stale card: its marker reads the winner's words, his words stay in the box unsent,
+    nothing is sent for either request. The checker's probes (typing on after Studio's answer; his words for the
+    first card sent as the answer to the second) are cases here."""
+    from halo_harness.tui.dispatch import apply_event
+    typed = "keep the old"
+
+    async def setup(pilot, app, borrow: bool):
+        await pilot.pause(0.2)
+        await apply_event(app, _perm("req-1"))
+        await apply_event(app, _perm("req-2"))
+        await pilot.pause(0.3)
+        if borrow:
+            await pilot.press("4")
+            await pilot.pause(0.3)
+            for ch in typed:
+                await pilot.press("space" if ch == " " else ch)
+            await pilot.pause(0.1)
+        focused = app.focused
+        mark = _markers(app)["req-1"]
+        await apply_event(app, ev.ask_answered("req-1", "permission", "Allow", "studio"))
+        await pilot.pause(0.3)
+        return focused, mark
+
+    def unchanged(name, app, fake, sink, focused, borrow: bool):
+        ctx.check(f"{name}: the shown card is still the shown card, got {getattr(app.pending_card, 'request_id', None)}",
+                  getattr(app.pending_card, "request_id", "") == "req-1")
+        ctx.check(f"{name}: the card behind has not come forward, got {[q.request_id for q in app._pending_queue]}",
+                  [q.request_id for q in app._pending_queue] == ["req-2"])
+        ctx.check(f"{name}: the focus is where it was, got {type(app.focused).__name__}", app.focused is focused)
+        if borrow:
+            ctx.check(f"{name}: the box still holds his words, got {app.prompt_input.text!r}",
+                      app.prompt_input.text == typed)
+            ctx.check(f"{name}: the card still borrows the box", app._borrowing_card is app.pending_card)
+        ctx.check(f"{name}: nothing sent, got {fake.submitted} {fake.permission_replies}", _nothing_sent(fake))
+        ctx.check(f"{name}: the terminal emitted no ask_answered of its own, got {_terminal_events(sink)}",
+                  _terminal_events(sink) == [])
+
+    async def typing_on():
+        fake, app = _app()
+        fake.events = sink = _Sink()
+        async with app.run_test(size=(100, 30)) as pilot:
+            focused, mark = await setup(pilot, app, True)
+            unchanged("typing on", app, fake, sink, focused, True)
+            ctx.check(f"typing on: the marker reads the winner's words, got {mark.raw_text!r}",
+                      mark.raw_text == "Answered in Studio: Allow")
+            for ch in " way":
+                await pilot.press("space" if ch == " " else ch)
+            await pilot.pause(0.3)
+            ctx.check(f"typing on: every key he typed is in the box, got {app.prompt_input.text!r}",
+                      app.prompt_input.text == typed + " way")
+            unchanged("typing on, after more keys", app, fake, sink, focused, False)
+
+    async def enter_in_the_box():
+        fake, app = _app()
+        fake.events = sink = _Sink()
+        async with app.run_test(size=(100, 30)) as pilot:
+            focused, mark = await setup(pilot, app, True)
+            unchanged("Enter", app, fake, sink, focused, True)
+            await pilot.press("enter")
+            await pilot.pause(0.4)
+            ctx.check(f"Enter: the stale card closed, got {getattr(app.pending_card, 'request_id', None)}",
+                      getattr(app.pending_card, "request_id", "") == "req-2" and app._borrowing_card is None)
+            ctx.check(f"Enter: its marker reads the winner's words, got {mark.raw_text!r}",
+                      mark.raw_text == "Answered in Studio: Allow")
+            ctx.check(f"Enter: his words stay in the box unsent, got {app.prompt_input.text!r}",
+                      app.prompt_input.text == typed)
+            ctx.check(f"Enter: nothing sent for either request, got {fake.submitted} {fake.permission_replies}",
+                      _nothing_sent(fake) and _terminal_events(sink) == [])
+            ctx.check(f"Enter: one line, got {_answered_notes(app)}", _answered_notes(app) == ["Answered in Studio: Allow"])
+            app.set_focus(app.prompt_input)
+            await pilot.press("enter")  # the probe's case B: the same words, Enter again
+            await pilot.pause(0.3)
+            ctx.check(f"Enter again: his words for the first card never answer the second, got "
+                      f"{fake.permission_replies} {fake.submitted}",
+                      _nothing_sent(fake) and getattr(app.pending_card, "request_id", "") == "req-2")
+
+    async def key_on_the_card():
+        fake, app = _app()
+        fake.events = sink = _Sink()
+        async with app.run_test(size=(100, 30)) as pilot:
+            focused, mark = await setup(pilot, app, False)
+            unchanged("a key", app, fake, sink, focused, False)
+            await pilot.press("3")  # allow always: would answer and write a rule if the card still counted
+            await pilot.pause(0.4)
+            ctx.check(f"a key: the stale card closed, got {getattr(app.pending_card, 'request_id', None)}",
+                      getattr(app.pending_card, "request_id", "") == "req-2")
+            ctx.check(f"a key: its marker reads the winner's words, got {mark.raw_text!r}",
+                      mark.raw_text == "Answered in Studio: Allow")
+            ctx.check(f"a key: nothing sent, no rule, got {fake.permission_replies} {fake.added_rules}",
+                      _nothing_sent(fake) and fake.added_rules == [] and _terminal_events(sink) == [])
+
+    async def plan_by_its_id():
+        """A plan's card is matched by its request id, never by the bare key 'plan'."""
+        fake, app = _app()
+        fake.events = sink = _Sink()
+        async with app.run_test(size=(100, 30)) as pilot:
+            await pilot.pause(0.2)
+            await apply_event(app, _plan("plan-1"))
+            await pilot.pause(0.3)
+            mark = _markers(app)["plan-1"]
+            before = mark.raw_text
+            await apply_event(app, ev.ask_answered("toolu_other", "plan", "Approve the plan", "remote"))
+            await pilot.pause(0.2)
+            ctx.check(f"plan: another plan's answer leaves this card and marker, got {mark.raw_text!r}",
+                      mark.raw_text == before and getattr(app.pending_card, "request_id", "") == "plan-1")
+            await apply_event(app, ev.ask_answered("plan-1", "plan", "Approve the plan", "remote"))
+            await pilot.pause(0.2)
+            ctx.check("plan: its own answer leaves the card shown",
+                      getattr(app.pending_card, "request_id", "") == "plan-1")
+            await pilot.press("1")  # approve: through the controller it would answer whatever plan waits now
+            await pilot.pause(0.4)
+            ctx.check(f"plan: his key closed it and sent nothing, got {fake.plan_replies}",
+                      app.pending_card is None and _nothing_sent(fake) and _terminal_events(sink) == [])
+            ctx.check(f"plan: the marker reads the winner's words, got {mark.raw_text!r}",
+                      mark.raw_text == "Answered remotely: Approve the plan")
+    for body in (typing_on, enter_in_the_box, key_on_the_card, plan_by_its_id):
+        asyncio.run(body())
+
+
 @test
 def test_socket_answer_closes_the_card_and_the_one_behind(ctx: Ctx):
+    """Rewritten to the truth in batch 3 (P4 is out; the name is kept): a socket answer for the shown card and for one
+    waiting behind it closes neither -- each marker reads its line, the shown card stays, the one behind stays behind.
+    His keys then close each stale card in turn and answer nothing; a plan answer with another id touches nothing."""
     from halo_harness.tui.dispatch import apply_event
 
     async def body():
@@ -218,32 +355,50 @@ def test_socket_answer_closes_the_card_and_the_one_behind(ctx: Ctx):
                       and [q.request_id for q in app._pending_queue] == ["req-2"])
             await apply_event(app, ev.ask_answered("req-2", "permission", "Deny", "studio"))
             await pilot.pause(0.2)
-            ctx.check("the one behind left the waiting list", app._pending_queue == []
+            ctx.check("the one behind still waits behind", [q.request_id for q in app._pending_queue] == ["req-2"]
                       and getattr(app.pending_card, "request_id", "") == "req-1")
             ctx.check(f"its marker is the line, got {marks['req-2'].raw_text!r}",
                       marks["req-2"].raw_text == "Answered in Studio: Deny")
             await apply_event(app, ev.ask_answered("req-1", "permission", "Allow", "studio"))
             await pilot.pause(0.3)
-            ctx.check("the shown card closed", app.pending_card is None)
+            ctx.check("the shown card stays", getattr(app.pending_card, "request_id", "") == "req-1")
             ctx.check(f"its marker is the line, got {marks['req-1'].raw_text!r}",
                       marks["req-1"].raw_text == "Answered in Studio: Allow")
+            await pilot.press("1")
+            await pilot.pause(0.4)
+            ctx.check("his key closed it, the one behind came forward",
+                      getattr(app.pending_card, "request_id", "") == "req-2")
+            await pilot.press("1")
+            await pilot.pause(0.4)
+            ctx.check("his key closed that one too", app.pending_card is None and app._pending_queue == [])
+            ctx.check(f"the markers keep the winners' words, got {marks['req-1'].raw_text!r} {marks['req-2'].raw_text!r}",
+                      marks["req-1"].raw_text == "Answered in Studio: Allow"
+                      and marks["req-2"].raw_text == "Answered in Studio: Deny")
             ctx.check(f"the terminal answered nothing itself, got {fake.permission_replies}", fake.permission_replies == [])
             await apply_event(app, _plan("plan-x"))
             await pilot.pause(0.2)
-            mark = _markers(app)["plan"]
+            mark = _markers(app)["plan-x"]
+            before = mark.raw_text
             await apply_event(app, ev.ask_answered("toolu_other", "plan", "Approve the plan", "remote"))
             await pilot.pause(0.3)
-            ctx.check("the open plan card closed", app.pending_card is None and fake.plan_replies == [])
-            ctx.check(f"its line, got {mark.raw_text!r}", mark.raw_text == "Answered remotely: Approve the plan")
+            ctx.check("another plan's answer leaves the plan card", getattr(app.pending_card, "request_id", "") == "plan-x"
+                      and mark.raw_text == before and fake.plan_replies == [])
+            await apply_event(app, ev.ask_answered("plan-x", "plan", "Approve the plan", "remote"))
+            await pilot.pause(0.3)
+            ctx.check(f"its own answer: its line, the card stays, got {mark.raw_text!r}",
+                      mark.raw_text == "Answered remotely: Approve the plan"
+                      and getattr(app.pending_card, "request_id", "") == "plan-x")
             ctx.check("no (remote) line anywhere", not [t for t in app.transcript.plain_log if "(remote)" in t])
     asyncio.run(body())
 
 
 @test
 def test_socket_answer_while_typing_a_deny_reason_keeps_the_text(ctx: Ctx):
-    """THE GATE: every card that borrows the box (a deny reason, a question's Other, plan feedback, an approval
-    edit): he starts typing, the ask is answered over the socket; the card is gone, the placeholder is back, the
-    words are still in the box, nothing was sent, one `Answered in Studio` line."""
+    """THE GATE, rewritten to the truth in batch 3 (P4 is out): every card that borrows the box (a deny reason, a
+    question's Other, plan feedback, an approval edit): he starts typing, the ask is answered over the socket; the
+    card stays and keeps the box, his words stay, nothing is sent, the marker is the one line. His Enter then closes
+    the card: the placeholder is back, the words are still in the box, nothing was sent, one `Answered in Studio`
+    line."""
     from halo_harness.tui.dispatch import apply_event
 
     async def borrow_permission(app, pilot):
@@ -277,9 +432,16 @@ def test_socket_answer_while_typing_a_deny_reason_keeps_the_text(ctx: Ctx):
             typed = "keep the old one, it still works"
             app.prompt_input.insert(typed)
             await pilot.pause(0.1)
+            card = app.pending_card
             await apply_event(app, ev.ask_answered(answer[0], answer[1], answer[2], "studio"))
             await pilot.pause(0.3)
-            ctx.check(f"{name}: the card is gone", app.pending_card is None and app._borrowing_card is None)
+            ctx.check(f"{name}: the card stays and keeps the box",
+                      app.pending_card is card and app._borrowing_card is card and app.prompt_input.text == typed)
+            ctx.check(f"{name}: nothing sent before his act", _nothing_sent(fake))
+            app.set_focus(app.prompt_input)
+            await pilot.press("enter")
+            await pilot.pause(0.4)
+            ctx.check(f"{name}: his Enter closed the card", app.pending_card is None and app._borrowing_card is None)
             ctx.check(f"{name}: the placeholder is back, got {app.prompt_input.placeholder!r}",
                       app.prompt_input.placeholder == app._current_placeholder_text())
             ctx.check(f"{name}: the words are still in the box, got {app.prompt_input.text!r}",
@@ -333,11 +495,10 @@ def test_kept_text_never_answers_the_card_behind_or_goes_as_a_prompt(ctx: Ctx):
             await pilot.pause(0.3)
             app.prompt_input.insert(typed)
             await pilot.pause(0.1)
-            if lost:
-                await enter(app, pilot)  # his Enter lost the claim: the card closed, the words stay
-            else:
+            if not lost:  # batch 3: Studio's answer closes nothing; his Enter closes the stale card
                 await apply_event(app, ev.ask_answered(answer[0], answer[1], answer[2], "studio"))
                 await pilot.pause(0.3)
+            await enter(app, pilot)  # the card closed (stale, or his Enter lost the claim), the words stay
             ctx.check(f"{name}: the words are in the box, got {app.prompt_input.text!r}", app.prompt_input.text == typed)
             if behind is not None:
                 ctx.check(f"{name}: the card behind shows", getattr(app.pending_card, "request_id", "") == "req-2")
@@ -372,9 +533,9 @@ def test_kept_text_never_answers_the_card_behind_or_goes_as_a_prompt(ctx: Ctx):
 
 @test
 def test_a_lost_plan_marker_never_takes_the_next_plan(ctx: Ctx):
-    """P4/P73: a plan card whose key lost because the plan stopped waiting (no winner's event ever comes) leaves no
-    marker behind that a LATER plan's Studio answer would land on: the later plan's card closes and its own marker
-    gets the line."""
+    """P73: a plan card whose key lost because the plan stopped waiting (no winner's event ever comes) leaves no
+    marker behind that a LATER plan's Studio answer would land on: the later plan's own marker gets the line (batch
+    3: the card stays until his key closes it, and that key answers nothing)."""
     from halo_harness.tui.dispatch import apply_event
 
     async def body():
@@ -384,7 +545,7 @@ def test_a_lost_plan_marker_never_takes_the_next_plan(ctx: Ctx):
             await pilot.pause(0.2)
             await apply_event(app, _plan("plan-1"))
             await pilot.pause(0.3)
-            old = _markers(app)["plan"]
+            old = _markers(app)["plan-1"]
             old_text = old.raw_text
             await pilot.press("1")
             await pilot.pause(0.3)
@@ -392,12 +553,17 @@ def test_a_lost_plan_marker_never_takes_the_next_plan(ctx: Ctx):
             fake.lost_request_ids = set()
             await apply_event(app, _plan("plan-2"))
             await pilot.pause(0.3)
-            new = _markers(app)["plan"]
+            new = _markers(app)["plan-2"]
             await apply_event(app, ev.ask_answered("plan-2", "plan", "Approve the plan", "studio"))
             await pilot.pause(0.3)
-            ctx.check(f"the later plan's card closed, got {type(app.pending_card).__name__}", app.pending_card is None)
+            ctx.check(f"the later plan's card stays, got {getattr(app.pending_card, 'request_id', None)}",
+                      getattr(app.pending_card, "request_id", "") == "plan-2")
             ctx.check(f"its own marker has the line, got {new.raw_text!r}",
                       new.raw_text == "Answered in Studio: Approve the plan")
+            await pilot.press("1")
+            await pilot.pause(0.3)
+            ctx.check(f"his key closed it and answered nothing, got {fake.plan_replies}",
+                      app.pending_card is None and fake.plan_replies == [])
             ctx.check(f"the old marker is left as it was, got {old.raw_text!r}", old.raw_text == old_text)
             ctx.check(f"one line, got {_answered_notes(app)}", _answered_notes(app) == ["Answered in Studio: Approve the plan"])
     asyncio.run(body())
@@ -865,6 +1031,44 @@ def test_agent_control_lines_name_no_one(ctx: Ctx):
     logged = main.log.nodes() + child.log.nodes()
     ctx.check("no name in any line, record or note", NAME not in _dump([h.notes, h.shut, h.submitted, logged,
                                                                          tree.controls.stops, tree.controls.pauses]))
+
+
+@test
+def test_command_line_remote_sends_via_and_no_name(ctx: Ctx):
+    """P3 (a guard, batch 3; green since batch 2): `halo remote agents | steer | stop` builds each request with
+    `via` = "halo remote" and no user or host name, whatever this machine's user and host are."""
+    import getpass
+    import socket as _socket
+    from halo_harness.remote import cli_agents, client, registry
+    calls = []
+
+    class _Client:
+        def __init__(self, endpoint, token, timeout=None) -> None:
+            pass
+
+        def call(self, cmd, **fields):
+            calls.append((cmd, fields))
+            return {"ok": True, "result": {"agent_id": "main", "agents": []}}
+
+        def close(self) -> None:
+            pass
+    saved = (client.ControlClient, client.default_token_for, registry.list_live, getpass.getuser, _socket.gethostname)
+    client.ControlClient, client.default_token_for = _Client, (lambda entry: "t")
+    registry.list_live = lambda: [{"session_id": "sid-1", "endpoint": "tcp://127.0.0.1:1"}]
+    getpass.getuser, _socket.gethostname = (lambda: NAME), (lambda: "gpu-box")
+    try:
+        cli_agents.cmd_agents(["sid-1", "--json"])
+        cli_agents.cmd_steer(["sid-1", "--agent", "main", "--json", "look", "here"])
+        cli_agents.cmd_stop(["sid-1", "--agent", "a1", "--reason", "enough", "--json"])
+    finally:
+        client.ControlClient, client.default_token_for, registry.list_live, getpass.getuser, \
+            _socket.gethostname = saved
+    ctx.check(f"three requests, got {[c for c, _ in calls]}", [c for c, _ in calls] == ["agents", "agent_steer", "agent_stop"])
+    ctx.check(f"each holds via 'halo remote', got {[f.get('via') for _, f in calls]}",
+              all(f.get("via") == "halo remote" for _, f in calls))
+    ctx.check(f"no user or host field, got {[sorted(f) for _, f in calls]}",
+              not [k for _, f in calls for k in f if k in ("by", "user", "username", "host", "hostname", "origin")])
+    ctx.check("no user or host name anywhere in a request", NAME not in _dump(calls) and "gpu-box" not in _dump(calls))
 
 
 # ---- P8-P12: a slash line over the socket runs the terminal's own table ------------------------------------------
