@@ -69,6 +69,24 @@ def test_an_ask_from_an_agent_on_no_box_opens_the_feed_and_says_so(ctx: Ctx):
 
 
 @test
+def test_an_ask_held_back_is_in_the_feed_when_the_door_says_so(ctx: Ctx):
+    """P9 batch 2 (CI on the candidate, run 44186047995: the line said "its question is in the Feed" while the Feed on that
+    agent held no row; the coordinator's ruling): the door hands the ask itself to the Feed, so with the ask's frame held
+    back until after the press, the row and its choices are on screen when the line shows, within 1 s of the press (timed
+    in the page; BUILDER-RULES 7 gives the slower Windows and macOS runners 5 s), and the frame that brings the same ask
+    later fills that row: one row, never two."""
+    d = _got(ctx)
+    row, said, at_line = (list(d.get("held") or []) + [None] * 3)[:3]
+    budget = 1000 if sys.platform.startswith("linux") else 5000
+    ctx.check(f"the Feed shows the ask's row with its choices within {budget} ms of the press, got {row} ms "
+              f"(rows {d.get('held_texts')!r})", isinstance(row, int) and row <= budget)
+    ctx.check(f"the line {d.get('held_line')!r} shows, got at {said} ms", isinstance(said, int))
+    ctx.check(f"when the line shows, the row is there (rows at that moment: {at_line})", isinstance(at_line, int) and at_line >= 1)
+    ctx.check(f"the held frame fills that row, one row, got {d.get('held_after')!r}",
+              d.get("held_after") == ["asks to run: ls"])
+
+
+@test
 def test_a_goal_runs_open_holds_still_and_opens_at_once(ctx: Ctx):
     d = _got(ctx)
     ctx.check(f"Open is the same node before and after the Map settled, got {d.get('run_same_node')!r}", d.get("run_same_node") is True)

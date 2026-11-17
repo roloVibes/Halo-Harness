@@ -70,6 +70,49 @@ out.none = M.placeOf('nobody', ov, rows);
     ctx.check(f"an agent the drawing does not hold: nothing, got {got.get('none')}", got.get("none") is None)
 
 
+@test
+def test_the_doors_ask_is_in_the_feed_at_once_and_once(ctx: Ctx):
+    """P9 batch 2 (CI on the candidate, the coordinator's ruling): the door of an ask from an agent on no box says "its
+    question is in the Feed", so it hands the ask itself to the Feed (shared/liveFeed.ts `handAsk` over the pure
+    shared/liveAsk.ts: `askOfRow`, the attention row it was opened with -- the agent, the question; its choices are the
+    row's keys) -- the row is there before any frame of it reached the page; the frame that brings the same ask later
+    (`askOfFrame`) fills that row instead of drawing a second (`withAsk`: matched by the ask's id; a row with none -- an
+    agent that waits -- takes that agent's first ask), and an ask already in the Feed is not handed twice."""
+    got = node("routes/shared/liveAsk.ts", """
+let lines = [], n = 0;
+const put = (key, a) => { lines = M.withAsk(lines, key, a, () => ({ n: ++n, t0: 0 })); };
+const row = (kind, what, detail, rid) => M.askOfRow({ kind, what, detail, since: 100, target: rid ? { request_id: rid } : {} });
+const frame = (id, command) => M.askOfFrame('permission_request', { id, name: 'Bash', input: { command } }, 101);
+const asks = (key) => lines.filter((l) => l.kind === 'ask' && l.key === key).map((l) => [l.text, l.id]);
+const waits = row('waiting', 'lookout waits on you', 'Lookout: watch the basket', '');
+put('h|s|look', waits);
+out.waits = asks('h|s|look');
+put('h|s|look', waits); // the door pressed again
+out.again = asks('h|s|look').length;
+put('h|s|look', frame('perm-held', 'ls')); // the frames that were held back come
+out.filled = asks('h|s|look');
+put('h|s|look', frame('perm-next', 'pwd')); // its next ask is a row of its own
+out.next = asks('h|s|look').length;
+put('h|s|card', row('permission', 'Permission: Bash', 'git status', 'perm-c'));
+put('h|s|card', frame('perm-c', 'git status'));
+out.card = asks('h|s|card');
+put('h|s|early', frame('perm-e', 'make')); // the frame came first: the door adds nothing
+put('h|s|early', row('permission', 'Permission: Bash', 'make', 'perm-e'));
+out.early = asks('h|s|early');
+out.events = M.ASK_EVENTS;
+""")
+    ctx.check(f"the door's row is in the Feed at once, in the attention row's words, got {got.get('waits')}",
+              got.get("waits") == [["lookout waits on you · Lookout: watch the basket", ""]])
+    ctx.check(f"pressed again: still one row, got {got.get('again')}", got.get("again") == 1)
+    ctx.check(f"the held frame fills that row (no second row), got {got.get('filled')}",
+              got.get("filled") == [["asks to run: ls", "perm-held"]])
+    ctx.check(f"the agent's next ask is its own row, got {got.get('next')}", got.get("next") == 2)
+    ctx.check(f"a card's frame (same ask id) fills its row, got {got.get('card')}", got.get("card") == [["asks to run: git status", "perm-c"]])
+    ctx.check(f"an ask already in the Feed is not handed twice, got {got.get('early')}", got.get("early") == [["asks to run: make", "perm-e"]])
+    ctx.check(f"the four ask frames are still read, got {got.get('events')}",
+              got.get("events") == ["permission_request", "question", "plan_review", "approval_request"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

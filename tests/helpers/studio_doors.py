@@ -11,6 +11,8 @@ uses it, over tests/helpers/studio_session_rig.py (this harness's real session) 
                  waiting, the card with the ask's choices
     ask_stranger an agent the drawing puts on no box asks: O from Agents and from Session opens the Feed on it with the
                  ask's choices and the line "{agent} is not on the map: its question is in the Feed." (P4 batch 12)
+    ask_held     the same with the ask's frame held back until after the press (P9 batch 2): the row and its choices are
+                 in the Feed when the line shows, timed in the page from the press; the late frame draws no second row
     run_open     a live goal run, the run's file read held by the browser (never answered): the Map's top line's Open is
                  the same DOM node before and after the Map settled (one parent whatever the line says), and one press
                  opens the Map's drawer on the run at once
@@ -138,12 +140,10 @@ def ask_stranger(c, rig, lv) -> dict:
             r = f"({row})('[data-panel=session-attention] [data-testid=fleet-attn-row]')"
         c.wait(f"!!{r}", 30)
         c.click_on(f"{r}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
-        seen = ""
-        for _ in range(40):  # the line, while it is shown (a toast lasts 8 s)
+        try:  # the line, while it is shown (a toast lasts 8 s); then the row it names (waited for, never slept on)
+            seen = c.wait(f"({toast}).includes({json.dumps(line)}) && ({toast})", 8)
+        except TimeoutError:
             seen = c.js(toast) or ""
-            if line in seen:
-                break
-            time.sleep(0.2)
         try:
             c.wait(f"!!{keys}", 10)
             if line not in seen:
@@ -160,6 +160,54 @@ def ask_stranger(c, rig, lv) -> dict:
         else:
             out["stranger_agents_view"] = c.js(VIEW)
     out["stranger_line"] = line
+    return out
+
+
+HELD_WATCH = """(() => { const w = window.__held = { t0: null, row: null, line: null, atLine: null };
+  const asks = () => [...document.querySelectorAll('[data-testid=map-feed] [data-testid=session-live-ask]')]
+    .filter((e) => e.offsetParent && e.querySelector('[data-testid=session-live-key]')).length;
+  const said = () => [...document.querySelectorAll('.toast')].some((t) => t.textContent.includes(LINE));
+  const look = () => { if (w.t0 === null) return; const n = asks(), ms = Math.round(performance.now() - w.t0);
+    if (w.row === null && n) w.row = ms;
+    if (w.line === null && said()) { w.line = ms; w.atLine = n; } };
+  document.addEventListener('click', () => { if (w.t0 === null) w.t0 = performance.now(); }, true);
+  new MutationObserver(look).observe(document.body, { childList: true, subtree: true, characterData: true });
+  return 1; })()"""
+
+
+def ask_held(c, rig, lv) -> dict:
+    """P9 batch 2 (CI on the candidate: the line said the question is in the Feed while the Feed held no row): an agent the
+    drawing puts on no box waits on him and NO frame of its ask has reached the page (held back until after the press).
+    O from Agents: the Feed on that agent shows the ask's row with its choices -- at the moment the line says so, timed in
+    the page from the press -- and the frame that brings the ask later fills that row (no second row)."""
+    out: dict = {}
+    line = "lookout is not on the map: its question is in the Feed."
+    c.go(rig.url("agents", "&view=map"))
+    c.wait(f"{VIEW} === 'map'", 40)
+    lv.spawn("l0o0k0u7", "lookout", "lookout", "or:mock/qwen3-coder", "Lookout: watch the basket code")
+    lv.rows["l0o0k0u7"]["crew"] = {"box": "gone"}
+    lv.state("lookout", state="waiting")  # it waits on him; its ask's frame is held back
+    chip = vis("[data-testid=agents-attention]")
+    c.wait(f"Number({chip}?.dataset.count) > 0", 30)
+    c.click_on(chip)
+    r = "[...document.querySelectorAll('[data-testid=fleet-attention] [data-testid=fleet-attn-row]')].find((e) => e.textContent.includes('lookout'))"
+    c.wait(f"!!{r}", 30)
+    c.js(HELD_WATCH.replace("LINE", json.dumps(line)))
+    c.click_on(f"{r}.querySelector('[data-testid=fleet-attn-key][data-key=o]')")
+    try:
+        c.wait("window.__held.row !== null && window.__held.line !== null", 15)
+    except TimeoutError:
+        pass
+    out["held"] = c.js("[window.__held.row, window.__held.line, window.__held.atLine]")
+    rows = "[...document.querySelectorAll('[data-testid=map-feed] [data-testid=session-live-ask]')].filter((e) => e.offsetParent)"
+    out["held_texts"] = c.js(f"{rows}.map((e) => e.querySelector('.slv-ask-what')?.textContent || '')")
+    lv.ask("lookout", "permission_request", {"id": "perm-held", "name": "Bash", "input": {"command": "ls"}})  # the held frame comes
+    try:
+        c.wait(f"{rows}.some((e) => e.textContent.includes('asks to run: ls'))", 20)
+    except TimeoutError:
+        pass
+    out["held_after"] = c.js(f"{rows}.map((e) => e.querySelector('.slv-ask-what')?.textContent || '')")
+    out["held_line"] = line
     return out
 
 
@@ -240,7 +288,7 @@ class DoorsDriver(Driver):
             lv.rows["r3v1e2w0"]["square"] = {"name": "review", "engine": "steps"}  # the workflow review's step: box check
             lv.refresh(map="shop", map_next="shop")
             try:
-                yield tuple((fn, (c, rig, lv)) for fn in (ask_map, ask_session, ask_stranger, run_open, builder_left))
+                yield tuple((fn, (c, rig, lv)) for fn in (ask_map, ask_session, ask_stranger, run_open, ask_held, builder_left))
             finally:
                 lv.close()
 

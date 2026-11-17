@@ -33,6 +33,8 @@ export type LiveLine = {
   /** 3.3.10.0 R2: the packs' verdicts on the call, one line (`policy: deny -- fence: outside the project`). */
   policy?: string;
   ask?: string;
+  /** 3.6.0.2 P9: an ask the door handed the Feed before its frame came (liveAsk.ts); its frame fills it. */
+  handed?: boolean;
   state?: string;
   /** 3.2.0.0 R3: a pack line's KIND column (the pack's label). */
   label?: string;

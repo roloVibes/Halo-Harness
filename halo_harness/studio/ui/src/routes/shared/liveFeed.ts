@@ -19,6 +19,7 @@ import { createStore, useStore } from "../../lib/store";
 import { fleet, findAgent, keyOf, localId } from "../fleet/store";
 import type { AgentKey, Entry } from "../fleet/types";
 import { lineOf, packOf } from "../packs/events";
+import { ASK_EVENTS, askOfFrame, askOfRow, withAsk, type AskLine, type RowAsk } from "./liveAsk";
 import type { LiveKind, LiveLine } from "./liveTypes";
 
 export type { LiveKind, LiveLine, Talk } from "./liveTypes";
@@ -124,14 +125,11 @@ export function toolEnd(key: AgentKey, id: string, text: string, isError: boolea
   });
 }
 
-const ASK_LABEL: Record<string, string> = { permission_request: "asks to run", question: "asks you", plan_review: "has a plan for you to review", approval_request: "asks for your approval" };
-const ASK_KIND: Record<string, string> = { permission_request: "permission", question: "question", plan_review: "plan", approval_request: "approval" };
+/** An ask's line in (liveAsk.ts withAsk: a handed one once, its frame fills it). */
+const putAsk = (key: AgentKey, a: AskLine) => live.update((s) => ({ lines: withAsk(s.lines, key, a, () => ({ t0: Date.now(), n: ++seq })).slice(-MAX_LINES) }));
 
-function askText(event: string, d: Record<string, unknown>): string {
-  const input = (d.input && typeof d.input === "object" ? d.input : {}) as Record<string, unknown>;
-  const what = String(input.question || d.question || d.text || input.command || d.name || "").replace(/\s+/g, " ").slice(0, 220);
-  return `${ASK_LABEL[event] || "asks"}${what ? ": " + what : ""}`;
-}
+/** 3.6.0.2 P9: the door of an ask from an agent on no box (glance/openAsk.ts) hands its row to the Feed: shown at once. */
+export const handAsk = (key: AgentKey, row: RowAsk) => putAsk(key, askOfRow(row));
 
 /** One transcript entry (a followed agent's `agent_event`, or its backlog with `at`) as a line. */
 export function fromEntry(key: AgentKey, e: Entry, at = false): void {
@@ -189,8 +187,7 @@ function onAgentEvent(f: FeedFrame): void {
 
 function onAsk(f: FeedFrame): void {
   if (!f.session_id) return;
-  const d = (f.data || {}) as Record<string, unknown>;
-  addLine({ key: frameKey(f), kind: "ask", ts: Number(f.ts) || Date.now() / 1000, text: askText(f.event, d), ask: ASK_KIND[f.event] || f.event, id: String(d.id || "") });
+  putAsk(frameKey(f), askOfFrame(f.event, (f.data || {}) as Record<string, unknown>, Number(f.ts) || Date.now() / 1000));
 }
 
 /** Start once (Session's Live panel, the map's tool clock): the feed handlers (liveTree.ts adds the tree's). */
@@ -199,7 +196,7 @@ export function startLive(): void {
   live.update(() => ({ started: true }));
   for (const k of ["text_chunk", "tool_use_start", "tool_result"]) onEvent(k, onRaw);
   onEvent("agent_event", onAgentEvent);
-  for (const k of Object.keys(ASK_LABEL)) onEvent(k, onAsk);
+  for (const k of ASK_EVENTS) onEvent(k, onAsk);
   onEvent("pack_event", onPack);
   onEvent("turn_marker", onMarker);
 }
