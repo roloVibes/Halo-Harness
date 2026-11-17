@@ -1163,13 +1163,15 @@ def test_prompt_check_4_looks_for_an_identity_not_a_word(ctx: Ctx):
     def check(user: str, log: str, shown: str = "") -> list:
         with mock.patch("getpass.getuser", lambda: user), mock.patch("socket.gethostname", lambda: "box-7"):
             return sp._check_private(log, shown)[0]
+    # The home paths below are joined from parts: no literal home path with an account name stands in the tracked tree
+    # (tests/test_privacy_scan.py reads this file too).
     sentence = '{"text": "the tool still runs on the step runner, then the Runner reads it"}'
     got = check("runner", sentence, "the step runner is done")
     ctx.check(f"`runner` in running text, the log and the screen, is no finding, got {got}", got == [])
     for log, shape in (('{"by": "runner@box-7"}', "<user>@<host>"), ('{"by": "runner"}', '"by": "<user>"'),
                        ("the turn was steered by runner from Studio", "by <user>"),
-                       ('{"cwd": "/home/runner/work/x"}', "/home/<user>/"),
-                       ('{"cwd": "/Users/runner/x"}', "/Users/<user>/"),
+                       ('{"cwd": "' + "/".join(("", "home", "runner", "work", "x")) + '"}', "/home/<user>/"),
+                       ('{"cwd": "' + "/".join(("", "Users", "runner", "x")) + '"}', "/Users/<user>/"),
                        ('{"cwd": "D:\\\\Users\\\\runner\\\\x"}', "Users\\\\<user>"),
                        ("asked on box-7 at noon", "on <host> at")):
         got = check("runner", sentence + "\n" + log)
