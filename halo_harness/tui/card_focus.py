@@ -74,6 +74,9 @@ def _is_priority(app, key: str) -> bool:
 # ---- a card is shown -------------------------------------------------------------------------------------------
 def on_shown(app, card, *, own_act: bool) -> None:
     """Called by `set_pending_card` before the card becomes `pending_card`."""
+    if app._borrowing_card is None and not getattr(app, "_answering_borrow", False):
+        from halo_harness.tui import box_aside
+        box_aside.bring_back(app)  # batch 5 (K9): a set-aside draft is back before this card's focus decision
     prev = app.pending_card
     if prev is not None and prev is not card:
         # J2 M5: his own command shows a card while another one waits: that one goes back to the FRONT of the queue
@@ -176,6 +179,8 @@ def refresh(app) -> None:
 def on_base_focus(app, new) -> None:
     """The base screen's focus moved. F-C: once the card's focus is decided, any move out of the card on the base
     screen (Tab, a click on the box or elsewhere) makes it wait -- but not a borrow the card itself started."""
+    from halo_harness.tui import box_aside
+    box_aside.box_focused(app, new)  # batch 5 (K9): back in the box with no borrow -- the set-aside draft returns
     card = app.pending_card
     if (card is not None and new is not None and getattr(card, "_focus_decided", True)
             and app._borrowing_card is None and card is not app._held_card
@@ -233,6 +238,18 @@ def before_key(app, event) -> bool:
         return False  # a dialog on top keeps every key it is typed
     box = app.prompt_input
     if isinstance(event, events.Paste):
+        if base.focused is None:
+            heal(app)
+        card = app.pending_card
+        if card is not None and _in_card(card, base.focused):
+            # batch 5 (K18, F4): a paste that reaches a card never answers it: the card waits (one answered elsewhere
+            # closes and sends nothing, as on a key) and the paste goes into the box.
+            if getattr(card, "answered_line", None):
+                from halo_harness.tui.dispatch import _answered_elsewhere
+                _answered_elsewhere(app, card)
+            else:
+                hold(app, card)
+            app.set_focus(box)
         if base.focused is box:
             stamp_box_key(app)  # K3: a paste into the box counts
         return False

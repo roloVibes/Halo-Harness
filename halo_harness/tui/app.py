@@ -330,6 +330,8 @@ class BridgeApp(App):
         self._lost_markers: "dict" = {}  # 3.6.0.2 P73: a card whose answer lost the claim -> its marker
         self._kept_text = None  # 3.6.0.2 P4 gate: words a closed card left in the box; Enter sends them nowhere until changed
         self._borrowing_card = None
+        self._set_aside = None  # 3.6.0.2 P5 batch 5 (K9): his draft while a card borrows the box (tui/box_aside.py)
+        self._answering_borrow = False  # True inside a borrow's Enter/Esc: the draft comes back as its LAST step
         self._held_card = None  # 3.6.0.2 P5 batch 4: the shown card that waits (tui/card_focus.py)
         self._ctrl_c_deadline: Optional[float] = None
         # 3.1.6.0 R5: the one-per-session "hold Shift to select" hint.
@@ -1280,6 +1282,9 @@ class BridgeApp(App):
         if self._kept_text is not None and getattr(event, "text_area", None) is self.prompt_input \
                 and self.prompt_input.text != self._kept_text:
             self._kept_text = None
+            line = getattr(self, "card_wait_line", None)
+            if line is not None:
+                line.clear_kept()  # 3.6.0.2 P5 batch 5: edited, the text is his again
         if self.pending_card is not None and getattr(event, "text_area", None) is self.prompt_input:
             from halo_harness.tui import card_focus
             card_focus.refresh(self)  # J1 M7: an answered card's line says `closes when you send` or `Enter closes it`
@@ -1297,6 +1302,8 @@ class BridgeApp(App):
                 # 3.6.0.2 P4 gate: the words a closed card left in the box (the Enter he meant for it) go
                 # nowhere -- not to the card behind it, not as a prompt; once he changes them, Enter is his again.
                 self.bell()
+                from halo_harness.tui import box_aside
+                box_aside.say_kept(self)  # 3.6.0.2 P5 batch 5 (K11): and the kept line says why
                 return
             self._kept_text = None
         stripped = text.strip()
@@ -1333,17 +1340,27 @@ class BridgeApp(App):
             card = self._borrowing_card
             self._borrowing_card = None
             self.prompt_input.placeholder = self._current_placeholder_text()
-            # finding 14: expanded, never the raw "[Pasted text #n ...]"
-            # placeholder -- same reasoning as review finding 4's own fix
-            # for the ordinary prompt path just below.
-            card.resolve_with_message(_expand_pasted(text, event.pasted))
-            # 3.6.0.2 P73: an answer that lost its claim (the ask was answered
-            # elsewhere first) closed the card and sent nothing: what he typed
-            # stays in the box, unsent; otherwise the box empties as before.
-            if not getattr(card, "claim_lost", False):
-                self.prompt_input.clear_submitted()
-            elif text.strip():
-                self._kept_text = text
+            from halo_harness.tui import box_aside
+            self._answering_borrow = True
+            try:
+                # finding 14: expanded, never the raw "[Pasted text #n ...]"
+                # placeholder -- same reasoning as review finding 4's own fix
+                # for the ordinary prompt path just below.
+                card.resolve_with_message(_expand_pasted(text, event.pasted))
+                # 3.6.0.2 P73: an answer that lost its claim (the ask was answered
+                # elsewhere first) closed the card and sent nothing: what he typed
+                # stays in the box, unsent; otherwise the box empties as before.
+                lost = getattr(card, "claim_lost", False)
+                if not lost:
+                    self.prompt_input.clear_submitted()
+            finally:
+                self._answering_borrow = False
+            # 3.6.0.2 P5 batch 5 (K9, K10, J2 M3): the set-aside draft comes back as the LAST step, after the clear;
+            # after a lost claim the box is the draft, a new line, then his words, and the kept guard holds all of it.
+            box_aside.card_closed_after_borrow(self, card)
+            if lost and text.strip():
+                self._kept_text = self.prompt_input.text
+                box_aside.say_kept(self)
             return
         if not text.strip():
             return
@@ -2163,7 +2180,9 @@ class BridgeApp(App):
         self.prompt_input.placeholder = self._current_placeholder_text()
         self.status_bar.set_pending_permission(False)
         self._focus_on_base(self.prompt_input)
-        from halo_harness.tui import card_focus
+        from halo_harness.tui import box_aside, card_focus
+        if not self._answering_borrow and self._borrowing_card is None:
+            box_aside.bring_back(self)  # 3.6.0.2 P5 batch 5 (K9): the card closed; before the next card's decision
         card_focus.refresh(self)
         # 1.0.1 fixpass finding 15: re-anchor if the transcript was
         # following right before this card interrupted it -- scroll_end()
@@ -2231,7 +2250,9 @@ class BridgeApp(App):
         self._borrowing_card = card
         self.prompt_input.disabled = False
         self.prompt_input.placeholder = placeholder
-        self.prompt_input.clear_submitted()
+        # 3.6.0.2 P5 batch 5 (K9): whatever the card, his draft (text, pastes, chips) is set aside, not emptied.
+        from halo_harness.tui import box_aside
+        box_aside.set_aside(self)
         self._focus_on_base(self.prompt_input)
 
     def _focus_on_base(self, widget) -> None:
@@ -2442,9 +2463,15 @@ class BridgeApp(App):
         if self._borrowing_card is not None:
             card = self._borrowing_card
             self._borrowing_card = None
-            self.prompt_input.clear_submitted()
-            self.prompt_input.placeholder = self._current_placeholder_text()
-            card.resolve_with_message("")
+            self._answering_borrow = True
+            try:
+                self.prompt_input.clear_submitted()
+                self.prompt_input.placeholder = self._current_placeholder_text()
+                card.resolve_with_message("")
+            finally:
+                self._answering_borrow = False
+            from halo_harness.tui import box_aside
+            box_aside.card_closed_after_borrow(self, card)  # 3.6.0.2 P5 batch 5 (K9, J2 M3): the LAST step
             return
         if self.pending_card is not None:
             return  # the focused card's own Esc binding handles it

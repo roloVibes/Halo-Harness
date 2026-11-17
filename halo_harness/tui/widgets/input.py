@@ -160,6 +160,10 @@ class PromptInput(TextArea):
         # whether it was Enter; set only by the app (tui/card_focus.stamp_box_key), read by the card focus decision.
         self.last_key_at: "float | None" = None
         self.last_key_was_enter = False
+        # 3.6.0.2 P5 batch 5 (J3 M4): while his draft is set aside for a borrow (tui/box_aside.py), the borrow numbers
+        # its pastes and image chips after the ones set aside, so the two never share a number when they meet again.
+        self.paste_floor = 0
+        self.image_seq_floor = 0
         # 3.1.6.0 R5: the last non-command text this box held, for
         # `/copy draft` (typed over the draft) and Ctrl+Shift+C.
         self.draft_keeper = DraftKeeper()
@@ -247,7 +251,7 @@ class PromptInput(TextArea):
         kept = list(self.images) if keep_images else []
         self.text = ""
         self.pasted = {}
-        self._paste_counter = 0
+        self._paste_counter = self.paste_floor
         self.images = kept
         if kept:
             self.text = "".join(self._chip_labels())
@@ -351,7 +355,7 @@ class PromptInput(TextArea):
         # record is matched to its visible chip by this exact text, so a
         # chip removed by selecting-and-typing takes its record with it and
         # the surviving chips keep their numbers.
-        seq = max((int(i.get("seq", 0)) for i in self.images), default=0) + 1
+        seq = max(max((int(i.get("seq", 0)) for i in self.images), default=0), self.image_seq_floor) + 1
         label = f"[Image #{seq} {width}x{height}]" if (width and height) else f"[Image #{seq}]"
         self.images.append({"path": path, "width": width, "height": height, "media_type": media_type,
                             "seq": seq, "label": label})
@@ -408,6 +412,10 @@ class PromptInput(TextArea):
         if result := self._replace_via_keyboard(display_text, *self.selection):
             self.move_cursor(result.end_location)
         self._auto_grow()
+        # 3.6.0.2 P5 batch 5 (J3 M5, choice a): text that lands through a Ctrl+V counts as a key into the box when it
+        # lands, so a card shown just before or after it waits.
+        from halo_harness.tui import card_focus
+        card_focus.stamp_box_key(self.app)
 
     # ---- Backspace removes the last pending image chip (2.0.3.1) --------
 

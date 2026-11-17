@@ -111,6 +111,19 @@ answers no key in its first 0.6 s on screen (that key goes into the box and the 
 Enter in the box never answer a card; only a card's own keys, or the one line a card asks for after you
 pressed its key (a deny reason, "Other...", plan feedback), do.
 
+When a card asks for that one line while the box holds a draft, the draft (with its pastes and image
+chips) is set aside, not lost: the line above the box reads `Your text is set aside; it comes back after
+this answer.`, and the draft comes back exactly as it was once you answered (or pressed `Esc`). On a card
+with several questions it stays aside until the card closes or you go back to the box. If the ask was
+already answered elsewhere when you send the line, nothing is sent: the box holds your draft, a new line,
+then the words you typed, and `Kept, not sent: that ask was already answered. Edit the text to send it.`
+shows above the box for 10 s (again, with the bell, on each Enter until you change the text). A paste
+(a terminal paste, or Ctrl+V) never answers a card: it goes into the box and the card waits.
+
+Known limit: a burst of keys that is not a bracketed paste (a terminal without bracketed paste, a tool
+that types for you) reaching a card that already has the focus and has been on screen more than 0.6 s is
+read as that card's keys.
+
 - **PermissionCard**: `1`/`y` allow once, `2`/`a` allow for the session,
   `3` allow always (writes a rule to `.claude/settings.local.json`), `4`/
   `n`/`Esc` deny (borrows the prompt input for one line of optional

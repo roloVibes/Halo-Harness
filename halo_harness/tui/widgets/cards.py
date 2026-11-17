@@ -913,6 +913,12 @@ HELD_PLACEHOLDER = "Tab: go to the waiting card · Enter: send a message"
 HELD_PLACEHOLDER_SHORT = "Tab: go to the waiting card"
 # The box's placeholder while a permission card has the focus: its keys only (F-C: words in the box never answer it).
 PERMISSION_PLACEHOLDER = "1-4 answers the request above"
+# 3.6.0.2 P5 batch 5 (K9-K11, J1 M6): the lines in the same slot above the box, whole at 80 columns, short under it.
+SET_ASIDE_LINE = "Your text is set aside; it comes back after this answer."
+SET_ASIDE_LINE_SHORT = "Text set aside until this answer."
+KEPT_LINE = "Kept, not sent: that ask was already answered. Edit the text to send it."
+KEPT_LINE_SHORT = "Kept, not sent: the ask was answered."
+KEPT_LINE_S = 10.0
 
 
 def card_kind_word(card) -> str:
@@ -975,19 +981,54 @@ class CardWaitLine(Widget):
         super().__init__(id="card-wait-line")
         self.card = None
         self.box_has_text = False
+        # 3.6.0.2 P5 batch 5: the same slot says his text is set aside for a borrow (K9) and, for KEPT_LINE_S, that
+        # the words a lost answer left are kept (K11). Kept first, then set aside, then a waiting card.
+        self.aside = False
+        self.kept = False
+        self._kept_timer = None
+
+    def _sync(self) -> None:
+        self.display = self.kept or self.aside or self.card is not None
+        self.refresh()
 
     def show_for(self, card, box_has_text: bool) -> None:
         self.card = card
         self.box_has_text = bool(box_has_text)
-        self.display = True
-        self.refresh()
+        self._sync()
 
     def hide(self) -> None:
         self.card = None
-        self.display = False
+        self._sync()
+
+    def set_aside(self, on: bool) -> None:
+        self.aside = bool(on)
+        self._sync()
+
+    def show_kept(self, seconds: float = KEPT_LINE_S) -> None:
+        if self._kept_timer is not None:
+            self._kept_timer.stop()
+        self.kept = True
+        self._kept_timer = self.set_timer(seconds, self.clear_kept)
+        self._sync()
+
+    def clear_kept(self) -> None:
+        if self._kept_timer is not None:
+            self._kept_timer.stop()
+            self._kept_timer = None
+        if self.kept:
+            self.kept = False
+            self._sync()
+
+    def _notice(self, whole: str, short: str) -> str:
+        wide = (self.app.size.width or 80) >= 80 and _fit(whole, self.size.width or 80)
+        return whole if wide else short
 
     @property
     def text(self) -> str:
+        if self.kept:
+            return self._notice(KEPT_LINE, KEPT_LINE_SHORT)
+        if self.aside:
+            return self._notice(SET_ASIDE_LINE, SET_ASIDE_LINE_SHORT)
         if self.card is None:
             return ""
         return wait_line_text(self.card, self.size.width or 80, self.box_has_text)

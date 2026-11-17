@@ -727,6 +727,267 @@ def test_n19_his_own_command_never_buries_a_waiting_card(ctx: Ctx):
     _run(walk)
 
 
+# ---- batch 5: N5, N6, N8 (K9, K10, K11, J2 M3, J3 M3, J3 M4) -------------------------------------------------------
+SET_ASIDE = "Your text is set aside; it comes back after this answer."
+SET_ASIDE_SHORT = "Text set aside until this answer."
+KEPT = "Kept, not sent: that ask was already answered. Edit the text to send it."
+KEPT_SHORT = "Kept, not sent: the ask was answered."
+DRAFT_PASTE = "draft line 1\ndraft line 2\ndraft line 3\ndraft line 4"
+REASON_PASTE = "reason line 1\nreason line 2\nreason line 3\nreason line 4"
+
+
+def _box_state(box) -> tuple:
+    return box.text, dict(box.pasted), [dict(i) for i in box.images]
+
+
+async def _paste(app, pilot, text: str) -> None:
+    """A bracketed paste from the terminal: it reaches the app as one Paste event."""
+    from textual import events
+    app.post_message(events.Paste(text))
+    await pilot.pause(0.05)
+
+
+def _image(folder: Path) -> Path:
+    image = folder / "shot.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 32)
+    return image
+
+
+@test
+@real_card_timing
+def test_n5_a_borrow_sets_his_draft_aside_and_gives_it_back(ctx: Ctx):
+    """K9, J2 M3, J3 M4: every borrow sets the box's text, pastes and chips aside; the reason's paste is numbered after
+    the draft's; the draft comes back exactly, as the LAST step of the borrow's Enter (or Esc). Red on 865ab155 and
+    on batch 4's commit: the borrow emptied the box and the draft was lost."""
+    import shutil
+    import tempfile
+    folder = Path(tempfile.mkdtemp(prefix="cardkeys-"))
+
+    async def walk(fake, app, pilot, clock):
+        box = app.prompt_input
+        await _type(pilot, clock, "draft ")
+        await _paste(app, pilot, DRAFT_PASTE)
+        box.add_image_chip(path=_image(folder), width=10, height=10)
+        await pilot.pause(0.05)
+        before = _box_state(box)
+        ctx.check(f"the draft holds a paste and a chip, got {box.text!r}",
+                  "[Pasted text #1 +4 lines]" in box.text and "[Image #1 10x10]" in box.text)
+        await _ask(app, pilot, _perm("req-1"))
+        await _ask(app, pilot, _perm("req-2"))
+        ctx.check("the ask waits", _held(app, app.pending_card))
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.press("4")
+        await pilot.pause(0.1)
+        ctx.check(f"the box is empty for the reason, got {box.text!r}", box.text == "")
+        ctx.check(f"the set-aside line above the box, got {_line(app)!r}", _line(app) == SET_ASIDE)
+        ctx.check(f"not in the status bar, got {_status(app)!r}", "set aside" not in _status(app))
+        await _type(pilot, clock, "no ")
+        await _paste(app, pilot, REASON_PASTE)
+        ctx.check(f"the reason's paste is numbered after the draft's, got {box.text!r}",
+                  box.text == "no [Pasted text #2 +4 lines]")
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        replies = fake.permission_replies
+        ctx.check(f"one deny that carries the reason only, got {replies}",
+                  len(replies) == 1 and replies[0][0] == "req-1" and replies[0][1].get("action") == "deny"
+                  and replies[0][1].get("message") == "no " + REASON_PASTE)
+        ctx.check(f"the draft is back exactly, got {_box_state(box)!r}", _box_state(box) == before)
+        ctx.check(f"the ask behind comes forward and waits, got {_rid(app.pending_card)}",
+                  _rid(app.pending_card) == "req-2" and _held(app, app.pending_card))
+        ctx.check(f"the line is the wait line again, got {_line(app)!r}", _line(app) == WAIT_PERMISSION)
+        ctx.check("nothing went as a prompt", fake.submitted == [])
+    try:
+        _run(walk)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+    async def walk_taken_then_esc(fake, app, pilot, clock):
+        box = app.prompt_input
+        await _ask(app, pilot, _perm("req-1"))
+        ctx.check("taken from the idle box", _in(app.pending_card, app.focused))
+        clock.step(1.0)
+        await pilot.press("tab")
+        await _type(pilot, clock, "mine")
+        await pilot.press("tab")
+        await pilot.press("4")
+        await pilot.pause(0.1)
+        ctx.check(f"a taken card left and come back to: set aside too, got {box.text!r} {_line(app)!r}",
+                  box.text == "" and _line(app) == SET_ASIDE)
+        await pilot.resize_terminal(60, 24)
+        await pilot.pause(0.2)
+        ctx.check(f"the short set-aside line at 60 columns, got {_line(app)!r}", _line(app) == SET_ASIDE_SHORT)
+        await pilot.press("escape")
+        await pilot.pause(0.2)
+        ctx.check(f"Esc: a deny with no reason, got {fake.permission_replies}",
+                  _answers(fake) == [("req-1", "deny", None)])
+        ctx.check(f"Esc: the draft is back, got {box.text!r}", box.text == "mine")
+        ctx.check(f"the line is gone, got {_line(app)!r}", _line(app) == "")
+    _run(walk_taken_then_esc)
+
+
+@test
+@real_card_timing
+def test_n5_n8_answered_elsewhere_during_a_borrow_keeps_draft_and_words(ctx: Ctx):
+    """K10, K11, F3, J1 M6: Studio answers the ask while he types a reason; his Enter sends nothing, the box holds the
+    draft, a new line, then his words (each paste keeps its own number), and the kept guard holds ALL of it: Enter
+    again sends nothing, rings the bell and shows the kept line above the box (whole at 80, short at 60). An edit
+    makes it his again and both pastes go out right. Red on 865ab155 and on batch 4's commit (the draft was lost)."""
+    async def walk(fake, app, pilot, clock):
+        from halo_harness.tui.dispatch import apply_event
+        box = app.prompt_input
+        bells = []
+        app.bell = lambda: bells.append(1)
+        await _type(pilot, clock, "draft ")
+        await _paste(app, pilot, DRAFT_PASTE)
+        await _ask(app, pilot, _perm("req-1"))
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.press("4")
+        await pilot.pause(0.1)
+        await _type(pilot, clock, "why ")
+        await _paste(app, pilot, REASON_PASTE)
+        await apply_event(app, ev.ask_answered("req-1", "permission", "Allow", "studio"))
+        await pilot.pause(0.1)
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        whole = "draft [Pasted text #1 +4 lines]\nwhy [Pasted text #2 +4 lines]"
+        ctx.check(f"nothing sent, got {fake.permission_replies} {fake.submitted}",
+                  _nothing_answered(fake) and fake.submitted == [])
+        ctx.check(f"the box: draft, a new line, his words, got {box.text!r}", box.text == whole)
+        ctx.check(f"the kept guard holds the whole text, got {app._kept_text!r}", app._kept_text == whole)
+        ctx.check(f"the kept line above the box, got {_line(app)!r}", _line(app) == KEPT)
+        ctx.check(f"not in the status bar, got {_status(app)!r}", "Kept" not in _status(app))
+        rang = len(bells)
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"Enter again: nothing sent, got {fake.submitted}", fake.submitted == [] and _nothing_answered(fake))
+        ctx.check(f"Enter again: the bell, got {len(bells) - rang}", len(bells) > rang)
+        ctx.check(f"Enter again: the kept line, got {_line(app)!r}", _line(app) == KEPT)
+        await pilot.resize_terminal(60, 24)
+        await pilot.pause(0.2)
+        ctx.check(f"the short kept line at 60 columns, got {_line(app)!r}", _line(app) == KEPT_SHORT)
+        await pilot.press("end")
+        await pilot.press("exclamation_mark")
+        await pilot.press("enter")
+        await pilot.pause(0.3)
+        sent = fake.submitted[-1] if fake.submitted else ""
+        ctx.check(f"edited, Enter sends both pastes right, got {sent!r}",
+                  len(fake.submitted) == 1 and DRAFT_PASTE in sent and REASON_PASTE in sent)
+        ctx.check(f"the kept line is gone, got {_line(app)!r}", _line(app) == "")
+    _run(walk)
+
+
+@test
+@real_card_timing
+def test_n6_a_two_question_card_keeps_the_draft_aside_until_he_goes_back(ctx: Ctx):
+    """K8, K9, J3 M3: a held two-question card and a draft: Tab, Other, `x`, Enter answers q1; the draft stays aside
+    while q2 has the focus; Tab in the box during the borrow does nothing; Tab from q2 to the box brings it back; Enter
+    sends it as text and picks no option. Red on 865ab155 and on batch 4's commit (the draft was lost)."""
+    async def walk(fake, app, pilot, clock):
+        box = app.prompt_input
+        await _type(pilot, clock, "my draft")
+        await _ask(app, pilot, _two_questions("q-2"))
+        card = app.pending_card
+        ctx.check("the question card waits", _held(app, card))
+        clock.step(1.0)
+        await pilot.press("tab")
+        await pilot.pause(0.05)
+        q1 = app.focused
+        ctx.check(f"Tab lands on q1, got {getattr(q1, 'id', None)}", getattr(q1, "id", None) == "q-opt-0")
+        q1.highlighted = 2  # "… Other (type your own answer)"
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+        ctx.check(f"Other borrows the box: empty, got {box.text!r}", box.text == "" and app.focused is box)
+        ctx.check(f"the set-aside line, got {_line(app)!r}", _line(app) == SET_ASIDE)
+        await pilot.press("tab")
+        await pilot.pause(0.05)
+        ctx.check("Tab in the box during the borrow does nothing",
+                  app.focused is box and app._borrowing_card is card and box.text == "")
+        await _type(pilot, clock, "x")
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"q2 has the focus, got {getattr(app.focused, 'id', None)}",
+                  getattr(app.focused, "id", None) == "q-opt-1")
+        ctx.check(f"the draft is still aside, got {box.text!r} {_line(app)!r}",
+                  box.text == "" and _line(app) == SET_ASIDE)
+        ctx.check(f"no answer sent yet, got {fake.question_replies}", fake.question_replies == [])
+        await pilot.press("tab")
+        await pilot.pause(0.1)
+        ctx.check(f"Tab to the box: the draft is back, got {box.text!r}", app.focused is box and box.text == "my draft")
+        ctx.check(f"the card waits, its line shows, got {_line(app)!r}",
+                  _held(app, card) and _line(app) == "⏸ Question waits while you type · Tab goes to it · Enter sends your text")
+        await pilot.press("enter")
+        await pilot.pause(0.2)
+        ctx.check(f"Enter sends the draft as text, got {fake.submitted}", fake.submitted == ["my draft"])
+        ctx.check(f"no option picked, got {fake.question_replies}", fake.question_replies == [])
+    _run(walk)
+
+
+# ---- batch 5: N15 (K18, F4, J3 M5) -----------------------------------------------------------------------------------
+@test
+@real_card_timing
+def test_n15_a_paste_on_a_card_goes_into_the_box(ctx: Ctx):
+    """K18, F4: a bracketed paste that reaches a card that has the focus never answers it: the text goes into the box
+    and the card waits. Red on 865ab155 and on batch 4's commit (the paste was dropped on the card)."""
+    async def walk(fake, app, pilot, clock):
+        await _ask(app, pilot, _perm("req-1"))
+        ctx.check("taken from the idle box", _in(app.pending_card, app.focused))
+        clock.step(1.0)
+        await _paste(app, pilot, "yes and also this")
+        await pilot.pause(0.1)
+        ctx.check(f"the paste is in the box, got {app.prompt_input.text!r}", app.prompt_input.text == "yes and also this")
+        ctx.check(f"no reply, got {fake.permission_replies}", _nothing_answered(fake))
+        ctx.check("the card waits, the box has the focus", _held(app, app.pending_card) and app.focused is app.prompt_input)
+        ctx.check(f"its line, got {_line(app)!r}", _line(app) == WAIT_PERMISSION)
+    _run(walk)
+
+    async def walk_fresh(fake, app, pilot, clock):
+        await _ask(app, pilot, _perm("req-1"))
+        clock.step(0.1)
+        await _paste(app, pilot, "early")
+        ctx.check(f"in its first moments too, got {app.prompt_input.text!r}",
+                  app.prompt_input.text == "early" and _nothing_answered(fake) and _held(app, app.pending_card))
+    _run(walk_fresh)
+
+
+@test
+@real_card_timing
+def test_n15_text_that_lands_through_ctrl_v_counts_as_a_key_into_the_box(ctx: Ctx):
+    """J3 M5 (a): a Ctrl+V's text lands later (the clipboard is read off the UI thread); it counts as a key into the box
+    WHEN it lands. A card his own command showed waits when a dragged image lands after it (only the chips his command
+    kept do not count). Red on 865ab155 and on batch 4's commit (the landing was not counted)."""
+    import shutil
+    import tempfile
+    folder = Path(tempfile.mkdtemp(prefix="cardkeys-"))
+
+    async def walk(fake, app, pilot, clock):
+        box = app.prompt_input
+        clock.step(0.3)
+        box.paste_text("from the clipboard")
+        ctx.check(f"the landing is stamped, got {box.last_key_at} vs {clock.t}", box.last_key_at == clock.t)
+        clock.step(0.2)
+        await _ask(app, pilot, _perm("req-1"))
+        ctx.check("an ask 0.2 s after it waits", _held(app, app.pending_card))
+
+    async def walk_own_act(fake, app, pilot, clock):
+        from halo_harness.tui.widgets.cards import PermissionCard
+        card = PermissionCard(request_id="req-9", summary="Bash(rm x)", reason="", suggested_rule=None,
+                              on_decide=lambda d: fake.permission_replies.append(("req-9", d)))
+        await app.pending_dock.show_card(card)
+        app.set_pending_card(card, own_act=True)
+        clock.step(0.05)
+        app.prompt_input.paste_text(str(_image(folder)))  # a dragged image path, through Ctrl+V
+        await pilot.pause(0.2)
+        ctx.check(f"a chip landed after his command: the card waits, got {app.prompt_input.text!r}",
+                  "[Image #1" in app.prompt_input.text and _held(app, card) and app.focused is app.prompt_input)
+    try:
+        _run(walk)
+        _run(walk_own_act)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
