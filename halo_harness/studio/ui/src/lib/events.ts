@@ -35,6 +35,7 @@ export const KNOWN_KINDS = [
   "studio_stopped", // 3.6.0.0 R10: Studio's goodbye as it closes (lib/api.ts markStopped)
   "map_hop", "map_step", "map_card", // 3.6.0.0 R4: a hand-off on a map's line, a workflow box's step, a Builder card (the lit Map)
   "builder_done", // 3.6.0.2 R25
+  "steer_queued", "steer_applied", "ask_answered", // 3.6.0.2 P22, P23: a steer's one row, an ask answered anywhere
   "agent_state", "agent_event", "registry", "live", "team", "focus", // 3.5.0.0: `registry` and `live` (named `fleet` before)
   "pack_live", // 3.3.13.0 R2: a pack's routes' live frame (ctx.publish), its bundle's api.on hears it
   "dropped", // 3.2.1.0: frames fell off this browser's bounded queue; the live store re-reads its view

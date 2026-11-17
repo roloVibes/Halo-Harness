@@ -14,8 +14,8 @@ receipts of what it sends, its slash list and the ladder's rows.
     GET  sessions/<sid>/receipts                       {receipts: [{id, client_id, kind, sha256, at, sent_at,
                                                         state, reason?, turn?, seq?}]}, the TTL applied
 
-A `submit` or `steer` from Studio carries `origin: {via: "studio", by: <fleet name>}`, so the terminal's transcript
-says "(from Studio)". The `sent` row is stored before the socket call (remote/receipts.py); the session moves it on
+A `submit`, `steer`, `answer` or `interrupt` from Studio carries `origin: {via: "studio"}` and no user or host name
+(3.6.0.2 P18), so the terminal knows Studio sent it. The `sent` row is stored before the socket call (remote/receipts.py); the session moves it on
 (delivered, read, replied), and this side marks `delivered` too once the socket answered (a no-op when the session
 already did), `failed` with the reason when the socket refused, or the session was busy (`busy`), or held a turn
 already (`held`).
@@ -31,6 +31,7 @@ from typing import Optional
 from halo_harness.remote.prompt_queue import WHEN_BUSY
 
 SEND_KINDS = {"submit": "prompt", "steer": "steer", "answer": "answer"}
+ORIGIN = {"via": "studio"}  # 3.6.0.2 P18: on submit, steer, answer and interrupt; never a user or host name
 TAIL_DEFAULT = 40
 
 
@@ -62,8 +63,7 @@ def fields_for(cmd: str, body: dict) -> "tuple[Optional[tuple], dict]":
     if cmd == "tail":
         n = body.get("n", TAIL_DEFAULT)
         return None, {"n": n if isinstance(n, int) and not isinstance(n, bool) else TAIL_DEFAULT}
-    from halo_harness.studio.live_agents_api import caller
-    extra: dict = {"origin": {"via": "studio", "by": caller()["by"]}}
+    extra: dict = {"origin": dict(ORIGIN)}
     wb = str(body.get("when_busy") or "")
     if cmd == "submit" and wb:
         if wb not in WHEN_BUSY:

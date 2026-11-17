@@ -1,9 +1,10 @@
 // The Prompt panel's conversation (3.3.11.0 R1): the chosen session read the way the terminal reads it -- your
-// turns (with "from Studio" when this page sent them, and the receipt's four marks: sent, delivered, read,
-// replied), the assistant's text, each tool call folded to one line (with the pack policy's line when one
-// answered it), the asks with the TUI card's buttons (answered through the socket's `answer`), the turn's end
-// line and a slash command's output lines. It reads the stream the Live panel already keeps (shared/liveFeed.ts,
-// the session's main agent) plus the turns and outputs of promptStore.ts; Live stays the stream for steering.
+// turns (with the receipt's four marks: sent, delivered, read, replied; 3.6.0.2 P24: nothing marks which box a turn
+// was typed in), the assistant's text, each tool call folded to one line (with the pack policy's line when one
+// answered it), the asks with the TUI card's buttons (answered through the socket's `answer`; P23: an ask answered
+// anywhere shows one line in their place), a steer's one row with the muted steering line (P22), `Interrupted.`
+// under a turn stopped from anywhere (P20) and a slash command's output lines. It reads the stream the Live panel
+// already keeps (shared/liveFeed.ts, the session's main agent) plus the turns and outputs of promptStore.ts.
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useBorn } from "../../lib/motion/born";
 import { Empty } from "../../lib/ui";
@@ -12,6 +13,7 @@ import { keyOf } from "../fleet/store";
 import { useLive, type LiveLine } from "../shared/liveFeed";
 import { LADDER, STATE_WORDS, usePrompt, type Out, type Receipt, type Turn } from "./promptStore";
 import { answer } from "./promptSend";
+import { askLabel, STEERING } from "./promptWords";
 
 type Row = { ts: number; n: number; turn?: Turn; line?: LiveLine; out?: Out };
 const SHOWN: LiveLine["kind"][] = ["text", "tool", "ask", "state", "error", "output", "you"];
@@ -38,34 +40,40 @@ export function Marks({ r }: { r: Receipt | undefined }) {
 
 type AskButton = { label: string; fields: Record<string, unknown> };
 
+// A button's words are THE table's for its answer with no typed words (promptWords.ts askLabel); the buttons send what
+// 3.6.0.1's sent.
+const button = (kind: string, fields: Record<string, unknown>, sent = fields): AskButton => ({ label: askLabel(kind, fields), fields: sent });
+
 function buttonsFor(kind: string, options: string[], draft: string): AskButton[] {
+  const words = draft.trim();
   if (kind === "permission")
-    return [{ label: "Allow", fields: { action: "allow", scope: "once" } }, { label: "Allow for this session", fields: { action: "allow", scope: "session" } },
-            { label: "Deny", fields: { action: "deny", ...(draft.trim() ? { message: draft.trim() } : {}) } }];
+    return [button(kind, { action: "allow", scope: "once" }), button(kind, { action: "allow", scope: "session" }),
+            button(kind, { action: "deny" }, { action: "deny", ...(words ? { message: words } : {}) })];
   if (kind === "question")
-    return [...options.map((o) => ({ label: o, fields: { answer: o } })), ...(draft.trim() ? [{ label: "Answer with what you typed", fields: { answer: draft.trim() } }] : [])];
-  if (kind === "plan")
-    return [{ label: "Approve the plan", fields: { approved: true } }, { label: "Keep planning", fields: { approved: false, feedback: draft.trim() } }];
-  return [{ label: "Accept", fields: { action: "accept" } }, { label: "Stop", fields: { action: "stop" } }];
+    return [...options.map((o) => button(kind, { answer: o })), ...(words ? [{ label: "Answer with what you typed", fields: { answer: words } }] : [])];
+  if (kind === "plan") return [button(kind, { approved: true }), button(kind, { approved: false }, { approved: false, feedback: words })];
+  return [button(kind, { action: "accept" }), button(kind, { action: "stop" })];
 }
 
 function Ask({ sid, l }: { sid: string; l: LiveLine }) {
   const id = l.id || "";
   const card = `${id}#${l.n}`; // a session may ask with the same id again: each card is its own
   const info = usePrompt((s) => s.asks[id]);
-  const done = usePrompt((s) => s.answered[card]);
+  const mine = usePrompt((s) => s.answered[card]);
+  const heard = usePrompt((s) => s.heard[id]); // P23: `ask_answered`, from any side, after this card was asked
+  const done = mine || (heard && heard.ts >= l.ts ? heard.line : "");
   const draft = usePrompt((s) => s.draft);
   const kind = info?.kind || l.ask || "permission";
   return (
     <div className="spp-ask" data-testid="prompt-ask" data-kind={kind} data-answered={done ? true : undefined}>
       <div className="spp-ask-what">{l.text}</div>
       {done ? (
-        <div className="mono muted" data-testid="prompt-ask-done">answered: {done}</div>
+        <div className="mono muted" data-testid="prompt-ask-done">{done}</div>
       ) : (
         <div className="spp-ask-keys">
           {buttonsFor(kind, info?.options || [], draft).map((b) => (
             <button key={b.label} type="button" className="btn btn-default btn-sm" data-testid="prompt-ask-btn" data-label={b.label}
-                    onClick={() => void answer(sid, kind, id, b.label, b.fields, card)} title={`${b.label}: answers this ${kind} card in the session`}>
+                    onClick={() => void answer(sid, kind, id, b.fields, card)} title={`${b.label}: answers this ${kind} card in the session`}>
               <span className="btn-label">{b.label}</span>
             </button>
           ))}
@@ -117,12 +125,15 @@ export function PromptFeed({ sid, hid }: { sid: string; hid: string }) {
       {rows.map((r) =>
         r.turn ? (
           <div key={"t" + r.turn.n} className="spp-row spp-you" data-testid="prompt-turn" data-ts={r.ts} data-via={r.turn.via || undefined} data-receipt={r.turn.receipt || undefined}
+               data-steer={r.turn.steer || undefined}
                data-receipt-state={receipts[r.turn.receipt]?.state || undefined}>
             <span className="spp-you-mark mono">›</span>
             <span className="spp-you-text">{r.turn.text}</span>
-            {r.turn.via === "studio" && <span className="spp-via mono" data-testid="prompt-via">from Studio</span>}
             {r.turn.receipt && <Marks r={receipts[r.turn.receipt]} />}
+            {r.turn.steer && <div className="spp-steering mono muted" data-testid="prompt-steering">{STEERING}</div>}
           </div>
+        ) : r.out?.note ? (
+          <div key={"o" + r.out.n} className="spp-row spp-note mono muted" data-testid="prompt-note">{r.out.lines.join("\n")}</div>
         ) : r.out ? (
           <div key={"o" + r.out.n} className="spp-row spp-out" data-testid="prompt-slash-out" data-error={r.out.error || undefined}>
             <div className="spp-out-cmd mono">{r.out.line}</div>

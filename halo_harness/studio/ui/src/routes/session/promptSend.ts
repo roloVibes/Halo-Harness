@@ -9,7 +9,12 @@
 import { api, ApiError } from "../../lib/api";
 import { toast } from "../../lib/store";
 import { imageFields } from "./steerImage";
-import { addOut, loadReceipts, noteReceipt, prompt, pushHistory, type Receipt } from "./promptStore";
+// 3.6.0.2 P72: the box changes only when the answer to a send arrives, and then only for a send that was taken
+// (promptStore.ts takeSent); P22: a steer's row is drawn once (steerSent / steerAnswered); P23: an answered ask reads
+// `Answered in Studio: <label>` with the label from THE table (promptWords.ts askLabel).
+import { dropSent, pushHistory, recordSent, takeSent } from "./promptDraft";
+import { addOut, loadReceipts, noteReceipt, prompt, steerAnswered, steerSent, type Receipt } from "./promptStore";
+import { answeredLine, askLabel } from "./promptWords";
 
 type Answer = { ok?: boolean; busy?: boolean; held?: boolean; line?: string; duplicate?: boolean; receipt?: Receipt;
   result?: Record<string, unknown>; error?: string };
@@ -32,14 +37,17 @@ export async function runSlash(sid: string, line: string): Promise<boolean> {
   prompt.update(() => ({ sending: true }));
   const r = await post(sid, { cmd: "slash", line });
   prompt.update(() => ({ sending: false }));
-  const result = (r.data.result || {}) as { lines?: string[]; output?: string };
+  const result = (r.data.result || {}) as { lines?: string[]; output?: string; ran?: boolean };
   if (r.status !== 200) {
+    dropSent();
     addOut(sid, line, [r.data.error || "the session did not answer"], true);
     return false;
   }
   const lines = Array.isArray(result.lines) ? result.lines : String(result.output || "").split(/\r?\n/);
   addOut(sid, line, lines.length && lines.some((l) => l.trim()) ? lines : ["(no output: the command ran, or became the next turn)"]);
   pushHistory(sid, line);
+  if (result.ran === false) dropSent(); // nothing ran: the line stays in the box
+  else takeSent();
   return true;
 }
 
@@ -47,20 +55,23 @@ export async function runSlash(sid: string, line: string): Promise<boolean> {
 export async function submit(sid: string, text: string, when: "refuse" | "queue" | "steer"): Promise<boolean> {
   const img = prompt.get().img;
   prompt.update(() => ({ sending: true }));
+  if (when === "steer") steerSent(sid, text);
   const r = await post(sid, { cmd: "submit", text, when_busy: when, client_id: clientId(), ...(img ? imageFields(img) : {}) });
   prompt.update(() => ({ sending: false }));
   noteReceipt(r.data.receipt);
+  if (when === "steer") steerAnswered(r.status === 200 && !!(r.data.result || {}).steered, r.data.receipt?.id || "");
   if (r.status === 200 && r.data.busy && !(r.data.result || {}).queued) {
-    prompt.update(() => ({ busy: { sid, text, line: r.data.line || "A turn is running." } }));
+    prompt.update(() => ({ busy: { sid, text, line: r.data.line || "A turn is running." } })); // the record waits for Queue it / Steer
     return false;
   }
-  if (r.status !== 200) {
+  if (r.status !== 200) { // the box is left as it is; the record stays for a Steer or Queue it sent again
     toast(r.data.error || "the session did not take it", r.status === 409 ? "info" : "error", 6000);
-    if (r.status === 409) prompt.update(() => ({ busy: null }));
+    if (r.status === 409) (dropSent(), prompt.update(() => ({ busy: null })));
     return false;
   }
   const queued = !!(r.data.result || {}).queued;
-  prompt.update(() => ({ busy: null, img: null, imgError: "", draft: "" }));
+  prompt.update(() => ({ busy: null }));
+  takeSent();
   pushHistory(sid, text);
   if (queued) toast("Queued: it starts when the running turn ends", "done");
   else if ((r.data.result || {}).steered) toast("Steered: it lands in the running turn", "done");
@@ -73,10 +84,10 @@ export async function send(sid: string, raw: string): Promise<boolean> {
   const text = raw.replace(/\s+$/, "");
   if (!sid || (!text.trim() && !prompt.get().img) || prompt.get().sending) return false;
   if (text.startsWith("/") && !text.includes("\n") && !prompt.get().img) {
-    const ok = await runSlash(sid, text.trim());
-    if (ok) prompt.update(() => ({ draft: "" }));
-    return ok;
+    recordSent(text, null);
+    return runSlash(sid, text.trim());
   }
+  recordSent(text, prompt.get().img);
   return submit(sid, text, "refuse");
 }
 
@@ -85,21 +96,22 @@ export async function resolveBusy(how: "queue" | "steer" | "cancel"): Promise<bo
   const b = prompt.get().busy;
   if (!b) return false;
   if (how === "cancel") {
+    dropSent();
     prompt.update(() => ({ busy: null }));
     return false;
   }
   return submit(b.sid, b.text, how);
 }
 
-/** An ask's button: the socket's `answer` with its fields; the card says what you chose. */
-export async function answer(sid: string, kind: string, id: string, label: string, fields: Record<string, unknown>, card = id): Promise<boolean> {
+/** An ask's button: the socket's `answer` with its fields; the card's one line says what you chose (P23). */
+export async function answer(sid: string, kind: string, id: string, fields: Record<string, unknown>, card = id): Promise<boolean> {
   const r = await post(sid, { cmd: "answer", kind, request_id: id, client_id: clientId(), ...fields });
   noteReceipt(r.data.receipt);
   if (r.status !== 200) {
     toast(r.data.error || "the session did not take the answer", "error", 6000);
     return false;
   }
-  prompt.update((s) => ({ answered: { ...s.answered, [card]: label } }));
+  prompt.update((s) => ({ answered: { ...s.answered, [card]: answeredLine("studio", askLabel(kind, fields)) } }));
   void loadReceipts(sid);
   return true;
 }

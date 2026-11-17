@@ -41,7 +41,7 @@ COMMAND_TIMEOUT_S = 5.0
 COMMANDS = ("answer", "interrupt", "steer", "submit", "shutdown", "pause", "resume", "note",  # note: 3.0.5.0 R4
             "screenshot",  # 3.3.6.0 R6: a capture for the next steer (studio/session_eyes_api.py)
             "slash", "tail")  # 3.3.11.0 R1: the Prompt panel (studio/sessions_prompt_api.py)
-CONTROL_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with by = harness.name, via = Studio
+CONTROL_COMMANDS = ("shutdown", "pause", "resume")  # 3.0.5.0: sent with via = Studio (3.6.0.2 P18: no name)
 ANSWER_FIELDS = ("kind", "request_id", "action", "instruction", "scope", "message", "rule", "answer", "approved",
                  "feedback", "mode_after")
 _cache: dict = {}
@@ -139,9 +139,12 @@ def post_command(req):
     from halo_harness.studio import session_eyes_api as eyes  # 3.3.6.0 R6: the steer's image, the screenshot
     if cmd == "screenshot":
         return eyes.screenshot(sid, req.body)
+    from halo_harness.studio import sessions_prompt_api as P  # 3.3.11.0 R1: origin, when_busy, slash, tail, receipts
     fields = {}
     if cmd == "answer":
         fields = {k: req.body[k] for k in ANSWER_FIELDS if k in req.body}
+    if cmd in ("answer", "interrupt"):  # 3.6.0.2 P18: the terminal says "Answered in Studio" / draws no remote note
+        fields["origin"] = dict(P.ORIGIN)
     elif cmd in ("steer", "submit"):
         status, image = eyes.image_fields(sid, req.body)
         if status != 200:
@@ -149,8 +152,7 @@ def post_command(req):
         fields = {"text": str(req.body.get("text") or ""), **image}
     elif cmd == "note":  # 3.0.5.0 R4: Fleet's Message, a line the owner reads (remote/protocol.py `_message`)
         from halo_harness.studio.live_agents_api import caller
-        fields = {"name": "fleet.message", "text": str(req.body.get("text") or ""), "by": caller()["by"]}
-    from halo_harness.studio import sessions_prompt_api as P  # 3.3.11.0 R1: origin, when_busy, slash, tail, receipts
+        fields = {"name": "fleet.message", "text": str(req.body.get("text") or ""), **caller()}  # P18: via, no name
     bad, extra = P.fields_for(cmd, req.body) if cmd in ("submit", "steer", "slash", "tail") else (None, {})
     if bad is not None:
         return bad

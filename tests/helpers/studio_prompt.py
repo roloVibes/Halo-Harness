@@ -4,7 +4,7 @@ scripted fake session on its real control socket behind the real Controller, an 
 tests/test_studio_prompt.py runs it as a subprocess:
 
     python -m tests.helpers.studio_prompt prompt   `?prompt=1` opens Session with the keyboard in the Prompt box;
-                                                   a turn typed there shows "from Studio" and its reply, its
+                                                   a turn typed there shows its reply (no "from Studio" word), its
                                                    receipt's marks reaching replied; `/eff` + Tab completes from
                                                    the slash list and `/effort high` prints the session's lines;
                                                    a permission ask answered from the panel's card; a send while
@@ -154,6 +154,10 @@ def an_ask(c, rig) -> dict:
     got = wait_for(lambda: rig.session.permission_decisions.get("perm_1"), 10)
     out["ask_decision"] = getattr(got, "action", None)
     out["ask_turn_ended"] = bool(wait_for(lambda: not rig.session.busy and rig.session.turn_count == 2, 10))
+    import time
+    time.sleep(1.0)  # 3.6.0.2 P23: the session's own `ask_answered` (where studio) has reached the page by now
+    out["ask_done_lines"] = c.js(f"[...{ASKS}.filter((a) => a.dataset.answered).pop().querySelectorAll('[data-testid=\"prompt-ask-done\"]')]"
+                                 ".map((x) => x.textContent)")
     return out
 
 

@@ -87,7 +87,7 @@ def test_hand_to_writes_the_markdown_then_stops(ctx: Ctx):
                   status == 200 and path.parent.resolve() == (rig.proj / ".halo" / "handoffs").resolve()  # R12
                   and path.suffix == ".md")
         ctx.check("the brief: the task, who to, the hand-back section, the files", "Implement: apply the discount" in md
-                  and "Handed to **you@studio** by you@studio" in md and "## Its last hand-back" in md and "## Files it touched" in md)
+                  and "Handed to **you@studio** by Studio" in md and "From **Studio**" in md and "## Its last hand-back" in md and "## Files it touched" in md)
         ctx.check(f"then the agent is stopped, got {got.get('stopped')}", got["stopped"]["status"] == 200)
         ctx.check("hand to nobody is a 422", rig.api("POST", f"live/local/{rig.act.session_id}/agents/{a}/handoff", {"mode": "hand_to"})[0] == 422)
         set_config_value("paperclip.enabled", True)  # 3.1.4.0: a leftover section of a removed feature

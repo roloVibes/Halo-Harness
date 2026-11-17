@@ -17,8 +17,8 @@ line) and the cost (its usage lines) from its transcript; role `main` lists
 the main sessions themselves. Live Roles shows it on a card nobody runs now.
 
 Rows, entries and command semantics are the control socket's
-(remote/agent_control.py). Studio sends `by` = `harness.name` and `via` =
-"Studio". 404: no such live session; 422: a bad command or parameter; 502:
+(remote/agent_control.py). Studio sends `via` = "Studio" and no user or host
+name (3.6.0.2 P18). 404: no such live session; 422: a bad command or parameter; 502:
 the session refused (its own error) or could not be reached.
 """
 
@@ -30,8 +30,8 @@ AGENT_COMMANDS = {"steer": "agent_steer", "stop": "agent_stop", "pause": "pause"
 
 
 def caller() -> dict:
-    from halo_harness.remote.session_identity import harness_name
-    return {"by": harness_name(), "via": "Studio"}
+    """3.6.0.2 P18: who sent a command is Studio, never the machine's user or host name."""
+    return {"via": "Studio"}
 
 
 def forward(sid: str, cmd: str, fields: dict):

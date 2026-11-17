@@ -45,8 +45,8 @@ def test_a_turn_and_an_ask_from_the_prompt(ctx: Ctx):
     got = _got(ctx)
     ctx.check("the reply shows", got.get("reply") == "reply")
     ctx.check(f"the ask's buttons, got {got.get('ask_buttons')}", got.get("ask_buttons") == ["Allow", "Allow for this session", "Deny"])
-    ctx.check(f"answered: Allow, the tool ran, got {got.get('ask_done')} {got.get('made')} {got.get('file')}",
-              got.get("ask_done") == "answered: Allow" and got.get("made") == "made" and got.get("file") is True)
+    ctx.check(f"Answered in Studio: Allow (3.6.0.2 P23), the tool ran, got {got.get('ask_done')} {got.get('made')} {got.get('file')}",
+              got.get("ask_done") == "Answered in Studio: Allow" and got.get("made") == "made" and got.get("file") is True)
 
 
 @test

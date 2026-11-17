@@ -23,7 +23,10 @@
   background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-left: 2px solid var(--accent); }
 .spp-you-mark { color: var(--accent); flex: none; }
 .spp-you-text { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; flex: 1; color: var(--text); }
-.spp-via { flex: none; font-size: 12px; padding: 0 6px; border-radius: 99px; color: var(--accent); border: 1px solid var(--line-strong); }
+/* 3.6.0.2 P22: a steer's row carries the muted steering line under its text; P20: `Interrupted.` under a turn */
+.spp-you[data-steer] { flex-wrap: wrap; }
+.spp-steering { flex-basis: 100%; padding-left: 14px; font-size: 12px; color: var(--faint); }
+.spp-note { padding: 0 8px; font-size: 12px; color: var(--faint); }
 .spp-text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); padding: 0 8px; }
 .spp-tool { color: var(--muted); font-size: 12px; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .spp-tool[data-running] .spp-dot { color: var(--accent); }

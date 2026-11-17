@@ -16,7 +16,8 @@ journaled there with `by`.
     pack:<id>:<kind>  a | r | s the pack's labels: answers/<row>.json in its data folder; o its section (3.2.0.0 R3)
     every kind      o open: answered with where to open it, nothing is sent
 
-Cards go through `live/<harness>/<sid>/command {cmd: answer, ...}` (this harness's control socket); stops through
+Cards go through `live/<harness>/<sid>/command {cmd: answer, ...}` (this harness's control socket; sessions_api adds
+`origin: {via: "studio"}`, 3.6.0.2 P18, so the terminal reads "Answered in Studio"); stops through
 `live/<harness>/<sid>/agents/<aid>/command`.
 """
 

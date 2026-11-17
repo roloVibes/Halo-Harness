@@ -10,11 +10,13 @@
 // model picker over the box (type to filter, Up / Down, Enter); a pick writes `/model <ref>` and Enter sends it.
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from "react";
 import { Button, Icon, TextBox } from "../../lib/ui";
-import { history, loadSlash, prompt, setDraft, slashMatches, usePrompt } from "./promptStore";
+import { history, setDraft } from "./promptDraft";
+import { loadSlash, prompt, slashMatches, usePrompt } from "./promptStore";
 import { ModelPicker } from "../shared/picker/ModelPicker";
 import { resolveBusy, send } from "./promptSend";
 import { imageFile, kb, readImage } from "./steerImage";
 
+const BARE_MODEL = /^\s*\/model\s*$/; // 3.6.0.2 P69: Enter on a bare `/model` opens the model picker
 const firstLine = (el: HTMLTextAreaElement) => !el.value.slice(0, el.selectionStart).includes("\n");
 const lastLine = (el: HTMLTextAreaElement) => !el.value.slice(el.selectionEnd).includes("\n");
 
@@ -36,7 +38,19 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
   const [pick, setPick] = useState(0);
   const [closed, setClosed] = useState("");
   const [hist, setHist] = useState(-1);
+  const editAt = useRef<number | null>(null); // 3.6.0.2 P72: where the coming edit's selection starts (beforeinput)
   useEffect(() => void loadSlash(sid), [sid]);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const note = () => void (editAt.current = el.selectionStart);
+    el.addEventListener("beforeinput", note);
+    return () => el.removeEventListener("beforeinput", note);
+  }, []);
+  const edited = (value: string) => {
+    setDraft(value, editAt.current ?? 0); // unknown: 0, so a send in flight leaves the box alone
+    editAt.current = null;
+  };
   useEffect(() => {
     if (!focus) return;
     const timers = [0, 60, 200, 500, 1000].map((ms) => window.setTimeout(() => {
@@ -57,6 +71,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
     return true;
   };
   const go = () => {
+    if (BARE_MODEL.test(draft)) return void (setClosed(""), setDraft("/model ")); // 3.6.0.2 P69: the picker, nothing sent
     setHist(-1);
     void send(sid, draft);
   };
@@ -82,7 +97,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
     } else if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       const typed = draft.slice(1);
-      if (matches.length && matches[at] && matches[at].name !== typed) complete();
+      if (!BARE_MODEL.test(draft) && matches.length && matches[at] && matches[at].name !== typed) complete();
       else go();
     } else if (e.key === "ArrowUp" && !e.shiftKey && firstLine(el)) walk(-1, e);
     else if (e.key === "ArrowDown" && !e.shiftKey && lastLine(el) && hist >= 0) walk(1, e);
@@ -98,7 +113,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
       const path = droppedPath(dt);
       if (!path) return;
       e.preventDefault();
-      setDraft(draft + (draft && !/\s$/.test(draft) ? " " : "") + path);
+      setDraft(draft + (draft && !/\s$/.test(draft) ? " " : "") + path, draft.length); // added at the end
     }
   };
   return (
@@ -133,7 +148,7 @@ export function PromptComposer({ sid, off }: { sid: string; off: string }) {
       <div className="spp-row-in">
         <span className="spp-caret mono" aria-hidden="true">›</span>
         <TextBox ref={box} fill mono className="spp-input" value={draft} disabled={!!off} placeholder={off || "Type a turn, or / for a command"}
-                 onChange={(e) => (setDraft(e.target.value), setPick(0))} onKeyDown={onKey} aria-label="Type into this session" data-testid="prompt-input" />
+                 onChange={(e) => (edited(e.target.value), setPick(0))} onKeyDown={onKey} aria-label="Type into this session" data-testid="prompt-input" />
         <Button size="sm" variant="primary" icon={<Icon name="send" />} disabled={!!off || sending || (!draft.trim() && !img)} onClick={go} data-testid="prompt-send">
           Send
         </Button>

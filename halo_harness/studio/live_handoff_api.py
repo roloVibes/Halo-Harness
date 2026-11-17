@@ -64,7 +64,8 @@ def post_handoff(req):
     agent = next((a for a in s.get("agents") or [] if a.get("agent_id") == aid), None)
     if agent is None:
         return 404, {"error": f"no agent {aid!r} in session {sid}"}
-    by, hname = sources.by(req.state_dir), h.get("name") or str(h.get("id"))[:8]
+    # 3.6.0.2 P18: the brief left in the project folder (a file that can be committed) names Studio, never a user or host
+    by, hname = "Studio", h.get("name") or str(h.get("id"))[:8]
     note = {"harness": h.get("id"), "harness_name": hname, "session_id": sid, "agent_id": aid,
             "agent": agent.get("name") or aid, "by": by}
     if mode == "take_over":
@@ -82,7 +83,8 @@ def post_handoff(req):
     for f in (w.touches.files_of(str(h.get("id")), sid, aid) if w else []) + edited_files(entries):
         if f not in files:
             files.append(f)
-    title, md = handoff.brief(harness=h, session=s, agent=agent, handback=handoff.handback_of(entries, agent),
+    # P18: the brief reads "From **Studio**" and "by Studio", never harness.name (user@host when no name is set)
+    title, md = handoff.brief(harness={**h, "name": by}, session=s, agent=agent, handback=handoff.handback_of(entries, agent),
                               files=files, by=by, to=str(target.get("name")) + (f" ({text})" if text else ""))
     out = {"ok": True, "mode": mode, "to": target.get("name"), "title": title, "note": ""}
     proj = s.get("project") if isinstance(s.get("project"), dict) else {}
