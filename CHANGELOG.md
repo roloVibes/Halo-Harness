@@ -33,10 +33,11 @@ more alike. The limits that remain are at the end of this section.
   "↓ 2 more below" and a press scrolls one row. While the pointer is on the drawing, boxes that arrive or grow wait
   until it leaves (touch: a lifted finger or 2 s still); words change in place. After you scroll, the first box you see
   keeps its place.
-- **The wait link stays whole and still.** When the session waits, its wait ("waiting on: coder -> Bash pytest -q",
-  "waiting on you: ...") sits beside "↓ n more below", which keeps its width and its one line. The link wraps on
-  lines kept for it from the first draw, so nothing moves when a wait comes or goes. A press on it brings the box
-  that is waited on into view and opens its card.
+- **The wait link stays whole.** When the session waits, its wait ("waiting on: coder -> Bash pytest -q", "waiting on
+  you: ...") sits beside "↓ n more below", which keeps its width and its one line. The link's words are whole and wrap
+  on lines kept for it from the first draw, so a usual wait coming or going moves nothing; a longer one takes its room
+  once, when it first shows, and nothing moves when it goes. A press on it brings the box that is waited on into view
+  and opens its card.
 - **One true sentence over the drawing**, never amber, never flipping when a turn ends: "This session runs on shop,
   as it started at 2:26 PM. New sessions will too." When new sessions run on another map: "This session keeps running
   on starter (the default), as it started. Start a new session to run on review-flow." with a **New session** button
@@ -103,7 +104,8 @@ more alike. The limits that remain are at the end of this section.
   sessions". A map built in a session while you are elsewhere opens next time you open 3 · Map; while you are on the
   Map, the row says "{map} was just built in {session} at {time}. [Open it]". The map you have open, changed by a
   build, is re-read in place, keeping your card, your pick and your zoom. The top line shows a goal run's whole goal,
-  wrapped beside its **Open** button.
+  wrapped beside its **Open** button, on a line of its own that is there from the first draw, so a goal run starting
+  does not push the drawing down.
 - **2 · Workflows** says at its top: "Workflows are fixed lists of steps. A session runs a map, and a box on a map can
   run a workflow: see Map." A workflow main just built opens by itself the next time you come to the tab (never under
   you, never over an unsaved edit; the list marks it "new" until you open it). The list, the form of a workflow on no
@@ -167,6 +169,8 @@ more alike. The limits that remain are at the end of this section.
 
 #### The terminal's cards
 
+- **A long card fits the terminal**: its area grows to half the window instead of stopping at 12 lines, and when you
+  resize the window a card that waits keeps the prompt box, the status line and its answers in view.
 - **A waiting card says so.** A card waits when it shows while the box holds text, within 1.5 s of a key into the box,
   or while a dialog is open; with an empty, idle box it takes the keyboard as before. Above the box: "⏸ Permission
   waits while you type · Tab goes to it · Enter sends your text" (shorter in a narrow terminal). The box reads "Tab: go
@@ -274,14 +278,15 @@ more alike. The limits that remain are at the end of this section.
 - **Studio's map list said "starter" both when you chose it and when nothing was set**; it now says which.
 - **Words were cut**: the 44-character cut of "what it does now" is gone on Session's drawing and on the Map, and so is
   the 80-character cut of a goal run's goal on the Map's top line. A replay's rows in History and the Feed's list of
-  helpers show their whole text.
+  helpers show their whole text, and the wait link on both run drawings no longer cuts a tool's words at 36
+  characters or a question at 48.
 - **2 · Workflows no longer says the Map tab "comes in the next version".**
 - **A Studio-started session with no message yet** is never picked over another open session, and sorts last.
 - **`/exit` sent from Studio to a terminal that is already closing** no longer prints a traceback over the terminal.
 - **The Builder's result no longer calls a file "new"** that the card changed, when its path was spelled another way
   (a link such as macOS /var to /private/var, or a Windows drive letter in another case or with other slashes).
-- **A box that waits on you was not outlined on the run drawings.** It is now, on Session's Live and on
-  4 · Live.
+- **The box a session waits on (on you, a tool or a model reply) was not outlined on the run drawings.** It is now, on
+  Session's Live and on 4 · Live.
 
 ### Known limits
 
@@ -301,9 +306,9 @@ more alike. The limits that remain are at the end of this section.
   card that already has the keyboard and has been on screen for more than 0.6 seconds can still answer it.
 - **A title longer than two lines makes Studio's Prompt header taller.**
 - **A made-up agent's row shows the first 40 characters of its task.**
-- **Something main builds in a session's first two seconds may not be marked as just built.** Studio attaches to a
-  new terminal session within about two seconds; what the session sends before that does not reach the page. What
-  was built is saved and listed all the same.
+- **Something main builds before Studio follows the session may not be marked as just built.** Studio picks up a
+  terminal session within about two seconds of its start (or of Studio's own start); what the session sends before
+  that does not reach the page. What was built is saved and listed all the same.
 - **History is still on Agents -> 3 · Map.** It leaves the Agents tab in the next release.
 - **Windows: a worker container whose Halo is ended hard (Task Manager) keeps running until the next `halo` start**,
   which removes it and says so; Windows has no reaper. Its `docker run` client ends with Halo at once. Any `halo`
