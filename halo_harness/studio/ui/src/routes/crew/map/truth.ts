@@ -93,26 +93,19 @@ export function est(lines: Line[], width: number): number {
   return lines.reduce((n, l) => n + Math.ceil(((l.text.length + (l.label ? l.label.length + 4 : 0)) * 7) / w), 0);
 }
 
-/** The longest name a map or a workflow may have (crew/formats.py NAME: a letter, then up to 47 of a-z, 0-9, "-"). */
-export const LONGEST_NAME = 48;
-/** Stand-ins the reserve measures while {B} is still {A} or no workflow runs yet (R20: the drawing's top holds across T1 ->
- *  T2 -> T5 -> T7, so the room for a {B} and a {W} to come is held from the first draw). Never a guess at the length: each
- *  is a name of the longest length the store allows, of ordinary letters with a hyphen every few, as names are written,
- *  so no real name makes the block grow. Only the hidden twin shows them. */
-const SOME_B = "name-".repeat(10).slice(0, LONGEST_NAME), SOME_W = "flow-".repeat(10).slice(0, LONGEST_NAME);
-
-/** R20's worst case: of the states this session can reach with its own {A}, {B}, {W} (T1 / T3, T2 and T11 when B differs,
- *  each with and without T7 and T5, then T8, then the state it is in now), the lines that take the most room at `width`.
- *  While {B} is {A} a {B} to come is counted, and with no {W} a {W} to come. Ties go to the longer text, then to the
- *  first. T6's problem is not known in advance: the block grows for it (R12). */
+/** R20's worst case, with the coordinator's ruling (P4 batch 11): of the states this session can reach with the names it
+ *  HAS -- its own {A}, {B} and {W} (T1 / T3, T2 and T11 when B differs, each with and without T7 when a {W} is known and
+ *  with and without T5, then T8, then the state it is in now) -- the lines that take the most room at `width`. Nothing is
+ *  held for a name it does not have: a {B} switched on later or a {W} that starts later is a real change, and the truth
+ *  block measures its twin again then (TruthBlock.tsx). Ties go to the longer text, then to the first. T6's problem is not
+ *  known in advance: the block grows for it (R12). */
 export function reserve(f: TruthFacts, width: number): { lines: Line[]; est: number } {
   const open: TruthFacts = { ...f, none: false, machine: null, ended: null, unreadable: null, studio: false, turns: Math.max(1, f.turns) };
   const after = (f.bSince && f.bSince > f.started ? f.bSince : f.started + 60) || 60;
   const bs: Partial<TruthFacts>[] = [{ b: f.a }];
   if (f.a && f.a !== nextMap(f.b)) bs.push({ b: f.b, bSince: after }, ...(f.b ? [{ b: f.b, bSince: null }] : []));
-  else if (f.a) bs.push({ b: SOME_B, bSince: after });
   const cands: Line[][] = [];
-  for (const b of bs) for (const workflow of [f.workflow || SOME_W, null])
+  for (const b of bs) for (const workflow of f.workflow ? [f.workflow, null] : [null])
     for (const changed of [{ t: f.changed?.t || f.started }, null]) cands.push(truthLines({ ...open, ...b, workflow, changed }));
   cands.push(truthLines({ ...open, ended: f.ended || f.started }), truthLines(f));
   const size = (ls: Line[]) => ls.reduce((n, l) => n + l.text.length + (l.label || "").length, 0);
@@ -168,4 +161,23 @@ export function statusLine(s: Status): string {
   const what = s.workflow ? `the workflow ${s.workflow.name}, step ${s.workflow.step} of ${s.workflow.of}` : s.what;
   const wait = s.waiting ? ` · waiting for ${s.waiting === "model" ? "a model reply" : s.waiting}` : "";
   return `${who} working${what ? ` on ${what}` : ""}${wait} · ${cost}${off}`;
+}
+
+/** R23 with the coordinator's ruling (P4 batch 11): the status sentences this run can show with the names it HAS -- `now`,
+ *  the rows' `names` (who), the workflows it knows with their step counts (`flows`), waiting for a model reply or for you,
+ *  and a hand-off outside the map unless it runs on the default map (`plainMap`). The status line's hidden twin holds them
+ *  all, and the line takes the tallest from its first draw (never less than its two lines), so a sentence that changes
+ *  moves nothing under it. */
+export function statusRoom(now: Status, names: string[], flows: { name: string; of: number }[], plainMap: boolean): string[] {
+  const who = [...new Set(["main", ...names])];
+  const rows = [...who.map((name) => [{ name, state: "working" }]), ...(who.length > 1 ? [who.map((name) => ({ name, state: "working" }))] : [])];
+  const flowsTo = [null, ...flows.filter((w) => w.name).map((w) => ({ name: w.name, step: Math.max(1, w.of), of: Math.max(1, w.of) }))];
+  const offs = plainMap ? [now.off] : [...new Set([now.off, Math.max(1, now.off)])];
+  const out = new Set([statusLine(now)]);
+  for (const off of offs) {
+    for (const state of ["idle", "done"] as const) out.add(statusLine({ ...now, state, off }));
+    for (const r of rows) for (const workflow of flowsTo) for (const waiting of [null, "model", "you"])
+      out.add(statusLine({ ...now, state: "working", rows: r, what: "", workflow, waiting, off })); // a tool's words are no name
+  }
+  return [...out];
 }

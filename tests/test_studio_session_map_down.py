@@ -607,9 +607,12 @@ def test_t7_reads_the_body_a_build_brought(ctx: Ctx):
 
 
 @test
-def test_truth_block_height_fixed(ctx: Ctx):
-    # R20 R22: the truth block's words are truth.ts's for the session's facts, its height is held from the first draw and
-    # the drawing under it never moves across T1 -> T2 -> T5 -> T7; never amber. (a) pick.ts's facts in node; (b) the page.
+def test_truth_block_height_moves_only_with_a_name(ctx: Ctx):
+    # R20 R22: the truth block's words are truth.ts's for the session's facts; never amber. (a) pick.ts's facts in node;
+    # (b) the page. Rewritten to the truth by P4 batch 11 (was test_truth_block_height_fixed, which held the height across
+    # T1 -> T2 -> T5 -> T7 by reserving room for names the session did not have): with the coordinator's ruling the block
+    # holds only its real names, so T2 (new sessions switched to review-flow) and T7 (the workflow W starts) are names that
+    # really change and the block is measured again then; T5 (its own map changed) is held from the state before it.
     from tests.helpers import node_ts
     try:
         p = node_ts.run(PICK_TRUTH_JS % json.dumps(PICK.resolve().as_uri()))
@@ -648,28 +651,71 @@ def test_truth_block_height_fixed(ctx: Ctx):
               len(snaps) > 1 and snaps[1].get("buttons") == ["New session"])
     ctx.check(f"T7 is the first line, got {snaps[-1].get('lines')[:1] if snaps else None}",
               len(snaps) == 4 and (snaps[3].get("lines") or [""])[0] == "This session is running the workflow W from review-flow.")
-    ctx.check(f"R20: the block's height never changes, got {[s.get('h') for s in snaps]}",
-              bool(first.get("h")) and all(abs((s.get("h") or 0) - first["h"]) <= 0.5 for s in snaps))
-    ctx.check(f"R20: the drawing's top never moves, got {[s.get('top') for s in snaps]}",
-              first.get("top") is not None and all(s.get("top") is not None and abs(s["top"] - first["top"]) <= 0.5 for s in snaps))
+    ctx.check(f"R20: each state's block is as tall as its twin of the real words, got {[(s.get('h'), s.get('th')) for s in snaps]}",
+              len(snaps) == 4 and all(s.get("h") and s.get("th") and abs(s["h"] - s["th"]) <= 0.5 for s in snaps))
+    t2, t5 = (snaps + [{}, {}])[1:3]
+    ctx.check(f"R20: T5 changes neither the block's height nor the drawing's top (held from T2), got {t2.get('h')} -> {t5.get('h')}, "
+              f"{t2.get('top')} -> {t5.get('top')}", t2.get("h") is not None and t2.get("h") == t5.get("h")
+              and t2.get("top") is not None and t2.get("top") == t5.get("top"))
+    ctx.check(f"P4 batch 11: T1's twin holds no name the session does not have, got {first.get('ttext')!r}",
+              "review-flow" not in (first.get("ttext") or "") and "name-" not in (first.get("ttext") or "")
+              and "running the workflow" not in (first.get("ttext") or ""))
     if node_skip:
         raise SkipTest(f"(b) passed; (a) {node_skip}")
 
 
 @test
-def test_truth_block_reserve_holds_a_48_character_name(ctx: Ctx):
-    # R20, the coordinator's ruling (P3 batch 8): the reserve is taken for the longest name the store allows before {B} or
-    # {W} is known, so a real 48-character {B} and then a 48-character {W} after the first draw never grow the block (nor
-    # move what is under it). Red on the tree before batch 8 (9d8b6e20, the Linux VM): 136 -> 154 -> 172 px. The status line's own two reserved lines (R23) are not the block's: a long {W} there is
-    # another matter (P3 batch 8's notes), so the drawing's top is not asserted here.
+def test_truth_block_measures_its_real_names_again_when_one_changes(ctx: Ctx):
+    # R20 with the coordinator's ruling of P4 batch 11 (it replaces P3 batch 8's longest-name reserve; this test was
+    # test_truth_block_reserve_holds_a_48_character_name, rewritten to the truth): the block reserves nothing for a name
+    # it does not have. T1 holds only shop; new sessions switched to a 48-character map is a real change, measured again;
+    # a 48-character workflow that starts is another. At every step the block is exactly its twin of the real words.
+    # Red on a740c566: T1's twin held "name-name-..." and "flow-flow-..." stand-ins.
+    from tests.helpers.studio_session_truth import LONG48
     snaps = _saw(ctx, "long") or []
     ctx.check(f"the page went T1, T2 (a 48-character B), T2 + T7 (a 48-character W), got {[s.get('state') for s in snaps]}",
               [s.get("state") for s in snaps] == ["T1", "T2", "T2"] and "running the workflow" in ((snaps[-1].get("lines") or [""])[0] if snaps else ""))
     first = snaps[0] if snaps else {}
-    ctx.check(f"R20: the block's height never changed, got {[s.get('h') for s in snaps]}",
-              bool(first.get("h")) and all(abs((s.get("h") or 0) - first["h"]) <= 0.5 for s in snaps))
-    ctx.check(f"R20: the status line under the block never moved, got {[s.get('stop') for s in snaps]}",
-              first.get("stop") is not None and all(s.get("stop") is not None and abs(s["stop"] - first["stop"]) <= 0.5 for s in snaps))
+    ctx.check(f"T1's twin holds only the names it has, got {first.get('ttext')!r}",
+              "shop" in (first.get("ttext") or "") and not any(w in (first.get("ttext") or "") for w in ("name-", "flow-", LONG48)))
+    ctx.check(f"each step's block is its twin's measured height, got {[(s.get('h'), s.get('th')) for s in snaps]}",
+              len(snaps) == 3 and all(s.get("h") and s.get("th") and abs(s["h"] - s["th"]) <= 0.5 for s in snaps))
+    ctx.check(f"the 48-character B is in the twin once it is the map new sessions use, got {(snaps[1:2] or [{}])[0].get('ttext')!r}",
+              len(snaps) > 1 and LONG48 in (snaps[1].get("ttext") or ""))
+
+
+@test
+def test_truth_block_first_draw_holds_a_wide_48_character_name(ctx: Ctx):
+    # P4 batch 11, the coordinator's ruling: the block's height comes from the twin of its REAL words, measured with real
+    # letters, so a session whose map is a 48-character name of the widest letters (m, w) draws the block at its height
+    # in the first frame: the block's height at its first animation frame equals its height five frames later.
+    d = _saw(ctx, "wide") or {}
+    snap, frames = d.get("snap") or {}, d.get("frames") or []
+    ctx.check(f"the page drew T1 naming the wide map, got {snap.get('state')!r} {snap.get('lines')}",
+              snap.get("state") == "T1" and any("mw" * 24 in x for x in snap.get("lines") or []))
+    ctx.check(f"at least six frames were seen from the block's first draw, got {len(frames)}", len(frames) >= 6)
+    ctx.check(f"the height at the first draw equals the height five frames later and after, got {frames[:8]}",
+              len(frames) >= 6 and frames[0] > 0 and abs(frames[0] - frames[5]) <= 0.5 and all(abs(f - frames[0]) <= 0.5 for f in frames))
+
+
+@test
+def test_status_line_room_holds_a_40_character_workflow(ctx: Ctx):
+    # R23 with the coordinator's ruling of P4 batch 11: the status line's room is its twin's tallest sentence with this
+    # run's REAL names (the rows, the workflow it knows), never less than two lines, from its first draw. A session that
+    # ran a workflow of a 40-character name is Done, then runs it again waiting for a model reply: that sentence takes three
+    # lines, and the link-and-zoom row and the drawing do not move. Red on a740c566: both moved (P3 batch 8's notes: 17 px).
+    from tests.helpers.studio_session_truth import W40
+    first, run = ((_saw(ctx, "flow40") or []) + [{}, {}])[:2]
+    ctx.check(f"first draw: Done, got {first.get('status')!r}", (first.get("status") or "").startswith("Done"))
+    ctx.check(f"then the long sentence with the workflow's name, got {run.get('status')!r}",
+              (run.get("status") or "").startswith(f"tester working on the workflow {W40}") and "waiting for a model reply" in (run.get("status") or ""))
+    lh = first.get("slh") or 0
+    ctx.check(f"the long sentence takes more than two lines (the case is real), got {run.get('sh')} at line-height {lh}",
+              bool(lh) and (run.get("sh") or 0) > 2 * lh + 1)
+    ctx.check(f"the zoom row did not move, got {first.get('ztop')} -> {run.get('ztop')}",
+              first.get("ztop") is not None and first.get("ztop") == run.get("ztop"))
+    ctx.check(f"the drawing did not move, got {first.get('top')} -> {run.get('top')}",
+              first.get("top") is not None and first.get("top") == run.get("top"))
 
 
 STATUS_JS = """const S = await import(%s); const T = await import(%s);
@@ -1142,6 +1188,7 @@ def test_no_fetch_before_the_first_draw(ctx: Ctx):
 # was 246 px (its scroll box 133, '↓ 7 more below'), the truth block and status line 192 px, and 114 px stood between
 # them and the drawing's box (the pair row, the head's two reserved lines, the link and zoom row, their gaps).
 ROOM_BEFORE_1280, TRUTH_BEFORE_1280, OVER_BEFORE_1280 = 246, 192, 114
+ROOM_BAR_1280 = 306  # the coordinator's ruling of P4 batch 11
 
 
 @test
@@ -1159,12 +1206,11 @@ def test_drawing_room_at_1280_one_map_no_build(ctx: Ctx):
     r = d.get("1280x800") or {}
     ctx.check(f"1280 x 800: what stands between the truth block and the drawing is at least 60 px less than before "
               f"({OVER_BEFORE_1280} px), got {r.get('over')}", r.get("over") is not None and r["over"] <= OVER_BEFORE_1280 - 60)
-    # the truth block's reserve for the longest name (the coordinator's ruling on R20, this batch) takes some of it back:
-    # the drawing's box is 60 px taller than before apart from that block's own growth, and taller than before in all
-    grew = (r.get("truth") or 0) - TRUTH_BEFORE_1280
-    ctx.check(f"1280 x 800: the drawing's box {r.get('room')} px (before {ROOM_BEFORE_1280}) + the truth block's growth {grew} px "
-              f">= {ROOM_BEFORE_1280 + 60}, and taller than before", (r.get("room") or 0) + grew >= ROOM_BEFORE_1280 + 60
-              and (r.get("room") or 0) > ROOM_BEFORE_1280)
+    # P4 batch 11, the coordinator's ruling (the truth block reserves nothing for names it does not have): THE BAR, literal
+    sizes = {k: (d.get(k) or {}).get("room") for k in ("1280x800", "1440x900", "1920x1080")}
+    ctx.check(f"1280 x 800: the drawing's box is at least {ROOM_BAR_1280} px tall (it was {ROOM_BEFORE_1280} before P3's batch 8, "
+              f"278 after it), got {r.get('room')} (all sizes {sizes}, truth block {r.get('truth')})",
+              (r.get("room") or 0) >= ROOM_BAR_1280)
 
 
 @test

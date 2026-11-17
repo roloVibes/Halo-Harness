@@ -37,6 +37,9 @@
 .mp-truth-twin { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
 .mp-truth-new { white-space: nowrap; }
 .mp-status { margin: 0; font-size: 12px; line-height: 17px; min-height: 34px; overflow-wrap: anywhere; color: var(--text); }
+/* P4 batch 11: the status line's room is its twin's tallest sentence with this run's real names, from the first draw */
+.mp-status-box { position: relative; min-width: 0; }
+.mp-status-twin { position: absolute; left: 0; right: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .mp-truth-form { position: absolute; top: 100%; right: 0; z-index: 5; width: min(380px, 100%); padding: var(--s-2);
   display: flex; flex-direction: column; gap: var(--s-2); background: var(--surface); border: 1px solid var(--line-strong);
   box-shadow: var(--glow); }

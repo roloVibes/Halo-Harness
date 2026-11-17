@@ -382,25 +382,47 @@ def test_worst_case_reserve_at_408_and_360(ctx: Ctx):
 
 
 @test
-def test_reserve_is_for_the_longest_name_allowed(ctx: Ctx):
-    """R20, the coordinator's ruling (P3 batch 8): before {B} or {W} is known the truth block's reserve is taken for the
-    longest name the store allows (crew/formats.py NAME), never a guess, so a real name never makes the block grow."""
-    from halo_harness.crew import formats
-    m = re.fullmatch(r"\^\[a-z\]\[a-z0-9-\]\{0,(\d+)\}\$", formats.NAME.pattern)
-    longest = 1 + int(m[1]) if m else None
+def test_reserve_holds_only_the_names_it_has(ctx: Ctx):
+    """R20 with the coordinator's ruling of P4 batch 11 (it replaces P3 batch 8's 'longest name allowed' reserve, which
+    cost the drawing 36 px for everyone; this test was test_reserve_is_for_the_longest_name_allowed, rewritten to the
+    truth): the truth block reserves NOTHING for a name it does not have. In T1 ({B} is {A}, no workflow) the reserve's
+    lines name only {A}; the states it can reach with its own names (T1, T1 + T5) fit it; a {B} switched on later or a {W}
+    that starts later is a real change: the reserve taken with that name holds it (the block measures again, once)."""
     f = dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07")  # T1: {B} is {A}, no workflow yet
-    _, out = ts("""const f = D.f, s = f.started, n = T.LONGEST_NAME;
-      const names = [D.b40, 'w'.repeat(n || 48), 'm'.repeat(n || 48)];
-      out.n = n;
-      out.over = [];
-      for (const w of [408, 360]) { const r = T.reserve(f, w).est;
-        for (const b of names) for (const workflow of [null, ...names]) for (const changed of [null, { t: s }]) {
-          const e = T.est(T.truthLines({ ...f, b, bSince: s + 60, workflow, changed }), w);
-          if (e > r) out.over.push([w, b.length, workflow && workflow.length, !!changed, e, r]); } }""",
-            dict(f=f, b40="code-review-and-tests-for-every-change-m"))
-    ctx.check(f"truth.ts's LONGEST_NAME is the store's rule ({longest}), got {out.get('n')}", longest == 48 and out.get("n") == longest)
-    ctx.check(f"no {{B}} or {{W}} up to {longest} characters needs more than the reserve at 408 and 360, over: {out.get('over')}",
-              out.get("over") == [])
+    _, out = ts("""const f = D.f, s = f.started;
+      out.t1 = T.reserve(f, 408).lines; out.n = T.LONGEST_NAME === undefined;
+      out.own = [408, 360].flatMap((w) => [null, { t: s }].map((changed) => [T.est(T.truthLines({ ...f, changed }), w), T.reserve(f, w).est]));
+      out.later = [];
+      for (const w of [408, 360]) for (const b of ['shop', D.b48]) for (const workflow of [null, D.b48]) {
+        const g = { ...f, b, bSince: s + 60, workflow }, r = T.reserve(g, w).est;
+        for (const changed of [null, { t: s }]) { const e = T.est(T.truthLines({ ...g, changed }), w); if (e > r) out.later.push([w, b, workflow, e, r]); } }""",
+            dict(f=f, b48="mw" * 24))
+    said = " ".join(texts(out["t1"]))
+    ctx.check(f"T1's reserve names only shop (no stand-in name), got {texts(out['t1'])}",
+              "shop" in said and not re.search(r"name-|flow-|running the workflow|Start a new session", said))
+    ctx.check(f"no LONGEST_NAME stand-in is exported any more, got {out.get('n')}", out.get("n") is True)
+    ctx.check(f"T1 and T1 + T5 fit T1's reserve at 408 and 360, got {out['own']}", all(e <= r for e, r in out["own"]))
+    ctx.check(f"with a real 48-character {{B}} or {{W}} the reserve taken then holds every state of it, over: {out['later']}",
+              out["later"] == [])
+
+
+@test
+def test_status_room_holds_the_sentences_this_run_can_show(ctx: Ctx):
+    """R23 with the coordinator's ruling of P4 batch 11: the status line's twin holds the sentences this run can show with
+    its REAL names (its rows, the workflows it knows, a model reply or him, a hand-off outside the map unless it runs on the
+    default map), so the line takes the tallest from its first draw and a later sentence moves nothing."""
+    w40 = "code-review-and-tests-for-every-change-m"
+    now = dict(state="done", rows=[], what="", workflow=None, waiting=None, cost=0.8, off=0)
+    _, out = ts("""out.own = T.statusRoom(D.now, ['main', 'planner', 'tester'], [{ name: D.w40, of: 2 }], false);
+      out.plain = T.statusRoom(D.now, ['main', 'tester'], [{ name: D.w40, of: 2 }], true);""", dict(now=now, w40=w40))
+    own, plain = out["own"], out["plain"]
+    want = f"tester working on the workflow {w40}, step 2 of 2 · waiting for a model reply · $0.80 · 1 hand-off outside the map"
+    ctx.check(f"the sentence it shows now is one of them, got {own[:2]}", "Done · $0.80" in own)
+    ctx.check(f"the long working sentence with its real names is held, got {len(own)} sentences", want in own)
+    ctx.check(f"every sentence names only names it has, got {[s for s in own if re.search(r'name-|flow-|reviewer', s)]}",
+              not any(re.search(r"name-|flow-|reviewer", s) for s in own))
+    ctx.check(f"on the default map no hand-off tail is held, got {[s for s in plain if 'outside the map' in s]}",
+              not any("outside the map" in s for s in plain) and want.replace(" · 1 hand-off outside the map", "") in plain)
 
 
 @test

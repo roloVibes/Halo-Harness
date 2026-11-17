@@ -6,8 +6,11 @@ harness's real session A) and a second local session B; every fact reaches the p
     truth   A on `shop`: T1 -> T2 (new sessions on review-flow) -> T5 (its map changed) -> T7 (a step of the workflow W,
             a box on review-flow, runs): each step's lines, the block's height, the drawing's top, the block's colour
     long    A on `shop`, T1, then new sessions switched to a map of a 48-character name and a workflow of a 48-character
-            name runs: the block's height and the drawing's top never change (the reserve is for the longest name the
-            store allows, P3 batch 8)
+            name runs: the block holds only the names it has and is measured again when one really changes (P4 batch 11)
+    wide    A on a map of a 48-character name of wide letters (m, w): the block's height at each animation frame from
+            its first draw (P4 batch 11)
+    flow40  A ran a workflow of a 40-character name and is done, then runs it again waiting for a model reply: the
+            status line's room holds the long sentence from the first draw, the zoom row and the drawing hold still
     status  the status line: no rows yet, a workflow's step 3 of 6 at work waiting on its model, then all done
     start   A builds review-flow and ends: T8 while B is open; with no session the Start view's two sentences and its
             [New session]; the map switched on the same page (config crew.map) shows at once; a fresh page with no
@@ -51,6 +54,8 @@ READ = f"""(() => {{ const t = {TRUTH}, s = {STATUS}, sc = document.querySelecto
     amber: !!t?.querySelector('.mp-amber, [data-tone=warn]'), itext: t?.innerText || '',
     inside: !!t?.querySelector('[data-testid=session-status]'),
     stop: s ? Math.round(s.getBoundingClientRect().top * 2) / 2 : null,
+    th: r(t?.querySelector('.mp-truth-twin')), ttext: t?.querySelector('.mp-truth-twin')?.textContent || '',
+    ztop: (() => {{ const z = document.querySelector('.mp-down-tools'); return z ? Math.round(z.getBoundingClientRect().top * 2) / 2 : null; }})(),
     below: t && s ? s.getBoundingClientRect().top >= t.getBoundingClientRect().bottom - 0.5 : null }}; }})()"""
 
 
@@ -138,6 +143,52 @@ def long(c, rig, rows: Rows, a: str, b: str) -> dict:
                                                                          "agent": "tester", "saved": True})])
     snaps.append(_settle(c, f"{SAID}?.textContent.includes('running the workflow {flow['boxes'][0]['workflow']}')"))
     return {"long": snaps}
+
+
+WIDE48 = "mw" * 24  # 48 characters of the widest letters
+# every animation frame from the page's start: the truth block's lines' height once it is there (P4 batch 11)
+FRAMES_JS = """window.__tb = []; (function loop() { const el = document.querySelector('[data-testid=session-truth] .mp-truth-lines');
+  if (el) window.__tb.push(Math.round(el.getBoundingClientRect().height * 2) / 2); if (window.__tb.length < 400) requestAnimationFrame(loop); })();"""
+
+
+def wide(c, rig, rows: Rows, a: str, b: str) -> dict:
+    from halo_harness.crew import store
+    store.write_text(store.path_for("map", WIDE48, state_dir=rig.state), json.dumps({**FLOW, "name": WIDE48}))
+    t0 = time.time() - 600
+    rows.reset()
+    rows.idle(b)
+    rows.set(a, busy=False, status="idle", agents=[_main(rows, a, state="done")], map=WIDE48, map_plain=False, map_since=t0,
+             map_next=WIDE48, map_next_since=t0 - 3600, map_hash="h1")
+    c.call("Page.enable")  # the recorder runs before any page script
+    sid = c.call("Page.addScriptToEvaluateOnNewDocument", source=FRAMES_JS) or {}
+    sid = sid.get("identifier") if isinstance(sid, dict) else None
+    try:
+        _open(c, rig, f"mode=session&session={a}&open=session-map")
+        snap = _settle(c, f"!!{TRUTH} && {TRUTH}.dataset.state === 'T1' && !!document.querySelector('.mp-mini-scroll')")
+        frames = c.js("window.__tb || []") or []
+    finally:
+        if sid:
+            c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=sid)
+    return {"wide": {"snap": snap, "frames": frames}}
+
+
+W40 = "code-review-and-tests-for-every-change-m"  # 40 characters
+
+
+def flow40(c, rig, rows: Rows, a: str, b: str) -> dict:
+    t0 = time.time() - 600
+    crew = lambda i, who: {"workflow": W40, "step": i, "agent": who, "saved": True}  # noqa: E731
+    done = [_kid("w1", "planner", "done", cost=0.5, crew=crew(1, "planner")), _kid("w2", "tester", "done", cost=0.3, crew=crew(2, "tester"))]
+    rows.reset()
+    rows.idle(b)
+    rows.set(a, busy=False, status="idle", agents=[_main(rows, a, state="done", cost_usd=0.1), *done], map="shop", map_plain=False,
+             map_since=t0, map_next="shop", map_next_since=t0 - 3600, map_hash="h1")
+    _open(c, rig, f"mode=session&session={a}&open=session-map")
+    first = _settle(c, f"!!{STATUS} && {STATUS}.textContent.startsWith('Done') && !!document.querySelector('.mp-mini-scroll')")
+    rows.set(a, busy=True, status="busy", agents=[_main(rows, a, state="running", current=f"Workflow: {W40}", cost_usd=0.1), done[0],
+                                                  {**done[1], "state": "running", "current": "thinking"}])
+    run = _settle(c, f"{STATUS}?.textContent.startsWith('tester working')")
+    return {"flow40": [first, run]}
 
 
 def status(c, rig, rows: Rows, a: str, b: str) -> dict:
@@ -245,7 +296,7 @@ class TruthDriver(MapDownDriver):
             rows = Rows(rig)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (truth, long, status, start) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (truth, long, wide, flow40, status, start) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

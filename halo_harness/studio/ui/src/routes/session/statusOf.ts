@@ -20,6 +20,18 @@ function stepsIn(name: string, rows: AgentRow[], events: OvEvent[]): number {
   return n || Math.max(0, ...rows.filter((r) => r.crew?.workflow === name).map((r) => Number(r.crew?.step) || 0));
 }
 
+/** A row as the status line names it. */
+export const nameOf = (r: AgentRow): string => (!r.parent || r.agent_id === "main" ? "main" : str(r.name || r.role || r.agent_id));
+
+/** The workflows this run knows (a row's `crew.workflow`, a map_step start frame's) with their step counts: the names the
+ *  status line's twin holds room for (truth.ts statusRoom, P4 batch 11). */
+export function knownFlows(rows: AgentRow[], events: OvEvent[]): { name: string; of: number }[] {
+  const names = new Set<string>();
+  rows.forEach((r) => r.crew?.workflow && names.add(str(r.crew.workflow)));
+  events.forEach((e) => e.event === "map_step" && e.data.kind === "start" && e.data.workflow && names.add(str(e.data.workflow)));
+  return [...names].map((name) => ({ name, of: stepsIn(name, rows, events) }));
+}
+
 /** R23: the status line's facts; `off` = the hand-offs outside the map (batch 4 feeds it). */
 export function statusOf(rows: AgentRow[], events: OvEvent[], busy: boolean, off = 0): Status {
   const cost = rows.reduce((a, r) => a + (Number(r.cost_usd) || 0), 0);
@@ -31,7 +43,7 @@ export function statusOf(rows: AgentRow[], events: OvEvent[], busy: boolean, off
     const done = rows.some((r) => FINISHED.includes(str(r.state)));
     return { state: done ? "done" : "idle", rows: [], what: "", workflow: null, waiting: null, cost, off };
   }
-  const name = (r: AgentRow) => (!r.parent || r.agent_id === "main" ? "main" : str(r.name || r.role || r.agent_id));
+  const name = nameOf;
   const first = work[0];
   const cur = str(first?.current).replace(/^([A-Za-z_]+):\s*/, "$1 ").trim();
   const flow = first?.crew?.workflow ? str(first.crew.workflow) : "";

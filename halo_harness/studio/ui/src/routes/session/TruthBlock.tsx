@@ -1,9 +1,10 @@
 // The truth block over Session's Live drawing (3.6.0.2 R20 R21 R22 R23, section 4): which map the chosen session runs on
 // and since when, S13 with [New session] when new sessions run on another map, T7 first while it runs a workflow that is
 // a box on that map, T5 when its map changed; under it the status line. Every sentence is truth.ts's (TruthBlock builds
-// none). R20: its height is reserved from the first draw for the longest state truth.ts gives for this session (a hidden
-// twin of `reserve`, measured at the block's width, never clamped, never smaller once reserved), so the drawing below never
-// moves when a fact changes. Never amber. [New session] opens the New session form in the drawer's corner (R5: the form
+// none). R20: its height is reserved from the first draw for the longest state truth.ts gives for this session's REAL
+// names (a hidden twin of `reserve`, measured at the block's width, never clamped; nothing held for a name it does not
+// have: P4 batch 11), so the drawing below never moves when a fact changes; a name that really changes (a switch of the
+// map new sessions use, a workflow that starts) is measured again, once. The status line's room is its own twin's. Never amber. [New session] opens the New session form in the drawer's corner (R5: the form
 // starts a session, never this button).
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
@@ -11,10 +12,10 @@ import { useStore } from "../../lib/store";
 import { useSessionRecord } from "../../lib/work/record";
 import { lit, startLit } from "../crew/map/litStore";
 import type { MapDetail } from "../crew/map/mapTypes";
-import { nextMap, reserve, statusLine, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
+import { nextMap, reserve, statusLine, statusRoom, truthLines, truthState, type Line, type TruthFacts } from "../crew/map/truth";
 import { NewSession } from "./NewSession";
 import { mapBody, noteBody, type MapBody } from "./pick";
-import { statusOf } from "./statusOf";
+import { knownFlows, nameOf, statusOf } from "./statusOf";
 
 const LIVE = ["queued", "running", "paused", "waiting"];
 
@@ -77,13 +78,24 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
     return () => ro.disconnect();
   }, []);
   const room = given.none ? lines : reserve(f, w || 408).lines;
-  useLayoutEffect(() => { // R20: the reserve, measured; it only grows (a fact never pulls the drawing up or down)
+  const names = `${f.a}|${nextMap(f.b)}|${f.workflow || ""}|${held ? "held" : ""}`, named = useRef(names);
+  useLayoutEffect(() => { // R20: the reserve of the REAL names, measured; it only grows while they stay (P4 batch 11)
     const h = twin.current?.offsetHeight || 0;
-    if (h > most.current + 0.5) (most.current = h, setMinH(h));
+    if (named.current !== names) (named.current = names, most.current = h, setMinH(h)); // a name changed: measured again, once
+    else if (h > most.current + 0.5) (most.current = h, setMinH(h));
+  });
+  const busy = !!given.busy;
+  const status = statusOf(rows, events, busy, off);
+  const said = statusRoom(status, rows.map(nameOf), knownFlows(rows, events), !!given.plain || !given.a)
+    .sort((x, y) => y.length - x.length).slice(0, 4); // a mono line: the longest few are the tallest
+  const stwin = useRef<HTMLDivElement>(null), sMost = useRef(0);
+  const [sMin, setSMin] = useState(0);
+  useLayoutEffect(() => { // R23: the status line's room is the tallest sentence this run can show, from its first draw
+    const h = Math.max(0, ...[...(stwin.current?.children || [])].map((el) => (el as HTMLElement).offsetHeight));
+    if (h > sMost.current + 0.5) (sMost.current = h, setSMin(h));
   });
   const [form, setForm] = useState(false);
   const st = truthState(f);
-  const busy = !!given.busy;
   return ( // R23: the status line sits UNDER the block, outside it: the block's words change only with a fact (R20)
     <div className="mp-truth-box">
       <div className="mp-truth" ref={root} data-testid="session-truth" data-state={st}>
@@ -94,7 +106,12 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
           <div className="cw-line mp-truth-said mp-truth-twin" ref={twin} aria-hidden="true"><Lines lines={room} /></div>
         </div>
       </div>
-      {sid && st !== "T8" && <p className="mp-status mono" data-testid="session-status">{statusLine(statusOf(rows, events, busy, off))}</p>}
+      {sid && st !== "T8" && (
+        <div className="mp-status-box" style={{ minHeight: sMin || undefined }}>
+          <p className="mp-status mono" data-testid="session-status">{statusLine(status)}</p>
+          <div className="mp-status-twin" ref={stwin} aria-hidden="true">{said.map((t) => <p key={t} className="mp-status mono">{t}</p>)}</div>
+        </div>
+      )}
       {form && (
         <div className="mp-truth-form" data-testid="session-truth-form">
           <NewSession compact />
