@@ -1,5 +1,6 @@
 // What the session just built, over Session's Live drawing (3.6.0.2 R30 R31), under the truth block, in room held from
-// the first draw (the pair one line, the head two) so nothing below moves when a build lands:
+// the first draw (the pair one line, the head exactly two: its words are held to two lines, all of them in the title,
+// and [Open in Workflows] sits beside them, never on a line of its own) so nothing below moves when a build lands:
 // - the pair: one map is plain text "Running: {A}"; once the session built another map, "Running: {A} | Just built: {B}",
 //   each a button (built.ts chooses Just built once, else marks its tab); only Running is lit (MapDown draws Just built
 //   calm);
@@ -18,7 +19,7 @@ export function BuiltBar({ s }: { s: LitSession }) {
   const marked = useBuilt((x) => !!x.marked[s.sid]);
   const [run, just] = pair(mapName(s.map || "starter", s.plain !== false), b?.map || "");
   const two = b?.kind === "other" && !!b.map;
-  const head = b?.kind ? justBuilt(b.kind, { workflow: b.workflow, t: b.t }) : null;
+  const head = b?.kind ? justBuilt(b.kind, { workflow: b.workflow, t: b.t, map: b.map, next: b.next }) : null;
   const flows = () => { // R31: Agents -> Workflows with W open, on this press only
     setAgentsView("workflows");
     void openFlow(b!.workflow);
@@ -38,7 +39,7 @@ export function BuiltBar({ s }: { s: LitSession }) {
         ) : <span className="mp-pair-one">{run}</span>}
       </div>
       <p className="mp-built-head" data-testid="session-built-head" data-kind={b?.kind || undefined}>
-        {head?.text}
+        <span className="mp-built-text" data-testid="session-built-text" title={head?.text}>{head?.text}</span>
         {head?.act === "open-workflows" && (
           <>
             {" "}

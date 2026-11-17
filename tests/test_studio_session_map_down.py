@@ -966,6 +966,19 @@ def test_just_built_workflow_on_no_map_and_box_on_the_running_map(ctx: Ctx):
     ot = d.get("other") or {}
     ctx.check(f"R31 (c): another map, got {ot.get('head')!r}",
               re.fullmatch(f"Just built in this session at {_T}. This session does not run on it.", ot.get("head") or "") is not None)
+    on = d.get("other_next") or {}
+    ctx.check(f"R31 (c) + R36's row: another map new sessions now run on, got {on.get('head')!r}",
+              re.fullmatch(f"Just built in this session at {_T}. This session does not run on it. New sessions run on fourth.",
+                           on.get("head") or "") is not None)
+    lg = d.get("long") or {}
+    ctx.check(f"R31 (e): a 47-character workflow name: the words held to two lines, all in the title, the button inside the head, "
+              f"got {lg.get('head')!r} clamped {lg.get('clamped')} button {(lg.get('still') or {}).get('button_inside')}",
+              "code-review-and-tests-for-every-change-made-now" in (lg.get("head") or "") and lg.get("clamped") is True
+              and (lg.get("still") or {}).get("button_inside") is True and lg.get("headButton") == "Open in Workflows")
+    for k in ("workflow", "running", "other", "other_next", "long"):
+        st = (d.get(k) or {}).get("still") or {}
+        ctx.check(f"Controls hold still ({k}): the head is 34 px and no control, the head or the drawing's top moved, "
+                  f"got h {st.get('h')} moved {st.get('moved')}", st.get("h") == 34 and st.get("moved") == {})
     ctx.check(f"R29 (d): the tag stays over turns and a fleet read, got {d.get('kept')}", d.get("kept") is True)
     ctx.check(f"R29 (d): once the session ended the tags are gone, got {d.get('ended')}", d.get("ended") is True)
 
@@ -986,7 +999,9 @@ def test_no_fetch_before_the_first_draw(ctx: Ctx):
     ctx.check(f"R28: outcomes left and failed read nothing, got {d.get('left_failed')}", d.get("left_failed") == [])
     import re
     ctx.check(f"R28: a removed map says so, got {d.get('removed')!r}", re.fullmatch(f"This map was removed at {_T}.", d.get("removed") or "") is not None)
-    ctx.check(f"R28: T8 and Empty read no map, got {d.get('t8_empty')}", d.get("t8_empty") == [])
+    q = d.get("quiet") or {}
+    ctx.check(f"R28: T4, T10, T8 and Empty read no map, got {q}",
+              q.get("seen") == ["T4", "T10", "T8", "Empty"] and q.get("reads") == [])
     ctx.check(f"R28: no request failed, got {d.get('failed')}", d.get("failed") == [])
 
 

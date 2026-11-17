@@ -100,6 +100,8 @@ out.bits = {
   pick1: T.pickerSuffix(['fix-login']), pick2: T.pickerSuffix(['a', 'b']), pickNext: T.pickerSuffix([], true),
   switch: T.switchLabel(), removed: T.removedAt(t), tag: T.newTag(t), pair: T.pair('starter (the default)', 'review-flow'),
   jbW: T.justBuilt('workflow', { workflow: 'W' }), jbRun: T.justBuilt('running', { t }), jbOther: T.justBuilt('other', { t }),
+  jbOtherNext: T.justBuilt('other', { t, map: 'review-flow', next: 'review-flow' }),
+  jbOtherNot: T.justBuilt('other', { t, map: 'review-flow', next: 'starter' }),
   hover1: T.hoverLines({ name: 'coder', workflow: null, model: 'm-code', state: 'working', when: 'always', source: 'main',
                          children: ['made up: check it · working'], built: t }),
   hover2: T.hoverLines({ name: 'check', workflow: 'W', model: 'm-small', state: 'next', when: 'always', source: 'main',
@@ -227,6 +229,11 @@ def test_truth_each_state(ctx: Ctx):
               b["jbRun"] == {"text": X(clk, "Changed in this session at {12:30}; this session takes it at its next hand-off.")})
     ctx.check(f"R31 any other map, got {b['jbOther']}",
               b["jbOther"] == {"text": X(clk, "Just built in this session at {12:30}. This session does not run on it.")})
+    ctx.check(f"R31 (+ R36's row) another map new sessions now run on, got {b['jbOtherNext']}",
+              b["jbOtherNext"] == {"text": X(clk, "Just built in this session at {12:30}. This session does not run on it. "
+                                                  "New sessions run on review-flow.")})
+    ctx.check(f"R31 another map new sessions do not run on: no use sentence, got {b['jbOtherNot']}",
+              b["jbOtherNot"] == b["jbOther"])
 
 
 @test

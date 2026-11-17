@@ -9,9 +9,10 @@ fact reaches the page through GET live's rows (`Rows`) and the feed's frames (`b
             with no 'new'; closed and opened again it is the newest version
     once    the pair: one map as plain text, two maps 'Running: {A} | Just built: {B}'; Just built chosen once, only while
             the pointer is outside and the pair was never pressed
-    heads   the three Just built heads, the 'new {t}' tags, [Open in Workflows], tags kept over turns, gone when it ends
+    heads   the three Just built heads (+ R36's sentence), the 'new {t}' tags, [Open in Workflows], tags kept over turns,
+            gone when it ends; no control, the head or the drawing's top moves when a head lands (a long name too)
     fetch   nothing waits on the network: the head painted while every crew/map answer is held, one soft read for the
-            running map, none for a body the frame brought, one for a body left out, none for left / failed / T8 / Empty,
+            running map, none for a body the frame brought, one for a body left out, none for left / failed / T4 / T10 / T8 / Empty,
             a removed map says so with no failed /api
 
     python -m tests.helpers.studio_session_just_built [step ...]
@@ -66,6 +67,14 @@ HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0
 MAPREQS = "window.__jb.reqs.filter((r) => /^crew\\/map\\//.test(r.url))"
 RECTS = "[...document.querySelectorAll('[data-testid=viewbar-btn]')].map((b) => { const r = b.getBoundingClientRect(); return [b.dataset.panel, r.left, r.top, r.width, r.height]; })"
 BOXES = "[...document.querySelectorAll('[data-testid=session-lit-map] [data-box]')]"
+# the drawer's controls and the head (whole rects, half-px), and the drawing's top: none may move when a head lands
+CTRLS = """(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect();
+  return [b.left, b.top, b.width, b.height].map((x) => Math.round(x * 2) / 2); };
+  const sc = document.querySelector('.mp-down .mp-mini-scroll')?.getBoundingClientRect();
+  const out = Object.fromEntries(['session-lit-open', 'canvas-zoom-out', 'canvas-zoom-level', 'canvas-zoom-in', 'canvas-fit',
+    'session-built-head', 'session-map-below'].map((t) => [t, r(`.mp-down [data-testid=${t}]`)]));
+  out.scrollTop = sc ? Math.round(sc.top * 2) / 2 : null; return out; })()"""
+LONG = "code-review-and-tests-for-every-change-made-now"  # 47 characters: the head's words need a third line at 1280
 
 
 def _size(c) -> None:
@@ -107,10 +116,11 @@ def _parse(rig, text: str) -> dict:
     return store.read(p) or {}
 
 
-def _frame(rig, sid: str, wrote: list, maps: dict, outcome: str = "applied", undo: str = "u", this: str = "starter") -> dict:
+def _frame(rig, sid: str, wrote: list, maps: dict, outcome: str = "applied", undo: str = "u", this: str = "starter",
+           next_: "str | None" = None) -> dict:
     from halo_harness.peers.identity import harness
     now = time.time()
-    data = {"id": f"card-{undo}", "outcome": outcome, "wrote": wrote, "undo": undo, "next": None, "this_session": this,
+    data = {"id": f"card-{undo}", "outcome": outcome, "wrote": wrote, "undo": undo, "next": next_, "this_session": this,
             "maps": maps, "t": now}
     rig.server.events.publish({"session_id": sid, "harness": harness()["id"], "event": "builder_done", "agent_id": "main",
                                "turn": 1, "data": data, "ts": now})
@@ -129,8 +139,24 @@ def _pair(c) -> dict:
       const btn = (w) => {{ const b = p?.querySelector(`[data-which=${{w}}]`); return b ? {{ pressed: b.getAttribute('aria-pressed'), marked: b.hasAttribute('data-new'), text: b.textContent }} : null; }};
       return {{ text: p?.textContent || '', h: p ? Math.round(p.getBoundingClientRect().height * 2) / 2 : null, buttons: p ? p.querySelectorAll('button').length : 0,
                running: btn('running'), built: btn('built'), map: d?.dataset.map || '', lit: d ? d.querySelectorAll('[data-lit]').length : -1,
-               working: d ? d.querySelectorAll('[data-state=working]').length : -1, head: h?.firstChild?.nodeValue || '',
+               working: d ? d.querySelectorAll('[data-state=working]').length : -1, head: h?.querySelector('[data-testid=session-built-text]')?.textContent || '',
                headButton: h?.querySelector('button')?.textContent || '' }}; }})()""") or {}
+
+
+def _still(c, before: dict) -> dict:
+    """What moved against `before` (half a px allowed), the head's height and whether its button sits inside it."""
+    now = c.js(CTRLS) or {}
+
+    def off(v, w) -> bool:
+        if (v is None) != (w is None):
+            return True
+        if isinstance(v, list):
+            return any(abs(x - y) > 0.5 for x, y in zip(v, w))
+        return isinstance(v, (int, float)) and abs(v - w) > 0.5
+    moved = {k: [v, now.get(k)] for k, v in before.items() if off(v, now.get(k))}
+    btn = c.js(f"(() => {{ const h = {HEAD}?.getBoundingClientRect(), b = {HEAD}?.querySelector('button')?.getBoundingClientRect();"
+               " return b && h ? b.top >= h.top - 0.5 && b.bottom <= h.bottom + 0.5 && b.width > 0 : null; })()")
+    return {"moved": moved, "h": (now.get("session-built-head") or [0, 0, 0, 0])[3], "button_inside": btn}
 
 
 def _press(c, which: str) -> None:
@@ -243,9 +269,12 @@ def heads(c, rig, rows: Rows, a: str, b: str) -> dict:
     _on_shop(rig, rows, a, b)
     _open(c, rig, f"mode=session&session={a}&open=session-map")
     c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+    time.sleep(0.5)
+    still = c.js(CTRLS) or {}
     _frame(rig, a, [{"kind": "workflow", "name": "solo", "added": True}], {}, undo="h1", this="shop")
     _wait(c, f"{HEAD}?.textContent.includes('solo')", 10)
-    out["workflow"] = _pair(c)
+    time.sleep(0.3)
+    out["workflow"] = {**_pair(c), "still": _still(c, still)}
     out["workflow_section"] = c.js(f"{Q}('.section-view:not([hidden])')?.dataset.section || ''")
     c.js(f"{HEAD}?.querySelector('button')?.click(); 1")
     _wait(c, f"{Q}('[data-testid=agents]')?.dataset.view === 'workflows' && {Q}('[data-testid=flow-form]')?.dataset.name === 'solo'", 10)
@@ -254,15 +283,32 @@ def heads(c, rig, rows: Rows, a: str, b: str) -> dict:
     # (b) a box added to the running map: the same drawing, tagged, and its head
     _open(c, rig, f"mode=session&session={a}&open=session-map")
     c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+    time.sleep(0.5)
+    still = c.js(CTRLS) or {}
     plus = MAP.replace("lines:\n", "- {id: tester, agent: tester}\nlines:\n") + "- {from: main, to: tester, when: always}\n"
     _frame(rig, a, [{"kind": "map", "name": "shop", "added": False}], {"shop": _body(rig, "shop", plus)}, undo="h2", this="shop")
     _wait(c, f"!!{Q}('[data-box=tester][data-new]')", 10)
     out["running"] = {**_pair(c), **(c.js(f"""(() => ({{ tag: {Q}('[data-box=tester] [data-testid=session-map-new]')?.textContent || '',
-      others: [...document.querySelectorAll('[data-testid=session-lit-map] [data-box][data-new]')].map((x) => x.dataset.box) }}))()""") or {})}
+      others: [...document.querySelectorAll('[data-testid=session-lit-map] [data-box][data-new]')].map((x) => x.dataset.box) }}))()""") or {}),
+                      "still": _still(c, still)}
     # (c) any other map
     _frame(rig, a, [{"kind": "map", "name": "third", "added": True}], {"third": _body(rig, "third", THIRD)}, undo="h3", this="shop")
-    _wait(c, f"{HEAD}?.textContent.includes('does not run on it')", 10)
-    out["other"] = _pair(c)
+    _wait(c, f"{HEAD}?.textContent.includes('does not run on it') && {DRAWN}?.dataset.map === 'third'", 10)
+    time.sleep(0.3)
+    out["other"] = {**_pair(c), "still": _still(c, still)}
+    # (c) another map the build also made the one new sessions run on (R36's use row was ticked and applied)
+    _frame(rig, a, [{"kind": "map", "name": "fourth", "added": True}],
+           {"fourth": _body(rig, "fourth", THIRD.replace("name: third", "name: fourth"))}, undo="h4", this="shop", next_="fourth")
+    _wait(c, f"{HEAD}?.textContent.includes('fourth')", 10)
+    time.sleep(0.3)
+    out["other_next"] = {**_pair(c), "still": _still(c, still)}
+    # (e) a workflow whose name needs a third line at this width: still two lines, the button beside them, nothing moved
+    _frame(rig, a, [{"kind": "workflow", "name": LONG, "added": True}], {}, undo="h5", this="shop")
+    _wait(c, f"{HEAD}?.textContent.includes('{LONG}') && {DRAWN}?.dataset.map === 'shop'", 10)
+    time.sleep(0.3)
+    out["long"] = {**_pair(c), "still": _still(c, still),
+                   "clamped": c.js(f"(() => {{ const t = {HEAD}?.querySelector('[data-testid=session-built-text]');"
+                                   " return t ? t.scrollHeight > t.clientHeight + 1 && t.title === t.textContent : null; })()")}
     # (d) two more turns and a fleet read later the tags are still there; once the session ends they go
     _press(c, "running")
     rows.turn(a)
@@ -324,15 +370,29 @@ def fetch(c, rig, rows: Rows, a: str, b: str) -> dict:
     store.path_for("map", "shop", state_dir=rig.state).unlink()
     _wait(c, f"!!{Q}('[data-testid=session-map-removed]')", 15)
     out["removed"] = c.js(f"{Q}('[data-testid=session-map-removed]')?.textContent || ''")
-    m3 = mark()
-    rows.hide(a)
-    _wait(c, f"{Q}('[data-testid=session-truth]')?.dataset.state === 'T8'", 10)
-    rows.hide(b)
-    _wait(c, f"{Q}('[data-testid=session-truth]')?.dataset.state === 'Empty'", 15)
-    time.sleep(1.0)
-    out["t8_empty"] = c.js(f"{MAPREQS}.slice({m3}).map((r) => r.url)")
-    out["failed"] = c.js("window.__jb.reqs.filter((r) => r.status >= 400).map((r) => `${r.status} ${r.url}`)")
     _body(rig, "shop", MAP)
+    time.sleep(3.0)  # the watcher's files_changed for shop's file is read by the open drawing before the states below
+    m3 = mark()
+    state = f"{Q}('[data-testid=session-truth]')?.dataset.state"
+    seen = []
+    rows.set(a, map="", map_plain=False, map_scope=None, map_path=None)  # T4: the session runs with no map
+    seen.append("T4" if _wait(c, f"{state} === 'T4'", 10) else c.js(state))
+    time.sleep(1.0)
+    rows.set(a, parent="studio:4242", turns=0, asked=False, map_next="shop")  # T10: from Studio, no message yet
+    seen.append("T10" if _wait(c, f"{state} === 'T10'", 10) else c.js(state))
+    time.sleep(1.0)
+    rows.hide(a)
+    seen.append("T8" if _wait(c, f"{state} === 'T8'", 10) else c.js(state))
+    reads = c.js(f"{MAPREQS}.slice({m3}).map((r) => r.url)")
+    rows.hide(b)  # Empty: no session at all, on a page that picked none (a picked session that ended stays T8, R4)
+    _open(c, rig, "mode=session&open=session-map")
+    ws = f"{Q}('[data-testid=session-open-workspace]')"
+    _wait(c, ws, 30)  # with no session Session shows its Start view; the workspace is opened by hand
+    c.js(f"{ws}?.click(); 1")
+    seen.append("Empty" if _wait(c, f"{state} === 'Empty'", 15) else c.js(state))
+    time.sleep(1.0)
+    out["quiet"] = {"seen": seen, "reads": reads + c.js(f"{MAPREQS}.map((r) => r.url)")}
+    out["failed"] = c.js("window.__jb.reqs.filter((r) => r.status >= 400).map((r) => `${r.status} ${r.url}`)")
     return {"fetch": out}
 
 

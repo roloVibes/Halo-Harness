@@ -14,7 +14,7 @@ import { current, putBody, bump } from "./mapFiles";
 import type { DrawBox, MapFile } from "./mapTypes";
 
 export type BuiltKind = "workflow" | "running" | "other";
-export type Built = { t: number; kind: BuiltKind | null; map: string; workflow: string };
+export type Built = { t: number; kind: BuiltKind | null; map: string; workflow: string; next: string };
 type S = { last: Record<string, Built>; word: Record<string, boolean>; which: Record<string, "running" | "built">;
   marked: Record<string, boolean>; pressed: Record<string, boolean>; auto: Record<string, boolean>;
   tags: Record<string, Record<string, number>>; flows: Record<string, Record<string, number>> };
@@ -57,7 +57,7 @@ export function takeBuilt(sid: string, d: Record<string, unknown>, now = Date.no
   built.update((s) => {
     const choose = kind === "other" && !s.auto[sid] && !s.pressed[sid] && !holds.get(sid);
     return {
-      last: { ...s.last, [sid]: { t, kind, map: other?.name || (kind === "running" ? running : ""), workflow: flows[0] || "" } },
+      last: { ...s.last, [sid]: { t, kind, map: other?.name || (kind === "running" ? running : ""), workflow: flows[0] || "", next: String(d.next || "") } },
       word: { ...s.word, [sid]: true },
       which: choose ? { ...s.which, [sid]: "built" } : s.which,
       auto: choose ? { ...s.auto, [sid]: true } : s.auto,

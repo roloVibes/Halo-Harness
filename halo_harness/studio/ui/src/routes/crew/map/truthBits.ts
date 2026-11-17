@@ -55,12 +55,14 @@ export const newTag = (t: number): string => `new ${clock(t)}`;
 /** R30 the two maps in the drawer. */
 export const pair = (running: string, built: string): [string, string] => [`Running: ${running}`, `Just built: ${built}`];
 
-/** R31 the Just built heads: a workflow on no map, a change to the running map, any other map. */
-export function justBuilt(kind: "workflow" | "running" | "other", o: { workflow?: string; t?: number }): Line {
+/** R31 the Just built heads: a workflow on no map, a change to the running map, any other map (+ R36's row when the
+ *  build made it the map new sessions run on, `next`; its S13 is the truth block's T2 line just above). */
+export function justBuilt(kind: "workflow" | "running" | "other", o: { workflow?: string; t?: number; map?: string; next?: string | null }): Line {
   if (kind === "workflow")
     return { text: `Just built: the workflow ${o.workflow}. It is on no map, so no session runs it yet.`, act: "open-workflows", label: "Open in Workflows" };
   if (kind === "running") return { text: `Changed in this session at ${clock(o.t || 0)}; this session takes it at its next hand-off.` };
-  return { text: `Just built in this session at ${clock(o.t || 0)}. This session does not run on it.` };
+  const use = o.map && o.next === o.map ? ` New sessions run on ${o.map}.` : "";
+  return { text: `Just built in this session at ${clock(o.t || 0)}. This session does not run on it.${use}` };
 }
 
 /** R43 one line that feeds a box (a box fed by several lines has one row per line); R18's state of a calm line. */

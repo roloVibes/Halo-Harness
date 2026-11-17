@@ -96,5 +96,9 @@
 .mp-pair-btn[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
 .mp-pair-btn[data-new]::after { content: " ●"; color: var(--accent); }
 .mp-pair-sep { color: var(--muted); }
-.mp-built-head { margin: 0; font-size: 12px; line-height: 17px; min-height: 34px; overflow-wrap: anywhere; color: var(--text); }
+/* R31 the head is exactly two lines from the first draw, whatever it says: the words are held to two lines (all of them
+   in the title) and [Open in Workflows] sits beside them at the same height, so nothing under it ever moves */
+.mp-built-head { margin: 0; display: flex; align-items: flex-start; gap: 6px; height: 34px; min-width: 0; overflow: hidden; font-size: 12px; line-height: 17px; color: var(--text); }
+.mp-built-text { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.mp-built-head > .mp-link { flex: none; align-self: center; min-height: 0; height: 34px; font-size: 12px; line-height: 17px; white-space: nowrap; }
 .mp-new-tag { align-self: flex-start; font-size: 12px; line-height: 16px; }
