@@ -200,7 +200,10 @@ class _Conn:
                 self.send(handle_request(self.server.handle, req, self))
                 then, self.then = getattr(self, "then", None), None
                 if callable(then):  # 3.6.0.2 P11: `/exit` from Studio ends the terminal AFTER its answer went out
-                    then()
+                    try:
+                        then()
+                    except Exception:  # P8: an app already closing (RuntimeError) never prints over the terminal
+                        pass
         except OSError:
             pass
         finally:

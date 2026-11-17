@@ -34,7 +34,7 @@ const NEW: Pick<Line, "act" | "label"> = { act: "new-session", label: "New sessi
 /** S13 (R21): {old} and {next} are names as a person reads them (`mapName`); the terminal adds its tail. */
 export function s13(old: string, next: string, terminal = false): string {
   const s = s13For("This session", old, next);
-  return terminal ? `${s} In the terminal: quit and run halo again; /clear keeps ${old}.` : s;
+  return terminal ? `${s} In the terminal: quit, then run halo; /clear keeps ${old}.` : s;
 }
 
 /** S13 with its subject: Agents -> Map names the open session in place of "This session" (R24, R55: the hand switch). */

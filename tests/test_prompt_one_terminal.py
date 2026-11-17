@@ -1160,11 +1160,13 @@ def test_untaken_socket_slash_never_runs_late(ctx: Ctx):
                 box["t"] = time.monotonic() - t0
             th = threading.Thread(target=call, daemon=True)
             th.start()
-            time.sleep(1.5)  # the UI thread is held
+            # the UI thread is held longer than the answer's bound below, so an answer that waited for the UI fails
+            time.sleep(3.0)
             th.join(5)
             await pilot.pause(0.5)
-            ctx.check(f"the busy words and ran false within 1.2 s, got {box}",
-                      box.get("r") == {"output": BUSY, "ran": False} and box.get("t", 9) < 1.2)
+            # the hook's limit is 1.0 s; the bound is that plus one second for the Windows and macOS runners (P8)
+            ctx.check(f"the busy words and ran false within 2.0 s, got {box}",
+                      box.get("r") == {"output": BUSY, "ran": False} and box.get("t", 9) < 2.0)
             ctx.check(f"nothing ran after the UI freed, got {fake.model} {_rows(app)}",
                       fake.model == before and "/model late-model" not in _rows(app))
     asyncio.run(body())
@@ -1261,16 +1263,17 @@ def test_slash_over_3500ms_answers_still_running(ctx: Ctx):
 
         def slow(name, args=""):
             if name == "slowcmd":
-                time.sleep(4.2)
+                time.sleep(7.0)  # longer than the bound below: an answer that waited for the command fails
                 return "the late output"
             return plain(name, args)
         fake.run_slash = slow
         async with app.run_test(size=(100, 30)) as pilot:
             await pilot.pause(0.2)
             r, took = await _hook(fake, "slowcmd")
-            ctx.check(f"the output so far and the still-running line within 4.6 s, ran true, got {r} in {took:.2f}s",
-                      r == {"output": STILL, "ran": True} and took < 4.6)
-            for _ in range(60):
+            # the answer comes at 3.5 s; the bound gives the slow runners their margin (P8: under 6 s)
+            ctx.check(f"the output so far and the still-running line within 6 s, ran true, got {r} in {took:.2f}s",
+                      r == {"output": STILL, "ran": True} and took < 6.0)
+            for _ in range(100):
                 if "the late output" in _notes(app):
                     break
                 await pilot.pause(0.1)
@@ -1422,6 +1425,51 @@ def test_exit_from_studio_ends_the_terminal(ctx: Ctx):
                 await pilot.pause(0.1)
             ctx.check("then the terminal's Halo ends as typed there", app._quitting and getattr(fake, "quit_called", False))
     asyncio.run(body())
+
+
+@test
+def test_exit_then_that_raises_prints_nothing_and_the_connection_ends_quietly(ctx: Ctx):
+    """P8 batch 2 (judge C): `/exit`'s `then()` runs on the connection's thread after the answer went out; an app
+    already closing raises RuntimeError there. It used to escape `serve()` (which caught only OSError), so the
+    thread's traceback printed over the terminal. Now nothing escapes and the next request is still answered.
+    A socketpair, no listener. Red on fc214582: serve() raised RuntimeError."""
+    import socket
+    import threading as _th
+    from unittest import mock
+
+    from halo_harness.remote import control_socket as cs
+
+    a, b = socket.socketpair()
+    server = SimpleNamespace(closed=_th.Event(), handle=SimpleNamespace(), promote=lambda conn: True)
+    conn = cs._Conn(server, a)
+    seen = []
+
+    def answer(_handle, req, c):
+        seen.append(req.get("id"))
+        if req.get("id") == 1:
+            def then():
+                raise RuntimeError("the app is already closing")
+            c.then = then
+        return {"id": req.get("id"), "ok": True}
+    b.sendall(b'{"id": 1, "op": "slash"}\n{"id": 2, "op": "ping"}\n')
+    b.shutdown(socket.SHUT_WR)
+    err = None
+    try:
+        with mock.patch.object(cs, "handle_request", answer), mock.patch.object(cs._Conn, "_handshake", lambda s, rf: True):
+            try:
+                conn.serve()
+            except Exception as e:  # noqa: BLE001 -- what escapes is the fault
+                err = e
+        got = b.makefile("rb").read().decode("utf-8")
+    finally:
+        for s in (a, b):
+            try:
+                s.close()
+            except OSError:
+                pass
+    ctx.check(f"nothing escapes serve() (no traceback over the terminal), got {err!r}", err is None)
+    ctx.check(f"both requests answered, the second after the raising then(), got {seen} {got!r}",
+              seen == [1, 2] and '"id": 2' in got)
 
 
 @test

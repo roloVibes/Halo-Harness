@@ -259,7 +259,7 @@ def test_s13_golden(ctx: Ctx):
               "started. Start a new session to run on review-flow.")
     tail = map_facts.terminal_tail("starter (the default)")
     ctx.check(f"the terminal tail, got {tail!r}",
-              tail == "In the terminal: quit and run halo again; /clear keeps starter (the default).")
+              tail == "In the terminal: quit, then run halo; /clear keeps starter (the default).")
     ctx.check("the words of the default and of a named map",
               map_facts.words_of("starter", True) == "starter (the default)"
               and map_facts.words_of("review-flow") == "review-flow" and map_facts.words_of(None) == "starter (the default)")

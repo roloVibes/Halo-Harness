@@ -8,6 +8,8 @@ Node's TypeScript support (`process.features.typescript` is false: no amaro), so
 each imported `.ts` is transpiled first by the TypeScript compiler of the UI's own `node_modules` (`npm ci` under
 halo_harness/studio/ui), to a scratch `.mjs`, and the same js runs on it. With neither, SkipTest says exactly what the
 box lacks. `HALO_NODE_TS_TRANSPILE=1` takes the transpile path on any node (to prove it on a box that has the other).
+`HALO_NODE_TS_REQUIRED=1` (3.6.0.2 P8: CI's studio-ui job, after its `npm ci`) makes "no node" and "no TypeScript" a
+FAILURE instead of a skip, so the node halves cannot pass a run by skipping; nothing else reads it.
 
 A loaded module may import a sibling at runtime the way the UI's source does, with no extension (`from "./layout"`;
 3.6.0.2 R6): on the strip-types path a resolve hook retries such a relative specifier as `<specifier>.ts`; on the transpile
@@ -63,10 +65,20 @@ _REGISTER = ("import { register as __haloRegister } from 'node:module';\n"
              f"__haloRegister('data:text/javascript,' + encodeURIComponent({json.dumps(_HOOK)}));\n")
 
 
+REQUIRED_ENV = "HALO_NODE_TS_REQUIRED"
+
+
+def _cannot(why: str):
+    """SkipTest, or (with HALO_NODE_TS_REQUIRED=1) an AssertionError: a box that must run the node halves fails."""
+    if os.environ.get(REQUIRED_ENV) == "1":
+        return AssertionError(f"{REQUIRED_ENV}=1 and this node half cannot run: {why}")
+    return SkipTest(why)
+
+
 def _node() -> str:
     node = shutil.which("node")
     if not node:
-        raise SkipTest("no node on this box")
+        raise _cannot("no node on this box")
     return node
 
 
@@ -100,7 +112,7 @@ def run(js: str):
     if r is None or (r.returncode != 0 and ("ERR_NO_TYPESCRIPT" in r.stderr or "strip-types" in r.stderr)):
         version = (subprocess.run([node, "--version"], capture_output=True, text=True).stdout or "").strip()
         if not (TSC / "package.json").is_file():
-            raise SkipTest(f"node {version} has no TypeScript support (built without it: Debian's) and "
+            raise _cannot(f"node {version} has no TypeScript support (built without it: Debian's) and "
                            f"{TSC.relative_to(UI.parents[2])} is not there to transpile with: `npm ci` under "
                            "halo_harness/studio/ui, or a Node 22.6+ from nodejs.org")
         with tempfile.TemporaryDirectory(prefix="halo-node-ts-") as d:

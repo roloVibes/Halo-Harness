@@ -252,7 +252,7 @@ def test_s13_says_the_default(ctx: Ctx):
     s = S13.format(DEF, "review-flow")
     ctx.check(f"S13 for a plain session, got {out['s13'][0]!r}", out["s13"][0] == s)
     ctx.check(f"S13 in the terminal adds its tail, got {out['s13'][1]!r}",
-              out["s13"][1] == s + " In the terminal: quit and run halo again; /clear keeps starter (the default).")
+              out["s13"][1] == s + " In the terminal: quit, then run halo; /clear keeps starter (the default).")
     ctx.check(f"S13 on its own map 'shop' has no '(the default)', got {out['s13'][2]!r}",
               out["s13"][2] == S13.format("shop", "review-flow"))
 

@@ -405,8 +405,12 @@ sources, same bytes on Windows and Linux, node 22 or 24), and the CI job
 build`, then `git diff --exit-code -- halo_harness/studio/static/dist`:
 a stale or hand-edited dist fails it. The same job runs
 `tests/test_studio_dist.py` (no remote URL in the dist, the routes, the
-250-line cap on every `ui/src` file, the dependency list). The Python
-jobs stay node-free.
+250-line cap on every `ui/src` file, the dependency list). After it, the
+same job runs every test module that uses `tests/helpers/node_ts.py` (the
+node halves of the pure-rule tests: layout, truth sentences, the session
+pick, the prompt's words) with `HALO_NODE_TS_REQUIRED=1`: a node half that
+cannot run (no node, no TypeScript) FAILS there instead of being skipped.
+Elsewhere such a half skips and says why. The Python jobs stay node-free.
 
 Where things go: a section is one entry in `ui/src/routes/index.tsx` (its
 id, title, `Alt+N` key and default `PanelSpec[]`); a panel is a

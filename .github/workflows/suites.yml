@@ -372,7 +372,7 @@ jobs:
       matrix:
         os: [linux, macos, windows]
         install: [checkout, installed]
-    timeout-minutes: 45
+    timeout-minutes: 50  # 3.6.0.2 P8: the realcheck step below has 45
     env:
       PYTHONUTF8: "1"
     defaults:
@@ -431,7 +431,7 @@ jobs:
           halo --version
 
       - name: realcheck
-        timeout-minutes: 40
+        timeout-minutes: 45  # 3.6.0.2 P8: the steps' own budgets add up to about 2,480 s on Windows
         run: set -o pipefail; python scripts/realcheck.py ${{ matrix.install == 'installed' && '--installed' || '' }} --json "$RUNNER_TEMP/realcheck.json" --summary "$GITHUB_STEP_SUMMARY" 2>&1 | tee "$RUNNER_TEMP/realcheck.log"
 
       - name: The closing tests with the venv's python (Windows, installed leg)
@@ -577,3 +577,16 @@ jobs:
 
       - name: tests/test_studio_dist.py
         run: python tests/test_studio_dist.py
+
+      # 3.6.0.2 P8: the node halves of the pure-rule tests (layout, truth sentences, the session pick, the prompt's
+      # words) run HERE, where `npm ci` put TypeScript; HALO_NODE_TS_REQUIRED=1 (read only by tests/helpers/node_ts.py)
+      # makes a half that cannot run a FAILURE, not a skip. Every module that uses the helper, found by its import.
+      - name: The node halves (every module using tests/helpers/node_ts.py; a skip is a failure)
+        env:
+          HALO_NODE_TS_REQUIRED: "1"
+        run: |
+          mods=$(grep -l "from tests.helpers import node_ts\|tests.helpers.node_ts" tests/test_*.py | sed 's#^tests/##; s#\.py$##')
+          test -n "$mods" || { echo "no module uses tests/helpers/node_ts.py"; exit 1; }
+          rc=0
+          for m in $mods; do python -m "tests.$m" || rc=1; done
+          exit $rc

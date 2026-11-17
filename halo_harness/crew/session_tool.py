@@ -128,15 +128,23 @@ def _outcome(outcome: str, wrote=(), undo=None) -> dict:
     return {"outcome": outcome, "wrote": list(wrote), "undo": undo or None}
 
 
+def _same_path(p) -> str:
+    """A path as the system names it: one file through a link (macOS /var is /private/var), another drive-letter case
+    or other slashes (Windows) is the same string (P8 batch 2)."""
+    import os
+    return os.path.normcase(os.path.realpath(str(p)))
+
+
 def _items(paths, had=frozenset(), removed: bool = False) -> list:
     """3.6.0.2 R25: `[{kind, name, added}]` for the crew files written (config.json, map_use's, is no crew file)."""
     from halo_harness.crew.store import KINDS
     kinds = {v: k for k, v in KINDS.items()}
+    known = {_same_path(h) for h in had}
     out = []
     for p in paths or []:
         p = Path(p)
         if p.parent.name in kinds:
-            out.append({"kind": kinds[p.parent.name], "name": p.stem, "added": str(p) not in had and not removed,
+            out.append({"kind": kinds[p.parent.name], "name": p.stem, "added": _same_path(p) not in known and not removed,
                         **({"removed": True} if removed else {})})
     return out
 

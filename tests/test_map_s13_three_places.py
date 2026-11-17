@@ -19,7 +19,7 @@ from tests.helpers.runner import Ctx, new_registry, print_results, run_all  # no
 test, TESTS = new_registry()
 TRUTH = Path(__file__).resolve().parent.parent / "halo_harness" / "studio" / "ui" / "src" / "routes" / "crew" / "map" / "truth.ts"
 S13_RF = "This session keeps running on starter (the default), as it started. Start a new session to run on review-flow."
-TAIL = "In the terminal: quit and run halo again; /clear keeps starter (the default)."
+TAIL = "In the terminal: quit, then run halo; /clear keeps starter (the default)."
 USE_PREFIX = "New sessions run on review-flow. "
 WORD = "Tell the person, word for word: "
 

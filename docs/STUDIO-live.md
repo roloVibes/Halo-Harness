@@ -74,10 +74,13 @@ asks); it blocked notifications for this page (allow them in its site settings);
 A second channel is one more entry of `CHANNELS` in `lib/alerts.ts`; the owner has not chosen one yet, so nothing else is
 built (the signal pack's phones already get the queue's new rows as `asks` notes, [REMOTE.md](REMOTE.md#transports)).
 
-**Open** on an ask (3.6.0.1) -- the alert's click, an Attention row's **O** (in Session or in Agents' Attention), the
-Live ask card's **O** -- is one door wherever you are: Studio goes to **Session**, selects the ask's session, points the
-Live column at the agent that asks (its agent pick), and opens **Attention** with that row selected, so A / R / S answer
-it. A row of no session keeps its own home (the Ollama steward's note: Local -> Hosts; a Try it run: its tab; a goal's
-plan: its panel; a spend cap: Agents -> Map); an ask of another harness on your network opens its agent on Agents ->
-Map. When the ask's session has ended a moment ago, one line says so ("That session has ended; its ask is gone.");
-Open is never silent.
+**Open** on an ask (3.6.0.1; 3.6.0.2) -- the alert's click, an Attention row's **O** (in Session or in Agents'
+Attention), the Live ask card's **O** -- lands on the run's drawing with the asking agent's box selected and its card
+open (the ask's choices, Pause, Stop, Steer). In Agents it stays in Agents, on **4 · Live** (3.6.0.1 always went to
+Session); elsewhere Studio goes to **Session**, selects the ask's session, points the Live column at the agent that asks
+(its agent pick), opens its Live drawer and opens **Attention** with that row selected, so A / R / S answer it. An agent
+the drawing puts on no box: the Feed opens on it with its ask, and one line says so. A row of no session keeps its own
+home (the Ollama steward's note: Local -> Hosts; a Try it run: its tab; a goal's plan: its panel; a spend cap: Agents ->
+Map); an ask of another machine's session opens Session's **Attention** on its row (its drawing is in that machine's
+Studio; 3.6.0.1 opened its agent on Agents -> Map). When the ask's session has ended a moment ago, one line says so
+("This session ended at 2:41 PM. Nothing waits on you there now."); Open is never silent.

@@ -154,6 +154,15 @@ def steer_rows(c, text: str) -> list:
                 ".map((t) => t.querySelector('[data-testid=\"prompt-steering\"]')?.textContent || '')")
 
 
+def _steer_drawn(c, text: str) -> None:
+    """P8: wait until the row of `text` shows its steering line (the event the old 1.5 s sleeps stood for)."""
+    try:
+        c.wait(f"{TURNS}.some((t) => t.dataset.steer && t.textContent.includes({text!r}) "
+               "&& t.querySelector('[data-testid=\"prompt-steering\"]'))", 10)
+    except TimeoutError:
+        pass  # the check that follows says what is drawn
+
+
 def steer(c, rig, gate) -> dict:
     out: dict = {}
     typed(c, "please ask steer")
@@ -173,7 +182,9 @@ def steer(c, rig, gate) -> dict:
     finally:
         gate.release()
     out["after"] = settled(c)
-    time.sleep(1.5)  # the controller's steer_queued and the answer have both landed
+    # P8: waited on the events, not 1.5 s -- the steer reached the session, and its row with the steering line is drawn
+    wait_for(lambda: any("steer this" in str(x) for x in rig.session.steered), 10)
+    _steer_drawn(c, "steer this")
     out["rows"] = steer_rows(c, "steer this")
     out["steered"] = list(rig.session.steered)
     empty_box(c)
@@ -182,12 +193,15 @@ def steer(c, rig, gate) -> dict:
     c.wait("!!document.querySelector('[data-testid=\"prompt-busy\"]') && 'busy'", 10)
     gate.refuse_next()
     c.click_on("document.querySelector('[data-testid=\"prompt-steer\"]')")
-    time.sleep(1.5)
+    # P8: the refusal happened (the gate put the socket back) and the page has its answer (the box settled)
+    wait_for(lambda: gate.S._client is gate.client, 10)
+    settled(c)
     out["refused_rows"] = steer_rows(c, "steer two")
     out["refused_box"] = c.js(f"{INPUT}.value")
     c.click_on("document.querySelector('[data-testid=\"prompt-steer\"]')")
     c.wait(f"{INPUT}.value === '' && 'empty'", 10)
-    time.sleep(1.5)
+    wait_for(lambda: any("steer two" in str(x) for x in rig.session.steered), 10)
+    _steer_drawn(c, "steer two")
     out["again_rows"] = steer_rows(c, "steer two")
     out["steered_end"] = list(rig.session.steered)
     # the checker's walk: the busy line holds 'alpha'; ' beta' typed after it, then an Enter whose send fails; Steer

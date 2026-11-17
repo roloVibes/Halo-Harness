@@ -16,7 +16,7 @@ from __future__ import annotations
 import time
 
 S13 = "This session keeps running on {old}, as it started. Start a new session to run on {new}."
-TERMINAL_TAIL = "In the terminal: quit and run halo again; /clear keeps {old}."
+TERMINAL_TAIL = "In the terminal: quit, then run halo; /clear keeps {old}."
 DEFAULT_WORDS = "{name} (the default)"
 
 

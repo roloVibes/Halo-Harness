@@ -81,9 +81,15 @@ def built(c, rig) -> dict:
     type_in(c, "flow-for", "edited here")
     _leave(c)
     _frame(c, rig, [{"kind": "workflow", "name": "my-review", "added": False}])
+    remembered = c.js(STORED)
     _back(c)
-    # P7: waited on the event, not a time -- the list re-read on his return marks the built one; an open would have come
-    # with that same read
+    # P7: waited on the event, not a time. P8: the event is his return being HANDLED (flowBuilt.takeBuilt gives up the
+    # remembered name: the stored one is cleared; a workflow the list already holds needs no read, so a wait on a read
+    # never comes), not the mark alone, which the frame had already set before he came back
+    try:
+        out["dirty_read"] = remembered == "my-review" and bool(c.wait(f"{STORED} === null && 'taken'", 20))
+    except TimeoutError:
+        out["dirty_read"] = f"his return was not handled in 20 s (stored {c.js(STORED)!r})"
     c.wait(f"!!{q('[data-testid=flow-item][data-name=my-review]')}?.dataset.built", 20)
     out["dirty"] = c.js(f"[{FORM}?.dataset.name, {t('flow-for')}?.value, "
                         f"{q('[data-testid=flow-item][data-name=my-review]')}?.dataset.built || '']")

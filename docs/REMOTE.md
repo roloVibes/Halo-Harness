@@ -152,7 +152,8 @@ semantics are in [SUBAGENTS.md](SUBAGENTS.md#the-live-agent-tree-and-what-studio
 | `agent_follow` | `agent_id`, `on` (default true) | `{agent_id, following: [ids]}`: while on, that agent's entries are also published as `agent_event` frames |
 
 Every one takes `via` (default `Studio`; `halo remote` sends `halo remote`). No line, record or note names a
-user or host: a `by` a client sends is not read (3.6.0.2). The commands that act
+user or host: a `by` a client sends is not read (3.6.0.2), and no reply carries one: the `fleet.message` note
+answers `{delivered, via}` (3.6.0.1 answered `{delivered, by}`) and a control record has no `by`. The commands that act
 on an agent are recorded in that agent's own transcript as a `meta` node
 (`{"control": {"cmd", "via", "agent_id", ...}}`; `"fleet"` before 3.5.0.0, still read); a steer, stop or pause
 also leaves one line in the parent's transcript (`"<agent> steered from

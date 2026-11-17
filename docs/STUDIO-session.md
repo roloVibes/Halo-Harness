@@ -100,7 +100,9 @@ PM. New sessions run on it." with **New session**, which takes you to the New se
 that ends reads "This session ended at 2:41 PM. It ran on shop." until you pick another.
 
 **The drawing.** Below, the session's map drawn top to bottom: main alone on the first row, its boxes two a row (one a
-row when the drawer is narrower than 400 px), every word whole -- a box grows to hold a long name. It opens at 100 %;
+row when the drawer is narrower than 400 px), every word whole -- a box grows to hold a long name. A box shows no cost
+of its own (3.6.0.1's lit Map did): its card has it, and the status line the session's total. It opens at 100 %
+(3.6.0.1 opened it fitted, panning from main);
 **Ctrl + wheel** (Cmd on a Mac) or a pinch zooms from 75 % to 200 %, `+` / `-` / `0` on the focused drawing, and the
 **- / % / + / Fit** buttons beside **Open in Agents -> Live**. No box is ever cut by the drawer's edge: the drawing ends
 under its last whole row and "↓ 1 more below" scrolls one row. While the pointer is on the drawing it holds still; a

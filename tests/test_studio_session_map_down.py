@@ -282,6 +282,8 @@ export const fleet = { get: () => s, update: (fn) => { s = { ...s, ...fn(s) }; }
 export const keyOf = (h, sid) => `${h}/${sid}`, localId = (st = s) => st.harnesses.find((h) => h.local)?.id || '';"""
 SYNC_HOOK = r"""const STUB = %s;
 export async function resolve(spec, ctx, next) {
+  // P8: on node_ts's transpile path (a node without TypeScript) the same neighbours are ./m<n>-<name>.mjs files
+  if (/^\.\/m\d+-(api|events|store|pload|figures|fresh|streams)\.mjs$/.test(spec)) return { url: STUB, shortCircuit: true };
   const r = await next(spec, ctx);
   if (/\/(lib\/(api|events|store)|fleet\/(pload|figures|fresh|streams|store))\.(ts|mjs)$/.test(r.url)) return { url: STUB, shortCircuit: true };
   return r; }"""

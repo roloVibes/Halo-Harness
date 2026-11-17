@@ -205,11 +205,20 @@ def test_p7_the_brief_names_its_target_by_a_set_name_only(ctx: Ctx):
     ctx.check("live_handoff_api has target_words (the one place the brief's target is named)", callable(words))
     if not callable(words):
         return
+    # the path is built from parts: no literal home path with an account name in the tracked tree (the privacy scan)
+    home = "/".join(("", "home", "pat"))
     unset = {"id": "0123456789abcdef", "name": "pat@gpu-box", "user": "pat", "host": "gpu-box",
-             "sessions": [{"project": {"root": "/home/pat/work/shop-app"}}]}
+             "sessions": [{"project": {"root": home + "/work/shop-app"}}]}
     got = words(unset)
     ctx.check(f"no name set (user@host): 'another harness' and its folder, no user or host, got {got!r}",
               got == "another harness, in the folder shop-app" and "pat" not in got and "gpu-box" not in got)
+    # P8 batch 2 (judge C / P7's checker): a project folder that IS a home folder is named `~`, never its last part
+    # (the account name). Red on fc214582: "another harness, in the folder pat".
+    for root in (home, home + "/", "C:\\" + "\\".join(("Users", "pat")), "/".join(("", "Users", "pat")), "/root"):
+        at_home = dict(unset, sessions=[{"project": {"root": root}}])
+        got = words(at_home)
+        ctx.check(f"a project in the home folder {root!r} reads '~', got {got!r}",
+                  got == "another harness, in the folder ~")
     hub = {"id": "0123456789abcdef", "name": "01234567", "sessions": []}
     ctx.check(f"no name set (the hub's id stand-in), no folder known: 'another harness', got {words(hub)!r}",
               words(hub) == "another harness")

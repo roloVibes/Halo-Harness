@@ -331,7 +331,7 @@ def test_questions_answer_from_studio_show_with_no_change(ctx: Ctx):
 NAME_IT = ("Name the map: this session runs on starter (the default), where main chooses who works. Pass a new name in "
            "args.map to make a map that routes.")
 S13_RF = "This session keeps running on starter (the default), as it started. Start a new session to run on review-flow."
-TAIL = "In the terminal: quit and run halo again; /clear keeps starter (the default)."
+TAIL = "In the terminal: quit, then run halo; /clear keeps starter (the default)."
 HANDOFF = "this session takes it at its next hand-off"
 
 

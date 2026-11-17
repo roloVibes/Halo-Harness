@@ -974,6 +974,57 @@ def test_session_map_reads_the_card_by_section_4_words_in_either_case(ctx: Ctx):
 
 
 @test
+def test_session_map_answers_a_waiting_card_with_tab_then_its_key(ctx: Ctx):
+    """P8 batch 2 (judge E, must 1): since the card rules (P5) a card shown within 1.5 s of a key into the box WAITS
+    and Enter in the box never answers it; the fake provider answers at once, so the Builder card waits. The step
+    does what a person does: with the card's wait line on screen (the product's own words) Tab, then Enter; with the
+    card holding the focus, Enter; never a key in the card's first moments (CARD_FRESH_S); and it says which way it
+    went. Red on fc214582: the step had no `_answer` and pressed Enter at once."""
+    import time as _t
+
+    from halo_harness.tui.keys import CARD_FRESH_S
+    from halo_harness.tui.widgets.cards import HELD_PLACEHOLDER, WAIT_LINE
+    from realcheck import steps_map as M
+    answer = getattr(M, "_answer", None)
+    ctx.check("steps_map has _answer (how the step answers the card)", callable(answer))
+    if not callable(answer):
+        return
+
+    class Term:
+        def __init__(self, screen: str) -> None:
+            self.screen, self.keys, self.t0 = screen, [], _t.monotonic()
+
+        def plain(self) -> str:
+            return self.screen
+
+        def write(self, data: bytes) -> None:
+            self.keys.append((data, _t.monotonic() - self.t0))
+            if data == b"\t":
+                self.screen += "\n" + " " * 60  # the redraw that takes the wait line down
+
+        def wait_for(self, pred, timeout: float) -> bool:
+            end = _t.monotonic() + timeout
+            while _t.monotonic() < end:
+                if pred(self.plain()):
+                    return True
+                _t.sleep(0.02)
+            return bool(pred(self.plain()))
+
+    card = "> RC-MAPBUILD\nBuilder: apply these 3 changes?\n  1. Apply them  2. Leave them\n"
+    for name, line in (("the wait line", WAIT_LINE.format(kind="Question")), ("the held box", HELD_PLACEHOLDER)):
+        t = Term(card + line + "\n")
+        how = answer(t, 0)
+        keys = [k for k, _at in t.keys]
+        ctx.check(f"{name} on screen: Tab, then Enter, after the card's first moments; said so, got {keys} {how!r}",
+                  keys == [b"\t", b"\r"] and t.keys[0][1] > CARD_FRESH_S and how.startswith("Tab, then Enter"))
+    t = Term(card)
+    how = answer(t, 0)
+    keys = [k for k, _at in t.keys]
+    ctx.check(f"the card has the focus: Enter alone, after its first moments; said so, got {keys} {how!r}",
+              keys == [b"\r"] and t.keys[0][1] > CARD_FRESH_S and how.startswith("Enter: the card had the focus"))
+
+
+@test
 def test_browser_names_the_browser_the_steps_use_and_one_that_names_nothing_fails_them(ctx: Ctx):
     """--browser <path or command name>: that browser (HALO_CHROME for the run, put back after); one that names no
     browser is a FAIL of each browser step that says so, never the person's own installed Chrome."""

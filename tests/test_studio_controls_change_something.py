@@ -80,6 +80,8 @@ def test_every_control_changes_something(ctx: Ctx):
     nu = got.get("none_uses") or {}
     ctx.check(f"P7: roles off and no map set, the default map says the words file's 'no map' sentence beside a switch (off), "
               f"got {nu}", nu.get("api") is True and nu.get("off") == [True, "false", "New sessions will run with no map.", ""])
+    ctx.check(f"P8: the 'no map' sentence stands a space (the design's 8 px gap) from the switch, never flush, got {nu.get('gap')}",
+              isinstance(nu.get("gap"), (int, float)) and nu["gap"] >= 8)
     ctx.check(f"P7: ... and the switch's press changes what the bar says (new sessions on the default map), got {nu.get('pressed')} "
               f"next_none {nu.get('api_after')}", nu.get("pressed") == [False, "", "", "New sessions run on starter (the default)."]
               and nu.get("api_after") is False)

@@ -306,6 +306,42 @@ def test_builder_done_in_both_kind_lists(ctx: Ctx):
     ctx.check("the UI binds builder_done (inside KNOWN_KINDS)", '"builder_done"' in block)
 
 
+@test
+def test_added_compares_paths_as_the_system_does(ctx: Ctx):
+    """P8 batch 2 (judge C): `added` compared the written path and the one found before as plain strings. The same file
+    reached through a link (macOS: /var is /private/var) or written with another drive-letter case and slashes
+    (Windows) read as a new file. Now both are compared after normcase(realpath()). Red on fc214582: added True."""
+    from halo_harness.crew import session_tool
+    d = Path(tempfile.mkdtemp(prefix="p8-added-"))
+    try:
+        real = d / "real" / "agents"
+        real.mkdir(parents=True)
+        f = real / "my-reviewer.yaml"
+        f.write_text("x", encoding="utf-8")
+        had = {str(f)}
+        other = None
+        if os.name == "nt":
+            s = str(f)
+            other = (s[0].swapcase() + s[1:]).replace("\\", "/")  # c:/... beside C:\...
+        else:
+            try:
+                os.symlink(d / "real", d / "link")
+                other = str(d / "link" / "agents" / "my-reviewer.yaml")
+            except OSError:
+                other = None
+        if other is None:
+            ctx.check("this box can make a second spelling of one path", False)
+            return
+        got = session_tool._items([other], had)
+        ctx.check(f"the same file by another spelling ({other!r}) is not added, got {got}",
+                  got == [{"kind": "agent", "name": "my-reviewer", "added": False}])
+        got = session_tool._items([str(d / "real" / "agents" / "new-one.yaml")], had)
+        ctx.check(f"a file not there before is added, got {got}",
+                  got == [{"kind": "agent", "name": "new-one", "added": True}])
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

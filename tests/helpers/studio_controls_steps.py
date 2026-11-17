@@ -268,6 +268,10 @@ def none_uses(c, rig, t) -> dict:
     out = {"api": rig.api("GET", "crew/maps")[1].get("next_none")}
     to_map(c, rig, "starter")
     out["off"] = c.js(read)
+    # P8 batch 2: the space between the switch (its label: the button and its words) and the 'no map' sentence (with
+    # roles off the words ran into the sentence, 0 px)
+    out["gap"] = c.js(f"(() => {{ const s = {t('map-uses')}?.closest('label'), w = {t('map-uses-none')}; if (!s || !w) return null; "
+                      "return Math.round(w.getBoundingClientRect().left - s.getBoundingClientRect().right); })()")
     if out["off"][0]:
         c.js(f"{t('map-uses')}.click(); 1")
         out["pressed"] = until(c, read, [False, "", "", "New sessions run on starter (the default)."], 20)

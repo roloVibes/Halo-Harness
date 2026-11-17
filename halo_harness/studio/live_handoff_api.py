@@ -59,8 +59,19 @@ def target_words(target: dict) -> str:
         return name
     roots = [str((s.get("project") or {}).get("root") or "") for s in target.get("sessions") or [] if isinstance(s, dict)
              and isinstance(s.get("project"), dict)]
-    folder = next((PurePath(r.replace("\\", "/")).name for r in roots if r), "")
+    folder = next((_folder_word(r) for r in roots if r), "")
     return f"another harness, in the folder {folder}" if folder else "another harness"
+
+
+def _folder_word(root: str) -> str:
+    """A project folder by its LAST part only; a home folder (`/home/<name>`, `/Users/<name>`, `C:\\Users\\<name>`,
+    `/root`) reads `~`: its last part is an account name (P8 batch 2)."""
+    parts = [p for p in root.replace("\\", "/").split("/") if p]
+    if parts and re.fullmatch(r"[A-Za-z]:", parts[0]):
+        parts = parts[1:]
+    if parts == ["root"] or (len(parts) == 2 and parts[0].lower() in ("home", "users")):
+        return "~"
+    return PurePath("/".join(parts)).name if parts else ""
 
 
 def post_handoff(req):

@@ -13,7 +13,7 @@
 /* a set width, not its longest map name: the list landing must not move the bar (Run a goal moved 94 px out from under a click) */
 .mp-picker select { min-height: 32px; width: 240px; max-width: 100%; text-overflow: ellipsis; }
 .mp-new .input { min-height: 32px; width: 180px; max-width: 100%; }
-.mp-uses-slot { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; } /* P4 batch 12: a share of the free room, never wraps the bar */
+.mp-uses-slot { flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; gap: var(--s-2); } /* P4 batch 12: a share of the free room, never wraps the bar */
 /* P8 repair: the slot has the bar's free room to itself (the spacer gives it up): the default sentence wraps whole in it
    and takes one or two lines of the bar's row at the Map's usual widths, so the open map landing moves nothing */
 .mp-bar > .spacer { flex: 0 0 0; }

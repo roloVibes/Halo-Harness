@@ -5,6 +5,7 @@ fakes.BUILD_CHANGES); then, each assert alone, every one reported as '(n) what a
 
   (1) the card in the terminal says what it builds, word for word (R37's first row, the create row, the use row with
       the one sentence S13 and the terminal's tail), the use row is ticked, and Enter applies it
+      (Tab first while the card waits: the card rules)
   (2) Studio, untouched: the word `new` on Session's Live button within 5 s of the outcome reaching the page (Windows:
       5-10 s logged slow, past 10 fails), in a slot that was there before; no drawer opened, no section changed,
       nothing popped up; which path carried it (the builder_done frame or the status row's `built`) is logged
@@ -32,7 +33,7 @@ from realcheck.steps_b import WATCH
 S13 = "This session keeps running on starter (the default), as it started. Start a new session to run on review-flow."
 R37_ROW = "Your review workflow: the workflow review (coder, then reviewer), run from a box on the new map review-flow."
 CREATE_ROW = "Make a new map review-flow"
-USE_ROW = ("New sessions run on review-flow. " + S13 + " In the terminal: quit and run halo again; /clear keeps starter "
+USE_ROW = ("New sessions run on review-flow. " + S13 + " In the terminal: quit, then run halo; /clear keeps starter "
            "(the default).")
 L2 = "runs on starter (the default), as it started; new sessions run on this map."
 WORD_S, WORD_WINDOWS_S = 5.0, 10.0  # the word `new` after the outcome reached the page (Windows: 5-10 s is slow)
@@ -193,8 +194,39 @@ def _card(t, ev: dict, bad: list) -> float:
         bad.append(f"(1) the card lacks {', '.join(missing) or 'nothing'}"
                    + ("" if ticked else "; the use row is not ticked inside the Apply question")
                    + ": " + excerpt(seen[h.start():] if h else seen, 160))
-    t.write(b"\r")
+    ev["card"]["key"] = _answer(t, mark)
     return time.monotonic()
+
+
+# the line above the box while a card waits (tui/widgets/cards.py WAIT_LINE / WAIT_LINE_SHORT, and the held box's
+# placeholder HELD_PLACEHOLDER): "⏸ Question waits ... Tab goes to it", "Tab: go to the waiting card"
+CARD_WAITS = re.compile(r"⏸\w+waits|Tab:gotothewaitingcard")  # read in _flat text: a redraw splits only spaces
+
+
+def _answer(t, mark: int) -> str:
+    """Apply the card the way a person does under the card rules (tui/card_focus.py): a card shown within
+    CARD_WAIT_S of a key into the box WAITS (its line above the box says so) and Enter in the box never answers it,
+    so he presses Tab, then the card's key; a card that took the focus answers its key at once. A card answers no key
+    in its first CARD_FRESH_S on screen, so the key comes after that. Which way it went is returned for the evidence."""
+    from halo_harness.tui.keys import CARD_FRESH_S
+    seen_at = time.monotonic()
+    # the focus is decided right after the card shows (card_focus.decide, through call_later): its wait line is drawn
+    # in the next redraw, well inside the card's first moments plus a second even on a slow runner
+    waited = t.wait_for(lambda s: CARD_WAITS.search(_flat(s[mark:])) is not None
+                        and time.monotonic() - seen_at > CARD_FRESH_S + 0.2, CARD_FRESH_S + 1.2)
+    rest = CARD_FRESH_S + 0.2 - (time.monotonic() - seen_at)
+    if rest > 0:  # the card's first moments (a rule's time, not a redraw): a key now would answer nothing
+        time.sleep(rest)
+    if not waited:
+        t.write(b"\r")
+        return "Enter: the card had the focus"
+    at = len(t.plain())
+    t.write(b"\t")
+    # the Tab turns to the card (K7): the wait line is taken down in a redraw; the key goes after that redraw
+    turned = t.wait_for(lambda s: len(s) > at, 5)
+    t.write(b"\r")
+    return "Tab, then Enter: the card waited (its line was above the box)" + ("" if turned else
+                                                                              "; no redraw after the Tab in 5 s")
 
 
 # the card's question, in _flat text: section 4 "Builder: apply these {n} changes?" (the base: "Apply these N ...")
@@ -235,6 +267,7 @@ AFTER = f"""(() => {{ const b = {BTN}; const rects = {{}};
 
 def _word(c, before: dict, applied: float, ev: dict, bad: list) -> None:
     got = _wait(c, "window.__rcb && (window.__rcb.frame || window.__rcb.row)", 30) if applied else None
+    ev["apply_to_page_s"] = round(time.monotonic() - applied, 1) if got else None  # evidence: the key to the page
     rcb = c.js("window.__rcb") or {}
     t0 = min([x for x in (rcb.get("frame"), rcb.get("row")) if x] or [0])
     path = "none" if not got else ("frame" if t0 == rcb.get("frame") else "row")
@@ -434,11 +467,18 @@ def _note(ctx, t, ev: dict, bad: list) -> None:
                     else f"the Builder result lacks {lacks[0]}")
     if re.search("restart", result, re.I):
         says.append("the Builder result offers a restart")
+    # what the person reads in the terminal: the agent's reply to the build, and in it the one sentence S13
+    if not ev.get("build_reply"):
+        says.append(f"the terminal never showed the agent's reply {fakes.MAPBUILD_DONE} in 30 s")
+    elif not ev["note"]["screen_answer"]:
+        says.append(f"the terminal's reply {fakes.MAPBUILD_DONE} does not say S13")
     if says:
         bad.append("(5) " + "; ".join(says))
 
 
 # -- (6) turns hold the drawer ------------------------------------------------------------------------------------------
+# the page's reads of the fleet (tests/helpers/studio_session_map_down.FLEET_READS): "after a turn" is after the next one
+FLEET_READS = "performance.getEntriesByType('resource').filter((e) => /\\/api\\/live(\\?|$)/.test(e.name)).length"
 SAMPLE = f"""(() => {{ const truth = {Q}('[data-testid=session-truth]'), m = {Q}('[data-testid=session-lit-map]');
   const sc = m && m.querySelector('.mp-mini-scroll'), main = m && m.querySelector('[data-testid=session-lit-box][data-box=main]');
   const d = {Q}('.stage-drawer[data-panel-in=session-map]');
@@ -471,10 +511,12 @@ def _turns(ctx, t, c, ev: dict, bad: list) -> None:
     first_bad = None if s0.get("map") and s0.get("truth") is not None else s0
     for n, words in ((2, "RC-ASK turn two"), (3, "RC-ASK turn three")):
         mark = _say(t, words)
-        time.sleep(0.3)
+        # while the turn runs: its request has reached the provider (the event, not a fixed sleep)
+        t.wait_for(lambda s: len(ctx.provider.requests_with(words)) > 0, 30)
         during = sample(f"during {n}")
-        t.wait_for(lambda s: len(ctx.provider.requests_with(words)) > 0 and fakes.ANSWER in s[mark:], 30)
-        time.sleep(1.5)  # a fleet read lands
+        t.wait_for(lambda s: fakes.ANSWER in s[mark:], 30)
+        reads = c.js(FLEET_READS) or 0
+        ev.setdefault("fleet_read_after", []).append(_wait(c, f"{FLEET_READS} > {reads}", 15))  # a fleet read lands
         after = sample(f"after {n}")
         for s in (during, after):
             if first_bad is None and not _same(s0, s):
