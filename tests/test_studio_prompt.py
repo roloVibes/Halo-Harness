@@ -242,7 +242,9 @@ def test_change_session_list_and_moved_line(ctx: Ctx):
     _held(ctx, "during -> after the line", ch.get("during") or {}, ch.get("after") or {})
     lg = ch.get("long") or {}
     ctx.check(f"a title past two lines: the short line, got {lg.get('line')!r}", lg.get("line") == f"Now typing into {folder}.")
-    # (before is another session's header, its own title's height: the line keeps the height of the session it names)
+    # both sessions carry the same long title here, so before (the other one's header) has the same height too; a title
+    # past two lines makes the header taller than two lines (never cut, the decisions' J1 M3), the same for both
+    _held(ctx, "long title: before -> during", lg.get("before") or {}, lg.get("during") or {})
     _held(ctx, "long title: during -> after", lg.get("during") or {}, lg.get("after") or {})
 
 

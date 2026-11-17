@@ -151,6 +151,19 @@ export function followerOf<R extends SessionRow>(rows: R[], pick: string): R | n
 /** P31: the pick `sid` took over from by `follows` ("" when it was picked any other way). */
 export const followedFrom = (sid: string): string => heirs.get(sid) || "";
 
+let listChose = ""; // P28: the pick `Change session` just set (P29's line is for every other change)
+/** P28: `Change session` chose `sid` while `pick` is picked. The session already picked changes nothing, so it is not
+ *  remembered (else a later move back to it by the Map or `/studio` would pass for the list's and show no line). */
+export function choseInList(sid: string, pick: string): void {
+  listChose = sid === pick ? "" : sid;
+}
+/** P29: did the list set this new pick? Asked once per change of pick; the answer is used up either way. */
+export function tookFromList(pick: string): boolean {
+  const chose = !!pick && listChose === pick;
+  listChose = "";
+  return chose;
+}
+
 /** What the truth sentence knows of an open row (P2's status row fields); never `busy` for the words. */
 export function factsOf(row: SessionRow, ended: number | null = null, now = Date.now() / 1000): TruthFacts {
   const asked = !!row.asked || !!Number(row.turns);

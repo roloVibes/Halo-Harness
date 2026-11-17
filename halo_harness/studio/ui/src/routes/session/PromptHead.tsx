@@ -9,13 +9,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../../lib/ui";
 import { NoTerminal } from "./NewSession";
-import { followedFrom } from "./pick";
+import { choseInList, followedFrom, tookFromList } from "./pick";
 import { openSession } from "./store";
 import type { SessionRow } from "../fleet/types";
 import { CHANGE_SESSION, followLine, headParts, LINE_MS, movedLine, NO_TERMINAL } from "./promptWords";
 
 const TWO_LINES = 32; // px: the words' two lines (styles/prompt.css .spp-words)
-let listChose = ""; // P28: the pick the list just set (P29's line is for every other change)
 
 function Words({ row, now }: { row: SessionRow; now: number }) {
   const p = headParts(row, now);
@@ -42,7 +41,7 @@ function SessionList({ rows, pick, onDone }: { rows: SessionRow[]; pick: string;
   const now = Date.now();
   const newest = [...rows].sort((a, b) => (Number(b.started) || 0) - (Number(a.started) || 0) || (a.session_id < b.session_id ? -1 : 1));
   const choose = (sid: string) => {
-    listChose = sid;
+    choseInList(sid, pick);
     onDone();
     openSession({ session: sid });
   };
@@ -70,8 +69,7 @@ export function PromptHead({ row, pick, rows, state }: { row: SessionRow | null;
   useEffect(() => {
     const before = was.current;
     was.current = pick;
-    const chose = listChose === pick;
-    if (chose) listChose = "";
+    const chose = tookFromList(pick);
     if (!before || !pick || before === pick || chose || !row || row.session_id !== pick) return void setLine(null);
     setShort(false);
     setFit(words.current?.clientHeight || 0);

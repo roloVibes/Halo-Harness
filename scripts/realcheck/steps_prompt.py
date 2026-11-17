@@ -4,13 +4,15 @@ in one scratch home; Studio is called over HTTP the way its page calls it (the t
 private studio.json: studio/launch.api_call). No browser. Each assert alone, as '(n) what a person saw':
 
   (1) a prompt sent the way Studio's Prompt sends it shows ONCE in the terminal: its own `❯` row and no grey copy
-      (`(from Studio) prompt:` or `(remote) prompt:`; the session's title, made from the same words, is no copy), and
+      (`(from Studio) prompt:` or `(remote) prompt:`; the session's title, made from the same words, is no copy), the
+      model gets it once (one call, one user message: the bytes cannot count rows, Textual repaints them), and
       the answer is drawn after it
       (Textual paints only the rows in view: the answer drawn means the view followed it to the bottom)
   (2) `/model or:realcheck/two` sent from Studio switches the model: the answer is `ran: true` with `Model set to`,
       and the terminal draws the line's row and the new model
   (3) a permission ask answered from Studio: the terminal's card reads `Answered in Studio: Allow`, the key that
-      closes it (Enter) sends nothing to the model, and `RC-ASK next` typed next runs as a turn (that the card stays
+      closes it (Enter) sends nothing to the model, and `RC-ASK next` typed next runs as a turn: the model gets it,
+      then the answer is drawn (never the screen alone, an earlier answer is repainted after the mark) (that the card stays
       until that key is P5's tests/test_prompt_one_terminal.py: a stream of bytes shows what was drawn, not what stays)
   (4) neither the session's log nor the screen holds the machine's user name or host name (the rig's own paths taken
       out first)
@@ -61,6 +63,22 @@ def _since(t, mark: int) -> str:
     return t.plain()[mark:]
 
 
+def _user_messages_with(ctx, marker: str) -> list:
+    """Per model call that carries `marker`: how many of its user messages say it."""
+    return [sum(1 for m in (r.get("body") or {}).get("messages") or []
+                if isinstance(m, dict) and m.get("role") == "user" and marker in fakes._text(m.get("content")))
+            for r in ctx.provider.requests_with(marker)]
+
+
+def _turn_ran(ctx, t, marker: str, calls: int, mark: int, timeout: float) -> bool:
+    """A turn ran: the model got `calls` calls carrying `marker`, and the answer is drawn after `mark`. The model's
+    calls first, never the screen alone: Textual repaints rows already on screen (the box changing size redraws the
+    view), so an earlier answer shows up again in the bytes after a mark before the turn has even started."""
+    if not wait_until(lambda: len(ctx.provider.requests_with(marker)) >= calls, timeout, 0.1):
+        return False
+    return t.wait_for(lambda s: fakes.ANSWER in s[mark:], 15)
+
+
 # -- (1) one row ------------------------------------------------------------------------------------------------------
 def _once(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
     mark = len(t.plain())
@@ -69,10 +87,15 @@ def _once(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
     seen = _since(t, mark)
     drawn = len(re.findall(re.escape(TEXT), seen))
     rows = len(re.findall(r"❯\s*" + re.escape(TEXT), seen))
+    # ONCE: a byte stream holds every repaint of the row (Textual redraws a region when the box or the view changes),
+    # so the rows drawn are not counted; what the turn was given is: one model call, one user message with the text
+    sent = _user_messages_with(ctx, TEXT)
     ev["once"] = {"status": status, "taken": (ans.get("result") or {}).get("taken") if isinstance(ans, dict) else None,
-                  "drawn": drawn, "rows": rows, "answered": answered}
+                  "drawn": drawn, "rows": rows, "answered": answered, "sent": sent}
     if status != 200:
         bad.append(f"(1) Studio's submit answered {status}: {str(ans)[:160]}")
+    elif sent != [1]:
+        bad.append(f"(1) the prompt sent from Studio did not reach the model once (user messages with it, per call: {sent})")
     elif not rows:
         bad.append("(1) the prompt sent from Studio has no `❯` row on the terminal: " + excerpt(seen, 200))
     elif re.search(r"\((from Studio|remote)\)\s*prompt:", seen):  # the second, grey copy of 3.6.0.1 and before
@@ -115,7 +138,7 @@ def _ask(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
                                  "client_id": "rc-" + uuid.uuid4().hex})
     out["status"] = status
     out["line"] = t.wait_for(lambda s: "Answered in Studio: Allow" in s[mark:], 15)
-    out["answered"] = t.wait_for(lambda s: fakes.ANSWER in s[mark:], 30)
+    out["answered"] = _turn_ran(ctx, t, "RC-PERM", 2, mark, 30)  # the tool call, then the answer after the allow
     out["turn_done"] = t.wait_for(lambda s: re.search(r"done · \d", s[mark:]) is not None, 15)  # the turn's end row
     seen = _since(t, mark)
     if status != 200 or not out["line"]:
@@ -131,10 +154,10 @@ def _ask(ctx, h, t, sid: str, ev: dict, bad: list) -> None:
     t.type("RC-ASK next")
     time.sleep(1.0)  # past a card's first 0.6 s, as a person types
     t.write(b"\r")
-    out["next"] = bool(t.wait_for(lambda s: fakes.ANSWER in s[mark:], 20) and ctx.provider.requests_with("RC-ASK next"))
+    out["next"] = _turn_ran(ctx, t, "RC-ASK next", 1, mark, 20)
     if not out["next"]:  # evidence only: does a second Enter send it (the first one used up)?
         t.write(b"\r")
-        out["second_enter_sent"] = bool(t.wait_for(lambda s: fakes.ANSWER in s[mark:], 10) and ctx.provider.requests_with("RC-ASK next"))
+        out["second_enter_sent"] = _turn_ran(ctx, t, "RC-ASK next", 1, mark, 10)
         out["screen"] = excerpt(_since(t, mark), 1500)
     if not out["next"]:
         bad.append("(3) `RC-ASK next` typed after the card did not run as a turn: " + excerpt(_since(t, mark), 200))

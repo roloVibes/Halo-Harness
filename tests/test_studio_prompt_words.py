@@ -232,6 +232,30 @@ def test_follows_moves_the_pick(ctx: Ctx):
     ctx.check(f"a pick this page never saw listed is followed too, got {got.get('unseen')!r}", got.get("unseen") == "G")
 
 
+JS_LIST = """
+const m = await import(%s);
+const out = {};
+m.choseInList("B", "A"); out.list_moved = m.tookFromList("B");
+m.choseInList("A", "A"); out.same_then_away = m.tookFromList("B"); out.back_by_map = m.tookFromList("A");
+m.choseInList("C", "A"); out.other_change_first = m.tookFromList("D"); out.then_C = m.tookFromList("C");
+console.log(JSON.stringify(out));
+"""
+
+
+@test
+def test_choosing_the_current_session_leaves_no_mark(ctx: Ctx):
+    """P28/P29 (the checker of batch 2): choosing the session already picked in `Change session` changes nothing, so
+    a later move back to it by the Map or `/studio` still shows `Now typing into ...`."""
+    from tests.helpers import node_ts
+    got = node_ts.run(JS_LIST % json.dumps(PICK.resolve().as_uri())) or {}
+    ctx.check(f"the list's own move shows no line, got {got.get('list_moved')!r}", got.get("list_moved") is True)
+    ctx.check(f"a move away after choosing the current one is not the list's, got {got.get('same_then_away')!r}",
+              got.get("same_then_away") is False)
+    ctx.check(f"back to it by the Map: the line shows, got {got.get('back_by_map')!r}", got.get("back_by_map") is False)
+    ctx.check(f"a change the list did not make uses the mark up, got {got.get('other_change_first')!r} then {got.get('then_C')!r}",
+              got.get("other_change_first") is False and got.get("then_C") is False)
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)
