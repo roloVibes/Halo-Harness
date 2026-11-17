@@ -11,19 +11,25 @@
 //   `under:` page (RunRows.tsx KidRows; the drawing says where the Feed is: `RunCtx.under`);
 // - J / K: step the selection (the step-in card, `data-selected`) from box to box in drawing order, as a click does;
 //   never while a text box (the card's Steer field) has the focus.
+// - the wait (batch 13's repair, runWait.tsx): the clock also runs while a box or row waits ("waiting for you · 12 s").
 import { createContext, useContext, useEffect, useMemo, type KeyboardEvent, type RefObject } from "react";
 import { studio, useStore } from "../../../lib/store";
 import { live, useLive } from "../../shared/liveFeed";
 import { useTalks } from "../../shared/liveTalk";
 import { startLiveTree } from "../../shared/liveTree";
 import { useAgentsView } from "../../agents/store";
-import { secsWords } from "../live/waits";
+import { secsWords, type Wait } from "../live/waits";
 import { lineKey, type Overlay } from "./overlay";
 import { talkPulses, type TalkPulse } from "./talkPulse";
-import { toolClock } from "./truthBits";
+import { toolClock, waitClock } from "./truthBits";
 
-/** What the parts of one drawing read: its agents' keys by id, its clock (`now`, seconds) and its Feed door. */
-export type RunParts = { keys: Map<string, string>; now: number; under: (aid: string) => void };
+/** The run's wait (runWait.tsx): `waits` by agent id; `leaf`: the agent the session waits on; `box`: the drawn box
+ *  holding it; `link`: 3.6.0.0's words for it. */
+export type RunWait = { waits: Map<string, Wait>; leaf: string; box: string; link: string };
+export const NO_WAIT: RunWait = { waits: new Map(), leaf: "", box: "", link: "" };
+
+/** What the parts of one drawing read: its agents' keys by id, its clock (`now`, seconds), its Feed door, its wait. */
+export type RunParts = { keys: Map<string, string>; now: number; under: (aid: string) => void; wait: RunWait };
 export const RunCtx = createContext<RunParts | null>(null);
 
 /** The drawing is on screen: Session's drawer while Session is the section; 4 · Live while Agents shows Live. */
@@ -34,23 +40,29 @@ export function useShown(where: "session" | "live"): boolean {
 }
 
 /** The parts' context for one drawing (`agents`: the session's agents, id -> feed key). */
-export function useRunParts(agents: { id: string; key: string }[], now: number, under: (aid: string) => void): RunParts {
+export function useRunParts(agents: { id: string; key: string }[], now: number, under: (aid: string) => void, wait: RunWait = NO_WAIT): RunParts {
   useEffect(() => startLiveTree(), []); // the feed's open tools and its TALK frames
   const keys = useMemo(() => new Map(agents.map((a) => [a.id, a.key])), [agents]);
-  return useMemo(() => ({ keys, now, under }), [keys, now]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => ({ keys, now, under, wait }), [keys, now, wait]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/** The tool clock of the agents `aids` while `on` (the box or row works): its row is kept while it works, the tool and
- *  its seconds when one is open. */
+const WAIT_WHAT = (w: Wait): string => (w.kind === "you" ? "you" : w.kind === "model" ? "a model reply" : w.what);
+
+/** The tool clock of the agents `aids` while `on` (the box or row works or waits): its row is kept while it does, the
+ *  tool and its seconds when one is open, else what it waits for and since when (runWait.tsx; 3.6.0.0's clock ran for a
+ *  working or a waiting box). */
 export function ToolClock({ aids, on }: { aids: string[]; on: boolean }) {
   const P = useContext(RunCtx);
   const open = useLive((s) => s.open);
   if (!P || !on) return null;
   const t = aids.map((id) => open[P.keys.get(id) || ""]).find(Boolean);
-  const secs = t ? secsWords(t.t0, P.now * 1000) : "";
+  const w = t ? undefined : aids.map((id) => P.wait.waits.get(id)).find((x) => !!x?.since && x.kind !== "nothing");
+  const secs = t ? secsWords(t.t0, P.now * 1000) : w ? secsWords(w.since, P.now * 1000) : "";
+  const say = (s: string) => (t ? toolClock(t.tool, s) : w ? waitClock(WAIT_WHAT(w), s) : "");
   return (
-    <span className="mp-lit-row mono mp-clock" data-testid="run-clock" data-tool={t?.tool || undefined} title={t ? toolClock(t.tool, secs) : undefined}>
-      {t ? <>{toolClock(t.tool, "")}<span className="mp-clock-secs" data-testid="run-clock-secs">{secs}</span></> : " "}
+    <span className="mp-lit-row mono mp-clock" data-testid="run-clock" data-tool={t?.tool || undefined} data-wait={w?.kind}
+          title={t || w ? say(secs) : undefined}>
+      {t || w ? <>{say("")}<span className="mp-clock-secs" data-testid="run-clock-secs">{secs}</span></> : " "}
     </span>
   );
 }

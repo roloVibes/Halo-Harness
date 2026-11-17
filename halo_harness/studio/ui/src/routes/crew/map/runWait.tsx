@@ -1,0 +1,65 @@
+// The wait of a run, on BOTH run drawings (P4 batch 13's repair; the coordinator's ruling: nothing a person could see of a
+// run in 3.6.0.1 is lost). As 3.6.0.0's lit Map computed them (crew/live/waits.ts, useWaits.ts, narrate.ts): each agent's
+// wait and the waiting path, from the session's record and the feed, while the drawing is shown (a hidden drawing leaves
+// the waits' store alone), for
+// - the outline: the box the whole session waits on -- the end of the waiting path, so also a box whose agent or row
+//   waits on a tool, a model reply or a helper, not only one waiting on you -- carries `data-waited` (DownBox.tsx);
+// - the wait link: 3.6.0.0's words for it ("waiting on: tester -> Bash pytest -q", "waiting on you: ...") in the drawing's
+//   own fixed slot (Session: the bottom slot; Live: the tools row), so it moves nothing; a press brings that box into
+//   view and picks it as a click does (its card opens);
+// - the clock of a waiting box or row (runParts.tsx ToolClock): what it waits for and for how long.
+import { useContext, useMemo, type RefObject } from "react";
+import { useSessionRecord } from "../../../lib/work/record";
+import { fleet } from "../../fleet/store";
+import { liveNodes, type LiveNode } from "../live/liveModel";
+import { narrate } from "../live/narrate";
+import { useWaits } from "../live/useWaits";
+import type { Overlay } from "./overlay";
+import { NO_WAIT, RunCtx, type RunWait } from "./runParts";
+import { boxOfAgent } from "./talkPulse";
+
+const NO_NODES: LiveNode[] = [];
+
+/** 3.6.0.0's wait in the sentence: from "waiting on" to the next ";" ("" when the sentence names none). */
+export function waitPart(head: string): string {
+  const at = head.indexOf("waiting on");
+  if (at < 0) return "";
+  const end = head.indexOf(";", at);
+  return head.slice(at, end < 0 ? undefined : end);
+}
+
+/** The run's wait for session `sid` drawn as `ov`, at `now` (seconds), computed only while `on` (the drawing is shown). */
+export function useRunWait(sid: string, ov: Overlay | null, now: number, on: boolean): RunWait {
+  const rec = useSessionRecord(on ? sid : "");
+  const nodes = useMemo(() => (rec && on ? liveNodes(rec, fleet.get(), now * 1000) : NO_NODES), [rec, now, on]);
+  const { waits, path } = useWaits(nodes, now * 1000, on);
+  return useMemo(() => {
+    const leaf = path.leaf?.id || "";
+    if (!on || !leaf || !ov) return on ? { ...NO_WAIT, waits } : NO_WAIT;
+    const box = boxOfAgent(ov, true).get(leaf) || "";
+    return { waits, leaf, box, link: waitPart(narrate(nodes, waits, path, () => "").head) };
+  }, [waits, path, nodes, ov, on]);
+}
+
+/** The drawn box (or made-up helper's box) the session waits on, in `world`. */
+export function waitedBox(world: HTMLElement | null, w: RunWait): HTMLElement | null {
+  if (!world || !w.leaf) return null;
+  return world.querySelector<HTMLElement>(w.box ? `:scope > [data-box="${CSS.escape(w.box)}"]` : `:scope > [data-helper="${CSS.escape(w.leaf)}"]`);
+}
+
+/** The wait link: the box the session waits on, into view and picked as a click picks it. Nothing when nothing waits. */
+export function WaitLink({ world }: { world: RefObject<HTMLElement | null> }) {
+  const w = useContext(RunCtx)?.wait;
+  if (!w?.link) return null;
+  const show = () => {
+    const el = waitedBox(world.current, w);
+    if (!el) return;
+    if (!el.hasAttribute("data-selected")) el.click();
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    el.focus({ preventScroll: true });
+  };
+  return (
+    <button type="button" className="mp-link mp-wait-link" onClick={show} data-testid="run-wait" data-leaf={w.leaf}
+            title={`${w.link}\nBring the box it waits on into view, and open it`}>{w.link}</button>
+  );
+}

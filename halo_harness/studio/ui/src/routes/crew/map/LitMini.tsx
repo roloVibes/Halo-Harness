@@ -80,7 +80,7 @@ export function LitFace({ b, ov, sid, tag }: { b: DrawBox; ov: Overlay | null; s
       <b className="mp-name">{b.name}</b>
       {tag && <NewTag text={tag} />}
       <span className="mp-lit-row mono" data-state={st}>{b.main ? "main" : b.kind} · {STATE_WORDS[st]}{doing ? ` · ${doing}` : ""}</span>
-      <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={st === "working" && !b.helper} />
+      <ToolClock aids={b.main ? ["main"] : ov?.boxes[b.id]?.agents || []} on={(st === "working" || st === "waiting") && !b.helper} />
       <KidRows kids={ov?.kids[b.id] || []} sid={sid} sender={b.id} />
     </span>
   );

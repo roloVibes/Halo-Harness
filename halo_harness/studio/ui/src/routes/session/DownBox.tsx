@@ -3,15 +3,17 @@
 // model; its state; "Starts when: {When} (from {source})", one row per line feeding it; its children; "Built {t} in this
 // session" when the build tagged it), click = the step-in card (R18: on a step row its tagged child, on a block's head
 // the running step's, else the box's live rows). No When label is drawn on Session's lines (R44): the When is here.
-// P4 batch 13: every box takes the focus (J / K step through them, runParts.tsx; Enter opens its card); a box that waits
-// on him carries the 3.6.0.0 outline (`data-waited`).
-import type { MouseEvent } from "react";
+// P4 batch 13: every box takes the focus (J / K step through them, runParts.tsx; Enter opens its card); the 3.6.0.0
+// outline (`data-waited`) is on a box that waits on him and on the box the whole session waits on, the end of the waiting
+// path, whatever it waits for (runWait.tsx; batch 13's repair).
+import { useContext, type MouseEvent } from "react";
 import { useHover } from "../../lib/hover/useHover";
 import { STATE_WORDS } from "../crew/map/LitBits";
 import { LitFace, litState, type Lit } from "../crew/map/LitMini";
 import type { PlacedDown, RoutedDown } from "../crew/map/layoutDown";
 import { whenWords } from "../crew/map/mapTypes";
 import { kidText } from "../crew/map/RunRows";
+import { RunCtx } from "../crew/map/runParts";
 import type { BoxState } from "../crew/map/overlay";
 import type { Hit } from "../crew/map/stepInTarget";
 import { hoverLines, newTag, stepRow } from "../crew/map/truth";
@@ -39,6 +41,8 @@ function lines(b: PlacedDown, L: Lit, feeding: RoutedDown[], built: number | nul
 
 export function DownBox({ b, L, sid, lines: all, built = null, pick, live, sel }: Props) {
   const { st, helper } = litState(b, L.ov);
+  const w = useContext(RunCtx)?.wait;
+  const waited = !L.unlit && (st === "waiting" || (!!w?.leaf && (w.box ? w.box === b.id : helper === w.leaf)));
   const hv = useHover("map", `${sid}:${b.id}`, () => (
     <div className="mp-hover" data-testid="session-map-hover">
       {lines(b, L, all.filter((l) => l.to === b.id), built).map((x, i) => (
@@ -59,7 +63,7 @@ export function DownBox({ b, L, sid, lines: all, built = null, pick, live, sel }
   return (
     <div className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit={L.unlit ? undefined : "live"} data-state={st} data-helper={helper} data-kind={b.kind}
          data-new={b.isNew || built ? "" : undefined} data-workflow={b.block?.workflow} data-selected={sel ? "" : undefined}
-         data-waited={!L.unlit && st === "waiting" ? "" : undefined}
+         data-waited={waited ? "" : undefined}
          data-testid={live ? (loose ? "live-block" : "live-box") : loose ? "session-map-block" : "session-lit-box"} data-box={b.id} data-map-box={live ? b.id : undefined} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}
          tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) (e.preventDefault(), e.currentTarget.click()); }}>

@@ -29,6 +29,9 @@ export const madeUpRow = (task: string, state: string): string => `made up: ${ta
 export const moreRows = (n: number): string => `+${n} under it`;
 /** P4 batch 13: the tool clock of a working box or row -- the tool it is in and for how long ("Bash · 12 s"). */
 export const toolClock = (tool: string, secs: string): string => `${tool} · ${secs}`;
+/** P4 batch 13's repair: the clock of a waiting box or row -- what it waits for, in the status line's words (`you`,
+ *  `a model reply`, an agent's name), and for how long ("waiting for you · 12 s"). */
+export const waitClock = (what: string, secs: string): string => `waiting for ${what} · ${secs}`;
 
 /** R16 a trace's hover: the hand-offs it carried, the last one's time and few words. */
 export const traceHover = (n: number, t: number, words: string): string =>

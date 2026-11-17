@@ -18,6 +18,11 @@
 :is(.mp-down, .ag-run) .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
 /* R11 R12: the "↓ {n} more below" slot, at a fixed height at the drawer's bottom, there whether it says something or not */
 .mp-down-below { flex: 0 0 32px; height: 32px; display: flex; align-items: center; min-width: 0; }
+/* batch 13's repair: the wait link sits in a fixed slot (Session: after "more below", at the right; Live: at the left of
+   the tools row), one line: it never moves a control or the drawing; its whole words are its title */
+:is(.mp-down-below, .ag-run-tools) .mp-wait-link { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-down-below .mp-wait-link { margin-left: auto; }
+.ag-run-tools .mp-wait-link { margin-right: auto; }
 /* R7 R9 R10: a box is 184 px wide, 56 px for a name and "kind · state" (9 + 19 + 17 + 9 + borders), and grows with its
    words: no cap, no ellipsis, long words break anywhere */
 :is(.mp-down, .ag-run) .mp-box { padding: 9px 10px; overflow: visible; }

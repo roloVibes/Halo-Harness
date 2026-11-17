@@ -7,7 +7,10 @@ tests/helpers/studio_run_parts.py; skipped without Chrome; the Linux VM and CI o
 2. the talk pulse: main talking to the implementer lights the line main -> code, and no other;
 3. "+{n} under it": main's box draws three rows and counts the rest; a press opens 4 · Live's Feed on main's `under:` page;
 4. J / K step the selection from box to box in drawing order; J typed into the card's Steer field selects nothing;
-5. no interval the drawing started is left once it is hidden (Session: another section; Live: 3 · Map).
+5. no interval the drawing started is left once it is hidden (Session: another section; Live: 3 · Map);
+6. (batch 13's repair) the box the session waits on (the end of the waiting path: here a helper in a Bash call that main
+   handed work to) carries the 3.6.0.0 outline, and the drawing's wait link names it and picks it;
+7. a waiting row says what it waits for and for how long, ticking while nothing moves.
 Run: python -m tests.test_studio_run_parts
 """
 from __future__ import annotations
@@ -45,7 +48,7 @@ def test_tool_clock_ticks_and_nothing_moves(ctx: Ctx):
         secs = [int(m.group(1)) if (m := re.search(r"· (\d+) s$", str(r))) else -1 for r in reads]
         ctx.check(f"{w}: the helper's row says the tool it is in, got {x.get('tool')!r} {reads} ({x.get('error')})",
                   x.get("tool") == "Bash" and all(str(r).startswith("Bash · ") for r in reads))
-        ctx.check(f"{w}: its seconds grow between two reads 1.2 s apart, got {secs}", secs[0] >= 0 and secs[1] > secs[0])
+        ctx.check(f"{w}: its seconds grow (the second read waits for it, up to 15 s), got {secs}", secs[0] >= 0 and secs[1] > secs[0])
         ctx.check(f"{w}: no box of the drawing moved while it ticked, got {x.get('moved')}", x.get("moved") == [])
 
 
@@ -90,6 +93,32 @@ def test_no_clock_interval_outlives_the_drawing(ctx: Ctx):
         # the clock ticks once a second: a one-second interval started while it was shown and left once it is hidden is the
         # clock's (other parts of the page started while it was shown, e.g. the Attention chip's 5 s, are not the drawing's)
         ctx.check(f"{w}: hidden, no one-second interval it started is left, got {x.get('left')}", 1000 not in (x.get("left") or []))
+
+
+@test
+def test_the_box_waited_on_is_outlined_and_the_wait_link_picks_it(ctx: Ctx):
+    d = _got(ctx)
+    for w in BOTH:
+        x = _of(d, w, "wait")
+        ctx.check(f"{w}: main waiting on the implementer, which is in a Bash call, outlines the implementer's box (code) alone, "
+                  f"got {x.get('outlined')} ({x.get('error')})", x.get("outlined") == ["code"])
+        ctx.check(f"{w}: the drawing's wait link says 3.6.0.0's words and names the implementer, got {x.get('link')!r} "
+                  f"leaf {x.get('leaf')!r}", str(x.get("link")).startswith("waiting on: ") and "Bash pytest -q" in str(x.get("link"))
+                  and x.get("leaf") == x.get("helper"))
+        ctx.check(f"{w}: a press picks that box as a click does (selected, its card open), got {x.get('picked')}", x.get("picked") == ["code", True])
+
+
+@test
+def test_a_waiting_row_says_how_long_it_has_waited(ctx: Ctx):
+    d = _got(ctx)
+    for w in BOTH:
+        x = _of(d, w, "waited")
+        reads = x.get("reads") or ["", ""]
+        secs = [int(m.group(1)) if (m := re.search(r"· (\d+) s$", str(r))) else -1 for r in reads]
+        ctx.check(f"{w}: an asking helper's row says it waits for him, got {reads} {x.get('kind')!r} ({x.get('error')})",
+                  x.get("kind") == "you" and all(str(r).startswith("waiting for you · ") for r in reads))
+        ctx.check(f"{w}: its seconds grow (the second read waits for it, up to 15 s), got {secs}", secs[0] >= 0 and secs[1] > secs[0])
+        ctx.check(f"{w}: no box of the drawing moved while it ticked, got {x.get('moved')}", x.get("moved") == [])
 
 
 if __name__ == "__main__":

@@ -4,8 +4,8 @@ Chrome over tests/helpers/studio_session_rig.py and tests/helpers/studio_live_ri
 (tests/helpers/studio_map_live.py), five helpers made up under main. No model is called. For each drawing (`session`,
 `live`) every step is recorded on its own (`{where}.{step}.error` when it raised), so one missing part never hides another:
 
-    clock    a helper in a Bash call: its row says the tool and its seconds, which grow between two reads 1.2 s apart
-             while every box of the drawing keeps its rect (0.5 px)
+    clock    a helper in a Bash call: its row says the tool and its seconds, which grow (waited for, up to 15 s) while
+             every box of the drawing keeps its rect (0.5 px)
     talk     main talks to the implementer (box code): the line main -> code pulses (`data-talk`), and no other line
     jk       the focus in the drawing: J picks the first box in drawing order, J the next, K back; with the card's Steer
              field focused, J is typed and the selection stays
@@ -13,6 +13,10 @@ Chrome over tests/helpers/studio_session_rig.py and tests/helpers/studio_live_ri
              (at least one: its clock) are all cleared once it is hidden (Session: Agents opened; Live: 3 · Map)
     under    main's box draws three of its rows and says "+{n} under it" for the rest; a press opens 4 · Live's Feed on
              main's `under:` page
+    wait     (batch 13's repair) main hands work to the implementer, which is in a Bash call: the box holding it (code)
+             carries the 3.6.0.0 outline (`data-waited`), the drawing's wait link says "waiting on: ... -> Bash ..." and
+             a press picks that box (selected, its card open)
+    waited   a drawn helper asks and waits on him: its row says "waiting for you · {n} s", the seconds grow, no box moves
 
     python -m tests.helpers.studio_run_parts
 """
@@ -73,11 +77,72 @@ def clock(c, lv, where: str, n: int) -> dict:
         if now == last:
             break
         last = now
-    r0, s0 = c.js(rects(where)), c.js(f"{row}.querySelector('[data-testid=run-clock]').textContent")
-    time.sleep(1.2)
-    r1, s1 = c.js(rects(where)), c.js(f"{row}.querySelector('[data-testid=run-clock]').textContent")
-    moved = sorted(k for k in r0 if k in r1 and max(abs(a - b) for a, b in zip(r0[k], r1[k])) > 0.5)
+    s0, s1, moved = ticks(c, where, row)
     return {"tool": c.js(f"{row}.querySelector('[data-testid=run-clock]').dataset.tool"), "reads": [s0, s1], "moved": moved}
+
+
+def until(c, expr: str, want, timeout: float = 10):
+    """`expr`'s value once it equals `want` (waited for, so a slow runner only waits longer), else its last value."""
+    import json
+    try:
+        c.wait(f"JSON.stringify({expr}) === {json.dumps(json.dumps(want, separators=(',', ':')))}", timeout)
+    except Exception:
+        pass
+    return c.js(expr)
+
+
+def ticks(c, where: str, row: str) -> tuple:
+    """The row's clock read, then read again once its seconds have grown (waited for, up to 15 s: no wall-clock margin),
+    and the boxes of the drawing whose rect moved between the two reads (0.5 px)."""
+    text = f"{row}.querySelector('[data-testid=run-clock]').textContent"
+    secs = f"(+(({text}).match(/· (\\d+) s$/) || [0, -1])[1])"
+    r0, s0 = c.js(rects(where)), c.js(text)
+    n0 = c.js(secs)
+    try:
+        c.wait(f"{secs} > {n0}", 15)
+    except Exception:
+        pass
+    r1, s1 = c.js(rects(where)), c.js(text)
+    return s0, s1, sorted(k for k in r0 if k in r1 and max(abs(a - b) for a, b in zip(r0[k], r1[k])) > 0.5)
+
+
+def wait_link(c, lv, where: str) -> dict:
+    """main hands work to the implementer (an `Agent` call) which is in a Bash call: the session waits on the implementer,
+    so the box holding it (code) is outlined, and the drawing's wait link names it; a press picks that box."""
+    outlined = f"{boxes(where)}.filter((b) => b.hasAttribute('data-waited')).map((b) => b.dataset.box)"
+    link = f"document.querySelector('{ROOT[where]} [data-testid=run-wait]')"
+    out: dict = {"helper": lv.aid("implementer")}
+    try:
+        lv.tool("main", "Agent", f"call-{where}-agent")
+        lv.tool("implementer", "Bash", f"call-{where}-bash", current="pytest -q")
+        out["outlined"] = until(c, outlined, ["code"])
+        c.wait(f"{link}?.textContent", 10)
+        out.update({"link": c.js(f"{link}.textContent"), "leaf": c.js(f"{link}.dataset.leaf")})
+        c.js(f"{link}.click(); 1")
+        out["picked"] = until(c, f"[({q(where, '> [data-selected]')}?.dataset.box || ''), !!document.querySelector('{ROOT[where]} [data-testid=map-step-in]')]", ["code", True])
+    finally:
+        lv.result("main", f"call-{where}-agent", "done", tool="Agent")
+        lv.result("implementer", f"call-{where}-bash", "ok")
+        lv.state("implementer", current="thinking")
+    return out
+
+
+def waited(c, lv, where: str) -> dict:
+    """A drawn helper asks and waits on him: its row says what it waits for and for how long, and the seconds grow while
+    no box moves."""
+    mine = [h[0] for h in HELPERS]
+    shown = c.js(f"[...{q(where, '[data-box=main]')}.querySelectorAll('[data-row]:not([hidden])')].map((r) => r.dataset.row)")
+    aid = next(a for a in shown if a in mine)
+    name = lv.rows[aid]["name"]
+    row = q(where, f"[data-row={aid}]")
+    try:
+        lv.state(name, state="waiting")
+        lv.ask(name)
+        c.wait(f"{row}?.querySelector('[data-testid=run-clock-secs]')?.textContent", 10)
+        s0, s1, moved = ticks(c, where, row)
+        return {"reads": [s0, s1], "moved": moved, "kind": c.js(f"{row}.querySelector('[data-testid=run-clock]').dataset.wait || ''")}
+    finally:
+        lv.state(name, state="running")
 
 
 def talk(c, lv, where: str) -> dict:
@@ -94,16 +159,19 @@ def jk(c, where: str) -> dict:
                  + ").map((x) => x[0])")
     c.js(f"document.querySelector('{ROOT[where]} {SCROLL[where]}').focus(); 1")
     got = []
-    for ch in ("j", "j", "k"):
+    for ch, want in zip(("j", "j", "k"), (order[0], order[1], order[0])):
         key(c, ch)
-        time.sleep(0.3)
-        got.append(c.js(sel))
+        got.append(until(c, sel, want, 10))  # waited for: a slow runner only waits longer
     field = f"document.querySelector('{ROOT[where]} [data-testid=map-step-in] textarea, {ROOT[where]} [data-testid=map-step-in] input')"
     has = c.js(f"!!{field}")
     if has:
         c.js(f"{field}.focus(); 1")
         key(c, "j")
-        time.sleep(0.3)
+        try:
+            c.wait(f"{field}.value.includes('j')", 10)  # the key landed in the field; the selection is read after it
+        except Exception:
+            pass
+        time.sleep(1.0)
     return {"order": order[:3], "got": got, "field": has, "after_field": c.js(sel), "typed": c.js(f"{field}?.value || ''") if has else ""}
 
 
@@ -151,7 +219,9 @@ def drawing(c, rig, lv, where: str) -> dict:
     out: dict = {}
     for name, fn in (("clock", lambda: clock(c, lv, where, 1)), ("talk", lambda: talk(c, lv, where)), ("jk", lambda: jk(c, where)),
                      ("timers", lambda: (open_where(c, rig, lv, where), clock(c, lv, where, 2), timers(c, where))[2]),
-                     ("under", lambda: (open_where(c, rig, lv, where), under(c, where))[1])):
+                     ("under", lambda: (open_where(c, rig, lv, where), under(c, where))[1]),
+                     ("wait", lambda: (open_where(c, rig, lv, where), wait_link(c, lv, where))[1]),
+                     ("waited", lambda: (open_where(c, rig, lv, where), waited(c, lv, where))[1])):
         try:
             if name == "clock":
                 open_where(c, rig, lv, where)

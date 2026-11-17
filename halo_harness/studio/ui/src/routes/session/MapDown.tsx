@@ -17,7 +17,8 @@
 //   box: no room until a build lands, then the drawing moves down once and no control moves; Just built is drawn calm
 //   (no overlay); the boxes a build in this session wrote carry "new {t}" (built.ts tagOf).
 // - P4 batch 13 (crew/map/runParts.tsx, as Agents -> Live): the tool clock, the talk pulse, "+{n} under it" (the Feed is
-//   Agents -> Live's: it opens there on this session), J / K; its clock only while Session is on screen.
+//   Agents -> Live's: it opens there on this session), J / K; its clock only while Session is on screen; the box waited
+//   on outlined and the wait link in the bottom slot, after "more below" (runWait.tsx; batch 13's repair).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
@@ -30,6 +31,7 @@ import { useAskedBox } from "../crew/map/askBox";
 import { StepIn } from "../crew/map/StepIn";
 import { openFeed } from "../crew/map/feedOpen";
 import { RunCtx, useRunParts, useShown, useStepKeys, useTalkLines } from "../crew/map/runParts";
+import { useRunWait, WaitLink } from "../crew/map/runWait";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { moreBelow, openInAgents, readingMap, removedAt, type TruthFacts } from "../crew/map/truth";
@@ -138,7 +140,8 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
   };
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
   const gone = got && "removed" in got ? got.removed : 0;
-  const parts = useRunParts(L.agents, L.now || 0, (aid) => (openInLive(s.sid), openFeed(`under:${aid}`)));
+  const wait = useRunWait(s.sid, L.unlit ? null : ov, L.now || 0, on);
+  const parts = useRunParts(L.agents, L.now || 0, (aid) => (openInLive(s.sid), openFeed(`under:${aid}`)), wait);
   const talks = useTalkLines(ov, s.sid, L.now || 0, g.lines);
   const steps = useStepKeys(world, false);
   return ( // R28: the head first, from the row; the drawing once its map is read (`session-lit-map` only then)
@@ -173,6 +176,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
       {card && <StepIn t={card} map={shown} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below">
         {n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}
+        <WaitLink world={world} />
       </div>
       </RunCtx.Provider>
     </div>

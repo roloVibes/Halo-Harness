@@ -53,7 +53,7 @@ export function KidRows({ kids, sid, sender }: { kids: Kid[]; sid: string; sende
               data-helper={k.made ? k.aid : undefined} data-unlined={k.unlined ? "1" : undefined} data-off={k.off ? "1" : undefined}
               title={k.off ? offHover(sender) : undefined}>
           <span className="mp-lit-row" data-testid="session-map-row-text">{kidText(k)}</span>
-          <ToolClock aids={[k.aid]} on={k.state === "working"} />
+          <ToolClock aids={[k.aid]} on={k.state === "working" || k.state === "waiting"} />
           {k.made && sid && (
             <button type="button" className="mp-link" data-testid="map-save-agent" data-hover-skip=""
                     title="Open the Agents form with an agent built from this one; nothing is saved until you press Save there"
