@@ -63,14 +63,17 @@ export function firstName(): string {
   return [url, read(LAST), s.rows.find((r) => r.scope === "project")?.name || "", s.inUse || "", "starter"].find(has) || s.rows[0]?.name || "";
 }
 
+let opening = 0; // the latest openMap: an earlier one answered late (the tab's own first open) never undoes his pick
+
 export async function openMap(name: string): Promise<void> {
   if (!name) return;
   writeLocal(LAST, name); // 3.6.0.0 R5: first, so the tab's own first load (firstName) opens this one too (an edit door)
+  const mine = ++opening;
   try {
     const detail = await api.get<MapDetail>(`crew/map/${name}`);
-    maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {} }));
+    if (mine === opening) maps.update((s) => ({ name, detail, error: "", pick: "", when: null, open: s.name === name ? s.open : {} }));
   } catch (e) {
-    maps.update(() => ({ error: msg(e) }));
+    if (mine === opening) maps.update(() => ({ error: msg(e) }));
   }
 }
 

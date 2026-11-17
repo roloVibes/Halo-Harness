@@ -77,7 +77,8 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
       <NoticeRow />
       {L.mode === "replay" ? <ReplayLine /> : (
         <p className="cw-line mp-topline">
-          {runs ? "" : "Nothing is running on it now."}<ReplayLast /> {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
+          {/* kept in its room while L1/L3 says otherwise, so the drawing under it never moves (R55) */}
+          <span className={runs ? "mp-kept" : undefined} aria-hidden={runs || undefined}>Nothing is running on it now.</span><ReplayLast /> {locked ? "Locked: nothing can be moved or changed." : `Changes save at once${scope === "starter" ? " (a starter: your first change saves it as yours)" : ""}; a running session takes a line, a When or a box at its next hand-off.`}
           {strip && <> {strip}</>} <Extras sid={quiet.sid} />
         </p>
       )}

@@ -10,10 +10,12 @@ import { planWords, startTodos, useTodos } from "./todoStore";
 import { closeRun, replayRun, useMapHist } from "./mapRuns";
 import { useMap } from "./mapStore";
 
-/** R4b (R4's gap 9): with nothing running and a finished run in History, the top line offers to replay it. */
+/** R4b (R4's gap 9): with a finished run in History, the top line offers to replay it. Before there is one its room is
+ *  kept (an unseen twin), so a session ending -- History's first row -- never moves the drawing under the line (R55). */
 export function ReplayLast() {
   const last = useMapHist((s) => s.rows[0]);
-  return last ? <> <Button size="sm" onClick={() => void replayRun(last.sid)} data-testid="map-lit-replay-last" title={`Replay "${last.what.slice(0, 60)}" on the map`}>Replay the last session</Button></> : null;
+  return last ? <> <Button size="sm" onClick={() => void replayRun(last.sid)} data-testid="map-lit-replay-last" title={`Replay "${last.what.slice(0, 60)}" on the map`}>Replay the last session</Button></>
+    : <> <button type="button" tabIndex={-1} aria-hidden="true" className="btn btn-default btn-sm mp-kept"><span className="btn-label">Replay the last session</span></button></>;
 }
 
 /** R4b: the plan of the session the quiet line names (`sid`), a door into 4 · Live's Feed; a goal run going, with Open (its

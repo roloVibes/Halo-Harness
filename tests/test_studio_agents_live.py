@@ -24,7 +24,9 @@ tests/test_agents_door.py, run in node everywhere.
 8. R55 R24 R33: 3 · Map is the plan -- one quiet line (L1-L3) in a row reserved from the first draw, box W marked
    "running now in {session}", nothing lit or amber; the picker's "· running in" / "· new sessions" and the switch
    "New sessions run on this"; the hand switch's receipt S13 naming the session; a build heard while away opens next
-   visit, one heard on the Map says L4 and waits, the same map is re-read in place (tests/helpers/studio_map_quiet.py).
+   visit, one heard on the Map says L4 and waits, the same map is re-read in place (tests/helpers/studio_map_quiet.py);
+   at 1280 x 800 the quiet line coming and going never moves the drawing; his pick of a map stands over the tab's own
+   first open answered late.
 Run: python -m tests.test_studio_agents_live
 """
 from __future__ import annotations
@@ -271,6 +273,26 @@ def test_notice_row_reserved_canvas_still(ctx: Ctx):
     tops = [w.get("top_empty"), w.get("top_l2"), w.get("top_l2_two"), *(w.get("top_l4") or [None, None])]
     ctx.check(f"the canvas top: the row empty, L2 (one, two), before and with L4, got {tops}",
               all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_quiet_line_never_moves_the_drawing_at_1280(ctx: Ctx):
+    d = _got(ctx)
+    s = _q(d, "still")
+    for name in ("shop", "starter"):
+        tops = s.get(name) or []
+        ctx.check(f"{name}: the canvas top with the quiet line, without the session, with it again (1280 x 800), got {tops}",
+                  len(tops) == 3 and all(isinstance(x, (int, float)) for x in tops) and max(tops) - min(tops) <= 0.5)
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_latest_map_pick_wins(ctx: Ctx):
+    d = _got(ctx)
+    r = _q(d, "race")
+    ctx.check(f"the tab's first open was answered after his pick, got {r.get('served')!r}", r.get("served") is True)
+    ctx.check(f"his pick (shop) still open after the late answer for starter, got {r.get('after')}", r.get("after") == ["shop", True])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

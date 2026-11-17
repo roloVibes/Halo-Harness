@@ -16,6 +16,7 @@
 /* 3.6.0.2 R55 R33: the notice row, reserved from the first draw (its twin measures the longest line it may hold) */
 .mp-notice-row { position: relative; min-height: 28px; display: flex; align-items: center; min-width: 0; }
 .mp-quiet { margin: 0; }
+.mp-topline .mp-kept { visibility: hidden; } /* R55: the off sentence keeps its room under L1/L3; the drawing holds still */
 .mp-notice-twin { position: absolute; left: 0; right: 0; top: 0; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
 .mp-running-in { font-size: 12px; font-style: italic; }
 

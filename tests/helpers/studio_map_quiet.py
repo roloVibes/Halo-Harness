@@ -16,6 +16,8 @@ condition.
               row, nothing moves (the canvas, the boxes, the When card, the switcher), [Open it] opens it; the canvas top
               equal with the row empty, with L2 and with L4
     reread    R33: the same map changed by a build: re-read in place, the When card and the zoom kept, no notice
+    still     R55 at 1280 x 800: the canvas top with L3 / L1, without the session, with it again: equal
+    race      the tab's first open answered after his pick: the pick stands (openMap: the latest request wins)
 """
 from __future__ import annotations
 
@@ -222,7 +224,7 @@ def waits(c, rig, lv, rows) -> dict:
         out["top_l2_two"] = c.js(TOP)
     c.wait(f"!{q}?.textContent.startsWith('2 sessions')", 20)
     label = f"document.querySelector('{M} [data-testid=map-world] [data-testid=map-label][data-from=main][data-to=code]')"
-    c.js(f"{label}.scrollIntoView({{block: 'center', inline: 'center'}}); {label}.click(); 1")
+    c.js(f"{label}.click(); 1")  # pressed where it is: a scroll here would move the tops read before it (at 1280 x 800)
     card = "document.querySelector('[data-testid=map-when-card]')"
     c.wait(f"!!{card}", 10)
     before, top = c.js(BOXES), c.js(TOP)
@@ -263,6 +265,69 @@ def reread(c, rig, lv, rows) -> dict:
     return out
 
 
+def still(c, rig, lv, rows) -> dict:
+    """R55 at 1280 x 800, no scroll made: the quiet line comes and goes as a session runs a workflow from shop (L3) or
+    runs on starter (L1), and ends; the canvas top is read with the line, without the session, with the line again."""
+    from tests.helpers.studio_agents_live_draw import choose
+    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
+    try:
+        out: dict = {"title": setup(rig, lv, rows, flow=True)}
+        to_map(c, rig, "shop")
+        q = t("map-quiet")
+        for name, words in (("shop", "running the workflow"), ("starter", "runs on this map now")):
+            choose(c, f"{M} [data-testid=map-switcher]", name)
+            said = f"{SW}.value === {name!r} && {q}?.textContent.includes({words!r})"
+            c.wait(said, 20)
+            tops = [c.js(TOP)]
+            rows.hide(lv.sid)
+            c.wait(f"!{q}", 20)
+            tops.append(c.js(TOP))
+            rows.reset()
+            c.wait(said, 20)
+            tops.append(c.js(TOP))
+            out[name] = tops
+        return out
+    finally:
+        rows.reset()
+        c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
+
+
+def race(c, rig, lv, rows) -> dict:
+    """The tab's own first open (`&map=starter`) answered after his pick of shop: the pick stands (latest request wins)."""
+    from halo_harness.studio import api as A
+    from tests.helpers.studio_agents_live_draw import choose
+    setup(rig, lv, rows, flow=False)
+    orig, served = A.dispatch, []
+
+    def slow(req):
+        if req.method == "GET" and str(req.path) == "crew/map/starter" and not req.query and not served:
+            time.sleep(2)  # the first open's answer is held until after his pick's; a delay, not a pass condition
+            try:
+                return orig(req)
+            finally:
+                served.append(1)
+        return orig(req)
+    A.dispatch = slow
+    try:
+        c.go("about:blank")
+        c.wait("location.href === 'about:blank'", 10)
+        c.go(rig.url("agents", "&view=map&map=starter"))
+        c.wait(f"{VIEW} === 'map' && [...({SW}?.options || [])].some((o) => o.value === 'shop')", 40)
+        choose(c, f"{M} [data-testid=map-switcher]", "shop")
+        c.wait(f"{SW}.value === 'shop' && !!document.querySelector('{M} [data-map-box=check]')", 20)
+        end = time.time() + 30
+        while not served and time.time() < end:
+            time.sleep(0.05)
+        out: dict = {"served": bool(served)}
+        # the late answer has reached the page (its resource entry is complete), then two frames for React to draw it
+        c.wait("performance.getEntriesByType('resource').some((e) => /\\/crew\\/map\\/starter$/.test(e.name))", 20)
+        c.js("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))")
+        out["after"] = [c.js(f"{SW}.value"), c.js(f"!!document.querySelector('{M} [data-map-box=check]')")]
+        return out
+    finally:
+        A.dispatch = orig
+
+
 def _tap_gets():
     """The GETs the page makes, at the server's dispatcher, each with its query's keys ("crew/map/x?soft")."""
     from halo_harness.studio import api as A
@@ -284,4 +349,4 @@ def _own(fn):
     return step
 
 
-STEPS = tuple(_own(f) for f in (quiet, picker, receipt, away, waits, reread))
+STEPS = tuple(_own(f) for f in (quiet, picker, receipt, away, waits, reread, still, race))
