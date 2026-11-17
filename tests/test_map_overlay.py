@@ -295,6 +295,62 @@ console.log(JSON.stringify({before, one, hid, got}));"""
     ctx.check(f"every frame applied once, in order, got {got.get('got')}", got.get("got") == [[1, 2, 3], [4]])
 
 
+# litStore.ts's neighbours stood in for (the events feed, the store, the fleet, the pick, built.ts, React): only its own entry
+# (startLit -> the map_hop handler -> push -> apply) and frameBatch.ts run as written
+LIT_STUB = r"""export const onEvent = (k, f) => { (globalThis.__on[k] ||= []).push(f); };
+export function createStore(init) { let s = init; return { get: () => s, update: (fn) => { s = { ...s, ...fn(s) }; globalThis.__ups += 1; },
+  subscribe: () => () => {} }; }
+export const useStore = () => null, localId = () => '', useFleet = () => null, openOrder = (r) => r, takeBuilt = () => {}, useMemo = (f) => f();"""
+LIT_HOOK = r"""const STUB = %s;
+export async function resolve(spec, ctx, next) {
+  if (spec === 'react') return { url: STUB, shortCircuit: true };
+  const r = await next(spec, ctx);
+  if (/[\/-](events|store|pick|built)\.(ts|mjs)$/.test(r.url)) return { url: STUB, shortCircuit: true };
+  return r; }"""
+
+
+@test
+def test_lit_store_sends_its_frames_through_the_batch(ctx: Ctx):
+    """R49 (P3 batch 8): frames sent through litStore's OWN entry while the tab is hidden go through frameBatch: queued
+    (nothing drawn, no animation frame asked for), then drawn once, together, by the timer. A litStore that went back to
+    an animation frame only would draw nothing here."""
+    hook = LIT_HOOK % json.dumps("data:text/javascript," + __import__("urllib.parse").parse.quote(LIT_STUB))
+    js = """import { register } from 'node:module';
+register('data:text/javascript,' + encodeURIComponent(%s));
+globalThis.__on = {}; globalThis.__ups = 0;
+const rafs = [];
+globalThis.document = { hidden: true };
+globalThis.requestAnimationFrame = (f) => { rafs.push(f); return rafs.length; };
+const m = await import(%s);
+m.startLit();
+const on = globalThis.__on.map_hop || [];
+const hop = (i) => ({ session_id: 'S', event: 'map_hop', data: { from: 'main', to: 'code', state: 'start', t: 100 + i } });
+for (let i = 0; i < 3; i++) on.forEach((f) => f(hop(i)));
+const n = () => (m.lit.get().events.S || []).length;
+const queued = { handlers: on.length, events: n(), ups: globalThis.__ups, rafs: rafs.length };
+await new Promise((ok) => setTimeout(ok, 1500));
+console.log(JSON.stringify({ queued, drawn: { events: n(), ups: globalThis.__ups, rafs: rafs.length } }));"""
+    got = _node(js, hook, (TS.parent / "litStore.ts").resolve().as_uri())
+    q, d = got.get("queued") or {}, got.get("drawn") or {}
+    ctx.check(f"litStore's entry heard map_hop and, the tab hidden, queued three frames: nothing drawn, no animation frame asked, got {q}",
+              q == {"handlers": 1, "events": 0, "ups": 0, "rafs": 0})
+    ctx.check(f"the timer drew all three in one update, still with no animation frame, got {d}", d == {"events": 3, "ups": 1, "rafs": 0})
+
+
+@test
+def test_when_words_object_known_and_unknown(ctx: Ctx):
+    """mapTypes.ts whenWords, also used by Agents -> Map (MapCanvas.tsx, WhenCard.tsx): a When object, a known word, and a
+    word this Studio does not know (a hand-edited file), which is shown as written and never throws (P3 batch 5)."""
+    js = """const m = await import(%s);
+const w = (x) => { try { return m.whenWords(x); } catch (e) { return 'threw: ' + e; } };
+console.log(JSON.stringify([w(undefined), w('main-decides'), w('always'), w('ask'), w({ needs: ['pdf', 'code', 'odd'] }),
+  w({ says: ['done', 'ready'] }), w('named'), w('every-tuesday')]));"""
+    got = _node(js, (TS.parent / "mapTypes.ts").resolve().as_uri())
+    want = ["main decides per task", "main decides per task", "always", "only when I ask", "needs a PDF, code, odd",
+            "says done, ready", "named", "every-tuesday"]
+    ctx.check(f"whenWords: objects, the known words and unknown words as written, got {got}", got == want)
+
+
 @test
 def test_trace_totals_survive_the_window(ctx: Ctx):
     js = """const m = await import(%s);

@@ -11,8 +11,10 @@
 .mp-down [data-testid=canvas-zoom-out], .mp-down [data-testid=canvas-zoom-in] { width: 32px; }
 .mp-down [data-testid=canvas-zoom-level] { width: 56px; }
 .mp-down [data-testid=canvas-fit] { width: 44px; }
-/* R11: the room the drawing may take; the scroll box inside it ends under its last whole row (its height is set) */
-.mp-down-room { flex: 1 1 0; min-height: 0; overflow: hidden; }
+/* R11: the room the drawing may take (R30 R31: the pair and the head of a build, once one lands, at its top: the drawing
+   moves down once, no control moves); the scroll box inside it ends under its last whole row (its height is set) */
+.mp-down-room { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: var(--s-1); }
+.mp-down-fill { flex: 1 1 0; min-height: 0; overflow: hidden; }
 .mp-down .mp-mini-scroll { flex: none; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overflow-anchor: none; }
 /* R11 R12: the "↓ {n} more below" slot, at a fixed height at the drawer's bottom, there whether it says something or not */
 .mp-down-below { flex: 0 0 32px; height: 32px; display: flex; align-items: center; min-width: 0; }
@@ -31,7 +33,7 @@
 .mp-truth-held { visibility: hidden; }
 .mp-truth-lines { position: relative; min-width: 0; }
 .mp-truth-said { display: block; overflow: visible; }
-.mp-truth-line { margin: 0; }
+.mp-truth-line { margin: 0; overflow-wrap: anywhere; } /* a 48-letter name with no hyphen never runs out of the box */
 .mp-truth-twin { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
 .mp-truth-new { white-space: nowrap; }
 .mp-status { margin: 0; font-size: 12px; line-height: 17px; min-height: 34px; overflow-wrap: anywhere; color: var(--text); }
@@ -87,18 +89,20 @@
 .mp-step-in-ended { flex: 0 0 auto; font-size: 12px; color: var(--muted); }
 .mp-step-in-foot { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-3); margin-top: auto; }
 .mp-step-in-foot > .mp-link { white-space: nowrap; }
-/* 3.6.0.2 R30 R31: the pair Running | Just built (one line, the same height with one map or two) and the Just built head
-   (two lines held from the first draw), under the truth block; R29: the "new {t}" tag on a box a build wrote */
-.mp-built { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* 3.6.0.2 R30 R31: the pair Running | Just built (one line, only with two maps) and the Just built head, at the top of the
+   drawing's box (MapDown.tsx); R29: the "new {t}" tag on a box a build wrote */
+.mp-built { flex: none; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mp-pair { display: flex; align-items: center; gap: 4px; height: 24px; min-width: 0; font-size: 12px; white-space: nowrap; overflow: hidden; color: var(--text); }
-.mp-pair-one { line-height: 22px; overflow: hidden; text-overflow: ellipsis; }
 .mp-pair-btn { height: 22px; padding: 0 6px; border: 1px solid var(--line); border-radius: var(--r-control); background: transparent; color: var(--muted); font: inherit; min-width: 0; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .mp-pair-btn[aria-pressed="true"] { color: var(--text); border-color: var(--accent); }
 .mp-pair-btn[data-new]::after { content: " ●"; color: var(--accent); }
 .mp-pair-sep { color: var(--muted); }
-/* R31 the head is exactly two lines from the first draw, whatever it says: the words are held to two lines (all of them
-   in the title) and [Open in Workflows] sits beside them at the same height, so nothing under it ever moves */
-.mp-built-head { margin: 0; display: flex; align-items: flex-start; gap: 6px; height: 34px; min-width: 0; overflow: hidden; font-size: 12px; line-height: 17px; color: var(--text); }
-.mp-built-text { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
-.mp-built-head > .mp-link { flex: none; align-self: center; min-height: 0; height: 34px; font-size: 12px; line-height: 17px; white-space: nowrap; }
+/* R31 the head's words are never cut: they wrap whole across the drawer's width (no clamp, no ellipsis), its height is a
+   hidden twin's measured at that width before it shows, and [Open in Workflows] sits on its own row under the words */
+.mp-built-head { position: relative; margin: 0; display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; line-height: 17px; color: var(--text); }
+.mp-built-text, .mp-built-twin { margin: 0; white-space: normal; overflow-wrap: anywhere; }
+.mp-built-text { overflow: visible; }
+.mp-built-twin { position: absolute; left: 0; right: 0; top: 0; visibility: hidden; pointer-events: none; }
+.mp-built-acts { display: flex; gap: var(--s-2); min-width: 0; }
+.mp-built-acts > .mp-link { flex: none; font-size: 12px; line-height: 17px; white-space: nowrap; }
 .mp-new-tag { align-self: flex-start; font-size: 12px; line-height: 16px; }

@@ -93,9 +93,13 @@ export function est(lines: Line[], width: number): number {
   return lines.reduce((n, l) => n + Math.ceil(((l.text.length + (l.label ? l.label.length + 4 : 0)) * 7) / w), 0);
 }
 
+/** The longest name a map or a workflow may have (crew/formats.py NAME: a letter, then up to 47 of a-z, 0-9, "-"). */
+export const LONGEST_NAME = 48;
 /** Stand-ins the reserve measures while {B} is still {A} or no workflow runs yet (R20: the drawing's top holds across T1 ->
- *  T2 -> T5 -> T7, so the room for a {B} and a {W} to come is held from the first draw). Only the hidden twin shows them. */
-const SOME_B = "the-map-new-sessions-use", SOME_W = "a-workflow-of-yours";
+ *  T2 -> T5 -> T7, so the room for a {B} and a {W} to come is held from the first draw). Never a guess at the length: each
+ *  is a name of the longest length the store allows, of ordinary letters with a hyphen every few, as names are written,
+ *  so no real name makes the block grow. Only the hidden twin shows them. */
+const SOME_B = "name-".repeat(10).slice(0, LONGEST_NAME), SOME_W = "flow-".repeat(10).slice(0, LONGEST_NAME);
 
 /** R20's worst case: of the states this session can reach with its own {A}, {B}, {W} (T1 / T3, T2 and T11 when B differs,
  *  each with and without T7 and T5, then T8, then the state it is in now), the lines that take the most room at `width`.

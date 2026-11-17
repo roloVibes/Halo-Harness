@@ -71,7 +71,7 @@ export async function load(): Promise<void> {
     const got = Array.isArray(v.harnesses) ? v.harnesses.map((h) => ({ ...h, sessions: h.sessions || [] })) : [];
     fleet.update((s) => {
       const harnesses = keepFresh(s.harnesses, got, asked);
-      return { harnesses, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) } };
+      return { harnesses, loaded: true, error: "", doneAt: { ...s.doneAt, ...finished(s.harnesses, harnesses) }, listReads: s.listReads + 1 };
     });
   } catch (e) {
     if (mine < landed) return;
@@ -150,7 +150,7 @@ function onSessions(f: FeedFrame): void {
   const s = fleet.get();
   if (d.action === "attention") return; // the watcher's count (session_id null): the panels' store reads it (pload.ts)
   if (d.action === "sessions" && Array.isArray(d.sessions) && f.harness && s.harnesses.some((h) => h.id === f.harness)) {
-    fleet.update((st) => ({ harnesses: st.harnesses.map((h) => (h.id === f.harness ? { ...h, sessions: d.sessions! } : h)), lastFrame: Date.now() }));
+    fleet.update((st) => ({ harnesses: st.harnesses.map((h) => (h.id === f.harness ? { ...h, sessions: d.sessions! } : h)), lastFrame: Date.now(), listReads: st.listReads + 1 }));
     return;
   }
   if (d.action === "command" && (d.state === "refused" || d.state === "error")) toast(`${d.cmd || "command"}: ${d.error || d.state}`, "error", 5000);

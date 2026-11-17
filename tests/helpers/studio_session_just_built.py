@@ -7,10 +7,14 @@ fact reaches the page through GET live's rows (`Rows`) and the feed's frames (`b
             else moves, opens or pops up; opening the drawer empties it
     same    a same-name edit by a Builder card redraws from the frame's body; a plain file write redraws the open drawing
             with no 'new'; closed and opened again it is the newest version
-    once    the pair: one map as plain text, two maps 'Running: {A} | Just built: {B}'; Just built chosen once, only while
-            the pointer is outside and the pair was never pressed
-    heads   the three Just built heads (+ R36's sentence), the 'new {t}' tags, [Open in Workflows], tags kept over turns,
-            gone when it ends; no control, the head or the drawing's top moves when a head lands (a long name too)
+    once    the pair: with one map no row at all, two maps 'Running: {A} | Just built: {B}'; Just built chosen once, only
+            while the pointer is outside and the pair was never pressed
+    heads   the three Just built heads (+ R36's sentence, S13 once in the drawer), the 'new {t}' tags, [Open in Workflows]
+            on its own row, tags kept over turns, gone when it ends; no control moves when a head lands (the drawing moves
+            down once, inside its own box), a long head's words whole at 1280 and in a 412 px drawer, and a frame that
+            changes nothing in its words moves nothing (P3 batch 8)
+    room    one map, nothing built, at 1280 x 800, 1440 x 900 and 1920 x 1080: the drawing's box (no pair row, no head
+            room) and the '↓ n more below' words against the boxes wholly below (P3 batch 8)
     fetch   nothing waits on the network: the head painted while every crew/map answer is held, one soft read for the
             running map, none for a body the frame brought, one for a body left out, none for left / failed / T4 / T10 / T8 / Empty,
             a removed map says so with no failed /api
@@ -67,23 +71,34 @@ HOOKS = r"""(() => { if (window.__jb) return; const jb = window.__jb = { open: 0
 MAPREQS = "window.__jb.reqs.filter((r) => /^crew\\/map\\//.test(r.url))"
 RECTS = "[...document.querySelectorAll('[data-testid=viewbar-btn]')].map((b) => { const r = b.getBoundingClientRect(); return [b.dataset.panel, r.left, r.top, r.width, r.height]; })"
 BOXES = "[...document.querySelectorAll('[data-testid=session-lit-map] [data-box]')]"
-# the drawer's controls and the head (whole rects, half-px), and the drawing's top: none may move when a head lands
+# the drawer's controls (none may move when a head lands), the head's parts and the drawing's top (whole rects, half-px)
+CONTROLS = ["session-lit-open", "canvas-zoom-out", "canvas-zoom-level", "canvas-zoom-in", "canvas-fit", "session-map-below"]
 CTRLS = """(() => { const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect();
   return [b.left, b.top, b.width, b.height].map((x) => Math.round(x * 2) / 2); };
   const sc = document.querySelector('.mp-down .mp-mini-scroll')?.getBoundingClientRect();
   const out = Object.fromEntries(['session-lit-open', 'canvas-zoom-out', 'canvas-zoom-level', 'canvas-zoom-in', 'canvas-fit',
-    'session-built-head', 'session-map-below'].map((t) => [t, r(`.mp-down [data-testid=${t}]`)]));
+    'session-built-head', 'session-built-text', 'session-built-open', 'session-map-below'].map((t) => [t, r(`.mp-down [data-testid=${t}]`)]));
   out.scrollTop = sc ? Math.round(sc.top * 2) / 2 : null; return out; })()"""
+# the head's words: whole (never clamped, the last word inside the box and the drawing's room), the button on its own row
+WHOLE = """(() => { const t = document.querySelector('.mp-down [data-testid=session-built-text]'); if (!t) return null;
+  const cs = getComputedStyle(t), box = t.getBoundingClientRect(), room = t.closest('.mp-down-room')?.getBoundingClientRect();
+  const b = t.closest('[data-testid=session-built-head]')?.querySelector('[data-testid=session-built-open]')?.getBoundingClientRect();
+  const node = [...t.childNodes].reverse().find((n) => n.nodeType === 3 && n.nodeValue.length); let last = null;
+  if (node) { const g = document.createRange(); g.setStart(node, node.nodeValue.length - 1); g.setEnd(node, node.nodeValue.length);
+    const q = g.getBoundingClientRect(); last = { inBox: q.bottom <= box.bottom + 0.5 && q.right <= box.right + 0.5,
+      inRoom: !!room && q.bottom <= room.bottom + 0.5 && q.top >= room.top - 0.5 }; }
+  return { scrollH: t.scrollHeight, clientH: t.clientHeight, clamp: cs.webkitLineClamp || 'none', display: cs.display,
+    overflow: cs.overflow, text: t.textContent, last, width: Math.round(box.width), ownRow: b ? b.top >= box.bottom - 0.5 : null }; })()"""
 LONG = "code-review-and-tests-for-every-change-made-now"  # 47 characters: the head's words need a third line at 1280
 
 
-def _size(c) -> None:
-    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
+def _size(c, w: int = 1280, h: int = 800) -> None:
+    c.call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=False)
 
 
-def _open(c, rig, query: str) -> None:
+def _open(c, rig, query: str, w: int = 1280, h: int = 800) -> None:
     from tests.helpers.studio_session import boot_go, url
-    _size(c)
+    _size(c, w, h)
     boot_go(c, url(rig, query))
     c.wait("document.readyState !== 'loading'", 30)
     try:
@@ -135,28 +150,31 @@ def _on_shop(rig, rows: Rows, a: str, b: str) -> None:
 
 
 def _pair(c) -> dict:
-    return c.js(f"""(() => {{ const p = {PAIR}, d = {DRAWN}, h = {HEAD};
+    return c.js(f"""(() => {{ const p = {PAIR}, d = {DRAWN}, h = {HEAD}, bar = {Q}('[data-testid=session-built]');
       const btn = (w) => {{ const b = p?.querySelector(`[data-which=${{w}}]`); return b ? {{ pressed: b.getAttribute('aria-pressed'), marked: b.hasAttribute('data-new'), text: b.textContent }} : null; }};
-      return {{ text: p?.textContent || '', h: p ? Math.round(p.getBoundingClientRect().height * 2) / 2 : null, buttons: p ? p.querySelectorAll('button').length : 0,
+      return {{ bar: !!bar, barH: bar ? bar.getBoundingClientRect().height : 0,
+               text: p?.textContent || '', h: p ? Math.round(p.getBoundingClientRect().height * 2) / 2 : null, buttons: p ? p.querySelectorAll('button').length : 0,
                running: btn('running'), built: btn('built'), map: d?.dataset.map || '', lit: d ? d.querySelectorAll('[data-lit]').length : -1,
                working: d ? d.querySelectorAll('[data-state=working]').length : -1, head: h?.querySelector('[data-testid=session-built-text]')?.textContent || '',
                headButton: h?.querySelector('button')?.textContent || '' }}; }})()""") or {}
 
 
-def _still(c, before: dict) -> dict:
-    """What moved against `before` (half a px allowed), the head's height and whether its button sits inside it."""
-    now = c.js(CTRLS) or {}
+def _off(v, w) -> bool:
+    if (v is None) != (w is None):
+        return True
+    if isinstance(v, list):
+        return any(abs(x - y) > 0.5 for x, y in zip(v, w))
+    return isinstance(v, (int, float)) and abs(v - w) > 0.5
 
-    def off(v, w) -> bool:
-        if (v is None) != (w is None):
-            return True
-        if isinstance(v, list):
-            return any(abs(x - y) > 0.5 for x, y in zip(v, w))
-        return isinstance(v, (int, float)) and abs(v - w) > 0.5
-    moved = {k: [v, now.get(k)] for k, v in before.items() if off(v, now.get(k))}
-    btn = c.js(f"(() => {{ const h = {HEAD}?.getBoundingClientRect(), b = {HEAD}?.querySelector('button')?.getBoundingClientRect();"
-               " return b && h ? b.top >= h.top - 0.5 && b.bottom <= h.bottom + 0.5 && b.width > 0 : null; })()")
-    return {"moved": moved, "h": (now.get("session-built-head") or [0, 0, 0, 0])[3], "button_inside": btn}
+
+def _still(c, before: dict, keys=None) -> dict:
+    """What of `keys` (the controls by default) moved against `before` (half a px allowed), how far the drawing's top went,
+    and the head's words (WHOLE)."""
+    now = c.js(CTRLS) or {}
+    keys = CONTROLS if keys is None else keys
+    moved = {k: [before.get(k), now.get(k)] for k in keys if _off(before.get(k), now.get(k))}
+    top = (now.get("scrollTop") or 0) - (before.get("scrollTop") or 0)
+    return {"moved": moved, "top": top, "h": (now.get("session-built-head") or [0, 0, 0, 0])[3], "whole": c.js(WHOLE), "now": now}
 
 
 def _press(c, which: str) -> None:
@@ -227,7 +245,7 @@ def once(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.idle(b)
     rows.idle(a, map="starter", map_plain=True)
     _open(c, rig, f"mode=session&session={a}&open=session-map")
-    c.wait(f"!!{DRAWN} && !!{PAIR}", 30)
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
     out["plain"] = _pair(c)
     _frame(rig, a, built, {"review-flow": body}, undo="o1")
     _wait(c, f"{PAIR}?.textContent.includes('Just built: review-flow') && {DRAWN}?.dataset.map === 'review-flow'", 10)
@@ -241,7 +259,7 @@ def once(c, rig, rows: Rows, a: str, b: str) -> dict:
     out["second"] = _pair(c)
     # (b) a new page, the pointer on the drawing when the frame lands: only the tab is marked, never a jump later
     _open(c, rig, f"mode=session&session={a}&open=session-map")
-    c.wait(f"!!{DRAWN} && !!{PAIR}", 30)
+    c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
     r = c.js(f"(() => {{ const r = {DRAWN}.querySelector('.mp-mini-scroll').getBoundingClientRect(); return [r.left + r.width / 2, r.top + 20]; }})()")
     c.mouse("mouseMoved", r[0], r[1])
     time.sleep(0.3)
@@ -297,18 +315,30 @@ def heads(c, rig, rows: Rows, a: str, b: str) -> dict:
     time.sleep(0.3)
     out["other"] = {**_pair(c), "still": _still(c, still)}
     # (c) another map the build also made the one new sessions run on (R36's use row was ticked and applied)
+    rows.set(a, map_next="fourth", map_next_since=time.time())  # the row as P2 sends it once the use row was applied
     _frame(rig, a, [{"kind": "map", "name": "fourth", "added": True}],
            {"fourth": _body(rig, "fourth", THIRD.replace("name: third", "name: fourth"))}, undo="h4", this="shop", next_="fourth")
-    _wait(c, f"{HEAD}?.textContent.includes('fourth')", 10)
+    _wait(c, f"{HEAD}?.textContent.includes('fourth') && {Q}('[data-testid=session-truth]')?.dataset.state === 'T2'", 10)
     time.sleep(0.3)
-    out["other_next"] = {**_pair(c), "still": _still(c, still)}
-    # (e) a workflow whose name needs a third line at this width: still two lines, the button beside them, nothing moved
+    out["other_next"] = {**_pair(c), "still": _still(c, still), "truth": c.js(f"{Q}('[data-testid=session-truth]')?.dataset.state || ''"),
+                         "s13": c.js("(document.querySelector('.mp-down')?.innerText.match(/keeps running on/g) || []).length")}
+    # (e) a workflow whose name needs a third line at this width: every word on screen, the button on its own row
     _frame(rig, a, [{"kind": "workflow", "name": LONG, "added": True}], {}, undo="h5", this="shop")
     _wait(c, f"{HEAD}?.textContent.includes('{LONG}') && {DRAWN}?.dataset.map === 'shop'", 10)
     time.sleep(0.3)
-    out["long"] = {**_pair(c), "still": _still(c, still),
-                   "clamped": c.js(f"(() => {{ const t = {HEAD}?.querySelector('[data-testid=session-built-text]');"
-                                   " return t ? t.scrollHeight > t.clientHeight + 1 && t.title === t.textContent : null; })()")}
+    out["long"] = {**_pair(c), "still": _still(c, still)}
+    c.js("(() => { const m = document.querySelector('.mp-down'); m.style.width = '412px'; m.style.flex = 'none'; return 1; })()")
+    time.sleep(0.5)
+    out["long412"] = c.js(WHOLE)
+    c.js("(() => { const m = document.querySelector('.mp-down'); m.style.width = ''; m.style.flex = ''; return 1; })()")
+    time.sleep(0.5)
+    # a frame that changes nothing in the head's words: the head, its words, its button and the drawing hold still
+    held = c.js(CTRLS) or {}
+    n = c.js(FLEET_READS)
+    rows.set(a, status="idle", busy=False)
+    _wait(c, f"{FLEET_READS} > {n}", 10)
+    time.sleep(0.5)
+    out["same_frame"] = _still(c, held, CONTROLS + ["session-built-head", "session-built-text", "session-built-open", "scrollTop"])
     # (d) two more turns and a fleet read later the tags are still there; once the session ends they go
     _press(c, "running")
     rows.turn(a)
@@ -336,7 +366,7 @@ def fetch(c, rig, rows: Rows, a: str, b: str) -> dict:
         _open(c, rig, f"mode=session&session={a}&open=session-map")
     finally:
         c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=hold)
-    _wait(c, f"{Q}('[data-testid=session-lit-line] .mp-truth-line') && !!{Q}('[data-testid=session-status]') && !!{PAIR}", 20)
+    _wait(c, f"{Q}('[data-testid=session-lit-line] .mp-truth-line') && !!{Q}('[data-testid=session-status]')", 20)
     time.sleep(0.5)
     out["painted"] = c.js(f"""(() => ({{ truth: {Q}('[data-testid=session-lit-line] .mp-truth-line')?.firstChild?.nodeValue || '',
       status: {Q}('[data-testid=session-status]')?.textContent || '', pair: {PAIR}?.textContent || '',
@@ -396,6 +426,30 @@ def fetch(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"fetch": out}
 
 
+ROOM = f"""(() => {{ const room = {Q}('.mp-down-room')?.getBoundingClientRect(), sc = {Q}('.mp-down .mp-mini-scroll')?.getBoundingClientRect();
+  const tools = {Q}('.mp-down-tools')?.getBoundingClientRect(), more = {Q}('[data-testid=map-more-below]');
+  const tb = {Q}('.mp-down .mp-truth-box')?.getBoundingClientRect();
+  const below = sc ? {BOXES}.filter((b) => b.getBoundingClientRect().top >= sc.bottom - 0.5).length : -1;
+  return {{ room: room ? Math.round(room.height) : null, scroll: sc ? Math.round(sc.height) : null, top: sc ? Math.round(sc.top) : null,
+           gap: room && tools ? Math.round(room.top - tools.bottom) : null, truth: tb ? Math.round(tb.height) : null,
+           over: room && tb ? Math.round(room.top - tb.bottom) : null, pair: !!{PAIR}, bar: !!{Q}('[data-testid=session-built]'),
+           boxes: {BOXES}.length, below, text: more?.textContent || '' }}; }})()"""
+
+
+def room(c, rig, rows: Rows, a: str, b: str) -> dict:
+    out: dict = {}
+    for w, h in ((1280, 800), (1440, 900), (1920, 1080)):
+        rows.reset()
+        rows.idle(b)
+        rows.idle(a, map="starter", map_plain=True)
+        _open(c, rig, f"mode=session&session={a}&open=session-map", w, h)
+        c.wait(f"!!{DRAWN} && {BOXES}.length > 1", 30)
+        time.sleep(1.0)  # past the drawing's settle (200 ms) and its measured boxes
+        out[f"{w}x{h}"] = c.js(ROOM)
+    _size(c)
+    return {"room": out}
+
+
 class JustBuiltDriver(MapDownDriver):
     width, height = 1280, 800
 
@@ -413,7 +467,7 @@ class JustBuiltDriver(MapDownDriver):
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=HOOKS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (word, same, once, heads, fetch) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (word, same, once, heads, fetch, room) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

@@ -13,8 +13,9 @@
 //   for the agent the session's rows name at that moment (stepInTarget.ts); R43: a box's hover (DownBox.tsx).
 // - R28: nothing waits on the network: the head (truth block, status line, the pair) is drawn from the row first; the map
 //   is read after it, softly, by version (mapFiles.ts); a map gone says "This map was removed at {t}.".
-// - R29-R31: the pair Running | Just built and the head (BuiltBar.tsx); Just built is drawn calm (no overlay); the boxes
-//   a build in this session wrote carry "new {t}" (built.ts tagOf).
+// - R29-R31: the pair Running | Just built (two maps only) and the head (BuiltBar.tsx), at the top of the drawing's own
+//   box: no room until a build lands, then the drawing moves down once and no control moves; Just built is drawn calm
+//   (no overlay); the boxes a build in this session wrote carry "new {t}" (built.ts tagOf).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { goSection } from "../../lib/store";
@@ -157,13 +158,14 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
          data-sid={s.sid} data-held={held ? "1" : undefined}>
       <div className="mp-mini-head mp-down-head">
         <TruthBlock f={f} sid={s.sid} off={L.unlit ? 0 : ov?.offCount || 0} />
-        <BuiltBar s={s} />
         <div className="mp-down-tools">
           <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
         </div>
       </div>
-      <div className="mp-down-room" ref={roomEl}>
+      <div className="mp-down-room">
+        <BuiltBar s={s} />
+        <div className="mp-down-fill" ref={roomEl}>
         {!drawn && (gone ? <p className="cw-line" data-testid="session-map-removed">{removedAt(gone)}</p>
           : !(got && "unreadable" in got) && <p className="cw-line" data-testid="session-lit-map-reading">Reading the map {shown}...</p>)}
         {drawn && <div className="mp-mini-scroll rc-scroll" ref={scroll} style={{ height: H }} onScroll={onScroll} tabIndex={0} data-pan="1"
@@ -177,6 +179,7 @@ export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
             </div>
           </div>
         </div>}
+        </div>
       </div>
       {card && <StepIn t={card} map={shown} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below">

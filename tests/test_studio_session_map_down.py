@@ -233,6 +233,52 @@ def test_a_pick_never_listed_is_given_up_after_two_reads(ctx: Ctx):
 
 
 
+LIST_JS = """const m = await import(%s);
+const rows = (...ids) => ids.map((id) => ({session_id: id, parent: null, turns: 1, started: 100, map: 'starter'}));
+const busy = (n) => rows('B').map((r) => ({...r, agents: Array.from({length: n}, (_, i) => ({agent_id: 'a' + i, state: 'running'}))}));
+const held = [m.staleList(1, rows('B'), 'GONE1')];
+for (let i = 1; i <= 6; i++) held.push(m.staleList(1, busy(i), 'GONE1'));  // agent frames of B: the same list read
+const gone = [m.staleList(2, rows('B'), 'GONE1')];  // the second fresh read of the list without it
+const later = [m.staleList(3, rows('B'), 'GONE2'), m.staleList(3, busy(2), 'GONE2'), m.staleList(4, rows('B'), 'GONE2')];
+console.log(JSON.stringify({held, gone, later}));"""
+
+NEWEST_JS = """const m = await import(%s);
+const pend = [], kept = [], failed = [];
+const read = m.newestOnly(() => new Promise((ok, no) => pend.push({ok, no})), (v) => kept.push(v), () => failed.push(1));
+read(); read();
+pend[1].ok('second'); await null; pend[0].ok('first'); await new Promise((r) => setTimeout(r, 0));
+read(); read();
+pend[2].ok('third-late'); pend[3].no(new Error('x')); await new Promise((r) => setTimeout(r, 0));
+console.log(JSON.stringify({kept, failed: failed.length}));"""
+
+
+@test
+def test_stale_pick_counts_only_list_reads(ctx: Ctx):
+    # P3 batch 8 (the checker of batch 7): a stale link's pick is given up after two fresh reads of the session LIST (GET
+    # live, a sessions frame: the fleet's listReads), never after agent frames of a busy other session (pick.ts staleList,
+    # which routes/session/store.ts calls with fleet.listReads).
+    from tests.helpers import node_ts
+    p = node_ts.run(LIST_JS % json.dumps(PICK.resolve().as_uri()))
+    ctx.check(f"R1: six agent frames of another session after the first list read hold the pick, got {p.get('held')}",
+              p.get("held") == [False] * 7)
+    ctx.check(f"R1: the second fresh list read without it gives it up, got {p.get('gone')}", p.get("gone") == [True])
+    ctx.check(f"R1: a frame between two list reads counts nothing, got {p.get('later')}", p.get("later") == [False, False, True])
+    src = (PICK.parent / "store.ts").read_text(encoding="utf-8")
+    ctx.check("store.ts gives up a pick by staleList(s.listReads, ...), not by a new harnesses array",
+              "staleList(s.listReads," in src and "s.harnesses !== lastRead" not in src)
+
+
+@test
+def test_next_b_keeps_the_newest_read(ctx: Ctx):
+    # P3 batch 8 (the checker of batch 3): the map new sessions use is read again on every maps/config change; reads may be
+    # answered out of order, and only the newest read's answer is kept (pick.ts newestOnly, which nextB.ts reads through).
+    from tests.helpers import node_ts
+    p = node_ts.run(NEWEST_JS % json.dumps(PICK.resolve().as_uri()))
+    ctx.check(f"two reads, the first answers last: the second's value is kept, the late first dropped; then a newer read's "
+              f"failure drops an older answer, got {p}", p.get("kept") == ["second"] and p.get("failed") == 1)
+    src = (PICK.parent / "nextB.ts").read_text(encoding="utf-8")
+    ctx.check("nextB.ts reads through newestOnly", "newestOnly(" in src)
+
 # -- 3.6.0.2 batch 2: the drawing top to bottom, readable, never cut, held still (R7 R10 R11 R12) ------------------------
 FIT = REPO / "halo_harness" / "studio" / "ui" / "src" / "routes" / "session" / "downFit.ts"
 _DRAW: dict = {}
@@ -563,6 +609,22 @@ def test_truth_block_height_fixed(ctx: Ctx):
               first.get("top") is not None and all(s.get("top") is not None and abs(s["top"] - first["top"]) <= 0.5 for s in snaps))
     if node_skip:
         raise SkipTest(f"(b) passed; (a) {node_skip}")
+
+
+@test
+def test_truth_block_reserve_holds_a_40_character_name(ctx: Ctx):
+    # R20, the coordinator's ruling (P3 batch 8): the reserve is taken for the longest name the store allows before {B} or
+    # {W} is known, so a real 40-character {B} and then a 40-character {W} after the first draw never grow the block (nor
+    # move what is under it). The status line's own two reserved lines (R23) are not the block's: a long {W} there is
+    # another matter (P3 batch 8's notes), so the drawing's top is not asserted here.
+    snaps = _saw(ctx, "long") or []
+    ctx.check(f"the page went T1, T2 (a 40-character B), T2 + T7 (a 40-character W), got {[s.get('state') for s in snaps]}",
+              [s.get("state") for s in snaps] == ["T1", "T2", "T2"] and "running the workflow" in ((snaps[-1].get("lines") or [""])[0] if snaps else ""))
+    first = snaps[0] if snaps else {}
+    ctx.check(f"R20: the block's height never changed, got {[s.get('h') for s in snaps]}",
+              bool(first.get("h")) and all(abs((s.get("h") or 0) - first["h"]) <= 0.5 for s in snaps))
+    ctx.check(f"R20: the status line under the block never moved, got {[s.get('stop') for s in snaps]}",
+              first.get("stop") is not None and all(s.get("stop") is not None and abs(s["stop"] - first["stop"]) <= 0.5 for s in snaps))
 
 
 STATUS_JS = """const S = await import(%s); const T = await import(%s);
@@ -930,11 +992,13 @@ def test_same_name_edit_redraws(ctx: Ctx):
 def test_just_built_selected_once_only_when_untouched(ctx: Ctx):
     d = _built(ctx, "once")
     p, f, bk, s = d.get("plain") or {}, d.get("first") or {}, d.get("back") or {}, d.get("second") or {}
-    ctx.check(f"R30: one map is plain text 'Running: starter (the default)', got {p.get('text')!r} buttons {p.get('buttons')}",
-              p.get("text") == "Running: starter (the default)" and p.get("buttons") == 0)
-    ctx.check(f"R30 (a): two maps: the pair, the same height, Just built chosen and unlit, got {f}",
+    # P3 batch 8, the coordinator's ruling: with one map there is no such row (the truth block above names it), so the
+    # drawing has that room; the pair shows once the session built another map
+    ctx.check(f"R30: one map and nothing built: no pair row and no head, got {p.get('text')!r} buttons {p.get('buttons')} bar {p.get('bar')}",
+              p.get("text") == "" and p.get("buttons") == 0 and p.get("bar") is False)
+    ctx.check(f"R30 (a): two maps: the pair on one 24 px line, Just built chosen and unlit, got {f}",
               "Running: starter (the default)" in (f.get("text") or "") and "Just built: review-flow" in (f.get("text") or "")
-              and f.get("h") == p.get("h") and (f.get("built") or {}).get("pressed") == "true" and f.get("map") == "review-flow"
+              and f.get("h") == 24 and (f.get("built") or {}).get("pressed") == "true" and f.get("map") == "review-flow"
               and f.get("lit") == 0 and f.get("working") == 0)
     ctx.check(f"R30 (a): Running: starter draws it again, lit, got {bk.get('map')!r} lit {bk.get('lit')}",
               bk.get("map") == "starter" and (bk.get("lit") or 0) > 0)
@@ -970,15 +1034,34 @@ def test_just_built_workflow_on_no_map_and_box_on_the_running_map(ctx: Ctx):
     ctx.check(f"R31 (c) + R36's row: another map new sessions now run on, got {on.get('head')!r}",
               re.fullmatch(f"Just built in this session at {_T}. This session does not run on it. New sessions run on fourth.",
                            on.get("head") or "") is not None)
+    ctx.check(f"R31 (c): S13 is on screen once in the drawer (the truth block's T2), the head adds only 'New sessions run on "
+              f"fourth.', got {on.get('s13')} in {on.get('truth')!r}", on.get("s13") == 1 and on.get("truth") == "T2")
+    # P3 batch 8, the coordinator's ruling: the head's words are never cut (no clamp), they wrap whole across the drawer, its
+    # buttons sit on their own row, and it takes room inside the drawing's box only once a build lands
     lg = d.get("long") or {}
-    ctx.check(f"R31 (e): a 47-character workflow name: the words held to two lines, all in the title, the button inside the head, "
-              f"got {lg.get('head')!r} clamped {lg.get('clamped')} button {(lg.get('still') or {}).get('button_inside')}",
-              "code-review-and-tests-for-every-change-made-now" in (lg.get("head") or "") and lg.get("clamped") is True
-              and (lg.get("still") or {}).get("button_inside") is True and lg.get("headButton") == "Open in Workflows")
-    for k in ("workflow", "running", "other", "other_next", "long"):
+    sentence = "Just built: the workflow code-review-and-tests-for-every-change-made-now. It is on no map, so no session runs it yet."
+
+    def whole(w: dict) -> bool:
+        return (w or {}).get("text") == sentence and w.get("scrollH") == w.get("clientH") and w.get("clamp") in ("none", "0", "")\
+            and w.get("display") != "-webkit-box" and (w.get("last") or {}).get("inBox") is True and (w.get("last") or {}).get("inRoom") is True\
+            and w.get("ownRow") is True
+    for k, w in (("1280 x 800", (lg.get("still") or {}).get("whole")), ("a 412 px drawer", d.get("long412"))):
+        ctx.check(f"R31 (e) at {k}: the long head shows its whole sentence, unclamped, its last word on screen, [Open in Workflows] "
+                  f"on its own row under the words, got {w}", whole(w))
+    ctx.check(f"R31 (e): the 412 px check ran at 412 px, got {(d.get('long412') or {}).get('width')}",
+              abs(((d.get("long412") or {}).get("width") or 0) - 412) <= 1)
+    css = "".join(p.read_text(encoding="utf-8") for p in (REPO / "halo_harness" / "studio" / "static" / "dist").rglob("*.css"))
+    ctx.check("no rule of the built CSS clamps the head's words", not re.search(r"\.mp-built-text[^{}]*\{[^}]*line-clamp", css))
+    for k in ("workflow", "running"):
         st = (d.get(k) or {}).get("still") or {}
-        ctx.check(f"Controls hold still ({k}): the head is 34 px and no control, the head or the drawing's top moved, "
-                  f"got h {st.get('h')} moved {st.get('moved')}", st.get("h") == 34 and st.get("moved") == {})
+        ctx.check(f"Controls hold still ({k}): a head landing moves no control; the drawing moves down once, inside its own "
+                  f"box, got moved {st.get('moved')} top +{st.get('top')}", st.get("moved") == {} and (st.get("top") or 0) > 0)
+    for k in ("other", "other_next", "long"):
+        st = (d.get(k) or {}).get("still") or {}
+        ctx.check(f"Controls hold still ({k}): no control moved, got {st.get('moved')}", st.get("moved") == {})
+    sf = d.get("same_frame") or {}
+    ctx.check(f"a frame that changes nothing in the head's words moves nothing (the head, its words, its button, the drawing), "
+              f"got {sf.get('moved')}", sf.get("moved") == {} and bool((sf.get("now") or {}).get("session-built-open")))
     ctx.check(f"R29 (d): the tag stays over turns and a fleet read, got {d.get('kept')}", d.get("kept") is True)
     ctx.check(f"R29 (d): once the session ended the tags are gone, got {d.get('ended')}", d.get("ended") is True)
 
@@ -987,8 +1070,9 @@ def test_just_built_workflow_on_no_map_and_box_on_the_running_map(ctx: Ctx):
 def test_no_fetch_before_the_first_draw(ctx: Ctx):
     d = _built(ctx, "fetch")
     p = d.get("painted") or {}
-    ctx.check(f"R28: the truth block, the status line and the pair are painted with every crew/map answer held, got {p}",
-              bool(p.get("truth")) and bool(p.get("status")) and "Running: shop" in (p.get("pair") or "") and p.get("done") == 0)
+    ctx.check(f"R28: the truth block (naming shop) and the status line are painted with every crew/map answer held, and with one "
+              f"map no pair row (P3 batch 8), got {p}",
+              "shop" in (p.get("truth") or "") and bool(p.get("status")) and p.get("pair") == "" and p.get("done") == 0)
     asked = p.get("asked") or []
     ctx.check(f"R28 R50: then one read of the running map, by scope and path, soft, got {asked}",
               len(asked) == 1 and asked[0].startswith("crew/map/shop?") and all(k in asked[0] for k in ("scope=yours", "path=", "soft=1")))
@@ -1003,6 +1087,49 @@ def test_no_fetch_before_the_first_draw(ctx: Ctx):
     ctx.check(f"R28: T4, T10, T8 and Empty read no map, got {q}",
               q.get("seen") == ["T4", "T10", "T8", "Empty"] and q.get("reads") == [])
     ctx.check(f"R28: no request failed, got {d.get('failed')}", d.get("failed") == [])
+
+
+# At 1280 x 800, one map and nothing built, on the tree before batch 8 (HEAD 9d8b6e20, the Linux VM): the drawing's box
+# was 246 px (its scroll box 133, '↓ 7 more below'), the truth block and status line 192 px, and 114 px stood between
+# them and the drawing's box (the pair row, the head's two reserved lines, the link and zoom row, their gaps).
+ROOM_BEFORE_1280, TRUTH_BEFORE_1280, OVER_BEFORE_1280 = 246, 192, 114
+
+
+@test
+def test_drawing_room_at_1280_one_map_no_build(ctx: Ctx):
+    # P3 batch 8, the coordinator's ruling: the two-map row only when there are two maps, the head's room only once a build
+    # lands and inside the drawing's box: with one map and no build the drawing has that room back, and "↓ n more below"
+    # still counts the boxes wholly below.
+    d = _built(ctx, "room")
+    for size in ("1280x800", "1440x900", "1920x1080"):
+        r = d.get(size) or {}
+        ctx.check(f"{size}: no pair row and no head room with one map and no build, got {r}", r.get("pair") is False and r.get("bar") is False)
+        n = r.get("below")
+        ctx.check(f"{size}: '↓ n more below' says the boxes wholly below ({n}), got {r.get('text')!r}",
+                  isinstance(n, int) and n >= 0 and r.get("text") == (f"↓ {n} more below" if n else ""))
+    r = d.get("1280x800") or {}
+    ctx.check(f"1280 x 800: what stands between the truth block and the drawing is at least 60 px less than before "
+              f"({OVER_BEFORE_1280} px), got {r.get('over')}", r.get("over") is not None and r["over"] <= OVER_BEFORE_1280 - 60)
+    # the truth block's reserve for the longest name (the coordinator's ruling on R20, this batch) takes some of it back:
+    # the drawing's box is 60 px taller than before apart from that block's own growth, and taller than before in all
+    grew = (r.get("truth") or 0) - TRUTH_BEFORE_1280
+    ctx.check(f"1280 x 800: the drawing's box {r.get('room')} px (before {ROOM_BEFORE_1280}) + the truth block's growth {grew} px "
+              f">= {ROOM_BEFORE_1280 + 60}, and taller than before", (r.get("room") or 0) + grew >= ROOM_BEFORE_1280 + 60
+              and (r.get("room") or 0) > ROOM_BEFORE_1280)
+
+
+@test
+def test_stop_confirmed_after_it_ended_says_so_at_every_door(ctx: Ctx):
+    # P3 batch 8 (the checker of batch 5): a control never has no visible effect. Stop asked in Agents' row, the Feed, the
+    # command palette and the k key; the agent ends before Yes: the confirm goes, nothing is sent, and one line in the
+    # step-in card's words (truth.ts endedAt) says so where Stop was pressed: the row's own line, or a toast.
+    import re
+    d = _stepin(ctx, "doors")
+    for door in ("agents", "feed", "palette", "key"):
+        g = d.get(door) or {}
+        want = f"ended at {_T}" if door in ("agents", "feed") else f"\\S.* ended at {_T}"
+        ctx.check(f"{door}: Yes after the agent ended: the confirm is gone, nothing sent, the line says so, got {g}",
+                  re.fullmatch(want, g.get("line") or "") is not None and g.get("confirm") is False and g.get("stops") == [])
 
 
 if __name__ == "__main__":

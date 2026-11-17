@@ -13,6 +13,9 @@ the session's socket (`LOG`: what reached "the session"), so nothing runs and no
     done     a done and a next step row and a calm line: the state only, no Stop, Pause or steer field
     hover    the hover card on a box (name, agent, model, state, "Starts when: ... (from main)", its child) and on a
              workflow's block; no When label on Session's lines; a click opens the card, not the hover
+    doors    Stop asked at each of the other four doors (Agents' row, the Feed, the command palette, the k key in the
+             Agent panel), the agent ended before Yes: the confirm goes, nothing is sent, and one line says
+             "{name} ended at {t}" / "ended at {t}" where Stop was pressed (P3 batch 8)
 
     python -m tests.helpers.studio_session_step_in [step ...]
 The last stdout line is a JSON object of what it saw.
@@ -254,6 +257,67 @@ def hover(c, rig, rows: Rows, a: str, b: str) -> dict:
     return {"hover": out}
 
 
+YES = "document.querySelector('[data-testid=fleet-confirm-yes]')"
+TOASTS = "[...document.querySelectorAll('.toast:not([data-leaving]) .toast-text')].map((t) => t.textContent)"
+FEED_STOP = "document.querySelector('[data-testid=session-live-stop]')"
+AGENT_STOP = "document.querySelector('[data-panel=session-agent] [data-testid=fleet-stop]')"
+
+
+def _ask(c, door: str) -> None:
+    if door == "agents":
+        c.click_on(AGENT_STOP)
+    elif door == "feed":
+        c.click_on(FEED_STOP)
+    elif door == "palette":
+        c.click_on("document.querySelector('.palette-btn')")
+        c.wait("!!document.getElementById('cmd-fleet-stop')", 10)
+        c.click_on("document.getElementById('cmd-fleet-stop')")
+    else:  # the k key, in the Agent panel (outside any field)
+        c.js("document.querySelector('[data-panel=session-agent] [data-testid=fleet-stream]')"
+             ".dispatchEvent(new KeyboardEvent('keydown', {key: 'k', bubbles: true})); 1")
+
+
+def doors(c, rig, rows: Rows, a: str, b: str) -> dict:
+    from tests.helpers.studio_session import boot_go, url
+    on = {"map": "hops", "box": "code", "line": "main -> code", "agent": "coder", "saved": True}
+    rows.reset()
+    rows.idle(b)
+    rows.set(a, map="hops", map_plain=False, busy=True, status="busy", agents=[_main(rows, a), _kid("c1", "coder", "running", crew=on)])
+    c.call("Emulation.setDeviceMetricsOverride", width=1280, height=800, deviceScaleFactor=1, mobile=False)
+    boot_go(c, url(rig, f"mode=session&session={a}&open=session-agent"))  # the Agent drawer (one drawer at a time at 1280)
+    try:
+        c.wait(f"!!{AGENT_STOP} && !!{FEED_STOP}", 30)
+    except TimeoutError:
+        return {"doors": {"missing": c.js(f"""({{ agent: !!{AGENT_STOP}, feed: !!{FEED_STOP}, stops: [...document.querySelectorAll('[data-testid=fleet-stop]')].length,
+          panels: [...document.querySelectorAll('[data-panel]')].map((e) => e.dataset.panel + (e.hidden ? ':hidden' : '')) }})""")}}
+    line = {"agents": "document.querySelector('[data-testid=fleet-stop-ended]')?.textContent || ''",
+            "feed": "document.querySelector('[data-testid=session-live-stop-ended]')?.textContent || ''"}
+    out: dict = {}
+    for door in ("agents", "feed", "palette", "key"):
+        LOG.clear()
+        rows.set(a, states={})  # every agent running
+        try:
+            c.wait(f"!{FEED_STOP}?.disabled && !{AGENT_STOP}?.disabled && !{YES}", 15)
+            toasts = c.js(TOASTS) or []
+            _ask(c, door)
+            c.wait(f"!!{YES}", 10)
+            rows.set(a, states={"*": "done"})  # it ends between the ask and the Yes
+            c.wait(f"!!{FEED_STOP}?.disabled", 15)
+            c.click_on(YES)
+            got = line.get(door) or f"({TOASTS}).slice({len(toasts)}).find((t) => t.includes('ended at')) || ''"
+            try:
+                c.wait(f"!!({got})", 5)
+            except TimeoutError:
+                pass  # the read says what was there
+            time.sleep(0.5)
+            out[door] = {"line": c.js(got), "confirm": c.js(f"!!{YES}"), "stops": [x for x in LOG if x["cmd"] == "agent_stop"]}
+        except (TimeoutError, AssertionError) as e:
+            out[door] = {"error": str(e)[:300], "confirm": c.js(f"!!{YES}")}
+            if c.js(f"!!{YES}"):
+                c.key("Escape")
+    return {"doors": out}
+
+
 class StepInDriver(RunDriver):
     @contextmanager
     def session(self, c):
@@ -266,7 +330,7 @@ class StepInDriver(RunDriver):
             rows = Rows(rig)
             c.call("Page.addScriptToEvaluateOnNewDocument", source=ERRS_JS)
             args = (c, rig, rows, rig.act.session_id, FAKE_SID)
-            steps = [s for s in (card, recheck, done, hover) if not self.argv or s.__name__ in self.argv]
+            steps = [s for s in (card, recheck, done, hover, doors) if not self.argv or s.__name__ in self.argv]
             yield tuple((fn, args) for fn in steps)
 
 

@@ -32,7 +32,7 @@ export function fleetCommands(): FleetCommand[] {
     out.push(
       { id: "fleet-steer", group: g, label: `Agents: steer ${name}`, hint: "the Steer box: a nudge or a new task", run: () => (openAgentPanel(sel.key), focusSteer("agent")) },
       { id: "fleet-pause", group: g, label: `Agents: ${sel.a.state === "paused" ? "resume" : "pause"} ${name}`, kbd: "P", run: () => void togglePause(sel.key) },
-      { id: "fleet-stop", group: g, label: `Agents: stop ${name}`, hint: "asks first", run: () => askStop(sel.key) },
+      { id: "fleet-stop", group: g, label: `Agents: stop ${name}`, hint: "asks first", run: () => askStop(sel.key, "palette") },
       { id: "fleet-takeover", group: g, label: `Agents: take over ${name}`, hint: "your brief replaces its task, recorded as a hand-off", run: () => askHandoff("take_over", sel.key) },
       { id: "fleet-handto", group: g, label: `Agents: hand ${name} to...`, hint: "its task as a written brief; it stops", run: () => askHandoff("hand_to", sel.key) },
       { id: "fleet-record", group: g, label: `Agents: record ${name}`, hint: "one HTML file that replays anywhere", run: () => void record(sel.key, true) },

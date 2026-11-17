@@ -61,6 +61,8 @@ export function justBuilt(kind: "workflow" | "running" | "other", o: { workflow?
   if (kind === "workflow")
     return { text: `Just built: the workflow ${o.workflow}. It is on no map, so no session runs it yet.`, act: "open-workflows", label: "Open in Workflows" };
   if (kind === "running") return { text: `Changed in this session at ${clock(o.t || 0)}; this session takes it at its next hand-off.` };
+  // R31 "(+ R36's row)": the row WITHOUT S13, as the coordinator ruled: S13 is on screen once, in the truth block just
+  // above this head (its T2 line), never twice in the drawer
   const use = o.map && o.next === o.map ? ` New sessions run on ${o.map}.` : "";
   return { text: `Just built in this session at ${clock(o.t || 0)}. This session does not run on it.${use}` };
 }

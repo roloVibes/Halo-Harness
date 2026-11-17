@@ -18,6 +18,7 @@
 import { useEffect, type ClipboardEvent, type DragEvent, type FocusEvent, type KeyboardEvent } from "react";
 import { Button, Icon } from "../../lib/ui";
 import { askStop, togglePause } from "../fleet/actions";
+import { endedAt } from "../crew/map/truth";
 import { Steer } from "../fleet/Steer";
 import { hueOf } from "../shared/hues";
 import { LivePreflight } from "./LivePreflight"; // 3.3.5.0 R4: a request over the window, answered here
@@ -45,6 +46,7 @@ export function LiveSteer() {
   const t = useSteerTarget();
   const ss = useFleet(chosenSession);
   const hid = useFleet((s) => s.scope.harness || "local");
+  const ended = useFleet((s) => (s.ended?.key === t.key && s.ended.door === "feed" ? s.ended.t : 0)); // Stop confirmed after it ended
   const take = (e: ClipboardEvent<HTMLDivElement> | DragEvent<HTMLDivElement>, from: "paste" | "drop") => {
     const f = imageFile("clipboardData" in e ? e.clipboardData : e.dataTransfer);
     if (!f || !ss) return;
@@ -83,10 +85,11 @@ export function LiveSteer() {
               title={why || (paused ? `Resume ${name}` : `Pause ${name} at its next step`)}>
         {paused ? "Resume" : "Pause"}
       </Button>
-      <Button size="sm" variant="danger" icon={<Icon name="stop" />} disabled={!!why} onClick={() => askStop(t.key)} data-testid="session-live-stop"
+      <Button size="sm" variant="danger" icon={<Icon name="stop" />} disabled={!!why} onClick={() => askStop(t.key, "feed")} data-testid="session-live-stop"
               title={why || `Stop ${name} at its next step (asks first)`}>
         Stop
       </Button>
+      {ended ? <span className="slv-ended mono muted" data-testid="session-live-stop-ended">{endedAt(ended)}</span> : null}
     </>
   );
   return (

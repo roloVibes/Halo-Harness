@@ -9,7 +9,10 @@ import { settle, type MotionState } from "../../lib/motion";
 import { LIVE_STATES, type Activity, type AgentKey, type AgentRef, type AgentRow, type Harness, type LitEdge, type SessionRow, type Stream } from "./types";
 
 export type StreamTab = "thinking" | "working" | "output";
-export type Confirm = { what: "stop" | "shutdown"; key: AgentKey; label: string } | null;
+/** 3.6.0.2: where a Stop was asked (the step-in card, Agents' row, the Feed, the palette, the k key): an agent that ended
+ *  before the Yes is said there in one line (`ended`). */
+export type Door = "card" | "agents" | "feed" | "palette" | "key";
+export type Confirm = { what: "stop" | "shutdown"; key: AgentKey; label: string; door?: Door } | null;
 /** 3.1.4.0 R2: what the map, the activity, the attention rows and the costs show (scope.ts); {} = every session. */
 export type Scope = { harness?: string; session?: string };
 
@@ -31,6 +34,10 @@ export type FleetState = {
   /** Bumped to move the keyboard focus into the Steer box. */
   steerFocus: number;
   confirm: Confirm;
+  /** A Stop confirmed after its agent ended: where it was asked and when the agent ended (s). */
+  ended: { key: AgentKey; door: Door; t: number } | null;
+  /** Bumped by each fresh read of the session list (GET live's answer, a sessions frame), never by an agent frame. */
+  listReads: number;
   scope: Scope;
   /** 3.1.5.0 R3: the agent whose line the pointer is on in Session's Live column (its map node lights). */
   hover: AgentKey;
@@ -64,6 +71,8 @@ export const fleet = createStore<FleetState>({
   doneAt: {},
   steerFocus: 0,
   confirm: null,
+  ended: null,
+  listReads: 0,
   scope: {},
   hover: "",
   ...readOpts(),

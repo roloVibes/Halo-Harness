@@ -8,7 +8,8 @@ import { openFeed } from "../crew/map/feedOpen";
 import { focusPanel, layoutStore, patchPanel } from "../../lib/workspace/persist";
 import { scopedAgents } from "./scope";
 import { append, follow, watch } from "./streams";
-import { fleet, findAgent, findSession, isLive, parseKey, saveOpts, sessionTitle } from "./store";
+import { endedAt } from "../crew/map/truth";
+import { fleet, findAgent, findSession, isLive, parseKey, saveOpts, sessionTitle, type Door } from "./store";
 import type { AgentKey, Harness } from "./types";
 import { load } from "./sync";
 
@@ -112,10 +113,11 @@ export async function togglePause(key: AgentKey = fleet.get().selected): Promise
   if (r.ok && !r.asked) toast(paused ? "Resumed" : "Paused: it holds at its next tool or model call", "done");
 }
 
-/** Stop and Shutdown ask first (the confirm dialog, FleetDialogs). */
-export function askStop(key: AgentKey = fleet.get().selected): void {
+/** Stop and Shutdown ask first (the confirm dialog, FleetDialogs); `door`: where Stop was pressed (where an ended agent is
+ *  said). */
+export function askStop(key: AgentKey = fleet.get().selected, door: Door = "agents"): void {
   const ref = findAgent(fleet.get(), key);
-  if (ref) fleet.update(() => ({ confirm: { what: "stop", key, label: ref.a.name || ref.a.agent_id } }));
+  if (ref) fleet.update(() => ({ confirm: { what: "stop", key, label: ref.a.name || ref.a.agent_id, door }, ended: null }));
 }
 
 export function askShutdown(hid: string, sid: string): void {
@@ -128,10 +130,16 @@ export async function confirmed(): Promise<void> {
   fleet.update(() => ({ confirm: null }));
   if (!c) return;
   if (c.what === "stop") {
-    // 3.6.0.2 R18: re-checked at the confirm by its full key (hid|sid|aid); an agent that ended meanwhile is sent nothing
-    // (the card that asked says "ended at {t}")
+    // 3.6.0.2 R18: re-checked at the confirm by its full key (hid|sid|aid); an agent that ended meanwhile is sent nothing,
+    // and one line says so where Stop was pressed, in the card's words "ended at {t}" (a control never has no visible
+    // effect): the card's row and Agents' and the Feed's own line read `ended`; the palette and the k key get a toast
     const ref = findAgent(fleet.get(), c.key);
-    if (!ref || !isLive(ref.a)) return;
+    if (!ref || !isLive(ref.a)) {
+      const at = fleet.get().doneAt[c.key], t = at ? at / 1000 : Date.now() / 1000, door = c.door || "agents";
+      fleet.update(() => ({ ended: { key: c.key, door, t } }));
+      if (door === "palette" || door === "key") toast(`${c.label} ${endedAt(t)}`, "info", 5000);
+      return;
+    }
     const r = await agentCommand(c.key, "stop", { reason: "stopped from Studio" });
     if (r.ok && !r.asked) toast(`${c.label}: stopping at its next step`, "done");
   } else {

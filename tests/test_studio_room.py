@@ -242,17 +242,20 @@ def test_r4b_the_line_in_the_middle_moves(ctx: Ctx):
 
 @test
 def test_r4b_either_view_alone(ctx: Ctx):
-    """R4b: Only this / Show both on the Map and on Live, in the view bar's words, kept per section; Live stays mounted
-    under Map only; the Map's own button brings both back; each arrangement keeps the room rules (no sideways scrollbar,
-    nothing under 12 px, controls >= 28 px and 8 px apart, the drawing fits or pans from main)."""
+    """R4b: Only this / Show both on the Live drawer (the drawing) and on the Feed (3.6.0.2 R35's words), kept per section;
+    the Feed stays mounted under Live only; the Live button brings both back; each arrangement keeps the room rules (no
+    sideways scrollbar, nothing under 12 px, controls >= 28 px and 8 px apart, the drawing fits or pans from main).
+    The arrangements keep their ids (map-only = Live only, live-only = Feed only)."""
     sp = _got(ctx).get("split") or {}
     for size in ("1280x800", "1500x900", "1920x1000"):
         s = sp.get(size) or {}
-        ctx.check(f"{size}: Map only keeps Live mounted, hidden, the Map with the whole stage, got {s.get('mounted')}",
+        ctx.check(f"{size}: Live only keeps the Feed mounted, hidden, the Live drawing with the whole stage, got {s.get('mounted')}",
                   (s.get("mounted") or [False])[0] is True and (s.get("mounted") or [0, 0])[1] > 1100)
-        ctx.check(f"{size}: Map only is kept across a reload, got {s.get('map_only_kept')}", s.get("map_only_kept") == ["Live only", True])
-        ctx.check(f"{size}: Live only: no Map drawer, its button not pressed, got {s.get('live_only')}", s.get("live_only") == [False, "false"])
-        ctx.check(f"{size}: Live only kept, then the Map's button shows both, got {s.get('both_again')}", s.get("both_again") == "Live and Feed")
+        ctx.check(f"{size}: Live only is kept across a reload (the bar says 'Live only'), got {s.get('map_only_kept')}",
+                  s.get("map_only_kept") == ["Live only", True])
+        ctx.check(f"{size}: Feed only: no Live drawer, the Live button not pressed, got {s.get('live_only')}", s.get("live_only") == [False, "false"])
+        ctx.check(f"{size}: Feed only kept, then the Live button shows both ('Live and Feed'), got {s.get('both_again')}",
+                  s.get("both_again") == "Live and Feed")
         arr = s.get("arr") or {}
         # 3.6.0.2 R35: the drawer is titled Live and the main panel Feed, so the bar says Live and Feed / Live only / Feed only
         want = {"map-and-live": "Live and Feed", "map-only": "Live only", "live-only": "Feed only"}

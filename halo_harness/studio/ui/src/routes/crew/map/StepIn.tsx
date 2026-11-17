@@ -43,7 +43,7 @@ function WhoRow({ w, chosen, choose }: { w: Who; chosen: boolean; choose: () => 
       {live ? (
         <span className="mp-step-in-acts">
           <Button size="sm" data-testid="map-step-in-pause" onClick={() => void togglePause(w.key)}>{paused ? "Resume" : "Pause"}</Button>
-          <Button size="sm" variant="danger" data-testid="map-step-in-stop" onClick={() => askStop(w.key)}>Stop</Button>
+          <Button size="sm" variant="danger" data-testid="map-step-in-stop" onClick={() => askStop(w.key, "card")}>Stop</Button>
         </span>
       ) : <span className="mp-step-in-ended mono" data-testid="map-step-in-ended">{endedAt(seen.current)}</span>}
     </div>

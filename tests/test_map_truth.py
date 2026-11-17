@@ -35,6 +35,8 @@ STATES = {
     "T1": dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07"),
     "T1 b=a": dict(BASE, a="review-flow", plain=False, b="review-flow", bSince="@11:30"),
     "T2": dict(BASE, a="shop", plain=False, b="review-flow", bSince="@11:30"),
+    # the coordinator accepted it (P3 batch 8): T2 when {B} was switched on before this session started
+    "T2 switched before": dict(BASE, a="shop", plain=False, b="review-flow", bSince="@09:07"),
     "T3": dict(BASE),
     "T3 with B": dict(BASE, b="review-flow", bSince="@11:30"),
     "T4": dict(BASE, a=None, plain=False),
@@ -53,6 +55,7 @@ WANT = {
     "T1 b=a": ("T1", [("This session runs on review-flow, as it started at {10:24}. New sessions will too.", None)]),
     "T2": ("T2", [(S13.format("shop", "review-flow"), NEW),
                   ("It started at {10:24}, before review-flow was switched on at {11:30}.", None)]),
+    "T2 switched before": ("T2", [(S13.format("shop", "review-flow"), NEW), ("It started at {10:24}.", None)]),
     "T3": ("T3", [("This session runs on starter (the default), as it started at {10:24}. On starter main chooses who to "
                    "hand work to; the dashed lines show what it chose.", None)]),
     "T3 with B": ("T2", [(S13.format(DEF, "review-flow"), NEW),
@@ -376,6 +379,28 @@ def test_worst_case_reserve_at_408_and_360(ctx: Ctx):
     ctx.check(f"360 reserves at least what 408 does: {out['r360']['est']} >= {out['r408']['est']}",
               out["r360"]["est"] >= out["r408"]["est"])
     ctx.check(f"a 120-character B grows it, never clamped: {out['long']} > {out['r408']['est']}", out["long"] > out["r408"]["est"])
+
+
+@test
+def test_reserve_is_for_the_longest_name_allowed(ctx: Ctx):
+    """R20, the coordinator's ruling (P3 batch 8): before {B} or {W} is known the truth block's reserve is taken for the
+    longest name the store allows (crew/formats.py NAME), never a guess, so a real name never makes the block grow."""
+    from halo_harness.crew import formats
+    m = re.fullmatch(r"\^\[a-z\]\[a-z0-9-\]\{0,(\d+)\}\$", formats.NAME.pattern)
+    longest = 1 + int(m[1]) if m else None
+    f = dict(BASE, a="shop", plain=False, b="shop", bSince="@09:07")  # T1: {B} is {A}, no workflow yet
+    _, out = ts("""const f = D.f, s = f.started, n = T.LONGEST_NAME;
+      const names = [D.b40, 'w'.repeat(n || 48), 'm'.repeat(n || 48)];
+      out.n = n;
+      out.over = [];
+      for (const w of [408, 360]) { const r = T.reserve(f, w).est;
+        for (const b of names) for (const workflow of [null, ...names]) for (const changed of [null, { t: s }]) {
+          const e = T.est(T.truthLines({ ...f, b, bSince: s + 60, workflow, changed }), w);
+          if (e > r) out.over.push([w, b.length, workflow && workflow.length, !!changed, e, r]); } }""",
+            dict(f=f, b40="code-review-and-tests-for-every-change-m"))
+    ctx.check(f"truth.ts's LONGEST_NAME is the store's rule ({longest}), got {out.get('n')}", longest == 48 and out.get("n") == longest)
+    ctx.check(f"no {{B}} or {{W}} up to {longest} characters needs more than the reserve at 408 and 360, over: {out.get('over')}",
+              out.get("over") == [])
 
 
 @test

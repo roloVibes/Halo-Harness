@@ -36,7 +36,7 @@ export function useHopKeys(): void {
       if (s.section !== "session" || f.confirm) return; // 3.1.4.0 R2: Session hops this harness's agents
       const inAgent = !!t?.closest?.('[data-panel="session-agent"]');
       if (key === "j") hop(1);
-      else if (key === "k") inAgent ? askStop() : hop(-1);
+      else if (key === "k") inAgent ? askStop(f.selected, "key") : hop(-1);
       else if (key === "f") toggleFollow();
       else if (key === "p") void togglePause();
       else if (key === " " && f.selected && !t?.closest?.(PRESSABLE)) pin(f.pinned === f.selected ? "" : f.selected);

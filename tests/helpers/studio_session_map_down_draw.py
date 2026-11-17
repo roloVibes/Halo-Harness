@@ -211,7 +211,7 @@ GONE = f"""(() => {{ const m = {M}, sc = m && m.querySelector('.mp-mini-scroll')
   window.setTimeout = function (fn, ms, ...rest) {{
     const e = window.event, mine = e && e.type === 'scroll' && e.target && e.target.closest && e.target.closest('[data-testid=session-lit-map]');
     if (!mine) return set.call(window, fn, ms, ...rest);
-    T.made++;
+    T.made++; T.set = set; T.due = Math.max(T.due || 0, performance.now() + (Number(ms) || 0));
     return set.call(window, function () {{ T.fired++; if (!document.querySelector('[data-testid=session-lit-map]')) T.firedGone++;
       return typeof fn === 'function' ? fn.apply(this, arguments) : undefined; }}, ms, ...rest);
   }};
@@ -227,7 +227,11 @@ def gone(c, rig, rows, a) -> dict:
     _open(c, rig, rows, a, "seven", 1280, 640, 8)
     start = c.js(GONE) or {}
     c.wait(f"!{M}", 10)
-    time.sleep(0.8)  # the settle timer is 200 ms: well past it
+    # wait for the effect, not a fixed time: a probe timer due just after the latest timer the drawing armed fires only
+    # once that one is past its due (timers run in due order), so by then it has fired or was cleared
+    c.js("(() => { const T = window.__gone || {}; window.__probe = false; (T.set || setTimeout).call(window, () => { window.__probe = true; },"
+         " Math.max(0, (T.due || 0) - performance.now()) + 20); return 1; })()")
+    c.wait("window.__probe === true", 10)
     return {"gone": {**start, **(c.js("window.__gone || {}") or {}), "drawn": c.js(f"!!{M}")}}
 
 

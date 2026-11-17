@@ -12,6 +12,7 @@ import type { MotionState } from "../../lib/motion";
 import { cost, elapsed, short } from "../orchestra/format";
 import { useLocalAgent, WatchInSession } from "../session/Watch";
 import { askStop, pin, toggleFollow, togglePause } from "./actions";
+import { endedAt } from "../crew/map/truth";
 import { AgentExtras, RecentSessions } from "./AgentHistory";
 import { nowText } from "../crew/live/nodeBits";
 import { Steer } from "./Steer";
@@ -92,6 +93,7 @@ export function AgentView({ r }: { r: AgentRef }) {
   const columns = useFleet((s) => s.columns);
   const follow = useFleet((s) => s.follow);
   const pinned = useFleet((s) => s.pinned);
+  const ended = useFleet((s) => (s.ended?.key === r.key && s.ended.door === "agents" ? s.ended.t : 0)); // Stop confirmed after it ended
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => watch(r.key), [r.key]); // its backlog, then followed
   useEffect(() => {
@@ -145,6 +147,7 @@ export function AgentView({ r }: { r: AgentRef }) {
         <Button size="sm" variant={pinned === key ? "primary" : "ghost"} icon={<Icon name="pin" />} aria-pressed={pinned === key} onClick={() => pin(pinned === key ? "" : key)} title="Space: keep its mini stream on screen">
           {pinned === key ? "Pinned" : "Pin"}
         </Button>
+        {ended ? <span className="fa-ended mono muted" data-testid="fleet-stop-ended">{endedAt(ended)}</span> : null}
         <span className="spacer" />
         <span className="fa-keys muted"><Kbd keys="J" /> <Kbd keys="K" /> hop</span>
       </div>

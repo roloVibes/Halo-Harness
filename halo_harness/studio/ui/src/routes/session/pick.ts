@@ -101,6 +101,25 @@ export function staleRead(rows: SessionRow[], pick: string): boolean {
   return true;
 }
 
+let listSeen = -1;
+/** R1: `staleRead`, counted once per fresh read of the session LIST (`reads`: the fleet's `listReads`, bumped by GET live's
+ *  answer and a sessions frame), never per agent frame of another session (those change the rows, not the list read). */
+export function staleList(reads: number, rows: SessionRow[], pick: string): boolean {
+  const fresh = reads !== listSeen;
+  listSeen = reads;
+  return fresh && !!pick && staleRead(rows, pick);
+}
+
+/** R4: reads that may be answered out of order: each call of the returned `read` sends one read with its own number, and
+ *  only the answer (or the failure) of the newest read is kept; an older answer that lands late is dropped. */
+export function newestOnly<T>(get: () => Promise<T>, keep: (v: T) => void, fail: () => void): () => void {
+  let n = 0;
+  return () => {
+    const mine = ++n;
+    get().then((v) => void (mine === n && keep(v)), () => void (mine === n && fail()));
+  };
+}
+
 /** R1: the picked row while it is open; a pick is never another session: one that ended (null here, T8 in the drawer)
  *  or one not listed yet (New session registers a moment later) is null; with no pick the newest open row that is not
  *  T10, else (only T10 rows are open) the newest of those. */

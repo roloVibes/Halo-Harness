@@ -8,8 +8,11 @@ environment:
 
     python -m tests.helpers.studio_session dash    landing (live / nothing live), the six panels, the map of this
                                                    harness only, the working node lit and selected, Cost, Activity,
-                                                   Attention, `&session=<id>`, J / K, Alt+2 (Agents -> Live: the same
-                                                   two sessions) and Alt+1 (Session, the first tab); `/studio`'s opener focusing the open page
+                                                   Attention, `&session=<id>`, J / K, Alt+2 (asserted: Agents shows, on
+                                                   its Map view while a session runs, no harness box: `alt4`,
+                                                   `agents_view`, `agents_boxes`) and Alt+1 (asserted: Session, the first
+                                                   tab, its map still lit: `alt1`, `back_map`); `/studio`'s opener
+                                                   focusing the open page
     python -m tests.helpers.studio_session links   the rail click rule, the map menu's Open in Session, the Roles Live
                                                    tab's Watch in Session, the Orchestra run line's (studio_session_links.py)
 

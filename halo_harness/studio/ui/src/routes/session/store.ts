@@ -21,7 +21,7 @@ import { load as loadFleet, startFleet } from "../fleet/sync";
 import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 import { onEvent } from "../../lib/events";
-import { livePick, noteBuild, noteRows, staleRead } from "./pick";
+import { livePick, noteBuild, noteRows, staleList } from "./pick";
 import { keepOpen } from "../crew/map/built";
 import { startLit } from "../crew/map/litStore";
 
@@ -121,7 +121,6 @@ let busy = false;
 let lastSection = "";
 let lastSel = "";
 let needPick = false;
-let lastRead: unknown = null;
 
 /** Every studio or fleet change: the scope in and out of the section, the pick on enter, the session following the selection. */
 function onChange(): void {
@@ -146,9 +145,8 @@ function onChange(): void {
     const harness = localId(s);
     let session = s.scope.harness ? s.scope.session || "" : sess.get().chosen;
     const want = sess.get().want;
-    const read = s.loaded && !s.error && s.harnesses !== lastRead; // the rows read again (GET live, a frame)
-    if (read) lastRead = s.harnesses;
-    const gaveUp = read && !!session && !want && staleRead(localSessions(s), session);
+    // the session LIST read again (GET live, a sessions frame: listReads), never an agent frame of another session
+    const gaveUp = s.loaded && !s.error && staleList(s.listReads, localSessions(s), want ? "" : session);
     if (gaveUp) (session = "", (needPick = true)); // R1: a pick never listed in two reads: Session as with no pick
     if (s.loaded && want) {
       sess.update(() => ({ want: null }));

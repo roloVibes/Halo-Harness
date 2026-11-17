@@ -4,16 +4,17 @@
 // moves (Agents -> Map's "New sessions run on", a Builder card, `halo config set crew.map` in a terminal). Undefined
 // until the first read answers (the words' room is held, never a {B} that may be false); a read that fails keeps what
 // was read before, else what this page last heard (pick.ts knownNext), else none set.
+// Reads answered out of order: only the newest read's answer is kept (pick.ts newestOnly), one read per trigger.
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { onFilesChanged } from "../../lib/filesLive";
-import { knownNext } from "./pick";
+import { knownNext, newestOnly } from "./pick";
 
 export function useNextB(): string | null | undefined {
   const [b, setB] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let live = true;
-    const read = () => void api.get<{ next?: string | null }>("crew/maps").then(
+    const read = newestOnly(() => api.get<{ next?: string | null }>("crew/maps"),
       (d) => live && setB(d.next || null),
       () => live && setB((was) => (was !== undefined ? was : knownNext()?.b ?? null)));
     read();
