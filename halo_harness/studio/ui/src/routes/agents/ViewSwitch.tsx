@@ -18,7 +18,7 @@ export function ViewSwitch({ view }: { view: AgentsView }) {
   const runs = useRunning().length > 0; // R52: the Live tab shows a dot while a session runs
   return (
     <>
-    <span className="segmented ag-views" role="tablist" aria-label="Agents: Agents, Workflows, Map or Live" data-testid="agents-views">
+    <span className="segmented ag-views" role="tablist" aria-label={`Agents: Agents, Workflows, ${WORDS.map} or ${WORDS.live}`} data-testid="agents-views">
       {VIEWS.map(([v, label, key, title]) => (
         <button key={v} role="tab" className={view === v ? "on" : ""} aria-selected={view === v} aria-pressed={view === v}
                 title={`${title} (${key})${v === "live" && runs ? " -- a session is running" : ""}`} onClick={() => setAgentsView(v)}

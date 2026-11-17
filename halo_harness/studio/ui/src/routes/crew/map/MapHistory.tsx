@@ -51,7 +51,7 @@ export function MapHistory() {
           </>
         )}
         <Button onClick={() => (toggleHistory(true), openMapDrawer("history"))} data-testid="map-history-all"
-                title="Every past session, goal run and saved replay file, as Live's History lists them; tick two to compare">Goal runs, files, Compare</Button>
+                title="Every past session, goal run and saved replay file, as History lists them; tick two to compare">Goal runs, files, Compare</Button>
       </div>
       {R && <Scrubber sid={open?.sid ?? R.sid} title={open?.title ?? R.title} started={null} lineup="" />}
       {card && row && <ReportCard refId={`session:${card}`} />}

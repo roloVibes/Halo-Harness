@@ -6,6 +6,7 @@ import { api, ApiError } from "../../lib/api";
 import { createStore, studio, useStore } from "../../lib/store";
 import { parseKey } from "../fleet/store";
 import type { LiveLine } from "../shared/liveFeed";
+import { WORDS } from "../crew/map/truthWords";
 
 export type WhyAnswer = { ok: boolean; line: string; details: string[]; turn: number | null; model?: string; host?: string; cli?: string };
 type WhyState = { key: string; n: number; busy: boolean; answer: WhyAnswer | null; error: string };
@@ -37,7 +38,7 @@ export function WhyButton({ l }: { l: LiveLine }) {
 
 export function WhySettings() {
   const w = useStore(why, (x) => x);
-  if (!w.key) return <p className="muted">A Live row's <span className="mono">why?</span> shows here what the model saw for that turn.</p>;
+  if (!w.key) return <p className="muted">A {WORDS.feed} row's <span className="mono">why?</span> shows here what the model saw for that turn.</p>;
   if (w.busy) return <p className="mono muted">reading the ledger and the log…</p>;
   if (w.error) return <p className="mono lc-said" data-testid="session-why-error">{w.error}</p>;
   const a = w.answer;

@@ -27,7 +27,7 @@ export function AgentExtras({ r, done, noControl }: { r: AgentRef; done: boolean
         Record
       </Button>
       {r.h.local && (
-        <Button size="sm" variant="ghost" icon={<Icon name="play" />} title="play its session back on Agents -> Live (the scrubber)" onClick={() => void replaySession(r.s.session_id)} data-testid="fleet-replay">
+        <Button size="sm" variant="ghost" icon={<Icon name="play" />} title="play its session back on Agents -> Map (the scrubber)" onClick={() => void replaySession(r.s.session_id)} data-testid="fleet-replay">
           Replay
         </Button>
       )}

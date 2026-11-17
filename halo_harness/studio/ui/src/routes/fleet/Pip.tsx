@@ -45,6 +45,7 @@ export function FleetPip() {
     const d = drag.current;
     if (d) setOff({ x: d.x + e.clientX - d.sx, y: d.y + e.clientY - d.sy });
   };
+  const inSession = section === "session"; // R53: openAgentPanel opens Session's Agent panel there, else Agents -> Live
   const goTo = () => {
     select(pinned);
     showFleetPanel("fleet-agent");
@@ -56,7 +57,8 @@ export function FleetPip() {
         <span className="panel-dot" data-motion={agentMotion(a, doneAt)} aria-hidden="true" />
         <b className="pip-name">{a.name || a.agent_id}</b>
         <span className="mono muted pip-meta">{a.state} · {cost(a.cost_usd)} · {short(ref.h.name || "", 16)}</span>
-        <button className="icon-btn" onClick={goTo} title="Open it on Agents -> Live" aria-label="Open it on Agents Live">
+        <button className="icon-btn" onClick={goTo} title={inSession ? "Open it in Session's Agent panel" : "Open it in Agents -> Live"}
+                aria-label={inSession ? "Open it in Session's Agent panel" : "Open it in Agents Live"}>
           <Icon name="popout" />
         </button>
         <button className="icon-btn" onClick={() => pin("")} title="Unpin (Esc)" aria-label="Unpin">

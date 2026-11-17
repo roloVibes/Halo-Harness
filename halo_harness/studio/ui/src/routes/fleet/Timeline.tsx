@@ -24,6 +24,7 @@ import type { AgentKey } from "./types";
 import { byGroup } from "../crew/live/laneGroups";
 import { toggleByGroup, useByGroup } from "../crew/live/groupStore";
 import { PHASE_WORD, spanWords, type PhaseSeg } from "../session/phases";
+import { WORDS } from "../crew/map/truthWords";
 
 const LANE = 28; // 3.6.0.0 R7: a lane row is a control a person clicks (it pins its agent): 28 px tall
 const BAR = 12; // a lane's bar, centred in its row
@@ -99,7 +100,7 @@ export function Timeline({ scope: only, onPick = select, marked, verb = "select 
         <span className="spacer" />
         {extra}
         <button className={grouped ? "on" : ""} aria-pressed={grouped} onClick={toggleByGroup} data-testid={`${testid}-by-group`}
-                title="List the lanes in Live's groups: a title row over the agents of one task or one square">by group</button>
+                title={`List the lanes in the ${WORDS.feed}'s groups: a title row over the agents of one task or one square`}>by group</button>
         <div className="segmented" role="group" aria-label="How far back">
           {SPANS.map((m) => (
             <button key={m} className={span === m ? "on" : ""} aria-pressed={span === m} onClick={() => panels.update(() => ({ span: m }))} data-testid={`fleet-span-${m}`}>

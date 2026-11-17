@@ -14,6 +14,7 @@ import { startLiveTree } from "../shared/liveTree";
 import { goRow } from "./LiveThink";
 import { WHY_WORD } from "./LiveTalk";
 import { sess } from "./store";
+import { WORDS } from "../crew/map/truthWords";
 import { useConvPick } from "./convPick"; // 3.3.18.0: a click on a line of Agents -> Live opens its pair
 
 type Pair = { id: string; a: string; b: string; aName: string; bName: string; msgs: TalkMsg[]; last: TalkMsg };
@@ -41,7 +42,7 @@ function showRow(n: number): void {
 function Bubble({ m, left, nested }: { m: TalkMsg; left: boolean; nested: boolean }) {
   return (
     <button type="button" className="conv-bubble" data-testid="conv-bubble" data-side={left ? "left" : "right"} data-nested={nested || undefined} data-n={m.n}
-            data-hc={hueOf(m.fromKey)} onClick={() => showRow(m.n)} title="Show it in Live">
+            data-hc={hueOf(m.fromKey)} onClick={() => showRow(m.n)} title={`Show it in the ${WORDS.feed}`}>
       <span className="conv-meta mono">
         <span className="conv-who">{m.fromName}</span>
         <span className="conv-why">{WHY_WORD[m.why] || m.why.toUpperCase()}{m.square ? ` · ${m.square}` : ""}</span>
@@ -59,7 +60,7 @@ function Thread({ p }: { p: Pair }) {
       <div className="conv-thread-head">
         <span className="rail-label mono">{short(p.aName, 18)} ↔ {short(p.bName, 18)}</span>
         <button type="button" className="og-link mono" data-testid="conv-show-live" onClick={() => sess.update(() => ({ pair: p.id, kind: "", think: false, pin: "", follow: true }))}>
-          show in Live
+          show in the {WORDS.feed}
         </button>
       </div>
       {p.msgs.map((m) => <Bubble key={m.id + m.n} m={m} left={m.fromKey === p.a} nested={!!m.re && ids.has(m.re)} />)}

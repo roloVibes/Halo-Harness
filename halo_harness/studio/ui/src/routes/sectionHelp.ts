@@ -7,6 +7,7 @@
 // 3.1.6.0 R6: a section's own Alt+N line is not here: the overlay puts the
 // registry's key (routes/index.tsx SECTIONS) first, so a reorder moves it.
 import type { SectionId } from "../lib/store";
+import { WORDS } from "./crew/map/truthWords";
 
 export type SectionHelpCopy = { what: string; steps: [string, string][]; keys: [string, string][]; terms: string[] };
 
@@ -33,26 +34,26 @@ export const SECTION_HELP: Record<SectionId, SectionHelpCopy> = {
       ["1 · Agents", "Your agents on the left (tagged new or not used yet), then the starters to copy; the form on the right. Write it for me fills the builder box below; Try it runs the agent on a throwaway copy of the repo and says what it used and cost."],
       ["2 · Workflows", "A workflow is your agents in steps: each step's agents (side by side ones work at the same time), what it gets, what it hands on, when it runs, and Repeat until. The drawing beside the form follows the list. Try it runs it on a throwaway copy."],
       ["3 · Map", "main is always at the left. Drag an agent or a workflow from Agents and workflows onto a box: that box hands work to it, and the When card opens at the line. Drag a box's dot to another box for a chain. New sessions run on this makes it the map new sessions run on."],
-      ["4 · Live", "The session you pick, drawn on the map it really follows: each box with its agents and their state, a workflow as its steps, every hand-off lighting its line and leaving a trace, work outside the lines dashed. Click a box: Pause, Stop or steer it there. The Feed (its button on Live's bar) shows what the agents say and do, line by line."],
+      ["4 · Live", "The session you pick, drawn on the map it really follows: each box with its agents and their state, a workflow as its steps, every hand-off lighting its line and leaving a trace, work outside the lines dashed. Click a box: Pause, Stop or steer it there. The Feed (its button on the bar) shows what the agents say and do, line by line."],
       ["History and goal runs", "Under the map, History lists finished runs, newest first; Replay it on the map plays one back with the scrubber, Report card says it in ten lines. Run a goal on the Map's bar opens the goal form in the drawer; a running goal's pages open there too."],
       ["Hover, then click", "Rest the pointer on a box or Tab to it: a card says what it is after a moment. A click opens everything in the drawer. Settings -> Studio turns the cards off."],
       ["Attention", "The chip at the right of each tab's bar counts every decision that waits on you, amber while any does; it (or A) opens the queue: A accepts, R denies or redoes with your text, S stops, O opens where it belongs."],
     ],
-    keys: [["1 / 2 / 3 / 4", "Agents, Workflows, Map, Live (outside a text field)"], ["A", "the Attention queue"], ...PANEL_KEYS],
+    keys: [["1 / 2 / 3 / 4", `Agents, Workflows, ${WORDS.map}, ${WORDS.live} (outside a text field)`], ["A", "the Attention queue"], ...PANEL_KEYS],
   },
   session: {
     terms: ["harness", "hand-off", "gate", "glance"], // 3.4.1.0 R4: the glance
-    what: "Your own session, live: one live column of every agent at work, as it happens, is the main thing; the map of this harness's agents, what the chosen session costs and the rest are buttons in the bar above it. Every machine's agents are Agents -> Live's (the fleet scope).",
+    what: "Your own session, live: one live column of every agent at work, as it happens, is the main thing; the map of this harness's agents, what the chosen session costs and the rest are buttons in the bar above it. Other machines' sessions are listed on Agents -> Live.",
     steps: [
       ["Open it", "/studio in a terminal session opens Studio here on that session (halo studio --session from a shell); Alt+1, the palette, Watch in Session on Agents' Live tab or a live run in Agents: Runs, and Open in Session on a node's menu on Agents -> Live land here too."],
-      ["Watch everything at once", "Live, the whole stage: every agent's text, tool calls with their times and results, hand-backs and asks, in the order they happen, each line tagged with its agent and its state. Scroll up (or type a steer) to hold the view, N new rows · follow to come back; click a tag to follow one agent; the Steer box is always at the foot and names its target, the outlined row (click a row or press Tab to change it); Export saves the trace."],
+      ["Watch everything at once", `${WORDS.feed}, the whole stage: every agent's text, tool calls with their times and results, hand-backs and asks, in the order they happen, each line tagged with its agent and its state. Scroll up (or type a steer) to hold the view, N new rows · follow to come back; click a tag to follow one agent; the Steer box is always at the foot and names its target, the outlined row (click a row or press Tab to change it); Export saves the trace.`],
       ["Read the map", "Each agent sits under the one that spawned it, its children fanned out, with its model, its cost and the tool it runs now (Bash 12s). Cyan works, amber waits on you, green just finished and fades, red failed and stays. Click an agent: its session becomes the chosen one."],
       ["Read the cost", "The spend ticks up beside its sparkline the moment the terminal's does; the context bar turns amber past 80 % and red past 95 %; the tokens, your turns and the cost per turn, and each agent's own share in one stacked bar (a finished sub-agent counts once)."],
-      ["Open what you need", "Map, Cost, Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) are buttons in the bar above Live; a click opens one as a drawer beside it (Activity takes Live's place as its tab), Reset layout closes them all."],
+      ["Open what you need", `${WORDS.live}, Cost, Agent (its streams, Steer, Pause, Stop, Follow, Pin), Activity (the lanes and the full log) and Attention (one key each) are buttons in the bar above the ${WORDS.feed}; a click opens one as a drawer beside it (Activity takes the ${WORDS.feed}'s place as its tab), Reset layout closes them all.`],
       ["Glance from a phone", "The \"...\" menu's Open the glance (or the palette, or halo studio --mode glance): one phone-width page -- what runs, what waits on you as big buttons, the spend against its cap -- here, or on a phone through an SSH forward of Studio's port. Settings -> Studio -> Alerts can add one browser notification when something starts waiting on you."],
     ],
     keys: [...HOP_KEYS, ["P", "pause or resume the agent"], ["K", "in the Agent panel: stop it (asks first)"],
-      ["Esc", "in Live: show every agent again after a tag click"], ["A / R / S / O", "in Attention, or on the newest ask card in Live: accept, deny or redo (with a text), stop, open"], ...PANEL_KEYS],
+      ["Esc", `in the ${WORDS.feed}: show every agent again after a tag click`], ["A / R / S / O", `in Attention, or on the newest ask card in the ${WORDS.feed}: accept, deny or redo (with a text), stop, open`], ...PANEL_KEYS],
   },
   packs: {
     terms: ["pack", "lineup", "bio", "capability", "orchestra run"], // 3.2.1.0 R1: "pack" is in the glossary

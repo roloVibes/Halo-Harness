@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { BlockHelp } from "./LogModelRows";
 import { LIVE_MS, LOG_KINDS, loadAll, setKind, setLive, useLogs } from "./logstore";
 
-const HELP = "The newest 200 lines, read when the page opens and on Live every 5 seconds. fit: the load's lines " +
+const HELP = "The newest 200 lines, read when the page opens and, with Follow on, every 5 seconds. fit: the load's lines " +
   "(offloaded layers, KV buffers, graph splits); headroom: the memory the scheduler placed it against; truncation: a " +
   "prompt cut to fit the window or a reply cut at it; failure: CUDA errors, a runner that died, 500s, a client that " +
   "gave up. The file can hold invalid UTF-8: it is read as bytes and shown with a replacement mark.";
@@ -40,7 +40,7 @@ export function LogTail() {
         </span>
         <span className="spacer" />
         <label className="mono muted lg-live" title={`read it again every ${LIVE_MS / 1000} s while this page is shown`}>
-          <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} data-testid="local-logs-live" /> Live
+          <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} data-testid="local-logs-live" /> Follow
         </label>
       </div>
       {tail && <div className="mono muted" data-testid="local-logs-source" title={tail.cli}>{tail.source || tail.path}</div>}

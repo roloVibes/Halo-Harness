@@ -10,7 +10,7 @@ export const LIVE_HELP: Record<string, Help> = {
     about: "Every decision that waits on you, oldest first, one key each.",
     help: lines(
       "Cards (permission, question, plan, approval), gates, paused agents, spend caps and file conflicts all land here.",
-      "A accepts or allows, R denies or redoes with your text, S stops, O opens where it belongs (Live, Local).",
+      "A accepts or allows, R denies or redoes with your text, S stops, O opens where it belongs (Agents -> Live, Local).",
       "J / K (or the arrows) move between rows while this panel has the focus.",
       "The chip on Agents' bar counts them in every view, amber while any waits; it (or A) opens and closes this panel.",
     ),
@@ -18,7 +18,7 @@ export const LIVE_HELP: Record<string, Help> = {
   "fleet-activity": {
     about: "What your sessions do: a timeline lane per live agent and the merged live log.",
     help: lines(
-      "Add it on Live with its button in the bar (or the palette's Agents: Activity); it takes the canvas's place as its tab.",
+      "Open it in Session with Activity in the bar above the Feed; it takes the Feed's place as its tab.",
       "Each lane shows the agent's states over 5, 15 or 60 minutes; the ticks are its tool calls.",
       "Hover a bar for who and when; click a lane or a line to select that agent on the tree.",
       "Filter the log by session, agent or kind; Follow keeps the newest line in view.",

@@ -56,7 +56,7 @@ export const LOCAL_HELP: Record<string, Help> = {
     "Pick the host on top. The status line says live, stale, quiet, unreadable, on that machine (no ssh entry) or missing, with the path; Copy puts the tail command on the clipboard.",
     "A host another machine serves is read over its ssh: entry (ollama.hosts); with none, a fleet member's push carries its events, else only /api/ps says the fit.",
     "Per model: the last load (layers on the GPU, where the KV cache sits, the graph splits, tok/s), the prompts the log cut this session, the error lines with times, crashed here with the fingerprint.",
-    "The newest lines take a filter: fit, headroom, truncation, failure or all; Live reads them again every 5 seconds while the page is shown.",
+    "The newest lines take a filter: fit, headroom, truncation, failure or all; with Follow on, they are read again every 5 seconds while the page is shown.",
     "More detail needs OLLAMA_DEBUG=1 on that machine and a restart there: Halo says how and never sets it, and it still does not log request bodies."),
   "local-benchmarks": page("Each model's speed card measured on its host, the tuning report for the whole host, and every change Halo made with its scope and Revert.",
     "Bench says its cost first (local: minutes of a busy card, never dollars), then loads the model cold, warms it untimed and times one prompt of about 60 % of each window (8k, 32k, the planner's ceiling) with a 256-token reply.",

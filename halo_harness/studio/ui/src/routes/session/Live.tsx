@@ -44,6 +44,7 @@ import { chooseTarget, followAgain, pauseFollow, setPin, targetRow, useStripScop
 import { sess, useSession } from "./store";
 import { TraceExport } from "./TraceExport";
 import { shortModel } from "../../lib/modelName";
+import { WORDS } from "../crew/map/truthWords";
 
 export const VIEW = 500;
 const whoCache = new Map<string, Who>();
@@ -116,7 +117,7 @@ export function LiveDetail() {
          data-think={think || undefined} onKeyDown={onKey}>
       <LiveHead working={working} count={lines.length} onFollow={onFollow} following={following} />
       <div className="slv-strip">
-        <Timeline scope={strip} onPick={onPin} marked={target} verb="show only it in Live (again: everyone)" testid="session-live-timeline" extra={<TraceExport where="timeline" />}
+        <Timeline scope={strip} onPick={onPin} marked={target} verb={`show only it in the ${WORDS.feed} (again: everyone)`} testid="session-live-timeline" extra={<TraceExport where="timeline" />}
                   phases={phases} onPhase={toThought} />
       </div>
       <div className="slv-rows">
