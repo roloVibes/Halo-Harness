@@ -114,6 +114,17 @@ def drag(c, rig) -> dict:
 
 
 def chain(c, rig) -> dict:
+    """P8 batch 3 repair (the coordinator's ruling: a goal run's line is in the Map's first draw, a line of its own): the
+    drawing is that line (28 px) shorter, and at this rig's 1500 x 900 window (813 px inside) coder's dot and reviewer
+    no longer fit in it together. The same two drags and the same checks, in a viewport 900 px tall inside."""
+    c.call("Emulation.setDeviceMetricsOverride", width=1500, height=900, deviceScaleFactor=1, mobile=False)
+    try:
+        return _chain(c, rig)
+    finally:
+        c.call("Emulation.clearDeviceMetricsOverride")
+
+
+def _chain(c, rig) -> dict:
     dot = q('[data-testid="map-world"] [data-map-box="coder"] [data-testid="map-dot"]')
     c.wait(f"!!{dot}", 10)
     (x0, y0), (x1, y1) = both(c, dot, box("reviewer"))

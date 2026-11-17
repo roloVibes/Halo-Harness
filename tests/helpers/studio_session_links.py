@@ -124,16 +124,10 @@ def starts(c, rig) -> dict:
     """P8 batch 3 (the coordinator's ruling): the Map open with no goal run, settled; a goal run of 40 characters starts
     (its run folder, live, and the feed's `orchestra_state` frame, as a run Studio drives says it): the run's row was in
     the first draw, one line, empty, so nothing moves; then a run of 200 characters starts: its whole goal grows the row
-    ONCE, and nothing moves after that. The run's room is the free width of the top line's row of controls beside Replay
-    (LitLine.tsx RunRow): at 1920 x 1000 it holds a 40-character goal on one line; in this rig's Map at 1500 x 900
-    it is 319 px (measured) and the same goal takes two lines (it grows the row once, a real change, never cut)."""
-    import time
-    out: dict = {}
-    c.call("Emulation.setDeviceMetricsOverride", width=1920, height=1000, deviceScaleFactor=1, mobile=False)
-    try:
-        return _starts(c, rig, out)
-    finally:
-        c.call("Emulation.clearDeviceMetricsOverride")
+    ONCE, and nothing moves after that. The run's row is a line of its own under the row of controls, the Map's whole
+    width (LitLine.tsx RunRow); measured at this rig's own window, 1500 x 900, the size the checker found the fault at
+    (P8 batch 3 repair: the first build put the run beside Replay, 319 px there, and a 40-character goal took 2 lines)."""
+    return _starts(c, rig, {})
 
 
 def _starts(c, rig, out: dict) -> dict:

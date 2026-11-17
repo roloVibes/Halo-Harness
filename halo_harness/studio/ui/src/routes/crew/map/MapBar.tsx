@@ -86,10 +86,10 @@ function useRoom(key: string) {
 /** The map's top line: the reserved notice row (R55 L1-L3, R33 L4: NoticeRow.tsx), then a sentence -- a replay's line or
  *  R3's words -- in a room as tall as its longest form, then one row of controls, each in its own place: Replay the last
  *  session (its slot kept empty until History has a row), R4's "{n} new, not connected yet" (a box that just landed under
- *  "Not connected yet": a link that brings the strip into view), the plan and, last, a goal run going, its room in the
- *  row from the first draw (LitLine.tsx RunRow, P8 batch 3; not drawn while a replay the person chose plays: History in
- *  the drawer keeps that room). The row's items sit at its top, so a part that grows it moves no other. A part that is
- *  not there is not drawn: no unseen copy in
+ *  "Not connected yet": a link that brings the strip into view) and the plan; then a goal run going, on a line of its own
+ *  the Map's whole width, there from the first draw (LitLine.tsx RunRow, P8 batch 3 repair: the coordinator's ruling; not
+ *  drawn while a replay the person chose plays: History in the drawer keeps that room). The row's items sit at its top,
+ *  so a part that grows it moves no other. A part that is not there is not drawn: no unseen copy in
  *  the sentence (P4 batch 12); the line's height never changes with a session or a row. */
 export function TopLine({ fresh = 0 }: { fresh?: number }) {
   const locked = useMap((s) => s.locked);
@@ -117,8 +117,8 @@ export function TopLine({ fresh = 0 }: { fresh?: number }) {
           </button>
         )}
         <Extras sid={quiet.sid} />
-        {L.mode !== "replay" && <RunRow />}
       </div>
+      {L.mode !== "replay" && <RunRow />}
     </div>
   );
 }

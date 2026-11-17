@@ -23,9 +23,9 @@
 /* P8 (the owner's rule: a text is never cut): the plan wraps whole in the row's room */
 .mp-topline-acts > [data-testid=map-lit-extras] { flex: 1 1 auto; min-width: 0; min-height: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-2); overflow-wrap: anywhere; }
 /* P8 repair: a goal run in the Map's first draw (the canvas waits for the runs' listing), keeping the tallest room it
-   has had (LitLine.tsx RunRow); Open never shrinks, inside the top line. P8 batch 3: its room is the last item of the
-   row of controls, one line (28 px) from the first draw, empty while no goal run exists */
-.mp-run-row { flex: 1 1 auto; min-width: 0; min-height: 28px; display: flex; align-items: center; }
+   has had (LitLine.tsx RunRow); Open never shrinks, inside the top line. P8 batch 3 repair (the coordinator's ruling):
+   a line of its own under the row of controls, one line (28 px) from the first draw, empty while no goal run exists */
+.mp-run-row { flex: 0 0 auto; min-width: 0; min-height: 28px; display: flex; align-items: center; }
 .mp-extras-run { min-width: 0; display: flex; align-items: flex-start; gap: var(--s-2); }
 .mp-extras-goal { flex: 0 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .mp-extras-run > .btn { flex: none; }

@@ -39,10 +39,10 @@ export function Extras({ sid }: { sid: string }) {
  *  runs are listed (MapCanvas.tsx), so a run going is in the first draw; the row keeps the tallest room it has had, so a
  *  run ending moves nothing; a run started later (Run a goal) grows it once.
  *  P8 batch 3 (the coordinator's ruling): the run's room is there from the Map's FIRST draw, one line high, empty and
- *  not announced while no goal run exists: the last item of the top line's one row of controls (MapBar.tsx TopLine), the
- *  row's free width beside Replay -- a line of its own under the controls took 28 px of a drawing 180 px tall at 1500 x
- *  813, and two boxes of test_studio_map no longer fitted it together. A goal that fits that line moves nothing when it
- *  starts; a longer one grows the row once (its words are never cut). */
+ *  not announced while no goal run exists: a line of its own under the top line's row of controls, the Map's whole
+ *  width (MapBar.tsx TopLine; the repair: beside Replay it had 319 px at 1500 x 900, and a 40-character goal took two
+ *  lines). It costs the drawing that one line. A goal that fits the line moves nothing when it starts; a longer one
+ *  grows the row once (its words are never cut). */
 export function RunRow() {
   const run = useOrch((s) => s.runs.find((r) => isLiveRun(r.state)));
   const box = useRef<HTMLDivElement>(null);
