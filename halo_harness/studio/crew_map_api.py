@@ -59,9 +59,20 @@ def _next():
         return None
 
 
+def _next_none() -> bool:
+    """The status row's `map_next_none` for the Start view and Empty (crew/map_facts.py `_none_next`, one source)."""
+    try:
+        from halo_harness.crew.map_facts import _none_next
+        return _none_next()
+    except Exception:
+        return False
+
+
 def get_maps(req):
     name, source = in_use(None, req.cwd)
-    return 200, {"maps": _rows(req), "rows": _rows(req), "in_use": name, "source": source, "next": _next()}
+    nxt = _next()  # next_none: new sessions start with no map (roles off, crew.map unset), not "the default"
+    return 200, {"maps": _rows(req), "rows": _rows(req), "in_use": name, "source": source, "next": nxt,
+                 "next_none": nxt is None and _next_none()}
 
 
 def _box_facts(c, raw: dict, req, cwd=None) -> dict:

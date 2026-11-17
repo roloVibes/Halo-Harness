@@ -126,11 +126,13 @@ def started(session, mc) -> None:
     t = round(time.time(), 3)
     try:
         session._map_started_at = t
-        from halo_harness.crew.map_facts import next_map
-        session._map_next_at_start = (next_map()[0],)  # R38: what the agent starts from (crew/map_facts.py turn_note)
+        from halo_harness.crew.map_facts import _none_next, next_map
+        nxt = next_map()[0]
+        none = nxt is None and _none_next()  # new sessions start with no map (roles off, crew.map unset)
+        session._map_next_at_start = (nxt, none)  # R38: what the agent starts from (crew/map_facts.py turn_note)
     except Exception:
-        pass
-    _log(session, "map_start", {"map": getattr(mc, "map_name", ""), **identity(mc), "t": t})
+        none = False
+    _log(session, "map_start", {"map": getattr(mc, "map_name", ""), **identity(mc), "t": t, "map_next_none": none})
 
 
 def hop(runtime, mc, h: dict, why: str, task: str, state: str, **extra) -> dict:
@@ -210,6 +212,15 @@ def card_done(session, request_id: str) -> None:
 MAP_BODY_MAX = 65536  # 3.6.0.2 R25/R28: a bigger map's body is left out of the frame; the page fetches it
 
 
+def _next_none() -> bool:
+    """New sessions start with no map (roles off, crew.map unset): the status row's `map_next_none` (map_facts)."""
+    try:
+        from halo_harness.crew.map_facts import _none_next
+        return _next_map() is None and _none_next()
+    except Exception:
+        return False
+
+
 def _next_map():
     """F4: the map new sessions use (config `crew.map`), None when unset."""
     try:
@@ -256,7 +267,7 @@ def builder_done(session, request_id: str, outcome) -> dict:
         got = outcome if isinstance(outcome, dict) else {}
         wrote = [dict(w) for w in got.get("wrote") or []]
         receipt = {"id": request_id, "outcome": got.get("outcome") or "left", "wrote": wrote,
-                   "undo": got.get("undo") or None, "next": _next_map(), "this_session": _this_map(session),
+                   "undo": got.get("undo") or None, "next": _next_map(), "next_none": _next_none(), "this_session": _this_map(session),
                    "t": round(time.time(), 3)}
         try:
             session._builder_built = receipt

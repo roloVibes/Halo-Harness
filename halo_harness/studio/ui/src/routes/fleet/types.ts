@@ -68,6 +68,7 @@ export type SessionRow = {
   map_since?: number | null;
   map_plain?: boolean;
   map_next?: string | null;
+  map_next_none?: boolean; // new sessions start with no map (roles off, crew.map unset): map_next null is not the default
   map_next_since?: number | null;
   built?: { id?: string; outcome: "applied" | "left" | "failed"; wrote?: { kind: string; name: string; added?: boolean; removed?: boolean }[];
     undo?: string | null; next?: string | null; this_session?: string | null; t?: number } | null;

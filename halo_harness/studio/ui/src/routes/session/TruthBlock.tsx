@@ -78,7 +78,7 @@ export function TruthBlock({ f: given, sid, held, off = 0 }: { f: TruthFacts; si
     return () => ro.disconnect();
   }, []);
   const room = given.none ? lines : reserve(f, w || 408).lines;
-  const names = `${f.a}|${nextMap(f.b)}|${f.workflow || ""}|${held ? "held" : ""}`, named = useRef(names);
+  const names = `${f.a}|${f.bNone ? "" : nextMap(f.b)}|${f.workflow || ""}|${held ? "held" : ""}`, named = useRef(names);
   useLayoutEffect(() => { // R20: the reserve of the REAL names, measured; it only grows while they stay (P4 batch 11)
     const h = twin.current?.offsetHeight || 0;
     if (named.current !== names) (named.current = names, most.current = h, setMinH(h)); // a name changed: measured again, once

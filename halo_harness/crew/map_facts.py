@@ -150,7 +150,9 @@ def _by_this_session(session, f: dict) -> bool:
 
 
 def _key(f: dict) -> tuple:
-    return (f["map"], f["next"])
+    """What the agent was told: this session's map, the map new sessions use, and whether that is no map at all (roles
+    on or off with crew.map unset changes only `next_none`)."""
+    return (f["map"], f["next"], f["next_none"])
 
 
 def note_text(session, f: "dict | None" = None) -> str:
@@ -213,7 +215,7 @@ def turn_note(session) -> "str | None":
             # the first turn: nothing sent (decision 7); the baseline is what the session started under (map_events
             # `started` keeps F4 then), so a switch between its start and this turn is told at the next turn
             start = getattr(session, "_map_next_at_start", None)
-            session._map_told = (f["map"], start[0]) if isinstance(start, tuple) else key
+            session._map_told = (f["map"], start[0], start[1] if len(start) > 1 else f["next_none"])                 if isinstance(start, tuple) else key
             return None
         pending = getattr(session, "_map_note_pending", None)
         retell = getattr(session, "_map_retell", False)
@@ -332,10 +334,13 @@ def use_unchecked(b: str, why: str) -> str:
 
 def tell(session) -> str:
     """What main repeats word for word after a card (R21): S13 (+ the terminal tail) when this session's map and the
-    map new sessions use differ, else T1."""
+    map new sessions use differ, else T1. New sessions with no map (`next_none`): this session's own line and
+    next_sentence()'s, the one source the note and studio_show use too."""
     from halo_harness.crew.compile import DEFAULT_MAP
     f = facts(session)
     a = _words_here(f)
+    if f["next_none"]:
+        return _runs(NOTE_RUNS if f["map"] else T4, a, f["since"]) + " " + next_sentence(session, f, show=False)
     if (f["map"] or DEFAULT_MAP) == (f["next"] or DEFAULT_MAP):
         return _runs(T1, a, f["since"])
     return s13(a, f["next_words"]) + (" " + terminal_tail(a) if in_terminal(session) else "")
@@ -359,10 +364,11 @@ def result_tail(session, wrote, undo, use_written: bool = False) -> str:
 
 
 def row(session) -> dict:
-    """The status row's map facts (R40): map_since, map_plain, map_next, map_next_since, built, asked. Never raises."""
+    """The status row's map facts (R40): map_since, map_plain, map_next, map_next_none (new sessions start with no map:
+    map_next None is then not "the default"), map_next_since, built, asked. Never raises."""
     try:
         f = facts(session)
     except Exception:
         return {}
-    return {"map_since": f["since"], "map_plain": f["plain"], "map_next": f["next"], "map_next_since": f["next_since"],
-            "built": f["built"], "asked": f["asked"]}
+    return {"map_since": f["since"], "map_plain": f["plain"], "map_next": f["next"], "map_next_none": f["next_none"],
+            "map_next_since": f["next_since"], "built": f["built"], "asked": f["asked"]}

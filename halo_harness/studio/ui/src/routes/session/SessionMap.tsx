@@ -21,14 +21,14 @@ import { chosenSession } from "./store";
 import { TruthBlock } from "./TruthBlock";
 
 /** R4: no session row: the Start view's Empty sentence ({B} as this page last heard it) with [New session]. */
-export const noneFacts = (b: string | null): TruthFacts => ({ none: true, title: "", a: null, plain: false, b, bSince: null, started: 0,
+export const noneFacts = (b: string | null, bNone = false): TruthFacts => ({ none: true, title: "", a: null, plain: false, b, bNone, bSince: null, started: 0,
   turns: 0, studio: false, ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false });
 
 /** R4: Empty's {B} is the server's (nextB.ts: read after the first draw and on a map or config change), never a row's
  *  that ended; until read the block holds its room with no words. */
 function EmptyTruth() {
   const b = useNextB();
-  return <TruthBlock key="none" f={noneFacts(b ?? null)} sid="" held={b === undefined} />;
+  return <TruthBlock key="none" f={noneFacts(b?.b ?? null, !!b?.none)} sid="" held={b === undefined} />;
 }
 
 /** R29: the view-bar word of Session's Live button: "new" once the session shown built something, until the drawer

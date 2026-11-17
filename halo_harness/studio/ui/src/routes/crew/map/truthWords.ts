@@ -18,5 +18,8 @@ export const DEFAULT_MAP = "starter (the default)";
 export const mapName = (a: string, plain: boolean): string => (plain ? DEFAULT_MAP : a);
 /** {B}: the map new sessions use, "starter (the default)" when none is set. */
 export const nextName = (b: string | null): string => b || DEFAULT_MAP;
+/** The coordinator's ruling (P4 batch 10): new sessions with no map (roles off, crew.map unset), the same string as
+ *  crew/map_facts.py NOTE_NEXT_NONE (tests/test_map_s13_three_places.py holds the two equal). */
+export const NEXT_NONE = "New sessions will run with no map.";
 /** R11: the slot under Session's drawing when {n} boxes wait wholly below it (a press scrolls one row). */
 export const moreBelow = (n: number): string => `↓ ${n} more below`;

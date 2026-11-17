@@ -11,6 +11,10 @@ them). No model is called.
               last 1 · Agents: Alt+2 from Session opens Agents on 4 · Live; `?` there says the opening rule; Alt+1 back to
               Session. Then the session as a Studio-started one with no message yet (T10), the tab used last 2 · Workflows:
               Alt+2 opens on Workflows
+    boots     the coordinator's ruling on R56: a page loaded on Agents with no `view=` (the session between turns, the tab
+              used last 1 · Agents) shows "Reading the sessions." and no view, then opens on Live, no other view drawn
+              first (a recorder installed before the app boots); with only a T10 session open it opens on the tab used
+              last (2 · Workflows), again no other view first
     never_flips  R56: the session between turns; a recorder of `[data-testid=agents]`'s `data-view` from its first draw;
               Alt+2, then busy, idle, busy (three `sessions` frames, each read by the page); 2 s more: one value, `live`
     follows, holds, t9   R34 R12 R3: the drawing (tests/helpers/studio_agents_live_draw.py: the map `shop` is seeded in
@@ -150,6 +154,34 @@ def never_flips(c, rig, lv, rows) -> dict:
     return out
 
 
+RECORD = """(() => { window.__drawn = []; window.__reading = false;
+  const rec = () => { if (document.querySelector('[data-testid=agents-reading-line]')) window.__reading = true;
+    for (const p of document.querySelectorAll('.ag-part[data-part]'))
+      if (!window.__drawn.includes(p.dataset.part)) window.__drawn.push(p.dataset.part); };
+  new MutationObserver(rec).observe(document, { subtree: true, childList: true, attributes: true }); })();"""
+
+
+def boots(c, rig, lv, rows) -> dict:
+    out: dict = {}
+    c.call("Page.enable")
+    ident = c.call("Page.addScriptToEvaluateOnNewDocument", source=RECORD)["identifier"]
+    try:
+        for name, last, row in (("talked", "crew", dict(turns=1, parent=None, asked=False)),
+                                ("t10", "workflows", dict(turns=0, parent="studio:1", asked=False))):
+            rows.reset()
+            rows.idle(lv.sid, **row)
+            fresh(c, rig, last)
+            c.go("about:blank")
+            c.wait("location.href === 'about:blank'", 10)
+            c.go(rig.url("agents"))  # a page load on Agents, no view in the address
+            out[name] = c.wait(f"!document.querySelector('[data-testid=agents-reading]') && {VIEW}", 40)
+            out[f"{name}_drawn"] = c.js("window.__drawn")
+            out[f"{name}_reading"] = c.js("window.__reading")
+    finally:
+        c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=ident)
+    return out
+
+
 class AgentsLiveDriver(Driver):
     no_chrome = {"skip": "no Chrome found"}
     width, height = 1500, 900
@@ -171,7 +203,7 @@ class AgentsLiveDriver(Driver):
             from tests.helpers.studio_session_map_down import Rows
             rows = Rows(rig)  # over GET live's rows: the session's turns, parent, busy and its agents' states (R56)
             try:
-                yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)),
+                yield ((doors, (c, rig, lv)), (opens, (c, rig, lv, rows)), (boots, (c, rig, lv, rows)), (never_flips, (c, rig, lv, rows)),
                        (D.follows, (c, rig, lv, rows)), (D.holds, (c, rig, lv, rows)), (D.t9, (c, rig, lv, rows)), (feed_step, (c, rig, lv, rows)),
                        *((step, (c, rig, lv, rows)) for step in QUIET))
             finally:

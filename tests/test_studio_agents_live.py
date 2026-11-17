@@ -12,6 +12,9 @@ tests/test_agents_door.py, run in node everywhere.
    whatever the tab used last, and Agents' help says so; a Studio-started session with no message yet (T10) does not
    count: Agents opens on the tab used last (2 · Workflows); this is decision 4's rewrite of
    tests/test_studio_session.py's `test_alt_keys_and_agents_opens_on_the_map` (there now `..._opens_on_live`);
+2b. the coordinator's ruling on R56: a page loaded on Agents with no `view=` says "Reading the sessions." and draws no
+   view until the session list is read, then opens on Live (a session he talked to open) or the tab used last (only a
+   T10 one open), and no other view is drawn first;
 3. R56: once Agents has drawn its opening tab it never moves by itself: busy, idle, busy frames leave it on Live;
 4. R34: Live draws the map the chosen session follows (shop), left to right, lit, read-only, never amber, whatever map
    3 · Map has open;
@@ -87,6 +90,17 @@ def test_alt_keys_and_agents_opens_on_live(ctx: Ctx):
     ctx.check(f"Alt+1 comes back to Session, got {d.get('alt1')!r}", str(d.get("alt1")).startswith("Session"))
     ctx.check(f"T10 (Studio-started, no message yet) does not count: the tab used last (2 · Workflows), got {d.get('t10')!r}",
               d.get("t10") == "workflows")
+    ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
+
+
+@test
+def test_a_page_load_on_agents_opens_on_live_after_reading_the_sessions(ctx: Ctx):
+    d = _got(ctx)
+    ctx.check(f"a reload on Agents with a session he talked to open lands on Live, got {d.get('talked')!r}", d.get("talked") == "live")
+    ctx.check(f"no other view drawn first, got {d.get('talked_drawn')!r}", d.get("talked_drawn") == ["live"])
+    ctx.check(f"'Reading the sessions.' showed while the list was read, got {d.get('talked_reading')!r}", d.get("talked_reading") is True)
+    ctx.check(f"only a T10 session open: the tab used last (2 · Workflows), nothing drawn first, got {d.get('t10')!r} "
+              f"{d.get('t10_drawn')!r}", d.get("t10") == "workflows" and d.get("t10_drawn") == ["workflows"])
     ctx.check(f"the driver ran every step, got {d.get('failed')!r}", not d.get("failed"))
 
 

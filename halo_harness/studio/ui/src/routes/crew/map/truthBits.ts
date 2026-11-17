@@ -3,14 +3,14 @@
 // off-map line's hover, R18 the step-in card, R24 Agents -> Map's picker, R28 a removed map, R29 the tag, R30 the pair, R31
 // the Just built heads, R43 the hover card, R45 the unreached band, R47 the Workflows head. Re-exported by truth.ts; the
 // Session and Agents builders read them from there. Every {t} through clock(), every word Live / Map through WORDS. Pure.
-import { clock, nextName, WORDS, type Line } from "./truthWords";
+import { clock, NEXT_NONE, nextName, WORDS, type Line } from "./truthWords";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** R4 the Start view (no session row): the first sentence; the last build seen from a since-ended session, its second
  *  sentence only when that map is the one new sessions use; [New session] on the last line. */
-export function startLines(b: string | null, last: { map: string; t: number } | null): Line[] {
-  const out: Line[] = [{ text: `No session is open here. New sessions will run on ${nextName(b)}.` }];
+export function startLines(b: string | null, last: { map: string; t: number } | null, none = false): Line[] {
+  const out: Line[] = [{ text: none ? `No session is open here. ${NEXT_NONE}` : `No session is open here. New sessions will run on ${nextName(b)}.` }];
   if (last) out.push({ text: `Your last session built the map ${last.map} at ${clock(last.t)}.${b === last.map ? " New sessions run on it." : ""}` });
   out[out.length - 1] = { ...out[out.length - 1], act: "new-session", label: "New session" };
   return out;

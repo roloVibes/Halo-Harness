@@ -88,6 +88,7 @@ def session_row(entry: dict, status: Optional[dict], agents: Optional[list]) -> 
     # 3.6.0.2 R40: the map facts the truth sentence reads (crew/map_facts.py row); never a `switch` (R46)
     row.update(map_since=_num(data.get("map_since")), map_plain=data.get("map_plain") is True,
                map_next=data.get("map_next") if isinstance(data.get("map_next"), str) else None,
+               map_next_none=data.get("map_next_none") is True,  # map_next None: no map, not the default
                map_next_since=_num(data.get("map_next_since")),
                built=data.get("built") if isinstance(data.get("built"), dict) else None,
                asked=data.get("asked") is True)

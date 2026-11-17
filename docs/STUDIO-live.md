@@ -12,7 +12,7 @@ levels, the groups) went in 3.6.0.0 R5. What runs now is the map your session ru
 says in one sentence what happens and what waits on whom, "What they think and say" is the drawer beside it, and a
 goal run going is a line with Open. What ran is History under the Map, with the same scrubber (Play at 1x / 4x / 16x,
 Save this run's replay, Export a clip, Now; [REPLAY.md](REPLAY.md)). Session's own Map is the same lit map, smaller.
-`?mode=agents&view=live` lands on the Map.
+`?mode=agents&view=live` lands on 4 · Live (3.6.0.2), the session's run drawn on its map.
 
 ## The glance
 

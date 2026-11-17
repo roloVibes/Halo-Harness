@@ -10,7 +10,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part; the section's other vi
 
 `Alt+2` opens Agents on **1 · Agents** -- on **3 · Map** instead while a session runs here, and on the tab you used last after that; `1` from anywhere in the section. The old
 views (**Cast**, **Live** and **Board**) went in 3.6.0.0 R5; a link or
-door that names one, such as `?mode=roles` or `&view=live`, lands on the Map. `?mode=agents&view=crew` opens this tab.
+door that names one, such as `?mode=roles`, lands on the Map (`&view=live` on 4 · Live since 3.6.0.2). `?mode=agents&view=crew` opens this tab.
 3.6.0.0 R2: **2 · Workflows** (the `2` key) is the second tab: [Workflows and the step runner](STUDIO-workflows.md).
 
 - **The list** (a drawer on the left, open with the tab): **+ New agent**, then **Yours** (yours and this project's;

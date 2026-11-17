@@ -763,7 +763,7 @@ def test_only_a_sent_note_counts_as_told(ctx: Ctx):
         finally:
             map_facts.turn_note = real
         ctx.check(f"turn 2 interrupted before its request: none went out, got {two is not None}", two is None)
-        told = (rig.s.team_control.map_name, "review-flow")
+        told = (rig.s.team_control.map_name, "review-flow", False)  # the key: this map, new sessions' map, no map or not
         # the log keeps the unsent node, so what the model reads is the same either way; what R38 forbids is counting
         # it as told before a request carrying it reached the provider: the session must still hold it pending
         ctx.check(f"after turn 2 the note is pending, not told, got told={rig.s._map_told} "
@@ -872,6 +872,44 @@ def test_show_line_and_note_agree_on_new_sessions(ctx: Ctx):
         a, b = nxt(show, note)
         ctx.check(f"crew.map set: both name review-flow and its time, got {a!r} / {b!r}",
                   a == b and re.fullmatch(r"on review-flow \(switched on at \d{2}:\d{2}\)", a or "") is not None)
+
+
+@test
+def test_tell_row_and_note_key_know_no_map_for_new_sessions(ctx: Ctx):
+    """ONE source for all four texts (the coordinator's ruling on P2 batch 10's leftovers): in a session started on starter
+    by flag while roles are off and no map is set, what main repeats after a card (`tell`) says new sessions run with no
+    map in next_sentence()'s words, never "New sessions will too."; the status row carries `map_next_none` (Studio's
+    truth.ts tells "no map" from "the default" by it); the facts note's key includes it, so turning roles on with crew.map
+    still unset sends a fresh note at the next turn."""
+    import time
+    from tests.helpers.config_seed import ConfigHome
+    with ConfigHome() as env:
+        from halo_harness.crew import map_facts
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.crew.map_session import prepare
+        from halo_harness.theme import set_config_value
+        set_config_value("roles.enabled", False)
+        s = _Sess(control_for(prepare({"map": "starter"}, env.repo)[0], cwd=env.repo))
+        s.cwd = env.repo
+        s._map_started_at = time.time()
+        said = map_facts.tell(s)
+        ctx.check(f"tell: this session on starter, new sessions with no map, got {said!r}",
+                  said.startswith("This session runs on starter, as it started at ")
+                  and said.endswith(". New sessions will run with no map.") and "will too" not in said)
+        ctx.check(f"the new-sessions half is next_sentence()'s, got {said!r}",
+                  said.endswith(" " + map_facts.next_sentence(s, map_facts.facts(s), show=False)))
+        r = map_facts.row(s)
+        ctx.check(f"the status row says no map apart from the default, got {r.get('map_next_none')!r}", r.get("map_next_none") is True)
+        s.turn_count = 1
+        s.log.append_snapshot = lambda blocks, kind=None: s.log._append({"type": "snapshot", "kind": kind, "blocks": blocks})
+        map_facts.turn_note(s)  # the first turn: the baseline only
+        map_facts.sent(s)
+        ctx.check("no note on the first turn", not map_facts.turn_note(s))
+        set_config_value("roles.enabled", True)  # crew.map still unset: new sessions now take starter, the default
+        note = map_facts.turn_note(s) or ""
+        ctx.check(f"roles on: a fresh note names the default for new sessions, got {note!r}",
+                  "New sessions will run on starter (the default)" in note)
+        ctx.check(f"the row follows, got {map_facts.row(s).get('map_next_none')!r}", map_facts.row(s).get("map_next_none") is False)
 
 
 @test

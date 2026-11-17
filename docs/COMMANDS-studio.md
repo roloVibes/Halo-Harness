@@ -80,7 +80,7 @@ thing when no editor is set (see
 [AGENTS.md](AGENTS.md#making-and-changing-an-agent)).
 
 Halo 2.1.0, modes in 3.0.2.0: opens Halo Studio, the browser GUI, straight
-into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one; 3.4.0.0 D: Runs, the run console, went; 3.6.0.0 R5: three tabs, 1 · Agents, 2 · Workflows and 3 · Map, where what runs now lights up the map), and `--mode roles`,
+into a section: 3.3.16.0 R1: `--mode agents` (Team, Roles and Orchestra in one; 3.4.0.0 D: Runs, the run console, went; 3.6.0.0 R5: three tabs, 1 · Agents, 2 · Workflows and 3 · Map; 3.6.0.2: a fourth, 4 · Live, where what runs now is drawn on its map), and `--mode roles`,
 `orchestra` and `team` still open Agents, landing on the Map;
 3.2.0.0 R7: `--mode packs` (the Pack Manager; `?mode=packs` in the URL);
 without `--mode` it opens in the mode you used last; 3.3.13.0 R2: `--mode <pack>--<section>` opens a running pack's

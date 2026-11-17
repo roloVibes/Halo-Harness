@@ -199,7 +199,7 @@ halo report <session|run|file> [--json]                        # the run report 
 
 `save` takes a goal run id of the repo you are in as well as a session id.
 
-`open` starts Studio (or reuses the running one) at `?mode=agents&view=live&replay=<id>` (an old address; it lands on the Map); `&at=<seconds>` opens it at
+`open` starts Studio (or reuses the running one) at `?mode=agents&view=map&replay=<id>` (3.6.0.2; an older `view=live&replay=` address lands on the Map too); `&at=<seconds>` opens it at
 that moment. Studio's routes: `GET replays`, `GET replays/plan?session=|run=`, `POST replays/save {session}|{run}`,
 `GET replays/compare?a=&b=[&split=]`, `GET replays/report?ref=` (the card and its Markdown), `POST replays/import`,
 `GET replays/<id>`, `GET|POST replays/<id>/clip`, `GET replays/clips/<name>` (studio/replays_api.py).

@@ -32,7 +32,7 @@ function StartSaid() {
   const b = useNextB();
   const rows = useFleet((s) => s.harnesses);
   void rows; // a fleet change re-reads the last build
-  const lines = b === undefined ? [] : startLines(b, lastBuild([]));
+  const lines = b === undefined ? [] : startLines(b.b, lastBuild([]), b.none);
   const focus = () => {
     const el = document.querySelector<HTMLElement>("[data-testid=session-start] [data-testid=session-new-cwd]");
     el?.scrollIntoView({ block: "nearest" });

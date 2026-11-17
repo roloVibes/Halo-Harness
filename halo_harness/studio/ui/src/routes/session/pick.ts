@@ -20,7 +20,7 @@ const seen = new Map<string, SessionRow>(); // the last row of each session this
 const gone = new Map<string, number>(); // when a seen session's row went (it ended), epoch seconds
 
 const hashes = new Map<string, { hash: string; t: number | null }>(); // R20 T5: when a session's map content changed
-let next: { b: string | null } | null = null; // R4: the map new sessions use, as this page last heard it
+let next: { b: string | null; none: boolean } | null = null; // R4: the map new sessions use (none: no map), as this page last heard it
 
 /** Note the open rows (each fleet change): a session seen before and now without a row has ended at `now`; a row whose
  *  `map_hash` differs from the one this page first saw took a changed map at `now` (T5). */
@@ -30,7 +30,7 @@ export function noteRows(rows: SessionRow[], now: number): void {
   for (const sid of seen.keys()) if (!here.has(sid) && !gone.has(sid)) gone.set(sid, now);
   for (const r of rows) noteHash(r, now);
   const top = openOrder(rows.filter((r) => "map_next" in r))[0];
-  if (top) next = { b: top.map_next || null };
+  if (top) next = { b: top.map_next || null, none: !top.map_next && !!top.map_next_none };
 }
 
 /** T5: the first `map_hash` seen of a session, then when a different one was first seen (whoever reads the row first). */
@@ -48,7 +48,7 @@ export function noteBuild(sid: string, d: Record<string, unknown>, now: number):
   if (!sid || d.outcome !== "applied") return;
   const wrote = (Array.isArray(d.wrote) ? d.wrote : []) as { kind?: string; name?: string }[];
   const m = wrote.find((w) => w && w.kind === "map" && w.name);
-  if ("next" in d) next = { b: typeof d.next === "string" && d.next ? d.next : null };
+  if ("next" in d) next = { b: typeof d.next === "string" && d.next ? d.next : null, none: !d.next && d.next_none === true };
   if (m) build = { sid, map: String(m.name), t: Number(d.t) || now };
   const maps = d.maps && typeof d.maps === "object" ? (d.maps as Record<string, unknown>) : {};
   for (const [n, b] of Object.entries(maps)) if (b && typeof b === "object") bodies.set(n, b as MapBody); // T7: the newest body
@@ -71,7 +71,7 @@ export function lastBuild(rows: SessionRow[]): { map: string; t: number } | null
 }
 
 /** {B} as this page last heard it (the newest row's `map_next`, a build's `next`); undefined when it heard neither. */
-export function knownNext(): { b: string | null } | undefined {
+export function knownNext(): { b: string | null; none: boolean } | undefined {
   return next || undefined;
 }
 
@@ -134,7 +134,7 @@ export function factsOf(row: SessionRow, ended: number | null = null, now = Date
   const hash = ended ? hashes.get(row.session_id) : noteHash(row, now); // a render may read the row before noteRows
   return {
     title: String(row.title || row.session_id.slice(0, 8)), a: typeof row.map === "string" && row.map ? row.map : null,
-    plain: !!row.map_plain, b: row.map_next || null, bSince: row.map_next_since ?? null,
+    plain: !!row.map_plain, b: row.map_next || null, bNone: !row.map_next && !!row.map_next_none, bSince: row.map_next_since ?? null,
     started: Number(row.map_since || row.started) || 0, turns: asked ? Math.max(1, Number(row.turns) || 0) : 0,
     studio: String(row.parent || "").startsWith("studio:"), ended, machine: null, unreadable: null,
     changed: hash?.t ? { t: hash.t } : null,

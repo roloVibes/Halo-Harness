@@ -68,6 +68,24 @@ export function openingView(door: AgentsView | "", rows: { turns?: number | null
   return door || (rows.some((r) => Number(r.turns) > 0 || !!r.asked) ? "live" : last);
 }
 
+/** The coordinator's ruling on R56 for a page that boots on Agents: its one quiet line while the session list is read. */
+export const READING_SESSIONS = "Reading the sessions.";
+/** ...and how long it waits for that list before it opens on the tab used last. */
+export const OPEN_WAIT_MS = 1500;
+
+/** The opening tab once the session list may be unread: '' (draw no view yet) until it has been read (`read`) or the
+ *  wait ran out (`timedOut`: the tab used last); a door's tab at once. */
+export function bootView(door: AgentsView | "", read: boolean, rows: Parameters<typeof openingView>[1], last: AgentsView,
+                         timedOut: boolean): AgentsView | "" {
+  if (door) return door;
+  return read ? openingView("", rows, last) : timedOut ? last : "";
+}
+
+/** The tab used last as this browser stored it (`halo.studio.agents-view`; an old `flows` is Workflows; R52: Live too). */
+export function lastViewOf(v: string | null): AgentsView {
+  return v === "workflows" || v === "flows" ? "workflows" : v === "map" || v === "live" ? v : "crew";
+}
+
 type Door = (view: AgentsView, word: string) => void;
 let take: Door | null = null;
 let waiting: [AgentsView, string] | null = null;

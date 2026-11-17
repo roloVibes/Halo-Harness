@@ -5,7 +5,7 @@
     halo replay save <session> [--lineup NAME] [--dry-run] [--json]
                                                        says what the file holds and where it goes, then writes it
     halo replay open <file> [--no-studio] [--json]     checks the file, keeps it under <state>/replays/ (History lists
-                                                       it) and opens Studio's Agents -> Live on it
+                                                       it) and opens Studio's Agents -> Map on it
     halo replay clip <file|id> [--from T] [--to T] [--speed N] [--dry-run] [--json]
                                                        films the range on Live and writes one WebP (else GIF), 1200 px
                                                        wide, at most 30 s; T is seconds or m:ss since the start
@@ -127,8 +127,8 @@ def _open(args) -> int:
         return 0
     print(f"{p['id']}: {row['title'] or '(untitled)'} -- {row['agents']} agents, {row['marks']} marks, {_span(row)}"
           + (" (an older file, read as version 1)" if p.get("upgraded_from") is not None else ""))
-    print(f"Kept at {path}; History on Agents -> Live lists it.")
-    print(f"Studio: {url}" if url else "Open it in Studio: halo studio, then Agents -> Live -> History.")
+    print(f"Kept at {path}; History on Agents -> Map lists it.")  # 3.6.0.2 R55: History is the Map's
+    print(f"Studio: {url}" if url else "Open it in Studio: halo studio, then Agents -> Map -> History.")
     if url:  # 3.6.0.0 R10: the Studio this command started runs while it does
         from halo_harness.studio.launch import hold
         hold(_state())
@@ -199,7 +199,7 @@ def cmd_verbs(argv: list) -> int:
     s.add_argument("--lineup", default=None, help="the lineup whose blocks go in (default: the one in use)")
     s.add_argument("--dry-run", action="store_true", help="say what it would hold and where, write nothing")
     s.add_argument("--json", action="store_true")
-    s = sub.add_parser("open", help="open a replay file on Agents -> Live")
+    s = sub.add_parser("open", help="open a replay file on Agents -> Map")
     s.add_argument("file")
     s.add_argument("--no-studio", action="store_true", help="check and keep it; do not open Studio")
     s.add_argument("--json", action="store_true")

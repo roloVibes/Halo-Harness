@@ -57,7 +57,7 @@ export function useLivePick(): LivePick {
     if (far && farRow) return { sid: far.sid, f: { ...factsOf(farRow), machine: far.machine }, row: farRow, local: false, opts, value: far.sid };
     const ended = !row && pick ? lastRow(pick) : null; // R4: one that ended reads T8 until another is picked
     const sid = row?.session_id || (ended ? pick : "");
-    const f = row ? factsOf(row) : ended ? factsOf(ended.row, ended.ended) : noneFacts(knownNext()?.b ?? null);
+    const f = row ? factsOf(row) : ended ? factsOf(ended.row, ended.ended) : noneFacts(knownNext()?.b ?? null, !!knownNext()?.none);
     return { sid, f, row: row || ended?.row || null, local: true, opts, value: sid };
   }, [harnesses, here, row, pick, awayPick, chosen]);
 }

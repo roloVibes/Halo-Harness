@@ -396,7 +396,7 @@ A headless session (3.3.11.0 R2) is a whole Halo session with no terminal: `halo
 
 ## live map
 
-The live map (3.3.11.0 R2) was Agents' **Live** view (`L` in Agents; Roles' Live canvas before 3.3.16.0; it went in 3.6.0.0 R5, `L` and `?view=live` now land on the Map): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is now the lit map of the session, smaller ("Open in Agents -> Map"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
+The live map (3.3.11.0 R2) was Agents' **Live** view (`L` in Agents; Roles' Live canvas before 3.3.16.0; it went in 3.6.0.0 R5; since 3.6.0.2 `L` and `?view=live` open Agents' 4 · Live, a session's run drawn on the map it follows): the session's actual agent tree on the whole page -- one node per agent, live or finished and still in the frames, parent -> child edges, nothing dropped, an `auto` pick's reason on its node, the lineup card a node matches drawn as a faint group behind it. It is 1:1 with the terminal's `/agents live`; Session's Map panel is now the lit map of the session, smaller ("Open in Agents -> Map"). Both read the frames through one adapter, the work record (`ui/src/lib/work/record.ts`).
 
 ## setup block
 

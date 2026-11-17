@@ -99,6 +99,35 @@ out.door = D.openingView('workflows', [between], 'crew');
     ctx.check(f"a door's tab wins, got {got.get('door')!r}", got.get("door") == "workflows")
 
 
+@test
+def test_a_page_load_on_agents_waits_for_the_session_list(ctx: Ctx):
+    """The coordinator's ruling on R56 for a page that boots on Agents (no `view=`): the tab bar and ONE quiet line, no
+    view, until the session list has been read once; then Live while a session he has talked to is open, else the tab
+    used last; no answer after 1.5 s: the tab used last. A door's tab is drawn at once."""
+    got = door("""
+const talked = { turns: 1, busy: false };
+out.unread = D.bootView('', false, [], 'crew', false);
+out.unread_rows = D.bootView('', false, [talked], 'crew', false);
+out.talked = D.bootView('', true, [talked], 'crew', false);
+out.empty = D.bootView('', true, [], 'workflows', false);
+out.timeout = D.bootView('', false, [], 'map', true);
+out.door = D.bootView('crew', false, [], 'map', false);
+out.line = D.READING_SESSIONS;
+out.ms = D.OPEN_WAIT_MS;
+out.last = [null, 'live', 'map', 'workflows', 'flows', 'crew', 'cast', ''].map((v) => D.lastViewOf(v));
+""")
+    ctx.check(f"no list read yet: no view (''), got {got.get('unread')!r} {got.get('unread_rows')!r}",
+              got.get("unread") == "" and got.get("unread_rows") == "")
+    ctx.check(f"the list read with a session he talked to: Live, got {got.get('talked')!r}", got.get("talked") == "live")
+    ctx.check(f"the list read, nothing open: the tab used last, got {got.get('empty')!r}", got.get("empty") == "workflows")
+    ctx.check(f"no answer within the wait: the tab used last, got {got.get('timeout')!r}", got.get("timeout") == "map")
+    ctx.check(f"a door's tab at once, got {got.get('door')!r}", got.get("door") == "crew")
+    ctx.check(f"the one quiet line, got {got.get('line')!r}", got.get("line") == "Reading the sessions.")
+    ctx.check(f"the wait is 1.5 s, got {got.get('ms')!r}", got.get("ms") == 1500)
+    ctx.check(f"lastViewOf (store.ts lastView) reads every tab back, Live too, got {got.get('last')!r}",
+              got.get("last") == ["crew", "live", "map", "workflows", "workflows", "crew", "crew", "crew"])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

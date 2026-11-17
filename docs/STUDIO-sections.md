@@ -176,14 +176,15 @@ session read like the terminal, a box to type into it (the slash list, Queue it 
 
 ### Agents
 
-**What it is** (3.3.16.0 R1; rebuilt in 3.6.0.0 R5). Your agents in one place (`Alt+2`): three tabs on one switch --
+**What it is** (3.3.16.0 R1; rebuilt in 3.6.0.0 R5). Your agents in one place (`Alt+2`): four tabs on one switch (3.6.0.2) --
 **1 · Agents** (make an agent: the form, Try it, the builder; [STUDIO-builder.md](STUDIO-builder.md)), **2 · Workflows**
-(steps of agents; [STUDIO-workflows.md](STUDIO-workflows.md)) and **3 · Map** (connect them: who main hands work to and
-when; every session runs on a map, and while one runs the map lights up; a goal run is started from the Map's **Run a
+(steps of agents; [STUDIO-workflows.md](STUDIO-workflows.md)), **3 · Map** (connect them: who main hands work to and
+when; every session runs on a map, the plan; a goal run is started from the Map's **Run a
 goal**, [STUDIO-orchestra.md](STUDIO-orchestra.md); History under the map replays past runs,
-[STUDIO-live.md](STUDIO-live.md), [STUDIO-map.md](STUDIO-map.md)). Keys `1` / `2` / `3` switch tabs; `C` and `L` land on
-the Map, `W` on Workflows. The old doors (`?mode=roles`, `?mode=team`, `?mode=orchestra`, `view=cast`, `view=live`) land
-on the Map. The whole story: [STUDIO-agents.md](STUDIO-agents.md).
+[STUDIO-live.md](STUDIO-live.md), [STUDIO-map.md](STUDIO-map.md)) and **4 · Live** (what a session is doing now, drawn
+on the map it really follows, with the Feed in its drawer). Keys `1` / `2` / `3` / `4` switch tabs; `C` lands on the
+Map, `L` on Live, `W` on Workflows. Agents opens on Live while a session you have talked to is open, else on the tab used
+last. The old doors (`?mode=roles`, `?mode=team`, `?mode=orchestra`, `view=cast`) land on the Map, `view=live` on Live. The whole story: [STUDIO-agents.md](STUDIO-agents.md).
 
 **Panels.** Cast and Live, with Roles' six panels (Lineups, Canvas, Inspector, Problems, Bios, Models), and the
 Workflows board went in 3.6.0.0 R5; the notes under Roles, Orchestra and Team below describe them as they were.

@@ -70,6 +70,46 @@ def test_the_same_sentence_in_three_places(ctx: Ctx):
     ctx.check(f"truth.ts's terminal form is the card's, got {ts['term']!r}", ts["term"] == f"{S13_RF} {TAIL}" and ts["s13"] == S13_RF)
 
 
+
+NONE_TS = """const T = await import(%s);
+const f = { title: 's', a: 'starter', plain: false, b: null, bNone: true, bSince: null, started: %s, turns: 1, studio: false,
+  ended: null, machine: null, unreadable: null, changed: null, workflow: null, busy: false };
+console.log(JSON.stringify({ word: T.NEXT_NONE, lines: T.truthLines(f).map((l) => l.text), clock: T.clock(%s),
+  empty: T.truthLines({ ...f, none: true }).map((l) => l.text), start: T.startLines(null, null, true).map((l) => l.text) }));"""
+
+
+@test
+def test_no_map_for_new_sessions_is_one_sentence_in_both_languages(ctx: Ctx):
+    """The coordinator's ruling (P4 batch 10): "New sessions will run with no map." is the new-sessions half of the facts
+    note, of studio_show's twin, of what main repeats after a card (map_facts.tell) and of Studio's truth block, and the
+    whole sentence of a session on starter by flag while roles are off and no map is set is the same in Python and in
+    TypeScript: "This session runs on starter, as it started at {t}. New sessions will run with no map."."""
+    import time
+    from tests.helpers import node_ts
+    from tests.helpers.config_seed import ConfigHome
+    from tests.test_map_facts import _Sess
+    with ConfigHome() as env:
+        from halo_harness.crew import map_facts
+        from halo_harness.crew.map_control import control_for
+        from halo_harness.crew.map_session import prepare
+        from halo_harness.theme import set_config_value
+        set_config_value("roles.enabled", False)
+        s = _Sess(control_for(prepare({"map": "starter"}, env.repo)[0], cwd=env.repo))
+        s.cwd = env.repo
+        s._map_started_at = t = round(time.time())
+        told = map_facts.tell(s)
+        row = map_facts.row(s)
+    got = node_ts.run(NONE_TS % (json.dumps(TRUTH.resolve().as_uri()), t, t))
+    ctx.check(f"one string in both languages, got {map_facts.NOTE_NEXT_NONE!r} / {got.get('word')!r}",
+              map_facts.NOTE_NEXT_NONE == got.get("word") == "New sessions will run with no map.")
+    said = "This session runs on starter, as it started at {}. New sessions will run with no map."
+    want = said.format(got.get("clock"))  # each side writes {t} its own way (map_facts.hhmm, truth.ts clock)
+    ctx.check(f"tell() says it, got {told!r}", told == said.format(map_facts.hhmm(t)))
+    ctx.check(f"the row says no map (map_next_none), got {row.get('map_next_none')!r}", row.get("map_next_none") is True)
+    ctx.check(f"Studio's truth block says the same, got {got.get('lines')!r}", got.get("lines") == [want])
+    ctx.check(f"Empty and the Start view say it, got {got.get('empty')!r} {got.get('start')!r}",
+              got.get("empty") == got.get("start") == ["No session is open here. New sessions will run with no map."])
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

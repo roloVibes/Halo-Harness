@@ -47,6 +47,10 @@ STATES = {
     "T12": dict(BASE, a="review-flow", plain=False, unreadable="~/maps/review-flow.yaml"),
     "Empty": dict(BASE, none=True, b="review-flow"),
     "Empty unset": dict(BASE, none=True),
+    # the coordinator's ruling (P4 batch 10): new sessions with no map (roles off, crew.map unset: the row's map_next_none)
+    "T2 no map next": dict(BASE, a="starter", plain=False, bNone=True),
+    "T10 no map next": dict(BASE, studio=True, turns=0, bNone=True),
+    "Empty no map next": dict(BASE, none=True, bNone=True),
 }
 S13 = "This session keeps running on {0}, as it started. Start a new session to run on {1}."
 NEW = {"act": "new-session", "label": "New session"}
@@ -71,6 +75,9 @@ WANT = {
     "T12": ("T12", [("This session runs on review-flow from ~/maps/review-flow.yaml, which Studio cannot read here.", None)]),
     "Empty": ("Empty", [("No session is open here. New sessions will run on review-flow.", NEW)]),
     "Empty unset": ("Empty", [("No session is open here. New sessions will run on starter (the default).", NEW)]),
+    "T2 no map next": ("T2", [("This session runs on starter, as it started at {10:24}. New sessions will run with no map.", None)]),
+    "T10 no map next": ("T10", [("New session from Studio, no message yet. It will run with no map.", None)]),
+    "Empty no map next": ("Empty", [("No session is open here. New sessions will run with no map.", NEW)]),
 }
 BANNED = re.compile(r"\b(in use|lineup|bio|cast|helpers?|delegating)\b", re.I)
 TASK60 = "rewrite the retry loop of the client so it backs off and logs"

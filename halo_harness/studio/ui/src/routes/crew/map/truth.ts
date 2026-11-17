@@ -3,7 +3,7 @@
 // lines L1-L4 and the worst case the truth block reserves (R20). The other lines of the rules (R4, R14-R18, R24, R28-R31,
 // R43, R45, R47) are in truthBits.ts, re-exported here. Pure: no React, no store, no DOM. The words Live / Feed / Map live
 // in truthWords.ts (decision 5), re-exported here; Session, Agents -> Live, Agents -> Map and the Start view read only this.
-import { clock, DEFAULT_MAP, mapName, nextName, WORDS, type Line } from "./truthWords";
+import { clock, DEFAULT_MAP, mapName, NEXT_NONE, nextName, WORDS, type Line } from "./truthWords";
 
 export * from "./truthWords";
 export * from "./truthBits";
@@ -15,6 +15,7 @@ export type TruthFacts = {
   a: string | null; // the map this session runs on (F1/F2); null = no map
   plain: boolean; // it took starter by default (the row's `map_plain`)
   b: string | null; // the map new sessions use (F4); null = unset (starter, the default)
+  bNone?: boolean; // new sessions start with NO map (roles off, crew.map unset: the row's `map_next_none`); b is then null
   bSince: number | null; // when B was switched on; null = not known
   started: number;
   turns: number;
@@ -52,7 +53,7 @@ export function truthState(f: TruthFacts): TruthState {
   if (f.studio && !f.turns) return "T10";
   if (f.unreadable) return "T12";
   if (!f.a) return "T4";
-  if (f.a !== nextMap(f.b)) return f.bSince || !f.b ? "T2" : "T11";
+  if (f.a !== (f.bNone ? "" : nextMap(f.b))) return f.bNone || f.bSince || !f.b ? "T2" : "T11";
   return f.plain ? "T3" : "T1";
 }
 
@@ -63,17 +64,19 @@ export function truthLines(f: TruthFacts): Line[] {
   const B = nextName(f.b);
   const t = clock(f.started);
   switch (st) {
-    case "Empty": return [{ text: `No session is open here. New sessions will run on ${B}.`, ...NEW }];
+    case "Empty": return [{ text: f.bNone ? `No session is open here. ${NEXT_NONE}` : `No session is open here. New sessions will run on ${B}.`, ...NEW }];
     case "T9": return [{ text: f.a ? `${f.title} runs on ${A} on ${f.machine}. Its drawing is in that machine's Studio.`
                                    : `${f.title} runs with no map on ${f.machine}. Its drawing is in that machine's Studio.` }];
     case "T8": return [{ text: `This session ended at ${clock(f.ended || 0)}. ${f.a ? `It ran on ${A}.` : "It ran with no map."}` }];
-    case "T10": return [{ text: `New session from Studio, no message yet. It will run on ${B}.` }];
+    case "T10": return [{ text: `New session from Studio, no message yet. It will run ${f.bNone ? "with no map" : `on ${B}`}.` }];
     case "T12": return [{ text: `This session runs on ${A} from ${f.unreadable}, which Studio cannot read here.` }];
     case "T4": return [{ text: `This session runs with no map, as it started at ${t}: main does the work and starts its own agents.` }];
   }
   const out: Line[] = [];
   if (f.workflow) out.push({ text: `This session is running the workflow ${f.workflow} from ${B}.` });
-  if (st === "T2" || st === "T11") {
+  if (st === "T2" && f.bNone) {
+    out.push({ text: `This session runs on ${A}, as it started at ${t}. ${NEXT_NONE}` }); // map_facts.tell's words
+  } else if (st === "T2" || st === "T11") {
     out.push({ text: s13(A, B), ...NEW });
     // T2's "before {B} was switched on" only when it was (none set and never switched: just when it started)
     const before = !!f.bSince && f.bSince > f.started;

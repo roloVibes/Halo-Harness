@@ -207,6 +207,32 @@ def test_the_cli_verbs(ctx: Ctx):
 
 
 @test
+def test_open_lands_on_the_map_where_history_is(ctx: Ctx):
+    """3.6.0.2 R55 (P4 batch 1, its test in batch 10): `halo replay open` starts Studio at `?mode=agents&view=map&replay=<id>`
+    (a replay stays on the Map, where its scrubber and History are; 4 · Live is the run of a session now) and its lines
+    name Agents -> Map. Studio's start, the browser and the hold are stand-ins: no process is started."""
+    from halo_harness.studio import launch
+    seen: dict = {}
+    keep = (launch.launch_detached, launch._open, launch.hold)
+    launch.launch_detached = lambda mode, **kw: seen.update(mode=mode) or "http://127.0.0.1:1/?mode=agents#t=tok"
+    launch._open = lambda url: seen.update(browsed=url)
+    launch.hold = lambda state: None
+    try:
+        with _home() as state:
+            seed(state)
+            _cli(["save", SID])
+            rid = next((state / "replays").glob("*.halo-replay")).name.split(".")[0]
+            code, text = _cli(["open", rid])
+            _, text2 = _cli(["open", rid, "--no-studio"])
+    finally:
+        launch.launch_detached, launch._open, launch.hold = keep
+    want = f"http://127.0.0.1:1/?mode=agents&view=map&replay={rid}#t=tok"
+    ctx.check(f"open browses the Map with the replay, got {seen!r}", code == 0 and seen.get("mode") == "agents" and seen.get("browsed") == want)
+    ctx.check(f"its lines say Agents -> Map, never Agents -> Live, got {text!r} / {text2!r}",
+              "Agents -> Map" in text and "Agents -> Map" in text2 and "Agents -> Live" not in text + text2)
+
+
+@test
 def test_the_studio_routes(ctx: Ctx):
     from halo_harness.studio.replays_api import dispatch_replays
     with _home() as state:

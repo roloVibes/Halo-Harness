@@ -14,7 +14,7 @@ const VIEWS: [AgentsView, string, string, string][] = [
   ["live", `4 · ${WORDS.live}`, "4", "What a session is doing now, drawn on the map it really follows"], // 3.6.0.2 R52, section 4
 ];
 
-export function ViewSwitch({ view }: { view: AgentsView }) {
+export function ViewSwitch({ view }: { view: AgentsView | "" }) { // "": no tab yet (Agents is reading the sessions)
   const runs = useRunning().length > 0; // R52: the Live tab shows a dot while a session runs
   return (
     <>
