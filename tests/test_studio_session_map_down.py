@@ -870,6 +870,126 @@ def test_hover_card_rows(ctx: Ctx):
     ctx.check(f"R43: a click opens the step-in card, not the hover, got {d.get('click')}", d.get("click") == {"card": True, "hover": False})
 
 
+_BUILT: dict = {}
+_T = r"\d{1,2}:\d\d\D{0,4}"
+
+
+def _built(ctx: Ctx, key: str) -> dict:
+    """tests/helpers/studio_session_just_built.py, run once for the tests below (P3 batch 6, R26-R32)."""
+    from tests.helpers.chrome_driver import driver_env, find_chrome
+    if not find_chrome():
+        raise SkipTest("no Chrome found (the Live drawer needs headless Chrome)")
+    if not _BUILT:
+        r = subprocess.run([sys.executable, "-m", "tests.helpers.studio_session_just_built"], capture_output=True, encoding="utf-8",
+                           errors="replace", timeout=600, env=driver_env(REPO), cwd=str(REPO))
+        try:
+            info = json.loads(r.stdout.strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            info = {}
+        _BUILT.update(r=r, got=info)
+    got, r = _BUILT["got"], _BUILT["r"]
+    if got.get("skip"):
+        raise SkipTest(got["skip"])
+    ctx.check(f"the driver reached {key}, got {r.returncode} {got.get('failed')!r} {r.stderr[-600:]!r}", got.get(key) is not None)
+    return got.get(key) or {}
+
+
+@test
+def test_viewbar_word_reserved_nothing_moves(ctx: Ctx):
+    d = _built(ctx, "word")
+    b4, af, op = d.get("before") or {}, d.get("after") or {}, d.get("opened") or {}
+    ctx.check(f"R29: the word slot is there and empty at first paint, got {b4.get('there')} {b4.get('text')!r}",
+              b4.get("there") is True and b4.get("text") == "")
+    ctx.check(f"R29: its min-width holds three digits, got {b4.get('minW')} for '0' = {b4.get('zero')}",
+              (b4.get("minW") or 0) >= 3 * (b4.get("zero") or 99) - 0.5)
+    ctx.check(f"R29: only Session's Live button has the word slot, got {b4.get('words')}", b4.get("words") == ["session-map"])
+    ctx.check(f"R29: an applied build writes 'new' within 5 s, got {af.get('text')!r} after {d.get('took'):.1f} s",
+              d.get("came") is True and af.get("text") == "new" and (d.get("took") or 99) <= 5)
+    same = len(b4.get("rects") or []) == len(af.get("rects") or []) and all(
+        p[0] == q[0] and all(abs(x - y) <= 0.5 for x, y in zip(p[1:], q[1:])) for p, q in zip(b4.get("rects") or [], af.get("rects") or []))
+    ctx.check(f"R32: no view-bar button moved, got {b4.get('rects')} -> {af.get('rects')}", same)
+    ctx.check(f"R32: nothing opened, the section is still Session, nothing popped up, got {af.get('pressed')} {af.get('section')!r} "
+              f"drawer {af.get('drawer')} pops {af.get('pops')}",
+              af.get("pressed") == b4.get("pressed") and af.get("section") == "session" and not af.get("drawer") and af.get("pops") == 0)
+    ctx.check(f"R29: opening the drawer empties the word, in the same place, got {op.get('text')!r} {b4.get('rect')} -> {op.get('rect')}",
+              op.get("text") == "" and _same(b4.get("rect"), op.get("rect")))
+
+
+@test
+def test_same_name_edit_redraws(ctx: Ctx):
+    d = _built(ctx, "same")
+    n, a, b, c = d.get("n") or 0, d.get("a") or {}, d.get("b") or {}, d.get("c") or {}
+    ctx.check(f"R27 (a): a Builder card's edit of shop redraws it from the frame's body, no read before it, got {a}",
+              a.get("ok") is True and a.get("reqs") == 0 and a.get("isNew") is True)
+    ctx.check(f"R26 (b): a plain write redraws the open drawing, with no 'new' and no word, got {b} (first {n})",
+              b.get("ok") is True and b.get("n") == n + 2 and b.get("isNew") is False and b.get("tag") is False and b.get("word") == "")
+    ctx.check(f"R27 (c): closed and opened again it is the newest version, got {c}", c.get("ok") is True and c.get("n") == n + 2)
+
+
+@test
+def test_just_built_selected_once_only_when_untouched(ctx: Ctx):
+    d = _built(ctx, "once")
+    p, f, bk, s = d.get("plain") or {}, d.get("first") or {}, d.get("back") or {}, d.get("second") or {}
+    ctx.check(f"R30: one map is plain text 'Running: starter (the default)', got {p.get('text')!r} buttons {p.get('buttons')}",
+              p.get("text") == "Running: starter (the default)" and p.get("buttons") == 0)
+    ctx.check(f"R30 (a): two maps: the pair, the same height, Just built chosen and unlit, got {f}",
+              "Running: starter (the default)" in (f.get("text") or "") and "Just built: review-flow" in (f.get("text") or "")
+              and f.get("h") == p.get("h") and (f.get("built") or {}).get("pressed") == "true" and f.get("map") == "review-flow"
+              and f.get("lit") == 0 and f.get("working") == 0)
+    ctx.check(f"R30 (a): Running: starter draws it again, lit, got {bk.get('map')!r} lit {bk.get('lit')}",
+              bk.get("map") == "starter" and (bk.get("lit") or 0) > 0)
+    ctx.check(f"R30 (a): a second build in the session only marks the tab, got {s}",
+              s.get("map") == "starter" and (s.get("built") or {}).get("marked") is True and (s.get("built") or {}).get("pressed") == "false")
+    h, ho, pr = d.get("held") or {}, d.get("held_out") or {}, d.get("pressed") or {}
+    ctx.check(f"R30 (b): the pointer on the drawing: only marked, and no jump once it leaves, got {h.get('map')!r} -> {ho.get('map')!r}",
+              h.get("map") == "starter" and (h.get("built") or {}).get("marked") is True and ho.get("map") == "starter")
+    ctx.check(f"R30 (c): the pair pressed before: a later build only marks its tab, got {pr}",
+              pr.get("map") == "starter" and (pr.get("built") or {}).get("marked") is True and "Just built: third" in (pr.get("text") or ""))
+
+
+@test
+def test_just_built_workflow_on_no_map_and_box_on_the_running_map(ctx: Ctx):
+    import re
+    d = _built(ctx, "heads")
+    w, o = d.get("workflow") or {}, d.get("opened") or {}
+    ctx.check(f"R31 (a): a workflow on no map, got {w.get('head')!r} [{w.get('headButton')}]",
+              w.get("head") == "Just built: the workflow solo. It is on no map, so no session runs it yet." and w.get("headButton") == "Open in Workflows")
+    ctx.check(f"R32: the head changed no section, got {d.get('workflow_section')!r}", d.get("workflow_section") == "session")
+    ctx.check(f"R31 (a): [Open in Workflows] opens Agents on Workflows with solo, got {o}",
+              o.get("section") == "agents" and o.get("view") == "workflows" and o.get("text") is True)
+    r = d.get("running") or {}
+    ctx.check(f"R31 (b): a box added to the running map: one map, tagged 'new {{t}}' alone, got {r}",
+              "Just built" not in (r.get("text") or "") and re.fullmatch(f"new {_T}", r.get("tag") or "") is not None and r.get("others") == ["tester"]
+              and r.get("map") == "shop")
+    ctx.check(f"R31 (b): its head, got {r.get('head')!r}",
+              re.fullmatch(f"Changed in this session at {_T}; this session takes it at its next hand-off.", r.get("head") or "") is not None)
+    ot = d.get("other") or {}
+    ctx.check(f"R31 (c): another map, got {ot.get('head')!r}",
+              re.fullmatch(f"Just built in this session at {_T}. This session does not run on it.", ot.get("head") or "") is not None)
+    ctx.check(f"R29 (d): the tag stays over turns and a fleet read, got {d.get('kept')}", d.get("kept") is True)
+    ctx.check(f"R29 (d): once the session ended the tags are gone, got {d.get('ended')}", d.get("ended") is True)
+
+
+@test
+def test_no_fetch_before_the_first_draw(ctx: Ctx):
+    d = _built(ctx, "fetch")
+    p = d.get("painted") or {}
+    ctx.check(f"R28: the truth block, the status line and the pair are painted with every crew/map answer held, got {p}",
+              bool(p.get("truth")) and bool(p.get("status")) and "Running: shop" in (p.get("pair") or "") and p.get("done") == 0)
+    asked = p.get("asked") or []
+    ctx.check(f"R28 R50: then one read of the running map, by scope and path, soft, got {asked}",
+              len(asked) == 1 and asked[0].startswith("crew/map/shop?") and all(k in asked[0] for k in ("scope=yours", "path=", "soft=1")))
+    ctx.check(f"R28: a body the frame brought is drawn with no request, got {d.get('body')}", d.get("body") == [])
+    lo = d.get("left_out") or []
+    ctx.check(f"R28: a body left out (over 64 KB) is one soft read after the draw, got {lo}",
+              len(lo) == 1 and lo[0].startswith("crew/map/big?") and "soft=1" in lo[0])
+    ctx.check(f"R28: outcomes left and failed read nothing, got {d.get('left_failed')}", d.get("left_failed") == [])
+    import re
+    ctx.check(f"R28: a removed map says so, got {d.get('removed')!r}", re.fullmatch(f"This map was removed at {_T}.", d.get("removed") or "") is not None)
+    ctx.check(f"R28: T8 and Empty read no map, got {d.get('t8_empty')}", d.get("t8_empty") == [])
+    ctx.check(f"R28: no request failed, got {d.get('failed')}", d.get("failed") == [])
+
+
 if __name__ == "__main__":
     ctx = Ctx()
     results, passed, failed, skipped = run_all(TESTS, ctx)

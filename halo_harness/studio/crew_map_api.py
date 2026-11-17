@@ -11,7 +11,9 @@
                                        folder; yours; a starter; an enabled pack's), never another file of the name.
                                        Not there: 404, or with soft=1 200 {removed: true, map, scope, path}; there but
                                        not readable here: 404, or soft 200 {unreadable: true, map, scope, path} (T12).
-                                       A path outside every maps folder is never looked at: 404, soft {unreadable}
+                                       A path outside every maps folder is never looked at: 404, soft {unreadable}.
+                                       No path and no map of the name (a just-built map Session reads by name, R28):
+                                       404, or soft 200 {removed: true, map, scope, path: ""}
     PUT  crew/map/<name> {map}         save it (a new name makes a new map; a starter is saved as yours under its name;
                                        a trusted project's stays the project's): {undo_id, map, problems: []}; 422 with
                                        the problem lines (a line that would make a circle is named); 409 while locked
@@ -149,14 +151,18 @@ def _at_path(req, name: str, scope: str, path: str):
 def get_map(req):
     name, q = req.params["name"], (req.query or {})
     scope, path = str(q.get("scope") or ""), str(q.get("path") or "")
+    soft = str(q.get("soft") or "") in ("1", "true")  # the page's read (R28): calm; never another file of the name
     if not path:
         got = _one(req, name, scope)
-        return (200, got) if got else (404, {"error": f"no map named {name!r}"})
+        if got:
+            return 200, got
+        # 3.6.0.2 R28: Session reads a just-built map by name (its frame names no file); gone, asked softly, is calm
+        return (200, {"removed": True, "map": name, "scope": scope, "path": ""}) if soft else (404, {"error": f"no map named {name!r}"})
     allowed = _in_maps_folder(req, path)  # batch 8: any other path is never looked at
     how, got, cwd = _at_path(req, name, scope, path) if allowed else (None, None, None)
     if how == "found":
         return 200, _answer(req, name, got, cwd)
-    if str(q.get("soft") or "") in ("1", "true"):  # the page's read (R28): calm; never another file of the name
+    if soft:
         gone = allowed and how is None and not os.path.lexists(path)
         return 200, {("removed" if gone else "unreadable"): True, "map": name, "scope": scope, "path": path}
     return 404, {"error": f"no map named {name!r} at {path}"}

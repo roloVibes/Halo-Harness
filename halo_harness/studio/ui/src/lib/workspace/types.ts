@@ -47,6 +47,9 @@ export type PanelSpec = {
   drawing?: boolean;
   /** A short live word for the view bar's button ("$0.42", "1"): a hook, called while the bar draws. */
   useCount?: () => string;
+  /** 3.6.0.2 R29: a word the button shows for a moment ("new"): a hook like useCount, but its slot (`mono`, 3ch) is
+   *  drawn from the first paint whether it is empty or not, so a word coming or going moves no button. */
+  word?: () => string;
   /** Grid cells of a pack that declares its panels the old way (packs API 1.x): mapped by stage.ts (cells -> a
    *  drawer, `w` -> contentW = w x 60 px). Core specs do not set them. */
   x?: number;

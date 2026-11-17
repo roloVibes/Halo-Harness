@@ -28,6 +28,8 @@
 .viewbar-btn .icon { width: 12px; height: 12px; }
 .viewbar-count { font: 12px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--muted); }
 .viewbar-btn[aria-pressed="true"] .viewbar-count { color: inherit; }
+/* 3.6.0.2 R29: the word slot ("new") is always there, three digits wide, so the word coming or going moves nothing */
+.viewbar-word { display: inline-block; min-width: 3ch; font: 12px/1 var(--mono); letter-spacing: 0; text-transform: none; color: var(--accent); text-align: left; }
 
 /* -- the one-time layout note (R10) ------------------------------------------------------------------------------ */
 .layout-note {

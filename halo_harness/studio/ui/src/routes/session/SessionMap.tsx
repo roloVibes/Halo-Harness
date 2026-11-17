@@ -5,11 +5,13 @@
 // map"; R2: open = drawn, busy only lights boxes; R4: one that ended reads T8 until another is picked; R5: a Studio
 // session with no message yet reads T10 (no drawing, no fetch); no session at all reads Empty. Its head is the truth
 // block (TruthBlock.tsx, R20-R23: truth.ts's sentences, the status line).
+import { useEffect } from "react";
 import type { MotionState } from "../../lib/motion";
 import { Empty } from "../../lib/ui";
 import { Metric } from "../orchestra/bits";
 import { useScopedCounts } from "../fleet/scope";
 import { useFleet } from "../fleet/store";
+import { seenBuilt, useBuilt } from "../crew/map/built";
 import { toLit } from "../crew/map/litStore";
 import { truthState, WORDS, type TruthFacts } from "../crew/map/truth";
 import { useNextB } from "./nextB";
@@ -29,12 +31,22 @@ function EmptyTruth() {
   return <TruthBlock key="none" f={noneFacts(b ?? null)} sid="" held={b === undefined} />;
 }
 
+/** R29: the view-bar word of Session's Live button: "new" once the session shown built something, until the drawer
+ *  is opened (MapDetail draws only while it is open). */
+export function useBuiltWord(): string {
+  const sid = useFleet(chosenSession)?.session_id || "";
+  return useBuilt((s) => (sid && s.word[sid] ? "new" : ""));
+}
+
 export function MapDetail() {
   const loaded = useFleet((s) => s.loaded);
   const error = useFleet((s) => s.error);
   const any = useFleet((s) => s.harnesses.length);
   const row = useFleet(chosenSession);
   const pick = useFleet((s) => s.scope.session || "");
+  const sid = row?.session_id || "";
+  const fresh = useBuilt((s) => !!sid && !!s.word[sid]);
+  useEffect(() => { if (fresh) seenBuilt(sid); }, [fresh, sid]); // R29: the drawer is open: the word goes
   if (!loaded) return null; // the section's own wait says it while it reads
   if (error && !any) return <Empty title="Studio could not read the sessions" body={error} />;
   const ended = !row && pick ? lastRow(pick) : null;

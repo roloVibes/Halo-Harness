@@ -11,11 +11,16 @@
 //   after a hand scroll the first box he sees keeps its place; Fit (100 %, top) only on the first draw and on a different map.
 // - R18: a click on a box, a step row or a line opens the step-in card (crew/map/StepIn.tsx) in the drawer's fixed corner,
 //   for the agent the session's rows name at that moment (stepInTarget.ts); R43: a box's hover (DownBox.tsx).
+// - R28: nothing waits on the network: the head (truth block, status line, the pair) is drawn from the row first; the map
+//   is read after it, softly, by version (mapFiles.ts); a map gone says "This map was removed at {t}.".
+// - R29-R31: the pair Running | Just built and the head (BuiltBar.tsx); Just built is drawn calm (no overlay); the boxes
+//   a build in this session wrote carry "new {t}" (built.ts tagOf).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { clampZoom, fitScale, NAV_HELP, useCanvasNav, useZoomPoint } from "../../lib/canvasNav";
 import { goSection } from "../../lib/store";
 import { ZoomButtons } from "../../lib/ui/ZoomButtons";
 import { setAgentsView } from "../agents/store";
+import { holding, tagOf, useBuilt } from "../crew/map/built";
 import { useHold } from "../crew/map/hold";
 import { useLit } from "../crew/map/LitMini";
 import { RunLine, type LinePick } from "../crew/map/RunLine";
@@ -24,7 +29,8 @@ import { stepIn, type Hit, type Target } from "../crew/map/stepInTarget";
 import type { LitSession } from "../crew/map/litStore";
 import { estimateDown, layoutDown, type Down } from "../crew/map/layoutDown";
 import { openMap } from "../crew/map/mapStore";
-import { moreBelow, type TruthFacts } from "../crew/map/truth";
+import { moreBelow, removedAt, type TruthFacts } from "../crew/map/truth";
+import { BuiltBar } from "./BuiltBar";
 import { belowCount, firstSeen, keepSeen, nextTop, rowsOf, viewHeight } from "./downFit";
 import { DownBox } from "./DownBox";
 import { openInLive } from "./store";
@@ -50,9 +56,15 @@ function useSize(ref: RefObject<HTMLElement | null>, on: boolean): { w: number; 
 }
 
 /** `f`: the session's facts for the truth block over the drawing (R2, R20: its map, never busy). */
-export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
-  const L = useLit(s);
-  const { detail, ov, v } = L;
+export function MapDown({ s, f: given }: { s: LitSession; f: TruthFacts }) {
+  const which = useBuilt((x) => x.which[s.sid]);
+  const just = useBuilt((x) => x.last[s.sid]);
+  const tags = useBuilt((x) => x.tags), flows = useBuilt((x) => x.flows);
+  const own = s.map || "";
+  const shown = which === "built" && just?.kind === "other" && just.map ? just.map : own; // R30: Just built, or Running
+  const L = useLit(s, shown !== own ? { map: shown, unlit: true } : undefined);
+  const { detail, ov, v, got } = L;
+  const f = got && "unreadable" in got && shown === own ? { ...given, unreadable: s.path || own } : given; // R50: T12
   const drawn = !!detail;
   const root = useRef<HTMLDivElement>(null), roomEl = useRef<HTMLDivElement>(null);
   const scroll = useRef<HTMLDivElement>(null), world = useRef<HTMLDivElement>(null);
@@ -62,6 +74,8 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
   const live = useMemo(() => layoutDown({ ...v, strip: [] }, (b) => heights[b.id] ?? estimateDown(b), cw), [v, heights, cw]);
   const [card, setCard] = useState<Target | null>(null);
   const { held } = useHold(root, !!card);
+  useEffect(() => holding(s.sid, held), [s.sid, held]); // R30: Just built is chosen only while this is not held
+  useEffect(() => () => holding(s.sid, false), [s.sid]);
   const rowsNow = useRef(L);
   rowsNow.current = L;
   const pick = useCallback((h: Hit) => setCard((c) => { // R18: from the rows at the click; the same thing again closes it
@@ -70,11 +84,11 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
   }), []);
   const pickLine: LinePick = useCallback((l, text) => pick({ kind: "line", from: l.from, to: l.to, text, off: !!l.off }), [pick]);
   const closeCard = useCallback(() => setCard(null), []);
-  useEffect(() => setCard(null), [s.sid, s.map]);
+  useEffect(() => setCard(null), [s.sid, shown]);
   const kept = useRef<{ map: string; cw: number; g: Down; ready: boolean } | null>(null);
   let was = kept.current;
-  if (!held || !was || !was.ready || was.map !== (s.map || "") || was.cw !== cw) {
-    was = kept.current = { map: s.map || "", cw, g: live, ready: live.boxes.every((b) => heights[b.id] != null) };
+  if (!held || !was || !was.ready || was.map !== shown || was.cw !== cw) {
+    was = kept.current = { map: shown, cw, g: live, ready: live.boxes.every((b) => heights[b.id] != null) };
   }
   const g = was.g; // R12: under the pointer the last geometry stays (once measured); the change is drawn when it leaves
 
@@ -100,7 +114,7 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
   const nav = useCanvasNav(scroll, { zoom: k, zoomAt: zoomPt, fit, id: NAV_ID, min: MIN, max: MAX, background: ".mp-mini-world, .mp-mini-size, .mp-lines" });
   useLayoutEffect(() => { // R12: fitted on the first draw and on a different map, never on a box arriving
     if (drawn) nav.fit();
-  }, [drawn, s.map]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [drawn, shown]); // eslint-disable-line react-hooks/exhaustive-deps
   const last = useRef(g);
   useLayoutEffect(() => { // R12: a new drawing keeps the first box he sees where it was (a hand scroll; the top needs nothing)
     if (last.current === g) return;
@@ -136,32 +150,35 @@ export function MapDown({ s, f }: { s: LitSession; f: TruthFacts }) {
     if (t != null) go(t);
   };
   const fitted = !nav.byHand() && Math.abs(k - 1) < 1e-3;
-  const open = () => { setAgentsView("map"); goSection("agents", "map"); void openMap(s.map || ""); };
-  if (!detail) return <p className="cw-line" data-testid="session-lit-map-reading">Reading the map {s.map}...</p>;
-  return (
-    <div className="mp-mini mp-down" ref={root} data-testid="session-lit-map" data-dir="down" data-map={s.map || ""} data-sid={s.sid}
-         data-held={held ? "1" : undefined}>
+  const open = () => { setAgentsView("map"); goSection("agents", "map"); void openMap(shown); };
+  const gone = got && "removed" in got ? got.removed : 0;
+  return ( // R28: the head first, from the row; the drawing once its map is read (`session-lit-map` only then)
+    <div className="mp-mini mp-down" ref={root} data-testid={drawn ? "session-lit-map" : "session-lit-map-wait"} data-dir="down" data-map={shown}
+         data-sid={s.sid} data-held={held ? "1" : undefined}>
       <div className="mp-mini-head mp-down-head">
-        <TruthBlock f={f} sid={s.sid} off={ov?.offCount || 0} />
+        <TruthBlock f={f} sid={s.sid} off={L.unlit ? 0 : ov?.offCount || 0} />
+        <BuiltBar s={s} />
         <div className="mp-down-tools">
           <button type="button" className="mp-link" onClick={open} data-testid="session-lit-open">Open it on the Map tab</button>
           <ZoomButtons zoom={k} zoomAt={(z) => nav.zoomAt(clampZoom(z, MIN, MAX))} fit={nav.fit} fitted={fitted} />
         </div>
       </div>
       <div className="mp-down-room" ref={roomEl}>
-        <div className="mp-mini-scroll rc-scroll" ref={scroll} style={{ height: H }} onScroll={onScroll} tabIndex={0} data-pan="1"
+        {!drawn && (gone ? <p className="cw-line" data-testid="session-map-removed">{removedAt(gone)}</p>
+          : !(got && "unreadable" in got) && <p className="cw-line" data-testid="session-lit-map-reading">Reading the map {shown}...</p>)}
+        {drawn && <div className="mp-mini-scroll rc-scroll" ref={scroll} style={{ height: H }} onScroll={onScroll} tabIndex={0} data-pan="1"
              title={NAV_HELP} aria-label="The session's map">
           <div className="mp-mini-size" style={{ width: g.w * k, height: g.h * k }}>
             <div className="mp-mini-world" ref={world} data-zoom={k.toFixed(3)} style={{ width: g.w, height: g.h, transform: `scale(${k})` }}>
               <svg className="mp-lines" width={g.w} height={g.h} aria-hidden="true">
                 {g.lines.map((l) => <RunLine key={l.key} l={l} lit={L} onPick={pickLine} />)}
               </svg>
-              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} />)}
+              {g.boxes.map((b) => <DownBox key={b.id} b={b} L={L} sid={s.sid} lines={g.lines} pick={pick} built={tagOf({ tags, flows }, s.sid, shown, b)} />)}
             </div>
           </div>
-        </div>
+        </div>}
       </div>
-      {card && <StepIn t={card} map={s.map || ""} close={closeCard} onLive={() => openInLive(s.sid)} />}
+      {card && <StepIn t={card} map={shown} close={closeCard} onLive={() => openInLive(s.sid)} />}
       <div className="mp-down-below" data-testid="session-map-below">
         {n > 0 && <button type="button" className="mp-link" data-testid="map-more-below" onClick={down}>{moreBelow(n)}</button>}
       </div>

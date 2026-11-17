@@ -13,12 +13,15 @@ import type { SessionRow } from "../../fleet/types";
 import { openOrder } from "../../session/pick";
 import type { Change } from "../types";
 import type { OvEvent } from "./overlay";
+import { takeBuilt } from "./built";
 import { batcher } from "./frameBatch";
 import { foldHop, NO_TOTALS, type Totals } from "./overlayHops";
 
 export const MAX_EVENTS = 600; // the replay window; the trace's totals (overlayHops.ts) are kept apart, exact (R49)
 /** `plain`: the session runs on the default map (R17); `busy`: its row says a turn runs (R16: no hand-off live once not). */
-export type LitSession = { sid: string; title: string; map: string | null; started: number; live: number; plain?: boolean; busy?: boolean };
+export type LitSession = { sid: string; title: string; map: string | null; started: number; live: number; plain?: boolean; busy?: boolean;
+  /** 3.6.0.2 R50: the file the session follows (its row's `map_scope`, `map_path`), for the drawing's one soft read */
+  scope?: string | null; path?: string | null };
 type State = { events: Record<string, OvEvent[]>; totals: Record<string, Totals>; cards: Record<string, { id: string; changes: Change[] }>;
   pick: string; feed: string; feedFor: string };
 
@@ -67,6 +70,8 @@ export function startLit(): void {
   onEvent("map_hop", take);
   onEvent("map_step", take);
   onEvent("map_card", take);
+  // 3.6.0.2 R29-R32: what a Builder card in a session just built (built.ts); nothing it does opens or changes a section
+  onEvent("builder_done", (f) => takeBuilt(f.session_id || "", (f.data || {}) as Record<string, unknown>));
 }
 
 /** A session row as the lit drawing takes it: `live` (its agents at work, + 1 while busy) only lights boxes. */
@@ -74,7 +79,7 @@ export function toLit(s: SessionRow): LitSession {
   const live = (s.agents || []).filter((a) => LIVE.includes(String(a.state || ""))).length + (s.busy ? 1 : 0);
   const map = typeof s.map === "string" && s.map ? s.map : null;
   return { sid: s.session_id, title: String(s.title || s.session_id.slice(0, 8)), map, started: Number(s.started) || 0, live,
-           plain: !map || !!s.map_plain, busy: !!s.busy };
+           plain: !map || !!s.map_plain, busy: !!s.busy, scope: s.map_scope ?? null, path: s.map_path ?? null };
 }
 
 const here_ = (st: Pick<FleetState, "harnesses">, here: string): SessionRow[] =>

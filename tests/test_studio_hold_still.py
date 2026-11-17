@@ -68,7 +68,8 @@ def test_the_goal_form_is_drawn_whole_and_holds_still(ctx: Ctx):
 @test
 def test_the_session_view_holds_still(ctx: Ctx):
     _view(ctx, "session", ("section-tab", "session-open-workspace"))
-    _view(ctx, "session_all", ("viewbar-btn",))
+    # 3.6.0.2 R29 R20 (P3 batch 6): the view-bar word's slot and the truth block are measured at first paint too
+    _view(ctx, "session_all", ("viewbar-btn", "viewbar-word", "session-truth"))
 
 
 @test

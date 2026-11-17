@@ -12,7 +12,8 @@ headless Chrome, each with every /api/ answer held and then let go one at a time
   goal      Map -> Run a goal clicked before anything landed: the goal form's controls;
   session   Session as it opens with no live session (its Start view, drawn once the sessions are read): New session,
             Open the workspace anyway;
-  session_all  Open the workspace anyway clicked with every panel open (its Map, Live, Cost... drawers): their controls;
+  session_all  Open the workspace anyway clicked with every panel open (its Live, Feed, Cost... drawers): their controls,
+            the view-bar word's slot and the truth block (3.6.0.2 R29 R20);
   crew, workflows  Agents' Agents tab (the coder's form open) and Workflows tab;
   picker    the coder's MODEL picker opened before anything landed: its controls once its rows show;
   local, setup, settings  Local (its Models page), Setup, Settings. (Local's Library is not swept: on the Linux runner its
@@ -46,6 +47,14 @@ def _click_expr(expr: str):
     return go
 
 
+def _plus(read, *testids: str):
+    """`controls` for `still`: `read`'s (clickables) and the elements of `testids` that are no control (a word slot, a
+    block of text) measured too: 3.6.0.2 R29 the view-bar word's slot, R20 the truth block."""
+    def both(c) -> dict:
+        return {**read(c), **{f'[data-testid="{t}"]': f"document.querySelector('[data-testid={t}]')" for t in testids}}
+    return both
+
+
 def _click(testid: str):
     def go(c):
         c.click_on(f"document.querySelector('[data-testid=\"{testid}\"]')")
@@ -69,7 +78,7 @@ VIEWS = {
                 _click("map-history-all"), None),
     "goal": ("mode=agents&view=map", ('[data-testid="map-feed-panel"]',), MAP_READY, _click("map-run-goal"), FORM),
     "session": ("mode=session", (RAIL, ".section-view"), START, None, None),
-    "session_all": ("mode=session&open=all", (".section-view",), START, _click("session-open-workspace"), VIEWBAR_READY),
+    "session_all": ("mode=session&open=all", _plus(clickables(".section-view"), "viewbar-word", "session-truth"), START, _click("session-open-workspace"), VIEWBAR_READY),
     "crew": ("mode=agents&view=crew&agent=coder", (RAIL, VIEWBAR, ".section-view"), CREW_READY, None, None),
     "workflows": ("mode=agents&view=workflows", (RAIL, VIEWBAR, ".section-view"), "!!document.querySelector('[data-testid=\"agents\"]')", None, None),
     "picker": ("mode=agents&view=crew&agent=coder", ('[role="dialog"]',), f"!!{TRIG}", _click_expr(TRIG), ROWS_READY),
@@ -131,7 +140,7 @@ def views(c, page) -> dict:
     out = {}
     for name, (query, boxes, ready, before, then) in VIEWS.items():
         try:
-            out[name] = still(c, page(query), clickables(*boxes), ready, before=before, then=then)
+            out[name] = still(c, page(query), boxes if callable(boxes) else clickables(*boxes), ready, before=before, then=then)
         except Exception as e:  # one view that cannot be read says why; the others still run
             out[name] = {"error": f"{type(e).__name__}: {e}"[:300]}
     return out

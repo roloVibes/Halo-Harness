@@ -33,6 +33,9 @@ DRAWN = "document.querySelector('[data-testid=\"session-lit-map\"]')"
 LINE = "document.querySelector('[data-testid=\"session-lit-line\"]')"
 BOXES = "[...document.querySelectorAll('[data-testid=\"session-lit-box\"]')]"
 COST = "document.querySelector('[data-testid=\"session-cost-detail\"]')"
+# 3.6.0.2 R28 (P3 batch 6): the truth line is drawn from the row before the map is read; while it is read the drawing's
+# root is `session-lit-map-wait`, so "drawn" is the drawing, or a line with no map to read (T8, T10)
+WAIT = "document.querySelector('[data-testid=\"session-lit-map-wait\"]')"
 FLEET_READS = "performance.getEntriesByType('resource').filter((e) => /\\/api\\/live(\\?|$)/.test(e.name)).length"
 MAP_READS = "performance.getEntriesByType('resource').filter((e) => /\\/api\\/crew\\/map\\//.test(e.name)).length"
 T10_SHOP = "New session from Studio, no message yet. It will run on shop."
@@ -140,7 +143,7 @@ def kept(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.idle(a, map="shop")
     rows.idle(b, map="starter")
     _page(c, rig, "mode=session")
-    c.wait(f"!!({DRAWN} || {LINE}) && !!{COST}?.dataset.session", 30)
+    c.wait(f"!!({DRAWN} || ({LINE} && !{WAIT})) && !!{COST}?.dataset.session", 30)
     seen = [_read(c)]
     x = seen[0].get("sid") or ""
     other = b if x == a else a
@@ -189,7 +192,7 @@ def studio(c, rig, rows: Rows, a: str, b: str) -> dict:
     rows.idle(a)
     rows.idle(b, parent="studio:4242", turns=0, asked=False, started=time.time() + 60, map_next="shop")
     _page(c, rig, "mode=session")
-    c.wait(f"!!({DRAWN} || {LINE}) && !!{COST}?.dataset.session", 30)
+    c.wait(f"!!({DRAWN} || ({LINE} && !{WAIT})) && !!{COST}?.dataset.session", 30)
     out["studio_first"] = _read(c)
     rows.hide(a)
     try:

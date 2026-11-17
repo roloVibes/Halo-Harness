@@ -19,6 +19,11 @@ function Count({ spec }: { spec: PanelSpec }) {
   return word ? <span className="viewbar-count mono" data-testid="viewbar-count">{word}</span> : null;
 }
 
+/** 3.6.0.2 R29: the slot of a panel that declares `word`, always there (min-width 3ch), empty or not. */
+function Word({ spec }: { spec: PanelSpec }) {
+  return <span className="viewbar-word mono" data-testid="viewbar-word">{spec.word!()}</span>;
+}
+
 function press(section: string, spec: PanelSpec, layout: Layout, hidden: boolean): void {
   const p = layout[spec.id];
   if (!p) return showPanel(section, spec);
@@ -43,6 +48,7 @@ function Btn({ spec, layout }: { spec: PanelSpec; layout: Layout }) {
       {!p && <Icon name="plus" />}
       <span className="viewbar-name">{spec.title}</span>
       {spec.useCount && <Count spec={spec} />}
+      {spec.word && <Word spec={spec} />}
     </button>
   );
 }

@@ -128,6 +128,24 @@ def test_soft_missing_answers_200_removed(ctx: Ctx):
         ctx.check("no such map, no path: 404 still", rig.api("GET", "crew/map/nope")[0] == 404)
 
 
+@test
+def test_soft_by_name_missing_answers_200_removed(ctx: Ctx):
+    """3.6.0.2 R28 (P3 batch 6): Session reads a just-built map by its name (the frame names no file); asked softly, a map
+    of that name that is gone answers 200 {removed} (no failed /api on the page); not soft it is the editor's 404."""
+    with CrewRig() as rig:
+        rig.studio()
+        from halo_harness.crew import store
+        p = store.path_for("map", "built", state_dir=rig.state)
+        store.write_text(p, store.dump(_map_body("built", 1)))
+        st, m = rig.api("GET", "crew/map/built?soft=1")
+        ctx.check(f"there, soft by name: read as ever, got {st}", st == 200 and "boxes" in m and m.get("map", {}).get("name") == "built")
+        p.unlink()
+        st, m = rig.api("GET", "crew/map/built?soft=1")
+        ctx.check(f"gone, soft by name: 200 {{removed, map, scope, path}}, got {st} {m}",
+                  st == 200 and m == {"removed": True, "map": "built", "scope": "", "path": ""})
+        ctx.check("gone, not soft: 404 (the editor's)", rig.api("GET", "crew/map/built")[0] == 404)
+
+
 class _Touches:
     """Records every file-system look (stat, lstat, exists, lexists, realpath) whose path names `probe`."""
 

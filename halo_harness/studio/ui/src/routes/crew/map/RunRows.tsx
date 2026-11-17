@@ -13,15 +13,21 @@ import { runningStep } from "./overlayBlocks";
 
 const SHOWN = 3;
 
-export function BlockFace({ block, ov }: { block: Block; ov: Overlay | null }) {
+/** 3.6.0.2 R29: "new {t}" on a box (and over a block's rows) a build in this session wrote. */
+export function NewTag({ text }: { text: string }) {
+  return <span className="mp-tag mp-new-tag mono" data-testid="session-map-new">{text}</span>;
+}
+
+export function BlockFace({ block, ov, tag }: { block: Block; ov: Overlay | null; tag?: string }) {
   const lit = ov?.blocks[block.workflow];
   const steps = lit?.steps.length ? lit.steps : block.steps;
   const at = lit ? runningStep({ state: lit.state, steps }) : undefined;
   return (
     <span className="mp-inner mp-block" data-testid="session-map-block-face" data-workflow={block.workflow}>
       <b className="mp-name" data-testid="session-map-block-head">{blockHead(block.workflow, at, at ? steps.length : undefined)}</b>
+      {tag && <NewTag text={tag} />}
       {steps.map((s) => (
-        <span key={s.n} className="mp-step mono" data-testid="session-map-step" data-n={s.n} data-state={s.state}>
+        <span key={s.n} className="mp-step mono" data-testid="session-map-step" data-n={s.n} data-state={s.state} data-new={tag ? "" : undefined}>
           {stepRow(s.n, s.step, s.agent, s.model, s.state)}
         </span>
       ))}

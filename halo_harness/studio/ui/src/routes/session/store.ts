@@ -22,6 +22,8 @@ import { onFilesChanged } from "../../lib/filesLive";
 import type { AgentKey, AgentRow, SessionRow } from "../fleet/types";
 import { onEvent } from "../../lib/events";
 import { livePick, noteBuild, noteRows, staleRead } from "./pick";
+import { keepOpen } from "../crew/map/built";
+import { startLit } from "../crew/map/litStore";
 
 export type SessionUiView = "auto" | "start" | "workspace";
 type Want = { session: string; key: AgentKey };
@@ -129,6 +131,7 @@ function onChange(): void {
     const section = studio.get().section;
     const f = fleet.get();
     if (f.loaded && !f.error) noteRows(localSessions(f), Date.now() / 1000); // R4: a session gone from the rows ended
+    if (f.loaded && !f.error) keepOpen(localSessions(f).map((r) => r.session_id)); // R29: its tags go with it
     if (section !== "session") {
       if (lastSection === "session") {
         sess.update(() => ({ chosen: fleet.get().scope.session || "" }));
@@ -186,6 +189,7 @@ export function startSession(): void {
   onFilesChanged("config", () => void loadFleet());
   studio.subscribe(onChange);
   fleet.subscribe(onChange);
+  startLit(); // 3.6.0.2 R29: a build is heard with the drawer closed too (the view-bar word)
   onEvent("builder_done", (f) => noteBuild(f.session_id || "", (f.data || {}) as Record<string, unknown>, Date.now() / 1000)); // R4
   onChange();
 }

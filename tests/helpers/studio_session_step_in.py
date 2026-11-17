@@ -215,6 +215,15 @@ def done(c, rig, rows: Rows, a: str, b: str) -> dict:
 
 
 def _rest_on(c, expr: str) -> None:
+    # 3.6.0.2 R30 R31 (P3 batch 6): the pair and the Just built head take room over the drawing: a box under the scroll
+    # box's edge is brought up first as a person would, by "↓ n more below" (one row a press; R11)
+    seen = f"""(() => {{ const e = {expr}, sc = e?.closest('.mp-mini-scroll'); if (!e || !sc) return true;
+      const r = e.getBoundingClientRect(), s = sc.getBoundingClientRect(); return r.bottom <= s.bottom + 0.5 && r.top >= s.top - 0.5; }})()"""
+    for _ in range(4):
+        if c.js(seen):
+            break
+        c.js("document.querySelector('[data-testid=map-more-below]')?.click(); 1")
+        time.sleep(0.6)
     x, y, w, h = c.rect(expr)
     for dx in (0, 2, 4):  # a real move onto it (the hover starts on the first move, then rests)
         c.mouse("mouseMoved", x + w / 2 + dx, y + h / 2)

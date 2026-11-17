@@ -12,10 +12,12 @@ import { whenWords } from "../crew/map/mapTypes";
 import { kidText } from "../crew/map/RunRows";
 import type { BoxState } from "../crew/map/overlay";
 import type { Hit } from "../crew/map/stepInTarget";
-import { hoverLines, stepRow } from "../crew/map/truth";
+import { hoverLines, newTag, stepRow } from "../crew/map/truth";
 
 const BLOCK_ST: Record<string, BoxState> = { running: "working", done: "done", failed: "failed" };
 
+/** `built`: when a build in this session wrote this box (R29: tagged "new {t}", `data-new`); a drawing `L.unlit` (Just
+ *  built, R30) has no `data-lit`. */
 type Props = { b: PlacedDown; L: Lit; sid: string; lines: RoutedDown[]; built?: number | null; pick: (h: Hit) => void };
 
 /** R43's lines for box `b`. */
@@ -52,11 +54,11 @@ export function DownBox({ b, L, sid, lines: all, built = null, pick }: Props) {
     pick({ kind: "box", box: b.id, name: b.name, text: face?.textContent || STATE_WORDS[st] });
   };
   return (
-    <div className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit="live" data-state={st} data-helper={helper} data-kind={b.kind}
-         data-new={b.isNew ? "" : undefined} data-workflow={b.block?.workflow}
+    <div className={loose ? "mp-box mp-block-box" : "mp-box"} data-lit={L.unlit ? undefined : "live"} data-state={st} data-helper={helper} data-kind={b.kind}
+         data-new={b.isNew || built ? "" : undefined} data-workflow={b.block?.workflow}
          data-testid={loose ? "session-map-block" : "session-lit-box"} data-box={b.id} title={!b.block && hv.titles ? `${b.name}: ${STATE_WORDS[st]}` : undefined}
          style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h }} {...hv.props} onClick={click}>
-      <LitFace b={b} ov={L.ov} sid={sid} />
+      <LitFace b={b} ov={L.ov} sid={sid} tag={built ? newTag(built) : undefined} />
     </div>
   );
 }

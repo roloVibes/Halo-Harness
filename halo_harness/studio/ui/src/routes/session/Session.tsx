@@ -24,7 +24,7 @@ import { HELP } from "../help";
 import { ActivityDetail, ActivityGlance, useActivityMotion } from "../fleet/Activity";
 import { AgentDetail, AgentGlance, AgentSettings, useAgentMotion } from "../fleet/Agent";
 import { AttentionDetail, AttentionGlance, useAttentionMotion } from "../fleet/Attention";
-import { MapDetail, MapGlance, useMapMotion } from "./SessionMap";
+import { MapDetail, MapGlance, useBuiltWord, useMapMotion } from "./SessionMap";
 import { CostDetail, CostGlance, useCostMotion } from "./Cost";
 import { ConversationsDetail, ConversationsGlance, useConversationsMotion } from "./Conversations";
 import { LiveDetail, LiveGlance, useLiveMotion } from "./Live";
@@ -58,7 +58,8 @@ const panel = (id: string, rest: Omit<PanelSpec, "id" | "testid">): PanelSpec =>
 export const sessionPanels: PanelSpec[] = [
   // 3.6.0.0 R8: a map needs the widest drawer; R4b: it holds a drawing, so its line drags until Live is 360 px wide
   // 3.6.0.2 R35: the drawer that draws the run is Live, the line-by-line panel Feed (WORDS, the one place; ids unchanged)
-  panel("session-map", { title: WORDS.live, side: "left", contentW: 560, drawing: true,
+  // R29: its button's word "new" when the session built something while the drawer was closed (only this panel has one)
+  panel("session-map", { title: WORDS.live, side: "left", contentW: 560, drawing: true, word: useBuiltWord,
           face: "detail", glance: MapGlance, detail: MapDetail, useMotion: started(useMapMotion) }),
   panel("session-live", { title: WORDS.feed, primary: true, face: "detail", glance: LiveGlance, detail: LiveDetail, settings: WhySettings, useMotion: started(useLiveMotion) }),
   panel("session-cost", { title: "Cost", contentW: 360, face: "detail", glance: CostGlance, detail: CostDetail, useMotion: started(useCostMotion) }),
