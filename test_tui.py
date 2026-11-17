@@ -511,10 +511,15 @@ def test_permission_card_deny_with_feedback_message(ctx: Ctx):
 
 @test
 def test_free_text_while_permission_card_pending_answers_it_directly(ctx: Ctx):
-    """Before this fix, typing feedback WITHOUT first pressing "4" was a
+    """Before hotfix 17, typing feedback WITHOUT first pressing "4" was a
     silent steer on the turn underneath -- the pending ask itself was never
     answered, matching the owner's report ("I am unable to type anything and get
-    a response") once the card had scrolled out of view."""
+    a response") once the card had scrolled out of view. Rewritten to the truth
+    in 3.6.0.2 P5 batch 4 (the decisions' F-C, name kept): text and Enter in the
+    box never answer a card any more (a letter of a sentence answered a card he
+    never read); the card waits and the line directly above the box says so
+    (`⏸ Permission waits ... · Tab goes to it`), so the session never looks
+    frozen. The typed words go as text."""
     async def body():
         fake = FakeController(turns=_permission_turn("Bash(rm:*)"))
         app = await _mounted(fake)
@@ -528,12 +533,15 @@ def test_free_text_while_permission_card_pending_answers_it_directly(ctx: Ctx):
             await _type(pilot, "use a safer command")
             await pilot.press("enter")
             await pilot.pause(0.05)
-            ctx.check(f"answered as deny+feedback, got {fake.permission_replies}",
-                      fake.permission_replies == [("tu1", {"action": "deny", "reason": "", "rule": None,
-                                                             "message": "use a safer command"})])
-            ctx.check("never became a steer", fake.submitted == ["do something"])
-            ctx.check("pending card cleared", app.pending_card is None)
-            ctx.check("focus returns to the prompt", app.focused is app.prompt_input)
+            ctx.check(f"not answered, got {fake.permission_replies}", fake.permission_replies == [])
+            ctx.check(f"the words went as text, got {fake.submitted}",
+                      fake.submitted == ["do something", "use a safer command"])
+            ctx.check("the card is still pending and waits",
+                      isinstance(app.pending_card, PermissionCard) and app._held_card is app.pending_card)
+            line = app.query_one("#card-wait-line")
+            ctx.check(f"the line above the box says it waits, got {line.text!r}",
+                      line.display and line.text.startswith("⏸ Permission waits"))
+            ctx.check("the focus stays in the prompt", app.focused is app.prompt_input)
     asyncio.run(body())
 
 
@@ -3874,6 +3882,7 @@ def test_effort_shows_a_note_instead_of_opening_while_a_permission_card_is_pendi
         async with app.run_test(size=(100, 40)) as pilot:
             await pilot.pause(0.05)
             card = _pending_permission_card(app)
+            await pilot.pause(0.05)  # 3.6.0.2 P5 batch 4: the card's focus is decided (taken: an idle box)
             notified = []
             app.notify = lambda msg, **kw: notified.append(msg)
             await handle_slash(app, "effort", "")
@@ -3893,6 +3902,7 @@ def test_rewind_shows_a_note_instead_of_opening_while_a_permission_card_is_pendi
         async with app.run_test(size=(100, 40)) as pilot:
             await pilot.pause(0.05)
             card = _pending_permission_card(app)
+            await pilot.pause(0.05)  # 3.6.0.2 P5 batch 4: the card's focus is decided (taken: an idle box)
             notified = []
             app.notify = lambda msg, **kw: notified.append(msg)
             await _show_rewind_confirmation(app, {"id": "step-1"}, "rewind")

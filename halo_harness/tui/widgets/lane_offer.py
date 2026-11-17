@@ -52,5 +52,7 @@ class LaneOfferCard(SafeStatic, can_focus=True):
             return
         if event.key in ("y", "enter"):
             return  # the binding answers it
+        if event.key == "tab":
+            return  # 3.6.0.2 P5 batch 4 (K8): Tab goes back to the box and answers nothing
         self._finish(False)
         event.stop()

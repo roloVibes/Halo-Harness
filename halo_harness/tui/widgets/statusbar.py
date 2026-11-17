@@ -26,6 +26,8 @@ from halo_harness.tui.widgets.inplace import update_in_place
 _LIVE_PHASE_WORDS = frozenset({"thinking", "writing", "tool", "waiting"})
 
 SPINNER_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+# 3.6.0.2 P5 batch 4 (J1 M5): the permission tag while the card waits (its keys go into the box).
+PERMISSION_WAITING_TAG = "permission needed · Tab goes to it"
 
 
 def remote_chip(count: int, ascii_mode: bool = False) -> str:
@@ -100,6 +102,7 @@ class StatusBar(Static):
         # mounted and unanswered -- the bar shows "permission needed: ..."
         # in the warning colour so a pending ask is impossible to miss.
         self.permission_pending: bool = False
+        self.permission_waiting: bool = False  # 3.6.0.2 P5 batch 4: the card waits (PERMISSION_WAITING_TAG)
         # Halo 2.0.1 W3a (finding 16 / PendingDock): the total count of
         # permission/question/plan cards currently active-or-queued
         # (BridgeApp._refresh_needs_you_tag) -- 0 means the segment is
@@ -410,8 +413,14 @@ class StatusBar(Static):
         self.mode = mode
         self._refresh_display()
 
-    def set_pending_permission(self, pending: bool) -> None:
+    def set_pending_permission(self, pending: bool, *, waiting: bool = False) -> None:
+        """3.6.0.2 P5 batch 4 (J1 M5): `waiting` -- the permission card waits (its keys now type into the box), so
+        the tag says how to reach it instead of listing keys."""
+        waiting = bool(waiting) and bool(pending)
+        if pending == self.permission_pending and waiting == self.permission_waiting:
+            return
         self.permission_pending = pending
+        self.permission_waiting = waiting
         self._refresh_display()
 
     def set_needs_you(self, count: int) -> None:
@@ -621,7 +630,8 @@ class StatusBar(Static):
         effort_str = self.effort or ""
         # 1.0.1 hotfix 17.3: impossible to miss -- rendered in the warning
         # style, same widths math as every other segment below.
-        permission_str = "permission needed: 1 yes · 2 session · 3 always · 4 no" \
+        permission_str = (PERMISSION_WAITING_TAG if self.permission_waiting
+                          else "permission needed: 1 yes · 2 session · 3 always · 4 no") \
             if self.permission_pending else ""
         # Halo 2.0.1 W3a (finding 16 / PendingDock): "needs you · N" -- 0
         # omits the segment entirely, same convention as every other

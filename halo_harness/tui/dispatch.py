@@ -235,6 +235,11 @@ def _to_latest(app) -> None:
         to_end()
 
 
+def _counts_as_box_key(app) -> None:
+    from halo_harness.tui import card_focus
+    card_focus.stamp_box_key(app)
+
+
 def _answered_elsewhere(app, card) -> bool:
     """3.6.0.2 P5/P7: his act on a card whose ask was already answered over the socket (`answered_line`, set by
     `app.mark_answered_elsewhere`) closes it and sends NOTHING -- not even to the controller, whose plan answer
@@ -242,6 +247,7 @@ def _answered_elsewhere(app, card) -> bool:
     if not getattr(card, "answered_line", None):
         return False
     card.claim_lost = True
+    _counts_as_box_key(app)  # 3.6.0.2 P5 batch 4 (K3, J1 M2): the next card waits
     app.clear_pending_card()
     return True
 
@@ -253,6 +259,7 @@ def _card_answered(app, card, ok, kind: str, fields: dict) -> None:
     its own in the marker (the winner's event names it). A controller that reports nothing (None) counts as won."""
     if ok is False:
         card.claim_lost = True
+        _counts_as_box_key(app)  # 3.6.0.2 P5 batch 4 (J2 M2): a key that lost the claim counts like one into the box
     else:
         from halo_harness import events as _events
         sink = getattr(getattr(app.controller, "events", None), "put", None)

@@ -125,13 +125,11 @@ submitting a new prompt all call `scroll_end()` and reset the counter,
 which is exactly what Textual's own watcher treats as "the user returned
 to the bottom".
 
-**A pending card intercepts free text (1.0.1 hotfix 17).**
-`on_prompt_input_submitted` (`tui/app.py`) checks `self.pending_card`
-before ever reaching `Controller.submit`'s steer path: when the card
-implements `resolve_with_message` (`PermissionCard`/`PlanCard`/
-`QuestionCard` all already did, for their own borrowed-input flows), the
-typed text answers the card directly instead of becoming a "↳ steering…"
-note the pending ask never sees. `action_cycle_mode` (Shift+Tab) likewise
+**Text in the box never answers a card (3.6.0.2 P5; it replaced 1.0.1 hotfix 17's shortcut).**
+`tui/card_focus.py` decides, once per shown card and after the keys already queued, whether the card takes
+the focus or waits (`app._held_card`, the line above the box): it waits when the box holds text, a key went
+into the box in the last 1.5 s, or a dialog is open. `on_prompt_input_submitted` sends the box's text as it
+would with no card; only a borrow the card started (`borrow_input`) takes the text as its answer. `action_cycle_mode` (Shift+Tab) likewise
 re-evaluates an already-pending `PermissionCard` under the NEW mode right
 away (`auto`/`bypassPermissions` resolves it allowed, `dontAsk` denied) --
 `Controller.set_permission_mode` itself only ever affected FUTURE asks,

@@ -330,6 +330,7 @@ class BridgeApp(App):
         self._lost_markers: "dict" = {}  # 3.6.0.2 P73: a card whose answer lost the claim -> its marker
         self._kept_text = None  # 3.6.0.2 P4 gate: words a closed card left in the box; Enter sends them nowhere until changed
         self._borrowing_card = None
+        self._held_card = None  # 3.6.0.2 P5 batch 4: the shown card that waits (tui/card_focus.py)
         self._ctrl_c_deadline: Optional[float] = None
         # 3.1.6.0 R5: the one-per-session "hold Shift to select" hint.
         self._shift_drag_hint = ShiftDragHint()
@@ -455,6 +456,9 @@ class BridgeApp(App):
         # separator and a status bar and nothing to type into (found live
         # on a Kali box; the pilots never checked geometry).
         with Vertical(id="bottom-dock"):
+            # 3.6.0.2 P5 batch 4 (K5, J1 M4): the line of a card that waits, directly above the box (hidden otherwise).
+            from halo_harness.tui.widgets.cards import CardWaitLine
+            yield CardWaitLine()
             with Horizontal(id="prompt-row"):
                 yield Static("❯", id="prompt-glyph")
                 yield PromptInput(placeholder=self._current_placeholder_text())
@@ -494,6 +498,8 @@ class BridgeApp(App):
         self.pending_dock = self.query_one(PendingDock)
         self.prompt_input = self.query_one(PromptInput)
         self.status_bar = self.query_one(StatusBar)
+        from halo_harness.tui.widgets.cards import CardWaitLine
+        self.card_wait_line = self.query_one(CardWaitLine)
         # Halo 2.0.3 round 5e: the "offline" chip's own initial reading --
         # `--offline`/a persisted `network.offline` -- pushed once here,
         # the same "direct push, no event round-trip" pattern `/offline`
@@ -618,6 +624,8 @@ class BridgeApp(App):
                 "permission_mode": getattr(self.controller, "permission_mode", None),
             })
         self.set_focus(self.prompt_input)
+        from halo_harness.tui import card_focus  # 3.6.0.2 P5 batch 4: K5/F-C, the base screen's focus watch
+        self.watch(self.screen_stack[0], "focused", lambda _old, new: card_focus.on_base_focus(self, new), init=False)
         self.set_interval(1 / DRAIN_HZ, self._drain)
         # H15 Part B: a lambda, not the bound method itself -- `set_interval`
         # stores whatever callable it's given and keeps calling THAT object
@@ -1268,9 +1276,18 @@ class BridgeApp(App):
         if self._kept_text is not None and getattr(event, "text_area", None) is self.prompt_input \
                 and self.prompt_input.text != self._kept_text:
             self._kept_text = None
+        if self.pending_card is not None and getattr(event, "text_area", None) is self.prompt_input:
+            from halo_harness.tui import card_focus
+            card_focus.refresh(self)  # J1 M7: an answered card's line says `closes when you send` or `Enter closes it`
 
     async def on_prompt_input_submitted(self, event: PromptInput.Submitted) -> None:
         text = event.text
+        card = self.pending_card
+        if card is not None and self._borrowing_card is None and getattr(card, "answered_line", None):
+            # 3.6.0.2 P5 batch 4 (K16): a card that waits and was answered elsewhere closes on his Enter and gets
+            # nothing; the text then goes as it would with no card.
+            from halo_harness.tui.dispatch import _answered_elsewhere
+            _answered_elsewhere(self, card)
         if self._kept_text is not None:
             if text == self._kept_text:
                 # 3.6.0.2 P4 gate: the words a closed card left in the box (the Enter he meant for it) go
@@ -1339,51 +1356,9 @@ class BridgeApp(App):
         # still list them.
         self.prompt_input.clear_submitted(keep_images=keeps_images)
         self.completion_popup.hide()
-        from halo_harness.tui.widgets.cards import EffortCard
-        if self.pending_card is not None and not isinstance(self.pending_card, EffortCard):
-            # finding 14: the /effort selector does not intercept typed
-            # text at all -- it falls straight through to the ordinary
-            # path below (slash handling, history, a fresh prompt), same
-            # as if nothing were pending; every OTHER card still gates
-            # here exactly as before.
-            if is_slash_command:
-                # W2c item 1: same history gap as the borrow-card branch
-                # above -- a slash command typed while a permission/plan/
-                # question card is pending used to never reach history.
-                self._record_submitted_history(text, event.pasted)
-                from halo_harness.tui.slash import handle_slash
-                name, _, args = self._without_chip_labels(stripped)[1:].partition(" ")
-                await handle_slash(self, name, args)
-                return
-            if hasattr(self.pending_card, "resolve_with_message"):
-                # 1.0.1 hotfix 17.1: free text typed while a permission/
-                # plan/question card is pending ANSWERS the card -- exactly
-                # Claude Code's own behavior (a permission card denies with
-                # the text as feedback, a plan card keeps planning with it,
-                # a question card takes it as "Other") -- never a silent
-                # steer the user has no way to see resolve anything. This
-                # was the real mechanism behind the reported "freeze": the
-                # auto-scroll bug (item 16) left the card below the fold,
-                # so the user kept typing into what looked like the normal
-                # prompt, each one only ever logged as "↳ steering…" while
-                # the pending ask underneath was never actually answered.
-                card = self.pending_card
-                card.resolve_with_message(_expand_pasted(text, event.pasted))
-                if not getattr(card, "claim_lost", False):
-                    return
-                # 3.6.0.2 P7: the card no longer waited (answered elsewhere, or
-                # the turn ended): it closed, and the text is an ordinary prompt
-                # below (a row, a turn or a steer, a history entry), no toast.
-            else:
-                # A card with no free-text answer (a rewind confirmation) --
-                # unchanged: a steer on the turn running underneath it, same as
-                # before this fix. W2c item 1: THIS steer path (unlike the
-                # common mid-turn steer, which reaches the default path below
-                # via `_submit_prompt`) used to skip history entirely -- Up
-                # must still recall it.
-                self._record_submitted_history(text, event.pasted)
-                self.controller.submit(_expand_pasted(text, event.pasted), pasted=event.pasted or None)
-                return
+        # 3.6.0.2 P5 batch 4 (F-C, K6): text and Enter in the box never answer a card -- a card answers only while
+        # it has the focus (or through a borrow he started on it, above). With a card shown, the text goes as it
+        # would with no card: a slash command, a steer while a turn runs, a prompt otherwise. The card stays.
         # 1.0.1 hotfix 16: a fresh prompt always re-anchors the transcript
         # to follow the coming reply, even if the user had scrolled up to
         # re-read something earlier -- scroll_end() moving scroll_y back to
@@ -1566,7 +1541,8 @@ class BridgeApp(App):
                                on_resolved_externally=on_decide, input_data={"command": command})
         # Halo 2.0.1 W3a (finding 16 / PendingDock): same queued path every
         # other permission/question/plan ask goes through now.
-        await self.enqueue_pending_card(card, marker_text=f"⏸ permission needed for Bash({command}), see below")
+        await self.enqueue_pending_card(card, marker_text=f"⏸ permission needed for Bash({command}), see below",
+                                        own_act=True)  # 3.6.0.2 P5 batch 4 (K3): his own `!cmd` Enter
 
     def _start_inline_shell_worker(self, command: str) -> None:
         self.run_worker(lambda: self._inline_shell_worker(command), thread=True, name="inline-shell")
@@ -1804,10 +1780,10 @@ class BridgeApp(App):
                            self._active_screen_name())
         if self.screen.focused is None:
             if self.screen is self.screen_stack[0]:
-                if self.pending_card is not None and self.pending_card.is_mounted:
-                    self.set_focus(self.pending_card)
-                else:
-                    self.set_focus(self.prompt_input)
+                # 3.6.0.2 P5 batch 4 (K13): the heal now runs where the key arrives (card_focus.before_key); here
+                # only as a net, with the same choice (a card that waits never gets the focus back this way).
+                from halo_harness.tui import card_focus
+                card_focus.heal(self)
             else:
                 self.screen.focus_next()
         if self._pending_chord is not None:
@@ -1967,6 +1943,10 @@ class BridgeApp(App):
         so pending cards, history and the input reset all behave exactly as
         for a typed-out command. `@` path completions are never submitted."""
         if not self.completion_popup.display or not self._completion_items:
+            if not submit:
+                # 3.6.0.2 P5 batch 4 (K7): Tab in the box with a card shown turns to the card (not during a borrow).
+                from halo_harness.tui import card_focus
+                card_focus.tab_from_box(self)
             return
         idx = self.completion_popup.highlighted or 0
         chosen = self._completion_items[idx % len(self._completion_items)]
@@ -2028,13 +2008,17 @@ class BridgeApp(App):
 
     # ---- inline cards (D-TUI scope D) -------------------------------------
 
-    def set_pending_card(self, card) -> None:
+    def set_pending_card(self, card, *, own_act: bool = False) -> None:
         # review finding 7 / scope 0(c): the prompt stays ENABLED while a
         # card is pending (it always did for an ordinary running turn;
         # a card is not different) -- steering must still work ("steer
-        # during a pending card does not answer the card"). Focus still
-        # defaults to the card so digit/Esc keys keep working normally;
-        # a user who wants to type instead just clicks/tabs to the prompt.
+        # during a pending card does not answer the card").
+        # 3.6.0.2 P5 batch 4 (K1-K3, K19): the card does NOT take the focus here. Whether it takes it or waits is
+        # decided once, after the keys already queued (tui/card_focus.py); `own_act` marks a card his own command
+        # shows (`!cmd`, /effort, /rewind, /undo, /redo): the key that ran the command never makes it wait. A card
+        # shown while another one waits sends that one back to the front of the queue (J2 M5).
+        from halo_harness.tui import card_focus
+        card_focus.on_shown(self, card, own_act=own_act)
         self.pending_card = card
         # 1.0.1 fixpass finding 15: recorded BEFORE set_focus -- a card too
         # tall to already be fully visible makes Textual's own
@@ -2045,7 +2029,7 @@ class BridgeApp(App):
         # bottom anchor same as any ordinary scroll -- clear_pending_card
         # below uses this to re-anchor, but only when it's actually needed.
         self._card_interrupted_following = self.transcript.is_following()
-        self._focus_on_base(card)
+        self.call_later(card_focus.decide, self, card)
         self.bell()
         self._maybe_notify_input_needed()
         # 1.0.1 hotfix 17.3: a PermissionCard specifically (not the plan/
@@ -2068,7 +2052,7 @@ class BridgeApp(App):
         count = (1 if self.pending_card is not None else 0) + len(self._pending_queue)
         self.status_bar.set_needs_you(count)
 
-    async def enqueue_pending_card(self, card, *, marker_text: str) -> None:
+    async def enqueue_pending_card(self, card, *, marker_text: str, own_act: bool = False) -> None:
         """Halo 2.0.1 W3a (finding 16 / PendingDock): the ONE entry point
         `tui/dispatch.py`'s permission/question/plan handlers and `_handle_
         bang_command`'s inline-shell ask all go through now, replacing the
@@ -2089,6 +2073,9 @@ class BridgeApp(App):
         # 3.6.0.2 P73: a new ask under the same request id means the old one stopped waiting; a marker its
         # lost key left for a winner's event that never came must not take this ask's answer.
         self._lost_markers.pop(_ask_key(card), None)
+        # 3.6.0.2 P5 batch 4: his own act counts only for the showing that act causes (a card that queues behind
+        # another and comes forward later is decided like any other).
+        card._own_act_first = bool(own_act and self.pending_card is None and not self._pending_queue)
         # Finding 71: every card goes through the queue and ONE serialized
         # activation, so a card arriving while the previous one is being
         # handed over can never be shown over (and orphaned by) the other.
@@ -2105,8 +2092,15 @@ class BridgeApp(App):
             if self.pending_card is not None or not self._pending_queue:
                 return
             nxt = self._pending_queue.pop(0)
-            await self.pending_dock.show_card(nxt)
-            self.set_pending_card(nxt)
+            if nxt.is_mounted:
+                # J2 M5: a card his own command set aside comes forward again where it was drawn.
+                if self.pending_dock.card is nxt:
+                    self.pending_dock.display = True
+            else:
+                await self.pending_dock.show_card(nxt)
+            own_act = getattr(nxt, "_own_act_first", False)
+            nxt._own_act_first = False
+            self.set_pending_card(nxt, own_act=own_act)
 
     async def _clear_dock_if_idle(self) -> None:
         """Hide the dock only when no card is active or queued -- a card
@@ -2161,9 +2155,12 @@ class BridgeApp(App):
             # the DECISION line, never the stale "... needed, see below".
             marker.set_text(getattr(finished, "decision_line", None) or "(resolved)")
         self.pending_card = None
+        self._held_card = None
         self.prompt_input.placeholder = self._current_placeholder_text()
         self.status_bar.set_pending_permission(False)
         self._focus_on_base(self.prompt_input)
+        from halo_harness.tui import card_focus
+        card_focus.refresh(self)
         # 1.0.1 fixpass finding 15: re-anchor if the transcript was
         # following right before this card interrupted it -- scroll_end()
         # is exactly what Textual's own anchor-reacquire watcher treats as
@@ -2218,6 +2215,8 @@ class BridgeApp(App):
                 waiting = self._pending_markers.get(id(card))
                 if waiting is not None:
                     waiting.set_text(line)
+                from halo_harness.tui import card_focus
+                card_focus.refresh(self)  # K16: a waiting card's line now says how it was answered
                 return
 
     def borrow_input(self, card, *, placeholder: str) -> None:
@@ -2394,11 +2393,21 @@ class BridgeApp(App):
             # widget). An EffortCard/RewindCard/ImproveCard etc. still
             # mounts directly into the transcript (unchanged), so it DOES
             # need re-mounting here, same as before this brief.
+            # 3.6.0.2 P5 batch 4 (K13): a card that waits stays waiting; the box keeps the keys.
+            from halo_harness.tui import card_focus
+            target = self.prompt_input if card_focus.waits(self, card) else card
             if getattr(card, "parent", None) is self.pending_dock:
-                self.set_focus(card)
+                self.set_focus(target)
             else:
                 await self.transcript.mount_widget(card)
-                self.set_focus(card)
+                self.set_focus(target)
+
+    def action_focus_next(self) -> None:
+        """3.6.0.2 P5 batch 4 (K8): Tab on the shown card goes back to the box, answers nothing, and the card waits
+        from then on. Everywhere else (a dialog, the transcript) Textual's own Tab."""
+        from halo_harness.tui import card_focus
+        if not card_focus.tab_from_card(self):
+            super().action_focus_next()
 
     def action_toggle_verbose(self) -> None:
         self.verbose = not self.verbose
@@ -2600,6 +2609,12 @@ class BridgeApp(App):
         hint = getattr(self, "_shift_drag_hint", None)
         if hint is not None and not hint.shown:
             hint.observe(self, event)
+        from textual import events
+        if isinstance(event, (events.Key, events.Paste)) and not event.is_forwarded:
+            # 3.6.0.2 P5 batch 4 (K13, K17, K19, J1 M1/M2): which widget this key reaches, decided where it arrives.
+            from halo_harness.tui import card_focus
+            if card_focus.before_key(self, event):
+                return
         await super().on_event(event)
 
     def action_interrupt_or_quit(self) -> None:

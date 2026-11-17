@@ -71,6 +71,32 @@ PASTE_PLACEHOLDER_MIN_LINES = 4
 # timeout between keystrokes"; OpenCode calls the same idea `leader_timeout`).
 CHORD_TIMEOUT_S = 1.0
 
+# 3.6.0.2 P5 batch 4 ("a card never takes a key meant for the box"): a card shown while a key went into the box in
+# the last CARD_WAIT_S waits (K1); a card answers no key in its first CARD_FRESH_S on screen (K17). The test runner
+# (tests/helpers/runner.py) turns both off for the older test modules through ONE environment variable that nothing
+# else reads; the product always uses the real times.
+CARD_WAIT_S = 1.5
+CARD_FRESH_S = 0.6
+_CARD_TIMES_OFF_ENV = "HALO_TEST_CARD_TIMES_OFF"
+
+
+def card_times() -> "tuple[float, float]":
+    """(wait, fresh) in seconds, read when used (so the runner's switch and a test's clock both reach the app)."""
+    import os
+    if os.environ.get(_CARD_TIMES_OFF_ENV) == "1":
+        return 0.0, 0.0
+    return CARD_WAIT_S, CARD_FRESH_S
+
+
+def card_clock() -> float:
+    """The clock the card times are compared on; a test may replace `card_clock_fn` to step it by hand."""
+    return card_clock_fn()
+
+
+import time as _time  # noqa: E402
+
+card_clock_fn = _time.monotonic
+
 # Halo 2.0.1 W2b (liveness-tips-brief Part B5): the single-key bindings
 # `tui/app.py`'s own `BridgeApp.BINDINGS` declares directly (priority
 # Textual `Binding`s, never remappable via keybindings.json -- see this

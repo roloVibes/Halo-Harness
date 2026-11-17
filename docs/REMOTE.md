@@ -103,9 +103,12 @@ connection. Commands that arrive over the socket show up in the TUI transcript
 as a `(remote) ...` note, never as a message typed by you. A `submit` or `steer` draws no note: its `❯` row is
 the only copy (3.6.0.2), and its turn's `user_message` frame carries `via` and `receipt`, never a user or host
 name. An ask answered over the socket closes no card in the terminal and moves nothing there: the card's line reads
-`Answered in Studio: <label>` (or `Answered remotely: <label>`, muted), the card stays until you press one of its
-keys or Enter, which closes it and sends nothing (words you typed for it stay in the box). Every answered ask emits
-one `ask_answered` event.
+`Answered in Studio: <label>` (or `Answered remotely: <label>`, muted), the card stays until your own next act
+closes it: a key on the card (it sends nothing to the card; a letter goes into the box), or Enter in the box. For a
+card that borrowed the box (a deny reason, a question's Other, plan feedback, an approval edit) that Enter sends
+nothing at all and your words for it stay in the box; for a card that waits beside the box, Enter closes it and then
+sends what the box holds as it would with no card (the line above the box reads `closes when you send`, or
+`Enter closes it` when the box is empty). Every answered ask emits one `ask_answered` event.
 
 ### Receipts (3.3.11.0 R1)
 

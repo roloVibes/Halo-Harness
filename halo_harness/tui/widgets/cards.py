@@ -1,8 +1,8 @@
 """halo_harness.tui.widgets.cards -- inline prompt cards (D-TUI scope D):
 `ToolCard`, `PermissionCard`, `QuestionCard`, `PlanCard`, plus the small
 `PagerScreen` modal `o` opens from a focused `ToolCard`. Every card is
-`can_focus=True` and owns its own `BINDINGS` -- `app.py` gives it focus the
-moment it's mounted, which is what makes its number-key/letter shortcuts
+`can_focus=True` and owns its own `BINDINGS` -- `app.py` gives it focus when
+he is not typing (3.6.0.2 P5: tui/card_focus.py), which makes its number-key/letter shortcuts
 win over PromptInput (a focused `TextArea` would otherwise swallow every
 printable key itself). A card that needs free-text follow-up ("tell Claude
 what to do differently", "Other...", plan feedback) never grows its own
@@ -522,9 +522,20 @@ class QuestionCard(_AnswerCard, can_focus=True):
             self._lists.append(ol)
             yield ol
 
-    def on_mount(self) -> None:
-        if self._lists:
-            self.app.call_after_refresh(self._lists[0].focus)
+    def first_unanswered_list(self):
+        """3.6.0.2 P5 batch 4 (K8): where a turn to this card lands -- its first unanswered question's list."""
+        for i, (question, _opts) in enumerate(self.questions):
+            if question not in self.answers and i < len(self._lists):
+                self.active_index = i
+                return self._lists[i]
+        return self._lists[self.active_index] if self._lists else None
+
+    def on_focus(self) -> None:
+        # 3.6.0.2 P5 batch 4 (K8): mounting focuses nothing (the app decides whether the card takes the focus); a
+        # focus on the card itself (a click, the app's decision) goes on to the first unanswered list.
+        target = self.first_unanswered_list()
+        if target is not None and not self.done:
+            self.screen.set_focus(target)
 
     def action_dismiss(self) -> None:
         if self.done:
@@ -536,10 +547,18 @@ class QuestionCard(_AnswerCard, can_focus=True):
         self._on_answer(None)
 
     def action_next_question(self) -> None:
+        # 3.6.0.2 P5 batch 4 (K8): Tab goes to the next UNANSWERED question; from the last one (or a one-question
+        # or finished card) it is skipped, so the app's Tab takes him back to the box.
+        from textual.actions import SkipAction
         if len(self._lists) <= 1 or self.done:
-            return
-        self.active_index = (self.active_index + 1) % len(self._lists)
-        self._lists[self.active_index].focus()
+            raise SkipAction()
+        focused = self.screen.focused
+        current = self._lists.index(focused) if focused in self._lists else self.active_index
+        later = [i for i in range(current + 1, len(self.questions)) if self.questions[i][0] not in self.answers]
+        if not later:
+            raise SkipAction()
+        self.active_index = later[0]
+        self.screen.set_focus(self._lists[self.active_index])
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         if self.done:
@@ -825,6 +844,8 @@ class EffortCard(SafeStatic, can_focus=True):
     def on_key(self, event) -> None:
         # A model with no adjustable effort at all: "closes on any key",
         # not only the two bound keys above.
+        if event.key == "tab":
+            return  # 3.6.0.2 P5 batch 4 (K8): Tab goes back to the box and answers nothing
         if not self.levels and not self.done:
             self._finish(None)
             event.stop()
@@ -875,3 +896,105 @@ class RewindCard(SafeStatic, can_focus=True):
         if not self.done:
             self._finish(False)
 
+
+
+# ---- 3.6.0.2 P5 batch 4: a card that waits (cardkeys-design.md, "Lines a person reads") ---------------------------
+# Every line a person reads about a waiting card lives here, once.
+_CARD_KIND_WORDS = {
+    "PreflightCard": "Size check", "EyesCard": "Image check", "PermissionCard": "Permission",
+    "QuestionCard": "Question", "PlanCard": "Plan", "ApprovalCard": "Approval", "LaneOfferCard": "Offer",
+    "EffortCard": "Effort", "RewindCard": "Rewind",
+}
+WAIT_LINE = "⏸ {kind} waits while you type · Tab goes to it · Enter sends your text"
+WAIT_LINE_SHORT = "⏸ {kind} waits · Tab goes to it"
+ANSWERED_TAIL_TEXT = " · closes when you send"
+ANSWERED_TAIL_EMPTY = " · Enter closes it"
+HELD_PLACEHOLDER = "Tab: go to the waiting card · Enter: send a message"
+HELD_PLACEHOLDER_SHORT = "Tab: go to the waiting card"
+
+
+def card_kind_word(card) -> str:
+    for cls in type(card).__mro__:
+        word = _CARD_KIND_WORDS.get(cls.__name__)
+        if word:
+            return word
+    return "Card"
+
+
+def _fit(text: str, width: int) -> bool:
+    from rich.cells import cell_len
+    return cell_len(text) <= width
+
+
+def wait_line_text(card, width: int, box_has_text: bool) -> str:
+    """The line above the box for a card that waits, picked from the width in cells (K5, K16, J1 M7)."""
+    answered = getattr(card, "answered_line", None)
+    if answered:
+        tail = ANSWERED_TAIL_TEXT if box_has_text else ANSWERED_TAIL_EMPTY
+        whole = f"✓ {answered}{tail}"
+        if _fit(whole, width):
+            return whole
+        head, sep, label = answered.partition(": ")
+        if not sep:
+            head, label = "", answered
+        while label:
+            label = label[:-1].rstrip()
+            cut = f"✓ {head}{sep}{label}…{tail}"
+            if _fit(cut, width):
+                return cut
+        return f"✓ {head}{sep}…{tail}"
+    kind = card_kind_word(card)
+    whole = WAIT_LINE.format(kind=kind)
+    return whole if _fit(whole, width) else WAIT_LINE_SHORT.format(kind=kind)
+
+
+def held_placeholder(width: int) -> str:
+    """K20: the box's placeholder while a card waits."""
+    return HELD_PLACEHOLDER if _fit(HELD_PLACEHOLDER, width) else HELD_PLACEHOLDER_SHORT
+
+
+from textual.widget import Widget  # noqa: E402
+
+
+class CardWaitLine(Widget):
+    """The one line directly above the box while a shown card waits (K5, J1 M4): its form is picked at every
+    render from the width it has, so a resize picks again; a click turns to the card (K7)."""
+
+    DEFAULT_CSS = """
+    CardWaitLine {
+        height: 1;
+        width: 100%;
+        color: $warning;
+        display: none;
+    }
+    """
+
+    def __init__(self) -> None:
+        super().__init__(id="card-wait-line")
+        self.card = None
+        self.box_has_text = False
+
+    def show_for(self, card, box_has_text: bool) -> None:
+        self.card = card
+        self.box_has_text = bool(box_has_text)
+        self.display = True
+        self.refresh()
+
+    def hide(self) -> None:
+        self.card = None
+        self.display = False
+
+    @property
+    def text(self) -> str:
+        if self.card is None:
+            return ""
+        return wait_line_text(self.card, self.size.width or 80, self.box_has_text)
+
+    def render(self):
+        from rich.text import Text
+        return Text(self.text, no_wrap=True, overflow="ellipsis")
+
+    def on_click(self) -> None:
+        if self.card is not None:
+            from halo_harness.tui import card_focus
+            card_focus.turn_to_card(self.app)

@@ -366,11 +366,15 @@ def test_socket_answer_closes_the_card_and_the_one_behind(ctx: Ctx):
                       marks["req-1"].raw_text == "Answered in Studio: Allow")
             await pilot.press("1")
             await pilot.pause(0.4)
-            ctx.check("his key closed it, the one behind came forward",
-                      getattr(app.pending_card, "request_id", "") == "req-2")
+            # P5 batch 4 (J1 M1): his key on a card answered elsewhere closes it and goes into the box, so the card
+            # behind comes forward and waits (the box holds text); Tab turns to it.
+            ctx.check(f"his key closed it and is in the box, the one behind came forward and waits, got "
+                      f"{app.prompt_input.text!r}", getattr(app.pending_card, "request_id", "") == "req-2"
+                      and app.prompt_input.text == "1" and app._held_card is app.pending_card)
+            await pilot.press("tab")
             await pilot.press("1")
             await pilot.pause(0.4)
-            ctx.check("his key closed that one too", app.pending_card is None and app._pending_queue == [])
+            ctx.check("Tab, then his key closed that one too", app.pending_card is None and app._pending_queue == [])
             ctx.check(f"the markers keep the winners' words, got {marks['req-1'].raw_text!r} {marks['req-2'].raw_text!r}",
                       marks["req-1"].raw_text == "Answered in Studio: Allow"
                       and marks["req-2"].raw_text == "Answered in Studio: Deny")
@@ -512,9 +516,12 @@ def test_kept_text_never_answers_the_card_behind_or_goes_as_a_prompt(ctx: Ctx):
             await pilot.pause(0.2)
             await enter(app, pilot)
             if behind is not None:
-                got = fake.permission_replies
-                ctx.check(f"{name}: changed, Enter answers the card he sees, got {got}",
-                          [(r, d.get("action"), d.get("message")) for r, d in got] == [("req-2", "deny", typed + " now")])
+                # P5 batch 4 (F-C): text and Enter in the box never answer a card; the card behind waits.
+                ctx.check(f"{name}: changed, Enter sends the words as text, no reply, got {fake.submitted} "
+                          f"{fake.permission_replies}", fake.submitted == [typed + " now"] and not fake.permission_replies)
+                ctx.check(f"{name}: the card behind still shows and waits",
+                          getattr(app.pending_card, "request_id", "") == "req-2"
+                          and app._held_card is app.pending_card)
             else:
                 ctx.check(f"{name}: changed, Enter is an ordinary prompt, got {fake.submitted}",
                           fake.submitted == [typed + " now"])
@@ -877,7 +884,11 @@ def test_text_after_a_stale_card_starts_a_turn_and_joins_history(ctx: Ctx):
             await pilot.pause(0.1)
             await pilot.press("enter")
             await pilot.pause(0.4)
-            ctx.check(f"{rid}: the card closed", app.pending_card is None)
+            # P5 batch 4 (F-C): Enter in the box never answers a card, so it never even tries this stale one: the
+            # card stays, waiting (his key on it, or Studio's line, closes it later); the words are a prompt.
+            ctx.check(f"{rid}: the card is not answered and stays, waiting",
+                      app.pending_card is not None and app._held_card is app.pending_card
+                      and not fake.permission_replies and not fake.approval_replies)
             ctx.check(f"{rid}: sent as an ordinary prompt, got {fake.submitted}", fake.submitted == ["do this instead"])
             ctx.check(f"{rid}: a row, got {app.transcript.plain_log[-3:]}",
                       any("do this instead" in t for t in app.transcript.plain_log))

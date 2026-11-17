@@ -156,6 +156,10 @@ class PromptInput(TextArea):
         # mean "navigate/accept the popup" or their ordinary meaning.
         # `app.py`'s `set_completion_open` is the only writer.
         self._completion_open = False
+        # 3.6.0.2 P5 batch 4 (K19): when the app last routed a key or paste into this box (tui/keys.card_clock), and
+        # whether it was Enter; set only by the app (tui/card_focus.stamp_box_key), read by the card focus decision.
+        self.last_key_at: "float | None" = None
+        self.last_key_was_enter = False
         # 3.1.6.0 R5: the last non-command text this box held, for
         # `/copy draft` (typed over the draft) and Ctrl+Shift+C.
         self.draft_keeper = DraftKeeper()

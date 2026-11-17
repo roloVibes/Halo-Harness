@@ -155,6 +155,18 @@ def new_registry():
     return test, registry
 
 
+# 3.6.0.2 P5 batch 4 (the decisions' F-D): the two card times of tui/keys.py (a card shown within 1.5 s of a key into
+# the box waits; a card answers no key in its first 0.6 s) are turned OFF for every test by this one variable, which
+# only tui/keys.card_times reads -- the older modules answer cards right after showing them. A test marked
+# `@real_card_timing` (tests/test_card_keys.py) runs with the product's real times.
+CARD_TIMES_OFF_ENV = "HALO_TEST_CARD_TIMES_OFF"
+
+
+def real_card_timing(fn: Callable) -> Callable:
+    fn.real_card_timing = True
+    return fn
+
+
 def run_all(tests: list, ctx: Ctx):
     """Run every (name, fn) in `tests` against `ctx`, catching SkipTest ->
     SKIP, AssertionError -> FAIL (message only), anything else -> FAIL
@@ -188,6 +200,11 @@ def run_all(tests: list, ctx: Ctx):
     for name, fn in tests:
         t0 = time.monotonic()
         homes = {k: os.environ.get(k) for k in _HOME_VARS}
+        card_times_before = os.environ.get(CARD_TIMES_OFF_ENV)
+        if getattr(fn, "real_card_timing", False):
+            os.environ.pop(CARD_TIMES_OFF_ENV, None)
+        else:
+            os.environ[CARD_TIMES_OFF_ENV] = "1"
         try:
             fn(ctx)
             retried = str(getattr(ctx, "retried", "") or "")  # 3.3.8.1: tests/helpers/driver_got.py sets it
@@ -217,6 +234,10 @@ def run_all(tests: list, ctx: Ctx):
             failed += 1
         finally:
             _keep_a_home(homes)
+            if card_times_before is None:
+                os.environ.pop(CARD_TIMES_OFF_ENV, None)
+            else:
+                os.environ[CARD_TIMES_OFF_ENV] = card_times_before
     return results, passed, failed, skipped
 
 

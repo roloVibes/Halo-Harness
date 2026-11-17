@@ -78,11 +78,21 @@ def test_item11_a_card_under_a_dialog_never_answers_the_dialogs_keys(ctx: Ctx):
                       app.pending_card.check_action("choose_once", ()) is False)
             await pilot.press("escape")
             await pilot.pause(0.2)
-            ctx.check(f"back on the base screen the card has focus, got {type(app.focused).__name__}",
-                      app.focused is app.pending_card)
+            # 3.6.0.2 P5 batch 4 (K2, F1): a card shown under a dialog waits; back on the base screen the box keeps
+            # the focus, the card's line says it waits, `1` is text; Tab turns to the card and then `1` allows.
+            ctx.check(f"back on the base screen the box has focus, got {type(app.focused).__name__}",
+                      app.focused is app.prompt_input)
+            line = app.query_one("#card-wait-line")
+            ctx.check(f"the card's wait line shows, got {line.text!r}", line.display and
+                      line.text.startswith("⏸ Permission waits"))
             await pilot.press("1")
             await pilot.pause(0.1)
-            ctx.check(f"now 1 answers it, got {fake.permission_replies}",
+            ctx.check(f"1 is text, got {app.prompt_input.text!r} {fake.permission_replies}",
+                      app.prompt_input.text == "1" and fake.permission_replies == [])
+            await pilot.press("tab")
+            await pilot.press("1")
+            await pilot.pause(0.1)
+            ctx.check(f"Tab then 1 answers it, got {fake.permission_replies}",
                       [r[1]["action"] for r in fake.permission_replies] == ["allow"])
             app.push_screen(SessionPicker([row]))
             await pilot.pause(0.2)

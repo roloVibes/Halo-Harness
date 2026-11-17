@@ -102,34 +102,31 @@ re-anchor to the bottom and clear the count.
 
 ## Cards and their keys
 
-A card takes keyboard focus the instant it's mounted (so its own number/
-letter keys win over the prompt input). **1.0.1:** typing free text while
-a PermissionCard, PlanCard, or QuestionCard is pending now ANSWERS that
-card directly, exactly like pressing its own deny/keep-planning/"Other"
-key first -- a PermissionCard denies with the typed text as feedback, a
-PlanCard keeps planning with it, a QuestionCard takes it as the "Other"
-answer -- rather than becoming a steer on the turn underneath (which is
-what typing while ANY other card, e.g. the `/effort` selector or a rewind
-confirmation, still does).
+A card that asks you something takes keyboard focus only when you are not typing (3.6.0.2): when it
+shows while the box holds text, within 1.5 s of a key into the box, or while a dialog is open, it waits
+instead -- the line above the box reads `⏸ Permission waits while you type · Tab goes to it · Enter sends
+your text`, every key keeps going into the box, and Enter sends your text as it would with no card. `Tab`
+turns to the waiting card (its keys then work as below) and `Tab` on a card goes back to the box. A card
+answers no key in its first 0.6 s on screen (that key goes into the box and the card waits). Text and
+Enter in the box never answer a card; only a card's own keys, or the one line a card asks for after you
+pressed its key (a deny reason, "Other...", plan feedback), do.
 
 - **PermissionCard**: `1`/`y` allow once, `2`/`a` allow for the session,
   `3` allow always (writes a rule to `.claude/settings.local.json`), `4`/
   `n`/`Esc` deny (borrows the prompt input for one line of optional
-  feedback first, or just type the feedback directly -- see above). While
-  pending, the status bar shows "permission needed: 1 yes · 2 session ·
-  3 always · 4 no" and the prompt placeholder reads "1-4 answers the
-  request above, or type why not".
+  feedback first). While it has the focus the status bar shows "permission
+  needed: 1 yes · 2 session · 3 always · 4 no"; while it waits, "permission
+  needed · Tab goes to it".
 - **QuestionCard**: an option list per question (arrow keys + `Enter`, or
   click); `Tab` moves to the next question when more than one was asked;
-  `Esc` dismisses without answering; selecting "Other..." (or just typing
-  an answer directly) borrows the prompt input for a free-text answer.
+  `Esc` dismisses without answering; selecting "Other..." borrows the prompt input for a free-text answer.
 - **PreflightCard** (Halo 3.3.5.0 R4: a local request larger than its window,
   [MODELS-prompt-budget.md](MODELS-prompt-budget.md#the-preflight)): `Enter`/`1`/`c`
   compact first (the default, `Esc` too), `2`/`b` switch to the bigger-window model
   it names (when one fits on the host), `3`/`s` send anyway.
 - **PlanCard**: `1`/`a` approve with auto-accept-edits mode after, `2`/`m`
   approve with manual mode after, `3`/`k`/`Esc` keep planning (borrows the
-  prompt input for optional feedback, or just type it directly). The keys
+  prompt input for optional feedback). The keys
   line is the card's first line (3.2.2.0 R4); a long plan shows its first
   lines and `... (N more lines; the plan file: <path>)`, and `o` opens it
   whole.

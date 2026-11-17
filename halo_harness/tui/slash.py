@@ -24,6 +24,9 @@ def _pending_card_note(app, cmd: str) -> "Optional[str]":
     card = app.pending_card
     if card is None:
         return None
+    from halo_harness.tui import card_focus
+    if card_focus.waits(app, card):
+        return None  # 3.6.0.2 P5 batch 4 (J2 M5): a card that waits goes back to the queue's front, not lost
     if isinstance(card, PermissionCard):
         return f"A permission request is pending -- answer it before using /{cmd}."
     return f"Another card is already pending -- answer it before using /{cmd}."
@@ -524,7 +527,7 @@ async def _handle_effort(app, args: str) -> None:
     card = EffortCard(levels=levels, current=current, model_id=model_id, on_select=on_select,
                        override_note=override_note, requested=requested, descriptions=descriptions)
     await app.transcript.mount_widget(card)
-    app.set_pending_card(card)
+    app.set_pending_card(card, own_act=True)  # 3.6.0.2 P5 batch 4 (K3): his own command shows it
 
 
 # ============================================================================
@@ -1476,7 +1479,7 @@ async def _show_rewind_confirmation(app, step: dict, verb: str) -> None:
 
     card = RewindCard(step=step, verb=verb, on_decide=on_decide)
     await app.transcript.mount_widget(card)
-    app.set_pending_card(card)
+    app.set_pending_card(card, own_act=True)  # 3.6.0.2 P5 batch 4 (K3): his own command shows it
 
 
 def _apply_rewind_worker(app, step_id: str, verb: str) -> None:
@@ -1508,7 +1511,7 @@ async def _show_turn_rewind_confirmation(app, step: dict, turn_no: int) -> None:
 
     card = RewindCard(step=step, verb="rewind", on_decide=on_decide)
     await app.transcript.mount_widget(card)
-    app.set_pending_card(card)
+    app.set_pending_card(card, own_act=True)  # 3.6.0.2 P5 batch 4 (K3): his own command shows it
 
 
 def _apply_turn_rewind_worker(app, turn_no: int) -> None:
