@@ -8,6 +8,9 @@
 
 .fl-page { display: flex; flex-wrap: wrap; gap: var(--s-4); align-items: flex-start; min-width: 0; }
 .fl-form { flex: 2 1 440px; }
+/* 3.6.0.2 R47: the head line over the form (or the empty page); its Map is a link button kept at the controls' height */
+.fl-head { margin: 0 0 var(--s-3); max-width: 780px; }
+.fl-head > .mp-link { display: inline-flex; align-items: center; vertical-align: middle; font-size: inherit; }
 
 /* a step */
 .fl-step { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--line-strong);

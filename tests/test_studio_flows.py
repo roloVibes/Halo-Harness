@@ -14,7 +14,9 @@ this tab at 1280 / 1500 / 1920 are tests/test_studio_room.py's (the `flows` view
 5. Write it for me on a saved workflow: the box filled and focused; its step line a ghost step; Discard drops it;
 6. Try it: the band first; each step's state and the agents that ran; three checks, the receipt's why; the total;
    marked seen;
-7. Delete asks on the page; Keep it; the switch is the four tabs (3.6.0.2 R52), and W (the old board's key) lands on 2 · Workflows.
+7. Delete asks on the page; Keep it; the switch is the four tabs (3.6.0.2 R52), and W (the old board's key) lands on 2 · Workflows;
+8. 3.6.0.2 R47: the head line says what a workflow is and where maps are (its Map opens 3 · Map); a workflow main just
+   built opens in the form on the next visit (a mounted tab, a fresh page), never over an unsaved edit.
 Run: python -m tests.test_studio_flows
 """
 from __future__ import annotations
@@ -116,6 +118,32 @@ def test_delete_asks_and_the_four_tabs(ctx: Ctx):
     ctx.check(f"Keep it: still there, got {got.get('kept')}", got.get("kept") == [True, 200])
     ctx.check(f"four tabs, and W lands on 2 · Workflows, got {got.get('tabs')!r} {got.get('back')!r}",
               got.get("tabs") == ["1 · Agents", "2 · Workflows", "3 · Map", "4 · Live"] and got.get("back") == "my-review")
+
+
+HEAD = "Workflows are fixed lists of steps. A session runs a map, and a box on a map can run a workflow: see Map."
+
+
+@test
+def test_workflows_head_says_where_maps_are(ctx: Ctx):
+    """3.6.0.2 R47: the head line over the main panel, with no workflow open and with one open; its Map opens 3 · Map."""
+    got = _got(ctx)
+    ctx.check(f"no workflow open: the head line, got {got.get('head_empty')!r}", got.get("head_empty") == HEAD)
+    ctx.check(f"a workflow open: the same line, got {got.get('head_open')!r}", got.get("head_open") == HEAD)
+    ctx.check(f"its Map lands on 3 · Map, got {got.get('head_map')!r}", got.get("head_map") == "map")
+
+
+@test
+def test_built_workflow_opens_next_visit(ctx: Ctx):
+    """3.6.0.2 R47: a workflow main just built (a builder_done frame) is open in the form on the next Workflows visit."""
+    got = _got(ctx)
+    ctx.check(f"the page heard the frame, got {got.get('heard')!r}", got.get("heard") == "my-review")
+    ctx.check(f"a mounted tab, left and come back to: the built one open, got {got.get('mounted')!r}", got.get("mounted") == "my-review")
+    ctx.check(f"an unsaved edit: the form keeps it, the list marks the built one, got {got.get('dirty')}",
+              got.get("dirty") == ["other", "edited here", "1"])
+    ctx.check(f"a fresh page on Session heard it and stayed there, got {got.get('fresh_heard')!r} {got.get('fresh_section')!r}",
+              got.get("fresh_heard") == "other" and "Session" in (got.get("fresh_section") or ""))
+    ctx.check(f"Workflows never opened in that page: it opens on the built one, got {got.get('fresh')!r}",
+              got.get("fresh") == "other" and got.get("fresh_part") is True)
 
 
 if __name__ == "__main__":

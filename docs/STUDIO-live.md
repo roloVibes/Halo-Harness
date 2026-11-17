@@ -8,7 +8,7 @@ Part of [Halo Studio](STUDIO.md), which lists every part. [Studio: Agents](STUDI
 
 Agents -> Live (the living canvas: the session tree, the plan drawn under it, what each agent waits on, the three zoom
 levels, the groups) went in 3.6.0.0 R5. What runs now is the map your session runs on, lit up
-([STUDIO-map.md](STUDIO-map.md#while-a-session-runs)): the boxes light as their agents work, the line under the Map
+([STUDIO-map.md](STUDIO-map.md#while-a-session-runs-4--live)): the boxes light as their agents work, the line under the Map
 says in one sentence what happens and what waits on whom, "What they think and say" is the drawer beside it, and a
 goal run going is a line with Open. What ran is History under the Map, with the same scrubber (Play at 1x / 4x / 16x,
 Save this run's replay, Export a clip, Now; [REPLAY.md](REPLAY.md)). Session's own Map is the same lit map, smaller.

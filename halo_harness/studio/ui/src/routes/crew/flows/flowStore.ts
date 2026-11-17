@@ -6,8 +6,6 @@
 import { api, ApiError } from "../../../lib/api";
 import { onFilesChanged } from "../../../lib/filesLive";
 import { createStore, toast, useStore } from "../../../lib/store";
-import { onTab } from "../builderStore";
-import { loadCrew } from "../store";
 import type { Cost, FlowRow, Scope, Step, Workflow } from "../types";
 import { showFlowTry } from "./flowRun";
 
@@ -219,23 +217,4 @@ export async function openFlowTry(name: string, tryId: string): Promise<void> {
   await openFlow(name);
   if (tryId) await showFlowTry(tryId);
 }
-
-/** After the builder applied (or undid): both lists again; the open workflow from disk unless the form holds edits. */
-async function after(targets: string[]): Promise<void> {
-  await Promise.all([loadFlows(), loadCrew()]);
-  const s = flows.get();
-  const name = s.form?.name || "";
-  if (!targets.includes(`workflow:${name}`)) return refreshCost();
-  if (s.open?.name && flowDirty(s)) return flows.update(() => ({ stale: true }));
-  if (flows.get().flows.some((w) => w.name === name)) await openFlow(name);
-  else if (s.open?.name) flows.update(() => ({ open: null, form: null, saved: null }));
-}
-
-onTab("workflows", {
-  selection: () => {
-    const s = flows.get();
-    return s.form ? { workflow: s.form.name, ...(flowDirty(s) || !s.saved ? { unsaved: s.form } : {}) } : {};
-  },
-  after,
-  show: (rec) => showFlowTry(rec.id),
-});
+// The Builder's hooks of this tab (`after`, `onTab`) and what main just built: flowBuilt.ts.

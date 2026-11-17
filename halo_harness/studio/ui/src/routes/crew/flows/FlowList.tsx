@@ -5,21 +5,22 @@
 import { Button } from "../../../lib/ui";
 import { useBuilder } from "../builderStore";
 import type { FlowRow } from "../types";
+import { useFlowBuilt } from "./flowBuilt";
 import { copyFlowFrom, newFlow, openFlow, useFlows } from "./flowStore";
 
 const stepsWord = (n: number) => `${n} step${n === 1 ? "" : "s"}`;
 
-function Item({ r, on }: { r: FlowRow; on: boolean }) {
+function Item({ r, on, built }: { r: FlowRow; on: boolean; built: boolean }) { // built: main just built it (R47), not open yet
   const onMap = r.maps.length > 0;
   const tip = `${r.name}: ${r.for}\n${stepsWord(r.steps?.length || 0)}: ${(r.steps || []).map((s) => s.name).join(" -> ")}\n` +
     (onMap ? `on the map ${r.maps.join(", ")}` : "not on a map yet");
   return (
     <button type="button" className="cw-item" aria-current={on} onClick={() => void openFlow(r.name, r.scope)} title={tip}
-            data-testid="flow-item" data-name={r.name} data-scope={r.scope}>
+            data-testid="flow-item" data-name={r.name} data-scope={r.scope} data-built={built ? "1" : undefined}>
       <span className="cw-item-head">
         <b className="cw-item-name">{r.name}</b>
         {r.scope === "project" && <span className="cw-tag" data-tag="project">this project's</span>}
-        {r.new && <span className="cw-tag" data-tag="new">new</span>}
+        {(r.new || built) && <span className="cw-tag" data-tag="new">new</span>}
         <span className="cw-tag" data-tag={onMap ? "on" : "unused"} data-testid="flow-item-map">{onMap ? "on the map" : "not on the map"}</span>
         {r.problems.length > 0 && <span className="cw-tag" data-tag="bad" title={r.problems.join("\n")}>problem</span>}
       </span>
@@ -49,13 +50,14 @@ export function FlowList() {
   const open = useFlows((s) => s.open);
   const loaded = useFlows((s) => s.loaded);
   const error = useFlows((s) => s.error);
+  const built = useFlowBuilt((s) => s.built);
   const isOn = (r: FlowRow) => !!open && open.name === r.name && open.scope === r.scope;
   return (
     <nav className="cw-list" aria-label="Your workflows" data-testid="flow-list">
       <Button variant="primary" className="cw-new" onClick={newFlow} data-testid="flow-new">+ New workflow</Button>
       <div className="cw-group mono">Yours</div>
       <Ghosts />
-      {mine.map((r) => <Item key={`${r.scope}:${r.name}`} r={r} on={isOn(r)} />)}
+      {mine.map((r) => <Item key={`${r.scope}:${r.name}`} r={r} on={isOn(r)} built={r.name === built} />)}
       {loaded && !mine.length && <p className="cw-hint" data-testid="flow-none">None yet: + New workflow, copy a starter below, or describe one in the builder box.</p>}
       {mine.length > 0 && !mine.some((r) => r.maps.length) && (
         <p className="cw-hint" data-testid="flow-no-map">Nothing is on a map yet: the Map tab, where you connect workflows, comes in the next version.</p>

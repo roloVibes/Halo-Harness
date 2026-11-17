@@ -2,13 +2,18 @@
 // agents in steps, in order -- try it, save it; or describe it to the builder docked below. The room rules (R0a): the
 // form (with the steps drawn beside it) is the main thing, the list a left drawer that opens with the tab, the builder a
 // bar docked at the form's foot. The view bar carries Agents' switch and the Attention chip. Nothing opens by itself.
+// 3.6.0.2 R47: the main panel's head says what a workflow is and where maps are (its "Map" opens 3 · Map); a workflow
+// main just built opens on the tab's next showing (flowBuilt.ts).
 import { useEffect } from "react";
 import { Workspace } from "../../../lib/workspace/Workspace";
 import type { PanelSpec } from "../../../lib/workspace/types";
 import { AttentionChip } from "../../agents/AttentionChip";
+import { setAgentsView } from "../../agents/store";
 import { ViewSwitch } from "../../agents/ViewSwitch";
 import { FlowsBuilder } from "../Builder";
+import { WORDS, workflowsHead } from "../map/truth";
 import { loadCrew, useCrew } from "../store";
+import { markFlowsShown, takeBuilt } from "./flowBuilt";
 import { FlowForm } from "./FlowForm";
 import { FlowList } from "./FlowList";
 import { loadFlows, openFlow, useFlows } from "./flowStore";
@@ -35,6 +40,23 @@ function fromUrl(): { name: string; run: string } {
   }
 }
 
+/** R47's head line, letter for letter (truth.ts); its last word, Map, is the link. Shown with or without a workflow open. */
+function FlowHead() {
+  const line = workflowsHead();
+  const cut = line.lastIndexOf(WORDS.map);
+  return (
+    <p className="cw-line fl-head" data-testid="flow-head">
+      {line.slice(0, cut)}
+      <button type="button" className="mp-link" data-testid="flow-head-map" onClick={() => setAgentsView("map")}>{WORDS.map}</button>
+      {line.slice(cut + WORDS.map.length)}
+    </p>
+  );
+}
+
+function FlowMain() {
+  return <><FlowHead /><FlowForm /></>;
+}
+
 export const flowPanels: PanelSpec[] = [
   { id: "flow-list", testid: "flow-list-panel", title: "Your workflows", role: "drawer", side: "left", startOpen: true, contentW: 360,
     about: "Your workflows and this project's (on the map or not), then the starters to copy.",
@@ -43,7 +65,7 @@ export const flowPanels: PanelSpec[] = [
   { id: "flow-form", testid: "flow-form-panel", title: "Workflow", role: "main",
     about: "The workflow open now: what it is for, its steps in order, what it costs, Try it, Save; the steps drawn beside it.",
     help: "Change any field; nothing is written until Save.\nWrite it for me fills the builder box below.\nTry it runs every step once on a throwaway copy.\nDelete asks on the page first.",
-    face: "detail", glance: FormGlance, detail: FlowForm },
+    face: "detail", glance: FormGlance, detail: FlowMain },
   { id: "flow-builder", testid: "flow-builder-panel", title: "Builder", role: "dock",
     about: "Describe a workflow, or say what to change: the builder answers with a preview you tick, then Apply.",
     help: "Type what you want and press Enter.\nEach change is a line with a tick; a line that lets an agent do more is never ticked for you.\nApply writes; Undo puts it back.",
@@ -53,8 +75,10 @@ export const flowPanels: PanelSpec[] = [
 export function FlowsView() {
   const agentsLoaded = useCrew((s) => s.loaded);
   useEffect(() => {
+    markFlowsShown();
     void loadFlows().then(() => {
       const u = fromUrl(); // `&workflow=<name>` opens it; `&try=<id>` shows a run (a link, a driver, an Attention row)
+      void takeBuilt(!!u.name); // R47: else what main just built opens (the URL wins)
       if (u.name) void openFlow(u.name).then(() => u.run && void showFlowTry(u.run));
     });
     if (!agentsLoaded) void loadCrew();

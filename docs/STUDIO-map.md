@@ -1,6 +1,6 @@
-# Studio: Agents -> 3 · Map (3.6.0.0)
+# Studio: Agents -> 3 · Map and 4 · Live (3.6.0.2)
 
-Read this when you connect your agents and workflows on Studio's Map tab, add a box, draw a line and say when it hands work on, keep more than one map, pick the map your sessions run on, lock a map, watch a session light the map up, or replay a past run on it.
+Read this when you connect your agents and workflows on Studio's Map tab, add a box, draw a line and say when it hands work on, keep more than one map, pick the map new sessions run on, lock a map, watch a session's run in 4 · Live, or replay a past run on the map.
 
 Part of [Halo Studio](STUDIO.md); the agents are made in [1 · Agents](STUDIO-builder.md), the workflows in
 [2 · Workflows](STUDIO-workflows.md); what a session does with a map is [How a session runs on a map](CREW-sessions.md),
@@ -10,20 +10,20 @@ and the file is a `map/1` [crew file](CREW-FORMATS.md#a-map-format-map1).
 
 ## The tab
 
-Agents (`Alt+2`), then **3 · Map** (the `3` key). The switch reads **1 · Agents | 2 · Workflows | 3 · Map**
-(Cast, Live and Board went in 3.6.0.0 R5; their old addresses land here). It opens on the starter map, or the
-map you opened last, a link's `&map=<name>`, this project's map, or the one your sessions use. Nothing opens by itself:
-the list to add from is a drawer you open from the bar ("Agents and workflows"), the builder is a box docked below.
+Agents (`Alt+2`), then **3 · Map** (the `3` key). The switch reads **1 · Agents | 2 · Workflows | 3 · Map | 4 · Live**,
+one word each:
 
-**What you see.** **main** -- the agent you talk to -- is always at the left. Every other box is an agent (its name and
-model; Auto: "picked per task") or a workflow (its name, its steps as dots, "click to open"). There is one kind of line,
-"hands work to", and each line's **When** is a label in the lane between the columns, never over a box. A box's column
-is its longest chain of lines from main, so every line runs left to right; many lines from one box share one trunk.
-Hovering a box lifts its lines and dims the rest; a box grows with its text and is never cut.
+- a **map** is who hands work to whom (main, agents, workflows, lines and their When); it is built here, on 3 · Map, and
+  a session runs on one map;
+- a **workflow** is a fixed list of steps, each done by one agent; it runs from a box or when main calls it
+  (2 · Workflows, whose head line says "Workflows are fixed lists of steps. A session runs a map, and a box on a map can
+  run a workflow: see Map.", with Map a link here);
+- **Live** is what a session is doing now, drawn on the map it really follows (4 · Live, and Session's left drawer);
+- the **Feed** is what the agents say and do, line by line (Session's main panel, and Live's drawer).
 
-**Reading it bigger or smaller.** Ctrl (Cmd on a Mac) + wheel or a pinch zooms; `-` / `%` / `+` / Fit on the canvas;
-`0` or a double-click on the background fits. Fit never goes under 75 %: past that the map pans, from main. A zoom you
-made by hand stays when you open or close the list drawer; Fit makes it automatic again.
+3 · Map is the plan: it opens on the starter map, or the map you opened last, a link's `&map=<name>`, this project's
+map, or the one new sessions use. Nothing opens by itself: the list to add from is a drawer you open from the bar
+("Agents and workflows"), the builder is a box docked below.
 
 ## Adding
 
@@ -76,9 +76,14 @@ project's.
 
 The switcher at the top left lists your maps, this project's first ("this project's", a trusted folder's
 `.halo/crew/maps/`), then the starters (`starter`: main decides per task among seven agents; `ship-it`: main -> plan ->
-code -> review), and **+ New map** (a name, then main alone). Beside it is the one switch, **My sessions use this**:
-new sessions run on that map (config `crew.map`; `halo maps use <name>` writes the same). A running session keeps the
-map it started with. **Lock** (off by default, kept in this browser) stops every change: no dot, no Add, no label card.
+code -> review), and **+ New map** (a name, then main alone). Each row says two facts in plain words: "· running in
+{session}" (or "· running in {n} sessions") for a map open sessions run on, "· new sessions" for the map new sessions
+use. Beside it is the one switch, **New sessions run on this**: new sessions run on that map (config `crew.map`; `halo
+maps use <name>` writes the same). A running session keeps the map it started with: turned on while one runs on
+another map, the receipt says "{session} keeps running on {A}, as it started. Start a new session to run on {B}.", with
+none open "New sessions run on {B}.", and **Undo** beside it. A map main makes in a session comes with its row "New
+sessions run on <name>" ticked. **Lock** (off by default, kept in this browser) stops every change: no dot, no Add, no
+label card.
 
 ## The builder on this tab
 
@@ -89,89 +94,50 @@ with its label. Untick what you do not want, **Apply**, **Undo**. One request ma
 it is one preview. "what is my map?", "show me my workflows" or "why did reviewer run?" are answered from `studio_show`
 with no change lines ([STUDIO-builder.md](STUDIO-builder.md#on-the-map-tab)).
 
-## While a session runs
+## While a session runs: 4 · Live
 
-The same map lights up: there is no second drawing. The tab shows a dot while a session of this Studio runs on a map,
-and the map it started with (its row's `map`) is the one lit.
+A session's run is drawn in **4 · Live**, not on the Map: the Map stays the plan you edit. Live opens on the session
+Session chose (the newest open session here when none was chosen), and its first line says, in one true sentence, which
+map that session runs on: the map it started with, which it keeps ("This session keeps running on X, as it started.
+Start a new session to run on Y." when new sessions now use another). While a session runs, Agents opens on Live.
 
-![A session running on the map: each box's state, what it does and its cost; a hand-off moving on the line main -> code, its label showing the task](media/studio-map-lit.png)
+- **Which session.** With two or more open, a picker lists each as "{title} · {map}", this machine's first, then every
+  other machine's open session. A pick here is Session's pick too. Another machine's session shows only where its
+  drawing is (that machine's Studio); nothing is fetched for it.
+- **The drawing.** The map that session really follows, left to right, with the Map's columns and When labels, lit by
+  what runs: a workflow box is its block ("workflow review · step 2 of 2", a row per step); the agents in a box are
+  named rows ("implementer · {model} · working"); a helper main made for a task no line claimed is a row "made up:
+  {task} · {state}" with **Save as an agent** (the Agents form opens with it, not saved). Every hand-off lights its line
+  and leaves a trace; a hand-off outside the lines is dashed in its own colour; a label shows the task for a few
+  seconds, then its When again.
+- **Step in from a box.** A click on a box, a step row, a line or a label opens the step-in card: Pause, Stop and a few
+  words to steer.
+- **Held still.** Live is read-only (no connect dot, no When card, nothing dragged) and never amber. While the pointer
+  is on the drawing or a card is open, new rows and hand-offs change words in place; a box that would move waits until
+  the pointer leaves. It fits only when first drawn and when the map changes.
+- **Feed**, Live's right drawer (its button on Live's bar): what the agents of that session say and do, line by line --
+  thoughts, words, tools, hand-offs, asks -- newest at the bottom, with Steer, Stop, Pause / Resume and Dismiss at its
+  head. A click on a box sets the Feed to that box; it opens only by its button or a door ("Agents: follow agent
+  {name}" in the palette lands on Live's Feed for that agent). An ask shows its answers there and in Attention.
 
-- **The top line**: "A session is running on this map (started 14:02)", then one sentence of what goes on -- who
-  works, who waits on what or on you, how many models, the dollars so far (the same sentence Live used, computed from
-  the session's rows; no model call) -- and when an edit takes effect: a line, a When or a new box at the next
-  hand-off; an agent's own change the next time that agent starts; main's model and instructions with the next session.
-  Edits stay allowed while it runs.
-- **Each box** says its state (working, waiting on you, done, failed, not used yet), what it does now in a few words
-  and its cost so far: a row per fact, and the box grows. Hover a box for its summary; a click opens what its agents
-  think and say in the drawer (never a pop-up by itself).
-- **A hand-off moves along the line you drew**: the line the runtime's receipt named lights, a dot travels it and its
-  label shows the task for a few seconds, then its When again. A chain is seen box to box. With reduced motion there
-  is no travel: the line lights and the label says the task. A hand-off sent to the background says "in the background:
-  its chain is not followed" on its line while it runs (the runtime follows a chain only for a hand-off it waits for).
-  A line not taken keeps its label; its hover says why.
-- **An opened workflow box** lists its steps lit as the step runner reports them: the step running, the agents in it,
-  a repeat's round and its checks.
-- **Helpers the session made up** (main handed a task that no line's When claimed, so it made a helper for it, with
-  main's own tools and mode) show beside the box that started them, dashed, tagged "made up for this task", with
-  **Save as an agent**: the Agents form opens with an agent built from that helper (its task's first line as what it
-  does, main's uses and careful mode), not saved; nothing is written until you press Save there.
+**On 3 · Map, a running session is one quiet line** in a row kept from the first draw (the drawing never moves when it
+comes or goes), each with **Watch it in Live**:
 
-![A helper the session made up, beside main, dashed, with Save as an agent](media/studio-map-helper.png)
+- "{session} runs on this map now."
+- "{session} runs on {A}, as it started; new sessions run on this map." (several: "{n} sessions run on other maps, as
+  they started; new sessions run on this map.")
+- "{session} is running the workflow {W} from this map. It runs on {A}, as it started." -- and that workflow's box is
+  marked "running now in {session}".
+- A map a session builds while you are elsewhere opens the next time you open 3 · Map; while you are on the Map with
+  another map, the draft or a When card open, the row says "{B} was just built in {session} at {t}." with **Open it**.
+  The map you have open, changed by a build, is re-read in place, keeping your When card, your pick and your zoom.
 
-- **What they think and say**, a drawer on the right that pushes the map: THINK, SAY, TALK (one agent to another, its
-  own label), tool and ask rows, newest at the bottom, following as Session's Live does (scroll up to stop, the pill to
-  follow again); filtered by the box you clicked, or everyone. At its foot: **Steer** (a few words the agent reads
-  before its next step; Ctrl + Enter sends) and **Stop** (it asks first: the agent stops at its next step), to the
-  agent of the clicked box (main for everyone). An ask shows its answers as buttons there, on its box ("waiting on
-  you") and in Attention, as before.
+The Map keeps its own right drawer for **Run a goal**, a goal run's pages and History's whole list; a goal run going is
+named in its top line ("A goal run is going: <its goal>", **Open**), and with nothing running and a finished run in
+History it offers **Replay the last session**.
 
-![The drawer on the box check: an ask with its answers, the box waiting on you](media/studio-map-feed.png)
-
-- **Another map than the one shown is running**: the top line says so in amber, with **Show the running map**; the map
-  shown is not lit. More than one session running: a small picker in the top line, one lit at a time.
-- **A session that did not start on a map** (still possible in this version) is not drawn over your map: the top line
-  offers it ("1 session running, not on a map: Show it"), and shown it is main and every helper beside it as made-up
-  helpers, with "This session did not start on a map" -- no invented lines.
-- **An agent that matches no box** (its box was taken off the map, or it hangs from nothing on it) is never dropped: it
-  shows under **Not connected yet**, tagged "not on this map" with why.
-- A box that lands under Not connected yet while the strip is below the fold is said in the top line ("1 new, not
-  connected yet"), with a link that brings the strip into view. A Builder card the session is waiting on (main asked
-  to change this map) draws its changes as the builder's dashed ghosts, with "answer it in the session" and a link.
-
-Session's **Map** panel shows the same lit map, compact and read-only, with **Open it on the Map tab**, while a
-session runs on a map ([STUDIO-session.md](STUDIO-session.md)).
-
-### What Live did, on the Map (3.6.0.0 R4b)
-
-- **A clicked box's facts and controls.** The drawer's head, a row per fact for the box's agent: the model it runs on
-  and **why** (Auto's reason line), what it may use, its tokens, its cost, how long it has run. Beside Steer and Stop:
-  **Pause** / **Resume** (the same route as Live's node menu) and, on a failed agent, **Dismiss**.
-- **Clocks and the wait.** A working or waiting box shows the seconds on what it does now ("Bash pytest -q · 12 s",
-  "waiting on you · 40 s"), from the same waits Live's nodes used. The box the whole session waits on is outlined;
-  the top sentence's wait is a link that brings that box into view and opens it in the drawer.
-- **Agents talking.** One agent's words to another (a TALK) light a short dashed pulse between their boxes for a few
-  seconds, with the first words on a small label; no line is added to the map. With reduced motion nothing travels:
-  the two boxes are marked. The row is in the drawer as before.
-- **Depth.** A helper that started helpers says "+N under it"; a click lists them in the drawer with who started
-  whom, each a row that filters the drawer to it. No second level is drawn.
-- **The plan.** When main keeps a todo plan, the top line says "plan: 3 of 7 done"; a click lists it in the drawer.
-- **Goal runs.** A goal run going is named in the top line ("A goal run is going: <its goal>", **Open**: its pages --
-  lanes, the gate, the merge, its report -- in the drawer). **Run a goal** is on the Map's bar (the goal form, in the
-  drawer). Under the map, **Goal runs, files, Compare** opens the whole History in the drawer: sessions, goal runs
-  and saved replay files, each opening what it opened before, and **Compare** when two are ticked.
-- **A replay's words.** While a run replays on the map, the drawer shows its starts, hand-offs, asks, failures and
-  finishes up to the scrubber's moment, filtered by the clicked box.
-- **Other machines.** Another machine's running session is listed in the top line's picker, "on <machine>: open it on
-  that machine": its map frames travel on that machine's feed, so it is not lit here.
-- **Keys and the empty state.** `J` / `K` move between the working boxes. With nothing running and a finished run in
-  History, the top line offers **Replay the last session**.
-- **Hover is a summary card** on a lit box (what it is, what it does now, its model, its cost): it opens only on a
-  pointer's move, never over the box's own controls; the keyboard reaches the same facts in the drawer.
-
-**Not carried over from Live:** "Hand to another machine"; levels (`LevelSwitch`); the plan drawn as blocks under the
-tree (the todo plan is listed instead); a second level of helpers drawn on the map (it is "+N under it"); a goal run's
-lanes drawn on the canvas (its pages open in the drawer); a session on another machine lit on this map (listed, opened
-on that machine); a session row in that list replayed on the map (the Map's own History picker replays sessions on the map).
+Session's left drawer is **Live** too, the same drawing in Session ([STUDIO-session.md](STUDIO-session.md)), with
+**Open in Agents -> Live**.
 
 ## History
 
@@ -179,7 +145,7 @@ Under the map: a picker of finished runs, newest first, **Replay it on the map**
 record, no model call). A replay lights the map the run ran on (it opens that map when it is another), in quiet
 colours, and the scrubber under it moves it: drag, Play at 1x / 4x / 16x, Now (the same scrubber Live had). A box the
 run used that the map no longer has shows dashed under Not connected yet, "removed since". A run that did not start
-on a map replays as main and its helpers. **Back to now** returns to what runs.
+on a map replays as main and its helpers. **Back to now** returns to the plan.
 
 ![A past run replayed on the map in quiet colours, the scrubber under it, a box the map no longer has "removed since"](media/studio-map-replay.png)
 

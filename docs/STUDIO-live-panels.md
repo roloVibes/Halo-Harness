@@ -74,7 +74,7 @@ session's run; **Local: the Ollama steward**.
 ### Live Roles: the lineup lights up
 
 Went in 3.6.0.0 R5 with Cast: the boxes of the map your session runs on light up instead
-([STUDIO-map.md](STUDIO-map.md#while-a-session-runs)).
+([STUDIO-map.md](STUDIO-map.md#while-a-session-runs-4--live)).
 
 ### Where it reads and writes
 
