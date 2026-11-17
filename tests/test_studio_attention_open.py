@@ -2,10 +2,12 @@
 the owner's report from live use of 3.6.0.0: "when I get an attention alert and chose 'open' nothing happens"), in
 headless Chrome through tests/helpers/studio_attention_open.py (skipped without Chrome); no model call.
 
-ONE door, used by an Attention row's O, the Live ask card's O and the alert's click: Session, the row's session
-selected, the Feed pointed at the asking agent (the Live column's agent pick), the Attention drawer open with that row
-selected and its answers there -- from Session on another session with the drawers open, from Session showing only the
-Feed, from Agents -> Map on the session's map and on another map, and from Local. The other kinds of row keep their
+ONE door, used by an Attention row's O, the Live ask card's O and the alert's click. Since 3.6.0.2 (P4 batch 9, the
+owner's point 20) it lands on the run's drawing with the asking agent's box selected and its card open on the ask's
+choices: from Agents (-> Map on the session's map or another) on Agents -> 4 · Live (an agent it puts on no box -- this
+rig's session runs with no map -- the Feed on its ask and one line, P4 batch 12); from anywhere else (Session on
+another session with the drawers open, Session showing only the Feed, Local) on Session with the row's session
+selected, the Feed pointed at the asking agent (the Live column's agent pick, 3.6.0.1) and its Live drawer open. The other kinds of row keep their
 homes (the steward's note opens Local); a row whose session has ended says so in one toast line, never silently.
 Run: python -m tests.test_studio_attention_open
 """
@@ -34,15 +36,23 @@ def _key(got: dict) -> str:
     return str(got.get("key") or "")
 
 
-def _landed(ctx: Ctx, got: dict, case: str, what: str) -> None:
+def _landed(ctx: Ctx, got: dict, case: str, what: str, where: str = "session") -> None:
     p = got.get(case) or {}
-    row = got.get("row") or ""
     key = _key(got)
-    ctx.check(f"{what}: Session, got {p.get('section')!r}", p.get("section") == "session")
+    aid = key.split("|")[2] if key.count("|") == 2 else "?"
+    boxed = bool(key) and p.get("box") == aid and (p.get("ask_keys") or 0) > 0
+    if where == "agents":
+        ctx.check(f"{what}: Agents -> 4 · Live, got {p.get('section')!r} {p.get('view')!r}", p.get("section") == "agents" and p.get("view") == "live")
+        off = bool(p.get("feed_ask")) and any("is not on the map" in t for t in p.get("toasts") or [])
+        ctx.check(f"{what}: the asking agent's box selected with its card on the ask, or (on no box) the Feed on its ask "
+                  f"and one line, got box {p.get('box')!r} {p.get('ask_keys')!r}, Feed {p.get('feed_ask')!r}, toasts {p.get('toasts')!r}",
+                  boxed or off)
+        return
+    ctx.check(f"{what}: the asking agent's box selected, its card on the ask's choices, got {p.get('box')!r} {p.get('ask_keys')!r}", boxed)
+    ctx.check(f"{what}: Session, its Live drawer open, got {p.get('section')!r} {p.get('live_open')!r}",
+              p.get("section") == "session" and p.get("live_open") is True)
     ctx.check(f"{what}: the asking session shown and its agent in the Feed, got {p.get('sessions')!r} {p.get('pin')!r}",
               bool(key) and p.get("pin") == key and p.get("sessions") == [key.split("|")[1]])
-    ctx.check(f"{what}: Attention open on that row with its answers, got {p.get('attn_open')!r} {p.get('row')!r} {p.get('keys')!r}",
-              p.get("attn_open") is True and bool(row) and p.get("row") == row and "a" in (p.get("keys") or []))
 
 
 @test
@@ -55,7 +65,7 @@ def test_the_alert_click_lands_on_the_ask_from_anywhere(ctx: Ctx):
     _landed(ctx, got, "alert_b", "the alert from Session showing only the other session's Feed")
     _landed(ctx, got, "alert_e", "the alert from Local")
     ctx.check(f"(d) the open map was another one: {got.get('alert_d_map')!r}", got.get("alert_d_map") == "ship-it")
-    _landed(ctx, got, "alert_d", "the alert from Agents -> Map on another map")
+    _landed(ctx, got, "alert_d", "the alert from Agents -> Map on another map", "agents")
 
 
 @test
@@ -70,8 +80,8 @@ def test_a_rows_o_lands_on_the_ask_from_the_map(ctx: Ctx):
     got = _got(ctx)
     ctx.check(f"(c) the session's map, (d) another: {got.get('row_c_map')!r} {got.get('row_d_map')!r}",
               got.get("row_c_map") == "starter" and got.get("row_d_map") == "ship-it")
-    _landed(ctx, got, "row_c", "O from Agents -> Map on the session's map")
-    _landed(ctx, got, "row_d", "O from Agents -> Map on another map")
+    _landed(ctx, got, "row_c", "O from Agents -> Map on the session's map", "agents")
+    _landed(ctx, got, "row_d", "O from Agents -> Map on another map", "agents")
 
 
 @test

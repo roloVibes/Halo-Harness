@@ -9,9 +9,12 @@ A stub stands in for the browser's Notification before any page script runs (thi
 is `browser` in the scratch config) and records each notification; it can also make Studio's answer to the next `o`
 name another target (`window.__openAs`), to check that the other kinds of row keep their homes.
 
-Every case records what the page shows once it settles (or after the budget): the section, the Live column's agent
-pick (`<harness>|<session>|<agent>`: the session Session shows and the agent its Feed is pointed at), whether the
-Attention drawer is open, the row selected in it and its answers, and the toasts. The ask is the fake session's
+Every case records what the page shows once it settles (or after the budget): the section and Agents' view, the
+Live column's agent pick (`<harness>|<session>|<agent>`: the session Session shows and the agent its Feed is pointed
+at), whether Session's Live drawer and Attention drawer are open, the box selected on the drawing (Session's Live
+drawer, or Agents -> 4 · Live) and how many of the ask's choices its card shows, whether the Feed shows the ask's keys, the Attention row selected and its
+answers, and the toasts. Since 3.6.0.2 (P4 batch 9) the door lands on the run's drawing: from Agents on 4 · Live, from
+anywhere else on Session's Live drawer. The ask is the fake session's
 permission card on its main agent; the other session is idle.
 
 `row_b`: Session on the asking session, only the Feed: the ask arrives, the Live ask card's O (then the rig answers the
@@ -21,8 +24,8 @@ from Agents -> Map showing a map the session does not run on (d).
 `row_a`: Session on the other session, the Agent drawer opened and then Attention (one drawer per side at this width:
 Attention is the one open); the row's O. `row_c` / `row_d`: Agents -> Map on the session's map / another map, Agents'
 Attention open; the row's O.
-`home_steward`: a steward's row still opens Local; `home_ended`: a row whose session ended says so in one toast line
-and stays put.
+`home_steward`: a steward's row still opens Local; `home_ended`: a row whose session ended (the stub rewrites the
+queue's row to name an ended session) says so in one toast line and stays put.
 The last stdout line is a JSON object of what it saw (exit 2: no Chrome). No model is called.
 """
 from __future__ import annotations
@@ -41,6 +44,7 @@ from tests.helpers.chrome_driver import Driver  # noqa: E402
 
 Q = "document.querySelector"
 SID2 = "attnopenother000000000000000002"
+OFF_MAP = "is not on the map: its question is in the"  # truthBits.askOffMap
 BUDGET = 12  # seconds a case may take to settle (Windows runners are slow); a case that never settles is recorded as is
 STUB = """(() => {
   const notes = [], reads = [];
@@ -56,8 +60,12 @@ STUB = """(() => {
       return Promise.resolve(new Response(JSON.stringify({ ok: true, answer: "open", open }), { status: 200, headers: { "Content-Type": "application/json" } }));
     }
     const p = f(u, init);
-    if (s.includes("/api/live/attention") && !s.includes("answer")) p.then(() => reads.push(Date.now()), () => undefined);
-    return p; };
+    if (!s.includes("/api/live/attention") || s.includes("answer")) return p;
+    p.then(() => reads.push(Date.now()), () => undefined);
+    if (!window.__endRow) return p;
+    // the ended case: the queue's row of `__endRow` names a session that has ended (`__endSid`)
+    return p.then((r) => r.clone().json().then((j) => { (j.rows || []).forEach((x) => { if (x.id === window.__endRow) x.session_id = window.__endSid; });
+      return new Response(JSON.stringify(j), { status: r.status, headers: { "Content-Type": "application/json" } }); })); };
   window.__notes = notes; window.__reads = reads;
 })()"""
 SV = ".section-view[data-section=\\\"session\\\"]"
@@ -67,7 +75,12 @@ PROBE = f"""(() => {{
   const btn = {Q}("{SV} [data-testid=viewbar-btn][data-panel=session-attention]");
   const row = {Q}("{SV} .ws-cell[data-panel=session-attention] [data-testid=fleet-attn-row][aria-selected=true]");
   const sessions = pick ? [...new Set([...pick.options].map((o) => o.value.split('|')[1]).filter(Boolean))] : [];
-  return {{ section: sec, pin: pick ? pick.value : null, sessions, attn_open: btn ? btn.getAttribute('aria-pressed') === 'true' : null,
+  const live = {Q}("{SV} [data-testid=viewbar-btn][data-panel=session-map]");
+  const box = sec === 'agents' ? {Q}('[data-part=live] [data-box][data-selected]') : {Q}("{SV} [data-testid=session-lit-box][data-selected]");
+  const card = sec === 'agents' ? {Q}('[data-part=live] [data-testid=map-step-in]') : box?.closest('.mp-down')?.querySelector('[data-testid=map-step-in]');
+  return {{ section: sec, view: {Q}('[data-testid=agents]')?.dataset.view || '', live_open: live ? live.getAttribute('aria-pressed') === 'true' : null,
+           box: box ? box.dataset.box : '', feed_ask: !![...document.querySelectorAll('[data-testid=session-live-ask] [data-testid=session-live-key]')].find((e) => e.offsetParent), ask_keys: card ? card.querySelectorAll('[data-testid=map-step-in-ask] [data-testid=map-step-in-ask-key]').length : 0,
+           pin: pick ? pick.value : null, sessions, attn_open: btn ? btn.getAttribute('aria-pressed') === 'true' : null,
            row: row ? row.dataset.id : '', keys: row ? [...row.querySelectorAll('[data-testid=fleet-attn-key]')].map((k) => k.dataset.key) : [],
            toasts: [...document.querySelectorAll('.toast:not([data-leaving]) .toast-text')].map((t) => t.textContent) }};
 }})()"""
@@ -82,11 +95,16 @@ def _settle(c, cond: str) -> dict:
     return c.js(PROBE)
 
 
-def _landed(key: str, row_id: str) -> str:
-    """The one door's end state: Session, the row's session and agent in the Feed's pick, Attention open on that row."""
-    sid = key.split("|")[1]
-    return (f"p.section === 'session' && p.pin === {json.dumps(key)} && p.sessions.join() === {json.dumps(sid)} && p.attn_open === true && p.row === {json.dumps(row_id)}"
-            " && p.keys.length > 0")
+def _landed(key: str, where: str = "session") -> str:
+    """The one door's end state (3.6.0.2 P4 batch 9: the run's drawing). From Agents: Agents -> 4 · Live, the asking
+    agent's box selected, its card open with the ask's choices. Elsewhere: Session on the row's session, the asking agent
+    in the Live column's pick (3.6.0.1), Session's Live drawer open, the box selected and its card on the ask."""
+    _h, sid, aid = key.split("|")
+    if where == "agents":  # an agent 4 · Live puts on no box (P4 batch 12): the Feed on its ask and one line (askOffMap)
+        return (f"p.section === 'agents' && p.view === 'live' && ((p.box === {json.dumps(aid)} && p.ask_keys > 0)"
+                f" || (p.feed_ask && p.toasts.some((t) => t.includes({json.dumps(OFF_MAP)}))))")
+    return (f"p.section === 'session' && p.pin === {json.dumps(key)} && p.sessions.join() === {json.dumps(sid)} && p.live_open === true"
+            f" && p.box === {json.dumps(aid)} && p.ask_keys > 0")
 
 
 def _boot(c, rig, query: str, ready: str) -> None:
@@ -114,14 +132,17 @@ def _pick_map(c, name: str) -> str:
 
 
 def _unpin(c) -> None:
-    """Between two alert cases: the Feed back to every agent, Attention closed (Session, then back where it was)."""
+    """Between two alert cases: the Feed back to every agent, Attention and the Live drawer closed (Session, then back
+    where it was), so the next landing is news."""
     pick = f"{Q}('{SV.replace(chr(92), '')} [data-testid=\"session-live-agent\"]')"
     c.js(f"(() => {{ const s = {pick}; if (!s) return 0; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, '');"
          " s.dispatchEvent(new Event('change', { bubbles: true })); return 1; })()")
     btn = f"{Q}('{SV.replace(chr(92), '')} [data-testid=\"viewbar-btn\"][data-panel=\"session-attention\"]')"
-    if c.js(f"{btn}?.getAttribute('aria-pressed') === 'true'"):
-        c.click_on(btn)
-        c.wait(f"{btn}.getAttribute('aria-pressed') === 'false'", 10)
+    for panel in ("session-attention", "session-map"):
+        b = btn.replace("session-attention", panel)
+        if c.js(f"{b}?.getAttribute('aria-pressed') === 'true'"):
+            c.click_on(b)
+            c.wait(f"{b}.getAttribute('aria-pressed') === 'false'", 10)
 
 
 def _click_o(c, scope: str, row_id: str) -> None:
@@ -159,7 +180,7 @@ def row_b(c, x: Ctx) -> dict:
     out = {"row_b_before": c.js(PROBE)}
     x.row = _queue(rig)[0]  # the card says its row is read: the one row that waits
     c.click_on(o)
-    out["row_b"] = _settle(c, _landed(x.key, x.row))
+    out["row_b"] = _settle(c, _landed(x.key))
     _answer(rig)
     return out
 
@@ -176,18 +197,18 @@ def alerts(c, x: Ctx) -> dict:
     x.row = c.js("window.__notes[0].tag").replace("halo-ask-", "", 1)
     out["row"], out["key"] = x.row, x.key
     c.js("window.__notes[0].onclick(); 1")
-    out["alert_b"] = _settle(c, _landed(x.key, x.row))
+    out["alert_b"] = _settle(c, _landed(x.key))
     _unpin(c)
     _tab(c, "local")
     c.js("window.__notes[0].onclick(); 1")
-    out["alert_e"] = _settle(c, _landed(x.key, x.row))
+    out["alert_e"] = _settle(c, _landed(x.key))
     _unpin(c)
     _tab(c, "agents")
     c.wait(f"!!{Q}('[data-testid=\"agents-view-map\"]')", 20)
     c.click_on(f"{Q}('[data-testid=\"agents-view-map\"]')")
     out["alert_d_map"] = _pick_map(c, "ship-it")
     c.js("window.__notes[0].onclick(); 1")
-    out["alert_d"] = _settle(c, _landed(x.key, x.row))
+    out["alert_d"] = _settle(c, _landed(x.key, "agents"))
     return out
 
 
@@ -200,7 +221,7 @@ def row_a(c, x: Ctx) -> dict:
     pressed = f"{Q}('{SV.replace(chr(92), '')} [data-testid=\"viewbar-btn\"][data-panel=\"{{}}\"]')?.getAttribute('aria-pressed')"
     out = {"row_a_before": {"agent": c.js(pressed.format("session-agent")), **c.js(PROBE)}}
     _click_o(c, f"{SV.replace(chr(92), '')} .ws-cell[data-panel=\"session-attention\"]", x.row)
-    out["row_a"] = _settle(c, _landed(x.key, x.row))
+    out["row_a"] = _settle(c, _landed(x.key))
     return out
 
 
@@ -210,7 +231,7 @@ def _row_on_map(c, x: Ctx, case: str, name: str) -> dict:
     out = {f"row_{case}_map": _pick_map(c, name)}
     c.click_on(f"{Q}('[data-testid=\"agents-attention\"]')")
     _click_o(c, "[data-testid=\"fleet-attention\"]", x.row)
-    out[f"row_{case}"] = _settle(c, _landed(x.key, x.row))
+    out[f"row_{case}"] = _settle(c, _landed(x.key, "agents"))
     return out
 
 
@@ -236,8 +257,18 @@ def home_steward(c, x: Ctx) -> dict:
 
 
 def home_ended(c, x: Ctx) -> dict:
-    gone = {"section": "live", "panel": "fleet-agent", "harness": x.hid, "session_id": "endedsession00000000000000000009", "agent_id": "main"}
-    return {"home_ended": _home(c, x, gone, "p.toasts.some((t) => t.includes('ended'))")}
+    """A row whose session has ended (the queue's row names an ended session: the door reads the row, 3.6.0.2): Studio
+    reads the sessions once, then one line says so and nothing moves."""
+    ended = "endedsession00000000000000000009"
+    gone = {"section": "live", "panel": "fleet-agent", "harness": x.hid, "session_id": ended, "agent_id": "main"}
+    mark = c.call("Page.addScriptToEvaluateOnNewDocument", source=f"window.__endRow = {json.dumps(x.row)}; window.__endSid = '{ended}';")
+    try:
+        return {"home_ended": _home(c, x, gone, "p.toasts.some((t) => t.includes('ended'))")}
+    finally:
+        try:
+            c.call("Page.removeScriptToEvaluateOnNewDocument", identifier=(mark or {}).get("identifier", ""))
+        except Exception:  # noqa: BLE001 -- the last case: nothing after it reads the queue
+            pass
 
 
 def _api(rig, path: str) -> dict:
